@@ -4,6 +4,16 @@ import { intlLocale } from "#common/locale.js";
 
 type NumberStyle = "auto" | "comma" | "int" | "percent";
 
+/** Label number-format presets shared by annotation and delegated style panels.
+ *  Named rather than raw string literals so locale keys and dropdown options
+ *  stay aligned with `NumberStyle`. */
+const NUMBER_FORMAT = {
+  AUTO: "auto",
+  INT: "int",
+  COMMA: "comma",
+  PERCENT: "percent",
+} as const satisfies Record<"AUTO" | "INT" | "COMMA" | "PERCENT", NumberStyle>;
+
 /**
  * Format a number for display.
  * @param val Value to format
@@ -21,12 +31,12 @@ type NumberStyle = "auto" | "comma" | "int" | "percent";
  */
 const formatNumber = (
   val: number,
-  style: NumberStyle = "auto",
+  style: NumberStyle = NUMBER_FORMAT.AUTO,
   locale: string = "en",
   fractionDigits: number = 1,
 ): string => {
   // 'comma' is language-agnostic: always en grouping, fixed fraction digits.
-  if (style === "comma") {
+  if (style === NUMBER_FORMAT.COMMA) {
     return new Intl.NumberFormat("en", {
       minimumFractionDigits: fractionDigits,
       maximumFractionDigits: fractionDigits,
@@ -37,14 +47,14 @@ const formatNumber = (
 
   const fmt = (maxFrac: number) =>
     new Intl.NumberFormat(locale, {
-      notation: style === "auto" && absVal >= 1000 ? "compact" : "standard",
+      notation: style === NUMBER_FORMAT.AUTO && absVal >= 1000 ? "compact" : "standard",
       compactDisplay: "short",
       maximumFractionDigits: maxFrac,
     });
 
   // int: plain integer, no grouping separator (6000) — distinct from comma's
   // thousands separator (6,000). Both are locale-agnostic.
-  if (style === "int") {
+  if (style === NUMBER_FORMAT.INT) {
     return new Intl.NumberFormat(locale, {
       maximumFractionDigits: 0,
       useGrouping: false,
@@ -55,7 +65,7 @@ const formatNumber = (
   // fractional values such as a share/ratio column. Locale-grouped like any
   // other standard-notation format. `fractionDigits` caps the decimals
   // (max-only: trailing zeros trim, 0.3333 → 33.3% at 1, → 33% at 0).
-  if (style === "percent") {
+  if (style === NUMBER_FORMAT.PERCENT) {
     return new Intl.NumberFormat(locale, {
       style: "percent",
       maximumFractionDigits: fractionDigits,
@@ -92,17 +102,17 @@ const LAT_LNG_PRECISION = 6;
  *  which control drew it. */
 const formatLabelNumber = (
   val: number,
-  style: NumberStyle = "auto",
+  style: NumberStyle = NUMBER_FORMAT.AUTO,
   locale: string = "en",
 ): string =>
-  style === "auto"
+  style === NUMBER_FORMAT.AUTO
     ? formatNumber(val, style, locale)
     : formatNumber(val, style, locale, 0);
 
 /** One coordinate for a location readout: fixed decimals, en grouping,
  *  language-agnostic — the operator reads the number itself, not the locale. */
 const formatCoord = (n: number, digits = LAT_LNG_PRECISION): string =>
-  formatNumber(n, "comma", "en", digits);
+  formatNumber(n, NUMBER_FORMAT.COMMA, "en", digits);
 
 /** An lng/lat pair as the readout string, longitude leading. */
 const formatLatLng = (lng: number, lat: number, digits = LAT_LNG_PRECISION): string =>
@@ -130,6 +140,7 @@ const formatTimestamp = (value: number | string, locale: string = "en"): string 
 
 export {
   type NumberStyle,
+  NUMBER_FORMAT,
   formatNumber,
   formatTimestamp,
   LAT_LNG_PRECISION,

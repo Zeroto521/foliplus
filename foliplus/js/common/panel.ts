@@ -335,6 +335,11 @@ const createRowPanel = (opts: {
     class: `${opts.cssClass} foliplus-panel foliplus-row-panel`,
     role: "dialog",
     "aria-label": opts.ariaLabel ?? opts.title,
+    // The panel is anchored inside the layer row, which carries a hover
+    // tooltip ("6 point layer"). An empty title suppresses that inherited
+    // tooltip so hovering the panel body does not echo the row's text; the
+    // header's own visible title and the close button's title still apply.
+    title: "",
   });
   const header = createPanelHeader({
     title: opts.title,

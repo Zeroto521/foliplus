@@ -125,6 +125,11 @@
   --panel-max-height: 400px;
   --panel-header-padding-left: var(--size-6);
   --panel-header-padding-right: var(--ctrl-size);
+  /* Fixed label column shared by every form row (heatmap config, attrs
+     panel, style panel). Not min-width: a longer label must wrap inside
+     this box, never push the control column — one vertical line for all
+     panels. */
+  --form-label-width: 88px;
 
   /* ── Border Width ── */
   --border-thin: 1px;

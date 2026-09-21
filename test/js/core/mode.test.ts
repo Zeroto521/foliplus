@@ -151,7 +151,7 @@ describe("ModeManager", () => {
           removeInteractiveTarget: vi.fn(),
         };
       };
-      const measureLeaf = makeLeafWithPane("measure_graph");
+      const measureLeaf = makeLeafWithPane("foliplus-measure-graph");
       const dataLeaf = makeLeafWithPane("overlayPane");
       const map = {
         eachLayer: vi.fn((fn: (l: unknown) => void) =>
@@ -171,7 +171,7 @@ describe("ModeManager", () => {
       mm.setMode(
         "MeasureControl",
         "edit",
-        (leaf: L.Layer) => (leaf as any).options.pane === "measure_graph",
+        (leaf: L.Layer) => (leaf as any).options.pane === "foliplus-measure-graph",
       );
 
       expect(measureLeaf.options.interactive).toBe(true); // skipped → kept live
@@ -194,7 +194,7 @@ describe("ModeManager", () => {
           removeInteractiveTarget: vi.fn(),
         };
       };
-      const measureLeaf = makeLeafWithPane("measure_graph");
+      const measureLeaf = makeLeafWithPane("foliplus-measure-graph");
       const map = {
         eachLayer: vi.fn((fn: (l: unknown) => void) =>
           fn({ eachLayer: (c: (l: unknown) => void) => c(measureLeaf) }),

@@ -1,6 +1,12 @@
 // LayerControl UI —Focus-layer overlay (mask / rect / fly-to).
 import { HINT_DURATION } from "#core/hint.js";
-import { forEachLeaf } from "#core/layer/index.js";
+import {
+  FOCUS_Z,
+  type LayerInfo,
+  focusLayerZ,
+  forEachLeaf,
+  zFor,
+} from "#core/layer/index.js";
 import { ensureModes, guardBlocked } from "#core/mode.js";
 import * as CONST from "../const.js";
 import type { LayerUI } from "./index.js";
@@ -109,7 +115,7 @@ const focusLayer = (ui: LayerUI, layerId: string) => {
   ui.m.annotation.setFocusFilter(layerId);
   // Lift it above the hidden peers (so it can't be covered) and apply the
   // accent glow —one O(panes) pass, not a per-leaf-element loop.
-  bringFocusedLayerToFront(ui, layer, layerInfo.canvas ?? null);
+  bringFocusedLayerToFront(ui, layerInfo);
 
   // Register LayerControl's own mode for the duration of the focus, BEFORE
   // the fitBounds/flyTo branching. Both paths draw a focus overlay and
@@ -185,11 +191,17 @@ const cancelFocus = (ui: LayerUI): void => {
 /** Internal: tear down focus visuals + state (no hint). */
 const dismissFocus = (ui: LayerUI): void => {
   // Release LayerControl's focus mode so other components' primary actions
-  // (export, measure) are unblocked. Idempotent: safe to call even when
-  // no focus was active; setMode(null) writes a null entry that the
-  // interaction lock treats as inactive, emitting a MODE_CHANGE to recompute.
-  const modes = ensureModes(ui.m.map);
-  modes.setMode(ui.conf.name, null);
+  // (export, measure) are unblocked. `ensureModes` is idempotent per map but
+  // has a first-call side effect — it installs the per-map `unload` cleanup
+  // (`map.on('unload', manager.clear)`). A no-op teardown (unbindEvents →
+  // dismissFocus on a never-focused control) must not trigger that install,
+  // otherwise the first removeControl would leave a residual `unload` handler
+  // on the map. Guard with `isFocusing` so setMode(null) is only invoked
+  // when `focusLayer` actually registered the mode.
+  if (isFocusing(ui)) {
+    const modes = ensureModes(ui.m.map);
+    modes.setMode(ui.conf.name, null);
+  }
   clearAutoCancel(ui);
   clearFocusedRowHighlight(ui);
   restoreHiddenLayers(ui);
@@ -228,8 +240,9 @@ const dismissFocus = (ui: LayerUI): void => {
  * Declarative: one class write on the map container. CSS
  * `.foliplus-focus-active .foliplus-layer-pane:not(.foliplus-focus-pane)`
  * hides every layer pane except the focused one —instead of a JS
- * visibility loop over N panes. `bringFocusedLayerToFront` marks the
- * focused pane(s)/canvas with `foliplus-focus-pane` so they stay visible.
+ * visibility loop over N panes. Canvas layers (heatmap) live in their own
+ * pane, so they are covered by the same rule. `bringFocusedLayerToFront`
+ * marks the focused pane with `foliplus-focus-pane` so it stays visible.
  */
 const hideOtherLayers = (ui: LayerUI): void => {
   ui.m.map.getContainer().classList.add(CONST.CLASSES.FOCUS_ACTIVE);
@@ -238,8 +251,7 @@ const hideOtherLayers = (ui: LayerUI): void => {
 /**
  * Temporarily lift the focused layer's pane above every other layer so the
  * hidden layers stacked above it cannot cover it —a layer at the bottom
- * of the z-order stays hidden even with the boost glow. Canvas layers
- * (heatmap) have no pane; their canvas element's z-index is lifted instead.
+ * of the z-order stays hidden even with the boost glow.
  *
  * This is the single O(panes) pass that also applies the focused-layer glow
  * (`.foliplus-focus-glow`): by tagging the focused pane (not each leaf
@@ -247,38 +259,31 @@ const hideOtherLayers = (ui: LayerUI): void => {
  * dense layer (e.g. thousands of CircleMarkers) stays cheap. Restored on
  * cancel via focusedPaneRestores.
  */
-const bringFocusedLayerToFront = (
-  ui: LayerUI,
-  layer: L.Layer | null,
-  canvas: HTMLCanvasElement | null,
-): void => {
+/**
+ * Temporarily lift the focused layer's panes above every other layer so the
+ * hidden layers stacked above it cannot cover it —a layer at the bottom
+ * of the z-order stays hidden even with the boost glow.
+ *
+ * Every z here comes out of the shared ladder (`core/layer/z`): the focused
+ * layer is lifted to `focusLayerZ()`, and the panes that belong above it keep
+ * Leaflet's normal order —its own labels, then markers, tooltip and popup.
+ * This is also the single O(panes) pass that applies the focused-layer glow
+ * (`.foliplus-focus-glow`): by tagging the focused pane (not each leaf
+ * element) the accent drop-shadow is applied once per pane, so focusing a
+ * dense layer (e.g. thousands of CircleMarkers) stays cheap. Restored on
+ * cancel via focusedPaneRestores.
+ */
+const bringFocusedLayerToFront = (ui: LayerUI, layerInfo: LayerInfo): void => {
   const restores: Array<() => void> = [];
-  const focusedZ = CONST.FOCUS.PANE_Z - CONST.FOCUS.FOCUSED_Z_GAP;
-  // Ladder above the focused layer, preserving Leaflet's normal order and
-  // staying under the mask (PANE_Z): labels, then markers, tooltip, popup. The
-  // label pane normally sits below the data panes' top, so without the lift the
-  // layer the focus raised would cover its own labels; without the rest of the
-  // ladder, those labels would in turn cover the popup a click just opened.
-  const liftZ = (el: HTMLElement | undefined, z: number): void => {
-    if (!el) return;
+  const focusedZ = focusLayerZ();
+  const lift = (el: HTMLElement, z = focusedZ, glow = true): void => {
     const orig = el.style.zIndex;
     el.style.zIndex = String(z);
-    restores.push(() => {
-      el.style.zIndex = orig;
-    });
-  };
-  liftZ(ui.m.map.getPane(CONST.ANNOTATION_PANE), focusedZ + 1);
-  liftZ(ui.m.map.getPane("markerPane"), focusedZ + 2);
-  liftZ(ui.m.map.getPane("tooltipPane"), focusedZ + 3);
-  liftZ(ui.m.map.getPane("popupPane"), focusedZ + 4);
-  const lift = (el: HTMLElement): void => {
-    const orig = el.style.zIndex;
-    el.style.zIndex = String(focusedZ);
     // Mark the focused pane/canvas so the `.foliplus-focus-active` CSS rule
     // (`:not(.foliplus-focus-pane)`) keeps it visible while hiding the rest.
     el.classList.add(CONST.CLASSES.FOCUS_PANE);
     // Glow: applied at pane level (one element), fading in via CSS animation.
-    el.classList.add(CONST.CLASSES.FOCUS_GLOW);
+    if (glow) el.classList.add(CONST.CLASSES.FOCUS_GLOW);
     restores.push(() => {
       el.style.zIndex = orig;
       el.classList.remove(CONST.CLASSES.FOCUS_PANE);
@@ -286,26 +291,71 @@ const bringFocusedLayerToFront = (
     });
   };
 
-  if (canvas) {
-    lift(canvas);
-  } else if (layer) {
-    // Best-effort: some third-party layers expose children without a pane
-    // (getLayerPanes walks options.pane), so skip the lift if discovery
-    // throws —the hide + glow still work without it.
-    let panes: string[] = [];
-    try {
-      panes = ui.m.getLayerPanes(layer);
-    } catch {
-      panes = [];
+  // Ladder above the raised layer, preserving Leaflet's normal order and staying
+  // under the mask. Without the first the raised layer covers its own labels;
+  // without the rest, those labels would cover the popup a click just opened.
+  const labelPane = ui.m.map.getPane(CONST.ANNOTATION_PANE_PREFIX + layerInfo.id);
+  if (labelPane) lift(labelPane, zFor({ base: focusedZ, role: "annotation" }), false);
+  const liftZ = (name: string, order: number): void => {
+    const el = ui.m.map.getPane(name);
+    if (!el) return;
+    const orig = el.style.zIndex;
+    el.style.zIndex = String(zFor({ base: focusedZ, order }));
+    restores.push(() => {
+      el.style.zIndex = orig;
+    });
+  };
+  liftZ("markerPane", 2);
+  liftZ("tooltipPane", 3);
+  liftZ("popupPane", 4);
+
+  // The surface owns every pane a Leaflet layer paints into, so one call lifts
+  // them all and `restoreZ` puts the ordering pass's z back.
+  const layer = ui.m.findLayer(layerInfo);
+  if (layer) {
+    const surface = ui.m.surfaceFor(layerInfo);
+    if (surface.setZOverride(focusedZ)) {
+      const panes = surface.panes.map(pane => pane.element);
+      for (const el of panes) {
+        el.classList.add(CONST.CLASSES.FOCUS_PANE);
+        el.classList.add(CONST.CLASSES.FOCUS_GLOW);
+      }
+      restores.push(() => {
+        for (const el of panes) {
+          el.classList.remove(CONST.CLASSES.FOCUS_PANE);
+          el.classList.remove(CONST.CLASSES.FOCUS_GLOW);
+        }
+        surface.restoreZ();
+      });
+    } else {
+      // A surface with no pane of its own: fall back to pane discovery.
+      // Best-effort —some third-party layers expose children without a pane,
+      // and getLayerPanes walks options.pane, so skip the lift if discovery
+      // throws (the hide + glow still work without it).
+      let names: string[] = [];
+      try {
+        names = ui.m.getLayerPanes(layer);
+      } catch {
+        names = [];
+      }
+      for (const name of names) {
+        // Skip only the shared core panes (overlay/marker/tile/...). Per-layer
+        // fallback panes are unique and safe to lift —and hideOtherLayers
+        // already hides them, so the two must stay symmetric.
+        if (ui.m.panes.defaultPanes.has(name)) continue;
+        const pane = ui.m.map.getPane(name);
+        if (pane) lift(pane);
+      }
     }
-    for (const name of panes) {
-      // Skip only the shared core panes (overlay/marker/tile/...). Per-layer
-      // fallback panes are unique and safe to lift —and hideOtherLayers
-      // already hides them, so the two must stay symmetric.
-      if (ui.m.panes.defaultPanes.has(name)) continue;
-      const pane = ui.m.map.getPane(name);
-      if (pane) lift(pane);
-    }
+  } else if (layerInfo.paneName) {
+    // Canvas-only layers own a dedicated pane (createCanvas) — lift that, not
+    // the raw canvas element, so focus-hide CSS and glow attach to the pane
+    // like every other layer. Fall back to the canvas if the pane is missing.
+    const canvasPane = ui.m.map.getPane(layerInfo.paneName);
+    if (canvasPane) lift(canvasPane);
+    else if (layerInfo.canvas) lift(layerInfo.canvas);
+  } else if (layerInfo.canvas) {
+    lift(layerInfo.canvas);
   }
   ui.focusedPaneRestores = restores;
 };
@@ -347,13 +397,23 @@ const computeLayerBounds = (ui: LayerUI, layer: L.Layer): L.LatLngBounds | null 
 const drawFocusMask = (ui: LayerUI, bounds: L.LatLngBounds): void => {
   const map = ui.m.map;
 
-  // Shared SVG renderer + pane for the mask and rectangle.
+  // Shared SVG renderer + pane for the mask and rectangle. The pane goes
+  // through PaneManager.ensurePane (the one entry every owned pane uses) so
+  // it carries the `foliplus-layer-pane` base class like every other pane;
+  // the `.foliplus-focus-pane` exclusion tag keeps the spotlight pane visible
+  // while the `.foliplus-focus-active` rule hides every other layer pane.
+  // The tag names pane identity ("not another layer's pane"), not focus state,
+  // so it is permanent and never removed — the focused layer's own panes take
+  // the same class transiently via bringFocusedLayerToFront /
+  // focusedPaneRestores, and one selector covers both. Coupling it to the
+  // renderer's lifecycle (add on focus, remove on dismiss) would open a window
+  // where a stale `.foliplus-focus-active` hides the mask.
+  // The overlay pane isn't in childPaneSpecs, so ensurePane skips its
+  // provisional-z branch; we pin FOCUS_Z.overlay here (idempotent).
   if (!ui.focusRenderer) {
-    let pane = map.getPane(CONST.FOCUS_PANE);
-    if (!pane) {
-      pane = map.createPane(CONST.FOCUS_PANE);
-      pane.style.zIndex = String(CONST.FOCUS.PANE_Z);
-    }
+    const { pane } = ui.m.panes.ensurePane(CONST.FOCUS_PANE, false);
+    pane.classList.add(CONST.CLASSES.FOCUS_PANE);
+    pane.style.zIndex = String(FOCUS_Z.overlay);
     ui.focusRenderer = L.svg({ pane: CONST.FOCUS_PANE });
     ui.focusRenderer.addTo(map);
   }

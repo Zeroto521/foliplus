@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   AUTO_FIELD,
   autoLabelField,
+  bareFieldName,
   collectLabelFields,
   isNumericField,
   resolveSelectedField,
@@ -144,5 +145,17 @@ describe("resolveSelectedField", () => {
   it("resolves the sentinel to empty for a fieldless layer", () => {
     // Nothing to render — the caller treats "" as "no labels".
     expect(resolveSelectedField(AUTO_FIELD, [])).toBe("");
+  });
+});
+
+describe("bareFieldName", () => {
+  it("keeps a bare key unchanged", () => {
+    expect(bareFieldName("price")).toBe("price");
+    expect(bareFieldName("")).toBe("");
+  });
+
+  it("strips a legacy properties. prefix once", () => {
+    expect(bareFieldName("properties.price")).toBe("price");
+    expect(bareFieldName("properties.properties.x")).toBe("properties.x");
   });
 });

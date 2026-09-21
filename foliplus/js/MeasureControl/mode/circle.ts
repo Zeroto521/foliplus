@@ -9,7 +9,7 @@ import {
 } from "#common/mapEvent.js";
 import * as CONST from "../const.js";
 import type { MeasureManager } from "../manager.js";
-import { attachCircleUI } from "../ui.js";
+import { attachCircleUI } from "../ui/index.js";
 import * as Util from "../util.js";
 import { PreviewMode } from "./base.js";
 
@@ -261,7 +261,6 @@ class CircleMode extends PreviewMode {
         Util.makeNode(centerLatLng, CONST.CLASSES.NODE_SOLID),
         CONST.PANES.NODE,
       );
-
       const delMarker = this.layers.addLayer(
         makeDelIcon(centerLatLng, { title: T("del_tooltip") }),
         CONST.PANES.NODE,

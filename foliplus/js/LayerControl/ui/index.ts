@@ -5,7 +5,7 @@ import type { LabelField } from "#core/labelField.js";
 import { GEOM_TYPE, type LayerInfo, getGeometryType } from "#core/layer/index.js";
 import { ListCursor } from "#core/listCursor.js";
 import { formatNumber } from "#common/format.js";
-import { createScopedTranslator } from "#common/locale.js";
+import { createScopedTranslator, createTranslator } from "#common/locale.js";
 import * as CONST from "../const.js";
 import * as SVGs from "../icon.js";
 import {
@@ -14,10 +14,11 @@ import {
   registerInteractions,
 } from "../interaction.js";
 import type { LayerManager } from "../manager.js";
+import type { LayerOverride } from "../persistence.js";
 import * as Util from "../util.js";
 import { closeAttrsPanel, openAttrsPanel } from "./attr.js";
 import { hideColorLayer, showColorLayer } from "./color.js";
-import { isKeyboardVisibleFocus, owningRow } from "./context.js";
+import { inFloatingPanel, isKeyboardVisibleFocus, owningRow } from "./context.js";
 import {
   handleDragEnd,
   handleDragLeave,
@@ -72,7 +73,6 @@ import {
   initTypesAndVisibility,
   insertLayerItem,
   reindexAfterMove,
-  reindexItems,
   renderColorLayerItem,
   renderInitialList,
   renderLayerItem,
@@ -84,13 +84,15 @@ import { finishRename, renameLayer } from "./rename.js";
 import {
   applyHiddenOne,
   applyHiddenStateOne,
+  applyOpacityStateOne,
   applyUserState,
   applyVisibleStateOne,
+  dropPersistedLayerState,
   loadPersistedState,
-  reconcileHiddenIds,
+  replayLayerState,
   saveFoldState,
-  saveHiddenIds,
   saveNamesState,
+  saveState,
   syncHiddenId,
 } from "./state.js";
 import {
@@ -120,17 +122,18 @@ class LayerUI {
   conf: ComponentConfig;
   /** Translator bound to `conf`, created once in the constructor. */
   T: (key: string) => string;
+  /** Unscoped translator for the shared `foliplus.*` vocabulary (the label
+   *  controls the style panel shares with HeatmapControl). Kept beside `T` so
+   *  a test can inject either independently. */
+  _: (key: string) => string;
   foldedGroups: Set<string>;
   /** Layer ids hidden by the user (checked-off); survives page reload. */
   hiddenIds: Set<string>;
-  /** The visibility key existed in storage, so `hiddenIds` is the user's
-   *  assertion about every layer. Absent means no choice was ever made and the
-   *  author's `show=` defaults must not be overridden by an unhide sweep. */
-  hiddenHasState: boolean;
-  /** Set once the hidden set has been rebuilt against the rendered rows --
-   *  reconcileHiddenIds must run a single time, after the first
-   *  initLayerItem pass, not on every fold-toggle. */
-  isHiddenReconciled: boolean;
+  /** Which dimensions the user has actually set, per layer id. A layer absent
+   *  here keeps the author's `show=` / opacity default -- that is what replaces
+   *  a map-level "did the user choose at all" flag, which could not tell one
+   *  layer's choice from another's. */
+  userOverrides: Record<string, LayerOverride[]>;
   isColorActive: boolean;
   currentColor: string;
   /** Map of layer id → user-assigned display name (survives reload). */
@@ -183,6 +186,10 @@ class LayerUI {
   attrsOutsideHandler: ((event: MouseEvent) => void) | null;
   /** Same capture-phase dismiss, for the style panel. */
   styleOutsideHandler: ((event: MouseEvent) => void) | null;
+  /** Unsubscribe for LAYER_STYLE_CHANGE while a delegated style panel is open. */
+  styleUnsubscribe: (() => void) | null;
+  /** Refresh function for the shared label controls (set by renderDelegatedStylePanel). */
+  styleRefresh: (() => void) | null;
   /** Layer id whose annotation style panel is open, or null. */
   stylePanelLayerId: string | null;
   /** Per-layer label-field cache (collectFields walks every feature). */
@@ -194,6 +201,11 @@ class LayerUI {
   pressInPanel: boolean;
   /** Persisted per-layer annotation configs, applied once layers resolve. */
   labelConfigs: Record<string, unknown>;
+  /** Persisted per-layer opacity map (id → 0-1). Applied on load / late register. */
+  opacityMap: Record<string, number>;
+  /** Persisted per-layer zoom range the user moved the handles for
+   *  (id → [minZoom, maxZoom]). Applied on load / late register. */
+  zoomRangeMap: Record<string, [number, number]>;
   /** Temporary Rectangle overlay drawn while a focus is in progress. */
   focusRect: L.Layer | null;
   /** Layer id currently being focused, or null. */
@@ -213,10 +225,10 @@ class LayerUI {
     this.events = ensureEvents(this.m.map);
     this.conf = CONF;
     this.T = createScopedTranslator(CONF);
+    this._ = createTranslator(CONF);
     this.foldedGroups = new Set();
     this.hiddenIds = new Set();
-    this.hiddenHasState = false;
-    this.isHiddenReconciled = false;
+    this.userOverrides = {};
     this.isColorActive = false;
     this.currentColor = CONST.COLOR.DEFAULT;
     this.renamedNames = {};
@@ -234,10 +246,14 @@ class LayerUI {
     this.activeMenu = null;
     this.attrsOutsideHandler = null;
     this.styleOutsideHandler = null;
+    this.styleUnsubscribe = null;
+    this.styleRefresh = null;
     this.stylePanelLayerId = null;
     this.fieldCache = new Map();
     this.pressInPanel = false;
     this.labelConfigs = {};
+    this.opacityMap = {};
+    this.zoomRangeMap = {};
     this.focusRect = null;
     this.focusingLayerId = null;
     this.onFocusMapMove = null;
@@ -273,9 +289,8 @@ class LayerUI {
 
     while (this.m.pendingRegistrations.length) {
       const layerInfo = this.m.pendingRegistrations.shift();
-      if (layerInfo) this.insertLayerItem(layerInfo, { reindex: false });
+      if (layerInfo) this.insertLayerItem(layerInfo);
     }
-    this.reindexItems();
     // Last in the attach sequence: applyUserState() runs the full sweep
     // needed for rows rendered from the initial registry. Hidden ids are
     // loaded above but only applied here, so a row can never render visible
@@ -355,12 +370,7 @@ class LayerUI {
       // steal DOM focus back to the row, and a native <select> popup closes
       // the instant it loses focus — so the dropdown looked like it retracted
       // the moment it opened. The panels carry their own click handling.
-      if (
-        el.closest(`.${CONST.CLASSES.ATTRS_PANEL}`) ||
-        el.closest(`.${CONST.CLASSES.STYLE_PANEL}`)
-      ) {
-        return;
-      }
+      if (inFloatingPanel(el)) return;
       // One ledger: pointer re-homes the index, Tab stop, and paints the
       // cursor visual. It stays until Escape, another row, or an outside
       // press takes over — same contract as the keyboard cursor.
@@ -373,7 +383,11 @@ class LayerUI {
           this.listCursor?.setIndex(idx);
           this.blurActiveItem();
           row.classList.add(CONST.CLASSES.FOCUSED);
-          // Keep DOM focus on the row so Space/Enter resolve from focus.
+          // Keep DOM focus on the row so Space/Enter resolve from focus, and
+          // so Escape still reaches handleKeyDown's container guard — the
+          // panel floats from the ⋮ press, so its own controls hold focus,
+          // and this press must not park the cursor on the anchor row for
+          // the whole time the user is flipping controls inside it.
           row.focus({ focusVisible: false } as FocusOptions);
         }
       }
@@ -405,8 +419,9 @@ class LayerUI {
     // never keys on `:focus-visible`, so Escape is just "remove the class".
     this.onFocusIn = event => {
       const el = event.target as Element | null;
+      if (!el || inFloatingPanel(el)) return;
       const row = owningRow(el);
-      if (!el || !row) return;
+      if (!row) return;
       const idx = this.getNavigableItems().indexOf(row);
       if (idx !== -1) this.activeIdx = idx;
       if (!isKeyboardVisibleFocus(el)) return;
@@ -416,11 +431,19 @@ class LayerUI {
     };
     // Focus left the row entirely (Tab away, click outside, browser chrome):
     // drop the JS cursor class. Moves within the same row keep it.
+    //
+    // A press inside a floating panel does NOT count as leaving: the panel is
+    // nested in its own anchor row, so its controls are descendants of the
+    // row the user pressed to open it, and `row.contains(relatedTarget)` is
+    // true for every one of them. The user just asked the row to do a detail
+    // task — they did not abandon it, so the cursor stays, and a native
+    // <select> popup does not retract on losing focus.
     this.onFocusOut = event => {
       const row = owningRow(event.target);
-      if (!row) return;
+      if (!row || inFloatingPanel(event.target)) return;
       const next = event.relatedTarget as Element | null;
       if (next && (next === row || row.contains(next))) return;
+      if (inFloatingPanel(next)) return;
       row.classList.remove(CONST.CLASSES.FOCUSED);
     };
     this.interactionCleanup = registerInteractions(this);
@@ -504,6 +527,13 @@ class LayerUI {
       count !== null
         ? `${formatNumber(count, "auto", this.conf.locale_code)} ${typeLabel}`
         : typeLabel;
+    // Re-apply the layer's current opacity to the newly-finalized geometry.
+    // The panes were painted at full opacity while the preview was live; the
+    // count-change event fires at store.add, which is the moment the real
+    // geometry lands — so this is when the opacity "snaps in".
+    if (layerInfo.opacity != null && layerInfo.opacity !== 1) {
+      applyOpacityStateOne(this, layerInfo, layerInfo.opacity);
+    }
   }
 
   /** Refresh count column for every overlay item (no title change). */
@@ -616,11 +646,17 @@ class LayerUI {
   syncHiddenId(id: string, hidden: boolean, persist: boolean = true) {
     return syncHiddenId(this, id, hidden, persist);
   }
-  saveHiddenIds() {
-    return saveHiddenIds(this);
+  saveState() {
+    return saveState(this);
   }
   applyUserState(id?: string) {
     return applyUserState(this, id);
+  }
+  replayLayerState(layerId: string) {
+    return replayLayerState(this, layerId);
+  }
+  dropPersistedLayerState(layerId: string) {
+    return dropPersistedLayerState(this, layerId);
   }
   saveNamesState() {
     return saveNamesState(this);
@@ -632,11 +668,11 @@ class LayerUI {
   renderInitialList() {
     return renderInitialList(this);
   }
-  insertLayerItem(layerInfo: LayerInfo, opts?: { reindex?: boolean }) {
-    return insertLayerItem(this, layerInfo, opts);
+  insertLayerItem(layerInfo: LayerInfo) {
+    return insertLayerItem(this, layerInfo);
   }
-  updateLayerItem(layerInfo: LayerInfo, idx: number) {
-    return updateLayerItem(this, layerInfo, idx);
+  updateLayerItem(layerInfo: LayerInfo) {
+    return updateLayerItem(this, layerInfo);
   }
   displayName(layerId: string) {
     return displayName(this, layerId);
@@ -646,9 +682,6 @@ class LayerUI {
   }
   initLayerItem(layerInfo: LayerInfo) {
     return initLayerItem(this, layerInfo);
-  }
-  reindexItems() {
-    return reindexItems(this);
   }
   reindexAfterMove() {
     return reindexAfterMove(this);
@@ -754,12 +787,6 @@ class LayerUI {
     return cancelFocus(this);
   }
   // ── focus helpers (also used internally by focus.ts) ──
-  /** Every registered layer is linked to a Leaflet layer (findLayer resolvable).
-   *  False during the first post-attach pass, when folium layers may not be in
-   *  the registry yet. */
-  allLayersResolved(): boolean {
-    return this.m.layers.every(li => this.m.findLayer(li) != null);
-  }
 }
 
 export { LayerUI };

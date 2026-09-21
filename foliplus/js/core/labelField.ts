@@ -114,9 +114,22 @@ const AUTO_FIELD = "";
 const resolveSelectedField = (value: string, fields: LabelField[]): string =>
   value || autoLabelField(fields);
 
+/**
+ * Normalize a field id to its bare `feature.properties` key.
+ *
+ * Older HeatmapControl configs and localStorage entries stored
+ * `"properties.<key>"`. The annotation style panel and the shared field
+ * contract always used bare names — one form across the product. Call this
+ * once on load / on any legacy value so the rest of the stack never sees
+ * the prefix.
+ */
+const bareFieldName = (field: string): string =>
+  field.startsWith("properties.") ? field.slice("properties.".length) : field;
+
 export {
   AUTO_FIELD,
   autoLabelField,
+  bareFieldName,
   collectLabelFields,
   isNumericField,
   resolveSelectedField,

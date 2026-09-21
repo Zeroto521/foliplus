@@ -33,6 +33,21 @@ _JS_USED_KEYS = {
     "foliplus.addr_not_found",
     "foliplus.geo_fail",
     "foliplus.close_label",
+    # Shared label-control vocabulary (core/labelControl.ts), rendered by
+    # both the heatmap panel and LayerControl's style drawer — one definition in
+    # the common table instead of a per-component copy.
+    "foliplus.label",
+    "foliplus.label_color",
+    "foliplus.label_collide",
+    "foliplus.label_collide_tooltip",
+    "foliplus.label_format",
+    "foliplus.label_format_auto",
+    "foliplus.label_format_comma",
+    "foliplus.label_format_int",
+    "foliplus.label_format_percent",
+    "foliplus.label_size",
+    "foliplus.label_style",
+    "foliplus.label_tooltip",
     # FullscreenControl
     "FullscreenControl.title",
     "SearchControl.blocked",
@@ -96,10 +111,14 @@ _JS_USED_KEYS = {
     "HeatmapControl.heads",
     "HeatmapControl.scheme",
     "HeatmapControl.border",
-    "HeatmapControl.label",
+    "HeatmapControl.section_label",
     "HeatmapControl.clear",
     "HeatmapControl.no_layer",
     "HeatmapControl.no_layercontrol",
+    "HeatmapControl.meta_source_layer",
+    "HeatmapControl.meta_agg_field",
+    "HeatmapControl.meta_source_layer",
+    "HeatmapControl.meta_agg_field",
     # LayerControl
     "LayerControl.toggle_title",
     "LayerControl.panel_title",
@@ -143,21 +162,17 @@ _JS_USED_KEYS = {
     "LayerControl.readonly_del_error",
     "LayerControl.readonly_method_error",
     "LayerControl.blocked",
-    # Style panel (interpolated format keys are built in
-    # renderStylePanel via `T(\`style_label_format_${f}\`)`).
+    # Style panel (interpolated format keys now resolve from the shared
+    # foliplus.label_format_* entries in the common table).
     "LayerControl.style_layer",
     "LayerControl.style_layer_tooltip",
-    "LayerControl.style_label",
-    "LayerControl.style_label_tooltip",
     "LayerControl.style_label_field",
     "LayerControl.style_label_field_auto",
-    "LayerControl.style_label_format",
-    "LayerControl.style_label_format_auto",
-    "LayerControl.style_label_format_int",
-    "LayerControl.style_label_format_comma",
-    "LayerControl.style_label_format_percent",
     "LayerControl.style_reset",
     "LayerControl.style_label_no_data",
+    "LayerControl.section_label",
+    "LayerControl.section_layer",
+    "LayerControl.style_opacity",
     "LayerControl.attributes_layer",
     "LayerControl.attributes_layer_tooltip",
     "LayerControl.attr_source",
@@ -320,6 +335,46 @@ class TestLocaleConfig:
             "Either add them to _JS_USED_KEYS or remove from locale JSON files"
         )
 
+    def test_shared_label_vocabulary_lives_only_in_common(self):
+        """The label-control vocabulary is defined once, in the common table.
+
+        Both the heatmap panel and LayerControl's style drawer render it from
+        ``core/labelControl.ts``; a per-component copy is exactly the drift this
+        guards against — a missing key on one side renders a raw key there.
+        """
+        shared = {
+            "foliplus.label",
+            "foliplus.label_color",
+            "foliplus.label_collide",
+            "foliplus.label_collide_tooltip",
+            "foliplus.label_format",
+            "foliplus.label_format_auto",
+            "foliplus.label_format_comma",
+            "foliplus.label_format_int",
+            "foliplus.label_format_percent",
+            "foliplus.label_size",
+            "foliplus.label_style",
+            "foliplus.label_tooltip",
+        }
+        for lang in ("en", "zh"):
+            common = json.loads(
+                (_LOCALE_DIR / f"common.{lang}.json").read_text(encoding="utf-8")
+            )
+            missing = shared - set(common)
+            assert not missing, f"common.{lang} missing shared label keys: {missing}"
+
+            for component in ("HeatmapControl", "LayerControl"):
+                table = json.loads(
+                    (_LOCALE_DIR / f"{component}.{lang}.json").read_text(
+                        encoding="utf-8"
+                    )
+                )
+                dupes = sorted(set(table) & shared)
+                assert not dupes, (
+                    f"{component}.{lang} duplicates the shared label vocabulary: "
+                    f"{dupes} — it belongs in the common table only"
+                )
+
 
 class TestLoadBuiltinTables:
     def test_uses_filename_as_fallback_code(self):
@@ -460,7 +515,7 @@ class TestPartialCustomTable:
         assert table["HeatmapControl.title"] == "こんにちは"
         # Builtin en table carries every key, so the fallback is a real
         # translation, not a bare key.
-        assert table["HeatmapControl.layer"] == "Layer"
+        assert table["HeatmapControl.layer"] == "Aggregation Layer"
 
     def test_custom_table_not_bare_key(self):
         """Every key of the builtin table resolves to a real string."""
@@ -507,7 +562,7 @@ class TestToFile:
             loaded = LocaleConfig.from_json(tmp)
             assert loaded.code == "zh"
             assert loaded.get("HeatmapControl.title") == "网格聚合"
-            assert loaded.get("HeatmapControl.layer") == "图层"
+            assert loaded.get("HeatmapControl.layer") == "聚合图层"
         finally:
             os.unlink(tmp)
             os.rmdir(os.path.dirname(tmp))

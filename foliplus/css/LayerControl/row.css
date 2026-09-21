@@ -32,7 +32,10 @@
     All track dimensions are named so the count / more columns stay
     synchronised in --grid-layer-cols and each element's own width.
     Track width includes the count column's 4px right padding, so usable
-    content is ~34px — enough for ~5 chars at font-size-xs (caps at 999). */
+    content is ~34px — about 3 digits at font-size-xs. Counts at or above
+    1000 are rendered compact by formatNumber("auto") (12K, 1.2万), so
+    overflow/ellipsis below is a last-resort guard for locales whose
+    compact unit is wider (de 10.000). */
   --count-track-width: 38px;
   --more-btn-width: 7px;
   --grid-layer-gap: 3px;
@@ -419,7 +422,9 @@
       font-weight: var(--font-weight-normal);
     }
     /* ── Feature count column ──
-      Right-aligned, the 38px column itself caps display to ~5 chars.
+      Right-aligned. formatNumber("auto") compacts values >= 1000 (12K, 1.2万),
+      so the 38px track fits the value; ellipsis is a last-resort guard for
+      locales whose compact unit is wider (de 10.000).
       Stays muted gray in every state: the count is annotation, not a control,
       so it intentionally does not join the hover/active color dance. */
     .foliplus-layer-count {

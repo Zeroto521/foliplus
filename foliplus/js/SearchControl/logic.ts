@@ -12,6 +12,7 @@ import type {
   SuggestItem,
 } from "#core/geocode/index.js";
 import { HINT_DURATION } from "#core/hint.js";
+import { createLocationMarker } from "#core/locationMarker.js";
 import { guardBlocked } from "#core/mode.js";
 import { Cache } from "#common/cache.js";
 import { type Debounced, debounce } from "#common/debounce.js";
@@ -21,7 +22,7 @@ import {
   bindDelIconToPopup,
   makeDelIcon,
 } from "#common/delicon.js";
-import { createLocationMarker, dom } from "#common/dom.js";
+import { dom } from "#common/dom.js";
 import { fetchWithTimeout } from "#common/fetch.js";
 import { formatLatLng } from "#common/format.js";
 import * as Icons from "#common/icon.js";
@@ -625,6 +626,15 @@ const renderHistory = (ctrl: SearchControlState, mode: SearchType) => {
   renderResults(ctrl, items);
 };
 
+/**
+ * Whether a query still matches the input box. The captured `query` is always
+ * "up to date" inside its own closure, so the check has to run against the
+ * live input. Shared by the cache-hit path and the render-time drop so the two
+ * cannot drift; trimming keeps both in sync with the input listener.
+ */
+const compareWithInput = (ctrl: SearchControlState, query: string): boolean =>
+  query === ctrl.inp.value.trim();
+
 const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
   if (guardBlocked(map, CONF.name, T("blocked"))) return;
 
@@ -644,8 +654,13 @@ const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
     return;
   }
   const cached = ctrl.cachedSuggestions.get(query);
+  // The cache survives removePanel() (index.ts clears it only on destroy), so
+  // it can outlive the request that produced it. A hit only renders when the
+  // input still reads the query: a stale caller must neither paint the panel
+  // nor fall through to a refetch of a string nobody is looking at. Only a
+  // request may retire an entry — renderSuggestions overwrites on a hit.
   if (cached) {
-    renderSuggestions(ctrl, cached, query);
+    if (compareWithInput(ctrl, query)) renderSuggestions(ctrl, cached, query);
     return;
   }
 
@@ -656,8 +671,14 @@ const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
   const since = Math.max(ctrl.lastSuggestFetch, lastRequestAt(provider.id));
   if (now - since < provider.throttleMs) {
     if (ctrl.throttleTimer) clearTimeout(ctrl.throttleTimer);
+    // Re-read the input at fire time, not the `query` this call was handed:
+    // the retry outlives the keystroke that queued it, so the user may have
+    // typed on. Capturing `query` here would target a string no longer in
+    // the box, and a cache hit on it would paint the wrong results.
     ctrl.throttleTimer = setTimeout(
-      () => fetchSuggestions(ctrl, query),
+      () => {
+        fetchSuggestions(ctrl, ctrl.inp.value.trim());
+      },
       provider.throttleMs - (now - since),
     );
     return;
@@ -669,10 +690,10 @@ const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
   ctrl.suggestSeq += 1;
   const reqSeq = ctrl.suggestSeq;
 
-  fetchWithTimeout(buildSearchUrl(ctrl, query, AUTOCOMPLETE.MAX_ITEMS), {
-    signal: ctrl.suggestAbortController.signal,
-    headers: provider.headers,
-  })
+  const suggestRequest = fetchWithTimeout(
+    buildSearchUrl(ctrl, query, AUTOCOMPLETE.MAX_ITEMS),
+    { signal: ctrl.suggestAbortController.signal, headers: provider.headers },
+  )
     .then(r => r.json())
     .then((raw: unknown) => {
       // Provider normalizes raw API JSON into the shared SuggestItem shape
@@ -683,7 +704,12 @@ const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
         return { ...item, lng: String(lng), lat: String(lat) };
       });
       if (reqSeq !== ctrl.suggestSeq) return;
-      if (query !== ctrl.inp.value.trim()) return;
+      // Same live-input check as the cache-hit path above, via one helper so
+      // the two call sites cannot drift. Silently discarded: the request that
+      // retired this panel already ran, so there is nothing to close, and
+      // re-issuing for the new input here would race the debounce the input
+      // listener already owns.
+      if (!compareWithInput(ctrl, query)) return;
       // Cache first result so searchAddress can serve it from geoCache.
       // results is always an array (normalizeSuggest), so index 0 is either
       // an item or undefined.
@@ -702,8 +728,17 @@ const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
     })
     .catch(err => {
       if (err.name === "AbortError") return;
-      removePanel(ctrl);
+      try {
+        log.warn("suggestion fetch failed:", err);
+      } finally {
+        removePanel(ctrl);
+      }
     });
+  // Fire-and-forget: a rejection raised while settling the handlers above
+  // (removePanel or the log) would otherwise go unobserved. Swallow it — the
+  // fetch outcome is already handled, and swallowing keeps a late reject from
+  // escaping as an unhandled rejection after the control has unloaded.
+  void suggestRequest.catch(() => undefined);
 };
 
 const initDebouncedFetch = (ctrl: SearchControlState) => {

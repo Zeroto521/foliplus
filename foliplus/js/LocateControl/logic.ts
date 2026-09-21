@@ -1,6 +1,7 @@
 // LocateControl locate logic — locate me via the browser geolocation API.
 import { fromWgs84 } from "#core/geo/index.js";
 import { HINT_DURATION } from "#core/hint.js";
+import { createLocationMarker } from "#core/locationMarker.js";
 import { guardBlocked } from "#core/mode.js";
 import {
   DEL_ICON_MARKER_ANCHOR,
@@ -8,7 +9,6 @@ import {
   bindDelIconToPopup,
   makeDelIcon,
 } from "#common/delicon.js";
-import { createLocationMarker } from "#common/dom.js";
 import { createScopedTranslator, createTranslator } from "#common/locale.js";
 
 const _ = createTranslator(CONF);

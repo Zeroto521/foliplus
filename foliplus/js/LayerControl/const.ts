@@ -1,26 +1,20 @@
-import type { NumberStyle } from "#common/format.js";
+import { ANNOTATION_Z_OFFSET, FOCUS_Z } from "#core/layer/index.js";
+import { LABEL_COLOR_DEFAULT, LABEL_SIZE } from "#common/form.js";
+import { NUMBER_FORMAT } from "#common/format.js";
 
 /** Timing / delay constants. */
 const ENFORCE_ORDER_DEBOUNCE_MS = 50;
-const SAVE_ORDER_DEBOUNCE_MS = 100;
+/** One debounce for every persisted dimension -- the record is written whole,
+ *  so there is a single timer rather than one per dimension. */
+const SAVE_DEBOUNCE_MS = 100;
 
 /** Drag hint cooldown. */
 const DRAG = { HINT_COOLDOWN_MS: 800 };
 
-/** Persistent storage keys. */
-const STORAGE = {
-  ORDER_KEY: `foliplus_layer_order_${map.getContainer().id}`,
-  FOLD_KEY: `foliplus_fold_state_${map.getContainer().id}`,
-  /** Set of layer ids currently off the map. Absolute, not relative: it is
-   *  what is hidden, not merely what the user toggled to hide. A relative set
-   *  could never express "show a layer the author declared show=False", because
-   *  that id was never added to begin with. */
-  VISIBILITY_KEY: `foliplus_layer_visibility_${map.getContainer().id}`,
-  /** Map of layer id → user-assigned display name. */
-  NAMES_KEY: `foliplus_layer_names_${map.getContainer().id}`,
-  /** Map of layer id → annotation config (show/field/format). */
-  ANNOTATION_KEY: `foliplus_layer_annotation_${map.getContainer().id}`,
-};
+/** Persistent storage key. One record per map container, so multi-map pages
+ *  keep their state separate and a new dimension is added by extending the
+ *  record rather than by introducing a new key. */
+const STORAGE = { KEY: `foliplus_layer_state_${map.getContainer().id}` };
 
 /** Color map layer. */
 const COLOR = { MAP_ID: "foliplus_color_map", DEFAULT: "#cccccc" };
@@ -44,22 +38,25 @@ const FOCUS = {
    *  --export-dim-color (rgba(0,0,0,0.4)) so both selection boxes dim alike. */
   MASK_OPACITY: 0.4,
   /** Z-index of the focus overlay pane (mask + rectangle). Layer panes live
-   *  below this (600 + 10·i); the focused layer is temporarily lifted just
-   *  below it so other layers never cover it. */
-  PANE_Z: 9000,
+   *  below this; the focused layer is temporarily lifted just below it so
+   *  other layers never cover it. The real value lives in the shared z
+   *  ladder (`core/layer/z`); this alias exists so existing assertions and
+   *  external readers can refer to the value through the component's own
+   *  surface without reaching into core — the single source of truth is
+   *  still only `core/layer/z`. */
+  PANE_Z: FOCUS_Z.overlay,
   /** Gap below PANE_Z the focused layer's pane is lifted to (must stay below
-   *  the mask, above every layer pane). */
-  FOCUSED_Z_GAP: 10,
+   *  the mask, above every layer pane). Same alias rationale as PANE_Z. */
+  FOCUSED_Z_GAP: FOCUS_Z.gap,
 };
 
 /** Leaflet pane name for the focus overlay (mask + rectangle). */
 const FOCUS_PANE = "foliplus-focus-overlay";
 
-/** Leaflet pane hosting the annotation label canvas (plus its own CSS class).
- *  One pane carries *every* layer's labels, so its z-index sits above all data
- *  panes but below Leaflet's markers and tooltips — labels never hide under a
- *  layer's own geometry, and never cover the interaction markers. */
-const ANNOTATION_PANE = "foliplus-annotation-pane";
+/** Leaflet pane name prefix for a layer's annotation labels: one pane per
+ *  labelled layer, so its labels sit at that layer's place in the stack.
+ *  `LayerManager.enforceOrder` z-orders each pane just above its layer. */
+const ANNOTATION_PANE_PREFIX = "foliplus-annotation-";
 
 /** CSS class names. */
 const CLASSES = {
@@ -110,6 +107,24 @@ const CLASSES = {
   STYLE_FORMAT_ROW: "foliplus-style-format-row",
   STYLE_FORMAT_SELECT: "foliplus-style-format-select",
   STYLE_TOGGLE_INPUT: "foliplus-style-toggle-input",
+  STYLE_BODY: "foliplus-style-body",
+  STYLE_LABEL_COLOR_INPUT: "foliplus-style-label-color-input",
+  STYLE_LABEL_SIZE_INPUT: "foliplus-style-label-size-input",
+  /** The "avoid overlap" switch — its own class, because the panel's change
+   *  delegation keys on the class to tell the two switches apart. */
+  STYLE_COLLIDE_INPUT: "foliplus-style-collide-input",
+  /** Shared section heading (form.css). */
+  SECTION_HEADING: "foliplus-section-heading",
+  /** Opacity control: range slider + paired number input. */
+  STYLE_OPACITY_CONTROL: "foliplus-style-opacity-control",
+  STYLE_OPACITY_RANGE: "foliplus-style-opacity-range",
+  STYLE_OPACITY_NUMBER: "foliplus-style-opacity-number",
+  /** Shared form-row layout classes (also used by HeatmapControl template). */
+  FORM_ROW: "foliplus-form-row",
+  FORM_LABEL: "foliplus-form-label",
+  FORM_CONTROL: "foliplus-form-control",
+  TOGGLE_SWITCH: "foliplus-toggle-switch",
+  TOGGLE_SLIDER: "foliplus-toggle-slider",
   ATTRS_PANEL: "foliplus-layer-attrs-panel",
   ATTRS_ICON: "foliplus-layer-attrs-icon",
 };
@@ -145,38 +160,29 @@ const SEL = {
 /** Group names. */
 const GROUP = { OVERLAY: "overlay", BASE: "base" };
 
-/** Annotation label number-format presets. Values mirror `NumberStyle`
- *  (common/format.ts) — the UI-facing constant map, so the locale keys and the
- *  format dropdown are named rather than typed. */
-type FormatKey = "AUTO" | "INT" | "COMMA" | "PERCENT";
-const FORMAT = {
-  AUTO: "auto",
-  INT: "int",
-  COMMA: "comma",
-  PERCENT: "percent",
-} as const satisfies Record<FormatKey, NumberStyle>;
-
 /** Default annotation config for a layer (disabled). */
 const DEFAULT_ANNOTATION = {
   show: false,
   field: "",
-  format: FORMAT.AUTO,
+  color: LABEL_COLOR_DEFAULT,
+  size: LABEL_SIZE.SIZE_DEFAULT,
+  format: NUMBER_FORMAT.AUTO,
 } as const;
 
 export {
   ACTION,
-  ANNOTATION_PANE,
+  ANNOTATION_PANE_PREFIX,
+  ANNOTATION_Z_OFFSET,
   CLASSES,
   COLOR,
   DATA,
   DEFAULT_ANNOTATION,
   DRAG,
   ENFORCE_ORDER_DEBOUNCE_MS,
-  FORMAT,
   FOCUS,
   FOCUS_PANE,
   GROUP,
-  SAVE_ORDER_DEBOUNCE_MS,
+  SAVE_DEBOUNCE_MS,
   SEL,
   STORAGE,
 };

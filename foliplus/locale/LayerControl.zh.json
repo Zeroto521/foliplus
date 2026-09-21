@@ -54,14 +54,10 @@
   "LayerControl.style_layer": "样式",
   "LayerControl.style_layer_tooltip": "配置该图层的样式",
   "LayerControl.style_label_no_data": "该图层无可标注字段",
-  "LayerControl.style_label": "标注",
-  "LayerControl.style_label_tooltip": "在要素上显示文本标注",
   "LayerControl.style_label_field": "标注字段",
   "LayerControl.style_label_field_auto": "自动识别",
-  "LayerControl.style_label_format": "数字格式",
-  "LayerControl.style_label_format_auto": "自动",
-  "LayerControl.style_label_format_int": "整数",
-  "LayerControl.style_label_format_comma": "千分位",
-  "LayerControl.style_label_format_percent": "百分比",
-  "LayerControl.style_reset": "重置"
+  "LayerControl.style_reset": "重置",
+  "LayerControl.section_label": "标注",
+  "LayerControl.section_layer": "图层",
+  "LayerControl.style_opacity": "透明度"
 }

@@ -8,7 +8,10 @@
   const hit = document.elementFromPoint(cx, cy);
   return {
     canvas: true,
+    // pointer-events is a computed value — read it, not the inline style: the
+    // base pane rule hands it down, and no inline override should exist.
     pointerEvents: cs.pointerEvents,
+    decorationClass: canvas.classList.contains("foliplus-canvas-layer"),
     hitIsCanvas: hit === canvas,
     hitTag: hit ? hit.tagName : null,
   };

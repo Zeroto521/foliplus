@@ -26,4 +26,15 @@ const throttleRaf = (fn: () => void): (() => void) & { cancel: () => void } => {
   return wrapped;
 };
 
-export { throttleRaf };
+/**
+ * Schedule a one-shot run on the next animation frame and return a cancel
+ * function — call it on teardown to drop a frame that must not land. Unlike
+ * {@link throttleRaf} there is no coalescing: each call schedules its own
+ * frame, which is what a "after the layout settles" defer wants.
+ */
+const nextFrame = (fn: () => void): (() => void) => {
+  const rafId = requestAnimationFrame(fn);
+  return () => cancelAnimationFrame(rafId);
+};
+
+export { nextFrame, throttleRaf };

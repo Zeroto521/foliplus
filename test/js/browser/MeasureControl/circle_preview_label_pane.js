@@ -52,12 +52,12 @@
   // painting above the graph pane only by div insertion order.
   const allPanes = Array.from(
     document.querySelectorAll(
-      "[class*='measure_graph-pane'],[class*='measure_label-pane']",
+      "[class*='foliplus-measure-graph-pane'],[class*='foliplus-measure-label-pane']",
     ),
   ).map(p => {
     const cls = p.className;
     return {
-      name: cls.match(/measure_(graph|label)-pane/)?.[1] || null,
+      name: cls.match(/foliplus-measure-(graph|label)-pane/)?.[1] || null,
       z: getComputedStyle(p).zIndex,
     };
   });

@@ -1,7 +1,7 @@
 // HeatmapControl DOM template — isolated from logic for maintainability.
 // Static HTML is built via innerHTML; dynamic/conditional rendering uses dom.el.
 //
-// Key elements use `data-hm-*` attributes so ui.ts can find them via querySelector.
+// Key elements use `data-heatmap-*` attributes so ui.ts can find them via querySelector.
 // Form rows, selects, and the toggle reuse the shared common/form.css
 // primitives (foliplus-form-*); component-specific controls (scheme bar,
 // color/weight inputs) keep their own classes.
@@ -10,7 +10,7 @@ import * as CONST from "./const.js";
 /** Build the panel-content HTML string (data section + style section). */
 const panelContentHTML = (T: (key: string) => string): string => /* html */ `
 <div class="foliplus-heatmap-config-body">
-  <div class="foliplus-heatmap-section-heading">
+  <div class="foliplus-section-heading">
     ${T("section_data")}
   </div>
 
@@ -43,14 +43,14 @@ const panelContentHTML = (T: (key: string) => string): string => /* html */ `
       </div>
     </div>
 
-    <div class="foliplus-heatmap-section-heading">
+    <div class="foliplus-section-heading">
       ${T("section_style")}
     </div>
 
     <div class="foliplus-heatmap-section-block">
       <div class="foliplus-form-row">
         <label class="foliplus-form-label">${T("class_method")}</label>
-        <div class="foliplus-form-control foliplus-heatmap-form-inline">
+        <div class="foliplus-form-control foliplus-form-inline">
           <select class="foliplus-form-select" ${CONST.DATA_ATTR.METHOD}>
             <option value="${CONST.METHOD.JENKS}">${T("jenks")}</option>
             <option value="${CONST.METHOD.QUANTILE}">${T("quantile")}</option>
@@ -82,22 +82,16 @@ const panelContentHTML = (T: (key: string) => string): string => /* html */ `
 
       <div class="foliplus-form-row">
         <label class="foliplus-form-label">${T("border")}</label>
-        <div class="foliplus-form-control foliplus-heatmap-form-inline">
-          <input class="foliplus-heatmap-color-input" type="color" ${CONST.DATA_ATTR.BORDER_COLOR}>
-          <input class="foliplus-heatmap-weight-input" type="number" min="${CONST.BORDER.WEIGHT_MIN}" max="${CONST.BORDER.WEIGHT_MAX}" step="${CONST.BORDER.WEIGHT_STEP}" ${CONST.DATA_ATTR.BORDER_WEIGHT}>
+        <div class="foliplus-form-control foliplus-form-inline">
+          <input class="foliplus-form-color-input" type="color" ${CONST.DATA_ATTR.BORDER_COLOR}>
+          <input class="foliplus-form-number-input" type="number" min="${CONST.BORDER.WEIGHT_MIN}" max="${CONST.BORDER.WEIGHT_MAX}" step="${CONST.BORDER.WEIGHT_STEP}" ${CONST.DATA_ATTR.BORDER_WEIGHT}>
         </div>
       </div>
 
-      <div class="foliplus-form-row foliplus-heatmap-section-block-last">
-        <label class="foliplus-form-label">${T("label")}</label>
-        <div class="foliplus-form-control">
-          <label class="foliplus-toggle-switch">
-            <input type="checkbox" ${CONST.DATA_ATTR.LABEL_CHK}>
-            <span class="foliplus-toggle-slider"></span>
-          </label>
-        </div>
-      </div>
+    </div>
 
+    <div class="foliplus-section-heading">
+      ${T("section_label")}
     </div>
 
     <hr class="foliplus-section-divider">

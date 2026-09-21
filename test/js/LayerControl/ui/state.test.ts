@@ -4,11 +4,21 @@ import { LayerManager } from "#foliplus/LayerControl/manager.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import {
   applyHiddenOne,
+  applyHiddenStateOne,
+  applyOpacityStateOne,
+  applyUserState,
   applyVisibleStateOne,
+  loadPersistedState,
+  markOverride,
+  replayLayerState,
   saveFoldState,
+  saveNamesState,
+  saveState,
+  syncHiddenId,
+  unmarkOverride,
 } from "#foliplus/LayerControl/ui/state.js";
 import { EVENTS, ensureEvents } from "#foliplus/core/event/index.js";
-import type { LayerInfo } from "#foliplus/core/layer/index.js";
+import type { LayerInfo, PaneSpec } from "#foliplus/core/layer/index.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 import {
   allFolded,
@@ -19,6 +29,11 @@ import {
   pressKey,
 } from "./fixture.js";
 import { TileLayer, installLeafletGlobals } from "./fixture.js";
+
+/** The pane spec list `createLayers` derives from an ordered name list: the
+ *  first name is the base pane, everything after it a `sub`. */
+const specs = (...names: string[]): PaneSpec[] =>
+  names.map((name, i) => ({ role: i === 0 ? "base" : "sub", order: i, name }));
 
 describe("LayerUI visibility persistence (hiddenIds)", () => {
   // Reusable layer stubs at module scope so standalone test blocks don't
@@ -31,29 +46,44 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
 
   const makeTestMap = () => {
     const removeLayer = vi.fn();
+    const addLayer = vi.fn();
+    const panes = new Map<
+      string,
+      {
+        style: Record<string, string>;
+        classList: { add: () => void; remove: () => void };
+      }
+    >();
+    const getPane = vi.fn((name: string) => {
+      let p = panes.get(name);
+      if (!p) {
+        p = { style: {}, classList: { add: vi.fn(), remove: vi.fn() } };
+        panes.set(name, p);
+      }
+      return p;
+    });
     return {
       map: {
         on: vi.fn(),
         off: vi.fn(),
         hasLayer: vi.fn(l => l === testPolyLayer),
-        addLayer: vi.fn(),
+        addLayer,
         removeLayer,
         getContainer: vi.fn(() => {
           const el = document.createElement("div");
           el.id = "map";
           return el;
         }),
-        getPane: vi.fn(() => ({
-          style: {},
-          classList: { add: vi.fn(), remove: vi.fn() },
-        })),
+        getPane,
         createPane: vi.fn(() => ({
           style: {},
           classList: { add: vi.fn(), remove: vi.fn() },
         })),
         foliplus: { showHint: vi.fn(), hideHint: vi.fn() },
       },
+      addLayer,
       removeLayer,
+      panes,
     };
   };
 
@@ -112,7 +142,9 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       // The user checked the layer ON, so it is absent from hiddenIds -- but the
       // key exists, so every registered layer must be on the map.
       u.hiddenIds = new Set(["other"]);
-      u.hiddenHasState = true;
+      // The user unhid overlay1 (a `show=False` folium layer), so it is absent
+      // from hiddenIds -- but a `visible` override says it must come back on.
+      u.userOverrides = { overlay1: ["visible"] };
       // Simulate the layer being off the map (folium show=False).
       map.hasLayer = vi.fn(() => false);
 
@@ -138,7 +170,9 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       ]);
       const u = new LayerUI(m);
       u.hiddenIds = new Set();
-      u.hiddenHasState = false;
+      // No user override → overlay1 keeps its author's declared state, which
+      // is `show=False` (absent from the map). Nothing must force it on.
+      u.userOverrides = {};
       map.hasLayer = vi.fn(() => false);
 
       u.applyUserState();
@@ -162,14 +196,21 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       ]);
       const u = new LayerUI(m);
       u.hiddenIds = new Set();
-      u.hiddenHasState = true;
+      // A canvas layer with a `visible` override fires onToggle(true) instead
+      // of `addLayer` -- it has no Leaflet layer to add.
+      u.userOverrides = { canvas1: ["visible"] };
 
       u.applyUserState();
 
       expect(onToggle).toHaveBeenCalledWith(true);
     });
 
-    it("drops unknown ids from the persisted hidden set", () => {
+    it("keeps hidden ids that have no registry entry", () => {
+      // A missing registry entry is not evidence that the stored state should
+      // go: HeatmapControl and MeasureControl register in their own
+      // constructor, after this UI has attached, so their ids are unresolvable
+      // on the first sweep. A queued registration and an id never seen are
+      // indistinguishable here, and either may still arrive — both are kept.
       const { map } = makeTestMap();
       const m = new LayerManager(map, [
         {
@@ -180,31 +221,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
         },
       ]);
       const u = new LayerUI(m);
-      u.hiddenIds = new Set(["overlay1", "ghost", "gone"]);
-
-      u.applyUserState();
-
-      expect(u.hiddenIds).toEqual(new Set(["overlay1"]));
-    });
-
-    it("keeps a hidden id for a pending registration", () => {
-      // A component can register before the panel attaches, in which case the
-      // layer is still queued in pendingRegistrations when this sweep runs
-      // (attachUI drains the queue before calling applyUserState). Such an id
-      // must not be read as "gone for good" — dropping it would lose the user's
-      // hidden state and the layer would come back on the map after every
-      // reload.
-      const { map } = makeTestMap();
-      const m = new LayerManager(map, [
-        {
-          id: "overlay1",
-          name: "Polygons",
-          isBase: false,
-          layer: testPolyLayer,
-        },
-      ]);
-      const u = new LayerUI(m);
-      u.hiddenIds = new Set(["overlay1", "later", "ghost"]);
+      u.hiddenIds = new Set(["overlay1", "later", "ghost", "gone"]);
       m.pendingRegistrations.push({
         id: "later",
         name: "Later",
@@ -214,10 +231,26 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
 
       u.applyUserState();
 
-      expect(u.hiddenIds).toEqual(new Set(["overlay1", "later"]));
+      expect(u.hiddenIds).toEqual(new Set(["overlay1", "later", "ghost", "gone"]));
     });
 
-    it("persists the pruned hidden set after dropping stale ids", () => {
+    it("schedules no write and drops no stored id", () => {
+      // The sweep used to delete the ids that were not in the registry and
+      // write the deletion back to storage. That is the bug this file guards:
+      // a late-registering layer (heatmap, measure) lost its stored hidden
+      // state on the first attach of every reload, so it came back visible
+      // with no explanation. The sweep is a projection now; the record is
+      // read-only as far as it is concerned.
+      window.localStorage.setItem(
+        CONST.STORAGE.KEY,
+        JSON.stringify({
+          layers: {
+            overlay1: { visible: false, overrides: ["visible"] },
+            ghost: { visible: false, overrides: ["visible"] },
+            gone: { visible: false, overrides: ["visible"] },
+          },
+        }),
+      );
       const { map } = makeTestMap();
       const m = new LayerManager(map, [
         {
@@ -228,20 +261,15 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
         },
       ]);
       const u = new LayerUI(m);
-      u.hiddenIds = new Set(["overlay1", "ghost", "gone"]);
+      u.loadPersistedState();
+      const schedule = vi.spyOn(u.m.persistence, "schedule");
 
-      vi.useFakeTimers();
       u.applyUserState();
 
-      vi.advanceTimersByTime(CONST.SAVE_ORDER_DEBOUNCE_MS + 50);
-      vi.useRealTimers();
-
-      const stored = JSON.parse(
-        window.localStorage.getItem(CONST.STORAGE.VISIBILITY_KEY)!,
-      );
-      // Only the live id survives in storage — ghost/gone are gone for good.
-      expect(stored).toEqual(expect.not.arrayContaining(["ghost", "gone"]));
-      expect(stored).toContain("overlay1");
+      expect(schedule).not.toHaveBeenCalled();
+      expect(u.hiddenIds).toEqual(new Set(["overlay1", "ghost", "gone"]));
+      const stored = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!);
+      expect(Object.keys(stored.layers).sort()).toEqual(["ghost", "gone", "overlay1"]);
     });
 
     it("fires onToggle(false) for callback-only layers (canvas/heatmap)", () => {
@@ -266,8 +294,13 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
     it("loads hidden ids from localStorage into hiddenIds", () => {
       const { map } = makeTestMap();
       window.localStorage.setItem(
-        CONST.STORAGE.VISIBILITY_KEY,
-        JSON.stringify(["overlay1", "base1"]),
+        CONST.STORAGE.KEY,
+        JSON.stringify({
+          layers: {
+            overlay1: { visible: false, overrides: ["visible"] },
+            base1: { visible: false, overrides: ["visible"] },
+          },
+        }),
       );
       const m = new LayerManager(map, [
         { id: "overlay1", name: "O", isBase: false, layer: testPolyLayer },
@@ -282,7 +315,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
 
     it("ignores non-array/corrupt storage data", () => {
       const { map } = makeTestMap();
-      window.localStorage.setItem(CONST.STORAGE.VISIBILITY_KEY, "not-json");
+      window.localStorage.setItem(CONST.STORAGE.KEY, "not-json");
       const m = new LayerManager(map, [
         { id: "overlay1", name: "O", isBase: false, layer: testPolyLayer },
       ]);
@@ -296,7 +329,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
 
   // ─────────────────── save on toggle ───────────────────
 
-  describe("saveHiddenIds on toggle", () => {
+  describe("saveState on toggle", () => {
     it("persists a hidden overlay when the user unchecks it", () => {
       const { map, removeLayer } = makeTestMap();
       const m = new LayerManager(map, [
@@ -313,16 +346,21 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
 
       vi.useFakeTimers();
       u.syncHiddenId("overlay1", true);
-      vi.advanceTimersByTime(CONST.SAVE_ORDER_DEBOUNCE_MS + 50);
+      vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
       vi.useRealTimers();
 
-      const stored = JSON.parse(
-        window.localStorage.getItem(CONST.STORAGE.VISIBILITY_KEY)!,
-      );
-      expect(stored).toContain("overlay1");
+      // The record carries both the value and the provenance: a hidden layer
+      // shows up under `layers` with `visible: false` and a `visible` override.
+      const stored = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!);
+      expect(stored.layers.overlay1.visible).toBe(false);
+      expect(stored.layers.overlay1.overrides).toContain("visible");
     });
 
-    it("removes an overlay from the persisted set when the user re-checks it", () => {
+    it("records a re-check as visible:true so the layer comes back on reload", () => {
+      // The old test asserted the id was dropped from the hidden array; the new
+      // model keeps the entry because it knows the user touched it, and reload
+      // must restore `visible=true` rather than reverting to the author's
+      // `show=False` default.
       const { map } = makeTestMap();
       const m = new LayerManager(map, [
         {
@@ -334,16 +372,16 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       ]);
       const u = new LayerUI(m);
       u.hiddenIds = new Set(["overlay1"]);
+      u.userOverrides = { overlay1: ["visible"] };
 
       vi.useFakeTimers();
       u.syncHiddenId("overlay1", false);
-      vi.advanceTimersByTime(CONST.SAVE_ORDER_DEBOUNCE_MS + 50);
+      vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
       vi.useRealTimers();
 
-      const stored = JSON.parse(
-        window.localStorage.getItem(CONST.STORAGE.VISIBILITY_KEY)!,
-      );
-      expect(stored).toEqual(expect.not.arrayContaining(["overlay1"]));
+      const stored = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!);
+      expect(stored.layers.overlay1.visible).toBe(true);
+      expect(stored.layers.overlay1.overrides).toContain("visible");
     });
 
     it("debounces rapid saves into one localStorage write", () => {
@@ -374,7 +412,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
         u.syncHiddenId("overlay1", true);
         expect(setItem).not.toHaveBeenCalled();
 
-        vi.advanceTimersByTime(CONST.SAVE_ORDER_DEBOUNCE_MS + 50);
+        vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
       } finally {
         Object.defineProperty(window, "localStorage", {
           value: originalStorage,
@@ -492,8 +530,13 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       const base1 = new TileLayer();
       const base2 = new TileLayer();
       window.localStorage.setItem(
-        CONST.STORAGE.VISIBILITY_KEY,
-        JSON.stringify(["base1", "base2"]),
+        CONST.STORAGE.KEY,
+        JSON.stringify({
+          layers: {
+            base1: { visible: false, overrides: ["visible"] },
+            base2: { visible: false, overrides: ["visible"] },
+          },
+        }),
       );
       const { ui, map } = attachFixture([
         { id: "overlay1", name: "O", isBase: false, layer: poly },
@@ -554,8 +597,10 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       };
       const base1 = new TileLayer();
       window.localStorage.setItem(
-        CONST.STORAGE.VISIBILITY_KEY,
-        JSON.stringify(["base1"]),
+        CONST.STORAGE.KEY,
+        JSON.stringify({
+          layers: { base1: { visible: false, overrides: ["visible"] } },
+        }),
       );
       const { ui, map } = attachFixture([
         { id: "overlay1", name: "O", isBase: false, layer: poly },
@@ -661,13 +706,15 @@ describe("ui/state applyHiddenOne / applyVisibleStateOne", () => {
   it("applyHiddenOne removes a present layer and unchecks the row", () => {
     const ui = makeApplyUi(true);
     const onToggle = vi.fn();
+    const layer = { on: vi.fn(), off: vi.fn() };
     const layerInfo = {
       id: "a",
+      layer,
       onToggle,
       isBase: false,
     } as unknown as LayerInfo;
     applyHiddenOne(ui, layerInfo, "a");
-    expect(ui.m.map.removeLayer).toHaveBeenCalled();
+    expect(ui.m.map.removeLayer).toHaveBeenCalledWith(layer);
     expect(layerInfo.visible).toBe(false);
     const box = ui.uiContainer.querySelector<HTMLInputElement>(
       'input[type="checkbox"]',
@@ -696,17 +743,557 @@ describe("ui/state applyHiddenOne / applyVisibleStateOne", () => {
     expect(ui.m.map.addLayer).toHaveBeenCalled();
     expect(layerInfo.visible).toBe(true);
   });
+
+  it("applyVisibleStateOne leaves an already-visible layer alone", () => {
+    // The sweep runs on every attach and every rebuild, so a layer that is
+    // already on the map must not be added again -- addLayer on a live layer
+    // is redundant at best and re-orders the stacking at worst.
+    const ui = makeApplyUi(true);
+    const layerInfo = { id: "a", isBase: false } as unknown as LayerInfo;
+
+    applyVisibleStateOne(ui, layerInfo);
+
+    expect(ui.m.map.addLayer).not.toHaveBeenCalled();
+    expect(layerInfo.visible).toBe(true);
+  });
+
+  it("applyHiddenOne skips removeLayer when the layer is already off the map", () => {
+    // `!patch.visible && has` must be false when has=false, so the else-if
+    // body (removeLayer) is not entered — covers the false branch of the
+    // else-if guard.
+    const ui = makeApplyUi(false);
+    const layer = { on: vi.fn(), off: vi.fn() };
+    const layerInfo = { id: "a", layer, isBase: false } as unknown as LayerInfo;
+    applyHiddenOne(ui, layerInfo, "a");
+    expect(ui.m.map.removeLayer).not.toHaveBeenCalled();
+    expect(layerInfo.visible).toBe(false);
+  });
+
+  it("applyVisibleStateOne skips onToggle when a layer object exists", () => {
+    // `!layer && layerInfo.onToggle` is false when layer exists, even if
+    // onToggle is also present — the layer path takes priority.
+    const ui = makeApplyUi(true);
+    const onToggle = vi.fn();
+    const layer = { on: vi.fn(), off: vi.fn() };
+    const layerInfo = {
+      id: "a",
+      layer,
+      onToggle,
+      isBase: false,
+    } as unknown as LayerInfo;
+    applyVisibleStateOne(ui, layerInfo);
+    expect(onToggle).not.toHaveBeenCalled();
+  });
+
+  it("applyHiddenStateOne fires onToggle for a callback-only layer", () => {
+    // Covers the `else if (layerInfo.onToggle)` branch in applyLayerState —
+    // a layer with no Leaflet layer object but a toggle callback (canvas).
+    const ui = makeApplyUi(false);
+    (ui.m.findLayer as ReturnType<typeof vi.fn>).mockReturnValue(null);
+    const onToggle = vi.fn();
+    const layerInfo = { id: "a", onToggle } as unknown as LayerInfo;
+
+    applyHiddenStateOne(ui, layerInfo);
+
+    expect(onToggle).toHaveBeenCalledWith(false);
+    expect(layerInfo.visible).toBe(false);
+  });
+
+  it("applyVisibleStateOne is a no-op for a stale id that resolves to nothing", () => {
+    // The else-if has no else, so its skip count stays 0 unless this path is
+    // really reached: an id the persistence record still holds but the registry
+    // has no entry for — no Leaflet layer to add and no toggle callback to
+    // fire. Over such entries the sweep only moves the registry's visible flag.
+    const ui = makeApplyUi(false);
+    (ui.m.findLayer as ReturnType<typeof vi.fn>).mockReturnValue(null);
+    const layerInfo = { id: "a", isBase: false } as unknown as LayerInfo;
+
+    applyVisibleStateOne(ui, layerInfo);
+
+    expect(ui.m.map.addLayer).not.toHaveBeenCalled();
+    expect(layerInfo.visible).toBe(true);
+  });
 });
 
 describe("ui/state saveFoldState", () => {
-  it("writes the folded set through persistence", () => {
-    const save = vi.fn();
+  it("schedules the folded set through persistence", () => {
+    const schedule = vi.fn();
     const ui = {
       foldedGroups: new Set(["overlay"]),
-      m: { persistence: { saveFoldedGroups: save } },
+      m: { persistence: { schedule } },
     } as unknown as LayerUI;
     saveFoldState(ui);
-    expect(save).toHaveBeenCalledWith(ui.foldedGroups);
+    // schedule takes a getter map so a later write can read the live state
+    // instead of a snapshot at schedule time.
+    expect(schedule).toHaveBeenCalledTimes(1);
+    const fields = schedule.mock.calls[0][0] as { foldedGroups: () => string[] };
+    expect(fields.foldedGroups()).toEqual(["overlay"]);
+  });
+});
+
+// ─────────────────── opacity apply / restore / retention ─────────────────
+
+describe("applyOpacityStateOne", () => {
+  /** A UI whose layer has "native" opacity capability (no pane). */
+  const nativeUi = () =>
+    ({
+      m: {
+        surfaceFor: () => ({ capabilities: { opacity: "native" }, paneNames: [] }),
+        map: { getPane: () => null },
+      },
+    }) as unknown as LayerUI;
+
+  /** A UI whose layer has "pane" opacity capability. */
+  const paneUi = (paneName: string, pane: HTMLElement) =>
+    ({
+      m: {
+        surfaceFor: () => ({
+          capabilities: { opacity: "pane" },
+          paneNames: [paneName],
+        }),
+        map: { getPane: (n: string) => (n === paneName ? pane : null) },
+      },
+    }) as unknown as LayerUI;
+
+  it("writes canvas.style.opacity for canvas layers and skips Leaflet", () => {
+    const setStyle = vi.fn();
+    const canvas = document.createElement("canvas");
+    const li = {
+      id: "heat",
+      canvas,
+      layer: { options: {}, setStyle } as unknown as L.Layer,
+      opacity: 1,
+    } as unknown as LayerInfo;
+
+    applyOpacityStateOne(nativeUi(), li, 0.35);
+
+    expect(canvas.style.opacity).toBe("0.35");
+    expect(li.opacity).toBe(0.35);
+    expect(setStyle).not.toHaveBeenCalled();
+  });
+
+  it("writes layer.options.opacity for native layers without setOpacity", () => {
+    const li = {
+      id: "poly",
+      canvas: null,
+      layer: { options: {} } as unknown as L.Layer,
+      opacity: 1,
+    } as unknown as LayerInfo;
+
+    applyOpacityStateOne(nativeUi(), li, 0.5);
+
+    expect(
+      (li.layer as unknown as { options: { opacity: number } }).options.opacity,
+    ).toBe(0.5);
+    expect(li.opacity).toBe(0.5);
+  });
+
+  it("calls setOpacity(base * target) for native layers with setOpacity", () => {
+    const setOpacity = vi.fn();
+    const li = {
+      id: "marker",
+      canvas: null,
+      layer: { options: { opacity: 0.8 }, setOpacity } as unknown as L.Layer,
+      opacity: 1,
+    } as unknown as LayerInfo;
+
+    applyOpacityStateOne(nativeUi(), li, 0.5);
+
+    expect(setOpacity).toHaveBeenCalledWith(0.4);
+  });
+
+  it("multiplies the layer's own opacity instead of overwriting it", () => {
+    // A layer registered at 0.8 must not jump to 1 when the user drags the
+    // slider to 1 — the base is read from options and the write is
+    // base × target, so 0.8 × 1 = 0.8.
+    const setOpacity = vi.fn();
+    const li = {
+      id: "faded",
+      canvas: null,
+      layer: { options: { opacity: 0.8 }, setOpacity } as unknown as L.Layer,
+      opacity: 1,
+    } as unknown as LayerInfo;
+
+    applyOpacityStateOne(nativeUi(), li, 1);
+    expect(setOpacity).toHaveBeenCalledWith(0.8);
+
+    applyOpacityStateOne(nativeUi(), li, 0.5);
+    expect(setOpacity).toHaveBeenCalledWith(0.4);
+  });
+
+  it("no-ops safely when the layer is null", () => {
+    const li = {
+      id: "x",
+      canvas: null,
+      layer: null,
+      opacity: 1,
+    } as unknown as LayerInfo;
+    expect(() => applyOpacityStateOne(nativeUi(), li, 0.4)).not.toThrow();
+  });
+
+  it("fades a plain layer through its own pane", () => {
+    // registerLayer materializes the surface before the layer joins the map,
+    // so the pane is the layer's real home from the start. One CSS write
+    // regardless of feature count.
+    const pane = document.createElement("div");
+    const setStyle = vi.fn();
+    const ui = paneUi("foliplus-pane-7", pane);
+    const li = {
+      id: "plain",
+      canvas: null,
+      layer: { options: {}, setStyle } as unknown as L.Layer,
+      opacity: 1,
+    } as unknown as LayerInfo;
+
+    applyOpacityStateOne(ui, li, 0.4);
+
+    expect(pane.style.opacity).toBe("0.4");
+    expect(setStyle).not.toHaveBeenCalled();
+  });
+
+  it("tolerates a missing pane element (released mid-session)", () => {
+    // A pane is released on unregister; if the layer is still around
+    // but its pane is gone, the apply must not throw — it just has nowhere to
+    // write.
+    const pane = document.createElement("div");
+    const ui = paneUi("foliplus-pane-3", null as unknown as HTMLElement);
+    const li = {
+      id: "plain",
+      canvas: null,
+      layer: { options: {} } as unknown as L.Layer,
+      opacity: 1,
+    } as unknown as LayerInfo;
+
+    expect(() => applyOpacityStateOne(ui, li, 0.4)).not.toThrow();
+  });
+
+  it("tolerates a layer with no options", () => {
+    // A feature with no options object has nothing to read a base from;
+    // the native carrier treats it as fully opaque and writes the target
+    // directly.
+    const setStyle = vi.fn();
+    const li = {
+      id: "plain",
+      canvas: null,
+      layer: { setStyle } as unknown as L.Layer,
+      opacity: 1,
+    } as unknown as LayerInfo;
+
+    applyOpacityStateOne(nativeUi(), li, 0.5);
+
+    expect(setStyle).not.toHaveBeenCalled();
+  });
+
+  it("sets CSS opacity on each pane element for managed layers", () => {
+    // Managed layers (createLayers: MeasureControl) own their panes. Setting
+    // opacity on the pane element is multiplicative and covers every feature
+    // type uniformly — paths, markers, divIcons — without clobbering the
+    // individual style a feature carries (e.g. a hollow polygon's
+    // fillOpacity: 0 must stay 0, not become 0.4).
+    const graphPane = document.createElement("div");
+    const nodePane = document.createElement("div");
+    const labelPane = document.createElement("div");
+    const panes = new Map([
+      ["graph", graphPane],
+      ["node", nodePane],
+      ["label", labelPane],
+    ]);
+    const ui = {
+      m: {
+        surfaceFor: () => ({
+          capabilities: { opacity: "pane" as const },
+          paneNames: ["graph", "node", "label"],
+        }),
+        map: { getPane: (n: string) => panes.get(n) ?? null },
+      },
+    } as unknown as LayerUI;
+    const li = {
+      id: "measure",
+      canvas: null,
+      layer: { options: {} } as unknown as L.Layer,
+      paneSpecs: specs("graph", "node", "label"),
+      opacity: 1,
+    } as unknown as LayerInfo;
+
+    applyOpacityStateOne(ui, li, 0.4);
+
+    expect(graphPane.style.opacity).toBe("0.4");
+    expect(nodePane.style.opacity).toBe("0.4");
+    expect(labelPane.style.opacity).toBe("0.4");
+    expect(li.opacity).toBe(0.4);
+  });
+
+  it("pane opacity at 1 writes 1 (reset)", () => {
+    const pane = document.createElement("div");
+    const ui = {
+      m: {
+        surfaceFor: () => ({
+          capabilities: { opacity: "pane" as const },
+          paneNames: ["graph"],
+        }),
+        map: { getPane: () => pane },
+      },
+    } as unknown as LayerUI;
+    const li = {
+      id: "measure",
+      canvas: null,
+      layer: { options: {} } as unknown as L.Layer,
+      paneSpecs: specs("graph"),
+      opacity: 0.4,
+    } as unknown as LayerInfo;
+
+    applyOpacityStateOne(ui, li, 1);
+
+    expect(pane.style.opacity).toBe("1");
+  });
+
+  it("writes nothing when the carrier is none", () => {
+    const ui = {
+      m: {
+        surfaceFor: () => ({
+          capabilities: { opacity: "none" as const },
+          paneNames: [],
+        }),
+        map: { getPane: () => null },
+      },
+    } as unknown as LayerUI;
+    const li = {
+      id: "cluster",
+      canvas: null,
+      layer: { options: {} } as unknown as L.Layer,
+      opacity: 1,
+    } as unknown as LayerInfo;
+
+    applyOpacityStateOne(ui, li, 0.4);
+
+    expect(li.opacity).toBe(1);
+  });
+
+  it("includes the annotation pane in the opacity write", () => {
+    const graphPane = document.createElement("div");
+    const annotationPane = document.createElement("div");
+    const panes = new Map([
+      ["graph", graphPane],
+      ["annotation", annotationPane],
+    ]);
+    const ui = {
+      m: {
+        surfaceFor: () => ({
+          capabilities: { opacity: "pane" as const },
+          paneNames: ["graph"],
+        }),
+        map: { getPane: (n: string) => panes.get(n) ?? null },
+        annotation: { paneNameFor: () => "annotation" },
+      },
+    } as unknown as LayerUI;
+    const li = {
+      id: "measure",
+      canvas: null,
+      layer: { options: {} } as unknown as L.Layer,
+      paneSpecs: specs("graph"),
+      opacity: 1,
+    } as unknown as LayerInfo;
+
+    applyOpacityStateOne(ui, li, 0.4);
+
+    expect(graphPane.style.opacity).toBe("0.4");
+    expect(annotationPane.style.opacity).toBe("0.4");
+  });
+});
+
+describe("replayLayerState", () => {
+  // An annotation pane is created lazily — when labels first turn on, which can
+  // be long after the slider was last moved — and nothing writes to a pane that
+  // does not exist yet. The pane's appearance is its own replay point, so the
+  // stored intent has to be re-applied there instead of being assumed present.
+  let manager: LayerManager;
+  let ui: LayerUI;
+
+  beforeEach(() => {
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+    ({ manager, ui } = initFixture());
+  });
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  it("writes the stored opacity onto the layer", () => {
+    ui.userOverrides.overlay1 = ["opacity"];
+    ui.opacityMap.overlay1 = 0.3;
+
+    replayLayerState(ui, "overlay1");
+
+    expect(manager.layerRegistry.get("overlay1")!.opacity).toBe(0.3);
+  });
+
+  it("gates the write on the override flag, not on a stored value", () => {
+    // A value without its flag must not reach the write pipeline; the layer
+    // keeps the default the author declared.
+    const before = manager.layerRegistry.get("overlay1")!.opacity;
+    ui.opacityMap.overlay1 = 0.4;
+
+    const surfaceFor = vi.spyOn(manager, "surfaceFor");
+    replayLayerState(ui, "overlay1");
+
+    expect(surfaceFor).not.toHaveBeenCalled();
+    expect(manager.layerRegistry.get("overlay1")!.opacity).toBe(before);
+    expect(ui.userOverrides.overlay1).toBeUndefined();
+    surfaceFor.mockRestore();
+  });
+
+  it("skips an override whose value never reached the map", () => {
+    // The record can claim an override whose value is absent; sending that
+    // through the write pipeline would be an undefined opacity.
+    const before = manager.layerRegistry.get("overlay1")!.opacity;
+    ui.userOverrides.overlay1 = ["opacity"];
+
+    const surfaceFor = vi.spyOn(manager, "surfaceFor");
+    replayLayerState(ui, "overlay1");
+
+    expect(surfaceFor).not.toHaveBeenCalled();
+    expect(manager.layerRegistry.get("overlay1")!.opacity).toBe(before);
+    surfaceFor.mockRestore();
+  });
+
+  it("replays nothing for an id the registry does not know", () => {
+    ui.userOverrides.ghost = ["opacity"];
+    ui.opacityMap.ghost = 0.3;
+
+    expect(() => replayLayerState(ui, "ghost")).not.toThrow();
+    expect(manager.layers.every(l => l.opacity !== 0.3)).toBe(true);
+  });
+});
+
+describe("LayerUI opacity restore / retention", () => {
+  const makeMap = () => {
+    const setStyle = vi.fn();
+    const layer = { options: {}, setStyle } as unknown as L.Layer;
+    const panes = new Map<
+      string,
+      {
+        style: Record<string, string>;
+        classList: { add: () => void; remove: () => void };
+      }
+    >();
+    const getPane = vi.fn((name: string) => {
+      let p = panes.get(name);
+      if (!p) {
+        p = { style: {}, classList: { add: vi.fn(), remove: vi.fn() } };
+        panes.set(name, p);
+      }
+      return p;
+    });
+    const map = {
+      on: vi.fn(),
+      off: vi.fn(),
+      hasLayer: vi.fn(() => true),
+      addLayer: vi.fn(),
+      removeLayer: vi.fn(),
+      getContainer: vi.fn(() => {
+        const el = document.createElement("div");
+        el.id = "map";
+        return el;
+      }),
+      getPane,
+      createPane: vi.fn(() => ({
+        style: {},
+        classList: { add: vi.fn(), remove: vi.fn() },
+      })),
+      foliplus: { showHint: vi.fn(), hideHint: vi.fn() },
+    };
+    return { map, layer, setStyle, panes };
+  };
+
+  beforeEach(() => {
+    installLeafletGlobals();
+    window.localStorage.clear();
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+    window.localStorage.clear();
+  });
+
+  it("applyUserState restores a stored opacity onto Path layers", () => {
+    const { map, layer, panes } = makeMap();
+    const m = new LayerManager(map, [{ id: "overlay1", name: "Poly", layer }]);
+    const u = new LayerUI(m);
+    u.opacityMap = { overlay1: 0.45 };
+
+    u.applyUserState();
+
+    expect(m.layerRegistry.get("overlay1")?.opacity).toBe(0.45);
+    // The pane carrier received the write (§5.4 multiplicative).
+    const writtenPane = [...panes.values()].find(p => p.style.opacity === "0.45");
+    expect(writtenPane).toBeDefined();
+  });
+
+  it("applyUserState(id) applies opacity for a late-registered canvas layer", () => {
+    const { map } = makeMap();
+    const canvas = document.createElement("canvas");
+    const m = new LayerManager(map, [
+      { id: "heat", name: "Heat", canvas, layer: null, onToggle: vi.fn() },
+    ]);
+    const u = new LayerUI(m);
+    u.opacityMap = { heat: 0.25 };
+
+    u.applyUserState("heat");
+
+    expect(canvas.style.opacity).toBe("0.25");
+    expect(m.layerRegistry.get("heat")?.opacity).toBe(0.25);
+  });
+
+  it("keeps opacity entries whose layers are gone", () => {
+    // An unresolvable id is not a leak to clean up — it may belong to a
+    // component that registers later, and the user's stored opacity must not
+    // revert to the author default while it waits.
+    const { map, layer, panes } = makeMap();
+    const m = new LayerManager(map, [{ id: "overlay1", name: "Poly", layer }]);
+    const u = new LayerUI(m);
+    u.opacityMap = { overlay1: 0.4, ghost: 0.1 };
+
+    u.applyUserState();
+
+    expect(u.opacityMap).toEqual({ overlay1: 0.4, ghost: 0.1 });
+    // The live entry was written to the pane; the unresolvable one was kept
+    // in memory and written nowhere.
+    const writtenPanes = [...panes.values()].filter(p => p.style.opacity);
+    expect(writtenPanes).toHaveLength(1);
+    expect(writtenPanes[0].style.opacity).toBe("0.4");
+  });
+
+  it("keeps a zoom range and its provenance for a layer that is gone", () => {
+    // Both halves stay. Only a provenance marker with no value is invalid
+    // ({@link markOverride} refuses it), never a value whose layer has not
+    // registered yet.
+    const { map, layer } = makeMap();
+    const m = new LayerManager(map, [{ id: "overlay1", name: "Poly", layer }]);
+    const u = new LayerUI(m);
+    u.zoomRangeMap = { overlay1: [4, 10], ghost: [2, 8] };
+    u.userOverrides = { ghost: ["zoomRange"] };
+
+    u.applyUserState();
+
+    expect(u.zoomRangeMap).toEqual({ overlay1: [4, 10], ghost: [2, 8] });
+    expect(u.userOverrides.ghost).toEqual(["zoomRange"]);
+  });
+
+  it("leaves a live layer alone when no opacity is stored", () => {
+    const { map, layer, setStyle } = makeMap();
+    const m = new LayerManager(map, [{ id: "overlay1", name: "Poly", layer }]);
+    const u = new LayerUI(m);
+    u.opacityMap = {};
+
+    u.applyUserState();
+
+    expect(setStyle).not.toHaveBeenCalled();
+    expect(m.layerRegistry.get("overlay1")?.opacity).toBe(1);
   });
 });
 
@@ -743,6 +1330,25 @@ describe("event-driven row refresh", () => {
     expect(item.querySelector(`.${CONST.CLASSES.TYPE_ICON_COL}`)).not.toBeNull();
   });
 
+  it("onLayerItemCountChange re-applies the layer opacity to finalized geometry", () => {
+    // A measurement finalized at store.add fires LAYER_ITEM_COUNT_CHANGE. The
+    // panes were painted at full opacity while the preview was live; this is
+    // when the opacity "snaps in" to the real geometry.
+    const events = ensureEvents(ui.m.map);
+    const li = manager.layerRegistry.get("overlay1")!;
+    li.paneSpecs = specs("__test_opacity_pane__");
+    ui.opacityMap = { overlay1: 0.4 };
+    li.opacity = 0.4;
+
+    const paneEl = document.createElement("div");
+    vi.spyOn(manager.map, "getPane").mockReturnValue(paneEl);
+
+    events.emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "overlay1" });
+
+    expect(paneEl.style.opacity).toBe("0.4");
+    expect(li.opacity).toBe(0.4);
+  });
+
   it("subscribeControlAttached reruns init when another control attaches", () => {
     const events = ensureEvents(ui.m.map);
     events.emit(EVENTS.CONTROL_ATTACHED, { component: "ScaleControl" });
@@ -750,5 +1356,300 @@ describe("event-driven row refresh", () => {
     expect(
       ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.LAYER_ITEM}`).length,
     ).toBeGreaterThan(0);
+  });
+});
+
+// ─────────────────── userOverrides + per-layer persistence ───────────────────
+
+describe("ui/state userOverrides and per-layer state persistence", () => {
+  let manager: LayerManager;
+  let ui: LayerUI;
+
+  beforeEach(() => {
+    ({ manager, ui } = initFixture());
+    window.localStorage.clear();
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+    window.localStorage.clear();
+  });
+
+  it("a user hide goes into hiddenIds and persists visible:false", () => {
+    // The record has to distinguish "user hid it" from "author declared
+    // show=False" -- the same hiddenIds value is either. markOverride is what
+    // records that distinction: without it, reload would drop the id and the
+    // layer would come back visible, undoing the user's last choice.
+    const schedule = vi.fn();
+    const bare = {
+      hiddenIds: new Set(),
+      opacityMap: {},
+      userOverrides: {},
+      m: { persistence: { schedule } },
+    } as unknown as LayerUI;
+
+    syncHiddenId(bare, "overlay1", true);
+
+    expect(bare.userOverrides.overlay1).toContain("visible");
+    const fields = schedule.mock.calls[0][0] as {
+      layers: () => Record<string, { visible?: boolean; overrides: string[] }>;
+    };
+    expect(fields.layers()).toEqual({
+      overlay1: { visible: false, overrides: ["visible"] },
+    });
+  });
+
+  it("a user unhide persists visible:true rather than dropping the entry", () => {
+    // The old test asserted the id was dropped from the hidden set. The new
+    // model keeps the entry because it knows the user touched the layer --
+    // dropping it would fall back to the author's show=False default, so the
+    // unhide would only be visible for the current session.
+    const schedule = vi.fn();
+    const bare = {
+      hiddenIds: new Set(["overlay1"]),
+      opacityMap: {},
+      userOverrides: { overlay1: ["visible"] },
+      m: { persistence: { schedule } },
+    } as unknown as LayerUI;
+
+    syncHiddenId(bare, "overlay1", false);
+
+    expect(bare.hiddenIds.has("overlay1")).toBe(false);
+    const fields = schedule.mock.calls[0][0] as {
+      layers: () => Record<string, { visible?: boolean; overrides: string[] }>;
+    };
+    expect(fields.layers()).toEqual({
+      overlay1: { visible: true, overrides: ["visible"] },
+    });
+  });
+
+  it("persists a moved zoom range together with its provenance", () => {
+    // The author's min_zoom / max_zoom is only the starting value, so moving the
+    // handles has to mark provenance too -- without it the range would be read
+    // back as a declaration and dropped, and the user's drag would not survive
+    // a reload.
+    const schedule = vi.fn();
+    const bare = {
+      hiddenIds: new Set(),
+      opacityMap: {},
+      zoomRangeMap: { overlay1: [4, 10] },
+      userOverrides: { overlay1: ["zoomRange"] },
+      m: { persistence: { schedule } },
+    } as unknown as LayerUI;
+
+    saveState(bare);
+
+    const fields = schedule.mock.calls[0][0] as {
+      layers: () => Record<string, { zoomRange?: number[]; overrides: string[] }>;
+    };
+    expect(fields.layers()).toEqual({
+      overlay1: { zoomRange: [4, 10], overrides: ["zoomRange"] },
+    });
+  });
+
+  it("drops the zoom range back to the author's default on reset", () => {
+    // Reset is one rule: drop the provenance, and the value follows it. A
+    // provenance with no live value must never be persisted -- the record cannot
+    // say "the user reset this", so absence is what restores the declared value.
+    const schedule = vi.fn();
+    const bare = {
+      hiddenIds: new Set(),
+      opacityMap: {},
+      zoomRangeMap: {},
+      userOverrides: { overlay1: ["zoomRange"] },
+      m: { persistence: { schedule } },
+    } as unknown as LayerUI;
+
+    unmarkOverride(bare, "overlay1", "zoomRange");
+    saveState(bare);
+
+    expect(bare.userOverrides.overlay1).toBeUndefined();
+    const fields = schedule.mock.calls[0][0] as {
+      layers: () => Record<string, unknown>;
+    };
+    expect(fields.layers()).toEqual({});
+  });
+
+  it("keeps the other dimensions when one is reset", () => {
+    // Reset is per dimension, so unmarking zoomRange must not drop the layer's
+    // other choices -- wiping the whole entry here would make one Reset button
+    // forget the opacity the user set moments earlier.
+    const bare = {
+      userOverrides: { overlay1: ["visible", "zoomRange"] },
+    } as unknown as LayerUI;
+
+    unmarkOverride(bare, "overlay1", "zoomRange");
+
+    expect(bare.userOverrides.overlay1).toEqual(["visible"]);
+  });
+
+  it("drops an entry whose only marker holds no live value", () => {
+    // The mirror of the markOverride refusal, from the write side: a marker that
+    // lost its value must not be written as an empty entry, which the next read
+    // would discard anyway. Failing closed here keeps the invariant that every
+    // persisted marker has a value.
+    const schedule = vi.fn();
+    const bare = {
+      hiddenIds: new Set(),
+      opacityMap: {},
+      zoomRangeMap: {},
+      userOverrides: { overlay1: ["opacity"] },
+      m: { persistence: { schedule } },
+    } as unknown as LayerUI;
+
+    saveState(bare);
+
+    const fields = schedule.mock.calls[0][0] as {
+      layers: () => Record<string, unknown>;
+    };
+    expect(fields.layers()).toEqual({});
+  });
+
+  it("refuses a marker for a dimension with no live value, loudly", () => {
+    // buildLayerStates filters a marker whose value is missing, so recording it
+    // here would mean the user's action vanishes on the next write with nothing
+    // in the console. The gate therefore refuses it and says so instead of
+    // accepting a marker that cannot survive a flush.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const schedule = vi.fn();
+    const bare = {
+      hiddenIds: new Set(),
+      opacityMap: {},
+      zoomRangeMap: {},
+      userOverrides: {},
+      m: { persistence: { schedule } },
+    } as unknown as LayerUI;
+
+    markOverride(bare, "overlay1", "zoomRange");
+
+    expect(bare.userOverrides.overlay1).toBeUndefined();
+    expect(schedule).not.toHaveBeenCalled();
+    expect(warn.mock.calls[0][0]).toContain("no stored value for this dimension");
+    warn.mockRestore();
+  });
+
+  it("restores a stored opacity and zoom range from the record", () => {
+    // The record keeps the value and the provenance side by side, so a restore
+    // must move them to the matching live maps. Reading the value without the
+    // provenance would persist an author default as if the user had chosen it.
+    window.localStorage.setItem(
+      CONST.STORAGE.KEY,
+      JSON.stringify({
+        order: null,
+        foldedGroups: ["Overlay"],
+        renamedNames: {},
+        annotations: {},
+        layers: {
+          overlay1: {
+            opacity: 0.35,
+            zoomRange: [3, 12],
+            overrides: ["opacity", "zoomRange"],
+          },
+        },
+      }),
+    );
+
+    loadPersistedState(ui);
+
+    expect(ui.foldedGroups).toEqual(new Set(["Overlay"]));
+    expect(ui.opacityMap).toEqual({ overlay1: 0.35 });
+    expect(ui.zoomRangeMap).toEqual({ overlay1: [3, 12] });
+    expect(ui.userOverrides.overlay1).toEqual(["opacity", "zoomRange"]);
+  });
+
+  it("persists an opacity change together with its provenance", () => {
+    const schedule = vi.fn();
+    const bare = {
+      hiddenIds: new Set(),
+      opacityMap: { overlay1: 0.6 },
+      zoomRangeMap: {},
+      userOverrides: { overlay1: ["opacity"] },
+      m: { persistence: { schedule } },
+    } as unknown as LayerUI;
+
+    saveState(bare);
+
+    const fields = schedule.mock.calls[0][0] as {
+      layers: () => Record<string, { opacity?: number; overrides: string[] }>;
+    };
+    expect(fields.layers()).toEqual({
+      overlay1: { opacity: 0.6, overrides: ["opacity"] },
+    });
+  });
+
+  it("applyUserState(id) ignores an id with no registry entry", () => {
+    expect(() => ui.applyUserState("ghost")).not.toThrow();
+  });
+
+  it("applyUserState(id) projects a hidden flag onto a single late layer", () => {
+    ui.hiddenIds = new Set(["overlay1"]);
+
+    ui.applyUserState("overlay1");
+
+    expect(manager.layerRegistry.get("overlay1")?.visible).toBe(false);
+  });
+
+  it("applyUserState renames the color basemap row without a registry entry", () => {
+    // The color basemap has no LayerInfo in the registry — its rename goes
+    // straight to the row label. Without the id guard at the top of the
+    // sweep the color item would be skipped and the label would stay stale.
+    ui.renamedNames = { [CONST.COLOR.MAP_ID]: "Renamed Color" };
+
+    ui.applyUserState();
+
+    const colorItem = ui.uiContainer.querySelector(
+      `[${CONST.DATA.LAYER_ID}="${CONST.COLOR.MAP_ID}"]`,
+    ) as HTMLElement | null;
+    expect(colorItem).not.toBeNull();
+    const label = colorItem!.querySelector("label") as HTMLElement | null;
+    expect(label).not.toBeNull();
+    expect(label!.textContent).toBe("Renamed Color");
+  });
+
+  it("applyUserState renames a layer that is in the registry", () => {
+    // Covers the regular layer path in the sweep (lines 196-203): a layer ID
+    // that IS in the registry gets its name projected through the layerInfo.
+    ui.renamedNames = { overlay1: "Renamed Overlay" };
+
+    ui.applyUserState();
+
+    const item = ui.uiContainer.querySelector(
+      `[${CONST.DATA.LAYER_ID}="overlay1"]`,
+    ) as HTMLElement | null;
+    expect(item).not.toBeNull();
+    const label = item!.querySelector("label") as HTMLElement | null;
+    expect(label).not.toBeNull();
+    expect(label!.textContent).toBe("Renamed Overlay");
+  });
+
+  it("applyUserState(id) renames a layer through the id path", () => {
+    // Covers line 165: applyNameProjection in the `if (id)` branch.
+    // The item is null in this path, so only layerInfo.name is updated.
+    ui.renamedNames = { overlay1: "Renamed via id" };
+
+    ui.applyUserState("overlay1");
+
+    const li = manager.layerRegistry.get("overlay1");
+    expect(li?.name).toBe("Renamed via id");
+  });
+
+  it("persists renamed names through the persistence scheduler", () => {
+    // saveNamesState is the write half of the rename flow. Without a test
+    // that reaches it, the function stays uncovered even though the read
+    // path (applyUserState) is exercised.
+    const schedule = vi.fn();
+    const bare = {
+      renamedNames: { overlay1: "Renamed" },
+      m: { persistence: { schedule } },
+    } as unknown as LayerUI;
+
+    saveNamesState(bare);
+
+    const fields = schedule.mock.calls[0][0] as {
+      renamedNames: () => Record<string, string>;
+    };
+    expect(fields.renamedNames()).toEqual({ overlay1: "Renamed" });
   });
 });

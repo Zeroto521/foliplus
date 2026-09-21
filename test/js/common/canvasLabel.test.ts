@@ -6,6 +6,7 @@ import {
   drawCanvasLabel,
   prepareCanvasLabel,
   resolveCanvasLabelStyle,
+  withLabelPaint,
 } from "#common/canvasLabel.js";
 
 /** A container carrying the shared --label-* tokens (jsdom reads inline
@@ -71,7 +72,65 @@ describe("resolveCanvasLabelStyle", () => {
   });
 });
 
+describe("withLabelPaint", () => {
+  it("overlays runtime color/size and rebuilds the font string", () => {
+    const base = resolveCanvasLabelStyle(root());
+    const painted = withLabelPaint(base, { color: "#ff0000", size: 18 });
+    expect(painted.color).toBe("#ff0000");
+    expect(painted.fontSize).toBe(18);
+    expect(painted.font).toBe("bold 18px sans-serif");
+    // Halo and family stay on the shared tokens.
+    expect(painted.haloColor).toBe(base.haloColor);
+    expect(painted.fontFamily).toBe(base.fontFamily);
+  });
+
+  it("leaves unspecified fields on the base style", () => {
+    const base = resolveCanvasLabelStyle(root());
+    const painted = withLabelPaint(base, { color: "#00ff00" });
+    expect(painted.color).toBe("#00ff00");
+    expect(painted.fontSize).toBe(base.fontSize);
+    expect(painted.font).toBe(base.font);
+  });
+
+  it("with empty opts is a pure passthrough of the base style", () => {
+    const base = resolveCanvasLabelStyle(root());
+    expect(withLabelPaint(base, {})).toEqual(base);
+  });
+
+  it("passes through base color when only size is overridden", () => {
+    const base = resolveCanvasLabelStyle(root());
+    const painted = withLabelPaint(base, { size: 20 });
+    expect(painted.color).toBe(base.color);
+    expect(painted.fontSize).toBe(20);
+  });
+
+  it("passes through base size when only color is overridden", () => {
+    const base = resolveCanvasLabelStyle(root());
+    const painted = withLabelPaint(base, { color: "#000" });
+    expect(painted.fontSize).toBe(base.fontSize);
+    expect(painted.color).toBe("#000");
+  });
+});
+
 describe("prepareCanvasLabel", () => {
+  it("skips the font assignment when ctx.font already matches", () => {
+    const c = ctx();
+    const style: CanvasLabelStyle = {
+      font: "bold 12px sans-serif",
+      fontFamily: "sans-serif",
+      fontSize: 12,
+      fontWeight: "bold",
+      color: "#fff",
+      haloColor: "rgba(0,0,0,0.75)",
+      haloWidth: 3,
+    };
+    // First call assigns; second call with a matching ctx.font skips.
+    prepareCanvasLabel(c, style);
+    c.font = style.font;
+    prepareCanvasLabel(c, style);
+    expect(c.textAlign).toBe("center");
+  });
+
   it("applies the font and metrics to the context", () => {
     const c = ctx();
     const style: CanvasLabelStyle = {

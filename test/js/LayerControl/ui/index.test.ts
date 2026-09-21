@@ -163,24 +163,46 @@ describe("LayerUI shell — delegates", () => {
   });
 
   it("saveFoldState persists the folded-group set", () => {
-    const save = vi.spyOn(manager.persistence, "saveFoldedGroups");
+    const save = vi.spyOn(manager.persistence, "schedule");
     ui.foldedGroups = new Set(["overlays"]);
 
     ui.saveFoldState();
 
-    expect(save).toHaveBeenCalledWith(ui.foldedGroups);
+    expect(save).toHaveBeenCalled();
+    const fields = save.mock.calls[0][0] as { foldedGroups: () => string[] };
+    expect(fields.foldedGroups()).toEqual(["overlays"]);
   });
 
   it("saveNamesState persists the rename map", () => {
-    const save = vi.spyOn(manager.persistence, "saveNames");
+    const save = vi.spyOn(manager.persistence, "schedule");
     ui.renamedNames = { overlay1: "Renamed" };
 
     ui.saveNamesState();
 
     expect(save).toHaveBeenCalled();
-    expect((save.mock.calls[0][0] as () => Record<string, string>)()).toEqual({
+    const fields = save.mock.calls[0][0] as {
+      renamedNames: () => Record<string, string>;
+    };
+    expect(fields.renamedNames()).toEqual({
       overlay1: "Renamed",
     });
+  });
+
+  it("dropPersistedLayerState erases every stored dimension for one id", () => {
+    // The single routine that erases a stored value, reached only from an
+    // explicit delete — and it must not touch a neighbour's state.
+    ui.hiddenIds = new Set(["overlay1", "base1"]);
+    ui.opacityMap = { overlay1: 0.4 };
+    ui.zoomRangeMap = { overlay1: [3, 12] };
+    ui.userOverrides = { overlay1: ["visible", "opacity"] };
+
+    ui.dropPersistedLayerState("overlay1");
+
+    expect(ui.hiddenIds.has("overlay1")).toBe(false);
+    expect(ui.hiddenIds.has("base1")).toBe(true);
+    expect(ui.opacityMap.overlay1).toBeUndefined();
+    expect(ui.zoomRangeMap.overlay1).toBeUndefined();
+    expect(ui.userOverrides.overlay1).toBeUndefined();
   });
 
   it("colorLayerName resolves the color row's display name", () => {

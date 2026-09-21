@@ -108,6 +108,56 @@ describe("createTranslator", () => {
     expect(t("ok")).toBe("OK");
   });
 
+  it("handles a conf with no locale_tables of its own", () => {
+    // locale_tables is optional in ComponentConfig -- a CONF written before
+    // BaseControl learned to inject it, or by a hand-authored page, omits the
+    // key entirely. The translator must fall back to the common tables.
+    const conf = { locale_code: "en" };
+    const t = createTranslator(conf);
+    expect(t("ok")).toBe("OK");
+    expect(t("greeting")).toBe("Hello");
+  });
+
+  it("defaults to en when the browser locale has no table", () => {
+    const original = navigator.language;
+    Object.defineProperty(navigator, "language", {
+      configurable: true,
+      get: () => "fr-FR",
+    });
+    try {
+      // No locale_code and no tables at all -- the auto-detect chain finds no
+      // table for the browser language, so the code settles on en.
+      const conf = {};
+      const t = createTranslator(conf);
+      expect(conf.locale_code).toBe("en");
+      expect(t("locale.code")).toBe("en");
+    } finally {
+      Object.defineProperty(navigator, "language", {
+        configurable: true,
+        get: () => original,
+      });
+    }
+  });
+
+  it("keeps an explicit locale code and does not re-detect", () => {
+    const original = navigator.language;
+    Object.defineProperty(navigator, "language", {
+      configurable: true,
+      get: () => "zh-CN",
+    });
+    try {
+      const conf = { locale_code: "en", locale_tables: { en: { ok: "OK" } } };
+      const t = createTranslator(conf);
+      expect(conf.locale_code).toBe("en");
+      expect(t("ok")).toBe("OK");
+    } finally {
+      Object.defineProperty(navigator, "language", {
+        configurable: true,
+        get: () => original,
+      });
+    }
+  });
+
   it("detects locale from parent iframe path", () => {
     Object.defineProperty(window, "parent", {
       configurable: true,

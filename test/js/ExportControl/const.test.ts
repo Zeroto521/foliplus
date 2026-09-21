@@ -9,19 +9,28 @@ describe("export canvas whitelists", () => {
   it("reach every canvas overlay that paints map content", () => {
     // `collectLayerMarkers` skips CANVAS elements (a dedicated pass owns them),
     // so a canvas in neither list vanishes from the export without any error.
-    // CANVAS is walked per layer pane; ANNOTATION_CANVAS covers the canvas that
-    // lives in a pane of its own (LayerControl's annotation labels).
+    // CANVAS is walked per layer pane; ANNOTATION_CANVAS covers the labels,
+    // whose pane the manager creates with map.createPane — a sibling of the
+    // layer's content panes, unreachable from the per-layer walk.
     const mapPane = document.createElement("div");
     mapPane.className = "leaflet-map-pane";
-    const heat = document.createElement("canvas");
-    heat.className = "foliplus-heatmap-canvas";
+    const layerPane = document.createElement("div");
+    layerPane.className = "foliplus-layer-pane";
+    const vendorCanvas = document.createElement("canvas");
+    vendorCanvas.className = "vendor-overlay";
+    const annotationPane = document.createElement("div");
+    annotationPane.className = "foliplus-annotation-pane";
     const annotation = document.createElement("canvas");
     annotation.className = "foliplus-annotation-canvas";
-    const unrelated = document.createElement("canvas");
-    mapPane.append(heat, annotation, unrelated);
+    layerPane.append(vendorCanvas);
+    annotationPane.append(annotation);
+    mapPane.append(layerPane, annotationPane);
     document.body.appendChild(mapPane);
 
-    expect(Array.from(mapPane.querySelectorAll(CONST.SEL.CANVAS))).toEqual([heat]);
+    // Pane walk: any canvas a vendor layer mounts in its own pane.
+    expect(Array.from(layerPane.querySelectorAll(CONST.SEL.CANVAS))).toEqual([
+      vendorCanvas,
+    ]);
     expect(Array.from(mapPane.querySelectorAll(CONST.SEL.ANNOTATION_CANVAS))).toEqual([
       annotation,
     ]);
@@ -165,7 +174,12 @@ describe("SVG_NS", () => {
 
 describe("SEL", () => {
   it("defines selectors", () => {
-    expect(CONST.SEL.SKIP_EXPORT).toBe('[data-foliplus-export="exclude"]');
+    // Two carriers, one judgement point: the attribute for elements a
+    // component can stamp any time, the class for a Leaflet Path, which only
+    // exposes a construction-time className hook.
+    expect(CONST.SEL.SKIP_EXPORT).toBe(
+      '[data-foliplus-export="exclude"], .foliplus-no-export',
+    );
     expect(CONST.SEL.LABEL).toBe("[data-foliplus-export='label']");
   });
 });

@@ -190,7 +190,15 @@ class MissingAssetsError(RuntimeError):
     """
 
     def __init__(self, missing: list[Path]) -> None:
-        names = ", ".join(str(p.relative_to(src_dir.parent)) for p in missing)
+        # A missing path outside the source tree (a test pointing `dist_dir`
+        # at a throwaway copy) cannot be made repo-relative; the message must
+        # not itself raise, so fall back to the absolute path.
+        names = ", ".join(
+            str(p.relative_to(src_dir.parent))
+            if p.is_relative_to(src_dir.parent)
+            else str(p)
+            for p in missing
+        )
         super().__init__(
             f"foliplus bundled assets missing: {names}. "
             "Run `make build-js` in the source checkout, then rebuild the "

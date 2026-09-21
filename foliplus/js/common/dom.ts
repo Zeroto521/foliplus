@@ -43,18 +43,6 @@ const EVENTS = new Set([
   "onmousemove",
   "onmouseup",
 ]);
-const PIN: {
-  SIZE: [number, number];
-  ANCHOR: [number, number];
-  POPUP_ANCHOR: [number, number];
-  Z_OFFSET: number;
-} = {
-  SIZE: [24, 36],
-  ANCHOR: [12, 36],
-  POPUP_ANCHOR: [0, -36],
-  Z_OFFSET: 10000,
-};
-const POPUP_MAX_WIDTH = 300;
 
 /** Attribute value: primitives, style object, event handler, or parent element. */
 type AttrVal =
@@ -165,6 +153,19 @@ const stopEvent = (event: Event | { originalEvent?: Event }): void => {
   )?.preventDefault?.();
 };
 
+/** Cancel Leaflet's mapPane pan translation on an overlay canvas, so the
+ *  canvas stays put in the container while its contents are drawn in
+ *  container coordinates. The heatmap's and the annotation labels' canvases
+ *  both ride inside mapPane (directly or via a child pane) and need this
+ *  on every paint. */
+const cancelMapPaneTranslate = (canvas: HTMLCanvasElement, map: L.Map): void => {
+  const mapPane = map.getPanes().mapPane;
+  if (!mapPane) return;
+  const pos = L.DomUtil.getPosition(mapPane);
+  canvas.style.left = `${-pos.x}px`;
+  canvas.style.top = `${-pos.y}px`;
+};
+
 /**
  * Build the popup body for a location marker. Coordinates are pinned to the
  * shared readout precision, so a popup never echoes the raw stored value — a
@@ -203,78 +204,6 @@ const buildPopupEl = (
     addrLabelText,
     ...addrNodes,
   );
-};
-
-/**
- * Create a location marker with a popup and add it to the map.
- */
-const createLocationMarker = (
-  map: L.Map,
-  lng: number,
-  lat: number,
-  addr: string | null,
-  titleText: string,
-  loadingText: string,
-  locLabelText: string,
-  addrLabelText: string,
-  closeLabelText: string,
-  code?: string,
-  existing?: L.Marker | null,
-  layerGroup?: L.LayerGroup | L.Map,
-  onAddress?: (addr: string) => void,
-  openPopup = true,
-): L.Marker => {
-  if (existing) map.removeLayer(existing);
-  const target = (layerGroup ?? map) as L.Map | L.LayerGroup;
-  const marker = L.marker([lat, lng], {
-    icon: L.divIcon({
-      className: "",
-      html: SVGs.PIN_ICON,
-      iconSize: PIN.SIZE,
-      iconAnchor: PIN.ANCHOR,
-      popupAnchor: PIN.POPUP_ANCHOR,
-    }),
-    zIndexOffset: PIN.Z_OFFSET,
-  });
-  target.addLayer(marker);
-  marker.bindPopup(
-    buildPopupEl(lng, lat, addr, titleText, loadingText, locLabelText, addrLabelText),
-    { maxWidth: POPUP_MAX_WIDTH },
-  );
-  if (openPopup) marker.openPopup();
-  // Add title to Leaflet's popup close button for hover tooltip.
-  const popupEl = marker.getPopup();
-  if (popupEl) {
-    const closeBtn = (popupEl as L.Popup & { _closeButton?: HTMLAnchorElement })
-      ._closeButton;
-    if (closeBtn) closeBtn.title = closeLabelText || "";
-  }
-  if (!addr) {
-    // Lazy access to the runtime singleton geocoder (kept out of this bundle).
-    const foliplus = window.foliplus;
-    if (foliplus?.reverseGeocode) {
-      void foliplus
-        .reverseGeocode(map, lng, lat, code)
-        .then((resolved: string) => {
-          if (onAddress) onAddress(resolved);
-          if (marker && marker.getPopup && marker.getPopup()?.isOpen()) {
-            marker.setPopupContent(
-              buildPopupEl(
-                lng,
-                lat,
-                resolved,
-                titleText,
-                loadingText,
-                locLabelText,
-                addrLabelText,
-              ),
-            );
-          }
-        })
-        .catch(() => undefined);
-    }
-  }
-  return marker;
 };
 
 /**
@@ -395,9 +324,9 @@ const createInlineEditInput = (opts: {
 
 export {
   buildPopupEl,
+  cancelMapPaneTranslate,
   createIconButton,
   createInlineEditInput,
-  createLocationMarker,
   dom,
   removeInlineEditInput,
   stopEvent,

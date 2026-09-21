@@ -6,7 +6,7 @@ import * as SVGs from "../icon.js";
 import { isFocusLayerDisabled } from "./focus.js";
 import type { LayerUI } from "./index.js";
 import { finishRename } from "./rename.js";
-import { layerHasLabelFields } from "./style.js";
+import { layerHasLabelFields, layerHasStyleDelegation } from "./style.js";
 
 /**
  * Open the "more" overflow dropdown for a given layer row.
@@ -62,7 +62,18 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   // current implementation only ships the "labels" dimension, but the same
   // entry will host future style dimensions (color, opacity, …). Disable it
   // exactly like focus-layer when there is nothing to configure.
-  const styleDisabled = focusDisabled || !layerHasLabelFields(ui, layerId);
+  //
+  // R5: capability-driven gate. A layer whose surface reports opacity and
+  // zoomRange as "none" (e.g. MarkerCluster) cannot be styled for those
+  // dimensions, so the panel is disabled unless it still has label fields or
+  // style delegation to configure.
+  const layerInfo = ui.m.layerRegistry.get(layerId);
+  const caps = layerInfo ? ui.m.surfaceFor(layerInfo).capabilities : null;
+  const canConfigure =
+    (caps && (caps.opacity !== "none" || caps.zoomRange !== "none")) ||
+    layerHasLabelFields(ui, layerId) ||
+    layerHasStyleDelegation(ui, layerId);
+  const styleDisabled = focusDisabled || !canConfigure;
 
   menu.appendChild(
     dom.el(
@@ -142,8 +153,12 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
 const closeMoreMenu = (ui: LayerUI, setFocus: boolean) => {
   if (!ui.activeMenu) return;
   const item = ui.activeMenu.item;
-  ui.activeMenu.menu.remove();
+  const menu = ui.activeMenu.menu;
+  // Clear the pointer before removing: the removal can trigger the menu's own
+  // focusout, which calls closeMoreMenu again — that re-entrant pass must see
+  // null, not call remove() on a detached menu (NotFoundError).
   ui.activeMenu = null;
+  menu.remove();
   if (setFocus) item.focus();
 };
 

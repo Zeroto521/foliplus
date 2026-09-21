@@ -1,4 +1,5 @@
 // ExportControl mixed-mode renderer — orchestrates independent rendering passes.
+import { layerUrl } from "#core/leafletAdapter.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { createLogger } from "#common/log.js";
 import * as CONST from "./const.js";
@@ -88,9 +89,9 @@ class ExportRenderer {
     const opts = tileLayer.options as L.TileLayerOptions;
     const tileSize = typeof opts.tileSize === "number" ? opts.tileSize : 256;
     const subdomains = opts.subdomains || "abc";
-    // Leaflet stores the tile URL template in the private _url — there is no
-    // public accessor; the TileLayer augmentation declares it.
-    const urlTemplate = tileLayer._url || "";
+    // Leaflet keeps the tile URL template off its public interface; the adapter
+    // probe is the one route to it.
+    const urlTemplate = layerUrl(tileLayer) || "";
 
     // Get bounds in EPSG:3857
     const nw = crs.latLngToPoint(L.latLng(bounds.nw.lat, bounds.nw.lng), zoom);
@@ -235,27 +236,49 @@ class ExportRenderer {
       // does the same filtering as the draw pass) and counted, and its own
       // total is reported against the running cross-layer sum.
       if (geoBounds && geoBounds.nw) {
+        // A solid-color basemap hides tilePane by class instead of unchecking
+        // the tile layers, so every `li.visible` is still true and the tile
+        // URLs would still be fetched — the tiles repaint over the colour the
+        // user just picked.  Read the pane's computed state rather than the
+        // class: it is what the screen actually shows, and it does not bind to
+        // whichever rule produced the hiding.  Skipping here leaves sizedTiles
+        // empty, so the progress denominator correctly reports no tiles.
+        const tilePane = this.map.getPane("tilePane");
+        const tilePaneVisible =
+          !tilePane || window.getComputedStyle(tilePane).visibility !== "hidden";
+
         // Size every tile layer up front: the sum is the progress denominator
         // and the surviving entries are the layers that get drawn, so the
         // numerator and denominator describe the same set of tiles.
         const zoom = this.map.getZoom();
-        const sizedTiles: Array<{ tiles: TileDesc[]; count: number }> = [];
+        const sizedTiles: Array<{
+          tiles: TileDesc[];
+          count: number;
+          layer: L.TileLayer;
+        }> = [];
         for (const li of layers) {
-          if (!li.visible || !(li.layer instanceof L.TileLayer) || !li.layer._url) {
+          if (
+            !tilePaneVisible ||
+            !li.visible ||
+            !(li.layer instanceof L.TileLayer) ||
+            !layerUrl(li.layer)
+          ) {
             continue;
           }
           const tiles = this.tilePositions(
             rc,
             this.calcTiles(li.layer, geoBounds, zoom, scale),
           );
-          if (tiles.length > 0) sizedTiles.push({ tiles, count: tiles.length });
+          if (tiles.length > 0) {
+            sizedTiles.push({ tiles, count: tiles.length, layer: li.layer });
+          }
         }
         const grandTotal = sizedTiles.reduce((sum, li) => sum + li.count, 0);
 
         if (grandTotal > 0) {
           let tilesDone = 0;
-          for (const { tiles } of sizedTiles) {
-            await this.renderTileLayer(rc, tiles, handled => {
+          for (const { tiles, layer } of sizedTiles) {
+            await this.renderTileLayer(rc, tiles, layer, handled => {
               tilesDone += handled;
               rc.onProgress?.(
                 ExportRenderer.mapPhase(
@@ -281,7 +304,7 @@ class ExportRenderer {
         li =>
           li.visible &&
           (li.canvas ||
-            (li.layer && !(li.layer instanceof L.TileLayer && li.layer._url))),
+            (li.layer && !(li.layer instanceof L.TileLayer && layerUrl(li.layer)))),
       );
       let done = 0;
       for (let i = passable.length - 1; i >= 0; i--) {
@@ -301,6 +324,16 @@ class ExportRenderer {
             await this.renderPaneCanvas(rc, pane);
           }
 
+          // The layer's annotation labels sit one z-step above its content, in
+          // a pane the content walk never visits (created with map.createPane).
+          // Drawing them here — right after this layer, before the next layer
+          // up — keeps the export's stack order identical to the map's: a layer
+          // above covers this layer's labels.
+          const labelPane = this.map.getPane(CONST.ANNOTATION_PANE_PREFIX + li.id);
+          if (labelPane) {
+            await this.renderPaneCanvas(rc, labelPane, CONST.SEL.ANNOTATION_CANVAS);
+          }
+
           // Markers and divIcons in this layer
           const markerRoots = this.collectLayerMarkers(li.layer);
           if (markerRoots.length) {
@@ -317,15 +350,34 @@ class ExportRenderer {
       }
     }
 
-    // Canvas overlays in a shared pane — LayerControl's annotation pane holds
-    // every layer's labels — belong to no single layer, so the walk above never
-    // reaches them. Render them last, matching their top-of-the-stack z.
-    const container = this.map.getContainer();
-    if (container.querySelector(CONST.SEL.ANNOTATION_CANVAS)) {
-      await this.renderPaneCanvas(rc, container, CONST.SEL.ANNOTATION_CANVAS);
-    }
-
     return canvas;
+  }
+
+  /** Accumulate CSS opacity up the ancestor chain — `opacity` does not inherit,
+   *  so a pane's 0.4 must be multiplied with each child's own 0.5 to reach the
+   *  composited 0.2. Stops at the map container (its own opacity is 1 by
+   *  definition; anything above is page chrome, not layer content). */
+  private effectiveOpacity(el: HTMLElement): number {
+    let alpha = 1;
+    const cont = this.map.getContainer();
+    for (let n: HTMLElement | null = el; n && n !== cont; n = n.parentElement) {
+      const v = window.getComputedStyle(n).opacity;
+      if (v && v !== "1" && v !== "") {
+        alpha *= parseFloat(v);
+      }
+    }
+    return Math.max(0, Math.min(1, alpha));
+  }
+
+  /** Apply a drawing operation under a given alpha, restoring the previous value. */
+  private withAlpha(ctx: CanvasRenderingContext2D, alpha: number, draw: () => void) {
+    const prev = ctx.globalAlpha;
+    ctx.globalAlpha = alpha;
+    try {
+      draw();
+    } finally {
+      ctx.globalAlpha = prev;
+    }
   }
 
   /** Render a standalone canvas element (e.g. HeatmapControl). */
@@ -346,7 +398,9 @@ class ExportRenderer {
     let img: HTMLImageElement | null = null;
     try {
       img = (await loadImage(dataUrl)) as HTMLImageElement;
-      ctx.drawImage(img, dx, dy, dw, dh);
+      this.withAlpha(ctx, this.effectiveOpacity(ce), () => {
+        ctx.drawImage(img!, dx, dy, dw, dh);
+      });
     } catch {
       /* skip */
     }
@@ -379,10 +433,6 @@ class ExportRenderer {
       const dw = tile.size * scale;
       const dh = tile.size * scale;
       if (!isVisible(dx, dy, dw, dh, cw, ch)) continue;
-      if (tileVpX + tile.size < rect.left || tileVpY + tile.size < rect.top) continue;
-      if (tileVpX > rect.left + rect.width || tileVpY > rect.top + rect.height) {
-        continue;
-      }
       visibleTiles.push({ ...tile, dx, dy, dw, dh });
     }
     return visibleTiles;
@@ -397,44 +447,57 @@ class ExportRenderer {
   async renderTileLayer(
     rc: RenderCtx,
     visibleTiles: TileDesc[],
+    layer: L.TileLayer,
     onProgress?: (tilesDrawn: number) => void,
   ) {
     const ctx = rc.ctx;
     if (visibleTiles.length === 0) return;
 
-    let drawn = 0;
-    // Load and draw tiles in concurrent batches to avoid overwhelming the
-    // browser connection limit (~6 per domain) while still parallelizing.
-    const concurrency = CONST.TILE_CONCURRENCY;
-    for (let i = 0; i < visibleTiles.length; i += concurrency) {
-      const batch = visibleTiles.slice(i, i + concurrency);
-      const bitmaps = await Promise.all(
-        batch.map(t => loadImageBitmap(t.url).catch(() => null)),
-      );
+    // Native carrier (§20 ③): GridLayer's `options.opacity` is not captured by
+    // `toDataURL` — it lives on the element's style, applied at compositing time.
+    // Reading the base from `nativeBase` would require a second WeakMap; instead
+    // read the effective value directly. The LayerControl slider stores the
+    // multiplier in `layerInfo.opacity`; the absolute value is what `options.opacity`
+    // holds, so this is already the composed result.
+    const alpha = typeof layer.options.opacity === "number" ? layer.options.opacity : 1;
+    ctx.globalAlpha = alpha;
+    try {
+      let drawn = 0;
+      // Load and draw tiles in concurrent batches to avoid overwhelming the
+      // browser connection limit (~6 per domain) while still parallelizing.
+      const concurrency = CONST.TILE_CONCURRENCY;
+      for (let i = 0; i < visibleTiles.length; i += concurrency) {
+        const batch = visibleTiles.slice(i, i + concurrency);
+        const bitmaps = await Promise.all(
+          batch.map(t => loadImageBitmap(t.url).catch(() => null)),
+        );
 
-      for (let j = 0; j < batch.length; j++) {
-        const bitmap = bitmaps[j];
-        if (!bitmap) continue;
-        const t = batch[j];
-        try {
-          ctx.drawImage(bitmap, t.dx!, t.dy!, t.dw!, t.dh!);
-          drawn++;
-        } catch {
-          /* skip tile on draw error */
-        } finally {
-          // Bitmap is drawn once and never needed again; close to free GPU memory.
+        for (let j = 0; j < batch.length; j++) {
+          const bitmap = bitmaps[j];
+          if (!bitmap) continue;
+          const t = batch[j];
           try {
-            bitmap.close();
+            ctx.drawImage(bitmap, t.dx!, t.dy!, t.dw!, t.dh!);
+            drawn++;
           } catch {
-            /* already closed */
+            /* skip tile on draw error */
+          } finally {
+            // Bitmap is drawn once and never needed again; close to free GPU memory.
+            try {
+              bitmap.close();
+            } catch {
+              /* already closed */
+            }
           }
         }
-      }
 
-      // Report the tiles painted this batch so the caller can accumulate a
-      // share of the whole export instead of re-basing per layer.  Counting
-      // the batch position would credit tiles whose download failed.
-      if (onProgress) onProgress(drawn);
+        // Report the tiles painted this batch so the caller can accumulate a
+        // share of the whole export instead of re-basing per layer.  Counting
+        // the batch position would credit tiles whose download failed.
+        if (onProgress) onProgress(drawn);
+      }
+    } finally {
+      ctx.globalAlpha = 1;
     }
   }
 
@@ -468,26 +531,74 @@ class ExportRenderer {
       const svgT = svgRect.top - contRect.top;
       if (svgRect.width < 1 || svgRect.height < 1) continue;
 
-      const clone = svgEl.cloneNode(true) as SVGElement;
-      clone.removeAttribute("style");
-      clone.setAttribute("width", String(svgRect.width));
-      clone.setAttribute("height", String(svgRect.height));
+      // A pane's own `visibility` is a transient view state — focus hides every
+      // non-focused pane with one CSS rule — and the export has to ignore it, or
+      // a focused export silently drops every vector.  A child's own
+      // `visibility` is content and must be honoured.  The trouble is that
+      // `visibility` inherits, so a computed read returns the ancestor
+      // contribution dressed up as the child's own.  Flipping the pane's inline
+      // value neutralises just that: inline style beats focus.css's author
+      // rule, while a child's own value lives on the child and survives.
+      // `visibility` does not affect layout, so this is no reflow.
+      //
+      // The flip has to close before the first `await`.  Everything above is
+      // synchronous — getComputedStyle, cloneNode, the prop write, XMLSerializer
+      // — and the loads below are network-bound, so restoring here gives the
+      // browser no paint opportunity in between.  Saving the flip for the end
+      // of render() would leave every layer un-hidden for the whole tile
+      // download.
+      const savedVisibility = pane.style.visibility;
+      pane.style.visibility = "visible";
+      let src = "";
+      try {
+        const clone = svgEl.cloneNode(true) as SVGElement;
+        clone.removeAttribute("style");
+        clone.setAttribute("width", String(svgRect.width));
+        clone.setAttribute("height", String(svgRect.height));
 
-      const allEls = clone.querySelectorAll("*");
-      const originals = svgEl.querySelectorAll("*");
-      for (let i = 0; i < allEls.length && i < originals.length; i++) {
-        const cs = window.getComputedStyle(originals[i]);
-        const inline = allEls[i] as HTMLElement;
-        for (const p of props) {
-          const v = cs.getPropertyValue(p);
-          if (!v || v === "none") continue;
-          if (p === "fill" && v === "rgb(0, 0, 0)") continue;
-          if (p === "stroke" && v === "none") continue;
-          inline.style.setProperty(p, v);
+        const allEls = clone.querySelectorAll("*");
+        const originals = svgEl.querySelectorAll("*");
+
+        // Three exclusion mechanisms operate at different stages:
+        // 1. data-foliplus-export="exclude" / .foliplus-no-export — declarative,
+        //    checked below via SKIP_EXPORT (line 589) after all props are set.
+        // 2. computed display:"none" — derived from the live DOM's computed
+        //    style, checked per-element in this loop (line 570). The <img>
+        //    pipeline ignores inline display, so removal is the only reliable
+        //    exclusion. Kept separate from SKIP_EXPORT: different data source
+        //    (getComputedStyle vs querySelectorAll) and different semantics
+        //    (layout-driven hiding vs explicit opt-out).
+        for (let i = 0; i < allEls.length && i < originals.length; i++) {
+          const cs = window.getComputedStyle(originals[i]);
+          // An element whose own computed display is "none" must not appear in
+          // the export — the pipeline serialises to an <img>, which ignores
+          // inline display, so the only reliable exclusion is removal.
+          if (cs.getPropertyValue("display") === "none") {
+            (allEls[i] as Element).remove();
+            continue;
+          }
+          const inline = allEls[i] as HTMLElement;
+          for (const p of props) {
+            const v = cs.getPropertyValue(p);
+            if (!v) continue;
+            // fill: none and stroke: none mean "unpainted", and the standalone
+            // clone carries no stylesheet to express that — skipping them
+            // leaves the default black fill, so those skips stay.
+            if (v === "none") continue;
+            if (p === "fill" && v === "rgb(0, 0, 0)") continue;
+            inline.style.setProperty(p, v);
+          }
         }
+
+        // Content a component opted out of — prune the clone, never the live
+        // DOM, since the map still needs the preview while drawing continues.
+        clone.querySelectorAll(CONST.SEL.SKIP_EXPORT).forEach(n => n.remove());
+
+        src = new XMLSerializer().serializeToString(clone);
+      } finally {
+        pane.style.visibility = savedVisibility;
       }
 
-      let src = new XMLSerializer().serializeToString(clone);
       if (!src.includes(`xmlns="${CONST.SVG_NS}"`)) {
         src = src.replace("<svg", `<svg xmlns="${CONST.SVG_NS}"`);
       }
@@ -497,32 +608,34 @@ class ExportRenderer {
       const url = URL.createObjectURL(blob);
       try {
         const svgImg = await loadImage(url);
-        ctx.drawImage(
-          svgImg as HTMLImageElement,
-          rect.left - svgL,
-          rect.top - svgT,
-          rect.width,
-          rect.height,
-          0,
-          0,
-          sw,
-          sh,
-        );
+        this.withAlpha(ctx, this.effectiveOpacity(pane), () => {
+          ctx.drawImage(
+            svgImg as HTMLImageElement,
+            rect.left - svgL,
+            rect.top - svgT,
+            rect.width,
+            rect.height,
+            0,
+            0,
+            sw,
+            sh,
+          );
+        });
       } finally {
         URL.revokeObjectURL(url);
       }
     }
   }
 
-  /** Render the canvas elements within `root` — a layer's own pane, or the map
-   *  container for a canvas that lives in a shared pane of its own. */
+  /** Render canvas elements from a pane — or the container, for canvases that
+   *  live in a pane the per-layer walk never visits (annotation labels). */
   async renderPaneCanvas(
     rc: RenderCtx,
-    root: HTMLElement,
+    pane: HTMLElement,
     selector: string = CONST.SEL.CANVAS,
   ) {
     const { ctx, rect, scale, contRect, cw, ch } = rc;
-    for (const ce of root.querySelectorAll(selector)) {
+    for (const ce of pane.querySelectorAll(selector)) {
       try {
         const r = ce.getBoundingClientRect();
         const l = r.left - contRect.left;
@@ -539,14 +652,11 @@ class ExportRenderer {
         let img: HTMLImageElement | null = null;
         try {
           img = (await loadImage(dataUrl)) as HTMLImageElement;
-          ctx.drawImage(img, dx, dy, dw, dh);
+          this.withAlpha(ctx, this.effectiveOpacity(ce as HTMLElement), () => {
+            ctx.drawImage(img!, dx, dy, dw, dh);
+          });
         } catch {
           /* skip */
-        } finally {
-          if (img) {
-            // Data-URL images have no explicit close; detaching handlers
-            // (done inside loadImage) allows the Image to be GC'd.
-          }
         }
       } catch {
         /* skip */
@@ -569,7 +679,8 @@ class ExportRenderer {
           el.tagName === "CANVAS" ||
           el.tagName === "SVG" ||
           el.matches(CONST.SEL.SKIP_EXPORT) ||
-          el.querySelector(CONST.SEL.SKIP_EXPORT)
+          el.querySelector(CONST.SEL.SKIP_EXPORT) ||
+          window.getComputedStyle(el).display === "none"
         ) {
           continue;
         }
@@ -663,11 +774,13 @@ class ExportRenderer {
         const sw = w * ratioX;
         const sh = h * ratioY;
         if (sx + sw > sprite.width || sy + sh > sprite.height) continue;
-        try {
-          ctx.drawImage(sprite, sx, sy, sw, sh, dx, dy, dw, dh);
-        } catch {
-          /* skip */
-        }
+        this.withAlpha(ctx, this.effectiveOpacity(el), () => {
+          try {
+            ctx.drawImage(sprite, sx, sy, sw, sh, dx, dy, dw, dh);
+          } catch {
+            /* skip */
+          }
+        });
       }
     } finally {
       // All sprites have been drawn (or aborted); release their bitmaps.
@@ -737,13 +850,15 @@ class ExportRenderer {
       fontSize *= scale;
       const fontSpec = `${fontWeight} ${fontSize}px ${fontFamily}`;
       await ensureFont(fontSpec);
-      ctx.save();
-      ctx.font = fontSpec;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillStyle = color;
-      ctx.fillText(iconText, iconDX + iconDW / 2, iconDY + iconDH / 2);
-      ctx.restore();
+      this.withAlpha(ctx, this.effectiveOpacity(root), () => {
+        ctx.save();
+        ctx.font = fontSpec;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = color;
+        ctx.fillText(iconText, iconDX + iconDW / 2, iconDY + iconDH / 2);
+        ctx.restore();
+      });
     }
   }
 
@@ -752,7 +867,7 @@ class ExportRenderer {
     const { ctx, rect, scale, contRect, cw, ch } = rc;
 
     for (const root of markerRoots) {
-      const textEl = root.querySelector(CONST.SEL.LABEL) || root;
+      const textEl = (root.querySelector(CONST.SEL.LABEL) || root) as HTMLElement;
       const text = textEl.textContent || "";
       if (!text.trim()) continue;
       if (root.querySelector("i")) continue;
@@ -776,32 +891,35 @@ class ExportRenderer {
       const dh = h * scale;
       if (!isVisible(dx, dy, dw, dh, cw, ch)) continue;
 
+      const textAlpha = this.effectiveOpacity(textEl);
       // Draw background from textEl's computed style.
       // backdrop-filter: blur() is a browser-only visual effect that cannot
       // be replicated on canvas.  Use the specified color as-is so the
       // export is deterministic and faithful to the CSS value.
       const bg = textCS.backgroundColor;
       if (bg && bg !== "transparent" && bg !== "rgba(0, 0, 0, 0)") {
-        ctx.save();
-        ctx.fillStyle = bg;
-        const br = parseFloat(textCS.borderRadius) || 0;
-        if (br > 0) {
-          ctx.beginPath();
-          ctx.roundRect(dx, dy, dw, dh, br * scale);
-          ctx.fill();
-        } else ctx.fillRect(dx, dy, dw, dh);
-
-        const bw = parseFloat(textCS.borderWidth) || 0;
-        if (bw > 0 && textCS.borderStyle !== "none") {
-          ctx.strokeStyle = textCS.borderColor || bg;
-          ctx.lineWidth = bw * scale;
+        this.withAlpha(ctx, textAlpha, () => {
+          ctx.save();
+          ctx.fillStyle = bg;
+          const br = parseFloat(textCS.borderRadius) || 0;
           if (br > 0) {
             ctx.beginPath();
             ctx.roundRect(dx, dy, dw, dh, br * scale);
-            ctx.stroke();
-          } else ctx.strokeRect(dx, dy, dw, dh);
-        }
-        ctx.restore();
+            ctx.fill();
+          } else ctx.fillRect(dx, dy, dw, dh);
+
+          const bw = parseFloat(textCS.borderWidth) || 0;
+          if (bw > 0 && textCS.borderStyle !== "none") {
+            ctx.strokeStyle = textCS.borderColor || bg;
+            ctx.lineWidth = bw * scale;
+            if (br > 0) {
+              ctx.beginPath();
+              ctx.roundRect(dx, dy, dw, dh, br * scale);
+              ctx.stroke();
+            } else ctx.strokeRect(dx, dy, dw, dh);
+          }
+          ctx.restore();
+        });
       }
 
       let fontSize = parseFloat(textCS.fontSize) || 14;
@@ -813,21 +931,22 @@ class ExportRenderer {
       fontSize *= scale;
       const fontSpec = `${fontWeight} ${fontSize}px ${fontFamily}`;
       await ensureFont(fontSpec);
-      ctx.save();
-      ctx.font = fontSpec;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillStyle = color;
-      const cx = dx + dw / 2;
-      const cy = dy + dh / 2;
-      const lines = text.trim().split("\n");
-      const lineHeight = fontSize * 1.2;
-      const startY = cy - ((lines.length - 1) * lineHeight) / 2;
-      for (let i = 0; i < lines.length; i++) {
-        ctx.fillText(lines[i].trim(), cx, startY + i * lineHeight);
-      }
-
-      ctx.restore();
+      this.withAlpha(ctx, textAlpha, () => {
+        ctx.save();
+        ctx.font = fontSpec;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = color;
+        const cx = dx + dw / 2;
+        const cy = dy + dh / 2;
+        const lines = text.trim().split("\n");
+        const lineHeight = fontSize * 1.2;
+        const startY = cy - ((lines.length - 1) * lineHeight) / 2;
+        for (let i = 0; i < lines.length; i++) {
+          ctx.fillText(lines[i].trim(), cx, startY + i * lineHeight);
+        }
+        ctx.restore();
+      });
     }
   }
 
@@ -849,23 +968,28 @@ class ExportRenderer {
       const dh = h * scale;
       if (!isVisible(dx, dy, dw, dh, cw, ch)) continue;
 
+      const rootAlpha = this.effectiveOpacity(root);
+
       // 1. <img> elements (default Leaflet markers)
       const imgEl =
         root.tagName === "IMG" ? (root as HTMLImageElement) : root.querySelector("img");
       if (imgEl && imgEl.src) {
         let img: HTMLImageElement | null = null;
+        let drawn = false;
         try {
           img = (await loadImage(imgEl.src, "anonymous")) as HTMLImageElement;
-          ctx.drawImage(img, dx, dy, dw, dh);
-          continue;
+          drawn = true;
         } catch {
           /* fall through */
         } finally {
           if (img) {
-            // Image loaded from a regular URL; event handlers detached inside
-            // loadImage() so the Image element can be GC'd.
+            this.withAlpha(ctx, rootAlpha, () => {
+              ctx.drawImage(img!, dx, dy, dw, dh);
+            });
+            drawn = true;
           }
         }
+        if (drawn) continue;
       }
 
       // 2. Elements with inline SVG (divIcon with html: '<svg>...</svg>')
@@ -892,7 +1016,9 @@ class ExportRenderer {
           const url = URL.createObjectURL(blob);
           try {
             const img = (await loadImage(url)) as HTMLImageElement;
-            ctx.drawImage(img, dx, dy, dw, dh);
+            this.withAlpha(ctx, rootAlpha, () => {
+              ctx.drawImage(img, dx, dy, dw, dh);
+            });
           } finally {
             URL.revokeObjectURL(url);
           }
@@ -911,26 +1037,28 @@ class ExportRenderer {
       const hasBgColor =
         bgColor && bgColor !== "transparent" && bgColor !== "rgba(0, 0, 0, 0)";
       if (hasBgColor && !hasSprite && !root.querySelector(CONST.SEL.LABEL)) {
-        ctx.save();
-        ctx.fillStyle = bgColor;
-        const br = parseFloat(rootCS.borderRadius) || 0;
-        if (br > 0) {
-          ctx.beginPath();
-          ctx.roundRect(dx, dy, dw, dh, br * scale);
-          ctx.fill();
-        } else ctx.fillRect(dx, dy, dw, dh);
-
-        const bw = parseFloat(rootCS.borderWidth) || 0;
-        if (bw > 0 && rootCS.borderStyle !== "none" && rootCS.borderColor) {
-          ctx.strokeStyle = rootCS.borderColor;
-          ctx.lineWidth = bw * scale;
+        this.withAlpha(ctx, rootAlpha, () => {
+          ctx.save();
+          ctx.fillStyle = bgColor;
+          const br = parseFloat(rootCS.borderRadius) || 0;
           if (br > 0) {
             ctx.beginPath();
             ctx.roundRect(dx, dy, dw, dh, br * scale);
-            ctx.stroke();
-          } else ctx.strokeRect(dx, dy, dw, dh);
-        }
-        ctx.restore();
+            ctx.fill();
+          } else ctx.fillRect(dx, dy, dw, dh);
+
+          const bw = parseFloat(rootCS.borderWidth) || 0;
+          if (bw > 0 && rootCS.borderStyle !== "none" && rootCS.borderColor) {
+            ctx.strokeStyle = rootCS.borderColor;
+            ctx.lineWidth = bw * scale;
+            if (br > 0) {
+              ctx.beginPath();
+              ctx.roundRect(dx, dy, dw, dh, br * scale);
+              ctx.stroke();
+            } else ctx.strokeRect(dx, dy, dw, dh);
+          }
+          ctx.restore();
+        });
       }
     }
   }

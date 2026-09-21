@@ -6,9 +6,15 @@
 //
 // KEY OPTIMIZATION: Auto-scan component source for shared-module imports,
 // then generate shims ONLY for the actually-imported names. Unused exports
-// are never declared, so they cannot appear in the bundle.
-import { existsSync, readFileSync, readdirSync } from "fs";
-import { dirname, join, resolve } from "path";
+// are never declared, so they cannot appear in the bundle. The scan itself
+// lives in script/import-scan.mjs — the same engine
+// script/scan-registry.mjs uses, so publishing and reading cannot drift.
+import { existsSync, readFileSync } from "fs";
+import { dirname, resolve } from "path";
+import {
+  collectSources,
+  scanSharedImports as scanSharedImportsEngine,
+} from "./import-scan.mjs";
 
 const DECL_RE =
   /export\s+(?:const|let|var|function|class|async\s+function)\s+([A-Za-z_$][\w$]*)/g;
@@ -16,7 +22,9 @@ const NAMED_RE = /export\s*\{([^}]+)\}/g;
 const STAR_RE = /export\s*\*\s*from\s*["']([^"']+)["']/g;
 const RE_EXPORT_RE = /export\s*\{([^}]+)\}\s*from\s*["']([^"']+)["']/g;
 
-/** Parse a comma-separated export list, returning exported names (respects as). */
+/** Parse a comma-separated export list, returning exported names (respects as).
+ *  `type` is a modifier (`type A`), never a prefix — `export { typeFoo }` is
+ *  a real identifier and survives. */
 const exportNames = list =>
   list
     .split(",")
@@ -25,11 +33,7 @@ const exportNames = list =>
       const m = trimmed.match(/^(.+?)\s+as\s+(.+)$/);
       return m ? m[2].trim() : trimmed;
     })
-    .filter(n => n && !n.startsWith("type"));
-
-// Matches: import { A, B } from "#core/x.js"  |  import * as X from "#common/y.js"
-const SHARED_IMPORT_RE =
-  /import\s+(?:\{([^}]+)\}|\*\s+as\s+(\w+))\s+from\s+["']#((?:core|common|foliplus)\/[^"']+)["']/g;
+    .filter(n => n && !/^type\s/.test(n));
 
 const exportCache = new Map();
 
@@ -57,88 +61,58 @@ const collectExports = (filePath, seen = new Set(), depth = 0) => {
   return result;
 };
 
+/** Map a shared-module specifier to the global namespace holding its exports:
+ *  foliplus.BaseControl / foliplus.hint / foliplus.core.<mod> /
+ *  foliplus.common.<mod>. The shim generated below reads exactly this string,
+ *  so a wrong value makes the import resolve to `undefined` at runtime while
+ *  the build still prints a tick for it.
+ *
+ *  Two specifiers are exceptions, and they are the two things
+ *  runtime/index.ts publishes directly on `window.foliplus` rather than under
+ *  `.core` — `BaseControl` and `hint`, in the `Object.assign(window.foliplus,
+ *  …)` block. `hint` is the only core-root file this affects: nothing in the
+ *  tree publishes or reads `foliplus.core.hint`, so letting it fall through to
+ *  the general rule would ship a shim that reads an empty namespace.
+ *
+ *  `component` and `mode` are NOT exceptions. runtime publishes them under
+ *  `foliplus.core` (the `foliplus.core.component = …` lines) and the general
+ *  rule returns byte-for-byte what their former manual entries did, which is
+ *  why those entries were deleted. Appearing in SKIPPED_CORE_FILES
+ *  (script/scan-registry.mjs) only means the generated registry does not
+ *  publish them; that is a registration decision and says nothing about the
+ *  namespace a shim must read.
+ */
 const sharedGlobalNamespace = spec => {
   if (spec === "#foliplus/BaseControl.js") return "foliplus.BaseControl";
+  if (spec === "#core/hint.js") return "foliplus.hint";
+  // core subdomain barrel: #core/<sub>/* → foliplus.core.<sub> (layer today,
+  // future events/modes). Core-root single files are handled below.
+  const coreSub = spec.match(/^#core\/([^/]+)\//);
+  if (coreSub) return "foliplus.core." + coreSub[1];
   // Every core-root single file needs its own entry: the #common fallback below
   // would build "foliplus.common.#core/<name>", whose shim declaration is not
   // valid JS. A missing entry therefore breaks whichever component imports the
   // file, and build.mjs still prints a tick for it — the artifact just stays
   // stale. test/js/script/global-namespace-plugin.test.ts walks the directory
-  // and fails on any entry that does not parse.
-  if (spec === "#core/hint.js") return "foliplus.hint";
-  if (spec === "#core/component.js") return "foliplus.core.component";
-  if (spec === "#core/index.js") return "foliplus.core.index";
-  if (spec === "#core/interaction.js") return "foliplus.core.interaction";
-  if (spec === "#core/labelCollision.js") return "foliplus.core.labelCollision";
-  if (spec === "#core/labelField.js") return "foliplus.core.labelField";
-  if (spec === "#core/listCursor.js") return "foliplus.core.listCursor";
-  if (spec === "#core/mapApi.js") return "foliplus.core.mapApi";
-  if (spec === "#core/mode.js") return "foliplus.core.mode";
-  if (spec === "#core/controlEnv.js") return "foliplus.core.controlEnv";
-  // core subdomain barrel: #core/<sub>/* → foliplus.core.<sub> (layer today,
-  // future events/modes). Core-root single files are handled above.
-  const coreSub = spec.match(/^#core\/([^/]+)\//);
-  if (coreSub) return "foliplus.core." + coreSub[1];
+  // and fails on any entry that does not parse. `index` is carved out:
+  // #core/index.js is a barrel nothing imports, and mapping it to
+  // foliplus.core.index would resurrect dead code from the deleted
+  // core/index.ts barrel.
+  const coreSingle = spec.match(/^#core\/([^/]+?)(?:\.js)?$/);
+  if (coreSingle && coreSingle[1] !== "index") {
+    return "foliplus.core." + coreSingle[1];
+  }
   const mod = spec.replace(/^#common\//, "").replace(/\.js$/, "");
   return "foliplus.common." + mod;
 };
 
-/** Recursively collect all .ts/.js sources under a directory. */
-const collectSources = (dir, out = []) => {
-  try {
-    const entries = readdirSync(dir);
-    for (const entry of entries) {
-      const fullPath = join(dir, entry);
-      if (entry.endsWith(".d.ts")) continue;
-      if (entry.endsWith(".ts") || entry.endsWith(".js")) {
-        out.push(readFileSync(fullPath, "utf-8"));
-      } else if (!entry.startsWith(".")) {
-        collectSources(fullPath, out);
-      }
-    }
-  } catch {
-    // skip unreadable dirs
-  }
-  return out;
-};
-
-/** Analyze component sources for shared-module imports and their usage.
-    Returns { used: Map<spec, Set<names>>, starUsed: Map<spec, Set<names>> }. */
+/** Engine-backed scan, in the shape this plugin has always consumed:
+ *  `{ used, starUsed }` keyed by the RAW specifier, because `onLoad` receives
+ *  exactly what esbuild resolved. `collectSources` is re-exported verbatim
+ *  from script/import-scan.mjs. */
 const scanSharedImports = dir => {
-  const sources = collectSources(dir);
-  const used = new Map();
-  const starAliases = new Map(); // local alias -> spec
-  for (const src of sources) {
-    let m;
-    while ((m = SHARED_IMPORT_RE.exec(src))) {
-      const spec = "#" + m[3];
-      if (m[2]) {
-        starAliases.set(m[2], spec);
-      } else {
-        const names = (m[1] || "")
-          .split(",")
-          .map(x => x.split(" as ")[0].trim())
-          .filter(n => n && !n.startsWith("type"));
-        if (!used.has(spec)) used.set(spec, new Set());
-        for (const n of names) used.get(spec).add(n);
-      }
-    }
-  }
-  // Second pass: find `alias.Prop` usages for star imports.
-  const starUsed = new Map();
-  for (const [alias, spec] of starAliases) {
-    const propRe = new RegExp(
-      "\\b" + alias.replace(/[$]/g, "\\$") + "\\.([A-Za-z_$][\\w$]*)",
-      "g",
-    );
-    const names = new Set();
-    for (const src of sources) {
-      let pm;
-      while ((pm = propRe.exec(src))) names.add(pm[1]);
-    }
-    if (names.size) starUsed.set(spec, names);
-  }
-  return { used, starUsed };
+  const { named, starUsed } = scanSharedImportsEngine(dir);
+  return { used: named, starUsed };
 };
 
 /** Create the plugin for a given source root. */
@@ -199,6 +173,7 @@ const globalNamespacePlugin = sourceRoot => ({
 export {
   collectExports,
   collectSources,
+  exportNames,
   globalNamespacePlugin,
   scanSharedImports,
   sharedGlobalNamespace,

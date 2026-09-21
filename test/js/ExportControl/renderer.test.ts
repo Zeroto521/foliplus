@@ -621,13 +621,15 @@ describe("ExportRenderer.render — canvas creation", () => {
 //===========================================================================
 
 describe("ExportRenderer.renderTileLayer — onProgress", () => {
+  const mockLayer = { options: { opacity: 1 } } as L.TileLayer;
+
   it("reports the cumulative tiles drawn after each batch", async () => {
     const total = CONST.TILE_CONCURRENCY * 2;
     stubBitmaps();
     const rc = makeRC(4096, 4096);
     const onProgress = vi.fn();
 
-    await makeRenderer().renderTileLayer(rc, rcTiles(rc, total), onProgress);
+    await makeRenderer().renderTileLayer(rc, rcTiles(rc, total), mockLayer, onProgress);
 
     // One report per batch, counting the tiles actually painted so far —
     // never the batch index, which would credit tiles that were still loading.
@@ -641,7 +643,7 @@ describe("ExportRenderer.renderTileLayer — onProgress", () => {
     // render() does the clipping before calling, so an empty list is the only
     // way this pass starts.  The early return must not report anything.
     const onProgress = vi.fn();
-    await makeRenderer().renderTileLayer(makeRC(100, 100), [], onProgress);
+    await makeRenderer().renderTileLayer(makeRC(100, 100), [], mockLayer, onProgress);
     expect(onProgress).not.toHaveBeenCalled();
   });
 
@@ -652,7 +654,12 @@ describe("ExportRenderer.renderTileLayer — onProgress", () => {
     stubBitmaps();
 
     const onProgress = vi.fn();
-    await makeRenderer().renderTileLayer(makeRC(1536, 512), survivors, onProgress);
+    await makeRenderer().renderTileLayer(
+      makeRC(1536, 512),
+      survivors,
+      mockLayer,
+      onProgress,
+    );
     expect(onProgress.mock.calls.map(c => c[0])).toEqual([
       CONST.TILE_CONCURRENCY,
       survivors.length,
@@ -679,6 +686,7 @@ describe("ExportRenderer.renderTileLayer — onProgress", () => {
     await makeRenderer().renderTileLayer(
       makeRC(4096, 4096, ctx),
       rcTiles(makeRC(4096, 4096, ctx), 2),
+      mockLayer,
       onProgress,
     );
 
@@ -694,6 +702,7 @@ describe("ExportRenderer.renderTileLayer — onProgress", () => {
     await makeRenderer().renderTileLayer(
       makeRC(4096, 4096),
       rcTiles(makeRC(4096, 4096), total),
+      mockLayer,
       onProgress,
     );
     // Two batches: a full one, then the single leftover tile — the last report
@@ -711,11 +720,27 @@ describe("ExportRenderer.renderTileLayer — onProgress", () => {
     await makeRenderer().renderTileLayer(
       makeRC(4096, 4096),
       rcTiles(makeRC(4096, 4096), CONST.TILE_CONCURRENCY),
+      mockLayer,
       onProgress,
     );
     // The tile was fetched and enumerated but nothing reached the canvas, so it
     // earns no progress: counting it would say the map is more done than it is.
     expect(onProgress.mock.calls.map(c => c[0])).toEqual([0]);
+  });
+
+  it("still draws every tile when no onProgress callback is passed", async () => {
+    // render() always forwards its own callback, but renderTileLayer is also
+    // reachable on its own, so the report has to stay optional.
+    const ctx = makeMockCtx();
+    stubBitmaps();
+
+    await makeRenderer().renderTileLayer(
+      makeRC(4096, 4096, ctx),
+      rcTiles(makeRC(4096, 4096, ctx), CONST.TILE_CONCURRENCY),
+      mockLayer,
+    );
+
+    expect(ctx.drawImage).toHaveBeenCalledTimes(CONST.TILE_CONCURRENCY);
   });
 });
 
@@ -774,6 +799,19 @@ describe("ExportRenderer.render — onProgress across tile layers", () => {
     vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(ctx);
     return ctx;
   };
+
+  it("fills the canvas background when a bg colour is passed", async () => {
+    const ctx = stubCanvas();
+    await renderer.render(
+      { left: 0, top: 0, width: 100, height: 100 },
+      1,
+      "#ff0000",
+      undefined,
+      vi.fn(),
+    );
+    expect(ctx.fillStyle).toBe("#ff0000");
+    expect(ctx.fillRect).toHaveBeenCalledWith(0, 0, 100, 100);
+  });
 
   it("climbs monotonically across layers and stops short of 100", async () => {
     bigCenter();
@@ -1079,9 +1117,11 @@ describe("ExportRenderer.render — layer pass routing", () => {
     const tileLayer = spy("renderTileLayer");
     // The draw pass reports one step per batch, so the callback is what puts a
     // number on the bar at all.
-    tileLayer.mockImplementation(async (_rc: any, _tiles: any, cb: any) => {
-      cb(1);
-    });
+    tileLayer.mockImplementation(
+      async (_rc: any, _tiles: any, _layer: any, cb: any) => {
+        cb(1);
+      },
+    );
     const markers = spy("collectLayerMarkers");
     // render() reads collectLayerMarkers' return value to decide whether the
     // marker passes run, so an empty stub keeps them out of this test's scope.
@@ -1107,6 +1147,80 @@ describe("ExportRenderer.render — layer pass routing", () => {
     // rather than stepping partway; the three layer entries then walk the
     // layer range to its top at 90.
     expect(onProgress.mock.calls.map(call => call[0])).toEqual([70, 81, 90]);
+  });
+
+  it("renders a layer's annotation labels right after its content", async () => {
+    // Each layer's label canvas mounts in its own pane (map.createPane), a
+    // sibling of the content panes the walk visits. render() draws it right
+    // after the layer's content — before the next layer up covers it — so the
+    // exported stack order matches the map's.
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(
+      makeMockCtx() as any,
+    );
+    const map = (globalThis as any).map;
+    const labelPane = document.createElement("div");
+    labelPane.className = "foliplus-annotation-pane";
+    const annCanvas = document.createElement("canvas");
+    annCanvas.className = "foliplus-annotation-canvas";
+    labelPane.appendChild(annCanvas);
+    map.getPane = (name: string) =>
+      name === CONST.ANNOTATION_PANE_PREFIX + "vec" ? labelPane : null;
+    map.foliplus = {
+      LayerAPI: {
+        layers: [{ visible: true, id: "vec", layer: { options: {} } }],
+        getLayerPanes: () => [],
+      },
+    };
+
+    const proto = ExportRenderer.prototype as any;
+    const paneCanvas = vi.spyOn(proto, "renderPaneCanvas").mockResolvedValue(undefined);
+
+    await runRender(vi.fn());
+
+    // The label pane is swept once, with the annotation selector, right after
+    // the layer's content walk (which passed no panes of its own).
+    expect(paneCanvas).toHaveBeenCalledTimes(1);
+    expect(paneCanvas).toHaveBeenCalledWith(
+      expect.anything(),
+      labelPane,
+      CONST.SEL.ANNOTATION_CANVAS,
+    );
+  });
+
+  it("skips the tile pass when tilePane is hidden by a solid-color basemap", async () => {
+    // Picking a colour removes the tile layers with map.removeLayer and hides
+    // tilePane by class — it never goes through applyVisibility, so every
+    // li.visible is still true.  Re-fetching the tile URLs would repaint them
+    // over the colour the user just picked, so the pass judges the pane's
+    // computed state instead of the class that produced it.
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(
+      makeMockCtx() as any,
+    );
+    const tilePane = document.createElement("div");
+    tilePane.style.visibility = "hidden";
+    const map = (globalThis as any).map;
+    map.getPane = (name: string) => (name === "tilePane" ? tilePane : null);
+    map.foliplus = {
+      LayerAPI: {
+        layers: [
+          { visible: true, layer: makeTileLayer() },
+          { visible: true, layer: { options: {} } },
+        ],
+        getLayerPanes: () => [],
+      },
+    };
+
+    const tileLayer = vi
+      .spyOn(ExportRenderer.prototype as any, "renderTileLayer")
+      .mockResolvedValue(undefined);
+    const onProgress = vi.fn();
+
+    await runRender(onProgress);
+
+    expect(tileLayer).not.toHaveBeenCalled();
+    // No tiles in the denominator, so the bar resumes at the layer range and
+    // the surviving vector layer still walks it to the top.
+    expect(onProgress.mock.calls.map(call => call[0])).toEqual([71, 90]);
   });
 
   it("runs the four marker passes when the layer's panes hold markers", async () => {
@@ -1263,6 +1377,26 @@ describe("ExportRenderer.renderCanvasElement", () => {
     expect(load).toHaveBeenCalled();
     expect(ctx.drawImage).not.toHaveBeenCalled();
   });
+
+  it("applies element opacity via ctx.globalAlpha when less than 1", async () => {
+    const ctx = makeMockCtx();
+    ctx.globalAlpha = 1;
+    let alphaDuringDraw = 0;
+    ctx.drawImage = vi.fn(() => {
+      alphaDuringDraw = ctx.globalAlpha;
+    });
+    const canvas = document.createElement("canvas");
+    canvas.getBoundingClientRect = () => rectOf(100, 100, 200, 200);
+    canvas.style.opacity = "0.5";
+    vi.spyOn(UTIL, "loadImage").mockResolvedValue({} as any);
+    await new ExportRenderer(makeRenderer().map).renderCanvasElement(
+      positionedRC(1000, 1000, ctx),
+      canvas,
+    );
+    expect(ctx.drawImage).toHaveBeenCalledTimes(1);
+    expect(alphaDuringDraw).toBe(0.5);
+    expect(ctx.globalAlpha).toBe(1);
+  });
 });
 
 // =============================================================================
@@ -1290,6 +1424,23 @@ const pinBox = (el, left = 0, top = 0, width = 100, height = 100) => {
 /** Both pane passes resolve their image through util.loadImage; jsdom cannot
  *  load an object URL, so stub it for the tests that reach the draw call. */
 const stubLoad = () => vi.spyOn(UTIL, "loadImage").mockResolvedValue({} as any);
+
+/** Capture the serialized SVG each pass hands to loadImage.  The pass hands it
+ *  to URL.createObjectURL and the tests cannot read a blob back, so intercept
+ *  the serializer instead and keep the real output. */
+const captureSources = () => {
+  const real = XMLSerializer.prototype.serializeToString;
+  const sources: string[] = [];
+  vi.spyOn(XMLSerializer.prototype, "serializeToString").mockImplementation(function (
+    this: XMLSerializer,
+    node: Node,
+  ) {
+    const src = real.call(this, node);
+    sources.push(src);
+    return src;
+  });
+  return sources;
+};
 
 describe("ExportRenderer.renderPaneSVG", () => {
   const NS = CONST.SVG_NS;
@@ -1370,6 +1521,207 @@ describe("ExportRenderer.renderPaneSVG", () => {
     expect(load).not.toHaveBeenCalled();
     expect(ctx.drawImage).not.toHaveBeenCalled();
   });
+
+  it("applies pane opacity via ctx.globalAlpha when less than 1", async () => {
+    const ctx = makeMockCtx();
+    ctx.globalAlpha = 1;
+    let alphaDuringDraw = 0;
+    ctx.drawImage = vi.fn(() => {
+      alphaDuringDraw = ctx.globalAlpha;
+    });
+    const p = pane();
+    p.style.opacity = "0.5";
+    const svg = document.createElementNS(NS, "svg");
+    pinBox(svg, 0, 0, 200, 200);
+    svg.appendChild(document.createElementNS(NS, "path"));
+    p.appendChild(svg);
+    stubLoad();
+    await new ExportRenderer(makeRenderer().map).renderPaneSVG(
+      positionedRC(1000, 1000, ctx),
+      p,
+    );
+    expect(ctx.drawImage).toHaveBeenCalledTimes(1);
+    expect(alphaDuringDraw).toBe(0.5);
+    expect(ctx.globalAlpha).toBe(1);
+  });
+
+  it("peels the pane's own visibility: a transient view state such as focus", async () => {
+    // focus.css hides every non-focused pane with one rule, and `visibility`
+    // inherits — so a computed read hands back the ancestor's contribution as
+    // the child's own.  Copying it serialises the layer hidden and the whole
+    // vector set silently leaves a focused export.  Flipping the pane's inline
+    // value peels just that part.
+    const ctx = makeMockCtx();
+    const p = pane();
+    p.style.visibility = "hidden";
+    const svg = document.createElementNS(NS, "svg");
+    pinBox(svg, 0, 0, 200, 200);
+    const path = document.createElementNS(NS, "path");
+    path.setAttribute("d", "M 0 0 L 200 0 L 200 200 L 0 200 Z");
+    svg.appendChild(path);
+    p.appendChild(svg);
+    const srcs = captureSources();
+    stubLoad();
+
+    await new ExportRenderer(makeRenderer().map).renderPaneSVG(
+      positionedRC(1000, 1000, ctx),
+      p,
+    );
+
+    expect(ctx.drawImage).toHaveBeenCalledTimes(1);
+    expect((srcs[0] || "").match(/visibility:\s*hidden/g)).toBeNull();
+    expect(p.style.visibility).toBe("hidden");
+  });
+
+  it("restores the pane's visibility when reading the clone throws", async () => {
+    // The flip lives in a finally: render() awaits between panes, so a leak
+    // across an await would hold the layers un-hidden for the whole export.
+    const ctx = makeMockCtx();
+    const p = pane();
+    p.style.visibility = "hidden";
+    const svg = document.createElementNS(NS, "svg");
+    pinBox(svg, 0, 0, 200, 200);
+    svg.appendChild(document.createElementNS(NS, "path"));
+    p.appendChild(svg);
+    vi.spyOn(XMLSerializer.prototype, "serializeToString").mockImplementation(() => {
+      throw new Error("boom");
+    });
+
+    await expect(
+      new ExportRenderer(makeRenderer().map).renderPaneSVG(
+        positionedRC(1000, 1000, ctx),
+        p,
+      ),
+    ).rejects.toThrow("boom");
+
+    expect(p.style.visibility).toBe("hidden");
+    expect(ctx.drawImage).not.toHaveBeenCalled();
+  });
+
+  it("keeps a child's own visibility: hidden and its neighbours visible", async () => {
+    // The other half of the contract: only the ancestor contribution is peeled.
+    // Collision suppression hides individual label chips the same way, and the
+    // export is meant to keep drawing them.
+    const ctx = makeMockCtx();
+    const p = pane();
+    p.style.visibility = "hidden";
+    const svg = document.createElementNS(NS, "svg");
+    pinBox(svg, 0, 0, 200, 200);
+    const hidden = document.createElementNS(NS, "path");
+    hidden.setAttribute("d", "M 0 0 L 200 0 L 200 200 L 0 200 Z");
+    hidden.style.visibility = "hidden";
+    const shown = document.createElementNS(NS, "path");
+    shown.setAttribute("d", "M 20 20 L 180 20 L 180 180 L 20 180 Z");
+    svg.append(hidden, shown);
+    p.appendChild(svg);
+    const srcs = captureSources();
+    stubLoad();
+
+    await new ExportRenderer(makeRenderer().map).renderPaneSVG(
+      positionedRC(1000, 1000, ctx),
+      p,
+    );
+
+    const src = srcs[0] || "";
+    expect((src.match(/visibility:\s*hidden/g) || []).length).toBe(1);
+    expect(src).toContain("L 200 200");
+    expect(src).toContain("L 180 180");
+  });
+
+  it("removes a child's own display: none from the clone — rule or inline", async () => {
+    // The pipeline serialises to an <img>, which ignores inline display, so the
+    // only reliable exclusion is removal.  Both rule-hidden and inline-hidden
+    // elements must be pruned from the clone.
+    const style = document.createElement("style");
+    style.textContent = ".t25-rule-hidden { display: none; }";
+    document.head.appendChild(style);
+    try {
+      const ctx = makeMockCtx();
+      const p = pane();
+      const svg = document.createElementNS(NS, "svg");
+      pinBox(svg, 0, 0, 200, 200);
+      const byRule = document.createElementNS(NS, "path");
+      byRule.setAttribute("d", "M 0 0 L 200 0 L 200 200 L 0 200 Z");
+      byRule.classList.add("t25-rule-hidden");
+      const byInline = document.createElementNS(NS, "path");
+      byInline.setAttribute("d", "M 5 5 L 195 5 L 195 195 L 5 195 Z");
+      byInline.style.display = "none";
+      const kept = document.createElementNS(NS, "path");
+      kept.setAttribute("d", "M 20 20 L 180 20 L 180 180 L 20 180 Z");
+      svg.append(byRule, byInline, kept);
+      p.appendChild(svg);
+      const srcs = captureSources();
+      stubLoad();
+
+      await new ExportRenderer(makeRenderer().map).renderPaneSVG(
+        positionedRC(1000, 1000, ctx),
+        p,
+      );
+
+      const src = srcs[0] || "";
+      // Neither hidden path appears in the serialised SVG.
+      expect(src).not.toContain("L 200 0");
+      expect(src).not.toContain("L 195 5");
+      // The visible path survives.
+      expect(src).toContain("L 180 180");
+      // No display:none attribute leaks into the clone.
+      expect((src.match(/display:\s*none/g) || []).length).toBe(0);
+    } finally {
+      style.remove();
+    }
+  });
+
+  it("prunes both opt-out carriers from the clone and leaves the live DOM alone", async () => {
+    // The export drops the marked node; the map still needs it while drawing
+    // continues, so only the clone is pruned.
+    const ctx = makeMockCtx();
+    const p = pane();
+    const svg = document.createElementNS(NS, "svg");
+    pinBox(svg, 0, 0, 200, 200);
+    const keep = document.createElementNS(NS, "path");
+    keep.setAttribute("d", "M 0 0 L 200 0 L 200 200 L 0 200 Z");
+    const byAttr = document.createElementNS(NS, "path");
+    byAttr.setAttribute("d", "M 5 5 L 195 5 L 195 195 L 5 195 Z");
+    byAttr.setAttribute("data-foliplus-export", "exclude");
+    const byClass = document.createElementNS(NS, "path");
+    byClass.setAttribute("d", "M 10 10 L 190 10 L 190 190 L 10 190 Z");
+    byClass.classList.add("foliplus-no-export");
+    svg.append(keep, byAttr, byClass);
+    p.appendChild(svg);
+    const srcs = captureSources();
+    stubLoad();
+
+    await new ExportRenderer(makeRenderer().map).renderPaneSVG(
+      positionedRC(1000, 1000, ctx),
+      p,
+    );
+
+    const src = srcs[0] || "";
+    expect(src).toContain("L 200 200");
+    expect(src).not.toContain("L 195 195");
+    expect(src).not.toContain("L 190 190");
+    expect(byAttr.parentNode).toBe(svg);
+    expect(byClass.parentNode).toBe(svg);
+  });
+
+  it("injects xmlns into the serialised source when the SVG was created without a namespace", async () => {
+    const ctx = makeMockCtx();
+    const p = pane();
+    // createElement (no namespace) — XMLSerializer will emit the XHTML
+    // namespace, so the renderer's replace must kick in.
+    const svg = document.createElement("svg");
+    pinBox(svg, 0, 0, 200, 200);
+    svg.appendChild(document.createElement("path"));
+    p.appendChild(svg);
+    stubLoad();
+
+    await new ExportRenderer(makeRenderer().map).renderPaneSVG(
+      positionedRC(1000, 1000, ctx),
+      p,
+    );
+
+    expect(ctx.drawImage).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("ExportRenderer.renderPaneCanvas", () => {
@@ -1443,6 +1795,27 @@ describe("ExportRenderer.renderPaneCanvas", () => {
     );
 
     expect(ctx.drawImage).not.toHaveBeenCalled();
+  });
+
+  it("applies canvas opacity via ctx.globalAlpha when less than 1", async () => {
+    const ctx = makeMockCtx();
+    ctx.globalAlpha = 1;
+    let alphaDuringDraw = 0;
+    ctx.drawImage = vi.fn(() => {
+      alphaDuringDraw = ctx.globalAlpha;
+    });
+    const p = pane();
+    const ce = canvasEl(10, 10, 200, 200);
+    ce.style.opacity = "0.5";
+    p.appendChild(ce);
+    stubLoad();
+    await new ExportRenderer(makeRenderer().map).renderPaneCanvas(
+      positionedRC(1000, 1000, ctx),
+      p,
+    );
+    expect(ctx.drawImage).toHaveBeenCalledTimes(1);
+    expect(alphaDuringDraw).toBe(0.5);
+    expect(ctx.globalAlpha).toBe(1);
   });
 });
 
@@ -1532,6 +1905,35 @@ describe("ExportRenderer.collectLayerMarkers", () => {
     svg.setAttribute("data-foliplus-export", "exclude");
     const roots = document.createElement("div");
     roots.append(canvas, keep, svg);
+    const restore = withLayerPanes(pane, roots as any);
+    try {
+      const map = makeRenderer().map;
+      (map as any).getPane = () => roots;
+      expect(new ExportRenderer(map).collectLayerMarkers({} as L.Layer)).toEqual([
+        keep,
+      ]);
+    } finally {
+      restore();
+    }
+  });
+
+  it("skips a root carrying the opt-out class and one that nests it", () => {
+    // The class is the second carrier of SKIP_EXPORT: a Leaflet Path only
+    // exposes a construction-time className hook, so there is no attribute to
+    // stamp afterwards.  The marker pass sweeps pane children, so a preview
+    // marker's container has to be dropped here.  A child that merely *holds*
+    // a marked element is dropped with it — the marker pass draws whole roots,
+    // never a subtree of one.
+    const pane = "vector";
+    const keep = document.createElement("div");
+    const byClass = document.createElement("div");
+    byClass.classList.add("foliplus-no-export");
+    const nesting = document.createElement("div");
+    const inner = document.createElement("div");
+    inner.classList.add("foliplus-no-export");
+    nesting.appendChild(inner);
+    const roots = document.createElement("div");
+    roots.append(keep, byClass, nesting);
     const restore = withLayerPanes(pane, roots as any);
     try {
       const map = makeRenderer().map;
@@ -1675,6 +2077,30 @@ describe("ExportRenderer.renderMarkers", () => {
       [el],
     );
     expect(ctx.drawImage).not.toHaveBeenCalled();
+  });
+
+  it("draws a child element that carries a background sprite", async () => {
+    // renderMarkers walks root.querySelectorAll("*") looking for a child whose
+    // own backgroundImage is a url() — the root itself may have no sprite.
+    const ctx = textCtx();
+    const root = document.createElement("div");
+    pinBox(root, 10, 10, 40, 40);
+    const child = document.createElement("div");
+    pinBox(child, 10, 10, 20, 20);
+    const restore = withStyle({
+      backgroundImage: 'url("child.png")',
+      backgroundSize: "20px 20px",
+      backgroundPosition: "0 0",
+    });
+    child.__restoreStyle = restore;
+    root.appendChild(child);
+    stubBitmaps();
+    stubLoad();
+    await new ExportRenderer(makeRenderer().map).renderMarkers(
+      positionedRC(1000, 1000, ctx),
+      [root],
+    );
+    expect(ctx.drawImage).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -1910,6 +2336,70 @@ describe("ExportRenderer.renderTextLabels", () => {
       restore();
     }
   });
+
+  it("draws a square text-label border using strokeRect", async () => {
+    const ctx = textCtx();
+    stubFonts();
+    const root = document.createElement("div");
+    pinBox(root, 10, 10, 60, 20);
+    root.textContent = "100 m";
+    const restore = withStyle({
+      backgroundColor: "rgb(10, 10, 10)",
+      borderRadius: "0px",
+      borderWidth: "1px",
+      borderStyle: "solid",
+      borderColor: "rgb(255, 0, 0)",
+      fontSize: "14px",
+      fontFamily: "sans-serif",
+      color: "#fff",
+      fontWeight: "400",
+    });
+    try {
+      await new ExportRenderer(makeRenderer().map).renderTextLabels(
+        positionedRC(1000, 1000, ctx),
+        [root],
+      );
+      expect(ctx.fillRect).toHaveBeenCalledTimes(1);
+      expect(ctx.strokeRect).toHaveBeenCalledTimes(1);
+      expect(ctx.roundRect).not.toHaveBeenCalled();
+      expect(ctx.fillText).toHaveBeenCalledTimes(1);
+    } finally {
+      restore();
+    }
+  });
+
+  it("falls back to the background colour when the label declares no border colour", async () => {
+    // `borderColor` can be an empty string when only width and style are set;
+    // without the fallback the stroke would paint the canvas default (opaque
+    // black) over a label that asked for its own fill as the outline.
+    const ctx = textCtx();
+    stubFonts();
+    const root = document.createElement("div");
+    pinBox(root, 10, 10, 60, 20);
+    root.textContent = "100 m";
+    const bg = "rgb(10, 10, 10)";
+    const restore = withStyle({
+      backgroundColor: bg,
+      borderRadius: "0px",
+      borderWidth: "1px",
+      borderStyle: "solid",
+      borderColor: "",
+      fontSize: "14px",
+      fontFamily: "sans-serif",
+      color: "#fff",
+      fontWeight: "400",
+    });
+    try {
+      await new ExportRenderer(makeRenderer().map).renderTextLabels(
+        positionedRC(1000, 1000, ctx),
+        [root],
+      );
+      expect(ctx.strokeRect).toHaveBeenCalledTimes(1);
+      expect(ctx.strokeStyle).toBe(bg);
+    } finally {
+      restore();
+    }
+  });
 });
 
 describe("ExportRenderer.renderRemaining", () => {
@@ -2041,6 +2531,68 @@ describe("ExportRenderer.renderRemaining", () => {
         [root],
       );
       expect(ctx.fillRect).not.toHaveBeenCalled();
+    } finally {
+      restore();
+    }
+  });
+
+  it("sets the color attribute on an inline SVG when the parent has a non-black color", async () => {
+    const ctx = textCtx();
+    stubLoad();
+    const root = document.createElement("div");
+    pinBox(root, 10, 10, 24, 24);
+    const svg = document.createElementNS(CONST.SVG_NS, "svg");
+    pinBox(svg, 0, 0, 24, 24);
+    svg.appendChild(document.createElementNS(CONST.SVG_NS, "path"));
+    root.appendChild(svg);
+    const restore = withStyle({ color: "#ff0" });
+    try {
+      await new ExportRenderer(makeRenderer().map).renderRemaining(
+        positionedRC(1000, 1000, ctx),
+        [root],
+      );
+      expect(ctx.drawImage).toHaveBeenCalledTimes(1);
+    } finally {
+      restore();
+    }
+  });
+
+  it("injects xmlns into inline SVG source when the element was created without a namespace", async () => {
+    const ctx = textCtx();
+    stubLoad();
+    const root = document.createElement("div");
+    pinBox(root, 10, 10, 24, 24);
+    const svg = document.createElement("svg");
+    pinBox(svg, 0, 0, 24, 24);
+    svg.appendChild(document.createElement("path"));
+    root.appendChild(svg);
+    await new ExportRenderer(makeRenderer().map).renderRemaining(
+      positionedRC(1000, 1000, ctx),
+      [root],
+    );
+    expect(ctx.drawImage).toHaveBeenCalledTimes(1);
+  });
+
+  it("draws a square background with a border using strokeRect", async () => {
+    const ctx = textCtx();
+    const root = document.createElement("div");
+    pinBox(root, 10, 10, 10, 10);
+    const restore = withStyle({
+      backgroundColor: "rgb(0, 0, 255)",
+      backgroundImage: "none",
+      borderRadius: "0px",
+      borderWidth: "2px",
+      borderStyle: "solid",
+      borderColor: "rgb(0, 0, 0)",
+    });
+    try {
+      await new ExportRenderer(makeRenderer().map).renderRemaining(
+        positionedRC(1000, 1000, ctx),
+        [root],
+      );
+      expect(ctx.fillRect).toHaveBeenCalledTimes(1);
+      expect(ctx.strokeRect).toHaveBeenCalledTimes(1);
+      expect(ctx.roundRect).not.toHaveBeenCalled();
     } finally {
       restore();
     }

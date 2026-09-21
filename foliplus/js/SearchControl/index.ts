@@ -1,6 +1,7 @@
 import { createControlEnv } from "#core/controlEnv.js";
 import type { SuggestItem } from "#core/geocode/index.js";
 import { ensureHint } from "#core/hint.js";
+import { ensureMapFoliplus } from "#core/mapApi.js";
 import { BaseControl } from "#foliplus/BaseControl.js";
 import { Cache } from "#common/cache.js";
 import type { Debounced } from "#common/debounce.js";
@@ -8,7 +9,7 @@ import { createIconButton, dom } from "#common/dom.js";
 import * as Icons from "#common/icon.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { bindOutsideCollapse, createFoldControl } from "#common/panel.js";
-import { CLASSES, MODE, type SearchType } from "./const.js";
+import { AUTOCOMPLETE, CLASSES, MODE, type SearchType } from "./const.js";
 import * as SVGs from "./icon.js";
 import { bindEvents, initFromUrl } from "./interaction.js";
 import { initDebouncedFetch, loadHistory, removePanel } from "./logic.js";
@@ -32,7 +33,6 @@ class SearchControl extends BaseControl {
   declare searchHistory: SearchHistoryEntry[];
   declare scrollTargets: Array<Element | Window>;
   declare repositionHandler: () => void;
-  declare interactionCleanup: (() => void) | null;
   declare addrAbortController: AbortController | null;
   declare suggestAbortController: AbortController | null;
   declare marker: L.Marker | null;
@@ -49,24 +49,20 @@ class SearchControl extends BaseControl {
     this.createDOM();
     this.initState();
     initDebouncedFetch(this);
-    this.interactionCleanup = bindEvents(this);
+    this.effect(() => bindEvents(this));
     initFromUrl(this);
-    bindOutsideCollapse({ container: this.ctrl });
+    this.effect(() => bindOutsideCollapse({ container: this.ctrl }));
     return this.container;
   }
 
   destroy() {
-    this.interactionCleanup?.();
     removePanel(this);
     if (this.debouncedFetch) this.debouncedFetch.cancel();
     if (this.addrAbortController) this.addrAbortController.abort();
     if (this.suggestAbortController) this.suggestAbortController.abort();
     this.cachedSuggestions.clear();
     this.searchHistory = [];
-    this.scrollTargets.forEach(t =>
-      t.removeEventListener("scroll", this.repositionHandler, true),
-    );
-    window.removeEventListener("resize", this.repositionHandler);
+    if (this.throttleTimer) clearTimeout(this.throttleTimer);
     this.modeBtn.onclick = null;
     this.clearBtn.onclick = null;
   }
@@ -115,15 +111,19 @@ class SearchControl extends BaseControl {
     // Register this control's provider as the map default so indirect
     // geocoding (foliplus.geocode / reverseGeocode without an explicit spec)
     // follows the same provider — cache keys and rate limits stay consistent.
-    if (!map.foliplus) map.foliplus = {} as MapFoliplus;
-    map.foliplus.geocodeProvider = CONF.provider ?? "nominatim";
+    // Route through the shared seed so the namespace's typing stays sound.
+    const api = ensureMapFoliplus(map);
+    api.geocodeProvider = CONF.provider ?? "nominatim";
     this.mode =
       CONF.mode === MODE.COORD || CONF.mode === MODE.ADDR ? CONF.mode : MODE.COORD;
     this.panelWrap = null;
     this.selectedIdx = -1;
     this.lastSuggestFetch = 0;
     this.throttleTimer = null;
-    this.cachedSuggestions = new Cache<string, SuggestItem[]>(50);
+    this.cachedSuggestions = new Cache<string, SuggestItem[]>(
+      AUTOCOMPLETE.CACHE_MAX,
+      AUTOCOMPLETE.CACHE_TTL_MS,
+    );
     this.searchHistory = loadHistory();
     this.suggestAbortController = null;
     this.suggestSeq = 0;

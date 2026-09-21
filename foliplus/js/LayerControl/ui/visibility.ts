@@ -3,7 +3,7 @@ import { type Debounced, debounce } from "#common/debounce.js";
 import * as CONST from "../const.js";
 import { hideColorLayer, showColorLayer } from "./color.js";
 import type { LayerUI } from "./index.js";
-import { saveHiddenIds, syncHiddenId } from "./state.js";
+import { saveState, syncHiddenId } from "./state.js";
 
 const getLayerItems = (ui: LayerUI, group: string): NodeListOf<Element> => {
   return ui.uiContainer.querySelectorAll(
@@ -18,9 +18,12 @@ const toggleAll = (ui: LayerUI, group: string, newState: boolean) => {
       'input[type="checkbox"]',
     ) as HTMLInputElement | null;
     if (!checkbox) return;
-    const idx = parseInt(checkbox.dataset.index ?? "", 10);
-    if (isNaN(idx) || idx < 0 || idx >= ui.m.layers.length) return;
-    const layerInfo = ui.m.layers[idx];
+    // The row carries the identity (data-layer-id): a late registration lands
+    // where its stored slot puts it, so the DOM order can diverge from the
+    // registry and an index-based lookup would silently toggle a neighbour.
+    const id = item.getAttribute(CONST.DATA.LAYER_ID);
+    const layerInfo = id ? ui.m.layerRegistry.get(id) : undefined;
+    if (!layerInfo) return;
     const layer = ui.m.findLayer(layerInfo);
 
     checkbox.checked = newState;
@@ -29,7 +32,6 @@ const toggleAll = (ui: LayerUI, group: string, newState: boolean) => {
     else item.classList.remove(CONST.CLASSES.ACTIVE);
 
     if (layer) newState ? ui.m.map.addLayer(layer) : ui.m.map.removeLayer(layer);
-    if (newState && layer) layer.options.paneSet = false;
     if (layerInfo.onToggle) layerInfo.onToggle(newState);
     syncVisibility(ui, layerInfo, layer, newState);
     // No persist per iteration —schedule a single debounced write after the
@@ -37,8 +39,9 @@ const toggleAll = (ui: LayerUI, group: string, newState: boolean) => {
     syncHiddenId(ui, layerInfo.id, !newState, false);
   });
 
-  // Persist hidden-set after bulk toggle (single debounced write for the batch).
-  saveHiddenIds(ui);
+  // Persist the hidden-set after bulk toggle (single debounced write for the
+  // batch).
+  saveState(ui);
 
   if (group === CONST.GROUP.BASE && !newState) {
     hideColorLayer(ui);
@@ -113,7 +116,6 @@ const applyVisibility = (ui: LayerUI, id: string, visible: boolean): boolean => 
   if (layer) {
     visible ? ui.m.map.addLayer(layer) : ui.m.map.removeLayer(layer);
   }
-  if (visible && layer) layer.options.paneSet = false;
   if (checkbox) {
     checkbox.checked = visible;
     checkbox.title = ui.T(visible ? "deselect_tooltip" : "select_tooltip");
@@ -140,9 +142,13 @@ const handleChange = (ui: LayerUI, event: Event) => {
   }
   if (target.tagName.toLowerCase() !== "input" || target.type !== "checkbox") return;
 
-  const idx = parseInt(target.dataset.index ?? "", 10);
-  if (isNaN(idx) || idx < 0 || idx >= ui.m.layers.length) return;
-  applyVisibility(ui, ui.m.layers[idx].id, target.checked);
+  // The row carries the identity: data-layer-id, not a positional index —a
+  // late registration can sit anywhere in the DOM, so an index-based lookup
+  // would apply the click to a neighbour's layer.
+  const row = target.closest(CONST.SEL.LAYER_ITEM);
+  const id = row?.getAttribute(CONST.DATA.LAYER_ID);
+  if (!id) return;
+  applyVisibility(ui, id, target.checked);
 };
 
 const handleInput = (ui: LayerUI, event: Event) => {

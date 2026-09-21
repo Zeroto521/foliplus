@@ -3,18 +3,17 @@ import apiSource from "#core/layer/api?raw";
 import typeSource from "#core/layer/type?raw";
 import { ensureLayerAPI, requireLayerAPI } from "#foliplus/core/layer/api.js";
 
-// Pinned deliberately: this `as unknown as` is the only one in the file and it
-// is a real cast, not a bypass. An empty tuple literal is `readonly []` and
-// cannot be assigned to LayerInfo[] directly (readonly arrays are not
-// assignable to mutable ones), so one double-step through unknown is the
-// cheapest true claim. If a cheaper route appears, take it and delete the pin.
+// The pin this file used to carry — "one `as unknown as`, in the layers field" —
+// is gone, and its own note asked for exactly that: "If a cheaper route
+// appears, take it and delete the pin." The cheaper route was already there:
+// `LayerAPI.layers` is declared `readonly LayerInfo[]`, and a bare
+// `Object.freeze([])` is a `readonly never[]`, which assigns without help.
 
 const mockShowHint = vi.fn();
 
 describe("source pins", () => {
-  it("layer/api.ts: one `as unknown as`, in the layers field", () => {
-    expect(apiSource.match(/as unknown as/g)).toHaveLength(1);
-    expect(apiSource).toContain("layers: Object.freeze([]) as unknown as LayerInfo[]");
+  it("layer/api.ts: no double assertions left", () => {
+    expect(apiSource.match(/as unknown as/g)).toBeNull();
   });
 });
 
@@ -39,6 +38,10 @@ describe("ensureLayerAPI", () => {
       Path: class {},
       Marker: class {},
     });
+    HTMLCanvasElement.prototype.getContext = vi.fn(() => ({
+      setTransform: vi.fn(),
+      clearRect: vi.fn(),
+    })) as any;
     map = {
       foliplus: null as any,
       getContainer: vi.fn(() => ({ clientWidth: 800, clientHeight: 600 })),
@@ -158,6 +161,9 @@ describe("ensureLayerAPI", () => {
   it("no-op methods behave as specified", () => {
     const api = ensureLayerAPI(map);
     expect(api.unregisterLayer("x")).toBe(false);
+    // deleteLayer erases stored state, so the stub cannot claim to do it —
+    // false, not undefined, like the other registry-backed no-ops.
+    expect(api.deleteLayer("x")).toBe(false);
     expect(api.bringLayerToFront("x")).toBeUndefined();
     // false, not undefined: the stub is a real method, so callers can tell a
     // no-LayerControl call apart from an unknown id on a live one.
