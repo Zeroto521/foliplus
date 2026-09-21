@@ -39,7 +39,7 @@
   const trackBg = row.querySelector(".foliplus-style-zoom-range-track");
   const fillBg = row.querySelector(".foliplus-style-zoom-range-fill");
   const marker = row.querySelector(".foliplus-style-zoom-range-current");
-  const markerLabel = row.querySelector(".foliplus-style-zoom-range-current-label");
+  const markerLabel = row.querySelector(".foliplus-style-zoom-range-current-value");
   const markerTitle = marker ? marker.title : null;
   const markerLabelText = markerLabel ? markerLabel.textContent : null;
   const minLabel = row.querySelector(

@@ -25,7 +25,7 @@ async () => {
   }
 
   const marker = row.querySelector(".foliplus-style-zoom-range-current");
-  const markerLabel = row.querySelector(".foliplus-style-zoom-range-current-label");
+  const markerLabel = row.querySelector(".foliplus-style-zoom-range-current-value");
   const before = map.getZoom();
   const beforeLeft = marker ? marker.style.left : null;
   const beforeLabel = markerLabel ? markerLabel.textContent : null;
