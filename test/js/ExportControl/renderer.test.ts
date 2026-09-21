@@ -800,6 +800,19 @@ describe("ExportRenderer.render — onProgress across tile layers", () => {
     return ctx;
   };
 
+  it("fills the canvas background when a bg colour is passed", async () => {
+    const ctx = stubCanvas();
+    await renderer.render(
+      { left: 0, top: 0, width: 100, height: 100 },
+      1,
+      "#ff0000",
+      undefined,
+      vi.fn(),
+    );
+    expect(ctx.fillStyle).toBe("#ff0000");
+    expect(ctx.fillRect).toHaveBeenCalledWith(0, 0, 100, 100);
+  });
+
   it("climbs monotonically across layers and stops short of 100", async () => {
     bigCenter();
     const c = CONST.TILE_CONCURRENCY;
@@ -2064,6 +2077,30 @@ describe("ExportRenderer.renderMarkers", () => {
       [el],
     );
     expect(ctx.drawImage).not.toHaveBeenCalled();
+  });
+
+  it("draws a child element that carries a background sprite", async () => {
+    // renderMarkers walks root.querySelectorAll("*") looking for a child whose
+    // own backgroundImage is a url() — the root itself may have no sprite.
+    const ctx = textCtx();
+    const root = document.createElement("div");
+    pinBox(root, 10, 10, 40, 40);
+    const child = document.createElement("div");
+    pinBox(child, 10, 10, 20, 20);
+    const restore = withStyle({
+      backgroundImage: 'url("child.png")',
+      backgroundSize: "20px 20px",
+      backgroundPosition: "0 0",
+    });
+    child.__restoreStyle = restore;
+    root.appendChild(child);
+    stubBitmaps();
+    stubLoad();
+    await new ExportRenderer(makeRenderer().map).renderMarkers(
+      positionedRC(1000, 1000, ctx),
+      [root],
+    );
+    expect(ctx.drawImage).toHaveBeenCalledTimes(1);
   });
 });
 

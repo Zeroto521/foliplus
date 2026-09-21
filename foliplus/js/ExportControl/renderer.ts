@@ -433,10 +433,6 @@ class ExportRenderer {
       const dw = tile.size * scale;
       const dh = tile.size * scale;
       if (!isVisible(dx, dy, dw, dh, cw, ch)) continue;
-      if (tileVpX + tile.size < rect.left || tileVpY + tile.size < rect.top) continue;
-      if (tileVpX > rect.left + rect.width || tileVpY > rect.top + rect.height) {
-        continue;
-      }
       visibleTiles.push({ ...tile, dx, dy, dw, dh });
     }
     return visibleTiles;
@@ -661,11 +657,6 @@ class ExportRenderer {
           });
         } catch {
           /* skip */
-        } finally {
-          if (img) {
-            // Data-URL images have no explicit close; detaching handlers
-            // (done inside loadImage) allows the Image to be GC'd.
-          }
         }
       } catch {
         /* skip */
