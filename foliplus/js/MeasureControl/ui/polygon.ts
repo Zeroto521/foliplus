@@ -1,10 +1,10 @@
 // MeasureControl polygon UI — finalized polygon edit bindings: nodes, segment labels, centroid, drag, overlay, delete.
-import { attachDelClick, makeDelIcon, toggleDelIcon } from "#common/delicon.js";
+import { toggleDelIcon } from "#common/delicon.js";
 import { stopEvent } from "#common/dom.js";
 import * as CONST from "../const.js";
 import { bindNodeDrag, markDragSyntheticClick } from "../edit.js";
 import type { MeasureManager } from "../manager.js";
-import { attachDelLifecycle } from "../mode/base.js";
+import { attachDelLifecycle, mountDelIcon } from "../mode/base.js";
 import * as Util from "../util.js";
 import {
   type DragBind,
@@ -43,9 +43,11 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
   const nodeDelMarkers: L.Marker[] = [];
   const dragBinds: DragBind[] = [];
   let unregisterDragToggle: () => void = () => {};
-  let centroidDot: L.CircleMarker | null = null;
-  let centroidLabel: L.Marker | null = null;
-  let centroidDelMarker: L.Marker | null = null;
+  // Definite assignment: rebuildCentroid(initArea) runs synchronously below
+  // before any callback can fire, so these are non-null in practice.
+  let centroidDot!: L.CircleMarker;
+  let centroidLabel!: L.Marker;
+  let centroidDelMarker!: L.Marker;
   // The initial labels arrive from the drawing mode; relabel() re-issues the
   // registrations when a drag or node delete recreates the markers.
   let unregisterSegLabels = bindSegmentLabels(mgr, segLabels);
@@ -55,11 +57,11 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
     id,
     onOpen: () => {
       nodeDelMarkers.forEach(m => toggleDelIcon(m, true));
-      if (centroidDelMarker) toggleDelIcon(centroidDelMarker, true);
+      toggleDelIcon(centroidDelMarker, true);
     },
     onEmpty: () => {
       nodeDelMarkers.forEach(m => toggleDelIcon(m, false));
-      if (centroidDelMarker) toggleDelIcon(centroidDelMarker, false);
+      toggleDelIcon(centroidDelMarker, false);
     },
     dispose: () => {
       dragBinds.forEach(db => db.cleanup());
@@ -69,9 +71,9 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
     },
     removeLayers: () => {
       layers.removeLayer(finalPoly, ...nodeMarkers, ...segLabels, ...nodeDelMarkers);
-      if (centroidDot) layers.removeLayer(centroidDot);
-      if (centroidLabel) layers.removeLayer(centroidLabel);
-      if (centroidDelMarker) layers.removeLayer(centroidDelMarker);
+      layers.removeLayer(centroidDot);
+      layers.removeLayer(centroidLabel);
+      layers.removeLayer(centroidDelMarker);
     },
     onDelete,
   });
@@ -80,7 +82,7 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
 
   const relabel = () => {
     const area = Util.area(points);
-    if (centroidLabel) Util.setLabelText(centroidLabel, Util.formatArea(area));
+    Util.setLabelText(centroidLabel, Util.formatArea(area));
     segLabels.forEach(l => layers.removeLayer(l));
     segLabels.length = 0;
     const n = points.length;
@@ -101,9 +103,9 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
     unregisterSegLabels();
     unregisterSegLabels = bindSegmentLabels(mgr, segLabels);
     const centroid = Util.centroid(points);
-    if (centroidDot) centroidDot.setLatLng(centroid);
-    if (centroidLabel) centroidLabel.setLatLng(centroid);
-    if (centroidDelMarker) centroidDelMarker.setLatLng(centroid);
+    centroidDot.setLatLng(centroid);
+    centroidLabel.setLatLng(centroid);
+    centroidDelMarker.setLatLng(centroid);
   };
 
   const rebuildCentroid = (currentArea?: number) => {
@@ -135,11 +137,12 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
       centroidLabel,
       CONST.LABEL_PRIORITY.CENTROID,
     );
-    centroidDelMarker = layers.addLayer(
-      makeDelIcon(centroid, { title: mgr.T("del_all") }),
-      CONST.PANES.NODE,
-    ) as L.Marker;
-    attachDelClick(centroidDelMarker, deleteMeasurement);
+    centroidDelMarker = mountDelIcon(
+      layers,
+      centroid,
+      { title: mgr.T("del_all") },
+      deleteMeasurement,
+    );
   };
 
   // Drag is gated by edit mode (not the overlay), so nodes are draggable as
@@ -154,59 +157,51 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
   segLabels.forEach(l => l.on("click", openOverlay));
 
   rebuildCentroid(initArea);
-  centroidDot!.on("click", openOverlay);
-  (centroidDelMarker as L.Marker | null)?.on("click", openOverlay);
+  centroidDot.on("click", openOverlay);
+  centroidDelMarker.on("click", openOverlay);
 
   nodeMarkers.forEach(node => {
     const is3pt = points.length === 3;
-    const delMarker = layers.addLayer(
-      makeDelIcon(node.getLatLng(), {
-        title: is3pt ? mgr.T("del_all") : mgr.T("del_node"),
-      }),
-      CONST.PANES.NODE,
-    ) as L.Marker;
+    const delMarker = mountDelIcon(
+      layers,
+      node.getLatLng(),
+      { title: is3pt ? mgr.T("del_all") : mgr.T("del_node") },
+      is3pt
+        ? deleteMeasurement
+        : () => {
+            const latlng = node.getLatLng();
+            const ptIdx = findPointIndex(points, latlng);
+            if (ptIdx === -1) return;
+            points.splice(ptIdx, 1);
+            layers.removeLayer(node, delMarker);
+            nodeMarkers.splice(ptIdx, 1);
+            nodeDelMarkers.splice(ptIdx, 1);
+            dragBinds.splice(ptIdx, 1)[0]?.cleanup();
+
+            if (points.length === 3) {
+              nodeDelMarkers.forEach(d => {
+                d.off("click");
+                d.on("click", (event: L.LeafletMouseEvent) => {
+                  const t = Util.getEventTarget(event);
+                  if (t?.closest?.(CONST.SEL.DEL_ICON)) {
+                    stopEvent(event);
+                    deleteMeasurement();
+                  } else openOverlay(event);
+                });
+                const iconEl = d.getElement();
+                if (iconEl) iconEl.title = mgr.T("del_all");
+              });
+            }
+
+            finalPoly.setLatLngs(points);
+            relabel();
+            if (onUpdate) {
+              opts.area = Util.area(points);
+              onUpdate();
+            }
+          },
+    );
     nodeDelMarkers.push(delMarker);
-
-    if (is3pt) attachDelClick(delMarker, deleteMeasurement);
-    else {
-      attachDelClick(delMarker, () => {
-        const latlng = node.getLatLng();
-        const ptIdx = findPointIndex(points, latlng);
-        if (ptIdx === -1) return;
-        points.splice(ptIdx, 1);
-        layers.removeLayer(node, delMarker);
-        nodeMarkers.splice(ptIdx, 1);
-        nodeDelMarkers.splice(ptIdx, 1);
-        dragBinds.splice(ptIdx, 1)[0]?.cleanup();
-
-        if (points.length < 3) {
-          deleteMeasurement();
-          return;
-        }
-
-        if (points.length === 3) {
-          nodeDelMarkers.forEach(d => {
-            d.off("click");
-            d.on("click", (event: L.LeafletMouseEvent) => {
-              const t = Util.getEventTarget(event);
-              if (t?.closest?.(CONST.SEL.DEL_ICON)) {
-                stopEvent(event);
-                deleteMeasurement();
-              } else openOverlay(event);
-            });
-            const iconEl = d.getElement();
-            if (iconEl) iconEl.title = mgr.T("del_all");
-          });
-        }
-
-        finalPoly.setLatLngs(points);
-        relabel();
-        if (onUpdate) {
-          opts.area = Util.area(points);
-          onUpdate();
-        }
-      });
-    }
 
     bindOpenOverlay(delMarker, openOverlay);
 

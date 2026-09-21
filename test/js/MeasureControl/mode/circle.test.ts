@@ -214,6 +214,7 @@ describe("CircleMode — drag persistence (onEnd)", () => {
       radius: 5000,
       area: Math.PI * 5000 * 5000,
     };
+    manager.measurements = [data];
 
     CircleMode.restore(manager, data);
 
@@ -230,7 +231,7 @@ describe("CircleMode — drag persistence (onEnd)", () => {
     expect(data.target).toEqual({ lng: 121, lat: 32 });
     expect(data.radius).toBe(8000);
     expect(data.area).toBe(Math.PI * 8000 * 8000);
-    expect(manager.store.persist).toHaveBeenCalled();
+    expect(manager.store.mutateAndPersist).toHaveBeenCalled();
   });
 
   it("finishCircle: onEnd syncs the just-saved measurement's fields", () => {

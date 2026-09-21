@@ -55,7 +55,7 @@ const attachCircleUI = (mgr: MeasureManager, opts: CircleAttachOpts): void => {
       layers.removeLayer(circle);
       if (radiusLine) layers.removeLayer(radiusLine);
       if (radiusNode) layers.removeLayer(radiusNode);
-      if (centerFinal) layers.removeLayer(centerFinal);
+      layers.removeLayer(centerFinal);
       layers.removeLayer(delMarker);
       if (radiusLabel) layers.removeLayer(radiusLabel);
     },
@@ -123,7 +123,7 @@ const attachCircleUI = (mgr: MeasureManager, opts: CircleAttachOpts): void => {
   attachInteraction(circle);
   if (radiusLine) attachInteraction(radiusLine);
   if (radiusNode) attachInteraction(radiusNode);
-  if (centerFinal) attachInteraction(centerFinal);
+  attachInteraction(centerFinal);
   if (radiusLabel) attachInteraction(radiusLabel);
 
   attachDelClick(delMarker, deleteMeasurement);

@@ -17,9 +17,10 @@ function makeMgr(): any {
     map,
     onKeyDown: vi.fn(),
     onKeyUp: vi.fn(),
-    onMouseDown: vi.fn(),
-    onMouseMove: vi.fn(),
-    onMouseUp: vi.fn(),
+    onPointerDown: vi.fn(),
+    onPointerMove: vi.fn(),
+    onPointerUp: vi.fn(),
+    onPointerCancel: vi.fn(),
   };
 }
 
@@ -189,23 +190,39 @@ describe("ExportControl interaction", () => {
     cleanup();
   });
 
-  it("registerDrag mousemove and mouseup handlers work", () => {
+  it("registerDrag pointermove and pointerup handlers work", () => {
     const mgr = makeMgr();
     const cleanup = registerDrag(mgr);
-    document.dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
-    expect(mgr.onMouseMove).toHaveBeenCalled();
-    document.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
-    expect(mgr.onMouseUp).toHaveBeenCalled();
+    document.dispatchEvent(
+      new PointerEvent("pointermove", { bubbles: true, pointerId: 1 }),
+    );
+    expect(mgr.onPointerMove).toHaveBeenCalled();
+    document.dispatchEvent(
+      new PointerEvent("pointerup", { bubbles: true, pointerId: 1 }),
+    );
+    expect(mgr.onPointerUp).toHaveBeenCalled();
     cleanup();
   });
 
-  it("registerCropMouseDown mousedown handler calls onMouseDown", () => {
+  it("registerDrag pointercancel handler releases the drag", () => {
+    // A pinch or OS gesture cancels the pointer without a pointerup; the drag
+    // must end there, otherwise the next drag inherits the stale anchor.
+    const mgr = makeMgr();
+    const cleanup = registerDrag(mgr);
+    document.dispatchEvent(
+      new PointerEvent("pointercancel", { bubbles: true, pointerId: 1 }),
+    );
+    expect(mgr.onPointerCancel).toHaveBeenCalled();
+    cleanup();
+  });
+
+  it("registerCropMouseDown pointerdown handler calls onPointerDown", () => {
     const mgr = makeMgr();
     const el = document.createElement("div");
     document.body.appendChild(el);
     const cleanup = registerCropMouseDown(mgr, el);
-    el.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
-    expect(mgr.onMouseDown).toHaveBeenCalled();
+    el.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+    expect(mgr.onPointerDown).toHaveBeenCalled();
     cleanup();
   });
 
@@ -213,10 +230,14 @@ describe("ExportControl interaction", () => {
     const mgr = makeMgr();
     const cleanup = registerDrag(mgr);
     cleanup();
-    document.dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
-    document.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
-    expect(mgr.onMouseMove).not.toHaveBeenCalled();
-    expect(mgr.onMouseUp).not.toHaveBeenCalled();
+    document.dispatchEvent(
+      new PointerEvent("pointermove", { bubbles: true, pointerId: 1 }),
+    );
+    document.dispatchEvent(
+      new PointerEvent("pointerup", { bubbles: true, pointerId: 1 }),
+    );
+    expect(mgr.onPointerMove).not.toHaveBeenCalled();
+    expect(mgr.onPointerUp).not.toHaveBeenCalled();
   });
 
   it("registerCropMouseDown is removed after cleanup", () => {
@@ -225,19 +246,27 @@ describe("ExportControl interaction", () => {
     document.body.appendChild(el);
     const cleanup = registerCropMouseDown(mgr, el);
     cleanup();
-    el.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
-    expect(mgr.onMouseDown).not.toHaveBeenCalled();
+    el.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+    expect(mgr.onPointerDown).not.toHaveBeenCalled();
   });
 
-  it("drag handlers do not preventDefault on non-mouse events", () => {
+  it("drag handlers do not fire for non-pointer events", () => {
     const mgr = makeMgr();
     const cleanup = registerDrag(mgr);
-    // Mousemove and mouseup are registered; keydown should not dispatch to them
+    // pointermove and pointerup are registered; keydown must not dispatch
+    // to them.
     document.dispatchEvent(
       new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
     );
-    expect(mgr.onMouseMove).not.toHaveBeenCalled();
-    expect(mgr.onMouseUp).not.toHaveBeenCalled();
+    expect(mgr.onPointerMove).not.toHaveBeenCalled();
+    expect(mgr.onPointerUp).not.toHaveBeenCalled();
+    // Legacy mouse events must not drive the drag either, or the old jump
+    // path would come back through the mouse listener while the pointer
+    // listeners hold the capture.
+    document.dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
+    document.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+    expect(mgr.onPointerMove).not.toHaveBeenCalled();
+    expect(mgr.onPointerUp).not.toHaveBeenCalled();
     cleanup();
   });
 });

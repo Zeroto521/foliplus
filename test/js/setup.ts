@@ -50,6 +50,20 @@ if (!hasLocalStorage) {
   });
 }
 
+// jsdom has no PointerEvent constructor, but the ExportControl crop box drag
+// uses pointer events (mouse events have no capture contract, so one dropped
+// move mid-drag leaks the incremental delta). Subclass MouseEvent so the same
+// dispatch path applies and tests can pass `pointerId` in init.
+if (!globalThis.PointerEvent) {
+  globalThis.PointerEvent = class PointerEvent extends MouseEvent {
+    override pointerId: number | null;
+    constructor(type: string, init: PointerEventInit = {}) {
+      super(type, init);
+      this.pointerId = init.pointerId ?? 0;
+    }
+  };
+}
+
 // vitest's URL.createObjectURL polyfill (makeCompatBlob) accesses blob._buffer,
 // which plain `new Blob(["…"])` does not have — it throws TypeError in CI where
 // jsdom lacks a native implementation. Replace it with a minimal stub so
