@@ -87,8 +87,10 @@ import {
   applyOpacityStateOne,
   applyUserState,
   applyVisibleStateOne,
+  applyZoomRangeStateOne,
   dropPersistedLayerState,
   loadPersistedState,
+  refreshZoomEffectiveShown,
   replayLayerState,
   saveFoldState,
   saveNamesState,
@@ -164,6 +166,11 @@ class LayerUI {
   onMoreMenuClick: ((event: Event) => void) | null;
   /** Listen-map handler to detect clicks outside the open menu. */
   onMoreMapClick: ((event: L.LeafletEvent) => void) | null;
+  /** Map zoomend handler — re-evaluates every layer's effective-shown after
+   *  a zoom change so a layer whose range excludes the new level is hidden
+   *  (and vice versa). Writes through the single pipeline, never touches
+   *  hiddenIds / overrides. */
+  onZoomEnd: (() => void) | null;
   /** Unsubscribe function for LAYER_ITEM_COUNT_CHANGE. */
   unsubscribeCountChange: (() => void) | null;
   /** Unsubscribe for the control-attached ready signal. */
@@ -190,6 +197,9 @@ class LayerUI {
   styleUnsubscribe: (() => void) | null;
   /** Refresh function for the shared label controls (set by renderDelegatedStylePanel). */
   styleRefresh: (() => void) | null;
+  /** Map zoomend handler for the open style panel's zoom-range row: moves the
+   *  current-zoom marker and refreshes the out-of-range state. */
+  styleZoomEndHandler: (() => void) | null;
   /** Layer id whose annotation style panel is open, or null. */
   stylePanelLayerId: string | null;
   /** Per-layer label-field cache (collectFields walks every feature). */
@@ -243,11 +253,13 @@ class LayerUI {
     this.onMoreClick = null;
     this.onMoreMenuClick = null;
     this.onMoreMapClick = null;
+    this.onZoomEnd = null;
     this.activeMenu = null;
     this.attrsOutsideHandler = null;
     this.styleOutsideHandler = null;
     this.styleUnsubscribe = null;
     this.styleRefresh = null;
+    this.styleZoomEndHandler = null;
     this.stylePanelLayerId = null;
     this.fieldCache = new Map();
     this.pressInPanel = false;
@@ -473,6 +485,13 @@ class LayerUI {
     // and may visually overflow the panel bounds.
     document.addEventListener("click", this.onMoreMenuClick);
     this.m.map.on("click", this.onMoreMapClick);
+    // A zoom change re-evaluates every layer's effective-shown: a layer whose
+    // stored range excludes the new level is hidden, and one whose range
+    // includes it is brought back. This is the "inRange" half of
+    // effectiveShown = intent && inRange, and it writes through the single
+    // pipeline so the checkbox / hiddenIds / overrides stay untouched (#329).
+    this.onZoomEnd = () => this.refreshZoomEffectiveShown();
+    this.m.map.on("zoomend", this.onZoomEnd);
     // Keyboard dispatch for the "more" button (Enter/Space/Escape) is handled
     // by InteractionManager via registerInteractions() in interaction.ts,
     // which routes to handleKeyDown() — that method detects when the
@@ -576,6 +595,7 @@ class LayerUI {
       document.removeEventListener("click", this.onMoreMenuClick);
     }
     if (this.onMoreMapClick) this.m.map.off("click", this.onMoreMapClick);
+    if (this.onZoomEnd) this.m.map.off("zoomend", this.onZoomEnd);
     this.clearActiveItem();
     this.listCursor?.destroy();
     this.listCursor = null;
@@ -588,6 +608,7 @@ class LayerUI {
     this.onDrop = this.onDragEnd = null;
     this.onMoreClick = this.onMoreMenuClick = null;
     this.onMoreMapClick = null;
+    this.onZoomEnd = null;
     this.onKeyDown = null;
     if (this.unsubscribeCountChange) {
       this.unsubscribeCountChange();
@@ -660,6 +681,17 @@ class LayerUI {
   }
   saveNamesState() {
     return saveNamesState(this);
+  }
+  /** Re-evaluate every layer's effective-shown after a zoom change or a
+   *  focus transition. Writes through the single pipeline (`applyLayerState`),
+   *  so `hiddenIds` / `overrides` / the checkbox DOM are never touched —
+   *  the #329 lock. */
+  refreshZoomEffectiveShown() {
+    return refreshZoomEffectiveShown(this);
+  }
+  applyZoomRangeStateOne(layerId: string, range: [number, number] | null) {
+    const layerInfo = this.m.layerRegistry.get(layerId);
+    if (layerInfo) applyZoomRangeStateOne(this, layerInfo, range);
   }
   // ── delegates: list ──
   initTypesAndVisibility() {

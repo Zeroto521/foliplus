@@ -18,4 +18,27 @@
   .foliplus-layer-style-panel .foliplus-toggle-switch {
     display: flex;
   }
+
+  /* ── Zoom-range row ──────────────────────────────────────────────
+     Dual-thumb slider on a rail with a current-zoom marker. The two
+     <input type=range> elements overlay the rail; only their thumbs take
+     pointer events, so a mousedown lands on whichever thumb is nearer. The
+     selected range fills the rail with the accent colour, and a vertical line
+     marks the map's current zoom. A dimmed state (.out-of-range) appears when
+     the current zoom falls outside the selected range. Geometry comes from the
+     shared --slider-* tokens (token.css), so this rail is the same 8px capsule
+     the opacity row uses. */
+  .foliplus-style-zoom-range-row {
+    /* The rail, the fill, the readout dots, the numbers and the handles are the
+       shared slider component (common/slider.css). This row states only what its
+       own coverage state looks like. */
+    .foliplus-style-zoom-range-current-value {
+      color: var(--text-primary);
+      font-weight: var(--font-weight-medium);
+    }
+
+    /* Out of range is carried by the dots' rings alone (the readout they
+       exist for), so the rail stays accent and the text stays ink. The row
+       only keeps the tooltip and the class itself. */
+  }
 }

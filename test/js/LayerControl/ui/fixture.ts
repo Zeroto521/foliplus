@@ -176,6 +176,7 @@ const initFixture = (
     flyTo: vi.fn(),
     getZoom: vi.fn(() => options.initialZoom ?? 5),
     getMaxZoom: vi.fn(() => options.maxZoom ?? 18),
+    getMinZoom: vi.fn(() => 0),
     getBounds: vi.fn(() => {
       const view = {
         pad: vi.fn(() => view),
