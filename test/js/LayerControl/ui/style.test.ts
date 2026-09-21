@@ -741,9 +741,7 @@ describe("LayerUI style panel", () => {
     const range = panel.querySelector(
       ".foliplus-style-opacity-range",
     ) as HTMLInputElement;
-    const fill = panel.querySelector(
-      ".foliplus-style-opacity-fill",
-    ) as HTMLElement;
+    const fill = panel.querySelector(".foliplus-style-opacity-fill") as HTMLElement;
     // Freshly opened → full width.
     expect(fill.style.width).toBe("100%");
 
@@ -957,9 +955,7 @@ describe("LayerUI style panel", () => {
     const number = panel.querySelector(
       ".foliplus-style-opacity-number",
     ) as HTMLInputElement;
-    const fill = panel.querySelector(
-      ".foliplus-style-opacity-fill",
-    ) as HTMLElement;
+    const fill = panel.querySelector(".foliplus-style-opacity-fill") as HTMLElement;
     expect(range.value).toBe("100");
     expect(number.value).toBe("100");
     expect(fill.style.width).toBe("100%");
@@ -979,9 +975,7 @@ describe("LayerUI style panel", () => {
     const number = panel.querySelector(
       ".foliplus-style-opacity-number",
     ) as HTMLInputElement;
-    const fill = panel.querySelector(
-      ".foliplus-style-opacity-fill",
-    ) as HTMLElement;
+    const fill = panel.querySelector(".foliplus-style-opacity-fill") as HTMLElement;
 
     range.value = "45";
     range.dispatchEvent(new Event("input", { bubbles: true }));
@@ -1085,9 +1079,7 @@ describe("LayerUI style panel", () => {
     const number = panel.querySelector(
       ".foliplus-style-opacity-number",
     ) as HTMLInputElement;
-    const fill = panel.querySelector(
-      ".foliplus-style-opacity-fill",
-    ) as HTMLElement;
+    const fill = panel.querySelector(".foliplus-style-opacity-fill") as HTMLElement;
 
     number.focus();
     number.value = "37.6";

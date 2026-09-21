@@ -190,7 +190,9 @@
       border: 2px solid var(--accent-primary);
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
       cursor: grab;
-      transition: transform 0.1s ease, box-shadow 0.1s ease;
+      transition:
+        transform 0.1s ease,
+        box-shadow 0.1s ease;
     }
     /* Max thumb (Firefox): white fill with accent ring. */
     .foliplus-style-zoom-range-max::-moz-range-thumb {
@@ -204,7 +206,9 @@
       border: 2px solid var(--accent-primary);
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
       cursor: grab;
-      transition: transform 0.1s ease, box-shadow 0.1s ease;
+      transition:
+        transform 0.1s ease,
+        box-shadow 0.1s ease;
     }
     .foliplus-style-zoom-range-min:hover::-moz-range-thumb {
       transform: scale(1.05);
