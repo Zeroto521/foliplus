@@ -147,7 +147,7 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
     reason: "attribute panel event bindings — pending migration to `this.on`",
   },
   {
-    f: "LayerControl/ui/index.ts",
+    f: "LayerControl/ui/lifecycle.ts",
     n: 13,
     pairedOff: 0,
     reason:
