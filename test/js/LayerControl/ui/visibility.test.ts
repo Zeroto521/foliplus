@@ -511,6 +511,198 @@ describe("LayerUI.handleChange", () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// DOM order ≠ registry order
+//
+// A late registration lands where its stored slot puts it, so the panel's row
+// order can diverge from the registry's. These cases pin that the checkbox and
+// group-toggle paths still act on the layer a row owns, not on whatever
+// happens to sit at that DOM index.
+// ---------------------------------------------------------------------------
+
+describe("DOM order diverges from registry order", () => {
+  const layerFixture = () => ({ options: {} as Record<string, unknown> });
+
+  // The shared initFixture cannot serve this suite: its map.hasLayer always
+  // answers true and addLayer/removeLayer are no-ops, while handleChange and
+  // initLayerItem here decide each row's checkbox from real map membership
+  // (and the pane touches need createPane + _paneRenderers). Keep the map
+  // local so visibility transitions are asserted against actual state.
+  const fixture3 = () => {
+    const map = {
+      on: vi.fn(),
+      off: vi.fn(),
+      invalidateSize: vi.fn(),
+      getContainer: vi.fn(() => document.createElement("div")),
+      getPane: vi.fn(() => document.createElement("div")),
+      createPane: vi.fn(() => {
+        const p = document.createElement("div");
+        p.classList.add("foliplus-layer-pane");
+        return p;
+      }),
+      _layers: new Map<unknown, unknown>(),
+      hasLayer: vi.fn((layer: unknown) => map._layers.has(layer)),
+      addLayer: vi.fn((layer: unknown) => {
+        map._layers.set(layer, layer);
+      }),
+      removeLayer: vi.fn((layer: unknown) => {
+        map._layers.delete(layer);
+      }),
+      _paneRenderers: {},
+      attributionControl: { _attributions: {}, _update: vi.fn() },
+    } as FixtureMap & Record<string, unknown>;
+
+    const manager = new LayerManager(map, [
+      { id: "A", name: "Layer A", isBase: false, layer: layerFixture() },
+      { id: "B", name: "Layer B", isBase: false, layer: layerFixture() },
+      { id: "C", name: "Layer C", isBase: false, layer: layerFixture() },
+    ]);
+    manager.ui = new LayerUI(manager);
+    manager.attachUI(document.createElement("div"));
+    return { map, manager, ui: manager.ui as LayerUI };
+  };
+
+  /** Rearrange the overlay rows so the DOM order is C-A-B (registry is A-B-C),
+   *  then write dataset.index from DOM position: the stale offset the old
+   *  positional lookup would have read. */
+  const scrambleDomOrder = (ui: LayerUI) => {
+    const rows = Array.from(
+      ui.uiContainer.querySelectorAll<HTMLElement>(
+        `${CONST.SEL.LAYER_ITEM}[data-layer-type="${CONST.GROUP.OVERLAY}"]`,
+      ),
+    );
+    expect(rows.length).toBe(3);
+    const container = rows[0].parentNode!;
+    container.insertBefore(rows[2], rows[0]); // A,B,C -> C,A,B
+    // dataset.index now carries DOM position while the registry is still A-B-C:
+    // the stale offset the old positional lookup would have read. Simulating it
+    // lets the assertion distinguish "looked up by id" from "looked up by
+    // (now wrong) position". Re-query after the move so the loop sees DOM
+    // order, not the pre-scramble array order.
+    const reordered = Array.from(
+      ui.uiContainer.querySelectorAll<HTMLElement>(
+        `${CONST.SEL.LAYER_ITEM}[data-layer-type="${CONST.GROUP.OVERLAY}"]`,
+      ),
+    );
+    reordered.forEach((row, i) => {
+      row.dataset.index = String(i);
+      const cb = row.querySelector('input[type="checkbox"]') as HTMLInputElement | null;
+      if (cb) cb.dataset.index = String(i);
+    });
+  };
+
+  let map: FixtureMap;
+  let manager: LayerManager;
+  let ui: LayerUI;
+
+  beforeEach(() => {
+    window.localStorage.clear();
+    installLeafletGlobals();
+    window.CONF = { ...window.CONF, name: "LayerControl", locale_code: "en" };
+    ({ map, manager, ui } = fixture3());
+    document.body.innerHTML = "";
+  });
+
+  afterEach(() => {
+    manager.ui = null;
+    manager.destroy();
+    document.body.innerHTML = "";
+    vi.restoreAllMocks();
+  });
+
+  it("handleChange toggles the layer its row owns, not the one at that DOM index", () => {
+    scrambleDomOrder(ui);
+    // After scrambling, the second overlay row in the DOM is A (registry idx 0),
+    // but its dataset.index is "1" (DOM position). The old handler would read
+    // that index and toggle B instead of A.
+    const rows = Array.from(
+      ui.uiContainer.querySelectorAll<HTMLElement>(
+        `${CONST.SEL.LAYER_ITEM}[data-layer-type="${CONST.GROUP.OVERLAY}"]`,
+      ),
+    );
+    const rowA = rows[1];
+    expect(rowA.getAttribute(CONST.DATA.LAYER_ID)).toBe("A");
+    expect(rowA.dataset.index).toBe("1");
+    const cb = rowA.querySelector('input[type="checkbox"]') as HTMLInputElement;
+    const layerA = manager.layerRegistry.get("A")!.layer as { options: object };
+
+    cb.checked = false;
+    ui.handleChange({ target: cb } as Event);
+
+    expect(manager.layerRegistry.get("A")?.visible).toBe(false);
+    expect(map.removeLayer).toHaveBeenCalledWith(layerA);
+    // B must not have been toggled —the old handler would have read index 1
+    // and hit B (registry idx 1) instead.
+    expect(manager.layerRegistry.get("B")?.visible).toBe(true);
+    expect(manager.layerRegistry.get("C")?.visible).toBe(true);
+  });
+
+  it("toggleAll hits every layer by id, not by DOM position", () => {
+    scrambleDomOrder(ui);
+    // The DOM order is C-A-B but toggleAll must hide all three regardless.
+    ui.toggleAll(CONST.GROUP.OVERLAY, false);
+
+    expect(manager.layerRegistry.get("A")?.visible).toBe(false);
+    expect(manager.layerRegistry.get("B")?.visible).toBe(false);
+    expect(manager.layerRegistry.get("C")?.visible).toBe(false);
+  });
+
+  it("toggleAll skips a row that names no registered layer", () => {
+    // A row left behind without a data-layer-id: it names no layer, so it must
+    // be skipped rather than dragging a neighbour into the sweep.
+    const orphan = document.createElement("div");
+    orphan.className = CONST.CLASSES.LAYER_ITEM;
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.checked = true;
+    orphan.appendChild(box);
+    ui.uiContainer.appendChild(orphan);
+
+    ui.toggleAll(CONST.GROUP.OVERLAY, false);
+
+    expect(box.checked).toBe(true);
+    expect(manager.layerRegistry.get("A")?.visible).toBe(false);
+    expect(manager.layerRegistry.get("B")?.visible).toBe(false);
+    expect(manager.layerRegistry.get("C")?.visible).toBe(false);
+  });
+
+  it("handleChange takes the color branch for the basemap input, never a layer id", () => {
+    scrambleDomOrder(ui);
+    const colorInput = ui.uiContainer.querySelector<HTMLInputElement>(
+      `.${CONST.CLASSES.COLOR_INPUT}`,
+    )!;
+    colorInput.value = "#00ff00";
+
+    handleChange(ui, { target: colorInput } as Event);
+
+    expect(ui.currentColor).toBe("#00ff00");
+    expect(ui.isColorActive).toBe(true);
+    // The color row is keyed by its class, so no data-layer-id lookup runs and
+    // the scrambled overlay rows are left untouched.
+    expect(manager.layerRegistry.get("A")?.visible).toBe(true);
+    expect(manager.layerRegistry.get("B")?.visible).toBe(true);
+    expect(manager.layerRegistry.get("C")?.visible).toBe(true);
+  });
+
+  it("handleInput repaints the basemap while the color picker is being used", () => {
+    const colorInput = ui.uiContainer.querySelector<HTMLInputElement>(
+      `.${CONST.CLASSES.COLOR_INPUT}`,
+    )!;
+    colorInput.value = "#0000ff";
+
+    handleInput(ui, { target: colorInput } as Event);
+
+    expect(ui.currentColor).toBe("#0000ff");
+    expect(ui.isColorActive).toBe(true);
+  });
+
+  it("toggleAll restores the basemap when the base group is cleared", () => {
+    ui.toggleAll(CONST.GROUP.BASE, false);
+
+    expect(ui.isColorActive).toBe(true);
+  });
+});
+
 describe("unit helpers", () => {
   const makeUi = (): LayerUI => {
     const uiContainer = document.createElement("div");

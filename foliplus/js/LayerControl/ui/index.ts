@@ -73,7 +73,6 @@ import {
   initTypesAndVisibility,
   insertLayerItem,
   reindexAfterMove,
-  reindexItems,
   renderColorLayerItem,
   renderInitialList,
   renderLayerItem,
@@ -302,9 +301,8 @@ class LayerUI {
 
     while (this.m.pendingRegistrations.length) {
       const layerInfo = this.m.pendingRegistrations.shift();
-      if (layerInfo) this.insertLayerItem(layerInfo, { reindex: false });
+      if (layerInfo) this.insertLayerItem(layerInfo);
     }
-    this.reindexItems();
     // Last in the attach sequence: applyUserState() runs the full sweep
     // needed for rows rendered from the initial registry. Hidden ids are
     // loaded above but only applied here, so a row can never render visible
@@ -702,11 +700,11 @@ class LayerUI {
   renderInitialList() {
     return renderInitialList(this);
   }
-  insertLayerItem(layerInfo: LayerInfo, opts?: { reindex?: boolean }) {
-    return insertLayerItem(this, layerInfo, opts);
+  insertLayerItem(layerInfo: LayerInfo) {
+    return insertLayerItem(this, layerInfo);
   }
-  updateLayerItem(layerInfo: LayerInfo, idx: number) {
-    return updateLayerItem(this, layerInfo, idx);
+  updateLayerItem(layerInfo: LayerInfo) {
+    return updateLayerItem(this, layerInfo);
   }
   displayName(layerId: string) {
     return displayName(this, layerId);
@@ -716,9 +714,6 @@ class LayerUI {
   }
   initLayerItem(layerInfo: LayerInfo) {
     return initLayerItem(this, layerInfo);
-  }
-  reindexItems() {
-    return reindexItems(this);
   }
   reindexAfterMove() {
     return reindexAfterMove(this);

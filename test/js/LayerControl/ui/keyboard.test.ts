@@ -117,15 +117,13 @@ describe("LayerUI keyboard", () => {
       restore();
     });
 
-    it("a checkbox change hides the layer at that row's own index", () => {
-      // The handler resolves the layer from `dataset.index`, not from the row,
-      // so an unregistered layer's row is simply no longer toggleable here —
-      // nothing is lost by the index lookup while the row is live.
+    it("a checkbox change hides the layer its row owns", () => {
+      // The handler resolves the layer by the row's data-layer-id, so a
+      // late registration can sit anywhere in the DOM without changing which
+      // layer the click toggles.
       const cb = findItem(ui, "overlay1").querySelector(
         'input[type="checkbox"]',
       ) as HTMLInputElement;
-      const idx = parseInt(cb.dataset.index ?? "", 10);
-      expect(ui.m.layers[idx].id).toBe("overlay1");
 
       cb.checked = false;
       ui.handleChange({ target: cb } as Event);

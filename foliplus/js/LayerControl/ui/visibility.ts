@@ -18,9 +18,12 @@ const toggleAll = (ui: LayerUI, group: string, newState: boolean) => {
       'input[type="checkbox"]',
     ) as HTMLInputElement | null;
     if (!checkbox) return;
-    const idx = parseInt(checkbox.dataset.index ?? "", 10);
-    if (isNaN(idx) || idx < 0 || idx >= ui.m.layers.length) return;
-    const layerInfo = ui.m.layers[idx];
+    // The row carries the identity (data-layer-id): a late registration lands
+    // where its stored slot puts it, so the DOM order can diverge from the
+    // registry and an index-based lookup would silently toggle a neighbour.
+    const id = item.getAttribute(CONST.DATA.LAYER_ID);
+    const layerInfo = id ? ui.m.layerRegistry.get(id) : undefined;
+    if (!layerInfo) return;
     const layer = ui.m.findLayer(layerInfo);
 
     checkbox.checked = newState;
@@ -139,9 +142,13 @@ const handleChange = (ui: LayerUI, event: Event) => {
   }
   if (target.tagName.toLowerCase() !== "input" || target.type !== "checkbox") return;
 
-  const idx = parseInt(target.dataset.index ?? "", 10);
-  if (isNaN(idx) || idx < 0 || idx >= ui.m.layers.length) return;
-  applyVisibility(ui, ui.m.layers[idx].id, target.checked);
+  // The row carries the identity: data-layer-id, not a positional index —a
+  // late registration can sit anywhere in the DOM, so an index-based lookup
+  // would apply the click to a neighbour's layer.
+  const row = target.closest(CONST.SEL.LAYER_ITEM);
+  const id = row?.getAttribute(CONST.DATA.LAYER_ID);
+  if (!id) return;
+  applyVisibility(ui, id, target.checked);
 };
 
 const handleInput = (ui: LayerUI, event: Event) => {

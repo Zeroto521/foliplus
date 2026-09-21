@@ -1159,7 +1159,7 @@ describe("LayerManager", () => {
     expect(manager.layerRegistry.get("heat")?.opacity).toBe(0.4);
   });
 
-  it("unregisterLayer removes the UI row and reindexes", () => {
+  it("unregisterLayer removes the UI row", () => {
     manager.map.hasLayer.mockReturnValue(false);
     const row = document.createElement("div");
     row.setAttribute("data-layer-id", "overlay1");
@@ -1170,13 +1170,39 @@ describe("LayerManager", () => {
       opacityMap: {},
       zoomRangeMap: {},
       userOverrides: {},
-      reindexItems: vi.fn(),
       saveState: vi.fn(),
       invalidateFields: vi.fn(),
     } as any;
     expect(manager.unregisterLayer("overlay1")).toBe(true);
     expect(manager.uiContainer.querySelector("[data-layer-id=overlay1]")).toBeNull();
-    expect(manager.ui.reindexItems).toHaveBeenCalled();
+  });
+
+  it("unregisterLayer tolerates a row already gone from the panel", () => {
+    // The panel is attached but no row carries this id — the layer left the
+    // panel before unregister ran. The removal guard (target === null) must
+    // not throw.
+    manager.map.hasLayer.mockReturnValue(false);
+    manager.uiContainer = document.createElement("div");
+    manager.ui = {
+      hiddenIds: new Set(),
+      opacityMap: {},
+      zoomRangeMap: {},
+      userOverrides: {},
+      saveState: vi.fn(),
+      invalidateFields: vi.fn(),
+    } as any;
+    expect(manager.unregisterLayer("overlay1")).toBe(true);
+  });
+
+  it("attachUI skips a null entry in pending registrations", () => {
+    // attachUI drains pendingRegistrations in a loop and guards each shift()
+    // result; a null entry must be skipped rather than reaching
+    // insertLayerItem. A null cannot arise from registerLayer, so this is
+    // defensive — and it must stay that way.
+    const ui = new LayerUI(manager);
+    manager.pendingRegistrations.push(null as any);
+    manager.ui = ui;
+    expect(() => ui.attachUI(document.createElement("div"))).not.toThrow();
   });
 
   it("unregisterLayer leaves every persisted section alone", () => {
@@ -1196,7 +1222,6 @@ describe("LayerManager", () => {
         base1: ["visible"],
       },
       renamedNames: { overlay1: "Renamed" },
-      reindexItems: vi.fn(),
       saveState,
       saveNamesState: vi.fn(),
       invalidateFields: vi.fn(),
@@ -1230,7 +1255,6 @@ describe("LayerManager", () => {
       },
       renamedNames: { overlay1: "Renamed" },
       dropPersistedLayerState: (id: string) => dropPersistedLayerState(manager.ui, id),
-      reindexItems: vi.fn(),
       saveState,
       saveNamesState,
       invalidateFields: vi.fn(),
@@ -1256,7 +1280,6 @@ describe("LayerManager", () => {
       userOverrides: { overlay1: ["opacity"] },
       renamedNames: {},
       dropPersistedLayerState: vi.fn(),
-      reindexItems: vi.fn(),
       saveState,
       saveNamesState: vi.fn(),
       invalidateFields: vi.fn(),
@@ -1289,7 +1312,6 @@ describe("LayerManager", () => {
       userOverrides: { overlay1: ["visible", "opacity"] },
       renamedNames: { base1: "Renamed" },
       dropPersistedLayerState: (id: string) => dropPersistedLayerState(manager.ui, id),
-      reindexItems: vi.fn(),
       saveState,
       saveNamesState,
       invalidateFields: vi.fn(),
