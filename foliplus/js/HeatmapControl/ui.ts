@@ -20,6 +20,14 @@ import { panelContentHTML } from "./template.js";
 /** Shape of the HeatmapControl instance as consumed by UI functions. */
 interface HeatmapControlUI {
   m: HeatmapManager;
+  /** BaseControl.on — DOM listeners bound through the control's mounting
+   *  signal, so a removed control tears them down with everything else. */
+  on: (
+    target: EventTarget,
+    type: string,
+    fn: EventListenerOrEventListenerObject,
+    options?: AddEventListenerOptions,
+  ) => () => void;
   /** Component config — carried on the state object instead of a module-level
    *  free variable, so every UI function is unit-testable with its own CONF. */
   conf: ComponentConfig;
@@ -51,7 +59,9 @@ interface HeatmapControlUI {
   borderWeightInput: HTMLInputElement;
   labelRefresh: (() => void) | null;
   styleChangeCleanup: (() => void) | null;
-  closeSchemeDropdown: (event: MouseEvent) => void;
+  /** Takes `Event`, not `MouseEvent`, because it is handed to `on()` as an
+   *  `EventListener` — only `.target` is read. */
+  closeSchemeDropdown: (event: Event) => void;
   toggleSchemeDropdown: () => void;
 }
 
@@ -223,7 +233,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     },
   );
 
-  ctrl.closeSchemeDropdown = (event: MouseEvent) => {
+  ctrl.closeSchemeDropdown = (event: Event) => {
     if (
       ctrl.schemeDropdown &&
       !ctrl.schemeBar.contains(event.target as Node) &&
@@ -232,13 +242,16 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
       ctrl.schemeDropdown.remove();
       ctrl.schemeDropdown = null;
       ctrl.schemeBar.classList.remove(CONST.CLASSES.SCHEME_BAR_OPEN);
-      document.removeEventListener("click", ctrl.closeSchemeDropdown);
     }
   };
   ctrl.toggleSchemeDropdown = () => {
     toggleSchemeDropdown(ctrl);
+    // Document-level outside-click, bound through the control's signal so a
+    // control removed with the dropdown open leaves no listener behind. The
+    // handler no-ops when no dropdown is open, so re-registering on each open
+    // is idempotent rather than additive.
     if (ctrl.schemeDropdown) {
-      document.addEventListener("click", ctrl.closeSchemeDropdown);
+      ctrl.on(document, "click", ctrl.closeSchemeDropdown);
     }
   };
 
