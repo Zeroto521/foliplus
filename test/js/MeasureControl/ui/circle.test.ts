@@ -347,3 +347,99 @@ describe("attachCircleUI — drag flow", () => {
     expect(() => toggle(false)).not.toThrow();
   });
 });
+
+describe("attachCircleUI — null-optionals", () => {
+  const mk = (name: string) => ({
+    on: vi.fn(),
+    off: vi.fn(),
+    getElement: vi.fn(() => null),
+    getLatLng: vi.fn(() => ({ lat: 0, lng: 0 })),
+    setLatLng: vi.fn(),
+    getRadius: vi.fn(() => 1000),
+    setRadius: vi.fn(),
+    setLatLngs: vi.fn(),
+  });
+
+  it("skips optional layers in removeLayers and skips label registration when they are null", () => {
+    const layers = {
+      removeLayer: vi.fn(),
+      addLayer: vi.fn(l => l),
+      unregister: vi.fn(),
+    };
+    const registerLabel = vi.fn(() => () => {});
+    const opts = {
+      layers,
+      circle: mk("circle"),
+      radiusLine: null,
+      radiusNode: null,
+      centerFinal: mk("centerFinal"),
+      delMarker: mk("delMarker"),
+      radiusLabel: null,
+      onDelete: vi.fn(),
+      id: "test-id",
+    };
+    UI.attachCircleUI({ ...makeMgr(), registerLabel } as any, opts as any);
+
+    // No label registration — the ternary took the `() => {}` arm.
+    expect(registerLabel).not.toHaveBeenCalled();
+
+    // Trigger delete → removeLayers runs. The three null optionals are skipped.
+    (opts.delMarker as any)._delClick();
+    const nullArgs = layers.removeLayer.mock.calls.filter(c => c[0] == null);
+    expect(nullArgs).toHaveLength(0);
+  });
+
+  it("center-drag skips the optional layers and updateLabel returns early when they are null", () => {
+    const circle = mk("circle");
+    const centerFinal = mk("centerFinal");
+    UI.attachCircleUI(
+      makeMgr() as any,
+      {
+        layers: { removeLayer: vi.fn(), addLayer: vi.fn(l => l), unregister: vi.fn() },
+        circle,
+        radiusLine: null,
+        radiusNode: null,
+        centerFinal,
+        delMarker: mk("delMarker"),
+        radiusLabel: null,
+        onDelete: vi.fn(),
+        id: "test-id",
+      } as any,
+    );
+
+    dragHandlers[0]!.onDrag!({ lat: 5, lng: 5 });
+
+    expect(circle.setLatLng).toHaveBeenCalledWith({ lat: 5, lng: 5 });
+    expect(centerFinal.setLatLng).toHaveBeenCalledWith({ lat: 5, lng: 5 });
+    // radiusNode is null — no setLatLng on it; radiusLine is null — no setLatLngs.
+    // updateLabel returns early because radiusLabel is null — no circle.setRadius
+    // (that only runs in the radius-node drag, not the center drag).
+    expect(circle.setRadius).not.toHaveBeenCalled();
+  });
+
+  it("radius-drag skips the radius line and label when they are null", () => {
+    const circle = mk("circle");
+    const radiusNode = mk("radiusNode");
+    UI.attachCircleUI(
+      makeMgr() as any,
+      {
+        layers: { removeLayer: vi.fn(), addLayer: vi.fn(l => l), unregister: vi.fn() },
+        circle,
+        radiusLine: null,
+        radiusNode,
+        centerFinal: mk("centerFinal"),
+        delMarker: mk("delMarker"),
+        radiusLabel: null,
+        onDelete: vi.fn(),
+        id: "test-id",
+      } as any,
+    );
+
+    dragHandlers[1]!.onDrag!({ lat: 1, lng: 5 });
+
+    expect(circle.setRadius).toHaveBeenCalled();
+    expect(radiusNode.setLatLng).toHaveBeenCalledWith({ lat: 1, lng: 5 });
+    // No radius line to update; no label to reposition (updateLabel early-returns).
+    expect(circle.setLatLng).not.toHaveBeenCalled();
+  });
+});

@@ -553,3 +553,150 @@ describe("attachPolygonUI — drag flow", () => {
     expect(onUpdate).toHaveBeenCalled();
   });
 });
+
+describe("attachPolygonUI — edge cases", () => {
+  const mkNode = (pt: L.LatLng) => ({
+    on: vi.fn(),
+    off: vi.fn(),
+    getLatLng: vi.fn(() => pt),
+    getElement: vi.fn(() => null),
+    setLatLng: vi.fn(),
+  });
+
+  const makeOpts = (points: L.LatLng[], overrides: Record<string, any> = {}) => {
+    const layers = {
+      removeLayer: vi.fn(),
+      addLayer: vi.fn(l => l),
+      unregister: vi.fn(),
+    };
+    return {
+      layers,
+      finalPoly: { on: vi.fn(), setLatLngs: vi.fn() },
+      nodeMarkers: points.map(mkNode),
+      segLabels: points.slice(0, -1).map(() => ({ on: vi.fn() })),
+      points,
+      area: 5000,
+      id: "test-id",
+      onDelete: vi.fn(),
+      onUpdate: vi.fn(),
+      ...overrides,
+    };
+  };
+
+  it("returns early from the delete callback when the node's position no longer matches any point", () => {
+    const opts = makeOpts([
+      { lat: 0, lng: 0 },
+      { lat: 1, lng: 1 },
+      { lat: 2, lng: 2 },
+      { lat: 3, lng: 3 },
+    ]);
+    UI.attachPolygonUI(makeMgr() as any, opts as any);
+
+    // Node's getLatLng no longer matches any point — ptIdx === -1 → early return.
+    opts.nodeMarkers[1].getLatLng.mockReturnValue({ lat: 999, lng: 999 });
+    const onDelete = opts.onDelete as any;
+    const onUpdate = opts.onUpdate as any;
+
+    // makeDelIcon order: [0]=centroid, [1..n]=per-node. So mock.results[2] is node 1's del.
+    (makeDelIcon as any).mock.results[2].value._delClick();
+
+    expect(onDelete).not.toHaveBeenCalled();
+    expect(onUpdate).not.toHaveBeenCalled();
+    expect(opts.points).toHaveLength(4);
+  });
+
+  it("does not rebind to del-all when a 5-point polygon collapses to 4, and skips onUpdate when undefined", () => {
+    const opts = makeOpts(
+      [
+        { lat: 0, lng: 0 },
+        { lat: 1, lng: 1 },
+        { lat: 2, lng: 2 },
+        { lat: 3, lng: 3 },
+        { lat: 4, lng: 4 },
+      ],
+      { onUpdate: undefined },
+    );
+    UI.attachPolygonUI(makeMgr() as any, opts as any);
+
+    // Splice 1 → 4 remaining; `points.length === 3` is false (L187 false arm),
+    // onUpdate is undefined (L204 false arm).
+    (makeDelIcon as any).mock.results[2].value._delClick();
+
+    expect(opts.points).toHaveLength(4);
+    expect(opts.onUpdate).toBeUndefined();
+  });
+
+  it("returns early from a node's onDrag when its position no longer matches any point", () => {
+    const opts = makeOpts([
+      { lat: 0, lng: 0 },
+      { lat: 1, lng: 1 },
+      { lat: 2, lng: 2 },
+      { lat: 3, lng: 3 },
+    ]);
+    UI.attachPolygonUI(makeMgr() as any, opts as any);
+
+    opts.nodeMarkers[1].getLatLng.mockReturnValue({ lat: 999, lng: 999 });
+    const polySetLatLngs = opts.finalPoly.setLatLngs as any;
+
+    dragHandlers[1]!.onDrag!({ lat: 9, lng: 9 });
+
+    // Early return: points unchanged, setLatLngs not called.
+    expect(opts.points).toHaveLength(4);
+    expect(polySetLatLngs).not.toHaveBeenCalled();
+  });
+
+  it("returns early from a node's onEnd when its position no longer matches and onUpdate is undefined", () => {
+    const opts = makeOpts(
+      [
+        { lat: 0, lng: 0 },
+        { lat: 1, lng: 1 },
+        { lat: 2, lng: 2 },
+        { lat: 3, lng: 3 },
+      ],
+      { onUpdate: undefined },
+    );
+    UI.attachPolygonUI(makeMgr() as any, opts as any);
+
+    opts.nodeMarkers[1].getLatLng.mockReturnValue({ lat: 999, lng: 999 });
+
+    dragHandlers[1]!.onEnd!({ lat: 9, lng: 9 });
+
+    expect(opts.points).toHaveLength(4);
+    expect(opts.onUpdate).toBeUndefined();
+  });
+
+  it("skips onUpdate from the centroid drag onEnd when onUpdate is undefined", () => {
+    const opts = makeOpts(
+      [
+        { lat: 0, lng: 0 },
+        { lat: 1, lng: 1 },
+        { lat: 2, lng: 2 },
+      ],
+      { onUpdate: undefined },
+    );
+    UI.attachPolygonUI(makeMgr() as any, opts as any);
+
+    dragHandlers.at(-1)!.onEnd!({ lat: 5, lng: 5 });
+
+    expect(opts.onUpdate).toBeUndefined();
+  });
+
+  it("skips onUpdate from a node's onEnd when onUpdate is undefined but the position still matches", () => {
+    const opts = makeOpts(
+      [
+        { lat: 0, lng: 0 },
+        { lat: 1, lng: 1 },
+        { lat: 2, lng: 2 },
+        { lat: 3, lng: 3 },
+      ],
+      { onUpdate: undefined },
+    );
+    UI.attachPolygonUI(makeMgr() as any, opts as any);
+
+    // Node's position still matches points (no early return); onUpdate is undefined.
+    dragHandlers[1]!.onEnd!({ lat: 9, lng: 9 });
+
+    expect(opts.points).toHaveLength(4);
+    expect(opts.onUpdate).toBeUndefined();
+  });
+});

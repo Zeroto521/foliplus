@@ -562,3 +562,128 @@ describe("attachDistanceUI — whole-distance delete flow", () => {
     expect(layers.unregister).toHaveBeenCalled();
   });
 });
+
+describe("attachDistanceUI — edge cases", () => {
+  const mkNode = (pt: L.LatLng) => ({
+    on: vi.fn(),
+    off: vi.fn(),
+    getLatLng: vi.fn(() => pt),
+    setLatLng: vi.fn(),
+  });
+  const mkLabel = () => ({ on: vi.fn(), setLatLng: vi.fn(), setIcon: vi.fn() });
+
+  const makeOpts = (points: L.LatLng[], overrides: Record<string, any> = {}) => {
+    const layers = {
+      removeLayer: vi.fn(),
+      addLayer: vi.fn(l => l),
+      unregister: vi.fn(),
+    };
+    const nodeMarkers = points.map(mkNode);
+    const segLabels = points.slice(0, -1).map(() => mkLabel());
+    return {
+      layers,
+      finalPoly: { on: vi.fn(), setLatLngs: vi.fn() },
+      nodeMarkers,
+      segLabels,
+      points,
+      id: "test-id",
+      onDelete: vi.fn(),
+      onUpdate: vi.fn(),
+      ...overrides,
+    };
+  };
+
+  it("returns early from the delete callback when the node's position no longer matches any point", () => {
+    const opts = makeOpts([
+      { lat: 0, lng: 0 },
+      { lat: 1, lng: 1 },
+      { lat: 2, lng: 2 },
+    ]);
+    UI.attachDistanceUI(makeMgr() as any, opts as any);
+
+    // Middle node's getLatLng no longer matches any point — ptIdx === -1 → early return.
+    opts.nodeMarkers[1].getLatLng.mockReturnValue({ lat: 999, lng: 999 });
+    const onDelete = opts.onDelete as any;
+    const onUpdate = opts.onUpdate as any;
+
+    (makeDelIcon as any).mock.results[1].value._delClick();
+
+    expect(onDelete).not.toHaveBeenCalled();
+    expect(onUpdate).not.toHaveBeenCalled();
+  });
+
+  it("does not call onUpdate from the delete callback when onUpdate is undefined", () => {
+    const opts = makeOpts(
+      [
+        { lat: 0, lng: 0 },
+        { lat: 1, lng: 1 },
+        { lat: 2, lng: 2 },
+        { lat: 3, lng: 3 },
+      ],
+      { onUpdate: undefined },
+    );
+    UI.attachDistanceUI(makeMgr() as any, opts as any);
+
+    // 4 points → splice 1 → 3 remaining; `points.length === 2` is false, so the
+    // last-endpoint rebind block is skipped (L116 false arm). onUpdate undefined
+    // → L133 false arm.
+    (makeDelIcon as any).mock.results[1].value._delClick();
+
+    expect(opts.onUpdate).toBeUndefined();
+    expect(opts.points).toHaveLength(3);
+  });
+
+  it("does not call onUpdate from the first node's onEnd when onUpdate is undefined", () => {
+    const opts = makeOpts(
+      [
+        { lat: 0, lng: 0 },
+        { lat: 1, lng: 1 },
+      ],
+      { onUpdate: undefined },
+    );
+    UI.attachDistanceUI(makeMgr() as any, opts as any);
+
+    dragHandlers[0]!.onEnd!({ lat: 5, lng: 5 });
+
+    expect(opts.onUpdate).toBeUndefined();
+  });
+
+  it("returns early from a non-first node's onDrag when its position no longer matches any point", () => {
+    const opts = makeOpts([
+      { lat: 0, lng: 0 },
+      { lat: 1, lng: 1 },
+      { lat: 2, lng: 2 },
+    ]);
+    UI.attachDistanceUI(makeMgr() as any, opts as any);
+
+    opts.nodeMarkers[1].getLatLng.mockReturnValue({ lat: 999, lng: 999 });
+    const pointsBefore = opts.points.length;
+    const polySetLatLngs = opts.finalPoly.setLatLngs as any;
+
+    dragHandlers[1]!.onDrag!({ lat: 9, lng: 9 });
+
+    // Early return: points unchanged, setLatLngs not called.
+    expect(opts.points).toHaveLength(pointsBefore);
+    expect(polySetLatLngs).not.toHaveBeenCalled();
+  });
+
+  it("returns early from a non-first node's onEnd when its position no longer matches and onUpdate is undefined", () => {
+    const opts = makeOpts(
+      [
+        { lat: 0, lng: 0 },
+        { lat: 1, lng: 1 },
+        { lat: 2, lng: 2 },
+      ],
+      { onUpdate: undefined },
+    );
+    UI.attachDistanceUI(makeMgr() as any, opts as any);
+
+    opts.nodeMarkers[1].getLatLng.mockReturnValue({ lat: 999, lng: 999 });
+
+    dragHandlers[1]!.onEnd!({ lat: 9, lng: 9 });
+
+    // Early return: points unchanged, onUpdate is undefined anyway.
+    expect(opts.points).toHaveLength(3);
+    expect(opts.onUpdate).toBeUndefined();
+  });
+});
