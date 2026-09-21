@@ -170,6 +170,10 @@
 }
 .foliplus-slider-handle::-moz-range-thumb {
   appearance: none;
+  /* Firefox places the thumb at the top of the track instead of centring it
+     (Chromium centres its own), so the taller handle hangs below the rail. This
+     rule is the compensation, and only Firefox reads it. */
+  margin-top: calc((var(--slider-rail-height) - var(--slider-thumb-size)) / 2);
   width: var(--slider-thumb-size);
   height: var(--slider-thumb-size);
   padding: var(--slider-thumb-pad);
