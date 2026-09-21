@@ -1136,29 +1136,19 @@ class TestLayerControlBrowser:
             panel_ready(page)  # rebuilt panel completes its init pass again
             assert not errors, f"JS errors: {errors}"
 
-    @pytest.mark.xfail(
-        reason=(
-            "Known leak on first removeControl → addControl: `map.on('unload', ...)` "
-            "gains +1 handler at round[1] (38 → 39 → 39). Drift lands on the "
-            "`unload` event type only; round[2] is stable. Diagnostic: "
-            ".foliplus/probe_fns.py. Fix belongs in foliplus/js/LayerControl or "
-            "foliplus/js/core/mode.ts; out of scope for this test-only PR."
-        ),
-        strict=True,
-    )
     def test_remove_readd_leaves_no_listener_residue(self, browser, tmp_path):
         """N=3 remove→add cycles must not grow map._events listener sum.
 
-        Baseline round[0] is captured right after the initial addControl
-        (which the harness already performed in page setup); rounds[1] and
-        rounds[2] follow remove→add. A listener leak — whether it lands on
-        round[0] or only shows up in a later round — registers as a drift
-        and fails the assertion.
+        Hard regression gate: baseline round[0] is captured right after the
+        initial addControl (harness already ran that in page setup);
+        rounds[1] and rounds[2] follow remove→add. Any drift — whether on
+        round[0] or in a later round — fails the assertion.
 
-        Marked xfail(strict=True): the drift gate catches a real +1 listener
-        leak at round[1] that this test-only PR does not fix. strict=True
-        makes the xfail flip to XPASS once production code closes the leak,
-        so CI will shout about the fix being ready.
+        The gate is what caught the `dismissFocus` → `ensureModes` first-call
+        side effect leaking a `map.on('unload', ...)` handler at round[1]
+        (fix in foliplus/js/LayerControl/ui/focus.ts). See the probe comment
+        in test/js/browser/LayerControl/probe_listener_residue.js for the
+        historical note.
         """
         overlay = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
         with use_page(self._make_page, browser, tmp_path, overlay) as (page, errors):
