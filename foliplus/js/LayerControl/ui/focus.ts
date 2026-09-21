@@ -199,7 +199,8 @@ const dismissFocus = (ui: LayerUI): void => {
   // on the map. Guard with `isFocusing` so setMode(null) is only invoked
   // when `focusLayer` actually registered the mode.
   if (isFocusing(ui)) {
-    ensureModes(ui.m.map).setMode(ui.conf.name, null);
+    const modes = ensureModes(ui.m.map);
+    modes.setMode(ui.conf.name, null);
   }
   clearAutoCancel(ui);
   clearFocusedRowHighlight(ui);
