@@ -126,12 +126,12 @@
      (measured 4px high on an 8px rail). A drop shadow is drawn at the 24px hit
      box, which is 5px clear of a 14px handle — it reads as a grey halo, not a
      lift. */
-  --slider-rail-height: 6px;
+  --slider-rail-height: var(--size-6);
   --slider-thumb-size: 14px;
   --slider-dot-size: 10px;
-  --slider-thumb-hit: 24px;
+  --slider-thumb-hit: var(--size-24);
   --slider-thumb-pad: calc((var(--slider-thumb-hit) - var(--slider-thumb-size)) / 2);
-  --slider-thumb-core: calc(var(--slider-thumb-size) / 2 - 2px);
+  --slider-thumb-core: calc(var(--slider-thumb-size) / 2 - var(--size-2));
   --slider-thumb-ring: var(--accent-primary);
   /* Held state of a handle: a soft accent halo, drawn at the hit box's edge. */
   --slider-thumb-glow: 0 0 0 var(--size-4) var(--accent-soft-shadow);

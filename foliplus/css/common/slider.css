@@ -79,7 +79,7 @@
   height: var(--slider-dot-size);
   box-sizing: border-box;
   background: var(--neutral-0);
-  border: 2px solid var(--neutral-500);
+  border: var(--size-2) solid var(--neutral-500);
   border-radius: 50%;
   transform: translate(-50%, -50%);
   pointer-events: none;
@@ -135,7 +135,7 @@
     circle,
     var(--neutral-0) 0 var(--slider-thumb-core),
     var(--slider-thumb-ring) var(--slider-thumb-core)
-      calc(var(--slider-thumb-core) + 2px)
+      calc(var(--slider-thumb-core) + var(--size-2))
   );
   background-clip: content-box;
   border: 0;
@@ -196,7 +196,7 @@
 .foliplus-slider-bubble {
   position: absolute;
   bottom: calc(100% + var(--space-sm));
-  padding: 2px 6px;
+  padding: var(--size-2) var(--size-6);
   background: var(--text-primary);
   color: var(--neutral-0);
   border-radius: var(--radius-sm);
@@ -204,7 +204,7 @@
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   pointer-events: none;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, var(--alpha-30));
+  box-shadow: 0 var(--border-thin) var(--size-2) rgba(0, 0, 0, var(--alpha-30));
   transform: translateX(-50%);
 }
 .foliplus-slider-bubble::after {
@@ -213,7 +213,7 @@
   top: 100%;
   left: 50%;
   transform: translateX(-50%);
-  border: 4px solid transparent;
+  border: var(--size-4) solid transparent;
   border-top-color: var(--text-primary);
 }
 

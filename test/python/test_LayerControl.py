@@ -817,7 +817,7 @@ class TestLayerControlRendering:
     def test_rows_declare_no_slider_geometry(self):
         """The rows may only state their own coverage, never geometry.
 
-        The guard against the duplication coming back: a row that re-declares a
+        The guard against the duplication coming back: a row that redeclares a
         rail height or a thumb is one that can drift from the component. Read
         raw — `read_css` expands `@import`, so through it every row "contains"
         token.css.
