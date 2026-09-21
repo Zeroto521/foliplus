@@ -11,10 +11,10 @@
 // remove→add cycles; each must equal round[0]. If the sum drifts, the probe
 // returns the drift so the Python caller can assert against it.
 //
-// Diagnostic note on the current failure mode: the drift lands on the FIRST
-// re-add only, at the `unload` event type. Round[1] grows by +1 handler
-// (`ctrl.remove` registered as a `map.on("unload", ...)` listener), round[2]
-// stays flat. See .foliplus/probe_fns.py for the full fn-name diff.
+// Historical note (regression guard): a prior bug had `dismissFocus` call
+// `ensureModes` during teardown, whose first-call side effect installed the
+// per-map `unload` cleanup and left a residual handler on round[1]. The gate
+// above now locks that behavior against coming back.
 () => {
   const map = window.map;
   const ctrl = window.__layerCtrl;

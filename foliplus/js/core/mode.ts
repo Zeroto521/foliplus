@@ -155,7 +155,15 @@ class ModeManager {
 // Per-map instance storage (WeakMap so destroyed maps are GC'd).
 const instances = new WeakMap<L.Map, ModeManager>();
 
-/** Ensure `map.foliplus.modes` has a per-map ModeManager. Idempotent. */
+/**
+ * Ensure `map.foliplus.modes` has a per-map ModeManager. Idempotent.
+ *
+ * First-call side effect: registers `map.on('unload', ...)` (see line below).
+ * WeakMap dedupes the manager instance but does NOT skip that registration,
+ * so callers that only need to *read* state should go through
+ * `map.foliplus?.modes` rather than `ensureModes`. Teardown paths that call
+ * this without an active mode will install the unload listener for nothing.
+ */
 const ensureModes = (map: L.Map): ModeManager => {
   const existing = instances.get(map);
   if (existing) return existing;
