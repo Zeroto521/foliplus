@@ -7,6 +7,7 @@ import re
 from pathlib import Path
 
 import folium
+import pytest
 from conftest import (
     _js,
     assert_config_value,
@@ -1133,6 +1134,60 @@ class TestLayerControlBrowser:
             assert state["afterAddFull"] is True
             assert state["panelAttached"] is True
             panel_ready(page)  # rebuilt panel completes its init pass again
+            assert not errors, f"JS errors: {errors}"
+
+    @pytest.mark.xfail(
+        reason=(
+            "Known leak on first removeControl → addControl: `map.on('unload', ...)` "
+            "gains +1 handler at round[1] (38 → 39 → 39). Drift lands on the "
+            "`unload` event type only; round[2] is stable. Diagnostic: "
+            ".foliplus/probe_fns.py. Fix belongs in foliplus/js/LayerControl or "
+            "foliplus/js/core/mode.ts; out of scope for this test-only PR."
+        ),
+        strict=True,
+    )
+    def test_remove_readd_leaves_no_listener_residue(self, browser, tmp_path):
+        """N=3 remove→add cycles must not grow map._events listener sum.
+
+        Baseline round[0] is captured right after the initial addControl
+        (which the harness already performed in page setup); rounds[1] and
+        rounds[2] follow remove→add. A listener leak — whether it lands on
+        round[0] or only shows up in a later round — registers as a drift
+        and fails the assertion.
+
+        Marked xfail(strict=True): the drift gate catches a real +1 listener
+        leak at round[1] that this test-only PR does not fix. strict=True
+        makes the xfail flip to XPASS once production code closes the leak,
+        so CI will shout about the fix being ready.
+        """
+        overlay = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
+        with use_page(self._make_page, browser, tmp_path, overlay) as (page, errors):
+            panel_ready(page)
+            state = page.evaluate(_js("LayerControl/probe_listener_residue"))
+            rounds = state["rounds"]
+            assert len(rounds) == 3, f"expected 3 rounds, got {rounds!r}"
+            for i, n in enumerate(rounds[1:], start=1):
+                assert n == rounds[0], (
+                    f"LayerControl: map._events listener sum grew on round {i}: "
+                    f"{rounds!r}"
+                )
+            panel_ready(page)
+            assert not errors, f"JS errors: {errors}"
+
+    def test_probe_leak_listener_control_group_grows(self, browser, tmp_path):
+        """A single bare map.on() must register as a +1 in the listener sum.
+
+        Control group for the drift gate above: if this control fails, the
+        sumMapEvents measure is measuring nothing and the drift assertion
+        in test_remove_readd_leaves_no_listener_residue has no teeth.
+        """
+        overlay = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
+        with use_page(self._make_page, browser, tmp_path, overlay) as (page, errors):
+            panel_ready(page)
+            result = page.evaluate(_js("LayerControl/probe_leak_listener"))
+            assert result["delta"] > 0, (
+                f"Leak control group: expected a positive delta, got {result!r}"
+            )
             assert not errors, f"JS errors: {errors}"
 
     def test_create_managed_layers_api(self, browser, tmp_path):
@@ -4481,6 +4536,93 @@ class TestLayerControlBrowser:
             assert overlay_topmost(".foliplus-layer-attrs-panel") is True, (
                 "the open attrs panel must stay above a lit sibling"
             )
+
+    # ── Row lookup by data-layer-id, not by registry / DOM position ──
+    #
+    # Each of these three scrambles the registry or the panel so the two
+    # orders disagree, then asserts the mutation landed on the row named by
+    # the layer's id. A positional lookup would have hit a neighbour.
+
+    def test_initlayeritem_updates_only_the_id_match_row(self, browser, tmp_path):
+        """initLayerItem stamps the row named by data-layer-id, not the one at
+        the layer's registry index."""
+        with use_page(self._make_page, browser, tmp_path, slug="initlayeritem") as (
+            page,
+            errors,
+        ):
+            panel_ready(page)
+            state = page.evaluate(_js("LayerControl/initlayeritem_scrambled_dom"))
+            assert state is not None, "LayerControl instance not reachable"
+            # The precondition the assertion depends on: the row sitting at
+            # alpha's registry index is a different layer, so only an id lookup
+            # can find alpha's row.
+            assert state["alphaRegistryIndex"] != state["alphaDomIndex"]
+            # initLayerItem wrote alpha's name into alpha's own checkbox.
+            assert state["labels"]["alpha"] == "A"
+            # ...and left the neighbours' checkboxes alone. An index-based
+            # lookup would have stamped "A" onto whoever sat at alpha's
+            # registry index.
+            assert state["labels"]["beta"] == "B", (
+                "a neighbour's row was rewritten with alpha's name "
+                f"({state['staleIndexWouldHaveHit']!r}) — row resolved by index"
+            )
+            assert state["labels"]["gamma"] == "C"
+            # Ids the registry does not know about are declined.
+            assert state["unknownReturnsFalse"] is False
+            assert not errors, f"JS errors: {errors}"
+
+    def test_dragdrop_relocates_only_the_id_match_row(self, browser, tmp_path):
+        """handleDrop resolves the drop target by data-layer-id: a DOM-position
+        read would have seen a self-drop and left the registry behind the
+        panel."""
+        with use_page(self._make_page, browser, tmp_path, slug="dragrow") as (
+            page,
+            errors,
+        ):
+            panel_ready(page)
+            state = page.evaluate(
+                _js("LayerControl/drag_scrambled_dom_only_updates_correct_row")
+            )
+            assert state is not None, "LayerControl instance not reachable"
+            # The drop actually moved the registry. A DOM-position lookup reads
+            # the target at the dragged layer's own index and aborts as a
+            # self-drop, leaving the registry behind the panel.
+            assert state["registryMoved"] is True, (
+                f"the drop aborted: the target row was resolved by DOM position, "
+                f"not id (registry stayed {state['beforeRegistry']})"
+            )
+            # Panel and registry agree once the drop has settled.
+            assert state["panelMatchesRegistry"] is True, (
+                f"panel {state['domIds']} drifted from registry "
+                f"{state['afterRegistry']}"
+            )
+            assert state["dragDisarmed"] is True
+            assert not errors, f"JS errors: {errors}"
+
+    def test_updatelayeritem_updates_only_the_id_match_row(self, browser, tmp_path):
+        """updateLayerItem pushes a rename onto the row named by data-layer-id,
+        not the row at the layer's registry index."""
+        with use_page(self._make_page, browser, tmp_path, slug="updatelayeritem") as (
+            page,
+            errors,
+        ):
+            panel_ready(page)
+            state = page.evaluate(_js("LayerControl/updatelayeritem_stale_index"))
+            assert state is not None, "LayerControl instance not reachable"
+            # The precondition: the row at alpha's registry index is a
+            # different layer.
+            assert state["alphaRegistryIndex"] != state["alphaDomIndex"]
+            assert state["labels"]["alpha"] == "A2", (
+                "the renamed layer's row was not updated"
+            )
+            # Whoever sat at alpha's registry index must keep their own name;
+            # an index-based lookup would have written the rename there.
+            assert state["labels"]["beta"] == "B", (
+                "a neighbour's row was rewritten with alpha's name "
+                f"({state['staleIndexWouldHaveHit']!r}) — row resolved by index"
+            )
+            assert state["labels"]["gamma"] == "C"
+            assert not errors, f"JS errors: {errors}"
 
 
 # ── R1 pane-surface probe (§10.3) ──────────────────────────────────────

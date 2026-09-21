@@ -61,8 +61,7 @@ const renderInitialList = (ui: LayerUI) => {
   let hasBaseMaps = false;
   let hasOverlays = false;
 
-  for (let i = 0; i < ui.m.layers.length; i++) {
-    const layerInfo = ui.m.layers[i];
+  for (const layerInfo of ui.m.layers) {
     if (!layerInfo.isBase && !hasOverlays) {
       hasOverlays = true;
       frag.appendChild(renderToggleAllRow(ui, CONST.GROUP.OVERLAY, "data_layer_label"));
@@ -72,7 +71,7 @@ const renderInitialList = (ui: LayerUI) => {
       frag.appendChild(renderToggleAllRow(ui, CONST.GROUP.BASE, "base_map_label"));
     }
     const group = layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY;
-    const item = renderLayerItem(ui, layerInfo, i);
+    const item = renderLayerItem(ui, layerInfo);
     if (ui.foldedGroups.has(group)) item.classList.add(CONST.CLASSES.GROUP_FOLDED);
     frag.appendChild(item);
   }
@@ -102,11 +101,7 @@ const renderInitialList = (ui: LayerUI) => {
  *  setIndex, not adopt: callers that already painted FOCUSED (keyboard /
  *  restoreCursor) must keep it; only the pointer path adopts (strips). */
 
-const insertLayerItem = (
-  ui: LayerUI,
-  layerInfo: LayerInfo,
-  { reindex = true }: { reindex?: boolean } = {},
-) => {
+const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
   const idx = ui.m.layerRegistry.indexOf(layerInfo);
   if (idx === -1) return;
   const container = ui.uiContainer;
@@ -128,7 +123,7 @@ const insertLayerItem = (
       ),
     );
   }
-  const item = renderLayerItem(ui, layerInfo, idx);
+  const item = renderLayerItem(ui, layerInfo);
   if (ui.foldedGroups.has(group)) item.classList.add(CONST.CLASSES.GROUP_FOLDED);
   frag.appendChild(item);
 
@@ -143,10 +138,9 @@ const insertLayerItem = (
   } else {
     // The row lands where the registry put the layer, not at the group's top: a
     // late registration replayed onto a stored slot must sit at that depth in
-    // the panel too, or the panel's order diverges from the drawn order and
-    // initLayerItem's index-based lookup reads a neighbour's checkbox. The
-    // neighbour above is used rather than the one below so the last row of a
-    // group has something to anchor on at all.
+    // the panel too, so the panel's visual order matches the drawn z-order.
+    // The neighbour above is used rather than the one below so the last row of
+    // a group has something to anchor on at all.
     const above = idx > 0 ? ui.m.layers[idx - 1] : null;
     const anchor =
       above && above.isBase === layerInfo.isBase
@@ -156,7 +150,6 @@ const insertLayerItem = (
     else container.insertBefore(frag, firstOfGroup);
   }
 
-  if (reindex) reindexItems(ui);
   // insertLayerItem is where a late-registered (third-party) layer first
   // shows up, so the user's name and visibility land with the row instead
   // of waiting for a later pass. Only this layer's id is applied —a full
@@ -166,20 +159,15 @@ const insertLayerItem = (
   syncListCursor(ui);
 };
 
-const updateLayerItem = (ui: LayerUI, layerInfo: LayerInfo, idx: number) => {
+const updateLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
   const item = ui.uiContainer.querySelector(
     `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerInfo.id)}"]`,
   ) as HTMLElement | null;
   if (!item) return;
-  item.dataset.index = String(idx);
   // updateItemLabel sets both the row label and the checkbox's aria-label,
   // so the name reaches assistive tech here without touching `title` —the
   // row's tooltip slot keeps the feature count + type.
   updateItemLabel(item, displayName(ui, layerInfo.id));
-  const checkbox = item.querySelector(
-    'input[type="checkbox"]',
-  ) as HTMLInputElement | null;
-  if (checkbox) checkbox.dataset.index = String(idx);
 };
 
 /**
@@ -240,9 +228,8 @@ const renderToggleAllRow = (ui: LayerUI, group: string, labelKey: string) => {
  *  is populated lazily by initLayerItem (layer may not be resolved yet at
  *  render time) and refreshed by onLayerItemCountChange.
  *  @param {LayerInfo} layerInfo - Layer metadata.
- *  @param {number} idx - Position in the ordered registry.
  *  @returns {HTMLElement} The row element. */
-const renderLayerItem = (ui: LayerUI, layerInfo: LayerInfo, idx: number) => {
+const renderLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
   const name = displayName(ui, layerInfo.id);
 
   const typeIconEl = dom.el("div", { class: CONST.CLASSES.TYPE_ICON_COL });
@@ -273,7 +260,6 @@ const renderLayerItem = (ui: LayerUI, layerInfo: LayerInfo, idx: number) => {
       dom.el("input", {
         type: "checkbox",
         checked: "",
-        [CONST.DATA.INDEX]: String(idx),
         // The name reaches assistive tech via aria-label. `title` is the
         // Select/Deselect slot —initLayerItem sets it per checked state
         // before this row can be hovered, so leave it unseeded rather than
@@ -296,7 +282,6 @@ const renderLayerItem = (ui: LayerUI, layerInfo: LayerInfo, idx: number) => {
       class: CONST.CLASSES.LAYER_ITEM,
       draggable: "true",
       tabindex: "0",
-      [CONST.DATA.INDEX]: String(idx),
       [CONST.DATA.LAYER_ID]: layerInfo.id,
       "data-layer-type": layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY,
     },
@@ -362,15 +347,21 @@ const renderColorLayerItem = (ui: LayerUI) => {
 /** Initialize one layer row's checkbox + type icon (incremental path).
  *  @returns {boolean} true when the row is a visible base layer. */
 const initLayerItem = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
-  const idx = ui.m.layerRegistry.indexOf(layerInfo);
-  if (idx === -1) return false;
+  if (!ui.m.layerRegistry.has(layerInfo.id)) return false;
   const name = displayName(ui, layerInfo.id);
-  const inputs = ui.uiContainer.querySelectorAll(
-    `${CONST.SEL.LAYER_ITEM} input[type="checkbox"], ${CONST.SEL.LAYER_ITEM} input[type="radio"]`,
-  ) as NodeListOf<HTMLInputElement>;
-  const typeCols = ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.TYPE_ICON_COL}`);
-  const input = inputs[idx];
-  const typeCol = typeCols[idx];
+  // Resolve the row by data-layer-id: a late registration lands where its
+  // stored slot puts it, so the DOM order can diverge from the registry —an
+  // index-based lookup would write the checkbox and type column into a
+  // neighbour's row.
+  const item = ui.uiContainer.querySelector(
+    `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerInfo.id)}"]`,
+  ) as HTMLElement | null;
+  const input = item?.querySelector(
+    'input[type="checkbox"], input[type="radio"]',
+  ) as HTMLInputElement | null;
+  const typeCol = item?.querySelector(
+    `.${CONST.CLASSES.TYPE_ICON_COL}`,
+  ) as HTMLElement | null;
   const layer = ui.m.findLayer(layerInfo);
   let baseVisible = false;
 
@@ -448,19 +439,6 @@ const initLayerItem = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
   return baseVisible;
 };
 
-const reindexItems = (ui: LayerUI) => {
-  const items = ui.uiContainer.querySelectorAll(
-    `${CONST.SEL.LAYER_ITEM}:not(${CONST.SEL.COLOR_ITEM})`,
-  ) as NodeListOf<HTMLElement>;
-  for (let i = 0; i < items.length; i++) {
-    items[i].dataset.index = String(i);
-    const checkbox = items[i].querySelector(
-      'input[type="checkbox"]',
-    ) as HTMLInputElement | null;
-    if (checkbox) checkbox.dataset.index = String(i);
-  }
-};
-
 /** Reindex all layer items after a move, preserving the active focus position.
  *  renderInitialList already re-homes the cursor and restores DOM focus, so
  *  no additional focus work is needed here. */
@@ -493,6 +471,5 @@ export {
   colorLayerName,
   renderColorLayerItem,
   initLayerItem,
-  reindexItems,
   reindexAfterMove,
 };
