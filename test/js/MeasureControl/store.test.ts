@@ -157,6 +157,57 @@ describe("MeasureStore — update", () => {
   });
 });
 
+describe("MeasureStore — mutate", () => {
+  it("applies fn to the matched measurement without persisting", () => {
+    const store = makeStore().store;
+    store.hydrate([{ id: "a", lng: 1, lat: 2 }] as any);
+    storage.save.mockClear();
+    events.emit.mockClear();
+    store.mutate("a", m => {
+      m.lng = 99;
+      m.lat = 98;
+    });
+    expect(store.all()[0].lng).toBe(99);
+    expect(store.all()[0].lat).toBe(98);
+    expect(storage.save).not.toHaveBeenCalled();
+    expect(events.emit).not.toHaveBeenCalled();
+  });
+
+  it("is a no-op when id is not found (fn is not called)", () => {
+    const store = makeStore().store;
+    store.hydrate([{ id: "a" }] as any);
+    const fn = vi.fn();
+    store.mutate("missing", fn);
+    expect(fn).not.toHaveBeenCalled();
+    expect(storage.save).not.toHaveBeenCalled();
+  });
+});
+
+describe("MeasureStore — mutateAndPersist", () => {
+  it("applies fn and persists + emits count", () => {
+    const store = makeStore().store;
+    store.hydrate([{ id: "a", lng: 1 }] as any);
+    storage.save.mockClear();
+    events.emit.mockClear();
+    store.mutateAndPersist("a", m => {
+      m.lng = 42;
+    });
+    expect(store.all()[0].lng).toBe(42);
+    expect(storage.save).toHaveBeenCalledTimes(1);
+    expect(events.emit).toHaveBeenCalledTimes(1);
+  });
+
+  it("is a no-op when id is not found (fn not called, no persist)", () => {
+    const store = makeStore().store;
+    store.hydrate([{ id: "a" }] as any);
+    const fn = vi.fn();
+    storage.save.mockClear();
+    store.mutateAndPersist("missing", fn);
+    expect(fn).not.toHaveBeenCalled();
+    expect(storage.save).not.toHaveBeenCalled();
+  });
+});
+
 describe("MeasureStore — clear", () => {
   it("empties the list and persists", () => {
     const store = makeStore().store;

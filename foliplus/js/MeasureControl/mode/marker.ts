@@ -38,25 +38,29 @@ class MarkerMode extends MeasureMode {
     // overwrite the newer coordinates/address.
     let generation = 0;
     // Throttle persists: live-update the coords but batch the write so
-    // each mousemove doesn't do its own localStorage round-trip. The
-    // measurement object is the store's backing entry (passed by ref),
-    // so a direct mutation + persist() is cheaper than store.update()
-    // (which would re-find + re-assign the same fields).
+    // each mousemove doesn't do its own localStorage round-trip. Mutations
+    // go through store.mutate (store as single source of truth); the
+    // persist call is throttled and unchanged.
     const persist = throttleRaf(() => manager.store.persist());
+    const id = measurement.id!;
 
     const drag = bindNodeDrag(marker, delMarker, manager.map, {
       onDrag: (latlng: L.LatLng) => {
         delMarker.setLatLng(latlng);
-        measurement.lng = Util.roundCoord(latlng.lng);
-        measurement.lat = Util.roundCoord(latlng.lat);
+        manager.store.mutate(id, m => {
+          m.lng = Util.roundCoord(latlng.lng);
+          m.lat = Util.roundCoord(latlng.lat);
+        });
         persist();
       },
       onEnd: (latlng: L.LatLng) => {
         markDragSyntheticClick();
         persist.cancel();
         const gen = ++generation;
-        measurement.lng = Util.roundCoord(latlng.lng);
-        measurement.lat = Util.roundCoord(latlng.lat);
+        manager.store.mutate(id, m => {
+          m.lng = Util.roundCoord(latlng.lng);
+          m.lat = Util.roundCoord(latlng.lat);
+        });
         const code = window.CONF?.locale_code ?? "en";
         // onEnd is a sync callback (bindNodeDrag doesn't await it), so the
         // geocode runs as a detached fire-and-forget chain. Swallow rejections
@@ -70,8 +74,7 @@ class MarkerMode extends MeasureMode {
         )
           .then(addr => {
             if (gen !== generation) return; // a newer drag superseded us
-            measurement.address = addr;
-            manager.store.persist();
+            manager.store.update(id, { address: addr });
             if (marker.getPopup()?.isOpen()) {
               marker.setPopupContent(
                 Util.buildPopup(measurement.lng!, measurement.lat!, addr),
