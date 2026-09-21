@@ -313,7 +313,9 @@ const syncZoomRangeRow = (
   // Out-of-range: dim the row when the current zoom falls outside [min, max].
   const outOfRange = current < min || current > max;
   row.classList.toggle(CONST.CLASSES.STYLE_ZOOM_RANGE_OOR, outOfRange);
-  row.title = outOfRange ? ui.T("style_zoom_range_out_of_range") : "";
+  row.title = outOfRange
+    ? ui.T("style_zoom_range_out_of_range").replace("{zoom}", String(current))
+    : "";
 };
 
 /** Build the zoom-range form row: a dual-thumb slider on a track with a
@@ -411,7 +413,9 @@ const buildZoomRangeRow = (ui: LayerUI, layerId: string): HTMLElement => {
   // Out-of-range on first render.
   if (current < min || current > max) {
     row.classList.add(CONST.CLASSES.STYLE_ZOOM_RANGE_OOR);
-    row.title = ui.T("style_zoom_range_out_of_range");
+    row.title = ui
+      .T("style_zoom_range_out_of_range")
+      .replace("{zoom}", String(current));
   }
 
   return row;

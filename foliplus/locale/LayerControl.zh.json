@@ -64,5 +64,5 @@
   "LayerControl.style_zoom_range_min": "最小缩放级别",
   "LayerControl.style_zoom_range_max": "最大缩放级别",
   "LayerControl.style_zoom_range_current": "当前: {zoom}",
-  "LayerControl.style_zoom_range_out_of_range": "当前缩放级别不在此范围内"
+  "LayerControl.style_zoom_range_out_of_range": "当前缩放级别（{zoom}）不在此范围内"
 }

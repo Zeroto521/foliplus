@@ -96,7 +96,26 @@
       cursor: pointer;
     }
 
-    .foliplus-style-zoom-range-min::-webkit-slider-thumb,
+    /* Min thumb: solid accent fill — the "lower bound" identity. */
+    .foliplus-style-zoom-range-min::-webkit-slider-thumb {
+      pointer-events: auto;
+      appearance: none;
+      width: var(--zoom-thumb-size);
+      height: var(--zoom-thumb-size);
+      border-radius: 50%;
+      background: var(--accent-primary);
+      border: 2px solid var(--accent-primary);
+      box-shadow:
+        0 1px 3px rgba(0, 0, 0, 0.15),
+        0 0 0 1px var(--border-thin);
+      cursor: grab;
+      margin-top: calc((var(--zoom-track-height) - var(--zoom-thumb-size)) / 2);
+      transition:
+        transform 0.1s ease,
+        box-shadow 0.1s ease;
+    }
+    /* Max thumb: white fill with accent ring — the "upper bound" identity.
+       Visually distinct from min even when the two overlap. */
     .foliplus-style-zoom-range-max::-webkit-slider-thumb {
       pointer-events: auto;
       appearance: none;
@@ -123,7 +142,18 @@
         0 0 0 2px var(--accent-primary);
     }
 
-    .foliplus-style-zoom-range-min::-moz-range-thumb,
+    /* Min thumb (Firefox): solid accent fill. */
+    .foliplus-style-zoom-range-min::-moz-range-thumb {
+      pointer-events: auto;
+      width: var(--zoom-thumb-size);
+      height: var(--zoom-thumb-size);
+      border-radius: 50%;
+      background: var(--accent-primary);
+      border: 2px solid var(--accent-primary);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+      cursor: grab;
+    }
+    /* Max thumb (Firefox): white fill with accent ring. */
     .foliplus-style-zoom-range-max::-moz-range-thumb {
       pointer-events: auto;
       width: var(--zoom-thumb-size);
@@ -152,9 +182,9 @@
       font-weight: 500;
     }
 
-    /* Out-of-range: dim the track + fill + markers, and shift the fill to
-       the muted color. The thumbs stay bright so the user can still find
-       them. */
+    /* Out-of-range: dim track + fill + marker + values row. The thumbs stay
+       bright so the user can still find them. The row's title carries the
+       "current level is outside this range" tooltip. */
     .foliplus-zoom-range-out-of-range .foliplus-style-zoom-range-track {
       background: var(--neutral-100, #eee);
     }
@@ -163,6 +193,9 @@
     }
     .foliplus-zoom-range-out-of-range .foliplus-style-zoom-range-current {
       background: var(--neutral-500, #888);
+    }
+    .foliplus-zoom-range-out-of-range .foliplus-style-zoom-range-values {
+      color: var(--neutral-400, #aaa);
     }
     .foliplus-zoom-range-out-of-range .foliplus-style-zoom-range-current-value {
       color: var(--neutral-500, #888);

@@ -64,5 +64,5 @@
   "LayerControl.style_zoom_range_min": "Minimum zoom",
   "LayerControl.style_zoom_range_max": "Maximum zoom",
   "LayerControl.style_zoom_range_current": "Current: {zoom}",
-  "LayerControl.style_zoom_range_out_of_range": "Current zoom level is outside this range"
+  "LayerControl.style_zoom_range_out_of_range": "Current zoom ({zoom}) is outside this range"
 }

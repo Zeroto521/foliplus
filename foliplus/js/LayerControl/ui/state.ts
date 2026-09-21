@@ -416,6 +416,11 @@ const applyLayerState = (
       // fire the toggle so the canvas toggles its own `HIDDEN` class.
       layerInfo.onToggle(patch.visible);
     }
+    // layerInfo.visible is a real-time mirror of the map state; the user's
+    // intent lives in hiddenIds (hidden) or overrides (shown). This field is
+    // written by both applyLayerState (this path) and the visibility sweep
+    // (visibility.ts) — they agree on the same value, so the dual-writer is
+    // intentional, not a race.
     layerInfo.visible = patch.visible;
   }
 };
