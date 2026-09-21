@@ -612,7 +612,8 @@ describe("attachDistanceUI — edge cases", () => {
     expect(onUpdate).not.toHaveBeenCalled();
   });
 
-  it("does not call onUpdate from the delete callback when onUpdate is undefined", () => {
+  it("splices the node and calls onUpdate from the delete callback", () => {
+    const onUpdate = vi.fn();
     const opts = makeOpts(
       [
         { lat: 0, lng: 0 },
@@ -620,32 +621,32 @@ describe("attachDistanceUI — edge cases", () => {
         { lat: 2, lng: 2 },
         { lat: 3, lng: 3 },
       ],
-      { onUpdate: undefined },
+      { onUpdate },
     );
     UI.attachDistanceUI(makeMgr() as any, opts as any);
 
     // 4 points → splice 1 → 3 remaining; `points.length === 2` is false, so the
-    // last-endpoint rebind block is skipped (L116 false arm). onUpdate undefined
-    // → L133 false arm.
+    // last-endpoint rebind block is skipped.
     (makeDelIcon as any).mock.results[1].value._delClick();
 
-    expect(opts.onUpdate).toBeUndefined();
+    expect(onUpdate).toHaveBeenCalledWith(opts.points);
     expect(opts.points).toHaveLength(3);
   });
 
-  it("does not call onUpdate from the first node's onEnd when onUpdate is undefined", () => {
+  it("calls onUpdate from the first node's onEnd", () => {
+    const onUpdate = vi.fn();
     const opts = makeOpts(
       [
         { lat: 0, lng: 0 },
         { lat: 1, lng: 1 },
       ],
-      { onUpdate: undefined },
+      { onUpdate },
     );
     UI.attachDistanceUI(makeMgr() as any, opts as any);
 
     dragHandlers[0]!.onEnd!({ lat: 5, lng: 5 });
 
-    expect(opts.onUpdate).toBeUndefined();
+    expect(onUpdate).toHaveBeenCalledWith(opts.points);
   });
 
   it("returns early from a non-first node's onDrag when its position no longer matches any point", () => {
@@ -667,23 +668,18 @@ describe("attachDistanceUI — edge cases", () => {
     expect(polySetLatLngs).not.toHaveBeenCalled();
   });
 
-  it("returns early from a non-first node's onEnd when its position no longer matches and onUpdate is undefined", () => {
-    const opts = makeOpts(
-      [
-        { lat: 0, lng: 0 },
-        { lat: 1, lng: 1 },
-        { lat: 2, lng: 2 },
-      ],
-      { onUpdate: undefined },
-    );
+  it("returns early from a non-first node's onEnd when its position no longer matches", () => {
+    const opts = makeOpts([
+      { lat: 0, lng: 0 },
+      { lat: 1, lng: 1 },
+      { lat: 2, lng: 2 },
+    ]);
     UI.attachDistanceUI(makeMgr() as any, opts as any);
 
     opts.nodeMarkers[1].getLatLng.mockReturnValue({ lat: 999, lng: 999 });
 
     dragHandlers[1]!.onEnd!({ lat: 9, lng: 9 });
 
-    // Early return: points unchanged, onUpdate is undefined anyway.
     expect(opts.points).toHaveLength(3);
-    expect(opts.onUpdate).toBeUndefined();
   });
 });

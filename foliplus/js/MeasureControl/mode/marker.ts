@@ -1,10 +1,5 @@
 import { createLocationMarker } from "#core/locationMarker.js";
-import {
-  DEL_ICON_MARKER_ANCHOR,
-  attachDelClick,
-  makeDelIcon,
-  toggleDelIcon,
-} from "#common/delicon.js";
+import { DEL_ICON_MARKER_ANCHOR, toggleDelIcon } from "#common/delicon.js";
 import { createScopedTranslator, createTranslator } from "#common/locale.js";
 import { throttleRaf } from "#common/throttle.js";
 import * as CONST from "../const.js";
@@ -16,7 +11,7 @@ import {
 } from "../edit.js";
 import type { MeasureManager } from "../manager.js";
 import * as Util from "../util.js";
-import { MeasureMode } from "./base.js";
+import { MeasureMode, mountDelIcon } from "./base.js";
 
 // CONF is a free variable from the IIFE template wrapper.
 const _ = createTranslator(CONF);
@@ -147,12 +142,15 @@ class MarkerMode extends MeasureMode {
       },
       false, // do not auto-open popup on restore
     );
-    const delMarker = manager.layers.addLayer(
-      makeDelIcon(L.latLng(data.lat!, data.lng!), {
-        title: T("del_tooltip"),
-        iconAnchor: DEL_ICON_MARKER_ANCHOR, // at the marker's bottom tip
-      }),
-      CONST.PANES.NODE,
+    // mountDelIcon fires before deleteFn is assigned, so the callback captures
+    // a nullable ref. In practice the ✕ click always happens after the sync
+    // setup below, so ?.() is a safety net, not the normal path.
+    let deleteFn: (() => void) | null = null;
+    const delMarker = mountDelIcon(
+      manager.layers,
+      L.latLng(data.lat!, data.lng!),
+      { title: T("del_tooltip"), iconAnchor: DEL_ICON_MARKER_ANCHOR },
+      () => deleteFn?.(),
     );
 
     marker.on("popupopen", () => {
@@ -172,7 +170,7 @@ class MarkerMode extends MeasureMode {
     );
     const unregisterFinalized = manager.registerFinalized(cleanupPin, data.id);
 
-    const deleteMeasurement = () => {
+    deleteFn = () => {
       unregisterFinalized();
       cleanupPin(); // unbind drag + overlay + edit-drag toggle before removing
       manager.layers.removeLayer(marker);
@@ -180,7 +178,6 @@ class MarkerMode extends MeasureMode {
       manager.store.remove(data.id!);
       manager.layers.unregister();
     };
-    attachDelClick(delMarker, deleteMeasurement);
   }
 
   start() {
@@ -233,12 +230,14 @@ class MarkerMode extends MeasureMode {
       },
     );
 
-    const delMarker = this.layers.addLayer(
-      makeDelIcon(event.latlng, {
-        title: T("del_tooltip"),
-        iconAnchor: DEL_ICON_MARKER_ANCHOR, // at the marker's bottom tip
-      }),
-      CONST.PANES.NODE,
+    // Same lazy-bind pattern as restore(): the ✕ click only fires after the
+    // sync setup below, so ?.() is a safety net.
+    let deleteFn: (() => void) | null = null;
+    const delMarker = mountDelIcon(
+      this.layers,
+      event.latlng,
+      { title: T("del_tooltip"), iconAnchor: DEL_ICON_MARKER_ANCHOR },
+      () => deleteFn?.(),
     );
 
     // Bind delete + popup events BEFORE async geocode so the X works even
@@ -251,7 +250,7 @@ class MarkerMode extends MeasureMode {
     );
     const unregisterFinalized = this.m.registerFinalized(cleanupPin, markerId);
 
-    const deleteMeasurement = () => {
+    deleteFn = () => {
       unregisterFinalized();
       cleanupPin(); // unbind drag + overlay + edit-drag toggle before removing
       this.layers.removeLayer(marker);
@@ -259,7 +258,6 @@ class MarkerMode extends MeasureMode {
       this.m.store.remove(markerId);
       this.layers.unregister();
     };
-    attachDelClick(delMarker, deleteMeasurement);
 
     marker.on("popupopen", () => {
       if (measurement.address !== null) {

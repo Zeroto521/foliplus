@@ -1,4 +1,4 @@
-import { toggleDelIcon } from "#common/delicon.js";
+import { attachDelClick, makeDelIcon, toggleDelIcon } from "#common/delicon.js";
 import { createTranslator } from "#common/locale.js";
 import { createLogger } from "#common/log.js";
 import * as CONST from "../const.js";
@@ -218,6 +218,27 @@ class PreviewMode extends MeasureMode {
 
 // ==================== Finalized Lifecycle Hook ====================
 /**
+ * Create, mount, and click-bind a delete-icon marker in one call. Replaces
+ * the 4-copy `makeDelIcon` + `layers.addLayer` + `attachDelClick` pattern
+ * that used to live in circle, marker, distance, and polygon mode files.
+ * `toggleDelIcon` and `layers.removeLayer` stay generic — callers use them
+ * directly when toggling visibility or tearing down.
+ */
+const mountDelIcon = (
+  layers: CreateLayersAPI,
+  latlng: L.LatLngExpression,
+  opts: { title?: string; iconAnchor?: [number, number] },
+  onDelete: () => void,
+): L.Marker => {
+  const delMarker = layers.addLayer(
+    makeDelIcon(latlng, opts),
+    CONST.PANES.NODE,
+  ) as L.Marker;
+  attachDelClick(delMarker, onDelete);
+  return delMarker;
+};
+
+/**
  * Wire the finalized lifecycle shared by distance, polygon, and circle: the
  * edit overlay, its registerFinalized entry, and the delete-then-teardown
  * path. The caller owns resource teardown (drag handles, label registrations,
@@ -267,4 +288,4 @@ const attachDelLifecycle = (
   };
 };
 
-export { attachDelLifecycle, MeasureMode, PreviewMode };
+export { attachDelLifecycle, mountDelIcon, MeasureMode, PreviewMode };

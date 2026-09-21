@@ -1,9 +1,9 @@
 // MeasureControl distance UI — finalized distance edit bindings: node ✕ handles, segment labels, drag, overlay, delete.
-import { attachDelClick, makeDelIcon } from "#common/delicon.js";
+import { attachDelClick } from "#common/delicon.js";
 import * as CONST from "../const.js";
 import { bindNodeDrag, markDragSyntheticClick } from "../edit.js";
 import type { MeasureManager } from "../manager.js";
-import { attachDelLifecycle } from "../mode/base.js";
+import { attachDelLifecycle, mountDelIcon } from "../mode/base.js";
 import * as Util from "../util.js";
 import {
   type DragBind,
@@ -83,56 +83,41 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): void => {
   nodeMarkers.forEach((node, idx) => {
     const isFirst = idx === 0;
     const isLastWhenTwo = points.length === 2 && idx === 1;
-    const delMarker = layers.addLayer(
-      makeDelIcon(node.getLatLng(), {
-        title: isFirst || isLastWhenTwo ? mgr.T("del_all") : mgr.T("del_node"),
-      }),
-      CONST.PANES.NODE,
-    ) as L.Marker;
+    const title = isFirst || isLastWhenTwo ? mgr.T("del_all") : mgr.T("del_node");
+    const delMarker = mountDelIcon(
+      layers,
+      node.getLatLng(),
+      { title },
+      isFirst || isLastWhenTwo
+        ? deleteMeasurement
+        : () => {
+            const latlng = node.getLatLng();
+            const ptIdx = findPointIndex(points, latlng);
+            if (ptIdx === -1) return;
+            const lblIdx = ptIdx - 1;
+            points.splice(ptIdx, 1);
+            layers.removeLayer(node, delMarker);
+            layers.removeLayer(segLabels[lblIdx]);
+            segLabels.splice(lblIdx, 1);
+            nodeMarkers.splice(ptIdx, 1);
+            nodeDelMarkers.splice(ptIdx, 1);
+            dragBinds.splice(ptIdx, 1)[0]?.cleanup();
+
+            if (points.length === 2 && nodeDelMarkers.length === 2) {
+              const lastDelMarker = nodeDelMarkers[1]!;
+              lastDelMarker.off("click");
+              attachDelClick(lastDelMarker, deleteMeasurement);
+              bindOpenOverlay(lastDelMarker, openOverlay);
+              const iconEl = lastDelMarker.getElement();
+              if (iconEl) iconEl.title = mgr.T("del_all");
+            }
+
+            finalPoly.setLatLngs(points);
+            relabel();
+            onUpdate(points);
+          },
+    );
     nodeDelMarkers.push(delMarker);
-
-    if (isFirst || isLastWhenTwo) attachDelClick(delMarker, deleteMeasurement);
-    else {
-      attachDelClick(delMarker, () => {
-        const latlng = node.getLatLng();
-        const ptIdx = findPointIndex(points, latlng);
-        if (ptIdx === -1) return;
-        const lblIdx = ptIdx - 1;
-        points.splice(ptIdx, 1);
-        layers.removeLayer(node, delMarker);
-        if (lblIdx >= 0 && lblIdx < segLabels.length) {
-          layers.removeLayer(segLabels[lblIdx]);
-          segLabels.splice(lblIdx, 1);
-        }
-        nodeMarkers.splice(ptIdx, 1);
-        nodeDelMarkers.splice(ptIdx, 1);
-        dragBinds.splice(ptIdx, 1)[0]?.cleanup();
-
-        if (points.length < 2) {
-          deleteMeasurement();
-          return;
-        }
-
-        if (points.length === 2 && nodeDelMarkers.length === 2) {
-          const lastDelMarker = nodeDelMarkers[1];
-          if (lastDelMarker) {
-            // The last endpoint's ✕ previously delegated to "delete a single
-            // node" + "open the overlay". After collapsing to 2 points it must
-            // switch to "delete the whole distance" while keeping the overlay
-            // opener — mirroring how polygon rebinds both in the 3pt case.
-            lastDelMarker.off("click");
-            attachDelClick(lastDelMarker, deleteMeasurement);
-            bindOpenOverlay(lastDelMarker, openOverlay);
-            const iconEl = lastDelMarker.getElement();
-            if (iconEl) iconEl.title = mgr.T("del_all");
-          }
-        }
-
-        finalPoly.setLatLngs(points);
-        relabel();
-        if (onUpdate) onUpdate(points);
-      });
-    }
 
     bindOpenOverlay(delMarker, openOverlay);
 
@@ -157,7 +142,7 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): void => {
         },
         onEnd: () => {
           markDragSyntheticClick();
-          if (onUpdate) onUpdate(points);
+          onUpdate(points);
         },
       });
     } else {
@@ -174,7 +159,7 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): void => {
           const pIdx = findPtIdx();
           if (pIdx === -1) return;
           points[pIdx] = latlng;
-          if (onUpdate) onUpdate(points);
+          onUpdate(points);
         },
       });
     }
