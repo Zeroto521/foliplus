@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ensureFont, isVisible, resolveExportBackground } from "#foliplus/ExportControl/util.js";
+import {
+  ensureFont,
+  isVisible,
+  resolveExportBackground,
+} from "#foliplus/ExportControl/util.js";
 
 describe("isVisible", () => {
   it("returns true for a rectangle fully inside the viewport", () => {

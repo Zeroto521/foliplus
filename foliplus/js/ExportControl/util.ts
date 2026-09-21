@@ -98,10 +98,4 @@ const resolveExportBackground = (container: HTMLElement): string | undefined => 
   return color;
 };
 
-export {
-  isVisible,
-  loadImageBitmap,
-  loadImage,
-  ensureFont,
-  resolveExportBackground,
-};
+export { isVisible, loadImageBitmap, loadImage, ensureFont, resolveExportBackground };
