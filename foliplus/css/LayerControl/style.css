@@ -28,8 +28,8 @@
      vertical line that reads "you are here". A dimmed state (.out-of-range)
      appears when the current zoom falls outside the selected range. */
   .foliplus-style-zoom-range-row {
-    --zoom-track-height: 14px;
-    --zoom-thumb-size: 18px;
+    --zoom-track-height: 8px;
+    --zoom-thumb-size: 16px;
 
     .foliplus-style-zoom-range-control {
       position: relative;
@@ -43,7 +43,7 @@
     .foliplus-style-zoom-range-track {
       position: relative;
       height: var(--zoom-track-height);
-      background: var(--neutral-200);
+      background: var(--neutral-100, #f3f4f6);
       border: var(--border-thin) solid var(--input-border);
       border-radius: calc(var(--zoom-track-height) / 2);
     }
@@ -63,6 +63,24 @@
       transition:
         left 0.15s ease,
         right 0.15s ease;
+    }
+
+    /* Integer zoom-level tick marks: thin vertical lines at each level,
+       shorter than the track so they read as a scale, not a barrier.
+       The current level's tick is accent-colored to mark "you are here"
+       without competing with the full-height marker line above. */
+    .foliplus-style-zoom-range-tick {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 1px;
+      height: 60%;
+      background: var(--neutral-300, #d1d5db);
+      pointer-events: none;
+    }
+    .foliplus-style-zoom-range-tick-current {
+      background: var(--accent-primary);
+      width: 2px;
     }
 
     /* The current-zoom marker: a vertical line crossing the track.
@@ -102,6 +120,8 @@
       appearance: none;
       width: var(--zoom-thumb-size);
       height: var(--zoom-thumb-size);
+      padding: 6px;
+      box-sizing: content-box;
       border-radius: 50%;
       background: var(--accent-primary);
       border: 2px solid var(--accent-primary);
@@ -121,6 +141,8 @@
       appearance: none;
       width: var(--zoom-thumb-size);
       height: var(--zoom-thumb-size);
+      padding: 6px;
+      box-sizing: content-box;
       border-radius: 50%;
       background: #fff;
       border: 2px solid var(--accent-primary);
@@ -133,12 +155,26 @@
         transform 0.1s ease,
         box-shadow 0.1s ease;
     }
+    .foliplus-style-zoom-range-min:hover::-webkit-slider-thumb {
+      transform: scale(1.05);
+      box-shadow: 0 1px 6px rgba(0, 0, 0, 0.2);
+    }
+    .foliplus-style-zoom-range-max:hover::-webkit-slider-thumb {
+      transform: scale(1.05);
+      box-shadow: 0 1px 6px rgba(0, 0, 0, 0.2);
+    }
     .foliplus-style-zoom-range-min:active::-webkit-slider-thumb,
     .foliplus-style-zoom-range-max:active::-webkit-slider-thumb {
       cursor: grabbing;
-      transform: scale(1.1);
+      transform: scale(1.15);
       box-shadow:
         0 2px 6px rgba(0, 0, 0, 0.2),
+        0 0 0 2px var(--accent-primary);
+    }
+    .foliplus-style-zoom-range-min:focus-visible::-webkit-slider-thumb,
+    .foliplus-style-zoom-range-max:focus-visible::-webkit-slider-thumb {
+      box-shadow:
+        0 1px 3px rgba(0, 0, 0, 0.15),
         0 0 0 2px var(--accent-primary);
     }
 
@@ -147,22 +183,50 @@
       pointer-events: auto;
       width: var(--zoom-thumb-size);
       height: var(--zoom-thumb-size);
+      padding: 6px;
+      box-sizing: content-box;
       border-radius: 50%;
       background: var(--accent-primary);
       border: 2px solid var(--accent-primary);
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
       cursor: grab;
+      transition: transform 0.1s ease, box-shadow 0.1s ease;
     }
     /* Max thumb (Firefox): white fill with accent ring. */
     .foliplus-style-zoom-range-max::-moz-range-thumb {
       pointer-events: auto;
       width: var(--zoom-thumb-size);
       height: var(--zoom-thumb-size);
+      padding: 6px;
+      box-sizing: content-box;
       border-radius: 50%;
       background: #fff;
       border: 2px solid var(--accent-primary);
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
       cursor: grab;
+      transition: transform 0.1s ease, box-shadow 0.1s ease;
+    }
+    .foliplus-style-zoom-range-min:hover::-moz-range-thumb {
+      transform: scale(1.05);
+      box-shadow: 0 1px 6px rgba(0, 0, 0, 0.2);
+    }
+    .foliplus-style-zoom-range-max:hover::-moz-range-thumb {
+      transform: scale(1.05);
+      box-shadow: 0 1px 6px rgba(0, 0, 0, 0.2);
+    }
+    .foliplus-style-zoom-range-min:active::-moz-range-thumb,
+    .foliplus-style-zoom-range-max:active::-moz-range-thumb {
+      cursor: grabbing;
+      transform: scale(1.15);
+      box-shadow:
+        0 2px 6px rgba(0, 0, 0, 0.2),
+        0 0 0 2px var(--accent-primary);
+    }
+    .foliplus-style-zoom-range-min:focus-visible::-moz-range-thumb,
+    .foliplus-style-zoom-range-max:focus-visible::-moz-range-thumb {
+      box-shadow:
+        0 1px 3px rgba(0, 0, 0, 0.15),
+        0 0 0 2px var(--accent-primary);
     }
 
     /* The value labels row: min · current · max. Compact, same font as the
@@ -183,11 +247,8 @@
     }
 
     /* Out-of-range: dim track + fill + marker + values row. The thumbs stay
-       bright so the user can still find them. The row's title carries the
-       "current level is outside this range" tooltip. */
-    .foliplus-zoom-range-out-of-range .foliplus-style-zoom-range-track {
-      background: var(--neutral-100, #eee);
-    }
+       bright so the user can still find them. The current value uses a warning
+       color (danger/amber) — warning ≠ disabled. */
     .foliplus-zoom-range-out-of-range .foliplus-style-zoom-range-fill {
       background: var(--neutral-400, #999);
     }
@@ -195,10 +256,23 @@
       background: var(--neutral-500, #888);
     }
     .foliplus-zoom-range-out-of-range .foliplus-style-zoom-range-values {
-      color: var(--neutral-400, #aaa);
-    }
-    .foliplus-zoom-range-out-of-range .foliplus-style-zoom-range-current-value {
       color: var(--neutral-500, #888);
     }
+    .foliplus-zoom-range-out-of-range .foliplus-style-zoom-range-current-value {
+      color: var(--danger, #dc2626);
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .foliplus-style-zoom-range-fill,
+  .foliplus-style-zoom-range-current {
+    transition: none;
+  }
+  .foliplus-style-zoom-range-min::-webkit-slider-thumb,
+  .foliplus-style-zoom-range-max::-webkit-slider-thumb,
+  .foliplus-style-zoom-range-min::-moz-range-thumb,
+  .foliplus-style-zoom-range-max::-moz-range-thumb {
+    transition: none;
   }
 }

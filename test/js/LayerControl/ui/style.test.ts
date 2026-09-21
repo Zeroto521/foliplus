@@ -741,13 +741,16 @@ describe("LayerUI style panel", () => {
     const range = panel.querySelector(
       ".foliplus-style-opacity-range",
     ) as HTMLInputElement;
+    const fill = panel.querySelector(
+      ".foliplus-style-opacity-fill",
+    ) as HTMLElement;
     // Freshly opened → full width.
-    expect(range.style.getPropertyValue("--opacity-fill")).toBe("100%");
+    expect(fill.style.width).toBe("100%");
 
     range.value = "35";
     range.dispatchEvent(new Event("input", { bubbles: true }));
 
-    expect(range.style.getPropertyValue("--opacity-fill")).toBe("35%");
+    expect(fill.style.width).toBe("35%");
   });
 
   it("opacity input applies to the layer and persists", () => {
@@ -954,9 +957,12 @@ describe("LayerUI style panel", () => {
     const number = panel.querySelector(
       ".foliplus-style-opacity-number",
     ) as HTMLInputElement;
+    const fill = panel.querySelector(
+      ".foliplus-style-opacity-fill",
+    ) as HTMLElement;
     expect(range.value).toBe("100");
     expect(number.value).toBe("100");
-    expect(range.style.getPropertyValue("--opacity-fill")).toBe("100%");
+    expect(fill.style.width).toBe("100%");
   });
 
   it("ignores an emptied number field while typing and restores it on commit", () => {
@@ -973,6 +979,9 @@ describe("LayerUI style panel", () => {
     const number = panel.querySelector(
       ".foliplus-style-opacity-number",
     ) as HTMLInputElement;
+    const fill = panel.querySelector(
+      ".foliplus-style-opacity-fill",
+    ) as HTMLElement;
 
     range.value = "45";
     range.dispatchEvent(new Event("input", { bubbles: true }));
@@ -989,7 +998,7 @@ describe("LayerUI style panel", () => {
     expect(ui.opacityMap.overlay1).toBeUndefined();
     expect(number.value).toBe("100");
     expect(range.value).toBe("100");
-    expect(range.style.getPropertyValue("--opacity-fill")).toBe("100%");
+    expect(fill.style.width).toBe("100%");
   });
 
   it("no-ops when the layer disappears between open and edit", () => {
@@ -1076,6 +1085,9 @@ describe("LayerUI style panel", () => {
     const number = panel.querySelector(
       ".foliplus-style-opacity-number",
     ) as HTMLInputElement;
+    const fill = panel.querySelector(
+      ".foliplus-style-opacity-fill",
+    ) as HTMLElement;
 
     number.focus();
     number.value = "37.6";
@@ -1083,7 +1095,7 @@ describe("LayerUI style panel", () => {
 
     expect(li.opacity).toBe(0.38);
     expect(range.value).toBe("38");
-    expect(range.style.getPropertyValue("--opacity-fill")).toBe("38%");
+    expect(fill.style.width).toBe("38%");
     expect(number.value).toBe("37.6");
     number.blur();
   });

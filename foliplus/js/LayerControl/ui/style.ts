@@ -153,8 +153,11 @@ const syncOpacityInputs = (panel: HTMLElement, pct: number, force = false): void
   const num = panel.querySelector(
     `.${CONST.CLASSES.STYLE_OPACITY_NUMBER}`,
   ) as HTMLInputElement;
+  const fill = panel.querySelector(
+    `.${CONST.CLASSES.STYLE_OPACITY_FILL}`,
+  ) as HTMLElement | null;
   range.value = String(pct);
-  range.style.setProperty("--opacity-fill", `${pct}%`);
+  if (fill) fill.style.width = `${pct}%`;
   if (force || document.activeElement !== num) num.value = String(pct);
 };
 
@@ -194,6 +197,10 @@ const commitOpacityPct = (
 const buildOpacityRow = (ui: LayerUI, layerId: string): HTMLElement => {
   const li = ui.m.layerRegistry.get(layerId);
   const pct = opacityToPct(ui.opacityMap[layerId] ?? li?.opacity);
+  const fill = dom.el("div", {
+    class: CONST.CLASSES.STYLE_OPACITY_FILL,
+    style: `width:${pct}%`,
+  });
   const range = dom.el("input", {
     type: "range",
     class: CONST.CLASSES.STYLE_OPACITY_RANGE,
@@ -203,9 +210,12 @@ const buildOpacityRow = (ui: LayerUI, layerId: string): HTMLElement => {
     value: String(pct),
     "aria-label": ui.T("style_opacity"),
   });
-  // setProperty, not the `style` attribute: dom.el assigns a string through
-  // `cssText`, which would clobber any other inline style on the control.
-  range.style.setProperty("--opacity-fill", `${pct}%`);
+  const track = dom.el(
+    "div",
+    { class: CONST.CLASSES.STYLE_OPACITY_TRACK },
+    fill,
+    range,
+  );
   const number = formNumberInput({
     value: pct,
     min: 0,
@@ -214,7 +224,7 @@ const buildOpacityRow = (ui: LayerUI, layerId: string): HTMLElement => {
     className: CONST.CLASSES.STYLE_OPACITY_NUMBER,
     ariaLabel: ui.T("style_opacity"),
   });
-  const inline = inlineControls(range, number);
+  const inline = inlineControls(track, number);
   inline.classList.add(CONST.CLASSES.STYLE_OPACITY_CONTROL);
   return dom.el(
     "div",
@@ -354,6 +364,20 @@ const buildZoomRangeRow = (ui: LayerUI, layerId: string): HTMLElement => {
     title: currentLabel,
   });
 
+  const ticks: HTMLElement[] = [];
+  for (let z = mapMin; z <= mapMax; z++) {
+    const pct = zoomToPct(z, mapMin, mapMax);
+    const isCurrent = z === current;
+    ticks.push(
+      dom.el("div", {
+        class: isCurrent
+          ? `${CONST.CLASSES.STYLE_ZOOM_RANGE_TICK} ${CONST.CLASSES.STYLE_ZOOM_RANGE_TICK_CURRENT}`
+          : CONST.CLASSES.STYLE_ZOOM_RANGE_TICK,
+        style: `left:${pct}%`,
+      }),
+    );
+  }
+
   const minInput = dom.el("input", {
     type: "range",
     class: CONST.CLASSES.STYLE_ZOOM_RANGE_MIN,
@@ -377,6 +401,7 @@ const buildZoomRangeRow = (ui: LayerUI, layerId: string): HTMLElement => {
     "div",
     { class: CONST.CLASSES.STYLE_ZOOM_RANGE_TRACK },
     fill,
+    ...ticks,
     marker,
     minInput,
     maxInput,

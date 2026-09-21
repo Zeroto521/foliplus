@@ -224,84 +224,76 @@
    and a missing wrapper class would silently drop both declarations (the
    invalid-at-computed-value-time rule), leaving a hairline track. */
 .foliplus-style-opacity-range {
-  --opacity-track-height: 14px;
-  --opacity-thumb-size: 20px;
-  /* The element is --ctrl-size tall so the row lines up with the number field
-     beside it, while the visible bar stays slimmer: a 30px bar reads as a
-     filled slab, and the fill over the checkerboard would look like a colour
-     swatch rather than a level. */
+  --opacity-track-height: 8px;
+  --opacity-thumb-size: 16px;
   height: var(--ctrl-size);
   margin: 0;
   background: transparent;
   cursor: pointer;
   outline: none;
   appearance: none;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  pointer-events: none;
 }
 
-/* The slider takes the free space; the number field keeps its shared width. */
-.foliplus-style-opacity-control .foliplus-style-opacity-range {
+.foliplus-style-opacity-track {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  height: var(--ctrl-size);
+  align-items: center;
+}
+
+.foliplus-style-opacity-track .foliplus-style-opacity-range {
   flex: 1;
   min-width: 0;
 }
 
-/* The two track rules below are identical on purpose: `::-webkit-...` and
-   `::-moz-...` cannot share one selector, because a browser that does not know
-   the other pseudo-element drops the whole rule and the track loses its
-   background entirely. */
+.foliplus-style-opacity-fill {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  height: var(--opacity-track-height);
+  background: linear-gradient(
+    135deg,
+    var(--accent-primary),
+    var(--accent-secondary, var(--accent-primary))
+  );
+  border-radius: calc(var(--opacity-track-height) / 2);
+  pointer-events: none;
+  transition: width 0.15s ease;
+}
+
 .foliplus-style-opacity-range::-webkit-slider-runnable-track {
   height: var(--opacity-track-height);
   border: var(--border-thin) solid var(--input-border);
-  border-radius: var(--radius-sm);
-  background-image:
-    linear-gradient(
-      to right,
-      var(--accent-primary) 0 var(--opacity-fill, 100%),
-      transparent var(--opacity-fill, 100%)
-    ),
-    repeating-conic-gradient(var(--neutral-300) 0 25%, var(--neutral-0) 0 50%);
-  background-size:
-    100% 100%,
-    var(--size-8) var(--size-8);
-  background-position:
-    left center,
-    50% 50%;
-  background-repeat: no-repeat, repeat;
+  border-radius: calc(var(--opacity-track-height) / 2);
+  background: var(--neutral-100, #f3f4f6);
 }
 
 .foliplus-style-opacity-range::-moz-range-track {
   height: var(--opacity-track-height);
   border: var(--border-thin) solid var(--input-border);
-  border-radius: var(--radius-sm);
-  background-image:
-    linear-gradient(
-      to right,
-      var(--accent-primary) 0 var(--opacity-fill, 100%),
-      transparent var(--opacity-fill, 100%)
-    ),
-    repeating-conic-gradient(var(--neutral-300) 0 25%, var(--neutral-0) 0 50%);
-  background-size:
-    100% 100%,
-    var(--size-8) var(--size-8);
-  background-position:
-    left center,
-    50% 50%;
-  background-repeat: no-repeat, repeat;
+  border-radius: calc(var(--opacity-track-height) / 2);
+  background: var(--neutral-100, #f3f4f6);
 }
 
-/* WebKit top-aligns the thumb to the track box, so it needs the
-   half-difference margin to sit concentric. Firefox centres it on its own.
-   The shadow and the hover lift are the panel toggle knob's treatment, so the
-   two hand-held controls in a row read alike. */
 .foliplus-style-opacity-range::-webkit-slider-thumb {
   appearance: none;
   width: var(--opacity-thumb-size);
   height: var(--opacity-thumb-size);
+  padding: 6px;
+  box-sizing: content-box;
   margin-top: calc((var(--opacity-track-height) - var(--opacity-thumb-size)) / 2);
-  border: var(--border-thick) solid var(--accent-primary);
-  border-radius: var(--radius-round);
-  background: var(--neutral-0);
-  box-sizing: border-box;
+  border: 2px solid var(--accent-primary);
+  border-radius: 50%;
+  background: var(--accent-primary);
   cursor: grab;
+  pointer-events: auto;
   box-shadow: 0 1px 3px rgba(0, 0, 0, var(--alpha-30));
   transition:
     transform var(--transition-fast),
@@ -309,22 +301,28 @@
 }
 
 .foliplus-style-opacity-range:hover::-webkit-slider-thumb {
-  transform: scale(var(--scale-hover));
+  transform: scale(1.05);
   box-shadow: 0 1px var(--size-6) rgba(0, 0, 0, var(--alpha-50));
 }
 
 .foliplus-style-opacity-range:active::-webkit-slider-thumb {
   cursor: grabbing;
+  transform: scale(1.15);
+  box-shadow:
+    0 2px 6px rgba(0, 0, 0, var(--alpha-40)),
+    0 0 0 2px var(--accent-primary);
 }
 
 .foliplus-style-opacity-range::-moz-range-thumb {
   width: var(--opacity-thumb-size);
   height: var(--opacity-thumb-size);
-  border: var(--border-thick) solid var(--accent-primary);
-  border-radius: var(--radius-round);
-  background: var(--neutral-0);
-  box-sizing: border-box;
+  padding: 6px;
+  box-sizing: content-box;
+  border: 2px solid var(--accent-primary);
+  border-radius: 50%;
+  background: var(--accent-primary);
   cursor: grab;
+  pointer-events: auto;
   box-shadow: 0 1px 3px rgba(0, 0, 0, var(--alpha-30));
   transition:
     transform var(--transition-fast),
@@ -332,14 +330,28 @@
 }
 
 .foliplus-style-opacity-range:hover::-moz-range-thumb {
-  transform: scale(var(--scale-hover));
+  transform: scale(1.05);
   box-shadow: 0 1px var(--size-6) rgba(0, 0, 0, var(--alpha-50));
 }
 
 .foliplus-style-opacity-range:active::-moz-range-thumb {
   cursor: grabbing;
+  transform: scale(1.15);
+  box-shadow:
+    0 2px 6px rgba(0, 0, 0, var(--alpha-40)),
+    0 0 0 2px var(--accent-primary);
 }
 
 .foliplus-style-opacity-range:focus-visible {
   box-shadow: var(--focus-ring);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .foliplus-style-opacity-fill {
+    transition: none;
+  }
+  .foliplus-style-opacity-range::-webkit-slider-thumb,
+  .foliplus-style-opacity-range::-moz-range-thumb {
+    transition: none;
+  }
 }

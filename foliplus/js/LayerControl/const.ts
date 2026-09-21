@@ -117,6 +117,8 @@ const CLASSES = {
   SECTION_HEADING: "foliplus-section-heading",
   /** Opacity control: range slider + paired number input. */
   STYLE_OPACITY_CONTROL: "foliplus-style-opacity-control",
+  STYLE_OPACITY_TRACK: "foliplus-style-opacity-track",
+  STYLE_OPACITY_FILL: "foliplus-style-opacity-fill",
   STYLE_OPACITY_RANGE: "foliplus-style-opacity-range",
   STYLE_OPACITY_NUMBER: "foliplus-style-opacity-number",
   /** Zoom-range row: a dual-thumb slider with a current-zoom marker. */
@@ -130,6 +132,8 @@ const CLASSES = {
   STYLE_ZOOM_RANGE_CURRENT_LABEL: "foliplus-style-zoom-range-current-label",
   STYLE_ZOOM_RANGE_CURRENT_VALUE: "foliplus-style-zoom-range-current-value",
   STYLE_ZOOM_RANGE_VAL: "foliplus-style-zoom-range-value",
+  STYLE_ZOOM_RANGE_TICK: "foliplus-style-zoom-range-tick",
+  STYLE_ZOOM_RANGE_TICK_CURRENT: "foliplus-style-zoom-range-tick-current",
   /** Marks the row when the map's current zoom falls outside the layer's
    *  range — a dimmed state that reads "you set this to hide at the current
    *  level" without hiding the row itself (the user may still want to change
