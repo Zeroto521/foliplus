@@ -11,7 +11,7 @@ import {
   bindSegmentLabels,
   findPointIndex,
   resortLayers,
-} from "./helpers.js";
+} from "./helper.js";
 
 /** Options for attachDistanceUI. */
 interface AttachOpts {

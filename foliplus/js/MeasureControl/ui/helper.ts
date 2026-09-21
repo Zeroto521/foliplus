@@ -1,4 +1,4 @@
-// MeasureControl ui/ shared helpers — z-order re-sorting, node/label lookup, edit-overlay click routing, and segment-label collision registration.
+// MeasureControl ui/ shared helper — z-order re-sorting, node/label lookup, edit-overlay click routing, and segment-label collision registration.
 import * as CONST from "../const.js";
 import type { MeasureManager } from "../manager.js";
 import * as Util from "../util.js";
