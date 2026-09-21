@@ -43,6 +43,11 @@
    tint without touching geometry. */
 .foliplus-slider-rail {
   position: relative;
+  /* Inset by half a handle: the inputs travel half a handle in from their own
+     box, so this is what makes their travel equal the rail — the handle's centre
+     reaches the rail's ends, and the rail with its handles stays inside the
+     row's cell instead of poking out at both sides. */
+  margin: 0 calc(var(--slider-thumb-size) / 2);
   box-sizing: content-box;
   height: var(--slider-rail-height);
   background-color: var(--slider-rail-bg);
@@ -123,13 +128,16 @@
    the hit box, clear of the dot). */
 .foliplus-slider-handle {
   position: absolute;
-  /* The input spans the rail exactly, which is what keeps the thumb centred on
-     it — the browser centres a slider thumb on its own track. Anything that
-     over-constrains this box (a height, a padding, a translate) moves the thumb
-     off the rail's centre line. */
-  inset: 0;
-  width: 100%;
-  height: 100%;
+  /* Reaches half a handle beyond the rail on each side, which is exactly the
+     inset the rail just took — so the thumb's travel is the rail itself. The
+     vertical box is the rail's own height, which is what keeps the thumb centred
+     on it: the browser centres a slider thumb on its own track, and anything
+     that over-constrains this box (a height beyond it, a padding, a translate)
+     moves the thumb off the centre line. */
+  top: 0;
+  bottom: 0;
+  left: calc(var(--slider-thumb-size) / -2);
+  right: calc(var(--slider-thumb-size) / -2);
   margin: 0;
   background: transparent;
   pointer-events: none;

@@ -137,12 +137,9 @@ const opacityToPct = (opacity: number | undefined): number =>
 const clampPct = (raw: number, fallback = 100): number =>
   Number.isFinite(raw) ? Math.max(0, Math.min(100, Math.round(raw))) : fallback;
 
-/** Fill width for the single-thumb opacity rail: the accent spans from the
- *  thumb's centre at 0% to its centre at the current value. The handle travels
- *  an inset range, so a rail-relative width would leave a sliver of accent past
- *  the handle at the top of the range. */
-const opacityFillWidth = (pct: number): string =>
-  `calc((100% - var(--slider-thumb-hit)) * ${round5(pct / 100)})`;
+/** Fill width for the single-thumb opacity rail: the rail's own percentage,
+ *  which is where the handle's centre sits. */
+const opacityFillWidth = (pct: number): string => `${round5(pct)}%`;
 
 /** Ring colour of the opacity row's two end dots. The covered span is always
  *  [0, pct], so the 0 end is red by construction — the layer is painted from
@@ -316,18 +313,14 @@ const zoomToPct = (zoom: number, mapMin: number, mapMax: number): number => {
 /** Keep inline calc() strings short; the value is a position, not a secret. */
 const round5 = (n: number): number => Math.round(n * 1e5) / 1e5;
 
-/** Where a percentage along the rail lands, as a CSS length.
+/** Where a percentage along the rail lands.
  *
- *  Every mark on the rail — fill ends, ticks, the current-level line and the
- *  numbers under them — goes through this one mapping. The handles travel an
- *  *inset* range (half the hit box at each end), so a mark placed by the rail's
- *  own percentage drifts up to half a handle away from the handle it belongs
- *  to: a sliver of fill past the handle at 100%, a tick that misses its level,
- *  and the current-level line a few px off the number labelling it. */
-const railPos = (pct: number): string =>
-  `calc(var(--slider-thumb-hit) / 2 + (100% - var(--slider-thumb-hit)) * ${round5(
-    pct / 100,
-  )})`;
+ *  Every mark on the rail — fill ends, the current-level dot and the numbers
+ *  under them — goes through this one mapping, and it is the rail's own
+ *  percentage: the stylesheet insets the rail by half a handle and lets the
+ *  inputs reach that far beyond it, so a handle's centre *is* its percentage of
+ *  the rail, and every mark that shares the mapping lands on it. */
+const railPos = (pct: number): string => `${round5(pct)}%`;
 
 /** Two value labels closer than this (in percentage points of the rail) would
  *  overlap once they sit under their own marks, so the lower-priority one is

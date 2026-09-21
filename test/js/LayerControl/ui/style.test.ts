@@ -15,7 +15,7 @@ import { findItem, initFixture } from "./fixture.js";
  *  The fill's width is `calc((100% - var(--slider-thumb-hit)) * <fraction>)` —
  *  measured against the handle's travel range, not the rail's own width. */
 const fillPct = (el: HTMLElement): number =>
-  Number(el.style.width.match(/\*\s*([\d.]+)\)\s*$/)?.[1] ?? NaN);
+  Number(el.style.width.match(/^([\d.]+)%$/)?.[1] ?? NaN) / 100;
 
 describe("LayerUI style panel", () => {
   let manager: LayerManager;
