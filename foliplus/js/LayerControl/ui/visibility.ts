@@ -85,6 +85,11 @@ const syncVisibility = (
   layer: L.Layer | null,
   fallback: boolean,
 ) => {
+  // layerInfo.visible is a real-time mirror of the map state; the user's
+  // intent lives in hiddenIds (hidden) or overrides (shown). This is the
+  // second writer of `visible` — the first is applyLayerState in state.ts.
+  // Both paths write the same value (the actual map membership), so the
+  // dual-writer is intentional, not a race.
   layerInfo.visible = layer ? ui.m.map.hasLayer(layer) : fallback;
   return layerInfo.visible;
 };
@@ -128,6 +133,14 @@ const applyVisibility = (ui: LayerUI, id: string, visible: boolean): boolean => 
 
   syncToggleAll(ui, layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY);
   ui.m.debouncedEnforce();
+
+  // A basemap switch changes the map's min/max zoom without firing zoomend,
+  // so re-evaluate effective shown and refresh the open panel's row.
+  if (layerInfo.isBase) {
+    ui.refreshZoomEffectiveShown();
+    ui.styleZoomEndHandler?.();
+  }
+
   return true;
 };
 

@@ -1,0 +1,301 @@
+@import "token.css";
+
+/* ══════════════════════════════════════════════════════════════════════
+  Slider — one component for every range control
+
+  LayerControl draws two of them (the opacity row and the zoom-range row) and
+  they had already grown parallel rule sets: different rail heights, different
+  handle sizes, one of them centring its handle four px off the rail, and an
+  out-of-range state whose rules never matched. Everything geometric lives
+  here, once.
+
+  A consumer keeps its own hook classes for behaviour and tests, adds
+  `--slider-thumb-ring` to state its own coverage, and gets the geometry for
+  free.
+
+  Structure (DOM order is the paint order inside the rail):
+
+      .foliplus-slider                     column: rail area over the values
+        .foliplus-slider-rail              the rail itself
+          .foliplus-slider-fill            the covered span (JS positions it)
+          .foliplus-slider-dot             readout dots (ends, and the current
+                                           position where the row has one)
+          .foliplus-slider-handle          one <input type=range> per handle
+        .foliplus-slider-values            the scale's numbers
+      .foliplus-slider-bubble              live value, while a handle is held
+  ══════════════════════════════════════════════════════════════════════ */
+
+.foliplus-slider {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  /* Room for a handle at its held size (1.5x) above the rail — the tallest
+     thing in the row, since the 24px hit box is invisible. */
+  padding-top: var(--space-sm);
+  gap: var(--space-xs);
+}
+
+/* The rail carries the two states of the span it describes: the covered part is
+   the accent fill, the rest is a fine grey checkerboard ("nothing rendered
+   here"). Both come from tokens, so a consumer can swap the texture for a flat
+   tint without touching geometry. */
+.foliplus-slider-rail {
+  position: relative;
+  /* Inset by half a handle: the inputs travel half a handle in from their own
+     box, so this is what makes their travel equal the rail — the handle's centre
+     reaches the rail's ends, and the rail with its handles stays inside the
+     row's cell instead of poking out at both sides. */
+  margin: 0 calc(var(--slider-thumb-size) / 2);
+  box-sizing: content-box;
+  height: var(--slider-rail-height);
+  background-color: var(--slider-rail-bg);
+  background-image: var(--slider-rail-pattern);
+  background-size: var(--slider-rail-pattern-size);
+  border: var(--border-thin) solid var(--input-border);
+  border-radius: calc(var(--slider-rail-height) / 2);
+}
+
+/* The covered span. JS positions it against the handle's travel range, so its
+   ends land on the handles rather than on the rail's own ends. */
+.foliplus-slider-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  /* Flat accent — the same red as the panel's toggle switches, so the two
+     hand controls read as one family. A gradient made the bar read as a
+     different (darker) red at one end. */
+  background: var(--accent-primary);
+  border-radius: calc(var(--slider-rail-height) / 2);
+  pointer-events: none;
+  transition:
+    left var(--transition-fast),
+    right var(--transition-fast),
+    width var(--transition-fast);
+}
+
+/* Readout dots. They never move unless JS places them: the scale's fixed ends
+   (`-min`, `-max`) and, on rows that have a "where am I" idea, the current
+   position. The ring reports coverage — accent where the span covers that spot,
+   grey where it does not — and the white core keeps the dot findable either
+   way. */
+.foliplus-slider-dot {
+  position: absolute;
+  top: 50%;
+  width: var(--slider-dot-size);
+  height: var(--slider-dot-size);
+  box-sizing: border-box;
+  background: var(--neutral-0);
+  border: var(--size-2) solid var(--neutral-500);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  /* Coverage is a state the row flips as the range moves; easing it keeps the
+     readout from snapping. */
+  transition: border-color var(--transition-fast);
+}
+.foliplus-slider-dot-covered {
+  border-color: var(--accent-primary);
+}
+.foliplus-slider-dot-min {
+  left: 0;
+}
+.foliplus-slider-dot-max {
+  left: 100%;
+}
+
+/* Handles. These rules are split per engine on purpose: a selector list is
+   invalid as a whole when it names a pseudo-element the engine does not know,
+   so `::-webkit-slider-thumb, ::-moz-range-thumb` is dropped outright — and the
+   minifier merges identical bodies back into exactly that list. The duplicated
+   bodies are what keeps both engines styled.
+
+/* Handles. These rules are split per engine on purpose: a selector list is
+   invalid as a whole when it names a pseudo-element the engine does not know,
+   so `::-webkit-slider-thumb, ::-moz-range-thumb` is dropped outright — and the
+   minifier merges identical bodies back into exactly that list. The duplicated
+   bodies are what keeps both engines styled.
+
+/* Handles. The input spans the rail exactly and is inert; only its thumb takes
+   pointer events. The thumb is a dot with a white core and a 2px ring inside a
+   24px interactive box: the transparent padding is the grab target and
+   `background-clip` keeps it unpainted, so widening the target does not inflate
+   the handle (WCAG 2.5.8 wants 24px). The ring is a gradient inside the content
+   box — a border would land on the hit box and leave a gap around the dot.
+   No `margin-top` (Chromium centres the thumb on its track; the classic webkit
+   compensation lifts it off centre) and no drop shadow (it would be painted at
+   the hit box, clear of the dot). */
+.foliplus-slider-handle {
+  position: absolute;
+  /* Reaches half a handle beyond the rail on each side, which is exactly the
+     inset the rail just took — so the thumb's travel is the rail itself. The
+     vertical box is the rail's own height, which is what keeps the thumb centred
+     on it: the browser centres a slider thumb on its own track, and anything
+     that over-constrains this box (a height beyond it, a padding, a translate)
+     moves the thumb off the centre line. */
+  top: 0;
+  bottom: 0;
+  left: calc(var(--slider-thumb-size) / -2);
+  right: calc(var(--slider-thumb-size) / -2);
+  margin: 0;
+  background: transparent;
+  pointer-events: none;
+  outline: none;
+  appearance: none;
+  cursor: pointer;
+}
+.foliplus-slider-handle::-webkit-slider-runnable-track {
+  height: var(--slider-rail-height);
+  background: transparent;
+  border: 0;
+}
+.foliplus-slider-handle::-moz-range-track {
+  height: var(--slider-rail-height);
+  background: transparent;
+  border: 0;
+}
+.foliplus-slider-handle::-webkit-slider-thumb {
+  appearance: none;
+  margin-top: var(--slider-thumb-offset);
+  width: var(--slider-thumb-size);
+  height: var(--slider-thumb-size);
+  padding: var(--slider-thumb-pad);
+  box-sizing: content-box;
+  background-image: radial-gradient(
+    circle,
+    var(--neutral-0) 0 var(--slider-thumb-core),
+    var(--slider-thumb-ring) var(--slider-thumb-core)
+      calc(var(--slider-thumb-core) + var(--size-2))
+  );
+  background-clip: content-box;
+  border: 0;
+  border-radius: 50%;
+  pointer-events: auto;
+  cursor: grab;
+  transition:
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+.foliplus-slider-handle::-moz-range-thumb {
+  appearance: none;
+  margin-top: var(--slider-thumb-offset);
+  width: var(--slider-thumb-size);
+  height: var(--slider-thumb-size);
+  padding: var(--slider-thumb-pad);
+  box-sizing: content-box;
+  background-image: radial-gradient(
+    circle,
+    var(--neutral-0) 0 var(--slider-thumb-core),
+    var(--slider-thumb-ring) var(--slider-thumb-core)
+      calc(var(--slider-thumb-core) + var(--size-2))
+  );
+  background-clip: content-box;
+  border: 0;
+  border-radius: 50%;
+  pointer-events: auto;
+  cursor: grab;
+  transition:
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+/* Parked is a small dot; in use it grows. Size carries "held", the ring carries
+   coverage, the bubble carries the value. */
+.foliplus-slider-handle:hover::-webkit-slider-thumb {
+  transform: scale(1.1);
+}
+.foliplus-slider-handle:hover::-moz-range-thumb {
+  transform: scale(1.1);
+}
+.foliplus-slider-handle:active::-webkit-slider-thumb {
+  cursor: grabbing;
+  transform: scale(1.15);
+  box-shadow: var(--slider-thumb-glow);
+}
+.foliplus-slider-handle:active::-moz-range-thumb {
+  cursor: grabbing;
+  transform: scale(1.15);
+  box-shadow: var(--slider-thumb-glow);
+}
+.foliplus-slider-handle:focus-visible::-webkit-slider-thumb {
+  transform: scale(1.15);
+  /* The panel's one focus ring, same as every input beside it — and the
+     static one: the inputs' breathing pulse is not repeated here. */
+  box-shadow: var(--focus-ring);
+}
+.foliplus-slider-handle:focus-visible::-moz-range-thumb {
+  transform: scale(1.15);
+  /* The panel's one focus ring, same as every input beside it — and the
+     static one: the inputs' breathing pulse is not repeated here. */
+  box-shadow: var(--focus-ring);
+}
+
+/* The scale's numbers, under the marks they belong to: the fixed ends at the
+   row's edges, anything else placed by JS. */
+.foliplus-slider-values {
+  position: relative;
+  /* The same inset the rail takes, so a label's 0% / 100% means the rail's end —
+     which is where its dot sits — instead of the cell's edge. */
+  margin: 0 calc(var(--slider-thumb-size) / 2);
+  height: var(--font-size-md);
+  line-height: var(--font-size-md);
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+.foliplus-slider-values > span {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+.foliplus-slider-values > span:first-child {
+  left: 0;
+}
+.foliplus-slider-values > span:last-child {
+  left: 100%;
+}
+/* Dropped when its mark is too close to another to sit under it. */
+.foliplus-slider-label-hidden {
+  visibility: hidden;
+}
+
+/* Live value, above the handle being held. Above is the only direction with
+   room on a rail this short. */
+.foliplus-slider-bubble {
+  position: absolute;
+  bottom: calc(100% + var(--space-sm));
+  padding: var(--size-2) var(--size-6);
+  background: var(--text-primary);
+  color: var(--neutral-0);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 var(--border-thin) var(--size-2) rgba(0, 0, 0, var(--alpha-30));
+  transform: translateX(-50%);
+}
+.foliplus-slider-bubble::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: var(--size-4) solid transparent;
+  border-top-color: var(--text-primary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .foliplus-slider-fill,
+  .foliplus-slider-bubble,
+  .foliplus-slider-dot,
+  .foliplus-slider-handle::-webkit-slider-thumb {
+    transition: none;
+  }
+  /* Split, not merged with the webkit selector above: see the note on the
+     handle rules — a mixed list would be dropped whole. */
+  .foliplus-slider-handle::-moz-range-thumb {
+    transition: none;
+  }
+}

@@ -59,5 +59,10 @@
   "LayerControl.style_reset": "重置",
   "LayerControl.section_label": "标注",
   "LayerControl.section_layer": "图层",
-  "LayerControl.style_opacity": "透明度"
+  "LayerControl.style_opacity": "透明度",
+  "LayerControl.style_zoom_range": "可见范围",
+  "LayerControl.style_zoom_range_min": "最小级别",
+  "LayerControl.style_zoom_range_max": "最大级别",
+  "LayerControl.style_zoom_range_current": "当前: {zoom}",
+  "LayerControl.style_zoom_range_out_of_range": "当前级别（{zoom}）不在此范围内"
 }

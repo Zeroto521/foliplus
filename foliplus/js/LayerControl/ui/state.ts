@@ -1,4 +1,5 @@
 // LayerControl UI —Persisted user state (fold / hidden / names) apply + save.
+import { resetGridLayerView } from "#core/leafletAdapter.js";
 import { createLogger } from "#common/log.js";
 import * as CONST from "../const.js";
 import type { LayerManager } from "../manager.js";
@@ -176,6 +177,12 @@ const applyUserState = (ui: LayerUI, id?: string) => {
       applyNameProjection(layerInfo, null, ui.renamedNames[id]);
     }
     if (id in ui.opacityMap) applyOpacityStateOne(ui, layerInfo, ui.opacityMap[id]);
+    // A stored zoom range is applied on the same late-registration pass:
+    // without it a layer that was out of range on the previous load would
+    // come back on the map at its author default rather than staying hidden.
+    if (id in ui.zoomRangeMap) {
+      applyZoomRangeStateOne(ui, layerInfo, ui.zoomRangeMap[id]);
+    }
     // The order dimension is replayed on the same pass: this path runs once per
     // late registration, so without it the layer would keep the slot it was
     // inserted into rather than the position the user already arranged.
@@ -194,6 +201,7 @@ const applyUserState = (ui: LayerUI, id?: string) => {
     ...ui.hiddenIds,
     ...Object.keys(ui.renamedNames),
     ...Object.keys(ui.opacityMap),
+    ...Object.keys(ui.zoomRangeMap),
   ]);
   for (const layerId of ids) {
     if (layerId in ui.renamedNames) {
@@ -226,6 +234,12 @@ const applyUserState = (ui: LayerUI, id?: string) => {
     if (ui.hiddenIds.has(layerId)) applyHiddenOne(ui, layerInfo, layerId);
     else if (ui.userOverrides[layerId]?.includes("visible")) {
       applyVisibleStateOne(ui, layerInfo);
+    }
+    // Zoom range is applied last: its effective-shown write depends on the
+    // visibility intent just written, so it must run after the hidden /
+    // visible branch. A hidden layer stays hidden regardless of zoom.
+    if (layerId in ui.zoomRangeMap) {
+      applyZoomRangeStateOne(ui, layerInfo, ui.zoomRangeMap[layerId]);
     }
   }
 
@@ -402,6 +416,11 @@ const applyLayerState = (
       // fire the toggle so the canvas toggles its own `HIDDEN` class.
       layerInfo.onToggle(patch.visible);
     }
+    // layerInfo.visible is a real-time mirror of the map state; the user's
+    // intent lives in hiddenIds (hidden) or overrides (shown). This field is
+    // written by both applyLayerState (this path) and the visibility sweep
+    // (visibility.ts) — they agree on the same value, so the dual-writer is
+    // intentional, not a race.
     layerInfo.visible = patch.visible;
   }
 };
@@ -477,6 +496,115 @@ const replayLayerState = (ui: LayerUI, id: string) => {
   applyLayerState(ui, layerInfo, patch);
 };
 
+/** Compute one layer's effective shown state.
+ *
+ *  `effectiveShown = intent && (focusActive ? true : inRange)`. Only the
+ *  derived value: this never writes to `hiddenIds` or `overrides` (which
+ *  would flip the checkbox and persist a policy write — the exact bug #329
+ *  locks against). Focus overrides the range, because the focus action is
+ *  precisely "show me this layer even if it's outside the current range";
+ *  zoom alone never overrides intent, because the user's checkbox wins.
+ */
+const computeEffectiveShown = (
+  ui: LayerUI,
+  layerInfo: LayerInfo,
+  focusActive: boolean,
+): boolean => {
+  if (ui.hiddenIds.has(layerInfo.id)) return false;
+  if (focusActive) return true;
+  const range = ui.zoomRangeMap[layerInfo.id];
+  if (!range) return true;
+  // A basemap switch can narrow the map's range below the user's stored
+  // endpoints. The stored values stay (reversibility: switching back must
+  // restore the original choice), but the clamped values are what the
+  // visibility decision uses. If both endpoints clamp past each other, the
+  // entire range is outside the map and no zoom can land inside it.
+  const mapMin = ui.m.map.getMinZoom();
+  const mapMax = ui.m.map.getMaxZoom();
+  const min = Math.max(range[0], mapMin);
+  const max = Math.min(range[1], mapMax);
+  if (min > max) return false;
+  const zoom = ui.m.map.getZoom();
+  return zoom >= min && zoom <= max;
+};
+
+/** Apply the layer's stored zoom range to its carrier.
+ *
+ *  Dispatch by `capabilities.zoomRange` (§5.4-style capability-driven
+ *  writer):
+ *    - "native" — write `layer.options.minZoom/maxZoom` (only GridLayer
+ *      honours min/maxZoom at runtime; ImageOverlay is "none").
+ *    - "pane"   — write the effective shown state through the existing
+ *      `applyLayerState` visible branch (map membership / `onToggle`).
+ *    - "none"   — no honest carrier; the row is not rendered, so this
+ *      is unreachable from the UI. Kept as a defensive no-op.
+ *
+ *  `null` clears the range: for "native" the options are deleted (back to
+ *  the layer's declared default), for "pane" the effective shown is
+ *  recomputed with no range (always in-range).
+ */
+const applyZoomRangeStateOne = (
+  ui: LayerUI,
+  layerInfo: LayerInfo,
+  range: [number, number] | null,
+  focusActive = false,
+): void => {
+  const caps = ui.m.surfaceFor(layerInfo).capabilities;
+  if (caps.zoomRange === "native") {
+    const layer = layerInfo.layer;
+    if (!layer) return;
+    const opts = layer.options as L.LayerOptions & {
+      minZoom?: number;
+      maxZoom?: number;
+    };
+    if (range) {
+      opts.minZoom = range[0];
+      opts.maxZoom = range[1];
+    } else {
+      delete opts.minZoom;
+      delete opts.maxZoom;
+    }
+    // Leaflet does not self-apply options.minZoom/maxZoom: already-loaded
+    // tiles stay until the level set is rebuilt. Without this call the range
+    // would be silently stale — the user sets it and nothing changes on the
+    // map (§6.2 "不得静默失效").
+    resetGridLayerView(layer);
+    return;
+  }
+  if (caps.zoomRange === "pane") {
+    const shown = computeEffectiveShown(ui, layerInfo, focusActive);
+    applyLayerState(ui, layerInfo, { visible: shown });
+  }
+  // "none": nothing to write.
+};
+
+/** Re-evaluate every layer's effective shown state after a zoom change or
+ *  a focus transition.
+ *
+ *  Only layers that can honestly carry a zoomRange write are touched:
+ *  callback-only canvas layers (heatmap / measure) and basemaps are
+ *  skipped because they have no range UI (§31.4-3), and `zoomRange: "none"`
+ *  surfaces (MarkerCluster) are skipped because there is no carrier to
+ *  write to (§6.2 "不得静默失效").
+ *
+ *  The sweep writes through {@link applyLayerState} — the single write
+ *  pipeline — so it never touches `hiddenIds` or `overrides` (the #329
+ *  lock). A layer whose effective shown did not change is a no-op because
+ *  `map.addLayer` / `map.removeLayer` are idempotent.
+ */
+const refreshZoomEffectiveShown = (ui: LayerUI): void => {
+  const focusActive = ui.focusingLayerId != null;
+  for (const layerInfo of ui.m.layers) {
+    if (layerInfo.isBase) continue;
+    if (layerInfo.canvas) continue; // callback-only canvas: no zoom row
+    const caps = ui.m.surfaceFor(layerInfo).capabilities;
+    if (caps.zoomRange === "none") continue;
+    if (caps.zoomRange === "native") continue; // Leaflet handles it
+    const shown = computeEffectiveShown(ui, layerInfo, focusActive);
+    applyLayerState(ui, layerInfo, { visible: shown });
+  }
+};
+
 /** Save user-assigned names, coalescing rapid calls. */
 
 const saveNamesState = (ui: LayerUI) => {
@@ -530,6 +658,9 @@ export {
   applyOpacityStateOne,
   replayLayerState,
   applyVisibleStateOne,
+  applyZoomRangeStateOne,
+  computeEffectiveShown,
+  refreshZoomEffectiveShown,
   saveNamesState,
   syncHiddenId,
 };

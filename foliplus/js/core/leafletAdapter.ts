@@ -57,6 +57,13 @@ type MarkerWithShadow = L.Marker & { _shadow?: HTMLElement };
  *  URL rather than being a programming error. */
 type LayerWithUrl = L.Layer & { _url?: string };
 
+/** `GridLayer._resetView` is a protected method that rebuilds the level set
+ *  after a runtime options change. Changing `options.minZoom`/`maxZoom` on
+ *  its own does not remove already-loaded tiles — Leaflet only honours the
+ *  new range at the next `_resetView`. The zoom-range native carrier needs
+ *  this call to make its write visible. */
+type GridLayerWithReset = L.GridLayer & { _resetView?: () => void };
+
 /** The attribution control's two internals, described structurally.
  *
  *  `L.Control.Attribution` cannot be named here as a type: type/global.d.ts
@@ -168,6 +175,17 @@ const layerMap = (layer: L.Layer): L.Map | null => (layer as LayerWithMap)._map 
 const layerUrl = (layer: L.Layer): string | null =>
   (layer as LayerWithUrl)._url ?? null;
 
+/** Rebuild a GridLayer's level set after a runtime options change.
+ *
+ *  Leaflet does not self-apply `options.minZoom`/`maxZoom`: already-loaded
+ *  tiles stay in the container until `_resetView` rebuilds the level set.
+ *  The zoom-range native carrier writes the options and then calls this so
+ *  the range is visible immediately rather than silently stale. */
+const resetGridLayerView = (layer: L.Layer): void => {
+  const g = layer as GridLayerWithReset;
+  if (typeof g._resetView === "function") g._resetView();
+};
+
 /** A marker's icon element, or null. Kept apart from `layerElements` because
  *  `setInteractive` re-runs the marker's own interaction setup for this node and
  *  must skip it in the manual class / hit-target pass. */
@@ -272,5 +290,6 @@ export {
   primeControlMap,
   refreshAttributions,
   reinitInteraction,
+  resetGridLayerView,
   setPopupCloseTitle,
 };
