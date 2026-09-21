@@ -2911,7 +2911,7 @@ describe("LayerUI style panel — zoom range", () => {
     expect(ui.zoomRangeMap["overlay1"]).toEqual([5, 18]);
   });
 
-  it("delegated panel returns true when no zoom-range row is present", () => {
+  it("delegated panel includes zoom-range row when capability is present", () => {
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
