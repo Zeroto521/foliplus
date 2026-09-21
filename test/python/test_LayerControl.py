@@ -797,17 +797,23 @@ class TestLayerControlRendering:
         assert "repeating-conic-gradient" in tokens
         # Thumb: the wider hit box is transparent padding, and background-clip
         # keeps the painted handle at the token size rather than the box size.
-        thumb = _rule(css, "::-webkit-slider-thumb")
+        thumb = _rule(css, ".foliplus-slider-handle::-webkit-slider-thumb {")
         assert "padding: var(--slider-thumb-pad)" in thumb
         assert "box-sizing: content-box" in thumb
         assert "background-clip: content-box" in thumb
         # No vertical compensation: Chromium centres the thumb on its own track,
         # and the classic (rail - thumb) / 2 margin lifts it off centre.
         assert "margin-top" not in thumb
-        # Both engines share one body: the pair used to be duplicated per engine.
-        assert ".foliplus-slider-handle::-moz-range-thumb" in _rule(
-            css, ".foliplus-slider-handle::-webkit-slider-thumb,"
-        )
+        # Both engines are styled — and the two rules must stay SEPARATE: a
+        # selector list is invalid as a whole when it names a pseudo-element the
+        # engine does not know, so merging the pair into
+        # `::-webkit-slider-thumb, ::-moz-range-thumb` drops the webkit styling
+        # entirely (which is exactly what the minifier does to identical bodies,
+        # so only the minified build showed the handle as a native blue thumb
+        # that could not be dragged). The duplicated bodies are load-bearing.
+        assert ".foliplus-slider-handle::-moz-range-thumb {" in css
+        assert "::-webkit-slider-thumb,\n" not in css
+        assert "::-moz-range-thumb," not in css
         # States: parked is small, held and focused grow.
         assert "scale(1.25)" in css
         assert "scale(1.5)" in css

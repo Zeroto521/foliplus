@@ -100,6 +100,18 @@
   left: 100%;
 }
 
+/* Handles. These rules are split per engine on purpose: a selector list is
+   invalid as a whole when it names a pseudo-element the engine does not know,
+   so `::-webkit-slider-thumb, ::-moz-range-thumb` is dropped outright — and the
+   minifier merges identical bodies back into exactly that list. The duplicated
+   bodies are what keeps both engines styled.
+
+/* Handles. These rules are split per engine on purpose: a selector list is
+   invalid as a whole when it names a pseudo-element the engine does not know,
+   so `::-webkit-slider-thumb, ::-moz-range-thumb` is dropped outright — and the
+   minifier merges identical bodies back into exactly that list. The duplicated
+   bodies are what keeps both engines styled.
+
 /* Handles. The input spans the rail exactly and is inert; only its thumb takes
    pointer events. The thumb is a dot with a white core and a 2px ring inside a
    24px interactive box: the transparent padding is the grab target and
@@ -111,9 +123,18 @@
    the hit box, clear of the dot). */
 .foliplus-slider-handle {
   position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
+  left: 0;
+  right: 0;
+  top: 50%;
+  /* The border box is the hit area: a thumb that overflows its input is only
+     grabbable inside the input's own box in some engines/builds, so the box is
+     grown to the full 24px target with transparent padding. `content-box` keeps
+     the content at the rail's height, which is what the track and the thumb are
+     laid out against — the geometry is unchanged. */
+  height: var(--slider-rail-height);
+  box-sizing: content-box;
+  padding-block: calc((var(--slider-thumb-hit) - var(--slider-rail-height)) / 2);
+  transform: translateY(-50%);
   margin: 0;
   background: transparent;
   pointer-events: none;
@@ -121,13 +142,37 @@
   appearance: none;
   cursor: pointer;
 }
-.foliplus-slider-handle::-webkit-slider-runnable-track,
+.foliplus-slider-handle::-webkit-slider-runnable-track {
+  height: var(--slider-rail-height);
+  background: transparent;
+  border: 0;
+}
 .foliplus-slider-handle::-moz-range-track {
   height: var(--slider-rail-height);
   background: transparent;
   border: 0;
 }
-.foliplus-slider-handle::-webkit-slider-thumb,
+.foliplus-slider-handle::-webkit-slider-thumb {
+  appearance: none;
+  width: var(--slider-thumb-size);
+  height: var(--slider-thumb-size);
+  padding: var(--slider-thumb-pad);
+  box-sizing: content-box;
+  background-image: radial-gradient(
+    circle,
+    var(--neutral-0) 0 var(--slider-thumb-core),
+    var(--slider-thumb-ring) var(--slider-thumb-core)
+      calc(var(--slider-thumb-core) + var(--size-2))
+  );
+  background-clip: content-box;
+  border: 0;
+  border-radius: 50%;
+  pointer-events: auto;
+  cursor: grab;
+  transition:
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
 .foliplus-slider-handle::-moz-range-thumb {
   appearance: none;
   width: var(--slider-thumb-size);
@@ -151,17 +196,26 @@
 }
 /* Parked is a small dot; in use it grows. Size carries "held", the ring carries
    coverage, the bubble carries the value. */
-.foliplus-slider-handle:hover::-webkit-slider-thumb,
+.foliplus-slider-handle:hover::-webkit-slider-thumb {
+  transform: scale(1.25);
+}
 .foliplus-slider-handle:hover::-moz-range-thumb {
   transform: scale(1.25);
 }
-.foliplus-slider-handle:active::-webkit-slider-thumb,
+.foliplus-slider-handle:active::-webkit-slider-thumb {
+  cursor: grabbing;
+  transform: scale(1.5);
+  box-shadow: var(--slider-thumb-glow);
+}
 .foliplus-slider-handle:active::-moz-range-thumb {
   cursor: grabbing;
   transform: scale(1.5);
   box-shadow: var(--slider-thumb-glow);
 }
-.foliplus-slider-handle:focus-visible::-webkit-slider-thumb,
+.foliplus-slider-handle:focus-visible::-webkit-slider-thumb {
+  transform: scale(1.5);
+  box-shadow: var(--focus-ring);
+}
 .foliplus-slider-handle:focus-visible::-moz-range-thumb {
   transform: scale(1.5);
   box-shadow: var(--focus-ring);
@@ -224,7 +278,11 @@
   .foliplus-slider-fill,
   .foliplus-slider-bubble,
   .foliplus-slider-dot,
-  .foliplus-slider-handle::-webkit-slider-thumb,
+  .foliplus-slider-handle::-webkit-slider-thumb {
+    transition: none;
+  }
+  /* Split, not merged with the webkit selector above: see the note on the
+     handle rules — a mixed list would be dropped whole. */
   .foliplus-slider-handle::-moz-range-thumb {
     transition: none;
   }
