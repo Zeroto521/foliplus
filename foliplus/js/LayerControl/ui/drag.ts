@@ -16,6 +16,15 @@ const toggleFold = (ui: LayerUI, group: string): void => {
   saveFoldState(ui);
 };
 
+/** Translate a row's data-layer-id into its registry index. The row carries
+ *  the identity in data-layer-id while reorder takes registry indices — not
+ *  DOM positions. A late registration can sit anywhere in the DOM, so reading
+ *  a positional index here would drag a neighbour's layer. Returns -1 for a
+ *  row with no id (or one the registry does not know). */
+const registryIdx = (ui: LayerUI, id: string | null): number => {
+  return id ? ui.m.layers.findIndex(l => l.id === id) : -1;
+};
+
 const handleDragStart = (ui: LayerUI, event: DragEvent) => {
   // A press that began on a floating row panel is not a reorder gesture: the
   // panel is a detail surface, not a drag handle, and it is a *descendant* of
@@ -30,12 +39,7 @@ const handleDragStart = (ui: LayerUI, event: DragEvent) => {
     CONST.SEL.LAYER_ITEM,
   ) as HTMLElement | null;
   if (!item) return;
-  // Translate the DOM row into a registry index: the row carries the identity
-  // in data-layer-id, and reorder takes registry indices —not DOM positions.
-  // A late registration can sit anywhere in the DOM, so reading
-  // dataset.index here would drag a neighbour's layer.
-  const id = item.getAttribute(CONST.DATA.LAYER_ID);
-  const idx = id ? ui.m.layers.findIndex(l => l.id === id) : -1;
+  const idx = registryIdx(ui, item.getAttribute(CONST.DATA.LAYER_ID));
   if (idx < 0) return;
   ui.dragIdx = idx;
   item.classList.add(CONST.CLASSES.DRAGGING);
@@ -61,8 +65,7 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
   ) as HTMLElement | null;
   if (!item || item.classList.contains(CONST.CLASSES.COLOR_ITEM)) return;
 
-  const targetId = item.getAttribute(CONST.DATA.LAYER_ID);
-  const targetIdx = targetId ? ui.m.layers.findIndex(l => l.id === targetId) : -1;
+  const targetIdx = registryIdx(ui, item.getAttribute(CONST.DATA.LAYER_ID));
   if (targetIdx < 0) return;
   const prev = ui.lastDragOverItem;
   if (prev && prev !== item) {
@@ -106,8 +109,7 @@ const handleDrop = (ui: LayerUI, event: DragEvent) => {
     return;
   }
 
-  const targetId = target.getAttribute(CONST.DATA.LAYER_ID);
-  const targetIdx = targetId ? ui.m.layers.findIndex(l => l.id === targetId) : -1;
+  const targetIdx = registryIdx(ui, target.getAttribute(CONST.DATA.LAYER_ID));
   if (targetIdx < 0) return;
   if (ui.dragIdx === targetIdx) return;
   if (!ui.m.canReorderBetween(ui.dragIdx, targetIdx)) {

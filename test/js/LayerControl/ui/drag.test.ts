@@ -5,6 +5,7 @@ import {
   handleDragEnd,
   handleDragLeave,
   handleDragOver,
+  handleDragStart,
   handleDrop,
   showReorderBlockedHint,
   toggleFold,
@@ -97,7 +98,6 @@ describe("ui/drag", () => {
         const row = document.createElement("div");
         row.className = CONST.CLASSES.LAYER_ITEM;
         row.setAttribute(CONST.DATA.LAYER_ID, id);
-        row.dataset.index = "0";
         const box = document.createElement("input");
         box.type = "checkbox";
         box.checked = true;
@@ -316,6 +316,88 @@ describe("ui/drag", () => {
       expect(reorder).toHaveBeenCalledWith(0, 1);
       // A has no row to relocate, so the drag is disarmed without ordering.
       expect((ui as unknown as { dragIdx: number | null }).dragIdx).toBe(null);
+    });
+
+    it("handleDrop disarms when the armed index is outside the registry", () => {
+      const { ui, reorder } = makeScrambledUi();
+      // A drop that arrives after the registry shrank leaves a stale armed
+      // index behind; it must be cleared, not indexed into.
+      (ui as unknown as { dragIdx: number }).dragIdx = 99;
+      const target = ui.uiContainer.querySelector<HTMLElement>(
+        `[${CONST.DATA.LAYER_ID}="B"]`,
+      )!;
+
+      handleDrop(ui, dragEvent(target));
+
+      expect(reorder).not.toHaveBeenCalled();
+      expect((ui as unknown as { dragIdx: number | null }).dragIdx).toBe(null);
+    });
+
+    it("handleDrop disarms when the armed index no longer names a layer", () => {
+      const layers: LayerInfo[] = [
+        { id: "A", name: "A", isBase: false } as LayerInfo,
+        // Torn down between dragstart and drop: in range, no id.
+        {} as LayerInfo,
+      ];
+      const uiContainer = document.createElement("div");
+      const rowA = document.createElement("div");
+      rowA.className = CONST.CLASSES.LAYER_ITEM;
+      rowA.setAttribute(CONST.DATA.LAYER_ID, "A");
+      uiContainer.appendChild(rowA);
+      const reorder = vi.fn();
+      const ui = {
+        uiContainer,
+        conf: { name: "LayerControl" },
+        T: (key: string) => key,
+        dragIdx: 1,
+        lastDragOverItem: null,
+        m: {
+          layers,
+          canReorderBetween: vi.fn(() => true),
+          enforceOrder: vi.fn(),
+          saveOrder: vi.fn(),
+          layerRegistry: { indexOf: () => 0, reorder },
+        },
+      } as unknown as LayerUI;
+
+      handleDrop(ui, dragEvent(rowA));
+
+      // Nothing to relocate by id, so the drop is dropped without ordering.
+      expect(reorder).not.toHaveBeenCalled();
+      expect((ui as unknown as { dragIdx: number | null }).dragIdx).toBe(null);
+    });
+
+    it("handleDragStart ignores a row carrying no data-layer-id", () => {
+      const { ui } = makeScrambledUi();
+      const orphan = document.createElement("div");
+      orphan.className = CONST.CLASSES.LAYER_ITEM;
+      ui.uiContainer.appendChild(orphan);
+      (ui as unknown as { dragIdx: number | null }).dragIdx = null;
+
+      handleDragStart(ui, dragEvent(orphan));
+
+      // No id, no registry index: the drag is never armed.
+      expect((ui as unknown as { dragIdx: number | null }).dragIdx).toBe(null);
+      expect(orphan.classList.contains(CONST.CLASSES.DRAGGING)).toBe(false);
+    });
+
+    it("handleDragOver and handleDrop ignore a row carrying no data-layer-id", () => {
+      const { ui, reorder } = makeScrambledUi();
+      const orphan = document.createElement("div");
+      orphan.className = CONST.CLASSES.LAYER_ITEM;
+      ui.uiContainer.appendChild(orphan);
+      (ui as unknown as { dragIdx: number }).dragIdx = 0;
+
+      handleDragOver(ui, dragEvent(orphan));
+      handleDrop(ui, dragEvent(orphan));
+
+      // The row names no layer, so neither handler acts on it: no marker is
+      // painted and the drag stays armed for a row that does.
+      expect(orphan.classList.contains(CONST.CLASSES.DRAG_OVER_TOP)).toBe(false);
+      expect(orphan.classList.contains(CONST.CLASSES.DRAG_OVER_BOTTOM)).toBe(false);
+      expect(ui.lastDragOverItem).toBe(null);
+      expect(reorder).not.toHaveBeenCalled();
+      expect((ui as unknown as { dragIdx: number }).dragIdx).toBe(0);
     });
 
     it("handleDragLeave clears the marker on the row being left", () => {

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { LayerInfo } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import {
@@ -119,6 +120,16 @@ describe("ui/list row placement", () => {
     expect(cbA.getAttribute("aria-label")).toBe("A");
     // C's checkbox should not have been touched by A's init pass.
     expect(cbC.getAttribute("aria-label")).not.toBe("A");
+  });
+
+  it("initLayerItem declines an id the registry does not know", () => {
+    const { ui } = initFixture({
+      data: [{ id: "A", name: "A", isBase: false }],
+    });
+
+    // A late callback for a torn-down layer must not write into a row: the id
+    // is not registered, so there is nothing to initialize.
+    expect(initLayerItem(ui, { id: "ghost" } as LayerInfo)).toBe(false);
   });
 
   it("brings its own header when the first row of an empty group arrives", () => {

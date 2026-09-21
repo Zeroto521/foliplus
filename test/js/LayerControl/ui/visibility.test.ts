@@ -523,6 +523,11 @@ describe("LayerUI.handleChange", () => {
 describe("DOM order diverges from registry order", () => {
   const layerFixture = () => ({ options: {} as Record<string, unknown> });
 
+  // The shared initFixture cannot serve this suite: its map.hasLayer always
+  // answers true and addLayer/removeLayer are no-ops, while handleChange and
+  // initLayerItem here decide each row's checkbox from real map membership
+  // (and the pane touches need createPane + _paneRenderers). Keep the map
+  // local so visibility transitions are asserted against actual state.
   const fixture3 = () => {
     const map = {
       on: vi.fn(),
@@ -637,6 +642,25 @@ describe("DOM order diverges from registry order", () => {
     // The DOM order is C-A-B but toggleAll must hide all three regardless.
     ui.toggleAll(CONST.GROUP.OVERLAY, false);
 
+    expect(manager.layerRegistry.get("A")?.visible).toBe(false);
+    expect(manager.layerRegistry.get("B")?.visible).toBe(false);
+    expect(manager.layerRegistry.get("C")?.visible).toBe(false);
+  });
+
+  it("toggleAll skips a row that names no registered layer", () => {
+    // A row left behind without a data-layer-id: it names no layer, so it must
+    // be skipped rather than dragging a neighbour into the sweep.
+    const orphan = document.createElement("div");
+    orphan.className = CONST.CLASSES.LAYER_ITEM;
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.checked = true;
+    orphan.appendChild(box);
+    ui.uiContainer.appendChild(orphan);
+
+    ui.toggleAll(CONST.GROUP.OVERLAY, false);
+
+    expect(box.checked).toBe(true);
     expect(manager.layerRegistry.get("A")?.visible).toBe(false);
     expect(manager.layerRegistry.get("B")?.visible).toBe(false);
     expect(manager.layerRegistry.get("C")?.visible).toBe(false);
