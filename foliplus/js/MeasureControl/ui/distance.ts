@@ -1,8 +1,9 @@
 // MeasureControl distance UI — finalized distance edit bindings: node ✕ handles, segment labels, drag, overlay, delete.
-import { attachDelClick, makeDelIcon, toggleDelIcon } from "#common/delicon.js";
+import { attachDelClick, makeDelIcon } from "#common/delicon.js";
 import * as CONST from "../const.js";
-import { bindNodeDrag, buildEditOverlay, markDragSyntheticClick } from "../edit.js";
+import { bindNodeDrag, markDragSyntheticClick } from "../edit.js";
 import type { MeasureManager } from "../manager.js";
+import { attachDelLifecycle } from "../mode/base.js";
 import * as Util from "../util.js";
 import {
   type DragBind,
@@ -37,6 +38,7 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): void => {
   const nodeDelMarkers: L.Marker[] = [];
   const dragBinds: DragBind[] = [];
   let unregisterSegLabels = bindSegmentLabels(mgr, segLabels, totalPriority);
+  let unregisterDragToggle: () => void = () => {};
 
   const relabel = () => {
     let cumulative = 0;
@@ -57,37 +59,26 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): void => {
     unregisterSegLabels = bindSegmentLabels(mgr, segLabels, totalPriority);
   };
 
-  const onOpen = () => {
-    nodeDelMarkers.forEach(m => toggleDelIcon(m, true));
-  };
-  const onEmpty = () => {
-    nodeDelMarkers.forEach(m => toggleDelIcon(m, false));
-  };
-  const overlay = buildEditOverlay(mgr, { onOpen, onEmpty, id });
-  const openOverlay = overlay.open;
+  const lifecycle = attachDelLifecycle(mgr, layers, nodeDelMarkers, {
+    id,
+    dispose: () => {
+      dragBinds.forEach(db => db.cleanup());
+      unregisterSegLabels();
+      unregisterDragToggle();
+    },
+    removeLayers: () => {
+      layers.removeLayer(finalPoly, ...nodeMarkers, ...segLabels, ...nodeDelMarkers);
+    },
+    onDelete,
+  });
+  const deleteMeasurement = lifecycle.delete;
+  const openOverlay = lifecycle.open;
   // Drag is gated by edit mode (not the overlay), so nodes are draggable as
   // soon as edit mode is on — no click-first required.
-  const unregisterDragToggle = mgr.registerEditDragToggle(
+  unregisterDragToggle = mgr.registerEditDragToggle(
     enabled => dragBinds.forEach(db => db.setEnabled(enabled)),
     id,
   );
-
-  // Single dispose owns every binding; delete and clearAll/destroy both run it.
-  const dispose = () => {
-    dragBinds.forEach(db => db.cleanup());
-    unregisterSegLabels();
-    overlay.cleanup();
-    unregisterDragToggle();
-  };
-  const unregisterFinalized = mgr.registerFinalized(dispose, id);
-
-  const deleteMeasurement = () => {
-    unregisterFinalized();
-    dispose();
-    layers.removeLayer(finalPoly, ...nodeMarkers, ...segLabels, ...nodeDelMarkers);
-    onDelete();
-    layers.unregister();
-  };
 
   nodeMarkers.forEach((node, idx) => {
     const isFirst = idx === 0;

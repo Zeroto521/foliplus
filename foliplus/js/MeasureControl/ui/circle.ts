@@ -1,8 +1,9 @@
 // MeasureControl circle UI — finalized circle edit bindings: center/radius drag, radius label, overlay, delete.
-import { attachDelClick, toggleDelIcon } from "#common/delicon.js";
+import { attachDelClick } from "#common/delicon.js";
 import * as CONST from "../const.js";
-import { bindNodeDrag, buildEditOverlay, markDragSyntheticClick } from "../edit.js";
+import { bindNodeDrag, markDragSyntheticClick } from "../edit.js";
 import type { MeasureManager } from "../manager.js";
+import { attachDelLifecycle } from "../mode/base.js";
 import * as Util from "../util.js";
 import { type DragBind, bindOpenOverlay } from "./helpers.js";
 
@@ -43,36 +44,25 @@ const attachCircleUI = (mgr: MeasureManager, opts: CircleAttachOpts): void => {
     ? mgr.registerLabel(radiusLabel, CONST.LABEL_PRIORITY.RADIUS)
     : () => {};
 
-  const onOpen = () => {
-    toggleDelIcon(delMarker, true);
-  };
-  const onEmpty = () => {
-    toggleDelIcon(delMarker, false);
-  };
-  const overlay = buildEditOverlay(mgr, { onOpen, onEmpty, id });
-  const openOverlay = overlay.open;
-
-  // Single dispose owns every binding; delete and clearAll/destroy both run it.
-  const dispose = () => {
-    dragBinds.forEach(db => db.cleanup());
-    unregisterRadiusLabel();
-    overlay.cleanup();
-    unregisterDragToggle();
-  };
-  const unregisterFinalized = mgr.registerFinalized(dispose, id);
-
-  const deleteMeasurement = () => {
-    unregisterFinalized();
-    dispose();
-    layers.removeLayer(circle);
-    if (radiusLine) layers.removeLayer(radiusLine);
-    if (radiusNode) layers.removeLayer(radiusNode);
-    if (centerFinal) layers.removeLayer(centerFinal);
-    layers.removeLayer(delMarker);
-    if (radiusLabel) layers.removeLayer(radiusLabel);
-    onDelete();
-    layers.unregister();
-  };
+  const lifecycle = attachDelLifecycle(mgr, layers, [delMarker], {
+    id,
+    dispose: () => {
+      dragBinds.forEach(db => db.cleanup());
+      unregisterRadiusLabel();
+      unregisterDragToggle();
+    },
+    removeLayers: () => {
+      layers.removeLayer(circle);
+      if (radiusLine) layers.removeLayer(radiusLine);
+      if (radiusNode) layers.removeLayer(radiusNode);
+      if (centerFinal) layers.removeLayer(centerFinal);
+      layers.removeLayer(delMarker);
+      if (radiusLabel) layers.removeLayer(radiusLabel);
+    },
+    onDelete,
+  });
+  const deleteMeasurement = lifecycle.delete;
+  const openOverlay = lifecycle.open;
 
   const updateLabel = () => {
     if (!radiusLabel) return;

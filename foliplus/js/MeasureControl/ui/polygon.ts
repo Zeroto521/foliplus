@@ -2,8 +2,9 @@
 import { attachDelClick, makeDelIcon, toggleDelIcon } from "#common/delicon.js";
 import { stopEvent } from "#common/dom.js";
 import * as CONST from "../const.js";
-import { bindNodeDrag, buildEditOverlay, markDragSyntheticClick } from "../edit.js";
+import { bindNodeDrag, markDragSyntheticClick } from "../edit.js";
 import type { MeasureManager } from "../manager.js";
+import { attachDelLifecycle } from "../mode/base.js";
 import * as Util from "../util.js";
 import {
   type DragBind,
@@ -50,26 +51,32 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
   let unregisterSegLabels = bindSegmentLabels(mgr, segLabels);
   let unregisterCentroid: () => void = () => {};
 
-  const onOpen = () => {
-    nodeDelMarkers.forEach(m => toggleDelIcon(m, true));
-    if (centroidDelMarker) toggleDelIcon(centroidDelMarker, true);
-  };
-  const onEmpty = () => {
-    nodeDelMarkers.forEach(m => toggleDelIcon(m, false));
-    if (centroidDelMarker) toggleDelIcon(centroidDelMarker, false);
-  };
-  const overlay = buildEditOverlay(mgr, { onOpen, onEmpty, id });
-  const openOverlay = overlay.open;
-
-  // Single dispose owns every binding; delete and clearAll/destroy both run it.
-  const dispose = () => {
-    dragBinds.forEach(db => db.cleanup());
-    unregisterSegLabels();
-    unregisterCentroid();
-    overlay.cleanup();
-    unregisterDragToggle();
-  };
-  const unregisterFinalized = mgr.registerFinalized(dispose, id);
+  const lifecycle = attachDelLifecycle(mgr, layers, nodeDelMarkers, {
+    id,
+    onOpen: () => {
+      nodeDelMarkers.forEach(m => toggleDelIcon(m, true));
+      if (centroidDelMarker) toggleDelIcon(centroidDelMarker, true);
+    },
+    onEmpty: () => {
+      nodeDelMarkers.forEach(m => toggleDelIcon(m, false));
+      if (centroidDelMarker) toggleDelIcon(centroidDelMarker, false);
+    },
+    dispose: () => {
+      dragBinds.forEach(db => db.cleanup());
+      unregisterSegLabels();
+      unregisterCentroid();
+      unregisterDragToggle();
+    },
+    removeLayers: () => {
+      layers.removeLayer(finalPoly, ...nodeMarkers, ...segLabels, ...nodeDelMarkers);
+      if (centroidDot) layers.removeLayer(centroidDot);
+      if (centroidLabel) layers.removeLayer(centroidLabel);
+      if (centroidDelMarker) layers.removeLayer(centroidDelMarker);
+    },
+    onDelete,
+  });
+  const deleteMeasurement = lifecycle.delete;
+  const openOverlay = lifecycle.open;
 
   const relabel = () => {
     const area = Util.area(points);
@@ -133,17 +140,6 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
       CONST.PANES.NODE,
     ) as L.Marker;
     attachDelClick(centroidDelMarker, deleteMeasurement);
-  };
-
-  const deleteMeasurement = () => {
-    unregisterFinalized();
-    dispose();
-    layers.removeLayer(finalPoly, ...nodeMarkers, ...segLabels, ...nodeDelMarkers);
-    if (centroidDot) layers.removeLayer(centroidDot);
-    if (centroidLabel) layers.removeLayer(centroidLabel);
-    if (centroidDelMarker) layers.removeLayer(centroidDelMarker);
-    onDelete();
-    layers.unregister();
   };
 
   // Drag is gated by edit mode (not the overlay), so nodes are draggable as
