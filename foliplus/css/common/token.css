@@ -138,6 +138,12 @@
   --slider-thumb-pad: calc((var(--slider-thumb-hit) - var(--slider-thumb-size)) / 2);
   --slider-thumb-core: calc(var(--slider-thumb-size) / 2 - var(--size-2));
   --slider-thumb-ring: var(--accent-primary);
+  /* Both engines anchor a thumb's TOP edge to the track's top edge rather than
+     centring it, so the taller handle hangs below the rail by half the
+     difference. This is that compensation. */
+  --slider-thumb-offset: calc(
+    (var(--slider-rail-height) - var(--slider-thumb-size)) / 2
+  );
   /* Held state of a handle: a soft accent halo, drawn at the hit box's edge. */
   --slider-thumb-glow: 0 0 0 var(--size-2) var(--accent-soft-shadow);
   /* The uncovered span of a rail: a fine grey checkerboard, the "nothing
