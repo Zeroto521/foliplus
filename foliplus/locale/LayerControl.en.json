@@ -60,7 +60,7 @@
   "LayerControl.section_label": "Label",
   "LayerControl.section_layer": "Layer",
   "LayerControl.style_opacity": "Opacity",
-  "LayerControl.style_zoom_range": "Zoom range",
+  "LayerControl.style_zoom_range": "Zoom Range",
   "LayerControl.style_zoom_range_min": "Minimum zoom",
   "LayerControl.style_zoom_range_max": "Maximum zoom",
   "LayerControl.style_zoom_range_current": "Current: {zoom}",
