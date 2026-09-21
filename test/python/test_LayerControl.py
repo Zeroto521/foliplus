@@ -1136,16 +1136,6 @@ class TestLayerControlBrowser:
             panel_ready(page)  # rebuilt panel completes its init pass again
             assert not errors, f"JS errors: {errors}"
 
-    @pytest.mark.xfail(
-        reason=(
-            "Known leak on first removeControl → addControl: `map.on('unload', ...)` "
-            "gains +1 handler at round[1] (38 → 39 → 39). Drift lands on the "
-            "`unload` event type only; round[2] is stable. Diagnostic: "
-            ".foliplus/probe_fns.py. Fix belongs in foliplus/js/LayerControl or "
-            "foliplus/js/core/mode.ts; out of scope for this test-only PR."
-        ),
-        strict=True,
-    )
     def test_remove_readd_leaves_no_listener_residue(self, browser, tmp_path):
         """N=3 remove→add cycles must not grow map._events listener sum.
 

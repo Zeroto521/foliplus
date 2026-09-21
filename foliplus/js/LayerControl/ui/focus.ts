@@ -191,11 +191,16 @@ const cancelFocus = (ui: LayerUI): void => {
 /** Internal: tear down focus visuals + state (no hint). */
 const dismissFocus = (ui: LayerUI): void => {
   // Release LayerControl's focus mode so other components' primary actions
-  // (export, measure) are unblocked. Idempotent: safe to call even when
-  // no focus was active; setMode(null) writes a null entry that the
-  // interaction lock treats as inactive, emitting a MODE_CHANGE to recompute.
-  const modes = ensureModes(ui.m.map);
-  modes.setMode(ui.conf.name, null);
+  // (export, measure) are unblocked. `ensureModes` is idempotent per map but
+  // has a first-call side effect — it installs the per-map `unload` cleanup
+  // (`map.on('unload', manager.clear)`). A no-op teardown (unbindEvents →
+  // dismissFocus on a never-focused control) must not trigger that install,
+  // otherwise the first removeControl would leave a residual `unload` handler
+  // on the map. Guard with `isFocusing` so setMode(null) is only invoked
+  // when `focusLayer` actually registered the mode.
+  if (isFocusing(ui)) {
+    ensureModes(ui.m.map).setMode(ui.conf.name, null);
+  }
   clearAutoCancel(ui);
   clearFocusedRowHighlight(ui);
   restoreHiddenLayers(ui);
