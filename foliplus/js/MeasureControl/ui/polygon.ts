@@ -43,6 +43,8 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
   const nodeDelMarkers: L.Marker[] = [];
   const dragBinds: DragBind[] = [];
   let unregisterDragToggle: () => void = () => {};
+  // Definite assignment: rebuildCentroid(initArea) runs synchronously below
+  // before any callback can fire, so these are non-null in practice.
   let centroidDot!: L.CircleMarker;
   let centroidLabel!: L.Marker;
   let centroidDelMarker!: L.Marker;

@@ -142,6 +142,9 @@ class MarkerMode extends MeasureMode {
       },
       false, // do not auto-open popup on restore
     );
+    // mountDelIcon fires before deleteFn is assigned, so the callback captures
+    // a nullable ref. In practice the ✕ click always happens after the sync
+    // setup below, so ?.() is a safety net, not the normal path.
     let deleteFn: (() => void) | null = null;
     const delMarker = mountDelIcon(
       manager.layers,
@@ -227,6 +230,8 @@ class MarkerMode extends MeasureMode {
       },
     );
 
+    // Same lazy-bind pattern as restore(): the ✕ click only fires after the
+    // sync setup below, so ?.() is a safety net.
     let deleteFn: (() => void) | null = null;
     const delMarker = mountDelIcon(
       this.layers,
