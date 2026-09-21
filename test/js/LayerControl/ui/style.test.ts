@@ -2652,3 +2652,226 @@ describe("LayerUI style panel", () => {
     expect(formatSelect.value).toBe("auto");
   });
 });
+
+describe("LayerUI style panel — zoom range", () => {
+  let manager: LayerManager;
+  let ui: LayerUI;
+  let map: any;
+
+  beforeEach(() => {
+    ({ manager, ui, map } = initFixture());
+    ui.foldedGroups = new Set();
+    ui.hiddenIds = new Set();
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+    ui.fieldCache.set("overlay1", [{ name: "count", numeric: true }]);
+  });
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  const panelOf = (item: HTMLElement): HTMLElement | undefined =>
+    (item.querySelector(`.${CONST.CLASSES.STYLE_PANEL}`) as HTMLElement | null) ??
+    undefined;
+
+  const zoomRowOf = (panel: HTMLElement): HTMLElement | null =>
+    panel.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`);
+
+  it("renders the zoom-range row for a pane-capable layer", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+    const row = zoomRowOf(panel);
+    expect(row).not.toBeNull();
+  });
+
+  it("renders fill, marker, two thumbs, and values (min · current · max)", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const row = zoomRowOf(panelOf(item)!)!;
+    expect(row.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_FILL}`)).not.toBeNull();
+    expect(row.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_CURRENT}`)).not.toBeNull();
+    expect(row.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_MIN}`)).not.toBeNull();
+    expect(row.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_MAX}`)).not.toBeNull();
+    const spans = row.querySelectorAll(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_VAL} span`);
+    expect(spans.length).toBe(3);
+    expect(spans[1].classList.contains(CONST.CLASSES.STYLE_ZOOM_RANGE_CURRENT_VALUE)).toBe(true);
+  });
+
+  it("shows out-of-range class when current zoom is outside the range", () => {
+    const item = findItem(ui, "overlay1");
+    ui.zoomRangeMap["overlay1"] = [0, 3];
+    ui.openStylePanel("overlay1");
+    const row = zoomRowOf(panelOf(item)!)!;
+    expect(row.classList.contains(CONST.CLASSES.STYLE_ZOOM_RANGE_OOR)).toBe(true);
+  });
+
+  it("does not show out-of-range class when current zoom is inside the range", () => {
+    const item = findItem(ui, "overlay1");
+    ui.zoomRangeMap["overlay1"] = [0, 18];
+    ui.openStylePanel("overlay1");
+    const row = zoomRowOf(panelOf(item)!)!;
+    expect(row.classList.contains(CONST.CLASSES.STYLE_ZOOM_RANGE_OOR)).toBe(false);
+  });
+
+  it("input event updates map state and visual row (live pass)", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+    const row = zoomRowOf(panel)!;
+    const minInput = row.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_MIN}`) as HTMLInputElement;
+
+    minInput.value = "5";
+    minInput.dispatchEvent(new Event("input", { bubbles: true }));
+
+    expect(ui.zoomRangeMap["overlay1"]).toEqual([5, 18]);
+  });
+
+  it("change event persists the range to localStorage", () => {
+    vi.useFakeTimers();
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+    const row = zoomRowOf(panel)!;
+    const minInput = row.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_MIN}`) as HTMLInputElement;
+
+    minInput.value = "5";
+    minInput.dispatchEvent(new Event("input", { bubbles: true }));
+    minInput.dispatchEvent(new Event("change", { bubbles: true }));
+
+    vi.advanceTimersByTime(400);
+    const stored = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY) ?? "{}");
+    expect(stored.layers?.overlay1?.overrides).toContain("zoomRange");
+    expect(stored.layers?.overlay1?.zoomRange).toEqual([5, 18]);
+    vi.useRealTimers();
+  });
+
+  it("clamps min to max when min exceeds max", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+    const row = zoomRowOf(panel)!;
+    const minInput = row.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_MIN}`) as HTMLInputElement;
+    const maxInput = row.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_MAX}`) as HTMLInputElement;
+
+    minInput.value = "18";
+    maxInput.value = "10";
+    minInput.dispatchEvent(new Event("input", { bubbles: true }));
+
+    expect(ui.zoomRangeMap["overlay1"]).toEqual([10, 10]);
+  });
+
+  it("clamps max to min when max falls below min", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+    const row = zoomRowOf(panel)!;
+    const minInput = row.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_MIN}`) as HTMLInputElement;
+    const maxInput = row.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_MAX}`) as HTMLInputElement;
+
+    minInput.value = "10";
+    maxInput.value = "5";
+    maxInput.dispatchEvent(new Event("input", { bubbles: true }));
+
+    expect(ui.zoomRangeMap["overlay1"]).toEqual([10, 10]);
+  });
+
+  it("clamps zoom values to map bounds", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+    const row = zoomRowOf(panel)!;
+    const minInput = row.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_MIN}`) as HTMLInputElement;
+
+    minInput.value = "-5";
+    minInput.dispatchEvent(new Event("input", { bubbles: true }));
+
+    const range = ui.zoomRangeMap["overlay1"];
+    expect(range![0]).toBeGreaterThanOrEqual(0);
+  });
+
+  it("updates marker position on zoomend", () => {
+    const item = findItem(ui, "overlay1");
+    let zoomEndHandler: (() => void) | null = null;
+    const origOn = map.on;
+    map.on = (evt: string, fn: () => void) => {
+      if (evt === "zoomend") zoomEndHandler = fn;
+      return origOn(evt, fn);
+    };
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+    const row = zoomRowOf(panel)!;
+    const marker = row.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_CURRENT}`) as HTMLElement;
+    const before = marker.style.left;
+
+    map.getZoom.mockReturnValue(12);
+    zoomEndHandler?.();
+
+    const after = marker.style.left;
+    expect(before).not.toBe(after);
+    map.on = origOn;
+  });
+
+  it("updates values row on zoomend", () => {
+    const item = findItem(ui, "overlay1");
+    ui.zoomRangeMap["overlay1"] = [0, 18];
+    let zoomEndHandler: (() => void) | null = null;
+    const origOn = map.on;
+    map.on = (evt: string, fn: () => void) => {
+      if (evt === "zoomend") zoomEndHandler = fn;
+      return origOn(evt, fn);
+    };
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+    const row = zoomRowOf(panel)!;
+    const spans = row.querySelectorAll(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_VAL} span`);
+    const beforeCurrent = spans[1].textContent;
+
+    map.getZoom.mockReturnValue(12);
+    zoomEndHandler?.();
+
+    const afterCurrent = spans[1].textContent;
+    expect(afterCurrent).toBe("12");
+    expect(beforeCurrent).not.toBe(afterCurrent);
+    map.on = origOn;
+  });
+
+  it("omit zoom-range row for canvas layers", () => {
+    manager.registerLayer({
+      id: "canvas1",
+      name: "Canvas",
+      canvas: document.createElement("canvas"),
+    });
+    const item = findItem(ui, "canvas1");
+    ui.openStylePanel("canvas1");
+    const panel = panelOf(item);
+    if (!panel) return;
+    const row = zoomRowOf(panel);
+    expect(row).toBeNull();
+  });
+
+  it("omit zoom-range row for base layers", () => {
+    const item = findItem(ui, "base1");
+    ui.openStylePanel("base1");
+    const panel = panelOf(item);
+    if (!panel) return;
+    const row = zoomRowOf(panel);
+    expect(row).toBeNull();
+  });
+
+  it("reset button clears zoom range and restores full map range", () => {
+    const item = findItem(ui, "overlay1");
+    ui.zoomRangeMap["overlay1"] = [5, 15];
+    ui.userOverrides["overlay1"] = ["zoomRange"];
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+    const resetBtn = panel.querySelector(".foliplus-style-reset-btn") as HTMLButtonElement;
+    resetBtn.click();
+
+    expect(ui.zoomRangeMap["overlay1"]).toBeUndefined();
+    expect(ui.userOverrides["overlay1"]).toBeUndefined();
+  });
+});
