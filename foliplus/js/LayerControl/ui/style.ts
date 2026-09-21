@@ -437,10 +437,7 @@ const applyZoomRangeLive = (
 /** Commit pass: persist the zoom range to localStorage. The value and the
  *  map state are already updated by {@link applyZoomRangeLive}; this only
  *  records the override and schedules the storage write. */
-const commitZoomRange = (
-  ui: LayerUI,
-  layerId: string,
-): void => {
+const commitZoomRange = (ui: LayerUI, layerId: string): void => {
   markOverride(ui, layerId, "zoomRange");
   saveState(ui);
 };

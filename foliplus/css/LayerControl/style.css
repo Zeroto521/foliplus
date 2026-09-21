@@ -53,10 +53,16 @@
       position: absolute;
       top: 0;
       bottom: 0;
-      background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary, var(--accent-primary)));
+      background: linear-gradient(
+        135deg,
+        var(--accent-primary),
+        var(--accent-secondary, var(--accent-primary))
+      );
       border-radius: calc(var(--zoom-track-height) / 2);
       pointer-events: none;
-      transition: left 0.15s ease, right 0.15s ease;
+      transition:
+        left 0.15s ease,
+        right 0.15s ease;
     }
 
     /* The current-zoom marker: a vertical line crossing the track.
@@ -99,16 +105,22 @@
       border-radius: 50%;
       background: #fff;
       border: 2px solid var(--accent-primary);
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15), 0 0 0 1px var(--border-thin);
+      box-shadow:
+        0 1px 3px rgba(0, 0, 0, 0.15),
+        0 0 0 1px var(--border-thin);
       cursor: grab;
       margin-top: calc((var(--zoom-track-height) - var(--zoom-thumb-size)) / 2);
-      transition: transform 0.1s ease, box-shadow 0.1s ease;
+      transition:
+        transform 0.1s ease,
+        box-shadow 0.1s ease;
     }
     .foliplus-style-zoom-range-min:active::-webkit-slider-thumb,
     .foliplus-style-zoom-range-max:active::-webkit-slider-thumb {
       cursor: grabbing;
       transform: scale(1.1);
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2), 0 0 0 2px var(--accent-primary);
+      box-shadow:
+        0 2px 6px rgba(0, 0, 0, 0.2),
+        0 0 0 2px var(--accent-primary);
     }
 
     .foliplus-style-zoom-range-min::-moz-range-thumb,

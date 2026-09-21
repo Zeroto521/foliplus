@@ -1,8 +1,8 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import {
-  computeEffectiveShown,
   applyZoomRangeStateOne,
+  computeEffectiveShown,
   refreshZoomEffectiveShown,
 } from "#foliplus/LayerControl/ui/state.js";
 
@@ -57,15 +57,16 @@ const mockUI: LayerUI = {
 } as any;
 
 describe("computeEffectiveShown", () => {
-  const makeLayerInfo = (id: string, overrides: Partial<any> = {}) => ({
-    id,
-    layer: null,
-    canvas: null,
-    isBase: false,
-    visible: true,
-    opacity: 1,
-    ...overrides,
-  }) as any;
+  const makeLayerInfo = (id: string, overrides: Partial<any> = {}) =>
+    ({
+      id,
+      layer: null,
+      canvas: null,
+      isBase: false,
+      visible: true,
+      opacity: 1,
+      ...overrides,
+    }) as any;
 
   it("returns false when layer is hidden", () => {
     mockUI.hiddenIds.add("layer1");
@@ -122,15 +123,16 @@ describe("computeEffectiveShown", () => {
 });
 
 describe("applyZoomRangeStateOne", () => {
-  const makeLayerInfo = (id: string, overrides: Partial<any> = {}) => ({
-    id,
-    layer: { options: {} } as any,
-    canvas: null,
-    isBase: false,
-    visible: true,
-    opacity: 1,
-    ...overrides,
-  }) as any;
+  const makeLayerInfo = (id: string, overrides: Partial<any> = {}) =>
+    ({
+      id,
+      layer: { options: {} } as any,
+      canvas: null,
+      isBase: false,
+      visible: true,
+      opacity: 1,
+      ...overrides,
+    }) as any;
 
   it("writes minZoom/maxZoom for native carrier", () => {
     mockUI.m.surfaceFor = () => ({
@@ -185,9 +187,7 @@ describe("applyZoomRangeStateOne", () => {
 
 describe("refreshZoomEffectiveShown", () => {
   it("skips base layers", () => {
-    mockUI.m.layers = [
-      { id: "base", isBase: true, canvas: null, layer: {} } as any,
-    ];
+    mockUI.m.layers = [{ id: "base", isBase: true, canvas: null, layer: {} } as any];
     mockUI.m.surfaceFor = () => ({
       capabilities: { zoomRange: "pane" as const, opacity: "pane" as const },
       paneNames: new Set(["overlayPane"]),
@@ -207,9 +207,7 @@ describe("refreshZoomEffectiveShown", () => {
   });
 
   it("skips none carrier", () => {
-    mockUI.m.layers = [
-      { id: "layer1", isBase: false, canvas: null, layer: {} } as any,
-    ];
+    mockUI.m.layers = [{ id: "layer1", isBase: false, canvas: null, layer: {} } as any];
     mockUI.m.surfaceFor = () => ({
       capabilities: { zoomRange: "none" as const, opacity: "pane" as const },
       paneNames: new Set(["overlayPane"]),
@@ -218,9 +216,7 @@ describe("refreshZoomEffectiveShown", () => {
   });
 
   it("skips native carrier", () => {
-    mockUI.m.layers = [
-      { id: "layer1", isBase: false, canvas: null, layer: {} } as any,
-    ];
+    mockUI.m.layers = [{ id: "layer1", isBase: false, canvas: null, layer: {} } as any];
     mockUI.m.surfaceFor = () => ({
       capabilities: { zoomRange: "native" as const, opacity: "pane" as const },
       paneNames: new Set(["overlayPane"]),
@@ -229,9 +225,7 @@ describe("refreshZoomEffectiveShown", () => {
   });
 
   it("applies visibility for pane carrier layers", () => {
-    mockUI.m.layers = [
-      { id: "layer1", isBase: false, canvas: null, layer: {} } as any,
-    ];
+    mockUI.m.layers = [{ id: "layer1", isBase: false, canvas: null, layer: {} } as any];
     mockUI.m.surfaceFor = () => ({
       capabilities: { zoomRange: "pane" as const, opacity: "pane" as const },
       paneNames: new Set(["overlayPane"]),
