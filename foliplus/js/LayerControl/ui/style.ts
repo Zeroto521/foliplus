@@ -934,6 +934,27 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       }
     }
 
+    // Drag value bubble: show on input (live), remove on change (commit).
+    // Positioned above the dragged thumb at its percent location.
+    const track = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_TRACK}`,
+    ) as HTMLElement | null;
+    let bubble = track?.querySelector(
+      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_BUBBLE}`,
+    ) as HTMLElement | null;
+    if (commit) {
+      bubble?.remove();
+    } else if (track) {
+      if (!bubble) {
+        bubble = dom.el("div", { class: CONST.CLASSES.STYLE_ZOOM_RANGE_BUBBLE });
+        track.appendChild(bubble);
+      }
+      const val = t === minInput ? min : max;
+      const pct = zoomToPct(val, mapMin, mapMax);
+      bubble.style.left = `${pct}%`;
+      bubble.textContent = String(val);
+    }
+
     applyZoomRangeLive(ui, layerId, row, min, max);
 
     if (commit) {
