@@ -733,12 +733,7 @@ class LayerUI {
     return syncVisibility(this, layerInfo, layer, fallback);
   }
   applyVisibility(id: string, visible: boolean) {
-    const result = applyVisibility(this, id, visible);
-    // A basemap switch changes the map's min/max zoom without firing zoomend,
-    // so re-evaluate effective shown and refresh the open panel's row.
-    this.refreshZoomEffectiveShown();
-    this.styleZoomEndHandler?.();
-    return result;
+    return applyVisibility(this, id, visible);
   }
   handleChange(event: Event) {
     return handleChange(this, event);

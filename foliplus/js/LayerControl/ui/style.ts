@@ -849,8 +849,6 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
   // Control changes are handled on the panel itself; stopPropagation keeps
   // them out of the container-level change delegation, which would otherwise
   // re-read them as visibility toggles.
-  const mapMin = ui.m.map.getMinZoom();
-  const mapMax = ui.m.map.getMaxZoom();
 
   /** Shared opacity handler for both panel flavours (LayerControl-owned).
    *  `commit` separates the live pass from the blur/change pass: an emptied or
@@ -894,6 +892,8 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
     const maxInput = row.querySelector(
       `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MAX}`,
     ) as HTMLInputElement;
+    const mapMin = ui.m.map.getMinZoom();
+    const mapMax = ui.m.map.getMaxZoom();
     let min = clampZoom(parseFloat(minInput.value), mapMin, mapMax);
     let max = clampZoom(parseFloat(maxInput.value), mapMin, mapMax);
 

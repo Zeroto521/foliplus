@@ -133,6 +133,14 @@ const applyVisibility = (ui: LayerUI, id: string, visible: boolean): boolean => 
 
   syncToggleAll(ui, layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY);
   ui.m.debouncedEnforce();
+
+  // A basemap switch changes the map's min/max zoom without firing zoomend,
+  // so re-evaluate effective shown and refresh the open panel's row.
+  if (layerInfo.isBase) {
+    ui.refreshZoomEffectiveShown();
+    ui.styleZoomEndHandler?.();
+  }
+
   return true;
 };
 
