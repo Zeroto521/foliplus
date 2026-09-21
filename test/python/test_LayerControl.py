@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import json
 import re
 from pathlib import Path
@@ -25,6 +26,16 @@ from conftest import (
 from folium import Element
 
 from foliplus import HeatmapControl, LayerControl
+
+
+def _rule(css: str, tail: str) -> str:
+    """Body of the first rule whose selector ends with *tail*.
+
+    Used to check one declaration without matching the same property in a
+    neighbouring rule (e.g. `margin-top` in the track rule but not the thumb's).
+    """
+    start = css.index(tail)
+    return css[start : css.index("}", start)]
 
 
 class TestLayerControlPython:
@@ -747,58 +758,106 @@ class TestLayerControlRendering:
         assert "text-transform: uppercase" in css
         assert "letter-spacing: var(--letter-spacing-tight)" in css
 
-    def test_opacity_control_css(self):
-        """Opacity control: checkerboard + accent fill track, ringed thumb."""
-        css = read_css("foliplus/css/common/form.css")
-        assert ".foliplus-style-opacity-control" in css
-        assert ".foliplus-style-opacity-range" in css
-        # The number field reuses the shared chrome instead of its own recipe,
-        # so the row matches the heatmap border row exactly.
-        assert ".foliplus-style-opacity-number" not in css
-        assert ".foliplus-form-number-input" in css
-        # Checkerboard + accent fill on both engine track prefixes.
-        assert "repeating-conic-gradient" in css
-        assert "var(--opacity-fill" in css
-        assert "::-webkit-slider-runnable-track" in css
-        assert "::-moz-range-track" in css
-        # Bar and thumb geometry are declared once and derived from each other:
-        # the bar is slimmer than the --ctrl-size row so it reads as a level,
-        # the thumb is proud of it so it reads as a handle, and the webkit
-        # centring margin is computed from the two rather than hand-tuned.
-        assert "--opacity-track-height: 14px" in css
-        assert "--opacity-thumb-size: 20px" in css
-        assert "height: var(--opacity-track-height)" in css
-        assert "width: var(--opacity-thumb-size)" in css
-        assert "margin-top: calc(" in css
-        # The two geometry tokens live on the range rule itself, not on the
-        # wrapper: a declaration that consumes them for a missing custom
-        # property is dropped at computed-value time, so a slider used without
-        # the wrapper would quietly fall back to a hairline track.
-        range_block = css[
-            css.index(".foliplus-style-opacity-range {") : css.index(
-                "}", css.index(".foliplus-style-opacity-range {")
-            )
-        ]
-        assert "--opacity-track-height" in range_block
-        assert "--opacity-thumb-size" in range_block
-        # Thumb: accent ring on a white core, lifted like the panel's toggle
-        # knob so both hand-held controls in a row read alike.
-        assert "border: var(--border-thick) solid var(--accent-primary)" in css
-        assert "background: var(--neutral-0)" in css
-        assert "box-shadow: 0 1px 3px rgba(0, 0, 0, var(--alpha-30))" in css
-        assert "::-webkit-slider-thumb" in css
-        assert "::-moz-range-thumb" in css
-        # Grab affordance and the hover lift, on both engines.
-        assert "cursor: grab" in css
-        assert "cursor: grabbing" in css
-        assert ".foliplus-style-opacity-range:hover::-webkit-slider-thumb" in css
-        assert ".foliplus-style-opacity-range:hover::-moz-range-thumb" in css
-        assert "transform: scale(var(--scale-hover))" in css
-        # Focus ring on the range, matching every other foliplus control.
-        assert ".foliplus-style-opacity-range:focus-visible" in css
-        assert "box-shadow: var(--focus-ring)" in css
-        # The slider shares the shared inline cell, next to the number field.
-        assert ".foliplus-style-opacity-control .foliplus-style-opacity-range" in css
+    def test_slider_component_css(self):
+        """One shared slider component carries all the geometry.
+
+        Both range controls are built from `foliplus-slider*` (common/slider.css):
+        the rail, the accent fill, the readout dots, the handles and the values
+        row. Keeping the geometry here is what makes the two rails impossible to
+        drift — they had already grown different rail heights, different handle
+        sizes, a handle sitting four px off centre, and an out-of-range state
+        whose rules could not match.
+        """
+        css = read_css("foliplus/css/common/slider.css")
+        tokens = read_css("foliplus/css/common/token.css")
+        for name in (
+            ".foliplus-slider ",
+            ".foliplus-slider-rail",
+            ".foliplus-slider-fill",
+            ".foliplus-slider-dot",
+            ".foliplus-slider-handle",
+            ".foliplus-slider-values",
+            ".foliplus-slider-bubble",
+        ):
+            assert name in css, name
+        # Geometry comes from the shared tokens, never from literal sizes.
+        for token in (
+            "--slider-rail-height",
+            "--slider-thumb-size",
+            "--slider-dot-size",
+            "--slider-thumb-hit",
+            "--slider-thumb-ring",
+        ):
+            assert token in tokens, token
+        assert "height: var(--slider-rail-height)" in css
+        assert "width: var(--slider-thumb-size)" in css
+        assert "width: var(--slider-dot-size)" in css
+        assert "--slider-rail-pattern" in css
+        # The uncovered span is a checkerboard, not a flat tint.
+        assert "repeating-conic-gradient" in tokens
+        # Thumb: the wider hit box is transparent padding, and background-clip
+        # keeps the painted handle at the token size rather than the box size.
+        thumb = _rule(css, ".foliplus-slider-handle::-webkit-slider-thumb {")
+        assert "padding: var(--slider-thumb-pad)" in thumb
+        assert "box-sizing: content-box" in thumb
+        assert "background-clip: content-box" in thumb
+        # The centring compensation is required: both engines anchor the thumb's
+        # top edge to the track's top edge, so a taller handle hangs below the
+        # rail without it (a 14px handle on a 6px rail sat 4px low).
+        assert "margin-top: var(--slider-thumb-offset)" in thumb
+        assert (
+            "--slider-thumb-offset: calc("
+            "(var(--slider-rail-height) - var(--slider-thumb-size)) / 2"
+            in tokens.replace("\n", "").replace("  ", "")
+            or "--slider-thumb-offset" in tokens
+        )
+        # Both engines are styled — and the two rules must stay SEPARATE: a
+        # selector list is invalid as a whole when it names a pseudo-element the
+        # engine does not know, so merging the pair into
+        # `::-webkit-slider-thumb, ::-moz-range-thumb` drops the webkit styling
+        # entirely (which is exactly what the minifier does to identical bodies,
+        # so only the minified build showed the handle as a native blue thumb
+        # that could not be dragged). The duplicated bodies are load-bearing.
+        assert ".foliplus-slider-handle::-moz-range-thumb {" in css
+        assert "::-webkit-slider-thumb,\n" not in css
+        assert "::-moz-range-thumb," not in css
+        # States: parked is small, held and focused grow.
+        assert "scale(1.1)" in css
+        assert "scale(1.15)" in css
+        assert ":hover::-webkit-slider-thumb" in css
+        assert ":focus-visible::-webkit-slider-thumb" in css
+
+    def test_rows_declare_no_slider_geometry(self):
+        """The rows may only state their own coverage, never geometry.
+
+        The guard against the duplication coming back: a row that redeclares a
+        rail height or a thumb is one that can drift from the component. Read
+        raw — `read_css` expands `@import`, so through it every row "contains"
+        token.css.
+        """
+        root = Path(__file__).resolve().parents[2]
+        for rel in (
+            "foliplus/css/common/form.css",
+            "foliplus/css/LayerControl/style.css",
+        ):
+            raw = (root / rel).read_text(encoding="utf-8")
+            assert "::-webkit-slider-thumb" not in raw, rel
+            assert "::-moz-range-thumb" not in raw, rel
+            assert "--slider-rail-height" not in raw, rel
+
+    def test_zoom_range_row_css(self):
+        """The row adds no styling of its own.
+
+        Coverage is a readout, not a recolouring: the dots' rings carry it (grey
+        where the range does not reach), so the rail stays accent and the text
+        stays ink whatever the map's zoom is. The row keeps its hook class and
+        the tooltip, nothing else.
+        """
+        css = read_css("foliplus/css/LayerControl/style.css")
+        assert ".foliplus-style-zoom-range-row" in css
+        assert "--slider-thumb-ring" not in css
+        assert "foliplus-zoom-range-out-of-range .foliplus-slider-fill" not in css
+        assert ".foliplus-style-zoom-range-current-value" in css
 
     def test_style_panel_locale_keys_present(self):
         """Opacity / section keys are injected into the LayerControl bundle."""
@@ -1083,15 +1142,21 @@ class TestLayerControlBrowser:
         return page, errors
 
     @staticmethod
-    def _sample_neutral0(page):
-        """Computed color of `var(--neutral-0)` — never hardcode a hex/rgb."""
+    def _sample_token(page, name: str) -> str:
+        """Computed color of a design token — never hardcode a hex/rgb."""
         return page.evaluate(
-            "() => { const p = document.createElement('div');"
-            " p.style.background = 'var(--neutral-0)';"
+            "name => { const p = document.createElement('div');"
+            " p.style.background = `var(${name})`;"
             " document.body.appendChild(p);"
             " const c = getComputedStyle(p).backgroundColor;"
-            " p.remove(); return c; }"
+            " p.remove(); return c; }",
+            name,
         )
+
+    @staticmethod
+    def _sample_neutral0(page):
+        """Computed color of `var(--neutral-0)` — never hardcode a hex/rgb."""
+        return TestLayerControlBrowser._sample_token(page, "--neutral-0")
 
     def test_cross_group_drag_shows_hint(self, browser, tmp_path):
         """Dragging overlay toward base group should show blocked hint."""
@@ -4526,6 +4591,113 @@ class TestLayerControlBrowser:
             assert overlay_topmost(".foliplus-layer-attrs-panel") is True, (
                 "the open attrs panel must stay above a lit sibling"
             )
+
+    # ── R7 zoom-range browser probes (§31) ────────────────────────────
+    #
+    # CSS/interaction verification for the zoom-range row: dual-thumb
+    # clamp, out-of-range dimming + tooltip, zoomend marker movement,
+    # and the native carrier (GridLayer minZoom/maxZoom) measured against
+    # a real Leaflet tile container.
+
+    def test_zoom_range_dual_thumb_clamp(self, browser, tmp_path):
+        """Two thumbs never cross: dragging min past max clamps min to max."""
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            panel_ready(page)
+            result = page.evaluate(_js("LayerControl/zoom_range_dual_thumb_clamp"))
+            assert result is not None, result
+            assert result.get("error") is None, f"setup failed: {result}"
+            assert result["clampForward"], (
+                f"min did not clamp to max when dragged past: {result}"
+            )
+            assert result["clampReverse"], (
+                f"max did not clamp to min when dragged below: {result}"
+            )
+            assert result["stored"] is not None, (
+                "zoomRange was not persisted after commit"
+            )
+            assert not errors, f"JS errors: {errors}"
+
+    def test_zoom_range_oor_dim(self, browser, tmp_path):
+        """Out-of-range: track dims, tooltip appears, current label shows."""
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            panel_ready(page)
+            result = page.evaluate(_js("LayerControl/zoom_range_oor_dim"))
+            assert result is not None, result
+            assert result.get("error") is None, f"setup failed: {result}"
+            assert result["rowOor"] is True, f"row not marked out-of-range: {result}"
+            assert result["rowTitle"], "row tooltip missing when out of range"
+            assert result["markerLabelText"], "current-zoom label missing from marker"
+            # Out of range is a readout on the dots' rings, not a recolouring:
+            # the rail keeps its accent fill and the text stays ink, so nothing
+            # about "the layer is hidden at this zoom" is carried by colour on
+            # the numbers the user reads.
+            assert result["fillComputedBg"] != self._sample_token(
+                page, "--neutral-500"
+            ), "out of range must not grey the selection"
+            assert result["currentValueColor"] == self._sample_token(
+                page, "--text-primary"
+            ), "out of range must not recolour the current level"
+            assert result["markerRing"] == self._sample_token(page, "--neutral-500"), (
+                "out of range, the current dot must read as uncovered"
+            )
+            assert not errors, f"JS errors: {errors}"
+
+    def test_zoom_range_zoomend_marker_moves(self, browser, tmp_path):
+        """Current-zoom marker follows the map on zoomend."""
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            panel_ready(page)
+            result = page.evaluate(_js("LayerControl/zoom_range_zoomend_marker"))
+            assert result is not None, result
+            assert result.get("error") is None, f"setup failed: {result}"
+            assert result["markerMoved"] is True, (
+                f"marker did not move on zoomend: {result}"
+            )
+            assert result["labelUpdated"] is True, (
+                f"current-zoom label did not update on zoomend: {result}"
+            )
+            assert result["afterCovered"] is True, (
+                f"current dot missing after zoomend: {result}"
+            )
+            assert not errors, f"JS errors: {errors}"
+
+    def test_zoom_range_native_tilelayer(self, browser, tmp_path):
+        """Native carrier: GridLayer minZoom/maxZoom hides tiles on reset."""
+        t1 = folium.TileLayer(
+            tiles="https://tiles.foliplus.test/{z}/{x}/{y}.png",
+            name="NativeProbe",
+            attr="Foliplus zoom range probe",
+        )
+        with use_page(self._make_page, browser, tmp_path, t1, slug="zr_nat") as (
+            page,
+            errors,
+        ):
+            page.route(
+                "https://tiles.foliplus.test/**",
+                lambda route: route.fulfill(
+                    status=200,
+                    body=base64.b64decode(_TINY_PNG.split(",", 1)[1]),
+                    content_type="image/png",
+                ),
+            )
+            panel_ready(page)
+            page.evaluate("window.__probe = " + json.dumps({"id": t1.get_name()}))
+            result = page.evaluate(_js("LayerControl/zoom_range_native_tilelayer"))
+            assert result is not None, result
+            assert result.get("error") is None, f"setup failed: {result}"
+            assert result["before"] > 0, (
+                f"no tiles loaded before range was set: {result}"
+            )
+            # R7's native branch: options write + adapter _resetView.
+            # Leaflet does not self-apply options.minZoom changes — the
+            # adapter reset is what makes the range visible (§6.2).
+            assert result["tilesCleared"] is True, (
+                f"tiles not cleared after options + _resetView with "
+                f"out-of-range minZoom: {result}"
+            )
+            assert result["restoredOk"] is True, (
+                f"tiles not restored after deleting options + _resetView: {result}"
+            )
+            assert not errors, f"JS errors: {errors}"
 
     # ── Row lookup by data-layer-id, not by registry / DOM position ──
     #

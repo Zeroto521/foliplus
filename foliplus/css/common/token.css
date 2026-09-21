@@ -105,6 +105,58 @@
   --icon-size-md: 18px;
   --stroke-icon: 1.8;
 
+  /* ── Slider (range input) ──
+     One geometry for every range control: LayerControl's opacity row
+     (common/form.css) and its zoom-range row (LayerControl/style.css) both
+     read these, so the two rails cannot drift into different heights or
+     handles.
+     The handle is a dot, only slightly larger than the rail, with a white core
+     and a ring — `--slider-thumb-ring` is the one thing a state changes (see
+     the zoom-range row: a grey ring is "the current level is outside this
+     range").
+     `--slider-thumb-hit` is the interactive box, not the painted size: the
+     thumb paints only its content box (background-clip: content-box), so the
+     ring of transparent padding widens the grab target to the WCAG 2.5.8
+     minimum of 24px without inflating the visible handle.
+     `--slider-thumb-core` is the white middle: the 2px out to
+     `--slider-thumb-size` is the ring that carries the state.
+     Deliberately absent: a thumb `margin-top` and a drop shadow. Chromium
+     centres the slider thumb on its own track, and the classic webkit
+     compensation `(rail - thumb) / 2` then lifts the handle off centre
+     (measured 4px high on an 8px rail). A drop shadow is drawn at the 24px hit
+     box, which is 5px clear of a 14px handle — it reads as a grey halo, not a
+     lift. */
+  --slider-rail-height: var(--size-6);
+  --slider-thumb-size: 14px;
+  --slider-dot-size: 10px;
+  /* The thumb's box IS its visible size: the travel is inset by half of it, so a
+     box larger than the handle leaves the handle short of the rail's ends. The
+     24px grab target is not achievable that way — the input is inert and a
+     thumb's transparent padding is not hit-testable — so the handle is the
+     target, and it is flush. */
+  --slider-thumb-hit: var(--slider-thumb-size);
+  --slider-thumb-pad: calc((var(--slider-thumb-hit) - var(--slider-thumb-size)) / 2);
+  --slider-thumb-core: calc(var(--slider-thumb-size) / 2 - var(--size-2));
+  --slider-thumb-ring: var(--accent-primary);
+  /* Both engines anchor a thumb's TOP edge to the track's top edge rather than
+     centring it, so the taller handle hangs below the rail by half the
+     difference. This is that compensation. */
+  --slider-thumb-offset: calc(
+    (var(--slider-rail-height) - var(--slider-thumb-size)) / 2
+  );
+  /* Held state of a handle: a soft accent halo, drawn at the hit box's edge. */
+  --slider-thumb-glow: 0 0 0 var(--size-2) var(--accent-soft-shadow);
+  /* The uncovered span of a rail: a fine grey checkerboard, the "nothing
+     rendered here" convention. Two tokens because a rail's uncovered span is
+     not always a plain colour — set `--slider-rail-pattern: none` and
+     `--slider-rail-bg` to a tint for a flat rail instead. */
+  --slider-rail-bg: var(--neutral-0);
+  --slider-rail-pattern: repeating-conic-gradient(
+    var(--neutral-300) 0% 25%,
+    var(--neutral-0) 0% 50%
+  );
+  --slider-rail-pattern-size: var(--size-4) var(--size-4);
+
   /* ── Map label style ──
      The text foliplus draws over the map: HeatmapControl's hex values (canvas,
      read through getComputedStyle) and LayerControl's annotation labels (DOM

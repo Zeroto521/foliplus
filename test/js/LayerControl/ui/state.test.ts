@@ -8,8 +8,11 @@ import {
   applyOpacityStateOne,
   applyUserState,
   applyVisibleStateOne,
+  applyZoomRangeStateOne,
+  computeEffectiveShown,
   loadPersistedState,
   markOverride,
+  refreshZoomEffectiveShown,
   replayLayerState,
   saveFoldState,
   saveNamesState,
@@ -28,7 +31,7 @@ import {
   overlayFoldBtn,
   pressKey,
 } from "./fixture.js";
-import { TileLayer, installLeafletGlobals } from "./fixture.js";
+import { GridLayer, TileLayer, installLeafletGlobals } from "./fixture.js";
 
 /** The pane spec list `createLayers` derives from an ordered name list: the
  *  first name is the base pane, everything after it a `sub`. */
@@ -490,6 +493,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
         flyTo: vi.fn(),
         getZoom: vi.fn(() => 5),
         getMaxZoom: vi.fn(() => 18),
+        getMinZoom: vi.fn(() => 0),
         getBounds: vi.fn(() => ({
           pad: vi.fn(() => ({})),
           getSouthWest: () => ({ lat: 20, lng: 90 }),
@@ -1204,6 +1208,9 @@ describe("LayerUI opacity restore / retention", () => {
         classList: { add: vi.fn(), remove: vi.fn() },
       })),
       foliplus: { showHint: vi.fn(), hideHint: vi.fn() },
+      getZoom: vi.fn(() => 4),
+      getMaxZoom: vi.fn(() => 18),
+      getMinZoom: vi.fn(() => 0),
     };
     return { map, layer, setStyle, panes };
   };
@@ -1364,9 +1371,10 @@ describe("event-driven row refresh", () => {
 describe("ui/state userOverrides and per-layer state persistence", () => {
   let manager: LayerManager;
   let ui: LayerUI;
+  let map: any;
 
   beforeEach(() => {
-    ({ manager, ui } = initFixture());
+    ({ manager, ui, map } = initFixture());
     window.localStorage.clear();
   });
 
@@ -1591,6 +1599,42 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
     expect(manager.layerRegistry.get("overlay1")?.visible).toBe(false);
   });
 
+  it("applyUserState(id) re-applies a stored zoom range on late registration", () => {
+    // A stored range has to come back with its layer: without this pass a layer
+    // that was out of range on the previous load would join the map at its
+    // author default instead of staying inside the range the user chose.
+    manager.registerLayer({ id: "grid1", name: "Grid", layer: new GridLayer() });
+    const li = manager.layerRegistry.get("grid1")!;
+    ui.zoomRangeMap = { grid1: [4, 9] };
+
+    ui.applyUserState("grid1");
+
+    // The native carrier is the layer's own options.
+    expect((li.layer as { options: Record<string, unknown> }).options).toMatchObject({
+      minZoom: 4,
+      maxZoom: 9,
+    });
+  });
+
+  it("applyUserState(id) leaves a native range alone when there is no layer", () => {
+    // A callback-only entry carries no Leaflet layer. A surface that reports the
+    // range as native has nothing to dereference, so the pass has to bail
+    // instead of writing into a layer that is not there.
+    manager.registerLayer({ id: "ghostLayer", name: "Ghost", onToggle: vi.fn() });
+    const li = manager.layerRegistry.get("ghostLayer")!;
+    manager.surfaceFor(li).capabilities.zoomRange = "native";
+    ui.zoomRangeMap = { ghostLayer: [4, 9] };
+    const mapWrites =
+      map.addLayer.mock.calls.length + map.removeLayer.mock.calls.length;
+
+    ui.applyUserState("ghostLayer");
+
+    expect(li.layer).toBeNull();
+    expect(map.addLayer.mock.calls.length + map.removeLayer.mock.calls.length).toBe(
+      mapWrites,
+    );
+  });
+
   it("applyUserState renames the color basemap row without a registry entry", () => {
     // The color basemap has no LayerInfo in the registry — its rename goes
     // straight to the row label. Without the id guard at the top of the
@@ -1651,5 +1695,181 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
       renamedNames: () => Record<string, string>;
     };
     expect(fields.renamedNames()).toEqual({ overlay1: "Renamed" });
+  });
+});
+
+describe("zoomRange effective-shown logic", () => {
+  const makeMap = () => {
+    const map = {
+      on: vi.fn(),
+      off: vi.fn(),
+      hasLayer: vi.fn(() => true),
+      addLayer: vi.fn(),
+      removeLayer: vi.fn(),
+      getContainer: vi.fn(() => {
+        const el = document.createElement("div");
+        el.id = "map";
+        return el;
+      }),
+      getPane: vi.fn(() => ({
+        style: {},
+        classList: { add: vi.fn(), remove: vi.fn() },
+      })),
+      createPane: vi.fn(() => ({
+        style: {},
+        classList: { add: vi.fn(), remove: vi.fn() },
+      })),
+      foliplus: { showHint: vi.fn(), hideHint: vi.fn() },
+      getZoom: vi.fn(() => 4),
+      getMaxZoom: vi.fn(() => 18),
+      getMinZoom: vi.fn(() => 0),
+    };
+    return map;
+  };
+
+  beforeEach(() => {
+    installLeafletGlobals();
+    window.localStorage.clear();
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+    window.localStorage.clear();
+  });
+
+  it("computeEffectiveShown returns intent && inRange when no focus is active", () => {
+    const map = makeMap();
+    const layer = { options: {} } as any;
+    const m = new LayerManager(map, [{ id: "overlay1", name: "Poly", layer }]);
+    const u = new LayerUI(m);
+    u.zoomRangeMap.overlay1 = [3, 12];
+    // intent: hiddenIds empty → visible
+    const shown = computeEffectiveShown(u, m.layers[0], false);
+    // current zoom is 4, in [3, 12] → shown
+    expect(shown).toBe(true);
+  });
+
+  it("computeEffectiveShown returns false when zoom is out of range", () => {
+    const map = makeMap();
+    map.getZoom.mockReturnValue(2); // out of [3, 12]
+    const layer = { options: {} } as any;
+    const m = new LayerManager(map, [{ id: "overlay1", name: "Poly", layer }]);
+    const u = new LayerUI(m);
+    u.zoomRangeMap.overlay1 = [3, 12];
+    const shown = computeEffectiveShown(u, m.layers[0], false);
+    expect(shown).toBe(false);
+  });
+
+  it("computeEffectiveShown returns intent && true when focusActive", () => {
+    const map = makeMap();
+    map.getZoom.mockReturnValue(2); // out of range
+    const layer = { options: {} } as any;
+    const m = new LayerManager(map, [{ id: "overlay1", name: "Poly", layer }]);
+    const u = new LayerUI(m);
+    u.zoomRangeMap.overlay1 = [3, 12];
+    // focus overrides the range gate
+    const shown = computeEffectiveShown(u, m.layers[0], true);
+    expect(shown).toBe(true);
+  });
+
+  it("computeEffectiveShown respects hidden intent (hiddenIds)", () => {
+    const map = makeMap();
+    const layer = { options: {} } as any;
+    const m = new LayerManager(map, [{ id: "overlay1", name: "Poly", layer }]);
+    const u = new LayerUI(m);
+    u.hiddenIds.add("overlay1"); // intent: hidden
+    u.zoomRangeMap.overlay1 = [3, 12];
+    const shown = computeEffectiveShown(u, m.layers[0], false);
+    // hidden intent → false regardless of range
+    expect(shown).toBe(false);
+  });
+
+  it("#329 lock: zoom crossing does not mutate checkbox, hiddenIds, or overrides", () => {
+    const map = makeMap();
+    const layer = { options: {} } as any;
+    const m = new LayerManager(map, [{ id: "overlay1", name: "Poly", layer }]);
+    const u = new LayerUI(m);
+    u.zoomRangeMap.overlay1 = [3, 12];
+
+    // Snapshot state before zoom change
+    const checkboxBefore = !u.hiddenIds.has("overlay1");
+    const hiddenIdsBefore = new Set(u.hiddenIds);
+    const overridesBefore = { ...u.userOverrides };
+
+    // Simulate zoom change to 2 (out of range)
+    map.getZoom.mockReturnValue(2);
+
+    // refreshZoomEffectiveShown should hide the layer but NOT touch checkbox/hiddenIds/overrides
+    refreshZoomEffectiveShown(u);
+
+    // Checkbox state unchanged (still unchecked)
+    expect(u.hiddenIds.has("overlay1")).toBe(false);
+    expect(hiddenIdsBefore).toEqual(u.hiddenIds);
+    expect(u.userOverrides).toEqual(overridesBefore);
+    // But the layer should be removed from the map (effectiveShown = false)
+    expect(map.removeLayer).toHaveBeenCalled();
+  });
+
+  it("focus → unfocus leaves checkbox/hiddenIds/overrides byte-identical", () => {
+    const map = makeMap();
+    const layer = { options: {} } as any;
+    const m = new LayerManager(map, [{ id: "overlay1", name: "Poly", layer }]);
+    const u = new LayerUI(m);
+    u.zoomRangeMap.overlay1 = [3, 12];
+    map.getZoom.mockReturnValue(2); // out of range
+
+    // Initially hidden by range gate
+    refreshZoomEffectiveShown(u);
+    expect(map.removeLayer).toHaveBeenCalled();
+
+    // Snapshot state
+    const hiddenIdsBefore = new Set(u.hiddenIds);
+    const overridesBefore = { ...u.userOverrides };
+
+    // Focus: layer should become visible
+    const shown = computeEffectiveShown(u, m.layers[0], true);
+    expect(shown).toBe(true);
+
+    // Unfocus: layer should become hidden again
+    refreshZoomEffectiveShown(u);
+    expect(map.removeLayer).toHaveBeenCalled();
+
+    // State must be byte-identical
+    expect(u.hiddenIds).toEqual(hiddenIdsBefore);
+    expect(u.userOverrides).toEqual(overridesBefore);
+  });
+
+  it("applyZoomRangeStateOne for 'pane' capability writes applyLayerState visible", () => {
+    const map = makeMap();
+    map.hasLayer.mockReturnValue(false); // layer not yet on map
+    const layer = { options: {} } as any;
+    const m = new LayerManager(map, [{ id: "overlay1", name: "Poly", layer }]);
+    const u = new LayerUI(m);
+
+    u.zoomRangeMap.overlay1 = [3, 12];
+    // Current zoom 4 is in range → visible
+    applyZoomRangeStateOne(u, m.layers[0], [3, 12], false);
+
+    // The layer should be added to the map (effectiveShown = true)
+    expect(map.addLayer).toHaveBeenCalled();
+  });
+
+  it("applyZoomRangeStateOne for 'none' capability is a no-op", () => {
+    const map = makeMap();
+    const layer = { options: {} } as any;
+    const canvas = document.createElement("canvas");
+    const m = new LayerManager(map, [
+      { id: "cluster", name: "Cluster", layer, canvas },
+    ]);
+    const u = new LayerUI(m);
+
+    // Canvas layers have 'none' capability — no zoom range control
+    applyZoomRangeStateOne(u, m.layers[0], [3, 12], false);
+
+    // No addLayer or removeLayer call
+    expect(map.addLayer).not.toHaveBeenCalled();
+    expect(map.removeLayer).not.toHaveBeenCalled();
   });
 });

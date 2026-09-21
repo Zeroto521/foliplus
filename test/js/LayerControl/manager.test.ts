@@ -163,6 +163,9 @@ describe("LayerManager", () => {
       hasLayer: vi.fn(() => false),
       addLayer: vi.fn(),
       removeLayer: vi.fn(),
+      getZoom: vi.fn(() => 5),
+      getMaxZoom: vi.fn(() => 18),
+      getMinZoom: vi.fn(() => 0),
       getContainer: vi.fn(() => map._container),
       getPane: vi.fn(() => {
         const p = makePane();
@@ -1138,11 +1141,14 @@ describe("LayerManager", () => {
             hiddenIds: new Set(),
             renamedNames: {},
             opacityMap: { heat: 0.4 },
+            zoomRangeMap: {},
           } as any,
           id,
         ),
       opacityMap: { heat: 0.4 },
       hiddenIds: new Set(),
+      zoomRangeMap: {},
+      userOverrides: {},
     } as any;
 
     // Swap the canvas on re-registration — the new element starts opaque.
@@ -1905,6 +1911,9 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
       hasLayer: vi.fn(() => false),
       addLayer: vi.fn(),
       removeLayer: vi.fn(),
+      getZoom: vi.fn(() => 5),
+      getMaxZoom: vi.fn(() => 18),
+      getMinZoom: vi.fn(() => 0),
       getContainer: vi.fn(() => map._container),
       getPane: vi.fn(() => {
         const p = makePane();
@@ -2266,6 +2275,9 @@ describe("LayerManager user-assigned names", () => {
       hasLayer: vi.fn(() => false),
       addLayer: vi.fn(),
       removeLayer: vi.fn(),
+      getZoom: vi.fn(() => 5),
+      getMaxZoom: vi.fn(() => 18),
+      getMinZoom: vi.fn(() => 0),
       getContainer: vi.fn(() => map._container),
       getPane: vi.fn(() => {
         const p = makePane();
