@@ -174,7 +174,12 @@ describe("SVG_NS", () => {
 
 describe("SEL", () => {
   it("defines selectors", () => {
-    expect(CONST.SEL.SKIP_EXPORT).toBe('[data-foliplus-export="exclude"]');
+    // Two carriers, one judgement point: the attribute for elements a
+    // component can stamp any time, the class for a Leaflet Path, which only
+    // exposes a construction-time className hook.
+    expect(CONST.SEL.SKIP_EXPORT).toBe(
+      '[data-foliplus-export="exclude"], .foliplus-no-export',
+    );
     expect(CONST.SEL.LABEL).toBe("[data-foliplus-export='label']");
   });
 });
