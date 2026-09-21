@@ -101,7 +101,7 @@ class TestBaseControlPython:
         assert "'beta'" not in str(exc.value)
 
     def test_build_config_allows_none_value_export_field(self):
-        """An exported field may legitimately be None (e.g. ExportControl.background)."""
+        """An exported field may legitimately be None."""
         from foliplus.BaseControl import BaseControl
 
         class NullControl(BaseControl):
