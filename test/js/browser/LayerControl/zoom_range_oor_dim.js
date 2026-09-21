@@ -50,13 +50,18 @@
     ".foliplus-style-zoom-range-value span:nth-child(2)",
   );
 
+  // Snapshot the computed styles BEFORE closing the panel: a detached element
+  // reports an empty `backgroundColor`, and the return object is built after the
+  // close below.
+  const fillComputedBg = fillBg ? getComputedStyle(fillBg).backgroundColor : null;
+
   ui.closeStylePanel(false);
   return {
     current,
     rowOor,
     rowTitle,
     trackComputedBg: trackBg ? getComputedStyle(trackBg).backgroundColor : null,
-    fillComputedBg: fillBg ? getComputedStyle(fillBg).backgroundColor : null,
+    fillComputedBg,
     currentValueColor,
     markerRing,
     markerLabelText,
