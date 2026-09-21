@@ -102,11 +102,6 @@ class HeatmapManager {
    *  return the cached instance, so hold it like the logger does). */
   events: EventBus;
   selectedLayerId: string | null;
-  /** The visibility LayerControl last asked for. The canvas is hidden for the
-   *  duration of a zoom gesture and restored to this on zoomend — never to a
-   *  blind `true`, which would fight the intent the checkbox and the
-   *  zoom-range gate share. */
-  layerVisible: boolean = true;
   pointLayers: PointLayerInfo[];
   currentAgg: string;
   /** Selected aggregation field — starts empty (no Python-side declaration),
@@ -135,6 +130,12 @@ class HeatmapManager {
    *  LAYER_STYLE_CHANGE so the other panel's refresh fires. */
   styleSetters: Record<string, (v: unknown) => void>;
   valueFallbackWarned: boolean;
+  /**
+   * Whether LayerControl currently shows this heatmap layer. Mirrors the
+   * `onToggle` callback so the temporary zoomstart/zoomend hide/show cycle
+   * never overrides a user-initiated hide (checkbox off in LayerControl).
+   */
+  layerVisible: boolean;
   overlay: CreateCanvasAPI;
   /**
    * Mutable metadata published to LayerControl's attributes panel (source
@@ -205,6 +206,7 @@ class HeatmapManager {
     this.currentLabelSize = clampLabelSize(CONF.label_size ?? CONST.LABEL.SIZE_DEFAULT);
     this.currentLabelFormat = (CONF.label_format ?? NUMBER_FORMAT.AUTO) as NumberStyle;
     this.valueFallbackWarned = false;
+    this.layerVisible = true;
     this.sourceMeta = {};
     // Snapshot the Python CONF style defaults before any runtime toggle so
     // Reset restores exactly what construction started from (never localStorage).
@@ -312,31 +314,28 @@ class HeatmapManager {
   }
 
   bindMapEvents() {
-    // Hide the canvas while Leaflet animates a zoom: the panes are CSS-scaled
-    // during the gesture, so a canvas baked at the old level reads as a ghost.
-    // It comes back to whatever LayerControl last asked for — never to a blind
-    // `true`, which would fight the intent the checkbox and the zoom-range gate
-    // share. A canvas layer has no range row, so `refreshZoomEffectiveShown`
-    // skips it and nothing else would restore the visibility.
+    // Hide canvas during zoom to avoid flicker, RAF-throttled redraw during pan.
+    // zoomend triggers full re-render (renderHexagons) via separate handler
+    // because it needs debounced H3 hexbin recalculation, not just cache redraw.
     this.mapCleanup = bindMapSync({
       map: this.map,
       hideEvents: ["zoomstart"],
-      onHide: () => {
-        this.overlay.setVisible(false);
-      },
       showEvents: ["zoomend"],
-      onShow: () => {
-        if (this.layerVisible) this.overlay.setVisible(true);
-      },
       onMove: () => {
         if (this.overlay.canvas && this.cachedFeatures) this.redrawHeatmap();
+      },
+      onHide: () => {
+        this.overlay.setVisible?.(false);
+      },
+      onShow: () => {
+        if (this.layerVisible) this.overlay.setVisible?.(true);
       },
     });
 
     this.onZoomEnd = debounce(() => {
       if (this.selectedLayerId) {
         this.renderHexagons();
-        if (this.layerVisible) this.overlay.setVisible(true);
+        if (this.layerVisible) this.overlay.setVisible?.(true);
       }
     }, CONST.TIMING.ZOOM_DEBOUNCE);
     this.map.on("zoomend", this.onZoomEnd);
