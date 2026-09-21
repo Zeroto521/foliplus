@@ -60,9 +60,9 @@
   "LayerControl.section_label": "Label",
   "LayerControl.section_layer": "Layer",
   "LayerControl.style_opacity": "Opacity",
-  "LayerControl.style_zoom_range": "Visible Range",
-  "LayerControl.style_zoom_range_min": "Minimum Level",
-  "LayerControl.style_zoom_range_max": "Maximum Level",
+  "LayerControl.style_zoom_range": "Zoom Range",
+  "LayerControl.style_zoom_range_min": "Minimum Zoom",
+  "LayerControl.style_zoom_range_max": "Maximum Zoom",
   "LayerControl.style_zoom_range_current": "Current: {zoom}",
-  "LayerControl.style_zoom_range_out_of_range": "Current level ({zoom}) is outside this range"
+  "LayerControl.style_zoom_range_out_of_range": "Current zoom ({zoom}) is outside this range"
 }
