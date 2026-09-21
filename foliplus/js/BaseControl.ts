@@ -20,10 +20,11 @@
 //   - this.on(target, event, fn, options?) — DOM listener via
 //     `addEventListener(..., {signal: this.signal})`; the browser handles
 //     teardown, so the component has nothing to remember. Returns an
-//     early-unbind function. The `signal` option needs Chrome 98 /
-//     Firefox 88 / Safari 15.4 — inside the browserslist (`> 0.5%`,
-//     `last 2 versions`, `Firefox ESR`, `not dead`), but a tighter target
-//     would have to reimplement teardown itself.
+//     early-unbind function. The `signal` option was introduced in Chrome 98
+//     / Firefox 88 / Safari 15.4 (BCD, not verifiable offline). The actual
+//     browserslist floor measured in this repo is Chrome 109 / Firefox 140 /
+//     iOS-Safari 18.5, so the feature is available everywhere we target; a
+//     tighter target would have to reimplement teardown itself.
 //   - this.onMap(event, fn) — Leaflet event listener (map / layer / control);
 //     Leaflet has no `signal` API, so this keeps its own bookkeeping.
 //   - this.effect(setup) — anything else a component sets up and has to
