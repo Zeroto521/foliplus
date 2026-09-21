@@ -563,7 +563,7 @@ class LayerManager implements LayerAPI {
       if (existingIdx === -1) {
         this.ui.insertLayerItem(layerInfo);
       } else {
-        this.ui.updateLayerItem(layerInfo, existingIdx);
+        this.ui.updateLayerItem(layerInfo);
         // Re-registration is how the API says "this layer's content changed", so
         // the cached field list and the resolved auto field are both stale now.
         // Invalidating re-renders as well, keeping the labels on the map in step
@@ -686,10 +686,7 @@ class LayerManager implements LayerAPI {
       const target = this.uiContainer.querySelector(
         `[${CONST.DATA.LAYER_ID}="${CSS.escape(id)}"]`,
       );
-      if (target) {
-        target.remove();
-        if (this.ui) this.ui.reindexItems();
-      }
+      if (target) target.remove();
     }
     // Nothing below writes persisted state —see the method's doc. The rename
     // and the per-layer intent both survive this teardown, so a component that
