@@ -140,8 +140,8 @@ describe("build artifacts", () => {
     // keeps externalising BaseControl, so this is the only budget line that
     // moves from this round; the per-component caps below are untouched.
     //
-    // Measured after merge: 167 350 B dev-mode (same command), +6 453 B over
-    // R9's 160 897 B. 170 000 leaves ~2.6 KB headroom.
+    // Measured after merge (post-#394): 166 504 B dev-mode (same command),
+    // +5 607 B over R9's 160 897 B. 170 000 leaves ~3.4 KB headroom.
     expect(size).toBeLessThan(170000);
   });
 
