@@ -261,7 +261,6 @@ class CircleMode extends PreviewMode {
         Util.makeNode(centerLatLng, CONST.CLASSES.NODE_SOLID),
         CONST.PANES.NODE,
       );
-
       const delMarker = this.layers.addLayer(
         makeDelIcon(centerLatLng, { title: T("del_tooltip") }),
         CONST.PANES.NODE,
