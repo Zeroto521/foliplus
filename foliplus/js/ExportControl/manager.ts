@@ -379,6 +379,14 @@ class ExportManager {
     const wasDragging = this.dragState.dragging;
     this.dragState.dragging = false;
     this.dragState.dragType = null;
+    // Drop the document-level drag listeners — the gesture is over. Every
+    // pointerdown registered a fresh set via registerDrag, so without this
+    // each drag accumulates three more entries (shortcuts array growth, and
+    // every pointer event re-sorting them) until the crop box closes.
+    if (wasDragging) {
+      this.dragCleanup?.();
+      this.dragCleanup = undefined;
+    }
     // Give the pointer back. Skip it when the gesture never started — a
     // synthetic pointerup with no matching down must not strip the .dragging
     // class off a box that is mid-drag by another pointer.

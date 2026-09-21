@@ -781,6 +781,78 @@ describe("ExportManager — pointer drag", () => {
     expect(manager.dragState.dragType).toBe("br");
   });
 
+  it("onPointerDown sets dragType move for the center", () => {
+    const target = document.createElement("div");
+    target.classList.add(CONST.CLASSES.CENTER);
+    manager.onPointerDown({
+      target,
+      pointerId: 0,
+      preventDefault: vi.fn(),
+      stopImmediatePropagation: vi.fn(),
+      clientX: 50,
+      clientY: 50,
+    });
+    expect(manager.dragState.dragging).toBe(true);
+    expect(manager.dragState.dragType).toBe("move");
+  });
+
+  it("onPointerDown ignores the press when the box is locked", () => {
+    // A locked crop box is a finished selection — a press on it must neither
+    // claim the pointer nor preventDefault, or map interaction below would
+    // be swallowed while the box is showing.
+    manager.cropState.locked = true;
+    const preventDefault = vi.fn();
+    const target = makeBox();
+    manager.onPointerDown({
+      target,
+      pointerId: 0,
+      preventDefault,
+      stopImmediatePropagation: vi.fn(),
+      clientX: 50,
+      clientY: 50,
+    });
+    expect(manager.dragState.dragging).toBe(false);
+    expect(manager.dragState.dragType).toBeNull();
+    expect(preventDefault).not.toHaveBeenCalled();
+  });
+
+  it("onPointerDown handle without data-pos falls back to a null drag type", () => {
+    // A handle element that lost its data-pos still claims the press, but
+    // with no direction the move handler has nothing to apply.
+    const target = document.createElement("div");
+    target.classList.add(CONST.CLASSES.HANDLE);
+    manager.onPointerDown({
+      target,
+      pointerId: 0,
+      preventDefault: vi.fn(),
+      stopImmediatePropagation: vi.fn(),
+      clientX: 50,
+      clientY: 50,
+    });
+    expect(manager.dragState.dragging).toBe(true);
+    expect(manager.dragState.dragType).toBeNull();
+  });
+
+  it("onPointerMove with a null drag type leaves the rect unchanged", () => {
+    // Reaching the resize branch with dragType null (a handle without
+    // data-pos) must not crash or mutate the rect — only the anchor advances.
+    manager.dragState = {
+      dragging: true,
+      dragType: null,
+      lastX: 50,
+      lastY: 50,
+    };
+    manager.onPointerMove({ clientX: 80, clientY: 80 });
+    expect(manager.cropState.rect).toEqual({
+      left: 10,
+      top: 10,
+      width: 100,
+      height: 100,
+    });
+    expect(manager.dragState.lastX).toBe(80);
+    expect(manager.dragState.lastY).toBe(80);
+  });
+
   it("onPointerDown cancels the press so mousedown cannot also fire", () => {
     // The press is claimed as a pointer event, but a real browser also
     // dispatches a mousedown for it. That mousedown would hit LayerControl's
@@ -871,6 +943,62 @@ describe("ExportManager — pointer drag", () => {
     expect(manager.showHintWithInfo).toHaveBeenCalled();
   });
 
+  it("onPointerMove resizes from a left handle", () => {
+    manager.dragState = {
+      dragging: true,
+      dragType: "l",
+      lastX: 50,
+      lastY: 50,
+    };
+    // Pull right: the left edge follows, width shrinks by the same delta.
+    manager.onPointerMove({ clientX: 80, clientY: 80 });
+    expect(manager.cropState.rect.left).toBe(40);
+    expect(manager.cropState.rect.width).toBe(70);
+    expect(manager.cropState.rect.top).toBe(10);
+    expect(manager.cropState.rect.height).toBe(100);
+  });
+
+  it("onPointerMove clamps a left handle at the map edge", () => {
+    manager.dragState = {
+      dragging: true,
+      dragType: "l",
+      lastX: 50,
+      lastY: 50,
+    };
+    // Pull left beyond the map edge: left clamps at 0, width grows instead.
+    manager.onPointerMove({ clientX: 20, clientY: 50 });
+    expect(manager.cropState.rect.left).toBe(0);
+    expect(manager.cropState.rect.width).toBe(110);
+  });
+
+  it("onPointerMove resizes from a top handle", () => {
+    manager.dragState = {
+      dragging: true,
+      dragType: "t",
+      lastX: 50,
+      lastY: 50,
+    };
+    // Pull down: the top edge follows, height shrinks by the same delta.
+    manager.onPointerMove({ clientX: 80, clientY: 80 });
+    expect(manager.cropState.rect.top).toBe(40);
+    expect(manager.cropState.rect.height).toBe(70);
+    expect(manager.cropState.rect.left).toBe(10);
+    expect(manager.cropState.rect.width).toBe(100);
+  });
+
+  it("onPointerMove clamps a top handle at the map edge", () => {
+    manager.dragState = {
+      dragging: true,
+      dragType: "t",
+      lastX: 50,
+      lastY: 50,
+    };
+    // Pull up beyond the map edge: top clamps at 0, height grows instead.
+    manager.onPointerMove({ clientX: 50, clientY: 20 });
+    expect(manager.cropState.rect.top).toBe(0);
+    expect(manager.cropState.rect.height).toBe(110);
+  });
+
   it("onPointerMove ignores a move after the crop box is gone", () => {
     manager.dragState = {
       dragging: true,
@@ -909,6 +1037,41 @@ describe("ExportManager — pointer drag", () => {
     expect(release).toHaveBeenCalledWith(0);
     // Transition re-enabled so the next style update animates again.
     expect(target.classList.contains(CONST.CLASSES.DRAGGING)).toBe(false);
+  });
+
+  it("onPointerUp unregisters the drag listeners", () => {
+    // Every pointerdown registered a fresh document-level listener set via
+    // registerDrag; without the release-path cleanup, repeated drags would
+    // accumulate entries in the interaction manager until the crop box
+    // closes. Remove them at gesture end so only the crop box removal path
+    // ever needs to clean up.
+    const cleanup = vi.fn();
+    manager.dragCleanup = cleanup;
+    manager.dragState = {
+      dragging: true,
+      dragType: "move",
+      lastX: 50,
+      lastY: 50,
+    };
+    manager.onPointerUp({ target: makeBox(), pointerId: 0 });
+    expect(cleanup).toHaveBeenCalledTimes(1);
+    expect(manager.dragCleanup).toBeUndefined();
+  });
+
+  it("onPointerUp does not unregister when the gesture never started", () => {
+    // A synthetic pointerup with no matching down must not drop the
+    // listeners another pointer's active drag still needs.
+    const cleanup = vi.fn();
+    manager.dragCleanup = cleanup;
+    manager.dragState = {
+      dragging: false,
+      dragType: null,
+      lastX: 50,
+      lastY: 50,
+    };
+    manager.onPointerUp({ target: makeBox(), pointerId: 0 });
+    expect(cleanup).not.toHaveBeenCalled();
+    expect(manager.dragCleanup).toBe(cleanup);
   });
 
   it("onPointerUp does not touch the box when the gesture never started", () => {
