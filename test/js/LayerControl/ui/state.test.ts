@@ -1674,8 +1674,14 @@ describe("zoomRange effective-shown logic", () => {
         el.id = "map";
         return el;
       }),
-      getPane: vi.fn(() => ({ style: {}, classList: { add: vi.fn(), remove: vi.fn() } })),
-      createPane: vi.fn(() => ({ style: {}, classList: { add: vi.fn(), remove: vi.fn() } })),
+      getPane: vi.fn(() => ({
+        style: {},
+        classList: { add: vi.fn(), remove: vi.fn() },
+      })),
+      createPane: vi.fn(() => ({
+        style: {},
+        classList: { add: vi.fn(), remove: vi.fn() },
+      })),
       foliplus: { showHint: vi.fn(), hideHint: vi.fn() },
       getZoom: vi.fn(() => 4),
       getMaxZoom: vi.fn(() => 18),
@@ -1817,7 +1823,9 @@ describe("zoomRange effective-shown logic", () => {
     const map = makeMap();
     const layer = { options: {} } as any;
     const canvas = document.createElement("canvas");
-    const m = new LayerManager(map, [{ id: "cluster", name: "Cluster", layer, canvas }]);
+    const m = new LayerManager(map, [
+      { id: "cluster", name: "Cluster", layer, canvas },
+    ]);
     const u = new LayerUI(m);
 
     // Canvas layers have 'none' capability — no zoom range control

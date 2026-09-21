@@ -179,7 +179,8 @@ const applyUserState = (ui: LayerUI, id?: string) => {
     // A stored zoom range is applied on the same late-registration pass:
     // without it a layer that was out of range on the previous load would
     // come back on the map at its author default rather than staying hidden.
-    if (id in ui.zoomRangeMap) applyZoomRangeStateOne(ui, layerInfo, ui.zoomRangeMap[id]);
+    if (id in ui.zoomRangeMap)
+      applyZoomRangeStateOne(ui, layerInfo, ui.zoomRangeMap[id]);
     // The order dimension is replayed on the same pass: this path runs once per
     // late registration, so without it the layer would keep the slot it was
     // inserted into rather than the position the user already arranged.
@@ -561,7 +562,6 @@ const applyZoomRangeStateOne = (
   if (caps.zoomRange === "pane") {
     const shown = computeEffectiveShown(ui, layerInfo, focusActive);
     applyLayerState(ui, layerInfo, { visible: shown });
-    return;
   }
   // "none": nothing to write.
 };

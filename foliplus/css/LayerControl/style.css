@@ -58,13 +58,30 @@
       pointer-events: none;
     }
 
-    /* The current-zoom marker: a vertical line crossing the track. */
+    /* The current-zoom marker: a vertical line crossing the track with a
+       small label above it showing the current level. */
     .foliplus-style-zoom-range-current {
       position: absolute;
       top: -3px;
       bottom: -3px;
       width: 2px;
       background: var(--ink-strong, #333);
+      pointer-events: auto;
+    }
+
+    .foliplus-style-zoom-range-current-label {
+      position: absolute;
+      bottom: calc(100% + 3px);
+      left: 50%;
+      transform: translateX(-50%);
+      white-space: nowrap;
+      font-size: 10px;
+      line-height: 1.2;
+      color: var(--ink-strong, #333);
+      background: var(--bg-elevated, #fff);
+      border: 1px solid var(--border-thin, #ddd);
+      padding: 0 3px;
+      border-radius: 3px;
       pointer-events: none;
     }
 
@@ -134,6 +151,10 @@
     }
     .foliplus-zoom-range-out-of-range .foliplus-style-zoom-range-current {
       background: var(--neutral-500, #888);
+    }
+    .foliplus-zoom-range-out-of-range .foliplus-style-zoom-range-current-label {
+      color: var(--neutral-500, #888);
+      border-color: var(--neutral-300, #ccc);
     }
   }
 }

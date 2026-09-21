@@ -130,12 +130,6 @@ class HeatmapManager {
    *  LAYER_STYLE_CHANGE so the other panel's refresh fires. */
   styleSetters: Record<string, (v: unknown) => void>;
   valueFallbackWarned: boolean;
-  /**
-   * Whether LayerControl currently shows this heatmap layer. Mirrors the
-   * `onToggle` callback so the temporary zoomstart/zoomend hide/show cycle
-   * never overrides a user-initiated hide (checkbox off in LayerControl).
-   */
-  layerVisible: boolean;
   overlay: CreateCanvasAPI;
   /**
    * Mutable metadata published to LayerControl's attributes panel (source
@@ -206,7 +200,6 @@ class HeatmapManager {
     this.currentLabelSize = clampLabelSize(CONF.label_size ?? CONST.LABEL.SIZE_DEFAULT);
     this.currentLabelFormat = (CONF.label_format ?? NUMBER_FORMAT.AUTO) as NumberStyle;
     this.valueFallbackWarned = false;
-    this.layerVisible = true;
     this.sourceMeta = {};
     // Snapshot the Python CONF style defaults before any runtime toggle so
     // Reset restores exactly what construction started from (never localStorage).
@@ -275,7 +268,6 @@ class HeatmapManager {
       // attrs panel always reads the latest source layer / field.
       meta: this.sourceMeta,
       onToggle: (visible: boolean) => {
-        this.layerVisible = visible;
         this.overlay.setVisible(visible);
       },
       styleProvider: this.styleProvider,

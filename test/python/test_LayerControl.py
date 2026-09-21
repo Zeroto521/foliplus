@@ -4482,6 +4482,100 @@ class TestLayerControlBrowser:
                 "the open attrs panel must stay above a lit sibling"
             )
 
+    # ── R7 zoom-range browser probes (§31) ────────────────────────────
+    #
+    # CSS/interaction verification for the zoom-range row: dual-thumb
+    # clamp, out-of-range dimming + tooltip, zoomend marker movement,
+    # and the native carrier (GridLayer minZoom/maxZoom) measured against
+    # a real Leaflet tile container.
+
+    def test_zoom_range_dual_thumb_clamp(self, browser, tmp_path):
+        """Two thumbs never cross: dragging min past max clamps min to max."""
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            panel_ready(page)
+            result = page.evaluate(_js("LayerControl/zoom_range_dual_thumb_clamp"))
+            assert result is not None, result
+            assert result.get("error") is None, f"setup failed: {result}"
+            assert result["clampForward"], (
+                f"min did not clamp to max when dragged past: {result}"
+            )
+            assert result["clampReverse"], (
+                f"max did not clamp to min when dragged below: {result}"
+            )
+            assert result["stored"] is not None, (
+                "zoomRange was not persisted after commit"
+            )
+            assert not errors, f"JS errors: {errors}"
+
+    def test_zoom_range_oor_dim(self, browser, tmp_path):
+        """Out-of-range: track dims, tooltip appears, current label shows."""
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            panel_ready(page)
+            result = page.evaluate(_js("LayerControl/zoom_range_oor_dim"))
+            assert result is not None, result
+            assert result.get("error") is None, f"setup failed: {result}"
+            assert result["rowOor"] is True, (
+                f"row not marked out-of-range: {result}"
+            )
+            assert result["rowTitle"], (
+                "row tooltip missing when out of range"
+            )
+            assert result["markerLabelText"], (
+                "current-zoom label missing from marker"
+            )
+            assert result["markerTitle"], (
+                "marker title missing"
+            )
+            assert not errors, f"JS errors: {errors}"
+
+    def test_zoom_range_zoomend_marker_moves(self, browser, tmp_path):
+        """Current-zoom marker follows the map on zoomend."""
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            panel_ready(page)
+            result = page.evaluate(_js("LayerControl/zoom_range_zoomend_marker"))
+            assert result is not None, result
+            assert result.get("error") is None, f"setup failed: {result}"
+            assert result["markerMoved"] is True, (
+                f"marker did not move on zoomend: {result}"
+            )
+            assert result["labelUpdated"] is True, (
+                f"current-zoom label did not update on zoomend: {result}"
+            )
+            assert result["afterTitle"], (
+                "marker title missing after zoomend"
+            )
+            assert not errors, f"JS errors: {errors}"
+
+    def test_zoom_range_native_tilelayer(self, browser, tmp_path):
+        """Native carrier: GridLayer minZoom/maxZoom hides tiles on reset."""
+        t1 = folium.TileLayer(
+            tiles="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+            name="NativeProbe",
+        )
+        with use_page(self._make_page, browser, tmp_path, t1, slug="zr_nat") as (
+            page,
+            errors,
+        ):
+            panel_ready(page)
+            page.evaluate(
+                "window.__probe = "
+                + json.dumps({"id": t1.get_name()})
+            )
+            result = page.evaluate(_js("LayerControl/zoom_range_native_tilelayer"))
+            assert result is not None, result
+            assert result.get("error") is None, f"setup failed: {result}"
+            assert result["before"] > 0, (
+                f"no tiles loaded before range was set: {result}"
+            )
+            # Leaflet does not self-apply options changes — an explicit
+            # _resetView is required. Measure what R7's native branch
+            # actually achieves without that call.
+            assert result["afterReset"] == 0, (
+                f"tiles not cleared after _resetView with out-of-range "
+                f"minZoom: {result}"
+            )
+            assert not errors, f"JS errors: {errors}"
+
 
 # ── R1 pane-surface probe (§10.3) ──────────────────────────────────────
 #

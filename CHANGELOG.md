@@ -75,7 +75,7 @@
 - `HeatmapControl`: remove the nested `style` dict parameter; `border_weight`, `border_color`, `fill_opacity`, `border_opacity`, `label_show`, `label_size`, `label_color`, `label_format` are now first-class constructor keyword arguments — no `style=` wrapper needed ([#169](https://github.com/Zeroto521/foliplus/pull/169))
 - `ScaleControl`: drop the `unit` parameter — a breaking change against the v0.3.x API, since `unit=` now raises `TypeError`; scale bars always render metric units and `isMetric` is no longer exported to the JS `CONF` ([#186](https://github.com/Zeroto521/foliplus/pull/186))
 - `HeatmapControl`: remove the `field` parameter — a breaking change; the candidate list already enumerates all numeric shapes, so user selection covers every case ([#375](https://github.com/Zeroto521/foliplus/pull/375))
-- `HeatmapControl`: remove the self-hide-on-zoom behavior (`hideEvents`/`showEvents` in `bindMapSync`) — heatmap visibility now rides the unified `effectiveShown` pipeline via LayerControl's zoom-range row, so the canvas no longer auto-hides during zoom ([#397](https://github.com/Zeroto521/foliplus/pull/397))
+- `HeatmapControl`: remove the self-hide-on-zoom behavior (`hideEvents`/`showEvents` in `bindMapSync`) — heatmap visibility now rides the unified `effectiveShown` pipeline via LayerControl's zoom-range row, so the canvas no longer auto-hides during zoom ([#398](https://github.com/Zeroto521/foliplus/pull/398))
 
 ### Fixed
 

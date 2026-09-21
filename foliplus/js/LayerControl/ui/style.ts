@@ -266,11 +266,7 @@ const zoomToPct = (zoom: number, mapMin: number, mapMax: number): number => {
 /** Update the zoom-range row's visual state: fill position, value labels,
  *  and the out-of-range dimming. Does not write to the map or persistence —
  *  that is the commit pass's job. */
-const syncZoomRangeRow = (
-  ui: LayerUI,
-  layerId: string,
-  row: HTMLElement,
-): void => {
+const syncZoomRangeRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
   const mapMin = ui.m.map.getMinZoom();
   const mapMax = ui.m.map.getMaxZoom();
   const stored = ui.zoomRangeMap[layerId];
@@ -293,11 +289,19 @@ const syncZoomRangeRow = (
   const marker = row.querySelector(
     `.${CONST.CLASSES.STYLE_ZOOM_RANGE_CURRENT}`,
   ) as HTMLElement | null;
-  if (marker) marker.style.left = `${currentPct}%`;
+  if (marker) {
+    marker.style.left = `${currentPct}%`;
+    const currentLabel = ui
+      .T("style_zoom_range_current")
+      .replace("{zoom}", String(current));
+    const label = marker.querySelector(
+      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_CURRENT_LABEL}`,
+    ) as HTMLElement | null;
+    if (label) label.textContent = currentLabel;
+    marker.title = currentLabel;
+  }
 
-  const values = row.querySelectorAll(
-    `.${CONST.CLASSES.STYLE_ZOOM_RANGE_VAL} span`,
-  );
+  const values = row.querySelectorAll(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_VAL} span`);
   if (values.length >= 2) {
     values[0].textContent = String(min);
     values[1].textContent = String(max);
@@ -306,6 +310,7 @@ const syncZoomRangeRow = (
   // Out-of-range: dim the row when the current zoom falls outside [min, max].
   const outOfRange = current < min || current > max;
   row.classList.toggle(CONST.CLASSES.STYLE_ZOOM_RANGE_OOR, outOfRange);
+  row.title = outOfRange ? ui.T("style_zoom_range_out_of_range") : "";
 };
 
 /** Build the zoom-range form row: a dual-thumb slider on a track with a
@@ -335,10 +340,22 @@ const buildZoomRangeRow = (ui: LayerUI, layerId: string): HTMLElement => {
     class: CONST.CLASSES.STYLE_ZOOM_RANGE_FILL,
     style: `left:${minPct}%;right:${100 - maxPct}%`,
   });
-  const marker = dom.el("div", {
-    class: CONST.CLASSES.STYLE_ZOOM_RANGE_CURRENT,
-    style: `left:${currentPct}%`,
-  });
+  const currentLabel = ui
+    .T("style_zoom_range_current")
+    .replace("{zoom}", String(current));
+  const marker = dom.el(
+    "div",
+    {
+      class: CONST.CLASSES.STYLE_ZOOM_RANGE_CURRENT,
+      style: `left:${currentPct}%`,
+      title: currentLabel,
+    },
+    dom.el(
+      "span",
+      { class: CONST.CLASSES.STYLE_ZOOM_RANGE_CURRENT_LABEL },
+      currentLabel,
+    ),
+  );
 
   const minInput = dom.el("input", {
     type: "range",
@@ -387,17 +404,14 @@ const buildZoomRangeRow = (ui: LayerUI, layerId: string): HTMLElement => {
     {
       class: `${CONST.CLASSES.FORM_ROW} ${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`,
     },
-    dom.el(
-      "label",
-      { class: CONST.CLASSES.FORM_LABEL },
-      ui.T("style_zoom_range"),
-    ),
+    dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("style_zoom_range")),
     dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, control),
   );
 
   // Out-of-range on first render.
   if (current < min || current > max) {
     row.classList.add(CONST.CLASSES.STYLE_ZOOM_RANGE_OOR);
+    row.title = ui.T("style_zoom_range_out_of_range");
   }
 
   return row;
