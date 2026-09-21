@@ -97,28 +97,24 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): void => {
             const lblIdx = ptIdx - 1;
             points.splice(ptIdx, 1);
             layers.removeLayer(node, delMarker);
-            if (lblIdx >= 0 && lblIdx < segLabels.length) {
-              layers.removeLayer(segLabels[lblIdx]);
-              segLabels.splice(lblIdx, 1);
-            }
+            layers.removeLayer(segLabels[lblIdx]);
+            segLabels.splice(lblIdx, 1);
             nodeMarkers.splice(ptIdx, 1);
             nodeDelMarkers.splice(ptIdx, 1);
             dragBinds.splice(ptIdx, 1)[0]?.cleanup();
 
             if (points.length === 2 && nodeDelMarkers.length === 2) {
-              const lastDelMarker = nodeDelMarkers[1];
-              if (lastDelMarker) {
-                lastDelMarker.off("click");
-                attachDelClick(lastDelMarker, deleteMeasurement);
-                bindOpenOverlay(lastDelMarker, openOverlay);
-                const iconEl = lastDelMarker.getElement();
-                if (iconEl) iconEl.title = mgr.T("del_all");
-              }
+              const lastDelMarker = nodeDelMarkers[1]!;
+              lastDelMarker.off("click");
+              attachDelClick(lastDelMarker, deleteMeasurement);
+              bindOpenOverlay(lastDelMarker, openOverlay);
+              const iconEl = lastDelMarker.getElement();
+              if (iconEl) iconEl.title = mgr.T("del_all");
             }
 
             finalPoly.setLatLngs(points);
             relabel();
-            if (onUpdate) onUpdate(points);
+            onUpdate(points);
           },
     );
     nodeDelMarkers.push(delMarker);
@@ -146,7 +142,7 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): void => {
         },
         onEnd: () => {
           markDragSyntheticClick();
-          if (onUpdate) onUpdate(points);
+          onUpdate(points);
         },
       });
     } else {
@@ -163,7 +159,7 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): void => {
           const pIdx = findPtIdx();
           if (pIdx === -1) return;
           points[pIdx] = latlng;
-          if (onUpdate) onUpdate(points);
+          onUpdate(points);
         },
       });
     }
