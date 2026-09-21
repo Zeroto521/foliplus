@@ -13,9 +13,9 @@ const { attachPolygonUIMock } = vi.hoisted(() => ({
 }));
 let capturedPolygonOpts: any = null;
 
-vi.mock("#foliplus/MeasureControl/ui.js", async importOriginal => {
+vi.mock("#foliplus/MeasureControl/ui/index.js", async importOriginal => {
   const actual =
-    await importOriginal<typeof import("#foliplus/MeasureControl/ui.js")>();
+    await importOriginal<typeof import("#foliplus/MeasureControl/ui/index.js")>();
   return { ...actual, attachPolygonUI: attachPolygonUIMock };
 });
 
