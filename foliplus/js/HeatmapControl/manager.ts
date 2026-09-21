@@ -102,6 +102,11 @@ class HeatmapManager {
    *  return the cached instance, so hold it like the logger does). */
   events: EventBus;
   selectedLayerId: string | null;
+  /** The visibility LayerControl last asked for. The canvas is hidden for the
+   *  duration of a zoom gesture and restored to this on zoomend — never to a
+   *  blind `true`, which would fight the intent the checkbox and the
+   *  zoom-range gate share. */
+  layerVisible: boolean = true;
   pointLayers: PointLayerInfo[];
   currentAgg: string;
   /** Selected aggregation field — starts empty (no Python-side declaration),
@@ -268,6 +273,7 @@ class HeatmapManager {
       // attrs panel always reads the latest source layer / field.
       meta: this.sourceMeta,
       onToggle: (visible: boolean) => {
+        this.layerVisible = visible;
         this.overlay.setVisible(visible);
       },
       styleProvider: this.styleProvider,
@@ -306,14 +312,22 @@ class HeatmapManager {
   }
 
   bindMapEvents() {
-    // RAF-throttled redraw during pan. The zoom-hide / zoom-show pair is
-    // gone: the heatmap's visibility now rides the unified effective-shown
-    // pipeline driven by LayerControl (intent + zoom range), so it no
-    // longer hides itself on zoomstart. The `onZoomEnd` handler below
-    // still re-renders the hexagons at the new level (a debounced H3
-    // recompute, not a visibility toggle).
+    // Hide the canvas while Leaflet animates a zoom: the panes are CSS-scaled
+    // during the gesture, so a canvas baked at the old level reads as a ghost.
+    // It comes back to whatever LayerControl last asked for — never to a blind
+    // `true`, which would fight the intent the checkbox and the zoom-range gate
+    // share. A canvas layer has no range row, so `refreshZoomEffectiveShown`
+    // skips it and nothing else would restore the visibility.
     this.mapCleanup = bindMapSync({
       map: this.map,
+      hideEvents: ["zoomstart"],
+      onHide: () => {
+        this.overlay.setVisible(false);
+      },
+      showEvents: ["zoomend"],
+      onShow: () => {
+        if (this.layerVisible) this.overlay.setVisible(true);
+      },
       onMove: () => {
         if (this.overlay.canvas && this.cachedFeatures) this.redrawHeatmap();
       },
@@ -322,6 +336,7 @@ class HeatmapManager {
     this.onZoomEnd = debounce(() => {
       if (this.selectedLayerId) {
         this.renderHexagons();
+        if (this.layerVisible) this.overlay.setVisible(true);
       }
     }, CONST.TIMING.ZOOM_DEBOUNCE);
     this.map.on("zoomend", this.onZoomEnd);

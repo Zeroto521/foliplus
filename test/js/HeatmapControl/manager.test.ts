@@ -503,16 +503,34 @@ describe("HeatmapManager — layer visibility vs zoom", () => {
     expect(m.overlay.setVisible).toHaveBeenCalledWith(true);
   });
 
-  it("zoomend does not re-show a hidden layer", () => {
+  it("zoomstart hides the canvas even when the layer is logically visible", () => {
     const m = makeManager();
     m.overlay.setVisible.mockClear();
+    zoomstartHandler(m)();
+    expect(m.overlay.setVisible).toHaveBeenCalledWith(false);
+  });
+
+  it("zoomend does not re-show a layer the user hid in LayerControl", () => {
+    const m = makeManager();
+    m.layerVisible = false;
+    m.overlay.setVisible.mockClear();
+    // zoomend fires two handlers: bindMapSync.onShow (immediate) and the
+    // debounced onZoomEnd. Neither may re-show a hidden layer.
     zoomendHandlers(m).forEach(fn => fn());
     expect(m.overlay.setVisible).not.toHaveBeenCalledWith(true);
   });
 
-  it("onZoomEnd re-renders but does not re-show a hidden layer", () => {
+  it("zoomend re-shows a still-visible layer after the zoomstart hide", () => {
+    const m = makeManager();
+    m.overlay.setVisible.mockClear();
+    zoomendHandlers(m).forEach(fn => fn());
+    expect(m.overlay.setVisible).toHaveBeenCalledWith(true);
+  });
+
+  it("onZoomEnd re-renders a hidden layer but does not re-show it", () => {
     const m = makeManager();
     m.selectedLayerId = "layer1";
+    m.layerVisible = false;
     const renderSpy = vi.spyOn(m, "renderHexagons").mockImplementation(() => {});
     m.overlay.setVisible.mockClear();
 
