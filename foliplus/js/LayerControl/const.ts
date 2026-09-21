@@ -116,30 +116,55 @@ const CLASSES = {
   /** Shared section heading (form.css). */
   SECTION_HEADING: "foliplus-section-heading",
   /** Opacity control: range slider + paired number input. */
-  STYLE_OPACITY_CONTROL: "foliplus-style-opacity-control",
   STYLE_OPACITY_TRACK: "foliplus-style-opacity-track",
   STYLE_OPACITY_FILL: "foliplus-style-opacity-fill",
   STYLE_OPACITY_RANGE: "foliplus-style-opacity-range",
-  STYLE_OPACITY_NUMBER: "foliplus-style-opacity-number",
-  /** Zoom-range row: a dual-thumb slider with a current-zoom marker. */
+  STYLE_OPACITY_RAIL: "foliplus-style-opacity-rail",
+  STYLE_OPACITY_DOT: "foliplus-style-opacity-dot",
+  STYLE_OPACITY_VALUES: "foliplus-style-opacity-values",
+  /** Zoom-range row: a dual-thumb slider with a current-zoom marker.
+   *
+   *  The rail carries two textures and nothing else: the selected span is the
+   *  accent fill, the rest is a transparency checkerboard — "the layer is not
+   *  rendered there", the same convention the opacity row's checkerboard used.
+   *  Integer tick marks were dropped with it: on an 8px rail a second texture
+   *  only fights the first. */
   STYLE_ZOOM_RANGE_ROW: "foliplus-style-zoom-range-row",
   STYLE_ZOOM_RANGE_CONTROL: "foliplus-style-zoom-range-control",
   STYLE_ZOOM_RANGE_TRACK: "foliplus-style-zoom-range-track",
   STYLE_ZOOM_RANGE_FILL: "foliplus-style-zoom-range-fill",
   STYLE_ZOOM_RANGE_MIN: "foliplus-style-zoom-range-min",
   STYLE_ZOOM_RANGE_MAX: "foliplus-style-zoom-range-max",
-  STYLE_ZOOM_RANGE_CURRENT: "foliplus-style-zoom-range-current",
-  STYLE_ZOOM_RANGE_CURRENT_LABEL: "foliplus-style-zoom-range-current-label",
   STYLE_ZOOM_RANGE_CURRENT_VALUE: "foliplus-style-zoom-range-current-value",
   STYLE_ZOOM_RANGE_VAL: "foliplus-style-zoom-range-value",
-  STYLE_ZOOM_RANGE_TICK: "foliplus-style-zoom-range-tick",
-  STYLE_ZOOM_RANGE_TICK_CURRENT: "foliplus-style-zoom-range-tick-current",
-  STYLE_ZOOM_RANGE_BUBBLE: "foliplus-style-zoom-range-bubble",
+  /** The round readouts on the rail: the map's two zoom limits (-min, -max) and
+   *  the current level (-current). A dot's ring is accent where the layer
+   *  renders and grey where it does not. */
+  STYLE_ZOOM_RANGE_DOT: "foliplus-style-zoom-range-dot",
+  STYLE_ZOOM_RANGE_DOT_COVERED: "foliplus-style-zoom-range-dot-covered",
+  /** Set on a value label whose mark is too close to a higher-priority one to
+   *  sit under it without overlapping. */
+  STYLE_ZOOM_RANGE_LABEL_HIDDEN: "foliplus-style-zoom-range-label-hidden",
   /** Marks the row when the map's current zoom falls outside the layer's
    *  range — a dimmed state that reads "you set this to hide at the current
    *  level" without hiding the row itself (the user may still want to change
    *  it). */
   STYLE_ZOOM_RANGE_OOR: "foliplus-zoom-range-out-of-range",
+  /* ── Shared slider component (common/slider.css) ──
+     Both range controls are this component; the rows below add their own hook
+     classes for behaviour and tests, and set `--slider-thumb-ring` for their
+     own coverage state. Geometry is declared once, in the component. */
+  SLIDER: "foliplus-slider",
+  SLIDER_RAIL: "foliplus-slider-rail",
+  SLIDER_FILL: "foliplus-slider-fill",
+  SLIDER_DOT: "foliplus-slider-dot",
+  SLIDER_DOT_COVERED: "foliplus-slider-dot-covered",
+  SLIDER_DOT_MIN: "foliplus-slider-dot-min",
+  SLIDER_DOT_MAX: "foliplus-slider-dot-max",
+  SLIDER_HANDLE: "foliplus-slider-handle",
+  SLIDER_VALUES: "foliplus-slider-values",
+  SLIDER_LABEL_HIDDEN: "foliplus-slider-label-hidden",
+  SLIDER_BUBBLE: "foliplus-slider-bubble",
   /** Shared form-row layout classes (also used by HeatmapControl template). */
   FORM_ROW: "foliplus-form-row",
   FORM_LABEL: "foliplus-form-label",

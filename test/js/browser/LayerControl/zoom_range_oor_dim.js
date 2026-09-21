@@ -38,10 +38,11 @@
   const rowTitle = row.title;
   const trackBg = row.querySelector(".foliplus-style-zoom-range-track");
   const fillBg = row.querySelector(".foliplus-style-zoom-range-fill");
-  const marker = row.querySelector(".foliplus-style-zoom-range-current");
+  const marker = row.querySelector(".foliplus-style-zoom-range-dot-current");
   const markerLabel = row.querySelector(".foliplus-style-zoom-range-current-value");
-  const markerTitle = marker ? marker.title : null;
+  const markerRing = marker ? getComputedStyle(marker).borderColor : null;
   const markerLabelText = markerLabel ? markerLabel.textContent : null;
+  const currentValueColor = markerLabel ? getComputedStyle(markerLabel).color : null;
   const minLabel = row.querySelector(
     ".foliplus-style-zoom-range-value span:nth-child(1)",
   );
@@ -56,7 +57,8 @@
     rowTitle,
     trackComputedBg: trackBg ? getComputedStyle(trackBg).backgroundColor : null,
     fillComputedBg: fillBg ? getComputedStyle(fillBg).backgroundColor : null,
-    markerTitle,
+    currentValueColor,
+    markerRing,
     markerLabelText,
     minLabelText: minLabel ? minLabel.textContent : null,
     maxLabelText: maxLabel ? maxLabel.textContent : null,

@@ -137,6 +137,30 @@ const opacityToPct = (opacity: number | undefined): number =>
 const clampPct = (raw: number, fallback = 100): number =>
   Number.isFinite(raw) ? Math.max(0, Math.min(100, Math.round(raw))) : fallback;
 
+/** Fill width for the single-thumb opacity rail: the accent spans from the
+ *  thumb's centre at 0% to its centre at the current value. The handle travels
+ *  an inset range, so a rail-relative width would leave a sliver of accent past
+ *  the handle at the top of the range. */
+const opacityFillWidth = (pct: number): string =>
+  `calc((100% - var(--slider-thumb-hit)) * ${round5(pct / 100)})`;
+
+/** Ring colour of the opacity row's two end dots. The covered span is always
+ *  [0, pct], so the 0 end is red by construction — the layer is painted from
+ *  there whatever the value — and 100 is red only when the layer is fully
+ *  opaque. Same readout the zoom range's limits give, where a limit is covered
+ *  once the range reaches it. */
+const syncOpacityDots = (track: HTMLElement, pct: number): void => {
+  const marks: [string, boolean][] = [
+    ["-min", true],
+    ["-max", pct >= 100],
+  ];
+  for (const [suffix, covered] of marks) {
+    track
+      .querySelector(`.${CONST.CLASSES.STYLE_OPACITY_DOT}${suffix}`)
+      ?.classList.toggle(CONST.CLASSES.SLIDER_DOT_COVERED, covered);
+  }
+};
+
 /** Write one resolved percentage into the slider and its number field.
  *
  *  The slider always takes the value — its thumb has to follow whoever moved
@@ -144,24 +168,22 @@ const clampPct = (raw: number, fallback = 100): number =>
  *  in it, or the caret would jump to the end on every keystroke; `force` is the
  *  commit pass, which rewrites it to the resolved value the same way the shared
  *  number field does on blur. */
-const syncOpacityInputs = (panel: HTMLElement, pct: number, force = false): void => {
-  // Both controls are built together by buildOpacityRow, so a panel that
-  // reached here has them.
+const syncOpacityInputs = (panel: HTMLElement, pct: number): void => {
   const range = panel.querySelector(
     `.${CONST.CLASSES.STYLE_OPACITY_RANGE}`,
-  ) as HTMLInputElement;
-  const num = panel.querySelector(
-    `.${CONST.CLASSES.STYLE_OPACITY_NUMBER}`,
   ) as HTMLInputElement;
   const fill = panel.querySelector(
     `.${CONST.CLASSES.STYLE_OPACITY_FILL}`,
   ) as HTMLElement | null;
   range.value = String(pct);
-  if (fill) fill.style.width = `${pct}%`;
-  if (force || document.activeElement !== num) num.value = String(pct);
+  // The fill starts where the thumb's centre sits at 0% and ends on it at the
+  // current value — the handle's own travel range, so the two never disagree at
+  // the ends (a rail-relative width leaves a sliver of accent past the handle).
+  if (fill) fill.style.width = opacityFillWidth(pct);
+  syncOpacityDots(panel, pct);
 };
 
-/** Apply a UI percentage to the layer, persist it, and sync both inputs. */
+/** Apply a UI percentage to the layer, persist it, and sync the rail. */
 const commitOpacityPct = (
   ui: LayerUI,
   layerId: string,
@@ -188,49 +210,67 @@ const commitOpacityPct = (
     }
     saveState(ui);
   }
-  syncOpacityInputs(panel, pct, commit);
+  syncOpacityInputs(panel, pct);
 };
 
-/** Build the opacity form row: range slider + shared number field, exactly the
- *  chrome the heatmap's border row uses (`.foliplus-form-inline` +
- *  `.foliplus-form-number-input`), so heights and radii cannot drift. */
+/** Build the opacity form row: the shared slider component, nothing else.
+ *
+ *  There is no number field: the value is already on screen three ways (the
+ *  fill's length, the drag bubble, the end numbers) and the field cost the rail
+ *  two thirds of its width — it is the reason the zoom range's rail is longer
+ *  than this one. The range input keeps the value reachable: it carries the
+ *  accessible name and value, arrow / Home / End drive it, and the bubble
+ *  appears for keyboard input the same as for a drag. */
 const buildOpacityRow = (ui: LayerUI, layerId: string): HTMLElement => {
   const li = ui.m.layerRegistry.get(layerId);
   const pct = opacityToPct(ui.opacityMap[layerId] ?? li?.opacity);
   const fill = dom.el("div", {
-    class: CONST.CLASSES.STYLE_OPACITY_FILL,
-    style: `width:${pct}%`,
+    class: `${CONST.CLASSES.SLIDER_FILL} ${CONST.CLASSES.STYLE_OPACITY_FILL}`,
+    style: `width:${opacityFillWidth(pct)}`,
   });
+  const dot = (suffix: string): HTMLElement =>
+    dom.el("span", {
+      class:
+        `${CONST.CLASSES.SLIDER_DOT} ${CONST.CLASSES.SLIDER_DOT}${suffix}` +
+        ` ${CONST.CLASSES.STYLE_OPACITY_DOT} ${CONST.CLASSES.STYLE_OPACITY_DOT}${suffix}`,
+    });
   const range = dom.el("input", {
     type: "range",
-    class: CONST.CLASSES.STYLE_OPACITY_RANGE,
+    class: `${CONST.CLASSES.SLIDER_HANDLE} ${CONST.CLASSES.STYLE_OPACITY_RANGE}`,
     min: "0",
     max: "100",
-    step: "5",
+    step: "1",
     value: String(pct),
     "aria-label": ui.T("style_opacity"),
   });
-  const track = dom.el(
+  const rail = dom.el(
     "div",
-    { class: CONST.CLASSES.STYLE_OPACITY_TRACK },
+    { class: `${CONST.CLASSES.SLIDER_RAIL} ${CONST.CLASSES.STYLE_OPACITY_RAIL}` },
     fill,
+    dot("-min"),
+    dot("-max"),
     range,
   );
-  const number = formNumberInput({
-    value: pct,
-    min: 0,
-    max: 100,
-    step: 5,
-    className: CONST.CLASSES.STYLE_OPACITY_NUMBER,
-    ariaLabel: ui.T("style_opacity"),
-  });
-  const inline = inlineControls(track, number);
-  inline.classList.add(CONST.CLASSES.STYLE_OPACITY_CONTROL);
+  // The scale's ends, so the row matches the zoom range's: fixed numbers under
+  // the fixed dots. The value itself stays in the number field beside them.
+  const values = dom.el(
+    "div",
+    { class: `${CONST.CLASSES.SLIDER_VALUES} ${CONST.CLASSES.STYLE_OPACITY_VALUES}` },
+    dom.el("span", {}, "0"),
+    dom.el("span", {}, "100"),
+  );
+  const track = dom.el(
+    "div",
+    { class: `${CONST.CLASSES.SLIDER} ${CONST.CLASSES.STYLE_OPACITY_TRACK}` },
+    rail,
+    values,
+  );
+  syncOpacityDots(track, pct);
   return dom.el(
     "div",
     { class: CONST.CLASSES.FORM_ROW },
     dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("style_opacity")),
-    dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, inline),
+    dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, track),
   );
 };
 
@@ -266,11 +306,88 @@ const resetLayerZoomRange = (ui: LayerUI, layerId: string): void => {
 const clampZoom = (value: number, mapMin: number, mapMax: number): number =>
   Math.max(mapMin, Math.min(mapMax, Math.round(value)));
 
-/** Percent position of a zoom value within [mapMin, mapMax]. */
+/** Percentage of a zoom value within [mapMin, mapMax]. */
 const zoomToPct = (zoom: number, mapMin: number, mapMax: number): number => {
   const range = mapMax - mapMin;
   if (range <= 0) return 0;
   return ((zoom - mapMin) / range) * 100;
+};
+
+/** Keep inline calc() strings short; the value is a position, not a secret. */
+const round5 = (n: number): number => Math.round(n * 1e5) / 1e5;
+
+/** Where a percentage along the rail lands, as a CSS length.
+ *
+ *  Every mark on the rail — fill ends, ticks, the current-level line and the
+ *  numbers under them — goes through this one mapping. The handles travel an
+ *  *inset* range (half the hit box at each end), so a mark placed by the rail's
+ *  own percentage drifts up to half a handle away from the handle it belongs
+ *  to: a sliver of fill past the handle at 100%, a tick that misses its level,
+ *  and the current-level line a few px off the number labelling it. */
+const railPos = (pct: number): string =>
+  `calc(var(--slider-thumb-hit) / 2 + (100% - var(--slider-thumb-hit)) * ${round5(
+    pct / 100,
+  )})`;
+
+/** Two value labels closer than this (in percentage points of the rail) would
+ *  overlap once they sit under their own marks, so the lower-priority one is
+ *  dropped: min wins over max, and both win over the current level, which is
+ *  only a readout. */
+const LABEL_MIN_GAP_PCT = 12;
+
+/** Write the values row and the three readout dots.
+ *
+ *  The numbers belong to the marks that cannot move: the map's two zoom limits
+ *  (fixed text at the row's edges) and the current level (placed under its own
+ *  dot). The draggable range carries no number of its own — it reports through
+ *  the bubble while held, and through the rail's geometry the rest of the time.
+ *
+ *  `--slider-dot-size` dots read coverage through their ring: accent where the
+ *  layer renders (inside the range), grey where it does not. The current dot
+ *  rides the row's existing out-of-range class for the same readout. */
+const syncValues = (
+  row: HTMLElement,
+  min: number,
+  max: number,
+  current: number,
+  mapMin: number,
+  mapMax: number,
+): void => {
+  const spans = [
+    ...row.querySelectorAll(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_VAL} span`),
+  ] as HTMLElement[];
+  if (spans.length >= 3) {
+    const [minEl, currentEl, maxEl] = spans;
+    // The ends' positions come from the stylesheet (`:first-child` /
+    // `:last-child`), so only the text is ours.
+    minEl.textContent = String(mapMin);
+    maxEl.textContent = String(mapMax);
+    const currentPct = zoomToPct(current, mapMin, mapMax);
+    currentEl.textContent = String(current);
+    currentEl.style.left = railPos(currentPct);
+    // The current level can sit on top of a limit at the ends of the map's
+    // range, where the limit's own number already says it.
+    const clear =
+      Math.abs(currentPct) >= LABEL_MIN_GAP_PCT &&
+      Math.abs(currentPct - 100) >= LABEL_MIN_GAP_PCT;
+    currentEl.classList.toggle(CONST.CLASSES.SLIDER_LABEL_HIDDEN, !clear);
+  }
+
+  const dots: [string, number, boolean][] = [
+    ["-min", mapMin, min <= mapMin],
+    ["-max", mapMax, max >= mapMax],
+    ["-current", current, current >= min && current <= max],
+  ];
+  for (const [suffix, value, covered] of dots) {
+    const dot = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_DOT}${suffix}`,
+    ) as HTMLElement | null;
+    if (!dot) continue;
+    if (suffix === "-current") {
+      dot.style.left = railPos(zoomToPct(value, mapMin, mapMax));
+    }
+    dot.classList.toggle(CONST.CLASSES.SLIDER_DOT_COVERED, covered);
+  }
 };
 
 /** Update the zoom-range row's visual state: fill position, value labels,
@@ -290,35 +407,15 @@ const syncZoomRangeRow = (
   const max = range ? Math.min(range[1], mapMax) : mapMax;
   const current = ui.m.map.getZoom();
 
-  const minPct = zoomToPct(min, mapMin, mapMax);
-  const maxPct = zoomToPct(max, mapMin, mapMax);
-  const currentPct = zoomToPct(current, mapMin, mapMax);
-
   const fill = row.querySelector(
     `.${CONST.CLASSES.STYLE_ZOOM_RANGE_FILL}`,
   ) as HTMLElement | null;
   if (fill) {
-    fill.style.left = `${minPct}%`;
-    fill.style.right = `${100 - maxPct}%`;
+    fill.style.left = railPos(zoomToPct(min, mapMin, mapMax));
+    fill.style.right = `calc(100% - ${railPos(zoomToPct(max, mapMin, mapMax))})`;
   }
 
-  const marker = row.querySelector(
-    `.${CONST.CLASSES.STYLE_ZOOM_RANGE_CURRENT}`,
-  ) as HTMLElement | null;
-  if (marker) {
-    marker.style.left = `${currentPct}%`;
-    const currentLabel = ui
-      .T("style_zoom_range_current")
-      .replace("{zoom}", String(current));
-    marker.title = currentLabel;
-  }
-
-  const values = row.querySelectorAll(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_VAL} span`);
-  if (values.length >= 3) {
-    values[0].textContent = String(min);
-    values[1].textContent = String(current);
-    values[2].textContent = String(max);
-  }
+  syncValues(row, min, max, current, mapMin, mapMax);
 
   // Out-of-range: dim the row when the current zoom falls outside [min, max].
   const outOfRange = current < min || current > max;
@@ -326,6 +423,16 @@ const syncZoomRangeRow = (
   row.title = outOfRange
     ? ui.T("style_zoom_range_out_of_range").replace("{zoom}", String(current))
     : "";
+
+  // The handles' tooltips carry the range the rail draws but the row no longer
+  // prints.
+  for (const [tail, value] of [
+    [CONST.CLASSES.STYLE_ZOOM_RANGE_MIN, min],
+    [CONST.CLASSES.STYLE_ZOOM_RANGE_MAX, max],
+  ] as const) {
+    const input = row.querySelector(`.${tail}`) as HTMLInputElement | null;
+    if (input) input.title = `${ui.T("style_zoom_range")} ${value}`;
+  }
 };
 
 /** Build the zoom-range form row: a dual-thumb slider on a track with a
@@ -345,42 +452,27 @@ const buildZoomRangeRow = (ui: LayerUI, layerId: string): HTMLElement => {
   const stored = ui.zoomRangeMap[layerId];
   const min = stored ? Math.max(stored[0], mapMin) : mapMin;
   const max = stored ? Math.min(stored[1], mapMax) : mapMax;
-
-  const minPct = zoomToPct(min, mapMin, mapMax);
-  const maxPct = zoomToPct(max, mapMin, mapMax);
   const current = ui.m.map.getZoom();
-  const currentPct = zoomToPct(current, mapMin, mapMax);
 
   const fill = dom.el("div", {
-    class: CONST.CLASSES.STYLE_ZOOM_RANGE_FILL,
-    style: `left:${minPct}%;right:${100 - maxPct}%`,
-  });
-  const currentLabel = ui
-    .T("style_zoom_range_current")
-    .replace("{zoom}", String(current));
-  const marker = dom.el("div", {
-    class: CONST.CLASSES.STYLE_ZOOM_RANGE_CURRENT,
-    style: `left:${currentPct}%`,
-    title: currentLabel,
+    class: `${CONST.CLASSES.SLIDER_FILL} ${CONST.CLASSES.STYLE_ZOOM_RANGE_FILL}`,
+    style: `left:${railPos(zoomToPct(min, mapMin, mapMax))};right:calc(100% - ${railPos(
+      zoomToPct(max, mapMin, mapMax),
+    )})`,
   });
 
-  const ticks: HTMLElement[] = [];
-  for (let z = mapMin; z <= mapMax; z++) {
-    const pct = zoomToPct(z, mapMin, mapMax);
-    const isCurrent = z === current;
-    ticks.push(
-      dom.el("div", {
-        class: isCurrent
-          ? `${CONST.CLASSES.STYLE_ZOOM_RANGE_TICK} ${CONST.CLASSES.STYLE_ZOOM_RANGE_TICK_CURRENT}`
-          : CONST.CLASSES.STYLE_ZOOM_RANGE_TICK,
-        style: `left:${pct}%`,
-      }),
-    );
-  }
+  // The readout dots: the map's two limits are pinned by CSS, the current level
+  // is placed by syncValues.
+  const dot = (suffix: string): HTMLElement =>
+    dom.el("span", {
+      class:
+        `${CONST.CLASSES.SLIDER_DOT} ${CONST.CLASSES.SLIDER_DOT}${suffix}` +
+        ` ${CONST.CLASSES.STYLE_ZOOM_RANGE_DOT} ${CONST.CLASSES.STYLE_ZOOM_RANGE_DOT}${suffix}`,
+    });
 
   const minInput = dom.el("input", {
     type: "range",
-    class: CONST.CLASSES.STYLE_ZOOM_RANGE_MIN,
+    class: `${CONST.CLASSES.SLIDER_HANDLE} ${CONST.CLASSES.STYLE_ZOOM_RANGE_MIN}`,
     min: String(mapMin),
     max: String(mapMax),
     step: "1",
@@ -389,7 +481,7 @@ const buildZoomRangeRow = (ui: LayerUI, layerId: string): HTMLElement => {
   });
   const maxInput = dom.el("input", {
     type: "range",
-    class: CONST.CLASSES.STYLE_ZOOM_RANGE_MAX,
+    class: `${CONST.CLASSES.SLIDER_HANDLE} ${CONST.CLASSES.STYLE_ZOOM_RANGE_MAX}`,
     min: String(mapMin),
     max: String(mapMax),
     step: "1",
@@ -397,31 +489,34 @@ const buildZoomRangeRow = (ui: LayerUI, layerId: string): HTMLElement => {
     "aria-label": ui.T("style_zoom_range_max"),
   });
 
+  // DOM order is the paint order for these positioned siblings; the two
+  // textures on the rail itself come from CSS.
   const track = dom.el(
     "div",
-    { class: CONST.CLASSES.STYLE_ZOOM_RANGE_TRACK },
+    { class: `${CONST.CLASSES.SLIDER_RAIL} ${CONST.CLASSES.STYLE_ZOOM_RANGE_TRACK}` },
     fill,
-    ...ticks,
-    marker,
+    dot("-min"),
+    dot("-max"),
+    dot("-current"),
     minInput,
     maxInput,
   );
 
   const values = dom.el(
     "div",
-    { class: CONST.CLASSES.STYLE_ZOOM_RANGE_VAL },
-    dom.el("span", {}, String(min)),
+    { class: `${CONST.CLASSES.SLIDER_VALUES} ${CONST.CLASSES.STYLE_ZOOM_RANGE_VAL}` },
+    dom.el("span", {}, String(mapMin)),
     dom.el(
       "span",
       { class: CONST.CLASSES.STYLE_ZOOM_RANGE_CURRENT_VALUE },
       String(current),
     ),
-    dom.el("span", {}, String(max)),
+    dom.el("span", {}, String(mapMax)),
   );
 
   const control = dom.el(
     "div",
-    { class: CONST.CLASSES.STYLE_ZOOM_RANGE_CONTROL },
+    { class: `${CONST.CLASSES.SLIDER} ${CONST.CLASSES.STYLE_ZOOM_RANGE_CONTROL}` },
     track,
     values,
   );
@@ -434,14 +529,8 @@ const buildZoomRangeRow = (ui: LayerUI, layerId: string): HTMLElement => {
     dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("style_zoom_range")),
     dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, control),
   );
-
-  // Out-of-range on first render.
-  if (current < min || current > max) {
-    row.classList.add(CONST.CLASSES.STYLE_ZOOM_RANGE_OOR);
-    row.title = ui
-      .T("style_zoom_range_out_of_range")
-      .replace("{zoom}", String(current));
-  }
+  syncValues(row, min, max, current, mapMin, mapMax);
+  syncZoomRangeRow(ui, layerId, row);
 
   return row;
 };
@@ -876,18 +965,10 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
   // re-read them as visibility toggles.
 
   /** Shared opacity handler for both panel flavours (LayerControl-owned).
-   *  `commit` separates the live pass from the blur/change pass: an emptied or
-   *  out-of-range entry only resolves on commit — the same rule the shared
-   *  number field follows, so typing "1" toward "15" does not flash the layer
-   *  to 1% first. */
+   *  `commit` separates the live pass from the settle pass a drag ends with. */
   const handleOpacityTarget = (t: EventTarget | null, commit: boolean): boolean => {
     if (!(t instanceof HTMLInputElement)) return false;
-    if (
-      !t.classList.contains(CONST.CLASSES.STYLE_OPACITY_RANGE) &&
-      !t.classList.contains(CONST.CLASSES.STYLE_OPACITY_NUMBER)
-    ) {
-      return false;
-    }
+    if (!t.classList.contains(CONST.CLASSES.STYLE_OPACITY_RANGE)) return false;
     const raw = parseFloat(t.value);
     if (!commit && !(raw >= 0 && raw <= 100)) return true;
     commitOpacityPct(ui, layerId, panel, raw, commit);
@@ -934,25 +1015,30 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       }
     }
 
-    // Drag value bubble: show on input (live), remove on change (commit).
-    // Positioned above the dragged thumb at its percent location.
+    // The values row already tracks the drag live, so the end being held is
+    // marked there rather than by a bubble: a bubble has to clear the rail,
+    // which puts it over the row above (measured: it covered the opacity row's
+    // number field), and it duplicates a readout that is already on screen.
+    // Live readout: a bubble above the handle being held. The numbers below the
+    // rail belong to the fixed limits and the current level, so the range's own
+    // value has to come from the drag.
     const track = row.querySelector(
       `.${CONST.CLASSES.STYLE_ZOOM_RANGE_TRACK}`,
     ) as HTMLElement | null;
     let bubble = track?.querySelector(
-      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_BUBBLE}`,
+      `.${CONST.CLASSES.SLIDER_BUBBLE}`,
     ) as HTMLElement | null;
     if (commit) {
       bubble?.remove();
     } else if (track) {
       if (!bubble) {
-        bubble = dom.el("div", { class: CONST.CLASSES.STYLE_ZOOM_RANGE_BUBBLE });
+        bubble = dom.el("div", { class: CONST.CLASSES.SLIDER_BUBBLE });
         track.appendChild(bubble);
       }
-      const val = t === minInput ? min : max;
-      const pct = zoomToPct(val, mapMin, mapMax);
-      bubble.style.left = `${pct}%`;
-      bubble.textContent = String(val);
+      bubble.style.left = railPos(
+        zoomToPct(t === minInput ? min : max, mapMin, mapMax),
+      );
+      bubble.textContent = String(t === minInput ? min : max);
     }
 
     applyZoomRangeLive(ui, layerId, row, min, max);
