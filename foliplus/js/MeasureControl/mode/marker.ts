@@ -158,10 +158,7 @@ class MarkerMode extends MeasureMode {
       delMarker as L.Marker,
       measurement,
     );
-    const unregisterFinalized = manager.registerFinalized(
-      cleanupPin,
-      measurement.id,
-    );
+    const unregisterFinalized = manager.registerFinalized(cleanupPin, measurement.id);
 
     if (onPopupOpen) marker.on("popupopen", onPopupOpen);
 
@@ -202,19 +199,11 @@ class MarkerMode extends MeasureMode {
       false, // do not auto-open popup on restore
     );
 
-    MarkerMode.finalize(
-      manager,
-      marker,
-      data,
-      L.latLng(data.lat!, data.lng!),
-      () => {
-        if (data.address !== null) {
-          marker.setPopupContent(
-            Util.buildPopup(data.lng!, data.lat!, data.address),
-          );
-        }
-      },
-    );
+    MarkerMode.finalize(manager, marker, data, L.latLng(data.lat!, data.lng!), () => {
+      if (data.address !== null) {
+        marker.setPopupContent(Util.buildPopup(data.lng!, data.lat!, data.address));
+      }
+    });
   }
 
   start() {
@@ -269,17 +258,11 @@ class MarkerMode extends MeasureMode {
 
     // Bind delete + popup events BEFORE async geocode so the ✕ works even
     // while the address lookup is still in flight.
-    MarkerMode.finalize(
-      this.m,
-      marker,
-      measurement,
-      event.latlng,
-      () => {
-        if (measurement.address !== null) {
-          marker.setPopupContent(Util.buildPopup(lngNum, latNum, measurement.address));
-        }
-      },
-    );
+    MarkerMode.finalize(this.m, marker, measurement, event.latlng, () => {
+      if (measurement.address !== null) {
+        marker.setPopupContent(Util.buildPopup(lngNum, latNum, measurement.address));
+      }
+    });
   }
 
   /** GeoJSON feature for a marker — properties carry id and address. */
