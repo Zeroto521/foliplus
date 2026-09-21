@@ -1130,9 +1130,7 @@ class TestExportControlBrowser:
         ``backgroundColor`` — the same value the user sees — and fills the canvas
         with it.
         """
-        with use_page(
-            self._make_page, browser, tmp_path, slug="export_color_bg"
-        ) as (
+        with use_page(self._make_page, browser, tmp_path, slug="export_color_bg") as (
             page,
             errors,
         ):
@@ -1170,9 +1168,7 @@ class TestExportControlBrowser:
             # covers every pixel, so the hit count should dominate the total.
             result = self._sample_bg_pixels_in_export(page, match=[220, 30, 30])
             assert result is not None, "Export canvas not captured"
-            assert result["hit"] > 0, (
-                f"basemap colour missing from export: {result}"
-            )
+            assert result["hit"] > 0, f"basemap colour missing from export: {result}"
             # The fillRect paints the whole canvas, so nearly every non-
             # transparent pixel should match — a regression (e.g. falling back
             # to CONF.background, which was None/transparent) would leave hit ≈ 0.
@@ -1193,9 +1189,7 @@ class TestExportControlBrowser:
         ``CONF.background`` (default ``None`` → transparent canvas), which
         disagreed with the screen.
         """
-        with use_page(
-            self._make_page, browser, tmp_path, slug="export_default_bg"
-        ) as (
+        with use_page(self._make_page, browser, tmp_path, slug="export_default_bg") as (
             page,
             errors,
         ):
@@ -1238,9 +1232,7 @@ class TestExportControlBrowser:
             # canvas, so the hit count should dominate.
             result = self._sample_bg_pixels_in_export(page, match=[221, 221, 221])
             assert result is not None, "Export canvas not captured"
-            assert result["hit"] > 0, (
-                f"default grey missing from export: {result}"
-            )
+            assert result["hit"] > 0, f"default grey missing from export: {result}"
             assert result["hit"] > result["total"] * 0.5, (
                 f"default grey not dominant in export: {result}"
             )
@@ -1395,9 +1387,7 @@ class TestExportControlBrowser:
                 }"""
             )
             assert result["found"] is True, result
-            assert result["nonBg"] > 0, (
-                f"Marker pixels missing from export: {result}"
-            )
+            assert result["nonBg"] > 0, f"Marker pixels missing from export: {result}"
 
     def test_export_focus_three_carriers_survive(self, browser, tmp_path):
         """Focus state: all three carriers (vector, marker, canvas) survive export.
