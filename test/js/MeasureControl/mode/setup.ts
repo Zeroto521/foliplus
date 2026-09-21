@@ -151,37 +151,49 @@ export function makeManagerMock() {
       editHandles.forEach(h => h.dispose?.());
       editHandles.clear();
     }),
-    store: {
-      all: () => measurements,
-      count: () => measurements.length,
-      add: vi.fn((data: any) => {
-        measurements.push(data);
-      }),
-      remove: vi.fn((id: string) => {
-        // Remove all matches — mirrors the real store's behavior.
-        const matches = measurements.map((m: any) => m.id === id);
-        measurements.splice(
-          0,
-          measurements.length,
-          ...measurements.filter((m: any) => m.id !== id),
-        );
-      }),
-      update: vi.fn((id: string, patch: any) => {
-        const m = measurements.find((x: any) => x.id === id);
-        if (m) Object.assign(m, patch);
-      }),
-      load: vi.fn(() => measurements),
-      hydrate: vi.fn((data: any[]) => {
-        measurements.length = 0;
-        measurements.push(...data);
-      }),
-      persist: vi.fn(),
-      emitCount: vi.fn(),
-      nextId: vi.fn(() => "test-id"),
-      clear: vi.fn(() => {
-        measurements.length = 0;
-      }),
-    },
+    store: (() => {
+      const persist = vi.fn();
+      return {
+        all: () => measurements,
+        count: () => measurements.length,
+        add: vi.fn((data: any) => {
+          measurements.push(data);
+        }),
+        remove: vi.fn((id: string) => {
+          measurements.splice(
+            0,
+            measurements.length,
+            ...measurements.filter((m: any) => m.id !== id),
+          );
+        }),
+        update: vi.fn((id: string, patch: any) => {
+          const m = measurements.find((x: any) => x.id === id);
+          if (m) Object.assign(m, patch);
+        }),
+        mutate: vi.fn((id: string, fn: any) => {
+          const m = measurements.find((x: any) => x.id === id);
+          if (m) fn(m);
+        }),
+        mutateAndPersist: vi.fn((id: string, fn: any) => {
+          const m = measurements.find((x: any) => x.id === id);
+          if (m) {
+            fn(m);
+            persist();
+          }
+        }),
+        load: vi.fn(() => measurements),
+        hydrate: vi.fn((data: any[]) => {
+          measurements.length = 0;
+          measurements.push(...data);
+        }),
+        persist,
+        emitCount: vi.fn(),
+        nextId: vi.fn(() => "test-id"),
+        clear: vi.fn(() => {
+          measurements.length = 0;
+        }),
+      };
+    })(),
     currentMode: null,
     isEditMode: false,
     get measurements() {

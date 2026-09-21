@@ -139,6 +139,30 @@ class MeasureStore {
     this.persist();
   }
 
+  /** Apply an arbitrary mutation to a measurement by id WITHOUT persisting.
+   *  No-op if not found (defensive: a stale id from a torn-down handle must
+   *  not crash — the caller already unbound the drag that would have called
+   *  this, so a not-found is a no-op that costs one Map lookup).
+   *
+   *  Used by drag handlers that persist on a throttle: the mutation runs
+   *  synchronously, the caller decides when to persist (onEnd, cancel, etc.).
+   */
+  mutate(id: string, fn: (m: MeasureData) => void): void {
+    const m = this.list.find(x => x.id === id);
+    if (!m) return;
+    fn(m);
+  }
+
+  /** Apply a mutation AND persist. Equivalent to `mutate` + `persist`, but
+   *  as one call site so the caller cannot forget the persist. No-op if
+   *  not found (same reason as `mutate`). */
+  mutateAndPersist(id: string, fn: (m: MeasureData) => void): void {
+    const m = this.list.find(x => x.id === id);
+    if (!m) return;
+    fn(m);
+    this.persist();
+  }
+
   /** Remove all measurements and persist. */
   clear(): void {
     this.list.splice(0, this.list.length);
