@@ -16,9 +16,9 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("#foliplus/FullscreenControl/api.js", () => ({
   FULLSCREEN_CHANGE: mocks.FULLSCREEN_CHANGE,
-  get isEnabled() {
-    return mocks.isEnabled;
-  },
+  // Production reads this lazily per call — keep the mock lazy too so
+  // `mocks.isEnabled = …` flips the branch on the very next toggle.
+  isEnabled: vi.fn(() => mocks.isEnabled),
   get getFullscreenEl() {
     return mocks.getFullscreenEl;
   },
@@ -213,7 +213,7 @@ describe("toggleFullscreen — native API path", () => {
     expect(fsBtn.innerHTML).toBe("");
   });
 
-  it("recovers state on reject", async () => {
+  it("recovers state and reports the unsupported hint on reject", async () => {
     mapMock.getContainer().requestFullscreen = vi.fn(() =>
       Promise.reject(new Error("denied")),
     );
@@ -221,8 +221,14 @@ describe("toggleFullscreen — native API path", () => {
     await Promise.resolve();
     await Promise.resolve();
     expect(mapMock.isFullscreen).toBe(false);
-    // updateUI called with isFull=false → MAXIMIZE
-    expect(fsBtn.innerHTML).toContain("M8 3H5");
+    // Reject does not re-run updateUI — that would announce "entered
+    // fullscreen" for a click that failed. It only reports the hint.
+    expect(fsBtn.innerHTML).toBe("");
+    expect(mapMock.foliplus.showHint).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.stringContaining("unsupported"),
+      expect.any(Number),
+    );
   });
 
   describe("toggle — exit", () => {
@@ -236,15 +242,19 @@ describe("toggleFullscreen — native API path", () => {
       expect(mapMock.isFullscreen).toBe(false);
     });
 
-    it("recovers state on exit reject", async () => {
+    it("recovers state and reports the unsupported hint on exit reject", async () => {
       mapMock.isFullscreen = true;
       document.exitFullscreen = vi.fn(() => Promise.reject(new Error("failed")));
       toggleFullscreen(mapMock, fsBtn, container);
       await Promise.resolve();
       await Promise.resolve();
       expect(mapMock.isFullscreen).toBe(false);
-      // updateUI called in catch with isFull=false → MAXIMIZE icon
-      expect(fsBtn.innerHTML).toContain("M8 3H5");
+      expect(fsBtn.innerHTML).toBe("");
+      expect(mapMock.foliplus.showHint).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.stringContaining("unsupported"),
+        expect.any(Number),
+      );
     });
 
     it("exits when getFullscreenEl returns an element", async () => {

@@ -30,7 +30,7 @@ describe("api.js (jsdom — no native Fullscreen API)", () => {
   });
 
   it("isEnabled is false when fullscreenEnabled is unavailable", () => {
-    expect(isEnabled).toBe(false);
+    expect(isEnabled()).toBe(false);
   });
 
   it("getFullscreenEl returns null when fullscreenElement is unavailable", () => {

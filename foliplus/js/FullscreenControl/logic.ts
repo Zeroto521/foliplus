@@ -42,12 +42,16 @@ const updateUI = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement) => {
   );
 };
 
+const showUnsupportedHint = (map: L.Map) => {
+  map.foliplus!.showHint?.(CONF.name, T("unsupported"), HINT_DURATION.MEDIUM);
+};
+
 // ══════════════════════════════════════════════════════════════════════════════
 // toggleFullscreen  —  enter/exit fullscreen via native API or pseudo mode
 // ══════════════════════════════════════════════════════════════════════════════
 const toggleFullscreen = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement) => {
   if (getFullscreenEl() || map.isFullscreen) {
-    if (isEnabled) {
+    if (isEnabled()) {
       document
         .exitFullscreen()
         .then(() => {
@@ -55,7 +59,7 @@ const toggleFullscreen = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement
         })
         .catch(() => {
           map.isFullscreen = Boolean(getFullscreenEl());
-          updateUI(map, fsBtn, container);
+          showUnsupportedHint(map);
         });
       return;
     }
@@ -64,7 +68,7 @@ const toggleFullscreen = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement
 
     map.isFullscreen = false;
   } else {
-    if (isEnabled) {
+    if (isEnabled()) {
       map
         .getContainer()
         .requestFullscreen()
@@ -73,7 +77,7 @@ const toggleFullscreen = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement
         })
         .catch(() => {
           map.isFullscreen = Boolean(getFullscreenEl());
-          updateUI(map, fsBtn, container);
+          showUnsupportedHint(map);
         });
       return;
     }
@@ -98,9 +102,9 @@ const bindFullscreenEvents = (
     updateUI(map, fsBtn, container);
   };
 
-  if (isEnabled) document.addEventListener(FULLSCREEN_CHANGE, handleFSChange);
+  if (isEnabled()) document.addEventListener(FULLSCREEN_CHANGE, handleFSChange);
   map.on("unload", () => {
-    if (isEnabled) document.removeEventListener(FULLSCREEN_CHANGE, handleFSChange);
+    if (isEnabled()) document.removeEventListener(FULLSCREEN_CHANGE, handleFSChange);
   });
 
   return handleFSChange;
