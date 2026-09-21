@@ -4567,12 +4567,16 @@ class TestLayerControlBrowser:
             assert result["before"] > 0, (
                 f"no tiles loaded before range was set: {result}"
             )
-            # Leaflet does not self-apply options changes — an explicit
-            # _resetView is required. Measure what R7's native branch
-            # actually achieves without that call.
-            assert result["afterReset"] == 0, (
-                f"tiles not cleared after _resetView with out-of-range "
-                f"minZoom: {result}"
+            # R7's native branch: options write + adapter _resetView.
+            # Leaflet does not self-apply options.minZoom changes — the
+            # adapter reset is what makes the range visible (§6.2).
+            assert result["tilesCleared"] is True, (
+                f"tiles not cleared after options + _resetView with "
+                f"out-of-range minZoom: {result}"
+            )
+            assert result["restoredOk"] is True, (
+                f"tiles not restored after deleting options + _resetView: "
+                f"{result}"
             )
             assert not errors, f"JS errors: {errors}"
 

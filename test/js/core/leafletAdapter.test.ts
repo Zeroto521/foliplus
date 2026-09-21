@@ -95,7 +95,7 @@ beforeEach(() => {
 // rather than written as a literal. The quote class is a plain template
 // literal, because a backtick cannot appear inside a raw one.
 const FIELD_NAMES =
-  "attributions|closeButton|container|icon|initInteraction|layers|map|path|shadow|update|url";
+  "attributions|closeButton|container|icon|initInteraction|layers|map|path|resetView|shadow|update|url";
 const QUOTES = `['"\`]`;
 
 const PRIVATE_FIELD_RE = new RegExp(
@@ -198,6 +198,7 @@ describe("leafletAdapter is the only module touching the named Leaflet privates"
       "_paneRenderers",
       "_panes",
       "_path",
+      "_resetView",
       "_shadow",
       "_update",
       "_url",
@@ -287,6 +288,7 @@ describe("source pins", () => {
     expect(adapterSource.match(/as [A-Z]\w+/g)).toEqual([
       "as LayerWithMap",
       "as LayerWithUrl",
+      "as GridLayerWithReset",
       "as MarkerWithShadow",
     ]);
   });
@@ -319,6 +321,7 @@ describe("source pins", () => {
       "primeControlMap",
       "refreshAttributions",
       "reinitInteraction",
+      "resetGridLayerView",
       "setPopupCloseTitle",
     ]);
   });

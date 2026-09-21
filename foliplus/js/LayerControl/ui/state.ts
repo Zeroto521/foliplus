@@ -1,4 +1,5 @@
 // LayerControl UI —Persisted user state (fold / hidden / names) apply + save.
+import { resetGridLayerView } from "#core/leafletAdapter.js";
 import { createLogger } from "#common/log.js";
 import * as CONST from "../const.js";
 import type { LayerManager } from "../manager.js";
@@ -179,8 +180,9 @@ const applyUserState = (ui: LayerUI, id?: string) => {
     // A stored zoom range is applied on the same late-registration pass:
     // without it a layer that was out of range on the previous load would
     // come back on the map at its author default rather than staying hidden.
-    if (id in ui.zoomRangeMap)
+    if (id in ui.zoomRangeMap) {
       applyZoomRangeStateOne(ui, layerInfo, ui.zoomRangeMap[id]);
+    }
     // The order dimension is replayed on the same pass: this path runs once per
     // late registration, so without it the layer would keep the slot it was
     // inserted into rather than the position the user already arranged.
@@ -557,6 +559,11 @@ const applyZoomRangeStateOne = (
       delete opts.minZoom;
       delete opts.maxZoom;
     }
+    // Leaflet does not self-apply options.minZoom/maxZoom: already-loaded
+    // tiles stay until the level set is rebuilt. Without this call the range
+    // would be silently stale — the user sets it and nothing changes on the
+    // map (§6.2 "不得静默失效").
+    resetGridLayerView(layer);
     return;
   }
   if (caps.zoomRange === "pane") {
