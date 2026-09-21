@@ -4614,16 +4614,16 @@ class TestLayerControlBrowser:
             assert result["rowOor"] is True, f"row not marked out-of-range: {result}"
             assert result["rowTitle"], "row tooltip missing when out of range"
             assert result["markerLabelText"], "current-zoom label missing from marker"
-            assert result["markerRing"] == self._sample_token(page, "--accent-primary"), (
-                "the current dot should read as covered in the row probe"
-            )
+            assert result["markerRing"] == self._sample_token(
+                page, "--accent-primary"
+            ), "the current dot should read as covered in the row probe"
             # The OOR *visuals*, not just the class: the selection goes flat grey
             # and the current level turns accent. This is the assertion that was
             # missing while the rules were nested without `&`, so they flattened
             # to a descendant selector and never matched.
-            assert result["fillComputedBg"] == self._sample_token(page, "--neutral-500"), (
-                "out-of-range fill is not the muted grey"
-            )
+            assert result["fillComputedBg"] == self._sample_token(
+                page, "--neutral-500"
+            ), "out-of-range fill is not the muted grey"
             assert result["currentValueColor"] == self._sample_token(
                 page, "--accent-primary"
             ), "out-of-range current level is not the accent warning colour"
