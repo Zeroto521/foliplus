@@ -490,6 +490,47 @@ class TestHeatmapControlBrowser:
             heatmap_ready(page)  # re-scan settles: [data-ready] re-appears
             assert not errors, f"JS errors: {errors}"
 
+    def test_remove_readd_leaves_no_listener_residue(self, browser, tmp_path):
+        """N=3 remove→add cycles must not grow map._events listener sum.
+
+        Baseline round[0] is captured right after the initial addControl
+        (which the harness already performed in page setup); rounds[1] and
+        rounds[2] follow remove→add. A listener leak — whether it lands on
+        round[0] or only shows up in a later round — registers as a drift
+        and fails the assertion.
+        """
+        with use_page(
+            self._make_page, browser, tmp_path, expose_ctrl=True, num_layers=1
+        ) as (page, errors):
+            heatmap_ready(page)
+            state = page.evaluate(_js("HeatmapControl/destroy_readd"))
+            rounds = state["rounds"]
+            assert len(rounds) == 3, f"expected 3 rounds, got {rounds!r}"
+            for i, n in enumerate(rounds[1:], start=1):
+                assert n == rounds[0], (
+                    f"HeatmapControl: map._events listener sum grew on round {i}: "
+                    f"{rounds!r}"
+                )
+            heatmap_ready(page)
+            assert not errors, f"JS errors: {errors}"
+
+    def test_probe_leak_listener_control_group_grows(self, browser, tmp_path):
+        """A single bare map.on() must register as a +1 in the listener sum.
+
+        Control group for the drift gate above: if this control fails, the
+        sumMapEvents measure is measuring nothing and the drift assertion
+        in test_remove_readd_leaves_no_listener_residue has no teeth.
+        """
+        with use_page(
+            self._make_page, browser, tmp_path, expose_ctrl=True, num_layers=1
+        ) as (page, errors):
+            heatmap_ready(page)
+            result = page.evaluate(_js("HeatmapControl/probe_leak_listener"))
+            assert result["delta"] > 0, (
+                f"Leak control group: expected a positive delta, got {result!r}"
+            )
+            assert not errors, f"JS errors: {errors}"
+
     def test_auto_select_single_layer(self, browser, tmp_path):
         """Single point layer is auto-selected on panel expand."""
         with use_page(
