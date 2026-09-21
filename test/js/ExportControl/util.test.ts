@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ensureFont, isVisible } from "#foliplus/ExportControl/util.js";
+import {
+  ensureFont,
+  isVisible,
+  resolveExportBackground,
+} from "#foliplus/ExportControl/util.js";
 
 describe("isVisible", () => {
   it("returns true for a rectangle fully inside the viewport", () => {
@@ -111,6 +115,35 @@ describe("loadImageBitmap", () => {
     expect(second).toBe(bitmap2);
     expect(globalThis.fetch).toHaveBeenCalledTimes(2);
     expect(globalThis.createImageBitmap).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("resolveExportBackground", () => {
+  const container = document.createElement("div");
+  document.body.appendChild(container);
+
+  it("returns undefined for 'transparent'", () => {
+    const spy = vi.spyOn(window, "getComputedStyle").mockReturnValue({
+      backgroundColor: "transparent",
+    } as unknown as CSSStyleDeclaration);
+    expect(resolveExportBackground(container)).toBeUndefined();
+    spy.mockRestore();
+  });
+
+  it("returns undefined for 'rgba(0, 0, 0, 0)'", () => {
+    const spy = vi.spyOn(window, "getComputedStyle").mockReturnValue({
+      backgroundColor: "rgba(0, 0, 0, 0)",
+    } as unknown as CSSStyleDeclaration);
+    expect(resolveExportBackground(container)).toBeUndefined();
+    spy.mockRestore();
+  });
+
+  it("returns the colour for an opaque value", () => {
+    const spy = vi.spyOn(window, "getComputedStyle").mockReturnValue({
+      backgroundColor: "rgb(220, 30, 30)",
+    } as unknown as CSSStyleDeclaration);
+    expect(resolveExportBackground(container)).toBe("rgb(220, 30, 30)");
+    spy.mockRestore();
   });
 });
 

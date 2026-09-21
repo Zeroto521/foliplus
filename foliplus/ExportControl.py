@@ -55,9 +55,8 @@ class ExportControl(BaseControl):
     format : str, default "png"
         Image format for the export. One of ``"png"``, ``"jpeg"``, ``"webp"``, or
         ``"geotiff"``. JPEG and WebP are lossy and much smaller than PNG; PNG preserves
-        transparency (recommended when ``background`` is None). ``"geotiff"`` writes a
-        DEFLATE-compressed GeoTIFF (TIFF code 8) with embedded georeferencing (WGS84 /
-        EPSG:4326), suitable for GIS software.
+        transparency. ``"geotiff"`` writes a DEFLATE-compressed GeoTIFF (TIFF code 8)
+        with embedded georeferencing (WGS84 / EPSG:4326), suitable for GIS software.
 
     quality : float, default 0.92
         Compression quality for ``"jpeg"`` and ``"webp"`` formats, ranging from
@@ -73,10 +72,6 @@ class ExportControl(BaseControl):
         exports may exceed the browser canvas limit or exhaust memory. Default is
         10,240,000 (e.g. 3200×3200). Set to ``None`` to disable the limit; otherwise
         it must be positive.
-
-    background : str, optional
-        Export background color (e.g., ``"#ffffff"``). Default is None (transparent).
-        Required for ``"jpeg"`` (JPEG has no alpha channel).
 
     timeout : int, default 7500
         Maximum time (ms) to wait for map tiles to finish loading before capture.
@@ -109,7 +104,7 @@ class ExportControl(BaseControl):
     >>> from foliplus import ExportControl
     >>> m = folium.Map()
     >>> ExportControl(position="bottomright").add_to(m)
-    >>> ExportControl(format="jpeg", quality=0.8, background="#ffffff").add_to(m)
+    >>> ExportControl(format="jpeg", quality=0.8).add_to(m)
     >>> ExportControl(format="geotiff", filename="raster").add_to(m)
     >>> ExportControl(scale=3.0, filename="print").add_to(m)
     """
@@ -122,7 +117,6 @@ class ExportControl(BaseControl):
         "quality",
         "scale",
         "max_pixels",
-        "background",
         "timeout",
     )
 
@@ -136,7 +130,6 @@ class ExportControl(BaseControl):
         quality: Fraction = 0.92,
         scale: Annotated[float, Bound(0.0, None, exclusive_low=True)] = 2.0,
         max_pixels: PositiveInt | None = 10_240_000,
-        background: str | None = None,
         timeout: Annotated[int, Bound(0, None)] = 7500,
         locale: str | LocaleConfig | None = None,
     ):
@@ -146,6 +139,5 @@ class ExportControl(BaseControl):
         self.quality = quality
         self.scale = scale
         self.max_pixels = max_pixels
-        self.background = background
         self.timeout = timeout
         self._template = self._get_template()
