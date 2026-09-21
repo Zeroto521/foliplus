@@ -6,18 +6,23 @@
 
   const geo = L.geoJson({
     type: "FeatureCollection",
-    features: [{
-      type: "Feature",
-      properties: { name: "p1" },
-      geometry: { type: "Point", coordinates: [119.3, 26.08] },
-    }],
+    features: [
+      {
+        type: "Feature",
+        properties: { name: "p1" },
+        geometry: { type: "Point", coordinates: [119.3, 26.08] },
+      },
+    ],
   });
   api.registerLayer({ id: "zr_zoomend", name: "ZRZoomEnd", layer: geo });
   ctrl.m.enforceOrder();
 
   ui.openStylePanel("zr_zoomend");
   const row = document.querySelector(".foliplus-style-zoom-range-row");
-  if (!row) { ui.closeStylePanel(false); return { error: "zoom range row not rendered" }; }
+  if (!row) {
+    ui.closeStylePanel(false);
+    return { error: "zoom range row not rendered" };
+  }
 
   const marker = row.querySelector(".foliplus-style-zoom-range-current");
   const markerLabel = row.querySelector(".foliplus-style-zoom-range-current-label");
@@ -36,10 +41,13 @@
 
   ui.closeStylePanel(false);
   return {
-    before, after,
-    beforeLeft, afterLeft,
+    before,
+    after,
+    beforeLeft,
+    afterLeft,
     markerMoved: beforeLeft !== afterLeft,
-    beforeLabel, afterLabel,
+    beforeLabel,
+    afterLabel,
     labelUpdated: afterLabel !== beforeLabel,
     afterTitle,
   };

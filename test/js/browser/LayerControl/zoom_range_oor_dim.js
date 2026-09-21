@@ -6,11 +6,13 @@
 
   const geo = L.geoJson({
     type: "FeatureCollection",
-    features: [{
-      type: "Feature",
-      properties: { name: "p1" },
-      geometry: { type: "Point", coordinates: [119.3, 26.08] },
-    }],
+    features: [
+      {
+        type: "Feature",
+        properties: { name: "p1" },
+        geometry: { type: "Point", coordinates: [119.3, 26.08] },
+      },
+    ],
   });
   api.registerLayer({ id: "zr_oor", name: "ZROOR", layer: geo });
   ctrl.m.enforceOrder();
@@ -20,7 +22,10 @@
   // Set a range that excludes the current zoom level.
   ui.openStylePanel("zr_oor");
   const row = document.querySelector(".foliplus-style-zoom-range-row");
-  if (!row) { ui.closeStylePanel(false); return { error: "zoom range row not rendered" }; }
+  if (!row) {
+    ui.closeStylePanel(false);
+    return { error: "zoom range row not rendered" };
+  }
 
   const minInput = row.querySelector(".foliplus-style-zoom-range-min");
   const maxInput = row.querySelector(".foliplus-style-zoom-range-max");
@@ -37,8 +42,12 @@
   const markerLabel = row.querySelector(".foliplus-style-zoom-range-current-label");
   const markerTitle = marker ? marker.title : null;
   const markerLabelText = markerLabel ? markerLabel.textContent : null;
-  const minLabel = row.querySelector(".foliplus-style-zoom-range-value span:nth-child(1)");
-  const maxLabel = row.querySelector(".foliplus-style-zoom-range-value span:nth-child(2)");
+  const minLabel = row.querySelector(
+    ".foliplus-style-zoom-range-value span:nth-child(1)",
+  );
+  const maxLabel = row.querySelector(
+    ".foliplus-style-zoom-range-value span:nth-child(2)",
+  );
 
   ui.closeStylePanel(false);
   return {

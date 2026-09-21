@@ -7,22 +7,30 @@
   // Register a GeoJSON point layer — zoomRange capability = "pane".
   const geo = L.geoJson({
     type: "FeatureCollection",
-    features: [{
-      type: "Feature",
-      properties: { name: "p1" },
-      geometry: { type: "Point", coordinates: [119.3, 26.08] },
-    }],
+    features: [
+      {
+        type: "Feature",
+        properties: { name: "p1" },
+        geometry: { type: "Point", coordinates: [119.3, 26.08] },
+      },
+    ],
   });
   api.registerLayer({ id: "zr_clamp", name: "ZRClamp", layer: geo });
   ctrl.m.enforceOrder();
 
   ui.openStylePanel("zr_clamp");
   const row = document.querySelector(".foliplus-style-zoom-range-row");
-  if (!row) { ui.closeStylePanel(false); return { error: "zoom range row not rendered" }; }
+  if (!row) {
+    ui.closeStylePanel(false);
+    return { error: "zoom range row not rendered" };
+  }
 
   const minInput = row.querySelector(".foliplus-style-zoom-range-min");
   const maxInput = row.querySelector(".foliplus-style-zoom-range-max");
-  if (!minInput || !maxInput) { ui.closeStylePanel(false); return { error: "inputs not found" }; }
+  if (!minInput || !maxInput) {
+    ui.closeStylePanel(false);
+    return { error: "inputs not found" };
+  }
 
   const mapMin = map.getMinZoom();
   const mapMax = map.getMaxZoom();
@@ -50,11 +58,15 @@
 
   ui.closeStylePanel(false);
   return {
-    mapMin, mapMax,
-    initialMin, initialMax,
+    mapMin,
+    mapMax,
+    initialMin,
+    initialMax,
     crossVal,
-    minAfterCross, maxAfterCross,
-    minAfterReverse, maxAfterReverse,
+    minAfterCross,
+    maxAfterCross,
+    minAfterReverse,
+    maxAfterReverse,
     clampForward: minAfterCross <= maxAfterCross,
     clampReverse: minAfterReverse <= maxAfterReverse,
     stored: ui.zoomRangeMap["zr_clamp"],
