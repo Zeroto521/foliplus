@@ -3,7 +3,7 @@
 // pane by PaneManager.pinLateContent (eachLayer recursion reaches them),
 // but the cluster icon itself (a .marker-cluster element, MarkerCluster
 // is an L.Marker subclass) is NOT reached by that recursion and stays in
-// markerPane (shared). "两处都要处理" is the design consequence.
+// markerPane (shared). "both must be handled" is the design consequence.
 () => {
   const map = window.map;
   const m = window.__layerCtrl.m;

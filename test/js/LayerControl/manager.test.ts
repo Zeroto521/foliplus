@@ -717,7 +717,7 @@ describe("LayerManager", () => {
   });
 
   it("getNavigableItems returns layer items and toggle-all rows", () => {
-    // 模拟 uiContainer 和 ui
+    // Mock the uiContainer and the ui that reads it.
     const container = document.createElement("div");
     container.innerHTML = `
       <div class="foliplus-layer-toggle-all" data-group="overlay">
