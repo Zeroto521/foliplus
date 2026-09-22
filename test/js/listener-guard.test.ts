@@ -110,35 +110,8 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
     f: "ExportControl/manager.ts",
     n: 1,
     pairedOff: 0,
-    reason: "image preview click-dismiss — pending migration to `this.on`",
-  },
-  {
-    f: "FullscreenControl/logic.ts",
-    n: 1,
-    pairedOff: 0,
     reason:
-      "fullscreenchange listener at document level — pending migration to `this.on(window/document, ...)`",
-  },
-  {
-    f: "HeatmapControl/ui.ts",
-    n: 1,
-    pairedOff: 0,
-    reason:
-      "scheme-dropdown outside-click — pending migration to `this.on(document, 'click', ..., {capture: true})`",
-  },
-  {
-    f: "MeasureControl/util.ts",
-    n: 1,
-    pairedOff: 0,
-    reason:
-      "SVG animationend listener on an ephemeral path element — pending migration to `this.on`",
-  },
-  {
-    f: "MeasureControl/mode/circle.ts",
-    n: 1,
-    pairedOff: 0,
-    reason:
-      "SVG animationend listener on an ephemeral ripple element — pending migration to `this.on`",
+      "image preview click-dismiss on an ephemeral overlay img. ExportManager is a plain class (not a BaseControl subclass) with no mounting signal to route through; the listener is self-terminating — paired removeEventListener inside the same closure, plus a bounded setTimeout — and threading a signal would mean a manager↔control callback surface for no gain: an abort would drop the listener but not the img, which would linger on document.body until the timer fires anyway",
   },
   {
     f: "LayerControl/ui/attr.ts",
@@ -165,6 +138,20 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
     pairedOff: 0,
     reason:
       "style-panel input / dropdown / opacity bindings — pending migration to `this.on`",
+  },
+  {
+    f: "MeasureControl/mode/circle.ts",
+    n: 1,
+    pairedOff: 0,
+    reason:
+      "ripple animationend on an ephemeral decoration layer: a one-shot listener that terminates itself (paired removeEventListener in the handler) and is collected with the element the moment the ripple is removed. CircleMode extends MeasureMode, not BaseControl, so no mounting signal is in scope",
+  },
+  {
+    f: "MeasureControl/util.ts",
+    n: 1,
+    pairedOff: 0,
+    reason:
+      "dash-sweep animationend on a finalized geometry's own SVG element: one-shot and self-terminating (paired removeEventListener in the handler), and collected with the element when the measurement is deleted. animateDashSweep is a free-standing function whose callers are MeasureMode subclasses — threading a signal would cross MeasureManager → MeasureMode → both call sites, which is not worth a listener that can never outlive its animation",
   },
 ];
 

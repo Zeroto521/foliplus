@@ -127,6 +127,14 @@ function makeCtrl(
   (m.map as unknown as { foliplus?: unknown }).foliplus = window.map.foliplus;
   return {
     m,
+    // The real control routes document-level listeners through its mounting
+    // signal (BaseControl.on). The fixture has no signal, so it binds for
+    // real and hands back the matching unbind — the outside-click tests
+    // dispatch a genuine document click.
+    on: (target, type, fn) => {
+      target.addEventListener(type, fn);
+      return () => target.removeEventListener(type, fn);
+    },
     conf,
     T: createScopedTranslator(conf),
     _: createTranslator(conf),
