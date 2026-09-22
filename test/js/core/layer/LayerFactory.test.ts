@@ -1129,9 +1129,9 @@ describe("LayerFactory", () => {
     it("owns a dedicated color pane and mounts the face in it", () => {
       const h = make("solid");
       expect(map.createPane).toHaveBeenCalledWith("foliplus-color-solid");
-      expect(content(h).element.parentElement?.classList.contains("foliplus-layer-pane")).toBe(
-        true,
-      );
+      expect(
+        content(h).element.parentElement?.classList.contains("foliplus-layer-pane"),
+      ).toBe(true);
       // A canvas face, not an invented fourth element kind: the geometry
       // plumbing (sizing, counter-translation) is the canvas branch's.
       expect(content(h).element).toBeInstanceOf(HTMLCanvasElement);

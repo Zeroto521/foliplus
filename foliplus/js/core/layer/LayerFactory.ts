@@ -318,11 +318,7 @@ class LayerFactory {
 
     if (opts.content.kind === "color") {
       const { color } = opts.content;
-      const paneName = namedPaneNameFor(
-        opts.id,
-        COLOR_PANE_PREFIX,
-        "color surface",
-      );
+      const paneName = namedPaneNameFor(opts.id, COLOR_PANE_PREFIX, "color surface");
       const { pane } = panes.ensurePane(paneName, false);
 
       // A canvas face, reused rather than invented: a Leaflet pane has no size
