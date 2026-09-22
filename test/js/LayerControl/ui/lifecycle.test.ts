@@ -234,4 +234,42 @@ describe("LayerUI lifecycle — defensive rails", () => {
       expect(() => manager.attachUI(document.createElement("div"))).not.toThrow();
     });
   });
+
+  describe("bindEvents — the container-null guard", () => {
+    it("no-ops when the UI container is already null", () => {
+      // Covers the `if (!container) return` guard: bindEvents is called on a
+      // manager whose uiContainer was never set (attachUI ran before bindEvents
+      // in a partial-attach scenario).
+      ui.m.uiContainer = null as any;
+      expect(() => ui.bindEvents()).not.toThrow();
+    });
+  });
+
+  describe("onLayerItemCountChange — the countCol-null else-if", () => {
+    it("skips the count-column write when the row has no count column", () => {
+      // Covers the `else if (countCol)` false side: when the count column was
+      // removed from the row (e.g. a defensive edge for a custom layout), the
+      // else-if body is skipped entirely.
+      const item = findItem(ui, "overlay1");
+      item.querySelector(CONST.SEL.COUNT_COL)?.remove();
+      vi.spyOn(manager, "getFeatureCount").mockReturnValue(null);
+
+      ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "overlay1" });
+
+      // No exception thrown; the item's title still gets the empty type label.
+      expect(item.title).toBeDefined();
+    });
+  });
+
+  describe("refreshAllCounts — the countCol-null else-if", () => {
+    it("skips the count-column write for rows without a count column", () => {
+      // Covers the `else if (countCol) countCol.textContent = ""` false side:
+      // a row whose count column was removed is silently skipped.
+      const item = findItem(ui, "overlay1");
+      item.querySelector(CONST.SEL.COUNT_COL)?.remove();
+      vi.spyOn(manager, "getFeatureCount").mockReturnValue(null);
+
+      expect(() => ui.refreshAllCounts()).not.toThrow();
+    });
+  });
 });

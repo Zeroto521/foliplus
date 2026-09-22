@@ -3123,4 +3123,64 @@ describe("style utility guards", () => {
     const { ui } = initFixture();
     expect(renderDelegatedStylePanel(ui, "not-a-real-layer")).toBeNull();
   });
+
+  it("toggle handler tolerates a panel with no body, field select, or format row", () => {
+    // Covers the three defensive null checks in the annotation toggle handler:
+    // `if (body)`, `fieldSel?.value ?? cfg.field`, and `if (fmtRow)`.
+    // Removing the elements from the panel DOM exercises the false sides.
+    const { ui } = initFixture();
+    ui.fieldCache.set("overlay1", [{ name: "count", numeric: true }]);
+    const panelOf = (item: HTMLElement) =>
+      item.querySelector(`.${CONST.CLASSES.STYLE_PANEL}`) as HTMLElement | null;
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item);
+    expect(panel).not.toBeNull();
+
+    // Remove the body, field select, and format row.
+    panel!.querySelector(`.${CONST.CLASSES.STYLE_BODY}`)?.remove();
+    panel!.querySelector(".foliplus-style-field-select")?.remove();
+    panel!.querySelector(`.${CONST.CLASSES.STYLE_FORMAT_ROW}`)?.remove();
+
+    // Trigger the toggle.
+    const toggle = panel!.querySelector(
+      `.${CONST.CLASSES.STYLE_TOGGLE_INPUT}`,
+    ) as HTMLInputElement;
+    toggle.checked = true;
+    toggle.dispatchEvent(new Event("change", { bubbles: true }));
+
+    // The patch is applied despite the missing elements.
+    expect(ui.m.annotation.getConfig("overlay1")!.show).toBe(true);
+  });
+
+  it("annotation panel setup tolerates missing color/size inputs", () => {
+    // Covers `if (colorEl)` and `if (sizeEl)` false sides in the panel setup.
+    // We mock querySelector to return null for the color/size selectors so the
+    // setup code skips the live-binding step.
+    const { ui } = initFixture();
+    ui.fieldCache.set("overlay1", [{ name: "count", numeric: true }]);
+    const panelOf = (item: HTMLElement) =>
+      item.querySelector(`.${CONST.CLASSES.STYLE_PANEL}`) as HTMLElement | null;
+    const item = findItem(ui, "overlay1");
+    // Mock querySelector to return null for the color/size selectors.
+    const origQS = HTMLElement.prototype.querySelector;
+    const colorSel = `.${CONST.CLASSES.STYLE_LABEL_COLOR_INPUT}`;
+    const sizeSel = `.${CONST.CLASSES.STYLE_LABEL_SIZE_INPUT}`;
+    vi.spyOn(HTMLElement.prototype, "querySelector").mockImplementation(function (
+      this: HTMLElement,
+      ...args
+    ) {
+      const sel = args[0] as string;
+      if (sel === colorSel || sel === sizeSel) {
+        return null;
+      }
+      return origQS.call(this, ...args);
+    });
+    // Open the panel (triggers setup code).
+    ui.openStylePanel("overlay1");
+    // Restore.
+    vi.restoreAllMocks();
+    // The panel still opens successfully.
+    expect(panelOf(item)).not.toBeNull();
+  });
 });
