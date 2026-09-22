@@ -29,6 +29,7 @@ import type {
   PaneRole,
   PaneSpec,
 } from "./type.js";
+import { getGeometryType } from "./util.js";
 import { zFor } from "./z.js";
 
 /** Options a surface is resolved from — the register-time declaration only. */
@@ -223,6 +224,26 @@ class LayerSurface implements LayerSurfaceContract {
         zFor({ base, role: pane.role, order: pane.order }),
       );
     }
+  }
+
+  /** The cached geometry type this surface's layer resolves to. Base and
+   *  iconSvg layers short-circuit in the manager — this only handles the
+   *  ordinary data-layer case. A null result is also cached: an empty or
+   *  mixed-geometry container has a stable answer until its content changes,
+   *  which is what `invalidate()` is for. */
+  private cachedGeometryType: string | null = null;
+  private geometryTypeCached = false;
+
+  geometryType(): string | null {
+    if (this.geometryTypeCached) return this.cachedGeometryType;
+    const layer = this.layer;
+    this.cachedGeometryType = layer ? getGeometryType(layer) : null;
+    this.geometryTypeCached = true;
+    return this.cachedGeometryType;
+  }
+
+  invalidate(): void {
+    this.geometryTypeCached = false;
   }
 
   /** Release the panes this surface synthesized. The layer is off the map by

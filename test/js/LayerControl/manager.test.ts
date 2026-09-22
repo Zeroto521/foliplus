@@ -476,6 +476,57 @@ describe("LayerManager", () => {
     expect(manager.refreshType("overlay1")).toBeNull(); // no layer resolvable
   });
 
+  it("invalidateType also drops the surface cache, forcing a re-probe", () => {
+    // The surface owns the authoritative cache (§33.2). Clearing the manager's
+    // snapshot without also invalidating the surface would leave a stale
+    // string sitting in the cache that the next getLayerType call picks up.
+    manager.registerLayer({
+      id: "poly3",
+      name: "Poly",
+      layer: new window.L.Polygon(),
+    });
+    const surface = manager.surfaces.get("poly3")!;
+    expect(surface.geometryType()).toBe(GEOM_TYPE.POLYGON);
+    const spy = vi.spyOn(surface, "invalidate");
+    manager.invalidateType("poly3");
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(manager.layerRegistry.get("poly3")!.type).toBeNull();
+  });
+
+  it("getLayerType delegates the probe to the surface, not to getGeometryType", () => {
+    // The whole point of §33.2 is that getGeometryType lives on the surface;
+    // if this test ever calls getGeometryType directly, the manager has regressed.
+    manager.registerLayer({
+      id: "delegate",
+      name: "Poly",
+      layer: new window.L.Polygon(),
+    });
+    const surface = manager.surfaces.get("delegate")!;
+    const spy = vi.spyOn(surface, "geometryType");
+    expect(manager.getLayerType("delegate")).toBe(GEOM_TYPE.POLYGON);
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(manager.layerRegistry.get("delegate")!.type).toBe(GEOM_TYPE.POLYGON);
+  });
+
+  it("getLayerType falls back to layerInfo.type when the surface is missing", () => {
+    // A registered id with no surface (e.g. a stub layer the manager has not
+    // resolved) still answers from whatever snapshot was already written.
+    manager.registerLayer({
+      id: "no-surface",
+      name: "X",
+      layer: { options: {} },
+    });
+    manager.layerRegistry.get("no-surface")!.type = GEOM_TYPE.POINT;
+    manager.surfaces.delete("no-surface");
+    expect(manager.getLayerType("no-surface")).toBe(GEOM_TYPE.POINT);
+  });
+
+  it("invalidateType on an unknown id does not touch surfaces", () => {
+    const spy = vi.spyOn(manager.surfaces, "get");
+    manager.invalidateType("never-registered");
+    expect(spy).toHaveBeenCalledWith("never-registered");
+  });
+
   it("getLayerType caches the resolved type on the layer info", () => {
     manager.registerLayer({
       id: "poly2",
