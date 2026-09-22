@@ -387,9 +387,19 @@ def _inject_window_map(html: str) -> str:
     return html
 
 
-def make_browser_page(browser, tmp_path, html: str, name: str = "page"):
+def make_browser_page(
+    browser, tmp_path, html: str, name: str = "page", prelude: str | None = None
+):
     """Write *html* to a temp file and return a Playwright page with console
     error collection.
+
+    Parameters
+    ----------
+    prelude
+        Optional JS source run *before* the page's own scripts (via
+        ``page.add_init_script``). A listener-counting probe needs this to see
+        the whole page lifetime rather than only what happens after it
+        installs, so its counts are absolute instead of relative to itself.
 
     Returns
     -------
@@ -400,6 +410,8 @@ def make_browser_page(browser, tmp_path, html: str, name: str = "page"):
     html_path = tmp_path / f"{name}.html"
     html_path.write_text(_inject_window_map(html), encoding="utf-8")
     page = browser.new_page()
+    if prelude is not None:
+        page.add_init_script(prelude)
     errors: list[str] = []
     page.on(
         "console",
