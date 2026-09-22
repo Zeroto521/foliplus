@@ -648,10 +648,13 @@ class MeasureManager {
     this.layers.unregister();
   }
 
-  /** Clear all measurements, layers, and persisted data. */
-  clearAll() {
+  /** Transient-only cleanup: drop every live layer, cancel the armed mode,
+   *  run each measurement's dispose, and collapse the panel — but leave the
+   *  store's persisted list untouched. Called by destroy(), which runs on
+   *  control removal and must not wipe localStorage (§28.6: only an explicit
+   *  user action may drop saved data). */
+  private clearTransientState() {
     this.layers.clearLayers();
-    this.store.clear();
     this.clearActiveMode();
     // Run each handle's dispose to unbind its map-click listener; clearLayers
     // above removed the targets, so dangling listeners would otherwise persist.
@@ -659,7 +662,7 @@ class MeasureManager {
     // Safety net: each measurement's dispose (run above) drains its labels
     // through the unregister, but clearing the array here is O(1) insurance
     // against a measurement that skips its dispose, and unbinding the map
-    // events guarantees no plan fires after clearAll.
+    // events guarantees no plan fires after the call.
     this.collidableLabels = [];
     this.unbindLabelMapEvents();
     // Collapse the panel after clearing all measurements
@@ -670,21 +673,31 @@ class MeasureManager {
     }
   }
 
-  /** Full cleanup including global events. Called on control removal. */
+  /** Clear all measurements, layers, and persisted data. Called only by the
+   *  explicit CLEAR mode (setMode(CLEAR)) — the one place where dropping the
+   *  saved list is the user's request. */
+  clearAll() {
+    this.clearTransientState();
+    this.store.clear();
+  }
+
+  /** Full cleanup including global events. Called on control removal; the
+   *  in-memory list is left alone so a follow-up `removeControl` + `addControl`
+   *  restores every saved measurement from localStorage (constructor calls
+   *  restoreMeasurements). clearAll() would wipe the saved list here, losing
+   *  everything the user had — hence the split above. */
   destroy() {
     if (this.offModeChange) this.offModeChange();
     if (this.offLayerRemoved) this.offLayerRemoved();
     this.map.off("unload", this.onUnload);
     this.scheduleLabelPlan.cancel();
-    this.clearAll();
+    this.clearTransientState();
     this.hideCoordReadout();
     this.coordReadoutEl?.remove();
     this.coordReadoutEl = null;
     this.interactionCleanup?.();
     this.exportClickCleanup?.();
     this.map.off("click", this.onMapClick);
-    this.unbindLabelMapEvents();
-    this.collidableLabels = [];
   }
 
   /**
