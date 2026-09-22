@@ -387,12 +387,12 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
           // The entry's own title carries the reason (no useful extent, hidden
           // row, no labelable fields, colour basemap cannot be deleted), so it
           // is the hint too — a fixed "cannot focus" string would be wrong for
-          // every disabled entry but focus.
-          ui.m.map.foliplus!.showHint(
-            ui.conf.name,
-            menuLi.getAttribute("title") ?? ui.T("focus_layer_hidden"),
-            HINT_DURATION.SHORT,
-          );
+          // every disabled entry but focus. Every menu builder sets a title, so
+          // an entry without one has nothing to say.
+          const reason = menuLi.getAttribute("title");
+          if (reason) {
+            ui.m.map.foliplus!.showHint(ui.conf.name, reason, HINT_DURATION.SHORT);
+          }
           break;
         }
         if (action === CONST.ACTION.DELETE_LAYER) {

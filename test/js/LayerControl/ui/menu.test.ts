@@ -376,6 +376,33 @@ describe("LayerUI menu", () => {
       // Menu stays open — user sees why focus is unavailable.
       expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(1);
     });
+
+    it("Enter on a disabled menu item with no title shows no hint", () => {
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+
+      const li = item.querySelector(
+        ".foliplus-layer-more-menu li[data-action='focus-layer']",
+      ) as HTMLElement;
+      li.setAttribute("disabled", "disabled");
+      li.removeAttribute("title");
+      li.focus();
+
+      const hintSpy = vi.fn();
+      map.foliplus.showHint = hintSpy;
+
+      const event = new KeyboardEvent("keydown", {
+        key: "Enter",
+        bubbles: true,
+        cancelable: true,
+      });
+      ui.handleKeyDown(event as unknown as KeyboardEvent);
+
+      // The title is the reason, and no builder leaves it empty — with none
+      // there is nothing to say rather than a message about the wrong entry.
+      expect(hintSpy).not.toHaveBeenCalled();
+      expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(1);
+    });
   });
 
   // ─────────────────── delete (armed two-click) ───────────────────
@@ -561,6 +588,36 @@ describe("LayerUI menu", () => {
       expect(deleteSpy).not.toHaveBeenCalled();
       expect(activateDeleteItem(ui, deleteLi)).toBe(true);
       expect(deleteSpy).toHaveBeenCalledWith("overlay1");
+    });
+
+    it("activateDeleteItem no-ops on an entry it cannot arm", () => {
+      // armDelete needs the label span to swap its text. Without one it stops
+      // rather than arming a blank entry, and reports false so the caller
+      // leaves the menu open.
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+      const deleteLi = deleteEntryOf(item);
+      deleteLi.querySelector(CONST.SEL.MENU_DELETE_LABEL)!.remove();
+
+      expect(activateDeleteItem(ui, deleteLi)).toBe(false);
+      expect(deleteLi.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)).toBe(false);
+      expect(deleteSpy).not.toHaveBeenCalled();
+    });
+
+    it("an orphaned armed entry deletes nothing", () => {
+      // The confirm path reads the layer id off activeMenu. If the entry is
+      // still armed after the menu it belonged to is gone, the id is empty and
+      // no layer is touched rather than a wrong one.
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+      const deleteLi = deleteEntryOf(item);
+      click(deleteLi);
+      expect(deleteLi.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)).toBe(true);
+
+      ui.activeMenu = null;
+
+      expect(activateDeleteItem(ui, deleteLi)).toBe(true);
+      expect(deleteSpy).toHaveBeenCalledWith("");
     });
 
     it("keyboard Enter arms then deletes the layer", () => {

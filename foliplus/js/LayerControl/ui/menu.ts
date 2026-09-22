@@ -251,7 +251,6 @@ const armDelete = (ui: LayerUI, li: HTMLElement): void => {
   label.textContent = ui.T("delete_layer_confirm");
   li.classList.add(CONST.CLASSES.MENU_DELETE_ARMED);
   li.setAttribute("title", ui.T("delete_layer_confirm"));
-  if (armedDeleteTimer) clearTimeout(armedDeleteTimer);
   armedDeleteTimer = setTimeout(disarmDelete, DELETE_ARMED_TIMEOUT_MS);
 };
 
