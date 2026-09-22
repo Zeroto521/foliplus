@@ -927,4 +927,23 @@ describe("LayerSurface capabilities", () => {
     });
     expect(surface.capabilities.bounds).toBe(false);
   });
+
+  it("warns when paneName fails injection safety (covers log.warn)", () => {
+    // PANE_NAME_PATTERN is /^[a-zA-Z0-9_-]+$/ — a paneName with a space or
+    // special character is rejected, and the surface synthesizes a fallback
+    // pane instead. The log.warn at line 121 fires only for this path.
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { map, host } = makeMap();
+    const surface = new LayerSurface(host, {
+      id: "inject",
+      layer: new Path() as unknown as L.Layer,
+      paneName: "bad name with spaces",
+    });
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("rejected paneName for injection safety"),
+    );
+    // The surface falls back to a synthesized pane.
+    expect(surface.synthesizedPaneName).not.toBeNull();
+    warnSpy.mockRestore();
+  });
 });
