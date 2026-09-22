@@ -15,6 +15,7 @@
 
 /** @type {import("prettier").Config} */
 module.exports = {
+  endOfLine: "auto",
   singleQuote: false,
   trailingComma: "all",
   printWidth: 88,
