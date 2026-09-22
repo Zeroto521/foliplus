@@ -284,6 +284,63 @@ describe("ListCursor", () => {
       unbind();
       c.destroy();
     });
+
+    it.each([
+      [
+        "textarea",
+        () => {
+          const el = document.createElement("textarea");
+          root.appendChild(el);
+          return el;
+        },
+      ],
+      [
+        "select",
+        () => {
+          const el = document.createElement("select");
+          root.appendChild(el);
+          return el;
+        },
+      ],
+    ])("handleKey lets %s consume ArrowDown / Home / End", (_, mk) => {
+      const c = new ListCursor({ root, itemSelector: ".opt", activeClass: "on" });
+      const active = mk();
+      const unbind = c.bindKeys(root);
+      c.set(1);
+      active.focus();
+      for (const key of ["ArrowDown", "Home", "End", "ArrowUp"]) {
+        const event = new KeyboardEvent("keydown", {
+          key,
+          bubbles: true,
+          cancelable: true,
+        });
+        active.dispatchEvent(event);
+        expect(event.defaultPrevented).toBe(false);
+      }
+      expect(c.index).toBe(1);
+      unbind();
+      c.destroy();
+    });
+
+    it("handleKey does not skip Enter / Space on a form control", () => {
+      const c = new ListCursor({ root, itemSelector: ".opt", activeClass: "on" });
+      const slider = document.createElement("input");
+      slider.type = "range";
+      root.appendChild(slider);
+      const unbind = c.bindKeys(root);
+      c.set(1);
+      slider.focus();
+      const event = new KeyboardEvent("keydown", {
+        key: "Enter",
+        bubbles: true,
+        cancelable: true,
+      });
+      slider.dispatchEvent(event);
+      // Enter is not in the arrow guard — handleKey proceeds to activate().
+      expect(c.handleKey(event)).toBe(true);
+      unbind();
+      c.destroy();
+    });
   });
 
   describe("custom roles", () => {
