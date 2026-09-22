@@ -128,6 +128,10 @@ class HeatmapControl extends BaseControl {
     if (this.observer) this.observer.disconnect();
     this.observer = null;
 
+    // Flush any pending write so the last user-initiated change is durable
+    // (write-through here, so the flush is a no-op safety net).
+    mgr.flush();
+
     mgr.clearHeatmapCanvas();
     mgr.overlay.destroy();
     mgr.ui = null;
