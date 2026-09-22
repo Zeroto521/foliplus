@@ -71,6 +71,7 @@ class HeatmapControl extends BaseControl {
       toggleSvg: SVGs.HEXAGON,
       panelTitle: T("title"),
       closeTitle: T("close_title"),
+      collapseOnOutside: CONF.collapse_on_outside,
     });
     // See LayerControl.buildDOM: keeps the factory's document-level listeners
     // from outliving a control that is removed but not garbage-collected.
