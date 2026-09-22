@@ -133,16 +133,20 @@ describe("build artifacts", () => {
     // R45 also shipped the three legacy aliases `listenDOM`/`listenMap`/
     // `trackCleanup` as zero-edit shims over those entries; T49 drops them
     // along with the `events` field only `listenDOM` populated, so the
-    // 170 000 B figure below is measured with the aliases and still holds
+    // figure below is measured with the aliases and still holds
     // with extra headroom. That class is bundled into
     // foliplus-common.min.js via runtime/index.ts:31, so the whole delta is
     // common-bundle surface, not component-bundle surface. Every component
     // keeps externalising BaseControl, so this is the only budget line that
     // moves from this round; the per-component caps below are untouched.
     //
-    // Measured after merge (post-#394): 166 504 B dev-mode (same command),
-    // +5 607 B over R9's 160 897 B. 170 000 leaves ~3.4 KB headroom.
-    expect(size).toBeLessThan(170000);
+    // Measured post-#394: 166 504 B dev-mode. Post-#420 (bounds detection
+    // + focus-dedup): 170 879 B, +4 375 B. 175 000 leaves ~4 KB headroom —
+    // the previous 170 000 cap sat 68 B above HEAD, so any further work in
+    // core/layer or LayerControl would trip it. The +947 B from this round's
+    // review changes (dedup, bug fixes, no new features) confirms the cap
+    // needed re-measuring.
+    expect(size).toBeLessThan(175000);
   });
 
   // Per-component upper bounds. These are sanity checks against accidental

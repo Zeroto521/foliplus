@@ -37,6 +37,16 @@ interface LayerCapabilities {
    *  cannot (a plugin that owns its own z) can say so without another shape
    *  change. */
   relocatable: boolean;
+  /** Whether the surface exposes a geographic-bounds provider the UI can use
+   *  to focus it. A static declaration, not a probe: `getBounds()` on a
+   *  live layer may still throw or answer empty until the layer is attached,
+   *  and a probe that runs before addLayer would have to swallow that. The
+   *  UI reads this to disable focus for layers that never had a provider
+   *  (MarkerCluster, third-party groups, canvas surfaces without
+   *  `SurfaceOpts.getBounds`) instead of letting the user click and hit a
+   *  silent no-op. `false` does not mean "the provider lies": it means
+   *  "no honest carrier to ask". */
+  bounds: boolean;
 }
 
 /** Options for registerLayer / createLayerInfo. */

@@ -20,8 +20,9 @@
 //       has to handle a "not yet sorted" window.
 //
 // No CONF / translator dependency: core/layer, not a component dir.
+import { createLogger } from "#common/log.js";
 import type { PaneManager } from "./PaneManager.js";
-import { FALLBACK_PANE_PREFIX } from "./const.js";
+import { FALLBACK_PANE_PREFIX, PANE_NAME_PATTERN } from "./const.js";
 import type {
   LayerCapabilities,
   LayerSurface as LayerSurfaceContract,
@@ -31,6 +32,26 @@ import type {
 } from "./type.js";
 import { getGeometryType } from "./util.js";
 import { zFor } from "./z.js";
+
+const log = createLogger("LayerSurface");
+
+/** Normalise a caller-declared pane name to the value this surface will
+ *  actually build with. A name outside `PANE_NAME_PATTERN` is not a pane we
+ *  can create — it lands in the DOM as a Leaflet pane id and class — so it
+ *  counts as "not declared" and the constructor's fallback synthesis takes
+ *  over. The constructor and `matches` both go through here, so a
+ *  re-registration is always compared against the value the surface was
+ *  really built with, not the raw string that was handed in. */
+const declaredPaneName = (raw: string | null | undefined): string | null =>
+  raw != null && PANE_NAME_PATTERN.test(raw) ? raw : null;
+
+/** Whether a layer carries its own `getBounds()`. Presence of the method, not
+ *  its answer: the answer depends on what the layer currently holds, while
+ *  `capabilities.bounds` is a static declaration made at register time. */
+const hasBoundsProvider = (layer: L.Layer | null | undefined): boolean =>
+  layer != null &&
+  typeof (layer as L.Layer & { getBounds?: () => L.LatLngBounds }).getBounds ===
+    "function";
 
 /** Options a surface is resolved from — the register-time declaration only. */
 interface SurfaceOpts {
@@ -42,6 +63,11 @@ interface SurfaceOpts {
   paneSpecs?: readonly PaneSpec[];
   /** True for a `createCanvas` surface: its pane carries a canvas, not SVG. */
   canvas?: boolean;
+  /** Bounds provider the caller declared (canvas surfaces). Drives the
+   *  `capabilities.bounds` answer — a canvas without a provider has no
+   *  honest carrier for focus, so the UI disables the action rather than
+   *  letting a click land as a silent no-op. */
+  getBounds?: (() => L.LatLngBounds | null) | null;
 }
 
 /** A layer with the mutable option surface the pin writes to. Containers carry
@@ -69,6 +95,11 @@ interface SurfaceDeclaration {
   layer: L.Layer | null;
   paneName: string | null;
   canvas: boolean;
+  /** Bounds provider the caller declared. Part of the declaration because
+   *  `capabilities.bounds` is derived from it — a surface reused across a
+   *  re-registration that gained or lost a provider would otherwise keep
+   *  answering with the old provider's absence. */
+  getBounds: (() => L.LatLngBounds | null) | null;
 }
 
 class LayerSurface implements LayerSurfaceContract {
@@ -102,9 +133,25 @@ class LayerSurface implements LayerSurfaceContract {
     this.layer = opts.layer;
     this.specs = opts.paneSpecs ?? [];
 
-    const declared = opts.paneName ?? null;
+    // The declared paneName is a third-party input that reaches the DOM as a
+    // Leaflet pane id / class. If it fails `PANE_NAME_PATTERN`, treat it as
+    // not declared — the fallback synthesis below then gives the layer a
+    // stamped pane that is provably safe (FALLBACK_PANE_PREFIX + a number).
+    const declaredRaw = opts.paneName ?? null;
+    const declared = declaredPaneName(declaredRaw);
+    if (declaredRaw != null && declared === null) {
+      log.warn(
+        `LayerSurface rejected paneName for injection safety: ${declaredRaw}; ` +
+          `synthesising a fallback pane instead`,
+      );
+    }
     const layer = opts.layer;
-    this.spec = { layer, paneName: declared, canvas: opts.canvas === true };
+    this.spec = {
+      layer,
+      paneName: declared,
+      canvas: opts.canvas === true,
+      getBounds: opts.getBounds ?? null,
+    };
     // Capabilities are resolved here, before any early return below, so every
     // branch — declared, synthesized, native — reports the same way. A GridLayer
     // or ImageOverlay gets "native" regardless of whether a pane is allocated.
@@ -142,6 +189,11 @@ class LayerSurface implements LayerSurfaceContract {
       return;
     }
 
+    // L.stamp returns an incrementing integer; FALLBACK_PANE_PREFIX + digits
+    // is always inside PANE_NAME_PATTERN, so no injection validation is needed
+    // here. The third-party-facing gate is `registerPaneSpecs` / the declared
+    // `paneName` check above — this is the internal fallback for a layer that
+    // neither declared a pane nor was routed through `createLayers({ panes })`.
     const name = `${FALLBACK_PANE_PREFIX}${L.stamp(layer)}`;
     this.addPane(name, true);
     this.pinTarget = name;
@@ -271,7 +323,13 @@ class LayerSurface implements LayerSurfaceContract {
    *  the same live layer object and the same declared panes. Re-registration is
    *  how a caller says "this layer's content changed" — when the declaration did
    *  not change too, rebuilding would re-walk an already-pinned tree for
-   *  nothing. */
+   *  nothing.
+   *
+   *  Every input `capabilities` is derived from belongs here: a declaration
+   *  that gained or lost a bounds provider describes a different face (the UI
+   *  decides whether to offer focus from that flag), and the pane name is
+   *  compared as the surface normalised it, so a rejected name does not read
+   *  as "changed" on every pass. */
   matches(opts: SurfaceOpts): boolean {
     const specs = opts.paneSpecs ?? [];
     // `role` and `order` are part of the declaration, not decoration: a spec
@@ -291,8 +349,9 @@ class LayerSurface implements LayerSurfaceContract {
       );
     return (
       this.spec.layer === opts.layer &&
-      this.spec.paneName === (opts.paneName ?? null) &&
+      this.spec.paneName === declaredPaneName(opts.paneName) &&
       this.spec.canvas === Boolean(opts.canvas) &&
+      this.spec.getBounds === (opts.getBounds ?? null) &&
       samePanes
     );
   }
@@ -419,12 +478,25 @@ const usesNativeSetter = (layer: L.Layer): boolean =>
  *  The only "none" left is a layer that has no content we can route: the
  *  constructor synthesizes no pane and none is declared — e.g. a third-party
  *  plugin that builds its own canvas in Leaflet's `overlayPane`. Its content
- *  is not ours to write. */
+ *  is not ours to write.
+ *
+ *  `bounds` answers a different question — "can we ask this surface for a
+ *  geographic extent to focus on?" — and its rules are different:
+ *
+ *    - MarkerCluster's group bounds are unreliable (Leaflet's own docs warn
+ *      that they're a bounding box of the leaves' bounds, but individual
+ *      cluster markers may sit outside), so we treat them as having no
+ *      honest carrier and let the UI disable focus.
+ *    - GridLayer / ImageOverlay carry their own `getBounds` — `native`.
+ *    - A Layer with a `getBounds()` method (most Leaflet vector layers,
+ *      groups with leaves that expose bounds) gets `true`.
+ *    - A canvas surface gets `true` only if the caller provided a
+ *      `getBounds` provider; a bare canvas has no idea what it covers. */
 const detectCapabilities = (opts: SurfaceOpts): LayerCapabilities => {
   const layer = opts.layer;
 
   if (layer && isMarkerCluster(layer)) {
-    return { opacity: "none", zoomRange: "none", relocatable: false };
+    return { opacity: "none", zoomRange: "none", relocatable: false, bounds: false };
   }
 
   if (layer && usesNativeSetter(layer)) {
@@ -432,7 +504,12 @@ const detectCapabilities = (opts: SurfaceOpts): LayerCapabilities => {
     // once attached (R1 §25.3-5): only GridLayer honours min/maxZoom live.
     const zoomRange: LayerCapabilities["zoomRange"] =
       layer instanceof L.GridLayer ? "native" : "none";
-    return { opacity: "native", zoomRange, relocatable: true };
+    return {
+      opacity: "native",
+      zoomRange,
+      relocatable: true,
+      bounds: hasBoundsProvider(layer),
+    };
   }
 
   // The surface paints into panes we own — declared, sub, or synthesized — so
@@ -446,18 +523,28 @@ const detectCapabilities = (opts: SurfaceOpts): LayerCapabilities => {
     opts.canvas;
 
   if (hasContentPanes) {
-    return { opacity: "pane", zoomRange: "pane", relocatable: true };
+    return {
+      opacity: "pane",
+      zoomRange: "pane",
+      relocatable: true,
+      bounds: Boolean(opts.getBounds) || hasBoundsProvider(layer),
+    };
   }
 
   // A non-grid, non-native layer with no declared pane and no canvas: the
   // constructor would synthesize a fallback (any non-grid `layer` gets one).
   // That pane is addressable on its own.
   if (layer) {
-    return { opacity: "pane", zoomRange: "pane", relocatable: true };
+    return {
+      opacity: "pane",
+      zoomRange: "pane",
+      relocatable: true,
+      bounds: hasBoundsProvider(layer),
+    };
   }
 
   // No layer at all and no canvas — nothing to write.
-  return { opacity: "none", zoomRange: "none", relocatable: false };
+  return { opacity: "none", zoomRange: "none", relocatable: false, bounds: false };
 };
 
 export { LayerSurface };

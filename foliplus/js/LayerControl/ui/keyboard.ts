@@ -9,7 +9,7 @@ import {
   cancelFocus,
   focusLayer,
   isFocusing,
-  showBaseFocusHint,
+  showFocusDisabledHint,
   toggleFocusedLayer,
 } from "./focus.js";
 import type { LayerUI } from "./index.js";
@@ -463,22 +463,20 @@ const handleDblClick = (ui: LayerUI, event: MouseEvent): void => {
   ) {
     return;
   }
-  // Base basemap / color picker have no meaningful extent to zoom to —  // explain instead of silently ignoring the double-click. Hidden layers
+  // Base basemap / color picker have no meaningful extent to zoom to —
+  // explain instead of silently ignoring the double-click. Hidden layers
   // ARE passed through: focusLayer shows the "hidden" hint for them.
-  if (item.classList.contains(CONST.CLASSES.COLOR_ITEM)) {
-    showBaseFocusHint(ui);
-    return;
-  }
-  if (item.dataset.layerType === CONST.GROUP.BASE) {
-    showBaseFocusHint(ui);
+  if (
+    item.classList.contains(CONST.CLASSES.COLOR_ITEM) ||
+    item.dataset.layerType === CONST.GROUP.BASE
+  ) {
+    showFocusDisabledHint(ui, "base");
     return;
   }
   const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
   if (!layerId) return;
   ui.focusLayer(layerId);
 };
-
-/** Basemaps / color pickers cannot be focused —hint instead of silence. */
 
 export {
   syncListCursor,
