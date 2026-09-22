@@ -11,7 +11,7 @@ import {
   saveState,
   unmarkOverride,
 } from "../state.js";
-import { railPos, round5 } from "./shared.js";
+import { railPos, round5 } from "./frame.js";
 
 /** Whether the layer's surface can honestly carry a zoom-range write.
  *

@@ -8,8 +8,8 @@ import { createRowPanel } from "#common/panel.js";
 import * as CONST from "../../const.js";
 import * as SVGs from "../../icon.js";
 import type { LayerUI } from "../index.js";
+import { appendResetFooter, sectionHeading } from "./frame.js";
 import { buildOpacityRow, layerCanOpacity } from "./opacity.js";
-import { appendResetFooter, sectionHeading } from "./shared.js";
 import { buildZoomRangeRow, canShowZoomRange } from "./zoomRange.js";
 
 /** Whether the layer delegates its style to the drawer via styleSetters

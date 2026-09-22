@@ -8,8 +8,9 @@
 // Split from ui/style.ts (34.1). Owns the panel assembly (renderStylePanel),
 // the event-binding skeleton (openStylePanel) and the teardown
 // (closeStylePanel). Row builders, the field cache and the delegated drawer
-// live in ./labels.ts, ./opacity.ts, ./zoomRange.ts, ./delegated.ts;
-// shared helpers in ./shared.ts.
+// live in ./label.ts, ./opacity.ts, ./zoomRange.ts, ./delegated.ts;
+// frame-level helpers (section heading, reset footer, rail positioning)
+// live in ./frame.ts.
 import { EVENTS } from "#core/event/index.js";
 import { type LabelStyleValues, numberFormatOptions } from "#core/labelControl.js";
 import { AUTO_FIELD, type LabelField, resolveSelectedField } from "#core/labelField.js";
@@ -32,7 +33,8 @@ import * as SVGs from "../../icon.js";
 import type { LayerUI } from "../index.js";
 import { finishRename } from "../rename.js";
 import { layerHasStyleDelegation, renderDelegatedStylePanel } from "./delegated.js";
-import { applyPatch, layerFields, syncFormatRow } from "./labels.js";
+import { appendResetFooter, railPos, sectionHeading } from "./frame.js";
+import { applyPatch, layerFields, syncFormatRow } from "./label.js";
 import {
   buildOpacityRow,
   clampPct,
@@ -40,7 +42,6 @@ import {
   layerCanOpacity,
   resetLayerOpacity,
 } from "./opacity.js";
-import { appendResetFooter, railPos, sectionHeading } from "./shared.js";
 import {
   applyZoomRangeLive,
   buildZoomRangeRow,
@@ -634,5 +635,5 @@ export {
   applyStyleLabelState,
   invalidateFields,
   layerHasLabelFields,
-} from "./labels.js";
+} from "./label.js";
 export { layerHasStyleDelegation } from "./delegated.js";

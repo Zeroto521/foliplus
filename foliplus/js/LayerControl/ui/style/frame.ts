@@ -1,16 +1,18 @@
-// Style-panel helpers shared by more than one style/*.ts module — pure DOM
-// builders and math. No state, no events, no manager calls. Moved verbatim
-// from ui/style.ts (34.1 §34.2.1).
+// Frame-level helpers for the style panel — pure DOM builders and math.
+// No state, no events, no manager calls. Moved verbatim from ui/style.ts
+// (34.1 §34.2.1). Owns the panel's frame pieces: section heading, reset
+// footer, and the slider-rail positioning math the opacity / zoom-range
+// rows share.
 import { dom } from "#common/dom.js";
 import * as CONST from "../../const.js";
 import type { LayerUI } from "../index.js";
 
 /** Shared section heading (common/form.css `.foliplus-section-heading`).
- *  Used by labels.ts / delegated.ts / zoomRange.ts. */
+ *  Used by label.ts / delegated.ts / zoomRange.ts. */
 const sectionHeading = (text: string): HTMLElement =>
   dom.el("div", { class: CONST.CLASSES.SECTION_HEADING }, text);
 
-/** Shared Reset footer — divider + button, same vocabulary for the annotation
+/** Reset footer — divider + button, same vocabulary for the annotation
  *  and the delegated panel. */
 const appendResetFooter = (ui: LayerUI, content: HTMLElement): void => {
   content.append(
@@ -30,8 +32,9 @@ const appendResetFooter = (ui: LayerUI, content: HTMLElement): void => {
   );
 };
 
-/** Keep inline calc() strings short; the value is a position, not a secret.
- *  Used by opacity.ts (`opacityFillWidth`) and zoomRange.ts (`railPos`). */
+/** Round to 5 decimals for inline calc() strings; the value is a position,
+ *  not a secret. Used by opacity.ts (`opacityFillWidth`) and zoomRange.ts
+ *  (`railPos`). */
 const round5 = (n: number): number => Math.round(n * 1e5) / 1e5;
 
 /** Where a percentage along a slider rail lands. Every mark on the rail —
@@ -41,8 +44,8 @@ const round5 = (n: number): number => Math.round(n * 1e5) / 1e5;
  *  that far beyond it, so a handle's centre *is* its percentage of the
  *  rail, and every mark that shares the mapping lands on it.
  *
- *  Used by both the opacity row (via `opacityFillWidth`) and the
- *  zoom-range row (via `railPos`). */
+ *  Used by the opacity row (via `opacityFillWidth`) and the zoom-range row
+ *  (via `railPos`). */
 const railPos = (pct: number): string => `${round5(pct)}%`;
 
 export { appendResetFooter, railPos, round5, sectionHeading };

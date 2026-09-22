@@ -1,6 +1,6 @@
 // Opacity row: single-thumb rail + fill + end dots + live commit pipeline.
-// Moved verbatim from ui/style.ts (34.1 §34.2.1); the shared helpers it
-// reaches into live in ./shared.ts. `buildOpacityRow` and the sync /
+// Moved verbatim from ui/style.ts (34.1 §34.2.1); the frame helpers it
+// reaches into live in ./frame.ts. `buildOpacityRow` and the sync /
 // commit functions are used both by the delegated drawer (delegated.ts)
 // and the annotation panel (index.ts) — the row is LayerControl-owned,
 // not annotation-owned.
@@ -13,7 +13,7 @@ import {
   saveState,
   unmarkOverride,
 } from "../state.js";
-import { railPos, round5 } from "./shared.js";
+import { railPos, round5 } from "./frame.js";
 
 /** Whether the layer's surface can honestly carry an opacity write. Layers with
  *  `opacity: "none"` (e.g. MarkerCluster, whose cluster icons live in a shared
