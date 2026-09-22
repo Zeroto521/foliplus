@@ -91,6 +91,31 @@ describe("locateMe", () => {
     expect(ctrl.marker).not.toBeNull();
   });
 
+  it("clicking the ✕ removes the pin and its delete icon", () => {
+    const getCurrentPosition = geoStub();
+    const ctrl: any = makeCtrl();
+
+    locateMe(ctrl);
+    getCurrentPosition.mock.calls[0][0]({
+      coords: { longitude: 119.3, latitude: 26.08 },
+    });
+
+    const marker = ctrl.marker;
+    const delIcon = ctrl.delIcon;
+    expect(delIcon).not.toBeNull();
+
+    const delClick = delIcon.on.mock.calls.find((c: any) => c[0] === "click")?.[1];
+    expect(delClick).toBeDefined();
+    const x = document.createElement("span");
+    x.setAttribute("data-del-icon", "");
+    delClick({ originalEvent: { target: x } });
+
+    expect(map.removeLayer).toHaveBeenCalledWith(marker);
+    expect(map.removeLayer).toHaveBeenCalledWith(delIcon);
+    expect(ctrl.marker).toBeNull();
+    expect(ctrl.delIcon).toBeNull();
+  });
+
   it("locating hint is plain text, not an inline SVG string", () => {
     const getCurrentPosition = geoStub();
     const ctrl = makeCtrl();

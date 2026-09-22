@@ -16,12 +16,8 @@ import { createLocationMarker } from "#core/locationMarker.js";
 import { guardBlocked } from "#core/mode.js";
 import { Cache } from "#common/cache.js";
 import { type Debounced, debounce } from "#common/debounce.js";
-import {
-  DEL_ICON_MARKER_ANCHOR,
-  attachDelClick,
-  bindDelIconToPopup,
-  makeDelIcon,
-} from "#common/delicon.js";
+import { DEL_ICON_MARKER_ANCHOR } from "#common/delicon.js";
+import { mountDelIcon } from "#common/deliconMount.js";
 import { dom } from "#common/dom.js";
 import { fetchWithTimeout } from "#common/fetch.js";
 import { formatLatLng } from "#common/format.js";
@@ -244,13 +240,6 @@ const attachSearchDelIcon = (ctrl: SearchControlState, latlng: L.LatLngExpressio
     map.removeLayer(ctrl.delIcon);
     ctrl.delIcon = null;
   }
-  ctrl.delIcon = makeDelIcon(latlng, {
-    title: _("foliplus.close_label"),
-    iconAnchor: DEL_ICON_MARKER_ANCHOR,
-  });
-  map.addLayer(ctrl.delIcon);
-  const delIcon = ctrl.delIcon;
-
   const clearSearch = () => {
     if (ctrl.marker) {
       map.removeLayer(ctrl.marker);
@@ -263,11 +252,15 @@ const attachSearchDelIcon = (ctrl: SearchControlState, latlng: L.LatLngExpressio
     ctrl.inp.value = "";
     ctrl.inp.focus();
   };
-  attachDelClick(delIcon, clearSearch);
-
   // The ✕ is hidden by default and only appears while the popup is open,
   // matching MeasureControl / LocateControl marker UX.
-  bindDelIconToPopup(ctrl.marker, delIcon);
+  ctrl.delIcon = mountDelIcon(
+    latlng,
+    { title: _("foliplus.close_label"), iconAnchor: DEL_ICON_MARKER_ANCHOR },
+    m => map.addLayer(m),
+    clearSearch,
+    ctrl.marker,
+  );
 };
 
 // ── Search execution ─────────────────────────────────────────────
