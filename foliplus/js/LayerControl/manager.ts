@@ -805,6 +805,7 @@ class LayerManager implements LayerAPI {
       paneName: layerInfo.paneName,
       paneSpecs: layerInfo.paneSpecs,
       canvas: Boolean(layerInfo.canvas),
+      getBounds: layerInfo.getBounds,
     };
     const existing = this.surfaces.get(layerInfo.id);
     if (existing?.matches(spec)) return existing;

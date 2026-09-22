@@ -20,8 +20,9 @@
 //       has to handle a "not yet sorted" window.
 //
 // No CONF / translator dependency: core/layer, not a component dir.
+import { createLogger } from "#common/log.js";
 import type { PaneManager } from "./PaneManager.js";
-import { FALLBACK_PANE_PREFIX } from "./const.js";
+import { FALLBACK_PANE_PREFIX, PANE_NAME_PATTERN } from "./const.js";
 import type {
   LayerCapabilities,
   LayerSurface as LayerSurfaceContract,
@@ -31,6 +32,8 @@ import type {
 } from "./type.js";
 import { getGeometryType } from "./util.js";
 import { zFor } from "./z.js";
+
+const log = createLogger("LayerSurface");
 
 /** Options a surface is resolved from — the register-time declaration only. */
 interface SurfaceOpts {
@@ -42,6 +45,11 @@ interface SurfaceOpts {
   paneSpecs?: readonly PaneSpec[];
   /** True for a `createCanvas` surface: its pane carries a canvas, not SVG. */
   canvas?: boolean;
+  /** Bounds provider the caller declared (canvas surfaces). Drives the
+   *  `capabilities.bounds` answer — a canvas without a provider has no
+   *  honest carrier for focus, so the UI disables the action rather than
+   *  letting a click land as a silent no-op. */
+  getBounds?: (() => L.LatLngBounds | null) | null;
 }
 
 /** A layer with the mutable option surface the pin writes to. Containers carry
@@ -102,7 +110,19 @@ class LayerSurface implements LayerSurfaceContract {
     this.layer = opts.layer;
     this.specs = opts.paneSpecs ?? [];
 
-    const declared = opts.paneName ?? null;
+    // The declared paneName is a third-party input that reaches the DOM as a
+    // Leaflet pane id / class. If it fails `PANE_NAME_PATTERN`, treat it as
+    // not declared — the fallback synthesis below then gives the layer a
+    // stamped pane that is provably safe (FALLBACK_PANE_PREFIX + a number).
+    const declaredRaw = opts.paneName ?? null;
+    const declared =
+      declaredRaw != null && PANE_NAME_PATTERN.test(declaredRaw) ? declaredRaw : null;
+    if (declaredRaw != null && declared === null) {
+      log.warn(
+        `LayerSurface rejected paneName for injection safety: ${declaredRaw}; ` +
+          `synthesising a fallback pane instead`,
+      );
+    }
     const layer = opts.layer;
     this.spec = { layer, paneName: declared, canvas: opts.canvas === true };
     // Capabilities are resolved here, before any early return below, so every
@@ -142,6 +162,11 @@ class LayerSurface implements LayerSurfaceContract {
       return;
     }
 
+    // L.stamp returns an incrementing integer; FALLBACK_PANE_PREFIX + digits
+    // is always inside PANE_NAME_PATTERN, so no injection validation is needed
+    // here. The third-party-facing gate is `registerPaneSpecs` / the declared
+    // `paneName` check above — this is the internal fallback for a layer that
+    // neither declared a pane nor was routed through `createLayers({ panes })`.
     const name = `${FALLBACK_PANE_PREFIX}${L.stamp(layer)}`;
     this.addPane(name, true);
     this.pinTarget = name;
@@ -419,12 +444,25 @@ const usesNativeSetter = (layer: L.Layer): boolean =>
  *  The only "none" left is a layer that has no content we can route: the
  *  constructor synthesizes no pane and none is declared — e.g. a third-party
  *  plugin that builds its own canvas in Leaflet's `overlayPane`. Its content
- *  is not ours to write. */
+ *  is not ours to write.
+ *
+ *  `bounds` answers a different question — "can we ask this surface for a
+ *  geographic extent to focus on?" — and its rules are different:
+ *
+ *    - MarkerCluster's group bounds are unreliable (Leaflet's own docs warn
+ *      that they're a bounding box of the leaves' bounds, but individual
+ *      cluster markers may sit outside), so we treat them as having no
+ *      honest carrier and let the UI disable focus.
+ *    - GridLayer / ImageOverlay carry their own `getBounds` — `native`.
+ *    - A Layer with a `getBounds()` method (most Leaflet vector layers,
+ *      groups with leaves that expose bounds) gets `true`.
+ *    - A canvas surface gets `true` only if the caller provided a
+ *      `getBounds` provider; a bare canvas has no idea what it covers. */
 const detectCapabilities = (opts: SurfaceOpts): LayerCapabilities => {
   const layer = opts.layer;
 
   if (layer && isMarkerCluster(layer)) {
-    return { opacity: "none", zoomRange: "none", relocatable: false };
+    return { opacity: "none", zoomRange: "none", relocatable: false, bounds: false };
   }
 
   if (layer && usesNativeSetter(layer)) {
@@ -432,7 +470,12 @@ const detectCapabilities = (opts: SurfaceOpts): LayerCapabilities => {
     // once attached (R1 §25.3-5): only GridLayer honours min/maxZoom live.
     const zoomRange: LayerCapabilities["zoomRange"] =
       layer instanceof L.GridLayer ? "native" : "none";
-    return { opacity: "native", zoomRange, relocatable: true };
+    return {
+      opacity: "native",
+      zoomRange,
+      relocatable: true,
+      bounds: typeof layer.getBounds === "function",
+    };
   }
 
   // The surface paints into panes we own — declared, sub, or synthesized — so
@@ -446,18 +489,29 @@ const detectCapabilities = (opts: SurfaceOpts): LayerCapabilities => {
     opts.canvas;
 
   if (hasContentPanes) {
-    return { opacity: "pane", zoomRange: "pane", relocatable: true };
+    const layerBounds = layer != null && typeof layer.getBounds === "function";
+    return {
+      opacity: "pane",
+      zoomRange: "pane",
+      relocatable: true,
+      bounds: Boolean(opts.getBounds) || layerBounds,
+    };
   }
 
   // A non-grid, non-native layer with no declared pane and no canvas: the
   // constructor would synthesize a fallback (any non-grid `layer` gets one).
   // That pane is addressable on its own.
   if (layer) {
-    return { opacity: "pane", zoomRange: "pane", relocatable: true };
+    return {
+      opacity: "pane",
+      zoomRange: "pane",
+      relocatable: true,
+      bounds: typeof layer.getBounds === "function",
+    };
   }
 
   // No layer at all and no canvas — nothing to write.
-  return { opacity: "none", zoomRange: "none", relocatable: false };
+  return { opacity: "none", zoomRange: "none", relocatable: false, bounds: false };
 };
 
 export { LayerSurface };

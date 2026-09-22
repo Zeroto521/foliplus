@@ -774,4 +774,109 @@ describe("LayerSurface capabilities", () => {
     expect(surface.capabilities.zoomRange).toBe("none");
     expect(surface.capabilities.relocatable).toBe(true);
   });
+
+  // ── bounds: static capability declaration ───────────────────────
+  // bounds answers "can this surface be asked for a geographic extent to
+  // focus on?" — a yes/no that the UI uses to disable the ⋮ menu's focus
+  // action rather than let a click land as a silent no-op. Each branch
+  // below is a different reason for yes / no.
+
+  it("reports bounds false for a MarkerClusterGroup (no honest carrier)", () => {
+    const { map, host } = makeMap();
+    const cluster = new MarkerClusterGroup();
+    const surface = new LayerSurface(host, {
+      id: "cluster",
+      layer: cluster as unknown as L.Layer,
+    });
+    expect(surface.capabilities.bounds).toBe(false);
+  });
+
+  it("reports bounds true for a GridLayer with getBounds", () => {
+    const { map, host } = makeMap();
+    const tiles = new GridLayer();
+    Object.assign(tiles, { getBounds: vi.fn() });
+    const surface = new LayerSurface(host, {
+      id: "tiles",
+      layer: tiles as unknown as L.Layer,
+    });
+    expect(surface.capabilities.bounds).toBe(true);
+  });
+
+  it("reports bounds false for a GridLayer without getBounds", () => {
+    const { map, host } = makeMap();
+    const surface = new LayerSurface(host, {
+      id: "tiles",
+      layer: new GridLayer() as unknown as L.Layer,
+    });
+    expect(surface.capabilities.bounds).toBe(false);
+  });
+
+  it("reports bounds true for an ImageOverlay with getBounds", () => {
+    const { map, host } = makeMap();
+    const overlay = new ImageOverlay();
+    Object.assign(overlay, { getBounds: vi.fn() });
+    const surface = new LayerSurface(host, {
+      id: "overlay",
+      layer: overlay as unknown as L.Layer,
+    });
+    expect(surface.capabilities.bounds).toBe(true);
+  });
+
+  it("reports bounds false for an ImageOverlay without getBounds", () => {
+    const { map, host } = makeMap();
+    const surface = new LayerSurface(host, {
+      id: "overlay",
+      layer: new ImageOverlay() as unknown as L.Layer,
+    });
+    expect(surface.capabilities.bounds).toBe(false);
+  });
+
+  it("reports bounds true for a pane-painted layer with getBounds", () => {
+    const { map, host } = makeMap();
+    const path = new Path();
+    Object.assign(path, { getBounds: vi.fn() });
+    const surface = new LayerSurface(host, {
+      id: "a",
+      layer: path as unknown as L.Layer,
+      paneName: "graph",
+    });
+    expect(surface.capabilities.bounds).toBe(true);
+  });
+
+  it("reports bounds false for a pane-painted layer without getBounds", () => {
+    const { map, host } = makeMap();
+    const surface = new LayerSurface(host, {
+      id: "a",
+      layer: new Path() as unknown as L.Layer,
+      paneName: "graph",
+    });
+    expect(surface.capabilities.bounds).toBe(false);
+  });
+
+  it("reports bounds true for a canvas surface with a getBounds provider", () => {
+    const { map, host } = makeMap();
+    const surface = new LayerSurface(host, {
+      id: "canvas",
+      canvas: true,
+      getBounds: () => null,
+    });
+    expect(surface.capabilities.bounds).toBe(true);
+  });
+
+  it("reports bounds false for a canvas surface without a getBounds provider", () => {
+    const { map, host } = makeMap();
+    const surface = new LayerSurface(host, {
+      id: "canvas",
+      canvas: true,
+    });
+    expect(surface.capabilities.bounds).toBe(false);
+  });
+
+  it("reports bounds false when there is no layer and no canvas", () => {
+    const { map, host } = makeMap();
+    const surface = new LayerSurface(host, {
+      id: "empty",
+    });
+    expect(surface.capabilities.bounds).toBe(false);
+  });
 });

@@ -9,6 +9,7 @@
 //   ── Leaflet DOM integration (browser tests) ──
 //     ensurePane / ensureVector / pinTree / pinLateContent / removePane /
 //     reset / destroy
+import { createLogger } from "#common/log.js";
 import {
   destroyPane,
   getRendererContainer,
@@ -16,9 +17,16 @@ import {
   markerShadow,
 } from "../leafletAdapter.js";
 import * as CONST from "./const.js";
-import type { PaneSpec } from "./type.js";
+import type { PaneRole, PaneSpec } from "./type.js";
 import { forEachLayer } from "./util.js";
 import { zFor } from "./z.js";
+
+const log = createLogger("PaneManager");
+
+/** The four legal `PaneSpec.role` values — anything else gets dropped at
+ *  `registerPaneSpecs` rather than flowing into z arithmetic (where an
+ *  unknown value silently prices like "base" and desynchronises a stack). */
+const PANE_ROLES: readonly PaneRole[] = ["base", "sub", "annotation", "preview"];
 
 /** A Leaflet Path layer with the mutable option surface we set on. */
 type PathWithPane = L.Path & { options: L.PathOptions & { pane?: string } };
@@ -219,9 +227,35 @@ class PaneManager {
    * Every subsequent `ensurePane` / `sweepChildPanes` knows these are ours and
    * won't touch any foreign pane a third-party component may have put on the
    * map under its own name.
+   *
+   * Injection gate: `PaneSpec.name` lands on the DOM as a pane element id
+   * and CSS class (Leaflet's `createPane` does both), so a third party
+   * passing a name outside `PANE_NAME_PATTERN` would plant an id collision,
+   * a compound-selector escape, or a script tag into the map container.
+   * Same story for `role` — anything outside the enum would silently price
+   * as "base" in z arithmetic and desynchronise the stack. Bad specs are
+   * skipped (with a warn) rather than throwing, matching the project's
+   * "don't take the whole layer tree down over a typo" convention.
    */
   registerPaneSpecs(specs: readonly PaneSpec[]): void {
-    for (const spec of specs) this.childPaneSpecs.set(spec.name, spec);
+    for (const spec of specs) {
+      if (typeof spec.name !== "string" || !CONST.PANE_NAME_PATTERN.test(spec.name)) {
+        log.warn(`PaneSpec.name rejected for injection safety: ${String(spec.name)}`);
+        continue;
+      }
+      if (!PANE_ROLES.includes(spec.role)) {
+        log.warn(
+          `PaneSpec.role rejected (unknown value "${String(spec.role)}"); ` +
+            `keeping the spec but falling back to "base"`,
+        );
+        this.childPaneSpecs.set(spec.name, {
+          ...spec,
+          role: "base" as const,
+        });
+        continue;
+      }
+      this.childPaneSpecs.set(spec.name, spec);
+    }
   }
 
   /**
