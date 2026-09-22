@@ -12,11 +12,7 @@ import type { LayerManager } from "../manager.js";
 import type { LayerOverride } from "../persistence.js";
 import { closeAttrsPanel, openAttrsPanel } from "./attr.js";
 import { hideColorLayer, showColorLayer } from "./color.js";
-import {
-  cancelFocus,
-  focusLayer,
-  isFocusing,
-} from "./focus.js";
+import { cancelFocus, focusLayer, isFocusing } from "./focus.js";
 import {
   blurActiveItem,
   clearActiveItem,
@@ -27,6 +23,13 @@ import {
   setActiveItem,
 } from "./keyboard.js";
 import {
+  attachUI,
+  bindEvents,
+  onLayerItemCountChange,
+  refreshAllCounts,
+  unbindEvents,
+} from "./lifecycle.js";
+import {
   colorLayerName,
   displayName,
   initLayerItem,
@@ -36,13 +39,6 @@ import {
   renderInitialList,
   updateLayerItem,
 } from "./list.js";
-import {
-  attachUI,
-  bindEvents,
-  onLayerItemCountChange,
-  refreshAllCounts,
-  unbindEvents,
-} from "./lifecycle.js";
 import { closeMoreMenu, openMoreMenu } from "./menu.js";
 import { finishRename, renameLayer } from "./rename.js";
 import {

@@ -23,6 +23,7 @@ import {
   toggleFold,
 } from "./drag.js";
 import { dismissFocus } from "./focus.js";
+import type { LayerUI } from "./index.js";
 import {
   blurActiveItem,
   clearActiveItem,
@@ -31,10 +32,9 @@ import {
   handleKeyDown,
   syncListCursor,
 } from "./keyboard.js";
-import {
-  insertLayerItem,
-  renderInitialList,
-} from "./list.js";
+import { insertLayerItem, renderInitialList } from "./list.js";
+import { closeMoreMenu } from "./menu.js";
+import { finishRename } from "./rename.js";
 import {
   applyOpacityStateOne,
   applyUserState,
@@ -42,11 +42,7 @@ import {
   refreshZoomEffectiveShown,
   syncHiddenId,
 } from "./state.js";
-import { closeMoreMenu } from "./menu.js";
 import { closeStylePanel, invalidateFields } from "./style/index.js";
-import {
-  finishRename,
-} from "./rename.js";
 import {
   getLayerItems,
   handleChange,
@@ -54,7 +50,6 @@ import {
   syncToggleAll,
   toggleAll,
 } from "./visibility.js";
-import type { LayerUI } from "./index.js";
 
 /**
  * Attach UI to the given container div.
@@ -303,9 +298,7 @@ const onLayerItemCountChange = (ui: LayerUI, id: string): void => {
   let typeLabel = item.getAttribute(CONST.DATA.TITLE) ?? "";
   if (typeCol && !layerInfo.iconSvg) {
     const layer = ui.m.findLayer(layerInfo);
-    const gtype = layer
-      ? ui.m.surfaceFor(layerInfo).geometryType()
-      : GEOM_TYPE.UNKNOWN;
+    const gtype = layer ? ui.m.surfaceFor(layerInfo).geometryType() : GEOM_TYPE.UNKNOWN;
     layerInfo.type = gtype;
     typeCol.innerHTML = layer ? Util.getTypeSVG(layer, gtype) : SVGs.UNKNOWN;
     typeLabel = ui.T(`type_${gtype}`);
