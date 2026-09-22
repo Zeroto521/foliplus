@@ -376,9 +376,9 @@ describe("LayerUI deselectAllBaseMaps", () => {
     expect(ui.hiddenIds.has("B1")).toBe(true);
     expect(ui.hiddenIds.has("B2")).toBe(false);
     const row = findItem(ui, "B1");
-    expect(
-      row.querySelector<HTMLInputElement>('input[type="checkbox"]').checked,
-    ).toBe(false);
+    expect(row.querySelector<HTMLInputElement>('input[type="checkbox"]').checked).toBe(
+      false,
+    );
     expect(row.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
   });
 

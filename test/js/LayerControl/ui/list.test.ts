@@ -9,7 +9,7 @@ import {
   updateLayerItem,
 } from "#foliplus/LayerControl/ui/list.js";
 import { displayName } from "#foliplus/LayerControl/ui/rowView.js";
-import { initFixture, TileLayer } from "./fixture.js";
+import { TileLayer, initFixture } from "./fixture.js";
 
 const makeUi = () =>
   ({
@@ -229,7 +229,12 @@ describe("ui/list row placement", () => {
     });
     ui.foldedGroups.add(CONST.GROUP.BASE);
 
-    manager.registerLayer({ id: "B1", name: "B1", isBase: true, layer: new TileLayer() });
+    manager.registerLayer({
+      id: "B1",
+      name: "B1",
+      isBase: true,
+      layer: new TileLayer(),
+    });
 
     const children = Array.from(ui.uiContainer.children);
     const baseHeader = children.findIndex(
@@ -256,14 +261,10 @@ describe("ui/list row placement", () => {
     const { ui } = initFixture({
       data: [{ id: "A", name: "A", isBase: false }],
     });
-    ui.uiContainer
-      .querySelector<HTMLElement>(`[${CONST.DATA.LAYER_ID}="A"]`)!
-      .remove();
+    ui.uiContainer.querySelector<HTMLElement>(`[${CONST.DATA.LAYER_ID}="A"]`)!.remove();
 
     expect(() => updateLayerItem(ui, { id: "A" } as LayerInfo)).not.toThrow();
-    expect(
-      ui.uiContainer.querySelector(`[${CONST.DATA.LAYER_ID}="A"]`),
-    ).toBeNull();
+    expect(ui.uiContainer.querySelector(`[${CONST.DATA.LAYER_ID}="A"]`)).toBeNull();
   });
 
   it("renders the color row folded when the base group is folded", () => {

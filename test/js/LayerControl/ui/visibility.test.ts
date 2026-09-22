@@ -885,8 +885,7 @@ describe("unit helpers", () => {
     // there is nothing to paint, so the sync must bail rather than write into a
     // null element.
     const uiContainer = document.createElement("div");
-    uiContainer.innerHTML =
-      `<div class="foliplus-layer-toggle-all" data-group="${CONST.GROUP.OVERLAY}"></div>`;
+    uiContainer.innerHTML = `<div class="foliplus-layer-toggle-all" data-group="${CONST.GROUP.OVERLAY}"></div>`;
     const ui = {
       uiContainer,
       m: { layerRegistry: { get: () => undefined } },
