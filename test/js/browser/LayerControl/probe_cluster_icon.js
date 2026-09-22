@@ -1,6 +1,6 @@
 // R1 probe (§10.3 #3): MarkerCluster — the cluster icon vs the single
 // marker. Individual marker icons are migrated into the layer's fallback
-// pane by PaneManager.migrateLayers (eachLayer recursion reaches them),
+// pane by PaneManager.pinLateContent (eachLayer recursion reaches them),
 // but the cluster icon itself (a .marker-cluster element, MarkerCluster
 // is an L.Marker subclass) is NOT reached by that recursion and stays in
 // markerPane (shared). "两处都要处理" is the design consequence.

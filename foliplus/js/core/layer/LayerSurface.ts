@@ -46,7 +46,7 @@ interface SurfaceOpts {
 
 /** A layer with the mutable option surface the pin writes to. Containers carry
  *  `eachLayer`, and Leaflet ignores a group's pane for its children — which is
- *  why the pin hands such a node's whole tree to `migrateLayers` instead of
+ *  why the pin hands such a node's whole tree to `pinLateContent` instead of
  *  writing one pane name onto the group. */
 interface PinnableNode extends L.Layer {
   options: L.LayerOptions & {
@@ -335,7 +335,7 @@ class LayerSurface implements LayerSurfaceContract {
     if (!base) return;
     if (this.pinTarget) {
       // A synthesized pane owns the whole tree — pin everything into it.
-      this.host.migrateLayers([
+      this.host.pinLateContent([
         { layer: this.layer, paneName: this.pinTarget, renderer: base.renderer },
       ]);
       return;
@@ -344,7 +344,7 @@ class LayerSurface implements LayerSurfaceContract {
       // A declared pane on a flat layer is still ours to place: the layer
       // itself carries the pane, and its element needs moving when it is
       // already attached.
-      this.host.migrateLayers([
+      this.host.pinLateContent([
         { layer: this.layer, paneName: base.name, renderer: base.renderer },
       ]);
       return;
