@@ -2,6 +2,32 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { LayerFactory } from "#foliplus/core/layer/LayerFactory.js";
 import { PaneManager } from "#foliplus/core/layer/PaneManager.js";
 
+// Coverage exemption for LayerFactory.ts — knowingly uncovered, not overlooked.
+// Lines and branches are at 100% (214/214, 106/106). Function coverage stops at
+// 90.38% on five records, split between a deliberate choice and a tool limit:
+//
+//   LayerFactory.ts:172  `let shouldUnregister: () => boolean = () => true;`
+//
+//   Deliberate. The default initializer never executes: every content dialect
+//   overwrites `shouldUnregister` before the handle is returned (the layers
+//   dialect with a remaining-content check, the canvas and color dialects with
+//   `() => true`). It stays anyway — for definite assignment across the
+//   `if (content.kind)` split the compiler cannot narrow, and as a fail-safe so
+//   a future dialect that forgets to overwrite it cannot leave a layer
+//   registered forever. Reaching 100% means deleting that default, i.e. trading
+//   a safety net for a number. If a new dialect lands, override
+//   `shouldUnregister` there rather than reworking this file's fixtures.
+//
+//   LayerFactory.ts:382,385 (color) and :490,493 (canvas) — the map
+//   "move"/"resize" callbacks. A v8 attribution limit, not a gap: v8 reports
+//   FNDA:0 for these four single-expression arrow bodies even when they run
+//   (lcov shows DA:490,84 and DA:493,84 in the same report that records
+//   FNDA:0 for the functions defined on those lines, and function coverage is
+//   byte-identical before and after the tests below exercise them). The two
+//   "map move and resize events drive ..." tests still exist because they pin
+//   real behavior the metric cannot see — a wrong event name or a dropped
+//   registration would fail them.
+
 describe("LayerFactory", () => {
   let factory;
   let map;
@@ -904,6 +930,41 @@ describe("LayerFactory", () => {
       }
     });
 
+    it("map move and resize events drive the counter-translate and the resize", () => {
+      // throttleRaf coalesces through requestAnimationFrame, so the frame is
+      // captured here instead of awaited. No change to the shared map mock: the
+      // registered handler is read back out of it and invoked directly.
+      const frames: Array<() => void> = [];
+      const raf = window.requestAnimationFrame;
+      const cancel = window.cancelAnimationFrame;
+      window.requestAnimationFrame = (cb: FrameRequestCallback) => {
+        frames.push(() => cb(0));
+        return frames.length;
+      };
+      window.cancelAnimationFrame = () => {};
+      try {
+        const api = factory.createCanvas({ id: "canvas_test" });
+        const handlers = Object.fromEntries(
+          map.on.mock.calls.map(([ev, cb]) => [ev, cb]),
+        ) as Record<string, () => void>;
+
+        window.L.DomUtil.getPosition = vi.fn(() => ({ x: -30, y: -12 }));
+        handlers.move();
+        expect(frames).toHaveLength(1);
+        frames[0]();
+        expect(api.canvas.style.left).toBe("30px");
+        expect(api.canvas.style.top).toBe("12px");
+
+        map.getContainer.mockReturnValue({ clientWidth: 400, clientHeight: 300 });
+        handlers.resize();
+        expect(api.canvas.width).toBe(400);
+        expect(api.canvas.height).toBe(300);
+      } finally {
+        window.requestAnimationFrame = raf;
+        window.cancelAnimationFrame = cancel;
+      }
+    });
+
     it("passes custom onToggle to registerLayer", () => {
       const onToggle = vi.fn();
       const reg = vi.fn(() => null);
@@ -1183,6 +1244,41 @@ describe("LayerFactory", () => {
           value: original,
           configurable: true,
         });
+      }
+    });
+
+    it("map move and resize events drive the counter-translate and the face size", () => {
+      // Same wiring the canvas dialect carries — the color surface reuses the
+      // canvas branch's geometry plumbing, so both map events are pinned here
+      // too rather than left to that branch's test.
+      const frames: Array<() => void> = [];
+      const raf = window.requestAnimationFrame;
+      const cancel = window.cancelAnimationFrame;
+      window.requestAnimationFrame = (cb: FrameRequestCallback) => {
+        frames.push(() => cb(0));
+        return frames.length;
+      };
+      window.cancelAnimationFrame = () => {};
+      try {
+        const h = make("solid");
+        const handlers = Object.fromEntries(
+          map.on.mock.calls.map(([ev, cb]) => [ev, cb]),
+        ) as Record<string, () => void>;
+
+        window.L.DomUtil.getPosition = vi.fn(() => ({ x: -30, y: -12 }));
+        handlers.move();
+        expect(frames).toHaveLength(1);
+        frames[0]();
+        expect(content(h).element.style.left).toBe("30px");
+        expect(content(h).element.style.top).toBe("12px");
+
+        map.getContainer.mockReturnValue({ clientWidth: 400, clientHeight: 300 });
+        handlers.resize();
+        expect(content(h).element.width).toBe(400);
+        expect(content(h).element.height).toBe(300);
+      } finally {
+        window.requestAnimationFrame = raf;
+        window.cancelAnimationFrame = cancel;
       }
     });
 
