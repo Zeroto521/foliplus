@@ -1,6 +1,8 @@
 // Mounting a delete icon — create it, add it to a map or layer tree, and bind
-// its click handler. Kept outside delicon.ts so a component test that spies on
-// `makeDelIcon` / `attachDelClick` still sees every call this composition makes.
+// its click handler. Kept outside delicon.ts: the MeasureControl ui tests mock
+// that module and spy `makeDelIcon` / `attachDelClick` to enumerate the ✕ they
+// create. A same-module caller resolves those through its local bindings, so
+// the spies would see nothing — the composition must cross the module boundary.
 import { attachDelClick, bindDelIconToPopup, makeDelIcon } from "./delicon.js";
 
 /**
