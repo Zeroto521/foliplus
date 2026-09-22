@@ -264,6 +264,26 @@ describe("ListCursor", () => {
       expect(c.index).toBe(0);
       c.destroy();
     });
+
+    it("lets range sliders consume arrow keys when focus is inside a bound input", () => {
+      const c = new ListCursor({ root, itemSelector: ".opt", activeClass: "on" });
+      const slider = document.createElement("input");
+      slider.type = "range";
+      root.appendChild(slider);
+      const unbind = c.bindKeys(root);
+      c.set(1);
+      slider.focus();
+      const event = new KeyboardEvent("keydown", {
+        key: "ArrowDown",
+        bubbles: true,
+        cancelable: true,
+      });
+      slider.dispatchEvent(event);
+      expect(event.defaultPrevented).toBe(false);
+      expect(c.index).toBe(1);
+      unbind();
+      c.destroy();
+    });
   });
 
   describe("custom roles", () => {
