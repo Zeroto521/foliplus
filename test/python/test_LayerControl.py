@@ -4545,9 +4545,10 @@ class TestLayerControlBrowser:
         did not take them down with it.
         """
         layer = folium.FeatureGroup(name="Row panel")
-        with use_page(
-            self._make_page, browser, tmp_path, layer, slug="row_panel"
-        ) as (page, errors):
+        with use_page(self._make_page, browser, tmp_path, layer, slug="row_panel") as (
+            page,
+            errors,
+        ):
             page.evaluate(
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
