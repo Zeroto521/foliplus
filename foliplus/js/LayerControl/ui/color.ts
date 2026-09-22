@@ -18,15 +18,19 @@ const showColorLayer = (ui: LayerUI, color: string) => {
   const tilePane = ui.m.map.getPane("tilePane");
   if (tilePane) tilePane.classList.add("foliplus-layer-tile-hidden");
 
-  const inputs = ui.uiContainer.querySelectorAll(
-    `${CONST.SEL.LAYER_ITEM}:not(${CONST.SEL.COLOR_ITEM}) input`,
-  ) as NodeListOf<HTMLInputElement>;
-  inputs.forEach((input: HTMLInputElement, j: number) => {
-    if (ui.m.layers[j]?.isBase) {
-      input.checked = false;
-      input.closest(CONST.SEL.LAYER_ITEM)?.classList.remove(CONST.CLASSES.ACTIVE);
-    }
-  });
+  // Resolve each base row by data-layer-id, not by DOM position: a late
+  // registration can land anywhere in the panel, so a positional read would
+  // clear a neighbour's checkbox and leave the real base row checked.
+  for (const layerInfo of ui.m.layers) {
+    if (!layerInfo.isBase) continue;
+    const item = ui.uiContainer.querySelector(
+      `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerInfo.id)}"]`,
+    );
+    if (!item) continue;
+    const input = item.querySelector<HTMLInputElement>('input[type="checkbox"]');
+    if (input) input.checked = false;
+    item.classList.remove(CONST.CLASSES.ACTIVE);
+  }
 
   const ci = ui.uiContainer.querySelector(
     CONST.SEL.COLOR_INPUT,
