@@ -85,7 +85,7 @@ describe("PaneManager", () => {
     expect(panes).toContain("foliplus-measure-graph");
   });
 
-  it("getLayerPanes returns the panes the layer's own tree names", () => {
+  it("getLayerPanes falls back when a layer declares no pane", () => {
     const map = { getPane: vi.fn(), createPane: vi.fn() };
     const pm = new PaneManager(map);
     // A layer that declared none answers with Leaflet's shared panes: the pane
@@ -94,10 +94,15 @@ describe("PaneManager", () => {
     expect(pm.getLayerPanes(layer)).toEqual(["overlayPane", "markerPane"]);
   });
 
-  it("getLayerPanes falls back to overlayPane/markerPane by default", () => {
+  it("getLayerPanes falls back when a layer's tree names only default panes", () => {
+    // The realistic fallback: a Marker with pane: "markerPane" lives in
+    // Leaflet's own shared pane. discoverChildPanes filters it out via
+    // isDefaultPane, returns [], and the caller gets the conservative guess.
+    // The synthesized pane a LayerSurface assigns to such a layer is resolved
+    // from the surface, not from here.
     const map = { getPane: vi.fn(), createPane: vi.fn() };
     const pm = new PaneManager(map);
-    const layer = { options: {} };
+    const layer = { options: { pane: "markerPane" } };
     expect(pm.getLayerPanes(layer)).toEqual(["overlayPane", "markerPane"]);
   });
 
