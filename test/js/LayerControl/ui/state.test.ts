@@ -1944,8 +1944,12 @@ describe("zoomRange effective-shown logic", () => {
     let onMap = true;
     const map = makeMap();
     map.hasLayer = vi.fn(() => onMap);
-    map.addLayer = vi.fn(() => { onMap = true; });
-    map.removeLayer = vi.fn(() => { onMap = false; });
+    map.addLayer = vi.fn(() => {
+      onMap = true;
+    });
+    map.removeLayer = vi.fn(() => {
+      onMap = false;
+    });
     const layer = { options: {} } as any;
     const m = new LayerManager(map, [{ id: "overlay1", name: "Poly", layer }]);
     const u = new LayerUI(m);
@@ -1972,8 +1976,12 @@ describe("zoomRange effective-shown logic", () => {
     let onMap = true;
     const map = makeMap();
     map.hasLayer = vi.fn(() => onMap);
-    map.addLayer = vi.fn(() => { onMap = true; });
-    map.removeLayer = vi.fn(() => { onMap = false; });
+    map.addLayer = vi.fn(() => {
+      onMap = true;
+    });
+    map.removeLayer = vi.fn(() => {
+      onMap = false;
+    });
     const layer = { options: {} } as any;
     const m = new LayerManager(map, [{ id: "overlay1", name: "Poly", layer }]);
     const u = new LayerUI(m);
@@ -1995,7 +2003,9 @@ describe("zoomRange effective-shown logic", () => {
     const map2 = makeMap();
     map2.hasLayer.mockReturnValue(false);
     const layer2 = { options: {} } as any;
-    const m2 = new LayerManager(map2, [{ id: "overlay2", name: "Poly2", layer: layer2 }]);
+    const m2 = new LayerManager(map2, [
+      { id: "overlay2", name: "Poly2", layer: layer2 },
+    ]);
     const u2 = new LayerUI(m2);
 
     applyZoomRangeStateOne(u2, m2.layers[0], null, false);
@@ -2066,8 +2076,12 @@ describe("zoomRange effective-shown logic", () => {
     let onMap = true;
     const map = makeMap();
     map.hasLayer = vi.fn(() => onMap);
-    map.addLayer = vi.fn(() => { onMap = true; });
-    map.removeLayer = vi.fn(() => { onMap = false; });
+    map.addLayer = vi.fn(() => {
+      onMap = true;
+    });
+    map.removeLayer = vi.fn(() => {
+      onMap = false;
+    });
     const layer = { options: {} } as any;
     const m = new LayerManager(map, [{ id: "overlay1", name: "Poly", layer }]);
     const u = new LayerUI(m);

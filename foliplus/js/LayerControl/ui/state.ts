@@ -584,11 +584,7 @@ const applyZoomRangeStateOne = (
  * change would drift that mirror (and specifically would overwrite the
  * "author left it off the map" default with a policy assertion).
  */
-const applyRangeVisible = (
-  ui: LayerUI,
-  layerInfo: LayerInfo,
-  shown: boolean,
-): void => {
+const applyRangeVisible = (ui: LayerUI, layerInfo: LayerInfo, shown: boolean): void => {
   const layer = layerInfo.layer ?? ui.m.findLayer(layerInfo);
   if (layer) {
     const has = ui.m.map.hasLayer(layer);
