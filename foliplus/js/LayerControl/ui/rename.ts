@@ -8,7 +8,7 @@ import {
 } from "#common/dom.js";
 import * as CONST from "../const.js";
 import type { LayerUI } from "./index.js";
-import { displayName } from "./list.js";
+import { displayName } from "./rowView.js";
 import { applyUserState, saveNamesState } from "./state.js";
 
 /**

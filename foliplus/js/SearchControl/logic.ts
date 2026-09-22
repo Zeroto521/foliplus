@@ -24,6 +24,7 @@ import { formatLatLng } from "#common/format.js";
 import * as Icons from "#common/icon.js";
 import { createScopedTranslator, createTranslator } from "#common/locale.js";
 import { createLogger } from "#common/log.js";
+import { makePersisted } from "#common/storage.js";
 import * as Storage from "#common/storage.js";
 import {
   AUTOCOMPLETE,
@@ -154,23 +155,28 @@ const mergeHistoryEntries = (entries: SearchHistoryEntry[]): SearchHistoryEntry[
 
 type StoredHistoryEntry = Partial<SearchHistoryEntry> & { label?: string };
 
-const loadHistory = (): SearchHistoryEntry[] =>
-  loadHistoryRows(unwrapHistory(Storage.load<unknown>(HISTORY.STORAGE_KEY, CONF.name)));
+// Module-level write-through binding over the search history record. The save
+// closure reads `pendingHistory` (set by saveHistory before scheduling), so the
+// binding is stateless from the caller's point of view — saveHistory is still
+// the public entry point. Load is explicit via loadHistory() below.
+const historyPersist = makePersisted({
+  save: () =>
+    Storage.saveVersioned(HISTORY.STORAGE_KEY, {
+      data: pendingHistory,
+      version: RECORD_VERSION,
+      name: CONF.name,
+      dataField: "entries",
+    }),
+});
+let pendingHistory: SearchHistoryEntry[] = [];
 
-/** Unwrap the persisted history envelope, tolerating three shapes:
- *  - new format `{ version, entries: [...] }` — return `entries`.
- *  - legacy format: bare `SearchHistoryEntry[]` — return as-is (no migration;
- *    the next `saveHistory` re-wraps it).
- *  - anything else (null, a string, a number, an object without an `entries`
- *    array): return `null` so the caller falls through to `[]`. */
-const unwrapHistory = (data: unknown): StoredHistoryEntry[] | null => {
-  if (Array.isArray(data)) return data as StoredHistoryEntry[];
-  if (data && typeof data === "object") {
-    const entries = (data as { entries?: unknown }).entries;
-    if (Array.isArray(entries)) return entries as StoredHistoryEntry[];
-  }
-  return null;
-};
+const loadHistory = (): SearchHistoryEntry[] =>
+  loadHistoryRows(
+    Storage.loadVersioned<StoredHistoryEntry>(HISTORY.STORAGE_KEY, {
+      name: CONF.name,
+      dataField: "entries",
+    }),
+  );
 
 /** Parse and migrate one history payload; [] for a corrupt or non-array store. */
 const loadHistoryRows = (data: StoredHistoryEntry[] | null): SearchHistoryEntry[] => {
@@ -200,10 +206,14 @@ const loadHistoryRows = (data: StoredHistoryEntry[] | null): SearchHistoryEntry[
 };
 
 const saveHistory = (entries: SearchHistoryEntry[]): void => {
-  // Wrap in a versioned envelope; readers accept the legacy bare-array shape
-  // too, so the next save is what upgrades an old record (see `unwrapHistory`).
-  Storage.save(HISTORY.STORAGE_KEY, { version: RECORD_VERSION, entries }, CONF.name);
+  pendingHistory = entries;
+  historyPersist.schedule();
 };
+
+/** Write the current history through the binding. Idempotent no-op when
+ *  nothing is pending (write-through). Called by destroy before the in-memory
+ *  array is cleared, so a last search before unmount is durable. */
+const flushHistory = (): void => historyPersist.flush();
 
 const addHistoryEntry = (ctrl: SearchControlState, entry: SearchHistoryEntry): void => {
   const updated = mergeHistoryEntries([entry, ...ctrl.searchHistory]).slice(
@@ -773,6 +783,7 @@ export {
   clearHistory,
   deleteHistoryEntry,
   fetchSuggestions,
+  flushHistory,
   initDebouncedFetch,
   loadHistory,
   positionPanel,

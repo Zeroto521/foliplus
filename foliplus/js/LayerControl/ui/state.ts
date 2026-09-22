@@ -6,6 +6,7 @@ import type { LayerManager } from "../manager.js";
 import type { LayerOverride, PersistedLayerState } from "../persistence.js";
 import { applyNameProjection } from "./context.js";
 import type { LayerUI } from "./index.js";
+import { applyRowView, buildRowCell, inZoomRange } from "./rowView.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const log = createLogger(CONF.name);
@@ -285,21 +286,15 @@ const dropPersistedLayerState = (ui: LayerUI, id: string) => {
  */
 
 const applyHiddenOne = (ui: LayerUI, layerInfo: LayerInfo, id: string) => {
-  const container = ui.uiContainer;
-  const item = container
-    ? container.querySelector(`[${CONST.DATA.LAYER_ID}="${CSS.escape(id)}"]`)
-    : null;
-  const checkbox = item?.querySelector(
-    'input[type="checkbox"]',
-  ) as HTMLInputElement | null;
+  const item = ui.uiContainer?.querySelector(
+    `[${CONST.DATA.LAYER_ID}="${CSS.escape(id)}"]`,
+  ) as HTMLElement | null;
 
   applyHiddenStateOne(ui, layerInfo);
 
-  if (checkbox) {
-    checkbox.checked = false;
-    checkbox.title = ui.T("select_tooltip");
-  }
-  item?.classList.remove(CONST.CLASSES.ACTIVE);
+  // One cell, one painter: read the intent after the state write, so the box
+  // and the highlight cannot disagree with the row that just hid.
+  if (item) applyRowView(ui, item, buildRowCell(ui, layerInfo));
 };
 
 /**
@@ -512,20 +507,7 @@ const computeEffectiveShown = (
 ): boolean => {
   if (ui.hiddenIds.has(layerInfo.id)) return false;
   if (focusActive) return true;
-  const range = ui.zoomRangeMap[layerInfo.id];
-  if (!range) return true;
-  // A basemap switch can narrow the map's range below the user's stored
-  // endpoints. The stored values stay (reversibility: switching back must
-  // restore the original choice), but the clamped values are what the
-  // visibility decision uses. If both endpoints clamp past each other, the
-  // entire range is outside the map and no zoom can land inside it.
-  const mapMin = ui.m.map.getMinZoom();
-  const mapMax = ui.m.map.getMaxZoom();
-  const min = Math.max(range[0], mapMin);
-  const max = Math.min(range[1], mapMax);
-  if (min > max) return false;
-  const zoom = ui.m.map.getZoom();
-  return zoom >= min && zoom <= max;
+  return inZoomRange(ui, layerInfo);
 };
 
 /** Apply the layer's stored zoom range to its carrier.

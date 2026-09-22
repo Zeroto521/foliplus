@@ -1,22 +1,31 @@
-// LayerControl UI —Layer row render / insert / reindex.
-import { GEOM_TYPE } from "#core/layer/index.js";
+// LayerControl UI —Layer row structure / list layout / insert / reindex.
 import { ListCursor } from "#core/listCursor.js";
 import { dom, updateItemLabel } from "#common/dom.js";
-import { formatNumber } from "#common/format.js";
-import * as Icons from "#common/icon.js";
 import * as CONST from "../const.js";
 import * as SVGs from "../icon.js";
-import * as Util from "../util.js";
 import { showColorLayer } from "./color.js";
 import type { LayerUI } from "./index.js";
 import { cursorRef, restoreCursor } from "./keyboard.js";
 import { syncListCursor } from "./keyboard.js";
+import {
+  applyRowView,
+  buildRowCell,
+  displayName,
+  snapshotAuthorVisible,
+} from "./rowView.js";
 import { applyUserState } from "./state.js";
 import { syncToggleAll, syncVisibility } from "./visibility.js";
 
 /** Full re-scan of every row (used on attach/fold-toggle). Idempotent — *  re-run on each CONTROL_ATTACHED so late-registering components are
  *  folded in. Marks the panel ready for tests/consumers. */
 const initTypesAndVisibility = (ui: LayerUI) => {
+  // Snapshot the author default before the sweep below moves any layer: it
+  // re-adds a stored-shown layer and removes a stored-hidden one, so a
+  // snapshot taken afterwards would record a policy decision as the author's.
+  for (let i = 0; i < ui.m.layers.length; i++) {
+    snapshotAuthorVisible(ui, ui.m.layers[i]);
+  }
+
   // Apply persisted hidden state first so initLayerItem reads the corrected
   // map state: folium adds every layer before the control IIFE runs, so on
   // reload hidden layers are back on the map. An id that is not in the
@@ -150,9 +159,11 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
   }
 
   // insertLayerItem is where a late-registered (third-party) layer first
-  // shows up, so the user's name and visibility land with the row instead
-  // of waiting for a later pass. Only this layer's id is applied —a full
-  // sweep would re-rewrite every renamed row on each registration.
+  // shows up, so the author default is snapshotted here as well — before the
+  // apply below, which is the other path that moves this layer. Only this
+  // layer's id is applied: a full sweep would re-rewrite every renamed row
+  // on each registration.
+  snapshotAuthorVisible(ui, layerInfo);
   applyUserState(ui, layerInfo.id);
   // New row must join the roving tabindex / ARIA set.
   syncListCursor(ui);
@@ -167,23 +178,6 @@ const updateLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
   // so the name reaches assistive tech here without touching `title` —the
   // row's tooltip slot keeps the feature count + type.
   updateItemLabel(item, displayName(ui, layerInfo.id));
-};
-
-/**
- * Effective panel display name for a layer: the user-assigned rename wins,
- * falling back to the registry name, then to the locale label for the
- * virtual color basemap —the only row with no registry entry.
- *
- * Every render path resolves names through here so a registry mutation
- * (re-registration, type refresh) can no longer resurrect the original
- * third-party name over a rename.
- */
-const displayName = (ui: LayerUI, id: string): string => {
-  return (
-    ui.renamedNames[id] ??
-    ui.m.layerRegistry.get(id)?.name ??
-    (id === CONST.COLOR.MAP_ID ? ui.T("color_map_label") : "")
-  );
 };
 
 const renderToggleAllRow = (ui: LayerUI, group: string, labelKey: string) => {
@@ -347,7 +341,8 @@ const renderColorLayerItem = (ui: LayerUI) => {
  *  @returns {boolean} true when the row is a visible base layer. */
 const initLayerItem = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
   if (!ui.m.layerRegistry.has(layerInfo.id)) return false;
-  const name = displayName(ui, layerInfo.id);
+  const layer = ui.m.findLayer(layerInfo);
+  const cell = buildRowCell(ui, layerInfo);
   // Resolve the row by data-layer-id: a late registration lands where its
   // stored slot puts it, so the DOM order can diverge from the registry —an
   // index-based lookup would write the checkbox and type column into a
@@ -355,90 +350,14 @@ const initLayerItem = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
   const item = ui.uiContainer.querySelector(
     `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerInfo.id)}"]`,
   ) as HTMLElement | null;
-  const input = item?.querySelector(
-    'input[type="checkbox"], input[type="radio"]',
-  ) as HTMLInputElement | null;
-  const typeCol = item?.querySelector(
-    `.${CONST.CLASSES.TYPE_ICON_COL}`,
-  ) as HTMLElement | null;
-  const layer = ui.m.findLayer(layerInfo);
-  let baseVisible = false;
+  if (!item) return false;
 
-  if (input) {
-    const hasLayer = layer != null;
-    const isCallbackOnly = !hasLayer && layerInfo.onToggle;
-    if (isCallbackOnly) input.checked = layerInfo.visible !== false;
-    else input.checked = hasLayer && ui.m.map.hasLayer(layer);
-    syncVisibility(ui, layerInfo, layer, input.checked);
+  applyRowView(ui, item, cell);
+  // The row renders the intent; the map state still has to be told what the
+  // user wants.
+  syncVisibility(ui, layerInfo, layer, cell.checked);
 
-    input.title = ui.T(input.checked ? "deselect_tooltip" : "select_tooltip");
-
-    const item = input.closest(CONST.SEL.LAYER_ITEM);
-    if (item) {
-      if (input.checked) item.classList.add(CONST.CLASSES.ACTIVE);
-      else item.classList.remove(CONST.CLASSES.ACTIVE);
-      // The rename must survive a full init pass —initLayerItem is the
-      // only incremental path that refreshes a row without re-rendering it.
-      // aria-label carries the name; the title slot stays Select/Deselect
-      // as set above.
-      input.setAttribute("aria-label", name);
-    }
-  }
-
-  if (typeCol) {
-    let typeKey: string;
-    let type: string | null = null;
-    if (layerInfo.isBase) {
-      typeCol.innerHTML = Icons.GLOBE;
-      typeKey = ui.T("type_base");
-      type = CONST.GROUP.BASE;
-      layerInfo.type = type;
-      if (input?.checked) baseVisible = true;
-    } else if (layerInfo.iconSvg) {
-      typeCol.innerHTML = layerInfo.iconSvg;
-      typeKey = ui.T("type_custom");
-      type = GEOM_TYPE.CUSTOM;
-      layerInfo.type = type;
-    } else if (layer) {
-      // layerInfo.type is a snapshot of the surface's probe result — this
-      // write is the snapshot sync for render use, not a second probe. The
-      // authority for geometry-type detection lives on the surface.
-      const gtype = ui.m.surfaceFor(layerInfo).geometryType();
-      typeCol.innerHTML = Util.getTypeSVG(layer, gtype);
-      typeKey = ui.T(`type_${gtype}`);
-      type = gtype;
-      layerInfo.type = type;
-    } else {
-      typeKey = ui.T("type_unknown");
-      type = GEOM_TYPE.UNKNOWN;
-      layerInfo.type = type;
-    }
-
-    const item = input
-      ? (input.closest(CONST.SEL.LAYER_ITEM) as HTMLElement | undefined)
-      : (typeCol.closest(CONST.SEL.LAYER_ITEM) as HTMLElement | undefined);
-    if (item) {
-      const count = ui.mgmt.getFeatureCount(layerInfo.id);
-      // Update count column (right-aligned, adjacent to type icon).
-      const countCol = item.querySelector(CONST.SEL.COUNT_COL) as HTMLElement | null;
-      if (countCol) {
-        if (count !== null && count !== undefined) {
-          countCol.textContent = formatNumber(count, "auto", ui.conf.locale_code);
-        } else countCol.textContent = "";
-      }
-      // Hover tooltip shows count + type label together.
-      const typeLabel = typeKey;
-      // Persist the type label so onLayerItemCountChange can rebuild the
-      // 'count + type' tooltip without re-running type detection.
-      item.setAttribute(CONST.DATA.TITLE, typeLabel);
-      item.title =
-        count !== null && count !== undefined
-          ? `${formatNumber(count, "auto", ui.conf.locale_code)} ${typeLabel}`
-          : typeLabel;
-    }
-  }
-
-  return baseVisible;
+  return cell.shown && layerInfo.isBase;
 };
 
 /** Reindex all layer items after a move, preserving the active focus position.
@@ -467,7 +386,6 @@ export {
   renderInitialList,
   insertLayerItem,
   updateLayerItem,
-  displayName,
   renderToggleAllRow,
   renderLayerItem,
   colorLayerName,

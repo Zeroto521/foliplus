@@ -8,6 +8,7 @@
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { createScopedTranslator } from "#common/locale.js";
+import { type Persisted, makePersisted } from "#common/storage.js";
 import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
 
@@ -22,6 +23,7 @@ class MeasureStore {
   private readonly map: L.Map;
   private readonly layerId: string;
   private warned = false;
+  private readonly persistBinding: Persisted;
   // CONF is a free variable from the IIFE template wrapper (see global.d.ts);
   // bind the translator once, not per call site.
   private readonly T = createScopedTranslator(CONF);
@@ -29,6 +31,28 @@ class MeasureStore {
   constructor(map: L.Map, layerId: string) {
     this.map = map;
     this.layerId = layerId;
+    // Write-through binding: the array is durable the moment a mutation lands,
+    // so teardown flush is a no-op safety net. Failure surfaces through the
+    // quota hint below rather than through the return value.
+    this.persistBinding = makePersisted({
+      save: () =>
+        Storage.saveVersioned(CONST.STORAGE.KEY, {
+          data: this.list,
+          version: CONST.RECORD_VERSION,
+          name: CONF.name,
+          dataField: "items",
+        }),
+      onFlushError: () => {
+        if (!this.warned) {
+          this.warned = true;
+          this.map.foliplus?.showHint?.(
+            CONF.name,
+            this.T("err_not_saved"),
+            HINT_DURATION.PERSIST,
+          );
+        }
+      },
+    });
   }
 
   /** Current measurements (live reference — mutating it without a store method
@@ -44,20 +68,15 @@ class MeasureStore {
 
   // ── Persistence ────────────────────────────────────────────────────
 
-  /** Load measurements from localStorage, tolerant of three shapes:
-   *  - new format: `{ version, items: [...] }` — return `items`.
-   *  - legacy format: bare `MeasureData[]` — return as-is (no migration; the
-   *    next persist re-wraps it, so the old shape disappears on the next write).
-   *  - anything else (null, an object without a valid `items`, corrupt JSON):
-   *    return `[]`. */
+  /** Load measurements from localStorage via the shared versioned envelope
+   *  reader. Tolerates the legacy bare-array shape and corrupt records. */
   load(): MeasureData[] {
-    const data = Storage.load<unknown>(CONST.STORAGE.KEY, CONF.name);
-    if (Array.isArray(data)) return data;
-    if (data && typeof data === "object") {
-      const items = (data as { items?: unknown }).items;
-      if (Array.isArray(items)) return items as MeasureData[];
-    }
-    return [];
+    return (
+      Storage.loadVersioned<MeasureData>(CONST.STORAGE.KEY, {
+        name: CONF.name,
+        dataField: "items",
+      }) ?? []
+    );
   }
 
   /** Replace the in-memory list without persisting (used by restore, which
@@ -95,18 +114,7 @@ class MeasureStore {
    *  is lost, which is what the message says. Count emission still runs, so the
    *  LayerControl count column keeps tracking the live list. */
   persist(): void {
-    // Wrap the list in a versioned record: readers accept the legacy bare-array
-    // shape too, so an unversioned old record keeps working until the next write
-    // re-wraps it (see `load()`).
-    const record = { version: CONST.RECORD_VERSION, items: this.list };
-    if (!Storage.save(CONST.STORAGE.KEY, record, CONF.name) && !this.warned) {
-      this.warned = true;
-      this.map.foliplus?.showHint?.(
-        CONF.name,
-        this.T("err_not_saved"),
-        HINT_DURATION.PERSIST,
-      );
-    }
+    this.persistBinding.schedule();
     this.emitCount();
   }
 

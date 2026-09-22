@@ -697,8 +697,17 @@ describe("ui/state applyHiddenOne / applyVisibleStateOne", () => {
     return {
       uiContainer,
       T: vi.fn((k: string) => k),
+      // The row is a projection of the user's intent, so the intent this test
+      // sets up is what the box is expected to read.
+      renamedNames: {},
+      hiddenIds: new Set(["a"]),
+      userOverrides: { a: ["visible"] },
+      authorVisible: new Map<string, boolean>(),
+      mgmt: { getFeatureCount: vi.fn(() => null) },
       m: {
+        layerRegistry: { get: vi.fn(() => undefined) },
         findLayer: vi.fn(() => layer),
+        surfaceFor: vi.fn(() => ({ geometryType: () => "point" })),
         map: {
           hasLayer: vi.fn(() => hasLayer),
           removeLayer: vi.fn(),
