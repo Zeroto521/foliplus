@@ -274,6 +274,7 @@ const applyUserState = (ui: LayerUI, id?: string) => {
  */
 const dropPersistedLayerState = (ui: LayerUI, id: string) => {
   ui.hiddenIds.delete(id);
+  ui.rangeHiddenIds.delete(id);
   delete ui.opacityMap[id];
   delete ui.zoomRangeMap[id];
   delete ui.userOverrides[id];
@@ -555,9 +556,59 @@ const applyZoomRangeStateOne = (
   }
   if (caps.zoomRange === "pane") {
     const shown = computeEffectiveShown(ui, layerInfo, focusActive);
-    applyLayerState(ui, layerInfo, { visible: shown });
+    applyRangeVisible(ui, layerInfo, shown);
   }
   // "none": nothing to write.
+};
+
+/**
+ * One-way gate for the zoom-range mechanism. The range never authorises
+ * display on its own — it can only undo what it itself did:
+ *
+ *   - `shown === false` and the layer is on the map → remove it and record
+ *     the id in `ui.rangeHiddenIds`.
+ *   - `shown === true` and the id is in `ui.rangeHiddenIds` → the range
+ *     itself took this layer off the map; restore it and drop the record.
+ *   - Any other combination → leave the map alone.
+ *
+ * The last case is the fix for the quickstart regression: a folium
+ * `show=False` layer has no entry in `hiddenIds` (the user did not hide it)
+ * and no stored zoom range, so `computeEffectiveShown` returns `true` for
+ * it and the old write put it back on the map on every zoomend — while the
+ * checkbox stayed unchecked. That is not this mechanism's to decide; only
+ * {@link applyUserState}'s unhide branch (a "visible" override present)
+ * is authorised to re-add a layer the author left off the map.
+ *
+ * `layerInfo.visible` is written only when the map actually changes. The
+ * registry field is a mirror of the map state, so writing it without a map
+ * change would drift that mirror (and specifically would overwrite the
+ * "author left it off the map" default with a policy assertion).
+ */
+const applyRangeVisible = (
+  ui: LayerUI,
+  layerInfo: LayerInfo,
+  shown: boolean,
+): void => {
+  const layer = layerInfo.layer ?? ui.m.findLayer(layerInfo);
+  if (layer) {
+    const has = ui.m.map.hasLayer(layer);
+    if (!shown && has) {
+      ui.m.map.removeLayer(layer);
+      ui.rangeHiddenIds.add(layerInfo.id);
+      layerInfo.visible = false;
+    } else if (shown && !has && ui.rangeHiddenIds.has(layerInfo.id)) {
+      ui.m.map.addLayer(layer);
+      ui.rangeHiddenIds.delete(layerInfo.id);
+      layerInfo.visible = true;
+    }
+  } else if (layerInfo.onToggle) {
+    // Callback-only (canvas) layers have no Leaflet layer to add/remove.
+    // The sweep cannot reach them through `rangeHiddenIds` — it does not
+    // record what it asks of a callback layer — so the write is one-shot:
+    // `onToggle(shown)` and trust the layer's own `HIDDEN` class to be
+    // idempotent (which it is: adding/removing a CSS class is a no-op).
+    layerInfo.onToggle(shown);
+  }
 };
 
 /** Re-evaluate every layer's effective shown state after a zoom change or
@@ -569,10 +620,10 @@ const applyZoomRangeStateOne = (
  *  surfaces (MarkerCluster) are skipped because there is no carrier to
  *  write to (§6.2 "不得静默失效").
  *
- *  The sweep writes through {@link applyLayerState} — the single write
- *  pipeline — so it never touches `hiddenIds` or `overrides` (the #329
- *  lock). A layer whose effective shown did not change is a no-op because
- *  `map.addLayer` / `map.removeLayer` are idempotent.
+ *  The sweep writes through {@link applyRangeVisible} — the one-way gate
+ *  that keeps this mechanism from ever adding a layer to the map unless
+ *  it removed that layer itself (see `rangeHiddenIds`). It therefore never
+ *  touches `hiddenIds` or `overrides` either (the #329 lock).
  */
 const refreshZoomEffectiveShown = (ui: LayerUI): void => {
   const focusActive = ui.focusingLayerId != null;
@@ -583,7 +634,7 @@ const refreshZoomEffectiveShown = (ui: LayerUI): void => {
     if (caps.zoomRange === "none") continue;
     if (caps.zoomRange === "native") continue; // Leaflet handles it
     const shown = computeEffectiveShown(ui, layerInfo, focusActive);
-    applyLayerState(ui, layerInfo, { visible: shown });
+    applyRangeVisible(ui, layerInfo, shown);
   }
 };
 
@@ -610,6 +661,12 @@ const syncHiddenId = (
 ) => {
   if (hidden) ui.hiddenIds.add(id);
   else ui.hiddenIds.delete(id);
+  // The user's explicit action (either direction) supersedes any record the
+  // zoom-range mechanism kept for this id: without this line, a layer the
+  // sweep had removed would be re-added by the sweep the moment the user
+  // checked it back on, because the sweep's own record says "I removed
+  // this, so I'm allowed to put it back".
+  ui.rangeHiddenIds.delete(id);
   // The first change is what turns the author's default into the user's own
   // state: until it has happened the layer has no entry in `layers` at all, so
   // the unhide half of the sweep must leave it alone or an empty choice would

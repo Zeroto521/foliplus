@@ -1466,6 +1466,7 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
       hiddenIds: new Set(),
       opacityMap: {},
       userOverrides: {},
+      rangeHiddenIds: new Set(),
       m: { persistence: { schedule } },
     } as unknown as LayerUI;
 
@@ -1490,6 +1491,7 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
       hiddenIds: new Set(["overlay1"]),
       opacityMap: {},
       userOverrides: { overlay1: ["visible"] },
+      rangeHiddenIds: new Set(),
       m: { persistence: { schedule } },
     } as unknown as LayerUI;
 
@@ -1912,19 +1914,92 @@ describe("zoomRange effective-shown logic", () => {
     expect(u.userOverrides).toEqual(overridesBefore);
   });
 
-  it("applyZoomRangeStateOne for 'pane' capability writes applyLayerState visible", () => {
+  it("applyZoomRangeStateOne for 'pane' capability does not add author show=False layer", () => {
+    // The old behaviour put this layer back on the map on every zoomend
+    // because computeEffectiveShown returns true (no hiddenIds entry, no
+    // stored range) and applyLayerState unconditionally addLayers. That is
+    // the quickstart regression: the author declared show=False, the user
+    // never chose, yet the panel came up with the layer on the map while
+    // the checkbox stayed unchecked.
     const map = makeMap();
-    map.hasLayer.mockReturnValue(false); // layer not yet on map
+    map.hasLayer.mockReturnValue(false); // folium left it off the map
     const layer = { options: {} } as any;
     const m = new LayerManager(map, [{ id: "overlay1", name: "Poly", layer }]);
     const u = new LayerUI(m);
 
     u.zoomRangeMap.overlay1 = [3, 12];
-    // Current zoom 4 is in range → visible
+    // Current zoom 4 is in range → shown=true, but the layer is not on the
+    // map and this mechanism never removed it, so it must not be added.
     applyZoomRangeStateOne(u, m.layers[0], [3, 12], false);
 
-    // The layer should be added to the map (effectiveShown = true)
+    expect(map.addLayer).not.toHaveBeenCalled();
+    expect(u.rangeHiddenIds.has("overlay1")).toBe(false);
+  });
+
+  it("applyZoomRangeStateOne for 'pane' capability: out of range removes, in range restores", () => {
+    // Bidirectional round trip: the sweep removes a layer the user left on
+    // the map when zoom goes out of range, and puts it back when zoom
+    // returns in range. The rangeHiddenIds record is what lets the restore
+    // happen without ever opening a layer the mechanism never touched.
+    let onMap = true;
+    const map = makeMap();
+    map.hasLayer = vi.fn(() => onMap);
+    map.addLayer = vi.fn(() => { onMap = true; });
+    map.removeLayer = vi.fn(() => { onMap = false; });
+    const layer = { options: {} } as any;
+    const m = new LayerManager(map, [{ id: "overlay1", name: "Poly", layer }]);
+    const u = new LayerUI(m);
+    u.zoomRangeMap.overlay1 = [3, 12];
+
+    // Zoom out of range: shown=false, has=true → remove + record
+    map.getZoom.mockReturnValue(2);
+    applyZoomRangeStateOne(u, m.layers[0], [3, 12], false);
+    expect(map.removeLayer).toHaveBeenCalled();
+    expect(u.rangeHiddenIds.has("overlay1")).toBe(true);
+
+    // Zoom in range: shown=true, has=false, id in record → restore + drop
+    map.getZoom.mockReturnValue(4);
+    applyZoomRangeStateOne(u, m.layers[0], [3, 12], false);
     expect(map.addLayer).toHaveBeenCalled();
+    expect(u.rangeHiddenIds.has("overlay1")).toBe(false);
+  });
+
+  it("applyZoomRangeStateOne reset restores sweep-removed layer but does not open author-hidden layer", () => {
+    // Reset (range=null) recomputes shown with no range, which is always
+    // in range → shown=true. The restore path must only fire for a layer
+    // this mechanism itself removed; an author show=False layer has no
+    // record and must not be opened.
+    let onMap = true;
+    const map = makeMap();
+    map.hasLayer = vi.fn(() => onMap);
+    map.addLayer = vi.fn(() => { onMap = true; });
+    map.removeLayer = vi.fn(() => { onMap = false; });
+    const layer = { options: {} } as any;
+    const m = new LayerManager(map, [{ id: "overlay1", name: "Poly", layer }]);
+    const u = new LayerUI(m);
+    u.zoomRangeMap.overlay1 = [3, 12];
+
+    // Sweep removes (zoom out of range)
+    map.getZoom.mockReturnValue(2);
+    applyZoomRangeStateOne(u, m.layers[0], [3, 12], false);
+    expect(map.removeLayer).toHaveBeenCalled();
+    expect(u.rangeHiddenIds.has("overlay1")).toBe(true);
+
+    // Reset: range=null, zoom in range → shown=true, id in record → restore
+    map.getZoom.mockReturnValue(4);
+    applyZoomRangeStateOne(u, m.layers[0], null, false);
+    expect(map.addLayer).toHaveBeenCalled();
+    expect(u.rangeHiddenIds.has("overlay1")).toBe(false);
+
+    // Author show=False layer: not on map, no record → reset must not add
+    const map2 = makeMap();
+    map2.hasLayer.mockReturnValue(false);
+    const layer2 = { options: {} } as any;
+    const m2 = new LayerManager(map2, [{ id: "overlay2", name: "Poly2", layer: layer2 }]);
+    const u2 = new LayerUI(m2);
+
+    applyZoomRangeStateOne(u2, m2.layers[0], null, false);
+    expect(map2.addLayer).not.toHaveBeenCalled();
   });
 
   it("applyZoomRangeStateOne for 'none' capability is a no-op", () => {
@@ -1942,5 +2017,87 @@ describe("zoomRange effective-shown logic", () => {
     // No addLayer or removeLayer call
     expect(map.addLayer).not.toHaveBeenCalled();
     expect(map.removeLayer).not.toHaveBeenCalled();
+  });
+
+  it("refreshZoomEffectiveShown does not add author show=False layer on zoomend", () => {
+    // Gate 1: the zoomend sweep path. A folium show=False layer has no
+    // hiddenIds entry and no stored range, so computeEffectiveShown returns
+    // true. Before the fix, the sweep called applyLayerState({visible:true})
+    // which unconditionally addLayer'd — putting the layer on the map while
+    // the checkbox stayed unchecked. The one-way gate must leave it alone.
+    const map = makeMap();
+    map.hasLayer.mockReturnValue(false); // folium left it off the map
+    const layer = { options: {} } as any;
+    const m = new LayerManager(map, [{ id: "overlay1", name: "Poly", layer }]);
+    const u = new LayerUI(m);
+
+    refreshZoomEffectiveShown(u);
+
+    expect(map.addLayer).not.toHaveBeenCalled();
+  });
+
+  it("applyUserState does not add author show=False layer with stored zoom range", () => {
+    // Gate 2: the load path. A layer the user set a zoom range for runs
+    // applyZoomRangeStateOne on the full-sweep pass. If the layer is still
+    // off the map (author show=False) the sweep must not add it — the
+    // zoomRangeMap entry alone is not authorisation. This is the entry
+    // point that runs on every page load.
+    const map = makeMap();
+    map.hasLayer.mockReturnValue(false); // folium left it off the map
+    const layer = { options: {} } as any;
+    const m = new LayerManager(map, [{ id: "overlay1", name: "Poly", layer }]);
+    const u = new LayerUI(m);
+    u.zoomRangeMap.overlay1 = [3, 12];
+
+    applyUserState(u);
+
+    expect(map.addLayer).not.toHaveBeenCalled();
+  });
+
+  it("sweep still retracts a layer the user explicitly checked on (R7 range still applies)", () => {
+    // The userCheckedOn guard is intentionally absent: computeEffectiveShown
+    // returns intent && inRange, and intent = !hiddenIds.has(id). For a
+    // checked-on layer with a stored range, shown=false means the user
+    // configured that range and the current zoom is outside it — that is
+    // R7's intended behaviour, not a bug. The guard would have turned that
+    // legitimate case into a silent no-op, which is exactly §6.2's
+    // "不得静默失效". syncHiddenId already clears rangeHiddenIds on user
+    // action; the next zoom out of range should retract again.
+    let onMap = true;
+    const map = makeMap();
+    map.hasLayer = vi.fn(() => onMap);
+    map.addLayer = vi.fn(() => { onMap = true; });
+    map.removeLayer = vi.fn(() => { onMap = false; });
+    const layer = { options: {} } as any;
+    const m = new LayerManager(map, [{ id: "overlay1", name: "Poly", layer }]);
+    const u = new LayerUI(m);
+    u.zoomRangeMap.overlay1 = [3, 12];
+    // User checked on: clears rangeHiddenIds, marks override
+    syncHiddenId(u, "overlay1", false, false);
+
+    // Zoom out of range: sweep must retract — the range is the user's own
+    // configuration, not a default the sweep can ignore.
+    map.getZoom.mockReturnValue(2);
+    refreshZoomEffectiveShown(u);
+
+    expect(map.removeLayer).toHaveBeenCalled();
+    expect(u.rangeHiddenIds.has("overlay1")).toBe(true);
+  });
+
+  it("sweep still retracts a layer the user never checked on (reverse gate: no regression)", () => {
+    // Reverse-gate complement: for a layer with no user override, the
+    // sweep must still retract on zoom out of range. This is #329's
+    // retract half, which the one-way gate must not accidentally disable.
+    const map = makeMap();
+    const layer = { options: {} } as any;
+    const m = new LayerManager(map, [{ id: "overlay1", name: "Poly", layer }]);
+    const u = new LayerUI(m);
+    u.zoomRangeMap.overlay1 = [3, 12];
+    map.getZoom.mockReturnValue(2); // out of range
+
+    refreshZoomEffectiveShown(u);
+
+    expect(map.removeLayer).toHaveBeenCalled();
+    expect(u.rangeHiddenIds.has("overlay1")).toBe(true);
   });
 });

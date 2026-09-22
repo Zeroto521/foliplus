@@ -87,6 +87,15 @@ class LayerUI {
   foldedGroups: Set<string>;
   /** Layer ids hidden by the user (checked-off); survives page reload. */
   hiddenIds: Set<string>;
+  /** Layer ids the zoom-range mechanism itself removed from the map in this
+   *  session (derived state, never persisted). The one-way gate: this is the
+   *  *only* set of ids the range is allowed to put back on the map — a layer
+   *  the author declared `show=False` and the user never touched has no
+   *  entry here, so the range stays off the map the way folium left it.
+   *
+   *  Any explicit user action clears the id via `syncHiddenId`, so the
+   *  user's choice always beats this mechanism's record. */
+  rangeHiddenIds: Set<string>;
   /** The author's declared default per layer id, snapshotted once per id from
    *  the map membership at first sight.
    *
@@ -204,6 +213,7 @@ class LayerUI {
     this._ = createTranslator(CONF);
     this.foldedGroups = new Set();
     this.hiddenIds = new Set();
+    this.rangeHiddenIds = new Set();
     this.authorVisible = new Map();
     this.userOverrides = {};
     this.isColorActive = false;
