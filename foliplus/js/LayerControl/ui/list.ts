@@ -353,8 +353,8 @@ const initLayerItem = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
   if (!item) return false;
 
   applyRowView(ui, item, cell);
-  // The mirror keeps its own writer: the row renders the intent, and the map
-  // state still has to be told what the user wants. Lane 3 owns that write.
+  // The row renders the intent; the map state still has to be told what the
+  // user wants.
   syncVisibility(ui, layerInfo, layer, cell.checked);
 
   return cell.shown && layerInfo.isBase;

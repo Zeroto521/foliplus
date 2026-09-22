@@ -1,14 +1,13 @@
 // LayerControl UI — Row projection: intent + derived state → the row's visual.
 //
-// Lane 2 of the layer-surface refactor. The layer row used to be both painter
-// and reconciler; this file takes the painting half and makes it a projection,
-// so `LayerUI` is left with painting only.
+// The layer row used to be both painter and reconciler. This file takes the
+// painting half and makes it a projection, so `LayerUI` is left with painting
+// only.
 //
 // Nothing here writes to the map, the registry, or the persisted record. The
-// map writes stay in state.ts (the diff-driven executor is lane 3), and the row
-// renders from whatever intent and derived state that pipeline has already
-// established. That is also what makes the row virtualizable: rendering is a
-// function of state, not a sweep that mutates the world.
+// map writes stay in state.ts, and the row renders from whatever intent and
+// derived state that pipeline has already established: rendering is a function
+// of state, not a sweep that mutates the world.
 //
 // Two pieces:
 //   rowChecked / inZoomRange / rowView — the projection (read-only + pure)
