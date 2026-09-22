@@ -130,7 +130,7 @@ class HeatmapControl extends BaseControl {
 
     // Flush any pending write so the last user-initiated change is durable
     // (write-through here, so the flush is a no-op safety net).
-    mgr.persist.flush();
+    mgr.flush();
 
     mgr.clearHeatmapCanvas();
     mgr.overlay.destroy();

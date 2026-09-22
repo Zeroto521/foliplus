@@ -10,6 +10,7 @@ const storage = vi.hoisted(() => ({
   save: vi.fn(),
   loadVersioned: vi.fn(),
   saveVersioned: vi.fn(),
+  makePersisted: vi.fn(),
 }));
 const events = vi.hoisted(() => ({
   emit: vi.fn(),
@@ -20,6 +21,7 @@ vi.mock("#common/storage.js", () => ({
   save: storage.save,
   loadVersioned: storage.loadVersioned,
   saveVersioned: storage.saveVersioned,
+  makePersisted: storage.makePersisted,
 }));
 
 vi.mock("#core/event/index.js", () => ({
@@ -44,33 +46,41 @@ beforeEach(() => {
   storage.loadVersioned.mockReset();
   storage.saveVersioned.mockReset();
   storage.saveVersioned.mockReturnValue(true);
+  storage.makePersisted.mockReset();
+  storage.makePersisted.mockImplementation(({ save, onFlushError }: { save: () => boolean; onFlushError?: (err: unknown) => void }) => ({
+    load: () => {},
+    schedule: () => {
+      const ok = save();
+      if (!ok) onFlushError?.(new Error("persist write failed"));
+    },
+    flush: () => {},
+    cancel: () => {},
+  }));
   events.emit.mockReset();
 });
 
 describe("MeasureStore.persist — versioned envelope", () => {
-  it("delegates every write to saveVersioned with (key, items, version, name)", () => {
+  it("delegates every write to saveVersioned with (key, {data, version, name, dataField})", () => {
     const store = makeStore();
     store.add({ id: "a", type: "marker" } as any);
 
-    expect(storage.saveVersioned).toHaveBeenCalledWith(
-      CONST.STORAGE.KEY,
-      store.all(),
-      CONST.RECORD_VERSION,
-      "MeasureControl",
-      "items",
-    );
+    expect(storage.saveVersioned).toHaveBeenCalledWith(CONST.STORAGE.KEY, {
+      data: store.all(),
+      version: CONST.RECORD_VERSION,
+      name: "MeasureControl",
+      dataField: "items",
+    });
   });
 
   it("delegates an empty clear to saveVersioned with an empty list", () => {
     const store = makeStore();
     store.clear();
-    expect(storage.saveVersioned).toHaveBeenCalledWith(
-      CONST.STORAGE.KEY,
-      [],
-      CONST.RECORD_VERSION,
-      "MeasureControl",
-      "items",
-    );
+    expect(storage.saveVersioned).toHaveBeenCalledWith(CONST.STORAGE.KEY, {
+      data: [],
+      version: CONST.RECORD_VERSION,
+      name: "MeasureControl",
+      dataField: "items",
+    });
   });
 });
 
@@ -93,11 +103,6 @@ describe("MeasureStore.load — envelope + legacy bare array + corrupt", () => {
     storage.loadVersioned.mockReturnValue(null);
     expect(makeStore().load()).toEqual([]);
   });
-
-  it("falls back to [] when storage is absent", () => {
-    storage.loadVersioned.mockReturnValue(null);
-    expect(makeStore().load()).toEqual([]);
-  });
 });
 
 describe("round-trip through the versioned envelope", () => {
@@ -110,14 +115,15 @@ describe("round-trip through the versioned envelope", () => {
     // A fresh store reads whatever the previous one wrote: the write-through
     // is transparent to callers, so load() surfaces the items list the writer
     // last handed to saveVersioned.
-    const [key, items, version, name, dataField] = storage.saveVersioned.mock.calls.at(
-      -1,
-    )! as [string, unknown, number, string, string];
+    const [key, opts] = storage.saveVersioned.mock.calls.at(-1)! as [
+      string,
+      { data: unknown; version: number; name: string; dataField: string },
+    ];
     expect(key).toBe(CONST.STORAGE.KEY);
-    expect(version).toBe(CONST.RECORD_VERSION);
-    expect(name).toBe("MeasureControl");
-    expect(dataField).toBe("items");
-    storage.loadVersioned.mockReturnValue(items);
+    expect(opts.version).toBe(CONST.RECORD_VERSION);
+    expect(opts.name).toBe("MeasureControl");
+    expect(opts.dataField).toBe("items");
+    storage.loadVersioned.mockReturnValue(opts.data);
     expect(makeStore().load()).toHaveLength(2);
   });
 });

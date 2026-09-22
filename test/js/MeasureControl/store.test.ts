@@ -10,6 +10,7 @@ const storage = vi.hoisted(() => ({
   save: vi.fn(),
   loadVersioned: vi.fn(),
   saveVersioned: vi.fn(),
+  makePersisted: vi.fn(),
 }));
 const events = vi.hoisted(() => ({
   emit: vi.fn(),
@@ -17,9 +18,10 @@ const events = vi.hoisted(() => ({
 
 vi.mock("#common/storage.js", () => ({
   load: storage.load,
-  save: storage.saveVersioned,
+  save: storage.save,
   loadVersioned: storage.loadVersioned,
   saveVersioned: storage.saveVersioned,
+  makePersisted: storage.makePersisted,
 }));
 
 vi.mock("#core/event/index.js", () => ({
@@ -51,8 +53,19 @@ beforeEach(() => {
   // Default success — a failure is an explicit per-test mock.
   storage.saveVersioned.mockReset();
   storage.saveVersioned.mockReturnValue(true);
-  storage.saveVersioned.mockReset();
-  storage.saveVersioned.mockReturnValue(true);
+  // makePersisted: return a binding whose schedule() calls the mocked
+  // saveVersioned. This preserves the test's ability to assert on saveVersioned
+  // call arguments and return values while going through the binding layer.
+  storage.makePersisted.mockReset();
+  storage.makePersisted.mockImplementation(({ save, onFlushError }: { save: () => boolean; onFlushError?: (err: unknown) => void }) => ({
+    load: () => {},
+    schedule: () => {
+      const ok = save();
+      if (!ok) onFlushError?.(new Error("persist write failed"));
+    },
+    flush: () => {},
+    cancel: () => {},
+  }));
   events.emit.mockReset();
 });
 
@@ -64,8 +77,7 @@ describe("MeasureStore — load", () => {
     expect(store.load()).toBe(data);
     expect(storage.loadVersioned).toHaveBeenCalledWith(
       CONST.STORAGE.KEY,
-      "MeasureControl",
-      "items",
+      { name: "MeasureControl", dataField: "items" },
     );
   });
 
@@ -233,28 +245,6 @@ describe("MeasureStore — clear", () => {
     expect(store.count()).toBe(0);
     expect(storage.saveVersioned).toHaveBeenCalledTimes(1);
     expect(events.emit).toHaveBeenCalledTimes(1);
-  });
-});
-
-describe("MeasureStore — flush", () => {
-  it("writes the current items even without a preceding mutation", () => {
-    // Teardown calls flush() to make any state made inside the write-through
-    // window durable. A store that never mutated still re-writes its current
-    // items on flush, so a mount → change → unmount cycle always lands the
-    // last change.
-    const store = makeStore().store;
-    store.hydrate([{ id: "a" }, { id: "b" }] as any);
-    storage.saveVersioned.mockClear();
-
-    store.flush();
-
-    expect(storage.saveVersioned).toHaveBeenCalledTimes(1);
-    const [key, items, version, name, dataField] = storage.saveVersioned.mock.calls[0];
-    expect(key).toBe(CONST.STORAGE.KEY);
-    expect(name).toBe("MeasureControl");
-    expect(version).toBe(CONST.RECORD_VERSION);
-    expect(dataField).toBe("items");
-    expect(items).toEqual([{ id: "a" }, { id: "b" }]);
   });
 });
 

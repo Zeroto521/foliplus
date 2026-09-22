@@ -54,19 +54,30 @@ const save = (key: string, data: unknown, name = "foliplus"): boolean => {
  * differs per component (`items` for a list of measurements, `entries` for a
  * list of search history rows), so it is supplied rather than assumed.
  *
+ * Args are grouped into an options object rather than five positional parameters
+ * because `name` and `dataField` are adjacent and both `string`; passing them
+ * reversed compiles cleanly and silently writes `{ version, MeasureControl: [...] }`.
+ *
  * @param key - localStorage key.
- * @param data - Rows to persist (must be JSON-serializable).
- * @param version - Shape version to stamp on the write.
- * @param name - Caller component name, used as the log prefix.
- * @param dataField - Name of the field that holds the rows.
+ * @param opts.data - Rows to persist (must be JSON-serializable).
+ * @param opts.version - Shape version the component stamps on its records.
+ * @param opts.name - Caller component name, used as the log prefix.
+ * @param opts.dataField - Name of the field that holds the rows.
  * @returns Whether the value was actually written.
  */
 const saveVersioned = <T>(
   key: string,
-  data: readonly T[],
-  version: number,
-  name = "foliplus",
-  dataField = "data",
+  {
+    data,
+    version,
+    name = "foliplus",
+    dataField = "data",
+  }: {
+    data: readonly T[];
+    version: number;
+    name?: string;
+    dataField?: string;
+  },
 ): boolean => save(key, { version, [dataField]: data }, name);
 
 /**
@@ -81,23 +92,27 @@ const saveVersioned = <T>(
  * Readers stay tolerant forever: an older record is upgraded on the next write
  * rather than migrated in place, so no reader can lose rows it does not
  * understand, and the field name may differ between components without this
- * helper changing.
+ * helper changing. The returned array is the parsed object from `JSON.parse`,
+ * so callers may mutate it (a subsequent `load()` re-parses anyway).
+ *
+ * Args are grouped into an options object to mirror {@link saveVersioned} — a
+ * positional `name`/`dataField` pair of adjacent strings is easy to reverse and
+ * would silently read the wrong field.
  *
  * @param key - localStorage key.
- * @param name - Caller component name, used as the log prefix.
- * @param dataField - Name of the field that holds the rows.
+ * @param opts.name - Caller component name, used as the log prefix.
+ * @param opts.dataField - Name of the field that holds the rows.
  * @returns The stored rows, or null when the record is absent or unusable.
  */
 const loadVersioned = <T>(
   key: string,
-  name = "foliplus",
-  dataField = "data",
-): readonly T[] | null => {
+  { name = "foliplus", dataField = "data" }: { name?: string; dataField?: string } = {},
+): T[] | null => {
   const data = load<unknown>(key, name);
-  if (Array.isArray(data)) return data as readonly T[];
+  if (Array.isArray(data)) return data as T[];
   if (data && typeof data === "object") {
     const rows = (data as Record<string, unknown>)[dataField];
-    if (Array.isArray(rows)) return rows as readonly T[];
+    if (Array.isArray(rows)) return rows as T[];
   }
   return null;
 };
@@ -112,7 +127,12 @@ type Persisted = {
   load: () => void;
   /** Queue a write. Immediate when `debounceMs` is 0, otherwise coalesced. */
   schedule: () => void;
-  /** Write the current state now. Idempotent and teardown-safe. */
+  /**
+   * Write any pending state now. No-op when nothing is pending (write-through
+   * components, or a caller that has not scheduled since the last write).
+   * Idempotent and teardown-safe — the timer is null after flush, so calling
+   * flush twice is equivalent to calling it once.
+   */
   flush: () => void;
   /** Drop any pending write without writing. */
   cancel: () => void;
@@ -120,47 +140,52 @@ type Persisted = {
 
 /**
  * Options for {@link makePersisted}.
- * @property version - Shape version the component stamps on its records.
  * @property load - Restore persisted state into memory. Called by
  *  {@link Persisted.load}.
  * @property save - Write the current state. Called by {@link Persisted.schedule}
- *  and {@link Persisted.flush}. The component calls `saveVersioned` or
- *  `Storage.save` here and handles its own side effects (quota hint, event
- *  emission, UI sync).
+ *  and {@link Persisted.flush}. Return `true` on success, `false` when the
+ *  storage backend rejected the write (quota exhausted, private-mode restrictions).
+ *  A `false` return routes through `onFlushError`; a throw does too.
  * @property debounceMs - Coalescing window. 0 writes through synchronously,
  *  which is what a caller that needs every change durable immediately wants;
  *  a window > 0 batches a high-frequency source (drag, keyboard) and is only
  *  safe when the caller also calls `flush` on teardown.
- * @property onFlushError - Called when `save` throws during {@link Persisted.flush}.
- *  Components that lose user data on a failed write (an unbounded list against
- *  a fixed quota) surface it here.
+ * @property onFlushError - Called when `save` throws or returns `false` during
+ *  {@link Persisted.schedule} or {@link Persisted.flush}. Components that lose
+ *  user data on a failed write (an unbounded list against a fixed quota)
+ *  surface it here.
  */
 type PersistedOpts = {
-  version: number;
   load: () => void;
-  save: () => void;
+  save: () => boolean;
   debounceMs?: number;
   onFlushError?: (err: unknown) => void;
 };
 
 /**
- * Build a persisted binding over one localStorage key.
+ * Build a persisted binding. The helper owns timing — when to write and when to
+ * coalesce; the component owns the record shape (which key, which version, which
+ * envelope). Version and key stay in the component because the four components'
+ * records are heterogeneous: Measure/Search use an envelope, Heatmap uses a flat
+ * record with an inline version, LayerControl uses a 5-dimension composite. A
+ * shared version constant would couple their independent bump cadences.
  *
  * One shape every write-through component shares: a versioned record, a single
- * write entry point, and an idempotent teardown flush. The window is optional —
+ * write entry point, and a conditional teardown flush. The window is optional —
  * 0 writes through so a change is durable the moment it happens, and a positive
  * window batches a high-frequency source behind a timer that a teardown must
  * flush or the last change is lost.
  */
-const makePersisted = (
-  key: string,
-  { version, load, save, debounceMs = 0, onFlushError }: PersistedOpts,
-): Persisted => {
-  void key;
-  void version;
+const makePersisted = ({
+  load,
+  save,
+  debounceMs = 0,
+  onFlushError,
+}: PersistedOpts): Persisted => {
   const doSave = (): void => {
     try {
-      save();
+      const ok = save();
+      if (!ok) onFlushError?.(new Error("persist write failed"));
     } catch (e) {
       onFlushError?.(e);
     }
@@ -169,13 +194,8 @@ const makePersisted = (
   return {
     load,
     schedule: () => (timer ? timer() : doSave()),
-    flush: () => {
-      timer?.cancel();
-      doSave();
-    },
-    cancel: () => {
-      timer?.cancel();
-    },
+    flush: () => timer?.flush(),
+    cancel: () => timer?.cancel(),
   };
 };
 

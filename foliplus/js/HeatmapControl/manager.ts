@@ -184,7 +184,7 @@ class HeatmapManager {
   /** Persisted-config binding — write-through (no debounce window). Owns the
    *  save entry point so teardown flush is idempotent. The flat inline-version
    *  record stays as-is (no envelope), matching the pre-existing shape. */
-  persist: Persisted;
+  private persist: Persisted;
 
   /**
    * @param mapInstance - Leaflet map instance.
@@ -222,8 +222,7 @@ class HeatmapManager {
     this.sourceMeta = {};
     // Write-through binding: config is durable the moment a UI change lands,
     // so there is nothing to coalesce. Flush on teardown stays idempotent.
-    this.persist = makePersisted(CONST.STORAGE.KEY, {
-      version: CONST.RECORD_VERSION,
+    this.persist = makePersisted({
       load: () => {},
       save: () =>
         Storage.save(

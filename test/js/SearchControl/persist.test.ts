@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { HISTORY, MODE, RECORD_VERSION } from "#foliplus/SearchControl/const.js";
-import { loadHistory, saveHistory } from "#foliplus/SearchControl/logic.js";
+import { flushHistory, loadHistory, saveHistory } from "#foliplus/SearchControl/logic.js";
 import type { SearchHistoryEntry } from "#foliplus/SearchControl/type.js";
 
 describe("SearchControl history — versioned envelope", () => {
@@ -164,11 +164,13 @@ describe("SearchControl history — versioned envelope", () => {
     });
   });
 
-  describe("flush — teardown safety", () => {
-    it("a final write made right before the in-memory array is dropped survives", () => {
-      // Mirror of SearchControl.destroy(): write the current history first, then
-      // reset the in-memory array. If the order flips the last search before
-      // unmount is lost.
+  describe("flushHistory — teardown safety", () => {
+    it("entries survive the destroy() flush→reset sequence", () => {
+      // Mirrors SearchControl.destroy(): flushHistory() writes the current
+      // history before the in-memory array is reset. With debounceMs=0 the
+      // write is already durable at saveHistory time, so flushHistory is a
+      // no-op safety net — but the flush-before-reset order is the convention
+      // that keeps this teardown safe if the debounce window ever changes.
       const entries: SearchHistoryEntry[] = [
         {
           query: "Paris",
@@ -183,12 +185,36 @@ describe("SearchControl history — versioned envelope", () => {
       ];
 
       saveHistory(entries);
-      saveHistory([]); // destroy() drops the in-memory array after the last write
+      flushHistory();
 
       const stored = JSON.parse(window.localStorage.getItem(HISTORY.STORAGE_KEY)!);
       expect(stored.version).toBe(RECORD_VERSION);
       expect(Array.isArray(stored.entries)).toBe(true);
-      expect(stored.entries).toEqual([]);
+      expect(stored.entries).toEqual(entries);
+    });
+
+    it("is a no-op when nothing is pending since the last write", () => {
+      // Conditional-flush semantic: flush only writes when a schedule() is
+      // pending. A teardown that has nothing to save must not rewrite the
+      // record — the disk copy stays untouched, so a later reset of memory
+      // state cannot leak through a stale flush.
+      const entries: SearchHistoryEntry[] = [
+        {
+          query: "Tokyo",
+          type: MODE.ADDR,
+          coordDisplay: "",
+          addrDisplay: "Tokyo",
+          lng: 139.69,
+          lat: 35.68,
+          ts: 1000,
+          count: 1,
+        },
+      ];
+      saveHistory(entries);
+      flushHistory();
+      const afterFirst = window.localStorage.getItem(HISTORY.STORAGE_KEY);
+      flushHistory();
+      expect(window.localStorage.getItem(HISTORY.STORAGE_KEY)).toBe(afterFirst);
     });
   });
 });

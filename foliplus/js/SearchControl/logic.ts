@@ -24,6 +24,7 @@ import { formatLatLng } from "#common/format.js";
 import * as Icons from "#common/icon.js";
 import { createScopedTranslator, createTranslator } from "#common/locale.js";
 import { createLogger } from "#common/log.js";
+import { makePersisted } from "#common/storage.js";
 import * as Storage from "#common/storage.js";
 import {
   AUTOCOMPLETE,
@@ -154,13 +155,29 @@ const mergeHistoryEntries = (entries: SearchHistoryEntry[]): SearchHistoryEntry[
 
 type StoredHistoryEntry = Partial<SearchHistoryEntry> & { label?: string };
 
+// Module-level write-through binding over the search history record. The save
+// closure reads `pendingHistory` (set by saveHistory before scheduling), so the
+// binding is stateless from the caller's point of view — saveHistory is still
+// the public entry point. Load is explicit via loadHistory; this binding's load
+// is a no-op.
+const historyPersist = makePersisted({
+  load: () => {},
+  save: () =>
+    Storage.saveVersioned(HISTORY.STORAGE_KEY, {
+      data: pendingHistory,
+      version: RECORD_VERSION,
+      name: CONF.name,
+      dataField: "entries",
+    }),
+});
+let pendingHistory: SearchHistoryEntry[] = [];
+
 const loadHistory = (): SearchHistoryEntry[] =>
   loadHistoryRows(
-    Storage.loadVersioned<StoredHistoryEntry>(
-      HISTORY.STORAGE_KEY,
-      CONF.name,
-      "entries",
-    ) as StoredHistoryEntry[] | null,
+    Storage.loadVersioned<StoredHistoryEntry>(HISTORY.STORAGE_KEY, {
+      name: CONF.name,
+      dataField: "entries",
+    }),
   );
 
 /** Parse and migrate one history payload; [] for a corrupt or non-array store. */
@@ -191,16 +208,14 @@ const loadHistoryRows = (data: StoredHistoryEntry[] | null): SearchHistoryEntry[
 };
 
 const saveHistory = (entries: SearchHistoryEntry[]): void => {
-  // Wrap in a versioned envelope; readers accept the legacy bare-array shape
-  // too, so the next save is what upgrades an old record.
-  Storage.saveVersioned(
-    HISTORY.STORAGE_KEY,
-    entries,
-    RECORD_VERSION,
-    CONF.name,
-    "entries",
-  );
+  pendingHistory = entries;
+  historyPersist.schedule();
 };
+
+/** Write the current history through the binding. Idempotent no-op when
+ *  nothing is pending (write-through). Called by destroy before the in-memory
+ *  array is cleared, so a last search before unmount is durable. */
+const flushHistory = (): void => historyPersist.flush();
 
 const addHistoryEntry = (ctrl: SearchControlState, entry: SearchHistoryEntry): void => {
   const updated = mergeHistoryEntries([entry, ...ctrl.searchHistory]).slice(
@@ -770,6 +785,7 @@ export {
   clearHistory,
   deleteHistoryEntry,
   fetchSuggestions,
+  flushHistory,
   initDebouncedFetch,
   loadHistory,
   positionPanel,

@@ -676,7 +676,6 @@ class MeasureManager {
     if (this.offLayerRemoved) this.offLayerRemoved();
     this.map.off("unload", this.onUnload);
     this.scheduleLabelPlan.cancel();
-    this.store.flush();
     this.clearAll();
     this.hideCoordReadout();
     this.coordReadoutEl?.remove();
