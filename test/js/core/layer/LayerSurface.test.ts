@@ -17,6 +17,14 @@ class Path {
   }
 }
 
+class Polygon {
+  options: Record<string, unknown> = {};
+}
+
+class Polyline {
+  options: Record<string, unknown> = {};
+}
+
 class Marker {
   options: Record<string, unknown> = {};
   _map: unknown = null;
@@ -92,6 +100,8 @@ beforeEach(() => {
   }));
   window.L.stamp = vi.fn((obj: { __id?: number }) => (obj.__id ??= ++stampId));
   window.L.Path = Path as unknown as typeof L.Path;
+  window.L.Polygon = Polygon as unknown as typeof L.Polygon;
+  window.L.Polyline = Polyline as unknown as typeof L.Polyline;
   window.L.Marker = Marker as unknown as typeof L.Marker;
   window.L.GridLayer = GridLayer as unknown as typeof L.GridLayer;
   window.L.TileLayer = TileLayer as unknown as typeof L.TileLayer;
@@ -631,6 +641,73 @@ describe("LayerSurface.destroy", () => {
     // A declared pane survives: the same id must be registrable again without
     // rebuilding its panes.
     expect(panes.graph).toBeDefined();
+  });
+});
+
+describe("LayerSurface.geometryType / invalidate", () => {
+  it("returns null for a surface with no layer, and caches that answer", () => {
+    const { host } = makeMap();
+    const surface = new LayerSurface(host, {
+      id: "heat",
+      layer: null,
+      paneName: CONST.CANVAS_PANE_PREFIX + "heat",
+      canvas: true,
+    });
+    expect(surface.geometryType()).toBeNull();
+    expect(surface.geometryType()).toBeNull();
+  });
+
+  it("reports a Polygon group as polygon", () => {
+    const { host } = makeMap();
+    const surface = new LayerSurface(host, {
+      id: "poly",
+      layer: new Group([new Polygon()]) as unknown as L.Layer,
+    });
+    expect(surface.geometryType()).toBe(CONST.GEOM_TYPE.POLYGON);
+  });
+
+  it("reuses the cached answer — content changes do not leak through until invalidate", () => {
+    // The group holds a polygon; clear its children so a fresh probe would
+    // return EMPTY. geometryType() still yields the cached polygon — that is
+    // what makes invalidate() the only entry point for the manager to force
+    // a re-probe when createLayers clears or re-fills a group at runtime.
+    const { host } = makeMap();
+    const group = new Group([new Polygon()]);
+    const surface = new LayerSurface(host, {
+      id: "cached",
+      layer: group as unknown as L.Layer,
+    });
+    expect(surface.geometryType()).toBe(CONST.GEOM_TYPE.POLYGON);
+    group.children = [];
+    expect(surface.geometryType()).toBe(CONST.GEOM_TYPE.POLYGON);
+    group.children = [];
+    expect(surface.geometryType()).toBe(CONST.GEOM_TYPE.POLYGON);
+  });
+
+  it("invalidate drops the cache so the next read re-probes the current layer", () => {
+    const { host } = makeMap();
+    const group = new Group([new Polygon()]);
+    const surface = new LayerSurface(host, {
+      id: "reprobe",
+      layer: group as unknown as L.Layer,
+    });
+    expect(surface.geometryType()).toBe(CONST.GEOM_TYPE.POLYGON);
+    group.children = [];
+    expect(surface.geometryType()).toBe(CONST.GEOM_TYPE.POLYGON);
+    surface.invalidate();
+    expect(surface.geometryType()).toBe(CONST.GEOM_TYPE.EMPTY);
+  });
+
+  it("invalidate is a no-op when the cache is already empty", () => {
+    const { host } = makeMap();
+    const surface = new LayerSurface(host, {
+      id: "empty",
+      layer: null,
+      paneName: CONST.CANVAS_PANE_PREFIX + "empty",
+      canvas: true,
+    });
+    expect(() => surface.invalidate()).not.toThrow();
+    expect(surface.geometryType()).toBeNull();
   });
 });
 
