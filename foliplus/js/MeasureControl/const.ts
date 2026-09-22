@@ -108,8 +108,11 @@ const SEL = {
   TOOL_BTN: ".foliplus-tool-btn[data-mode]",
 };
 
-/** Persistent storage key. */
+/** Persistent storage key + the record shape's version stamp (positive
+ * integer, incremented only when the record shape changes; readers accept
+ * older/unknown values and never migrate). */
 const STORAGE = { KEY: `foliplus_measure_${map.getContainer().id}` };
+const RECORD_VERSION = 1;
 
 /** Export formats. */
 const EXPORT_FORMAT = {
@@ -156,6 +159,7 @@ export {
   STYLE,
   SEL,
   STORAGE,
+  RECORD_VERSION,
   EXPORT_FORMAT,
   DEFAULT_EXPORT_FORMAT,
   type ExportFormat,

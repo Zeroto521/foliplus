@@ -78,6 +78,12 @@ interface SelectedPoint {
 
 /** Persisted heatmap configuration (survives page reload). */
 interface SavedConfig {
+  /** Shape version stamp (positive integer). Absent on records persisted
+   * before the versioned format shipped; readers treat an absent or older
+   * value the same way — the fields below are the source of truth, so a
+   * legacy record without a version is applied as-is (no migration, no
+   * bump-on-read). */
+  version?: number;
   layerId?: string | null;
   agg?: string;
   method?: string;
@@ -804,6 +810,7 @@ class HeatmapManager {
     Storage.save(
       CONST.STORAGE.KEY,
       {
+        version: CONST.RECORD_VERSION,
         layerId: this.selectedLayerId,
         agg: this.currentAgg,
         method: this.currentMethod,

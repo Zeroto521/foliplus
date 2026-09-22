@@ -141,7 +141,8 @@ describe("MeasureManager — persistence", () => {
     expect(typeof m.id).toBe("string");
     // The stabilized id is persisted back to localStorage.
     const persisted = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!);
-    expect(persisted[0].id).toBe(m.id);
+    expect(persisted.version).toBe(CONST.RECORD_VERSION);
+    expect(persisted.items[0].id).toBe(m.id);
   });
 
   it("saveMeasurements persists to storage", () => {

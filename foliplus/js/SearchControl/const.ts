@@ -46,12 +46,19 @@ const HISTORY = {
   STORAGE_KEY: `foliplus_search_${map.getContainer().id}`,
 };
 
+/** Version stamp for the persisted history record (positive integer,
+ * incremented only when the record shape changes). Readers accept
+ * older/unknown values and never migrate (a legacy bare array is read as-is
+ * and re-wrapped on the next save). */
+const RECORD_VERSION = 1;
+
 export {
   type SearchSource,
   type SearchType,
   AUTOCOMPLETE,
   CLASSES,
   HISTORY,
+  RECORD_VERSION,
   MODE,
   PARAM,
   SOURCE,
