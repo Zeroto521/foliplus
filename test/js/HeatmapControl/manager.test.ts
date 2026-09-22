@@ -1286,6 +1286,108 @@ describe("initScan — single-layer auto-select on first scan only", () => {
     expect(renderSpy).toHaveBeenCalled(); // saved layer drawn without interaction
     expect(ctrl.ctrl.getAttribute("data-ready")).toBe("true");
   });
+
+  // Gates below drive the reload path as it happens in production:
+  // a new manager against the same localStorage — same instance would
+  // not surface the bug this round is fixing, since the guard state
+  // never leaves the object. makeManager replaces window.map.foliplus
+  // wholesale, so LayerAPI mocks must be re-applied after each call.
+  const seedLonely = () => {
+    window.map.foliplus.LayerAPI.getLayersByType = vi.fn(() => [
+      { id: "lonely", name: "Lonely", layer: {} },
+    ]);
+    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
+      { lat: 1, lng: 2, marker: {} },
+    ]);
+  };
+
+  it("suppresses auto-select across a reload after the user cleared it explicitly", async () => {
+    // Pre-fix, hasScanned is runtime-only; a persisted record with
+    // layerId: null was restored by applySavedConfig without closing the
+    // guard, so the reload looked like a first open and re-fired.
+    const { initScan } = await import("#foliplus/HeatmapControl/ui.js");
+    window.localStorage.clear();
+
+    // Session 1: user opens the heatmap (single-layer auto-select fires),
+    // then clears the dropdown.  The clear is user-initiated so it
+    // persists — the record carries layerId: null on disk.
+    const m1 = makeManager();
+    seedLonely();
+    const c1 = makeCtrl(m1);
+    initScan(c1);
+    expect(m1.selectedLayerId).toBe("lonely");
+    m1.selectedLayerId = null;
+    m1.saveConfig();
+    m1.flush();
+
+    // Session 2: fresh manager on the same localStorage — the recorded
+    // clear must survive the reload, not be overridden by auto-select.
+    const m2 = makeManager();
+    seedLonely();
+    const saved = m2.loadSavedConfig();
+    expect(saved).not.toBeNull();
+    expect(saved!.layerId).toBeNull();
+    m2.applySavedConfig(saved!);
+    const c2 = makeCtrl(m2);
+    const renderSpy = vi.spyOn(m2, "renderHexagons");
+    initScan(c2);
+
+    expect(m2.selectedLayerId).toBeNull();
+    expect(renderSpy).not.toHaveBeenCalled();
+  });
+
+  it("never auto-selects with two point layers, with or without a saved record", async () => {
+    const { initScan } = await import("#foliplus/HeatmapControl/ui.js");
+    window.localStorage.clear();
+
+    // No persisted record here — the guard is open on first open, so
+    // this case is the pure test of the length rule itself.  If the
+    // length === 1 check regresses, the first layer would be picked.
+    const m = makeManager();
+    window.map.foliplus.LayerAPI.getLayersByType = vi.fn(() => [
+      { id: "a", name: "A", layer: {} },
+      { id: "b", name: "B", layer: {} },
+    ]);
+    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
+      { lat: 1, lng: 2, marker: {} },
+    ]);
+    expect(m.loadSavedConfig()).toBeNull();
+    const ctrl = makeCtrl(m);
+    const renderSpy = vi.spyOn(m, "renderHexagons");
+    initScan(ctrl);
+
+    expect(m.selectedLayerId).toBeNull();
+    expect(renderSpy).not.toHaveBeenCalled();
+  });
+
+  it("allows auto-select again after Reset deleted the record", async () => {
+    // Reset (clearSavedConfig) deletes the record entirely — this is the
+    // deliberate "back to the Python-declared state" path (§28.6 trigger-
+    // source distinction). Gate 3 proves the fix does not conflate
+    // explicit-clear with Reset.
+    const { initScan } = await import("#foliplus/HeatmapControl/ui.js");
+    window.localStorage.clear();
+
+    const m1 = makeManager();
+    seedLonely();
+    m1.selectedLayerId = "lonely";
+    m1.saveConfig();
+    m1.flush();
+    m1.clearSavedConfig();
+    expect(window.localStorage.getItem(CONST.STORAGE.KEY)).toBeNull();
+
+    // Fresh manager, no record → applySavedConfig never runs → guard stays
+    // open → the first open's single-layer auto-select fires.
+    const m2 = makeManager();
+    seedLonely();
+    expect(m2.loadSavedConfig()).toBeNull();
+    const c2 = makeCtrl(m2);
+    const renderSpy = vi.spyOn(m2, "renderHexagons");
+    initScan(c2);
+
+    expect(m2.selectedLayerId).toBe("lonely");
+    expect(renderSpy).toHaveBeenCalled();
+  });
 });
 
 describe("event-bus bindings", () => {
