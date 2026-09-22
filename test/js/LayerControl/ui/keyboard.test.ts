@@ -930,6 +930,37 @@ describe("LayerUI keyboard", () => {
       expect(ui.activeIdx).toBeNull();
     });
 
+    it("ArrowDown on a range slider does not move the cursor after a row was clicked first", () => {
+      // "Click row → focus style-panel slider → press ArrowDown" must not
+      // fall through to any list-cursor path, whether via the central
+      // dispatcher or a direct keydown listener on the panel. This is the
+      // combined scenario the standalone ListCursor guard protects against.
+      const indexFor = (id: string) => ui.getNavigableItems().indexOf(findItem(ui, id));
+      const item = findItem(ui, "overlay1");
+      ui.setActiveItem(indexFor("overlay1"));
+      const rowIdx = ui.activeIdx;
+      expect(ui.listCursor?.index).toBe(rowIdx);
+      expect(rowIdx).not.toBeNull();
+
+      ui.openStylePanel("overlay1");
+      const panel = item.querySelector(`.${CONST.CLASSES.STYLE_PANEL}`)!;
+      const slider = panel.querySelector(
+        `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MIN}`,
+      ) as HTMLInputElement;
+
+      slider.focus();
+      const event = new KeyboardEvent("keydown", {
+        key: "ArrowDown",
+        bubbles: true,
+        cancelable: true,
+      });
+      slider.dispatchEvent(event);
+
+      expect(event.defaultPrevented).toBe(false);
+      expect(ui.activeIdx).toBe(rowIdx);
+      expect(ui.listCursor?.index).toBe(rowIdx);
+    });
+
     it("Escape on a range slider still closes the style panel", () => {
       const item = findItem(ui, "overlay1");
       ui.openStylePanel("overlay1");
