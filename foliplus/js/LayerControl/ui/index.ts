@@ -2,7 +2,7 @@
 // Heavy lifting lives in `ui/*` modules; this class owns state and wiring.
 import { EVENTS, type EventBus, ensureEvents } from "#core/event/index.js";
 import type { LabelField } from "#core/labelField.js";
-import { GEOM_TYPE, type LayerInfo, getGeometryType } from "#core/layer/index.js";
+import { GEOM_TYPE, type LayerInfo } from "#core/layer/index.js";
 import { ListCursor } from "#core/listCursor.js";
 import { formatNumber } from "#common/format.js";
 import { createScopedTranslator, createTranslator } from "#common/locale.js";
@@ -527,10 +527,15 @@ class LayerUI {
     ) as HTMLElement | null;
 
     // Re-detect geometry type (iconSvg-only layers keep their custom SVG).
+    // layerInfo.type is a snapshot of the surface's probe result — writing it
+    // here is the snapshot sync for render, not a second probe. The authority
+    // for geometry-type detection lives on the surface.
     let typeLabel = item.getAttribute(CONST.DATA.TITLE) ?? "";
     if (typeCol && !layerInfo.iconSvg) {
       const layer = this.m.findLayer(layerInfo);
-      const gtype = layer ? getGeometryType(layer) : GEOM_TYPE.UNKNOWN;
+      const gtype = layer
+        ? this.m.surfaceFor(layerInfo).geometryType()
+        : GEOM_TYPE.UNKNOWN;
       layerInfo.type = gtype;
       typeCol.innerHTML = layer ? Util.getTypeSVG(layer, gtype) : SVGs.UNKNOWN;
       typeLabel = this.T(`type_${gtype}`);
