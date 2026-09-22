@@ -122,7 +122,7 @@ const mergeStoredOrder = (stored: string[] | null, live: string[]): string[] => 
 // The `layerInfo.type` field is a snapshot mirror of that surface result,
 // not a second source of truth.
 //
-// §34.2 boundary reference — which layer each method belongs to. Public =
+// Boundary reference — which layer each method belongs to. Public =
 // stable contract, change carefully. Internal = LayerUI sibling read
 // surface (ui/* + LayerUI); refactorable, but coordinate with ui/*.
 //   LayerAPI  layers, registerLayer, unregisterLayer, deleteLayer,
@@ -805,13 +805,11 @@ class LayerManager implements LayerAPI {
     }
   }
 
-  /** §33.3 — z-space forwarding.
-   *
-   *  Pure forward to `core/layer/z.zFor`; the z-space is defined there,
-   *  not here. Since R9 production code calls `zFor` directly, but this
-   *  wrapper stays because LayerManager is the LayerAPI entry point —
-   *  removing it would break the contract. Tests and probes may still
-   *  call it. Do not grow this into real logic. */
+  /** z-space forwarding — pure forward to `core/layer/z.zFor`. The z-space
+   *  is defined there, not here. Since R9 production code calls `zFor`
+   *  directly, but this wrapper stays because LayerManager is the LayerAPI
+   *  entry point — removing it would break the contract. Tests and probes
+   *  may still call it. Do not grow this into real logic. */
   computeZIndex(i: number, isTile: boolean): number {
     return zFor({ index: i, count: this.layers.length, tile: isTile });
   }
