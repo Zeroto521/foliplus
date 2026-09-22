@@ -122,7 +122,8 @@ const mergeStoredOrder = (stored: string[] | null, live: string[]): string[] => 
 // The `layerInfo.type` field is a snapshot mirror of that surface result,
 // not a second source of truth.
 //
-// Boundary reference — which layer each method belongs to. Public =
+// LayerManager boundary reference — which layer each method belongs to.
+// Public =
 // stable contract, change carefully. Internal = LayerUI sibling read
 // surface (ui/* + LayerUI); refactorable, but coordinate with ui/*.
 //   LayerAPI  layers, registerLayer, unregisterLayer, deleteLayer,
