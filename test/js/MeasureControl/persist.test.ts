@@ -47,15 +47,22 @@ beforeEach(() => {
   storage.saveVersioned.mockReset();
   storage.saveVersioned.mockReturnValue(true);
   storage.makePersisted.mockReset();
-  storage.makePersisted.mockImplementation(({ save, onFlushError }: { save: () => boolean; onFlushError?: (err: unknown) => void }) => ({
-    load: () => {},
-    schedule: () => {
-      const ok = save();
-      if (!ok) onFlushError?.(new Error("persist write failed"));
-    },
-    flush: () => {},
-    cancel: () => {},
-  }));
+  storage.makePersisted.mockImplementation(
+    ({
+      save,
+      onFlushError,
+    }: {
+      save: () => boolean;
+      onFlushError?: (err: unknown) => void;
+    }) => ({
+      schedule: () => {
+        const ok = save();
+        if (!ok) onFlushError?.(new Error("persist write failed"));
+      },
+      flush: () => {},
+      cancel: () => {},
+    }),
+  );
   events.emit.mockReset();
 });
 
