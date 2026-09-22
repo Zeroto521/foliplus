@@ -171,4 +171,20 @@ describe("ui/color", () => {
     );
     expect(presentInput?.checked).toBe(false);
   });
+
+  it("showColorLayer removes ACTIVE from a row without a checkbox", () => {
+    // A row exists but has no checkbox input (e.g., partially rendered).
+    // The guard skips the unchecked call but still removes ACTIVE.
+    const { ui, mapContainer } = makeUi([{ id: "base_nochk", isBase: true }]);
+
+    // Replace the checkbox with nothing — row exists, but no input.
+    const row = ui.uiContainer.querySelector<HTMLElement>(
+      `[${CONST.DATA.LAYER_ID}="base_nochk"]`,
+    );
+    row!.innerHTML = "";
+    row!.classList.add(CONST.CLASSES.ACTIVE);
+
+    expect(() => showColorLayer(ui, "#ff0000")).not.toThrow();
+    expect(row!.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
+  });
 });
