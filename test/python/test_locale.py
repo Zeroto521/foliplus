@@ -153,6 +153,7 @@ _JS_USED_KEYS = {
     "LayerControl.focus_layer_tooltip",
     "LayerControl.focus_layer_hidden",
     "LayerControl.focus_layer_base",
+    "LayerControl.focus_layer_no_bounds",
     "LayerControl.focus_cancelled",
     "LayerControl.rename_layer",
     "LayerControl.rename_layer_tooltip",
