@@ -62,6 +62,7 @@ describe("LayerFactory", () => {
     HTMLCanvasElement.prototype.getContext = vi.fn(() => ({
       setTransform: vi.fn(),
       clearRect: vi.fn(),
+      fillRect: vi.fn(),
     })) as any;
 
     const paneRegistry: Record<string, HTMLElement> = {};
@@ -1093,6 +1094,147 @@ describe("LayerFactory", () => {
           paneName: "foliplus-canvas-cv",
         }),
       );
+    });
+  });
+
+  // ── createSurface: the color dialect ────────────────────────────
+  // The third content kind. A solid-color basemap has no Leaflet layer and no
+  // drawing API: the surface owns a pane, the pane owns a canvas face, and the
+  // whole content model is one value. The interesting part is not the fill but
+  // the tile panes — hiding them is this surface's business, and the class it
+  // writes lives on a pane that outlives the surface.
+
+  describe("createSurface color", () => {
+    type ColorContent = Extract<
+      import("#foliplus/core/layer/type.js").SurfaceContentHandle,
+      { kind: "color" }
+    >;
+
+    const make = (id: string) =>
+      factory.createSurface({
+        id,
+        content: { kind: "color", color: "#3366cc" },
+      });
+    const content = (h: { content: ColorContent }): ColorContent => h.content;
+
+    it("throws when id is missing", () => {
+      expect(() =>
+        factory.createSurface({
+          id: "",
+          content: { kind: "color", color: "#3366cc" },
+        }),
+      ).toThrow("color surface requires an id");
+    });
+
+    it("owns a dedicated color pane and mounts the face in it", () => {
+      const h = make("solid");
+      expect(map.createPane).toHaveBeenCalledWith("foliplus-color-solid");
+      expect(content(h).element.parentElement?.classList.contains("foliplus-layer-pane")).toBe(
+        true,
+      );
+      // A canvas face, not an invented fourth element kind: the geometry
+      // plumbing (sizing, counter-translation) is the canvas branch's.
+      expect(content(h).element).toBeInstanceOf(HTMLCanvasElement);
+      expect(content(h).element.classList.contains("foliplus-canvas-layer")).toBe(true);
+      expect(window.L.svg).not.toHaveBeenCalled();
+    });
+
+    it("registers as a base layer carrying the fill, the face, and the pane name", () => {
+      const h = make("solid");
+      h.register();
+      expect(registerLayer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: "solid",
+          isBase: true,
+          color: "#3366cc",
+          canvas: content(h).element,
+          paneName: "foliplus-color-solid",
+        }),
+      );
+    });
+
+    it("hides the tile panes when shown and restores them when hidden", () => {
+      const tilePane = document.createElement("div");
+      map._panes["tilePane"] = tilePane;
+      const h = make("solid");
+      const c = content(h);
+
+      c.setVisible(true);
+      expect(tilePane.classList.contains("foliplus-layer-tile-hidden")).toBe(true);
+      expect(c.element.classList.contains("hidden")).toBe(false);
+
+      c.setVisible(false);
+      expect(tilePane.classList.contains("foliplus-layer-tile-hidden")).toBe(false);
+      expect(c.element.classList.contains("hidden")).toBe(true);
+    });
+
+    it("ignores a missing tilePane rather than throwing", () => {
+      const h = make("solid");
+      const c = content(h);
+      expect(() => c.setVisible(true)).not.toThrow();
+      expect(c.element.classList.contains("hidden")).toBe(false);
+    });
+
+    it("setColor repaints and the handle reports the live fill", () => {
+      const fillRect = vi.fn();
+      HTMLCanvasElement.prototype.getContext = vi.fn(() => ({
+        setTransform: vi.fn(),
+        clearRect: vi.fn(),
+        fillRect,
+      })) as any;
+
+      const h = make("solid");
+      const paintedAtConstruction = fillRect.mock.calls.length;
+      expect(content(h).color).toBe("#3366cc");
+
+      content(h).setColor("#123456");
+      expect(fillRect.mock.calls.length).toBe(paintedAtConstruction + 1);
+      expect(content(h).color).toBe("#123456");
+    });
+
+    it("unregister hides the layer and gives the tiles back", () => {
+      const tilePane = document.createElement("div");
+      map._panes["tilePane"] = tilePane;
+      const h = make("solid");
+      h.register();
+      expect(tilePane.classList.contains("foliplus-layer-tile-hidden")).toBe(true);
+
+      h.unregister();
+      expect(unregisterLayer).toHaveBeenCalledWith("solid");
+      expect(tilePane.classList.contains("foliplus-layer-tile-hidden")).toBe(false);
+    });
+
+    it("destroy unbinds, drops the face and the pane, and gives the tiles back", () => {
+      const tilePane = document.createElement("div");
+      map._panes["tilePane"] = tilePane;
+      const h = make("solid");
+      const face = content(h).element;
+      expect(map._panes["foliplus-color-solid"]).toBeTruthy();
+
+      // The leak this guards against: the caller showed the color through
+      // `setVisible` but never registered, so `preUnregister` will not run.
+      content(h).setVisible(true);
+      h.destroy();
+
+      expect(map.off).toHaveBeenCalled();
+      expect(face.parentElement).toBeNull();
+      expect(map._panes["foliplus-color-solid"]).toBeUndefined();
+      expect(tilePane.classList.contains("foliplus-layer-tile-hidden")).toBe(false);
+    });
+
+    it("destroy unregisters a registered surface too", () => {
+      const h = make("solid");
+      h.register();
+      h.destroy();
+      expect(unregisterLayer).toHaveBeenCalledWith("solid");
+      expect(h.registered()).toBe(false);
+    });
+
+    it("register is idempotent at the callback level", () => {
+      const h = make("solid");
+      h.register();
+      h.register();
+      expect(registerLayer).toHaveBeenCalledTimes(1);
     });
   });
 });

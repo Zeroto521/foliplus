@@ -16,6 +16,13 @@ const FALLBACK_PANE_PREFIX = "foliplus-pane-";
  *  layer. */
 const CANVAS_PANE_PREFIX = "foliplus-canvas-";
 
+/** Pane name prefix for a solid-color basemap. Same family as
+ *  `CANVAS_PANE_PREFIX`: a named, component-owned pane that owns the layer's
+ *  whole face. The pane element itself is the face (it carries the fill), so
+ *  the prefix is what tells the ordering pass and the exporter that this pane
+ *  is a single flat surface rather than a container for vector children. */
+const COLOR_PANE_PREFIX = "foliplus-color-";
+
 /** A pane name must survive its journey into the DOM — Leaflet's `createPane`
  *  sets the name as an element id and a CSS class. Anything outside this
  *  pattern would be a third-party injection surface (a `<script>` in a
@@ -31,6 +38,13 @@ const CANVAS_PANE_PREFIX = "foliplus-canvas-";
  *  is what foliplus callers use. */
 const PANE_NAME_PATTERN = /^[a-zA-Z0-9_-]+$/;
 
+/** The class that switches Leaflet's shared tile panes off. A solid-color
+ *  basemap is the only thing that may write it: its own pane sits *under* the
+ *  tiles in Leaflet's shared stack, so hiding the tiles is part of showing the
+ *  color, and it belongs on the surface rather than as a global side effect
+ *  that outlives the layer. */
+const TILE_HIDDEN_CLASS = "foliplus-layer-tile-hidden";
+
 /** Geometry type names (used by layer traversal / type detection). */
 const GEOM_TYPE = {
   POINT: "point",
@@ -43,9 +57,11 @@ const GEOM_TYPE = {
 
 export {
   CANVAS_PANE_PREFIX,
+  COLOR_PANE_PREFIX,
   FALLBACK_PANE_PREFIX,
   GEOM_TYPE,
   PANE_NAME_PATTERN,
   RECURSION,
+  TILE_HIDDEN_CLASS,
   Z_INDEX,
 };

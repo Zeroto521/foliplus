@@ -85,25 +85,48 @@ describe("PaneManager", () => {
     expect(panes).toContain("foliplus-measure-graph");
   });
 
-  it("getLayerPanes falls back when a layer declares no pane", () => {
+  it("getLayerPanes answers [] when a layer declares no pane", () => {
     const map = { getPane: vi.fn(), createPane: vi.fn() };
     const pm = new PaneManager(map);
-    // A layer that declared none answers with Leaflet's shared panes: the pane
-    // a LayerSurface synthesizes is resolved from the surface, not from here.
+    // Nothing in the tree names a custom pane, so there is nothing this tree
+    // can prove. The pane a LayerSurface synthesizes is resolved from the
+    // surface, not from here — "none" is the honest answer, not a guess at
+    // Leaflet's shared panes.
     const layer = { options: {} };
-    expect(pm.getLayerPanes(layer)).toEqual(["overlayPane", "markerPane"]);
+    expect(pm.getLayerPanes(layer)).toEqual([]);
   });
 
-  it("getLayerPanes falls back when a layer's tree names only default panes", () => {
-    // The realistic fallback: a Marker with pane: "markerPane" lives in
-    // Leaflet's own shared pane. discoverChildPanes filters it out via
-    // isDefaultPane, returns [], and the caller gets the conservative guess.
-    // The synthesized pane a LayerSurface assigns to such a layer is resolved
-    // from the surface, not from here.
+  it("getLayerPanes answers [] when a layer's tree names only default panes", () => {
+    // The realistic case: a Marker with pane: "markerPane" lives in Leaflet's
+    // own shared pane, which discoverChildPanes filters out via isDefaultPane.
+    // Returning that shared pane as "this layer's pane" would hand the caller
+    // every other marker on the map, so the answer comes back empty.
     const map = { getPane: vi.fn(), createPane: vi.fn() };
     const pm = new PaneManager(map);
     const layer = { options: { pane: "markerPane" } };
-    expect(pm.getLayerPanes(layer)).toEqual(["overlayPane", "markerPane"]);
+    expect(pm.getLayerPanes(layer)).toEqual([]);
+  });
+
+  it("getLayerPanes never answers with a Leaflet shared pane", () => {
+    // Regression gate for the pre-fix fallback ["overlayPane","markerPane"]:
+    // the returned list is the contract "these panes are this layer's", so
+    // an infrastructure pane in it means the caller now owns every layer's
+    // pixels. Layers that name nothing, that name a shared pane, and that name
+    // a real custom pane must all stay clear of the shared set.
+    const map = { getPane: vi.fn(), createPane: vi.fn() };
+    const pm = new PaneManager(map);
+    const shared = new Set(["overlayPane", "markerPane", "tilePane", "shadowPane"]);
+    for (const layer of [
+      { options: {} },
+      { options: { pane: "markerPane" } },
+      { options: { pane: "tilePane" } },
+      { options: { pane: "overlayPane" } },
+      { options: { pane: "foliplus-measure-graph" } },
+    ]) {
+      for (const name of pm.getLayerPanes(layer)) {
+        expect(shared.has(name)).toBe(false);
+      }
+    }
   });
 
   it("ensurePane reuses an existing pane without creating", () => {

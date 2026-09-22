@@ -5,7 +5,12 @@ import { cancelMapPaneTranslate, dom } from "#common/dom.js";
 import { createLogger } from "#common/log.js";
 import { throttleRaf } from "#common/throttle.js";
 import { PaneManager } from "./PaneManager.js";
-import { CANVAS_PANE_PREFIX, PANE_NAME_PATTERN } from "./const.js";
+import {
+  CANVAS_PANE_PREFIX,
+  COLOR_PANE_PREFIX,
+  PANE_NAME_PATTERN,
+  TILE_HIDDEN_CLASS,
+} from "./const.js";
 import type {
   CreateCanvasAPI,
   CreateCanvasOpts,
@@ -45,20 +50,23 @@ interface LayerFactoryDeps {
 // prefixes with its own class name.
 const log = createLogger("LayerFactory");
 
-/** The pane a canvas surface paints into. `opts.id` is caller input and this
- *  name reaches Leaflet's `createPane` as both an element id and a CSS class,
- *  so it has to satisfy `PANE_NAME_PATTERN` first — the same gate
- *  `PaneSpec.name` and `SurfaceOpts.paneName` pass through. A canvas pane
- *  cannot be dropped the way an invalid spec is (the canvas has to live
+/** The class a hidden face carries. */
+const HIDDEN = "hidden";
+
+/** The pane a canvas or color surface paints into. `opts.id` is caller input
+ *  and this name reaches Leaflet's `createPane` as both an element id and a
+ *  CSS class, so it has to satisfy `PANE_NAME_PATTERN` first — the same gate
+ *  `PaneSpec.name` and `SurfaceOpts.paneName` pass through. Such a pane
+ *  cannot be dropped the way an invalid spec is (the content has to live
  *  somewhere), so disallowed runs collapse to `-` instead: the pane stays
  *  recognisable and the caller's own `id` is left untouched. */
-const canvasPaneNameFor = (id: string): string => {
+const namedPaneNameFor = (id: string, prefix: string, label: string): string => {
   const raw = String(id);
   const safe = raw.replace(/[^a-zA-Z0-9_-]+/g, "-");
   if (safe !== raw) {
-    log.warn(`createCanvas id normalised for injection safety: "${raw}" -> "${safe}"`);
+    log.warn(`${label} id normalised for injection safety: "${raw}" -> "${safe}"`);
   }
-  return `${CANVAS_PANE_PREFIX}${safe}`;
+  return `${prefix}${safe}`;
 };
 
 class LayerFactory {
@@ -131,11 +139,17 @@ class LayerFactory {
   createSurface(
     opts: SurfaceOpts & { content: { kind: "canvas" } },
   ): Extract<SurfaceHandle, { content: { kind: "canvas" } }>;
+  createSurface(
+    opts: SurfaceOpts & { content: { kind: "color"; color: string } },
+  ): Extract<SurfaceHandle, { content: { kind: "color" } }>;
   createSurface(opts: SurfaceOpts): SurfaceHandle {
     // Unreachable for typed callers (SurfaceOpts.id is required); kept as a
     // guard for untyped JS callers that skip the overload.
     if (opts.content.kind === "canvas" && !opts.id) {
       throw new Error(log.msg("createCanvas requires an id"));
+    }
+    if (opts.content.kind === "color" && !opts.id) {
+      throw new Error(log.msg("color surface requires an id"));
     }
 
     const { map, panes, registerLayer, unregisterLayer, bringLayerToFront } = this.deps;
@@ -302,6 +316,120 @@ class LayerFactory {
       };
     }
 
+    if (opts.content.kind === "color") {
+      const { color } = opts.content;
+      const paneName = namedPaneNameFor(
+        opts.id,
+        COLOR_PANE_PREFIX,
+        "color surface",
+      );
+      const { pane } = panes.ensurePane(paneName, false);
+
+      // A canvas face, reused rather than invented: a Leaflet pane has no size
+      // of its own, so the fill must live on a child element that is sized to
+      // the container and counter-translated against the map's pan, exactly the
+      // plumbing `createCanvas` already owns (and `.foliplus-canvas-layer`
+      // already styles). Drawing one pixel of it is not "canvas drawing" — it
+      // keeps the fourth variant of viewport geometry from being born here.
+      const face = dom.el("canvas", {
+        class: "foliplus-canvas-layer",
+        parent: pane,
+      }) as HTMLCanvasElement;
+      const ctx = face.getContext("2d");
+      if (!ctx) throw new Error(log.msg("color surface requires a 2d context"));
+
+      let fill = color;
+      const paint = () => {
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(0, 0, face.width, face.height);
+        ctx.fillStyle = fill;
+        ctx.fillRect(0, 0, face.width, face.height);
+      };
+      const setColor = (next: string) => {
+        fill = next;
+        paint();
+      };
+
+      const resize = () => {
+        const container = map.getContainer();
+        const dpr = window.devicePixelRatio || 1;
+        const w = container.clientWidth;
+        const h = container.clientHeight;
+        if (face.width !== w * dpr) face.width = w * dpr;
+        if (face.height !== h * dpr) face.height = h * dpr;
+        face.style.width = `${w}px`;
+        face.style.height = `${h}px`;
+        paint();
+      };
+      const updatePosition = () => cancelMapPaneTranslate(face, map);
+      resize();
+      updatePosition();
+      setColor(color);
+
+      const setVisible = (v: boolean) => {
+        face.classList.toggle(HIDDEN, !v);
+        // The color pane sits *under* the tile panes in Leaflet's shared stack,
+        // so hiding the tiles is part of showing the color. Nobody else may
+        // switch them — it is this surface's write, not a global side effect
+        // that would outlive the layer (§22-4).
+        map.getPane("tilePane")?.classList.toggle(TILE_HIDDEN_CLASS, v);
+      };
+
+      layerOpts = {
+        ...commonLayerOpts,
+        isBase: true,
+        canvas: face,
+        color,
+        paneName,
+      };
+
+      const onMove = throttleRaf(() => updatePosition());
+      map.on("move", onMove);
+
+      const onResize = () => resize();
+      map.on("resize", onResize);
+
+      registerIdempotent = true;
+      preRegister = () => {
+        resize();
+        updatePosition();
+        setVisible(true);
+      };
+      preUnregister = () => setVisible(false);
+      shouldUnregister = () => true;
+      content = {
+        kind: "color",
+        element: face,
+        get color() {
+          return fill;
+        },
+        setColor,
+        setVisible,
+      };
+
+      return {
+        content,
+        register,
+        unregister,
+        registered: () => registered,
+        bringToFront,
+        destroy: () => {
+          map.off("move", onMove);
+          map.off("resize", onResize);
+          onMove.cancel();
+          // Unconditional, not left to `preUnregister`: a caller that called
+          // `setVisible(true)` without registering still left the shared tile
+          // panes hidden, and unlike a `hidden` class on this face (which
+          // detaches with it) that side effect lives on a pane that outlives
+          // this surface.
+          setVisible(false);
+          unregister();
+          face.remove();
+          panes.removePane(paneName);
+        },
+      };
+    }
+
     const {
       className,
       onToggle: onToggleOpt,
@@ -311,7 +439,7 @@ class LayerFactory {
       meta,
     } = opts.content;
 
-    const paneName = canvasPaneNameFor(opts.id);
+    const paneName = namedPaneNameFor(opts.id, CANVAS_PANE_PREFIX, "createCanvas");
     const { pane } = panes.ensurePane(paneName, false);
 
     const canvas = dom.el("canvas", {
@@ -345,8 +473,6 @@ class LayerFactory {
 
     resize();
     updatePosition();
-
-    const HIDDEN = "hidden";
 
     const onToggle =
       onToggleOpt ||
