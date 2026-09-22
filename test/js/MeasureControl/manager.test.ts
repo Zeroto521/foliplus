@@ -1155,6 +1155,7 @@ function makeLabelManager(conf: Partial<typeof window.CONF> = {}) {
 beforeEach(() => {
   document.body.innerHTML = "";
   window.L.marker = vi.fn(() => ({
+    bindPopup: vi.fn(),
     on: vi.fn(),
     off: vi.fn(),
     getElement: vi.fn(() => null),
