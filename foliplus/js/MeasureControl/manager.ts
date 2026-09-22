@@ -257,10 +257,17 @@ class MeasureManager {
     this.interactionCleanup = registerInteractions(this);
 
     const cleanup =
-      // On map unload (page refresh/close), clear transient UI state but KEEP
-      // persisted measurements. clearAll() would wipe localStorage, losing all
-      // saved data on every reload.
+      // On map unload (page refresh/close), flush any pending writes, then
+      // clear transient UI state but KEEP persisted measurements.
+      //
+      // Flush first: marker drag persists via a rAF throttle, so the last
+      // mutation during a drag lands only when the next frame fires — if the
+      // browser closes inside that window, the position is in memory only.
+      // store.persist() is write-through (debounceMs=0), so calling it here
+      // writes the current list synchronously. clearAll() would wipe
+      // localStorage, losing all saved data on every reload.
       (this.onUnload = () => {
+        this.store.persist();
         this.clearActiveMode();
         this.layers.clearLayers();
         this.disposeAllHandles();
