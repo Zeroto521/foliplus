@@ -720,6 +720,27 @@ describe("LayerFactory", () => {
       );
     });
 
+    it("throws when the browser cannot provide a 2d context", () => {
+      HTMLCanvasElement.prototype.getContext = vi.fn(() => null) as any;
+      expect(() => factory.createCanvas({ id: "canvas_test" })).toThrow(
+        "createCanvas requires a 2d context",
+      );
+    });
+
+    it("normalises a pane name that would not be a valid element id", () => {
+      // The pane name reaches Leaflet's createPane as both an element id and a
+      // CSS class, so disallowed runs collapse to '-' rather than being
+      // dropped — the pane stays recognisable and the caller's own id is left
+      // untouched.
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      factory.createCanvas({ id: "canvas name" });
+      expect(map.createPane).toHaveBeenCalledWith("foliplus-canvas-canvas-name");
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining("normalised for injection safety"),
+      );
+      warn.mockRestore();
+    });
+
     it("bringToFront delegates to the injected callback", () => {
       const api = factory.createCanvas({ id: "canvas_test" });
       api.bringToFront();
@@ -1124,6 +1145,45 @@ describe("LayerFactory", () => {
           content: { kind: "color", color: "#3366cc" },
         }),
       ).toThrow("color surface requires an id");
+    });
+
+    it("throws when the browser cannot provide a 2d context", () => {
+      // Same guard the canvas branch carries: fail loudly at construction
+      // rather than return a surface whose fill silently never happens.
+      HTMLCanvasElement.prototype.getContext = vi.fn(() => null) as any;
+      expect(() =>
+        factory.createSurface({
+          id: "solid",
+          content: { kind: "color", color: "#3366cc" },
+        }),
+      ).toThrow("color surface requires a 2d context");
+    });
+
+    it("normalises a color pane name that would not be a valid element id", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      make("solid name");
+      expect(map.createPane).toHaveBeenCalledWith("foliplus-color-solid-name");
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining("normalised for injection safety"),
+      );
+      warn.mockRestore();
+    });
+
+    it("resize falls back to devicePixelRatio 1 when the browser reports 0", () => {
+      const original = window.devicePixelRatio;
+      Object.defineProperty(window, "devicePixelRatio", {
+        value: 0,
+        configurable: true,
+      });
+      try {
+        const h = make("solid");
+        expect(content(h).element.width).toBe(800);
+      } finally {
+        Object.defineProperty(window, "devicePixelRatio", {
+          value: original,
+          configurable: true,
+        });
+      }
     });
 
     it("owns a dedicated color pane and mounts the face in it", () => {
