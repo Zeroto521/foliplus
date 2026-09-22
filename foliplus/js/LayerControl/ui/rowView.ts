@@ -27,7 +27,12 @@ interface RowCell {
   name: string;
   /** The checkbox state — intent, never the map membership. */
   checked: boolean;
-  /** Whether the layer is painted right now (intent ∧ policy). */
+  /**
+   * Whether the policy has the layer painted right now (intent ∧ policy). The
+   * map-membership fact, not the row's decoration — `list` reads it to decide
+   * whether a base layer counts as visible for the color-basemap fallback.
+   * Nothing paints it; see `rowView`.
+   */
   shown: boolean;
   /** Formatted feature count, or "" when the layer publishes none. */
   countText: string;
@@ -99,13 +104,20 @@ const inZoomRange = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
  * The row visual as a pure function of the cell.
  *
  *  No DOM, no registry, no map: the same cell always gives the same row. The
- *  two rules worth naming — `active = checked ∧ shown` and
- *  `title = "count  type"` — live here and nowhere else, so the box always
- *  says what the user chose and the highlight says what is on screen.
+ *  two rules worth naming — `active = checked` and `title = "count  type"` —
+ *  live here and nowhere else.
+ *
+ *  `active` is `checked` and nothing else. The highlight is the checkbox's own
+ *  decoration, so a row the policy is hiding (outside its stored zoom range)
+ *  still reads as checked. Gating it on `shown` lost the highlight whenever the
+ *  range excluded the current zoom, so a checked row looked unchecked — as if
+ *  the user had hidden it, which the policy alone was doing. The range's own
+ *  state is signalled in the style panel, not on the row; the policy fact still
+ *  reaches the panel logic as `cell.shown`.
  */
 const rowView = (cell: RowCell, labels: RowLabels): RowView => ({
   checked: cell.checked,
-  active: cell.checked && cell.shown,
+  active: cell.checked,
   checkboxTitle: cell.checked ? labels.deselect : labels.select,
   countText: cell.countText,
   typeSvg: cell.typeSvg,
@@ -198,8 +210,10 @@ const buildRowCell = (ui: LayerUI, layerInfo: LayerInfo): RowCell => {
     id: layerInfo.id,
     name: displayName(ui, layerInfo.id),
     checked,
-    // What is painted is the intent gated by the policy: focus overrides the
-    // range, the range never overrides the intent.
+    // The same formula as computeEffectiveShown in state.ts: focus overrides
+    // the range, the range never overrides the intent. Focus dims the other
+    // rows visually without removing them from the map, so while it holds every
+    // checked layer is on screen regardless of its range.
     shown: checked && (ui.focusingLayerId != null || inZoomRange(ui, layerInfo)),
     countText: count != null ? formatNumber(count, "auto", ui.conf.locale_code) : "",
     typeSvg: type.svg,

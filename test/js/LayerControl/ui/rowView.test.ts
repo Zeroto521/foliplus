@@ -30,7 +30,7 @@ const cell = (over: Partial<RowCell> = {}): RowCell => ({
 describe("rowView (pure projection)", () => {
   it.each([
     [true, true, true, "Deselect"],
-    [true, false, false, "Deselect"],
+    [true, false, true, "Deselect"],
     [false, true, false, "Select"],
     [false, false, false, "Select"],
   ])(
@@ -43,10 +43,13 @@ describe("rowView (pure projection)", () => {
     },
   );
 
-  it("shows the highlight only when the box and the policy agree", () => {
-    // The highlight says what is on screen, the box says what the user chose.
-    // Both slots are computed from the cell, so they cannot disagree.
-    expect(rowView(cell({ checked: true, shown: false }), LABELS).active).toBe(false);
+  it("keeps the highlight whenever the box is checked, whatever the policy did", () => {
+    // The highlight is the checkbox's own decoration. A layer the policy is
+    // hiding (out of its stored zoom range) must not read as unchecked, or the
+    // row would claim the user hid a layer they never touched. The policy's
+    // decision still travels on the cell as `shown`; the out-of-range state
+    // itself is signalled in the style panel.
+    expect(rowView(cell({ checked: true, shown: false }), LABELS).active).toBe(true);
     expect(rowView(cell({ checked: false, shown: true }), LABELS).active).toBe(false);
   });
 
@@ -136,14 +139,18 @@ describe("buildRowCell + applyRowView (one writer per row)", () => {
     const layerInfo = overlay(ui);
     const cellInfo = buildRowCell(ui, layerInfo);
 
-    // The box is the user's choice; the highlight is the policy's decision.
+    // The policy removed the layer from the map, but the row still reads as
+    // checked: the highlight is the checkbox's own decoration, so a layer the
+    // policy hid cannot look like one the user hid. The policy fact survives on
+    // the cell as `shown` for the color-basemap fallback; nothing paints it on
+    // the row itself.
     expect(cellInfo.checked).toBe(true);
     expect(cellInfo.shown).toBe(false);
     expect(map.removeLayer).toHaveBeenCalledWith(layerInfo.layer);
 
     const item = findItem(ui, "overlay1");
     expect(box(item).checked).toBe(true);
-    expect(item.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
+    expect(item.classList.contains(CONST.CLASSES.ACTIVE)).toBe(true);
 
     // The snapshot recorded the author's default, not the policy's decision.
     expect(ui.authorVisible.get("overlay1")).toBe(true);
