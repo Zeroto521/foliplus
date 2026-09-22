@@ -1,7 +1,11 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "strict": true,
@@ -23,5 +27,8 @@
   // with no review gate. `type/global.d.ts` cannot be imported to anchor it —
   // its `import type` header makes it a module, and importing it downgrades it
   // from a declaration file and surfaces TS2451/TS2300/TS2552 of its own.
-  "include": ["foliplus/js/**/*.ts", "foliplus/js/type/global.d.ts"]
+  "include": [
+    "foliplus/js/**/*.ts",
+    "foliplus/js/type/global.d.ts"
+  ]
 }
