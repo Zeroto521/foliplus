@@ -1,71 +1,34 @@
 // LayerControl UI — class shell: state, lifecycle, event wiring, delegates.
-// Heavy lifting lives in `ui/*` modules; this class owns state and wiring.
-import { EVENTS, type EventBus, ensureEvents } from "#core/event/index.js";
+// Heavy lifting lives in `ui/*` modules; this class owns state and delegates.
+// attachUI / bindEvents / unbindEvents / onLayerItemCountChange /
+// refreshAllCounts moved to `./lifecycle.ts` (34.2).
+import { type EventBus, ensureEvents } from "#core/event/index.js";
 import type { LabelField } from "#core/labelField.js";
-import { GEOM_TYPE, type LayerInfo } from "#core/layer/index.js";
+import { type LayerInfo } from "#core/layer/index.js";
 import { ListCursor } from "#core/listCursor.js";
-import { formatNumber } from "#common/format.js";
 import { createScopedTranslator, createTranslator } from "#common/locale.js";
 import * as CONST from "../const.js";
-import * as SVGs from "../icon.js";
-import {
-  handleMoreClick,
-  handleMoreMenuClick,
-  registerInteractions,
-} from "../interaction.js";
 import type { LayerManager } from "../manager.js";
 import type { LayerOverride } from "../persistence.js";
-import * as Util from "../util.js";
 import { closeAttrsPanel, openAttrsPanel } from "./attr.js";
 import { hideColorLayer, showColorLayer } from "./color.js";
-import { inFloatingPanel, isKeyboardVisibleFocus, owningRow } from "./context.js";
-import {
-  handleDragEnd,
-  handleDragLeave,
-  handleDragOver,
-  handleDragStart,
-  handleDrop,
-  showReorderBlockedHint,
-  toggleFold,
-} from "./drag.js";
-import {
-  bringFocusedLayerToFront,
-  cancelFocus,
-  clearAutoCancel,
-  clearFocusedRowHighlight,
-  computeLayerBounds,
-  dismissFocus,
-  drawFocusMask,
-  drawFocusRect,
-  focusLayer,
-  hideOtherLayers,
-  highlightFocusedRow,
-  isFocusLayerDisabled,
-  isFocusing,
-  registerAutoCancel,
-  restoreHiddenLayers,
-  showBaseFocusHint,
-  toggleFocusedLayer,
-} from "./focus.js";
+import { cancelFocus, focusLayer, isFocusing } from "./focus.js";
 import {
   blurActiveItem,
   clearActiveItem,
-  cursorRef,
-  escapeClearCursor,
-  findVisibleNeighbor,
-  focusLayerRow,
-  getActiveLayerItem,
   getNavigableItems,
   handleDblClick,
   handleKeyDown,
   handleOutsideMousedown,
-  moveActiveMarker,
-  resolveActiveIdx,
-  restoreCursor,
   setActiveItem,
-  syncActiveItem,
-  syncListCursor,
 } from "./keyboard.js";
+import {
+  attachUI,
+  bindEvents,
+  onLayerItemCountChange,
+  refreshAllCounts,
+  unbindEvents,
+} from "./lifecycle.js";
 import {
   colorLayerName,
   displayName,
@@ -73,20 +36,13 @@ import {
   initTypesAndVisibility,
   insertLayerItem,
   reindexAfterMove,
-  renderColorLayerItem,
   renderInitialList,
-  renderLayerItem,
-  renderToggleAllRow,
   updateLayerItem,
 } from "./list.js";
 import { closeMoreMenu, openMoreMenu } from "./menu.js";
 import { finishRename, renameLayer } from "./rename.js";
 import {
-  applyHiddenOne,
-  applyHiddenStateOne,
-  applyOpacityStateOne,
   applyUserState,
-  applyVisibleStateOne,
   applyZoomRangeStateOne,
   dropPersistedLayerState,
   loadPersistedState,
@@ -102,7 +58,7 @@ import {
   closeStylePanel,
   invalidateFields,
   openStylePanel,
-} from "./style.js";
+} from "./style/index.js";
 import {
   applyVisibility,
   getLayerItems,
@@ -148,7 +104,7 @@ class LayerUI {
   activeIdx: number | null;
   /** Shared list cursor — ARIA roles + roving tabindex on navigable rows. */
   listCursor: ListCursor | null;
-  private interactionCleanup?: () => void;
+  interactionCleanup?: () => void;
   declare onChange: ((event: Event) => void) | null;
   declare onInput: ((event: Event) => void) | null;
   declare onClick: ((event: Event) => void) | null;
@@ -174,7 +130,7 @@ class LayerUI {
   /** Unsubscribe function for LAYER_ITEM_COUNT_CHANGE. */
   unsubscribeCountChange: (() => void) | null;
   /** Unsubscribe for the control-attached ready signal. */
-  private unsubscribeControlAttached: (() => void) | null;
+  unsubscribeControlAttached: (() => void) | null;
   /** Currently visible overflow menu (or null). */
   declare activeMenu: {
     item: HTMLElement;
@@ -294,217 +250,12 @@ class LayerUI {
    * @param {HTMLElement} containerDiv - The panel-content div.
    */
   attachUI(containerDiv: HTMLElement) {
-    this.m.uiContainer = containerDiv;
-    this.loadPersistedState();
-    this.renderInitialList();
-    this.bindEvents();
-
-    while (this.m.pendingRegistrations.length) {
-      const layerInfo = this.m.pendingRegistrations.shift();
-      if (layerInfo) this.insertLayerItem(layerInfo);
-    }
-    // Last in the attach sequence: applyUserState() runs the full sweep
-    // needed for rows rendered from the initial registry. Hidden ids are
-    // loaded above but only applied here, so a row can never render visible
-    // and get removed afterwards.
-    this.applyUserState();
-    // Re-apply ARIA/roving after insertLayerItem / applyUserState may have
-    // rebuilt rows.
-    syncListCursor(this);
-
-    // Refresh counts synchronously now. Counts are cheap to compute (the
-    // provider is invoked on demand; a missing Canvas just returns null),
-    // and the user should not see an empty count column while we wait.
-    // Heatmap in particular publishes its final count during initScan, so the
-    // column may update a second time — that is driven by the event bus.
-    this.refreshAllCounts();
-
-    // Init pass, driven by a ready signal instead of a fixed timer: run once
-    // right after the synchronous attach sequence (setTimeout 0 — every
-    // control finishes attaching in the same script stack, and folium layers
-    // are only linked into the registry after that), then re-run whenever a
-    // control attaches later (Heatmap / Measure may register layers at
-    // runtime). initTypesAndVisibility is idempotent — repeated runs are
-    // cheap and converge on the final layer state.
-    this.subscribeControlAttached();
-    setTimeout(() => {
-      if (this.uiContainer?.isConnected) this.initTypesAndVisibility();
-    }, 0);
-  }
-
-  /** Re-run the init pass when another control finishes attaching. Unsubscribes
-   *  in unbindEvents(). The first pass comes from the setTimeout(0) above —
-   *  it lands after the synchronous attach sequence, so folium layers are
-   *  already linked into the registry. */
-  private subscribeControlAttached(): void {
-    this.unsubscribeControlAttached = this.events.on(EVENTS.CONTROL_ATTACHED, () => {
-      if (!this.uiContainer?.isConnected) return;
-      this.initTypesAndVisibility();
-      // Re-apply is idempotent: a late-registered layer may just now have
-      // a resolvable feature set (and thus labelable fields).
-      this.applyStyleLabelState();
-    });
+    return attachUI(this, containerDiv);
   }
 
   /** Load every persisted dimension in one call. */
   bindEvents() {
-    const container = this.uiContainer;
-    if (!container) return;
-
-    this.onChange = event => {
-      const checkbox = (event.target as HTMLElement).closest(
-        '[data-role="toggle-all"]',
-      ) as HTMLInputElement | null;
-      if (checkbox) {
-        const row = checkbox.closest(CONST.SEL.TOGGLE_ALL) as HTMLElement | null;
-        if (!row) return;
-        // Derive the target state from the actual layer selection rather than
-        // checkbox.checked — the browser resets indeterminate before the change
-        // event fires, making it impossible to detect the pre-click state.
-        const group = row.dataset.group ?? "";
-        const items = this.getLayerItems(group);
-        const noneChecked = Array.from(items).every((item: Element) => {
-          const c = item.querySelector(
-            'input[type="checkbox"]',
-          ) as HTMLInputElement | null;
-          return !c || !c.checked;
-        });
-        this.toggleAll(group, noneChecked);
-        return;
-      }
-      this.handleChange(event);
-    };
-    this.onInput = event => this.handleInput(event);
-    this.onClick = event => {
-      const el = event.target as HTMLElement;
-      // A press inside a row's floating panel (attributes / style) is the
-      // panel's business, not the row's. Taking the cursor over here would
-      // steal DOM focus back to the row, and a native <select> popup closes
-      // the instant it loses focus — so the dropdown looked like it retracted
-      // the moment it opened. The panels carry their own click handling.
-      if (inFloatingPanel(el)) return;
-      // One ledger: pointer re-homes the index, Tab stop, and paints the
-      // cursor visual. It stays until Escape, another row, or an outside
-      // press takes over — same contract as the keyboard cursor.
-      // (#278 only removed the accidental dblclick→focusLayer zoom.)
-      const row = owningRow(el);
-      if (row) {
-        const idx = this.getNavigableItems().indexOf(row);
-        if (idx !== -1) {
-          this.activeIdx = idx;
-          this.listCursor?.setIndex(idx);
-          this.blurActiveItem();
-          row.classList.add(CONST.CLASSES.FOCUSED);
-          // Keep DOM focus on the row so Space/Enter resolve from focus, and
-          // so Escape still reaches handleKeyDown's container guard — the
-          // panel floats from the ⋮ press, so its own controls hold focus,
-          // and this press must not park the cursor on the anchor row for
-          // the whole time the user is flipping controls inside it.
-          row.focus({ focusVisible: false } as FocusOptions);
-        }
-      }
-
-      if (el.closest(CONST.SEL.COLOR_ITEM)) {
-        this.deselectAllBaseMaps(-1);
-        this.showColorLayer(this.currentColor);
-        this.syncToggleAll(CONST.GROUP.BASE);
-        this.m.enforceOrder();
-        return;
-      }
-      const toggleAll = el.closest(CONST.SEL.TOGGLE_ALL) as HTMLElement | null;
-      if (!toggleAll || el.closest('[data-role="toggle-all"]')) return;
-      toggleFold(this, toggleAll.dataset.group ?? "");
-    };
-
-    this.onDragStart = event => handleDragStart(this, event);
-    this.onDragOver = event => handleDragOver(this, event);
-    this.onDragLeave = event => handleDragLeave(this, event);
-    this.onDrop = event => handleDrop(this, event);
-    this.onDragEnd = () => handleDragEnd(this);
-    this.onKeyDown = event => this.handleKeyDown(event);
-    // A real focus move is the cursor: once focus lands on a row (or a child
-    // control), that row is the keyboard target.
-    //
-    // `:focus-visible` is sampled once, at the moment focus arrives, and
-    // mapped onto the row's JS cursor class. Child controls (checkbox /
-    // more / fold) attribute to the row via closest(ROW). The CSS recipe
-    // never keys on `:focus-visible`, so Escape is just "remove the class".
-    this.onFocusIn = event => {
-      const el = event.target as Element | null;
-      if (!el || inFloatingPanel(el)) return;
-      const row = owningRow(el);
-      if (!row) return;
-      const idx = this.getNavigableItems().indexOf(row);
-      if (idx !== -1) this.activeIdx = idx;
-      if (!isKeyboardVisibleFocus(el)) return;
-      this.blurActiveItem();
-      row.classList.add(CONST.CLASSES.FOCUSED);
-      this.listCursor?.setIndex(idx);
-    };
-    // Focus left the row entirely (Tab away, click outside, browser chrome):
-    // drop the JS cursor class. Moves within the same row keep it.
-    //
-    // A press inside a floating panel does NOT count as leaving: the panel is
-    // nested in its own anchor row, so its controls are descendants of the
-    // row the user pressed to open it, and `row.contains(relatedTarget)` is
-    // true for every one of them. The user just asked the row to do a detail
-    // task — they did not abandon it, so the cursor stays, and a native
-    // <select> popup does not retract on losing focus.
-    this.onFocusOut = event => {
-      const row = owningRow(event.target);
-      if (!row || inFloatingPanel(event.target)) return;
-      const next = event.relatedTarget as Element | null;
-      if (next && (next === row || row.contains(next))) return;
-      if (inFloatingPanel(next)) return;
-      row.classList.remove(CONST.CLASSES.FOCUSED);
-    };
-    this.interactionCleanup = registerInteractions(this);
-
-    container.addEventListener("change", this.onChange);
-    container.addEventListener("input", this.onInput);
-    container.addEventListener("click", this.onClick);
-    container.addEventListener("focusin", this.onFocusIn);
-    container.addEventListener("focusout", this.onFocusOut);
-    container.addEventListener("dragstart", this.onDragStart);
-    container.addEventListener("dragover", this.onDragOver);
-    container.addEventListener("dragleave", this.onDragLeave);
-    container.addEventListener("drop", this.onDrop);
-    container.addEventListener("dragend", this.onDragEnd);
-    // Double-click on a layer row → focus the map on that layer.
-    container.addEventListener("dblclick", event =>
-      this.handleDblClick(event as MouseEvent),
-    );
-
-    // Overflow ("more") button → dropdown menu. Uses event delegation so it
-    // works for rows created after bindEvents (registerLayer at runtime).
-    this.onMoreClick = event => handleMoreClick(this, event);
-    this.onMoreMenuClick = event => handleMoreMenuClick(this, event);
-    this.onMoreMapClick = () => this.closeMoreMenu(false);
-    container.addEventListener("click", this.onMoreClick);
-    // Menu click must be on document because the menu is positioned absolute
-    // and may visually overflow the panel bounds.
-    document.addEventListener("click", this.onMoreMenuClick);
-    this.m.map.on("click", this.onMoreMapClick);
-    // A zoom change re-evaluates every layer's effective-shown: a layer whose
-    // stored range excludes the new level is hidden, and one whose range
-    // includes it is brought back. This is the "inRange" half of
-    // effectiveShown = intent && inRange, and it writes through the single
-    // pipeline so the checkbox / hiddenIds / overrides stay untouched (#329).
-    this.onZoomEnd = () => this.refreshZoomEffectiveShown();
-    this.m.map.on("zoomend", this.onZoomEnd);
-    // Keyboard dispatch for the "more" button (Enter/Space/Escape) is handled
-    // by InteractionManager via registerInteractions() in interaction.ts,
-    // which routes to handleKeyDown() — that method detects when the
-    // MORE_BTN is focused and opens/closes the menu accordingly. Do NOT
-    // add a separate container keydown listener here.
-
-    // Subscribe to feature-count change events so a third-party provider
-    // (Canvas layers) can update a single row without a full re-render.
-    const bus = ensureEvents(this.m.map);
-    this.unsubscribeCountChange = bus.on(
-      EVENTS.LAYER_ITEM_COUNT_CHANGE,
-      (payload: { id: string }) => this.onLayerItemCountChange(payload.id),
-    );
+    return bindEvents(this);
   }
 
   /** Called when a layer's content changes (count or type may shift at runtime).
@@ -512,117 +263,16 @@ class LayerUI {
    *  createLayers API (Point + LineString, etc.) shows the correct icon,
    *  not the one cached at initial attach. */
   onLayerItemCountChange(id: string) {
-    if (!this.uiContainer) return;
-    const item = this.uiContainer.querySelector(
-      `[${CONST.DATA.LAYER_ID}="${CSS.escape(id)}"]`,
-    ) as HTMLElement | null;
-    if (!item) return;
-    const layerInfo = this.m.layerRegistry.get(id);
-    if (!layerInfo || layerInfo.isBase) return;
-    this.invalidateFields(id);
-    const count = this.mgmt.getFeatureCount(id);
-    const countCol = item.querySelector(CONST.SEL.COUNT_COL) as HTMLElement | null;
-    const typeCol = item.querySelector(
-      `.${CONST.CLASSES.TYPE_ICON_COL}`,
-    ) as HTMLElement | null;
-
-    // Re-detect geometry type (iconSvg-only layers keep their custom SVG).
-    // layerInfo.type is a snapshot of the surface's probe result — writing it
-    // here is the snapshot sync for render, not a second probe. The authority
-    // for geometry-type detection lives on the surface.
-    let typeLabel = item.getAttribute(CONST.DATA.TITLE) ?? "";
-    if (typeCol && !layerInfo.iconSvg) {
-      const layer = this.m.findLayer(layerInfo);
-      const gtype = layer
-        ? this.m.surfaceFor(layerInfo).geometryType()
-        : GEOM_TYPE.UNKNOWN;
-      layerInfo.type = gtype;
-      typeCol.innerHTML = layer ? Util.getTypeSVG(layer, gtype) : SVGs.UNKNOWN;
-      typeLabel = this.T(`type_${gtype}`);
-    }
-
-    if (countCol && count !== null && count !== undefined) {
-      countCol.textContent = formatNumber(count, "auto", this.conf.locale_code);
-    } else if (countCol) {
-      countCol.textContent = "";
-    }
-    item.setAttribute(CONST.DATA.TITLE, typeLabel);
-    item.title =
-      count !== null
-        ? `${formatNumber(count, "auto", this.conf.locale_code)} ${typeLabel}`
-        : typeLabel;
-    // Re-apply the layer's current opacity to the newly-finalized geometry.
-    // The panes were painted at full opacity while the preview was live; the
-    // count-change event fires at store.add, which is the moment the real
-    // geometry lands — so this is when the opacity "snaps in".
-    if (layerInfo.opacity != null && layerInfo.opacity !== 1) {
-      applyOpacityStateOne(this, layerInfo, layerInfo.opacity);
-    }
+    return onLayerItemCountChange(this, id);
   }
 
   /** Refresh count column for every overlay item (no title change). */
   refreshAllCounts() {
-    if (!this.uiContainer) return;
-    const items = this.uiContainer.querySelectorAll(
-      `${CONST.SEL.LAYER_ITEM}:not(${CONST.SEL.COLOR_ITEM}):not(${CONST.SEL.TOGGLE_ALL})`,
-    );
-    items.forEach((item: Element) => {
-      const id = item.getAttribute(CONST.DATA.LAYER_ID);
-      if (!id) return;
-      const count = this.mgmt.getFeatureCount(id);
-      const countCol = item.querySelector(CONST.SEL.COUNT_COL) as HTMLElement | null;
-      if (countCol && count !== null && count !== undefined) {
-        countCol.textContent = formatNumber(count, "auto", this.conf.locale_code);
-      } else if (countCol) countCol.textContent = "";
-    });
+    return refreshAllCounts(this);
   }
 
   unbindEvents() {
-    const container = this.uiContainer;
-    if (!container) return;
-    this.closeMoreMenu(false);
-    this.closeStylePanel(false);
-    this.finishRename(true);
-    // Remove any focus animation still in flight (rect + row highlight).
-    dismissFocus(this);
-    if (this.onChange) container.removeEventListener("change", this.onChange);
-    if (this.onInput) container.removeEventListener("input", this.onInput);
-    if (this.onClick) container.removeEventListener("click", this.onClick);
-    if (this.onFocusIn) container.removeEventListener("focusin", this.onFocusIn);
-    if (this.onFocusOut) container.removeEventListener("focusout", this.onFocusOut);
-    if (this.onDragStart) container.removeEventListener("dragstart", this.onDragStart);
-    if (this.onDragOver) container.removeEventListener("dragover", this.onDragOver);
-    if (this.onDragLeave) container.removeEventListener("dragleave", this.onDragLeave);
-    if (this.onDrop) container.removeEventListener("drop", this.onDrop);
-    if (this.onDragEnd) container.removeEventListener("dragend", this.onDragEnd);
-    if (this.onMoreClick) container.removeEventListener("click", this.onMoreClick);
-    if (this.onMoreMenuClick) {
-      document.removeEventListener("click", this.onMoreMenuClick);
-    }
-    if (this.onMoreMapClick) this.m.map.off("click", this.onMoreMapClick);
-    if (this.onZoomEnd) this.m.map.off("zoomend", this.onZoomEnd);
-    this.clearActiveItem();
-    this.listCursor?.destroy();
-    this.listCursor = null;
-    this.interactionCleanup?.();
-    // Flush the last pending write before the timer is cleared.
-    this.m.persistence.flushAll();
-    this.onChange = this.onInput = this.onClick = null;
-    this.onFocusIn = this.onFocusOut = null;
-    this.onDragStart = this.onDragOver = this.onDragLeave = null;
-    this.onDrop = this.onDragEnd = null;
-    this.onMoreClick = this.onMoreMenuClick = null;
-    this.onMoreMapClick = null;
-    this.onZoomEnd = null;
-    this.onKeyDown = null;
-    if (this.unsubscribeCountChange) {
-      this.unsubscribeCountChange();
-      this.unsubscribeCountChange = null;
-    }
-    if (this.unsubscribeControlAttached) {
-      this.unsubscribeControlAttached();
-      this.unsubscribeControlAttached = null;
-    }
+    return unbindEvents(this);
   }
 
   deselectAllBaseMaps(exceptIdx: number) {

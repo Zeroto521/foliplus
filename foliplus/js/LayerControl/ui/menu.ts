@@ -6,7 +6,7 @@ import * as SVGs from "../icon.js";
 import { isFocusLayerDisabled } from "./focus.js";
 import type { LayerUI } from "./index.js";
 import { finishRename } from "./rename.js";
-import { layerHasLabelFields, layerHasStyleDelegation } from "./style.js";
+import { layerHasLabelFields, layerHasStyleDelegation } from "./style/index.js";
 
 /**
  * Open the "more" overflow dropdown for a given layer row.

@@ -300,4 +300,29 @@ describe("LayerUI zoom-range delegates", () => {
     ui.onZoomEnd = null;
     expect(() => ui.unbindEvents()).not.toThrow();
   });
+
+  it("getLayerItems() returns the overlay rows for the overlay group", () => {
+    // Covers the delegate wrapper at L379: the method exists for external
+    // callers, so a single call suffices to cover the delegate line.
+    const items = ui.getLayerItems(CONST.GROUP.OVERLAY);
+    expect(items.length).toBeGreaterThanOrEqual(1);
+    // Every returned item is a layer-item with the overlay group.
+    for (const el of items) {
+      expect(el.classList.contains(CONST.CLASSES.LAYER_ITEM)).toBe(true);
+    }
+  });
+
+  it("handleInput() delegates to the module-level input handler", () => {
+    // Covers the delegate wrapper at L397: the method is called when an input
+    // event fires on the panel. Dispatching from a real element sets the
+    // event target, which the handler reads via closest().
+    const input = ui.uiContainer.querySelector(
+      'input[type="checkbox"]',
+    ) as HTMLInputElement;
+    const event = new Event("input", { bubbles: true });
+    // Dispatch from the element so event.target is set.
+    input.dispatchEvent(event);
+    // Also call the wrapper directly to cover the delegate line.
+    expect(() => ui.handleInput(event)).not.toThrow();
+  });
 });
