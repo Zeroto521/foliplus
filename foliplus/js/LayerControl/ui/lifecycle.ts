@@ -3,16 +3,12 @@
 // in index.ts keeps one-line delegates; this module owns the actual wiring
 // so index.ts stays a state + delegates shell.
 import { EVENTS, ensureEvents } from "#core/event/index.js";
-import { GEOM_TYPE } from "#core/layer/index.js";
-import { formatNumber } from "#common/format.js";
 import * as CONST from "../const.js";
-import * as SVGs from "../icon.js";
 import {
   handleMoreClick,
   handleMoreMenuClick,
   registerInteractions,
 } from "../interaction.js";
-import * as Util from "../util.js";
 import { inFloatingPanel, isKeyboardVisibleFocus, owningRow } from "./context.js";
 import {
   handleDragEnd,
@@ -35,6 +31,7 @@ import {
 import { insertLayerItem, renderInitialList } from "./list.js";
 import { closeMoreMenu } from "./menu.js";
 import { finishRename } from "./rename.js";
+import { applyRowView, buildRowCell } from "./rowView.js";
 import {
   applyOpacityStateOne,
   applyUserState,
@@ -285,35 +282,9 @@ const onLayerItemCountChange = (ui: LayerUI, id: string): void => {
   const layerInfo = ui.m.layerRegistry.get(id);
   if (!layerInfo || layerInfo.isBase) return;
   invalidateFields(ui, id);
-  const count = ui.mgmt.getFeatureCount(id);
-  const countCol = item.querySelector(CONST.SEL.COUNT_COL) as HTMLElement | null;
-  const typeCol = item.querySelector(
-    `.${CONST.CLASSES.TYPE_ICON_COL}`,
-  ) as HTMLElement | null;
 
-  // Re-detect geometry type (iconSvg-only layers keep their custom SVG).
-  // layerInfo.type is a snapshot of the surface's probe result — writing it
-  // here is the snapshot sync for render, not a second probe. The authority
-  // for geometry-type detection lives on the surface.
-  let typeLabel = item.getAttribute(CONST.DATA.TITLE) ?? "";
-  if (typeCol && !layerInfo.iconSvg) {
-    const layer = ui.m.findLayer(layerInfo);
-    const gtype = layer ? ui.m.surfaceFor(layerInfo).geometryType() : GEOM_TYPE.UNKNOWN;
-    layerInfo.type = gtype;
-    typeCol.innerHTML = layer ? Util.getTypeSVG(layer, gtype) : SVGs.UNKNOWN;
-    typeLabel = ui.T(`type_${gtype}`);
-  }
+  applyRowView(ui, item, buildRowCell(ui, layerInfo));
 
-  if (countCol && count !== null && count !== undefined) {
-    countCol.textContent = formatNumber(count, "auto", ui.conf.locale_code);
-  } else if (countCol) {
-    countCol.textContent = "";
-  }
-  item.setAttribute(CONST.DATA.TITLE, typeLabel);
-  item.title =
-    count !== null
-      ? `${formatNumber(count, "auto", ui.conf.locale_code)} ${typeLabel}`
-      : typeLabel;
   // Re-apply the layer's current opacity to the newly-finalized geometry.
   // The panes were painted at full opacity while the preview was live; the
   // count-change event fires at store.add, which is the moment the real
@@ -323,7 +294,7 @@ const onLayerItemCountChange = (ui: LayerUI, id: string): void => {
   }
 };
 
-/** Refresh count column for every overlay item (no title change). */
+/** Repaint every layer row from its cell — count, type, tooltip and box. */
 const refreshAllCounts = (ui: LayerUI): void => {
   if (!ui.uiContainer) return;
   const items = ui.uiContainer.querySelectorAll(
@@ -331,12 +302,9 @@ const refreshAllCounts = (ui: LayerUI): void => {
   );
   items.forEach((item: Element) => {
     const id = item.getAttribute(CONST.DATA.LAYER_ID);
-    if (!id) return;
-    const count = ui.mgmt.getFeatureCount(id);
-    const countCol = item.querySelector(CONST.SEL.COUNT_COL) as HTMLElement | null;
-    if (countCol && count !== null && count !== undefined) {
-      countCol.textContent = formatNumber(count, "auto", ui.conf.locale_code);
-    } else if (countCol) countCol.textContent = "";
+    const layerInfo = id ? ui.m.layerRegistry.get(id) : undefined;
+    if (!layerInfo) return;
+    applyRowView(ui, item as HTMLElement, buildRowCell(ui, layerInfo));
   });
 };
 
