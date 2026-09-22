@@ -16,7 +16,6 @@ import {
   countFeatureGeometry,
   findLayer,
   forEachLeaf,
-  getGeometryType,
   topSlotZ,
   zFor,
 } from "#core/layer/index.js";
@@ -94,6 +93,34 @@ const mergeStoredOrder = (stored: string[] | null, live: string[]): string[] => 
 };
 
 // ==================== Core Manager: LayerManager ====================
+//
+// LayerManager is the orchestrator for the LayerControl component. Its
+// boundary splits into three layers:
+//
+//   1. **LayerAPI public surface** — the methods other controls / third
+//      parties call directly: `registerLayer`, `unregisterLayer`,
+//      `createLayers`, `createCanvas`, `bringLayerToFront`, `touchLayer`,
+//      `setVisible`, `getLayerType`, `getLayersByType`, `getFeatureCount`,
+//      `refreshCount`, `findLayer`, `forEachLeaf`, `extractPoints`,
+//      `computeZIndex`, `isBase`, and the `isLayerControl` flag. Anything
+//      outside the component reads through these.
+//   2. **Internal coordination** — the plumbing between LayerRegistry,
+//      PaneManager, LayerSurface, LayerFactory, AnnotationManager and
+//      LayerPersistence. Methods here (`surfaceFor`, `enforceOrder`,
+//      `resolveLayerPanes`, `saveOrder`, `refreshOrder`, `normalizeGroup`,
+//      `onLayerAdd`, `debouncedEnforce`) are read by the sibling ui/*
+//      modules and by LayerUI directly; they are not part of LayerAPI.
+//   3. **UI delegation hub** — the handful of `ui.*` calls sprinkled
+//      through the registration and ordering passes (insertLayerItem,
+//      initLayerItem, invalidateFields, applyUserState, syncToggleAll,
+//      initTypesAndVisibility, renderInitialList). These are coordinator
+//      calls, not public API: they exist so the manager can drive the
+//      rendering side without owning DOM.
+//
+// §33.2 (2026-09-21): geometry-type probing has moved off this file — the
+// surface now owns `geometryType()` (cached), and this class reads from it.
+// The `layerInfo.type` field is a snapshot mirror of that surface result,
+// not a second source of truth.
 class LayerManager implements LayerAPI {
   /** Diagnostic marker: set by LayerManager (true).  The lightweight stub
    * sets this to false.  For the actual LayerControl check, prefer
@@ -386,25 +413,38 @@ class LayerManager implements LayerAPI {
 
   // ==================== Public API Methods ====================
 
-  /**
-   * Get the geometry type of a registered layer.
-   * @param {string} id - Layer ID set when calling registerLayer().
-   * @returns {string|null} "point" | "line" | "polygon" | "base" | null
-   */
+  /** Get the geometry type of a registered layer.
+   *  @param {string} id - Layer ID set when calling registerLayer().
+   *  @returns {string|null} "point" | "line" | "polygon" | "base" | null
+   *
+   *  Snapshot contract: `layerInfo.type` is a snapshot of the surface's
+   *  probe result. This method is the primary writer; list.ts and
+   *  ui/index.ts also write it at render time, but always sourced from
+   *  `surface.geometryType()`. The manager never calls `getGeometryType`
+   *  directly — that probe lives on the surface (§33.2). */
   getLayerType(id: string): string | null {
     const layerInfo = this.layerRegistry.get(id);
     if (!layerInfo) return null;
-    if (layerInfo.type) return layerInfo.type;
-    if (layerInfo.isBase) return CONST.GROUP.BASE;
-    if (layerInfo.iconSvg) return GEOM_TYPE.CUSTOM;
-    const layer = this.findLayer(layerInfo);
-    if (!layer) return null;
-    layerInfo.type = getGeometryType(layer);
-    return layerInfo.type;
+    if (layerInfo.isBase) {
+      layerInfo.type = CONST.GROUP.BASE;
+      return CONST.GROUP.BASE;
+    }
+    if (layerInfo.iconSvg) {
+      layerInfo.type = GEOM_TYPE.CUSTOM;
+      return GEOM_TYPE.CUSTOM;
+    }
+    const surface = this.surfaces.get(id);
+    if (!surface) return layerInfo.type;
+    const gtype = surface.geometryType();
+    layerInfo.type = gtype;
+    return gtype;
   }
 
-  /** Drop a registered layer's cached geometry type (re-inferred on next get). */
+  /** Drop a registered layer's cached geometry type. Both the surface's
+   *  internal cache and the manager's snapshot are cleared; the next
+   *  `getLayerType` re-probes through the surface. Unknown ids are no-ops. */
   invalidateType(id: string): void {
+    this.surfaces.get(id)?.invalidate();
     const layerInfo = this.layerRegistry.get(id);
     if (layerInfo) layerInfo.type = null;
   }

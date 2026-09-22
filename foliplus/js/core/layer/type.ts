@@ -203,6 +203,15 @@ interface LayerSurface {
    *  `LayerManager.destroy()`: that drops the registry without taking the
    *  registered layers off the map, so their panes are still painting. */
   destroy: () => void;
+  /** The geometry type this surface's layer resolves to, cached per surface.
+   *  Base and iconSvg layers short-circuit in the manager, so this is only
+   *  consulted for ordinary data layers. `invalidate()` drops the cache; the
+   *  next call re-probes. */
+  geometryType: () => string | null;
+  /** Drop the cached geometry type. Called by the manager whenever the
+   *  layer's content can change (createLayers add/remove/clear, runtime
+   *  layeradd) so the next read re-probes. */
+  invalidate: () => void;
   /** Write the layer's position-based base z onto every pane it paints into,
    *  adding each pane's own draw offset.
    *  @returns false when the surface paints through no pane of its own — a

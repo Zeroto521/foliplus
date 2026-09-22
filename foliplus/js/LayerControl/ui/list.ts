@@ -1,6 +1,5 @@
 // LayerControl UI —Layer row render / insert / reindex.
 import { GEOM_TYPE } from "#core/layer/index.js";
-import { getGeometryType } from "#core/layer/index.js";
 import { ListCursor } from "#core/listCursor.js";
 import { dom, updateItemLabel } from "#common/dom.js";
 import { formatNumber } from "#common/format.js";
@@ -401,7 +400,10 @@ const initLayerItem = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
       type = GEOM_TYPE.CUSTOM;
       layerInfo.type = type;
     } else if (layer) {
-      const gtype = getGeometryType(layer);
+      // layerInfo.type is a snapshot of the surface's probe result — this
+      // write is the snapshot sync for render use, not a second probe. The
+      // authority for geometry-type detection lives on the surface.
+      const gtype = ui.m.surfaceFor(layerInfo).geometryType();
       typeCol.innerHTML = Util.getTypeSVG(layer, gtype);
       typeKey = ui.T(`type_${gtype}`);
       type = gtype;
