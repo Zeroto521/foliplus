@@ -176,6 +176,13 @@ class LayerManager implements LayerAPI {
    *  record. `null` means the record carried no order at all (a fresh page),
    *  which is what keeps a new overlay on top. */
   private savedOrder: string[] | null;
+  /** Layer ids the user deleted, one-way: nothing removes an entry.
+   *
+   *  Consulted at the registration entry point only — a deleted id never
+   *  enters the registry, so nothing downstream ever has to check for it.
+   *  Held on the manager rather than the UI because `registerLayer` runs
+   *  before the panel has attached. */
+  private removedIds: Set<string>;
   annotation: AnnotationManager;
   onLayerAdd: (event: L.LeafletEvent) => void;
   getLayerPanes: (layer: L.Layer) => string[];
@@ -183,7 +190,20 @@ class LayerManager implements LayerAPI {
   constructor(mapInstance: L.Map, data: LayerInfo[]) {
     this.map = mapInstance;
     this.events = ensureEvents(this.map);
-    this.layerRegistry = new LayerRegistry(data, this.map);
+    this.persistence = new LayerPersistence();
+    // One read of the record at construction. `order` seeds the registry's
+    // starting arrangement, and `removed` gates both entry points an id can
+    // reach the registry through — this bulk build and registerLayer later — so
+    // it has to be in memory before the registry exists. Reading it lazily at
+    // attach time would let a layer the user deleted back into the panel on the
+    // next reload.
+    const saved = this.persistence.load();
+    this.removedIds = new Set(saved.removed);
+    this.savedOrder = saved.order;
+    this.layerRegistry = new LayerRegistry(
+      data.filter(li => !this.removedIds.has(li.id)),
+      this.map,
+    );
     this.pendingRegistrations = [];
     this.uiContainer = null;
 
@@ -249,9 +269,6 @@ class LayerManager implements LayerAPI {
       }
     };
     this.map.on("layeradd", this.onLayerAdd);
-
-    this.persistence = new LayerPersistence();
-    this.savedOrder = this.persistence.loadOrder();
     // The annotation manager plans each layer's labels on that layer's own
     // pane; enforceOrder z-orders the panes along with their layers. The pane
     // comes through PaneManager.ensurePane so it carries the base
@@ -575,6 +592,20 @@ class LayerManager implements LayerAPI {
   registerLayer(opts: RegisterLayerOpts): HTMLElement | null {
     if (!opts?.id) throw new Error(log.msg(T("id_required")));
 
+    // A deleted layer is refused, not erased: the id has left the registry for
+    // good, so accepting it again would silently undo the user's delete. Null
+    // (not an exception) keeps the caller's rebuild loop alive — throwing here
+    // would take down whatever was registering. Interim form of §28.7-C: the
+    // reason is logged rather than returned, until registerLayer grows a
+    // RegisterResult union that names "removed".
+    if (this.removedIds.has(opts.id)) {
+      log.warn(
+        `registerLayer: refusing "${opts.id}" — the layer was deleted by the ` +
+          `user and the deletion is persisted for this map`,
+      );
+      return null;
+    }
+
     const existingLi = this.layerRegistry.get(opts.id);
     const existingIdx = existingLi ? this.layerRegistry.indexOf(existingLi) : -1;
     const layerInfo = this.layerRegistry.createLayerInfo(opts, existingLi, this.map);
@@ -772,7 +803,15 @@ class LayerManager implements LayerAPI {
    * layer is gone for good, so it never erases anything. Only a user who
    * pointed at a row and chose "delete" knows; per-dimension resets instead
    * drop one provenance marker via `unmarkOverride`, which is the same
-   * guarantee at the dimension level.
+   * guarantee at the dimension level. Deletion is one level deeper still: it
+   * also records the id in `removed` so the registry entry point refuses it
+   * again, and prunes the three sections that key by layer id —order, the
+   * rename, and the annotation config. None of that belongs to the generic
+   * teardown, where it would erase a layer that is only temporarily empty.
+   *
+   * Everything pruned here is scheduled on the one shared debounce, so the
+   * whole record —removed, order, annotations, names, per-layer intent— leaves
+   * in a single flush rather than in one write per dimension.
    *
    * @param {string} id - The layer ID previously passed to registerLayer().
    * @returns {boolean} true if the layer existed, false otherwise.
@@ -780,7 +819,30 @@ class LayerManager implements LayerAPI {
   deleteLayer(id: string): boolean {
     const removed = this.unregisterLayer(id);
     if (!removed) return false;
-    if (!this.ui) return true;
+
+    this.removedIds.add(id);
+    this.persistence.schedule({ removed: () => [...this.removedIds] });
+
+    // `saveOrder` merges the live registry against `savedOrder`, re-inserting
+    // any stored id that is not registered yet — so the id has to leave the
+    // stored order itself, not just the registry, or it comes straight back
+    // as a pending position.
+    const saved = this.savedOrder;
+    if (saved) this.savedOrder = saved.filter(other => other !== id);
+    this.saveOrder();
+
+    // unregisterLayer already dropped the live annotation config through
+    // annotation.destroyLayer, so re-scheduling the existing annotations
+    // source writes the map with this id gone. Scheduling it unconditionally
+    // is the only call that cannot miss an entry it failed to predict.
+    this.persistence.schedule({
+      annotations: () => Object.fromEntries(this.annotation.configEntries()),
+    });
+
+    if (!this.ui) {
+      this.persistence.flushAll();
+      return true;
+    }
     this.ui.dropPersistedLayerState(id);
     if (this.ui.renamedNames[id] != null) {
       delete this.ui.renamedNames[id];

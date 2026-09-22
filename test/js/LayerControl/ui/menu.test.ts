@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/LayerControl/const.js";
+import { handleMoreMenuClick } from "#foliplus/LayerControl/interaction.js";
 import type { LayerManager } from "#foliplus/LayerControl/manager.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
+import { activateDeleteItem } from "#foliplus/LayerControl/ui/menu.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 import {
   allFolded,
@@ -60,11 +62,12 @@ describe("LayerUI menu", () => {
   // ─────────────────── focusLayer() ───────────────────
 
   describe("openMoreMenu() / closeMoreMenu()", () => {
-    it("orders the entries focus, style, rename, attributes", () => {
+    it("orders the entries focus, style, rename, attributes, then delete behind a divider", () => {
       // Deliberate ordering, not append order: the view action leads (the
       // trigger-adjacent slot is the mis-click zone), then the style panel,
-      // then the one entry that writes to the layer, with the display-only
-      // attributes entry closing the list.
+      // then the one entry that writes to the layer, the display-only
+      // attributes entry, and finally the destructive one behind its own
+      // separator.
       const item = findItem(ui, "overlay1");
 
       ui.openMoreMenu(item);
@@ -77,6 +80,8 @@ describe("LayerUI menu", () => {
         CONST.ACTION.STYLE_LAYER,
         CONST.ACTION.RENAME_LAYER,
         CONST.ACTION.ATTRS_LAYER,
+        undefined, // the divider above the destructive entry
+        CONST.ACTION.DELETE_LAYER,
       ]);
     });
 
@@ -373,7 +378,224 @@ describe("LayerUI menu", () => {
     });
   });
 
-  // ─────────────────── layer without a bounds carrier ───────────────────
+  // ─────────────────── delete (armed two-click) ───────────────────
+
+  describe("delete-layer menu item", () => {
+    const deleteSpy = vi.fn();
+
+    beforeEach(() => {
+      ui.m.deleteLayer = deleteSpy;
+    });
+
+    function click(li: HTMLLIElement) {
+      // interaction.ts owns the click; synthesize the event it reads.
+      const event = new MouseEvent("click", { bubbles: true, cancelable: true });
+      Object.defineProperty(event, "target", { value: li });
+      handleMoreMenuClick(ui, event);
+    }
+
+    function deleteEntryOf(root: HTMLElement): HTMLLIElement {
+      return root.querySelector(
+        `li[data-action="${CONST.ACTION.DELETE_LAYER}"]`,
+      ) as HTMLLIElement;
+    }
+
+    it("renders a divider then delete for a data layer", () => {
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+
+      const lis = Array.from(item.querySelectorAll(".foliplus-layer-more-menu > li"));
+      const divider = lis.find(li => li.classList.contains(CONST.CLASSES.MENU_DIVIDER));
+      const deleteLi = lis.find(li => li.dataset.action === CONST.ACTION.DELETE_LAYER);
+      expect(divider).toBeDefined();
+      expect(deleteLi).toBeDefined();
+      expect(lis.indexOf(divider!)).toBe(lis.length - 2);
+      expect(deleteLi!.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)).toBe(false);
+    });
+
+    it("renders the colour basemap's delete disabled with its reason as tooltip", () => {
+      const colorItem = ui.uiContainer.querySelector(CONST.SEL.COLOR_ITEM)!;
+      ui.openMoreMenu(colorItem);
+
+      const deleteLi = deleteEntryOf(colorItem);
+      expect(deleteLi).not.toBeNull();
+      expect(deleteLi.getAttribute("disabled")).toBe("disabled");
+      expect(deleteLi.getAttribute("aria-disabled")).toBe("true");
+      expect(deleteLi.title).toBe("LayerControl.delete_layer_disabled");
+      expect(
+        colorItem.querySelector("li.foliplus-layer-more-menu-divider"),
+      ).not.toBeNull();
+    });
+
+    it("renders delete for a layer registered by id only, the way folium does", () => {
+      // foliplus ships the Python layer list without the Leaflet object, so the
+      // registry entry keeps `layer: null` until something resolves it from the
+      // map's own child registry. Gating delete on the registry field would read
+      // every layer on a real folium map as a component layer.
+      map._layers.folium_fg = { options: {} };
+      manager.registerLayer({
+        id: "folium_fg",
+        name: "Points",
+        layer: null,
+        config: {},
+      } as never);
+
+      const item = ui.uiContainer.querySelector(
+        `[data-layer-id="folium_fg"]`,
+      ) as HTMLElement;
+      expect(item).not.toBeNull();
+
+      ui.openMoreMenu(item);
+      expect(
+        item.querySelector(`li[data-action="${CONST.ACTION.DELETE_LAYER}"]`),
+      ).not.toBeNull();
+      expect(item.querySelector(".foliplus-layer-more-menu-divider")).not.toBeNull();
+    });
+    it("omits the delete item for a component layer", () => {
+      manager.registerLayer({
+        id: "search1",
+        name: "Search",
+        config: { position: "topright" },
+      } as never);
+      expect(manager.layers.map(l => l.id)).toContain("search1");
+
+      // The row carries its identity in data-layer-id, and a component layer
+      // row gets a more-menu too — the menu just must not offer a delete.
+      const item = ui.uiContainer.querySelector(
+        `[data-layer-id="search1"]`,
+      ) as HTMLElement;
+      expect(item).not.toBeNull();
+
+      ui.openMoreMenu(item);
+      expect(
+        item.querySelector(`li[data-action="${CONST.ACTION.DELETE_LAYER}"]`),
+      ).toBeNull();
+      expect(item.querySelector(".foliplus-layer-more-menu-divider")).toBeNull();
+    });
+
+    it("arms on the first click and deletes on the second, then closes", () => {
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+      const deleteLi = deleteEntryOf(item);
+
+      click(deleteLi);
+      expect(deleteLi.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)).toBe(true);
+      expect(deleteLi.querySelector(CONST.SEL.MENU_DELETE_LABEL)!.textContent).toBe(
+        "LayerControl.delete_layer_confirm",
+      );
+      expect(deleteSpy).not.toHaveBeenCalled();
+      // Menu stays open so the user sees the arming.
+      expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(1);
+
+      click(deleteLi);
+      expect(deleteSpy).toHaveBeenCalledWith("overlay1");
+      expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(0);
+    });
+
+    it("does not arm or fire when the entry is disabled", () => {
+      const colorItem = ui.uiContainer.querySelector(CONST.SEL.COLOR_ITEM)!;
+      ui.openMoreMenu(colorItem);
+      const deleteLi = deleteEntryOf(colorItem);
+
+      // The disabled attribute is the guard: the click path skips it entirely,
+      // so the entry can never be armed into a delete.
+      click(deleteLi);
+      expect(deleteLi.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)).toBe(false);
+      expect(deleteSpy).not.toHaveBeenCalled();
+      // The menu stays open so the user still sees why.
+      expect(colorItem.querySelectorAll(".foliplus-layer-more-menu").length).toBe(1);
+    });
+
+    it("arms again rather than firing when the menu is reopened", () => {
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+      let deleteLi = deleteEntryOf(item);
+      click(deleteLi);
+      expect(deleteLi.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)).toBe(true);
+
+      ui.closeMoreMenu(true);
+      expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(0);
+
+      // The armed state belongs to the open menu, not to the layer: a fresh
+      // menu must start unarmed instead of firing the delete on its first click.
+      ui.openMoreMenu(item);
+      deleteLi = deleteEntryOf(item);
+      expect(deleteLi.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)).toBe(false);
+      click(deleteLi);
+      expect(deleteSpy).not.toHaveBeenCalled();
+    });
+
+    it("auto-disarms after the arm timeout", () => {
+      vi.useFakeTimers();
+      try {
+        const item = findItem(ui, "overlay1");
+        ui.openMoreMenu(item);
+        const deleteLi = deleteEntryOf(item);
+
+        click(deleteLi);
+        expect(deleteLi.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)).toBe(true);
+
+        vi.advanceTimersByTime(3000);
+        expect(deleteLi.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)).toBe(
+          false,
+        );
+        expect(deleteLi.querySelector(CONST.SEL.MENU_DELETE_LABEL)!.textContent).toBe(
+          "LayerControl.delete_layer",
+        );
+
+        // A click after the timeout re-arms rather than firing.
+        click(deleteLi);
+        expect(deleteSpy).not.toHaveBeenCalled();
+        expect(deleteLi.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)).toBe(true);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("activateDeleteItem arms on the first call and fires on the second", () => {
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+      const deleteLi = deleteEntryOf(item);
+
+      expect(activateDeleteItem(ui, deleteLi)).toBe(false);
+      expect(deleteSpy).not.toHaveBeenCalled();
+      expect(activateDeleteItem(ui, deleteLi)).toBe(true);
+      expect(deleteSpy).toHaveBeenCalledWith("overlay1");
+    });
+
+    it("keyboard Enter arms then deletes the layer", () => {
+      const item = findItem(ui, "overlay1");
+      // Open the menu the way the keyboard does: Enter on the ⋮ button. This
+      // also establishes the row cursor that handleKeyDown needs in place.
+      const moreBtn = item.querySelector(".foliplus-layer-more-btn") as HTMLElement;
+      moreBtn.focus();
+      ui.handleKeyDown(
+        new KeyboardEvent("keydown", {
+          key: "Enter",
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+      expect(ui.activeMenu).not.toBeNull();
+
+      const deleteLi = deleteEntryOf(item);
+      deleteLi.focus();
+      const enter = (): KeyboardEvent =>
+        new KeyboardEvent("keydown", {
+          key: "Enter",
+          bubbles: true,
+          cancelable: true,
+        });
+
+      ui.handleKeyDown(enter());
+      expect(deleteSpy).not.toHaveBeenCalled();
+      expect(deleteLi.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)).toBe(true);
+
+      ui.handleKeyDown(enter());
+      expect(deleteSpy).toHaveBeenCalledWith("overlay1");
+      expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(0);
+    });
+  });
 
   describe("focus-layer menu item when the surface has no bounds carrier", () => {
     // A layer that is visible and configurable but has no geographic extent to

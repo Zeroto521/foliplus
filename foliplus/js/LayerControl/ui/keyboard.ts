@@ -13,7 +13,7 @@ import {
   toggleFocusedLayer,
 } from "./focus.js";
 import type { LayerUI } from "./index.js";
-import { closeMoreMenu, openMoreMenu } from "./menu.js";
+import { activateDeleteItem, closeMoreMenu, openMoreMenu } from "./menu.js";
 import { finishRename, renameLayer } from "./rename.js";
 
 /** Ensure the shared ListCursor and re-apply ARIA / roving tabindex.
@@ -376,19 +376,29 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
       }
       // Menu item (li) is focused —trigger the focus-layer action.
       // Skip disabled items so the hidden-layer guard applies to keyboard too.
-      const menuLi = (document.activeElement as HTMLElement | null)?.closest?.(
+      const menuLi = ((document.activeElement as HTMLElement | null)?.closest?.(
         ".foliplus-layer-more-menu li",
-      );
+      ) ?? null) as HTMLElement | null;
       if (menuLi && ui.activeMenu) {
         event.preventDefault();
         event.stopPropagation();
         const action = menuLi.getAttribute("data-action") ?? "";
         if (menuLi.getAttribute("disabled")) {
+          // The entry's own title carries the reason (no useful extent, hidden
+          // row, no labelable fields, colour basemap cannot be deleted), so it
+          // is the hint too — a fixed "cannot focus" string would be wrong for
+          // every disabled entry but focus.
           ui.m.map.foliplus!.showHint(
             ui.conf.name,
-            ui.T("focus_layer_hidden"),
+            menuLi.getAttribute("title") ?? ui.T("focus_layer_hidden"),
             HINT_DURATION.SHORT,
           );
+          break;
+        }
+        if (action === CONST.ACTION.DELETE_LAYER) {
+          // Armed in place like the click path: the first Enter arms, the
+          // second deletes. While armed the menu stays open.
+          if (activateDeleteItem(ui, menuLi)) ui.closeMoreMenu(true);
           break;
         }
         if (action === CONST.ACTION.RENAME_LAYER) {

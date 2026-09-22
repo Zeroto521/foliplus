@@ -116,4 +116,33 @@
        item must not answer with accent. */
     color: var(--text-primary);
   }
+
+  /* ── Divider above the destructive entry ──
+     Its own <li> rather than a border-top on the delete item, so the keyboard
+     order stays one slot per entry and the separator carries no role of its
+     own to tab through. Zero box height: the hairline is the whole element. */
+  .foliplus-layer-more-menu-divider {
+    height: 0;
+    padding: 0;
+    margin: var(--space-xs) 0;
+    border-top: var(--border-thin) solid var(--divider-color);
+    cursor: default;
+    color: transparent;
+  }
+
+  /* ── Armed delete entry ──
+     The confirming state is a filled neutral chip, deliberately not red: red
+     is the accent, which already means hover, focus and selection, so a red
+     delete entry would read as "hover" rather than "press again". The verb
+     swap on the label carries the meaning; the fill only says the entry has
+     changed state. The rule is scoped under .foliplus-layer-ctrl so it outranks
+     the shared dropdown hover in common/menu.css no matter the cascade order. */
+  .foliplus-layer-more-menu li.foliplus-layer-more-menu-delete-armed,
+  .foliplus-layer-more-menu li.foliplus-layer-more-menu-delete-armed:hover {
+    background: var(--text-primary);
+    color: var(--neutral-0);
+  }
+  .foliplus-layer-more-menu li.foliplus-layer-more-menu-delete-armed svg {
+    color: var(--neutral-0);
+  }
 }

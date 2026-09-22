@@ -11,6 +11,8 @@ import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import {
   applyUserState,
   dropPersistedLayerState,
+  saveNamesState,
+  saveState,
 } from "#foliplus/LayerControl/ui/state.js";
 import {
   FALLBACK_PANE_PREFIX,
@@ -882,11 +884,10 @@ describe("LayerManager", () => {
     });
 
     it("reads the record once at construction time", () => {
-      // The constructor runs before LayerControl's UI has attached, and order is
-      // the only dimension it needs. One key is read either way, so the narrow
-      // read is about not parsing four dimensions to recover one, and about not
-      // repeating the read LayerUI makes at attach time against a registry that
-      // has since grown.
+      // The constructor runs before LayerControl's UI has attached. Order seeds
+      // the registry's starting arrangement and removed gates the registration
+      // entry point, so both come from this one read rather than a second one
+      // against a registry that has since grown.
       const spy = vi.spyOn(Storage, "load");
       new LayerManager(map, [
         { id: "base1", name: "B", isBase: true },
@@ -1374,6 +1375,131 @@ describe("LayerManager", () => {
     expect(saveNamesState).not.toHaveBeenCalled();
     expect(manager.ui.hiddenIds).toEqual(new Set(["base1"]));
     expect(manager.ui.renamedNames).toEqual({ base1: "Renamed" });
+  });
+
+  it("deleteLayer prunes every persisted section that keys by layer id", () => {
+    // §28.7-A: `order`, `renamedNames` and `annotations` all survive a plain
+    // unregister, and all three must die on a delete. `order` is the one that
+    // needs care — saveOrder re-inserts any stored id that is not registered
+    // yet, so the id has to leave the stored order itself or it comes straight
+    // back as a pending position.
+    seedStorage({
+      order: ["overlay1", "base1"],
+      renamedNames: { overlay1: "Renamed", base1: "Base" },
+      annotations: { overlay1: { show: true, field: "name", format: "auto" } },
+      layers: { overlay1: { opacity: 0.4, overrides: ["opacity"] } },
+    });
+    const m = new LayerManager(map, [
+      { id: "overlay1", name: "O", isBase: false, layer: { options: {} } },
+      { id: "base1", name: "B", isBase: true, layer: { options: {} } },
+    ]);
+    m.annotation.setConfig("overlay1", {
+      show: true,
+      field: "name",
+      color: "#e74c3c",
+      size: 12,
+      format: "auto",
+      collide: true,
+    });
+    m.map.hasLayer.mockReturnValue(false);
+    m.ui = {
+      m,
+      hiddenIds: new Set(),
+      opacityMap: { overlay1: 0.4 },
+      zoomRangeMap: {},
+      userOverrides: { overlay1: ["opacity"] },
+      renamedNames: { overlay1: "Renamed", base1: "Base" },
+      dropPersistedLayerState: (id: string) => dropPersistedLayerState(m.ui, id),
+      saveState: () => saveState(m.ui),
+      saveNamesState: () => saveNamesState(m.ui),
+      invalidateFields: vi.fn(),
+    } as any;
+
+    expect(m.deleteLayer("overlay1")).toBe(true);
+
+    const record = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!) as {
+      order: string[] | null;
+      removed: string[];
+      renamedNames: Record<string, string>;
+      annotations: Record<string, unknown>;
+      layers: Record<string, unknown>;
+    };
+    expect(record.order).toEqual(["base1"]);
+    expect(record.removed).toEqual(["overlay1"]);
+    expect(record.renamedNames).toEqual({ base1: "Base" });
+    expect(record.annotations).toEqual({});
+    expect(record.layers).toEqual({});
+  });
+
+  it("deleteLayer writes removed in the same flush as the other dimensions", () => {
+    // One shared timer, one record: removed must not become a seventh writer
+    // that can land on a different tick than the order / names it prunes.
+    vi.useFakeTimers();
+    const save = vi.spyOn(Storage, "save").mockImplementation(() => true);
+    const m = new LayerManager(map, [
+      { id: "overlay1", name: "O", isBase: false, layer: { options: {} } },
+      { id: "base1", name: "B", isBase: true, layer: { options: {} } },
+    ]);
+    m.map.hasLayer.mockReturnValue(false);
+
+    m.deleteLayer("overlay1");
+
+    expect(save).toHaveBeenCalledTimes(1);
+    const written = save.mock.calls[0]![1] as {
+      removed: string[];
+      order: string[] | null;
+    };
+    expect(written.removed).toEqual(["overlay1"]);
+    expect(written.order).not.toContain("overlay1");
+    save.mockRestore();
+    vi.useRealTimers();
+  });
+
+  it("never builds a layer the user deleted", () => {
+    // The registry is built from the initial data before anything registers at
+    // runtime, so the discovery path has to be gated as well: gating
+    // registerLayer alone would still put a deleted layer back into the panel
+    // on the next reload.
+    seedStorage({ removed: ["gone"] });
+    const m = new LayerManager(map, [
+      { id: "gone", name: "G", isBase: false, layer: { options: {} } },
+      { id: "kept", name: "K", isBase: false, layer: { options: {} } },
+    ]);
+
+    expect(m.layers.map(l => l.id)).toEqual(["kept"]);
+  });
+
+  it("refuses to re-register a deleted id, without throwing", () => {
+    // A deletion is one-way, so the id must be refused at the registration
+    // entry point rather than allowed back in. Refusal returns null and logs —
+    // an exception would take down whatever was registering (a rebuild loop,
+    // a late Heatmap/Measure component) instead of just dropping the layer.
+    seedStorage({ removed: ["gone"] });
+    const m = new LayerManager(map, [
+      { id: "kept", name: "K", isBase: false, layer: { options: {} } },
+    ]);
+    const warn = vi.fn();
+    vi.spyOn(console, "warn").mockImplementation(warn);
+
+    expect(m.registerLayer({ id: "gone", name: "G" })).toBeNull();
+    expect(m.layerRegistry.get("gone")).toBeUndefined();
+    expect(() => m.registerLayer({ id: "gone", name: "G" })).not.toThrow();
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('registerLayer: refusing "gone"'),
+    );
+    vi.restoreAllMocks();
+  });
+
+  it("still accepts an id that is not in removed", () => {
+    // The guard is keyed on the deleted list only: an unrelated stored id must
+    // not start getting refused.
+    seedStorage({ removed: ["gone"] });
+    const m = new LayerManager(map, [
+      { id: "kept", name: "K", isBase: false, layer: { options: {} } },
+    ]);
+
+    m.registerLayer({ id: "other", name: "Other" });
+    expect(m.layerRegistry.get("other")).toBeDefined();
   });
 
   it("attachUI delegates to the UI", () => {
