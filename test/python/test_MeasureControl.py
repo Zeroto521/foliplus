@@ -639,7 +639,9 @@ class TestMeasureControlBrowser:
             page.evaluate(_js("MeasureControl/save_then_unload"))
             data = page.evaluate("localStorage.getItem(window.__measureStorageKey)")
             parsed = json.loads(data) if data else []
-            assert len(parsed["items"]) == 1, "unload should keep persisted measurements"
+            assert len(parsed["items"]) == 1, (
+                "unload should keep persisted measurements"
+            )
             assert not errors, f"JS errors: {errors}"
 
     def test_delete_marker_removes_from_storage(self, browser, tmp_path):
@@ -660,7 +662,9 @@ class TestMeasureControlBrowser:
             assert after == 0, f"expected 0 measurements after delete, got {after}"
             data = page.evaluate("localStorage.getItem(window.__measureStorageKey)")
             parsed = json.loads(data) if data else []
-            assert len(parsed["items"]) == 0, "localStorage should be empty after deleting all"
+            assert len(parsed["items"]) == 0, (
+                "localStorage should be empty after deleting all"
+            )
             assert not errors, f"JS errors: {errors}"
 
     def test_restore_marker_from_storage(self, browser, tmp_path):
