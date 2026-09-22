@@ -430,7 +430,9 @@ class TestHeatmapControlBrowser:
             )
         return html
 
-    def _make_page(self, browser, tmp_path, expose_ctrl=False, num_layers=3):
+    def _make_page(
+        self, browser, tmp_path, expose_ctrl=False, num_layers=3, prelude=None
+    ):
         """Build a page with point layers + HeatmapControl and return (page, errors).
 
         Parameters
@@ -444,6 +446,9 @@ class TestHeatmapControlBrowser:
         num_layers
             Number of independent point FeatureGroups (default 3). Set to 1
             for auto-select tests.
+        prelude
+            Optional JS source installed before the page's own scripts run —
+            a listener-counting probe needs this so its counts are absolute.
         """
         from foliplus import LayerControl
 
@@ -472,7 +477,9 @@ class TestHeatmapControlBrowser:
         html = self._stub_html(m.get_root().render())
         if expose_ctrl:
             html = self._expose_ctrl(html)
-        page, errors = make_browser_page(browser, tmp_path, html, "heatmap")
+        page, errors = make_browser_page(
+            browser, tmp_path, html, "heatmap", prelude=prelude
+        )
         page.wait_for_selector(
             ".foliplus-heatmap-ctrl", state="attached", timeout=10000
         )
@@ -529,6 +536,83 @@ class TestHeatmapControlBrowser:
             assert result["delta"] > 0, (
                 f"Leak control group: expected a positive delta, got {result!r}"
             )
+            assert not errors, f"JS errors: {errors}"
+
+    def test_remove_readd_leaves_no_document_listener_residue(self, browser, tmp_path):
+        """Two remove→add cycles with the dropdown open must not accumulate
+        document/window listeners.
+
+        The ``map._events`` gate above only counts listeners on the Leaflet map
+        instance, which is the layer the orphan ``map.on("unload")`` class of
+        leak lives on. This gate covers the other layer: HeatmapControl's
+        scheme-dropdown outside-click handler is bound on document, and #408
+        moved it from a bare ``document.addEventListener`` to the signal-managed
+        ``ctrl.on(document, ...)`` form. Each cycle opens the dropdown before
+        removing the control, so a listener still bound at removal time — a bare
+        listener with no cleanup, or one bound to a controller that is never
+        aborted — registers as drift.
+
+        The counting probe is installed as a page prelude, so its counts are
+        absolute rather than deltas measured from somewhere in the middle of the
+        page's life. That makes both invariants checkable against the baseline:
+        a re-attach must leave exactly the listeners that were there before the
+        first cycle (``added[i] == base``), and every removal must tear down the
+        same things (``closed[i] == closed[0]``). ``open`` doubles as a
+        self-check on the measurement path.
+        """
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            expose_ctrl=True,
+            num_layers=1,
+            prelude=_js("_probe/doc_listener_probe"),
+        ) as (page, errors):
+            heatmap_ready(page)
+            state = page.evaluate(_js("HeatmapControl/doc_listener_drift"))
+            assert all(o > c for o, c in zip(state["open"], state["closed"])), (
+                "HeatmapControl: the scheme dropdown no longer binds a document "
+                f"listener (open={state['open']!r}, closed={state['closed']!r}) — "
+                "this gate has no teeth"
+            )
+            for i, n in enumerate(state["added"], start=1):
+                assert n == state["base"], (
+                    "HeatmapControl: the document/window listener count after a "
+                    f"re-attach drifted on cycle {i} (base={state['base']}): "
+                    f"{state!r}"
+                )
+            for i, n in enumerate(state["closed"][1:], start=1):
+                assert n == state["closed"][0], (
+                    "HeatmapControl: the document/window listener count after a "
+                    f"removal drifted on cycle {i} (first={state['closed'][0]}): "
+                    f"{state!r}"
+                )
+            heatmap_ready(page)
+            assert not errors, f"JS errors: {errors}"
+
+    def test_probe_leak_listener_doc_control_group_moves(self, browser, tmp_path):
+        """Bare and signal-managed document listeners must both move the count.
+
+        Control group for the drift gate above: without these two directions the
+        flat verdict would be meaningless, and the ``AbortController.abort``
+        hook in the shared probe — the part that keeps a signal-managed listener
+        from registering as a phantom leak — would go untested.
+        """
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            expose_ctrl=True,
+            num_layers=1,
+            prelude=_js("_probe/doc_listener_probe"),
+        ) as (page, errors):
+            heatmap_ready(page)
+            result = page.evaluate(_js("HeatmapControl/probe_leak_listener_doc"))
+            assert result["addDelta"] == 1, result
+            assert result["removeDelta"] == -1, result
+            assert result["signalAddDelta"] == 1, result
+            assert result["abortDelta"] == -1, result
+            assert result["settled"] == result["before"], result
             assert not errors, f"JS errors: {errors}"
 
     def test_auto_select_single_layer(self, browser, tmp_path):
