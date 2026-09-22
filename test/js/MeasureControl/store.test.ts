@@ -8,6 +8,9 @@ import { MeasureStore } from "#foliplus/MeasureControl/store.js";
 const storage = vi.hoisted(() => ({
   load: vi.fn(),
   save: vi.fn(),
+  loadVersioned: vi.fn(),
+  saveVersioned: vi.fn(),
+  makePersisted: vi.fn(),
 }));
 const events = vi.hoisted(() => ({
   emit: vi.fn(),
@@ -16,6 +19,9 @@ const events = vi.hoisted(() => ({
 vi.mock("#common/storage.js", () => ({
   load: storage.load,
   save: storage.save,
+  loadVersioned: storage.loadVersioned,
+  saveVersioned: storage.saveVersioned,
+  makePersisted: storage.makePersisted,
 }));
 
 vi.mock("#core/event/index.js", () => ({
@@ -42,28 +48,55 @@ const makeStore = () => {
 
 beforeEach(() => {
   storage.load.mockReset();
+  // Versioned helpers: absent data falls through to the store's ?? [].
+  storage.loadVersioned.mockReset();
   // Default success — a failure is an explicit per-test mock.
-  storage.save.mockReset();
-  storage.save.mockReturnValue(true);
+  storage.saveVersioned.mockReset();
+  storage.saveVersioned.mockReturnValue(true);
+  // makePersisted: return a binding whose schedule() calls the mocked
+  // saveVersioned. This preserves the test's ability to assert on saveVersioned
+  // call arguments and return values while going through the binding layer.
+  storage.makePersisted.mockReset();
+  storage.makePersisted.mockImplementation(
+    ({
+      save,
+      onFlushError,
+    }: {
+      save: () => boolean;
+      onFlushError?: (err: unknown) => void;
+    }) => ({
+      schedule: () => {
+        const ok = save();
+        if (!ok) onFlushError?.(new Error("persist write failed"));
+      },
+      flush: () => {},
+      cancel: () => {},
+    }),
+  );
   events.emit.mockReset();
 });
 
 describe("MeasureStore — load", () => {
   it("returns the persisted array", () => {
     const data = [{ id: "a", type: "marker" }];
-    storage.load.mockReturnValue(data);
+    storage.loadVersioned.mockReturnValue(data);
     const store = makeStore().store;
     expect(store.load()).toBe(data);
-    expect(storage.load).toHaveBeenCalledWith(CONST.STORAGE.KEY, "MeasureControl");
+    expect(storage.loadVersioned).toHaveBeenCalledWith(CONST.STORAGE.KEY, {
+      name: "MeasureControl",
+      dataField: "items",
+    });
   });
 
-  it("falls back to [] when storage holds a non-array", () => {
-    storage.load.mockReturnValue({ not: "array" });
+  it("falls back to [] when the envelope holds no item array", () => {
+    // The helper rejects an envelope whose dataField is not an array, so
+    // the store only ever has to defend against an absent record.
+    storage.loadVersioned.mockReturnValue(null);
     expect(makeStore().store.load()).toEqual([]);
   });
 
   it("falls back to [] when storage is null", () => {
-    storage.load.mockReturnValue(null);
+    storage.loadVersioned.mockReturnValue(null);
     expect(makeStore().store.load()).toEqual([]);
   });
 });
@@ -74,7 +107,7 @@ describe("MeasureStore — hydrate + all + count", () => {
     store.hydrate([{ id: "a" }, { id: "b" }]);
     expect(store.all()).toHaveLength(2);
     expect(store.count()).toBe(2);
-    expect(storage.save).not.toHaveBeenCalled();
+    expect(storage.saveVersioned).not.toHaveBeenCalled();
   });
 
   it("all returns the live backing array reference", () => {
@@ -95,7 +128,7 @@ describe("MeasureStore — add", () => {
     const store = makeStore().store;
     store.add({ id: "a", type: "marker" });
     expect(store.all()).toHaveLength(1);
-    expect(storage.save).toHaveBeenCalledTimes(1);
+    expect(storage.saveVersioned).toHaveBeenCalledTimes(1);
     expect(events.emit).toHaveBeenCalledWith("foliplus:layer:item-count:change", {
       id: "layer-1",
     });
@@ -113,22 +146,22 @@ describe("MeasureStore — remove", () => {
   it("filters out the id and persists", () => {
     const store = makeStore().store;
     store.hydrate([{ id: "a" }, { id: "b" }]);
-    storage.save.mockClear();
+    storage.saveVersioned.mockClear();
     events.emit.mockClear();
     store.remove("a");
     expect(store.all().map(m => m.id)).toEqual(["b"]);
-    expect(storage.save).toHaveBeenCalledTimes(1);
+    expect(storage.saveVersioned).toHaveBeenCalledTimes(1);
     expect(events.emit).toHaveBeenCalledTimes(1);
   });
 
   it("is a no-op persist when id is absent (still safe)", () => {
     const store = makeStore().store;
     store.hydrate([{ id: "a" }]);
-    storage.save.mockClear();
+    storage.saveVersioned.mockClear();
     store.remove("missing");
     expect(store.all()).toHaveLength(1);
     // persist runs unconditionally — the contract is "remove then persist"
-    expect(storage.save).toHaveBeenCalledTimes(1);
+    expect(storage.saveVersioned).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -136,23 +169,23 @@ describe("MeasureStore — update", () => {
   it("merges a patch into the matched measurement and persists", () => {
     const store = makeStore().store;
     store.hydrate([{ id: "a", type: "marker", lng: 1, lat: 2 }]);
-    storage.save.mockClear();
+    storage.saveVersioned.mockClear();
     events.emit.mockClear();
     store.update("a", { lat: 9, address: "x" });
     const m = store.all()[0];
     expect(m.lat).toBe(9);
     expect(m.address).toBe("x");
     expect(m.lng).toBe(1); // untouched
-    expect(storage.save).toHaveBeenCalledTimes(1);
+    expect(storage.saveVersioned).toHaveBeenCalledTimes(1);
     expect(events.emit).toHaveBeenCalledTimes(1);
   });
 
   it("is a no-op when id is not found (no persist)", () => {
     const store = makeStore().store;
     store.hydrate([{ id: "a" }]);
-    storage.save.mockClear();
+    storage.saveVersioned.mockClear();
     store.update("missing", { lat: 9 });
-    expect(storage.save).not.toHaveBeenCalled();
+    expect(storage.saveVersioned).not.toHaveBeenCalled();
     expect(store.all()[0].lat).toBeUndefined();
   });
 });
@@ -161,7 +194,7 @@ describe("MeasureStore — mutate", () => {
   it("applies fn to the matched measurement without persisting", () => {
     const store = makeStore().store;
     store.hydrate([{ id: "a", lng: 1, lat: 2 }] as any);
-    storage.save.mockClear();
+    storage.saveVersioned.mockClear();
     events.emit.mockClear();
     store.mutate("a", m => {
       m.lng = 99;
@@ -169,7 +202,7 @@ describe("MeasureStore — mutate", () => {
     });
     expect(store.all()[0].lng).toBe(99);
     expect(store.all()[0].lat).toBe(98);
-    expect(storage.save).not.toHaveBeenCalled();
+    expect(storage.saveVersioned).not.toHaveBeenCalled();
     expect(events.emit).not.toHaveBeenCalled();
   });
 
@@ -179,7 +212,7 @@ describe("MeasureStore — mutate", () => {
     const fn = vi.fn();
     store.mutate("missing", fn);
     expect(fn).not.toHaveBeenCalled();
-    expect(storage.save).not.toHaveBeenCalled();
+    expect(storage.saveVersioned).not.toHaveBeenCalled();
   });
 });
 
@@ -187,13 +220,13 @@ describe("MeasureStore — mutateAndPersist", () => {
   it("applies fn and persists + emits count", () => {
     const store = makeStore().store;
     store.hydrate([{ id: "a", lng: 1 }] as any);
-    storage.save.mockClear();
+    storage.saveVersioned.mockClear();
     events.emit.mockClear();
     store.mutateAndPersist("a", m => {
       m.lng = 42;
     });
     expect(store.all()[0].lng).toBe(42);
-    expect(storage.save).toHaveBeenCalledTimes(1);
+    expect(storage.saveVersioned).toHaveBeenCalledTimes(1);
     expect(events.emit).toHaveBeenCalledTimes(1);
   });
 
@@ -201,10 +234,10 @@ describe("MeasureStore — mutateAndPersist", () => {
     const store = makeStore().store;
     store.hydrate([{ id: "a" }] as any);
     const fn = vi.fn();
-    storage.save.mockClear();
+    storage.saveVersioned.mockClear();
     store.mutateAndPersist("missing", fn);
     expect(fn).not.toHaveBeenCalled();
-    expect(storage.save).not.toHaveBeenCalled();
+    expect(storage.saveVersioned).not.toHaveBeenCalled();
   });
 });
 
@@ -212,12 +245,12 @@ describe("MeasureStore — clear", () => {
   it("empties the list and persists", () => {
     const store = makeStore().store;
     store.hydrate([{ id: "a" }, { id: "b" }]);
-    storage.save.mockClear();
+    storage.saveVersioned.mockClear();
     events.emit.mockClear();
     store.clear();
     expect(store.all()).toEqual([]);
     expect(store.count()).toBe(0);
-    expect(storage.save).toHaveBeenCalledTimes(1);
+    expect(storage.saveVersioned).toHaveBeenCalledTimes(1);
     expect(events.emit).toHaveBeenCalledTimes(1);
   });
 });
@@ -226,7 +259,7 @@ describe("MeasureStore — persist failure", () => {
   it("hints once when writes are rejected, and keeps emitting the count", () => {
     // The quota-exhausted state is environmental, so it is reported once rather
     // than on every click.
-    storage.save.mockReturnValue(false);
+    storage.saveVersioned.mockReturnValue(false);
     const { store, showHint } = makeStore();
     store.add({ id: "a", type: "marker" });
     store.add({ id: "b", type: "marker" });
@@ -240,7 +273,7 @@ describe("MeasureStore — persist failure", () => {
       0,
     );
     // Every change still writes and still refreshes the LayerControl count column.
-    expect(storage.save).toHaveBeenCalledTimes(2);
+    expect(storage.saveVersioned).toHaveBeenCalledTimes(2);
     expect(events.emit).toHaveBeenCalledTimes(2);
   });
 
@@ -251,11 +284,11 @@ describe("MeasureStore — persist failure", () => {
   });
 
   it("surfaces every failure path, not only add", () => {
-    storage.save.mockReturnValue(false);
+    storage.saveVersioned.mockReturnValue(false);
     const { store, showHint } = makeStore();
     store.hydrate([{ id: "a" }] as any);
 
-    storage.save.mockClear();
+    storage.saveVersioned.mockClear();
     events.emit.mockClear();
     showHint.mockClear();
     store.remove("a");
@@ -263,7 +296,7 @@ describe("MeasureStore — persist failure", () => {
     store.update("missing", { lat: 1 });
 
     expect(showHint).toHaveBeenCalledTimes(1);
-    expect(storage.save).toHaveBeenCalledTimes(2);
+    expect(storage.saveVersioned).toHaveBeenCalledTimes(2);
     expect(events.emit).toHaveBeenCalledTimes(2);
   });
 
@@ -271,7 +304,7 @@ describe("MeasureStore — persist failure", () => {
     // The flag is per store, not per module: a second layer panel on the same
     // page builds a fresh MeasureStore and must be able to warn too. A module
     // flag would suppress it forever.
-    storage.save.mockReturnValue(false);
+    storage.saveVersioned.mockReturnValue(false);
     const first = makeStore();
     const second = makeStore();
 
@@ -283,7 +316,7 @@ describe("MeasureStore — persist failure", () => {
   });
 
   it("does not throw when the map has no hint surface", () => {
-    storage.save.mockReturnValue(false);
+    storage.saveVersioned.mockReturnValue(false);
     const store = new MeasureStore({} as unknown as L.Map, "layer-1");
     expect(() => store.add({ id: "a", type: "marker" })).not.toThrow();
     expect(events.emit).toHaveBeenCalledTimes(1);
@@ -297,7 +330,7 @@ describe("MeasureStore — emitCount", () => {
     expect(events.emit).toHaveBeenCalledWith("foliplus:layer:item-count:change", {
       id: "layer-1",
     });
-    expect(storage.save).not.toHaveBeenCalled();
+    expect(storage.saveVersioned).not.toHaveBeenCalled();
   });
 });
 

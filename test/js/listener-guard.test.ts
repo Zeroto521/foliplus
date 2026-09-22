@@ -174,15 +174,7 @@ const L_DOM_EVENT_ON: ReadonlyArray<AllowEntry> = [
 // control is added, so re-adding the control does not break export).
 // `this.onMap` would bind it to one control instance and `removeControl`
 // would unbind it — the opposite of what these listeners need.
-const MAP_ON_ALLOW_LISTENER: ReadonlyArray<AllowEntry> = [
-  {
-    f: "ExportControl/index.ts",
-    n: 1,
-    pairedOff: 0,
-    reason:
-      "module-scope `map.on('layeradd')` sets crossOrigin on every future GridLayer so toBlob() does not taint the canvas. The listener must survive `map.removeControl()` + `map.addControl()`: `this.onMap` would bind it to a single control mounting and tear it down on remove, which is exactly the case the pre-setup exists to keep working",
-  },
-];
+const MAP_ON_ALLOW_LISTENER: ReadonlyArray<AllowEntry> = [];
 
 // The addEventListener match needs a `.` prefix so `addEventListener(` at the
 // start of a line or behind a paren is still caught, and it does not match

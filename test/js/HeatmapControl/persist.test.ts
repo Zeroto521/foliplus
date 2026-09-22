@@ -107,6 +107,41 @@ describe("HeatmapManager — versioned persisted config", () => {
     });
   });
 
+  describe("flush — teardown safety", () => {
+    it("writes the pending config on flush, and is idempotent", () => {
+      const m = makeManager();
+      m.selectedLayerId = "layer_x";
+      m.currentAgg = CONST.AGG.AVG;
+      m.currentScheme = "Greens";
+      m.numClasses = 5;
+      m.saveConfig(); // schedule a write — flush below lands it
+
+      m.flush();
+
+      const stored = JSON.parse(window.localStorage.getItem(KEY)!);
+      expect(stored.layerId).toBe("layer_x");
+      expect(stored.agg).toBe("avg");
+      expect(stored.scheme).toBe("Greens");
+      expect(stored.numClasses).toBe(5);
+      expect(stored.version).toBe(CONST.RECORD_VERSION);
+
+      // A second flush must not double-write or drop fields — the timer is
+      // already cleared by the first flush, so the second call is a no-op.
+      const before = window.localStorage.getItem(KEY);
+      m.flush();
+      expect(window.localStorage.getItem(KEY)).toBe(before);
+    });
+
+    it("flush is a no-op when nothing has been scheduled", () => {
+      // Conditional-flush semantic: a teardown that has nothing pending must
+      // not rewrite the record. Storage stays untouched.
+      const m = makeManager();
+      m.selectedLayerId = "layer_x";
+      m.flush();
+      expect(window.localStorage.getItem(KEY)).toBeNull();
+    });
+  });
+
   describe("round-trip", () => {
     it("save → load → apply preserves every field (version travels with the record)", () => {
       const m1 = makeManager();

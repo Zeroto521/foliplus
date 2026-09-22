@@ -31,7 +31,6 @@ import {
 } from "./lifecycle.js";
 import {
   colorLayerName,
-  displayName,
   initLayerItem,
   initTypesAndVisibility,
   insertLayerItem,
@@ -41,6 +40,7 @@ import {
 } from "./list.js";
 import { closeMoreMenu, openMoreMenu } from "./menu.js";
 import { finishRename, renameLayer } from "./rename.js";
+import { applyRowView, buildRowCell, displayName, rowChecked } from "./rowView.js";
 import {
   applyUserState,
   applyZoomRangeStateOne,
@@ -87,6 +87,16 @@ class LayerUI {
   foldedGroups: Set<string>;
   /** Layer ids hidden by the user (checked-off); survives page reload. */
   hiddenIds: Set<string>;
+  /** The author's declared default per layer id, snapshotted once per id from
+   *  the map membership at first sight.
+   *
+   *  Folium ships the layer list without a visibility field, so the author's
+   *  `show=` default reaches the UI only as the map state folium left behind
+   *  when the panel boots. It must be captured before the policy starts moving
+   *  layers: `layerInfo.visible` is a real-time mirror that applyLayerState and
+   *  the zoom-range sweep both write, so by the time a row first paints it
+   *  already carries a policy decision, not the author's. See `rowChecked`. */
+  authorVisible: Map<string, boolean>;
   /** Which dimensions the user has actually set, per layer id. A layer absent
    *  here keeps the author's `show=` / opacity default -- that is what replaces
    *  a map-level "did the user choose at all" flag, which could not tell one
@@ -194,6 +204,7 @@ class LayerUI {
     this._ = createTranslator(CONF);
     this.foldedGroups = new Set();
     this.hiddenIds = new Set();
+    this.authorVisible = new Map();
     this.userOverrides = {};
     this.isColorActive = false;
     this.currentColor = CONST.COLOR.DEFAULT;
@@ -276,27 +287,17 @@ class LayerUI {
   }
 
   deselectAllBaseMaps(exceptIdx: number) {
-    const inputs = this.uiContainer.querySelectorAll(
-      `${CONST.SEL.LAYER_ITEM}:not(${CONST.SEL.COLOR_ITEM}) input`,
-    ) as NodeListOf<HTMLInputElement>;
+    // The rows carry their identity (data-layer-id): a saved order can place a
+    // row elsewhere in the DOM than its position in the registry.
+    const bases = this.m.layers.filter((li, i) => li.isBase && i !== exceptIdx);
     let changed = false;
-    for (let i = 0; i < this.m.layers.length; i++) {
-      if (this.m.layers[i].isBase && i !== exceptIdx) {
-        const bLayer = this.m.findLayer(this.m.layers[i]);
-        if (bLayer && this.m.map.hasLayer(bLayer)) {
-          this.m.map.removeLayer(bLayer);
-          changed = true;
-        }
-        if (inputs[i]) {
-          if (inputs[i].checked) {
-            inputs[i].checked = false;
-            inputs[i]
-              .closest(CONST.SEL.LAYER_ITEM)
-              ?.classList.remove(CONST.CLASSES.ACTIVE);
-            changed = true;
-          }
-        }
+    for (const layerInfo of bases) {
+      const bLayer = this.m.findLayer(layerInfo);
+      if (bLayer && this.m.map.hasLayer(bLayer)) {
+        this.m.map.removeLayer(bLayer);
+        changed = true;
       }
+      if (rowChecked(this, layerInfo)) changed = true;
     }
     // Excluded from handleChange: it is the mutual-exclusion half of that
     // handler, so walking it would recurse. The bases it deselects are hidden
@@ -304,10 +305,12 @@ class LayerUI {
     // reload re-checks them and the "only one base at a time" invariant
     // silently resets. The selected base is already tracked by the caller.
     if (changed) {
-      for (let i = 0; i < this.m.layers.length; i++) {
-        if (this.m.layers[i].isBase && i !== exceptIdx) {
-          syncHiddenId(this, this.m.layers[i].id, true);
-        }
+      for (const layerInfo of bases) {
+        syncHiddenId(this, layerInfo.id, true);
+        const item = this.uiContainer.querySelector(
+          `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerInfo.id)}"]`,
+        ) as HTMLElement | null;
+        if (item) applyRowView(this, item, buildRowCell(this, layerInfo));
       }
     }
   }
