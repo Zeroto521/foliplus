@@ -1,3 +1,7 @@
+# `foliplus/dist` is the one gitignored directory we deliberately keep: it is
+# the compiled JS/CSS a wheel cannot work without (see the `build-python` gate
+# in the Makefile). Pruning it would make an sdist install a package that
+# renders maps with no controls.
 prune .github
 prune doc
 prune foliplus/css

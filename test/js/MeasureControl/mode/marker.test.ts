@@ -247,6 +247,7 @@ describe("MarkerMode — start + click", () => {
         lat: 31,
         address: "Old",
       };
+      manager.measurements = [data];
       MarkerMode.restore(manager, data);
       const pin = (window.L.marker as any).mock.results[0].value;
       enableDrag(manager);
@@ -335,6 +336,7 @@ describe("MarkerMode — start + click", () => {
         lat: 31,
         address: "Old",
       };
+      manager.measurements = [data];
       MarkerMode.restore(manager, data);
 
       const pin = (window.L.marker as any).mock.results[0].value;

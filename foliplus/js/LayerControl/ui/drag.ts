@@ -2,7 +2,7 @@
 import { HINT_DURATION } from "#core/hint.js";
 import * as CONST from "../const.js";
 import type { LayerUI } from "./index.js";
-import { initTypesAndVisibility, reindexItems, renderInitialList } from "./list.js";
+import { initTypesAndVisibility, renderInitialList } from "./list.js";
 import { saveFoldState } from "./state.js";
 
 /** Fold or unfold one group. Shared by the pointer (row click) and the
@@ -16,12 +16,32 @@ const toggleFold = (ui: LayerUI, group: string): void => {
   saveFoldState(ui);
 };
 
+/** Translate a row's data-layer-id into its registry index. The row carries
+ *  the identity in data-layer-id while reorder takes registry indices — not
+ *  DOM positions. A late registration can sit anywhere in the DOM, so reading
+ *  a positional index here would drag a neighbour's layer. Returns -1 for a
+ *  row with no id (or one the registry does not know). */
+const registryIdx = (ui: LayerUI, id: string | null): number => {
+  return id ? ui.m.layers.findIndex(l => l.id === id) : -1;
+};
+
 const handleDragStart = (ui: LayerUI, event: DragEvent) => {
+  // A press that began on a floating row panel is not a reorder gesture: the
+  // panel is a detail surface, not a drag handle, and it is a *descendant* of
+  // the draggable row — so the browser reports the row as the drag source and
+  // the panel's own `dragstart` listener can never fire. The press is what
+  // carries the verdict (ui.pressInPanel), not the drag event.
+  if (ui.pressInPanel) {
+    event.preventDefault();
+    return;
+  }
   const item = (event.target as HTMLElement).closest(
     CONST.SEL.LAYER_ITEM,
   ) as HTMLElement | null;
   if (!item) return;
-  ui.dragIdx = parseInt(item.dataset.index ?? "", 10);
+  const idx = registryIdx(ui, item.getAttribute(CONST.DATA.LAYER_ID));
+  if (idx < 0) return;
+  ui.dragIdx = idx;
   item.classList.add(CONST.CLASSES.DRAGGING);
   if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
 };
@@ -45,7 +65,8 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
   ) as HTMLElement | null;
   if (!item || item.classList.contains(CONST.CLASSES.COLOR_ITEM)) return;
 
-  const targetIdx = parseInt(item.dataset.index ?? "", 10);
+  const targetIdx = registryIdx(ui, item.getAttribute(CONST.DATA.LAYER_ID));
+  if (targetIdx < 0) return;
   const prev = ui.lastDragOverItem;
   if (prev && prev !== item) {
     prev.classList.remove(CONST.CLASSES.DRAG_OVER_TOP, CONST.CLASSES.DRAG_OVER_BOTTOM);
@@ -88,18 +109,27 @@ const handleDrop = (ui: LayerUI, event: DragEvent) => {
     return;
   }
 
-  const targetIdx = parseInt(target.dataset.index ?? "", 10);
+  const targetIdx = registryIdx(ui, target.getAttribute(CONST.DATA.LAYER_ID));
+  if (targetIdx < 0) return;
   if (ui.dragIdx === targetIdx) return;
   if (!ui.m.canReorderBetween(ui.dragIdx, targetIdx)) {
     showReorderBlockedHint(ui);
     return;
   }
 
+  // Capture the dragged id before reorder: after the move the registry index
+  // of the dragged layer equals targetIdx, but the id is the stable key for
+  // locating its DOM row to physically relocate.
+  const dragId = ui.m.layers[ui.dragIdx]?.id;
+  if (!dragId) {
+    ui.dragIdx = null;
+    return;
+  }
+
   ui.m.layerRegistry.reorder(ui.dragIdx, targetIdx);
-  const moved = ui.m.layers[targetIdx];
 
   const movedItem = ui.uiContainer.querySelector(
-    `[${CONST.DATA.LAYER_ID}="${CSS.escape(moved.id)}"]`,
+    `[${CONST.DATA.LAYER_ID}="${CSS.escape(dragId)}"]`,
   );
   if (!movedItem) {
     ui.dragIdx = null;
@@ -112,7 +142,6 @@ const handleDrop = (ui: LayerUI, event: DragEvent) => {
     target.parentNode.insertBefore(movedItem, target.nextSibling);
   }
 
-  reindexItems(ui);
   ui.m.enforceOrder();
   ui.m.saveOrder();
   ui.dragIdx = null;

@@ -34,6 +34,7 @@
   "LayerControl.focus_layer_tooltip": "Zoom to this layer and highlight it",
   "LayerControl.focus_layer_hidden": "Layer is hidden — cannot focus",
   "LayerControl.focus_layer_base": "Base map cannot be focused",
+  "LayerControl.focus_layer_no_bounds": "Layer has no geographic bounds — cannot focus",
   "LayerControl.focus_cancelled": "Focus cancelled",
   "LayerControl.rename_layer": "Rename",
   "LayerControl.rename_layer_tooltip": "Rename this layer",
@@ -50,5 +51,19 @@
   "LayerControl.readonly_error": "layers is read-only — use LayerAPI instead.",
   "LayerControl.readonly_del_error": "layers is read-only — use LayerAPI instead.",
   "LayerControl.readonly_method_error": "layers.{method}() is read-only — use LayerAPI instead.",
-  "LayerControl.blocked": "Map is temporarily unavailable"
+  "LayerControl.blocked": "Map is temporarily unavailable",
+  "LayerControl.style_layer": "Style",
+  "LayerControl.style_layer_tooltip": "Configure this layer's style",
+  "LayerControl.style_label_no_data": "No labelable fields on this layer",
+  "LayerControl.style_label_field": "Label Field",
+  "LayerControl.style_label_field_auto": "Auto Detect",
+  "LayerControl.style_reset": "Reset",
+  "LayerControl.section_label": "Label",
+  "LayerControl.section_layer": "Layer",
+  "LayerControl.style_opacity": "Opacity",
+  "LayerControl.style_zoom_range": "Zoom Range",
+  "LayerControl.style_zoom_range_min": "Minimum Zoom",
+  "LayerControl.style_zoom_range_max": "Maximum Zoom",
+  "LayerControl.style_zoom_range_current": "Current: {zoom}",
+  "LayerControl.style_zoom_range_out_of_range": "Current zoom ({zoom}) is outside this range"
 }

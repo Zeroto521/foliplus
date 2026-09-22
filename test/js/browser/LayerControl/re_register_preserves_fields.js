@@ -4,7 +4,6 @@
 
   const fg = L.featureGroup();
   const onT = () => {};
-  const onZ = () => {};
   api.registerLayer({
     id: "__keep__",
     name: "Keep Me",
@@ -13,7 +12,6 @@
     paneName: "customPane",
     iconSvg: '<svg viewBox="0 0 4 4"><rect width="2" height="2"/></svg>',
     onToggle: onT,
-    onZIndex: onZ,
   });
   const before = api.layers.find(l => l.id === "__keep__");
   const beforeCb = {
@@ -23,7 +21,6 @@
     paneName: before.paneName,
     iconSvg: before.iconSvg,
     hasOnToggle: before.onToggle === onT,
-    hasOnZIndex: before.onZIndex === onZ,
   };
 
   // Re-register with only the id — nothing else should change.
@@ -36,7 +33,6 @@
     paneName: after.paneName,
     iconSvg: after.iconSvg,
     hasOnToggle: after.onToggle === onT,
-    hasOnZIndex: after.onZIndex === onZ,
   };
 
   api.unregisterLayer("__keep__");

@@ -46,7 +46,7 @@ class LayerControl extends BaseControl {
     // The factory's document listeners outlive the MutationObserver when the
     // control is detached but kept around, so hand its unbind to the base
     // class for teardown on remove.
-    this.trackCleanup(destroy);
+    this.effect(() => destroy);
 
     this.m.attachUI(panelContent);
 

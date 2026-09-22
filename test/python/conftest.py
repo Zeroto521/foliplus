@@ -77,6 +77,25 @@ _CDN_CACHE: dict[str, tuple[str, str]] = {
         "leaflet.awesome-markers.css",
         "text/css",
     ),
+    # Plugin assets referenced by folium 0.20 templates (MarkerCluster,
+    # HeatMap). Fragments are full paths so `MarkerCluster.css` cannot
+    # shadow `MarkerCluster.Default.css` (substring matching).
+    "cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.1.0/leaflet.markercluster.js": (
+        "leaflet.markercluster.js",
+        "application/javascript",
+    ),
+    "cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.1.0/MarkerCluster.Default.css": (
+        "MarkerCluster.Default.css",
+        "text/css",
+    ),
+    "cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.1.0/MarkerCluster.css": (
+        "MarkerCluster.css",
+        "text/css",
+    ),
+    "cdn.jsdelivr.net/gh/python-visualization/folium@main/folium/templates/leaflet_heat.min.js": (
+        "leaflet_heat.min.js",
+        "application/javascript",
+    ),
 }
 
 
@@ -166,9 +185,23 @@ def read_css(path: str) -> str:
 
     Tests read component stylesheets and the shared css/common/ modules
     for design-token assertions.  The cache avoids repeated disk I/O.
+
+    A component entry may be an ``index.css`` that @imports its split
+    modules; those statements are expanded inline the same way esbuild
+    does at bundle time, so token assertions see the merged stylesheet.
+    Relative imports (bare name or ``./`` prefix) resolve against the
+    importing file's directory.
     """
     if path not in _css_cache:
-        _css_cache[path] = Path(path).read_text(encoding="utf-8")
+        text = Path(path).read_text(encoding="utf-8")
+        parts = []
+        for line in text.splitlines():
+            m = re.match(r'^\s*@import\s+["\']([^"\']+)["\']\s*;', line)
+            if m:
+                parts.append(read_css(str(Path(path).parent / m.group(1))))
+            else:
+                parts.append(line)
+        _css_cache[path] = "\n".join(parts)
     return _css_cache[path]
 
 
@@ -179,10 +212,15 @@ def read_css_dir(path: str, name: str) -> str:
     module inside it (``token.css``).  Assertions name the module that
     owns the rule they check, so a token moving between modules shows up
     as a precise test failure instead of a vague whole-file miss.
+
+    Unlike :func:`read_css`, this deliberately reads the module file
+    verbatim: a component entry's ``@import`` chain is expanded (matching
+    the bundle), but a shared module's own ``@import`` dependencies are
+    NOT pulled in — the caller asserts on the module that owns the rule.
     """
     key = f"{path}/{name}"
     if key not in _css_cache:
-        _css_cache[key] = read_css(key)
+        _css_cache[key] = Path(key).read_text(encoding="utf-8")
     return _css_cache[key]
 
 
@@ -349,9 +387,19 @@ def _inject_window_map(html: str) -> str:
     return html
 
 
-def make_browser_page(browser, tmp_path, html: str, name: str = "page"):
+def make_browser_page(
+    browser, tmp_path, html: str, name: str = "page", prelude: str | None = None
+):
     """Write *html* to a temp file and return a Playwright page with console
     error collection.
+
+    Parameters
+    ----------
+    prelude
+        Optional JS source run *before* the page's own scripts (via
+        ``page.add_init_script``). A listener-counting probe needs this to see
+        the whole page lifetime rather than only what happens after it
+        installs, so its counts are absolute instead of relative to itself.
 
     Returns
     -------
@@ -362,6 +410,8 @@ def make_browser_page(browser, tmp_path, html: str, name: str = "page"):
     html_path = tmp_path / f"{name}.html"
     html_path.write_text(_inject_window_map(html), encoding="utf-8")
     page = browser.new_page()
+    if prelude is not None:
+        page.add_init_script(prelude)
     errors: list[str] = []
     page.on(
         "console",

@@ -1,9 +1,25 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerManager } from "#foliplus/LayerControl/manager.js";
+import {
+  bringFocusedLayerToFront,
+  computeLayerBounds,
+  drawFocusMask,
+  drawFocusRect,
+  focusDisabledLocaleKey,
+  focusDisabledReason,
+  highlightFocusedRow,
+  registerAutoCancel,
+  showFocusDisabledHint,
+  toggleFocusedLayer,
+} from "#foliplus/LayerControl/ui/focus.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
+import { getActiveLayerItem } from "#foliplus/LayerControl/ui/keyboard.js";
+import type { LayerInfo } from "#foliplus/core/layer/index.js";
+import { focusLayerZ } from "#foliplus/core/layer/index.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 import {
+  GridLayer,
   allFolded,
   attachWithGroup,
   findItem,
@@ -12,6 +28,207 @@ import {
   overlayFoldBtn,
   pressKey,
 } from "./fixture.js";
+
+// ── Mocked core/mode — LayerControl.focusing ownership ──────
+// core/mode owns guardBlocked() and ModeManager.setMode(); these tests cover
+// focusLayer()'s registration of the exclusive "focusing" mode across its entry
+// and release paths. core/mode is mocked (not patched) because focusLayer()
+// reaches it through a free import, not a `map.foliplus` reference.
+
+// ── Hoistable mock state ──────────────────────────────────────────────
+// vi.hoisted() declares state that exists BEFORE the module body runs, so
+// the hoisted vi.mock() factory can reference it without TDZ errors. The
+// factory returns `get` accessors so tests can grab the SAME live spy
+// objects the code under test (focusLayer / dismissFocus) calls, and call
+// .mockReturnValue / vi.clearAllMocks on them.
+const modeMocks = vi.hoisted(() => {
+  const states = new Map<string, string | null>();
+  const setMode = vi.fn((component: string, mode: string | null) => {
+    if (mode === null) states.delete(component);
+    else states.set(component, mode);
+  });
+  const getMode = vi.fn((component: string) => states.get(component) ?? null);
+  const guardBlocked = vi.fn(() => false);
+  const clear = vi.fn(() => states.clear());
+  const ensureModes = vi.fn(() => ({
+    setMode,
+    getMode,
+    isBlocked: vi.fn(() => false),
+    clear,
+  }));
+  return {
+    ensureModes,
+    guardBlocked,
+    ModeManager: vi.fn(),
+    _setMode: setMode,
+    _getMode: getMode,
+    _reset: () => states.clear(),
+  };
+});
+
+// Match the exact specifier LayerControl/ui.ts uses; both "#core/mode.js" and
+// "#foliplus/core/mode.js" resolve to the same file, but mocking the alias
+// specifier prevents future alias changes from silently breaking this test.
+vi.mock("#core/mode.js", () => ({
+  ensureModes: modeMocks.ensureModes,
+  guardBlocked: modeMocks.guardBlocked,
+  ModeManager: modeMocks.ModeManager,
+}));
+
+describe("LayerUI focusLayer — interaction lock", () => {
+  // Shorthands for the live mock spies. These are the SAME function objects
+  // the code under test (focusLayer / dismissFocus) calls.
+  const setModeSpy = modeMocks._setMode as ReturnType<typeof vi.fn>;
+  const getModeSpy = modeMocks._getMode as ReturnType<typeof vi.fn>;
+  const guardBlockedSpy = modeMocks.guardBlocked as ReturnType<typeof vi.fn>;
+
+  let ui: LayerUI;
+  let map: any;
+
+  beforeEach(() => {
+    // initFixture() toggles fake timers internally to flush the deferred
+    // attachUI work, so it must run first: installing fake timers after it
+    // would be undone by the fixture's useRealTimers() and runAllTimers()
+    // below would hit the real clock.
+    vi.clearAllMocks();
+    modeMocks._reset();
+    const fixture = initFixture();
+    vi.useFakeTimers();
+    ui = fixture.ui;
+    map = fixture.map;
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  describe("guardBlocked rejects focus when another component holds the map", () => {
+    it("shows a hint and returns early when blocked", () => {
+      guardBlockedSpy.mockReturnValue(true);
+
+      ui.focusLayer("overlay1");
+
+      expect(guardBlockedSpy).toHaveBeenCalledWith(
+        map,
+        "LayerControl",
+        expect.any(String),
+      );
+      expect(map.fitBounds).not.toHaveBeenCalled();
+      expect(window.L.rectangle).not.toHaveBeenCalled();
+      expect(setModeSpy).not.toHaveBeenCalled();
+    });
+
+    it("does NOT short-circuit when guard passes (control path)", () => {
+      guardBlockedSpy.mockReturnValue(false);
+
+      ui.focusLayer("overlay1");
+
+      expect(guardBlockedSpy).toHaveBeenCalledWith(
+        map,
+        "LayerControl",
+        expect.any(String),
+      );
+      expect(map.fitBounds).toHaveBeenCalled();
+      expect(setModeSpy).toHaveBeenCalledWith("LayerControl", "focusing");
+    });
+  });
+
+  it("registers LayerControl.focusing mode for the duration of the focus", () => {
+    expect(getModeSpy("LayerControl")).toBeNull();
+
+    ui.focusLayer("overlay1");
+
+    expect(setModeSpy).toHaveBeenCalledWith("LayerControl", "focusing");
+  });
+
+  it("clears the focusing mode in dismissFocus()", () => {
+    ui.focusLayer("overlay1");
+
+    vi.runAllTimers(); // fires the 3500ms auto-dismiss
+
+    expect(setModeSpy).toHaveBeenCalledWith("LayerControl", null);
+    expect(getModeSpy("LayerControl")).toBeNull();
+  });
+
+  it("cancelFocus() releases the focusing mode (manual cancel path)", () => {
+    ui.focusLayer("overlay1");
+    expect(getModeSpy("LayerControl")).toBe("focusing");
+
+    ui.cancelFocus();
+
+    expect(setModeSpy).toHaveBeenCalledWith("LayerControl", null);
+    expect(getModeSpy("LayerControl")).toBeNull();
+  });
+
+  it("destroy() releases the focusing mode through unbindEvents → dismissFocus", () => {
+    const { manager, ui, map } = initFixture();
+
+    ui.focusLayer("overlay1");
+    expect(getModeSpy("LayerControl")).toBe("focusing");
+
+    manager.destroy();
+
+    expect(setModeSpy).toHaveBeenCalledWith("LayerControl", null);
+    expect(getModeSpy("LayerControl")).toBeNull();
+  });
+
+  it("keeps the focusing mode active throughout the focus window", () => {
+    ui.focusLayer("overlay1");
+    expect(getModeSpy("LayerControl")).toBe("focusing");
+
+    // Advance to well inside the 3500ms window; mode must still be held.
+    vi.advanceTimersByTime(CONST.FOCUS.RECT_DURATION_MS - 1000);
+    expect(getModeSpy("LayerControl")).toBe("focusing");
+  });
+
+  it("passes LayerControl as the component key in setMode calls", () => {
+    ui.focusLayer("overlay1");
+    vi.runAllTimers();
+
+    // Every setMode call must identify itself as LayerControl — the mode
+    // system keys modes per-component, so the wrong key would mean focus
+    // never clears or never blocks.
+    for (const call of setModeSpy.mock.calls as Array<[string, string | null]>) {
+      expect(call[0]).toBe("LayerControl");
+    }
+    expect(setModeSpy).toHaveBeenCalledWith("LayerControl", "focusing");
+    expect(setModeSpy).toHaveBeenCalledWith("LayerControl", null);
+  });
+
+  it("re-registers the mode on a successive focus", () => {
+    ui.focusLayer("overlay1");
+    vi.runAllTimers();
+
+    ui.focusLayer("overlay1");
+
+    const focusingCalls = setModeSpy.mock.calls.filter(
+      (c: [string, string | null]) => c[1] === "focusing",
+    );
+    expect(focusingCalls).toHaveLength(2);
+  });
+
+  it("registers focusing mode on the flyTo path (tiny-bounds focus)", () => {
+    // The overlay1 leaf is a Polygon-style layer; spy on its getBounds to
+    // force a tiny area so focusLayer takes the flyTo branch. Regression
+    // test for the missing setMode on this path.
+    const tinyBounds = {
+      isValid: () => true,
+      getSouthWest: () => ({ lat: 30, lng: 100 }),
+      getNorthEast: () => ({ lat: 30.00001, lng: 100.00001 }),
+      getCenter: () => ({ lat: 30, lng: 100 }),
+    };
+    const layer = ui.m.findLayer(ui.m.layerRegistry.get("overlay1")!);
+    vi.spyOn(layer, "getBounds").mockReturnValue(tinyBounds);
+
+    ui.focusLayer("overlay1");
+
+    expect(map.flyTo).toHaveBeenCalled();
+    expect(setModeSpy).toHaveBeenCalledWith("LayerControl", "focusing");
+    expect(getModeSpy("LayerControl")).toBe("focusing");
+  });
+});
 
 describe("LayerUI focus", () => {
   let manager: LayerManager;
@@ -37,7 +254,7 @@ describe("LayerUI focus", () => {
     // Folded-group state is persisted to localStorage, so a fold from one test
     // would be re-read by the next test's LayerUI constructor and present as
     // already-folded.
-    window.localStorage.removeItem(CONST.STORAGE.FOLD_KEY);
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
   });
 
   afterEach(() => {
@@ -61,6 +278,19 @@ describe("LayerUI focus", () => {
   // ─────────────────── focusLayer() ───────────────────
 
   describe("focusLayer()", () => {
+    it("tolerates a pane missing from the map while lifting the focus ladder", () => {
+      // The ladder lifts the label pane and the interaction panes into the
+      // focus band; a map without some of them must not break the focus.
+      const realGetPane = map.getPane;
+      map.getPane = vi.fn((name: string) =>
+        ["markerPane", "tooltipPane", "popupPane"].includes(name)
+          ? undefined
+          : realGetPane(name),
+      );
+
+      expect(() => ui.focusLayer("overlay1")).not.toThrow();
+    });
+
     it("draws a border-only dashed rectangle on the layer bounds", () => {
       ui.focusLayer("overlay1");
 
@@ -536,12 +766,21 @@ describe("LayerUI focus", () => {
       ).toBe(true);
     });
 
-    it("marks a canvas (heatmap) focused layer with focus-pane", () => {
+    it("marks a canvas (heatmap) focused layer's dedicated pane with focus-pane", () => {
       const canvas = document.createElement("canvas");
+      const canvasPane = document.createElement("div");
+      canvasPane.classList.add("foliplus-layer-pane");
+      canvasPane.appendChild(canvas);
+      const paneName = "foliplus-canvas-heat1";
+      manager.map.getPane.mockImplementation((name: string) => {
+        if (name === paneName) return canvasPane;
+        return document.createElement("div");
+      });
       manager.registerLayer({
         id: "heat1",
         name: "Heat",
         canvas,
+        paneName,
         onToggle: () => {},
         getBounds: () => ({
           isValid: () => true,
@@ -551,6 +790,28 @@ describe("LayerUI focus", () => {
       });
 
       ui.focusLayer("heat1");
+
+      expect(canvasPane.classList.contains(CONST.CLASSES.FOCUS_PANE)).toBe(true);
+      expect(canvas.classList.contains(CONST.CLASSES.FOCUS_PANE)).toBe(false);
+    });
+
+    it("falls back to lifting the canvas when its dedicated pane is missing", () => {
+      const canvas = document.createElement("canvas");
+      manager.map.getPane.mockImplementation(() => null);
+      manager.registerLayer({
+        id: "heat2",
+        name: "Heat",
+        canvas,
+        paneName: "foliplus-canvas-heat2",
+        onToggle: () => {},
+        getBounds: () => ({
+          isValid: () => true,
+          getSouthWest: () => ({ lat: 30, lng: 100 }),
+          getNorthEast: () => ({ lat: 40, lng: 110 }),
+        }),
+      });
+
+      ui.focusLayer("heat2");
 
       expect(canvas.classList.contains(CONST.CLASSES.FOCUS_PANE)).toBe(true);
     });
@@ -566,10 +827,14 @@ describe("LayerUI focus", () => {
 
       ui.focusLayer("overlay1");
 
-      const marked = Array.from(panes.values()).filter(p =>
-        p.classList.contains(CONST.CLASSES.FOCUS_PANE),
+      // The per-layer label pane is rightly marked — the focused layer's own
+      // labels must stay visible — but the *shared* panes must not be touched.
+      const shared = Array.from(panes.entries()).filter(([name]) =>
+        ["overlayPane", "markerPane"].includes(name),
       );
-      expect(marked).toHaveLength(0);
+      expect(
+        shared.every(([, p]) => !p.classList.contains(CONST.CLASSES.FOCUS_PANE)),
+      ).toBe(true);
     });
 
     it("applies the glow class to the focused pane (not per leaf element)", () => {
@@ -678,12 +943,237 @@ describe("LayerUI focus", () => {
       ui.focusLayer("overlay2");
 
       expect(panes.get("custom_pane")?.style.zIndex).toBe(
-        String(CONST.FOCUS.PANE_Z - 10),
+        String(CONST.FOCUS.PANE_Z - CONST.FOCUS.FOCUSED_Z_GAP),
       );
 
       ui.cancelFocus();
 
       expect(panes.get("custom_pane")?.style.zIndex).toBe("0");
+    });
+
+    it("lifts the focused layer's label pane one step above it, without the glow", () => {
+      const panes = new Map<string, HTMLElement>();
+      map.getPane.mockImplementation((name: string) => {
+        if (!panes.has(name)) panes.set(name, makePane());
+        return panes.get(name)!;
+      });
+      manager.registerLayer({
+        id: "overlay2",
+        name: "Shapes",
+        layer: {
+          options: { pane: "custom_pane" },
+          eachLayer: vi.fn(),
+          getBounds: () => ({
+            isValid: () => true,
+            getSouthWest: () => ({ lat: 30, lng: 100 }),
+            getNorthEast: () => ({ lat: 40, lng: 110 }),
+          }),
+        } as unknown as L.Layer,
+      });
+
+      ui.focusLayer("overlay2");
+
+      // The layer's labels ride one step above the raised layer (focusedZ + 1),
+      // so they stay readable over its geometry — and get no glow of their own.
+      const labelPane = panes.get(CONST.ANNOTATION_PANE_PREFIX + "overlay2")!;
+      expect(labelPane.style.zIndex).toBe(
+        String(CONST.FOCUS.PANE_Z - CONST.FOCUS.FOCUSED_Z_GAP + 1),
+      );
+      expect(labelPane.classList.contains(CONST.CLASSES.FOCUS_GLOW)).toBe(false);
+
+      ui.cancelFocus();
+
+      expect(labelPane.style.zIndex).toBe("0");
+    });
+
+    it("lifts the layer even when pane discovery throws", () => {
+      const panes = new Map<string, HTMLElement>();
+      map.getPane.mockImplementation((name: string) => {
+        if (!panes.has(name)) panes.set(name, makePane());
+        return panes.get(name)!;
+      });
+      manager.registerLayer({
+        id: "overlay2",
+        name: "Shapes",
+        layer: {
+          options: { pane: "custom_pane" },
+          eachLayer: vi.fn(),
+          getBounds: () => ({
+            isValid: () => true,
+            getSouthWest: () => ({ lat: 30, lng: 100 }),
+            getNorthEast: () => ({ lat: 40, lng: 110 }),
+          }),
+        } as unknown as L.Layer,
+      });
+      vi.spyOn(manager, "getLayerPanes").mockImplementation(() => {
+        throw new Error("boom");
+      });
+
+      // Best-effort lift: discovery failure skips the pane loop, not the focus.
+      expect(() => ui.focusLayer("overlay2")).not.toThrow();
+    });
+
+    it("lifts discovered panes when the surface has no pane of its own", () => {
+      // A GridLayer's surface has no panes (it carries its z on itself), so
+      // setZOverride returns false and the fallback calls getLayerPanes. The
+      // shared default panes it discovers must be skipped — only the per-layer
+      // pane is lifted.
+      const panes = new Map<string, HTMLElement>();
+      map.getPane.mockImplementation((name: string) => {
+        if (!panes.has(name)) panes.set(name, makePane());
+        return panes.get(name)!;
+      });
+      const gridLayer = Object.assign(new GridLayer(), {
+        getBounds: () => ({
+          isValid: () => true,
+          getSouthWest: () => ({ lat: 30, lng: 100 }),
+          getNorthEast: () => ({ lat: 40, lng: 110 }),
+        }),
+      });
+      manager.registerLayer({
+        id: "tiles",
+        name: "Tiles",
+        layer: gridLayer,
+      });
+      vi.spyOn(manager, "getLayerPanes").mockReturnValue([
+        "custom_pane",
+        "overlayPane",
+      ]);
+
+      ui.focusLayer("tiles");
+
+      expect(
+        panes.get("custom_pane")?.classList.contains(CONST.CLASSES.FOCUS_PANE),
+      ).toBe(true);
+      // The default pane is skipped before getPane is called, so it was
+      // never created — the loop `continue`s on it.
+      expect(map.getPane).not.toHaveBeenCalledWith("overlayPane");
+
+      ui.cancelFocus();
+      expect(
+        panes.get("custom_pane")?.classList.contains(CONST.CLASSES.FOCUS_PANE),
+      ).toBe(false);
+    });
+
+    it("skips the pane loop without throwing when discovery fails on a pane-less surface", () => {
+      const gridLayer = Object.assign(new GridLayer(), {
+        getBounds: () => ({
+          isValid: () => true,
+          getSouthWest: () => ({ lat: 30, lng: 100 }),
+          getNorthEast: () => ({ lat: 40, lng: 110 }),
+        }),
+      });
+      manager.registerLayer({
+        id: "tiles",
+        name: "Tiles",
+        layer: gridLayer,
+      });
+      vi.spyOn(manager, "getLayerPanes").mockImplementation(() => {
+        throw new Error("boom");
+      });
+
+      expect(() => ui.focusLayer("tiles")).not.toThrow();
+    });
+
+    it("skips the lift when a discovered pane doesn't exist", () => {
+      // getLayerPanes returns a name that isn't a default pane, but getPane
+      // returns null — the pane was never created. The lift is best-effort:
+      // skip the missing pane without breaking the focus.
+      const panes = new Map<string, HTMLElement>();
+      map.getPane.mockImplementation((name: string) => {
+        if (name === "phantom_pane") return null;
+        if (!panes.has(name)) panes.set(name, makePane());
+        return panes.get(name)!;
+      });
+      const gridLayer = Object.assign(new GridLayer(), {
+        getBounds: () => ({
+          isValid: () => true,
+          getSouthWest: () => ({ lat: 30, lng: 100 }),
+          getNorthEast: () => ({ lat: 40, lng: 110 }),
+        }),
+      });
+      manager.registerLayer({
+        id: "tiles",
+        name: "Tiles",
+        layer: gridLayer,
+      });
+      vi.spyOn(manager, "getLayerPanes").mockReturnValue(["phantom_pane"]);
+
+      expect(() => ui.focusLayer("tiles")).not.toThrow();
+    });
+
+    it("skips a missing native pane without affecting the others", () => {
+      // markerPane was never created on this map — liftZ returns early, but
+      // tooltipPane and popupPane are still lifted to their ladder slots.
+      const panes = new Map<string, HTMLElement>();
+      map.getPane.mockImplementation((name: string) => {
+        if (name === "markerPane") return null;
+        if (!panes.has(name)) panes.set(name, makePane());
+        return panes.get(name)!;
+      });
+      manager.registerLayer({
+        id: "overlay2",
+        name: "Shapes",
+        layer: {
+          options: { pane: "custom_pane" },
+          eachLayer: vi.fn(),
+          getBounds: () => ({
+            isValid: () => true,
+            getSouthWest: () => ({ lat: 30, lng: 100 }),
+            getNorthEast: () => ({ lat: 40, lng: 110 }),
+          }),
+        } as unknown as L.Layer,
+      });
+
+      ui.focusLayer("overlay2");
+
+      // liftZ sets the z-index on the native panes (tooltip +3, popup +4),
+      // but does not add the FOCUS_PANE class — that is the layer's own panes.
+      expect(Number(panes.get("tooltipPane")!.style.zIndex)).toBeGreaterThan(0);
+      expect(Number(panes.get("popupPane")!.style.zIndex)).toBeGreaterThan(
+        Number(panes.get("tooltipPane")!.style.zIndex),
+      );
+    });
+
+    it("skips the label pane when it doesn't exist", () => {
+      // The annotation pane is created by the annotation system on first
+      // render. A layer that was never annotated has no label pane — the
+      // lift just skips it, the rest of the ladder still works.
+      const panes = new Map<string, HTMLElement>();
+      map.getPane.mockImplementation((name: string) => {
+        if (name.startsWith(CONST.ANNOTATION_PANE_PREFIX)) return null;
+        if (!panes.has(name)) panes.set(name, makePane());
+        return panes.get(name)!;
+      });
+      manager.registerLayer({
+        id: "overlay2",
+        name: "Shapes",
+        layer: {
+          options: { pane: "custom_pane" },
+          eachLayer: vi.fn(),
+          getBounds: () => ({
+            isValid: () => true,
+            getSouthWest: () => ({ lat: 30, lng: 100 }),
+            getNorthEast: () => ({ lat: 40, lng: 110 }),
+          }),
+        } as unknown as L.Layer,
+      });
+
+      expect(() => ui.focusLayer("overlay2")).not.toThrow();
+      expect(
+        panes.get("custom_pane")?.classList.contains(CONST.CLASSES.FOCUS_PANE),
+      ).toBe(true);
+    });
+
+    it("creates the focus pane when the map lacks it", () => {
+      const realGetPane = map.getPane;
+      map.getPane = vi.fn((name: string) =>
+        name === CONST.FOCUS_PANE ? null : realGetPane(name),
+      );
+
+      ui.focusLayer("overlay1");
+
+      expect(map.createPane).toHaveBeenCalledWith(CONST.FOCUS_PANE);
     });
 
     it("lifts a canvas (heatmap) focused layer above others and restores it", () => {
@@ -822,6 +1312,71 @@ describe("LayerUI focus", () => {
       focusSpy.mockRestore();
     });
 
+    it("does NOT focus the layer on a dblclick of the style-panel toggle slider", () => {
+      // The toggle switch is <label><input><span.slider></label>. Users click
+      // the slider span, which is not an `input`/`button` — two quick flips
+      // used to bubble a dblclick that fell through to focusLayer.
+      ui.fieldCache.set("overlay1", [{ name: "count", numeric: true }]);
+      ui.openStylePanel("overlay1");
+      const focusSpy = vi.spyOn(ui, "focusLayer");
+      const slider = findItem(ui, "overlay1").querySelector(
+        ".foliplus-toggle-slider",
+      ) as HTMLElement;
+      expect(slider).not.toBeNull();
+      ui.handleDblClick({ target: slider, bubbles: true } as MouseEvent);
+      expect(focusSpy).not.toHaveBeenCalled();
+      focusSpy.mockRestore();
+      ui.closeStylePanel(false);
+    });
+
+    it("does NOT focus the layer on a dblclick of the style-panel field select", () => {
+      // Same class of hit as the toggle slider: a <select> is neither
+      // `input` nor `button` in the denylist, so only the floating-panel
+      // early return keeps a double-click on it from focusing the layer.
+      ui.fieldCache.set("overlay1", [{ name: "count", numeric: true }]);
+      ui.openStylePanel("overlay1");
+      const focusSpy = vi.spyOn(ui, "focusLayer");
+      const select = findItem(ui, "overlay1").querySelector(
+        `.${CONST.CLASSES.STYLE_FIELD_SELECT}`,
+      ) as HTMLElement;
+      expect(select).not.toBeNull();
+      ui.handleDblClick({ target: select, bubbles: true } as MouseEvent);
+      expect(focusSpy).not.toHaveBeenCalled();
+      focusSpy.mockRestore();
+      ui.closeStylePanel(false);
+    });
+
+    it("does NOT focus the layer on a dblclick of the style-panel collide slider", () => {
+      // The "avoid overlap" switch uses the same <label><input><span.slider>
+      // chrome as the show toggle — same double-flip hazard.
+      ui.fieldCache.set("overlay1", [{ name: "count", numeric: true }]);
+      ui.openStylePanel("overlay1");
+      const focusSpy = vi.spyOn(ui, "focusLayer");
+      const collide = findItem(ui, "overlay1").querySelector(
+        `.${CONST.CLASSES.STYLE_COLLIDE_INPUT}`,
+      ) as HTMLInputElement;
+      expect(collide).not.toBeNull();
+      const slider = collide.parentElement!.querySelector(
+        ".foliplus-toggle-slider",
+      ) as HTMLElement;
+      ui.handleDblClick({ target: slider, bubbles: true } as MouseEvent);
+      expect(focusSpy).not.toHaveBeenCalled();
+      focusSpy.mockRestore();
+      ui.closeStylePanel(false);
+    });
+
+    it("does NOT focus the layer on a dblclick inside the attrs panel", () => {
+      const focusSpy = vi.spyOn(ui, "focusLayer");
+      const item = findItem(ui, "overlay1");
+      ui.openAttrsPanel(item);
+      const panel = item.querySelector(`.${CONST.CLASSES.ATTRS_PANEL}`) as HTMLElement;
+      expect(panel).not.toBeNull();
+      ui.handleDblClick({ target: panel, bubbles: true } as MouseEvent);
+      expect(focusSpy).not.toHaveBeenCalled();
+      focusSpy.mockRestore();
+      ui.closeAttrsPanel(false);
+    });
+
     it("ignores a dblclick outside the layer panel", () => {
       const focusSpy = vi.spyOn(ui, "focusLayer");
       const outside = document.createElement("div");
@@ -910,12 +1465,15 @@ describe("LayerUI focus", () => {
   });
 
   describe("focusLayer auto-cancel on map navigation", () => {
-    // Helper: grab the moveend handler that focusLayer registered via map.on.
-    const getMoveendHandler = () =>
-      (map.on as any).mock.calls.find((c: any[]) => c[0] === "moveend")?.[1];
+    // The annotation manager registers its own moveend/zoomend handlers at
+    // construction (bindMapSync); the focus auto-cancel handlers are the last
+    // ones registered.
+    const lastHandler = (event: string) =>
+      [...(map.on as any).mock.calls].reverse().find((c: any[]) => c[0] === event)?.[1];
 
-    const getZoomendHandler = () =>
-      (map.on as any).mock.calls.find((c: any[]) => c[0] === "zoomend")?.[1];
+    const getMoveendHandler = () => lastHandler("moveend");
+
+    const getZoomendHandler = () => lastHandler("zoomend");
 
     it("registers moveend and zoomend handlers that auto-cancel after the grace window", () => {
       vi.useFakeTimers();
@@ -1059,6 +1617,324 @@ describe("LayerUI focus", () => {
 
       expect(map.removeLayer).toHaveBeenCalledWith(renderer);
       expect(ui.focusRenderer).toBeNull();
+    });
+  });
+
+  // ─────────────────── helper edges ───────────────────
+  // focusLayer() reaches every helper below along the "everything is in
+  // place" path, so the early-outs and the canvas / stale-focus fallbacks
+  // stayed uncovered. Each case is aimed at one of those branches.
+
+  const layerBounds = () =>
+    ({
+      isValid: () => true,
+      getSouthWest: () => ({ lat: 30, lng: 100 }),
+      getNorthEast: () => ({ lat: 40, lng: 110 }),
+      getCenter: () => ({ lat: 35, lng: 105 }),
+    }) as any;
+
+  // Mirror keyboard.getNavigableItems() exactly — including the color-row
+  // filter, or the indices below drift and the cursor lands on the wrong row.
+  const navigableItems = () =>
+    Array.from(
+      ui.uiContainer.querySelectorAll<HTMLElement>(
+        `${CONST.SEL.LAYER_ITEM},${CONST.SEL.TOGGLE_ALL}`,
+      ),
+    ).filter(el => !el.classList.contains(CONST.CLASSES.COLOR_ITEM));
+
+  describe("focusDisabledReason()", () => {
+    const row = (
+      opts: {
+        color?: boolean;
+        type?: string;
+        checked?: boolean;
+        layerId?: string;
+      } = {},
+    ) => {
+      const item = document.createElement("div");
+      if (opts.color) item.classList.add(CONST.CLASSES.COLOR_ITEM);
+      if (opts.type !== undefined) item.dataset.layerType = opts.type;
+      if (opts.checked !== undefined) {
+        const box = document.createElement("input");
+        box.type = "checkbox";
+        box.checked = opts.checked;
+        item.appendChild(box);
+      }
+      if (opts.layerId) item.setAttribute(CONST.DATA.LAYER_ID, opts.layerId);
+      return item;
+    };
+
+    it("returns undefined for a visible row, and for a row without a checkbox", () => {
+      expect(focusDisabledReason(ui, row({ checked: true }))).toBeUndefined();
+      expect(focusDisabledReason(ui, row())).toBeUndefined();
+    });
+
+    it("returns 'base' for a color-picker or basemap row", () => {
+      expect(focusDisabledReason(ui, row({ color: true }))).toBe("base");
+      expect(focusDisabledReason(ui, row({ type: CONST.GROUP.BASE }))).toBe("base");
+    });
+
+    it("returns 'hidden' for a hidden row", () => {
+      expect(focusDisabledReason(ui, row({ checked: false }))).toBe("hidden");
+    });
+
+    it("returns 'no_bounds' when the surface reports capabilities.bounds false", () => {
+      const item = row({ checked: true, layerId: "nob" });
+      const layerInfo = { id: "nob" } as LayerInfo;
+      vi.spyOn(ui.m.layerRegistry, "get").mockReturnValue(layerInfo);
+      vi.spyOn(ui.m, "surfaceFor").mockReturnValue({
+        capabilities: { bounds: false } as never,
+      });
+      expect(focusDisabledReason(ui, item)).toBe("no_bounds");
+    });
+
+    it("returns undefined for a row whose surface has bounds", () => {
+      const item = row({ checked: true, layerId: "with" });
+      const layerInfo = { id: "with" } as LayerInfo;
+      vi.spyOn(ui.m.layerRegistry, "get").mockReturnValue(layerInfo);
+      vi.spyOn(ui.m, "surfaceFor").mockReturnValue({
+        capabilities: { bounds: true } as never,
+      });
+      expect(focusDisabledReason(ui, item)).toBeUndefined();
+    });
+
+    it("returns undefined when no layer is registered (first post-attach pass)", () => {
+      const item = row({ checked: true, layerId: "unknown" });
+      vi.spyOn(ui.m.layerRegistry, "get").mockReturnValue(undefined);
+      expect(focusDisabledReason(ui, item)).toBeUndefined();
+    });
+
+    it("maps each reason to the locale key its tooltip and hint read", () => {
+      expect(focusDisabledLocaleKey("base")).toBe("focus_layer_base");
+      expect(focusDisabledLocaleKey("hidden")).toBe("focus_layer_hidden");
+      expect(focusDisabledLocaleKey("no_bounds")).toBe("focus_layer_no_bounds");
+    });
+
+    it("shows the localized hint for each disabled reason", () => {
+      const hintSpy = vi.fn();
+      map.foliplus.showHint = hintSpy;
+
+      showFocusDisabledHint(ui, "base");
+      expect(hintSpy).toHaveBeenCalledWith(
+        "LayerControl",
+        "LayerControl.focus_layer_base",
+        expect.any(Number),
+      );
+
+      showFocusDisabledHint(ui, "hidden");
+      expect(hintSpy).toHaveBeenCalledWith(
+        "LayerControl",
+        "LayerControl.focus_layer_hidden",
+        expect.any(Number),
+      );
+
+      showFocusDisabledHint(ui, "no_bounds");
+      expect(hintSpy).toHaveBeenCalledWith(
+        "LayerControl",
+        "LayerControl.focus_layer_no_bounds",
+        expect.any(Number),
+      );
+    });
+  });
+
+  describe("toggleFocusedLayer()", () => {
+    it("no-ops when the keyboard cursor points at no row", () => {
+      ui.activeIdx = null;
+      expect(() => toggleFocusedLayer(ui)).not.toThrow();
+    });
+
+    it("no-ops when the active row carries no checkbox", () => {
+      // A third-party row can be navigable (LAYER_ITEM class) yet render no
+      // checkbox at all; the guard must bail instead of throwing.
+      const bare = document.createElement("div");
+      bare.className = CONST.CLASSES.LAYER_ITEM;
+      bare.setAttribute(CONST.DATA.LAYER_ID, "bare");
+      ui.uiContainer.appendChild(bare);
+      ui.activeIdx = navigableItems().indexOf(bare);
+      expect(getActiveLayerItem(ui)).toBe(bare);
+      const changes = vi.fn();
+      document.addEventListener("change", changes);
+      try {
+        toggleFocusedLayer(ui);
+        expect(changes).not.toHaveBeenCalled();
+      } finally {
+        document.removeEventListener("change", changes);
+      }
+    });
+
+    it("flips the active row's checkbox and dispatches change", () => {
+      const item = findItem(ui, "overlay1");
+      const box = item.querySelector<HTMLInputElement>('input[type="checkbox"]')!;
+      ui.activeIdx = navigableItems().indexOf(item);
+      const changes = vi.fn();
+      box.addEventListener("change", changes);
+
+      box.checked = true;
+      try {
+        toggleFocusedLayer(ui);
+        expect(box.checked).toBe(false);
+        expect(changes).toHaveBeenCalledTimes(1);
+      } finally {
+        box.checked = true;
+        box.removeEventListener("change", changes);
+      }
+    });
+  });
+
+  describe("computeLayerBounds()", () => {
+    it("returns the layer's own bounds when they are valid", () => {
+      const b = layerBounds();
+      expect(computeLayerBounds(ui, { getBounds: () => b } as any)).toBe(b);
+    });
+
+    it("sums the leaf bounds when the layer has no getBounds(), skipping invalid leaves", () => {
+      const good = layerBounds();
+      const layer = {
+        eachLayer: vi.fn((cb: (leaf: any) => void) => {
+          cb({ getBounds: () => ({ isValid: () => false }) });
+          cb({ getBounds: () => good });
+        }),
+      };
+
+      const out = computeLayerBounds(ui, layer as any);
+      expect(out).not.toBeNull();
+      expect(out!.isValid()).toBe(true);
+      expect(out!.getSouthWest()).toEqual({ lat: 30, lng: 100 });
+    });
+
+    it("returns null when no leaf yields valid bounds", () => {
+      expect(computeLayerBounds(ui, { eachLayer: vi.fn() } as any)).toBeNull();
+    });
+  });
+
+  describe("focus overlay drawing", () => {
+    it("creates the SVG renderer once and reuses it for the next mask", () => {
+      drawFocusMask(ui, layerBounds());
+      const renderer = ui.focusRenderer!;
+      expect(renderer).not.toBeNull();
+
+      drawFocusMask(ui, layerBounds());
+      expect(ui.focusRenderer).toBe(renderer);
+    });
+
+    it("omits the renderer from the rect options when none is active", () => {
+      expect(ui.focusRenderer).toBeNull();
+
+      drawFocusRect(ui, layerBounds());
+
+      expect((L.rectangle as any).mock.calls.at(-1)[1].renderer).toBeUndefined();
+    });
+  });
+
+  describe("registerAutoCancel() stale-focus guard", () => {
+    const moveendHandler = () => {
+      const hit = (map.on as any).mock.calls
+        .filter((c: any[]) => c[0] === "moveend")
+        .at(-1);
+      return hit?.[1];
+    };
+
+    it("ignores map navigation once another focus has superseded this one", () => {
+      vi.useFakeTimers();
+      registerAutoCancel(ui, "overlay1");
+      // Mark the focus as already discarded so the callback has nothing to clean.
+      ui.focusMask = { _options: {} } as any;
+      ui.focusingLayerId = "overlay2";
+
+      moveendHandler()!();
+      vi.advanceTimersByTime(CONST.FOCUS.RECT_DURATION_MS + 1);
+
+      expect(ui.focusingLayerId).toBe("overlay2");
+      expect(ui.focusMask).not.toBeNull();
+    });
+
+    it("does not dismiss a focus superseded during the grace window", () => {
+      vi.useFakeTimers();
+      registerAutoCancel(ui, "overlay1");
+      ui.focusMask = { _options: {} } as any;
+      moveendHandler()!();
+      ui.focusingLayerId = "overlay2";
+
+      vi.advanceTimersByTime(CONST.FOCUS.RECT_DURATION_MS + 1);
+
+      expect(ui.focusingLayerId).toBe("overlay2");
+      expect(ui.focusMask).not.toBeNull();
+    });
+  });
+
+  describe("highlightFocusedRow()", () => {
+    it("clears the previous highlight without adopting the new row when it is null", () => {
+      const item = findItem(ui, "overlay1");
+      highlightFocusedRow(ui, item, "overlay1");
+      expect(item.classList.contains(CONST.CLASSES.FOCUSING)).toBe(true);
+
+      highlightFocusedRow(ui, null, "overlay2");
+
+      expect(item.classList.contains(CONST.CLASSES.FOCUSING)).toBe(false);
+      expect(ui.focusingLayerId).toBe("overlay1");
+    });
+  });
+
+  describe("bringFocusedLayerToFront() canvas fallback", () => {
+    const heatInfo = (paneName?: string) => {
+      const canvas = document.createElement("canvas");
+      const info = {
+        id: "heat1",
+        name: "Heat",
+        isBase: false,
+        canvas,
+        ...(paneName ? { paneName } : {}),
+      } as LayerInfo;
+      return { info, canvas };
+    };
+
+    it("lifts the canvas directly when the layer has no pane of its own", () => {
+      const { info, canvas } = heatInfo();
+      bringFocusedLayerToFront(ui, info);
+
+      expect(canvas.style.zIndex).toBe(String(focusLayerZ()));
+      expect(canvas.classList.contains(CONST.CLASSES.FOCUS_PANE)).toBe(true);
+      expect(canvas.classList.contains(CONST.CLASSES.FOCUS_GLOW)).toBe(true);
+    });
+
+    it("falls back to the canvas when the declared pane is missing from the map", () => {
+      const { info, canvas } = heatInfo("missing-pane");
+      const realGetPane = map.getPane;
+      map.getPane = vi.fn((name: string) =>
+        name === "missing-pane" ? undefined : realGetPane(name),
+      );
+
+      bringFocusedLayerToFront(ui, info);
+
+      expect(canvas.classList.contains(CONST.CLASSES.FOCUS_PANE)).toBe(true);
+      expect(canvas.style.zIndex).toBe(String(focusLayerZ()));
+    });
+
+    // Both guards end in a no-op: the ladder panes are still lifted, but
+    // nothing is restored for the layer itself.
+    const LADDER_PANES = 4; // annotation + marker / tooltip / popup
+
+    it("lifts nothing of the layer when the declared pane is absent and there is no canvas", () => {
+      const realGetPane = map.getPane;
+      map.getPane = vi.fn((name: string) =>
+        name === "missing-pane" ? undefined : realGetPane(name),
+      );
+      bringFocusedLayerToFront(ui, {
+        id: "none",
+        name: "N",
+        isBase: false,
+        paneName: "missing-pane",
+      } as LayerInfo);
+      expect(ui.focusedPaneRestores).toHaveLength(LADDER_PANES);
+    });
+
+    it("lifts nothing of the layer when it has neither pane nor canvas", () => {
+      bringFocusedLayerToFront(ui, {
+        id: "none",
+        name: "N",
+        isBase: false,
+      } as LayerInfo);
+      expect(ui.focusedPaneRestores).toHaveLength(LADDER_PANES);
     });
   });
 });

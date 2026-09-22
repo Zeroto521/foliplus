@@ -134,10 +134,16 @@ const initFixture = (
   options: {
     initialZoom?: number;
     maxZoom?: number;
+    data?: ConstructorParameters<typeof LayerManager>[1];
+    /** The persisted record, written before the manager is constructed. */
+    seed?: Record<string, unknown>;
   } = {},
 ): { manager: LayerManager; ui: LayerUI; map: any } => {
   window.CONF.name = "LayerControl";
   window.CONF.locale_code = "en";
+  if (options.seed) {
+    window.localStorage.setItem(CONST.STORAGE.KEY, JSON.stringify(options.seed));
+  }
 
   installLeafletGlobals();
 
@@ -170,6 +176,7 @@ const initFixture = (
     flyTo: vi.fn(),
     getZoom: vi.fn(() => options.initialZoom ?? 5),
     getMaxZoom: vi.fn(() => options.maxZoom ?? 18),
+    getMinZoom: vi.fn(() => 0),
     getBounds: vi.fn(() => {
       const view = {
         pad: vi.fn(() => view),
@@ -200,16 +207,19 @@ const initFixture = (
     },
   };
 
-  const manager = new LayerManager(map, [
-    { id: "overlay1", name: "Polygons", isBase: false, layer: polygonLayer },
-    {
-      id: "base1",
-      name: "OSM",
-      isBase: true,
-      layer: new TileLayer(),
-      paneName: "tilePane",
-    },
-  ]);
+  const manager = new LayerManager(
+    map,
+    options.data ?? [
+      { id: "overlay1", name: "Polygons", isBase: false, layer: polygonLayer },
+      {
+        id: "base1",
+        name: "OSM",
+        isBase: true,
+        layer: new TileLayer(),
+        paneName: "tilePane",
+      },
+    ],
+  );
   manager.enforceOrder();
   manager.ui = new LayerUI(manager);
 

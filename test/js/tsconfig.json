@@ -2,13 +2,16 @@
   // Typecheck program for the test suite. Same strictness as the production
   // program (inherited from ../../tsconfig.json) — tests are NOT exempt.
   //
-  // Run `npm run typecheck:tests`. As of 2026-09-13 this reports 1495 errors
-  // and is therefore NOT part of `npm run typecheck` / CI. The suite is typed
-  // against a mock-heavy surface (vi.fn() without type args, `{}` stub objects,
-  // partial fake events) that has no `any` annotations, so 1175 of the errors
-  // are implicit-any cascades (TS7005/7034/7006/7031/18046) over 320 real
-  // mismatches (TS2339/2740/2322/2493/2352/2348/2790/...). Lifting the gate
-  // means typing those, not relaxing anything here.
+  // Run `npm run typecheck:tests`. This program is red and is therefore NOT
+  // part of `npm run typecheck` / CI. Measured 2026-09-17: ~1614 errors of
+  // which ~1222 are implicit-any cascades (TS7005/7034/7006/7031/18046) and
+  // ~392 are real mismatches (TS2339/2345/2322/2352/2493/2348/2740/...). The
+  // counts are kept deliberately approximate — they move with every test added —
+  // but the *shape* is the contract: the vast majority is cascading implicit
+  // any from a mock-heavy surface (vi.fn() without type args, `{}` stub
+  // objects, partial fake events), not type-safety holes. Lifting the gate
+  // means typing those, not relaxing anything here. The split is asserted in
+  // test/js/tsconfig.test.ts.
   //
   // The differences from the production program are all about what the tests
   // need to compile at all: `node` types for the script/ fixtures that touch
@@ -38,6 +41,6 @@
   "include": [
     "./**/*.ts",
     "../../foliplus/js/**/*.ts",
-    "../../foliplus/js/**/*.d.ts"
+    "../../foliplus/js/type/global.d.ts"
   ]
 }

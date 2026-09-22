@@ -1,0 +1,119 @@
+.foliplus-layer-ctrl {
+  /* ── More options button (reserved slot, always visible) ──
+    An unchecked row rests it black; a checked row keeps it in the action
+    color — the layer is live, and the button is the row's only in-line
+    action. Hover lights it either way. (The .active leg was dropped by the
+    cursor unification in #229; restoring it — selected rows read their
+    state through the button, same as they do through the left bar.) */
+  .foliplus-layer-more-btn {
+    align-self: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--more-btn-width);
+    height: var(--space-xl);
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: none;
+    /* color intentionally NOT animated: the more button is destroyed and
+       re-created on every list rebuild, so a color transition would cause
+       .active rows' more buttons to flash var(--accent-primary) on each
+       rebuild. The focus ring below is supplied here — not by the global
+       :focus-visible rule — because that rule paints a border-color on this
+       7px-wide button, and border-box sizing would collapse its box to 3px and
+       clip the glyph. */
+    &:focus-visible {
+      outline: none;
+      color: var(--accent-primary);
+      box-shadow: var(--focus-ring);
+      border-radius: var(--radius-sm);
+    }
+
+    svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+  }
+  .foliplus-layer-item:hover .foliplus-layer-more-btn,
+  .foliplus-layer-item.active .foliplus-layer-more-btn {
+    color: var(--accent-primary);
+  }
+
+  /* ── Overflow dropdown menu ──
+     Shell + item hover/active live in common.css (Unified Dropdown / Menu);
+     this block owns position/size and the action-menu specifics. */
+  .foliplus-layer-more-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    /* Flush with the owning row's bottom edge — the shared dropdown shell
+       adds a 2px margin-top that would open a sliver of list under the cursor
+       path to the menu (the row below would light up there, and the owner row
+       would blink out of :hover in the gap). With zero gap the cursor leaves
+       the owner row straight into its menu, so the owner stays lit the whole
+       way: the menu is its descendant. */
+    margin-top: 0;
+    /* Fits the widest item (4-char CJK ≈90px, EN long word ≈104px) with a
+       little slack, without the dead gap the verb-only labels left at 128px.
+       Min-width — not fixed — so a future longer label widens it instead of
+       clipping. */
+    min-width: 112px;
+    padding: var(--space-xs) 0;
+    display: none;
+    list-style: none;
+  }
+  .foliplus-layer-more-menu.open {
+    display: block;
+  }
+  .foliplus-layer-more-menu li {
+    display: flex;
+    align-items: center;
+    /* Icon stays left, label aligns right (the gap is the minimum spacing). */
+    justify-content: space-between;
+    gap: var(--space-md);
+    padding: var(--space-xs) var(--space-sm);
+    white-space: nowrap;
+  }
+  .foliplus-layer-more-menu li:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+    border-radius: var(--radius-sm);
+  }
+  .foliplus-layer-more-menu li svg {
+    flex-shrink: 0;
+    width: var(--icon-size-xs);
+    height: var(--icon-size-xs);
+    color: var(--text-muted);
+    fill: none;
+    stroke: currentColor;
+    stroke-width: var(--stroke-icon);
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  /* Icon wakes to black on hover AND keyboard focus, matching the LayerControl
+     type-icon language (identity wakes to black, not accent — accent is reserved
+     for actions/status). Disabled stays muted. */
+  .foliplus-layer-more-menu li:not([disabled]) svg {
+    transition: color var(--transition-fast);
+  }
+  .foliplus-layer-more-menu li:not([disabled]):hover svg,
+  .foliplus-layer-more-menu li:not([disabled]):focus-visible svg {
+    color: var(--text-primary);
+  }
+  /* Disabled menu item (e.g. layer is hidden). */
+  .foliplus-layer-more-menu li[disabled] {
+    cursor: not-allowed;
+    opacity: 0.4;
+  }
+  .foliplus-layer-more-menu li[disabled]:hover {
+    background: transparent;
+    /* Keep text muted: the unified hover tints text accent, but a disabled
+       item must not answer with accent. */
+    color: var(--text-primary);
+  }
+}

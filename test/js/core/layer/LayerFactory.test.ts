@@ -64,6 +64,7 @@ describe("LayerFactory", () => {
       clearRect: vi.fn(),
     })) as any;
 
+    const paneRegistry: Record<string, HTMLElement> = {};
     map = {
       on: vi.fn(),
       off: vi.fn(),
@@ -71,20 +72,18 @@ describe("LayerFactory", () => {
       addLayer: vi.fn(),
       removeLayer: vi.fn(),
       getContainer: vi.fn(() => ({ clientWidth: 800, clientHeight: 600 })),
-      getPane: vi.fn(() => {
-        const el = document.createElement("div");
-        el.style.zIndex = "0";
-        return el;
-      }),
-      createPane: vi.fn(() => {
+      getPane: vi.fn((name: string) => paneRegistry[name] ?? null),
+      createPane: vi.fn((name: string) => {
         const p = document.createElement("div");
         p.classList.add("foliplus-layer-pane");
+        paneRegistry[name] = p;
         return p;
       }),
       getPanes: vi.fn(() => {
         const el = document.createElement("div");
         return { mapPane: el };
       }),
+      _panes: paneRegistry,
       _container: document.createElement("div"),
       _layers: {},
       attributionControl: { _attributions: {}, _update: vi.fn() },
@@ -465,6 +464,24 @@ describe("LayerFactory", () => {
       expect(unreg).toHaveBeenCalledWith("test");
     });
 
+    it("clearLayers leaves the map untouched when the map does not hold the mainLayer", () => {
+      const f = new LayerFactory({
+        map: { ...map, hasLayer: vi.fn(() => false) },
+        panes: new PaneManager(map),
+        registerLayer: vi.fn(),
+        unregisterLayer: vi.fn(),
+        bringLayerToFront: vi.fn(),
+        invalidateType: vi.fn(),
+      });
+      const api = f.createLayers({
+        id: "test",
+        name: "Test",
+        panes: [{ name: "g1" }],
+      });
+      expect(() => api.clearLayers()).not.toThrow();
+      expect(map.removeLayer).not.toHaveBeenCalledWith(api.mainLayer);
+    });
+
     it("register() always calls registerLayer (not idempotent at callback level)", () => {
       const reg = vi.fn(() => null);
       const f = new LayerFactory({
@@ -521,6 +538,162 @@ describe("LayerFactory", () => {
       expect(ensureVectorSpy).toHaveBeenCalledWith(expect.anything(), "graph1");
       ensureVectorSpy.mockRestore();
     });
+
+    it("forwards styleProvider / styleSetters / styleDefaults to registerLayer", () => {
+      const reg = vi.fn(() => null);
+      const f = new LayerFactory({
+        map,
+        panes: new PaneManager(map),
+        registerLayer: reg,
+        unregisterLayer: vi.fn(),
+        bringLayerToFront: vi.fn(),
+        invalidateType: vi.fn(),
+      });
+      const styleProvider = () => ({ color: "#f00" });
+      const styleSetters = { color: () => {} };
+      const styleDefaults = () => ({ weight: 2 });
+      const api = f.createLayers({
+        id: "test",
+        name: "Test",
+        panes: [{ name: "g1" }],
+        styleProvider,
+        styleSetters,
+        styleDefaults,
+      });
+      api.addLayer(new window.L.Path(), "g1");
+      expect(reg).toHaveBeenCalledWith(
+        expect.objectContaining({ styleProvider, styleSetters, styleDefaults }),
+      );
+    });
+
+    it("removeLayer ignores null and undefined entries", () => {
+      const api = factory.createLayers({
+        id: "test",
+        name: "Test",
+        panes: [{ name: "g1" }],
+      });
+      const layer = new window.L.Path();
+      api.addLayer(layer, "g1");
+      expect(() => api.removeLayer(layer, null, undefined)).not.toThrow();
+      expect(api.mainLayer.getLayers().length).toBe(1);
+    });
+
+    it("addLayer skips auto-register when the map already holds the mainLayer", () => {
+      const reg = vi.fn(() => null);
+      const f = new LayerFactory({
+        map: { ...map, hasLayer: vi.fn(() => true) },
+        panes: new PaneManager(map),
+        registerLayer: reg,
+        unregisterLayer: vi.fn(),
+        bringLayerToFront: vi.fn(),
+        invalidateType: vi.fn(),
+      });
+      const api = f.createLayers({
+        id: "test",
+        name: "Test",
+        panes: [{ name: "g1" }],
+      });
+      api.register();
+      reg.mockClear();
+      api.addLayer(new window.L.Path(), "g1");
+      expect(reg).not.toHaveBeenCalled();
+    });
+
+    it("unregister keeps the layer registered while it still holds content", () => {
+      const unreg = vi.fn(() => true);
+      const f = new LayerFactory({
+        map: { ...map, hasLayer: vi.fn(() => true) },
+        panes: new PaneManager(map),
+        registerLayer: vi.fn(),
+        unregisterLayer: unreg,
+        bringLayerToFront: vi.fn(),
+        invalidateType: vi.fn(),
+      });
+      const api = f.createLayers({
+        id: "test",
+        name: "Test",
+        panes: [{ name: "g1" }],
+      });
+      api.register();
+      api.addLayer(new window.L.Path(), "g1");
+      api.unregister();
+      expect(unreg).not.toHaveBeenCalled();
+      expect(api.registered()).toBe(true);
+    });
+
+    it("clearLayers skips onDataChange when featureCountProvider is supplied", () => {
+      const onDataChange = vi.fn();
+      const f = new LayerFactory({
+        map: { ...map, hasLayer: vi.fn(() => true) },
+        panes: new PaneManager(map),
+        registerLayer: vi.fn(),
+        unregisterLayer: vi.fn(),
+        bringLayerToFront: vi.fn(),
+        invalidateType: vi.fn(),
+        onDataChange,
+      });
+      const api = f.createLayers({
+        id: "test",
+        name: "Test",
+        panes: [{ name: "g1" }],
+        featureCountProvider: () => 0,
+      });
+      api.addLayer(new window.L.Path(), "g1");
+      onDataChange.mockClear();
+      api.clearLayers();
+      expect(onDataChange).not.toHaveBeenCalled();
+    });
+
+    it("falls through to the LayerGroup prototype when L.LayerGroup is defined", () => {
+      const protoAddLayer = vi.fn(function (this: unknown) {
+        return this;
+      });
+      window.L.LayerGroup = {
+        prototype: {
+          addLayer: protoAddLayer,
+          removeLayer: vi.fn(function (this: unknown) {
+            return this;
+          }),
+        },
+      };
+      try {
+        const api = factory.createLayers({
+          id: "test",
+          name: "Test",
+          panes: [{ name: "g1" }],
+        });
+        const layer = new window.L.Path();
+        layer.options.pane = "__not_ours__";
+        (layer.options as { paneSet?: boolean }).paneSet = true;
+        api.mainLayer.addLayer(layer);
+        // The "not our pane" fallthrough must hit the LayerGroup prototype —
+        // not the instance's own addLayer (which the wrapper just replaced).
+        // The pane-unchanged assertion the test used to make held on both
+        // branches, so it did not pin anything; this one does.
+        expect(protoAddLayer).toHaveBeenCalledTimes(1);
+        expect(protoAddLayer).toHaveBeenCalledWith(layer);
+      } finally {
+        Reflect.deleteProperty(window.L, "LayerGroup");
+      }
+    });
+
+    it("does not consult the LayerGroup prototype when L.LayerGroup is undefined", () => {
+      // setup.ts's L stub has no LayerGroup key, so the falsy branch delegates
+      // to the layerGroup mock's own addLayer, which pushes into `children`.
+      // Observable via getLayers(). Complements the test above: that one fails
+      // if the truthy branch stops running; this one fails if the falsy branch
+      // stops running.
+      const api = factory.createLayers({
+        id: "test",
+        name: "Test",
+        panes: [{ name: "g1" }],
+      });
+      const layer = new window.L.Path();
+      layer.options.pane = "__not_ours__";
+      (layer.options as { paneSet?: boolean }).paneSet = true;
+      api.mainLayer.addLayer(layer);
+      expect(api.mainLayer.getLayers()).toContain(layer);
+    });
   });
 
   // ── createCanvas ──
@@ -537,7 +710,6 @@ describe("LayerFactory", () => {
       expect(typeof api.registered).toBe("function");
       expect(typeof api.destroy).toBe("function");
       expect(typeof api.bringToFront).toBe("function");
-      expect(typeof api.setZIndex).toBe("function");
       expect(typeof api.setVisible).toBe("function");
     });
 
@@ -558,6 +730,25 @@ describe("LayerFactory", () => {
       api.register();
       expect(registerLayer).toHaveBeenCalledWith(
         expect.objectContaining({ id: "canvas_test", name: "My Canvas" }),
+      );
+    });
+
+    it("register forwards source / updatedAt / meta provenance", () => {
+      const meta = { "Source layer": "Stores", "Aggregation field": "sales" };
+      const api = factory.createCanvas({
+        id: "canvas_test",
+        source: "stores.geojson",
+        updatedAt: 1700000000000,
+        meta,
+      });
+      api.register();
+      expect(registerLayer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: "canvas_test",
+          source: "stores.geojson",
+          updatedAt: 1700000000000,
+          meta,
+        }),
       );
     });
 
@@ -630,10 +821,40 @@ describe("LayerFactory", () => {
       expect(api.canvas.classList.contains("hidden")).toBe(false);
     });
 
-    it("setZIndex sets canvas style", () => {
+    it("mounts the canvas in a dedicated foliplus-layer-pane", () => {
       const api = factory.createCanvas({ id: "canvas_test" });
-      api.setZIndex(42);
-      expect(api.canvas.style.zIndex).toBe("42");
+      const pane = api.canvas.parentElement;
+      expect(pane?.classList.contains("foliplus-layer-pane")).toBe(true);
+      expect(map.createPane).toHaveBeenCalledWith("foliplus-canvas-canvas_test");
+    });
+
+    it("uses the generic foliplus-canvas-layer class, not a component class", () => {
+      const api = factory.createCanvas({ id: "canvas_test" });
+      expect(api.canvas.classList.contains("foliplus-canvas-layer")).toBe(true);
+      expect(api.canvas.classList.contains("foliplus-heatmap-canvas")).toBe(false);
+    });
+
+    it("keeps no SVG renderer on the canvas pane", () => {
+      factory.createCanvas({ id: "canvas_test" });
+      expect(window.L.svg).not.toHaveBeenCalled();
+      expect(map["foliplus_renderer_foliplus-canvas-canvas_test"]).toBeUndefined();
+    });
+
+    it("registers with paneName so enforceOrder can z-order the pane", () => {
+      const api = factory.createCanvas({ id: "canvas_test" });
+      api.register();
+      expect(registerLayer).toHaveBeenCalledWith(
+        expect.objectContaining({ paneName: "foliplus-canvas-canvas_test" }),
+      );
+    });
+
+    it("destroy removes the dedicated pane from the Leaflet registry", () => {
+      const api = factory.createCanvas({ id: "canvas_test" });
+      const paneName = "foliplus-canvas-canvas_test";
+      expect(map._panes[paneName]).toBeTruthy();
+      api.destroy();
+      expect(api.canvas.parentElement).toBeNull();
+      expect(map._panes[paneName]).toBeUndefined();
     });
 
     it("resize and getSize work with mock container", () => {
@@ -641,6 +862,24 @@ describe("LayerFactory", () => {
       const size = api.getSize();
       expect(size.width).toBe(800);
       expect(size.height).toBe(600);
+    });
+
+    it("resize falls back to devicePixelRatio 1 when the browser reports 0", () => {
+      const original = window.devicePixelRatio;
+      Object.defineProperty(window, "devicePixelRatio", {
+        value: 0,
+        configurable: true,
+      });
+      try {
+        const api = factory.createCanvas({ id: "test" });
+        api.resize();
+        expect(api.canvas.width).toBe(800);
+      } finally {
+        Object.defineProperty(window, "devicePixelRatio", {
+          value: original,
+          configurable: true,
+        });
+      }
     });
 
     it("passes custom onToggle to registerLayer", () => {
@@ -657,22 +896,6 @@ describe("LayerFactory", () => {
       const api = f.createCanvas({ id: "test", onToggle });
       api.register();
       expect(reg).toHaveBeenCalledWith(expect.objectContaining({ onToggle }));
-    });
-
-    it("passes custom onZIndex to registerLayer", () => {
-      const onZIndex = vi.fn();
-      const reg = vi.fn(() => null);
-      const f = new LayerFactory({
-        map,
-        panes: new PaneManager(map),
-        registerLayer: reg,
-        unregisterLayer: vi.fn(),
-        bringLayerToFront: vi.fn(),
-        invalidateType: vi.fn(),
-      });
-      const api = f.createCanvas({ id: "test", onZIndex });
-      api.register();
-      expect(reg).toHaveBeenCalledWith(expect.objectContaining({ onZIndex }));
     });
 
     it("removeLayer routes from the sub-layer when present", () => {
@@ -726,17 +949,150 @@ describe("LayerFactory", () => {
       expect(reg).toHaveBeenCalledWith(expect.objectContaining({ iconSvg }));
     });
 
-    it("throws when mapPane is not available", () => {
-      const badMap = { ...map, getPanes: vi.fn(() => ({})) };
+    it("forwards getBounds to registerLayer", () => {
+      const reg = vi.fn(() => null);
       const f = new LayerFactory({
-        map: badMap,
-        panes: new PaneManager(badMap),
-        registerLayer: vi.fn(),
+        map,
+        panes: new PaneManager(map),
+        registerLayer: reg,
         unregisterLayer: vi.fn(),
         bringLayerToFront: vi.fn(),
         invalidateType: vi.fn(),
       });
-      expect(() => f.createCanvas({ id: "test" })).toThrow("mapPane not available");
+      const getBounds = () => null;
+      const api = f.createCanvas({ id: "test", getBounds });
+      api.register();
+      expect(reg).toHaveBeenCalledWith(expect.objectContaining({ getBounds }));
+    });
+
+    it("default onToggle hides the canvas when invoked with false", () => {
+      const reg = vi.fn((opts: any) => {
+        opts.onToggle(false);
+        return null;
+      });
+      const f = new LayerFactory({
+        map,
+        panes: new PaneManager(map),
+        registerLayer: reg,
+        unregisterLayer: vi.fn(),
+        bringLayerToFront: vi.fn(),
+        invalidateType: vi.fn(),
+      });
+      const api = f.createCanvas({ id: "test" });
+      api.register();
+      expect(api.canvas.classList.contains("hidden")).toBe(true);
+    });
+  });
+
+  // ── createSurface equivalence ──
+
+  describe("createSurface", () => {
+    it("createLayers wrapper delegates to createSurface and returns the layers dialect", () => {
+      const wrapperApi = factory.createLayers({
+        id: "eq",
+        name: "Eq",
+        panes: [{ name: "g1" }, { name: "l1", isLabel: true }],
+      });
+      const handle = factory.createSurface({
+        id: "eq",
+        name: "Eq",
+        content: {
+          kind: "layers",
+          panes: [{ name: "g1" }, { name: "l1", isLabel: true }],
+        },
+      });
+      const c = handle.content as Extract<
+        import("#foliplus/core/layer/type.js").SurfaceContentHandle,
+        { kind: "layers" }
+      >;
+      // The wrapper returns the handle's content fields plus the shared plumbing.
+      expect(Object.keys(wrapperApi).sort()).toEqual(
+        Object.keys({
+          mainLayer: c.mainLayer,
+          addLayer: c.addLayer,
+          removeLayer: c.removeLayer,
+          clearLayers: c.clearLayers,
+          register: handle.register,
+          unregister: handle.unregister,
+          registered: handle.registered,
+          bringToFront: handle.bringToFront,
+        }).sort(),
+      );
+    });
+
+    it("createCanvas wrapper delegates to createSurface and returns the canvas dialect", () => {
+      const wrapperApi = factory.createCanvas({ id: "eq-c", name: "EqC" });
+      const handle = factory.createSurface({
+        id: "eq-c",
+        name: "EqC",
+        content: { kind: "canvas" },
+      });
+      const c = handle.content as Extract<
+        import("#foliplus/core/layer/type.js").SurfaceContentHandle,
+        { kind: "canvas" }
+      >;
+      expect(Object.keys(wrapperApi).sort()).toEqual(
+        Object.keys({
+          canvas: c.canvas,
+          ctx: c.ctx,
+          resize: c.resize,
+          getSize: c.getSize,
+          updatePosition: c.updatePosition,
+          register: handle.register,
+          unregister: handle.unregister,
+          registered: handle.registered,
+          destroy: handle.destroy,
+          bringToFront: handle.bringToFront,
+          setVisible: c.setVisible,
+        }).sort(),
+      );
+    });
+
+    it("layer surface declares paneSpecs with correct role and order", () => {
+      const handle = factory.createSurface({
+        id: "ps",
+        content: {
+          kind: "layers",
+          panes: [{ name: "base" }, { name: "sub", isLabel: true }, { name: "sub2" }],
+        },
+      });
+      const c = handle.content as Extract<
+        import("#foliplus/core/layer/type.js").SurfaceContentHandle,
+        { kind: "layers" }
+      >;
+      c.addLayer(new window.L.Path(), "sub");
+      expect(registerLayer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          paneSpecs: [
+            { role: "base", order: 0, name: "base" },
+            { role: "sub", order: 1, name: "sub", isLabel: true },
+            { role: "sub", order: 2, name: "sub2" },
+          ],
+        }),
+      );
+    });
+
+    it("canvas surface creates a canvas element, context, and dedicated pane", () => {
+      const handle = factory.createSurface({
+        id: "cv",
+        content: { kind: "canvas", className: "custom" },
+      });
+      const c = handle.content as Extract<
+        import("#foliplus/core/layer/type.js").SurfaceContentHandle,
+        { kind: "canvas" }
+      >;
+      expect(c.canvas).toBeInstanceOf(HTMLCanvasElement);
+      expect(c.canvas.classList).toContain("foliplus-canvas-layer");
+      expect(c.canvas.classList).toContain("custom");
+      expect(c.ctx).not.toBeNull();
+      expect(handle.destroy).toBeDefined();
+      handle.register();
+      expect(registerLayer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          canvas: c.canvas,
+          paneName: "foliplus-canvas-cv",
+        }),
+      );
     });
   });
 });

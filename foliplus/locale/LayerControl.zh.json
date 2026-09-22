@@ -34,6 +34,7 @@
   "LayerControl.focus_layer_tooltip": "聚焦到该图层并高亮显示",
   "LayerControl.focus_layer_hidden": "图层已隐藏，无法聚焦",
   "LayerControl.focus_layer_base": "底图不支持聚焦",
+  "LayerControl.focus_layer_no_bounds": "图层没有地理范围，无法聚焦",
   "LayerControl.focus_cancelled": "已取消聚焦",
   "LayerControl.rename_layer": "重命名",
   "LayerControl.rename_layer_tooltip": "重命名该图层",
@@ -50,5 +51,19 @@
   "LayerControl.readonly_error": "layers 为只读属性，请使用 LayerAPI",
   "LayerControl.readonly_del_error": "layers 为只读属性，请使用 LayerAPI",
   "LayerControl.readonly_method_error": "layers.{method}() 为只读方法，请使用 LayerAPI",
-  "LayerControl.blocked": "地图暂不可用"
+  "LayerControl.blocked": "地图暂不可用",
+  "LayerControl.style_layer": "样式",
+  "LayerControl.style_layer_tooltip": "配置该图层的样式",
+  "LayerControl.style_label_no_data": "该图层无可标注字段",
+  "LayerControl.style_label_field": "标注字段",
+  "LayerControl.style_label_field_auto": "自动识别",
+  "LayerControl.style_reset": "重置",
+  "LayerControl.section_label": "标注",
+  "LayerControl.section_layer": "图层",
+  "LayerControl.style_opacity": "透明度",
+  "LayerControl.style_zoom_range": "可见范围",
+  "LayerControl.style_zoom_range_min": "最小级别",
+  "LayerControl.style_zoom_range_max": "最大级别",
+  "LayerControl.style_zoom_range_current": "当前: {zoom}",
+  "LayerControl.style_zoom_range_out_of_range": "当前级别（{zoom}）不在此范围内"
 }

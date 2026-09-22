@@ -1,6 +1,9 @@
+import { toggleDelIcon } from "#common/delicon.js";
+import { mountDelIcon as mountDelIconShared } from "#common/deliconMount.js";
 import { createTranslator } from "#common/locale.js";
 import { createLogger } from "#common/log.js";
 import * as CONST from "../const.js";
+import { buildEditOverlay } from "../edit.js";
 import type { MeasureManager } from "../manager.js";
 import * as Util from "../util.js";
 
@@ -114,6 +117,13 @@ class PreviewMode extends MeasureMode {
   addPreview<T extends L.Layer>(layer: T, paneName?: string): T {
     this.previewLayers.push(layer);
     this.layers.addLayer(layer, paneName);
+    // The preview is a drawing aid, not content: an export started mid-drawing
+    // must not freeze it in the picture.  Every preview funnels through here —
+    // pinToTop and moveCursorNode rebuild by remove + re-add, which is the same
+    // call — so one stamp covers the rebuilds too.  Duck-checked rather than
+    // instanceof: a non-element layer simply has no getElement and is skipped.
+    const el = (layer as { getElement?: () => HTMLElement | null }).getElement?.();
+    el?.classList.add(CONST.CLASSES.NO_EXPORT);
     return layer;
   }
 
@@ -207,4 +217,71 @@ class PreviewMode extends MeasureMode {
   }
 }
 
-export { MeasureMode, PreviewMode };
+// ==================== Finalized Lifecycle Hook ====================
+/**
+ * MeasureControl's delete-icon mount: the shared `mountDelIcon` pinned to the
+ * node pane. Kept as a thin wrapper because its four call sites (distance,
+ * polygon ×2, marker) pass the layers API first, while the shared helper takes
+ * a mounter — that is the only difference between Measure and Locate/Search.
+ * `toggleDelIcon` and `layers.removeLayer` stay generic — callers use them
+ * directly when toggling visibility or tearing down.
+ */
+const mountDelIcon = (
+  layers: CreateLayersAPI,
+  latlng: L.LatLngExpression,
+  opts: { title?: string; iconAnchor?: [number, number] },
+  onDelete: () => void,
+): L.Marker =>
+  mountDelIconShared(latlng, opts, m => layers.addLayer(m, CONST.PANES.NODE), onDelete);
+
+/**
+ * Wire the finalized lifecycle shared by distance, polygon, and circle: the
+ * edit overlay, its registerFinalized entry, and the delete-then-teardown
+ * path. The caller owns resource teardown (drag handles, label registrations,
+ * edit-drag toggle), layer removal, and the business-level delete; this hook
+ * owns the overlay and the registerFinalized handle so the three attachXUI
+ * builders don't each re-implement the same 5-line skeleton.
+ *
+ * `delMarkers` is the ✕ handle set the default onOpen/onEmpty toggle —
+ * distance passes its nodeDelMarkers, circle passes a single-element array.
+ * Callers needing side effects (e.g. polygon's centroid ✕, marker's popup
+ * close) supply their own onOpen/onEmpty. DOM construction stays in the
+ * caller — this hook only wires lifecycle.
+ */
+const attachDelLifecycle = (
+  mgr: MeasureManager,
+  layers: CreateLayersAPI,
+  delMarkers: L.Marker[],
+  opts: {
+    id: string;
+    dispose: () => void;
+    removeLayers: () => void;
+    onDelete: () => void;
+    onOpen?: () => void;
+    onEmpty?: () => void;
+  },
+): { open: (ev: L.LeafletMouseEvent) => void; delete: () => void } => {
+  const onOpen = opts.onOpen ?? (() => delMarkers.forEach(m => toggleDelIcon(m, true)));
+  const onEmpty =
+    opts.onEmpty ?? (() => delMarkers.forEach(m => toggleDelIcon(m, false)));
+  const overlay = buildEditOverlay(mgr, { onOpen, onEmpty, id: opts.id });
+
+  const teardown = () => {
+    opts.dispose();
+    overlay.cleanup();
+  };
+  const unregisterFinalized = mgr.registerFinalized(teardown, opts.id);
+
+  return {
+    open: overlay.open,
+    delete: () => {
+      unregisterFinalized();
+      teardown();
+      opts.removeLayers();
+      opts.onDelete();
+      layers.unregister();
+    },
+  };
+};
+
+export { attachDelLifecycle, mountDelIcon, MeasureMode, PreviewMode };

@@ -1,0 +1,23 @@
+/* ── Tile pane hidden state ── */
+.foliplus-layer-tile-hidden {
+  visibility: hidden;
+  opacity: 0;
+}
+
+/* ── Drag-over pulse animation ── */
+@keyframes foliplus-drag-pulse {
+  0%,
+  100% {
+    border-color: var(--drag-border-from);
+    box-shadow: var(--drag-shadow-from);
+  }
+  50% {
+    border-color: var(--drag-border-to);
+    box-shadow: var(--drag-shadow-to);
+  }
+}
+
+/* ── Color layer background on map container (via Leaflet container) ── */
+.leaflet-container.active {
+  background: var(--color-layer-bg, #cccccc);
+}

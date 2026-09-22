@@ -12,16 +12,13 @@ import type {
   SuggestItem,
 } from "#core/geocode/index.js";
 import { HINT_DURATION } from "#core/hint.js";
+import { createLocationMarker } from "#core/locationMarker.js";
 import { guardBlocked } from "#core/mode.js";
 import { Cache } from "#common/cache.js";
 import { type Debounced, debounce } from "#common/debounce.js";
-import {
-  DEL_ICON_MARKER_ANCHOR,
-  attachDelClick,
-  bindDelIconToPopup,
-  makeDelIcon,
-} from "#common/delicon.js";
-import { createLocationMarker, dom } from "#common/dom.js";
+import { DEL_ICON_MARKER_ANCHOR } from "#common/delicon.js";
+import { mountDelIcon } from "#common/deliconMount.js";
+import { dom } from "#common/dom.js";
 import { fetchWithTimeout } from "#common/fetch.js";
 import { formatLatLng } from "#common/format.js";
 import * as Icons from "#common/icon.js";
@@ -33,6 +30,7 @@ import {
   CLASSES,
   HISTORY,
   MODE,
+  RECORD_VERSION,
   SOURCE,
   type SearchType,
   ZOOM,
@@ -157,7 +155,22 @@ const mergeHistoryEntries = (entries: SearchHistoryEntry[]): SearchHistoryEntry[
 type StoredHistoryEntry = Partial<SearchHistoryEntry> & { label?: string };
 
 const loadHistory = (): SearchHistoryEntry[] =>
-  loadHistoryRows(Storage.load<StoredHistoryEntry[]>(HISTORY.STORAGE_KEY, CONF.name));
+  loadHistoryRows(unwrapHistory(Storage.load<unknown>(HISTORY.STORAGE_KEY, CONF.name)));
+
+/** Unwrap the persisted history envelope, tolerating three shapes:
+ *  - new format `{ version, entries: [...] }` — return `entries`.
+ *  - legacy format: bare `SearchHistoryEntry[]` — return as-is (no migration;
+ *    the next `saveHistory` re-wraps it).
+ *  - anything else (null, a string, a number, an object without an `entries`
+ *    array): return `null` so the caller falls through to `[]`. */
+const unwrapHistory = (data: unknown): StoredHistoryEntry[] | null => {
+  if (Array.isArray(data)) return data as StoredHistoryEntry[];
+  if (data && typeof data === "object") {
+    const entries = (data as { entries?: unknown }).entries;
+    if (Array.isArray(entries)) return entries as StoredHistoryEntry[];
+  }
+  return null;
+};
 
 /** Parse and migrate one history payload; [] for a corrupt or non-array store. */
 const loadHistoryRows = (data: StoredHistoryEntry[] | null): SearchHistoryEntry[] => {
@@ -187,7 +200,9 @@ const loadHistoryRows = (data: StoredHistoryEntry[] | null): SearchHistoryEntry[
 };
 
 const saveHistory = (entries: SearchHistoryEntry[]): void => {
-  Storage.save(HISTORY.STORAGE_KEY, entries, CONF.name);
+  // Wrap in a versioned envelope; readers accept the legacy bare-array shape
+  // too, so the next save is what upgrades an old record (see `unwrapHistory`).
+  Storage.save(HISTORY.STORAGE_KEY, { version: RECORD_VERSION, entries }, CONF.name);
 };
 
 const addHistoryEntry = (ctrl: SearchControlState, entry: SearchHistoryEntry): void => {
@@ -243,13 +258,6 @@ const attachSearchDelIcon = (ctrl: SearchControlState, latlng: L.LatLngExpressio
     map.removeLayer(ctrl.delIcon);
     ctrl.delIcon = null;
   }
-  ctrl.delIcon = makeDelIcon(latlng, {
-    title: _("foliplus.close_label"),
-    iconAnchor: DEL_ICON_MARKER_ANCHOR,
-  });
-  map.addLayer(ctrl.delIcon);
-  const delIcon = ctrl.delIcon;
-
   const clearSearch = () => {
     if (ctrl.marker) {
       map.removeLayer(ctrl.marker);
@@ -262,11 +270,15 @@ const attachSearchDelIcon = (ctrl: SearchControlState, latlng: L.LatLngExpressio
     ctrl.inp.value = "";
     ctrl.inp.focus();
   };
-  attachDelClick(delIcon, clearSearch);
-
   // The ✕ is hidden by default and only appears while the popup is open,
   // matching MeasureControl / LocateControl marker UX.
-  bindDelIconToPopup(ctrl.marker, delIcon);
+  ctrl.delIcon = mountDelIcon(
+    latlng,
+    { title: _("foliplus.close_label"), iconAnchor: DEL_ICON_MARKER_ANCHOR },
+    m => map.addLayer(m),
+    clearSearch,
+    ctrl.marker,
+  );
 };
 
 // ── Search execution ─────────────────────────────────────────────
@@ -625,6 +637,15 @@ const renderHistory = (ctrl: SearchControlState, mode: SearchType) => {
   renderResults(ctrl, items);
 };
 
+/**
+ * Whether a query still matches the input box. The captured `query` is always
+ * "up to date" inside its own closure, so the check has to run against the
+ * live input. Shared by the cache-hit path and the render-time drop so the two
+ * cannot drift; trimming keeps both in sync with the input listener.
+ */
+const compareWithInput = (ctrl: SearchControlState, query: string): boolean =>
+  query === ctrl.inp.value.trim();
+
 const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
   if (guardBlocked(map, CONF.name, T("blocked"))) return;
 
@@ -644,8 +665,13 @@ const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
     return;
   }
   const cached = ctrl.cachedSuggestions.get(query);
+  // The cache survives removePanel() (index.ts clears it only on destroy), so
+  // it can outlive the request that produced it. A hit only renders when the
+  // input still reads the query: a stale caller must neither paint the panel
+  // nor fall through to a refetch of a string nobody is looking at. Only a
+  // request may retire an entry — renderSuggestions overwrites on a hit.
   if (cached) {
-    renderSuggestions(ctrl, cached, query);
+    if (compareWithInput(ctrl, query)) renderSuggestions(ctrl, cached, query);
     return;
   }
 
@@ -656,8 +682,14 @@ const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
   const since = Math.max(ctrl.lastSuggestFetch, lastRequestAt(provider.id));
   if (now - since < provider.throttleMs) {
     if (ctrl.throttleTimer) clearTimeout(ctrl.throttleTimer);
+    // Re-read the input at fire time, not the `query` this call was handed:
+    // the retry outlives the keystroke that queued it, so the user may have
+    // typed on. Capturing `query` here would target a string no longer in
+    // the box, and a cache hit on it would paint the wrong results.
     ctrl.throttleTimer = setTimeout(
-      () => fetchSuggestions(ctrl, query),
+      () => {
+        fetchSuggestions(ctrl, ctrl.inp.value.trim());
+      },
       provider.throttleMs - (now - since),
     );
     return;
@@ -669,10 +701,10 @@ const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
   ctrl.suggestSeq += 1;
   const reqSeq = ctrl.suggestSeq;
 
-  fetchWithTimeout(buildSearchUrl(ctrl, query, AUTOCOMPLETE.MAX_ITEMS), {
-    signal: ctrl.suggestAbortController.signal,
-    headers: provider.headers,
-  })
+  const suggestRequest = fetchWithTimeout(
+    buildSearchUrl(ctrl, query, AUTOCOMPLETE.MAX_ITEMS),
+    { signal: ctrl.suggestAbortController.signal, headers: provider.headers },
+  )
     .then(r => r.json())
     .then((raw: unknown) => {
       // Provider normalizes raw API JSON into the shared SuggestItem shape
@@ -683,7 +715,12 @@ const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
         return { ...item, lng: String(lng), lat: String(lat) };
       });
       if (reqSeq !== ctrl.suggestSeq) return;
-      if (query !== ctrl.inp.value.trim()) return;
+      // Same live-input check as the cache-hit path above, via one helper so
+      // the two call sites cannot drift. Silently discarded: the request that
+      // retired this panel already ran, so there is nothing to close, and
+      // re-issuing for the new input here would race the debounce the input
+      // listener already owns.
+      if (!compareWithInput(ctrl, query)) return;
       // Cache first result so searchAddress can serve it from geoCache.
       // results is always an array (normalizeSuggest), so index 0 is either
       // an item or undefined.
@@ -702,8 +739,17 @@ const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
     })
     .catch(err => {
       if (err.name === "AbortError") return;
-      removePanel(ctrl);
+      try {
+        log.warn("suggestion fetch failed:", err);
+      } finally {
+        removePanel(ctrl);
+      }
     });
+  // Fire-and-forget: a rejection raised while settling the handlers above
+  // (removePanel or the log) would otherwise go unobserved. Swallow it — the
+  // fetch outcome is already handled, and swallowing keeps a late reject from
+  // escaping as an unhandled rejection after the control has unloaded.
+  void suggestRequest.catch(() => undefined);
 };
 
 const initDebouncedFetch = (ctrl: SearchControlState) => {

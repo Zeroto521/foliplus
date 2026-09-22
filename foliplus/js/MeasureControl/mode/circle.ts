@@ -9,7 +9,7 @@ import {
 } from "#common/mapEvent.js";
 import * as CONST from "../const.js";
 import type { MeasureManager } from "../manager.js";
-import { attachCircleUI } from "../ui.js";
+import { attachCircleUI } from "../ui/index.js";
 import * as Util from "../util.js";
 import { PreviewMode } from "./base.js";
 
@@ -92,11 +92,12 @@ class CircleMode extends PreviewMode {
         const center = circle.getLatLng();
         const target = radiusNode!.getLatLng();
         const r = circle.getRadius();
-        data.center = { lng: center.lng, lat: center.lat };
-        data.target = { lng: target.lng, lat: target.lat };
-        data.radius = r;
-        data.area = Math.PI * r * r;
-        manager.store.persist();
+        manager.store.mutateAndPersist(data.id!, m => {
+          m.center = { lng: center.lng, lat: center.lat };
+          m.target = { lng: target.lng, lat: target.lat };
+          m.radius = r;
+          m.area = Math.PI * r * r;
+        });
       },
     });
   }
@@ -261,7 +262,6 @@ class CircleMode extends PreviewMode {
         Util.makeNode(centerLatLng, CONST.CLASSES.NODE_SOLID),
         CONST.PANES.NODE,
       );
-
       const delMarker = this.layers.addLayer(
         makeDelIcon(centerLatLng, { title: T("del_tooltip") }),
         CONST.PANES.NODE,
@@ -303,18 +303,17 @@ class CircleMode extends PreviewMode {
           this.m.store.remove(circleId);
         },
         onEnd: () => {
-          const m = this.m.store.all().find(x => x.id === circleId);
-          if (!m) return;
           const c = circle as L.Circle;
           const n = radiusNode as L.CircleMarker;
           const center = c.getLatLng();
           const target = n.getLatLng();
           const r = c.getRadius();
-          m.center = { lng: center.lng, lat: center.lat };
-          m.target = { lng: target.lng, lat: target.lat };
-          m.radius = r;
-          m.area = Math.PI * r * r;
-          this.m.store.persist();
+          this.m.store.mutateAndPersist(circleId, m => {
+            m.center = { lng: center.lng, lat: center.lat };
+            m.target = { lng: target.lng, lat: target.lat };
+            m.radius = r;
+            m.area = Math.PI * r * r;
+          });
         },
       });
     };

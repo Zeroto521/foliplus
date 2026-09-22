@@ -1,17 +1,22 @@
 // core/layer/LayerFactory — standalone createLayers/createCanvas factories.
 // Pure logic, no CONF / translator dependency. Takes map + PaneManager +
 // register/unregister callbacks via dependency injection.
-import { dom } from "#common/dom.js";
+import { cancelMapPaneTranslate, dom } from "#common/dom.js";
 import { createLogger } from "#common/log.js";
 import { throttleRaf } from "#common/throttle.js";
 import { PaneManager } from "./PaneManager.js";
-import type { RegisterLayerOpts } from "./type.js";
+import { CANVAS_PANE_PREFIX, PANE_NAME_PATTERN } from "./const.js";
 import type {
   CreateCanvasAPI,
   CreateCanvasOpts,
   CreateLayersAPI,
   CreateLayersOpts,
   LabelAwareLayer,
+  PaneSpec,
+  RegisterLayerOpts,
+  SurfaceContentHandle,
+  SurfaceHandle,
+  SurfaceOpts,
 } from "./type.js";
 
 /** Dependency injection contract for LayerFactory. */
@@ -40,6 +45,22 @@ interface LayerFactoryDeps {
 // prefixes with its own class name.
 const log = createLogger("LayerFactory");
 
+/** The pane a canvas surface paints into. `opts.id` is caller input and this
+ *  name reaches Leaflet's `createPane` as both an element id and a CSS class,
+ *  so it has to satisfy `PANE_NAME_PATTERN` first — the same gate
+ *  `PaneSpec.name` and `SurfaceOpts.paneName` pass through. A canvas pane
+ *  cannot be dropped the way an invalid spec is (the canvas has to live
+ *  somewhere), so disallowed runs collapse to `-` instead: the pane stays
+ *  recognisable and the caller's own `id` is left untouched. */
+const canvasPaneNameFor = (id: string): string => {
+  const raw = String(id);
+  const safe = raw.replace(/[^a-zA-Z0-9_-]+/g, "-");
+  if (safe !== raw) {
+    log.warn(`createCanvas id normalised for injection safety: "${raw}" -> "${safe}"`);
+  }
+  return `${CANVAS_PANE_PREFIX}${safe}`;
+};
+
 class LayerFactory {
   private deps: LayerFactoryDeps;
 
@@ -48,255 +69,259 @@ class LayerFactory {
   }
 
   createLayers(opts: CreateLayersOpts): CreateLayersAPI {
-    const {
-      map,
-      panes,
-      registerLayer,
-      unregisterLayer,
-      bringLayerToFront,
-      invalidateType,
-      onDataChange,
-    } = this.deps;
-    const factoryPanes = panes;
+    const handle = this.createSurface({
+      id: opts.id,
+      name: opts.name,
+      iconSvg: opts.iconSvg,
+      featureCountProvider: opts.featureCountProvider,
+      styleProvider: opts.styleProvider,
+      styleSetters: opts.styleSetters,
+      styleDefaults: opts.styleDefaults,
+      content: { kind: "layers", panes: opts.panes },
+    });
+    return {
+      mainLayer: handle.content.mainLayer,
+      addLayer: handle.content.addLayer,
+      removeLayer: handle.content.removeLayer,
+      clearLayers: handle.content.clearLayers,
+      register: handle.register,
+      unregister: handle.unregister,
+      registered: handle.registered,
+      bringToFront: handle.bringToFront,
+    };
+  }
 
-    // The first name in `opts.panes` is the layer's base pane (recorded as
-    // `paneName` on the registry entry); the rest are sub-panes with
-    // ascending z offsets from CHILD_PANE_STEP. An empty or absent list
-    // means the layer is flat — a single `mainLayer` with no children.
-    const paneEntries = opts.panes ?? [];
-    const subPanes = paneEntries.map(p => p.name);
-    const basePaneName = subPanes[0] ?? null;
-    const labelPanes = new Set(paneEntries.filter(p => p.isLabel).map(p => p.name));
+  createCanvas(opts: CreateCanvasOpts): CreateCanvasAPI {
+    const handle = this.createSurface({
+      id: opts.id,
+      name: opts.name,
+      iconSvg: opts.iconSvg,
+      featureCountProvider: opts.featureCountProvider,
+      styleProvider: opts.styleProvider,
+      styleSetters: opts.styleSetters,
+      styleDefaults: opts.styleDefaults,
+      content: {
+        kind: "canvas",
+        className: opts.className,
+        onToggle: opts.onToggle,
+        getBounds: opts.getBounds,
+        source: opts.source,
+        updatedAt: opts.updatedAt,
+        meta: opts.meta,
+      },
+    });
+    return {
+      canvas: handle.content.canvas,
+      ctx: handle.content.ctx,
+      resize: handle.content.resize,
+      getSize: handle.content.getSize,
+      updatePosition: handle.content.updatePosition,
+      register: handle.register,
+      unregister: handle.unregister,
+      registered: handle.registered,
+      destroy: handle.destroy,
+      bringToFront: handle.bringToFront,
+      setVisible: handle.content.setVisible,
+    };
+  }
 
-    // Components that supply featureCountProvider (MeasureControl, Heatmap)
-    // manage their own counts via emit(LAYER_ITEM_COUNT_CHANGE). For them,
-    // onDataChange would over-fire on every addLayer (preview layers in
-    // MeasureControl alone call addLayer 6-7 times per measurement), causing
-    // redundant UI refreshes of an unchanged count. Skip it.
-    const onDataChangeSkip = Boolean(opts.featureCountProvider);
-    const mainLayer = L.layerGroup();
-    // Build one sub-layer per declared sub-pane. The base sub-layer exists
-    // even when there is exactly one pane — mainLayer always routes through
-    // it so `paneName` on `RegisterLayerOpts` is well-defined.
-    const subLayers = new Map<string, L.LayerGroup>();
-    for (const name of subPanes) {
-      const g = L.layerGroup([], { pane: name });
-      subLayers.set(name, g);
-      mainLayer.addLayer(g);
+  createSurface(
+    opts: SurfaceOpts & { content: { kind: "layers" } },
+  ): Extract<SurfaceHandle, { content: { kind: "layers" } }>;
+  createSurface(
+    opts: SurfaceOpts & { content: { kind: "canvas" } },
+  ): Extract<SurfaceHandle, { content: { kind: "canvas" } }>;
+  createSurface(opts: SurfaceOpts): SurfaceHandle {
+    // Unreachable for typed callers (SurfaceOpts.id is required); kept as a
+    // guard for untyped JS callers that skip the overload.
+    if (opts.content.kind === "canvas" && !opts.id) {
+      throw new Error(log.msg("createCanvas requires an id"));
     }
 
-    let registered = false;
+    const { map, panes, registerLayer, unregisterLayer, bringLayerToFront } = this.deps;
 
-    // Capture the original LayerGroup.prototype methods before we shadow them
-    // on the instance a few lines below. `mainLayer.addLayer = fn` on the
-    // instance hides the prototype method, but if we bound the (then-current)
-    // `mainLayer.addLayer` first the wrapper would end up calling itself —
-    // infinite self-recursion until the stack returns to the caller with the
-    // default Leaflet pane. Pull from `L.LayerGroup.prototype` directly to
-    // sidestep the shadow. The null-guard fallback is for the JS unit test,
-    // which mocks `L.layerGroup` as a plain factory without a `prototype`.
-    const proto = L.LayerGroup?.prototype;
-    const origAddLayer = proto
-      ? proto.addLayer.bind(mainLayer)
-      : mainLayer.addLayer.bind(mainLayer);
-    const origRemoveLayer = proto
-      ? proto.removeLayer.bind(mainLayer)
-      : mainLayer.removeLayer.bind(mainLayer);
-
-    const layerOpts: RegisterLayerOpts = {
-      name: opts.name,
+    const commonLayerOpts = {
       id: opts.id,
-      isBase: false,
-      layer: mainLayer,
-      paneName: basePaneName,
-      subPanes: [...subPanes],
+      name: opts.name || opts.id,
       iconSvg: opts.iconSvg || null,
       featureCountProvider: opts.featureCountProvider ?? null,
+      styleProvider: opts.styleProvider ?? null,
+      styleSetters: opts.styleSetters ?? null,
+      styleDefaults: opts.styleDefaults ?? null,
     };
-    // Register sub-panes eagerly so ensurePane can assign provisional
-    // z-index on first creation. register() only fires when the first
-    // layer is added, but ensurePane may run earlier via ensureVector
-    // or bumpPanes — at that point childPanes must already be populated.
-    if (subPanes.length) factoryPanes.registerSubPanes(subPanes);
+
+    let registered = false;
+    let layerOpts: RegisterLayerOpts;
+    let registerIdempotent = false;
+    let preRegister: () => void = () => {};
+    let preUnregister: () => void = () => {};
+    let shouldUnregister: () => boolean = () => true;
+    let content: SurfaceContentHandle;
 
     const register = () => {
+      // registerIdempotent: the layers branch sets it false (register always
+      // fires), the canvas branch true (idempotent). The compiler can't narrow
+      // a let across the if (content.kind) split, so the check is kept for
+      // canvas; layers never takes the return path.
+      if (registerIdempotent && registered) return;
       registered = true;
+      preRegister();
       registerLayer(layerOpts);
     };
 
     const unregister = () => {
       if (!registered) return;
-      const hasContent =
-        directCount() > 0 ||
-        Array.from(subLayers.values()).some(g => g.getLayers().length > 0);
-      if (!hasContent) {
-        registered = false;
-        unregisterLayer(opts.id);
-      }
+      // shouldUnregister: the canvas branch pins it to () => true (always
+      // unregister), the layers branch evaluates remaining content. The check
+      // is kept for layers; canvas never takes the return path.
+      if (!shouldUnregister()) return;
+      registered = false;
+      preUnregister();
+      unregisterLayer(opts.id);
     };
 
-    /** Count content outside the sub-layer containers (which always exist
-     *  once `opts.panes` is non-empty). */
-    const directCount = (): number => mainLayer.getLayers().length - subLayers.size;
+    const bringToFront = () => bringLayerToFront(opts.id);
 
-    /** Route a layer to its target sub-layer by `options.pane`. If the
-     *  caller did not preset `options.pane` — or left it at Leaflet's
-     *  class-default (`'overlayPane'` for paths, `'markerPane'` for
-     *  markers, etc.) — default to `subPanes[0]`, the base pane where
-     *  graph geometry normally lives. This mirrors the pre-refactor
-     *  `mainLayer.addLayer(layer)` contract (which auto-routed unflagged
-     *  leaves to graphPane) so existing callers that rely on
-     *  `mainLayer.addLayer(poly)` without setting `options.pane` keep
-     *  working. Explicit `options.pane` values in `subPanes` are honoured;
-     *  values outside `subPanes` (or empty `subPanes`) fall through to
-     *  `origAddLayer` unchanged.
-     *
-     *  Distinguishing "explicit" from "class-default" uses `options.paneSet`
-     *  — the flag `PaneManager.migrateLayers` / `ensureVector` /
-     *  `LayerFactory.addLayer` set when they actually write `options.pane`.
-     *  Without it, every `L.polyline()` carries `options.pane ===
-     *  'overlayPane'` and the auto-default below would never fire.
-     *
-     *  Vector layers additionally get pinned to the sub-pane's renderer so
-     *  a later `setPane()` call cannot fall through to Leaflet's default
-     *  SVG and cause the "already-owned element" `appendChild` crash.
-     *  Non-vector leaves are dropped onto their sub-layer's own renderer
-     *  via `ensurePane` — cheap no-op once the pane is live. */
-    mainLayer.addLayer = (layer: LabelAwareLayer) => {
-      const declared = layer.options.pane;
-      const requested = layer.options.paneSet ? declared : basePaneName;
-      if (requested && subPanes.includes(requested)) {
-        // Pin the target name so downstream code (discoverChildPanes,
-        // getLayerPanes, ensureVector) sees the truth even if the caller
-        // left `options.pane` empty and we defaulted.
-        layer.options.pane = requested;
-        layer.options.paneSet = true;
-        if (!map.hasLayer(mainLayer)) register();
-        if (layer instanceof L.Path) {
-          factoryPanes.ensureVector(layer, requested);
-        } else {
-          factoryPanes.ensurePane(requested, false);
-        }
-        const target = subLayers.get(requested)!;
-        const result = target.addLayer(layer);
-        // The mainLayer subtree changed and the added layer's options.pane
-        // was set above — invalidate both discovery-cache entries (targeted).
-        panes.reset(L.stamp(mainLayer));
-        panes.reset(L.stamp(layer));
-        invalidateType(opts.id);
-        if (!onDataChangeSkip) onDataChange?.(opts.id);
-        return result;
+    if (opts.content.kind === "layers") {
+      const { invalidateType, onDataChange } = this.deps;
+
+      const paneEntries = opts.content.panes ?? [];
+      const paneSpecs: PaneSpec[] = paneEntries.map((p, i) => ({
+        role: i === 0 ? "base" : "sub",
+        order: i,
+        name: p.name,
+        isLabel: p.isLabel,
+      }));
+      const paneNames = paneSpecs.map(s => s.name);
+      const basePaneName = paneNames[0] ?? null;
+      const labelPanes = new Set(paneEntries.filter(p => p.isLabel).map(p => p.name));
+
+      const onDataChangeSkip = Boolean(opts.featureCountProvider);
+      const mainLayer = L.layerGroup();
+      const subLayers = new Map<string, L.LayerGroup>();
+      for (const name of paneNames) {
+        const g = L.layerGroup([], { pane: name });
+        subLayers.set(name, g);
+        mainLayer.addLayer(g);
       }
-      return origAddLayer(layer);
-    };
 
-    mainLayer.removeLayer = (layer: LabelAwareLayer) => {
-      for (const g of subLayers.values()) {
-        if (g.hasLayer(layer)) {
-          const result = g.removeLayer(layer);
+      const proto = L.LayerGroup?.prototype;
+      const origAddLayer = proto
+        ? proto.addLayer.bind(mainLayer)
+        : mainLayer.addLayer.bind(mainLayer);
+      const origRemoveLayer = proto
+        ? proto.removeLayer.bind(mainLayer)
+        : mainLayer.removeLayer.bind(mainLayer);
+
+      layerOpts = {
+        ...commonLayerOpts,
+        name: opts.name,
+        isBase: false,
+        layer: mainLayer,
+        paneName: basePaneName,
+        paneSpecs,
+      };
+      if (paneSpecs.length) panes.registerPaneSpecs(paneSpecs);
+
+      const directCount = (): number => mainLayer.getLayers().length - subLayers.size;
+
+      mainLayer.addLayer = (layer: LabelAwareLayer) => {
+        const declared = layer.options.pane;
+        const requested = layer.options.paneSet ? declared : basePaneName;
+        if (requested && paneNames.includes(requested)) {
+          if (!map.hasLayer(mainLayer)) register();
+          panes.pinTree(layer, requested);
+          const target = subLayers.get(requested)!;
+          const result = target.addLayer(layer);
           panes.reset(L.stamp(mainLayer));
-          panes.reset(L.stamp(layer));
           invalidateType(opts.id);
           if (!onDataChangeSkip) onDataChange?.(opts.id);
           return result;
         }
-      }
-      return origRemoveLayer(layer);
-    };
+        return origAddLayer(layer);
+      };
 
-    mainLayer.clearLayers = () => {
-      // mainLayer always holds the (possibly empty) sub-layers as children;
-      // content may also be added directly (no sub-pane). Count only actual
-      // content, not the sub-layer containers themselves.
-      const hadContent =
-        directCount() > 0 ||
-        Array.from(subLayers.values()).some(g => g.getLayers().length > 0);
-      for (const g of subLayers.values()) g.clearLayers();
-      if (hadContent && !onDataChangeSkip) onDataChange?.(opts.id);
-      if (map.hasLayer(mainLayer)) map.removeLayer(mainLayer);
-      unregister();
-      return mainLayer;
-    };
+      mainLayer.removeLayer = (layer: LabelAwareLayer) => {
+        for (const g of subLayers.values()) {
+          if (g.hasLayer(layer)) {
+            const result = g.removeLayer(layer);
+            panes.reset(L.stamp(mainLayer));
+            panes.reset(L.stamp(layer));
+            invalidateType(opts.id);
+            if (!onDataChangeSkip) onDataChange?.(opts.id);
+            return result;
+          }
+        }
+        return origRemoveLayer(layer);
+      };
 
-    /**
-     * Add a layer into this tree, pinned to the given sub-pane. The pane
-     * name must have been declared via `opts.panes` — the values are
-     * component-owned (MeasureControl/const.ts:PANES supplies them, so
-     * callers never write pane-name string literals).
-     *
-     * Passing no name defaults to `subPanes[0]` — the base pane, where
-     * graph geometry normally lives. Passing a name not in the list
-     * falls through to the base layerGroup with no pin: that is the
-     * same shape as a flat layer. Kept silent rather than throwing
-     * because a mis-routed layer is a caller bug that would still
-     * render; a thrown error would kill a live measurement.
-     *
-     * `paneName` is written directly onto `layer.options.pane` —
-     * `mainLayer.addLayer` routes by that field, so callers reading
-     * `layer.options.pane` (e.g. `discoverChildPanes`, `getLayerPanes`)
-     * see the same truth. `isLabel` is also set on the leaf when the
-     * pane is declared with `isLabel: true` in `panes`: `util.getGeometryType`
-     * and `countFeatureGeometry` still use it to exclude label leaves from
-     * feature-geometry counts, so the flag is kept for that contract.
-     */
-    const addLayer = (layer: L.Layer, paneName?: string): L.Layer => {
-      // Only write options.pane when the caller explicitly names one.
-      // When paneName is omitted, mainLayer.addLayer's own default
-      // (basePaneName for unset pane, existing pane when paneSet is true)
-      // handles routing — overwriting here would collapse NODE/LABEL
-      // layers back to GRAPH on resort/re-add.
-      const target = paneName ?? undefined;
-      if (target && subPanes.includes(target)) {
-        (layer as LabelAwareLayer).options.pane = target;
-        (layer as LabelAwareLayer).options.paneSet = true;
-        // Set or clear the flag so a layer that moves from a label pane
-        // to a non-label pane (or vice versa) stays consistent.
-        (layer as LabelAwareLayer).isLabel = labelPanes.has(target);
-      }
-      mainLayer.addLayer(layer as LabelAwareLayer);
-      return layer;
-    };
-    const removeLayer = (...items: Array<L.Layer | null | undefined>) => {
-      items.forEach(l => {
-        if (l != null) mainLayer.removeLayer(l as LabelAwareLayer);
-      });
-    };
-    const clearLayers = () => {
-      mainLayer.clearLayers();
-    };
+      mainLayer.clearLayers = () => {
+        const hadContent =
+          directCount() > 0 ||
+          Array.from(subLayers.values()).some(g => g.getLayers().length > 0);
+        for (const g of subLayers.values()) g.clearLayers();
+        if (hadContent && !onDataChangeSkip) onDataChange?.(opts.id);
+        if (map.hasLayer(mainLayer)) map.removeLayer(mainLayer);
+        unregister();
+        return mainLayer;
+      };
 
-    return {
-      mainLayer,
-      addLayer,
-      removeLayer,
-      clearLayers,
-      register,
-      unregister,
-      registered: () => registered,
-      bringToFront: () => bringLayerToFront(opts.id),
-    };
-  }
+      const addLayer = (layer: L.Layer, paneName?: string): L.Layer => {
+        const target = paneName ?? undefined;
+        if (target && paneNames.includes(target)) {
+          (layer as LabelAwareLayer).options.pane = target;
+          (layer as LabelAwareLayer).options.paneSet = true;
+          (layer as LabelAwareLayer).isLabel = labelPanes.has(target);
+        }
+        mainLayer.addLayer(layer as LabelAwareLayer);
+        return layer;
+      };
+      const removeLayer = (...items: Array<L.Layer | null | undefined>) => {
+        items.forEach(l => {
+          if (l != null) mainLayer.removeLayer(l as LabelAwareLayer);
+        });
+      };
+      const clearLayers = () => {
+        mainLayer.clearLayers();
+      };
 
-  createCanvas(opts: CreateCanvasOpts): CreateCanvasAPI {
+      registerIdempotent = false;
+      shouldUnregister = () =>
+        !(
+          directCount() > 0 ||
+          Array.from(subLayers.values()).some(g => g.getLayers().length > 0)
+        );
+      content = { kind: "layers", mainLayer, addLayer, removeLayer, clearLayers };
+
+      return {
+        content,
+        register,
+        unregister,
+        registered: () => registered,
+        bringToFront,
+      };
+    }
+
     const {
-      map,
-      panes: _panes,
-      registerLayer,
-      unregisterLayer,
-      bringLayerToFront,
-    } = this.deps;
-    if (!opts?.id) throw new Error(log.msg("createCanvas requires an id"));
+      className,
+      onToggle: onToggleOpt,
+      getBounds,
+      source,
+      updatedAt,
+      meta,
+    } = opts.content;
 
-    const mapPane = map.getPanes().mapPane as HTMLElement;
-    if (!mapPane) throw new Error(log.msg("mapPane not available"));
+    const paneName = canvasPaneNameFor(opts.id);
+    const { pane } = panes.ensurePane(paneName, false);
 
     const canvas = dom.el("canvas", {
-      class: "foliplus-heatmap-canvas",
-      parent: mapPane,
+      class: "foliplus-canvas-layer",
+      parent: pane,
     }) as HTMLCanvasElement;
-    if (opts.className) canvas.classList.add(opts.className);
+    if (className) canvas.classList.add(className);
 
     const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error(log.msg("createCanvas requires a 2d context"));
 
     const resize = () => {
       const container = map.getContainer();
@@ -310,9 +335,7 @@ class LayerFactory {
     };
 
     const updatePosition = () => {
-      const pos = L.DomUtil.getPosition(mapPane);
-      canvas.style.left = `${-pos.x}px`;
-      canvas.style.top = `${-pos.y}px`;
+      cancelMapPaneTranslate(canvas, map);
     };
 
     const getSize = () => {
@@ -323,47 +346,23 @@ class LayerFactory {
     resize();
     updatePosition();
 
-    let registered = false;
     const HIDDEN = "hidden";
 
     const onToggle =
-      opts.onToggle ||
+      onToggleOpt ||
       ((visible: boolean) => {
         canvas.classList.toggle(HIDDEN, !visible);
       });
 
-    const onZIndex =
-      opts.onZIndex ||
-      ((z: number) => {
-        canvas.style.zIndex = String(z);
-      });
-
-    const unregister = () => {
-      if (!registered) return;
-      registered = false;
-      ctx!.setTransform(1, 0, 0, 1, 0, 0);
-      ctx!.clearRect(0, 0, canvas.width, canvas.height);
-      canvas.classList.add(HIDDEN);
-      unregisterLayer(opts.id);
-    };
-
-    const layerOpts: RegisterLayerOpts = {
-      id: opts.id,
-      name: opts.name || opts.id,
-      iconSvg: opts.iconSvg || null,
+    layerOpts = {
+      ...commonLayerOpts,
       canvas,
+      paneName,
       onToggle,
-      onZIndex,
-      featureCountProvider: opts.featureCountProvider ?? null,
-      getBounds: opts.getBounds ?? null,
-    };
-    const register = () => {
-      if (registered) return;
-      registered = true;
-      resize();
-      updatePosition();
-      canvas.classList.remove(HIDDEN);
-      registerLayer(layerOpts);
+      getBounds: getBounds ?? null,
+      source: source ?? null,
+      updatedAt: updatedAt ?? null,
+      meta: meta ?? null,
     };
 
     const onMove = throttleRaf(() => updatePosition());
@@ -372,29 +371,45 @@ class LayerFactory {
     const onResize = () => resize();
     map.on("resize", onResize);
 
-    return {
+    registerIdempotent = true;
+    preRegister = () => {
+      resize();
+      updatePosition();
+      canvas.classList.remove(HIDDEN);
+    };
+    preUnregister = () => {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      canvas.classList.add(HIDDEN);
+    };
+    shouldUnregister = () => true;
+    const destroyCanvas = () => {
+      map.off("move", onMove);
+      map.off("resize", onResize);
+      onMove.cancel();
+      unregister();
+      canvas.remove();
+      panes.removePane(paneName);
+    };
+    content = {
+      kind: "canvas",
       canvas,
       ctx,
       resize,
       getSize,
       updatePosition,
-      register,
-      unregister,
-      registered: () => registered,
-      destroy: () => {
-        map.off("move", onMove);
-        map.off("resize", onResize);
-        onMove.cancel();
-        unregister();
-        canvas.remove();
-      },
-      bringToFront: () => bringLayerToFront(opts.id),
-      setZIndex: (z: number) => {
-        canvas.style.zIndex = String(z);
-      },
       setVisible: (v: boolean) => {
         canvas.classList.toggle(HIDDEN, !v);
       },
+    };
+
+    return {
+      content,
+      register,
+      unregister,
+      registered: () => registered,
+      bringToFront,
+      destroy: destroyCanvas,
     };
   }
 }

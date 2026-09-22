@@ -17,12 +17,12 @@
  * legitimate), so those are not reported here.
  */
 import { readFileSync } from "fs";
-import { dirname, resolve } from "path";
+import { resolve } from "path";
 import { globSync } from "tinyglobby";
-import { fileURLToPath } from "url";
 import { describe, expect, it } from "vitest";
 
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
+// Repo root via vitest's cwd (the convention build.test.ts uses too).
+const ROOT = process.cwd();
 const configText = readFileSync(resolve(ROOT, "vitest.config.mjs"), "utf8").replace(
   /\r\n/g,
   "\n",

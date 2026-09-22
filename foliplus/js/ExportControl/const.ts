@@ -59,22 +59,50 @@ const CLASSES = {
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 
+/** Leaflet pane-name prefix for LayerControl's per-layer annotation labels.
+ *  The renderer walks each layer's label pane right after its content, so the
+ *  exported stack order matches the map's (a layer above covers the labels). */
+const ANNOTATION_PANE_PREFIX = "foliplus-annotation-";
+
 /** DOM selectors used during render. */
 const SEL = {
-  CANVAS: ".leaflet-map-pane canvas.foliplus-heatmap-canvas",
+  /**
+   * Canvas overlays inside a layer's own content panes. Registered canvas
+   * layers (HeatmapControl via `createCanvas`) are rendered by
+   * `renderCanvasElement` from `li.canvas`, not this selector; this one
+   * exists for canvas elements a third-party layer mounts directly in its
+   * pane. Keep it generic — the pane walk already scopes the search.
+   * **A new canvas overlay must be added here or to
+   * {@link SEL.ANNOTATION_CANVAS}** — `collectLayerMarkers` deliberately skips
+   * CANVAS elements (a dedicated pass owns them), so a canvas that is in
+   * neither list vanishes from the export without any error.
+   */
+  CANVAS: "canvas",
+  /**
+   * LayerControl's annotation labels: each layer's labels draw on a canvas in
+   * that layer's *own* annotation pane, which the manager creates with
+   * `map.createPane` — a sibling of the layer's content panes, so the
+   * per-layer walk never reaches it and it needs its own pass.
+   */
+  ANNOTATION_CANVAS: ".leaflet-map-pane canvas.foliplus-annotation-canvas",
   CONTROL: ".leaflet-control-container, .foliplus-export-ctrl",
   LABEL: "[data-foliplus-export='label']",
   /**
-   * Opt-out attribute for export.  Set this attribute on any element
-   * that should NOT appear in the exported image.
+   * Opt-out for export.  Elements matching this selector are dropped from the
+   * exported image.  This is the single judgement point: a component that adds
+   * internal UI to a layer pane (delete buttons, resize handles, an
+   * in-progress preview) opts out here and needs no change to ExportControl.
    *
-   * Usage:  `<div data-foliplus-export="exclude">...</div>`
+   * Two carriers, because a Leaflet Path only exposes a construction-time
+   * `className` hook and has no attribute hook to stamp later:
    *
-   * Components that add elements to a layer pane can use this to
-   * exclude internal UI (delete buttons, resize handles, etc.)
-   * from the export canvas without needing to update ExportControl.
+   *   Usage:  `<div data-foliplus-export="exclude">...</div>`
+   *   Usage:  `<path class="foliplus-no-export" />`
+   *
+   * Only an element's own marker counts.  Pane-level hiding (focus) is a
+   * transient view state and the export ignores it — see renderPaneSVG.
    */
-  SKIP_EXPORT: '[data-foliplus-export="exclude"]',
+  SKIP_EXPORT: '[data-foliplus-export="exclude"], .foliplus-no-export',
 };
 
 // ============================================================================
@@ -214,6 +242,7 @@ export {
   TIMING,
   CLASSES,
   SVG_NS,
+  ANNOTATION_PANE_PREFIX,
   SEL,
   detectConcurrency,
   TILE_CONCURRENCY,

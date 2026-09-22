@@ -36,7 +36,7 @@ describe("LayerUI menu", () => {
     // Folded-group state is persisted to localStorage, so a fold from one test
     // would be re-read by the next test's LayerUI constructor and present as
     // already-folded.
-    window.localStorage.removeItem(CONST.STORAGE.FOLD_KEY);
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
   });
 
   afterEach(() => {
@@ -60,6 +60,26 @@ describe("LayerUI menu", () => {
   // ─────────────────── focusLayer() ───────────────────
 
   describe("openMoreMenu() / closeMoreMenu()", () => {
+    it("orders the entries focus, style, rename, attributes", () => {
+      // Deliberate ordering, not append order: the view action leads (the
+      // trigger-adjacent slot is the mis-click zone), then the style panel,
+      // then the one entry that writes to the layer, with the display-only
+      // attributes entry closing the list.
+      const item = findItem(ui, "overlay1");
+
+      ui.openMoreMenu(item);
+
+      const actions = Array.from(
+        item.querySelectorAll(".foliplus-layer-more-menu li"),
+      ).map(li => (li as HTMLElement).dataset.action);
+      expect(actions).toEqual([
+        CONST.ACTION.FOCUS_LAYER,
+        CONST.ACTION.STYLE_LAYER,
+        CONST.ACTION.RENAME_LAYER,
+        CONST.ACTION.ATTRS_LAYER,
+      ]);
+    });
+
     it("creates a menu with the focus-layer action", () => {
       const item = findItem(ui, "overlay1");
 
@@ -138,6 +158,59 @@ describe("LayerUI menu", () => {
       expect(li).not.toBeNull();
       expect(li?.getAttribute("role")).toBe("menuitem");
       expect(li?.getAttribute("tabindex")).toBe("0");
+    });
+
+    it("closes when Tab moves focus out of the menu", () => {
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+
+      item.querySelector(".foliplus-layer-more-menu")!.dispatchEvent(
+        new FocusEvent("focusout", {
+          bubbles: true,
+          relatedTarget: document.body,
+        }),
+      );
+
+      expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(0);
+      expect(ui.activeMenu).toBeNull();
+    });
+
+    it("stays open while focus moves within the menu", () => {
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+      const menu = item.querySelector(".foliplus-layer-more-menu")! as HTMLElement;
+      const second = menu.querySelectorAll("li")[1]! as HTMLElement;
+
+      menu.dispatchEvent(
+        new FocusEvent("focusout", { bubbles: true, relatedTarget: second }),
+      );
+
+      expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(1);
+      expect(ui.activeMenu).not.toBeNull();
+    });
+
+    it("opens without crashing when the item has no data-layer-id", () => {
+      const item = document.createElement("div");
+      item.className = "foliplus-layer-item";
+      ui.uiContainer.appendChild(item);
+      ui.openMoreMenu(item);
+      expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(1);
+    });
+
+    it("enables the Style entry for a layer with styleSetters but no label fields", () => {
+      manager.registerLayer({
+        id: "delegated1",
+        name: "Heatmap",
+        isBase: false,
+        layer: { options: {}, eachLayer: vi.fn() },
+        styleSetters: { labelShow: vi.fn() },
+      } as any);
+      const item = findItem(ui, "delegated1");
+      ui.openMoreMenu(item);
+      const styleLi = item.querySelector(
+        "li[data-action='style-layer']",
+      ) as HTMLElement;
+      expect(styleLi.getAttribute("disabled")).toBeNull();
     });
   });
 
@@ -300,6 +373,35 @@ describe("LayerUI menu", () => {
     });
   });
 
+  // ─────────────────── layer without a bounds carrier ───────────────────
+
+  describe("focus-layer menu item when the surface has no bounds carrier", () => {
+    // A layer that is visible and configurable but has no geographic extent to
+    // zoom to (a MarkerCluster group, a canvas without a `getBounds` provider).
+    // Focus must be disabled with the reason as its tooltip, while the Style
+    // entry stays enabled — the capability gate is per dimension, not a blanket
+    // "this layer is broken".
+    it("disables focus with the no-bounds tooltip and keeps Style enabled", () => {
+      const layerInfo = manager.layerRegistry.get("overlay1")!;
+      ui.m.surfaceFor(layerInfo).capabilities.bounds = false;
+
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+
+      const focusLi = item.querySelector(
+        ".foliplus-layer-more-menu li[data-action='focus-layer']",
+      ) as HTMLElement;
+      expect(focusLi.getAttribute("disabled")).toBe("disabled");
+      expect(focusLi.getAttribute("title")).toBe("LayerControl.focus_layer_no_bounds");
+
+      const styleLi = item.querySelector(
+        ".foliplus-layer-more-menu li[data-action='style-layer']",
+      ) as HTMLElement;
+      expect(styleLi.getAttribute("aria-disabled")).not.toBe("true");
+      ui.closeMoreMenu();
+    });
+  });
+
   // ─────────────────── rename ───────────────────
 
   describe("more button keyboard shortcut", () => {
@@ -333,6 +435,59 @@ describe("LayerUI menu", () => {
       expect(toggleSpy).not.toHaveBeenCalled();
 
       HTMLInputElement.prototype.dispatchEvent = origDispatchEvent;
+    });
+  });
+
+  describe("menu edge cases", () => {
+    it("opens the menu on an item without a data-layer-id attribute", () => {
+      const item = document.createElement("div");
+      document.body.appendChild(item);
+
+      ui.openMoreMenu(item);
+
+      const menu = item.querySelector(".foliplus-layer-more-menu");
+      expect(menu).not.toBeNull();
+      expect(menu!.querySelectorAll("li").length).toBeGreaterThan(0);
+      ui.closeMoreMenu();
+    });
+
+    it("does not disable the style entry when the layer has styleSetters but no label fields", () => {
+      // Set styleSetters on the layer info in the registry — layerHasStyleDelegation
+      // reads from ui.m.layerRegistry, not window.foliplus.styleDelegation.
+      const li = manager.layerRegistry.get("overlay1");
+      li!.styleSetters = { color: vi.fn() };
+
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+
+      const styleLi = item.querySelector(
+        ".foliplus-layer-more-menu li[data-action='style-layer']",
+      ) as HTMLElement;
+      expect(styleLi.getAttribute("disabled")).toBeNull();
+      ui.closeMoreMenu();
+    });
+
+    it("disables the style entry when the layer has no label fields and no style delegation", () => {
+      // A layer whose surface reports opacity/zoomRange as "none" (MarkerCluster)
+      // and has no label fields or style delegation — canConfigure is false.
+      const li = manager.layerRegistry.get("overlay1");
+      li!.styleSetters = undefined;
+      // Force the surface to report "none" capabilities
+      const surface = ui.m.surfaceFor(li!);
+      (surface as unknown as { capabilities: Record<string, string> }).capabilities = {
+        opacity: "none",
+        zoomRange: "none",
+        relocatable: false,
+      };
+
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+
+      const styleLi = item.querySelector(
+        ".foliplus-layer-more-menu li[data-action='style-layer']",
+      ) as HTMLElement;
+      expect(styleLi.getAttribute("aria-disabled")).toBe("true");
+      ui.closeMoreMenu();
     });
   });
 

@@ -37,7 +37,7 @@ describe("LayerUI keyboard", () => {
     // Folded-group state is persisted to localStorage, so a fold from one test
     // would be re-read by the next test's LayerUI constructor and present as
     // already-folded.
-    window.localStorage.removeItem(CONST.STORAGE.FOLD_KEY);
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
   });
 
   afterEach(() => {
@@ -117,15 +117,13 @@ describe("LayerUI keyboard", () => {
       restore();
     });
 
-    it("a checkbox change hides the layer at that row's own index", () => {
-      // The handler resolves the layer from `dataset.index`, not from the row,
-      // so an unregistered layer's row is simply no longer toggleable here —
-      // nothing is lost by the index lookup while the row is live.
+    it("a checkbox change hides the layer its row owns", () => {
+      // The handler resolves the layer by the row's data-layer-id, so a
+      // late registration can sit anywhere in the DOM without changing which
+      // layer the click toggles.
       const cb = findItem(ui, "overlay1").querySelector(
         'input[type="checkbox"]',
       ) as HTMLInputElement;
-      const idx = parseInt(cb.dataset.index ?? "", 10);
-      expect(ui.m.layers[idx].id).toBe("overlay1");
 
       cb.checked = false;
       ui.handleChange({ target: cb } as Event);
@@ -670,6 +668,49 @@ describe("LayerUI keyboard", () => {
         new FocusEvent("focusout", { bubbles: true, relatedTarget: document.body }),
       );
       expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
+    });
+
+    it("focusin on a non-row target inside the container is a no-op", () => {
+      // owningRow() is null for chrome that sits beside the rows (panel
+      // padding, group headings). The early return must not throw or paint.
+      const stray = document.createElement("div");
+      ui.uiContainer.appendChild(stray);
+
+      stray.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+
+      expect(ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSED}`)).toHaveLength(
+        0,
+      );
+      stray.remove();
+    });
+
+    it("focusout into a floating panel keeps the row cursor", () => {
+      // The PR's onFocusOut guard: a relatedTarget inside a style/attrs panel
+      // is a detail task on the same row, not an abandon — even when the panel
+      // element is not a DOM descendant of the row that lost focus.
+      const overlay = findItem(ui, "overlay1");
+      const checkbox = overlay.querySelector(
+        'input[type="checkbox"]',
+      ) as HTMLInputElement;
+      ui.setActiveItem(indexFor("overlay1"));
+      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
+
+      const detachedPanel = document.createElement("div");
+      detachedPanel.className = CONST.CLASSES.STYLE_PANEL;
+      const panelControl = document.createElement("button");
+      detachedPanel.appendChild(panelControl);
+      document.body.appendChild(detachedPanel);
+
+      checkbox.dispatchEvent(
+        new FocusEvent("focusout", {
+          bubbles: true,
+          relatedTarget: panelControl,
+        }),
+      );
+
+      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
+
+      detachedPanel.remove();
     });
 
     it("Escape is complete without any residual suppress class", () => {

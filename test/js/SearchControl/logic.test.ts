@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { markRequest } from "#core/geocode/index.js";
-import { AUTOCOMPLETE, HISTORY, MODE, ZOOM } from "#foliplus/SearchControl/const.js";
+import {
+  AUTOCOMPLETE,
+  HISTORY,
+  MODE,
+  RECORD_VERSION,
+  ZOOM,
+} from "#foliplus/SearchControl/const.js";
 import {
   addHistoryEntry,
   attachSearchDelIcon,
@@ -32,6 +38,54 @@ beforeEach(() => {
   // test's suggestion/geocoder request never throttles this one.
   markRequest("nominatim", 0);
 });
+
+// A stub that records the URL of every fetch and holds each response until
+// the test releases it — lets a test interleave a user edit between the
+// request going out and it settling.
+const createDeferredFetch = () => {
+  const calls: unknown[] = [];
+  const inflight: Array<() => void> = [];
+  globalThis.fetch = vi.fn((url: unknown) => {
+    calls.push(url);
+    return new Promise<unknown>(resolve => {
+      inflight.push(() =>
+        resolve({
+          json: () => Promise.resolve([{ lat: "30", lon: "120", display_name: "A" }]),
+        }),
+      );
+    });
+  }) as unknown as typeof fetch;
+  const fetches = { calls, inflight };
+  return fetches;
+};
+
+const tick = () => new Promise(r => setTimeout(r, 0));
+
+// The shape fetchSuggestions needs. Fields the tests do not exercise stay at
+// the same defaults as the other fixtures in this file.
+const makeFixture = (extra: Record<string, unknown> = {}) =>
+  ({
+    mode: MODE.ADDR,
+    cachedSuggestions: new Cache<string, object>(50),
+    panelWrap: null,
+    throttleTimer: null,
+    selectedIdx: -1,
+    lastSuggestFetch: 0,
+    suggestSeq: 0,
+    suggestAbortController: null,
+    ctrl: {
+      getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
+    },
+    ...extra,
+  }) as any;
+
+// A panel element already in the document — the fixture's default `panelWrap: null`
+// means every one of these asserts the panel was removed, not that it never existed.
+const attachedPanel = () => {
+  const el = document.createElement("div");
+  document.body.appendChild(el);
+  return el;
+};
 
 describe("removePanel", () => {
   it("removes panelWrap and resets state", () => {
@@ -1203,6 +1257,103 @@ describe("fetchSuggestions: throttle and abort", () => {
     ctrl.inp.value = "xyz";
     expect(ctrl.panelWrap).toBeNull();
   });
+
+  it("does not render or cache a response for a query the input no longer reads", async () => {
+    // A request dispatched for "abc" can still be settling after the input
+    // reads "def": with the debounce pending, no second request is issued and
+    // suggestSeq never increments, so the seq guard alone cannot catch it.
+    const fetches = createDeferredFetch();
+    const ctrl: any = makeFixture({ inp: { value: "abc" } });
+    fetchSuggestions(ctrl, "abc");
+    expect(fetches.inflight).toHaveLength(1);
+    // The user edits while the request was in flight: the debounce swallowed
+    // the keystrokes, so no second request and no seq bump.
+    ctrl.inp.value = "def";
+    fetches.inflight[0]();
+    await tick();
+    // The stale response must not have opened a panel...
+    expect(ctrl.panelWrap).toBeNull();
+    // ...nor seeded the cache for a query the input no longer reads —
+    // otherwise a later fetchSuggestions(ctrl, "abc") would render "abc"
+    // results straight from cache without going to the network.
+    expect(ctrl.cachedSuggestions.get("abc")).toBeUndefined();
+    // The network was hit exactly once: no re-issue from the drop path.
+    expect(fetches.calls).toHaveLength(1);
+  });
+
+  it("does not reopen a panel from a cache entry the input no longer reads", async () => {
+    // The seq guard cannot catch a quiet user either: typing "abc" then
+    // clearing the box never issues a second request, so nothing increments
+    // suggestSeq. The cache is the only surviving copy of that response.
+    const fetches = createDeferredFetch();
+    const ctrl: any = makeFixture({
+      searchHistory: [],
+      inp: { value: "abc" },
+    });
+    fetchSuggestions(ctrl, "abc");
+    fetches.inflight[0]();
+    await tick();
+    expect(ctrl.panelWrap).not.toBeNull();
+    expect(ctrl.cachedSuggestions.get("abc")).toBeDefined();
+    // User clears the input: no request, no seq bump.
+    ctrl.inp.value = "";
+    fetchSuggestions(ctrl, "");
+    expect(ctrl.panelWrap).toBeNull();
+    // Re-typing "abc" hits the cache. The entry must not resurrect the
+    // panel for a context it no longer belongs to.
+    fetchSuggestions(ctrl, "abc");
+    expect(ctrl.panelWrap).toBeNull();
+    // A cache hit is a no-network path, so nothing was re-issued here.
+    expect(fetches.calls).toHaveLength(1);
+  });
+
+  it("retries the live input value, not the queued one", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2024-01-01T00:00:00.000Z"));
+    const fetches = createDeferredFetch();
+    const ctrl: any = makeFixture({ inp: { value: "abc" } });
+    // First call passes the window and marks both clocks.
+    fetchSuggestions(ctrl, "abc");
+    // Second call lands inside the throttle window and schedules a retry.
+    fetchSuggestions(ctrl, "abc");
+    expect(ctrl.throttleTimer).toBeDefined();
+    // The user keeps typing while the retry is pending.
+    ctrl.inp.value = "defg";
+    await vi.advanceTimersByTimeAsync(1000);
+    // The retry must target what is actually in the box, not the value the
+    // keystroke that queued it carried.
+    expect(fetches.calls).toHaveLength(2);
+    expect(String(fetches.calls[1])).toContain("defg");
+    expect(String(fetches.calls[1])).not.toContain("abc");
+    vi.useRealTimers();
+  });
+
+  it("refetches a cached suggestion once its TTL has lapsed", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2024-01-01T00:00:00.000Z"));
+    const fetches = createDeferredFetch();
+    // A TTL-bearing cache, as SearchControl builds it from the consts. An
+    // entry is only as good as the map view that produced it, so a stale one
+    // must expire rather than paint suggestions for a bias the user has panned
+    // away from.
+    const ctrl: any = makeFixture({
+      inp: { value: "abc" },
+      cachedSuggestions: new Cache<string, object>(
+        AUTOCOMPLETE.CACHE_MAX,
+        AUTOCOMPLETE.CACHE_TTL_MS,
+      ),
+    });
+    ctrl.cachedSuggestions.set("abc", [{ lat: "30", lng: "120", display_name: "A" }]);
+    // Inside the TTL the entry still serves: no request, panel painted.
+    fetchSuggestions(ctrl, "abc");
+    expect(fetches.calls).toHaveLength(0);
+    expect(ctrl.panelWrap).not.toBeNull();
+    // Past the TTL the entry is retired on access, so the keystroke refetches.
+    vi.setSystemTime(new Date(Date.now() + AUTOCOMPLETE.CACHE_TTL_MS + 60_000));
+    fetchSuggestions(ctrl, "abc");
+    expect(fetches.calls).toHaveLength(1);
+    vi.useRealTimers();
+  });
 });
 
 describe("fetchSuggestions: empty query shows history", () => {
@@ -1464,22 +1615,8 @@ describe("fetchSuggestions: render behavior", () => {
     globalThis.fetch = vi.fn(() =>
       Promise.reject(new TypeError("Network error")),
     ) as unknown as typeof fetch;
-    const el = document.createElement("div");
-    document.body.appendChild(el);
-    const ctrl: any = {
-      mode: "addr",
-      cachedSuggestions: new Cache<string, object>(50),
-      panelWrap: el,
-      throttleTimer: null,
-      selectedIdx: -1,
-      lastSuggestFetch: 0,
-      suggestSeq: 0,
-      suggestAbortController: null,
-      ctrl: {
-        getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
-      },
-      inp: { value: "abc" },
-    };
+    const el = attachedPanel();
+    const ctrl = makeFixture({ panelWrap: el, inp: { value: "abc" } });
     fetchSuggestions(ctrl, "abc");
     // Wait for the promise chain (fetch → then → catch) to settle so the
     // removePanel call in the non-abort catch handler actually executes.
@@ -1491,26 +1628,85 @@ describe("fetchSuggestions: render behavior", () => {
     const abortErr = new Error("Aborted");
     abortErr.name = "AbortError";
     globalThis.fetch = vi.fn(() => Promise.reject(abortErr)) as unknown as typeof fetch;
-    const el = document.createElement("div");
-    document.body.appendChild(el);
-    const ctrl: any = {
-      mode: "addr",
-      cachedSuggestions: new Cache<string, object>(50),
-      panelWrap: el,
-      throttleTimer: null,
-      selectedIdx: -1,
-      lastSuggestFetch: 0,
-      suggestSeq: 0,
-      suggestAbortController: null,
-      ctrl: {
-        getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
-      },
-      inp: { value: "abc" },
-    };
+    const el = attachedPanel();
+    const ctrl = makeFixture({ panelWrap: el, inp: { value: "abc" } });
     fetchSuggestions(ctrl, "abc");
     await new Promise(r => setTimeout(r, 50));
     // AbortError is expected (user typed faster) — do not remove the panel.
     expect(ctrl.panelWrap).toBe(el);
+  });
+
+  it("still clears the panel when the catch handler itself throws", async () => {
+    // The chain is fire-and-forget, so a handler that threw instead of settling
+    // escaped as an unhandled rejection. Assert on the observable side effect of
+    // the finally, not on the log, and use a rejection that lands here
+    // (malformed body) — the AbortError early return never reaches the handler.
+    // buildSearchUrl reaches toWgs84 before the fetch, and ensureGcoord warns
+    // on the gcoord fallback, so the warn mock must absorb that first call and
+    // only throw on the handler's own — otherwise it trips on the URL build.
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation((message: string) => {
+      if (typeof message === "string" && message.includes("suggestion fetch")) {
+        throw new Error("console failed");
+      }
+    });
+    globalThis.fetch = vi.fn(() =>
+      Promise.resolve({ json: () => Promise.reject(new SyntaxError("bad json")) }),
+    ) as unknown as typeof fetch;
+    const el = attachedPanel();
+    const ctrl = makeFixture({ panelWrap: el, inp: { value: "abc" } });
+    fetchSuggestions(ctrl, "abc");
+    await new Promise(r => setTimeout(r, 50));
+    // The panel still closed despite the log throwing, which proves the reject
+    // settled through the finally rather than out the chain.
+    expect(ctrl.panelWrap).toBeNull();
+    expect(document.body.contains(el)).toBe(false);
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("suggestion fetch failed"),
+      expect.anything(),
+    );
+    warnSpy.mockRestore();
+  });
+
+  it("treats a non-list suggestion payload as no results, not as a failure", async () => {
+    // Every provider's normalizeSuggest guards Array.isArray and returns [] for
+    // anything else, so a valid-JSON-but-not-a-list body settles through the
+    // success path with an empty list. No warn, no panel (the empty-results
+    // branch already removed it) — and crucially no unhandled rejection.
+    globalThis.fetch = vi.fn(() =>
+      Promise.resolve({ json: () => Promise.resolve({ features: [] }) }),
+    ) as unknown as typeof fetch;
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const el = attachedPanel();
+    const ctrl = makeFixture({ panelWrap: el, inp: { value: "abc" } });
+    fetchSuggestions(ctrl, "abc");
+    await new Promise(r => setTimeout(r, 50));
+    // Only the gcoord fallback warn fires (from toWgs84 in buildSearchUrl, before
+    // the fetch); no suggestion-failure warn.
+    expect(warnSpy).not.toHaveBeenCalledWith(
+      expect.stringContaining("suggestion fetch failed"),
+      expect.anything(),
+    );
+    expect(ctrl.panelWrap).toBeNull();
+    warnSpy.mockRestore();
+  });
+
+  it("warns on a malformed suggestion payload instead of dropping it", async () => {
+    // Malformed body: r.json() rejects. The panel must still close so the
+    // search input is not left looking live on a dead request.
+    globalThis.fetch = vi.fn(() =>
+      Promise.resolve({ json: () => Promise.reject(new SyntaxError("bad json")) }),
+    ) as unknown as typeof fetch;
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const el = attachedPanel();
+    const ctrl = makeFixture({ panelWrap: el, inp: { value: "abc" } });
+    fetchSuggestions(ctrl, "abc");
+    await new Promise(r => setTimeout(r, 50));
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("suggestion fetch failed"),
+      expect.anything(),
+    );
+    expect(ctrl.panelWrap).toBeNull();
+    warnSpy.mockRestore();
   });
 
   it("clears panelWrap when results are empty", async () => {
@@ -2278,9 +2474,10 @@ describe("SearchControl history", () => {
         count: 1,
       });
       const stored = JSON.parse(localStorage.getItem(HISTORY.STORAGE_KEY)!);
-      expect(stored[0].addrDisplay).toBe("Paris, France");
-      expect(stored[0].count).toBe(3);
-      expect(stored).toHaveLength(1);
+      expect(stored.version).toBe(RECORD_VERSION);
+      expect(stored.entries[0].addrDisplay).toBe("Paris, France");
+      expect(stored.entries[0].count).toBe(3);
+      expect(stored.entries).toHaveLength(1);
     });
 
     it("respects MAX_ENTRIES limit", () => {
@@ -2340,8 +2537,8 @@ describe("SearchControl history", () => {
         count: 1,
       });
       const stored = JSON.parse(localStorage.getItem(HISTORY.STORAGE_KEY)!);
-      expect(stored).toHaveLength(HISTORY.MAX_ENTRIES);
-      expect(stored[0].query).toBe("new");
+      expect(stored.entries).toHaveLength(HISTORY.MAX_ENTRIES);
+      expect(stored.entries[0].query).toBe("new");
     });
   });
 
@@ -2375,8 +2572,8 @@ describe("SearchControl history", () => {
       expect(ctrl.searchHistory).toHaveLength(1);
       expect(ctrl.searchHistory[0].query).toBe("B");
       const stored = JSON.parse(localStorage.getItem(HISTORY.STORAGE_KEY)!);
-      expect(stored).toHaveLength(1);
-      expect(stored[0].query).toBe("B");
+      expect(stored.entries).toHaveLength(1);
+      expect(stored.entries[0].query).toBe("B");
     });
 
     it("does nothing for unknown query", () => {
@@ -2416,7 +2613,7 @@ describe("SearchControl history", () => {
       deleteHistoryEntry(ctrl, "Only");
       expect(ctrl.searchHistory).toEqual([]);
       const stored = JSON.parse(localStorage.getItem(HISTORY.STORAGE_KEY)!);
-      expect(stored).toEqual([]);
+      expect(stored.entries).toEqual([]);
     });
   });
 

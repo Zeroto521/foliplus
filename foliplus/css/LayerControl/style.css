@@ -1,0 +1,44 @@
+/* ══════════════════════════════════════════════════════════════════════
+  Annotation style panel
+  Floating panel opened from a data layer's ⋮ menu. It IS a foliplus panel —
+  the surface carries `foliplus-panel foliplus-row-panel`, the same shell the
+  attributes panel gets from `createRowPanel` (common/panel.ts), so anchoring,
+  width, card chrome and header come from one place. This block only sizes the
+  label glyph and states the two controls form.css does not cover.
+  ══════════════════════════════════════════════════════════════════════ */
+.foliplus-layer-ctrl {
+  /* LayerControl's SVGs are viewBox-only, so the glyph needs an explicit
+     size inside the shared .foliplus-header-icon box (attrs panel recipe). */
+  .foliplus-layer-style-icon svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  /* The switch is a flex row so the slider and its ring share one box. */
+  .foliplus-layer-style-panel .foliplus-toggle-switch {
+    display: flex;
+  }
+
+  /* ── Zoom-range row ──────────────────────────────────────────────
+     Dual-thumb slider on a rail with a current-zoom marker. The two
+     <input type=range> elements overlay the rail; only their thumbs take
+     pointer events, so a mousedown lands on whichever thumb is nearer. The
+     selected range fills the rail with the accent colour, and a vertical line
+     marks the map's current zoom. A dimmed state (.out-of-range) appears when
+     the current zoom falls outside the selected range. Geometry comes from the
+     shared --slider-* tokens (token.css), so this rail is the same 8px capsule
+     the opacity row uses. */
+  .foliplus-style-zoom-range-row {
+    /* The rail, the fill, the readout dots, the numbers and the handles are the
+       shared slider component (common/slider.css). This row states only what its
+       own coverage state looks like. */
+    .foliplus-style-zoom-range-current-value {
+      color: var(--text-primary);
+      font-weight: var(--font-weight-medium);
+    }
+
+    /* Out of range is carried by the dots' rings alone (the readout they
+       exist for), so the rail stays accent and the text stays ink. The row
+       only keeps the tooltip and the class itself. */
+  }
+}

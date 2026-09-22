@@ -1,11 +1,7 @@
-import {
-  DEL_ICON_MARKER_ANCHOR,
-  attachDelClick,
-  makeDelIcon,
-  toggleDelIcon,
-} from "#common/delicon.js";
-import { createLocationMarker } from "#common/dom.js";
+import { createLocationMarker } from "#core/locationMarker.js";
+import { DEL_ICON_MARKER_ANCHOR, toggleDelIcon } from "#common/delicon.js";
 import { createScopedTranslator, createTranslator } from "#common/locale.js";
+import { throttleRaf } from "#common/throttle.js";
 import * as CONST from "../const.js";
 import {
   bindNodeDrag,
@@ -15,7 +11,7 @@ import {
 } from "../edit.js";
 import type { MeasureManager } from "../manager.js";
 import * as Util from "../util.js";
-import { MeasureMode } from "./base.js";
+import { MeasureMode, mountDelIcon } from "./base.js";
 
 // CONF is a free variable from the IIFE template wrapper.
 const _ = createTranslator(CONF);
@@ -41,33 +37,30 @@ class MarkerMode extends MeasureMode {
     // before the previous geocode resolves, the stale result must not
     // overwrite the newer coordinates/address.
     let generation = 0;
-    let rafId: number | null = null;
+    // Throttle persists: live-update the coords but batch the write so
+    // each mousemove doesn't do its own localStorage round-trip. Mutations
+    // go through store.mutate (store as single source of truth); the
+    // persist call is throttled and unchanged.
+    const persist = throttleRaf(() => manager.store.persist());
+    const id = measurement.id!;
 
     const drag = bindNodeDrag(marker, delMarker, manager.map, {
       onDrag: (latlng: L.LatLng) => {
         delMarker.setLatLng(latlng);
-        measurement.lng = Util.roundCoord(latlng.lng);
-        measurement.lat = Util.roundCoord(latlng.lat);
-        // Throttle persists: live-update the coords but batch the write so
-        // each mousemove doesn't do its own localStorage round-trip. The
-        // measurement object is the store's backing entry (passed by ref),
-        // so a direct mutation + persist() is cheaper than store.update()
-        // (which would re-find + re-assign the same fields).
-        if (rafId) cancelAnimationFrame(rafId);
-        rafId = requestAnimationFrame(() => {
-          rafId = null;
-          manager.store.persist();
+        manager.store.mutate(id, m => {
+          m.lng = Util.roundCoord(latlng.lng);
+          m.lat = Util.roundCoord(latlng.lat);
         });
+        persist();
       },
       onEnd: (latlng: L.LatLng) => {
         markDragSyntheticClick();
-        if (rafId) {
-          cancelAnimationFrame(rafId);
-          rafId = null;
-        }
+        persist.cancel();
         const gen = ++generation;
-        measurement.lng = Util.roundCoord(latlng.lng);
-        measurement.lat = Util.roundCoord(latlng.lat);
+        manager.store.mutate(id, m => {
+          m.lng = Util.roundCoord(latlng.lng);
+          m.lat = Util.roundCoord(latlng.lat);
+        });
         const code = window.CONF?.locale_code ?? "en";
         // onEnd is a sync callback (bindNodeDrag doesn't await it), so the
         // geocode runs as a detached fire-and-forget chain. Swallow rejections
@@ -81,8 +74,7 @@ class MarkerMode extends MeasureMode {
         )
           .then(addr => {
             if (gen !== generation) return; // a newer drag superseded us
-            measurement.address = addr;
-            manager.store.persist();
+            manager.store.update(id, { address: addr });
             if (marker.getPopup()?.isOpen()) {
               marker.setPopupContent(
                 Util.buildPopup(measurement.lng!, measurement.lat!, addr),
@@ -119,16 +111,66 @@ class MarkerMode extends MeasureMode {
     marker.on("click", onPinClick);
 
     return () => {
-      if (rafId) {
-        cancelAnimationFrame(rafId);
-        rafId = null;
-      }
+      persist.cancel();
       generation += 1; // invalidate any in-flight geocode
       drag.cleanup();
       unregisterDragToggle();
       overlay.cleanup();
       marker.off("click", onPinClick);
     };
+  }
+
+  /**
+   * Wire the finalized-marker skeleton shared by `restore()` and
+   * `handleMarkerClick()`: mount the ✕, bind pin-drag, registerFinalized,
+   * return a delete thunk. Kept as a static private helper (like
+   * `bindPinDrag`) because both callers are static methods.
+   *
+   * `measurement` is passed by reference so drag mutations land on the
+   * store's backing entry (a copy would leave the store stale until the
+   * next full reload). `onPopupOpen` is bound to the marker's popupopen
+   * event so the popup content can be refreshed when the popup is opened
+   * after a late geocode resolution — bound after bindPinDrag but before
+   * deleteFn is assigned, preserving the popup-binding position relative
+   * to the ✕ lifecycle in both callers.
+   */
+  private static finalize(
+    manager: MeasureManager,
+    marker: L.Marker,
+    measurement: MeasureData,
+    at: L.LatLngExpression,
+    onPopupOpen?: () => void,
+  ): () => void {
+    // mountDelIcon fires before deleteFn is assigned, so the callback captures
+    // a nullable ref. In practice the ✕ click always happens after the sync
+    // setup below, so ?.() is a safety net, not the normal path.
+    let deleteFn: (() => void) | null = null;
+    const delMarker = mountDelIcon(
+      manager.layers,
+      at,
+      { title: T("del_tooltip"), iconAnchor: DEL_ICON_MARKER_ANCHOR },
+      () => deleteFn?.(),
+    );
+
+    const cleanupPin = MarkerMode.bindPinDrag(
+      manager,
+      marker as L.Marker,
+      delMarker as L.Marker,
+      measurement,
+    );
+    const unregisterFinalized = manager.registerFinalized(cleanupPin, measurement.id);
+
+    if (onPopupOpen) marker.on("popupopen", onPopupOpen);
+
+    deleteFn = () => {
+      unregisterFinalized();
+      cleanupPin(); // unbind drag + overlay + edit-drag toggle before removing
+      manager.layers.removeLayer(marker);
+      manager.layers.removeLayer(delMarker);
+      manager.store.remove(measurement.id!);
+      manager.layers.unregister();
+    };
+    return () => deleteFn!();
   }
 
   /** Rebuild a persisted marker measurement.
@@ -156,40 +198,12 @@ class MarkerMode extends MeasureMode {
       },
       false, // do not auto-open popup on restore
     );
-    const delMarker = manager.layers.addLayer(
-      makeDelIcon(L.latLng(data.lat!, data.lng!), {
-        title: T("del_tooltip"),
-        iconAnchor: DEL_ICON_MARKER_ANCHOR, // at the marker's bottom tip
-      }),
-      CONST.PANES.NODE,
-    );
 
-    marker.on("popupopen", () => {
+    MarkerMode.finalize(manager, marker, data, L.latLng(data.lat!, data.lng!), () => {
       if (data.address !== null) {
         marker.setPopupContent(Util.buildPopup(data.lng!, data.lat!, data.address));
       }
     });
-
-    // Pass `data` by reference so drag mutations land on the store's backing
-    // entry — bindPinDrag mutates the object directly then calls persist()
-    // (a copy would leave the store stale until the next full reload).
-    const cleanupPin = MarkerMode.bindPinDrag(
-      manager,
-      marker as L.Marker,
-      delMarker as L.Marker,
-      data,
-    );
-    const unregisterFinalized = manager.registerFinalized(cleanupPin, data.id);
-
-    const deleteMeasurement = () => {
-      unregisterFinalized();
-      cleanupPin(); // unbind drag + overlay + edit-drag toggle before removing
-      manager.layers.removeLayer(marker);
-      manager.layers.removeLayer(delMarker);
-      manager.store.remove(data.id!);
-      manager.layers.unregister();
-    };
-    attachDelClick(delMarker, deleteMeasurement);
   }
 
   start() {
@@ -242,35 +256,9 @@ class MarkerMode extends MeasureMode {
       },
     );
 
-    const delMarker = this.layers.addLayer(
-      makeDelIcon(event.latlng, {
-        title: T("del_tooltip"),
-        iconAnchor: DEL_ICON_MARKER_ANCHOR, // at the marker's bottom tip
-      }),
-      CONST.PANES.NODE,
-    );
-
-    // Bind delete + popup events BEFORE async geocode so the X works even
+    // Bind delete + popup events BEFORE async geocode so the ✕ works even
     // while the address lookup is still in flight.
-    const cleanupPin = MarkerMode.bindPinDrag(
-      this.m,
-      marker as L.Marker,
-      delMarker as L.Marker,
-      measurement,
-    );
-    const unregisterFinalized = this.m.registerFinalized(cleanupPin, markerId);
-
-    const deleteMeasurement = () => {
-      unregisterFinalized();
-      cleanupPin(); // unbind drag + overlay + edit-drag toggle before removing
-      this.layers.removeLayer(marker);
-      this.layers.removeLayer(delMarker);
-      this.m.store.remove(markerId);
-      this.layers.unregister();
-    };
-    attachDelClick(delMarker, deleteMeasurement);
-
-    marker.on("popupopen", () => {
+    MarkerMode.finalize(this.m, marker, measurement, event.latlng, () => {
       if (measurement.address !== null) {
         marker.setPopupContent(Util.buildPopup(lngNum, latNum, measurement.address));
       }

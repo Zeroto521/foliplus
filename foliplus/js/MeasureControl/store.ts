@@ -44,10 +44,20 @@ class MeasureStore {
 
   // ── Persistence ────────────────────────────────────────────────────
 
-  /** Load measurements from localStorage (defensive: non-array → []). */
+  /** Load measurements from localStorage, tolerant of three shapes:
+   *  - new format: `{ version, items: [...] }` — return `items`.
+   *  - legacy format: bare `MeasureData[]` — return as-is (no migration; the
+   *    next persist re-wraps it, so the old shape disappears on the next write).
+   *  - anything else (null, an object without a valid `items`, corrupt JSON):
+   *    return `[]`. */
   load(): MeasureData[] {
-    const data = Storage.load<MeasureData[]>(CONST.STORAGE.KEY, CONF.name);
-    return Array.isArray(data) ? data : [];
+    const data = Storage.load<unknown>(CONST.STORAGE.KEY, CONF.name);
+    if (Array.isArray(data)) return data;
+    if (data && typeof data === "object") {
+      const items = (data as { items?: unknown }).items;
+      if (Array.isArray(items)) return items as MeasureData[];
+    }
+    return [];
   }
 
   /** Replace the in-memory list without persisting (used by restore, which
@@ -85,7 +95,11 @@ class MeasureStore {
    *  is lost, which is what the message says. Count emission still runs, so the
    *  LayerControl count column keeps tracking the live list. */
   persist(): void {
-    if (!Storage.save(CONST.STORAGE.KEY, this.list, CONF.name) && !this.warned) {
+    // Wrap the list in a versioned record: readers accept the legacy bare-array
+    // shape too, so an unversioned old record keeps working until the next write
+    // re-wraps it (see `load()`).
+    const record = { version: CONST.RECORD_VERSION, items: this.list };
+    if (!Storage.save(CONST.STORAGE.KEY, record, CONF.name) && !this.warned) {
       this.warned = true;
       this.map.foliplus?.showHint?.(
         CONF.name,
@@ -136,6 +150,30 @@ class MeasureStore {
     const m = this.list.find(x => x.id === id);
     if (!m) return;
     Object.assign(m, patch);
+    this.persist();
+  }
+
+  /** Apply an arbitrary mutation to a measurement by id WITHOUT persisting.
+   *  No-op if not found (defensive: a stale id from a torn-down handle must
+   *  not crash — the caller already unbound the drag that would have called
+   *  this, so a not-found is a no-op that costs one Map lookup).
+   *
+   *  Used by drag handlers that persist on a throttle: the mutation runs
+   *  synchronously, the caller decides when to persist (onEnd, cancel, etc.).
+   */
+  mutate(id: string, fn: (m: MeasureData) => void): void {
+    const m = this.list.find(x => x.id === id);
+    if (!m) return;
+    fn(m);
+  }
+
+  /** Apply a mutation AND persist. Equivalent to `mutate` + `persist`, but
+   *  as one call site so the caller cannot forget the persist. No-op if
+   *  not found (same reason as `mutate`). */
+  mutateAndPersist(id: string, fn: (m: MeasureData) => void): void {
+    const m = this.list.find(x => x.id === id);
+    if (!m) return;
+    fn(m);
     this.persist();
   }
 

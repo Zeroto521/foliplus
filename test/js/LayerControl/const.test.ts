@@ -22,10 +22,9 @@ describe("RECURSION", () => {
 });
 
 describe("STORAGE", () => {
-  it("derives keys from map container id", () => {
-    expect(CONST.STORAGE.ORDER_KEY).toContain("foliplus_layer_order_");
-    expect(CONST.STORAGE.FOLD_KEY).toContain("foliplus_fold_state_");
-    expect(CONST.STORAGE.VISIBILITY_KEY).toContain("foliplus_layer_visibility_");
+  it("exposes exactly one key derived from the map container id", () => {
+    expect(Object.keys(CONST.STORAGE)).toEqual(["KEY"]);
+    expect(CONST.STORAGE.KEY).toMatch(/^foliplus_layer_state_/);
   });
 });
 
@@ -143,6 +142,25 @@ describe("FOCUS", () => {
 describe("CLASSES.FOCUSING", () => {
   it("defines the focusing row class", () => {
     expect(CONST.CLASSES.FOCUSING).toBe("foliplus-layer-focusing");
+  });
+});
+
+describe("CLASSES.SECTION_HEADING / opacity controls", () => {
+  it("uses the shared form.css section heading", () => {
+    expect(CONST.CLASSES.SECTION_HEADING).toBe("foliplus-section-heading");
+  });
+
+  it("defines the opacity row and shared slider classes", () => {
+    // The shared component both range controls are built from.
+    expect(CONST.CLASSES.SLIDER).toBe("foliplus-slider");
+    expect(CONST.CLASSES.SLIDER_RAIL).toBe("foliplus-slider-rail");
+    expect(CONST.CLASSES.SLIDER_HANDLE).toBe("foliplus-slider-handle");
+    expect(CONST.CLASSES.SLIDER_DOT).toBe("foliplus-slider-dot");
+    expect(CONST.CLASSES.SLIDER_BUBBLE).toBe("foliplus-slider-bubble");
+    // The opacity row's own hooks (behaviour and tests query these).
+    expect(CONST.CLASSES.STYLE_OPACITY_RANGE).toBe("foliplus-style-opacity-range");
+    expect(CONST.CLASSES.STYLE_OPACITY_RAIL).toBe("foliplus-style-opacity-rail");
+    expect(CONST.CLASSES.STYLE_OPACITY_DOT).toBe("foliplus-style-opacity-dot");
   });
 });
 

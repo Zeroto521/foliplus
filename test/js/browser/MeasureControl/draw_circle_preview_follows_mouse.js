@@ -20,7 +20,7 @@
     if (!el) return null;
     const pane = el.closest(".leaflet-pane");
     if (!pane) return null;
-    const m = pane.className.match(/measure_(\w+)-pane/);
+    const m = pane.className.match(/foliplus-measure-(\w+)-pane/);
     return m ? m[1] : null;
   };
 

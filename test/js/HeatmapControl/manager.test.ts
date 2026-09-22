@@ -3,7 +3,7 @@ import { EVENTS, ensureEvents } from "#core/event/index.js";
 import * as CONST from "#foliplus/HeatmapControl/const.js";
 import { HeatmapManager } from "#foliplus/HeatmapControl/manager.js";
 import { rebuildLayerDropdown } from "#foliplus/HeatmapControl/ui.js";
-import { makeCtrl, makeManager } from "./fixture.js";
+import { makeConf, makeCtrl, makeManager } from "./fixture.js";
 
 afterEach(() => {
   delete globalThis.h3;
@@ -102,7 +102,6 @@ describe("getPointValue", () => {
   it("returns 1 as fallback for missing field", () => {
     m.currentAgg = CONST.AGG.SUM;
     m.currentField = "nonexistent";
-    m.fieldAuto = false;
     expect(m.getPointValue({})).toBe(1);
   });
 });
@@ -213,6 +212,17 @@ describe("aggregateData", () => {
     expect(result.getAggValue(result.hexCells["same_cell"])).toBe(15);
   });
 
+  it("AVG returns 0 for a zero-count cell", () => {
+    m.currentAgg = CONST.AGG.AVG;
+    globalThis.h3.latLngToCell = vi.fn(() => "same_cell");
+    const pts = [{ lat: 26.08, lng: 119.3, value: 5 }];
+    const result = m.aggregateData(pts, 4);
+    // Normal cell: avg of 5 is 5.
+    expect(result.getAggValue(result.hexCells["same_cell"])).toBe(5);
+    // Defensive: a cell with count 0 returns 0, not NaN.
+    expect(result.getAggValue({ sum: 0, count: 0, min: 0, max: 0 })).toBe(0);
+  });
+
   it("returns null for empty points", () => {
     m.overlay.canvas = {};
     const result = m.aggregateData([], 4);
@@ -248,18 +258,17 @@ describe("readMarkerField — additional gaps", () => {
 });
 
 describe("getPointValue — additional gaps", () => {
-  it("uses autoFieldKey when fieldAuto is true", () => {
+  it("uses autoFieldKey when currentField is empty", () => {
     const m = makeManager();
     m.currentAgg = CONST.AGG.SUM;
-    m.fieldAuto = true;
+    m.currentField = "";
     m.autoFieldKey = "value";
     expect(m.getPointValue({ value: 42 })).toBe(42);
   });
 
-  it("uses currentField when fieldAuto is false", () => {
+  it("uses currentField when it is set", () => {
     const m = makeManager();
     m.currentAgg = CONST.AGG.SUM;
-    m.fieldAuto = false;
     m.currentField = "options.value";
     expect(m.getPointValue({ options: { value: 99 } })).toBe(99);
   });
@@ -267,7 +276,6 @@ describe("getPointValue — additional gaps", () => {
   it("warns on value fallback (once per render)", () => {
     const m = makeManager();
     m.currentAgg = CONST.AGG.SUM;
-    m.fieldAuto = false;
     m.currentField = "bad_field";
     m.valueFallbackWarned = false;
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
@@ -332,6 +340,26 @@ describe("HeatmapManager — caching & lifecycle", () => {
     expect(m.overlay.unregister).toHaveBeenCalled();
   });
 
+  it("clearHeatmapCanvas runs the UI listener cleanups so detached handlers die with the canvas", () => {
+    const m = makeManager();
+    const schemeBarCleanup = vi.fn();
+    const dropdownCleanup = vi.fn();
+    m.ui = {
+      ...makeCtrl(m, makeConf()),
+      schemeBarCleanup,
+      dropdownCleanup,
+    };
+    m.clearHeatmapCanvas();
+    expect(schemeBarCleanup).toHaveBeenCalledTimes(1);
+    expect(dropdownCleanup).toHaveBeenCalledTimes(1);
+  });
+
+  it("clearHeatmapCanvas survives a null ui (control removed before teardown)", () => {
+    const m = makeManager();
+    m.ui = null;
+    expect(() => m.clearHeatmapCanvas()).not.toThrow();
+  });
+
   it("clearHeatmapCanvas emits LAYER_ITEM_COUNT_CHANGE so LayerControl refreshes count to 0", () => {
     const m = makeManager();
     const bus = ensureEvents(m.map);
@@ -372,9 +400,162 @@ describe("HeatmapManager — caching & lifecycle", () => {
       { marker: { feature: { properties: { price: 2 } } } },
     ]);
     const fields = m.collectFields([{ id: "a" }, { id: "b" }]);
-    expect(fields).toContain("properties.price");
-    expect(fields).not.toContain("properties.name");
-    expect(fields.filter(f => f === "properties.price")).toHaveLength(1);
+    expect(fields).toContain("price");
+    expect(fields).not.toContain("name");
+    expect(fields.filter(f => f === "price")).toHaveLength(1);
+  });
+
+  it("collectFields enumerates numeric value on extended marker", () => {
+    const m = makeManager();
+    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
+      { marker: { value: 42, feature: { properties: { price: 1 } } } },
+    ]);
+    const fields = m.collectFields([{ id: "a" }]);
+    expect(fields).toContain("value");
+    expect(fields).toContain("price");
+  });
+
+  it("collectFields enumerates numeric options.value on extended marker", () => {
+    const m = makeManager();
+    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
+      { marker: { options: { value: 99 }, feature: { properties: {} } } },
+    ]);
+    const fields = m.collectFields([{ id: "a" }]);
+    expect(fields).toContain("options.value");
+  });
+
+  it("collectFields skips non-numeric value and options.value", () => {
+    const m = makeManager();
+    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
+      {
+        marker: {
+          value: "not-a-number",
+          options: { value: undefined },
+          feature: { properties: { price: 1 } },
+        },
+      },
+    ]);
+    const fields = m.collectFields([{ id: "a" }]);
+    expect(fields).not.toContain("value");
+    expect(fields).not.toContain("options.value");
+    expect(fields).toContain("price");
+  });
+
+  it("collectFields deduplicates value and options.value across markers", () => {
+    const m = makeManager();
+    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
+      { marker: { value: 1, feature: { properties: {} } } },
+      { marker: { value: 2, options: { value: 3 }, feature: { properties: {} } } },
+    ]);
+    const fields = m.collectFields([{ id: "a" }]);
+    expect(fields.filter(f => f === "value")).toHaveLength(1);
+    expect(fields.filter(f => f === "options.value")).toHaveLength(1);
+  });
+
+  it("collectFields skips markers with no marker object", () => {
+    const m = makeManager();
+    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
+      { marker: null },
+      { marker: { feature: { properties: { price: 1 } } } },
+    ]);
+    const fields = m.collectFields([{ id: "a" }]);
+    expect(fields).toContain("price");
+  });
+
+  it("collectFields still enumerates value when feature.properties is absent", () => {
+    const m = makeManager();
+    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
+      { marker: { value: 7 } },
+    ]);
+    const fields = m.collectFields([{ id: "a" }]);
+    expect(fields).toContain("value");
+  });
+});
+
+describe("HeatmapManager — layer visibility vs zoom", () => {
+  // createCanvas is called once in the constructor; recover the onToggle the
+  // manager passed in so LayerControl's hide/show callbacks can be replayed.
+  const onToggleOf = (m: HeatmapManager): ((visible: boolean) => void) =>
+    window.map.foliplus.LayerAPI.createCanvas.mock.calls[0][0].onToggle;
+
+  const zoomendHandlers = (m: HeatmapManager): Array<() => void> =>
+    m.map.on.mock.calls
+      .filter(([evt]: [string]) => evt === "zoomend")
+      .map(([, fn]: [string, () => void]) => fn);
+
+  const zoomstartHandler = (m: HeatmapManager): (() => void) =>
+    m.map.on.mock.calls.filter(([evt]: [string]) => evt === "zoomstart")[0][1];
+
+  it("onToggle(false) mirrors a LayerControl hide into manager state", () => {
+    const m = makeManager();
+    onToggleOf(m)(false);
+    expect(m.layerVisible).toBe(false);
+    expect(m.overlay.setVisible).toHaveBeenCalledWith(false);
+  });
+
+  it("onToggle(true) restores visibility after the layer is re-checked", () => {
+    const m = makeManager();
+    const onToggle = onToggleOf(m);
+    onToggle(false);
+    m.overlay.setVisible.mockClear();
+
+    onToggle(true);
+
+    expect(m.layerVisible).toBe(true);
+    expect(m.overlay.setVisible).toHaveBeenCalledWith(true);
+  });
+
+  it("zoomstart hides the canvas even when the layer is logically visible", () => {
+    const m = makeManager();
+    m.overlay.setVisible.mockClear();
+    zoomstartHandler(m)();
+    expect(m.overlay.setVisible).toHaveBeenCalledWith(false);
+  });
+
+  it("zoomend does not re-show a layer the user hid in LayerControl", () => {
+    const m = makeManager();
+    m.layerVisible = false;
+    m.overlay.setVisible.mockClear();
+    // zoomend fires two handlers: bindMapSync.onShow (immediate) and the
+    // debounced onZoomEnd. Neither may re-show a hidden layer.
+    zoomendHandlers(m).forEach(fn => fn());
+    expect(m.overlay.setVisible).not.toHaveBeenCalledWith(true);
+  });
+
+  it("zoomend re-shows a still-visible layer after the zoomstart hide", () => {
+    const m = makeManager();
+    m.overlay.setVisible.mockClear();
+    zoomendHandlers(m).forEach(fn => fn());
+    expect(m.overlay.setVisible).toHaveBeenCalledWith(true);
+  });
+
+  it("onZoomEnd re-renders a hidden layer but does not re-show it", () => {
+    const m = makeManager();
+    m.selectedLayerId = "layer1";
+    m.layerVisible = false;
+    const renderSpy = vi.spyOn(m, "renderHexagons").mockImplementation(() => {});
+    m.overlay.setVisible.mockClear();
+
+    m.onZoomEnd();
+    m.onZoomEnd.flush();
+
+    expect(renderSpy).toHaveBeenCalled();
+    expect(m.overlay.setVisible).not.toHaveBeenCalledWith(true);
+  });
+
+  it("hide → zoom → re-check → zoom obeys the latest LayerControl state", () => {
+    const m = makeManager();
+    const onToggle = onToggleOf(m);
+
+    onToggle(false);
+    m.overlay.setVisible.mockClear();
+    zoomendHandlers(m).forEach(fn => fn());
+    expect(m.overlay.setVisible).not.toHaveBeenCalledWith(true);
+
+    onToggle(true);
+    m.overlay.setVisible.mockClear();
+    zoomendHandlers(m).forEach(fn => fn());
+    expect(m.overlay.setVisible).toHaveBeenCalledWith(true);
   });
 });
 
@@ -417,7 +598,7 @@ describe("getSelectedPoints", () => {
   it("returns cached points when key matches", () => {
     const m = makeManager();
     m.selectedLayerId = "layer1";
-    m.cachedPoints = { key: "layer1|count|true|", pts: [{ lat: 1 }] } as any;
+    m.cachedPoints = { key: "layer1|count|", pts: [{ lat: 1 }] } as any;
     const pts = m.getSelectedPoints();
     expect(pts).toHaveLength(1);
   });
@@ -498,7 +679,7 @@ describe("renderHexagons", () => {
     m.map = { _container: {}, getZoom: () => 5 };
     m.pointLayers = [{ id: "layer1", name: "P", layer: {}, count: 1 }];
     m.cachedAgg = {
-      key: "layer1|count|true||2|jenks|Reds|6",
+      key: "layer1|count||2|jenks|Reds|6",
       data: {
         hexCells: {},
         getAggValue: () => 0,
@@ -679,8 +860,8 @@ describe("HeatmapManager — persistence", () => {
       m.borderWeight = 2;
       m.borderColor = "#ff0000";
       m.currentLabelShow = true;
-      m.currentField = "properties.price";
-      m.fieldAuto = false;
+      m.currentLabelFormat = "comma";
+      m.currentField = "price";
 
       m.saveConfig();
 
@@ -693,8 +874,8 @@ describe("HeatmapManager — persistence", () => {
       expect(stored.borderWeight).toBe(2);
       expect(stored.borderColor).toBe("#ff0000");
       expect(stored.labelShow).toBe(true);
-      expect(stored.field).toBe("properties.price");
-      expect(stored.fieldAuto).toBe(false);
+      expect(stored.labelFormat).toBe("comma");
+      expect(stored.field).toBe("price");
     });
 
     it("saves null layerId when no layer selected", () => {
@@ -776,8 +957,8 @@ describe("HeatmapManager — persistence", () => {
         borderWeight: 3,
         borderColor: "#00ff00",
         labelShow: true,
+        labelFormat: "percent",
         field: "properties.qty",
-        fieldAuto: false,
       });
       expect(m.selectedLayerId).toBe("layer_xyz");
       expect(m.currentAgg).toBe("max");
@@ -787,8 +968,9 @@ describe("HeatmapManager — persistence", () => {
       expect(m.borderWeight).toBe(3);
       expect(m.borderColor).toBe("#00ff00");
       expect(m.currentLabelShow).toBe(true);
-      expect(m.currentField).toBe("properties.qty");
-      expect(m.fieldAuto).toBe(false);
+      expect(m.currentLabelFormat).toBe("percent");
+      // Legacy "properties." prefix is stripped on load.
+      expect(m.currentField).toBe("qty");
     });
 
     it("clamps numClasses to valid range", () => {
@@ -835,8 +1017,7 @@ describe("HeatmapManager — persistence", () => {
       m1.borderWeight = 0.5;
       m1.borderColor = "#111111";
       m1.currentLabelShow = true;
-      m1.currentField = "properties.value";
-      m1.fieldAuto = false;
+      m1.currentField = "value";
       m1.saveConfig();
 
       const m2 = makeManager();
@@ -852,8 +1033,7 @@ describe("HeatmapManager — persistence", () => {
       expect(m2.borderWeight).toBe(0.5);
       expect(m2.borderColor).toBe("#111111");
       expect(m2.currentLabelShow).toBe(true);
-      expect(m2.currentField).toBe("properties.value");
-      expect(m2.fieldAuto).toBe(false);
+      expect(m2.currentField).toBe("value");
     });
 
     it("returns defaults when localStorage is empty", () => {
@@ -865,7 +1045,6 @@ describe("HeatmapManager — persistence", () => {
     it("preserves falsy values (false / 0) through save → load → apply", () => {
       const m1 = makeManager();
       m1.currentLabelShow = false;
-      m1.fieldAuto = false;
       m1.borderWeight = 0;
       m1.saveConfig();
 
@@ -875,7 +1054,6 @@ describe("HeatmapManager — persistence", () => {
       m2.applySavedConfig(loaded!);
 
       expect(m2.currentLabelShow).toBe(false);
-      expect(m2.fieldAuto).toBe(false);
       expect(m2.borderWeight).toBe(0);
     });
   });
@@ -1123,5 +1301,411 @@ describe("event-bus bindings", () => {
 
     expect(m.cachedAgg).toBeNull();
     expect(m.cachedPoints).toBeNull();
+  });
+});
+
+describe("hex label rendering (shared canvas recipe)", () => {
+  const makeCtx = () => ({
+    font: "",
+    textAlign: "",
+    textBaseline: "",
+    lineJoin: "",
+    strokeStyle: "",
+    lineWidth: 0,
+    fillStyle: "",
+    strokeText: vi.fn(),
+    fillText: vi.fn(),
+  });
+  const feat = (centroid: [number, number] | null, value: number) =>
+    ({
+      type: "Feature",
+      geometry: { type: "Polygon", coordinates: [] },
+      properties: { centroid, value },
+    }) as never;
+
+  let m: ReturnType<typeof makeManager>;
+
+  beforeEach(() => {
+    m = makeManager();
+    m.ui = makeCtrl(m);
+    (m.map as unknown as { latLngToContainerPoint: unknown }).latLngToContainerPoint =
+      vi.fn(() => ({ x: 10, y: 20 }));
+  });
+
+  it("resolveLabelStyle overlays runtime size/color on the shared tokens", () => {
+    const style = m.resolveLabelStyle();
+    // Runtime size (CONF 11) wins over the --label-* token default (12).
+    expect(style.fontSize).toBe(11);
+    expect(style.font).toContain("11px");
+    expect(style.color).toBe("#ffffff");
+    expect(m.resolveLabelStyle()).toBe(style);
+  });
+
+  it("resolveLabelStyle picks up a runtime size change after cache clear", () => {
+    m.resolveLabelStyle();
+    m.currentLabelSize = 18;
+    m.cachedLabelStyle = null;
+    expect(m.resolveLabelStyle().font).toContain("18px");
+  });
+
+  it("drawHexLabel strokes the halo then fills the value at the centroid", () => {
+    const ctx = makeCtx();
+    const style = m.resolveLabelStyle();
+
+    m.drawHexLabel(
+      ctx as unknown as CanvasRenderingContext2D,
+      feat([26.08, 119.3], 42),
+      style,
+    );
+
+    expect(ctx.strokeText).toHaveBeenCalledWith("42", 10, 20);
+    expect(ctx.fillText).toHaveBeenCalledWith("42", 10, 20);
+  });
+
+  it("drawHexLabel skips a feature without a centroid", () => {
+    const ctx = makeCtx();
+
+    m.drawHexLabel(
+      ctx as unknown as CanvasRenderingContext2D,
+      feat(null, 7),
+      m.resolveLabelStyle(),
+    );
+
+    expect(ctx.fillText).not.toHaveBeenCalled();
+  });
+});
+
+describe("HeatmapManager — style delegation", () => {
+  function getCanvasOpts() {
+    const createCanvas = (
+      window.map.foliplus!.LayerAPI as unknown as {
+        createCanvas: ReturnType<typeof vi.fn>;
+      }
+    ).createCanvas;
+    return createCanvas.mock.calls[0][0] as {
+      styleProvider?: () => Record<string, unknown>;
+      styleSetters?: Record<string, (v: unknown) => void>;
+      styleDefaults?: () => Record<string, unknown>;
+    };
+  }
+
+  it("createCanvas receives styleProvider and styleSetters (no field)", () => {
+    makeManager();
+    const opts = getCanvasOpts();
+    expect(typeof opts.styleProvider).toBe("function");
+    expect(typeof opts.styleSetters?.labelShow).toBe("function");
+    expect(typeof opts.styleSetters?.labelColor).toBe("function");
+    expect(typeof opts.styleSetters?.labelSize).toBe("function");
+    expect(typeof opts.styleSetters?.labelFormat).toBe("function");
+    // Aggregation field is data config — not delegated into the style drawer.
+    expect(opts.styleSetters?.field).toBeUndefined();
+    expect(opts.fieldOptions).toBeUndefined();
+  });
+
+  it("styleProvider returns the live labelShow, color, size and format values", () => {
+    const m = makeManager();
+    const opts = getCanvasOpts();
+    expect(opts.styleProvider!()).toEqual({
+      labelShow: true,
+      labelColor: "#ffffff",
+      labelSize: 11,
+      labelFormat: "auto",
+    });
+
+    m.currentLabelShow = false;
+    m.currentLabelColor = "#ff0000";
+    m.currentLabelSize = 16;
+    m.currentLabelFormat = "comma";
+    expect(opts.styleProvider!()).toEqual({
+      labelShow: false,
+      labelColor: "#ff0000",
+      labelSize: 16,
+      labelFormat: "comma",
+    });
+  });
+
+  it("constructs with empty field when CONF.field is absent", () => {
+    delete (window.CONF as Record<string, unknown>).field;
+    const m = makeManager();
+    expect(m.currentField).toBe("");
+  });
+
+  it("labelShow setter flips state, re-renders and persists", () => {
+    const m = makeManager();
+    const renderSpy = vi.spyOn(m, "renderHexagons");
+    const saveSpy = vi.spyOn(m, "saveConfig");
+    const opts = getCanvasOpts();
+
+    opts.styleSetters!.labelShow!(false);
+
+    expect(m.currentLabelShow).toBe(false);
+    expect(renderSpy).toHaveBeenCalled();
+    expect(saveSpy).toHaveBeenCalled();
+  });
+
+  it("labelShow setter touches the layer and emits LAYER_STYLE_CHANGE", () => {
+    const m = makeManager();
+    // makeManager builds a bare map stub; the setter reaches LayerAPI through
+    // this.map.foliplus (makeCtrl wires the same object).
+    (m.map as unknown as { foliplus: unknown }).foliplus = window.map.foliplus;
+    const touchLayer = window.map.foliplus.LayerAPI.touchLayer;
+    const emitSpy = vi.spyOn(m.events, "emit");
+    const opts = getCanvasOpts();
+
+    opts.styleSetters!.labelShow!(true);
+
+    expect(touchLayer).toHaveBeenCalledWith(m.layerId);
+    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_STYLE_CHANGE, {
+      id: m.layerId,
+    });
+  });
+
+  it("labelFormat setter touches the layer and emits LAYER_STYLE_CHANGE", () => {
+    const m = makeManager();
+    (m.map as unknown as { foliplus: unknown }).foliplus = window.map.foliplus;
+    const touchLayer = window.map.foliplus.LayerAPI.touchLayer;
+    const emitSpy = vi.spyOn(m.events, "emit");
+    const opts = getCanvasOpts();
+
+    opts.styleSetters!.labelFormat!("comma");
+
+    expect(touchLayer).toHaveBeenCalledWith(m.layerId);
+    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_STYLE_CHANGE, {
+      id: m.layerId,
+    });
+  });
+
+  it("styleDefaults returns the Python CONF snapshot for the drawer Reset", () => {
+    const m = makeManager();
+    const opts = getCanvasOpts() as {
+      styleDefaults?: () => Record<string, unknown>;
+    };
+    expect(typeof opts.styleDefaults).toBe("function");
+    expect(opts.styleDefaults!()).toEqual({
+      labelShow: true,
+      labelColor: "#ffffff",
+      labelSize: 11,
+      labelFormat: "auto",
+    });
+
+    // Runtime toggles must not leak into the Reset snapshot.
+    m.currentLabelShow = false;
+    m.currentLabelColor = "#00ff00";
+    m.currentLabelSize = 20;
+    m.currentLabelFormat = "comma";
+    expect(opts.styleDefaults!()).toEqual({
+      labelShow: true,
+      labelColor: "#ffffff",
+      labelSize: 11,
+      labelFormat: "auto",
+    });
+  });
+
+  it("labelColor and labelSize setters update state, clear the style cache and persist", () => {
+    const m = makeManager();
+    const redrawSpy = vi.spyOn(m, "redrawHeatmap");
+    const saveSpy = vi.spyOn(m, "saveConfig");
+    const opts = getCanvasOpts();
+
+    opts.styleSetters!.labelColor!("#00ff00");
+    expect(m.currentLabelColor).toBe("#00ff00");
+    expect(m.cachedLabelStyle).toBeNull();
+
+    opts.styleSetters!.labelSize!(18);
+    expect(m.currentLabelSize).toBe(18);
+    expect(redrawSpy).toHaveBeenCalled();
+    expect(saveSpy).toHaveBeenCalled();
+  });
+
+  it("labelSize setter clamps out-of-range values", () => {
+    const m = makeManager();
+    const opts = getCanvasOpts();
+
+    opts.styleSetters!.labelSize!(99);
+    expect(m.currentLabelSize).toBe(CONST.LABEL.SIZE_MAX);
+
+    opts.styleSetters!.labelSize!(1);
+    expect(m.currentLabelSize).toBe(CONST.LABEL.SIZE_MIN);
+  });
+
+  it("labelColor setter ignores non-string values and normalizes #rgb", () => {
+    const m = makeManager();
+    const opts = getCanvasOpts();
+
+    opts.styleSetters!.labelColor!(42);
+    expect(m.currentLabelColor).toBe("#ffffff");
+
+    opts.styleSetters!.labelColor!("#abc");
+    expect(m.currentLabelColor).toBe("#aabbcc");
+  });
+
+  it("labelSize setter ignores NaN and non-number values", () => {
+    const m = makeManager();
+    const opts = getCanvasOpts();
+
+    opts.styleSetters!.labelSize!(Number.NaN);
+    expect(m.currentLabelSize).toBe(11);
+
+    opts.styleSetters!.labelSize!("18" as unknown as number);
+    expect(m.currentLabelSize).toBe(11);
+  });
+
+  it("labelColor and labelSize setters work without a bound panel", () => {
+    const m = makeManager();
+    // ui is null — the setters own state only; panels refresh via
+    // LAYER_STYLE_CHANGE, so no panel sync happens here.
+    expect(() => {
+      getCanvasOpts().styleSetters!.labelColor!("#00ff00");
+      getCanvasOpts().styleSetters!.labelSize!(20);
+    }).not.toThrow();
+    expect(m.currentLabelColor).toBe("#00ff00");
+    expect(m.currentLabelSize).toBe(20);
+  });
+
+  it("labelFormat setter updates state, redraws labels and persists", () => {
+    const m = makeManager();
+    const redrawSpy = vi.spyOn(m, "redrawHeatmap");
+    const saveSpy = vi.spyOn(m, "saveConfig");
+    const opts = getCanvasOpts();
+
+    opts.styleSetters!.labelFormat!("comma");
+
+    expect(m.currentLabelFormat).toBe("comma");
+    expect(redrawSpy).toHaveBeenCalled();
+    expect(saveSpy).toHaveBeenCalled();
+  });
+
+  it("labelFormat setter falls back to auto for non-string values", () => {
+    const m = makeManager();
+    const opts = getCanvasOpts();
+
+    opts.styleSetters!.labelFormat!(42);
+
+    expect(m.currentLabelFormat).toBe("auto");
+  });
+
+  it("currentLabelFormat seeds from CONF.label_format", () => {
+    const m = makeManager({ label_format: "percent" });
+    expect(m.currentLabelFormat).toBe("percent");
+  });
+
+  it("labelFormat defaults to auto when CONF omits label_format", () => {
+    const m = makeManager({ label_format: undefined });
+    expect(m.currentLabelFormat).toBe("auto");
+  });
+
+  it("labelShow defaults to true when CONF omits label_show", () => {
+    // Python serializes label_show=True by default; a missing key must not
+    // silently flip labels off — the same `!== false` rule MeasureControl uses.
+    const m = makeManager({ label_show: undefined });
+    const opts = getCanvasOpts() as {
+      styleDefaults?: () => Record<string, unknown>;
+    };
+
+    expect(m.currentLabelShow).toBe(true);
+    expect(opts.styleDefaults!().labelShow).toBe(true);
+  });
+});
+
+describe("HeatmapManager — source meta for the attrs panel", () => {
+  const metaOf = (m: HeatmapManager) =>
+    window.map.foliplus.LayerAPI.createCanvas.mock.calls.find(
+      ([opts]: [{ id?: string }]) => opts.id === m.layerId,
+    )![0].meta as Record<string, string | number>;
+
+  it("passes a shared meta object to createCanvas", () => {
+    const m = makeManager();
+    const meta = metaOf(m);
+    expect(meta).toBe(m.sourceMeta);
+    expect(meta).toEqual({});
+  });
+
+  it("writes source layer name and aggregation field on sync", () => {
+    const m = makeManager();
+    m.pointLayers = [{ id: "pts", name: "Stores", layer: null, count: 2 }];
+    m.selectedLayerId = "pts";
+    m.currentAgg = "sum";
+    m.currentField = "properties.sales";
+
+    m.syncSourceMeta();
+
+    expect(m.sourceMeta["HeatmapControl.meta_source_layer"]).toBe("Stores");
+    expect(m.sourceMeta["HeatmapControl.meta_agg_field"]).toBe("sales");
+    expect(window.map.foliplus.LayerAPI.touchLayer).toHaveBeenCalledWith(m.layerId);
+  });
+
+  it("omits the field row under count aggregation", () => {
+    const m = makeManager();
+    m.pointLayers = [{ id: "pts", name: "Stores", layer: null, count: 1 }];
+    m.selectedLayerId = "pts";
+    m.currentAgg = "count";
+    m.currentField = "properties.sales";
+
+    m.syncSourceMeta();
+
+    expect(m.sourceMeta["HeatmapControl.meta_source_layer"]).toBe("Stores");
+    expect(m.sourceMeta["HeatmapControl.meta_agg_field"]).toBe("");
+  });
+
+  it("uses the auto field when currentField is empty", () => {
+    const m = makeManager();
+    m.pointLayers = [{ id: "pts", name: "Stores", layer: null, count: 1 }];
+    m.selectedLayerId = "pts";
+    m.currentAgg = "avg";
+    m.currentField = "";
+    m.autoFieldKey = "properties.dwell";
+
+    m.syncSourceMeta();
+
+    expect(m.sourceMeta["HeatmapControl.meta_agg_field"]).toBe("dwell");
+  });
+
+  it("clears both rows when no layer is selected", () => {
+    const m = makeManager();
+    m.sourceMeta["HeatmapControl.meta_source_layer"] = "Stores";
+    m.sourceMeta["HeatmapControl.meta_agg_field"] = "sales";
+    m.selectedLayerId = null;
+
+    m.syncSourceMeta();
+
+    expect(m.sourceMeta["HeatmapControl.meta_source_layer"]).toBe("");
+    expect(m.sourceMeta["HeatmapControl.meta_agg_field"]).toBe("");
+  });
+
+  it("keeps a plain field name as-is (no properties. prefix)", () => {
+    const m = makeManager();
+    m.pointLayers = [{ id: "pts", name: "Stores", layer: null, count: 1 }];
+    m.selectedLayerId = "pts";
+    m.currentAgg = "max";
+    m.currentField = "value";
+
+    m.syncSourceMeta();
+
+    expect(m.sourceMeta["HeatmapControl.meta_agg_field"]).toBe("value");
+  });
+
+  it("clears the name when the selected id is no longer in pointLayers", () => {
+    const m = makeManager();
+    m.pointLayers = [{ id: "other", name: "Other", layer: null, count: 1 }];
+    m.selectedLayerId = "gone";
+    m.sourceMeta["HeatmapControl.meta_source_layer"] = "Stores";
+
+    m.syncSourceMeta();
+
+    expect(m.sourceMeta["HeatmapControl.meta_source_layer"]).toBe("");
+  });
+
+  it("does not stamp Updated when the published values are unchanged", () => {
+    const m = makeManager();
+    m.pointLayers = [{ id: "pts", name: "Stores", layer: null, count: 1 }];
+    m.selectedLayerId = "pts";
+    m.currentAgg = "count";
+
+    m.syncSourceMeta();
+    const touch = window.map.foliplus.LayerAPI.touchLayer;
+    expect(touch).toHaveBeenCalledTimes(1);
+
+    m.syncSourceMeta();
+    expect(touch).toHaveBeenCalledTimes(1);
   });
 });

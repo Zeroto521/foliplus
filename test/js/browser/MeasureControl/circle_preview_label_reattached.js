@@ -47,7 +47,7 @@ async () => {
       }),
       interactive: false,
     }),
-    "measure_label",
+    "foliplus-measure-label",
   );
 
   const plantedCount = chips().length;
