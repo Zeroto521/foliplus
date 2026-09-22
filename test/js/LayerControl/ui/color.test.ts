@@ -61,6 +61,17 @@ describe("ui/color", () => {
     expect(map.removeLayer).toHaveBeenCalled();
   });
 
+  it("showColorLayer skips removeLayer when the base layer is not on the map", () => {
+    const { ui, mapContainer } = makeUi([{ id: "base_1", isBase: true }]);
+    const map = ui.m.map as unknown as {
+      hasLayer: ReturnType<typeof vi.fn>;
+      removeLayer: ReturnType<typeof vi.fn>;
+    };
+    map.hasLayer.mockReturnValue(false);
+    showColorLayer(ui, "#ff0000");
+    expect(map.removeLayer).not.toHaveBeenCalled();
+  });
+
   it("showColorLayer unchecks base rows by identity, not by DOM position", () => {
     // Registry: [overlay_1, base_1, base_2]
     // DOM:      [base_2, overlay_1, base_1]  (scrambled)
