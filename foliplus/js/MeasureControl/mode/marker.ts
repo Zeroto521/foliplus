@@ -120,6 +120,59 @@ class MarkerMode extends MeasureMode {
     };
   }
 
+  /**
+   * Wire the finalized-marker skeleton shared by `restore()` and
+   * `handleMarkerClick()`: mount the ✕, bind pin-drag, registerFinalized,
+   * return a delete thunk. Kept as a static private helper (like
+   * `bindPinDrag`) because both callers are static methods.
+   *
+   * `measurement` is passed by reference so drag mutations land on the
+   * store's backing entry (a copy would leave the store stale until the
+   * next full reload). `onPopupOpen` is bound to the marker's popupopen
+   * event so the popup content can be refreshed when the popup is opened
+   * after a late geocode resolution — bound after bindPinDrag but before
+   * deleteFn is assigned, preserving the popup-binding position relative
+   * to the ✕ lifecycle in both callers.
+   */
+  private static finalize(
+    manager: MeasureManager,
+    marker: L.Marker,
+    measurement: MeasureData,
+    at: L.LatLngExpression,
+    onPopupOpen?: () => void,
+  ): () => void {
+    // mountDelIcon fires before deleteFn is assigned, so the callback captures
+    // a nullable ref. In practice the ✕ click always happens after the sync
+    // setup below, so ?.() is a safety net, not the normal path.
+    let deleteFn: (() => void) | null = null;
+    const delMarker = mountDelIcon(
+      manager.layers,
+      at,
+      { title: T("del_tooltip"), iconAnchor: DEL_ICON_MARKER_ANCHOR },
+      () => deleteFn?.(),
+    );
+
+    const cleanupPin = MarkerMode.bindPinDrag(
+      manager,
+      marker as L.Marker,
+      delMarker as L.Marker,
+      measurement,
+    );
+    const unregisterFinalized = manager.registerFinalized(cleanupPin, measurement.id);
+
+    if (onPopupOpen) marker.on("popupopen", onPopupOpen);
+
+    deleteFn = () => {
+      unregisterFinalized();
+      cleanupPin(); // unbind drag + overlay + edit-drag toggle before removing
+      manager.layers.removeLayer(marker);
+      manager.layers.removeLayer(delMarker);
+      manager.store.remove(measurement.id!);
+      manager.layers.unregister();
+    };
+    return () => deleteFn!();
+  }
+
   /** Rebuild a persisted marker measurement.
    *  @param manager - MeasureManager instance.
    *  @param data - Persisted measurement data. */
@@ -145,42 +198,12 @@ class MarkerMode extends MeasureMode {
       },
       false, // do not auto-open popup on restore
     );
-    // mountDelIcon fires before deleteFn is assigned, so the callback captures
-    // a nullable ref. In practice the ✕ click always happens after the sync
-    // setup below, so ?.() is a safety net, not the normal path.
-    let deleteFn: (() => void) | null = null;
-    const delMarker = mountDelIcon(
-      manager.layers,
-      L.latLng(data.lat!, data.lng!),
-      { title: T("del_tooltip"), iconAnchor: DEL_ICON_MARKER_ANCHOR },
-      () => deleteFn?.(),
-    );
 
-    marker.on("popupopen", () => {
+    MarkerMode.finalize(manager, marker, data, L.latLng(data.lat!, data.lng!), () => {
       if (data.address !== null) {
         marker.setPopupContent(Util.buildPopup(data.lng!, data.lat!, data.address));
       }
     });
-
-    // Pass `data` by reference so drag mutations land on the store's backing
-    // entry — bindPinDrag mutates the object directly then calls persist()
-    // (a copy would leave the store stale until the next full reload).
-    const cleanupPin = MarkerMode.bindPinDrag(
-      manager,
-      marker as L.Marker,
-      delMarker as L.Marker,
-      data,
-    );
-    const unregisterFinalized = manager.registerFinalized(cleanupPin, data.id);
-
-    deleteFn = () => {
-      unregisterFinalized();
-      cleanupPin(); // unbind drag + overlay + edit-drag toggle before removing
-      manager.layers.removeLayer(marker);
-      manager.layers.removeLayer(delMarker);
-      manager.store.remove(data.id!);
-      manager.layers.unregister();
-    };
   }
 
   start() {
@@ -233,36 +256,9 @@ class MarkerMode extends MeasureMode {
       },
     );
 
-    // Same lazy-bind pattern as restore(): the ✕ click only fires after the
-    // sync setup below, so ?.() is a safety net.
-    let deleteFn: (() => void) | null = null;
-    const delMarker = mountDelIcon(
-      this.layers,
-      event.latlng,
-      { title: T("del_tooltip"), iconAnchor: DEL_ICON_MARKER_ANCHOR },
-      () => deleteFn?.(),
-    );
-
-    // Bind delete + popup events BEFORE async geocode so the X works even
+    // Bind delete + popup events BEFORE async geocode so the ✕ works even
     // while the address lookup is still in flight.
-    const cleanupPin = MarkerMode.bindPinDrag(
-      this.m,
-      marker as L.Marker,
-      delMarker as L.Marker,
-      measurement,
-    );
-    const unregisterFinalized = this.m.registerFinalized(cleanupPin, markerId);
-
-    deleteFn = () => {
-      unregisterFinalized();
-      cleanupPin(); // unbind drag + overlay + edit-drag toggle before removing
-      this.layers.removeLayer(marker);
-      this.layers.removeLayer(delMarker);
-      this.m.store.remove(markerId);
-      this.layers.unregister();
-    };
-
-    marker.on("popupopen", () => {
+    MarkerMode.finalize(this.m, marker, measurement, event.latlng, () => {
       if (measurement.address !== null) {
         marker.setPopupContent(Util.buildPopup(lngNum, latNum, measurement.address));
       }
