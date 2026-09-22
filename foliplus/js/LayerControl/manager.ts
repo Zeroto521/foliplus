@@ -121,6 +121,23 @@ const mergeStoredOrder = (stored: string[] | null, live: string[]): string[] => 
 // surface now owns `geometryType()` (cached), and this class reads from it.
 // The `layerInfo.type` field is a snapshot mirror of that surface result,
 // not a second source of truth.
+//
+// LayerManager boundary reference — which layer each method belongs to.
+// Public =
+// stable contract, change carefully. Internal = LayerUI sibling read
+// surface (ui/* + LayerUI); refactorable, but coordinate with ui/*.
+//   LayerAPI  layers, registerLayer, unregisterLayer, deleteLayer,
+//             bringLayerToFront, setVisible, createLayers, createCanvas,
+//             extractPoints, getLayerPanes, isLayerControl
+//   Public    getLayerType, getLayersByType, getFeatureCount, touchLayer,
+//   extra     computeZIndex, moveLayerUp, moveLayerDown
+//   Internal  surfaceFor, surfaceForLayer, enforceOrder, debouncedEnforce,
+//             hasUnresolvedLayers, onLayerAdd, loadSavedOrder, saveOrder,
+//             replaySavedOrder, insertOverlayAt, placeBeforeSavedNeighbor,
+//             syncAttribution, attachUI, destroy, canReorderBetween,
+//             findLayer, refreshType, refreshCount, forEachLeaf,
+//             clearAllLayers
+//   Private   patchBringToFront, unpatchBringToFront, mergeStoredOrder
 class LayerManager implements LayerAPI {
   /** Diagnostic marker: set by LayerManager (true).  The lightweight stub
    * sets this to false.  For the actual LayerControl check, prefer
@@ -789,6 +806,11 @@ class LayerManager implements LayerAPI {
     }
   }
 
+  /** z-space forwarding — pure forward to `core/layer/z.zFor`. The z-space
+   *  is defined there, not here. Since R9 production code calls `zFor`
+   *  directly, but this wrapper stays because LayerManager is the LayerAPI
+   *  entry point — removing it would break the contract. Tests and probes
+   *  may still call it. Do not grow this into real logic. */
   computeZIndex(i: number, isTile: boolean): number {
     return zFor({ index: i, count: this.layers.length, tile: isTile });
   }
