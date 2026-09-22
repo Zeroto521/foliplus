@@ -501,15 +501,15 @@ describe("PaneManager", () => {
     expect(map._panes["foliplus-pane-1"]).toBe(pane);
   });
 
-  // ── migrateLayers (the reconcile primitive LayerSurface calls) ──
+  // ── pinLateContent (the pin primitive LayerSurface calls for late content) ──
 
-  it("migrateLayers is a no-op for empty input", () => {
+  it("pinLateContent is a no-op for empty input", () => {
     const map = { getPane: vi.fn(), createPane: vi.fn() };
     const pm = new PaneManager(map);
-    expect(() => pm.migrateLayers([])).not.toThrow();
+    expect(() => pm.pinLateContent([])).not.toThrow();
   });
 
-  it("migrateLayers moves path nodes into the target pane", () => {
+  it("pinLateContent moves path nodes into the target pane", () => {
     const paneEl = document.createElement("div");
     const container = document.createElement("div");
     const path = document.createElement("path");
@@ -522,13 +522,13 @@ describe("PaneManager", () => {
     };
     Object.setPrototypeOf(layer, new window.L.Path());
     const renderer = { _container: container };
-    pm.migrateLayers([{ layer, paneName: "foliplus-measure-graph", renderer }]);
+    pm.pinLateContent([{ layer, paneName: "foliplus-measure-graph", renderer }]);
     expect(layer.options.pane).toBe("foliplus-measure-graph");
     expect(layer.options.paneSet).toBe(true);
     expect(path.parentNode).toBe(container);
   });
 
-  it("migrateLayers recurses through LayerGroup subtrees", () => {
+  it("pinLateContent recurses through LayerGroup subtrees", () => {
     const paneEl = document.createElement("div");
     const container = document.createElement("div");
     const childPath = document.createElement("path");
@@ -541,13 +541,15 @@ describe("PaneManager", () => {
       options: {},
     };
     const renderer = { _container: container };
-    pm.migrateLayers([{ layer: parent, paneName: "foliplus-measure-graph", renderer }]);
+    pm.pinLateContent([
+      { layer: parent, paneName: "foliplus-measure-graph", renderer },
+    ]);
     expect(child.options.pane).toBe("foliplus-measure-graph");
     expect(child.options.paneSet).toBe(true);
     expect(childPath.parentNode).toBe(container);
   });
 
-  it("migrateLayers moves marker icons into the pane", () => {
+  it("pinLateContent moves marker icons into the pane", () => {
     const paneEl = document.createElement("div");
     const icon = document.createElement("img");
     const shadow = document.createElement("img");
@@ -562,12 +564,12 @@ describe("PaneManager", () => {
     // Force instanceof checks by setting prototypes
     Object.setPrototypeOf(layer, new window.L.Marker());
     const renderer = { _container: document.createElement("div") };
-    pm.migrateLayers([{ layer, paneName: "foliplus-measure-graph", renderer }]);
+    pm.pinLateContent([{ layer, paneName: "foliplus-measure-graph", renderer }]);
     expect(icon.parentNode).toBe(paneEl);
     expect(shadow.parentNode).toBe(paneEl);
   });
 
-  it("migrateLayers batches every marker of one pane into a single append", () => {
+  it("pinLateContent batches every marker of one pane into a single append", () => {
     // The second marker against the same target pane is the path where the
     // per-pane group already exists — and it is what proves the batch appends
     // both markers (shadow then icon, per marker) instead of replacing the
@@ -588,7 +590,7 @@ describe("PaneManager", () => {
       Object.setPrototypeOf(layer, new window.L.Marker());
       return { layer, icon, shadow };
     });
-    pm.migrateLayers(
+    pm.pinLateContent(
       markers.map(({ layer }) => ({
         layer,
         paneName: "foliplus-measure-graph",
@@ -603,7 +605,7 @@ describe("PaneManager", () => {
     ]);
   });
 
-  it("migrateLayers is idempotent for markers already in the target pane", () => {
+  it("pinLateContent is idempotent for markers already in the target pane", () => {
     // A reconcile re-runs this after every content change, so a node that is
     // already where it belongs must not be re-appended — appending a node that
     // is already a child re-orders it. A marker with no shadow at all has to
@@ -633,7 +635,7 @@ describe("PaneManager", () => {
     };
     Object.setPrototypeOf(noShadow, new window.L.Marker());
 
-    pm.migrateLayers([
+    pm.pinLateContent([
       { layer: inPlace, paneName: "foliplus-measure-graph", renderer },
       { layer: noShadow, paneName: "foliplus-measure-graph", renderer },
     ]);
@@ -643,23 +645,23 @@ describe("PaneManager", () => {
     expect(Array.from(paneEl.children)).toEqual([shadow, icon, bareIcon]);
   });
 
-  it("migrateLayers skips layers without a paneName", () => {
+  it("pinLateContent skips layers without a paneName", () => {
     const map = { getPane: vi.fn(), createPane: vi.fn() };
     const pm = new PaneManager(map);
     const layer = { options: {}, eachLayer: undefined };
     expect(() =>
-      pm.migrateLayers([{ layer, paneName: null, renderer: null }]),
+      pm.pinLateContent([{ layer, paneName: null, renderer: null }]),
     ).not.toThrow();
   });
 
-  it("migrateLayers marks a layer handled even when the renderer container is missing", () => {
+  it("pinLateContent marks a layer handled even when the renderer container is missing", () => {
     const map = { getPane: vi.fn(), createPane: vi.fn() };
     const pm = new PaneManager(map);
     const layer = { options: {} as Record<string, unknown>, eachLayer: undefined };
     // A null renderer (e.g. tile layers with a paneName) previously skipped the
     // whole layer without setting options.pane/paneSet, so a dirty surface
     // re-queued it on every reconcile. The options must still be marked handled.
-    pm.migrateLayers([{ layer, paneName: "foliplus-measure-graph", renderer: null }]);
+    pm.pinLateContent([{ layer, paneName: "foliplus-measure-graph", renderer: null }]);
     expect(layer.options.pane).toBe("foliplus-measure-graph");
     expect(layer.options.paneSet).toBe(true);
   });

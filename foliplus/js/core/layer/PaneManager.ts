@@ -7,7 +7,8 @@
 //   ── Pure computation (JS unit tests, no Leaflet) ──
 //     isDefaultPane / discoverChildPanes / getLayerPanes
 //   ── Leaflet DOM integration (browser tests) ──
-//     ensurePane / ensureVector / pinTree / removePane / reset / destroy
+//     ensurePane / ensureVector / pinTree / pinLateContent / removePane /
+//     reset / destroy
 import {
   destroyPane,
   getRendererContainer,
@@ -115,7 +116,7 @@ class PaneManager {
    * permanently. Idempotent: a node already where it belongs is left alone, so
    * the steady-state ordering pass never builds it.
    */
-  migrateLayers(
+  pinLateContent(
     layersToMove: Array<{
       layer: L.Layer;
       paneName: string | null;

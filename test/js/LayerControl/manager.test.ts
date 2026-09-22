@@ -144,7 +144,7 @@ describe("LayerManager", () => {
     window.L.stamp = stamp;
     window.L.svg = vi.fn(() => ({
       addTo: vi.fn(),
-      // Real renderers carry a root element: `migrateLayers` needs it to move
+      // Real renderers carry a root element: `pinLateContent` needs it to move
       // path nodes, and its absence would silently take the "mark handled"
       // branch instead.
       _container: document.createElement("div"),
@@ -717,7 +717,7 @@ describe("LayerManager", () => {
   });
 
   it("getNavigableItems returns layer items and toggle-all rows", () => {
-    // 模拟 uiContainer 和 ui
+    // Mock the uiContainer and the ui that reads it.
     const container = document.createElement("div");
     container.innerHTML = `
       <div class="foliplus-layer-toggle-all" data-group="overlay">
@@ -1467,7 +1467,7 @@ describe("LayerManager", () => {
   it("registerLayer with a canvas skips the SVG renderer for its pane", () => {
     window.L.svg = vi.fn(() => ({
       addTo: vi.fn(),
-      // Real renderers carry a root element: `migrateLayers` needs it to move
+      // Real renderers carry a root element: `pinLateContent` needs it to move
       // path nodes, and its absence would silently take the "mark handled"
       // branch instead.
       _container: document.createElement("div"),
@@ -1672,7 +1672,7 @@ describe("LayerManager", () => {
     const makeLeaf = (ctor: any, extra: unknown = {}) =>
       Object.assign(Object.create(ctor.prototype), {
         options: {},
-        // A detached leaf has no element yet, and migrateLayers reads it.
+        // A detached leaf has no element yet, and pinLateContent reads it.
         getElement: () => null,
         ...extra,
       });
@@ -1943,7 +1943,7 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
     window.L.stamp = stamp;
     window.L.svg = vi.fn(() => ({
       addTo: vi.fn(),
-      // Real renderers carry a root element: `migrateLayers` needs it to move
+      // Real renderers carry a root element: `pinLateContent` needs it to move
       // path nodes, and its absence would silently take the "mark handled"
       // branch instead.
       _container: document.createElement("div"),
@@ -2307,7 +2307,7 @@ describe("LayerManager user-assigned names", () => {
     window.L.stamp = vi.fn();
     window.L.svg = vi.fn(() => ({
       addTo: vi.fn(),
-      // Real renderers carry a root element: `migrateLayers` needs it to move
+      // Real renderers carry a root element: `pinLateContent` needs it to move
       // path nodes, and its absence would silently take the "mark handled"
       // branch instead.
       _container: document.createElement("div"),
