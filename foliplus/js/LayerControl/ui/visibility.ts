@@ -3,6 +3,7 @@ import { type Debounced, debounce } from "#common/debounce.js";
 import * as CONST from "../const.js";
 import { hideColorLayer, showColorLayer } from "./color.js";
 import type { LayerUI } from "./index.js";
+import { applyRowView, buildRowCell, rowChecked } from "./rowView.js";
 import { saveState, syncHiddenId } from "./state.js";
 
 const getLayerItems = (ui: LayerUI, group: string): NodeListOf<Element> => {
@@ -26,17 +27,13 @@ const toggleAll = (ui: LayerUI, group: string, newState: boolean) => {
     if (!layerInfo) return;
     const layer = ui.m.findLayer(layerInfo);
 
-    checkbox.checked = newState;
-    checkbox.title = ui.T(newState ? "deselect_tooltip" : "select_tooltip");
-    if (newState) item.classList.add(CONST.CLASSES.ACTIVE);
-    else item.classList.remove(CONST.CLASSES.ACTIVE);
-
     if (layer) newState ? ui.m.map.addLayer(layer) : ui.m.map.removeLayer(layer);
     if (layerInfo.onToggle) layerInfo.onToggle(newState);
     syncVisibility(ui, layerInfo, layer, newState);
     // No persist per iteration —schedule a single debounced write after the
     // loop so the debounce timer isn't reset for every layer.
     syncHiddenId(ui, layerInfo.id, !newState, false);
+    applyRowView(ui, item as HTMLElement, buildRowCell(ui, layerInfo));
   });
 
   // Persist the hidden-set after bulk toggle (single debounced write for the
@@ -62,11 +59,12 @@ const syncToggleAll = (ui: LayerUI, group: string) => {
   ) as HTMLInputElement | null;
   if (!allCb) return;
   const items = getLayerItems(ui, group);
+  // Count intent, not the painted box: a row whose checkbox is painted from
+  // a stale state must not skew the group state it is about to set.
   const checkedCount = Array.from(items).filter((item: Element) => {
-    const checkbox = item.querySelector(
-      'input[type="checkbox"]',
-    ) as HTMLInputElement | null;
-    return checkbox && checkbox.checked;
+    const id = item.getAttribute(CONST.DATA.LAYER_ID);
+    const layerInfo = id ? ui.m.layerRegistry.get(id) : undefined;
+    return layerInfo ? rowChecked(ui, layerInfo) : false;
   }).length;
   const allChecked = items.length > 0 && checkedCount === items.length;
   const noneChecked = checkedCount === 0;
@@ -113,23 +111,17 @@ const applyVisibility = (ui: LayerUI, id: string, visible: boolean): boolean => 
   const item = ui.uiContainer?.querySelector(
     `[${CONST.DATA.LAYER_ID}="${CSS.escape(id)}"]`,
   ) as HTMLElement | null;
-  const checkbox = item?.querySelector(
-    'input[type="checkbox"]',
-  ) as HTMLInputElement | null;
 
   if (layerInfo.isBase) hideColorLayer(ui);
   if (layer) {
     visible ? ui.m.map.addLayer(layer) : ui.m.map.removeLayer(layer);
   }
-  if (checkbox) {
-    checkbox.checked = visible;
-    checkbox.title = ui.T(visible ? "deselect_tooltip" : "select_tooltip");
-  }
-  item?.classList.toggle(CONST.CLASSES.ACTIVE, visible);
-
   if (layerInfo.onToggle) layerInfo.onToggle(visible);
   syncVisibility(ui, layerInfo, layer, visible);
   syncHiddenId(ui, layerInfo.id, !visible);
+
+  // Paint last: the cell reads the intent this transition just recorded.
+  if (item) applyRowView(ui, item, buildRowCell(ui, layerInfo));
 
   syncToggleAll(ui, layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY);
   ui.m.debouncedEnforce();

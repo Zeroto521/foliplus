@@ -3,11 +3,13 @@ import type { LayerInfo } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import {
-  displayName,
   initLayerItem,
+  insertLayerItem,
   renderInitialList,
+  updateLayerItem,
 } from "#foliplus/LayerControl/ui/list.js";
-import { initFixture } from "./fixture.js";
+import { displayName } from "#foliplus/LayerControl/ui/rowView.js";
+import { TileLayer, initFixture } from "./fixture.js";
 
 const makeUi = () =>
   ({
@@ -132,6 +134,26 @@ describe("ui/list row placement", () => {
     expect(initLayerItem(ui, { id: "ghost" } as LayerInfo)).toBe(false);
   });
 
+  it("initLayerItem declines an id whose row is no longer on the panel", () => {
+    // The registry and the DOM can diverge: a row removed after registration
+    // leaves the layer behind. The sweep must bail rather than write a stale
+    // cell into whatever row now sits there.
+    const { manager, ui } = initFixture({
+      data: [{ id: "A", name: "A", isBase: false }],
+    });
+    const row = ui.uiContainer.querySelector<HTMLElement>(
+      `[${CONST.DATA.LAYER_ID}="A"]`,
+    );
+    expect(row).not.toBeNull();
+    const layer = manager.layerRegistry.get("A")!;
+    const visibleBefore = layer.visible;
+    row!.remove();
+
+    expect(initLayerItem(ui, layer)).toBe(false);
+    // No row means no syncVisibility: the mirror keeps whatever it held.
+    expect(layer.visible).toBe(visibleBefore);
+  });
+
   it("brings its own header when the first row of an empty group arrives", () => {
     // Only a base is seeded, so the overlay group owns no row yet. The late
     // overlay must create the group header itself and land above the base
@@ -180,6 +202,69 @@ describe("ui/list row placement", () => {
     ).map(el => el.getAttribute(CONST.DATA.LAYER_ID));
     expect(ids).toContain("O1");
     expect(ids.indexOf("O1")).toBeGreaterThan(0);
+  });
+
+  it("insertLayerItem declines an id the registry does not know", () => {
+    // A late callback for a layer that was never registered (or was removed)
+    // carries no row: the guard bails before any DOM write instead of inserting
+    // a row the registry cannot find.
+    const { ui } = initFixture({
+      data: [{ id: "A", name: "A", isBase: false }],
+    });
+    const rowsBefore = ui.uiContainer.querySelectorAll(CONST.SEL.LAYER_ITEM);
+
+    expect(() => insertLayerItem(ui, { id: "ghost" } as LayerInfo)).not.toThrow();
+    expect(ui.uiContainer.querySelectorAll(CONST.SEL.LAYER_ITEM)).toHaveLength(
+      rowsBefore.length,
+    );
+  });
+
+  it("brings its own base header when the first base arrives late, folded or not", () => {
+    // Only overlays are seeded, so the base group owns no header. The first
+    // base must create it (base_map_label, not data_layer_label) and insert it
+    // before the color row — anchored at the panel's end instead, the header
+    // would sit below the layers it controls.
+    const { manager, ui } = initFixture({
+      data: [{ id: "O1", name: "O1", isBase: false }],
+    });
+    ui.foldedGroups.add(CONST.GROUP.BASE);
+
+    manager.registerLayer({
+      id: "B1",
+      name: "B1",
+      isBase: true,
+      layer: new TileLayer(),
+    });
+
+    const children = Array.from(ui.uiContainer.children);
+    const baseHeader = children.findIndex(
+      el => el.getAttribute("data-group") === CONST.GROUP.BASE,
+    );
+    const colorRow = children.findIndex(el =>
+      el.classList.contains(CONST.CLASSES.COLOR_ITEM),
+    );
+    expect(baseHeader).toBeGreaterThanOrEqual(0);
+    expect(baseHeader).toBeLessThan(colorRow);
+    expect(children[baseHeader].textContent).toContain("base_map_label");
+    // The group was folded when the row arrived, so the late row inherits the
+    // fold instead of showing up above the collapsed group's divider.
+    const baseRow = ui.uiContainer.querySelector<HTMLElement>(
+      `[${CONST.DATA.LAYER_ID}="B1"]`,
+    );
+    expect(baseRow).not.toBeNull();
+    expect(baseRow!.classList.contains(CONST.CLASSES.GROUP_FOLDED)).toBe(true);
+  });
+
+  it("updateLayerItem bails when the row is no longer on the panel", () => {
+    // registerLayer's count change can land after the row was removed (a layer
+    // deleted mid-sweep). The refresh must not raise and must not rebuild a row.
+    const { ui } = initFixture({
+      data: [{ id: "A", name: "A", isBase: false }],
+    });
+    ui.uiContainer.querySelector<HTMLElement>(`[${CONST.DATA.LAYER_ID}="A"]`)!.remove();
+
+    expect(() => updateLayerItem(ui, { id: "A" } as LayerInfo)).not.toThrow();
+    expect(ui.uiContainer.querySelector(`[${CONST.DATA.LAYER_ID}="A"]`)).toBeNull();
   });
 
   it("renders the color row folded when the base group is folded", () => {
