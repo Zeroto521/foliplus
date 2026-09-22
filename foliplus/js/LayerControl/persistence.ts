@@ -4,16 +4,14 @@ import * as CONST from "./const.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 
-/** Shape version of the persisted record. An ISO date string (not a bare
- *  integer, and deliberately not the build version): it names "the date the
- *  record's shape was pinned" so a reader can tell "same shape" from "older,
- *  possibly different shape" without any migration table. `parseRecord` is
- *  per-segment tolerant, so a stored value that does not match is left alone
- *  (the segment is treated as absent); every write stamps `RECORD_VERSION`,
- *  which is what brings the record up to date. Bump only when a new record
- *  shape lands — the field's presence, not its value, is the compatibility
- *  marker. */
-const RECORD_VERSION = "2026-09-22";
+/** Shape version of the persisted record: a positive integer, incremented only
+ *  when the record's shape changes. `parseRecord` is per-segment tolerant, so a
+ *  stored value that does not match is left alone (the segment is treated as
+ *  absent); every write stamps `RECORD_VERSION`, which is what brings the
+ *  record up to date. Presence, not value, is the compatibility marker — a
+ *  record without a `version` is read as-is and re-stamped on the next write.
+ *  Bump only when a new record shape lands. */
+const RECORD_VERSION = 1;
 
 /** A dimension the user has actually set. `overrides` is the provenance half of
  *  the record: a dimension absent from it means the user never chose it, so the
@@ -47,7 +45,7 @@ type PersistedLayerState = {
  *  have no `version` at all, fall through the same branch and are stamped on
  *  the next write — no migration, no data loss on read. */
 type PersistedRecord = {
-  version: string;
+  version: number;
   /** Layer ids in the panel's order, or null when the user never reordered. */
   order: string[] | null;
   foldedGroups: string[];
@@ -158,7 +156,7 @@ const parseRecord = (raw: unknown): PersistedRecord => {
   if (!data) return emptyRecord();
   const record = emptyRecord();
 
-  if (typeof data.version === "string" && data.version === RECORD_VERSION) {
+  if (typeof data.version === "number" && data.version === RECORD_VERSION) {
     record.version = data.version;
   }
   if (Array.isArray(data.order) && data.order.every(id => typeof id === "string")) {

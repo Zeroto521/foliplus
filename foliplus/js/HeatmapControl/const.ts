@@ -113,8 +113,11 @@ const SEL = {
   SCHEME_BAR_INNER: ".foliplus-heatmap-scheme-bar-inner",
 };
 
-/** Persistent storage key for heatmap configuration. */
+/** Persistent storage key for heatmap configuration + the record shape's
+ * version stamp (positive integer, incremented only when the record shape
+ * changes; readers accept older/unknown values and never migrate). */
 const STORAGE = { KEY: `foliplus_heatmap_${map.getContainer().id}` };
+const RECORD_VERSION = 1;
 
 const DATA_ATTR = {
   LAYER: "data-heatmap-layer",
@@ -144,5 +147,6 @@ export {
   METHOD,
   SEL,
   STORAGE,
+  RECORD_VERSION,
   TIMING,
 };

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { markRequest } from "#core/geocode/index.js";
-import { AUTOCOMPLETE, HISTORY, MODE, ZOOM } from "#foliplus/SearchControl/const.js";
+import { AUTOCOMPLETE, HISTORY, MODE, RECORD_VERSION, ZOOM } from "#foliplus/SearchControl/const.js";
 import {
   addHistoryEntry,
   attachSearchDelIcon,
@@ -2468,9 +2468,10 @@ describe("SearchControl history", () => {
         count: 1,
       });
       const stored = JSON.parse(localStorage.getItem(HISTORY.STORAGE_KEY)!);
-      expect(stored[0].addrDisplay).toBe("Paris, France");
-      expect(stored[0].count).toBe(3);
-      expect(stored).toHaveLength(1);
+      expect(stored.version).toBe(RECORD_VERSION);
+      expect(stored.entries[0].addrDisplay).toBe("Paris, France");
+      expect(stored.entries[0].count).toBe(3);
+      expect(stored.entries).toHaveLength(1);
     });
 
     it("respects MAX_ENTRIES limit", () => {
@@ -2530,8 +2531,8 @@ describe("SearchControl history", () => {
         count: 1,
       });
       const stored = JSON.parse(localStorage.getItem(HISTORY.STORAGE_KEY)!);
-      expect(stored).toHaveLength(HISTORY.MAX_ENTRIES);
-      expect(stored[0].query).toBe("new");
+      expect(stored.entries).toHaveLength(HISTORY.MAX_ENTRIES);
+      expect(stored.entries[0].query).toBe("new");
     });
   });
 
@@ -2565,8 +2566,8 @@ describe("SearchControl history", () => {
       expect(ctrl.searchHistory).toHaveLength(1);
       expect(ctrl.searchHistory[0].query).toBe("B");
       const stored = JSON.parse(localStorage.getItem(HISTORY.STORAGE_KEY)!);
-      expect(stored).toHaveLength(1);
-      expect(stored[0].query).toBe("B");
+      expect(stored.entries).toHaveLength(1);
+      expect(stored.entries[0].query).toBe("B");
     });
 
     it("does nothing for unknown query", () => {
@@ -2606,7 +2607,7 @@ describe("SearchControl history", () => {
       deleteHistoryEntry(ctrl, "Only");
       expect(ctrl.searchHistory).toEqual([]);
       const stored = JSON.parse(localStorage.getItem(HISTORY.STORAGE_KEY)!);
-      expect(stored).toEqual([]);
+      expect(stored.entries).toEqual([]);
     });
   });
 

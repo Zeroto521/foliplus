@@ -251,12 +251,12 @@ describe("LayerPersistence", () => {
 
     it("writes the current version when the stored record is missing or stale", () => {
       // The write path is what actually moves a legacy record forward:
-      // the stored version (absent or an older date) does not survive the
+      // the stored version (absent or an older value) does not survive the
       // rebuild, the current one does.
       vi.useFakeTimers();
       const save = spySave();
       seedStorage({
-        version: "2020-01-01",
+        version: 0,
         order: ["a", "b"],
         foldedGroups: ["OVERLAYS"],
         renamedNames: { a: "A2" },
