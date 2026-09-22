@@ -158,8 +158,10 @@ describe("build artifacts", () => {
   // the minified size — each carries ~20% headroom for future growth.
   const MAX_COMPONENT_SIZE = {
     // MeasureControl bundles its own label-collision geometry (placeLabels)
-    // inline.
-    "foliplus-MeasureControl.min.js": 120000,
+    // inline. Raised from 120000 for the makePersisted wiring (#422): the
+    // persistBinding field, the save closure, and the onFlushError callback
+    // added 62 B to the unminified dev bundle.
+    "foliplus-MeasureControl.min.js": 125000,
     // LayerControl is otherwise the largest component (~136KB unminified on
     // main; style-drawer delegation pushed the unminified dev bundle past
     // 160KB — rename, focus, reorder, fold, the annotation style panel, the

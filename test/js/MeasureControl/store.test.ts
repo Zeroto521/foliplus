@@ -57,15 +57,22 @@ beforeEach(() => {
   // saveVersioned. This preserves the test's ability to assert on saveVersioned
   // call arguments and return values while going through the binding layer.
   storage.makePersisted.mockReset();
-  storage.makePersisted.mockImplementation(({ save, onFlushError }: { save: () => boolean; onFlushError?: (err: unknown) => void }) => ({
-    load: () => {},
-    schedule: () => {
-      const ok = save();
-      if (!ok) onFlushError?.(new Error("persist write failed"));
-    },
-    flush: () => {},
-    cancel: () => {},
-  }));
+  storage.makePersisted.mockImplementation(
+    ({
+      save,
+      onFlushError,
+    }: {
+      save: () => boolean;
+      onFlushError?: (err: unknown) => void;
+    }) => ({
+      schedule: () => {
+        const ok = save();
+        if (!ok) onFlushError?.(new Error("persist write failed"));
+      },
+      flush: () => {},
+      cancel: () => {},
+    }),
+  );
   events.emit.mockReset();
 });
 
@@ -75,10 +82,10 @@ describe("MeasureStore — load", () => {
     storage.loadVersioned.mockReturnValue(data);
     const store = makeStore().store;
     expect(store.load()).toBe(data);
-    expect(storage.loadVersioned).toHaveBeenCalledWith(
-      CONST.STORAGE.KEY,
-      { name: "MeasureControl", dataField: "items" },
-    );
+    expect(storage.loadVersioned).toHaveBeenCalledWith(CONST.STORAGE.KEY, {
+      name: "MeasureControl",
+      dataField: "items",
+    });
   });
 
   it("falls back to [] when the envelope holds no item array", () => {

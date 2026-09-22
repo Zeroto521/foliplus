@@ -147,9 +147,9 @@ describe("storage", () => {
 
     it("unwraps a versioned envelope with a custom data field", () => {
       window.localStorage.setItem("k", JSON.stringify({ version: 1, items: [1, 2] }));
-      expect(loadVersioned<unknown>("k", { name: "Measure", dataField: "items" })).toEqual(
-        [1, 2],
-      );
+      expect(
+        loadVersioned<unknown>("k", { name: "Measure", dataField: "items" }),
+      ).toEqual([1, 2]);
     });
 
     it("returns a legacy bare array as-is", () => {
@@ -189,7 +189,6 @@ describe("storage", () => {
     it("writes through synchronously with debounceMs=0", () => {
       const saveMock = vi.fn(() => true);
       const p = makePersisted({
-        load: vi.fn(),
         save: saveMock,
         debounceMs: 0,
       });
@@ -201,7 +200,6 @@ describe("storage", () => {
       vi.useFakeTimers();
       const saveMock = vi.fn(() => true);
       const p = makePersisted({
-        load: vi.fn(),
         save: saveMock,
         debounceMs: 100,
       });
@@ -218,7 +216,6 @@ describe("storage", () => {
       vi.useFakeTimers();
       const saveMock = vi.fn(() => true);
       const p = makePersisted({
-        load: vi.fn(),
         save: saveMock,
         debounceMs: 100,
       });
@@ -233,7 +230,6 @@ describe("storage", () => {
     it("flush is a no-op when nothing is pending", () => {
       const saveMock = vi.fn(() => true);
       const p = makePersisted({
-        load: vi.fn(),
         save: saveMock,
         debounceMs: 100,
       });
@@ -245,7 +241,6 @@ describe("storage", () => {
     it("flush is idempotent after the pending write fires", () => {
       const saveMock = vi.fn(() => true);
       const p = makePersisted({
-        load: vi.fn(),
         save: saveMock,
         debounceMs: 100,
       });
@@ -261,7 +256,6 @@ describe("storage", () => {
       vi.useFakeTimers();
       const saveMock = vi.fn(() => true);
       const p = makePersisted({
-        load: vi.fn(),
         save: saveMock,
         debounceMs: 100,
       });
@@ -275,7 +269,6 @@ describe("storage", () => {
     it("cancel is a no-op with write-through", () => {
       const saveMock = vi.fn(() => true);
       const p = makePersisted({
-        load: vi.fn(),
         save: saveMock,
         debounceMs: 0,
       });
@@ -287,7 +280,6 @@ describe("storage", () => {
     it("calls onFlushError when save throws during schedule", () => {
       const onFlushError = vi.fn();
       const p = makePersisted({
-        load: vi.fn(),
         save: () => {
           throw new Error("quota");
         },
@@ -304,7 +296,6 @@ describe("storage", () => {
       // would silently drop data.
       const onFlushError = vi.fn();
       const p = makePersisted({
-        load: vi.fn(),
         save: () => false,
         debounceMs: 0,
         onFlushError,
@@ -316,23 +307,12 @@ describe("storage", () => {
     it("does not call onFlushError when save returns true", () => {
       const onFlushError = vi.fn();
       const p = makePersisted({
-        load: vi.fn(),
         save: () => true,
         debounceMs: 0,
         onFlushError,
       });
       p.schedule();
       expect(onFlushError).not.toHaveBeenCalled();
-    });
-
-    it("exposes load as a pass-through", () => {
-      const loadMock = vi.fn();
-      const p = makePersisted({
-        load: loadMock,
-        save: vi.fn(() => true),
-      });
-      p.load();
-      expect(loadMock).toHaveBeenCalledTimes(1);
     });
   });
 });

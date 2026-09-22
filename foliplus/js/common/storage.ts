@@ -120,11 +120,9 @@ const loadVersioned = <T>(
 /**
  * The write surface a persisted binding hands back to its caller. The helper
  * owns the lifecycle (debounce, flush, cancel); the component owns the data
- * (what to write, what to restore, how to surface a failure).
+ * (what to write, how to restore, how to surface a failure).
  */
 type Persisted = {
-  /** Restore persisted state into memory. Called on mount. */
-  load: () => void;
   /** Queue a write. Immediate when `debounceMs` is 0, otherwise coalesced. */
   schedule: () => void;
   /**
@@ -140,8 +138,6 @@ type Persisted = {
 
 /**
  * Options for {@link makePersisted}.
- * @property load - Restore persisted state into memory. Called by
- *  {@link Persisted.load}.
  * @property save - Write the current state. Called by {@link Persisted.schedule}
  *  and {@link Persisted.flush}. Return `true` on success, `false` when the
  *  storage backend rejected the write (quota exhausted, private-mode restrictions).
@@ -154,9 +150,14 @@ type Persisted = {
  *  {@link Persisted.schedule} or {@link Persisted.flush}. Components that lose
  *  user data on a failed write (an unbounded list against a fixed quota)
  *  surface it here.
+ *
+ * There is no `load` option: the helper only owns the write side. Each
+ * component restores its own state through its own entry point
+ * (`MeasureStore.load`, `HeatmapManager.loadSavedConfig`, `loadHistory`),
+ * which this helper cannot anticipate. Keeping a no-op `load` on the helper
+ * would document a wiring that doesn't exist.
  */
 type PersistedOpts = {
-  load: () => void;
   save: () => boolean;
   debounceMs?: number;
   onFlushError?: (err: unknown) => void;
@@ -177,7 +178,6 @@ type PersistedOpts = {
  * flush or the last change is lost.
  */
 const makePersisted = ({
-  load,
   save,
   debounceMs = 0,
   onFlushError,
@@ -192,7 +192,6 @@ const makePersisted = ({
   };
   const timer = debounceMs > 0 ? debounce(() => doSave(), debounceMs) : null;
   return {
-    load,
     schedule: () => (timer ? timer() : doSave()),
     flush: () => timer?.flush(),
     cancel: () => timer?.cancel(),

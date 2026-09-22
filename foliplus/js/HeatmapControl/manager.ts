@@ -223,7 +223,6 @@ class HeatmapManager {
     // Write-through binding: config is durable the moment a UI change lands,
     // so there is nothing to coalesce. Flush on teardown stays idempotent.
     this.persist = makePersisted({
-      load: () => {},
       save: () =>
         Storage.save(
           CONST.STORAGE.KEY,

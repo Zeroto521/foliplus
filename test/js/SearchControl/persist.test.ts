@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { HISTORY, MODE, RECORD_VERSION } from "#foliplus/SearchControl/const.js";
-import { flushHistory, loadHistory, saveHistory } from "#foliplus/SearchControl/logic.js";
+import {
+  flushHistory,
+  loadHistory,
+  saveHistory,
+} from "#foliplus/SearchControl/logic.js";
 import type { SearchHistoryEntry } from "#foliplus/SearchControl/type.js";
 
 describe("SearchControl history — versioned envelope", () => {

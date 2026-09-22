@@ -158,10 +158,8 @@ type StoredHistoryEntry = Partial<SearchHistoryEntry> & { label?: string };
 // Module-level write-through binding over the search history record. The save
 // closure reads `pendingHistory` (set by saveHistory before scheduling), so the
 // binding is stateless from the caller's point of view — saveHistory is still
-// the public entry point. Load is explicit via loadHistory; this binding's load
-// is a no-op.
+// the public entry point. Load is explicit via loadHistory() below.
 const historyPersist = makePersisted({
-  load: () => {},
   save: () =>
     Storage.saveVersioned(HISTORY.STORAGE_KEY, {
       data: pendingHistory,

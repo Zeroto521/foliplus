@@ -8,7 +8,7 @@
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { createScopedTranslator } from "#common/locale.js";
-import { makePersisted, type Persisted } from "#common/storage.js";
+import { type Persisted, makePersisted } from "#common/storage.js";
 import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
 
@@ -35,7 +35,6 @@ class MeasureStore {
     // so teardown flush is a no-op safety net. Failure surfaces through the
     // quota hint below rather than through the return value.
     this.persistBinding = makePersisted({
-      load: () => {},
       save: () =>
         Storage.saveVersioned(CONST.STORAGE.KEY, {
           data: this.list,
@@ -72,10 +71,12 @@ class MeasureStore {
   /** Load measurements from localStorage via the shared versioned envelope
    *  reader. Tolerates the legacy bare-array shape and corrupt records. */
   load(): MeasureData[] {
-    return Storage.loadVersioned<MeasureData>(CONST.STORAGE.KEY, {
-      name: CONF.name,
-      dataField: "items",
-    }) ?? [];
+    return (
+      Storage.loadVersioned<MeasureData>(CONST.STORAGE.KEY, {
+        name: CONF.name,
+        dataField: "items",
+      }) ?? []
+    );
   }
 
   /** Replace the in-memory list without persisting (used by restore, which
