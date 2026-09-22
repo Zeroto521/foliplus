@@ -25,11 +25,10 @@ const showColorLayer = (ui: LayerUI, color: string) => {
     if (!layerInfo.isBase) continue;
     const item = ui.uiContainer.querySelector(
       `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerInfo.id)}"]`,
-    ) as HTMLElement;
-    const input = item.querySelector<HTMLInputElement>(
-      'input[type="checkbox"]',
-    ) as HTMLInputElement;
-    input.checked = false;
+    );
+    if (!item) continue;
+    const input = item.querySelector<HTMLInputElement>('input[type="checkbox"]');
+    if (input) input.checked = false;
     item.classList.remove(CONST.CLASSES.ACTIVE);
   }
 

@@ -139,4 +139,25 @@ describe("ui/color", () => {
     expect(base2Row.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
     expect(overlayRow.classList.contains(CONST.CLASSES.ACTIVE)).toBe(true);
   });
+
+  it("showColorLayer skips a base layer whose row is not yet rendered", () => {
+    // Registry: [base_missing, base_present] — base_missing is registered
+    // but its row has not landed in the DOM yet (late-registration window).
+    // The loop must not throw; it clears base_present and skips base_missing.
+    const { ui } = makeUi([{ id: "base_present", isBase: true }]);
+
+    // Add base_missing to the registry without adding its row to the DOM.
+    ui.m.layers.unshift({ id: "base_missing", isBase: true } as never);
+
+    expect(() => showColorLayer(ui, "#ff0000")).not.toThrow();
+
+    const presentRow = ui.uiContainer.querySelector<HTMLElement>(
+      `[${CONST.DATA.LAYER_ID}="base_present"]`,
+    );
+    expect(presentRow?.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
+    const presentInput = presentRow?.querySelector<HTMLInputElement>(
+      'input[type="checkbox"]',
+    );
+    expect(presentInput?.checked).toBe(false);
+  });
 });
