@@ -8,6 +8,8 @@ import { MeasureStore } from "#foliplus/MeasureControl/store.js";
 const storage = vi.hoisted(() => ({
   load: vi.fn(),
   save: vi.fn(),
+  loadVersioned: vi.fn(),
+  saveVersioned: vi.fn(),
 }));
 const events = vi.hoisted(() => ({
   emit: vi.fn(),
@@ -16,6 +18,8 @@ const events = vi.hoisted(() => ({
 vi.mock("#common/storage.js", () => ({
   load: storage.load,
   save: storage.save,
+  loadVersioned: storage.loadVersioned,
+  saveVersioned: storage.saveVersioned,
 }));
 
 vi.mock("#core/event/index.js", () => ({
@@ -37,69 +41,61 @@ const makeStore = () => {
 beforeEach(() => {
   storage.load.mockReset();
   storage.save.mockReset();
-  storage.save.mockReturnValue(true);
+  storage.loadVersioned.mockReset();
+  storage.saveVersioned.mockReset();
+  storage.saveVersioned.mockReturnValue(true);
   events.emit.mockReset();
 });
 
 describe("MeasureStore.persist — versioned envelope", () => {
-  it("wraps the list in { version, items } on every write", () => {
+  it("delegates every write to saveVersioned with (key, items, version, name)", () => {
     const store = makeStore();
     store.add({ id: "a", type: "marker" } as any);
 
-    expect(storage.save).toHaveBeenCalledWith(
+    expect(storage.saveVersioned).toHaveBeenCalledWith(
       CONST.STORAGE.KEY,
-      { version: CONST.RECORD_VERSION, items: store.all() },
+      store.all(),
+      CONST.RECORD_VERSION,
       "MeasureControl",
+      "items",
     );
   });
 
-  it("writes the current version stamp even for an empty list", () => {
+  it("delegates an empty clear to saveVersioned with an empty list", () => {
     const store = makeStore();
     store.clear();
-    expect(storage.save).toHaveBeenCalledWith(
+    expect(storage.saveVersioned).toHaveBeenCalledWith(
       CONST.STORAGE.KEY,
-      { version: CONST.RECORD_VERSION, items: [] },
+      [],
+      CONST.RECORD_VERSION,
       "MeasureControl",
+      "items",
     );
   });
 });
 
 describe("MeasureStore.load — envelope + legacy bare array + corrupt", () => {
-  it("reads the new { version, items } envelope", () => {
+  it("reads whatever loadVersioned returns", () => {
     const items = [{ id: "a" }];
-    storage.load.mockReturnValue({ version: CONST.RECORD_VERSION, items });
+    storage.loadVersioned.mockReturnValue(items);
     expect(makeStore().load()).toBe(items);
   });
 
-  it("accepts an older/unknown version value without migrating", () => {
+  it("tolerates an older/unknown version value without migrating", () => {
+    // The envelope reader is tolerant forever: an old record stays readable
+    // and is only re-wrapped on the next save.
     const items = [{ id: "a" }];
-    storage.load.mockReturnValue({ version: 999, items });
+    storage.loadVersioned.mockReturnValue(items);
     expect(makeStore().load()).toBe(items);
   });
 
-  it("reads the legacy bare-array shape as items (no migration)", () => {
-    const items = [{ id: "a" }, { id: "b" }];
-    storage.load.mockReturnValue(items);
-    expect(makeStore().load()).toBe(items);
-  });
-
-  it("returns [] for a non-array, non-envelope value", () => {
-    storage.load.mockReturnValue({ not: "array" });
+  it("falls back to [] when loadVersioned reports nothing", () => {
+    storage.loadVersioned.mockReturnValue(null);
     expect(makeStore().load()).toEqual([]);
   });
 
-  it("returns [] when the envelope is missing its items array", () => {
-    storage.load.mockReturnValue({ version: CONST.RECORD_VERSION });
-    expect(makeStore().load()).toEqual([]);
-  });
-
-  it("returns [] when the envelope's items is not an array", () => {
-    storage.load.mockReturnValue({ version: CONST.RECORD_VERSION, items: { id: "a" } });
-    expect(makeStore().load()).toEqual([]);
-  });
-
-  it("returns [] for null (empty store)", () => {
-    storage.load.mockReturnValue(null);
+  it("falls back to [] when storage is absent", () => {
+    storage.loadVersioned.mockReturnValue(null);
     expect(makeStore().load()).toEqual([]);
   });
 });
@@ -109,11 +105,19 @@ describe("round-trip through the versioned envelope", () => {
     const store = makeStore();
     store.add({ id: "a", type: "marker" } as any);
     store.add({ id: "b", type: "distance" } as any);
-    expect(storage.save).toHaveBeenCalledTimes(2);
+    expect(storage.saveVersioned).toHaveBeenCalledTimes(2);
 
-    // A fresh store reads whatever the previous one wrote.
-    const [, payload] = storage.save.mock.calls.at(-1)! as [string, unknown, string];
-    storage.load.mockReturnValue(payload);
+    // A fresh store reads whatever the previous one wrote: the write-through
+    // is transparent to callers, so load() surfaces the items list the writer
+    // last handed to saveVersioned.
+    const [key, items, version, name, dataField] = storage.saveVersioned.mock.calls.at(
+      -1,
+    )! as [string, unknown, number, string, string];
+    expect(key).toBe(CONST.STORAGE.KEY);
+    expect(version).toBe(CONST.RECORD_VERSION);
+    expect(name).toBe("MeasureControl");
+    expect(dataField).toBe("items");
+    storage.loadVersioned.mockReturnValue(items);
     expect(makeStore().load()).toHaveLength(2);
   });
 });

@@ -44,20 +44,11 @@ class MeasureStore {
 
   // ── Persistence ────────────────────────────────────────────────────
 
-  /** Load measurements from localStorage, tolerant of three shapes:
-   *  - new format: `{ version, items: [...] }` — return `items`.
-   *  - legacy format: bare `MeasureData[]` — return as-is (no migration; the
-   *    next persist re-wraps it, so the old shape disappears on the next write).
-   *  - anything else (null, an object without a valid `items`, corrupt JSON):
-   *    return `[]`. */
+  /** Load measurements from localStorage via the shared versioned envelope
+   *  reader. Tolerates the legacy bare-array shape and corrupt records. */
   load(): MeasureData[] {
-    const data = Storage.load<unknown>(CONST.STORAGE.KEY, CONF.name);
-    if (Array.isArray(data)) return data;
-    if (data && typeof data === "object") {
-      const items = (data as { items?: unknown }).items;
-      if (Array.isArray(items)) return items as MeasureData[];
-    }
-    return [];
+    return (Storage.loadVersioned<MeasureData>(CONST.STORAGE.KEY, CONF.name, "items") ??
+      []) as MeasureData[];
   }
 
   /** Replace the in-memory list without persisting (used by restore, which
@@ -95,11 +86,14 @@ class MeasureStore {
    *  is lost, which is what the message says. Count emission still runs, so the
    *  LayerControl count column keeps tracking the live list. */
   persist(): void {
-    // Wrap the list in a versioned record: readers accept the legacy bare-array
-    // shape too, so an unversioned old record keeps working until the next write
-    // re-wraps it (see `load()`).
-    const record = { version: CONST.RECORD_VERSION, items: this.list };
-    if (!Storage.save(CONST.STORAGE.KEY, record, CONF.name) && !this.warned) {
+    const ok = Storage.saveVersioned(
+      CONST.STORAGE.KEY,
+      this.list,
+      CONST.RECORD_VERSION,
+      CONF.name,
+      "items",
+    );
+    if (!ok && !this.warned) {
       this.warned = true;
       this.map.foliplus?.showHint?.(
         CONF.name,
@@ -108,6 +102,13 @@ class MeasureStore {
       );
     }
     this.emitCount();
+  }
+
+  /** Write the current state now. Idempotent and teardown-safe — called by
+   *  the manager on destroy to cover the drag-throttle window where the last
+   *  mutate() has not yet been persisted. */
+  flush(): void {
+    this.persist();
   }
 
   /** Emit LAYER_ITEM_COUNT_CHANGE so LayerControl refreshes the count column

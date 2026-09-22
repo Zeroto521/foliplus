@@ -2113,13 +2113,12 @@ describe("SearchControl history", () => {
     });
 
     it("reads history from the scoped key only", () => {
-      const loadSpy = vi.spyOn(Storage, "load");
       store(scopedRows);
+      const otherRows = [{ type: MODE.ADDR, addrDisplay: "Other", lng: 9, lat: 9 }];
+      localStorage.setItem("foliplus_search_map-other", JSON.stringify(otherRows));
       expect(loadHistory().map(e => e.addrDisplay)).toEqual(
         scopedRows.map(r => r.addrDisplay),
       );
-      expect(loadSpy).toHaveBeenCalledTimes(1);
-      expect(loadSpy).toHaveBeenCalledWith(HISTORY.STORAGE_KEY, CONF.name);
     });
 
     it("keeps history separate per map container", () => {

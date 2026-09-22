@@ -14,6 +14,7 @@ import { NUMBER_FORMAT, type NumberStyle, formatLabelNumber } from "#common/form
 import { createScopedTranslator } from "#common/locale.js";
 import { createLogger } from "#common/log.js";
 import { bindMapSync } from "#common/panel.js";
+import { type Persisted, makePersisted } from "#common/storage.js";
 import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
@@ -180,6 +181,11 @@ class HeatmapManager {
   /** The layer id used to register this manager's heatmap canvas. */
   layerId: string;
 
+  /** Persisted-config binding — write-through (no debounce window). Owns the
+   *  save entry point so teardown flush is idempotent. The flat inline-version
+   *  record stays as-is (no envelope), matching the pre-existing shape. */
+  persist: Persisted;
+
   /**
    * @param mapInstance - Leaflet map instance.
    * @param opts - Optional configuration.
@@ -214,6 +220,32 @@ class HeatmapManager {
     this.valueFallbackWarned = false;
     this.layerVisible = true;
     this.sourceMeta = {};
+    // Write-through binding: config is durable the moment a UI change lands,
+    // so there is nothing to coalesce. Flush on teardown stays idempotent.
+    this.persist = makePersisted(CONST.STORAGE.KEY, {
+      version: CONST.RECORD_VERSION,
+      load: () => {},
+      save: () =>
+        Storage.save(
+          CONST.STORAGE.KEY,
+          {
+            version: CONST.RECORD_VERSION,
+            layerId: this.selectedLayerId,
+            agg: this.currentAgg,
+            method: this.currentMethod,
+            scheme: this.currentScheme,
+            numClasses: this.numClasses,
+            borderWeight: this.borderWeight,
+            borderColor: this.borderColor,
+            labelShow: this.currentLabelShow,
+            labelColor: this.currentLabelColor,
+            labelSize: this.currentLabelSize,
+            labelFormat: this.currentLabelFormat,
+            field: this.currentField,
+          } satisfies SavedConfig,
+          CONF.name,
+        ),
+    });
     // Snapshot the Python CONF style defaults before any runtime toggle so
     // Reset restores exactly what construction started from (never localStorage).
     const defaultLabelShow = this.currentLabelShow;
@@ -805,27 +837,17 @@ class HeatmapManager {
     return Storage.load<SavedConfig | null>(CONST.STORAGE.KEY, CONF.name);
   }
 
-  /** Save the current manager state to localStorage. */
+  /** Save the current manager state to localStorage through the write-through
+   *  binding, so the flat inline-version record stays durable the moment a UI
+   *  change lands. The binding reads live state at save time, so callers just
+   *  signal a change without restating the fields. */
   saveConfig() {
-    Storage.save(
-      CONST.STORAGE.KEY,
-      {
-        version: CONST.RECORD_VERSION,
-        layerId: this.selectedLayerId,
-        agg: this.currentAgg,
-        method: this.currentMethod,
-        scheme: this.currentScheme,
-        numClasses: this.numClasses,
-        borderWeight: this.borderWeight,
-        borderColor: this.borderColor,
-        labelShow: this.currentLabelShow,
-        labelColor: this.currentLabelColor,
-        labelSize: this.currentLabelSize,
-        labelFormat: this.currentLabelFormat,
-        field: this.currentField,
-      } satisfies SavedConfig,
-      CONF.name,
-    );
+    this.persist.schedule();
+  }
+
+  /** Flush any pending write through the binding — idempotent and teardown-safe. */
+  flush() {
+    this.persist.flush();
   }
 
   /** Remove persisted configuration from localStorage. */

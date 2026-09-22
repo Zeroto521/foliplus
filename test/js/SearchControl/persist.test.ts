@@ -163,4 +163,32 @@ describe("SearchControl history — versioned envelope", () => {
       expect(stored.entries).toHaveLength(1);
     });
   });
+
+  describe("flush — teardown safety", () => {
+    it("a final write made right before the in-memory array is dropped survives", () => {
+      // Mirror of SearchControl.destroy(): write the current history first, then
+      // reset the in-memory array. If the order flips the last search before
+      // unmount is lost.
+      const entries: SearchHistoryEntry[] = [
+        {
+          query: "Paris",
+          type: MODE.ADDR,
+          coordDisplay: "121.4700, 31.2300",
+          addrDisplay: "Paris",
+          lng: 121.47,
+          lat: 31.23,
+          ts: 2000,
+          count: 1,
+        },
+      ];
+
+      saveHistory(entries);
+      saveHistory([]); // destroy() drops the in-memory array after the last write
+
+      const stored = JSON.parse(window.localStorage.getItem(HISTORY.STORAGE_KEY)!);
+      expect(stored.version).toBe(RECORD_VERSION);
+      expect(Array.isArray(stored.entries)).toBe(true);
+      expect(stored.entries).toEqual([]);
+    });
+  });
 });

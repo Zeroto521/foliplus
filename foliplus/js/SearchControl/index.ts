@@ -12,7 +12,7 @@ import { bindOutsideCollapse, createFoldControl } from "#common/panel.js";
 import { AUTOCOMPLETE, CLASSES, MODE, type SearchType } from "./const.js";
 import * as SVGs from "./icon.js";
 import { bindEvents, initFromUrl } from "./interaction.js";
-import { initDebouncedFetch, loadHistory, removePanel } from "./logic.js";
+import { initDebouncedFetch, loadHistory, removePanel, saveHistory } from "./logic.js";
 import type { AddressResult, ResultItem, SearchHistoryEntry } from "./type.js";
 
 createControlEnv(CONF, SVGs.SEARCH);
@@ -61,6 +61,9 @@ class SearchControl extends BaseControl {
     if (this.addrAbortController) this.addrAbortController.abort();
     if (this.suggestAbortController) this.suggestAbortController.abort();
     this.cachedSuggestions.clear();
+    // Flush any in-flight history change before the in-memory array is dropped,
+    // so a last write that raced teardown is durable.
+    saveHistory(this.searchHistory);
     this.searchHistory = [];
     if (this.throttleTimer) clearTimeout(this.throttleTimer);
     this.modeBtn.onclick = null;

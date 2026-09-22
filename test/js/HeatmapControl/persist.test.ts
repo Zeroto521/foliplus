@@ -107,6 +107,30 @@ describe("HeatmapManager — versioned persisted config", () => {
     });
   });
 
+  describe("flush — teardown safety", () => {
+    it("writes the current config on flush, and is idempotent", () => {
+      const m = makeManager();
+      m.selectedLayerId = "layer_x";
+      m.currentAgg = CONST.AGG.AVG;
+      m.currentScheme = "Greens";
+      m.numClasses = 5;
+
+      m.flush();
+
+      const stored = JSON.parse(window.localStorage.getItem(KEY)!);
+      expect(stored.layerId).toBe("layer_x");
+      expect(stored.agg).toBe("avg");
+      expect(stored.scheme).toBe("Greens");
+      expect(stored.numClasses).toBe(5);
+      expect(stored.version).toBe(CONST.RECORD_VERSION);
+
+      // A second flush must not double-write or drop fields.
+      const before = window.localStorage.getItem(KEY);
+      m.flush();
+      expect(window.localStorage.getItem(KEY)).toBe(before);
+    });
+  });
+
   describe("round-trip", () => {
     it("save → load → apply preserves every field (version travels with the record)", () => {
       const m1 = makeManager();

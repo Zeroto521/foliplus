@@ -155,22 +155,13 @@ const mergeHistoryEntries = (entries: SearchHistoryEntry[]): SearchHistoryEntry[
 type StoredHistoryEntry = Partial<SearchHistoryEntry> & { label?: string };
 
 const loadHistory = (): SearchHistoryEntry[] =>
-  loadHistoryRows(unwrapHistory(Storage.load<unknown>(HISTORY.STORAGE_KEY, CONF.name)));
-
-/** Unwrap the persisted history envelope, tolerating three shapes:
- *  - new format `{ version, entries: [...] }` — return `entries`.
- *  - legacy format: bare `SearchHistoryEntry[]` — return as-is (no migration;
- *    the next `saveHistory` re-wraps it).
- *  - anything else (null, a string, a number, an object without an `entries`
- *    array): return `null` so the caller falls through to `[]`. */
-const unwrapHistory = (data: unknown): StoredHistoryEntry[] | null => {
-  if (Array.isArray(data)) return data as StoredHistoryEntry[];
-  if (data && typeof data === "object") {
-    const entries = (data as { entries?: unknown }).entries;
-    if (Array.isArray(entries)) return entries as StoredHistoryEntry[];
-  }
-  return null;
-};
+  loadHistoryRows(
+    Storage.loadVersioned<StoredHistoryEntry>(
+      HISTORY.STORAGE_KEY,
+      CONF.name,
+      "entries",
+    ) as StoredHistoryEntry[] | null,
+  );
 
 /** Parse and migrate one history payload; [] for a corrupt or non-array store. */
 const loadHistoryRows = (data: StoredHistoryEntry[] | null): SearchHistoryEntry[] => {
@@ -201,8 +192,14 @@ const loadHistoryRows = (data: StoredHistoryEntry[] | null): SearchHistoryEntry[
 
 const saveHistory = (entries: SearchHistoryEntry[]): void => {
   // Wrap in a versioned envelope; readers accept the legacy bare-array shape
-  // too, so the next save is what upgrades an old record (see `unwrapHistory`).
-  Storage.save(HISTORY.STORAGE_KEY, { version: RECORD_VERSION, entries }, CONF.name);
+  // too, so the next save is what upgrades an old record.
+  Storage.saveVersioned(
+    HISTORY.STORAGE_KEY,
+    entries,
+    RECORD_VERSION,
+    CONF.name,
+    "entries",
+  );
 };
 
 const addHistoryEntry = (ctrl: SearchControlState, entry: SearchHistoryEntry): void => {
