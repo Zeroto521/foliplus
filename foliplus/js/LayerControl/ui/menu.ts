@@ -3,7 +3,7 @@ import { dom } from "#common/dom.js";
 import * as Icons from "#common/icon.js";
 import * as CONST from "../const.js";
 import * as SVGs from "../icon.js";
-import { isFocusLayerDisabled } from "./focus.js";
+import { focusDisabledLocaleKey, focusDisabledReason } from "./focus.js";
 import type { LayerUI } from "./index.js";
 import { finishRename } from "./rename.js";
 import { layerHasLabelFields, layerHasStyleDelegation } from "./style/index.js";
@@ -42,15 +42,21 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
 
   const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
   const menu = dom.el("ul", { class: "foliplus-layer-more-menu open", role: "menu" });
-  // Focus-layer is disabled for basemaps (no useful extent) and hidden rows.
-  // The disabled li carries cursor: not-allowed (common menu CSS).
-  const focusDisabled = isFocusLayerDisabled(ui, item);
+  // Focus-layer is disabled for basemaps (no useful extent), hidden rows, and
+  // layers whose surface reports no bounds carrier. The disabled li carries
+  // cursor: not-allowed (common menu CSS) and the reason as its tooltip.
+  const focusReason = focusDisabledReason(ui, item);
+  const focusDisabled = focusReason !== undefined;
+  const focusDisabledTitle =
+    focusReason !== undefined
+      ? ui.T(focusDisabledLocaleKey(focusReason))
+      : ui.T("focus_layer_tooltip");
 
   const itemAttrs = {
     "data-action": "focus-layer",
     role: "menuitem",
     tabindex: "0",
-    title: focusDisabled ? ui.T("focus_layer_hidden") : ui.T("focus_layer_tooltip"),
+    title: focusDisabled ? focusDisabledTitle : ui.T("focus_layer_tooltip"),
     "aria-disabled": focusDisabled ? "true" : "false",
   };
 
@@ -67,13 +73,20 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   // zoomRange as "none" (e.g. MarkerCluster) cannot be styled for those
   // dimensions, so the panel is disabled unless it still has label fields or
   // style delegation to configure.
+  //
+  // `focusReason` cascades into `styleDisabled` only for the reasons that also
+  // make styling impossible: a basemap has no configurable dimensions of its
+  // own, and a hidden row has nothing visible to style. A "no_bounds" row is
+  // still visible and configurable — it simply has no geographic extent to
+  // focus on — so it keeps its style entry enabled.
   const layerInfo = ui.m.layerRegistry.get(layerId);
   const caps = layerInfo ? ui.m.surfaceFor(layerInfo).capabilities : null;
   const canConfigure =
     (caps && (caps.opacity !== "none" || caps.zoomRange !== "none")) ||
     layerHasLabelFields(ui, layerId) ||
     layerHasStyleDelegation(ui, layerId);
-  const styleDisabled = focusDisabled || !canConfigure;
+  const styleDisabled =
+    focusReason === "base" || focusReason === "hidden" || !canConfigure;
 
   menu.appendChild(
     dom.el(

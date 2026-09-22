@@ -5,7 +5,7 @@ import { cancelMapPaneTranslate, dom } from "#common/dom.js";
 import { createLogger } from "#common/log.js";
 import { throttleRaf } from "#common/throttle.js";
 import { PaneManager } from "./PaneManager.js";
-import { CANVAS_PANE_PREFIX } from "./const.js";
+import { CANVAS_PANE_PREFIX, PANE_NAME_PATTERN } from "./const.js";
 import type {
   CreateCanvasAPI,
   CreateCanvasOpts,
@@ -44,6 +44,22 @@ interface LayerFactoryDeps {
 // core/layer is not a component dir, so CONF is unavailable here — the module
 // prefixes with its own class name.
 const log = createLogger("LayerFactory");
+
+/** The pane a canvas surface paints into. `opts.id` is caller input and this
+ *  name reaches Leaflet's `createPane` as both an element id and a CSS class,
+ *  so it has to satisfy `PANE_NAME_PATTERN` first — the same gate
+ *  `PaneSpec.name` and `SurfaceOpts.paneName` pass through. A canvas pane
+ *  cannot be dropped the way an invalid spec is (the canvas has to live
+ *  somewhere), so disallowed runs collapse to `-` instead: the pane stays
+ *  recognisable and the caller's own `id` is left untouched. */
+const canvasPaneNameFor = (id: string): string => {
+  const raw = String(id);
+  const safe = raw.replace(/[^a-zA-Z0-9_-]+/g, "-");
+  if (safe !== raw) {
+    log.warn(`createCanvas id normalised for injection safety: "${raw}" -> "${safe}"`);
+  }
+  return `${CANVAS_PANE_PREFIX}${safe}`;
+};
 
 class LayerFactory {
   private deps: LayerFactoryDeps;
@@ -295,7 +311,7 @@ class LayerFactory {
       meta,
     } = opts.content;
 
-    const paneName = `${CANVAS_PANE_PREFIX}${opts.id}`;
+    const paneName = canvasPaneNameFor(opts.id);
     const { pane } = panes.ensurePane(paneName, false);
 
     const canvas = dom.el("canvas", {

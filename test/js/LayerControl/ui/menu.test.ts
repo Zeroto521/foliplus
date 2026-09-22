@@ -373,6 +373,35 @@ describe("LayerUI menu", () => {
     });
   });
 
+  // ─────────────────── layer without a bounds carrier ───────────────────
+
+  describe("focus-layer menu item when the surface has no bounds carrier", () => {
+    // A layer that is visible and configurable but has no geographic extent to
+    // zoom to (a MarkerCluster group, a canvas without a `getBounds` provider).
+    // Focus must be disabled with the reason as its tooltip, while the Style
+    // entry stays enabled — the capability gate is per dimension, not a blanket
+    // "this layer is broken".
+    it("disables focus with the no-bounds tooltip and keeps Style enabled", () => {
+      const layerInfo = manager.layerRegistry.get("overlay1")!;
+      ui.m.surfaceFor(layerInfo).capabilities.bounds = false;
+
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+
+      const focusLi = item.querySelector(
+        ".foliplus-layer-more-menu li[data-action='focus-layer']",
+      ) as HTMLElement;
+      expect(focusLi.getAttribute("disabled")).toBe("disabled");
+      expect(focusLi.getAttribute("title")).toBe("LayerControl.focus_layer_no_bounds");
+
+      const styleLi = item.querySelector(
+        ".foliplus-layer-more-menu li[data-action='style-layer']",
+      ) as HTMLElement;
+      expect(styleLi.getAttribute("aria-disabled")).not.toBe("true");
+      ui.closeMoreMenu();
+    });
+  });
+
   // ─────────────────── rename ───────────────────
 
   describe("more button keyboard shortcut", () => {
