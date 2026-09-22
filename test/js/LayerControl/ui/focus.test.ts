@@ -6,9 +6,9 @@ import {
   computeLayerBounds,
   drawFocusMask,
   drawFocusRect,
+  focusDisabledLocaleKey,
   focusDisabledReason,
   highlightFocusedRow,
-  isFocusLayerDisabled,
   registerAutoCancel,
   showFocusDisabledHint,
   toggleFocusedLayer,
@@ -1642,7 +1642,7 @@ describe("LayerUI focus", () => {
       ),
     ).filter(el => !el.classList.contains(CONST.CLASSES.COLOR_ITEM));
 
-  describe("isFocusLayerDisabled() / focusDisabledReason()", () => {
+  describe("focusDisabledReason()", () => {
     const row = (
       opts: {
         color?: boolean;
@@ -1664,15 +1664,9 @@ describe("LayerUI focus", () => {
       return item;
     };
 
-    it("disables color-picker rows, basemaps and hidden rows", () => {
-      expect(isFocusLayerDisabled(ui, row({ color: true }))).toBe(true);
-      expect(isFocusLayerDisabled(ui, row({ type: CONST.GROUP.BASE }))).toBe(true);
-      expect(isFocusLayerDisabled(ui, row({ checked: false }))).toBe(true);
-    });
-
-    it("enables a visible row, and treats a row without a checkbox as enabled", () => {
-      expect(isFocusLayerDisabled(ui, row({ checked: true }))).toBe(false);
-      expect(isFocusLayerDisabled(ui, row())).toBe(false);
+    it("returns undefined for a visible row, and for a row without a checkbox", () => {
+      expect(focusDisabledReason(ui, row({ checked: true }))).toBeUndefined();
+      expect(focusDisabledReason(ui, row())).toBeUndefined();
     });
 
     it("returns 'base' for a color-picker or basemap row", () => {
@@ -1692,7 +1686,6 @@ describe("LayerUI focus", () => {
         capabilities: { bounds: false } as never,
       });
       expect(focusDisabledReason(ui, item)).toBe("no_bounds");
-      expect(isFocusLayerDisabled(ui, item)).toBe(true);
     });
 
     it("returns undefined for a row whose surface has bounds", () => {
@@ -1703,14 +1696,18 @@ describe("LayerUI focus", () => {
         capabilities: { bounds: true } as never,
       });
       expect(focusDisabledReason(ui, item)).toBeUndefined();
-      expect(isFocusLayerDisabled(ui, item)).toBe(false);
     });
 
     it("returns undefined when no layer is registered (first post-attach pass)", () => {
       const item = row({ checked: true, layerId: "unknown" });
       vi.spyOn(ui.m.layerRegistry, "get").mockReturnValue(undefined);
       expect(focusDisabledReason(ui, item)).toBeUndefined();
-      expect(isFocusLayerDisabled(ui, item)).toBe(false);
+    });
+
+    it("maps each reason to the locale key its tooltip and hint read", () => {
+      expect(focusDisabledLocaleKey("base")).toBe("focus_layer_base");
+      expect(focusDisabledLocaleKey("hidden")).toBe("focus_layer_hidden");
+      expect(focusDisabledLocaleKey("no_bounds")).toBe("focus_layer_no_bounds");
     });
 
     it("shows the localized hint for each disabled reason", () => {

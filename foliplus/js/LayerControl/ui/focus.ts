@@ -17,11 +17,20 @@ import { getActiveLayerItem } from "./keyboard.js";
  *  surface cannot focus. `undefined` means focus is available. */
 type FocusDisabledReason = "hidden" | "base" | "no_bounds" | undefined;
 
-const FOCUS_DISABLED_LOCALE: Record<Exclude<FocusDisabledReason, undefined>, string> = {
+/** A reason focus is off — every value but "focus is available". */
+type FocusDisabled = Exclude<FocusDisabledReason, undefined>;
+
+const FOCUS_DISABLED_LOCALE: Record<FocusDisabled, string> = {
   hidden: "focus_layer_hidden",
   base: "focus_layer_base",
   no_bounds: "focus_layer_no_bounds",
 };
+
+/** The locale key explaining `reason`. Both the ⋮ menu item's title and the
+ *  hint shown on the keyboard / double-click paths read it, so the two can
+ *  never drift apart. */
+const focusDisabledLocaleKey = (reason: FocusDisabled): string =>
+  FOCUS_DISABLED_LOCALE[reason];
 
 /** Why the ⋮ menu / keyboard / double-click path should not focus `item`.
  *  Basemaps (no useful extent), hidden rows (nothing to show), and surfaces
@@ -41,35 +50,13 @@ const focusDisabledReason = (ui: LayerUI, item: HTMLElement): FocusDisabledReaso
   return undefined;
 };
 
-/** Basemaps / color pickers cannot be focused —hint instead of silence. */
-const showBaseFocusHint = (ui: LayerUI): void => {
+/** Show the hint that matches a `focusDisabledReason` value. */
+const showFocusDisabledHint = (ui: LayerUI, reason: FocusDisabled): void => {
   ui.m.map.foliplus!.showHint(
     ui.conf.name,
-    ui.T("focus_layer_base"),
+    ui.T(focusDisabledLocaleKey(reason)),
     HINT_DURATION.SHORT,
   );
-};
-
-/** Show the hint text that matches a `focusDisabledReason` value. */
-const showFocusDisabledHint = (
-  ui: LayerUI,
-  reason: Exclude<FocusDisabledReason, undefined>,
-): void => {
-  ui.m.map.foliplus!.showHint(
-    ui.conf.name,
-    ui.T(FOCUS_DISABLED_LOCALE[reason]),
-    HINT_DURATION.SHORT,
-  );
-};
-
-/** Every registered layer is linked to a Leaflet layer (findLayer resolvable).
- *  False during the first post-attach pass, when folium layers may not be in
- *  the registry yet. */
-/** Focus-layer is disabled for basemaps (no useful extent), rows whose
- *  surface reports no geographic-bounds carrier, and hidden rows (nothing
- *  to show). The menu item carries the not-allowed cursor. */
-const isFocusLayerDisabled = (ui: LayerUI, item: HTMLElement): boolean => {
-  return focusDisabledReason(ui, item) !== undefined;
 };
 
 /** Toggle visibility of the currently focused layer. */
@@ -123,11 +110,7 @@ const focusLayer = (ui: LayerUI, layerId: string) => {
     'input[type="checkbox"]',
   ) as HTMLInputElement | null;
   if (checkbox && !checkbox.checked) {
-    ui.m.map.foliplus!.showHint(
-      ui.conf.name,
-      ui.T("focus_layer_hidden"),
-      HINT_DURATION.SHORT,
-    );
+    showFocusDisabledHint(ui, "hidden");
     return;
   }
 
@@ -146,11 +129,7 @@ const focusLayer = (ui: LayerUI, layerId: string) => {
   // without going through `focusDisabledReason`, so the hint is the honest
   // feedback rather than a silent no-op.
   if (!bounds || !bounds.isValid()) {
-    ui.m.map.foliplus!.showHint(
-      ui.conf.name,
-      ui.T("focus_layer_no_bounds"),
-      HINT_DURATION.SHORT,
-    );
+    showFocusDisabledHint(ui, "no_bounds");
     return;
   }
 
@@ -564,10 +543,9 @@ const clearFocusedRowHighlight = (ui: LayerUI): void => {
 };
 
 export {
+  focusDisabledLocaleKey,
   focusDisabledReason,
-  showBaseFocusHint,
   showFocusDisabledHint,
-  isFocusLayerDisabled,
   toggleFocusedLayer,
   focusLayer,
   isFocusing,

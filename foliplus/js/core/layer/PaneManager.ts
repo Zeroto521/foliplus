@@ -25,8 +25,10 @@ const log = createLogger("PaneManager");
 
 /** The four legal `PaneSpec.role` values — anything else gets dropped at
  *  `registerPaneSpecs` rather than flowing into z arithmetic (where an
- *  unknown value silently prices like "base" and desynchronises a stack). */
-const PANE_ROLES: readonly PaneRole[] = ["base", "sub", "annotation", "preview"];
+ *  unknown value silently prices like "base" and desynchronises a stack).
+ *  `as const satisfies` catches a new `PaneRole` value that was added to
+ *  the union type but not to this runtime mirror. */
+const PANE_ROLES = ["base", "sub", "annotation", "preview"] as const satisfies readonly PaneRole[];
 
 /** A Leaflet Path layer with the mutable option surface we set on. */
 type PathWithPane = L.Path & { options: L.PathOptions & { pane?: string } };

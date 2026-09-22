@@ -35,6 +35,24 @@ import { zFor } from "./z.js";
 
 const log = createLogger("LayerSurface");
 
+/** Normalise a caller-declared pane name to the value this surface will
+ *  actually build with. A name outside `PANE_NAME_PATTERN` is not a pane we
+ *  can create — it lands in the DOM as a Leaflet pane id and class — so it
+ *  counts as "not declared" and the constructor's fallback synthesis takes
+ *  over. The constructor and `matches` both go through here, so a
+ *  re-registration is always compared against the value the surface was
+ *  really built with, not the raw string that was handed in. */
+const declaredPaneName = (raw: string | null | undefined): string | null =>
+  raw != null && PANE_NAME_PATTERN.test(raw) ? raw : null;
+
+/** Whether a layer carries its own `getBounds()`. Presence of the method, not
+ *  its answer: the answer depends on what the layer currently holds, while
+ *  `capabilities.bounds` is a static declaration made at register time. */
+const hasBoundsProvider = (layer: L.Layer | null | undefined): boolean =>
+  layer != null &&
+  typeof (layer as L.Layer & { getBounds?: () => L.LatLngBounds }).getBounds ===
+    "function";
+
 /** Options a surface is resolved from — the register-time declaration only. */
 interface SurfaceOpts {
   id: string;
@@ -77,6 +95,11 @@ interface SurfaceDeclaration {
   layer: L.Layer | null;
   paneName: string | null;
   canvas: boolean;
+  /** Bounds provider the caller declared. Part of the declaration because
+   *  `capabilities.bounds` is derived from it — a surface reused across a
+   *  re-registration that gained or lost a provider would otherwise keep
+   *  answering with the old provider's absence. */
+  getBounds: (() => L.LatLngBounds | null) | null;
 }
 
 class LayerSurface implements LayerSurfaceContract {
@@ -115,8 +138,7 @@ class LayerSurface implements LayerSurfaceContract {
     // not declared — the fallback synthesis below then gives the layer a
     // stamped pane that is provably safe (FALLBACK_PANE_PREFIX + a number).
     const declaredRaw = opts.paneName ?? null;
-    const declared =
-      declaredRaw != null && PANE_NAME_PATTERN.test(declaredRaw) ? declaredRaw : null;
+    const declared = declaredPaneName(declaredRaw);
     if (declaredRaw != null && declared === null) {
       log.warn(
         `LayerSurface rejected paneName for injection safety: ${declaredRaw}; ` +
@@ -124,7 +146,12 @@ class LayerSurface implements LayerSurfaceContract {
       );
     }
     const layer = opts.layer;
-    this.spec = { layer, paneName: declared, canvas: opts.canvas === true };
+    this.spec = {
+      layer,
+      paneName: declared,
+      canvas: opts.canvas === true,
+      getBounds: opts.getBounds ?? null,
+    };
     // Capabilities are resolved here, before any early return below, so every
     // branch — declared, synthesized, native — reports the same way. A GridLayer
     // or ImageOverlay gets "native" regardless of whether a pane is allocated.
@@ -296,7 +323,13 @@ class LayerSurface implements LayerSurfaceContract {
    *  the same live layer object and the same declared panes. Re-registration is
    *  how a caller says "this layer's content changed" — when the declaration did
    *  not change too, rebuilding would re-walk an already-pinned tree for
-   *  nothing. */
+   *  nothing.
+   *
+   *  Every input `capabilities` is derived from belongs here: a declaration
+   *  that gained or lost a bounds provider describes a different face (the UI
+   *  decides whether to offer focus from that flag), and the pane name is
+   *  compared as the surface normalised it, so a rejected name does not read
+   *  as "changed" on every pass. */
   matches(opts: SurfaceOpts): boolean {
     const specs = opts.paneSpecs ?? [];
     // `role` and `order` are part of the declaration, not decoration: a spec
@@ -316,8 +349,9 @@ class LayerSurface implements LayerSurfaceContract {
       );
     return (
       this.spec.layer === opts.layer &&
-      this.spec.paneName === (opts.paneName ?? null) &&
+      this.spec.paneName === declaredPaneName(opts.paneName) &&
       this.spec.canvas === Boolean(opts.canvas) &&
+      this.spec.getBounds === (opts.getBounds ?? null) &&
       samePanes
     );
   }
@@ -474,9 +508,7 @@ const detectCapabilities = (opts: SurfaceOpts): LayerCapabilities => {
       opacity: "native",
       zoomRange,
       relocatable: true,
-      bounds:
-        typeof (layer as L.Layer & { getBounds?: () => L.LatLngBounds }).getBounds ===
-        "function",
+      bounds: hasBoundsProvider(layer),
     };
   }
 
@@ -491,15 +523,11 @@ const detectCapabilities = (opts: SurfaceOpts): LayerCapabilities => {
     opts.canvas;
 
   if (hasContentPanes) {
-    const layerBounds =
-      layer != null &&
-      typeof (layer as L.Layer & { getBounds?: () => L.LatLngBounds }).getBounds ===
-        "function";
     return {
       opacity: "pane",
       zoomRange: "pane",
       relocatable: true,
-      bounds: Boolean(opts.getBounds) || layerBounds,
+      bounds: Boolean(opts.getBounds) || hasBoundsProvider(layer),
     };
   }
 
@@ -511,9 +539,7 @@ const detectCapabilities = (opts: SurfaceOpts): LayerCapabilities => {
       opacity: "pane",
       zoomRange: "pane",
       relocatable: true,
-      bounds:
-        typeof (layer as L.Layer & { getBounds?: () => L.LatLngBounds }).getBounds ===
-        "function",
+      bounds: hasBoundsProvider(layer),
     };
   }
 
