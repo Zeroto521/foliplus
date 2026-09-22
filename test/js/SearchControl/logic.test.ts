@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { markRequest } from "#core/geocode/index.js";
-import { AUTOCOMPLETE, HISTORY, MODE, RECORD_VERSION, ZOOM } from "#foliplus/SearchControl/const.js";
+import {
+  AUTOCOMPLETE,
+  HISTORY,
+  MODE,
+  RECORD_VERSION,
+  ZOOM,
+} from "#foliplus/SearchControl/const.js";
 import {
   addHistoryEntry,
   attachSearchDelIcon,

@@ -83,7 +83,9 @@ describe("SearchControl history — versioned envelope", () => {
       // that path.
       window.localStorage.setItem(
         HISTORY.STORAGE_KEY,
-        JSON.stringify([{ type: MODE.ADDR, addrDisplay: "Paris", lng: 0, lat: 0, ts: 1000 }]),
+        JSON.stringify([
+          { type: MODE.ADDR, addrDisplay: "Paris", lng: 0, lat: 0, ts: 1000 },
+        ]),
       );
       const [entry] = loadHistory();
       expect(entry.query).toBe("");
@@ -148,7 +150,9 @@ describe("SearchControl history — versioned envelope", () => {
     it("an old bare-array record is transparently re-wrapped on the next save", () => {
       window.localStorage.setItem(
         HISTORY.STORAGE_KEY,
-        JSON.stringify([{ type: MODE.ADDR, addrDisplay: "Paris", lng: 0, lat: 0, ts: 1000 }]),
+        JSON.stringify([
+          { type: MODE.ADDR, addrDisplay: "Paris", lng: 0, lat: 0, ts: 1000 },
+        ]),
       );
       // Read: legacy shape is unwrapped, then re-persisted as the new envelope.
       const loaded = loadHistory();
