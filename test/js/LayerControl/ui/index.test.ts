@@ -8,6 +8,7 @@ import { LayerManager } from "#foliplus/LayerControl/manager.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import {
   GridLayer,
+  TileLayer,
   findItem,
   initFixture,
   installLeafletGlobals,
@@ -324,5 +325,76 @@ describe("LayerUI zoom-range delegates", () => {
     input.dispatchEvent(event);
     // Also call the wrapper directly to cover the delegate line.
     expect(() => ui.handleInput(event)).not.toThrow();
+  });
+});
+
+describe("LayerUI deselectAllBaseMaps", () => {
+  let manager: LayerManager;
+  let map: any;
+
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  /** Two basemaps, so there is something to exclude and something to clear. */
+  const twoBases = () => {
+    ({ manager, map } = initFixture({
+      data: [
+        {
+          id: "B1",
+          name: "B1",
+          isBase: true,
+          layer: new TileLayer(),
+          paneName: "tilePane",
+        },
+        {
+          id: "B2",
+          name: "B2",
+          isBase: true,
+          layer: new TileLayer(),
+          paneName: "tilePane",
+        },
+      ],
+    }));
+    return manager.ui!;
+  };
+
+  it("clears every base but the excluded one, repaints the row, and persists it", () => {
+    const ui = twoBases();
+    const b1 = ui.m.layers.find(li => li.id === "B1")!;
+
+    ui.deselectAllBaseMaps(ui.m.layers.findIndex(li => li.id === "B2"));
+
+    expect(map.removeLayer).toHaveBeenCalledWith(b1.layer);
+    expect(ui.hiddenIds.has("B1")).toBe(true);
+    expect(ui.hiddenIds.has("B2")).toBe(false);
+    const row = findItem(ui, "B1");
+    expect(
+      row.querySelector<HTMLInputElement>('input[type="checkbox"]').checked,
+    ).toBe(false);
+    expect(row.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
+  });
+
+  it("still removes an already-hidden base, and skips a row that is gone", () => {
+    // A base the user already hid contributes no checkbox state of its own, and
+    // its row may no longer be on the panel — neither may stop the map write.
+    const ui = twoBases();
+    const b1 = ui.m.layers.find(li => li.id === "B1")!;
+    ui.userOverrides["B1"] = ["visible"];
+    ui.hiddenIds.add("B1");
+    findItem(ui, "B1").remove();
+
+    ui.deselectAllBaseMaps(-1);
+
+    expect(map.removeLayer).toHaveBeenCalledWith(b1.layer);
+    expect(ui.hiddenIds.has("B1")).toBe(true);
+    expect(ui.hiddenIds.has("B2")).toBe(true);
   });
 });

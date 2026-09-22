@@ -7,6 +7,7 @@ import {
   getLayerItems,
   handleChange,
   handleInput,
+  syncToggleAll,
   syncVisibility,
   toggleAll,
 } from "#foliplus/LayerControl/ui/visibility.js";
@@ -218,6 +219,25 @@ describe("applyVisibility", () => {
     expect(bare.setVisible("nope", false)).toBe(false);
     expect(map.addLayer).not.toHaveBeenCalled();
     expect(map.removeLayer).not.toHaveBeenCalled();
+  });
+
+  it("still applies the transition when the row is no longer on the panel", () => {
+    // `setVisible` reaches in by id, so the row may be absent — a detached
+    // panel, or one that has not rendered this layer yet. The map write and the
+    // persisted choice must not depend on the row being there.
+    const layer = layerFixture();
+    manager.registerLayer({ id: "ov", name: "Overlay", isBase: false, layer });
+    const row = ui.uiContainer.querySelector<HTMLElement>(
+      `[${CONST.DATA.LAYER_ID}="ov"]`,
+    );
+    expect(row).not.toBeNull();
+    row!.remove();
+
+    expect(applyVisibility(ui, "ov", false)).toBe(true);
+
+    expect(map.removeLayer).toHaveBeenCalledWith(layer);
+    expect(ui.hiddenIds.has("ov")).toBe(true);
+    expect(manager.layerRegistry.get("ov")?.visible).toBe(false);
   });
 
   it("persists the hidden set so the choice survives a reload", () => {
@@ -703,6 +723,103 @@ describe("DOM order diverges from registry order", () => {
   });
 });
 
+describe("toggleAll base group", () => {
+  // The base group is the one case where getLayerItems also matches the color
+  // row — it carries the layer-item class and data-layer-type="base" — so a
+  // base sweep walks a row that holds a color input instead of a checkbox.
+  const baseFixture = () => {
+    const map = {
+      on: vi.fn(),
+      off: vi.fn(),
+      invalidateSize: vi.fn(),
+      getContainer: vi.fn(() => document.createElement("div")),
+      getPane: vi.fn(() => document.createElement("div")),
+      createPane: vi.fn(() => {
+        const p = document.createElement("div");
+        p.classList.add("foliplus-layer-pane");
+        return p;
+      }),
+      _layers: new Map<unknown, unknown>(),
+      hasLayer: vi.fn((layer: unknown) => map._layers.has(layer)),
+      addLayer: vi.fn((layer: unknown) => {
+        map._layers.set(layer, layer);
+      }),
+      removeLayer: vi.fn((layer: unknown) => {
+        map._layers.delete(layer);
+      }),
+      _paneRenderers: {},
+      attributionControl: { _attributions: {}, _update: vi.fn() },
+    } as FixtureMap & Record<string, unknown>;
+
+    const layers: ConstructorParameters<typeof LayerManager>[1] = [
+      { id: "B1", name: "Base 1", isBase: true, layer: layerFixture() },
+      // Canvas-style base: onToggle only, no Leaflet layer to add or remove.
+      { id: "B2", name: "Base 2", isBase: true, onToggle: vi.fn() },
+    ];
+    const manager = new LayerManager(map, layers);
+    manager.ui = new LayerUI(manager);
+    manager.attachUI(document.createElement("div"));
+    return { map, manager, ui: manager.ui as LayerUI };
+  };
+
+  let map: FixtureMap;
+  let manager: LayerManager;
+  let ui: LayerUI;
+
+  beforeEach(() => {
+    window.localStorage.clear();
+    installLeafletGlobals();
+    window.CONF = { ...window.CONF, name: "LayerControl", locale_code: "en" };
+    ({ map, manager, ui } = baseFixture());
+    document.body.innerHTML = "";
+  });
+
+  afterEach(() => {
+    manager.ui = null;
+    manager.destroy();
+    document.body.innerHTML = "";
+    vi.restoreAllMocks();
+  });
+
+  it("skips a row that carries no checkbox instead of dragging it into the sweep", () => {
+    // The base query matches the color row too, and its only input is a color
+    // picker. It is the row that has no checkbox — a bare null check is what
+    // keeps the sweep from typing the whole panel row.
+    const bare = document.createElement("div");
+    bare.className = `${CONST.CLASSES.LAYER_ITEM} ${CONST.CLASSES.COLOR_ITEM}`;
+    bare.setAttribute("data-layer-type", CONST.GROUP.BASE);
+    ui.uiContainer.appendChild(bare);
+
+    expect(() => toggleAll(ui, CONST.GROUP.BASE, true)).not.toThrow();
+    expect(bare.querySelector("input")).toBeNull();
+    expect(ui.hiddenIds.size).toBe(0);
+  });
+
+  it("runs every branch of the sweep: real layer, canvas-only base, and the callback", () => {
+    const onToggle = manager.layerRegistry.get("B2")!.onToggle!;
+
+    toggleAll(ui, CONST.GROUP.BASE, true);
+
+    expect(map.addLayer).toHaveBeenCalledWith(manager.layerRegistry.get("B1")!.layer);
+    // B2 has no Leaflet layer: the callback is its whole transition.
+    expect(onToggle).toHaveBeenCalledWith(true);
+    expect(onToggle).toHaveBeenCalledTimes(1);
+    expect(map.removeLayer).not.toHaveBeenCalled();
+    expect(manager.layerRegistry.get("B1")?.visible).toBe(true);
+    expect(manager.layerRegistry.get("B2")?.visible).toBe(true);
+  });
+
+  it("hides the basemap while a base group selection is made", () => {
+    ui.toggleAll(CONST.GROUP.BASE, false);
+    expect(ui.isColorActive).toBe(true);
+
+    // Selection, not clearing: the color layer is a stand-in for the absence
+    // of a base, so re-selecting one hides it again.
+    ui.toggleAll(CONST.GROUP.BASE, true);
+    expect(ui.isColorActive).toBe(false);
+  });
+});
+
 describe("unit helpers", () => {
   const makeUi = (): LayerUI => {
     const uiContainer = document.createElement("div");
@@ -761,5 +878,21 @@ describe("unit helpers", () => {
 
     ui.toggleAll(CONST.GROUP.OVERLAY, false);
     boxes().forEach(b => expect(b.title).toContain("select_tooltip"));
+  });
+
+  it("syncToggleAll bails when the group header has no toggle-all input", () => {
+    // The header row resolves but carries no [data-role="toggle-all"] input:
+    // there is nothing to paint, so the sync must bail rather than write into a
+    // null element.
+    const uiContainer = document.createElement("div");
+    uiContainer.innerHTML =
+      `<div class="foliplus-layer-toggle-all" data-group="${CONST.GROUP.OVERLAY}"></div>`;
+    const ui = {
+      uiContainer,
+      m: { layerRegistry: { get: () => undefined } },
+      T: (k: string) => k,
+    } as unknown as LayerUI;
+
+    expect(() => syncToggleAll(ui, CONST.GROUP.OVERLAY)).not.toThrow();
   });
 });
