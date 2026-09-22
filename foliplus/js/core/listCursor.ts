@@ -48,6 +48,16 @@ let listCursorSeq = 0;
 
 const nextId = (prefix: string) => `${prefix}-${++listCursorSeq}`;
 
+const isFormInput = (el: Element): boolean => {
+  const tag = el.tagName.toLowerCase();
+  if (tag === "textarea" || tag === "select") return true;
+  if (tag === "input") {
+    const type = (el as HTMLInputElement).type?.toLowerCase();
+    return type !== "checkbox" && type !== "radio" && type !== "hidden";
+  }
+  return false;
+};
+
 class ListCursor {
   private root: HTMLElement;
   private itemSelector: string;
@@ -159,6 +169,17 @@ class ListCursor {
 
   /** Arrow key handler for `keydown` on `target`. Returns true if handled. */
   handleKey(event: KeyboardEvent): boolean {
+    if (
+      (event.key === "ArrowDown" ||
+        event.key === "ArrowUp" ||
+        event.key === "Home" ||
+        event.key === "End") &&
+      // document.activeElement is non-null in practice (jsdom + all browsers
+      // fall back to body); see isFormInput.
+      isFormInput(document.activeElement as Element)
+    ) {
+      return false;
+    }
     if (event.key === "ArrowDown") {
       event.preventDefault();
       this.move(1);

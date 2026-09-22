@@ -880,5 +880,109 @@ describe("LayerUI keyboard", () => {
     });
   });
 
+  describe("form controls inside floating panels", () => {
+    // Arrow keys on a range slider inside the style panel must not move the
+    // row keyboard cursor. The native slider behavior is more useful than
+    // jumping to the next layer row.
+
+    beforeEach(() => {
+      // Seed the field cache so the style panel builds (same recipe as style.test.ts).
+      ui.fieldCache.set("overlay1", [{ name: "count", numeric: true }]);
+    });
+
+    it("ArrowDown on a range slider does not move the cursor or preventDefault", () => {
+      const item = findItem(ui, "overlay1");
+      ui.openStylePanel("overlay1");
+      const panel = item.querySelector(`.${CONST.CLASSES.STYLE_PANEL}`)!;
+      const slider = panel.querySelector(
+        `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MIN}`,
+      ) as HTMLInputElement;
+
+      slider.focus();
+      const event = new KeyboardEvent("keydown", {
+        key: "ArrowDown",
+        bubbles: true,
+        cancelable: true,
+      });
+      slider.dispatchEvent(event);
+
+      expect(event.defaultPrevented).toBe(false);
+      expect(ui.activeIdx).toBeNull();
+    });
+
+    it("ArrowUp on a range slider does not move the cursor or preventDefault", () => {
+      const item = findItem(ui, "overlay1");
+      ui.openStylePanel("overlay1");
+      const panel = item.querySelector(`.${CONST.CLASSES.STYLE_PANEL}`)!;
+      const slider = panel.querySelector(
+        `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MAX}`,
+      ) as HTMLInputElement;
+
+      slider.focus();
+      const event = new KeyboardEvent("keydown", {
+        key: "ArrowUp",
+        bubbles: true,
+        cancelable: true,
+      });
+      slider.dispatchEvent(event);
+
+      expect(event.defaultPrevented).toBe(false);
+      expect(ui.activeIdx).toBeNull();
+    });
+
+    it("ArrowDown on a range slider does not move the cursor after a row was clicked first", () => {
+      // "Click row → focus style-panel slider → press ArrowDown" must not
+      // fall through to any list-cursor path, whether via the central
+      // dispatcher or a direct keydown listener on the panel. This is the
+      // combined scenario the standalone ListCursor guard protects against.
+      const indexFor = (id: string) => ui.getNavigableItems().indexOf(findItem(ui, id));
+      const item = findItem(ui, "overlay1");
+      ui.setActiveItem(indexFor("overlay1"));
+      const rowIdx = ui.activeIdx;
+      expect(ui.listCursor?.index).toBe(rowIdx);
+      expect(rowIdx).not.toBeNull();
+
+      ui.openStylePanel("overlay1");
+      const panel = item.querySelector(`.${CONST.CLASSES.STYLE_PANEL}`)!;
+      const slider = panel.querySelector(
+        `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MIN}`,
+      ) as HTMLInputElement;
+
+      slider.focus();
+      const event = new KeyboardEvent("keydown", {
+        key: "ArrowDown",
+        bubbles: true,
+        cancelable: true,
+      });
+      slider.dispatchEvent(event);
+
+      expect(event.defaultPrevented).toBe(false);
+      expect(ui.activeIdx).toBe(rowIdx);
+      expect(ui.listCursor?.index).toBe(rowIdx);
+    });
+
+    it("Escape on a range slider still closes the style panel", () => {
+      const item = findItem(ui, "overlay1");
+      ui.openStylePanel("overlay1");
+      expect(ui.stylePanelLayerId).toBe("overlay1");
+
+      const panel = item.querySelector(`.${CONST.CLASSES.STYLE_PANEL}`)!;
+      const slider = panel.querySelector(
+        `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MIN}`,
+      ) as HTMLInputElement;
+
+      slider.focus();
+      slider.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "Escape",
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+
+      expect(ui.stylePanelLayerId).toBeNull();
+    });
+  });
+
   // ─────────────────── auto-cancel on map move/zoom ───────────────────
 });
