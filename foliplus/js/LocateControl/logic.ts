@@ -3,12 +3,8 @@ import { fromWgs84 } from "#core/geo/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { createLocationMarker } from "#core/locationMarker.js";
 import { guardBlocked } from "#core/mode.js";
-import {
-  DEL_ICON_MARKER_ANCHOR,
-  attachDelClick,
-  bindDelIconToPopup,
-  makeDelIcon,
-} from "#common/delicon.js";
+import { DEL_ICON_MARKER_ANCHOR } from "#common/delicon.js";
+import { mountDelIcon } from "#common/deliconMount.js";
 import { createScopedTranslator, createTranslator } from "#common/locale.js";
 
 const _ = createTranslator(CONF);
@@ -61,15 +57,16 @@ const placeMarker = (ctrl: LocateCtrl, lng: number, lat: number, titleKey: strin
 
   // Floating ✕ next to the pin: shown while the popup is open (popupopen),
   // hidden otherwise (popupclose), matching MeasureControl's marker UX.
-  ctrl.delIcon = makeDelIcon([lat, lng], {
-    title: _("foliplus.close_label"),
-    iconAnchor: DEL_ICON_MARKER_ANCHOR, // at the pin's bottom tip
-  });
-  map.addLayer(ctrl.delIcon);
-
-  const delIcon = ctrl.delIcon;
-  attachDelClick(delIcon, () => removeMarker(ctrl));
-  bindDelIconToPopup(ctrl.marker, delIcon);
+  ctrl.delIcon = mountDelIcon(
+    [lat, lng],
+    {
+      title: _("foliplus.close_label"),
+      iconAnchor: DEL_ICON_MARKER_ANCHOR, // at the pin's bottom tip
+    },
+    m => map.addLayer(m),
+    () => removeMarker(ctrl),
+    ctrl.marker,
+  );
 };
 
 /** Locate me via the browser geolocation API. */
