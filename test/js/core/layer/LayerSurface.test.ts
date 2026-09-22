@@ -872,6 +872,31 @@ describe("LayerSurface capabilities", () => {
     expect(surface.capabilities.bounds).toBe(false);
   });
 
+  it("reports bounds false when paneSpecs is an empty array (partial branch)", () => {
+    // Covers the `opts.paneSpecs && opts.paneSpecs.length > 0` condition where
+    // paneSpecs is truthy (non-null) but empty — the short-circuit does NOT
+    // fire, and the code falls through to the `if (layer)` branch.
+    const { map, host } = makeMap();
+    const surface = new LayerSurface(host, {
+      id: "empty-specs",
+      layer: new Path() as unknown as L.Layer,
+      paneSpecs: [],
+    });
+    expect(surface.capabilities.bounds).toBe(false);
+  });
+
+  it("reports bounds true when paneSpecs is empty but the layer has getBounds", () => {
+    const { map, host } = makeMap();
+    const path = new Path();
+    Object.assign(path, { getBounds: vi.fn() });
+    const surface = new LayerSurface(host, {
+      id: "empty-specs-bounds",
+      layer: path as unknown as L.Layer,
+      paneSpecs: [],
+    });
+    expect(surface.capabilities.bounds).toBe(true);
+  });
+
   it("reports bounds false when there is no layer and no canvas", () => {
     const { map, host } = makeMap();
     const surface = new LayerSurface(host, {
