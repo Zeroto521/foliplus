@@ -68,6 +68,7 @@
 - `HeatmapControl`: drop the Apply/Confirm button — every control re-renders the map on change, so the panel is always live and only Reset remains ([#312](https://github.com/Zeroto521/foliplus/pull/312))
 - `LayerControl`/`HeatmapControl`: `createCanvas` mounts on its own pane so z-order, focus, and export share the pane model; drop `onZIndex` ([#350](https://github.com/Zeroto521/foliplus/pull/350), [#388](https://github.com/Zeroto521/foliplus/pull/388))
 - `core/leafletAdapter`: single module for every Leaflet-private reach — a Leaflet upgrade is a one-file change, and a static guard test fails any other module naming those fields ([#371](https://github.com/Zeroto521/foliplus/pull/371), [#374](https://github.com/Zeroto521/foliplus/pull/374), [#386](https://github.com/Zeroto521/foliplus/pull/386), [#387](https://github.com/Zeroto521/foliplus/pull/387))
+- `LayerControl`: a layer row is painted from a pure projection of that layer's intent and derived state — every write site funnels through one writer instead of setting checkbox, highlight, count, type icon and tooltip by hand, so a row cannot disagree with the state that produced it
 
 ### Removed
 
@@ -97,6 +98,7 @@
 - `LayerControl`: a canvas inside a foliplus pane is reachable by the pointer — `pointer-events` inherits from the pane's `none` and no rule re-enabled it, so a canvas data layer could not be clicked ([#377](https://github.com/Zeroto521/foliplus/pull/377))
 - `LayerControl`: a late-registered layer no longer loses its stored opacity, zoom range, and visibility on reload — Heatmap and Measure register after the panel attaches, so the sweep read their missing registry entries as deleted and wrote it back; only an explicit delete now drops stored values ([#390](https://github.com/Zeroto521/foliplus/pull/390), [#393](https://github.com/Zeroto521/foliplus/pull/393))
 - `LayerControl`: layer rows are now addressed by `data-layer-id` instead of a positional index, so a click, toggle-all or drag always acts on the row's own layer; `data-index` is retired ([#397](https://github.com/Zeroto521/foliplus/pull/397))
+- `LayerControl`: a stored zoom range that hides a layer no longer un-checks its row — the checkbox reads the user's own choice while the row highlight reads what is actually on screen, so a layer the policy hid stays checked instead of looking like the user hid it
 
 ## [v0.3.0] (2026-08-02)
 

@@ -2,11 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { LayerInfo } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
-import {
-  displayName,
-  initLayerItem,
-  renderInitialList,
-} from "#foliplus/LayerControl/ui/list.js";
+import { initLayerItem, renderInitialList } from "#foliplus/LayerControl/ui/list.js";
+import { displayName } from "#foliplus/LayerControl/ui/rowView.js";
 import { initFixture } from "./fixture.js";
 
 const makeUi = () =>
