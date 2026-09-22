@@ -80,9 +80,6 @@ const isFormInput = (el: Element | null): boolean => {
     const type = (el as HTMLInputElement).type?.toLowerCase();
     return type !== "checkbox" && type !== "radio" && type !== "hidden";
   }
-  if (el.hasAttribute("contenteditable")) {
-    return el.getAttribute("contenteditable") !== "false";
-  }
   return false;
 };
 
