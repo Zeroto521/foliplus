@@ -4699,7 +4699,9 @@ class TestLayerControlBrowser:
             )
             assert not errors, f"JS errors: {errors}"
 
-    def test_zoom_range_zoomend_does_not_add_author_hidden_layer(self, browser, tmp_path):
+    def test_zoom_range_zoomend_does_not_add_author_hidden_layer(
+        self, browser, tmp_path
+    ):
         """Gate 1: a folium ``show=False`` layer stays off the map through a
         zoomend sweep.
 
@@ -4707,9 +4709,7 @@ class TestLayerControlBrowser:
         unconditionally added a layer the author left off the map, while the
         checkbox stayed unchecked. The one-way gate must leave it alone.
         """
-        fg = folium.FeatureGroup(
-            name="ZROffProbe", overlay=True, show=False
-        )
+        fg = folium.FeatureGroup(name="ZROffProbe", overlay=True, show=False)
         with use_page(self._make_page, browser, tmp_path, fg, slug="zr_off") as (
             page,
             errors,
@@ -4744,7 +4744,9 @@ class TestLayerControlBrowser:
             )
             assert not errors, f"JS errors: {errors}"
 
-    def test_zoom_range_reload_does_not_add_author_hidden_layer(self, browser, tmp_path):
+    def test_zoom_range_reload_does_not_add_author_hidden_layer(
+        self, browser, tmp_path
+    ):
         """Gate 2: a ``show=False`` layer with a stored zoomRange does not
         come back on the map after reload.
 
@@ -4761,9 +4763,7 @@ class TestLayerControlBrowser:
             attr="© OpenStreetMap",
             max_zoom=19,
         ).add_to(m)
-        folium.FeatureGroup(
-            name="ZROffReload", overlay=True, show=False
-        ).add_to(m)
+        folium.FeatureGroup(name="ZROffReload", overlay=True, show=False).add_to(m)
         _expand_panel(m)
 
         html_path = tmp_path / "test_zr_off_reload.html"
