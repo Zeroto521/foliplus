@@ -12,25 +12,51 @@ import * as CONST from "../const.js";
 import type { LayerUI } from "./index.js";
 import { getActiveLayerItem } from "./keyboard.js";
 
-/** Basemaps / color pickers cannot be focused —hint instead of silence. */
-const showBaseFocusHint = (ui: LayerUI): void => {
-  ui.m.map.foliplus!.showHint(
-    ui.conf.name,
-    ui.T("focus_layer_base"),
-    HINT_DURATION.SHORT,
-  );
+/** Why a row's focus action is off. Carried as the menu item's title and as
+ *  the hint text when a keyboard/double-click path tries to focus a row the
+ *  surface cannot focus. `undefined` means focus is available. */
+type FocusDisabledReason = "hidden" | "base" | "no_bounds" | undefined;
+
+/** A reason focus is off — every value but "focus is available". */
+type FocusDisabled = Exclude<FocusDisabledReason, undefined>;
+
+const FOCUS_DISABLED_LOCALE: Record<FocusDisabled, string> = {
+  hidden: "focus_layer_hidden",
+  base: "focus_layer_base",
+  no_bounds: "focus_layer_no_bounds",
 };
 
-/** Every registered layer is linked to a Leaflet layer (findLayer resolvable).
- *  False during the first post-attach pass, when folium layers may not be in
- *  the registry yet. */
-/** Focus-layer is disabled for basemaps (no useful extent) and hidden rows
- *  (nothing to show). The 鈰?menu item carries the not-allowed cursor. */
-const isFocusLayerDisabled = (ui: LayerUI, item: HTMLElement): boolean => {
-  if (item.classList.contains(CONST.CLASSES.COLOR_ITEM)) return true;
-  if (item.dataset.layerType === CONST.GROUP.BASE) return true;
+/** The locale key explaining `reason`. Both the ⋮ menu item's title and the
+ *  hint shown on the keyboard / double-click paths read it, so the two can
+ *  never drift apart. */
+const focusDisabledLocaleKey = (reason: FocusDisabled): string =>
+  FOCUS_DISABLED_LOCALE[reason];
+
+/** Why the ⋮ menu / keyboard / double-click path should not focus `item`.
+ *  Basemaps (no useful extent), hidden rows (nothing to show), and surfaces
+ *  whose `capabilities.bounds` is false (no honest carrier to focus on — a
+ *  MarkerCluster group, a canvas without a `getBounds` provider, a third-party
+ *  layer that never advertised a bounds) all fail this check. */
+const focusDisabledReason = (ui: LayerUI, item: HTMLElement): FocusDisabledReason => {
+  if (item.classList.contains(CONST.CLASSES.COLOR_ITEM)) return "base";
+  if (item.dataset.layerType === CONST.GROUP.BASE) return "base";
   const box = item.querySelector('input[type="checkbox"]') as HTMLInputElement | null;
-  return box !== null && !box.checked;
+  if (box !== null && !box.checked) return "hidden";
+  const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
+  const layerInfo = ui.m.layerRegistry.get(layerId);
+  if (layerInfo && ui.m.surfaceFor(layerInfo).capabilities.bounds === false) {
+    return "no_bounds";
+  }
+  return undefined;
+};
+
+/** Show the hint that matches a `focusDisabledReason` value. */
+const showFocusDisabledHint = (ui: LayerUI, reason: FocusDisabled): void => {
+  ui.m.map.foliplus!.showHint(
+    ui.conf.name,
+    ui.T(focusDisabledLocaleKey(reason)),
+    HINT_DURATION.SHORT,
+  );
 };
 
 /** Toggle visibility of the currently focused layer. */
@@ -84,11 +110,7 @@ const focusLayer = (ui: LayerUI, layerId: string) => {
     'input[type="checkbox"]',
   ) as HTMLInputElement | null;
   if (checkbox && !checkbox.checked) {
-    ui.m.map.foliplus!.showHint(
-      ui.conf.name,
-      ui.T("focus_layer_hidden"),
-      HINT_DURATION.SHORT,
-    );
+    showFocusDisabledHint(ui, "hidden");
     return;
   }
 
@@ -102,7 +124,14 @@ const focusLayer = (ui: LayerUI, layerId: string) => {
   } else if (typeof layerInfo.getBounds === "function") {
     bounds = layerInfo.getBounds();
   }
-  if (!bounds || !bounds.isValid()) return;
+  // No bounds carrier — the surface said so up front via
+  // `capabilities.bounds`. Keyboard / dblclick paths reach this guard
+  // without going through `focusDisabledReason`, so the hint is the honest
+  // feedback rather than a silent no-op.
+  if (!bounds || !bounds.isValid()) {
+    showFocusDisabledHint(ui, "no_bounds");
+    return;
+  }
 
   // Cancel any in-flight focus first.
   dismissFocus(ui);
@@ -514,8 +543,9 @@ const clearFocusedRowHighlight = (ui: LayerUI): void => {
 };
 
 export {
-  showBaseFocusHint,
-  isFocusLayerDisabled,
+  focusDisabledLocaleKey,
+  focusDisabledReason,
+  showFocusDisabledHint,
   toggleFocusedLayer,
   focusLayer,
   isFocusing,

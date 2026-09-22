@@ -265,6 +265,94 @@ describe("PaneManager", () => {
     expect(pm.childPanes.has("c")).toBe(true);
   });
 
+  // ── Injection gate: name validation + role enum ────────────────
+  // `PaneSpec.name` lands on the DOM as a Leaflet pane id and CSS class
+  // (createPane does both). A third party passing a name outside
+  // PANE_NAME_PATTERN would plant an id collision, a compound-selector
+  // escape, or a script tag into the map container. Same for `role` —
+  // anything outside the enum would silently price as "base" in z
+  // arithmetic. Bad specs are skipped (with a warn), not thrown.
+
+  it("registerPaneSpecs skips a spec with an empty name", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const map = { getPane: vi.fn(), createPane: vi.fn() };
+      const pm = new PaneManager(map);
+      pm.registerPaneSpecs(specs("")) as unknown; // empty string
+      expect(pm.childPanes.size).toBe(0);
+      expect(warn).toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it("registerPaneSpecs skips a spec with a non-string name", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const map = { getPane: vi.fn(), createPane: vi.fn() };
+      const pm = new PaneManager(map);
+      pm.registerPaneSpecs([{ role: "base", order: 0, name: 42 as unknown as string }]);
+      expect(pm.childPanes.size).toBe(0);
+      expect(warn).toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it("registerPaneSpecs skips a spec with a name outside PANE_NAME_PATTERN", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const map = { getPane: vi.fn(), createPane: vi.fn() };
+      const pm = new PaneManager(map);
+      pm.registerPaneSpecs(specs("x<script>"));
+      expect(pm.childPanes.size).toBe(0);
+      expect(warn).toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it("registerPaneSpecs accepts a name that satisfies PANE_NAME_PATTERN", () => {
+    const map = { getPane: vi.fn(), createPane: vi.fn() };
+    const pm = new PaneManager(map);
+    pm.registerPaneSpecs(specs("valid-name_123", "another.valid"));
+    // Hyphen and underscore are fine; the dot is not. Only the first survives.
+    expect(pm.childPanes.size).toBe(1);
+    expect(pm.childPanes.has("valid-name_123")).toBe(true);
+  });
+
+  it("registerPaneSpecs falls back to 'base' role for an unknown role value", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const map = { getPane: vi.fn(), createPane: vi.fn() };
+      const pm = new PaneManager(map);
+      pm.registerPaneSpecs([
+        { role: "unknown" as unknown as PaneSpec["role"], order: 0, name: "a" },
+      ]);
+      expect(pm.childPanes.size).toBe(1);
+      expect(pm.childPaneSpecs.get("a")?.role).toBe("base");
+      expect(warn).toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it("registerPaneSpecs accepts every legal role", () => {
+    const map = { getPane: vi.fn(), createPane: vi.fn() };
+    const pm = new PaneManager(map);
+    pm.registerPaneSpecs([
+      { role: "base", order: 0, name: "a" },
+      { role: "sub", order: 1, name: "b" },
+      { role: "annotation", order: 2, name: "c" },
+      { role: "preview", order: 3, name: "d" },
+    ]);
+    expect(pm.childPanes.size).toBe(4);
+    expect(pm.childPaneSpecs.get("a")?.role).toBe("base");
+    expect(pm.childPaneSpecs.get("b")?.role).toBe("sub");
+    expect(pm.childPaneSpecs.get("c")?.role).toBe("annotation");
+    expect(pm.childPaneSpecs.get("d")?.role).toBe("preview");
+  });
+
   it("reset clears the pane cache", () => {
     const map = { getPane: vi.fn(), createPane: vi.fn() };
     const pm = new PaneManager(map);
@@ -669,5 +757,57 @@ describe("PaneManager", () => {
     pm.pinLateContent([{ layer, paneName: "foliplus-measure-graph", renderer: null }]);
     expect(layer.options.pane).toBe("foliplus-measure-graph");
     expect(layer.options.paneSet).toBe(true);
+  });
+});
+
+describe("dual map isolation (§22-11)", () => {
+  // The core/layer foundation must be safe under concurrent multi-map
+  // rendering. Every piece of state (childPaneSpecs, paneCache, the
+  // instance itself) is per-instance — no module-level singleton is
+  // allowed to bleed panes from one map into another. These tests pin
+  // that invariant: two independently-constructed instances on two
+  // independently-constructed maps stay fully independent.
+
+  it("two independent PaneManager instances do not share childPaneSpecs", () => {
+    const mapA = { getPane: vi.fn(), createPane: vi.fn() };
+    const mapB = { getPane: vi.fn(), createPane: vi.fn() };
+    const pmA = new PaneManager(mapA);
+    const pmB = new PaneManager(mapB);
+    pmA.registerPaneSpecs(specs("a-only"));
+    pmB.registerPaneSpecs(specs("b-only"));
+    expect(pmA.childPanes.has("a-only")).toBe(true);
+    expect(pmA.childPanes.has("b-only")).toBe(false);
+    expect(pmB.childPanes.has("a-only")).toBe(false);
+    expect(pmB.childPanes.has("b-only")).toBe(true);
+  });
+
+  it("sweepChildPanes on one instance does not affect the other", () => {
+    const mapA = { getPane: vi.fn(), createPane: vi.fn() };
+    const mapB = { getPane: vi.fn(), createPane: vi.fn() };
+    const pmA = new PaneManager(mapA);
+    const pmB = new PaneManager(mapB);
+    pmA.registerPaneSpecs(specs("shared", "dropped"));
+    pmB.registerPaneSpecs(specs("shared", "kept"));
+    // Sweep A so "dropped" is gone; B keeps both because "shared" is still
+    // referenced and "kept" was never swept.
+    pmA.sweepChildPanes([{ paneSpecs: specs("shared") }]);
+    expect(pmA.childPanes.has("dropped")).toBe(false);
+    expect(pmA.childPanes.has("shared")).toBe(true);
+    expect(pmB.childPanes.has("shared")).toBe(true);
+    expect(pmB.childPanes.has("kept")).toBe(true);
+  });
+
+  it("paneCache invalidation on one instance does not touch the other", () => {
+    const mapA = { getPane: vi.fn(), createPane: vi.fn() };
+    const mapB = { getPane: vi.fn(), createPane: vi.fn() };
+    const pmA = new PaneManager(mapA);
+    const pmB = new PaneManager(mapB);
+    const layer = { options: { pane: "custom" } } as unknown as L.Layer;
+    expect(pmA.discoverChildPanes(layer)).toEqual(["custom"]);
+    expect(pmB.discoverChildPanes(layer)).toEqual(["custom"]);
+    // Both caches keyed by the same layer stamp — invalidate only A's.
+    pmA.reset(L.stamp(layer));
+    expect(pmA.paneCache.has(L.stamp(layer))).toBe(false);
+    expect(pmB.paneCache.has(L.stamp(layer))).toBe(true);
   });
 });

@@ -6,9 +6,11 @@ import {
   computeLayerBounds,
   drawFocusMask,
   drawFocusRect,
+  focusDisabledLocaleKey,
+  focusDisabledReason,
   highlightFocusedRow,
-  isFocusLayerDisabled,
   registerAutoCancel,
+  showFocusDisabledHint,
   toggleFocusedLayer,
 } from "#foliplus/LayerControl/ui/focus.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
@@ -1640,8 +1642,15 @@ describe("LayerUI focus", () => {
       ),
     ).filter(el => !el.classList.contains(CONST.CLASSES.COLOR_ITEM));
 
-  describe("isFocusLayerDisabled()", () => {
-    const row = (opts: { color?: boolean; type?: string; checked?: boolean } = {}) => {
+  describe("focusDisabledReason()", () => {
+    const row = (
+      opts: {
+        color?: boolean;
+        type?: string;
+        checked?: boolean;
+        layerId?: string;
+      } = {},
+    ) => {
       const item = document.createElement("div");
       if (opts.color) item.classList.add(CONST.CLASSES.COLOR_ITEM);
       if (opts.type !== undefined) item.dataset.layerType = opts.type;
@@ -1651,18 +1660,80 @@ describe("LayerUI focus", () => {
         box.checked = opts.checked;
         item.appendChild(box);
       }
+      if (opts.layerId) item.setAttribute(CONST.DATA.LAYER_ID, opts.layerId);
       return item;
     };
 
-    it("disables color-picker rows, basemaps and hidden rows", () => {
-      expect(isFocusLayerDisabled(ui, row({ color: true }))).toBe(true);
-      expect(isFocusLayerDisabled(ui, row({ type: CONST.GROUP.BASE }))).toBe(true);
-      expect(isFocusLayerDisabled(ui, row({ checked: false }))).toBe(true);
+    it("returns undefined for a visible row, and for a row without a checkbox", () => {
+      expect(focusDisabledReason(ui, row({ checked: true }))).toBeUndefined();
+      expect(focusDisabledReason(ui, row())).toBeUndefined();
     });
 
-    it("enables a visible row, and treats a row without a checkbox as enabled", () => {
-      expect(isFocusLayerDisabled(ui, row({ checked: true }))).toBe(false);
-      expect(isFocusLayerDisabled(ui, row())).toBe(false);
+    it("returns 'base' for a color-picker or basemap row", () => {
+      expect(focusDisabledReason(ui, row({ color: true }))).toBe("base");
+      expect(focusDisabledReason(ui, row({ type: CONST.GROUP.BASE }))).toBe("base");
+    });
+
+    it("returns 'hidden' for a hidden row", () => {
+      expect(focusDisabledReason(ui, row({ checked: false }))).toBe("hidden");
+    });
+
+    it("returns 'no_bounds' when the surface reports capabilities.bounds false", () => {
+      const item = row({ checked: true, layerId: "nob" });
+      const layerInfo = { id: "nob" } as LayerInfo;
+      vi.spyOn(ui.m.layerRegistry, "get").mockReturnValue(layerInfo);
+      vi.spyOn(ui.m, "surfaceFor").mockReturnValue({
+        capabilities: { bounds: false } as never,
+      });
+      expect(focusDisabledReason(ui, item)).toBe("no_bounds");
+    });
+
+    it("returns undefined for a row whose surface has bounds", () => {
+      const item = row({ checked: true, layerId: "with" });
+      const layerInfo = { id: "with" } as LayerInfo;
+      vi.spyOn(ui.m.layerRegistry, "get").mockReturnValue(layerInfo);
+      vi.spyOn(ui.m, "surfaceFor").mockReturnValue({
+        capabilities: { bounds: true } as never,
+      });
+      expect(focusDisabledReason(ui, item)).toBeUndefined();
+    });
+
+    it("returns undefined when no layer is registered (first post-attach pass)", () => {
+      const item = row({ checked: true, layerId: "unknown" });
+      vi.spyOn(ui.m.layerRegistry, "get").mockReturnValue(undefined);
+      expect(focusDisabledReason(ui, item)).toBeUndefined();
+    });
+
+    it("maps each reason to the locale key its tooltip and hint read", () => {
+      expect(focusDisabledLocaleKey("base")).toBe("focus_layer_base");
+      expect(focusDisabledLocaleKey("hidden")).toBe("focus_layer_hidden");
+      expect(focusDisabledLocaleKey("no_bounds")).toBe("focus_layer_no_bounds");
+    });
+
+    it("shows the localized hint for each disabled reason", () => {
+      const hintSpy = vi.fn();
+      map.foliplus.showHint = hintSpy;
+
+      showFocusDisabledHint(ui, "base");
+      expect(hintSpy).toHaveBeenCalledWith(
+        "LayerControl",
+        "LayerControl.focus_layer_base",
+        expect.any(Number),
+      );
+
+      showFocusDisabledHint(ui, "hidden");
+      expect(hintSpy).toHaveBeenCalledWith(
+        "LayerControl",
+        "LayerControl.focus_layer_hidden",
+        expect.any(Number),
+      );
+
+      showFocusDisabledHint(ui, "no_bounds");
+      expect(hintSpy).toHaveBeenCalledWith(
+        "LayerControl",
+        "LayerControl.focus_layer_no_bounds",
+        expect.any(Number),
+      );
     });
   });
 
