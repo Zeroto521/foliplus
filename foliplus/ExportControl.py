@@ -98,6 +98,12 @@ class ExportControl(BaseControl):
     ``"geotiff"`` downloads ``{filename}.tif`` with embedded georeferencing. JPEG and
     WebP use the ``quality`` parameter for compression; PNG and GeoTIFF are lossless.
 
+    **Tile CORS.**  A tile source must answer ``Access-Control-Allow-Origin`` to
+    appear in the exported image; otherwise that area is blank and the export
+    says so.  The first export may re-request the visible tiles — set
+    ``crossOrigin`` on your own ``TileLayer`` if you need the live tiles loaded
+    with CORS.
+
     Examples
     --------
     >>> import folium
