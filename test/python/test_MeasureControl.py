@@ -615,8 +615,8 @@ class TestMeasureControlBrowser:
             assert data is not None, "localStorage should contain saved measurements"
 
             parsed = json.loads(data)
-            assert len(parsed) == 1
-            assert parsed[0]["type"] == "marker"
+            assert len(parsed["items"]) == 1
+            assert parsed["items"][0]["type"] == "marker"
             assert not errors, f"JS errors: {errors}"
 
     def test_clear_all_clears_measurements_and_storage(self, browser, tmp_path):
@@ -625,7 +625,7 @@ class TestMeasureControlBrowser:
             page.evaluate(_js("MeasureControl/save_then_clear_measurements"))
             data = page.evaluate("localStorage.getItem(window.__measureStorageKey)")
             parsed = json.loads(data) if data else []
-            assert len(parsed) == 0, "clearAll should empty localStorage"
+            assert len(parsed["items"]) == 0, "clearAll should empty localStorage"
             assert not errors, f"JS errors: {errors}"
 
     def test_map_unload_keeps_measurements(self, browser, tmp_path):
@@ -639,7 +639,9 @@ class TestMeasureControlBrowser:
             page.evaluate(_js("MeasureControl/save_then_unload"))
             data = page.evaluate("localStorage.getItem(window.__measureStorageKey)")
             parsed = json.loads(data) if data else []
-            assert len(parsed) == 1, "unload should keep persisted measurements"
+            assert len(parsed["items"]) == 1, (
+                "unload should keep persisted measurements"
+            )
             assert not errors, f"JS errors: {errors}"
 
     def test_delete_marker_removes_from_storage(self, browser, tmp_path):
@@ -660,7 +662,9 @@ class TestMeasureControlBrowser:
             assert after == 0, f"expected 0 measurements after delete, got {after}"
             data = page.evaluate("localStorage.getItem(window.__measureStorageKey)")
             parsed = json.loads(data) if data else []
-            assert len(parsed) == 0, "localStorage should be empty after deleting all"
+            assert len(parsed["items"]) == 0, (
+                "localStorage should be empty after deleting all"
+            )
             assert not errors, f"JS errors: {errors}"
 
     def test_restore_marker_from_storage(self, browser, tmp_path):
@@ -740,8 +744,8 @@ class TestMeasureControlBrowser:
             page.wait_for_timeout(300)
             saved = page.evaluate("localStorage.getItem(window.__measureStorageKey)")
             parsed = json.loads(saved) if saved else []
-            assert len(parsed) == 1, (
-                f"marker must be saved immediately, got {len(parsed)}"
+            assert len(parsed["items"]) == 1, (
+                f"marker must be saved immediately, got {len(parsed['items'])}"
             )
             # Reload — marker must still appear
             page.reload()
@@ -775,7 +779,7 @@ class TestMeasureControlBrowser:
             # And persisted back to localStorage
             saved = page.evaluate("localStorage.getItem(window.__measureStorageKey)")
             parsed = json.loads(saved) if saved else []
-            assert parsed and parsed[0]["address"], (
+            assert parsed and parsed["items"][0]["address"], (
                 "address should be persisted after restore"
             )
             assert not errors, f"JS errors: {errors}"
