@@ -1,4 +1,5 @@
-import { attachDelClick, makeDelIcon, toggleDelIcon } from "#common/delicon.js";
+import { toggleDelIcon } from "#common/delicon.js";
+import { mountDelIcon as mountDelIconShared } from "#common/deliconMount.js";
 import { createTranslator } from "#common/locale.js";
 import { createLogger } from "#common/log.js";
 import * as CONST from "../const.js";
@@ -218,9 +219,10 @@ class PreviewMode extends MeasureMode {
 
 // ==================== Finalized Lifecycle Hook ====================
 /**
- * Create, mount, and click-bind a delete-icon marker in one call. Replaces
- * the 4-copy `makeDelIcon` + `layers.addLayer` + `attachDelClick` pattern
- * that used to live in circle, marker, distance, and polygon mode files.
+ * MeasureControl's delete-icon mount: the shared `mountDelIcon` pinned to the
+ * node pane. Kept as a thin wrapper because its four call sites (distance,
+ * polygon ×2, marker) pass the layers API first, while the shared helper takes
+ * a mounter — that is the only difference between Measure and Locate/Search.
  * `toggleDelIcon` and `layers.removeLayer` stay generic — callers use them
  * directly when toggling visibility or tearing down.
  */
@@ -229,14 +231,8 @@ const mountDelIcon = (
   latlng: L.LatLngExpression,
   opts: { title?: string; iconAnchor?: [number, number] },
   onDelete: () => void,
-): L.Marker => {
-  const delMarker = layers.addLayer(
-    makeDelIcon(latlng, opts),
-    CONST.PANES.NODE,
-  ) as L.Marker;
-  attachDelClick(delMarker, onDelete);
-  return delMarker;
-};
+): L.Marker =>
+  mountDelIconShared(latlng, opts, m => layers.addLayer(m, CONST.PANES.NODE), onDelete);
 
 /**
  * Wire the finalized lifecycle shared by distance, polygon, and circle: the
