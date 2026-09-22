@@ -7,7 +7,7 @@ import type { PaneSpec } from "#foliplus/core/layer/type.js";
 // Minimal Leaflet shapes: the surface only reads `options`, `eachLayer`
 // (containers), `getElement` + `_map` (attached DOM) and the `instanceof`
 // identities the pane decision turns on. The move itself lives in
-// `PaneManager.migrateLayers`, which reads the same fields.
+// `PaneManager.pinLateContent`, which reads the same fields.
 class Path {
   options: Record<string, unknown> = {};
   _map: unknown = null;
@@ -49,7 +49,7 @@ class ImageOverlay {
   options: Record<string, unknown> = {};
 }
 
-/** A container: `eachLayer` is what makes `migrateLayers` recurse instead of
+/** A container: `eachLayer` is what makes `pinLateContent` recurse instead of
  *  treating it as a leaf. */
 class Group {
   options: Record<string, unknown> = {};
@@ -290,7 +290,7 @@ describe("LayerSurface.materialize", () => {
     // The property the ordering pass depends on: a pass over materialized
     // surfaces writes z and never walks a tree again.
     const { map, host } = makeMap();
-    const reconcile = vi.spyOn(host, "migrateLayers");
+    const reconcile = vi.spyOn(host, "pinLateContent");
     const surface = new LayerSurface(host, {
       id: "plain",
       layer: new Group([new Marker()]) as unknown as L.Layer,
@@ -304,7 +304,7 @@ describe("LayerSurface.materialize", () => {
 
   it("reconciles again once the content is marked dirty", () => {
     const { map, host } = makeMap();
-    const reconcile = vi.spyOn(host, "migrateLayers");
+    const reconcile = vi.spyOn(host, "pinLateContent");
     const surface = new LayerSurface(host, {
       id: "plain",
       layer: new Group([new Marker()]) as unknown as L.Layer,
@@ -377,7 +377,7 @@ describe("LayerSurface.materialize", () => {
       canvas: true,
     });
     // A canvas surface has no layer to pin — materialize is a no-op.
-    const reconcile = vi.spyOn(host, "migrateLayers");
+    const reconcile = vi.spyOn(host, "pinLateContent");
     surface.materialize();
     expect(reconcile).not.toHaveBeenCalled();
     expect(surface.materialized).toBe(true);
@@ -391,7 +391,7 @@ describe("LayerSurface.materialize", () => {
     });
     // A GridLayer paints in tilePane and carries its z itself — no panes,
     // so reconcile has nothing to do.
-    const reconcile = vi.spyOn(host, "migrateLayers");
+    const reconcile = vi.spyOn(host, "pinLateContent");
     surface.materialize();
     expect(reconcile).not.toHaveBeenCalled();
     expect(surface.materialized).toBe(true);

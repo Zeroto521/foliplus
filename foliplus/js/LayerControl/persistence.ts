@@ -4,6 +4,17 @@ import * as CONST from "./const.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 
+/** Shape version of the persisted record. An ISO date string (not a bare
+ *  integer, and deliberately not the build version): it names "the date the
+ *  record's shape was pinned" so a reader can tell "same shape" from "older,
+ *  possibly different shape" without any migration table. `parseRecord` is
+ *  per-segment tolerant, so a stored value that does not match is left alone
+ *  (the segment is treated as absent); every write stamps `RECORD_VERSION`,
+ *  which is what brings the record up to date. Bump only when a new record
+ *  shape lands — the field's presence, not its value, is the compatibility
+ *  marker. */
+const RECORD_VERSION = "2026-09-22";
+
 /** A dimension the user has actually set. `overrides` is the provenance half of
  *  the record: a dimension absent from it means the user never chose it, so the
  *  author's declared default stays in force. Only user actions add entries here,
@@ -27,8 +38,16 @@ type PersistedLayerState = {
 /** Everything LayerControl persists, in one record per map. Intent only:
  *  declarations and derived state (what is actually on the map, z-indexes) are
  *  recomputed on every load and never written -- a zoom range is a declaration
- *  until the user moves the handles, which turns it into intent. */
+ *  until the user moves the handles, which turns it into intent.
+ *
+ *  `version` is present on every write (stamped by `mergeFields`), and the
+ *  only place a reader distinguishes shape: `parseRecord` copies a stored
+ *  `version` through only when it matches `RECORD_VERSION`, otherwise the
+ *  segment is dropped and the next write re-stamps it. Older records, which
+ *  have no `version` at all, fall through the same branch and are stamped on
+ *  the next write — no migration, no data loss on read. */
 type PersistedRecord = {
+  version: string;
   /** Layer ids in the panel's order, or null when the user never reordered. */
   order: string[] | null;
   foldedGroups: string[];
@@ -54,6 +73,7 @@ type LiveState = {
 };
 
 const emptyRecord = (): PersistedRecord => ({
+  version: RECORD_VERSION,
   order: null,
   foldedGroups: [],
   renamedNames: {},
@@ -138,6 +158,9 @@ const parseRecord = (raw: unknown): PersistedRecord => {
   if (!data) return emptyRecord();
   const record = emptyRecord();
 
+  if (typeof data.version === "string" && data.version === RECORD_VERSION) {
+    record.version = data.version;
+  }
   if (Array.isArray(data.order) && data.order.every(id => typeof id === "string")) {
     record.order = data.order as string[];
   }
@@ -169,6 +192,7 @@ const parseRecord = (raw: unknown): PersistedRecord => {
  *  Named per dimension rather than keyed generically: PersistedRecord is a
  *  literal type, so adding a field without adding it here is a compile error. */
 const mergeFields = (record: PersistedRecord, fields: LiveState): PersistedRecord => ({
+  version: RECORD_VERSION,
   order: fields.order ? fields.order() : record.order,
   foldedGroups: fields.foldedGroups ? fields.foldedGroups() : record.foldedGroups,
   renamedNames: fields.renamedNames ? fields.renamedNames() : record.renamedNames,
@@ -302,5 +326,5 @@ class LayerPersistence {
   }
 }
 
-export { LayerPersistence };
+export { LayerPersistence, RECORD_VERSION };
 export type { LiveState, LayerOverride, PersistedLayerState, PersistedRecord };

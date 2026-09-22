@@ -1,12 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/LayerControl/const.js";
-import { LayerPersistence } from "#foliplus/LayerControl/persistence.js";
+import {
+  LayerPersistence,
+  RECORD_VERSION,
+} from "#foliplus/LayerControl/persistence.js";
 import type { PersistedRecord } from "#foliplus/LayerControl/persistence.js";
 import * as Storage from "#common/storage.js";
 
 const makePersistence = () => new LayerPersistence();
 
 const emptyRecord = (): PersistedRecord => ({
+  version: RECORD_VERSION,
   order: null,
   foldedGroups: [],
   renamedNames: {},
@@ -45,6 +49,7 @@ describe("LayerPersistence", () => {
   describe("load", () => {
     it("loads every dimension from one record", () => {
       seedStorage({
+        version: RECORD_VERSION,
         order: ["a", "b"],
         foldedGroups: ["OVERLAYS"],
         renamedNames: { a: "A2" },
@@ -52,6 +57,7 @@ describe("LayerPersistence", () => {
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
       expect(makePersistence().load()).toEqual({
+        version: RECORD_VERSION,
         order: ["a", "b"],
         foldedGroups: ["OVERLAYS"],
         renamedNames: { a: "A2" },
@@ -67,6 +73,7 @@ describe("LayerPersistence", () => {
       // on the new field — the silent-loss case has no other visible symptom.
       const ids = ["a", "b"];
       const record: PersistedRecord = {
+        version: RECORD_VERSION,
         order: ids,
         foldedGroups: ["OVERLAYS"],
         renamedNames: { a: "A2" },
@@ -173,6 +180,104 @@ describe("LayerPersistence", () => {
         a: { show: true, field: "name", format: "auto" },
         ghost: { show: true, field: "x", format: "int" },
       });
+    });
+  });
+
+  // ── Version ─────────────────────────────────────────────────────
+
+  describe("version", () => {
+    it("reads a legacy record (no version) with all five dimensions intact", () => {
+      // Old records have no version field at all. parseRecord must leave
+      // them alone — every dimension still parses, and version falls back
+      // to RECORD_VERSION so the next write stamps the record up to date
+      // without any migration step.
+      seedStorage({
+        order: ["a", "b"],
+        foldedGroups: ["OVERLAYS"],
+        renamedNames: { a: "A2" },
+        annotations: { a: { show: true, field: "name", format: "auto" } },
+        layers: { a: { visible: false, overrides: ["visible"] } },
+      });
+      expect(makePersistence().load()).toEqual({
+        version: RECORD_VERSION,
+        order: ["a", "b"],
+        foldedGroups: ["OVERLAYS"],
+        renamedNames: { a: "A2" },
+        annotations: { a: { show: true, field: "name", format: "auto" } },
+        layers: { a: { visible: false, overrides: ["visible"] } },
+      });
+    });
+
+    it("keeps every dimension when the stored version is missing or unknown", () => {
+      // Same per-segment tolerance as every other field: a mismatch on
+      // version drops only the version segment, not the rest of the
+      // record. A record from an older build is exactly this shape.
+      for (const version of [undefined, "2020-01-01", 42, null]) {
+        seedStorage({
+          version,
+          order: ["a", "b"],
+          foldedGroups: ["OVERLAYS"],
+          renamedNames: { a: "A2" },
+          annotations: { a: { show: true, field: "name", format: "auto" } },
+          layers: { a: { visible: false, overrides: ["visible"] } },
+        });
+        expect(makePersistence().load().version).toBe(RECORD_VERSION);
+      }
+      seedStorage({
+        order: ["a", "b"],
+        foldedGroups: ["OVERLAYS"],
+        renamedNames: { a: "A2" },
+        annotations: { a: { show: true, field: "name", format: "auto" } },
+        layers: { a: { visible: false, overrides: ["visible"] } },
+      });
+      expect(makePersistence().load().version).toBe(RECORD_VERSION);
+    });
+
+    it("writes every record with the current version", () => {
+      // mergeFields stamps RECORD_VERSION unconditionally, so a scheduled
+      // write always carries the current shape marker — the write path
+      // that brings a legacy record up to date.
+      vi.useFakeTimers();
+      const save = spySave();
+      const p = makePersistence();
+      p.schedule({ order: () => ["a", "b"] });
+
+      vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
+
+      expect(lastRecord(save).version).toBe(RECORD_VERSION);
+      save.mockRestore();
+      vi.useRealTimers();
+    });
+
+    it("writes the current version when the stored record is missing or stale", () => {
+      // The write path is what actually moves a legacy record forward:
+      // the stored version (absent or an older date) does not survive the
+      // rebuild, the current one does.
+      vi.useFakeTimers();
+      const save = spySave();
+      seedStorage({
+        version: "2020-01-01",
+        order: ["a", "b"],
+        foldedGroups: ["OVERLAYS"],
+        renamedNames: { a: "A2" },
+        annotations: { a: { show: true, field: "name", format: "auto" } },
+        layers: { a: { visible: false, overrides: ["visible"] } },
+      });
+      const p = makePersistence();
+      p.schedule({ order: () => ["b", "a"] });
+
+      vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
+
+      expect(lastRecord(save)).toEqual({
+        version: RECORD_VERSION,
+        order: ["b", "a"],
+        foldedGroups: ["OVERLAYS"],
+        renamedNames: { a: "A2" },
+        annotations: { a: { show: true, field: "name", format: "auto" } },
+        layers: { a: { visible: false, overrides: ["visible"] } },
+      });
+      save.mockRestore();
+      vi.useRealTimers();
     });
   });
 
@@ -411,6 +516,7 @@ describe("LayerPersistence", () => {
       // record, so no dimension needs its own debounce bookkeeping.
       expect(save).toHaveBeenCalledTimes(1);
       expect(lastRecord(save)).toEqual({
+        version: RECORD_VERSION,
         order: ["a", "b"],
         foldedGroups: ["OVERLAYS"],
         renamedNames: { a: "A" },
@@ -440,6 +546,7 @@ describe("LayerPersistence", () => {
       vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
 
       expect(lastRecord(save)).toEqual({
+        version: RECORD_VERSION,
         order: ["b", "a"],
         foldedGroups: ["OVERLAYS"],
         renamedNames: { a: "A" },
@@ -490,6 +597,7 @@ describe("LayerPersistence", () => {
       p.flushAll();
       expect(save).toHaveBeenCalledTimes(1);
       expect(lastRecord(save)).toEqual({
+        version: RECORD_VERSION,
         order: ["a", "b"],
         foldedGroups: [],
         renamedNames: {},
