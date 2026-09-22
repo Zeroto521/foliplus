@@ -3,15 +3,26 @@ import * as CONST from "#foliplus/LayerControl/const.js";
 import { hideColorLayer, showColorLayer } from "#foliplus/LayerControl/ui/color.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 
-const makeUi = (layers: Array<{ isBase: boolean }> = []) => {
+const makeUi = (layers: Array<{ id: string; isBase: boolean }> = []) => {
   const mapContainer = document.createElement("div");
   const uiContainer = document.createElement("div");
-  uiContainer.innerHTML = `
-    <div class="foliplus-layer-item" data-layer-type="overlay">
-      <input type="checkbox" data-index="0" />
-    </div>
-    <div class="foliplus-color-layer-item"></div>
-  `;
+
+  for (const layer of layers) {
+    const row = document.createElement("div");
+    row.className = CONST.CLASSES.LAYER_ITEM;
+    row.setAttribute(CONST.DATA.LAYER_ID, layer.id);
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.checked = true;
+    row.appendChild(box);
+    uiContainer.appendChild(row);
+  }
+
+  uiContainer.insertAdjacentHTML(
+    "beforeend",
+    `<div class="${CONST.CLASSES.COLOR_ITEM}"></div>`,
+  );
+
   const ui = {
     uiContainer,
     isColorActive: true,
@@ -42,7 +53,7 @@ describe("ui/color", () => {
   });
 
   it("showColorLayer paints the container and hides base layers", () => {
-    const { ui, mapContainer } = makeUi([{ isBase: true }]);
+    const { ui, mapContainer } = makeUi([{ id: "base_1", isBase: true }]);
     showColorLayer(ui, "#ff0000");
     expect(mapContainer.classList.contains(CONST.CLASSES.ACTIVE)).toBe(true);
     expect(mapContainer.style.getPropertyValue("--color-layer-bg")).toBe("#ff0000");
@@ -73,6 +84,9 @@ describe("ui/color", () => {
     const base2Row = makeRow("base_2", true);
     const overlayRow = makeRow("overlay_1", true);
     const base1Row = makeRow("base_1", true);
+    base2Row.classList.add(CONST.CLASSES.ACTIVE);
+    overlayRow.classList.add(CONST.CLASSES.ACTIVE);
+    base1Row.classList.add(CONST.CLASSES.ACTIVE);
     uiContainer.appendChild(base2Row);
     uiContainer.appendChild(overlayRow);
     uiContainer.appendChild(base1Row);
@@ -120,5 +134,9 @@ describe("ui/color", () => {
     expect(base1Input?.checked).toBe(false);
     expect(base2Input?.checked).toBe(false);
     expect(overlayInput?.checked).toBe(true);
+
+    expect(base1Row.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
+    expect(base2Row.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
+    expect(overlayRow.classList.contains(CONST.CLASSES.ACTIVE)).toBe(true);
   });
 });
