@@ -1,0 +1,85 @@
+// LayerControl UI — pure projection of intent + policy per layer.
+//
+// Every dimension the panel and the map care about is derived from one
+// projection per layer. `buildRowCell` reads `effectiveShown` from here
+// instead of recomputing the same expression as the state-side policy
+// writer, so the formula has one home. The map-side executor
+// (`./apply.ts`) diffs this projection against the last one it wrote,
+// so a change on either input reaches the map through exactly one path.
+//
+// Nothing in this file touches the map, the registry, or storage.
+import type { LayerUI } from "./index.js";
+import { inZoomRange } from "./rowView.js";
+
+/** One layer's projection: intent (persisted) and the derived policy state
+ *  together, so a diff sees both in one comparison.
+ *
+ *  `intent.visible` is what the checkbox shows — the user's choice when they
+ *  made one, otherwise the author's declared default.
+ *  `effectiveShown` is the policy's decision (`intent && (focus ? true :
+ *  inRange)`) and never writes back to `intent`: a policy write that landed
+ *  in `hiddenIds` would flip a checkbox the user never touched (#329).
+ */
+interface Projection {
+  id: string;
+  intent: { visible: boolean };
+  effectiveShown: boolean;
+  opacity: number | undefined;
+  zoomRange: [number, number] | null;
+}
+
+/** Build one layer's projection from the persisted intent and the current
+ *  policy inputs (focus, map zoom). Read-only. */
+const projectLayer = (ui: LayerUI, layerInfo: LayerInfo): Projection => {
+  const id = layerInfo.id;
+  const overrides = ui.userOverrides[id];
+  const hasVisible = overrides?.includes("visible") ?? false;
+  // The author's default is the map state folium left at boot (see
+  // `snapshotAuthorVisible`), captured before any policy moved layers.
+  const authorDefault = ui.authorVisible.get(id) ?? true;
+  const intent = hasVisible ? !ui.hiddenIds.has(id) : authorDefault;
+
+  const effectiveShown = ui.hiddenIds.has(id)
+    ? false
+    : ui.focusingLayerId != null
+      ? true
+      : inZoomRange(ui, layerInfo);
+
+  const opacity =
+    ui.userOverrides[id]?.includes("opacity") && typeof ui.opacityMap[id] === "number"
+      ? ui.opacityMap[id]
+      : undefined;
+
+  const zoomRange =
+    ui.userOverrides[id]?.includes("zoomRange") && ui.zoomRangeMap[id]
+      ? (ui.zoomRangeMap[id] as [number, number])
+      : null;
+
+  return { id, intent: { visible: intent }, effectiveShown, opacity, zoomRange };
+};
+
+/** Project every id the panel or the executor cares about. The set is the
+ *  union `applyUserState` used to walk — the registry plus every id with a
+ *  persisted dimension, so an id with stored state but no registry entry
+ *  keeps flowing through instead of being pruned. Unresolvable ids are
+ *  skipped: they may be a component that registers later, and the id space
+ *  is bounded by the layers an author ever declares, so the record cannot
+ *  grow away (§21 "不在注册表里 ≠ 已消失"). */
+const projectAll = (ui: LayerUI): Map<string, Projection> => {
+  const ids = new Set([
+    ...ui.m.layers.map(li => li.id),
+    ...ui.hiddenIds,
+    ...Object.keys(ui.renamedNames),
+    ...Object.keys(ui.opacityMap),
+    ...Object.keys(ui.zoomRangeMap),
+  ]);
+  const result = new Map<string, Projection>();
+  for (const id of ids) {
+    const layerInfo = ui.m.layerRegistry.get(id);
+    if (!layerInfo) continue;
+    result.set(id, projectLayer(ui, layerInfo));
+  }
+  return result;
+};
+
+export { projectAll, projectLayer, type Projection };

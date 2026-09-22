@@ -7,6 +7,7 @@ import type { LayerOverride, PersistedLayerState } from "../persistence.js";
 import { applyNameProjection } from "./context.js";
 import type { LayerUI } from "./index.js";
 import { applyRowView, buildRowCell, inZoomRange } from "./rowView.js";
+import { projectLayer } from "./store.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const log = createLogger(CONF.name);
@@ -505,8 +506,14 @@ const computeEffectiveShown = (
   layerInfo: LayerInfo,
   focusActive: boolean,
 ): boolean => {
+  // The panel's own focus state (see the projection in store.ts) drives the
+  // effective-shown derivation; when a caller passes an explicit flag —
+  // tests simulate focus without wiring `ui.focusingLayerId`, and the
+  // per-layer focus decision needs it — that overrides. Same formula, two
+  // entry shapes; the projection is the primary one.
+  const focus = ui.focusingLayerId != null || focusActive;
   if (ui.hiddenIds.has(layerInfo.id)) return false;
-  if (focusActive) return true;
+  if (focus) return true;
   return inZoomRange(ui, layerInfo);
 };
 

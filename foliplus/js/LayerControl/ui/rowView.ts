@@ -19,6 +19,7 @@ import * as CONST from "../const.js";
 import * as SVGs from "../icon.js";
 import * as Util from "../util.js";
 import type { LayerUI } from "./index.js";
+import { projectLayer } from "./store.js";
 
 /** One layer's inputs to the row visual. Nothing here is written back. */
 interface RowCell {
@@ -210,11 +211,12 @@ const buildRowCell = (ui: LayerUI, layerInfo: LayerInfo): RowCell => {
     id: layerInfo.id,
     name: displayName(ui, layerInfo.id),
     checked,
-    // The same formula as computeEffectiveShown in state.ts: focus overrides
-    // the range, the range never overrides the intent. Focus dims the other
-    // rows visually without removing them from the map, so while it holds every
-    // checked layer is on screen regardless of its range.
-    shown: checked && (ui.focusingLayerId != null || inZoomRange(ui, layerInfo)),
+    // Read the projection: focus overrides the range, the range never
+    // overrides the intent. Focus dims the other rows visually without
+    // removing them from the map, so while it holds every checked layer is
+    // on screen regardless of its range. The policy write side reads the
+    // same projection, so the formula has one home (§22-9.1 step 2).
+    shown: projectLayer(ui, layerInfo).effectiveShown,
     countText: count != null ? formatNumber(count, "auto", ui.conf.locale_code) : "",
     typeSvg: type.svg,
     typeLabel: ui.T(type.key),
