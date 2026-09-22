@@ -96,6 +96,7 @@ function makeManager(opts?: { id?: string }) {
 
 afterEach(() => {
   document.body.innerHTML = "";
+  window.localStorage.clear();
 });
 
 describe("MeasureManager — persistence", () => {
