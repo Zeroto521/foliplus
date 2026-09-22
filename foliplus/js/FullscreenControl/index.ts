@@ -6,15 +6,13 @@ import { createScopedTranslator } from "#common/locale.js";
 import { FULLSCREEN_CHANGE, isEnabled } from "./api.js";
 import { CLASSES, containerId } from "./const.js";
 import * as SVGs from "./icon.js";
-import { bindFullscreenEvents, toggleFullscreen } from "./logic.js";
+import { makeFullscreenChangeHandler, toggleFullscreen } from "./logic.js";
 
 createControlEnv(CONF, SVGs.MAXIMIZE);
 const T = createScopedTranslator(CONF);
 ensureHint(map);
 
 class FullscreenControl extends BaseControl {
-  declare fsHandler: () => void;
-
   buildDOM() {
     if (map.zoomControl) map.removeControl(map.zoomControl);
     else {
@@ -69,15 +67,19 @@ class FullscreenControl extends BaseControl {
 
     L.DomEvent.disableClickPropagation(outer);
     L.DomEvent.disableScrollPropagation(outer);
-    this.fsHandler = bindFullscreenEvents(map, fsBtn, container);
+
+    // Document-level fullscreenchange, owned by the mounting's signal: the
+    // listener drops with the control, so a map torn down while fullscreen is
+    // on leaves nothing behind.
+    if (isEnabled) {
+      this.on(
+        document,
+        FULLSCREEN_CHANGE,
+        makeFullscreenChangeHandler(map, fsBtn, container),
+      );
+    }
 
     return outer;
-  }
-
-  destroy() {
-    if (this.fsHandler && isEnabled) {
-      document.removeEventListener(FULLSCREEN_CHANGE, this.fsHandler);
-    }
   }
 }
 
