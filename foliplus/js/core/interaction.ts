@@ -72,8 +72,7 @@ const isArrowKey = (key: string): boolean =>
   key === "ArrowRight";
 
 /** Whether an element consumes arrow keys natively. Checkbox/radio do not. */
-const isFormInput = (el: Element | null): boolean => {
-  if (!el) return false;
+const isFormInput = (el: Element): boolean => {
   const tag = el.tagName.toLowerCase();
   if (tag === "textarea" || tag === "select") return true;
   if (tag === "input") {
@@ -259,7 +258,9 @@ class InteractionManager {
     if (
       (eventType === "keydown" || eventType === "keyup") &&
       isArrowKey(ke.key) &&
-      isFormInput(document.activeElement)
+      // document.activeElement is non-null in practice (jsdom + all browsers
+      // fall back to body); see isFormInput.
+      isFormInput(document.activeElement as Element)
     ) {
       return;
     }

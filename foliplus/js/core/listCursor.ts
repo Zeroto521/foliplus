@@ -48,8 +48,7 @@ let listCursorSeq = 0;
 
 const nextId = (prefix: string) => `${prefix}-${++listCursorSeq}`;
 
-const isFormInput = (el: Element | null): boolean => {
-  if (!el) return false;
+const isFormInput = (el: Element): boolean => {
   const tag = el.tagName.toLowerCase();
   if (tag === "textarea" || tag === "select") return true;
   if (tag === "input") {
@@ -175,7 +174,9 @@ class ListCursor {
         event.key === "ArrowUp" ||
         event.key === "Home" ||
         event.key === "End") &&
-      isFormInput(document.activeElement)
+      // document.activeElement is non-null in practice (jsdom + all browsers
+      // fall back to body); see isFormInput.
+      isFormInput(document.activeElement as Element)
     ) {
       return false;
     }
