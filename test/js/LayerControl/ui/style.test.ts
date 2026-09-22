@@ -2,10 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerManager } from "#foliplus/LayerControl/manager.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
+import { renderDelegatedStylePanel } from "#foliplus/LayerControl/ui/style/delegated.js";
 import {
   layerHasLabelFields,
   layerHasStyleDelegation,
 } from "#foliplus/LayerControl/ui/style/index.js";
+import { clampPct } from "#foliplus/LayerControl/ui/style/opacity.js";
 import { AUTO_FIELD } from "#foliplus/core/labelField.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 import { NUMBER_FORMAT } from "#common/format.js";
@@ -3072,5 +3074,53 @@ describe("LayerUI style panel — zoom range", () => {
     minInput.dispatchEvent(new Event("input", { bubbles: true }));
 
     expect(ui.zoomRangeMap["overlay1"]).toEqual([3, 9]);
+  });
+});
+
+describe("style utility guards", () => {
+  it("clampPct falls back when the raw value is non-finite", () => {
+    // Covers the `Number.isFinite(raw) ? ... : fallback` false side: an
+    // emptied number field commits NaN, which the shared number field also
+    // treats as an invalid commit (defaults to fully opaque / 100).
+    expect(clampPct(NaN)).toBe(100);
+    expect(clampPct(Infinity)).toBe(100);
+    expect(clampPct(Number.POSITIVE_INFINITY)).toBe(100);
+    // Custom fallback override.
+    expect(clampPct(NaN, 40)).toBe(40);
+    // Positive infinity is non-finite; -Infinity is also.
+    expect(clampPct(-Infinity)).toBe(100);
+    // In-range values still round + clamp.
+    expect(clampPct(50)).toBe(50);
+    expect(clampPct(-5)).toBe(0);
+    expect(clampPct(105)).toBe(100);
+  });
+
+  it("renderDelegatedStylePanel returns null when the layer has no styleSetters", () => {
+    // Covers the `!setters` branch of the early return: a layer that never
+    // declared a setter has no delegation, so the drawer is not built.
+    const { ui } = initFixture();
+    // A plain overlay1 in the fixture has no styleSetters.
+    expect(renderDelegatedStylePanel(ui, "overlay1")).toBeNull();
+  });
+
+  it("renderDelegatedStylePanel returns null when styleSetters is empty", () => {
+    // Covers the `Object.keys(setters).length === 0` branch: a registry entry
+    // that declares an empty setter map still falls through to the annotation
+    // panel rather than opening an empty drawer.
+    const { ui, manager } = initFixture();
+    manager.registerLayer({
+      id: "emptySetters",
+      name: "Empty",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({}),
+      styleSetters: {},
+    });
+    expect(renderDelegatedStylePanel(ui, "emptySetters")).toBeNull();
+  });
+
+  it("renderDelegatedStylePanel returns null when the layer is not registered", () => {
+    // Covers the `li?.styleSetters` undefined access on a missing layer.
+    const { ui } = initFixture();
+    expect(renderDelegatedStylePanel(ui, "not-a-real-layer")).toBeNull();
   });
 });
