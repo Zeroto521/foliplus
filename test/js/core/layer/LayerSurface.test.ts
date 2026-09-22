@@ -879,4 +879,27 @@ describe("LayerSurface capabilities", () => {
     });
     expect(surface.capabilities.bounds).toBe(false);
   });
+
+  it("reports bounds true for a bare layer with getBounds (no declared pane)", () => {
+    // A non-grid, non-native layer with no paneName/paneSpecs/canvas: the
+    // surface synthesizes a fallback pane, and bounds is decided by the
+    // layer's own getBounds method (not opts.getBounds, which is undefined).
+    const { map, host } = makeMap();
+    const path = new Path();
+    Object.assign(path, { getBounds: vi.fn() });
+    const surface = new LayerSurface(host, {
+      id: "bare",
+      layer: path as unknown as L.Layer,
+    });
+    expect(surface.capabilities.bounds).toBe(true);
+  });
+
+  it("reports bounds false for a bare layer without getBounds (no declared pane)", () => {
+    const { map, host } = makeMap();
+    const surface = new LayerSurface(host, {
+      id: "bare",
+      layer: new Path() as unknown as L.Layer,
+    });
+    expect(surface.capabilities.bounds).toBe(false);
+  });
 });

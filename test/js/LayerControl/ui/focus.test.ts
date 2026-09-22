@@ -10,6 +10,7 @@ import {
   highlightFocusedRow,
   isFocusLayerDisabled,
   registerAutoCancel,
+  showFocusDisabledHint,
   toggleFocusedLayer,
 } from "#foliplus/LayerControl/ui/focus.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
@@ -1710,6 +1711,32 @@ describe("LayerUI focus", () => {
       vi.spyOn(ui.m.layerRegistry, "get").mockReturnValue(undefined);
       expect(focusDisabledReason(ui, item)).toBeUndefined();
       expect(isFocusLayerDisabled(ui, item)).toBe(false);
+    });
+
+    it("shows the localized hint for each disabled reason", () => {
+      const hintSpy = vi.fn();
+      map.foliplus.showHint = hintSpy;
+
+      showFocusDisabledHint(ui, "base");
+      expect(hintSpy).toHaveBeenCalledWith(
+        "LayerControl",
+        "LayerControl.focus_layer_base",
+        expect.any(Number),
+      );
+
+      showFocusDisabledHint(ui, "hidden");
+      expect(hintSpy).toHaveBeenCalledWith(
+        "LayerControl",
+        "LayerControl.focus_layer_hidden",
+        expect.any(Number),
+      );
+
+      showFocusDisabledHint(ui, "no_bounds");
+      expect(hintSpy).toHaveBeenCalledWith(
+        "LayerControl",
+        "LayerControl.focus_layer_no_bounds",
+        expect.any(Number),
+      );
     });
   });
 
