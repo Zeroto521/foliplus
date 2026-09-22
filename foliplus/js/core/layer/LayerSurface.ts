@@ -474,7 +474,9 @@ const detectCapabilities = (opts: SurfaceOpts): LayerCapabilities => {
       opacity: "native",
       zoomRange,
       relocatable: true,
-      bounds: typeof layer.getBounds === "function",
+      bounds:
+        typeof (layer as L.Layer & { getBounds?: () => L.LatLngBounds }).getBounds ===
+        "function",
     };
   }
 
@@ -489,7 +491,10 @@ const detectCapabilities = (opts: SurfaceOpts): LayerCapabilities => {
     opts.canvas;
 
   if (hasContentPanes) {
-    const layerBounds = layer != null && typeof layer.getBounds === "function";
+    const layerBounds =
+      layer != null &&
+      typeof (layer as L.Layer & { getBounds?: () => L.LatLngBounds }).getBounds ===
+        "function";
     return {
       opacity: "pane",
       zoomRange: "pane",
@@ -506,7 +511,9 @@ const detectCapabilities = (opts: SurfaceOpts): LayerCapabilities => {
       opacity: "pane",
       zoomRange: "pane",
       relocatable: true,
-      bounds: typeof layer.getBounds === "function",
+      bounds:
+        typeof (layer as L.Layer & { getBounds?: () => L.LatLngBounds }).getBounds ===
+        "function",
     };
   }
 

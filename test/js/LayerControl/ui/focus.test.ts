@@ -1642,12 +1642,14 @@ describe("LayerUI focus", () => {
     ).filter(el => !el.classList.contains(CONST.CLASSES.COLOR_ITEM));
 
   describe("isFocusLayerDisabled() / focusDisabledReason()", () => {
-    const row = (opts: {
-      color?: boolean;
-      type?: string;
-      checked?: boolean;
-      layerId?: string;
-    } = {}) => {
+    const row = (
+      opts: {
+        color?: boolean;
+        type?: string;
+        checked?: boolean;
+        layerId?: string;
+      } = {},
+    ) => {
       const item = document.createElement("div");
       if (opts.color) item.classList.add(CONST.CLASSES.COLOR_ITEM);
       if (opts.type !== undefined) item.dataset.layerType = opts.type;

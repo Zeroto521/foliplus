@@ -35,7 +35,8 @@ const focusDisabledReason = (ui: LayerUI, item: HTMLElement): FocusDisabledReaso
   if (box !== null && !box.checked) return "hidden";
   const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
   const layerInfo = ui.m.layerRegistry.get(layerId);
-  if (layerInfo && ui.m.surfaceFor(layerInfo).capabilities.bounds === false) return "no_bounds";
+  if (layerInfo && ui.m.surfaceFor(layerInfo).capabilities.bounds === false)
+    return "no_bounds";
   return undefined;
 };
 

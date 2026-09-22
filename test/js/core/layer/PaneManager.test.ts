@@ -811,4 +811,3 @@ describe("dual map isolation (§22-11)", () => {
     expect(pmB.paneCache.has(L.stamp(layer))).toBe(true);
   });
 });
-
