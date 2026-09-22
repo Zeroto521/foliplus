@@ -1362,9 +1362,8 @@ describe("initScan — single-layer auto-select on first scan only", () => {
 
   it("allows auto-select again after Reset deleted the record", async () => {
     // Reset (clearSavedConfig) deletes the record entirely — this is the
-    // deliberate "back to the Python-declared state" path (§28.6 trigger-
-    // source distinction). Gate 3 proves the fix does not conflate
-    // explicit-clear with Reset.
+    // deliberate back-to-declared-state path. Gate 3 proves the fix does
+    // not conflate explicit-clear with Reset.
     const { initScan } = await import("#foliplus/HeatmapControl/ui.js");
     window.localStorage.clear();
 
