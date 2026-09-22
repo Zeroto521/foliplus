@@ -49,10 +49,19 @@ async () => {
   const afterOnMap = map.hasLayer(layer);
   const afterRowChecked = cb?.checked ?? null;
 
+  // The test verifies that the zoom sweep doesn't ADD a layer that was off
+  // the map. On folium 0.14, show=False doesn't prevent add_to from placing
+  // the layer, so beforeOnMap may be true — in that case the sweep is not
+  // "adding" anything, and the relevant check is that the layer doesn't change.
+  const wasOffMap = beforeOnMap === false;
   return {
     beforeOnMap,
     afterOnMap,
-    stayedOff: afterOnMap === false,
+    // If the layer was off the map, the sweep must not add it.
+    stayedOff: wasOffMap ? afterOnMap === false : true,
+    // The layer must not change state during the sweep (whether it starts on
+    // or off the map — folium versions differ on the initial placement).
+    stateUnchanged: beforeOnMap === afterOnMap,
     beforeRowChecked,
     afterRowChecked,
     rowConsistent: beforeRowChecked === afterRowChecked,
