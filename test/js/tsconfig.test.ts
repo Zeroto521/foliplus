@@ -81,7 +81,6 @@ const BANNED: Array<{ name: string; re: RegExp }> = [
 const NARROW_CASTS = [
   { f: "core/mapApi.ts", n: 1 },
   { f: "ExportControl/index.ts", n: 1 },
-  { f: "LayerControl/ui/style.ts", n: 1 },
 ] as const;
 const NARROW_CAST_RE = /\bas\s+unknown\s+as\b|\bas\s+never\b/g;
 
