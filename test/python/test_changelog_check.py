@@ -780,6 +780,87 @@ class TestMain:
         assert "skipped" in out
         assert "no GITHUB_TOKEN" in out
 
+    def test_check_mode_existence_check_with_token(self, tmp_path, capsys, monkeypatch):
+        """Existence check runs when GITHUB_REPOSITORY + GITHUB_TOKEN are set."""
+        changelog = tmp_path / "CHANGELOG.md"
+        changelog.write_text(
+            "# Changelog\n\n## [Unreleased]\n\n### Added\n\n- a ([#1](x/pull/1))\n\n",
+            encoding="utf-8",
+        )
+        monkeypatch.setenv("GITHUB_REPOSITORY", "Zeroto521/foliplus")
+        monkeypatch.setenv("GITHUB_TOKEN", "tok")
+        calls: list[str] = []
+        with patch.object(
+            mod.urllib.request, "urlopen", _mock_urlopen({"1": 200}, calls)
+        ):
+            with patch.object(sys, "argv", ["changelog_check.py", "--path", str(changelog)]):
+                with patch.object(mod.sys, "exit") as mock_exit:
+                    mod.main()
+        assert mock_exit.call_count == 0
+        out = capsys.readouterr().out
+        assert "OK" in out
+        assert calls == ["https://api.github.com/repos/Zeroto521/foliplus/issues/1"]
+
+    def test_check_mode_existence_check_404_violation(self, tmp_path, capsys, monkeypatch):
+        """404 from GitHub API is reported as a violation."""
+        changelog = tmp_path / "CHANGELOG.md"
+        changelog.write_text(
+            "# Changelog\n\n## [Unreleased]\n\n### Added\n\n- a ([#99999](x/pull/99999))\n\n",
+            encoding="utf-8",
+        )
+        monkeypatch.setenv("GITHUB_REPOSITORY", "Zeroto521/foliplus")
+        monkeypatch.setenv("GITHUB_TOKEN", "tok")
+        with patch.object(
+            mod.urllib.request, "urlopen", _mock_urlopen({"99999": 404}, [])
+        ):
+            with patch.object(sys, "argv", ["changelog_check.py", "--path", str(changelog)]):
+                with patch.object(mod.sys, "exit") as mock_exit:
+                    mod.main()
+        mock_exit.assert_called_once_with(1)
+        out = capsys.readouterr().out
+        assert "FAIL" in out
+        assert "#99999" in out
+
+    def test_check_mode_existence_check_403_soft_error(self, tmp_path, capsys, monkeypatch):
+        """403 rate limit is a soft error, not a violation."""
+        changelog = tmp_path / "CHANGELOG.md"
+        changelog.write_text(
+            "# Changelog\n\n## [Unreleased]\n\n### Added\n\n- a ([#1](x/pull/1))\n\n",
+            encoding="utf-8",
+        )
+        monkeypatch.setenv("GITHUB_REPOSITORY", "Zeroto521/foliplus")
+        monkeypatch.setenv("GITHUB_TOKEN", "tok")
+        with patch.object(
+            mod.urllib.request, "urlopen", _mock_urlopen({"1": 403}, [])
+        ):
+            with patch.object(sys, "argv", ["changelog_check.py", "--path", str(changelog)]):
+                with patch.object(mod.sys, "exit") as mock_exit:
+                    mod.main()
+        assert mock_exit.call_count == 0
+        out = capsys.readouterr().out
+        assert "OK" in out
+        assert "rate-limit" in out.lower()
+
+    def test_check_mode_label_url_warning(self, tmp_path, capsys, monkeypatch):
+        """Label≠URL tail produces a warning, not a violation."""
+        changelog = tmp_path / "CHANGELOG.md"
+        changelog.write_text(
+            "# Changelog\n\n## [Unreleased]\n\n### Added\n\n"
+            "- a ([#164](x/tree/999))\n\n",
+            encoding="utf-8",
+        )
+        monkeypatch.delenv("GITHUB_REPOSITORY", raising=False)
+        monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+        with patch.object(
+            sys, "argv", ["changelog_check.py", "--skip-exists", "--path", str(changelog)]
+        ):
+            with patch.object(mod.sys, "exit") as mock_exit:
+                mod.main()
+        assert mock_exit.call_count == 0
+        out = capsys.readouterr().out
+        assert "warn" in out
+        assert "#164" in out
+
     def test_check_mode_file_not_found(self, tmp_path, capsys):
         with patch.object(
             sys,

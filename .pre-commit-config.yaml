@@ -62,6 +62,7 @@ repos:
       - id: changelog-order
         name: changelog-order (auto-fix sort, existence check skipped)
         entry: python script/changelog_check.py --fix --skip-exists
-        language: system
+        language: python
+        additional_dependencies: []
         files: ^CHANGELOG\.md$
         pass_filenames: false
