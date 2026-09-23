@@ -275,7 +275,6 @@ describe("LayerUI shell — delegates", () => {
   });
 });
 
-
 describe("LayerUI deselectAllBaseMaps", () => {
   let manager: LayerManager;
   let map: any;

@@ -27,8 +27,8 @@
 // "Projection" is what the diff compares — intent + policy together, so
 // a change on either side produces an op.
 import { resetGridLayerView } from "#core/leafletAdapter.js";
-import { projectAll, projectLayer, type Projection } from "./store.js";
 import type { LayerUI } from "./index.js";
+import { type Projection, projectAll, projectLayer } from "./store.js";
 
 /** One write the carrier dispatcher accepts. `opacity` and `zoomRange`
  *  being `undefined` mean "no user value" — a Reset back to the author's
@@ -103,11 +103,7 @@ const sameCarrier = (prev: unknown, curr: unknown): boolean =>
  *  nothing must not persist — when the surface declares "none" we skip
  *  the write instead of faking one on a shared carrier.
  */
-const applyStateOp = (
-  ui: LayerUI,
-  layerInfo: LayerInfo,
-  op: StateOp,
-): void => {
+const applyStateOp = (ui: LayerUI, layerInfo: LayerInfo, op: StateOp): void => {
   if (op.type === "visible") {
     const layer = layerInfo.layer ?? ui.m.findLayer(layerInfo);
     if (layer) {
@@ -250,7 +246,7 @@ const applyProjection = (ui: LayerUI, id: string): void => {
     const layer = layerInfo.layer ?? ui.m.findLayer(layerInfo);
     const baselineVisible = layer
       ? ui.m.map.hasLayer(layer)
-      : ui.authorVisible.get(id) ?? true;
+      : (ui.authorVisible.get(id) ?? true);
     prev = {
       id,
       intent: { visible: baselineVisible },

@@ -1,7 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LayerManager } from "#foliplus/LayerControl/manager.js";
+import {
+  applyProjection,
+  applyProjectionAll,
+} from "#foliplus/LayerControl/ui/apply.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
-import { applyProjection, applyProjectionAll } from "#foliplus/LayerControl/ui/apply.js";
 import { installLeafletGlobals } from "./fixture.js";
 
 // ────────────────────────────────────────────────────────────────────────
@@ -337,12 +340,14 @@ describe("executor: idempotent writes", () => {
     ui.opacityMap.p = 0.5;
     ui.userOverrides.p = ["opacity"];
     applyProjection(ui, "p");
-    const callsAfterOne = map.addLayer.mock.calls.length + map.removeLayer.mock.calls.length;
+    const callsAfterOne =
+      map.addLayer.mock.calls.length + map.removeLayer.mock.calls.length;
 
     // Two more applies with nothing new: the map state must not change.
     applyProjection(ui, "p");
     applyProjection(ui, "p");
-    const callsAfterRepeated = map.addLayer.mock.calls.length + map.removeLayer.mock.calls.length;
+    const callsAfterRepeated =
+      map.addLayer.mock.calls.length + map.removeLayer.mock.calls.length;
 
     expect(callsAfterRepeated).toBe(callsAfterOne);
   });

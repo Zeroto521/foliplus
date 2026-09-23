@@ -8,11 +8,7 @@ import { dom } from "#common/dom.js";
 import * as CONST from "../../const.js";
 import { applyProjection } from "../apply.js";
 import type { LayerUI } from "../index.js";
-import {
-  markOverride,
-  saveState,
-  unmarkOverride,
-} from "../state.js";
+import { markOverride, saveState, unmarkOverride } from "../state.js";
 import { railPos, round5 } from "./frame.js";
 
 /** Whether the layer's surface can honestly carry an opacity write. Layers with

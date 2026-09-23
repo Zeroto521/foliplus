@@ -52,6 +52,7 @@ import {
   saveState,
   syncHiddenId,
 } from "./state.js";
+import type { AppliedProjection } from "./store.js";
 import {
   applyStyleLabelState,
   closeStylePanel,
@@ -66,7 +67,6 @@ import {
   syncToggleAll,
   toggleAll,
 } from "./visibility.js";
-import type { AppliedProjection } from "./store.js";
 
 /** UI Controller for LayerControl. */
 class LayerUI {

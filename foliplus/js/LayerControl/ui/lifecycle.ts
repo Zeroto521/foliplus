@@ -9,8 +9,8 @@ import {
   handleMoreMenuClick,
   registerInteractions,
 } from "../interaction.js";
-import { inFloatingPanel, isKeyboardVisibleFocus, owningRow } from "./context.js";
 import { applyProjection, applyProjectionAll } from "./apply.js";
+import { inFloatingPanel, isKeyboardVisibleFocus, owningRow } from "./context.js";
 import {
   handleDragEnd,
   handleDragLeave,
@@ -34,11 +34,7 @@ import { closeMoreMenu } from "./menu.js";
 import { finishRename } from "./rename.js";
 import { applyRowView, buildRowCell } from "./rowView.js";
 import { snapshotAuthorVisible } from "./rowView.js";
-import {
-  applyUserState,
-  loadPersistedState,
-  syncHiddenId,
-} from "./state.js";
+import { applyUserState, loadPersistedState, syncHiddenId } from "./state.js";
 import { closeStylePanel, invalidateFields } from "./style/index.js";
 import {
   getLayerItems,
