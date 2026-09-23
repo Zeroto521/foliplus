@@ -694,6 +694,7 @@ export {
   replayLayerState,
   applyVisibleStateOne,
   applyZoomRangeStateOne,
+  applyRangeVisible,
   computeEffectiveShown,
   refreshZoomEffectiveShown,
   saveNamesState,

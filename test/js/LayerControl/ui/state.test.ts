@@ -9,6 +9,7 @@ import {
   applyUserState,
   applyVisibleStateOne,
   applyZoomRangeStateOne,
+  applyRangeVisible,
   computeEffectiveShown,
   loadPersistedState,
   markOverride,
@@ -2113,5 +2114,31 @@ describe("zoomRange effective-shown logic", () => {
 
     expect(map.removeLayer).toHaveBeenCalled();
     expect(u.rangeHiddenIds.has("overlay1")).toBe(true);
+  });
+
+  it("applyRangeVisible fires onToggle for callback-only layers (no Leaflet layer)", () => {
+    // The `else if (layerInfo.onToggle)` branch: a pane-capable layer that
+    // somehow has no Leaflet layer but has a toggle callback. Currently
+    // unreachable through refreshZoomEffectiveShown (which skips canvas
+    // layers) or applyZoomRangeStateOne (which only calls applyRangeVisible
+    // for pane capability, and pane layers should have a Leaflet layer), but
+    // the defensive branch exists for future-proofing.
+    const onToggle = vi.fn();
+    const layerInfo = { id: "canvas1", name: "Canvas", onToggle } as unknown as LayerInfo;
+    const map = makeMap();
+    const m = new LayerManager(map, [layerInfo]);
+    const u = new LayerUI(m);
+
+    // shown=true: should fire onToggle(true) without touching the map
+    applyRangeVisible(u, layerInfo, true);
+    expect(onToggle).toHaveBeenCalledWith(true);
+    expect(map.addLayer).not.toHaveBeenCalled();
+    expect(map.removeLayer).not.toHaveBeenCalled();
+
+    // shown=false: should fire onToggle(false)
+    applyRangeVisible(u, layerInfo, false);
+    expect(onToggle).toHaveBeenCalledWith(false);
+    expect(map.addLayer).not.toHaveBeenCalled();
+    expect(map.removeLayer).not.toHaveBeenCalled();
   });
 });
