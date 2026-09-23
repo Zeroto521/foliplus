@@ -6,10 +6,10 @@ import {
   applyHiddenOne,
   applyHiddenStateOne,
   applyOpacityStateOne,
+  applyRangeVisible,
   applyUserState,
   applyVisibleStateOne,
   applyZoomRangeStateOne,
-  applyRangeVisible,
   computeEffectiveShown,
   loadPersistedState,
   markOverride,
@@ -2124,7 +2124,11 @@ describe("zoomRange effective-shown logic", () => {
     // for pane capability, and pane layers should have a Leaflet layer), but
     // the defensive branch exists for future-proofing.
     const onToggle = vi.fn();
-    const layerInfo = { id: "canvas1", name: "Canvas", onToggle } as unknown as LayerInfo;
+    const layerInfo = {
+      id: "canvas1",
+      name: "Canvas",
+      onToggle,
+    } as unknown as LayerInfo;
     const map = makeMap();
     const m = new LayerManager(map, [layerInfo]);
     const u = new LayerUI(m);
