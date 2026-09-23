@@ -1472,6 +1472,27 @@ describe("LayerManager", () => {
     expect(m.layers.map(l => l.id)).toEqual(["kept"]);
   });
 
+  it("evicts a deleted layer from the map at construction", () => {
+    // Gating registration only removes the layer from the panel. The layer
+    // itself is still painted: folium emits `addTo(map)` for every layer at
+    // page load, so a reload re-adds a deleted layer exactly as before the
+    // delete. Without the eviction the panel shows it gone and the map keeps
+    // drawing it — the user's delete did nothing.
+    seedStorage({ removed: ["gone"] });
+    const gone = { options: {} };
+    map._layers["gone"] = gone;
+    map.hasLayer = vi.fn(l => l === gone);
+    const removeLayer = vi.fn();
+    map.removeLayer = removeLayer;
+    const m = new LayerManager(map, [
+      { id: "gone", name: "G", isBase: false },
+      { id: "kept", name: "K", isBase: false },
+    ]);
+
+    expect(m.layers.map(l => l.id)).toEqual(["kept"]);
+    expect(removeLayer).toHaveBeenCalledWith(gone);
+  });
+
   it("refuses to re-register a deleted id, without throwing", () => {
     // A deletion is one-way, so the id must be refused at the registration
     // entry point rather than allowed back in. Refusal returns null and logs —

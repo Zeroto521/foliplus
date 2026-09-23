@@ -178,10 +178,11 @@ class LayerManager implements LayerAPI {
   private savedOrder: string[] | null;
   /** Layer ids the user deleted, one-way: nothing removes an entry.
    *
-   *  Consulted at the registration entry point only — a deleted id never
-   *  enters the registry, so nothing downstream ever has to check for it.
-   *  Held on the manager rather than the UI because `registerLayer` runs
-   *  before the panel has attached. */
+   *  Consulted at construction, where it evicts the layer from the map, and at
+   *  the registration entry point, where it keeps the id out of the registry
+   *  — so nothing downstream ever has to check for it. Both run before the
+   *  panel attaches, which is why this lives on the manager rather than the UI.
+   */
   private removedIds: Set<string>;
   annotation: AnnotationManager;
   onLayerAdd: (event: L.LeafletEvent) => void;
@@ -200,6 +201,7 @@ class LayerManager implements LayerAPI {
     const saved = this.persistence.load();
     this.removedIds = new Set(saved.removed);
     this.savedOrder = saved.order;
+    this.evictRemoved(data);
     this.layerRegistry = new LayerRegistry(
       data.filter(li => !this.removedIds.has(li.id)),
       this.map,
@@ -443,6 +445,31 @@ class LayerManager implements LayerAPI {
     const target = saved.indexOf(layerInfo.id);
     if (target === -1) return; // no stored position — a fresh layer stays on top
     this.placeBeforeSavedNeighbor(layerInfo, saved, target);
+  }
+
+  /** Evict the layers the user deleted from the map, before the registry is
+   *  built.
+   *
+   *  `removedIds` keeps a deleted id out of the registry, which removes it from
+   *  the panel — but folium renders every layer with `addTo(map)` at page load,
+   *  so across a reload a deleted layer is still on the map when the constructor
+   *  runs. Gating registration alone leaves the panel reporting the layer as
+   *  gone while the map keeps painting it.
+   *
+   *  Resolves each id through the shared `findLayer` lookup, so a layer folium
+   *  attached and one the caller holds a direct reference to are handled the
+   *  same way. Runs before the registry filter, since that is what drops the
+   *  entries from `data` — after it there is nothing left to walk. No pane or
+   *  surface teardown here: the registry never built these layers, so the
+   *  manager holds no state for them.
+   */
+  private evictRemoved(data: LayerInfo[]): void {
+    if (this.removedIds.size === 0) return;
+    for (const li of data) {
+      if (!this.removedIds.has(li.id)) continue;
+      const layer = li.layer ?? findLayer(this.map, li.id);
+      if (layer && this.map.hasLayer(layer)) this.map.removeLayer(layer);
+    }
   }
 
   // ==================== Public API Methods ====================
