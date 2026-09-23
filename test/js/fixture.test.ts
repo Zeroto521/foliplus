@@ -1,10 +1,11 @@
-// Completeness gate: the shared fixtures must cover the failure modes that
-// the two prior incidents (T85's missing `bindPopup`, T38's missing
-// `rangeHiddenIds`) exposed. Every field on `LayerUI` and every constructor
-// on `window.L` that production code touches is exercised here so a new
-// field landing in production code produces a loud test failure instead of
-// a silent crash a dozen tests downstream.
-import { describe, expect, it } from "vitest";
+// Completeness + isolation gates: the shared fixture must cover the failure
+// modes that the two prior incidents (T85's missing `bindPopup`, T38's missing
+// `rangeHiddenIds`) exposed, and the global beforeEach(resetState) must keep
+// localStorage clean across tests. Every field on `LayerUI` and every
+// constructor on `window.L` that production code touches is exercised here so
+// a new field landing in production code produces a loud test failure instead
+// of a silent crash a dozen tests downstream.
+import { beforeEach, describe, expect, it } from "vitest";
 import { makeLayerUIMock } from "./fixture.js";
 
 describe("window.L marker mock", () => {
@@ -57,5 +58,15 @@ describe("makeLayerUIMock — LayerUI field completeness", () => {
     // m getter alias for manager
     (ui as any).manager = { foo: 1 };
     expect((ui as any).m.foo).toBe(1);
+  });
+});
+
+describe("test isolation — localStorage does not leak across tests", () => {
+  it("test A writes a value to localStorage", () => {
+    window.localStorage.setItem("isol-test-key", "leaked-from-A");
+  });
+
+  it("test B sees no residue from test A (global beforeEach cleared it)", () => {
+    expect(window.localStorage.getItem("isol-test-key")).toBeNull();
   });
 });
