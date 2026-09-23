@@ -424,17 +424,31 @@ describe("PaneManager", () => {
     expect(pm.discoverChildPanes(layer)).toEqual(["other_pane"]);
   });
 
-  it("keeps the discovery cache bounded while layer churn continues", () => {
+  it("keeps the discovery cache bounded, evicting the oldest entry", () => {
     // `L.stamp` is never reused, so an uncapped cache would grow with every
-    // layer ever asked about and only shrink at teardown. The bound is the
-    // oldest-first eviction inside `discoverChildPanes`.
+    // layer ever asked about and only shrink at teardown. Eviction is oldest-
+    // first — the entry least likely to be asked again soon — and the cost of
+    // the miss it causes is one extra `forEachLayer` walk, never a wrong answer.
     const map = { getPane: vi.fn(), createPane: vi.fn() };
     const pm = new PaneManager(map);
     const cap = CONST.CACHE.PANE_DISCOVERY_ENTRIES;
-    for (let i = 0; i < cap * 2; i++) {
-      pm.discoverChildPanes({ options: { pane: "custom" } } as unknown as L.Layer);
+    const stamps: number[] = [];
+    for (let i = 0; i < cap; i++) {
+      const layer = { options: { pane: "custom" } } as unknown as L.Layer;
+      stamps.push(window.L.stamp(layer));
+      pm.discoverChildPanes(layer);
     }
     expect(pm.paneCache.size).toBe(cap);
+
+    const fresh = { options: { pane: "other" } } as unknown as L.Layer;
+    const freshStamp = window.L.stamp(fresh);
+    pm.discoverChildPanes(fresh);
+
+    expect(pm.paneCache.size).toBe(cap);
+    expect(pm.paneCache.has(stamps[0])).toBe(false);
+    expect(pm.paneCache.has(stamps[cap - 1])).toBe(true);
+    expect(pm.paneCache.get(stamps[cap - 1])).toEqual(["custom"]);
+    expect(pm.paneCache.get(freshStamp)).toEqual(["other"]);
   });
 
   describe("pinTree", () => {

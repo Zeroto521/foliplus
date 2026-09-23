@@ -417,10 +417,10 @@ class PaneManager {
     const result = Array.from(panes);
     // Map insertion order is FIFO here, so the first key is the oldest. Dropping
     // it costs one extra `forEachLayer` walk the next time that layer is asked
-    // about — never a wrong answer.
+    // about — never a wrong answer. The `size` guard already guarantees the
+    // iterator has a value, so the `!` is for the type system only.
     if (this.discoveryCache.size >= CONST.CACHE.PANE_DISCOVERY_ENTRIES) {
-      const oldest = this.discoveryCache.keys().next().value;
-      if (oldest !== undefined) this.discoveryCache.delete(oldest);
+      this.discoveryCache.delete(this.discoveryCache.keys().next().value!);
     }
     this.discoveryCache.set(key, result);
     return result;
