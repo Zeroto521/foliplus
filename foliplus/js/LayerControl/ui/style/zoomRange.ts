@@ -4,9 +4,9 @@
 // LayerControl-owned, gated by surface capability.
 import { dom } from "#common/dom.js";
 import * as CONST from "../../const.js";
+import { applyProjection } from "../apply.js";
 import type { LayerUI } from "../index.js";
 import {
-  applyZoomRangeStateOne,
   markOverride,
   saveState,
   unmarkOverride,
@@ -267,7 +267,7 @@ const applyZoomRangeLive = (
   if (!li) return;
   ui.zoomRangeMap[layerId] = [min, max];
   syncZoomRangeRow(ui, layerId, row, [min, max]);
-  applyZoomRangeStateOne(ui, li, [min, max]);
+  applyProjection(ui, layerId);
 };
 
 /** Commit pass: persist the zoom range to localStorage. The value and the
@@ -280,21 +280,19 @@ const commitZoomRange = (ui: LayerUI, layerId: string): void => {
 
 /** Reset one layer's zoom range to the full map range and drop its override. */
 const resetLayerZoomRange = (ui: LayerUI, layerId: string): void => {
-  const li = ui.m.layerRegistry.get(layerId);
+  if (!ui.m.layerRegistry.has(layerId)) return;
   delete ui.zoomRangeMap[layerId];
   unmarkOverride(ui, layerId, "zoomRange");
   saveState(ui);
-  if (li) {
-    applyZoomRangeStateOne(ui, li, null);
-    // Refresh the row's visual state (fill, values, out-of-range).
-    const panel = ui.uiContainer.querySelector(
-      `.${CONST.CLASSES.STYLE_PANEL}`,
-    ) as HTMLElement | null;
-    const row = panel?.querySelector(
-      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`,
-    ) as HTMLElement | null;
-    if (row) syncZoomRangeRow(ui, layerId, row);
-  }
+  applyProjection(ui, layerId);
+  // Refresh the row's visual state (fill, values, out-of-range).
+  const panel = ui.uiContainer.querySelector(
+    `.${CONST.CLASSES.STYLE_PANEL}`,
+  ) as HTMLElement | null;
+  const row = panel?.querySelector(
+    `.${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`,
+  ) as HTMLElement | null;
+  if (row) syncZoomRangeRow(ui, layerId, row);
 };
 
 export {

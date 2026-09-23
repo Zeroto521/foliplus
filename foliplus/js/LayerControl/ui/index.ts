@@ -10,6 +10,7 @@ import { createScopedTranslator, createTranslator } from "#common/locale.js";
 import * as CONST from "../const.js";
 import type { LayerManager } from "../manager.js";
 import type { LayerOverride } from "../persistence.js";
+import { applyProjection, applyProjectionAll } from "./apply.js";
 import { closeAttrsPanel, openAttrsPanel } from "./attr.js";
 import { hideColorLayer, showColorLayer } from "./color.js";
 import { cancelFocus, focusLayer, isFocusing } from "./focus.js";
@@ -43,10 +44,8 @@ import { finishRename, renameLayer } from "./rename.js";
 import { applyRowView, buildRowCell, displayName, rowChecked } from "./rowView.js";
 import {
   applyUserState,
-  applyZoomRangeStateOne,
   dropPersistedLayerState,
   loadPersistedState,
-  refreshZoomEffectiveShown,
   replayLayerState,
   saveFoldState,
   saveNamesState,
@@ -65,9 +64,9 @@ import {
   handleChange,
   handleInput,
   syncToggleAll,
-  syncVisibility,
   toggleAll,
 } from "./visibility.js";
+import type { Projection } from "./store.js";
 
 /** UI Controller for LayerControl. */
 class LayerUI {
@@ -182,6 +181,12 @@ class LayerUI {
   /** Persisted per-layer zoom range the user moved the handles for
    *  (id → [minZoom, maxZoom]). Applied on load / late register. */
   zoomRangeMap: Record<string, [number, number]>;
+  /** The executor's last-write map: id → the projection `applyProjection`
+   *  last wrote to the map. This is what makes the executor a diff, not a
+   *  sweep — a changeless call re-projects, sees no delta, and calls no
+   *  carrier. Keyed by id (not by `layerInfo` identity) so a re-register
+   *  of the same id keeps its projection across the swap. */
+  appliedState: Map<string, Projection>;
   /** Temporary Rectangle overlay drawn while a focus is in progress. */
   focusRect: L.Layer | null;
   /** Layer id currently being focused, or null. */
@@ -233,6 +238,7 @@ class LayerUI {
     this.labelConfigs = {};
     this.opacityMap = {};
     this.zoomRangeMap = {};
+    this.appliedState = new Map();
     this.focusRect = null;
     this.focusingLayerId = null;
     this.onFocusMapMove = null;
@@ -340,17 +346,6 @@ class LayerUI {
   saveNamesState() {
     return saveNamesState(this);
   }
-  /** Re-evaluate every layer's effective-shown after a zoom change or a
-   *  focus transition. Writes through the single pipeline (`applyLayerState`),
-   *  so `hiddenIds` / `overrides` / the checkbox DOM are never touched —
-   *  the #329 lock. */
-  refreshZoomEffectiveShown() {
-    return refreshZoomEffectiveShown(this);
-  }
-  applyZoomRangeStateOne(layerId: string, range: [number, number] | null) {
-    const layerInfo = this.m.layerRegistry.get(layerId);
-    if (layerInfo) applyZoomRangeStateOne(this, layerInfo, range);
-  }
   // ── delegates: list ──
   initTypesAndVisibility() {
     return initTypesAndVisibility(this);
@@ -387,11 +382,14 @@ class LayerUI {
   syncToggleAll(group: string) {
     return syncToggleAll(this, group);
   }
-  syncVisibility(layerInfo: LayerInfo, layer: L.Layer | null, fallback: boolean) {
-    return syncVisibility(this, layerInfo, layer, fallback);
-  }
   applyVisibility(id: string, visible: boolean) {
     return applyVisibility(this, id, visible);
+  }
+  applyProjection(layerId: string) {
+    return applyProjection(this, layerId);
+  }
+  applyProjectionAll() {
+    return applyProjectionAll(this);
   }
   handleChange(event: Event) {
     return handleChange(this, event);

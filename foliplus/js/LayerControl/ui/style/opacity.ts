@@ -6,9 +6,9 @@
 // not annotation-owned.
 import { dom } from "#common/dom.js";
 import * as CONST from "../../const.js";
+import { applyProjection } from "../apply.js";
 import type { LayerUI } from "../index.js";
 import {
-  applyOpacityStateOne,
   markOverride,
   saveState,
   unmarkOverride,
@@ -93,18 +93,17 @@ const commitOpacityPct = (
   // Only touch the layer when the value actually moved: a drag revisits steps
   // (and the commit re-sends the live value), and for a plain layer each pass
   // is a sweep over every feature.
-  if (li.opacity !== opacity) {
-    applyOpacityStateOne(ui, li, opacity);
-    if (opacity === 1) {
-      // Fully opaque is the declared default, so there is no override to keep.
-      delete ui.opacityMap[layerId];
-      unmarkOverride(ui, layerId, "opacity");
-    } else {
-      ui.opacityMap[layerId] = opacity;
-      markOverride(ui, layerId, "opacity");
-    }
-    saveState(ui);
+  if (li.opacity === opacity) return;
+  if (opacity === 1) {
+    // Fully opaque is the declared default, so there is no override to keep.
+    delete ui.opacityMap[layerId];
+    unmarkOverride(ui, layerId, "opacity");
+  } else {
+    ui.opacityMap[layerId] = opacity;
+    markOverride(ui, layerId, "opacity");
   }
+  saveState(ui);
+  applyProjection(ui, layerId);
   syncOpacityInputs(panel, pct);
 };
 
@@ -171,11 +170,11 @@ const buildOpacityRow = (ui: LayerUI, layerId: string): HTMLElement => {
 
 /** Reset one layer's opacity to fully opaque and drop its persisted entry. */
 const resetLayerOpacity = (ui: LayerUI, layerId: string): void => {
-  const li = ui.m.layerRegistry.get(layerId);
-  if (li) applyOpacityStateOne(ui, li, 1);
+  if (!ui.m.layerRegistry.has(layerId)) return;
   delete ui.opacityMap[layerId];
   unmarkOverride(ui, layerId, "opacity");
   saveState(ui);
+  applyProjection(ui, layerId);
 };
 
 export {

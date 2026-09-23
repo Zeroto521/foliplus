@@ -1193,6 +1193,9 @@ describe("LayerManager", () => {
             renamedNames: {},
             opacityMap: { heat: 0.4 },
             zoomRangeMap: {},
+            appliedState: new Map(),
+            authorVisible: new Map(),
+            userOverrides: {},
           } as any,
           id,
         ),
@@ -1200,6 +1203,8 @@ describe("LayerManager", () => {
       hiddenIds: new Set(),
       zoomRangeMap: {},
       userOverrides: {},
+      appliedState: new Map(),
+      authorVisible: new Map(),
     } as any;
 
     // Swap the canvas on re-registration — the new element starts opaque.

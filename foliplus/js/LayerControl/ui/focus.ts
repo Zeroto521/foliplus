@@ -9,6 +9,7 @@ import {
 } from "#core/layer/index.js";
 import { ensureModes, guardBlocked } from "#core/mode.js";
 import * as CONST from "../const.js";
+import { applyProjectionAll } from "./apply.js";
 import type { LayerUI } from "./index.js";
 import { getActiveLayerItem } from "./keyboard.js";
 
@@ -260,9 +261,9 @@ const dismissFocus = (ui: LayerUI): void => {
   ui.focusingLayerId = null;
   // Focus suspends inRange for its duration: with focus gone, the focused
   // layer's effective-shown falls back to intent && inRange. If its range
-  // still excludes the current zoom, the sweep removes it from the map —
+  // still excludes the current zoom, the executor removes it from the map —
   // the "unfocus returns it to hidden" half of the focus gate.
-  ui.refreshZoomEffectiveShown();
+  applyProjectionAll(ui);
 };
 
 /**

@@ -1,6 +1,7 @@
 // LayerControl UI —Checkbox / group-toggle visibility.
 import { type Debounced, debounce } from "#common/debounce.js";
 import * as CONST from "../const.js";
+import { applyProjection, applyProjectionAll } from "./apply.js";
 import { hideColorLayer, showColorLayer } from "./color.js";
 import type { LayerUI } from "./index.js";
 import { applyRowView, buildRowCell, rowChecked } from "./rowView.js";
@@ -25,14 +26,15 @@ const toggleAll = (ui: LayerUI, group: string, newState: boolean) => {
     const id = item.getAttribute(CONST.DATA.LAYER_ID);
     const layerInfo = id ? ui.m.layerRegistry.get(id) : undefined;
     if (!layerInfo) return;
-    const layer = ui.m.findLayer(layerInfo);
 
-    if (layer) newState ? ui.m.map.addLayer(layer) : ui.m.map.removeLayer(layer);
-    if (layerInfo.onToggle) layerInfo.onToggle(newState);
-    syncVisibility(ui, layerInfo, layer, newState);
     // No persist per iteration —schedule a single debounced write after the
     // loop so the debounce timer isn't reset for every layer.
-    syncHiddenId(ui, layerInfo.id, !newState, false);
+    syncHiddenId(ui, id, !newState, false);
+    // The executor is the only writer of `layerInfo.visible` and the map's
+    // membership for this layer: syncHiddenId recorded the intent, so the
+    // projection's `visible` field now matches the intended state and the
+    // diff fires whatever op is needed.
+    applyProjection(ui, id);
     applyRowView(ui, item as HTMLElement, buildRowCell(ui, layerInfo));
   });
 
@@ -77,21 +79,6 @@ const syncToggleAll = (ui: LayerUI, group: string) => {
   );
 };
 
-const syncVisibility = (
-  ui: LayerUI,
-  layerInfo: LayerInfo,
-  layer: L.Layer | null,
-  fallback: boolean,
-) => {
-  // layerInfo.visible is a real-time mirror of the map state; the user's
-  // intent lives in hiddenIds (hidden) or overrides (shown). This is the
-  // second writer of `visible` — the first is applyLayerState in state.ts.
-  // Both paths write the same value (the actual map membership), so the
-  // dual-writer is intentional, not a race.
-  layerInfo.visible = layer ? ui.m.map.hasLayer(layer) : fallback;
-  return layerInfo.visible;
-};
-
 /**
  * Apply one layer's visibility, source-agnostic.
  *
@@ -102,23 +89,23 @@ const syncVisibility = (
  * `visible` flag, the row's checkbox + tooltip + active class, the persisted
  * hidden set, the group toggle-all, and the debounced z-order enforcement.
  *
+ * The user's intent is recorded first, then the executor re-projects — the
+ * single writer of `layerInfo.visible` and of map membership for this layer.
+ * The old code wrote `visible` from two sites (here and the executor), which
+ * is what §22-9.1 wanted gone.
+ *
  * @returns true if the layer id resolved to a registry entry.
  */
 const applyVisibility = (ui: LayerUI, id: string, visible: boolean): boolean => {
   const layerInfo = ui.m.layerRegistry.get(id);
   if (!layerInfo) return false;
-  const layer = ui.m.findLayer(layerInfo);
   const item = ui.uiContainer?.querySelector(
     `[${CONST.DATA.LAYER_ID}="${CSS.escape(id)}"]`,
   ) as HTMLElement | null;
 
   if (layerInfo.isBase) hideColorLayer(ui);
-  if (layer) {
-    visible ? ui.m.map.addLayer(layer) : ui.m.map.removeLayer(layer);
-  }
-  if (layerInfo.onToggle) layerInfo.onToggle(visible);
-  syncVisibility(ui, layerInfo, layer, visible);
-  syncHiddenId(ui, layerInfo.id, !visible);
+  syncHiddenId(ui, id, !visible);
+  applyProjection(ui, id);
 
   // Paint last: the cell reads the intent this transition just recorded.
   if (item) applyRowView(ui, item, buildRowCell(ui, layerInfo));
@@ -127,9 +114,10 @@ const applyVisibility = (ui: LayerUI, id: string, visible: boolean): boolean => 
   ui.m.debouncedEnforce();
 
   // A basemap switch changes the map's min/max zoom without firing zoomend,
-  // so re-evaluate effective shown and refresh the open panel's row.
+  // so re-evaluate effective shown across every layer and refresh the open
+  // panel's row.
   if (layerInfo.isBase) {
-    ui.refreshZoomEffectiveShown();
+    applyProjectionAll(ui);
     ui.styleZoomEndHandler?.();
   }
 
@@ -162,18 +150,10 @@ const handleInput = (ui: LayerUI, event: Event) => {
   }
 };
 
-/**
- * Update the persisted hidden set for a layer toggle.
- * @param {boolean} persist - When false (bulk updates like toggleAll), the
- *   caller schedules a single save after the loop instead of resetting the
- *   debounce timer for every layer.
- */
-
 export {
   getLayerItems,
   toggleAll,
   syncToggleAll,
-  syncVisibility,
   applyVisibility,
   handleChange,
   handleInput,

@@ -8,10 +8,8 @@ import {
   handleChange,
   handleInput,
   syncToggleAll,
-  syncVisibility,
   toggleAll,
 } from "#foliplus/LayerControl/ui/visibility.js";
-import type { LayerInfo } from "#foliplus/core/layer/index.js";
 import { initFixture, installLeafletGlobals } from "./fixture.js";
 
 // ===========================================================================
@@ -798,6 +796,14 @@ describe("toggleAll base group", () => {
   it("runs every branch of the sweep: real layer, canvas-only base, and the callback", () => {
     const onToggle = manager.layerRegistry.get("B2")!.onToggle!;
 
+    // Hide both first so the sweep has a visible→shown transition to fire.
+    toggleAll(ui, CONST.GROUP.BASE, false);
+
+    // Clear the mocks so we only count the un-hide call.
+    onToggle.mockClear();
+    map.addLayer.mockClear();
+    map.removeLayer.mockClear();
+
     toggleAll(ui, CONST.GROUP.BASE, true);
 
     expect(map.addLayer).toHaveBeenCalledWith(manager.layerRegistry.get("B1")!.layer);
@@ -847,13 +853,9 @@ describe("unit helpers", () => {
     expect(items[0].getAttribute("data-layer-type")).toBe("overlay");
   });
 
-  it("syncVisibility falls back when the Leaflet layer is absent", () => {
-    const layerInfo = { id: "a", visible: false } as LayerInfo;
-    expect(syncVisibility(makeUi(), layerInfo, null, true)).toBe(true);
-    expect(layerInfo.visible).toBe(true);
-    expect(syncVisibility(makeUi(), layerInfo, null, false)).toBe(false);
-    expect(layerInfo.visible).toBe(false);
-  });
+  // syncVisibility is gone (§22-9.1 step 3): the executor's visible op is
+  // the single writer of `layerInfo.visible`, so there is no mirror helper
+  // to test.
 
   it("handleInput is a no-op for non-color inputs", () => {
     const ui = makeUi();
