@@ -58,11 +58,20 @@ type PinnableNode = L.Layer & {
  *
  *  `removePane` deliberately touches neither: destroying a pane div does not
  *  change what any layer's `options.pane` names, which is the only thing the
- *  cache memoises. */
+ *  cache memoises.
+ *
+ *  TypeScript `private`, never an ES `#` field. Component bundles are inlined
+ *  into a Jinja2 `Template` at render time (`BaseControl`
+ *  `_build_component_template`), and minification drops the space in
+ *  `class X { #f`, leaving `class e{#f` — the `{#` is Jinja2's comment start,
+ *  so the render aborts with "Missing end of comment tag". This file only ever
+ *  lands in the shared runtime bundle, which is built as a plain string, so the
+ *  rule is convention rather than local necessity; keeping the whole codebase
+ *  Jinja-inert means nobody has to know which bundle a module ends up in. */
 class PaneManager {
   /** Read-only, and there is no accessor: no caller outside this class needs
    *  the map handle. */
-  readonly #map: L.Map;
+  private readonly map: L.Map;
   /** Leaflet's own panes, plus the auto-generated fallback family
    *  (`FALLBACK_PANE_PREFIX`). Kept public on purpose: `LayerControl/ui/focus`
    *  tests membership to skip the panes it must not touch. */
@@ -77,14 +86,14 @@ class PaneManager {
    * consumer (MeasureControl's label pane) — and the name-only `childPanes`
    * set, which could not carry the draw offset.
    */
-  readonly #childPaneSpecs = new Map<string, PaneSpec>();
+  private readonly paneSpecs = new Map<string, PaneSpec>();
   /** Discovery results keyed by `L.stamp`, capped by
    *  `CACHE.PANE_DISCOVERY_ENTRIES`: stamps are never reused, so layer churn
    *  would otherwise accumulate until teardown. */
-  #paneCache = new Map<number, string[]>();
+  private readonly discoveryCache = new Map<number, string[]>();
 
   constructor(map: L.Map) {
-    this.#map = map;
+    this.map = map;
     this.defaultPanes = new Set([
       "overlayPane",
       "markerPane",
@@ -99,17 +108,17 @@ class PaneManager {
    *  put one in or take one out, which is what keeps this map the single
    *  source of truth for "is this pane ours". */
   get childPaneSpecs(): ReadonlyMap<string, PaneSpec> {
-    return this.#childPaneSpecs;
+    return this.paneSpecs;
   }
 
   /** The discovery cache, read-only, for assertions on what was memoised. */
   get paneCache(): ReadonlyMap<number, string[]> {
-    return this.#paneCache;
+    return this.discoveryCache;
   }
 
   /** The names above as a set — membership is what the caller usually wants. */
   get childPanes(): ReadonlySet<string> {
-    return new Set(this.#childPaneSpecs.keys());
+    return new Set(this.paneSpecs.keys());
   }
 
   // ── Leaflet DOM integration ────────────────────────────────────
@@ -123,21 +132,21 @@ class PaneManager {
     paneName: string,
     needRenderer = true,
   ): { pane: HTMLElement; renderer: L.SVG | null } {
-    let pane = this.#map.getPane(paneName);
+    let pane = this.map.getPane(paneName);
     if (!pane) {
-      pane = this.#map.createPane(paneName);
+      pane = this.map.createPane(paneName);
       pane.classList.add("foliplus-layer-pane");
       // Provisional z so panes of one layer already draw in the right relative
       // order before the ordering pass assigns their position-based base
       // (which may never come if LayerControl is absent).
-      const spec = this.#childPaneSpecs.get(paneName);
+      const spec = this.paneSpecs.get(paneName);
       if (spec) {
         pane.style.zIndex = String(zFor({ role: spec.role, order: spec.order }));
       }
     }
     return {
       pane,
-      renderer: needRenderer ? getRendererFor(this.#map, paneName) : null,
+      renderer: needRenderer ? getRendererFor(this.map, paneName) : null,
     };
   }
 
@@ -150,8 +159,8 @@ class PaneManager {
    *  options. Clearing on every teardown used to be the one place this policy
    *  over-invalidated structure-wide for a single pane. */
   removePane(paneName: string) {
-    destroyPane(this.#map, paneName);
-    this.#childPaneSpecs.delete(paneName);
+    destroyPane(this.map, paneName);
+    this.paneSpecs.delete(paneName);
   }
 
   /** Clear all pane state. Called by LayerManager.destroy().
@@ -159,8 +168,8 @@ class PaneManager {
    *  removing the registered layers from the map, so they are still live —
    *  deleting their panes would drop them off the map. */
   destroy() {
-    this.#paneCache.clear();
-    this.#childPaneSpecs.clear();
+    this.discoveryCache.clear();
+    this.paneSpecs.clear();
   }
 
   /**
@@ -197,7 +206,7 @@ class PaneManager {
         layer.options.paneSet = true;
         continue;
       }
-      const paneEl = this.#map.getPane(paneName);
+      const paneEl = this.map.getPane(paneName);
       if (!groups.has(container)) groups.set(container, []);
       const collect = (l: L.Layer): void => {
         if (
@@ -253,7 +262,7 @@ class PaneManager {
    *    `pinTree` keeps the precise per-node delete, because it has the node in
    *    hand. */
   reset(_id?: number): void {
-    this.#paneCache.clear();
+    this.discoveryCache.clear();
   }
 
   /** Drop child-pane entries no longer referenced by any registered layer.
@@ -269,8 +278,8 @@ class PaneManager {
         used.add(spec.name);
       }
     }
-    for (const name of this.#childPaneSpecs.keys()) {
-      if (!used.has(name)) this.#childPaneSpecs.delete(name);
+    for (const name of this.paneSpecs.keys()) {
+      if (!used.has(name)) this.paneSpecs.delete(name);
     }
   }
 
@@ -300,13 +309,13 @@ class PaneManager {
           `PaneSpec.role rejected (unknown value "${String(spec.role)}"); ` +
             `keeping the spec but falling back to "base"`,
         );
-        this.#childPaneSpecs.set(spec.name, {
+        this.paneSpecs.set(spec.name, {
           ...spec,
           role: "base" as const,
         });
         continue;
       }
-      this.#childPaneSpecs.set(spec.name, spec);
+      this.paneSpecs.set(spec.name, spec);
     }
   }
 
@@ -328,7 +337,7 @@ class PaneManager {
    * @returns The renderer that was pinned, or null when none could be built.
    */
   ensureVector(layer: PathWithPane, paneName: string): L.Renderer | null {
-    const target = getRendererFor(this.#map, paneName);
+    const target = getRendererFor(this.map, paneName);
     layer.options.renderer = target ?? undefined;
     layer.options.pane = paneName;
     return target;
@@ -373,7 +382,7 @@ class PaneManager {
       // `discoverChildPanes` sees the pin rather than the pre-pin name. Precise
       // here rather than structure-wide: the walk already pays for each node,
       // so there is nothing to gain from discarding entries we did not touch.
-      this.#paneCache.delete(L.stamp(n));
+      this.discoveryCache.delete(L.stamp(n));
       if (!n.eachLayer) {
         // A Path needs its renderer pinned; every other leaf just carries the
         // pane name written above.
@@ -394,7 +403,7 @@ class PaneManager {
   discoverChildPanes(layer: L.Layer, depth = 0): string[] {
     if (depth > CONST.RECURSION.PANE_DEPTH) return [];
     const key = L.stamp(layer);
-    const hit = this.#paneCache.get(key);
+    const hit = this.discoveryCache.get(key);
     if (hit !== undefined) return hit;
     const panes = new Set<string>();
     forEachLayer(
@@ -409,11 +418,11 @@ class PaneManager {
     // Map insertion order is FIFO here, so the first key is the oldest. Dropping
     // it costs one extra `forEachLayer` walk the next time that layer is asked
     // about — never a wrong answer.
-    if (this.#paneCache.size >= CONST.CACHE.PANE_DISCOVERY_ENTRIES) {
-      const oldest = this.#paneCache.keys().next().value;
-      if (oldest !== undefined) this.#paneCache.delete(oldest);
+    if (this.discoveryCache.size >= CONST.CACHE.PANE_DISCOVERY_ENTRIES) {
+      const oldest = this.discoveryCache.keys().next().value;
+      if (oldest !== undefined) this.discoveryCache.delete(oldest);
     }
-    this.#paneCache.set(key, result);
+    this.discoveryCache.set(key, result);
     return result;
   }
 
