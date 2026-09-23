@@ -201,9 +201,16 @@ class LayerManager implements LayerAPI {
     const saved = this.persistence.load();
     this.removedIds = new Set(saved.removed);
     this.savedOrder = saved.order;
-    this.evictRemoved(data);
+    // A deleted id must leave the panel *and* the map: folium emits `addTo(map)`
+    // for every layer at page load, so gating the registry alone would drop the
+    // row while the map kept painting it across a reload. One pass does both.
     this.layerRegistry = new LayerRegistry(
-      data.filter(li => !this.removedIds.has(li.id)),
+      data.filter(li => {
+        if (!this.removedIds.has(li.id)) return true;
+        const layer = li.layer ?? findLayer(this.map, li.id);
+        if (layer && this.map.hasLayer(layer)) this.map.removeLayer(layer);
+        return false;
+      }),
       this.map,
     );
     this.pendingRegistrations = [];
@@ -445,31 +452,6 @@ class LayerManager implements LayerAPI {
     const target = saved.indexOf(layerInfo.id);
     if (target === -1) return; // no stored position — a fresh layer stays on top
     this.placeBeforeSavedNeighbor(layerInfo, saved, target);
-  }
-
-  /** Evict the layers the user deleted from the map, before the registry is
-   *  built.
-   *
-   *  `removedIds` keeps a deleted id out of the registry, which removes it from
-   *  the panel — but folium renders every layer with `addTo(map)` at page load,
-   *  so across a reload a deleted layer is still on the map when the constructor
-   *  runs. Gating registration alone leaves the panel reporting the layer as
-   *  gone while the map keeps painting it.
-   *
-   *  Resolves each id through the shared `findLayer` lookup, so a layer folium
-   *  attached and one the caller holds a direct reference to are handled the
-   *  same way. Runs before the registry filter, since that is what drops the
-   *  entries from `data` — after it there is nothing left to walk. No pane or
-   *  surface teardown here: the registry never built these layers, so the
-   *  manager holds no state for them.
-   */
-  private evictRemoved(data: LayerInfo[]): void {
-    if (this.removedIds.size === 0) return;
-    for (const li of data) {
-      if (!this.removedIds.has(li.id)) continue;
-      const layer = li.layer ?? findLayer(this.map, li.id);
-      if (layer && this.map.hasLayer(layer)) this.map.removeLayer(layer);
-    }
   }
 
   // ==================== Public API Methods ====================
