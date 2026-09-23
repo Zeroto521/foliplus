@@ -1,7 +1,8 @@
 // Vitest setup — runs before all test file imports.
 // Sets up global mocks needed by module-level code (e.g. `const foliplus = window.foliplus`).
 // Use vi.fn() so tests can spy on calls even when module captures at import time.
-import { vi } from "vitest";
+import { beforeEach, vi } from "vitest";
+import { installWindowLExtensions, resetState } from "./fixture.js";
 
 // Spec-compliant in-memory Web Storage fallback.
 // Node.js (24.19+, and newer 24.x used by CI) exposes an experimental global
@@ -126,6 +127,11 @@ window.L = {
 // LayerControl.manager.js — set it up before test imports.
 window.L.Path.prototype.bringToFront = vi.fn();
 
+// Extend the base L stub with every constructor/factory production code
+// touches. Uses Object.assign so window.L identity stays stable (setup and
+// production code both see the same reference). See fixture.ts.
+installWindowLExtensions();
+
 // Mock Jinja IIFE free variables
 window.CONF = {
   name: "SearchControl",
@@ -188,3 +194,9 @@ globalThis.turf = {
     },
   }),
 };
+
+// Global per-test isolation: clear localStorage and mock call history.
+// Deliberately does not touch document.body — a test file that mounts DOM
+// in `beforeAll` would have its container wiped before the first `it` runs.
+// See `mountFixtureRoot()` in fixture.ts for a scoped alternative.
+beforeEach(resetState);
