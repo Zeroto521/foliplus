@@ -19,7 +19,6 @@
 //   `foliplus/js/LayerControl/ui/index.ts` constructor + declared fields).
 //   Adding a new field to LayerUI means adding it here too; the completeness
 //   gate in `test/js/fixtures.test.ts` fails loudly if the two drift apart.
-
 import { vi } from "vitest";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 
@@ -44,9 +43,7 @@ class LeafletBase {
     getWest: () => 0,
     isValid: () => true,
   })) as any;
-  getElement = vi.fn(
-    () => document.createElement("div"),
-  ) as any;
+  getElement = vi.fn(() => document.createElement("div")) as any;
   getLatLngs = vi.fn(() => []) as any;
 }
 
@@ -133,8 +130,18 @@ export function installWindowLExtensions(): void {
     // would silently redirect `origAddLayer` to the prototype's `vi.fn()`,
     // bypassing the test's local `L.layerGroup` factory.
     layerGroup: layerGroupMock,
-    gridLayer: vi.fn(() => ({ addTo: vi.fn(), remove: vi.fn(), on: vi.fn(), off: vi.fn() })),
-    tileLayer: vi.fn(() => ({ addTo: vi.fn(), remove: vi.fn(), on: vi.fn(), off: vi.fn() })),
+    gridLayer: vi.fn(() => ({
+      addTo: vi.fn(),
+      remove: vi.fn(),
+      on: vi.fn(),
+      off: vi.fn(),
+    })),
+    tileLayer: vi.fn(() => ({
+      addTo: vi.fn(),
+      remove: vi.fn(),
+      on: vi.fn(),
+      off: vi.fn(),
+    })),
     svg: svgMock,
     stamp: vi.fn(),
     latLngBounds: boundsMock,

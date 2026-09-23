@@ -4,7 +4,6 @@
 // on `window.L` that production code touches is exercised here so a new
 // field landing in production code produces a loud test failure instead of
 // a silent crash a dozen tests downstream.
-
 import { describe, expect, it } from "vitest";
 import { makeLayerUIMock } from "./fixtures.js";
 

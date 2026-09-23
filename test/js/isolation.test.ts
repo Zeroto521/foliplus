@@ -5,7 +5,6 @@
 // The counter-proof for this gate is in .foliplus/gate1-counterproof.md:
 // comment out the global `beforeEach(resetState)` in setup.ts, re-run this
 // file, and it must fail. Restoring the line and re-running must pass.
-
 import { beforeEach, describe, expect, it } from "vitest";
 
 // `beforeEach` is imported to make the dependency on setup.ts explicit —
