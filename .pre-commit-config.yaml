@@ -45,3 +45,23 @@ repos:
     rev: v2.4.3
     hooks:
       - id: codespell
+
+  # ── Repo-local checks ──
+  # --fix mode: auto-reorder PR numbers within bullets and reorder bullets
+  # within a subsection by first-number. Stable sort — ties (the #122×4 /
+  # #147×4 / #37×2 / #48×3 mega-PR sibling groups) keep their relative
+  # order. Two invariants gate the fix:
+  #   - only adjacent ", "-separated label pairs are reordered
+  #   - the character multiset of the file is unchanged
+  # If either invariant would fail, the hook refuses to write.
+  # Existence check is skipped here — pre-commit.ci does not carry a
+  # GITHUB_TOKEN, and the check needs one. GitHub CI re-runs the same
+  # script in --check mode so the existence check gets enforced there.
+  - repo: local
+    hooks:
+      - id: changelog-order
+        name: changelog-order (auto-fix sort, existence check skipped)
+        entry: node script/changelog-check.mjs --fix --skip-exists
+        language: system
+        files: ^CHANGELOG\.md$
+        pass_filenames: false

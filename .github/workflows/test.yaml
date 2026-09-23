@@ -64,6 +64,24 @@ jobs:
       - run: npm install
       - run: npm run typecheck
 
+  changelog-order:
+    name: changelog-order
+    runs-on: ubuntu-latest
+    permissions:
+      # /issues/N is the endpoint — it returns PRs too, since GitHub treats
+      # PRs as a subset of issues. issues:read is enough for a public repo
+      # and covers private ones when the workflow runs in this repo's context.
+      contents: read
+      issues: read
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: "package.json"
+          package-manager-cache: false
+      # No npm install — the check uses only node built-ins plus global fetch.
+      - run: npm run changelog:check
+
   test:
     name: py${{ matrix.python }}-folium-${{ matrix.folium }}
     runs-on: ubuntu-latest
