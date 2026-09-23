@@ -52,14 +52,16 @@ const fetchWithTimeout = (
     ...(opts.headers || {}),
   };
 
-  const abortSignal = timeoutMs > 0 ? composeSignal(signal, timeoutMs) : signal;
+  const composed = timeoutMs > 0
+    ? composeSignal(signal, timeoutMs)
+    : { signal, dispose: () => {} };
 
   return fetch(url, {
     ...opts,
-    signal: abortSignal,
+    signal: composed.signal,
     headers: headersInit,
     cache: "force-cache",
-  });
+  }).finally(() => composed.dispose());
 };
 
 /**
@@ -70,32 +72,32 @@ const fetchWithTimeout = (
 const composeSignal = (
   parentSignal: AbortSignal | undefined,
   timeoutMs: number,
-): AbortSignal => {
+): { signal: AbortSignal; dispose: () => void } => {
   // If the parent signal is already aborted, pass it through directly
   // so fetch sees the abort immediately (event listeners cannot fire retroactively).
-  if (parentSignal?.aborted) return parentSignal;
+  if (parentSignal?.aborted) return { signal: parentSignal, dispose: () => {} };
 
   const controller = new AbortController();
 
   const onTimeout = () => {
-    cleanup();
+    dispose();
     controller.abort();
   };
   const onParentAbort = () => {
-    cleanup();
+    dispose();
     controller.abort(parentSignal?.reason);
   };
 
   const timeoutHandle = setTimeout(onTimeout, timeoutMs);
 
-  const cleanup = () => {
+  const dispose = () => {
     clearTimeout(timeoutHandle);
     parentSignal?.removeEventListener("abort", onParentAbort);
   };
 
   parentSignal?.addEventListener("abort", onParentAbort);
 
-  return controller.signal;
+  return { signal: controller.signal, dispose };
 };
 
 export { fetchWithTimeout, DEFAULT_TIMEOUT_MS as GEODECODE_TIMEOUT_MS };
