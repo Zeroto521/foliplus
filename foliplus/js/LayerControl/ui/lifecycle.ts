@@ -33,6 +33,7 @@ import { insertLayerItem, renderInitialList } from "./list.js";
 import { closeMoreMenu } from "./menu.js";
 import { finishRename } from "./rename.js";
 import { applyRowView, buildRowCell } from "./rowView.js";
+import { snapshotAuthorVisible } from "./rowView.js";
 import {
   applyUserState,
   loadPersistedState,
@@ -61,6 +62,16 @@ const attachUI = (ui: LayerUI, containerDiv: HTMLElement): void => {
   while (ui.m.pendingRegistrations.length) {
     const layerInfo = ui.m.pendingRegistrations.shift();
     if (layerInfo) insertLayerItem(ui, layerInfo);
+  }
+  // Snapshot the author's declared default before the first projection.
+  // `projectLayer` reads `authorVisible.get(id) ?? true` — an absent entry
+  // is read as "author declared visible" — which is exactly the class of
+  // bug §38 records: a folium `show=False` layer would come up on the map
+  // on the first projection because the author's snapshot hasn't landed
+  // yet. The snapshot is idempotent, so the later `initTypesAndVisibility`
+  // re-runs don't overwrite what we took here.
+  for (let i = 0; i < ui.m.layers.length; i++) {
+    snapshotAuthorVisible(ui, ui.m.layers[i]);
   }
   // Last in the attach sequence: applyUserState() runs the full sweep
   // needed for rows rendered from the initial registry. Hidden ids are

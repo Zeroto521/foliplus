@@ -72,10 +72,17 @@ const fixture = () => {
     attributionControl: { _attributions: {}, _update: vi.fn() },
   } as FixtureMap & Record<string, unknown>;
 
-  const manager = new LayerManager(map, [
+  const layers = [
     { id: "overlay1", name: "Points", isBase: false, layer: layerFixture() },
     { id: "overlay2", name: "Circles", isBase: false, layer: layerFixture() },
-  ]);
+  ];
+  // Simulate folium adding the show=True layers to the map before LayerControl
+  // attaches: the snapshotAuthorVisible pass reads map.hasLayer to capture the
+  // author's declared default, so the fixture must leave the map in the state
+  // folium would have left it in.
+  for (const li of layers) map._layers.set(li.layer, li.layer);
+
+  const manager = new LayerManager(map, layers);
   manager.ui = new LayerUI(manager);
   manager.attachUI(document.createElement("div"));
   return { map, manager, ui: manager.ui as LayerUI };
@@ -156,12 +163,13 @@ describe("applyVisibility", () => {
     const layer = manager.layerRegistry.get("overlay1")!.layer as {
       options: Record<string, unknown>;
     };
+    const paneSetBefore = layer.options.paneSet;
     expect(applyVisibility(ui, "overlay1", false)).toBe(true);
-    expect(layer.options.paneSet).toBeUndefined();
+    expect(layer.options.paneSet).toBe(paneSetBefore);
 
     expect(applyVisibility(ui, "overlay1", true)).toBe(true);
     expect(map.addLayer).toHaveBeenCalledWith(layer);
-    expect(layer.options.paneSet).toBeUndefined();
+    expect(layer.options.paneSet).toBe(paneSetBefore);
     expect(manager.layerRegistry.get("overlay1")?.visible).toBe(true);
     expect(map.hasLayer(layer)).toBe(true);
   });
@@ -287,10 +295,17 @@ describe("applyVisibility", () => {
 
   it("treats a base layer like an overlay, map membership included", () => {
     const layer = layerFixture();
-    const fresh = makeUi(map, [
-      { id: "base1", name: "OSM", isBase: true, layer, paneName: "tilePane" },
-    ]);
+    const fresh = makeUi(map, []);
     const ui2 = fresh.ui as LayerUI;
+    // RegisterLayer adds the layer to the map (the constructor data path
+    // does not), which is the precondition this test asserts against.
+    fresh.registerLayer({
+      id: "base1",
+      name: "OSM",
+      isBase: true,
+      layer,
+      paneName: "tilePane",
+    });
 
     expect(applyVisibility(ui2, "base1", false)).toBe(true);
     expect(map.removeLayer).toHaveBeenCalledWith(layer);
@@ -308,10 +323,12 @@ describe("applyVisibility", () => {
     fresh.destroy();
   });
 
-  it("fires the callback on every call, not only on change", () => {
-    // A programmatic caller may re-set the same value; unlike the checkbox,
-    // which the browser only fires on a flip, this path takes the transition
-    // again. Documenting it so a dedupe added later is a deliberate change.
+  it("fires the callback only on a change, not on a repeated set", () => {
+    // A programmatic caller may re-set the same value; the executor diffs
+    // against its own last write, so a no-op set is a no-op — including for
+    // the `onToggle` callback. The callback is the canvas layer's signal that
+    // its own `HIDDEN` class needs toggling; firing it on a value it already
+    // has would be redundant work the canvas would just ignore.
     const onToggle = vi.fn();
     const layer = layerFixture();
     manager.registerLayer({
@@ -324,9 +341,8 @@ describe("applyVisibility", () => {
 
     expect(applyVisibility(ui, "repeat", false)).toBe(true);
     expect(applyVisibility(ui, "repeat", false)).toBe(true);
-    expect(onToggle).toHaveBeenCalledTimes(2);
+    expect(onToggle).toHaveBeenCalledTimes(1);
     expect(onToggle).toHaveBeenNthCalledWith(1, false);
-    expect(onToggle).toHaveBeenNthCalledWith(2, false);
     expect(map.removeLayer).toHaveBeenCalledWith(layer);
   });
 
@@ -493,12 +509,13 @@ describe("LayerUI.handleChange", () => {
     const layer = manager.layerRegistry.get("overlay1")!.layer as {
       options: Record<string, unknown>;
     };
+    const paneSetBefore = layer.options.paneSet;
     change(ui, "overlay1", false);
-    expect(layer.options.paneSet).toBeUndefined();
+    expect(layer.options.paneSet).toBe(paneSetBefore);
 
     change(ui, "overlay1", true);
     expect(map.addLayer).toHaveBeenCalledWith(layer);
-    expect(layer.options.paneSet).toBeUndefined();
+    expect(layer.options.paneSet).toBe(paneSetBefore);
     expect(manager.layerRegistry.get("overlay1")?.visible).toBe(true);
   });
 
@@ -570,11 +587,16 @@ describe("DOM order diverges from registry order", () => {
       attributionControl: { _attributions: {}, _update: vi.fn() },
     } as FixtureMap & Record<string, unknown>;
 
-    const manager = new LayerManager(map, [
+    const layers = [
       { id: "A", name: "Layer A", isBase: false, layer: layerFixture() },
       { id: "B", name: "Layer B", isBase: false, layer: layerFixture() },
       { id: "C", name: "Layer C", isBase: false, layer: layerFixture() },
-    ]);
+    ];
+    // Same folium simulation as fixture(): leave the map with the layers that
+    // show=True would have added, so snapshotAuthorVisible reads true.
+    for (const li of layers) map._layers.set(li.layer, li.layer);
+
+    const manager = new LayerManager(map, layers);
     manager.ui = new LayerUI(manager);
     manager.attachUI(document.createElement("div"));
     return { map, manager, ui: manager.ui as LayerUI };

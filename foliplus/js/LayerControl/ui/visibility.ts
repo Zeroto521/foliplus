@@ -24,7 +24,8 @@ const toggleAll = (ui: LayerUI, group: string, newState: boolean) => {
     // where its stored slot puts it, so the DOM order can diverge from the
     // registry and an index-based lookup would silently toggle a neighbour.
     const id = item.getAttribute(CONST.DATA.LAYER_ID);
-    const layerInfo = id ? ui.m.layerRegistry.get(id) : undefined;
+    if (!id) return;
+    const layerInfo = ui.m.layerRegistry.get(id);
     if (!layerInfo) return;
 
     // No persist per iteration —schedule a single debounced write after the

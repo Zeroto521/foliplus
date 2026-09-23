@@ -16,9 +16,12 @@ import { inZoomRange } from "./rowView.js";
  *
  *  `intent.visible` is what the checkbox shows — the user's choice when they
  *  made one, otherwise the author's declared default.
- *  `effectiveShown` is the policy's decision (`intent && (focus ? true :
- *  inRange)`) and never writes back to `intent`: a policy write that landed
- *  in `hiddenIds` would flip a checkbox the user never touched (#329).
+ *  `effectiveShown` is the composite `intent && policy` and is what the
+ *  executor writes to map membership. Only `intent` may authorise display;
+ *  `policy` (focus, zoom range) may only suppress it. That is the invariant
+ *  that keeps a derived dimension from ever adding a layer back onto the
+ *  map — the class of bug §38 records, and the structural root of the
+ *  `rangeHiddenIds` one-way gate that used to live in state.ts.
  */
 interface Projection {
   id: string;
@@ -39,11 +42,13 @@ const projectLayer = (ui: LayerUI, layerInfo: LayerInfo): Projection => {
   const authorDefault = ui.authorVisible.get(id) ?? true;
   const intent = hasVisible ? !ui.hiddenIds.has(id) : authorDefault;
 
-  const effectiveShown = ui.hiddenIds.has(id)
-    ? false
-    : ui.focusingLayerId != null
-      ? true
-      : inZoomRange(ui, layerInfo);
+  // Policy is independent of intent: focus overrides range, range may
+  // exclude, but neither touches the user's stored choice. The `hiddenIds`
+  // check that used to sit here is redundant under the `intent && policy`
+  // composition — `intent` already reflects it when the user has overridden
+  // `visible`, and folds into `intent = authorDefault` otherwise.
+  const policy = ui.focusingLayerId != null ? true : inZoomRange(ui, layerInfo);
+  const effectiveShown = intent && policy;
 
   const opacity =
     ui.userOverrides[id]?.includes("opacity") && typeof ui.opacityMap[id] === "number"

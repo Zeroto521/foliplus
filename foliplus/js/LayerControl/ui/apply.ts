@@ -82,11 +82,13 @@ const applyStateOp = (
       const has = ui.m.map.hasLayer(layer);
       if (op.value && !has) ui.m.map.addLayer(layer);
       else if (!op.value && has) ui.m.map.removeLayer(layer);
-    } else if (layerInfo.onToggle) {
-      // Callback-only layers have no Leaflet layer to add/remove — fire
-      // the toggle so the canvas toggles its own `HIDDEN` class.
-      layerInfo.onToggle(op.value);
     }
+    // `onToggle` is the callback for canvas-only layers (heatmap / measure)
+    // that have no Leaflet layer to add/remove — it fires the toggle so the
+    // canvas toggles its own `HIDDEN` class. A layer that has both a Leaflet
+    // layer AND an `onToggle` (a hybrid) fires both: the map membership and
+    // the callback each carry a distinct piece of state.
+    if (layerInfo.onToggle) layerInfo.onToggle(op.value);
     // `layerInfo.visible` is a real-time mirror of the map state; the
     // user's intent lives in `hiddenIds` / `userOverrides`. This is
     // now the only writer of this field — the visibility sweep's mirror
@@ -169,11 +171,11 @@ const applyStateOp = (
 /** Diff the current projection against the last one we wrote, and call
  *  `applyStateOp` only for the dimensions that moved.
  *
- *  Ordering: `visible (intent)` and `opacity` are independent of the
- *  projection's `zoomRange`, so they apply as-is. `zoomRange` applies
- *  last because the `pane` carrier's effective-shown recalculation needs
- *  the new range in effect before it decides whether the layer stays on
- *  the map — doing it in the other order would write an effective-shown
+ *  Ordering: `visible (effective)` and `opacity` are independent of the
+ *  projection's `zoomRange`, so they apply in either order. `zoomRange`
+ *  applies last because the `pane` carrier's effective-shown recalculation
+ *  needs the new range in effect before it decides whether the layer stays
+ *  on the map — doing it in the other order would write an effective-shown
  *  computed off the old range. The `effectiveShown` write that follows a
  *  `zoomRange` change is therefore computed from the projection's new
  *  `zoomRange`, not from the executor's current state (the projection
@@ -184,11 +186,15 @@ const applyStateOp = (
  *  identity) so a re-registration of the same id keeps its projection
  *  across the swap.
  *
- *  This is the #329 fix: the executor is the only path that writes
- *  `layerInfo.visible` and `ui.m.map.addLayer/removeLayer`. It never
- *  touches `hiddenIds` or `userOverrides`, so a policy write — a zoom
- *  outside the stored range, a focus dismiss — cannot flip a checkbox
- *  the user never moved.
+ *  This is the §40.5 invariant: the only field that writes `layerInfo.visible`
+ *  and `ui.m.map.addLayer` / `removeLayer` is `effectiveShown`, and
+ *  `effectiveShown = intent && policy` — a derived dimension (focus, zoom
+ *  range) can only pull a layer off the map, never push one onto it. That
+ *  is why this executor is the only write path for map membership and why
+ *  `intent.visible` is no longer diffed separately: any change that would
+ *  authorise an add goes through `intent`, so the effective value already
+ *  reflects the user's authorisation. The one-way gate that used to live in
+ *  `rangeHiddenIds` (see #329) is now the shape of this diff.
  */
 const applyProjection = (ui: LayerUI, id: string): void => {
   const layerInfo = ui.m.layerRegistry.get(id);
@@ -220,32 +226,31 @@ const applyProjection = (ui: LayerUI, id: string): void => {
     };
   }
 
-  // 1. Explicit intent (user toggled the checkbox).
-  let lastVisibleWrite: boolean | undefined;
-  if (prev.intent.visible !== next.intent.visible) {
-    applyStateOp(ui, layerInfo, { type: "visible", value: next.intent.visible });
-    lastVisibleWrite = next.intent.visible;
+  // 1. Effective-shown — the composite `intent && policy`. One write target
+  //    for map membership, diffed against its own last write. The §40.5
+  //    invariant lives here: nothing authorises an add unless `intent` does,
+  //    so a derived dimension can only remove, never restore on its own.
+  if (prev.effectiveShown !== next.effectiveShown) {
+    applyStateOp(ui, layerInfo, { type: "visible", value: next.effectiveShown });
   }
   // 2. Opacity — independent of zoom/focus.
   if (prev.opacity !== next.opacity) {
     applyStateOp(ui, layerInfo, { type: "opacity", value: next.opacity });
   }
-  // 3. Effective-shown BEFORE any zoomRange write, so a policy-side
-  //    change (zoom moved, focus dismissed) fires first. When the user
-  //    explicitly un-hides a layer while its range excludes the current
-  //    zoom, this fires a brief remove that matches the old code's
-  //    "add-then-immediately-remove" behavior. Skip if step 1 already
-  //    wrote the same value — a canvas-only layer's `onToggle` is not
-  //    idempotent, so a double-fire would be observable.
-  if (prev.effectiveShown !== next.effectiveShown && next.effectiveShown !== lastVisibleWrite) {
-    applyStateOp(ui, layerInfo, { type: "visible", value: next.effectiveShown });
-  }
-  // 4. Zoom range — last, because the pane carrier's effective-shown
-  //    recalculation in step 3 reads the range as of the projection
+  // 3. Zoom range — last, because the pane carrier's effective-shown
+  //    recalculation in step 1 reads the range as of the projection
   //    (the new one), not the executor's previous write.
   if (prev.zoomRange !== next.zoomRange) {
     applyStateOp(ui, layerInfo, { type: "zoomRange", value: next.zoomRange });
   }
+
+  // The mirror field tracks the projection regardless of whether a diff fired:
+  // `layerInfo.visible` is the panel's "is this on the map" fact, and the
+  // executor is its only writer. A changeless call still lands here so a
+  // later reader (e.g. an attach sweep that checks `visible` to decide
+  // whether to unhide) sees the projection's answer, not a stale value from
+  // the layer's construction.
+  layerInfo.visible = next.effectiveShown;
 
   ui.appliedState.set(id, next);
 };
