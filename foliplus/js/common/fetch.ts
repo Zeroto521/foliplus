@@ -53,9 +53,8 @@ const fetchWithTimeout = (
     ...(opts.headers || {}),
   };
 
-  const composed = timeoutMs > 0
-    ? composeSignal(signal, timeoutMs)
-    : { signal, dispose: () => {} };
+  const composed =
+    timeoutMs > 0 ? composeSignal(signal, timeoutMs) : { signal, dispose: () => {} };
 
   return fetch(url, {
     ...opts,
