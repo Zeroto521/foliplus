@@ -53,6 +53,40 @@ const nativeBaseOf = (layer: L.Layer): number => {
   return base;
 };
 
+/** Carrier identity the executor's last write landed on.
+ *
+ *  The projection's numeric diff is not enough for carriers that can be
+ *  replaced underneath the executor: a re-registered canvas element starts
+ *  opaque, an annotation pane is created lazily long after the slider was
+ *  last moved. In both cases the executor's `prev.opacity` matches
+ *  `next.opacity`, so a value-only diff misses the write — the T46
+ *  regression (§22-9.1). The fix is to record which DOM element we last
+ *  wrote to, and force a rewrite when the carrier has moved.
+ *
+ *  The token is opaque to callers: it's just enough identity to say "the
+ *  thing I wrote to before is not the thing in front of me now". A
+ *  canvas-only layer is one DOM element; a pane carrier is a set of pane
+ *  names. Anything else (native `options.opacity`) is keyed by the
+ *  layer's own `options` object, which is the actual write target.
+ */
+const carrierOf = (ui: LayerUI, layerInfo: LayerInfo): unknown => {
+  if (layerInfo.canvas) return layerInfo.canvas;
+  const carrier = ui.m.surfaceFor(layerInfo).capabilities.opacity;
+  if (carrier === "pane") {
+    const names = [...ui.m.surfaceFor(layerInfo).paneNames];
+    const annotationPane = ui.m.annotation?.paneNameFor(layerInfo.id);
+    if (annotationPane) names.push(annotationPane);
+    return names;
+  }
+  return (layerInfo.layer?.options ?? null) as object | null;
+};
+
+/** Whether the executor's last write reached the same carrier as the one
+ *  in front of it now. `undefined` at the call site means "no record yet"
+ *  — first write always goes through, so the answer is trivially false. */
+const sameCarrier = (prev: unknown, curr: unknown): boolean =>
+  prev !== undefined && prev === curr;
+
 /** The single write pipeline: dispatch one op onto its carrier.
  *
  *  Every layer resolves to exactly one write target per dimension (see
@@ -223,8 +257,15 @@ const applyProjection = (ui: LayerUI, id: string): void => {
       effectiveShown: baselineVisible,
       opacity: undefined,
       zoomRange: null,
+      carrier: null,
     };
   }
+
+  // Carrier identity for this write. A changed carrier forces a rewrite
+  // even when the numeric value is unchanged — a re-registered canvas
+  // element or a lazily-appearing annotation pane needs the stored
+  // opacity applied to the new DOM, not to whatever the last write hit.
+  const carrierToken = carrierOf(ui, layerInfo);
 
   // 1. Effective-shown — the composite `intent && policy`. One write target
   //    for map membership, diffed against its own last write. The §40.5
@@ -233,8 +274,9 @@ const applyProjection = (ui: LayerUI, id: string): void => {
   if (prev.effectiveShown !== next.effectiveShown) {
     applyStateOp(ui, layerInfo, { type: "visible", value: next.effectiveShown });
   }
-  // 2. Opacity — independent of zoom/focus.
-  if (prev.opacity !== next.opacity) {
+  // 2. Opacity — independent of zoom/focus. Rewritten whenever the carrier
+  //    has moved, not just when the value has.
+  if (prev.opacity !== next.opacity || !sameCarrier(prev.carrier, carrierToken)) {
     applyStateOp(ui, layerInfo, { type: "opacity", value: next.opacity });
   }
   // 3. Zoom range — last, because the pane carrier's effective-shown
@@ -252,7 +294,7 @@ const applyProjection = (ui: LayerUI, id: string): void => {
   // the layer's construction.
   layerInfo.visible = next.effectiveShown;
 
-  ui.appliedState.set(id, next);
+  ui.appliedState.set(id, { ...next, carrier: carrierToken });
 };
 
 /** Diff every layer's projection. Called on attach, on late

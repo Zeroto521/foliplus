@@ -66,7 +66,7 @@ import {
   syncToggleAll,
   toggleAll,
 } from "./visibility.js";
-import type { Projection } from "./store.js";
+import type { AppliedProjection } from "./store.js";
 
 /** UI Controller for LayerControl. */
 class LayerUI {
@@ -195,7 +195,7 @@ class LayerUI {
    *  sweep — a changeless call re-projects, sees no delta, and calls no
    *  carrier. Keyed by id (not by `layerInfo` identity) so a re-register
    *  of the same id keeps its projection across the swap. */
-  appliedState: Map<string, Projection>;
+  appliedState: Map<string, AppliedProjection>;
   /** Temporary Rectangle overlay drawn while a focus is in progress. */
   focusRect: L.Layer | null;
   /** Layer id currently being focused, or null. */
