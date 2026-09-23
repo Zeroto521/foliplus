@@ -32,8 +32,9 @@ import { ensureModes } from "#foliplus/core/mode.js";
 
 // Module-level code captured window.foliplus and window.map from setup.js.
 // Use vi.spyOn to track calls on those already-setup mocks.
+// `vi.clearAllMocks()` runs globally from setup.ts (resetState) — no need
+// to repeat here.
 beforeEach(() => {
-  vi.clearAllMocks();
   // Reset the provider-wide request clock (shared module state) so a prior
   // test's suggestion/geocoder request never throttles this one.
   markRequest("nominatim", 0);
