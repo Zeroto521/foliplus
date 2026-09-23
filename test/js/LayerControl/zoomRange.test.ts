@@ -126,4 +126,3 @@ describe("computeEffectiveShown", () => {
     delete mockUI.zoomRangeMap["layer1"];
   });
 });
-
