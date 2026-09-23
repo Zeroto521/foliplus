@@ -16,15 +16,20 @@
 // Modes:
 //   --check  (default)  Report violations, exit 1. Used by CI.
 //   --fix             Rewrite the file in place (stable sort of labels and
-//                     blocks). Exit 0 on success, exit 1 if the character
+//                     blocks). Exit 0 on success, exit 1 if the line-level
 //                     multiset invariant would be violated (no partial fix).
+//
+// The fix guard: each line is normalized by sorting its `[#NNN](url)`
+// pairs in place, then the multiset of normalized lines is compared
+// before and after the fix. This catches "moving numbers between lines"
+// which a raw character-multiset check would miss — a line-level invariant
+// is strictly stronger. If the multiset changes, the fix refuses to write.
 //
 // Parsing: only `[#NNN]` labels count. URL type (`/pull/`, `/tree/`,
 // `/issues/`) is ignored for numbering; the label is the human-facing
 // anchor. If a label and its URL disagree on the number, we warn — we
 // don't fail, because `[#164](.../tree/164)` is a copy-paste wart that
 // a human can fix later without breaking the ordering invariant.
-
 import { readFileSync, writeFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
@@ -34,7 +39,16 @@ const PR_LINK_RE = /\[#(\d+)\]\(([^)]+)\)/g;
 
 // ── Parsing ──────────────────────────────────────────────────────────────────
 
-/** @typedef {{lineNo: number, version: string|null, section: string|null, firstNum: number|null, nums: number[]}} Entry */
+/** Extract every `[#NNN]` label in a line, in document order. */
+const extractLabelNumbers = line => {
+  const nums = [];
+  PR_LABEL_RE.lastIndex = 0;
+  let m;
+  while ((m = PR_LABEL_RE.exec(line))) {
+    nums.push(Number(m[1]));
+  }
+  return nums;
+};
 
 /**
  * Parse CHANGELOG.md into a flat list of bullet entries.
@@ -42,7 +56,7 @@ const PR_LINK_RE = /\[#(\d+)\]\(([^)]+)\)/g;
  * Entries without any `[#NNN]` label get `firstNum: null` and skip
  * ordering checks — they have nothing to sort by.
  */
-export function parseEntries(text) {
+const parseEntries = text => {
   const lines = text.split("\n");
   const entries = [];
   let version = null;
@@ -77,25 +91,14 @@ export function parseEntries(text) {
     }
   }
   return entries;
-}
-
-/** Extract every `[#NNN]` label in a line, in document order. */
-export function extractLabelNumbers(line) {
-  const nums = [];
-  PR_LABEL_RE.lastIndex = 0;
-  let m;
-  while ((m = PR_LABEL_RE.exec(line))) {
-    nums.push(Number(m[1]));
-  }
-  return nums;
-}
+};
 
 /**
  * Emit a warning (not a violation) when a label's number disagrees with
  * the trailing number of its URL — the `[#164](.../tree/164)` class of
  * copy-paste wart. Warnings don't affect the exit code.
  */
-export function collectLabelUrlWarnings(entries, text) {
+const collectLabelUrlWarnings = (entries, text) => {
   const lines = text.split("\n");
   const warnings = [];
   for (const entry of entries) {
@@ -114,7 +117,7 @@ export function collectLabelUrlWarnings(entries, text) {
     }
   }
   return warnings;
-}
+};
 
 // ── Check ────────────────────────────────────────────────────────────────────
 
@@ -122,7 +125,7 @@ export function collectLabelUrlWarnings(entries, text) {
  * Check the two ordering invariants. Returns a list of `{lineNo, message}`.
  * Non-decreasing throughout — equal is allowed (mega-PR ties).
  */
-export function checkOrdering(entries) {
+const checkOrdering = entries => {
   const violations = [];
 
   for (const entry of entries) {
@@ -150,7 +153,7 @@ export function checkOrdering(entries) {
   }
 
   return violations;
-}
+};
 
 /**
  * Fetch each referenced #NNN against the repo's issues endpoint. PRs
@@ -159,11 +162,13 @@ export function checkOrdering(entries) {
  * repo. A 403/429 is a rate-limit or scope error, which we surface
  * but do not fail on (the CI is still green; the human investigates).
  */
-export async function checkExistence(entries, { owner, repo, token }) {
-  const nums = [...new Set(entries.flatMap((e) => e.nums))].sort((a, b) => a - b);
+const checkExistence = async (entries, { owner, repo, token }) => {
+  const nums = [...new Set(entries.flatMap(e => e.nums))].sort((a, b) => a - b);
   const byNum = new Map();
-  for (const e of entries) for (const n of e.nums) {
-    if (!byNum.has(n)) byNum.set(n, e.lineNo);
+  for (const e of entries) {
+    for (const n of e.nums) {
+      if (!byNum.has(n)) byNum.set(n, e.lineNo);
+    }
   }
 
   const violations = [];
@@ -201,29 +206,9 @@ export async function checkExistence(entries, { owner, repo, token }) {
     violations,
     error: rateLimited ? "GitHub API rate-limited — partial results" : null,
   };
-}
+};
 
 // ── Fix ──────────────────────────────────────────────────────────────────────
-
-/**
- * Stable bubble sort by firstNum. Null-firstNum blocks are never moved —
- * they have no position in the sorted order. Ties (equal firstNum) keep
- * their relative order (JS sort is stable by spec, but we use bubble
- * sort here to handle null-skip explicitly).
- */
-export function stableBubbleSortByFirstNum(blocks) {
-  let changed = true;
-  while (changed) {
-    changed = false;
-    for (let i = 1; i < blocks.length; i++) {
-      if (blocks[i].firstNum === null || blocks[i - 1].firstNum === null) continue;
-      if (blocks[i].firstNum < blocks[i - 1].firstNum) {
-        [blocks[i], blocks[i - 1]] = [blocks[i - 1], blocks[i]];
-        changed = true;
-      }
-    }
-  }
-}
 
 /**
  * Sort the `[#NNN](url)` pairs within a single bullet line, stably by
@@ -231,7 +216,7 @@ export function stableBubbleSortByFirstNum(blocks) {
  * ", ") — otherwise the line is left alone and the check will flag it.
  * Returns the (possibly modified) line.
  */
-export function sortLinePairs(line) {
+const sortLinePairs = line => {
   const pairs = [];
   const re = /\[#(\d+)\]\([^)]+\)/g;
   let m;
@@ -260,9 +245,29 @@ export function sortLinePairs(line) {
 
   const rangeStart = pairs[0].start;
   const rangeEnd = pairs[pairs.length - 1].end;
-  const sortedRange = sorted.map((p) => p.text).join(", ");
+  const sortedRange = sorted.map(p => p.text).join(", ");
   return line.slice(0, rangeStart) + sortedRange + line.slice(rangeEnd);
-}
+};
+
+/**
+ * Stable bubble sort by firstNum. Null-firstNum blocks are never moved —
+ * they have no position in the sorted order. Ties (equal firstNum) keep
+ * their relative order (JS sort is stable by spec, but we use bubble
+ * sort here to handle null-skip explicitly).
+ */
+const stableBubbleSortByFirstNum = blocks => {
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (let i = 1; i < blocks.length; i++) {
+      if (blocks[i].firstNum === null || blocks[i - 1].firstNum === null) continue;
+      if (blocks[i].firstNum < blocks[i - 1].firstNum) {
+        [blocks[i], blocks[i - 1]] = [blocks[i - 1], blocks[i]];
+        changed = true;
+      }
+    }
+  }
+};
 
 /**
  * Parse a range of lines into blocks. Each block is a bullet (line
@@ -271,7 +276,7 @@ export function sortLinePairs(line) {
  * the preceding block (the CHANGELOG doesn't have them between bullets
  * and their sub-bullets, but we handle it gracefully).
  */
-function parseBlocks(lines, startIdx, endIdx) {
+const parseBlocks = (lines, startIdx, endIdx) => {
   const blocks = [];
   let current = null;
 
@@ -292,17 +297,42 @@ function parseBlocks(lines, startIdx, endIdx) {
   if (current) blocks.push(current);
 
   return blocks;
-}
+};
+
+// ── Guard (line-level multiset invariant) ────────────────────────────────────
+
+/**
+ * Normalize each line by sorting its `[#NNN](url)` pairs in place,
+ * then return a multiset (line → count) of the normalized lines.
+ * This is the guard for the fix: if the multiset changes, the fix
+ * has moved numbers between lines, which is a silent corruption.
+ */
+const normalizedLineMultiset = text => {
+  const counts = new Map();
+  for (const line of text.split("\n")) {
+    const normalized = sortLinePairs(line);
+    counts.set(normalized, (counts.get(normalized) ?? 0) + 1);
+  }
+  return counts;
+};
+
+const sameLineMultiset = (a, b) => {
+  if (a.size !== b.size) return false;
+  for (const [line, count] of a) {
+    if (b.get(line) !== count) return false;
+  }
+  return true;
+};
 
 /**
  * Fix the file: within-line label sort + between-block stable sort.
  * Returns `{ newText, changed, error }`. If `error` is non-null, the
- * character multiset invariant was violated and `newText` is NOT safe
+ * line-level multiset invariant was violated and `newText` is NOT safe
  * to write (the caller must not partially apply).
  */
-export function fixFile(text) {
+const fixFile = text => {
   const lines = text.split("\n");
-  const originalChars = charMultiset(text);
+  const originalLines = normalizedLineMultiset(text);
 
   // Find all subsection headers
   const subsectionHeaders = [];
@@ -362,41 +392,22 @@ export function fixFile(text) {
   }
 
   const newText = lines.join("\n");
-  const newChars = charMultiset(newText);
+  const newLines = normalizedLineMultiset(newText);
 
-  if (!sameCharMultiset(originalChars, newChars)) {
+  if (!sameLineMultiset(originalLines, newLines)) {
     return {
       newText,
       changed: false,
-      error:
-        "character multiset invariant violated — refusing to write a partial fix",
+      error: "line-level multiset invariant violated — refusing to write a partial fix",
     };
   }
 
   return { newText, changed: newText !== text, error: null };
-}
-
-// ── Character multiset helpers ───────────────────────────────────────────────
-
-function charMultiset(text) {
-  const counts = new Map();
-  for (const ch of text) {
-    counts.set(ch, (counts.get(ch) ?? 0) + 1);
-  }
-  return counts;
-}
-
-function sameCharMultiset(a, b) {
-  if (a.size !== b.size) return false;
-  for (const [ch, count] of a) {
-    if (b.get(ch) !== count) return false;
-  }
-  return true;
-}
+};
 
 // ── CLI ──────────────────────────────────────────────────────────────────────
 
-function parseCliArgs(argv) {
+const parseCliArgs = argv => {
   const opts = {
     path: DEFAULT_PATH,
     fix: false,
@@ -410,9 +421,9 @@ function parseCliArgs(argv) {
     else if (a === "--skip-exists") opts.skipExists = true;
   }
   return opts;
-}
+};
 
-async function main() {
+const main = async () => {
   const opts = parseCliArgs(process.argv.slice(2));
   let text;
   try {
@@ -480,7 +491,20 @@ async function main() {
     process.exit(1);
   }
   console.log(`\nOK: no violations`);
-}
+};
+
+export {
+  parseEntries,
+  extractLabelNumbers,
+  collectLabelUrlWarnings,
+  checkOrdering,
+  checkExistence,
+  stableBubbleSortByFirstNum,
+  sortLinePairs,
+  fixFile,
+  normalizedLineMultiset,
+  sameLineMultiset,
+};
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main();

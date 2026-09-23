@@ -6,7 +6,9 @@ import {
   collectLabelUrlWarnings,
   extractLabelNumbers,
   fixFile,
+  normalizedLineMultiset,
   parseEntries,
+  sameLineMultiset,
   sortLinePairs,
   stableBubbleSortByFirstNum,
 } from "#script/changelog-check.mjs";
@@ -29,13 +31,13 @@ describe("extractLabelNumbers", () => {
   });
 
   it("returns labels in document order, not numerically", () => {
-    const line =
-      "- foo ([#200](x/pull/200), [#100](x/pull/100), [#300](x/pull/300))";
+    const line = "- foo ([#200](x/pull/200), [#100](x/pull/100), [#300](x/pull/300))";
     expect(extractLabelNumbers(line)).toEqual([200, 100, 300]);
   });
 
   it("ignores URL kind — /tree/ and /issues/ count the same as /pull/", () => {
-    const line = "- mixed ([#164](x/tree/164), [#252](x/issues/252), [#425](x/pull/425))";
+    const line =
+      "- mixed ([#164](x/tree/164), [#252](x/issues/252), [#425](x/pull/425))";
     expect(extractLabelNumbers(line)).toEqual([164, 252, 425]);
   });
 });
@@ -61,7 +63,9 @@ describe("checkOrdering — within-line rule", () => {
   });
 
   it("flags a mid-list inversion, not just the tail", () => {
-    const t = fixture("- a ([#1](x/pull/1), [#5](x/pull/5), [#3](x/pull/3), [#9](x/pull/9))");
+    const t = fixture(
+      "- a ([#1](x/pull/1), [#5](x/pull/5), [#3](x/pull/3), [#9](x/pull/9))",
+    );
     const v = checkOrdering(parseEntries(t));
     expect(v).toHaveLength(1);
     expect(v[0].message).toContain("[1, 5, 3, 9]");
@@ -89,10 +93,7 @@ describe("checkOrdering — between-entry rule", () => {
   });
 
   it("flags a first-number regression and names both lines", () => {
-    const t = fixture(
-      "- a ([#425](x/pull/425))",
-      "- b ([#421](x/pull/421))",
-    );
+    const t = fixture("- a ([#425](x/pull/425))", "- b ([#421](x/pull/421))");
     const v = checkOrdering(parseEntries(t));
     expect(v).toHaveLength(1);
     expect(v[0].message).toContain("first-number 421");
@@ -202,8 +203,7 @@ describe("sortLinePairs — within-line label sort", () => {
   });
 
   it("preserves surrounding text character-for-character", () => {
-    const line =
-      "- `Foo`: text ([#200](x/pull/200), [#100](x/pull/100)) trailing";
+    const line = "- `Foo`: text ([#200](x/pull/200), [#100](x/pull/100)) trailing";
     const result = sortLinePairs(line);
     expect(result).toBe(
       "- `Foo`: text ([#100](x/pull/100), [#200](x/pull/200)) trailing",
@@ -212,7 +212,7 @@ describe("sortLinePairs — within-line label sort", () => {
 });
 
 describe("stableBubbleSortByFirstNum — between-block sort", () => {
-  const mk = (nums) => ({ lines: ["- x"], firstNum: nums[0] ?? null, nums });
+  const mk = nums => ({ lines: ["- x"], firstNum: nums[0] ?? null, nums });
 
   it("keeps ties in their original relative order (stable sort)", () => {
     // Two blocks with the same firstNum: their relative order must not swap.
@@ -222,7 +222,7 @@ describe("stableBubbleSortByFirstNum — between-block sort", () => {
       { ...mk([124]), lines: ["- c"] },
     ];
     stableBubbleSortByFirstNum(blocks);
-    expect(blocks.map((b) => b.lines[0])).toEqual(["- a", "- b", "- c"]);
+    expect(blocks.map(b => b.lines[0])).toEqual(["- a", "- b", "- c"]);
   });
 
   it("moves a smaller firstNum before a larger one", () => {
@@ -231,7 +231,7 @@ describe("stableBubbleSortByFirstNum — between-block sort", () => {
       { ...mk([100]), lines: ["- b"] },
     ];
     stableBubbleSortByFirstNum(blocks);
-    expect(blocks.map((b) => b.lines[0])).toEqual(["- b", "- a"]);
+    expect(blocks.map(b => b.lines[0])).toEqual(["- b", "- a"]);
   });
 
   it("never moves null-firstNum blocks (they have no sort key)", () => {
@@ -242,7 +242,7 @@ describe("stableBubbleSortByFirstNum — between-block sort", () => {
     ];
     stableBubbleSortByFirstNum(blocks);
     // null blocks stay in place; the single numbered block doesn't move.
-    expect(blocks.map((b) => b.lines[0])).toEqual(["- null", "- a", "- null2"]);
+    expect(blocks.map(b => b.lines[0])).toEqual(["- null", "- a", "- null2"]);
   });
 });
 
@@ -292,7 +292,7 @@ describe("fixFile — end-to-end fix with invariants", () => {
     expect(changed).toBe(true);
 
     // Character multiset is identical — the fix only reorders, never adds/removes.
-    const charCounts = (s) => {
+    const charCounts = s => {
       const c = new Map();
       for (const ch of s) c.set(ch, (c.get(ch) ?? 0) + 1);
       return c;
@@ -321,7 +321,7 @@ describe("fixFile — end-to-end fix with invariants", () => {
     expect(error).toBeNull();
     expect(changed).toBe(true);
 
-    const lineCounts = (s) => {
+    const lineCounts = s => {
       const c = new Map();
       for (const line of s.split("\n")) c.set(line, (c.get(line) ?? 0) + 1);
       return c;
@@ -330,6 +330,86 @@ describe("fixFile — end-to-end fix with invariants", () => {
     const after = lineCounts(newText);
     expect(after.size).toBe(before.size);
     for (const [line, n] of before) expect(after.get(line)).toBe(n);
+  });
+
+  describe("guard: normalized line multiset (counter-evidence)", () => {
+    it("catches a bad fixer that moves numbers between lines", () => {
+      // Original: line 1 has [100, 150, 120], line 2 has [200].
+      // Bad fixer: moves #120 from line 1 to line 2, producing
+      //   line 1: [100, 150], line 2: [120, 200].
+      // Character multiset is identical (same characters, same count),
+      // but the normalized line multiset differs — the guard must catch this.
+      const original = [
+        "# Changelog",
+        "",
+        "## [Unreleased]",
+        "",
+        "### Added",
+        "",
+        "- a ([#100](x/pull/100), [#150](x/pull/150), [#120](x/pull/120))",
+        "- b ([#200](x/pull/200))",
+        "",
+      ].join("\n");
+
+      const badFixer = [
+        "# Changelog",
+        "",
+        "## [Unreleased]",
+        "",
+        "### Added",
+        "",
+        "- a ([#100](x/pull/100), [#150](x/pull/150))",
+        "- b ([#120](x/pull/120), [#200](x/pull/200))",
+        "",
+      ].join("\n");
+
+      // Character multiset is the same — this is why character multiset is insufficient.
+      const charCounts = s => {
+        const c = new Map();
+        for (const ch of s) c.set(ch, (c.get(ch) ?? 0) + 1);
+        return c;
+      };
+      const origChars = charCounts(original);
+      const badChars = charCounts(badFixer);
+      expect(badChars.size).toBe(origChars.size);
+      for (const [ch, n] of origChars) expect(badChars.get(ch)).toBe(n);
+
+      // But the normalized line multiset is different — the guard catches this.
+      const origLines = normalizedLineMultiset(original);
+      const badLines = normalizedLineMultiset(badFixer);
+      expect(sameLineMultiset(origLines, badLines)).toBe(false);
+    });
+
+    it("passes when the fixer only reorders within lines (correct behavior)", () => {
+      const original = [
+        "# Changelog",
+        "",
+        "## [Unreleased]",
+        "",
+        "### Added",
+        "",
+        "- a ([#200](x/pull/200), [#100](x/pull/100))",
+        "- b ([#50](x/pull/50))",
+        "",
+      ].join("\n");
+
+      // Correct fixer: sorts labels within line 1, reorders blocks.
+      const correctFixer = [
+        "# Changelog",
+        "",
+        "## [Unreleased]",
+        "",
+        "### Added",
+        "",
+        "- b ([#50](x/pull/50))",
+        "- a ([#100](x/pull/100), [#200](x/pull/200))",
+        "",
+      ].join("\n");
+
+      const origLines = normalizedLineMultiset(original);
+      const fixLines = normalizedLineMultiset(correctFixer);
+      expect(sameLineMultiset(origLines, fixLines)).toBe(true);
+    });
   });
 
   it("moves sub-bullets along with their parent block", () => {
@@ -421,11 +501,11 @@ describe("fixFile — end-to-end fix with invariants", () => {
 });
 
 describe("checkExistence — mocked fetch", () => {
-  const setupFetch = (statuses) => {
+  const setupFetch = statuses => {
     const calls = [];
     vi.stubGlobal(
       "fetch",
-      vi.fn(async (url) => {
+      vi.fn(async url => {
         calls.push(url);
         const status = statuses[String(url).slice(-4)] ?? 200;
         return { status };
@@ -435,7 +515,10 @@ describe("checkExistence — mocked fetch", () => {
   };
 
   it("flags a 404 as a missing-number violation", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => ({ status: 404 })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({ status: 404 })),
+    );
     const entries = parseEntries(fixture("- a ([#99999](x/pull/99999))"));
     const { violations, error } = await checkExistence(entries, {
       owner: "Zeroto521",
@@ -449,7 +532,10 @@ describe("checkExistence — mocked fetch", () => {
   });
 
   it("passes a 200 for every number", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => ({ status: 200 })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({ status: 200 })),
+    );
     const entries = parseEntries(
       fixture("- a ([#1](x/pull/1), [#2](x/pull/2), [#3](x/pull/3))"),
     );
@@ -493,7 +579,10 @@ describe("checkExistence — mocked fetch", () => {
   });
 
   it("reports a rate-limit (403) as a soft error, not a violation", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => ({ status: 403 })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({ status: 403 })),
+    );
     const entries = parseEntries(fixture("- a ([#1](x/pull/1))"));
     const { violations, error } = await checkExistence(entries, {
       owner: "Z",
@@ -551,8 +640,7 @@ describe("real CHANGELOG.md snapshot", () => {
     ];
     for (const [version, section, firstNum, expected] of expectedTies) {
       const actual = entries.filter(
-        (e) =>
-          e.version === version && e.section === section && e.firstNum === firstNum,
+        e => e.version === version && e.section === section && e.firstNum === firstNum,
       ).length;
       expect(actual, `${version}/${section} first #${firstNum}`).toBe(expected);
     }
