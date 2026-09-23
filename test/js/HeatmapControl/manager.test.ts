@@ -1403,6 +1403,103 @@ describe("event-bus bindings", () => {
     expect(m.cachedAgg).toBeNull();
     expect(m.cachedPoints).toBeNull();
   });
+
+  it("deleting the selected source layer clears the heatmap immediately", async () => {
+    // The heatmap draws another layer's points, so deleting that layer has to
+    // drop the selection and wipe the canvas in the same LAYER_CHANGE pass.
+    // Deferring the clear to the next zoom leaves the old render painted on
+    // the map: `renderHexagons` only reaches `aggregateData`'s empty-input
+    // clear once something re-aggregates. Regression pin for the stale canvas.
+    const m = makeManager();
+    m.ui = makeCtrl(m);
+    window.map.foliplus.LayerAPI.getLayersByType = vi.fn(() => [
+      { id: "pts", name: "Points", layer: {}, count: 2 },
+    ]);
+    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
+      { lat: 26, lng: 119, marker: {} },
+      { lat: 26.1, lng: 119.1, marker: {} },
+    ]);
+    m.scanMapLayers();
+    m.selectedLayerId = "pts";
+    const clearSpy = vi.spyOn(m, "clearHeatmapCanvas");
+
+    // The source leaves the registry; LayerControl then emits LAYER_CHANGE.
+    window.map.foliplus.LayerAPI.getLayersByType = vi.fn(() => []);
+    vi.useFakeTimers();
+    ensureEvents(m.map).emit(EVENTS.LAYER_CHANGE);
+    await vi.runOnlyPendingTimersAsync();
+    vi.useRealTimers();
+
+    expect(m.selectedLayerId).toBeNull();
+    expect(clearSpy).toHaveBeenCalled();
+  });
+
+  it("deletes the source even with no panel attached", async () => {
+    // The canvas is map state: a map can lose a source layer before (or
+    // without) a panel. The clear must not sit behind `if (this.ui)`.
+    const m = makeManager();
+    window.map.foliplus.LayerAPI.getLayersByType = vi.fn(() => [
+      { id: "pts", name: "Points", layer: {}, count: 1 },
+    ]);
+    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
+      { lat: 26, lng: 119, marker: {} },
+    ]);
+    m.scanMapLayers();
+    m.selectedLayerId = "pts";
+    const clearSpy = vi.spyOn(m, "clearHeatmapCanvas");
+
+    window.map.foliplus.LayerAPI.getLayersByType = vi.fn(() => []);
+    vi.useFakeTimers();
+    ensureEvents(m.map).emit(EVENTS.LAYER_CHANGE);
+    await vi.runOnlyPendingTimersAsync();
+    vi.useRealTimers();
+
+    expect(m.ui).toBeNull();
+    expect(m.selectedLayerId).toBeNull();
+    expect(clearSpy).toHaveBeenCalled();
+  });
+
+  it("keeps the selection when the source layer survives a LAYER_CHANGE", async () => {
+    // A registration or a reorder also emits LAYER_CHANGE. Dropping the
+    // selection there would blank a perfectly good heatmap.
+    const m = makeManager();
+    m.ui = makeCtrl(m);
+    window.map.foliplus.LayerAPI.getLayersByType = vi.fn(() => [
+      { id: "pts", name: "Points", layer: {}, count: 1 },
+      { id: "other", name: "Other", layer: {}, count: 1 },
+    ]);
+    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
+      { lat: 26, lng: 119, marker: {} },
+    ]);
+    m.scanMapLayers();
+    m.selectedLayerId = "pts";
+    const clearSpy = vi.spyOn(m, "clearHeatmapCanvas");
+
+    vi.useFakeTimers();
+    ensureEvents(m.map).emit(EVENTS.LAYER_CHANGE);
+    await vi.runOnlyPendingTimersAsync();
+    vi.useRealTimers();
+
+    expect(m.selectedLayerId).toBe("pts");
+    expect(clearSpy).not.toHaveBeenCalled();
+  });
+
+  it("leaves the selection alone when nothing is selected", async () => {
+    // No selection means no derived view to clear — the empty-input clear
+    // belongs to `aggregateData`, not to the layer-change reconcile.
+    const m = makeManager();
+    m.ui = makeCtrl(m);
+    m.selectedLayerId = null;
+    const clearSpy = vi.spyOn(m, "clearHeatmapCanvas");
+
+    vi.useFakeTimers();
+    ensureEvents(m.map).emit(EVENTS.LAYER_CHANGE);
+    await vi.runOnlyPendingTimersAsync();
+    vi.useRealTimers();
+
+    expect(m.selectedLayerId).toBeNull();
+    expect(clearSpy).not.toHaveBeenCalled();
+  });
 });
 
 describe("hex label rendering (shared canvas recipe)", () => {
