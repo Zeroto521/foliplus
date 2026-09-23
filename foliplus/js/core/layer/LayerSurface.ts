@@ -54,7 +54,7 @@ const hasBoundsProvider = (layer: L.Layer | null | undefined): boolean =>
     "function";
 
 /** Options a surface is resolved from — the register-time declaration only. */
-interface SurfaceOpts {
+interface SurfaceFaceOpts {
   id: string;
   layer: L.Layer | null;
   /** The pane the caller declared for this layer, if any. */
@@ -106,7 +106,13 @@ interface SurfaceDeclaration {
   /** Bounds provider the caller declared. Part of the declaration because
    *  `capabilities.bounds` is derived from it — a surface reused across a
    *  re-registration that gained or lost a provider would otherwise keep
-   *  answering with the old provider's absence. */
+   *  answering with the old provider's absence.
+   *
+   *  Compared by presence in `matches`, not by reference: a caller hands a
+   *  fresh arrow on every register, and reference equality would read "the
+   *  declaration changed" on every pass, rebuilding a face that does not need
+   *  rebuilding. The reference is kept only so the value can be reported back
+   *  as-is; nothing reads it through. */
   getBounds: (() => L.LatLngBounds | null) | null;
 }
 
@@ -135,7 +141,7 @@ class LayerSurface implements LayerSurfaceContract {
    *  declared it (createLayers), so there is nothing for us to pin. */
   private readonly pinTarget: string | null;
 
-  constructor(host: PaneManager, opts: SurfaceOpts) {
+  constructor(host: PaneManager, opts: SurfaceFaceOpts) {
     this.host = host;
     this.id = opts.id;
     this.layer = opts.layer;
@@ -347,8 +353,9 @@ class LayerSurface implements LayerSurfaceContract {
    *  that gained or lost a bounds provider describes a different face (the UI
    *  decides whether to offer focus from that flag), and the pane name is
    *  compared as the surface normalised it, so a rejected name does not read
-   *  as "changed" on every pass. */
-  matches(opts: SurfaceOpts): boolean {
+   *  as "changed" on every pass. `color` and `getBounds` are both compared as
+   *  presence, never as value or reference — see the fields. */
+  matches(opts: SurfaceFaceOpts): boolean {
     const specs = opts.paneSpecs ?? [];
     // `role` and `order` are part of the declaration, not decoration: a spec
     // whose role changes describes a different face, and the surface has to be
@@ -370,7 +377,7 @@ class LayerSurface implements LayerSurfaceContract {
       this.spec.paneName === declaredPaneName(opts.paneName) &&
       this.spec.canvas === Boolean(opts.canvas) &&
       this.spec.color === (opts.color != null) &&
-      this.spec.getBounds === (opts.getBounds ?? null) &&
+      Boolean(this.spec.getBounds) === Boolean(opts.getBounds ?? null) &&
       samePanes
     );
   }
@@ -511,7 +518,7 @@ const usesNativeSetter = (layer: L.Layer): boolean =>
  *      groups with leaves that expose bounds) gets `true`.
  *    - A canvas surface gets `true` only if the caller provided a
  *      `getBounds` provider; a bare canvas has no idea what it covers. */
-const detectCapabilities = (opts: SurfaceOpts): LayerCapabilities => {
+const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
   const layer = opts.layer;
 
   if (opts.color != null) {

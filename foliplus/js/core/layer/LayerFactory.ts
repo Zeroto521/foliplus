@@ -16,12 +16,12 @@ import type {
   CreateCanvasOpts,
   CreateLayersAPI,
   CreateLayersOpts,
+  CreateSurfaceOpts,
   LabelAwareLayer,
   PaneSpec,
   RegisterLayerOpts,
   SurfaceContentHandle,
   SurfaceHandle,
-  SurfaceOpts,
 } from "./type.js";
 
 /** Dependency injection contract for LayerFactory. */
@@ -56,7 +56,7 @@ const HIDDEN = "hidden";
 /** The pane a canvas or color surface paints into. `opts.id` is caller input
  *  and this name reaches Leaflet's `createPane` as both an element id and a
  *  CSS class, so it has to satisfy `PANE_NAME_PATTERN` first — the same gate
- *  `PaneSpec.name` and `SurfaceOpts.paneName` pass through. Such a pane
+ *  `PaneSpec.name` and the declared `paneName` pass through. Such a pane
  *  cannot be dropped the way an invalid spec is (the content has to live
  *  somewhere), so disallowed runs collapse to `-` instead: the pane stays
  *  recognisable and the caller's own `id` is left untouched. */
@@ -135,16 +135,16 @@ class LayerFactory {
   }
 
   createSurface(
-    opts: SurfaceOpts & { content: { kind: "layers" } },
+    opts: CreateSurfaceOpts & { content: { kind: "layers" } },
   ): Extract<SurfaceHandle, { content: { kind: "layers" } }>;
   createSurface(
-    opts: SurfaceOpts & { content: { kind: "canvas" } },
+    opts: CreateSurfaceOpts & { content: { kind: "canvas" } },
   ): Extract<SurfaceHandle, { content: { kind: "canvas" } }>;
   createSurface(
-    opts: SurfaceOpts & { content: { kind: "color"; color: string } },
+    opts: CreateSurfaceOpts & { content: { kind: "color"; color: string } },
   ): Extract<SurfaceHandle, { content: { kind: "color" } }>;
-  createSurface(opts: SurfaceOpts): SurfaceHandle {
-    // Unreachable for typed callers (SurfaceOpts.id is required); kept as a
+  createSurface(opts: CreateSurfaceOpts): SurfaceHandle {
+    // Unreachable for typed callers (CreateSurfaceOpts.id is required); kept as a
     // guard for untyped JS callers that skip the overload.
     if (opts.content.kind === "canvas" && !opts.id) {
       throw new Error(log.msg("createCanvas requires an id"));
