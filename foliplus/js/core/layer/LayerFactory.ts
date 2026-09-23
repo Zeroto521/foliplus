@@ -85,6 +85,7 @@ class LayerFactory {
       styleProvider: opts.styleProvider,
       styleSetters: opts.styleSetters,
       styleDefaults: opts.styleDefaults,
+      metaProvider: opts.metaProvider,
       content: { kind: "layers", panes: opts.panes },
     });
     return {
@@ -162,6 +163,7 @@ class LayerFactory {
       styleProvider: opts.styleProvider ?? null,
       styleSetters: opts.styleSetters ?? null,
       styleDefaults: opts.styleDefaults ?? null,
+      metaProvider: opts.metaProvider ?? null,
     };
 
     let registered = false;

@@ -100,6 +100,11 @@ interface RegisterLayerOpts {
   updatedAt?: string | number | null;
   /** Third-party label/value pairs appended to the attributes panel. */
   meta?: Record<string, string | number> | null;
+  /** Dynamic meta provider — pulled on demand by the attributes panel (same
+   *  pull-on-demand contract as featureCountProvider). Same-key entries in
+   *  the returned object override the static `meta` (dynamic wins, static is
+   *  fallback). */
+  metaProvider?: (() => Record<string, string | number>) | null;
 }
 
 /** A layer entry in the ordered registry (read-only view). */
@@ -139,6 +144,8 @@ interface LayerInfo {
   source?: string | null;
   updatedAt?: string | number | null;
   meta?: Record<string, string | number> | null;
+  /** Dynamic meta provider — pull on demand, never cached. */
+  metaProvider?: (() => Record<string, string | number>) | null;
   /** Epoch ms of the layer's first registration. Set by the registry itself —
    *  never by the provider — so a re-registration keeps the original value. */
   registeredAt?: number;
@@ -283,6 +290,8 @@ interface CreateLayersOpts {
   styleSetters?: Record<string, (value: unknown) => void> | null;
   /** See RegisterLayerOpts. */
   styleDefaults?: (() => Record<string, unknown>) | null;
+  /** See RegisterLayerOpts. */
+  metaProvider?: (() => Record<string, string | number>) | null;
 }
 
 /** Options for `LayerAPI.createCanvas`. */
@@ -387,6 +396,7 @@ interface SurfaceOpts {
   styleProvider?: (() => Record<string, unknown>) | null;
   styleSetters?: Record<string, (value: unknown) => void> | null;
   styleDefaults?: (() => Record<string, unknown>) | null;
+  metaProvider?: (() => Record<string, string | number>) | null;
 }
 
 /** Content handle returned by `createSurface` — the discriminated-union branch. */

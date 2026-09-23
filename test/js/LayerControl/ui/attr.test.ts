@@ -522,6 +522,78 @@ describe("LayerUI attrs", () => {
       pressOn(document.body);
       expect(item.querySelector(".foliplus-layer-attrs-panel")).toBeNull();
     });
+
+    // ── metaProvider tests ────────────────────────────────────────────
+
+    it("displays metaProvider rows including zero values", () => {
+      manager.registerLayer({
+        id: "attr-prov0",
+        metaProvider: () => ({ marker: 0, distance: 2, circle: 1 }),
+      });
+
+      const item = findItem(ui, "attr-prov0");
+      ui.openAttrsPanel(item);
+      const rendered = rows(
+        item.querySelector(".foliplus-layer-attrs-panel")!,
+      );
+
+      expect(rendered).toContainEqual(["marker", "0"]);
+      expect(rendered).toContainEqual(["distance", "2"]);
+      expect(rendered).toContainEqual(["circle", "1"]);
+    });
+
+    it("metaProvider overrides static meta for the same key", () => {
+      manager.registerLayer({
+        id: "attr-prov1",
+        meta: { marker: 5 },
+        metaProvider: () => ({ marker: 3 }),
+      });
+
+      const item = findItem(ui, "attr-prov1");
+      ui.openAttrsPanel(item);
+      const rendered = rows(
+        item.querySelector(".foliplus-layer-attrs-panel")!,
+      );
+
+      expect(rendered).toContainEqual(["marker", "3"]);
+      expect(rendered).not.toContainEqual(["marker", "5"]);
+    });
+
+    it("refreshes metaProvider rows in place on LAYER_ITEM_COUNT_CHANGE", () => {
+      let count = 0;
+      manager.registerLayer({
+        id: "attr-prov2",
+        metaProvider: () => ({ marker: count }),
+      });
+
+      const item = findItem(ui, "attr-prov2");
+      ui.openAttrsPanel(item);
+
+      const panel = item.querySelector(".foliplus-layer-attrs-panel")!;
+      expect(rows(panel)).toContainEqual(["marker", "0"]);
+
+      count = 2;
+      ui.events.emit("foliplus:layer:item-count-change", { id: "attr-prov2" });
+
+      expect(rows(panel)).toContainEqual(["marker", "2"]);
+    });
+
+    it("ignores LAYER_ITEM_COUNT_CHANGE for a different layer id", () => {
+      manager.registerLayer({
+        id: "attr-prov3",
+        metaProvider: () => ({ marker: 1 }),
+      });
+
+      const item = findItem(ui, "attr-prov3");
+      ui.openAttrsPanel(item);
+
+      const panel = item.querySelector(".foliplus-layer-attrs-panel")!;
+      expect(rows(panel)).toContainEqual(["marker", "1"]);
+
+      ui.events.emit("foliplus:layer:item-count-change", { id: "other" });
+
+      expect(rows(panel)).toContainEqual(["marker", "1"]);
+    });
   });
 
   // ─────────────────── more button visibility ───────────────────

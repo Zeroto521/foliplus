@@ -32,6 +32,8 @@
 - `LayerControl`: `setVisible(id, visible)` on `LayerAPI` for programmatic layer visibility, taking the same transition and persistence as the panel checkbox ([#321](https://github.com/Zeroto521/foliplus/pull/321))
 - `LayerControl`/`HeatmapControl`/`SearchControl`/`MeasureControl`: `collapse_on_outside` — whether a press outside the panel collapses it. Default `false` for `LayerControl`, whose panel is read alongside the map and whose busiest gesture is drag-pan / click-select; `true` for the other three, so their behaviour is unchanged ([#428](https://github.com/Zeroto521/foliplus/pull/428))
 
+- `LayerControl`: attributes panel now supports `metaProvider` — a dynamic callback that returns key/value rows refreshed on `LAYER_ITEM_COUNT_CHANGE`, enabling per-mode measurement counts and other live metadata in the Attributes panel ([#439](https://github.com/Zeroto521/foliplus/pull/439))
+
 ### Changed
 
 - `MeasureControl`: migrate distance, bearing, area, midpoint calculations to turf.js geodesic implementations ([#114](https://github.com/Zeroto521/foliplus/pull/114))

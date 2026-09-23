@@ -167,6 +167,18 @@ class MeasureManager {
         labelShow: defaultLabelShow,
         labelCollide: defaultLabelCollide,
       }),
+      metaProvider: () => {
+        const counts: Record<string, number> = {};
+        for (const m of this.store.all()) {
+          counts[m.type] = (counts[m.type] ?? 0) + 1;
+        }
+        return {
+          [T("tool_marker")]: counts[CONST.MODE.MARKER] ?? 0,
+          [T("tool_distance")]: counts[CONST.MODE.DISTANCE] ?? 0,
+          [T("tool_polygon")]: counts[CONST.MODE.POLYGON] ?? 0,
+          [T("tool_circle")]: counts[CONST.MODE.CIRCLE] ?? 0,
+        };
+      },
     });
     this.currentMode = null;
     this.modeInstance = null;

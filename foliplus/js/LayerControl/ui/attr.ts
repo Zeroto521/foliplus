@@ -1,4 +1,5 @@
 // LayerControl UI —Layer attributes panel.
+import { EVENTS } from "#core/event/index.js";
 import { getGeometryType } from "#core/layer/index.js";
 import { dom } from "#common/dom.js";
 import { formatNumber, formatTimestamp } from "#common/format.js";
@@ -116,22 +117,29 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
 
   // Third-party meta rows continue the same list —no heading, no separator:
   // the panel is one flat column of facts, in the same order every time.
-  const metaEntries = Object.entries(layerInfo?.meta ?? {}).filter(
-    ([, v]) => v != null && v !== "",
-  );
-  const metaRows: AttrRow[] = metaEntries.map(([key, value]) => [
-    key,
-    typeof value === "number"
-      ? // Integers group without a trailing ".0"; decimals keep one digit.
-        formatNumber(
-          value,
-          "comma",
-          ui.conf.locale_code,
-          Number.isInteger(value) ? 0 : 1,
-        )
-      : String(value),
-    "",
-  ]);
+  // Dynamic `metaProvider` entries override static `meta` for the same key
+  // (dynamic wins, static is fallback).
+  const buildMetaRows = (): AttrRow[] => {
+    const merged: Record<string, string | number> = {
+      ...(layerInfo?.meta ?? {}),
+      ...(layerInfo?.metaProvider?.() ?? {}),
+    };
+    return Object.entries(merged)
+      .filter(([, v]) => v != null && v !== "")
+      .map(([key, value]) => [
+        key,
+        typeof value === "number"
+          ? formatNumber(
+              value,
+              "comma",
+              ui.conf.locale_code,
+              Number.isInteger(value) ? 0 : 1,
+            )
+          : String(value),
+        "",
+      ]);
+  };
+  const metaRows = buildMetaRows();
 
   const displayName = isColor ? colorLayerName(ui) : (layerInfo?.name ?? layerId);
   // iconSvg is the layer's own logo (basemaps and custom layers ship one);
@@ -156,7 +164,20 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
   });
   // One flat list: third-party meta rows continue the same rhythm instead
   // of opening a second group, so the panel reads as one column of facts.
-  content.appendChild(renderList([...rows, ...metaRows]));
+  let dlEl = renderList([...rows, ...metaRows]);
+  content.appendChild(dlEl);
+
+  // Live update: subscribe to LAYER_ITEM_COUNT_CHANGE (filtered by layerId)
+  // so meta rows refresh in place when the store mutates.
+  if (!isColor && layerId && layerInfo?.metaProvider) {
+    ui.attrsUnsubscribe = ui.events.on(
+      EVENTS.LAYER_ITEM_COUNT_CHANGE,
+      ({ id }) => {
+        if (id !== layerId) return;
+        dlEl.replaceWith(renderList([...rows, ...buildMetaRows()]));
+      },
+    );
+  }
 
   // Header click dismisses, matching bindPanelToggle on the main panels.
   // The × sits inside the header, so one listener covers both.
@@ -202,6 +223,10 @@ const closeAttrsPanel = (ui: LayerUI, setFocus: boolean) => {
   if (ui.attrsOutsideHandler) {
     document.removeEventListener("mousedown", ui.attrsOutsideHandler, true);
     ui.attrsOutsideHandler = null;
+  }
+  if (ui.attrsUnsubscribe) {
+    ui.attrsUnsubscribe();
+    ui.attrsUnsubscribe = null;
   }
   // No panel, no panel press: a stale verdict would block the next real drag.
   ui.pressInPanel = false;
