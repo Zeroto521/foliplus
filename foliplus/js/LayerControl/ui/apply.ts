@@ -246,7 +246,7 @@ const applyProjection = (ui: LayerUI, id: string): void => {
     const layer = layerInfo.layer ?? ui.m.findLayer(layerInfo);
     const baselineVisible = layer
       ? ui.m.map.hasLayer(layer)
-      : (ui.authorVisible.get(id) ?? true);
+      : layerInfo.visible !== false;
     prev = {
       id,
       intent: { visible: baselineVisible },
@@ -263,11 +263,38 @@ const applyProjection = (ui: LayerUI, id: string): void => {
   // opacity applied to the new DOM, not to whatever the last write hit.
   const carrierToken = carrierOf(ui, layerInfo);
 
-  // 1. Effective-shown — the composite `intent && policy`. One write target
-  //    for map membership, diffed against its own last write. The §40.5
-  //    invariant lives here: nothing authorises an add unless `intent` does,
-  //    so a derived dimension can only remove, never restore on its own.
-  if (prev.effectiveShown !== next.effectiveShown) {
+  // 1. Effective-shown — the composite `intent && policy`. Diffed against
+  //    what the map actually holds, not against the last value we remember
+  //    writing. Folium emits a layer's JS global after this control's IIFE
+  //    and (depending on version) may or may not have put a `show=False`
+  //    layer on the map, so "what we last wrote" and "what is on the map"
+  //    can disagree through no write of ours. Reading the map back makes the
+  //    executor converge on `effectiveShown` no matter who moved the layer in
+  //    between — and it is what keeps a write that could not land (no layer
+  //    object yet) from being recorded as done. The §40.5 invariant lives
+  //    here: nothing authorises an add unless `intent` does, so a derived
+  //    dimension can only remove, never restore on its own.
+  const layer = layerInfo.layer ?? ui.m.findLayer(layerInfo);
+  // Whether anything authorises a map write at all. §40.5: only the user's
+  // own choice or an *observed* author snapshot decides membership. A layer
+  // whose author default has not been observed yet (its JS global is not
+  // linked) and that the user never touched is not this executor's to
+  // decide — writing `effectiveShown` for it would turn a guess into an add.
+  const hasUserIntent =
+    (ui.userOverrides?.[id]?.includes("visible") ?? false) ||
+    (ui.hiddenIds?.has(id) ?? false);
+  const authorised = hasUserIntent || ui.authorVisible.has(id);
+  // A callback-only layer has no map to read and its registry flag is the
+  // declaration, not "what we last told it", so the first call must always
+  // fire the callback once.
+  const currentShown = layer
+    ? ui.m.map.hasLayer(layer)
+    : layerInfo.onToggle
+      ? ui.appliedState.has(id)
+        ? prev.effectiveShown
+        : !next.effectiveShown
+      : false;
+  if (authorised && currentShown !== next.effectiveShown) {
     applyStateOp(ui, layerInfo, { type: "visible", value: next.effectiveShown });
   }
   // 2. Opacity — independent of zoom/focus. Rewritten whenever the carrier
@@ -282,15 +309,25 @@ const applyProjection = (ui: LayerUI, id: string): void => {
     applyStateOp(ui, layerInfo, { type: "zoomRange", value: next.zoomRange });
   }
 
-  // The mirror field tracks the projection regardless of whether a diff fired:
-  // `layerInfo.visible` is the panel's "is this on the map" fact, and the
-  // executor is its only writer. A changeless call still lands here so a
-  // later reader (e.g. an attach sweep that checks `visible` to decide
-  // whether to unhide) sees the projection's answer, not a stale value from
-  // the layer's construction.
-  layerInfo.visible = next.effectiveShown;
+  // The mirror field is the panel's "is this on the map" fact, and the
+  // executor is its only writer. It records what the write *achieved*: the
+  // projection's answer when the op had a carrier to land on, `false` when
+  // the layer is not linked yet and there was nothing to write to. Recording
+  // an unlandable write as done is what made `checked`, `visible` and map
+  // membership disagree on reload — the op is skipped and the next
+  // `applyProjection`, once the layer is linked, still sees the difference.
+  const canWriteVisible = Boolean(layer) || Boolean(layerInfo.onToggle);
+  layerInfo.visible = !authorised
+    ? layerInfo.visible // unauthorised — the declaration stands
+    : canWriteVisible
+      ? next.effectiveShown
+      : false;
 
-  ui.appliedState.set(id, { ...next, carrier: carrierToken });
+  ui.appliedState.set(id, {
+    ...next,
+    effectiveShown: layerInfo.visible,
+    carrier: carrierToken,
+  });
 };
 
 /** Diff every layer's projection. Called on attach, on late

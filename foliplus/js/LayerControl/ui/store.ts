@@ -46,30 +46,32 @@ interface AppliedProjection extends Projection {
  *  policy inputs (focus, map zoom). Read-only. */
 const projectLayer = (ui: LayerUI, layerInfo: LayerInfo): Projection => {
   const id = layerInfo.id;
-  const overrides = ui.userOverrides[id];
-  const hasVisible = overrides?.includes("visible") ?? false;
+  const overrides = ui.userOverrides?.[id];
+  // The user's own choice is signalled by the dimension's `overrides`
+  // provenance marker *or* by the value being present. The two travel
+  // together out of `loadPersistedState` and `syncHiddenId`, so either alone
+  // still means "the user chose this" — a caller that records the value
+  // (a restored record, a test fixture, a re-registration replay) must not
+  // have it silently read back as the author's default. Absent both, the
+  // author's declared default stands.
+  const hidden = ui.hiddenIds?.has(id) ?? false;
+  const hasVisible = overrides?.includes("visible") || hidden;
   // The author's default is the map state folium left at boot (see
   // `snapshotAuthorVisible`), captured before any policy moved layers.
   const authorDefault = ui.authorVisible.get(id) ?? true;
-  const intent = hasVisible ? !ui.hiddenIds.has(id) : authorDefault;
+  const intent = hasVisible ? !hidden : authorDefault;
 
   // Policy is independent of intent: focus overrides range, range may
-  // exclude, but neither touches the user's stored choice. The `hiddenIds`
-  // check that used to sit here is redundant under the `intent && policy`
-  // composition — `intent` already reflects it when the user has overridden
-  // `visible`, and folds into `intent = authorDefault` otherwise.
+  // exclude, but neither touches the user's stored choice.
   const policy = ui.focusingLayerId != null ? true : inZoomRange(ui, layerInfo);
   const effectiveShown = intent && policy;
 
   const opacity =
-    ui.userOverrides[id]?.includes("opacity") && typeof ui.opacityMap[id] === "number"
-      ? ui.opacityMap[id]
-      : undefined;
+    typeof ui.opacityMap?.[id] === "number" ? ui.opacityMap[id] : undefined;
 
-  const zoomRange =
-    ui.userOverrides[id]?.includes("zoomRange") && ui.zoomRangeMap[id]
-      ? (ui.zoomRangeMap[id] as [number, number])
-      : null;
+  const zoomRange = ui.zoomRangeMap?.[id]
+    ? (ui.zoomRangeMap[id] as [number, number])
+    : null;
 
   return { id, intent: { visible: intent }, effectiveShown, opacity, zoomRange };
 };

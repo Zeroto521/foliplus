@@ -76,8 +76,11 @@ interface RowLabels {
  *  while a policy is hiding the layer.
  */
 const rowChecked = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
-  if (ui.userOverrides[layerInfo.id]?.includes("visible")) {
-    return !ui.hiddenIds.has(layerInfo.id);
+  // Same rule as `projectLayer.intent`: the `visible` provenance marker or
+  // membership in `hiddenIds` — either alone is the user's own choice.
+  const hidden = ui.hiddenIds?.has(layerInfo.id) ?? false;
+  if (ui.userOverrides?.[layerInfo.id]?.includes("visible") || hidden) {
+    return !hidden;
   }
   return ui.authorVisible.get(layerInfo.id) ?? true;
 };
@@ -92,7 +95,7 @@ const rowChecked = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
  *  range is outside the map and no zoom can land inside it.
  */
 const inZoomRange = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
-  const range = ui.zoomRangeMap[layerInfo.id];
+  const range = ui.zoomRangeMap?.[layerInfo.id];
   if (!range) return true;
   const min = Math.max(range[0], ui.m.map.getMinZoom());
   const max = Math.min(range[1], ui.m.map.getMaxZoom());

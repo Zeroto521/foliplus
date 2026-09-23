@@ -4,6 +4,7 @@ import { createLogger } from "#common/log.js";
 import * as CONST from "../const.js";
 import type { LayerManager } from "../manager.js";
 import type { LayerOverride, PersistedLayerState } from "../persistence.js";
+import { applyProjection, applyProjectionAll } from "./apply.js";
 import { applyNameProjection } from "./context.js";
 import type { LayerUI } from "./index.js";
 import { applyRowView, buildRowCell, inZoomRange } from "./rowView.js";
@@ -166,23 +167,23 @@ const applyUserState = (ui: LayerUI, id?: string) => {
   const registry = ui.m.layerRegistry;
   const container = ui.uiContainer;
 
+  // visible / opacity / zoomRange belong to the diff executor: one write per
+  // dimension, diffed against the executor's own last write. Routing them
+  // through `applyProjection` keeps exactly one writer of map membership and
+  // of the `layerInfo.visible` mirror. The per-dimension helpers below were a
+  // second writer, and the mirror drifted away from the checkbox whenever the
+  // author's snapshot landed after the first projection — which is the normal
+  // order on folium 0.20+, where a `show=False` layer is not on the map at
+  // boot and the snapshot can only be taken once its JS global exists.
   if (id) {
     const layerInfo = registry.get(id);
     if (!layerInfo) return; // not registered yet —its stored state is kept
-    // Both projections are membership-guarded —this path runs for every
-    // late registration, including layers the user never touched. A layer
-    // that was never hidden must not be hidden, and a missing rename is a
-    // no-op rather than a write of undefined over the registry's own name.
-    if (ui.hiddenIds.has(id)) applyHiddenStateOne(ui, layerInfo);
+    // One id, one projection: a late registration replays every stored
+    // dimension on the same pass — visibility, opacity and zoom range — so
+    // nothing needs a per-caller replay path (the T46 contract).
+    applyProjection(ui, id);
     if (id in ui.renamedNames) {
       applyNameProjection(layerInfo, null, ui.renamedNames[id]);
-    }
-    if (id in ui.opacityMap) applyOpacityStateOne(ui, layerInfo, ui.opacityMap[id]);
-    // A stored zoom range is applied on the same late-registration pass:
-    // without it a layer that was out of range on the previous load would
-    // come back on the map at its author default rather than staying hidden.
-    if (id in ui.zoomRangeMap) {
-      applyZoomRangeStateOne(ui, layerInfo, ui.zoomRangeMap[id]);
     }
     // The order dimension is replayed on the same pass: this path runs once per
     // late registration, so without it the layer would keep the slot it was
@@ -197,51 +198,28 @@ const applyUserState = (ui: LayerUI, id?: string) => {
   // inverse. Walking the registry asserts every layer's map membership
   // against the persisted intent; the color basemap has no registry entry,
   // so its rename still comes from `renamedNames`.
-  const ids = new Set([
-    ...ui.m.layers.map(li => li.id),
-    ...ui.hiddenIds,
-    ...Object.keys(ui.renamedNames),
-    ...Object.keys(ui.opacityMap),
-    ...Object.keys(ui.zoomRangeMap),
-  ]);
-  for (const layerId of ids) {
-    if (layerId in ui.renamedNames) {
-      if (layerId === CONST.COLOR.MAP_ID) {
-        // The color basemap has no registry entry —only its row label.
-        applyNameProjection(
-          null,
-          container?.querySelector(
-            `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"]`,
-          ) as HTMLElement | null,
-          ui.renamedNames[layerId],
-        );
-        continue;
-      }
-      const layerInfo = registry.get(layerId);
-      if (!layerInfo) continue; // not registered yet —its stored state is kept
+  applyProjectionAll(ui);
+  for (const layerId of Object.keys(ui.renamedNames)) {
+    if (layerId === CONST.COLOR.MAP_ID) {
+      // The color basemap has no registry entry —only its row label.
       applyNameProjection(
-        layerInfo,
+        null,
         container?.querySelector(
           `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"]`,
         ) as HTMLElement | null,
         ui.renamedNames[layerId],
       );
+      continue;
     }
     const layerInfo = registry.get(layerId);
     if (!layerInfo) continue; // not registered yet —its stored state is kept
-    if (layerId in ui.opacityMap) {
-      applyOpacityStateOne(ui, layerInfo, ui.opacityMap[layerId]);
-    }
-    if (ui.hiddenIds.has(layerId)) applyHiddenOne(ui, layerInfo, layerId);
-    else if (ui.userOverrides[layerId]?.includes("visible")) {
-      applyVisibleStateOne(ui, layerInfo);
-    }
-    // Zoom range is applied last: its effective-shown write depends on the
-    // visibility intent just written, so it must run after the hidden /
-    // visible branch. A hidden layer stays hidden regardless of zoom.
-    if (layerId in ui.zoomRangeMap) {
-      applyZoomRangeStateOne(ui, layerInfo, ui.zoomRangeMap[layerId]);
-    }
+    applyNameProjection(
+      layerInfo,
+      container?.querySelector(
+        `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"]`,
+      ) as HTMLElement | null,
+      ui.renamedNames[layerId],
+    );
   }
 
   // Deliberately no prune here. An unresolvable id is not proof of absence —
