@@ -135,7 +135,6 @@ describe("eslint.config.js rule scoping", () => {
 const NON_MODULE_TEST_SUBJECTS: Record<string, string> = {
   Makefile: "the root Makefile",
   "vitest.config": "vitest.config.mjs",
-  "build.minify-invariant": "the minify invariant (esbuild comment stripping)",
 };
 
 // `X.test.ts` has a subject when `X` is a real script module, or a stem that is

@@ -4,6 +4,7 @@ import { join } from "path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   EXIT_FUSE,
+  EXIT_OK,
   EXIT_UNKNOWN,
   FUSE_CAPS,
   fuse,
@@ -59,6 +60,15 @@ describe("bundle-fuse exit codes", () => {
     expect(fuse({}, root)).toBe(EXIT_FUSE);
   });
 
+  it("returns EXIT_FUSE when the dist tree holds no minified artifacts", () => {
+    // The fuse is supposed to be the "always on" gate; a missing dist/ is
+    // a build error the caller must fix, so it exits non-zero rather than
+    // silently passing an empty report.
+    const root = mkTmp();
+    mkDist(root, {});
+    expect(fuse({}, root)).toBe(EXIT_FUSE);
+  });
+
   it("returns 0 when every artifact is under its cap", () => {
     const root = mkTmp();
     // One trivial file per cap key: every measured size is 1-2 B brotli,
@@ -66,7 +76,7 @@ describe("bundle-fuse exit codes", () => {
     const files: Record<string, string> = {};
     for (const key of Object.keys(FUSE_CAPS)) files[key] = "x";
     mkDist(root, files);
-    expect(fuse({}, root)).toBe(0);
+    expect(fuse({}, root)).toBe(EXIT_OK);
   });
 
   it("returns EXIT_UNKNOWN when a dist artifact has no cap entry", () => {

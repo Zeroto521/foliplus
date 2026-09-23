@@ -24,7 +24,10 @@
  *   node script/bundle-fuse.mjs --root=<path> ...     # read <path>/foliplus/dist
  *   node script/bundle-fuse.mjs --help                # all flags
  *
- * Exit codes: 0 = all under cap, 1 = fuse tripped or a build error.
+ * Exit codes (from script/bundle-size-lib.mjs):
+ *   0 = all under cap
+ *   1 = fuse tripped, or no bundles found
+ *   4 = an artifact has no cap (needs review to add one)
  *
  * This reads the MINIFIED artifacts, so run `npm run build` before invoking
  * it. `npm run build:dev` (what `make test` uses, for the vitest-side
@@ -33,17 +36,20 @@
  * that ships — which will not trip the fuse but will mislead anyone
  * reading the numbers.
  */
-import { readFileSync, readdirSync } from "fs";
-import { dirname, resolve } from "path";
-import { fileURLToPath, pathToFileURL } from "url";
-import { brotliCompressSync } from "zlib";
-import { help, parseArgs as parseArgsCore } from "./args.mjs";
+import { resolve } from "path";
+import { pathToFileURL } from "url";
+import { help } from "./args.mjs";
+import {
+  EXIT_FUSE,
+  EXIT_OK,
+  EXIT_UNKNOWN,
+  ROOT,
+  baseSpec,
+  fmtBytes,
+  parseArgsWithBase,
+  readSizes,
+} from "./bundle-size-lib.mjs";
 import { OK, STATUS, WARN } from "./glyph.mjs";
-
-const EXIT_FUSE = 1;
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const ROOT = resolve(__dirname, "..");
 
 // Absolute brotli-byte ceiling per artifact. Each value is `2 * measured`
 // at the commit that set it (50d0723d), rounded up to the nearest 5 KB.
@@ -70,34 +76,6 @@ const FUSE_CAPS = {
   "foliplus-LocateControl.min.css": 5_000, // measured 162
 };
 
-// A bundle not listed above has no cap: it is either brand-new (needs a
-// review before it gets a number) or a rename. Rather than silently
-// passing, the fuse reports it as "unknown" so the caller can either
-// add a cap or explain the drop.
-const EXIT_UNKNOWN = 2;
-
-const distDir = root => resolve(root, "foliplus/dist");
-
-const SPEC = {
-  root: { type: "string", desc: "Project root (reads <root>/foliplus/dist)" },
-};
-
-const parseArgs = argv => parseArgsCore(argv, SPEC);
-
-const readSizes = (root = ROOT) => {
-  const dir = distDir(root);
-  const files = readdirSync(dir)
-    .filter(f => /\.min\.(js|css)$/.test(f))
-    .sort();
-  const sizes = {};
-  for (const f of files) {
-    sizes[f] = brotliCompressSync(readFileSync(resolve(dir, f))).length;
-  }
-  return sizes;
-};
-
-const fmtBytes = n => (n / 1024).toFixed(2) + " KB";
-
 const render = rows => {
   const lines = [];
   const fileWidth = Math.max(...rows.map(r => r.file.length), "artifact".length);
@@ -117,14 +95,23 @@ const render = rows => {
         `${STATUS[r.status]}`,
     );
   }
+  // The totalCap column excludes uncapped rows (they have no cap to sum),
+  // otherwise an uncapped artifact silently contributes 0 and the total
+  // undercounts — the reader sees "92 KB cap" when only 14 of 18 bundles
+  // actually have caps. `N of M capped` makes the gap explicit.
+  const capped = rows.filter(r => r.cap != null);
   const totalMeasured = rows.reduce((a, r) => a + r.measured, 0);
-  const totalCap = rows.reduce((a, r) => a + (r.cap ?? 0), 0);
+  const totalCap = capped.reduce((a, r) => a + r.cap, 0);
+  const totalLabel =
+    capped.length === rows.length
+      ? `${rows.length} bundles`
+      : `${capped.length} of ${rows.length} capped`;
   lines.push("");
   lines.push(
     `${"TOTAL".padEnd(fileWidth)}   ` +
       `${fmtBytes(totalMeasured).padStart(8)}  ` +
       `${fmtBytes(totalCap).padStart(7)}  ` +
-      `${rows.length} bundles`,
+      totalLabel,
   );
   return lines.join("\n");
 };
@@ -171,7 +158,7 @@ const fuse = (args, root = ROOT) => {
   }
   if (unknowns.length > 0) {
     console.error(
-      `\n${STATUS.unknown} ${unknowns.length} bundle(s) with no fuse cap:` +
+      `\n${STATUS.missing} ${unknowns.length} bundle(s) with no fuse cap:` +
         "\n" +
         unknowns.map(r => `  ${r.file}: ${fmtBytes(r.measured)}`).join("\n") +
         "\n" +
@@ -181,27 +168,27 @@ const fuse = (args, root = ROOT) => {
     return EXIT_UNKNOWN;
   }
   console.log(`\n${OK} All ${rows.length} bundles under fuse cap.`);
-  return 0;
+  return EXIT_OK;
 };
 
-export { EXIT_FUSE, EXIT_UNKNOWN, FUSE_CAPS, fuse, readSizes };
+export { EXIT_FUSE, EXIT_OK, EXIT_UNKNOWN, FUSE_CAPS, fuse, readSizes };
 
 // CLI entry point: `node script/bundle-fuse.mjs [--root=<path>]`.
 // Guarded so importing this module has no side effects.
 /* v8 ignore start -- CLI-only entry point, not exercised by unit tests */
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
-  const args = parseArgs(process.argv.slice(2));
+  const args = parseArgsWithBase(process.argv.slice(2));
   if (args.help) {
-    console.log(help(SPEC));
-    process.exit(0);
+    console.log(help(baseSpec));
+    process.exit(EXIT_OK);
   }
   if (args.errors.length) {
     console.error(args.errors.join("\n"));
-    console.error(help(SPEC));
-    process.exit(1);
+    console.error(help(baseSpec));
+    process.exit(EXIT_FUSE);
   }
   const root = args.root ? resolve(args.root) : ROOT;
   const code = fuse(args, root);
-  process.exit(code ?? 0);
+  process.exit(code ?? EXIT_OK);
 }
 /* v8 ignore stop */

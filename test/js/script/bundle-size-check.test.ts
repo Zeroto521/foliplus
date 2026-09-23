@@ -5,22 +5,23 @@ import { join } from "path";
 import { afterEach, describe, expect, it } from "vitest";
 import { brotliCompressSync } from "zlib";
 import {
+  EXIT_NO_BASELINE,
   MIN_GROWTH_BYTES,
   buildRows,
   check,
   emit,
+  fmtBytes,
   fmtDelta,
   fmtDeltaBytes,
-  fmtKB,
   fmtPct,
   parseArgs,
   rangeLine,
   rowCells,
   shortSha,
-  stripLeadingBlockComment,
   summarize,
   toolVersion,
 } from "#script/bundle-size-check.mjs";
+import { stripLeadingBlockComment } from "#script/bundle-size-lib.mjs";
 
 const brotli = (s: string) => brotliCompressSync(Buffer.from(s)).length;
 
@@ -355,7 +356,7 @@ describe("summarize", () => {
 
 describe("formatters", () => {
   it("formats KB", () => {
-    expect(fmtKB(1024)).toBe("1.00 KB");
+    expect(fmtBytes(1024)).toBe("1.00 KB");
   });
 
   it("formats deltas with sign", () => {
@@ -486,6 +487,18 @@ describe("check", () => {
     expect(check(parseArgs([]), root)).toBe(0);
   });
 
+  it("returns EXIT_NO_BASELINE when --enforce is passed without a baseline", () => {
+    // --enforce is an explicit opt-in to a hard gate; skipping the gate
+    // because the base wasn't captured is not "passing", and letting it
+    // through silently would hide the gap from the PR. EXIT_NO_BASELINE
+    // is its own code — distinct from the 1 (build error) that a
+    // malformed flag produces — so the CI log can tell "no evidence"
+    // from "evidence says over threshold".
+    const root = mkTmp();
+    mkDist(root, { "a.min.js": "const x = 1;" });
+    expect(check(parseArgs(["--enforce"]), root)).toBe(EXIT_NO_BASELINE);
+  });
+
   it("renders the total row as em-dashes when the baseline records no sizes", () => {
     // A capture taken from a build that produced nothing has an empty files map:
     // every bundle reads "new" and the total has nothing to add up, so the
@@ -498,7 +511,7 @@ describe("check", () => {
       "--report=" + report,
     ]);
     expect(check(args, root)).toBe(0);
-    const total = fmtKB(brotli(BODY));
+    const total = fmtBytes(brotli(BODY));
     expect(readFileSync(report, "utf-8")).toContain(
       `**Total:** ${total} · **Δ** — (—) · 1 of 1 bundles changed`,
     );
@@ -1297,6 +1310,24 @@ describe("cli entry point", () => {
       expect(res.stdout).toContain("Bundle Sizes");
       expect(res.stdout).toContain("a.min.js");
       expect(res.stderr).toContain("No baseline provided");
+    },
+    SLOW,
+  );
+
+  it(
+    "exits 4 when --enforce is passed without a baseline",
+    () => {
+      // --enforce is an explicit opt-in to a hard gate; skipping the gate
+      // because the base wasn't captured is not "passing", and letting it
+      // through silently would hide the gap from the PR. EXIT_NO_BASELINE
+      // is its own code — distinct from the 1 (build error) that a
+      // malformed flag produces — so the CI log can tell "no evidence"
+      // from "evidence says over threshold".
+      const root = mkTmp();
+      mkDist(root, { "a.min.js": "const x = 1;" });
+      const res = runProcess(root, "--enforce");
+      expect(res.status).toBe(4);
+      expect(res.stderr).toContain("no --baseline passed under --enforce");
     },
     SLOW,
   );

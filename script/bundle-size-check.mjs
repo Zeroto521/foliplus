@@ -27,27 +27,31 @@
  *
  * When GITHUB_STEP_SUMMARY is set, also writes a Markdown summary.
  */
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { dirname, resolve } from "path";
-import { fileURLToPath, pathToFileURL } from "url";
-import { brotliCompressSync } from "zlib";
-import { help, parseArgs as parseArgsCore } from "./args.mjs";
+import { pathToFileURL } from "url";
+import { help } from "./args.mjs";
+import {
+  EXIT_FUSE,
+  EXIT_NO_BASELINE,
+  EXIT_OK,
+  EXIT_THRESHOLD,
+  ROOT,
+  fmtBytes,
+  parseArgsWithBase,
+  readSizes,
+  stripLeadingBlockComment,
+} from "./bundle-size-lib.mjs";
 import { FAIL, OK, STATUS, WARN } from "./glyph.mjs";
 
 // A threshold breach is a policy decision, not a broken check. The report —
 // the table and the tree of who exceeded — is the thing that must reach the
 // PR, so `check` never fails because a bundle grew; it returns the verdict and
 // lets the caller decide. `--enforce` re-adds the exit code for a hard gate.
-const EXIT_THRESHOLD = 2;
-// No baseline under --enforce: the caller explicitly asked to fail when the
-// diff cannot be built, so a silent pass is worse than a hard failure. A
-// distinct code separates "no evidence" from "evidence says over threshold" —
-// CI logs can read the two apart, and the caller knows not to re-run the same
-// command hoping for a different answer.
-const EXIT_NO_BASELINE = 3;
+// EXIT_NO_BASELINE, EXIT_THRESHOLD, EXIT_FUSE, and EXIT_OK all come from
+// script/bundle-size-lib.mjs so CI can read one exit-code table across the two
+// gates; see that file for what each number means.
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const ROOT = resolve(__dirname, "..");
 const DEFAULT_THRESHOLD = 10;
 const LOW_MARGIN_PCT = 5;
 
@@ -74,8 +78,6 @@ const LOW_MARGIN_PCT = 5;
 // 128 B, so those bundles are judged exactly as before. That is 8 of the 18
 // bundles and 93% of the total brotli weight.
 const MIN_GROWTH_BYTES = 128;
-
-const distDir = root => resolve(root, "foliplus/dist");
 
 // Build tooling that rewrites the emitted bytes. `esbuild` owns the minifier
 // and the bundle structure; `svgo` rewrites the inline SVG inside JS sources;
@@ -125,18 +127,10 @@ const toolMismatch = (_current, baseline) => {
   return rows;
 };
 
-// Drop the leading block comment — esbuild's `banner`. It is emitted by both
-// builds being compared and carries no runtime code, and its byte count drifts
-// with the build config, so counting it is pure diff noise. It stays in the
-// shipped bundle: it is how a served asset is tied to the version that built it.
-const stripLeadingBlockComment = src => {
-  const body = src.replace(/^﻿?\/\*[\s\S]*?\*\/\s*/, "");
-  return body !== src ? body : src;
-};
-
 /** Flag spec — parsed by the shared `args.mjs` parser used by the other build
  *  scripts. It defaults flags it does not see to `false`, so the `?`/`!`
- *  checks below keep their usual meaning. */
+ *  checks below keep their usual meaning. `--root` is inherited from
+ *  baseSpec in script/bundle-size-lib.mjs. */
 const SPEC = {
   emit: { type: "string", desc: "Write the current sizes to this JSON file" },
   baseline: { type: "string", desc: "JSON file to diff against" },
@@ -150,7 +144,6 @@ const SPEC = {
     type: "bool",
     desc: "Exit non-zero when a bundle exceeds --threshold (also exits non-zero if no baseline is passed)",
   },
-  root: { type: "string", desc: "Project root (reads <root>/foliplus/dist)" },
   base: {
     type: "string",
     desc: "Base commit — the reference the sizes are diffed against",
@@ -158,27 +151,13 @@ const SPEC = {
   head: { type: "string", desc: "Head commit — the build being measured" },
 };
 
-const parseArgs = argv => parseArgsCore(argv, SPEC);
-
-const readSizes = (root = ROOT) => {
-  const dir = distDir(root);
-  const files = readdirSync(dir)
-    .filter(f => /\.min\.(js|css)$/.test(f))
-    .sort();
-  const sizes = {};
-  for (const f of files) {
-    const src = readFileSync(resolve(dir, f), "utf-8");
-    sizes[f] = brotliCompressSync(stripLeadingBlockComment(src)).length;
-  }
-  return sizes;
-};
+const parseArgs = argv => parseArgsWithBase(argv, SPEC);
 
 const readBaseline = path => {
   if (!existsSync(path)) return null;
   return JSON.parse(readFileSync(path, "utf-8"));
 };
 
-const fmtKB = n => (n / 1024).toFixed(2) + " KB";
 const fmtDelta = (curr, prev) => {
   if (curr == null || prev == null) return "—";
   const d = curr - prev;
@@ -276,8 +255,8 @@ const buildRows = (current, baseline, threshold) => {
 /** Shared per-row formatting for both the console and Markdown renderers. */
 const rowCells = r => ({
   icon: STATUS[r.status] || "·",
-  currStr: r.curr != null ? fmtKB(r.curr) : "—",
-  prevStr: r.prev != null ? fmtKB(r.prev) : "—",
+  currStr: r.curr != null ? fmtBytes(r.curr) : "—",
+  prevStr: r.prev != null ? fmtBytes(r.prev) : "—",
   label: r.status === "over" ? `OVER ${fmtPct(r.curr, r.prev)}` : r.status,
 });
 
@@ -307,8 +286,8 @@ const summarize = rows => {
  *  nothing to diff against, so the baseline and difference cells read "—"
  *  rather than 0.00 KB. */
 const totalCells = t => ({
-  curr: fmtKB(t.curr),
-  prev: t.hasPrev ? fmtKB(t.prev) : "—",
+  curr: fmtBytes(t.curr),
+  prev: t.hasPrev ? fmtBytes(t.prev) : "—",
   delta: t.delta == null ? "—" : fmtDelta(t.curr, t.prev),
   pct: t.pct == null ? "—" : fmtPct(t.curr, t.prev),
 });
@@ -381,9 +360,9 @@ const renderConsole = rows => {
 const renderSizes = sizes => {
   const files = Object.keys(sizes).sort();
   const lines = ["", "Bundle Sizes", "─".repeat(70)];
-  for (const f of files) lines.push(`  ${fmtKB(sizes[f]).padStart(10)}  ${f}`);
+  for (const f of files) lines.push(`  ${fmtBytes(sizes[f]).padStart(10)}  ${f}`);
   const total = files.reduce((a, f) => a + sizes[f], 0);
-  lines.push(`  ${fmtKB(total).padStart(10)}  ${files.length} bundles`);
+  lines.push(`  ${fmtBytes(total).padStart(10)}  ${files.length} bundles`);
   return lines.join("\n");
 };
 
@@ -403,7 +382,7 @@ const emit = (args, root = ROOT) => {
   const sizes = readSizes(root);
   if (!Object.keys(sizes).length) {
     console.error("No bundles found in foliplus/dist/. Run build first.");
-    return 1;
+    return EXIT_FUSE;
   }
   const path = resolve(args.emit);
   mkdirSync(dirname(path), { recursive: true });
@@ -416,13 +395,13 @@ const emit = (args, root = ROOT) => {
     writeFileSync(path, JSON.stringify({ files: sizes, tools }, null, 2) + "\n");
   } catch (err) {
     console.error(`${FAIL} Cannot write ${path}: ${err.message}`);
-    return 1;
+    return EXIT_FUSE;
   }
   const totalKB = Object.values(sizes).reduce((a, b) => a + b, 0) / 1024;
   console.log(
     `${OK} Sizes written: ${Object.keys(sizes).length} bundles, ${totalKB.toFixed(2)} KB → ${path}`,
   );
-  return 0;
+  return EXIT_OK;
 };
 
 const check = (args, root = ROOT) => {
@@ -444,7 +423,7 @@ const check = (args, root = ROOT) => {
     console.warn(
       `\n${WARN}  No baseline provided — pass --baseline=<sizes-file> to diff.`,
     );
-    return 0;
+    return EXIT_OK;
   }
   const threshold = args.threshold;
   const rows = buildRows(current, baseline, threshold);
@@ -514,7 +493,7 @@ const check = (args, root = ROOT) => {
         failures
           .map(
             f =>
-              `  ${f.file}: ${fmtKB(f.prev)} → ${fmtKB(f.curr)} (${f.pct.toFixed(1)}%)`,
+              `  ${f.file}: ${fmtBytes(f.prev)} → ${fmtBytes(f.curr)} (${f.pct.toFixed(1)}%)`,
           )
           .join("\n"),
     );
@@ -527,10 +506,10 @@ const check = (args, root = ROOT) => {
         : "\nBundle growth exceeded the threshold — review the change. " +
             "Use --enforce to fail the build.",
     );
-    return args.enforce ? EXIT_THRESHOLD : 0;
+    return args.enforce ? EXIT_THRESHOLD : EXIT_OK;
   }
   console.log(`\n${OK} All bundles within threshold.`);
-  return 0;
+  return EXIT_OK;
 };
 
 export {
@@ -540,15 +519,14 @@ export {
   EXIT_THRESHOLD,
   MIN_GROWTH_BYTES,
   emit,
+  fmtBytes,
   fmtDelta,
   fmtDeltaBytes,
-  fmtKB,
   fmtPct,
   parseArgs,
   rangeLine,
   rowCells,
   shortSha,
-  stripLeadingBlockComment,
   summarize,
   toolMismatch,
   toolVersion,
@@ -561,7 +539,7 @@ if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) 
   const args = parseArgs(process.argv.slice(2));
   if (args.help) {
     console.log(help(SPEC));
-    process.exit(0);
+    process.exit(EXIT_OK);
   }
   // Malformed input (an unknown flag, a non-numeric threshold) is an error —
   // running anyway would compare against the wrong threshold and report
@@ -569,7 +547,7 @@ if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) 
   if (args.errors.length) {
     console.error(args.errors.join("\n"));
     console.error(help(SPEC));
-    process.exit(1);
+    process.exit(EXIT_FUSE);
   }
   const root = args.root ? resolve(args.root) : ROOT;
   const code = args.emit ? emit(args, root) : check(args, root);
