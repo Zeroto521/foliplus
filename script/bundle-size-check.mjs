@@ -39,6 +39,12 @@ import { FAIL, OK, STATUS, WARN } from "./glyph.mjs";
 // PR, so `check` never fails because a bundle grew; it returns the verdict and
 // lets the caller decide. `--enforce` re-adds the exit code for a hard gate.
 const EXIT_THRESHOLD = 2;
+// No baseline under --enforce: the caller explicitly asked to fail when the
+// diff cannot be built, so a silent pass is worse than a hard failure. A
+// distinct code separates "no evidence" from "evidence says over threshold" —
+// CI logs can read the two apart, and the caller knows not to re-run the same
+// command hoping for a different answer.
+const EXIT_NO_BASELINE = 3;
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
@@ -142,7 +148,7 @@ const SPEC = {
   },
   enforce: {
     type: "bool",
-    desc: "Exit non-zero when a bundle exceeds --threshold",
+    desc: "Exit non-zero when a bundle exceeds --threshold (also exits non-zero if no baseline is passed)",
   },
   root: { type: "string", desc: "Project root (reads <root>/foliplus/dist)" },
   base: {
@@ -423,8 +429,17 @@ const check = (args, root = ROOT) => {
   const current = readSizes(root);
   const baseline = readBaseline(args.baseline);
   // No baseline: nothing to diff against — list sizes instead of a
-  // misleading all-"new" table.
+  // misleading all-"new" table. `--enforce` re-adds the exit code: skipping
+  // a hard gate because the base wasn't captured is not "passing", and
+  // letting it through silently would hide the gap from the PR.
   if (!baseline) {
+    if (args.enforce) {
+      console.error(
+        `${FAIL}  skipped (需 base 产物) — no --baseline passed under --enforce. ` +
+          "Capture the base sizes first with `--emit=<path>`, then re-run with `--baseline=<path>`.",
+      );
+      return EXIT_NO_BASELINE;
+    }
     console.log(renderSizes(current));
     console.warn(
       `\n${WARN}  No baseline provided — pass --baseline=<sizes-file> to diff.`,
@@ -521,6 +536,8 @@ const check = (args, root = ROOT) => {
 export {
   buildRows,
   check,
+  EXIT_NO_BASELINE,
+  EXIT_THRESHOLD,
   MIN_GROWTH_BYTES,
   emit,
   fmtDelta,

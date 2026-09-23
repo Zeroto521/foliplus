@@ -99,6 +99,60 @@ jobs:
         if: ${{ matrix.folium == 'latest' }}
       - run: uv run playwright install chromium
       - run: uv run make info
+
+      # Bundle size gates — measure the minified artifacts (the bytes that
+      # actually ship), not the dev build that `make test` produces below.
+      #
+      # Two gates, split by responsibility:
+      #   bundle-fuse.mjs       — absolute cap per artifact. Loose (~2x
+      #                           current), the fuse that fires only on
+      #                           tens-of-KB incidents. Comments never
+      #                           count because the read is off the minified
+      #                           artifact, not the source.
+      #   bundle-size-check.mjs — relative delta against the merge base.
+      #                           Fires on +10% growth that also exceeds
+      #                           128 B brotli.
+      #
+      # We use `git merge-base HEAD origin/<base>` rather than the base
+      # branch's current tip: the tip drifts as other PRs land, so diffing
+      # against it would mix their size changes into ours. The merge base is
+      # the commit this branch forked from, i.e. the reference we actually
+      # started from.
+      #
+      # `base-sizes.json` lives at the repo root for the whole workflow so
+      # both gates and the `uv run make test` below can see it. When the
+      # base_ref has no commit yet (unusual) the emit step exits 0 and
+      # leaves no file — the enforce step below then reports skipped
+      # explicitly rather than pretending it passed.
+      - name: Capture base bundle sizes
+        run: |
+          base_ref="origin/${{ github.base_ref }}"
+          if ! git rev-parse -q --verify "$base_ref" >/dev/null; then
+            echo "No base ref available — skipping capture."
+            exit 0
+          fi
+          base_sha=$(git merge-base HEAD "$base_ref")
+          git worktree add --detach /tmp/base "$base_sha"
+          ln -s "$(pwd)/node_modules" /tmp/base/node_modules
+          (
+            cd /tmp/base
+            npm run build
+          )
+          node script/bundle-size-check.mjs --root=/tmp/base --emit=base-sizes.json
+          git worktree remove --force /tmp/base
+
+      - name: Build minified bundles for size gates
+        run: npm run build
+
+      - name: Bundle size gates
+        run: |
+          node script/bundle-fuse.mjs
+          if [ -f base-sizes.json ]; then
+            node script/bundle-size-check.mjs --baseline=base-sizes.json --enforce
+          else
+            node script/bundle-size-check.mjs --enforce
+          fi
+
       - run: uv run make test
 
       - uses: codecov/codecov-action@v6

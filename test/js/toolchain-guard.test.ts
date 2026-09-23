@@ -135,6 +135,7 @@ describe("eslint.config.js rule scoping", () => {
 const NON_MODULE_TEST_SUBJECTS: Record<string, string> = {
   Makefile: "the root Makefile",
   "vitest.config": "vitest.config.mjs",
+  "build.minify-invariant": "the minify invariant (esbuild comment stripping)",
 };
 
 // `X.test.ts` has a subject when `X` is a real script module, or a stem that is
@@ -199,9 +200,14 @@ describe("test/js/script naming", () => {
 // The other direction — every module must have a test file — was the blind
 // spot that left script/glyph.mjs uncovered. A module without a test can never
 // be an accident: it is either tested, or named here with the reason it
-// cannot be. The list is empty today; keeping it is what makes the gap below
-// deliberate instead of silent.
-const INTENTIONAL_NO_TEST: Record<string, string> = {};
+// cannot be. bundle-fuse is a pure CLI over `readSizes` + a static caps
+// table; the caps themselves are asserted by the minify-invariant test and
+// by the CI bundle-size gates, so a unit test would only re-check `>` on
+// numbers.
+const INTENTIONAL_NO_TEST: Record<string, string> = {
+  "bundle-fuse":
+    "CLI over a static caps table; the caps are checked by the size gates in CI",
+};
 
 const scriptStem = (rel: string) =>
   rel.replace(/^script\//, "").replace(/\.(mjs|cjs|js)$/, "");
