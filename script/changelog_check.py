@@ -338,6 +338,10 @@ def fix_file(text: str) -> tuple[str, bool, str | None]:
         # Fix within-line ordering
         for block in blocks:
             block["lines"][0] = sort_line_pairs(block["lines"][0])
+            # Recompute first_num from the sorted line — the label order changed.
+            new_nums = extract_label_numbers(block["lines"][0])
+            block["first_num"] = new_nums[0] if new_nums else None
+            block["nums"] = new_nums
 
         # Fix between-block ordering
         stable_bubble_sort_by_first_num(blocks)
