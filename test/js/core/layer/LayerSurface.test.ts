@@ -654,7 +654,7 @@ describe("LayerSurface.matches", () => {
     expect(bare.matches(color)).toBe(false);
   });
 
-  it("treats a re-declared bounds provider as the same face", () => {
+  it("treats a redeclared bounds provider as the same face", () => {
     // Presence, not value, and not reference either: `capabilities.bounds` is
     // derived from the provider's presence, and a caller hands a fresh arrow on
     // every register, so reference equality would read "changed" on every pass
