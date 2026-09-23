@@ -388,6 +388,30 @@ class TestSearchControlBrowser:
             )
             assert ctrl_has_collapsed, "Expected control to be collapsed after Escape"
 
+    def test_panel_collapses_on_outside_press_by_default(self, browser, tmp_path):
+        """Default unchanged: a press outside the panel still collapses it.
+
+        SearchControl binds ``bindOutsideCollapse`` on its own rather than
+        through the shared panel shell, so this pins that its own binding is
+        still live at the new parameter's default.
+        """
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            self._expand(page)
+            assert page.evaluate(
+                "() => { const c = document.querySelector('.foliplus-search');"
+                " return c.classList.contains('expanded')"
+                " && !c.classList.contains('collapsed'); }"
+            ), "the search panel did not expand"
+
+            page.mouse.click(900, 450)
+            page.wait_for_selector(
+                ".foliplus-search.collapsed", state="attached", timeout=5000
+            )
+            assert page.evaluate(
+                "document.querySelector('.foliplus-search').classList.contains('collapsed')"
+            ), "the search panel stayed open after an outside press"
+            assert not errors, f"JS errors: {errors}"
+
     def test_result_panel_body_mount(self, browser, tmp_path):
         """Result panel (suggestions/history) is mounted on document.body, not inside toolBar."""
         with use_page(self._make_page, browser, tmp_path, mode="addr") as (

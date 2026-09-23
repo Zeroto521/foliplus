@@ -85,6 +85,9 @@ class SearchControl(BaseControl):
         for the id wins. Give each distinct API instance (different
         ``baseUrl`` or throttle) its own ``id`` / provider string.
 
+    collapse_on_outside : bool, default True
+        Whether a press outside the panel collapses it.
+
     locale : str or LocaleConfig, optional
         Language code ("en", "zh") or a LocaleConfig instance.
         Defaults to auto-detection, falling back to English.
@@ -104,7 +107,13 @@ class SearchControl(BaseControl):
     ... ).add_to(m)
     """
 
-    _export_fields = ("mode", "zoom", "provider", "provider_config")
+    _export_fields = (
+        "mode",
+        "zoom",
+        "provider",
+        "provider_config",
+        "collapse_on_outside",
+    )
 
     default_js = load_cdn("SearchControl")
 
@@ -117,6 +126,7 @@ class SearchControl(BaseControl):
         zoom: Zoom = 15,
         provider: ProviderId | dict = "nominatim",
         provider_config: dict | None = None,
+        collapse_on_outside: bool = True,
         locale: str | LocaleConfig | None = None,
     ):
         if isinstance(provider, str):
@@ -140,4 +150,5 @@ class SearchControl(BaseControl):
         self.zoom = zoom
         self.provider = provider
         self.provider_config = provider_config
+        self.collapse_on_outside = collapse_on_outside
         self._template = self._get_template()
