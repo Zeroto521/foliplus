@@ -40,8 +40,9 @@ interface FetchOptions extends RequestInit {
  * Wrap a fetch with an automatic timeout and HTTP cache headers.
  *
  * Signal composition: if a `signal` is provided it is merged with a timeout
- * signal via `AbortSignal.any` when available, otherwise falls back to an
- * AbortController + setTimeout that fires on either abort.
+ * via an AbortController + setTimeout that fires on either abort. The composed
+ * signal is disposed (clearTimeout + removeEventListener) once the fetch
+ * settles, so neither resource leaks after a normal resolve.
  */
 const fetchWithTimeout = (
   url: RequestInfo | URL,
@@ -66,8 +67,9 @@ const fetchWithTimeout = (
 
 /**
  * Compose a caller-provided signal with a timeout. The earlier abort wins.
- * Uses `AbortSignal.any` when available, otherwise falls back to an
- * AbortController + setTimeout that fires on either abort.
+ * Returns `{ signal, dispose }` — `dispose` clears the timeout handle and
+ * removes the parent's abort listener. The caller must invoke `dispose` once
+ * the fetch settles to prevent both resources from leaking.
  */
 const composeSignal = (
   parentSignal: AbortSignal | undefined,
