@@ -25,6 +25,13 @@
  *   node script/bundle-fuse.mjs --help                # all flags
  *
  * Exit codes: 0 = all under cap, 1 = fuse tripped or a build error.
+ *
+ * This reads the MINIFIED artifacts, so run `npm run build` before invoking
+ * it. `npm run build:dev` (what `make test` uses, for the vitest-side
+ * assertions that expect unminified source tokens) overwrites the same
+ * files and will leave this gate measuring a larger bundle than the one
+ * that ships — which will not trip the fuse but will mislead anyone
+ * reading the numbers.
  */
 import { readFileSync, readdirSync } from "fs";
 import { dirname, resolve } from "path";

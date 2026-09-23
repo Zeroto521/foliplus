@@ -15,15 +15,30 @@
 // check at module load). One short-lived exec per case.
 import { execFileSync } from "child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "fs";
-import { resolve } from "path";
+import { tmpdir } from "os";
+import { join, resolve } from "path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 const cwd = process.cwd();
 let tmp = "";
-const cli = resolve(cwd, "node_modules", "@esbuild", "win32-x64", "esbuild.exe");
+// esbuild's JS API tripped over jsdom's TextEncoder (the `instanceof
+// Uint8Array` check at module load). We invoke the CLI in a child process
+// so it runs in a fresh Node realm. The native binary lives under
+// `@esbuild/<platform>-<arch>/`; the exact subdir and file name depend on
+// the host. Only the two platforms we build on are named explicitly — a
+// third platform should fail loudly here rather than silently.
+const cli = (() => {
+  const p = process.platform,
+    a = process.arch;
+  if (p === "win32" && a === "x64")
+    return resolve(cwd, "node_modules", "@esbuild", "win32-x64", "esbuild.exe");
+  if (p === "linux" && a === "x64")
+    return resolve(cwd, "node_modules", "@esbuild", "linux-x64", "bin", "esbuild");
+  throw new Error(`no esbuild native binary known for ${p}-${a}`);
+})();
 
 beforeAll(() => {
-  tmp = mkdtempSync(resolve(cwd, ".foliplus", "minify-inv-"));
+  tmp = mkdtempSync(join(tmpdir(), "minify-inv-"));
 });
 
 afterAll(() => {
