@@ -1,4 +1,4 @@
-import { rmSync, mkdirSync, writeFileSync } from "fs";
+import { mkdirSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -103,12 +103,8 @@ describe("bundle-fuse exit codes", () => {
 // exit-code tests above, so the table is asserted on its own.
 describe("bundle-fuse cap table", () => {
   it("has at least one entry per artifact kind", () => {
-    const jsCaps = Object.entries(FUSE_CAPS).filter(([k]) =>
-      k.endsWith(".min.js"),
-    );
-    const cssCaps = Object.entries(FUSE_CAPS).filter(([k]) =>
-      k.endsWith(".min.css"),
-    );
+    const jsCaps = Object.entries(FUSE_CAPS).filter(([k]) => k.endsWith(".min.js"));
+    const cssCaps = Object.entries(FUSE_CAPS).filter(([k]) => k.endsWith(".min.css"));
     expect(jsCaps.length).toBeGreaterThan(0);
     expect(cssCaps.length).toBeGreaterThan(0);
   });

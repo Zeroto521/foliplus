@@ -28,12 +28,14 @@ let tmp = "";
 // the host. Only the two platforms we build on are named explicitly — a
 // third platform should fail loudly here rather than silently.
 const cli = (() => {
-  const p = process.platform,
-    a = process.arch;
-  if (p === "win32" && a === "x64")
+  const p = process.platform;
+  const a = process.arch;
+  if (p === "win32" && a === "x64") {
     return resolve(cwd, "node_modules", "@esbuild", "win32-x64", "esbuild.exe");
-  if (p === "linux" && a === "x64")
+  }
+  if (p === "linux" && a === "x64") {
     return resolve(cwd, "node_modules", "@esbuild", "linux-x64", "bin", "esbuild");
+  }
   throw new Error(`no esbuild native binary known for ${p}-${a}`);
 })();
 
