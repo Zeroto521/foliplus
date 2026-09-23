@@ -384,6 +384,19 @@ class HeatmapManager {
       this.cachedAgg = null;
       if (this.ui) {
         this.scanMapLayers();
+        // A deleted source has to take its derived view with it. The heatmap
+        // draws another layer's points, so unregistering that layer must drop
+        // the selection and wipe the canvas now — otherwise a stale render
+        // lingers until the next zoom re-aggregates (and `renderHexagons`
+        // only clears once it is called). `clearHeatmapCanvas` unregisters
+        // the overlay and drops the cached features.
+        if (
+          this.selectedLayerId &&
+          !this.pointLayers.some(p => p.id === this.selectedLayerId)
+        ) {
+          this.selectedLayerId = null;
+          this.clearHeatmapCanvas();
+        }
         rebuildLayerDropdown(this.ui);
       }
     }, CONST.TIMING.LAYER_SCAN_DEBOUNCE);

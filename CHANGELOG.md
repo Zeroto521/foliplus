@@ -99,6 +99,8 @@
 - `LayerControl`: a canvas inside a foliplus pane is reachable by the pointer — `pointer-events` inherits from the pane's `none` and no rule re-enabled it, so a canvas data layer could not be clicked ([#377](https://github.com/Zeroto521/foliplus/pull/377))
 - `LayerControl`: a late-registered layer no longer loses its stored opacity, zoom range, and visibility on reload — Heatmap and Measure register after the panel attaches, so the sweep read their missing registry entries as deleted and wrote it back; only an explicit delete now drops stored values ([#390](https://github.com/Zeroto521/foliplus/pull/390), [#393](https://github.com/Zeroto521/foliplus/pull/393))
 - `LayerControl`: layer rows are now addressed by `data-layer-id` instead of a positional index, and color-basemap activation re-renders the full row visual, fixing a stale checkbox tooltip ([#397](https://github.com/Zeroto521/foliplus/pull/397), [#423](https://github.com/Zeroto521/foliplus/pull/423), [#426](https://github.com/Zeroto521/foliplus/pull/426))
+- `LayerControl`: ⋮-menu polish — muted disabled ink instead of fading the menu, shared delete separator, accent-red armed confirm with a readable glyph, Title Case labels ([#431](https://github.com/Zeroto521/foliplus/pull/431))
+- `HeatmapControl`: deleting the source point layer now clears the heatmap immediately instead of leaving a stale render until the next zoom ([#431](https://github.com/Zeroto521/foliplus/pull/431))
 
 ## [v0.3.0] (2026-08-02)
 

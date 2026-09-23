@@ -157,7 +157,7 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   if (deleteMode !== "absent") {
     menu.appendChild(
       dom.el("li", {
-        class: CONST.CLASSES.MENU_DIVIDER,
+        class: `${CONST.CLASSES.MENU_DIVIDER} foliplus-section-divider`,
         role: "separator",
         "aria-hidden": "true",
       }),

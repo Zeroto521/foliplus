@@ -105,44 +105,67 @@
   .foliplus-layer-more-menu li:not([disabled]):focus-visible svg {
     color: var(--text-primary);
   }
-  /* Disabled menu item (e.g. layer is hidden). */
+  /* Disabled menu item (e.g. layer is hidden).
+     Muted ink, not `opacity`: these sit on an opaque menu surface, and a
+     0.4-opacity row read as "the panel lost its background" rather than
+     "this entry is unavailable" — for a hidden layer the Focus and Style
+     rows are both disabled, so half the menu went grey. Colour is the
+     disabled signal everywhere else in the control. */
   .foliplus-layer-more-menu li[disabled] {
     cursor: not-allowed;
-    opacity: 0.4;
+    color: var(--text-muted);
+  }
+  .foliplus-layer-more-menu li[disabled] svg {
+    color: var(--text-muted);
   }
   .foliplus-layer-more-menu li[disabled]:hover {
     background: transparent;
     /* Keep text muted: the unified hover tints text accent, but a disabled
        item must not answer with accent. */
-    color: var(--text-primary);
+    color: var(--text-muted);
   }
 
   /* ── Divider above the destructive entry ──
-     Its own <li> rather than a border-top on the delete item, so the keyboard
-     order stays one slot per entry and the separator carries no role of its
-     own to tab through. Zero box height: the hairline is the whole element. */
-  .foliplus-layer-more-menu-divider {
-    height: 0;
+     The hairline is the shared `.foliplus-section-divider` recipe
+     (common/icon.css) — one recipe for every divider foliplus draws. This
+     block only carries what a menu separator adds on top: vertical
+     breathing room, and no pointer affordance.
+     `li.foliplus-layer-more-menu-divider` — not the bare class — so the
+     shared `li` padding rule (0,2,1) cannot win the cascade over the bare
+     class (0,2,0) and pad the hairline back open. */
+  .foliplus-layer-more-menu li.foliplus-layer-more-menu-divider {
     padding: 0;
     margin: var(--space-xs) 0;
-    border-top: var(--border-thin) solid var(--divider-color);
     cursor: default;
-    color: transparent;
   }
 
   /* ── Armed delete entry ──
-     The confirming state is a filled neutral chip, deliberately not red: red
-     is the accent, which already means hover, focus and selection, so a red
-     delete entry would read as "hover" rather than "press again". The verb
-     swap on the label carries the meaning; the fill only says the entry has
-     changed state. The rule is scoped under .foliplus-layer-ctrl so it outranks
-     the shared dropdown hover in common/menu.css no matter the cascade order. */
+     The confirming state fills with the accent. For this entry that is
+     already the delete colour — its rest ink and its shared hover are red —
+     so red reads as "the destructive verb is armed", not as "hover". The
+     verb swap on the label carries the meaning; the fill only says the
+     entry has changed state. The previous fill was `--text-primary`
+     (near-black), which was the one colour this control never otherwise
+     uses as a surface and read as a foreign element.
+     Every rule that touches the icon also carries the `:hover` leg:
+     common/menu.css's `li:not([disabled]):hover svg` is (0,4,2) and would
+     otherwise outrank a plain `…delete-armed svg` (0,3,2) and paint a
+     near-black stroke over this fill — that is what made the armed trash
+     glyph unreadable. `stroke` is set here too rather than trusting
+     `currentColor`, so a later `color` rule cannot desync the glyph. */
   .foliplus-layer-more-menu li.foliplus-layer-more-menu-delete-armed,
   .foliplus-layer-more-menu li.foliplus-layer-more-menu-delete-armed:hover {
-    background: var(--text-primary);
+    background: var(--accent-primary);
     color: var(--neutral-0);
   }
-  .foliplus-layer-more-menu li.foliplus-layer-more-menu-delete-armed svg {
+  .foliplus-layer-more-menu li.foliplus-layer-more-menu-delete-armed:active,
+  .foliplus-layer-more-menu li.foliplus-layer-more-menu-delete-armed:hover:active {
+    background: var(--accent-hover);
     color: var(--neutral-0);
+  }
+  .foliplus-layer-more-menu li.foliplus-layer-more-menu-delete-armed svg,
+  .foliplus-layer-more-menu li.foliplus-layer-more-menu-delete-armed:hover svg {
+    color: var(--neutral-0);
+    stroke: var(--neutral-0);
   }
 }
