@@ -41,6 +41,7 @@ class LayerControl extends BaseControl {
       toggleSvg: SVGs.LAYERS,
       panelTitle: T("panel_title"),
       closeTitle: T("close_title"),
+      collapseOnOutside: CONF.collapse_on_outside,
     });
 
     // The factory's document listeners outlive the MutationObserver when the
