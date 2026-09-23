@@ -164,19 +164,16 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
   });
   // One flat list: third-party meta rows continue the same rhythm instead
   // of opening a second group, so the panel reads as one column of facts.
-  let dlEl = renderList([...rows, ...metaRows]);
+  const dlEl = renderList([...rows, ...metaRows]);
   content.appendChild(dlEl);
 
   // Live update: subscribe to LAYER_ITEM_COUNT_CHANGE (filtered by layerId)
   // so meta rows refresh in place when the store mutates.
   if (!isColor && layerId && layerInfo?.metaProvider) {
-    ui.attrsUnsubscribe = ui.events.on(
-      EVENTS.LAYER_ITEM_COUNT_CHANGE,
-      ({ id }) => {
-        if (id !== layerId) return;
-        dlEl.replaceWith(renderList([...rows, ...buildMetaRows()]));
-      },
-    );
+    ui.attrsUnsubscribe = ui.events.on(EVENTS.LAYER_ITEM_COUNT_CHANGE, ({ id }) => {
+      if (id !== layerId) return;
+      dlEl.replaceWith(renderList([...rows, ...buildMetaRows()]));
+    });
   }
 
   // Header click dismisses, matching bindPanelToggle on the main panels.

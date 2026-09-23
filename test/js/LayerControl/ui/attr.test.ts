@@ -533,9 +533,7 @@ describe("LayerUI attrs", () => {
 
       const item = findItem(ui, "attr-prov0");
       ui.openAttrsPanel(item);
-      const rendered = rows(
-        item.querySelector(".foliplus-layer-attrs-panel")!,
-      );
+      const rendered = rows(item.querySelector(".foliplus-layer-attrs-panel")!);
 
       expect(rendered).toContainEqual(["marker", "0"]);
       expect(rendered).toContainEqual(["distance", "2"]);
@@ -551,9 +549,7 @@ describe("LayerUI attrs", () => {
 
       const item = findItem(ui, "attr-prov1");
       ui.openAttrsPanel(item);
-      const rendered = rows(
-        item.querySelector(".foliplus-layer-attrs-panel")!,
-      );
+      const rendered = rows(item.querySelector(".foliplus-layer-attrs-panel")!);
 
       expect(rendered).toContainEqual(["marker", "3"]);
       expect(rendered).not.toContainEqual(["marker", "5"]);
