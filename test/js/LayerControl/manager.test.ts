@@ -1409,6 +1409,7 @@ describe("LayerManager", () => {
       hiddenIds: new Set(),
       opacityMap: { overlay1: 0.4 },
       zoomRangeMap: {},
+      rangeHiddenIds: new Set(),
       userOverrides: { overlay1: ["opacity"] },
       renamedNames: { overlay1: "Renamed", base1: "Base" },
       dropPersistedLayerState: (id: string) => dropPersistedLayerState(m.ui, id),
