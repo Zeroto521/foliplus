@@ -42,8 +42,8 @@ interface LayerCapabilities {
    *  live layer may still throw or answer empty until the layer is attached,
    *  and a probe that runs before addLayer would have to swallow that. The
    *  UI reads this to disable focus for layers that never had a provider
-   *  (MarkerCluster, third-party groups, canvas surfaces without
-   *  `SurfaceOpts.getBounds`) instead of letting the user click and hit a
+   *  (MarkerCluster, third-party groups, canvas surfaces without a getBounds
+   *  provider) instead of letting the user click and hit a
    *  silent no-op. `false` does not mean "the provider lies": it means
    *  "no honest carrier to ask". */
   bounds: boolean;
@@ -144,7 +144,21 @@ interface LayerInfo {
   registeredAt?: number;
 }
 
-/** Leaflet layer with a custom `isLabel` flag (foliplus adds it). */
+/** Leaflet layer with a custom `isLabel` flag (foliplus adds it).
+ *
+ *  Write contract for a third-party layer's `options` — exactly three keys,
+ *  nothing else:
+ *    - `pane` and `renderer` — Leaflet's own, and the two a correct draw
+ *      position actually needs (Leaflet reads `pane` only at attach time and
+ *      ignores a group's for its children, so both must be written to survive a
+ *      re-attach).
+ *    - `paneSet` — ours: "foliplus decided this layer's pane". Not a Leaflet
+ *      key and not a legacy vestige. `LayerFactory.addLayer` reads it to tell
+ *      a pane the caller declared apart from one foliplus routed the layer
+ *      into — without it a pin would be mistaken for a declaration and the
+ *      layer routed back to the base pane.
+ *
+ *  Read `LayerFactory.addLayer` before treating `paneSet` as dead. */
 interface LabelAwareLayer extends L.Layer {
   isLabel?: boolean;
   options: L.LayerOptions & {
@@ -378,7 +392,7 @@ type SurfaceContentOpts =
     };
 
 /** Options for `LayerFactory.createSurface`. */
-interface SurfaceOpts {
+interface CreateSurfaceOpts {
   id: string;
   name?: string;
   iconSvg?: string;
@@ -522,6 +536,7 @@ export type {
   CreateLayersAPI,
   CreateLayersOpts,
   CreateLayersPane,
+  CreateSurfaceOpts,
   LabelAwareLayer,
   LayerAPI,
   LayerCapabilities,
@@ -534,5 +549,4 @@ export type {
   SurfaceContentHandle,
   SurfaceContentOpts,
   SurfaceHandle,
-  SurfaceOpts,
 };

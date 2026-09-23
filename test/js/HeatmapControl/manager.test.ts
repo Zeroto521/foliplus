@@ -845,9 +845,8 @@ describe("HeatmapManager — export event subscriptions", () => {
 describe("HeatmapManager — persistence", () => {
   const KEY = CONST.STORAGE.KEY;
 
-  beforeEach(() => {
-    window.localStorage.clear();
-  });
+  // localStorage.clear() runs globally from setup.ts (resetState) — no
+  // per-describe hook needed.
 
   describe("saveConfig", () => {
     it("serialises all current state to localStorage", () => {

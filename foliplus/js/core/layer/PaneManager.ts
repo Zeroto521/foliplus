@@ -45,8 +45,36 @@ type PinnableNode = L.Layer & {
   eachLayer?: (fn: (layer: L.Layer) => void) => void;
 };
 
+/** One bookkeeping scope: panes and their specs live per map, so a manager
+ *  built for one map never sees another map's names.
+ *
+ *  Two invalidators, one policy — never a third:
+ *    - precise: `pinTree` deletes the entry for the one node it just repinned.
+ *      It has the node in hand, so the delete is exact and costs one hash.
+ *    - structure-wide: `reset` clears the whole cache. It is the fallback for a
+ *      caller that only holds a stamp (or nothing), and over-invalidation is
+ *      always safe here — a stale entry costs one extra `forEachLayer` walk,
+ *      never a wrong answer.
+ *
+ *  `removePane` deliberately touches neither: destroying a pane div does not
+ *  change what any layer's `options.pane` names, which is the only thing the
+ *  cache memoises.
+ *
+ *  TypeScript `private`, never an ES `#` field. Component bundles are inlined
+ *  into a Jinja2 `Template` at render time (`BaseControl`
+ *  `_build_component_template`), and minification drops the space in
+ *  `class X { #f`, leaving `class e{#f` — the `{#` is Jinja2's comment start,
+ *  so the render aborts with "Missing end of comment tag". This file only ever
+ *  lands in the shared runtime bundle, which is built as a plain string, so the
+ *  rule is convention rather than local necessity; keeping the whole codebase
+ *  Jinja-inert means nobody has to know which bundle a module ends up in. */
 class PaneManager {
-  map: L.Map;
+  /** Read-only, and there is no accessor: no caller outside this class needs
+   *  the map handle. */
+  private readonly map: L.Map;
+  /** Leaflet's own panes, plus the auto-generated fallback family
+   *  (`FALLBACK_PANE_PREFIX`). Kept public on purpose: `LayerControl/ui/focus`
+   *  tests membership to skip the panes it must not touch. */
   defaultPanes: Set<string>;
   /**
    * The panes a `createLayers({ panes })` call declared on this map, by name.
@@ -58,8 +86,11 @@ class PaneManager {
    * consumer (MeasureControl's label pane) — and the name-only `childPanes`
    * set, which could not carry the draw offset.
    */
-  childPaneSpecs: Map<string, PaneSpec>;
-  paneCache: Map<number, string[]>;
+  private readonly paneSpecs = new Map<string, PaneSpec>();
+  /** Discovery results keyed by `L.stamp`, capped by
+   *  `CACHE.PANE_DISCOVERY_ENTRIES`: stamps are never reused, so layer churn
+   *  would otherwise accumulate until teardown. */
+  private readonly discoveryCache = new Map<number, string[]>();
 
   constructor(map: L.Map) {
     this.map = map;
@@ -70,13 +101,24 @@ class PaneManager {
       "shadowPane",
       "mapPane",
     ]);
-    this.childPaneSpecs = new Map();
-    this.paneCache = new Map();
+  }
+
+  /** The specs above, read-only. Specs are registered by `registerPaneSpecs`
+   *  and dropped by `sweepChildPanes` / `removePane`; a caller has no way to
+   *  put one in or take one out, which is what keeps this map the single
+   *  source of truth for "is this pane ours". */
+  get childPaneSpecs(): ReadonlyMap<string, PaneSpec> {
+    return this.paneSpecs;
+  }
+
+  /** The discovery cache, read-only, for assertions on what was memoised. */
+  get paneCache(): ReadonlyMap<number, string[]> {
+    return this.discoveryCache;
   }
 
   /** The names above as a set — membership is what the caller usually wants. */
   get childPanes(): ReadonlySet<string> {
-    return new Set(this.childPaneSpecs.keys());
+    return new Set(this.paneSpecs.keys());
   }
 
   // ── Leaflet DOM integration ────────────────────────────────────
@@ -97,21 +139,28 @@ class PaneManager {
       // Provisional z so panes of one layer already draw in the right relative
       // order before the ordering pass assigns their position-based base
       // (which may never come if LayerControl is absent).
-      const spec = this.childPaneSpecs.get(paneName);
+      const spec = this.paneSpecs.get(paneName);
       if (spec) {
         pane.style.zIndex = String(zFor({ role: spec.role, order: spec.order }));
       }
     }
-    return { pane, renderer: needRenderer ? getRendererFor(this.map, paneName) : null };
+    return {
+      pane,
+      renderer: needRenderer ? getRendererFor(this.map, paneName) : null,
+    };
   }
 
   /** Remove a pane this tree owns from the DOM and Leaflet's registries.
    *  Used by LayerSurface.destroy (the layer's synthesized pane) and by
-   *  createCanvas.destroy (its dedicated pane). */
+   *  createCanvas.destroy (its dedicated pane).
+   *
+   *  No cache invalidation here: the cache memoises what each layer's
+   *  `options.pane` names, and destroying a pane div changes no layer's
+   *  options. Clearing on every teardown used to be the one place this policy
+   *  over-invalidated structure-wide for a single pane. */
   removePane(paneName: string) {
     destroyPane(this.map, paneName);
-    this.childPaneSpecs.delete(paneName);
-    this.paneCache.clear();
+    this.paneSpecs.delete(paneName);
   }
 
   /** Clear all pane state. Called by LayerManager.destroy().
@@ -119,8 +168,8 @@ class PaneManager {
    *  removing the registered layers from the map, so they are still live —
    *  deleting their panes would drop them off the map. */
   destroy() {
-    this.paneCache.clear();
-    this.childPaneSpecs.clear();
+    this.discoveryCache.clear();
+    this.paneSpecs.clear();
   }
 
   /**
@@ -130,6 +179,10 @@ class PaneManager {
    * is only ever assembled on demand (the surface is dirty), never queued
    * permanently. Idempotent: a node already where it belongs is left alone, so
    * the steady-state ordering pass never builds it.
+   *
+   * The write contract on a third-party node's `options` is the one declared on
+   * `LabelAwareLayer`: `pane`, `renderer` (a Path only), and `paneSet` — the
+   * last being foliplus's own marker, not a Leaflet key.
    */
   pinLateContent(
     layersToMove: Array<{
@@ -200,15 +253,16 @@ class PaneManager {
     }
   }
 
-  /** Invalidate the child-pane discovery cache.
-   *  @param {number} [id] - Layer stamp to invalidate (single entry).
-   *    Omit to clear the whole cache (structure-wide change). */
-  reset(id?: number) {
-    if (id != null) {
-      this.paneCache.delete(id);
-      return;
-    }
-    this.paneCache.clear();
+  /** Invalidate the child-pane discovery cache — structure-wide, either way.
+   *  @param {number} [_id] - Retained for the stamp-only callers. It is ignored:
+   *    a repinned subtree can invalidate entries for layers the caller holds no
+   *    reference to, so single-key invalidation is the one that can leave a
+   *    wrong answer in the cache. Over-invalidating is always safe here — a
+   *    stale entry costs one extra `forEachLayer` walk, never a wrong result.
+   *    `pinTree` keeps the precise per-node delete, because it has the node in
+   *    hand. */
+  reset(_id?: number): void {
+    this.discoveryCache.clear();
   }
 
   /** Drop child-pane entries no longer referenced by any registered layer.
@@ -224,8 +278,8 @@ class PaneManager {
         used.add(spec.name);
       }
     }
-    for (const name of this.childPaneSpecs.keys()) {
-      if (!used.has(name)) this.childPaneSpecs.delete(name);
+    for (const name of this.paneSpecs.keys()) {
+      if (!used.has(name)) this.paneSpecs.delete(name);
     }
   }
 
@@ -255,13 +309,13 @@ class PaneManager {
           `PaneSpec.role rejected (unknown value "${String(spec.role)}"); ` +
             `keeping the spec but falling back to "base"`,
         );
-        this.childPaneSpecs.set(spec.name, {
+        this.paneSpecs.set(spec.name, {
           ...spec,
           role: "base" as const,
         });
         continue;
       }
-      this.childPaneSpecs.set(spec.name, spec);
+      this.paneSpecs.set(spec.name, spec);
     }
   }
 
@@ -299,6 +353,13 @@ class PaneManager {
    * written too: without it a later re-attach recreates the `<path>` in the
    * default SVG.
    *
+   * The write contract is the one declared on `LabelAwareLayer`: `pane`,
+   * `renderer` (a Path only), and `paneSet`. `paneSet` is foliplus's own
+   * "we decided this layer's pane" marker rather than a legacy flag —
+   * `LayerFactory.addLayer` reads it back to tell a caller-declared pane apart
+   * from one foliplus routed the layer into. Nothing else on a third-party
+   * layer's `options` is written here.
+   *
    * `paneName` always names a **declared** pane that already exists, by two
    * independent guarantees:
    *   - existence — the pane is built before anything can be routed into it.
@@ -318,8 +379,10 @@ class PaneManager {
       n.options.pane = paneName;
       n.options.paneSet = true;
       // Every node we touch invalidates its own discovery entry, so a later
-      // `discoverChildPanes` sees the pin rather than the pre-pin name.
-      this.reset(L.stamp(n));
+      // `discoverChildPanes` sees the pin rather than the pre-pin name. Precise
+      // here rather than structure-wide: the walk already pays for each node,
+      // so there is nothing to gain from discarding entries we did not touch.
+      this.discoveryCache.delete(L.stamp(n));
       if (!n.eachLayer) {
         // A Path needs its renderer pinned; every other leaf just carries the
         // pane name written above.
@@ -333,11 +396,15 @@ class PaneManager {
 
   // ── Pure computation (JS unit-testable, no Leaflet) ────────────
 
-  /** Find all custom panes used by a container's tree. */
+  /** Find all custom panes used by a container's tree.
+   *  Memoised per layer stamp and capped by `CACHE.PANE_DISCOVERY_ENTRIES`
+   *  (`reset` is the only way to invalidate what is already cached, and it does
+   *  so structure-wide). */
   discoverChildPanes(layer: L.Layer, depth = 0): string[] {
     if (depth > CONST.RECURSION.PANE_DEPTH) return [];
     const key = L.stamp(layer);
-    if (this.paneCache.has(key)) return this.paneCache.get(key) as string[];
+    const hit = this.discoveryCache.get(key);
+    if (hit !== undefined) return hit;
     const panes = new Set<string>();
     forEachLayer(
       layer,
@@ -348,7 +415,14 @@ class PaneManager {
       depth,
     );
     const result = Array.from(panes);
-    this.paneCache.set(key, result);
+    // Map insertion order is FIFO here, so the first key is the oldest. Dropping
+    // it costs one extra `forEachLayer` walk the next time that layer is asked
+    // about — never a wrong answer. The `size` guard already guarantees the
+    // iterator has a value, so the `!` is for the type system only.
+    if (this.discoveryCache.size >= CONST.CACHE.PANE_DISCOVERY_ENTRIES) {
+      this.discoveryCache.delete(this.discoveryCache.keys().next().value!);
+    }
+    this.discoveryCache.set(key, result);
     return result;
   }
 

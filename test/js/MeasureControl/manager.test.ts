@@ -96,6 +96,7 @@ function makeManager(opts?: { id?: string }) {
 
 afterEach(() => {
   document.body.innerHTML = "";
+  window.localStorage.clear();
 });
 
 describe("MeasureManager — persistence", () => {
@@ -1154,6 +1155,7 @@ function makeLabelManager(conf: Partial<typeof window.CONF> = {}) {
 beforeEach(() => {
   document.body.innerHTML = "";
   window.L.marker = vi.fn(() => ({
+    bindPopup: vi.fn(),
     on: vi.fn(),
     off: vi.fn(),
     getElement: vi.fn(() => null),
@@ -1550,5 +1552,80 @@ describe("MeasureManager — label cleanup", () => {
     expect(offModeChange).toHaveBeenCalled();
     expect(offLayerRemoved).toHaveBeenCalled();
     expect(map.off).toHaveBeenCalledWith("unload", expect.any(Function));
+  });
+});
+
+describe("MeasureManager — persistence guarantees", () => {
+  const KEY = CONST.STORAGE.KEY;
+  const marker: MeasureData = {
+    id: "m1",
+    type: "marker",
+    lng: 121,
+    lat: 31,
+  };
+
+  function clearStore() {
+    window.localStorage.removeItem(KEY);
+  }
+
+  beforeEach(() => clearStore());
+
+  it("destroy keeps localStorage intact and a fresh manager restores the list", () => {
+    const { manager } = makeManager();
+    manager.store.add(marker);
+
+    manager.destroy();
+
+    expect(manager.store.count()).toBe(1);
+    const raw = window.localStorage.getItem(KEY);
+    expect(raw).not.toBeNull();
+    const items = JSON.parse(raw!).items;
+    expect(items).toHaveLength(1);
+    expect(items[0].id).toBe("m1");
+
+    const m2 = makeManager();
+    expect(m2.manager.measurements).toHaveLength(1);
+    expect(m2.manager.measurements[0].id).toBe("m1");
+  });
+
+  it("onUnload flushes a mutation still pending on the rAF queue", () => {
+    const { manager } = makeManager();
+    manager.store.add(marker);
+    manager.store.mutate("m1", m => {
+      m.lng = 122;
+    });
+
+    const onUnload = (manager as any).onUnload;
+    expect(typeof onUnload).toBe("function");
+    onUnload();
+
+    const raw = window.localStorage.getItem(KEY);
+    const items = JSON.parse(raw!).items;
+    expect(items[0].lng).toBe(122);
+  });
+
+  it("explicit CLEAR mode still wipes the persisted list", () => {
+    const { manager } = makeManager();
+    manager.store.add(marker);
+    expect(manager.store.count()).toBe(1);
+
+    manager.setMode(CONST.MODE.CLEAR);
+
+    expect(manager.store.count()).toBe(0);
+    const raw = window.localStorage.getItem(KEY);
+    const items = JSON.parse(raw!).items;
+    expect(items).toHaveLength(0);
+  });
+
+  it("destroy still runs the transient-only cleanup pass", () => {
+    const { manager } = makeManager();
+    manager.setMode(CONST.MODE.DISTANCE);
+    manager.store.add(marker);
+
+    manager.destroy();
+    manager.destroy();
+
+    expect((manager as any).currentMode).toBeNull();
+    expect(manager.store.count()).toBe(1);
   });
 });

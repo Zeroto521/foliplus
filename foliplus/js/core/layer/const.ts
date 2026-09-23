@@ -4,6 +4,13 @@ const Z_INDEX = { BASE: 600, TILE_BASE: 200, STEP: 10 };
 
 const RECURSION = { PANE_DEPTH: 5, LAYER_DEPTH: 10 };
 
+/** Upper bound on memoised child-pane discovery results. Entries are keyed by
+ *  `L.stamp`, which Leaflet never reuses, so layer churn would otherwise
+ *  accumulate them until teardown. Eviction is FIFO by first insertion, and
+ *  evicting costs one extra `forEachLayer` walk — far under what the entry
+ *  saves on its next hit. */
+const CACHE = { PANE_DISCOVERY_ENTRIES: 4096 };
+
 /** Auto-generated per-layer fallback pane (hyphenated, stamp-keyed).
  *  Named component panes share the same hyphen convention — see
  *  CANVAS_PANE_PREFIX and LayerControl's ANNOTATION_PANE_PREFIX. */
@@ -56,6 +63,7 @@ const GEOM_TYPE = {
 };
 
 export {
+  CACHE,
   CANVAS_PANE_PREFIX,
   COLOR_PANE_PREFIX,
   FALLBACK_PANE_PREFIX,
