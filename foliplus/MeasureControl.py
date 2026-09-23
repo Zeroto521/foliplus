@@ -108,6 +108,9 @@ class MeasureControl(BaseControl):
         - ``"csv"`` produces one row per measurement with an ``id`` column and a
           ``wkt`` column holding the Well-Known-Text geometry.
 
+    collapse_on_outside : bool, default True
+        Whether a press outside the panel collapses it.
+
     locale : str or LocaleConfig, optional
         Language code ("en", "zh") or a LocaleConfig instance.
         Defaults to auto-detection, falling back to English.
@@ -148,6 +151,7 @@ class MeasureControl(BaseControl):
         "show_live_coords",
         "filename",
         "export_format",
+        "collapse_on_outside",
     )
 
     default_js = load_cdn("MeasureControl")
@@ -163,6 +167,7 @@ class MeasureControl(BaseControl):
         show_live_coords: bool = True,
         filename: str = "measurements",
         export_format: ExportFormat = "geojson",
+        collapse_on_outside: bool = True,
         locale: str | LocaleConfig | None = None,
     ):
         super().__init__(position=position, locale=locale)
@@ -172,4 +177,5 @@ class MeasureControl(BaseControl):
         self.show_live_coords = show_live_coords
         self.filename = filename
         self.export_format = export_format
+        self.collapse_on_outside = collapse_on_outside
         self._template = self._get_template()

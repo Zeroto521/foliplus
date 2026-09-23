@@ -95,6 +95,7 @@ class LayerRegistry {
         existingLi?.layer ||
         null,
       canvas: opts.canvas ?? existingLi?.canvas ?? null,
+      color: opts.color ?? existingLi?.color ?? null,
       onToggle: opts.onToggle ?? existingLi?.onToggle ?? null,
       featureCountProvider:
         opts.featureCountProvider ?? existingLi?.featureCountProvider ?? null,

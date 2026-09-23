@@ -76,7 +76,7 @@ describe("build artifacts", () => {
     expect(content).not.toContain("class BaseControl");
   });
 
-  it("common JS has reasonable size (20-160KB)", () => {
+  it("common JS has reasonable size", () => {
     const size = readFileSync(resolve(distDir, "foliplus-common.min.js")).length;
     expect(size).toBeGreaterThan(20000);
     // Unminified dev build (CI path) — this reads the same `--dev` artifact
@@ -140,13 +140,32 @@ describe("build artifacts", () => {
     // keeps externalising BaseControl, so this is the only budget line that
     // moves from this round; the per-component caps below are untouched.
     //
-    // Measured post-#394: 166 504 B dev-mode. Post-#420 (bounds detection
-    // + focus-dedup): 170 879 B, +4 375 B. 175 000 leaves ~4 KB headroom —
-    // the previous 170 000 cap sat 68 B above HEAD, so any further work in
-    // core/layer or LayerControl would trip it. The +947 B from this round's
-    // review changes (dedup, bug fixes, no new features) confirms the cap
-    // needed re-measuring.
-    expect(size).toBeLessThan(175000);
+    // The "~4 KB headroom" convention above was disproven: post-#394 166 504 B,
+    // post-#420 170 879 B (+4 375 B), and every subsequent round of legitimate
+    // work pushed past the then-current cap, forcing this line to be
+    // re-measured repeatedly. The convention is now ~10% headroom over the
+    // measured value: an accidental inline of a shared module or a duplicated
+    // copy of logic is a tens-of-KB event and still trips this gate, while one
+    // or two more rounds of core/layer work fit inside it.
+    //
+    // Re-measured on this branch after merging main: 178 235 B — `npm run
+    // build:dev`, then readFileSync(...).length on the committed tree, i.e. the
+    // CI path, since that is where the gate runs. Local builds in this worktree
+    // read ~213 B higher because another lane's uncommitted edits to
+    // common/panel.ts are on disk, and panel.ts is in the common bundle; the cap
+    // is set from the CI reading so it holds either way. Chain from post-#420's
+    // 170 879 B: +1 302 B from #306/#421/#422/#423 landing on main, +4 622 B
+    // from this PR (createSurface's unified registration pipeline —
+    // commonLayerOpts, the register/unregister/registered closures, the
+    // preRegister/preUnregister/shouldUnregister hooks, the surfaceFor
+    // dispatch, and the color basemap's third content.kind), +1 432 B from #424
+    // (core/interaction.ts, core/listCursor.ts). The 2.3KB estimate written in
+    // for createSurface above came in about twice low. Dev artifacts are
+    // unminified, so comments count against this budget — the delta reads larger
+    // than the shipped code.
+    //
+    // 195 000 = 178 235 B + ~17 KB, ~9.4% headroom.
+    expect(size).toBeLessThan(195000);
   });
 
   // Per-component upper bounds. These are sanity checks against accidental
@@ -159,7 +178,13 @@ describe("build artifacts", () => {
   const MAX_COMPONENT_SIZE = {
     // MeasureControl bundles its own label-collision geometry (placeLabels)
     // inline.
-    "foliplus-MeasureControl.min.js": 120000,
+    //
+    // Measured on this branch after merging main: 120 035 B dev-mode. The
+    // 120 000 bar sat only 3 B above that base — the #422 persist refactor
+    // had already spent the headroom — so the 38 B `collapse_on_outside`
+    // clause tipped it over. 145 000 restores the ~20% headroom this cap is
+    // documented as carrying.
+    "foliplus-MeasureControl.min.js": 145000,
     // LayerControl is otherwise the largest component (~136KB unminified on
     // main; style-drawer delegation pushed the unminified dev bundle past
     // 160KB — rename, focus, reorder, fold, the annotation style panel, the

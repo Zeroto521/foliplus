@@ -431,7 +431,13 @@ class TestHeatmapControlBrowser:
         return html
 
     def _make_page(
-        self, browser, tmp_path, expose_ctrl=False, num_layers=3, prelude=None
+        self,
+        browser,
+        tmp_path,
+        expose_ctrl=False,
+        num_layers=3,
+        prelude=None,
+        **ctrl_kwargs,
     ):
         """Build a page with point layers + HeatmapControl and return (page, errors).
 
@@ -449,6 +455,9 @@ class TestHeatmapControlBrowser:
         prelude
             Optional JS source installed before the page's own scripts run —
             a listener-counting probe needs this so its counts are absolute.
+        ctrl_kwargs
+            Forwarded to ``HeatmapControl()`` so a test can exercise a
+            non-default parameter (e.g. ``collapse_on_outside=False``).
         """
         from foliplus import LayerControl
 
@@ -472,7 +481,7 @@ class TestHeatmapControlBrowser:
             fg.add_to(m)
 
         LayerControl().add_to(m)
-        HeatmapControl().add_to(m)
+        HeatmapControl(**ctrl_kwargs).add_to(m)
 
         html = self._stub_html(m.get_root().render())
         if expose_ctrl:
@@ -689,6 +698,69 @@ class TestHeatmapControlBrowser:
                 ".foliplus-heatmap-ctrl.collapsed", state="attached", timeout=5000
             )
 
+            assert not errors, f"JS errors: {errors}"
+
+    def _panel_open(self, page):
+        """True while the heatmap panel is expanded, not collapsed."""
+        return page.evaluate(
+            "() => { const c = document.querySelector('.foliplus-heatmap-ctrl');"
+            " return !!c && c.classList.contains('expanded')"
+            " && !c.classList.contains('collapsed'); }"
+        )
+
+    def test_panel_collapses_on_outside_press_by_default(self, browser, tmp_path):
+        """Default unchanged: a press outside the panel still collapses it.
+
+        Regression gate for ``collapse_on_outside``. HeatmapControl shares
+        ``createPanelControl`` with LayerControl, so the shell option must keep
+        its historic behaviour for any caller that does not opt out — and only
+        LayerControl passes ``false``.
+        """
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            page.evaluate(
+                "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
+            )
+            page.wait_for_selector(
+                ".foliplus-heatmap-ctrl.expanded", state="attached", timeout=5000
+            )
+            heatmap_ready(page)
+            assert self._panel_open(page)
+
+            page.mouse.click(900, 450)
+            page.wait_for_selector(
+                ".foliplus-heatmap-ctrl.collapsed", state="attached", timeout=5000
+            )
+            assert not self._panel_open(page), (
+                "the heatmap panel stayed open after an outside press; its default "
+                "is unchanged"
+            )
+            assert not errors, f"JS errors: {errors}"
+
+    def test_panel_stays_open_on_outside_press_when_disabled(self, browser, tmp_path):
+        """``collapse_on_outside=False`` also works for HeatmapControl.
+
+        The second half of the wiring proof: the flag reaches the shell through
+        the same option for both controls, so it is not a LayerControl special
+        case.
+        """
+        with use_page(
+            self._make_page, browser, tmp_path, collapse_on_outside=False
+        ) as (page, errors):
+            page.evaluate(
+                "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
+            )
+            page.wait_for_selector(
+                ".foliplus-heatmap-ctrl.expanded", state="attached", timeout=5000
+            )
+            heatmap_ready(page)
+            assert self._panel_open(page)
+
+            page.mouse.click(900, 450)
+            page.wait_for_timeout(300)
+            assert self._panel_open(page), (
+                "the heatmap panel collapsed on an outside press with "
+                "collapse_on_outside=False"
+            )
             assert not errors, f"JS errors: {errors}"
 
     def test_default_values_initialized(self, browser, tmp_path):

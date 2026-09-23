@@ -72,7 +72,8 @@ class MeasureControl extends BaseControl {
     this.effect(() =>
       bindOutsideCollapse({
         container: ctrl,
-        skipCheck: () => this.m.currentMode !== null,
+        skipCheck: () =>
+          this.m.currentMode !== null || CONF.collapse_on_outside === false,
       }),
     );
 

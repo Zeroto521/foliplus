@@ -51,7 +51,12 @@ class SearchControl extends BaseControl {
     initDebouncedFetch(this);
     this.effect(() => bindEvents(this));
     initFromUrl(this);
-    this.effect(() => bindOutsideCollapse({ container: this.ctrl }));
+    this.effect(() =>
+      bindOutsideCollapse({
+        container: this.ctrl,
+        skipCheck: CONF.collapse_on_outside === false ? () => true : undefined,
+      }),
+    );
     return this.container;
   }
 
