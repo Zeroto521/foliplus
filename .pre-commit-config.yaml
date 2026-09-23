@@ -4,6 +4,15 @@ ci:
 
     for more information, see https://pre-commit.ci
   autoupdate_commit_msg: "BOT: pre-commit hooks autoupdate"
+  # The changelog-order hook uses language: node, which requires a nodeenv.
+  # pre-commit.ci's runner fails to build the nodeenv (AssertionError:
+  # language: node must have package.json or additional_dependencies), even
+  # though the script has zero npm dependencies. The hook is enforced in
+  # GitHub CI (changelog-order job) and works locally; skipping it in
+  # pre-commit.ci only loses the "bot auto-fixes a skipped local hook"
+  # convenience — the correctness gate is unchanged.
+  skip:
+    - changelog-order
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
