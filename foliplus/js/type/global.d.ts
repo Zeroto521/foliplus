@@ -132,6 +132,8 @@ declare global {
     locale_tables?: LocaleTables;
     locale_code?: string;
     position?: Leaflet.ControlPosition;
+    /** Collapse the control's panel on a press outside it (panel controls). */
+    collapse_on_outside?: boolean;
     mode?: string;
     zoom?: number;
     provider?: string | ProviderConfig;

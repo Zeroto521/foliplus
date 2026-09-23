@@ -493,6 +493,10 @@ describe("createPanelHeader", () => {
 });
 
 describe("createPanelControl", () => {
+  afterEach(() => {
+    document.body.innerHTML = "";
+  });
+
   it("creates panel with toggle, header, content", () => {
     const result = createPanelControl({
       cssClass: "heatmap-ctrl",
@@ -576,6 +580,43 @@ describe("createPanelControl", () => {
     expect(result.ctrl.classList.contains("expanded")).toBe(true);
 
     result.destroy();
+
+    const outside = document.createElement("div");
+    document.body.appendChild(outside);
+    outside.click();
+    expect(result.ctrl.classList.contains("expanded")).toBe(true);
+  });
+
+  it("collapses on an outside press by default", () => {
+    const result = createPanelControl({
+      cssClass: "heatmap-ctrl",
+      toggleTitle: "Toggle",
+      toggleSvg: "<svg/>",
+      panelTitle: "Panel",
+      closeTitle: "Close",
+    });
+    document.body.appendChild(result.container);
+    result.toggleBtn.click();
+    expect(result.ctrl.classList.contains("expanded")).toBe(true);
+
+    const outside = document.createElement("div");
+    document.body.appendChild(outside);
+    outside.click();
+    expect(result.ctrl.classList.contains("collapsed")).toBe(true);
+  });
+
+  it("stays open on an outside press when collapseOnOutside is false", () => {
+    const result = createPanelControl({
+      cssClass: "layer-ctrl",
+      toggleTitle: "Toggle",
+      toggleSvg: "<svg/>",
+      panelTitle: "Panel",
+      closeTitle: "Close",
+      collapseOnOutside: false,
+    });
+    document.body.appendChild(result.container);
+    result.toggleBtn.click();
+    expect(result.ctrl.classList.contains("expanded")).toBe(true);
 
     const outside = document.createElement("div");
     document.body.appendChild(outside);
