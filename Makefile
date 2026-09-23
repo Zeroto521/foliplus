@@ -79,11 +79,11 @@ JOBS ?= auto
 
 test: build-js-dev test-js
 	npm run build:verify
-	pytest -v -r a --color=yes -n $(JOBS) --cov=foliplus --cov-append --cov-report=term-missing --cov-report=xml --junitxml=junit.xml -o junit_family=legacy test/python
+	pytest -v -r a --color=yes -n $(JOBS) --cov=foliplus --cov=changelog_check --cov-append --cov-report=term-missing --cov-report=xml --junitxml=junit.xml -o junit_family=legacy test/python
 
 test-python: build-js-dev
 	npm run build:verify
-	pytest -v -r a --color=yes -n $(JOBS) -m "not browser" --cov=foliplus --cov-append --cov-report=term-missing --cov-report=xml --junitxml=junit.xml -o junit_family=legacy test/python
+	pytest -v -r a --color=yes -n $(JOBS) -m "not browser" --cov=foliplus --cov=changelog_check --cov-append --cov-report=term-missing --cov-report=xml --junitxml=junit.xml -o junit_family=legacy test/python
 
 test-browser: build-js-dev
 	npm run build:verify
