@@ -1122,10 +1122,14 @@ class TestLayerControlBrowser:
     """Browser-level interaction checks for drag/drop feedback."""
 
     @staticmethod
-    def _make_page(browser, tmp_path, *layers, slug="lc"):
-        """Create a map with LayerControl, render, and return (page, errors)."""
+    def _make_page(browser, tmp_path, *layers, slug="lc", **ctrl_kwargs):
+        """Create a map with LayerControl, render, and return (page, errors).
+
+        ``ctrl_kwargs`` are forwarded to ``LayerControl()`` so a browser test can
+        exercise a non-default parameter (e.g. ``collapse_on_outside=True``).
+        """
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        LayerControl().add_to(m)
+        LayerControl(**ctrl_kwargs).add_to(m)
         for layer in layers:
             layer.add_to(m)
         html = m.get_root().render()
@@ -1157,6 +1161,16 @@ class TestLayerControlBrowser:
     def _sample_neutral0(page):
         """Computed color of `var(--neutral-0)` — never hardcode a hex/rgb."""
         return TestLayerControlBrowser._sample_token(page, "--neutral-0")
+
+    @staticmethod
+    def _panel_open(page, selector: str) -> bool:
+        """True while the panel at *selector* is expanded, not collapsed."""
+        return page.evaluate(
+            "sel => { const c = document.querySelector(sel);"
+            " return !!c && c.classList.contains('expanded')"
+            " && !c.classList.contains('collapsed'); }",
+            selector,
+        )
 
     def test_cross_group_drag_shows_hint(self, browser, tmp_path):
         """Dragging overlay toward base group should show blocked hint."""
@@ -4441,18 +4455,28 @@ class TestLayerControlBrowser:
                     f"after an unrelated checkbox click"
                 )
 
-    def test_click_outside_collapses_panel(self, browser, tmp_path):
-        """Clicking the map outside the panel collapses it.
+    def test_panel_stays_open_on_outside_press_by_default(self, browser, tmp_path):
+        """A press on the map does not collapse the panel.
 
-        Behavioural parity guard: LayerControl used to wire only
-        bindPanelToggle, so it stayed open when you clicked the map, while
-        HeatmapControl (createPanelControl) collapsed. Both panels now build
-        their shell from createPanelControl, which adds bindOutsideCollapse.
+        ``collapse_on_outside`` defaults to ``False``: the panel is a working
+        surface read at the same time as the map, and the map's busiest gesture
+        is drag-pan / click-select. Hiding a panel the user is actively working
+        in because of that gesture is the defect the parameter was added for;
+        the header close affordance remains the explicit way to collapse, so
+        nothing is lost.
+
+        Replaces the #303 parity guard that asserted the opposite. At the time,
+        "LayerControl and HeatmapControl behave the same" was the goal; a panel
+        that hides while you work in it turned out to be the bug.
+
+        Events go through Playwright's mouse so the browser does the hit-testing
+        and the document-level capture/bubble pair sees real propagation — not a
+        ``dispatchEvent`` aimed at the handler.
         """
         layer = folium.FeatureGroup(name="Outside click")
         with use_page(
             self._make_page, browser, tmp_path, layer, slug="outside_click"
-        ) as (page, _):
+        ) as (page, errors):
             page.evaluate(
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
@@ -4460,14 +4484,110 @@ class TestLayerControlBrowser:
                 ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
             )
             page.wait_for_timeout(500)
+            assert self._panel_open(page, ".foliplus-layer-ctrl"), "toggle failed"
 
-            page.evaluate("document.querySelector('.leaflet-container').click()")
+            page.mouse.click(900, 450)
+            page.wait_for_timeout(300)
+            assert self._panel_open(page, ".foliplus-layer-ctrl"), (
+                "a click on the map collapsed the panel; the default is False"
+            )
+
+            page.mouse.down()
+            page.mouse.move(760, 380, steps=8)
+            page.mouse.up()
+            page.wait_for_timeout(300)
+            assert self._panel_open(page, ".foliplus-layer-ctrl"), (
+                "a drag-pan on the map collapsed the panel; the default is False"
+            )
+            assert not errors, f"JS errors: {errors}"
+
+    def test_panel_collapses_on_outside_press_when_enabled(self, browser, tmp_path):
+        """``collapse_on_outside=True`` re-enables the implicit trigger.
+
+        Proves the parameter is wired end to end — Python constructor -> CONF ->
+        shell -> ``bindOutsideCollapse`` — rather than accepted and ignored.
+        """
+        layer = folium.FeatureGroup(name="Outside click on")
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            layer,
+            slug="outside_click_on",
+            collapse_on_outside=True,
+        ) as (page, errors):
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
+            )
+            page.wait_for_timeout(500)
+            assert self._panel_open(page, ".foliplus-layer-ctrl"), "toggle failed"
+
+            page.mouse.click(900, 450)
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.collapsed", state="attached", timeout=5000
             )
-            assert page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl.expanded") === null'
-            ), "panel stayed expanded after clicking outside"
+            assert not self._panel_open(page, ".foliplus-layer-ctrl"), (
+                "the panel stayed open after an outside press with "
+                "collapse_on_outside=True"
+            )
+            assert not errors, f"JS errors: {errors}"
+
+    def test_row_panel_still_dismisses_on_outside_press(self, browser, tmp_path):
+        """The floating attrs panel still dismisses on an outside press.
+
+        The main panel lost its implicit collapse; the row panels are popups,
+        where dismissing on an outside press is their only cancel affordance,
+        and they dismiss through their own document-capture ``mousedown``
+        handler rather than through the shell. This pins that the shell change
+        did not take them down with it.
+        """
+        layer = folium.FeatureGroup(name="Row panel")
+        with use_page(self._make_page, browser, tmp_path, layer, slug="row_panel") as (
+            page,
+            errors,
+        ):
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-item[data-layer-type=overlay]",
+                state="attached",
+                timeout=5000,
+            )
+            page.wait_for_timeout(500)
+
+            page.mouse.move(5, 400)
+            page.evaluate(
+                "() => document.querySelectorAll('"
+                ".foliplus-layer-item[data-layer-type=overlay] "
+                ".foliplus-layer-more-btn')[0].click()"
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-more-menu.open", state="attached", timeout=5000
+            )
+            page.evaluate(
+                "() => document.querySelector("
+                "  '.foliplus-layer-more-menu li[data-action=layer-attributes]'"
+                ").click()"
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-attrs-panel", state="attached", timeout=5000
+            )
+
+            page.mouse.click(900, 450)
+            page.wait_for_selector(
+                ".foliplus-layer-attrs-panel", state="detached", timeout=5000
+            )
+            assert self._panel_open(page, ".foliplus-layer-ctrl"), (
+                "the press that dismissed the row panel also collapsed the main panel"
+            )
+            assert not errors, f"JS errors: {errors}"
 
     def test_row_overlay_stays_visible_over_lit_siblings(self, browser, tmp_path):
         """Sibling rows keep their hover wake while a row overlay is open —
@@ -4698,6 +4818,166 @@ class TestLayerControlBrowser:
                 f"tiles not restored after deleting options + _resetView: {result}"
             )
             assert not errors, f"JS errors: {errors}"
+
+    def test_zoom_range_zoomend_does_not_add_author_hidden_layer(
+        self, browser, tmp_path
+    ):
+        """Gate 1: a folium ``show=False`` layer stays off the map through a
+        zoomend sweep.
+
+        The regression: the sweep's ``applyLayerState({visible: true})``
+        unconditionally added a layer the author left off the map, while the
+        checkbox stayed unchecked. The one-way gate must leave it alone.
+        """
+        fg = folium.FeatureGroup(name="ZROffProbe", overlay=True, show=False)
+        with use_page(self._make_page, browser, tmp_path, fg, slug="zr_off") as (
+            page,
+            errors,
+        ):
+            panel_ready(page)
+            # Get the layer's actual id (folium generates one).
+            actual_id = page.evaluate("""
+                () => {
+                    const el = document.querySelector('.leaflet-container');
+                    const map = (el && window[el.id]) || window.map;
+                    const api = map.foliplus && map.foliplus.LayerAPI;
+                    if (!api || !api.layers) return null;
+                    const layer = api.layers.find(l => l.name === 'ZROffProbe');
+                    return layer ? layer.id : null;
+                }
+            """)
+            if not actual_id:
+                raise AssertionError("ZROffProbe layer not found in registry")
+            # Re-set probe with the actual id.
+            page.evaluate("window.__probe = " + json.dumps({"id": actual_id}))
+            result = page.evaluate(_js("LayerControl/show_false_zoom_stays_off"))
+            assert result is not None, result
+            assert result.get("error") is None, f"setup failed: {result}"
+            # folium 0.14 adds every layer regardless of show=False, so
+            # beforeOnMap may be true on that version. The invariant is that
+            # the sweep doesn't change the layer's map membership.
+            assert result["stateUnchanged"] is True, (
+                f"layer map membership changed during zoom sweep: {result}"
+            )
+            assert result["rowConsistent"] is True, (
+                f"row checkbox state drifted during the sweep: {result}"
+            )
+            assert not errors, f"JS errors: {errors}"
+
+    def test_zoom_range_reload_does_not_add_author_hidden_layer(
+        self, browser, tmp_path
+    ):
+        """Gate 2: a ``show=False`` layer with a stored zoomRange does not
+        come back on the map after reload.
+
+        The load path runs ``applyZoomRangeStateOne`` for every layer with
+        a stored zoomRange. A zoomRangeMap entry alone is not authorisation
+        to re-add a layer the author left off the map — only ``applyUserState``'s
+        unhide branch (a visible override present) is.
+        """
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12, tiles=None)
+        LayerControl().add_to(m)
+        folium.TileLayer(
+            "https://a.tile.openstreetmap.org/{z}/{x}/{y}.png",
+            name="Light Canvas",
+            attr="© OpenStreetMap",
+            max_zoom=19,
+        ).add_to(m)
+        folium.FeatureGroup(name="ZROffReload", overlay=True, show=False).add_to(m)
+        _expand_panel(m)
+
+        html_path = tmp_path / "test_zr_off_reload.html"
+        _write_html(m, html_path)
+
+        with use_raw_page(browser.new_page) as page:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=10000
+            )
+            page.wait_for_timeout(500)
+
+            # Inject a zoomRange override into localStorage for the show=False
+            # layer, simulating a user who previously set a zoom range for it.
+            # On reload, applyUserState will restore this entry and run
+            # applyZoomRangeStateOne — which must NOT add the layer to the map.
+            page.evaluate("""
+                () => {
+                    const el = document.querySelector('.leaflet-container');
+                    const map = (el && window[el.id]) || window.map;
+                    const api = map.foliplus && map.foliplus.LayerAPI;
+                    const layer = api.layers.find(l => l.name === 'ZROffReload');
+                    const id = layer ? layer.id : null;
+                    if (!id) throw new Error('ZROffReload not found in registry');
+                    const key = 'foliplus_layer_state_' + el.id;
+                    const record = JSON.parse(localStorage.getItem(key) || '{}');
+                    record.version = 1;
+                    record.order = record.order || null;
+                    record.foldedGroups = record.foldedGroups || [];
+                    record.renamedNames = record.renamedNames || {};
+                    record.annotations = record.annotations || {};
+                    record.layers = record.layers || {};
+                    record.layers[id] = {
+                        zoomRange: [3, 12],
+                        overrides: ['zoomRange'],
+                    };
+                    localStorage.setItem(key, JSON.stringify(record));
+                    return id;
+                }
+            """)
+            # Capture the layer's map membership before reload.
+            before = page.evaluate("""
+                () => {
+                    const el = document.querySelector('.leaflet-container');
+                    const map = (el && window[el.id]) || window.map;
+                    if (!map) return null;
+                    const api = map.foliplus && map.foliplus.LayerAPI;
+                    if (!api) return null;
+                    const layer = api.layers.find(l => l.name === 'ZROffReload');
+                    if (!layer) return null;
+                    const leafletLayer = api.findLayer(layer.id);
+                    if (!leafletLayer) return null;
+                    return map.hasLayer(leafletLayer);
+                }
+            """)
+            page.reload(wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=10000
+            )
+            page.wait_for_timeout(500)
+
+            # Read the layer's state after reload.
+            result = page.evaluate("""
+                () => {
+                    const el = document.querySelector('.leaflet-container');
+                    const map = (el && window[el.id]) || window.map;
+                    if (!map) return { error: 'map not found' };
+                    const api = map.foliplus && map.foliplus.LayerAPI;
+                    if (!api) return { error: 'LayerAPI not found' };
+                    const layer = api.layers.find(l => l.name === 'ZROffReload');
+                    if (!layer) return { error: 'ZROffReload not in registry' };
+                    const leafletLayer = api.findLayer(layer.id);
+                    if (!leafletLayer) return { error: 'no Leaflet layer' };
+                    return {
+                        onMap: map.hasLayer(leafletLayer),
+                    };
+                }
+            """)
+            assert result is not None, "evaluation returned None"
+            assert result.get("error") is None, f"setup failed: {result}"
+            # folium 0.14 adds every layer regardless of show=False, so on
+            # that version the layer may be on the map both before and after
+            # reload. The invariant is that applyZoomRangeStateOne doesn't
+            # ADD a layer the author left off — if folium already placed it,
+            # the layer's state simply persists across reload.
+            assert result["onMap"] == before, (
+                f"layer map membership changed across reload: before={before}, after={result['onMap']}"
+            )
 
     # ── Row lookup by data-layer-id, not by registry / DOM position ──
     #

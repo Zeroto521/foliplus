@@ -617,6 +617,42 @@ describe("LayerSurface.matches", () => {
       }),
     ).toBe(false);
   });
+
+  it("treats a changed fill as the same face — a repaint, not a rebuild", () => {
+    const { host } = makeMap();
+    const base = {
+      id: "solid",
+      layer: null,
+      paneName: CONST.COLOR_PANE_PREFIX + "solid",
+      canvas: true,
+      color: "#000000",
+    };
+    const surface = new LayerSurface(host, base);
+    expect(surface.matches(base)).toBe(true);
+    expect(surface.matches({ ...base, color: "#ffffff" })).toBe(true);
+  });
+
+  it("treats the color going away as a different face (both directions)", () => {
+    // `zoomRange: "none"` is the colour the color branch buys. If a re-register
+    // that drops the fill matched the old face, a real canvas would inherit a
+    // capability it does not have — the pane would keep answering "no range"
+    // after the map could hide it again. Presence is the invariant, not value.
+    const { host } = makeMap();
+    const color = {
+      id: "solid",
+      layer: null,
+      paneName: CONST.COLOR_PANE_PREFIX + "solid",
+      canvas: true,
+      color: "#000000",
+    };
+    const surface = new LayerSurface(host, color);
+    expect(surface.matches({ ...color, color: null })).toBe(false);
+    expect(surface.matches({ ...color, color: undefined })).toBe(false);
+
+    const bare = new LayerSurface(host, { ...color, color: undefined });
+    expect(bare.matches({ ...color, color: undefined })).toBe(true);
+    expect(bare.matches(color)).toBe(false);
+  });
 });
 
 describe("LayerSurface.destroy", () => {
@@ -773,6 +809,43 @@ describe("LayerSurface capabilities", () => {
     expect(surface.capabilities.opacity).toBe("native");
     expect(surface.capabilities.zoomRange).toBe("none");
     expect(surface.capabilities.relocatable).toBe(true);
+  });
+
+  it("derives the color face's capabilities and pane from its declaration", () => {
+    const { host } = makeMap();
+    const surface = new LayerSurface(host, {
+      id: "solid",
+      layer: null,
+      paneName: CONST.COLOR_PANE_PREFIX + "solid",
+      canvas: true,
+      color: "#000000",
+    });
+    expect(surface.capabilities).toEqual({
+      opacity: "pane",
+      zoomRange: "none",
+      relocatable: true,
+      bounds: false,
+    });
+    // The declared color pane is taken as base — no synthesis, and no SVG
+    // renderer, since a flat fill has no vectors to render into.
+    expect(surface.paneNames).toEqual([CONST.COLOR_PANE_PREFIX + "solid"]);
+    expect(surface.panes[0].role).toBe("base");
+    expect(surface.panes[0].renderer).toBeNull();
+    expect(surface.synthesizedPaneName).toBeNull();
+  });
+
+  it("keeps the canvas zoom range when no fill is declared", () => {
+    // The contrast that makes the color branch worth having: same pane shape,
+    // same `canvas` flag, only the fill decides. Without it the pane answers
+    // "the map can hide me by zoom", which a basemap must not.
+    const { host } = makeMap();
+    const surface = new LayerSurface(host, {
+      id: "heat",
+      layer: null,
+      paneName: CONST.CANVAS_PANE_PREFIX + "heat",
+      canvas: true,
+    });
+    expect(surface.capabilities.zoomRange).toBe("pane");
   });
 
   // ── bounds: static capability declaration ───────────────────────
