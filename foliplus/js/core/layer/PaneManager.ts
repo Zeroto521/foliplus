@@ -356,13 +356,26 @@ class PaneManager {
     return this.defaultPanes.has(pane) || pane.startsWith(CONST.FALLBACK_PANE_PREFIX);
   }
 
-  /** Find all panes a layer's content lives in, including the synthesized pane
-   *  a LayerSurface gave it (which the caller resolves — this only knows the
-   *  panes the layer's own tree names). */
+  /** Find the panes a layer's content names in its own tree — the panes this
+   *  tree can prove the layer paints into. Never guesses: a layer whose tree
+   *  names no custom pane answers `[]`, not Leaflet's shared `overlayPane` /
+   *  `markerPane`.
+   *
+   *  The old fallback returned those two shared panes "conservatively", which
+   *  made the answer indistinguishable from "the layer really paints there".
+   *  A Marker names `markerPane`; a GridLayer names `tilePane`. Handing either
+   *  to a caller that reads the list as "this layer's panes" means the caller
+   *  now owns every other layer's pixels too — focus would lift every marker
+   *  on the map, and an exporter would render every tile. The honest answer
+   *  is "none that are ours". A caller that needs infrastructure panes (tiles
+   *  for export) reaches for them by name, not through this list.
+   *
+   *  The synthesized pane a LayerSurface gave the layer is resolved from the
+   *  surface, not from here. Default panes are already excluded by
+   *  `discoverChildPanes` (`isDefaultPane`), so the returned list can never
+   *  contain one. */
   getLayerPanes(layer: L.Layer): string[] {
-    const panes = this.discoverChildPanes(layer);
-    if (panes.length > 0) return panes;
-    return ["overlayPane", "markerPane"];
+    return this.discoverChildPanes(layer);
   }
 }
 

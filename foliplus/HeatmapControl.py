@@ -100,6 +100,9 @@ class HeatmapControl(BaseControl):
 
         ``"int"``, ``"comma"``, and ``"percent"`` are locale-agnostic.
 
+    collapse_on_outside : bool, default True
+        Whether a press outside the panel collapses it.
+
     locale : str or LocaleConfig, optional
         Language code ("en", "zh") or a LocaleConfig instance.
         Defaults to auto-detection, falling back to English.
@@ -128,6 +131,7 @@ class HeatmapControl(BaseControl):
         "label_color",
         "label_size",
         "label_format",
+        "collapse_on_outside",
     )
 
     @validate
@@ -148,6 +152,7 @@ class HeatmapControl(BaseControl):
         label_color: str = "#fff",
         label_size: PositiveInt = 11,
         label_format: LABEL_FORMAT = "auto",
+        collapse_on_outside: bool = True,
         locale: str | LocaleConfig | None = None,
     ):
         super().__init__(position=position, locale=locale)
@@ -172,4 +177,5 @@ class HeatmapControl(BaseControl):
         self.label_color = label_color
         self.label_size = label_size
         self.label_format = label_format
+        self.collapse_on_outside = collapse_on_outside
         self._template = self._get_template()
