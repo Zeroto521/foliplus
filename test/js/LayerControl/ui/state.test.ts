@@ -699,11 +699,16 @@ describe("ui/state applyHiddenOne / applyVisibleStateOne", () => {
       uiContainer,
       T: vi.fn((k: string) => k),
       // The row is a projection of the user's intent, so the intent this test
-      // sets up is what the box is expected to read.
+      // sets up is what the box is expected to read. `buildRowCell` routes
+      // through `projectLayer`, so the fixture needs the projection's inputs
+      // even when the test only exercises the map-write half of the sweep.
       renamedNames: {},
       hiddenIds: new Set(["a"]),
       userOverrides: { a: ["visible"] },
       authorVisible: new Map<string, boolean>(),
+      opacityMap: {},
+      zoomRangeMap: {},
+      appliedState: new Map(),
       mgmt: { getFeatureCount: vi.fn(() => null) },
       m: {
         layerRegistry: { get: vi.fn(() => undefined) },
@@ -713,6 +718,9 @@ describe("ui/state applyHiddenOne / applyVisibleStateOne", () => {
           hasLayer: vi.fn(() => hasLayer),
           removeLayer: vi.fn(),
           addLayer: vi.fn(),
+          getMinZoom: vi.fn(() => 0),
+          getMaxZoom: vi.fn(() => 18),
+          getZoom: vi.fn(() => 5),
         },
       },
     } as unknown as LayerUI;
@@ -1416,8 +1424,11 @@ describe("event-driven row refresh", () => {
     const events = ensureEvents(ui.m.map);
     const li = manager.layerRegistry.get("overlay1")!;
     li.paneSpecs = specs("__test_opacity_pane__");
+    // The projection reads `opacityMap[id]` gated by the `userOverrides`
+    // provenance marker, so both must be set for the stored value to flow
+    // through — a raw `opacityMap` write is not a user intent.
     ui.opacityMap = { overlay1: 0.4 };
-    li.opacity = 0.4;
+    ui.userOverrides.overlay1 = ["opacity"];
 
     const paneEl = document.createElement("div");
     vi.spyOn(manager.map, "getPane").mockReturnValue(paneEl);

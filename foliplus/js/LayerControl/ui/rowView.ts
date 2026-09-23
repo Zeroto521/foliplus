@@ -154,11 +154,22 @@ const displayName = (ui: LayerUI, id: string): string => {
  *  snapshot taken afterwards would record a policy decision as the author's.
  *
  *  Once per id — the repeat is a no-op, which is what keeps the value stable
- *  across initTypesAndVisibility's idempotent re-runs.
+ *  across initTypesAndVisibility's idempotent re-runs. Because the value is
+ *  latched, it may only be taken from an *observed* map state: a folium
+ *  layer's JS global is emitted after the control's IIFE, so at attach the
+ *  layer is not resolvable yet and the only honest answer is "not yet
+ *  known". Latching `layerInfo.visible !== false` there would record `true`
+ *  for an author `show=False` layer and, the snapshot being idempotent,
+ *  keep the later correct reading out for good — which is how a `show=False`
+ *  layer came back onto the map on the first zoom sweep.
+ *
+ *  A canvas-only layer is the exception: it has no Leaflet layer to observe
+ *  at any point, so its declared `visible` is the ground truth.
  */
 const snapshotAuthorVisible = (ui: LayerUI, layerInfo: LayerInfo): void => {
   if (ui.authorVisible.has(layerInfo.id)) return;
   const layer = ui.m.findLayer(layerInfo);
+  if (!layer && !layerInfo.canvas) return; // not linked yet — leave unknown
   ui.authorVisible.set(
     layerInfo.id,
     layer ? ui.m.map.hasLayer(layer) : layerInfo.visible !== false,
