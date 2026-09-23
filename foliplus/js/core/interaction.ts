@@ -64,6 +64,24 @@ interface InteractionEntry extends InteractionDef {
 // Per-map instance storage
 const instances = new WeakMap<L.Map, InteractionManager>();
 
+/** Whether the key is an arrow key that form controls consume natively. */
+const isArrowKey = (key: string): boolean =>
+  key === "ArrowUp" ||
+  key === "ArrowDown" ||
+  key === "ArrowLeft" ||
+  key === "ArrowRight";
+
+/** Whether an element consumes arrow keys natively. Checkbox/radio do not. */
+const isFormInput = (el: Element): boolean => {
+  const tag = el.tagName.toLowerCase();
+  if (tag === "textarea" || tag === "select") return true;
+  if (tag === "input") {
+    const type = (el as HTMLInputElement).type?.toLowerCase();
+    return type !== "checkbox" && type !== "radio" && type !== "hidden";
+  }
+  return false;
+};
+
 /** Ensure map.foliplus.interaction has a per-map InteractionManager. Idempotent. */
 const ensureInteraction = (map: L.Map): InteractionManager => {
   const existing = instances.get(map);
@@ -234,6 +252,18 @@ class InteractionManager {
   private handleEvent(event: Event): void {
     const eventType = event.type;
     const ke = event as KeyboardEvent;
+    // Form controls consume arrow keys natively (sliders move their thumbs,
+    // text inputs move the caret). Let those pass through instead of being
+    // swallowed by a container shortcut that only wants to navigate rows.
+    if (
+      (eventType === "keydown" || eventType === "keyup") &&
+      isArrowKey(ke.key) &&
+      // document.activeElement is non-null in practice (jsdom + all browsers
+      // fall back to body); see isFormInput.
+      isFormInput(document.activeElement as Element)
+    ) {
+      return;
+    }
     // For container-bound shortcuts, the deepest (innermost) container that
     // contains activeElement should win when priorities are tied — matches
     // how native DOM focus/keyboard events work.

@@ -1,6 +1,7 @@
 // LayerControl UI —Solid-color basemap visibility.
 import * as CONST from "../const.js";
 import type { LayerUI } from "./index.js";
+import { applyRowView, buildRowCell } from "./rowView.js";
 
 const showColorLayer = (ui: LayerUI, color: string) => {
   ui.isColorActive = true;
@@ -23,13 +24,15 @@ const showColorLayer = (ui: LayerUI, color: string) => {
   // clear a neighbour's checkbox and leave the real base row checked.
   for (const layerInfo of ui.m.layers) {
     if (!layerInfo.isBase) continue;
-    const item = ui.uiContainer.querySelector(
+    const item = ui.uiContainer.querySelector<HTMLElement>(
       `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerInfo.id)}"]`,
     );
     if (!item) continue;
-    const input = item.querySelector<HTMLInputElement>('input[type="checkbox"]');
-    if (input) input.checked = false;
-    item.classList.remove(CONST.CLASSES.ACTIVE);
+    // Policy paint, not intent: the color basemap requires base rows to look
+    // unchecked, but the user's own choice (hiddenIds/authorVisible) is
+    // untouched — the intent slots are what `rowChecked` reads on the next
+    // full projection, and they still hold whatever the user set.
+    applyRowView(ui, item, { ...buildRowCell(ui, layerInfo), checked: false });
   }
 
   const ci = ui.uiContainer.querySelector(

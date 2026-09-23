@@ -266,6 +266,36 @@ class TestMeasureControlBrowser:
         )
         return page, errors
 
+    def test_panel_collapses_on_outside_press_by_default(self, browser, tmp_path):
+        """Default unchanged: a press outside the panel still collapses it.
+
+        MeasureControl binds ``bindOutsideCollapse`` on its own — gated by the
+        active-mode ``skipCheck`` rather than the shared panel shell — so this
+        pins that its own binding survived the new parameter.
+        """
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            page.evaluate(
+                "document.querySelector('.foliplus-measure-ctrl .foliplus-toggle-btn').click()"
+            )
+            page.wait_for_selector(
+                ".foliplus-measure-ctrl.expanded", state="attached", timeout=5000
+            )
+            page.wait_for_timeout(300)
+            assert page.evaluate(
+                "() => { const c = document.querySelector('.foliplus-measure-ctrl');"
+                " return c.classList.contains('expanded')"
+                " && !c.classList.contains('collapsed'); }"
+            ), "the measure panel did not expand"
+
+            page.mouse.click(600, 300)
+            page.wait_for_selector(
+                ".foliplus-measure-ctrl.collapsed", state="attached", timeout=5000
+            )
+            assert page.evaluate(
+                "document.querySelector('.foliplus-measure-ctrl').classList.contains('collapsed')"
+            ), "the measure panel stayed open after an outside press"
+            assert not errors, f"JS errors: {errors}"
+
     def test_tool_buttons_render(self, browser, tmp_path):
         """Tool buttons are present in the DOM, including the export button."""
         with use_page(self._make_page, browser, tmp_path) as (page, errors):

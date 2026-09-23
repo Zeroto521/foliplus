@@ -356,9 +356,16 @@ const createRowPanel = (opts: {
 /**
  * Create a panel-style control with toggle button, header, and content area.
  * Used by HeatmapControl and LayerControl for consistent panel UI.
- * Automatically wires up bindPanelToggle and bindOutsideCollapse.
+ * Automatically wires up bindPanelToggle, plus the press-outside collapse
+ * decided by `collapseOnOutside` (default on: the shell's historic behaviour).
  *
- * @returns `destroy` unbinds both document listeners. `BaseControl.onRemove`
+ * The map's busiest gesture is drag-pan / click-select, so an outside press is
+ * a poor trigger for a panel the user is actively working in — LayerControl
+ * passes `false` on that ground. The header close affordance is always the
+ * explicit collapse path, so no capability is lost either way. Popup-style
+ * surfaces use createRowPanel, which owns its own dismiss.
+ *
+ * @returns `destroy` unbinds the outside-collapse listeners. `BaseControl.onRemove`
  *   calls it so a control removed while still in the DOM (detached and later
  *   re-added) does not leak a document-level capture + bubble pair; the
  *   MutationObserver only covers the plain "removed from body" case.
@@ -370,6 +377,10 @@ const createPanelControl = (opts: {
   panelTitle: string;
   closeTitle: string;
   ctrlId?: string;
+  /** Collapse the panel on a press outside it. Defaults to `true` so a caller
+   *  that omits it keeps the shell's historic behaviour; LayerControl passes
+   *  `false` because the panel is a working surface read alongside the map. */
+  collapseOnOutside?: boolean;
 }): {
   container: HTMLElement;
   ctrl: HTMLElement;
@@ -419,7 +430,12 @@ const createPanelControl = (opts: {
     toggleBtn: `.${CLASSES.TOGGLE_BTN}`,
     header: `.${CLASSES.PANEL_HEADER}`,
   });
-  const unbindOutside = bindOutsideCollapse({ container: ctrl });
+  const unbindOutside = bindOutsideCollapse({
+    container: ctrl,
+    // skipCheck short-circuits the capture pass too, so the panel is inert to
+    // outside presses rather than collapsing.
+    skipCheck: opts.collapseOnOutside === false ? () => true : undefined,
+  });
 
   return {
     container,

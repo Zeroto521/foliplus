@@ -163,13 +163,16 @@ class HeatmapManager {
   cachedLabelStyle: CanvasLabelStyle | null;
   renderAll: boolean;
   /**
-   * One-shot guard: true after the first successful initScan rebuild (or the
-   * terminal no-layer hint).  Prevents the single-layer auto-select in
-   * buildLayerListItems from re-firing on later rebuilds (zoomend,
-   * layeradd/layerremove), which would override a user's manual clear.
-   * Set once in initScan and never reset — a runtime flag, not persisted state
-   * (reload re-enters initScan fresh, so the initial single-layer auto-select
-   * still fires on every page load).
+   * One-shot guard for the single-layer auto-select in buildLayerListItems.
+   * Set to true in initScan after the first successful rebuild (or the
+   * terminal no-layer hint), and also true in applySavedConfig when a
+   * persisted record is loaded — a record means the user already spoke in a
+   * previous session (picked a layer, or explicitly cleared it), and neither
+   * that choice nor the clear should be overridden by auto-select on reload.
+   * Only the absence of any record keeps the guard open, so a genuinely first
+   * open still auto-selects when there is exactly one point layer. Reset
+   * (clearSavedConfig) deletes the record and takes the manager back to the
+   * Python-declared state, so auto-select may fire again after that.
    */
   hasScanned: boolean;
   declare mapCleanup: () => void;
@@ -892,6 +895,12 @@ class HeatmapManager {
 
   /** Apply a loaded config object to the manager's state. */
   applySavedConfig(saved: SavedConfig) {
+    // A record existing at all means the user already spoke in a previous
+    // session (picked a layer, or explicitly cleared the selection). Consume
+    // the one-shot auto-select guard so reload does not undo that choice —
+    // without this, hasScanned stays false and the single-layer auto-select
+    // in buildLayerListItems re-fires after a manual clear survives reload.
+    this.hasScanned = true;
     if (saved.agg) this.currentAgg = saved.agg;
     if (saved.method) this.currentMethod = saved.method;
     if (saved.scheme) this.currentScheme = saved.scheme;
