@@ -64,5 +64,6 @@ repos:
         entry: node script/changelog-check.mjs --fix --skip-exists
         language: node
         language_version: "24"
+        additional_dependencies: []
         files: ^CHANGELOG\.md$
         pass_filenames: false
