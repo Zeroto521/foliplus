@@ -379,19 +379,24 @@ describe("PaneManager", () => {
   it("reset clears the pane cache", () => {
     const map = { getPane: vi.fn(), createPane: vi.fn() };
     const pm = new PaneManager(map);
-    pm.paneCache.set(1, ["a"]);
+    pm.discoverChildPanes({ options: { pane: "a" } } as unknown as L.Layer);
     pm.reset();
     expect(pm.paneCache.size).toBe(0);
   });
 
-  it("reset(id) invalidates only the matching cache entry", () => {
+  it("reset(id) keeps its signature and invalidates structure-wide", () => {
+    // The stamp argument is retained for the stamp-only callers and ignored on
+    // purpose: a repinned subtree can invalidate entries the caller holds no
+    // reference to, while over-invalidating costs one extra `forEachLayer`
+    // walk — never a wrong answer. The precise per-node delete lives in
+    // `pinTree`.
     const map = { getPane: vi.fn(), createPane: vi.fn() };
     const pm = new PaneManager(map);
-    pm.paneCache.set(1, ["a"]);
-    pm.paneCache.set(2, ["b"]);
-    pm.reset(1);
-    expect(pm.paneCache.has(1)).toBe(false);
-    expect(pm.paneCache.get(2)).toEqual(["b"]);
+    pm.discoverChildPanes({ options: { pane: "a" } } as unknown as L.Layer);
+    pm.discoverChildPanes({ options: { pane: "b" } } as unknown as L.Layer);
+    expect(pm.paneCache.size).toBe(2);
+    pm.reset(window.L.stamp({}));
+    expect(pm.paneCache.size).toBe(0);
   });
 
   it("discoverChildPanes answers nothing once past the depth cap", () => {
@@ -414,9 +419,22 @@ describe("PaneManager", () => {
     // Second call must hit the cache — the options change is ignored until reset
     layer.options.pane = "other_pane";
     expect(pm.discoverChildPanes(layer)).toEqual(["foliplus-measure-graph"]);
-    // After a targeted invalidation the new pane is observed
+    // After an invalidation the new pane is observed
     pm.reset(window.L.stamp(layer));
     expect(pm.discoverChildPanes(layer)).toEqual(["other_pane"]);
+  });
+
+  it("keeps the discovery cache bounded while layer churn continues", () => {
+    // `L.stamp` is never reused, so an uncapped cache would grow with every
+    // layer ever asked about and only shrink at teardown. The bound is the
+    // oldest-first eviction inside `discoverChildPanes`.
+    const map = { getPane: vi.fn(), createPane: vi.fn() };
+    const pm = new PaneManager(map);
+    const cap = CONST.CACHE.PANE_DISCOVERY_ENTRIES;
+    for (let i = 0; i < cap * 2; i++) {
+      pm.discoverChildPanes({ options: { pane: "custom" } } as unknown as L.Layer);
+    }
+    expect(pm.paneCache.size).toBe(cap);
   });
 
   describe("pinTree", () => {
@@ -605,7 +623,7 @@ describe("PaneManager", () => {
     const pane = document.createElement("div");
     const map = makeMap({ "foliplus-pane-1": pane });
     const pm = new PaneManager(map);
-    pm.paneCache.set(1, ["a"]);
+    pm.discoverChildPanes({ options: { pane: "a" } } as unknown as L.Layer);
     pm.registerPaneSpecs(specs("foliplus-measure-label"));
     pm.destroy();
     expect(pm.paneCache.size).toBe(0);

@@ -653,6 +653,29 @@ describe("LayerSurface.matches", () => {
     expect(bare.matches({ ...color, color: undefined })).toBe(true);
     expect(bare.matches(color)).toBe(false);
   });
+
+  it("treats a re-declared bounds provider as the same face", () => {
+    // Presence, not value, and not reference either: `capabilities.bounds` is
+    // derived from the provider's presence, and a caller hands a fresh arrow on
+    // every register, so reference equality would read "changed" on every pass
+    // and rebuild a face that does not need rebuilding. Same rule as `color`.
+    const { host } = makeMap();
+    const base = {
+      id: "heat",
+      layer: null,
+      paneName: CONST.CANVAS_PANE_PREFIX + "heat",
+      canvas: true,
+      getBounds: () => null,
+    };
+    const surface = new LayerSurface(host, base);
+    expect(surface.matches({ ...base, getBounds: () => null })).toBe(true);
+    expect(surface.matches({ ...base, getBounds: undefined })).toBe(false);
+    expect(surface.matches({ ...base, getBounds: null })).toBe(false);
+
+    const bare = new LayerSurface(host, { ...base, getBounds: undefined });
+    expect(bare.matches({ ...base, getBounds: undefined })).toBe(true);
+    expect(bare.matches(base)).toBe(false);
+  });
 });
 
 describe("LayerSurface.destroy", () => {
