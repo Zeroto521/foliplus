@@ -2,7 +2,7 @@
 // Sets up global mocks needed by module-level code (e.g. `const foliplus = window.foliplus`).
 // Use vi.fn() so tests can spy on calls even when module captures at import time.
 import { beforeEach, vi } from "vitest";
-import { installWindowLExtensions, resetState } from "./fixtures.js";
+import { installWindowLExtensions, resetState } from "./fixture.js";
 
 // Spec-compliant in-memory Web Storage fallback.
 // Node.js (24.19+, and newer 24.x used by CI) exposes an experimental global
@@ -129,7 +129,7 @@ window.L.Path.prototype.bringToFront = vi.fn();
 
 // Extend the base L stub with every constructor/factory production code
 // touches. Uses Object.assign so window.L identity stays stable (setup and
-// production code both see the same reference). See fixtures.ts.
+// production code both see the same reference). See fixture.ts.
 installWindowLExtensions();
 
 // Mock Jinja IIFE free variables
@@ -198,5 +198,5 @@ globalThis.turf = {
 // Global per-test isolation: clear localStorage and mock call history.
 // Deliberately does not touch document.body — a test file that mounts DOM
 // in `beforeAll` would have its container wiped before the first `it` runs.
-// See `mountFixtureRoot()` in fixtures.ts for a scoped alternative.
+// See `mountFixtureRoot()` in fixture.ts for a scoped alternative.
 beforeEach(resetState);

@@ -5,7 +5,7 @@
 // field landing in production code produces a loud test failure instead of
 // a silent crash a dozen tests downstream.
 import { describe, expect, it } from "vitest";
-import { makeLayerUIMock } from "./fixtures.js";
+import { makeLayerUIMock } from "./fixture.js";
 
 describe("window.L marker mock", () => {
   it("every marker instance exposes bindPopup (the T85 incident)", () => {

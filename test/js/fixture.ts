@@ -18,7 +18,7 @@
 // - `makeLayerUIMock(extra?)` — mirror of the `LayerUI` field set (see
 //   `foliplus/js/LayerControl/ui/index.ts` constructor + declared fields).
 //   Adding a new field to LayerUI means adding it here too; the completeness
-//   gate in `test/js/fixtures.test.ts` fails loudly if the two drift apart.
+//   gate in `test/js/fixture.test.ts` fails loudly if the two drift apart.
 import { vi } from "vitest";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 
