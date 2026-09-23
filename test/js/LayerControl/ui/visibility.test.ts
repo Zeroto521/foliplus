@@ -68,6 +68,10 @@ const fixture = () => {
     removeLayer: vi.fn((layer: unknown) => {
       map._layers.delete(layer);
     }),
+    // Read by `inZoomRange` only when a layer carries a stored zoom range.
+    getZoom: vi.fn(() => 5),
+    getMinZoom: vi.fn(() => 0),
+    getMaxZoom: vi.fn(() => 18),
     _paneRenderers: {},
     attributionControl: { _attributions: {}, _update: vi.fn() },
   } as FixtureMap & Record<string, unknown>;
@@ -196,6 +200,42 @@ describe("applyVisibility", () => {
     ).toBe(true);
     seeded.ui = null;
     seeded.destroy();
+  });
+
+  it("checking a layer outside its stored zoom range does not put it on the map", () => {
+    // Behavior tightening over the old sweep. Checking the box records
+    // `intent`; a stored zoom range that excludes the current zoom is a
+    // policy suppression. `effectiveShown = intent && policy` is false, so
+    // the executor writes nothing and the layer stays off the map until the
+    // zoom re-enters the range. The old path applied `visible: true`
+    // straight to map membership — added first, retracted on the next sweep.
+    // Under §40.5 a derived dimension may only suppress, never authorise.
+    (map.getZoom as ReturnType<typeof vi.fn>).mockReturnValue(2);
+    const layer = manager.layerRegistry.get("overlay1")!.layer as L.Layer;
+
+    // The user hides the layer: it leaves the map and the intent is recorded.
+    expect(applyVisibility(ui, "overlay1", false)).toBe(true);
+    expect(map.hasLayer(layer)).toBe(false);
+
+    // The user stores a zoom range that excludes the current zoom (2), then
+    // checks the box again.
+    ui.zoomRangeMap.overlay1 = [3, 12];
+    ui.userOverrides.overlay1 = ["zoomRange"];
+    (map.addLayer as ReturnType<typeof vi.fn>).mockClear();
+
+    expect(applyVisibility(ui, "overlay1", true)).toBe(true);
+
+    // Intent is recorded: the box is checked and the layer is no longer hidden.
+    expect(ui.hiddenIds.has("overlay1")).toBe(false);
+    expect(
+      ui.uiContainer.querySelector(
+        `[${CONST.DATA.LAYER_ID}="overlay1"] input[type="checkbox"]`,
+      )?.checked,
+    ).toBe(true);
+    // ...but policy suppresses the display: no map write at all.
+    expect(map.addLayer).not.toHaveBeenCalled();
+    expect(map.hasLayer(layer)).toBe(false);
+    expect(manager.layerRegistry.get("overlay1")?.visible).toBe(false);
   });
 
   it("fires the callback instead of touching the map for a canvas-only layer", () => {
