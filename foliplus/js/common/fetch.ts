@@ -40,8 +40,9 @@ interface FetchOptions extends RequestInit {
  * Wrap a fetch with an automatic timeout and HTTP cache headers.
  *
  * Signal composition: if a `signal` is provided it is merged with a timeout
- * signal via `AbortSignal.any` when available, otherwise falls back to an
- * AbortController + setTimeout that fires on either abort.
+ * via an AbortController + setTimeout that fires on either abort. The composed
+ * signal is disposed (clearTimeout + removeEventListener) once the fetch
+ * settles, so neither resource leaks after a normal resolve.
  */
 const fetchWithTimeout = (
   url: RequestInfo | URL,
@@ -52,50 +53,52 @@ const fetchWithTimeout = (
     ...(opts.headers || {}),
   };
 
-  const abortSignal = timeoutMs > 0 ? composeSignal(signal, timeoutMs) : signal;
+  const composed =
+    timeoutMs > 0 ? composeSignal(signal, timeoutMs) : { signal, dispose: () => {} };
 
   return fetch(url, {
     ...opts,
-    signal: abortSignal,
+    signal: composed.signal,
     headers: headersInit,
     cache: "force-cache",
-  });
+  }).finally(() => composed.dispose());
 };
 
 /**
  * Compose a caller-provided signal with a timeout. The earlier abort wins.
- * Uses `AbortSignal.any` when available, otherwise falls back to an
- * AbortController + setTimeout that fires on either abort.
+ * Returns `{ signal, dispose }` — `dispose` clears the timeout handle and
+ * removes the parent's abort listener. The caller must invoke `dispose` once
+ * the fetch settles to prevent both resources from leaking.
  */
 const composeSignal = (
   parentSignal: AbortSignal | undefined,
   timeoutMs: number,
-): AbortSignal => {
+): { signal: AbortSignal; dispose: () => void } => {
   // If the parent signal is already aborted, pass it through directly
   // so fetch sees the abort immediately (event listeners cannot fire retroactively).
-  if (parentSignal?.aborted) return parentSignal;
+  if (parentSignal?.aborted) return { signal: parentSignal, dispose: () => {} };
 
   const controller = new AbortController();
 
   const onTimeout = () => {
-    cleanup();
+    dispose();
     controller.abort();
   };
   const onParentAbort = () => {
-    cleanup();
+    dispose();
     controller.abort(parentSignal?.reason);
   };
 
   const timeoutHandle = setTimeout(onTimeout, timeoutMs);
 
-  const cleanup = () => {
+  const dispose = () => {
     clearTimeout(timeoutHandle);
     parentSignal?.removeEventListener("abort", onParentAbort);
   };
 
   parentSignal?.addEventListener("abort", onParentAbort);
 
-  return controller.signal;
+  return { signal: controller.signal, dispose };
 };
 
 export { fetchWithTimeout, DEFAULT_TIMEOUT_MS as GEODECODE_TIMEOUT_MS };
