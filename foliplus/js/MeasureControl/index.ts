@@ -48,7 +48,7 @@ class MeasureControl extends BaseControl {
       // its click is bound via the interaction manager (see manager.ts).
       { title: T("tool_export"), svg: Icons.DOWNLOAD },
       { mode: CONST.MODE.EDIT, title: T("tool_edit"), svg: Icons.EDIT },
-      { mode: CONST.MODE.CLEAR, title: T("tool_clear"), svg: SVGs.TRASH },
+      { mode: CONST.MODE.CLEAR, title: T("tool_clear"), svg: Icons.DELETE },
     ];
     let exportBtn: HTMLElement | null = null;
     btnConfigs.forEach(({ mode, title, svg }) => {
