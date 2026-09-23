@@ -158,4 +158,63 @@ describe("fetchWithTimeout", () => {
       }),
     );
   });
+
+  // --- settle cleanup (gate 1: must be RED before the fix) -----------------
+
+  it("clears the timeout timer and removes the parent abort listener after a normal resolve", async () => {
+    vi.useFakeTimers();
+    const ac = new AbortController();
+    const addSpy = vi.spyOn(ac.signal, "addEventListener");
+    const removeSpy = vi.spyOn(ac.signal, "removeEventListener");
+
+    (globalThis.fetch as any).mockResolvedValue(jsonResponse({ ok: true }));
+
+    await fetchWithTimeout("https://example.com/api", {
+      signal: ac.signal,
+      timeoutMs: 10_000,
+    });
+
+    // The 10s setTimeout must be cleared so it cannot fire after the fetch
+    // already settled. Before the fix, cleanup() only ran inside the two
+    // abort callbacks, so on a normal resolve the handle stayed pending.
+    expect(vi.getTimerCount()).toBe(0);
+
+    // The parent's "abort" listener must be removed so the parent signal is
+    // not kept alive by our (now-stale) listener.
+    const addedAbort = addSpy.mock.calls.filter(c => c[0] === "abort");
+    expect(addedAbort).toHaveLength(1);
+    expect(removeSpy).toHaveBeenCalledWith("abort", addedAbort[0][1]);
+  });
+
+  // --- protection gates (must stay GREEN after the fix) --------------------
+
+  it("propagates the parent signal's reason on parent-abort", async () => {
+    vi.useFakeTimers();
+    // Unlike `pendingFetch` above, this mock rejects with the composed
+    // signal's own reason rather than a hard-coded DOMException, so the
+    // assertion below actually verifies parent-reason propagation.
+    const reasonFetch = vi.fn((_input: RequestInfo | URL, opts: RequestInit) => {
+      return new Promise<Response>((resolve, reject) => {
+        if (opts.signal?.aborted) {
+          reject(opts.signal.reason);
+          return;
+        }
+        opts.signal?.addEventListener("abort", () => {
+          reject(opts.signal.reason);
+        });
+        void resolve;
+      });
+    });
+    (globalThis.fetch as any).mockImplementation(reasonFetch);
+
+    const ac = new AbortController();
+    const parentReason = new DOMException("user cancel", "AbortError");
+    const promise = fetchWithTimeout("https://example.com/api", {
+      signal: ac.signal,
+      timeoutMs: 10_000,
+    });
+    ac.abort(parentReason);
+
+    await expect(promise).rejects.toBe(parentReason);
+  });
 });
