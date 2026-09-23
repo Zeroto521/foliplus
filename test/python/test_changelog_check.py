@@ -793,7 +793,9 @@ class TestMain:
         with patch.object(
             mod.urllib.request, "urlopen", _mock_urlopen({"1": 200}, calls)
         ):
-            with patch.object(sys, "argv", ["changelog_check.py", "--path", str(changelog)]):
+            with patch.object(
+                sys, "argv", ["changelog_check.py", "--path", str(changelog)]
+            ):
                 with patch.object(mod.sys, "exit") as mock_exit:
                     mod.main()
         assert mock_exit.call_count == 0
@@ -801,7 +803,9 @@ class TestMain:
         assert "OK" in out
         assert calls == ["https://api.github.com/repos/Zeroto521/foliplus/issues/1"]
 
-    def test_check_mode_existence_check_404_violation(self, tmp_path, capsys, monkeypatch):
+    def test_check_mode_existence_check_404_violation(
+        self, tmp_path, capsys, monkeypatch
+    ):
         """404 from GitHub API is reported as a violation."""
         changelog = tmp_path / "CHANGELOG.md"
         changelog.write_text(
@@ -813,7 +817,9 @@ class TestMain:
         with patch.object(
             mod.urllib.request, "urlopen", _mock_urlopen({"99999": 404}, [])
         ):
-            with patch.object(sys, "argv", ["changelog_check.py", "--path", str(changelog)]):
+            with patch.object(
+                sys, "argv", ["changelog_check.py", "--path", str(changelog)]
+            ):
                 with patch.object(mod.sys, "exit") as mock_exit:
                     mod.main()
         mock_exit.assert_called_once_with(1)
@@ -821,7 +827,9 @@ class TestMain:
         assert "FAIL" in out
         assert "#99999" in out
 
-    def test_check_mode_existence_check_403_soft_error(self, tmp_path, capsys, monkeypatch):
+    def test_check_mode_existence_check_403_soft_error(
+        self, tmp_path, capsys, monkeypatch
+    ):
         """403 rate limit is a soft error, not a violation."""
         changelog = tmp_path / "CHANGELOG.md"
         changelog.write_text(
@@ -830,10 +838,10 @@ class TestMain:
         )
         monkeypatch.setenv("GITHUB_REPOSITORY", "Zeroto521/foliplus")
         monkeypatch.setenv("GITHUB_TOKEN", "tok")
-        with patch.object(
-            mod.urllib.request, "urlopen", _mock_urlopen({"1": 403}, [])
-        ):
-            with patch.object(sys, "argv", ["changelog_check.py", "--path", str(changelog)]):
+        with patch.object(mod.urllib.request, "urlopen", _mock_urlopen({"1": 403}, [])):
+            with patch.object(
+                sys, "argv", ["changelog_check.py", "--path", str(changelog)]
+            ):
                 with patch.object(mod.sys, "exit") as mock_exit:
                     mod.main()
         assert mock_exit.call_count == 0
@@ -852,7 +860,9 @@ class TestMain:
         monkeypatch.delenv("GITHUB_REPOSITORY", raising=False)
         monkeypatch.delenv("GITHUB_TOKEN", raising=False)
         with patch.object(
-            sys, "argv", ["changelog_check.py", "--skip-exists", "--path", str(changelog)]
+            sys,
+            "argv",
+            ["changelog_check.py", "--skip-exists", "--path", str(changelog)],
         ):
             with patch.object(mod.sys, "exit") as mock_exit:
                 mod.main()
