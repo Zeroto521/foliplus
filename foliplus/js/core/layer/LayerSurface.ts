@@ -63,6 +63,9 @@ interface SurfaceOpts {
   paneSpecs?: readonly PaneSpec[];
   /** True for a `createCanvas` surface: its pane carries a canvas, not SVG. */
   canvas?: boolean;
+  /** The fill of a solid-color basemap. Its presence decides the surface's
+   *  shape, not its value — see `SurfaceDeclaration.color`. */
+  color?: string | null;
   /** Bounds provider the caller declared (canvas surfaces). Drives the
    *  `capabilities.bounds` answer — a canvas without a provider has no
    *  honest carrier for focus, so the UI disables the action rather than
@@ -95,6 +98,11 @@ interface SurfaceDeclaration {
   layer: L.Layer | null;
   paneName: string | null;
   canvas: boolean;
+  /** Whether the declaration names a color fill. Presence, not value: a color
+   *  that changes is a repaint, not a rebuild, so the value stays out of the
+   *  declaration — but a layer that stops being a color surface does describe
+   *  a different face and must be rebuilt. */
+  color: boolean;
   /** Bounds provider the caller declared. Part of the declaration because
    *  `capabilities.bounds` is derived from it — a surface reused across a
    *  re-registration that gained or lost a provider would otherwise keep
@@ -150,6 +158,7 @@ class LayerSurface implements LayerSurfaceContract {
       layer,
       paneName: declared,
       canvas: opts.canvas === true,
+      color: opts.color != null,
       getBounds: opts.getBounds ?? null,
     };
     // Capabilities are resolved here, before any early return below, so every
@@ -177,6 +186,15 @@ class LayerSurface implements LayerSurfaceContract {
       return;
     }
 
+    // Reverse edge, and it is deliberate: discovery lives on the map-level
+    // host, not here, because its cache cannot be invalidated from a surface.
+    // `discoverChildPanes` memoises by `L.stamp(layer)` in `host.paneCache`,
+    // and the invalidators are `pinTree` / `reset` — both called by
+    // `LayerFactory` and `pinLateContent` for *any* node they happen to pin,
+    // including descendants of this layer that this surface never sees. A
+    // per-surface cache would have no hook for "someone repinned one of my
+    // children", so it would serve stale pane names after a subtree re-pin.
+    // The map is the only scope both writers and readers agree on.
     const childPanes = host.discoverChildPanes(layer);
     for (const name of childPanes) {
       // A pane registered through `createLayers({ panes })` already has a
@@ -351,6 +369,7 @@ class LayerSurface implements LayerSurfaceContract {
       this.spec.layer === opts.layer &&
       this.spec.paneName === declaredPaneName(opts.paneName) &&
       this.spec.canvas === Boolean(opts.canvas) &&
+      this.spec.color === (opts.color != null) &&
       this.spec.getBounds === (opts.getBounds ?? null) &&
       samePanes
     );
@@ -494,6 +513,21 @@ const usesNativeSetter = (layer: L.Layer): boolean =>
  *      `getBounds` provider; a bare canvas has no idea what it covers. */
 const detectCapabilities = (opts: SurfaceOpts): LayerCapabilities => {
   const layer = opts.layer;
+
+  if (opts.color != null) {
+    // A solid-color basemap owns one pane of its own, so a CSS write on that
+    // pane is the only honest opacity carrier (§19). It carries no geographic
+    // extent, so the UI disables focus rather than offering a click that is a
+    // silent no-op. And it deliberately has no zoom range: it is the fallback
+    // color, the one thing that is always available, so a range would only add
+    // another "no basemap" path for no expressive gain (§19.1).
+    return {
+      opacity: "pane",
+      zoomRange: "none",
+      relocatable: true,
+      bounds: false,
+    };
+  }
 
   if (layer && isMarkerCluster(layer)) {
     return { opacity: "none", zoomRange: "none", relocatable: false, bounds: false };

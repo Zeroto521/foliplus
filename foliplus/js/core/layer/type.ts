@@ -74,6 +74,9 @@ interface RegisterLayerOpts {
   /** Layer opacity in [0, 1]. Defaults to 1 (fully opaque). */
   opacity?: number;
   canvas?: HTMLCanvasElement | null;
+  /** The fill a solid-color basemap paints into its own pane. The pane element
+   *  is the face, so the value — not an element — is what travels here. */
+  color?: string | null;
   onToggle?: ((visible: boolean) => void) | null;
   /** Third-party feature count provider (Canvas layers require this; FeatureGroup
    *  layers use the built-in fallback via forEachLeaf). Null means 'don't render'. */
@@ -116,6 +119,8 @@ interface LayerInfo {
   /** Canvas element registered via createCanvas (e.g. HeatmapControl).
    *  ExportControl renders these as standalone canvases with lifecycle hooks. */
   canvas?: HTMLCanvasElement | null;
+  /** The fill a solid-color basemap paints into its own pane. */
+  color?: string | null;
   isLabel?: boolean;
   /** Visibility callback fired by LayerControl toggle (e.g. heatmap show/hide). */
   onToggle?: ((visible: boolean) => void) | null;
@@ -363,6 +368,13 @@ type SurfaceContentOpts =
       source?: string | null;
       updatedAt?: string | number | null;
       meta?: Record<string, string | number> | null;
+    }
+  | {
+      /** A solid-color basemap: no Leaflet layer and no canvas, just a flat
+       *  fill written onto the pane the surface owns. Anything the CSS
+       *  `background` shorthand accepts. */
+      kind: "color";
+      color: string;
     };
 
 /** Options for `LayerFactory.createSurface`. */
@@ -394,6 +406,20 @@ type SurfaceContentHandle =
       getSize: () => { width: number; height: number };
       updatePosition: () => void;
       setVisible: (v: boolean) => void;
+    }
+  | {
+      /** The pane that carries the fill. Unlike a canvas there is no child
+       *  element — the pane itself is the face, so a single style write on it
+       *  is the whole content model. */
+      element: HTMLElement;
+      kind: "color";
+      /** The fill currently written onto `element`. */
+      color: string;
+      setColor: (color: string) => void;
+      /** Show or hide the color basemap. Hiding restores the tile panes:
+       *  the color surface is the only thing that may hide them, and it does
+       *  so here rather than in a shared global class (§22-4). */
+      setVisible: (v: boolean) => void;
     };
 
 /** Return type of `LayerFactory.createSurface`. Discriminated union:
@@ -409,6 +435,14 @@ type SurfaceHandle =
     }
   | {
       content: Extract<SurfaceContentHandle, { kind: "canvas" }>;
+      register: () => void;
+      unregister: () => void;
+      registered: () => boolean;
+      bringToFront: () => void;
+      destroy: () => void;
+    }
+  | {
+      content: Extract<SurfaceContentHandle, { kind: "color" }>;
       register: () => void;
       unregister: () => void;
       registered: () => boolean;

@@ -4819,6 +4819,166 @@ class TestLayerControlBrowser:
             )
             assert not errors, f"JS errors: {errors}"
 
+    def test_zoom_range_zoomend_does_not_add_author_hidden_layer(
+        self, browser, tmp_path
+    ):
+        """Gate 1: a folium ``show=False`` layer stays off the map through a
+        zoomend sweep.
+
+        The regression: the sweep's ``applyLayerState({visible: true})``
+        unconditionally added a layer the author left off the map, while the
+        checkbox stayed unchecked. The one-way gate must leave it alone.
+        """
+        fg = folium.FeatureGroup(name="ZROffProbe", overlay=True, show=False)
+        with use_page(self._make_page, browser, tmp_path, fg, slug="zr_off") as (
+            page,
+            errors,
+        ):
+            panel_ready(page)
+            # Get the layer's actual id (folium generates one).
+            actual_id = page.evaluate("""
+                () => {
+                    const el = document.querySelector('.leaflet-container');
+                    const map = (el && window[el.id]) || window.map;
+                    const api = map.foliplus && map.foliplus.LayerAPI;
+                    if (!api || !api.layers) return null;
+                    const layer = api.layers.find(l => l.name === 'ZROffProbe');
+                    return layer ? layer.id : null;
+                }
+            """)
+            if not actual_id:
+                raise AssertionError("ZROffProbe layer not found in registry")
+            # Re-set probe with the actual id.
+            page.evaluate("window.__probe = " + json.dumps({"id": actual_id}))
+            result = page.evaluate(_js("LayerControl/show_false_zoom_stays_off"))
+            assert result is not None, result
+            assert result.get("error") is None, f"setup failed: {result}"
+            # folium 0.14 adds every layer regardless of show=False, so
+            # beforeOnMap may be true on that version. The invariant is that
+            # the sweep doesn't change the layer's map membership.
+            assert result["stateUnchanged"] is True, (
+                f"layer map membership changed during zoom sweep: {result}"
+            )
+            assert result["rowConsistent"] is True, (
+                f"row checkbox state drifted during the sweep: {result}"
+            )
+            assert not errors, f"JS errors: {errors}"
+
+    def test_zoom_range_reload_does_not_add_author_hidden_layer(
+        self, browser, tmp_path
+    ):
+        """Gate 2: a ``show=False`` layer with a stored zoomRange does not
+        come back on the map after reload.
+
+        The load path runs ``applyZoomRangeStateOne`` for every layer with
+        a stored zoomRange. A zoomRangeMap entry alone is not authorisation
+        to re-add a layer the author left off the map — only ``applyUserState``'s
+        unhide branch (a visible override present) is.
+        """
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12, tiles=None)
+        LayerControl().add_to(m)
+        folium.TileLayer(
+            "https://a.tile.openstreetmap.org/{z}/{x}/{y}.png",
+            name="Light Canvas",
+            attr="© OpenStreetMap",
+            max_zoom=19,
+        ).add_to(m)
+        folium.FeatureGroup(name="ZROffReload", overlay=True, show=False).add_to(m)
+        _expand_panel(m)
+
+        html_path = tmp_path / "test_zr_off_reload.html"
+        _write_html(m, html_path)
+
+        with use_raw_page(browser.new_page) as page:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=10000
+            )
+            page.wait_for_timeout(500)
+
+            # Inject a zoomRange override into localStorage for the show=False
+            # layer, simulating a user who previously set a zoom range for it.
+            # On reload, applyUserState will restore this entry and run
+            # applyZoomRangeStateOne — which must NOT add the layer to the map.
+            page.evaluate("""
+                () => {
+                    const el = document.querySelector('.leaflet-container');
+                    const map = (el && window[el.id]) || window.map;
+                    const api = map.foliplus && map.foliplus.LayerAPI;
+                    const layer = api.layers.find(l => l.name === 'ZROffReload');
+                    const id = layer ? layer.id : null;
+                    if (!id) throw new Error('ZROffReload not found in registry');
+                    const key = 'foliplus_layer_state_' + el.id;
+                    const record = JSON.parse(localStorage.getItem(key) || '{}');
+                    record.version = 1;
+                    record.order = record.order || null;
+                    record.foldedGroups = record.foldedGroups || [];
+                    record.renamedNames = record.renamedNames || {};
+                    record.annotations = record.annotations || {};
+                    record.layers = record.layers || {};
+                    record.layers[id] = {
+                        zoomRange: [3, 12],
+                        overrides: ['zoomRange'],
+                    };
+                    localStorage.setItem(key, JSON.stringify(record));
+                    return id;
+                }
+            """)
+            # Capture the layer's map membership before reload.
+            before = page.evaluate("""
+                () => {
+                    const el = document.querySelector('.leaflet-container');
+                    const map = (el && window[el.id]) || window.map;
+                    if (!map) return null;
+                    const api = map.foliplus && map.foliplus.LayerAPI;
+                    if (!api) return null;
+                    const layer = api.layers.find(l => l.name === 'ZROffReload');
+                    if (!layer) return null;
+                    const leafletLayer = api.findLayer(layer.id);
+                    if (!leafletLayer) return null;
+                    return map.hasLayer(leafletLayer);
+                }
+            """)
+            page.reload(wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=10000
+            )
+            page.wait_for_timeout(500)
+
+            # Read the layer's state after reload.
+            result = page.evaluate("""
+                () => {
+                    const el = document.querySelector('.leaflet-container');
+                    const map = (el && window[el.id]) || window.map;
+                    if (!map) return { error: 'map not found' };
+                    const api = map.foliplus && map.foliplus.LayerAPI;
+                    if (!api) return { error: 'LayerAPI not found' };
+                    const layer = api.layers.find(l => l.name === 'ZROffReload');
+                    if (!layer) return { error: 'ZROffReload not in registry' };
+                    const leafletLayer = api.findLayer(layer.id);
+                    if (!leafletLayer) return { error: 'no Leaflet layer' };
+                    return {
+                        onMap: map.hasLayer(leafletLayer),
+                    };
+                }
+            """)
+            assert result is not None, "evaluation returned None"
+            assert result.get("error") is None, f"setup failed: {result}"
+            # folium 0.14 adds every layer regardless of show=False, so on
+            # that version the layer may be on the map both before and after
+            # reload. The invariant is that applyZoomRangeStateOne doesn't
+            # ADD a layer the author left off — if folium already placed it,
+            # the layer's state simply persists across reload.
+            assert result["onMap"] == before, (
+                f"layer map membership changed across reload: before={before}, after={result['onMap']}"
+            )
+
     # ── Row lookup by data-layer-id, not by registry / DOM position ──
     #
     # Each of these three scrambles the registry or the panel so the two
