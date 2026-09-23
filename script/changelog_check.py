@@ -51,9 +51,9 @@ PR_LINK_RE = re.compile(r"\[#(\d+)\]\(([^)]+)\)")
 @dataclass
 class Entry:
     line_no: int
-    version: Optional[str]
-    section: Optional[str]
-    first_num: Optional[int]
+    version: str | None
+    section: str | None
+    first_num: int | None
     nums: list[int]
 
 
@@ -154,7 +154,7 @@ def check_ordering(entries: list[Entry]) -> list[dict]:
 
 def check_existence(
     entries: list[Entry], owner: str, repo: str, token: str
-) -> tuple[list[dict], Optional[str]]:
+) -> tuple[list[dict], str | None]:
     """Check that each referenced #NNN exists as a real PR or issue."""
     nums = sorted({n for e in entries for n in e.nums})
     by_num: dict[int, int] = {}
@@ -281,7 +281,7 @@ def same_line_multiset(a: Counter, b: Counter) -> bool:
     return a == b
 
 
-def fix_file(text: str) -> tuple[str, bool, Optional[str]]:
+def fix_file(text: str) -> tuple[str, bool, str | None]:
     """Fix the file: within-line label sort + between-block stable sort.
 
     Returns (new_text, changed, error). If error is non-None, the
@@ -301,9 +301,7 @@ def fix_file(text: str) -> tuple[str, bool, Optional[str]]:
     for s in range(len(subsection_headers) - 1, -1, -1):
         header_idx = subsection_headers[s]
         next_header_idx = (
-            subsection_headers[s + 1]
-            if s + 1 < len(subsection_headers)
-            else len(lines)
+            subsection_headers[s + 1] if s + 1 < len(subsection_headers) else len(lines)
         )
 
         # Find the block range
@@ -360,7 +358,9 @@ def fix_file(text: str) -> tuple[str, bool, Optional[str]]:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="CHANGELOG.md sort-order and existence check")
+    parser = argparse.ArgumentParser(
+        description="CHANGELOG.md sort-order and existence check"
+    )
     parser.add_argument("--path", default=DEFAULT_PATH, help="Path to CHANGELOG.md")
     parser.add_argument("--fix", action="store_true", help="Fix mode: rewrite the file")
     parser.add_argument(
@@ -369,7 +369,7 @@ def main():
     args = parser.parse_args()
 
     try:
-        with open(args.path, "r", encoding="utf-8") as f:
+        with open(args.path, encoding="utf-8") as f:
             text = f.read()
     except Exception as e:
         print(f"[changelog-order] cannot read {args.path}: {e}", file=sys.stderr)
@@ -412,7 +412,11 @@ def main():
         for v in exist_violations:
             print(f"  {args.path}:{v['line_no']} {v['message']}")
     else:
-        why = "--skip-exists" if args.skip_exists else "no GITHUB_TOKEN + GITHUB_REPOSITORY"
+        why = (
+            "--skip-exists"
+            if args.skip_exists
+            else "no GITHUB_TOKEN + GITHUB_REPOSITORY"
+        )
         print(f"  existence-check: skipped ({why})")
 
     for w in warnings:

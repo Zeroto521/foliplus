@@ -46,11 +46,21 @@ sys.modules["changelog_check"] = mod  # so coverage.py can track it
 
 def fixture(*lines: str) -> str:
     """Minimal CHANGELOG fragment isolating one rule at a time."""
-    return "\n".join(["# Changelog", "", "## [Unreleased]", "", "### Added", "", *lines, ""])
+    return "\n".join(
+        ["# Changelog", "", "## [Unreleased]", "", "### Added", "", *lines, ""]
+    )
 
 
-def _make_entry(line_no: int, version: str, section: str, first_num: int | None, nums: list[int]) -> mod.Entry:
-    return mod.Entry(line_no=line_no, version=version, section=section, first_num=first_num, nums=nums)
+def _make_entry(
+    line_no: int, version: str, section: str, first_num: int | None, nums: list[int]
+) -> mod.Entry:
+    return mod.Entry(
+        line_no=line_no,
+        version=version,
+        section=section,
+        first_num=first_num,
+        nums=nums,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -93,7 +103,9 @@ class TestCheckOrderingWithinLine:
         assert "non-decreasing" in v[0]["message"]
 
     def test_mid_list_inversion(self):
-        t = fixture("- a ([#1](x/pull/1), [#5](x/pull/5), [#3](x/pull/3), [#9](x/pull/9))")
+        t = fixture(
+            "- a ([#1](x/pull/1), [#5](x/pull/5), [#3](x/pull/3), [#9](x/pull/9))"
+        )
         v = mod.check_ordering(mod.parse_entries(t))
         assert len(v) == 1
         assert "[1, 5, 3, 9]" in v[0]["message"]
@@ -106,7 +118,9 @@ class TestCheckOrderingWithinLine:
 
 class TestCheckOrderingBetweenEntry:
     def test_strictly_ascending_first_numbers(self):
-        t = fixture("- a ([#1](x/pull/1))", "- b ([#2](x/pull/2))", "- c ([#3](x/pull/3))")
+        t = fixture(
+            "- a ([#1](x/pull/1))", "- b ([#2](x/pull/2))", "- c ([#3](x/pull/3))"
+        )
         assert mod.check_ordering(mod.parse_entries(t)) == []
 
     def test_ties_on_first_number_ok(self):
@@ -213,7 +227,9 @@ class TestCollectLabelUrlWarnings:
 class TestSortLinePairs:
     def test_descending_to_ascending(self):
         line = "- a ([#425](x/pull/425), [#423](x/pull/423))"
-        assert mod.sort_line_pairs(line) == "- a ([#423](x/pull/423), [#425](x/pull/425))"
+        assert (
+            mod.sort_line_pairs(line) == "- a ([#423](x/pull/423), [#425](x/pull/425))"
+        )
 
     def test_noop_already_sorted(self):
         line = "- a ([#1](x/pull/1), [#2](x/pull/2), [#3](x/pull/3))"
@@ -230,7 +246,9 @@ class TestSortLinePairs:
     def test_preserves_surrounding_text(self):
         line = "- `Foo`: text ([#200](x/pull/200), [#100](x/pull/100)) trailing"
         result = mod.sort_line_pairs(line)
-        assert result == "- `Foo`: text ([#100](x/pull/100), [#200](x/pull/200)) trailing"
+        assert (
+            result == "- `Foo`: text ([#100](x/pull/100), [#200](x/pull/200)) trailing"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -374,9 +392,13 @@ class TestFixFile:
         # Char multiset is the same — this is why char multiset is insufficient.
         assert Counter(original) == Counter(bad_fixer)
         # But normalized line multiset differs — the guard catches this.
-        assert mod.same_line_multiset(
-            mod.normalized_line_multiset(original), mod.normalized_line_multiset(bad_fixer)
-        ) is False
+        assert (
+            mod.same_line_multiset(
+                mod.normalized_line_multiset(original),
+                mod.normalized_line_multiset(bad_fixer),
+            )
+            is False
+        )
 
     def test_guard_passes_correct_fixer(self):
         original = "\n".join(
@@ -405,9 +427,13 @@ class TestFixFile:
                 "",
             ]
         )
-        assert mod.same_line_multiset(
-            mod.normalized_line_multiset(original), mod.normalized_line_multiset(correct_fixer)
-        ) is True
+        assert (
+            mod.same_line_multiset(
+                mod.normalized_line_multiset(original),
+                mod.normalized_line_multiset(correct_fixer),
+            )
+            is True
+        )
 
     def test_sub_bullets_move_with_parent(self):
         t = "\n".join(
@@ -530,17 +556,25 @@ def _mock_urlopen(statuses: dict[str, int], calls: list[str]):
 class TestCheckExistence:
     def test_404_flagged(self):
         entries = mod.parse_entries(fixture("- a ([#99999](x/pull/99999))"))
-        with patch.object(mod.urllib.request, "urlopen", _mock_urlopen({"99999": 404}, [])):
-            violations, error = mod.check_existence(entries, "Zeroto521", "foliplus", "tok")
+        with patch.object(
+            mod.urllib.request, "urlopen", _mock_urlopen({"99999": 404}, [])
+        ):
+            violations, error = mod.check_existence(
+                entries, "Zeroto521", "foliplus", "tok"
+            )
         assert error is None
         assert len(violations) == 1
         assert "#99999" in violations[0]["message"]
         assert "Zeroto521/foliplus" in violations[0]["message"]
 
     def test_200_all_pass(self):
-        entries = mod.parse_entries(fixture("- a ([#1](x/pull/1), [#2](x/pull/2), [#3](x/pull/3))"))
+        entries = mod.parse_entries(
+            fixture("- a ([#1](x/pull/1), [#2](x/pull/2), [#3](x/pull/3))")
+        )
         with patch.object(mod.urllib.request, "urlopen", _mock_urlopen({}, [])):
-            violations, error = mod.check_existence(entries, "Zeroto521", "foliplus", "tok")
+            violations, error = mod.check_existence(
+                entries, "Zeroto521", "foliplus", "tok"
+            )
         assert error is None
         assert violations == []
 
@@ -612,7 +646,11 @@ class TestRealChangelog:
         ]
         for version, section, first_num, expected in expected_ties:
             actual = sum(
-                1 for e in self.ENTRIES if e.version == version and e.section == section and e.first_num == first_num
+                1
+                for e in self.ENTRIES
+                if e.version == version
+                and e.section == section
+                and e.first_num == first_num
             )
             assert actual == expected, f"{version}/{section} first #{first_num}"
 
@@ -633,7 +671,9 @@ class TestMain:
             "- b ([#50](x/pull/50))\n\n",
             encoding="utf-8",
         )
-        with patch.object(sys, "argv", ["changelog_check.py", "--fix", "--path", str(changelog)]):
+        with patch.object(
+            sys, "argv", ["changelog_check.py", "--fix", "--path", str(changelog)]
+        ):
             with patch.object(mod.sys, "exit") as mock_exit:
                 mod.main()
         # Exit code 0 (no exit called means success)
@@ -651,7 +691,9 @@ class TestMain:
             "- a ([#1](x/pull/1))\n- b ([#2](x/pull/2))\n\n",
             encoding="utf-8",
         )
-        with patch.object(sys, "argv", ["changelog_check.py", "--fix", "--path", str(changelog)]):
+        with patch.object(
+            sys, "argv", ["changelog_check.py", "--fix", "--path", str(changelog)]
+        ):
             with patch.object(mod.sys, "exit") as mock_exit:
                 mod.main()
         assert mock_exit.call_count == 0
@@ -671,7 +713,9 @@ class TestMain:
             return text, True, "line-level multiset invariant violated"
 
         with patch.object(mod, "fix_file", _fake_fix):
-            with patch.object(sys, "argv", ["changelog_check.py", "--fix", "--path", str(changelog)]):
+            with patch.object(
+                sys, "argv", ["changelog_check.py", "--fix", "--path", str(changelog)]
+            ):
                 with patch.object(mod.sys, "exit") as mock_exit:
                     mod.main()
         mock_exit.assert_called_once_with(1)
@@ -685,7 +729,11 @@ class TestMain:
             "- a ([#1](x/pull/1))\n- b ([#2](x/pull/2))\n\n",
             encoding="utf-8",
         )
-        with patch.object(sys, "argv", ["changelog_check.py", "--skip-exists", "--path", str(changelog)]):
+        with patch.object(
+            sys,
+            "argv",
+            ["changelog_check.py", "--skip-exists", "--path", str(changelog)],
+        ):
             with patch.object(mod.sys, "exit") as mock_exit:
                 mod.main()
         assert mock_exit.call_count == 0
@@ -701,23 +749,30 @@ class TestMain:
             "- b ([#50](x/pull/50))\n\n",
             encoding="utf-8",
         )
-        with patch.object(sys, "argv", ["changelog_check.py", "--skip-exists", "--path", str(changelog)]):
+        with patch.object(
+            sys,
+            "argv",
+            ["changelog_check.py", "--skip-exists", "--path", str(changelog)],
+        ):
             with patch.object(mod.sys, "exit") as mock_exit:
                 mod.main()
         mock_exit.assert_called_once_with(1)
         out = capsys.readouterr().out
         assert "FAIL" in out
 
-    def test_check_mode_existence_check_skipped_no_token(self, tmp_path, capsys, monkeypatch):
+    def test_check_mode_existence_check_skipped_no_token(
+        self, tmp_path, capsys, monkeypatch
+    ):
         changelog = tmp_path / "CHANGELOG.md"
         changelog.write_text(
-            "# Changelog\n\n## [Unreleased]\n\n### Added\n\n"
-            "- a ([#1](x/pull/1))\n\n",
+            "# Changelog\n\n## [Unreleased]\n\n### Added\n\n- a ([#1](x/pull/1))\n\n",
             encoding="utf-8",
         )
         monkeypatch.delenv("GITHUB_REPOSITORY", raising=False)
         monkeypatch.delenv("GITHUB_TOKEN", raising=False)
-        with patch.object(sys, "argv", ["changelog_check.py", "--path", str(changelog)]):
+        with patch.object(
+            sys, "argv", ["changelog_check.py", "--path", str(changelog)]
+        ):
             with patch.object(mod.sys, "exit") as mock_exit:
                 mod.main()
         assert mock_exit.call_count == 0
@@ -726,7 +781,11 @@ class TestMain:
         assert "no GITHUB_TOKEN" in out
 
     def test_check_mode_file_not_found(self, tmp_path, capsys):
-        with patch.object(sys, "argv", ["changelog_check.py", "--path", str(tmp_path / "nonexistent.md")]):
+        with patch.object(
+            sys,
+            "argv",
+            ["changelog_check.py", "--path", str(tmp_path / "nonexistent.md")],
+        ):
             with patch.object(mod.sys, "exit", side_effect=SystemExit(2)):
                 with pytest.raises(SystemExit):
                     mod.main()
