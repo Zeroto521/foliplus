@@ -15,12 +15,9 @@
   }
   const rowById = id =>
     ui.uiContainer.querySelector(`.foliplus-layer-item[data-layer-id="${id}"]`);
-  // The color basemap row has no registry entry, so it is excluded from every
-  // order comparison.
+  // All layer rows including the colour basemap — it is now a registry member.
   const dataRows = () =>
-    [...ui.uiContainer.querySelectorAll(".foliplus-layer-item")].filter(
-      e => !e.classList.contains("foliplus-color-layer-item"),
-    );
+    [...ui.uiContainer.querySelectorAll(".foliplus-layer-item")];
 
   m.registerLayer({ id: "alpha", name: "A", layer: new L.LayerGroup() });
   m.registerLayer({ id: "beta", name: "B", layer: new L.LayerGroup() });

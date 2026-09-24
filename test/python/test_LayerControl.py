@@ -2825,9 +2825,9 @@ class TestLayerControlBrowser:
                 ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
             )
 
-            # Count DOM items before fold (3 overlays + 1 default OSM base)
+            # Count DOM items before fold (3 overlays + 1 default OSM base + 1 colour basemap)
             before = page.evaluate(
-                "document.querySelectorAll('.foliplus-layer-item:not(.foliplus-color-layer-item)').length"
+                "document.querySelectorAll('.foliplus-layer-item').length"
             )
             assert before > 0, "Expected at least 1 layer item"
 
@@ -2837,7 +2837,7 @@ class TestLayerControlBrowser:
 
             # Count DOM items after fold — should still be same (not removed)
             after = page.evaluate(
-                "document.querySelectorAll('.foliplus-layer-item:not(.foliplus-color-layer-item)').length"
+                "document.querySelectorAll('.foliplus-layer-item').length"
             )
             assert after == before, (
                 f"Expected {before} items after fold, got {after} — DOM items should not be removed"

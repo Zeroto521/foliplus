@@ -87,6 +87,9 @@ const renderInitialList = (ui: LayerUI) => {
   let hasOverlays = false;
 
   for (const layerInfo of ui.m.layers) {
+    // The colour basemap row is rendered separately by renderColorLayerItem
+    // below — skip it here to avoid a duplicate DOM row.
+    if (layerInfo.id === CONST.COLOR.MAP_ID) continue;
     if (!layerInfo.isBase && !hasOverlays) {
       hasOverlays = true;
       frag.appendChild(renderToggleAllRow(ui, CONST.GROUP.OVERLAY, "data_layer_label"));
