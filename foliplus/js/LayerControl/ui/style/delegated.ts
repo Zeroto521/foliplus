@@ -1,6 +1,6 @@
 // Delegated style panel — for layers that own their style via styleSetters
 // (third-party canvas layers: heatmap, measure). Moved verbatim from
-// ui/style.ts (34.1). Owns the delegation probe used by the ⋮ menu, and the
+// ui/style.ts. Owns the delegation probe used by the ⋮ menu, and the
 // "Label" drawer that layers their own setters alongside LayerControl's
 // opacity / zoom-range rows.
 import { type LabelStyleValues, renderLabelControls } from "#core/labelControl.js";

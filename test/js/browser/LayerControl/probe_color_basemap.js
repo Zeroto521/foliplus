@@ -30,7 +30,7 @@
   const tilePane = document.querySelector(".leaflet-tile-pane");
   const cs = getComputedStyle(container);
   const csVar = container.style.getPropertyValue("--color-layer-bg");
-  // Panes that carry a `foliplus-*` marker. Under R8b there is no
+  // Panes that carry a `foliplus-*` marker. Under basemap coexistence there is no
   // tile-hidden class anywhere; the only foliplus panes are the
   // synthesized `foliplus-pane-*` for registered TileLayers.
   const foliplusPanes = Array.from(document.querySelectorAll(".leaflet-pane"))

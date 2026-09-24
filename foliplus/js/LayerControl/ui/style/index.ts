@@ -5,7 +5,7 @@
 // scroll, close affordance), exactly like the attributes panel — so there is
 // no JS positioning and no scroll/resize bookkeeping to clean up.
 //
-// Split from ui/style.ts (34.1). Owns the panel assembly (renderStylePanel),
+// Split from ui/style.ts. Owns the panel assembly (renderStylePanel),
 // the event-binding skeleton (openStylePanel) and the teardown
 // (closeStylePanel). Row builders, the field cache and the delegated drawer
 // live in ./label.ts, ./opacity.ts, ./zoomRange.ts, ./delegated.ts;

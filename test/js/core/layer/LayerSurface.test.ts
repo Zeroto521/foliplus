@@ -157,7 +157,7 @@ describe("LayerSurface pane resolution", () => {
   });
 
   it("gives a GridLayer its own synthesized pane — z is per-layer, not shared", () => {
-    // First-class basemaps (§42.2-③): row order must equal z order across
+    // First-class basemaps: row order must equal z order across
     // kinds, so a colour layer must be able to interleave with two tile
     // layers. A TileLayer that stayed in the shared tilePane could only
     // order itself inside that one stack — retired.

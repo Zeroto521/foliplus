@@ -815,7 +815,7 @@ describe("PaneManager", () => {
   });
 });
 
-describe("dual map isolation (§22-11)", () => {
+describe("dual map isolation", () => {
   // The core/layer foundation must be safe under concurrent multi-map
   // rendering. Every piece of state (childPaneSpecs, paneCache, the
   // instance itself) is per-instance — no module-level singleton is

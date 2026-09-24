@@ -1679,7 +1679,7 @@ class TestExportControlBrowser:
         """Empirical test: does the export draw visibility:hidden elements?
 
         Sets visibility:hidden on a blue polygon's SVG path, exports, and
-        checks if blue pixels are present. Contract §22-8 line 790 intends
+        checks if blue pixels are present. The contract intends
         for visibility (not display) to be used for layout preservation while
         export still sees the element. This test provides empirical evidence
         for the reviewer's contract update decision.

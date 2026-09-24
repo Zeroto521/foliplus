@@ -484,7 +484,7 @@ class ExportRenderer {
     const ctx = rc.ctx;
     if (visibleTiles.length === 0) return;
 
-    // Native carrier (§20 ③): GridLayer's `options.opacity` is not captured by
+    // Native carrier: GridLayer's `options.opacity` is not captured by
     // `toDataURL` — it lives on the element's style, applied at compositing time.
     // Reading the base from `nativeBase` would require a second WeakMap; instead
     // read the effective value directly. The LayerControl slider stores the

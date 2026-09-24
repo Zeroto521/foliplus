@@ -2872,7 +2872,7 @@ class TestLayerControlBrowser:
             )
 
     def test_color_layer_coexists_with_tiles(self, browser, tmp_path):
-        """R8b: colour and tile basemaps coexist. Clicking the colour layer
+        """Colour and tile basemaps coexist. Clicking the colour layer
         sets the container's background colour (`.active` + `--color-layer-bg`)
         but no longer suppresses the shared tile pane — the retired
         `foliplus-layer-tile-hidden` contract is gone. The colour paints on
@@ -2907,7 +2907,7 @@ class TestLayerControlBrowser:
             assert result is not None
             # The retired tile-hidden contract must not be applied.
             assert result["tileHidden"] is False, (
-                "R8b: colour layer must not stamp foliplus-layer-tile-hidden"
+                "colour layer must not stamp foliplus-layer-tile-hidden"
             )
             assert result["colorBg"] is True, "map container should have active class"
 
@@ -4772,7 +4772,7 @@ class TestLayerControlBrowser:
                 "the open attrs panel must stay above a lit sibling"
             )
 
-    # ── R7 zoom-range browser probes (§31) ────────────────────────────
+    # ── zoom-range browser probes ────────────────────────────────────
     #
     # CSS/interaction verification for the zoom-range row: dual-thumb
     # clamp, out-of-range dimming + tooltip, zoomend marker movement,
@@ -4869,7 +4869,7 @@ class TestLayerControlBrowser:
             )
             # R7's native branch: options write + adapter _resetView.
             # Leaflet does not self-apply options.minZoom changes — the
-            # adapter reset is what makes the range visible (§6.2).
+            # adapter reset is what makes the range visible.
             assert result["tilesCleared"] is True, (
                 f"tiles not cleared after options + _resetView with "
                 f"out-of-range minZoom: {result}"
@@ -5127,7 +5127,7 @@ class TestLayerControlBrowser:
             assert not errors, f"JS errors: {errors}"
 
 
-# ── R1 pane-surface probe (§10.3) ──────────────────────────────────────
+# ── pane-surface probe ─────────────────────────────────────────────────
 #
 # Test-only suite: measures the four facts the LayerSurface refactor (R3+)
 # relies on, against the real Leaflet/folium DOM. No product code is
@@ -5187,7 +5187,7 @@ _TINY_PNG = (
 
 
 class TestLayerPaneProbeBrowser:
-    """R1 probe — measured pane-surface facts (§10.3 ten-item checklist)."""
+    """Pane-surface probe — measured pane-surface facts."""
 
     @staticmethod
     def _probe(browser, tmp_path, *layers, slug="probe"):
@@ -5261,7 +5261,7 @@ class TestLayerPaneProbeBrowser:
         assert r["rowCount"] == 1, r
         assert not errors, f"JS errors: {errors}"
 
-    # ── overlay / plugin probes (§10.3 #1–#6) ──────────────────────
+    # ── overlay / plugin probes ──────────────────────────────────
 
     def test_probe_geojson_mixed_geometry(self, browser, tmp_path):
         """#1 GeoJson: point→marker, line/polygon→path, all in one pane."""
@@ -5405,7 +5405,7 @@ class TestLayerPaneProbeBrowser:
         assert r["css"]["reached"] and not r["css"]["shared"]
         assert r["runtime"]["reached"] and not r["runtime"]["shared"]
 
-    # ── base + mixed renderer probes (§10.3 #7–#10) ────────────────
+    # ── base + mixed renderer probes ────────────────────────────────
 
     def test_probe_two_tilelayers_native_opacity(self, browser, tmp_path):
         """#7 Two TileLayers share tilePane; setOpacity on one container
@@ -5454,7 +5454,7 @@ class TestLayerPaneProbeBrowser:
         """#9 Solid-color basemap still has NO pane/element of its own — it
         is the map container's CSS background via ``--color-layer-bg``
         (`.leaflet-container.active { background: var(--color-layer-bg) }`).
-        Under R8b the retired `foliplus-layer-tile-hidden` gate is gone: the
+        Under basemap coexistence the retired `foliplus-layer-tile-hidden` gate is gone: the
         tile pane stays visible underneath, the color paints on top."""
         with use_page(
             self._probe,
@@ -5468,11 +5468,11 @@ class TestLayerPaneProbeBrowser:
         assert r["containerActive"] is True
         assert r["cssVar"] == "#3366cc"
         assert r["containerBg"].startswith("rgb(51,")
-        # R8b: the shared tilePane is not hidden by the color basemap.
+        # Basemap coexistence: the shared tilePane is not hidden by the color basemap.
         assert r["tileHidden"] is False
         assert r["tileVisibility"] == "visible"
         # No foliplus pane is the "tile-hidden" contract — nothing under
-        # R8b carries that class. (Registered TileLayers get their own
+        # Basemap coexistence carries that class. (Registered TileLayers get their own
         # synthesized foliplus-pane-*, which is a different marker.)
         assert not any("tile-hidden" in c for c in r["foliplusPanes"])
 
