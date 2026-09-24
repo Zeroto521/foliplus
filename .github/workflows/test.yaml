@@ -80,11 +80,7 @@ jobs:
       issues: read
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-      - name: Existence check
-        run: python script/changelog_check.py --path CHANGELOG.md
+      - run: python script/changelog_check.py --path CHANGELOG.md
         env:
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
