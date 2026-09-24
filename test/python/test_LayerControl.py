@@ -1186,6 +1186,7 @@ class TestLayerControlBrowser:
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
             )
+            panel_ready(page)
             page.wait_for_selector(
                 '.foliplus-layer-item[data-layer-type="base"]',
                 state="attached",
@@ -3498,7 +3499,7 @@ class TestLayerControlBrowser:
             page.wait_for_timeout(120)
 
             rest = page.evaluate(
-                "() => { const r = document.querySelector('.foliplus-layer-item');"
+                "() => { const r = document.querySelector('.foliplus-layer-item:not(.foliplus-color-layer-item)');"
                 " const cs = getComputedStyle(r);"
                 " const d = r.querySelector('.drag-handle');"
                 " return { bg: cs.backgroundColor, shadow: cs.boxShadow,"
@@ -3532,10 +3533,10 @@ class TestLayerControlBrowser:
             )
 
             # Hover a data row and confirm it matches the keyboard cursor exactly.
-            page.hover(".foliplus-layer-item")
+            page.hover(".foliplus-layer-item:not(.foliplus-color-layer-item)")
             page.wait_for_timeout(120)
             hover = page.evaluate(
-                "() => { const r = document.querySelector('.foliplus-layer-item');"
+                "() => { const r = document.querySelector('.foliplus-layer-item:not(.foliplus-color-layer-item)');"
                 " const cs = getComputedStyle(r);"
                 " const d = r.querySelector('.drag-handle');"
                 " return { bg: cs.backgroundColor, shadow: cs.boxShadow,"
@@ -3608,11 +3609,11 @@ class TestLayerControlBrowser:
             )
 
             # Real hover on the unchecked row: same white as the JS cursor class.
-            page.hover(".foliplus-layer-item:not(.active)")
+            page.hover(".foliplus-layer-item:not(.active):not(.foliplus-color-layer-item)")
             page.wait_for_timeout(120)
             hover_bg = page.evaluate(
                 "() => getComputedStyle("
-                "  document.querySelector('.foliplus-layer-item:not(.active)')"
+                "  document.querySelector('.foliplus-layer-item:not(.active):not(.foliplus-color-layer-item)')"
                 ").backgroundColor"
             )
             assert hover_bg == white, (
@@ -4030,7 +4031,7 @@ class TestLayerControlBrowser:
 
             def snapshot():
                 return page.evaluate(
-                    "() => [...document.querySelectorAll('.foliplus-layer-item')]"
+                    "() => [...document.querySelectorAll('.foliplus-layer-item:not(.foliplus-color-layer-item)')]"
                     ".map(r => { const cs = getComputedStyle(r);"
                     "  const g = r.querySelector('.foliplus-drag-cell .drag-handle');"
                     "  const m = r.querySelector('.foliplus-layer-more-btn');"
@@ -4044,7 +4045,7 @@ class TestLayerControlBrowser:
 
             def escape_first_row():
                 page.evaluate(
-                    "() => { const r = document.querySelector('.foliplus-layer-item');"
+                    "() => { const r = document.querySelector('.foliplus-layer-item:not(.foliplus-color-layer-item)');"
                     " r.focus();"
                     " r.dispatchEvent(new KeyboardEvent("
                     "    'keydown', {key: 'Escape', bubbles: true})); }"
