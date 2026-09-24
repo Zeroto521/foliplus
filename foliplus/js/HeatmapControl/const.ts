@@ -2,7 +2,7 @@
 // ``import * as CONST`` so callers keep the ``CONST.X`` access pattern.
 // Only pure static constants live here; CONF-derived values are accessed
 // via ``CONF.*`` directly in the consuming code.
-import { BORDER_WEIGHT, LABEL_COLOR_DEFAULT, LABEL_SIZE } from "#common/form.js";
+import { LABEL_COLOR_DEFAULT, LABEL_SIZE } from "#common/form.js";
 
 const TIMING = {
   ZOOM_DEBOUNCE: 200,
@@ -125,7 +125,6 @@ const DATA_ATTR = {
 
 export {
   AGG,
-  BORDER_WEIGHT,
   CLASS_COUNT,
   CLASSES,
   DATA_ATTR,

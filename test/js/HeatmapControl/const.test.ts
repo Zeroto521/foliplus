@@ -91,15 +91,6 @@ describe("CLASS_COUNT", () => {
   });
 });
 
-describe("BORDER_WEIGHT", () => {
-  it("defines weight constraints", () => {
-    expect(CONST.BORDER_WEIGHT.MIN).toBe(0);
-    expect(CONST.BORDER_WEIGHT.MAX).toBe(10);
-    expect(CONST.BORDER_WEIGHT.STEP).toBe(0.5);
-    expect(CONST.BORDER_WEIGHT.DEFAULT).toBe(1);
-  });
-});
-
 describe("DATA_ATTR", () => {
   it("defines all data-heatmap-* attribute names", () => {
     expect(CONST.DATA_ATTR.LAYER).toBe("data-heatmap-layer");

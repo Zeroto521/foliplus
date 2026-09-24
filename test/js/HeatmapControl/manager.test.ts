@@ -3,6 +3,7 @@ import { EVENTS, ensureEvents } from "#core/event/index.js";
 import * as CONST from "#foliplus/HeatmapControl/const.js";
 import { HeatmapManager } from "#foliplus/HeatmapControl/manager.js";
 import { rebuildLayerDropdown } from "#foliplus/HeatmapControl/ui.js";
+import { BORDER_WEIGHT } from "#foliplus/common/form.js";
 import { makeConf, makeCtrl, makeManager } from "./fixture.js";
 
 afterEach(() => {
@@ -1829,10 +1830,10 @@ describe("HeatmapManager — style delegation", () => {
     const opts = getCanvasOpts();
 
     opts.styleSetters!.borderWeight!(99);
-    expect(m.borderWeight).toBe(CONST.BORDER_WEIGHT.MAX);
+    expect(m.borderWeight).toBe(BORDER_WEIGHT.MAX);
 
     opts.styleSetters!.borderWeight!(-5);
-    expect(m.borderWeight).toBe(CONST.BORDER_WEIGHT.MIN);
+    expect(m.borderWeight).toBe(BORDER_WEIGHT.MIN);
   });
 
   it("borderWeight setter ignores NaN and non-number values", () => {
