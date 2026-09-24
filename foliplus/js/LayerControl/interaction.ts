@@ -2,6 +2,7 @@
 import { ensureInteraction } from "#core/interaction.js";
 import * as CONST from "./const.js";
 import type { LayerUI } from "./ui/index.js";
+import { activateDeleteItem } from "./ui/menu.js";
 
 /** Keyboard shortcuts registered via InteractionManager. */
 const registerInteractions = (ui: LayerUI): (() => void) => {
@@ -62,6 +63,12 @@ const handleMoreMenuClick = (ui: LayerUI, event: Event): void => {
   const action = li.dataset.action ?? "";
   // Skip disabled items (hidden layer). Keep menu open so user sees why.
   if (li.getAttribute("disabled")) return;
+  if (action === CONST.ACTION.DELETE_LAYER) {
+    // Armed in place: the first click arms, the second one deletes. While armed
+    // the menu stays open so the confirming state is visible.
+    if (activateDeleteItem(ui, li)) ui.closeMoreMenu(true);
+    return;
+  }
   if (action === CONST.ACTION.FOCUS_LAYER) ui.focusLayer(ui.activeMenu?.layerId ?? "");
   if (action === CONST.ACTION.RENAME_LAYER) {
     ui.renameLayer(ui.activeMenu?.layerId ?? "");
