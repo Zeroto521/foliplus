@@ -16,8 +16,7 @@
   const rowById = id =>
     ui.uiContainer.querySelector(`.foliplus-layer-item[data-layer-id="${id}"]`);
   // All layer rows including the colour basemap — it is now a registry member.
-  const dataRows = () =>
-    [...ui.uiContainer.querySelectorAll(".foliplus-layer-item")];
+  const dataRows = () => [...ui.uiContainer.querySelectorAll(".foliplus-layer-item")];
 
   m.registerLayer({ id: "alpha", name: "A", layer: new L.LayerGroup() });
   m.registerLayer({ id: "beta", name: "B", layer: new L.LayerGroup() });
