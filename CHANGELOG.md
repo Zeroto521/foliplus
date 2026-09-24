@@ -87,7 +87,6 @@
 - `LayerControl`: clicking toggle-all checkbox in indeterminate state (some layers visible) now deselects all layers instead of selecting them ([#132](https://github.com/Zeroto521/foliplus/pull/132))
 - `hint icon`: fix missing hint icons for components loaded after the first `ensureHint(map)` call — `registerHintIcon` now syncs all active HintManager instances, making icons load-order independent ([#149](https://github.com/Zeroto521/foliplus/pull/149))
 - `SearchControl`: `Enter` now adopts the keyboard-highlighted suggestion (previously it always re-geocoded and took the first Nominatim result) ([#216](https://github.com/Zeroto521/foliplus/pull/216))
-- `ExportControl`: resolve a layer at render time when its JS global appears late, so basemaps added before the control are not skipped in exports ([#443](https://github.com/Zeroto521/foliplus/pull/443))
 - `MeasureControl`: polygon centroid dot covered by the semi-transparent fill — div-icon markers competed with the SVG renderer's z-index; converted both the centroid dot and circle center to SVG `CircleMarker` (same renderer as the fill) so DOM order guarantees correct paint order ([#230](https://github.com/Zeroto521/foliplus/pull/230), [#238](https://github.com/Zeroto521/foliplus/pull/238))
 - `LayerControl`: suppress flash on fold rebuild — remove rebuild-driven transitions on checkbox, layer rows, and more button ([#232](https://github.com/Zeroto521/foliplus/pull/232))
 - `LayerControl`: count plain `folium.Marker` layers (no `.feature`) as point features and keep the type icon on the `.feature` contract so it matches `extractPoints` / `HeatmapControl` behavior, including plain `L.CircleMarker` ([#233](https://github.com/Zeroto521/foliplus/pull/233), [#298](https://github.com/Zeroto521/foliplus/pull/298))
@@ -103,6 +102,7 @@
 - `LayerControl`: layer rows are now addressed by `data-layer-id` instead of a positional index, and color-basemap activation re-renders the full row visual, fixing a stale checkbox tooltip ([#397](https://github.com/Zeroto521/foliplus/pull/397), [#423](https://github.com/Zeroto521/foliplus/pull/423), [#426](https://github.com/Zeroto521/foliplus/pull/426))
 - `MeasureControl`: destroy no longer loses persisted measurements — `onUnload` flushes pending drag mutations and marker drag's `throttleRaf` now `flush()`es on teardown ([#430](https://github.com/Zeroto521/foliplus/pull/430), [#442](https://github.com/Zeroto521/foliplus/pull/442))
 - `common/fetch`: a completed request no longer leaves its timeout and parent abort listener behind — the composed signal is disposed as soon as the fetch settles ([#433](https://github.com/Zeroto521/foliplus/pull/433))
+- `ExportControl`: resolve a layer at render time when its JS global appears late, so basemaps added before the control are not skipped in exports ([#443](https://github.com/Zeroto521/foliplus/pull/443))
 
 ## [v0.3.0] (2026-08-02)
 
