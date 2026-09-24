@@ -1,4 +1,11 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "fs";
 import { tmpdir } from "os";
 import { join, resolve } from "path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -95,11 +102,16 @@ describe("esbuildCfgFor", () => {
       writeFileSync(cssPath, nested, "utf-8");
 
       const postcssPlugin = esbuildCfgFor({ dev: false, root: ROOT }).plugins[0];
-      let onLoadHandler: (args: { path: string }) => Promise<{ contents: string }> | undefined;
+      let onLoadHandler: (args: {
+        path: string;
+      }) => Promise<{ contents: string }> | undefined;
 
       // Mock the esbuild build object with just the onLoad method.
       const mockBuild = {
-        onLoad: (opts: { filter: RegExp }, handler: (args: { path: string }) => Promise<{ contents: string }>) => {
+        onLoad: (
+          opts: { filter: RegExp },
+          handler: (args: { path: string }) => Promise<{ contents: string }>,
+        ) => {
           expect(opts.filter).toBeInstanceOf(RegExp);
           expect(opts.filter.test("foo.css")).toBe(true);
           expect(opts.filter.test("foo.js")).toBe(false);
