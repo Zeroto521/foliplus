@@ -354,6 +354,7 @@ const renderColorLayerItem = (ui: LayerUI) => {
       class: `${CONST.CLASSES.LAYER_ITEM} ${CONST.CLASSES.COLOR_ITEM}`,
       draggable: "false",
       [CONST.DATA.LAYER_ID]: CONST.COLOR.MAP_ID,
+      "data-layer-type": CONST.GROUP.BASE,
       [CONST.DATA.TITLE]: colorType,
       title: colorType,
     },
