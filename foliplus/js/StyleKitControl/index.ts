@@ -4,7 +4,7 @@ import { BaseControl } from "#foliplus/BaseControl.js";
 import { dom } from "#common/dom.js";
 import { createScopedTranslator, createTranslator } from "#common/locale.js";
 import { createPanelControl } from "#common/panel.js";
-import { restoreDefaults } from "./logic.js";
+import { resetMapSettings, restoreDefaults } from "./logic.js";
 
 // ── SVG icon ── a sliders glyph, "style controls". Stroke comes from
 // common/button.css' shared button rule, so no inline presentation attributes.
@@ -24,6 +24,7 @@ class StyleKitControl extends BaseControl {
   declare container: HTMLElement;
   declare panel: HTMLElement;
   declare restoreBtn: HTMLButtonElement;
+  declare resetBtn: HTMLButtonElement;
 
   buildDOM() {
     const { container, ctrl, panelContent, destroy } = createPanelControl({
@@ -52,7 +53,20 @@ class StyleKitControl extends BaseControl {
       },
       T("restore_defaults"),
     ) as HTMLButtonElement;
-    panelContent.append(this.restoreBtn);
+    this.resetBtn = dom.el(
+      "button",
+      {
+        class: "foliplus-panel-btn stylekit-action",
+        title: T("reset_map"),
+        "aria-label": T("reset_map"),
+        onclick: () => {
+          resetMapSettings();
+          map.foliplus!.showHint(CONF.name, T("reset_done"), HINT_DURATION.SHORT);
+        },
+      },
+      T("reset_map"),
+    ) as HTMLButtonElement;
+    panelContent.append(this.restoreBtn, this.resetBtn);
 
     this.container = container;
     this.panel = ctrl;
