@@ -134,9 +134,14 @@ const syncZoomRangeRow = (
   // Out-of-range: dim the row when the current zoom falls outside [min, max].
   const outOfRange = current < min || current > max;
   row.classList.toggle(CONST.CLASSES.STYLE_ZOOM_RANGE_OOR, outOfRange);
-  row.title = outOfRange
+  const oorMsg = outOfRange
     ? ui.T("style_zoom_range_out_of_range").replace("{zoom}", String(current))
     : "";
+  row.title = oorMsg;
+  const oorTextEl = row.querySelector(
+    `.${CONST.CLASSES.STYLE_ZOOM_RANGE_OOR_TEXT}`,
+  ) as HTMLElement | null;
+  if (oorTextEl) oorTextEl.textContent = oorMsg;
 
   // The handles' tooltips carry the range the rail draws but the row no longer
   // prints.
@@ -235,13 +240,16 @@ const buildZoomRangeRow = (ui: LayerUI, layerId: string): HTMLElement => {
     values,
   );
 
+  // Inline out-of-range text — visible only when the row has the OOR class.
+  const oorText = dom.el("div", { class: CONST.CLASSES.STYLE_ZOOM_RANGE_OOR_TEXT }, "");
+
   const row = dom.el(
     "div",
     {
       class: `${CONST.CLASSES.FORM_ROW} ${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`,
     },
     dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("style_zoom_range")),
-    dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, control),
+    dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, control, oorText),
   );
   syncValues(row, min, max, current, mapMin, mapMax);
   syncZoomRangeRow(ui, layerId, row);

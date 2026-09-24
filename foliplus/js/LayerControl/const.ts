@@ -158,6 +158,7 @@ const CLASSES = {
    *  level" without hiding the row itself (the user may still want to change
    *  it). */
   STYLE_ZOOM_RANGE_OOR: "foliplus-zoom-range-out-of-range",
+  STYLE_ZOOM_RANGE_OOR_TEXT: "foliplus-zoom-range-oor-text",
   /* ── Shared slider component (common/slider.css) ──
      Both range controls are this component; the rows below add their own hook
      classes for behaviour and tests, and set `--slider-thumb-ring` for their
