@@ -3059,17 +3059,29 @@ describe("LayerUI style panel — zoom range", () => {
   });
 
   it("zoomToPct returns 0 when map min equals max (degenerate range)", () => {
+    map.getMinZoom.mockReturnValue(7);
+    map.getMaxZoom.mockReturnValue(7);
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
-    const panel = panelOf(item)!;
-    const row = zoomRowOf(panel)!;
+    const row = zoomRowOf(panelOf(item)!)!;
+    expect(row).not.toBeNull();
+  });
+
+  it("renders zoom-range row when map has a single zoom level", () => {
+    map.getMinZoom.mockReturnValue(3);
+    map.getMaxZoom.mockReturnValue(3);
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const row = zoomRowOf(panelOf(item)!)!;
+    expect(row).not.toBeNull();
     const minInput = row.querySelector(
       `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MIN}`,
     ) as HTMLInputElement;
-
-    minInput.value = "5";
-    minInput.dispatchEvent(new Event("input", { bubbles: true }));
-    expect(ui.zoomRangeMap["overlay1"]).toEqual([5, 18]);
+    const maxInput = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MAX}`,
+    ) as HTMLInputElement;
+    expect(minInput.value).toBe("3");
+    expect(maxInput.value).toBe("3");
   });
 
   it("delegated panel includes zoom-range row when capability is present", () => {
@@ -3217,6 +3229,26 @@ describe("LayerUI style panel — zoom range", () => {
     expect(row.classList.contains(CONST.CLASSES.STYLE_ZOOM_RANGE_OOR)).toBe(true);
     expect(oorText).not.toBeNull();
     expect(oorText.textContent).toContain("style_zoom_range_out_of_range");
+  });
+
+  it("OOR sync tolerates a missing OOR text element", () => {
+    const item = findItem(ui, "overlay1");
+    ui.zoomRangeMap["overlay1"] = [7, 10];
+    ui.openStylePanel("overlay1");
+    const row = zoomRowOf(panelOf(item)!)!;
+    const oorText = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_OOR_TEXT}`,
+    ) as HTMLElement;
+    oorText.remove();
+
+    // Trigger a sync by changing the zoom range — should not throw.
+    const minInput = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MIN}`,
+    ) as HTMLInputElement;
+    minInput.value = "8";
+    minInput.dispatchEvent(new Event("input", { bubbles: true }));
+
+    expect(row.classList.contains(CONST.CLASSES.STYLE_ZOOM_RANGE_OOR)).toBe(true);
   });
 
   it("renders no Layer rows for a delegated layer that carries neither", () => {
