@@ -111,7 +111,7 @@ class MarkerMode extends MeasureMode {
     marker.on("click", onPinClick);
 
     return () => {
-      persist.cancel();
+      persist.flush();
       generation += 1; // invalidate any in-flight geocode
       drag.cleanup();
       unregisterDragToggle();

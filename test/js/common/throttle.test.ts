@@ -39,6 +39,28 @@ describe("throttleRaf", () => {
     await new Promise(r => setTimeout(r, 20));
     expect(fn).not.toHaveBeenCalled();
   });
+
+  it("flush() executes the pending frame immediately", async () => {
+    const fn = vi.fn();
+    const throttled = throttleRaf(fn);
+    throttled();
+    expect(fn).not.toHaveBeenCalled();
+    throttled.flush();
+    expect(fn).toHaveBeenCalledTimes(1);
+    // A second flush with no pending frame is a no-op.
+    throttled.flush();
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
+
+  it("flush() prevents a later frame from re-executing", async () => {
+    const fn = vi.fn();
+    const throttled = throttleRaf(fn);
+    throttled();
+    throttled.flush();
+    expect(fn).toHaveBeenCalledTimes(1);
+    await new Promise(r => setTimeout(r, 20));
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("nextFrame", () => {
