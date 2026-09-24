@@ -10,8 +10,8 @@ import { throttleRaf } from "./throttle.js";
 
 // ── Panel CSS classes ───────────────────────────────────────────
 const CLASSES = {
-  COLLAPSED: "collapsed",
-  EXPANDED: "expanded",
+  COLLAPSED: "is-collapsed",
+  EXPANDED: "is-expanded",
   FOLD: "foliplus-ctrl-fold",
   TOGGLE_BTN: "foliplus-toggle-btn",
   LEAFLET_BAR: "leaflet-bar leaflet-control",

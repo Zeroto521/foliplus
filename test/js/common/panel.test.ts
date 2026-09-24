@@ -65,7 +65,7 @@ describe("adjustPanelZIndex", () => {
 describe("bindPanelToggle", () => {
   function makePanel() {
     const container = document.createElement("div");
-    container.className = "foliplus-panel collapsed";
+    container.className = "foliplus-panel is-collapsed";
     const btn = document.createElement("button");
     btn.className = "foliplus-toggle-btn";
     const hdr = document.createElement("div");
@@ -90,15 +90,15 @@ describe("bindPanelToggle", () => {
 
     expect(domEvent.on).toHaveBeenCalledTimes(2);
     btn.click();
-    expect(container.classList.contains("expanded")).toBe(true);
-    expect(container.classList.contains("collapsed")).toBe(false);
+    expect(container.classList.contains("is-expanded")).toBe(true);
+    expect(container.classList.contains("is-collapsed")).toBe(false);
     expect(domEvent.stop).toHaveBeenCalled();
   });
 
   it("collapses when header clicked", () => {
     const { container, hdr } = makePanel();
-    container.classList.add("expanded");
-    container.classList.remove("collapsed");
+    container.classList.add("is-expanded");
+    container.classList.remove("is-collapsed");
     bindPanelToggle({
       container,
       toggleBtn: ".foliplus-toggle-btn",
@@ -106,8 +106,8 @@ describe("bindPanelToggle", () => {
     });
 
     hdr.click();
-    expect(container.classList.contains("collapsed")).toBe(true);
-    expect(container.classList.contains("expanded")).toBe(false);
+    expect(container.classList.contains("is-collapsed")).toBe(true);
+    expect(container.classList.contains("is-expanded")).toBe(false);
   });
 
   it("no-ops when toggle/header not found", () => {
@@ -122,7 +122,7 @@ describe("bindPanelToggle", () => {
 describe("bindFoldToggle", () => {
   function makeFold() {
     const container = document.createElement("div");
-    container.className = "foliplus-ctrl-fold collapsed";
+    container.className = "foliplus-ctrl-fold is-collapsed";
     const btn = document.createElement("button");
     btn.className = "foliplus-toggle-btn";
     container.appendChild(btn);
@@ -139,12 +139,12 @@ describe("bindFoldToggle", () => {
     bindFoldToggle({ container, toggleBtn: btn });
 
     btn.click();
-    expect(container.classList.contains("expanded")).toBe(true);
-    expect(container.classList.contains("collapsed")).toBe(false);
+    expect(container.classList.contains("is-expanded")).toBe(true);
+    expect(container.classList.contains("is-collapsed")).toBe(false);
 
     btn.click();
-    expect(container.classList.contains("collapsed")).toBe(true);
-    expect(container.classList.contains("expanded")).toBe(false);
+    expect(container.classList.contains("is-collapsed")).toBe(true);
+    expect(container.classList.contains("is-expanded")).toBe(false);
   });
 
   it("calls onExpand/onCollapse hooks", () => {
@@ -173,7 +173,7 @@ describe("bindFoldToggle", () => {
 describe("bindOutsideCollapse", () => {
   function makePanel() {
     const container = document.createElement("div");
-    container.className = "foliplus-panel expanded";
+    container.className = "foliplus-panel is-expanded";
     document.body.appendChild(container);
     return container;
   }
@@ -206,15 +206,15 @@ describe("bindOutsideCollapse", () => {
     const outside = document.createElement("div");
     document.body.appendChild(outside);
     outside.click();
-    expect(container.classList.contains("collapsed")).toBe(true);
-    expect(container.classList.contains("expanded")).toBe(false);
+    expect(container.classList.contains("is-collapsed")).toBe(true);
+    expect(container.classList.contains("is-expanded")).toBe(false);
   });
 
   it("does not collapse when clicking inside", () => {
     const container = makePanel();
     bindOutsideCollapse({ container });
     container.click();
-    expect(container.classList.contains("expanded")).toBe(true);
+    expect(container.classList.contains("is-expanded")).toBe(true);
   });
 
   it("does not collapse when the click detaches its own target (fold rebuild)", () => {
@@ -228,7 +228,7 @@ describe("bindOutsideCollapse", () => {
     container.appendChild(inside);
     inside.addEventListener("click", () => inside.remove());
     inside.click();
-    expect(container.classList.contains("expanded")).toBe(true);
+    expect(container.classList.contains("is-expanded")).toBe(true);
   });
 
   it("skips collapse when skipCheck returns true", () => {
@@ -237,18 +237,18 @@ describe("bindOutsideCollapse", () => {
     const outside = document.createElement("div");
     document.body.appendChild(outside);
     outside.click();
-    expect(container.classList.contains("expanded")).toBe(true);
+    expect(container.classList.contains("is-expanded")).toBe(true);
   });
 
   it("does nothing for collapsed panel when clicking outside", () => {
     const container = makePanel();
-    container.classList.remove("expanded");
-    container.classList.add("collapsed");
+    container.classList.remove("is-expanded");
+    container.classList.add("is-collapsed");
     bindOutsideCollapse({ container });
     const outside = document.createElement("div");
     document.body.appendChild(outside);
     outside.click();
-    expect(container.classList.contains("collapsed")).toBe(true);
+    expect(container.classList.contains("is-collapsed")).toBe(true);
   });
 
   it("returns cleanup that removes the listener", () => {
@@ -258,7 +258,7 @@ describe("bindOutsideCollapse", () => {
     const outside = document.createElement("div");
     document.body.appendChild(outside);
     outside.click();
-    expect(container.classList.contains("expanded")).toBe(true);
+    expect(container.classList.contains("is-expanded")).toBe(true);
   });
 
   it("cleanup detaches the capture listener as well as the bubble one", () => {
@@ -274,7 +274,7 @@ describe("bindOutsideCollapse", () => {
     const outside = document.createElement("div");
     document.body.appendChild(outside);
     outside.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    expect(container.classList.contains("expanded")).toBe(true);
+    expect(container.classList.contains("is-expanded")).toBe(true);
     outside.remove();
   });
 
@@ -283,7 +283,7 @@ describe("bindOutsideCollapse", () => {
       // Minimal fixture, not createPanelControl: this case must fail on the old
       // bubble-phase handler, which would also keep the panel open via a factory.
       const ctrl = document.createElement("div");
-      ctrl.className = "foliplus-panel foliplus-ctrl-fold expanded";
+      ctrl.className = "foliplus-panel foliplus-ctrl-fold is-expanded";
       document.body.appendChild(ctrl);
       const content = document.createElement("div");
       ctrl.appendChild(content);
@@ -298,8 +298,8 @@ describe("bindOutsideCollapse", () => {
       });
       btn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 
-      expect(ctrl.classList.contains("expanded")).toBe(true);
-      expect(ctrl.classList.contains("collapsed")).toBe(false);
+      expect(ctrl.classList.contains("is-expanded")).toBe(true);
+      expect(ctrl.classList.contains("is-collapsed")).toBe(false);
 
       cleanup();
       ctrl.remove();
@@ -309,7 +309,7 @@ describe("bindOutsideCollapse", () => {
   it("still collapses on an outside click", () => {
     withObserverStub(() => {
       const ctrl = document.createElement("div");
-      ctrl.className = "foliplus-panel foliplus-ctrl-fold expanded";
+      ctrl.className = "foliplus-panel foliplus-ctrl-fold is-expanded";
       document.body.appendChild(ctrl);
       const cleanup = bindOutsideCollapse({ container: ctrl });
 
@@ -317,8 +317,8 @@ describe("bindOutsideCollapse", () => {
       document.body.appendChild(outside);
       outside.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 
-      expect(ctrl.classList.contains("collapsed")).toBe(true);
-      expect(ctrl.classList.contains("expanded")).toBe(false);
+      expect(ctrl.classList.contains("is-collapsed")).toBe(true);
+      expect(ctrl.classList.contains("is-expanded")).toBe(false);
 
       cleanup();
       ctrl.remove();
@@ -333,23 +333,23 @@ describe("bindOutsideCollapse", () => {
     // binding reads the same answer keyed by the event.
     withObserverStub(() => {
       const a = document.createElement("div");
-      a.className = "foliplus-panel foliplus-ctrl-fold expanded";
+      a.className = "foliplus-panel foliplus-ctrl-fold is-expanded";
       const b = document.createElement("div");
-      b.className = "foliplus-panel foliplus-ctrl-fold expanded";
+      b.className = "foliplus-panel foliplus-ctrl-fold is-expanded";
       document.body.appendChild(a);
       document.body.appendChild(b);
       const cleanupA = bindOutsideCollapse({ container: a });
       const cleanupB = bindOutsideCollapse({ container: b });
 
       // Both stay open: no press has happened yet.
-      expect(a.classList.contains("expanded")).toBe(true);
-      expect(b.classList.contains("expanded")).toBe(true);
+      expect(a.classList.contains("is-expanded")).toBe(true);
+      expect(b.classList.contains("is-expanded")).toBe(true);
 
       const outside = document.createElement("div");
       document.body.appendChild(outside);
       outside.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-      expect(a.classList.contains("collapsed")).toBe(true);
-      expect(b.classList.contains("collapsed")).toBe(true);
+      expect(a.classList.contains("is-collapsed")).toBe(true);
+      expect(b.classList.contains("is-collapsed")).toBe(true);
 
       cleanupA();
       cleanupB();
@@ -367,9 +367,9 @@ describe("bindOutsideCollapse", () => {
     // them.
     withObserverStub(() => {
       const a = document.createElement("div");
-      a.className = "foliplus-panel foliplus-ctrl-fold expanded";
+      a.className = "foliplus-panel foliplus-ctrl-fold is-expanded";
       const b = document.createElement("div");
-      b.className = "foliplus-panel foliplus-ctrl-fold expanded";
+      b.className = "foliplus-panel foliplus-ctrl-fold is-expanded";
       const insideA = document.createElement("div");
       a.appendChild(insideA);
       document.body.appendChild(a);
@@ -378,16 +378,16 @@ describe("bindOutsideCollapse", () => {
       const cleanupB = bindOutsideCollapse({ container: b });
 
       insideA.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-      expect(a.classList.contains("expanded")).toBe(true);
-      expect(b.classList.contains("expanded")).toBe(true);
+      expect(a.classList.contains("is-expanded")).toBe(true);
+      expect(b.classList.contains("is-expanded")).toBe(true);
 
       // A later, genuinely outside press still closes both: the verdict is
       // per event, so the previous inside press must not bleed into it.
       const outside = document.createElement("div");
       document.body.appendChild(outside);
       outside.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-      expect(a.classList.contains("collapsed")).toBe(true);
-      expect(b.classList.contains("collapsed")).toBe(true);
+      expect(a.classList.contains("is-collapsed")).toBe(true);
+      expect(b.classList.contains("is-collapsed")).toBe(true);
 
       cleanupA();
       cleanupB();
@@ -409,11 +409,11 @@ describe("bindOutsideCollapse", () => {
       const outside = document.createElement("div");
       document.body.appendChild(outside);
       outside.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-      expect(container.classList.contains("expanded")).toBe(true);
+      expect(container.classList.contains("is-expanded")).toBe(true);
 
       skip = false;
       outside.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-      expect(container.classList.contains("collapsed")).toBe(true);
+      expect(container.classList.contains("is-collapsed")).toBe(true);
     });
   });
 });
@@ -577,14 +577,14 @@ describe("createPanelControl", () => {
     });
     document.body.appendChild(result.container);
     result.toggleBtn.click();
-    expect(result.ctrl.classList.contains("expanded")).toBe(true);
+    expect(result.ctrl.classList.contains("is-expanded")).toBe(true);
 
     result.destroy();
 
     const outside = document.createElement("div");
     document.body.appendChild(outside);
     outside.click();
-    expect(result.ctrl.classList.contains("expanded")).toBe(true);
+    expect(result.ctrl.classList.contains("is-expanded")).toBe(true);
   });
 
   it("collapses on an outside press by default", () => {
@@ -597,12 +597,12 @@ describe("createPanelControl", () => {
     });
     document.body.appendChild(result.container);
     result.toggleBtn.click();
-    expect(result.ctrl.classList.contains("expanded")).toBe(true);
+    expect(result.ctrl.classList.contains("is-expanded")).toBe(true);
 
     const outside = document.createElement("div");
     document.body.appendChild(outside);
     outside.click();
-    expect(result.ctrl.classList.contains("collapsed")).toBe(true);
+    expect(result.ctrl.classList.contains("is-collapsed")).toBe(true);
   });
 
   it("stays open on an outside press when collapseOnOutside is false", () => {
@@ -616,12 +616,12 @@ describe("createPanelControl", () => {
     });
     document.body.appendChild(result.container);
     result.toggleBtn.click();
-    expect(result.ctrl.classList.contains("expanded")).toBe(true);
+    expect(result.ctrl.classList.contains("is-expanded")).toBe(true);
 
     const outside = document.createElement("div");
     document.body.appendChild(outside);
     outside.click();
-    expect(result.ctrl.classList.contains("expanded")).toBe(true);
+    expect(result.ctrl.classList.contains("is-expanded")).toBe(true);
   });
 
   it("toggle button expands the panel", () => {
@@ -633,7 +633,7 @@ describe("createPanelControl", () => {
       closeTitle: "Close",
     });
     result.toggleBtn.click();
-    expect(result.ctrl.classList.contains("expanded")).toBe(true);
+    expect(result.ctrl.classList.contains("is-expanded")).toBe(true);
   });
 });
 
