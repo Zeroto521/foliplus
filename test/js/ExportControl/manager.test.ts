@@ -596,7 +596,7 @@ describe("ExportManager — pixel limit & storage", () => {
   });
 
   it("saveBounds persists geo bounds to storage", () => {
-    const saveSpy = vi.spyOn(Storage, "save");
+    const saveSpy = vi.spyOn(Storage, "saveRecord");
     manager.saveBounds({
       nw: { lat: 26.1, lng: 119.2 },
       se: { lat: 26.0, lng: 119.4 },
@@ -605,7 +605,7 @@ describe("ExportManager — pixel limit & storage", () => {
   });
 
   it("loadSavedBounds loads valid overlapping bounds", () => {
-    const loadSpy = vi.spyOn(Storage, "load").mockReturnValue({
+    const loadSpy = vi.spyOn(Storage, "loadRecord").mockReturnValue({
       nw: { lat: 10, lng: 10 },
       se: { lat: -10, lng: -10 },
     });
@@ -617,7 +617,7 @@ describe("ExportManager — pixel limit & storage", () => {
 
   it("loadSavedBounds ignores invalid lat/lng", () => {
     manager.savedBounds = null;
-    const loadSpy = vi.spyOn(Storage, "load").mockReturnValue({
+    const loadSpy = vi.spyOn(Storage, "loadRecord").mockReturnValue({
       nw: { lat: 999, lng: 10 },
       se: { lat: -10, lng: -10 },
     });
@@ -629,7 +629,7 @@ describe("ExportManager — pixel limit & storage", () => {
   it("loadSavedBounds ignores bounds with no overlap with map", () => {
     manager.savedBounds = null;
     // nw.lat > map north (90) → no overlap
-    const loadSpy = vi.spyOn(Storage, "load").mockReturnValue({
+    const loadSpy = vi.spyOn(Storage, "loadRecord").mockReturnValue({
       nw: { lat: 95, lng: 170 },
       se: { lat: 85, lng: 175 },
     });

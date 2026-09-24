@@ -25,9 +25,9 @@ const seedStorage = (record: unknown) => {
   window.localStorage.setItem(CONST.STORAGE.KEY, JSON.stringify(record));
 };
 
-/** Spy `Storage.save` so a test can count writes without touching localStorage
+/** Spy `Storage.saveRecord` so a test can count writes without touching localStorage
  *  -- the record under assertion is then the one handed to the spy. */
-const spySave = () => vi.spyOn(Storage, "save").mockImplementation(() => true);
+const spySave = () => vi.spyOn(Storage, "saveRecord").mockImplementation(() => true);
 
 const lastRecord = (save: ReturnType<typeof spySave>): PersistedRecord =>
   save.mock.calls.at(-1)![1] as PersistedRecord;
@@ -47,7 +47,7 @@ describe("LayerPersistence", () => {
 
   // ── Read ────────────────────────────────────────────────────────
 
-  describe("load", () => {
+  describe("loadRecord", () => {
     it("loads every dimension from one record", () => {
       seedStorage({
         version: RECORD_VERSION,
