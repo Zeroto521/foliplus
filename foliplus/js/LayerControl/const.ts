@@ -100,6 +100,14 @@ const CLASSES = {
   RENAMING: "foliplus-layer-renaming",
   /** Floating style panel opened from the layer overflow menu. */
   STYLE_PANEL: "foliplus-layer-style-panel",
+  /** Divider above the ⋮ menu's destructive entry — its own <li> so the
+   *  keyboard order stays one slot per entry. */
+  MENU_DIVIDER: "foliplus-layer-more-menu-divider",
+  /** The ⋮ menu's delete label, kept in its own element so the armed state
+   *  can swap the text without rebuilding the entry. */
+  MENU_DELETE_LABEL: "foliplus-layer-more-menu-delete-label",
+  /** The ⋮ menu's delete entry while it waits for its confirming click. */
+  MENU_DELETE_ARMED: "foliplus-layer-more-menu-delete-armed",
   /** The style panel's controls. Each is named by the builder *and* looked up
    *  again by the change handlers that read the panel back, so the names live
    *  here instead of being typed twice and drifting. */
@@ -189,6 +197,7 @@ const ACTION = {
   RENAME_LAYER: "rename-layer",
   STYLE_LAYER: "style-layer",
   ATTRS_LAYER: "layer-attributes",
+  DELETE_LAYER: "delete-layer",
 };
 
 /** DOM selectors. */
@@ -201,6 +210,7 @@ const SEL = {
   /** Any cursor-recipe row (data item or the fold/toggle-all row). Child
    *  control focus (checkbox / more / fold) attributes to this via closest(). */
   ROW: ".foliplus-layer-item, .foliplus-layer-toggle-all",
+  MENU_DELETE_LABEL: `.${CLASSES.MENU_DELETE_LABEL}`,
 };
 
 /** Group names. */

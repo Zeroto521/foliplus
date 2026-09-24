@@ -382,10 +382,21 @@ class HeatmapManager {
     this.onLayerChange = debounce(() => {
       this.cachedPoints = null;
       this.cachedAgg = null;
-      if (this.ui) {
-        this.scanMapLayers();
-        rebuildLayerDropdown(this.ui);
+      this.scanMapLayers();
+      // A deleted source has to take its derived view with it. The heatmap
+      // draws another layer's points, so unregistering that layer must drop
+      // the selection and wipe the canvas in this pass — a clear deferred to
+      // the next zoom leaves the old render painted until something
+      // re-aggregates. Deliberately outside `if (this.ui)`: the canvas is map
+      // state, and a map can lose a source layer before (or without) a panel.
+      if (
+        this.selectedLayerId &&
+        !this.pointLayers.some(p => p.id === this.selectedLayerId)
+      ) {
+        this.selectedLayerId = null;
+        this.clearHeatmapCanvas();
       }
+      if (this.ui) rebuildLayerDropdown(this.ui);
     }, CONST.TIMING.LAYER_SCAN_DEBOUNCE);
     // Subscribe to the semantic registry-change event instead of raw Leaflet
     // layeradd/layerremove — LayerManager emits EVENTS.LAYER_CHANGE on
