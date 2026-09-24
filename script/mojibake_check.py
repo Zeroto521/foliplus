@@ -29,7 +29,7 @@ def main() -> int:
         try:
             with open(filepath, "rb") as f:
                 content = f.read()
-        except (OSError, IOError):
+        except OSError:
             continue
 
         lines = content.split(b"\n")
