@@ -1812,6 +1812,11 @@ describe("HeatmapManager — style delegation", () => {
     expect(opts.styleDefaults!().labelShow).toBe(true);
   });
 
+  it("borderWeight defaults to BORDER_WEIGHT.DEFAULT when CONF omits border_weight", () => {
+    const m = makeManager({ border_weight: undefined });
+    expect(m.borderWeight).toBe(BORDER_WEIGHT.DEFAULT);
+  });
+
   it("borderWeight setter updates state, re-renders and persists", () => {
     const m = makeManager();
     const redrawSpy = vi.spyOn(m, "redrawHeatmap");
