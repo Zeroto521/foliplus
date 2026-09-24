@@ -326,7 +326,8 @@ _BROWSER_DEFAULT_NAV_TIMEOUT_MS = 45_000
 #
 # ``.foliplus/`` is gitignored; the probe leaves no tracked artifacts.
 #
-# T150 findings (2026-09-25, Windows, 15 baseline rounds of -n 24):
+# T150 findings (2026-09-25):
+#   Windows local (15 baseline rounds of -n 24):
 #   - 95-class anomaly reproduced (Round 14: 116 failures / 409 s; Round 12:
 #     99 failures / 321 s) with per-page context baseline.
 #   - Round 14 workers at page 8 show ``contexts`` = 1-5 (vs 1-2 in clean
@@ -334,10 +335,23 @@ _BROWSER_DEFAULT_NAV_TIMEOUT_MS = 45_000
 #   - Correlation: chromium process count tracks per-worker context count
 #     one-to-one — each open context is a Chromium renderer/helper.
 #   - 5 rounds of -n 12 (halved workers): 0 failures, ctxMax=1 throughout.
-#   - Root cause: Windows process pressure at -n 24 causes intermittent
+#   - Root cause (Windows only): process pressure at -n 24 causes intermittent
 #     per-worker context accumulation, which cascades into the 95-anomaly
 #     (workers stuck on page.goto timeouts, unable to progress past po=8).
-#   - Fix (upstream): reduce JOBS to 12 for browser tests on Windows.
+#
+#   Linux CI (GitHub Actions, 51 failed test runs sampled):
+#   - No 95-class anomaly visible. Observed failures are 2-20 test flakes
+#     (normal level) or non-test failures (format / lint / esbuild).
+#   - Do NOT interpret the Windows root cause as universal. A global
+#     JOBS 24→12 change would mis-cap healthy Linux CI runners.
+#
+#   Disposition (per review):
+#   - Keep probes + tightened thresholds (contexts>3, chromium_procs>28).
+#   - Windows local workaround: run ``make test-browser JOBS=12`` on Windows
+#     machines when 24-worker flake rate spikes. Do not change the Makefile
+#     default (JOBS=auto) — Linux CI has not reproduced the symptom.
+#   - A future platform-conditional JOBS in Makefile is only justified once
+#     the same 95-anomaly class is observed on Linux CI.
 #
 _HEALTH_PROBE_ENABLED = os.environ.get("FOLIPLUS_HEALTH_PROBE", "1") != "0"
 _HEALTH_SAMPLE_N = int(os.environ.get("FOLIPLUS_HEALTH_SAMPLE_N", "8"))
@@ -347,8 +361,8 @@ _HEALTH_DIR = Path(".foliplus") / "flaky95"
 # collecting a baseline distribution from the first round of clean runs.
 _HEALTH_THRESHOLDS = {
     "rss_mb": 512,
-    "contexts": 128,
-    "chromium_procs": 32,
+    "contexts": 3,
+    "chromium_procs": 28,
     "handles": 2000,
 }
 
