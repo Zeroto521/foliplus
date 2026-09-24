@@ -2,7 +2,7 @@
  * Shared pipeline for the two bundle-size gates (bundle-fuse.mjs and
  * bundle-size-check.mjs).
  *
- * §40.2 split the gates by RESPONSIBILITY — the fuse judges each bundle
+ * The two gates were split by RESPONSIBILITY — the fuse judges each bundle
  * against a fixed absolute ceiling; the check judges growth against a
  * captured baseline. What they have in common is the measurement and
  * formatting pipeline: both read brotli bytes off the minified artifacts,

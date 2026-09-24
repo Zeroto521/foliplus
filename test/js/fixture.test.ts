@@ -1,6 +1,6 @@
 // Completeness + isolation gates: the shared fixture must cover the failure
-// modes that the two prior incidents (T85's missing `bindPopup`, T38's missing
-// `rangeHiddenIds`) exposed, and the global beforeEach(resetState) must keep
+// modes that two prior incidents (a missing `bindPopup` on marker mocks, a
+// missing `rangeHiddenIds` on LayerUI) exposed, and the global beforeEach(resetState) must keep
 // localStorage clean across tests. Every field on `LayerUI` and every
 // constructor on `window.L` that production code touches is exercised here so
 // a new field landing in production code produces a loud test failure instead
@@ -9,7 +9,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { makeLayerUIMock } from "./fixture.js";
 
 describe("window.L marker mock", () => {
-  it("every marker instance exposes bindPopup (the T85 incident)", () => {
+  it("every marker instance exposes bindPopup (the missing-bindPopup incident)", () => {
     const marker = window.L.marker!();
     expect(typeof marker.bindPopup).toBe("function");
     expect(typeof marker.openPopup).toBe("function");
@@ -19,7 +19,7 @@ describe("window.L marker mock", () => {
 });
 
 describe("makeLayerUIMock — LayerUI field completeness", () => {
-  it("exposes rangeHiddenIds as a Set with a working .delete (the T38 incident)", () => {
+  it("exposes rangeHiddenIds as a Set with a working .delete (the missing-rangeHiddenIds incident)", () => {
     const ui = makeLayerUIMock();
     expect(ui.rangeHiddenIds).toBeDefined();
     expect(typeof ui.rangeHiddenIds.delete).toBe("function");
