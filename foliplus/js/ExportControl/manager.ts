@@ -63,7 +63,7 @@ const nudgeDirection = (key: string): { x: number; y: number } =>
           : { x: 0, y: 0 };
 
 /** A screen-space rectangle. */
-interface Rect {
+interface CropRect {
   left: number;
   top: number;
   width: number;
@@ -94,7 +94,7 @@ interface DragState {
 interface CropState {
   overlay: HTMLElement;
   box: HTMLElement;
-  rect: Rect;
+  rect: CropRect;
   locked: boolean;
   actions: HTMLElement;
   geoBounds?: GeoBounds;
@@ -131,7 +131,7 @@ class ExportManager {
   exportOverlay: HTMLElement | null;
   isExporting: boolean;
   pixelOverLimit: boolean;
-  lastScreenRect: Rect | null;
+  lastScreenRect: CropRect | null;
   savedBounds: SavedBounds | null;
   /** Per-layer tile load stats from the most recent render, read by
    *  finishExport to warn about CORS-blocked tile sources over the success
@@ -155,8 +155,8 @@ class ExportManager {
   declare lockCropBox: (skipHint?: boolean) => void;
   declare unlockCropBox: () => void;
   declare removeCropBox: () => void;
-  declare updateBoxStyle: (el: HTMLElement, r: Rect) => void;
-  declare showHintWithInfo: (r: Rect, instruction?: string) => void;
+  declare updateBoxStyle: (el: HTMLElement, r: CropRect) => void;
+  declare showHintWithInfo: (r: CropRect, instruction?: string) => void;
   declare showGlobalHint: (
     text: string,
     duration: number,
@@ -203,8 +203,8 @@ class ExportManager {
     this.lockCropBox = (skipHint?: boolean) => lockCropBox(this, skipHint);
     this.unlockCropBox = () => unlockCropBox(this);
     this.removeCropBox = () => removeCropBox(this);
-    this.updateBoxStyle = (el: HTMLElement, r: Rect) => updateBoxStyle(this, el, r);
-    this.showHintWithInfo = (r: Rect, instruction?: string) =>
+    this.updateBoxStyle = (el: HTMLElement, r: CropRect) => updateBoxStyle(this, el, r);
+    this.showHintWithInfo = (r: CropRect, instruction?: string) =>
       showHintWithInfo(this, r, instruction);
     this.showGlobalHint = (text: string, duration: number, withLoadingIcon?: boolean) =>
       showGlobalHint(this, text, duration, withLoadingIcon);
@@ -216,7 +216,7 @@ class ExportManager {
   }
 
   loadSavedBounds() {
-    const data = Storage.load<SavedBounds | null>(CONST.STORAGE.KEY, CONF.name);
+    const data = Storage.loadRecord<SavedBounds | null>(CONST.STORAGE.KEY, CONF.name);
     if (!data || !data.nw || !data.se) return;
     const nw = data.nw;
     const se = data.se;
@@ -242,7 +242,7 @@ class ExportManager {
   }
 
   saveBounds(bounds: GeoBounds) {
-    Storage.save(
+    Storage.saveRecord(
       CONST.STORAGE.KEY,
       {
         nw: { lat: bounds.nw.lat, lng: bounds.nw.lng },
@@ -543,7 +543,7 @@ class ExportManager {
   }
 
   /** Apply a new rect: update state, box style, and (optionally) the size hint. */
-  private applyRect(r: Rect, withHint = true) {
+  private applyRect(r: CropRect, withHint = true) {
     if (!this.cropState) return;
     this.cropState.rect = r;
     this.updateBoxStyle(this.cropState.box, r);
@@ -591,7 +591,7 @@ class ExportManager {
   }
 
   /** Default centered crop box (same as the no-history branch of showCropBox). */
-  defaultRect(): Rect {
+  defaultRect(): CropRect {
     const mapRect = this.mapContainer.getBoundingClientRect();
     const padW = mapRect.width * CONST.CROP.PADDING_RATIO;
     const padH = mapRect.height * CONST.CROP.PADDING_RATIO;
@@ -609,7 +609,7 @@ class ExportManager {
     const se = this.cropState.geoBounds!.se;
     const tl = this.map.latLngToContainerPoint(L.latLng(nw.lat, nw.lng));
     const br = this.map.latLngToContainerPoint(L.latLng(se.lat, se.lng));
-    const newRect: Rect = {
+    const newRect: CropRect = {
       left: tl.x,
       top: tl.y,
       width: Math.abs(br.x - tl.x),
@@ -624,7 +624,7 @@ class ExportManager {
   }
 
   /** Check pixel limit and set pixelOverLimit flag. */
-  checkPixelLimit(r: Rect) {
+  checkPixelLimit(r: CropRect) {
     // Pixel limit applies to the crop area itself (not scaled by export
     // DPI). The override of r.width/r.height happens in doRender, so the
     // check here matches the actual exported dimensions.
@@ -724,7 +724,7 @@ class ExportManager {
    *  render promise so callers (e.g. enlargeAndRender) can chain work
    *  after the render completes. */
   doRender(
-    r: Rect,
+    r: CropRect,
     scaleValue: number,
     bg: string | undefined,
     geoBounds: GeoBounds | undefined,
@@ -763,7 +763,7 @@ class ExportManager {
 
   /** Enlarge the container for over-size exports and render. */
   enlargeAndRender(
-    r: Rect,
+    r: CropRect,
     scaleValue: number,
     bg: string | undefined,
     geoBounds: GeoBounds,
@@ -1032,4 +1032,4 @@ class ExportManager {
   }
 }
 
-export { type Rect, ExportManager, canvasToBlob };
+export { type CropRect, ExportManager, canvasToBlob };

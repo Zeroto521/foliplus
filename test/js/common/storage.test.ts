@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  load,
+  loadRecord,
   loadVersioned,
   makePersisted,
-  save,
+  saveRecord,
   saveVersioned,
 } from "#common/storage.js";
 
@@ -43,27 +43,27 @@ describe("storage", () => {
   });
 
   it("returns null when key does not exist", () => {
-    expect(load("nonexistent")).toBeNull();
+    expect(loadRecord("nonexistent")).toBeNull();
   });
 
   it("saves and loads JSON values", () => {
-    save("test_key", { foo: "bar" });
-    expect(load("test_key")).toEqual({ foo: "bar" });
+    saveRecord("test_key", { foo: "bar" });
+    expect(loadRecord("test_key")).toEqual({ foo: "bar" });
   });
 
   it("returns null for corrupted JSON", () => {
     window.localStorage.setItem("bad", "not json");
-    expect(load("bad")).toBeNull();
+    expect(loadRecord("bad")).toBeNull();
     expect(console.warn).toHaveBeenCalled();
   });
 
   it("handles primitive values", () => {
-    save("num", 42);
-    expect(load("num")).toBe(42);
+    saveRecord("num", 42);
+    expect(loadRecord("num")).toBe(42);
   });
 
   it("reports a write as landed on the default path", () => {
-    expect(save("ok", { a: 1 })).toBe(true);
+    expect(saveRecord("ok", { a: 1 })).toBe(true);
     expect(console.warn).not.toHaveBeenCalled();
   });
 
@@ -73,7 +73,7 @@ describe("storage", () => {
         throw new DOMException("quota", "QuotaExceededError");
       },
       () => {
-        expect(save("denied", { a: 1 })).toBe(false);
+        expect(saveRecord("denied", { a: 1 })).toBe(false);
         expect(console.warn).toHaveBeenCalled();
       },
     );
@@ -87,18 +87,18 @@ describe("storage", () => {
         throw new Error("blocked");
       },
       () => {
-        expect(save("blocked", { a: 1 })).toBe(false);
+        expect(saveRecord("blocked", { a: 1 })).toBe(false);
       },
     );
   });
 
   it("still reports a write as landed when the backend swallows it", () => {
     // Some sandboxed iframes accept a write and drop it without throwing —
-    // save() can only observe a throw, so that case reports landed.
+    // saveRecord() can only observe a throw, so that case reports landed.
     runWithSetItem(
       () => {},
       () => {
-        expect(save("silent", { a: 1 })).toBe(true);
+        expect(saveRecord("silent", { a: 1 })).toBe(true);
         expect(console.warn).not.toHaveBeenCalled();
       },
     );
@@ -290,8 +290,8 @@ describe("storage", () => {
     });
 
     it("calls onFlushError when save returns false", () => {
-      // Storage.save returns false when the backend rejects the write (quota,
-      // private mode). A caller that treats every `save()` return as success
+      // Storage.saveRecord returns false when the backend rejects the write (quota,
+      // private mode). A caller that treats every `saveRecord()` return as success
       // would silently drop data.
       const onFlushError = vi.fn();
       const p = makePersisted({
