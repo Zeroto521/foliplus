@@ -2911,6 +2911,62 @@ class TestLayerControlBrowser:
             )
             assert result["colorBg"] is True, "map container should have active class"
 
+    def test_color_basemap_checkbox_toggles_visibility(self, browser, tmp_path):
+        """Checking the colour basemap's checkbox must toggle its visibility.
+
+        The row's checkbox column holds a real ``<input type="checkbox">``
+        (like every other basemap row).  Checking it paints the container
+        background (``.active`` + ``--color-layer-bg``); unchecking it clears
+        both.  Without the fix the row has only a colour picker and no
+        checkbox, so the toggle cannot happen.
+        """
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl().add_to(m)
+        html_path = tmp_path / "test_color_checkbox.html"
+        html_path.write_text(m.get_root().render(), encoding="utf-8")
+
+        with use_raw_page(browser.new_page) as page:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
+            )
+            page.wait_for_timeout(500)
+
+            # Initial state: checkbox exists and is unchecked.
+            state = page.evaluate(_js("LayerControl/read_color_checkbox_state"))
+            assert state is not None
+            assert state["hasCheckbox"] is True, (
+                "colour basemap row must have a real checkbox"
+            )
+            assert state["checked"] is False, "colour basemap starts unchecked"
+            assert state["active"] is False, "container starts without .active"
+
+            # Check the checkbox → container background takes effect.
+            result = page.evaluate(_js("LayerControl/toggle_color_checkbox"))
+            assert result is not None and result["ok"] is True, result
+            assert result["checked"] is True
+
+            state = page.evaluate(_js("LayerControl/read_color_checkbox_state"))
+            assert state["checked"] is True
+            assert state["active"] is True, "checking must paint the container"
+            assert state["colorBg"] != "", "checking must set --color-layer-bg"
+
+            # Uncheck → container background cleared.
+            result = page.evaluate(_js("LayerControl/toggle_color_checkbox"))
+            assert result is not None and result["ok"] is True, result
+            assert result["checked"] is False
+
+            state = page.evaluate(_js("LayerControl/read_color_checkbox_state"))
+            assert state["checked"] is False
+            assert state["active"] is False, "unchecking must clear .active"
+            assert state["colorBg"] == "", "unchecking must clear --color-layer-bg"
+
     def test_register_layer_preserves_visible_on_reentry(self, browser, tmp_path):
         """registerLayer preserves the visible state from a previous registration."""
         with use_page(self._make_page, browser, tmp_path) as (page, _):
