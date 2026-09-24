@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import os
 import re
+import shutil
 import tempfile
 import urllib.request
 from collections.abc import Generator
@@ -50,6 +51,10 @@ _CDN_CACHE_DIR = Path("/tmp/foliplus-cdn-cache")
 _CDN_PREFETCH_TIMEOUT = 10  # seconds
 _CDN_DOWNLOAD_TIMEOUT = 30  # seconds
 _CDN_DOWNLOAD_RETRIES = 3  # retry attempts
+# Minimum free space on the cache volume before we let a download attempt start.
+# A full disk would stall retries inside a page.route handler, which surfaces
+# as a spurious `Page.goto: Timeout` in whichever browser is waiting on it.
+_CDN_MIN_FREE_BYTES = 32 * 1024 * 1024  # 32 MiB
 
 # CDN URL fragment -> (cache filename, mime type)
 _CDN_CACHE: dict[str, tuple[str, str]] = {
@@ -99,6 +104,22 @@ _CDN_CACHE: dict[str, tuple[str, str]] = {
 }
 
 
+def _has_disk_space(path: Path, min_bytes: int) -> bool:
+    """True if the filesystem holding *path* has at least *min_bytes* free.
+
+    A full disk blocks ``urlopen`` retries inside the CDN route handler and
+    surfaces as a ``Page.goto: Timeout`` in whatever browser is waiting on
+    that route.  Failing closed to 404 keeps tests offline-immune in that
+    case; better than timing out.
+    """
+    try:
+        usage = shutil.disk_usage(str(path))
+    except OSError:
+        # Unknown (e.g. network filesystem quirk) — don't block on this.
+        return True
+    return usage.free >= min_bytes
+
+
 def _cdn_cached(
     url: str, retries: int | None = None, timeout: float | None = None
 ) -> tuple[bytes | None, str | None]:
@@ -122,9 +143,17 @@ def _cdn_cached(
             except OSError:
                 return None, None
 
+        # Refuse to attempt the download if the cache volume is nearly full:
+        # a retry loop would stall the whole page.route handler, which shows
+        # up as a spurious ``Page.goto: Timeout`` in whichever browser is
+        # waiting on that request.
+        if not _has_disk_space(_CDN_CACHE_DIR, _CDN_MIN_FREE_BYTES):
+            return None, None
+
         # Atomic download with retries for flaky CI networks.
-        # Write to a temp file, then rename. Guards against concurrent
-        # xdist workers reading a half-written file.
+        # Write to a temp file, fsync, then rename. Guards against concurrent
+        # xdist workers reading a half-written file, and against a crash
+        # between rename and disk commit leaving an empty "cache" file.
         attempt_count = retries if retries is not None else _CDN_DOWNLOAD_RETRIES
         per_attempt_timeout = timeout if timeout is not None else _CDN_DOWNLOAD_TIMEOUT
         for attempt in range(1, attempt_count + 1):
@@ -135,6 +164,8 @@ def _cdn_cached(
                     os.fdopen(fd, "wb") as out,
                 ):
                     out.write(resp.read())
+                    out.flush()
+                    os.fsync(out.fileno())
                 os.replace(tmp_path, cache_path)
                 break
             except Exception:
@@ -224,12 +255,15 @@ def read_css_dir(path: str, name: str) -> str:
     return _css_cache[key]
 
 
-def _install_cdn_route(page) -> None:
+def _install_cdn_route(target: Any) -> None:
     """Intercept CDN + tile requests so browser tests run offline.
 
     Known CDN scripts are served from the local cache; OSM tile requests are
     answered with 404 (Leaflet skips failed tiles) so pages don't stall on
     slow tile downloads.
+
+    ``target`` may be either a ``BrowserContext`` (shared route — one handler
+    covers every page in that context) or a ``Page`` (per-page fallback).
     """
     from playwright.sync_api import Route
 
@@ -254,16 +288,30 @@ def _install_cdn_route(page) -> None:
             return
         route.fulfill(status=200, body=data, content_type=mime)
 
-    page.route("**/*", handler)
+    target.route("**/*", handler)
+
+
+# Playwright's default navigation timeout is 30 000 ms. Under CI contention
+# the browser can sit on its main thread waiting for first paint, which
+# makes ``page.goto`` trip the default. 45 s is a buffer, not a mask — it
+# stops legitimate slow startup from being misread as a flake. Deliberately
+# set on navigation only; per-action timeouts (click / wait_for_*) stay at
+# Playwright defaults so real slowness in assertions still surfaces.
+_BROWSER_DEFAULT_NAV_TIMEOUT_MS = 45_000
 
 
 class _CdnBrowserProxy:
     """Wrap a Playwright Browser so every ``new_page()`` gets the CDN route.
 
-    ``browser.new_page()`` is a shortcut for creating a fresh context + page,
-    so there is no single context on which we can install a global route.
-    Routing per-page via this proxy covers every test, including those that
-    call ``browser.new_page()`` directly instead of ``make_browser_page``.
+    ``browser.new_page()`` internally creates a fresh ``BrowserContext``,
+    which isolates ``localStorage`` / cookies / caches natively — one
+    test never sees another's storage. ``page.reload()`` inside a single
+    test preserves what it wrote (persistence tests rely on this).
+
+    Routing is installed per page because the underlying context is not
+    exposed; this is the baseline behaviour. The proxy also raises the
+    navigation timeout from Playwright's 30 s default to 45 s so a
+    legitimate slow first-paint doesn't trip as a flake on loaded CI.
     """
 
     def __init__(self, browser: Browser) -> None:
@@ -275,6 +323,7 @@ class _CdnBrowserProxy:
     def new_page(self, *args, **kwargs):
         page = self._browser.new_page(*args, **kwargs)
         _install_cdn_route(page)
+        page.set_default_navigation_timeout(_BROWSER_DEFAULT_NAV_TIMEOUT_MS)
         return page
 
 
@@ -524,11 +573,12 @@ def rendered(base_map: folium.Map) -> str:
 
 
 @pytest.fixture(scope="session")
-def browser() -> Generator[Browser, None, None]:
+def browser() -> Generator[_CdnBrowserProxy, None, None]:
     """Launch a headless Chromium once per session.
 
-    Every ``new_page()`` is wrapped with a CDN/tile route (see
-    ``_CdnBrowserProxy``) so browser tests don't depend on a fast network.
+    Every ``new_page()`` returns a page on a fresh ``BrowserContext`` (see
+    ``_CdnBrowserProxy``), so tests don't share ``localStorage`` / cookies.
+    The CDN route is installed on each context so browser tests run offline.
 
     Skipped if Playwright is not installed::
 

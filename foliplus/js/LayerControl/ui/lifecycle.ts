@@ -26,7 +26,6 @@ import {
   clearActiveItem,
   getNavigableItems,
   handleDblClick,
-  handleKeyDown,
   syncListCursor,
 } from "./keyboard.js";
 import { insertLayerItem, renderInitialList } from "./list.js";
@@ -164,10 +163,11 @@ const bindEvents = (ui: LayerUI): void => {
         blurActiveItem(ui);
         row.classList.add(CONST.CLASSES.FOCUSED);
         // Keep DOM focus on the row so Space/Enter resolve from focus, and
-        // so Escape still reaches handleKeyDown's container guard — the
-        // panel floats from the ⋮ press, so its own controls hold focus,
-        // and this press must not park the cursor on the anchor row for
-        // the whole time the user is flipping controls inside it.
+        // so Escape still reaches handleKeyDown — ownership is decided once
+        // before dispatch by the interaction manager, so no container guard
+        // lives here. The panel floats from the ⋮ press, so its own controls
+        // hold focus, and this press must not park the cursor on the anchor
+        // row for the whole time the user is flipping controls inside it.
         row.focus({ focusVisible: false } as FocusOptions);
       }
     }
@@ -189,7 +189,6 @@ const bindEvents = (ui: LayerUI): void => {
   ui.onDragLeave = event => handleDragLeave(ui, event);
   ui.onDrop = event => handleDrop(ui, event);
   ui.onDragEnd = () => handleDragEnd(ui);
-  ui.onKeyDown = event => handleKeyDown(ui, event);
   // A real focus move is the cursor: once focus lands on a row (or a child
   // control), that row is the keyboard target.
   //
@@ -357,7 +356,6 @@ const unbindEvents = (ui: LayerUI): void => {
   ui.onMoreClick = ui.onMoreMenuClick = null;
   ui.onMoreMapClick = null;
   ui.onZoomEnd = null;
-  ui.onKeyDown = null;
   if (ui.unsubscribeCountChange) {
     ui.unsubscribeCountChange();
     ui.unsubscribeCountChange = null;

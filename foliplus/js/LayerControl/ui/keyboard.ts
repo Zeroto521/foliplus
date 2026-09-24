@@ -1,5 +1,6 @@
 // LayerControl UI —Roving keyboard cursor + key handling.
 import { HINT_DURATION } from "#core/hint.js";
+import { isNativeControl } from "#core/inputOwnership.js";
 import { ListCursor } from "#core/listCursor.js";
 import * as CONST from "../const.js";
 import { closeAttrsPanel } from "./attr.js";
@@ -232,7 +233,13 @@ const syncActiveItem = (ui: LayerUI): void => {
 
 /**
  * Keyboard event handler for layer navigation and interaction.
- * Only responds when focus is within the layer panel.
+ *
+ * Ownership is decided before this runs, not here: the dispatcher checks the
+ * key-ownership table once and drops the event if the focused control
+ * natively consumes the key, so a range slider or a row checkbox parked in
+ * the panel never reaches this function. This handler used to re-ask "is
+ * focus inside my panel?" itself — the same answer the dispatcher had already
+ * settled, which is how a new native control in a panel went unnoticed.
  *
  * Supported shortcuts:
  *   ArrowUp / ArrowDown - Navigate between layer items
@@ -242,8 +249,6 @@ const syncActiveItem = (ui: LayerUI): void => {
  *     the layer focus overlay, or the row keyboard cursor
  */
 const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
-  if (!ui.uiContainer.contains(document.activeElement)) return;
-
   // Escape discharges whatever is open, in the order the user would
   // dismiss it, and otherwise lifts the keyboard cursor. It runs before the
   // cursor guard below: the point of Escape is to drop the cursor.
@@ -458,19 +463,13 @@ const handleDblClick = (ui: LayerUI, event: MouseEvent): void => {
   const item = target.closest(CONST.SEL.LAYER_ITEM) as HTMLElement | null;
   if (!item) return;
   if (inFloatingPanel(target)) return;
+  // Every control on the row owns its own press — checkbox, rename field,
+  // color picker, ⋮, chevron — so foliplus owns the row's dead space only.
+  // One shared predicate rather than a selector list: a new control type is
+  // not a new entry here.
   if (
-    target.closest(
-      [
-        "input",
-        "button",
-        `.${CONST.CLASSES.MORE_BTN}`,
-        `.${CONST.CLASSES.FOLD_BTN}`,
-        `.${CONST.CLASSES.RENAME_INPUT}`,
-        `.${CONST.CLASSES.COLOR_INPUT}`,
-        ".foliplus-layer-more-menu",
-        ".drag-handle",
-      ].join(","),
-    )
+    isNativeControl(target) ||
+    target.closest(".foliplus-layer-more-menu, .drag-handle")
   ) {
     return;
   }
