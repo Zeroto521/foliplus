@@ -13,11 +13,34 @@ import {
   snapshotAuthorVisible,
 } from "./rowView.js";
 import { applyUserState } from "./state.js";
+import { showColorLayer, hideColorLayer } from "./color.js";
 import { syncNoBasemap, syncToggleAll } from "./visibility.js";
 
 /** Full re-scan of every row (used on attach/fold-toggle). Idempotent — *  re-run on each CONTROL_ATTACHED so late-registering components are
  *  folded in. Marks the panel ready for tests/consumers. */
 const initTypesAndVisibility = (ui: LayerUI) => {
+  // Register the colour basemap in the registry so the projection-diff
+  // executor can resolve it.  It has no Leaflet layer — `onToggle` carries
+  // the visibility write (showColorLayer / hideColorLayer).  Registered here
+  // rather than via registerLayer() to avoid a duplicate DOM row: the colour
+  // row is rendered by renderColorLayerItem below.
+  if (!ui.m.layerRegistry.has(CONST.COLOR.MAP_ID)) {
+    const colorLi = ui.m.layerRegistry.createLayerInfo(
+      {
+        id: CONST.COLOR.MAP_ID,
+        name: colorLayerName(ui),
+        isBase: true,
+        onToggle: (v: boolean) =>
+          v ? showColorLayer(ui, ui.currentColor) : hideColorLayer(ui),
+      },
+      undefined,
+      ui.m.map,
+    );
+    ui.m.layerRegistry.upsert(colorLi);
+    // The colour basemap starts unchecked (hidden) by default.
+    ui.authorVisible.set(CONST.COLOR.MAP_ID, false);
+  }
+
   // Snapshot the author default before the sweep below moves any layer: it
   // re-adds a stored-shown layer and removes a stored-hidden one, so a
   // snapshot taken afterwards would record a policy decision as the author's.
@@ -293,6 +316,16 @@ const renderColorLayerItem = (ui: LayerUI) => {
     "aria-label": colorName,
   });
 
+  // Real checkbox so the colour basemap can be checked / unchecked like
+  // every other row.  Toggling it goes through applyVisibility →
+  // applyProjection (the executor); onToggle carries the showColorLayer /
+  // hideColorLayer write.
+  const checkbox = dom.el("input", {
+    type: "checkbox",
+    class: CONST.CLASSES.CHECKBOX,
+    "aria-label": colorName,
+  });
+
   // Color layer lives outside layerRegistry —rename is the only overflow
   // action (no focus on a basemap without bounds).
   const moreBtn = dom.el(
@@ -322,7 +355,7 @@ const renderColorLayerItem = (ui: LayerUI) => {
       title: colorType,
     },
     dom.el("span", { class: CONST.CLASSES.DRAG_CELL }, { html: SVGs.DRAG_HANDLE }),
-    dom.el("div", { class: CONST.CLASSES.CHECKBOX }, colorInput),
+    dom.el("div", { class: CONST.CLASSES.CHECKBOX }, checkbox),
     dom.el("label", { class: CONST.CLASSES.LAYER_LABEL }, colorLayerName(ui)),
     // count column is empty (color layers have no feature count).
     dom.el("span", { class: CONST.CLASSES.COUNT_COL }),

@@ -2,7 +2,7 @@
 import { type Debounced, debounce } from "#common/debounce.js";
 import * as CONST from "../const.js";
 import { applyProjection, applyProjectionAll } from "./apply.js";
-import { hideColorLayer, showColorLayer } from "./color.js";
+import { showColorLayer } from "./color.js";
 import type { LayerUI } from "./index.js";
 import { applyRowView, buildRowCell, rowChecked } from "./rowView.js";
 import { saveState, syncHiddenId } from "./state.js";
