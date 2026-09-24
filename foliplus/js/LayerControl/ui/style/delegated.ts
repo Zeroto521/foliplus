@@ -4,7 +4,6 @@
 // "Label" drawer that layers their own setters alongside LayerControl's
 // opacity / zoom-range rows.
 import { type LabelStyleValues, renderLabelControls } from "#core/labelControl.js";
-import { BORDER } from "#foliplus/HeatmapControl/const.js";
 import { dom } from "#common/dom.js";
 import {
   bindLiveColor,
@@ -20,6 +19,16 @@ import type { LayerUI } from "../index.js";
 import { appendResetFooter, sectionHeading } from "./frame.js";
 import { buildOpacityRow, layerCanOpacity } from "./opacity.js";
 import { buildZoomRangeRow, canShowZoomRange } from "./zoomRange.js";
+
+/** Border weight bounds — mirrors HeatmapControl's BORDER constants.
+ *  Cross-component imports are not supported by the build system, so these
+ *  are duplicated here. If HeatmapControl's values change, update both. */
+const BORDER = {
+  WEIGHT_MIN: 0,
+  WEIGHT_MAX: 10,
+  WEIGHT_STEP: 0.5,
+  WEIGHT_DEFAULT: 1,
+};
 
 /** Whether the layer delegates its style to the drawer via styleSetters
  *  (third-party canvas layers: Heatmap, Measure). The ⋮ menu's Style item
