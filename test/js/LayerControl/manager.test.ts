@@ -2009,7 +2009,6 @@ describe("LayerManager", () => {
     } as any;
     manager.map.hasLayer.mockReturnValue(false);
     manager.registerLayer({ id: "cp", name: "Cp", layer: childPaneLayer });
-    expect(manager.panes.paneCache.size).toBeGreaterThanOrEqual(0); // no crash
     // ensurePane was reached — the pane should exist in defaultPanes set? just verify no throw
   });
 
