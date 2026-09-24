@@ -1044,6 +1044,7 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
     const bare = {
       hiddenIds: new Set(),
       opacityMap: {},
+      fillColorMap: {},
       userOverrides: {},
       rangeHiddenIds: new Set(),
       m: { persistence: { schedule } },
@@ -1069,6 +1070,7 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
     const bare = {
       hiddenIds: new Set(["overlay1"]),
       opacityMap: {},
+      fillColorMap: {},
       userOverrides: { overlay1: ["visible"] },
       rangeHiddenIds: new Set(),
       m: { persistence: { schedule } },
@@ -1094,6 +1096,7 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
     const bare = {
       hiddenIds: new Set(),
       opacityMap: {},
+      fillColorMap: {},
       zoomRangeMap: { overlay1: [4, 10] },
       userOverrides: { overlay1: ["zoomRange"] },
       m: { persistence: { schedule } },
@@ -1117,6 +1120,7 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
     const bare = {
       hiddenIds: new Set(),
       opacityMap: {},
+      fillColorMap: {},
       zoomRangeMap: {},
       userOverrides: { overlay1: ["zoomRange"] },
       m: { persistence: { schedule } },
@@ -1154,6 +1158,7 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
     const bare = {
       hiddenIds: new Set(),
       opacityMap: {},
+      fillColorMap: {},
       zoomRangeMap: {},
       userOverrides: { overlay1: ["opacity"] },
       m: { persistence: { schedule } },
@@ -1177,6 +1182,7 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
     const bare = {
       hiddenIds: new Set(),
       opacityMap: {},
+      fillColorMap: {},
       zoomRangeMap: {},
       userOverrides: {},
       m: { persistence: { schedule } },
@@ -1225,6 +1231,7 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
       hiddenIds: new Set(),
       opacityMap: { overlay1: 0.6 },
       zoomRangeMap: {},
+      fillColorMap: {},
       userOverrides: { overlay1: ["opacity"] },
       m: { persistence: { schedule } },
     } as unknown as LayerUI;

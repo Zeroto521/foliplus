@@ -19,7 +19,7 @@ const RECORD_VERSION = 2;
  *  so a policy can never write through a user's choice -- which is what makes
  *  "the map overrides what I set" structurally impossible rather than a matter
  *  of remembering not to do it. */
-type LayerOverride = "visible" | "opacity" | "zoomRange";
+type LayerOverride = "visible" | "opacity" | "zoomRange" | "fillColor";
 
 /** One layer's persisted intent: the values the user set, plus which dimensions
  *  they set them for. A value with no matching override is dropped on read. */
@@ -30,6 +30,10 @@ type PersistedLayerState = {
    *  min_zoom / max_zoom is only the starting value, so it reaches this field
    *  only once the user has dragged the handles. */
   zoomRange?: [number, number];
+  /** The hex fill colour the user picked in the style panel. LayerControl
+   *  owns the write (a self-managed dimension — see ui/style/fill.ts), so
+   *  it lives in this record rather than on the annotation config. */
+  fillColor?: string;
   overrides: LayerOverride[];
 };
 
@@ -95,7 +99,12 @@ const asObject = (value: unknown): Record<string, unknown> | null =>
     ? (value as Record<string, unknown>)
     : null;
 
-const OVERRIDE_VALUES: LayerOverride[] = ["visible", "opacity", "zoomRange"];
+const OVERRIDE_VALUES: LayerOverride[] = [
+  "visible",
+  "opacity",
+  "zoomRange",
+  "fillColor",
+];
 
 /** A stored zoom range: two finite numbers with the low end not above the
  *  high. Bounds are the map's business -- the handles are confined to the map's
@@ -119,6 +128,12 @@ const parseZoomRange = (raw: unknown): [number, number] | null => {
  * dropped: keeping the value would persist a choice the record itself says was
  * never made, and failing closed sends the layer back to its declared default.
  */
+/** A hex colour the panel's fill row would accept: `#rgb` or `#rrggbb`.
+ *  Longer / shorter strings and non-hex characters are dropped so a corrupt
+ *  entry cannot leak a broken value into <input type=color>. */
+const isHexColor = (value: unknown): value is string =>
+  typeof value === "string" && /^#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(value);
+
 const parseLayerState = (raw: unknown): PersistedLayerState | null => {
   const data = asObject(raw);
   if (!data) return null;
@@ -144,6 +159,13 @@ const parseLayerState = (raw: unknown): PersistedLayerState | null => {
       ) {
         out.opacity = data.opacity;
         out.overrides.push("opacity");
+      }
+      continue;
+    }
+    if (override === "fillColor") {
+      if (isHexColor(data.fillColor)) {
+        out.fillColor = data.fillColor;
+        out.overrides.push("fillColor");
       }
       continue;
     }

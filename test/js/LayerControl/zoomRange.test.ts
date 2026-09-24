@@ -36,6 +36,7 @@ const mockUI: LayerUI = {
   hiddenIds: new Set(),
   rangeHiddenIds: new Set(),
   opacityMap: {},
+  fillColorMap: {},
   zoomRangeMap: {},
   userOverrides: {},
   authorVisible: new Map(),

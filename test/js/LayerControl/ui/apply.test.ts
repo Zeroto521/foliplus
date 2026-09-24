@@ -751,6 +751,7 @@ describe("executor: the branches behind the gates", () => {
       userOverrides: undefined,
       authorVisible: new Map<string, boolean>(),
       opacityMap: {},
+      fillColorMap: {},
       zoomRangeMap: {},
       focusingLayerId: null,
       appliedState: new Map(),

@@ -25,6 +25,7 @@ const loadPersistedState = (ui: LayerUI) => {
   ui.hiddenIds = new Set();
   ui.opacityMap = {};
   ui.zoomRangeMap = {};
+  ui.fillColorMap = {};
   ui.userOverrides = {};
   for (const [id, entry] of Object.entries(state.layers)) {
     ui.userOverrides[id] = [...entry.overrides];
@@ -39,6 +40,9 @@ const loadPersistedState = (ui: LayerUI) => {
     // provenance guarantees presence of the value.
     if (entry.overrides.includes("zoomRange") && entry.zoomRange) {
       ui.zoomRangeMap[id] = entry.zoomRange;
+    }
+    if (entry.overrides.includes("fillColor") && entry.fillColor) {
+      ui.fillColorMap[id] = entry.fillColor;
     }
   }
 };
@@ -55,6 +59,7 @@ const saveFoldState = (ui: LayerUI) => {
 const hasLiveValue = (ui: LayerUI, id: string, override: LayerOverride): boolean => {
   if (override === "opacity") return typeof ui.opacityMap[id] === "number";
   if (override === "zoomRange") return Array.isArray(ui.zoomRangeMap[id]);
+  if (override === "fillColor") return typeof ui.fillColorMap[id] === "string";
   return true;
 };
 
@@ -73,6 +78,10 @@ const buildLayerStates = (ui: LayerUI): Record<string, PersistedLayerState> => {
       state.opacity = opacity;
     }
     if (declared.includes("zoomRange")) state.zoomRange = ui.zoomRangeMap[id];
+    const fillColor = ui.fillColorMap[id];
+    if (declared.includes("fillColor") && typeof fillColor === "string") {
+      state.fillColor = fillColor;
+    }
     states[id] = state;
   }
   return states;
@@ -237,6 +246,7 @@ const dropPersistedLayerState = (ui: LayerUI, id: string) => {
   ui.hiddenIds.delete(id);
   delete ui.opacityMap[id];
   delete ui.zoomRangeMap[id];
+  delete ui.fillColorMap[id];
   delete ui.userOverrides[id];
 };
 

@@ -121,6 +121,11 @@ const CLASSES = {
   /** The "avoid overlap" switch — its own class, because the panel's change
    *  delegation keys on the class to tell the two switches apart. */
   STYLE_COLLIDE_INPUT: "foliplus-style-collide-input",
+  /** Fill colour row (vector layers): swatch + native <input type=color>.
+   *  Its own class so the change delegation can tell it from the label
+   *  colour swatch, and so a future delegated drawer can gate on it. */
+  STYLE_FILL_ROW: "foliplus-style-fill-row",
+  STYLE_FILL_COLOR_INPUT: "foliplus-style-fill-color-input",
   /** Shared section heading (form.css). */
   SECTION_HEADING: "foliplus-section-heading",
   /** Opacity control: range slider + paired number input. */
