@@ -64,20 +64,20 @@ describe("registryUsedExports", () => {
     const dir = mkDir("test", {
       "Component1/index.ts": `
         import * as Icons from "#common/icon.js";
-        const x = Icons.CLOSE;
+        const x = Icons.CLOSE_ICON;
         const y = Icons.OPEN;
       `,
       "Component1/util.ts": `
         import * as Storage from "#common/storage.js";
-        Storage.load();
-        Storage.save();
+        Storage.loadRecord();
+        Storage.saveRecord();
       `,
     });
     const result = registryUsedExports(dir);
-    expect(result["common/icon"]).toContain("CLOSE");
+    expect(result["common/icon"]).toContain("CLOSE_ICON");
     expect(result["common/icon"]).toContain("OPEN");
-    expect(result["common/storage"]).toContain("load");
-    expect(result["common/storage"]).toContain("save");
+    expect(result["common/storage"]).toContain("loadRecord");
+    expect(result["common/storage"]).toContain("saveRecord");
   });
 
   it("ignores array methods on namespace imports", () => {
@@ -86,12 +86,12 @@ describe("registryUsedExports", () => {
         import * as Icons from "#common/icon.js";
         const arr = [];
         arr.forEach(x => Icons[x]);
-        arr.push(Icons.CLOSE);
+        arr.push(Icons.CLOSE_ICON);
         arr.length;
       `,
     });
     const result = registryUsedExports(dir);
-    expect(result["common/icon"]).toContain("CLOSE");
+    expect(result["common/icon"]).toContain("CLOSE_ICON");
     // Should NOT contain array methods
     expect(result["common/icon"]).not.toContain("forEach");
     expect(result["common/icon"]).not.toContain("push");

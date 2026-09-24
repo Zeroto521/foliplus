@@ -227,7 +227,7 @@ class HeatmapManager {
     // so there is nothing to coalesce. Flush on teardown stays idempotent.
     this.persist = makePersisted({
       save: () =>
-        Storage.save(
+        Storage.saveRecord(
           CONST.STORAGE.KEY,
           {
             version: CONST.RECORD_VERSION,
@@ -845,8 +845,8 @@ class HeatmapManager {
 
   /** Load saved configuration from localStorage into this manager's state. */
   loadSavedConfig(): SavedConfig | null {
-    // Storage.load already returns null when the key is missing/unreadable.
-    return Storage.load<SavedConfig | null>(CONST.STORAGE.KEY, CONF.name);
+    // Storage.loadRecord already returns null when the key is missing/unreadable.
+    return Storage.loadRecord<SavedConfig | null>(CONST.STORAGE.KEY, CONF.name);
   }
 
   /** Save the current manager state to localStorage through the write-through

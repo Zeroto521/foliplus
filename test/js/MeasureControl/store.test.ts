@@ -6,8 +6,8 @@ import { MeasureStore } from "#foliplus/MeasureControl/store.js";
 // own contract is array + id + persist/emit, not the localStorage I/O (covered
 // by common/storage tests) or the event bus wiring (covered by manager tests).
 const storage = vi.hoisted(() => ({
-  load: vi.fn(),
-  save: vi.fn(),
+  loadRecord: vi.fn(),
+  saveRecord: vi.fn(),
   loadVersioned: vi.fn(),
   saveVersioned: vi.fn(),
   makePersisted: vi.fn(),
@@ -17,8 +17,8 @@ const events = vi.hoisted(() => ({
 }));
 
 vi.mock("#common/storage.js", () => ({
-  load: storage.load,
-  save: storage.save,
+  loadRecord: storage.loadRecord,
+  saveRecord: storage.saveRecord,
   loadVersioned: storage.loadVersioned,
   saveVersioned: storage.saveVersioned,
   makePersisted: storage.makePersisted,
@@ -47,7 +47,7 @@ const makeStore = () => {
 };
 
 beforeEach(() => {
-  storage.load.mockReset();
+  storage.loadRecord.mockReset();
   // Versioned helpers: absent data falls through to the store's ?? [].
   storage.loadVersioned.mockReset();
   // Default success — a failure is an explicit per-test mock.
