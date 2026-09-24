@@ -269,13 +269,29 @@ describe("executor: late-carrier replay", () => {
     expect(oldCanvas.style.opacity).toBe("0.4"); // the old element still holds it
   });
 
-  it("a delayed annotation pane picks up a stored opacity on appearance", () => {
+  it("a delayed annotation pane picks up the value, and nothing rewrites once settled", () => {
     // The annotation pane is created lazily — the pane carrier set is empty
     // on the first write and only includes the annotation name once the
     // label layer renders. A value-only diff sees `prev.opacity ===
-    // next.opacity` and misses the write; carrier-identity detection
-    // (old: [declared] → new: [declared, annotation]) fires the replay.
+    // next.opacity` and misses the write; carrier-identity detection fires
+    // the replay onto the pane that just appeared.
+    //
+    // The second half is what the stable carrier key is for: once the value
+    // and the carrier set have both settled, a repeated apply must not touch
+    // the DOM at all. A per-call array key would rewrite here every time.
     const { container, map } = makeOffMapFixture();
+
+    // Stable panes per name, so a write and a later read can meet.
+    const panes = new Map<string, HTMLDivElement>();
+    const paneFor = (name: string) => {
+      let pane = panes.get(name);
+      if (!pane) {
+        pane = document.createElement("div");
+        panes.set(name, pane);
+      }
+      return pane;
+    };
+    map.getPane = vi.fn((name: string) => paneFor(name));
 
     const layer = { options: {} } as L.Layer;
     const manager = new LayerManager(map, [
@@ -283,29 +299,51 @@ describe("executor: late-carrier replay", () => {
     ]);
     manager.ui = new LayerUI(manager);
     const ui = manager.ui as LayerUI;
+
+    // Pin the carrier to a pane set. The surface's capability resolution is
+    // not what this test is about — the executor's replay onto a moved
+    // carrier is.
+    vi.spyOn(manager, "surfaceFor").mockReturnValue({
+      capabilities: { opacity: "pane", zoomRange: "none" },
+      paneNames: ["labels-pane"],
+      geometryType: () => "polygon",
+    } as unknown as ReturnType<typeof manager.surfaceFor>);
+
     vi.useFakeTimers();
     manager.attachUI(container);
     vi.advanceTimersByTime(350);
     vi.useRealTimers();
 
-    // Stored opacity, no annotation yet: the executor writes to whatever
-    // panes exist (native / declared).
+    // Stored opacity, no annotation yet: the value lands on the declared pane.
     ui.opacityMap.a1 = 0.3;
     ui.userOverrides.a1 = ["opacity"];
     applyProjection(ui, "a1");
+    expect(paneFor("labels-pane").style.opacity).toBe("0.3");
 
-    // The annotation pane appears via a mock: an `annotation` proxy that
-    // resolves `paneNameFor` to a fixed name.
+    // Settled: value and carrier are unchanged, so no pane is written again.
+    (map.getPane as ReturnType<typeof vi.fn>).mockClear();
+    applyProjection(ui, "a1");
+    applyProjection(ui, "a1");
+    expect(map.getPane).not.toHaveBeenCalled();
+
+    // The annotation pane appears — the carrier set grows, so the stored
+    // value must land on it too.
+    vi.spyOn(manager, "surfaceFor").mockReturnValue({
+      capabilities: { opacity: "pane", zoomRange: "none" },
+      paneNames: ["labels-pane"],
+      geometryType: () => "polygon",
+    } as unknown as ReturnType<typeof manager.surfaceFor>);
     (manager as any).annotation = {
       paneNameFor: (id: string) => (id === "a1" ? "fp-annotation-a1" : null),
     };
     applyProjection(ui, "a1");
-    // After re-applying with the annotation pane in the surface, the pane
-    // is reached by the carrier dispatcher. `map.getPane` here returns a
-    // fresh div on every call — the important assertion is that
-    // `applyStateOp` resolved the annotation's paneNameFor and hit the
-    // `map.getPane` code path (the fixture spy proves the call).
-    expect(map.getPane).toHaveBeenCalled();
+    expect(paneFor("fp-annotation-a1").style.opacity).toBe("0.3");
+    expect(paneFor("labels-pane").style.opacity).toBe("0.3");
+
+    // Settled again.
+    (map.getPane as ReturnType<typeof vi.fn>).mockClear();
+    applyProjection(ui, "a1");
+    expect(map.getPane).not.toHaveBeenCalled();
   });
 });
 
@@ -387,5 +425,192 @@ describe("executor: idempotent writes", () => {
     expect(aCanvas.style.opacity).toBe("0.7");
     expect(bCanvas.style.opacity).toBe("1");
     expect(ui.opacityMap.b).toBeUndefined();
+  });
+});
+
+// The carrier dispatcher is where the branches live: one write target per
+// dimension per layer shape, and each shape has its own "no honest write"
+// corner. These exercise the shapes the gates above do not touch.
+describe("executor: carrier dispatch", () => {
+  beforeEach(() => {
+    installLeafletGlobals();
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  const boot = (layers: ConstructorParameters<typeof LayerManager>[1]) => {
+    const { container, map } = makeOffMapFixture();
+    const manager = new LayerManager(map, layers);
+    manager.ui = new LayerUI(manager);
+    const ui = manager.ui as LayerUI;
+    vi.useFakeTimers();
+    manager.attachUI(container);
+    vi.advanceTimersByTime(350);
+    vi.useRealTimers();
+    return { container, map, manager, ui };
+  };
+
+  it("an id with no registry entry is a no-op", () => {
+    const { ui, map } = boot([{ id: "a", name: "A", isBase: false }]);
+    (map.addLayer as ReturnType<typeof vi.fn>).mockClear();
+    expect(() => applyProjection(ui, "ghost")).not.toThrow();
+    expect(map.addLayer).not.toHaveBeenCalled();
+  });
+
+  it("a hybrid layer fires both the map write and its callback", () => {
+    // A layer that owns a Leaflet layer *and* an `onToggle` carries a
+    // distinct piece of state in each: membership on the map, and the
+    // canvas's own HIDDEN class. Both must fire on a visible write.
+    const onToggle = vi.fn();
+    const layer = { options: {} } as L.Layer;
+    const { ui, map, manager } = boot([
+      { id: "h", name: "Hybrid", isBase: false, layer, onToggle },
+    ]);
+    (map.addLayer as ReturnType<typeof vi.fn>).mockClear();
+
+    ui.userOverrides.h = ["visible"]; // author default is off the map
+    applyProjection(ui, "h");
+
+    expect(map.addLayer).toHaveBeenCalledWith(layer);
+    expect(onToggle).toHaveBeenCalledWith(true);
+    expect(manager.layerRegistry.get("h")?.visible).toBe(true);
+  });
+
+  it("a 'none' opacity carrier stores nothing and writes nothing", () => {
+    // A slider that writes nothing must not pretend it wrote. MarkerCluster
+    // icons live in the shared markerPane, which no per-layer CSS write can
+    // reach — the honest answer is "no write exists".
+    const layer = { options: {} } as L.Layer;
+    const { ui, manager } = boot([{ id: "n", name: "None", isBase: false, layer }]);
+    vi.spyOn(manager, "surfaceFor").mockReturnValue({
+      capabilities: { opacity: "none", zoomRange: "none" },
+      paneNames: [],
+      geometryType: () => "point",
+    } as unknown as ReturnType<typeof manager.surfaceFor>);
+
+    ui.opacityMap.n = 0.2;
+    ui.userOverrides.n = ["opacity"];
+    applyProjection(ui, "n");
+
+    expect((layer.options as { opacity?: number }).opacity).toBeUndefined();
+    expect(manager.layerRegistry.get("n")?.opacity).toBe(1);
+  });
+
+  it("a native opacity carrier with setOpacity multiplies the author's base", () => {
+    // The slider is a multiplier over the declared default, so the base is
+    // captured once — repeated drags must not compound on their own output.
+    const setOpacity = vi.fn();
+    const layer = { options: { opacity: 0.5 }, setOpacity } as unknown as L.Layer;
+    const { ui, manager } = boot([{ id: "img", name: "Img", isBase: false, layer }]);
+    vi.spyOn(manager, "surfaceFor").mockReturnValue({
+      capabilities: { opacity: "native", zoomRange: "none" },
+      paneNames: [],
+      geometryType: () => "polygon",
+    } as unknown as ReturnType<typeof manager.surfaceFor>);
+
+    ui.opacityMap.img = 0.5;
+    ui.userOverrides.img = ["opacity"];
+    applyProjection(ui, "img");
+    applyProjection(ui, "img");
+
+    expect(setOpacity).toHaveBeenNthCalledWith(1, 0.25);
+  });
+
+  it("a native opacity carrier without setOpacity writes options.opacity", () => {
+    // GridLayer / TileLayer honour `options.opacity` at the next tile cycle
+    // rather than through a setter.
+    const layer = { options: { opacity: 0.8 } } as L.Layer;
+    const { ui, manager } = boot([{ id: "tile", name: "Tile", isBase: false, layer }]);
+    vi.spyOn(manager, "surfaceFor").mockReturnValue({
+      capabilities: { opacity: "native", zoomRange: "native" },
+      paneNames: [],
+      geometryType: () => "polygon",
+    } as unknown as ReturnType<typeof manager.surfaceFor>);
+
+    ui.opacityMap.tile = 0.5;
+    ui.userOverrides.tile = ["opacity"];
+    applyProjection(ui, "tile");
+
+    expect((layer.options as { opacity?: number }).opacity).toBe(0.4);
+  });
+
+  it("a native zoomRange carrier sets and then clears minZoom/maxZoom", () => {
+    // Leaflet does not self-apply `options.minZoom/maxZoom`, so the write is
+    // paired with a level-set reset. Clearing the range removes both keys
+    // and goes back to the author's declared default.
+    const layer = { options: {} } as L.Layer;
+    const { ui, manager } = boot([{ id: "z", name: "Z", isBase: false, layer }]);
+    vi.spyOn(manager, "surfaceFor").mockReturnValue({
+      capabilities: { opacity: "pane", zoomRange: "native" },
+      paneNames: [],
+      geometryType: () => "polygon",
+    } as unknown as ReturnType<typeof manager.surfaceFor>);
+
+    ui.zoomRangeMap.z = [4, 10];
+    ui.userOverrides.z = ["zoomRange"];
+    applyProjection(ui, "z");
+    const opts = layer.options as { minZoom?: number; maxZoom?: number };
+    expect(opts.minZoom).toBe(4);
+    expect(opts.maxZoom).toBe(10);
+
+    delete ui.zoomRangeMap.z;
+    delete ui.userOverrides.z;
+    applyProjection(ui, "z");
+    expect("minZoom" in opts).toBe(false);
+    expect("maxZoom" in opts).toBe(false);
+  });
+
+  it("the LayerUI delegates reach the same executor", () => {
+    const { ui, map, manager } = boot([
+      { id: "d", name: "D", isBase: false, layer: { options: {} } as L.Layer },
+    ]);
+    ui.opacityMap.d = 0.6;
+    ui.userOverrides.d = ["opacity"];
+    (map.addLayer as ReturnType<typeof vi.fn>).mockClear();
+
+    ui.applyProjection("d");
+    expect(manager.layerRegistry.get("d")?.opacity).toBe(0.6);
+
+    ui.applyProjectionAll();
+    expect(map.addLayer).not.toHaveBeenCalled(); // idempotent: nothing moved
+  });
+});
+
+describe("projectAll: the id set is a union, not just the registry", () => {
+  beforeEach(() => {
+    installLeafletGlobals();
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  it("keeps an id with stored dimensions even when nothing is registered under it", () => {
+    // "Not in the registry" never means "gone": Heatmap and Measure register
+    // after the panel attaches, so their ids are unresolvable on the first
+    // pass and must not be pruned from the projection.
+    const { container, map } = makeOffMapFixture();
+    const manager = new LayerManager(map, [
+      { id: "a", name: "A", isBase: false, layer: { options: {} } as L.Layer },
+    ]);
+    manager.ui = new LayerUI(manager);
+    const ui = manager.ui as LayerUI;
+    vi.useFakeTimers();
+    manager.attachUI(container);
+    vi.advanceTimersByTime(350);
+    vi.useRealTimers();
+
+    ui.opacityMap.late = 0.3;
+    ui.userOverrides.late = ["opacity"];
+    expect(() => applyProjectionAll(ui)).not.toThrow();
+    // The record is untouched — the id simply has nothing to write to yet.
+    expect(ui.opacityMap.late).toBe(0.3);
+    expect(ui.userOverrides.late).toEqual(["opacity"]);
   });
 });

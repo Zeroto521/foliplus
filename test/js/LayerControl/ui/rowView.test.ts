@@ -365,3 +365,26 @@ describe("snapshotAuthorVisible", () => {
     expect(ui.authorVisible.get("late")).toBe(false);
   });
 });
+
+describe("rowChecked: what counts as the user's choice", () => {
+  it("a bare hiddenIds entry is already a choice — the row reads unchecked", () => {
+    // `syncHiddenId` always marks, but a restored record or a direct write
+    // can leave an entry without its provenance marker. Either half is the
+    // user's choice; only the author's default is the fallback.
+    const { ui } = initFixture({});
+    const layerInfo = ui.m.layers.find(li => li.id === "overlay1")!;
+    ui.userOverrides.overlay1 = undefined as never;
+    delete ui.userOverrides.overlay1;
+    ui.hiddenIds.add("overlay1");
+    expect(rowChecked(ui, layerInfo)).toBe(false);
+  });
+
+  it("neither half present falls back to the author's declared default", () => {
+    const { ui } = initFixture({});
+    const layerInfo = ui.m.layers.find(li => li.id === "overlay1")!;
+    delete ui.userOverrides.overlay1;
+    ui.hiddenIds.delete("overlay1");
+    ui.authorVisible.set("overlay1", false);
+    expect(rowChecked(ui, layerInfo)).toBe(false);
+  });
+});
