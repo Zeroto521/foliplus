@@ -6,12 +6,12 @@
 
 /** What a layer's surface can actually be asked to do, computed once at
  *  materialization by `LayerSurface` (which alone knows the panes it owns and
- *  the shape of its content — the pane-surface probes are what pin each value).
+ *  the shape of its content — runtime probes pin each value).
  *
  *  Read-only on `LayerInfo` as a projection, never persisted: a caller-supplied
  *  `capabilities` in `RegisterLayerOpts` would let a third party claim support
- *  it does not have, and the honest-degradation contract ("不得静默失效")
- *  depends on the answer being the surface's, not the caller's. */
+ *  it does not have, and the honest-degradation contract (never silently
+ *  degrade) depends on the answer being the surface's, not the caller's. */
 interface LayerCapabilities {
   /** How the layer's opacity is written:
    *    - "native" — the layer owns its own setter (`ImageOverlay.setOpacity`,
@@ -28,7 +28,7 @@ interface LayerCapabilities {
   /** Whether zoom-range visibility is honoured:
    *    - "native" — the layer's own `options.minZoom`/`maxZoom` (GridLayer).
    *    - "pane"   — we hide the pane (or skip drawing it).
-   *    - "none"   — no honest carrier. R8 will supply this value for the color
+   *    - "none"   — no honest carrier. A future surface type will supply this
    *      basemap once it is promoted to a real surface; today that layer is not
    *      in the registry at all, so no placeholder is emitted. */
   zoomRange: "native" | "pane" | "none";

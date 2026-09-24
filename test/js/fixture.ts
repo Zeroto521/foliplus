@@ -48,7 +48,7 @@ class LeafletBase {
 }
 
 // Marker mock: the shape that individual test files kept missing fields on
-// (T85's incident was a local mock without `bindPopup`). Every caller gets
+// (a prior incident was a local mock without `bindPopup`). Every caller gets
 // a fresh instance with fresh `vi.fn()`s.
 const markerMock = vi.fn(() => ({
   bindPopup: vi.fn(),
