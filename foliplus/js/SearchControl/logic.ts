@@ -564,7 +564,7 @@ const renderSuggestions = (
       formatAddress(item.display_name, map, CONF.locale_code) || item.name || "";
     const coordDisplay = formatLatLng(parseFloat(item.lng), parseFloat(item.lat));
     return {
-      icon: Icons.LOCATE,
+      icon: Icons.LOCATE_ICON,
       source: SOURCE.SUGGESTION,
       primaryText: displayName,
       coordDisplay,
@@ -613,7 +613,7 @@ const renderHistory = (ctrl: SearchControlState, mode: SearchType) => {
     // Fall back to the stored query only if the entry's own display is missing.
     const reEntry = (isAddr ? entry.addrDisplay : entry.coordDisplay) || entry.query;
     return {
-      icon: isAddr ? Icons.LOCATE : Icons.GLOBE,
+      icon: isAddr ? Icons.LOCATE_ICON : Icons.GLOBE_ICON,
       source: SOURCE.HISTORY,
       primaryText: display,
       query: reEntry,

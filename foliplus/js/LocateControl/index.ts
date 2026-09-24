@@ -8,7 +8,7 @@ import { locateMe, removeMarker } from "./logic.js";
 
 // ── SVG Icons ──
 // AMap-style crosshair locate icon (stroke-rendered, inherits common button SVG styles).
-const LOCATE = `
+const LOCATE_ICON = `
   <svg viewBox="0 0 24 24">
     <circle cx="12" cy="12" r="6"/>
     <circle cx="12" cy="12" r="1.8"/>
@@ -20,10 +20,10 @@ const LOCATE = `
 
 // Idle crosshair + shared foliplus spinner, toggled by the .loading button class.
 const BTN_HTML = `
-  <span class="locate-btn-icon">${LOCATE}</span>
-  <span class="locate-btn-loading">${Icons.LOADING}</span>`;
+  <span class="locate-btn-icon">${LOCATE_ICON}</span>
+  <span class="locate-btn-loading">${Icons.LOADING_ICON}</span>`;
 
-createControlEnv(CONF, LOCATE);
+createControlEnv(CONF, LOCATE_ICON);
 const T = createScopedTranslator(CONF);
 ensureHint(map);
 

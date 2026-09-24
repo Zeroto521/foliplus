@@ -245,7 +245,7 @@ class LayerPersistence {
 
   /**
    * Load every dimension. The only read entry point, so a new dimension cannot
-   * be missed on load and nothing else calls `Storage.load`.
+   * be missed on load and nothing else calls `Storage.loadRecord`.
    *
    * Nothing here is filtered against the registry. This runs from
    * `LayerManager`'s constructor — before any layer is registered — and again
@@ -268,7 +268,9 @@ class LayerPersistence {
    * registry, so a stored id never stops being written back.
    */
   load(): PersistedRecord {
-    return parseRecord(Storage.load<unknown>(CONST.STORAGE.KEY, this.persistName));
+    return parseRecord(
+      Storage.loadRecord<unknown>(CONST.STORAGE.KEY, this.persistName),
+    );
   }
 
   // ── Write ──────────────────────────────────────────────────────────
@@ -289,9 +291,9 @@ class LayerPersistence {
     if (!this.timer) {
       this.timer = debounce(() => {
         const record = parseRecord(
-          Storage.load<unknown>(CONST.STORAGE.KEY, this.persistName),
+          Storage.loadRecord<unknown>(CONST.STORAGE.KEY, this.persistName),
         );
-        Storage.save(
+        Storage.saveRecord(
           CONST.STORAGE.KEY,
           mergeFields(record, this.fields),
           this.persistName,
