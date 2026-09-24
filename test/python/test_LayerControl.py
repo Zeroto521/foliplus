@@ -4085,7 +4085,7 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
             )
             arm = page.evaluate(_js("LayerControl/native_gate_arm"))
             assert arm.get("error") is None, f"setup failed: {arm}"
@@ -4138,7 +4138,7 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
             )
             arm = page.evaluate(_js("LayerControl/native_gate_arm"))
             assert arm.get("error") is None, f"setup failed: {arm}"
