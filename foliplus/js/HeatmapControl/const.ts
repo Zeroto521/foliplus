@@ -62,13 +62,6 @@ const CLASS_COUNT = {
   DEFAULT: 6,
 };
 
-const BORDER = {
-  WEIGHT_MIN: 0,
-  WEIGHT_MAX: 10,
-  WEIGHT_STEP: 0.5,
-  WEIGHT_DEFAULT: 1,
-};
-
 /** Hex-label typography — shared bounds from common/form.js so the layer
  *  style drawer never redeclares 6/32/11. */
 const LABEL = {
@@ -97,8 +90,6 @@ const CLASSES = {
   SCHEME_DROPDOWN_BAR: "foliplus-heatmap-scheme-dropdown-bar",
   BTN_ROW: "foliplus-heatmap-btn-row",
   BTN_CLEAR: "foliplus-heatmap-btn-clear",
-  BORDER_COLOR_INPUT: "foliplus-form-color-input",
-  BORDER_WEIGHT_INPUT: "foliplus-form-number-input",
   CLASS_COUNT_SELECT: "foliplus-heatmap-class-select",
   FORM_CONTROL_INLINE: "foliplus-form-inline",
   SECTION_DIVIDER: "foliplus-section-divider",
@@ -129,14 +120,11 @@ const DATA_ATTR = {
   CLASS_COUNT: "data-heatmap-class-count",
   SCHEME_CTRL: "data-heatmap-scheme-ctrl",
   SCHEME_HIDDEN: "data-heatmap-scheme-hidden",
-  BORDER_COLOR: "data-heatmap-border-color",
-  BORDER_WEIGHT: "data-heatmap-border-weight",
   BTN_CLEAR: "data-heatmap-btn-clear",
 };
 
 export {
   AGG,
-  BORDER,
   CLASS_COUNT,
   CLASSES,
   DATA_ATTR,

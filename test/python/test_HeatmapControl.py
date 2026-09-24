@@ -233,19 +233,6 @@ class TestHeatmapControlRendering:
         for method in ("jenks", "quantile", "equal", "heads"):
             assert method in html
 
-    def test_border_control_renders(self):
-        """Border weight number input and color swatch use the shared form chrome."""
-        html = render_control(HeatmapControl())
-        assert "form-number-input" in html
-        assert "form-color-input" in html
-
-    def test_border_weight_input_has_min_max(self):
-        """Border weight number input carries min/max from BORDER bounds."""
-        html = render_control(HeatmapControl())
-        assert "form-number-input" in html
-        assert "BORDER.WEIGHT_MIN" in html
-        assert "BORDER.WEIGHT_MAX" in html
-
     def test_placeholder_options_disabled(self):
         """Layer placeholder and field auto options use disabled:true (not the string)."""
         html = render_control(HeatmapControl())
@@ -253,14 +240,6 @@ class TestHeatmapControlRendering:
         assert "placeholder" in html
         # Must NOT use the string variant which silently sets disabled=false
         assert 'disabled: "disabled"' not in html
-
-    def test_border_weight_breathing_focus(self):
-        """Shared number-input is included in the breathing-focus rule."""
-        from pathlib import Path
-
-        css = read_css_dir("foliplus/css/common", "reset.css")
-        assert "foliplus-form-number-input" in css
-        assert "input-breathe" in css
 
     def test_focus_breathe_selector_single_definition(self):
         """The breathing-focus selector list is defined once (no animation/reduced-motion duplication)."""
@@ -270,11 +249,6 @@ class TestHeatmapControlRendering:
         # The animation is driven by a custom property so reduced-motion only
         # overrides the value, not the selector list.
         assert "var(--input-breathe-anim)" in css
-
-    def test_label_toggle_renders(self):
-        """Label toggle switch is rendered."""
-        html = render_control(HeatmapControl())
-        assert "toggle-switch" in html
 
     def test_confirm_button_removed(self):
         """Confirm button is gone: every control re-renders live (no Apply)."""
@@ -304,11 +278,6 @@ class TestHeatmapControlRendering:
         shared = read_css("foliplus/css/common/form.css")
         assert ".foliplus-section-heading" in shared
         assert "letter-spacing: var(--letter-spacing-tight)" in shared
-
-    def test_section_label_renders(self):
-        """Labels section heading is rendered; label controls render dynamically."""
-        html = render_control(HeatmapControl())
-        assert "HeatmapControl.section_label" in html
 
     def test_close_button_renders(self):
         """Close button is rendered in the panel header."""
@@ -785,30 +754,6 @@ class TestHeatmapControlBrowser:
             assert vals["currentAgg"] == "count"
             assert not errors, f"JS errors: {errors}"
 
-    def test_label_toggle_updates_state(self, browser, tmp_path):
-        """Toggling the label checkbox updates manager.currentLabelShow."""
-        with use_page(self._make_page, browser, tmp_path, expose_ctrl=True) as (
-            page,
-            errors,
-        ):
-            page.evaluate(
-                "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
-            )
-            page.wait_for_selector(
-                ".foliplus-heatmap-ctrl.is-expanded", state="attached", timeout=5000
-            )
-            heatmap_ready(page)
-
-            before = page.evaluate("window.__heatmapCtrl.manager.currentLabelShow")
-            # Uncheck label
-            page.evaluate(
-                "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-switch input').click()"
-            )
-            after = page.evaluate("window.__heatmapCtrl.manager.currentLabelShow")
-            assert before is True, f"expected True, got {before}"
-            assert after is False, f"expected False, got {after}"
-            assert not errors, f"JS errors: {errors}"
-
     def test_layer_selection_triggers_render(self, browser, tmp_path):
         """Selecting a layer calls renderHexagons (cachedFeatures should be set)."""
         with use_page(self._make_page, browser, tmp_path, expose_ctrl=True) as (
@@ -969,7 +914,7 @@ class TestHeatmapControlBrowser:
             assert not errors, f"JS errors: {errors}"
 
     def test_ui_control_changes_persist(self, browser, tmp_path):
-        """Style controls (agg/method/scheme/label/border) write to localStorage
+        """Style controls (agg/method/scheme) write to localStorage
         on change, not just the layer select."""
         with use_page(
             self._make_page, browser, tmp_path, expose_ctrl=True, num_layers=1
@@ -1008,79 +953,6 @@ class TestHeatmapControlBrowser:
             page.wait_for_timeout(300)
             assert stored()["scheme"] == "Blues", "scheme change must persist"
 
-            # label toggle — rendered by the shared label-controls module, so
-            # it is queried from the panel DOM rather than a control field.
-            page.evaluate(
-                "() => { const t = document.querySelector('.foliplus-heatmap-ctrl .foliplus-style-toggle-input'); t.checked = false; t.dispatchEvent(new Event('change', { bubbles: true })); }"
-            )
-            page.wait_for_timeout(300)
-            assert stored()["labelShow"] is False, "label toggle must persist"
-
-            # border weight (onchange clamps then persists)
-            page.evaluate(
-                "window.__heatmapCtrl.borderWeightInput.value = '2.5'; window.__heatmapCtrl.borderWeightInput.dispatchEvent(new Event('change'))"
-            )
-            page.wait_for_timeout(300)
-            assert stored()["borderWeight"] == 2.5, "border weight must persist"
-
-            assert not errors, f"JS errors: {errors}"
-
-    def test_uncommitted_borderweight_survives_reload(self, browser, tmp_path):
-        """A border weight typed into the input field but not yet committed
-        (no change/blur event) still persists on reload.
-
-        Regression: ``borderWeightInput.oninput`` updated ``manager.borderWeight``
-        and re-rendered but never called ``saveConfig`` — only the ``onchange``
-        handler persisted.  A reload before the user blurred the field therefore
-        snapped the weight back to the Python default.
-        """
-        with use_page(
-            self._make_page, browser, tmp_path, expose_ctrl=True, num_layers=1
-        ) as (page, errors):
-            page.evaluate(
-                "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
-            )
-            page.wait_for_selector(
-                ".foliplus-heatmap-ctrl.is-expanded", state="attached", timeout=5000
-            )
-            heatmap_ready(page)
-
-            # Focus + set value + fire INPUT only — no change event, no blur.
-            page.evaluate(
-                """() => {
-                    const el = window.__heatmapCtrl.borderWeightInput;
-                    el.focus();
-                    el.value = '3.5';
-                    el.dispatchEvent(new Event('input'));
-                }"""
-            )
-            page.wait_for_timeout(500)
-
-            stored = page.evaluate(
-                "() => { const k = Object.keys(localStorage).find(x => x.startsWith('foliplus_heatmap_')); return k ? JSON.parse(localStorage.getItem(k)) : null; }"
-            )
-            assert stored["borderWeight"] == 3.5, (
-                f"uncommitted border weight must persist on input, got {stored['borderWeight']!r}"
-            )
-
-            page.reload()
-            page.wait_for_selector(
-                ".foliplus-heatmap-ctrl", state="attached", timeout=10000
-            )
-            page.wait_for_timeout(3000)
-
-            after = page.evaluate(
-                """() => ({
-                    m: window.__heatmapCtrl.manager.borderWeight,
-                    input: document.querySelector('.foliplus-form-number-input').value,
-                })"""
-            )
-            assert after["m"] == 3.5, (
-                f"border weight must be restored after reload, got {after['m']!r}"
-            )
-            assert after["input"] == "3.5", (
-                f"input field must show the restored weight, got {after['input']!r}"
-            )
             assert not errors, f"JS errors: {errors}"
 
     def test_clear_all_removes_content(self, browser, tmp_path):
