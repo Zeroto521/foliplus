@@ -61,5 +61,6 @@ repos:
     hooks:
       - id: changelog-order
         entry: python script/changelog_check.py --fix --skip-exists
+        language: python
         files: ^CHANGELOG\.md$
         pass_filenames: false
