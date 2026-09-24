@@ -253,16 +253,20 @@ class HeatmapManager {
     const defaultLabelColor = this.currentLabelColor;
     const defaultLabelSize = this.currentLabelSize;
     const defaultLabelFormat = this.currentLabelFormat;
-    // Style delegation for the layer style drawer and the heatmap panel's
-    // shared label controls. The drawer only mirrors presentation styles;
-    // aggregation field stays data config on the heatmap panel. Stored on the
-    // manager so core/labelControl can dispatch changes through the same setters
-    // and refresh from the same provider.
+    const defaultBorderWeight = this.borderWeight;
+    const defaultBorderColor = this.borderColor;
+    // Style delegation for the layer style drawer. The drawer mirrors every
+    // presentation style (labels + hexagon border); aggregation field stays
+    // data config on the heatmap panel. Stored on the manager so the drawer
+    // dispatches changes through the same setters and refreshes from the same
+    // provider.
     this.styleProvider = () => ({
       labelShow: this.currentLabelShow,
       labelColor: this.currentLabelColor,
       labelSize: this.currentLabelSize,
       labelFormat: this.currentLabelFormat,
+      borderWeight: this.borderWeight,
+      borderColor: this.borderColor,
     });
     this.styleSetters = {
       labelShow: v => {
@@ -303,6 +307,27 @@ class HeatmapManager {
         this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
         this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
       },
+      // Border weight only redraws the hexagon strokes — the H3 aggregation
+      // result is unaffected.
+      borderWeight: v => {
+        const n = typeof v === "number" && !Number.isNaN(v) ? v : this.borderWeight;
+        this.borderWeight = Math.min(
+          CONST.BORDER.WEIGHT_MAX,
+          Math.max(CONST.BORDER.WEIGHT_MIN, n),
+        );
+        this.redrawHeatmap();
+        this.saveConfig();
+        this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
+        this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
+      },
+      borderColor: v => {
+        this.borderColor =
+          typeof v === "string" ? normalizeHexColor(v) : this.borderColor;
+        this.redrawHeatmap();
+        this.saveConfig();
+        this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
+        this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
+      },
     };
     this.overlay = map.foliplus!.LayerAPI!.createCanvas({
       id: this.layerId,
@@ -326,6 +351,8 @@ class HeatmapManager {
         labelColor: defaultLabelColor,
         labelSize: defaultLabelSize,
         labelFormat: defaultLabelFormat,
+        borderWeight: defaultBorderWeight,
+        borderColor: defaultBorderColor,
       }),
     });
     // ExportControl publishes BEFORE/AFTER_EXPORT to request a full-resolution

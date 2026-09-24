@@ -4,6 +4,14 @@
 // "Label" drawer that layers their own setters alongside LayerControl's
 // opacity / zoom-range rows.
 import { type LabelStyleValues, renderLabelControls } from "#core/labelControl.js";
+import { dom } from "#common/dom.js";
+import {
+  bindLiveColor,
+  bindLiveNumber,
+  colorInput,
+  inlineControls,
+  numberInput,
+} from "#common/form.js";
 import { createRowPanel } from "#common/panel.js";
 import * as CONST from "../../const.js";
 import * as SVGs from "../../icon.js";
@@ -18,6 +26,59 @@ import { buildZoomRangeRow, canShowZoomRange } from "./zoomRange.js";
 const layerHasStyleDelegation = (ui: LayerUI, layerId: string): boolean => {
   const li = ui.m.layerRegistry.get(layerId);
   return !!li?.styleSetters && Object.keys(li.styleSetters).length > 0;
+};
+
+/** Build the border-style row for a delegated layer (only HeatmapControl
+ *  publishes borderWeight / borderColor today). Shares the color+number
+ *  inline chrome with the label color/size row so the drawer stays visually
+ *  consistent. Returns null when the layer publishes no border setters. */
+const buildBorderRow = (ui: LayerUI, layerId: string): HTMLElement | null => {
+  const li = ui.m.layerRegistry.get(layerId);
+  const setters = li?.styleSetters;
+  if (!setters || (!setters.borderWeight && !setters.borderColor)) return null;
+
+  // Re-read the registry at event time so a layer torn down between open and
+  // interaction no-ops (the setter map is gone).
+  const entry = () => ui.m.layerRegistry.get(layerId);
+  const values = (entry()?.styleProvider?.() ?? {}) as {
+    borderWeight?: number;
+    borderColor?: string;
+  };
+
+  const parts: HTMLElement[] = [];
+  if (setters.borderColor) {
+    const colorInputEl = colorInput({
+      value: values.borderColor,
+      ariaLabel: ui._("foliplus.border_color"),
+    });
+    bindLiveColor(colorInputEl as HTMLInputElement, value =>
+      entry()?.styleSetters?.borderColor?.(value),
+    );
+    parts.push(colorInputEl);
+  }
+  if (setters.borderWeight) {
+    const numberInputEl = numberInput({
+      value: typeof values.borderWeight === "number" ? values.borderWeight : 1,
+      min: 0,
+      max: 10,
+      step: 0.5,
+      ariaLabel: ui._("foliplus.border_weight"),
+    });
+    bindLiveNumber(numberInputEl as HTMLInputElement, {
+      min: 0,
+      max: 10,
+      fallback: 1,
+      onCommit: value => entry()?.styleSetters?.borderWeight?.(value),
+    });
+    parts.push(numberInputEl);
+  }
+
+  return dom.el(
+    "div",
+    { class: CONST.CLASSES.FORM_ROW },
+    dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("border")),
+    dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, inlineControls(...parts)),
+  );
 };
 
 /** Build the style panel DOM for a layer that delegates its style via
@@ -38,20 +99,54 @@ const renderDelegatedStylePanel = (
   // drawer left open across that swap must follow the new entry — and no-op
   // once its setters are gone.
   const entry = () => ui.m.layerRegistry.get(layerId);
-  const { root, refresh } = renderLabelControls({
+  const { root, refresh: baseRefresh } = renderLabelControls({
     styleProvider: () => entry()?.styleProvider?.() as LabelStyleValues | undefined,
     getSetters: () => entry()?.styleSetters ?? {},
     T: ui._,
   });
+
+  // Border row (HeatmapControl only today) — a separate section heading so the
+  // drawer's Label vs. component-specific styling reads as two groups.
+  let borderRow: HTMLElement | null = null;
+  if (setters.borderWeight || setters.borderColor) {
+    borderRow = buildBorderRow(ui, layerId);
+  }
+
   // No presentation control at all (a data-only setter such as the
   // aggregation field) means no drawer: the Layer section below is
   // LayerControl-owned, but it is not a reason to open one.
-  if (!root.children.length) return null;
-  ui.styleRefresh = refresh;
+  if (!root.children.length && !borderRow) return null;
+
+  // Refresh label controls and (if present) the border inputs off styleProvider,
+  // skipping whatever is under activeElement. Wired in after the border row is
+  // attached so the shared root's DOM queries see it.
+  ui.styleRefresh = () => {
+    baseRefresh();
+    if (!borderRow) return;
+    const v = entry()?.styleProvider?.() as
+      { borderWeight?: number; borderColor?: string } | undefined;
+    if (!v) return;
+    const colorEl = borderRow.querySelector(
+      "input[type=color]",
+    ) as HTMLInputElement | null;
+    if (colorEl && document.activeElement !== colorEl) {
+      if (typeof v.borderColor === "string") colorEl.value = v.borderColor;
+    }
+    const numEl = borderRow.querySelector(
+      "input[type=number]",
+    ) as HTMLInputElement | null;
+    if (numEl && document.activeElement !== numEl) {
+      if (typeof v.borderWeight === "number") numEl.value = String(v.borderWeight);
+    }
+  };
 
   // The shared renderer emits controls only, no headings — the panel owns the
   // section split, and the Layer section (opacity) belongs to LayerControl
   // rather than to the component that delegates its label style.
+  if (borderRow) {
+    root.prepend(sectionHeading(ui.T("section_heatmap")));
+    root.prepend(borderRow);
+  }
   root.prepend(sectionHeading(ui.T("section_label")));
   // Row-level capability gate (5.4): the opacity row only renders when the
   // surface can honestly carry the write. A layer with `opacity: "none"`

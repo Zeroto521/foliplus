@@ -111,14 +111,12 @@ describe("DATA_ATTR", () => {
     expect(CONST.DATA_ATTR.CLASS_COUNT).toBe("data-heatmap-class-count");
     expect(CONST.DATA_ATTR.SCHEME_CTRL).toBe("data-heatmap-scheme-ctrl");
     expect(CONST.DATA_ATTR.SCHEME_HIDDEN).toBe("data-heatmap-scheme-hidden");
-    expect(CONST.DATA_ATTR.BORDER_COLOR).toBe("data-heatmap-border-color");
-    expect(CONST.DATA_ATTR.BORDER_WEIGHT).toBe("data-heatmap-border-weight");
     expect(CONST.DATA_ATTR.BTN_CLEAR).toBe("data-heatmap-btn-clear");
   });
 
-  it("has 12 data-heatmap attribute keys (no confirm button, no label attrs)", () => {
+  it("has 10 data-heatmap attribute keys (no confirm button, no label attrs, no border attrs)", () => {
     const keys = Object.keys(CONST.DATA_ATTR);
-    expect(keys.length).toBe(12);
+    expect(keys.length).toBe(10);
   });
 });
 
