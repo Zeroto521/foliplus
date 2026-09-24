@@ -1326,50 +1326,25 @@ class TestExportControlBrowser:
         upper basemap dropped out the image is the lower colour, and if the
         lower one dropped out it is the upper colour over transparency.
 
-        The basemaps are added to the map *before* LayerControl is, because
-        LayerControl's IIFE resolves each registered id via ``findLayer`` at
-        construction time; a folium ``TileLayer`` whose ``var`` is declared
-        later in the script stream would leave ``LayerInfo.layer`` null forever
-        and the renderer would silently skip it. ``_make_page`` adds controls
-        first (the convention every other test relies on, e.g. MeasureControl
-        needs LayerAPI before its own LayerGroup is attached), so this test
-        builds its own map.
+        The layers are added *after* LayerControl (the ``_make_page``
+        convention, matching real user code that writes
+        ``LayerControl().add_to(m)`` before its tiles). The renderer resolves
+        ``li.layer`` lazily via ``findLayer`` at render time, so a
+        construction-time null does not mean a permanent null — the layer is
+        found by its id once the folium ``var`` is declared.
         """
-        from foliplus import LayerControl
-
         top = self._solid_tile_layer((230, 30, 30), "Top Base", opacity=0.5)
         bottom = self._solid_tile_layer((30, 60, 220), "Bottom Base", opacity=1.0)
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        bottom.add_to(m)
-        top.add_to(m)
-        LayerControl().add_to(m)
-        ExportControl().add_to(m)
-        html = TestExportControlBrowser._stub_html(m.get_root().render())
-        html, n = re.subn(
-            r"(new ExportControl\(\{ position: CONF\.position \}\)\.addTo\(map\);)",
-            r"window.__foliplusExportScheduler = function(fn){return 0;}; window.__exportCtrl = \1 window.__exportManager = window.__exportCtrl.m; window.__map = map;",
-            html,
-            count=1,
-        )
-        assert n == 1, "ExportControl instantiation not found"
-        html, n = re.subn(
-            r"(new LayerControl\(\{ position: CONF\.position \}\)\.addTo\(map\);)",
-            r"window.__layerCtrl = \1",
-            html,
-            count=1,
-        )
-        assert n == 1, "LayerControl instantiation not found"
 
         with use_page(
-            make_browser_page,
+            self._make_page,
             browser,
             tmp_path,
-            html,
-            "two_basemaps_export",
+            bottom,
+            top,
+            slug="two_basemaps_export",
         ) as (page, errors):
-            page.wait_for_selector(
-                ".foliplus-export-ctrl", state="attached", timeout=10000
-            )
+            panel_ready(page)
             panel_ready(page)
             self._install_canvas_hook(page)
 

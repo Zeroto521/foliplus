@@ -1,4 +1,5 @@
 // ExportControl mixed-mode renderer — orchestrates independent rendering passes.
+import { findLayer } from "#core/layer/index.js";
 import { layerUrl } from "#core/leafletAdapter.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { createLogger } from "#common/log.js";
@@ -98,6 +99,17 @@ class ExportRenderer {
   constructor(map: L.Map) {
     this.map = map;
     this.container = map.getContainer();
+  }
+
+  /** Resolve a layer from a LayerInfo: use the pre-captured reference when
+   *  available, otherwise look it up live. This is the late-binding fallback
+   *  for basemaps whose TileLayer `var` was emitted after the LayerControl
+   *  IIFE in the folium script stream — the registry captured `layer: null`
+   *  at construction, and without this the render passes silently skip the
+   *  basemap and the export is missing its base layer. Mirrors the same
+   *  pattern at LayerControl/manager.ts#210. */
+  private resolveLayer(li: LayerInfo): L.Layer | null {
+    return li.layer ?? findLayer(this.map, li.id);
   }
 
   /** Calculate tile coordinates covering geo bounds at a given zoom. */
@@ -278,19 +290,16 @@ class ExportRenderer {
           layer: L.TileLayer;
         }> = [];
         for (const li of layers) {
-          if (
-            !li.visible ||
-            !(li.layer instanceof L.TileLayer) ||
-            !layerUrl(li.layer)
-          ) {
+          const layer = this.resolveLayer(li);
+          if (!li.visible || !(layer instanceof L.TileLayer) || !layerUrl(layer)) {
             continue;
           }
           const tiles = this.tilePositions(
             rc,
-            this.calcTiles(li.layer, geoBounds, zoom, scale),
+            this.calcTiles(layer, geoBounds, zoom, scale),
           );
           if (tiles.length > 0) {
-            sizedTiles.push({ tiles, count: tiles.length, layer: li.layer });
+            sizedTiles.push({ tiles, count: tiles.length, layer });
           }
         }
         const grandTotal = sizedTiles.reduce((sum, li) => sum + li.count, 0);
@@ -320,23 +329,26 @@ class ExportRenderer {
       // leave the layer range permanently short of its top.  The filter must
       // stay in step with what the loop body consumes, since every surviving
       // entry is counted as one unit of progress.
-      const passable = layers.filter(
-        li =>
+      const passable = layers.filter(li => {
+        const layer = this.resolveLayer(li);
+        return (
           li.visible &&
           (li.canvas ||
-            (li.layer && !(li.layer instanceof L.TileLayer && layerUrl(li.layer)))),
-      );
+            (layer && !(layer instanceof L.TileLayer && layerUrl(layer))))
+        );
+      });
       let done = 0;
       for (let i = passable.length - 1; i >= 0; i--) {
         const li = passable[i];
+        const layer = this.resolveLayer(li);
 
         // Callback-only layers (e.g. HeatmapControl canvas) — render via stored canvas
         if (li.canvas) {
           await this.renderCanvasElement(rc, li.canvas);
           done++;
-        } else if (li.layer) {
+        } else if (layer) {
           // SVG paths, Canvas elements, and Markers in this layer's panes
-          const panes = api.getLayerPanes(li.layer);
+          const panes = api.getLayerPanes(layer);
           for (const paneName of panes) {
             const pane = this.map.getPane(paneName);
             if (!pane) continue;
@@ -355,7 +367,7 @@ class ExportRenderer {
           }
 
           // Markers and divIcons in this layer
-          const markerRoots = this.collectLayerMarkers(li.layer);
+          const markerRoots = this.collectLayerMarkers(layer);
           if (markerRoots.length) {
             await this.renderMarkers(rc, markerRoots);
             await this.renderFontAwesome(rc, markerRoots);
