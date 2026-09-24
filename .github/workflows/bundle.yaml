@@ -57,8 +57,7 @@ jobs:
       # incidents. Runs on the PR build produced by `build:sonda` above; the
       # report step below is what publishes the verdict, so the fuse must
       # land before it.
-      - name: Bundle fuse
-        run: node script/bundle-fuse.mjs
+      - run: node script/bundle-fuse.mjs
 
       # The report must land on the PR no matter what the verdict is, so it is
       # always published before the gate is evaluated. `check` exits 0 on a
