@@ -7,7 +7,7 @@ import { ensureModes } from "#foliplus/core/mode.js";
 
 function makeCtrl(): any {
   const ctrlDiv = document.createElement("div");
-  ctrlDiv.className = "foliplus-search collapsed";
+  ctrlDiv.className = "foliplus-search is-collapsed";
   const toggleBtn = document.createElement("button");
   const clearBtn = document.createElement("button");
   const inp = document.createElement("input");
@@ -81,31 +81,31 @@ describe("bindEvents", () => {
     const ctrl = makeCtrl();
     bindEvents(ctrl);
     ctrl.toggleBtn.click();
-    expect(ctrl.ctrl.classList.contains("expanded")).toBe(true);
+    expect(ctrl.ctrl.classList.contains("is-expanded")).toBe(true);
     ctrl.toggleBtn.click();
-    expect(ctrl.ctrl.classList.contains("collapsed")).toBe(true);
+    expect(ctrl.ctrl.classList.contains("is-collapsed")).toBe(true);
   });
 
   it("collapses and hides hint on Escape", () => {
     const ctrl = makeCtrl();
-    ctrl.ctrl.classList.add("expanded");
+    ctrl.ctrl.classList.add("is-expanded");
     bindEvents(ctrl);
     ctrl.inp.dispatchEvent(
       new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
     );
-    expect(ctrl.ctrl.classList.contains("collapsed")).toBe(true);
+    expect(ctrl.ctrl.classList.contains("is-collapsed")).toBe(true);
     expect(window.map.foliplus.hideHint).toHaveBeenCalledWith("SearchControl");
   });
 
   it("removes floating panel when container is collapsed", async () => {
     const ctrl = makeCtrl();
-    ctrl.ctrl.classList.add("expanded");
+    ctrl.ctrl.classList.add("is-expanded");
     ctrl.panelWrap = document.createElement("div");
     document.body.appendChild(ctrl.panelWrap);
     bindEvents(ctrl);
     // Simulate collapse via outside click (class toggle without calling onCollapse)
-    ctrl.ctrl.classList.remove("expanded");
-    ctrl.ctrl.classList.add("collapsed");
+    ctrl.ctrl.classList.remove("is-expanded");
+    ctrl.ctrl.classList.add("is-collapsed");
     // MutationObserver fires asynchronously; flush microtasks
     await new Promise(r => setTimeout(r, 0));
     expect(ctrl.panelWrap).toBeNull();
@@ -113,8 +113,8 @@ describe("bindEvents", () => {
 
   it("does not remove the panel on unrelated class changes while expanded", async () => {
     const ctrl = makeCtrl();
-    ctrl.ctrl.classList.remove("collapsed");
-    ctrl.ctrl.classList.add("expanded");
+    ctrl.ctrl.classList.remove("is-collapsed");
+    ctrl.ctrl.classList.add("is-expanded");
     ctrl.panelWrap = dom.el("div");
     bindEvents(ctrl);
     // A class change while expanded must not trigger removePanel.
@@ -175,12 +175,12 @@ describe("bindEvents", () => {
       );
     ctrl.panelWrap.append(mk("One"), mk("Two"));
     bindEvents(ctrl);
-    // First ArrowUp when idx is -1 → stays -1 (no active)
+    // First ArrowUp when idx is -1 �?stays -1 (no active)
     ctrl.inp.dispatchEvent(
       new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }),
     );
     expect(ctrl.selectedIdx).toBe(-1);
-    // Set to 1 via internal state, then ArrowUp → 0
+    // Set to 1 via internal state, then ArrowUp �?0
     ctrl.selectedIdx = 1;
     ctrl.inp.dispatchEvent(
       new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }),
@@ -267,7 +267,7 @@ describe("bindEvents", () => {
     );
     ctrl.panelWrap.append(plain, coord);
     bindEvents(ctrl);
-    // ArrowDown twice → land on the coord entry → coord display fills.
+    // ArrowDown twice �?land on the coord entry �?coord display fills.
     ctrl.inp.dispatchEvent(
       new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
     );
@@ -275,12 +275,12 @@ describe("bindEvents", () => {
       new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
     );
     expect(ctrl.inp.value).toBe("121.4700, 31.2300");
-    // ArrowUp back to the plain suggestion → display text fills again.
+    // ArrowUp back to the plain suggestion �?display text fills again.
     ctrl.inp.dispatchEvent(
       new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }),
     );
     expect(ctrl.inp.value).toBe("Somewhere");
-    // ArrowDown again onto the coord entry → coord display restored.
+    // ArrowDown again onto the coord entry �?coord display restored.
     ctrl.inp.dispatchEvent(
       new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
     );
@@ -289,7 +289,7 @@ describe("bindEvents", () => {
 
   it("Escape with open suggestions removes suggestions", () => {
     const ctrl = makeCtrl();
-    ctrl.ctrl.classList.add("expanded");
+    ctrl.ctrl.classList.add("is-expanded");
     ctrl.panelWrap = dom.el(
       "div",
       null,
@@ -553,7 +553,7 @@ describe("bindEvents", () => {
     ];
     ctrl.debouncedFetch = { cancel: vi.fn() };
     bindEvents(ctrl);
-    // Type then clear — the input handler fires on each keystroke
+    // Type then clear �?the input handler fires on each keystroke
     ctrl.inp.value = "";
     ctrl._handlers.input();
     expect(ctrl.debouncedFetch.cancel).toHaveBeenCalled();
@@ -644,7 +644,7 @@ describe("bindEvents", () => {
     ctrl.inp.dispatchEvent(
       new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
     );
-    // The coord display is parsed as coordinates and searched — no coord_error.
+    // The coord display is parsed as coordinates and searched �?no coord_error.
     expect(map.flyTo).toHaveBeenCalled();
     expect(window.foliplus.showHint).not.toHaveBeenCalledWith(
       "SearchControl",
@@ -666,14 +666,14 @@ describe("bindEvents", () => {
     ctrl.panelWrap.append(mk("One"), mk("Two"));
     bindEvents(ctrl);
 
-    // Start at index -1, go up → stays at -1
+    // Start at index -1, go up �?stays at -1
     ctrl.inp.dispatchEvent(
       new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }),
     );
     expect(ctrl.selectedIdx).toBe(-1);
     expect(ctrl.inp.value).toBe("");
 
-    // Go down past the last item → clamps
+    // Go down past the last item �?clamps
     ctrl.inp.dispatchEvent(
       new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
     );
@@ -690,7 +690,7 @@ describe("bindEvents", () => {
   it("fills empty string when a result item has no data-query nor text span", () => {
     const ctrl = makeCtrl();
     ctrl.panelWrap = dom.el("div");
-    // Bare item: no data-query attribute and no RESULT_TEXT child —
+    // Bare item: no data-query attribute and no RESULT_TEXT child �?
     // resultItemValue must fall through to the empty-string default.
     const bare = dom.el("div", { class: "foliplus-search-result-item" });
     ctrl.panelWrap.append(bare);

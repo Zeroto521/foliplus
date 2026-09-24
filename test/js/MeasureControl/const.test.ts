@@ -54,7 +54,7 @@ describe("LABEL anchors", () => {
 
 describe("CLASSES", () => {
   it("defines CSS class constants", () => {
-    expect(CONST.CLASSES.ACTIVE).toBe("active");
+    expect(CONST.CLASSES.ACTIVE).toBe("is-active");
     expect(CONST.CLASSES.MEASURING).toBe("foliplus-measuring");
     expect(CONST.CLASSES.PATH_SOLID).toContain("foliplus-measure-path-solid");
     expect(CONST.CLASSES.PATH_DASHED).toContain("foliplus-measure-path-dashed");

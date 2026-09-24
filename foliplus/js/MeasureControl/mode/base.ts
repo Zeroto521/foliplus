@@ -123,7 +123,7 @@ class PreviewMode extends MeasureMode {
     // call — so one stamp covers the rebuilds too.  Duck-checked rather than
     // instanceof: a non-element layer simply has no getElement and is skipped.
     const el = (layer as { getElement?: () => HTMLElement | null }).getElement?.();
-    el?.classList.add(CONST.CLASSES.NO_EXPORT);
+    el?.classList.add(CONST.CLASSES.SKIP_EXPORT);
     return layer;
   }
 

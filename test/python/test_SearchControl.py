@@ -199,7 +199,7 @@ class TestSearchControlBrowser:
             "document.querySelector('.foliplus-search .foliplus-toggle-btn').click()"
         )
         page.wait_for_selector(
-            ".foliplus-search.expanded", state="attached", timeout=5000
+            ".foliplus-search.is-expanded", state="attached", timeout=5000
         )
 
     def test_initial_mode_addr(self, browser, tmp_path):
@@ -407,7 +407,7 @@ class TestSearchControlBrowser:
 
             page.mouse.click(900, 450)
             page.wait_for_selector(
-                ".foliplus-search.collapsed", state="attached", timeout=5000
+                ".foliplus-search.is-collapsed", state="attached", timeout=5000
             )
             assert page.evaluate(
                 "document.querySelector('.foliplus-search').classList.contains('collapsed')"

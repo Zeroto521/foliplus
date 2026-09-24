@@ -278,7 +278,7 @@ class TestMeasureControlBrowser:
                 "document.querySelector('.foliplus-measure-ctrl .foliplus-toggle-btn').click()"
             )
             page.wait_for_selector(
-                ".foliplus-measure-ctrl.expanded", state="attached", timeout=5000
+                ".foliplus-measure-ctrl.is-expanded", state="attached", timeout=5000
             )
             page.wait_for_timeout(300)
             assert page.evaluate(
@@ -289,7 +289,7 @@ class TestMeasureControlBrowser:
 
             page.mouse.click(600, 300)
             page.wait_for_selector(
-                ".foliplus-measure-ctrl.collapsed", state="attached", timeout=5000
+                ".foliplus-measure-ctrl.is-collapsed", state="attached", timeout=5000
             )
             assert page.evaluate(
                 "document.querySelector('.foliplus-measure-ctrl').classList.contains('collapsed')"

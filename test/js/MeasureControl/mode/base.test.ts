@@ -108,7 +108,7 @@ describe("PreviewMode — tracking preview layers", () => {
     const mode = new PreviewMode(manager);
     const classList = { add: vi.fn() };
     mode.addPreview({ getElement: () => ({ classList }) } as any);
-    expect(classList.add).toHaveBeenCalledWith(CONST.CLASSES.NO_EXPORT);
+    expect(classList.add).toHaveBeenCalledWith(CONST.CLASSES.SKIP_EXPORT);
   });
 
   it("re-stamps after a pinToTop rebuild and skips a layer with no element", () => {
