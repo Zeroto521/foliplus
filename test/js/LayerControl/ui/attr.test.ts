@@ -218,7 +218,7 @@ describe("LayerUI attrs", () => {
     });
 
     it("renders metaProvider rows and overrides static meta for the same key", () => {
-      let count = 0;
+      const count = 0;
       manager.registerLayer({
         id: "attr-meta1",
         meta: { area_km2: 12.5, features: 0 },
