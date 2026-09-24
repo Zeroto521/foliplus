@@ -30,7 +30,6 @@ const FORBIDDEN = [
   "COLOR_ITEM",
   "COLOR_INPUT",
   "currentColor",
-  "isColorActive",
   "showColorLayer",
   "hideColorLayer",
   "colorLayer",

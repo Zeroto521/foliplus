@@ -13,17 +13,17 @@ import {
 import { initFixture, installLeafletGlobals } from "./fixture.js";
 
 // ===========================================================================
-// ui/visibility.ts â€?checkbox, group toggle, and the shared visibility
+// ui/visibility.ts ï¿½?checkbox, group toggle, and the shared visibility
 // transition.
 //
 // Two entry points drive `applyVisibility`: the panel's checkbox and
 // `LayerAPI.setVisible`, which a host page calls to hide a layer by id.
 // `handleChange` is the original caller and was the only one when the
-// transition had a body â€?the bottom half pins the checkbox side, so the
+// transition had a body ï¿½?the bottom half pins the checkbox side, so the
 // delegation cannot regress silently.
 //
 // The map mock is inlined rather than taken from ui/fixture.ts because the
-// shared one returns `hasLayer: () => true` â€?`syncVisibility()` derives
+// shared one returns `hasLayer: () => true` ï¿½?`syncVisibility()` derives
 // `LayerInfo.visible` from `hasLayer()`, so a static true makes every hide
 // read back as visible. Membership is tracked here instead, the same way real
 // Leaflet tracks it.
@@ -57,7 +57,7 @@ const fixture = () => {
     }),
     // Keyed on the layer object itself. installLeafletGlobals gives L.stamp a
     // fresh id on every call rather than one per layer, so a stamp-keyed map
-    // could never match â€?addLayer and hasLayer would stamp the same layer to
+    // could never match ï¿½?addLayer and hasLayer would stamp the same layer to
     // different ids and every hide would read back as visible. Real Leaflet
     // stamps once at layer construction.
     _layers: new Map<unknown, unknown>(),
@@ -162,7 +162,7 @@ describe("applyVisibility", () => {
 
   it("re-shows a hidden layer without touching its pane pin", () => {
     // The layer's `options.pane` was set when its surface was materialized, and
-    // `map.addLayer` reads it back â€?so a re-show needs no "re-push" flag any
+    // `map.addLayer` reads it back ï¿½?so a re-show needs no "re-push" flag any
     // more (the retired `options.paneSet = false`).
     const layer = manager.layerRegistry.get("overlay1")!.layer as {
       options: Record<string, unknown>;
@@ -208,7 +208,7 @@ describe("applyVisibility", () => {
     // policy suppression. `effectiveShown = intent && policy` is false, so
     // the executor writes nothing and the layer stays off the map until the
     // zoom re-enters the range. The old path applied `visible: true`
-    // straight to map membership â€?added first, retracted on the next sweep.
+    // straight to map membership ï¿½?added first, retracted on the next sweep.
     // A derived dimension may only suppress, never authorise.
     (map.getZoom as ReturnType<typeof vi.fn>).mockReturnValue(2);
     const layer = manager.layerRegistry.get("overlay1")!.layer as L.Layer;
@@ -268,7 +268,7 @@ describe("applyVisibility", () => {
   });
 
   it("still applies the transition when the row is no longer on the panel", () => {
-    // `setVisible` reaches in by id, so the row may be absent â€?a detached
+    // `setVisible` reaches in by id, so the row may be absent ï¿½?a detached
     // panel, or one that has not rendered this layer yet. The map write and the
     // persisted choice must not depend on the row being there.
     const layer = layerFixture();
@@ -312,7 +312,7 @@ describe("applyVisibility", () => {
     applyVisibility(ui, "overlay1", true);
     manager.persistence.flushAll();
 
-    // Old assertion: the persisted hidden set was `[]` â€?"hidden" was an
+    // Old assertion: the persisted hidden set was `[]` ï¿½?"hidden" was an
     // absolute list, so re-showing deleted the id. The record cannot express
     // "the user showed it" versus "the author declared show=True", and the
     // entry's absence *is* the author's default. Keeping the id therefore
@@ -365,7 +365,7 @@ describe("applyVisibility", () => {
 
   it("fires the callback only on a change, not on a repeated set", () => {
     // A programmatic caller may re-set the same value; the executor diffs
-    // against its own last write, so a no-op set is a no-op â€?including for
+    // against its own last write, so a no-op set is a no-op ï¿½?including for
     // the `onToggle` callback. The callback is the canvas layer's signal that
     // its own `HIDDEN` class needs toggling; firing it on a value it already
     // has would be redundant work the canvas would just ignore.
@@ -425,7 +425,7 @@ describe("applyVisibility", () => {
 // Manager faÃ§ade
 //
 // `LayerManager.setVisible` is the `LayerAPI` entry point. It adds only the
-// pre-flight checks â€?id resolution, panel presence, the registry warning â€?
+// pre-flight checks ï¿½?id resolution, panel presence, the registry warning ï¿½?
 // and then delegates, so a layer can be controlled from outside the panel.
 // ---------------------------------------------------------------------------
 
@@ -475,7 +475,7 @@ describe("LayerManager.setVisible", () => {
 
   it("returns false for an unknown id before checking for a panel", () => {
     // The id is resolved first, so a typo reports the same with or without a
-    // panel attached â€?it cannot read as a missing-panel no-op.
+    // panel attached ï¿½?it cannot read as a missing-panel no-op.
     expect(manager.setVisible("nope", false)).toBe(false);
     const bare = new LayerManager(map, []);
     expect(bare.setVisible("nope", false)).toBe(false);
@@ -587,7 +587,7 @@ describe("LayerUI.handleChange", () => {
 });
 
 // ---------------------------------------------------------------------------
-// DOM order â‰?registry order
+// DOM order ï¿½?registry order
 //
 // A late registration lands where its stored slot puts it, so the panel's row
 // order can diverge from the registry's. These cases pin that the checkbox and
@@ -779,13 +779,12 @@ describe("DOM order diverges from registry order", () => {
     // stand-in for the absence of a base. Clearing the base group leaves the
     // colour's own checkbox untouched (intent-only invariant).
     ui.toggleAll(CONST.GROUP.BASE, false);
-
   });
 });
 
 describe("toggleAll base group", () => {
   // The base group is the one case where getLayerItems also matches the color
-  // row â€?it carries the layer-item class and data-layer-type="base" â€?so a
+  // row ï¿½?it carries the layer-item class and data-layer-type="base" ï¿½?so a
   // base sweep walks a row that holds a color input instead of a checkbox.
   const baseFixture = () => {
     const map = {
@@ -843,7 +842,7 @@ describe("toggleAll base group", () => {
 
   it("skips a row that carries no checkbox instead of dragging it into the sweep", () => {
     // The base query matches the color row too, and its only input is a color
-    // picker. It is the row that has no checkbox â€?a bare null check is what
+    // picker. It is the row that has no checkbox ï¿½?a bare null check is what
     // keeps the sweep from typing the whole panel row.
     const bare = document.createElement("div");
     bare.className = `${CONST.CLASSES.LAYER_ITEM} ${CONST.CLASSES.COLOR_ITEM}`;
@@ -879,7 +878,7 @@ describe("toggleAll base group", () => {
 
   it("does not touch the colour layer when the base group is toggled", () => {
     // The colour layer coexists with tile basemaps: toggling the base group
-    // must not hide or show the colour â€?each carries its own checkbox and
+    // must not hide or show the colour ï¿½?each carries its own checkbox and
     // its own visibility.
     ui.toggleAll(CONST.GROUP.BASE, false);
 
