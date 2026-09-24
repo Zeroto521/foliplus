@@ -48,13 +48,15 @@ type PinnableNode = L.Layer & {
 /** One bookkeeping scope: panes and their specs live per map, so a manager
  *  built for one map never sees another map's names.
  *
- *  Two invalidators, one policy — never a third:
- *    - precise: `pinTree` deletes the entry for the one node it just repinned.
- *      It has the node in hand, so the delete is exact and costs one hash.
- *    - structure-wide: `reset` clears the whole cache. It is the fallback for a
- *      caller that only holds a stamp (or nothing), and over-invalidation is
- *      always safe here — a stale entry costs one extra `forEachLayer` walk,
- *      never a wrong answer.
+ *  One invalidation primitive — a generation counter:
+ *    Every state-changing call (`pinTree` / `reset` / `destroy`) bumps
+ *    `generation` by one, which makes every previously memoised entry stale
+ *    until it is rewalked. There is no per-node precise delete anywhere: the
+ *    walk already pays for each node it touches, so the entries we would have
+ *    kept cost nothing to drop, and the entries we did not touch are the ones
+ *    a single-key policy would have kept wrong. Over-invalidation is always
+ *    safe here — a stale entry costs one extra `forEachLayer` walk, never a
+ *    wrong answer.
  *
  *  `removePane` deliberately touches neither: destroying a pane div does not
  *  change what any layer's `options.pane` names, which is the only thing the
@@ -87,10 +89,16 @@ class PaneManager {
    * set, which could not carry the draw offset.
    */
   private readonly paneSpecs = new Map<string, PaneSpec>();
+  /** The generation at which entries in `discoveryCache` were computed. Bumped
+   *  by `pinTree` / `reset` / `destroy`; an entry whose `gen` is behind this
+   *  value is stale and is recomputed on its next read. */
+  private generation = 0;
   /** Discovery results keyed by `L.stamp`, capped by
    *  `CACHE.PANE_DISCOVERY_ENTRIES`: stamps are never reused, so layer churn
-   *  would otherwise accumulate until teardown. */
-  private readonly discoveryCache = new Map<number, string[]>();
+   *  would otherwise accumulate until teardown. Each entry carries the
+   *  generation it was written at, so a stale entry is dropped rather than
+   *  served. */
+  private readonly discoveryCache = new Map<number, { gen: number; panes: string[] }>();
 
   constructor(map: L.Map) {
     this.map = map;
@@ -109,11 +117,6 @@ class PaneManager {
    *  source of truth for "is this pane ours". */
   get childPaneSpecs(): ReadonlyMap<string, PaneSpec> {
     return this.paneSpecs;
-  }
-
-  /** The discovery cache, read-only, for assertions on what was memoised. */
-  get paneCache(): ReadonlyMap<number, string[]> {
-    return this.discoveryCache;
   }
 
   /** The names above as a set — membership is what the caller usually wants. */
@@ -170,6 +173,7 @@ class PaneManager {
   destroy() {
     this.discoveryCache.clear();
     this.paneSpecs.clear();
+    this.generation++;
   }
 
   /**
@@ -254,15 +258,14 @@ class PaneManager {
   }
 
   /** Invalidate the child-pane discovery cache — structure-wide, either way.
-   *  @param {number} [_id] - Retained for the stamp-only callers. It is ignored:
-   *    a repinned subtree can invalidate entries for layers the caller holds no
-   *    reference to, so single-key invalidation is the one that can leave a
-   *    wrong answer in the cache. Over-invalidating is always safe here — a
-   *    stale entry costs one extra `forEachLayer` walk, never a wrong result.
-   *    `pinTree` keeps the precise per-node delete, because it has the node in
-   *    hand. */
+   *  @param {number} [_id] - Retained for the stamp-only callers. It is
+   *    ignored: a repinned subtree can invalidate entries for layers the
+   *    caller holds no reference to, so a single-key policy can leave a wrong
+   *    answer in the cache. Over-invalidating is always safe here — a stale
+   *    entry costs one extra `forEachLayer` walk, never a wrong result.
+   *    `pinTree` uses the same primitive. */
   reset(_id?: number): void {
-    this.discoveryCache.clear();
+    this.generation++;
   }
 
   /** Drop child-pane entries no longer referenced by any registered layer.
@@ -378,11 +381,6 @@ class PaneManager {
     const walk = (n: PinnableNode): void => {
       n.options.pane = paneName;
       n.options.paneSet = true;
-      // Every node we touch invalidates its own discovery entry, so a later
-      // `discoverChildPanes` sees the pin rather than the pre-pin name. Precise
-      // here rather than structure-wide: the walk already pays for each node,
-      // so there is nothing to gain from discarding entries we did not touch.
-      this.discoveryCache.delete(L.stamp(n));
       if (!n.eachLayer) {
         // A Path needs its renderer pinned; every other leaf just carries the
         // pane name written above.
@@ -392,19 +390,26 @@ class PaneManager {
       n.eachLayer(c => walk(c as PinnableNode));
     };
     walk(node as PinnableNode);
+    // Bumping the generation marks every previously memoised entry stale, so
+    // any later `discoverChildPanes` sees the pin rather than the pre-pin name.
+    // Precise per-node delete would only have served the ones we touched;
+    // structure-wide covers them plus every entry a subtree re-pin invalidates
+    // from underneath.
+    this.generation++;
   }
 
   // ── Pure computation (JS unit-testable, no Leaflet) ────────────
 
   /** Find all custom panes used by a container's tree.
-   *  Memoised per layer stamp and capped by `CACHE.PANE_DISCOVERY_ENTRIES`
-   *  (`reset` is the only way to invalidate what is already cached, and it does
-   *  so structure-wide). */
+   *  Memoised per layer stamp and capped by `CACHE.PANE_DISCOVERY_ENTRIES`.
+   *  Entries carry the generation they were written at; an entry from a
+   *  different generation is recomputed, so `pinTree` / `reset` / `destroy`
+   *  all invalidate uniformly without a per-node delete. */
   discoverChildPanes(layer: L.Layer, depth = 0): string[] {
     if (depth > CONST.RECURSION.PANE_DEPTH) return [];
     const key = L.stamp(layer);
     const hit = this.discoveryCache.get(key);
-    if (hit !== undefined) return hit;
+    if (hit && hit.gen === this.generation) return hit.panes;
     const panes = new Set<string>();
     forEachLayer(
       layer,
@@ -422,7 +427,7 @@ class PaneManager {
     if (this.discoveryCache.size >= CONST.CACHE.PANE_DISCOVERY_ENTRIES) {
       this.discoveryCache.delete(this.discoveryCache.keys().next().value!);
     }
-    this.discoveryCache.set(key, result);
+    this.discoveryCache.set(key, { gen: this.generation, panes: result });
     return result;
   }
 

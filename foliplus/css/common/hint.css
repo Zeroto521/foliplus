@@ -19,7 +19,9 @@
   border: var(--border-thin) solid rgba(255, 255, 255, var(--alpha-15));
   border-radius: var(--radius-lg);
   padding: var(--space-md) var(--space-xl);
-  white-space: nowrap;
+  box-sizing: border-box;
+  max-width: min(var(--hint-max-width, 480px), 80vw);
+  white-space: normal;
   color: var(--neutral-0);
   font-size: var(--font-size-md);
   font-weight: var(--font-weight-medium);
@@ -42,4 +44,12 @@
 .foliplus-hint-icon {
   display: inline-flex;
   align-items: center;
+}
+
+/* Breakpoint tracks --hint-max-width; media queries cannot read var(), so
+   the 480px here and the token are the same value and must move together. */
+@media (max-width: 480px) {
+  .foliplus-hint {
+    max-width: calc(100vw - var(--size-16));
+  }
 }
