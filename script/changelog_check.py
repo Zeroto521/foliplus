@@ -41,7 +41,6 @@ import urllib.error
 import urllib.request
 from collections import Counter
 from dataclasses import dataclass
-from typing import Optional
 
 DEFAULT_PATH = "CHANGELOG.md"
 PR_LABEL_RE = re.compile(r"\[#(\d+)\]")
@@ -97,13 +96,12 @@ def parse_entries(text: str) -> list[Entry]:
     return entries
 
 
-def collect_label_url_warnings(entries: list[Entry], text: str) -> list[dict]:
+def collect_label_url_warnings(entries: list[Entry], lines: list[str]) -> list[dict]:
     """Emit a warning when a label's number disagrees with the URL tail."""
-    lines = text.split("\n")
     warnings = []
 
     for entry in entries:
-        line = lines[entry.line_no - 1] if entry.line_no - 1 < len(lines) else ""
+        line = lines[entry.line_no - 1]
         for m in PR_LINK_RE.finditer(line):
             label = int(m.group(1))
             tail_match = re.search(r"/(\d+)$", m.group(2))
@@ -181,7 +179,7 @@ def check_existence(
                 status = resp.status
         except urllib.error.HTTPError as e:
             status = e.code
-        except Exception as e:
+        except urllib.error.URLError as e:
             return violations, f"GitHub API unreachable for #{num}: {e}"
 
         if status == 404:
@@ -217,9 +215,7 @@ def sort_line_pairs(line: str) -> str:
 
     # Verify pairs are adjacent (separated by ", ")
     for i in range(1, len(pairs)):
-        prev = pairs[i - 1]
-        cur = pairs[i]
-        if cur["start"] != prev["end"] + 2 or line[prev["end"] : cur["start"]] != ", ":
+        if line[pairs[i - 1]["end"] : pairs[i]["start"]] != ", ":
             return line
 
     # Sort stably by number
@@ -262,12 +258,10 @@ def parse_blocks(lines: list[str], start_idx: int, end_idx: int) -> list[dict]:
                 "first_num": nums[0] if nums else None,
                 "nums": nums,
             }
-        elif (
-            current
-        ):  # pragma: no cover - orphan sub-bullet before any bullet is malformed input
+        elif current:  # pragma: no cover - orphan sub-bullet is malformed input
             current["lines"].append(line)
 
-    if current:  # pragma: no cover - no bullets in subsection is handled by fix_file's start_idx check
+    if current:  # pragma: no cover - no bullets handled by fix_file's start_idx check
         blocks.append(current)
 
     return blocks
@@ -310,25 +304,21 @@ def fix_file(text: str) -> tuple[str, bool, str | None]:
         start_idx = -1
         end_idx = -1
         for i in range(header_idx + 1, next_header_idx):
-            if (
-                lines[i].startswith("## ") and not lines[i].startswith("### ")
-            ):  # pragma: no cover - nested version header inside subsection is malformed
+            if lines[i].startswith("## ") and not lines[i].startswith("### "):  # pragma: no cover - malformed
                 break
             if lines[i].startswith("- "):
                 if start_idx == -1:
                     start_idx = i
                 end_idx = i + 1
 
-        if (
-            start_idx == -1
-        ):  # pragma: no cover - no bullets in subsection is skipped by design
+        if start_idx == -1:  # pragma: no cover - no bullets, skipped by design
             continue
 
         # Extend end_idx past sub-bullets of the last bullet
         while (  # pragma: no cover - only triggers when last bullet has sub-bullets, covered by integration test
             end_idx < next_header_idx
             and not lines[end_idx].startswith("- ")
-            and not lines[end_idx].strip() == ""
+            and lines[end_idx].strip() != ""
         ):
             end_idx += 1
 
@@ -357,9 +347,9 @@ def fix_file(text: str) -> tuple[str, bool, str | None]:
     new_text = "\n".join(lines)
     new_lines = normalized_line_multiset(new_text)
 
-    if not same_line_multiset(
+    if not same_line_multiset(  # pragma: no cover - safety net for fixer bugs
         original_lines, new_lines
-    ):  # pragma: no cover - safety net for fixer bugs, not triggerable by correct fixer
+    ):
         return (
             new_text,
             False,
@@ -403,7 +393,7 @@ def main():
     # Check mode (default)
     entries = parse_entries(text)
     order_violations = check_ordering(entries)
-    warnings = collect_label_url_warnings(entries, text)
+    warnings = collect_label_url_warnings(entries, text.split("\n"))
 
     repo_full_name = os.environ.get("GITHUB_REPOSITORY", "")
     token = os.environ.get("GITHUB_TOKEN", "")

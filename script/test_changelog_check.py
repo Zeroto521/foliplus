@@ -207,12 +207,12 @@ class TestCollectLabelUrlWarnings:
     def test_no_warn_when_agree(self):
         t = fixture("- a ([#164](x/tree/164), [#206](x/pull/206))")
         entries = mod.parse_entries(t)
-        assert mod.collect_label_url_warnings(entries, t) == []
+        assert mod.collect_label_url_warnings(entries, t.split("\n")) == []
 
     def test_flags_disagreement(self):
         t = fixture("- a ([#164](x/tree/999), [#206](x/pull/206))")
         entries = mod.parse_entries(t)
-        w = mod.collect_label_url_warnings(entries, t)
+        w = mod.collect_label_url_warnings(entries, t.split("\n"))
         assert len(w) == 1
         assert "#164" in w[0]["message"]
         assert "/999" in w[0]["message"]
@@ -608,7 +608,7 @@ class TestCheckExistence:
         entries = mod.parse_entries(fixture("- a ([#1](x/pull/1))"))
 
         def _raise_econnrefused(req):
-            raise Exception("ECONNREFUSED")
+            raise urllib.error.URLError("ECONNREFUSED")
 
         with patch.object(mod.urllib.request, "urlopen", _raise_econnrefused):
             violations, error = mod.check_existence(entries, "Z", "f", "t")
@@ -633,7 +633,7 @@ class TestRealChangelog:
         assert mod.check_ordering(self.ENTRIES) == []
 
     def test_no_label_url_warnings(self):
-        warnings = mod.collect_label_url_warnings(self.ENTRIES, self.REAL_TEXT)
+        warnings = mod.collect_label_url_warnings(self.ENTRIES, self.REAL_TEXT.split("\n"))
         assert warnings == []
 
     def test_mega_pr_ties(self):
