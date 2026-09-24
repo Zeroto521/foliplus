@@ -6,6 +6,7 @@ import {
   applyFillToLayer,
   buildFillRow,
   commitFillColor,
+  commitFillOpacity,
   layerCanFill,
   resetLayerFill,
 } from "#foliplus/LayerControl/ui/style/fill.js";
@@ -246,7 +247,8 @@ describe("LayerUI style panel — fill colour", () => {
   });
 
   it("applyFillToLayer calls setStyle on every leaf with one it exposes", () => {
-    applyFillToLayer(ui, "overlay1", "#123456");
+    ui.fillColorMap["overlay1"] = "#123456";
+    applyFillToLayer(ui, "overlay1");
 
     expect(fillLayer.leaves[0].setStyle).toHaveBeenCalledWith({
       fillColor: "#123456",
@@ -266,11 +268,13 @@ describe("LayerUI style panel — fill colour", () => {
       name: "Empty",
       layer: { options: {}, eachLayer: vi.fn() } as never,
     });
-    expect(() => applyFillToLayer(ui, "empty1", "#123456")).not.toThrow();
+    ui.fillColorMap["empty1"] = "#123456";
+    expect(() => applyFillToLayer(ui, "empty1")).not.toThrow();
   });
 
   it("applyFillToLayer is a no-op when the layer is not in the registry", () => {
-    expect(() => applyFillToLayer(ui, "ghost", "#123456")).not.toThrow();
+    ui.fillColorMap["ghost"] = "#123456";
+    expect(() => applyFillToLayer(ui, "ghost")).not.toThrow();
   });
 
   // ─────────────────── panel integration ───────────────────
@@ -362,10 +366,12 @@ describe("LayerUI style panel — fill colour", () => {
 
 describe("buildFillRow", () => {
   let ui: LayerUI;
+  let manager: LayerManager;
 
   beforeEach(() => {
     const fixture = initWithFillLayer();
     ui = fixture.ui;
+    manager = fixture.manager;
   });
 
   afterEach(() => {
@@ -430,18 +436,19 @@ describe("buildFillRow", () => {
       redraw: vi.fn(),
     };
     fixture.fillLayer.leaves[0] = path as never;
+    fixture.ui.fillColorMap["overlay1"] = "#ff0000";
 
-    applyFillToLayer(fixture.ui, "overlay1", "#ff0000");
+    applyFillToLayer(fixture.ui, "overlay1");
 
     expect(svgFill).toHaveBeenCalledWith("fill", "#ff0000");
     expect(path.options.fillColor).toBe("#ff0000");
   });
 
-  it("applyFillToLayer sets a visible fillOpacity when the author set it to 0", () => {
-    // The user's "改色后没生效" report: a hollow polygon (fillOpacity=0) has
-    // its fill invisible, so a colour change is user-invisible. This test
-    // asserts that applyFillToLayer also writes a visible fillOpacity in
-    // that case, making the colour change actually visible.
+  it("commitFillColor bumps fillOpacity to 0.2 on a hollow layer", () => {
+    // The user's "改色后没生效" report: a hollow polygon (fillOpacity=0)
+    // has its fill invisible, so a colour change is user-invisible. This
+    // test asserts that commitFillColor bumps fillOpacityMap to a visible
+    // value, making the colour change actually visible.
     const fixture = initWithFillLayer();
     const leaf = {
       options: { fillColor: "#aabbcc", fillOpacity: 0 },
@@ -449,33 +456,63 @@ describe("buildFillRow", () => {
     };
     fixture.fillLayer.leaves[0] = leaf;
 
-    applyFillToLayer(fixture.ui, "overlay1", "#ff0000");
+    commitFillColor(fixture.ui, "overlay1", "#ff0000");
 
+    expect(fixture.ui.fillOpacityMap["overlay1"]).toBe(0.2);
+    expect(fixture.ui.userOverrides["overlay1"]).toContain("fillOpacity");
     expect(leaf.setStyle).toHaveBeenCalledWith({
       fillColor: "#ff0000",
       fillOpacity: 0.2,
     });
   });
 
-  it("applyFillToLayer does not touch fillOpacity when it is already visible", () => {
+  it("commitFillColor does not bump fillOpacity when the user set it explicitly", () => {
+    // If the user explicitly set fillOpacity (even to 0), their choice wins.
     const fixture = initWithFillLayer();
     const leaf = {
-      options: { fillColor: "#aabbcc", fillOpacity: 0.5 },
+      options: { fillColor: "#aabbcc", fillOpacity: 0 },
       setStyle: vi.fn(),
     };
     fixture.fillLayer.leaves[0] = leaf;
+    fixture.ui.fillOpacityMap["overlay1"] = 0;
 
-    applyFillToLayer(fixture.ui, "overlay1", "#ff0000");
+    commitFillColor(fixture.ui, "overlay1", "#ff0000");
 
-    // fillOpacity is 0.5 (visible) — only fillColor is written.
+    expect(fixture.ui.fillOpacityMap["overlay1"]).toBe(0);
     expect(leaf.setStyle).toHaveBeenCalledWith({
       fillColor: "#ff0000",
+      fillOpacity: 0,
     });
   });
 
-  it("resetLayerFill restores fillOpacity to 0 after a colour change", () => {
-    // The applyFillToLayer write made the fill visible (0 → 0.2); reset
-    // puts the author's original back so a hollow polygon stays hollow.
+  it("commitFillOpacity writes to the map, persists, and marks the override", () => {
+    const setLayer = vi.spyOn(manager.persistence, "schedule");
+
+    commitFillOpacity(ui, "overlay1", 50);
+
+    expect(ui.fillOpacityMap["overlay1"]).toBe(0.5);
+    expect(ui.userOverrides["overlay1"]).toContain("fillOpacity");
+    expect(setLayer).toHaveBeenCalled();
+  });
+
+  it("commitFillOpacity no-ops when the value did not change", () => {
+    ui.fillOpacityMap["overlay1"] = 0.5;
+    const setLayer = vi.spyOn(manager.persistence, "schedule");
+
+    commitFillOpacity(ui, "overlay1", 50);
+
+    expect(setLayer).not.toHaveBeenCalled();
+  });
+
+  it("commitFillOpacity clamps out-of-range values", () => {
+    commitFillOpacity(ui, "overlay1", 150);
+    expect(ui.fillOpacityMap["overlay1"]).toBe(1);
+
+    commitFillOpacity(ui, "overlay1", -10);
+    expect(ui.fillOpacityMap["overlay1"]).toBe(0);
+  });
+
+  it("resetLayerFill clears fillOpacityMap and restores the author's opacity", () => {
     const fixture = initWithFillLayer();
     const leaf = {
       options: { fillColor: "#aabbcc", fillOpacity: 0 },
@@ -483,9 +520,13 @@ describe("buildFillRow", () => {
     };
     fixture.fillLayer.leaves[0] = leaf;
 
-    applyFillToLayer(fixture.ui, "overlay1", "#ff0000");
+    commitFillColor(fixture.ui, "overlay1", "#ff0000");
+    expect(fixture.ui.fillOpacityMap["overlay1"]).toBe(0.2);
+
     resetLayerFill(fixture.ui, "overlay1");
 
+    expect(fixture.ui.fillOpacityMap["overlay1"]).toBeUndefined();
+    expect(fixture.ui.userOverrides["overlay1"] ?? []).not.toContain("fillOpacity");
     expect(leaf.setStyle).toHaveBeenLastCalledWith({
       fillColor: "#aabbcc",
       fillOpacity: 0,

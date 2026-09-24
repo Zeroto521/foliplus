@@ -26,6 +26,7 @@ const loadPersistedState = (ui: LayerUI) => {
   ui.opacityMap = {};
   ui.zoomRangeMap = {};
   ui.fillColorMap = {};
+  ui.fillOpacityMap = {};
   ui.userOverrides = {};
   for (const [id, entry] of Object.entries(state.layers)) {
     ui.userOverrides[id] = [...entry.overrides];
@@ -44,6 +45,9 @@ const loadPersistedState = (ui: LayerUI) => {
     if (entry.overrides.includes("fillColor") && entry.fillColor) {
       ui.fillColorMap[id] = entry.fillColor;
     }
+    if (entry.overrides.includes("fillOpacity") && typeof entry.fillOpacity === "number") {
+      ui.fillOpacityMap[id] = entry.fillOpacity;
+    }
   }
 };
 
@@ -60,6 +64,7 @@ const hasLiveValue = (ui: LayerUI, id: string, override: LayerOverride): boolean
   if (override === "opacity") return typeof ui.opacityMap[id] === "number";
   if (override === "zoomRange") return Array.isArray(ui.zoomRangeMap[id]);
   if (override === "fillColor") return typeof ui.fillColorMap[id] === "string";
+  if (override === "fillOpacity") return typeof ui.fillOpacityMap[id] === "number";
   return true;
 };
 
@@ -81,6 +86,10 @@ const buildLayerStates = (ui: LayerUI): Record<string, PersistedLayerState> => {
     const fillColor = ui.fillColorMap[id];
     if (declared.includes("fillColor") && typeof fillColor === "string") {
       state.fillColor = fillColor;
+    }
+    const fillOpacity = ui.fillOpacityMap[id];
+    if (declared.includes("fillOpacity") && typeof fillOpacity === "number") {
+      state.fillOpacity = fillOpacity;
     }
     states[id] = state;
   }
@@ -247,6 +256,7 @@ const dropPersistedLayerState = (ui: LayerUI, id: string) => {
   delete ui.opacityMap[id];
   delete ui.zoomRangeMap[id];
   delete ui.fillColorMap[id];
+  delete ui.fillOpacityMap[id];
   delete ui.userOverrides[id];
 };
 

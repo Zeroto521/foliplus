@@ -19,7 +19,12 @@ const RECORD_VERSION = 2;
  *  so a policy can never write through a user's choice -- which is what makes
  *  "the map overrides what I set" structurally impossible rather than a matter
  *  of remembering not to do it. */
-type LayerOverride = "visible" | "opacity" | "zoomRange" | "fillColor";
+type LayerOverride =
+  | "visible"
+  | "opacity"
+  | "zoomRange"
+  | "fillColor"
+  | "fillOpacity";
 
 /** One layer's persisted intent: the values the user set, plus which dimensions
  *  they set them for. A value with no matching override is dropped on read. */
@@ -34,6 +39,8 @@ type PersistedLayerState = {
    *  owns the write (a self-managed dimension — see ui/style/fill.ts), so
    *  it lives in this record rather than on the annotation config. */
   fillColor?: string;
+  /** Fill opacity (0-1) the user set in the style panel. */
+  fillOpacity?: number;
   overrides: LayerOverride[];
 };
 
@@ -104,6 +111,7 @@ const OVERRIDE_VALUES: LayerOverride[] = [
   "opacity",
   "zoomRange",
   "fillColor",
+  "fillOpacity",
 ];
 
 /** A stored zoom range: two finite numbers with the low end not above the
@@ -166,6 +174,18 @@ const parseLayerState = (raw: unknown): PersistedLayerState | null => {
       if (isHexColor(data.fillColor)) {
         out.fillColor = data.fillColor;
         out.overrides.push("fillColor");
+      }
+      continue;
+    }
+    if (override === "fillOpacity") {
+      if (
+        typeof data.fillOpacity === "number" &&
+        Number.isFinite(data.fillOpacity) &&
+        data.fillOpacity >= 0 &&
+        data.fillOpacity <= 1
+      ) {
+        out.fillOpacity = data.fillOpacity;
+        out.overrides.push("fillOpacity");
       }
       continue;
     }

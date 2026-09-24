@@ -23,8 +23,11 @@
 import { dom } from "#common/dom.js";
 import {
   bindLiveColor,
+  bindLiveNumber,
   colorInput as formColorInput,
+  inlineControls,
   normalizeHexColor,
+  numberInput,
 } from "#common/form.js";
 import * as CONST from "../../const.js";
 import type { LayerUI } from "../index.js";
@@ -43,7 +46,7 @@ const FILL_COLOR_DEFAULT = "#000000";
 type StyleCarrier = L.Layer & {
   setStyle?: (style: Record<string, unknown>) => void;
   eachLayer?: (fn: (layer: L.Layer) => void) => void;
-  options?: { fillColor?: string };
+  options?: { fillColor?: string; fillOpacity?: number };
 };
 
 /** Whether the layer's surface can honestly carry a fill write. Requires
@@ -119,31 +122,29 @@ const captureBase = (
   return base;
 };
 
-/** Commit one fill colour to the layer. Walks the layer tree and calls
- *  `setStyle({fillColor, fillOpacity?})` on every leaf that has a `setStyle`.
- *  A node without a setter is skipped silently — that is the §5.4 rule:
- *  when no honest write exists, do not persist one (the caller already
- *  wrote the value to storage, so we simply do not touch the layer here).
+/** Commit the current fill colour and opacity to the layer. Walks the layer
+ *  tree and calls `setStyle({fillColor?, fillOpacity?})` on every leaf that
+ *  has a `setStyle`. A node without a setter is skipped silently.
  *
- *  `fillOpacity` is also written when it is 0: a hollow polygon's `fill`
- *  attribute would update but stay invisible, so the colour change would be
- *  user-invisible. Writing `VISIBLE_FILL_OPACITY` makes the new colour show;
- *  the author's original opacity is captured by {@link captureBase} and
- *  restored on Reset. A non-zero `fillOpacity` is left alone.
+ *  Reads both values from the UI maps (`fillColorMap` / `fillOpacityMap`);
+ *  a dimension not in the map is omitted from the `setStyle` call so the
+ *  author's declared default stays in force.
  *
- *  Kept separate from the persistence plumbing (`commitFillColor`) so the
- *  walk is unit-testable without a storage timer. */
-const applyFillToLayer = (ui: LayerUI, layerId: string, color: string): void => {
+ *  Kept separate from the persistence plumbing (`commitFillColor`,
+ *  `commitFillOpacity`) so the walk is unit-testable without a storage timer. */
+const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
   const li = ui.m.layerRegistry.get(layerId);
   const layer = li?.layer as StyleCarrier | null;
   if (!layer) return;
+  const color = ui.fillColorMap[layerId];
+  const opacity = ui.fillOpacityMap[layerId];
+  if (color === undefined && opacity === undefined) return;
   const walk = (node: StyleCarrier): void => {
     if (typeof node.setStyle === "function") {
       captureBase(node);
-      const style: Record<string, unknown> = { fillColor: color };
-      if (node.options?.fillOpacity === 0) {
-        style.fillOpacity = VISIBLE_FILL_OPACITY;
-      }
+      const style: Record<string, unknown> = {};
+      if (color !== undefined) style.fillColor = color;
+      if (opacity !== undefined) style.fillOpacity = opacity;
       node.setStyle(style);
     } else if (typeof node.eachLayer === "function") {
       node.eachLayer(child => walk(child as StyleCarrier));
@@ -157,16 +158,58 @@ const applyFillToLayer = (ui: LayerUI, layerId: string, color: string): void => 
  *  moved — a colour-picker drag revisits every step, and each pass is a
  *  sweep over every feature of the layer.
  *
+ *  When the layer is hollow (author fillOpacity === 0) and the user has not
+ *  explicitly set fillOpacity, bumps fillOpacityMap to a visible value so
+ *  the colour change is visible. If the user HAS explicitly set fillOpacity
+ *  (even to 0), their choice wins — no bump.
+ *
  *  Called from `bindLiveColor`, so `color` is a raw `input.value` and is
- *  normalised to 6-digit lowercase hex before landing in storage — the
- *  same rule the annotation label colour applies. */
+ *  normalised to 6-digit lowercase hex before landing in storage. */
 const commitFillColor = (ui: LayerUI, layerId: string, rawColor: string): void => {
   const color = normalizeHexColor(rawColor);
   if (ui.fillColorMap[layerId] === color) return;
   ui.fillColorMap[layerId] = color;
   markOverride(ui, layerId, "fillColor");
+
+  if (ui.fillOpacityMap[layerId] === undefined) {
+    const li = ui.m.layerRegistry.get(layerId);
+    const layer = li?.layer as StyleCarrier | null;
+    if (layer) {
+      const walk = (node: StyleCarrier): boolean => {
+        if (typeof node.setStyle === "function") {
+          if (node.options?.fillOpacity === 0) {
+            ui.fillOpacityMap[layerId] = VISIBLE_FILL_OPACITY;
+            markOverride(ui, layerId, "fillOpacity");
+            return true;
+          }
+          return false;
+        }
+        if (typeof node.eachLayer === "function") {
+          let found = false;
+          node.eachLayer(child => {
+            found = found || walk(child as StyleCarrier);
+          });
+          return found;
+        }
+        return false;
+      };
+      walk(layer);
+    }
+  }
+
   saveState(ui);
-  applyFillToLayer(ui, layerId, color);
+  applyFillToLayer(ui, layerId);
+};
+
+/** Commit the fill opacity (0-100 %) to the layer. Converts to 0-1 for
+ *  storage and setStyle. Called from `bindLiveNumber` on the opacity input. */
+const commitFillOpacity = (ui: LayerUI, layerId: string, pct: number): void => {
+  const opacity = Math.max(0, Math.min(1, pct / 100));
+  if (ui.fillOpacityMap[layerId] === opacity) return;
+  ui.fillOpacityMap[layerId] = opacity;
+  markOverride(ui, layerId, "fillOpacity");
+  saveState(ui);
+  applyFillToLayer(ui, layerId);
 };
 
 /** Reset one layer's fill to its authored value and drop its persisted
@@ -185,7 +228,9 @@ const commitFillColor = (ui: LayerUI, layerId: string, rawColor: string): void =
 const resetLayerFill = (ui: LayerUI, layerId: string): void => {
   if (!ui.m.layerRegistry.has(layerId)) return;
   delete ui.fillColorMap[layerId];
+  delete ui.fillOpacityMap[layerId];
   unmarkOverride(ui, layerId, "fillColor");
+  unmarkOverride(ui, layerId, "fillOpacity");
   saveState(ui);
   const li = ui.m.layerRegistry.get(layerId);
   const layer = li?.layer as StyleCarrier | null;
@@ -207,35 +252,67 @@ const resetLayerFill = (ui: LayerUI, layerId: string): void => {
   walk(layer);
 };
 
-/** Build the fill form row: the shared colour swatch, nothing else.
- *  Matches the HeatmapControl border row and the label row's swatch —
- *  a FORM_ROW whose control cell is a single <input type=color>. No
- *  reset button on the row: the panel's Reset footer handles it, which
- *  keeps Reset as one writer of "back to authored default". */
+/** Build the fill form row: colour swatch + fill-opacity number input.
+ *  Both controls live inside one FORM_CONTROL via `inlineControls`, so the
+ *  row's width matches the border-weight row (colour + number).
+ *
+ *  The opacity input's initial value is the author's `options.fillOpacity`
+ *  (captured from the first leaf if available), or 0.2 (Leaflet's default)
+ *  if the layer hasn't been registered yet. */
 const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
-  const stored = ui.fillColorMap[layerId];
-  const color = stored ?? FILL_COLOR_DEFAULT;
+  const storedColor = ui.fillColorMap[layerId];
+  const color = storedColor ?? FILL_COLOR_DEFAULT;
   const colorInput = formColorInput({
     value: color,
     className: CONST.CLASSES.STYLE_FILL_COLOR_INPUT,
     ariaLabel: ui.T("style_fill"),
   }) as HTMLInputElement;
+
+  const storedOpacity = ui.fillOpacityMap[layerId];
+  const opacityPct = (storedOpacity ?? VISIBLE_FILL_OPACITY) * 100;
+  const opacityInput = numberInput({
+    value: opacityPct,
+    min: 0,
+    max: 100,
+    step: 5,
+    className: CONST.CLASSES.STYLE_FILL_OPACITY_NUMBER,
+    ariaLabel: ui.T("style_fill_opacity"),
+  }) as HTMLInputElement;
+
   return dom.el(
     "div",
     { class: `${CONST.CLASSES.FORM_ROW} ${CONST.CLASSES.STYLE_FILL_ROW}` },
     dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("style_fill")),
-    dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, colorInput),
+    dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, inlineControls(colorInput, opacityInput)),
   );
 };
 
-/** Wire the shared live-colour binder to this row's commit path. Called
- *  from `openStylePanel` in index.ts, alongside the label colour binding. */
+/** Wire the shared live-colour and live-number binders to this row's
+ *  commit paths. Called from `openStylePanel` in index.ts. */
 const bindFillRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
   const colorEl = row.querySelector(
     `.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`,
   ) as HTMLInputElement | null;
-  if (!colorEl) return;
-  bindLiveColor(colorEl, value => commitFillColor(ui, layerId, value));
+  if (colorEl) bindLiveColor(colorEl, value => commitFillColor(ui, layerId, value));
+
+  const opacityEl = row.querySelector(
+    `.${CONST.CLASSES.STYLE_FILL_OPACITY_NUMBER}`,
+  ) as HTMLInputElement | null;
+  if (opacityEl)
+    bindLiveNumber(opacityEl, {
+      min: 0,
+      max: 100,
+      fallback: VISIBLE_FILL_OPACITY * 100,
+      onCommit: value => commitFillOpacity(ui, layerId, value),
+    });
+};
+
+/** Replay a layer's stored fill state (colour + opacity) onto the map.
+ *  Called from `applyUserState` on attach and late registration so a
+ *  persisted value survives a reload. */
+const replayFillState = (ui: LayerUI, id: string): void => {
+  if (ui.fillColorMap[id] === undefined && ui.fillOpacityMap[id] === undefined) return;
+  applyFillToLayer(ui, id);
 };
 
 export {
@@ -243,6 +320,8 @@ export {
   bindFillRow,
   buildFillRow,
   commitFillColor,
+  commitFillOpacity,
   layerCanFill,
+  replayFillState,
   resetLayerFill,
 };

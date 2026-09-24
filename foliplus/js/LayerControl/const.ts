@@ -126,6 +126,7 @@ const CLASSES = {
    *  colour swatch, and so a future delegated drawer can gate on it. */
   STYLE_FILL_ROW: "foliplus-style-fill-row",
   STYLE_FILL_COLOR_INPUT: "foliplus-style-fill-color-input",
+  STYLE_FILL_OPACITY_NUMBER: "foliplus-style-fill-opacity-number",
   /** Shared section heading (form.css). */
   SECTION_HEADING: "foliplus-section-heading",
   /** Opacity control: range slider + paired number input. */
