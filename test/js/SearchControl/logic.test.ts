@@ -315,10 +315,6 @@ describe("buildSearchUrl", () => {
 });
 
 describe("searchCoord", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
   it("shows hint and clears input for invalid coordinates", () => {
     const ctrl: any = { inp: { value: "" }, marker: null, searchHistory: [] };
     searchCoord(ctrl, "abc");
@@ -1031,10 +1027,6 @@ describe("searchAddress — history recording", () => {
 });
 
 describe("searchCoord edge cases", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
   it("converts fullwidth comma to halfwidth", () => {
     const ctrl: any = { inp: { value: "" }, marker: null, searchHistory: [] };
     searchCoord(ctrl, "121，31");
@@ -1986,11 +1978,6 @@ describe("fetchSuggestions — history does not interfere with suggestions", () 
 // SearchControl history (merged from history.test.ts)
 
 describe("SearchControl history", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    localStorage.clear();
-  });
-
   afterEach(() => {
     vi.restoreAllMocks();
   });

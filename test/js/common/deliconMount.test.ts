@@ -1,9 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { mountDelIcon } from "#common/deliconMount.js";
-
-beforeEach(() => {
-  vi.clearAllMocks();
-});
 
 describe("mountDelIcon", () => {
   // Same real-DOM trick as the SearchControl tests: toggleDelIcon flips the ✕

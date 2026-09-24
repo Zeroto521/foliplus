@@ -32,7 +32,6 @@ describe("createLocationMarker", () => {
       })),
       addTo: vi.fn().mockReturnThis(),
     }));
-    window.L.divIcon = vi.fn(() => ({}));
   });
 
   it("creates a marker with popup", () => {

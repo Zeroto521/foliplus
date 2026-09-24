@@ -16,7 +16,6 @@
  *   node script/build.mjs --sonda      # build + generate one combined sonda report (HTML treemap)
  *   node script/build.mjs --verify     # don't build; assert the dist/ tree is complete
  */
-import autoprefixer from "autoprefixer";
 import { spawnSync } from "child_process";
 import { build } from "esbuild";
 import {
@@ -28,14 +27,12 @@ import {
   writeFileSync,
 } from "fs";
 import { basename, dirname, resolve } from "path";
-import postcss from "postcss";
-import postcssNesting from "postcss-nesting";
 import { fileURLToPath, pathToFileURL } from "url";
 import { help, parseArgs } from "./args.mjs";
+import { esbuildCfgFor } from "./esbuild-config.mjs";
 import { globalNamespacePlugin } from "./global-namespace-plugin.mjs";
 import { FAIL, OK } from "./glyph.mjs";
 import { expandEntry, mergeCss } from "./merge-css.mjs";
-import { createSourceTransformPlugin } from "./source-transform-plugin.mjs";
 import { resolveVersion } from "./version.mjs";
 
 // Sonda is only loaded when --sonda is passed (lazy dynamic import).
@@ -91,30 +88,6 @@ const buildCss = resolve(CFG.root, "foliplus/.build/css");
 // resolved once and cached by script/version.mjs.
 const BUILD_VERSION = resolveVersion();
 
-// ── PostCSS pipeline ────────────────────────────────────────────
-// CSS sources are authored in nested syntax (CSS Nesting) and compiled to
-// flat selectors for maximum browser compatibility, then vendor-prefixed
-// via Autoprefixer (driven by the `browserslist` key in package.json).
-// `edition: '2021'` emits fully-flattened selectors (no `:is()` wrapper),
-// keeping specificity identical to hand-written flat CSS.
-const postcssProcessor = postcss([postcssNesting({ edition: "2021" }), autoprefixer()]);
-
-/** esbuild onLoad plugin that runs CSS through the PostCSS pipeline. */
-const postcssPlugin = {
-  name: "postcss",
-  setup(build) {
-    build.onLoad({ filter: /\.css$/ }, async args => {
-      const source = readFileSync(args.path, "utf-8");
-      const result = await postcssProcessor.process(source, { from: args.path });
-      return { contents: result.css, loader: "css" };
-    });
-  },
-};
-
-// The SVG/HTML source-transform plugin lives in its own module so its path
-// guard is unit-testable; here it is bound to the configured source dir.
-const sourceTransformPlugin = createSourceTransformPlugin(srcDir);
-
 /** esbuild onResolve plugin that redirects _shared-registry.js import
  *  (from runtime/index.ts) to the generated file in .build/js/. */
 const resolveSharedRegistryPlugin = {
@@ -127,30 +100,9 @@ const resolveSharedRegistryPlugin = {
 };
 
 // ── Shared esbuild options ──────────────────────────────────────
-// `alias` maps `#common/*` to the source tree. Compressed sources are
-// delivered at bundle time via sourceTransformPlugin (esbuild onLoad).
-const esbuildCfg = {
-  bundle: true,
-  format: "iife",
-  minify: !CFG.dev,
-  // Sourcemaps are only useful when debugging the minified bundle in a browser.
-  // Since foliplus bundles are embedded in Python-generated HTML and shipped
-  // to end users, production sourcemaps have no consumer — skip them.
-  sourcemap: false,
-  allowOverwrite: true,
-  keepNames: CFG.dev,
-  alias: {
-    "#common": srcDir + "/common",
-    "#core": srcDir + "/core",
-    "#foliplus": srcDir,
-  },
-  // Same `git describe` value as the artifact banner, inlined for the
-  // runtime console log (`[foliplus] foliplus@…`).
-  define: {
-    __FOLIPLUS_VERSION__: JSON.stringify(BUILD_VERSION),
-  },
-  plugins: [postcssPlugin, sourceTransformPlugin],
-};
+// Sourced from script/esbuild-config.mjs so tests import the real config
+// instead of re-typing the flags. See that module for what each field is.
+const esbuildCfg = esbuildCfgFor({ dev: CFG.dev, root: CFG.root });
 
 /** esbuild options for one artifact. Two things vary per artifact: tree
  *  shaking and the plugin list, both keyed on whether this is the shared
