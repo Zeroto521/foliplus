@@ -3,13 +3,13 @@
 import { type NumberStyle } from "#common/format.js";
 
 /** A point marker carrying an optional numeric value (foliplus data contract). */
-export type HeatmapPointMarker = (L.Marker | L.CircleMarker) & {
+type HeatmapPointMarker = (L.Marker | L.CircleMarker) & {
   value?: number;
   options?: { value?: number };
 };
 
 /** A hexagon feature drawn on the heatmap canvas. */
-export interface HexFeature {
+interface HexFeature {
   type?: string;
   geometry: { type: string; coordinates: number[][][] };
   properties: {
@@ -22,7 +22,7 @@ export interface HexFeature {
 }
 
 /** Aggregated hex cell. */
-export interface HexCell {
+interface HexCell {
   sum: number;
   count: number;
   min: number;
@@ -30,7 +30,7 @@ export interface HexCell {
 }
 
 /** Aggregated data returned by aggregateData. */
-export interface AggregatedData {
+interface AggregatedData {
   hexCells: Record<string, HexCell>;
   getAggValue: (cell: HexCell) => number;
   valueToClassIdx: (val: number) => number;
@@ -38,7 +38,7 @@ export interface AggregatedData {
 }
 
 /** A point layer collected from LayerControl. */
-export interface PointLayerInfo {
+interface PointLayerInfo {
   id: string;
   name: string;
   layer: L.Layer | null;
@@ -46,7 +46,7 @@ export interface PointLayerInfo {
 }
 
 /** A selected point with its aggregated value. */
-export interface SelectedPoint {
+interface SelectedPoint {
   lat: number;
   lng: number;
   value: number;
@@ -54,7 +54,7 @@ export interface SelectedPoint {
 }
 
 /** Persisted heatmap configuration (survives page reload). */
-export interface SavedConfig {
+interface SavedConfig {
   /** Shape version stamp (positive integer). Absent on records persisted
    * before the versioned format shipped; readers treat an absent or older
    * value the same way — the fields below are the source of truth, so a
@@ -74,3 +74,13 @@ export interface SavedConfig {
   labelFormat?: NumberStyle;
   field?: string;
 }
+
+export type {
+  AggregatedData,
+  HexCell,
+  HexFeature,
+  HeatmapPointMarker,
+  PointLayerInfo,
+  SavedConfig,
+  SelectedPoint,
+};

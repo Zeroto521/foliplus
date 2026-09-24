@@ -12,13 +12,13 @@ import * as CONST from "./const.js";
 import type { HexFeature } from "./types.js";
 
 /** Draw a single hexagon polygon (fill + stroke). */
-export function drawHexagon(
+const drawHexagon = (
   ctx: CanvasRenderingContext2D,
   feat: HexFeature,
   map: L.Map,
   borderWeight: number,
   borderColor: string,
-) {
+) => {
   const pts = feat.geometry.coordinates[0].map(p =>
     map.latLngToContainerPoint(L.latLng(p[1], p[0])),
   );
@@ -38,16 +38,16 @@ export function drawHexagon(
     ctx.stroke();
     ctx.globalAlpha = 1;
   }
-}
+};
 
 /** Resolve label styling from the shared --label-* tokens. Runtime
  *  size/color override the token defaults so the panel and drawer can
  *  restyle hex labels without a CSS override. */
-export function resolveLabelStyle(
+const resolveLabelStyle = (
   ctrl: HTMLElement,
   currentLabelSize: number,
   currentLabelColor: string,
-): CanvasLabelStyle {
+): CanvasLabelStyle => {
   const base = resolveCanvasLabelStyle(ctrl);
   return {
     ...base,
@@ -55,16 +55,16 @@ export function resolveLabelStyle(
     font: `${base.fontWeight} ${currentLabelSize}px ${base.fontFamily}`,
     color: currentLabelColor,
   };
-}
+};
 
 /** Draw a formatted value label centered on the hexagon. */
-export function drawHexLabel(
+const drawHexLabel = (
   ctx: CanvasRenderingContext2D,
   feat: HexFeature,
   style: CanvasLabelStyle,
   map: L.Map,
   currentLabelFormat: NumberStyle,
-) {
+) => {
   const centroid = feat.properties.centroid;
   if (!centroid) return;
   const pt = map.latLngToContainerPoint(L.latLng(centroid[0], centroid[1]));
@@ -75,4 +75,6 @@ export function drawHexLabel(
   );
   prepareCanvasLabel(ctx, style);
   drawCanvasLabel(ctx, text, pt.x, pt.y, style);
-}
+};
+
+export { drawHexagon, drawHexLabel, resolveLabelStyle };

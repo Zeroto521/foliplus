@@ -12,7 +12,7 @@ import type { SavedConfig } from "./types.js";
 const log = createLogger(CONF.name);
 
 /** The minimal manager state surface these functions write to. */
-export interface ManagerLike {
+interface ManagerLike {
   selectedLayerId: string | null;
   currentAgg: string;
   currentMethod: string;
@@ -29,21 +29,21 @@ export interface ManagerLike {
 }
 
 /** Load saved configuration from localStorage. */
-export function loadSavedConfig(): SavedConfig | null {
+const loadSavedConfig = (): SavedConfig | null => {
   return Storage.loadRecord<SavedConfig | null>(CONST.STORAGE.KEY, CONF.name);
-}
+};
 
 /** Remove persisted configuration from localStorage. */
-export function clearSavedConfig(): void {
+const clearSavedConfig = (): void => {
   try {
     window.localStorage.removeItem(CONST.STORAGE.KEY);
   } catch (e) {
     log.warn(`failed to clear saved data (key=${CONST.STORAGE.KEY})`, e);
   }
-}
+};
 
 /** Apply a loaded config object to the manager's state. */
-export function applySavedConfig(manager: ManagerLike, saved: SavedConfig): void {
+const applySavedConfig = (manager: ManagerLike, saved: SavedConfig): void => {
   // A record existing at all means the user already spoke in a previous
   // session (picked a layer, or explicitly cleared the selection). Consume
   // the one-shot auto-select guard so reload does not undo that choice —
@@ -71,4 +71,6 @@ export function applySavedConfig(manager: ManagerLike, saved: SavedConfig): void
   if (saved.labelFormat) manager.currentLabelFormat = saved.labelFormat;
   if (saved.field) manager.currentField = bareFieldName(saved.field);
   manager.selectedLayerId = saved.layerId ?? null;
-}
+};
+
+export { applySavedConfig, clearSavedConfig, loadSavedConfig, type ManagerLike };

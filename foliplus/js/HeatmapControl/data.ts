@@ -2,7 +2,6 @@
 // breaks, color scales, and field extraction. No `this` dependency: every
 // stateful value is passed in explicitly.
 import { autoLabelField, bareFieldName } from "#core/labelField.js";
-import { type NumberStyle } from "#common/format.js";
 import { createLogger } from "#common/log.js";
 import * as CONST from "./const.js";
 import type {
@@ -16,52 +15,48 @@ import type {
 const log = createLogger(CONF.name);
 
 /** Resolve the H3 resolution for a map zoom level. */
-export function getH3Res(zoom: number): number {
+const getH3Res = (zoom: number): number => {
   const entry = (CONST.H3.RES_MAP as Array<[number, number]>).find(([z]) => zoom <= z);
   return entry ? entry[1] : CONST.H3.RES_FALLBACK;
-}
+};
 
 /** The field to use when the user has not picked one. The rule itself is
  *  shared with LayerControl's annotation labels (core/labelField): first
  *  numeric, else first. This layer's field contract is numeric-only by
  *  construction, so in practice this stays the first entry — but the
  *  fallback no longer lives in two places. */
-export function pickAutoField(fields: string[] | null): string | null {
+const pickAutoField = (fields: string[] | null): string | null => {
   if (!fields || fields.length === 0) return null;
   return autoLabelField(fields.map(name => ({ name, numeric: true })));
-}
+};
 
 /** Read a numeric field off a point marker (foliplus data contract).
  *  Supported field syntax: "value", "options.value", and a bare
  *  `feature.properties` key. A legacy `"properties.<key>"` id is accepted
  *  and stripped so older saved configs keep working. */
-export function readMarkerField(
+const readMarkerField = (
   marker: L.Marker | L.CircleMarker,
   field: string | null,
-): number | undefined {
+): number | undefined => {
   if (!field) return undefined;
   const extended = marker as HeatmapPointMarker;
   if (field === "value") return extended.value;
   if (field === "options.value") return extended.options?.value;
   const key = bareFieldName(field);
   return marker.feature?.properties?.[key];
-}
+};
 
 /** Build a chroma color scale with `n` colors. Falls back to GRAY array
  *  when chroma is unavailable. */
-export function getColorScale(name: string, n: number): string[] {
+const getColorScale = (name: string, n: number): string[] => {
   if (typeof chroma !== "undefined") {
     return chroma.scale(name).mode("lab").colors(n) as string[];
   }
   return Array(n).fill(CONST.GRAY);
-}
+};
 
 /** Compute class breaks for a set of values using the given method. */
-export function computeBreaks(
-  data: number[],
-  nClasses: number,
-  method: string,
-): number[] {
+const computeBreaks = (data: number[], nClasses: number, method: string): number[] => {
   if (data.length === 0) return [];
   const sorted = data.slice().sort((a, b) => a - b);
   const n = sorted.length;
@@ -98,10 +93,10 @@ export function computeBreaks(
   const b: number[] = [];
   for (let i = 0; i <= nClasses; i++) b.push(lo + step * i);
   return b;
-}
+};
 
 /** Aggregate selected points into H3 hex cells with sum/count/min/max. */
-export function aggregateData(
+const aggregateData = (
   pts: SelectedPoint[],
   res: number,
   currentAgg: string,
@@ -109,7 +104,7 @@ export function aggregateData(
   currentMethod: string,
   currentScheme: string,
   onEmpty: () => void,
-): AggregatedData | null {
+): AggregatedData | null => {
   const hexCells: Record<string, HexCell> = {};
   pts.forEach(pt => {
     try {
@@ -159,15 +154,15 @@ export function aggregateData(
     return breaks.length - 2;
   };
   return { hexCells, getAggValue, valueToClassIdx, classColors };
-}
+};
 
 /** Build GeoJSON features from aggregated hex cells. */
-export function buildFeatures({
+const buildFeatures = ({
   hexCells,
   getAggValue,
   valueToClassIdx,
   classColors,
-}: AggregatedData): HexFeature[] {
+}: AggregatedData): HexFeature[] => {
   const features: HexFeature[] = [];
   for (const [h3Idx, cell] of Object.entries(hexCells)) {
     const val = getAggValue(cell);
@@ -203,4 +198,14 @@ export function buildFeatures({
     }
   }
   return features;
-}
+};
+
+export {
+  aggregateData,
+  buildFeatures,
+  computeBreaks,
+  getColorScale,
+  getH3Res,
+  pickAutoField,
+  readMarkerField,
+};
