@@ -32,6 +32,7 @@
 - `LayerControl`: `setVisible(id, visible)` on `LayerAPI` for programmatic layer visibility, taking the same transition and persistence as the panel checkbox ([#321](https://github.com/Zeroto521/foliplus/pull/321))
 - `LayerControl`/`HeatmapControl`/`SearchControl`/`MeasureControl`: `collapse_on_outside` — whether a press outside the panel collapses it. Default `false` for `LayerControl`, whose panel is read alongside the map and whose busiest gesture is drag-pan / click-select; `true` for the other three, so their behaviour is unchanged ([#428](https://github.com/Zeroto521/foliplus/pull/428))
 - `LayerControl`: delete a layer from its ⋮ menu — a two-click confirm behind a divider, deletions persisted per map, and the solid colour basemap shows the entry disabled ([#431](https://github.com/Zeroto521/foliplus/pull/431))
+- `StyleKitControl`: new standalone control for the style lifecycle — **Restore defaults** calls every delegated style dimension back to the value declared in Python, and **Reset this map** drops every per-map localStorage record this map container owns, so a reload returns to the author's state. Both report through the shared hint system; saving a style record for later import is deliberately out of scope (TBD)
 
 ### Changed
 
