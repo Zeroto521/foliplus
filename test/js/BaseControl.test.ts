@@ -6,7 +6,6 @@ describe("BaseControl", () => {
   let map;
 
   beforeEach(() => {
-    vi.clearAllMocks();
     map = { on: vi.fn(), off: vi.fn() };
   });
 

@@ -55,7 +55,6 @@ describe("updateUI", () => {
   let mapMock;
 
   beforeEach(() => {
-    vi.clearAllMocks();
     fsBtn = document.createElement("button");
     container = makeContainer();
     mapMock = {
@@ -103,7 +102,6 @@ describe("toggleFullscreen — pseudo path", () => {
   let mapMock;
 
   beforeEach(() => {
-    vi.clearAllMocks();
     mocks.isEnabled = false;
     mocks.getFullscreenEl.mockReturnValue(null);
     fsBtn = document.createElement("button");
@@ -142,7 +140,6 @@ describe("makeFullscreenChangeHandler", () => {
   let mapMock;
 
   beforeEach(() => {
-    vi.clearAllMocks();
     mocks.getFullscreenEl.mockReturnValue(null);
     fsBtn = document.createElement("button");
     container = makeContainer();
@@ -176,7 +173,6 @@ describe("toggleFullscreen — native API path", () => {
   let mapMock;
 
   beforeEach(() => {
-    vi.clearAllMocks();
     mocks.isEnabled = true;
     mocks.getFullscreenEl.mockReturnValue(null);
     fsBtn = document.createElement("button");
