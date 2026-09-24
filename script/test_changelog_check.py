@@ -25,8 +25,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 HERE = Path(__file__).resolve().parent
-REPO_ROOT = HERE.parent.parent
-SCRIPT = REPO_ROOT / "script" / "changelog_check.py"
+REPO_ROOT = HERE.parent
+SCRIPT = HERE / "changelog_check.py"
 REAL_CHANGELOG = REPO_ROOT / "CHANGELOG.md"
 
 # ---------------------------------------------------------------------------
