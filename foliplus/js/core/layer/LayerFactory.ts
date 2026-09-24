@@ -5,11 +5,7 @@ import { cancelMapPaneTranslate, dom } from "#common/dom.js";
 import { createLogger } from "#common/log.js";
 import { throttleRaf } from "#common/throttle.js";
 import { PaneManager } from "./PaneManager.js";
-import {
-  CANVAS_PANE_PREFIX,
-  COLOR_PANE_PREFIX,
-  PANE_NAME_PATTERN,
-} from "./const.js";
+import { CANVAS_PANE_PREFIX, COLOR_PANE_PREFIX, PANE_NAME_PATTERN } from "./const.js";
 import type {
   CreateCanvasAPI,
   CreateCanvasOpts,

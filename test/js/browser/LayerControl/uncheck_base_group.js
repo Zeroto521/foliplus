@@ -16,7 +16,9 @@
   if (!cb) return { ok: false, reason: "no base group toggle-all" };
   const readRows = () =>
     Array.from(
-      ctrl.querySelectorAll('.foliplus-layer-item[data-layer-type="base"] input[type="checkbox"]'),
+      ctrl.querySelectorAll(
+        '.foliplus-layer-item[data-layer-type="base"] input[type="checkbox"]',
+      ),
     ).map(c => c.checked);
   const before = readRows();
   cb.click();

@@ -85,8 +85,9 @@ describe("ui/color", () => {
     const tilePane = { classList: { add: vi.fn(), remove: vi.fn() } };
     (ui.m.map as unknown as { getPane: () => typeof tilePane }).getPane = () =>
       tilePane;
-    const removeLayer = (ui.m.map as unknown as { removeLayer: ReturnType<typeof vi.fn> })
-      .removeLayer;
+    const removeLayer = (
+      ui.m.map as unknown as { removeLayer: ReturnType<typeof vi.fn> }
+    ).removeLayer;
     removeLayer.mockClear();
 
     showColorLayer(ui, "#ff0000");
@@ -105,7 +106,9 @@ describe("ui/color", () => {
       { id: "base_1", isBase: true },
       { id: "overlay_1", isBase: false },
     ]);
-    const rows = [...ui.uiContainer.querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM)];
+    const rows = [
+      ...ui.uiContainer.querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM),
+    ];
     const before = rows.map(row => ({
       checked: row.querySelector<HTMLInputElement>("input[type=checkbox]")?.checked,
       active: row.classList.contains(CONST.CLASSES.ACTIVE),

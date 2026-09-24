@@ -3,6 +3,7 @@ import { ListCursor } from "#core/listCursor.js";
 import { dom, updateItemLabel } from "#common/dom.js";
 import * as CONST from "../const.js";
 import * as SVGs from "../icon.js";
+import { hideColorLayer, showColorLayer } from "./color.js";
 import type { LayerUI } from "./index.js";
 import { cursorRef, restoreCursor } from "./keyboard.js";
 import { syncListCursor } from "./keyboard.js";
@@ -13,7 +14,6 @@ import {
   snapshotAuthorVisible,
 } from "./rowView.js";
 import { applyUserState } from "./state.js";
-import { showColorLayer, hideColorLayer } from "./color.js";
 import { syncNoBasemap, syncToggleAll } from "./visibility.js";
 
 /** Full re-scan of every row (used on attach/fold-toggle). Idempotent — *  re-run on each CONTROL_ATTACHED so late-registering components are

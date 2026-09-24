@@ -28,7 +28,10 @@
     ok: true,
     ...natural,
     manual,
-    layers: api && api.layers ? api.layers.map(li => ({ id: li.id, isBase: li.isBase, visible: li.visible })) : null,
+    layers:
+      api && api.layers
+        ? api.layers.map(li => ({ id: li.id, isBase: li.isBase, visible: li.visible }))
+        : null,
     layerItems: document.querySelectorAll(".foliplus-layer-item").length,
     layerCtrlReady: panel ? panel.hasAttribute("data-ready") : false,
   };

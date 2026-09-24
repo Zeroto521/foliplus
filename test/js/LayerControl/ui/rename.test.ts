@@ -275,7 +275,9 @@ describe("LayerUI rename", () => {
       // the executor). Both the label cell and the checkbox must announce the
       // rename, otherwise assistive tech keeps reading the locale default.
       const item = findItem(ui, CONST.COLOR.MAP_ID);
-      const colorInput = item.querySelector(`input[type="checkbox"]`) as HTMLInputElement;
+      const colorInput = item.querySelector(
+        `input[type="checkbox"]`,
+      ) as HTMLInputElement;
       // Capture the pre-rename value from the source of truth, not the DOM:
       // the aria-label and the label cell are both projections of
       // displayName(), so comparing them against each other would pass either
