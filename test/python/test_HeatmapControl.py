@@ -157,7 +157,7 @@ class TestHeatmapControlRendering:
         assert_locale(html, "ç½‘æ ¼èšåˆ")
 
     def test_field_kwarg_removed(self):
-        """field kwarg is no longer accepted â€” it was a dead declaration."""
+        """field kwarg is no longer accepted â€?it was a dead declaration."""
         with pytest.raises(TypeError):
             HeatmapControl(field="value")
 
@@ -453,7 +453,7 @@ class TestHeatmapControlBrowser:
             Number of independent point FeatureGroups (default 3). Set to 1
             for auto-select tests.
         prelude
-            Optional JS source installed before the page's own scripts run â€”
+            Optional JS source installed before the page's own scripts run â€?
             a listener-counting probe needs this so its counts are absolute.
         ctrl_kwargs
             Forwarded to ``HeatmapControl()`` so a test can exercise a
@@ -511,8 +511,8 @@ class TestHeatmapControlBrowser:
 
         Baseline round[0] is captured right after the initial addControl
         (which the harness already performed in page setup); rounds[1] and
-        rounds[2] follow removeâ†’add. A listener leak â€” whether it lands on
-        round[0] or only shows up in a later round â€” registers as a drift
+        rounds[2] follow removeâ†’add. A listener leak â€?whether it lands on
+        round[0] or only shows up in a later round â€?registers as a drift
         and fails the assertion.
         """
         with use_page(
@@ -557,9 +557,9 @@ class TestHeatmapControlBrowser:
         scheme-dropdown outside-click handler is bound on document, and #408
         moved it from a bare ``document.addEventListener`` to the signal-managed
         ``ctrl.on(document, ...)`` form. Each cycle opens the dropdown before
-        removing the control, so a listener still bound at removal time â€” a bare
+        removing the control, so a listener still bound at removal time â€?a bare
         listener with no cleanup, or one bound to a controller that is never
-        aborted â€” registers as drift.
+        aborted â€?registers as drift.
 
         The counting probe is installed as a page prelude, so its counts are
         absolute rather than deltas measured from somewhere in the middle of the
@@ -581,7 +581,7 @@ class TestHeatmapControlBrowser:
             state = page.evaluate(_js("HeatmapControl/doc_listener_drift"))
             assert all(o > c for o, c in zip(state["open"], state["closed"])), (
                 "HeatmapControl: the scheme dropdown no longer binds a document "
-                f"listener (open={state['open']!r}, closed={state['closed']!r}) â€” "
+                f"listener (open={state['open']!r}, closed={state['closed']!r}) â€?"
                 "this gate has no teeth"
             )
             for i, n in enumerate(state["added"], start=1):
@@ -604,8 +604,8 @@ class TestHeatmapControlBrowser:
 
         Control group for the drift gate above: without these two directions the
         flat verdict would be meaningless, and the ``AbortController.abort``
-        hook in the shared probe â€” the part that keeps a signal-managed listener
-        from registering as a phantom leak â€” would go untested.
+        hook in the shared probe â€?the part that keeps a signal-managed listener
+        from registering as a phantom leak â€?would go untested.
         """
         with use_page(
             self._make_page,
@@ -704,8 +704,8 @@ class TestHeatmapControlBrowser:
         """True while the heatmap panel is expanded, not collapsed."""
         return page.evaluate(
             "() => { const c = document.querySelector('.foliplus-heatmap-ctrl');"
-            " return !!c && c.classList.contains('expanded')"
-            " && !c.classList.contains('collapsed'); }"
+            " return !!c && c.classList.contains('is-expanded')"
+            " && !c.classList.contains('is-collapsed'); }"
         )
 
     def test_panel_collapses_on_outside_press_by_default(self, browser, tmp_path):
@@ -713,7 +713,7 @@ class TestHeatmapControlBrowser:
 
         Regression gate for ``collapse_on_outside``. HeatmapControl shares
         ``createPanelControl`` with LayerControl, so the shell option must keep
-        its historic behaviour for any caller that does not opt out â€” and only
+        its historic behaviour for any caller that does not opt out â€?and only
         LayerControl passes ``false``.
         """
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
@@ -1008,7 +1008,7 @@ class TestHeatmapControlBrowser:
             page.wait_for_timeout(300)
             assert stored()["scheme"] == "Blues", "scheme change must persist"
 
-            # label toggle â€” rendered by the shared label-controls module, so
+            # label toggle â€?rendered by the shared label-controls module, so
             # it is queried from the panel DOM rather than a control field.
             page.evaluate(
                 "() => { const t = document.querySelector('.foliplus-heatmap-ctrl .foliplus-style-toggle-input'); t.checked = false; t.dispatchEvent(new Event('change', { bubbles: true })); }"
@@ -1030,7 +1030,7 @@ class TestHeatmapControlBrowser:
         (no change/blur event) still persists on reload.
 
         Regression: ``borderWeightInput.oninput`` updated ``manager.borderWeight``
-        and re-rendered but never called ``saveConfig`` â€” only the ``onchange``
+        and re-rendered but never called ``saveConfig`` â€?only the ``onchange``
         handler persisted.  A reload before the user blurred the field therefore
         snapped the weight back to the Python default.
         """
@@ -1045,7 +1045,7 @@ class TestHeatmapControlBrowser:
             )
             heatmap_ready(page)
 
-            # Focus + set value + fire INPUT only â€” no change event, no blur.
+            # Focus + set value + fire INPUT only â€?no change event, no blur.
             page.evaluate(
                 """() => {
                     const el = window.__heatmapCtrl.borderWeightInput;
@@ -1192,7 +1192,7 @@ class TestHeatmapControlBrowser:
                 "window.__heatmapCtrl.manager.cachedAgg = { key: 'old', data: 'data' }"
             )
             # Emit the semantic LayerControl registry-change event on the EventBus
-            # (replaces the old raw map.fire('layeradd') â€” the manager now
+            # (replaces the old raw map.fire('layeradd') â€?the manager now
             # subscribes to LAYER_CHANGE on the per-map EventBus).
             page.evaluate(
                 "window.__heatmapCtrl.manager.map.foliplus.events.emit('foliplus:layer:change')"
@@ -1333,7 +1333,7 @@ class TestHeatmapAutoFieldBrowser:
         """Auto-field picks the first discovered field.
 
         ``collectFields`` discovers fields in marker-iteration order:
-        ``_value`` â†’ ``options.value`` â†’ ``feature.properties`` keys.  Only
+        ``_value`` â†?``options.value`` â†?``feature.properties`` keys.  Only
         ``properties.*`` fields exist for GeoJSON markers, so the first
         property key is returned.
         """
@@ -1387,7 +1387,7 @@ class TestHeatmapAutoFieldBrowser:
 
             # collectFields returns fields in the order they are discovered
             # during marker iteration.  The exact key depends on V8 property
-            # enumeration order â€” the important thing is deterministic choice.
+            # enumeration order â€?the important thing is deterministic choice.
             auto_key = page.evaluate("window.__heatmapCtrl.manager.autoFieldKey")
             assert auto_key in ("population", "density"), (
                 f"Unexpected autoFieldKey '{auto_key}'"
@@ -1436,7 +1436,7 @@ class TestHeatmapAutoFieldBrowser:
             field_val = page.evaluate(f"document.querySelector('{field_select}').value")
             assert field_val == "", f"Expected empty string (AUTO), got '{field_val}'"
 
-            # Single field â†’ pickAutoField returns it directly
+            # Single field â†?pickAutoField returns it directly
             auto_key = page.evaluate("window.__heatmapCtrl.manager.autoFieldKey")
             assert auto_key == "elevation", f"Expected 'elevation', got '{auto_key}'"
 
