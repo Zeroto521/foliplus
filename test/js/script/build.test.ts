@@ -200,7 +200,9 @@ describe("build artifacts", () => {
     // carrying.
     // Raised for the unified slider (readout dots, drag bubble, the values row
     // replacing the number field): +668 B, 0.3% above the previous bar.
-    "foliplus-LayerControl.min.js": 210000,
+    // Raised for metaProvider (per-mode count rows in the attrs panel):
+    // +213 B, 0.1% above the previous bar.
+    "foliplus-LayerControl.min.js": 215000,
   };
   it("component JS has reasonable size", () => {
     for (const artifact of JS_ARTIFACTS.filter(a => a !== "foliplus-common.min.js")) {
