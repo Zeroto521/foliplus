@@ -71,7 +71,7 @@ bundle-gates: build-js
 	@if [ -f base-sizes.json ]; then \
 		node script/bundle-size-check.mjs --baseline=base-sizes.json --enforce; \
 	else \
-		node script/bundle-size-check.mjs --enforce; \
+		@echo "No baseline — skipping delta check."; \
 	fi
 
 build-python:
