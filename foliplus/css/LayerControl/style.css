@@ -37,17 +37,20 @@
       font-weight: var(--font-weight-medium);
     }
 
-    /* Out of range: a small solid red dot beside the current-zoom marker.
-       No layout shift, no extra elements. */
+    /* Out of range: a small solid red dot with a white ring, placed at the
+       top-right of the current-zoom marker — same angle as the delete badge
+       on a location pin. No layout shift, no extra elements. */
     &.foliplus-zoom-range-out-of-range {
       .foliplus-style-zoom-range-dot-current::after {
         content: "";
         position: absolute;
-        top: calc(var(--size-2) * -1.5);
-        right: calc(var(--size-2) * -1.5);
+        top: 0;
+        right: 0;
+        transform: translate(50%, -50%);
         width: var(--size-6);
         height: var(--size-6);
         background: var(--accent-primary);
+        border: var(--size-2) solid var(--neutral-0);
         border-radius: 50%;
       }
     }
