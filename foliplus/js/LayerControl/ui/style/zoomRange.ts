@@ -248,8 +248,13 @@ const buildZoomRangeRow = (ui: LayerUI, layerId: string): HTMLElement => {
     {
       class: `${CONST.CLASSES.FORM_ROW} ${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`,
     },
-    dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("style_zoom_range")),
-    dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, control, oorText),
+    dom.el(
+      "label",
+      { class: CONST.CLASSES.FORM_LABEL },
+      dom.el("span", {}, ui.T("style_zoom_range")),
+      oorText,
+    ),
+    dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, control),
   );
   syncValues(row, min, max, current, mapMin, mapMax);
   syncZoomRangeRow(ui, layerId, row);
