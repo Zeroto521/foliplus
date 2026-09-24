@@ -593,6 +593,36 @@ describe("LayerFactory", () => {
       );
     });
 
+    it("forwards metaProvider to registerLayer, defaulting to null", () => {
+      const reg = vi.fn(() => null);
+      const f = new LayerFactory({
+        map,
+        panes: new PaneManager(map),
+        registerLayer: reg,
+        unregisterLayer: vi.fn(),
+        bringLayerToFront: vi.fn(),
+        invalidateType: vi.fn(),
+      });
+      const metaProvider = () => ({ count: 1 });
+      const api = f.createLayers({
+        id: "test-meta",
+        name: "Test",
+        panes: [{ name: "g1" }],
+        metaProvider,
+      });
+      api.addLayer(new window.L.Path(), "g1");
+      expect(reg).toHaveBeenCalledWith(expect.objectContaining({ metaProvider }));
+
+      // No metaProvider → null
+      const api2 = f.createLayers({
+        id: "test-nometa",
+        name: "Test",
+        panes: [{ name: "g1" }],
+      });
+      api2.addLayer(new window.L.Path(), "g1");
+      expect(reg).toHaveBeenCalledWith(expect.objectContaining({ metaProvider: null }));
+    });
+
     it("removeLayer ignores null and undefined entries", () => {
       const api = factory.createLayers({
         id: "test",

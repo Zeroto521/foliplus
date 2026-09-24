@@ -56,6 +56,17 @@ describe("LayerRegistry", () => {
       expect(info.opacity).toBe(0.5);
     });
 
+    it("preserves metaProvider from existingLi on re-registration", () => {
+      const metaProvider = () => ({ count: 1 });
+      const info = registry.createLayerInfo({ id: "test" }, { metaProvider });
+      expect(info.metaProvider).toBe(metaProvider);
+    });
+
+    it("defaults metaProvider to null when absent", () => {
+      const info = registry.createLayerInfo({ id: "test" });
+      expect(info.metaProvider).toBeNull();
+    });
+
     it("keeps the current name when a layer is re-registered", () => {
       // A third-party provider re-adding its layer re-advertises its own name.
       // Taking the caller's value would reset the display name on every
