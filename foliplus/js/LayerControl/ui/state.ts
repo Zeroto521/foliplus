@@ -10,7 +10,6 @@ import type { LayerUI } from "./index.js";
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const log = createLogger(CONF.name);
 
-
 /** Load every persisted dimension in one call. */
 const loadPersistedState = (ui: LayerUI) => {
   const state = ui.m.persistence.load();
@@ -241,7 +240,6 @@ const dropPersistedLayerState = (ui: LayerUI, id: string) => {
   delete ui.userOverrides[id];
 };
 
-
 /**
  * Replay one layer's stored intent at the moment a carrier for it appears.
  *
@@ -271,7 +269,6 @@ const replayLayerState = (ui: LayerUI, id: string) => {
   if (!flagged || typeof ui.opacityMap?.[id] !== "number") return;
   applyProjection(ui, id);
 };
-
 
 /** Save user-assigned names, coalescing rapid calls. */
 

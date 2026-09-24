@@ -678,7 +678,6 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
   });
 });
 
-
 describe("ui/state saveFoldState", () => {
   it("schedules the folded set through persistence", () => {
     const schedule = vi.fn();
@@ -696,7 +695,6 @@ describe("ui/state saveFoldState", () => {
 });
 
 // ─────────────────── opacity apply / restore / retention ─────────────────
-
 
 describe("replayLayerState", () => {
   // An annotation pane is created lazily — when labels first turn on, which can
@@ -1351,4 +1349,3 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
     expect(fields.renamedNames()).toEqual({ overlay1: "Renamed" });
   });
 });
-
