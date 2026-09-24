@@ -388,45 +388,13 @@ describe("buildFillRow", () => {
     expect(label?.textContent).toBe("LayerControl.style_fill");
   });
 
-  // ─────────────────── captureBase fallbacks ───────────────────
+  // ─────────────────── captureBase fallback ───────────────────
 
-  it("captureBase prefers options.fillColor over __folium_color", () => {
-    // A style function that reads __folium_color sets options.fillColor,
-    // so options wins.
-    const fixture = initWithFillLayer();
-    fixture.fillLayer.leaves[0].options.fillColor = "#aabbcc";
-    (fixture.fillLayer.leaves[0] as any).feature = {
-      properties: { __folium_color: "#123456" },
-    };
-
-    commitFillColor(fixture.ui, "overlay1", "#ff0000");
-    resetLayerFill(fixture.ui, "overlay1");
-
-    // Reset replays the captured base — options.fillColor won.
-    expect(fixture.fillLayer.leaves[0].setStyle).toHaveBeenLastCalledWith({
-      fillColor: "#aabbcc",
-    });
-  });
-
-  it("captureBase falls back to __folium_color when options.fillColor is unset", () => {
+  it("captureBase falls back to Leaflet default #3388ff when options.fillColor is unset", () => {
+    // A bare Leaflet GeoJSON layer with no style function has no
+    // options.fillColor — the swatch shows what the browser would paint.
     const fixture = initWithFillLayer();
     delete fixture.fillLayer.leaves[0].options.fillColor;
-    (fixture.fillLayer.leaves[0] as any).feature = {
-      properties: { __folium_color: "#123456" },
-    };
-
-    commitFillColor(fixture.ui, "overlay1", "#ff0000");
-    resetLayerFill(fixture.ui, "overlay1");
-
-    expect(fixture.fillLayer.leaves[0].setStyle).toHaveBeenLastCalledWith({
-      fillColor: "#123456",
-    });
-  });
-
-  it("captureBase falls back to Leaflet default #3388ff when neither is set", () => {
-    const fixture = initWithFillLayer();
-    delete fixture.fillLayer.leaves[0].options.fillColor;
-    // No feature at all — the default kicks in.
 
     commitFillColor(fixture.ui, "overlay1", "#ff0000");
     resetLayerFill(fixture.ui, "overlay1");

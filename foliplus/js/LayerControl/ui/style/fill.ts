@@ -90,27 +90,17 @@ const layerCanFill = (ui: LayerUI, layerId: string): boolean => {
 const authorFillBase = new WeakMap<StyleCarrier, { fillColor: string | null }>();
 
 /** Leaflet's own default `fillColor` for vector paths. Used as the swatch's
- *  last resort when neither `options.fillColor` nor `__folium_color` is
- *  present — the value the browser would show anyway, so the swatch never
- *  claims a colour the layer does not carry. */
+ *  last resort when `options.fillColor` is unset — the value the browser
+ *  would paint anyway, so the swatch never claims a colour the layer does
+ *  not carry. In practice folium's default style function always populates
+ *  `options.fillColor` (translating `__folium_color` through `properties.style`),
+ *  so this only fires for bare Leaflet layers with no style function. */
 const FOLIUM_DEFAULT_FILL = "#3388ff";
 
 const captureBase = (node: StyleCarrier): { fillColor: string | null } => {
   const existing = authorFillBase.get(node);
   if (existing) return existing;
-  // folium passes `__folium_color` through as a property (it does not read it
-  // into `options.fillColor`); if the author set a style function that uses it,
-  // `options.fillColor` already carries the value and wins. Otherwise fall
-  // back to `__folium_color` as the author's intended default.
-  const foliumColor = (
-    node as L.Path & { feature?: { properties?: Record<string, unknown> } }
-  ).feature?.properties?.__folium_color;
-  const base = {
-    fillColor:
-      node.options?.fillColor ??
-      (foliumColor as string | undefined) ??
-      FOLIUM_DEFAULT_FILL,
-  };
+  const base = { fillColor: node.options?.fillColor ?? FOLIUM_DEFAULT_FILL };
   authorFillBase.set(node, base);
   return base;
 };
