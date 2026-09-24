@@ -194,7 +194,7 @@ const rowType = (
 ): { svg: string; key: string } => {
   if (layerInfo.isBase) {
     layerInfo.type = CONST.GROUP.BASE;
-    return { svg: Icons.GLOBE, key: "type_base" };
+    return { svg: Icons.GLOBE_ICON, key: "type_base" };
   }
   if (layerInfo.iconSvg) {
     layerInfo.type = GEOM_TYPE.CUSTOM;

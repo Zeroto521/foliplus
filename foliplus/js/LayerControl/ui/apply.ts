@@ -41,16 +41,16 @@ type StateOp =
 /** Cache the layer's original `options.opacity` so repeated slider drags
  *  don't compound. The base is captured on first write and never re-read;
  *  the slider value is a multiplier over the author's declared default. */
-const nativeBase = new WeakMap<L.Layer, number>();
+const authorOpacityBase = new WeakMap<L.Layer, number>();
 
-const nativeBaseOf = (layer: L.Layer): number => {
-  let base = nativeBase.get(layer);
+const authorOpacityBaseOf = (layer: L.Layer): number => {
+  let base = authorOpacityBase.get(layer);
   if (base === undefined) {
     // A Leaflet layer always has `options` — PaneManager already walks
     // `options.pane` for every layer before we get here.
     const opts = layer.options as L.LayerOptions & { opacity?: number };
     base = typeof opts.opacity === "number" ? opts.opacity : 1;
-    nativeBase.set(layer, base);
+    authorOpacityBase.set(layer, base);
   }
   return base;
 };
@@ -157,7 +157,7 @@ const applyStateOp = (ui: LayerUI, layerInfo: LayerInfo, op: StateOp): void => {
       // multiplier over the author's declared default, so the base is
       // captured once.
       const opts = layer.options as L.LayerOptions & { opacity?: number };
-      const base = nativeBaseOf(layer);
+      const base = authorOpacityBaseOf(layer);
       const target = base * (op.value ?? 1);
       if (typeof (layer as L.ImageOverlay).setOpacity === "function") {
         (layer as L.ImageOverlay).setOpacity(target);

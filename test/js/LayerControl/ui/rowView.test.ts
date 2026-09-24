@@ -202,7 +202,7 @@ describe("buildRowCell + applyRowView (one writer per row)", () => {
     const { ui } = initFixture({});
     const base = ui.m.layers.find(li => li.id === "base1")!;
     const cellInfo = buildRowCell(ui, base);
-    expect(cellInfo.typeSvg).toBe(Icons.GLOBE);
+    expect(cellInfo.typeSvg).toBe(Icons.GLOBE_ICON);
     expect(cellInfo.typeLabel).toContain("type_base");
   });
 

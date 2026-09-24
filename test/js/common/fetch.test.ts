@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { GEODECODE_TIMEOUT_MS, fetchWithTimeout } from "#common/fetch.js";
+import { GEOCODE_TIMEOUT_MS, fetchWithTimeout } from "#common/fetch.js";
 
 const jsonResponse = (data: unknown) =>
   ({ json: () => Promise.resolve(data) }) as Response;
@@ -32,9 +32,9 @@ afterEach(() => {
 });
 
 describe("fetchWithTimeout", () => {
-  it("exports GEODECODE_TIMEOUT_MS as a numeric default", () => {
-    expect(GEODECODE_TIMEOUT_MS).toBe(10_000);
-    expect(typeof GEODECODE_TIMEOUT_MS).toBe("number");
+  it("exports GEOCODE_TIMEOUT_MS as a numeric default", () => {
+    expect(GEOCODE_TIMEOUT_MS).toBe(10_000);
+    expect(typeof GEOCODE_TIMEOUT_MS).toBe("number");
   });
 
   it("passes through success responses and applies cache: force-cache", async () => {

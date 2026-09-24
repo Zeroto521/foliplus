@@ -18,7 +18,7 @@ const logWarn = (name: string, message: string, err: unknown): void => {
  * @param name - Caller component name, used as the log prefix.
  * @returns Parsed value, or null when missing/unreadable.
  */
-const load = <T>(key: string, name = "foliplus"): T | null => {
+const loadRecord = <T>(key: string, name = "foliplus"): T | null => {
   try {
     const data = window.localStorage.getItem(key);
     return data ? (JSON.parse(data) as T) : null;
@@ -37,7 +37,7 @@ const load = <T>(key: string, name = "foliplus"): T | null => {
  *  backend rejected the write (quota exhausted, private-mode restrictions) —
  *  callers that lose user data on a failed write can surface it.
  */
-const save = (key: string, data: unknown, name = "foliplus"): boolean => {
+const saveRecord = (key: string, data: unknown, name = "foliplus"): boolean => {
   try {
     window.localStorage.setItem(key, JSON.stringify(data));
     return true;
@@ -78,7 +78,7 @@ const saveVersioned = <T>(
     name?: string;
     dataField?: string;
   },
-): boolean => save(key, { version, [dataField]: data }, name);
+): boolean => saveRecord(key, { version, [dataField]: data }, name);
 
 /**
  * Read and unwrap a versioned envelope, tolerating three shapes:
@@ -93,7 +93,7 @@ const saveVersioned = <T>(
  * rather than migrated in place, so no reader can lose rows it does not
  * understand, and the field name may differ between components without this
  * helper changing. The returned array is the parsed object from `JSON.parse`,
- * so callers may mutate it (a subsequent `load()` re-parses anyway).
+ * so callers may mutate it (a subsequent `loadRecord()` re-parses anyway).
  *
  * Args are grouped into an options object to mirror {@link saveVersioned} — a
  * positional `name`/`dataField` pair of adjacent strings is easy to reverse and
@@ -108,7 +108,7 @@ const loadVersioned = <T>(
   key: string,
   { name = "foliplus", dataField = "data" }: { name?: string; dataField?: string } = {},
 ): T[] | null => {
-  const data = load<unknown>(key, name);
+  const data = loadRecord<unknown>(key, name);
   if (Array.isArray(data)) return data as T[];
   if (data && typeof data === "object") {
     const rows = (data as Record<string, unknown>)[dataField];
@@ -198,5 +198,5 @@ const makePersisted = ({
   };
 };
 
-export { load, loadVersioned, makePersisted, save, saveVersioned };
+export { loadRecord, loadVersioned, makePersisted, saveRecord, saveVersioned };
 export type { Persisted, PersistedOpts };
