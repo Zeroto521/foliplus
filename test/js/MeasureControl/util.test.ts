@@ -16,10 +16,6 @@ beforeEach(() => {
   // doesn't leak into this test's click handler.
   isDragSyntheticClick();
   window.L.circleMarker = vi.fn(() => ({}));
-  window.L.DomEvent = {
-    ...window.L.DomEvent,
-    stopPropagation: vi.fn(),
-  };
   globalThis.turf = {
     point: coords => ({ coords }),
     polygon: vi.fn(rings => ({ type: "Polygon", coordinates: rings })),
@@ -39,7 +35,6 @@ afterEach(() => {
 
 describe("pointsToLatLngs", () => {
   it("converts {lng,lat} points to LatLng array", () => {
-    window.L.latLng = vi.fn((lat, lng) => ({ lat, lng }));
     const result = Util.pointsToLatLngs([
       { lng: 119.3, lat: 26.08 },
       { lng: 119.31, lat: 26.09 },
@@ -51,7 +46,6 @@ describe("pointsToLatLngs", () => {
   });
 
   it("handles empty array", () => {
-    window.L.latLng = vi.fn((lat, lng) => ({ lat, lng }));
     expect(Util.pointsToLatLngs([])).toEqual([]);
   });
 });

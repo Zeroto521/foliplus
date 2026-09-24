@@ -17,10 +17,6 @@ const resetDragFlag = () => {
 
 beforeEach(() => {
   resetDragFlag();
-  window.L.DomEvent = {
-    ...window.L.DomEvent,
-    stopPropagation: vi.fn(),
-  };
 });
 
 // ==================== buildEditOverlay (direct namespace) ====================
