@@ -53,6 +53,13 @@ jobs:
           node script/bundle-size-check.mjs --root=/tmp/base --emit=base-sizes.json
           git worktree remove --force /tmp/base
 
+      # Absolute cap per artifact — the fuse that fires only on tens-of-KB
+      # incidents. Runs on the PR build produced by `build:sonda` above; the
+      # report step below is what publishes the verdict, so the fuse must
+      # land before it.
+      - name: Bundle fuse
+        run: node script/bundle-fuse.mjs
+
       # The report must land on the PR no matter what the verdict is, so it is
       # always published before the gate is evaluated. `check` exits 0 on a
       # threshold breach by design — the table has to reach the PR first — so

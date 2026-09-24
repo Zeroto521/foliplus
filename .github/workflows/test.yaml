@@ -83,48 +83,6 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
 
-  # ── Bundle size gates (Node only, independent of Python matrix) ──
-  # Two gates, split by responsibility:
-  #   bundle-fuse.mjs       — absolute cap per artifact. Loose (~2x
-  #                           current), fires only on tens-of-KB incidents.
-  #   bundle-size-check.mjs — relative delta against the merge base.
-  #                           Fires on +10% growth that also exceeds
-  #                           128 B brotli.
-  #
-  # We use `git merge-base HEAD origin/<base>` rather than the base
-  # branch's current tip: the tip drifts as other PRs land, so diffing
-  # against it would mix their size changes into ours.
-  #
-  # On push to main there is no base_ref — the capture step exits 0 and
-  # the Makefile target skips the delta check, leaving only the fuse.
-  bundle-gates:
-    name: bundle-gates
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-node@v6
-        with:
-          node-version-file: "package.json"
-          package-manager-cache: false
-      - run: npm install
-      - name: Capture base bundle sizes
-        run: |
-          base_ref="origin/${{ github.base_ref }}"
-          base_sha=$(git merge-base HEAD "$base_ref")
-          git worktree add --detach /tmp/base "$base_sha"
-          ln -s "$(pwd)/node_modules" /tmp/base/node_modules
-          (
-            cd /tmp/base
-            make build-js
-          )
-          node script/bundle-size-check.mjs --root=/tmp/base --emit=base-sizes.json
-          git worktree remove --force /tmp/base
-      - name: Bundle size gates
-        run: make bundle-gates
-
   test:
     name: py${{ matrix.python }}-folium-${{ matrix.folium }}
     runs-on: ubuntu-latest
