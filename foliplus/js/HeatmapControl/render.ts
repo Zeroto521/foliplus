@@ -9,7 +9,7 @@ import {
 } from "#common/canvasLabel.js";
 import { type NumberStyle, formatLabelNumber } from "#common/format.js";
 import * as CONST from "./const.js";
-import type { HexFeature } from "./types.js";
+import type { HexFeature } from "./type.js";
 
 /** Draw a single hexagon polygon (fill + stroke). */
 const drawHexagon = (

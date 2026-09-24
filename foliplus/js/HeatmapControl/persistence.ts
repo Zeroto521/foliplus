@@ -7,7 +7,7 @@ import { type NumberStyle } from "#common/format.js";
 import { createLogger } from "#common/log.js";
 import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
-import type { SavedConfig } from "./types.js";
+import type { SavedConfig } from "./type.js";
 
 const log = createLogger(CONF.name);
 

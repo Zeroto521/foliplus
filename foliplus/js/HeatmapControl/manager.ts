@@ -40,7 +40,7 @@ import type {
   PointLayerInfo,
   SavedConfig,
   SelectedPoint,
-} from "./types.js";
+} from "./type.js";
 import { type HeatmapControlUI, rebuildLayerDropdown } from "./ui.js";
 
 const T = createScopedTranslator(CONF);

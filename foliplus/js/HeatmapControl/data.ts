@@ -10,7 +10,7 @@ import type {
   HexCell,
   HexFeature,
   SelectedPoint,
-} from "./types.js";
+} from "./type.js";
 
 const log = createLogger(CONF.name);
 
