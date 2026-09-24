@@ -376,27 +376,39 @@ describe("PaneManager", () => {
     expect(pm.childPaneSpecs.get("d")?.role).toBe("preview");
   });
 
-  it("reset clears the pane cache", () => {
+  it("reset invalidates the discovery cache", () => {
+    // reset bumps the generation: entries computed before it are dropped on
+    // their next read rather than cleared eagerly. Assert via the visible
+    // contract — a layer whose options changed in the gap comes back with the
+    // new name, not the pre-reset cached value.
     const map = { getPane: vi.fn(), createPane: vi.fn() };
     const pm = new PaneManager(map);
-    pm.discoverChildPanes({ options: { pane: "a" } } as unknown as L.Layer);
+    const layer = { options: { pane: "a" } } as unknown as L.Layer;
+    expect(pm.discoverChildPanes(layer)).toEqual(["a"]);
+    layer.options.pane = "b";
+    expect(pm.discoverChildPanes(layer)).toEqual(["a"]);
     pm.reset();
-    expect(pm.paneCache.size).toBe(0);
+    expect(pm.discoverChildPanes(layer)).toEqual(["b"]);
   });
 
   it("reset(id) keeps its signature and invalidates structure-wide", () => {
     // The stamp argument is retained for the stamp-only callers and ignored on
     // purpose: a repinned subtree can invalidate entries the caller holds no
     // reference to, while over-invalidating costs one extra `forEachLayer`
-    // walk — never a wrong answer. The precise per-node delete lives in
-    // `pinTree`.
+    // walk — never a wrong answer. `pinTree` uses the same generation bump,
+    // so there is no per-node precise delete anywhere.
     const map = { getPane: vi.fn(), createPane: vi.fn() };
     const pm = new PaneManager(map);
-    pm.discoverChildPanes({ options: { pane: "a" } } as unknown as L.Layer);
-    pm.discoverChildPanes({ options: { pane: "b" } } as unknown as L.Layer);
-    expect(pm.paneCache.size).toBe(2);
+    const a = { options: { pane: "a" } } as unknown as L.Layer;
+    const b = { options: { pane: "b" } } as unknown as L.Layer;
+    expect(pm.discoverChildPanes(a)).toEqual(["a"]);
+    expect(pm.discoverChildPanes(b)).toEqual(["b"]);
+    a.options.pane = "a2";
+    b.options.pane = "b2";
+    // Both still served from cache — the stamp argument is ignored.
     pm.reset(window.L.stamp({}));
-    expect(pm.paneCache.size).toBe(0);
+    expect(pm.discoverChildPanes(a)).toEqual(["a2"]);
+    expect(pm.discoverChildPanes(b)).toEqual(["b2"]);
   });
 
   it("discoverChildPanes answers nothing once past the depth cap", () => {
@@ -429,26 +441,27 @@ describe("PaneManager", () => {
     // layer ever asked about and only shrink at teardown. Eviction is oldest-
     // first — the entry least likely to be asked again soon — and the cost of
     // the miss it causes is one extra `forEachLayer` walk, never a wrong answer.
+    // Probe the cap behaviorally: after the cap-th+1 write the oldest entry
+    // has been dropped, so its owner can now see its own mutation. The newest
+    // entries are still served from cache, so their owners still cannot.
     const map = { getPane: vi.fn(), createPane: vi.fn() };
     const pm = new PaneManager(map);
     const cap = CONST.CACHE.PANE_DISCOVERY_ENTRIES;
-    const stamps: number[] = [];
+    const layers: L.Layer[] = [];
     for (let i = 0; i < cap; i++) {
       const layer = { options: { pane: "custom" } } as unknown as L.Layer;
-      stamps.push(window.L.stamp(layer));
+      layers.push(layer);
       pm.discoverChildPanes(layer);
     }
-    expect(pm.paneCache.size).toBe(cap);
-
     const fresh = { options: { pane: "other" } } as unknown as L.Layer;
-    const freshStamp = window.L.stamp(fresh);
-    pm.discoverChildPanes(fresh);
-
-    expect(pm.paneCache.size).toBe(cap);
-    expect(pm.paneCache.has(stamps[0])).toBe(false);
-    expect(pm.paneCache.has(stamps[cap - 1])).toBe(true);
-    expect(pm.paneCache.get(stamps[cap - 1])).toEqual(["custom"]);
-    expect(pm.paneCache.get(freshStamp)).toEqual(["other"]);
+    pm.discoverChildPanes(fresh); // triggers the first eviction
+    // The oldest entry was dropped — its owner now sees its mutation.
+    layers[0].options.pane = "rebuilt";
+    expect(pm.discoverChildPanes(layers[0])).toEqual(["rebuilt"]);
+    // The newest entries are still cached — their mutations are invisible.
+    layers[cap - 1].options.pane = "newer";
+    expect(pm.discoverChildPanes(layers[cap - 1])).toEqual(["custom"]);
+    expect(pm.discoverChildPanes(fresh)).toEqual(["other"]);
   });
 
   describe("pinTree", () => {
@@ -527,6 +540,31 @@ describe("PaneManager", () => {
       pm.pinTree(group, "new");
       expect(pm.discoverChildPanes(child)).toEqual(["new"]);
       expect(pm.discoverChildPanes(group)).toEqual(["new"]);
+    });
+
+    it("pinTree on one subtree invalidates the entries of every unrelated layer", () => {
+      // Pre-fix gate for the generation counter: pinTree used to delete only
+      // the entry for the node it pinned. If a caller pinned a subtree it
+      // didn't own, entries for unrelated layers the caller held no reference
+      // to could stay in the cache and serve stale pane names. Generation
+      // bumping fixes that — pinTree's write is a full invalidation, and every
+      // unrelated entry is dropped on its next read.
+      const map = {
+        getPane: vi.fn(() => null),
+        createPane: vi.fn(() => document.createElement("div")),
+      };
+      const pm = new PaneManager(map);
+      // Seed layer A's entry.
+      const layerA = { options: { pane: "a" } } as unknown as L.Layer;
+      expect(pm.discoverChildPanes(layerA)).toEqual(["a"]);
+      // Pin an unrelated subtree; its options are already at the target pane,
+      // so pinTree walks zero nodes it owns but still bumps the generation.
+      const unrelated = { options: { pane: "b" } } as unknown as L.Layer;
+      pm.pinTree(unrelated, "newb");
+      // Mutate A and assert its next discovery reflects the mutation — on the
+      // old per-node-delete policy the entry would have been served stale.
+      layerA.options.pane = "a2";
+      expect(pm.discoverChildPanes(layerA)).toEqual(["a2"]);
     });
   });
 
@@ -640,7 +678,6 @@ describe("PaneManager", () => {
     pm.discoverChildPanes({ options: { pane: "a" } } as unknown as L.Layer);
     pm.registerPaneSpecs(specs("foliplus-measure-label"));
     pm.destroy();
-    expect(pm.paneCache.size).toBe(0);
     expect(pm.childPanes.size).toBe(0);
     // LayerManager.destroy() clears the registry without removing the
     // registered layers from the map — they are still live, so the pane DOM
@@ -817,7 +854,7 @@ describe("PaneManager", () => {
 
 describe("dual map isolation", () => {
   // The core/layer foundation must be safe under concurrent multi-map
-  // rendering. Every piece of state (childPaneSpecs, paneCache, the
+  // rendering. Every piece of state (paneSpecs, the discovery memo, the
   // instance itself) is per-instance — no module-level singleton is
   // allowed to bleed panes from one map into another. These tests pin
   // that invariant: two independently-constructed instances on two
@@ -852,7 +889,7 @@ describe("dual map isolation", () => {
     expect(pmB.childPanes.has("kept")).toBe(true);
   });
 
-  it("paneCache invalidation on one instance does not touch the other", () => {
+  it("cache invalidation on one instance does not touch the other", () => {
     const mapA = { getPane: vi.fn(), createPane: vi.fn() };
     const mapB = { getPane: vi.fn(), createPane: vi.fn() };
     const pmA = new PaneManager(mapA);
@@ -860,9 +897,12 @@ describe("dual map isolation", () => {
     const layer = { options: { pane: "custom" } } as unknown as L.Layer;
     expect(pmA.discoverChildPanes(layer)).toEqual(["custom"]);
     expect(pmB.discoverChildPanes(layer)).toEqual(["custom"]);
-    // Both caches keyed by the same layer stamp — invalidate only A's.
+    // Both caches keyed by the same layer stamp — invalidate only A's. B
+    // must keep serving its own cached entry even though the layer's options
+    // move in the gap.
     pmA.reset(L.stamp(layer));
-    expect(pmA.paneCache.has(L.stamp(layer))).toBe(false);
-    expect(pmB.paneCache.has(L.stamp(layer))).toBe(true);
+    layer.options.pane = "changed";
+    expect(pmA.discoverChildPanes(layer)).toEqual(["changed"]);
+    expect(pmB.discoverChildPanes(layer)).toEqual(["custom"]);
   });
 });
