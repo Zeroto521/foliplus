@@ -19,6 +19,7 @@ import * as CONST from "../const.js";
 import * as SVGs from "../icon.js";
 import * as Util from "../util.js";
 import type { LayerUI } from "./index.js";
+import { projectLayer } from "./store.js";
 
 /** One layer's inputs to the row visual. Nothing here is written back. */
 interface RowCell {
@@ -75,8 +76,11 @@ interface RowLabels {
  *  while a policy is hiding the layer.
  */
 const rowChecked = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
-  if (ui.userOverrides[layerInfo.id]?.includes("visible")) {
-    return !ui.hiddenIds.has(layerInfo.id);
+  // Same rule as `projectLayer.intent`: the `visible` provenance marker or
+  // membership in `hiddenIds` — either alone is the user's own choice.
+  const hidden = ui.hiddenIds?.has(layerInfo.id) ?? false;
+  if (ui.userOverrides?.[layerInfo.id]?.includes("visible") || hidden) {
+    return !hidden;
   }
   return ui.authorVisible.get(layerInfo.id) ?? true;
 };
@@ -87,11 +91,11 @@ const rowChecked = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
  *  The map's range can be narrower than the user's stored endpoints (a basemap
  *  switch), so the endpoints are clamped here while the *stored* values stay
  *  untouched — reversibility: switching the basemap back must restore the
- *  original choice (§31.3). If both endpoints clamp past each other the whole
+ *  original choice. If both endpoints clamp past each other the whole
  *  range is outside the map and no zoom can land inside it.
  */
 const inZoomRange = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
-  const range = ui.zoomRangeMap[layerInfo.id];
+  const range = ui.zoomRangeMap?.[layerInfo.id];
   if (!range) return true;
   const min = Math.max(range[0], ui.m.map.getMinZoom());
   const max = Math.min(range[1], ui.m.map.getMaxZoom());
@@ -153,11 +157,22 @@ const displayName = (ui: LayerUI, id: string): string => {
  *  snapshot taken afterwards would record a policy decision as the author's.
  *
  *  Once per id — the repeat is a no-op, which is what keeps the value stable
- *  across initTypesAndVisibility's idempotent re-runs.
+ *  across initTypesAndVisibility's idempotent re-runs. Because the value is
+ *  latched, it may only be taken from an *observed* map state: a folium
+ *  layer's JS global is emitted after the control's IIFE, so at attach the
+ *  layer is not resolvable yet and the only honest answer is "not yet
+ *  known". Latching `layerInfo.visible !== false` there would record `true`
+ *  for an author `show=False` layer and, the snapshot being idempotent,
+ *  keep the later correct reading out for good — which is how a `show=False`
+ *  layer came back onto the map on the first zoom sweep.
+ *
+ *  A canvas-only layer is the exception: it has no Leaflet layer to observe
+ *  at any point, so its declared `visible` is the ground truth.
  */
 const snapshotAuthorVisible = (ui: LayerUI, layerInfo: LayerInfo): void => {
   if (ui.authorVisible.has(layerInfo.id)) return;
   const layer = ui.m.findLayer(layerInfo);
+  if (!layer && !layerInfo.canvas) return; // not linked yet — leave unknown
   ui.authorVisible.set(
     layerInfo.id,
     layer ? ui.m.map.hasLayer(layer) : layerInfo.visible !== false,
@@ -170,7 +185,7 @@ const snapshotAuthorVisible = (ui: LayerUI, layerInfo: LayerInfo): void => {
  *
  *  `layerInfo.type` is a snapshot of the surface's probe result: writing it
  *  here is the snapshot sync for render use, not a second probe. The
- *  authority for geometry-type detection lives on the surface (§33.2).
+ *  authority for geometry-type detection lives on the surface.
  */
 const rowType = (
   ui: LayerUI,
@@ -210,11 +225,12 @@ const buildRowCell = (ui: LayerUI, layerInfo: LayerInfo): RowCell => {
     id: layerInfo.id,
     name: displayName(ui, layerInfo.id),
     checked,
-    // The same formula as computeEffectiveShown in state.ts: focus overrides
-    // the range, the range never overrides the intent. Focus dims the other
-    // rows visually without removing them from the map, so while it holds every
-    // checked layer is on screen regardless of its range.
-    shown: checked && (ui.focusingLayerId != null || inZoomRange(ui, layerInfo)),
+    // Read the projection: focus overrides the range, the range never
+    // overrides the intent. Focus dims the other rows visually without
+    // removing them from the map, so while it holds every checked layer is
+    // on screen regardless of its range. The policy write side reads the
+    // same projection, so the formula has one home.
+    shown: projectLayer(ui, layerInfo).effectiveShown,
     countText: count != null ? formatNumber(count, "auto", ui.conf.locale_code) : "",
     typeSvg: type.svg,
     typeLabel: ui.T(type.key),

@@ -1,24 +1,20 @@
 // Opacity row: single-thumb rail + fill + end dots + live commit pipeline.
-// Moved verbatim from ui/style.ts (34.1 §34.2.1); the frame helpers it
+// Moved verbatim from ui/style.ts; the frame helpers it
 // reaches into live in ./frame.ts. `buildOpacityRow` and the sync /
 // commit functions are used both by the delegated drawer (delegated.ts)
 // and the annotation panel (index.ts) — the row is LayerControl-owned,
 // not annotation-owned.
 import { dom } from "#common/dom.js";
 import * as CONST from "../../const.js";
+import { applyProjection } from "../apply.js";
 import type { LayerUI } from "../index.js";
-import {
-  applyOpacityStateOne,
-  markOverride,
-  saveState,
-  unmarkOverride,
-} from "../state.js";
+import { markOverride, saveState, unmarkOverride } from "../state.js";
 import { railPos, round5 } from "./frame.js";
 
 /** Whether the layer's surface can honestly carry an opacity write. Layers with
  *  `opacity: "none"` (e.g. MarkerCluster, whose cluster icons live in a shared
  *  pane we do not own) get no opacity row — a slider that writes nothing but
- *  persists the value would violate §6.2 "不得静默失效". */
+ *  persists the value would fail silently. */
 const layerCanOpacity = (ui: LayerUI, layerId: string): boolean => {
   const li = ui.m.layerRegistry.get(layerId);
   if (!li) return false;
@@ -93,18 +89,17 @@ const commitOpacityPct = (
   // Only touch the layer when the value actually moved: a drag revisits steps
   // (and the commit re-sends the live value), and for a plain layer each pass
   // is a sweep over every feature.
-  if (li.opacity !== opacity) {
-    applyOpacityStateOne(ui, li, opacity);
-    if (opacity === 1) {
-      // Fully opaque is the declared default, so there is no override to keep.
-      delete ui.opacityMap[layerId];
-      unmarkOverride(ui, layerId, "opacity");
-    } else {
-      ui.opacityMap[layerId] = opacity;
-      markOverride(ui, layerId, "opacity");
-    }
-    saveState(ui);
+  if (li.opacity === opacity) return;
+  if (opacity === 1) {
+    // Fully opaque is the declared default, so there is no override to keep.
+    delete ui.opacityMap[layerId];
+    unmarkOverride(ui, layerId, "opacity");
+  } else {
+    ui.opacityMap[layerId] = opacity;
+    markOverride(ui, layerId, "opacity");
   }
+  saveState(ui);
+  applyProjection(ui, layerId);
   syncOpacityInputs(panel, pct);
 };
 
@@ -171,11 +166,11 @@ const buildOpacityRow = (ui: LayerUI, layerId: string): HTMLElement => {
 
 /** Reset one layer's opacity to fully opaque and drop its persisted entry. */
 const resetLayerOpacity = (ui: LayerUI, layerId: string): void => {
-  const li = ui.m.layerRegistry.get(layerId);
-  if (li) applyOpacityStateOne(ui, li, 1);
+  if (!ui.m.layerRegistry.has(layerId)) return;
   delete ui.opacityMap[layerId];
   unmarkOverride(ui, layerId, "opacity");
   saveState(ui);
+  applyProjection(ui, layerId);
 };
 
 export {

@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
 import { AnnotationManager } from "#foliplus/LayerControl/annotation/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
-import { applyOpacityStateOne } from "#foliplus/LayerControl/ui/state.js";
+import { applyProjection } from "#foliplus/LayerControl/ui/apply.js";
 import { initFixture } from "../ui/fixture.js";
 
 const mocks = vi.hoisted(() => {
@@ -815,7 +815,8 @@ describe("a pane that appears later picks up the stored intent", () => {
 
     ui.opacityMap.overlay1 = 0.3;
     ui.userOverrides.overlay1 = ["opacity"];
-    applyOpacityStateOne(ui, manager.layerRegistry.get("overlay1")!, 0.3);
+    applyProjection(ui, "overlay1");
+    applyProjection(ui, "overlay1");
 
     manager.annotation.setConfig("overlay1", {
       show: true,
@@ -827,6 +828,10 @@ describe("a pane that appears later picks up the stored intent", () => {
     });
     (manager.layerRegistry.get("overlay1") as { layer: L.Layer }).layer = labelLayer();
     manager.annotation.renderLabels("overlay1");
+
+    // Re-apply after the annotation pane exists so the executor picks it up.
+    applyProjection(ui, "overlay1");
+    applyProjection(ui, "overlay1");
 
     const pane = panes.get(CONST.ANNOTATION_PANE_PREFIX + "overlay1");
     expect(pane, "the annotation pane was created").toBeTruthy();

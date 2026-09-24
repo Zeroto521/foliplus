@@ -217,6 +217,84 @@ describe("LayerUI attrs", () => {
       expect(labels[labels.length - 1]).toBe("area_km2");
     });
 
+    it("renders metaProvider rows and overrides static meta for the same key", () => {
+      const count = 0;
+      manager.registerLayer({
+        id: "attr-meta1",
+        meta: { area_km2: 12.5, features: 0 },
+        metaProvider: () => ({ features: count, extra: "dynamic" }),
+      });
+
+      const item = findItem(ui, "attr-meta1");
+      ui.openAttrsPanel(item);
+
+      const rendered = rows(item.querySelector(".foliplus-layer-attrs-panel")!);
+      // Static meta + dynamic meta merged; same-key dynamic wins.
+      expect(rendered).toContainEqual(["area_km2", "12.5"]);
+      expect(rendered).toContainEqual(["features", "0"]);
+      expect(rendered).toContainEqual(["extra", "dynamic"]);
+    });
+
+    it("refreshes metaProvider rows on LAYER_ITEM_COUNT_CHANGE for the same layer", () => {
+      let count = 0;
+      manager.registerLayer({
+        id: "attr-live1",
+        meta: { features: 0 },
+        metaProvider: () => ({ features: count }),
+      });
+
+      const item = findItem(ui, "attr-live1");
+      ui.openAttrsPanel(item);
+
+      // Change the count and emit the event; the panel row should refresh.
+      count = 7;
+      ui.events.emit("foliplus:layer:item-count-change", { id: "attr-live1" });
+
+      const rendered = rows(item.querySelector(".foliplus-layer-attrs-panel")!);
+      expect(rendered).toContainEqual(["features", "7"]);
+    });
+
+    it("ignores LAYER_ITEM_COUNT_CHANGE for other layers", () => {
+      let count = 0;
+      manager.registerLayer({
+        id: "attr-live2",
+        meta: { features: 0 },
+        metaProvider: () => ({ features: count }),
+      });
+
+      const item = findItem(ui, "attr-live2");
+      ui.openAttrsPanel(item);
+
+      count = 5;
+      // Emit for a different layer id — the panel should not refresh.
+      ui.events.emit("foliplus:layer:item-count-change", { id: "other-layer" });
+
+      const rendered = rows(item.querySelector(".foliplus-layer-attrs-panel")!);
+      expect(rendered).toContainEqual(["features", "0"]);
+    });
+
+    it("unsubscribes the count listener when the panel closes", () => {
+      const unsubSpy = vi.fn();
+      const origOn = ui.events.on;
+      vi.spyOn(ui.events, "on").mockReturnValue(unsubSpy);
+
+      manager.registerLayer({
+        id: "attr-live3",
+        meta: { features: 0 },
+        metaProvider: () => ({ features: 0 }),
+      });
+
+      const item = findItem(ui, "attr-live3");
+      ui.openAttrsPanel(item);
+      expect(ui.attrsUnsubscribe).toBe(unsubSpy);
+
+      ui.closeAttrsPanel(item, false);
+      expect(unsubSpy).toHaveBeenCalled();
+      expect(ui.attrsUnsubscribe).toBeNull();
+
+      vi.restoreAllMocks();
+    });
+
     it("names the panel in its header and flags the source row as wide", () => {
       manager.registerLayer({
         id: "attr-hero1",
@@ -521,6 +599,74 @@ describe("LayerUI attrs", () => {
 
       pressOn(document.body);
       expect(item.querySelector(".foliplus-layer-attrs-panel")).toBeNull();
+    });
+
+    // ── metaProvider tests ────────────────────────────────────────────
+
+    it("displays metaProvider rows including zero values", () => {
+      manager.registerLayer({
+        id: "attr-prov0",
+        metaProvider: () => ({ marker: 0, distance: 2, circle: 1 }),
+      });
+
+      const item = findItem(ui, "attr-prov0");
+      ui.openAttrsPanel(item);
+      const rendered = rows(item.querySelector(".foliplus-layer-attrs-panel")!);
+
+      expect(rendered).toContainEqual(["marker", "0"]);
+      expect(rendered).toContainEqual(["distance", "2"]);
+      expect(rendered).toContainEqual(["circle", "1"]);
+    });
+
+    it("metaProvider overrides static meta for the same key", () => {
+      manager.registerLayer({
+        id: "attr-prov1",
+        meta: { marker: 5 },
+        metaProvider: () => ({ marker: 3 }),
+      });
+
+      const item = findItem(ui, "attr-prov1");
+      ui.openAttrsPanel(item);
+      const rendered = rows(item.querySelector(".foliplus-layer-attrs-panel")!);
+
+      expect(rendered).toContainEqual(["marker", "3"]);
+      expect(rendered).not.toContainEqual(["marker", "5"]);
+    });
+
+    it("refreshes metaProvider rows in place on LAYER_ITEM_COUNT_CHANGE", () => {
+      let count = 0;
+      manager.registerLayer({
+        id: "attr-prov2",
+        metaProvider: () => ({ marker: count }),
+      });
+
+      const item = findItem(ui, "attr-prov2");
+      ui.openAttrsPanel(item);
+
+      const panel = item.querySelector(".foliplus-layer-attrs-panel")!;
+      expect(rows(panel)).toContainEqual(["marker", "0"]);
+
+      count = 2;
+      ui.events.emit("foliplus:layer:item-count-change", { id: "attr-prov2" });
+
+      expect(rows(panel)).toContainEqual(["marker", "2"]);
+    });
+
+    it("ignores LAYER_ITEM_COUNT_CHANGE for a different layer id", () => {
+      manager.registerLayer({
+        id: "attr-prov3",
+        metaProvider: () => ({ marker: 1 }),
+      });
+
+      const item = findItem(ui, "attr-prov3");
+      ui.openAttrsPanel(item);
+
+      const panel = item.querySelector(".foliplus-layer-attrs-panel")!;
+      expect(rows(panel)).toContainEqual(["marker", "1"]);
+
+      ui.events.emit("foliplus:layer:item-count-change", { id: "other" });
+
+      expect(rows(panel)).toContainEqual(["marker", "1"]);
     });
   });
 

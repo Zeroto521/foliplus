@@ -475,7 +475,7 @@ describe("MarkerMode — start + click", () => {
     }
   });
 
-  it("cancels a pending RAF persist on cleanup", () => {
+  it("flushes a pending persist on cleanup (cancels RAF + executes callback)", () => {
     let rafCb: (() => void) | null = null;
     const cancelSpy = vi.fn();
     vi.stubGlobal(
@@ -512,6 +512,113 @@ describe("MarkerMode — start + click", () => {
       expect(rafCb).toBeTruthy(); // a RAF persist is pending
       manager.clearAll();
       expect(cancelSpy).toHaveBeenCalled();
+      expect(manager.store.persist).toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("flushes a pending persist so the last dragged coord lands in localStorage", () => {
+    let rafCb: (() => void) | null = null;
+    vi.stubGlobal(
+      "requestAnimationFrame",
+      vi.fn((cb: () => void) => {
+        rafCb = cb;
+        return 1;
+      }),
+    );
+    vi.stubGlobal("cancelAnimationFrame", vi.fn());
+    try {
+      const KEY = "foliplus_measure_test";
+      localStorage.setItem(KEY, "[]");
+      const manager = makeManagerMock() as any;
+      manager.isEditMode = true;
+      manager.store.persist.mockImplementation(() => {
+        localStorage.setItem(KEY, JSON.stringify(manager.measurements));
+      });
+      const data: MeasureData = {
+        id: "m_flush",
+        type: "marker",
+        lng: 121,
+        lat: 31,
+        address: "Old",
+      };
+      manager.measurements = [data];
+      MarkerMode.restore(manager, data);
+      const pin = (window.L.marker as any).mock.results[0].value;
+      enableDrag(manager);
+      const onDown = pin.on.mock.calls.find(
+        ([ev]: [string]) => ev === "mousedown",
+      )?.[1];
+      const onMove = manager.map.on.mock.calls.find(
+        ([ev]: [string]) => ev === "mousemove",
+      )?.[1];
+      onDown({ originalEvent: { clientX: 0, clientY: 0 } });
+      onMove({
+        originalEvent: { clientX: 10, clientY: 0 },
+        latlng: { lat: 37.5, lng: -122.5 },
+      });
+      expect(rafCb).toBeTruthy();
+      const before = JSON.parse(localStorage.getItem(KEY)!);
+      expect(before.find((e: any) => e.id === "m_flush")?.lat).not.toBe(37.5);
+      manager.clearAll();
+      const after = JSON.parse(localStorage.getItem(KEY)!);
+      const entry = after.find((e: any) => e.id === "m_flush");
+      expect(entry?.lat).toBe(37.5);
+      expect(entry?.lng).toBe(-122.5);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("destroy → re-add restores the last dragged coord from localStorage", () => {
+    let rafCb: (() => void) | null = null;
+    vi.stubGlobal(
+      "requestAnimationFrame",
+      vi.fn((cb: () => void) => {
+        rafCb = cb;
+        return 1;
+      }),
+    );
+    vi.stubGlobal("cancelAnimationFrame", vi.fn());
+    try {
+      const KEY = "foliplus_measure_test";
+      localStorage.setItem(KEY, "[]");
+      const manager = makeManagerMock() as any;
+      manager.isEditMode = true;
+      manager.store.persist.mockImplementation(() => {
+        localStorage.setItem(KEY, JSON.stringify(manager.measurements));
+      });
+      const data: MeasureData = {
+        id: "m_restore",
+        type: "marker",
+        lng: 121,
+        lat: 31,
+        address: "Old",
+      };
+      manager.measurements = [data];
+      MarkerMode.restore(manager, data);
+      const pin = (window.L.marker as any).mock.results[0].value;
+      enableDrag(manager);
+      const onDown = pin.on.mock.calls.find(
+        ([ev]: [string]) => ev === "mousedown",
+      )?.[1];
+      const onMove = manager.map.on.mock.calls.find(
+        ([ev]: [string]) => ev === "mousemove",
+      )?.[1];
+      onDown({ originalEvent: { clientX: 0, clientY: 0 } });
+      onMove({
+        originalEvent: { clientX: 10, clientY: 0 },
+        latlng: { lat: 37.5, lng: -122.5 },
+      });
+      manager.clearAll();
+      const saved = JSON.parse(localStorage.getItem(KEY)!);
+      expect(saved.find((e: any) => e.id === "m_restore")?.lat).toBe(37.5);
+      const m2 = makeManagerMock() as any;
+      m2.measurements = saved;
+      const restored = saved.find((e: any) => e.id === "m_restore");
+      MarkerMode.restore(m2, restored);
+      expect(window.L.latLng).toHaveBeenCalledWith(37.5, -122.5);
     } finally {
       vi.unstubAllGlobals();
     }

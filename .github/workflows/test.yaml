@@ -64,6 +64,25 @@ jobs:
       - run: npm install
       - run: npm run typecheck
 
+  # ── CHANGELOG existence check (needs GITHUB_TOKEN) ──
+  # Sort-order is enforced by pre-commit.ci (language: system, --fix mode).
+  # This job only checks that every referenced #NNN exists as a real PR/issue.
+  changelog-exists:
+    name: changelog-exists
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'pull_request'
+      && github.base_ref == 'main'
+      && github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      issues: read
+    steps:
+      - uses: actions/checkout@v6
+      - run: python script/changelog_check.py --path CHANGELOG.md
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
+
   test:
     name: py${{ matrix.python }}-folium-${{ matrix.folium }}
     runs-on: ubuntu-latest
@@ -99,6 +118,7 @@ jobs:
         if: ${{ matrix.folium == 'latest' }}
       - run: uv run playwright install chromium
       - run: uv run make info
+
       - run: uv run make test
 
       - uses: codecov/codecov-action@v6

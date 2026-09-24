@@ -1,15 +1,15 @@
-// R8b probe (§10.3 #9): solid-color basemap DOM path after R8b.
+// Probe: solid-color basemap DOM path after basemap coexistence.
 //
-// Under R8b the color basemap is coequal with tile basemaps. It still
-// paints via the map container's CSS background (`.leaflet-container.active`
-// reads `--color-layer-bg`), but it no longer suppresses the shared
-// tilePane: the retired `foliplus-layer-tile-hidden` class and its
-// visibility/opacity side effects are gone, so the tile pane stays visible
-// underneath and the color simply paints on top (container background is
-// drawn above the leaflet-pane stack). Tile basemaps, when registered,
-// get their own synthesized `foliplus-pane-*` via LayerSurface; the color
-// basemap itself has no Leaflet layer, so it contributes no pane of its
-// own — the color "surface" is the container background.
+// The colour basemap is coequal with tile basemaps.  It paints via the map
+// container's CSS background (`.leaflet-container.active` reads
+// `--color-layer-bg`), but it no longer suppresses the shared tilePane:
+// the retired `foliplus-layer-tile-hidden` class and its visibility/opacity
+// side effects are gone, so the tile pane stays visible underneath and the
+// colour simply paints on top (container background is drawn above the
+// leaflet-pane stack).  Tile basemaps, when registered, get their own
+// synthesized `foliplus-pane-*` via LayerSurface; the colour basemap itself
+// has no Leaflet layer, so it contributes no pane of its own — the colour
+// "surface" is the container background.
 () => {
   const ctrl = document.querySelector(".foliplus-layer-ctrl");
   if (ctrl && !ctrl.classList.contains("expanded")) {

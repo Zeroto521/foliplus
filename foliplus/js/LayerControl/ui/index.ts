@@ -10,6 +10,7 @@ import { createScopedTranslator, createTranslator } from "#common/locale.js";
 import * as CONST from "../const.js";
 import type { LayerManager } from "../manager.js";
 import type { LayerOverride } from "../persistence.js";
+import { applyProjection, applyProjectionAll } from "./apply.js";
 import { closeAttrsPanel, openAttrsPanel } from "./attr.js";
 import { hideColorLayer, showColorLayer } from "./color.js";
 import { cancelFocus, focusLayer, isFocusing } from "./focus.js";
@@ -43,16 +44,15 @@ import { finishRename, renameLayer } from "./rename.js";
 import { applyRowView, buildRowCell, displayName, rowChecked } from "./rowView.js";
 import {
   applyUserState,
-  applyZoomRangeStateOne,
   dropPersistedLayerState,
   loadPersistedState,
-  refreshZoomEffectiveShown,
   replayLayerState,
   saveFoldState,
   saveNamesState,
   saveState,
   syncHiddenId,
 } from "./state.js";
+import type { AppliedProjection } from "./store.js";
 import {
   applyStyleLabelState,
   closeStylePanel,
@@ -65,7 +65,6 @@ import {
   handleChange,
   handleInput,
   syncToggleAll,
-  syncVisibility,
   toggleAll,
 } from "./visibility.js";
 
@@ -87,24 +86,15 @@ class LayerUI {
   foldedGroups: Set<string>;
   /** Layer ids hidden by the user (checked-off); survives page reload. */
   hiddenIds: Set<string>;
-  /** Layer ids the zoom-range mechanism itself removed from the map in this
-   *  session (derived state, never persisted). The one-way gate: this is the
-   *  *only* set of ids the range is allowed to put back on the map — a layer
-   *  the author declared `show=False` and the user never touched has no
-   *  entry here, so the range stays off the map the way folium left it.
-   *
-   *  Any explicit user action clears the id via `syncHiddenId`, so the
-   *  user's choice always beats this mechanism's record. */
-  rangeHiddenIds: Set<string>;
   /** The author's declared default per layer id, snapshotted once per id from
    *  the map membership at first sight.
    *
    *  Folium ships the layer list without a visibility field, so the author's
    *  `show=` default reaches the UI only as the map state folium left behind
    *  when the panel boots. It must be captured before the policy starts moving
-   *  layers: `layerInfo.visible` is a real-time mirror that applyLayerState and
-   *  the zoom-range sweep both write, so by the time a row first paints it
-   *  already carries a policy decision, not the author's. See `rowChecked`. */
+   *  layers: `layerInfo.visible` is a real-time mirror that the diff executor
+   *  writes, so by the time a row first paints it can already carry a policy
+   *  decision, not the author's. See `rowChecked`. */
   authorVisible: Map<string, boolean>;
   /** Which dimensions the user has actually set, per layer id. A layer absent
    *  here keeps the author's `show=` / opacity default -- that is what replaces
@@ -168,6 +158,8 @@ class LayerUI {
   attrsOutsideHandler: ((event: MouseEvent) => void) | null;
   /** Same capture-phase dismiss, for the style panel. */
   styleOutsideHandler: ((event: MouseEvent) => void) | null;
+  /** Unsubscribe for LAYER_ITEM_COUNT_CHANGE while attrs panel is open. */
+  attrsUnsubscribe: (() => void) | null;
   /** Unsubscribe for LAYER_STYLE_CHANGE while a delegated style panel is open. */
   styleUnsubscribe: (() => void) | null;
   /** Refresh function for the shared label controls (set by renderDelegatedStylePanel). */
@@ -191,6 +183,12 @@ class LayerUI {
   /** Persisted per-layer zoom range the user moved the handles for
    *  (id → [minZoom, maxZoom]). Applied on load / late register. */
   zoomRangeMap: Record<string, [number, number]>;
+  /** The executor's last-write map: id → the projection `applyProjection`
+   *  last wrote to the map. This is what makes the executor a diff, not a
+   *  sweep — a changeless call re-projects, sees no delta, and calls no
+   *  carrier. Keyed by id (not by `layerInfo` identity) so a re-register
+   *  of the same id keeps its projection across the swap. */
+  appliedState: Map<string, AppliedProjection>;
   /** Temporary Rectangle overlay drawn while a focus is in progress. */
   focusRect: L.Layer | null;
   /** Layer id currently being focused, or null. */
@@ -213,7 +211,6 @@ class LayerUI {
     this._ = createTranslator(CONF);
     this.foldedGroups = new Set();
     this.hiddenIds = new Set();
-    this.rangeHiddenIds = new Set();
     this.authorVisible = new Map();
     this.userOverrides = {};
     this.isColorActive = false;
@@ -235,6 +232,7 @@ class LayerUI {
     this.attrsOutsideHandler = null;
     this.styleOutsideHandler = null;
     this.styleUnsubscribe = null;
+    this.attrsUnsubscribe = null;
     this.styleRefresh = null;
     this.styleZoomEndHandler = null;
     this.stylePanelLayerId = null;
@@ -243,6 +241,7 @@ class LayerUI {
     this.labelConfigs = {};
     this.opacityMap = {};
     this.zoomRangeMap = {};
+    this.appliedState = new Map();
     this.focusRect = null;
     this.focusingLayerId = null;
     this.onFocusMapMove = null;
@@ -321,17 +320,6 @@ class LayerUI {
   saveNamesState() {
     return saveNamesState(this);
   }
-  /** Re-evaluate every layer's effective-shown after a zoom change or a
-   *  focus transition. Writes through the single pipeline (`applyLayerState`),
-   *  so `hiddenIds` / `overrides` / the checkbox DOM are never touched —
-   *  the #329 lock. */
-  refreshZoomEffectiveShown() {
-    return refreshZoomEffectiveShown(this);
-  }
-  applyZoomRangeStateOne(layerId: string, range: [number, number] | null) {
-    const layerInfo = this.m.layerRegistry.get(layerId);
-    if (layerInfo) applyZoomRangeStateOne(this, layerInfo, range);
-  }
   // ── delegates: list ──
   initTypesAndVisibility() {
     return initTypesAndVisibility(this);
@@ -368,11 +356,14 @@ class LayerUI {
   syncToggleAll(group: string) {
     return syncToggleAll(this, group);
   }
-  syncVisibility(layerInfo: LayerInfo, layer: L.Layer | null, fallback: boolean) {
-    return syncVisibility(this, layerInfo, layer, fallback);
-  }
   applyVisibility(id: string, visible: boolean) {
     return applyVisibility(this, id, visible);
+  }
+  applyProjection(layerId: string) {
+    return applyProjection(this, layerId);
+  }
+  applyProjectionAll() {
+    return applyProjectionAll(this);
   }
   handleChange(event: Event) {
     return handleChange(this, event);

@@ -7,7 +7,6 @@ import * as CONST from "#foliplus/LayerControl/const.js";
 import { LayerManager } from "#foliplus/LayerControl/manager.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import {
-  GridLayer,
   TileLayer,
   findItem,
   initFixture,
@@ -243,58 +242,6 @@ describe("LayerUI shell — delegates", () => {
 
     expect(ui.uiContainer!.querySelector("[data-layer-id='overlay1']")).not.toBeNull();
     expect(ui.uiContainer!.querySelector("[data-layer-id='base1']")).not.toBeNull();
-  });
-
-  it("syncVisibility resolves visibility from the map when a layer exists", () => {
-    const layerInfo = manager.layerRegistry.get("overlay1")!;
-    const layer = manager.findLayer(layerInfo);
-
-    const visible = ui.syncVisibility(layerInfo, layer, false);
-
-    expect(visible).toBe(true);
-    expect(layerInfo.visible).toBe(true);
-  });
-
-  it("syncVisibility falls back when the layer cannot be resolved", () => {
-    const layerInfo = manager.layerRegistry.get("overlay1")!;
-
-    const visible = ui.syncVisibility(layerInfo, null, true);
-
-    expect(visible).toBe(true);
-  });
-});
-
-describe("LayerUI zoom-range delegates", () => {
-  let manager: LayerManager;
-  let ui: LayerUI;
-  let map: any;
-
-  beforeEach(() => {
-    ({ manager, ui, map } = initFixture());
-  });
-
-  afterEach(() => {
-    manager?.debouncedEnforce?.cancel?.();
-    document.body.innerHTML = "";
-    vi.clearAllMocks();
-  });
-
-  it("applyZoomRangeStateOne no-ops for a layer id that is not in the registry", () => {
-    expect(() => ui.applyZoomRangeStateOne("nonexistent", [3, 10])).not.toThrow();
-  });
-
-  it("applyZoomRangeStateOne writes through for a registered layer", () => {
-    // The delegate resolves the id first: a registered layer gets the write, a
-    // grid layer takes it in its own options.
-    manager.registerLayer({ id: "grid1", name: "Grid", layer: new GridLayer() });
-    const li = manager.layerRegistry.get("grid1")!;
-
-    ui.applyZoomRangeStateOne("grid1", [3, 5]);
-
-    expect((li.layer as { options: Record<string, unknown> }).options).toMatchObject({
-      minZoom: 3,
-      maxZoom: 5,
-    });
   });
 
   it("unbindEvents() tolerates an onZoomEnd that was never set", () => {

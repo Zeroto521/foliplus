@@ -91,7 +91,7 @@ class AnnotationManager {
   private readonly releaseOwnedPane: (name: string) => void;
   /** Replay this layer's stored intent the moment its annotation pane appears
    *  (see {@link ensureCanvas}). Injected rather than inlined: the pane is the
-   *  opacity carrier (§5.4), but the value and its carrier resolution both live
+   *  opacity carrier, but the value and its carrier resolution both live
    *  in the UI's write pipeline, which is also what makes a canvas layer land
    *  on `canvas.style` instead of a pane. */
   private readonly replayLayerState: (id: string) => void;
@@ -202,7 +202,7 @@ class AnnotationManager {
   /** The pane name a layer's labels render into, or null when it has none yet.
    *  Read-only projection: the pane is created lazily by {@link ensureCanvas}
    *  when labels first turn on, and lives outside the surface's frozen pane set.
-   *  The layer's opacity writer asks here at write time (§5.4: one dimension,
+   *  The layer's opacity writer asks here at write time (one dimension,
    *  one writer — the carrier set is surface panes ∪ annotation pane). */
   paneNameFor(id: string): string | null {
     return this.panes.has(id) ? CONST.ANNOTATION_PANE_PREFIX + id : null;
@@ -571,7 +571,7 @@ class AnnotationManager {
     pane.classList.add("foliplus-annotation-pane");
     this.panes.set(id, pane);
     this.canvases.set(id, new AnnotationCanvas(this.map, pane));
-    // The pane is the opacity carrier (§5.4), and it is created lazily -- often
+    // The pane is the opacity carrier, and it is created lazily -- often
     // long after the slider was last moved -- so the stored intent has to be
     // replayed at the moment the pane appears rather than waiting for the next
     // write, which may never come. `panes.set` must come first, since the writer
@@ -583,7 +583,7 @@ class AnnotationManager {
    *  pane has to leave Leaflet's registry too, or getPane keeps returning it.
    *  Goes through PaneManager.removePane (the release counterpart of
    *  ensurePane) so the manager's spec and cache entries are cleaned in step
-   *  with the DOM — the "booked in one place" invariant §29 sets. */
+   *  with the DOM — the "booked in one place" invariant. */
   private dropCanvas(id: string): void {
     this.canvases.get(id)?.destroy();
     this.canvases.delete(id);

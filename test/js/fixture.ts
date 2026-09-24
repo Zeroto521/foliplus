@@ -142,8 +142,47 @@ export function installWindowLExtensions(): void {
       on: vi.fn(),
       off: vi.fn(),
     })),
+    polyline: vi.fn(() => ({
+      addLatLng: vi.fn(),
+      setLatLngs: vi.fn(),
+      getElement: vi.fn(() => null),
+      on: vi.fn(),
+      off: vi.fn(),
+      addTo: vi.fn(),
+      remove: vi.fn(),
+    })),
+    polygon: vi.fn(() => ({
+      setLatLngs: vi.fn(),
+      getElement: vi.fn(() => null),
+      on: vi.fn(),
+      off: vi.fn(),
+      addTo: vi.fn(),
+      remove: vi.fn(),
+    })),
+    circle: vi.fn(() => ({
+      setRadius: vi.fn(),
+      getRadius: vi.fn(() => 1000),
+      setLatLng: vi.fn(),
+      getLatLng: vi.fn(() => ({ lat: 0, lng: 0 })),
+      getElement: vi.fn(() => null),
+      on: vi.fn(),
+      off: vi.fn(),
+      addTo: vi.fn(),
+      remove: vi.fn(),
+    })),
+    circleMarker: vi.fn(() => ({
+      bringToFront: vi.fn(),
+      on: vi.fn(),
+      off: vi.fn(),
+      setLatLng: vi.fn(),
+      getLatLng: vi.fn(() => ({ lat: 0, lng: 0 })),
+      getElement: vi.fn(() => null),
+      addTo: vi.fn(),
+      remove: vi.fn(),
+    })),
     svg: svgMock,
     stamp: vi.fn(),
+    latLng: vi.fn((lat: number, lng: number) => ({ lat, lng })),
     latLngBounds: boundsMock,
     bounds: boundsMock,
     CRS: { EPSG3857: {} as any },
@@ -152,6 +191,14 @@ export function installWindowLExtensions(): void {
       extend: <T, U>(target: T, source: U): any => Object.assign({}, target, source),
     } as any,
   });
+
+  // MeasureControl edit.ts calls L.DomEvent.stopPropagation — add it to the
+  // base DomEvent stub so tests don't have to override the whole object.
+  if (L.DomEvent) {
+    L.DomEvent.stopPropagation = vi.fn((event: any) => {
+      if (event?.originalEvent) event.originalEvent._stopped = true;
+    });
+  }
 
   // `L.Path.prototype.bringToFront` is captured at module-import time by
   // LayerControl/manager.ts and monkey-patched in a test — provide the full

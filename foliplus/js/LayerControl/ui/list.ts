@@ -13,7 +13,7 @@ import {
   snapshotAuthorVisible,
 } from "./rowView.js";
 import { applyUserState } from "./state.js";
-import { syncNoBasemap, syncToggleAll, syncVisibility } from "./visibility.js";
+import { syncNoBasemap, syncToggleAll } from "./visibility.js";
 
 /** Full re-scan of every row (used on attach/fold-toggle). Idempotent — *  re-run on each CONTROL_ATTACHED so late-registering components are
  *  folded in. Marks the panel ready for tests/consumers. */
@@ -307,7 +307,7 @@ const renderColorLayerItem = (ui: LayerUI) => {
   );
 
   // The color basemap's hover tooltip is its TYPE label (like every other
-  // row, which shows "count 路 type"); the layer name lives in the label
+  // row, which shows "count / type"); the layer name lives in the label
   // cell, not the tooltip. Persist the type label in data-item-title so a
   // rebuild can restore it; this must be the constant ui.T("type_color_map"),
   // NOT colorLayerName() —a rename must not change the tooltip.
@@ -335,7 +335,6 @@ const renderColorLayerItem = (ui: LayerUI) => {
  *  @returns {boolean} true when the row is a visible base layer. */
 const initLayerItem = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
   if (!ui.m.layerRegistry.has(layerInfo.id)) return false;
-  const layer = ui.m.findLayer(layerInfo);
   const cell = buildRowCell(ui, layerInfo);
   // Resolve the row by data-layer-id: a late registration lands where its
   // stored slot puts it, so the DOM order can diverge from the registry —an
@@ -347,9 +346,9 @@ const initLayerItem = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
   if (!item) return false;
 
   applyRowView(ui, item, cell);
-  // The row renders the intent; the map state still has to be told what the
-  // user wants.
-  syncVisibility(ui, layerInfo, layer, cell.checked);
+  // Map membership was already written by the executor's projection sweep
+  // that runs before this row lands, so the visible mirror here matches
+  // what the map actually shows.
 
   return cell.shown && layerInfo.isBase;
 };

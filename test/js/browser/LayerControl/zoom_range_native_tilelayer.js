@@ -1,6 +1,6 @@
 // Verify that the zoomRange native carrier (layer.options.minZoom/maxZoom +
 // adapter _resetView) actually clears a GridLayer's tiles when the current
-// zoom falls outside the range. R7's native branch writes options then calls
+// zoom falls outside the range. The native branch writes options then calls
 // resetGridLayerView (core/leafletAdapter) — this probe replays that exact
 // sequence against a real Leaflet tile container and measures the result.
 async () => {
@@ -31,10 +31,10 @@ async () => {
   const zoom = m.map.getZoom();
   const before = cnt();
 
-  // Replay R7's native branch: write options then reset the level set.
+  // Replay the native branch: write options then reset the level set.
   tile.options.minZoom = zoom + 1;
   tile.options.maxZoom = zoom + 5;
-  // R7 calls resetGridLayerView(layer) which calls layer._resetView().
+  // resetGridLayerView(layer) then calls layer._resetView().
   // Leaflet's own probe_tile_maxzoom.js established that without _resetView
   // the tiles stay; this call is what makes the range effective.
   if (typeof tile._resetView === "function") tile._resetView();

@@ -46,7 +46,6 @@ vi.mock("#foliplus/MeasureControl/edit.js", async importOriginal => {
 });
 
 beforeEach(() => {
-  vi.clearAllMocks();
   dragHandlers.length = 0;
   installStubs();
 });
