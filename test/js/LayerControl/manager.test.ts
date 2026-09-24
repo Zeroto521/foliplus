@@ -1385,7 +1385,7 @@ describe("LayerManager", () => {
   });
 
   it("deleteLayer prunes every persisted section that keys by layer id", () => {
-    // §28.7-A: `order`, `renamedNames` and `annotations` all survive a plain
+    // `order`, `renamedNames` and `annotations` all survive a plain
     // unregister, and all three must die on a delete. `order` is the one that
     // needs care — saveOrder re-inserts any stored id that is not registered
     // yet, so the id has to leave the stored order itself or it comes straight
