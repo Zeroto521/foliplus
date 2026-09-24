@@ -25,7 +25,7 @@
   background-color: transparent;
   background-image: repeating-conic-gradient(
     rgba(0, 0, 0, var(--alpha-05)) 0% 25%,
-    transparent 0% 50%
+    var(--neutral-0) 0% 50%
   );
   background-size: var(--size-16) var(--size-16);
 }
