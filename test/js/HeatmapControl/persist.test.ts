@@ -1,14 +1,10 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import * as CONST from "#foliplus/HeatmapControl/const.js";
 import { HeatmapManager } from "#foliplus/HeatmapControl/manager.js";
 import { makeManager } from "./fixture.js";
 
 describe("HeatmapManager — versioned persisted config", () => {
   const KEY = CONST.STORAGE.KEY;
-
-  beforeEach(() => {
-    window.localStorage.clear();
-  });
 
   describe("saveConfig — writes the version stamp", () => {
     it("includes version alongside every other persisted field", () => {

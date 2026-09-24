@@ -4,7 +4,6 @@ import { vi } from "vitest";
 import { isDragSyntheticClick } from "#foliplus/MeasureControl/edit.js";
 
 export function initMocks() {
-  vi.clearAllMocks();
   // Consume any pending drag-synthetic-click flag so a prior test's drag end
   // doesn't leak into the next test's click handler.
   isDragSyntheticClick();
@@ -65,15 +64,6 @@ export function initMocks() {
   window.L.marker = markerFactory;
 
   window.L.divIcon = vi.fn(opts => ({ _mockDivIconHtml: opts?.html }));
-
-  window.L.latLng = vi.fn((lat, lng) => ({ lat, lng }));
-
-  window.L.DomEvent = {
-    ...window.L.DomEvent,
-    stopPropagation: vi.fn(event => {
-      if (event?.originalEvent) event.originalEvent._stopped = true;
-    }),
-  };
 
   globalThis.turf = {
     point: coords => ({ coords }),

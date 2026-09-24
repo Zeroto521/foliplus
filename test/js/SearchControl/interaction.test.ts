@@ -55,7 +55,6 @@ function makeCtrl(): any {
 }
 
 beforeEach(() => {
-  vi.clearAllMocks();
   // Let panel.js bindFoldToggle delegate to real DOM listeners so clicks fire.
   window.L.DomEvent.on = vi.fn((el, event, fn) => el.addEventListener(event, fn));
   window.L.DomEvent.off = vi.fn((el, event, fn) => el.removeEventListener(event, fn));

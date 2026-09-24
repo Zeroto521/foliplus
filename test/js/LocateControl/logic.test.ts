@@ -19,16 +19,7 @@ const makeCtrl = () => {
 };
 
 beforeEach(() => {
-  vi.clearAllMocks();
   window.CONF = { ...window.CONF, name: "LocateControl", zoom: 16 };
-  // placeMarker attaches popup/del-icon handlers via `.on` on both markers.
-  window.L.marker = vi.fn(() => ({
-    bindPopup: vi.fn(),
-    openPopup: vi.fn(),
-    addTo: vi.fn(),
-    getPopup: () => null,
-    on: vi.fn(),
-  }));
 });
 
 describe("locateMe", () => {
