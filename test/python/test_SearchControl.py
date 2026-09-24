@@ -199,7 +199,7 @@ class TestSearchControlBrowser:
             "document.querySelector('.foliplus-search .foliplus-toggle-btn').click()"
         )
         page.wait_for_selector(
-            ".foliplus-search.expanded", state="attached", timeout=5000
+            ".foliplus-search.is-expanded", state="attached", timeout=5000
         )
 
     def test_initial_mode_addr(self, browser, tmp_path):
@@ -386,7 +386,7 @@ class TestSearchControlBrowser:
 
             # Verify control is collapsed
             ctrl_has_collapsed = page.evaluate(
-                "document.querySelector('.foliplus-search').classList.contains('collapsed')"
+                "document.querySelector('.foliplus-search').classList.contains('is-collapsed')"
             )
             assert ctrl_has_collapsed, "Expected control to be collapsed after Escape"
 
@@ -401,16 +401,16 @@ class TestSearchControlBrowser:
             self._expand(page)
             assert page.evaluate(
                 "() => { const c = document.querySelector('.foliplus-search');"
-                " return c.classList.contains('expanded')"
-                " && !c.classList.contains('collapsed'); }"
+                " return c.classList.contains('is-expanded')"
+                " && !c.classList.contains('is-collapsed'); }"
             ), "the search panel did not expand"
 
             page.mouse.click(900, 450)
             page.wait_for_selector(
-                ".foliplus-search.collapsed", state="attached", timeout=5000
+                ".foliplus-search.is-collapsed", state="attached", timeout=5000
             )
             assert page.evaluate(
-                "document.querySelector('.foliplus-search').classList.contains('collapsed')"
+                "document.querySelector('.foliplus-search').classList.contains('is-collapsed')"
             ), "the search panel stayed open after an outside press"
             assert not errors, f"JS errors: {errors}"
 

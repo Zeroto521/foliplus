@@ -40,8 +40,8 @@ const TIMING = {
 
 /** CSS class names used during render. */
 const CLASSES = {
-  COLLAPSED: "collapsed",
-  EXPANDED: "expanded",
+  COLLAPSED: "is-collapsed",
+  EXPANDED: "is-expanded",
   TOOL_BTN: "foliplus-tool-btn",
   MODE: "foliplus-export-mode",
   BOX: "foliplus-export-box",
@@ -51,10 +51,10 @@ const CLASSES = {
   CLOSE: "foliplus-close-btn",
   HIDDEN: "foliplus-hidden",
   LOCKED: "locked",
-  ACTIVE: "active",
+  ACTIVE: "is-active",
   CONFIRM: "confirm",
   CANCEL: "cancel",
-  DRAGGING: "dragging",
+  DRAGGING: "is-dragging",
 };
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -97,12 +97,12 @@ const SEL = {
    * `className` hook and has no attribute hook to stamp later:
    *
    *   Usage:  `<div data-foliplus-export="exclude">...</div>`
-   *   Usage:  `<path class="foliplus-no-export" />`
+   *   Usage:  `<path class="foliplus-skip-export" />`
    *
    * Only an element's own marker counts.  Pane-level hiding (focus) is a
    * transient view state and the export ignores it — see renderPaneSVG.
    */
-  SKIP_EXPORT: '[data-foliplus-export="exclude"], .foliplus-no-export',
+  SKIP_EXPORT: '[data-foliplus-export="exclude"], .foliplus-skip-export',
 };
 
 // ============================================================================

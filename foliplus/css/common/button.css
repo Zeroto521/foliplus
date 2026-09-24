@@ -192,7 +192,7 @@
   border-radius: 0;
 }
 /* Shared active state for tool buttons */
-.foliplus-tool-btn.active {
+.foliplus-tool-btn.is-active {
   background-color: var(--input-bg);
   color: var(--accent-primary);
   border: var(--border-thin) solid var(--input-focus-border);
