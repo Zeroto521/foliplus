@@ -200,7 +200,15 @@ describe("build artifacts", () => {
     // carrying.
     // Raised for the unified slider (readout dots, drag bubble, the values row
     // replacing the number field): +668 B, 0.3% above the previous bar.
-    "foliplus-LayerControl.min.js": 210000,
+    //
+    // Measured after the projection diff executor landed (together with the
+    // overflow-menu delete and the core/layer tighten merged from main):
+    // 211452B. The 210000 bar sat 1452B under that, so the executor's write
+    // pipeline — one diff per dimension, carrier-identity replay, and the
+    // author-snapshot guard — tipped it over. 255000 restores the ~20%
+    // headroom this cap is documented as carrying, so the next refactor is
+    // not a cap bump by default.
+    "foliplus-LayerControl.min.js": 255000,
   };
   it("component JS has reasonable size", () => {
     for (const artifact of JS_ARTIFACTS.filter(a => a !== "foliplus-common.min.js")) {
