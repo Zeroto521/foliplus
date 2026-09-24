@@ -153,8 +153,8 @@ interface LayerInfo {
 
 /** Leaflet layer with a custom `isLabel` flag (foliplus adds it).
  *
- *  Write contract for a third-party layer's `options` — exactly three keys,
- *  nothing else:
+ *  Write contract for a third-party layer's `options` — the exact write set
+ *  is `pane`, `renderer`, and `paneSet`; nothing else:
  *    - `pane` and `renderer` — Leaflet's own, and the two a correct draw
  *      position actually needs (Leaflet reads `pane` only at attach time and
  *      ignores a group's for its children, so both must be written to survive a
