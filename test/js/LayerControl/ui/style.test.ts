@@ -7,7 +7,11 @@ import {
   layerHasLabelFields,
   layerHasStyleDelegation,
 } from "#foliplus/LayerControl/ui/style/index.js";
-import { clampPct } from "#foliplus/LayerControl/ui/style/opacity.js";
+import {
+  clampPct,
+  resetLayerOpacity,
+} from "#foliplus/LayerControl/ui/style/opacity.js";
+import { resetLayerZoomRange } from "#foliplus/LayerControl/ui/style/zoomRange.js";
 import { AUTO_FIELD } from "#foliplus/core/labelField.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 import { NUMBER_FORMAT } from "#common/format.js";
@@ -912,6 +916,46 @@ describe("LayerUI style panel", () => {
 
     expect(panelOf(item)).toBeUndefined();
     expect(focusSpy).toHaveBeenCalled();
+  });
+
+  it("layerCanOpacity declines a 'none' carrier: no opacity row is built", () => {
+    // The `capabilities.opacity !== "none"` half of the guard. A layer whose
+    // icons live in a shared pane we do not own (MarkerCluster) has no honest
+    // opacity write — showing a slider would persist a value nothing applies.
+    ui.fieldCache.set("overlay1", [{ name: "count", numeric: true }]);
+    vi.spyOn(manager, "surfaceFor").mockReturnValue({
+      capabilities: { opacity: "none", zoomRange: "none" },
+      paneNames: [],
+      geometryType: () => "point",
+    } as unknown as ReturnType<typeof manager.surfaceFor>);
+
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item);
+    expect(panel, "the style panel rendered").toBeTruthy();
+
+    expect(panel!.querySelector(".foliplus-style-opacity-range")).toBeNull();
+    expect(panel!.querySelector(".foliplus-style-zoom-range-row")).toBeNull();
+  });
+
+  it("canShowZoomRange declines a base layer: basemaps carry no range control", () => {
+    // The `!li.isBase` half of the guard — the only one of the three
+    // conditions that is about the layer rather than about its surface.
+    manager.registerLayer({
+      id: "base1",
+      name: "OSM",
+      isBase: true,
+      layer: { options: {} } as never,
+      paneName: "tilePane",
+    });
+    ui.fieldCache.set("base1", [{ name: "count", numeric: true }]);
+
+    const item = findItem(ui, "base1");
+    ui.openStylePanel("base1");
+    const panel = panelOf(item);
+    expect(panel, "the style panel rendered").toBeTruthy();
+
+    expect(panel!.querySelector(".foliplus-style-zoom-range-row")).toBeNull();
   });
 
   it("layerCanOpacity returns false when the layer is not in the registry", () => {
@@ -3182,5 +3226,27 @@ describe("style utility guards", () => {
     vi.restoreAllMocks();
     // The panel still opens successfully.
     expect(panelOf(item)).not.toBeNull();
+  });
+});
+
+describe("reset on an id the registry does not know", () => {
+  it("resetLayerOpacity returns before touching state", () => {
+    // `if (!ui.m.layerRegistry.has(layerId)) return` — a Reset aimed at a
+    // layer that has already left must not rewrite the record or save.
+    const { ui } = initFixture({});
+    ui.opacityMap.ghost = 0.4;
+    ui.userOverrides.ghost = ["opacity"];
+    expect(() => resetLayerOpacity(ui, "ghost")).not.toThrow();
+    expect(ui.opacityMap.ghost).toBe(0.4);
+    expect(ui.userOverrides.ghost).toEqual(["opacity"]);
+  });
+
+  it("resetLayerZoomRange returns before touching state", () => {
+    const { ui } = initFixture({});
+    ui.zoomRangeMap.ghost = [3, 12];
+    ui.userOverrides.ghost = ["zoomRange"];
+    expect(() => resetLayerZoomRange(ui, "ghost")).not.toThrow();
+    expect(ui.zoomRangeMap.ghost).toEqual([3, 12]);
+    expect(ui.userOverrides.ghost).toEqual(["zoomRange"]);
   });
 });

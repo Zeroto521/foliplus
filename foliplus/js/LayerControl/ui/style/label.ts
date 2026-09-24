@@ -1,5 +1,5 @@
 // Per-layer annotation label controls — the ⚙︎ drawer's "Label" section.
-// Moved verbatim from ui/style.ts (34.1 §34.2.1). Owns the field cache,
+// Moved verbatim from ui/style.ts. Owns the field cache,
 // the toggle/select wiring through applyPatch, and the load-time
 // applyStyleLabelState snapshot seed. Called back by the panel
 // assembly in index.ts.

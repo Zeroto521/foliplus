@@ -1,6 +1,6 @@
-// R1 pane-surface probe harness (test-only, never shipped).
+// Pane-surface probe harness (test-only, never shipped).
 //
-// Measures the four §10.3 facts for one layer after a forced enforceOrder:
+// Measures four pane facts for one layer after a forced enforceOrder:
 //   1. where the content actually lives (pane names, shared or not)
 //   2. whether CSS opacity written to that pane reaches the content
 //   3. whether DOM created at runtime inherits the same pane

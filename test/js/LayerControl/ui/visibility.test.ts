@@ -8,10 +8,8 @@ import {
   handleChange,
   handleInput,
   syncToggleAll,
-  syncVisibility,
   toggleAll,
 } from "#foliplus/LayerControl/ui/visibility.js";
-import type { LayerInfo } from "#foliplus/core/layer/index.js";
 import { initFixture, installLeafletGlobals } from "./fixture.js";
 
 // ===========================================================================
@@ -70,14 +68,25 @@ const fixture = () => {
     removeLayer: vi.fn((layer: unknown) => {
       map._layers.delete(layer);
     }),
+    // Read by `inZoomRange` only when a layer carries a stored zoom range.
+    getZoom: vi.fn(() => 5),
+    getMinZoom: vi.fn(() => 0),
+    getMaxZoom: vi.fn(() => 18),
     _paneRenderers: {},
     attributionControl: { _attributions: {}, _update: vi.fn() },
   } as FixtureMap & Record<string, unknown>;
 
-  const manager = new LayerManager(map, [
+  const layers = [
     { id: "overlay1", name: "Points", isBase: false, layer: layerFixture() },
     { id: "overlay2", name: "Circles", isBase: false, layer: layerFixture() },
-  ]);
+  ];
+  // Simulate folium adding the show=True layers to the map before LayerControl
+  // attaches: the snapshotAuthorVisible pass reads map.hasLayer to capture the
+  // author's declared default, so the fixture must leave the map in the state
+  // folium would have left it in.
+  for (const li of layers) map._layers.set(li.layer, li.layer);
+
+  const manager = new LayerManager(map, layers);
   manager.ui = new LayerUI(manager);
   manager.attachUI(document.createElement("div"));
   return { map, manager, ui: manager.ui as LayerUI };
@@ -158,12 +167,13 @@ describe("applyVisibility", () => {
     const layer = manager.layerRegistry.get("overlay1")!.layer as {
       options: Record<string, unknown>;
     };
+    const paneSetBefore = layer.options.paneSet;
     expect(applyVisibility(ui, "overlay1", false)).toBe(true);
-    expect(layer.options.paneSet).toBeUndefined();
+    expect(layer.options.paneSet).toBe(paneSetBefore);
 
     expect(applyVisibility(ui, "overlay1", true)).toBe(true);
     expect(map.addLayer).toHaveBeenCalledWith(layer);
-    expect(layer.options.paneSet).toBeUndefined();
+    expect(layer.options.paneSet).toBe(paneSetBefore);
     expect(manager.layerRegistry.get("overlay1")?.visible).toBe(true);
     expect(map.hasLayer(layer)).toBe(true);
   });
@@ -190,6 +200,42 @@ describe("applyVisibility", () => {
     ).toBe(true);
     seeded.ui = null;
     seeded.destroy();
+  });
+
+  it("checking a layer outside its stored zoom range does not put it on the map", () => {
+    // Behavior tightening over the old sweep. Checking the box records
+    // `intent`; a stored zoom range that excludes the current zoom is a
+    // policy suppression. `effectiveShown = intent && policy` is false, so
+    // the executor writes nothing and the layer stays off the map until the
+    // zoom re-enters the range. The old path applied `visible: true`
+    // straight to map membership — added first, retracted on the next sweep.
+    // A derived dimension may only suppress, never authorise.
+    (map.getZoom as ReturnType<typeof vi.fn>).mockReturnValue(2);
+    const layer = manager.layerRegistry.get("overlay1")!.layer as L.Layer;
+
+    // The user hides the layer: it leaves the map and the intent is recorded.
+    expect(applyVisibility(ui, "overlay1", false)).toBe(true);
+    expect(map.hasLayer(layer)).toBe(false);
+
+    // The user stores a zoom range that excludes the current zoom (2), then
+    // checks the box again.
+    ui.zoomRangeMap.overlay1 = [3, 12];
+    ui.userOverrides.overlay1 = ["zoomRange"];
+    (map.addLayer as ReturnType<typeof vi.fn>).mockClear();
+
+    expect(applyVisibility(ui, "overlay1", true)).toBe(true);
+
+    // Intent is recorded: the box is checked and the layer is no longer hidden.
+    expect(ui.hiddenIds.has("overlay1")).toBe(false);
+    expect(
+      ui.uiContainer.querySelector(
+        `[${CONST.DATA.LAYER_ID}="overlay1"] input[type="checkbox"]`,
+      )?.checked,
+    ).toBe(true);
+    // ...but policy suppresses the display: no map write at all.
+    expect(map.addLayer).not.toHaveBeenCalled();
+    expect(map.hasLayer(layer)).toBe(false);
+    expect(manager.layerRegistry.get("overlay1")?.visible).toBe(false);
   });
 
   it("fires the callback instead of touching the map for a canvas-only layer", () => {
@@ -289,10 +335,17 @@ describe("applyVisibility", () => {
 
   it("treats a base layer like an overlay, map membership included", () => {
     const layer = layerFixture();
-    const fresh = makeUi(map, [
-      { id: "base1", name: "OSM", isBase: true, layer, paneName: "tilePane" },
-    ]);
+    const fresh = makeUi(map, []);
     const ui2 = fresh.ui as LayerUI;
+    // RegisterLayer adds the layer to the map (the constructor data path
+    // does not), which is the precondition this test asserts against.
+    fresh.registerLayer({
+      id: "base1",
+      name: "OSM",
+      isBase: true,
+      layer,
+      paneName: "tilePane",
+    });
 
     expect(applyVisibility(ui2, "base1", false)).toBe(true);
     expect(map.removeLayer).toHaveBeenCalledWith(layer);
@@ -310,10 +363,12 @@ describe("applyVisibility", () => {
     fresh.destroy();
   });
 
-  it("fires the callback on every call, not only on change", () => {
-    // A programmatic caller may re-set the same value; unlike the checkbox,
-    // which the browser only fires on a flip, this path takes the transition
-    // again. Documenting it so a dedupe added later is a deliberate change.
+  it("fires the callback only on a change, not on a repeated set", () => {
+    // A programmatic caller may re-set the same value; the executor diffs
+    // against its own last write, so a no-op set is a no-op — including for
+    // the `onToggle` callback. The callback is the canvas layer's signal that
+    // its own `HIDDEN` class needs toggling; firing it on a value it already
+    // has would be redundant work the canvas would just ignore.
     const onToggle = vi.fn();
     const layer = layerFixture();
     manager.registerLayer({
@@ -326,9 +381,8 @@ describe("applyVisibility", () => {
 
     expect(applyVisibility(ui, "repeat", false)).toBe(true);
     expect(applyVisibility(ui, "repeat", false)).toBe(true);
-    expect(onToggle).toHaveBeenCalledTimes(2);
+    expect(onToggle).toHaveBeenCalledTimes(1);
     expect(onToggle).toHaveBeenNthCalledWith(1, false);
-    expect(onToggle).toHaveBeenNthCalledWith(2, false);
     expect(map.removeLayer).toHaveBeenCalledWith(layer);
   });
 
@@ -495,12 +549,13 @@ describe("LayerUI.handleChange", () => {
     const layer = manager.layerRegistry.get("overlay1")!.layer as {
       options: Record<string, unknown>;
     };
+    const paneSetBefore = layer.options.paneSet;
     change(ui, "overlay1", false);
-    expect(layer.options.paneSet).toBeUndefined();
+    expect(layer.options.paneSet).toBe(paneSetBefore);
 
     change(ui, "overlay1", true);
     expect(map.addLayer).toHaveBeenCalledWith(layer);
-    expect(layer.options.paneSet).toBeUndefined();
+    expect(layer.options.paneSet).toBe(paneSetBefore);
     expect(manager.layerRegistry.get("overlay1")?.visible).toBe(true);
   });
 
@@ -572,11 +627,16 @@ describe("DOM order diverges from registry order", () => {
       attributionControl: { _attributions: {}, _update: vi.fn() },
     } as FixtureMap & Record<string, unknown>;
 
-    const manager = new LayerManager(map, [
+    const layers = [
       { id: "A", name: "Layer A", isBase: false, layer: layerFixture() },
       { id: "B", name: "Layer B", isBase: false, layer: layerFixture() },
       { id: "C", name: "Layer C", isBase: false, layer: layerFixture() },
-    ]);
+    ];
+    // Same folium simulation as fixture(): leave the map with the layers that
+    // show=True would have added, so snapshotAuthorVisible reads true.
+    for (const li of layers) map._layers.set(li.layer, li.layer);
+
+    const manager = new LayerManager(map, layers);
     manager.ui = new LayerUI(manager);
     manager.attachUI(document.createElement("div"));
     return { map, manager, ui: manager.ui as LayerUI };
@@ -798,6 +858,14 @@ describe("toggleAll base group", () => {
   it("runs every branch of the sweep: real layer, canvas-only base, and the callback", () => {
     const onToggle = manager.layerRegistry.get("B2")!.onToggle!;
 
+    // Hide both first so the sweep has a visible→shown transition to fire.
+    toggleAll(ui, CONST.GROUP.BASE, false);
+
+    // Clear the mocks so we only count the un-hide call.
+    onToggle.mockClear();
+    map.addLayer.mockClear();
+    map.removeLayer.mockClear();
+
     toggleAll(ui, CONST.GROUP.BASE, true);
 
     expect(map.addLayer).toHaveBeenCalledWith(manager.layerRegistry.get("B1")!.layer);
@@ -847,13 +915,9 @@ describe("unit helpers", () => {
     expect(items[0].getAttribute("data-layer-type")).toBe("overlay");
   });
 
-  it("syncVisibility falls back when the Leaflet layer is absent", () => {
-    const layerInfo = { id: "a", visible: false } as LayerInfo;
-    expect(syncVisibility(makeUi(), layerInfo, null, true)).toBe(true);
-    expect(layerInfo.visible).toBe(true);
-    expect(syncVisibility(makeUi(), layerInfo, null, false)).toBe(false);
-    expect(layerInfo.visible).toBe(false);
-  });
+  // syncVisibility is gone: the executor's visible op is
+  // the single writer of `layerInfo.visible`, so there is no mirror helper
+  // to test.
 
   it("handleInput is a no-op for non-color inputs", () => {
     const ui = makeUi();

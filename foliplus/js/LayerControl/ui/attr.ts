@@ -151,7 +151,7 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
   // Shell (surface, header, content scroll) comes from the shared row-panel
   // factory, so this surface is built by the same code as the per-layer style
   // panel and neither can drift into a lookalike. Hover title is close_title
-  // (收起 / Collapse), same as the main panel.
+  // (Collapse), same as the main panel.
   const { panel, header, content } = createRowPanel({
     cssClass: CONST.CLASSES.ATTRS_PANEL,
     title: displayName,

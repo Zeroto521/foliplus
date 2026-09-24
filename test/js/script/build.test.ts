@@ -13,12 +13,12 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { esbuildCfgFor } from "#script/esbuild-config.mjs";
 
 // Vitest runs with the repo root as cwd, same convention bundle-size-check
-// relies on — so dist/ resolves without a parent-directory walk.
+// relies on —so dist/ resolves without a parent-directory walk.
 const ROOT = resolve(process.cwd());
 const distDir = resolve(ROOT, "foliplus/dist");
 
 // Artifact names come from dist/artifacts.json, which `script/build.mjs`
-// writes on every real build — the same list `test/python/test_asset.py`
+// writes on every real build —the same list `test/python/test_asset.py`
 // asserts wheel membership against. A new component therefore shows up in
 // both stacks without either test hardcoding its name.
 const names = JSON.parse(
@@ -140,7 +140,7 @@ describe("build artifacts", () => {
 // invariant the bundle-size gates rely on: they measure the minified output, so
 // comment noise must never count.
 //
-// The config we inspect comes from script/esbuild-config.mjs — the same factory
+// The config we inspect comes from script/esbuild-config.mjs —the same factory
 // script/build.mjs calls. Asserting `minify === true` here is what ties the
 // "size gates measure compressed bytes" claim to the actual build; without it,
 // someone could set `minify: false` in the real config and every gate would
@@ -171,7 +171,7 @@ const cli = (() => {
 // plugins are JS functions (they don't serialize to CLI), the rest aren't
 // used by the invariant being tested (comment stripping under `minify`).
 //
-// `--sourcemap` is only emitted when truthy — the CLI takes
+// `--sourcemap` is only emitted when truthy —the CLI takes
 // `linked|inline|external|both` and rejects `false`, so a falsy value is
 // expressed by omission.
 const cliArgs = (cfg: ReturnType<typeof esbuildCfgFor>) =>
@@ -213,38 +213,49 @@ describe("minify invariant", () => {
     expect(esbuildCfgFor({ dev: true, root: cwd }).minify).toBe(false);
   });
 
-  it("comments are stripped when minify is on", () => {
+  // Two real esbuild builds each: the default 5s test budget is spent on
+  // parallel-suite load alone, not on the assertions. Explicit per-test
+  // budget so the invariant stays a format check rather than a load check.
+  it("comments are stripped when minify is on", { timeout: 30_000 }, () => {
     const cfg = esbuildCfgFor({ dev: false, root: cwd });
     const a = buildWithConfig(SRC, cfg);
     const b = buildWithConfig(NOISE + SRC, cfg);
     expect(Buffer.compare(a, b)).toBe(0);
   });
 
-  it("reverse proof: @preserve comments survive, so stripping is real", () => {
-    // Directly the mirror of the previous test. esbuild keeps `@preserve`
-    // and `@license` comments even under --minify (they are "legal
-    // comments" — the tool can't legally strip attribution). So if we swap
-    // the plain `//` comment for a `@preserve` block, the two outputs must
-    // differ: the invariant really is about ordinary comments being
-    // stripped, not about trivially-passing assertions.
-    const LEGAL = "/* @preserve " + "x".repeat(51196) + " */\n";
-    const cfg = esbuildCfgFor({ dev: false, root: cwd });
-    const a = buildWithConfig(SRC, cfg);
-    const b = buildWithConfig(LEGAL + SRC, cfg);
-    // The preserved comment shows up in the output as-is: 51,200+ bytes.
-    expect(b.byteLength).toBeGreaterThan(a.byteLength + 50_000);
-    expect(Buffer.compare(a, b)).not.toBe(0);
-  });
+  it(
+    "reverse proof: @preserve comments survive, so stripping is real",
+    { timeout: 30_000 },
+    () => {
+      // Directly the mirror of the previous test. esbuild keeps `@preserve`
+      // and `@license` comments even under --minify (they are "legal
+      // comments" —the tool can't legally strip attribution). So if we swap
+      // the plain `//` comment for a `@preserve` block, the two outputs must
+      // differ: the invariant really is about ordinary comments being
+      // stripped, not about trivially-passing assertions.
+      const LEGAL = "/* @preserve " + "x".repeat(51196) + " */\n";
+      const cfg = esbuildCfgFor({ dev: false, root: cwd });
+      const a = buildWithConfig(SRC, cfg);
+      const b = buildWithConfig(LEGAL + SRC, cfg);
+      // The preserved comment shows up in the output as-is: 51,200+ bytes.
+      expect(b.byteLength).toBeGreaterThan(a.byteLength + 50_000);
+      expect(Buffer.compare(a, b)).not.toBe(0);
+    },
+  );
 
-  it("the noise really is comment-only — whitespace padding behaves the same", () => {
-    const blank = " ".repeat(51196) + SRC;
-    // Under --minify both comments and excess whitespace are stripped, so
-    // three inputs (no noise, comment noise, blank noise) all collapse to
-    // the same bytes. If the previous test weren't a quirk of `//`, this
-    // still holds.
-    const cfg = esbuildCfgFor({ dev: false, root: cwd });
-    const a = buildWithConfig(SRC, cfg);
-    const c = buildWithConfig(blank, cfg);
-    expect(Buffer.compare(a, c)).toBe(0);
-  });
+  it(
+    "the noise really is comment-only — whitespace padding behaves the same",
+    { timeout: 30_000 },
+    () => {
+      const blank = " ".repeat(51196) + SRC;
+      // Under --minify both comments and excess whitespace are stripped, so
+      // three inputs (no noise, comment noise, blank noise) all collapse to
+      // the same bytes. If the previous test weren't a quirk of `//`, this
+      // still holds.
+      const cfg = esbuildCfgFor({ dev: false, root: cwd });
+      const a = buildWithConfig(SRC, cfg);
+      const c = buildWithConfig(blank, cfg);
+      expect(Buffer.compare(a, c)).toBe(0);
+    },
+  );
 });

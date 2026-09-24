@@ -1,16 +1,12 @@
 // Zoom-range row: dual-thumb rail + current-zoom marker + value labels +
-// live / commit passes. Moved verbatim from ui/style.ts (34.1 §34.2.1).
+// live / commit passes. Moved verbatim from ui/style.ts.
 // Used by both the delegated drawer and the annotation panel — the row is
 // LayerControl-owned, gated by surface capability.
 import { dom } from "#common/dom.js";
 import * as CONST from "../../const.js";
+import { applyProjection } from "../apply.js";
 import type { LayerUI } from "../index.js";
-import {
-  applyZoomRangeStateOne,
-  markOverride,
-  saveState,
-  unmarkOverride,
-} from "../state.js";
+import { markOverride, saveState, unmarkOverride } from "../state.js";
 import { railPos, round5 } from "./frame.js";
 
 /** Whether the layer's surface can honestly carry a zoom-range write.
@@ -19,9 +15,9 @@ import { railPos, round5 } from "./frame.js";
  *    1. `!layerInfo.canvas` — callback-only canvas layers (heatmap / measure)
  *       have no real Leaflet layer to add/remove, so a range that hides them
  *       has no carrier (31.4-3).
- *    2. `!layerInfo.isBase` — basemaps are out of R7 scope.
+ *    2. `!layerInfo.isBase` — basemaps carry no range control here.
  *    3. `capabilities.zoomRange !== "none"` — MarkerCluster and ImageOverlay
- *       have no honest zoom-range carrier (6.2 "不得静默失效").
+ *       have no honest zoom-range carrier.
  *
  *  Condition 1 is the substantive gate (31.7): capability alone cannot tell
  *  "has content panes" from "callback-only canvas", because `detectCapabilities`
@@ -267,7 +263,7 @@ const applyZoomRangeLive = (
   if (!li) return;
   ui.zoomRangeMap[layerId] = [min, max];
   syncZoomRangeRow(ui, layerId, row, [min, max]);
-  applyZoomRangeStateOne(ui, li, [min, max]);
+  applyProjection(ui, layerId);
 };
 
 /** Commit pass: persist the zoom range to localStorage. The value and the
@@ -280,21 +276,19 @@ const commitZoomRange = (ui: LayerUI, layerId: string): void => {
 
 /** Reset one layer's zoom range to the full map range and drop its override. */
 const resetLayerZoomRange = (ui: LayerUI, layerId: string): void => {
-  const li = ui.m.layerRegistry.get(layerId);
+  if (!ui.m.layerRegistry.has(layerId)) return;
   delete ui.zoomRangeMap[layerId];
   unmarkOverride(ui, layerId, "zoomRange");
   saveState(ui);
-  if (li) {
-    applyZoomRangeStateOne(ui, li, null);
-    // Refresh the row's visual state (fill, values, out-of-range).
-    const panel = ui.uiContainer.querySelector(
-      `.${CONST.CLASSES.STYLE_PANEL}`,
-    ) as HTMLElement | null;
-    const row = panel?.querySelector(
-      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`,
-    ) as HTMLElement | null;
-    if (row) syncZoomRangeRow(ui, layerId, row);
-  }
+  applyProjection(ui, layerId);
+  // Refresh the row's visual state (fill, values, out-of-range).
+  const panel = ui.uiContainer.querySelector(
+    `.${CONST.CLASSES.STYLE_PANEL}`,
+  ) as HTMLElement | null;
+  const row = panel?.querySelector(
+    `.${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`,
+  ) as HTMLElement | null;
+  if (row) syncZoomRangeRow(ui, layerId, row);
 };
 
 export {

@@ -1,6 +1,6 @@
 // Frame-level helpers for the style panel — pure DOM builders and math.
 // No state, no events, no manager calls. Moved verbatim from ui/style.ts
-// (34.1 §34.2.1). Owns the panel's frame pieces: section heading, reset
+// Owns the panel's frame pieces: section heading, reset
 // footer, and the slider-rail positioning math the opacity / zoom-range
 // rows share.
 import { dom } from "#common/dom.js";

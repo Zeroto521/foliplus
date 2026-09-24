@@ -314,12 +314,77 @@ describe("snapshotAuthorVisible", () => {
     expect(ui.authorVisible.get("overlay1")).toBe(true);
   });
 
-  it("falls back to the registry flag when no layer object exists yet", () => {
+  it("leaves the snapshot unknown while the layer's object is not linked yet", () => {
+    // Folium emits a layer's JS global *after* the control's IIFE, so at
+    // attach a registry entry has no resolvable layer yet and there is no
+    // honest map state to read. Latching the registry flag here would record
+    // `true` for an author `show=False` layer and — the snapshot being
+    // idempotent — keep the later correct reading out for good. That is the
+    // exact path the show=False zoom-sweep gate covers.
     const { ui } = initFixture({});
     vi.spyOn(ui.m, "findLayer").mockReturnValue(null);
     snapshotAuthorVisible(ui, { id: "ghost", visible: true } as LayerInfo);
     snapshotAuthorVisible(ui, { id: "ghost-hidden", visible: false } as LayerInfo);
-    expect(ui.authorVisible.get("ghost")).toBe(true);
-    expect(ui.authorVisible.get("ghost-hidden")).toBe(false);
+    expect(ui.authorVisible.has("ghost")).toBe(false);
+    expect(ui.authorVisible.has("ghost-hidden")).toBe(false);
+  });
+
+  it("still latches the declared flag for a canvas-only layer", () => {
+    // A canvas layer never has a Leaflet layer to observe at any point, so
+    // its declared `visible` is the ground truth — the one case where the
+    // registry flag is an observation rather than a guess.
+    const { ui } = initFixture({});
+    vi.spyOn(ui.m, "findLayer").mockReturnValue(null);
+    snapshotAuthorVisible(ui, {
+      id: "heat",
+      visible: true,
+      canvas: document.createElement("canvas"),
+    } as unknown as LayerInfo);
+    snapshotAuthorVisible(ui, {
+      id: "heat-hidden",
+      visible: false,
+      canvas: document.createElement("canvas"),
+    } as unknown as LayerInfo);
+    expect(ui.authorVisible.get("heat")).toBe(true);
+    expect(ui.authorVisible.get("heat-hidden")).toBe(false);
+  });
+
+  it("lets a later pass latch the truth once the layer is linked", () => {
+    // The unknown state is not a dead end: initTypesAndVisibility runs after
+    // folium links its layers and must be able to record the real boot
+    // membership. A `show=False` layer reads as `false` there.
+    const { ui } = initFixture({});
+    const find = vi.spyOn(ui.m, "findLayer").mockReturnValue(null);
+    snapshotAuthorVisible(ui, { id: "late" } as LayerInfo);
+    expect(ui.authorVisible.has("late")).toBe(false);
+
+    const layer = { options: {} } as L.Layer;
+    find.mockReturnValue(layer);
+    (ui.m.map.hasLayer as ReturnType<typeof vi.fn>).mockReturnValue(false);
+    snapshotAuthorVisible(ui, { id: "late" } as LayerInfo);
+    expect(ui.authorVisible.get("late")).toBe(false);
+  });
+});
+
+describe("rowChecked: what counts as the user's choice", () => {
+  it("a bare hiddenIds entry is already a choice — the row reads unchecked", () => {
+    // `syncHiddenId` always marks, but a restored record or a direct write
+    // can leave an entry without its provenance marker. Either half is the
+    // user's choice; only the author's default is the fallback.
+    const { ui } = initFixture({});
+    const layerInfo = ui.m.layers.find(li => li.id === "overlay1")!;
+    ui.userOverrides.overlay1 = undefined as never;
+    delete ui.userOverrides.overlay1;
+    ui.hiddenIds.add("overlay1");
+    expect(rowChecked(ui, layerInfo)).toBe(false);
+  });
+
+  it("neither half present falls back to the author's declared default", () => {
+    const { ui } = initFixture({});
+    const layerInfo = ui.m.layers.find(li => li.id === "overlay1")!;
+    delete ui.userOverrides.overlay1;
+    ui.hiddenIds.delete("overlay1");
+    ui.authorVisible.set("overlay1", false);
+    expect(rowChecked(ui, layerInfo)).toBe(false);
   });
 });

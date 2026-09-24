@@ -9,6 +9,7 @@ import {
   handleMoreMenuClick,
   registerInteractions,
 } from "../interaction.js";
+import { applyProjection, applyProjectionAll } from "./apply.js";
 import { inFloatingPanel, isKeyboardVisibleFocus, owningRow } from "./context.js";
 import {
   handleDragEnd,
@@ -32,13 +33,8 @@ import { insertLayerItem, renderInitialList } from "./list.js";
 import { closeMoreMenu } from "./menu.js";
 import { finishRename } from "./rename.js";
 import { applyRowView, buildRowCell } from "./rowView.js";
-import {
-  applyOpacityStateOne,
-  applyUserState,
-  loadPersistedState,
-  refreshZoomEffectiveShown,
-  syncHiddenId,
-} from "./state.js";
+import { snapshotAuthorVisible } from "./rowView.js";
+import { applyUserState, loadPersistedState, syncHiddenId } from "./state.js";
 import { closeStylePanel, invalidateFields } from "./style/index.js";
 import {
   getLayerItems,
@@ -62,6 +58,16 @@ const attachUI = (ui: LayerUI, containerDiv: HTMLElement): void => {
   while (ui.m.pendingRegistrations.length) {
     const layerInfo = ui.m.pendingRegistrations.shift();
     if (layerInfo) insertLayerItem(ui, layerInfo);
+  }
+  // Snapshot the author's declared default before the first projection.
+  // `projectLayer` reads `authorVisible.get(id) ?? true` — an absent entry
+  // is read as "author declared visible" — which is exactly the class of
+  // bug the quickstart hit: a folium `show=False` layer would come up on the map
+  // on the first projection because the author's snapshot hasn't landed
+  // yet. The snapshot is idempotent, so the later `initTypesAndVisibility`
+  // re-runs don't overwrite what we took here.
+  for (let i = 0; i < ui.m.layers.length; i++) {
+    snapshotAuthorVisible(ui, ui.m.layers[i]);
   }
   // Last in the attach sequence: applyUserState() runs the full sweep
   // needed for rows rendered from the initial registry. Hidden ids are
@@ -252,7 +258,7 @@ const bindEvents = (ui: LayerUI): void => {
   // includes it is brought back. This is the "inRange" half of
   // effectiveShown = intent && inRange, and it writes through the single
   // pipeline so the checkbox / hiddenIds / overrides stay untouched (#329).
-  ui.onZoomEnd = () => refreshZoomEffectiveShown(ui);
+  ui.onZoomEnd = () => applyProjectionAll(ui);
   ui.m.map.on("zoomend", ui.onZoomEnd);
   // Keyboard dispatch for the "more" button (Enter/Space/Escape) is handled
   // by InteractionManager via registerInteractions() in interaction.ts,
@@ -288,9 +294,15 @@ const onLayerItemCountChange = (ui: LayerUI, id: string): void => {
   // Re-apply the layer's current opacity to the newly-finalized geometry.
   // The panes were painted at full opacity while the preview was live; the
   // count-change event fires at store.add, which is the moment the real
-  // geometry lands — so this is when the opacity "snaps in".
-  if (layerInfo.opacity != null && layerInfo.opacity !== 1) {
-    applyOpacityStateOne(ui, layerInfo, layerInfo.opacity);
+  // geometry lands — so this is when the opacity "snaps in". A canvas layer
+  // may have been replaced since the previous projection wrote (its
+  // `layerInfo.canvas` now points at a fresh element whose style does not
+  // carry the value), so the executor's `appliedState` is invalidated for
+  // this id before the re-projection: the diff sees the stored opacity as
+  // new and re-applies it through the carrier dispatcher.
+  if (ui.opacityMap[id] !== undefined) {
+    ui.appliedState.delete(id);
+    applyProjection(ui, id);
   }
 };
 

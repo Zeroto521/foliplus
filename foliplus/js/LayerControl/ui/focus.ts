@@ -9,6 +9,7 @@ import {
 } from "#core/layer/index.js";
 import { ensureModes, guardBlocked } from "#core/mode.js";
 import * as CONST from "../const.js";
+import { applyProjectionAll } from "./apply.js";
 import type { LayerUI } from "./index.js";
 import { getActiveLayerItem } from "./keyboard.js";
 
@@ -95,7 +96,7 @@ const toggleFocusedLayer = (ui: LayerUI): void => {
 const focusLayer = (ui: LayerUI, layerId: string) => {
   // Guard: any component holding the map (measuring, exporting, searching,
   // locating) blocks focus. One guard at the entry covers all call sites
-  // (double-click, 鈰?menu, Alt+Enter, Enter) so none of them leak.
+  // (double-click, overflow menu, Alt+Enter, Enter) so none of them leak.
   if (guardBlocked(ui.m.map, ui.conf.name, ui.T("blocked"))) return;
 
   const layerInfo = ui.m.layerRegistry.get(layerId);
@@ -260,9 +261,9 @@ const dismissFocus = (ui: LayerUI): void => {
   ui.focusingLayerId = null;
   // Focus suspends inRange for its duration: with focus gone, the focused
   // layer's effective-shown falls back to intent && inRange. If its range
-  // still excludes the current zoom, the sweep removes it from the map —
+  // still excludes the current zoom, the executor removes it from the map —
   // the "unfocus returns it to hidden" half of the focus gate.
-  ui.refreshZoomEffectiveShown();
+  applyProjectionAll(ui);
 };
 
 /**

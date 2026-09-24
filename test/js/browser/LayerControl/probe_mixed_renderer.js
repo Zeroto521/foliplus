@@ -1,4 +1,4 @@
-// R1 probe (§10.3 #10): mixed renderer — one layer with an SVG data pane
+// Probe: mixed renderer — one layer with an SVG data pane
 // and a canvas label pane. Verifies pane-level opacity/hide reaches both
 // renderers consistently, and that pointer-events:none on the canvas
 // label pane keeps the SVG data clickable underneath.
