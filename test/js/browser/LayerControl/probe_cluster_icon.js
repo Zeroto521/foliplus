@@ -1,4 +1,4 @@
-// R1 probe (§10.3 #3): MarkerCluster — the cluster icon vs the single
+// Probe: MarkerCluster — the cluster icon vs the single
 // marker. Individual marker icons are migrated into the layer's fallback
 // pane by PaneManager.pinLateContent (eachLayer recursion reaches them),
 // but the cluster icon itself (a .marker-cluster element, MarkerCluster

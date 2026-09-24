@@ -209,7 +209,7 @@ describe("applyVisibility", () => {
     // the executor writes nothing and the layer stays off the map until the
     // zoom re-enters the range. The old path applied `visible: true`
     // straight to map membership — added first, retracted on the next sweep.
-    // Under §40.5 a derived dimension may only suppress, never authorise.
+    // A derived dimension may only suppress, never authorise.
     (map.getZoom as ReturnType<typeof vi.fn>).mockReturnValue(2);
     const layer = manager.layerRegistry.get("overlay1")!.layer as L.Layer;
 
@@ -915,7 +915,7 @@ describe("unit helpers", () => {
     expect(items[0].getAttribute("data-layer-type")).toBe("overlay");
   });
 
-  // syncVisibility is gone (§22-9.1 step 3): the executor's visible op is
+  // syncVisibility is gone: the executor's visible op is
   // the single writer of `layerInfo.visible`, so there is no mirror helper
   // to test.
 

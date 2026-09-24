@@ -1255,7 +1255,7 @@ describe("LayerUI opacity restore / retention", () => {
     u.applyUserState();
 
     expect(m.layerRegistry.get("overlay1")?.opacity).toBe(0.45);
-    // The pane carrier received the write (§5.4 multiplicative).
+    // The pane carrier received the write (multiplicative over each feature).
     const writtenPane = [...panes.values()].find(p => p.style.opacity === "0.45");
     expect(writtenPane).toBeDefined();
   });
@@ -2076,14 +2076,14 @@ describe("zoomRange effective-shown logic", () => {
     expect(map.addLayer).not.toHaveBeenCalled();
   });
 
-  it("sweep still retracts a layer the user explicitly checked on (R7 range still applies)", () => {
+  it("sweep still retracts a layer the user explicitly checked on (its own range still applies)", () => {
     // The userCheckedOn guard is intentionally absent: computeEffectiveShown
     // returns intent && inRange, and intent = !hiddenIds.has(id). For a
     // checked-on layer with a stored range, shown=false means the user
     // configured that range and the current zoom is outside it — that is
-    // R7's intended behaviour, not a bug. The guard would have turned that
-    // legitimate case into a silent no-op, which is exactly §6.2's
-    // "不得静默失效". syncHiddenId already clears rangeHiddenIds on user
+    // Intended behaviour, not a bug. The guard would have turned that
+    // legitimate case into a silent no-op, which is exactly what the
+    // silently. syncHiddenId already clears rangeHiddenIds on user
     // action; the next zoom out of range should retract again.
     let onMap = true;
     const map = makeMap();

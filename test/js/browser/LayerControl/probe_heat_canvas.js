@@ -1,4 +1,4 @@
-// R1 probe (§10.3 #4): HeatMap canvas — where it lives, whether a pane
+// Probe: HeatMap canvas — where it lives, whether a pane
 // carrier reaches it, and whether minOpacity is settable at runtime.
 //
 // leaflet-heat appends its canvas to overlayPane (the group default pane),

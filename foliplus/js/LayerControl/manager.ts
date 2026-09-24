@@ -117,7 +117,7 @@ const mergeStoredOrder = (stored: string[] | null, live: string[]): string[] => 
 //      calls, not public API: they exist so the manager can drive the
 //      rendering side without owning DOM.
 //
-// §33.2 (2026-09-21): geometry-type probing has moved off this file — the
+// Geometry-type probing has moved off this file — the
 // surface now owns `geometryType()` (cached), and this class reads from it.
 // The `layerInfo.type` field is a snapshot mirror of that surface result,
 // not a second source of truth.
@@ -438,7 +438,7 @@ class LayerManager implements LayerAPI {
    *  probe result. This method is the primary writer; list.ts and
    *  ui/index.ts also write it at render time, but always sourced from
    *  `surface.geometryType()`. The manager never calls `getGeometryType`
-   *  directly — that probe lives on the surface (§33.2). */
+   *  directly — that probe lives on the surface. */
   getLayerType(id: string): string | null {
     const layerInfo = this.layerRegistry.get(id);
     if (!layerInfo) return null;

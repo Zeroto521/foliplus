@@ -1,5 +1,5 @@
 // Zoom-range row: dual-thumb rail + current-zoom marker + value labels +
-// live / commit passes. Moved verbatim from ui/style.ts (34.1 §34.2.1).
+// live / commit passes. Moved verbatim from ui/style.ts.
 // Used by both the delegated drawer and the annotation panel — the row is
 // LayerControl-owned, gated by surface capability.
 import { dom } from "#common/dom.js";
@@ -15,9 +15,9 @@ import { railPos, round5 } from "./frame.js";
  *    1. `!layerInfo.canvas` — callback-only canvas layers (heatmap / measure)
  *       have no real Leaflet layer to add/remove, so a range that hides them
  *       has no carrier (31.4-3).
- *    2. `!layerInfo.isBase` — basemaps are out of R7 scope.
+ *    2. `!layerInfo.isBase` — basemaps carry no range control here.
  *    3. `capabilities.zoomRange !== "none"` — MarkerCluster and ImageOverlay
- *       have no honest zoom-range carrier (6.2 "不得静默失效").
+ *       have no honest zoom-range carrier.
  *
  *  Condition 1 is the substantive gate (31.7): capability alone cannot tell
  *  "has content panes" from "callback-only canvas", because `detectCapabilities`

@@ -180,7 +180,7 @@ const applyUserState = (ui: LayerUI, id?: string) => {
     if (!layerInfo) return; // not registered yet —its stored state is kept
     // One id, one projection: a late registration replays every stored
     // dimension on the same pass — visibility, opacity and zoom range — so
-    // nothing needs a per-caller replay path (the T46 contract).
+    // nothing needs a per-caller replay path: a late arrival replays itself.
     applyProjection(ui, id);
     if (id in ui.renamedNames) {
       applyNameProjection(layerInfo, null, ui.renamedNames[id]);
@@ -293,7 +293,7 @@ const applyHiddenOne = (ui: LayerUI, layerInfo: LayerInfo, id: string) => {
  * One pipeline, one carrier — every kind of layer resolves to exactly one
  * write target (see `LayerSurface.capabilities.opacity`):
  *
- *   - canvas element (its own CSS opacity; the §4.2 ① carrier for heatmap /
+ *   - canvas element (its own CSS opacity, which is the carrier for heatmap /
  *     measure, which still bake alpha at draw time — R11 will switch them to ②)
  *   - its own pane (declared, sub, or synthesized) — one CSS write reaches
  *     paths, markers, divIcons and canvases alike; multiplicative over
@@ -302,9 +302,9 @@ const applyHiddenOne = (ui: LayerUI, layerInfo: LayerInfo, id: string) => {
  *   - the layer's native setter (`ImageOverlay.setOpacity`, `TileLayer.options
  *     .opacity`) for the two shapes that own their own paint path.
  *   - "none": MarkerCluster's cluster icons stay in the shared `markerPane`,
- *     where `eachLayer` cannot reach them (§25.3-3); no honest write exists,
+ *     where `eachLayer` cannot reach them; no honest write exists,
  *     so the value is not stored — a slider that writes nothing must not
- *     persist (§6.2).
+ *     persist.
  *
  * Called from the style panel's slider and reset buttons and from the
  * count-change event (which re-fires the layer's stored opacity at the moment
@@ -318,7 +318,7 @@ const applyHiddenOne = (ui: LayerUI, layerInfo: LayerInfo, id: string) => {
  * @param patch.opacity  — 0..1 slider value; written to whichever carrier
  *   `surface.capabilities.opacity` names. When the carrier is "none" no honest
  *   write exists, so the value is not stored — a slider that writes nothing
- *   must not persist (§6.2).
+ *   must not persist.
  * @param patch.visible — map membership for Leaflet layers, `onToggle` for
  *   callback-only ones (canvas layers use the shared `HIDDEN` class in
  *   `LayerFactory`, not a pane write); the row's checkbox is touched by the
@@ -331,11 +331,10 @@ const applyLayerState = (
 ) => {
   if (patch.opacity !== undefined) {
     if (layerInfo.canvas) {
-      // The canvas element's own CSS opacity — the §4.2 ① carrier for the
+      // The canvas element's own CSS opacity — the carrier for the
       // createCanvas shape (heatmap / measure). Kept as a distinct branch
       // from the pane write: the pane's opacity would compound with this one,
-      // and a single knob must not be multiplied twice (§4.2 "别把两处相乘成
-      // 0.16 的坑").
+      // and a single knob must not be multiplied twice.
       layerInfo.canvas.style.opacity = String(patch.opacity);
       layerInfo.opacity = patch.opacity;
     } else {
@@ -445,7 +444,7 @@ const applyOpacityStateOne = (ui: LayerUI, layerInfo: LayerInfo, opacity: number
  * through the one write pipeline rather than setting the style itself:
  * `applyLayerState` is what resolves the carrier, so a layer whose carrier is its
  * own canvas keeps writing `canvas.style` instead of picking up a second,
- * multiplying write on a pane (§4.2).
+ * multiplying write on a pane.
  *
  * The name names the trigger, not the dimension: `visible` rides on map
  * membership / `onToggle` and `zoomRange` is a declaration, so neither goes
@@ -491,7 +490,7 @@ const computeEffectiveShown = (
 
 /** Apply the layer's stored zoom range to its carrier.
  *
- *  Dispatch by `capabilities.zoomRange` (§5.4-style capability-driven
+ *  Dispatch by `capabilities.zoomRange` (a capability-driven
  *  writer):
  *    - "native" — write `layer.options.minZoom/maxZoom` (only GridLayer
  *      honours min/maxZoom at runtime; ImageOverlay is "none").
@@ -528,7 +527,7 @@ const applyZoomRangeStateOne = (
     // Leaflet does not self-apply options.minZoom/maxZoom: already-loaded
     // tiles stay until the level set is rebuilt. Without this call the range
     // would be silently stale — the user sets it and nothing changes on the
-    // map (§6.2 "不得静默失效").
+    // map.
     resetGridLayerView(layer);
     return;
   }
@@ -590,14 +589,14 @@ const applyRangeVisible = (ui: LayerUI, layerInfo: LayerInfo, shown: boolean): v
  *
  *  Only layers that can honestly carry a zoomRange write are touched:
  *  callback-only canvas layers (heatmap / measure) and basemaps are
- *  skipped because they have no range UI (§31.4-3), and `zoomRange: "none"`
+ *  skipped because they have no range UI, and `zoomRange: "none"`
  *  surfaces (MarkerCluster) are skipped because there is no carrier to
- *  write to (§6.2 "不得静默失效").
+ *  write to.
  *
  *  The sweep writes through {@link applyRangeVisible} — the one-way gate
  *  that keeps this mechanism from ever adding a layer to the map unless
  *  it removed that layer itself (see `rangeHiddenIds`). It therefore never
- *  touches `hiddenIds` or `overrides` either (the #329 lock).
+ *  touches `hiddenIds` or `overrides` either: policy never writes intent.
  */
 const refreshZoomEffectiveShown = (ui: LayerUI): void => {
   const focusActive = ui.focusingLayerId != null;

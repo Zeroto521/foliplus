@@ -96,7 +96,7 @@ const toggleFocusedLayer = (ui: LayerUI): void => {
 const focusLayer = (ui: LayerUI, layerId: string) => {
   // Guard: any component holding the map (measuring, exporting, searching,
   // locating) blocks focus. One guard at the entry covers all call sites
-  // (double-click, 鈰?menu, Alt+Enter, Enter) so none of them leak.
+  // (double-click, overflow menu, Alt+Enter, Enter) so none of them leak.
   if (guardBlocked(ui.m.map, ui.conf.name, ui.T("blocked"))) return;
 
   const layerInfo = ui.m.layerRegistry.get(layerId);

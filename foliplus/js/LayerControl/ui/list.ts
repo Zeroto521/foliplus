@@ -313,7 +313,7 @@ const renderColorLayerItem = (ui: LayerUI) => {
   );
 
   // The color basemap's hover tooltip is its TYPE label (like every other
-  // row, which shows "count 路 type"); the layer name lives in the label
+  // row, which shows "count / type"); the layer name lives in the label
   // cell, not the tooltip. Persist the type label in data-item-title so a
   // rebuild can restore it; this must be the constant ui.T("type_color_map"),
   // NOT colorLayerName() —a rename must not change the tooltip.

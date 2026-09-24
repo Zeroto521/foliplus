@@ -477,7 +477,7 @@ describe("LayerManager", () => {
   });
 
   it("invalidateType also drops the surface cache, forcing a re-probe", () => {
-    // The surface owns the authoritative cache (§33.2). Clearing the manager's
+    // The surface owns the authoritative cache. Clearing the manager's
     // snapshot without also invalidating the surface would leave a stale
     // string sitting in the cache that the next getLayerType call picks up.
     manager.registerLayer({
@@ -494,7 +494,7 @@ describe("LayerManager", () => {
   });
 
   it("getLayerType delegates the probe to the surface, not to getGeometryType", () => {
-    // The whole point of §33.2 is that getGeometryType lives on the surface;
+    // The whole point of the split is that getGeometryType lives on the surface;
     // if this test ever calls getGeometryType directly, the manager has regressed.
     manager.registerLayer({
       id: "delegate",

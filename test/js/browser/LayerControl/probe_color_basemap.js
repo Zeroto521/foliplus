@@ -1,4 +1,4 @@
-// R1 probe (§10.3 #9): solid-color basemap current DOM path.
+// Probe: solid-color basemap current DOM path.
 //
 // Today the color basemap has NO pane and NO element of its own. Its state
 // is ad-hoc across five spots: ui.isColorActive, ui.currentColor, the
@@ -6,7 +6,7 @@
 // the container, the `foliplus-layer-tile-hidden` class on tilePane, and
 // the color input value. The visible background is the map container's own
 // CSS background (`.leaflet-container.active { background: var(--color-layer-bg) }`),
-// while tilePane is hidden via visibility/opacity. "提升为 surface" (R8)
+// while tilePane is hidden via visibility/opacity. "promote to surface"
 // gives it a pane + element so the same per-layer write path covers it.
 () => {
   const ctrl = document.querySelector(".foliplus-layer-ctrl");

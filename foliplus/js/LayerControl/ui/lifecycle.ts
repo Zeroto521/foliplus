@@ -62,7 +62,7 @@ const attachUI = (ui: LayerUI, containerDiv: HTMLElement): void => {
   // Snapshot the author's declared default before the first projection.
   // `projectLayer` reads `authorVisible.get(id) ?? true` — an absent entry
   // is read as "author declared visible" — which is exactly the class of
-  // bug §38 records: a folium `show=False` layer would come up on the map
+  // bug the quickstart hit: a folium `show=False` layer would come up on the map
   // on the first projection because the author's snapshot hasn't landed
   // yet. The snapshot is idempotent, so the later `initTypesAndVisibility`
   // re-runs don't overwrite what we took here.

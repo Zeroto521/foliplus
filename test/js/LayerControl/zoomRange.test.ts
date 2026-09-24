@@ -69,7 +69,7 @@ describe("computeEffectiveShown", () => {
     // The new projection reads `intent && policy`; a `hiddenIds` entry alone
     // is not enough — the user must have overridden `visible` for the hidden
     // state to be authoritative. Without the override the author default
-    // wins, which is the §40.5 invariant.
+    // wins — a derived dimension may only suppress.
     mockUI.hiddenIds.add("layer1");
     mockUI.userOverrides.layer1 = ["visible"];
     expect(projectLayer(mockUI, makeLayerInfo("layer1")).effectiveShown).toBe(false);

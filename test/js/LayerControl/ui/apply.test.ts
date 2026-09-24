@@ -8,13 +8,13 @@ import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { installLeafletGlobals } from "./fixture.js";
 
 // ────────────────────────────────────────────────────────────────────────
-// §40.5 gate ①: the executor must not let a derived dimension authorise
+// Gate: the executor must not let a derived dimension authorise
 // display. Only user intent (or the author's declared default) determines
 // map membership; effective = intent && policy, so a derived dimension
 // (focus, zoom range) can only pull a layer off the map — never push one
 // onto it.
 //
-// This is the quickstart regression from §38: folium ships a `show=False`
+// This is the quickstart regression: folium ships a `show=False`
 // layer off the map, no user override has been recorded, and the first
 // projection must leave it alone. Before the fix the executor saw
 // effective moving false→true and wrote visible=true, adding the layer to
@@ -81,7 +81,7 @@ const makeOnMapFixture = () => {
   return { container: rest.container, layer, map };
 };
 
-describe("executor: §40.5 invariant", () => {
+describe("executor: only intent authorises display", () => {
   beforeEach(() => {
     installLeafletGlobals();
   });
@@ -113,7 +113,7 @@ describe("executor: §40.5 invariant", () => {
 
   it("gate 2 — a layer off the map stays off through a zoom change", () => {
     // #329 structural lock: zoom is a policy dimension, so it can never
-    // authorise display. This is what §40.5 means by "派生维度只许抑制" —
+    // authorise display. A derived dimension may only suppress, never
     // a stored zoomRange that excludes the current zoom can only keep
     // `effectiveShown = false`, never move it to `true`.
     const { container, layer, map } = makeOffMapFixture();
@@ -152,7 +152,7 @@ describe("executor: intent authorises, policy only suppresses", () => {
     // Range is a policy dimension that may retract a layer on the user's
     // behalf — because the user's intent is `visible=true`. When the map
     // re-enters the range the executor restores the layer. This is the
-    // forward pass of the T101 invariant: policy retracts → policy
+    // forward pass of the invariant: policy retracts -> policy
     // restores, and neither writes back to the user's intent.
     const { container, layer, map } = makeOnMapFixture();
 
@@ -225,7 +225,7 @@ describe("executor: intent authorises, policy only suppresses", () => {
   });
 });
 
-describe("executor: T46 late-carrier replay", () => {
+describe("executor: late-carrier replay", () => {
   beforeEach(() => {
     installLeafletGlobals();
   });
@@ -237,7 +237,7 @@ describe("executor: T46 late-carrier replay", () => {
   });
 
   it("replays stored opacity onto a replaced canvas element", () => {
-    // T46's core: `prev.opacity` matches `next.opacity` on a re-registered
+    // The core case: `prev.opacity` matches `next.opacity` on a re-registered
     // canvas, so a value-only diff misses the write. The executor records
     // which DOM element the last write hit; a fresh canvas is a different
     // element, so the rewrite fires. This is why `appliedState` carries
@@ -323,7 +323,7 @@ describe("executor: idempotent writes", () => {
   it("a repeated applyProjection on unchanged state writes nothing to the map", () => {
     // The executor's contract: diffed against its own last write, a
     // changeless call is a no-op. Repeated applies must not accumulate
-    // map/DOM writes; a spy-counted gate is what §22-9.1 ⑥ asks for.
+    // map/DOM writes; a spy-counted gate is what this refactor asks for.
     const { container, layer, map } = makeOffMapFixture();
 
     const manager = new LayerManager(map, [
@@ -353,7 +353,7 @@ describe("executor: idempotent writes", () => {
   });
 
   it("row lookup is by id, not by registry position", () => {
-    // T50's structural lock: the executor keys `appliedState` by id
+    // Structural lock: the executor keys `appliedState` by id
     // (`projectAll` walks the same union), so DOM order or registration
     // order shifting never misroutes a write. Two canvas layers — one with
     // an opacity intent and one without; each gets its own write regardless

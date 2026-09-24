@@ -93,7 +93,7 @@ const syncToggleAll = (ui: LayerUI, group: string) => {
  * The user's intent is recorded first, then the executor re-projects — the
  * single writer of `layerInfo.visible` and of map membership for this layer.
  * The old code wrote `visible` from two sites (here and the executor), which
- * is what §22-9.1 wanted gone.
+ * is what this refactor wanted gone.
  *
  * @returns true if the layer id resolved to a registry entry.
  */

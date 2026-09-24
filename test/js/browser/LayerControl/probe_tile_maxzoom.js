@@ -1,10 +1,10 @@
-// R1 probe (§10.3 #8): does changing a TileLayer's options.minZoom/maxZoom
+// Probe: does changing a TileLayer's options.minZoom/maxZoom
 // take effect immediately, or does it need a level refresh?
 //
 // Measured: setting options.maxZoom below the current zoom leaves the
 // already-loaded tiles in place; `_updateLevels()` alone does not remove
 // them either; only `_resetView()` / `redraw()` (which rebuilds the level
-// set) clears them. So the native path (R8) needs an explicit redraw after
+// set) clears them. So the native path needs an explicit redraw after
 // an options change — it is not self-applying.
 () => {
   const spec = window.__probe;

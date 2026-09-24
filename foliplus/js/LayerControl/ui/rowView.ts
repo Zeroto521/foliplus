@@ -91,7 +91,7 @@ const rowChecked = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
  *  The map's range can be narrower than the user's stored endpoints (a basemap
  *  switch), so the endpoints are clamped here while the *stored* values stay
  *  untouched — reversibility: switching the basemap back must restore the
- *  original choice (§31.3). If both endpoints clamp past each other the whole
+ *  original choice. If both endpoints clamp past each other the whole
  *  range is outside the map and no zoom can land inside it.
  */
 const inZoomRange = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
@@ -185,7 +185,7 @@ const snapshotAuthorVisible = (ui: LayerUI, layerInfo: LayerInfo): void => {
  *
  *  `layerInfo.type` is a snapshot of the surface's probe result: writing it
  *  here is the snapshot sync for render use, not a second probe. The
- *  authority for geometry-type detection lives on the surface (§33.2).
+ *  authority for geometry-type detection lives on the surface.
  */
 const rowType = (
   ui: LayerUI,
@@ -229,7 +229,7 @@ const buildRowCell = (ui: LayerUI, layerInfo: LayerInfo): RowCell => {
     // overrides the intent. Focus dims the other rows visually without
     // removing them from the map, so while it holds every checked layer is
     // on screen regardless of its range. The policy write side reads the
-    // same projection, so the formula has one home (§22-9.1 step 2).
+    // same projection, so the formula has one home.
     shown: projectLayer(ui, layerInfo).effectiveShown,
     countText: count != null ? formatNumber(count, "auto", ui.conf.locale_code) : "",
     typeSvg: type.svg,

@@ -20,7 +20,7 @@ import { inZoomRange } from "./rowView.js";
  *  executor writes to map membership. Only `intent` may authorise display;
  *  `policy` (focus, zoom range) may only suppress it. That is the invariant
  *  that keeps a derived dimension from ever adding a layer back onto the
- *  map — the class of bug §38 records, and the structural root of the
+ *  map — the class of bug the quickstart regression records, and the structural root of the
  *  `rangeHiddenIds` one-way gate that used to live in state.ts.
  */
 interface Projection {
@@ -32,7 +32,7 @@ interface Projection {
 }
 
 /** The executor's projection snapshot: the pure projection plus the carrier
- *  identity the last write landed on. Recording carrier is the T46 fix — a
+ *  identity the last write landed on. Recording carrier is what closes
  *  value-only diff misses writes when a carrier element is replaced (a
  *  re-registered canvas, a lazily-created annotation pane), because the
  *  stored numeric opacity matches but the DOM in front of it is new.
@@ -82,7 +82,7 @@ const projectLayer = (ui: LayerUI, layerInfo: LayerInfo): Projection => {
  *  keeps flowing through instead of being pruned. Unresolvable ids are
  *  skipped: they may be a component that registers later, and the id space
  *  is bounded by the layers an author ever declares, so the record cannot
- *  grow away (§21 "不在注册表里 ≠ 已消失"). */
+ *  grow away ("not in the registry" never means "gone"). */
 const projectAll = (ui: LayerUI): Map<string, Projection> => {
   const ids = new Set([
     ...ui.m.layers.map(li => li.id),

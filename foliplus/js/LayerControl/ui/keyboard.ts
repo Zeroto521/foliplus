@@ -92,7 +92,8 @@ const getNavigableItems = (ui: LayerUI): HTMLElement[] => {
 
 /** Index of the nearest row in `step` direction that is not folded away,
  *  or -1 when the cursor would leave the list. Folded rows are display:none
- *  and not focusable, so plain index 卤 1 would strand the cursor on them. */
+ *  and not focusable, so a plain index + 1 / - 1 would strand the cursor
+ *  on them. */
 
 const findVisibleNeighbor = (
   ui: LayerUI,
@@ -320,7 +321,7 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
   }
 
   // Alt+Enter: focus-layer on the currently navigated layer item. This
-  // is a dedicated keyboard entry point (in addition to the 鈰?menu) so
+  // is a dedicated keyboard entry point (in addition to the overflow menu) so
   // power users can focus without leaving the keyboard.
   if (event.altKey && event.key === "Enter" && ui.activeIdx !== null) {
     const item = items[ui.activeIdx];
@@ -351,7 +352,7 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
     case "ArrowRight":
     case " ":
     case "Enter": {
-      // A 鈰?button is focused —that key opens the overflow menu, not the
+      // An overflow-menu button is focused —that key opens the overflow menu, not the
       // row checkbox.
       if (document.activeElement?.classList.contains(CONST.CLASSES.MORE_BTN)) {
         event.preventDefault();

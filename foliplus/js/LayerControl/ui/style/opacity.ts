@@ -1,5 +1,5 @@
 // Opacity row: single-thumb rail + fill + end dots + live commit pipeline.
-// Moved verbatim from ui/style.ts (34.1 §34.2.1); the frame helpers it
+// Moved verbatim from ui/style.ts; the frame helpers it
 // reaches into live in ./frame.ts. `buildOpacityRow` and the sync /
 // commit functions are used both by the delegated drawer (delegated.ts)
 // and the annotation panel (index.ts) — the row is LayerControl-owned,
@@ -14,7 +14,7 @@ import { railPos, round5 } from "./frame.js";
 /** Whether the layer's surface can honestly carry an opacity write. Layers with
  *  `opacity: "none"` (e.g. MarkerCluster, whose cluster icons live in a shared
  *  pane we do not own) get no opacity row — a slider that writes nothing but
- *  persists the value would violate §6.2 "不得静默失效". */
+ *  persists the value would fail silently. */
 const layerCanOpacity = (ui: LayerUI, layerId: string): boolean => {
   const li = ui.m.layerRegistry.get(layerId);
   if (!li) return false;

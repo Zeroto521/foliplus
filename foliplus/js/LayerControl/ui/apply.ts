@@ -6,15 +6,15 @@
 // that actually moved. The old model — a sweep that re-read the whole
 // registry per layer, walked `hiddenIds` / `opacityMap` / `zoomRangeMap`
 // by id, and picked per-dimension helpers — is what made the three
-// regressions structurally reachable (§22-9.1):
+// regressions structurally reachable:
 //
-//   T46 (late-register replay): the sweep only ran on `applyUserState`
+//   - late-registration replay: the sweep only ran on `applyUserState`
 //     entry; a layer whose stored dimensions arrived after its own
-//     registration was only picked up by the id-specified drain, so a
+//     registration were only picked up by the id-specified drain, so a
 //     missed sweep silently meant a lost opacity / zoom range.
-//   T50 (scrambled row lookup): row lookups inside the sweep keyed off
+//   - scrambled row lookup: row lookups inside the sweep keyed off
 //     positional indices, which the stored-order replay could shift.
-//   #329 (zoom write over intent): a policy sweep could reach
+//   - a zoom sweep writing over intent (#329): a policy sweep could reach
 //     `applyLayerState({visible})` on a stored intent it had not compared
 //     against, and — if the row-paint rode the same path — repainted a
 //     checkbox the user never touched.
@@ -59,8 +59,8 @@ const nativeBaseOf = (layer: L.Layer): number => {
  *  replaced underneath the executor: a re-registered canvas element starts
  *  opaque, an annotation pane is created lazily long after the slider was
  *  last moved. In both cases the executor's `prev.opacity` matches
- *  `next.opacity`, so a value-only diff misses the write — the T46
- *  regression (§22-9.1). The fix is to record which DOM element we last
+ *  `next.opacity`, so a value-only diff misses the write — the
+ *  late-carrier regression this file exists to close. The fix is to record which DOM element we last
  *  wrote to, and force a rewrite when the carrier has moved.
  *
  *  The token is opaque to callers: it's just enough identity to say "the
@@ -99,7 +99,7 @@ const sameCarrier = (prev: unknown, curr: unknown): boolean =>
  *               carrier resolves through the `visible` op in the
  *               executor, not here)
  *
- *  The "none" carrier check is the §6.2 rule: a slider that writes
+ *  The "none" carrier check is the rule that a slider that writes
  *  nothing must not persist — when the surface declares "none" we skip
  *  the write instead of faking one on a shared carrier.
  */
@@ -122,13 +122,13 @@ const applyStateOp = (ui: LayerUI, layerInfo: LayerInfo, op: StateOp): void => {
     // `layerInfo.visible` is a real-time mirror of the map state; the
     // user's intent lives in `hiddenIds` / `userOverrides`. This is
     // now the only writer of this field — the visibility sweep's mirror
-    // write is gone (§22-9.1 step 3).
+    // write is gone.
     layerInfo.visible = op.value;
     return;
   }
   if (op.type === "opacity") {
     if (layerInfo.canvas) {
-      // Canvas element's own CSS opacity — the §4.2 ① carrier for
+      // Canvas element's own CSS opacity — the carrier for
       // heatmap / measure. Kept separate from the pane write: the pane's
       // opacity would compound with this one, and a single knob must not
       // be multiplied twice.
@@ -138,7 +138,7 @@ const applyStateOp = (ui: LayerUI, layerInfo: LayerInfo, op: StateOp): void => {
       return;
     }
     const carrier = ui.m.surfaceFor(layerInfo).capabilities.opacity;
-    if (carrier === "none") return; // no honest write exists — §6.2
+    if (carrier === "none") return; // no honest write exists
     const layer = layerInfo.layer;
     if (!layer) return;
     if (carrier === "native") {
@@ -193,7 +193,7 @@ const applyStateOp = (ui: LayerUI, layerInfo: LayerInfo, op: StateOp): void => {
     // Leaflet does not self-apply options.minZoom/maxZoom: already-loaded
     // tiles stay until the level set is rebuilt. Without this the range
     // would be silently stale — the user sets it and nothing changes on
-    // the map (§6.2).
+    // the map.
     resetGridLayerView(layer);
   }
 };
@@ -216,7 +216,8 @@ const applyStateOp = (ui: LayerUI, layerInfo: LayerInfo, op: StateOp): void => {
  *  identity) so a re-registration of the same id keeps its projection
  *  across the swap.
  *
- *  This is the §40.5 invariant: the only field that writes `layerInfo.visible`
+ *  This is the invariant the executor is built around: the only field that
+ *  writes `layerInfo.visible`
  *  and `ui.m.map.addLayer` / `removeLayer` is `effectiveShown`, and
  *  `effectiveShown = intent && policy` — a derived dimension (focus, zoom
  *  range) can only pull a layer off the map, never push one onto it. That
@@ -237,7 +238,7 @@ const applyProjection = (ui: LayerUI, id: string): void => {
     // author's declared default. A layer that hasn't been added to the map
     // yet (a test fixture that constructs the manager without adding layers,
     // or a late-registered layer whose author default is visible) would
-    // otherwise diff against `visible: true` and miss the add. The T46 fix
+    // otherwise diff against `visible: true` and miss the add. The fix
     // is that this baseline is read from the live map state, so a late
     // registration still has its stored state applied on the first call.
     // Canvas-only layers have no Leaflet layer, so the author's default is
@@ -271,11 +272,11 @@ const applyProjection = (ui: LayerUI, id: string): void => {
   //    can disagree through no write of ours. Reading the map back makes the
   //    executor converge on `effectiveShown` no matter who moved the layer in
   //    between — and it is what keeps a write that could not land (no layer
-  //    object yet) from being recorded as done. The §40.5 invariant lives
+  //    object yet) from being recorded as done. The invariant lives
   //    here: nothing authorises an add unless `intent` does, so a derived
   //    dimension can only remove, never restore on its own.
   const layer = layerInfo.layer ?? ui.m.findLayer(layerInfo);
-  // Whether anything authorises a map write at all. §40.5: only the user's
+  // Whether anything authorises a map write at all. Only the user's
   // own choice or an *observed* author snapshot decides membership. A layer
   // whose author default has not been observed yet (its JS global is not
   // linked) and that the user never touched is not this executor's to
