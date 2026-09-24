@@ -327,15 +327,15 @@ describe("LayerUI style panel — fill colour", () => {
     });
   });
 
-  it("resetLayerFill restores an authored null fill colour", () => {
+  it("resetLayerFill restores the Leaflet default when options.fillColor was unset", () => {
     delete fillLayer.leaves[0].options.fillColor;
     commitFillColor(ui, "overlay1", "#ff0000");
     resetLayerFill(ui, "overlay1");
 
-    // The authored value was `null` — setStyle is called with the null base
-    // so Leaflet's render picks up "no fill" from the layer's own default.
+    // No authored colour, no __folium_color — the fallback is Leaflet's own
+    // default, which is what the browser would paint anyway.
     expect(fillLayer.leaves[0].setStyle).toHaveBeenLastCalledWith({
-      fillColor: null,
+      fillColor: "#3388ff",
     });
   });
 
@@ -386,5 +386,83 @@ describe("buildFillRow", () => {
     const label = row.querySelector(`.${CONST.CLASSES.FORM_LABEL}`);
 
     expect(label?.textContent).toBe("LayerControl.style_fill");
+  });
+
+  // ─────────────────── captureBase fallbacks ───────────────────
+
+  it("captureBase prefers options.fillColor over __folium_color", () => {
+    // A style function that reads __folium_color sets options.fillColor,
+    // so options wins.
+    const fixture = initWithFillLayer();
+    fixture.fillLayer.leaves[0].options.fillColor = "#aabbcc";
+    (fixture.fillLayer.leaves[0] as any).feature = {
+      properties: { __folium_color: "#123456" },
+    };
+
+    commitFillColor(fixture.ui, "overlay1", "#ff0000");
+    resetLayerFill(fixture.ui, "overlay1");
+
+    // Reset replays the captured base — options.fillColor won.
+    expect(fixture.fillLayer.leaves[0].setStyle).toHaveBeenLastCalledWith({
+      fillColor: "#aabbcc",
+    });
+  });
+
+  it("captureBase falls back to __folium_color when options.fillColor is unset", () => {
+    const fixture = initWithFillLayer();
+    delete fixture.fillLayer.leaves[0].options.fillColor;
+    (fixture.fillLayer.leaves[0] as any).feature = {
+      properties: { __folium_color: "#123456" },
+    };
+
+    commitFillColor(fixture.ui, "overlay1", "#ff0000");
+    resetLayerFill(fixture.ui, "overlay1");
+
+    expect(fixture.fillLayer.leaves[0].setStyle).toHaveBeenLastCalledWith({
+      fillColor: "#123456",
+    });
+  });
+
+  it("captureBase falls back to Leaflet default #3388ff when neither is set", () => {
+    const fixture = initWithFillLayer();
+    delete fixture.fillLayer.leaves[0].options.fillColor;
+    // No feature at all — the default kicks in.
+
+    commitFillColor(fixture.ui, "overlay1", "#ff0000");
+    resetLayerFill(fixture.ui, "overlay1");
+
+    expect(fixture.fillLayer.leaves[0].setStyle).toHaveBeenLastCalledWith({
+      fillColor: "#3388ff",
+    });
+  });
+
+  // ─────────────────── SVG repaint gate ───────────────────
+
+  it("applyFillToLayer updates the SVG fill attribute (repaint gate)", () => {
+    // User report: "改色后没生效". This gate asserts that a colour change
+    // actually reaches the rendered fill — not just options.fillColor, but
+    // the attribute Leaflet paints into the SVG. If Leaflet's setStyle
+    // stopped triggering _updateStyle for fillColor-only writes, this test
+    // would go red before the fix.
+    const fixture = initWithFillLayer();
+    const svgFill = vi.fn();
+    const path = {
+      options: { fillColor: "#aabbcc", fillOpacity: 0.5 },
+      _path: { setAttribute: svgFill },
+      _renderer: true as any,
+      setStyle: vi.fn(function (this: any, style: Record<string, unknown>) {
+        Object.assign(this.options, style);
+        // Simulate Leaflet's _updateStyle: set the SVG fill attribute.
+        this._path.setAttribute("fill", String(this.options.fillColor ?? ""));
+      }),
+      _updateStyle: vi.fn(),
+      redraw: vi.fn(),
+    };
+    fixture.fillLayer.leaves[0] = path as never;
+
+    applyFillToLayer(fixture.ui, "overlay1", "#ff0000");
+
+    expect(svgFill).toHaveBeenCalledWith("fill", "#ff0000");
+    expect(path.options.fillColor).toBe("#ff0000");
   });
 });
