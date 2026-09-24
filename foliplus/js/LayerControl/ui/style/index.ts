@@ -33,12 +33,7 @@ import * as SVGs from "../../icon.js";
 import type { LayerUI } from "../index.js";
 import { finishRename } from "../rename.js";
 import { layerHasStyleDelegation, renderDelegatedStylePanel } from "./delegated.js";
-import {
-  bindFillRow,
-  buildFillRow,
-  layerCanFill,
-  resetLayerFill,
-} from "./fill.js";
+import { bindFillRow, buildFillRow, layerCanFill, resetLayerFill } from "./fill.js";
 import { appendResetFooter, railPos, sectionHeading } from "./frame.js";
 import { applyPatch, layerFields, syncFormatRow } from "./label.js";
 import {

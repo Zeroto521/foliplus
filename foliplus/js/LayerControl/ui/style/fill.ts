@@ -87,35 +87,25 @@ const layerCanFill = (ui: LayerUI, layerId: string): boolean => {
  *  Per-leaf, because a GeoJSON layer's features can each declare their own
  *  style — one layer-wide base would erase the author's per-feature choice
  *  on reset. */
-const authorFillBase = new WeakMap<
-  StyleCarrier,
-  { fillColor: string | null; fillOpacity: number | null }
->();
+const authorFillBase = new WeakMap<StyleCarrier, { fillColor: string | null }>();
 
-const captureBase = (node: StyleCarrier): {
-  fillColor: string | null;
-  fillOpacity: number | null;
-} => {
+const captureBase = (node: StyleCarrier): { fillColor: string | null } => {
   const existing = authorFillBase.get(node);
   if (existing) return existing;
-  const base = {
-    fillColor: node.options?.fillColor ?? null,
-    fillOpacity: null,
-  };
+  const base = { fillColor: node.options?.fillColor ?? null };
   authorFillBase.set(node, base);
   return base;
 };
 
 /** Commit one fill colour to the layer. Walks the layer tree and calls
- *  `setStyle({fillColor, fillOpacity})` on every leaf that has a `setStyle`.
+ *  `setStyle({fillColor})` on every leaf that has a `setStyle`.
  *  A node without a setter is skipped silently — that is the §5.4 rule:
  *  when no honest write exists, do not persist one (the caller already
  *  wrote the value to storage, so we simply do not touch the layer here).
  *
- *  `fillOpacity` is captured on first write and never sent: only `fillColor`
- *  moves with this row, and the author's `fillOpacity` stays untouched so a
- *  hollow polygon keeps its hollow. Reset restores both from the cached
- *  base (see {@link resetLayerFill}).
+ *  Only `fillColor` moves with this row; the author's `fillOpacity` stays
+ *  untouched so a hollow polygon keeps its hollow. Reset restores the
+ *  captured base (see {@link resetLayerFill}).
  *
  *  Kept separate from the persistence plumbing (`commitFillColor`) so the
  *  walk is unit-testable without a storage timer. */
@@ -142,11 +132,7 @@ const applyFillToLayer = (ui: LayerUI, layerId: string, color: string): void => 
  *  Called from `bindLiveColor`, so `color` is a raw `input.value` and is
  *  normalised to 6-digit lowercase hex before landing in storage — the
  *  same rule the annotation label colour applies. */
-const commitFillColor = (
-  ui: LayerUI,
-  layerId: string,
-  rawColor: string,
-): void => {
+const commitFillColor = (ui: LayerUI, layerId: string, rawColor: string): void => {
   const color = normalizeHexColor(rawColor);
   if (ui.fillColorMap[layerId] === color) return;
   ui.fillColorMap[layerId] = color;
@@ -209,11 +195,7 @@ const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
 
 /** Wire the shared live-colour binder to this row's commit path. Called
  *  from `openStylePanel` in index.ts, alongside the label colour binding. */
-const bindFillRow = (
-  ui: LayerUI,
-  layerId: string,
-  row: HTMLElement,
-): void => {
+const bindFillRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
   const colorEl = row.querySelector(
     `.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`,
   ) as HTMLInputElement | null;

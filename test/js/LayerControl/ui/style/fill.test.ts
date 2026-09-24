@@ -110,9 +110,7 @@ describe("LayerUI style panel — fill colour", () => {
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
 
-    expect(fillInput(item)!.getAttribute("aria-label")).toBe(
-      "LayerControl.style_fill",
-    );
+    expect(fillInput(item)!.getAttribute("aria-label")).toBe("LayerControl.style_fill");
   });
 
   it("the fill row's label matches the row's aria-label key", () => {
@@ -120,8 +118,7 @@ describe("LayerUI style panel — fill colour", () => {
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const row = fillRow(item)!;
-    const labelText = row.querySelector(`.${CONST.CLASSES.FORM_LABEL}`)!
-      .textContent;
+    const labelText = row.querySelector(`.${CONST.CLASSES.FORM_LABEL}`)!.textContent;
     expect(labelText).toBe(fillInput(item)!.getAttribute("aria-label"));
   });
 
