@@ -7,7 +7,11 @@ import {
   layerHasLabelFields,
   layerHasStyleDelegation,
 } from "#foliplus/LayerControl/ui/style/index.js";
-import { clampPct } from "#foliplus/LayerControl/ui/style/opacity.js";
+import {
+  clampPct,
+  resetLayerOpacity,
+} from "#foliplus/LayerControl/ui/style/opacity.js";
+import { resetLayerZoomRange } from "#foliplus/LayerControl/ui/style/zoomRange.js";
 import { AUTO_FIELD } from "#foliplus/core/labelField.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 import { NUMBER_FORMAT } from "#common/format.js";
@@ -3222,5 +3226,27 @@ describe("style utility guards", () => {
     vi.restoreAllMocks();
     // The panel still opens successfully.
     expect(panelOf(item)).not.toBeNull();
+  });
+});
+
+describe("reset on an id the registry does not know", () => {
+  it("resetLayerOpacity returns before touching state", () => {
+    // `if (!ui.m.layerRegistry.has(layerId)) return` — a Reset aimed at a
+    // layer that has already left must not rewrite the record or save.
+    const { ui } = initFixture({});
+    ui.opacityMap.ghost = 0.4;
+    ui.userOverrides.ghost = ["opacity"];
+    expect(() => resetLayerOpacity(ui, "ghost")).not.toThrow();
+    expect(ui.opacityMap.ghost).toBe(0.4);
+    expect(ui.userOverrides.ghost).toEqual(["opacity"]);
+  });
+
+  it("resetLayerZoomRange returns before touching state", () => {
+    const { ui } = initFixture({});
+    ui.zoomRangeMap.ghost = [3, 12];
+    ui.userOverrides.ghost = ["zoomRange"];
+    expect(() => resetLayerZoomRange(ui, "ghost")).not.toThrow();
+    expect(ui.zoomRangeMap.ghost).toEqual([3, 12]);
+    expect(ui.userOverrides.ghost).toEqual(["zoomRange"]);
   });
 });

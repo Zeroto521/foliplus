@@ -5,6 +5,8 @@ import {
   applyProjectionAll,
 } from "#foliplus/LayerControl/ui/apply.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
+import { rowChecked } from "#foliplus/LayerControl/ui/rowView.js";
+import { projectLayer } from "#foliplus/LayerControl/ui/store.js";
 import { installLeafletGlobals } from "./fixture.js";
 
 // ────────────────────────────────────────────────────────────────────────
@@ -612,5 +614,204 @@ describe("projectAll: the id set is a union, not just the registry", () => {
     // The record is untouched — the id simply has nothing to write to yet.
     expect(ui.opacityMap.late).toBe(0.3);
     expect(ui.userOverrides.late).toEqual(["opacity"]);
+  });
+});
+
+describe("executor: the branches behind the gates", () => {
+  beforeEach(() => {
+    installLeafletGlobals();
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  const boot = (layers: ConstructorParameters<typeof LayerManager>[1]) => {
+    const { container, map } = makeOffMapFixture();
+    const manager = new LayerManager(map, layers);
+    manager.ui = new LayerUI(manager);
+    const ui = manager.ui as LayerUI;
+    vi.useFakeTimers();
+    manager.attachUI(container);
+    vi.advanceTimersByTime(350);
+    vi.useRealTimers();
+    return { container, map, manager, ui };
+  };
+
+  it("removes a layer that is on the map when policy takes it off", () => {
+    // The `else if (!op.value && has)` half of the membership branch: the
+    // fixture otherwise reports `hasLayer` as false, so the remove side was
+    // never reached.
+    const { container, map } = makeOffMapFixture();
+    const layer = { options: {} } as L.Layer;
+    map.hasLayer = vi.fn(() => true);
+    map.addLayer = vi.fn();
+    map.removeLayer = vi.fn();
+
+    const manager = new LayerManager(map, [
+      { id: "on", name: "On", isBase: false, layer },
+    ]);
+    manager.ui = new LayerUI(manager);
+    const ui = manager.ui as LayerUI;
+    vi.useFakeTimers();
+    manager.attachUI(container);
+    vi.advanceTimersByTime(350);
+    vi.useRealTimers();
+
+    map.removeLayer.mockClear();
+    map.hasLayer = vi.fn(() => true);
+    ui.hiddenIds.add("on");
+    ui.userOverrides.on = ["visible"];
+    applyProjection(ui, "on");
+
+    expect(map.removeLayer).toHaveBeenCalledWith(layer);
+    expect(manager.layerRegistry.get("on")?.visible).toBe(false);
+  });
+
+  it("captures the author's opacity base once, defaulting to 1 when undeclared", () => {
+    // `nativeBaseOf` caches on first use; the author's declared `opacity`
+    // seeds it, and an undeclared layer falls back to fully opaque. The
+    // slider is then a multiplier over that base, so a repeat apply must
+    // not compound on its own output.
+    const layer = { options: {} } as L.Layer;
+    const { ui, manager } = boot([{ id: "b", name: "B", isBase: false, layer }]);
+    vi.spyOn(manager, "surfaceFor").mockReturnValue({
+      capabilities: { opacity: "native", zoomRange: "none" },
+      paneNames: [],
+      geometryType: () => "polygon",
+    } as unknown as ReturnType<typeof manager.surfaceFor>);
+
+    ui.opacityMap.b = 0.5;
+    ui.userOverrides.b = ["opacity"];
+    applyProjection(ui, "b");
+    expect((layer.options as { opacity?: number }).opacity).toBe(0.5);
+
+    // Reset: the stored value leaves, so the write returns to the author's
+    // base rather than to zero, and the mirror reads fully opaque.
+    delete ui.opacityMap.b;
+    delete ui.userOverrides.b;
+    applyProjection(ui, "b");
+    expect((layer.options as { opacity?: number }).opacity).toBe(1);
+    expect(manager.layerRegistry.get("b")?.opacity).toBe(1);
+  });
+
+  it("an opacity op with no Leaflet layer and no canvas writes nothing", () => {
+    // `if (!layer) return` — a stale registry entry whose layer object has
+    // already left. Nothing to carry the write, and nothing to throw on.
+    const { ui, manager } = boot([
+      { id: "stale", name: "Stale", isBase: false, layer: null as never },
+    ]);
+    vi.spyOn(manager, "surfaceFor").mockReturnValue({
+      capabilities: { opacity: "pane", zoomRange: "none" },
+      paneNames: [],
+      geometryType: () => "point",
+    } as unknown as ReturnType<typeof manager.surfaceFor>);
+
+    ui.opacityMap.stale = 0.3;
+    ui.userOverrides.stale = ["opacity"];
+    expect(() => applyProjection(ui, "stale")).not.toThrow();
+    expect(manager.layerRegistry.get("stale")?.opacity).toBe(1);
+  });
+
+  it("a pane write still lands when its element has already left the map", () => {
+    // `if (pane)` — a pane released mid-session (teardown racing a write)
+    // must be skipped rather than throw.
+    const { container, map } = makeOffMapFixture();
+    map.getPane = vi.fn(() => null as never);
+    const layer = {
+      options: {},
+      eachLayer: vi.fn(),
+      getBounds: vi.fn(() => ({ isValid: () => true })),
+    } as unknown as L.Layer;
+    const manager = new LayerManager(map, [
+      { id: "gone", name: "Gone", isBase: false, layer },
+    ]);
+    manager.ui = new LayerUI(manager);
+    const ui = manager.ui as LayerUI;
+    vi.useFakeTimers();
+    manager.attachUI(container);
+    vi.advanceTimersByTime(350);
+    vi.useRealTimers();
+
+    ui.opacityMap.gone = 0.4;
+    ui.userOverrides.gone = ["opacity"];
+    expect(() => applyProjection(ui, "gone")).not.toThrow();
+    expect(manager.layerRegistry.get("gone")?.opacity).toBe(0.4);
+  });
+
+  it("a ui with no hiddenIds and no userOverrides still projects", () => {
+    // The `?? false` fallbacks on both choice maps: `applyProjection`,
+    // `rowChecked` and `projectLayer` all read them as optional, because a
+    // thin stub (and a partially-built shell) may not have them yet.
+    const bare = {
+      hiddenIds: undefined,
+      userOverrides: undefined,
+      authorVisible: new Map<string, boolean>(),
+      opacityMap: {},
+      zoomRangeMap: {},
+      focusingLayerId: null,
+      appliedState: new Map(),
+      m: {
+        layerRegistry: {
+          get: vi.fn(() => ({ id: "n", layer: { options: {} } })),
+        },
+        layers: [],
+        findLayer: vi.fn(() => null),
+        annotation: null,
+        surfaceFor: vi.fn(() => ({
+          capabilities: { opacity: "none", zoomRange: "none" },
+          paneNames: [],
+          geometryType: () => "point",
+        })),
+        map: {
+          getZoom: vi.fn(() => 5),
+          getMinZoom: vi.fn(() => 0),
+          getMaxZoom: vi.fn(() => 18),
+          hasLayer: vi.fn(() => false),
+        },
+      },
+    } as never;
+
+    const info = { id: "n", layer: { options: {} } } as never;
+    const projection = projectLayer(bare, info);
+    expect(projection.intent.visible).toBe(true);
+    expect(projection.effectiveShown).toBe(true);
+    expect(rowChecked(bare, info)).toBe(true);
+    expect(() => applyProjection(bare, "n")).not.toThrow();
+  });
+
+  it("leaves a layer that is already on the map when asked to show it", () => {
+    // The third shape of the membership branch: `op.value && has` is neither
+    // "add it" nor "remove it" — the layer is where it should already be, so
+    // neither side fires. Covered here so the `else if` is the only run
+    // path exercised by omission.
+    const { container, map } = makeOffMapFixture();
+    const layer = { options: {} } as L.Layer;
+    map.hasLayer = vi.fn(() => true);
+    map.addLayer = vi.fn();
+
+    const manager = new LayerManager(map, [
+      { id: "up", name: "Up", isBase: false, layer },
+    ]);
+    manager.ui = new LayerUI(manager);
+    const ui = manager.ui as LayerUI;
+    vi.useFakeTimers();
+    manager.attachUI(container);
+    vi.advanceTimersByTime(350);
+    vi.useRealTimers();
+
+    map.addLayer.mockClear();
+    map.removeLayer = vi.fn();
+    map.hasLayer = vi.fn(() => true);
+    // No `hiddenIds` / override, and the author's default was observed as
+    // `true` while the layer sits on the map — so intent and policy both
+    // say "shown" and the layer is already shown.
+    ui.authorVisible.set("up", true);
+    applyProjection(ui, "up");
+
+    expect(map.addLayer).not.toHaveBeenCalled();
+    expect(map.removeLayer).not.toHaveBeenCalled();
   });
 });
