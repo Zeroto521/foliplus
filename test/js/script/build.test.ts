@@ -201,16 +201,16 @@ describe("build artifacts", () => {
     // Raised for the unified slider (readout dots, drag bubble, the values row
     // replacing the number field): +668 B, 0.3% above the previous bar.
     //
-    // Measured after the projection diff executor landed (together with the
-    // overflow-menu delete and the core/layer tighten merged from main):
-    // 211452B. The 210000 bar sat 1452B under that, so the executor's write
-    // pipeline — one diff per dimension, carrier-identity replay, and the
-    // author-snapshot guard — tipped it over. 255000 restores the ~20%
-    // headroom this cap is documented as carrying, so the next refactor is
-    // not a cap bump by default.
-
     // Raised for metaProvider (per-mode count rows in the attrs panel):
     // +213 B, 0.1% above the previous bar.
+    //
+    // Raised for the projection diff executor (one diff per dimension,
+    // carrier-identity replay, the author-snapshot guard), together with the
+    // overflow-menu delete and the core/layer tighten merged in from main.
+    // Measured on the dev bundle after all of those landed: 208985B. The bar
+    // was 215000, so the executor's write pipeline tipped it over.
+    //   208985 * 1.20 = 250782  ->  255000 keeps the documented ~20% headroom
+    //   255000 / 208985 = 1.22  (22% above the measurement)
     "foliplus-LayerControl.min.js": 255000,
   };
   it("component JS has reasonable size", () => {

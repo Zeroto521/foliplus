@@ -66,6 +66,9 @@ const projectLayer = (ui: LayerUI, layerInfo: LayerInfo): Projection => {
   const policy = ui.focusingLayerId != null ? true : inZoomRange(ui, layerInfo);
   const effectiveShown = intent && policy;
 
+  // A dimension's value being present is what the sweep has always read as
+  // the user's choice (a restored record, a late replay). The provenance
+  // marker is `replayLayerState`'s concern, not this projection's.
   const opacity =
     typeof ui.opacityMap?.[id] === "number" ? ui.opacityMap[id] : undefined;
 

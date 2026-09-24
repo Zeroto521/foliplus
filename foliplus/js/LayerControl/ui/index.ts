@@ -86,24 +86,15 @@ class LayerUI {
   foldedGroups: Set<string>;
   /** Layer ids hidden by the user (checked-off); survives page reload. */
   hiddenIds: Set<string>;
-  /** Layer ids the zoom-range mechanism itself removed from the map in this
-   *  session (derived state, never persisted). The one-way gate: this is the
-   *  *only* set of ids the range is allowed to put back on the map — a layer
-   *  the author declared `show=False` and the user never touched has no
-   *  entry here, so the range stays off the map the way folium left it.
-   *
-   *  Any explicit user action clears the id via `syncHiddenId`, so the
-   *  user's choice always beats this mechanism's record. */
-  rangeHiddenIds: Set<string>;
   /** The author's declared default per layer id, snapshotted once per id from
    *  the map membership at first sight.
    *
    *  Folium ships the layer list without a visibility field, so the author's
    *  `show=` default reaches the UI only as the map state folium left behind
    *  when the panel boots. It must be captured before the policy starts moving
-   *  layers: `layerInfo.visible` is a real-time mirror that applyLayerState and
-   *  the zoom-range sweep both write, so by the time a row first paints it
-   *  already carries a policy decision, not the author's. See `rowChecked`. */
+   *  layers: `layerInfo.visible` is a real-time mirror that the diff executor
+   *  writes, so by the time a row first paints it can already carry a policy
+   *  decision, not the author's. See `rowChecked`. */
   authorVisible: Map<string, boolean>;
   /** Which dimensions the user has actually set, per layer id. A layer absent
    *  here keeps the author's `show=` / opacity default -- that is what replaces
@@ -220,7 +211,6 @@ class LayerUI {
     this._ = createTranslator(CONF);
     this.foldedGroups = new Set();
     this.hiddenIds = new Set();
-    this.rangeHiddenIds = new Set();
     this.authorVisible = new Map();
     this.userOverrides = {};
     this.isColorActive = false;

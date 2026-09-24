@@ -71,12 +71,16 @@ const nativeBaseOf = (layer: L.Layer): number => {
  */
 const carrierOf = (ui: LayerUI, layerInfo: LayerInfo): unknown => {
   if (layerInfo.canvas) return layerInfo.canvas;
-  const carrier = ui.m.surfaceFor(layerInfo).capabilities.opacity;
-  if (carrier === "pane") {
-    const names = [...ui.m.surfaceFor(layerInfo).paneNames];
+  const surface = ui.m.surfaceFor(layerInfo);
+  if (surface.capabilities.opacity === "pane") {
+    // A stable key, not an array: `sameCarrier` compares with `===`, so a
+    // freshly built array would never match and every pane layer would
+    // rewrite on every call. Sorted, so the order the pane specs happen to
+    // arrive in cannot register as "the carrier moved".
+    const names = [...surface.paneNames];
     const annotationPane = ui.m.annotation?.paneNameFor(layerInfo.id);
     if (annotationPane) names.push(annotationPane);
-    return names;
+    return names.sort().join("|");
   }
   return (layerInfo.layer?.options ?? null) as object | null;
 };
@@ -153,7 +157,6 @@ const applyStateOp = (ui: LayerUI, layerInfo: LayerInfo, op: StateOp): void => {
       if (typeof (layer as L.ImageOverlay).setOpacity === "function") {
         (layer as L.ImageOverlay).setOpacity(target);
       } else {
-        layer.options = opts;
         opts.opacity = target;
       }
       layerInfo.opacity = op.value ?? 1;
@@ -225,7 +228,7 @@ const applyStateOp = (ui: LayerUI, layerInfo: LayerInfo, op: StateOp): void => {
  *  `intent.visible` is no longer diffed separately: any change that would
  *  authorise an add goes through `intent`, so the effective value already
  *  reflects the user's authorisation. The one-way gate that used to live in
- *  `rangeHiddenIds` (see #329) is now the shape of this diff.
+ *  `rangeHiddenIds` is now the shape of this diff.
  */
 const applyProjection = (ui: LayerUI, id: string): void => {
   const layerInfo = ui.m.layerRegistry.get(id);
