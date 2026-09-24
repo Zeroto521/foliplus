@@ -391,13 +391,7 @@ class TestFixFile:
         # Char multiset is the same — this is why char multiset is insufficient.
         assert Counter(original) == Counter(bad_fixer)
         # But normalized line multiset differs — the guard catches this.
-        assert (
-            mod.same_line_multiset(
-                mod.normalized_line_multiset(original),
-                mod.normalized_line_multiset(bad_fixer),
-            )
-            is False
-        )
+        assert mod.normalized_line_multiset(original) != mod.normalized_line_multiset(bad_fixer)
 
     def test_guard_passes_correct_fixer(self):
         original = "\n".join(
@@ -426,13 +420,7 @@ class TestFixFile:
                 "",
             ]
         )
-        assert (
-            mod.same_line_multiset(
-                mod.normalized_line_multiset(original),
-                mod.normalized_line_multiset(correct_fixer),
-            )
-            is True
-        )
+        assert mod.normalized_line_multiset(original) == mod.normalized_line_multiset(correct_fixer)
 
     def test_sub_bullets_move_with_parent(self):
         t = "\n".join(

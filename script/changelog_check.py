@@ -272,11 +272,6 @@ def normalized_line_multiset(text: str) -> Counter:
     return Counter(sort_line_pairs(line) for line in text.split("\n"))
 
 
-def same_line_multiset(a: Counter, b: Counter) -> bool:
-    """Check if two multisets are equal."""
-    return a == b
-
-
 def fix_file(text: str) -> tuple[str, bool, str | None]:
     """Fix the file: within-line label sort + between-block stable sort.
 
@@ -349,9 +344,7 @@ def fix_file(text: str) -> tuple[str, bool, str | None]:
     new_text = "\n".join(lines)
     new_lines = normalized_line_multiset(new_text)
 
-    if not same_line_multiset(  # pragma: no cover - safety net for fixer bugs
-        original_lines, new_lines
-    ):
+    if original_lines != new_lines:  # pragma: no cover - safety net for fixer bugs
         return (
             new_text,
             False,
