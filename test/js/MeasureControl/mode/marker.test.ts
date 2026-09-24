@@ -522,7 +522,10 @@ describe("MarkerMode — start + click", () => {
     let rafCb: (() => void) | null = null;
     vi.stubGlobal(
       "requestAnimationFrame",
-      vi.fn((cb: () => void) => { rafCb = cb; return 1; }),
+      vi.fn((cb: () => void) => {
+        rafCb = cb;
+        return 1;
+      }),
     );
     vi.stubGlobal("cancelAnimationFrame", vi.fn());
     try {
@@ -572,7 +575,10 @@ describe("MarkerMode — start + click", () => {
     let rafCb: (() => void) | null = null;
     vi.stubGlobal(
       "requestAnimationFrame",
-      vi.fn((cb: () => void) => { rafCb = cb; return 1; }),
+      vi.fn((cb: () => void) => {
+        rafCb = cb;
+        return 1;
+      }),
     );
     vi.stubGlobal("cancelAnimationFrame", vi.fn());
     try {
@@ -612,8 +618,7 @@ describe("MarkerMode — start + click", () => {
       m2.measurements = saved;
       const restored = saved.find((e: any) => e.id === "m_restore");
       MarkerMode.restore(m2, restored);
-      expect(restored.lat).toBe(37.5);
-      expect(restored.lng).toBe(-122.5);
+      expect(window.L.latLng).toHaveBeenCalledWith(37.5, -122.5);
     } finally {
       vi.unstubAllGlobals();
     }
