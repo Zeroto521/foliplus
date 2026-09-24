@@ -303,7 +303,7 @@ const renderLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
 };
 
 /** Current display name for the virtual color basemap: persisted rename if
- *  present, else the locale label. The color layer has no registry entry. */
+ *  present, else the locale label. Name is persisted rename or locale label. */
 const colorLayerName = (ui: LayerUI): string => {
   return displayName(ui, CONST.COLOR.MAP_ID);
 };
