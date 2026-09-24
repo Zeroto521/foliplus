@@ -13,12 +13,12 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { esbuildCfgFor } from "#script/esbuild-config.mjs";
 
 // Vitest runs with the repo root as cwd, same convention bundle-size-check
-// relies on 鈥?so dist/ resolves without a parent-directory walk.
+// relies on —so dist/ resolves without a parent-directory walk.
 const ROOT = resolve(process.cwd());
 const distDir = resolve(ROOT, "foliplus/dist");
 
 // Artifact names come from dist/artifacts.json, which `script/build.mjs`
-// writes on every real build 鈥?the same list `test/python/test_asset.py`
+// writes on every real build —the same list `test/python/test_asset.py`
 // asserts wheel membership against. A new component therefore shows up in
 // both stacks without either test hardcoding its name.
 const names = JSON.parse(
@@ -134,13 +134,13 @@ describe("build artifacts", () => {
   });
 });
 
-// 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+// ──────────────────────────────────────────────────────────────────────────────
 // Minify invariant: our compressed config strips comments, so a wall of comments
 // in the source produces the same bytes as no comments at all. That is the
 // invariant the bundle-size gates rely on: they measure the minified output, so
 // comment noise must never count.
 //
-// The config we inspect comes from script/esbuild-config.mjs 鈥?the same factory
+// The config we inspect comes from script/esbuild-config.mjs —the same factory
 // script/build.mjs calls. Asserting `minify === true` here is what ties the
 // "size gates measure compressed bytes" claim to the actual build; without it,
 // someone could set `minify: false` in the real config and every gate would
@@ -150,7 +150,7 @@ describe("build artifacts", () => {
 // because the jsdom test environment swaps globalThis.TextEncoder, which trips
 // esbuild's `instanceof Uint8Array` check at module load. One short-lived
 // execSync per case.
-// 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+// ──────────────────────────────────────────────────────────────────────────────
 
 let tmp = "";
 const cwd = ROOT;
@@ -171,7 +171,7 @@ const cli = (() => {
 // plugins are JS functions (they don't serialize to CLI), the rest aren't
 // used by the invariant being tested (comment stripping under `minify`).
 //
-// `--sourcemap` is only emitted when truthy 鈥?the CLI takes
+// `--sourcemap` is only emitted when truthy —the CLI takes
 // `linked|inline|external|both` and rejects `false`, so a falsy value is
 // expressed by omission.
 const cliArgs = (cfg: ReturnType<typeof esbuildCfgFor>) =>
@@ -229,7 +229,7 @@ describe("minify invariant", () => {
     () => {
       // Directly the mirror of the previous test. esbuild keeps `@preserve`
       // and `@license` comments even under --minify (they are "legal
-      // comments" 鈥?the tool can't legally strip attribution). So if we swap
+      // comments" —the tool can't legally strip attribution). So if we swap
       // the plain `//` comment for a `@preserve` block, the two outputs must
       // differ: the invariant really is about ordinary comments being
       // stripped, not about trivially-passing assertions.
