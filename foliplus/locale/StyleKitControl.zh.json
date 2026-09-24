@@ -1,0 +1,9 @@
+{
+  "locale.name": "中文",
+  "locale.code": "zh",
+  "StyleKitControl.title": "样式",
+  "StyleKitControl.restore_defaults": "恢复默认",
+  "StyleKitControl.reset_map": "重置本图",
+  "StyleKitControl.restored": "已恢复默认",
+  "StyleKitControl.reset_done": "已重置，刷新生效"
+}

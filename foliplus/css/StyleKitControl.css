@@ -1,0 +1,19 @@
+/* ── StyleKitControl ──
+   Two destructive-to-the-user actions, stacked. Both are the panel's whole
+   content, so the list fills the body vertically and each button takes equal
+   room; the chrome (surface, header, collapse, focus ring) is the shared
+   `foliplus-panel` vocabulary from common/panel.css and is not repeated here. */
+.foliplus-stylekit-ctrl {
+  .foliplus-panel-content {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .stylekit-action {
+    flex: 0 1 auto;
+    min-width: 100%;
+    justify-content: flex-start;
+    text-align: left;
+  }
+}
