@@ -9,7 +9,7 @@ import {
   resolveCanvasLabelStyle,
 } from "#common/canvasLabel.js";
 import { type Debounced, debounce } from "#common/debounce.js";
-import { clampLabelSize, normalizeHexColor } from "#common/form.js";
+import { BORDER_WEIGHT, clampLabelSize, normalizeHexColor } from "#common/form.js";
 import { NUMBER_FORMAT, type NumberStyle, formatLabelNumber } from "#common/format.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { createLogger } from "#common/log.js";
@@ -209,7 +209,7 @@ class HeatmapManager {
     this.currentMethod = CONF.method ?? CONST.METHOD.JENKS;
     this.autoFieldKey = null;
     this.numClasses = CONF.n_classes ?? CONST.CLASS_COUNT.DEFAULT;
-    this.borderWeight = CONF.border_weight ?? CONST.BORDER.WEIGHT_DEFAULT;
+    this.borderWeight = CONF.border_weight ?? BORDER_WEIGHT.DEFAULT;
     this.borderColor = CONF.border_color ?? CONST.GRAY;
     // Python default is True; only an explicit false turns labels off — same
     // `!== false` rule MeasureControl uses for label_show / label_collide.
@@ -311,10 +311,7 @@ class HeatmapManager {
       // result is unaffected.
       borderWeight: v => {
         const n = typeof v === "number" && !Number.isNaN(v) ? v : this.borderWeight;
-        this.borderWeight = Math.min(
-          CONST.BORDER.WEIGHT_MAX,
-          Math.max(CONST.BORDER.WEIGHT_MIN, n),
-        );
+        this.borderWeight = Math.min(BORDER_WEIGHT.MAX, Math.max(BORDER_WEIGHT.MIN, n));
         this.redrawHeatmap();
         this.saveConfig();
         this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);

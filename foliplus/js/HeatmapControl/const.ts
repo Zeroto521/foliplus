@@ -2,7 +2,7 @@
 // ``import * as CONST`` so callers keep the ``CONST.X`` access pattern.
 // Only pure static constants live here; CONF-derived values are accessed
 // via ``CONF.*`` directly in the consuming code.
-import { LABEL_COLOR_DEFAULT, LABEL_SIZE } from "#common/form.js";
+import { BORDER_WEIGHT, LABEL_COLOR_DEFAULT, LABEL_SIZE } from "#common/form.js";
 
 const TIMING = {
   ZOOM_DEBOUNCE: 200,
@@ -60,13 +60,6 @@ const CLASS_COUNT = {
   MIN: 2,
   MAX: 9,
   DEFAULT: 6,
-};
-
-const BORDER = {
-  WEIGHT_MIN: 0,
-  WEIGHT_MAX: 10,
-  WEIGHT_STEP: 0.5,
-  WEIGHT_DEFAULT: 1,
 };
 
 /** Hex-label typography — shared bounds from common/form.js so the layer
@@ -132,7 +125,7 @@ const DATA_ATTR = {
 
 export {
   AGG,
-  BORDER,
+  BORDER_WEIGHT,
   CLASS_COUNT,
   CLASSES,
   DATA_ATTR,

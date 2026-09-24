@@ -6,6 +6,7 @@
 import { type LabelStyleValues, renderLabelControls } from "#core/labelControl.js";
 import { dom } from "#common/dom.js";
 import {
+  BORDER_WEIGHT,
   bindLiveColor,
   bindLiveNumber,
   colorInput,
@@ -19,16 +20,6 @@ import type { LayerUI } from "../index.js";
 import { appendResetFooter, sectionHeading } from "./frame.js";
 import { buildOpacityRow, layerCanOpacity } from "./opacity.js";
 import { buildZoomRangeRow, canShowZoomRange } from "./zoomRange.js";
-
-/** Border weight bounds — mirrors HeatmapControl's BORDER constants.
- *  Cross-component imports are not supported by the build system, so these
- *  are duplicated here. If HeatmapControl's values change, update both. */
-const BORDER = {
-  WEIGHT_MIN: 0,
-  WEIGHT_MAX: 10,
-  WEIGHT_STEP: 0.5,
-  WEIGHT_DEFAULT: 1,
-};
 
 /** Whether the layer delegates its style to the drawer via styleSetters
  *  (third-party canvas layers: Heatmap, Measure). The ⋮ menu's Style item
@@ -71,16 +62,16 @@ const buildBorderRow = (ui: LayerUI, layerId: string): HTMLElement | null => {
       value:
         typeof values.borderWeight === "number"
           ? values.borderWeight
-          : BORDER.WEIGHT_DEFAULT,
-      min: BORDER.WEIGHT_MIN,
-      max: BORDER.WEIGHT_MAX,
-      step: BORDER.WEIGHT_STEP,
+          : BORDER_WEIGHT.DEFAULT,
+      min: BORDER_WEIGHT.MIN,
+      max: BORDER_WEIGHT.MAX,
+      step: BORDER_WEIGHT.STEP,
       ariaLabel: ui._("foliplus.border_weight"),
     });
     bindLiveNumber(numberInputEl as HTMLInputElement, {
-      min: BORDER.WEIGHT_MIN,
-      max: BORDER.WEIGHT_MAX,
-      fallback: BORDER.WEIGHT_DEFAULT,
+      min: BORDER_WEIGHT.MIN,
+      max: BORDER_WEIGHT.MAX,
+      fallback: BORDER_WEIGHT.DEFAULT,
       onCommit: value => entry()?.styleSetters?.borderWeight?.(value),
     });
     parts.push(numberInputEl);

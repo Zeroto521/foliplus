@@ -1829,10 +1829,10 @@ describe("HeatmapManager — style delegation", () => {
     const opts = getCanvasOpts();
 
     opts.styleSetters!.borderWeight!(99);
-    expect(m.borderWeight).toBe(CONST.BORDER.WEIGHT_MAX);
+    expect(m.borderWeight).toBe(CONST.BORDER_WEIGHT.MAX);
 
     opts.styleSetters!.borderWeight!(-5);
-    expect(m.borderWeight).toBe(CONST.BORDER.WEIGHT_MIN);
+    expect(m.borderWeight).toBe(CONST.BORDER_WEIGHT.MIN);
   });
 
   it("borderWeight setter ignores NaN and non-number values", () => {

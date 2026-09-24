@@ -91,12 +91,12 @@ describe("CLASS_COUNT", () => {
   });
 });
 
-describe("BORDER", () => {
+describe("BORDER_WEIGHT", () => {
   it("defines weight constraints", () => {
-    expect(CONST.BORDER.WEIGHT_MIN).toBe(0);
-    expect(CONST.BORDER.WEIGHT_MAX).toBe(10);
-    expect(CONST.BORDER.WEIGHT_STEP).toBe(0.5);
-    expect(CONST.BORDER.WEIGHT_DEFAULT).toBe(1);
+    expect(CONST.BORDER_WEIGHT.MIN).toBe(0);
+    expect(CONST.BORDER_WEIGHT.MAX).toBe(10);
+    expect(CONST.BORDER_WEIGHT.STEP).toBe(0.5);
+    expect(CONST.BORDER_WEIGHT.DEFAULT).toBe(1);
   });
 });
 
