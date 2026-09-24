@@ -30,7 +30,8 @@
     "typecheck:tests": "vitest run --config vitest.config.mjs test/js/tsconfig.test.ts",
     "lint": "eslint \"foliplus/js/**/*.ts\" \"test/js/**/*.ts\" \"script/**/*.mjs\"",
     "format:check": "prettier --check \"foliplus/js/**/*.{js,ts}\" \"foliplus/css/**/*.css\" \"script/**/*.{js,cjs,mjs,ts}\" \"test/js/**/*.{js,ts}\"",
-    "bundle-size:check": "node script/bundle-size-check.mjs"
+    "bundle-size:check": "node script/bundle-size-check.mjs",
+    "bundle-size:fuse": "node script/bundle-fuse.mjs"
   },
   "devDependencies": {
     "@trivago/prettier-plugin-sort-imports": "^5.2.2",
