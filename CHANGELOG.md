@@ -102,6 +102,7 @@
 - `LayerControl`: layer rows are now addressed by `data-layer-id` instead of a positional index, and color-basemap activation re-renders the full row visual, fixing a stale checkbox tooltip ([#397](https://github.com/Zeroto521/foliplus/pull/397), [#423](https://github.com/Zeroto521/foliplus/pull/423), [#426](https://github.com/Zeroto521/foliplus/pull/426))
 - `MeasureControl`: destroy no longer loses persisted measurements — `onUnload` flushes pending drag mutations and marker drag's `throttleRaf` now `flush()`es on teardown ([#430](https://github.com/Zeroto521/foliplus/pull/430), [#442](https://github.com/Zeroto521/foliplus/pull/442))
 - `common/fetch`: a completed request no longer leaves its timeout and parent abort listener behind — the composed signal is disposed as soon as the fetch settles ([#433](https://github.com/Zeroto521/foliplus/pull/433))
+- `hint`: cap the toast at `min(480px, 80vw)` so a long locale string wraps instead of overflowing the map on a phone, with a wider cap under a 480px viewport ([#445](https://github.com/Zeroto521/foliplus/pull/445))
 
 ## [v0.3.0] (2026-08-02)
 

@@ -182,6 +182,11 @@
      this box, never push the control column — one vertical line for all
      panels. */
   --form-label-width: 88px;
+  /* Toast width cap. Below the 480px viewport the media block in hint.css
+     widens the cap to calc(100vw - 16px); the breakpoint 480px there is the
+     same value and must stay in sync with this token (media queries do not
+     accept var()). */
+  --hint-max-width: 480px;
 
   /* ── Border Width ── */
   --border-thin: 1px;
