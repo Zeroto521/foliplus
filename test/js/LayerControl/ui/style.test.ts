@@ -2871,7 +2871,9 @@ describe("LayerUI style panel — zoom range", () => {
     ui.zoomRangeMap["overlay1"] = [0, 3];
     ui.openStylePanel("overlay1");
     const row = zoomRowOf(panelOf(item)!)!;
-    expect(row.classList.contains(CONST.CLASSES.STYLE_ZOOM_RANGE_OOR)).toBe(true);
+    expect(row.classList.contains(CONST.CLASSES.STYLE_ZOOM_RANGE_OUT_OF_RANGE)).toBe(
+      true,
+    );
   });
 
   it("does not show out-of-range class when current zoom is inside the range", () => {
@@ -2879,7 +2881,9 @@ describe("LayerUI style panel — zoom range", () => {
     ui.zoomRangeMap["overlay1"] = [0, 18];
     ui.openStylePanel("overlay1");
     const row = zoomRowOf(panelOf(item)!)!;
-    expect(row.classList.contains(CONST.CLASSES.STYLE_ZOOM_RANGE_OOR)).toBe(false);
+    expect(row.classList.contains(CONST.CLASSES.STYLE_ZOOM_RANGE_OUT_OF_RANGE)).toBe(
+      false,
+    );
   });
 
   it("input event updates map state and visual row (live pass)", () => {
@@ -3216,39 +3220,39 @@ describe("LayerUI style panel — zoom range", () => {
     expect(rail.querySelector(`.${CONST.CLASSES.SLIDER_BUBBLE}`)).toBeNull();
   });
 
-  it("OOR state shows inline text and dims the rail when current zoom is outside range", () => {
+  it("OOR state marks the row when current zoom is outside range", () => {
     const item = findItem(ui, "overlay1");
     ui.zoomRangeMap["overlay1"] = [7, 10];
     ui.openStylePanel("overlay1");
     const row = zoomRowOf(panelOf(item)!)!;
-    const oorText = row.querySelector(
-      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_OOR_TEXT}`,
-    ) as HTMLElement;
 
-    // Current zoom (5) is outside [7, 10] — OOR state should be active.
-    expect(row.classList.contains(CONST.CLASSES.STYLE_ZOOM_RANGE_OOR)).toBe(true);
-    expect(oorText).not.toBeNull();
-    expect(oorText.textContent).toContain("style_zoom_range_out_of_range");
+    // Current zoom (5) is outside [7, 10] — out-of-range state should be active.
+    expect(row.classList.contains(CONST.CLASSES.STYLE_ZOOM_RANGE_OUT_OF_RANGE)).toBe(
+      true,
+    );
+    expect(row.title).toContain("style_zoom_range_out_of_range");
   });
 
-  it("OOR sync tolerates a missing OOR text element", () => {
+  it("out-of-range sync clears the class when zoom returns inside range", () => {
     const item = findItem(ui, "overlay1");
     ui.zoomRangeMap["overlay1"] = [7, 10];
     ui.openStylePanel("overlay1");
     const row = zoomRowOf(panelOf(item)!)!;
-    const oorText = row.querySelector(
-      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_OOR_TEXT}`,
-    ) as HTMLElement;
-    oorText.remove();
+    expect(row.classList.contains(CONST.CLASSES.STYLE_ZOOM_RANGE_OUT_OF_RANGE)).toBe(
+      true,
+    );
 
-    // Trigger a sync by changing the zoom range — should not throw.
+    // Move the range to cover current zoom (5) — OOR clears.
     const minInput = row.querySelector(
       `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MIN}`,
     ) as HTMLInputElement;
-    minInput.value = "8";
+    minInput.value = "0";
     minInput.dispatchEvent(new Event("input", { bubbles: true }));
 
-    expect(row.classList.contains(CONST.CLASSES.STYLE_ZOOM_RANGE_OOR)).toBe(true);
+    expect(row.classList.contains(CONST.CLASSES.STYLE_ZOOM_RANGE_OUT_OF_RANGE)).toBe(
+      false,
+    );
+    expect(row.title).toBe("");
   });
 
   it("renders no Layer rows for a delegated layer that carries neither", () => {

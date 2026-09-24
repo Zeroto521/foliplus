@@ -37,24 +37,11 @@
       font-weight: var(--font-weight-medium);
     }
 
-    /* Out of range: a compact badge appears next to the slider label to signal
-       the current zoom is outside the selected range. Always occupies its space
-       so the layout never shifts. */
-    .foliplus-zoom-range-oor-text {
-      display: inline-block;
-      font-size: var(--font-size-xs);
-      color: var(--text-secondary);
-      background: var(--neutral-200);
-      padding: 0 var(--size-4);
-      border-radius: var(--radius-sm);
-      visibility: hidden;
-    }
-
+    /* Out of range: a red ring on the current-zoom dot signals the current
+       zoom is outside the selected range. No text, no layout shift. */
     &.foliplus-zoom-range-out-of-range {
-      .foliplus-zoom-range-oor-text {
-        visibility: visible;
-        color: var(--accent-primary);
-        background: var(--accent-primary, #fef0f0);
+      .foliplus-style-zoom-range-dot-current {
+        box-shadow: 0 0 0 var(--size-2) var(--accent-primary);
       }
     }
   }
