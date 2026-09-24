@@ -46,7 +46,9 @@ const nativeBase = new WeakMap<L.Layer, number>();
 const nativeBaseOf = (layer: L.Layer): number => {
   let base = nativeBase.get(layer);
   if (base === undefined) {
-    const opts = (layer.options ?? {}) as L.LayerOptions & { opacity?: number };
+    // A Leaflet layer always has `options` — PaneManager already walks
+    // `options.pane` for every layer before we get here.
+    const opts = layer.options as L.LayerOptions & { opacity?: number };
     base = typeof opts.opacity === "number" ? opts.opacity : 1;
     nativeBase.set(layer, base);
   }
@@ -111,11 +113,14 @@ const applyStateOp = (ui: LayerUI, layerInfo: LayerInfo, op: StateOp): void => {
   if (op.type === "visible") {
     const layer = layerInfo.layer ?? ui.m.findLayer(layerInfo);
     if (layer) {
-      // Map membership. `addLayer` is a no-op on an already-present
-      // layer, so a caller may safely re-apply the same value.
+      // Map membership. Written only when it differs from what is there —
+      // `addLayer` on a live layer is a no-op at best and re-orders the
+      // stacking at worst, so both halves collapse to one condition.
       const has = ui.m.map.hasLayer(layer);
-      if (op.value && !has) ui.m.map.addLayer(layer);
-      else if (!op.value && has) ui.m.map.removeLayer(layer);
+      if (op.value !== has) {
+        if (op.value) ui.m.map.addLayer(layer);
+        else ui.m.map.removeLayer(layer);
+      }
     }
     // `onToggle` is the callback for canvas-only layers (heatmap / measure)
     // that have no Leaflet layer to add/remove — it fires the toggle so the
@@ -151,7 +156,7 @@ const applyStateOp = (ui: LayerUI, layerInfo: LayerInfo, op: StateOp): void => {
       // TileLayer) is honoured at the next tile cycle. The slider is a
       // multiplier over the author's declared default, so the base is
       // captured once.
-      const opts = (layer.options ?? {}) as L.LayerOptions & { opacity?: number };
+      const opts = layer.options as L.LayerOptions & { opacity?: number };
       const base = nativeBaseOf(layer);
       const target = base * (op.value ?? 1);
       if (typeof (layer as L.ImageOverlay).setOpacity === "function") {
@@ -160,7 +165,7 @@ const applyStateOp = (ui: LayerUI, layerInfo: LayerInfo, op: StateOp): void => {
         opts.opacity = target;
       }
       layerInfo.opacity = op.value ?? 1;
-    } else if (carrier === "pane") {
+    } else {
       // One CSS write per pane we own — declared, sub, synthesized, or
       // the layer's annotation pane. Multiplicative over each feature's
       // own style, so a hollow polygon keeps its hole.

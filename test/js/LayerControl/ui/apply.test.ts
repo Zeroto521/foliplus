@@ -3,6 +3,7 @@ import { LayerManager } from "#foliplus/LayerControl/manager.js";
 import {
   applyProjection,
   applyProjectionAll,
+  applyStateOp,
 } from "#foliplus/LayerControl/ui/apply.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { rowChecked } from "#foliplus/LayerControl/ui/rowView.js";
@@ -780,6 +781,43 @@ describe("executor: the branches behind the gates", () => {
     expect(projection.effectiveShown).toBe(true);
     expect(rowChecked(bare, info)).toBe(true);
     expect(() => applyProjection(bare, "n")).not.toThrow();
+  });
+
+  it("adds an author-visible layer that is not yet on the map", () => {
+    // The other half of the membership write: gate 1 holds the executor
+    // back from an *unauthorised* add, so this pins the authorised one.
+    // Author snapshot says shown, intent has no override, policy is fine —
+    // and the map has never been told.
+    const layer = { options: {} } as L.Layer;
+    const { ui, map } = boot([{ id: "a2", name: "A2", isBase: false, layer }]);
+    ui.authorVisible.set("a2", true);
+    (map.addLayer as ReturnType<typeof vi.fn>).mockClear();
+
+    applyProjection(ui, "a2");
+
+    expect(map.addLayer).toHaveBeenCalledWith(layer);
+    expect(ui.m.layerRegistry.get("a2")?.visible).toBe(true);
+  });
+
+  it("the dispatcher itself is idempotent when the value already matches", () => {
+    // `applyProjection` only reaches the dispatcher for a dimension that
+    // moved, so the "value already equals what is on the map" side of that
+    // comparison is unreachable through the executor. Calling the
+    // dispatcher directly is how it gets covered — and it is the property
+    // the comment promises: a redundant write is a no-op, not a re-add.
+    const layer = { options: {} } as L.Layer;
+    const { ui, map } = boot([{ id: "dup", name: "Dup", isBase: false, layer }]);
+    map.hasLayer = vi.fn(() => true);
+    map.addLayer = vi.fn();
+    map.removeLayer = vi.fn();
+
+    applyStateOp(ui, ui.m.layerRegistry.get("dup")!, {
+      type: "visible",
+      value: true,
+    });
+
+    expect(map.addLayer).not.toHaveBeenCalled();
+    expect(map.removeLayer).not.toHaveBeenCalled();
   });
 
   it("leaves a layer that is already on the map when asked to show it", () => {
