@@ -36,7 +36,6 @@ REAL_CHANGELOG = REPO_ROOT / "CHANGELOG.md"
 _spec = importlib.util.spec_from_file_location("changelog_check", SCRIPT)
 mod = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(mod)  # type: ignore[union-attr]
-sys.modules["changelog_check"] = mod  # so coverage.py can track it
 
 
 # ---------------------------------------------------------------------------
