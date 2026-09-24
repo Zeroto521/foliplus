@@ -2,6 +2,7 @@
 // Provides a central document-level keydown listener that dispatches to
 // registered shortcuts by priority, avoiding duplicate listeners across
 // components and resolving key conflicts.
+import { keyOwner, nativeConsumesKey } from "#core/inputOwnership.js";
 import { ensureMapFoliplus } from "#core/mapApi.js";
 
 /**
@@ -28,8 +29,10 @@ interface InteractionDef {
   /** Higher priority wins when multiple shortcuts match the same key.
    *  Default 0. Negative values are allowed for fallback handlers. */
   priority?: number;
-  /** If set, the shortcut only fires when the container (or a child) has focus.
-   *  Uses document-level listener with focus check. */
+  /** If set, the shortcut only fires when the container (or a child) has
+   *  focus **and that focus is not held by a control that natively consumes
+   *  the key** — the ownership half is decided once by the manager before
+   *  dispatch, not re-checked by the handler. */
   container?: HTMLElement;
   /** If set, binds keydown directly to this element instead of the document.
    *  Only fires when this element has focus (native behavior). */
@@ -63,24 +66,6 @@ interface InteractionEntry extends InteractionDef {
 
 // Per-map instance storage
 const instances = new WeakMap<L.Map, InteractionManager>();
-
-/** Whether the key is an arrow key that form controls consume natively. */
-const isArrowKey = (key: string): boolean =>
-  key === "ArrowUp" ||
-  key === "ArrowDown" ||
-  key === "ArrowLeft" ||
-  key === "ArrowRight";
-
-/** Whether an element consumes arrow keys natively. Checkbox/radio do not. */
-const isFormInput = (el: Element): boolean => {
-  const tag = el.tagName.toLowerCase();
-  if (tag === "textarea" || tag === "select") return true;
-  if (tag === "input") {
-    const type = (el as HTMLInputElement).type?.toLowerCase();
-    return type !== "checkbox" && type !== "radio" && type !== "hidden";
-  }
-  return false;
-};
 
 /** Ensure map.foliplus.interaction has a per-map InteractionManager. Idempotent. */
 const ensureInteraction = (map: L.Map): InteractionManager => {
@@ -170,6 +155,13 @@ class InteractionManager {
             if (entry.meta && !ke.metaKey) return;
             if (entry.shift && !ke.shiftKey) return;
             if (entry.alt && !ke.altKey) return;
+            // Same gate as the document-level path. A binding on the focused
+            // control itself is the `element:` opt-in — an explicit claim (a
+            // combobox input navigating its list with the arrows). A binding
+            // on a container that now holds a *different* native consumer must
+            // stand aside rather than swallow the key.
+            const owner = keyOwner(event);
+            if (owner !== entry.element && nativeConsumesKey(owner, ke.key)) return;
           }
           if (entry.preventDefault ?? true) {
             event.preventDefault();
@@ -252,15 +244,13 @@ class InteractionManager {
   private handleEvent(event: Event): void {
     const eventType = event.type;
     const ke = event as KeyboardEvent;
-    // Form controls consume arrow keys natively (sliders move their thumbs,
-    // text inputs move the caret). Let those pass through instead of being
-    // swallowed by a container shortcut that only wants to navigate rows.
+    // Input ownership, decided once before dispatch: a control that natively
+    // consumes the key keeps it — foliplus neither acts nor cancels. The
+    // table in inputOwnership is the single source, so a new native control
+    // in a panel is let through here without touching any handler.
     if (
       (eventType === "keydown" || eventType === "keyup") &&
-      isArrowKey(ke.key) &&
-      // document.activeElement is non-null in practice (jsdom + all browsers
-      // fall back to body); see isFormInput.
-      isFormInput(document.activeElement as Element)
+      nativeConsumesKey(keyOwner(event), ke.key)
     ) {
       return;
     }

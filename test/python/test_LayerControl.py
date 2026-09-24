@@ -4068,6 +4068,113 @@ class TestLayerControlBrowser:
                 "the FOCUS_SUPPRESSED mechanism is gone, got " + str(result)
             )
 
+    def test_native_gate_range_slider_arrowdown(self, browser, tmp_path):
+        """ArrowDown on a focused zoom-range slider moves the thumb, never the row cursor.
+
+        Row 1 of the input-ownership table, exercised through Chromium's real
+        keyboard pipeline: the key is pressed with ``page.keyboard`` after a
+        real focus, and a capture listener reports the browser's final
+        ``defaultPrevented``. Both halves of the gate are measured — the native
+        behaviour actually happened, and foliplus did not cancel the key to
+        take it over. Synthetic ``dispatchEvent`` cannot prove either.
+        """
+        overlay = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
+        with use_page(self._make_page, browser, tmp_path, overlay) as (page, errors):
+            panel_ready(page)
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
+            )
+            arm = page.evaluate(_js("LayerControl/native_gate_arm"))
+            assert arm.get("error") is None, f"setup failed: {arm}"
+            assert arm["sliderBefore"] > arm["sliderMin"], (
+                "the thumb rests on its floor, so ArrowDown has nowhere to go: "
+                + str(arm)
+            )
+            assert arm["focusedType"] == "range", f"slider not focused: {arm}"
+
+            page.keyboard.press("ArrowDown")
+
+            mid = page.evaluate(_js("LayerControl/native_gate_mid"))
+            assert mid["sliderAfter"] == arm["sliderBefore"] - arm["sliderStep"], (
+                "the thumb did not step down natively: before="
+                + str(arm["sliderBefore"])
+                + " after="
+                + str(mid["sliderAfter"])
+            )
+            read = page.evaluate(_js("LayerControl/native_gate_read"))
+            recs = [r for r in (read["records"] or []) if r["key"] == "ArrowDown"]
+            assert len(recs) == 1, f"ArrowDown observed {len(recs)} times: {read['records']}"
+            assert recs[0]["prevented"] is False, (
+                "foliplus cancelled ArrowDown meant for the slider: "
+                + str(read["records"])
+            )
+            assert recs[0]["type"] == "range", str(read["records"])
+            # The cursor is compared against its pre-press baseline, not against
+            # "absent": opening the style panel and focusing the checkbox both
+            # legitimately light the row cursor, so only a change is in scope.
+            assert mid["rowFocused"] == arm["rowFocused"], (
+                "the row keyboard cursor moved while the slider was focused: "
+                "before="
+                + str(arm["rowFocused"])
+                + " after="
+                + str(mid["rowFocused"])
+            )
+            assert not errors, f"JS errors: {errors}"
+
+    def test_native_gate_checkbox_space(self, browser, tmp_path):
+        """Space on a focused row checkbox flips it exactly once, via the native path.
+
+        Row 2 of the table. foliplus owns no key of a checkbox, so its own
+        row-toggle shortcut must not run alongside the native flip — otherwise
+        the layer would be applied twice. A real keypress again, with the
+        final ``defaultPrevented`` read from a capture listener.
+        """
+        overlay = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
+        with use_page(self._make_page, browser, tmp_path, overlay) as (page, errors):
+            panel_ready(page)
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
+            )
+            arm = page.evaluate(_js("LayerControl/native_gate_arm"))
+            assert arm.get("error") is None, f"setup failed: {arm}"
+            mid = page.evaluate(_js("LayerControl/native_gate_mid"))
+            assert mid["cbType"] == "checkbox", f"not a checkbox: {mid}"
+            assert mid["focusedType"] == "checkbox", f"checkbox not focused: {mid}"
+
+            page.keyboard.press(" ")
+
+            read = page.evaluate(_js("LayerControl/native_gate_read"))
+            recs = [r for r in (read["records"] or []) if r["type"] == "checkbox"]
+            assert recs, "no keydown reached document while the checkbox was focused"
+            assert len(recs) == 1, f"Space observed {len(recs)} times: {read['records']}"
+            assert recs[0]["prevented"] is False, (
+                "foliplus cancelled the Space the checkbox was flipping on: "
+                + str(read["records"])
+            )
+            assert read["cbAfter"] is not None, str(read)
+            assert read["cbAfter"] != mid["cbBefore"], (
+                "the checkbox did not flip: before="
+                + str(mid["cbBefore"])
+                + " after="
+                + str(read["cbAfter"])
+            )
+            # Baseline is the cursor left by the checkbox focus itself, which is
+            # the cursor by design: only a change caused by the keypress counts.
+            assert read["rowFocused"] == mid["rowFocusedAfterFocus"], (
+                "the row keyboard cursor moved on the Space that the checkbox "
+                "was flipping on: after-focus="
+                + str(mid["rowFocusedAfterFocus"])
+                + " after-press="
+                + str(read["rowFocused"])
+            )
+            assert not errors, f"JS errors: {errors}"
+
     def test_focusin_maps_checkbox_to_row_cursor(self, browser, tmp_path):
         """Tab focus is sampled once in focusin and mapped onto the JS row class.
 
