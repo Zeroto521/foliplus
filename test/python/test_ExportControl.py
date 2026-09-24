@@ -1354,7 +1354,9 @@ class TestExportControlBrowser:
             state = page.evaluate(_js("ExportControl/no_basemap_state"))
             assert state["ok"] is True, state
             assert state["noBaseMap"] is False, f"a basemap should be visible: {state}"
-            tile_layers = [li for li in state["layers"] if li["id"] != "foliplus_color_map"]
+            tile_layers = [
+                li for li in state["layers"] if li["id"] != "foliplus_color_map"
+            ]
             assert all(li["isBase"] and li["visible"] for li in tile_layers), (
                 f"both tile basemaps should be visible: {tile_layers}"
             )
