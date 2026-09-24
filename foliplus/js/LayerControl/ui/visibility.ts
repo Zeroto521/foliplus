@@ -20,17 +20,12 @@ const getLayerItems = (ui: LayerUI, group: string): NodeListOf<Element> => {
  *  `backgroundColor`), so an empty state never reaches an export. */
 const syncNoBasemap = (ui: LayerUI): void => {
   const anyBaseVisible = ui.m.layers.some(li => li.isBase && li.visible);
-  ui.m.map.getContainer().classList.toggle(
-    CONST.CLASSES.NO_BASE_MAP,
-    !anyBaseVisible,
-  );
+  ui.m.map.getContainer().classList.toggle(CONST.CLASSES.NO_BASE_MAP, !anyBaseVisible);
   const label = ui.uiContainer.querySelector(
     `${CONST.SEL.TOGGLE_ALL}[data-group="${CONST.GROUP.BASE}"] ${CONST.SEL.SEP_LABEL}`,
   );
   if (label) {
-    label.textContent = ui.T(
-      anyBaseVisible ? "base_map_label" : "no_base_map_label",
-    );
+    label.textContent = ui.T(anyBaseVisible ? "base_map_label" : "no_base_map_label");
   }
 };
 
