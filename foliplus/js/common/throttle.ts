@@ -10,7 +10,9 @@
  * frame, and a `flush()` method to execute it immediately (no-op if none
  * is pending). Use `flush` in teardown so the final call is never lost.
  */
-const throttleRaf = (fn: () => void): (() => void) & { cancel: () => void; flush: () => void } => {
+const throttleRaf = (
+  fn: () => void,
+): (() => void) & { cancel: () => void; flush: () => void } => {
   let rafId: number | null = null;
   const wrapped = () => {
     if (rafId) return;
