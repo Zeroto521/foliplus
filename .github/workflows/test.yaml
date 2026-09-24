@@ -155,22 +155,13 @@ jobs:
           ln -s "$(pwd)/node_modules" /tmp/base/node_modules
           (
             cd /tmp/base
-            npm run build
+            make build-js
           )
           node script/bundle-size-check.mjs --root=/tmp/base --emit=base-sizes.json
           git worktree remove --force /tmp/base
 
-      - name: Build minified bundles for size gates
-        run: npm run build
-
       - name: Bundle size gates
-        run: |
-          node script/bundle-fuse.mjs
-          if [ -f base-sizes.json ]; then
-            node script/bundle-size-check.mjs --baseline=base-sizes.json --enforce
-          else
-            node script/bundle-size-check.mjs --enforce
-          fi
+        run: make bundle-gates
 
       - run: uv run make test
 

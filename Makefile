@@ -22,6 +22,7 @@ help:
 	@echo "'test-python'  - run Python-only tests (skip browser)"
 	@echo "'test-js'      - run JS tests (skip Python)"
 	@echo "'bundle-size-check'   - print bundle sizes (brotli) of the current build"
+	@echo "'bundle-gates'   - build + run fuse and delta gates (CI)"
 	@echo "'clean-build'  - remove build artifacts"
 	@echo "'clean-pyc'    - remove Python cache files"
 	@echo "'clean-cov'    - remove coverage files"
@@ -64,6 +65,14 @@ build-js-dev:
 
 bundle-size-check: build-js
 	npm run bundle-size:check
+
+bundle-gates: build-js
+	node script/bundle-fuse.mjs
+	@if [ -f base-sizes.json ]; then \
+		node script/bundle-size-check.mjs --baseline=base-sizes.json --enforce; \
+	else \
+		node script/bundle-size-check.mjs --enforce; \
+	fi
 
 build-python:
 	# `foliplus/dist` is not under version control, so without this gate
