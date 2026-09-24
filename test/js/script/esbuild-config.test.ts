@@ -1,5 +1,7 @@
-import { resolve } from "path";
-import { describe, expect, it } from "vitest";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "fs";
+import { tmpdir } from "os";
+import { join, resolve } from "path";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { esbuildCfgFor } from "#script/esbuild-config.mjs";
 
 // The substantive behavior of this module — that our esbuild config
@@ -72,5 +74,56 @@ describe("esbuildCfgFor", () => {
     const names = cfg.plugins.map((p: { name: string }) => p.name);
     expect(names).toContain("postcss");
     expect(names).toContain("source-transform");
+  });
+
+  it("PostCSS plugin flattens nested CSS and applies vendor prefixes", async () => {
+    // The PostCSS plugin's onLoad callback (lines 46-49 of
+    // script/esbuild-config.mjs) is the only way nested CSS becomes flat
+    // CSS in the bundle. Without exercising it, a broken `postcssNesting`
+    // or `autoprefixer` config would ship nested rules to the browser —
+    // valid CSS that most browsers silently ignore, so the page renders
+    // unstyled and nobody notices the build was fine.
+    //
+    // We can't call esbuild's JS API here (jsdom swaps TextEncoder and
+    // trips esbuild's instanceof check), so we mock the `build` object
+    // that esbuild passes to the plugin's `setup` function, capture the
+    // onLoad handler, and invoke it against a synthetic CSS file.
+    const tmp = mkdtempSync(join(tmpdir(), "postcss-test-"));
+    try {
+      const cssPath = join(tmp, "test.css");
+      const nested = `.parent {\n  color: red;\n  .child {\n    font-weight: bold;\n  }\n}`;
+      writeFileSync(cssPath, nested, "utf-8");
+
+      const postcssPlugin = esbuildCfgFor({ dev: false, root: ROOT }).plugins[0];
+      let onLoadHandler: (args: { path: string }) => Promise<{ contents: string }> | undefined;
+
+      // Mock the esbuild build object with just the onLoad method.
+      const mockBuild = {
+        onLoad: (opts: { filter: RegExp }, handler: (args: { path: string }) => Promise<{ contents: string }>) => {
+          expect(opts.filter).toBeInstanceOf(RegExp);
+          expect(opts.filter.test("foo.css")).toBe(true);
+          expect(opts.filter.test("foo.js")).toBe(false);
+          onLoadHandler = handler;
+        },
+      };
+
+      postcssPlugin.setup(mockBuild as any);
+
+      expect(onLoadHandler).toBeDefined();
+      const result = await onLoadHandler!({ path: cssPath });
+
+      // postcssNesting flattens `.parent { .child { ... } }` to
+      // `.parent .child { ... }`. The parent's direct rule (color: red)
+      // stays as its own block; only the nested selector is pulled out.
+      expect(result.contents).toContain(".parent .child");
+      expect(result.contents).toMatch(/font-weight\s*:\s*bold/);
+      // The parent block for the direct property is fine — what matters is
+      // that `.child` is no longer nested inside `.parent {`.
+      expect(result.contents).not.toMatch(/\.parent\s*{[^}]*\.child/);
+      // `loader: "css"` tells esbuild the onLoad returned CSS, not JS.
+      expect(result).toEqual({ contents: expect.any(String), loader: "css" });
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
   });
 });

@@ -130,8 +130,9 @@ const fuse = (args, root = ROOT) => {
   // Sort by size descending so the biggest offenders land on top; missing
   // rows bubble up regardless so a new bundle can't hide at the bottom.
   rows.sort((a, b) => {
-    if (a.status === "missing" && b.status !== "missing") return -1;
-    if (b.status === "missing" && a.status !== "missing") return 1;
+    const aMissing = a.status === "missing" ? 0 : 1;
+    const bMissing = b.status === "missing" ? 0 : 1;
+    if (aMissing !== bMissing) return aMissing - bMissing;
     return b.measured - a.measured;
   });
   const trips = rows.filter(r => r.status === "over");

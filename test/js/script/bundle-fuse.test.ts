@@ -90,6 +90,37 @@ describe("bundle-fuse exit codes", () => {
     expect(fuse({}, root)).toBe(EXIT_UNKNOWN);
   });
 
+  it("returns EXIT_UNKNOWN when the uncapped artifact sorts first", () => {
+    // The sort comparator's ternary (`aMissing ? -1 : 1`) has two branches:
+    // return -1 when a is missing (bubble a up), return 1 when b is missing
+    // (bubble b up). The previous test creates [same, missing] so the
+    // comparator sees (a=same, b=missing) and returns 1. This test creates
+    // [missing, same] so the comparator sees (a=missing, b=same) and returns
+    // -1 — covering the other branch of the ternary.
+    const root = mkTmp();
+    mkDist(root, {
+      "foliplus-NewControl.min.js": payload(512),
+      "foliplus-LocateControl.min.js": "x",
+    });
+    expect(fuse({}, root)).toBe(EXIT_UNKNOWN);
+  });
+
+  it("returns EXIT_UNKNOWN when every artifact lacks a cap entry", () => {
+    // Two uncapped bundles exercise the sort comparator's symmetric branch:
+    // when both rows are "missing", neither the first nor the second
+    // `if` fires (a.status is missing so the first `if`'s `b.status !==
+    // "missing"` fails; a.status is missing so the second `if`'s
+    // `a.status !== "missing"` fails), and the comparator falls through
+    // to the measured-size tiebreak. Without this case the second `if`'s
+    // false-path is never reached and the branch stays partial.
+    const root = mkTmp();
+    mkDist(root, {
+      "foliplus-NewControl-A.min.js": payload(256),
+      "foliplus-NewControl-B.min.js": payload(512),
+    });
+    expect(fuse({}, root)).toBe(EXIT_UNKNOWN);
+  });
+
   // Reverse proof: the breach assertion above would still pass if the caps
   // table were empty (`cap == null` would put the artifact in `unknown`,
   // which is a different exit code). This pairs with `under cap` above:
