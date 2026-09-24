@@ -318,7 +318,7 @@ describe("collectExports with as alias", () => {
 
   it("uses alias name when re-exporting from another module", () => {
     const code =
-      'export { DEFAULT_TIMEOUT_MS as GEODECODE_TIMEOUT_MS } from "./other.js";';
+      'export { DEFAULT_TIMEOUT_MS as GEOCODE_TIMEOUT_MS } from "./other.js";';
     const tmpDir = createTempFile("alias2.test.ts", code);
     const fs = require("fs");
     const path = require("path");
@@ -327,7 +327,7 @@ describe("collectExports with as alias", () => {
       fs.writeFileSync(otherPath, "export const DEFAULT_TIMEOUT_MS = 5000;", "utf-8");
       const exports = collectExports(tmpDir.path);
       // The alias name is present (from the re-export line)
-      expect(exports).toContain("GEODECODE_TIMEOUT_MS");
+      expect(exports).toContain("GEOCODE_TIMEOUT_MS");
       // The local name is also present (recursive resolution of the target)
       expect(exports).toContain("DEFAULT_TIMEOUT_MS");
     } finally {
@@ -413,8 +413,8 @@ describe("scanSharedImports", () => {
       path.join(base, "comp.ts"),
       [
         'import * as Icons from "#common/icon.js";',
-        "console.log(Icons.LOADING);",
-        "console.log(Icons.CLOSE);",
+        "console.log(Icons.LOADING_ICON);",
+        "console.log(Icons.CLOSE_ICON);",
       ].join("\n"),
       "utf-8",
     );
@@ -422,7 +422,9 @@ describe("scanSharedImports", () => {
       const { used, starUsed } = scanSharedImports(base);
       expect(used.size).toBe(0);
       expect(starUsed.has("#common/icon.js")).toBe(true);
-      expect(starUsed.get("#common/icon.js")).toEqual(new Set(["LOADING", "CLOSE"]));
+      expect(starUsed.get("#common/icon.js")).toEqual(
+        new Set(["LOADING_ICON", "CLOSE_ICON"]),
+      );
     } finally {
       fs.rmSync(base, { recursive: true, force: true });
     }
@@ -492,12 +494,12 @@ describe("globalNamespacePlugin", () => {
   it("shims star-imported property usage via starUsed", () => {
     writeFileSync(
       join(dir, "index.ts"),
-      'import * as Storage from "#common/storage.js";\nStorage.load();\n',
+      'import * as Storage from "#common/storage.js";\nStorage.loadRecord();\n',
       "utf-8",
     );
     const { onLoad } = setupPlugin();
     const result = onLoad({ path: "#common/storage.js" });
-    expect(result.contents).toContain("export const load =");
+    expect(result.contents).toContain("export const loadRecord =");
   });
 
   it("falls back to collectExports and returns empty for unknown files", () => {

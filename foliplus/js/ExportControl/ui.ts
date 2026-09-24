@@ -10,7 +10,7 @@ import { bindMapSync } from "#common/panel.js";
 import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
 import { registerCropMouseDown } from "./interaction.js";
-import type { ExportManager, Rect } from "./manager.js";
+import type { CropRect, ExportManager } from "./manager.js";
 
 /** Toolbar action button config. */
 interface ToolbarButton {
@@ -53,7 +53,7 @@ const renderToolbarActions = (
 };
 
 /** Update crop box element position/size. */
-const updateBoxStyle = (mgr: ExportManager, el: HTMLElement, r: Rect) => {
+const updateBoxStyle = (mgr: ExportManager, el: HTMLElement, r: CropRect) => {
   el.style.left = `${r.left}px`;
   el.style.top = `${r.top}px`;
   el.style.width = `${r.width}px`;
@@ -92,7 +92,7 @@ const showGlobalHint = (
 };
 
 /** Show a hint with crop box size info. */
-const showHintWithInfo = (mgr: ExportManager, r: Rect, instruction?: string) => {
+const showHintWithInfo = (mgr: ExportManager, r: CropRect, instruction?: string) => {
   mgr.checkPixelLimit(r);
   mgr.map.foliplus!.showHint(
     mgr.conf.name,
@@ -203,7 +203,7 @@ const showCropBox = (mgr: ExportManager) => {
     },
     cancel: {
       title: mgr.T("btn_cancel"),
-      svg: Icons.CLOSE,
+      svg: Icons.CLOSE_ICON,
       onclick: () => mgr.removeCropBox(),
     },
   });
@@ -242,12 +242,12 @@ const lockCropBox = (mgr: ExportManager, skipHint = false) => {
   renderToolbarActions(mgr, {
     confirm: {
       title: mgr.T("btn_export"),
-      svg: Icons.DOWNLOAD,
+      svg: Icons.DOWNLOAD_ICON,
       onclick: () => mgr.doExport(),
     },
     cancel: {
       title: mgr.T("btn_cancel"),
-      svg: Icons.CLOSE,
+      svg: Icons.CLOSE_ICON,
       onclick: () => mgr.unlockCropBox(),
     },
   });
@@ -281,7 +281,7 @@ const unlockCropBox = (mgr: ExportManager) => {
     },
     cancel: {
       title: mgr.T("btn_cancel"),
-      svg: Icons.CLOSE,
+      svg: Icons.CLOSE_ICON,
       onclick: () => mgr.removeCropBox(),
     },
   });

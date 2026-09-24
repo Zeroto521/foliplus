@@ -101,4 +101,4 @@ const composeSignal = (
   return { signal: controller.signal, dispose };
 };
 
-export { fetchWithTimeout, DEFAULT_TIMEOUT_MS as GEODECODE_TIMEOUT_MS };
+export { fetchWithTimeout, DEFAULT_TIMEOUT_MS as GEOCODE_TIMEOUT_MS };

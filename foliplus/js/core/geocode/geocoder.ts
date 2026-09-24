@@ -10,7 +10,7 @@
 // set by provider-aware controls) and finally to Nominatim.
 import { getMapCrsType } from "#core/geo/coord.js";
 import { Cache } from "#common/cache.js";
-import { GEODECODE_TIMEOUT_MS, fetchWithTimeout } from "#common/fetch.js";
+import { GEOCODE_TIMEOUT_MS, fetchWithTimeout } from "#common/fetch.js";
 import { withMapCRS } from "./mapProvider.js";
 import { formatAddress } from "./nominatim.js";
 import { createThrottleQueue } from "./rateLimit.js";
@@ -50,7 +50,7 @@ const localeFallback = (code: string, key: string, fallback: string) => {
 
 const requestJson = (provider: GeocodeProvider, url: string): Promise<unknown> =>
   fetchWithTimeout(url, {
-    timeoutMs: GEODECODE_TIMEOUT_MS,
+    timeoutMs: GEOCODE_TIMEOUT_MS,
     headers: provider.headers,
   }).then(r => r.json());
 
