@@ -198,7 +198,7 @@ const rowType = (
     if (layerInfo.id === CONST.COLOR.MAP_ID) {
       return { svg: SVGs.COLOR, key: "type_color_map" };
     }
-    return { svg: Icons.GLOBE, key: "type_base" };
+    return { svg: Icons.GLOBE_ICON, key: "type_base" };
   }
   if (layerInfo.iconSvg) {
     layerInfo.type = GEOM_TYPE.CUSTOM;

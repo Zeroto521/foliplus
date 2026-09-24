@@ -122,7 +122,7 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
         tabindex: "0",
         title: ui.T("rename_layer_tooltip"),
       },
-      { html: Icons.EDIT },
+      { html: Icons.EDIT_ICON },
       ui.T("rename_layer"),
     ),
   );
@@ -138,7 +138,7 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
         tabindex: "0",
         title: ui.T("attributes_layer_tooltip"),
       },
-      { html: Icons.INFO },
+      { html: Icons.INFO_ICON },
       ui.T("attributes_layer"),
     ),
   );
@@ -233,7 +233,7 @@ const buildDeleteItem = (
       title: disabled ? ui.T("delete_layer_disabled") : ui.T("delete_layer_tooltip"),
       "aria-disabled": disabled ? "true" : "false",
     },
-    { html: Icons.DELETE },
+    { html: Icons.DELETE_ICON },
     label,
   );
   if (disabled) item.setAttribute("disabled", "disabled");

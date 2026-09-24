@@ -841,7 +841,7 @@ describe("LayerManager", () => {
 
   it("saveOrder is debounced — rapid calls coalesce into one storage write", () => {
     vi.useFakeTimers();
-    const spy = vi.spyOn(Storage, "save");
+    const spy = vi.spyOn(Storage, "saveRecord");
     manager.saveOrder();
     manager.saveOrder();
     manager.saveOrder();
@@ -854,7 +854,9 @@ describe("LayerManager", () => {
 
   describe("loadSavedOrder", () => {
     it("restores a persisted overlay/base order", () => {
-      const spy = vi.spyOn(Storage, "load").mockReturnValue(["overlay1", "base1"]);
+      const spy = vi
+        .spyOn(Storage, "loadRecord")
+        .mockReturnValue(["overlay1", "base1"]);
       const m = new LayerManager(map, [
         { id: "base1", name: "B", isBase: true },
         { id: "overlay1", name: "O", isBase: false },
@@ -865,7 +867,7 @@ describe("LayerManager", () => {
 
     it("drops unknown ids from persisted order and keeps the rest", () => {
       const spy = vi
-        .spyOn(Storage, "load")
+        .spyOn(Storage, "loadRecord")
         .mockReturnValue(["ghost", "overlay1", "gone", "base1"]);
       const m = new LayerManager(map, [
         { id: "base1", name: "B", isBase: true },
@@ -876,7 +878,7 @@ describe("LayerManager", () => {
     });
 
     it("ignores non-array storage data", () => {
-      const spy = vi.spyOn(Storage, "load").mockReturnValue("nope");
+      const spy = vi.spyOn(Storage, "loadRecord").mockReturnValue("nope");
       const m = new LayerManager(map, [{ id: "overlay1", name: "O", isBase: false }]);
       // falls back to the initial (insertion) order
       expect(m.layers.map(l => l.id)).toEqual(["overlay1"]);
@@ -888,7 +890,7 @@ describe("LayerManager", () => {
       // the registry's starting arrangement and removed gates the registration
       // entry point, so both come from this one read rather than a second one
       // against a registry that has since grown.
-      const spy = vi.spyOn(Storage, "load");
+      const spy = vi.spyOn(Storage, "loadRecord");
       new LayerManager(map, [
         { id: "base1", name: "B", isBase: true },
         { id: "overlay1", name: "O", isBase: false },
@@ -1443,7 +1445,7 @@ describe("LayerManager", () => {
     // One shared timer, one record: removed must not become a seventh writer
     // that can land on a different tick than the order / names it prunes.
     vi.useFakeTimers();
-    const save = vi.spyOn(Storage, "save").mockImplementation(() => true);
+    const save = vi.spyOn(Storage, "saveRecord").mockImplementation(() => true);
     const m = new LayerManager(map, [
       { id: "overlay1", name: "O", isBase: false, layer: { options: {} } },
       { id: "base1", name: "B", isBase: true, layer: { options: {} } },
@@ -1588,7 +1590,7 @@ describe("LayerManager", () => {
       { id: "b", name: "B", isBase: false },
     ]);
     m.persistence = new LayerPersistence();
-    const save = vi.spyOn(Storage, "save");
+    const save = vi.spyOn(Storage, "saveRecord");
     m.saveOrder();
     save.mockClear();
     m.destroy();
@@ -1604,7 +1606,7 @@ describe("LayerManager", () => {
     // survive a reload, which is the whole point of the flush.
     const m = new LayerManager(map, [{ id: "a", name: "A", isBase: false }]);
     m.persistence = new LayerPersistence();
-    const save = vi.spyOn(Storage, "save");
+    const save = vi.spyOn(Storage, "saveRecord");
     m.persistence.schedule({
       layers: () => ({ a: { visible: false, overrides: ["visible"] } }),
     });
