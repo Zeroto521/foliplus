@@ -291,72 +291,39 @@ def _install_cdn_route(target: Any) -> None:
     target.route("**/*", handler)
 
 
-# Init script injected into every fresh page. A sessionStorage marker makes
-# the clear idempotent across same-page reloads — that is what persistence
-# tests rely on (write localStorage → page.reload() → read it back). Fresh
-# tabs have an empty sessionStorage, so the marker is absent and storage is
-# wiped before any page script runs.
-_CLEAR_STORAGE_INIT = """(() => {
-    if (!sessionStorage.getItem('__test_isolated')) {
-        try { localStorage.clear(); } catch (e) {}
-        try { sessionStorage.clear(); } catch (e) {}
-        try { sessionStorage.setItem('__test_isolated', '1'); } catch (e) {}
-    }
-})();
-"""
-
 # Playwright's default navigation timeout is 30 000 ms. Under CI contention
 # the browser can sit on its main thread waiting for first paint, which
-# makes ``page.goto`` trip the default. 45 s is a buffer, not a mask: the
-# session-scoped context is the actual fix; this only stops legitimate slow
-# startup from being misread as a flake. Deliberately set on navigation
-# only — per-action timeouts (click / wait_for_*) stay at Playwright
-# defaults so real slowness in assertions still surfaces.
+# makes ``page.goto`` trip the default. 45 s is a buffer, not a mask — it
+# stops legitimate slow startup from being misread as a flake. Deliberately
+# set on navigation only; per-action timeouts (click / wait_for_*) stay at
+# Playwright defaults so real slowness in assertions still surfaces.
 _BROWSER_DEFAULT_NAV_TIMEOUT_MS = 45_000
 
 
 class _CdnBrowserProxy:
-    """Wrap a Playwright Browser with a session-scoped BrowserContext.
+    """Wrap a Playwright Browser so every ``new_page()`` gets the CDN route.
 
-    The single context is the root-cause fix for the ``-n 24`` flake: every
-    ``new_page()`` previously spun up a fresh Chromium context, which under
-    parallel load made browsers compete for the same Chromium user-data-dir
-    and stall on first paint. Sharing one context amortizes that startup.
+    ``browser.new_page()`` internally creates a fresh ``BrowserContext``,
+    which isolates ``localStorage`` / cookies / caches natively — one
+    test never sees another's storage. ``page.reload()`` inside a single
+    test preserves what it wrote (persistence tests rely on this).
 
-    Test-to-test isolation is preserved by two mechanisms, both cheap and
-    orthogonal to the persistence path (which reloads inside a single test):
-
-    - ``context.clear_cookies()`` at the start of every ``new_page()``, so
-      no test sees another test's cookies.
-    - an init script that clears ``localStorage`` / ``sessionStorage`` on
-      each fresh tab, gated by a sessionStorage marker so a same-page
-      ``reload()`` still sees what it wrote.
-
-    The CDN route is installed on the context, not per-page, so a 200-page
-    run doesn't stack 200 route handlers onto a single Chromium dispatcher.
+    Routing is installed per page because the underlying context is not
+    exposed; this is the baseline behaviour. The proxy also raises the
+    navigation timeout from Playwright's 30 s default to 45 s so a
+    legitimate slow first-paint doesn't trip as a flake on loaded CI.
     """
 
     def __init__(self, browser: Browser) -> None:
         self._browser = browser
-        self._context: Any = None  # lazily created; keep Any for mypy
 
     def __getattr__(self, name: str):
         return getattr(self._browser, name)
 
-    @property
-    def context(self) -> Any:
-        if self._context is None:
-            self._context = self._browser.new_context()
-            self._context.set_default_navigation_timeout(
-                _BROWSER_DEFAULT_NAV_TIMEOUT_MS
-            )
-            _install_cdn_route(self._context)
-        return self._context
-
     def new_page(self, *args, **kwargs):
-        self.context.clear_cookies()
-        page = self.context.new_page()
-        page.add_init_script(_CLEAR_STORAGE_INIT)
+        page = self._browser.new_page(*args, **kwargs)
+        _install_cdn_route(page)
+        page.set_default_navigation_timeout(_BROWSER_DEFAULT_NAV_TIMEOUT_MS)
         return page
 
 
@@ -609,10 +576,9 @@ def rendered(base_map: folium.Map) -> str:
 def browser() -> Generator[_CdnBrowserProxy, None, None]:
     """Launch a headless Chromium once per session.
 
-    Every ``new_page()`` is wrapped with a CDN/tile route (see
-    ``_CdnBrowserProxy``) so browser tests don't depend on a fast network.
-    The proxy also shares one ``BrowserContext`` across the session and
-    isolates per-test storage — see the class docstring.
+    Every ``new_page()`` returns a page on a fresh ``BrowserContext`` (see
+    ``_CdnBrowserProxy``), so tests don't share ``localStorage`` / cookies.
+    The CDN route is installed on each context so browser tests run offline.
 
     Skipped if Playwright is not installed::
 
