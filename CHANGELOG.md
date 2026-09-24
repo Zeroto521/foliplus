@@ -70,7 +70,7 @@
 - `LayerControl`/`HeatmapControl`: `createCanvas` mounts on its own pane so z-order, focus, and export share the pane model; drop `onZIndex` ([#350](https://github.com/Zeroto521/foliplus/pull/350), [#388](https://github.com/Zeroto521/foliplus/pull/388))
 - `core/leafletAdapter`: single module for every Leaflet-private reach — a Leaflet upgrade is a one-file change, and a static guard test fails any other module naming those fields ([#371](https://github.com/Zeroto521/foliplus/pull/371), [#374](https://github.com/Zeroto521/foliplus/pull/374), [#386](https://github.com/Zeroto521/foliplus/pull/386), [#387](https://github.com/Zeroto521/foliplus/pull/387))
 - `common/storage`: share three persistence helpers (`saveVersioned` / `loadVersioned` / `makePersisted`) across `MeasureControl`/`HeatmapControl`/`SearchControl`/`LayerControl`; legacy records stay readable without migration ([#416](https://github.com/Zeroto521/foliplus/pull/416), [#417](https://github.com/Zeroto521/foliplus/pull/417), [#422](https://github.com/Zeroto521/foliplus/pull/422))
-- `InteractionManager`/`ListCursor`/`LayerControl`: input ownership — a control that natively consumes a key keeps it, decided once by one control × key table in `core/inputOwnership.ts` at dispatch instead of five per-call-site guards, so adding a native control to a panel is a table entry; `Escape` stays foliplus-owned from every family
+- `InteractionManager`/`ListCursor`/`LayerControl`: input ownership — one control × key table at dispatch replaces five per-call-site guards; adding a control to a panel is a table entry; `Escape` stays foliplus-owned
 
 ### Removed
 
