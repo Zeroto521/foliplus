@@ -6,8 +6,8 @@ import { MeasureStore } from "#foliplus/MeasureControl/store.js";
 // the store's array/id/persist contract is covered in store.test.ts; this file
 // pins the versioned record envelope and the tolerant readers.
 const storage = vi.hoisted(() => ({
-  load: vi.fn(),
-  save: vi.fn(),
+  loadRecord: vi.fn(),
+  saveRecord: vi.fn(),
   loadVersioned: vi.fn(),
   saveVersioned: vi.fn(),
   makePersisted: vi.fn(),
@@ -17,8 +17,8 @@ const events = vi.hoisted(() => ({
 }));
 
 vi.mock("#common/storage.js", () => ({
-  load: storage.load,
-  save: storage.save,
+  loadRecord: storage.loadRecord,
+  saveRecord: storage.saveRecord,
   loadVersioned: storage.loadVersioned,
   saveVersioned: storage.saveVersioned,
   makePersisted: storage.makePersisted,
@@ -41,8 +41,8 @@ const makeStore = () => {
 };
 
 beforeEach(() => {
-  storage.load.mockReset();
-  storage.save.mockReset();
+  storage.loadRecord.mockReset();
+  storage.saveRecord.mockReset();
   storage.loadVersioned.mockReset();
   storage.saveVersioned.mockReset();
   storage.saveVersioned.mockReturnValue(true);

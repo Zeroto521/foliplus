@@ -92,7 +92,7 @@ class SearchControl extends BaseControl {
     const modeBtn = createIconButton({
       class: CLASSES.SEARCH_MODE_BTN,
       title: T("mode_coord"),
-      svg: Icons.GLOBE,
+      svg: Icons.GLOBE_ICON,
       parent: toolBar,
     });
     const inp = dom.el("input", {
@@ -103,7 +103,7 @@ class SearchControl extends BaseControl {
     const clearBtn = createIconButton({
       class: "foliplus-ctrl-btn foliplus-close-btn",
       title: T("clear_title"),
-      svg: Icons.CLOSE,
+      svg: Icons.CLOSE_ICON,
     });
     this.modeBtn = modeBtn;
     this.inp = inp;
@@ -148,11 +148,11 @@ class SearchControl extends BaseControl {
   setMode(newMode: SearchType) {
     this.mode = newMode;
     if (this.mode === MODE.COORD) {
-      this.modeBtn.innerHTML = Icons.GLOBE;
+      this.modeBtn.innerHTML = Icons.GLOBE_ICON;
       this.modeBtn.title = T("mode_coord");
       this.inp.placeholder = T("coord_placeholder");
     } else {
-      this.modeBtn.innerHTML = Icons.LOCATE;
+      this.modeBtn.innerHTML = Icons.LOCATE_ICON;
       this.modeBtn.title = T("mode_addr");
       this.inp.placeholder = T("addr_placeholder");
     }

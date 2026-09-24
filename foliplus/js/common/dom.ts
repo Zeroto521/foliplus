@@ -192,7 +192,7 @@ const buildPopupEl = (
   // nodes so the spinner (trusted) and the label (locale JSON) never share
   // one HTML string.
   const addrNodes: Child[] = loading
-    ? [{ html: SVGs.LOADING }, dom.el("span", null, loadingText)]
+    ? [{ html: SVGs.LOADING_ICON }, dom.el("span", null, loadingText)]
     : [addr || loadingText];
   return dom.el(
     "div",
