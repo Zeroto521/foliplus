@@ -208,6 +208,9 @@ describe("build artifacts", () => {
     // author-snapshot guard — tipped it over. 255000 restores the ~20%
     // headroom this cap is documented as carrying, so the next refactor is
     // not a cap bump by default.
+
+    // Raised for metaProvider (per-mode count rows in the attrs panel):
+    // +213 B, 0.1% above the previous bar.
     "foliplus-LayerControl.min.js": 255000,
   };
   it("component JS has reasonable size", () => {

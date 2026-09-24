@@ -110,6 +110,7 @@ class LayerRegistry {
       source: opts.source ?? existingLi?.source ?? null,
       updatedAt: opts.updatedAt ?? existingLi?.updatedAt ?? null,
       meta: opts.meta ?? existingLi?.meta ?? null,
+      metaProvider: opts.metaProvider ?? existingLi?.metaProvider ?? null,
       // Registration time: set once on first registration, never rewritten by a
       // provider re-registration.
       registeredAt: existingLi?.registeredAt ?? Date.now(),
