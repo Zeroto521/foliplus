@@ -135,7 +135,7 @@ class TestExportControlPython:
         """A bare LocaleConfig records the code but ships no custom table.
 
         The code is sent to JS, which ships the built-in tables and lets the
-        browser pick the language â€?so this asserts the *absence* of a custom
+        browser pick the language â€” so this asserts the *absence* of a custom
         table rather than that translation took effect.
         """
         from foliplus.locale import LocaleConfig
@@ -146,7 +146,7 @@ class TestExportControlPython:
         conf = json.loads(ctrl._config_block)
         assert conf["locale_code"] == "zh"
         table = conf["locale_tables"]["zh"]
-        # Built-in table is present, unmodified â€?no custom override layered on.
+        # Built-in table is present, unmodified â€” no custom override layered on.
         builtin = _load_tables("ExportControl.*.json")["zh"]
         assert table == builtin
 
@@ -316,7 +316,7 @@ class TestExportControlBrowser:
 
     def test_leaves_live_tile_layers_untouched(self, browser, tmp_path):
         """ExportControl no longer rewrites live tile layers' crossOrigin nor
-        registers a permanent layeradd listener â€?the removed CORS pre-setup
+        registers a permanent layeradd listener â€” the removed CORS pre-setup
         blanked non-CORS base maps, flashed the viewport on init, and leaked
         the listener.  Re-adding the control must not change either."""
         with use_page(self._make_page, browser, tmp_path, folium.TileLayer()) as (
@@ -397,7 +397,7 @@ class TestExportControlBrowser:
             page.wait_for_timeout(300)
             assert page.evaluate("window.__featureMarker.options.interactive") is True
 
-            # Open crop selection â†?the centralized ModeManager lock disables the marker.
+            # Open crop selection â†’ the centralized ModeManager lock disables the marker.
             page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
             page.wait_for_selector(
                 ".foliplus-export-box", state="attached", timeout=5000
@@ -420,7 +420,7 @@ class TestExportControlBrowser:
             popup_open = page.evaluate("!!document.querySelector('.leaflet-popup')")
             assert not popup_open, "feature popup opened during crop selection"
 
-            # Close the crop box (Escape) â†?interaction restored.
+            # Close the crop box (Escape) â†’ interaction restored.
             page.keyboard.press("Escape")
             page.wait_for_selector(".foliplus-export-box", state="hidden", timeout=5000)
             page.wait_for_timeout(300)
@@ -453,7 +453,7 @@ class TestExportControlBrowser:
             page.wait_for_selector(
                 ".foliplus-export-box", state="attached", timeout=5000
             )
-            # The arrow shortcuts are container-bound â€?focus the map container.
+            # The arrow shortcuts are container-bound â€” focus the map container.
             page.evaluate(
                 "() => { const c = window.__map.getContainer(); "
                 "c.setAttribute('tabindex', '-1'); c.focus(); }"
@@ -505,7 +505,7 @@ class TestExportControlBrowser:
             # then OS auto-repeat fires repeated keydowns for the same key.
             # With the loop running the repeats are intentionally ignored, so
             # a held key nudges exactly once (the loop's sync frame) plus the
-            # continuous stream handled by the loop â€?here the test injects a
+            # continuous stream handled by the loop â€” here the test injects a
             # no-op scheduler so the loop only ever runs its sync frame, i.e.
             # one NUDGE_STEP regardless of how many repeats follow.
             page.keyboard.down("ArrowRight")
@@ -529,7 +529,7 @@ class TestExportControlBrowser:
             assert after["w"] == pytest.approx(before["w"])
             assert after["h"] == pytest.approx(before["h"])
 
-            # A pure move keeps the size constant, so the hint is never refreshed â€?
+            # A pure move keeps the size constant, so the hint is never refreshed â€”
             # refreshing would rebuild the element and replay its entry animation.
             assert (
                 page.evaluate(
@@ -690,7 +690,7 @@ class TestExportControlBrowser:
                 ".foliplus-export-box", state="attached", timeout=5000
             )
 
-            # Lock crop box â†?switches to download button
+            # Lock crop box â†’ switches to download button
             page.locator(".foliplus-tool-bar .confirm").click()
             page.wait_for_selector(
                 ".foliplus-export-box.locked", state="attached", timeout=5000
@@ -699,7 +699,7 @@ class TestExportControlBrowser:
             # Click download button to trigger export
             page.locator(".foliplus-tool-bar .confirm").click()
 
-            # Wait for export to finish â€?control collapses on completion
+            # Wait for export to finish â€” control collapses on completion
             page.wait_for_function(
                 """() => {
                 const ctrl = document.querySelector('.foliplus-export-ctrl');
@@ -827,7 +827,7 @@ class TestExportControlBrowser:
 
             info = page.evaluate(_js("ExportControl/read_mask_zindex"))
 
-            # Box must live in mapContainer (not mapPane) â€?mapPane's
+            # Box must live in mapContainer (not mapPane) â€” mapPane's
             # z-index:400 stacking context would trap the mask below scale/attr.
             assert info["parentIsContainer"], (
                 f"Crop box must be inside mapContainer, got parentZ={info['parentZ']}"
@@ -859,7 +859,7 @@ class TestExportControlBrowser:
                 ".foliplus-export-ctrl", state="attached", timeout=10000
             )
 
-            # Open export control â€?should auto-restore saved bounds
+            # Open export control â€” should auto-restore saved bounds
             page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
             page.wait_for_selector(
                 ".foliplus-export-box.locked", state="attached", timeout=5000
@@ -913,7 +913,7 @@ class TestExportControlBrowser:
 
         The canvas layer's ``foliplus-canvas-layer`` class marks it as
         pointer-events decoration on screen, but the canvas itself is
-        *content* â€?HeatmapControl is the only user and its map is real data.
+        *content* â€” HeatmapControl is the only user and its map is real data.
         This test draws a red rectangle and checks the export canvas actually
         holds those red pixels. A blanket exclude of ``.foliplus-canvas-layer``
         would silently zero out the count, and the test would catch it.
@@ -1020,7 +1020,7 @@ class TestExportControlBrowser:
             # Pixel gate: the export canvas now has an opaque background
             # fill (the container's computed backgroundColor), so the source
             # annotation colour is blended. Instead of matching the source
-            # colour, check that the export canvas has non-background pixels â€?
+            # colour, check that the export canvas has non-background pixels â€”
             # pixels that differ significantly from the grey background. The
             # annotation canvas carries `.foliplus-canvas-layer`; a blanket
             # exclude of that class would drop the labels and leave zero
@@ -1148,12 +1148,12 @@ class TestExportControlBrowser:
         return page.evaluate(_js("ExportControl/sample_export_canvas"))
 
     def test_export_uses_solid_color_basemap_as_background(self, browser, tmp_path):
-        """Picking a solid-color basemap â†?the export canvas is filled with it.
+        """Picking a solid-color basemap â†’ the export canvas is filled with it.
 
         Before this fix the export background came from ``CONF.background`` (a
         Python-static config), so the colour the user just picked on screen was
         missing from the image. The export now reads the map container's computed
-        ``backgroundColor`` â€?the same value the user sees â€?and fills the canvas
+        ``backgroundColor`` â€” the same value the user sees â€” and fills the canvas
         with it.
         """
         with use_page(self._make_page, browser, tmp_path, slug="export_color_bg") as (
@@ -1196,8 +1196,8 @@ class TestExportControlBrowser:
             assert result is not None, "Export canvas not captured"
             assert result["hit"] > 0, f"basemap colour missing from export: {result}"
             # The fillRect paints the whole canvas, so nearly every non-
-            # transparent pixel should match â€?a regression (e.g. falling back
-            # to CONF.background, which was None/transparent) would leave hit â‰?0.
+            # transparent pixel should match â€” a regression (e.g. falling back
+            # to CONF.background, which was None/transparent) would leave hit â‰ˆ 0.
             assert result["hit"] > result["total"] * 0.5, (
                 f"basemap colour not dominant in export: {result}"
             )
@@ -1206,13 +1206,13 @@ class TestExportControlBrowser:
     def test_export_uses_leaflet_default_background_without_color_basemap(
         self, browser, tmp_path
     ):
-        """No solid-color basemap â†?the export canvas is filled with the map
+        """No solid-color basemap â†’ the export canvas is filled with the map
         container's default background (Leaflet's ``#ddd``).
 
         The container's computed ``backgroundColor`` is always opaque (Leaflet's
         own CSS sets ``#ddd``), so the export matches what the user sees: a
         plain grey base, not a transparent one. This replaces the old
-        ``CONF.background`` (default ``None`` â†?transparent canvas), which
+        ``CONF.background`` (default ``None`` â†’ transparent canvas), which
         disagreed with the screen.
         """
         with use_page(self._make_page, browser, tmp_path, slug="export_default_bg") as (
@@ -1304,7 +1304,7 @@ class TestExportControlBrowser:
                 ".foliplus-export-box.locked", state="attached", timeout=5000
             )
 
-            # Zoom in â€?the locked box should keep tracking the same geo area
+            # Zoom in â€” the locked box should keep tracking the same geo area
             page.keyboard.press("Control+=")
             page.wait_for_timeout(1000)
 
@@ -1323,7 +1323,7 @@ class TestExportControlBrowser:
         must read the ancestor-chain alpha via effectiveOpacity(). This test
         creates a marker at 0.4 opacity, exports, captures the renderer's
         internal canvas (via a document.createElement hook), and reads its
-        pixels to assert the marker was drawn with alpha â‰?0.4 Ã— 255 â‰?102.
+        pixels to assert the marker was drawn with alpha â‰ˆ 0.4 Ã— 255 â‰ˆ 102.
 
         A tight range catches both "forgot to draw" (maxAlpha=0) and
         "forgot to apply alpha" (maxAlpha=255) regressions.
@@ -1335,7 +1335,7 @@ class TestExportControlBrowser:
             assert state["paneOpacity"] == "0.4", state
             assert state["paneName"] == "__export_opacity_pane__", state
 
-            # Hook document.createElement to capture the export canvas â€?
+            # Hook document.createElement to capture the export canvas â€”
             # the renderer creates it internally and never attaches it to the DOM.
             # The patch is not restored: use_page gives each test a fresh page,
             # so the interception cannot leak between tests.
@@ -1374,14 +1374,14 @@ class TestExportControlBrowser:
 
             # Read the captured canvas pixels and verify the marker was
             # drawn. The export canvas now has an opaque background fill, so
-            # the marker's alpha composites onto the background â€?the
+            # the marker's alpha composites onto the background â€” the
             # resulting pixel alpha is 255 (from the background), and the
             # opacity is reflected in the colour blend rather than in alpha.
             #
             # The background is Leaflet's default grey (221, 221, 221). The
             # marker is a red pin; even at 0.4 opacity the blended pixel is
             # visibly different from grey. Count pixels that differ from the
-            # background by more than tolerance 30 in any channel â€?this
+            # background by more than tolerance 30 in any channel â€” this
             # catches "marker drawn at any opacity" and "marker not drawn
             # at all" (all pixels would be grey).
             result = page.evaluate(
@@ -1424,7 +1424,7 @@ class TestExportControlBrowser:
         check visibility) survive regardless.
 
         B1 peels the pane's inline visibility before reading computed styles,
-        so all three carriers survive. Before B1, vectors â‰?0; after, all > 0.
+        so all three carriers survive. Before B1, vectors â‰ˆ 0; after, all > 0.
 
         Three non-overlapping windows: left (GeoJson vector), centre (marker),
         right (heatmap canvas). Focusing the canvas layer hides the vector pane.
@@ -1496,7 +1496,7 @@ class TestExportControlBrowser:
 
         Sets display:none on a specific SVG path (blue polygon), exports, and
         asserts the path's window has 0 blue pixels. The polygon is blue so
-        its pixels are distinguishable from the red background â€?the pruning
+        its pixels are distinguishable from the red background â€” the pruning
         code in renderPaneSVG removes display:none elements from the clone,
         so they never appear in the SVG string and produce zero pixels.
         """
@@ -1542,7 +1542,7 @@ class TestExportControlBrowser:
             )
             page.wait_for_timeout(2000)
 
-            # Sample the vector window â€?should have 0 blue pixels (path pruned).
+            # Sample the vector window â€” should have 0 blue pixels (path pruned).
             page.evaluate(
                 f"""() => {{
                     window._sampleWindows = {json.dumps(state["windows"])};

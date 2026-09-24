@@ -112,7 +112,7 @@ class TestSearchControlPython:
 
 
 class TestSearchControlProviderConfig:
-    """Python â†?JS bridge tests for provider serialization."""
+    """Python â†” JS bridge tests for provider serialization."""
 
     def test_provider_serialized_in_config(self):
         ctrl = SearchControl(provider="photon")
@@ -264,7 +264,7 @@ class TestSearchControlBrowser:
             )
             assert is_globe, "Expected globe icon for coord mode"
 
-            # Click mode switch button â†?switches to address mode
+            # Click mode switch button â†’ switches to address mode
             page.evaluate("document.querySelector('.foliplus-search-mode-btn').click()")
             page.wait_for_timeout(500)
 
@@ -298,28 +298,28 @@ class TestSearchControlBrowser:
             assert cleared == "", f"Expected empty input after clear, got: '{cleared}'"
 
     def test_del_icon_removes_pin_and_clears_input(self, browser, tmp_path):
-        """Floating âœ?appears with the popup and removes the pin + clears input."""
+        """Floating âœ• appears with the popup and removes the pin + clears input."""
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
-            # Coordinate search â†?pin placed, but âœ?is hidden by default.
+            # Coordinate search â†’ pin placed, but âœ• is hidden by default.
             page.evaluate(_js("SearchControl/trigger_coord_search"))
             page.wait_for_timeout(500)
             state = page.evaluate(_js("SearchControl/read_delicon"))
-            assert not state["delIconVisible"], "âœ?should be hidden by default"
+            assert not state["delIconVisible"], "âœ• should be hidden by default"
 
-            # Open the pin's popup â†?âœ?appears (unified with Measure/Locate).
+            # Open the pin's popup â†’ âœ• appears (unified with Measure/Locate).
             assert page.evaluate(_js("SearchControl/toggle_popup")), "pin not found"
             page.wait_for_selector(
                 "[data-del-icon].visible", state="attached", timeout=10000
             )
             assert page.evaluate(_js("SearchControl/read_delicon"))["delIconVisible"]
 
-            # Click the âœ?â†?pin removed + input cleared.
+            # Click the âœ• â†’ pin removed + input cleared.
             clicked = page.evaluate(_js("SearchControl/click_delicon"))
-            assert clicked, "no visible âœ?to click"
+            assert clicked, "no visible âœ• to click"
             page.wait_for_timeout(300)
             cleared = page.evaluate(_js("SearchControl/read_clear_state"))
-            assert cleared["inputCleared"], "input should be cleared after clicking âœ?
-            assert cleared["delIconCount"] == 0, "âœ?should be removed after click"
+            assert cleared["inputCleared"], "input should be cleared after clicking âœ•"
+            assert cleared["delIconCount"] == 0, "âœ• should be removed after click"
             assert cleared["popupCount"] == 0, "popup should be closed after click"
             assert not errors, f"JS errors: {errors}"
 
@@ -481,7 +481,7 @@ class TestSearchControlBrowser:
             page.wait_for_selector(".foliplus-search", state="attached", timeout=10000)
             self._expand(page)
 
-            # Empty input â†?history panel shows the seeded coord entry.
+            # Empty input â†’ history panel shows the seeded coord entry.
             page.wait_for_selector(
                 ".foliplus-search-result-item", state="attached", timeout=5000
             )
