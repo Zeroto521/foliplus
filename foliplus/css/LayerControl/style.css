@@ -43,10 +43,10 @@
       .foliplus-style-zoom-range-dot-current::after {
         content: "";
         position: absolute;
-        top: -3px;
-        right: -3px;
-        width: 6px;
-        height: 6px;
+        top: calc(var(--size-2) * -1.5);
+        right: calc(var(--size-2) * -1.5);
+        width: var(--size-6);
+        height: var(--size-6);
         background: var(--accent-primary);
         border-radius: 50%;
       }
