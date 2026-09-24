@@ -32,7 +32,7 @@
 - `LayerControl`: `setVisible(id, visible)` on `LayerAPI` for programmatic layer visibility, taking the same transition and persistence as the panel checkbox ([#321](https://github.com/Zeroto521/foliplus/pull/321))
 - `LayerControl`/`HeatmapControl`/`SearchControl`/`MeasureControl`: `collapse_on_outside` — whether a press outside the panel collapses it. Default `false` for `LayerControl`, whose panel is read alongside the map and whose busiest gesture is drag-pan / click-select; `true` for the other three, so their behaviour is unchanged ([#428](https://github.com/Zeroto521/foliplus/pull/428))
 - `LayerControl`: delete a layer from its ⋮ menu — a two-click confirm behind a divider, deletions persisted per map, and the solid colour basemap shows the entry disabled ([#431](https://github.com/Zeroto521/foliplus/pull/431))
-- `LayerControl`: fill colour row in the style panel — a colour swatch for vector layers (Polygon, Polyline, Circle, Rectangle, GeoJSON) that writes through `setStyle`, persists to localStorage, and resets to the author's default on Reset; the row is gated by the same capability check that hides it from canvas layers, delegated drawers, basemaps and MarkerCluster ([#450](https://github.com/Zeroto521/foliplus/pull/450))
+- `LayerControl`: fill colour row in the style panel — a colour swatch for vector layers (Polygon, Polyline, Circle, Rectangle, GeoJSON) that writes through `setStyle`, persists to localStorage, and resets to the author's default on Reset; the row is gated by the same capability check that hides it from canvas layers, delegated drawers, basemaps and MarkerCluster ([#452](https://github.com/Zeroto521/foliplus/pull/452))
 
 ### Changed
 
