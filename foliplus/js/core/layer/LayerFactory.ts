@@ -9,7 +9,6 @@ import {
   CANVAS_PANE_PREFIX,
   COLOR_PANE_PREFIX,
   PANE_NAME_PATTERN,
-  TILE_HIDDEN_CLASS,
 } from "./const.js";
 import type {
   CreateCanvasAPI,
@@ -364,11 +363,6 @@ class LayerFactory {
 
       const setVisible = (v: boolean) => {
         face.classList.toggle(HIDDEN, !v);
-        // The color pane sits *under* the tile panes in Leaflet's shared stack,
-        // so hiding the tiles is part of showing the color. Nobody else may
-        // switch them — it is this surface's write, not a global side effect
-        // that would outlive the layer (§22-4).
-        map.getPane("tilePane")?.classList.toggle(TILE_HIDDEN_CLASS, v);
       };
 
       layerOpts = {

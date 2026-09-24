@@ -1,7 +1,7 @@
 // LayerControl UI —Checkbox / group-toggle visibility.
 import { type Debounced, debounce } from "#common/debounce.js";
 import * as CONST from "../const.js";
-import { hideColorLayer, showColorLayer } from "./color.js";
+import { showColorLayer } from "./color.js";
 import type { LayerUI } from "./index.js";
 import { applyRowView, buildRowCell, rowChecked } from "./rowView.js";
 import { saveState, syncHiddenId } from "./state.js";
@@ -10,6 +10,27 @@ const getLayerItems = (ui: LayerUI, group: string): NodeListOf<Element> => {
   return ui.uiContainer.querySelectorAll(
     `${CONST.SEL.LAYER_ITEM}${group === CONST.GROUP.BASE ? `[data-layer-type="${CONST.GROUP.BASE}"]` : `:not([data-layer-type="${CONST.GROUP.BASE}"]):not(${CONST.SEL.COLOR_ITEM})`}`,
   );
+};
+
+/** A′ no-basemap hatch: paint on the map container and swap the group label
+ *  to `no_base_map_label` when zero basemaps are visible. The hatch is CSS
+ *  `background-image` on the Leaflet container, which ExportControl's
+ *  resolveExportBackground deliberately skips (it reads only
+ *  `backgroundColor`), so an empty state never reaches an export. */
+const syncNoBasemap = (ui: LayerUI): void => {
+  const anyBaseVisible = ui.m.layers.some(li => li.isBase && li.visible);
+  ui.m.map.getContainer().classList.toggle(
+    CONST.CLASSES.NO_BASE_MAP,
+    !anyBaseVisible,
+  );
+  const label = ui.uiContainer.querySelector(
+    `${CONST.SEL.TOGGLE_ALL}[data-group="${CONST.GROUP.BASE}"] ${CONST.SEL.SEP_LABEL}`,
+  );
+  if (label) {
+    label.textContent = ui.T(
+      anyBaseVisible ? "base_map_label" : "no_base_map_label",
+    );
+  }
 };
 
 const toggleAll = (ui: LayerUI, group: string, newState: boolean) => {
@@ -40,12 +61,8 @@ const toggleAll = (ui: LayerUI, group: string, newState: boolean) => {
   // batch).
   saveState(ui);
 
-  if (group === CONST.GROUP.BASE && !newState) {
-    hideColorLayer(ui);
-    showColorLayer(ui, ui.currentColor);
-  } else if (group === CONST.GROUP.BASE && newState) hideColorLayer(ui);
-
   syncToggleAll(ui, group);
+  syncNoBasemap(ui);
   ui.m.debouncedEnforce();
 };
 
@@ -112,7 +129,6 @@ const applyVisibility = (ui: LayerUI, id: string, visible: boolean): boolean => 
     `[${CONST.DATA.LAYER_ID}="${CSS.escape(id)}"]`,
   ) as HTMLElement | null;
 
-  if (layerInfo.isBase) hideColorLayer(ui);
   if (layer) {
     visible ? ui.m.map.addLayer(layer) : ui.m.map.removeLayer(layer);
   }
@@ -124,6 +140,7 @@ const applyVisibility = (ui: LayerUI, id: string, visible: boolean): boolean => 
   if (item) applyRowView(ui, item, buildRowCell(ui, layerInfo));
 
   syncToggleAll(ui, layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY);
+  syncNoBasemap(ui);
   ui.m.debouncedEnforce();
 
   // A basemap switch changes the map's min/max zoom without firing zoomend,
@@ -139,7 +156,6 @@ const applyVisibility = (ui: LayerUI, id: string, visible: boolean): boolean => 
 const handleChange = (ui: LayerUI, event: Event) => {
   const target = event.target as HTMLInputElement;
   if (target.classList.contains(CONST.CLASSES.COLOR_INPUT)) {
-    ui.deselectAllBaseMaps(-1);
     showColorLayer(ui, target.value);
     syncToggleAll(ui, CONST.GROUP.BASE);
     ui.m.enforceOrder();
@@ -173,6 +189,7 @@ export {
   getLayerItems,
   toggleAll,
   syncToggleAll,
+  syncNoBasemap,
   syncVisibility,
   applyVisibility,
   handleChange,

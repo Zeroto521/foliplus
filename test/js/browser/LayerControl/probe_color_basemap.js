@@ -1,13 +1,15 @@
-// R1 probe (§10.3 #9): solid-color basemap current DOM path.
+// R8b probe (§10.3 #9): solid-color basemap DOM path after R8b.
 //
-// Today the color basemap has NO pane and NO element of its own. Its state
-// is ad-hoc across five spots: ui.isColorActive, ui.currentColor, the
-// `--color-layer-bg` CSS var on the map container, the `.active` class on
-// the container, the `foliplus-layer-tile-hidden` class on tilePane, and
-// the color input value. The visible background is the map container's own
-// CSS background (`.leaflet-container.active { background: var(--color-layer-bg) }`),
-// while tilePane is hidden via visibility/opacity. "提升为 surface" (R8)
-// gives it a pane + element so the same per-layer write path covers it.
+// Under R8b the color basemap is coequal with tile basemaps. It still
+// paints via the map container's CSS background (`.leaflet-container.active`
+// reads `--color-layer-bg`), but it no longer suppresses the shared
+// tilePane: the retired `foliplus-layer-tile-hidden` class and its
+// visibility/opacity side effects are gone, so the tile pane stays visible
+// underneath and the color simply paints on top (container background is
+// drawn above the leaflet-pane stack). Tile basemaps, when registered,
+// get their own synthesized `foliplus-pane-*` via LayerSurface; the color
+// basemap itself has no Leaflet layer, so it contributes no pane of its
+// own — the color "surface" is the container background.
 () => {
   const ctrl = document.querySelector(".foliplus-layer-ctrl");
   if (ctrl && !ctrl.classList.contains("expanded")) {
@@ -28,8 +30,9 @@
   const tilePane = document.querySelector(".leaflet-tile-pane");
   const cs = getComputedStyle(container);
   const csVar = container.style.getPropertyValue("--color-layer-bg");
-  // Any foliplus-owned pane that carries the color? Today: none — the only
-  // foliplus class on a pane is the tile-hidden modifier on tilePane.
+  // Panes that carry a `foliplus-*` marker. Under R8b there is no
+  // tile-hidden class anywhere; the only foliplus panes are the
+  // synthesized `foliplus-pane-*` for registered TileLayers.
   const foliplusPanes = Array.from(document.querySelectorAll(".leaflet-pane"))
     .filter(p => /foliplus/.test(p.className))
     .map(p => p.className);

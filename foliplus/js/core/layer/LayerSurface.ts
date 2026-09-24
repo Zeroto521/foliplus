@@ -184,10 +184,13 @@ class LayerSurface implements LayerSurfaceContract {
       return;
     }
 
-    // No declared pane: a GridLayer paints in the shared tilePane and carries
-    // its z on itself, so it gets no pane of ours. Everything else either
-    // declares its panes in the tree or is pinned into a synthesized one.
-    if (!layer || layer instanceof L.GridLayer) {
+    // No declared pane: every layer gets a synthesized one so each carries
+    // its own z in the ordering ladder (§42.2-③: row order = z order across
+    // kinds — a colour layer must be able to interleave with two tile layers).
+    // GridLayer/TileLayer used to short-circuit here and paint in the shared
+    // tilePane, which confined their z to that one shared stack; first-class
+    // basemaps retire that.
+    if (!layer) {
       this.pinTarget = null;
       return;
     }

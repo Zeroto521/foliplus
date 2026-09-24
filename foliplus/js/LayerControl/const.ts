@@ -83,6 +83,11 @@ const CLASSES = {
   TOGGLE_ALL: "foliplus-layer-toggle-all",
   FOLD_BTN_CTR: "foliplus-layer-sep",
   SEP_LABEL: "foliplus-layer-sep-label",
+  /** Set on the map container when zero basemaps are visible (A′ hatch).
+   *  Painted via CSS `background-image`, which ExportControl's
+   *  resolveExportBackground deliberately skips — an empty state never
+   *  reaches an export. */
+  NO_BASE_MAP: "no-base-map",
   FOCUSING: "foliplus-layer-focusing",
   /** Set on the map container while a focus is active. CSS hides every
    *  `.foliplus-layer-pane` except the focused one (`.foliplus-focus-pane`)
@@ -211,6 +216,7 @@ const SEL = {
    *  control focus (checkbox / more / fold) attributes to this via closest(). */
   ROW: ".foliplus-layer-item, .foliplus-layer-toggle-all",
   MENU_DELETE_LABEL: `.${CLASSES.MENU_DELETE_LABEL}`,
+  SEP_LABEL: `.${CLASSES.SEP_LABEL}`,
 };
 
 /** Group names. */

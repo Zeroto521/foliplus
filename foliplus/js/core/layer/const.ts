@@ -45,13 +45,6 @@ const COLOR_PANE_PREFIX = "foliplus-color-";
  *  is what foliplus callers use. */
 const PANE_NAME_PATTERN = /^[a-zA-Z0-9_-]+$/;
 
-/** The class that switches Leaflet's shared tile panes off. A solid-color
- *  basemap is the only thing that may write it: its own pane sits *under* the
- *  tiles in Leaflet's shared stack, so hiding the tiles is part of showing the
- *  color, and it belongs on the surface rather than as a global side effect
- *  that outlives the layer. */
-const TILE_HIDDEN_CLASS = "foliplus-layer-tile-hidden";
-
 /** Geometry type names (used by layer traversal / type detection). */
 const GEOM_TYPE = {
   POINT: "point",
@@ -70,6 +63,5 @@ export {
   GEOM_TYPE,
   PANE_NAME_PATTERN,
   RECURSION,
-  TILE_HIDDEN_CLASS,
   Z_INDEX,
 };

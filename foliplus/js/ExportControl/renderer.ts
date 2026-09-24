@@ -268,17 +268,6 @@ class ExportRenderer {
       // does the same filtering as the draw pass) and counted, and its own
       // total is reported against the running cross-layer sum.
       if (geoBounds && geoBounds.nw) {
-        // A solid-color basemap hides tilePane by class instead of unchecking
-        // the tile layers, so every `li.visible` is still true and the tile
-        // URLs would still be fetched — the tiles repaint over the colour the
-        // user just picked.  Read the pane's computed state rather than the
-        // class: it is what the screen actually shows, and it does not bind to
-        // whichever rule produced the hiding.  Skipping here leaves sizedTiles
-        // empty, so the progress denominator correctly reports no tiles.
-        const tilePane = this.map.getPane("tilePane");
-        const tilePaneVisible =
-          !tilePane || window.getComputedStyle(tilePane).visibility !== "hidden";
-
         // Size every tile layer up front: the sum is the progress denominator
         // and the surviving entries are the layers that get drawn, so the
         // numerator and denominator describe the same set of tiles.
@@ -290,7 +279,6 @@ class ExportRenderer {
         }> = [];
         for (const li of layers) {
           if (
-            !tilePaneVisible ||
             !li.visible ||
             !(li.layer instanceof L.TileLayer) ||
             !layerUrl(li.layer)

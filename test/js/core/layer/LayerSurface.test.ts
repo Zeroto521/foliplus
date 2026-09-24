@@ -156,15 +156,19 @@ describe("LayerSurface pane resolution", () => {
     expect(surface.panes[0].renderer).toBeNull();
   });
 
-  it("gives a GridLayer no pane at all — it carries its z itself", () => {
+  it("gives a GridLayer its own synthesized pane — z is per-layer, not shared", () => {
+    // First-class basemaps (§42.2-③): row order must equal z order across
+    // kinds, so a colour layer must be able to interleave with two tile
+    // layers. A TileLayer that stayed in the shared tilePane could only
+    // order itself inside that one stack — retired.
     const { map, host } = makeMap();
     const surface = new LayerSurface(host, {
       id: "tiles",
       layer: new TileLayer() as unknown as L.Layer,
     });
-    expect(surface.panes).toEqual([]);
-    expect(surface.synthesizedPaneName).toBeNull();
-    expect(surface.setZ(600)).toBe(false);
+    expect(surface.panes.length).toBe(1);
+    expect(surface.synthesizedPaneName).toMatch(/^foliplus-pane-/);
+    expect(surface.setZ(600)).toBe(true);
   });
 
   it("adopts the child panes the layer's own tree names", () => {
@@ -383,17 +387,19 @@ describe("LayerSurface.materialize", () => {
     expect(surface.materialized).toBe(true);
   });
 
-  it("no-ops when the surface has no panes (GridLayer)", () => {
+  it("pins a GridLayer into its synthesized pane on materialize", () => {
+    // The reconciled write: the layer's DOM ends up in the surface's own
+    // pane, which is what makes the ordering ladder (surface.setZ) reach
+    // it. Without a pane here, z would live on the shared tilePane's
+    // children and two basemaps could not be interleaved with a colour.
     const { map, host } = makeMap();
     const surface = new LayerSurface(host, {
       id: "tiles",
       layer: new TileLayer() as unknown as L.Layer,
     });
-    // A GridLayer paints in tilePane and carries its z itself — no panes,
-    // so reconcile has nothing to do.
     const reconcile = vi.spyOn(host, "pinLateContent");
     surface.materialize();
-    expect(reconcile).not.toHaveBeenCalled();
+    expect(reconcile).toHaveBeenCalledTimes(1);
     expect(surface.materialized).toBe(true);
   });
 });
@@ -507,11 +513,12 @@ describe("LayerSurface.setZOverride / restoreZ", () => {
   });
 
   it("returns false for a surface that paints through no pane of its own", () => {
+    // Only reachable when the layer is absent — LayerSurface bails out with an
+    // empty panes array. Every kind that has a real layer now gets at least
+    // one synthesized pane, including GridLayer (first-class basemaps).
     const { host } = makeMap();
-    const surface = new LayerSurface(host, {
-      id: "tile",
-      layer: new TileLayer() as unknown as L.Layer,
-    });
+    const surface = new LayerSurface(host, { id: "ghost" });
+    expect(surface.panes).toEqual([]);
     expect(surface.setZOverride(8990)).toBe(false);
     expect(surface.restoreZ()).toBe(false);
   });

@@ -5,6 +5,7 @@
   "LayerControl.toggle_title": "Layer Manager",
   "LayerControl.close_title": "Collapse",
   "LayerControl.base_map_label": "Base Maps",
+  "LayerControl.no_base_map_label": "No Base Map",
   "LayerControl.color_map_label": "Solid Color",
   "LayerControl.reorder_group_only": "Layer reordering is only allowed within the same group",
   "LayerControl.reorder_top": "Layer is already at the top",

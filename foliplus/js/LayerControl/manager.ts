@@ -947,7 +947,6 @@ class LayerManager implements LayerAPI {
         // GridLayer covers TileLayer plus other grid subclasses (L.gridLayer());
         // all of them are positioned from the tile base.
         const isGrid = layer instanceof L.GridLayer;
-        const isTile = layer instanceof L.TileLayer;
         const slot = { index: i, count: this.layers.length, tile: isGrid };
         const z = zFor(slot);
 
@@ -964,14 +963,7 @@ class LayerManager implements LayerAPI {
 
         const surface = this.surfaceFor(layerInfo);
         surface.materialize();
-        if (!surface.setZ(z)) {
-          // `setZ` answers false only for a layer with no pane of its own, which
-          // is exactly a GridLayer: it paints in the shared tilePane and carries
-          // its z natively. TileLayer has the public setter; every other grid
-          // subclass keeps `options.zIndex`, which Leaflet applies on update.
-          if (isTile) (layer as L.TileLayer).setZIndex(z);
-          else (layer.options as L.GridLayerOptions).zIndex = z;
-        }
+        surface.setZ(z);
 
         // The layer's label pane (created by AnnotationManager) rides just
         // above it: labels cover that layer's own geometry, and the next layer

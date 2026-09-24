@@ -1309,21 +1309,6 @@ describe("LayerFactory", () => {
       );
     });
 
-    it("hides the tile panes when shown and restores them when hidden", () => {
-      const tilePane = document.createElement("div");
-      map._panes["tilePane"] = tilePane;
-      const h = make("solid");
-      const c = content(h);
-
-      c.setVisible(true);
-      expect(tilePane.classList.contains("foliplus-layer-tile-hidden")).toBe(true);
-      expect(c.element.classList.contains("hidden")).toBe(false);
-
-      c.setVisible(false);
-      expect(tilePane.classList.contains("foliplus-layer-tile-hidden")).toBe(false);
-      expect(c.element.classList.contains("hidden")).toBe(true);
-    });
-
     it("ignores a missing tilePane rather than throwing", () => {
       const h = make("solid");
       const c = content(h);
@@ -1348,12 +1333,15 @@ describe("LayerFactory", () => {
       expect(content(h).color).toBe("#123456");
     });
 
-    it("unregister hides the layer and gives the tiles back", () => {
+    it("unregister hides the face and does not touch the shared tile panes", () => {
+      // The color surface owns only its own face: visibility is a `hidden`
+      // class on the canvas element. Tile pane state was the old mutual
+      // exclusion's side effect — first-class basemaps retire it.
       const tilePane = document.createElement("div");
       map._panes["tilePane"] = tilePane;
       const h = make("solid");
       h.register();
-      expect(tilePane.classList.contains("foliplus-layer-tile-hidden")).toBe(true);
+      expect(tilePane.classList.contains("foliplus-layer-tile-hidden")).toBe(false);
 
       h.unregister();
       expect(unregisterLayer).toHaveBeenCalledWith("solid");

@@ -3,7 +3,6 @@ import { ListCursor } from "#core/listCursor.js";
 import { dom, updateItemLabel } from "#common/dom.js";
 import * as CONST from "../const.js";
 import * as SVGs from "../icon.js";
-import { showColorLayer } from "./color.js";
 import type { LayerUI } from "./index.js";
 import { cursorRef, restoreCursor } from "./keyboard.js";
 import { syncListCursor } from "./keyboard.js";
@@ -14,7 +13,7 @@ import {
   snapshotAuthorVisible,
 } from "./rowView.js";
 import { applyUserState } from "./state.js";
-import { syncToggleAll, syncVisibility } from "./visibility.js";
+import { syncNoBasemap, syncToggleAll, syncVisibility } from "./visibility.js";
 
 /** Full re-scan of every row (used on attach/fold-toggle). Idempotent — *  re-run on each CONTROL_ATTACHED so late-registering components are
  *  folded in. Marks the panel ready for tests/consumers. */
@@ -33,23 +32,18 @@ const initTypesAndVisibility = (ui: LayerUI) => {
   // state is erased only by an explicit delete.
   applyUserState(ui);
 
-  let anyBaseVisible = false;
+  // First-load visibility is the author's `show=`: no code fallback for
+  // "no basemap visible" — the A′ hatch (see paintNoBasemapHatch) is the
+  // honest empty state. Adding a colour layer here would violate the
+  // intent-only invariant: derived state may suppress display but never
+  // authorise it.
   for (let i = 0; i < ui.m.layers.length; i++) {
-    if (initLayerItem(ui, ui.m.layers[i])) anyBaseVisible = true;
+    initLayerItem(ui, ui.m.layers[i]);
   }
-  // "All bases hidden" (not "any layer hidden") —hiding an overlay on a
-  // base-less map must not suppress the color-layer background.
-  const baseIds = [...ui.m.layers].filter(li => li.isBase).map(li => li.id);
-  const allBasesHidden =
-    baseIds.length > 0 && baseIds.every(id => ui.hiddenIds.has(id));
-
-  // Only fall back to the color layer when there are no visible base layers
-  // *and* the user never intentionally hid every base. Otherwise the
-  // fallback would undo an explicit "hide all bases" choice.
-  if (!anyBaseVisible && !allBasesHidden) showColorLayer(ui, ui.currentColor);
   ui.m.enforceOrder();
   syncToggleAll(ui, CONST.GROUP.OVERLAY);
   syncToggleAll(ui, CONST.GROUP.BASE);
+  syncNoBasemap(ui);
   // enforceOrder may have moved rows; keep roving tabindex aligned.
   syncListCursor(ui);
   // Ready signal for tests: checkbox titles / .active / counts are final

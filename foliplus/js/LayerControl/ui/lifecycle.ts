@@ -167,7 +167,6 @@ const bindEvents = (ui: LayerUI): void => {
     }
 
     if (el.closest(CONST.SEL.COLOR_ITEM)) {
-      ui.deselectAllBaseMaps(-1);
       ui.showColorLayer(ui.currentColor);
       syncToggleAll(ui, CONST.GROUP.BASE);
       ui.m.enforceOrder();

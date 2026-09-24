@@ -575,7 +575,11 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       expect(ui.hiddenIds).toEqual(new Set(["base1", "base2"]));
     });
 
-    it("DOES show the color layer when no base layers are registered at all", () => {
+    it("does not activate the colour layer when no base layers are registered", () => {
+      // Intent-only invariant: no code fallback when there are no basemaps.
+      // First-load visibility is the author's `show=` — if the author wrote
+      // no basemap, the map is empty (A′ hatch) rather than the colour being
+      // silently drawn to fill the blank.
       const poly = {
         options: {},
         eachLayer: vi.fn(),
@@ -585,12 +589,11 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
         { id: "overlay1", name: "O", isBase: false, layer: poly },
       ]);
 
-      // No bases exist → fallback paints the map so it isn't blank.
-      expect(ui.isColorActive).toBe(true);
+      expect(ui.isColorActive).toBe(false);
       const colorItem = ui.uiContainer.querySelector(
         CONST.SEL.COLOR_ITEM,
       ) as HTMLElement | null;
-      expect(colorItem?.classList.contains(CONST.CLASSES.ACTIVE)).toBe(true);
+      expect(colorItem?.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
       expect(map.removeLayer).not.toHaveBeenCalled();
       expect(ui.hiddenIds).toEqual(new Set());
     });

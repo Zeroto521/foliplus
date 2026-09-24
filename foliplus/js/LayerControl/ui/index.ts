@@ -296,35 +296,6 @@ class LayerUI {
     return unbindEvents(this);
   }
 
-  deselectAllBaseMaps(exceptIdx: number) {
-    // The rows carry their identity (data-layer-id): a saved order can place a
-    // row elsewhere in the DOM than its position in the registry.
-    const bases = this.m.layers.filter((li, i) => li.isBase && i !== exceptIdx);
-    let changed = false;
-    for (const layerInfo of bases) {
-      const bLayer = this.m.findLayer(layerInfo);
-      if (bLayer && this.m.map.hasLayer(bLayer)) {
-        this.m.map.removeLayer(bLayer);
-        changed = true;
-      }
-      if (rowChecked(this, layerInfo)) changed = true;
-    }
-    // Excluded from handleChange: it is the mutual-exclusion half of that
-    // handler, so walking it would recurse. The bases it deselects are hidden
-    // by the user's own choice, so they still need to persist -- otherwise a
-    // reload re-checks them and the "only one base at a time" invariant
-    // silently resets. The selected base is already tracked by the caller.
-    if (changed) {
-      for (const layerInfo of bases) {
-        syncHiddenId(this, layerInfo.id, true);
-        const item = this.uiContainer.querySelector(
-          `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerInfo.id)}"]`,
-        ) as HTMLElement | null;
-        if (item) applyRowView(this, item, buildRowCell(this, layerInfo));
-      }
-    }
-  }
-
   // ── delegates: state ──
   loadPersistedState() {
     return loadPersistedState(this);

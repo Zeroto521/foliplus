@@ -201,15 +201,15 @@ describe("LayerManager", () => {
     expect(manager.layerRegistry.size).toBe(2);
   });
 
-  it("non-TileLayer GridLayer gets options.zIndex and no fallback pane", () => {
+  it("non-TileLayer GridLayer gets a synthesized pane for z-ordering", () => {
+    // First-class basemaps: every layer carries its own z in the ordering
+    // ladder through a synthesized pane, GridLayer included. The z no longer
+    // rides on options.zIndex (which only works inside a shared pane).
     const grid = new GridLayer();
     manager.map.hasLayer.mockReturnValue(true);
     manager.registerLayer({ id: "grid1", name: "Grid", layer: grid, isBase: true });
     manager.enforceOrder();
-    expect(grid.options.zIndex).toBeDefined();
-    expect(String(grid.options.pane)).not.toMatch(
-      new RegExp(`^${FALLBACK_PANE_PREFIX}`),
-    );
+    expect(grid.options.pane).toMatch(new RegExp(`^${FALLBACK_PANE_PREFIX}`));
   });
 
   it("slots a layer's label pane just above that layer", () => {
@@ -1648,12 +1648,16 @@ describe("LayerManager", () => {
     expect(parent.options.paneSet).toBe(true);
   });
 
-  it("applyLayerZIndex calls setZIndex for visible TileLayers", () => {
+  it("TileLayer z is written to its synthesized pane, not through setZIndex", () => {
+    // First-class basemaps: setZIndex on the layer element only orders it
+    // inside the shared tilePane — enough when a layer has no pane of its
+    // own, but every TileLayer now owns a synthesized pane and the ordering
+    // ladder writes there instead.
     const tile = new TileLayer();
     manager.map.hasLayer.mockReturnValue(true);
     manager.registerLayer({ id: "t1", name: "T", layer: tile, isBase: true });
     manager.enforceOrder();
-    expect(tile.setZIndex).toHaveBeenCalled();
+    expect(tile.setZIndex).not.toHaveBeenCalled();
   });
 
   it("enforceOrder z-orders a canvas layer's dedicated pane (no Leaflet layer)", () => {

@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import base64
+import io
 import json
 import re
 
 import folium
 import pytest
-from conftest import _js, make_browser_page, render_control, use_page, use_raw_page
+from conftest import _js, make_browser_page, panel_ready, render_control, use_page, use_raw_page
 
 from foliplus import ExportControl, MeasureControl
 from foliplus.locale import _load_tables
@@ -871,6 +873,62 @@ class TestExportControlBrowser:
             # Verify the export button (download) is shown after lock
             assert page.locator(".foliplus-tool-bar .confirm").is_visible()
 
+    @staticmethod
+    def _solid_tile_url(rgb: tuple[int, int, int]) -> str:
+        """A 256x256 solid-colour tile as a data URI.
+
+        A ``TileLayer`` built from it is a genuine basemap that paints real
+        pixels with no network at all — browser tests block every tile host —
+        so a test can assert on what two basemaps composite to in an export.
+        """
+        from PIL import Image
+
+        buf = io.BytesIO()
+        Image.new("RGB", (256, 256), rgb).save(buf, "PNG")
+        return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
+
+    @staticmethod
+    def _solid_tile_layer(
+        rgb: tuple[int, int, int], name: str, opacity: float = 1.0
+    ) -> folium.TileLayer:
+        """A ``folium.TileLayer`` backed by a solid-colour data URI.
+
+        ``TileLayer`` takes the URL as its first positional argument
+        (``tiles``); passing ``url_template=`` as a keyword swallows the
+        value into ``**kwargs`` and falls back to OSM, whose requests the
+        CDN proxy 404s. Positional is the only form that survives.
+        """
+        return folium.TileLayer(
+            TestExportControlBrowser._solid_tile_url(rgb),
+            name=name,
+            attr="Test tile",
+            overlay=False,
+            show=True,
+            opacity=opacity,
+        )
+
+    def _run_export(self, page) -> None:
+        """Drive the full export flow: open the control, lock the box, export.
+
+        Install :meth:`_install_canvas_hook` first so the renderer's own output
+        canvas is captured for pixel assertions.
+        """
+        page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
+        page.wait_for_selector(".foliplus-export-box", state="attached", timeout=5000)
+        page.locator(".foliplus-tool-bar .confirm").click()
+        page.wait_for_selector(
+            ".foliplus-export-box.locked", state="attached", timeout=5000
+        )
+        page.locator(".foliplus-tool-bar .confirm").click()
+        page.wait_for_function(
+            """() => {
+                const ctrl = document.querySelector('.foliplus-export-ctrl');
+                return ctrl && ctrl.classList.contains('collapsed');
+            }""",
+            timeout=30000,
+        )
+        page.wait_for_timeout(2000)
+
     def _install_canvas_hook(self, page) -> None:
         """Hook ``document.createElement`` to capture canvases the renderer
         makes internally (never attached to the DOM). Same trick
@@ -1053,86 +1111,7 @@ class TestExportControlBrowser:
             )
             assert len(errors) == 0, f"JS errors on annotation export: {errors}"
 
-    def test_export_excludes_tiles_for_solid_color_basemap(self, browser, tmp_path):
-        """Solid-color basemap hides tilePane; the export must not draw tiles.
 
-        Picking a colour marks tilePane ``foliplus-layer-tile-hidden`` rather
-        than unchecking the tile layers, so every ``li.visible`` stays true.
-        Without a guard the renderer still fetches tile URLs and draws them
-        over the colour the user just picked.
-
-        The fetch spy is the primary gate: it counts tile-URL fetches during
-        the export. The test page blocks OSM tiles with 404 (see conftest),
-        so a pixel assertion cannot distinguish "tiles were skipped" from
-        "tiles were fetched and failed to load"; only the fetch call itself
-        tells them apart. The red-pixel sanity check is a separate regression
-        gate on the canvas layer's pixels surviving the export.
-        """
-        with use_page(
-            self._make_page, browser, tmp_path, slug="export_solid_color"
-        ) as (
-            page,
-            _,
-        ):
-            errors = []
-            page.on("pageerror", lambda e: errors.append(str(e)))
-
-            assert page.evaluate(_js("ExportControl/create_red_canvas")) is True
-
-            # Count tile-URL fetches during the export. The renderer fetches
-            # tiles via loadImageBitmap, which uses window.fetch. Before the
-            # fix this returns > 0; after the fix it must be 0.
-            assert page.evaluate(
-                """() => {
-                    window._fetchLog = [];
-                    const origFetch = window.fetch;
-                    window.fetch = function(input, init) {
-                        const url = (typeof input === 'string')
-                            ? input
-                            : (input && input.url) || String(input);
-                        window._fetchLog.push(url);
-                        return origFetch.apply(this, arguments);
-                    };
-                    return true;
-                }"""
-            )
-
-            self._install_canvas_hook(page)
-            assert page.evaluate(_js("ExportControl/hide_tile_pane")) is True
-
-            page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
-            page.wait_for_selector(
-                ".foliplus-export-box", state="attached", timeout=5000
-            )
-            page.locator(".foliplus-tool-bar .confirm").click()
-            page.wait_for_selector(
-                ".foliplus-export-box.locked", state="attached", timeout=5000
-            )
-            page.locator(".foliplus-tool-bar .confirm").click()
-            page.wait_for_function(
-                """() => {
-                    const ctrl = document.querySelector('.foliplus-export-ctrl');
-                    return ctrl && ctrl.classList.contains('collapsed');
-                }""",
-                timeout=30000,
-            )
-            page.wait_for_timeout(2000)
-
-            tile_fetches = page.evaluate(
-                r"""() => (window._fetchLog || []).filter(
-                    u => /tile\.[^\/]+\.org/.test(u)
-                ).length"""
-            )
-            assert tile_fetches == 0, (
-                f"tile fetches during export despite hidden tilePane: {tile_fetches}"
-            )
-
-            result = self._red_pixels_in_export(page)
-            assert result is not None, "Export canvas not captured"
-            assert result["hit"] >= 100, (
-                f"canvas layer's red pixels missing from export: {result}"
-            )
-            assert len(errors) == 0, f"JS errors on solid-color export: {errors}"
 
     def _sample_bg_pixels_in_export(
         self, page, match: list[int], tol: int = 20, alpha_min: int = 200
@@ -1263,6 +1242,155 @@ class TestExportControlBrowser:
                 f"default grey not dominant in export: {result}"
             )
             assert len(errors) == 0, f"JS errors on default-bg export: {errors}"
+
+    def test_no_basemap_hatch_never_reaches_the_export(self, browser, tmp_path):
+        """Empty-basemap state: the map shows the A' hatch, the export does not.
+
+        With every basemap unchecked the map container turns into an empty
+        state (`.no-base-map`: transparent background + a `background-image`
+        hatch). The hatch is decoration on the screen only — the renderer fills
+        from `backgroundColor` and never reads `background-image`, so the
+        exported image must be identical to what a no-basemap map without any
+        hatch would give.
+
+        Gate on the output, not on the implementation: assert the hatch is
+        actually painted on the container (else the test proves nothing), then
+        count pixels in the hatch's own alpha band on the export canvas. A real
+        vector layer stays in the picture, so a fully empty export cannot hide
+        a regression either way.
+        """
+        marker = folium.CircleMarker(
+            location=[26.08, 119.30],
+            radius=40,
+            color="#00ff00",
+            weight=6,
+            fill_color="#ff0000",
+            fill_opacity=1,
+            name="Hatch Marker",
+            show=True,
+        )
+        with use_page(
+            self._make_page, browser, tmp_path, marker, slug="no_basemap_export"
+        ) as (page, errors):
+            panel_ready(page)
+            self._install_canvas_hook(page)
+
+            # Deselect every basemap through the panel's base group toggle-all,
+            # so the map enters the empty state the way a user does. The overlay
+            # above is not in that group and stays on the map.
+            clicked = page.evaluate(_js("LayerControl/uncheck_base_group"))
+            state = page.evaluate(_js("ExportControl/no_basemap_state"))
+            assert clicked["ok"] is True, clicked
+            assert state["ok"] is True, state
+            assert state["noBaseMap"] is True, (
+                f"container not in no-basemap state: clicked={clicked} state={state}"
+            )
+            assert state["bg"] in ("rgba(0, 0, 0, 0)", "transparent"), (
+                f"hatch state must clear the container colour, got {state}"
+            )
+            assert "conic-gradient" in state["bgImage"], (
+                f"hatch not painted on the container: {state}"
+            )
+
+            self._run_export(page)
+
+            band = page.evaluate(_js("ExportControl/hatch_alpha_band"))
+            assert band is not None, "Export canvas not captured"
+            # The overlay kept on the map must still export, so the result is
+            # a real image rather than an empty canvas that cannot hide a
+            # regression.
+            assert band["nonTransparent"] > 1000, (
+                f"exported content vanished: {band}"
+            )
+            # The hatch's own alpha band (0.07 * 255 ~= 18) must be empty: the
+            # decoration stayed on screen and never reached the image.
+            assert band["band"] == 0, (
+                f"hatch pixels leaked into the export: {band}"
+            )
+            assert len(errors) == 0, f"JS errors on no-basemap export: {errors}"
+
+    def test_export_composites_both_visible_basemaps(self, browser, tmp_path):
+        """Two basemaps both on: the export holds both layers' pixels.
+
+        Basemaps are now first-class and no longer mutually exclusive, and tile
+        basemaps paint into their own synthesized pane instead of the shared
+        ``leaflet-tile-pane``. Neither change may alter what the renderer
+        composites: every visible basemap must still contribute, in order, to
+        the exported image. Without this gate "moving a layer to a different
+        pane leaves the export untouched" is only covered indirectly.
+
+        The bottom basemap paints at full opacity and the top one at 0.5, so
+        the expected pixel is the two layers blended. Sampling that blend —
+        rather than either source colour — is what proves *both* drew: if the
+        upper basemap dropped out the image is the lower colour, and if the
+        lower one dropped out it is the upper colour over transparency.
+
+        The basemaps are added to the map *before* LayerControl is, because
+        LayerControl's IIFE resolves each registered id via ``findLayer`` at
+        construction time; a folium ``TileLayer`` whose ``var`` is declared
+        later in the script stream would leave ``LayerInfo.layer`` null forever
+        and the renderer would silently skip it. ``_make_page`` adds controls
+        first (the convention every other test relies on, e.g. MeasureControl
+        needs LayerAPI before its own LayerGroup is attached), so this test
+        builds its own map.
+        """
+        from foliplus import LayerControl
+
+        top = self._solid_tile_layer((230, 30, 30), "Top Base", opacity=0.5)
+        bottom = self._solid_tile_layer((30, 60, 220), "Bottom Base", opacity=1.0)
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        bottom.add_to(m)
+        top.add_to(m)
+        LayerControl().add_to(m)
+        ExportControl().add_to(m)
+        html = TestExportControlBrowser._stub_html(m.get_root().render())
+        html, n = re.subn(
+            r"(new ExportControl\(\{ position: CONF\.position \}\)\.addTo\(map\);)",
+            r"window.__foliplusExportScheduler = function(fn){return 0;}; window.__exportCtrl = \1 window.__exportManager = window.__exportCtrl.m; window.__map = map;",
+            html,
+            count=1,
+        )
+        assert n == 1, "ExportControl instantiation not found"
+        html, n = re.subn(
+            r"(new LayerControl\(\{ position: CONF\.position \}\)\.addTo\(map\);)",
+            r"window.__layerCtrl = \1",
+            html,
+            count=1,
+        )
+        assert n == 1, "LayerControl instantiation not found"
+
+        with use_page(
+            make_browser_page,
+            browser,
+            tmp_path,
+            html,
+            "two_basemaps_export",
+        ) as (page, errors):
+            page.wait_for_selector(".foliplus-export-ctrl", state="attached", timeout=10000)
+            panel_ready(page)
+            self._install_canvas_hook(page)
+
+            # Both basemaps are visible and each owns a pane of its own.
+            state = page.evaluate(_js("ExportControl/no_basemap_state"))
+            assert state["ok"] is True, state
+            assert state["noBaseMap"] is False, f"a basemap should be visible: {state}"
+            assert all(li["isBase"] and li["visible"] for li in state["layers"]), (
+                f"both basemaps should be visible: {state['layers']}"
+            )
+
+            self._run_export(page)
+
+            result = self._sample_bg_pixels_in_export(page, match=[130, 45, 125])
+            dominant = page.evaluate(_js("ExportControl/export_dominant_color"))
+            probe = page.evaluate(_js("ExportControl/probe_tile_loading"))
+            assert result is not None, "Export canvas not captured"
+            assert result["total"] > 0, "Export canvas is empty"
+            # The blend dominates: 0.5 * red + 0.5 * blue, so the whole image
+            # is one colour only if both basemaps painted.
+            assert result["hit"] > result["total"] * 0.8, (
+                f"blended basemap pixels not dominant: {result} dominant={dominant} probe={probe}"
+            )
+            assert len(errors) == 0, f"JS errors on two-basemap export: {errors}"
 
     def test_crop_box_drag_resize(self, browser, tmp_path):
         """Drag bottom-right handle to resize the crop box."""

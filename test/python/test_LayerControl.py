@@ -2871,8 +2871,12 @@ class TestLayerControlBrowser:
                 "DOM item should be removed after unregisterLayer"
             )
 
-    def test_color_layer_hides_tiles(self, browser, tmp_path):
-        """Clicking color layer hides tilePane and removes base maps."""
+    def test_color_layer_coexists_with_tiles(self, browser, tmp_path):
+        """R8b: colour and tile basemaps coexist. Clicking the colour layer
+        sets the container's background colour (`.active` + `--color-layer-bg`)
+        but no longer suppresses the shared tile pane — the retired
+        `foliplus-layer-tile-hidden` contract is gone. The colour paints on
+        top via CSS background; tiles stay in the DOM and remain fetchable."""
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
         LayerControl().add_to(m)
         folium.TileLayer("CartoDB positron", name="Light Canvas", overlay=False).add_to(
@@ -2901,11 +2905,11 @@ class TestLayerControlBrowser:
 
             result = page.evaluate(_js("LayerControl/read_color_tile_state"))
             assert result is not None
-            assert result["tileHidden"] is True, (
-                "tilePane should have foliplus-layer-tile-hidden class"
+            # The retired tile-hidden contract must not be applied.
+            assert result["tileHidden"] is False, (
+                "R8b: colour layer must not stamp foliplus-layer-tile-hidden"
             )
             assert result["colorBg"] is True, "map container should have active class"
-            # Tiles may still be in DOM but not visible; check className
 
     def test_register_layer_preserves_visible_on_reentry(self, browser, tmp_path):
         """registerLayer preserves the visible state from a previous registration."""
@@ -5391,10 +5395,11 @@ class TestLayerPaneProbeBrowser:
         assert r["afterReset"] == 0  # redraw clears out-of-range tiles
 
     def test_probe_color_basemap_no_pane(self, browser, tmp_path):
-        """#9 Solid-color basemap has NO pane/element today — it is the map
-        container's CSS background via ``--color-layer-bg`` plus a
-        visibility-hidden tilePane. Five ad-hoc state spots; R8 promotes it
-        to a surface."""
+        """#9 Solid-color basemap still has NO pane/element of its own — it
+        is the map container's CSS background via ``--color-layer-bg``
+        (`.leaflet-container.active { background: var(--color-layer-bg) }`).
+        Under R8b the retired `foliplus-layer-tile-hidden` gate is gone: the
+        tile pane stays visible underneath, the color paints on top."""
         with use_page(
             self._probe,
             browser,
@@ -5407,11 +5412,13 @@ class TestLayerPaneProbeBrowser:
         assert r["containerActive"] is True
         assert r["cssVar"] == "#3366cc"
         assert r["containerBg"].startswith("rgb(51,")
-        assert r["tileHidden"] is True
-        assert r["tileVisibility"] == "hidden"
-        # No foliplus-owned pane carries the color — only the tile-hidden
-        # modifier on tilePane.
-        assert all("tile-hidden" in c for c in r["foliplusPanes"])
+        # R8b: the shared tilePane is not hidden by the color basemap.
+        assert r["tileHidden"] is False
+        assert r["tileVisibility"] == "visible"
+        # No foliplus pane is the "tile-hidden" contract — nothing under
+        # R8b carries that class. (Registered TileLayers get their own
+        # synthesized foliplus-pane-*, which is a different marker.)
+        assert not any("tile-hidden" in c for c in r["foliplusPanes"])
 
     def test_probe_mixed_renderer_pane_consistent(self, browser, tmp_path):
         """#10 SVG data pane + canvas label pane: pane-level opacity hits

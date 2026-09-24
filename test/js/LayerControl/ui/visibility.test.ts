@@ -716,10 +716,13 @@ describe("DOM order diverges from registry order", () => {
     expect(ui.isColorActive).toBe(true);
   });
 
-  it("toggleAll restores the basemap when the base group is cleared", () => {
+  it("toggleAll does not activate the colour layer when the base group is cleared", () => {
+    // First-class basemaps: the colour layer is one row like any other, not a
+    // stand-in for the absence of a base. Clearing the base group leaves the
+    // colour's own checkbox untouched (intent-only invariant).
     ui.toggleAll(CONST.GROUP.BASE, false);
 
-    expect(ui.isColorActive).toBe(true);
+    expect(ui.isColorActive).toBe(false);
   });
 });
 
@@ -809,12 +812,13 @@ describe("toggleAll base group", () => {
     expect(manager.layerRegistry.get("B2")?.visible).toBe(true);
   });
 
-  it("hides the basemap while a base group selection is made", () => {
+  it("does not touch the colour layer when the base group is toggled", () => {
+    // The colour layer coexists with tile basemaps: toggling the base group
+    // must not hide or show the colour — each carries its own checkbox and
+    // its own visibility.
     ui.toggleAll(CONST.GROUP.BASE, false);
-    expect(ui.isColorActive).toBe(true);
+    expect(ui.isColorActive).toBe(false);
 
-    // Selection, not clearing: the color layer is a stand-in for the absence
-    // of a base, so re-selecting one hides it again.
     ui.toggleAll(CONST.GROUP.BASE, true);
     expect(ui.isColorActive).toBe(false);
   });

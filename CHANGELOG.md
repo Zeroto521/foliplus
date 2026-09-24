@@ -70,6 +70,7 @@
 - `LayerControl`/`HeatmapControl`: `createCanvas` mounts on its own pane so z-order, focus, and export share the pane model; drop `onZIndex` ([#350](https://github.com/Zeroto521/foliplus/pull/350), [#388](https://github.com/Zeroto521/foliplus/pull/388))
 - `core/leafletAdapter`: single module for every Leaflet-private reach — a Leaflet upgrade is a one-file change, and a static guard test fails any other module naming those fields ([#371](https://github.com/Zeroto521/foliplus/pull/371), [#374](https://github.com/Zeroto521/foliplus/pull/374), [#386](https://github.com/Zeroto521/foliplus/pull/386), [#387](https://github.com/Zeroto521/foliplus/pull/387))
 - `common/storage`: share three persistence helpers (`saveVersioned` / `loadVersioned` / `makePersisted`) across `MeasureControl`/`HeatmapControl`/`SearchControl`/`LayerControl`; legacy records stay readable without migration ([#416](https://github.com/Zeroto521/foliplus/pull/416), [#417](https://github.com/Zeroto521/foliplus/pull/417), [#422](https://github.com/Zeroto521/foliplus/pull/422))
+- `LayerControl`: basemaps as first-class citizens — the solid-colour basemap and tile basemaps are now coequal layers that coexist on the same map. Picking a colour no longer suppresses the tile pane: it paints as the map container's background, and tile basemaps keep their own synthesized panes. When no basemap is selected the map container shows a subtle hatch so the empty state is visible on the map itself, and the panel's base group label flips to "No Base Map"
 
 ### Removed
 
@@ -77,6 +78,7 @@
 - `HeatmapControl`: remove the nested `style` dict parameter; `border_weight`, `border_color`, `fill_opacity`, `border_opacity`, `label_show`, `label_size`, `label_color`, `label_format` are now first-class constructor keyword arguments — no `style=` wrapper needed ([#169](https://github.com/Zeroto521/foliplus/pull/169))
 - `ScaleControl`: drop the `unit` parameter — a breaking change against the v0.3.x API, since `unit=` now raises `TypeError`; scale bars always render metric units and `isMetric` is no longer exported to the JS `CONF` ([#186](https://github.com/Zeroto521/foliplus/pull/186))
 - `HeatmapControl`: remove the `field` parameter — a breaking change; the candidate list already enumerates all numeric shapes, so user selection covers every case ([#375](https://github.com/Zeroto521/foliplus/pull/375))
+- `LayerControl`: the internal `foliplus-layer-tile-hidden` CSS class and its mutual-exclusion behaviour — colour basemaps no longer hide the shared tile pane, so the renderer's `tilePaneVisible` gate is retired and tiles are always drawn when their own `li.visible` is true
 
 ### Fixed
 
