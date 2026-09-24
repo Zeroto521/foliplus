@@ -19,7 +19,7 @@ type NativeClass = "edit" | "step" | "toggle" | "select" | "editable" | "none";
 /** Keys foliplus owns no matter which control holds focus. Declared once so
  *  that no row of the native table can ever swallow them — Escape always
  *  reaches the panel that opened, regardless of the focused control. */
-export const OWNER_KEYS: ReadonlySet<string> = new Set(["Escape"]);
+const OWNER_KEYS: ReadonlySet<string> = new Set(["Escape"]);
 
 const ARROWS = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"] as const;
 
@@ -64,7 +64,7 @@ const isEditableEl = (el: Element): boolean => {
  *  An unrecognized `input` type defers to native rather than claiming:
  *  browsers normalize it to text, and deferring a key is harmless where
  *  claiming one is the bug this module exists to stop. */
-export const nativeClass = (el: Element | null): NativeClass => {
+const nativeClass = (el: Element | null): NativeClass => {
   if (!el) return "none";
   const tag = el.tagName.toLowerCase();
   if (tag === "textarea") return "edit";
@@ -83,7 +83,7 @@ export const nativeClass = (el: Element | null): NativeClass => {
 /** The element that owns the key: the focused one, falling back to the event
  *  target. `document.activeElement` is non-null in practice (browsers and
  *  jsdom fall back to `body`), which is what makes the single lookup sound. */
-export const keyOwner = (event: { target?: unknown }): Element | null => {
+const keyOwner = (event: { target?: unknown }): Element | null => {
   const active = document.activeElement;
   if (active instanceof Element) return active;
   return event.target instanceof Element ? event.target : null;
@@ -92,7 +92,7 @@ export const keyOwner = (event: { target?: unknown }): Element | null => {
 /** Does the element natively consume `key`, so foliplus must stand aside —
  *  neither act nor `preventDefault`? This is the one predicate every
  *  dispatch site asks before touching a key. */
-export const nativeConsumesKey = (el: Element | null, key: string): boolean => {
+const nativeConsumesKey = (el: Element | null, key: string): boolean => {
   if (OWNER_KEYS.has(key)) return false;
   const cls = nativeClass(el);
   if (cls === "none") return false;
@@ -103,8 +103,10 @@ export const nativeConsumesKey = (el: Element | null, key: string): boolean => {
 /** Whether `el` is a control the user drives themselves — the pointer-side
  *  companion of {@link nativeConsumesKey}, for gates that ask "is this press
  *  on a control, or on the surface". */
-export const isNativeControl = (el: Element | null): boolean => {
+const isNativeControl = (el: Element | null): boolean => {
   if (!el) return false;
   if (POINTER_CONTROL_TAGS.has(el.tagName.toLowerCase())) return true;
   return isEditableEl(el);
 };
+
+export { OWNER_KEYS, isNativeControl, keyOwner, nativeClass, nativeConsumesKey };
