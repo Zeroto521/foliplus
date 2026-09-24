@@ -670,7 +670,7 @@ class MeasureManager {
   /** Transient-only cleanup: drop every live layer, cancel the armed mode,
    *  run each measurement's dispose, and collapse the panel — but leave the
    *  store's persisted list untouched. Called by destroy(), which runs on
-   *  control removal and must not wipe localStorage (§28.6: only an explicit
+   *  control removal and must not wipe localStorage (only an explicit
    *  user action may drop saved data). */
   private clearTransientState() {
     this.layers.clearLayers();
