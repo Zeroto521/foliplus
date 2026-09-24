@@ -273,7 +273,9 @@ class TestSearchControlBrowser:
                 """document.querySelector('.foliplus-search-mode-btn')
                     .querySelector('circle[cx="12"][cy="9"]') !== null"""
             )
-            assert is_pin, "Expected pin icon (LOCATE_ICON) after mode switch to address"
+            assert is_pin, (
+                "Expected pin icon (LOCATE_ICON) after mode switch to address"
+            )
 
             # Also verify input placeholder was updated
             placeholder = page.evaluate("document.querySelector('input').placeholder")
