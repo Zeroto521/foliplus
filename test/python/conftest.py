@@ -325,6 +325,20 @@ _BROWSER_DEFAULT_NAV_TIMEOUT_MS = 45_000
 #                                 caveat under ``file://`` origins.
 #
 # ``.foliplus/`` is gitignored; the probe leaves no tracked artifacts.
+#
+# T150 findings (2026-09-25, Windows, 15 baseline rounds of -n 24):
+#   - 95-class anomaly reproduced (Round 14: 116 failures / 409 s; Round 12:
+#     99 failures / 321 s) with per-page context baseline.
+#   - Round 14 workers at page 8 show ``contexts`` = 1-5 (vs 1-2 in clean
+#     rounds) and ``chromium_procs`` = 19-31 (vs 19-29 in clean rounds).
+#   - Correlation: chromium process count tracks per-worker context count
+#     one-to-one — each open context is a Chromium renderer/helper.
+#   - 5 rounds of -n 12 (halved workers): 0 failures, ctxMax=1 throughout.
+#   - Root cause: Windows process pressure at -n 24 causes intermittent
+#     per-worker context accumulation, which cascades into the 95-anomaly
+#     (workers stuck on page.goto timeouts, unable to progress past po=8).
+#   - Fix (upstream): reduce JOBS to 12 for browser tests on Windows.
+#
 _HEALTH_PROBE_ENABLED = os.environ.get("FOLIPLUS_HEALTH_PROBE", "1") != "0"
 _HEALTH_SAMPLE_N = int(os.environ.get("FOLIPLUS_HEALTH_SAMPLE_N", "8"))
 _BROWSER_MODE = os.environ.get("FOLIPLUS_BROWSER_MODE", "per_page")
