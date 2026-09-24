@@ -37,11 +37,18 @@
       font-weight: var(--font-weight-medium);
     }
 
-    /* Out of range: a red ring on the current-zoom dot signals the current
-       zoom is outside the selected range. No text, no layout shift. */
+    /* Out of range: a small solid red dot beside the current-zoom marker.
+       No layout shift, no extra elements. */
     &.foliplus-zoom-range-out-of-range {
-      .foliplus-style-zoom-range-dot-current {
-        box-shadow: 0 0 0 var(--size-2) var(--accent-primary);
+      .foliplus-style-zoom-range-dot-current::after {
+        content: "";
+        position: absolute;
+        top: -3px;
+        right: -3px;
+        width: 6px;
+        height: 6px;
+        background: var(--accent-primary);
+        border-radius: 50%;
       }
     }
   }
