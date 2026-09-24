@@ -108,7 +108,16 @@ const renderInitialList = (ui: LayerUI) => {
   if (ui.foldedGroups.has(CONST.GROUP.BASE)) {
     colorItem.classList.add(CONST.CLASSES.GROUP_FOLDED);
   }
-  frag.appendChild(colorItem);
+  // Insert the colour row in the base section, before the first overlay
+  // toggle-all header (or at the end when no overlays exist).
+  const firstOverlay = Array.from(frag.children).findIndex(
+    el => el.getAttribute("data-group") === CONST.GROUP.OVERLAY,
+  );
+  if (firstOverlay >= 0) {
+    frag.insertBefore(colorItem, frag.children[firstOverlay]);
+  } else {
+    frag.appendChild(colorItem);
+  }
 
   ui.uiContainer.innerHTML = "";
   ui.uiContainer.appendChild(frag);
@@ -137,8 +146,8 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
 
   const anchorSel =
     group === CONST.GROUP.BASE
-      ? `${CONST.SEL.LAYER_ITEM}[data-layer-type="${CONST.GROUP.BASE}"]`
-      : `${CONST.SEL.LAYER_ITEM}:not([data-layer-type="${CONST.GROUP.BASE}"]):not(${CONST.SEL.COLOR_ITEM})`;
+      ? `${CONST.SEL.LAYER_ITEM}[data-layer-type="${CONST.GROUP.BASE}"]:not(${CONST.SEL.COLOR_ITEM})`
+      : `${CONST.SEL.LAYER_ITEM}:not([data-layer-type="${CONST.GROUP.BASE}"])`;
   const firstOfGroup = container.querySelector(anchorSel);
 
   const frag = document.createDocumentFragment();
@@ -156,11 +165,15 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
   frag.appendChild(item);
 
   if (!firstOfGroup) {
-    const nextGroupSel =
+    // BASE inserts before the colour row (end of the base section). OVERLAY
+    // inserts before the first real base row (excluding the colour row); when
+    // none exists, append at the end.
+    const nextAnchor =
       group === CONST.GROUP.BASE
-        ? CONST.SEL.COLOR_ITEM
-        : `${CONST.SEL.LAYER_ITEM}[data-layer-type="${CONST.GROUP.BASE}"]`;
-    const nextAnchor = container.querySelector(nextGroupSel);
+        ? container.querySelector(CONST.SEL.COLOR_ITEM)
+        : container.querySelector(
+            `${CONST.SEL.LAYER_ITEM}[data-layer-type="${CONST.GROUP.BASE}"]:not(${CONST.SEL.COLOR_ITEM})`,
+          );
     if (nextAnchor) container.insertBefore(frag, nextAnchor);
     else container.appendChild(frag);
   } else {
