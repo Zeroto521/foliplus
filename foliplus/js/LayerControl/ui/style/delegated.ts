@@ -4,6 +4,7 @@
 // "Label" drawer that layers their own setters alongside LayerControl's
 // opacity / zoom-range rows.
 import { type LabelStyleValues, renderLabelControls } from "#core/labelControl.js";
+import { BORDER } from "#foliplus/HeatmapControl/const.js";
 import { dom } from "#common/dom.js";
 import {
   bindLiveColor,
@@ -58,16 +59,19 @@ const buildBorderRow = (ui: LayerUI, layerId: string): HTMLElement | null => {
   }
   if (setters.borderWeight) {
     const numberInputEl = numberInput({
-      value: typeof values.borderWeight === "number" ? values.borderWeight : 1,
-      min: 0,
-      max: 10,
-      step: 0.5,
+      value:
+        typeof values.borderWeight === "number"
+          ? values.borderWeight
+          : BORDER.WEIGHT_DEFAULT,
+      min: BORDER.WEIGHT_MIN,
+      max: BORDER.WEIGHT_MAX,
+      step: BORDER.WEIGHT_STEP,
       ariaLabel: ui._("foliplus.border_weight"),
     });
     bindLiveNumber(numberInputEl as HTMLInputElement, {
-      min: 0,
-      max: 10,
-      fallback: 1,
+      min: BORDER.WEIGHT_MIN,
+      max: BORDER.WEIGHT_MAX,
+      fallback: BORDER.WEIGHT_DEFAULT,
       onCommit: value => entry()?.styleSetters?.borderWeight?.(value),
     });
     parts.push(numberInputEl);
@@ -143,11 +147,13 @@ const renderDelegatedStylePanel = (
   // The shared renderer emits controls only, no headings — the panel owns the
   // section split, and the Layer section (opacity) belongs to LayerControl
   // rather than to the component that delegates its label style.
-  if (borderRow) {
-    root.prepend(sectionHeading(ui.T("section_heatmap")));
-    root.prepend(borderRow);
-  }
+  // Prepend the label heading first so it sits above its controls, then append
+  // the heatmap section below — each heading above its own content.
   root.prepend(sectionHeading(ui.T("section_label")));
+  if (borderRow) {
+    root.append(sectionHeading(ui.T("section_heatmap")));
+    root.append(borderRow);
+  }
   // Row-level capability gate (5.4): the opacity row only renders when the
   // surface can honestly carry the write. A layer with `opacity: "none"`
   // (MarkerCluster) would otherwise see a slider that writes nothing but
@@ -172,4 +178,4 @@ const renderDelegatedStylePanel = (
   return panel;
 };
 
-export { layerHasStyleDelegation, renderDelegatedStylePanel };
+export { buildBorderRow, layerHasStyleDelegation, renderDelegatedStylePanel };
