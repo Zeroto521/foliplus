@@ -271,11 +271,11 @@ describe("LayerUI rename", () => {
     });
 
     it("renaming the color basemap updates the color input's aria-label too", () => {
-      // The color row has no checkbox — its toggle is the type="color" input.
-      // Both the label cell and the input must announce the rename, otherwise
-      // assistive tech keeps reading the locale default after a rename.
+      // The colour row now carries a real checkbox (visibility toggle through
+      // the executor). Both the label cell and the checkbox must announce the
+      // rename, otherwise assistive tech keeps reading the locale default.
       const item = findItem(ui, CONST.COLOR.MAP_ID);
-      const colorInput = item.querySelector(`input[type="color"]`) as HTMLInputElement;
+      const colorInput = item.querySelector(`input[type="checkbox"]`) as HTMLInputElement;
       // Capture the pre-rename value from the source of truth, not the DOM:
       // the aria-label and the label cell are both projections of
       // displayName(), so comparing them against each other would pass either
@@ -410,9 +410,9 @@ describe("LayerUI rename", () => {
       expect(ui.activeRenameId).toBeNull();
       expect(label.textContent).toBe("My Base");
       expect(ui.renamedNames[CONST.COLOR.MAP_ID]).toBe("My Base");
-      // The color basemap is not in the registry, so the registry should be
-      // untouched.
-      expect(manager.layerRegistry.get(CONST.COLOR.MAP_ID)).toBeUndefined();
+      // The colour basemap is now in the registry (for the executor) — rename
+      // still persists to renamedNames, not the registry entry's name field.
+      expect(manager.layerRegistry.get(CONST.COLOR.MAP_ID)?.name).not.toBe("My Base");
     });
 
     it("applying a persisted rename restores the color-layer label text", () => {
@@ -428,10 +428,10 @@ describe("LayerUI rename", () => {
       // The color input's aria-label and tooltip belong to the row builder:
       // the tooltip is the palette type label, and the aria-label stays the
       // color_map_label so the swatch is still announced as the basemap.
-      const colorInput = colorItem.querySelector(
-        'input[type="color"]',
+      const checkbox = colorItem.querySelector(
+        'input[type="checkbox"]',
       ) as HTMLInputElement;
-      expect(colorInput.title).not.toBe("Custom Color");
+      expect(checkbox.title).not.toBe("Custom Color");
     });
 
     it("keeps a renamed color basemap through a re-render (fold/reorder)", () => {

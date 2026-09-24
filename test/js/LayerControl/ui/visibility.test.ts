@@ -933,10 +933,12 @@ describe("unit helpers", () => {
 
   it("toggleAll sets the row tooltips for both states", () => {
     const { ui } = initFixture();
+    // Only overlay checkboxes: the colour basemap is a base row and is not
+    // toggled by overlay group operations.
     const boxes = () =>
       Array.from(
         ui.uiContainer.querySelectorAll<HTMLInputElement>(
-          `.${CONST.CLASSES.LAYER_ITEM} input[type="checkbox"]`,
+          `.${CONST.CLASSES.LAYER_ITEM}:not(${CONST.SEL.COLOR_ITEM}) input[type="checkbox"]`,
         ),
       );
 

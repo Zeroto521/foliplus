@@ -61,7 +61,9 @@ describe("ui/list row placement", () => {
 
     manager.registerLayer({ id: "H", name: "H", isBase: false });
 
-    const registryIds = manager.layers.map(l => l.id);
+    const registryIds = manager.layers
+      .map(l => l.id)
+      .filter(id => id !== CONST.COLOR.MAP_ID);
     const rowIds = Array.from(
       ui.uiContainer.querySelectorAll<HTMLElement>(
         `${CONST.SEL.LAYER_ITEM}:not(${CONST.SEL.COLOR_ITEM})`,

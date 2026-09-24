@@ -355,7 +355,7 @@ const renderColorLayerItem = (ui: LayerUI) => {
       title: colorType,
     },
     dom.el("span", { class: CONST.CLASSES.DRAG_CELL }, { html: SVGs.DRAG_HANDLE }),
-    dom.el("div", { class: CONST.CLASSES.CHECKBOX }, checkbox),
+    dom.el("div", { class: CONST.CLASSES.CHECKBOX }, checkbox, colorInput),
     dom.el("label", { class: CONST.CLASSES.LAYER_LABEL }, colorLayerName(ui)),
     // count column is empty (color layers have no feature count).
     dom.el("span", { class: CONST.CLASSES.COUNT_COL }),
