@@ -11,7 +11,7 @@ import * as CONST from "./const.js";
  *  record up to date. Presence, not value, is the compatibility marker — a
  *  record without a `version` is read as-is and re-stamped on the next write.
  *  Bump only when a new record shape lands. */
-const RECORD_VERSION = 1;
+const RECORD_VERSION = 2;
 
 /** A dimension the user has actually set. `overrides` is the provenance half of
  *  the record: a dimension absent from it means the user never chose it, so the
@@ -48,6 +48,14 @@ type PersistedRecord = {
   version: number;
   /** Layer ids in the panel's order, or null when the user never reordered. */
   order: string[] | null;
+  /** Layer ids the user deleted, in the order they were deleted.
+   *
+   *  One-way: nothing removes an entry and `deleteLayer` is the only writer.
+   *  It is read at the registration entry point alone (`LayerManager
+   *  .registerLayer`) so a deleted id can never re-enter the registry;
+   *  nothing downstream consults it, because a deleted id is simply never
+   *  registered and so never reaches them. */
+  removed: string[];
   foldedGroups: string[];
   /** Layer id → user-assigned display name. */
   renamedNames: Record<string, string>;
@@ -64,6 +72,7 @@ type PersistedRecord = {
  *  never touched. */
 type LiveState = {
   order?: () => string[];
+  removed?: () => string[];
   foldedGroups?: () => string[];
   renamedNames?: () => Record<string, string>;
   annotations?: () => Record<string, unknown>;
@@ -73,6 +82,7 @@ type LiveState = {
 const emptyRecord = (): PersistedRecord => ({
   version: RECORD_VERSION,
   order: null,
+  removed: [],
   foldedGroups: [],
   renamedNames: {},
   annotations: {},
@@ -162,6 +172,9 @@ const parseRecord = (raw: unknown): PersistedRecord => {
   if (Array.isArray(data.order) && data.order.every(id => typeof id === "string")) {
     record.order = data.order as string[];
   }
+  if (Array.isArray(data.removed) && data.removed.every(id => typeof id === "string")) {
+    record.removed = data.removed as string[];
+  }
   if (
     Array.isArray(data.foldedGroups) &&
     data.foldedGroups.every(group => typeof group === "string")
@@ -192,6 +205,7 @@ const parseRecord = (raw: unknown): PersistedRecord => {
 const mergeFields = (record: PersistedRecord, fields: LiveState): PersistedRecord => ({
   version: RECORD_VERSION,
   order: fields.order ? fields.order() : record.order,
+  removed: fields.removed ? fields.removed() : record.removed,
   foldedGroups: fields.foldedGroups ? fields.foldedGroups() : record.foldedGroups,
   renamedNames: fields.renamedNames ? fields.renamedNames() : record.renamedNames,
   annotations: fields.annotations ? fields.annotations() : record.annotations,
@@ -206,12 +220,12 @@ const mergeFields = (record: PersistedRecord, fields: LiveState): PersistedRecor
  * write, so a teardown flush is one call instead of a per-dimension list and
  * adding a dimension cannot silently lose its last write.
  *
- * Reads go through {@link load} and {@link loadOrder}, writes through
- * {@link schedule}; both sides name every dimension explicitly (parseRecord and
- * mergeFields), so a new one cannot be wired on one side and forgotten on the
- * other. Storage key: <prefix>_<mapContainerId> -- map-scoped, so multi-map
- * pages keep their per-map state separate. The key lives in const.ts so tests
- * can assert on it without importing this module.
+ * Reads go through {@link load}, writes through {@link schedule}; both sides
+ * name every dimension explicitly (parseRecord and mergeFields), so a new one
+ * cannot be wired on one side and forgotten on the other. Storage key:
+ * <prefix>_<mapContainerId> -- map-scoped, so multi-map pages keep their per-map
+ * state separate. The key lives in const.ts so tests can assert on it without
+ * importing this module.
  */
 class LayerPersistence {
   private readonly persistName: string;
@@ -230,19 +244,21 @@ class LayerPersistence {
   // ── Read ───────────────────────────────────────────────────────────
 
   /**
-   * Load every dimension. The only full read entry point, so a new dimension
-   * cannot be missed on load and nothing else calls `Storage.load`.
+   * Load every dimension. The only read entry point, so a new dimension cannot
+   * be missed on load and nothing else calls `Storage.load`.
    *
    * Nothing here is filtered against the registry. This runs from
-   * `LayerUI.attachUI`, which loads before HeatmapControl and MeasureControl
-   * register in their own constructor, so a registry filter would drop their
-   * entries on the very first attach -- showing the default name, re-adding a
-   * hidden layer, leaving a reordered layer at its author position, or losing a
-   * label config -- and every refresh. Order and annotation config are user
-   * intent exactly like hidden state and names; the only difference is that
-   * their replay is deferred until the id resolves. `LayerManager.replaySavedOrder`
-   * re-applies the order when a layer registers late, and `applyStyleLabelState`
-   * re-applies the config on `CONTROL_ATTACHED`.
+   * `LayerManager`'s constructor — before any layer is registered — and again
+   * from `LayerUI.attachUI`, which loads before HeatmapControl and
+   * MeasureControl register in their own constructor, so a registry filter
+   * would drop their entries on the very first attach -- showing the default
+   * name, re-adding a hidden layer, leaving a reordered layer at its author
+   * position, or losing a label config -- and every refresh. Order and
+   * annotation config are user intent exactly like hidden state and names;
+   * the only difference is that their replay is deferred until the id
+   * resolves. `LayerManager.replaySavedOrder` re-applies the order when a
+   * layer registers late, and `applyStyleLabelState` re-applies the config on
+   * `CONTROL_ATTACHED`.
    *
    * An unknown id is therefore not evidence that a layer is gone. Stale ids are
    * pruned only by `LayerManager.deleteLayer`, the one call that knows a layer
@@ -253,26 +269,6 @@ class LayerPersistence {
    */
   load(): PersistedRecord {
     return parseRecord(Storage.load<unknown>(CONST.STORAGE.KEY, this.persistName));
-  }
-
-  /**
-   * Load just the order dimension.
-   *
-   * {@link LayerManager} calls this from its own constructor, before
-   * LayerControl's UI has attached, and it is the only dimension it needs. It
-   * reads the same record as {@link load} -- one key either way -- so the two
-   * calls still differ only in what they return, and this one runs at a
-   * different moment anyway, so the calls cannot be merged even if they wanted
-   * to be.
-   *
-   * The ids come back as stored, including ones that are not registered yet. A
-   * late registration reads its own position out of this list, and the manager
-   * carries the pending ids through the next flush, so this is the only place a
-   * stored position could disappear.
-   */
-  loadOrder(): string[] | null {
-    return parseRecord(Storage.load<unknown>(CONST.STORAGE.KEY, this.persistName))
-      .order;
   }
 
   // ── Write ──────────────────────────────────────────────────────────

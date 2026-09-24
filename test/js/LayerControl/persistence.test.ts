@@ -12,6 +12,7 @@ const makePersistence = () => new LayerPersistence();
 const emptyRecord = (): PersistedRecord => ({
   version: RECORD_VERSION,
   order: null,
+  removed: [],
   foldedGroups: [],
   renamedNames: {},
   annotations: {},
@@ -59,6 +60,7 @@ describe("LayerPersistence", () => {
       expect(makePersistence().load()).toEqual({
         version: RECORD_VERSION,
         order: ["a", "b"],
+        removed: [],
         foldedGroups: ["OVERLAYS"],
         renamedNames: { a: "A2" },
         annotations: { a: { show: true, field: "name", format: "auto" } },
@@ -75,6 +77,7 @@ describe("LayerPersistence", () => {
       const record: PersistedRecord = {
         version: RECORD_VERSION,
         order: ids,
+        removed: [],
         foldedGroups: ["OVERLAYS"],
         renamedNames: { a: "A2" },
         annotations: { a: { show: true, field: "name", format: "auto" } },
@@ -162,6 +165,20 @@ describe("LayerPersistence", () => {
       expect(p.load().foldedGroups).toEqual([]);
     });
 
+    it("keeps removed ids in the order they were deleted", () => {
+      // One-way bookkeeping: nothing ever prunes this list, so the ids come
+      // back exactly as stored and the registration entry point refuses each.
+      seedStorage({ removed: ["a", "c", "b"] });
+      expect(makePersistence().load().removed).toEqual(["a", "c", "b"]);
+    });
+
+    it("drops removed when it holds a non-string entry", () => {
+      // Same tolerance as order: a bad entry fails the check and discards the
+      // whole dimension, so a corrupted value cannot read back as a deletion.
+      seedStorage({ removed: ["a", 7, null] });
+      expect(makePersistence().load().removed).toEqual([]);
+    });
+
     it("drops annotation entries that are not plain objects", () => {
       // Arrays pass the typeof object check, so they are excluded explicitly --
       // a corrupted record must not leak into the config as a valid object.
@@ -186,7 +203,7 @@ describe("LayerPersistence", () => {
   // ── Version ─────────────────────────────────────────────────────
 
   describe("version", () => {
-    it("reads a legacy record (no version) with all five dimensions intact", () => {
+    it("reads a legacy record (no version) with all six dimensions intact", () => {
       // Old records have no version field at all. parseRecord must leave
       // them alone — every dimension still parses, and version falls back
       // to RECORD_VERSION so the next write stamps the record up to date
@@ -201,6 +218,7 @@ describe("LayerPersistence", () => {
       expect(makePersistence().load()).toEqual({
         version: RECORD_VERSION,
         order: ["a", "b"],
+        removed: [],
         foldedGroups: ["OVERLAYS"],
         renamedNames: { a: "A2" },
         annotations: { a: { show: true, field: "name", format: "auto" } },
@@ -271,6 +289,7 @@ describe("LayerPersistence", () => {
       expect(lastRecord(save)).toEqual({
         version: RECORD_VERSION,
         order: ["b", "a"],
+        removed: [],
         foldedGroups: ["OVERLAYS"],
         renamedNames: { a: "A2" },
         annotations: { a: { show: true, field: "name", format: "auto" } },
@@ -442,38 +461,6 @@ describe("LayerPersistence", () => {
     });
   });
 
-  describe("loadOrder", () => {
-    it("loads the order dimension, including ids that are not registered yet", () => {
-      // A late registration reads its own position out of this list, and the
-      // manager carries the pending ids through the next flush. Pruning here
-      // would be the one point where a stored position could disappear.
-      seedStorage({ order: ["a", "ghost", "b", "gone"] });
-      expect(makePersistence().loadOrder()).toEqual(["a", "ghost", "b", "gone"]);
-    });
-
-    it("returns null on missing or corrupt data", () => {
-      expect(makePersistence().loadOrder()).toEqual(null);
-      seedStorage({ order: "not-array" });
-      expect(makePersistence().loadOrder()).toEqual(null);
-      seedStorage({ order: ["a", 123] });
-      expect(makePersistence().loadOrder()).toEqual(null);
-    });
-
-    it("reads the record key once", () => {
-      // The whole point of the narrow read: LayerManager needs order and only
-      // order at construction time, so it must not return the rest of the
-      // record either. One key is read either way.
-      const keys: string[] = [];
-      const spy = vi.spyOn(Storage, "load").mockImplementation((key: unknown) => {
-        keys.push(String(key));
-        return undefined;
-      });
-      makePersistence().loadOrder();
-      spy.mockRestore();
-      expect(keys).toEqual([CONST.STORAGE.KEY]);
-    });
-  });
-
   // ── Write ───────────────────────────────────────────────────────
 
   describe("schedule", () => {
@@ -518,6 +505,7 @@ describe("LayerPersistence", () => {
       expect(lastRecord(save)).toEqual({
         version: RECORD_VERSION,
         order: ["a", "b"],
+        removed: [],
         foldedGroups: ["OVERLAYS"],
         renamedNames: { a: "A" },
         annotations: { a: { show: true, field: "n", format: "auto" } },
@@ -548,11 +536,42 @@ describe("LayerPersistence", () => {
       expect(lastRecord(save)).toEqual({
         version: RECORD_VERSION,
         order: ["b", "a"],
+        removed: [],
         foldedGroups: ["OVERLAYS"],
         renamedNames: { a: "A" },
         annotations: { a: { show: true, field: "n", format: "auto" } },
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
+      save.mockRestore();
+      vi.useRealTimers();
+    });
+
+    it("writes the removed ids on the shared timer", () => {
+      // `removed` joins the record as one more dimension on the same single
+      // debounce, so a deletion never needs its own writer to land.
+      vi.useFakeTimers();
+      const save = spySave();
+      const p = makePersistence();
+      p.schedule({ removed: () => ["a", "b"] });
+
+      vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
+
+      expect(lastRecord(save).removed).toEqual(["a", "b"]);
+      save.mockRestore();
+      vi.useRealTimers();
+    });
+
+    it("carries removed through a write that never schedules it", () => {
+      // The list is one-way: an unrelated save must not be able to drop a
+      // deletion, or the layer would come back on the next reload.
+      seedStorage({ removed: ["a"] });
+      vi.useFakeTimers();
+      const save = spySave();
+      const p = makePersistence();
+      p.schedule({ order: () => ["x"] });
+      p.flushAll();
+
+      expect(lastRecord(save).removed).toEqual(["a"]);
       save.mockRestore();
       vi.useRealTimers();
     });
@@ -599,6 +618,7 @@ describe("LayerPersistence", () => {
       expect(lastRecord(save)).toEqual({
         version: RECORD_VERSION,
         order: ["a", "b"],
+        removed: [],
         foldedGroups: [],
         renamedNames: {},
         annotations: {},
