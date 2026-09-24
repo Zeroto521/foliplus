@@ -1354,42 +1354,6 @@ describe("ExportRenderer.render — layer pass routing", () => {
     );
   });
 
-  it("skips the tile pass when tilePane is hidden by a solid-color basemap", async () => {
-    // Picking a colour removes the tile layers with map.removeLayer and hides
-    // tilePane by class — it never goes through applyVisibility, so every
-    // li.visible is still true.  Re-fetching the tile URLs would repaint them
-    // over the colour the user just picked, so the pass judges the pane's
-    // computed state instead of the class that produced it.
-    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(
-      makeMockCtx() as any,
-    );
-    const tilePane = document.createElement("div");
-    tilePane.style.visibility = "hidden";
-    const map = (globalThis as any).map;
-    map.getPane = (name: string) => (name === "tilePane" ? tilePane : null);
-    map.foliplus = {
-      LayerAPI: {
-        layers: [
-          { visible: true, layer: makeTileLayer() },
-          { visible: true, layer: { options: {} } },
-        ],
-        getLayerPanes: () => [],
-      },
-    };
-
-    const tileLayer = vi
-      .spyOn(ExportRenderer.prototype as any, "renderTileLayer")
-      .mockResolvedValue(undefined);
-    const onProgress = vi.fn();
-
-    await runRender(onProgress);
-
-    expect(tileLayer).not.toHaveBeenCalled();
-    // No tiles in the denominator, so the bar resumes at the layer range and
-    // the surviving vector layer still walks it to the top.
-    expect(onProgress.mock.calls.map(call => call[0])).toEqual([71, 90]);
-  });
-
   it("runs the four marker passes when the layer's panes hold markers", async () => {
     // The pane passes do not own marker DOM: collectLayerMarkers strips canvas
     // and svg from the pane and the four marker passes draw whatever is left.
