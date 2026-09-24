@@ -80,18 +80,6 @@ const panelContentHTML = (T: (key: string) => string): string => /* html */ `
         </div>
       </div>
 
-      <div class="foliplus-form-row">
-        <label class="foliplus-form-label">${T("border")}</label>
-        <div class="foliplus-form-control foliplus-form-inline">
-          <input class="foliplus-form-color-input" type="color" ${CONST.DATA_ATTR.BORDER_COLOR}>
-          <input class="foliplus-form-number-input" type="number" min="${CONST.BORDER.WEIGHT_MIN}" max="${CONST.BORDER.WEIGHT_MAX}" step="${CONST.BORDER.WEIGHT_STEP}" ${CONST.DATA_ATTR.BORDER_WEIGHT}>
-        </div>
-      </div>
-
-    </div>
-
-    <div class="foliplus-section-heading">
-      ${T("section_label")}
     </div>
 
     <hr class="foliplus-section-divider">

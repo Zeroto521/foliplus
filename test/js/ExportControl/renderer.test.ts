@@ -1852,7 +1852,7 @@ describe("ExportRenderer.renderPaneSVG", () => {
     byAttr.setAttribute("data-foliplus-export", "exclude");
     const byClass = document.createElementNS(NS, "path");
     byClass.setAttribute("d", "M 10 10 L 190 10 L 190 190 L 10 190 Z");
-    byClass.classList.add("foliplus-no-export");
+    byClass.classList.add("foliplus-skip-export");
     svg.append(keep, byAttr, byClass);
     p.appendChild(svg);
     const srcs = captureSources();
@@ -2094,10 +2094,10 @@ describe("ExportRenderer.collectLayerMarkers", () => {
     const pane = "vector";
     const keep = document.createElement("div");
     const byClass = document.createElement("div");
-    byClass.classList.add("foliplus-no-export");
+    byClass.classList.add("foliplus-skip-export");
     const nesting = document.createElement("div");
     const inner = document.createElement("div");
-    inner.classList.add("foliplus-no-export");
+    inner.classList.add("foliplus-skip-export");
     nesting.appendChild(inner);
     const roots = document.createElement("div");
     roots.append(keep, byClass, nesting);

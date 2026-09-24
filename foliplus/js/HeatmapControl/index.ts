@@ -34,10 +34,6 @@ class HeatmapControl extends BaseControl {
   declare schemeBar: HTMLElement;
   declare schemeBarInner: HTMLElement;
   declare schemeSelectHidden: HTMLSelectElement;
-  declare borderColorInput: HTMLInputElement;
-  declare borderWeightInput: HTMLInputElement;
-  declare labelRefresh: (() => void) | null;
-  declare styleChangeCleanup: (() => void) | null;
   declare closeSchemeDropdown: (event: Event) => void;
   declare toggleSchemeDropdown: () => void;
   initScanCleanup: (() => void) | null = null;
@@ -100,11 +96,6 @@ class HeatmapControl extends BaseControl {
     this.initScanCleanup = null;
     this.schemeBarCleanup?.();
     this.schemeBarCleanup = null;
-    this.styleChangeCleanup?.();
-    this.styleChangeCleanup = null;
-    // The shared renderer's refresh closes over the panel DOM; drop it with the
-    // subscription so nothing writes into a detached panel.
-    this.labelRefresh = null;
     // dropdownCleanup is optional: only the dropdown open/close cycle writes
     // it, and clearHeatmapCanvas already runs it. Null it here so a handler
     // can't survive the control — it re-registers on the next dropdown open.

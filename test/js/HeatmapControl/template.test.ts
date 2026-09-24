@@ -10,7 +10,6 @@ describe("panelContentHTML", () => {
     const map: Record<string, string> = {
       section_data: "Data",
       section_style: "Style",
-      section_label: "Label Section",
       layer: "Aggregation Layer",
       agg_method: "Aggregation Method",
       agg_count: "Count",
@@ -25,14 +24,6 @@ describe("panelContentHTML", () => {
       equal: "Equal",
       heads: "Heads",
       scheme: "Color",
-      border: "Border",
-      label: "Label",
-      label_style: "Color / Font Size",
-      label_format: "Number Format",
-      label_format_auto: "Auto",
-      label_format_int: "Integer",
-      label_format_comma: "Thousands Separator",
-      label_format_percent: "Percent",
       clear: "Clear",
     };
     return map[key] ?? key;
@@ -68,8 +59,6 @@ describe("panelContentHTML", () => {
       "data-heatmap-class-count",
       "data-heatmap-scheme-ctrl",
       "data-heatmap-scheme-hidden",
-      "data-heatmap-border-color",
-      "data-heatmap-border-weight",
       "data-heatmap-btn-clear",
     ];
     for (const attr of expectedAttrs) {
@@ -81,7 +70,6 @@ describe("panelContentHTML", () => {
     const html = panelContentHTML(T);
     expect(html).toContain("Data");
     expect(html).toContain("Style");
-    expect(html).toContain("Label Section");
   });
 
   it("includes translated form labels", () => {
@@ -91,7 +79,6 @@ describe("panelContentHTML", () => {
     expect(html).toContain("Aggregation Field");
     expect(html).toContain("Classify");
     expect(html).toContain("Color");
-    expect(html).toContain("Border");
   });
 
   it("includes translated action button text", () => {
@@ -134,31 +121,12 @@ describe("panelContentHTML", () => {
     }
   });
 
-  it("includes border weight input constraints", () => {
-    const html = panelContentHTML(T);
-    expect(html).toContain('type="number"');
-    expect(html).toContain('min="0"');
-    expect(html).toContain('max="10"');
-    expect(html).toContain('step="0.5"');
-  });
-
   it("includes scheme bar with combobox role", () => {
     const html = panelContentHTML(T);
     expect(html).toContain("foliplus-heatmap-scheme-bar");
     expect(html).toContain('tabindex="0"');
     expect(html).toContain('role="combobox"');
     expect(html).toContain("foliplus-heatmap-scheme-bar-inner");
-  });
-
-  it("includes border color picker", () => {
-    const html = panelContentHTML(T);
-    expect(html).toContain("foliplus-form-color-input");
-    expect(html).toContain('type="color"');
-  });
-
-  it("includes border weight input", () => {
-    const html = panelContentHTML(T);
-    expect(html).toContain("foliplus-form-number-input");
   });
 
   it("includes section divider", () => {

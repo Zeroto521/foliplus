@@ -91,15 +91,6 @@ describe("CLASS_COUNT", () => {
   });
 });
 
-describe("BORDER", () => {
-  it("defines weight constraints", () => {
-    expect(CONST.BORDER.WEIGHT_MIN).toBe(0);
-    expect(CONST.BORDER.WEIGHT_MAX).toBe(10);
-    expect(CONST.BORDER.WEIGHT_STEP).toBe(0.5);
-    expect(CONST.BORDER.WEIGHT_DEFAULT).toBe(1);
-  });
-});
-
 describe("DATA_ATTR", () => {
   it("defines all data-heatmap-* attribute names", () => {
     expect(CONST.DATA_ATTR.LAYER).toBe("data-heatmap-layer");
@@ -111,14 +102,12 @@ describe("DATA_ATTR", () => {
     expect(CONST.DATA_ATTR.CLASS_COUNT).toBe("data-heatmap-class-count");
     expect(CONST.DATA_ATTR.SCHEME_CTRL).toBe("data-heatmap-scheme-ctrl");
     expect(CONST.DATA_ATTR.SCHEME_HIDDEN).toBe("data-heatmap-scheme-hidden");
-    expect(CONST.DATA_ATTR.BORDER_COLOR).toBe("data-heatmap-border-color");
-    expect(CONST.DATA_ATTR.BORDER_WEIGHT).toBe("data-heatmap-border-weight");
     expect(CONST.DATA_ATTR.BTN_CLEAR).toBe("data-heatmap-btn-clear");
   });
 
-  it("has 12 data-heatmap attribute keys (no confirm button, no label attrs)", () => {
+  it("has 10 data-heatmap attribute keys (no confirm button, no label attrs, no border attrs)", () => {
     const keys = Object.keys(CONST.DATA_ATTR);
-    expect(keys.length).toBe(12);
+    expect(keys.length).toBe(10);
   });
 });
 

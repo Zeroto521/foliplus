@@ -2,15 +2,7 @@
 // All internal refs use direct function calls instead of `this.`.
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
-import { renderLabelControls } from "#core/labelControl.js";
 import { dom } from "#common/dom.js";
-import {
-  bindLiveColor,
-  bindLiveNumber,
-  clampLabelSize,
-  normalizeHexColor,
-} from "#common/form.js";
-import { NUMBER_FORMAT, type NumberStyle } from "#common/format.js";
 import { adjustPanelZIndex } from "#common/panel.js";
 import * as CONST from "./const.js";
 import { registerDropdownEvents, registerSchemeBarEvents } from "./interaction.js";
@@ -33,8 +25,7 @@ interface HeatmapControlUI {
   conf: ComponentConfig;
   /** Translator bound to `conf`, created once by the control / test fixture. */
   T: (key: string) => string;
-  /** Unscoped translator for the shared `foliplus.*` vocabulary — the label
-   *  controls this panel shares with LayerControl's style drawer. */
+  /** Unscoped translator for the shared `foliplus.*` vocabulary. */
   _: (key: string) => string;
   ctrl: HTMLElement;
   schemeDropdown: HTMLElement | null;
@@ -55,10 +46,6 @@ interface HeatmapControlUI {
   schemeBar: HTMLElement;
   schemeBarInner: HTMLElement;
   schemeSelectHidden: HTMLSelectElement;
-  borderColorInput: HTMLInputElement;
-  borderWeightInput: HTMLInputElement;
-  labelRefresh: (() => void) | null;
-  styleChangeCleanup: (() => void) | null;
   /** Takes `Event`, not `MouseEvent`, because it is handed to `on()` as an
    *  `EventListener` — only `.target` is read. */
   closeSchemeDropdown: (event: Event) => void;
@@ -114,16 +101,8 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   ctrl.schemeSelectHidden = panelContent.querySelector(
     `[${CONST.DATA_ATTR.SCHEME_HIDDEN}]`,
   ) as HTMLSelectElement;
-  ctrl.borderColorInput = panelContent.querySelector(
-    `[${CONST.DATA_ATTR.BORDER_COLOR}]`,
-  ) as HTMLInputElement;
-  ctrl.borderWeightInput = panelContent.querySelector(
-    `[${CONST.DATA_ATTR.BORDER_WEIGHT}]`,
-  ) as HTMLInputElement;
 
   // Set initial values from manager defaults
-  ctrl.borderColorInput.value = ctrl.m.borderColor;
-  ctrl.borderWeightInput.value = String(ctrl.m.borderWeight);
   ctrl.classSelect.value = String(
     Math.min(CONST.CLASS_COUNT.MAX, Math.max(CONST.CLASS_COUNT.MIN, ctrl.m.numClasses)),
   );
@@ -189,50 +168,6 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     persist(ctrl);
   };
 
-  bindLiveColor(ctrl.borderColorInput, value => {
-    ctrl.m.borderColor = value;
-    ctrl.m.renderHexagons();
-    persist(ctrl);
-  });
-
-  bindLiveNumber(ctrl.borderWeightInput, {
-    min: CONST.BORDER.WEIGHT_MIN,
-    max: CONST.BORDER.WEIGHT_MAX,
-    fallback: CONST.BORDER.WEIGHT_DEFAULT,
-    onCommit: value => {
-      ctrl.m.borderWeight = value;
-      ctrl.m.renderHexagons();
-      persist(ctrl);
-    },
-  });
-
-  // Label controls — rendered by the shared module, which dispatches changes
-  // to the manager's own styleSetters (the same ones the layer drawer uses).
-  // The shared module handles change delegation, body collapse, and refresh.
-  // The template always carries the section divider, so the controls slot in
-  // directly above it — after the style block, before Clear.
-  const divider = ctrl.extraBody.querySelector(
-    `.${CONST.CLASSES.SECTION_DIVIDER}`,
-  ) as HTMLElement;
-  const labelControls = renderLabelControls({
-    styleProvider: () => ctrl.m.styleProvider(),
-    getSetters: () => ctrl.m.styleSetters,
-    T: ctrl._,
-  });
-  ctrl.labelRefresh = labelControls.refresh;
-  divider.before(labelControls.root);
-
-  // Mirror remote changes (the layer drawer flipping a value while this panel
-  // is open) — the shared refresh reads from styleProvider.
-  const events = ensureEvents(ctrl.m.map);
-  ctrl.styleChangeCleanup = events.on(
-    EVENTS.LAYER_STYLE_CHANGE,
-    (payload: { id: string }) => {
-      if (payload.id !== ctrl.m.layerId) return;
-      ctrl.labelRefresh?.();
-    },
-  );
-
   ctrl.closeSchemeDropdown = (event: Event) => {
     if (
       ctrl.schemeDropdown &&
@@ -270,18 +205,11 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     );
     syncSelect(ctrl, ctrl.methodSelect, ctrl.conf.method ?? CONST.METHOD.JENKS);
     ctrl.schemeSelectHidden.value = ctrl.conf.color_scheme ?? "Reds";
-    ctrl.labelRefresh?.();
-    ctrl.borderWeightInput.value = String(
-      ctrl.conf.border_weight ?? CONST.BORDER.WEIGHT_DEFAULT,
-    );
-    ctrl.borderColorInput.value = ctrl.conf.border_color ?? CONST.GRAY;
     updateSchemeBar(ctrl);
     updateFieldSelector(ctrl);
     // Drop the published source rows — the canvas unregisters on clear, but the
     // shared meta object outlives it and would repopulate stale values on re-register.
     ctrl.m.syncSourceMeta();
-    // An open layer style drawer mirrors these values — refresh it too.
-    ctrl.m.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: ctrl.m.layerId });
     ctrl.extraBody.classList.add(CONST.CLASSES.HIDDEN);
     ctrl.ctrl.classList.remove(CONST.CLASSES.EXPANDED);
     ctrl.ctrl.classList.add(CONST.CLASSES.COLLAPSED);
@@ -594,18 +522,6 @@ const resetAll = (ctrl: HeatmapControlUI) => {
   ctrl.m.numClasses = ctrl.conf.n_classes ?? CONST.CLASS_COUNT.DEFAULT;
   ctrl.m.currentMethod = ctrl.conf.method ?? CONST.METHOD.JENKS;
   ctrl.m.currentScheme = ctrl.conf.color_scheme ?? "Reds";
-  ctrl.m.currentLabelShow = ctrl.conf.label_show !== false;
-  ctrl.m.currentLabelColor = normalizeHexColor(
-    ctrl.conf.label_color ?? CONST.LABEL.COLOR_DEFAULT,
-  );
-  ctrl.m.currentLabelSize = clampLabelSize(
-    ctrl.conf.label_size ?? CONST.LABEL.SIZE_DEFAULT,
-  );
-  ctrl.m.currentLabelFormat = (ctrl.conf.label_format ??
-    NUMBER_FORMAT.AUTO) as NumberStyle;
-  ctrl.m.cachedLabelStyle = null;
-  ctrl.m.borderWeight = ctrl.conf.border_weight ?? CONST.BORDER.WEIGHT_DEFAULT;
-  ctrl.m.borderColor = ctrl.conf.border_color ?? CONST.GRAY;
   ctrl.m.clearHeatmapCanvas();
 };
 

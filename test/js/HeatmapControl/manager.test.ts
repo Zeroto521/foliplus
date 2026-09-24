@@ -3,6 +3,7 @@ import { EVENTS, ensureEvents } from "#core/event/index.js";
 import * as CONST from "#foliplus/HeatmapControl/const.js";
 import { HeatmapManager } from "#foliplus/HeatmapControl/manager.js";
 import { rebuildLayerDropdown } from "#foliplus/HeatmapControl/ui.js";
+import { BORDER_WEIGHT } from "#foliplus/common/form.js";
 import { makeConf, makeCtrl, makeManager } from "./fixture.js";
 
 afterEach(() => {
@@ -1607,6 +1608,8 @@ describe("HeatmapManager — style delegation", () => {
       labelColor: "#ffffff",
       labelSize: 11,
       labelFormat: "auto",
+      borderWeight: 1.5,
+      borderColor: "#333333",
     });
 
     m.currentLabelShow = false;
@@ -1618,6 +1621,8 @@ describe("HeatmapManager — style delegation", () => {
       labelColor: "#ff0000",
       labelSize: 16,
       labelFormat: "comma",
+      borderWeight: 1.5,
+      borderColor: "#333333",
     });
   });
 
@@ -1683,6 +1688,8 @@ describe("HeatmapManager — style delegation", () => {
       labelColor: "#ffffff",
       labelSize: 11,
       labelFormat: "auto",
+      borderWeight: 1.5,
+      borderColor: "#333333",
     });
 
     // Runtime toggles must not leak into the Reset snapshot.
@@ -1695,6 +1702,8 @@ describe("HeatmapManager — style delegation", () => {
       labelColor: "#ffffff",
       labelSize: 11,
       labelFormat: "auto",
+      borderWeight: 1.5,
+      borderColor: "#333333",
     });
   });
 
@@ -1801,6 +1810,100 @@ describe("HeatmapManager — style delegation", () => {
 
     expect(m.currentLabelShow).toBe(true);
     expect(opts.styleDefaults!().labelShow).toBe(true);
+  });
+
+  it("borderWeight defaults to BORDER_WEIGHT.DEFAULT when CONF omits border_weight", () => {
+    const m = makeManager({ border_weight: undefined });
+    expect(m.borderWeight).toBe(BORDER_WEIGHT.DEFAULT);
+  });
+
+  it("borderWeight setter updates state, re-renders and persists", () => {
+    const m = makeManager();
+    const redrawSpy = vi.spyOn(m, "redrawHeatmap");
+    const saveSpy = vi.spyOn(m, "saveConfig");
+    const opts = getCanvasOpts();
+
+    opts.styleSetters!.borderWeight!(3);
+
+    expect(m.borderWeight).toBe(3);
+    expect(redrawSpy).toHaveBeenCalled();
+    expect(saveSpy).toHaveBeenCalled();
+  });
+
+  it("borderWeight setter clamps out-of-range values", () => {
+    const m = makeManager();
+    const opts = getCanvasOpts();
+
+    opts.styleSetters!.borderWeight!(99);
+    expect(m.borderWeight).toBe(BORDER_WEIGHT.MAX);
+
+    opts.styleSetters!.borderWeight!(-5);
+    expect(m.borderWeight).toBe(BORDER_WEIGHT.MIN);
+  });
+
+  it("borderWeight setter ignores NaN and non-number values", () => {
+    const m = makeManager();
+    const opts = getCanvasOpts();
+
+    opts.styleSetters!.borderWeight!(Number.NaN);
+    expect(m.borderWeight).toBe(1.5);
+
+    opts.styleSetters!.borderWeight!("3" as unknown as number);
+    expect(m.borderWeight).toBe(1.5);
+  });
+
+  it("borderWeight setter touches the layer and emits LAYER_STYLE_CHANGE", () => {
+    const m = makeManager();
+    (m.map as unknown as { foliplus: unknown }).foliplus = window.map.foliplus;
+    const touchLayer = window.map.foliplus.LayerAPI.touchLayer;
+    const emitSpy = vi.spyOn(m.events, "emit");
+    const opts = getCanvasOpts();
+
+    opts.styleSetters!.borderWeight!(2.5);
+
+    expect(touchLayer).toHaveBeenCalledWith(m.layerId);
+    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_STYLE_CHANGE, {
+      id: m.layerId,
+    });
+  });
+
+  it("borderColor setter updates state, re-renders and persists", () => {
+    const m = makeManager();
+    const redrawSpy = vi.spyOn(m, "redrawHeatmap");
+    const saveSpy = vi.spyOn(m, "saveConfig");
+    const opts = getCanvasOpts();
+
+    opts.styleSetters!.borderColor!("#abcdef");
+
+    expect(m.borderColor).toBe("#abcdef");
+    expect(redrawSpy).toHaveBeenCalled();
+    expect(saveSpy).toHaveBeenCalled();
+  });
+
+  it("borderColor setter ignores non-string values and normalizes #rgb", () => {
+    const m = makeManager();
+    const opts = getCanvasOpts();
+
+    opts.styleSetters!.borderColor!(42);
+    expect(m.borderColor).toBe("#333333");
+
+    opts.styleSetters!.borderColor!("#abc");
+    expect(m.borderColor).toBe("#aabbcc");
+  });
+
+  it("borderColor setter touches the layer and emits LAYER_STYLE_CHANGE", () => {
+    const m = makeManager();
+    (m.map as unknown as { foliplus: unknown }).foliplus = window.map.foliplus;
+    const touchLayer = window.map.foliplus.LayerAPI.touchLayer;
+    const emitSpy = vi.spyOn(m.events, "emit");
+    const opts = getCanvasOpts();
+
+    opts.styleSetters!.borderColor!("#00ff00");
+
+    expect(touchLayer).toHaveBeenCalledWith(m.layerId);
+    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_STYLE_CHANGE, {
+      id: m.layerId,
+    });
   });
 });
 

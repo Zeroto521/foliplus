@@ -329,21 +329,21 @@ class TestBaseControlRendering:
         assert "border-radius: var(--radius-sm)" in html
 
     def test_collapsed_shadow_shared(self, base_map: folium.Map):
-        """foliplus-ctrl-fold.collapsed uses --shadow-ctrl-strong (shared shadow for all collapsed controls)."""
+        """foliplus-ctrl-fold.is-collapsed uses --shadow-ctrl-strong (shared shadow for all collapsed controls)."""
         from foliplus import SearchControl
 
         html = render_control(SearchControl())
         assert "shadow-ctrl-strong" in html
         # The shadow rule is in the shared stylesheet, not in component CSS
-        assert "ctrl-fold.collapsed" in html
+        assert "ctrl-fold.is-collapsed" in html
 
     def test_expanded_shadow_shared(self, base_map: folium.Map):
-        """foliplus-ctrl-fold.expanded uses --panel-shadow (shared shadow for all expanded controls)."""
+        """foliplus-ctrl-fold.is-expanded uses --panel-shadow (shared shadow for all expanded controls)."""
         from foliplus import SearchControl
 
         html = render_control(SearchControl())
         assert "panel-shadow" in html
-        assert "ctrl-fold.expanded" in html
+        assert "ctrl-fold.is-expanded" in html
 
 
 # ---------------------------------------------------------------------------

@@ -37,9 +37,13 @@
       font-weight: var(--font-weight-medium);
     }
 
-    /* Out of range is carried by the dots' rings alone (the readout they
-       exist for), so the rail stays accent and the text stays ink. The row
-       only keeps the tooltip and the class itself. */
+    /* Out of range: the rail dims to signal the current zoom is outside the
+       selected range. */
+    &.foliplus-zoom-range-out-of-range {
+      .foliplus-slider-rail {
+        opacity: var(--alpha-50);
+      }
+    }
   }
 
   /* ── Fill row ────────────────────────────────────────────────────

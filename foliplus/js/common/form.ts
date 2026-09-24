@@ -15,6 +15,15 @@ const LABEL_SIZE = {
 
 const LABEL_COLOR_DEFAULT = "#ffffff";
 
+/** Shared border weight bounds for hexagon outlines. One home for the
+ *  heatmap panel and the layer style drawer so the two never drift. */
+const BORDER_WEIGHT = {
+  MIN: 0,
+  MAX: 10,
+  STEP: 0.5,
+  DEFAULT: 1,
+} as const;
+
 /** Clamp a raw label-size number into the shared bounds. */
 const clampLabelSize = (value: number): number =>
   Math.min(LABEL_SIZE.SIZE_MAX, Math.max(LABEL_SIZE.SIZE_MIN, value));
@@ -101,6 +110,7 @@ const bindLiveColor = (
 export {
   bindLiveColor,
   bindLiveNumber,
+  BORDER_WEIGHT,
   clampLabelSize,
   colorInput,
   inlineControls,
