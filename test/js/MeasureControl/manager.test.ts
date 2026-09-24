@@ -127,6 +127,34 @@ describe("MeasureManager — persistence", () => {
     expect(opts.featureCountProvider()).toBe(0);
   });
 
+  it("metaProvider reports per-mode counts with T-locale keys", () => {
+    const { manager, map } = makeManager();
+    const opts = map.foliplus.LayerAPI.createLayers.mock.calls[0][0];
+    expect(typeof opts.metaProvider).toBe("function");
+
+    // No measurements → all four rows show 0.
+    expect(opts.metaProvider()).toEqual({
+      [manager.T("tool_marker")]: 0,
+      [manager.T("tool_distance")]: 0,
+      [manager.T("tool_polygon")]: 0,
+      [manager.T("tool_circle")]: 0,
+    });
+
+    // Mixed measurements → per-mode counts match the store.
+    manager.measurements = [
+      { id: "1", type: CONST.MODE.MARKER },
+      { id: "2", type: CONST.MODE.MARKER },
+      { id: "3", type: CONST.MODE.DISTANCE },
+      { id: "4", type: CONST.MODE.POLYGON },
+    ] as any;
+    expect(opts.metaProvider()).toEqual({
+      [manager.T("tool_marker")]: 2,
+      [manager.T("tool_distance")]: 1,
+      [manager.T("tool_polygon")]: 1,
+      [manager.T("tool_circle")]: 0,
+    });
+  });
+
   it("restoreMeasurements stabilizes persisted measurements missing an id", () => {
     const { manager } = makeManager();
     // Seed localStorage with a legacy measurement that predates the id field.

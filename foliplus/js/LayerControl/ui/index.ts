@@ -168,6 +168,8 @@ class LayerUI {
   attrsOutsideHandler: ((event: MouseEvent) => void) | null;
   /** Same capture-phase dismiss, for the style panel. */
   styleOutsideHandler: ((event: MouseEvent) => void) | null;
+  /** Unsubscribe for LAYER_ITEM_COUNT_CHANGE while attrs panel is open. */
+  attrsUnsubscribe: (() => void) | null;
   /** Unsubscribe for LAYER_STYLE_CHANGE while a delegated style panel is open. */
   styleUnsubscribe: (() => void) | null;
   /** Refresh function for the shared label controls (set by renderDelegatedStylePanel). */
@@ -235,6 +237,7 @@ class LayerUI {
     this.attrsOutsideHandler = null;
     this.styleOutsideHandler = null;
     this.styleUnsubscribe = null;
+    this.attrsUnsubscribe = null;
     this.styleRefresh = null;
     this.styleZoomEndHandler = null;
     this.stylePanelLayerId = null;
