@@ -37,19 +37,11 @@
       font-weight: var(--font-weight-medium);
     }
 
-    /* Out of range: a small solid red dot at the top-right of the current-zoom
-       marker — same angle and gap as the delete badge on a location pin. */
+    /* Out of range: the rail dims to signal the current zoom is outside the
+       selected range. */
     &.foliplus-zoom-range-out-of-range {
-      .foliplus-style-zoom-range-dot-current::after {
-        content: "";
-        position: absolute;
-        top: 0;
-        right: 0;
-        transform: translate(50%, -50%);
-        width: var(--size-6);
-        height: var(--size-6);
-        background: var(--accent-primary);
-        border-radius: 50%;
+      .foliplus-slider-rail {
+        opacity: var(--alpha-50);
       }
     }
   }
