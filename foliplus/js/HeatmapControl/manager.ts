@@ -715,15 +715,4 @@ class HeatmapManager {
   }
 }
 
-// Re-export types for callers that import from manager.ts.
-export type {
-  AggregatedData,
-  HexCell,
-  HexFeature,
-  HeatmapPointMarker,
-  PointLayerInfo,
-  SavedConfig,
-  SelectedPoint,
-} from "./types.js";
-
 export { HeatmapManager };
