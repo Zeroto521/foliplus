@@ -4106,7 +4106,9 @@ class TestLayerControlBrowser:
             )
             read = page.evaluate(_js("LayerControl/native_gate_read"))
             recs = [r for r in (read["records"] or []) if r["key"] == "ArrowDown"]
-            assert len(recs) == 1, f"ArrowDown observed {len(recs)} times: {read['records']}"
+            assert len(recs) == 1, (
+                f"ArrowDown observed {len(recs)} times: {read['records']}"
+            )
             assert recs[0]["prevented"] is False, (
                 "foliplus cancelled ArrowDown meant for the slider: "
                 + str(read["records"])
@@ -4117,10 +4119,7 @@ class TestLayerControlBrowser:
             # legitimately light the row cursor, so only a change is in scope.
             assert mid["rowFocused"] == arm["rowFocused"], (
                 "the row keyboard cursor moved while the slider was focused: "
-                "before="
-                + str(arm["rowFocused"])
-                + " after="
-                + str(mid["rowFocused"])
+                "before=" + str(arm["rowFocused"]) + " after=" + str(mid["rowFocused"])
             )
             assert not errors, f"JS errors: {errors}"
 
@@ -4152,7 +4151,9 @@ class TestLayerControlBrowser:
             read = page.evaluate(_js("LayerControl/native_gate_read"))
             recs = [r for r in (read["records"] or []) if r["type"] == "checkbox"]
             assert recs, "no keydown reached document while the checkbox was focused"
-            assert len(recs) == 1, f"Space observed {len(recs)} times: {read['records']}"
+            assert len(recs) == 1, (
+                f"Space observed {len(recs)} times: {read['records']}"
+            )
             assert recs[0]["prevented"] is False, (
                 "foliplus cancelled the Space the checkbox was flipping on: "
                 + str(read["records"])
