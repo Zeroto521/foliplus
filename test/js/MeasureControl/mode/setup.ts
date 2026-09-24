@@ -65,15 +65,6 @@ export function initMocks() {
 
   window.L.divIcon = vi.fn(opts => ({ _mockDivIconHtml: opts?.html }));
 
-  window.L.latLng = vi.fn((lat, lng) => ({ lat, lng }));
-
-  window.L.DomEvent = {
-    ...window.L.DomEvent,
-    stopPropagation: vi.fn(event => {
-      if (event?.originalEvent) event.originalEvent._stopped = true;
-    }),
-  };
-
   globalThis.turf = {
     point: coords => ({ coords }),
     distance: vi.fn(() => 100),

@@ -15,7 +15,6 @@ beforeEach(() => {
   // Consume any pending drag-synthetic-click flag so a prior test's drag end
   // doesn't leak into this test's click handler.
   isDragSyntheticClick();
-  window.L.circleMarker = vi.fn(() => ({}));
   globalThis.turf = {
     point: coords => ({ coords }),
     polygon: vi.fn(rings => ({ type: "Polygon", coordinates: rings })),
