@@ -62,8 +62,8 @@ const esbuildCfgFor = ({ dev, root }) => {
     allowOverwrite: true,
     keepNames: dev,
     alias: {
-      "#common": srcDir + "/common",
-      "#core": srcDir + "/core",
+      "#common": resolve(srcDir, "common"),
+      "#core": resolve(srcDir, "core"),
       "#foliplus": srcDir,
     },
     // Same `git describe` value as the artifact banner, inlined for the

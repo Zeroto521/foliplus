@@ -115,7 +115,7 @@ const toolVersion = (root, pkg) => {
  *  `emit` records an explicit `null` for a tool the build no longer needs, so
  *  the test is whether the key is *present*, not whether the value is truthy:
  *  a `null → version` change means the tool came back into the build. */
-const toolMismatch = (_current, baseline) => {
+const toolMismatch = baseline => {
   const recorded = baseline.tools || {};
   const rows = [];
   for (const pkg of BUILD_TOOLS) {
@@ -414,7 +414,7 @@ const check = (args, root = ROOT) => {
   if (!baseline) {
     if (args.enforce) {
       console.error(
-        `${FAIL}  skipped (需 base 产物) — no --baseline passed under --enforce. ` +
+        `${FAIL}  skipped (no base artifact) — no --baseline passed under --enforce. ` +
           "Capture the base sizes first with `--emit=<path>`, then re-run with `--baseline=<path>`.",
       );
       return EXIT_NO_BASELINE;
@@ -432,7 +432,7 @@ const check = (args, root = ROOT) => {
   const underFloor = rows.filter(r => r.status === "trivial");
   // Toolchain drift is not a code-size signal: flag it instead of failing, and
   // point at the capture step so the base can be re-sampled.
-  const drift = toolMismatch(current, baseline);
+  const drift = toolMismatch(baseline);
 
   const table = renderTable(rows, threshold, args.base, args.head);
   console.log(renderConsole(rows));
