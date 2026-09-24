@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { HISTORY, MODE, RECORD_VERSION } from "#foliplus/SearchControl/const.js";
 import {
   flushHistory,
@@ -8,10 +8,6 @@ import {
 import type { SearchHistoryEntry } from "#foliplus/SearchControl/type.js";
 
 describe("SearchControl history — versioned envelope", () => {
-  beforeEach(() => {
-    window.localStorage.clear();
-  });
-
   describe("saveHistory — writes { version, entries }", () => {
     it("wraps the entries in a versioned record", () => {
       const entries: SearchHistoryEntry[] = [

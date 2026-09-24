@@ -4,7 +4,6 @@ import * as UI from "#foliplus/MeasureControl/ui/index.js";
 import { installStubs } from "./fixture.js";
 
 beforeEach(() => {
-  vi.clearAllMocks();
   installStubs();
 });
 

@@ -22,6 +22,7 @@ help:
 	@echo "'test-python'  - run Python-only tests (skip browser)"
 	@echo "'test-js'      - run JS tests (skip Python)"
 	@echo "'bundle-size-check'   - print bundle sizes (brotli) of the current build"
+	@echo "'bundle-gates'   - build + run fuse and delta gates (CI)"
 	@echo "'clean-build'  - remove build artifacts"
 	@echo "'clean-pyc'    - remove Python cache files"
 	@echo "'clean-cov'    - remove coverage files"
@@ -65,6 +66,14 @@ build-js-dev:
 bundle-size-check: build-js
 	npm run bundle-size:check
 
+bundle-gates: build-js
+	node script/bundle-fuse.mjs
+	@if [ -f base-sizes.json ]; then \
+		node script/bundle-size-check.mjs --baseline=base-sizes.json --enforce; \
+	else \
+		@echo "No baseline — skipping delta check."; \
+	fi
+
 build-python:
 	# `foliplus/dist` is not under version control, so without this gate
 	# `uv build` happily ships a wheel with zero bundled JS/CSS — it installs,
@@ -79,15 +88,15 @@ JOBS ?= auto
 
 test: build-js-dev test-js
 	npm run build:verify
-	pytest -v -r a --color=yes -n $(JOBS) --cov=foliplus --cov-append --cov-report=term-missing --cov-report=xml --junitxml=junit.xml -o junit_family=legacy test/python
+	pytest -v -r a --color=yes -n $(JOBS) --cov=foliplus --cov=script --cov-append --cov-report=term-missing --cov-report=xml --junitxml=junit.xml -o junit_family=legacy test/python script
 
 test-python: build-js-dev
 	npm run build:verify
-	pytest -v -r a --color=yes -n $(JOBS) -m "not browser" --cov=foliplus --cov-append --cov-report=term-missing --cov-report=xml --junitxml=junit.xml -o junit_family=legacy test/python
+	pytest -v -r a --color=yes -n $(JOBS) -m "not browser" --cov=foliplus --cov=script --cov-append --cov-report=term-missing --cov-report=xml --junitxml=junit.xml -o junit_family=legacy test/python script
 
 test-browser: build-js-dev
 	npm run build:verify
-	pytest -v -r a --color=yes -n $(JOBS) -m "browser" --cov=foliplus --cov-append --cov-report=term-missing --cov-report=xml --junitxml=junit-browser.xml -o junit_family=legacy test/python
+	pytest -v -r a --color=yes -n $(JOBS) -m "browser" --cov=foliplus --cov=script --cov-append --cov-report=term-missing --cov-report=xml --junitxml=junit-browser.xml -o junit_family=legacy test/python script
 
 test-js: build-js-dev
 	npm test
