@@ -175,12 +175,12 @@ describe("bindEvents", () => {
       );
     ctrl.panelWrap.append(mk("One"), mk("Two"));
     bindEvents(ctrl);
-    // First ArrowUp when idx is -1 �?stays -1 (no active)
+    // First ArrowUp when idx is -1 → stays -1 (no active)
     ctrl.inp.dispatchEvent(
       new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }),
     );
     expect(ctrl.selectedIdx).toBe(-1);
-    // Set to 1 via internal state, then ArrowUp �?0
+    // Set to 1 via internal state, then ArrowUp → 0
     ctrl.selectedIdx = 1;
     ctrl.inp.dispatchEvent(
       new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }),
@@ -267,7 +267,7 @@ describe("bindEvents", () => {
     );
     ctrl.panelWrap.append(plain, coord);
     bindEvents(ctrl);
-    // ArrowDown twice �?land on the coord entry �?coord display fills.
+    // ArrowDown twice → land on the coord entry → coord display fills.
     ctrl.inp.dispatchEvent(
       new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
     );
@@ -275,12 +275,12 @@ describe("bindEvents", () => {
       new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
     );
     expect(ctrl.inp.value).toBe("121.4700, 31.2300");
-    // ArrowUp back to the plain suggestion �?display text fills again.
+    // ArrowUp back to the plain suggestion → display text fills again.
     ctrl.inp.dispatchEvent(
       new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }),
     );
     expect(ctrl.inp.value).toBe("Somewhere");
-    // ArrowDown again onto the coord entry �?coord display restored.
+    // ArrowDown again onto the coord entry → coord display restored.
     ctrl.inp.dispatchEvent(
       new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
     );
@@ -553,7 +553,7 @@ describe("bindEvents", () => {
     ];
     ctrl.debouncedFetch = { cancel: vi.fn() };
     bindEvents(ctrl);
-    // Type then clear �?the input handler fires on each keystroke
+    // Type then clear — the input handler fires on each keystroke
     ctrl.inp.value = "";
     ctrl._handlers.input();
     expect(ctrl.debouncedFetch.cancel).toHaveBeenCalled();
@@ -644,7 +644,7 @@ describe("bindEvents", () => {
     ctrl.inp.dispatchEvent(
       new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
     );
-    // The coord display is parsed as coordinates and searched �?no coord_error.
+    // The coord display is parsed as coordinates and searched — no coord_error.
     expect(map.flyTo).toHaveBeenCalled();
     expect(window.foliplus.showHint).not.toHaveBeenCalledWith(
       "SearchControl",
@@ -666,14 +666,14 @@ describe("bindEvents", () => {
     ctrl.panelWrap.append(mk("One"), mk("Two"));
     bindEvents(ctrl);
 
-    // Start at index -1, go up �?stays at -1
+    // Start at index -1, go up → stays at -1
     ctrl.inp.dispatchEvent(
       new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }),
     );
     expect(ctrl.selectedIdx).toBe(-1);
     expect(ctrl.inp.value).toBe("");
 
-    // Go down past the last item �?clamps
+    // Go down past the last item → clamps
     ctrl.inp.dispatchEvent(
       new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
     );
@@ -690,7 +690,7 @@ describe("bindEvents", () => {
   it("fills empty string when a result item has no data-query nor text span", () => {
     const ctrl = makeCtrl();
     ctrl.panelWrap = dom.el("div");
-    // Bare item: no data-query attribute and no RESULT_TEXT child �?
+    // Bare item: no data-query attribute and no RESULT_TEXT child —
     // resultItemValue must fall through to the empty-string default.
     const bare = dom.el("div", { class: "foliplus-search-result-item" });
     ctrl.panelWrap.append(bare);

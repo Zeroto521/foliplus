@@ -12,7 +12,7 @@ import {
 } from "#common/panel.js";
 
 // setup.js provides L.DomEvent mocks (disableClickPropagation, etc.),
-// but panel.js also needs on/off/stop �?stub them here.
+// but panel.js also needs on/off/stop — stub them here.
 const domEvent = window.L.DomEvent;
 beforeEach(() => {
   // Delegate to real DOM addEventListener so click handlers actually fire.
