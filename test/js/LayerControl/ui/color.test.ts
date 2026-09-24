@@ -25,7 +25,6 @@ const makeUi = (layers: Array<{ id: string; isBase: boolean }> = []) => {
 
   const ui = {
     uiContainer,
-    isColorActive: true,
     syncToggleAll: vi.fn(),
     userOverrides: {},
     hiddenIds: new Set<string>(),
@@ -57,7 +56,6 @@ describe("ui/color", () => {
     mapContainer.classList.add(CONST.CLASSES.ACTIVE);
     mapContainer.style.setProperty("--color-layer-bg", "red");
     hideColorLayer(ui);
-    expect(ui.isColorActive).toBe(false);
     expect(mapContainer.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
     expect(mapContainer.style.getPropertyValue("--color-layer-bg")).toBe("");
   });
@@ -65,7 +63,6 @@ describe("ui/color", () => {
   it("showColorLayer paints the container and marks the row active", () => {
     const { ui, mapContainer } = makeUi();
     showColorLayer(ui, "#ff0000");
-    expect(ui.isColorActive).toBe(true);
     expect(ui.currentColor).toBe("#ff0000");
     expect(mapContainer.classList.contains(CONST.CLASSES.ACTIVE)).toBe(true);
     expect(mapContainer.style.getPropertyValue("--color-layer-bg")).toBe("#ff0000");
@@ -76,7 +73,7 @@ describe("ui/color", () => {
   it("showColorLayer leaves base layers on the map and the shared tilePane untouched", () => {
     // First-class basemap: colour and tiles coexist. The colour layer must
     // not remove any tile layer from the map nor hide Leaflet's shared
-    // tilePane â€” those were the global side effects the mutual exclusion
+    // tilePane â€?those were the global side effects the mutual exclusion
     // removed.
     const { ui } = makeUi([
       { id: "base_1", isBase: true },

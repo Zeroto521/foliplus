@@ -1,4 +1,4 @@
-// LayerUI shell (ui/index.ts) — attach sequence, event subscriptions, and the
+// LayerUI shell (ui/index.ts) �?attach sequence, event subscriptions, and the
 // thin delegates to the ui/* modules. DOM interaction specifics live in the
 // per-module suites (list/keyboard/focus/...); this file pins the wiring.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -14,7 +14,7 @@ import {
   makePane,
 } from "./fixture.js";
 
-describe("LayerUI shell — event subscriptions", () => {
+describe("LayerUI shell �?event subscriptions", () => {
   let manager: LayerManager;
   let ui: LayerUI;
   let map: any;
@@ -153,7 +153,7 @@ describe("LayerUI shell — event subscriptions", () => {
   });
 });
 
-describe("LayerUI shell — delegates", () => {
+describe("LayerUI shell �?delegates", () => {
   let manager: LayerManager;
   let ui: LayerUI;
   let map: any;
@@ -197,7 +197,7 @@ describe("LayerUI shell — delegates", () => {
 
   it("dropPersistedLayerState erases every stored dimension for one id", () => {
     // The single routine that erases a stored value, reached only from an
-    // explicit delete — and it must not touch a neighbour's state.
+    // explicit delete �?and it must not touch a neighbour's state.
     ui.hiddenIds = new Set(["overlay1", "base1"]);
     ui.opacityMap = { overlay1: 0.4 };
     ui.zoomRangeMap = { overlay1: [3, 12] };
@@ -222,7 +222,6 @@ describe("LayerUI shell — delegates", () => {
 
     colorItem.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 
-    expect(ui.isColorActive).toBe(true);
     expect(colorItem.classList.contains(CONST.CLASSES.ACTIVE)).toBe(true);
     expect(enforce).toHaveBeenCalled();
   });
@@ -233,7 +232,6 @@ describe("LayerUI shell — delegates", () => {
 
     ui.hideColorLayer();
 
-    expect(ui.isColorActive).toBe(false);
     expect(colorItem.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
   });
 

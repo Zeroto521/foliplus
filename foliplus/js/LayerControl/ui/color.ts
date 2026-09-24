@@ -8,7 +8,6 @@ import * as CONST from "../const.js";
 import type { LayerUI } from "./index.js";
 
 const showColorLayer = (ui: LayerUI, color: string) => {
-  ui.isColorActive = true;
   ui.currentColor = color;
   ui.m.map.getContainer().style.setProperty("--color-layer-bg", color);
   ui.m.map.getContainer().classList.add(CONST.CLASSES.ACTIVE);
@@ -23,7 +22,6 @@ const showColorLayer = (ui: LayerUI, color: string) => {
 };
 
 const hideColorLayer = (ui: LayerUI) => {
-  ui.isColorActive = false;
   ui.m.map.getContainer().classList.remove(CONST.CLASSES.ACTIVE);
   ui.m.map.getContainer().style.removeProperty("--color-layer-bg");
   ui.uiContainer

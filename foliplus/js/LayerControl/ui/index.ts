@@ -101,7 +101,6 @@ class LayerUI {
    *  a map-level "did the user choose at all" flag, which could not tell one
    *  layer's choice from another's. */
   userOverrides: Record<string, LayerOverride[]>;
-  isColorActive: boolean;
   currentColor: string;
   /** Map of layer id → user-assigned display name (survives reload). */
   renamedNames: Record<string, string>;
@@ -213,7 +212,6 @@ class LayerUI {
     this.hiddenIds = new Set();
     this.authorVisible = new Map();
     this.userOverrides = {};
-    this.isColorActive = false;
     this.currentColor = CONST.COLOR.DEFAULT;
     this.renamedNames = {};
     this.activeRenameId = null;
