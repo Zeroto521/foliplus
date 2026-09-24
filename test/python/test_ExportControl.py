@@ -9,7 +9,14 @@ import re
 
 import folium
 import pytest
-from conftest import _js, make_browser_page, panel_ready, render_control, use_page, use_raw_page
+from conftest import (
+    _js,
+    make_browser_page,
+    panel_ready,
+    render_control,
+    use_page,
+    use_raw_page,
+)
 
 from foliplus import ExportControl, MeasureControl
 from foliplus.locale import _load_tables
@@ -1111,8 +1118,6 @@ class TestExportControlBrowser:
             )
             assert len(errors) == 0, f"JS errors on annotation export: {errors}"
 
-
-
     def _sample_bg_pixels_in_export(
         self, page, match: list[int], tol: int = 20, alpha_min: int = 200
     ) -> dict:
@@ -1299,14 +1304,10 @@ class TestExportControlBrowser:
             # The overlay kept on the map must still export, so the result is
             # a real image rather than an empty canvas that cannot hide a
             # regression.
-            assert band["nonTransparent"] > 1000, (
-                f"exported content vanished: {band}"
-            )
+            assert band["nonTransparent"] > 1000, f"exported content vanished: {band}"
             # The hatch's own alpha band (0.07 * 255 ~= 18) must be empty: the
             # decoration stayed on screen and never reached the image.
-            assert band["band"] == 0, (
-                f"hatch pixels leaked into the export: {band}"
-            )
+            assert band["band"] == 0, f"hatch pixels leaked into the export: {band}"
             assert len(errors) == 0, f"JS errors on no-basemap export: {errors}"
 
     def test_export_composites_both_visible_basemaps(self, browser, tmp_path):
@@ -1366,7 +1367,9 @@ class TestExportControlBrowser:
             html,
             "two_basemaps_export",
         ) as (page, errors):
-            page.wait_for_selector(".foliplus-export-ctrl", state="attached", timeout=10000)
+            page.wait_for_selector(
+                ".foliplus-export-ctrl", state="attached", timeout=10000
+            )
             panel_ready(page)
             self._install_canvas_hook(page)
 
