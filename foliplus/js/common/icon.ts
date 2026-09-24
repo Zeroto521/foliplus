@@ -63,4 +63,13 @@ const INFO = `
     <circle cx="12" cy="7.4" r="1.15" fill="currentColor" stroke="none"/>
   </svg>`;
 
-export { CLOSE, DOWNLOAD, EDIT, GLOBE, INFO, LOADING, LOCATE, PIN_ICON };
+const DELETE = `
+  <svg viewBox="0 0 24 24">
+    <path d="M4 7h16"/>
+    <path d="M9 7V4.8a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1V7"/>
+    <path d="M6.2 7l.9 12.2a1 1 0 0 0 1 .8h7.8a1 1 0 0 0 1-.8L17.8 7"/>
+    <line x1="10.2" y1="11" x2="10.2" y2="16"/>
+    <line x1="13.8" y1="11" x2="13.8" y2="16"/>
+  </svg>`;
+
+export { CLOSE, DELETE, DOWNLOAD, EDIT, GLOBE, INFO, LOADING, LOCATE, PIN_ICON };
