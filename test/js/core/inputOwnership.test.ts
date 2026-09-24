@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { OWNER_KEYS, nativeClass, nativeConsumesKey } from "#core/inputOwnership.js";
+import {
+  OWNER_KEYS,
+  isNativeControl,
+  keyOwner,
+  nativeClass,
+  nativeConsumesKey,
+} from "#core/inputOwnership.js";
 import { ensureInteraction } from "#core/interaction.js";
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -128,6 +134,28 @@ describe("nativeClass", () => {
 
   it("classifies a plain element as owning nothing", () => {
     expect(nativeClass(document.createElement("div"))).toBe("none");
+  });
+
+  it("an input whose type property is absent is treated as text", () => {
+    // The `?? "text"` fallback: an input with no `type` still classifies as
+    // `edit`, so an unrecognized type cannot silently become a key foliplus
+    // claims. Overriding on the instance (not the prototype) keeps the
+    // override scoped to this one element.
+    const el = document.createElement("input");
+    const { tagName } = el;
+    Object.defineProperty(el, "type", {
+      configurable: true,
+      get() {
+        return undefined;
+      },
+    });
+    Object.defineProperty(el, "tagName", {
+      configurable: true,
+      get() {
+        return tagName;
+      },
+    });
+    expect(nativeClass(el)).toBe("edit");
   });
 });
 
@@ -376,5 +404,59 @@ describe("real-event gates — the element-bound path is gated too", () => {
     expect(event.defaultPrevented).toBe(true);
     expect(handler).toHaveBeenCalledTimes(1);
     cleanup();
+  });
+});
+
+describe("keyOwner", () => {
+  it("reads document.activeElement directly", () => {
+    const field = input("text");
+    document.body.appendChild(field);
+    field.focus();
+    // target on the event is unrelated — activeElement wins regardless.
+    expect(keyOwner({ target: document.body })).toBe(field);
+    document.body.innerHTML = "";
+  });
+
+  it("falls back to event.target when activeElement is not an Element", () => {
+    // activeElement is normally `body` in jsdom; force a non-Element so the
+    // fallback branch is exercised.
+    Object.defineProperty(document, "activeElement", {
+      value: null,
+      configurable: true,
+      writable: true,
+    });
+    const field = input("text");
+    expect(keyOwner({ target: field })).toBe(field);
+    expect(keyOwner({ target: "not an element" })).toBeNull();
+    expect(keyOwner({})).toBeNull();
+    // Restore the real accessor.
+    Object.defineProperty(document, "activeElement", {
+      configurable: true,
+      get() {
+        return document.body;
+      },
+    });
+  });
+});
+
+describe("isNativeControl", () => {
+  it("returns false for null", () => {
+    expect(isNativeControl(null)).toBe(false);
+  });
+
+  it("returns true for every pointer-control tag", () => {
+    for (const tag of ["button", "input", "select", "textarea"]) {
+      expect(isNativeControl(document.createElement(tag)), tag).toBe(true);
+    }
+  });
+
+  it("returns true for a contenteditable element", () => {
+    const el = document.createElement("div");
+    el.setAttribute("contenteditable", "true");
+    expect(isNativeControl(el)).toBe(true);
+  });
+
+  it("returns false for a plain non-control element", () => {
+    expect(isNativeControl(document.createElement("div"))).toBe(false);
   });
 });
