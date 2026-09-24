@@ -128,7 +128,9 @@ class TestHintWidthBrowser:
         gutters — and the worst case drops to four lines."""
         with use_page(self._make_page, browser, tmp_path, 375) as (page, errors):
             geom = self._geom(page, LONG_TEXT)
-        assert geom["maxW"] == "359px", f"media block did not apply: maxW {geom['maxW']}"
+        assert geom["maxW"] == "359px", (
+            f"media block did not apply: maxW {geom['maxW']}"
+        )
         assert geom["w"] <= 375, "hint wider than its viewport"
         assert geom["lines"] == 4, (
             f"375px: {geom['lines']} lines means the media block did not widen the "
