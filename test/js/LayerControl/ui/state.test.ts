@@ -1351,4 +1351,3 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
     expect(fields.renamedNames()).toEqual({ overlay1: "Renamed" });
   });
 });
-
