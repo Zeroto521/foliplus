@@ -4,7 +4,6 @@ import { vi } from "vitest";
 import { isDragSyntheticClick } from "#foliplus/MeasureControl/edit.js";
 
 export function initMocks() {
-  vi.clearAllMocks();
   // Consume any pending drag-synthetic-click flag so a prior test's drag end
   // doesn't leak into the next test's click handler.
   isDragSyntheticClick();

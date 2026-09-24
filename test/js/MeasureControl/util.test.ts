@@ -12,7 +12,6 @@ import { stopEvent } from "#common/dom.js";
 const fakeEv = (): any => ({ preventDefault: vi.fn(), stopPropagation: vi.fn() });
 
 beforeEach(() => {
-  vi.clearAllMocks();
   // Consume any pending drag-synthetic-click flag so a prior test's drag end
   // doesn't leak into this test's click handler.
   isDragSyntheticClick();

@@ -32,7 +32,6 @@ afterEach(() => {
   delete globalThis.h3;
   delete globalThis.chroma;
   delete globalThis.ss;
-  window.localStorage.clear();
   document.body.innerHTML = "";
   vi.restoreAllMocks();
 });

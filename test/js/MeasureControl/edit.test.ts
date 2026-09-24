@@ -16,7 +16,6 @@ const resetDragFlag = () => {
 };
 
 beforeEach(() => {
-  vi.clearAllMocks();
   resetDragFlag();
   window.L.DomEvent = {
     ...window.L.DomEvent,

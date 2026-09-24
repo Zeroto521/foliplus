@@ -39,7 +39,6 @@ afterEach(() => {
 
 describe("storage", () => {
   beforeEach(() => {
-    window.localStorage.clear();
     vi.stubGlobal("console", { warn: vi.fn() });
   });
 
