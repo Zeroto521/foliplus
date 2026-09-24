@@ -304,7 +304,9 @@ def fix_file(text: str) -> tuple[str, bool, str | None]:
         start_idx = -1
         end_idx = -1
         for i in range(header_idx + 1, next_header_idx):
-            if lines[i].startswith("## ") and not lines[i].startswith("### "):  # pragma: no cover - malformed
+            if lines[i].startswith("## ") and not lines[i].startswith(
+                "### "
+            ):  # pragma: no cover - malformed
                 break
             if lines[i].startswith("- "):
                 if start_idx == -1:

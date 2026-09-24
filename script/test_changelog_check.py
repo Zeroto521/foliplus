@@ -633,7 +633,9 @@ class TestRealChangelog:
         assert mod.check_ordering(self.ENTRIES) == []
 
     def test_no_label_url_warnings(self):
-        warnings = mod.collect_label_url_warnings(self.ENTRIES, self.REAL_TEXT.split("\n"))
+        warnings = mod.collect_label_url_warnings(
+            self.ENTRIES, self.REAL_TEXT.split("\n")
+        )
         assert warnings == []
 
     def test_mega_pr_ties(self):
