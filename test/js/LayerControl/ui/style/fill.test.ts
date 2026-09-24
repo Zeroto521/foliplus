@@ -321,9 +321,11 @@ describe("LayerUI style panel — fill colour", () => {
 
     expect(fillLayer.leaves[0].setStyle).toHaveBeenLastCalledWith({
       fillColor: "#aabbcc",
+      fillOpacity: 0.5,
     });
     expect(fillLayer.leaves[1].setStyle).toHaveBeenLastCalledWith({
       fillColor: "#ddeeff",
+      fillOpacity: 0.7,
     });
   });
 
@@ -332,10 +334,10 @@ describe("LayerUI style panel — fill colour", () => {
     commitFillColor(ui, "overlay1", "#ff0000");
     resetLayerFill(ui, "overlay1");
 
-    // No authored colour, no __folium_color — the fallback is Leaflet's own
-    // default, which is what the browser would paint anyway.
+    // No authored colour — the fallback is Leaflet's own default.
     expect(fillLayer.leaves[0].setStyle).toHaveBeenLastCalledWith({
       fillColor: "#3388ff",
+      fillOpacity: 0.5,
     });
   });
 
@@ -401,6 +403,7 @@ describe("buildFillRow", () => {
 
     expect(fixture.fillLayer.leaves[0].setStyle).toHaveBeenLastCalledWith({
       fillColor: "#3388ff",
+      fillOpacity: 0.5,
     });
   });
 
@@ -432,5 +435,60 @@ describe("buildFillRow", () => {
 
     expect(svgFill).toHaveBeenCalledWith("fill", "#ff0000");
     expect(path.options.fillColor).toBe("#ff0000");
+  });
+
+  it("applyFillToLayer sets a visible fillOpacity when the author set it to 0", () => {
+    // The user's "改色后没生效" report: a hollow polygon (fillOpacity=0) has
+    // its fill invisible, so a colour change is user-invisible. This test
+    // asserts that applyFillToLayer also writes a visible fillOpacity in
+    // that case, making the colour change actually visible.
+    const fixture = initWithFillLayer();
+    const leaf = {
+      options: { fillColor: "#aabbcc", fillOpacity: 0 },
+      setStyle: vi.fn(),
+    };
+    fixture.fillLayer.leaves[0] = leaf;
+
+    applyFillToLayer(fixture.ui, "overlay1", "#ff0000");
+
+    expect(leaf.setStyle).toHaveBeenCalledWith({
+      fillColor: "#ff0000",
+      fillOpacity: 0.2,
+    });
+  });
+
+  it("applyFillToLayer does not touch fillOpacity when it is already visible", () => {
+    const fixture = initWithFillLayer();
+    const leaf = {
+      options: { fillColor: "#aabbcc", fillOpacity: 0.5 },
+      setStyle: vi.fn(),
+    };
+    fixture.fillLayer.leaves[0] = leaf;
+
+    applyFillToLayer(fixture.ui, "overlay1", "#ff0000");
+
+    // fillOpacity is 0.5 (visible) — only fillColor is written.
+    expect(leaf.setStyle).toHaveBeenCalledWith({
+      fillColor: "#ff0000",
+    });
+  });
+
+  it("resetLayerFill restores fillOpacity to 0 after a colour change", () => {
+    // The applyFillToLayer write made the fill visible (0 → 0.2); reset
+    // puts the author's original back so a hollow polygon stays hollow.
+    const fixture = initWithFillLayer();
+    const leaf = {
+      options: { fillColor: "#aabbcc", fillOpacity: 0 },
+      setStyle: vi.fn(),
+    };
+    fixture.fillLayer.leaves[0] = leaf;
+
+    applyFillToLayer(fixture.ui, "overlay1", "#ff0000");
+    resetLayerFill(fixture.ui, "overlay1");
+
+    expect(leaf.setStyle).toHaveBeenLastCalledWith({
+      fillColor: "#aabbcc",
+      fillOpacity: 0,
+    });
   });
 });

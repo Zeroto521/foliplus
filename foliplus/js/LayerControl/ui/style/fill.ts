@@ -87,33 +87,49 @@ const layerCanFill = (ui: LayerUI, layerId: string): boolean => {
  *  Per-leaf, because a GeoJSON layer's features can each declare their own
  *  style — one layer-wide base would erase the author's per-feature choice
  *  on reset. */
-const authorFillBase = new WeakMap<StyleCarrier, { fillColor: string | null }>();
+const authorFillBase = new WeakMap<
+  StyleCarrier,
+  { fillColor: string | null; fillOpacity: number | null }
+>();
 
-/** Leaflet's own default `fillColor` for vector paths. Used as the swatch's
- *  last resort when `options.fillColor` is unset — the value the browser
- *  would paint anyway, so the swatch never claims a colour the layer does
- *  not carry. In practice folium's default style function always populates
- *  `options.fillColor` (translating `__folium_color` through `properties.style`),
- *  so this only fires for bare Leaflet layers with no style function. */
-const FOLIUM_DEFAULT_FILL = "#3388ff";
+/** Leaflet's own default `fillColor` for vector paths. folium's default
+ *  style function always populates `options.fillColor` (it translates
+ *  `__folium_color` through `feature.properties.style`), so this only fires
+ *  for bare Leaflet layers with no style function at all. */
+const LEAFLET_DEFAULT_FILL = "#3388ff";
 
-const captureBase = (node: StyleCarrier): { fillColor: string | null } => {
+/** A visible `fillOpacity` used when the author set the fill to 0 (hollow).
+ *  Without it a colour change is invisible — the `fill` attribute updates but
+ *  `fill-opacity="0"` hides it. 0.2 matches Leaflet's own default. */
+const VISIBLE_FILL_OPACITY = 0.2;
+
+const captureBase = (
+  node: StyleCarrier,
+): {
+  fillColor: string | null;
+  fillOpacity: number | null;
+} => {
   const existing = authorFillBase.get(node);
   if (existing) return existing;
-  const base = { fillColor: node.options?.fillColor ?? FOLIUM_DEFAULT_FILL };
+  const base = {
+    fillColor: node.options?.fillColor ?? LEAFLET_DEFAULT_FILL,
+    fillOpacity: node.options?.fillOpacity ?? null,
+  };
   authorFillBase.set(node, base);
   return base;
 };
 
 /** Commit one fill colour to the layer. Walks the layer tree and calls
- *  `setStyle({fillColor})` on every leaf that has a `setStyle`.
+ *  `setStyle({fillColor, fillOpacity?})` on every leaf that has a `setStyle`.
  *  A node without a setter is skipped silently — that is the §5.4 rule:
  *  when no honest write exists, do not persist one (the caller already
  *  wrote the value to storage, so we simply do not touch the layer here).
  *
- *  Only `fillColor` moves with this row; the author's `fillOpacity` stays
- *  untouched so a hollow polygon keeps its hollow. Reset restores the
- *  captured base (see {@link resetLayerFill}).
+ *  `fillOpacity` is also written when it is 0: a hollow polygon's `fill`
+ *  attribute would update but stay invisible, so the colour change would be
+ *  user-invisible. Writing `VISIBLE_FILL_OPACITY` makes the new colour show;
+ *  the author's original opacity is captured by {@link captureBase} and
+ *  restored on Reset. A non-zero `fillOpacity` is left alone.
  *
  *  Kept separate from the persistence plumbing (`commitFillColor`) so the
  *  walk is unit-testable without a storage timer. */
@@ -124,7 +140,11 @@ const applyFillToLayer = (ui: LayerUI, layerId: string, color: string): void => 
   const walk = (node: StyleCarrier): void => {
     if (typeof node.setStyle === "function") {
       captureBase(node);
-      node.setStyle({ fillColor: color });
+      const style: Record<string, unknown> = { fillColor: color };
+      if (node.options?.fillOpacity === 0) {
+        style.fillOpacity = VISIBLE_FILL_OPACITY;
+      }
+      node.setStyle(style);
     } else if (typeof node.eachLayer === "function") {
       node.eachLayer(child => walk(child as StyleCarrier));
     }
@@ -155,12 +175,13 @@ const commitFillColor = (ui: LayerUI, layerId: string, rawColor: string): void =
  *  place, so by reset time we cannot re-read the author's colour from the
  *  layer and must replay the captured value.
  *
- *  Restoring `fillColor` to the captured base may be a no-op for a layer
- *  the author never set (the base was `null`); writing `null` through
- *  `setStyle` triggers a re-render with the author's original state, which
- *  is exactly what reset is supposed to produce. The persisted override is
- *  removed either way so the next load does not re-apply a colour the
- *  layer no longer shows. */
+ *  Both `fillColor` and `fillOpacity` are restored from the captured base.
+ *  `fillOpacity` was written by {@link applyFillToLayer} when it was 0
+ *  (to make the colour change visible); reset puts it back to the author's
+ *  original — 0 for a hollow polygon, undefined for the default.
+ *
+ *  The persisted override is removed either way so the next load does not
+ *  re-apply a colour the layer no longer shows. */
 const resetLayerFill = (ui: LayerUI, layerId: string): void => {
   if (!ui.m.layerRegistry.has(layerId)) return;
   delete ui.fillColorMap[layerId];
@@ -172,7 +193,13 @@ const resetLayerFill = (ui: LayerUI, layerId: string): void => {
   const walk = (node: StyleCarrier): void => {
     if (typeof node.setStyle === "function") {
       const base = authorFillBase.get(node);
-      if (base) node.setStyle({ fillColor: base.fillColor });
+      if (base) {
+        const style: Record<string, unknown> = { fillColor: base.fillColor };
+        if (base.fillOpacity !== null) {
+          style.fillOpacity = base.fillOpacity;
+        }
+        node.setStyle(style);
+      }
     } else if (typeof node.eachLayer === "function") {
       node.eachLayer(child => walk(child as StyleCarrier));
     }
