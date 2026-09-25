@@ -402,6 +402,58 @@ describe("LayerPersistence", () => {
       });
     });
 
+    it("restores a border colour and width with their provenance", () => {
+      // The border dimensions ride the same value-plus-provenance rule as the
+      // rest: a stored stroke without an override is an author default, and
+      // reading it back as a user choice would repaint a layer nobody touched.
+      seedStorage({
+        layers: {
+          a: { borderColor: "#ff0000", overrides: ["borderColor"] },
+          b: { borderWeight: 3.5, overrides: ["borderWeight"] },
+          c: {
+            borderColor: "#00ff00",
+            borderWeight: 6,
+            overrides: ["borderColor", "borderWeight"],
+          },
+        },
+      });
+      expect(makePersistence().load().layers).toEqual({
+        a: { borderColor: "#ff0000", overrides: ["borderColor"] },
+        b: { borderWeight: 3.5, overrides: ["borderWeight"] },
+        c: {
+          borderColor: "#00ff00",
+          borderWeight: 6,
+          overrides: ["borderColor", "borderWeight"],
+        },
+      });
+    });
+
+    it("drops border values the UI could not display", () => {
+      // A corrupt entry must not leak into <input type=color> nor ask for a
+      // width outside the shared bounds: both validators fail closed, and a
+      // dimension that loses its value drops its provenance with it.
+      seedStorage({
+        layers: {
+          a: { borderColor: "red", overrides: ["borderColor"] },
+          b: { borderColor: "#1234567", overrides: ["borderColor"] },
+          c: { borderColor: 42, overrides: ["borderColor"] },
+          d: { borderColor: "#a1b", overrides: ["borderColor"] },
+          e: { borderWeight: 99, overrides: ["borderWeight"] },
+          f: { borderWeight: -1, overrides: ["borderWeight"] },
+          g: { borderWeight: NaN, overrides: ["borderWeight"] },
+          h: { borderWeight: "3", overrides: ["borderWeight"] },
+          i: { borderWeight: 0.5, overrides: ["borderWeight"] },
+          j: { borderWeight: 10, overrides: ["borderWeight"] },
+        },
+      });
+      expect(makePersistence().load().layers).toEqual({
+        d: { borderColor: "#a1b", overrides: ["borderColor"] },
+        i: { borderWeight: 0.5, overrides: ["borderWeight"] },
+        // The upper bound is inclusive: the field's own max.
+        j: { borderWeight: 10, overrides: ["borderWeight"] },
+      });
+    });
+
     it("drops an entry that loses every dimension to validation", () => {
       // One bad dimension must not sink the good one: a and b survive, c does
       // not, so the record cannot keep provenance for a value it lost.
