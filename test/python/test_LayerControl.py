@@ -2776,9 +2776,7 @@ class TestLayerControlBrowser:
                 f"expected exactly one border row, got: {panel['labels']}"
             )
 
-    def test_border_swatch_shows_a_named_colour_as_hex(
-        self, browser, tmp_path
-    ):
+    def test_border_swatch_shows_a_named_colour_as_hex(self, browser, tmp_path):
         """The swatch agrees with the map for a named authored colour.
 
         folium's quickstart styles its faces with the named colour ``gray``.
