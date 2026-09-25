@@ -220,9 +220,10 @@ class PreviewMode extends MeasureMode {
 // ==================== Finalized Lifecycle Hook ====================
 /**
  * MeasureControl's delete-icon mount: the shared `mountDelIcon` pinned to the
- * node pane. Kept as a thin wrapper because its four call sites (distance,
- * polygon ×2, marker) pass the layers API first, while the shared helper takes
- * a mounter — that is the only difference between Measure and Locate/Search.
+ * node pane. Kept as a thin wrapper because its six call sites (distance,
+ * polygon ×2, marker, circle ×2) pass the layers API first, while the shared
+ * helper takes a mounter — that is the only difference between Measure and
+ * Locate/Search.
  * `toggleDelIcon` and `layers.removeLayer` stay generic — callers use them
  * directly when toggling visibility or tearing down.
  */
