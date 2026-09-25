@@ -350,7 +350,10 @@ const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
     value: opacityPct,
     min: 0,
     max: 100,
-    step: 5,
+    // Any integer 0–100 is a legal opacity; the number field is the precise
+    // companion to the live commit, so the spinner must not restrict the
+    // input to multiples of a coarser step (the opacity row uses step 1 too).
+    step: 1,
     className: CONST.CLASSES.STYLE_FILL_OPACITY_NUMBER,
     ariaLabel: ui.T("style_fill_opacity"),
   }) as HTMLInputElement;

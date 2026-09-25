@@ -787,6 +787,19 @@ describe("buildFillRow", () => {
     expect(input.value).toBe("#3388ff");
   });
 
+  it("the fill opacity input allows any integer 0–100 (step 1)", () => {
+    // The number field is the precise input; a coarse step would keep the
+    // spinner on multiples of 5 while every integer is a legal opacity.
+    const row = buildFillRow(ui, "overlay1");
+    const input = row.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_OPACITY_NUMBER}`,
+    ) as HTMLInputElement;
+
+    expect(input.step).toBe("1");
+    expect(input.min).toBe("0");
+    expect(input.max).toBe("100");
+  });
+
   it("degrades to the default swatch when the browser probe returns a non-hex", () => {
     // The <input type=color> probe always yields hex in jsdom and Chromium;
     // if a UA ever returns garbage, the swatch must not receive it raw.
