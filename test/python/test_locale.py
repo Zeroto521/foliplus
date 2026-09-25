@@ -186,6 +186,8 @@ _JS_USED_KEYS = {
     "LayerControl.style_zoom_range_max",
     "LayerControl.style_zoom_range_current",
     "LayerControl.style_zoom_range_out_of_range",
+    "LayerControl.style_fill",
+    "LayerControl.style_fill_opacity",
     "LayerControl.section_heatmap",
     "LayerControl.border",
     "LayerControl.delete_layer",
