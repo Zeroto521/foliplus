@@ -96,20 +96,22 @@ const layerCanBorder = (ui: LayerUI, layerId: string): boolean => {
  *
  *  Per-leaf, because a GeoJSON layer's features can each declare their own
  *  style — one layer-wide base would erase the author's per-feature choice
- *  on reset. */
-const authorBorderBase = new WeakMap<
-  StyleCarrier,
-  { color: string | null; weight: number | null }
->();
+ *  on reset.
+ *
+ *  Both fields are always populated: captureBase fills either one with the
+ *  module default, so nothing downstream can tell "the author declared
+ *  nothing" apart from "the author's own value". If that distinction ever
+ *  matters — a Reset that behaves differently for the two — it is a decision
+ *  about captureBase's capture semantics: re-add the null and read undefined
+ *  out of options for real. Do not flatten it back with `??`. */
+const authorBorderBase = new WeakMap<StyleCarrier, { color: string; weight: number }>();
 
 /** Leaflet's own default `Path.color` — folium's style function always
  *  populates `options.color`, so this only fires for a bare Leaflet layer
  *  with no style declaration at all. */
 const STYLE_BORDER_DEFAULT = "#3388ff";
 
-const captureBase = (
-  node: StyleCarrier,
-): { color: string | null; weight: number | null } => {
+const captureBase = (node: StyleCarrier): { color: string; weight: number } => {
   const existing = authorBorderBase.get(node);
   if (existing) return existing;
   const base = {
@@ -279,10 +281,9 @@ const resetLayerBorder = (ui: LayerUI, layerId: string): void => {
     if (typeof node.setStyle !== "function") return;
     const base = authorBorderBase.get(node);
     if (!base) return;
-    const style: Record<string, unknown> = {};
-    if (base.color !== null) style.color = base.color;
-    if (base.weight !== null) style.weight = base.weight;
-    node.setStyle(style);
+    // Both dimensions are written unconditionally: the captured base always
+    // holds a colour and a width, so there is nothing to omit here.
+    node.setStyle({ color: base.color, weight: base.weight });
   };
   walk(layer);
 };
