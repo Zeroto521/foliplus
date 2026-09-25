@@ -406,6 +406,78 @@ describe("LayerUI style panel — fill colour", () => {
     expect(leaf.setStyle).not.toHaveBeenCalled();
   });
 
+  it("attachs the reapply listener to leaves, not to the group", () => {
+    // A folium GeoJson is a LayerGroup that ALSO exposes setStyle. The
+    // listener must live on each leaf — mouseout fires there, never on the
+    // group — so a group with both methods must still recurse.
+    const leaves = [
+      {
+        options: { fillColor: "#aabbcc", fillOpacity: 0.5 },
+        setStyle: vi.fn(),
+        on: vi.fn(),
+      },
+      {
+        options: { fillColor: "#ddeeff", fillOpacity: 0.7 },
+        setStyle: vi.fn(),
+        on: vi.fn(),
+      },
+    ];
+    const group = {
+      options: {},
+      setStyle: vi.fn(),
+      eachLayer: vi.fn((fn: (child: unknown) => void) =>
+        leaves.forEach(child => fn(child)),
+      ),
+      getBounds: vi.fn(() => ({
+        isValid: vi.fn(() => true),
+        getSouthWest: vi.fn(() => ({ lat: 0, lng: 0 })),
+        getNorthEast: vi.fn(() => ({ lat: 1, lng: 1 })),
+      })),
+    };
+    manager.registerLayer({
+      id: "group1",
+      name: "Group",
+      layer: group as never,
+    });
+    ui.fieldCache.set("group1", [{ name: "count", numeric: true }]);
+    ui.fillColorMap["group1"] = "#123456";
+
+    applyFillToLayer(ui, "group1");
+
+    expect(leaves[0].setStyle).toHaveBeenCalledWith({ fillColor: "#123456" });
+    expect(leaves[1].setStyle).toHaveBeenCalledWith({ fillColor: "#123456" });
+    expect(leaves[0].on).toHaveBeenCalledWith("mouseout", expect.any(Function));
+    expect(leaves[1].on).toHaveBeenCalledWith("mouseout", expect.any(Function));
+    expect(group.setStyle).not.toHaveBeenCalled();
+  });
+
+  it("the reapply listener calls setStyle with the leaf as `this`", () => {
+    // Leaflet's Path.setStyle reads `this.options`; the detached reference
+    // captured by the listener must stay bound to its layer or the reapply
+    // throws "Cannot convert undefined or null to object".
+    const fixture = initWithFillLayer();
+    let handler: (() => void) | null = null;
+    const leaf = {
+      options: { fillColor: "#aabbcc", fillOpacity: 0.5 },
+      setStyle: vi.fn(function (
+        this: { options: Record<string, unknown> },
+        s: Record<string, unknown>,
+      ) {
+        Object.assign(this.options, s);
+      }),
+      on: vi.fn((_type: string, fn: () => void) => {
+        handler = fn;
+      }),
+    };
+    fixture.fillLayer.leaves[0] = leaf;
+    fixture.ui.fillColorMap["overlay1"] = "#123456";
+
+    applyFillToLayer(fixture.ui, "overlay1");
+    handler!();
+
+    expect(leaf.options.fillColor).toBe("#123456");
+  });
+
   it("commitFillColor handles a layer id that is not registered yet", () => {
     // The hollow-check walks only registered layers; an unregistered id still
     // records the user's choice so a late registration can replay it.
@@ -779,5 +851,37 @@ describe("replayFillState", () => {
   it("is a no-op for a layer outside the registry", () => {
     ui.fillColorMap["ghost"] = "#123456";
     expect(() => replayFillState(ui, "ghost")).not.toThrow();
+  });
+
+  it("attachUI replays a stored fill onto a registered layer", () => {
+    // Regression: the initial layers never go through registerLayer (where
+    // the id-specified replay lives), so attach itself must replay fill —
+    // otherwise a reload shows the author's default colour.
+    const fillLayer = makeFillableLayer();
+    window.localStorage.setItem(
+      CONST.STORAGE.KEY,
+      JSON.stringify({
+        layers: {
+          overlay1: { fillColor: "#123456", overrides: ["fillColor"] },
+        },
+      }),
+    );
+    const fixture = initFixture({
+      data: [
+        { id: "overlay1", name: "Polygons", isBase: false, layer: fillLayer },
+        {
+          id: "base1",
+          name: "OSM",
+          isBase: true,
+          layer: { options: {}, setZIndex: vi.fn() } as never,
+          paneName: "tilePane",
+        },
+      ],
+    });
+
+    expect(fixture.manager.ui!.fillColorMap["overlay1"]).toBe("#123456");
+    expect(fillLayer.leaves[0].setStyle).toHaveBeenCalledWith({
+      fillColor: "#123456",
+    });
   });
 });

@@ -146,6 +146,13 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
   const opacity = ui.fillOpacityMap[layerId];
   if (color === undefined && opacity === undefined) return;
   const walk = (node: StyleCarrier): void => {
+    // Recurse into groups FIRST: a LayerGroup (folium GeoJson) exposes
+    // `setStyle` too, but the mouseout events fire on the leaf paths, not on
+    // the group — so the reapply listener must live on each leaf.
+    if (typeof node.eachLayer === "function") {
+      node.eachLayer(child => walk(child as StyleCarrier));
+      return;
+    }
     if (typeof node.setStyle === "function") {
       captureBase(node);
       const style: Record<string, unknown> = {};
@@ -158,7 +165,10 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
       // survives the hover. One listener per leaf, guarded by WeakSet.
       if (typeof node.on === "function" && !fillReapplyListenerAdded.has(node)) {
         fillReapplyListenerAdded.add(node);
-        const setStyle = node.setStyle;
+        // Leaflet's setStyle reads `this.options`, so the detached reference
+        // must stay bound to its layer (a bare `node.setStyle(s)` call inside
+        // the closure would run with `this === undefined`).
+        const setStyle = node.setStyle.bind(node);
         node.on("mouseout", () => {
           const c = ui.fillColorMap[layerId];
           const o = ui.fillOpacityMap[layerId];
@@ -169,8 +179,6 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
           setStyle(s);
         });
       }
-    } else if (typeof node.eachLayer === "function") {
-      node.eachLayer(child => walk(child as StyleCarrier));
     }
   };
   walk(layer);
