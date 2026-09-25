@@ -276,6 +276,35 @@ describe("LayerUI style panel — fill color", () => {
     expect(layerCanFill(ui, "mixed2")).toBe(false);
   });
 
+  it("layerCanFill is true for a circle layer (Circle extends Polyline)", () => {
+    // Real Leaflet: Circle is a Polyline subclass, so the geometry type
+    // reports LINE — but Circle/CircleMarker carry a fill, so the areal gate
+    // must not classify them as stroke-only.
+    const circle = new L.Circle();
+    circle.options = { fillColor: "#ff0000" };
+    circle.setStyle = vi.fn();
+    const layer = {
+      options: {},
+      eachLayer: vi.fn((fn: (child: unknown) => void) => fn(circle)),
+      getBounds: vi.fn(() => ({
+        isValid: vi.fn(() => true),
+        getSouthWest: vi.fn(() => ({ lat: 0, lng: 0 })),
+        getNorthEast: vi.fn(() => ({ lat: 1, lng: 1 })),
+      })),
+    };
+    manager.registerLayer({
+      id: "circle1",
+      name: "Circles",
+      layer: layer as never,
+    });
+    ui.fieldCache.set("circle1", [{ name: "count", numeric: true }]);
+
+    expect(layerCanFill(ui, "circle1")).toBe(true);
+    const item = findItem(ui, "circle1");
+    ui.openStylePanel("circle1");
+    expect(fillRow(item)).not.toBeNull();
+  });
+
   it("the swatch resolves a named authored color through the browser probe", () => {
     // jsdom cannot parse named colors and degrades to the default; the real
     // picker resolves them (Chromium: "gray" → #808080). The important
@@ -616,10 +645,12 @@ describe("LayerUI style panel — fill color", () => {
     commitFillColor(fixture.ui, "overlay1", "#ff0000");
     resetLayerFill(fixture.ui, "overlay1");
 
-    // No authored color or opacity — reset restores only the color
-    // fallback and skips the fillOpacity write entirely.
+    // No authored color or opacity — reset restores the Leaflet color
+    // fallback and the 0.2 fillOpacity default, both explicit so the user's
+    // written values cannot linger (setStyle merges, it does not delete).
     expect(fixture.fillLayer.leaves[0].setStyle).toHaveBeenLastCalledWith({
       fillColor: "#3388ff",
+      fillOpacity: 0.2,
     });
   });
 
@@ -800,6 +831,31 @@ describe("buildFillRow", () => {
     expect(input.max).toBe("100");
   });
 
+  it("the fill opacity input seeds from the authored fillOpacity", () => {
+    // First leaf declares fillOpacity 0.5 — the field shows 50%, not the
+    // Leaflet default constant, mirroring how the swatch shows the author's
+    // color.
+    const row = buildFillRow(ui, "overlay1");
+    const input = row.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_OPACITY_NUMBER}`,
+    ) as HTMLInputElement;
+
+    expect(input.value).toBe("50");
+  });
+
+  it("the fill opacity input falls back to 20 when no leaf declares an opacity", () => {
+    const fixture = initWithFillLayer();
+    delete fixture.fillLayer.leaves[0].options.fillOpacity;
+    delete fixture.fillLayer.leaves[1].options.fillOpacity;
+
+    const row = buildFillRow(fixture.ui, "overlay1");
+    const input = row.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_OPACITY_NUMBER}`,
+    ) as HTMLInputElement;
+
+    expect(input.value).toBe("20");
+  });
+
   it("degrades to the default swatch when the browser probe returns a non-hex", () => {
     // The <input type=color> probe always yields hex in jsdom and Chromium;
     // if a UA ever returns garbage, the swatch must not receive it raw.
@@ -891,6 +947,25 @@ describe("buildFillRow", () => {
       fillColor: "#ff0000",
       fillOpacity: 0.2,
     });
+  });
+
+  it("after the hollow bump the panel's opacity input shows the bumped value", () => {
+    // The bump writes fillOpacityMap = 0.2; a reopened panel must show 20%,
+    // not the author's 0 — the map and the panel would otherwise disagree.
+    const fixture = initWithFillLayer();
+    const leaf = {
+      options: { fillColor: "#aabbcc", fillOpacity: 0 },
+      setStyle: vi.fn(),
+    };
+    fixture.fillLayer.leaves[0] = leaf;
+
+    commitFillColor(fixture.ui, "overlay1", "#ff0000");
+
+    const row = buildFillRow(fixture.ui, "overlay1");
+    const input = row.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_OPACITY_NUMBER}`,
+    ) as HTMLInputElement;
+    expect(input.value).toBe("20");
   });
 
   it("commitFillColor does not bump fillOpacity when the user set it explicitly", () => {

@@ -43,6 +43,12 @@ class Polyline {
   options = {};
 }
 
+// Real Leaflet: Circle extends Polyline (not Polygon); only Rectangle extends
+// Polygon. Both carry a fill, so the areal gate must recognise them.
+class Circle {
+  options = {};
+}
+
 class Marker {}
 
 class CircleMarker {
@@ -73,6 +79,7 @@ const installLeafletGlobals = () => {
   window.L.Path = Path;
   window.L.Polygon = Polygon;
   window.L.Polyline = Polyline;
+  window.L.Circle = Circle;
   window.L.Marker = Marker;
   window.L.CircleMarker = CircleMarker;
   window.L.stamp = stamp;

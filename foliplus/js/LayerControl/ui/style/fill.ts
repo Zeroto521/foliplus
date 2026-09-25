@@ -35,13 +35,10 @@ import {
 import * as CONST from "../../const.js";
 import type { LayerUI } from "../index.js";
 import { markOverride, saveState, unmarkOverride } from "../state.js";
-import { type StyleSetter, pinStyleOnHighlight } from "./pin.js";
+import { pinStyleOnHighlight } from "./pin.js";
 
-/** Default paint the swatch shows when no fill has been committed yet.
- *  Matches Leaflet's own `fillColor` default, so the first write the user
- *  makes lands at the layer's authored default rather than jumping to a
- *  different color — a change to the swatch should never *be* a jump to a
- *  value the layer already carries. */
+/** The swatch's last resort when even the browser probe cannot resolve the
+ *  authored color to a hex — black, matching an empty `<input type=color>`. */
 const FILL_COLOR_DEFAULT = "#000000";
 
 /** A node with a runtime style-setter — the honest fill carrier. Vector
@@ -73,20 +70,21 @@ type StyleCarrier = L.Layer & {
  *  all. The double check reads the capability honestly rather than
  *  special-casing the basemap id.
  *
- *  The third gate narrows the row to areal layers: only polygon leaves
- *  (Polygon / Rectangle / Circle / CircleMarker) carry a fill, so a PolyLine
- *  — which also passes the capability check — must not get a row that would
- *  write a value with no visual effect. A mixed GeoJSON keeps the row when
- *  at least one leaf is a polygon (the write reaches exactly those leaves). */
+ *  The third gate narrows the row to areal layers: only polygon/circle
+ *  leaves (Polygon, Rectangle, Circle, CircleMarker) carry a fill, so a
+ *  PolyLine — which also passes the capability check — must not get a row
+ *  that would write a value with no visual effect. Real Leaflet makes Circle
+ *  a Polyline subclass, so a LINE geometry can still be fillable; a mixed
+ *  GeoJSON keeps the row when at least one leaf is a polygon or circle. */
 const hasFillGeometry = (ui: LayerUI, li: LayerInfo): boolean => {
   const type = ui.m.surfaceFor(li).geometryType();
   if (type === GEOM_TYPE.POLYGON) return true;
-  if (type !== GEOM_TYPE.UNKNOWN) return false;
   const layer = li.layer as StyleCarrier | null;
   if (!layer) return false;
+  if (type !== GEOM_TYPE.LINE && type !== GEOM_TYPE.UNKNOWN) return false;
   let found = false;
   walkStyleLeaves(layer, leaf => {
-    if (leaf instanceof L.Polygon) found = true;
+    if (leaf instanceof L.Polygon || leaf instanceof L.Circle) found = true;
   });
   return found;
 };
@@ -107,17 +105,16 @@ const layerCanFill = (ui: LayerUI, layerId: string): boolean => {
  *  base is read once at first write and the value in front of us on the
  *  next write is the *last write*, not the author's.
  *
- *  Keyed by `layer` identity, not by layer id, so a re-registration of the
- *  same id keeps its base across the swap (the executor relies on the same
- *  invariant for the opacity base). WeakMap so the entry disappears when
- *  the layer leaves the map, no explicit cleanup needed.
+ *  Keyed by `layer` identity (like `authorOpacityBase`), so the same layer
+ *  object re-registered under the same id keeps its base; WeakMap so the
+ *  entry disappears when the layer leaves the map, no explicit cleanup.
  *
  *  Per-leaf, because a GeoJSON layer's features can each declare their own
  *  style — one layer-wide base would erase the author's per-feature choice
  *  on reset. */
 const authorFillBase = new WeakMap<
   StyleCarrier,
-  { fillColor: string | null; fillOpacity: number | null }
+  { fillColor: string; fillOpacity: number }
 >();
 
 /** Leaflet's own default `fillColor` for vector paths, and the swatch's last
@@ -159,6 +156,22 @@ const authoredFillColor = (ui: LayerUI, layerId: string): string => {
   return authored ?? LEAFLET_DEFAULT_FILL;
 };
 
+/** The layer's authored fill opacity — the first style leaf's
+ *  `options.fillOpacity`, or null when no leaf declares one. Mirrors
+ *  `authoredFillColor`: the row shows what the layer is actually painting. */
+const authoredFillOpacity = (ui: LayerUI, layerId: string): number | null => {
+  const li = ui.m.layerRegistry.get(layerId);
+  const layer = li?.layer as StyleCarrier | null;
+  if (!layer) return null;
+  let authored: number | null = null;
+  walkStyleLeaves(layer, leaf => {
+    if (authored === null && typeof leaf.options?.fillOpacity === "number") {
+      authored = leaf.options.fillOpacity;
+    }
+  });
+  return authored;
+};
+
 /** A visible `fillOpacity` used when the author set the fill to 0 (hollow).
  *  Without it a color change is invisible — the `fill` attribute updates but
  *  `fill-opacity="0"` hides it. 0.2 matches Leaflet's own default. */
@@ -187,15 +200,15 @@ const walkStyleLeaves = (
 
 const captureBase = (
   node: StyleCarrier,
-): {
-  fillColor: string | null;
-  fillOpacity: number | null;
-} => {
+): { fillColor: string; fillOpacity: number } => {
   const existing = authorFillBase.get(node);
   if (existing) return existing;
   const base = {
     fillColor: node.options?.fillColor ?? LEAFLET_DEFAULT_FILL,
-    fillOpacity: node.options?.fillOpacity ?? null,
+    // An absent authored fillOpacity means Leaflet's own 0.2 default, so the
+    // base records that value — a Reset must restore it, not leave the user's
+    // written opacity in place (setStyle merges, it does not delete).
+    fillOpacity: node.options?.fillOpacity ?? 0.2,
   };
   authorFillBase.set(node, base);
   return base;
@@ -315,11 +328,7 @@ const resetLayerFill = (ui: LayerUI, layerId: string): void => {
   walkStyleLeaves(layer, node => {
     const base = authorFillBase.get(node);
     if (base) {
-      const style: Record<string, unknown> = { fillColor: base.fillColor };
-      if (base.fillOpacity !== null) {
-        style.fillOpacity = base.fillOpacity;
-      }
-      node.setStyle(style);
+      node.setStyle({ fillColor: base.fillColor, fillOpacity: base.fillOpacity });
     }
   });
 };
@@ -328,13 +337,10 @@ const resetLayerFill = (ui: LayerUI, layerId: string): void => {
  *  Both controls live inside one FORM_CONTROL via `inlineControls`, so the
  *  row's width matches the border-weight row (color + number).
  *
- *  The swatch shows the stored choice, falling back to the layer's authored
- *  fill color — never a constant — so the row reflects what the layer is
- *  actually painting on first open, and named authored colors are resolved
- *  to the hex the picker can display. The opacity input's initial value is
- *  the author's `options.fillOpacity` (captured from the first leaf if
- *  available), or 0.2 (Leaflet's default) if the layer hasn't been
- *  registered yet. */
+ *  Both inputs show the stored choice, falling back to the layer's authored
+ *  value (the first style leaf's options) — never a constant — so the row
+ *  reflects what the layer is actually painting on first open, and named
+ *  authored colors are resolved to the hex the picker can display. */
 const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
   const storedColor = ui.fillColorMap[layerId];
   const color = toHexColor(storedColor ?? authoredFillColor(ui, layerId));
@@ -345,7 +351,8 @@ const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
   }) as HTMLInputElement;
 
   const storedOpacity = ui.fillOpacityMap[layerId];
-  const opacityPct = (storedOpacity ?? VISIBLE_FILL_OPACITY) * 100;
+  const authoredOpacity = authoredFillOpacity(ui, layerId);
+  const opacityPct = (storedOpacity ?? authoredOpacity ?? VISIBLE_FILL_OPACITY) * 100;
   const opacityInput = numberInput({
     value: opacityPct,
     min: 0,
