@@ -308,9 +308,7 @@ def check_plural_names(filepath: str) -> list[tuple[int, str]]:
     lower = base.lower()
     if lower in PLURAL_WHITELIST:
         return violations
-    if lower.endswith("ies") or lower.endswith(
-        ("ses", "xes", "zes", "ches", "shes")
-    ):
+    if lower.endswith("ies") or lower.endswith(("ses", "xes", "zes", "ches", "shes")):
         is_plural = True
     elif lower.endswith("s"):
         is_plural = not lower.endswith(SINGULAR_S_SUFFIXES)
