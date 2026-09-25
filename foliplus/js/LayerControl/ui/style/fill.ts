@@ -298,13 +298,14 @@ const bindFillRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
   const opacityEl = row.querySelector(
     `.${CONST.CLASSES.STYLE_FILL_OPACITY_NUMBER}`,
   ) as HTMLInputElement | null;
-  if (opacityEl)
+  if (opacityEl) {
     bindLiveNumber(opacityEl, {
       min: 0,
       max: 100,
       fallback: VISIBLE_FILL_OPACITY * 100,
       onCommit: value => commitFillOpacity(ui, layerId, value),
     });
+  }
 };
 
 /** Replay a layer's stored fill state (colour + opacity) onto the map.
