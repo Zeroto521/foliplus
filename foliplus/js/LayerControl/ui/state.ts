@@ -45,7 +45,10 @@ const loadPersistedState = (ui: LayerUI) => {
     if (entry.overrides.includes("fillColor") && entry.fillColor) {
       ui.fillColorMap[id] = entry.fillColor;
     }
-    if (entry.overrides.includes("fillOpacity") && typeof entry.fillOpacity === "number") {
+    if (
+      entry.overrides.includes("fillOpacity") &&
+      typeof entry.fillOpacity === "number"
+    ) {
       ui.fillOpacityMap[id] = entry.fillOpacity;
     }
   }

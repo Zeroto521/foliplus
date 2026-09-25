@@ -1196,7 +1196,7 @@ describe("LayerManager", () => {
             renamedNames: {},
             opacityMap: { heat: 0.4 },
             fillColorMap: {},
-      fillOpacityMap: {},
+            fillOpacityMap: {},
             zoomRangeMap: {},
             appliedState: new Map(),
             authorVisible: new Map(),

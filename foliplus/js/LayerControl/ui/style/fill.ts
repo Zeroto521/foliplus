@@ -283,7 +283,11 @@ const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
     "div",
     { class: `${CONST.CLASSES.FORM_ROW} ${CONST.CLASSES.STYLE_FILL_ROW}` },
     dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("style_fill")),
-    dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, inlineControls(colorInput, opacityInput)),
+    dom.el(
+      "div",
+      { class: CONST.CLASSES.FORM_CONTROL },
+      inlineControls(colorInput, opacityInput),
+    ),
   );
 };
 
