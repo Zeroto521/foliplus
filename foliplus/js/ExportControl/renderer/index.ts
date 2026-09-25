@@ -6,6 +6,7 @@ import { layerUrl } from "#core/leafletAdapter.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { createLogger } from "#common/log.js";
 import * as CONST from "../const.js";
+import { renderCanvasElement, renderPaneCanvas } from "./canvas.js";
 import {
   collectLayerMarkers,
   renderFontAwesome,
@@ -13,15 +14,14 @@ import {
   renderRemaining,
   renderTextLabels,
 } from "./marker.js";
-import { renderCanvasElement, renderPaneCanvas } from "./canvas.js";
 import { renderPaneSVG } from "./svg.js";
 import { calcTiles, renderTileLayer, tilePositions } from "./tile.js";
 import {
+  type RenderCtx,
+  type TileDesc,
+  type TileLoadStats,
   isCorsBlocked,
   pooledEach,
-  type RenderCtx,
-  type TileLoadStats,
-  type TileDesc,
 } from "./util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
@@ -278,10 +278,7 @@ class ExportRenderer {
   }
 
   /** Render a standalone canvas element (e.g. HeatmapControl). */
-  async renderCanvasElement(
-    rc: RenderCtx,
-    ce: HTMLCanvasElement,
-  ) {
+  async renderCanvasElement(rc: RenderCtx, ce: HTMLCanvasElement) {
     return renderCanvasElement(this.container, rc, ce);
   }
 
@@ -304,13 +301,7 @@ class ExportRenderer {
     layer: L.TileLayer,
     onProgress?: (tilesDrawn: number) => void,
   ) {
-    return renderTileLayer(
-      this.tileFailures,
-      rc,
-      visibleTiles,
-      layer,
-      onProgress,
-    );
+    return renderTileLayer(this.tileFailures, rc, visibleTiles, layer, onProgress);
   }
 
   /** Render SVG content from a single pane. */
@@ -334,35 +325,23 @@ class ExportRenderer {
   }
 
   /** Render markers with background-image sprites. */
-  async renderMarkers(
-    rc: RenderCtx,
-    markerRoots: HTMLElement[],
-  ) {
+  async renderMarkers(rc: RenderCtx, markerRoots: HTMLElement[]) {
     return renderMarkers(this.container, rc, markerRoots);
   }
 
   /** Render FontAwesome icons from ::before pseudo-element content. */
-  async renderFontAwesome(
-    rc: RenderCtx,
-    markerRoots: HTMLElement[],
-  ) {
+  async renderFontAwesome(rc: RenderCtx, markerRoots: HTMLElement[]) {
     return renderFontAwesome(this.container, rc, markerRoots);
   }
 
   /** Render plain text labels (e.g. MeasureControl distance labels) with background. */
-  async renderTextLabels(
-    rc: RenderCtx,
-    markerRoots: HTMLElement[],
-  ) {
+  async renderTextLabels(rc: RenderCtx, markerRoots: HTMLElement[]) {
     return renderTextLabels(this.container, rc, markerRoots);
   }
 
   /** Render remaining icon types not handled by other passes:
    *  <img> → fallback sprite → inline SVG → background-color fill. */
-  async renderRemaining(
-    rc: RenderCtx,
-    markerRoots: HTMLElement[],
-  ) {
+  async renderRemaining(rc: RenderCtx, markerRoots: HTMLElement[]) {
     return renderRemaining(this.container, rc, markerRoots);
   }
 }

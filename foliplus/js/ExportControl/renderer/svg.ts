@@ -3,7 +3,7 @@
 // Moved from renderer.ts — renderPaneSVG.
 import * as CONST from "../const.js";
 import { loadImage } from "../util.js";
-import { effectiveOpacity, withAlpha, type RenderCtx } from "./util.js";
+import { type RenderCtx, effectiveOpacity, withAlpha } from "./util.js";
 
 /** Render SVG content from a single pane. */
 const renderPaneSVG = async (
@@ -29,9 +29,7 @@ const renderPaneSVG = async (
     const svgG = svgEl.querySelector("g");
     const hasContent =
       (svgG && svgG.children.length > 0) ||
-      svgEl.querySelector(
-        "path, polygon, polyline, circle, rect, ellipse, line, text",
-      );
+      svgEl.querySelector("path, polygon, polyline, circle, rect, ellipse, line, text");
     if (!hasContent) continue;
 
     const svgRect = svgEl.getBoundingClientRect();

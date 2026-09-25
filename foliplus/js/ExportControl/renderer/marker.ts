@@ -4,12 +4,7 @@
 // renderTextLabels, renderRemaining.
 import * as CONST from "../const.js";
 import { ensureFont, isVisible, loadImage, loadImageBitmap } from "../util.js";
-import {
-  effectiveOpacity,
-  pooledEach,
-  withAlpha,
-  type RenderCtx,
-} from "./util.js";
+import { type RenderCtx, effectiveOpacity, pooledEach, withAlpha } from "./util.js";
 
 /** Collect markers belonging to a specific layer's panes. */
 const collectLayerMarkers = (layer: L.Layer): HTMLElement[] => {
@@ -365,9 +360,7 @@ const renderRemaining = async (
         clone.setAttribute("width", String(sr.width || 24));
         clone.setAttribute("height", String(sr.height || 24));
         const colorParent = svgEl.parentElement;
-        const rootColor = colorParent
-          ? window.getComputedStyle(colorParent).color
-          : "";
+        const rootColor = colorParent ? window.getComputedStyle(colorParent).color : "";
         if (rootColor && rootColor !== "rgb(0, 0, 0)") {
           clone.setAttribute("color", rootColor);
         }
