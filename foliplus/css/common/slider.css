@@ -44,7 +44,7 @@
 .foliplus-slider-rail {
   position: relative;
   /* Inset by half a handle: the inputs travel half a handle in from their own
-     box, so this is what makes their travel equal the rail — the handle's centre
+     box, so this is what makes their travel equal the rail — the handle's center
      reaches the rail's ends, and the rail with its handles stays inside the
      row's cell instead of poking out at both sides. */
   margin: 0 calc(var(--slider-thumb-size) / 2);
@@ -123,17 +123,17 @@
    `background-clip` keeps it unpainted, so widening the target does not inflate
    the handle (WCAG 2.5.8 wants 24px). The ring is a gradient inside the content
    box — a border would land on the hit box and leave a gap around the dot.
-   No `margin-top` (Chromium centres the thumb on its track; the classic webkit
-   compensation lifts it off centre) and no drop shadow (it would be painted at
+   No `margin-top` (Chromium centers the thumb on its track; the classic webkit
+   compensation lifts it off center) and no drop shadow (it would be painted at
    the hit box, clear of the dot). */
 .foliplus-slider-handle {
   position: absolute;
   /* Reaches half a handle beyond the rail on each side, which is exactly the
      inset the rail just took — so the thumb's travel is the rail itself. The
-     vertical box is the rail's own height, which is what keeps the thumb centred
-     on it: the browser centres a slider thumb on its own track, and anything
+     vertical box is the rail's own height, which is what keeps the thumb centerd
+     on it: the browser centers a slider thumb on its own track, and anything
      that over-constrains this box (a height beyond it, a padding, a translate)
-     moves the thumb off the centre line. */
+     moves the thumb off the center line. */
   top: 0;
   bottom: 0;
   left: calc(var(--slider-thumb-size) / -2);

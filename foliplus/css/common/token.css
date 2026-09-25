@@ -121,8 +121,8 @@
      `--slider-thumb-core` is the white middle: the 2px out to
      `--slider-thumb-size` is the ring that carries the state.
      Deliberately absent: a thumb `margin-top` and a drop shadow. Chromium
-     centres the slider thumb on its own track, and the classic webkit
-     compensation `(rail - thumb) / 2` then lifts the handle off centre
+     centers the slider thumb on its own track, and the classic webkit
+     compensation `(rail - thumb) / 2` then lifts the handle off center
      (measured 4px high on an 8px rail). A drop shadow is drawn at the 24px hit
      box, which is 5px clear of a 14px handle — it reads as a grey halo, not a
      lift. */

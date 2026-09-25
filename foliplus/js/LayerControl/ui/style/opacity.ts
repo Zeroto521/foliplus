@@ -32,7 +32,7 @@ const clampPct = (raw: number, fallback = 100): number =>
   Number.isFinite(raw) ? Math.max(0, Math.min(100, Math.round(raw))) : fallback;
 
 /** Fill width for the single-thumb opacity rail: the rail's own percentage,
- *  which is where the handle's centre sits. */
+ *  which is where the handle's center sits. */
 const opacityFillWidth = (pct: number): string => `${round5(pct)}%`;
 
 /** Ring color of the opacity row's two end dots. The covered span is always
@@ -67,7 +67,7 @@ const syncOpacityInputs = (panel: HTMLElement, pct: number): void => {
     `.${CONST.CLASSES.STYLE_OPACITY_FILL}`,
   ) as HTMLElement | null;
   range.value = String(pct);
-  // The fill starts where the thumb's centre sits at 0% and ends on it at the
+  // The fill starts where the thumb's center sits at 0% and ends on it at the
   // current value — the handle's own travel range, so the two never disagree at
   // the ends (a rail-relative width leaves a sliver of accent past the handle).
   if (fill) fill.style.width = opacityFillWidth(pct);

@@ -130,7 +130,7 @@ describe("AnnotationManager — formatting and fields", () => {
     expect(mgr.formatValue("abc", "percent", "en")).toBe("abc");
   });
 
-  it("resolves a point anchor, a bounds centre, or null", () => {
+  it("resolves a point anchor, a bounds center, or null", () => {
     expect(
       mgr.resolveAnchor({
         getLatLng: () => ({ lat: 40, lng: -74 }),

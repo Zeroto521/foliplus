@@ -25,7 +25,7 @@ interface LabelSpec {
   haloWidth: number;
   /** Point leaves: the box's top edge sits this far below the marker. */
   pointOffsetY: number;
-  /** Shape leaves: the box is centred on the anchor (offset 0). */
+  /** Shape leaves: the box is centerd on the anchor (offset 0). */
   shapeOffsetY: number;
 }
 
@@ -42,7 +42,7 @@ interface LabelCandidate {
   priority: number;
 }
 
-/** A label with its screen box and how the renderer should centre its text. */
+/** A label with its screen box and how the renderer should center its text. */
 interface PlacedLabel extends LabelCandidate {
   box: Box;
 }
@@ -68,15 +68,15 @@ const estimateTextWidth = (text: string, fontSize: number): number => {
  *  the label's visual footprint — a box that stops at the glyphs would let two
  *  halos overlap into a dark smudge while both labels survive.
  *
- *  point leaves: horizontally centred on the marker, its top edge `pointOffsetY`
+ *  point leaves: horizontally centerd on the marker, its top edge `pointOffsetY`
  *  below it — the [0, -10] relationship the DOM labels use.
- *  shape leaves: centred on the anchor in both axes.
- *  Both are centred horizontally: text extends from the anchor left and right. */
+ *  shape leaves: centerd on the anchor in both axes.
+ *  Both are centerd horizontally: text extends from the anchor left and right. */
 const layoutLabel = (label: LabelCandidate, spec: LabelSpec): PlacedLabel => {
   const w = estimateTextWidth(label.text, spec.fontSize) + 2 * spec.haloWidth;
   const h = spec.fontSize + 2 * spec.haloWidth;
-  // The halo grows the box symmetrically around the *text centre*, so the
-  // renderer can keep using the box centre as the text centre: the point
+  // The halo grows the box symmetrically around the *text center*, so the
+  // renderer can keep using the box center as the text center: the point
   // label's box top moves up by the halo it now extends below the text.
   const box: Box = label.atPoint
     ? {

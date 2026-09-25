@@ -765,7 +765,7 @@ class TestLayerControlRendering:
         the rail, the accent fill, the readout dots, the handles and the values
         row. Keeping the geometry here is what makes the two rails impossible to
         drift — they had already grown different rail heights, different handle
-        sizes, a handle sitting four px off centre, and an out-of-range state
+        sizes, a handle sitting four px off center, and an out-of-range state
         whose rules could not match.
         """
         css = read_css("foliplus/css/common/slider.css")
@@ -4705,7 +4705,7 @@ class TestLayerControlBrowser:
         overlay's z-index is confined to the owner's stacking context
         whenever the owner is hovered), so no lit sibling can paint over it.
         Probes both the ⋮ menu and the attrs panel: hovering a sibling
-        LIGHTS it, and the point at the overlay's centre still resolves to
+        LIGHTS it, and the point at the overlay's center still resolves to
         the overlay itself."""
         layers = [
             folium.FeatureGroup(name=f"Overlay {i}", overlay=True, show=True)
@@ -4737,7 +4737,7 @@ class TestLayerControlBrowser:
                 )
 
             def overlay_topmost(sel):
-                # The point at the overlay's centre must resolve to the overlay
+                # The point at the overlay's center must resolve to the overlay
                 # itself — a lit sibling would otherwise paint over it.
                 return page.evaluate(
                     "sel => { const el = document.querySelector(sel);"

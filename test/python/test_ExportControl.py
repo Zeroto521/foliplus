@@ -1426,7 +1426,7 @@ class TestExportControlBrowser:
         B1 peels the pane's inline visibility before reading computed styles,
         so all three carriers survive. Before B1, vectors ≈ 0; after, all > 0.
 
-        Three non-overlapping windows: left (GeoJson vector), centre (marker),
+        Three non-overlapping windows: left (GeoJson vector), center (marker),
         right (heatmap canvas). Focusing the canvas layer hides the vector pane.
         """
         with use_page(self._make_page, browser, tmp_path, slug="export_focus") as (

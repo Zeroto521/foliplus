@@ -4,7 +4,7 @@
   // (2) a marker (div-icon, NOT in a foliplus pane),
   // (3) a heatmap canvas with a red fill in a foliplus layer pane.
   //
-  // The map is centred at [26.08, 119.30] zoom 12. At this zoom, ~1 degree
+  // The map is centerd at [26.08, 119.30] zoom 12. At this zoom, ~1 degree
   // of longitude ≈ 10 px, so the three carriers are spread ~15 degrees apart
   // to land at ~30%, ~50%, ~70% of the viewport width.
   //
@@ -17,7 +17,7 @@
   // map to canvas pixels at 2x. The crop box starts at CSS (320,240) and
   // spans 640x360 CSS px, so canvas pixel (0,0) = CSS (320,240).
   //
-  // Window centres in CSS: x = 320 + f*640, y = 240 + 0.5*360
+  // Window centers in CSS: x = 320 + f*640, y = 240 + 0.5*360
   // Canvas coords (×2):   x = 2*(320 + f*640), y = 2*(240 + 0.5*360)
   // Window size: 80 canvas px (40 CSS px)
 
@@ -25,7 +25,7 @@
   if (!api) return { error: "no LayerAPI" };
 
   // --- Carrier 1: red GeoJson polygon (SVG vector in a foliplus pane) ---
-  // Centre at [26.08, 104.30] (~15 degrees west of map centre).
+  // Center at [26.08, 104.30] (~15 degrees west of map center).
   const poly = new L.Polygon(
     [
       [26.085, 104.295],
@@ -44,7 +44,7 @@
   vectorGroup.register();
 
   // --- Carrier 2: marker (div-icon, NOT in a foliplus pane) ---
-  // Centre at [26.08, 119.30] (map centre).
+  // Center at [26.08, 119.30] (map center).
   const marker = L.marker([26.08, 119.3], {
     icon: L.divIcon({
       className: "",
@@ -55,13 +55,13 @@
   window.map.addLayer(marker);
 
   // --- Carrier 3: heatmap canvas with red fill (foliplus pane) ---
-  // Centre at [26.08, 134.30] (~15 degrees east of map centre).
+  // Center at [26.08, 134.30] (~15 degrees east of map center).
   const cvs = api.createCanvas({
     id: "__focus_canvas__",
     name: "Focus Canvas",
   });
   cvs.register();
-  // Draw a red rectangle at the centre of the canvas.
+  // Draw a red rectangle at the center of the canvas.
   const ctx = cvs.ctx;
   const cx = 0.4 * cvs.canvas.width;
   const cy = 0.4 * cvs.canvas.height;
@@ -78,7 +78,7 @@
   // --- Compute window rectangles in export-canvas pixel coords ---
   // Export canvas: 1280x720. Crop box: CSS (320,240) to (960,600).
   // Canvas pixel (0,0) = CSS (320,240). Scale factor: 2.
-  // Window centres: CSS x = 320 + f*640, y = 240 + 0.5*360 = 420
+  // Window centers: CSS x = 320 + f*640, y = 240 + 0.5*360 = 420
   // Canvas: x = 2*(320 + f*640), y = 2*(420-240) = 360
   // Window size: 80x80 canvas px.
 

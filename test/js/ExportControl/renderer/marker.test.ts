@@ -362,7 +362,7 @@ describe("renderTextLabels", () => {
     }
   });
 
-  it("lays out multi-line text around the label centre", async () => {
+  it("lays out multi-line text around the label center", async () => {
     const ctx = textCtx();
     stubFonts();
     const root = document.createElement("div");
@@ -388,7 +388,7 @@ describe("renderTextLabels", () => {
         root,
       ]);
       expect(ctx.fillText).toHaveBeenCalledTimes(2);
-      // Two lines sit symmetric about the label centre, spacing 1.2 * fontSize.
+      // Two lines sit symmetric about the label center, spacing 1.2 * fontSize.
       const [y0, y1] = ctx.fillText.mock.calls.map(c => c[2]);
       expect(y1 - y0).toBeCloseTo(14 * 1.2);
       expect(ctx.fillText).toHaveBeenNthCalledWith(1, "a", 40, 21.6);
