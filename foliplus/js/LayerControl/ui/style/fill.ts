@@ -35,7 +35,7 @@ import {
 import * as CONST from "../../const.js";
 import type { LayerUI } from "../index.js";
 import { markOverride, saveState, unmarkOverride } from "../state.js";
-import { type StyleSetter, isStyleSetter, pinStyleOnHighlight } from "./pin.js";
+import { type StyleSetter, pinStyleOnHighlight } from "./pin.js";
 
 /** Default paint the swatch shows when no fill has been committed yet.
  *  Matches Leaflet's own `fillColor` default, so the first write the user
@@ -227,18 +227,17 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
 
     // Folium's highlight_on_hover restores the original style on mouseout;
     // pinStyleOnHighlight reapplies the user's fill after folium's handler
-    // fires so the colour survives the hover.
-    if (isStyleSetter(node)) {
-      pinStyleOnHighlight(node, () => {
-        const c = ui.fillColorMap[layerId];
-        const o = ui.fillOpacityMap[layerId];
-        if (c === undefined && o === undefined) return null;
-        const s: Record<string, unknown> = {};
-        if (c !== undefined) s.fillColor = c;
-        if (o !== undefined) s.fillOpacity = o;
-        return s;
-      });
-    }
+    // fires so the colour survives the hover. `walkStyleLeaves` already
+    // guarantees a setStyle, so no isStyleSetter guard is needed here.
+    pinStyleOnHighlight(node, () => {
+      const c = ui.fillColorMap[layerId];
+      const o = ui.fillOpacityMap[layerId];
+      if (c === undefined && o === undefined) return null;
+      const s: Record<string, unknown> = {};
+      if (c !== undefined) s.fillColor = c;
+      if (o !== undefined) s.fillOpacity = o;
+      return s;
+    });
   });
 };
 

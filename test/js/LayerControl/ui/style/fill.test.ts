@@ -256,6 +256,26 @@ describe("LayerUI style panel — fill colour", () => {
     expect(fillRow(item)).not.toBeNull();
   });
 
+  it("layerCanFill is false when the mixed layer resolves no Leaflet object", () => {
+    // UNKNOWN geometry with no layer object to walk — the gate must not
+    // assume leaves exist when it cannot reach them. In reality a missing
+    // layer also flips the surface capabilities to "none", so this state is
+    // only reachable through a surface that still reports UNKNOWN.
+    manager.registerLayer({
+      id: "mixed2",
+      name: "Mixed2",
+      layer: null as never,
+    });
+    manager.layerRegistry.get("mixed2")!.layer = null;
+    const fake = {
+      capabilities: { opacity: "pane", zoomRange: "pane" },
+      geometryType: () => "unknown",
+    };
+    vi.spyOn(ui.m, "surfaceFor").mockReturnValue(fake as never);
+
+    expect(layerCanFill(ui, "mixed2")).toBe(false);
+  });
+
   it("the swatch resolves a named authored colour through the browser probe", () => {
     // jsdom cannot parse named colours and degrades to the default; the real
     // picker resolves them (Chromium: "gray" → #808080). The important
@@ -741,6 +761,53 @@ describe("buildFillRow", () => {
     const label = row.querySelector(`.${CONST.CLASSES.FORM_LABEL}`);
 
     expect(label?.textContent).toBe("LayerControl.style_fill");
+  });
+
+  it("falls back to the Leaflet default for an unregistered layer", () => {
+    // No registry entry, no authored colour — the swatch shows Leaflet's own
+    // fill default rather than inventing one.
+    const row = buildFillRow(ui, "ghost");
+    const input = row.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`,
+    ) as HTMLInputElement;
+
+    expect(input.value).toBe("#3388ff");
+  });
+
+  it("falls back to the Leaflet default when no leaf declares a fill colour", () => {
+    const fixture = initWithFillLayer();
+    delete fixture.fillLayer.leaves[0].options.fillColor;
+    delete fixture.fillLayer.leaves[1].options.fillColor;
+
+    const row = buildFillRow(fixture.ui, "overlay1");
+    const input = row.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`,
+    ) as HTMLInputElement;
+
+    expect(input.value).toBe("#3388ff");
+  });
+
+  it("degrades to the default swatch when the browser probe returns a non-hex", () => {
+    // The <input type=color> probe always yields hex in jsdom and Chromium;
+    // if a UA ever returns garbage, the swatch must not receive it raw.
+    const orig = document.createElement.bind(document);
+    vi.spyOn(document, "createElement").mockImplementationOnce(
+      (tag: string, ...args: unknown[]) => {
+        const el = orig(tag, ...args);
+        if (tag === "input") {
+          Object.defineProperty(el, "value", { get: () => "zzz", set: () => {} });
+        }
+        return el;
+      },
+    );
+    ui.fillColorMap["overlay1"] = "gray";
+
+    const row = buildFillRow(ui, "overlay1");
+    const input = row.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`,
+    ) as HTMLInputElement;
+
+    expect(input.value).toBe("#000000");
   });
 
   // ─────────────────── captureBase fallback ───────────────────
