@@ -1,17 +1,6 @@
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { markRequest } from "#core/geocode/index.js";
-import {
-  AUTOCOMPLETE,
-  MODE,
-  ZOOM,
-} from "#foliplus/SearchControl/const.js";
+import { AUTOCOMPLETE, MODE, ZOOM } from "#foliplus/SearchControl/const.js";
 import {
   attachSearchDelIcon,
   buildSearchUrl,
@@ -111,7 +100,6 @@ describe("removePanel", () => {
     expect(() => removePanel(ctrl)).not.toThrow();
   });
 });
-
 
 describe("renderResults", () => {
   it("removes panel when results are empty", () => {
@@ -232,7 +220,6 @@ describe("renderResults", () => {
   });
 });
 
-
 describe("initDebouncedFetch", () => {
   it("creates a debounced function on ctrl.debouncedFetch", () => {
     const ctrl: any = { inp: { value: "test" }, debouncedFetch: null };
@@ -278,7 +265,6 @@ describe("initDebouncedFetch", () => {
   });
 });
 
-
 describe("buildSearchUrl", () => {
   it("includes query, limit, and center coordinates", () => {
     const ctrl: any = {};
@@ -313,7 +299,6 @@ describe("buildSearchUrl", () => {
   });
 });
 
-
 describe("searchCoord", () => {
   it("shows hint and clears input for invalid coordinates", () => {
     const ctrl: any = { inp: { value: "" }, marker: null, searchHistory: [] };
@@ -346,7 +331,6 @@ describe("searchCoord", () => {
     expect(ctrl.searchHistory).toHaveLength(1);
   });
 });
-
 
 describe("searchAddress", () => {
   beforeEach(() => {
@@ -486,7 +470,6 @@ describe("searchAddress", () => {
   });
 });
 
-
 describe("positionPanel", () => {
   it("places wrap below the control", () => {
     const ctrl: any = {
@@ -536,7 +519,6 @@ describe("positionPanel", () => {
     }
   });
 });
-
 
 describe("fetchSuggestions", () => {
   it("removes suggestions when not in ADDR mode", () => {
@@ -739,7 +721,6 @@ describe("fetchSuggestions", () => {
   });
 });
 
-
 describe("attachSearchDelIcon", () => {
   // A real DOM wrap so toggleDelIcon can flip the inner ✕'s visible class.
   // makeMarkerWithEl: each L.marker() call returns a fresh marker sharing the
@@ -841,7 +822,6 @@ describe("attachSearchDelIcon", () => {
   });
 });
 
-
 describe("searchCoord edge cases", () => {
   it("converts fullwidth comma to halfwidth", () => {
     const ctrl: any = { inp: { value: "" }, marker: null, searchHistory: [] };
@@ -899,7 +879,6 @@ describe("searchCoord edge cases", () => {
   });
 });
 
-
 describe("searchAddress error paths", () => {
   beforeEach(() => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
@@ -946,7 +925,6 @@ describe("searchAddress error paths", () => {
     ensureModes(window.map).setMode("MeasureControl", null);
   });
 });
-
 
 describe("fetchSuggestions: throttle and abort", () => {
   beforeEach(() => {
@@ -1167,7 +1145,6 @@ describe("fetchSuggestions: throttle and abort", () => {
   });
 });
 
-
 describe("fetchSuggestions: empty query shows history", () => {
   it("renders history panel when query is empty and history exists", () => {
     const ctrl: any = {
@@ -1243,7 +1220,6 @@ describe("fetchSuggestions: empty query shows history", () => {
     expect(ctrl.panelWrap).toBeNull();
   });
 });
-
 
 describe("fetchSuggestions: render behavior", () => {
   it("renders suggestions with data-index attributes", async () => {
@@ -1713,7 +1689,6 @@ describe("fetchSuggestions — empty input renders history", () => {
     expect(ctrl.panelWrap).toBeNull();
   });
 });
-
 
 describe("fetchSuggestions — history does not interfere with suggestions", () => {
   it("shows suggestions instead of history when input has text", () => {

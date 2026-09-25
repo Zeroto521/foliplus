@@ -1,25 +1,6 @@
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest";
-import {
-  markRequest,
-} from "#core/geocode/index.js";
-import {
-  HISTORY,
-  MODE,
-  RECORD_VERSION,
-  ZOOM,
-} from "#foliplus/SearchControl/const.js";
-import {
-  fetchSuggestions,
-  searchAddress,
-  searchCoord,
-} from "#foliplus/SearchControl/logic/search.js";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { markRequest } from "#core/geocode/index.js";
+import { HISTORY, MODE, RECORD_VERSION, ZOOM } from "#foliplus/SearchControl/const.js";
 import {
   addHistoryEntry,
   clearHistory,
@@ -28,6 +9,11 @@ import {
   recordHistorySearch,
   renderHistory,
 } from "#foliplus/SearchControl/logic/history.js";
+import {
+  fetchSuggestions,
+  searchAddress,
+  searchCoord,
+} from "#foliplus/SearchControl/logic/search.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 
 // Module-level code captured window.foliplus and window.map from setup.js.
@@ -39,194 +25,192 @@ beforeEach(() => {
 const tick = () => new Promise(r => setTimeout(r, 0));
 
 describe("searchCoord — history recording", () => {
-it("records a coord search entry after successful search", async () => {
-  const ctrl: any = {
-    inp: { value: "121.47,31.23" },
-    marker: null,
-    searchHistory: [],
-  };
-  searchCoord(ctrl, "121.47,31.23");
-  await new Promise(r => setTimeout(r, 0));
-  await new Promise(r => setTimeout(r, 0));
-  expect(ctrl.searchHistory).toHaveLength(1);
-  expect(ctrl.searchHistory[0].query).toBe("121.47,31.23");
-  expect(ctrl.searchHistory[0].type).toBe("coord");
-  expect(ctrl.searchHistory[0].coordDisplay).toBe("121.470000, 31.230000");
-  expect(ctrl.searchHistory[0].lat).toBe(31.23);
-  expect(ctrl.searchHistory[0].lng).toBe(121.47);
-  expect(ctrl.searchHistory[0].ts).toBeGreaterThan(0);
-});
+  it("records a coord search entry after successful search", async () => {
+    const ctrl: any = {
+      inp: { value: "121.47,31.23" },
+      marker: null,
+      searchHistory: [],
+    };
+    searchCoord(ctrl, "121.47,31.23");
+    await new Promise(r => setTimeout(r, 0));
+    await new Promise(r => setTimeout(r, 0));
+    expect(ctrl.searchHistory).toHaveLength(1);
+    expect(ctrl.searchHistory[0].query).toBe("121.47,31.23");
+    expect(ctrl.searchHistory[0].type).toBe("coord");
+    expect(ctrl.searchHistory[0].coordDisplay).toBe("121.470000, 31.230000");
+    expect(ctrl.searchHistory[0].lat).toBe(31.23);
+    expect(ctrl.searchHistory[0].lng).toBe(121.47);
+    expect(ctrl.searchHistory[0].ts).toBeGreaterThan(0);
+  });
 
-it("dedupes coordinate variants that parse to the same location", async () => {
-  const tick = () => new Promise(r => setTimeout(r, 0));
-  // "120,32" and its whitespace / full-width-comma variants resolve to the
-  // same lng/lat, so they must collapse into one entry instead of two.
-  const ctrl: any = { inp: { value: "" }, marker: null, searchHistory: [] };
-  searchCoord(ctrl, "120,32");
-  await tick();
-  await tick();
-  searchCoord(ctrl, "120, 32");
-  await tick();
-  await tick();
-  searchCoord(ctrl, "120，32");
-  await tick();
-  await tick();
-  expect(ctrl.searchHistory).toHaveLength(1);
-  expect(ctrl.searchHistory[0].query).toBe("120,32");
-  expect(ctrl.searchHistory[0].count).toBe(3);
-  expect(ctrl.searchHistory[0].lng).toBe(120);
-  expect(ctrl.searchHistory[0].lat).toBe(32);
-});
+  it("dedupes coordinate variants that parse to the same location", async () => {
+    const tick = () => new Promise(r => setTimeout(r, 0));
+    // "120,32" and its whitespace / full-width-comma variants resolve to the
+    // same lng/lat, so they must collapse into one entry instead of two.
+    const ctrl: any = { inp: { value: "" }, marker: null, searchHistory: [] };
+    searchCoord(ctrl, "120,32");
+    await tick();
+    await tick();
+    searchCoord(ctrl, "120, 32");
+    await tick();
+    await tick();
+    searchCoord(ctrl, "120，32");
+    await tick();
+    await tick();
+    expect(ctrl.searchHistory).toHaveLength(1);
+    expect(ctrl.searchHistory[0].query).toBe("120,32");
+    expect(ctrl.searchHistory[0].count).toBe(3);
+    expect(ctrl.searchHistory[0].lng).toBe(120);
+    expect(ctrl.searchHistory[0].lat).toBe(32);
+  });
 
-it("stores a canonical coord key, not the raw input", async () => {
-  const tick = () => new Promise(r => setTimeout(r, 0));
-  const ctrl: any = { inp: { value: "" }, marker: null, searchHistory: [] };
-  searchCoord(ctrl, " 120 , 32 ");
-  await tick();
-  await tick();
-  expect(ctrl.searchHistory).toHaveLength(1);
-  expect(ctrl.searchHistory[0].query).toBe("120,32");
-  expect(ctrl.searchHistory[0].coordDisplay).toBe("120.000000, 32.000000");
-});
+  it("stores a canonical coord key, not the raw input", async () => {
+    const tick = () => new Promise(r => setTimeout(r, 0));
+    const ctrl: any = { inp: { value: "" }, marker: null, searchHistory: [] };
+    searchCoord(ctrl, " 120 , 32 ");
+    await tick();
+    await tick();
+    expect(ctrl.searchHistory).toHaveLength(1);
+    expect(ctrl.searchHistory[0].query).toBe("120,32");
+    expect(ctrl.searchHistory[0].coordDisplay).toBe("120.000000, 32.000000");
+  });
 
-it("does not record history for invalid coordinates", () => {
-  const ctrl: any = { inp: { value: "" }, marker: null, searchHistory: [] };
-  searchCoord(ctrl, "abc");
-  expect(ctrl.searchHistory).toEqual([]);
-});
+  it("does not record history for invalid coordinates", () => {
+    const ctrl: any = { inp: { value: "" }, marker: null, searchHistory: [] };
+    searchCoord(ctrl, "abc");
+    expect(ctrl.searchHistory).toEqual([]);
+  });
 
-it("reverse geocode success: addrDisplay updated, count stays 1", async () => {
-  // Mock reverse geocode to return an address after the initial save
-  (window.foliplus.reverseGeocode as any).mockResolvedValue("Shanghai, China");
-  const ctrl: any = {
-    inp: { value: "121.47,31.23" },
-    marker: null,
-    searchHistory: [],
-  };
-  searchCoord(ctrl, "121.47,31.23");
-  await new Promise(r => setTimeout(r, 0));
-  await new Promise(r => setTimeout(r, 0));
-  await new Promise(r => setTimeout(r, 0));
-  expect(ctrl.searchHistory).toHaveLength(1);
-  expect(ctrl.searchHistory[0].addrDisplay).toBe("Shanghai, China");
-  // Key invariant: reverse-geocode update must NOT increment count
-  expect(ctrl.searchHistory[0].count).toBe(1);
-});
+  it("reverse geocode success: addrDisplay updated, count stays 1", async () => {
+    // Mock reverse geocode to return an address after the initial save
+    (window.foliplus.reverseGeocode as any).mockResolvedValue("Shanghai, China");
+    const ctrl: any = {
+      inp: { value: "121.47,31.23" },
+      marker: null,
+      searchHistory: [],
+    };
+    searchCoord(ctrl, "121.47,31.23");
+    await new Promise(r => setTimeout(r, 0));
+    await new Promise(r => setTimeout(r, 0));
+    await new Promise(r => setTimeout(r, 0));
+    expect(ctrl.searchHistory).toHaveLength(1);
+    expect(ctrl.searchHistory[0].addrDisplay).toBe("Shanghai, China");
+    // Key invariant: reverse-geocode update must NOT increment count
+    expect(ctrl.searchHistory[0].count).toBe(1);
+  });
 
-it("reverse geocode failure: keeps coord-only entry, no crash", async () => {
-  // First call is from createLocationMarker (popup), let it succeed.
-  // Second call is from searchCoord's history update — reject it.
-  let callCount = 0;
-  (window.foliplus.reverseGeocode as any).mockImplementation(() =>
-    Promise.resolve(
-      ++callCount > 1 ? Promise.reject(new Error("network timeout")) : "Addr",
-    ),
-  );
-  // Reset: first call resolves to "", second rejects
-  callCount = 0;
-  (window.foliplus.reverseGeocode as any).mockImplementation(() =>
-    callCount++ === 0
-      ? Promise.resolve("")
-      : Promise.reject(new Error("network timeout")),
-  );
-  const ctrl: any = {
-    inp: { value: "121.47,31.23" },
-    marker: null,
-    searchHistory: [],
-  };
-  searchCoord(ctrl, "121.47,31.23");
-  await new Promise(r => setTimeout(r, 0));
-  await new Promise(r => setTimeout(r, 0));
-  await new Promise(r => setTimeout(r, 0));
-  expect(ctrl.searchHistory).toHaveLength(1);
-  expect(ctrl.searchHistory[0].addrDisplay).toBe("");
-  expect(ctrl.searchHistory[0].count).toBe(1);
-});
+  it("reverse geocode failure: keeps coord-only entry, no crash", async () => {
+    // First call is from createLocationMarker (popup), let it succeed.
+    // Second call is from searchCoord's history update — reject it.
+    let callCount = 0;
+    (window.foliplus.reverseGeocode as any).mockImplementation(() =>
+      Promise.resolve(
+        ++callCount > 1 ? Promise.reject(new Error("network timeout")) : "Addr",
+      ),
+    );
+    // Reset: first call resolves to "", second rejects
+    callCount = 0;
+    (window.foliplus.reverseGeocode as any).mockImplementation(() =>
+      callCount++ === 0
+        ? Promise.resolve("")
+        : Promise.reject(new Error("network timeout")),
+    );
+    const ctrl: any = {
+      inp: { value: "121.47,31.23" },
+      marker: null,
+      searchHistory: [],
+    };
+    searchCoord(ctrl, "121.47,31.23");
+    await new Promise(r => setTimeout(r, 0));
+    await new Promise(r => setTimeout(r, 0));
+    await new Promise(r => setTimeout(r, 0));
+    expect(ctrl.searchHistory).toHaveLength(1);
+    expect(ctrl.searchHistory[0].addrDisplay).toBe("");
+    expect(ctrl.searchHistory[0].count).toBe(1);
+  });
 
-it("reverse geocode resolves null: keeps coord-only entry", async () => {
-  (window.foliplus.reverseGeocode as any).mockResolvedValue(null);
-  const ctrl: any = {
-    inp: { value: "121.47,31.23" },
-    marker: null,
-    searchHistory: [],
-  };
-  searchCoord(ctrl, "121.47,31.23");
-  await new Promise(r => setTimeout(r, 0));
-  await new Promise(r => setTimeout(r, 0));
-  await new Promise(r => setTimeout(r, 0));
-  expect(ctrl.searchHistory).toHaveLength(1);
-  expect(ctrl.searchHistory[0].addrDisplay).toBe("");
-  expect(ctrl.searchHistory[0].count).toBe(1);
-});
+  it("reverse geocode resolves null: keeps coord-only entry", async () => {
+    (window.foliplus.reverseGeocode as any).mockResolvedValue(null);
+    const ctrl: any = {
+      inp: { value: "121.47,31.23" },
+      marker: null,
+      searchHistory: [],
+    };
+    searchCoord(ctrl, "121.47,31.23");
+    await new Promise(r => setTimeout(r, 0));
+    await new Promise(r => setTimeout(r, 0));
+    await new Promise(r => setTimeout(r, 0));
+    expect(ctrl.searchHistory).toHaveLength(1);
+    expect(ctrl.searchHistory[0].addrDisplay).toBe("");
+    expect(ctrl.searchHistory[0].count).toBe(1);
+  });
 
-it("history entry missing: reverse geocode does not crash", async () => {
-  (window.foliplus.reverseGeocode as any).mockResolvedValue("Some Addr");
-  const ctrl: any = {
-    inp: { value: "121.47,31.23" },
-    marker: null,
-    searchHistory: [],
-  };
-  // Clear history after searchCoord saves the entry so the lookup fails
-  searchCoord(ctrl, "121.47,31.23");
-  ctrl.searchHistory = [];
-  await new Promise(r => setTimeout(r, 0));
-  await new Promise(r => setTimeout(r, 0));
-  await new Promise(r => setTimeout(r, 0));
-  // The entry was removed before reverse-geocode resolved, so it stays empty
-  expect(ctrl.searchHistory).toEqual([]);
-  // No unhandled rejection — this promise resolves cleanly
-  expect(await Promise.resolve(true)).toBe(true);
+  it("history entry missing: reverse geocode does not crash", async () => {
+    (window.foliplus.reverseGeocode as any).mockResolvedValue("Some Addr");
+    const ctrl: any = {
+      inp: { value: "121.47,31.23" },
+      marker: null,
+      searchHistory: [],
+    };
+    // Clear history after searchCoord saves the entry so the lookup fails
+    searchCoord(ctrl, "121.47,31.23");
+    ctrl.searchHistory = [];
+    await new Promise(r => setTimeout(r, 0));
+    await new Promise(r => setTimeout(r, 0));
+    await new Promise(r => setTimeout(r, 0));
+    // The entry was removed before reverse-geocode resolved, so it stays empty
+    expect(ctrl.searchHistory).toEqual([]);
+    // No unhandled rejection — this promise resolves cleanly
+    expect(await Promise.resolve(true)).toBe(true);
+  });
 });
-});
-
 
 describe("searchAddress — history recording", () => {
-beforeEach(() => {
-  vi.spyOn(console, "warn").mockImplementation(() => {});
-});
-
-afterEach(() => {
-  vi.restoreAllMocks();
-});
-
-it("records a geocode address search entry after success", async () => {
-  (window.foliplus.geocode as any).mockResolvedValue({
-    lat: 48.8,
-    lng: 2.3,
-    display_name: "Paris, France",
+  beforeEach(() => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
   });
-  const ctrl: any = {
-    cachedAddress: {},
-    addrAbortController: null,
-    inp: { value: "Paris" },
-    marker: null,
-    searchHistory: [],
-  };
-  searchAddress(ctrl, "Paris");
-  await new Promise(r => setTimeout(r, 0));
-  await new Promise(r => setTimeout(r, 0));
-  expect(ctrl.searchHistory).toHaveLength(1);
-  expect(ctrl.searchHistory[0].query).toBe("Paris");
-  expect(ctrl.searchHistory[0].type).toBe("addr");
-  expect(ctrl.searchHistory[0].lat).toBe(48.8);
-  expect(ctrl.searchHistory[0].lng).toBe(2.3);
-});
 
-it("does not record history when no results are found", async () => {
-  (window.foliplus.geocode as any).mockResolvedValue(null);
-  const ctrl: any = {
-    cachedAddress: {},
-    addrAbortController: null,
-    inp: { value: "abc" },
-    searchHistory: [],
-  };
-  searchAddress(ctrl, "nowhere");
-  await new Promise(r => setTimeout(r, 0));
-  await new Promise(r => setTimeout(r, 0));
-  expect(ctrl.searchHistory).toEqual([]);
-});
-});
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
+  it("records a geocode address search entry after success", async () => {
+    (window.foliplus.geocode as any).mockResolvedValue({
+      lat: 48.8,
+      lng: 2.3,
+      display_name: "Paris, France",
+    });
+    const ctrl: any = {
+      cachedAddress: {},
+      addrAbortController: null,
+      inp: { value: "Paris" },
+      marker: null,
+      searchHistory: [],
+    };
+    searchAddress(ctrl, "Paris");
+    await new Promise(r => setTimeout(r, 0));
+    await new Promise(r => setTimeout(r, 0));
+    expect(ctrl.searchHistory).toHaveLength(1);
+    expect(ctrl.searchHistory[0].query).toBe("Paris");
+    expect(ctrl.searchHistory[0].type).toBe("addr");
+    expect(ctrl.searchHistory[0].lat).toBe(48.8);
+    expect(ctrl.searchHistory[0].lng).toBe(2.3);
+  });
+
+  it("does not record history when no results are found", async () => {
+    (window.foliplus.geocode as any).mockResolvedValue(null);
+    const ctrl: any = {
+      cachedAddress: {},
+      addrAbortController: null,
+      inp: { value: "abc" },
+      searchHistory: [],
+    };
+    searchAddress(ctrl, "nowhere");
+    await new Promise(r => setTimeout(r, 0));
+    await new Promise(r => setTimeout(r, 0));
+    expect(ctrl.searchHistory).toEqual([]);
+  });
+});
 
 describe("addHistoryEntry", () => {
   it("prepends a new entry and persists", () => {
@@ -397,7 +381,6 @@ describe("addHistoryEntry", () => {
   });
 });
 
-
 describe("deleteHistoryEntry", () => {
   it("removes a matching entry and persists", () => {
     const ctrl: any = {
@@ -473,7 +456,6 @@ describe("deleteHistoryEntry", () => {
   });
 });
 
-
 describe("clearHistory", () => {
   it("empties the history array and persists", () => {
     const ctrl: any = {
@@ -513,7 +495,6 @@ describe("clearHistory", () => {
   });
 });
 
-
 describe("recordHistorySearch", () => {
   it("records a completed coord search", () => {
     const ctrl: any = { searchHistory: [] };
@@ -537,15 +518,7 @@ describe("recordHistorySearch", () => {
 
   it("records a completed addr search", () => {
     const ctrl: any = { searchHistory: [] };
-    recordHistorySearch(
-      ctrl,
-      "Paris",
-      "addr",
-      "2.3, 48.8",
-      "Paris, France",
-      2.3,
-      48.8,
-    );
+    recordHistorySearch(ctrl, "Paris", "addr", "2.3, 48.8", "Paris, France", 2.3, 48.8);
     expect(ctrl.searchHistory).toHaveLength(1);
     expect(ctrl.searchHistory[0].type).toBe("addr");
     expect(ctrl.searchHistory[0].addrDisplay).toBe("Paris, France");
@@ -563,31 +536,14 @@ describe("recordHistorySearch", () => {
 
   it("stores raw query as key for deduplication", () => {
     const ctrl: any = { searchHistory: [] };
-    recordHistorySearch(
-      ctrl,
-      "Paris",
-      "addr",
-      "2.3, 48.8",
-      "Paris, France",
-      2.3,
-      48.8,
-    );
+    recordHistorySearch(ctrl, "Paris", "addr", "2.3, 48.8", "Paris, France", 2.3, 48.8);
     expect(ctrl.searchHistory[0].query).toBe("Paris");
     // Re-record with same query — dedup should apply and increment count
-    recordHistorySearch(
-      ctrl,
-      "Paris",
-      "addr",
-      "2.3, 48.8",
-      "Paris, France",
-      2.3,
-      48.8,
-    );
+    recordHistorySearch(ctrl, "Paris", "addr", "2.3, 48.8", "Paris, France", 2.3, 48.8);
     expect(ctrl.searchHistory).toHaveLength(1);
     expect(ctrl.searchHistory[0].count).toBe(2);
   });
 });
-
 
 describe("renderHistory", () => {
   const makeHistoryCtrl = (searchHistory: SearchHistoryEntry[]): any => {
@@ -781,9 +737,7 @@ describe("renderHistory", () => {
     ).toBe("121.4700, 31.2300");
     ctrl.panelWrap
       .querySelector(".foliplus-search-result-item")!
-      .dispatchEvent(
-        new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
-      );
+      .dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
     // The input is filled with the coord display so it matches the panel
     // and a follow-up Enter re-searches the same point.
     expect(ctrl.inp.value).toBe("121.4700, 31.2300");
@@ -811,9 +765,7 @@ describe("renderHistory", () => {
     ).toBe("121.47,31.23");
     ctrl.panelWrap
       .querySelector(".foliplus-search-result-item")!
-      .dispatchEvent(
-        new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
-      );
+      .dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
     expect(ctrl.inp.value).toBe("121.47,31.23");
   });
 
@@ -931,7 +883,6 @@ describe("renderHistory", () => {
   });
 });
 
-
 describe("mode-lock guard: history entry click when a mode is held", () => {
   it("history entry click is blocked and panel stays open when a mode is held", () => {
     const ctrl: any = {
@@ -977,5 +928,4 @@ describe("mode-lock guard: history entry click when a mode is held", () => {
     );
     ensureModes(window.map).setMode("MeasureControl", null);
   });
-
 });
