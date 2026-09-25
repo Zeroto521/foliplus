@@ -1,6 +1,6 @@
 // ExportControl export session pipeline — doExport through cleanup.
-// Functions are bound onto ExportManager.prototype (this === manager) so
-// instance spies stay interceptable and bodies stay a pure move.
+// Function expressions are installed on ExportManager.prototype so `this` is
+// the manager and instance spies stay interceptable.
 import { COMPONENTS } from "#core/component.js";
 import { EVENTS } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
@@ -41,7 +41,7 @@ const canvasToBlob = (
     canvas.toBlob(b => resolve(b), mimeType, quality);
   });
 
-function doExport(this: ExportManager) {
+const doExport = function (this: ExportManager) {
   if (this.isExporting || !this.cropState) return;
   // Symmetric lock with the other interactive components (measure / focus).
   if (
@@ -127,12 +127,12 @@ function doExport(this: ExportManager) {
   if (needsBigger && geoBounds && geoBounds.nw) {
     this.enlargeAndRender(r, scaleValue, bg, geoBounds, vpW, vpH, onProgress);
   } else void this.doRender(r, scaleValue, bg, geoBounds, onProgress);
-}
+};
 
 /** Render the crop area to a canvas and trigger download.  Returns the
  *  render promise so callers (e.g. enlargeAndRender) can chain work
  *  after the render completes. */
-function doRender(
+const doRender = function (
   this: ExportManager,
   r: CropRect,
   scaleValue: number,
@@ -169,10 +169,10 @@ function doRender(
     .catch(err => {
       this.onRenderError(err, hideEls);
     });
-}
+};
 
 /** Enlarge the container for over-size exports and render. */
-function enlargeAndRender(
+const enlargeAndRender = function (
   this: ExportManager,
   r: CropRect,
   scaleValue: number,
@@ -226,10 +226,10 @@ function enlargeAndRender(
       .finally(restore)
       .catch(() => undefined);
   });
-}
+};
 
 /** Handle successful render: show preview and trigger downloads. */
-function onRenderSuccess(
+const onRenderSuccess = function (
   this: ExportManager,
   canvas: HTMLCanvasElement,
   hideEls: NodeListOf<Element>,
@@ -246,9 +246,9 @@ function onRenderSuccess(
   // rejection — endExport() has to run on every path or the map stays
   // locked behind the blocker overlay.
   void this.finishExport(canvas);
-}
+};
 
-async function finishExport(this: ExportManager, canvas: HTMLCanvasElement) {
+const finishExport = async function (this: ExportManager, canvas: HTMLCanvasElement) {
   const name = CONF.filename || "map";
   try {
     // Encode once into a Blob shared by the preview and the download. The
@@ -285,7 +285,7 @@ async function finishExport(this: ExportManager, canvas: HTMLCanvasElement) {
   } finally {
     this.endExport();
   }
-}
+};
 
 /**
  * Start the download, claiming the 100 the user expects on the way in.
@@ -295,14 +295,14 @@ async function finishExport(this: ExportManager, canvas: HTMLCanvasElement) {
  * actually going out, and the label shown in the meantime says what the
  * browser is doing.
  */
-function claimDownload(this: ExportManager, blob: Blob, filename: string) {
+const claimDownload = function (this: ExportManager, blob: Blob, filename: string) {
   this.showGlobalHint(formatProgress(100), HINT_DURATION.PERSIST, true);
   download(blob, filename);
-}
+};
 
 /** Show the transient preview overlay for an encoded export artifact.
  *  Click to dismiss early, otherwise auto-dismiss after SHORT. */
-function showPreview(this: ExportManager, blob: Blob) {
+const showPreview = function (this: ExportManager, blob: Blob) {
   const prevImg = document.createElement("img");
   prevImg.src = URL.createObjectURL(blob);
   prevImg.className = CONST.CLASSES.PREVIEW;
@@ -314,18 +314,18 @@ function showPreview(this: ExportManager, blob: Blob) {
   };
   prevImg.addEventListener("click", dismissPreview);
   setTimeout(dismissPreview, HINT_DURATION.SHORT);
-}
+};
 
 /** Release the export state: unlock interaction, emit AFTER_EXPORT, remove
  *  the blocker overlay. Runs on both the success and failure paths —
  *  forgetting it strands `isExporting === true` with map interaction
  *  disabled and the overlay still on screen. */
-function endExport(this: ExportManager) {
+const endExport = function (this: ExportManager) {
   this.isExporting = false;
   this.modes.setMode(CONF.name, null);
   this.events.emit(EVENTS.AFTER_EXPORT, { component: CONF.name });
   this.removeExportOverlay();
-}
+};
 
 /**
  * Export a GeoTIFF file with embedded georeferencing.
@@ -333,7 +333,11 @@ function endExport(this: ExportManager) {
  * and ModelPixelScale tags for WGS84 (EPSG:4326).
  * Falls back to a plain image download if geo bounds are unavailable.
  */
-function downloadGeoTiff(this: ExportManager, canvas: HTMLCanvasElement, name: string) {
+const downloadGeoTiff = function (
+  this: ExportManager,
+  canvas: HTMLCanvasElement,
+  name: string,
+) {
   // doExport() clears cropState via removeCropBox() before the render
   // callback fires, so cropState.geoBounds is gone by the time we
   // reach downloadGeoTiff.  Use the geoBounds saved in doExport
@@ -400,10 +404,14 @@ function downloadGeoTiff(this: ExportManager, canvas: HTMLCanvasElement, name: s
 
   const blob = new Blob([tiffBuffer], { type: "image/tiff" });
   this.claimDownload(blob, `${name}.${CONST.FORMAT.geotiff.ext}`);
-}
+};
 
 /** Handle render failure. */
-function onRenderError(this: ExportManager, err: Error, hideEls: NodeListOf<Element>) {
+const onRenderError = function (
+  this: ExportManager,
+  err: Error,
+  hideEls: NodeListOf<Element>,
+) {
   hideEls.forEach(el => el.classList.remove(CONST.CLASSES.HIDDEN));
   this.modes.setMode(CONF.name, null);
   this.events.emit(EVENTS.AFTER_EXPORT, { component: CONF.name });
@@ -412,18 +420,18 @@ function onRenderError(this: ExportManager, err: Error, hideEls: NodeListOf<Elem
   log.error(`${T("err_render")}:`, err);
   this.showGlobalHint(T("status_fail") + (err.message || ""), HINT_DURATION.LONG);
   this.isExporting = false;
-}
+};
 
 /** Remove the physical export overlay to restore mouse interaction. */
-function removeExportOverlay(this: ExportManager) {
+const removeExportOverlay = function (this: ExportManager) {
   if (this.exportOverlay) {
     this.exportOverlay.remove();
     this.exportOverlay = null;
   }
-}
+};
 
 /** Method table installed on ExportManager.prototype. */
-export const sessionMethods = {
+const sessionMethods = {
   claimDownload,
   doExport,
   doRender,
@@ -437,4 +445,4 @@ export const sessionMethods = {
   showPreview,
 };
 
-export { canvasToBlob };
+export { canvasToBlob, sessionMethods };

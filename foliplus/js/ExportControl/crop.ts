@@ -1,13 +1,13 @@
 // ExportControl crop box editing — pointer drag, keyboard nudge, pixel limit.
-// Functions are bound onto ExportManager.prototype (this === manager) so
-// instance spies stay interceptable and bodies stay a pure move.
+// Function expressions are installed on ExportManager.prototype so `this` is
+// the manager and instance spies stay interceptable.
 import { type RafLoop, rafLoop } from "#common/rafLoop.js";
 import * as CONST from "./const.js";
 import { registerDrag } from "./interaction.js";
 import type { ExportManager } from "./manager.js";
 
 /** A screen-space rectangle. */
-export interface CropRect {
+interface CropRect {
   left: number;
   top: number;
   width: number;
@@ -15,19 +15,19 @@ export interface CropRect {
 }
 
 /** A lat/lng point. */
-export interface LatLngPoint {
+interface LatLngPoint {
   lat: number;
   lng: number;
 }
 
 /** Geo bounds for the crop area. */
-export interface GeoBounds {
+interface GeoBounds {
   nw: LatLngPoint;
   se: LatLngPoint;
 }
 
 /** Drag state for interactive crop box adjustment. */
-export interface DragState {
+interface DragState {
   dragging: boolean;
   dragType: string | null;
   lastX: number;
@@ -35,7 +35,7 @@ export interface DragState {
 }
 
 /** Crop box state machine. */
-export interface CropState {
+interface CropState {
   overlay: HTMLElement;
   box: HTMLElement;
   rect: CropRect;
@@ -58,20 +58,20 @@ const nudgeDirection = (key: string): { x: number; y: number } =>
           : { x: 0, y: 0 };
 
 /** True while the crop box is open and being edited (not locked). */
-function isEditing(this: ExportManager): boolean {
+const isEditing = function (this: ExportManager): boolean {
   return !!this.cropState && !this.cropState.locked;
-}
+};
 
 /** Apply a new rect: update state, box style, and (optionally) the size hint. */
-function applyRect(this: ExportManager, r: CropRect, withHint = true) {
+const applyRect = function (this: ExportManager, r: CropRect, withHint = true) {
   if (!this.cropState) return;
   this.cropState.rect = r;
   this.updateBoxStyle(this.cropState.box, r);
   if (withHint) this.showHintWithInfo(r, this.T("hint_unlocked"));
-}
+};
 
 /** Default centered crop box (same as the no-history branch of showCropBox). */
-function defaultRect(this: ExportManager): CropRect {
+const defaultRect = function (this: ExportManager): CropRect {
   const mapRect = this.mapContainer.getBoundingClientRect();
   const padW = mapRect.width * CONST.CROP.PADDING_RATIO;
   const padH = mapRect.height * CONST.CROP.PADDING_RATIO;
@@ -81,20 +81,20 @@ function defaultRect(this: ExportManager): CropRect {
     width: mapRect.width - padW * 2,
     height: mapRect.height - padH * 2,
   };
-}
+};
 
 /** Reset the unlocked crop box to the default centered size. */
-function resetCropBox(this: ExportManager) {
+const resetCropBox = function (this: ExportManager) {
   if (!this.isEditing()) return;
   this.applyRect(this.defaultRect());
-}
+};
 
 /** Apply an already-computed (possibly fractional) delta to the crop box.
  *  Used by the frame-aligned nudge loop: it floors the delta so the DOM
  *  position stays integral while the caller carries the decimal remainder in
  *  an accumulator — giving smooth continuous motion at a controlled speed.
  *  Clamps within the same map bounds as nudgeCropBox(). */
-function nudgeCropBoxDelta(this: ExportManager, dx: number, dy: number) {
+const nudgeCropBoxDelta = function (this: ExportManager, dx: number, dy: number) {
   const st = this.cropState;
   if (!st) return;
   const mapRect = this.nudgeMapRect ?? this.mapContainer.getBoundingClientRect();
@@ -103,31 +103,31 @@ function nudgeCropBoxDelta(this: ExportManager, dx: number, dy: number) {
   r.top = Math.max(0, Math.min(mapRect.height - r.height, r.top + Math.floor(dy)));
   st.box.classList.add(CONST.CLASSES.DRAGGING);
   this.applyRect(r, false);
-}
+};
 
 /** Nudge the unlocked crop box by NUDGE_STEP px in an arrow direction. */
-function nudgeCropBox(this: ExportManager, key: string) {
+const nudgeCropBox = function (this: ExportManager, key: string) {
   if (!this.isEditing()) return;
   const d = nudgeDirection(key);
   // Call through the instance so a test that replaces
   // manager.nudgeCropBoxDelta still intercepts.
   this.nudgeCropBoxDelta(d.x * CONST.CROP.NUDGE_STEP, d.y * CONST.CROP.NUDGE_STEP);
-}
+};
 
 /** Stop the smooth-nudge loop. Also clears the suppressed-transition
  *  class; when nudgeStart() re-creates a loop (direction switch) the very
  *  next sync tick re-adds it, so there is no visible flicker. */
-function nudgeStop(this: ExportManager) {
+const nudgeStop = function (this: ExportManager) {
   const loop = this.nudgeLoop;
   this.nudgeLoop = undefined;
   this.nudgeMapRect = undefined;
   this.nudgeActiveKey = undefined;
   this.cropState?.box.classList.remove(CONST.CLASSES.DRAGGING);
   loop?.stop();
-}
+};
 
 /** Start the smooth-nudge loop for a held arrow key. */
-function nudgeStart(this: ExportManager, key: string) {
+const nudgeStart = function (this: ExportManager, key: string) {
   if (!this.isEditing()) return;
   // Stop any loop running for a previous direction first, so holding Right
   // then pressing Up doesn't leave a stale loop nudging right for ~500ms.
@@ -191,18 +191,18 @@ function nudgeStart(this: ExportManager, key: string) {
     { scheduler: this.scheduler },
   );
   this.nudgeLoop.start(key);
-}
+};
 
 /** Check pixel limit and set pixelOverLimit flag. */
-function checkPixelLimit(this: ExportManager, r: CropRect) {
+const checkPixelLimit = function (this: ExportManager, r: CropRect) {
   // Pixel limit applies to the crop area itself (not scaled by export
   // DPI). The override of r.width/r.height happens in doRender, so the
   // check here matches the actual exported dimensions.
   const totalPixels = Math.round(r.width) * Math.round(r.height);
   this.pixelOverLimit = CONF.max_pixels != null && totalPixels > CONF.max_pixels;
-}
+};
 
-function onPointerDown(this: ExportManager, event: PointerEvent) {
+const onPointerDown = function (this: ExportManager, event: PointerEvent) {
   const st = this.cropState;
   if (!st || st.locked) return;
   const target = event.target as HTMLElement;
@@ -261,9 +261,9 @@ function onPointerDown(this: ExportManager, event: PointerEvent) {
   this.dragState.lastX = event.clientX;
   this.dragState.lastY = event.clientY;
   this.dragCleanup = registerDrag(this);
-}
+};
 
-function onPointerMove(this: ExportManager, event: PointerEvent) {
+const onPointerMove = function (this: ExportManager, event: PointerEvent) {
   const st = this.cropState;
   if (!st || !this.dragState.dragging) return;
   // Resolve the box before consuming the anchor: an event arriving after
@@ -313,9 +313,9 @@ function onPointerMove(this: ExportManager, event: PointerEvent) {
   this.updateBoxStyle(st.box, r);
   // Only update the hint when the size changes (resize), not on pure move
   if (type !== "move") this.showHintWithInfo(r, this.T("hint_unlocked"));
-}
+};
 
-function onPointerUp(this: ExportManager, event: PointerEvent) {
+const onPointerUp = function (this: ExportManager, event: PointerEvent) {
   const wasDragging = this.dragState.dragging;
   this.dragState.dragging = false;
   this.dragState.dragType = null;
@@ -349,18 +349,18 @@ function onPointerUp(this: ExportManager, event: PointerEvent) {
   if (wasDragging && this.cropState?.box) {
     this.cropState.box.classList.remove(CONST.CLASSES.DRAGGING);
   }
-}
+};
 
-function onPointerCancel(this: ExportManager, event: PointerEvent) {
+const onPointerCancel = function (this: ExportManager, event: PointerEvent) {
   // Fires when the browser takes the pointer away (touch pinch, an OS
   // drag, a browser gesture) and never delivers a matching pointerup.
   // Without this the gesture would leave `dragging` set and the listeners
   // registered, so the next drag inherited the stale lastX/lastY anchor
   // and its first move jumped.
   this.onPointerUp(event);
-}
+};
 
-function onKeyDown(this: ExportManager, event: KeyboardEvent) {
+const onKeyDown = function (this: ExportManager, event: KeyboardEvent) {
   if (event.key === "Escape") {
     if (this.cropState?.locked) this.unlockCropBox();
     else this.removeCropBox();
@@ -382,10 +382,10 @@ function onKeyDown(this: ExportManager, event: KeyboardEvent) {
       this.nudgeStart(event.key);
     }
   }
-}
+};
 
 /** Key release: restore the box transition suppressed during arrow-key nudging. */
-function onKeyUp(this: ExportManager, event: KeyboardEvent) {
+const onKeyUp = function (this: ExportManager, event: KeyboardEvent) {
   if (CONST.NUDGE_KEYS.includes(event.key)) {
     // Stop the smooth-nudge loop — keyup is the release signal. The rafLoop
     // keeps ticking at ~60Hz until stopped, so without this the box would
@@ -393,10 +393,10 @@ function onKeyUp(this: ExportManager, event: KeyboardEvent) {
     // suppressed-transition class, so there's nothing left to do here.
     this.nudgeStop();
   }
-}
+};
 
 /** Method table installed on ExportManager.prototype. */
-export const cropMethods = {
+const cropMethods = {
   applyRect,
   checkPixelLimit,
   defaultRect,
@@ -412,4 +412,13 @@ export const cropMethods = {
   onPointerMove,
   onPointerUp,
   resetCropBox,
+};
+
+export {
+  cropMethods,
+  type CropRect,
+  type CropState,
+  type DragState,
+  type GeoBounds,
+  type LatLngPoint,
 };

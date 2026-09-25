@@ -29,95 +29,9 @@ import {
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const T = createScopedTranslator(CONF);
 
-// Full instance surface. Merged with the class below so `this: ExportManager`
-// in crop/session/persistence typechecks across the import cycle.
-export interface ExportManager {
-  map: L.Map;
-  conf: ComponentConfig;
-  T: (key: string) => string;
-  modes: ModeManager;
-  events: EventBus;
-  dragCleanup?: () => void;
-  interactionCleanup?: () => void;
-  escapeCleanup?: () => void;
-  cropMousedownCleanup?: () => void;
-  mapContainer: HTMLElement;
-  cropState: CropState | null;
-  exportCtrl: HTMLElement | null;
-  exportToolBar: HTMLElement | null;
-  exportOverlay: HTMLElement | null;
-  isExporting: boolean;
-  pixelOverLimit: boolean;
-  lastScreenRect: CropRect | null;
-  savedBounds: SavedBounds | null;
-  lastTileFailures: TileLoadStats[] | null;
-  dragState: DragState;
-  nudgeLoop?: RafLoop;
-  nudgeMapRect?: DOMRect;
-  nudgeActiveKey?: string;
-  scheduler: (fn: () => void, ms: number) => ReturnType<typeof setTimeout>;
-  mapMoveCleanup: (() => void) | null;
-  showCropBox: () => void;
-  lockCropBox: (skipHint?: boolean) => void;
-  unlockCropBox: () => void;
-  removeCropBox: () => void;
-  updateBoxStyle: (el: HTMLElement, r: CropRect) => void;
-  showHintWithInfo: (r: CropRect, instruction?: string) => void;
-  showGlobalHint: (text: string, duration: number, withLoadingIcon?: boolean) => void;
-  onPointerDown(event: PointerEvent): void;
-  onPointerMove(event: PointerEvent): void;
-  onPointerUp(event: PointerEvent): void;
-  onPointerCancel(event: PointerEvent): void;
-  onKeyDown(event: KeyboardEvent): void;
-  onKeyUp(event: KeyboardEvent): void;
-  nudgeStart(key: string): void;
-  nudgeStop(): void;
-  isEditing(): boolean;
-  applyRect(r: CropRect, withHint?: boolean): void;
-  resetCropBox(): void;
-  nudgeCropBox(key: string): void;
-  nudgeCropBoxDelta(dx: number, dy: number): void;
-  defaultRect(): CropRect;
-  checkPixelLimit(r: CropRect): void;
-  loadSavedBounds(): void;
-  saveBounds(bounds: GeoBounds): void;
-  restoreFromSavedBounds(): void;
-  onMapChange(skipHint?: boolean): void;
-  lockMap(): void;
-  unlockMap(): void;
-  doExport(): void;
-  doRender(
-    r: CropRect,
-    scaleValue: number,
-    bg: string | undefined,
-    geoBounds: GeoBounds | undefined,
-    onProgress?: (percent: number) => void,
-  ): Promise<void>;
-  enlargeAndRender(
-    r: CropRect,
-    scaleValue: number,
-    bg: string | undefined,
-    geoBounds: GeoBounds,
-    vpW: number,
-    vpH: number,
-    onProgress?: (percent: number) => void,
-  ): void;
-  onRenderSuccess(canvas: HTMLCanvasElement, hideEls: NodeListOf<Element>): void;
-  finishExport(canvas: HTMLCanvasElement): Promise<void>;
-  claimDownload(blob: Blob, filename: string): void;
-  showPreview(blob: Blob): void;
-  endExport(): void;
-  downloadGeoTiff(canvas: HTMLCanvasElement, name: string): void;
-  onRenderError(err: Error, hideEls: NodeListOf<Element>): void;
-  removeExportOverlay(): void;
-  attachUI(ctrl: HTMLElement, toolBar: HTMLElement): void;
-  registerShortcuts(): void;
-  unregisterShortcuts(): void;
-}
-
 // ==================== ExportManager ====================
 
-export class ExportManager {
+class ExportManager {
   map: L.Map;
   /** Component config — carried on the instance so the UI modules read it
    *  from `mgr.conf` instead of a module-level free variable. */
@@ -170,6 +84,59 @@ export class ExportManager {
     duration: number,
     withLoadingIcon?: boolean,
   ) => void;
+
+  // Method bodies live in crop.ts / session.ts / persistence.ts and are
+  // installed via Object.assign below. Declared here so the class type
+  // matches the pre-split public surface.
+  declare onPointerDown: (event: PointerEvent) => void;
+  declare onPointerMove: (event: PointerEvent) => void;
+  declare onPointerUp: (event: PointerEvent) => void;
+  declare onPointerCancel: (event: PointerEvent) => void;
+  declare onKeyDown: (event: KeyboardEvent) => void;
+  declare onKeyUp: (event: KeyboardEvent) => void;
+  declare nudgeStart: (key: string) => void;
+  declare nudgeStop: () => void;
+  declare isEditing: () => boolean;
+  declare applyRect: (r: CropRect, withHint?: boolean) => void;
+  declare resetCropBox: () => void;
+  declare nudgeCropBox: (key: string) => void;
+  declare nudgeCropBoxDelta: (dx: number, dy: number) => void;
+  declare defaultRect: () => CropRect;
+  declare checkPixelLimit: (r: CropRect) => void;
+  declare loadSavedBounds: () => void;
+  declare saveBounds: (bounds: GeoBounds) => void;
+  declare restoreFromSavedBounds: () => void;
+  declare onMapChange: (skipHint?: boolean) => void;
+  declare lockMap: () => void;
+  declare unlockMap: () => void;
+  declare doExport: () => void;
+  declare doRender: (
+    r: CropRect,
+    scaleValue: number,
+    bg: string | undefined,
+    geoBounds: GeoBounds | undefined,
+    onProgress?: (percent: number) => void,
+  ) => Promise<void>;
+  declare enlargeAndRender: (
+    r: CropRect,
+    scaleValue: number,
+    bg: string | undefined,
+    geoBounds: GeoBounds,
+    vpW: number,
+    vpH: number,
+    onProgress?: (percent: number) => void,
+  ) => void;
+  declare onRenderSuccess: (
+    canvas: HTMLCanvasElement,
+    hideEls: NodeListOf<Element>,
+  ) => void;
+  declare finishExport: (canvas: HTMLCanvasElement) => Promise<void>;
+  declare claimDownload: (blob: Blob, filename: string) => void;
+  declare showPreview: (blob: Blob) => void;
+  declare endExport: () => void;
+  declare downloadGeoTiff: (canvas: HTMLCanvasElement, name: string) => void;
+  declare onRenderError: (err: Error, hideEls: NodeListOf<Element>) => void;
+  declare removeExportOverlay: () => void;
 
   constructor(
     mapInstance: L.Map,
@@ -238,4 +205,4 @@ export class ExportManager {
 // identical to the pre-split class methods.
 Object.assign(ExportManager.prototype, cropMethods, persistenceMethods, sessionMethods);
 
-export { type CropRect, canvasToBlob };
+export { type CropRect, ExportManager, canvasToBlob };

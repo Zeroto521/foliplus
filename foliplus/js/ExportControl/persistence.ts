@@ -1,25 +1,25 @@
 // ExportControl bounds persistence + map lock — storage restore/save and pan/zoom freeze.
-// Functions are bound onto ExportManager.prototype (this === manager) so
-// instance spies stay interceptable and bodies stay a pure move.
+// Function expressions are installed on ExportManager.prototype so `this` is
+// the manager and instance spies stay interceptable.
 import { COORD_BOUNDS } from "#core/geo/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { createScopedTranslator } from "#common/locale.js";
 import * as Storage from "#common/storage.js";
 import { nextFrame } from "#common/throttle.js";
 import * as CONST from "./const.js";
-import type { CropRect, GeoBounds, LatLngPoint } from "./crop.js";
+import type { GeoBounds, LatLngPoint } from "./crop.js";
 import type { ExportManager } from "./manager.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const T = createScopedTranslator(CONF);
 
 /** Loaded saved bounds from storage. */
-export interface SavedBounds {
+interface SavedBounds {
   nw: LatLngPoint;
   se: LatLngPoint;
 }
 
-function loadSavedBounds(this: ExportManager) {
+const loadSavedBounds = function (this: ExportManager) {
   const data = Storage.loadRecord<SavedBounds | null>(CONST.STORAGE.KEY, CONF.name);
   if (!data || !data.nw || !data.se) return;
   const nw = data.nw;
@@ -43,9 +43,9 @@ function loadSavedBounds(this: ExportManager) {
     se.lng >= mapB.getWest();
   if (!overlap) return;
   this.savedBounds = data;
-}
+};
 
-function saveBounds(this: ExportManager, bounds: GeoBounds) {
+const saveBounds = function (this: ExportManager, bounds: GeoBounds) {
   Storage.saveRecord(
     CONST.STORAGE.KEY,
     {
@@ -54,10 +54,10 @@ function saveBounds(this: ExportManager, bounds: GeoBounds) {
     },
     CONF.name,
   );
-}
+};
 
 /** Restore and lock crop box from saved geo bounds. */
-function restoreFromSavedBounds(this: ExportManager) {
+const restoreFromSavedBounds = function (this: ExportManager) {
   this.showCropBox();
   nextFrame(() => {
     if (!this.cropState || this.cropState.locked) return;
@@ -69,15 +69,15 @@ function restoreFromSavedBounds(this: ExportManager) {
     this.lockCropBox(true);
     map.foliplus!.showHint(CONF.name, T("hint_restore"), HINT_DURATION.MEDIUM, true);
   });
-}
+};
 
-function onMapChange(this: ExportManager, skipHint?: boolean) {
+const onMapChange = function (this: ExportManager, skipHint?: boolean) {
   if (!this.cropState || !this.cropState.locked) return;
   const nw = this.cropState.geoBounds!.nw;
   const se = this.cropState.geoBounds!.se;
   const tl = this.map.latLngToContainerPoint(L.latLng(nw.lat, nw.lng));
   const br = this.map.latLngToContainerPoint(L.latLng(se.lat, se.lng));
-  const newRect: CropRect = {
+  const newRect = {
     left: tl.x,
     top: tl.y,
     width: Math.abs(br.x - tl.x),
@@ -89,12 +89,12 @@ function onMapChange(this: ExportManager, skipHint?: boolean) {
   this.checkPixelLimit(newRect);
   // Update hint text on zoom (rect changes), skip on pan (rect unchanged).
   if (!skipHint) this.showHintWithInfo(newRect, T("hint_locked"));
-}
+};
 
 /** Disable map interactions while an export is in progress to prevent
  *  pan/zoom from shifting layer positions mid-render (which caused
  *  offset or clipped exports). */
-function lockMap(this: ExportManager) {
+const lockMap = function (this: ExportManager) {
   if (!this.map) return;
   this.map.dragging.disable();
   this.map.scrollWheelZoom.disable();
@@ -102,10 +102,10 @@ function lockMap(this: ExportManager) {
   this.map.boxZoom.disable();
   this.map.keyboard.disable();
   this.map.touchZoom.disable();
-}
+};
 
 /** Restore map interactions after export. */
-function unlockMap(this: ExportManager) {
+const unlockMap = function (this: ExportManager) {
   if (!this.map) return;
   this.map.dragging.enable();
   this.map.scrollWheelZoom.enable();
@@ -113,10 +113,10 @@ function unlockMap(this: ExportManager) {
   this.map.boxZoom.enable();
   this.map.keyboard.enable();
   this.map.touchZoom.enable();
-}
+};
 
 /** Method table installed on ExportManager.prototype. */
-export const persistenceMethods = {
+const persistenceMethods = {
   loadSavedBounds,
   lockMap,
   onMapChange,
@@ -124,3 +124,5 @@ export const persistenceMethods = {
   saveBounds,
   unlockMap,
 };
+
+export { persistenceMethods, type SavedBounds };
