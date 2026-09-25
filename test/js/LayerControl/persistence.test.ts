@@ -402,6 +402,79 @@ describe("LayerPersistence", () => {
       });
     });
 
+    it("keeps the fill colour and opacity the user set, with provenance", () => {
+      seedStorage({
+        layers: {
+          a: { fillColor: "#ff0000", overrides: ["fillColor"] },
+          b: { fillOpacity: 0.4, overrides: ["fillOpacity"] },
+          c: {
+            fillColor: "#00ff00",
+            fillOpacity: 0.6,
+            overrides: ["fillColor", "fillOpacity"],
+          },
+        },
+      });
+      expect(makePersistence().load().layers).toEqual({
+        a: { fillColor: "#ff0000", overrides: ["fillColor"] },
+        b: { fillOpacity: 0.4, overrides: ["fillOpacity"] },
+        c: {
+          fillColor: "#00ff00",
+          fillOpacity: 0.6,
+          overrides: ["fillColor", "fillOpacity"],
+        },
+      });
+    });
+
+    it("drops fill colours that are not #rgb or #rrggbb hex", () => {
+      seedStorage({
+        layers: {
+          a: { fillColor: "red", overrides: ["fillColor"] },
+          b: { fillColor: "#ff00", overrides: ["fillColor"] },
+          c: { fillColor: 42, overrides: ["fillColor"] },
+          d: { fillColor: "#123456", overrides: ["fillColor"] },
+          e: { fillColor: "#fff", overrides: ["fillColor"] },
+        },
+      });
+      // a, b and c cannot feed <input type=color>; d and e are valid hex.
+      expect(makePersistence().load().layers).toEqual({
+        d: { fillColor: "#123456", overrides: ["fillColor"] },
+        e: { fillColor: "#fff", overrides: ["fillColor"] },
+      });
+    });
+
+    it("drops fill opacities outside the valid range", () => {
+      seedStorage({
+        layers: {
+          a: { fillOpacity: 2, overrides: ["fillOpacity"] },
+          b: { fillOpacity: -0.1, overrides: ["fillOpacity"] },
+          c: { fillOpacity: "high", overrides: ["fillOpacity"] },
+          d: { fillOpacity: NaN, overrides: ["fillOpacity"] },
+          e: { fillOpacity: 0.5, overrides: ["fillOpacity"] },
+        },
+      });
+      expect(makePersistence().load().layers).toEqual({
+        e: { fillOpacity: 0.5, overrides: ["fillOpacity"] },
+      });
+    });
+
+    it("drops a fill override whose value fails validation", () => {
+      seedStorage({
+        layers: {
+          a: { fillColor: "not-a-color", overrides: ["fillColor"] },
+          b: {
+            fillColor: "#abcdef",
+            fillOpacity: 3,
+            overrides: ["fillColor", "fillOpacity"],
+          },
+          c: { visible: false, fillColor: "x", overrides: ["visible", "fillColor"] },
+        },
+      });
+      expect(makePersistence().load().layers).toEqual({
+        b: { fillColor: "#abcdef", overrides: ["fillColor"] },
+        c: { visible: false, overrides: ["visible"] },
+      });
+    });
+
     it("drops an entry that loses every dimension to validation", () => {
       // One bad dimension must not sink the good one: a and b survive, c does
       // not, so the record cannot keep provenance for a value it lost.
