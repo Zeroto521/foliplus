@@ -8,23 +8,26 @@
 // straight to the layer because `setStyle` is a direct Leaflet API call,
 // not a projection of a stored intent.
 //
-// Gate (§5.4 honest degradation): only layers whose surface resolves to a
-// pane carrier for BOTH opacity and zoom range get a fill row — those are
-// the vector shapes (Polygon, Polyline, Circle, Rectangle, GeoJSON) whose
-// leaves genuinely expose `setStyle`. Canvas layers (heatmap / measure) and
-// third-party delegated drawers are excluded by construction; base maps,
-// MarkerCluster, GridLayer, and ImageOverlay fall out of the capability
-// check.
+// Gate (§5.4 honest degradation): only AREAL vector layers get a fill row —
+// the surface must resolve to a pane carrier for BOTH opacity and zoom range
+// (the vector-shape population), and the layer tree must actually contain a
+// polygon leaf. PolyLine has a stroke but no fill concept, so it falls out:
+// a fill row there would write a value with no visual effect. Canvas layers
+// (heatmap / measure) and third-party delegated drawers are excluded by
+// construction; base maps, MarkerCluster, GridLayer, and ImageOverlay fall
+// out of the capability check.
 //
 // UI chrome: shared `form.colorInput` + `bindLiveColor`, the same recipe as
 // the HeatmapControl border row and the annotation label row — one
 // <input type=color> inside a FORM_ROW, no reset button on the row itself
 // (the panel-wide Reset handles it, the way label colour has it).
+import { GEOM_TYPE, type LayerInfo } from "#core/layer/index.js";
 import { dom } from "#common/dom.js";
 import {
   bindLiveColor,
   bindLiveNumber,
   colorInput as formColorInput,
+  formRow,
   inlineControls,
   normalizeHexColor,
   numberInput,
@@ -32,6 +35,7 @@ import {
 import * as CONST from "../../const.js";
 import type { LayerUI } from "../index.js";
 import { markOverride, saveState, unmarkOverride } from "../state.js";
+import { type StyleSetter, isStyleSetter, pinStyleOnHighlight } from "./pin.js";
 
 /** Default paint the swatch shows when no fill has been committed yet.
  *  Matches Leaflet's own `fillColor` default, so the first write the user
@@ -67,14 +71,34 @@ type StyleCarrier = L.Layer & {
  *  `zoomRange` does not is a solid-color basemap, which owns a single
  *  background pane rather than vector shapes and has no `fill` axis at
  *  all. The double check reads the capability honestly rather than
- *  special-casing the basemap id. */
+ *  special-casing the basemap id.
+ *
+ *  The third gate narrows the row to areal layers: only polygon leaves
+ *  (Polygon / Rectangle / Circle / CircleMarker) carry a fill, so a PolyLine
+ *  — which also passes the capability check — must not get a row that would
+ *  write a value with no visual effect. A mixed GeoJSON keeps the row when
+ *  at least one leaf is a polygon (the write reaches exactly those leaves). */
+const hasFillGeometry = (ui: LayerUI, li: LayerInfo): boolean => {
+  const type = ui.m.surfaceFor(li).geometryType();
+  if (type === GEOM_TYPE.POLYGON) return true;
+  if (type !== GEOM_TYPE.UNKNOWN) return false;
+  const layer = li.layer as StyleCarrier | null;
+  if (!layer) return false;
+  let found = false;
+  walkStyleLeaves(layer, leaf => {
+    if (leaf instanceof L.Polygon) found = true;
+  });
+  return found;
+};
+
 const layerCanFill = (ui: LayerUI, layerId: string): boolean => {
   const li = ui.m.layerRegistry.get(layerId);
   if (!li) return false;
   if (li.canvas) return false;
   if (li.styleSetters) return false;
   const caps = ui.m.surfaceFor(li).capabilities;
-  return caps.opacity === "pane" && caps.zoomRange === "pane";
+  if (!(caps.opacity === "pane" && caps.zoomRange === "pane")) return false;
+  return hasFillGeometry(ui, li);
 };
 
 /** The layer's authored base style, captured on the layer's first fill
@@ -96,21 +120,70 @@ const authorFillBase = new WeakMap<
   { fillColor: string | null; fillOpacity: number | null }
 >();
 
-/** Leaflet's own default `fillColor` for vector paths. folium's default
- *  style function always populates `options.fillColor` (it translates
+/** Leaflet's own default `fillColor` for vector paths, and the swatch's last
+ *  resort when no leaf exposes an authored colour. folium's default style
+ *  function always populates `options.fillColor` (it translates
  *  `__folium_color` through `feature.properties.style`), so this only fires
  *  for bare Leaflet layers with no style function at all. */
 const LEAFLET_DEFAULT_FILL = "#3388ff";
+
+/** Normalise a colour for `<input type=color>`, which only accepts hex.
+ *  3-digit hex passes through `normalizeHexColor`; named and functional
+ *  colours (folium's `fillColor: "gray"`) are resolved by the browser —
+ *  jsdom cannot parse them and falls back to `#000000`, which is the
+ *  accepted degradation in unit tests; the real picker shows the resolved
+ *  hex. */
+const toHexColor = (value: string): string => {
+  if (/^#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(value)) return normalizeHexColor(value);
+  const probe = document.createElement("input");
+  probe.type = "color";
+  probe.value = value;
+  const hex = probe.value;
+  return /^#[0-9a-fA-F]{6}$/.test(hex) ? hex : FILL_COLOR_DEFAULT;
+};
+
+/** The layer's authored fill colour — the first style leaf's `options.fillColor`,
+ *  or Leaflet's default when nothing is declared. Mirrors the border row's
+ *  `authoredBorder`: the swatch shows what the layer is actually painting on
+ *  first open, not a constant. */
+const authoredFillColor = (ui: LayerUI, layerId: string): string => {
+  const li = ui.m.layerRegistry.get(layerId);
+  const layer = li?.layer as StyleCarrier | null;
+  if (!layer) return LEAFLET_DEFAULT_FILL;
+  let authored: string | null = null;
+  walkStyleLeaves(layer, leaf => {
+    if (authored === null && leaf.options?.fillColor != null) {
+      authored = leaf.options.fillColor;
+    }
+  });
+  return authored ?? LEAFLET_DEFAULT_FILL;
+};
 
 /** A visible `fillOpacity` used when the author set the fill to 0 (hollow).
  *  Without it a colour change is invisible — the `fill` attribute updates but
  *  `fill-opacity="0"` hides it. 0.2 matches Leaflet's own default. */
 const VISIBLE_FILL_OPACITY = 0.2;
 
-/** Tracks leaves that already have the fill-reapply listener attached.
- *  Without this guard every `applyFillToLayer` call would add another
- *  listener, and each `mouseout` would trigger O(n) redundant walks. */
-const fillReapplyListenerAdded = new WeakSet<StyleCarrier>();
+/** Visit every leaf that exposes a runtime style-setter. Groups (LayerGroup,
+ *  folium GeoJson) expose `setStyle` too, but they are walked down instead:
+ *  the mouseout events fire on the leaf paths (never on the group), and the
+ *  authored base is per leaf — one layer-wide base would erase the author's
+ *  per-feature choice. The callback receives a leaf whose `setStyle` is
+ *  guaranteed present, so it can call it without a `typeof` dance. */
+const walkStyleLeaves = (
+  node: StyleCarrier,
+  fn: (
+    leaf: StyleCarrier & { setStyle: (style: Record<string, unknown>) => void },
+  ) => void,
+): void => {
+  if (typeof node.eachLayer === "function") {
+    node.eachLayer(child => walkStyleLeaves(child as StyleCarrier, fn));
+    return;
+  }
+  if (typeof node.setStyle === "function") {
+    fn(node as StyleCarrier & { setStyle: (style: Record<string, unknown>) => void });
+  }
+};
 
 const captureBase = (
   node: StyleCarrier,
@@ -145,43 +218,28 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
   const color = ui.fillColorMap[layerId];
   const opacity = ui.fillOpacityMap[layerId];
   if (color === undefined && opacity === undefined) return;
-  const walk = (node: StyleCarrier): void => {
-    // Recurse into groups FIRST: a LayerGroup (folium GeoJson) exposes
-    // `setStyle` too, but the mouseout events fire on the leaf paths, not on
-    // the group — so the reapply listener must live on each leaf.
-    if (typeof node.eachLayer === "function") {
-      node.eachLayer(child => walk(child as StyleCarrier));
-      return;
-    }
-    if (typeof node.setStyle === "function") {
-      captureBase(node);
-      const style: Record<string, unknown> = {};
-      if (color !== undefined) style.fillColor = color;
-      if (opacity !== undefined) style.fillOpacity = opacity;
-      node.setStyle(style);
+  walkStyleLeaves(layer, node => {
+    captureBase(node);
+    const style: Record<string, unknown> = {};
+    if (color !== undefined) style.fillColor = color;
+    if (opacity !== undefined) style.fillOpacity = opacity;
+    node.setStyle(style);
 
-      // Folium's highlight_on_hover restores the original style on mouseout.
-      // Reapply the user's fill after folium's handler fires so the colour
-      // survives the hover. One listener per leaf, guarded by WeakSet.
-      if (typeof node.on === "function" && !fillReapplyListenerAdded.has(node)) {
-        fillReapplyListenerAdded.add(node);
-        // Leaflet's setStyle reads `this.options`, so the detached reference
-        // must stay bound to its layer (a bare `node.setStyle(s)` call inside
-        // the closure would run with `this === undefined`).
-        const setStyle = node.setStyle.bind(node);
-        node.on("mouseout", () => {
-          const c = ui.fillColorMap[layerId];
-          const o = ui.fillOpacityMap[layerId];
-          if (c === undefined && o === undefined) return;
-          const s: Record<string, unknown> = {};
-          if (c !== undefined) s.fillColor = c;
-          if (o !== undefined) s.fillOpacity = o;
-          setStyle(s);
-        });
-      }
+    // Folium's highlight_on_hover restores the original style on mouseout;
+    // pinStyleOnHighlight reapplies the user's fill after folium's handler
+    // fires so the colour survives the hover.
+    if (isStyleSetter(node)) {
+      pinStyleOnHighlight(node, () => {
+        const c = ui.fillColorMap[layerId];
+        const o = ui.fillOpacityMap[layerId];
+        if (c === undefined && o === undefined) return null;
+        const s: Record<string, unknown> = {};
+        if (c !== undefined) s.fillColor = c;
+        if (o !== undefined) s.fillOpacity = o;
+        return s;
+      });
     }
-  };
-  walk(layer);
+  });
 };
 
 /** Write the colour into the map, persist it, and mark the dimension as
@@ -206,25 +264,14 @@ const commitFillColor = (ui: LayerUI, layerId: string, rawColor: string): void =
     const li = ui.m.layerRegistry.get(layerId);
     const layer = li?.layer as StyleCarrier | null;
     if (layer) {
-      const walk = (node: StyleCarrier): boolean => {
-        if (typeof node.setStyle === "function") {
-          if (node.options?.fillOpacity === 0) {
-            ui.fillOpacityMap[layerId] = VISIBLE_FILL_OPACITY;
-            markOverride(ui, layerId, "fillOpacity");
-            return true;
-          }
-          return false;
-        }
-        if (typeof node.eachLayer === "function") {
-          let found = false;
-          node.eachLayer(child => {
-            found = found || walk(child as StyleCarrier);
-          });
-          return found;
-        }
-        return false;
-      };
-      walk(layer);
+      let hollow = false;
+      walkStyleLeaves(layer, node => {
+        if (node.options?.fillOpacity === 0) hollow = true;
+      });
+      if (hollow) {
+        ui.fillOpacityMap[layerId] = VISIBLE_FILL_OPACITY;
+        markOverride(ui, layerId, "fillOpacity");
+      }
     }
   }
 
@@ -266,33 +313,32 @@ const resetLayerFill = (ui: LayerUI, layerId: string): void => {
   const li = ui.m.layerRegistry.get(layerId);
   const layer = li?.layer as StyleCarrier | null;
   if (!layer) return;
-  const walk = (node: StyleCarrier): void => {
-    if (typeof node.setStyle === "function") {
-      const base = authorFillBase.get(node);
-      if (base) {
-        const style: Record<string, unknown> = { fillColor: base.fillColor };
-        if (base.fillOpacity !== null) {
-          style.fillOpacity = base.fillOpacity;
-        }
-        node.setStyle(style);
+  walkStyleLeaves(layer, node => {
+    const base = authorFillBase.get(node);
+    if (base) {
+      const style: Record<string, unknown> = { fillColor: base.fillColor };
+      if (base.fillOpacity !== null) {
+        style.fillOpacity = base.fillOpacity;
       }
-    } else if (typeof node.eachLayer === "function") {
-      node.eachLayer(child => walk(child as StyleCarrier));
+      node.setStyle(style);
     }
-  };
-  walk(layer);
+  });
 };
 
 /** Build the fill form row: colour swatch + fill-opacity number input.
  *  Both controls live inside one FORM_CONTROL via `inlineControls`, so the
  *  row's width matches the border-weight row (colour + number).
  *
- *  The opacity input's initial value is the author's `options.fillOpacity`
- *  (captured from the first leaf if available), or 0.2 (Leaflet's default)
- *  if the layer hasn't been registered yet. */
+ *  The swatch shows the stored choice, falling back to the layer's authored
+ *  fill colour — never a constant — so the row reflects what the layer is
+ *  actually painting on first open, and named authored colours are resolved
+ *  to the hex the picker can display. The opacity input's initial value is
+ *  the author's `options.fillOpacity` (captured from the first leaf if
+ *  available), or 0.2 (Leaflet's default) if the layer hasn't been
+ *  registered yet. */
 const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
   const storedColor = ui.fillColorMap[layerId];
-  const color = storedColor ?? FILL_COLOR_DEFAULT;
+  const color = toHexColor(storedColor ?? authoredFillColor(ui, layerId));
   const colorInput = formColorInput({
     value: color,
     className: CONST.CLASSES.STYLE_FILL_COLOR_INPUT,
@@ -310,15 +356,10 @@ const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
     ariaLabel: ui.T("style_fill_opacity"),
   }) as HTMLInputElement;
 
-  return dom.el(
-    "div",
-    { class: `${CONST.CLASSES.FORM_ROW} ${CONST.CLASSES.STYLE_FILL_ROW}` },
-    dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("style_fill")),
-    dom.el(
-      "div",
-      { class: CONST.CLASSES.FORM_CONTROL },
-      inlineControls(colorInput, opacityInput),
-    ),
+  return formRow(
+    ui.T("style_fill"),
+    inlineControls(colorInput, opacityInput),
+    CONST.CLASSES.STYLE_FILL_ROW,
   );
 };
 

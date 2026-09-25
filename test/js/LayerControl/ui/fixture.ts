@@ -26,30 +26,34 @@ const makePane = () => {
   }
 };
 
+// Module-level stub classes, assigned to window.L by installLeafletGlobals.
+// Defined ONCE so repeated installs keep the same class identity — a layer
+// created between installs must still satisfy `instanceof L.Polygon`.
+class Renderer {}
+
+class Path {
+  options = {};
+}
+
+class Polygon {
+  options = {};
+}
+
+class Polyline {
+  options = {};
+}
+
+class Marker {}
+
+class CircleMarker {
+  constructor(_latlng: unknown, _opts: unknown) {}
+  addTo(_map: unknown) {
+    return this;
+  }
+}
+
 /** Populate window.L with the stubs LayerManager / PaneManager expect. */
 const installLeafletGlobals = () => {
-  class Renderer {}
-
-  class Path {
-    options = {};
-  }
-
-  class Polygon {
-    options = {};
-  }
-
-  class Polyline {
-    options = {};
-  }
-
-  class Marker {}
-
-  class CircleMarker {
-    constructor(_latlng: unknown, _opts: unknown) {}
-    addTo(_map: unknown) {
-      return this;
-    }
-  }
   const stamp = (() => {
     let id = 0;
     return vi.fn(() => ++id);

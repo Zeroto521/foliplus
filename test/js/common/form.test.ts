@@ -5,6 +5,7 @@ import {
   bindLiveNumber,
   clampLabelSize,
   colorInput,
+  formRow,
   inlineControls,
   normalizeHexColor,
   numberInput,
@@ -64,6 +65,23 @@ describe("colorInput / numberInput / inlineControls", () => {
     const row = inlineControls(color, num);
     expect(row.className).toBe("foliplus-form-inline");
     expect(row.children.length).toBe(2);
+  });
+
+  it("formRow assembles the shared row chrome (label + control cell)", () => {
+    const control = inlineControls(
+      colorInput({}),
+      numberInput({ value: 5, min: 0, max: 10 }),
+    );
+    const row = formRow("Fill Colour", control, "row-extra");
+
+    expect(row.className).toBe("foliplus-form-row row-extra");
+    const label = row.querySelector(".foliplus-form-label");
+    expect(label?.textContent).toBe("Fill Colour");
+    const cell = row.querySelector(".foliplus-form-control");
+    expect(cell?.firstElementChild?.className).toBe("foliplus-form-inline");
+
+    const bare = formRow("Plain", document.createElement("input"));
+    expect(bare.className).toBe("foliplus-form-row");
   });
 });
 

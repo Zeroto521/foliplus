@@ -12,18 +12,26 @@ import {
   replayFillState,
   resetLayerFill,
 } from "#foliplus/LayerControl/ui/style/fill.js";
-import { findItem, initFixture } from "../fixture.js";
+import { findItem, initFixture, installLeafletGlobals } from "../fixture.js";
 
-/** A layer duck with a real setStyle spy and a set of child leaves each with
- *  their own setStyle. The parent's eachLayer callback dispatches to each
- *  child, matching how Leaflet LayerGroup.setStyle walks its tree. */
+/** A layer duck with a real setStyle spy and a set of polygon leaves each
+ *  with their own setStyle. The leaves are `L.Polygon` instances so the areal
+ *  gate in `layerCanFill` admits the layer. The parent's eachLayer callback
+ *  dispatches to each child, matching how Leaflet LayerGroup.setStyle walks
+ *  its tree. */
 const makeFillableLayer = () => {
-  const leaves: {
-    options: { fillColor?: string; fillOpacity?: number };
-    setStyle: ReturnType<typeof vi.fn>;
-  }[] = [
-    { options: { fillColor: "#aabbcc", fillOpacity: 0.5 }, setStyle: vi.fn() },
-    { options: { fillColor: "#ddeeff", fillOpacity: 0.7 }, setStyle: vi.fn() },
+  const makeLeaf = (options: { fillColor?: string; fillOpacity?: number }) => {
+    const leaf = new L.Polygon() as L.Polygon & {
+      options: { fillColor?: string; fillOpacity?: number };
+      setStyle: ReturnType<typeof vi.fn>;
+    };
+    leaf.options = options;
+    leaf.setStyle = vi.fn();
+    return leaf;
+  };
+  const leaves = [
+    makeLeaf({ fillColor: "#aabbcc", fillOpacity: 0.5 }),
+    makeLeaf({ fillColor: "#ddeeff", fillOpacity: 0.7 }),
   ];
   const parent = {
     options: {},
@@ -43,6 +51,10 @@ const makeFillableLayer = () => {
 /** Build a LayerManager/UI fixture with a real fillable overlay layer
  *  registered under `overlay1`, replacing the fixture's bare polygon duck. */
 const initWithFillLayer = () => {
+  // Install the stub classes FIRST so `new L.Polygon()` below creates leaves
+  // of the same class identity the manager's checks use (repeated installs
+  // keep the module-level class, so initFixture does not invalidate them).
+  installLeafletGlobals();
   const fillLayer = makeFillableLayer();
   const { manager, ui, map } = initFixture({
     data: [
@@ -129,7 +141,9 @@ describe("LayerUI style panel — fill colour", () => {
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
 
-    expect(fillInput(item)!.value).toBe("#000000");
+    // No user fill yet — the swatch shows the layer's authored fill colour
+    // (the first polygon leaf's options.fillColor), not a constant.
+    expect(fillInput(item)!.value).toBe("#aabbcc");
   });
 
   it("reopening the panel seeds the swatch from fillColorMap", () => {
@@ -187,6 +201,71 @@ describe("LayerUI style panel — fill colour", () => {
 
   it("layerCanFill returns false when the layer is not in the registry", () => {
     expect(layerCanFill(ui, "not-a-real-layer")).toBe(false);
+  });
+
+  it("layerCanFill is false for a line layer — no fill concept", () => {
+    // A PolyLine passes the capability check (vector shape) but has no fill
+    // concept: a fill row there would write a value with no visual effect.
+    const line = new L.Polyline();
+    line.options = { color: "#000000", weight: 2 };
+    line.setStyle = vi.fn();
+    manager.registerLayer({
+      id: "line1",
+      name: "Line",
+      layer: line as never,
+    });
+    ui.fieldCache.set("line1", [{ name: "count", numeric: true }]);
+    expect(layerCanFill(ui, "line1")).toBe(false);
+
+    const item = findItem(ui, "line1");
+    ui.openStylePanel("line1");
+    expect(fillRow(item)).toBeNull();
+  });
+
+  it("layerCanFill is true for a mixed polygon+line layer with a polygon leaf", () => {
+    // A mixed GeoJSON keeps the row when at least one leaf can carry a fill;
+    // the write reaches exactly the polygon leaves.
+    const poly = new L.Polygon();
+    poly.options = { fillColor: "#ff0000" };
+    poly.setStyle = vi.fn();
+    const line = new L.Polyline();
+    line.options = { color: "#000000" };
+    line.setStyle = vi.fn();
+    const mixed = {
+      options: {},
+      eachLayer: vi.fn((fn: (child: unknown) => void) => {
+        fn(poly);
+        fn(line);
+      }),
+      getBounds: vi.fn(() => ({
+        isValid: vi.fn(() => true),
+        getSouthWest: vi.fn(() => ({ lat: 0, lng: 0 })),
+        getNorthEast: vi.fn(() => ({ lat: 1, lng: 1 })),
+      })),
+    };
+    manager.registerLayer({
+      id: "mixed1",
+      name: "Mixed",
+      layer: mixed as never,
+    });
+    ui.fieldCache.set("mixed1", [{ name: "count", numeric: true }]);
+    expect(layerCanFill(ui, "mixed1")).toBe(true);
+
+    const item = findItem(ui, "mixed1");
+    ui.openStylePanel("mixed1");
+    expect(fillRow(item)).not.toBeNull();
+  });
+
+  it("the swatch resolves a named authored colour through the browser probe", () => {
+    // jsdom cannot parse named colours and degrades to the default; the real
+    // picker resolves them (Chromium: "gray" → #808080). The important
+    // contract is that a non-hex authored value never reaches the input raw.
+    const fixture = initWithFillLayer();
+    fixture.fillLayer.leaves[0].options.fillColor = "gray";
+    fixture.ui.openStylePanel("overlay1");
+    const item = findItem(fixture.ui, "overlay1");
+    const value = fillInput(item)!.value;
+    expect(value).toMatch(/^#[0-9a-f]{6}$/);
   });
 
   it("the fill row is absent for a delegated drawer", () => {

@@ -73,6 +73,22 @@ const numberInput = (opts: {
 const inlineControls = (...children: HTMLElement[]): HTMLElement =>
   dom.el("div", { class: "foliplus-form-inline" }, ...children);
 
+/** One FORM_ROW: a right-aligned label plus a single control cell. Every
+ *  style-panel row is this shape — label colour+size, fill colour+opacity,
+ *  border colour+width, and the plain select/toggle rows — so the chrome
+ *  lives here instead of being hand-assembled at each call site. */
+const formRow = (
+  labelText: string,
+  control: HTMLElement,
+  rowClass?: string,
+): HTMLElement =>
+  dom.el(
+    "div",
+    { class: `foliplus-form-row${rowClass ? ` ${rowClass}` : ""}` },
+    dom.el("label", { class: "foliplus-form-label" }, labelText),
+    dom.el("div", { class: "foliplus-form-control" }, control),
+  );
+
 /** Live number input: apply in-range values on every keystroke; on commit
  *  (change) clamp into [min, max] and rewrite the field. Shared by border
  *  weight and label size so both behave identically. */
@@ -113,6 +129,7 @@ export {
   BORDER_WEIGHT,
   clampLabelSize,
   colorInput,
+  formRow,
   inlineControls,
   LABEL_COLOR_DEFAULT,
   LABEL_SIZE,

@@ -23,6 +23,7 @@ import {
   clampLabelSize,
   colorInput as formColorInput,
   numberInput as formNumberInput,
+  formRow,
   inlineControls,
   normalizeHexColor,
 } from "#common/form.js";
@@ -192,20 +193,7 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
       dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("style_label_field")),
       dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, fieldSelect),
     ),
-    dom.el(
-      "div",
-      { class: CONST.CLASSES.FORM_ROW },
-      dom.el(
-        "label",
-        { class: CONST.CLASSES.FORM_LABEL },
-        ui._("foliplus.label_style"),
-      ),
-      dom.el(
-        "div",
-        { class: CONST.CLASSES.FORM_CONTROL },
-        inlineControls(colorInput, sizeInput),
-      ),
-    ),
+    formRow(ui._("foliplus.label_style"), inlineControls(colorInput, sizeInput)),
     formatRow,
     dom.el(
       "div",
