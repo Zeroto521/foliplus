@@ -107,7 +107,7 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
       "free-standing list-cursor utility — keydown binding owned by the caller, no control in scope",
   },
   {
-    f: "ExportControl/manager.ts",
+    f: "ExportControl/session.ts",
     n: 1,
     pairedOff: 0,
     reason:
