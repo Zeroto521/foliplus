@@ -282,7 +282,9 @@ class ExportRenderer {
     return renderCanvasElement(this.container, rc, ce);
   }
 
-  private tilePositions(
+  /** Viewport-clip a tile list to the crop rect. Pure geometry — the class
+   *  entry point is a thin delegate of `renderer/tile.js:tilePositions`. */
+  tilePositions(
     rc: RenderCtx,
     tiles: import("./util.js").TileDesc[],
   ): TileDesc[] {
