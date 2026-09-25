@@ -125,4 +125,5 @@ const persistenceMethods = {
   unlockMap,
 };
 
-export { persistenceMethods, type SavedBounds };
+export { persistenceMethods };
+export type { SavedBounds };
