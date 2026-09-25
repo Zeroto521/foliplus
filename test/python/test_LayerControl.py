@@ -848,7 +848,7 @@ class TestLayerControlRendering:
     def test_zoom_range_row_css(self):
         """The row adds no styling of its own.
 
-        Coverage is a readout, not a recoloring: the dots' rings carry it (grey
+        Coverage is a readout, not a recoloring: the dots' rings carry it (gray
         where the range does not reach), so the rail stays accent and the text
         stays ink whatever the map's zoom is. The row keeps its hook class and
         the tooltip, nothing else.
@@ -4861,7 +4861,7 @@ class TestLayerControlBrowser:
             # the numbers the user reads.
             assert result["fillComputedBg"] != self._sample_token(
                 page, "--neutral-500"
-            ), "out of range must not grey the selection"
+            ), "out of range must not gray the selection"
             assert result["currentValueColor"] == self._sample_token(
                 page, "--text-primary"
             ), "out of range must not recolor the current level"

@@ -153,7 +153,7 @@ const CLASSES = {
   STYLE_ZOOM_RANGE_VAL: "foliplus-style-zoom-range-value",
   /** The round readouts on the rail: the map's two zoom limits (-min, -max) and
    *  the current level (-current). A dot's ring is accent where the layer
-   *  renders and grey where it does not. */
+   *  renders and gray where it does not. */
   STYLE_ZOOM_RANGE_DOT: "foliplus-style-zoom-range-dot",
   STYLE_ZOOM_RANGE_DOT_COVERED: "foliplus-style-zoom-range-dot-covered",
   /** Set on a value label whose mark is too close to a higher-priority one to

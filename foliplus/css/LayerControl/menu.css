@@ -109,7 +109,7 @@
      Muted ink, not `opacity`: these sit on an opaque menu surface, and a
      0.4-opacity row read as "the panel lost its background" rather than
      "this entry is unavailable" — for a hidden layer the Focus and Style
-     rows are both disabled, so half the menu went grey. Color is the
+     rows are both disabled, so half the menu went gray. Color is the
      disabled signal everywhere else in the control. */
   .foliplus-layer-more-menu li[disabled] {
     cursor: not-allowed;

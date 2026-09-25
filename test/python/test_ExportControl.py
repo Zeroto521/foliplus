@@ -1021,7 +1021,7 @@ class TestExportControlBrowser:
             # fill (the container's computed backgroundColor), so the source
             # annotation color is blended. Instead of matching the source
             # color, check that the export canvas has non-background pixels —
-            # pixels that differ significantly from the grey background. The
+            # pixels that differ significantly from the gray background. The
             # annotation canvas carries `.foliplus-canvas-layer`; a blanket
             # exclude of that class would drop the labels and leave zero
             # non-background pixels.
@@ -1033,7 +1033,7 @@ class TestExportControlBrowser:
                     const ctx = c.getContext('2d');
                     if (!ctx) return { found: false };
                     const { data } = ctx.getImageData(0, 0, c.width, c.height);
-                    // Count pixels that are NOT the background grey (221,221,221)
+                    // Count pixels that are NOT the background gray (221,221,221)
                     // within tolerance 20. These are the annotation label pixels.
                     let nonBg = 0;
                     for (let i = 0; i < data.length; i += 4) {
@@ -1211,7 +1211,7 @@ class TestExportControlBrowser:
 
         The container's computed ``backgroundColor`` is always opaque (Leaflet's
         own CSS sets ``#ddd``), so the export matches what the user sees: a
-        plain grey base, not a transparent one. This replaces the old
+        plain gray base, not a transparent one. This replaces the old
         ``CONF.background`` (default ``None`` → transparent canvas), which
         disagreed with the screen.
         """
@@ -1254,13 +1254,13 @@ class TestExportControlBrowser:
             )
             page.wait_for_timeout(2000)
 
-            # Sample for Leaflet's default grey. The fillRect paints the whole
+            # Sample for Leaflet's default gray. The fillRect paints the whole
             # canvas, so the hit count should dominate.
             result = self._sample_bg_pixels_in_export(page, match=[221, 221, 221])
             assert result is not None, "Export canvas not captured"
-            assert result["hit"] > 0, f"default grey missing from export: {result}"
+            assert result["hit"] > 0, f"default gray missing from export: {result}"
             assert result["hit"] > result["total"] * 0.5, (
-                f"default grey not dominant in export: {result}"
+                f"default gray not dominant in export: {result}"
             )
             assert len(errors) == 0, f"JS errors on default-bg export: {errors}"
 
@@ -1378,12 +1378,12 @@ class TestExportControlBrowser:
             # resulting pixel alpha is 255 (from the background), and the
             # opacity is reflected in the color blend rather than in alpha.
             #
-            # The background is Leaflet's default grey (221, 221, 221). The
+            # The background is Leaflet's default gray (221, 221, 221). The
             # marker is a red pin; even at 0.4 opacity the blended pixel is
-            # visibly different from grey. Count pixels that differ from the
+            # visibly different from gray. Count pixels that differ from the
             # background by more than tolerance 30 in any channel — this
             # catches "marker drawn at any opacity" and "marker not drawn
-            # at all" (all pixels would be grey).
+            # at all" (all pixels would be gray).
             result = page.evaluate(
                 """() => {
                     const canvases = window._capturedCanvases || [];

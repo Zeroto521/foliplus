@@ -38,7 +38,7 @@
 }
 
 /* The rail carries the two states of the span it describes: the covered part is
-   the accent fill, the rest is a fine grey checkerboard ("nothing rendered
+   the accent fill, the rest is a fine gray checkerboard ("nothing rendered
    here"). Both come from tokens, so a consumer can swap the texture for a flat
    tint without touching geometry. */
 .foliplus-slider-rail {
@@ -78,7 +78,7 @@
 /* Readout dots. They never move unless JS places them: the scale's fixed ends
    (`-min`, `-max`) and, on rows that have a "where am I" idea, the current
    position. The ring reports coverage — accent where the span covers that spot,
-   grey where it does not — and the white core keeps the dot findable either
+   gray where it does not — and the white core keeps the dot findable either
    way. */
 .foliplus-slider-dot {
   position: absolute;

@@ -148,7 +148,7 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   // criterion is the row's shape, not something the caller declares — a row
   // that owns a Leaflet layer is a data layer and can be deleted, tile
   // basemaps included, since deleting every base layer down to the default
-  // grey background is a legal end state. A component layer (no layer of its
+  // gray background is a legal end state. A component layer (no layer of its
   // own: the heatmap and measure canvases) renders nothing here; its
   // "restore defaults" verb is a different action and lands separately. The
   // one exception is the solid color basemap, which renders the entry
