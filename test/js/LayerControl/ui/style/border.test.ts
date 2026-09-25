@@ -137,6 +137,19 @@ describe("layerCanBorder", () => {
     expect(layerCanBorder(ui, "del1")).toBe(false);
   });
 
+  it("declines a delegated layer through the styleSetters axis alone", () => {
+    // A delegated layer owns its style write through setters and need not have
+    // a canvas, so this must be refused by the styleSetters check rather than
+    // by the canvas check that comes first: a refusal for the wrong reason
+    // would leave the second axis untested.
+    manager.registerLayer({
+      id: "del2",
+      name: "D",
+      styleSetters: { borderColor: vi.fn(), borderWeight: vi.fn() },
+    });
+    expect(layerCanBorder(ui, "del2")).toBe(false);
+  });
+
   it("declines a native-opacity surface — GridLayer / ImageOverlay paint through options", () => {
     manager.registerLayer({
       id: "nat1",
@@ -227,6 +240,19 @@ describe("authoredBorder", () => {
     manager.registerLayer({ id: "none1", name: "N", layer: { options: {} } });
 
     expect(authoredBorder(ui, "none1")).toEqual({
+      color: "#3388ff",
+      weight: 1,
+    });
+  });
+
+  it("falls back to the defaults for a layer that never materialised", () => {
+    // The id is registered but nothing on the map resolves to it — the case the
+    // lookup indirection exists for. There is no carrier to read, so the row
+    // must show the defaults rather than throw, which is what keeps an
+    // unresolved folium layer from breaking the panel on first open.
+    manager.registerLayer({ id: "ghost1", name: "G" });
+
+    expect(authoredBorder(ui, "ghost1")).toEqual({
       color: "#3388ff",
       weight: 1,
     });
@@ -523,6 +549,55 @@ describe("resetLayerBorder", () => {
 
     expect(leaf.setStyle).not.toHaveBeenCalled();
   });
+
+  it("skips a group member that has neither a setter nor children of its own", () => {
+    // A group can hold a member with no style axis at all — a Marker, an
+    // ImageOverlay. Both walks must descend past it silently instead of
+    // inventing a stroke for it, so the write and the reset refuse it the
+    // same way.
+    const inert: any = { options: {} };
+    const live = makeLeaf("#ff0000", 2);
+    manager.registerLayer({
+      id: "grp1",
+      name: "G",
+      layer: makeGroup(inert, live),
+    });
+
+    commitBorderColor(ui, "grp1", "#0000ff");
+    commitBorderWeight(ui, "grp1", 5);
+
+    expect(inert.setStyle).toBeUndefined();
+    expect(live.setStyle).toHaveBeenCalledWith({ color: "#0000ff", weight: 5 });
+
+    live.setStyle.mockClear();
+    resetLayerBorder(ui, "grp1");
+
+    expect(inert.setStyle).toBeUndefined();
+    expect(live.setStyle).toHaveBeenCalledWith({ color: "#ff0000", weight: 2 });
+  });
+
+  it("restores the module defaults for a carrier that declared no style", () => {
+    // A leaf that owns a setter but declares neither colour nor width has no
+    // author stroke to fall back on, so the base recorded on the first write
+    // must be the module's own defaults — otherwise a Reset would have nothing
+    // honest to write for that dimension.
+    const bare: any = {
+      options: {},
+      on: vi.fn(),
+      setStyle: vi.fn((style: Record<string, unknown>) =>
+        Object.assign(bare.options, style),
+      ),
+    };
+    manager.registerLayer({ id: "vec1", name: "V", layer: bare });
+
+    commitBorderColor(ui, "vec1", "#0000ff");
+    commitBorderWeight(ui, "vec1", 4);
+    bare.setStyle.mockClear();
+
+    resetLayerBorder(ui, "vec1");
+
+    expect(bare.setStyle).toHaveBeenCalledWith({ color: "#3388ff", weight: 1 });
+  });
 });
 
 describe("highlight restore", () => {
@@ -806,6 +881,26 @@ describe("buildBorderRow", () => {
       (row.querySelector(".foliplus-style-border-color-input") as HTMLInputElement)
         .value,
     ).toBe("#00ff00");
+  });
+
+  it("leaves an unpaintable declaration unchanged and preserves it", () => {
+    // A value no engine resolves to a colour must reach the field as declared,
+    // not as a hex we invented: fabricating one would claim a stroke the
+    // author never wrote and the layer is not said to paint. The authored
+    // value stays intact, and the control is left to show its own default.
+    manager.registerLayer({
+      id: "vec1",
+      name: "V",
+      layer: makeLeaf("notacolor", 2),
+    });
+
+    const row = buildBorderRow(ui, "vec1");
+
+    expect(authoredBorder(ui, "vec1").color).toBe("notacolor");
+    expect(
+      (row.querySelector(".foliplus-style-border-color-input") as HTMLInputElement)
+        .value,
+    ).toBe("#000000");
   });
 
   it("shows the author's feature style for an L.GeoJSON layer, not the defaults", () => {
