@@ -12,7 +12,12 @@ import { bindOutsideCollapse, createFoldControl } from "#common/panel.js";
 import { AUTOCOMPLETE, CLASSES, MODE, type SearchType } from "./const.js";
 import * as SVGs from "./icon.js";
 import { bindEvents, initFromUrl } from "./interaction.js";
-import { flushHistory, initDebouncedFetch, loadHistory, removePanel } from "./logic.js";
+import {
+  flushHistory,
+  initDebouncedFetch,
+  loadHistory,
+  removePanel,
+} from "./logic/index.js";
 import type { AddressResult, ResultItem, SearchHistoryEntry } from "./type.js";
 
 createControlEnv(CONF, SVGs.SEARCH);
