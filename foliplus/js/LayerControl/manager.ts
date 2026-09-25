@@ -417,9 +417,9 @@ class LayerManager implements LayerAPI {
     // goal is expressed directly and no shift adjustment is applied.
     let goal: number;
     for (let i = target + 1; i < saved.length; i++) {
-      const neighbour = registry.get(saved[i]);
-      if (!neighbour) continue;
-      const to = registry.indexOf(neighbour);
+      const neighbor = registry.get(saved[i]);
+      if (!neighbor) continue;
+      const to = registry.indexOf(neighbor);
       // Removing `layerInfo` first shifts every later index down by one.
       goal = to - (from < to ? 1 : 0);
       if (from !== goal) registry.reorder(from, goal);
