@@ -64,7 +64,9 @@ function makeMapMock() {
   };
 }
 
-function makeManager(scheduler?: (fn: () => void, ms: number) => ReturnType<typeof setTimeout>) {
+function makeManager(
+  scheduler?: (fn: () => void, ms: number) => ReturnType<typeof setTimeout>,
+) {
   window.CONF = { ...window.CONF, name: "ExportControl", timeout: 7500 };
   const manager = scheduler
     ? new ExportManager(makeMapMock(), scheduler)
@@ -251,12 +253,14 @@ describe("cropMethods — pointer drag", () => {
     setCropState(manager);
   });
 
-  function makePointerEvent(opts: {
-    clientX?: number;
-    clientY?: number;
-    pointerId?: number | null;
-    target?: Element;
-  } = {}) {
+  function makePointerEvent(
+    opts: {
+      clientX?: number;
+      clientY?: number;
+      pointerId?: number | null;
+      target?: Element;
+    } = {},
+  ) {
     const target = opts.target ?? document.createElement("div");
     return {
       clientX: opts.clientX ?? 0,
@@ -526,7 +530,10 @@ describe("cropMethods — pointer drag", () => {
     manager.dragCleanup = cleanup;
     manager.dragState.dragging = true;
 
-    manager.onPointerUp({ target: document.createElement("div"), pointerId: null } as any);
+    manager.onPointerUp({
+      target: document.createElement("div"),
+      pointerId: null,
+    } as any);
 
     expect(cleanup).toHaveBeenCalledTimes(1);
     expect(manager.dragCleanup).toBeUndefined();
@@ -537,7 +544,10 @@ describe("cropMethods — pointer drag", () => {
     manager.dragCleanup = cleanup;
     manager.dragState.dragging = false;
 
-    manager.onPointerUp({ target: document.createElement("div"), pointerId: null } as any);
+    manager.onPointerUp({
+      target: document.createElement("div"),
+      pointerId: null,
+    } as any);
 
     expect(cleanup).not.toHaveBeenCalled();
     expect(manager.dragCleanup).toBe(cleanup);
@@ -566,7 +576,10 @@ describe("cropMethods — pointer drag", () => {
     manager.dragState.dragging = true;
     manager.cropState.box = document.createElement("div");
 
-    manager.onPointerCancel({ target: document.createElement("div"), pointerId: null } as any);
+    manager.onPointerCancel({
+      target: document.createElement("div"),
+      pointerId: null,
+    } as any);
 
     expect(manager.dragState.dragging).toBe(false);
     expect(manager.dragState.dragType).toBeNull();
@@ -580,7 +593,12 @@ describe("cropMethods — pointer drag", () => {
     const travelX = 60;
     const travelY = 30;
     manager.cropState.rect = { left: startX, top: startY, width: 50, height: 40 };
-    manager.dragState = { dragging: true, dragType: "move", lastX: startX, lastY: startY };
+    manager.dragState = {
+      dragging: true,
+      dragType: "move",
+      lastX: startX,
+      lastY: startY,
+    };
     makeDraggableContainer(500, 400);
     const steps: Array<[number, number]> = [];
     let x = startX;

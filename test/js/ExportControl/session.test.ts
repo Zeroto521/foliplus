@@ -59,7 +59,9 @@ function makeMapMock() {
   };
 }
 
-function makeManager(scheduler?: (fn: () => void, ms: number) => ReturnType<typeof setTimeout>) {
+function makeManager(
+  scheduler?: (fn: () => void, ms: number) => ReturnType<typeof setTimeout>,
+) {
   window.CONF = { ...window.CONF, name: "ExportControl", timeout: 7500 };
   const manager = scheduler
     ? new ExportManager(makeMapMock(), scheduler)
