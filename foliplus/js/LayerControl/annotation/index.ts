@@ -274,7 +274,7 @@ class AnnotationManager {
    *  the shared auto pick over the layer's fields.
    *
    *  Resolved at render time rather than written into the config, so a layer
-   *  whose columns change keeps labelling itself instead of being pinned to a
+   *  whose columns change keeps labeling itself instead of being pinned to a
    *  field name that no longer exists. */
   resolveField(id: string): string {
     const explicit = this.getConfig(id).field;

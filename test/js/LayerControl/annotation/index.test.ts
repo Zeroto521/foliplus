@@ -320,7 +320,7 @@ describe("AnnotationManager — render & plan", () => {
 
     expect(labels).toHaveLength(1);
     expect(labels[0]!.text).toBe("1.2K");
-    // One pane + one canvas per labelled layer — that is what puts each layer's
+    // One pane + one canvas per labeled layer — that is what puts each layer's
     // labels at its own place in the stack.
     expect(Object.keys(panes).sort()).toEqual([
       "foliplus-annotation-a",

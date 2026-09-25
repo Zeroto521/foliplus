@@ -1635,7 +1635,7 @@ class TestLayerControlBrowser:
             assert not errors, f"JS errors: {errors}"
 
     def test_annotation_each_layer_own_pane_ordered_by_layer(self, browser, tmp_path):
-        """Each labelled layer gets its own canvas pane, z-ordered with its layer.
+        """Each labeled layer gets its own canvas pane, z-ordered with its layer.
 
         The pane goes through ``PaneManager.ensurePane`` (the single entry
         point for owned panes), so it carries the base ``foliplus-layer-pane``
@@ -1646,7 +1646,7 @@ class TestLayerControlBrowser:
             panel_ready(page)
             result = page.evaluate(_js("LayerControl/annotation_multi_layer"))
             assert result is not None and result["canvas"] is True, result
-            # One pane + one canvas per labelled layer — not a shared canvas.
+            # One pane + one canvas per labeled layer — not a shared canvas.
             assert result["canvasCount"] == 2, result
             assert result["opaqueA"] > 0, result
             assert result["opaqueB"] > 0, result

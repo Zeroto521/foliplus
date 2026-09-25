@@ -54,7 +54,7 @@ const FOCUS = {
 const FOCUS_PANE = "foliplus-focus-overlay";
 
 /** Leaflet pane name prefix for a layer's annotation labels: one pane per
- *  labelled layer, so its labels sit at that layer's place in the stack.
+ *  labeled layer, so its labels sit at that layer's place in the stack.
  *  `LayerManager.enforceOrder` z-orders each pane just above its layer. */
 const ANNOTATION_PANE_PREFIX = "foliplus-annotation-";
 

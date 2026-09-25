@@ -2,7 +2,7 @@
 /* `foliplus-layer-pane` is the base class every foliplus-owned pane carries —
    LayerSurface materialises a layer's pane before the layer joins the map,
    LayerFactory.createCanvas makes one for an overlay canvas, and the
-   annotation manager makes one per labelled layer, all through
+   annotation manager makes one per labeled layer, all through
    PaneManager.ensurePane (the single entry point). LayerControl only z-orders
    them afterwards. The pane takes no pointer, and neither does the SVG
    renderer container inside it: an inline <svg> carrying pointer-events is

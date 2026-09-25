@@ -21,7 +21,7 @@ class MeasureControl(BaseControl):
     - 📏 **Distance**: click to draw a polyline. Segment and total distances update in
       real-time. Double-click / right-click / click the last node to finish.
     - 🔲 **Area**: click to draw a polygon. The enclosed area and each side's length are
-      labelled. Double-click / right-click / click the first or last node to finish.
+      labeled. Double-click / right-click / click the first or last node to finish.
     - ⭕ **Circle**: first click sets the center; move the mouse to set the radius;
       second click confirms.
     - ✏️ **Edit**: enter edit mode to reposition finished measurements. Click a

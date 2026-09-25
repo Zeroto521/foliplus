@@ -467,7 +467,7 @@ describe("LayerUI style panel", () => {
 
   it("reveals the body when switched on, leaving the picker on Auto", () => {
     // The picker's Auto entry is not a placeholder: switching the toggle on
-    // leaves the field unresolved on purpose, so the layer keeps labelling
+    // leaves the field unresolved on purpose, so the layer keeps labeling
     // itself if its columns change. The auto rule itself (first numeric, else
     // first) is asserted in core/labelField.test.ts and below for the format row.
     ui.fieldCache.set("overlay1", [
