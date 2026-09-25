@@ -36,14 +36,27 @@ import * as CONST from "../../const.js";
 import type { LayerUI } from "../index.js";
 import { markOverride, saveState, unmarkOverride } from "../state.js";
 
-/** A node with a runtime style-setter — the honest border carrier. Vector
- *  leaves (Path subclasses: Polygon, Polyline, Circle, CircleMarker,
- *  Rectangle) all have one; a LayerGroup does not (it delegates). */
+/** A node in the layer tree that a border walk may reach. `setStyle` alone
+ *  does not make a node a carrier — L.GeoJSON owns one too (it fans a style
+ *  out to its features) — so every walk below checks `eachLayer` first and
+ *  treats a setter as a leaf only. */
 type StyleCarrier = L.Layer & {
   setStyle?: (style: Record<string, unknown>) => void;
   eachLayer?: (fn: (layer: L.Layer) => void) => void;
   options?: { color?: string; weight?: number };
 };
+
+/** A carrier whose `setStyle` is there for real. Narrowing through a guard
+ *  rather than a `typeof` test keeps the call site a plain method call, which
+ *  matters: Leaflet's `Path.setStyle` runs `setOptions(this, style)`, so the
+ *  method captured into a local and called detached would see `this` as
+ *  undefined and throw instead of writing. */
+type StyleSetter = StyleCarrier & {
+  setStyle: (style: Record<string, unknown>) => void;
+};
+
+const isStyleSetter = (node: StyleCarrier): node is StyleSetter =>
+  typeof node.setStyle === "function";
 
 /** Whether the layer's surface can honestly carry a border write. Requires
  *  the surface to resolve to a pane carrier for BOTH opacity and zoom range —
@@ -109,17 +122,22 @@ const captureBase = (
 
 /** The first leaf that carries a style — the row's initial value is read
  *  from it, so a swatch or a number field never shows a value the layer is
- *  not actually painting. */
-const firstCarrier = (node: StyleCarrier): StyleCarrier | null => {
-  if (typeof node.setStyle === "function") return node;
+ *  not actually painting.
+ *
+ *  Groups are always descended, never returned. L.GeoJSON defines `setStyle`
+ *  itself — it fans the style out to its features — so a setter-only check
+ *  stops at the group and reads its own options, which hold only the style
+ *  function: the panel then shows Leaflet's defaults instead of the author's
+ *  stroke, which is the stroke the layer is actually painting. */
+const firstCarrier = (node: StyleCarrier): StyleSetter | null => {
   if (typeof node.eachLayer === "function") {
-    let found: StyleCarrier | null = null;
+    let found: StyleSetter | null = null;
     node.eachLayer(child => {
       if (!found) found = firstCarrier(child as StyleCarrier);
     });
     return found;
   }
-  return null;
+  return isStyleSetter(node) ? node : null;
 };
 
 /** The authored border of one layer, or the Leaflet defaults for a layer
@@ -161,18 +179,51 @@ const applyBorderToLayer = (ui: LayerUI, layerId: string): void => {
   if (color === undefined && weight === undefined) return;
   const layer = ui.m.findLayer(layerId) as StyleCarrier | null;
   if (!layer) return;
+  const style: Record<string, unknown> = {};
+  if (color !== undefined) style.color = color;
+  if (weight !== undefined) style.weight = weight;
   const walk = (node: StyleCarrier): void => {
-    if (typeof node.setStyle === "function") {
-      captureBase(node);
-      const style: Record<string, unknown> = {};
-      if (color !== undefined) style.color = color;
-      if (weight !== undefined) style.weight = weight;
-      node.setStyle(style);
-    } else if (typeof node.eachLayer === "function") {
+    // Groups are descended, never written: a group with a `setStyle` of its
+    // own (L.GeoJSON, L.FeatureGroup) would be written in place of its
+    // features, capturing the base on the group and leaving each feature
+    // without one, so a Reset would restore the defaults.
+    if (typeof node.eachLayer === "function") {
       node.eachLayer(child => walk(child as StyleCarrier));
+      return;
     }
+    if (!isStyleSetter(node)) return;
+    captureBase(node);
+    node.setStyle(style);
+    pinLeaf(ui, layerId, node);
   };
   walk(layer);
+};
+
+/** Leaves whose stroke is already pinned against the highlight restore. */
+const pinned = new WeakSet<StyleCarrier>();
+
+/** Pin a leaf's stroke against folium's GeoJson highlight. folium binds its
+ *  own `mouseout` per feature during addData that runs the group's
+ *  `resetStyle`, which re-applies the author's style function and undoes our
+ *  write; a click on a feature necessarily crosses a mouseout, so without
+ *  this the user's stroke is gone the moment the pointer leaves the geometry.
+ *
+ *  Our handler binds after folium's, so Leaflet's dispatch order runs it
+ *  last: the highlight still applies while the pointer is over the feature,
+ *  and the user's stroke is the value left behind. Nothing is written for a
+ *  dimension the user never set, so a Reset keeps the author's stroke. */
+const pinLeaf = (ui: LayerUI, layerId: string, leaf: StyleSetter): void => {
+  if (pinned.has(leaf)) return;
+  pinned.add(leaf);
+  leaf.on("mouseout", () => {
+    const color = ui.borderColorMap[layerId];
+    const weight = ui.borderWeightMap[layerId];
+    if (color === undefined && weight === undefined) return;
+    const stroke: Record<string, unknown> = {};
+    if (color !== undefined) stroke.color = color;
+    if (weight !== undefined) stroke.weight = weight;
+    leaf.setStyle(stroke);
+  });
 };
 
 /** Write the colour into the map, persist it, and mark the dimension as
@@ -219,16 +270,19 @@ const resetLayerBorder = (ui: LayerUI, layerId: string): void => {
   const layer = ui.m.findLayer(layerId) as StyleCarrier | null;
   if (!layer) return;
   const walk = (node: StyleCarrier): void => {
-    if (typeof node.setStyle === "function") {
-      const base = authorBorderBase.get(node);
-      if (!base) return;
-      const style: Record<string, unknown> = {};
-      if (base.color !== null) style.color = base.color;
-      if (base.weight !== null) style.weight = base.weight;
-      node.setStyle(style);
-    } else if (typeof node.eachLayer === "function") {
+    // Descended, not written — same reason as the write walk: a group's
+    // captured base would be the Leaflet defaults, not the author's stroke.
+    if (typeof node.eachLayer === "function") {
       node.eachLayer(child => walk(child as StyleCarrier));
+      return;
     }
+    if (typeof node.setStyle !== "function") return;
+    const base = authorBorderBase.get(node);
+    if (!base) return;
+    const style: Record<string, unknown> = {};
+    if (base.color !== null) style.color = base.color;
+    if (base.weight !== null) style.weight = base.weight;
+    node.setStyle(style);
   };
   walk(layer);
 };
