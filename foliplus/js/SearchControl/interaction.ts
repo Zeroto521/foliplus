@@ -11,7 +11,7 @@ import {
   removePanel,
   searchAddress,
   searchCoord,
-} from "./logic.js";
+} from "./logic/index.js";
 import type { SearchControl } from "./type.js";
 
 const T = createScopedTranslator(CONF);
