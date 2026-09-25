@@ -2,14 +2,13 @@
 // Extracted from renderer.test.ts so each module test can import only what it
 // needs without dragging the orchestration suite along.
 import { vi } from "vitest";
-import * as UTIL from "#foliplus/ExportControl/util.js";
 import { ExportRenderer } from "#foliplus/ExportControl/renderer/index.js";
+import * as UTIL from "#foliplus/ExportControl/util.js";
 
 // renderer binds its logger to CONF.name at module-import time, so the
 // component name has to be set before the import resolves — setup.ts leaves it
 // at "SearchControl".  Must run before the import, not in beforeEach.
 (window as any).CONF = { ...(window as any).CONF, name: "ExportControl" };
-
 
 export function makeEPSG3857Mock() {
   const worldSize = (z: number) => 256 * Math.pow(2, z);

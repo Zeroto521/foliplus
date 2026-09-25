@@ -1,5 +1,4 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import * as UTIL from "#foliplus/ExportControl/util.js";
 import * as CONST from "#foliplus/ExportControl/const.js";
 import {
   collectLayerMarkers,
@@ -8,6 +7,7 @@ import {
   renderRemaining,
   renderTextLabels,
 } from "#foliplus/ExportControl/renderer/marker.js";
+import * as UTIL from "#foliplus/ExportControl/util.js";
 import {
   captureSources,
   makeMockCtx,
@@ -45,9 +45,7 @@ describe("collectLayerMarkers", () => {
     try {
       const map = makeRenderer().map;
       (map as any).getPane = () => roots;
-      expect(collectLayerMarkers({} as L.Layer)).toEqual([
-        keep,
-      ]);
+      expect(collectLayerMarkers({} as L.Layer)).toEqual([keep]);
     } finally {
       restore();
     }
@@ -74,9 +72,7 @@ describe("collectLayerMarkers", () => {
     try {
       const map = makeRenderer().map;
       (map as any).getPane = () => roots;
-      expect(collectLayerMarkers({} as L.Layer)).toEqual([
-        keep,
-      ]);
+      expect(collectLayerMarkers({} as L.Layer)).toEqual([keep]);
     } finally {
       restore();
     }
@@ -96,9 +92,7 @@ describe("collectLayerMarkers", () => {
     try {
       const map = makeRenderer().map;
       (map as any).getPane = () => roots;
-      expect(collectLayerMarkers({} as L.Layer)).toEqual([
-        keep,
-      ]);
+      expect(collectLayerMarkers({} as L.Layer)).toEqual([keep]);
     } finally {
       restore();
     }
@@ -134,10 +128,7 @@ describe("renderMarkers", () => {
     });
     stubBitmaps();
     stubLoad();
-    await renderMarkers(makeRenderer().container,
-      positionedRC(1000, 1000, ctx),
-      [el],
-    );
+    await renderMarkers(makeRenderer().container, positionedRC(1000, 1000, ctx), [el]);
     expect(ctx.drawImage).toHaveBeenCalledTimes(1);
   });
 
@@ -152,10 +143,7 @@ describe("renderMarkers", () => {
     });
     stubBitmaps(100, 100);
     stubLoad();
-    await renderMarkers(makeRenderer().container,
-      positionedRC(1000, 1000, ctx),
-      [el],
-    );
+    await renderMarkers(makeRenderer().container, positionedRC(1000, 1000, ctx), [el]);
     expect(ctx.drawImage).toHaveBeenCalledTimes(1);
     const [, sx, sy, sw, sh] = ctx.drawImage.mock.calls[0];
     expect(sx).toBeCloseTo(16);
@@ -173,10 +161,7 @@ describe("renderMarkers", () => {
     const el = markerEl('url("sprite.png")', { backgroundSize: "auto" });
     stubBitmaps();
     stubLoad();
-    await renderMarkers(makeRenderer().container,
-      positionedRC(1000, 1000, ctx),
-      [el],
-    );
+    await renderMarkers(makeRenderer().container, positionedRC(1000, 1000, ctx), [el]);
     expect(ctx.drawImage).toHaveBeenCalledTimes(1);
   });
 
@@ -194,10 +179,7 @@ describe("renderMarkers", () => {
     });
     stubBitmaps(10, 10);
     stubLoad();
-    await renderMarkers(makeRenderer().container,
-      positionedRC(1000, 1000, ctx),
-      [el],
-    );
+    await renderMarkers(makeRenderer().container, positionedRC(1000, 1000, ctx), [el]);
     expect(ctx.drawImage).not.toHaveBeenCalled();
   });
 
@@ -208,10 +190,7 @@ describe("renderMarkers", () => {
       ({ left: 0, top: 0, width: 0, height: 0 }) as DOMRect;
     stubBitmaps();
     stubLoad();
-    await renderMarkers(makeRenderer().container,
-      positionedRC(1000, 1000, ctx),
-      [el],
-    );
+    await renderMarkers(makeRenderer().container, positionedRC(1000, 1000, ctx), [el]);
     expect(ctx.drawImage).not.toHaveBeenCalled();
   });
 
@@ -232,10 +211,9 @@ describe("renderMarkers", () => {
     root.appendChild(child);
     stubBitmaps();
     stubLoad();
-    await renderMarkers(makeRenderer().container,
-      positionedRC(1000, 1000, ctx),
-      [root],
-    );
+    await renderMarkers(makeRenderer().container, positionedRC(1000, 1000, ctx), [
+      root,
+    ]);
     expect(ctx.drawImage).toHaveBeenCalledTimes(1);
   });
 });
@@ -257,10 +235,9 @@ describe("renderFontAwesome", () => {
       fontWeight: "900",
     });
     try {
-      await renderFontAwesome(makeRenderer().container,
-        positionedRC(1000, 1000, ctx),
-        [root],
-      );
+      await renderFontAwesome(makeRenderer().container, positionedRC(1000, 1000, ctx), [
+        root,
+      ]);
       expect(ctx.fillText).toHaveBeenCalledTimes(1);
       expect(ctx.fillText.mock.calls[0][0]).toBe(
         String.fromCharCode(parseInt("f000", 16)),
@@ -286,10 +263,9 @@ describe("renderFontAwesome", () => {
       fontWeight: "normal",
     });
     try {
-      await renderFontAwesome(makeRenderer().container,
-        positionedRC(1000, 1000, ctx),
-        [root],
-      );
+      await renderFontAwesome(makeRenderer().container, positionedRC(1000, 1000, ctx), [
+        root,
+      ]);
       expect(ctx.fillText.mock.calls[0][0]).toBe("A");
       // "normal" is normalised to 400 in the font spec.
       expect(ctx.font).toContain("400");
@@ -303,10 +279,9 @@ describe("renderFontAwesome", () => {
     stubFonts();
     const root = document.createElement("div");
     pinBox(root, 10, 10, 20, 20);
-    await renderFontAwesome(makeRenderer().container,
-      positionedRC(1000, 1000, ctx),
-      [root],
-    );
+    await renderFontAwesome(makeRenderer().container, positionedRC(1000, 1000, ctx), [
+      root,
+    ]);
     expect(ctx.fillText).not.toHaveBeenCalled();
   });
 
@@ -317,10 +292,9 @@ describe("renderFontAwesome", () => {
     pinBox(root, 500, 500, 20, 20);
     const icon = document.createElement("i");
     root.appendChild(icon);
-    await renderFontAwesome(makeRenderer().container,
-      positionedRC(100, 100, ctx),
-      [root],
-    );
+    await renderFontAwesome(makeRenderer().container, positionedRC(100, 100, ctx), [
+      root,
+    ]);
     expect(ctx.fillText).not.toHaveBeenCalled();
   });
 });
@@ -348,10 +322,9 @@ describe("renderTextLabels", () => {
       fontWeight: "bold",
     });
     try {
-      await renderTextLabels(makeRenderer().container,
-        positionedRC(1000, 1000, ctx),
-        [root],
-      );
+      await renderTextLabels(makeRenderer().container, positionedRC(1000, 1000, ctx), [
+        root,
+      ]);
       expect(ctx.roundRect).toHaveBeenCalled();
       expect(ctx.strokeRect).not.toHaveBeenCalled();
       expect(ctx.fillText).toHaveBeenCalledWith("100 m", 30, 10);
@@ -378,10 +351,9 @@ describe("renderTextLabels", () => {
       fontWeight: "400",
     });
     try {
-      await renderTextLabels(makeRenderer().container,
-        positionedRC(1000, 1000, ctx),
-        [root],
-      );
+      await renderTextLabels(makeRenderer().container, positionedRC(1000, 1000, ctx), [
+        root,
+      ]);
       expect(ctx.fillRect).toHaveBeenCalledTimes(1);
       expect(ctx.roundRect).not.toHaveBeenCalled();
       expect(ctx.fillText).toHaveBeenCalledTimes(1);
@@ -412,10 +384,9 @@ describe("renderTextLabels", () => {
       fontWeight: "400",
     });
     try {
-      await renderTextLabels(makeRenderer().container,
-        positionedRC(1000, 1000, ctx),
-        [root],
-      );
+      await renderTextLabels(makeRenderer().container, positionedRC(1000, 1000, ctx), [
+        root,
+      ]);
       expect(ctx.fillText).toHaveBeenCalledTimes(2);
       // Two lines sit symmetric about the label centre, spacing 1.2 * fontSize.
       const [y0, y1] = ctx.fillText.mock.calls.map(c => c[2]);
@@ -434,10 +405,9 @@ describe("renderTextLabels", () => {
     const root = document.createElement("div");
     pinBox(root, 10, 10, 60, 20);
     root.textContent = "   ";
-    await renderTextLabels(makeRenderer().container,
-      positionedRC(1000, 1000, ctx),
-      [root],
-    );
+    await renderTextLabels(makeRenderer().container, positionedRC(1000, 1000, ctx), [
+      root,
+    ]);
     expect(ctx.fillText).not.toHaveBeenCalled();
   });
 
@@ -448,10 +418,9 @@ describe("renderTextLabels", () => {
     pinBox(root, 10, 10, 60, 20);
     root.textContent = "100 m";
     root.appendChild(document.createElement("i"));
-    await renderTextLabels(makeRenderer().container,
-      positionedRC(1000, 1000, ctx),
-      [root],
-    );
+    await renderTextLabels(makeRenderer().container, positionedRC(1000, 1000, ctx), [
+      root,
+    ]);
     expect(ctx.fillText).not.toHaveBeenCalled();
   });
 
@@ -463,10 +432,9 @@ describe("renderTextLabels", () => {
     root.textContent = "100 m";
     const restore = withStyle({ backgroundImage: 'url("sprite.png")' });
     try {
-      await renderTextLabels(makeRenderer().container,
-        positionedRC(1000, 1000, ctx),
-        [root],
-      );
+      await renderTextLabels(makeRenderer().container, positionedRC(1000, 1000, ctx), [
+        root,
+      ]);
       expect(ctx.fillText).not.toHaveBeenCalled();
     } finally {
       restore();
@@ -491,10 +459,9 @@ describe("renderTextLabels", () => {
       fontWeight: "400",
     });
     try {
-      await renderTextLabels(makeRenderer().container,
-        positionedRC(1000, 1000, ctx),
-        [root],
-      );
+      await renderTextLabels(makeRenderer().container, positionedRC(1000, 1000, ctx), [
+        root,
+      ]);
       expect(ctx.fillRect).toHaveBeenCalledTimes(1);
       expect(ctx.strokeRect).toHaveBeenCalledTimes(1);
       expect(ctx.roundRect).not.toHaveBeenCalled();
@@ -526,10 +493,9 @@ describe("renderTextLabels", () => {
       fontWeight: "400",
     });
     try {
-      await renderTextLabels(makeRenderer().container,
-        positionedRC(1000, 1000, ctx),
-        [root],
-      );
+      await renderTextLabels(makeRenderer().container, positionedRC(1000, 1000, ctx), [
+        root,
+      ]);
       expect(ctx.strokeRect).toHaveBeenCalledTimes(1);
       expect(ctx.strokeStyle).toBe(bg);
     } finally {
@@ -547,10 +513,9 @@ describe("renderRemaining", () => {
     const img = document.createElement("img");
     img.src = "https://example.com/m.png";
     root.appendChild(img);
-    await renderRemaining(makeRenderer().container,
-      positionedRC(1000, 1000, ctx),
-      [root],
-    );
+    await renderRemaining(makeRenderer().container, positionedRC(1000, 1000, ctx), [
+      root,
+    ]);
     expect(ctx.drawImage).toHaveBeenCalledTimes(1);
   });
 
@@ -562,10 +527,9 @@ describe("renderRemaining", () => {
     const img = document.createElement("img");
     img.src = "https://example.com/m.png";
     root.appendChild(img);
-    await renderRemaining(makeRenderer().container,
-      positionedRC(1000, 1000, ctx),
-      [root],
-    );
+    await renderRemaining(makeRenderer().container, positionedRC(1000, 1000, ctx), [
+      root,
+    ]);
     expect(ctx.drawImage).not.toHaveBeenCalled();
   });
 
@@ -578,10 +542,9 @@ describe("renderRemaining", () => {
     pinBox(svg, 0, 0, 24, 24);
     svg.appendChild(document.createElementNS(CONST.SVG_NS, "path"));
     root.appendChild(svg);
-    await renderRemaining(makeRenderer().container,
-      positionedRC(1000, 1000, ctx),
-      [root],
-    );
+    await renderRemaining(makeRenderer().container, positionedRC(1000, 1000, ctx), [
+      root,
+    ]);
     expect(ctx.drawImage).toHaveBeenCalledTimes(1);
   });
 
@@ -598,10 +561,9 @@ describe("renderRemaining", () => {
       borderColor: "rgb(0, 0, 0)",
     });
     try {
-      await renderRemaining(makeRenderer().container,
-        positionedRC(1000, 1000, ctx),
-        [root],
-      );
+      await renderRemaining(makeRenderer().container, positionedRC(1000, 1000, ctx), [
+        root,
+      ]);
       expect(ctx.roundRect).toHaveBeenCalled();
       expect(ctx.strokeRect).not.toHaveBeenCalled();
     } finally {
@@ -621,10 +583,9 @@ describe("renderRemaining", () => {
       borderStyle: "none",
     });
     try {
-      await renderRemaining(makeRenderer().container,
-        positionedRC(1000, 1000, ctx),
-        [root],
-      );
+      await renderRemaining(makeRenderer().container, positionedRC(1000, 1000, ctx), [
+        root,
+      ]);
       expect(ctx.fillRect).toHaveBeenCalledTimes(1);
       expect(ctx.roundRect).not.toHaveBeenCalled();
     } finally {
@@ -642,10 +603,9 @@ describe("renderRemaining", () => {
       backgroundImage: "none",
     });
     try {
-      await renderRemaining(makeRenderer().container,
-        positionedRC(1000, 1000, ctx),
-        [root],
-      );
+      await renderRemaining(makeRenderer().container, positionedRC(1000, 1000, ctx), [
+        root,
+      ]);
       expect(ctx.fillRect).not.toHaveBeenCalled();
       expect(ctx.roundRect).not.toHaveBeenCalled();
     } finally {
@@ -662,10 +622,9 @@ describe("renderRemaining", () => {
       backgroundImage: 'url("sprite.png")',
     });
     try {
-      await renderRemaining(makeRenderer().container,
-        positionedRC(1000, 1000, ctx),
-        [root],
-      );
+      await renderRemaining(makeRenderer().container, positionedRC(1000, 1000, ctx), [
+        root,
+      ]);
       expect(ctx.fillRect).not.toHaveBeenCalled();
     } finally {
       restore();
@@ -683,10 +642,9 @@ describe("renderRemaining", () => {
     root.appendChild(svg);
     const restore = withStyle({ color: "#ff0" });
     try {
-      await renderRemaining(makeRenderer().container,
-        positionedRC(1000, 1000, ctx),
-        [root],
-      );
+      await renderRemaining(makeRenderer().container, positionedRC(1000, 1000, ctx), [
+        root,
+      ]);
       expect(ctx.drawImage).toHaveBeenCalledTimes(1);
     } finally {
       restore();
@@ -702,10 +660,9 @@ describe("renderRemaining", () => {
     pinBox(svg, 0, 0, 24, 24);
     svg.appendChild(document.createElement("path"));
     root.appendChild(svg);
-    await renderRemaining(makeRenderer().container,
-      positionedRC(1000, 1000, ctx),
-      [root],
-    );
+    await renderRemaining(makeRenderer().container, positionedRC(1000, 1000, ctx), [
+      root,
+    ]);
     expect(ctx.drawImage).toHaveBeenCalledTimes(1);
   });
 
@@ -722,10 +679,9 @@ describe("renderRemaining", () => {
       borderColor: "rgb(0, 0, 0)",
     });
     try {
-      await renderRemaining(makeRenderer().container,
-        positionedRC(1000, 1000, ctx),
-        [root],
-      );
+      await renderRemaining(makeRenderer().container, positionedRC(1000, 1000, ctx), [
+        root,
+      ]);
       expect(ctx.fillRect).toHaveBeenCalledTimes(1);
       expect(ctx.strokeRect).toHaveBeenCalledTimes(1);
       expect(ctx.roundRect).not.toHaveBeenCalled();
@@ -775,16 +731,20 @@ describe("marker passes — branch edges", () => {
     const el2 = box(document.createElement("div"), 10, 10, 20, 20);
     const el3 = box(document.createElement("div"), 10, 10, 20, 20);
     vi.spyOn(window, "getComputedStyle").mockImplementation((el: any) => {
-      if (el === el1) return Object.assign(Object.create(null), {
-        backgroundImage: "none",
-        backgroundSize: "auto",
-        backgroundPosition: "0 0",
-      });
-      if (el === el2) return Object.assign(Object.create(null), {
-        backgroundImage: 'url("data:image/png;base64,xx")',
-        backgroundSize: "auto",
-        backgroundPosition: "0 0",
-      });
+      if (el === el1) {
+        return Object.assign(Object.create(null), {
+          backgroundImage: "none",
+          backgroundSize: "auto",
+          backgroundPosition: "0 0",
+        });
+      }
+      if (el === el2) {
+        return Object.assign(Object.create(null), {
+          backgroundImage: 'url("data:image/png;base64,xx")',
+          backgroundSize: "auto",
+          backgroundPosition: "0 0",
+        });
+      }
       return Object.assign(Object.create(null), {
         backgroundImage: "linear-gradient(red, blue)",
         backgroundSize: "auto",
@@ -793,7 +753,11 @@ describe("marker passes — branch edges", () => {
     });
     stubBitmaps();
     stubLoad();
-    const result = await renderMarkers(makeRenderer().container, positionedRC(1000, 1000, ctx), [el1, el2, el3]);
+    const result = await renderMarkers(
+      makeRenderer().container,
+      positionedRC(1000, 1000, ctx),
+      [el1, el2, el3],
+    );
     expect(ctx.drawImage).not.toHaveBeenCalled();
     expect(result).toBeDefined();
   });
@@ -863,7 +827,9 @@ describe("marker passes — branch edges", () => {
       color: "rgb(255, 255, 255)",
     });
     try {
-      await renderFontAwesome(makeRenderer().container, positionedRC(1000, 1000, ctx), [root]);
+      await renderFontAwesome(makeRenderer().container, positionedRC(1000, 1000, ctx), [
+        root,
+      ]);
       expect(ctx.fillText).toHaveBeenCalled();
       const font = (ctx as any).font;
       expect(String(font)).toContain("700");
@@ -888,7 +854,9 @@ describe("marker passes — branch edges", () => {
       color: "rgb(0, 0, 0)",
     });
     try {
-      await renderFontAwesome(makeRenderer().container, positionedRC(1000, 1000, ctx), [root]);
+      await renderFontAwesome(makeRenderer().container, positionedRC(1000, 1000, ctx), [
+        root,
+      ]);
       expect(ctx.fillText).toHaveBeenCalled();
       const font = (ctx as any).font;
       expect(String(font)).toContain("400"); // normal → 400
@@ -916,7 +884,11 @@ describe("marker passes — branch edges", () => {
         borderColor: "transparent",
       });
       try {
-        await renderTextLabels(makeRenderer().container, positionedRC(1000, 1000, ctx), [root]);
+        await renderTextLabels(
+          makeRenderer().container,
+          positionedRC(1000, 1000, ctx),
+          [root],
+        );
         expect(ctx.fillText).toHaveBeenCalled();
       } finally {
         restore();
@@ -932,7 +904,9 @@ describe("marker passes — branch edges", () => {
     box(img, 10, 10, 24, 24);
     const restore = withStyle({ color: "rgb(0, 0, 0)" });
     try {
-      await renderRemaining(makeRenderer().container, positionedRC(1000, 1000, ctx), [img]);
+      await renderRemaining(makeRenderer().container, positionedRC(1000, 1000, ctx), [
+        img,
+      ]);
       // The img path either draws or falls through — both are valid.
       expect(true).toBe(true);
     } finally {
@@ -944,7 +918,9 @@ describe("marker passes — branch edges", () => {
     const ctx = textCtx();
     stubLoad();
     const root = box(document.createElement("div"), 5000, 5000, 24, 24);
-    await renderRemaining(makeRenderer().container, positionedRC(100, 100, ctx), [root]);
+    await renderRemaining(makeRenderer().container, positionedRC(100, 100, ctx), [
+      root,
+    ]);
     expect(ctx.drawImage).not.toHaveBeenCalled();
   });
 });

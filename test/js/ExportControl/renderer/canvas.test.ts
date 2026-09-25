@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import * as UTIL from "#foliplus/ExportControl/util.js";
 import {
   renderCanvasElement,
   renderPaneCanvas,
 } from "#foliplus/ExportControl/renderer/canvas.js";
+import * as UTIL from "#foliplus/ExportControl/util.js";
 import {
   makeMockCtx,
   makeRenderer,
@@ -39,7 +39,8 @@ describe("renderCanvasElement", () => {
     canvas.getBoundingClientRect = () => rectOf(0, 0);
     const load = vi.spyOn(UTIL, "loadImage").mockResolvedValue({} as any);
 
-    await renderCanvasElement(makeRenderer().container,
+    await renderCanvasElement(
+      makeRenderer().container,
       positionedRC(1000, 1000, ctx),
       canvas,
     );
@@ -54,7 +55,8 @@ describe("renderCanvasElement", () => {
     canvas.getBoundingClientRect = () => rectOf(200, 200, 10, 10);
     const load = vi.spyOn(UTIL, "loadImage").mockRejectedValue(new Error("boom"));
 
-    await renderCanvasElement(makeRenderer().container,
+    await renderCanvasElement(
+      makeRenderer().container,
       positionedRC(1000, 1000, ctx),
       canvas,
     );
@@ -74,7 +76,8 @@ describe("renderCanvasElement", () => {
     canvas.getBoundingClientRect = () => rectOf(100, 100, 200, 200);
     canvas.style.opacity = "0.5";
     vi.spyOn(UTIL, "loadImage").mockResolvedValue({} as any);
-    await renderCanvasElement(makeRenderer().container,
+    await renderCanvasElement(
+      makeRenderer().container,
       positionedRC(1000, 1000, ctx),
       canvas,
     );
@@ -105,10 +108,7 @@ describe("renderPaneCanvas", () => {
     p.appendChild(canvasEl(10, 10, 200, 200));
     stubLoad();
 
-    await renderPaneCanvas(makeRenderer().container,
-      positionedRC(1000, 1000, ctx),
-      p,
-    );
+    await renderPaneCanvas(makeRenderer().container, positionedRC(1000, 1000, ctx), p);
 
     expect(ctx.drawImage).toHaveBeenCalledTimes(1);
   });
@@ -119,10 +119,7 @@ describe("renderPaneCanvas", () => {
     p.appendChild(canvasEl(0, 0, 0, 0));
     const load = stubLoad();
 
-    await renderPaneCanvas(makeRenderer().container,
-      positionedRC(1000, 1000, ctx),
-      p,
-    );
+    await renderPaneCanvas(makeRenderer().container, positionedRC(1000, 1000, ctx), p);
 
     expect(load).not.toHaveBeenCalled();
     expect(ctx.drawImage).not.toHaveBeenCalled();
@@ -134,10 +131,7 @@ describe("renderPaneCanvas", () => {
     // The rect spans 0..100 on both axes, so a box at 500 is fully outside.
     p.appendChild(canvasEl(500, 500, 200, 200));
     const load = stubLoad();
-    await renderPaneCanvas(makeRenderer().container,
-      positionedRC(100, 100, ctx),
-      p,
-    );
+    await renderPaneCanvas(makeRenderer().container, positionedRC(100, 100, ctx), p);
 
     expect(load).not.toHaveBeenCalled();
     expect(ctx.drawImage).not.toHaveBeenCalled();
@@ -149,10 +143,7 @@ describe("renderPaneCanvas", () => {
     p.appendChild(canvasEl(10, 10, 200, 200));
     vi.spyOn(UTIL, "loadImage").mockRejectedValue(new Error("boom"));
 
-    await renderPaneCanvas(makeRenderer().container,
-      positionedRC(1000, 1000, ctx),
-      p,
-    );
+    await renderPaneCanvas(makeRenderer().container, positionedRC(1000, 1000, ctx), p);
 
     expect(ctx.drawImage).not.toHaveBeenCalled();
   });
@@ -169,10 +160,7 @@ describe("renderPaneCanvas", () => {
     ce.style.opacity = "0.5";
     p.appendChild(ce);
     stubLoad();
-    await renderPaneCanvas(makeRenderer().container,
-      positionedRC(1000, 1000, ctx),
-      p,
-    );
+    await renderPaneCanvas(makeRenderer().container, positionedRC(1000, 1000, ctx), p);
     expect(ctx.drawImage).toHaveBeenCalledTimes(1);
     expect(alphaDuringDraw).toBe(0.5);
     expect(ctx.globalAlpha).toBe(1);
@@ -185,9 +173,20 @@ describe("renderCanvasElement / renderPaneCanvas — branch edges", () => {
     const canvas = document.createElement("canvas");
     // Box far to the right of a 100x100 crop.
     canvas.getBoundingClientRect = () =>
-      ({ left: 5000, top: 0, width: 100, height: 100, right: 5100, bottom: 100 }) as DOMRect;
+      ({
+        left: 5000,
+        top: 0,
+        width: 100,
+        height: 100,
+        right: 5100,
+        bottom: 100,
+      }) as DOMRect;
     const load = vi.spyOn(UTIL, "loadImage").mockResolvedValue({} as any);
-    await renderCanvasElement(makeRenderer().container, positionedRC(100, 100, ctx), canvas);
+    await renderCanvasElement(
+      makeRenderer().container,
+      positionedRC(100, 100, ctx),
+      canvas,
+    );
     expect(load).not.toHaveBeenCalled();
     expect(ctx.drawImage).not.toHaveBeenCalled();
   });
@@ -197,7 +196,14 @@ describe("renderCanvasElement / renderPaneCanvas — branch edges", () => {
     const p = document.createElement("div");
     const ce = document.createElement("canvas");
     ce.getBoundingClientRect = () =>
-      ({ left: 5000, top: 5000, width: 50, height: 50, right: 5050, bottom: 5050 }) as DOMRect;
+      ({
+        left: 5000,
+        top: 5000,
+        width: 50,
+        height: 50,
+        right: 5050,
+        bottom: 5050,
+      }) as DOMRect;
     p.appendChild(ce);
     const load = vi.spyOn(UTIL, "loadImage").mockResolvedValue({} as any);
     await renderPaneCanvas(makeRenderer().container, positionedRC(100, 100, ctx), p);
