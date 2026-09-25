@@ -76,11 +76,12 @@ repos:
         language: python
         types: [text]
 
-      # Enforces two code-style rules on foliplus/js/*.ts:
+      # Enforces three code-style rules on foliplus/js/*.ts:
       #   (1) one value export block at file end + optional `export type {}`
       #       (inline type in value export must be split; re-exports are
       #       barrel-only)
-      #   (2) singular file / directory names
+      #   (2) singular file names
+      #   (3) American spelling in identifiers and string literals
       # Function declarations and inline exports are covered by eslint's
       # `func-style` and `no-restricted-syntax` — see eslint.config.js.
       # Check-only — refactor in the editor. Barrels (index.ts) and

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Enforce two code-style rules on foliplus/js/*.ts files.
+"""Enforce three code-style rules on foliplus/js/*.ts files.
 
   1. One value export block at the end of the file, optionally followed by
      a single `export type { ... }` block. Inline type in a value export
@@ -8,8 +8,11 @@
      (`index.ts`) and type-collection files (`type.ts` / `types.ts`) are
      exempt.
 
-  2. Singular file / directory names. Whitelist: pelias, focus, canvas,
-     EventBus, base, index (proper nouns or verbs, not plurals).
+  2. Singular file names. Whitelist: pelias, focus, canvas, EventBus, base,
+     index (proper nouns or verbs, not plurals).
+
+  3. American spelling in identifiers and string literals (colour → color,
+     normalise → normalize, ...). Comments (English prose) are exempt.
 
 Note: `function` declarations and inline exports (`export const x`) are
 covered by eslint's `func-style` and `no-restricted-syntax` rules — see
@@ -45,6 +48,40 @@ PLURAL_WHITELIST = {
     "js",
     "ts",
 }
+
+# Rule 3: American spelling — identifiers and string literals only.
+# Comments are exempt (English prose). Lowercase keys; matching is
+# case-insensitive with word boundaries.
+BRITISH_TO_AMERICAN = {
+    "colour": "color",
+    "colours": "colors",
+    "coloured": "colored",
+    "colouring": "coloring",
+    "colourful": "colorful",
+    "recolour": "recolor",
+    "recoloured": "recolored",
+    "normalise": "normalize",
+    "normalised": "normalized",
+    "normalises": "normalizes",
+    "normalising": "normalizing",
+    "behaviour": "behavior",
+    "behaviours": "behaviors",
+    "centred": "centered",
+    "centring": "centering",
+    "honoured": "honored",
+    "honouring": "honoring",
+    "recognised": "recognized",
+    "recognise": "recognize",
+    "recognises": "recognizes",
+    "neighbour": "neighbor",
+    "neighbours": "neighbors",
+}
+BRITISH_RE = re.compile(
+    r"(?<![\w$])(?:"
+    + "|".join(sorted(BRITISH_TO_AMERICAN, key=len, reverse=True))
+    + r")(?![\w$])",
+    re.IGNORECASE,
+)
 
 # File-name exemptions for Rule 1 (barrel + type-collection).
 BARREL_RE = re.compile(r"(^|/)index\.ts$")
@@ -115,6 +152,68 @@ def strip_comments_and_strings(line: str) -> str:
         out.append(c)
         i += 1
     return "".join(out)
+
+
+def strip_comments_line(line: str, in_block: bool) -> tuple[str, bool]:
+    """Strip comments from one line, tracking multi-line block comments.
+
+    String literals are kept verbatim so spelling checks cover user-facing
+    strings. Returns (code, in_block_after_line) — `in_block` tells the
+    caller whether the previous line opened a `/*` that this line continues.
+    """
+    out: list[str] = []
+    i = 0
+    n = len(line)
+    while i < n:
+        c = line[i]
+        if in_block:
+            # Inside a block comment — look for the closing `*/`.
+            if c == "*" and i + 1 < n and line[i + 1] == "/":
+                i += 2
+                in_block = False
+                continue
+            i += 1
+            continue
+        # String literal — copy verbatim so its content is still checked.
+        if c in "\"'`":
+            quote = c
+            out.append(c)
+            i += 1
+            while i < n and line[i] != quote:
+                if line[i] == "\\" and i + 1 < n:
+                    out.append(line[i : i + 2])
+                    i += 2
+                    continue
+                out.append(line[i])
+                i += 1
+            if i < n:
+                out.append(line[i])
+                i += 1
+            continue
+        # Line comment — rest of the line is prose.
+        if c == "/" and i + 1 < n and line[i + 1] == "/":
+            break
+        # Block comment — enters multi-line mode until a closing `*/`.
+        if c == "/" and i + 1 < n and line[i + 1] == "*":
+            i += 2
+            in_block = True
+            continue
+        out.append(c)
+        i += 1
+    return "".join(out), in_block
+
+
+def check_spelling(lines: list[str]) -> list[tuple[int, str]]:
+    """Rule 3: report British spellings in identifiers and string literals."""
+    violations: list[tuple[int, str]] = []
+    in_block = False
+    for lineno, raw in enumerate(lines, 1):
+        code, in_block = strip_comments_line(raw, in_block)
+        for m in BRITISH_RE.finditer(code):
+            word = m.group(0)
+            fix = BRITISH_TO_AMERICAN[word.lower()]
+            violations.append((lineno, f"British spelling `{word}` — use `{fix}`"))
+    return violations
 
 
 def check_export_blocks(lines: list[str], filepath: str) -> list[tuple[int, str]]:
@@ -229,7 +328,11 @@ def check_file(filepath: str) -> list[tuple[int, str]]:
     except (OSError, UnicodeDecodeError):
         return []
 
-    return check_export_blocks(lines, filepath) + check_plural_names(filepath)
+    return (
+        check_export_blocks(lines, filepath)
+        + check_plural_names(filepath)
+        + check_spelling(lines)
+    )
 
 
 def main() -> int:
@@ -249,8 +352,9 @@ def main() -> int:
         print(
             f"\n{total} code-style violation(s). Rules: (1) one value export "
             "block at file end + optional `export type { ... }`, "
-            "(2) singular file/dir names. Function declarations and inline "
-            "exports are covered by eslint (func-style, no-restricted-syntax).",
+            "(2) singular file names, (3) American spelling in code/strings. "
+            "Function declarations and inline exports are covered by eslint "
+            "(func-style, no-restricted-syntax).",
             file=sys.stderr,
         )
         return 1
