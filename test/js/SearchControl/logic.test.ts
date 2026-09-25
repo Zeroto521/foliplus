@@ -24,7 +24,7 @@ import {
   saveHistory,
   searchAddress,
   searchCoord,
-} from "#foliplus/SearchControl/logic.js";
+} from "#foliplus/SearchControl/logic/index.js";
 import type { SearchHistoryEntry } from "#foliplus/SearchControl/type.js";
 import { Cache } from "#foliplus/common/cache.js";
 import * as Storage from "#foliplus/common/storage.js";
