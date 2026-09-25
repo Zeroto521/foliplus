@@ -106,4 +106,3 @@ describe("isCorsBlocked", () => {
     expect(isCorsBlocked({ total: 1, failed: 1 })).toBe(true);
   });
 });
-

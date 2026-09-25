@@ -39,7 +39,7 @@ describe("renderPaneSVG", () => {
     p.appendChild(svg);
     stubLoad();
 
-    await renderPaneSVG(makeRenderer().container, 
+    await renderPaneSVG(makeRenderer().container,
       positionedRC(1000, 1000, ctx),
       p,
     );
@@ -58,7 +58,7 @@ describe("renderPaneSVG", () => {
     p.appendChild(svg);
     stubLoad();
 
-    await renderPaneSVG(makeRenderer().container, 
+    await renderPaneSVG(makeRenderer().container,
       positionedRC(1000, 1000, ctx),
       p,
     );
@@ -74,7 +74,7 @@ describe("renderPaneSVG", () => {
     p.appendChild(svg);
     const load = stubLoad();
 
-    await renderPaneSVG(makeRenderer().container, 
+    await renderPaneSVG(makeRenderer().container,
       positionedRC(1000, 1000, ctx),
       p,
     );
@@ -92,7 +92,7 @@ describe("renderPaneSVG", () => {
     p.appendChild(svg);
     const load = stubLoad();
 
-    await renderPaneSVG(makeRenderer().container, 
+    await renderPaneSVG(makeRenderer().container,
       positionedRC(1000, 1000, ctx),
       p,
     );
@@ -115,7 +115,7 @@ describe("renderPaneSVG", () => {
     svg.appendChild(document.createElementNS(NS, "path"));
     p.appendChild(svg);
     stubLoad();
-    await renderPaneSVG(makeRenderer().container, 
+    await renderPaneSVG(makeRenderer().container,
       positionedRC(1000, 1000, ctx),
       p,
     );
@@ -142,7 +142,7 @@ describe("renderPaneSVG", () => {
     const srcs = captureSources();
     stubLoad();
 
-    await renderPaneSVG(makeRenderer().container, 
+    await renderPaneSVG(makeRenderer().container,
       positionedRC(1000, 1000, ctx),
       p,
     );
@@ -167,7 +167,7 @@ describe("renderPaneSVG", () => {
     });
 
     await expect(
-      renderPaneSVG(makeRenderer().container, 
+      renderPaneSVG(makeRenderer().container,
         positionedRC(1000, 1000, ctx),
         p,
       ),
@@ -196,7 +196,7 @@ describe("renderPaneSVG", () => {
     const srcs = captureSources();
     stubLoad();
 
-    await renderPaneSVG(makeRenderer().container, 
+    await renderPaneSVG(makeRenderer().container,
       positionedRC(1000, 1000, ctx),
       p,
     );
@@ -232,7 +232,7 @@ describe("renderPaneSVG", () => {
       const srcs = captureSources();
       stubLoad();
 
-      await renderPaneSVG(makeRenderer().container, 
+      await renderPaneSVG(makeRenderer().container,
         positionedRC(1000, 1000, ctx),
         p,
       );
@@ -270,7 +270,7 @@ describe("renderPaneSVG", () => {
     const srcs = captureSources();
     stubLoad();
 
-    await renderPaneSVG(makeRenderer().container, 
+    await renderPaneSVG(makeRenderer().container,
       positionedRC(1000, 1000, ctx),
       p,
     );
@@ -294,7 +294,7 @@ describe("renderPaneSVG", () => {
     p.appendChild(svg);
     stubLoad();
 
-    await renderPaneSVG(makeRenderer().container, 
+    await renderPaneSVG(makeRenderer().container,
       positionedRC(1000, 1000, ctx),
       p,
     );

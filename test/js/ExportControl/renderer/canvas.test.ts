@@ -39,7 +39,7 @@ describe("renderCanvasElement", () => {
     canvas.getBoundingClientRect = () => rectOf(0, 0);
     const load = vi.spyOn(UTIL, "loadImage").mockResolvedValue({} as any);
 
-    await renderCanvasElement(makeRenderer().container, 
+    await renderCanvasElement(makeRenderer().container,
       positionedRC(1000, 1000, ctx),
       canvas,
     );
@@ -54,7 +54,7 @@ describe("renderCanvasElement", () => {
     canvas.getBoundingClientRect = () => rectOf(200, 200, 10, 10);
     const load = vi.spyOn(UTIL, "loadImage").mockRejectedValue(new Error("boom"));
 
-    await renderCanvasElement(makeRenderer().container, 
+    await renderCanvasElement(makeRenderer().container,
       positionedRC(1000, 1000, ctx),
       canvas,
     );
@@ -74,7 +74,7 @@ describe("renderCanvasElement", () => {
     canvas.getBoundingClientRect = () => rectOf(100, 100, 200, 200);
     canvas.style.opacity = "0.5";
     vi.spyOn(UTIL, "loadImage").mockResolvedValue({} as any);
-    await renderCanvasElement(makeRenderer().container, 
+    await renderCanvasElement(makeRenderer().container,
       positionedRC(1000, 1000, ctx),
       canvas,
     );
@@ -105,7 +105,7 @@ describe("renderPaneCanvas", () => {
     p.appendChild(canvasEl(10, 10, 200, 200));
     stubLoad();
 
-    await renderPaneCanvas(makeRenderer().container, 
+    await renderPaneCanvas(makeRenderer().container,
       positionedRC(1000, 1000, ctx),
       p,
     );
@@ -119,7 +119,7 @@ describe("renderPaneCanvas", () => {
     p.appendChild(canvasEl(0, 0, 0, 0));
     const load = stubLoad();
 
-    await renderPaneCanvas(makeRenderer().container, 
+    await renderPaneCanvas(makeRenderer().container,
       positionedRC(1000, 1000, ctx),
       p,
     );
@@ -134,7 +134,7 @@ describe("renderPaneCanvas", () => {
     // The rect spans 0..100 on both axes, so a box at 500 is fully outside.
     p.appendChild(canvasEl(500, 500, 200, 200));
     const load = stubLoad();
-    await renderPaneCanvas(makeRenderer().container, 
+    await renderPaneCanvas(makeRenderer().container,
       positionedRC(100, 100, ctx),
       p,
     );
@@ -149,7 +149,7 @@ describe("renderPaneCanvas", () => {
     p.appendChild(canvasEl(10, 10, 200, 200));
     vi.spyOn(UTIL, "loadImage").mockRejectedValue(new Error("boom"));
 
-    await renderPaneCanvas(makeRenderer().container, 
+    await renderPaneCanvas(makeRenderer().container,
       positionedRC(1000, 1000, ctx),
       p,
     );
@@ -169,7 +169,7 @@ describe("renderPaneCanvas", () => {
     ce.style.opacity = "0.5";
     p.appendChild(ce);
     stubLoad();
-    await renderPaneCanvas(makeRenderer().container, 
+    await renderPaneCanvas(makeRenderer().container,
       positionedRC(1000, 1000, ctx),
       p,
     );

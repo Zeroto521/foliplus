@@ -134,7 +134,7 @@ describe("renderMarkers", () => {
     });
     stubBitmaps();
     stubLoad();
-    await renderMarkers(makeRenderer().container, 
+    await renderMarkers(makeRenderer().container,
       positionedRC(1000, 1000, ctx),
       [el],
     );
@@ -152,7 +152,7 @@ describe("renderMarkers", () => {
     });
     stubBitmaps(100, 100);
     stubLoad();
-    await renderMarkers(makeRenderer().container, 
+    await renderMarkers(makeRenderer().container,
       positionedRC(1000, 1000, ctx),
       [el],
     );
@@ -173,7 +173,7 @@ describe("renderMarkers", () => {
     const el = markerEl('url("sprite.png")', { backgroundSize: "auto" });
     stubBitmaps();
     stubLoad();
-    await renderMarkers(makeRenderer().container, 
+    await renderMarkers(makeRenderer().container,
       positionedRC(1000, 1000, ctx),
       [el],
     );
@@ -194,7 +194,7 @@ describe("renderMarkers", () => {
     });
     stubBitmaps(10, 10);
     stubLoad();
-    await renderMarkers(makeRenderer().container, 
+    await renderMarkers(makeRenderer().container,
       positionedRC(1000, 1000, ctx),
       [el],
     );
@@ -208,7 +208,7 @@ describe("renderMarkers", () => {
       ({ left: 0, top: 0, width: 0, height: 0 }) as DOMRect;
     stubBitmaps();
     stubLoad();
-    await renderMarkers(makeRenderer().container, 
+    await renderMarkers(makeRenderer().container,
       positionedRC(1000, 1000, ctx),
       [el],
     );
@@ -232,7 +232,7 @@ describe("renderMarkers", () => {
     root.appendChild(child);
     stubBitmaps();
     stubLoad();
-    await renderMarkers(makeRenderer().container, 
+    await renderMarkers(makeRenderer().container,
       positionedRC(1000, 1000, ctx),
       [root],
     );
@@ -257,7 +257,7 @@ describe("renderFontAwesome", () => {
       fontWeight: "900",
     });
     try {
-      await renderFontAwesome(makeRenderer().container, 
+      await renderFontAwesome(makeRenderer().container,
         positionedRC(1000, 1000, ctx),
         [root],
       );
@@ -286,7 +286,7 @@ describe("renderFontAwesome", () => {
       fontWeight: "normal",
     });
     try {
-      await renderFontAwesome(makeRenderer().container, 
+      await renderFontAwesome(makeRenderer().container,
         positionedRC(1000, 1000, ctx),
         [root],
       );
@@ -303,7 +303,7 @@ describe("renderFontAwesome", () => {
     stubFonts();
     const root = document.createElement("div");
     pinBox(root, 10, 10, 20, 20);
-    await renderFontAwesome(makeRenderer().container, 
+    await renderFontAwesome(makeRenderer().container,
       positionedRC(1000, 1000, ctx),
       [root],
     );
@@ -317,7 +317,7 @@ describe("renderFontAwesome", () => {
     pinBox(root, 500, 500, 20, 20);
     const icon = document.createElement("i");
     root.appendChild(icon);
-    await renderFontAwesome(makeRenderer().container, 
+    await renderFontAwesome(makeRenderer().container,
       positionedRC(100, 100, ctx),
       [root],
     );
@@ -348,7 +348,7 @@ describe("renderTextLabels", () => {
       fontWeight: "bold",
     });
     try {
-      await renderTextLabels(makeRenderer().container, 
+      await renderTextLabels(makeRenderer().container,
         positionedRC(1000, 1000, ctx),
         [root],
       );
@@ -378,7 +378,7 @@ describe("renderTextLabels", () => {
       fontWeight: "400",
     });
     try {
-      await renderTextLabels(makeRenderer().container, 
+      await renderTextLabels(makeRenderer().container,
         positionedRC(1000, 1000, ctx),
         [root],
       );
@@ -412,7 +412,7 @@ describe("renderTextLabels", () => {
       fontWeight: "400",
     });
     try {
-      await renderTextLabels(makeRenderer().container, 
+      await renderTextLabels(makeRenderer().container,
         positionedRC(1000, 1000, ctx),
         [root],
       );
@@ -434,7 +434,7 @@ describe("renderTextLabels", () => {
     const root = document.createElement("div");
     pinBox(root, 10, 10, 60, 20);
     root.textContent = "   ";
-    await renderTextLabels(makeRenderer().container, 
+    await renderTextLabels(makeRenderer().container,
       positionedRC(1000, 1000, ctx),
       [root],
     );
@@ -448,7 +448,7 @@ describe("renderTextLabels", () => {
     pinBox(root, 10, 10, 60, 20);
     root.textContent = "100 m";
     root.appendChild(document.createElement("i"));
-    await renderTextLabels(makeRenderer().container, 
+    await renderTextLabels(makeRenderer().container,
       positionedRC(1000, 1000, ctx),
       [root],
     );
@@ -463,7 +463,7 @@ describe("renderTextLabels", () => {
     root.textContent = "100 m";
     const restore = withStyle({ backgroundImage: 'url("sprite.png")' });
     try {
-      await renderTextLabels(makeRenderer().container, 
+      await renderTextLabels(makeRenderer().container,
         positionedRC(1000, 1000, ctx),
         [root],
       );
@@ -491,7 +491,7 @@ describe("renderTextLabels", () => {
       fontWeight: "400",
     });
     try {
-      await renderTextLabels(makeRenderer().container, 
+      await renderTextLabels(makeRenderer().container,
         positionedRC(1000, 1000, ctx),
         [root],
       );
@@ -526,7 +526,7 @@ describe("renderTextLabels", () => {
       fontWeight: "400",
     });
     try {
-      await renderTextLabels(makeRenderer().container, 
+      await renderTextLabels(makeRenderer().container,
         positionedRC(1000, 1000, ctx),
         [root],
       );
@@ -547,7 +547,7 @@ describe("renderRemaining", () => {
     const img = document.createElement("img");
     img.src = "https://example.com/m.png";
     root.appendChild(img);
-    await renderRemaining(makeRenderer().container, 
+    await renderRemaining(makeRenderer().container,
       positionedRC(1000, 1000, ctx),
       [root],
     );
@@ -562,7 +562,7 @@ describe("renderRemaining", () => {
     const img = document.createElement("img");
     img.src = "https://example.com/m.png";
     root.appendChild(img);
-    await renderRemaining(makeRenderer().container, 
+    await renderRemaining(makeRenderer().container,
       positionedRC(1000, 1000, ctx),
       [root],
     );
@@ -578,7 +578,7 @@ describe("renderRemaining", () => {
     pinBox(svg, 0, 0, 24, 24);
     svg.appendChild(document.createElementNS(CONST.SVG_NS, "path"));
     root.appendChild(svg);
-    await renderRemaining(makeRenderer().container, 
+    await renderRemaining(makeRenderer().container,
       positionedRC(1000, 1000, ctx),
       [root],
     );
@@ -598,7 +598,7 @@ describe("renderRemaining", () => {
       borderColor: "rgb(0, 0, 0)",
     });
     try {
-      await renderRemaining(makeRenderer().container, 
+      await renderRemaining(makeRenderer().container,
         positionedRC(1000, 1000, ctx),
         [root],
       );
@@ -621,7 +621,7 @@ describe("renderRemaining", () => {
       borderStyle: "none",
     });
     try {
-      await renderRemaining(makeRenderer().container, 
+      await renderRemaining(makeRenderer().container,
         positionedRC(1000, 1000, ctx),
         [root],
       );
@@ -642,7 +642,7 @@ describe("renderRemaining", () => {
       backgroundImage: "none",
     });
     try {
-      await renderRemaining(makeRenderer().container, 
+      await renderRemaining(makeRenderer().container,
         positionedRC(1000, 1000, ctx),
         [root],
       );
@@ -662,7 +662,7 @@ describe("renderRemaining", () => {
       backgroundImage: 'url("sprite.png")',
     });
     try {
-      await renderRemaining(makeRenderer().container, 
+      await renderRemaining(makeRenderer().container,
         positionedRC(1000, 1000, ctx),
         [root],
       );
@@ -683,7 +683,7 @@ describe("renderRemaining", () => {
     root.appendChild(svg);
     const restore = withStyle({ color: "#ff0" });
     try {
-      await renderRemaining(makeRenderer().container, 
+      await renderRemaining(makeRenderer().container,
         positionedRC(1000, 1000, ctx),
         [root],
       );
@@ -702,7 +702,7 @@ describe("renderRemaining", () => {
     pinBox(svg, 0, 0, 24, 24);
     svg.appendChild(document.createElement("path"));
     root.appendChild(svg);
-    await renderRemaining(makeRenderer().container, 
+    await renderRemaining(makeRenderer().container,
       positionedRC(1000, 1000, ctx),
       [root],
     );
@@ -722,7 +722,7 @@ describe("renderRemaining", () => {
       borderColor: "rgb(0, 0, 0)",
     });
     try {
-      await renderRemaining(makeRenderer().container, 
+      await renderRemaining(makeRenderer().container,
         positionedRC(1000, 1000, ctx),
         [root],
       );

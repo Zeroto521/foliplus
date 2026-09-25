@@ -1084,4 +1084,3 @@ describe("ExportRenderer.render — layer pass routing", () => {
     expect(onProgress.mock.calls.map(call => call[0])).toEqual([71, 90]);
   });
 });
-
