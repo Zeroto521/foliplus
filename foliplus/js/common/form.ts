@@ -1,4 +1,4 @@
-﻿// common/form 鈥?shared form-control builders for panel UIs.
+// common/form — shared form-control builders for panel UIs.
 // HeatmapControl's template and LayerControl's style drawer both need the
 // same color / number pair; one factory keeps classes, bounds and defaults
 // from drifting.
@@ -74,8 +74,8 @@ const inlineControls = (...children: HTMLElement[]): HTMLElement =>
   dom.el("div", { class: "foliplus-form-inline" }, ...children);
 
 /** One FORM_ROW: a right-aligned label plus a single control cell. Every
- *  style-panel row is this shape 鈥?label color+size, fill color+opacity,
- *  border color+width, and the plain select/toggle rows 鈥?so the chrome
+ *  style-panel row is this shape — label color+size, fill color+opacity,
+ *  border color+width, and the plain select/toggle rows — so the chrome
  *  lives here instead of being hand-assembled at each call site. */
 const formRow = (
   labelText: string,
@@ -115,7 +115,7 @@ const bindLiveNumber = (
   };
 };
 
-/** Live color input 鈥?every picker movement commits. */
+/** Live color input — every picker movement commits. */
 const bindLiveColor = (
   input: HTMLInputElement,
   onCommit: (value: string) => void,

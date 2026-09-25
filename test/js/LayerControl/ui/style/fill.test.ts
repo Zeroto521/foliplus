@@ -1,4 +1,4 @@
-﻿import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerManager } from "#foliplus/LayerControl/manager.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
@@ -77,7 +77,7 @@ const initWithFillLayer = () => {
   return { manager, ui, map, fillLayer };
 };
 
-describe("LayerUI style panel 鈥?fill color", () => {
+describe("LayerUI style panel — fill color", () => {
   let manager: LayerManager;
   let ui: LayerUI;
   let map: any;
@@ -110,7 +110,7 @@ describe("LayerUI style panel 鈥?fill color", () => {
   const fillInput = (item: HTMLElement): HTMLInputElement | null =>
     item.querySelector(`.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`);
 
-  // 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ row rendering 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+  // ─────────────────── row rendering ───────────────────
 
   it("renders the fill row for a fillable vector layer", () => {
     const item = findItem(ui, "overlay1");
@@ -141,7 +141,7 @@ describe("LayerUI style panel 鈥?fill color", () => {
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
 
-    // No user fill yet 鈥?the swatch shows the layer's authored fill color
+    // No user fill yet — the swatch shows the layer's authored fill color
     // (the first polygon leaf's options.fillColor), not a constant.
     expect(fillInput(item)!.value).toBe("#aabbcc");
   });
@@ -154,7 +154,7 @@ describe("LayerUI style panel 鈥?fill color", () => {
     expect(fillInput(item)!.value).toBe("#ff8800");
   });
 
-  // 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ capability gate 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+  // ─────────────────── capability gate ───────────────────
 
   it("layerCanFill returns false for a canvas layer", () => {
     manager.registerLayer({
@@ -203,7 +203,7 @@ describe("LayerUI style panel 鈥?fill color", () => {
     expect(layerCanFill(ui, "not-a-real-layer")).toBe(false);
   });
 
-  it("layerCanFill is false for a line layer 鈥?no fill concept", () => {
+  it("layerCanFill is false for a line layer — no fill concept", () => {
     // A PolyLine passes the capability check (vector shape) but has no fill
     // concept: a fill row there would write a value with no visual effect.
     const line = new L.Polyline();
@@ -257,7 +257,7 @@ describe("LayerUI style panel 鈥?fill color", () => {
   });
 
   it("layerCanFill is false when the mixed layer resolves no Leaflet object", () => {
-    // UNKNOWN geometry with no layer object to walk 鈥?the gate must not
+    // UNKNOWN geometry with no layer object to walk — the gate must not
     // assume leaves exist when it cannot reach them. In reality a missing
     // layer also flips the surface capabilities to "none", so this state is
     // only reachable through a surface that still reports UNKNOWN.
@@ -278,7 +278,7 @@ describe("LayerUI style panel 鈥?fill color", () => {
 
   it("the swatch resolves a named authored color through the browser probe", () => {
     // jsdom cannot parse named colors and degrades to the default; the real
-    // picker resolves them (Chromium: "gray" 鈫?#808080). The important
+    // picker resolves them (Chromium: "gray" → #808080). The important
     // contract is that a non-hex authored value never reaches the input raw.
     const fixture = initWithFillLayer();
     fixture.fillLayer.leaves[0].options.fillColor = "gray";
@@ -289,7 +289,7 @@ describe("LayerUI style panel 鈥?fill color", () => {
   });
 
   it("the fill row is absent for a delegated drawer", () => {
-    // Canvas + styleSetters 鈫?delegated drawer; even though the drawer has
+    // Canvas + styleSetters → delegated drawer; even though the drawer has
     // its own Layer section, it excludes fill because LayerControl does not
     // own the write for a third-party layer.
     manager.registerLayer({
@@ -315,7 +315,7 @@ describe("LayerUI style panel 鈥?fill color", () => {
     expect(fillRow(item)).toBeNull();
   });
 
-  // 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ commit + persistence 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+  // ─────────────────── commit + persistence ───────────────────
 
   it("commitFillColor writes to the map, persists, and marks the override", () => {
     const setLayer = vi.spyOn(manager.persistence, "schedule");
@@ -360,7 +360,7 @@ describe("LayerUI style panel 鈥?fill color", () => {
   });
 
   it("applyFillToLayer is a silent no-op for a layer with no leaves", () => {
-    // No honest write 鈫?do not persist a broken state. The gate
+    // No honest write → do not persist a broken state. The gate
     // already prevents commit from reaching here for a non-vector layer,
     // but the walker itself must not throw on a group whose eachLayer
     // dispatches nothing.
@@ -380,7 +380,7 @@ describe("LayerUI style panel 鈥?fill color", () => {
 
   it("commitFillColor walks past a node with no setStyle or eachLayer", () => {
     // The hollow-check walk falls through a leaf that exposes neither a
-    // setter nor children 鈥?it must not throw, and the color still commits.
+    // setter nor children — it must not throw, and the color still commits.
     const fixture = initWithFillLayer();
     fixture.fillLayer.leaves[1] = { options: {} } as never;
 
@@ -411,8 +411,9 @@ describe("LayerUI style panel 鈥?fill color", () => {
       fillOpacity: 0.4,
     });
 
-    // folium's mouseout handler sets the original style back鈥?    leaf.setStyle({ fillColor: "#aabbcc", fillOpacity: 0.5 });
-    // 鈥nd our listener restores the user's fill.
+    // folium's mouseout handler sets the original style back…
+    leaf.setStyle({ fillColor: "#aabbcc", fillOpacity: 0.5 });
+    // …and our listener restores the user's fill.
     handler!();
 
     expect(leaf.setStyle).toHaveBeenLastCalledWith({
@@ -432,7 +433,7 @@ describe("LayerUI style panel 鈥?fill color", () => {
       }),
     };
     fixture.fillLayer.leaves[0] = leaf;
-    applyFillToLayer(fixture.ui, "overlay1"); // nothing stored 鈥?early return
+    applyFillToLayer(fixture.ui, "overlay1"); // nothing stored — early return
 
     // applyFillToLayer never reached the walk, so no listener is attached:
     // folium's own hover handling stays untouched for an uncommitted layer.
@@ -455,7 +456,7 @@ describe("LayerUI style panel 鈥?fill color", () => {
     applyFillToLayer(fixture.ui, "overlay1");
     handler!();
 
-    // fillOpacity is absent from the maps, so the reapply omits it 鈥?the
+    // fillOpacity is absent from the maps, so the reapply omits it — the
     // author's opacity stays in force.
     expect(leaf.setStyle).toHaveBeenLastCalledWith({ fillColor: "#123456" });
   });
@@ -506,8 +507,8 @@ describe("LayerUI style panel 鈥?fill color", () => {
 
   it("attaches the reapply listener to leaves, not to the group", () => {
     // A folium GeoJson is a LayerGroup that ALSO exposes setStyle. The
-    // listener must live on each leaf 鈥?mouseout fires there, never on the
-    // group 鈥?so a group with both methods must still recurse.
+    // listener must live on each leaf — mouseout fires there, never on the
+    // group — so a group with both methods must still recurse.
     const leaves = [
       {
         options: { fillColor: "#aabbcc", fillOpacity: 0.5 },
@@ -615,7 +616,7 @@ describe("LayerUI style panel 鈥?fill color", () => {
     commitFillColor(fixture.ui, "overlay1", "#ff0000");
     resetLayerFill(fixture.ui, "overlay1");
 
-    // No authored color or opacity 鈥?reset restores only the color
+    // No authored color or opacity — reset restores only the color
     // fallback and skips the fillOpacity write entirely.
     expect(fixture.fillLayer.leaves[0].setStyle).toHaveBeenLastCalledWith({
       fillColor: "#3388ff",
@@ -629,7 +630,7 @@ describe("LayerUI style panel 鈥?fill color", () => {
     expect(() => bindFillRow(ui, "overlay1", row)).not.toThrow();
   });
 
-  // 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ panel integration 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+  // ─────────────────── panel integration ───────────────────
 
   it("changing the swatch commits the color through the live binder", () => {
     const item = findItem(ui, "overlay1");
@@ -665,12 +666,12 @@ describe("LayerUI style panel 鈥?fill color", () => {
     input.value = "#3366cc";
     input.dispatchEvent(new Event("input", { bubbles: true }));
 
-    // The input is not rewritten by the commit pass 鈥?the value stays put
+    // The input is not rewritten by the commit pass — the value stays put
     // so the picker position is not reset while the user is holding it.
     expect(input.value).toBe("#3366cc");
   });
 
-  // 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ reset 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+  // ─────────────────── reset ───────────────────
 
   it("resetLayerFill drops the persisted entry and the override marker", () => {
     ui.fillColorMap["overlay1"] = "#ff0000";
@@ -704,7 +705,7 @@ describe("LayerUI style panel 鈥?fill color", () => {
     commitFillColor(ui, "overlay1", "#ff0000");
     resetLayerFill(ui, "overlay1");
 
-    // No authored color 鈥?the fallback is Leaflet's own default.
+    // No authored color — the fallback is Leaflet's own default.
     expect(fillLayer.leaves[0].setStyle).toHaveBeenLastCalledWith({
       fillColor: "#3388ff",
       fillOpacity: 0.5,
@@ -763,7 +764,7 @@ describe("buildFillRow", () => {
   });
 
   it("falls back to the Leaflet default for an unregistered layer", () => {
-    // No registry entry, no authored color 鈥?the swatch shows Leaflet's own
+    // No registry entry, no authored color — the swatch shows Leaflet's own
     // fill default rather than inventing one.
     const row = buildFillRow(ui, "ghost");
     const input = row.querySelector(
@@ -809,11 +810,11 @@ describe("buildFillRow", () => {
     expect(input.value).toBe("#000000");
   });
 
-  // 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ captureBase fallback 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+  // ─────────────────── captureBase fallback ───────────────────
 
   it("captureBase falls back to Leaflet default #3388ff when options.fillColor is unset", () => {
     // A bare Leaflet GeoJSON layer with no style function has no
-    // options.fillColor 鈥?the swatch shows what the browser would paint.
+    // options.fillColor — the swatch shows what the browser would paint.
     const fixture = initWithFillLayer();
     delete fixture.fillLayer.leaves[0].options.fillColor;
 
@@ -826,11 +827,11 @@ describe("buildFillRow", () => {
     });
   });
 
-  // 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ SVG repaint gate 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+  // ─────────────────── SVG repaint gate ───────────────────
 
   it("applyFillToLayer updates the SVG fill attribute (repaint gate)", () => {
-    // User report: "鏀硅壊鍚庢病鐢熸晥". This gate asserts that a color change
-    // actually reaches the rendered fill 鈥?not just options.fillColor, but
+    // User report: "改色后没生效". This gate asserts that a color change
+    // actually reaches the rendered fill — not just options.fillColor, but
     // the attribute Leaflet paints into the SVG. If Leaflet's setStyle
     // stopped triggering _updateStyle for fillColor-only writes, this test
     // would go red before the fix.
@@ -858,7 +859,7 @@ describe("buildFillRow", () => {
   });
 
   it("commitFillColor bumps fillOpacity to 0.2 on a hollow layer", () => {
-    // The user's "鏀硅壊鍚庢病鐢熸晥" report: a hollow polygon (fillOpacity=0)
+    // The user's "改色后没生效" report: a hollow polygon (fillOpacity=0)
     // has its fill invisible, so a color change is user-invisible. This
     // test asserts that commitFillColor bumps fillOpacityMap to a visible
     // value, making the color change actually visible.
@@ -1000,7 +1001,8 @@ describe("replayFillState", () => {
 
   it("attachUI replays a stored fill onto a registered layer", () => {
     // Regression: the initial layers never go through registerLayer (where
-    // the id-specified replay lives), so attach itself must replay fill 鈥?    // otherwise a reload shows the author's default color.
+    // the id-specified replay lives), so attach itself must replay fill —
+    // otherwise a reload shows the author's default color.
     const fillLayer = makeFillableLayer();
     window.localStorage.setItem(
       CONST.STORAGE.KEY,

@@ -1,4 +1,4 @@
-﻿import { ANNOTATION_Z_OFFSET, FOCUS_Z } from "#core/layer/index.js";
+import { ANNOTATION_Z_OFFSET, FOCUS_Z } from "#core/layer/index.js";
 import { LABEL_COLOR_DEFAULT, LABEL_SIZE } from "#common/form.js";
 import { NUMBER_FORMAT } from "#common/format.js";
 
@@ -32,7 +32,7 @@ const FOCUS = {
    *  snaps to the map's max zoom (satellite view); +6 keeps the layer's
    *  surroundings in frame. */
   MAX_ZOOM_STEP: 6,
-  /** Bounds area (deg虏) below which we treat the layer as a single point 鈫?flyTo center. */
+  /** Bounds area (deg²) below which we treat the layer as a single point → flyTo center. */
   MIN_BOUNDS_AREA: 0.0001,
   /** Opacity of the "dim outside" mask. Keep in sync with ExportControl's
    *  --export-dim-color (rgba(0,0,0,0.4)) so both selection boxes dim alike. */
@@ -42,7 +42,7 @@ const FOCUS = {
    *  other layers never cover it. The real value lives in the shared z
    *  ladder (`core/layer/z`); this alias exists so existing assertions and
    *  external readers can refer to the value through the component's own
-   *  surface without reaching into core 鈥?the single source of truth is
+   *  surface without reaching into core — the single source of truth is
    *  still only `core/layer/z`. */
   PANE_Z: FOCUS_Z.overlay,
   /** Gap below PANE_Z the focused layer's pane is lifted to (must stay below
@@ -69,8 +69,8 @@ const CLASSES = {
   COLOR_ITEM: "foliplus-color-layer-item",
   LAYER_LABEL: "foliplus-layer-label",
   /** Marks a row that owns the live Row-cursor visual (arrow keyboard cursor
-   *  or Tab focus). The recipe CSS keys only on this class + `:hover` 鈥?never
-   *  on `:focus-visible` 鈥?so Escape is a single class removal. */
+   *  or Tab focus). The recipe CSS keys only on this class + `:hover` — never
+   *  on `:focus-visible` — so Escape is a single class removal. */
   FOCUSED: "foliplus-layer-focused",
   DRAG_OVER_TOP: "foliplus-layer-drag-over-top",
   DRAG_OVER_BOTTOM: "foliplus-layer-drag-over-bottom",
@@ -86,13 +86,13 @@ const CLASSES = {
   FOCUSING: "foliplus-layer-focusing",
   /** Set on the map container while a focus is active. CSS hides every
    *  `.foliplus-layer-pane` except the focused one (`.foliplus-focus-pane`)
-   *  declaratively 鈥?one class write instead of a JS visibility loop. */
+   *  declaratively — one class write instead of a JS visibility loop. */
   FOCUS_ACTIVE: "foliplus-focus-active",
   /** Marked on the focused layer's pane(s)/canvas so it stays visible while
    *  every other layer is hidden by the `.foliplus-focus-active` rule. */
   FOCUS_PANE: "foliplus-focus-pane",
   /** Added to the focused layer's element(s) so its accent drop-shadow glow
-   *  fades in (CSS animation) 鈥?a single element, not a per-layer loop. */
+   *  fades in (CSS animation) — a single element, not a per-layer loop. */
   FOCUS_GLOW: "foliplus-focus-glow",
   /** Inline rename input shown inside a layer label. */
   RENAME_INPUT: "foliplus-layer-rename-input",
@@ -100,13 +100,13 @@ const CLASSES = {
   RENAMING: "foliplus-layer-renaming",
   /** Floating style panel opened from the layer overflow menu. */
   STYLE_PANEL: "foliplus-layer-style-panel",
-  /** Divider above the 鈰?menu's destructive entry 鈥?its own <li> so the
+  /** Divider above the ⋮ menu's destructive entry — its own <li> so the
    *  keyboard order stays one slot per entry. */
   MENU_DIVIDER: "foliplus-layer-more-menu-divider",
-  /** The 鈰?menu's delete label, kept in its own element so the armed state
+  /** The ⋮ menu's delete label, kept in its own element so the armed state
    *  can swap the text without rebuilding the entry. */
   MENU_DELETE_LABEL: "foliplus-layer-more-menu-delete-label",
-  /** The 鈰?menu's delete entry while it waits for its confirming click. */
+  /** The ⋮ menu's delete entry while it waits for its confirming click. */
   MENU_DELETE_ARMED: "foliplus-layer-more-menu-delete-armed",
   /** The style panel's controls. Each is named by the builder *and* looked up
    *  again by the change handlers that read the panel back, so the names live
@@ -118,7 +118,7 @@ const CLASSES = {
   STYLE_BODY: "foliplus-style-body",
   STYLE_LABEL_COLOR_INPUT: "foliplus-style-label-color-input",
   STYLE_LABEL_SIZE_INPUT: "foliplus-style-label-size-input",
-  /** The "avoid overlap" switch 鈥?its own class, because the panel's change
+  /** The "avoid overlap" switch — its own class, because the panel's change
    *  delegation keys on the class to tell the two switches apart. */
   STYLE_COLLIDE_INPUT: "foliplus-style-collide-input",
   /** Fill color row (vector layers): swatch + native <input type=color>.
@@ -139,7 +139,7 @@ const CLASSES = {
   /** Zoom-range row: a dual-thumb slider with a current-zoom marker.
    *
    *  The rail carries two textures and nothing else: the selected span is the
-   *  accent fill, the rest is a transparency checkerboard 鈥?"the layer is not
+   *  accent fill, the rest is a transparency checkerboard — "the layer is not
    *  rendered there", the same convention the opacity row's checkerboard used.
    *  Integer tick marks were dropped with it: on an 8px rail a second texture
    *  only fights the first. */
@@ -160,11 +160,11 @@ const CLASSES = {
    *  sit under it without overlapping. */
   STYLE_ZOOM_RANGE_LABEL_HIDDEN: "foliplus-style-zoom-range-label-hidden",
   /** Marks the row when the map's current zoom falls outside the layer's
-   *  range 鈥?a dimmed state that reads "you set this to hide at the current
+   *  range — a dimmed state that reads "you set this to hide at the current
    *  level" without hiding the row itself (the user may still want to change
    *  it). */
   STYLE_ZOOM_RANGE_OUT_OF_RANGE: "foliplus-zoom-range-out-of-range",
-  /* 鈹€鈹€ Shared slider component (common/slider.css) 鈹€鈹€
+  /* ── Shared slider component (common/slider.css) ──
      Both range controls are this component; the rows below add their own hook
      classes for behaviour and tests, and set `--slider-thumb-ring` for their
      own coverage state. Geometry is declared once, in the component. */
