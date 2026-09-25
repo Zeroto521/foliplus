@@ -2697,9 +2697,7 @@ class TestLayerControlBrowser:
             assert after["color"] == "#ff0000", (
                 f"reload reverted the border colour: {after}"
             )
-            assert after["weight"] == "6", (
-                f"reload reverted the border width: {after}"
-            )
+            assert after["weight"] == "6", f"reload reverted the border width: {after}"
             assert after["strokes"], f"no stroked path after reload: {after}"
             for stroke in after["strokes"]:
                 assert stroke["stroke"] == "#ff0000", (
