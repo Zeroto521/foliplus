@@ -14,7 +14,7 @@
 // `getStyle` must return only the dimensions the user set — `null` (or an
 // empty object) means "nothing to restore", so a Reset keeps the author's
 // value. This is the shared mechanism both self-managed style dimensions
-// (fill, border) use; it becomes the §47.1-② unified hook when those merge.
+// (fill, border) use; it becomes the unified hook when those merge.
 
 /** A leaf whose `setStyle` is there for real. Narrowing through a guard
  *  rather than a `typeof` test keeps call sites plain method calls, which

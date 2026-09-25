@@ -360,7 +360,7 @@ describe("LayerUI style panel — fill colour", () => {
   });
 
   it("applyFillToLayer is a silent no-op for a layer with no leaves", () => {
-    // §5.4: no honest write → do not persist a broken state. The gate
+    // No honest write → do not persist a broken state. The gate
     // already prevents commit from reaching here for a non-vector layer,
     // but the walker itself must not throw on a group whose eachLayer
     // dispatches nothing.

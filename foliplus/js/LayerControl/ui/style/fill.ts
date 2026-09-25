@@ -8,7 +8,7 @@
 // straight to the layer because `setStyle` is a direct Leaflet API call,
 // not a projection of a stored intent.
 //
-// Gate (§5.4 honest degradation): only AREAL vector layers get a fill row —
+// Gate (honest degradation): only AREAL vector layers get a fill row —
 // the surface must resolve to a pane carrier for BOTH opacity and zoom range
 // (the vector-shape population), and the layer tree must actually contain a
 // polygon leaf. PolyLine has a stroke but no fill concept, so it falls out:
