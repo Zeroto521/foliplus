@@ -21,7 +21,7 @@
  *  matters: Leaflet's `Path.setStyle` runs `setOptions(this, style)`, so a
  *  method captured into a local and called detached would see `this` as
  *  undefined and throw instead of writing. */
-export type StyleSetter = {
+type StyleSetter = {
   setStyle: (style: Record<string, unknown>) => void;
   on?: (type: string, fn: () => void) => void;
 };
@@ -49,4 +49,4 @@ const pinStyleOnHighlight = (
   });
 };
 
-export { isStyleSetter, pinStyleOnHighlight };
+export { isStyleSetter, pinStyleOnHighlight, type StyleSetter };
