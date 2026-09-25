@@ -267,7 +267,7 @@ describe("renderFontAwesome", () => {
         root,
       ]);
       expect(ctx.fillText.mock.calls[0][0]).toBe("A");
-      // "normal" is normalised to 400 in the font spec.
+      // "normal" is normalized to 400 in the font spec.
       expect(ctx.font).toContain("400");
     } finally {
       restore();
@@ -812,7 +812,7 @@ describe("marker passes — branch edges", () => {
     expect(ctx.drawImage).toHaveBeenCalled();
   });
 
-  it("renderFontAwesome: fontWeight bold normalises to 700", async () => {
+  it("renderFontAwesome: fontWeight bold normalizes to 700", async () => {
     const ctx = textCtx();
     stubFonts();
     const root = box(document.createElement("div"), 10, 10, 20, 20);

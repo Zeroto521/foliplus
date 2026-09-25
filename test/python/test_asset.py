@@ -211,7 +211,7 @@ def test_dist_bundle_applies_svg_compression():
 
 
 def _member_names(path: str) -> list[str]:
-    """Archive member paths, normalised to forward slashes."""
+    """Archive member paths, normalized to forward slashes."""
     if path.endswith(".whl"):
         with zipfile.ZipFile(path) as archive:
             names = archive.namelist()
@@ -400,7 +400,7 @@ class TestLayerControlCssSplit:
             + "; ".join(import_statements)
         )
         # Expectation: entry lines with imports replaced by the module lines
-        # (read_css normalises every file to its splitlines(), so the tail
+        # (read_css normalizes every file to its splitlines(), so the tail
         # newline of each module file is consumed too).
         entry = (LAYER_CSS_DIR / "index.css").read_text(encoding="utf-8").splitlines()
         expected_parts = []

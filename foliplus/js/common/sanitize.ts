@@ -113,7 +113,7 @@ const isUrlRef = (v: string): boolean =>
  *  Parsing must be `image/svg+xml`, not `text/html`: the SVG namespace is
  *  what makes `<foreignObject>`/HTML breakout inert, and it keeps attribute
  *  case intact. A `text/html` parse silently moves SVG markup into the HTML
- *  namespace, which both defeats the namespace check and normalises
+ *  namespace, which both defeats the namespace check and normalizes
  *  `viewBox` to `viewbox`. */
 const parseSVG = (html: string): string => {
   if (!html) return "";
