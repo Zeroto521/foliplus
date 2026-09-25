@@ -65,4 +65,5 @@ class EventBus {
   }
 }
 
-export { type EventHandler, EventBus };
+export { EventBus };
+export type { EventHandler };

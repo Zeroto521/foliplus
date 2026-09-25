@@ -103,4 +103,5 @@ const projectAll = (ui: LayerUI): Map<string, Projection> => {
   return result;
 };
 
-export { projectAll, projectLayer, type Projection, type AppliedProjection };
+export { projectAll, projectLayer };
+export type { Projection, AppliedProjection };

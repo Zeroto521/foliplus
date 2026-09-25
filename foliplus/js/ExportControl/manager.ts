@@ -1032,4 +1032,5 @@ class ExportManager {
   }
 }
 
-export { type CropRect, ExportManager, canvasToBlob };
+export { ExportManager, canvasToBlob };
+export type { CropRect };

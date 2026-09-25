@@ -1112,5 +1112,5 @@ class ExportRenderer {
   }
 }
 
-export type { TileLoadStats };
 export { isCorsBlocked, pooledEach, ExportRenderer };
+export type { TileLoadStats };

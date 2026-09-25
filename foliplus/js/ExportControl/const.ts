@@ -230,10 +230,8 @@ const currentFormat = (): FormatSpec => FORMAT[resolveFormat(CONF.format)];
 
 // ============================================================================
 // Public API — every consumer reads CONST.<name>; add nothing to this block
-// without declaring it above. Types come first, then values.
+// without declaring it above. Values come first, then types.
 // ============================================================================
-
-export type { ExportFormat, FormatSpec };
 
 export {
   CROP,
@@ -251,3 +249,5 @@ export {
   resolveFormat,
   currentFormat,
 };
+
+export type { ExportFormat, FormatSpec };

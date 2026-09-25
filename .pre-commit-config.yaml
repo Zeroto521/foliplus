@@ -75,3 +75,15 @@ repos:
         entry: python script/mojibake_check.py
         language: python
         types: [text]
+
+      # Enforces the foliplus code-style mandate (§49.3):
+      #   (1) no `function` declarations — use `const foo = () => {}`
+      #   (2) one value export block at file end + optional `export type {}`
+      #   (3) singular file / directory names
+      # Check-only — refactor in the editor. Barrels (index.ts) and
+      # type-collection files (type.ts / types.ts) are exempt from rule 2.
+      - id: style-check
+        name: style-check
+        entry: python script/style_check.py
+        language: python
+        types: [ts]
