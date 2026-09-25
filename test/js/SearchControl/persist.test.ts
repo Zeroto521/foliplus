@@ -4,7 +4,7 @@ import {
   flushHistory,
   loadHistory,
   saveHistory,
-} from "#foliplus/SearchControl/logic.js";
+} from "#foliplus/SearchControl/logic/index.js";
 import type { SearchHistoryEntry } from "#foliplus/SearchControl/type.js";
 
 describe("SearchControl history — versioned envelope", () => {
