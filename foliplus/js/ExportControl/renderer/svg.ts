@@ -67,9 +67,9 @@ const renderPaneSVG = async (
 
       // Three exclusion mechanisms operate at different stages:
       // 1. data-foliplus-export="exclude" / .foliplus-no-export — declarative,
-      //    checked below via SKIP_EXPORT (line 589) after all props are set.
+      //    checked below via SKIP_EXPORT after all props are set (clone prune).
       // 2. computed display:"none" — derived from the live DOM's computed
-      //    style, checked per-element in this loop (line 570). The <img>
+      //    style, checked per-element in this loop. The <img>
       //    pipeline ignores inline display, so removal is the only reliable
       //    exclusion. Kept separate from SKIP_EXPORT: different data source
       //    (getComputedStyle vs querySelectorAll) and different semantics
