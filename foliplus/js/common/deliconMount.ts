@@ -21,12 +21,15 @@ const mountDelIcon = (
   latlng: L.LatLngExpression,
   opts: { title?: string; iconAnchor?: [number, number] },
   mount: (delIcon: L.Marker) => void,
-  onDelete: () => void,
+  /** When omitted the icon is created and mounted without a click handler —
+   *  callers that wire delete later (MeasureControl circle) stay strictly
+   *  equivalent to a bare makeDelIcon + addLayer. */
+  onDelete?: () => void,
   popupMarker?: L.Marker | null,
 ): L.Marker => {
   const delIcon = makeDelIcon(latlng, opts);
   mount(delIcon);
-  attachDelClick(delIcon, onDelete);
+  if (onDelete) attachDelClick(delIcon, onDelete);
   if (popupMarker) bindDelIconToPopup(popupMarker, delIcon);
   return delIcon;
 };

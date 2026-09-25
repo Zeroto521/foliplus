@@ -230,7 +230,10 @@ const mountDelIcon = (
   layers: CreateLayersAPI,
   latlng: L.LatLngExpression,
   opts: { title?: string; iconAnchor?: [number, number] },
-  onDelete: () => void,
+  /** Omit for pure create+mount (no click handler) — circle wires delete in
+   *  attachCircleUI. Pass a thunk (or a createDeferredDelete onDelete) when
+   *  the mount should own the ✕ click. */
+  onDelete?: () => void,
 ): L.Marker =>
   mountDelIconShared(latlng, opts, m => layers.addLayer(m, CONST.PANES.NODE), onDelete);
 
@@ -259,10 +262,14 @@ const createDeferredDelete = (): {
  * `layers.unregister`. Callers own what `teardown` / `removeLayers` /
  * `onDelete` do; this hook owns only the registerFinalized bookkeeping so
  * `attachDelLifecycle` and `MarkerMode.finalize` don't each re-implement it.
+ *
+ * `unregisterFinalized()` must run first: it de-registers the clearAll /
+ * finalized path before any resource is torn down, so a concurrent clearAll
+ * cannot invoke `teardown` a second time after delete already ran it.
  */
 const wireFinalized = (
-  mgr: MeasureManager,
-  layers: CreateLayersAPI,
+  mgr: { registerFinalized(teardown: () => void, id: string): () => void },
+  layers: { unregister(): void },
   opts: {
     id: string;
     teardown: () => void;

@@ -59,16 +59,12 @@ class CircleMode extends PreviewMode {
       Util.makeNode(centerLatLng, CONST.CLASSES.NODE_SOLID),
       CONST.PANES.NODE,
     ) as L.CircleMarker;
-    // mountDelIcon: create + node-pane mount via the shared base helper.
-    // Delete-click wiring stays in attachCircleUI (it owns the
-    // deleteMeasurement from attachDelLifecycle), so the mount-time handler
-    // is a no-op; attachDelClick binds the real one there.
-    const delMarker = mountDelIcon(
-      manager.layers,
-      centerLatLng,
-      { title: T("del_tooltip") },
-      () => {},
-    ) as L.Marker;
+    // Pure create + node-pane mount (no click handler) — strictly equivalent
+    // to the old makeDelIcon + addLayer. The ✕ delete click is wired in
+    // attachCircleUI, which owns the deleteMeasurement from attachDelLifecycle.
+    const delMarker = mountDelIcon(manager.layers, centerLatLng, {
+      title: T("del_tooltip"),
+    }) as L.Marker;
 
     const mid = Util.midpoint(centerLatLng, targetLatLng);
     const radiusLabel = manager.layers.addLayer(
@@ -267,13 +263,10 @@ class CircleMode extends PreviewMode {
         Util.makeNode(centerLatLng, CONST.CLASSES.NODE_SOLID),
         CONST.PANES.NODE,
       );
-      // See restore(): mount path via base helper; click wired in attachCircleUI.
-      const delMarker = mountDelIcon(
-        this.layers,
-        centerLatLng,
-        { title: T("del_tooltip") },
-        () => {},
-      );
+      // See restore(): pure create + mount; click wired in attachCircleUI.
+      const delMarker = mountDelIcon(this.layers, centerLatLng, {
+        title: T("del_tooltip"),
+      });
 
       const mid = Util.midpoint(centerLatLng, finalTargetLatLng);
       const radiusLabel = this.layers.addLayer(
