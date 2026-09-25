@@ -1,4 +1,4 @@
-// LayerControl UI —Layer row structure / list layout / insert / reindex.
+﻿// LayerControl UI 鈥擫ayer row structure / list layout / insert / reindex.
 import { ListCursor } from "#core/listCursor.js";
 import { dom, updateItemLabel } from "#common/dom.js";
 import * as CONST from "../const.js";
@@ -13,10 +13,9 @@ import {
   displayName,
   snapshotAuthorVisible,
 } from "./rowView.js";
-import { applyUserState } from "./state.js";
 import { syncToggleAll } from "./visibility.js";
 
-/** Full re-scan of every row (used on attach/fold-toggle). Idempotent — *  re-run on each CONTROL_ATTACHED so late-registering components are
+/** Full re-scan of every row (used on attach/fold-toggle). Idempotent 鈥?*  re-run on each CONTROL_ATTACHED so late-registering components are
  *  folded in. Marks the panel ready for tests/consumers. */
 const initTypesAndVisibility = (ui: LayerUI) => {
   // Snapshot the author default before the sweep below moves any layer: it
@@ -29,15 +28,15 @@ const initTypesAndVisibility = (ui: LayerUI) => {
   // Apply persisted hidden state first so initLayerItem reads the corrected
   // map state: folium adds every layer before the control IIFE runs, so on
   // reload hidden layers are back on the map. An id that is not in the
-  // registry is skipped by the sweep, not dropped from the record — stored
+  // registry is skipped by the sweep, not dropped from the record 鈥?stored
   // state is erased only by an explicit delete.
-  applyUserState(ui);
+  ui.applyUserState();
 
   let anyBaseVisible = false;
   for (let i = 0; i < ui.m.layers.length; i++) {
     if (initLayerItem(ui, ui.m.layers[i])) anyBaseVisible = true;
   }
-  // "All bases hidden" (not "any layer hidden") —hiding an overlay on a
+  // "All bases hidden" (not "any layer hidden") 鈥攈iding an overlay on a
   // base-less map must not suppress the color-layer background.
   const baseIds = [...ui.m.layers].filter(li => li.isBase).map(li => li.id);
   const allBasesHidden =
@@ -59,7 +58,7 @@ const initTypesAndVisibility = (ui: LayerUI) => {
 };
 
 const renderInitialList = (ui: LayerUI) => {
-  // Remember the cursor by identity —the item elements are rebuilt below,
+  // Remember the cursor by identity 鈥攖he item elements are rebuilt below,
   // so an element reference would dangle. Layer rows key on data-layer-id,
   // toggle-all rows on data-group (they have no layer id). The identity also
   // tracks the row through a reorder. Null means the cursor was never
@@ -94,7 +93,7 @@ const renderInitialList = (ui: LayerUI) => {
   ui.uiContainer.appendChild(frag);
 
   // ARIA + roving tabindex on the rebuilt rows. setIndex follows activeIdx
-  // without painting the cursor class —restoreCursor() owns that visual.
+  // without painting the cursor class 鈥攔estoreCursor() owns that visual.
   syncListCursor(ui);
 
   // Re-home the cursor on the rebuilt element and restore DOM focus. The
@@ -159,12 +158,12 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
   }
 
   // insertLayerItem is where a late-registered (third-party) layer first
-  // shows up, so the author default is snapshotted here as well — before the
+  // shows up, so the author default is snapshotted here as well 鈥?before the
   // apply below, which is the other path that moves this layer. Only this
   // layer's id is applied: a full sweep would re-rewrite every renamed row
   // on each registration.
   snapshotAuthorVisible(ui, layerInfo);
-  applyUserState(ui, layerInfo.id);
+  ui.applyUserState(layerInfo.id);
   // New row must join the roving tabindex / ARIA set.
   syncListCursor(ui);
 };
@@ -175,7 +174,7 @@ const updateLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
   ) as HTMLElement | null;
   if (!item) return;
   // updateItemLabel sets both the row label and the checkbox's aria-label,
-  // so the name reaches assistive tech here without touching `title` —the
+  // so the name reaches assistive tech here without touching `title` 鈥攖he
   // row's tooltip slot keeps the feature count + type.
   updateItemLabel(item, displayName(ui, layerInfo.id));
 };
@@ -238,7 +237,7 @@ const renderLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
     },
     { html: SVGs.MORE },
   );
-  // All layers get the "more" button —data layers can focus + rename, base
+  // All layers get the "more" button 鈥攄ata layers can focus + rename, base
   // maps can rename (focus on a base map is a harmless full-world fitBounds).
 
   const children: HTMLElement[] = [
@@ -254,7 +253,7 @@ const renderLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
         type: "checkbox",
         checked: "",
         // The name reaches assistive tech via aria-label. `title` is the
-        // Select/Deselect slot —initLayerItem sets it per checked state
+        // Select/Deselect slot 鈥攊nitLayerItem sets it per checked state
         // before this row can be hovered, so leave it unseeded rather than
         // flashing the layer name.
         "aria-label": name,
@@ -290,7 +289,7 @@ const colorLayerName = (ui: LayerUI): string => {
 
 const renderColorLayerItem = (ui: LayerUI) => {
   // The input announces the same name as the row's label cell below, so a
-  // rename reaches assistive tech on both —not just the visible text.
+  // rename reaches assistive tech on both 鈥攏ot just the visible text.
   const colorName = colorLayerName(ui);
   const colorInput = dom.el("input", {
     type: "color",
@@ -299,7 +298,7 @@ const renderColorLayerItem = (ui: LayerUI) => {
     "aria-label": colorName,
   });
 
-  // Color layer lives outside layerRegistry —rename is the only overflow
+  // Color layer lives outside layerRegistry 鈥攔ename is the only overflow
   // action (no focus on a basemap without bounds).
   const moreBtn = dom.el(
     "button",
@@ -316,7 +315,7 @@ const renderColorLayerItem = (ui: LayerUI) => {
   // row, which shows "count / type"); the layer name lives in the label
   // cell, not the tooltip. Persist the type label in data-item-title so a
   // rebuild can restore it; this must be the constant ui.T("type_color_map"),
-  // NOT colorLayerName() —a rename must not change the tooltip.
+  // NOT colorLayerName() 鈥攁 rename must not change the tooltip.
   const colorType = ui.T("type_color_map");
   return dom.el(
     "div",
@@ -343,7 +342,7 @@ const initLayerItem = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
   if (!ui.m.layerRegistry.has(layerInfo.id)) return false;
   const cell = buildRowCell(ui, layerInfo);
   // Resolve the row by data-layer-id: a late registration lands where its
-  // stored slot puts it, so the DOM order can diverge from the registry —an
+  // stored slot puts it, so the DOM order can diverge from the registry 鈥攁n
   // index-based lookup would write the checkbox and type column into a
   // neighbour's row.
   const item = ui.uiContainer.querySelector(

@@ -70,6 +70,8 @@
   "LayerControl.style_zoom_range_max": "最大级别",
   "LayerControl.style_zoom_range_current": "当前: {zoom}",
   "LayerControl.style_zoom_range_out_of_range": "当前级别（{zoom}）不在此范围内",
+  "LayerControl.style_border_color": "边框颜色",
+  "LayerControl.style_border_weight": "边框宽度",
   "LayerControl.section_heatmap": "热力图",
   "LayerControl.border": "边框"
 }

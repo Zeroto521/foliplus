@@ -123,10 +123,34 @@ describe("LayerUI style panel", () => {
     expect(field.options.length).toBe(2);
   });
 
-  it("opens no panel for a layer without labelable fields", () => {
+  it("opens a Layer-only panel for a field-less layer with capable dimensions", () => {
     ui.fieldCache.delete("overlay1");
     const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
 
+    expect(ui.stylePanelLayerId).toBe("overlay1");
+    const panel = panelOf(item);
+    expect(panel).toBeDefined();
+    // No labelable field -> the whole Label section is absent, not just empty.
+    expect(panel!.querySelector(".foliplus-style-toggle-input")).toBeNull();
+    expect(panel!.querySelector(".foliplus-style-field-select")).toBeNull();
+    expect(panel!.querySelector(".foliplus-style-body")).toBeNull();
+    expect(panel!.querySelectorAll(".foliplus-style-section-heading")).toHaveLength(1);
+    // The Layer dimensions still render.
+    expect(panel!.querySelector(".foliplus-style-border-row")).not.toBeNull();
+  });
+
+  it("opens no panel for a layer with neither a labelable field nor a capable dimension", () => {
+    ui.fieldCache.delete("overlay1");
+    const item = findItem(ui, "overlay1");
+    // Strip every dimension: the surface can carry no honest write.
+    const li = manager.layerRegistry.get("overlay1")!;
+    manager.surfaceFor(li).capabilities = {
+      opacity: "none",
+      zoomRange: "none",
+      relocatable: false,
+      bounds: false,
+    };
     ui.openStylePanel("overlay1");
 
     expect(ui.stylePanelLayerId).toBeNull();
@@ -939,6 +963,71 @@ describe("LayerUI style panel", () => {
 
     expect(panel!.querySelector(".foliplus-style-opacity-range")).toBeNull();
     expect(panel!.querySelector(".foliplus-style-zoom-range-row")).toBeNull();
+  });
+
+  // Every FORM_ROW whose label is the border label — counts a border row
+  // regardless of whether the vector row or the delegated drawer's row built it.
+  const borderRows = (panel: HTMLElement): HTMLElement[] =>
+    Array.from(
+      panel.querySelectorAll<HTMLElement>(".foliplus-form-row"),
+    ).filter(
+      row =>
+        row.querySelector(".foliplus-form-label")?.textContent === ui.T("border"),
+    );
+
+  it("builds one border row for a vector layer, between opacity and zoom range", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+
+    expect(borderRows(panel)).toHaveLength(1);
+    const row = panel.querySelector(".foliplus-style-border-row") as HTMLElement;
+    expect(row.querySelector(".foliplus-style-border-color-input")).not.toBeNull();
+    const width = row.querySelector(
+      ".foliplus-style-border-weight-input",
+    ) as HTMLInputElement;
+    expect(width.min).toBe("0");
+    expect(width.max).toBe("10");
+    expect(width.step).toBe("0.5");
+
+    // Layer section order: opacity, border, zoom range. The classes live on
+    // the rows themselves, so both the row and its descendants are checked.
+    const rows = Array.from(panel.querySelectorAll(".foliplus-form-row"));
+    const index = (sel: string) =>
+      rows.findIndex(row => row.matches(sel) || row.querySelector(sel) !== null);
+    expect(index(".foliplus-style-opacity-range")).toBeLessThan(
+      index(".foliplus-style-border-row"),
+    );
+    expect(index(".foliplus-style-border-row")).toBeLessThan(
+      index(".foliplus-style-zoom-range-row"),
+    );
+  });
+
+  it("never builds the vector border row for a delegated layer — one border row total", () => {
+    // layerCanBorder excludes styleSetters, so the vector row cannot render
+    // alongside the drawer's own border row in the same panel.
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({
+        labelShow: true,
+        borderColor: "#000000",
+        borderWeight: 2,
+      }),
+      styleSetters: { borderColor: vi.fn(), borderWeight: vi.fn() },
+      styleDefaults: () => ({
+        labelShow: true,
+        borderColor: "#000000",
+        borderWeight: 2,
+      }),
+    });
+    const item = findItem(ui, "heat1");
+    ui.openStylePanel("heat1");
+    const panel = panelOf(item)!;
+
+    expect(panel.querySelectorAll(".foliplus-style-border-row")).toHaveLength(0);
+    expect(borderRows(panel)).toHaveLength(1);
   });
 
   it("canShowZoomRange declines a base layer: basemaps carry no range control", () => {

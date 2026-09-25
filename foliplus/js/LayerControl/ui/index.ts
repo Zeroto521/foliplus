@@ -59,6 +59,7 @@ import {
   invalidateFields,
   openStylePanel,
 } from "./style/index.js";
+import { replayBorderState } from "./style/border.js";
 import {
   applyVisibility,
   getLayerItems,
@@ -182,6 +183,12 @@ class LayerUI {
   /** Persisted per-layer zoom range the user moved the handles for
    *  (id → [minZoom, maxZoom]). Applied on load / late register. */
   zoomRangeMap: Record<string, [number, number]>;
+  /** Persisted per-layer border colour (id → hex). A self-managed dimension —
+   *  not part of the executor's visible/opacity/zoomRange family; the border
+   *  row in ui/style/border.ts writes through setStyle directly. */
+  borderColorMap: Record<string, string>;
+  /** Persisted per-layer border width (id → px), in the shared border bounds. */
+  borderWeightMap: Record<string, number>;
   /** The executor's last-write map: id → the projection `applyProjection`
    *  last wrote to the map. This is what makes the executor a diff, not a
    *  sweep — a changeless call re-projects, sees no delta, and calls no
@@ -240,6 +247,8 @@ class LayerUI {
     this.labelConfigs = {};
     this.opacityMap = {};
     this.zoomRangeMap = {};
+    this.borderColorMap = {};
+    this.borderWeightMap = {};
     this.appliedState = new Map();
     this.focusRect = null;
     this.focusingLayerId = null;
@@ -337,7 +346,13 @@ class LayerUI {
     return saveState(this);
   }
   applyUserState(id?: string) {
-    return applyUserState(this, id);
+    applyUserState(this, id);
+    // The executor carries visible / opacity / zoomRange only. Border is a
+    // direct setStyle write, so without its own replay a reload would restore
+    // the drawer's swatch while the map kept the author's stroke. Hooked here
+    // rather than in state.ts to keep state.ts free of a border.js import
+    // (border.js imports state.js for markOverride/saveState).
+    replayBorderState(this, id);
   }
   replayLayerState(layerId: string) {
     return replayLayerState(this, layerId);

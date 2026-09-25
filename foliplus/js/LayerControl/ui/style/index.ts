@@ -33,6 +33,12 @@ import * as SVGs from "../../icon.js";
 import type { LayerUI } from "../index.js";
 import { finishRename } from "../rename.js";
 import { layerHasStyleDelegation, renderDelegatedStylePanel } from "./delegated.js";
+import {
+  bindBorderRow,
+  buildBorderRow,
+  layerCanBorder,
+  resetLayerBorder,
+} from "./border.js";
 import { appendResetFooter, railPos, sectionHeading } from "./frame.js";
 import { applyPatch, layerFields, syncFormatRow } from "./label.js";
 import {
@@ -53,8 +59,8 @@ import {
   zoomToPct,
 } from "./zoomRange.js";
 
-/** Build the style panel DOM for a layer. Returns null when there are no
- *  labelable fields (defensive: the menu item should have been disabled). */
+/** Build the style panel DOM for a layer. Returns null when the layer owns
+ *  neither a labelable field nor a capable Layer dimension. */
 const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   // Third-party canvas layers (heatmap, measure) declare their own controls
   // via styleSetters — render those instead of the annotation panel.
@@ -62,7 +68,16 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
     return renderDelegatedStylePanel(ui, layerId);
   }
   const fields = layerFields(ui, layerId);
-  if (!fields.length) return null;
+  const hasLabel = fields.length > 0;
+  // A plain vector shape has no feature properties, so no labelable field —
+  // but it still owns the Layer section (opacity, border, zoom range). The
+  // ⋮ menu enables Style on capability alone, so the panel has to honour the
+  // same gate rather than demanding a field.
+  const hasLayerDim =
+    layerCanOpacity(ui, layerId) ||
+    canShowZoomRange(ui, layerId) ||
+    layerCanBorder(ui, layerId);
+  if (!hasLabel && !hasLayerDim) return null;
 
   const cfg = ui.m.annotation.getConfig(layerId);
   const fmtLabel = (f: string) => ui._(`foliplus.label_format_${f}`) || f;
@@ -232,30 +247,35 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
     closeTitle: ui.T("close_title"),
     iconClass: "foliplus-layer-style-icon foliplus-header-icon",
   });
-  content.append(
-    sectionHeading(ui.T("section_label")),
-    dom.el(
-      "div",
-      { class: CONST.CLASSES.FORM_ROW },
-      dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui._("foliplus.label")),
+  // The Label section renders only when there is a field to label; a plain
+  // vector shape reaches the panel for the Layer section alone.
+  if (hasLabel) {
+    content.append(
+      sectionHeading(ui.T("section_label")),
       dom.el(
         "div",
-        { class: CONST.CLASSES.FORM_CONTROL },
-        // Resolving the toggle: clicking the input, the slider span, or the
-        // label should all flip the checkbox — the switch is one <label>.
+        { class: CONST.CLASSES.FORM_ROW },
+        dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui._("foliplus.label")),
         dom.el(
-          "label",
-          { class: CONST.CLASSES.TOGGLE_SWITCH },
-          showToggle,
-          dom.el("span", { class: CONST.CLASSES.TOGGLE_SLIDER }),
+          "div",
+          { class: CONST.CLASSES.FORM_CONTROL },
+          // Resolving the toggle: clicking the input, the slider span, or the
+          // label should all flip the checkbox — the switch is one <label>.
+          dom.el(
+            "label",
+            { class: CONST.CLASSES.TOGGLE_SWITCH },
+            showToggle,
+            dom.el("span", { class: CONST.CLASSES.TOGGLE_SLIDER }),
+          ),
         ),
       ),
-    ),
-    body,
-  );
-  if (layerCanOpacity(ui, layerId) || canShowZoomRange(ui, layerId)) {
+      body,
+    );
+  }
+  if (hasLayerDim) {
     content.append(sectionHeading(ui.T("section_layer")));
     if (layerCanOpacity(ui, layerId)) content.append(buildOpacityRow(ui, layerId));
+    if (layerCanBorder(ui, layerId)) content.append(buildBorderRow(ui, layerId));
     if (canShowZoomRange(ui, layerId)) content.append(buildZoomRangeRow(ui, layerId));
   }
   appendResetFooter(ui, content);
@@ -289,6 +309,16 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
   // recorded by the outside handler below, because `dragstart` is dispatched on
   // the draggable row and so cannot answer it.
   panel.addEventListener("mousedown", e => e.stopPropagation());
+
+  // Border row: a self-managed dimension that writes `setStyle` directly, so
+  // its live binders attach to the row instead of going through the panel's
+  // change delegation — that only knows opacity, zoom range and the annotation
+  // rows. A delegated drawer never renders this row (its gate excludes
+  // styleSetters), so the lookup alone is the discriminator.
+  const borderRow = panel.querySelector(
+    `.${CONST.CLASSES.STYLE_BORDER_ROW}`,
+  ) as HTMLElement | null;
+  if (borderRow) bindBorderRow(ui, layerId, borderRow);
 
   const delegated = layerHasStyleDelegation(ui, layerId);
   // Annotation color/size commit live, same bindLive* recipe as the
@@ -515,6 +545,9 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       resetLayerOpacity(ui, layerId);
       // Zoom range is LayerControl-owned: reset to the full map range.
       resetLayerZoomRange(ui, layerId);
+      // Border is LayerControl-owned too: restore the author's stroke and drop
+      // the persisted colour / width, so a reload does not re-apply them.
+      resetLayerBorder(ui, layerId);
       if (delegated) {
         // Call each setter with its Python CONF default. The components own
         // the values — never write localStorage or annotation config here.

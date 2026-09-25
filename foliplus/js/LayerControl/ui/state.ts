@@ -25,6 +25,8 @@ const loadPersistedState = (ui: LayerUI) => {
   ui.hiddenIds = new Set();
   ui.opacityMap = {};
   ui.zoomRangeMap = {};
+  ui.borderColorMap = {};
+  ui.borderWeightMap = {};
   ui.userOverrides = {};
   for (const [id, entry] of Object.entries(state.layers)) {
     ui.userOverrides[id] = [...entry.overrides];
@@ -39,6 +41,12 @@ const loadPersistedState = (ui: LayerUI) => {
     // provenance guarantees presence of the value.
     if (entry.overrides.includes("zoomRange") && entry.zoomRange) {
       ui.zoomRangeMap[id] = entry.zoomRange;
+    }
+    if (entry.overrides.includes("borderColor") && entry.borderColor) {
+      ui.borderColorMap[id] = entry.borderColor;
+    }
+    if (entry.overrides.includes("borderWeight") && typeof entry.borderWeight === "number") {
+      ui.borderWeightMap[id] = entry.borderWeight;
     }
   }
 };
@@ -55,6 +63,8 @@ const saveFoldState = (ui: LayerUI) => {
 const hasLiveValue = (ui: LayerUI, id: string, override: LayerOverride): boolean => {
   if (override === "opacity") return typeof ui.opacityMap[id] === "number";
   if (override === "zoomRange") return Array.isArray(ui.zoomRangeMap[id]);
+  if (override === "borderColor") return typeof ui.borderColorMap[id] === "string";
+  if (override === "borderWeight") return typeof ui.borderWeightMap[id] === "number";
   return true;
 };
 
@@ -73,6 +83,12 @@ const buildLayerStates = (ui: LayerUI): Record<string, PersistedLayerState> => {
       state.opacity = opacity;
     }
     if (declared.includes("zoomRange")) state.zoomRange = ui.zoomRangeMap[id];
+    if (declared.includes("borderColor") && ui.borderColorMap[id]) {
+      state.borderColor = ui.borderColorMap[id];
+    }
+    if (declared.includes("borderWeight") && ui.borderWeightMap[id] !== undefined) {
+      state.borderWeight = ui.borderWeightMap[id];
+    }
     states[id] = state;
   }
   return states;
@@ -237,6 +253,8 @@ const dropPersistedLayerState = (ui: LayerUI, id: string) => {
   ui.hiddenIds.delete(id);
   delete ui.opacityMap[id];
   delete ui.zoomRangeMap[id];
+  delete ui.borderColorMap[id];
+  delete ui.borderWeightMap[id];
   delete ui.userOverrides[id];
 };
 

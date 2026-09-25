@@ -2617,6 +2617,167 @@ class TestLayerControlBrowser:
                 f"reload painted the canvas at the author default: {after_reload}"
             )
 
+    def test_vector_border_writes_the_stroke_and_survives_reload(
+        self, browser, tmp_path
+    ):
+        """A border change rewrites the vector's own stroke and outlives reload.
+
+        Border is not part of the executor's visible / opacity / zoomRange
+        family — the panel writes it with a direct ``setStyle`` — so nothing in
+        the projection replay would restore it. Without its own replay the row
+        could show the user's colour while the map kept painting the author's
+        stroke, which is the one failure mode this asserts against.
+        """
+        m = folium.Map(location=[30.0, 120.0], zoom_start=6, tiles=None)
+        # The polygon rides inside a named, visible FeatureGroup: that is how a
+        # data layer earns a panel row (a bare vector has no control of its own).
+        fg = folium.FeatureGroup(name="Test Region", overlay=True, show=True)
+        folium.Polygon(
+            [[30.0, 120.0], [31.0, 121.0], [30.5, 121.5]],
+            color="#0000ff",
+            weight=2,
+        ).add_to(fg)
+        fg.add_to(m)
+        LayerControl().add_to(m)
+        _expand_panel(m)
+
+        html_path = tmp_path / "test_vector_border_reload.html"
+        _write_html(m, html_path)
+
+        with use_raw_page(browser.new_page) as page:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=10000
+            )
+            panel_ready(page)
+
+            before = page.evaluate(
+                _js("LayerControl/border_set_and_read"), ["Test Region"]
+            )
+            assert before.get("row"), f"layer row not found: {before}"
+            assert before["strokes"], f"no stroked path on the map: {before}"
+            for stroke in before["strokes"]:
+                assert stroke["stroke"] == "#0000ff", (
+                    f"author stroke never reached the map: {before}"
+                )
+                assert stroke["strokeWidth"] == "2", (
+                    f"author width never reached the map: {before}"
+                )
+
+            row = page.evaluate(
+                _js("LayerControl/border_set_and_read"),
+                ["Test Region", "#ff0000", 6],
+            )
+            assert row.get("panel"), f"the style panel did not open: {row}"
+            assert row["borderRows"] == 1, f"expected one border row: {row}"
+            assert row["color"] == "#ff0000", f"swatch did not take: {row}"
+            assert row["weight"] == "6", f"width field did not take: {row}"
+            assert row["strokes"], f"the stroke never reached the map: {row}"
+            for stroke in row["strokes"]:
+                assert stroke["stroke"] == "#ff0000", (
+                    f"the colour change did not reach the SVG: {row}"
+                )
+                assert stroke["strokeWidth"] == "6", (
+                    f"the width change did not reach the SVG: {row}"
+                )
+
+            # Let the debounce commit, then reload — the stored record is the
+            # only thing that survives.
+            page.wait_for_timeout(300)
+            page.reload(wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=10000
+            )
+            panel_ready(page)
+
+            after = page.evaluate(
+                _js("LayerControl/border_set_and_read"), ["Test Region"]
+            )
+            assert after.get("panel"), f"the style panel did not reopen: {after}"
+            assert after["color"] == "#ff0000", (
+                f"reload reverted the border colour: {after}"
+            )
+            assert after["weight"] == "6", (
+                f"reload reverted the border width: {after}"
+            )
+            assert after["strokes"], f"no stroked path after reload: {after}"
+            for stroke in after["strokes"]:
+                assert stroke["stroke"] == "#ff0000", (
+                    f"reload dropped the border stroke\n{after}"
+                )
+                assert stroke["strokeWidth"] == "6", (
+                    f"reload dropped the border width\n{after}"
+                )
+
+            key = next(k for k in after["storage"] if "layer_state" in k)
+            record = json.loads(after["storage"][key])
+            # The record is keyed by folium's generated id, not the label the
+            # row displays.
+            entry = record["layers"].get(after["id"])
+            assert entry, f"border state never persisted: {record}"
+            assert entry["borderColor"] == "#ff0000", (
+                f"stored the wrong colour: {entry}"
+            )
+            assert entry["borderWeight"] == 6, f"stored the wrong width: {entry}"
+
+    def test_heatmap_keeps_its_own_border_row_only(self, browser, tmp_path):
+        """The delegated drawer owns the heatmap's border, so one row total.
+
+        The generic border row must never render next to the drawer's own
+        border row in the same panel — the two write through different paths
+        and would fight over the same visual axis.
+        """
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        # The heatmap only earns a panel row once it has a point layer to
+        # aggregate, so give it one — its id is the stable component id.
+        fg = folium.FeatureGroup(name="Points", show=True)
+        folium.GeoJson(
+            json.dumps(
+                {
+                    "type": "FeatureCollection",
+                    "features": [
+                        {
+                            "type": "Feature",
+                            "properties": {"val": 26.08},
+                            "geometry": {
+                                "type": "Point",
+                                "coordinates": [119.30, 26.08],
+                            },
+                        }
+                    ],
+                }
+            )
+        ).add_to(fg)
+        fg.add_to(m)
+        LayerControl().add_to(m)
+        HeatmapControl().add_to(m)
+        _expand_panel(m)
+
+        html_path = tmp_path / "test_border_heatmap.html"
+        _write_html(m, html_path)
+
+        with use_raw_page(browser.new_page) as page:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=10000
+            )
+            heatmap_ready(page, timeout=15000)
+            panel_ready(page)
+            page.wait_for_timeout(200)
+
+            panel = page.evaluate(
+                _js("LayerControl/border_set_and_read"), ["foliplus_heatmap"]
+            )
+            assert panel.get("panel"), f"the heatmap panel did not open: {panel}"
+            # The drawer builds its own border row with the shared FORM_ROW
+            # chrome but not the vector row's class.
+            assert panel["borderRows"] == 0, (
+                f"the vector border row rendered for a delegated layer: {panel}"
+            )
+            assert panel["labels"].count("Border") == 1, (
+                f"expected exactly one border row, got: {panel['labels']}"
+            )
+
     def test_unregister_keeps_stored_opacity_delete_drops_it(self, browser, tmp_path):
         """unregisterLayer never erases a value; only an explicit delete does.
 

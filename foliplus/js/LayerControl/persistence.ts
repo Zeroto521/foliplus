@@ -1,4 +1,5 @@
 import { type Debounced, debounce } from "#common/debounce.js";
+import { BORDER_WEIGHT } from "#common/form.js";
 import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
 
@@ -19,7 +20,12 @@ const RECORD_VERSION = 2;
  *  so a policy can never write through a user's choice -- which is what makes
  *  "the map overrides what I set" structurally impossible rather than a matter
  *  of remembering not to do it. */
-type LayerOverride = "visible" | "opacity" | "zoomRange";
+type LayerOverride =
+  | "visible"
+  | "opacity"
+  | "zoomRange"
+  | "borderColor"
+  | "borderWeight";
 
 /** One layer's persisted intent: the values the user set, plus which dimensions
  *  they set them for. A value with no matching override is dropped on read. */
@@ -30,6 +36,12 @@ type PersistedLayerState = {
    *  min_zoom / max_zoom is only the starting value, so it reaches this field
    *  only once the user has dragged the handles. */
   zoomRange?: [number, number];
+  /** The hex stroke colour the user picked in the style panel. LayerControl
+   *  owns the write (a self-managed dimension — see ui/style/border.ts), so
+   *  it lives in this record rather than on the annotation config. */
+  borderColor?: string;
+  /** The stroke width the user set, in the shared border bounds. */
+  borderWeight?: number;
   overrides: LayerOverride[];
 };
 
@@ -95,7 +107,13 @@ const asObject = (value: unknown): Record<string, unknown> | null =>
     ? (value as Record<string, unknown>)
     : null;
 
-const OVERRIDE_VALUES: LayerOverride[] = ["visible", "opacity", "zoomRange"];
+const OVERRIDE_VALUES: LayerOverride[] = [
+  "visible",
+  "opacity",
+  "zoomRange",
+  "borderColor",
+  "borderWeight",
+];
 
 /** A stored zoom range: two finite numbers with the low end not above the
  *  high. Bounds are the map's business -- the handles are confined to the map's
@@ -112,6 +130,21 @@ const parseZoomRange = (raw: unknown): [number, number] | null => {
     ? [min, max]
     : null;
 };
+
+/** A hex colour the style panel's colour swatches accept: `#rgb` or
+ *  `#rrggbb`. Longer or shorter strings and non-hex characters are dropped
+ *  so a corrupt entry cannot leak a broken value into <input type=color>. */
+const isHexColor = (value: unknown): value is string =>
+  typeof value === "string" && /^#[0-9a-fA-F]{3,6}$/.test(value);
+
+/** A border width inside the shared bounds — the same constants the number
+ *  field is confined to, so a stored value can never ask for a width the UI
+ *  cannot display. */
+const isBorderWeight = (value: unknown): value is number =>
+  typeof value === "number" &&
+  Number.isFinite(value) &&
+  value >= BORDER_WEIGHT.MIN &&
+  value <= BORDER_WEIGHT.MAX;
 
 /**
  * Coerce one entry of `layers`. Validates value and provenance together, so a
@@ -144,6 +177,20 @@ const parseLayerState = (raw: unknown): PersistedLayerState | null => {
       ) {
         out.opacity = data.opacity;
         out.overrides.push("opacity");
+      }
+      continue;
+    }
+    if (override === "borderColor") {
+      if (isHexColor(data.borderColor)) {
+        out.borderColor = data.borderColor;
+        out.overrides.push("borderColor");
+      }
+      continue;
+    }
+    if (override === "borderWeight") {
+      if (isBorderWeight(data.borderWeight)) {
+        out.borderWeight = data.borderWeight;
+        out.overrides.push("borderWeight");
       }
       continue;
     }

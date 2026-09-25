@@ -33,7 +33,7 @@ import { closeMoreMenu } from "./menu.js";
 import { finishRename } from "./rename.js";
 import { applyRowView, buildRowCell } from "./rowView.js";
 import { snapshotAuthorVisible } from "./rowView.js";
-import { applyUserState, loadPersistedState, syncHiddenId } from "./state.js";
+import { loadPersistedState, syncHiddenId } from "./state.js";
 import { closeStylePanel, invalidateFields } from "./style/index.js";
 import {
   getLayerItems,
@@ -72,7 +72,7 @@ const attachUI = (ui: LayerUI, containerDiv: HTMLElement): void => {
   // needed for rows rendered from the initial registry. Hidden ids are
   // loaded above but only applied here, so a row can never render visible
   // and get removed afterwards.
-  applyUserState(ui);
+  ui.applyUserState();
   // Re-apply ARIA/roving after insertLayerItem / applyUserState may have
   // rebuilt rows.
   syncListCursor(ui);
