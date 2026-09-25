@@ -53,13 +53,13 @@ import {
   syncHiddenId,
 } from "./state.js";
 import type { AppliedProjection } from "./store.js";
+import { replayBorderState } from "./style/border.js";
 import {
   applyStyleLabelState,
   closeStylePanel,
   invalidateFields,
   openStylePanel,
 } from "./style/index.js";
-import { replayBorderState } from "./style/border.js";
 import {
   applyVisibility,
   getLayerItems,

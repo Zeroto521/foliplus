@@ -135,7 +135,7 @@ describe("LayerUI style panel", () => {
     expect(panel!.querySelector(".foliplus-style-toggle-input")).toBeNull();
     expect(panel!.querySelector(".foliplus-style-field-select")).toBeNull();
     expect(panel!.querySelector(".foliplus-style-body")).toBeNull();
-    expect(panel!.querySelectorAll(".foliplus-style-section-heading")).toHaveLength(1);
+    expect(panel!.querySelectorAll(".foliplus-section-heading")).toHaveLength(1);
     // The Layer dimensions still render.
     expect(panel!.querySelector(".foliplus-style-border-row")).not.toBeNull();
   });
@@ -968,11 +968,8 @@ describe("LayerUI style panel", () => {
   // Every FORM_ROW whose label is the border label — counts a border row
   // regardless of whether the vector row or the delegated drawer's row built it.
   const borderRows = (panel: HTMLElement): HTMLElement[] =>
-    Array.from(
-      panel.querySelectorAll<HTMLElement>(".foliplus-form-row"),
-    ).filter(
-      row =>
-        row.querySelector(".foliplus-form-label")?.textContent === ui.T("border"),
+    Array.from(panel.querySelectorAll<HTMLElement>(".foliplus-form-row")).filter(
+      row => row.querySelector(".foliplus-form-label")?.textContent === ui.T("border"),
     );
 
   it("builds one border row for a vector layer, between opacity and zoom range", () => {

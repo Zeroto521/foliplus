@@ -21,11 +21,7 @@ const RECORD_VERSION = 2;
  *  "the map overrides what I set" structurally impossible rather than a matter
  *  of remembering not to do it. */
 type LayerOverride =
-  | "visible"
-  | "opacity"
-  | "zoomRange"
-  | "borderColor"
-  | "borderWeight";
+  "visible" | "opacity" | "zoomRange" | "borderColor" | "borderWeight";
 
 /** One layer's persisted intent: the values the user set, plus which dimensions
  *  they set them for. A value with no matching override is dropped on read. */

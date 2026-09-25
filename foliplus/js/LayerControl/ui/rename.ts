@@ -1,4 +1,4 @@
-﻿// LayerControl UI 鈥擨nline layer rename.
+// LayerControl UI —Inline layer rename.
 import { HINT_DURATION } from "#core/hint.js";
 import { forEachLeaf } from "#core/layer/index.js";
 import {
@@ -34,7 +34,7 @@ const renameLayer = (ui: LayerUI, layerId: string): void => {
   const label = item?.querySelector("label") as HTMLLabelElement | null;
   if (!label) return;
 
-  // displayName resolves rename 鈫抮egistry 鈫抰he color layer's locale label,
+  // displayName resolves rename →registry →the color layer's locale label,
   // so the input opens with the name the UI already shows.
   const currentName = displayName(ui, layerId);
 
@@ -49,7 +49,7 @@ const renameLayer = (ui: LayerUI, layerId: string): void => {
     ariaLabel: ui.T("rename_hint"),
     // Only commit on blur while this is still the active rename. Enter/Escape
     // call finishRename() which sets activeRenameId=null and removes the
-    // focused input 鈫抰hat removal fires a blur that must not re-commit.
+    // focused input →that removal fires a blur that must not re-commit.
     isActive: () => ui.activeRenameId === layerId,
     onCommit: trimmed => {
       const changed = trimmed !== currentName;
@@ -66,7 +66,7 @@ const renameLayer = (ui: LayerUI, layerId: string): void => {
     },
     onCancel: reason => {
       // Only an empty-name commit is a user mistake worth flagging;
-      // Escape is an intentional abandon 鈥攕tay silent.
+      // Escape is an intentional abandon —stay silent.
       if (reason === "empty") {
         ui.m.map.foliplus!.showHint(
           ui.conf.name,
@@ -76,7 +76,7 @@ const renameLayer = (ui: LayerUI, layerId: string): void => {
       }
       // Escape defers the teardown: tearing the input down now would blur
       // it to `<body>`, and `document.activeElement` is what handleKeyDown's
-      // container guard reads 鈥攁 microtask already runs before the keydown
+      // container guard reads —a microtask already runs before the keydown
       // finishes bubbling, so the panel handler sees focus on `<body>` and
       // never reaches the Escape branch. A timeout fires after the whole
       // dispatch is unwound, so the cursor is cleared while the input still
@@ -127,11 +127,12 @@ const finishRename = (ui: LayerUI, restoreText = true): void => {
  * 2. If the layer is not on the map, bring it on temporarily so the bounds
  *    and the visual highlight are consistent with the user's action.
  * 3. If the bounds area is below MIN_BOUNDS_AREA (single Marker, tiny
- *    polygon, etc.), `flyTo` the layer center instead of `fitBounds` 鈥?*    `fitBounds` on a degenerate box has no effect.
+ *    polygon, etc.), `flyTo` the layer center instead of `fitBounds` —
+ *    `fitBounds` on a degenerate box has no effect.
  * 4. Draw a dashed rectangle on the exact bounds so the user sees exactly
  *    what "this layer" covers.
  * 5. Highlight the focused layer row with the `foliplus-layer-focusing`
- *    class so the list 鈫抦ap linkage is visible.
+ *    class so the list →map linkage is visible.
  * 6. Call `fitBounds` with `padding` and `maxZoom` capped to current +
  *    `FOCUS.MAX_ZOOM_STEP` to avoid satellite-zoom snaps on small features.
  * 7. Auto-cancel on any subsequent map `moveend`/`zoomend` so the rect

@@ -45,7 +45,10 @@ const loadPersistedState = (ui: LayerUI) => {
     if (entry.overrides.includes("borderColor") && entry.borderColor) {
       ui.borderColorMap[id] = entry.borderColor;
     }
-    if (entry.overrides.includes("borderWeight") && typeof entry.borderWeight === "number") {
+    if (
+      entry.overrides.includes("borderWeight") &&
+      typeof entry.borderWeight === "number"
+    ) {
       ui.borderWeightMap[id] = entry.borderWeight;
     }
   }

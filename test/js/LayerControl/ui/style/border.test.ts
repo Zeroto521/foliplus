@@ -258,7 +258,11 @@ describe("commit pipeline", () => {
   });
 
   it("no-ops a commit for a layer with no carrier", () => {
-    manager.registerLayer({ id: "can1", name: "C", canvas: document.createElement("canvas") });
+    manager.registerLayer({
+      id: "can1",
+      name: "C",
+      canvas: document.createElement("canvas"),
+    });
 
     expect(() => commitBorderColor(ui, "can1", "#ff0000")).not.toThrow();
     expect(ui.borderColorMap.can1).toBe("#ff0000");
@@ -451,10 +455,12 @@ describe("buildBorderRow", () => {
     const row = buildBorderRow(ui, "vec1");
 
     expect(
-      (row.querySelector(".foliplus-style-border-color-input") as HTMLInputElement).value,
+      (row.querySelector(".foliplus-style-border-color-input") as HTMLInputElement)
+        .value,
     ).toBe("#ff0000");
     expect(
-      (row.querySelector(".foliplus-style-border-weight-input") as HTMLInputElement).value,
+      (row.querySelector(".foliplus-style-border-weight-input") as HTMLInputElement)
+        .value,
     ).toBe("5.5");
   });
 
@@ -464,7 +470,8 @@ describe("buildBorderRow", () => {
     const row = buildBorderRow(ui, "vec1");
 
     expect(
-      (row.querySelector(".foliplus-style-border-color-input") as HTMLInputElement).value,
+      (row.querySelector(".foliplus-style-border-color-input") as HTMLInputElement)
+        .value,
     ).toBe("#ff0000");
   });
 });

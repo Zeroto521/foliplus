@@ -1,4 +1,4 @@
-﻿// Border row 鈥?the 鈿欙笌 drawer's "Layer" section stroke swatch + width.
+// Border row — the ⚙︎ drawer's "Layer" section stroke swatch + width.
 //
 // A self-managed LayerControl dimension (like label colour, not like opacity
 // or zoom range): the values live in `ui.borderColorMap` /
@@ -10,7 +10,7 @@
 // projection of a stored intent.
 //
 // Gate (honest degradation): only layers whose surface resolves to a pane
-// carrier for BOTH opacity and zoom range get a border row 鈥?those are the
+// carrier for BOTH opacity and zoom range get a border row — those are the
 // vector shapes (Polygon, Polyline, Circle, CircleMarker, Rectangle, GeoJSON)
 // whose leaves genuinely expose `setStyle`. Canvas layers (heatmap / measure)
 // and third-party delegated drawers are excluded by construction, which is
@@ -19,7 +19,7 @@
 // ImageOverlay fall out of the capability check.
 //
 // UI chrome: shared `form.colorInput` + `numberInput` inside one FORM_ROW via
-// `inlineControls` 鈥?the same recipe as the delegated border row and the
+// `inlineControls` — the same recipe as the delegated border row and the
 // annotation label row, so a border row reads identically whether the layer
 // paints through `setStyle` or through a component's own canvas.
 import { dom } from "#common/dom.js";
@@ -36,7 +36,7 @@ import * as CONST from "../../const.js";
 import type { LayerUI } from "../index.js";
 import { markOverride, saveState, unmarkOverride } from "../state.js";
 
-/** A node with a runtime style-setter 鈥?the honest border carrier. Vector
+/** A node with a runtime style-setter — the honest border carrier. Vector
  *  leaves (Path subclasses: Polygon, Polyline, Circle, CircleMarker,
  *  Rectangle) all have one; a LayerGroup does not (it delegates). */
 type StyleCarrier = L.Layer & {
@@ -46,14 +46,15 @@ type StyleCarrier = L.Layer & {
 };
 
 /** Whether the layer's surface can honestly carry a border write. Requires
- *  the surface to resolve to a pane carrier for BOTH opacity and zoom range 鈥? *  that is exactly the vector-shape population. Anything else falls out:
- *    - `layerInfo.canvas` 鈥?callback-only canvas layers (heatmap / measure)
+ *  the surface to resolve to a pane carrier for BOTH opacity and zoom range —
+ *  that is exactly the vector-shape population. Anything else falls out:
+ *    - `layerInfo.canvas` — callback-only canvas layers (heatmap / measure)
  *      have no `eachLayer` to walk, so a `setStyle` would silently no-op.
- *    - `layerInfo.styleSetters` 鈥?third-party delegated drawers own their
+ *    - `layerInfo.styleSetters` — third-party delegated drawers own their
  *      style write; this row would fight for the same visual axis.
- *    - `capabilities.opacity === "native"` 鈥?GridLayer / ImageOverlay paint
+ *    - `capabilities.opacity === "native"` — GridLayer / ImageOverlay paint
  *      through native options, not through `setStyle`.
- *    - `capabilities.opacity === "none"` 鈥?MarkerCluster and the "no content
+ *    - `capabilities.opacity === "none"` — MarkerCluster and the "no content
  *      panes" surface have no honest write target.
  *
  *  Requiring `zoomRange !== "none"` too is the same test from the other side:
@@ -81,14 +82,14 @@ const layerCanBorder = (ui: LayerUI, layerId: string): boolean => {
  *  when the layer leaves the map, no explicit cleanup needed.
  *
  *  Per-leaf, because a GeoJSON layer's features can each declare their own
- *  style 鈥?one layer-wide base would erase the author's per-feature choice
+ *  style — one layer-wide base would erase the author's per-feature choice
  *  on reset. */
 const authorBorderBase = new WeakMap<
   StyleCarrier,
   { color: string | null; weight: number | null }
 >();
 
-/** Leaflet's own default `Path.color` 鈥?folium's style function always
+/** Leaflet's own default `Path.color` — folium's style function always
  *  populates `options.color`, so this only fires for a bare Leaflet layer
  *  with no style declaration at all. */
 const STYLE_BORDER_DEFAULT = "#3388ff";
@@ -106,7 +107,7 @@ const captureBase = (
   return base;
 };
 
-/** The first leaf that carries a style 鈥?the row's initial value is read
+/** The first leaf that carries a style — the row's initial value is read
  *  from it, so a swatch or a number field never shows a value the layer is
  *  not actually painting. */
 const firstCarrier = (node: StyleCarrier): StyleCarrier | null => {
@@ -122,7 +123,7 @@ const firstCarrier = (node: StyleCarrier): StyleCarrier | null => {
 };
 
 /** The authored border of one layer, or the Leaflet defaults for a layer
- *  that has no declared style. Reads the captured base first 鈥?`setStyle`
+ *  that has no declared style. Reads the captured base first — `setStyle`
  *  mutates `options` in place, so after a write the layer's own options no
  *  longer hold the author's stroke and the base is the only copy. Never
  *  reads the user's stored value, so a stored value cannot feed back into
@@ -144,7 +145,7 @@ const authoredBorder = (
 
 /** Commit the current border colour and width to the layer. Walks the layer
  *  tree and calls `setStyle({color?, weight?})` once per leaf that has a
- *  setter 鈥?the two sub-dimensions ride the same call so a colour change
+ *  setter — the two sub-dimensions ride the same call so a colour change
  *  and a width change can never disagree about the stroke. A node without a
  *  setter is skipped silently.
  *
@@ -153,7 +154,7 @@ const authoredBorder = (
  *  in force.
  *
  *  Called from the two commit paths and from the replay hook, so the walk
- *  is the single writer of a border style 鈥?the commits only record intent. */
+ *  is the single writer of a border style — the commits only record intent. */
 const applyBorderToLayer = (ui: LayerUI, layerId: string): void => {
   const color = ui.borderColorMap[layerId];
   const weight = ui.borderWeightMap[layerId];
@@ -176,16 +177,12 @@ const applyBorderToLayer = (ui: LayerUI, layerId: string): void => {
 
 /** Write the colour into the map, persist it, and mark the dimension as
  *  user-owned so it survives a reload. Only writes when the value actually
- *  moved 鈥?a colour-picker drag revisits every step, and each pass is a
+ *  moved — a colour-picker drag revisits every step, and each pass is a
  *  sweep over every feature of the layer.
  *
  *  Called from `bindLiveColor`, so `rawColor` is a raw `input.value` and is
  *  normalised to 6-digit lowercase hex before landing in storage. */
-const commitBorderColor = (
-  ui: LayerUI,
-  layerId: string,
-  rawColor: string,
-): void => {
+const commitBorderColor = (ui: LayerUI, layerId: string, rawColor: string): void => {
   const color = normalizeHexColor(rawColor);
   if (ui.borderColorMap[layerId] === color) return;
   ui.borderColorMap[layerId] = color;
@@ -205,7 +202,7 @@ const commitBorderWeight = (ui: LayerUI, layerId: string, weight: number): void 
 };
 
 /** Reset one layer's border to its authored value and drop its persisted
- *  entry. "Authored" means the base captured on first write 鈥?`setStyle`
+ *  entry. "Authored" means the base captured on first write — `setStyle`
  *  mutates `options` in place, so the captured value is the only source of
  *  truth for the author's stroke by reset time.
  *
@@ -237,8 +234,8 @@ const resetLayerBorder = (ui: LayerUI, layerId: string): void => {
 };
 
 /** Replay the stored border intent onto the layer's own leaves. The executor
- *  never carries a border 鈥?`setStyle` is a direct Leaflet call, so nothing
- *  else writes it 鈥?which means a reload would otherwise restore the row's
+ *  never carries a border — `setStyle` is a direct Leaflet call, so nothing
+ *  else writes it — which means a reload would otherwise restore the row's
  *  value in the drawer while the map keeps painting the author's stroke.
  *
  *  Called from `LayerUI.applyUserState`, so it runs on the attach sweep and
@@ -261,7 +258,7 @@ const replayBorderState = (ui: LayerUI, id?: string): void => {
  *  reads the same as the delegated border row and the label row.
  *
  *  Each input's initial value is the stored choice, falling back to the
- *  author's own `options` 鈥?never a constant 鈥?so the row shows what the
+ *  author's own `options` — never a constant — so the row shows what the
  *  layer is actually painting on first open. */
 const buildBorderRow = (ui: LayerUI, layerId: string): HTMLElement => {
   const author = authoredBorder(ui, layerId);
@@ -283,7 +280,11 @@ const buildBorderRow = (ui: LayerUI, layerId: string): HTMLElement => {
     "div",
     { class: `${CONST.CLASSES.FORM_ROW} ${CONST.CLASSES.STYLE_BORDER_ROW}` },
     dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("border")),
-    dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, inlineControls(colorInput, weightInput)),
+    dom.el(
+      "div",
+      { class: CONST.CLASSES.FORM_CONTROL },
+      inlineControls(colorInput, weightInput),
+    ),
   );
 };
 
