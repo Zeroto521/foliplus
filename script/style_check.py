@@ -1,18 +1,19 @@
 #!/usr/bin/env python3
-"""Enforce the foliplus code-style mandate on staged .ts files.
+"""Enforce two code-style rules on foliplus/js/*.ts files.
 
-Three rules (§49.3 of the layer-surface-design plan):
+  1. One value export block at the end of the file, optionally followed by
+     a single `export type { ... }` block. Inline type in a value export
+     (`export { a, type B }`) must be split. Re-exports from another module
+     are barrel-only (`export *` and `export { X } from`). Barrels
+     (`index.ts`) and type-collection files (`type.ts` / `types.ts`) are
+     exempt.
 
-  1. No `function` declarations at module scope — use `const foo = () => {}`.
-     Class methods (`foo() {}` inside a class body) and function expressions
-     (`= function () {}`) are allowed.
+  2. Singular file / directory names. Whitelist: pelias, focus, canvas,
+     EventBus, base, index (proper nouns or verbs, not plurals).
 
-  2. One value export block at the end of the file, optionally followed by
-     a single `export type { ... }` block. Barrels (`index.ts`) and
-     type-collection files (`type.ts` / `types.ts`) are exempt.
-
-  3. Singular file / directory names. Whitelist: pelias, focus, canvas,
-     EventBus (proper nouns or verbs, not plurals).
+Note: `function` declarations and inline exports (`export const x`) are
+covered by eslint's `func-style` and `no-restricted-syntax` rules — see
+`eslint.config.js`. This script does not duplicate them.
 
 Check-only: reports violations with `file:line: message` and exits 1 if
 any. Cannot auto-fix — refactor in the editor.
@@ -25,27 +26,15 @@ import os
 import re
 import sys
 
-# Rule 1: module-level `function NAME(` declaration.
-# Matches `function foo() {}`, `export function foo() {}`, `async function foo() {}`.
-# Does NOT match `= function () {}` (expression) or class methods
-# (`foo() {}` — no `function` keyword).
-FN_DECL_RE = re.compile(
-    r"^\s*(?:export\s+)?(?:default\s+)?(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*[(<]"
-)
-
-# Rule 2: export blocks. `export { ... }` (value) vs `export type { ... }` (type).
+# Rule 1: export blocks. `export { ... }` (value) vs `export type { ... }` (type).
 BLOCK_EXPORT_RE = re.compile(r"^\s*export\s+(type\s+)?\{")
 # Re-export from another module (`export { X } from "./x.js"`).
 RE_EXPORT_RE = re.compile(r"^\s*export\s+(?:type\s+)?\{[^}]*\}\s+from\b")
 STAR_EXPORT_RE = re.compile(r"^\s*export\s+\*\s+from\b")
-# Inline `export NAME` (e.g. `export const x = 1`).
-INLINE_EXPORT_RE = re.compile(
-    r"^\s*export\s+(const|let|var|class|interface|type|function|enum|abstract\s+class|default)\b"
-)
 # Inline `type X` mixed into a value export: `export { a, type B, c }`.
 INLINE_TYPE_IN_EXPORT_RE = re.compile(r"\btype\s+[A-Za-z_$][\w$]*")
 
-# Rule 3: plural detection whitelist (proper nouns / verbs, not plurals).
+# Rule 2: plural detection whitelist (proper nouns / verbs, not plurals).
 PLURAL_WHITELIST = {
     "pelias",
     "focus",
@@ -57,7 +46,7 @@ PLURAL_WHITELIST = {
     "ts",
 }
 
-# File-name exemptions for Rule 2 (barrel + type-collection).
+# File-name exemptions for Rule 1 (barrel + type-collection).
 BARREL_RE = re.compile(r"(^|/)index\.ts$")
 TYPE_FILE_RE = re.compile(r"(^|/)types?\.ts$")
 
@@ -128,27 +117,9 @@ def strip_comments_and_strings(line: str) -> str:
     return "".join(out)
 
 
-def check_function_declarations(lines: list[str]) -> list[tuple[int, str]]:
-    """Rule 1: report module-level `function NAME()` declarations."""
-    violations: list[tuple[int, str]] = []
-    for lineno, raw in enumerate(lines, 1):
-        stripped = strip_comments_and_strings(raw)
-        m = FN_DECL_RE.match(stripped)
-        if m:
-            name = m.group(1)
-            violations.append(
-                (
-                    lineno,
-                    f"function declaration `{name}` — use `const {name} = () => ...` "
-                    "(class methods and `= function () {}` expressions are allowed)",
-                )
-            )
-    return violations
-
-
 def check_export_blocks(lines: list[str], filepath: str) -> list[tuple[int, str]]:
-    """Rule 2: report files with >1 value export block, inline type in a
-    value export, or inline `export NAME` declarations."""
+    """Rule 1: report files with >1 value export block, inline type in a
+    value export, or re-exports in non-barrel files."""
     violations: list[tuple[int, str]] = []
     basename = os.path.basename(filepath)
     if BARREL_RE.search(basename) or TYPE_FILE_RE.search(basename):
@@ -210,17 +181,6 @@ def check_export_blocks(lines: list[str], filepath: str) -> list[tuple[int, str]
                 last_value_lineno = lineno
             continue
 
-        # Inline `export NAME = ...` / `export class` / `export function` —
-        # collect into a single block at the end instead.
-        if INLINE_EXPORT_RE.match(stripped):
-            violations.append(
-                (
-                    lineno,
-                    "inline `export NAME` — declare without `export` and "
-                    "collect into a single `export { ... }` block at file end",
-                )
-            )
-
     if value_blocks > 1:
         violations.append(
             (
@@ -242,40 +202,23 @@ def check_export_blocks(lines: list[str], filepath: str) -> list[tuple[int, str]
 
 
 def check_plural_names(filepath: str) -> list[tuple[int, str]]:
-    """Rule 3: report plural-looking file / directory names.
-
-    Resolves to a repo-relative path (stripping the cwd prefix if the
-    input is absolute) so absolute-path components like `C:\\Users` or
-    `Documents` are not flagged.
-    """
+    """Rule 2: report plural-looking file names (basename only)."""
     violations: list[tuple[int, str]] = []
-    cwd = os.getcwd()
-    try:
-        rel = os.path.relpath(filepath, cwd)
-    except ValueError:
-        rel = filepath
-    rel = rel.replace("\\", "/")
-    parts = rel.split("/")
-    # Skip drive-letter / prefix components (e.g. `C:`).
-    if len(parts) > 1 and len(parts[0]) <= 2 and parts[0][-1] == ":":
-        parts = parts[1:]
-    for part in parts:
-        if not part:
-            continue
-        base = part[:-3] if part.endswith(".ts") else part
-        lower = base.lower()
-        if lower in PLURAL_WHITELIST:
-            continue
-        if lower.endswith("ies") or lower.endswith(
-            ("ses", "xes", "zes", "ches", "shes")
-        ):
-            is_plural = True
-        elif lower.endswith("s"):
-            is_plural = not lower.endswith(SINGULAR_S_SUFFIXES)
-        else:
-            is_plural = False
-        if is_plural:
-            violations.append((0, f"name `{base}` looks plural — use singular"))
+    basename = os.path.basename(filepath)
+    base = basename[:-3] if basename.endswith(".ts") else basename
+    lower = base.lower()
+    if lower in PLURAL_WHITELIST:
+        return violations
+    if lower.endswith("ies") or lower.endswith(
+        ("ses", "xes", "zes", "ches", "shes")
+    ):
+        is_plural = True
+    elif lower.endswith("s"):
+        is_plural = not lower.endswith(SINGULAR_S_SUFFIXES)
+    else:
+        is_plural = False
+    if is_plural:
+        violations.append((0, f"name `{base}` looks plural — use singular"))
     return violations
 
 
@@ -286,11 +229,7 @@ def check_file(filepath: str) -> list[tuple[int, str]]:
     except (OSError, UnicodeDecodeError):
         return []
 
-    return (
-        check_function_declarations(lines)
-        + check_export_blocks(lines, filepath)
-        + check_plural_names(filepath)
-    )
+    return check_export_blocks(lines, filepath) + check_plural_names(filepath)
 
 
 def main() -> int:
@@ -308,10 +247,10 @@ def main() -> int:
 
     if total:
         print(
-            f"\n{total} code-style violation(s). Rules in §49.3 of the "
-            "layer-surface-design plan: (1) no `function` declarations, "
-            "(2) one value export block at file end + optional `export type { ... }`, "
-            "(3) singular file/dir names.",
+            f"\n{total} code-style violation(s). Rules: (1) one value export "
+            "block at file end + optional `export type { ... }`, "
+            "(2) singular file/dir names. Function declarations and inline "
+            "exports are covered by eslint (func-style, no-restricted-syntax).",
             file=sys.stderr,
         )
         return 1
