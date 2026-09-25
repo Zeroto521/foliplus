@@ -114,4 +114,4 @@ exclude_lines = [
 omit = ["*/test/*", "*/site-packages/*"]
 
 [tool.codespell]
-ignore-words-list = "afterAll"
+ignore-words-list = "afterAll, vas"
