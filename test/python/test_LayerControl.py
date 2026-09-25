@@ -2776,6 +2776,94 @@ class TestLayerControlBrowser:
                 f"expected exactly one border row, got: {panel['labels']}"
             )
 
+    def test_border_swatch_shows_a_named_colour_as_hex(
+        self, browser, tmp_path
+    ):
+        """The swatch agrees with the map for a named authored colour.
+
+        folium's quickstart styles its faces with the named colour ``gray``.
+        The GeoJSON read used to return the layer's own options instead of
+        its first feature's, which put a stroke the map was not painting into
+        the panel — the same "the swatch disagrees with the map" defect,
+        reached through the colour form instead of through the layer tree.
+
+        The face paints ``stroke="gray"``; the swatch must therefore read
+        ``#808080``, the hex for that same colour, not black and not
+        Leaflet's default. The neighbouring line keeps its own stroke, which
+        pins the assertion to the colour form rather than to anything the
+        map does with it.
+        """
+        m = folium.Map(location=[30.0, 120.0], zoom_start=6, tiles=None)
+        fg = folium.FeatureGroup(name="Region", overlay=True, show=True)
+        folium.GeoJson(
+            json.dumps(
+                {
+                    "type": "FeatureCollection",
+                    "features": [
+                        {
+                            "type": "Feature",
+                            "properties": {"kind": "face"},
+                            "geometry": {
+                                "type": "Polygon",
+                                "coordinates": [
+                                    [
+                                        [120.0, 30.0],
+                                        [121.0, 30.0],
+                                        [121.0, 31.0],
+                                        [120.0, 30.0],
+                                    ]
+                                ],
+                            },
+                        },
+                        {
+                            "type": "Feature",
+                            "properties": {"kind": "line"},
+                            "geometry": {
+                                "type": "LineString",
+                                "coordinates": [[120.2, 30.2], [120.8, 30.8]],
+                            },
+                        },
+                    ],
+                }
+            ),
+            style_function=lambda f: (
+                {"color": "gray", "weight": 1.5}
+                if f["properties"]["kind"] == "face"
+                else {"color": "#e74c3c", "weight": 6}
+            ),
+            highlight=False,
+        ).add_to(fg)
+        fg.add_to(m)
+        LayerControl().add_to(m)
+        _expand_panel(m)
+
+        html_path = tmp_path / "test_border_named_colour.html"
+        _write_html(m, html_path)
+
+        with use_raw_page(browser.new_page) as page:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=10000
+            )
+            panel_ready(page)
+
+            row = page.evaluate(_js("LayerControl/border_set_and_read"), ["Region"])
+            assert row.get("panel"), f"the style panel did not open: {row}"
+            assert row["borderRows"] == 1, f"expected one border row: {row}"
+            # gray as hex — not black, and not Leaflet's default.
+            assert row["color"] == "#808080", (
+                f"the swatch did not show the authored name as hex: {row}"
+            )
+            assert row["weight"] == "1.5", f"the width field did not take: {row}"
+
+            strokes = {s["stroke"] for s in row["strokes"]}
+            assert "gray" in strokes, (
+                f"the face stopped painting the authored name\n{row['strokes']}"
+            )
+            assert "#e74c3c" in strokes, (
+                f"the neighbouring line lost its own stroke\n{row['strokes']}"
+            )
+
     def test_unregister_keeps_stored_opacity_delete_drops_it(self, browser, tmp_path):
         """unregisterLayer never erases a value; only an explicit delete does.
 

@@ -770,6 +770,44 @@ describe("buildBorderRow", () => {
     ).toBe("#ff0000");
   });
 
+  it("hands the swatch hex for a named colour, not the name itself", () => {
+    // The colour input's value is only defined for #rrggbb, so anything else
+    // is left to the user agent's sanitization: browsers normalize "gray" to
+    // #808080, jsdom falls back to black. Resolving here makes the field's
+    // value the same everywhere, without touching the value the layer is set
+    // to — the map and a Reset still keep the name.
+    manager.registerLayer({
+      id: "geo1",
+      name: "G",
+      layer: makeGeoJsonGroup(makeLeaf("gray", 1.5), makeLeaf("#e74c3c", 6)),
+    });
+
+    const row = buildBorderRow(ui, "geo1");
+
+    expect(
+      (row.querySelector(".foliplus-style-border-color-input") as HTMLInputElement)
+        .value,
+    ).toBe("#808080");
+  });
+
+  it("hands the swatch hex for a functional colour too", () => {
+    // The author may declare a stroke in any CSS form, not only a name or a
+    // hex literal — a function colour resolves through the same path rather
+    // than through a hand-kept name-to-hex table.
+    manager.registerLayer({
+      id: "vec1",
+      name: "V",
+      layer: makeLeaf("hsl(120, 100%, 50%)", 2),
+    });
+
+    const row = buildBorderRow(ui, "vec1");
+
+    expect(
+      (row.querySelector(".foliplus-style-border-color-input") as HTMLInputElement)
+        .value,
+    ).toBe("#00ff00");
+  });
+
   it("shows the author's feature style for an L.GeoJSON layer, not the defaults", () => {
     // The reported symptom: folium GeoJson layers opened the panel showing
     // the Leaflet defaults instead of the style the layer was painting,

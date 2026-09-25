@@ -307,17 +307,50 @@ const replayBorderState = (ui: LayerUI, id?: string): void => {
   for (const layerId of ids) applyBorderToLayer(ui, layerId);
 };
 
+/** Resolve an authored colour to the `#rrggbb` form the colour input's
+ *  value is actually defined for.
+ *
+ *  The author may declare a stroke in any CSS form — a named colour is what
+ *  folium's quickstart uses for its faces — and everything outside `#rrggbb`
+ *  is left to the user agent's sanitization. Browsers normalize it
+ *  (`"gray"` → `#808080`); jsdom does not, and falls back to black. Resolve
+ *  it here instead of depending on the user agent, so this boundary's output
+ *  is the same everywhere. The browser does the resolving, which keeps this
+ *  from becoming a hand-kept table of colour names.
+ *
+ *  The display boundary only: the authored value stays what the layer is set
+ *  to, so the map and a Reset keep it as declared. A value the browser will
+ *  not accept is passed through untouched, so an unpaintable declaration is
+ *  not silently invented into one that can be painted. */
+const displayColor = (value: string): string => {
+  if (/^#[0-9a-f]{6}$/i.test(value)) return value.toLowerCase();
+  const probe = document.createElement("span");
+  probe.style.color = value;
+  if (!probe.style.color) return value;
+  const match = /^rgba?\(([^)]+)\)$/.exec(getComputedStyle(probe).color);
+  const channels = (match?.[1] ?? "")
+    .split(/[\s,/]+/)
+    .filter(Boolean)
+    .map(part => parseInt(part, 10));
+  if (channels.length < 3 || channels.some(Number.isNaN)) return value;
+  return `#${channels
+    .slice(0, 3)
+    .map(part => part.toString(16).padStart(2, "0"))
+    .join("")}`;
+};
+
 /** Build the border form row: colour swatch + width number input. Both
  *  controls live inside one FORM_CONTROL via `inlineControls`, so the row
  *  reads the same as the delegated border row and the label row.
  *
  *  Each input's initial value is the stored choice, falling back to the
  *  author's own `options` — never a constant — so the row shows what the
- *  layer is actually painting on first open. */
+ *  layer is actually painting on first open. The colour is resolved to the
+ *  swatch's own form by `displayColor` before it reaches the field. */
 const buildBorderRow = (ui: LayerUI, layerId: string): HTMLElement => {
   const author = authoredBorder(ui, layerId);
   const colorInput = formColorInput({
-    value: ui.borderColorMap[layerId] ?? author.color,
+    value: displayColor(ui.borderColorMap[layerId] ?? author.color),
     className: CONST.CLASSES.STYLE_BORDER_COLOR_INPUT,
     ariaLabel: ui.T("style_border_color"),
   }) as HTMLInputElement;
