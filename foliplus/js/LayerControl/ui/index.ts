@@ -1,4 +1,4 @@
-// LayerControl UI — class shell: state, lifecycle, event wiring, delegates.
+﻿// LayerControl UI 鈥?class shell: state, lifecycle, event wiring, delegates.
 // Heavy lifting lives in `ui/*` modules; this class owns state and delegates.
 // attachUI / bindEvents / unbindEvents / onLayerItemCountChange /
 // refreshAllCounts moved to `./lifecycle.ts` (34.2).
@@ -72,10 +72,10 @@ import {
 /** UI Controller for LayerControl. */
 class LayerUI {
   manager: LayerManager;
-  /** Per-map event bus — bound once in the constructor (ensure-style getters
+  /** Per-map event bus 鈥?bound once in the constructor (ensure-style getters
    *  return the cached instance, so hold it like the logger does). */
   events: EventBus;
-  /** Component config — carried on the instance so the ui/* modules read it
+  /** Component config 鈥?carried on the instance so the ui/* modules read it
    *  from `ui.conf` instead of a module-level free variable. */
   conf: ComponentConfig;
   /** Translator bound to `conf`, created once in the constructor. */
@@ -104,7 +104,7 @@ class LayerUI {
   userOverrides: Record<string, LayerOverride[]>;
   isColorActive: boolean;
   currentColor: string;
-  /** Map of layer id → user-assigned display name (survives reload). */
+  /** Map of layer id 鈫?user-assigned display name (survives reload). */
   renamedNames: Record<string, string>;
   /** Layer id whose label is currently an inline rename input, or null. */
   activeRenameId: string | null;
@@ -112,7 +112,7 @@ class LayerUI {
   lastDragHintAt: number;
   lastDragOverItem: HTMLElement | null;
   activeIdx: number | null;
-  /** Shared list cursor — ARIA roles + roving tabindex on navigable rows. */
+  /** Shared list cursor 鈥?ARIA roles + roving tabindex on navigable rows. */
   listCursor: ListCursor | null;
   interactionCleanup?: () => void;
   declare onChange: ((event: Event) => void) | null;
@@ -125,13 +125,13 @@ class LayerUI {
   declare onDragLeave: ((event: DragEvent) => void) | null;
   declare onDragEnd: ((event: DragEvent) => void) | null;
   declare onDrop: ((event: DragEvent) => void) | null;
-  /** Click handler for the "more" (⋮) button. */
+  /** Click handler for the "more" (鈰? button. */
   onMoreClick: ((event: Event) => void) | null;
   /** Click handler for the dropdown menu items. */
   onMoreMenuClick: ((event: Event) => void) | null;
   /** Listen-map handler to detect clicks outside the open menu. */
   onMoreMapClick: ((event: L.LeafletEvent) => void) | null;
-  /** Map zoomend handler — re-evaluates every layer's effective-shown after
+  /** Map zoomend handler 鈥?re-evaluates every layer's effective-shown after
    *  a zoom change so a layer whose range excludes the new level is hidden
    *  (and vice versa). Writes through the single pipeline, never touches
    *  hiddenIds / overrides. */
@@ -178,20 +178,20 @@ class LayerUI {
   pressInPanel: boolean;
   /** Persisted per-layer annotation configs, applied once layers resolve. */
   labelConfigs: Record<string, unknown>;
-  /** Persisted per-layer opacity map (id → 0-1). Applied on load / late register. */
+  /** Persisted per-layer opacity map (id 鈫?0-1). Applied on load / late register. */
   opacityMap: Record<string, number>;
   /** Persisted per-layer zoom range the user moved the handles for
-   *  (id → [minZoom, maxZoom]). Applied on load / late register. */
+   *  (id 鈫?[minZoom, maxZoom]). Applied on load / late register. */
   zoomRangeMap: Record<string, [number, number]>;
-  /** Persisted per-layer fill colour (id → hex). A self-managed dimension —
+  /** Persisted per-layer fill color (id 鈫?hex). A self-managed dimension 鈥?
    *  not part of the executor's visible/opacity/zoomRange family; the fill
    *  row in ui/style/fill.ts writes through setStyle directly. */
   fillColorMap: Record<string, string>;
-  /** Persisted per-layer fill opacity (id → 0-1). Same self-managed dimension. */
+  /** Persisted per-layer fill opacity (id 鈫?0-1). Same self-managed dimension. */
   fillOpacityMap: Record<string, number>;
-  /** The executor's last-write map: id → the projection `applyProjection`
+  /** The executor's last-write map: id 鈫?the projection `applyProjection`
    *  last wrote to the map. This is what makes the executor a diff, not a
-   *  sweep — a changeless call re-projects, sees no delta, and calls no
+   *  sweep 鈥?a changeless call re-projects, sees no delta, and calls no
    *  carrier. Keyed by id (not by `layerInfo` identity) so a re-register
    *  of the same id keeps its projection across the swap. */
   appliedState: Map<string, AppliedProjection>;
@@ -332,7 +332,7 @@ class LayerUI {
     }
   }
 
-  // ── delegates: state ──
+  // 鈹€鈹€ delegates: state 鈹€鈹€
   loadPersistedState() {
     return loadPersistedState(this);
   }
@@ -364,7 +364,7 @@ class LayerUI {
   saveNamesState() {
     return saveNamesState(this);
   }
-  // ── delegates: list ──
+  // 鈹€鈹€ delegates: list 鈹€鈹€
   initTypesAndVisibility() {
     return initTypesAndVisibility(this);
   }
@@ -390,7 +390,7 @@ class LayerUI {
     return reindexAfterMove(this);
   }
 
-  // ── delegates: visibility ──
+  // 鈹€鈹€ delegates: visibility 鈹€鈹€
   getLayerItems(group: string) {
     return getLayerItems(this, group);
   }
@@ -416,7 +416,7 @@ class LayerUI {
     return handleInput(this, event);
   }
 
-  // ── delegates: keyboard ──
+  // 鈹€鈹€ delegates: keyboard 鈹€鈹€
   getNavigableItems() {
     return getNavigableItems(this);
   }
@@ -439,7 +439,7 @@ class LayerUI {
     return handleDblClick(this, event);
   }
 
-  // ── delegates: color / menu / attrs / rename / focus ──
+  // 鈹€鈹€ delegates: color / menu / attrs / rename / focus 鈹€鈹€
   showColorLayer(color: string) {
     return showColorLayer(this, color);
   }
@@ -466,7 +466,7 @@ class LayerUI {
   }
   /** Part of the surface `manager` drives (`unregisterLayer` drops a layer's
    *  cached field list). Peer ui/ modules call the module function directly
-   *  instead — see the sibling-import convention from #296. */
+   *  instead 鈥?see the sibling-import convention from #296. */
   invalidateFields(layerId: string) {
     return invalidateFields(this, layerId);
   }
@@ -492,7 +492,7 @@ class LayerUI {
   cancelFocus() {
     return cancelFocus(this);
   }
-  // ── focus helpers (also used internally by focus.ts) ──
+  // 鈹€鈹€ focus helpers (also used internally by focus.ts) 鈹€鈹€
 }
 
 export { LayerUI };

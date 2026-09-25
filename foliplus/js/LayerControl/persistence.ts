@@ -1,4 +1,4 @@
-import { type Debounced, debounce } from "#common/debounce.js";
+﻿import { type Debounced, debounce } from "#common/debounce.js";
 import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
 
@@ -8,7 +8,7 @@ import * as CONST from "./const.js";
  *  when the record's shape changes. `parseRecord` is per-segment tolerant, so a
  *  stored value that does not match is left alone (the segment is treated as
  *  absent); every write stamps `RECORD_VERSION`, which is what brings the
- *  record up to date. Presence, not value, is the compatibility marker — a
+ *  record up to date. Presence, not value, is the compatibility marker 鈥?a
  *  record without a `version` is read as-is and re-stamped on the next write.
  *  Bump only when a new record shape lands. */
 const RECORD_VERSION = 2;
@@ -30,8 +30,8 @@ type PersistedLayerState = {
    *  min_zoom / max_zoom is only the starting value, so it reaches this field
    *  only once the user has dragged the handles. */
   zoomRange?: [number, number];
-  /** The hex fill colour the user picked in the style panel. LayerControl
-   *  owns the write (a self-managed dimension — see ui/style/fill.ts), so
+  /** The hex fill color the user picked in the style panel. LayerControl
+   *  owns the write (a self-managed dimension 鈥?see ui/style/fill.ts), so
    *  it lives in this record rather than on the annotation config. */
   fillColor?: string;
   /** Fill opacity (0-1) the user set in the style panel. */
@@ -49,7 +49,7 @@ type PersistedLayerState = {
  *  `version` through only when it matches `RECORD_VERSION`, otherwise the
  *  segment is dropped and the next write re-stamps it. Older records, which
  *  have no `version` at all, fall through the same branch and are stamped on
- *  the next write — no migration, no data loss on read. */
+ *  the next write 鈥?no migration, no data loss on read. */
 type PersistedRecord = {
   version: number;
   /** Layer ids in the panel's order, or null when the user never reordered. */
@@ -63,11 +63,11 @@ type PersistedRecord = {
    *  registered and so never reaches them. */
   removed: string[];
   foldedGroups: string[];
-  /** Layer id → user-assigned display name. */
+  /** Layer id 鈫?user-assigned display name. */
   renamedNames: Record<string, string>;
-  /** Layer id → annotation config (show/field/format). */
+  /** Layer id 鈫?annotation config (show/field/format). */
   annotations: Record<string, unknown>;
-  /** Layer id → the user's per-layer intent. Empty means the user changed
+  /** Layer id 鈫?the user's per-layer intent. Empty means the user changed
    *  nothing, so every layer falls back to its declared default. */
   layers: Record<string, PersistedLayerState>;
 };
@@ -131,7 +131,7 @@ const parseZoomRange = (raw: unknown): [number, number] | null => {
  * dropped: keeping the value would persist a choice the record itself says was
  * never made, and failing closed sends the layer back to its declared default.
  */
-/** A hex colour the panel's fill row would accept: `#rgb` or `#rrggbb`.
+/** A hex color the panel's fill row would accept: `#rgb` or `#rrggbb`.
  *  Longer / shorter strings and non-hex characters are dropped so a corrupt
  *  entry cannot leak a broken value into <input type=color>. */
 const isHexColor = (value: unknown): value is string =>
@@ -271,21 +271,21 @@ class LayerPersistence {
   /** Live sources registered so far, merged across calls and never cleared.
    *  Every write therefore re-reads every dimension ever scheduled, which is
    *  what stops one caller from writing a record the other caller's dimension
-   *  is missing from — a saved value cannot regress to an older one. */
+   *  is missing from 鈥?a saved value cannot regress to an older one. */
   private fields: LiveState = {};
 
   constructor() {
     this.persistName = CONF.name;
   }
 
-  // ── Read ───────────────────────────────────────────────────────────
+  // 鈹€鈹€ Read 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
   /**
    * Load every dimension. The only read entry point, so a new dimension cannot
    * be missed on load and nothing else calls `Storage.loadRecord`.
    *
    * Nothing here is filtered against the registry. This runs from
-   * `LayerManager`'s constructor — before any layer is registered — and again
+   * `LayerManager`'s constructor 鈥?before any layer is registered 鈥?and again
    * from `LayerUI.attachUI`, which loads before HeatmapControl and
    * MeasureControl register in their own constructor, so a registry filter
    * would drop their entries on the very first attach -- showing the default
@@ -310,7 +310,7 @@ class LayerPersistence {
     );
   }
 
-  // ── Write ──────────────────────────────────────────────────────────
+  // 鈹€鈹€ Write 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
   /**
    * Persist the given dimensions on the one shared debounce timer. The write
@@ -319,7 +319,7 @@ class LayerPersistence {
    * the final state rather than a write per step.
    *
    * The write overlay is applied on top of what storage already holds, so the
-   * caller only needs to supply the dimensions it touched — a caller that only
+   * caller only needs to supply the dimensions it touched 鈥?a caller that only
    * knows the layer order cannot wipe the fold, rename, or label state it never
    * read. A dimension never scheduled in this session is copied through as-is.
    */

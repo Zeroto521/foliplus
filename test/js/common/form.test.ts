@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+﻿import { describe, expect, it, vi } from "vitest";
 import {
   LABEL_SIZE,
   bindLiveColor,
@@ -72,11 +72,11 @@ describe("colorInput / numberInput / inlineControls", () => {
       colorInput({}),
       numberInput({ value: 5, min: 0, max: 10 }),
     );
-    const row = formRow("Fill Colour", control, "row-extra");
+    const row = formRow("Fill Color", control, "row-extra");
 
     expect(row.className).toBe("foliplus-form-row row-extra");
     const label = row.querySelector(".foliplus-form-label");
-    expect(label?.textContent).toBe("Fill Colour");
+    expect(label?.textContent).toBe("Fill Color");
     const cell = row.querySelector(".foliplus-form-control");
     expect(cell?.firstElementChild?.className).toBe("foliplus-form-inline");
 

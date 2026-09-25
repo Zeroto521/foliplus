@@ -1,8 +1,8 @@
-// LayerControl UI — per-layer annotation style panel (entry module).
+﻿// LayerControl UI 鈥?per-layer annotation style panel (entry module).
 //
-// Opened from a data layer's ⋮ menu. The panel is anchored to the layer's own
+// Opened from a data layer's 鈰?menu. The panel is anchored to the layer's own
 // row and built on the shared `foliplus-panel` vocabulary (header bar, content
-// scroll, close affordance), exactly like the attributes panel — so there is
+// scroll, close affordance), exactly like the attributes panel 鈥?so there is
 // no JS positioning and no scroll/resize bookkeeping to clean up.
 //
 // Split from ui/style.ts (34.1). Owns the panel assembly (renderStylePanel),
@@ -65,7 +65,7 @@ import {
  *  labelable fields (defensive: the menu item should have been disabled). */
 const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   // Third-party canvas layers (heatmap, measure) declare their own controls
-  // via styleSetters — render those instead of the annotation panel.
+  // via styleSetters 鈥?render those instead of the annotation panel.
   if (layerHasStyleDelegation(ui, layerId)) {
     return renderDelegatedStylePanel(ui, layerId);
   }
@@ -74,15 +74,15 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
 
   const cfg = ui.m.annotation.getConfig(layerId);
   const fmtLabel = (f: string) => ui._(`foliplus.label_format_${f}`) || f;
-  // Labels are off by default — the user opens the panel, sees the field and
+  // Labels are off by default 鈥?the user opens the panel, sees the field and
   // format chooser idle, and flips the switch to begin. `cfg.show ? "" : null`
   // follows the persisted state when this is a reopen, but the *first* open
   // never reads from storage (DEFAULT_ANNOTATION.show = false). The body
   // collapses under the toggle on first paint and on every reopen where
-  // show === false, mirroring the heatmap's "switch off → hide body" rule.
+  // show === false, mirroring the heatmap's "switch off 鈫?hide body" rule.
   const showChecked = !!cfg.show;
   // The picker's "Auto" entry means "let foliplus choose", and the config
-  // records it as the shared sentinel rather than a resolved name — so the layer
+  // records it as the shared sentinel rather than a resolved name 鈥?so the layer
   // keeps labelling itself when its columns change. `resolveSelectedField`
   // (core/labelField) is what turns the select's value back into a field.
   const selectedField = cfg.field;
@@ -92,7 +92,7 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   // a disabled placeholder exactly like the heatmap's `field_auto`. Disabled
   // rather than merely first, so it reads as the current state instead of an
   // option to pick: the way back to auto is Reset, which restores the default
-  // config. The per-field <option>s are appended to the select itself —
+  // config. The per-field <option>s are appended to the select itself 鈥?
   // appending them into the first option would nest <option> inside <option>,
   // and the browser skips nested options when it builds the options list.
   const fieldSelect = dom.el(
@@ -118,7 +118,7 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   );
   (fieldSelect as HTMLSelectElement).value = selectedField || AUTO_FIELD;
 
-  // Appearance row — same chrome as the heatmap border / delegated drawer.
+  // Appearance row 鈥?same chrome as the heatmap border / delegated drawer.
   const colorInput = formColorInput({
     value: normalizeHexColor(cfg.color || LABEL_COLOR_DEFAULT),
     className: CONST.CLASSES.STYLE_LABEL_COLOR_INPUT,
@@ -136,7 +136,7 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   const formatOpts = numberFormatOptions(fmtLabel);
 
   // The toggle gets a focus-visible ring tied to the panel's design token,
-  // not the browser default — without it, a tab stop on a switch looks
+  // not the browser default 鈥?without it, a tab stop on a switch looks
   // identical to "not focused", which is the heatmap-style bug we hit.
   const showToggle = dom.el("input", {
     type: "checkbox",
@@ -145,7 +145,7 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
     "aria-label": ui._("foliplus.label_tooltip"),
   });
   // "Avoid overlap": thins this layer's own labels where they collide. Labels
-  // from *different* layers never avoid each other — the layers are stacked, so
+  // from *different* layers never avoid each other 鈥?the layers are stacked, so
   // an upper layer simply covers the lower one's.
   const collideToggle = dom.el("input", {
     type: "checkbox",
@@ -164,7 +164,7 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   (formatSelect as HTMLSelectElement).value = cfg.format || NUMBER_FORMAT.AUTO;
 
   // Numeric-only: hide the format dropdown when the picked field is not a
-  // number — comma/percent/int all render the same as auto in that case.
+  // number 鈥?comma/percent/int all render the same as auto in that case.
   const formatRow = dom.el(
     "div",
     { class: `${CONST.CLASSES.FORM_ROW} ${CONST.CLASSES.STYLE_FORMAT_ROW}` },
@@ -181,8 +181,8 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   // on. Listens to the toggle so flipping it reveals the field/format rows
   // and auto-picks a field if none was selected yet (the "warm start" from
   // the heatmap's rule: open the gate, the first thing shows up).
-  // Body order is shared with the delegated drawer: data → appearance →
-  // format → behavior. Field first (annotation-only), then color/size,
+  // Body order is shared with the delegated drawer: data 鈫?appearance 鈫?
+  // format 鈫?behavior. Field first (annotation-only), then color/size,
   // then number format, then avoid-overlap.
   const body = dom.el(
     "div",
@@ -218,7 +218,7 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   body.classList.toggle("foliplus-hidden", !showChecked);
 
   // Shell (surface, header, content scroll) comes from the shared row-panel
-  // factory — the attributes panel's twin, built by the same code, so the
+  // factory 鈥?the attributes panel's twin, built by the same code, so the
   // width, header and card chrome cannot drift from it.
   const { panel, content } = createRowPanel({
     cssClass: CONST.CLASSES.STYLE_PANEL,
@@ -237,7 +237,7 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
         "div",
         { class: CONST.CLASSES.FORM_CONTROL },
         // Resolving the toggle: clicking the input, the slider span, or the
-        // label should all flip the checkbox — the switch is one <label>.
+        // label should all flip the checkbox 鈥?the switch is one <label>.
         dom.el(
           "label",
           { class: CONST.CLASSES.TOGGLE_SWITCH },
@@ -263,12 +263,12 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
 };
 
 /** Open the annotation style panel for a layer. The panel is anchored to the
- *  layer's own row — the same "drop below the trigger" rule the attributes
- *  panel uses — so it needs no positioning code at all. */
+ *  layer's own row 鈥?the same "drop below the trigger" rule the attributes
+ *  panel uses 鈥?so it needs no positioning code at all. */
 const openStylePanel = (ui: LayerUI, layerId: string): void => {
   closeStylePanel(ui, false);
   if (!layerId) return;
-  // The style panel and the attributes panel float from the same ⋮ menu;
+  // The style panel and the attributes panel float from the same 鈰?menu;
   // never show both.
   ui.closeAttrsPanel(false);
   const item = ui.uiContainer.querySelector(
@@ -315,7 +315,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
     }
     // Fill is a self-managed dimension (not part of the executor's
     // visible/opacity/zoomRange family): bindLiveColor commits straight to
-    // ui.fillColorMap + setStyle. Same live-recipe as label colour.
+    // ui.fillColorMap + setStyle. Same live-recipe as label color.
     const fillRow = panel.querySelector(
       `.${CONST.CLASSES.STYLE_FILL_ROW}`,
     ) as HTMLElement | null;
@@ -513,8 +513,8 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
     event.stopPropagation();
   });
 
-  // Reset restores the default config and closes; the header (or ×) just
-  // closes — the same header-dismiss affordance the attrs panel uses.
+  // Reset restores the default config and closes; the header (or 脳) just
+  // closes 鈥?the same header-dismiss affordance the attrs panel uses.
   panel.addEventListener("click", (event: Event) => {
     const t = event.target as HTMLElement;
     if (t.closest(".foliplus-style-reset-btn")) {
@@ -527,7 +527,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       resetLayerFill(ui, layerId);
       if (delegated) {
         // Call each setter with its Python CONF default. The components own
-        // the values — never write localStorage or annotation config here.
+        // the values 鈥?never write localStorage or annotation config here.
         const li = ui.m.layerRegistry.get(layerId);
         const setters = li?.styleSetters;
         const defaults = li?.styleDefaults?.() ?? {};
@@ -539,7 +539,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       } else {
         // Through applyPatch, so the reset writes config, re-renders and persists
         // in the same order as every other control on this panel. defaultConfig
-        // carries collide — DEFAULT_ANNOTATION alone would leave a user-toggled
+        // carries collide 鈥?DEFAULT_ANNOTATION alone would leave a user-toggled
         // collide switch untouched.
         applyPatch(ui, layerId, { ...ui.m.annotation.defaultConfig() });
       }
@@ -558,7 +558,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
   // panel otherwise.
   ui.styleOutsideHandler = (event: MouseEvent) => {
     const t = event.target as HTMLElement | null;
-    // Document-level dispatch can name `document` itself — no closest().
+    // Document-level dispatch can name `document` itself 鈥?no closest().
     if (!t || typeof t.closest !== "function") {
       closeStylePanel(ui, false);
       return;
@@ -640,7 +640,7 @@ export { closeStylePanel, openStylePanel, renderStylePanel };
 
 // Re-exports for external callers (menu.ts, attr.ts, ui/index.ts, tests):
 // the style barrel still surfaces the same six symbols the pre-split
-// ui/style.ts did — the split is invisible to consumers.
+// ui/style.ts did 鈥?the split is invisible to consumers.
 export {
   applyStyleLabelState,
   invalidateFields,

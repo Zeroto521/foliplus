@@ -1,4 +1,4 @@
-// Fill colour row — the ⚙︎ drawer's "Layer" section fill swatch.
+﻿// Fill color row 鈥?the 鈿欙笌 drawer's "Layer" section fill swatch.
 //
 // A self-managed LayerControl dimension (like label, not like opacity /
 // zoom range): the value lives in `ui.fillColorMap`, is persisted under
@@ -8,8 +8,7 @@
 // straight to the layer because `setStyle` is a direct Leaflet API call,
 // not a projection of a stored intent.
 //
-// Gate (honest degradation): only AREAL vector layers get a fill row —
-// the surface must resolve to a pane carrier for BOTH opacity and zoom range
+// Gate (honest degradation): only AREAL vector layers get a fill row 鈥?// the surface must resolve to a pane carrier for BOTH opacity and zoom range
 // (the vector-shape population), and the layer tree must actually contain a
 // polygon leaf. PolyLine has a stroke but no fill concept, so it falls out:
 // a fill row there would write a value with no visual effect. Canvas layers
@@ -18,9 +17,9 @@
 // out of the capability check.
 //
 // UI chrome: shared `form.colorInput` + `bindLiveColor`, the same recipe as
-// the HeatmapControl border row and the annotation label row — one
+// the HeatmapControl border row and the annotation label row 鈥?one
 // <input type=color> inside a FORM_ROW, no reset button on the row itself
-// (the panel-wide Reset handles it, the way label colour has it).
+// (the panel-wide Reset handles it, the way label color has it).
 import { GEOM_TYPE, type LayerInfo } from "#core/layer/index.js";
 import { dom } from "#common/dom.js";
 import {
@@ -40,11 +39,11 @@ import { type StyleSetter, pinStyleOnHighlight } from "./pin.js";
 /** Default paint the swatch shows when no fill has been committed yet.
  *  Matches Leaflet's own `fillColor` default, so the first write the user
  *  makes lands at the layer's authored default rather than jumping to a
- *  different colour — a change to the swatch should never *be* a jump to a
+ *  different color 鈥?a change to the swatch should never *be* a jump to a
  *  value the layer already carries. */
 const FILL_COLOR_DEFAULT = "#000000";
 
-/** A node with a runtime style-setter — the honest fill carrier. Vector
+/** A node with a runtime style-setter 鈥?the honest fill carrier. Vector
  *  leaves (Path subclasses: Polygon, Polyline, Circle, CircleMarker,
  *  Rectangle) all have one; a LayerGroup does not (it delegates). */
 type StyleCarrier = L.Layer & {
@@ -56,14 +55,14 @@ type StyleCarrier = L.Layer & {
 
 /** Whether the layer's surface can honestly carry a fill write. Requires
  *  the surface to resolve to a pane carrier for BOTH opacity and zoom range
- *  — that is exactly the vector-shape population. Anything else falls out:
- *    - `layerInfo.canvas` — callback-only canvas layers (heatmap / measure)
+ *  鈥?that is exactly the vector-shape population. Anything else falls out:
+ *    - `layerInfo.canvas` 鈥?callback-only canvas layers (heatmap / measure)
  *      have no `eachLayer` to walk, so a `setStyle` would silently no-op.
- *    - `layerInfo.styleSetters` — third-party delegated drawers own their
+ *    - `layerInfo.styleSetters` 鈥?third-party delegated drawers own their
  *      style write; this row would fight for the same visual axis.
- *    - `capabilities.opacity === "native"` — GridLayer / ImageOverlay paint
+ *    - `capabilities.opacity === "native"` 鈥?GridLayer / ImageOverlay paint
  *      through native options, not through `setStyle`.
- *    - `capabilities.opacity === "none"` — MarkerCluster and the "no
+ *    - `capabilities.opacity === "none"` 鈥?MarkerCluster and the "no
  *      content panes" surface have no honest write target.
  *
  *  Requiring `zoomRange !== "none"` too is the same test from the other
@@ -75,7 +74,7 @@ type StyleCarrier = L.Layer & {
  *
  *  The third gate narrows the row to areal layers: only polygon leaves
  *  (Polygon / Rectangle / Circle / CircleMarker) carry a fill, so a PolyLine
- *  — which also passes the capability check — must not get a row that would
+ *  鈥?which also passes the capability check 鈥?must not get a row that would
  *  write a value with no visual effect. A mixed GeoJSON keeps the row when
  *  at least one leaf is a polygon (the write reaches exactly those leaves). */
 const hasFillGeometry = (ui: LayerUI, li: LayerInfo): boolean => {
@@ -113,7 +112,7 @@ const layerCanFill = (ui: LayerUI, layerId: string): boolean => {
  *  the layer leaves the map, no explicit cleanup needed.
  *
  *  Per-leaf, because a GeoJSON layer's features can each declare their own
- *  style — one layer-wide base would erase the author's per-feature choice
+ *  style 鈥?one layer-wide base would erase the author's per-feature choice
  *  on reset. */
 const authorFillBase = new WeakMap<
   StyleCarrier,
@@ -121,16 +120,15 @@ const authorFillBase = new WeakMap<
 >();
 
 /** Leaflet's own default `fillColor` for vector paths, and the swatch's last
- *  resort when no leaf exposes an authored colour. folium's default style
+ *  resort when no leaf exposes an authored color. folium's default style
  *  function always populates `options.fillColor` (it translates
  *  `__folium_color` through `feature.properties.style`), so this only fires
  *  for bare Leaflet layers with no style function at all. */
 const LEAFLET_DEFAULT_FILL = "#3388ff";
 
-/** Normalise a colour for `<input type=color>`, which only accepts hex.
+/** normalize a color for `<input type=color>`, which only accepts hex.
  *  3-digit hex passes through `normalizeHexColor`; named and functional
- *  colours (folium's `fillColor: "gray"`) are resolved by the browser —
- *  jsdom cannot parse them and falls back to `#000000`, which is the
+ *  colors (folium's `fillColor: "gray"`) are resolved by the browser 鈥? *  jsdom cannot parse them and falls back to `#000000`, which is the
  *  accepted degradation in unit tests; the real picker shows the resolved
  *  hex. */
 const toHexColor = (value: string): string => {
@@ -142,7 +140,7 @@ const toHexColor = (value: string): string => {
   return /^#[0-9a-fA-F]{6}$/.test(hex) ? hex : FILL_COLOR_DEFAULT;
 };
 
-/** The layer's authored fill colour — the first style leaf's `options.fillColor`,
+/** The layer's authored fill color 鈥?the first style leaf's `options.fillColor`,
  *  or Leaflet's default when nothing is declared. Mirrors the border row's
  *  `authoredBorder`: the swatch shows what the layer is actually painting on
  *  first open, not a constant. */
@@ -160,14 +158,14 @@ const authoredFillColor = (ui: LayerUI, layerId: string): string => {
 };
 
 /** A visible `fillOpacity` used when the author set the fill to 0 (hollow).
- *  Without it a colour change is invisible — the `fill` attribute updates but
+ *  Without it a color change is invisible 鈥?the `fill` attribute updates but
  *  `fill-opacity="0"` hides it. 0.2 matches Leaflet's own default. */
 const VISIBLE_FILL_OPACITY = 0.2;
 
 /** Visit every leaf that exposes a runtime style-setter. Groups (LayerGroup,
  *  folium GeoJson) expose `setStyle` too, but they are walked down instead:
  *  the mouseout events fire on the leaf paths (never on the group), and the
- *  authored base is per leaf — one layer-wide base would erase the author's
+ *  authored base is per leaf 鈥?one layer-wide base would erase the author's
  *  per-feature choice. The callback receives a leaf whose `setStyle` is
  *  guaranteed present, so it can call it without a `typeof` dance. */
 const walkStyleLeaves = (
@@ -201,7 +199,7 @@ const captureBase = (
   return base;
 };
 
-/** Commit the current fill colour and opacity to the layer. Walks the layer
+/** Commit the current fill color and opacity to the layer. Walks the layer
  *  tree and calls `setStyle({fillColor?, fillOpacity?})` on every leaf that
  *  has a `setStyle`. A node without a setter is skipped silently.
  *
@@ -227,7 +225,7 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
 
     // Folium's highlight_on_hover restores the original style on mouseout;
     // pinStyleOnHighlight reapplies the user's fill after folium's handler
-    // fires so the colour survives the hover. `walkStyleLeaves` already
+    // fires so the color survives the hover. `walkStyleLeaves` already
     // guarantees a setStyle, so no isStyleSetter guard is needed here.
     pinStyleOnHighlight(node, () => {
       const c = ui.fillColorMap[layerId];
@@ -241,18 +239,18 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
   });
 };
 
-/** Write the colour into the map, persist it, and mark the dimension as
+/** Write the color into the map, persist it, and mark the dimension as
  *  user-owned so it survives a reload. Only writes when the value actually
- *  moved — a colour-picker drag revisits every step, and each pass is a
+ *  moved 鈥?a color-picker drag revisits every step, and each pass is a
  *  sweep over every feature of the layer.
  *
  *  When the layer is hollow (author fillOpacity === 0) and the user has not
  *  explicitly set fillOpacity, bumps fillOpacityMap to a visible value so
- *  the colour change is visible. If the user HAS explicitly set fillOpacity
- *  (even to 0), their choice wins — no bump.
+ *  the color change is visible. If the user HAS explicitly set fillOpacity
+ *  (even to 0), their choice wins 鈥?no bump.
  *
  *  Called from `bindLiveColor`, so `color` is a raw `input.value` and is
- *  normalised to 6-digit lowercase hex before landing in storage. */
+ *  normalized to 6-digit lowercase hex before landing in storage. */
 const commitFillColor = (ui: LayerUI, layerId: string, rawColor: string): void => {
   const color = normalizeHexColor(rawColor);
   if (ui.fillColorMap[layerId] === color) return;
@@ -290,18 +288,18 @@ const commitFillOpacity = (ui: LayerUI, layerId: string, pct: number): void => {
 };
 
 /** Reset one layer's fill to its authored value and drop its persisted
- *  entry. "Authored" means the base captured on first write — the same
+ *  entry. "Authored" means the base captured on first write 鈥?the same
  *  base-capture recipe opacity uses: `setStyle` mutates `options` in
- *  place, so by reset time we cannot re-read the author's colour from the
+ *  place, so by reset time we cannot re-read the author's color from the
  *  layer and must replay the captured value.
  *
  *  Both `fillColor` and `fillOpacity` are restored from the captured base.
  *  `fillOpacity` was written by {@link applyFillToLayer} when it was 0
- *  (to make the colour change visible); reset puts it back to the author's
- *  original — 0 for a hollow polygon, undefined for the default.
+ *  (to make the color change visible); reset puts it back to the author's
+ *  original 鈥?0 for a hollow polygon, undefined for the default.
  *
  *  The persisted override is removed either way so the next load does not
- *  re-apply a colour the layer no longer shows. */
+ *  re-apply a color the layer no longer shows. */
 const resetLayerFill = (ui: LayerUI, layerId: string): void => {
   if (!ui.m.layerRegistry.has(layerId)) return;
   delete ui.fillColorMap[layerId];
@@ -324,13 +322,13 @@ const resetLayerFill = (ui: LayerUI, layerId: string): void => {
   });
 };
 
-/** Build the fill form row: colour swatch + fill-opacity number input.
+/** Build the fill form row: color swatch + fill-opacity number input.
  *  Both controls live inside one FORM_CONTROL via `inlineControls`, so the
- *  row's width matches the border-weight row (colour + number).
+ *  row's width matches the border-weight row (color + number).
  *
  *  The swatch shows the stored choice, falling back to the layer's authored
- *  fill colour — never a constant — so the row reflects what the layer is
- *  actually painting on first open, and named authored colours are resolved
+ *  fill color 鈥?never a constant 鈥?so the row reflects what the layer is
+ *  actually painting on first open, and named authored colors are resolved
  *  to the hex the picker can display. The opacity input's initial value is
  *  the author's `options.fillOpacity` (captured from the first leaf if
  *  available), or 0.2 (Leaflet's default) if the layer hasn't been
@@ -362,7 +360,7 @@ const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
   );
 };
 
-/** Wire the shared live-colour and live-number binders to this row's
+/** Wire the shared live-color and live-number binders to this row's
  *  commit paths. Called from `openStylePanel` in index.ts. */
 const bindFillRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
   const colorEl = row.querySelector(
@@ -383,7 +381,7 @@ const bindFillRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
   }
 };
 
-/** Replay a layer's stored fill state (colour + opacity) onto the map.
+/** Replay a layer's stored fill state (color + opacity) onto the map.
  *  Called from `applyUserState` on attach and late registration so a
  *  persisted value survives a reload. */
 const replayFillState = (ui: LayerUI, id: string): void => {
