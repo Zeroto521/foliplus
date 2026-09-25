@@ -179,7 +179,7 @@ const showCropBox = (mgr: ExportManager) => {
   }
 
   const overlay = dom.el("div", {
-    class: `foliplus-export-overlay active`,
+    class: `foliplus-export-overlay is-active`,
     parent: mgr.mapContainer,
   });
   mgr.mapContainer.classList.add(CONST.CLASSES.MODE);

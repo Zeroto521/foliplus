@@ -87,15 +87,15 @@ const CLASSES = {
   // ExportControl's SKIP_EXPORT selector drops anything carrying this class from
   // the exported image.  Stamped on preview layers only — the preview is a
   // drawing aid, not content.
-  NO_EXPORT: "foliplus-no-export",
+  SKIP_EXPORT: "foliplus-skip-export",
   NODE_SOLID: "foliplus-measure-node foliplus-measure-node-solid",
   RIPPLE: "foliplus-measure-ripple",
   DASH_SWEEP: "foliplus-measure-dash-sweep",
-  ACTIVE: "active",
+  ACTIVE: "is-active",
   MEASURING: "foliplus-measuring",
   EDITING: "foliplus-measure-editing",
-  COLLAPSED: "collapsed",
-  EXPANDED: "expanded",
+  COLLAPSED: "is-collapsed",
+  EXPANDED: "is-expanded",
 };
 
 /** Style property names. */

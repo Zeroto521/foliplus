@@ -65,3 +65,13 @@ repos:
         language: python
         files: ^CHANGELOG\.md$
         pass_filenames: false
+
+      # Detects U+FFFD replacement characters introduced by non-UTF-8
+      # encoding round-trips (PowerShell redirects, wrong editor encoding).
+      # Check-only — FFFD cannot be auto-fixed; the original character must
+      # be restored from source.
+      - id: mojibake-check
+        name: mojibake-check
+        entry: python script/mojibake_check.py
+        language: python
+        types: [text]

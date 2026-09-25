@@ -23,6 +23,7 @@ import {
   clampLabelSize,
   colorInput as formColorInput,
   numberInput as formNumberInput,
+  formRow,
   inlineControls,
   normalizeHexColor,
 } from "#common/form.js";
@@ -33,6 +34,13 @@ import * as SVGs from "../../icon.js";
 import type { LayerUI } from "../index.js";
 import { finishRename } from "../rename.js";
 import { layerHasStyleDelegation, renderDelegatedStylePanel } from "./delegated.js";
+import {
+  bindFillRow,
+  buildFillRow,
+  layerCanFill,
+  replayFillState,
+  resetLayerFill,
+} from "./fill.js";
 import { appendResetFooter, railPos, sectionHeading } from "./frame.js";
 import { applyPatch, layerFields, syncFormatRow } from "./label.js";
 import {
@@ -185,20 +193,7 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
       dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("style_label_field")),
       dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, fieldSelect),
     ),
-    dom.el(
-      "div",
-      { class: CONST.CLASSES.FORM_ROW },
-      dom.el(
-        "label",
-        { class: CONST.CLASSES.FORM_LABEL },
-        ui._("foliplus.label_style"),
-      ),
-      dom.el(
-        "div",
-        { class: CONST.CLASSES.FORM_CONTROL },
-        inlineControls(colorInput, sizeInput),
-      ),
-    ),
+    formRow(ui._("foliplus.label_style"), inlineControls(colorInput, sizeInput)),
     formatRow,
     dom.el(
       "div",
@@ -253,10 +248,15 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
     ),
     body,
   );
-  if (layerCanOpacity(ui, layerId) || canShowZoomRange(ui, layerId)) {
+  if (
+    layerCanOpacity(ui, layerId) ||
+    canShowZoomRange(ui, layerId) ||
+    layerCanFill(ui, layerId)
+  ) {
     content.append(sectionHeading(ui.T("section_layer")));
     if (layerCanOpacity(ui, layerId)) content.append(buildOpacityRow(ui, layerId));
     if (canShowZoomRange(ui, layerId)) content.append(buildZoomRangeRow(ui, layerId));
+    if (layerCanFill(ui, layerId)) content.append(buildFillRow(ui, layerId));
   }
   appendResetFooter(ui, content);
   return panel;
@@ -313,6 +313,13 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
         onCommit: value => applyPatch(ui, layerId, { size: value }),
       });
     }
+    // Fill is a self-managed dimension (not part of the executor's
+    // visible/opacity/zoomRange family): bindLiveColor commits straight to
+    // ui.fillColorMap + setStyle. Same live-recipe as label color.
+    const fillRow = panel.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_ROW}`,
+    ) as HTMLElement | null;
+    if (fillRow) bindFillRow(ui, layerId, fillRow);
   }
 
   // Control changes are handled on the panel itself; stopPropagation keeps
@@ -515,6 +522,9 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       resetLayerOpacity(ui, layerId);
       // Zoom range is LayerControl-owned: reset to the full map range.
       resetLayerZoomRange(ui, layerId);
+      // Fill is LayerControl-owned on the annotation flavour only (the gate
+      // excludes delegated layers).
+      resetLayerFill(ui, layerId);
       if (delegated) {
         // Call each setter with its Python CONF default. The components own
         // the values — never write localStorage or annotation config here.
@@ -637,3 +647,4 @@ export {
   layerHasLabelFields,
 } from "./label.js";
 export { layerHasStyleDelegation } from "./delegated.js";
+export { replayFillState } from "./fill.js";

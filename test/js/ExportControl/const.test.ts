@@ -160,9 +160,9 @@ describe("MIME_LOSSLESS", () => {
 
 describe("CLASSES", () => {
   it("defines CSS class constants", () => {
-    expect(CONST.CLASSES.COLLAPSED).toBe("collapsed");
+    expect(CONST.CLASSES.COLLAPSED).toBe("is-collapsed");
     expect(CONST.CLASSES.LOCKED).toBe("locked");
-    expect(CONST.CLASSES.DRAGGING).toBe("dragging");
+    expect(CONST.CLASSES.DRAGGING).toBe("is-dragging");
   });
 });
 
@@ -178,7 +178,7 @@ describe("SEL", () => {
     // component can stamp any time, the class for a Leaflet Path, which only
     // exposes a construction-time className hook.
     expect(CONST.SEL.SKIP_EXPORT).toBe(
-      '[data-foliplus-export="exclude"], .foliplus-no-export',
+      '[data-foliplus-export="exclude"], .foliplus-skip-export',
     );
     expect(CONST.SEL.LABEL).toBe("[data-foliplus-export='label']");
   });

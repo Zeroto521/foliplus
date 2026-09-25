@@ -142,7 +142,7 @@
   }
 
   /* ── Expanded State ── */
-  &.expanded {
+  &.is-expanded {
     width: var(--panel-width);
     flex-direction: column;
     border-radius: var(--radius-card);

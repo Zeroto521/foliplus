@@ -121,6 +121,12 @@ const CLASSES = {
   /** The "avoid overlap" switch — its own class, because the panel's change
    *  delegation keys on the class to tell the two switches apart. */
   STYLE_COLLIDE_INPUT: "foliplus-style-collide-input",
+  /** Fill color row (vector layers): swatch + native <input type=color>.
+   *  Its own class so the change delegation can tell it from the label
+   *  color swatch, and so a future delegated drawer can gate on it. */
+  STYLE_FILL_ROW: "foliplus-style-fill-row",
+  STYLE_FILL_COLOR_INPUT: "foliplus-style-fill-color-input",
+  STYLE_FILL_OPACITY_NUMBER: "foliplus-style-fill-opacity-number",
   /** Shared section heading (form.css). */
   SECTION_HEADING: "foliplus-section-heading",
   /** Opacity control: range slider + paired number input. */
@@ -157,7 +163,7 @@ const CLASSES = {
    *  range — a dimmed state that reads "you set this to hide at the current
    *  level" without hiding the row itself (the user may still want to change
    *  it). */
-  STYLE_ZOOM_RANGE_OOR: "foliplus-zoom-range-out-of-range",
+  STYLE_ZOOM_RANGE_OUT_OF_RANGE: "foliplus-zoom-range-out-of-range",
   /* ── Shared slider component (common/slider.css) ──
      Both range controls are this component; the rows below add their own hook
      classes for behaviour and tests, and set `--slider-thumb-ring` for their

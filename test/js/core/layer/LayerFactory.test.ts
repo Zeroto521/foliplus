@@ -260,7 +260,7 @@ describe("LayerFactory", () => {
       api.addLayer(layer, "does_not_exist");
       // The api.addLayer wrapper does not write options.pane for a name
       // outside subPanes; mainLayer.addLayer then auto-routes to the base
-      // sub-pane (subPanes[0]) �?the same place a bare addLayer(layer) with
+      // sub-pane (subPanes[0]) → the same place a bare addLayer(layer) with
       // no name goes. Documented so a future tightening has a test to
       // update.
       expect(layer.options.pane).toBe("graph1");
@@ -297,7 +297,7 @@ describe("LayerFactory", () => {
       // Pre-refactor, mainLayer.addLayer(layer) wrote options.pane = graphPane
       // automatically when layer.isLabel was absent. The refactor initially
       // dropped that write, silently breaking the mainLayer.addLayer(poly)
-      // contract that browser tests and MeasureControl rely on �?the CI run
+      // contract that browser tests and MeasureControl rely on → the CI run
       // caught it as "assert 'overlayPane' == '__pane_test_graph__'". This
       // test pins the restored auto-route behavior.
       const api = factory.createLayers({
@@ -525,7 +525,7 @@ describe("LayerFactory", () => {
         panes: [{ name: "graph1" }],
       });
       api.addLayer(new window.L.Path());
-      api.register(); // second call �?register() always calls registerLayer
+      api.register(); // second call → register() always calls registerLayer
       expect(reg).toHaveBeenCalledTimes(2);
     });
 
