@@ -4,7 +4,7 @@
   // (2) a marker (div-icon, NOT in a foliplus pane),
   // (3) a heatmap canvas with a red fill in a foliplus layer pane.
   //
-  // The map is centerd at [26.08, 119.30] zoom 12. At this zoom, ~1 degree
+  // The map is centered at [26.08, 119.30] zoom 12. At this zoom, ~1 degree
   // of longitude ≈ 10 px, so the three carriers are spread ~15 degrees apart
   // to land at ~30%, ~50%, ~70% of the viewport width.
   //

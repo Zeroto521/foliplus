@@ -22,8 +22,8 @@ const label = (
 ) => ({ id, text, anchor, atPoint, priority });
 
 describe("layoutLabel", () => {
-  it("places a point label below its marker, horizontally centerd, halo included", () => {
-    // 3 chars at 12px × 0.6 → 22px wide + 2×3 halo; the box is centerd on the
+  it("places a point label below its marker, horizontally centered, halo included", () => {
+    // 3 chars at 12px × 0.6 → 22px wide + 2×3 halo; the box is centered on the
     // text, so its top edge sits (10 − halo) below the marker.
     const { box } = layoutLabel(label("a", "abc", { x: 100, y: 200 }, true), SPEC);
 

@@ -130,7 +130,7 @@
   position: absolute;
   /* Reaches half a handle beyond the rail on each side, which is exactly the
      inset the rail just took — so the thumb's travel is the rail itself. The
-     vertical box is the rail's own height, which is what keeps the thumb centerd
+     vertical box is the rail's own height, which is what keeps the thumb centered
      on it: the browser centers a slider thumb on its own track, and anything
      that over-constrains this box (a height beyond it, a padding, a translate)
      moves the thumb off the center line. */

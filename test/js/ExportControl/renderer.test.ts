@@ -114,7 +114,7 @@ function makeRC(w: number, h: number, ctx = makeMockCtx(), scale = 1) {
     sh: h,
   };
 }
-/** Tiles centerd on the container: 1000x1000 crop at zoom 2 keeps every tile
+/** Tiles centered on the container: 1000x1000 crop at zoom 2 keeps every tile
  *  inside the crop rect, so the viewport filter survives all of them. */
 
 const tilesNearCenter = (n: number) =>

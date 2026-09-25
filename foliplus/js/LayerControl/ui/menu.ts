@@ -29,7 +29,7 @@ import { layerHasLabelFields, layerHasStyleDelegation } from "./style/index.js";
  *
  * Focus leads because the trigger-adjacent slot is the mis-click zone: the menu
  * opens downward from the row's bottom edge (`top: 100%`) while the ⋮ button is
- * vertically centerd in the row, so when the menu appears the pointer is *above
+ * vertically centered in the row, so when the menu appears the pointer is *above
  * its top edge* — nearest entry #1. The second click of an impatient
  * double-click lands there, so it holds the reversible view action.
  *

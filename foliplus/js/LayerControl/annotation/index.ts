@@ -35,7 +35,7 @@ import {
 // CONF is a free variable from the IIFE template wrapper.
 
 /** How far outside the viewport an anchor may sit and still get laid out.
- *  A label is centerd on its anchor and at most a few hundred px wide, so
+ *  A label is centered on its anchor and at most a few hundred px wide, so
  *  anything beyond this margin can never intersect the viewport — culling
  *  before layoutLabel skips the per-character width estimate for the bulk
  *  of a dense layer (6k points rarely have 6k on screen). */

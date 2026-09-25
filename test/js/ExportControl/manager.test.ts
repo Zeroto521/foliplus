@@ -495,7 +495,7 @@ describe("ExportManager — export progress", () => {
   });
 
   it("enlargeAndRender defers the render past a frame and restores the map after", async () => {
-    // The container is resized and the view is re-centerd before the render,
+    // The container is resized and the view is re-centered before the render,
     // but the render itself has to wait a frame so the browser applies the new
     // layout first — otherwise it measures the old size.  The callback also
     // owns the restore, so a failed render still puts the map back.
