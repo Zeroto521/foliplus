@@ -148,7 +148,7 @@
   --slider-thumb-glow: 0 0 0 var(--size-2) var(--accent-soft-shadow);
   /* The uncovered span of a rail: a fine grey checkerboard, the "nothing
      rendered here" convention. Two tokens because a rail's uncovered span is
-     not always a plain colour — set `--slider-rail-pattern: none` and
+     not always a plain color — set `--slider-rail-pattern: none` and
      `--slider-rail-bg` to a tint for a flat rail instead. */
   --slider-rail-bg: var(--neutral-0);
   --slider-rail-pattern: repeating-conic-gradient(
@@ -161,7 +161,7 @@
      The text foliplus draws over the map: HeatmapControl's hex values (canvas,
      read through getComputedStyle) and LayerControl's annotation labels (DOM
      markers, consumed directly). One source, so the two cannot end up in
-     opposite colour schemes — which is exactly what happened while each
+     opposite color schemes — which is exactly what happened while each
      declared its own: the canvas drew white-on-dark-stroke and the DOM labels
      drew dark-on-white-halo. */
   --label-font-family: sans-serif;

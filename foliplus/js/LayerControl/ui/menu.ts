@@ -24,7 +24,7 @@ import { layerHasLabelFields, layerHasStyleDelegation } from "./style/index.js";
  *   5. Delete     — behind a divider, the one destructive entry. Armed in
  *                   place on the first click and executed on the second; it is
  *                   rendered only for rows that own a Leaflet layer (data
- *                   layers, tile basemaps included), the solid colour basemap
+ *                   layers, tile basemaps included), the solid color basemap
  *                   renders it disabled, and a component layer renders nothing.
  *
  * Focus leads because the trigger-adjacent slot is the mis-click zone: the menu
@@ -151,7 +151,7 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   // grey background is a legal end state. A component layer (no layer of its
   // own: the heatmap and measure canvases) renders nothing here; its
   // "restore defaults" verb is a different action and lands separately. The
-  // one exception is the solid colour basemap, which renders the entry
+  // one exception is the solid color basemap, which renders the entry
   // disabled: hiding it would read as "the feature does not exist".
   const deleteMode = deleteModeFor(ui, layerId);
   if (deleteMode !== "absent") {
@@ -242,7 +242,7 @@ const buildDeleteItem = (
 
 /** Turn the delete entry into its confirming state: the label swaps to the
  *  confirmation text and the entry fills, so the second click is unambiguous
- *  without borrowing the accent colour (which already means hover and focus). */
+ *  without borrowing the accent color (which already means hover and focus). */
 const armDelete = (ui: LayerUI, li: HTMLElement): void => {
   const label = li.querySelector<HTMLElement>(`.${CONST.CLASSES.MENU_DELETE_LABEL}`);
   if (!label) return;

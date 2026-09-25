@@ -471,7 +471,7 @@ describe("renderTextLabels", () => {
     }
   });
 
-  it("falls back to the background colour when the label declares no border colour", async () => {
+  it("falls back to the background color when the label declares no border color", async () => {
     // `borderColor` can be an empty string when only width and style are set;
     // without the fallback the stroke would paint the canvas default (opaque
     // black) over a label that asked for its own fill as the outline.
@@ -548,7 +548,7 @@ describe("renderRemaining", () => {
     expect(ctx.drawImage).toHaveBeenCalledTimes(1);
   });
 
-  it("fills a background-coloured dot, rounded and bordered", async () => {
+  it("fills a background-colored dot, rounded and bordered", async () => {
     const ctx = textCtx();
     const root = document.createElement("div");
     pinBox(root, 10, 10, 10, 10);
@@ -571,7 +571,7 @@ describe("renderRemaining", () => {
     }
   });
 
-  it("fills a plain background colour when there is no border", async () => {
+  it("fills a plain background color when there is no border", async () => {
     const ctx = textCtx();
     const root = document.createElement("div");
     pinBox(root, 10, 10, 10, 10);

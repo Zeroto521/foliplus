@@ -516,7 +516,7 @@ describe("ExportRenderer.render — onProgress across tile layers", () => {
     return ctx;
   };
 
-  it("fills the canvas background when a bg colour is passed", async () => {
+  it("fills the canvas background when a bg color is passed", async () => {
     const ctx = stubCanvas();
     await renderer.render(
       { left: 0, top: 0, width: 100, height: 100 },
@@ -936,10 +936,10 @@ describe("ExportRenderer.render — layer pass routing", () => {
   });
 
   it("skips the tile pass when tilePane is hidden by a solid-color basemap", async () => {
-    // Picking a colour removes the tile layers with map.removeLayer and hides
+    // Picking a color removes the tile layers with map.removeLayer and hides
     // tilePane by class — it never goes through applyVisibility, so every
     // li.visible is still true.  Re-fetching the tile URLs would repaint them
-    // over the colour the user just picked, so the pass judges the pane's
+    // over the color the user just picked, so the pass judges the pane's
     // computed state instead of the class that produced it.
     vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(
       makeMockCtx() as any,

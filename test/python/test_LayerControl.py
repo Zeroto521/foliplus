@@ -437,7 +437,7 @@ class TestLayerControlRendering:
         red. White paints whenever the row is the interaction target (hover /
         Tab / arrow); a checked row shows its .active wash only at rest.
         :focus-visible is deliberately NOT a CSS trigger — Tab focus is mapped
-        onto the class by the focusin delegate. Only colour changes; the type
+        onto the class by the focusin delegate. Only color changes; the type
         icon must NOT scale."""
         html = render_control(LayerControl())
         css = read_css("foliplus/css/LayerControl/index.css")
@@ -848,7 +848,7 @@ class TestLayerControlRendering:
     def test_zoom_range_row_css(self):
         """The row adds no styling of its own.
 
-        Coverage is a readout, not a recolouring: the dots' rings carry it (grey
+        Coverage is a readout, not a recoloring: the dots' rings carry it (grey
         where the range does not reach), so the rail stays accent and the text
         stays ink whatever the map's zoom is. The row keeps its hook class and
         the tooltip, nothing else.
@@ -4855,16 +4855,16 @@ class TestLayerControlBrowser:
             assert result["rowOor"] is True, f"row not marked out-of-range: {result}"
             assert result["rowTitle"], "row tooltip missing when out of range"
             assert result["markerLabelText"], "current-zoom label missing from marker"
-            # Out of range is a readout on the dots' rings, not a recolouring:
+            # Out of range is a readout on the dots' rings, not a recoloring:
             # the rail keeps its accent fill and the text stays ink, so nothing
-            # about "the layer is hidden at this zoom" is carried by colour on
+            # about "the layer is hidden at this zoom" is carried by color on
             # the numbers the user reads.
             assert result["fillComputedBg"] != self._sample_token(
                 page, "--neutral-500"
             ), "out of range must not grey the selection"
             assert result["currentValueColor"] == self._sample_token(
                 page, "--text-primary"
-            ), "out of range must not recolour the current level"
+            ), "out of range must not recolor the current level"
             assert result["markerRing"] == self._sample_token(page, "--neutral-500"), (
                 "out of range, the current dot must read as uncovered"
             )

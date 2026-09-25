@@ -138,7 +138,7 @@ describe("resolveExportBackground", () => {
     spy.mockRestore();
   });
 
-  it("returns the colour for an opaque value", () => {
+  it("returns the color for an opaque value", () => {
     const spy = vi.spyOn(window, "getComputedStyle").mockReturnValue({
       backgroundColor: "rgb(220, 30, 30)",
     } as unknown as CSSStyleDeclaration);

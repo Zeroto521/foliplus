@@ -36,9 +36,9 @@ const isLabelableValue = (value: unknown): boolean =>
 /**
  * Property keys reserved for rendering rather than data.
  *
- * `__folium_color` is how folium's documented recipes colour a feature through
+ * `__folium_color` is how folium's documented recipes color a feature through
  * its properties. folium itself only passes it through, so it arrives as
- * ordinary data and a label over it would print a hex colour — worth naming
+ * ordinary data and a label over it would print a hex color — worth naming
  * because, unlike a nested object, it is a primitive and the value rule alone
  * would not catch it.
  */

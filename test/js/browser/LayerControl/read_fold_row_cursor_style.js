@@ -12,7 +12,7 @@
   const restIcon = btn ? getComputedStyle(btn).color : null;
   // ArrowDown onto the first data item, then ArrowUp onto the fold (toggle-all)
   // row, so the keyboard cursor is on the group header. The fold icon must wake
-  // (flip colour) like it does on hover — red if the group is expanded (preview
+  // (flip color) like it does on hover — red if the group is expanded (preview
   // "will fold"), black if folded (preview "will expand").
   const first = items[0];
   first.focus();

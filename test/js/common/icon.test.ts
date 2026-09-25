@@ -13,7 +13,7 @@ describe("", () => {
     // get SVG's fill: black default, so without local paint the ring renders as
     // a solid pie slice with a notch. Presentation attributes keep this
     // working everywhere, and being lowest-priority CSS still lets a component
-    // recolour the spinner.
+    // recolor the spinner.
     const path = ICON.LOADING_ICON.match(/<path[^>]*>/)?.[0] ?? "";
     expect(path).toContain('fill="none"');
     expect(path).toContain('stroke="currentColor"');

@@ -35,7 +35,7 @@ const clampPct = (raw: number, fallback = 100): number =>
  *  which is where the handle's centre sits. */
 const opacityFillWidth = (pct: number): string => `${round5(pct)}%`;
 
-/** Ring colour of the opacity row's two end dots. The covered span is always
+/** Ring color of the opacity row's two end dots. The covered span is always
  *  [0, pct], so the 0 end is red by construction — the layer is painted from
  *  there whatever the value — and 100 is red only when the layer is fully
  *  opaque. Same readout the zoom range's limits give, where a limit is covered
