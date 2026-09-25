@@ -40,11 +40,20 @@ const pinStyleOnHighlight = (
   leaf: StyleSetter,
   getStyle: () => Record<string, unknown> | null,
 ): void => {
-  if (typeof leaf.on !== "function" || pinned.has(leaf)) return;
+  if (
+    typeof leaf.on !== "function" ||
+    typeof leaf.setStyle !== "function" ||
+    pinned.has(leaf)
+  ) {
+    return;
+  }
   pinned.add(leaf);
   leaf.on("mouseout", () => {
     const style = getStyle();
-    if (!style) return;
+    // Nothing to restore — either the dimension was reset (null) or the
+    // caller returned an empty set; an empty object is truthy, so check the
+    // keys rather than the object.
+    if (!style || Object.keys(style).length === 0) return;
     leaf.setStyle(style);
   });
 };

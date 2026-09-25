@@ -73,10 +73,10 @@ const numberInput = (opts: {
 const inlineControls = (...children: HTMLElement[]): HTMLElement =>
   dom.el("div", { class: "foliplus-form-inline" }, ...children);
 
-/** One FORM_ROW: a right-aligned label plus a single control cell. Every
- *  style-panel row is this shape — label color+size, fill color+opacity,
- *  border color+width, and the plain select/toggle rows — so the chrome
- *  lives here instead of being hand-assembled at each call site. */
+/** One FORM_ROW: a right-aligned label plus a single control cell. The
+ *  color+number combo rows (label color+size, fill color+opacity, border
+ *  color+width) are this shape, so the chrome lives here instead of being
+ *  hand-assembled at each of those call sites. */
 const formRow = (
   labelText: string,
   control: HTMLElement,
