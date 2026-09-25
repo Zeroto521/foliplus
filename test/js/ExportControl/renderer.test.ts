@@ -4,7 +4,7 @@ import {
   ExportRenderer,
   isCorsBlocked,
   pooledEach,
-} from "#foliplus/ExportControl/renderer.js";
+} from "#foliplus/ExportControl/renderer/index.js";
 import * as UTIL from "#foliplus/ExportControl/util.js";
 
 // renderer.ts binds its logger to CONF.name at module-import time, so the

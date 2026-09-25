@@ -13,7 +13,7 @@ import * as Storage from "#common/storage.js";
 import { nextFrame } from "#common/throttle.js";
 import * as CONST from "./const.js";
 import { registerDrag, registerInteractions } from "./interaction.js";
-import { ExportRenderer, type TileLoadStats, isCorsBlocked } from "./renderer.js";
+import { ExportRenderer, type TileLoadStats, isCorsBlocked } from "./renderer/index.js";
 import {
   lockCropBox,
   removeCropBox,
