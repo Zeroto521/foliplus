@@ -173,7 +173,7 @@ const isAllowedAttr = (
   if (lower.startsWith("on")) return false;
   // A namespace declaration is metadata, not content. Keeping it is a
   // no-op for safety — script inertness comes from the tag blacklist — and a
-  // no-op for behaviour: without it the browser still puts the children back
+  // no-op for behavior: without it the browser still puts the children back
   // in the SVG namespace and `class="foliplus-spin"` still matches. It is kept
   // only so an incoming declaration survives verbatim. No scheme.
   if (isNamespaceDecl) return !isUrlValue(value);

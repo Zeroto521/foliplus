@@ -92,7 +92,7 @@ def _clear() -> None:
     _build_component_template.cache_clear()
 
 
-# ── Missing-asset behaviour ─────────────────────────────────────────
+# ── Missing-asset behavior ─────────────────────────────────────────
 
 
 def test_load_asset_missing_js_not_empty():

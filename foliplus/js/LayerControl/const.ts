@@ -19,7 +19,7 @@ const STORAGE = { KEY: `foliplus_layer_state_${map.getContainer().id}` };
 /** Color map layer. */
 const COLOR = { MAP_ID: "foliplus_color_map", DEFAULT: "#cccccc" };
 
-/** Focus-on-layer behaviour. */
+/** Focus-on-layer behavior. */
 const FOCUS = {
   /** How long the focus rectangle stays visible. */
   RECT_DURATION_MS: 3500,
@@ -166,7 +166,7 @@ const CLASSES = {
   STYLE_ZOOM_RANGE_OUT_OF_RANGE: "foliplus-zoom-range-out-of-range",
   /* ── Shared slider component (common/slider.css) ──
      Both range controls are this component; the rows below add their own hook
-     classes for behaviour and tests, and set `--slider-thumb-ring` for their
+     classes for behavior and tests, and set `--slider-thumb-ring` for their
      own coverage state. Geometry is declared once, in the component. */
   SLIDER: "foliplus-slider",
   SLIDER_RAIL: "foliplus-slider-rail",

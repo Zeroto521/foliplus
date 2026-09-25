@@ -4075,7 +4075,7 @@ class TestLayerControlBrowser:
         keyboard pipeline: the key is pressed with ``page.keyboard`` after a
         real focus, and a capture listener reports the browser's final
         ``defaultPrevented``. Both halves of the gate are measured — the native
-        behaviour actually happened, and foliplus did not cancel the key to
+        behavior actually happened, and foliplus did not cancel the key to
         take it over. Synthetic ``dispatchEvent`` cannot prove either.
         """
         overlay = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)

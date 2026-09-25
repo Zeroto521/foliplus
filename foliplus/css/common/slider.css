@@ -9,7 +9,7 @@
   out-of-range state whose rules never matched. Everything geometric lives
   here, once.
 
-  A consumer keeps its own hook classes for behaviour and tests, adds
+  A consumer keeps its own hook classes for behavior and tests, adds
   `--slider-thumb-ring` to state its own coverage, and gets the geometry for
   free.
 

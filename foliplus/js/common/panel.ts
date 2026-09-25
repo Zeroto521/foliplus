@@ -357,7 +357,7 @@ const createRowPanel = (opts: {
  * Create a panel-style control with toggle button, header, and content area.
  * Used by HeatmapControl and LayerControl for consistent panel UI.
  * Automatically wires up bindPanelToggle, plus the press-outside collapse
- * decided by `collapseOnOutside` (default on: the shell's historic behaviour).
+ * decided by `collapseOnOutside` (default on: the shell's historic behavior).
  *
  * The map's busiest gesture is drag-pan / click-select, so an outside press is
  * a poor trigger for a panel the user is actively working in — LayerControl
@@ -378,7 +378,7 @@ const createPanelControl = (opts: {
   closeTitle: string;
   ctrlId?: string;
   /** Collapse the panel on a press outside it. Defaults to `true` so a caller
-   *  that omits it keeps the shell's historic behaviour; LayerControl passes
+   *  that omits it keeps the shell's historic behavior; LayerControl passes
    *  `false` because the panel is a working surface read alongside the map. */
   collapseOnOutside?: boolean;
 }): {

@@ -604,7 +604,7 @@ class LayerManager implements LayerAPI {
     // A deleted layer is refused, not erased: the id has left the registry for
     // good, so accepting it again would silently undo the user's delete. Null
     // (not an exception) keeps the caller's rebuild loop alive — throwing here
-    // would take down whatever was registering. Interim behaviour: the
+    // would take down whatever was registering. Interim behavior: the
     // reason is logged rather than returned, until registerLayer grows a
     // RegisterResult union that names "removed".
     if (this.removedIds.has(opts.id)) {

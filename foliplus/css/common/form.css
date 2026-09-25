@@ -215,4 +215,4 @@
    The row is the shared slider component (common/slider.css) plus the shared
    number field, so it is level with the heatmap's border row and needs no slider
    rules of its own. The `.foliplus-style-opacity-*` classes are hooks for
-   behaviour and tests, not a second set of geometry. */
+   behavior and tests, not a second set of geometry. */
