@@ -46,6 +46,7 @@ const FILL_COLOR_DEFAULT = "#000000";
 type StyleCarrier = L.Layer & {
   setStyle?: (style: Record<string, unknown>) => void;
   eachLayer?: (fn: (layer: L.Layer) => void) => void;
+  on?: (type: string, fn: () => void) => void;
   options?: { fillColor?: string; fillOpacity?: number };
 };
 
@@ -106,6 +107,11 @@ const LEAFLET_DEFAULT_FILL = "#3388ff";
  *  `fill-opacity="0"` hides it. 0.2 matches Leaflet's own default. */
 const VISIBLE_FILL_OPACITY = 0.2;
 
+/** Tracks leaves that already have the fill-reapply listener attached.
+ *  Without this guard every `applyFillToLayer` call would add another
+ *  listener, and each `mouseout` would trigger O(n) redundant walks. */
+const fillReapplyListenerAdded = new WeakSet<StyleCarrier>();
+
 const captureBase = (
   node: StyleCarrier,
 ): {
@@ -146,6 +152,23 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
       if (color !== undefined) style.fillColor = color;
       if (opacity !== undefined) style.fillOpacity = opacity;
       node.setStyle(style);
+
+      // Folium's highlight_on_hover restores the original style on mouseout.
+      // Reapply the user's fill after folium's handler fires so the colour
+      // survives the hover. One listener per leaf, guarded by WeakSet.
+      if (typeof node.on === "function" && !fillReapplyListenerAdded.has(node)) {
+        fillReapplyListenerAdded.add(node);
+        const setStyle = node.setStyle;
+        node.on("mouseout", () => {
+          const c = ui.fillColorMap[layerId];
+          const o = ui.fillOpacityMap[layerId];
+          if (c === undefined && o === undefined) return;
+          const s: Record<string, unknown> = {};
+          if (c !== undefined) s.fillColor = c;
+          if (o !== undefined) s.fillOpacity = o;
+          setStyle(s);
+        });
+      }
     } else if (typeof node.eachLayer === "function") {
       node.eachLayer(child => walk(child as StyleCarrier));
     }

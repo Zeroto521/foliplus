@@ -46,11 +46,4 @@
     }
   }
 
-  /* ── Fill row ────────────────────────────────────────────────────
-     The color input fills the control cell at 160px while the opacity
-     rail is inset 7px on each side (half the slider thumb) to 146px.
-     Without the same margin the swatch pokes past the rail at both ends. */
-  .foliplus-style-fill-row .foliplus-form-color-input {
-    margin: 0 calc(var(--slider-thumb-size) / 2);
-  }
 }

@@ -4,10 +4,12 @@ import type { LayerManager } from "#foliplus/LayerControl/manager.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import {
   applyFillToLayer,
+  bindFillRow,
   buildFillRow,
   commitFillColor,
   commitFillOpacity,
   layerCanFill,
+  replayFillState,
   resetLayerFill,
 } from "#foliplus/LayerControl/ui/style/fill.js";
 import { findItem, initFixture } from "../fixture.js";
@@ -277,6 +279,186 @@ describe("LayerUI style panel — fill colour", () => {
     expect(() => applyFillToLayer(ui, "ghost")).not.toThrow();
   });
 
+  it("commitFillColor walks past a node with no setStyle or eachLayer", () => {
+    // The hollow-check walk falls through a leaf that exposes neither a
+    // setter nor children — it must not throw, and the colour still commits.
+    const fixture = initWithFillLayer();
+    fixture.fillLayer.leaves[1] = { options: {} } as never;
+
+    expect(() => commitFillColor(fixture.ui, "overlay1", "#ff0000")).not.toThrow();
+    expect(fixture.ui.fillColorMap["overlay1"]).toBe("#ff0000");
+  });
+
+  it("mouseout on a leaf re-applies the user's fill after folium resets it", () => {
+    // folium's highlight_on_hover restores the ORIGINAL style on mouseout;
+    // the fill row's listener must reapply the user's colour and opacity so
+    // a hover cannot undo them.
+    const fixture = initWithFillLayer();
+    let handler: (() => void) | null = null;
+    const leaf = {
+      options: { fillColor: "#aabbcc", fillOpacity: 0.5 },
+      setStyle: vi.fn(),
+      on: vi.fn((_type: string, fn: () => void) => {
+        handler = fn;
+      }),
+    };
+    fixture.fillLayer.leaves[0] = leaf;
+    fixture.ui.fillColorMap["overlay1"] = "#123456";
+    fixture.ui.fillOpacityMap["overlay1"] = 0.4;
+
+    applyFillToLayer(fixture.ui, "overlay1");
+    expect(leaf.setStyle).toHaveBeenLastCalledWith({
+      fillColor: "#123456",
+      fillOpacity: 0.4,
+    });
+
+    // folium's mouseout handler sets the original style back…
+    leaf.setStyle({ fillColor: "#aabbcc", fillOpacity: 0.5 });
+    // …and our listener restores the user's fill.
+    handler!();
+
+    expect(leaf.setStyle).toHaveBeenLastCalledWith({
+      fillColor: "#123456",
+      fillOpacity: 0.4,
+    });
+  });
+
+  it("mouseout on a leaf with no stored fill does not touch the style", () => {
+    const fixture = initWithFillLayer();
+    let handler: (() => void) | null = null;
+    const leaf = {
+      options: { fillColor: "#aabbcc", fillOpacity: 0.5 },
+      setStyle: vi.fn(),
+      on: vi.fn((_type: string, fn: () => void) => {
+        handler = fn;
+      }),
+    };
+    fixture.fillLayer.leaves[0] = leaf;
+    applyFillToLayer(fixture.ui, "overlay1"); // nothing stored — early return
+
+    // applyFillToLayer never reached the walk, so no listener is attached:
+    // folium's own hover handling stays untouched for an uncommitted layer.
+    expect(leaf.on).not.toHaveBeenCalled();
+  });
+
+  it("mouseout reapplies only the stored fill colour", () => {
+    const fixture = initWithFillLayer();
+    let handler: (() => void) | null = null;
+    const leaf = {
+      options: { fillColor: "#aabbcc", fillOpacity: 0.5 },
+      setStyle: vi.fn(),
+      on: vi.fn((_type: string, fn: () => void) => {
+        handler = fn;
+      }),
+    };
+    fixture.fillLayer.leaves[0] = leaf;
+    fixture.ui.fillColorMap["overlay1"] = "#123456";
+
+    applyFillToLayer(fixture.ui, "overlay1");
+    handler!();
+
+    // fillOpacity is absent from the maps, so the reapply omits it — the
+    // author's opacity stays in force.
+    expect(leaf.setStyle).toHaveBeenLastCalledWith({ fillColor: "#123456" });
+  });
+
+  it("mouseout reapplies only the stored fill opacity", () => {
+    const fixture = initWithFillLayer();
+    let handler: (() => void) | null = null;
+    const leaf = {
+      options: { fillColor: "#aabbcc", fillOpacity: 0.5 },
+      setStyle: vi.fn(),
+      on: vi.fn((_type: string, fn: () => void) => {
+        handler = fn;
+      }),
+    };
+    fixture.fillLayer.leaves[0] = leaf;
+    fixture.ui.fillOpacityMap["overlay1"] = 0.4;
+
+    applyFillToLayer(fixture.ui, "overlay1");
+    handler!();
+
+    expect(leaf.setStyle).toHaveBeenLastCalledWith({ fillOpacity: 0.4 });
+  });
+
+  it("mouseout after the fill was reset does not rewrite the style", () => {
+    const fixture = initWithFillLayer();
+    let handler: (() => void) | null = null;
+    const leaf = {
+      options: { fillColor: "#aabbcc", fillOpacity: 0.5 },
+      setStyle: vi.fn(),
+      on: vi.fn((_type: string, fn: () => void) => {
+        handler = fn;
+      }),
+    };
+    fixture.fillLayer.leaves[0] = leaf;
+    fixture.ui.fillColorMap["overlay1"] = "#123456";
+
+    applyFillToLayer(fixture.ui, "overlay1");
+    // Reset clears the maps; the listener from the earlier commit is still
+    // attached (reset does not unbind it), so the reapply must no-op.
+    delete fixture.ui.fillColorMap["overlay1"];
+    delete fixture.ui.fillOpacityMap["overlay1"];
+    leaf.setStyle.mockClear();
+
+    handler!();
+
+    expect(leaf.setStyle).not.toHaveBeenCalled();
+  });
+
+  it("commitFillColor handles a layer id that is not registered yet", () => {
+    // The hollow-check walks only registered layers; an unregistered id still
+    // records the user's choice so a late registration can replay it.
+    expect(() => commitFillColor(ui, "late-layer", "#ff0000")).not.toThrow();
+    expect(ui.fillColorMap["late-layer"]).toBe("#ff0000");
+    expect(ui.userOverrides["late-layer"]).toContain("fillColor");
+  });
+
+  it("resetLayerFill is a no-op for a registered layer with no Leaflet object", () => {
+    manager.registerLayer({
+      id: "canvas1",
+      name: "Canvas",
+      canvas: document.createElement("canvas"),
+    });
+    ui.fillColorMap["canvas1"] = "#ff0000";
+    ui.userOverrides["canvas1"] = ["fillColor"];
+
+    resetLayerFill(ui, "canvas1");
+
+    expect(ui.fillColorMap["canvas1"]).toBeUndefined();
+    expect(ui.userOverrides["canvas1"]).toBeUndefined();
+  });
+
+  it("resetLayerFill walks past a leaf with no setStyle or eachLayer", () => {
+    const fixture = initWithFillLayer();
+    fixture.fillLayer.leaves[1] = { options: {} } as never;
+    commitFillColor(fixture.ui, "overlay1", "#ff0000");
+
+    expect(() => resetLayerFill(fixture.ui, "overlay1")).not.toThrow();
+  });
+
+  it("captureBase falls back to Leaflet default when fillOpacity is unset too", () => {
+    const fixture = initWithFillLayer();
+    delete fixture.fillLayer.leaves[0].options.fillColor;
+    delete fixture.fillLayer.leaves[0].options.fillOpacity;
+
+    commitFillColor(fixture.ui, "overlay1", "#ff0000");
+    resetLayerFill(fixture.ui, "overlay1");
+
+    // No authored colour or opacity — reset restores only the colour
+    // fallback and skips the fillOpacity write entirely.
+    expect(fixture.fillLayer.leaves[0].setStyle).toHaveBeenLastCalledWith({
+      fillColor: "#3388ff",
+    });
+  });
+
+  it("bindFillRow tolerates a row without either control", () => {
+    // Defensive: the row builder always emits both inputs, but a foreign or
+    // partial row must not throw when bound.
+    const row = document.createElement("div");
+    expect(() => bindFillRow(ui, "overlay1", row)).not.toThrow();
+  });
+
   // ─────────────────── panel integration ───────────────────
 
   it("changing the swatch commits the colour through the live binder", () => {
@@ -289,6 +471,20 @@ describe("LayerUI style panel — fill colour", () => {
 
     expect(ui.fillColorMap["overlay1"]).toBe("#3366cc");
     expect(ui.userOverrides["overlay1"]).toContain("fillColor");
+  });
+
+  it("the fill opacity input commits through the live binder", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const input = item.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_OPACITY_NUMBER}`,
+    ) as HTMLInputElement;
+
+    input.value = "50";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+
+    expect(ui.fillOpacityMap["overlay1"]).toBe(0.5);
+    expect(ui.userOverrides["overlay1"]).toContain("fillOpacity");
   });
 
   it("the swatch keeps the value it was committed (no forced re-read)", () => {
@@ -531,5 +727,57 @@ describe("buildFillRow", () => {
       fillColor: "#aabbcc",
       fillOpacity: 0,
     });
+  });
+});
+
+describe("replayFillState", () => {
+  let ui: LayerUI;
+  let manager: LayerManager;
+  let fillLayer: ReturnType<typeof makeFillableLayer>;
+
+  beforeEach(() => {
+    const fixture = initWithFillLayer();
+    ui = fixture.ui;
+    manager = fixture.manager;
+    fillLayer = fixture.fillLayer;
+  });
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+  });
+
+  it("applies a stored fill colour and opacity onto every leaf", () => {
+    ui.fillColorMap["overlay1"] = "#123456";
+    ui.fillOpacityMap["overlay1"] = 0.4;
+
+    replayFillState(ui, "overlay1");
+
+    expect(fillLayer.leaves[0].setStyle).toHaveBeenCalledWith({
+      fillColor: "#123456",
+      fillOpacity: 0.4,
+    });
+    expect(fillLayer.leaves[1].setStyle).toHaveBeenCalledWith({
+      fillColor: "#123456",
+      fillOpacity: 0.4,
+    });
+  });
+
+  it("is a no-op when only one fill dimension is stored", () => {
+    ui.fillColorMap["overlay1"] = "#123456";
+
+    replayFillState(ui, "overlay1");
+
+    // The absent dimension is omitted from the write so the author's
+    // fillOpacity stays in force.
+    expect(fillLayer.leaves[0].setStyle).toHaveBeenCalledWith({
+      fillColor: "#123456",
+    });
+  });
+
+  it("is a no-op for a layer outside the registry", () => {
+    ui.fillColorMap["ghost"] = "#123456";
+    expect(() => replayFillState(ui, "ghost")).not.toThrow();
   });
 });
