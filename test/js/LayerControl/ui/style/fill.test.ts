@@ -406,7 +406,7 @@ describe("LayerUI style panel — fill colour", () => {
     expect(leaf.setStyle).not.toHaveBeenCalled();
   });
 
-  it("attachs the reapply listener to leaves, not to the group", () => {
+  it("attaches the reapply listener to leaves, not to the group", () => {
     // A folium GeoJson is a LayerGroup that ALSO exposes setStyle. The
     // listener must live on each leaf — mouseout fires there, never on the
     // group — so a group with both methods must still recurse.
