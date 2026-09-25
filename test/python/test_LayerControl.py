@@ -32,7 +32,7 @@ def _rule(css: str, tail: str) -> str:
     """Body of the first rule whose selector ends with *tail*.
 
     Used to check one declaration without matching the same property in a
-    neighbouring rule (e.g. `margin-top` in the track rule but not the thumb's).
+    neighboring rule (e.g. `margin-top` in the track rule but not the thumb's).
     """
     start = css.index(tail)
     return css[start : css.index("}", start)]
@@ -1692,7 +1692,7 @@ class TestLayerControlBrowser:
         After the ordering pass every overlay layer — a plain folium one
         included — owns a pane and has its content migrated into it, so the
         opacity is a single style write instead of a sweep over the features.
-        The neighbour is the control: it is a different layer in a different
+        The neighbor is the control: it is a different layer in a different
         pane and must be untouched.
         """
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
@@ -1710,7 +1710,7 @@ class TestLayerControlBrowser:
             # ...and the features keep their own style (no per-feature sweep).
             assert result["plainLeafOpacity"], result
             assert all(v == 1 for v in result["plainLeafOpacity"]), result
-            # The neighbour is a different layer in a different pane.
+            # The neighbor is a different layer in a different pane.
             assert result["plainNeighbourSamePane"] is False, result
             assert result["plainNeighbourPaneOpacity"] in ("", "1"), result
             assert result["plainNeighbourLeafOpacity"], result
@@ -1731,13 +1731,13 @@ class TestLayerControlBrowser:
 
             # Case D: annotation pane follows the layer's opacity. The geometry
             # pane and the annotation pane must both carry the opacity. A
-            # neighbour layer's annotation pane is unaffected (per-layer pane,
+            # neighbor layer's annotation pane is unaffected (per-layer pane,
             # not shared).
             assert result["annotationPaneExists"] is True, result
             assert result["annotatedGeoPaneOpacity"] == "0", result
             assert result["annotatedAnnotationPaneOpacity"] == "0", result
-            assert result["neighbourAnnotationPaneExists"] is True, result
-            assert result["neighbourAnnotationPaneOpacity"] in ("", "1"), result
+            assert result["neighborAnnotationPaneExists"] is True, result
+            assert result["neighborAnnotationPaneOpacity"] in ("", "1"), result
             assert not errors, f"JS errors: {errors}"
 
     def test_unregister_layer_in_browser(self, browser, tmp_path):
@@ -5091,7 +5091,7 @@ class TestLayerControlBrowser:
     #
     # Each of these three scrambles the registry or the panel so the two
     # orders disagree, then asserts the mutation landed on the row named by
-    # the layer's id. A positional lookup would have hit a neighbour.
+    # the layer's id. A positional lookup would have hit a neighbor.
 
     def test_initlayeritem_updates_only_the_id_match_row(self, browser, tmp_path):
         """initLayerItem stamps the row named by data-layer-id, not the one at
@@ -5109,11 +5109,11 @@ class TestLayerControlBrowser:
             assert state["alphaRegistryIndex"] != state["alphaDomIndex"]
             # initLayerItem wrote alpha's name into alpha's own checkbox.
             assert state["labels"]["alpha"] == "A"
-            # ...and left the neighbours' checkboxes alone. An index-based
+            # ...and left the neighbors' checkboxes alone. An index-based
             # lookup would have stamped "A" onto whoever sat at alpha's
             # registry index.
             assert state["labels"]["beta"] == "B", (
-                "a neighbour's row was rewritten with alpha's name "
+                "a neighbor's row was rewritten with alpha's name "
                 f"({state['staleIndexWouldHaveHit']!r}) — row resolved by index"
             )
             assert state["labels"]["gamma"] == "C"
@@ -5168,7 +5168,7 @@ class TestLayerControlBrowser:
             # Whoever sat at alpha's registry index must keep their own name;
             # an index-based lookup would have written the rename there.
             assert state["labels"]["beta"] == "B", (
-                "a neighbour's row was rewritten with alpha's name "
+                "a neighbor's row was rewritten with alpha's name "
                 f"({state['staleIndexWouldHaveHit']!r}) — row resolved by index"
             )
             assert state["labels"]["gamma"] == "C"

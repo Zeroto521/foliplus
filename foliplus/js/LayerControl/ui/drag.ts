@@ -19,7 +19,7 @@ const toggleFold = (ui: LayerUI, group: string): void => {
 /** Translate a row's data-layer-id into its registry index. The row carries
  *  the identity in data-layer-id while reorder takes registry indices — not
  *  DOM positions. A late registration can sit anywhere in the DOM, so reading
- *  a positional index here would drag a neighbour's layer. Returns -1 for a
+ *  a positional index here would drag a neighbor's layer. Returns -1 for a
  *  row with no id (or one the registry does not know). */
 const registryIdx = (ui: LayerUI, id: string | null): number => {
   return id ? ui.m.layers.findIndex(l => l.id === id) : -1;

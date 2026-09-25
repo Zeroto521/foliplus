@@ -3349,7 +3349,7 @@ describe("LayerUI style panel — zoom range", () => {
     });
     // `detectCapabilities` never returns an opacity-less surface that can still
     // carry a zoom range, so the two gates' independence is pinned by hand: each
-    // row answers to its own capability, never to its neighbour's.
+    // row answers to its own capability, never to its neighbor's.
     const li = manager.layerRegistry.get("rangeOnly")!;
     manager.surfaceFor(li).capabilities.opacity = "none";
 

@@ -98,7 +98,7 @@ const layoutLabel = (label: LabelCandidate, spec: LabelSpec): PlacedLabel => {
  * The default `overlap` is 0.5, not labelCollision's 0.75: the boxes already
  * include the halo, so "half the visual footprint covered" is already a heavy
  * collision — and it is the density that zooming out creates, where the old
- * bar was letting neighbouring labels keep their smudged overlap.
+ * bar was letting neighboring labels keep their smudged overlap.
  *
  * Results are returned in input order, so the caller can pair each surviving
  * label with its feature without bookkeeping.

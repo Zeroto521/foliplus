@@ -402,10 +402,10 @@ class LayerManager implements LayerAPI {
     registry.replace(items);
   }
 
-  /** Move `layerInfo` just before the first saved-order neighbour that is
-   *  registered. Neighbours that are not registered yet cannot be located, so
+  /** Move `layerInfo` just before the first saved-order neighbor that is
+   *  registered. Neighbors that are not registered yet cannot be located, so
    *  this places it at the best spot the live registry can honour and a later
-   *  replay refines it as the neighbours arrive. */
+   *  replay refines it as the neighbors arrive. */
   private placeBeforeSavedNeighbor(
     layerInfo: LayerInfo,
     saved: string[],
@@ -417,9 +417,9 @@ class LayerManager implements LayerAPI {
     // goal is expressed directly and no shift adjustment is applied.
     let goal: number;
     for (let i = target + 1; i < saved.length; i++) {
-      const neighbour = registry.get(saved[i]);
-      if (!neighbour) continue;
-      const to = registry.indexOf(neighbour);
+      const neighbor = registry.get(saved[i]);
+      if (!neighbor) continue;
+      const to = registry.indexOf(neighbor);
       // Removing `layerInfo` first shifts every later index down by one.
       goal = to - (from < to ? 1 : 0);
       if (from !== goal) registry.reorder(from, goal);
@@ -429,7 +429,7 @@ class LayerManager implements LayerAPI {
     // rightmost of the layers that exist. That end is the overlay group's,
     // never the registry's: an overlay that lands under a base layer breaks the
     // overlay-before-base invariant, and the panel's index-based row lookup
-    // would then read a neighbour's checkbox instead of its own.
+    // would then read a neighbor's checkbox instead of its own.
     goal =
       registry.firstBaseIdx === -1
         ? registry.layers.length - 1

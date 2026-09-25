@@ -111,7 +111,7 @@ describe("planLabelLayout", () => {
     // Two one-character labels 6px apart: their glyphs nearly touch, and once
     // the 3px halo is inside each box the horizontal overlap covers over half
     // the narrower label — the case zooming out produces, where the pre-halo
-    // boxes let neighbours survive into a black smudge.
+    // boxes let neighbors survive into a black smudge.
     const labels = [
       label("a", "1", { x: 100, y: 100 }, true),
       label("b", "1", { x: 106, y: 100 }, true),
