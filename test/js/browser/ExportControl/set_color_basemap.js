@@ -8,7 +8,7 @@
   // Returns the container's computed backgroundColor so the caller can assert
   // the colour took effect before triggering the export.
   const ctrl = document.querySelector(".foliplus-layer-ctrl");
-  if (ctrl && !ctrl.classList.contains("expanded")) {
+  if (ctrl && !ctrl.classList.contains("is-expanded")) {
     ctrl.querySelector(".foliplus-toggle-btn").click();
   }
   const item = document.querySelector(".foliplus-color-layer-item");

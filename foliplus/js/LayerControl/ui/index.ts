@@ -58,6 +58,7 @@ import {
   closeStylePanel,
   invalidateFields,
   openStylePanel,
+  replayFillState,
 } from "./style/index.js";
 import {
   applyVisibility,
@@ -181,6 +182,12 @@ class LayerUI {
   /** Persisted per-layer zoom range the user moved the handles for
    *  (id → [minZoom, maxZoom]). Applied on load / late register. */
   zoomRangeMap: Record<string, [number, number]>;
+  /** Persisted per-layer fill color (id → hex). A self-managed dimension —
+   *  not part of the executor's visible/opacity/zoomRange family; the fill
+   *  row in ui/style/fill.ts writes through setStyle directly. */
+  fillColorMap: Record<string, string>;
+  /** Persisted per-layer fill opacity (id → 0-1). Same self-managed dimension. */
+  fillOpacityMap: Record<string, number>;
   /** The executor's last-write map: id → the projection `applyProjection`
    *  last wrote to the map. This is what makes the executor a diff, not a
    *  sweep — a changeless call re-projects, sees no delta, and calls no
@@ -238,6 +245,8 @@ class LayerUI {
     this.labelConfigs = {};
     this.opacityMap = {};
     this.zoomRangeMap = {};
+    this.fillColorMap = {};
+    this.fillOpacityMap = {};
     this.appliedState = new Map();
     this.focusRect = null;
     this.focusingLayerId = null;
@@ -306,7 +315,14 @@ class LayerUI {
     return saveState(this);
   }
   applyUserState(id?: string) {
-    return applyUserState(this, id);
+    applyUserState(this, id);
+    if (id) {
+      replayFillState(this, id);
+    } else {
+      for (const layerId of Object.keys(this.userOverrides)) {
+        replayFillState(this, layerId);
+      }
+    }
   }
   replayLayerState(layerId: string) {
     return replayLayerState(this, layerId);

@@ -1195,6 +1195,8 @@ describe("LayerManager", () => {
             hiddenIds: new Set(),
             renamedNames: {},
             opacityMap: { heat: 0.4 },
+            fillColorMap: {},
+            fillOpacityMap: {},
             zoomRangeMap: {},
             appliedState: new Map(),
             authorVisible: new Map(),
@@ -1203,6 +1205,8 @@ describe("LayerManager", () => {
           id,
         ),
       opacityMap: { heat: 0.4 },
+      fillColorMap: {},
+      fillOpacityMap: {},
       hiddenIds: new Set(),
       zoomRangeMap: {},
       userOverrides: { heat: ["opacity"] },
@@ -1227,6 +1231,8 @@ describe("LayerManager", () => {
     manager.ui = {
       hiddenIds: new Set(),
       opacityMap: {},
+      fillColorMap: {},
+      fillOpacityMap: {},
       zoomRangeMap: {},
       userOverrides: {},
       saveState: vi.fn(),
@@ -1245,6 +1251,8 @@ describe("LayerManager", () => {
     manager.ui = {
       hiddenIds: new Set(),
       opacityMap: {},
+      fillColorMap: {},
+      fillOpacityMap: {},
       zoomRangeMap: {},
       userOverrides: {},
       saveState: vi.fn(),
@@ -1275,6 +1283,8 @@ describe("LayerManager", () => {
     manager.ui = {
       hiddenIds: new Set(["overlay1", "base1"]),
       opacityMap: { overlay1: 0.4, base1: 1 },
+      fillColorMap: {},
+      fillOpacityMap: {},
       zoomRangeMap: { overlay1: [3, 12] },
       userOverrides: {
         overlay1: ["visible", "opacity", "zoomRange"],
@@ -1307,6 +1317,8 @@ describe("LayerManager", () => {
     manager.ui = {
       hiddenIds: new Set(["overlay1", "base1"]),
       opacityMap: { overlay1: 0.4, base1: 1 },
+      fillColorMap: {},
+      fillOpacityMap: {},
       zoomRangeMap: { overlay1: [3, 12] },
       rangeHiddenIds: new Set(),
       userOverrides: {
@@ -1336,6 +1348,8 @@ describe("LayerManager", () => {
     manager.ui = {
       hiddenIds: new Set(["overlay1"]),
       opacityMap: { overlay1: 0.4 },
+      fillColorMap: {},
+      fillOpacityMap: {},
       zoomRangeMap: {},
       userOverrides: { overlay1: ["opacity"] },
       renamedNames: {},
@@ -1368,7 +1382,11 @@ describe("LayerManager", () => {
     manager.ui = {
       hiddenIds: new Set(["overlay1", "base1"]),
       opacityMap: { overlay1: 0.4 },
+      fillColorMap: {},
+      fillOpacityMap: {},
       zoomRangeMap: { overlay1: [3, 12] },
+      fillColorMap: {},
+      fillOpacityMap: {},
       rangeHiddenIds: new Set(),
       userOverrides: { overlay1: ["visible", "opacity"] },
       renamedNames: { base1: "Renamed" },
@@ -1415,7 +1433,11 @@ describe("LayerManager", () => {
       m,
       hiddenIds: new Set(),
       opacityMap: { overlay1: 0.4 },
+      fillColorMap: {},
+      fillOpacityMap: {},
       zoomRangeMap: {},
+      fillColorMap: {},
+      fillOpacityMap: {},
       rangeHiddenIds: new Set(),
       userOverrides: { overlay1: ["opacity"] },
       renamedNames: { overlay1: "Renamed", base1: "Base" },

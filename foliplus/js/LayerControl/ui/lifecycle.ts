@@ -33,7 +33,7 @@ import { closeMoreMenu } from "./menu.js";
 import { finishRename } from "./rename.js";
 import { applyRowView, buildRowCell } from "./rowView.js";
 import { snapshotAuthorVisible } from "./rowView.js";
-import { applyUserState, loadPersistedState, syncHiddenId } from "./state.js";
+import { loadPersistedState, syncHiddenId } from "./state.js";
 import { closeStylePanel, invalidateFields } from "./style/index.js";
 import {
   getLayerItems,
@@ -71,8 +71,11 @@ const attachUI = (ui: LayerUI, containerDiv: HTMLElement): void => {
   // Last in the attach sequence: applyUserState() runs the full sweep
   // needed for rows rendered from the initial registry. Hidden ids are
   // loaded above but only applied here, so a row can never render visible
-  // and get removed afterwards.
-  applyUserState(ui);
+  // and get removed afterwards. The UI-shell method (not the state.ts
+  // function) so the fill dimension is replayed too — the initial layers
+  // never go through registerLayer, which is where the id-specified path
+  // replays fill for late registrations.
+  ui.applyUserState();
   // Re-apply ARIA/roving after insertLayerItem / applyUserState may have
   // rebuilt rows.
   syncListCursor(ui);

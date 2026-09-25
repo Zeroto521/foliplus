@@ -15,6 +15,15 @@ const LABEL_SIZE = {
 
 const LABEL_COLOR_DEFAULT = "#ffffff";
 
+/** Shared border weight bounds for hexagon outlines. One home for the
+ *  heatmap panel and the layer style drawer so the two never drift. */
+const BORDER_WEIGHT = {
+  MIN: 0,
+  MAX: 10,
+  STEP: 0.5,
+  DEFAULT: 1,
+} as const;
+
 /** Clamp a raw label-size number into the shared bounds. */
 const clampLabelSize = (value: number): number =>
   Math.min(LABEL_SIZE.SIZE_MAX, Math.max(LABEL_SIZE.SIZE_MIN, value));
@@ -64,6 +73,22 @@ const numberInput = (opts: {
 const inlineControls = (...children: HTMLElement[]): HTMLElement =>
   dom.el("div", { class: "foliplus-form-inline" }, ...children);
 
+/** One FORM_ROW: a right-aligned label plus a single control cell. The
+ *  color+number combo rows (label color+size, fill color+opacity, border
+ *  color+width) are this shape, so the chrome lives here instead of being
+ *  hand-assembled at each of those call sites. */
+const formRow = (
+  labelText: string,
+  control: HTMLElement,
+  rowClass?: string,
+): HTMLElement =>
+  dom.el(
+    "div",
+    { class: `foliplus-form-row${rowClass ? ` ${rowClass}` : ""}` },
+    dom.el("label", { class: "foliplus-form-label" }, labelText),
+    dom.el("div", { class: "foliplus-form-control" }, control),
+  );
+
 /** Live number input: apply in-range values on every keystroke; on commit
  *  (change) clamp into [min, max] and rewrite the field. Shared by border
  *  weight and label size so both behave identically. */
@@ -101,8 +126,10 @@ const bindLiveColor = (
 export {
   bindLiveColor,
   bindLiveNumber,
+  BORDER_WEIGHT,
   clampLabelSize,
   colorInput,
+  formRow,
   inlineControls,
   LABEL_COLOR_DEFAULT,
   LABEL_SIZE,

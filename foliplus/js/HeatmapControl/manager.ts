@@ -1,103 +1,50 @@
 // HeatmapControl data aggregation & rendering logic (HeatmapManager).
 import { generateId } from "#core/component.js";
 import { EVENTS, type EventBus, ensureEvents } from "#core/event/index.js";
-import { autoLabelField, bareFieldName } from "#core/labelField.js";
-import {
-  type CanvasLabelStyle,
-  drawCanvasLabel,
-  prepareCanvasLabel,
-  resolveCanvasLabelStyle,
-} from "#common/canvasLabel.js";
+import { bareFieldName } from "#core/labelField.js";
+import { type CanvasLabelStyle } from "#common/canvasLabel.js";
 import { type Debounced, debounce } from "#common/debounce.js";
-import { clampLabelSize, normalizeHexColor } from "#common/form.js";
-import { NUMBER_FORMAT, type NumberStyle, formatLabelNumber } from "#common/format.js";
+import { BORDER_WEIGHT, clampLabelSize, normalizeHexColor } from "#common/form.js";
+import { NUMBER_FORMAT, type NumberStyle } from "#common/format.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { createLogger } from "#common/log.js";
 import { bindMapSync } from "#common/panel.js";
 import { type Persisted, makePersisted } from "#common/storage.js";
 import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
+import {
+  aggregateData as aggregateDataFn,
+  buildFeatures as buildFeaturesFn,
+  computeBreaks as computeBreaksFn,
+  getColorScale as getColorScaleFn,
+  getH3Res as getH3ResFn,
+  pickAutoField as pickAutoFieldFn,
+  readMarkerField as readMarkerFieldFn,
+} from "./data.js";
 import * as SVGs from "./icon.js";
+import {
+  applySavedConfig as applySavedConfigFn,
+  clearSavedConfig as clearSavedConfigFn,
+  loadSavedConfig as loadSavedConfigFn,
+} from "./persistence.js";
+import {
+  drawHexLabel as drawHexLabelFn,
+  drawHexagon as drawHexagonFn,
+  resolveLabelStyle as resolveLabelStyleFn,
+} from "./render.js";
+import type {
+  AggregatedData,
+  HeatmapPointMarker,
+  HexCell,
+  HexFeature,
+  PointLayerInfo,
+  SavedConfig,
+  SelectedPoint,
+} from "./type.js";
 import { type HeatmapControlUI, rebuildLayerDropdown } from "./ui.js";
 
 const T = createScopedTranslator(CONF);
 const log = createLogger(CONF.name);
-
-/** A point marker carrying an optional numeric value (foliplus data contract). */
-type HeatmapPointMarker = (L.Marker | L.CircleMarker) & {
-  value?: number;
-  options?: { value?: number };
-};
-
-/** A hexagon feature drawn on the heatmap canvas. */
-interface HexFeature {
-  type?: string;
-  geometry: { type: string; coordinates: number[][][] };
-  properties: {
-    centroid: [number, number] | null;
-    fillColor?: string;
-    value?: number;
-    classIdx?: number;
-    [key: string]: unknown;
-  };
-}
-
-/** Aggregated hex cell. */
-interface HexCell {
-  sum: number;
-  count: number;
-  min: number;
-  max: number;
-}
-
-/** Aggregated data returned by aggregateData. */
-interface AggregatedData {
-  hexCells: Record<string, HexCell>;
-  getAggValue: (cell: HexCell) => number;
-  valueToClassIdx: (val: number) => number;
-  classColors: string[];
-}
-
-/** Canvas label style resolved from the shared --label-* tokens (the common
- *  recipe the annotation canvas uses too, so both read as one language). */
-
-/** A point layer collected from LayerControl. */
-interface PointLayerInfo {
-  id: string;
-  name: string;
-  layer: L.Layer | null;
-  count: number;
-}
-
-/** A selected point with its aggregated value. */
-interface SelectedPoint {
-  lat: number;
-  lng: number;
-  value: number;
-  marker: L.Marker;
-}
-
-/** Persisted heatmap configuration (survives page reload). */
-interface SavedConfig {
-  /** Shape version stamp (positive integer). Absent on records persisted
-   * before the versioned format shipped; readers treat an absent or older
-   * value the same way — the fields below are the source of truth, so a
-   * legacy record without a version is applied as-is (no migration, no
-   * bump-on-read). */
-  version?: number;
-  layerId?: string | null;
-  agg?: string;
-  method?: string;
-  scheme?: string;
-  numClasses?: number;
-  borderWeight?: number;
-  borderColor?: string;
-  labelShow?: boolean;
-  labelColor?: string;
-  labelSize?: number;
-  labelFormat?: NumberStyle;
-  field?: string;
-}
 
 // ==================== Core: Data Aggregation & Rendering ====================
 class HeatmapManager {
@@ -209,7 +156,7 @@ class HeatmapManager {
     this.currentMethod = CONF.method ?? CONST.METHOD.JENKS;
     this.autoFieldKey = null;
     this.numClasses = CONF.n_classes ?? CONST.CLASS_COUNT.DEFAULT;
-    this.borderWeight = CONF.border_weight ?? CONST.BORDER.WEIGHT_DEFAULT;
+    this.borderWeight = CONF.border_weight ?? BORDER_WEIGHT.DEFAULT;
     this.borderColor = CONF.border_color ?? CONST.GRAY;
     // Python default is True; only an explicit false turns labels off — same
     // `!== false` rule MeasureControl uses for label_show / label_collide.
@@ -253,16 +200,20 @@ class HeatmapManager {
     const defaultLabelColor = this.currentLabelColor;
     const defaultLabelSize = this.currentLabelSize;
     const defaultLabelFormat = this.currentLabelFormat;
-    // Style delegation for the layer style drawer and the heatmap panel's
-    // shared label controls. The drawer only mirrors presentation styles;
-    // aggregation field stays data config on the heatmap panel. Stored on the
-    // manager so core/labelControl can dispatch changes through the same setters
-    // and refresh from the same provider.
+    const defaultBorderWeight = this.borderWeight;
+    const defaultBorderColor = this.borderColor;
+    // Style delegation for the layer style drawer. The drawer mirrors every
+    // presentation style (labels + hexagon border); aggregation field stays
+    // data config on the heatmap panel. Stored on the manager so the drawer
+    // dispatches changes through the same setters and refreshes from the same
+    // provider.
     this.styleProvider = () => ({
       labelShow: this.currentLabelShow,
       labelColor: this.currentLabelColor,
       labelSize: this.currentLabelSize,
       labelFormat: this.currentLabelFormat,
+      borderWeight: this.borderWeight,
+      borderColor: this.borderColor,
     });
     this.styleSetters = {
       labelShow: v => {
@@ -303,6 +254,24 @@ class HeatmapManager {
         this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
         this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
       },
+      // Border weight only redraws the hexagon strokes — the H3 aggregation
+      // result is unaffected.
+      borderWeight: v => {
+        const n = typeof v === "number" && !Number.isNaN(v) ? v : this.borderWeight;
+        this.borderWeight = Math.min(BORDER_WEIGHT.MAX, Math.max(BORDER_WEIGHT.MIN, n));
+        this.redrawHeatmap();
+        this.saveConfig();
+        this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
+        this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
+      },
+      borderColor: v => {
+        this.borderColor =
+          typeof v === "string" ? normalizeHexColor(v) : this.borderColor;
+        this.redrawHeatmap();
+        this.saveConfig();
+        this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
+        this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
+      },
     };
     this.overlay = map.foliplus!.LayerAPI!.createCanvas({
       id: this.layerId,
@@ -326,6 +295,8 @@ class HeatmapManager {
         labelColor: defaultLabelColor,
         labelSize: defaultLabelSize,
         labelFormat: defaultLabelFormat,
+        borderWeight: defaultBorderWeight,
+        borderColor: defaultBorderColor,
       }),
     });
     // ExportControl publishes BEFORE/AFTER_EXPORT to request a full-resolution
@@ -446,25 +417,7 @@ class HeatmapManager {
 
   /** Draw a single hexagon polygon (fill + stroke). */
   drawHexagon(ctx: CanvasRenderingContext2D, feat: HexFeature) {
-    const pts = feat.geometry.coordinates[0].map(p =>
-      this.map.latLngToContainerPoint(L.latLng(p[1], p[0])),
-    );
-    ctx.beginPath();
-    ctx.moveTo(pts[0].x, pts[0].y);
-    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
-    ctx.closePath();
-    ctx.fillStyle = feat.properties.fillColor || CONST.GRAY;
-    ctx.globalAlpha = CONF.fill_opacity ?? 1;
-    ctx.fill();
-    ctx.globalAlpha = 1;
-
-    if (this.borderWeight > 0 && (CONF.border_opacity ?? 0) > 0) {
-      ctx.strokeStyle = this.borderColor;
-      ctx.lineWidth = this.borderWeight;
-      ctx.globalAlpha = CONF.border_opacity ?? 1;
-      ctx.stroke();
-      ctx.globalAlpha = 1;
-    }
+    drawHexagonFn(ctx, feat, this.map, this.borderWeight, this.borderColor);
   }
 
   /** Resolve label styling from the shared --label-* tokens (cached once). The
@@ -473,15 +426,11 @@ class HeatmapManager {
    *  language. */
   resolveLabelStyle(): CanvasLabelStyle {
     if (this.cachedLabelStyle) return this.cachedLabelStyle;
-    // Runtime size/color win over the shared --label-* tokens so the panel
-    // and drawer can restyle hex labels without a CSS override.
-    const base = resolveCanvasLabelStyle(this.ui!.ctrl);
-    this.cachedLabelStyle = {
-      ...base,
-      fontSize: this.currentLabelSize,
-      font: `${base.fontWeight} ${this.currentLabelSize}px ${base.fontFamily}`,
-      color: this.currentLabelColor,
-    };
+    this.cachedLabelStyle = resolveLabelStyleFn(
+      this.ui!.ctrl,
+      this.currentLabelSize,
+      this.currentLabelColor,
+    );
     return this.cachedLabelStyle;
   }
 
@@ -491,16 +440,7 @@ class HeatmapManager {
     feat: HexFeature,
     style: CanvasLabelStyle,
   ) {
-    const centroid = feat.properties.centroid;
-    if (!centroid) return;
-    const pt = this.map.latLngToContainerPoint(L.latLng(centroid[0], centroid[1]));
-    const text = formatLabelNumber(
-      feat.properties.value ?? 0,
-      this.currentLabelFormat,
-      CONF.locale_code,
-    );
-    prepareCanvasLabel(ctx, style);
-    drawCanvasLabel(ctx, text, pt.x, pt.y, style);
+    drawHexLabelFn(ctx, feat, style, this.map, this.currentLabelFormat);
   }
 
   // --- Data Extraction ---
@@ -585,14 +525,9 @@ class HeatmapManager {
     return fields;
   }
 
-  /** The field to use when the user has not picked one. The rule itself is
-   *  shared with LayerControl's annotation labels (core/labelField): first
-   *  numeric, else first. This layer's field contract is numeric-only by
-   *  construction, so in practice this stays the first entry — but the
-   *  fallback no longer lives in two places. */
+  /** The field to use when the user has not picked one. */
   pickAutoField(fields: string[] | null): string | null {
-    if (!fields || fields.length === 0) return null;
-    return autoLabelField(fields.map(name => ({ name, numeric: true })));
+    return pickAutoFieldFn(fields);
   }
 
   /**
@@ -605,12 +540,7 @@ class HeatmapManager {
     marker: L.Marker | L.CircleMarker,
     field: string | null,
   ): number | undefined {
-    if (!field) return undefined;
-    const extended = marker as HeatmapPointMarker;
-    if (field === "value") return extended.value;
-    if (field === "options.value") return extended.options?.value;
-    const key = bareFieldName(field);
-    return marker.feature?.properties?.[key];
+    return readMarkerFieldFn(marker, field);
   }
 
   getPointValue(marker: L.Marker | L.CircleMarker): number {
@@ -652,56 +582,15 @@ class HeatmapManager {
   }
 
   getH3Res(zoom: number): number {
-    const entry = (CONST.H3.RES_MAP as Array<[number, number]>).find(
-      ([z]) => zoom <= z,
-    );
-    return entry ? entry[1] : CONST.H3.RES_FALLBACK;
+    return getH3ResFn(zoom);
   }
 
   getColorScale(name: string, n: number): string[] {
-    if (typeof chroma !== "undefined") {
-      return chroma.scale(name).mode("lab").colors(n) as string[];
-    }
-    return Array(n).fill(CONST.GRAY);
+    return getColorScaleFn(name, n);
   }
 
   computeBreaks(data: number[], nClasses: number, method: string): number[] {
-    if (data.length === 0) return [];
-    const sorted = data.slice().sort((a, b) => a - b);
-    const n = sorted.length;
-    if (n <= 2) return [sorted[0], sorted[n - 1]];
-    nClasses = Math.max(3, Math.min(nClasses, n));
-
-    const lo = sorted[0];
-    const hi = sorted[n - 1];
-
-    if (method === CONST.METHOD.JENKS) {
-      try {
-        const clusters = ss.ckmeans(data, nClasses);
-        const breaks: number[] = [clusters[0][0]];
-        clusters.forEach(c => breaks.push(c[c.length - 1]));
-        return breaks;
-      } catch (e) {
-        /* fall through */
-      }
-      return [lo, hi];
-    } else if (method === CONST.METHOD.QUANTILE) {
-      const b: number[] = [lo];
-      for (let i = 1; i < nClasses; i++) {
-        b.push(ss.quantileSorted(sorted, i / nClasses));
-      }
-      return b.concat(hi);
-    } else if (method === CONST.METHOD.HEADS) {
-      const b: number[] = [lo];
-      for (let i = 1; i < nClasses; i++) {
-        b.push(sorted[Math.min(Math.floor((i * n) / nClasses), n - 1)]);
-      }
-      return b.concat(hi);
-    }
-    const step = (hi - lo) / nClasses;
-    const b: number[] = [];
-    for (let i = 0; i <= nClasses; i++) b.push(lo + step * i);
-    return b;
+    return computeBreaksFn(data, nClasses, method);
   }
 
   renderHexagons() {
@@ -727,98 +616,19 @@ class HeatmapManager {
   }
 
   aggregateData(pts: SelectedPoint[], res: number): AggregatedData | null {
-    const hexCells: Record<string, HexCell> = {};
-    pts.forEach(pt => {
-      try {
-        const h3Idx = h3.latLngToCell(pt.lat, pt.lng, res);
-        if (!hexCells[h3Idx]) {
-          hexCells[h3Idx] = { sum: 0, count: 0, min: Infinity, max: -Infinity };
-        }
-        const cell = hexCells[h3Idx];
-        cell.sum += pt.value;
-        cell.count += 1;
-        if (pt.value < cell.min) cell.min = pt.value;
-        if (pt.value > cell.max) cell.max = pt.value;
-      } catch (e) {
-        log.warn("h3 cell conversion failed", pt.lat, pt.lng, e);
-      }
-    });
-
-    const getAggValue = (cell: HexCell): number => {
-      switch (this.currentAgg) {
-        case CONST.AGG.COUNT:
-          return cell.count;
-        case CONST.AGG.SUM:
-          return cell.sum;
-        case CONST.AGG.AVG:
-          return cell.count > 0 ? cell.sum / cell.count : 0;
-        case CONST.AGG.MIN:
-          return cell.min;
-        case CONST.AGG.MAX:
-          return cell.max;
-        default:
-          return cell.count;
-      }
-    };
-
-    const allVals = Object.values(hexCells).map(getAggValue);
-    if (allVals.length === 0) {
-      this.clearHeatmapCanvas();
-      return null;
-    }
-
-    const nClasses = Math.min(this.numClasses, allVals.length);
-    const breaks = this.computeBreaks(allVals, nClasses, this.currentMethod);
-    const classColors = this.getColorScale(this.currentScheme, nClasses);
-    const valueToClassIdx = (val: number): number => {
-      if (breaks.length < 2) return 0;
-      for (let i = 1; i < breaks.length; i++) if (val <= breaks[i]) return i - 1;
-      return breaks.length - 2;
-    };
-    return { hexCells, getAggValue, valueToClassIdx, classColors };
+    return aggregateDataFn(
+      pts,
+      res,
+      this.currentAgg,
+      this.numClasses,
+      this.currentMethod,
+      this.currentScheme,
+      () => this.clearHeatmapCanvas(),
+    );
   }
 
-  buildFeatures({
-    hexCells,
-    getAggValue,
-    valueToClassIdx,
-    classColors,
-  }: AggregatedData): HexFeature[] {
-    const features: HexFeature[] = [];
-    for (const [h3Idx, cell] of Object.entries(hexCells)) {
-      const val = getAggValue(cell);
-      const classIdx = valueToClassIdx(val);
-      const fillColor = classColors[classIdx];
-      let centroid: [number, number] | null = null;
-      try {
-        const c = h3.cellToLatLng(h3Idx);
-        centroid = [c[0], c[1]];
-      } catch (e) {
-        /* fallback */
-      }
-      try {
-        const boundary = h3.cellToBoundary(h3Idx);
-        const coords = boundary.map(p => [p[1], p[0]]);
-        coords.push(coords[0]);
-        if (!centroid) {
-          let cx = 0;
-          let cy = 0;
-          for (let j = 0; j < coords.length - 1; j++) {
-            cx += coords[j][0];
-            cy += coords[j][1];
-          }
-          centroid = [cy / (coords.length - 1), cx / (coords.length - 1)];
-        }
-        features.push({
-          type: "Feature",
-          geometry: { type: "Polygon", coordinates: [coords] },
-          properties: { value: val, classIdx, fillColor, h3: h3Idx, centroid },
-        });
-      } catch (e) {
-        log.warn("h3 boundary conversion failed", h3Idx, e);
-      }
-    }
-    return features;
+  buildFeatures(agg: AggregatedData): HexFeature[] {
+    return buildFeaturesFn(agg);
   }
 
   renderFeatures(features: HexFeature[]) {
@@ -845,8 +655,7 @@ class HeatmapManager {
 
   /** Load saved configuration from localStorage into this manager's state. */
   loadSavedConfig(): SavedConfig | null {
-    // Storage.loadRecord already returns null when the key is missing/unreadable.
-    return Storage.loadRecord<SavedConfig | null>(CONST.STORAGE.KEY, CONF.name);
+    return loadSavedConfigFn();
   }
 
   /** Save the current manager state to localStorage through the write-through
@@ -864,11 +673,7 @@ class HeatmapManager {
 
   /** Remove persisted configuration from localStorage. */
   clearSavedConfig() {
-    try {
-      window.localStorage.removeItem(CONST.STORAGE.KEY);
-    } catch (e) {
-      log.warn(`failed to clear saved data (key=${CONST.STORAGE.KEY})`, e);
-    }
+    clearSavedConfigFn();
   }
 
   /**
@@ -906,33 +711,7 @@ class HeatmapManager {
 
   /** Apply a loaded config object to the manager's state. */
   applySavedConfig(saved: SavedConfig) {
-    // A record existing at all means the user already spoke in a previous
-    // session (picked a layer, or explicitly cleared the selection). Consume
-    // the one-shot auto-select guard so reload does not undo that choice —
-    // without this, hasScanned stays false and the single-layer auto-select
-    // in buildLayerListItems re-fires after a manual clear survives reload.
-    this.hasScanned = true;
-    if (saved.agg) this.currentAgg = saved.agg;
-    if (saved.method) this.currentMethod = saved.method;
-    if (saved.scheme) this.currentScheme = saved.scheme;
-    if (saved.numClasses !== undefined) {
-      this.numClasses = Math.min(
-        CONST.CLASS_COUNT.MAX,
-        Math.max(CONST.CLASS_COUNT.MIN, saved.numClasses),
-      );
-    }
-    if (saved.borderWeight !== undefined) {
-      this.borderWeight = saved.borderWeight;
-    }
-    if (saved.borderColor) this.borderColor = saved.borderColor;
-    if (saved.labelShow !== undefined) this.currentLabelShow = saved.labelShow;
-    if (saved.labelColor) this.currentLabelColor = saved.labelColor;
-    if (saved.labelSize !== undefined) {
-      this.currentLabelSize = clampLabelSize(saved.labelSize);
-    }
-    if (saved.labelFormat) this.currentLabelFormat = saved.labelFormat;
-    if (saved.field) this.currentField = bareFieldName(saved.field);
-    this.selectedLayerId = saved.layerId ?? null;
+    applySavedConfigFn(this, saved);
   }
 }
 

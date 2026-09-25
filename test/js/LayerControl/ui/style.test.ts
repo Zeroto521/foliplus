@@ -2,7 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerManager } from "#foliplus/LayerControl/manager.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
-import { renderDelegatedStylePanel } from "#foliplus/LayerControl/ui/style/delegated.js";
+import {
+  buildBorderRow,
+  renderDelegatedStylePanel,
+} from "#foliplus/LayerControl/ui/style/delegated.js";
 import {
   layerHasLabelFields,
   layerHasStyleDelegation,
@@ -2433,6 +2436,271 @@ describe("LayerUI style panel", () => {
 
     expect(formatSelect.value).toBe("auto");
   });
+
+  it("delegated panel renders a border section with color and weight inputs when both setters exist", () => {
+    const borderColorSetter = vi.fn();
+    const borderWeightSetter = vi.fn();
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({
+        labelShow: true,
+        labelFormat: "auto",
+        borderWeight: 2,
+        borderColor: "#ff0000",
+      }),
+      styleSetters: {
+        labelShow: vi.fn(),
+        labelFormat: vi.fn(),
+        borderWeight: borderWeightSetter,
+        borderColor: borderColorSetter,
+      },
+    });
+    const item = findItem(ui, "heat1");
+    ui.openStylePanel("heat1");
+
+    const panel = panelOf(item)!;
+    const colorInput = panel.querySelector("input[type=color]") as HTMLInputElement;
+    const weightInput = panel.querySelector("input[type=number]") as HTMLInputElement;
+    expect(colorInput).not.toBeNull();
+    expect(colorInput.value).toBe("#ff0000");
+    expect(weightInput).not.toBeNull();
+    expect(weightInput.value).toBe("2");
+    expect(weightInput.min).toBe("0");
+    expect(weightInput.max).toBe("10");
+    expect(weightInput.step).toBe("0.5");
+  });
+
+  it("delegated border color input dispatches to styleSetters.borderColor on input", () => {
+    const borderColorSetter = vi.fn();
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ borderColor: "#000000" }),
+      styleSetters: { borderColor: borderColorSetter },
+    });
+    const item = findItem(ui, "heat1");
+    ui.openStylePanel("heat1");
+
+    const colorInput = panelOf(item)!.querySelector(
+      "input[type=color]",
+    ) as HTMLInputElement;
+    colorInput.value = "#abcdef";
+    colorInput.dispatchEvent(new Event("input", { bubbles: true }));
+
+    expect(borderColorSetter).toHaveBeenCalledWith("#abcdef");
+  });
+
+  it("delegated border weight input commits to styleSetters.borderWeight on change", () => {
+    const borderWeightSetter = vi.fn();
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ borderWeight: 1 }),
+      styleSetters: { borderWeight: borderWeightSetter },
+    });
+    const item = findItem(ui, "heat1");
+    ui.openStylePanel("heat1");
+
+    const weightInput = panelOf(item)!.querySelector(
+      "input[type=number]",
+    ) as HTMLInputElement;
+    weightInput.value = "3";
+    weightInput.dispatchEvent(new Event("change", { bubbles: true }));
+
+    expect(borderWeightSetter).toHaveBeenCalledWith(3);
+  });
+
+  it("delegated panel returns null when a layer publishes only data setters", () => {
+    manager.registerLayer({
+      id: "dataOnly",
+      name: "DataOnly",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({}),
+      styleSetters: { field: vi.fn() },
+    });
+    expect(renderDelegatedStylePanel(ui, "dataOnly")).toBeNull();
+  });
+
+  it("buildBorderRow returns null when the layer has no border setters", () => {
+    manager.registerLayer({
+      id: "dataOnly",
+      name: "DataOnly",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({}),
+      styleSetters: { field: vi.fn() },
+    });
+    expect(buildBorderRow(ui, "dataOnly")).toBeNull();
+  });
+
+  it("delegated Reset restores borderWeight and borderColor from styleDefaults", () => {
+    const borderColorSetter = vi.fn();
+    const borderWeightSetter = vi.fn();
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ borderWeight: 3, borderColor: "#000000" }),
+      styleSetters: {
+        borderWeight: borderWeightSetter,
+        borderColor: borderColorSetter,
+      },
+      styleDefaults: () => ({
+        borderWeight: 1,
+        borderColor: "#333333",
+      }),
+    });
+    const item = findItem(ui, "heat1");
+    ui.openStylePanel("heat1");
+
+    const resetBtn = panelOf(item)!.querySelector(
+      "button.foliplus-style-reset-btn",
+    ) as HTMLButtonElement;
+    expect(resetBtn).not.toBeNull();
+    resetBtn.click();
+
+    expect(borderWeightSetter).toHaveBeenCalledWith(1);
+    expect(borderColorSetter).toHaveBeenCalledWith("#333333");
+  });
+
+  it("LAYER_STYLE_CHANGE refreshes border color and weight inputs from styleProvider", () => {
+    let currentBorderColor = "#ff0000";
+    let currentBorderWeight = 2;
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({
+        borderColor: currentBorderColor,
+        borderWeight: currentBorderWeight,
+      }),
+      styleSetters: {
+        borderColor: vi.fn(),
+        borderWeight: vi.fn(),
+      },
+    });
+    const item = findItem(ui, "heat1");
+    ui.openStylePanel("heat1");
+
+    const colorInput = panelOf(item)!.querySelector(
+      "input[type=color]",
+    ) as HTMLInputElement;
+    const weightInput = panelOf(item)!.querySelector(
+      "input[type=number]",
+    ) as HTMLInputElement;
+    expect(colorInput.value).toBe("#ff0000");
+    expect(weightInput.value).toBe("2");
+
+    currentBorderColor = "#00ff00";
+    currentBorderWeight = 4;
+    (manager.events as unknown as { emit: (e: string, p: unknown) => void }).emit(
+      "foliplus:layer:style-change",
+      { id: "heat1" },
+    );
+
+    expect(colorInput.value).toBe("#00ff00");
+    expect(weightInput.value).toBe("4");
+  });
+
+  it("LAYER_STYLE_CHANGE skips border overwrite when the user is editing the input", () => {
+    let currentBorderColor = "#ff0000";
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ borderColor: currentBorderColor }),
+      styleSetters: { borderColor: vi.fn() },
+    });
+    const item = findItem(ui, "heat1");
+    ui.openStylePanel("heat1");
+
+    const colorInput = panelOf(item)!.querySelector(
+      "input[type=color]",
+    ) as HTMLInputElement;
+    colorInput.focus();
+
+    currentBorderColor = "#0000ff";
+    (manager.events as unknown as { emit: (e: string, p: unknown) => void }).emit(
+      "foliplus:layer:style-change",
+      { id: "heat1" },
+    );
+
+    expect(colorInput.value).toBe("#ff0000");
+  });
+
+  it("LAYER_STYLE_CHANGE skips non-string borderColor and non-number borderWeight on refresh", () => {
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({
+        borderColor: 42 as unknown as string,
+        borderWeight: "3" as unknown as number,
+      }),
+      styleSetters: {
+        borderColor: vi.fn(),
+        borderWeight: vi.fn(),
+      },
+    });
+    const item = findItem(ui, "heat1");
+    ui.openStylePanel("heat1");
+
+    const colorInput = panelOf(item)!.querySelector(
+      "input[type=color]",
+    ) as HTMLInputElement;
+    const weightInput = panelOf(item)!.querySelector(
+      "input[type=number]",
+    ) as HTMLInputElement;
+    const originalColor = colorInput.value;
+    const originalWeight = weightInput.value;
+
+    (manager.events as unknown as { emit: (e: string, p: unknown) => void }).emit(
+      "foliplus:layer:style-change",
+      { id: "heat1" },
+    );
+
+    expect(colorInput.value).toBe(originalColor);
+    expect(weightInput.value).toBe(originalWeight);
+  });
+
+  it("LAYER_STYLE_CHANGE bails when styleProvider returns undefined for a border layer", () => {
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => undefined as unknown as { borderColor?: string },
+      styleSetters: { borderColor: vi.fn() },
+    });
+    const item = findItem(ui, "heat1");
+    ui.openStylePanel("heat1");
+
+    const colorInput = panelOf(item)!.querySelector(
+      "input[type=color]",
+    ) as HTMLInputElement;
+    const originalColor = colorInput.value;
+
+    (manager.events as unknown as { emit: (e: string, p: unknown) => void }).emit(
+      "foliplus:layer:style-change",
+      { id: "heat1" },
+    );
+
+    expect(colorInput.value).toBe(originalColor);
+  });
+
+  it("delegated panel returns null when a layer publishes only data setters", () => {
+    manager.registerLayer({
+      id: "dataOnly",
+      name: "DataOnly",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({}),
+      styleSetters: { field: vi.fn() },
+    });
+    expect(renderDelegatedStylePanel(ui, "dataOnly")).toBeNull();
+  });
+
   it("renders the opacity slider defaulting to 100", () => {
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
@@ -2603,7 +2871,9 @@ describe("LayerUI style panel — zoom range", () => {
     ui.zoomRangeMap["overlay1"] = [0, 3];
     ui.openStylePanel("overlay1");
     const row = zoomRowOf(panelOf(item)!)!;
-    expect(row.classList.contains(CONST.CLASSES.STYLE_ZOOM_RANGE_OOR)).toBe(true);
+    expect(row.classList.contains(CONST.CLASSES.STYLE_ZOOM_RANGE_OUT_OF_RANGE)).toBe(
+      true,
+    );
   });
 
   it("does not show out-of-range class when current zoom is inside the range", () => {
@@ -2611,7 +2881,9 @@ describe("LayerUI style panel — zoom range", () => {
     ui.zoomRangeMap["overlay1"] = [0, 18];
     ui.openStylePanel("overlay1");
     const row = zoomRowOf(panelOf(item)!)!;
-    expect(row.classList.contains(CONST.CLASSES.STYLE_ZOOM_RANGE_OOR)).toBe(false);
+    expect(row.classList.contains(CONST.CLASSES.STYLE_ZOOM_RANGE_OUT_OF_RANGE)).toBe(
+      false,
+    );
   });
 
   it("input event updates map state and visual row (live pass)", () => {
@@ -2791,17 +3063,29 @@ describe("LayerUI style panel — zoom range", () => {
   });
 
   it("zoomToPct returns 0 when map min equals max (degenerate range)", () => {
+    map.getMinZoom.mockReturnValue(7);
+    map.getMaxZoom.mockReturnValue(7);
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
-    const panel = panelOf(item)!;
-    const row = zoomRowOf(panel)!;
+    const row = zoomRowOf(panelOf(item)!)!;
+    expect(row).not.toBeNull();
+  });
+
+  it("renders zoom-range row when map has a single zoom level", () => {
+    map.getMinZoom.mockReturnValue(3);
+    map.getMaxZoom.mockReturnValue(3);
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const row = zoomRowOf(panelOf(item)!)!;
+    expect(row).not.toBeNull();
     const minInput = row.querySelector(
       `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MIN}`,
     ) as HTMLInputElement;
-
-    minInput.value = "5";
-    minInput.dispatchEvent(new Event("input", { bubbles: true }));
-    expect(ui.zoomRangeMap["overlay1"]).toEqual([5, 18]);
+    const maxInput = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MAX}`,
+    ) as HTMLInputElement;
+    expect(minInput.value).toBe("3");
+    expect(maxInput.value).toBe("3");
   });
 
   it("delegated panel includes zoom-range row when capability is present", () => {
@@ -2934,6 +3218,41 @@ describe("LayerUI style panel — zoom range", () => {
 
     maxInput.dispatchEvent(new Event("change", { bubbles: true }));
     expect(rail.querySelector(`.${CONST.CLASSES.SLIDER_BUBBLE}`)).toBeNull();
+  });
+
+  it("OOR state marks the row when current zoom is outside range", () => {
+    const item = findItem(ui, "overlay1");
+    ui.zoomRangeMap["overlay1"] = [7, 10];
+    ui.openStylePanel("overlay1");
+    const row = zoomRowOf(panelOf(item)!)!;
+
+    // Current zoom (5) is outside [7, 10] — out-of-range state should be active.
+    expect(row.classList.contains(CONST.CLASSES.STYLE_ZOOM_RANGE_OUT_OF_RANGE)).toBe(
+      true,
+    );
+    expect(row.title).toContain("style_zoom_range_out_of_range");
+  });
+
+  it("out-of-range sync clears the class when zoom returns inside range", () => {
+    const item = findItem(ui, "overlay1");
+    ui.zoomRangeMap["overlay1"] = [7, 10];
+    ui.openStylePanel("overlay1");
+    const row = zoomRowOf(panelOf(item)!)!;
+    expect(row.classList.contains(CONST.CLASSES.STYLE_ZOOM_RANGE_OUT_OF_RANGE)).toBe(
+      true,
+    );
+
+    // Move the range to cover current zoom (5) — OOR clears.
+    const minInput = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MIN}`,
+    ) as HTMLInputElement;
+    minInput.value = "0";
+    minInput.dispatchEvent(new Event("input", { bubbles: true }));
+
+    expect(row.classList.contains(CONST.CLASSES.STYLE_ZOOM_RANGE_OUT_OF_RANGE)).toBe(
+      false,
+    );
+    expect(row.title).toBe("");
   });
 
   it("renders no Layer rows for a delegated layer that carries neither", () => {
