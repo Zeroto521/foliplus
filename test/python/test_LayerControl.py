@@ -2829,7 +2829,6 @@ class TestLayerControlBrowser:
                 if f["properties"]["kind"] == "face"
                 else {"color": "#e74c3c", "weight": 6}
             ),
-            highlight=False,
         ).add_to(fg)
         fg.add_to(m)
         LayerControl().add_to(m)
