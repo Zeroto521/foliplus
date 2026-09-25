@@ -288,6 +288,7 @@ describe("ListCursor", () => {
     it.each([
       [
         "textarea",
+        ["ArrowDown", "ArrowUp", "Home", "End"],
         () => {
           const el = document.createElement("textarea");
           root.appendChild(el);
@@ -296,19 +297,20 @@ describe("ListCursor", () => {
       ],
       [
         "select",
+        ["ArrowDown", "ArrowUp"],
         () => {
           const el = document.createElement("select");
           root.appendChild(el);
           return el;
         },
       ],
-    ])("handleKey lets %s consume ArrowDown / Home / End", (_, mk) => {
+    ])("handleKey lets %s consume %s", (_, keys, mk) => {
       const c = new ListCursor({ root, itemSelector: ".opt", activeClass: "on" });
       const active = mk();
       const unbind = c.bindKeys(root);
       c.set(1);
       active.focus();
-      for (const key of ["ArrowDown", "Home", "End", "ArrowUp"]) {
+      for (const key of keys) {
         const event = new KeyboardEvent("keydown", {
           key,
           bubbles: true,
@@ -318,6 +320,28 @@ describe("ListCursor", () => {
         expect(event.defaultPrevented).toBe(false);
       }
       expect(c.index).toBe(1);
+      unbind();
+      c.destroy();
+    });
+
+    it("handleKey claims Home / End from a select: it does not own them", () => {
+      // The ownership table gives a select only the arrows and Space. A
+      // select does not jump to its first / last option on Home / End, so
+      // the cursor keeps those two keys.
+      const c = new ListCursor({ root, itemSelector: ".opt", activeClass: "on" });
+      const select = document.createElement("select");
+      root.appendChild(select);
+      const unbind = c.bindKeys(root);
+      c.set(1);
+      select.focus();
+      const event = new KeyboardEvent("keydown", {
+        key: "Home",
+        bubbles: true,
+        cancelable: true,
+      });
+      select.dispatchEvent(event);
+      expect(event.defaultPrevented).toBe(true);
+      expect(c.index).toBe(0);
       unbind();
       c.destroy();
     });

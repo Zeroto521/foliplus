@@ -71,6 +71,7 @@
 - `core/leafletAdapter`: single module for every Leaflet-private reach — a Leaflet upgrade is a one-file change, and a static guard test fails any other module naming those fields ([#371](https://github.com/Zeroto521/foliplus/pull/371), [#374](https://github.com/Zeroto521/foliplus/pull/374), [#386](https://github.com/Zeroto521/foliplus/pull/386), [#387](https://github.com/Zeroto521/foliplus/pull/387))
 - `common/storage`: share three persistence helpers (`saveVersioned` / `loadVersioned` / `makePersisted`) across `MeasureControl`/`HeatmapControl`/`SearchControl`/`LayerControl`; legacy records stay readable without migration ([#416](https://github.com/Zeroto521/foliplus/pull/416), [#417](https://github.com/Zeroto521/foliplus/pull/417), [#422](https://github.com/Zeroto521/foliplus/pull/422))
 - `LayerControl`: basemaps are first-class — colour and tile basemaps coexist without mutual exclusion, and an empty base group shows a hatch on the map ([#443](https://github.com/Zeroto521/foliplus/pull/443))
+- `InteractionManager`/`ListCursor`/`LayerControl`: input ownership — one control × key table at dispatch replaces five per-call-site guards; adding a control to a panel is a table entry; `Escape` stays foliplus-owned ([#450](https://github.com/Zeroto521/foliplus/pull/450))
 
 ### Removed
 

@@ -123,7 +123,6 @@ class LayerUI {
   declare onDragLeave: ((event: DragEvent) => void) | null;
   declare onDragEnd: ((event: DragEvent) => void) | null;
   declare onDrop: ((event: DragEvent) => void) | null;
-  declare onKeyDown: ((event: KeyboardEvent) => void) | null;
   /** Click handler for the "more" (⋮) button. */
   onMoreClick: ((event: Event) => void) | null;
   /** Click handler for the dropdown menu items. */

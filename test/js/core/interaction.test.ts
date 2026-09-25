@@ -193,8 +193,11 @@ describe("InteractionManager", () => {
     document.body.appendChild(outer);
     const inner = document.createElement("div");
     outer.appendChild(inner);
-    const input = document.createElement("input");
-    inner.appendChild(input);
+    // A neutral focusable surface: an <input> would own Enter natively, which
+    // is what the ownership gate defers to, not what this test is about.
+    const row = document.createElement("div");
+    row.tabIndex = 0;
+    inner.appendChild(row);
 
     const outerHandler = vi.fn();
     const innerHandler = vi.fn();
@@ -205,7 +208,7 @@ describe("InteractionManager", () => {
       { key: "Enter", container: inner, handler: innerHandler },
     ]);
 
-    input.focus();
+    row.focus();
     document.dispatchEvent(
       new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
     );
@@ -224,8 +227,9 @@ describe("InteractionManager", () => {
     document.body.appendChild(outer);
     const inner = document.createElement("div");
     outer.appendChild(inner);
-    const input = document.createElement("input");
-    inner.appendChild(input);
+    const row = document.createElement("div");
+    row.tabIndex = 0;
+    inner.appendChild(row);
 
     // Inner container (deeper) but priority=0
     const innerHandler = vi.fn();
@@ -238,7 +242,7 @@ describe("InteractionManager", () => {
       { key: "Enter", container: outer, priority: 1, handler: outerHandler },
     ]);
 
-    input.focus();
+    row.focus();
     document.dispatchEvent(
       new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
     );
