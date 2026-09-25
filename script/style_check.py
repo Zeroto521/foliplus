@@ -46,7 +46,16 @@ INLINE_EXPORT_RE = re.compile(
 INLINE_TYPE_IN_EXPORT_RE = re.compile(r"\btype\s+[A-Za-z_$][\w$]*")
 
 # Rule 3: plural detection whitelist (proper nouns / verbs, not plurals).
-PLURAL_WHITELIST = {"pelias", "focus", "canvas", "eventbus", "base", "index", "js", "ts"}
+PLURAL_WHITELIST = {
+    "pelias",
+    "focus",
+    "canvas",
+    "eventbus",
+    "base",
+    "index",
+    "js",
+    "ts",
+}
 
 # File-name exemptions for Rule 2 (barrel + type-collection).
 BARREL_RE = re.compile(r"(^|/)index\.ts$")
@@ -54,9 +63,34 @@ TYPE_FILE_RE = re.compile(r"(^|/)types?\.ts$")
 
 # Words that end in `s` but are clearly singular (not plurals).
 SINGULAR_S_SUFFIXES = (
-    "is", "us", "os", "ss", "bus", "mas", "has", "das", "was", "cas", "bas",
-    "las", "kas", "tas", "gas", "pas", "fas", "ras", "nas", "vas", "sas",
-    "bus", "virus", "analysis", "basis", "thesis", "crisis", "axis",
+    "is",
+    "us",
+    "os",
+    "ss",
+    "bus",
+    "mas",
+    "has",
+    "das",
+    "was",
+    "cas",
+    "bas",
+    "las",
+    "kas",
+    "tas",
+    "gas",
+    "pas",
+    "fas",
+    "ras",
+    "nas",
+    "vas",
+    "sas",
+    "bus",
+    "virus",
+    "analysis",
+    "basis",
+    "thesis",
+    "crisis",
+    "axis",
 )
 
 
@@ -134,7 +168,10 @@ def check_export_blocks(lines: list[str], filepath: str) -> list[tuple[int, str]
         #     non-barrels as the single type block (e.g. LayerFactory.ts).
         if STAR_EXPORT_RE.match(stripped):
             violations.append(
-                (lineno, "`export * from` in non-barrel file — use a barrel (`index.ts`)")
+                (
+                    lineno,
+                    "`export * from` in non-barrel file — use a barrel (`index.ts`)",
+                )
             )
             continue
         if RE_EXPORT_RE.match(stripped):
@@ -244,7 +281,7 @@ def check_plural_names(filepath: str) -> list[tuple[int, str]]:
 
 def check_file(filepath: str) -> list[tuple[int, str]]:
     try:
-        with open(filepath, "r", encoding="utf-8") as f:
+        with open(filepath, encoding="utf-8") as f:
             lines = f.readlines()
     except (OSError, UnicodeDecodeError):
         return []
