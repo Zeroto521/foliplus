@@ -1,5 +1,4 @@
 import { HINT_DURATION } from "#core/hint.js";
-import { makeDelIcon } from "#common/delicon.js";
 import { stopEvent } from "#common/dom.js";
 import { createScopedTranslator } from "#common/locale.js";
 import {
@@ -11,7 +10,7 @@ import * as CONST from "../const.js";
 import type { MeasureManager } from "../manager.js";
 import { attachCircleUI } from "../ui/index.js";
 import * as Util from "../util.js";
-import { PreviewMode } from "./base.js";
+import { PreviewMode, mountDelIcon } from "./base.js";
 
 // CONF is a free variable from the IIFE template wrapper.
 const T = createScopedTranslator(CONF);
@@ -60,9 +59,15 @@ class CircleMode extends PreviewMode {
       Util.makeNode(centerLatLng, CONST.CLASSES.NODE_SOLID),
       CONST.PANES.NODE,
     ) as L.CircleMarker;
-    const delMarker = manager.layers.addLayer(
-      makeDelIcon(centerLatLng, { title: T("del_tooltip") }),
-      CONST.PANES.NODE,
+    // mountDelIcon: create + node-pane mount via the shared base helper.
+    // Delete-click wiring stays in attachCircleUI (it owns the
+    // deleteMeasurement from attachDelLifecycle), so the mount-time handler
+    // is a no-op; attachDelClick binds the real one there.
+    const delMarker = mountDelIcon(
+      manager.layers,
+      centerLatLng,
+      { title: T("del_tooltip") },
+      () => {},
     ) as L.Marker;
 
     const mid = Util.midpoint(centerLatLng, targetLatLng);
@@ -262,9 +267,12 @@ class CircleMode extends PreviewMode {
         Util.makeNode(centerLatLng, CONST.CLASSES.NODE_SOLID),
         CONST.PANES.NODE,
       );
-      const delMarker = this.layers.addLayer(
-        makeDelIcon(centerLatLng, { title: T("del_tooltip") }),
-        CONST.PANES.NODE,
+      // See restore(): mount path via base helper; click wired in attachCircleUI.
+      const delMarker = mountDelIcon(
+        this.layers,
+        centerLatLng,
+        { title: T("del_tooltip") },
+        () => {},
       );
 
       const mid = Util.midpoint(centerLatLng, finalTargetLatLng);

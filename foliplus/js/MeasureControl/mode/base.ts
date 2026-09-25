@@ -235,6 +235,54 @@ const mountDelIcon = (
   mountDelIconShared(latlng, opts, m => layers.addLayer(m, CONST.PANES.NODE), onDelete);
 
 /**
+ * Deferred delete callback for `mountDelIcon`'s `onDelete` slot. The shared
+ * mount binds the click handler at mount time, but the real delete thunk is
+ * only available after `attachDelLifecycle` / `wireFinalized` runs. Capture
+ * `onDelete` at mount, assign the real thunk later via `setDelete`.
+ */
+const createDeferredDelete = (): {
+  onDelete: () => void;
+  setDelete: (fn: () => void) => void;
+} => {
+  let deleteFn: (() => void) | null = null;
+  return {
+    onDelete: () => deleteFn?.(),
+    setDelete: fn => {
+      deleteFn = fn;
+    },
+  };
+};
+
+/**
+ * Register a finalized cleanup and build the shared delete-then-teardown
+ * path: unregister → teardown → removeLayers → business delete →
+ * `layers.unregister`. Callers own what `teardown` / `removeLayers` /
+ * `onDelete` do; this hook owns only the registerFinalized bookkeeping so
+ * `attachDelLifecycle` and `MarkerMode.finalize` don't each re-implement it.
+ */
+const wireFinalized = (
+  mgr: MeasureManager,
+  layers: CreateLayersAPI,
+  opts: {
+    id: string;
+    teardown: () => void;
+    removeLayers: () => void;
+    onDelete: () => void;
+  },
+): { delete: () => void } => {
+  const unregisterFinalized = mgr.registerFinalized(opts.teardown, opts.id);
+  return {
+    delete: () => {
+      unregisterFinalized();
+      opts.teardown();
+      opts.removeLayers();
+      opts.onDelete();
+      layers.unregister();
+    },
+  };
+};
+
+/**
  * Wire the finalized lifecycle shared by distance, polygon, and circle: the
  * edit overlay, its registerFinalized entry, and the delete-then-teardown
  * path. The caller owns resource teardown (drag handles, label registrations,
@@ -270,18 +318,24 @@ const attachDelLifecycle = (
     opts.dispose();
     overlay.cleanup();
   };
-  const unregisterFinalized = mgr.registerFinalized(teardown, opts.id);
+  const { delete: deleteMeasurement } = wireFinalized(mgr, layers, {
+    id: opts.id,
+    teardown,
+    removeLayers: opts.removeLayers,
+    onDelete: opts.onDelete,
+  });
 
   return {
     open: overlay.open,
-    delete: () => {
-      unregisterFinalized();
-      teardown();
-      opts.removeLayers();
-      opts.onDelete();
-      layers.unregister();
-    },
+    delete: deleteMeasurement,
   };
 };
 
-export { attachDelLifecycle, mountDelIcon, MeasureMode, PreviewMode };
+export {
+  attachDelLifecycle,
+  createDeferredDelete,
+  mountDelIcon,
+  wireFinalized,
+  MeasureMode,
+  PreviewMode,
+};
