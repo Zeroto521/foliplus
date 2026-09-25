@@ -27,9 +27,11 @@ afterEach(() => {
 });
 
 describe("getH3Res", () => {
-  it("resolves the bin resolution for a zoom level", () => {
-    expect(getH3Res(2)).toBe(0);
-    expect(getH3Res(7)).toBe(4);
+  it("resolves the bin resolution from RES_MAP", () => {
+    expect(getH3Res(2)).toBe(0); // RES_MAP[0] = [2, 0]
+    expect(getH3Res(5)).toBe(2); // RES_MAP[3] = [5, 2]
+    expect(getH3Res(7)).toBe(4); // RES_MAP[5] = [7, 4]
+    expect(getH3Res(10)).toBe(6); // RES_MAP[8] = [10, 6]
   });
 
   it("falls back to RES_FALLBACK beyond the map", () => {
@@ -59,14 +61,33 @@ describe("readMarkerField", () => {
     ).toBe(3);
   });
 
+  it("strips the legacy properties. prefix from a dotted field id", () => {
+    expect(
+      readMarkerField(
+        { feature: { properties: { price: 100 } } } as never,
+        "properties.price",
+      ),
+    ).toBe(100);
+  });
+
   it("returns undefined for null or unknown fields", () => {
     expect(readMarkerField({} as never, null)).toBeUndefined();
     expect(readMarkerField({} as never, "missing")).toBeUndefined();
   });
+
+  it("returns undefined for an unknown deep path or a missing property key", () => {
+    expect(readMarkerField({} as never, "some.random.path")).toBeUndefined();
+    expect(
+      readMarkerField(
+        { feature: { properties: { foo: 1 } } } as never,
+        "properties.bar",
+      ),
+    ).toBeUndefined();
+  });
 });
 
 describe("getColorScale", () => {
-  it("builds a chroma scale when available", () => {
+  it("builds a chroma scale with n colors when available", () => {
     globalThis.chroma = {
       scale: vi.fn(() => ({
         mode: vi.fn(() => ({
@@ -75,10 +96,11 @@ describe("getColorScale", () => {
       })),
     } as never;
     expect(getColorScale("Reds", 2)).toEqual(["#a", "#b"]);
+    expect(globalThis.chroma.scale).toHaveBeenCalledWith("Reds");
   });
 
   it("falls back to GRAY when chroma is absent", () => {
-    expect(getColorScale("Reds", 2)).toEqual([CONST.GRAY, CONST.GRAY]);
+    expect(getColorScale("Reds", 3)).toEqual([CONST.GRAY, CONST.GRAY, CONST.GRAY]);
   });
 });
 
@@ -104,6 +126,27 @@ describe("computeBreaks", () => {
       [5],
     ]);
     expect(computeBreaks([1, 2, 3, 4, 5], 3, "jenks")).toEqual([1, 2, 4, 5]);
+  });
+
+  it("returns [lo, hi] for data with 2 elements", () => {
+    expect(computeBreaks([1, 10], 5, "jenks")).toEqual([1, 10]);
+  });
+
+  it("returns [lo, hi] for single-element data across methods", () => {
+    expect(computeBreaks([42], 3, "equal")).toEqual([42, 42]);
+    expect(computeBreaks([42], 3, "quantile")).toEqual([42, 42]);
+    expect(computeBreaks([42], 3, "heads")).toEqual([42, 42]);
+  });
+
+  it("uses equal intervals for 'equal' method", () => {
+    const breaks = computeBreaks([0, 10, 20, 30, 40], 4, "equal");
+    expect(breaks[0]).toBe(0);
+    expect(breaks[breaks.length - 1]).toBe(40);
+    expect(breaks.length).toBe(5); // nClasses + 1
+  });
+
+  it("limits nClasses to min(nClasses, data length)", () => {
+    expect(computeBreaks([1, 2], 2, "equal")).toEqual([1, 2]);
   });
 
   it("returns sorted breaks for quantile and heads methods", () => {
@@ -148,6 +191,29 @@ describe("aggregateData", () => {
     expect(max!.getAggValue(max!.hexCells["cell_a"])).toBe(8);
     const unknown = aggregateData(pts, 4, "bogus", 3, "equal", "Reds", vi.fn());
     expect(unknown!.getAggValue(unknown!.hexCells["cell_a"])).toBe(3);
+  });
+
+  it("creates one cell per distinct H3 index under COUNT", () => {
+    globalThis.h3.latLngToCell = vi.fn(lat => `cell_${lat}`);
+    const pts = [makePt({ lat: 26.08 }), makePt({ lat: 26.09 })];
+    const result = aggregateData(pts, 4, "count", 6, "equal", "Reds", vi.fn());
+    expect(result).not.toBeNull();
+    expect(Object.keys(result!.hexCells)).toHaveLength(2);
+  });
+
+  it("defends a zero-count cell against NaN under AVG", () => {
+    const result = aggregateData(
+      [makePt({ value: 5 })],
+      4,
+      "avg",
+      6,
+      "equal",
+      "Reds",
+      vi.fn(),
+    );
+    expect(result!.getAggValue(result!.hexCells["cell_a"])).toBe(5);
+    // Defensive: a cell with count 0 returns 0, not NaN.
+    expect(result!.getAggValue({ sum: 0, count: 0, min: 0, max: 0 })).toBe(0);
   });
 
   it("warns and skips a point whose H3 cell conversion throws", () => {
@@ -205,19 +271,55 @@ describe("buildFeatures", () => {
     } as never;
   });
 
-  it("builds a feature with a computed centroid fallback", () => {
+  it("builds GeoJSON features from aggregated hex data", () => {
+    const aggregated = {
+      hexCells: {
+        abc: { sum: 10, count: 5, min: 1, max: 5 },
+        def: { sum: 20, count: 8, min: 2, max: 6 },
+      },
+      getAggValue: cell => cell.count,
+      valueToClassIdx: val => Math.min(val - 1, 0),
+      classColors: ["#ff0000", "#00ff00"],
+    };
+    const features = buildFeatures(aggregated);
+    expect(features).toHaveLength(2);
+    expect(features[0].properties.value).toBe(5);
+    expect(features[0].properties.h3).toBe("abc");
+    expect(features[0].geometry.type).toBe("Polygon");
+  });
+
+  it("returns empty array for empty hexCells", () => {
+    const aggregated = {
+      hexCells: {},
+      getAggValue: () => 0,
+      valueToClassIdx: () => 0,
+      classColors: [],
+    };
+    expect(buildFeatures(aggregated)).toEqual([]);
+  });
+
+  it("computes the centroid from the boundary ring when h3.cellToLatLng fails", () => {
     globalThis.h3.cellToLatLng = vi.fn(() => {
       throw new Error("no centroid");
     });
+    globalThis.h3.cellToBoundary = vi.fn(() => [
+      [0, 0],
+      [0, 2],
+      [2, 2],
+      [2, 0],
+      [0, 0],
+    ]);
     const feats = buildFeatures({
-      hexCells: { x: { sum: 1, count: 1, min: 1, max: 1 } },
-      getAggValue: () => 1,
+      hexCells: { abc: { sum: 1, count: 1 } },
+      getAggValue: c => c.count,
       valueToClassIdx: () => 0,
-      classColors: ["#a"],
+      classColors: ["#ff0000"],
     });
     expect(feats).toHaveLength(1);
-    // Centroid falls back to the ring centroid (not null) when cellToLatLng throws.
-    expect(feats[0].properties.centroid).not.toBeNull();
+    // Centroid falls back to the ring centroid [cy/(n-1), cx/(n-1)] over
+    // coords = [[0,0],[2,0],[2,2],[0,2],[0,0]]: cy = 0+0+2+2+0 = 4,
+    // cx = 0+2+2+0+0 = 4, n-1 = 5.
+    expect(feats[0].properties.centroid).toEqual([4 / 5, 4 / 5]);
   });
 
   it("warns and skips a cell whose boundary conversion throws", () => {

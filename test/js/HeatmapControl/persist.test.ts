@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/HeatmapControl/const.js";
 import { HeatmapManager } from "#foliplus/HeatmapControl/manager.js";
 import { makeManager } from "./fixture.js";
@@ -27,6 +27,52 @@ describe("HeatmapManager — versioned persisted config", () => {
       expect(stored.layerId).toBe("layer_abc");
       expect(stored.agg).toBe("sum");
       expect(stored.numClasses).toBe(4);
+    });
+
+    it("saves null layerId when no layer selected", () => {
+      const m = makeManager();
+      m.selectedLayerId = null;
+      m.saveConfig();
+      const stored = JSON.parse(window.localStorage.getItem(KEY)!);
+      expect(stored.layerId).toBeNull();
+    });
+  });
+
+  describe("clearSavedConfig", () => {
+    it("removes the storage key", () => {
+      const m = makeManager();
+      window.localStorage.setItem(KEY, JSON.stringify({ agg: "sum" }));
+      expect(window.localStorage.getItem(KEY)).not.toBeNull();
+      m.clearSavedConfig();
+      expect(window.localStorage.getItem(KEY)).toBeNull();
+    });
+
+    it("does not throw when key does not exist", () => {
+      const m = makeManager();
+      expect(() => m.clearSavedConfig()).not.toThrow();
+    });
+
+    it("swallows removeItem errors and logs a warning", () => {
+      const warn = vi.fn();
+      vi.spyOn(console, "warn").mockImplementation(warn);
+      const m = makeManager();
+      // MockStorage exposes removeItem on its prototype; spy there so the
+      // manager's `window.localStorage.removeItem(...)` call is intercepted.
+      const proto = Object.getPrototypeOf(window.localStorage);
+      const removeItem = vi.spyOn(proto, "removeItem").mockImplementation(() => {
+        throw new Error("quota");
+      });
+      try {
+        expect(() => m.clearSavedConfig()).not.toThrow();
+        expect(removeItem).toHaveBeenCalledWith(KEY);
+        expect(warn).toHaveBeenCalledWith(
+          expect.stringContaining("failed to clear saved data"),
+          expect.any(Error),
+        );
+      } finally {
+        removeItem.mockRestore();
+        vi.restoreAllMocks();
+      }
     });
   });
 
@@ -101,6 +147,38 @@ describe("HeatmapManager — versioned persisted config", () => {
       expect(m.currentLabelFormat).toBe("percent");
       expect(m.currentField).toBe("qty");
     });
+
+    it("clamps numClasses to valid range", () => {
+      const m = makeManager();
+      m.applySavedConfig({ numClasses: 99 });
+      expect(m.numClasses).toBe(CONST.CLASS_COUNT.MAX);
+
+      m.applySavedConfig({ numClasses: 0 });
+      expect(m.numClasses).toBe(CONST.CLASS_COUNT.MIN);
+    });
+
+    it("applies only present fields, keeps defaults for missing", () => {
+      const m = makeManager();
+      m.currentAgg = "custom_agg";
+      m.applySavedConfig({ agg: "sum" });
+      expect(m.currentAgg).toBe("sum");
+      expect(m.currentMethod).toBe("jenks");
+      expect(m.currentScheme).toBe("Reds");
+    });
+
+    it("sets selectedLayerId to null when layerId is missing", () => {
+      const m = makeManager();
+      m.selectedLayerId = "old_layer";
+      m.applySavedConfig({});
+      expect(m.selectedLayerId).toBeNull();
+    });
+
+    it("ignores undefined borderWeight, keeps current value", () => {
+      const m = makeManager();
+      m.borderWeight = 2.5;
+      m.applySavedConfig({});
+      expect(m.borderWeight).toBe(2.5);
+    });
   });
 
   describe("flush — teardown safety", () => {
@@ -168,6 +246,21 @@ describe("HeatmapManager — versioned persisted config", () => {
       expect(m2.borderColor).toBe("#111111");
       expect(m2.currentLabelShow).toBe(true);
       expect(m2.currentField).toBe("value");
+    });
+
+    it("preserves falsy values (false / 0) through save → load → apply", () => {
+      const m1 = makeManager();
+      m1.currentLabelShow = false;
+      m1.borderWeight = 0;
+      m1.saveConfig();
+
+      const m2 = makeManager();
+      const loaded = m2.loadSavedConfig();
+      expect(loaded).not.toBeNull();
+      m2.applySavedConfig(loaded!);
+
+      expect(m2.currentLabelShow).toBe(false);
+      expect(m2.borderWeight).toBe(0);
     });
   });
 });
