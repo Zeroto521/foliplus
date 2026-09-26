@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { MIN_GROWTH_BYTES, buildRows, parseArgs } from "#script/bundle-size-check.mjs";
+import {
+  MIN_GROWTH_BYTES,
+  buildRows,
+  parseArgs,
+} from "#script/bundle-size-check.mjs";
 import { FAIL, OK, STATUS, WARN } from "#script/glyph.mjs";
+
+const GlyphArgs = (argv: string[] = []): { threshold: number } =>
+  parseArgs(argv) as unknown as { threshold: number };
 
 // glyph.mjs is four literals, so the tests here are about the contract the
 // literals are load-bearing for, not about any logic of their own.
@@ -121,7 +128,7 @@ describe("marker table matches the status vocabulary", () => {
    * first step inside the low-margin band lands exactly on its edge and float
    * rounding, not the code under test, decides between `up` and `low`. */
   const statuses = (): Set<string> => {
-    const { threshold } = parseArgs([]);
+    const { threshold } = GlyphArgs([]);
     const base = MIN_GROWTH_BYTES * 40;
     const seen = new Set<string>();
     for (let pct = -3 * threshold; pct <= 3 * threshold; pct += 0.5) {

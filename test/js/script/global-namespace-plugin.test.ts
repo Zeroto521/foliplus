@@ -41,7 +41,7 @@ const aliasedSpecifiers = (): Map<string, string[]> => {
   for (const dir of [...ALIASES.values()]) {
     const stack = [dir];
     while (stack.length) {
-      const cur = stack.pop();
+      const cur = stack.pop()!;
       for (const entry of readdirSync(cur, { withFileTypes: true })) {
         const full = join(cur, entry.name);
         if (entry.isDirectory()) {
@@ -458,16 +458,22 @@ describe("globalNamespacePlugin", () => {
   // Wire the plugin to a minimal mock `build`, capturing its onResolve/onLoad
   // callbacks so they can be invoked directly (no esbuild build needed).
   const setupPlugin = () => {
-    const handlers = {};
+    const handlers: {
+      onResolve: (opts: { path: string }) => { path: string; namespace: string };
+      onLoad: (opts: { path: string }) => { contents: string; loader: string };
+    } = {
+      onResolve: () => ({ path: "", namespace: "" }),
+      onLoad: () => ({ contents: "", loader: "js" }),
+    };
     globalNamespacePlugin(dir).setup({
       initialOptions: { entryPoints: [join(dir, "index.ts")] },
-      onResolve: (_opts, cb) => {
+      onResolve: (_opts: unknown, cb: (o: { path: string }) => { path: string; namespace: string }) => {
         handlers.onResolve = cb;
       },
-      onLoad: (_opts, cb) => {
+      onLoad: (_opts: unknown, cb: (o: { path: string }) => { contents: string; loader: string }) => {
         handlers.onLoad = cb;
       },
-    });
+    } as unknown as Parameters<ReturnType<typeof globalNamespacePlugin>["setup"]>[0]);
     return handlers;
   };
 
@@ -516,7 +522,7 @@ describe("globalNamespacePlugin", () => {
 const tmpDir = require("os").tmpdir();
 let tmpCount = 0;
 
-function createTempFile(name, content) {
+function createTempFile(name: string, content: string) {
   const fs = require("fs");
   const path = require("path");
   const filePath = path.join(tmpDir, "dsh-test-" + tmpCount++ + "-" + name);

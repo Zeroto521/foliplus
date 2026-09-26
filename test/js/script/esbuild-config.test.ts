@@ -102,9 +102,9 @@ describe("esbuildCfgFor", () => {
       writeFileSync(cssPath, nested, "utf-8");
 
       const postcssPlugin = esbuildCfgFor({ dev: false, root: ROOT }).plugins[0];
-      let onLoadHandler: (args: {
-        path: string;
-      }) => Promise<{ contents: string }> | undefined;
+      let onLoadHandler:
+        | ((args: { path: string }) => Promise<{ contents: string }>)
+        | undefined = undefined;
 
       // Mock the esbuild build object with just the onLoad method.
       const mockBuild = {
@@ -122,7 +122,7 @@ describe("esbuildCfgFor", () => {
       postcssPlugin.setup(mockBuild as any);
 
       expect(onLoadHandler).toBeDefined();
-      const result = await onLoadHandler!({ path: cssPath });
+      const result: { contents: string } = await onLoadHandler!({ path: cssPath });
 
       // postcssNesting flattens `.parent { .child { ... } }` to
       // `.parent .child { ... }`. The parent's direct rule (color: red)
