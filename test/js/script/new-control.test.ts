@@ -20,6 +20,20 @@ import {
   splitArgv,
 } from "#script/new-control.mjs";
 
+type NewControlArgs = {
+  help: boolean;
+  errors: string[];
+  name: string | null;
+  root: string;
+  description: string;
+  position: string;
+  icon: string;
+  force: boolean;
+};
+
+const nArgs = (argv: string[] = []): NewControlArgs =>
+  parseArgs(argv) as unknown as NewControlArgs;
+
 const COMPONENT_TS = `const COMPONENTS = {
   MeasureControl: "MeasureControl",
   ExportControl: "ExportControl",
@@ -145,21 +159,21 @@ describe("splitArgv", () => {
 
 describe("parseArgs", () => {
   it("lifts the positional name onto the result", () => {
-    const opts = parseArgs(["FooControl", "--force"]);
+    const opts = nArgs(["FooControl", "--force"]);
     expect(opts.name).toBe("FooControl");
     expect(opts.force).toBe(true);
     expect(opts.errors).toEqual([]);
   });
 
   it("defaults position and leaves name null when absent", () => {
-    const opts = parseArgs([]);
+    const opts = nArgs([]);
     expect(opts.name).toBeNull();
     expect(opts.position).toBe("topleft");
     expect(opts.description).toBe("");
   });
 
   it("surfaces unknown-flag errors", () => {
-    const opts = parseArgs(["--nope"]);
+    const opts = nArgs(["--nope"]);
     expect(opts.errors.length).toBeGreaterThan(0);
   });
 });
