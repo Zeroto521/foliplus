@@ -66,7 +66,7 @@ const renderPaneSVG = async (
       const originals = svgEl.querySelectorAll("*");
 
       // Three exclusion mechanisms operate at different stages:
-      // 1. data-foliplus-export="exclude" / .foliplus-no-export — declarative,
+      // 1. data-foliplus-export="exclude" / .foliplus-skip-export — declarative,
       //    checked below via SKIP_EXPORT after all props are set (clone prune).
       // 2. computed display:"none" — derived from the live DOM's computed
       //    style, checked per-element in this loop. The <img>

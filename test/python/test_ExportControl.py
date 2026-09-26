@@ -1637,7 +1637,7 @@ class TestExportControlBrowser:
     def test_export_preview_excluded_finalized_retained(self, browser, tmp_path):
         """Preview lines are excluded from export; finalized lines are retained.
 
-        SKIP_EXPORT stamps the NO_EXPORT class on preview elements (addPreview).
+        SKIP_EXPORT stamps the `.foliplus-skip-export` class on preview elements (addPreview).
         The renderer's clone pruning removes them from the export. The finalized
         line (in mainLayer) has no such marking and must survive.
 

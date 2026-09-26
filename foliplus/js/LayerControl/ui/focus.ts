@@ -87,7 +87,7 @@ const toggleFocusedLayer = (ui: LayerUI): void => {
  *    `fitBounds` on a degenerate box has no effect.
  * 4. Draw a dashed rectangle on the exact bounds so the user sees exactly
  *    what "this layer" covers.
- * 5. Highlight the focused layer row with the `foliplus-layer-focusing`
+ * 5. Highlight the focused layer row with the `is-focusing`
  *    class so the list →map linkage is visible.
  * 6. Call `fitBounds` with `padding` and `maxZoom` capped to current +
  *    `FOCUS.MAX_ZOOM_STEP` to avoid satellite-zoom snaps on small features.
@@ -274,7 +274,7 @@ const dismissFocus = (ui: LayerUI): void => {
  * class, so it is naturally excluded and keeps the spatial context.
  *
  * Declarative: one class write on the map container. CSS
- * `.foliplus-focus-active .foliplus-layer-pane:not(.foliplus-focus-pane)`
+ * `.is-focus-mode .foliplus-layer-pane:not(.foliplus-focus-pane)`
  * hides every layer pane except the focused one —instead of a JS
  * visibility loop over N panes. Canvas layers (heatmap) live in their own
  * pane, so they are covered by the same rule. `bringFocusedLayerToFront`
@@ -315,7 +315,7 @@ const bringFocusedLayerToFront = (ui: LayerUI, layerInfo: LayerInfo): void => {
   const lift = (el: HTMLElement, z = focusedZ, glow = true): void => {
     const orig = el.style.zIndex;
     el.style.zIndex = String(z);
-    // Mark the focused pane/canvas so the `.foliplus-focus-active` CSS rule
+    // Mark the focused pane/canvas so the `.is-focus-mode` CSS rule
     // (`:not(.foliplus-focus-pane)`) keeps it visible while hiding the rest.
     el.classList.add(CONST.CLASSES.FOCUS_PANE);
     // Glow: applied at pane level (one element), fading in via CSS animation.
@@ -438,13 +438,13 @@ const drawFocusMask = (ui: LayerUI, bounds: L.LatLngBounds): void => {
   // through PaneManager.ensurePane (the one entry every owned pane uses) so
   // it carries the `foliplus-layer-pane` base class like every other pane;
   // the `.foliplus-focus-pane` exclusion tag keeps the spotlight pane visible
-  // while the `.foliplus-focus-active` rule hides every other layer pane.
+  // while the `.is-focus-mode` rule hides every other layer pane.
   // The tag names pane identity ("not another layer's pane"), not focus state,
   // so it is permanent and never removed — the focused layer's own panes take
   // the same class transiently via bringFocusedLayerToFront /
   // focusedPaneRestores, and one selector covers both. Coupling it to the
   // renderer's lifecycle (add on focus, remove on dismiss) would open a window
-  // where a stale `.foliplus-focus-active` hides the mask.
+  // where a stale `.is-focus-mode` hides the mask.
   // The overlay pane isn't in childPaneSpecs, so ensurePane skips its
   // provisional-z branch; we pin FOCUS_Z.overlay here (idempotent).
   if (!ui.focusRenderer) {
@@ -539,7 +539,7 @@ const highlightFocusedRow = (
   ui.focusingLayerId = layerId;
 };
 
-/** Remove the `foliplus-layer-focusing` class from the active row. */
+/** Remove the `is-focusing` class from the active row. */
 const clearFocusedRowHighlight = (ui: LayerUI): void => {
   const prev = ui.uiContainer.querySelector(`.${CONST.CLASSES.FOCUSING}`);
   prev?.classList.remove(CONST.CLASSES.FOCUSING);

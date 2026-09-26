@@ -13,6 +13,6 @@
   return {
     rectDrawn: rect !== null,
     maskDrawn: mask !== null,
-    rowHighlighted: item.classList.contains("foliplus-layer-focusing"),
+    rowHighlighted: item.classList.contains("is-focusing"),
   };
 };

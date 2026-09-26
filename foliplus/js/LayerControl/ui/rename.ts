@@ -131,7 +131,7 @@ const finishRename = (ui: LayerUI, restoreText = true): void => {
  *    `fitBounds` on a degenerate box has no effect.
  * 4. Draw a dashed rectangle on the exact bounds so the user sees exactly
  *    what "this layer" covers.
- * 5. Highlight the focused layer row with the `foliplus-layer-focusing`
+ * 5. Highlight the focused layer row with the `is-focusing`
  *    class so the list →map linkage is visible.
  * 6. Call `fitBounds` with `padding` and `maxZoom` capped to current +
  *    `FOCUS.MAX_ZOOM_STEP` to avoid satellite-zoom snaps on small features.
