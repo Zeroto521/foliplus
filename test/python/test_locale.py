@@ -190,6 +190,8 @@ _JS_USED_KEYS = {
     "LayerControl.style_fill_opacity",
     "LayerControl.section_heatmap",
     "LayerControl.border",
+    "LayerControl.style_border_color",
+    "LayerControl.style_border_weight",
     "LayerControl.delete_layer",
     "LayerControl.delete_layer_confirm",
     "LayerControl.delete_layer_tooltip",

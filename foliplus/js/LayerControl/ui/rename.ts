@@ -9,7 +9,7 @@ import {
 import * as CONST from "../const.js";
 import type { LayerUI } from "./index.js";
 import { displayName } from "./rowView.js";
-import { applyUserState, saveNamesState } from "./state.js";
+import { saveNamesState } from "./state.js";
 
 /**
  * Turn the layer's label into an inline editable input so the user can
@@ -60,7 +60,7 @@ const renameLayer = (ui: LayerUI, layerId: string): void => {
         // layer's own metadata cannot resurrect the author's original name.
         ui.renamedNames[layerId] = trimmed;
         saveNamesState(ui);
-        applyUserState(ui);
+        ui.applyUserState();
       }
       finishRename(ui, true);
     },
@@ -127,7 +127,8 @@ const finishRename = (ui: LayerUI, restoreText = true): void => {
  * 2. If the layer is not on the map, bring it on temporarily so the bounds
  *    and the visual highlight are consistent with the user's action.
  * 3. If the bounds area is below MIN_BOUNDS_AREA (single Marker, tiny
- *    polygon, etc.), `flyTo` the layer center instead of `fitBounds` — *    `fitBounds` on a degenerate box has no effect.
+ *    polygon, etc.), `flyTo` the layer center instead of `fitBounds` —
+ *    `fitBounds` on a degenerate box has no effect.
  * 4. Draw a dashed rectangle on the exact bounds so the user sees exactly
  *    what "this layer" covers.
  * 5. Highlight the focused layer row with the `foliplus-layer-focusing`

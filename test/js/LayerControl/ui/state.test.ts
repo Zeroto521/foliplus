@@ -1287,6 +1287,32 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
     warn.mockRestore();
   });
 
+  it("refuses a border marker for a dimension that holds no stroke", () => {
+    // The guard is per dimension, so the two border dimensions need the same
+    // refusal as zoom range: marking a border with no value would be filtered
+    // out of the next write and the user's action would vanish silently.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const bare = {
+      hiddenIds: new Set(),
+      opacityMap: {},
+      zoomRangeMap: {},
+      borderColorMap: {},
+      borderWeightMap: {},
+      userOverrides: {},
+      m: { persistence: { schedule: vi.fn() } },
+    } as unknown as LayerUI;
+
+    markOverride(bare, "overlay1", "borderColor");
+    markOverride(bare, "overlay1", "borderWeight");
+
+    expect(bare.userOverrides.overlay1).toBeUndefined();
+    expect(warn).toHaveBeenCalledTimes(2);
+    expect(
+      warn.mock.calls.every(([msg]) => String(msg).includes("no stored value")),
+    ).toBe(true);
+    warn.mockRestore();
+  });
+
   it("restores a stored opacity and zoom range from the record", () => {
     // The record keeps the value and the provenance side by side, so a restore
     // must move them to the matching live maps. Reading the value without the
@@ -1314,6 +1340,35 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
     expect(ui.opacityMap).toEqual({ overlay1: 0.35 });
     expect(ui.zoomRangeMap).toEqual({ overlay1: [3, 12] });
     expect(ui.userOverrides.overlay1).toEqual(["opacity", "zoomRange"]);
+  });
+
+  it("restores a stored border color and width from the record", () => {
+    // The border maps are the row's own source of truth, so a restore has to
+    // move the stored stroke into them: without it the drawer would reopen
+    // showing the author's stroke while the map kept painting the user's last
+    // choice.
+    window.localStorage.setItem(
+      CONST.STORAGE.KEY,
+      JSON.stringify({
+        order: null,
+        foldedGroups: [],
+        renamedNames: {},
+        annotations: {},
+        layers: {
+          overlay1: {
+            borderColor: "#0000ff",
+            borderWeight: 4.5,
+            overrides: ["borderColor", "borderWeight"],
+          },
+        },
+      }),
+    );
+
+    loadPersistedState(ui);
+
+    expect(ui.borderColorMap).toEqual({ overlay1: "#0000ff" });
+    expect(ui.borderWeightMap).toEqual({ overlay1: 4.5 });
+    expect(ui.userOverrides.overlay1).toEqual(["borderColor", "borderWeight"]);
   });
 
   it("persists an opacity change together with its provenance", () => {
