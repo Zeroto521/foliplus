@@ -262,7 +262,12 @@ const parseRecord = (raw: unknown): PersistedRecord => {
   }
   for (const [id, config] of Object.entries(asObject(data.annotations) ?? {})) {
     if (config !== null && typeof config === "object" && !Array.isArray(config)) {
-      record.annotations[id] = config;
+      const cfg = config as Record<string, unknown>;
+      if (typeof cfg.color === "string") {
+        record.annotations[id] = { ...cfg, color: normalizeHexColor(cfg.color) };
+      } else {
+        record.annotations[id] = config;
+      }
     }
   }
   for (const [id, rawState] of Object.entries(asObject(data.layers) ?? {})) {
