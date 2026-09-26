@@ -354,7 +354,18 @@ class LayerSurface implements LayerSurfaceContract {
    *  decides whether to offer focus from that flag), and the pane name is
    *  compared as the surface normalized it, so a rejected name does not read
    *  as "changed" on every pass. `color` and `getBounds` are both compared as
-   *  presence, never as value or reference — see the fields. */
+   *  presence, never as value or reference — see the fields.
+   *
+   *  The bounds-presence check goes through `hasBoundsProvider` on both sides
+   *  rather than reading the captured `spec.getBounds`: the latter records
+   *  what the caller handed in at construct time, while `capabilities.bounds`
+   *  is derived from what the surface actually exposes — the OR of the
+   *  declared provider and the layer's own `getBounds()` method. Comparing
+   *  against `spec.getBounds` conflates those two sources and reads "changed"
+   *  on every native-layer re-registration that drops or adds a provider,
+   *  rebuilding a face whose `capabilities.bounds` did not move. Presence is
+   *  the invariant; the reference is not — `detectCapabilities` is the
+   *  authoritative source, and this check must mirror it. */
   matches(opts: SurfaceFaceOpts): boolean {
     const specs = opts.paneSpecs ?? [];
     // `role` and `order` are part of the declaration, not decoration: a spec
@@ -377,7 +388,7 @@ class LayerSurface implements LayerSurfaceContract {
       this.spec.paneName === declaredPaneName(opts.paneName) &&
       this.spec.canvas === Boolean(opts.canvas) &&
       this.spec.color === (opts.color != null) &&
-      Boolean(this.spec.getBounds) === Boolean(opts.getBounds ?? null) &&
+      hasBoundsProvider(this.spec.layer) === hasBoundsProvider(opts.layer) &&
       samePanes
     );
   }

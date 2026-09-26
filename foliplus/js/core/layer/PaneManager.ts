@@ -119,11 +119,6 @@ class PaneManager {
     return this.paneSpecs;
   }
 
-  /** The names above as a set — membership is what the caller usually wants. */
-  get childPanes(): ReadonlySet<string> {
-    return new Set(this.paneSpecs.keys());
-  }
-
   // ── Leaflet DOM integration ────────────────────────────────────
 
   /** Ensure a custom pane exists on the map.

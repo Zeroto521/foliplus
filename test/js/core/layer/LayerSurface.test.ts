@@ -654,27 +654,85 @@ describe("LayerSurface.matches", () => {
     expect(bare.matches(color)).toBe(false);
   });
 
-  it("treats a redeclared bounds provider as the same face", () => {
-    // Presence, not value, and not reference either: `capabilities.bounds` is
-    // derived from the provider's presence, and a caller hands a fresh arrow on
-    // every register, so reference equality would read "changed" on every pass
-    // and rebuild a face that does not need rebuilding. Same rule as `color`.
+  // ── getBounds comparison uses `hasBoundsProvider` (the same source
+  // `detectCapabilities.bounds` reads from) rather than the captured
+  // `spec.getBounds` field ─────────────────────────────────────────
+  // The declaration's `spec.getBounds` records what the caller handed in, not
+  // whether the surface actually exposes bounds — a layer that carries its own
+  // `getBounds()` gets `capabilities.bounds: true` regardless. Comparing the
+  // two fields by presence conflates "declared provider" with "layer's own
+  // method" and reads "changed" on every native-layer re-registration that
+  // drops or adds a provider, rebuilding a face that does not need rebuilding.
+  // `matches` must go through `hasBoundsProvider` on both sides so the
+  // comparison mirrors the derivation `capabilities.bounds` uses.
+
+  it("compares bounds presence by the layer's own getBounds (bare layer, no native method)", () => {
+    // A layer with no native getBounds: `hasBoundsProvider` is false on every
+    // side, so a declared provider is present or absent the same way on both
+    // sides regardless. Reference equality would read "changed" on every pass
+    // because callers hand a fresh arrow each register — presence is the
+    // invariant.
+    const { host } = makeMap();
+    const layer = new Path();
+    const base = {
+      id: "a",
+      layer: layer as unknown as L.Layer,
+      paneName: "graph",
+    };
+    const surface = new LayerSurface(host, base);
+    expect(surface.matches(base)).toBe(true);
+    expect(surface.matches({ ...base, getBounds: () => null })).toBe(true);
+    expect(surface.matches({ ...base, getBounds: undefined })).toBe(true);
+
+    // The provider is compared by reference — a different arrow is not a
+    // different face.
+    const withArrow = new LayerSurface(host, { ...base, getBounds: () => null });
+    expect(withArrow.matches({ ...base, getBounds: () => null })).toBe(true);
+  });
+
+  it("ignores the caller's provider for a layer that carries its own getBounds", () => {
+    // The layer's own method is the same source on both sides — presence is
+    // true for any caller's arrow, so adding or dropping a provider does not
+    // read "changed". Re-registering the same native layer with or without a
+    // provider is a repaint, not a rebuild; `capabilities.bounds` answers true
+    // on every branch.
+    const { host } = makeMap();
+    const layer = new Path();
+    Object.assign(layer, { getBounds: vi.fn() });
+    const base = {
+      id: "a",
+      layer: layer as unknown as L.Layer,
+      paneName: "graph",
+    };
+    const surface = new LayerSurface(host, base);
+    expect(surface.matches(base)).toBe(true);
+    expect(surface.matches({ ...base, getBounds: () => null })).toBe(true);
+    expect(surface.matches({ ...base, getBounds: undefined })).toBe(true);
+
+    // The reversed registration reads the same way: adding a provider to a
+    // surface that was built with a declared one does not change the face.
+    const withProvider = new LayerSurface(host, { ...base, getBounds: () => null });
+    expect(withProvider.matches(base)).toBe(true);
+    expect(withProvider.matches({ ...base, getBounds: () => null })).toBe(true);
+  });
+
+  it("compares a canvas surface's provider against itself (no layer, no native source)", () => {
+    // `canvas: true` with `layer: null` means no native `getBounds` exists; the
+    // same-source check reads false on every side regardless of the declared
+    // provider. Reference equality would have read "changed" on every fresh
+    // arrow — presence is the invariant, not the value or the ref.
     const { host } = makeMap();
     const base = {
       id: "heat",
       layer: null,
       paneName: CONST.CANVAS_PANE_PREFIX + "heat",
       canvas: true,
-      getBounds: () => null,
     };
     const surface = new LayerSurface(host, base);
+    expect(surface.matches(base)).toBe(true);
     expect(surface.matches({ ...base, getBounds: () => null })).toBe(true);
-    expect(surface.matches({ ...base, getBounds: undefined })).toBe(false);
-    expect(surface.matches({ ...base, getBounds: null })).toBe(false);
-
-    const bare = new LayerSurface(host, { ...base, getBounds: undefined });
-    expect(bare.matches({ ...base, getBounds: undefined })).toBe(true);
-    expect(bare.matches(base)).toBe(false);
+    expect(surface.matches({ ...base, getBounds: undefined })).toBe(true);
+    expect(surface.matches({ ...base, getBounds: null })).toBe(true);
   });
 });
 
