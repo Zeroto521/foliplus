@@ -3,10 +3,10 @@
 // pane + canvas (created through `factory.createColor`) so it participates
 // in the layer z ladder exactly like tile basemaps. Row order = visual stack
 // order — drag the color row above a tile basemap and it covers the tiles;
-// below and the tiles cover it. No mutual exclusion: colour and tiles are
+// below and the tiles cover it. No mutual exclusion: color and tiles are
 // coequal, each with its own checkbox and its own pane.
 //
-// The pane is created lazily on first show so a colour that never gets
+// The pane is created lazily on first show so a color that never gets
 // checked does not allocate a canvas or a pane in the DOM.
 import type { CreateColorAPI } from "#core/layer/index.js";
 import * as CONST from "../const.js";

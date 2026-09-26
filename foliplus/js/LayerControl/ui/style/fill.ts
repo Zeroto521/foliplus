@@ -1,4 +1,4 @@
-﻿// Fill color row — the ⚙︎ drawer's "Layer" section fill swatch.
+// Fill color row — the ⚙︎ drawer's "Layer" section fill swatch.
 //
 // A self-managed LayerControl dimension (like label, not like opacity /
 // zoom range): the value lives in `ui.fillColorMap`, is persisted under
@@ -245,10 +245,10 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
   const opacity = ui.fillOpacityMap[layerId];
   if (color === undefined && opacity === undefined) return;
 
-  // Solid-color basemap: the fill is the container background, not a vector
-  // style. Route to showColorLayer instead of walking leaves (the basemap
-  // has none). Syncs ui.currentColor so a later checkbox toggle re-applies
-  // the same color.
+  // Solid-color basemap: the fill is the pane's paint, not a vector style.
+  // Route to showColorLayer instead of walking leaves (the basemap has none).
+  // Syncs ui.currentColor so a later checkbox toggle re-applies the same
+  // color.
   if (isColorBasemap(li)) {
     if (color !== undefined) {
       ui.currentColor = color;
