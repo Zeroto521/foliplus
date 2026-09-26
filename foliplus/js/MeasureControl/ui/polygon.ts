@@ -5,9 +5,9 @@ import * as CONST from "../const.js";
 import { bindNodeDrag, markDragSyntheticClick } from "../edit.js";
 import type { MeasureManager } from "../manager.js";
 import { attachDelLifecycle, mountDelIcon } from "../mode/base.js";
+import type { DragBind } from "../type.js";
 import * as Util from "../util.js";
 import {
-  type DragBind,
   bindOpenOverlay,
   bindSegmentLabels,
   findPointIndex,
