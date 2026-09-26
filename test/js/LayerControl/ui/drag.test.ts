@@ -278,6 +278,23 @@ describe("ui/drag", () => {
       expect(target.classList.contains(CONST.CLASSES.DRAG_OVER_BOTTOM)).toBe(false);
     });
 
+    it("handleDragOver is a no-op when the hover target is outside any row", () => {
+      // `closest(LAYER_ITEM)` finds nothing for a hover over the panel
+      // shell, so no drop marker is painted.
+      const { ui } = makeScrambledUi();
+      (ui as unknown as { dragIdx: number }).dragIdx = 0;
+      const shell = document.createElement("div");
+      ui.uiContainer.appendChild(shell);
+
+      const event = dragEvent(shell);
+      handleDragOver(ui, event);
+
+      expect(event.preventDefault).toHaveBeenCalled();
+      expect(ui.lastDragOverItem).toBe(null);
+      expect(shell.classList.contains(CONST.CLASSES.DRAG_OVER_TOP)).toBe(false);
+      expect(shell.classList.contains(CONST.CLASSES.DRAG_OVER_BOTTOM)).toBe(false);
+    });
+
     it("handleDrop refuses a blocked reorder and keeps the drag armed", () => {
       const { ui, reorder, canReorderBetween } = makeScrambledUi();
       canReorderBetween.mockReturnValue(false);
