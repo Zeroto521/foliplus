@@ -1048,3 +1048,19 @@ describe("ExportRenderer.render — layer pass routing", () => {
     expect(onProgress.mock.calls.map(call => call[0])).toEqual([71, 90]);
   });
 });
+
+describe("ExportRenderer — marker pass wrappers delegate without throwing", () => {
+  it("runs each marker pass wrapper with an empty root list", async () => {
+    const renderer = makeRenderer();
+    const rc = makeRC(100, 100);
+
+    // These four wrappers delegate to module functions. Calling them with an
+    // empty markerRoots list exercises the method body (the delegation itself)
+    // without needing marker fixtures; the delegated functions return
+    // undefined for an empty list, so the assertion is "does not throw".
+    await expect(renderer.renderMarkers(rc, [])).resolves.not.toThrow();
+    await expect(renderer.renderFontAwesome(rc, [])).resolves.not.toThrow();
+    await expect(renderer.renderTextLabels(rc, [])).resolves.not.toThrow();
+    await expect(renderer.renderRemaining(rc, [])).resolves.not.toThrow();
+  });
+});

@@ -367,6 +367,50 @@ describe("ui/drag", () => {
       expect((ui as unknown as { dragIdx: number | null }).dragIdx).toBe(null);
     });
 
+    it("handleDrop is a no-op when the drop lands outside every row", () => {
+      const { ui, reorder } = makeScrambledUi();
+      (ui as unknown as { dragIdx: number }).dragIdx = 0;
+      // The container itself is not a layer row: closest() finds nothing.
+      const event = dragEvent(ui.uiContainer);
+
+      handleDrop(ui, event);
+
+      // No target row: nothing reorders; the drag stays armed for a valid drop.
+      expect(reorder).not.toHaveBeenCalled();
+      expect((ui as unknown as { dragIdx: number }).dragIdx).toBe(0);
+    });
+
+    it("handleDrop ignores a drop onto the dragged row itself", () => {
+      const { ui, reorder } = makeScrambledUi();
+      (ui as unknown as { dragIdx: number }).dragIdx = 0;
+      const self = ui.uiContainer.querySelector<HTMLElement>(
+        `[${CONST.DATA.LAYER_ID}="A"]`,
+      )!;
+
+      handleDrop(ui, dragEvent(self));
+
+      // Same index: no reorder, no DOM move; the early return leaves the
+      // drag armed (unchanged) rather than disarming it.
+      expect(reorder).not.toHaveBeenCalled();
+      expect((ui as unknown as { dragIdx: number }).dragIdx).toBe(0);
+    });
+
+    it("handleDrop survives a target row that is detached from the DOM", () => {
+      const { ui, reorder } = makeScrambledUi();
+      (ui as unknown as { dragIdx: number }).dragIdx = 0;
+      const target = ui.uiContainer.querySelector<HTMLElement>(
+        `[${CONST.DATA.LAYER_ID}="B"]`,
+      )!;
+      // Registry reorders (order is registry state), but the DOM insert is
+      // skipped because the target has no parentNode to insert into.
+      target.remove();
+
+      handleDrop(ui, dragEvent(target));
+
+      expect(reorder).toHaveBeenCalledWith(0, 1);
+      expect((ui as unknown as { dragIdx: number | null }).dragIdx).toBe(null);
+    });
+
     it("handleDragStart ignores a row carrying no data-layer-id", () => {
       const { ui } = makeScrambledUi();
       const orphan = document.createElement("div");
@@ -431,6 +475,48 @@ describe("ui/drag", () => {
         expect(row.classList.contains(CONST.CLASSES.DRAG_OVER_TOP)).toBe(false);
         expect(row.classList.contains(CONST.CLASSES.DRAG_OVER_BOTTOM)).toBe(false);
       });
+    });
+
+    it("handleDragStart is a no-op when the press began on a floating panel", () => {
+      const ui = makeUi({ containers: ["a", "b"] });
+      const row = ui.uiContainer.querySelector<HTMLElement>(
+        `[${CONST.DATA.LAYER_ID}="a"]`,
+      )!;
+      // Simulate a press that began on a floating row panel (e.g. the style panel).
+      (ui as unknown as { pressInPanel: boolean }).pressInPanel = true;
+      (ui as unknown as { dragIdx: number | null }).dragIdx = null;
+      const event = dragEvent(row);
+
+      handleDragStart(ui, event);
+
+      // The drag is never armed; preventDefault stops the browser's drag.
+      expect((ui as unknown as { dragIdx: number | null }).dragIdx).toBe(null);
+      expect(row.classList.contains(CONST.CLASSES.DRAGGING)).toBe(false);
+      expect(event.preventDefault).toHaveBeenCalled();
+    });
+
+    it("handleDragStart tolerates a null dataTransfer", () => {
+      const ui = makeUi({
+        layers: [{ id: "a", name: "A", layer: {} as L.Layer, visible: true, isBase: true }],
+        containers: ["a", "b"],
+      });
+      const row = ui.uiContainer.querySelector<HTMLElement>(
+        `[${CONST.DATA.LAYER_ID}="a"]`,
+      )!;
+      (ui as unknown as { dragIdx: number | null }).dragIdx = null;
+      // Build an event with no dataTransfer.
+      const event = {
+        target: row,
+        preventDefault: vi.fn(),
+        stopPropagation: vi.fn(),
+        dataTransfer: null,
+      } as unknown as DragEvent;
+
+      handleDragStart(ui, event);
+
+      // The drag is armed; the class is added; no crash on dataTransfer.
+      expect((ui as unknown as { dragIdx: number | null }).dragIdx).toBe(0);
+      expect(row.classList.contains(CONST.CLASSES.DRAGGING)).toBe(true);
     });
   });
 });
