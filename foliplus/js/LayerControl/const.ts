@@ -122,6 +122,12 @@ const CLASSES = {
   STYLE_BODY: "foliplus-style-body",
   STYLE_LABEL_COLOR_INPUT: "foliplus-style-label-color-input",
   STYLE_LABEL_SIZE_INPUT: "foliplus-style-label-size-input",
+  /** Border row (vector layers): stroke swatch + width field. Each control
+   *  gets its own class so the panel's change delegation and the tests can
+   *  tell it apart from the label color swatch. */
+  STYLE_BORDER_ROW: "foliplus-style-border-row",
+  STYLE_BORDER_COLOR_INPUT: "foliplus-style-border-color-input",
+  STYLE_BORDER_WEIGHT_INPUT: "foliplus-style-border-weight-input",
   /** The "avoid overlap" switch — its own class, because the panel's change
    *  delegation keys on the class to tell the two switches apart. */
   STYLE_COLLIDE_INPUT: "foliplus-style-collide-input",

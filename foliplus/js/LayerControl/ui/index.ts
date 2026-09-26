@@ -53,6 +53,7 @@ import {
   syncHiddenId,
 } from "./state.js";
 import type { AppliedProjection } from "./store.js";
+import { replayBorderState } from "./style/border.js";
 import {
   applyStyleLabelState,
   closeStylePanel,
@@ -182,6 +183,12 @@ class LayerUI {
   /** Persisted per-layer zoom range the user moved the handles for
    *  (id → [minZoom, maxZoom]). Applied on load / late register. */
   zoomRangeMap: Record<string, [number, number]>;
+  /** Persisted per-layer border color (id → hex). A self-managed dimension —
+   *  not part of the executor's visible/opacity/zoomRange family; the border
+   *  row in ui/style/border.ts writes through setStyle directly. */
+  borderColorMap: Record<string, string>;
+  /** Persisted per-layer border width (id → px), in the shared border bounds. */
+  borderWeightMap: Record<string, number>;
   /** Persisted per-layer fill color (id → hex). A self-managed dimension —
    *  not part of the executor's visible/opacity/zoomRange family; the fill
    *  row in ui/style/fill.ts writes through setStyle directly. */
@@ -245,6 +252,8 @@ class LayerUI {
     this.labelConfigs = {};
     this.opacityMap = {};
     this.zoomRangeMap = {};
+    this.borderColorMap = {};
+    this.borderWeightMap = {};
     this.fillColorMap = {};
     this.fillOpacityMap = {};
     this.appliedState = new Map();
@@ -316,6 +325,13 @@ class LayerUI {
   }
   applyUserState(id?: string) {
     applyUserState(this, id);
+    // The executor carries visible / opacity / zoomRange only. Border and
+    // fill are direct setStyle writes, so without their own replay a reload
+    // would restore the drawer's swatch while the map kept the author's
+    // values. Hooked here rather than in state.ts to keep state.ts free of
+    // style-row imports (border.js and fill.js import state.js for
+    // markOverride/saveState).
+    replayBorderState(this, id);
     if (id) {
       replayFillState(this, id);
     } else {

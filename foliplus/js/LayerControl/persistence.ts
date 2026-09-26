@@ -1,4 +1,5 @@
 import { type Debounced, debounce } from "#common/debounce.js";
+import { BORDER_WEIGHT } from "#common/form.js";
 import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
 
@@ -19,23 +20,36 @@ const RECORD_VERSION = 2;
  *  so a policy can never write through a user's choice -- which is what makes
  *  "the map overrides what I set" structurally impossible rather than a matter
  *  of remembering not to do it. */
-type LayerOverride = "visible" | "opacity" | "zoomRange" | "fillColor" | "fillOpacity";
+type LayerOverride =
+  | "visible"
+  | "fillColor"
+  | "fillOpacity"
+  | "borderColor"
+  | "borderWeight"
+  | "opacity"
+  | "zoomRange";
 
 /** One layer's persisted intent: the values the user set, plus which dimensions
  *  they set them for. A value with no matching override is dropped on read. */
 type PersistedLayerState = {
   visible?: boolean;
-  opacity?: number;
-  /** The handle positions the user moved, [minZoom, maxZoom]. The author's
-   *  min_zoom / max_zoom is only the starting value, so it reaches this field
-   *  only once the user has dragged the handles. */
-  zoomRange?: [number, number];
   /** The hex fill color the user picked in the style panel. LayerControl
    *  owns the write (a self-managed dimension — see ui/style/fill.ts), so
    *  it lives in this record rather than on the annotation config. */
   fillColor?: string;
   /** Fill opacity (0-1) the user set in the style panel. */
   fillOpacity?: number;
+  /** The hex stroke color the user picked in the style panel. LayerControl
+   *  owns the write (a self-managed dimension — see ui/style/border.ts), so
+   *  it lives in this record rather than on the annotation config. */
+  borderColor?: string;
+  /** The stroke width the user set, in the shared border bounds. */
+  borderWeight?: number;
+  opacity?: number;
+  /** The handle positions the user moved, [minZoom, maxZoom]. The author's
+   *  min_zoom / max_zoom is only the starting value, so it reaches this field
+   *  only once the user has dragged the handles. */
+  zoomRange?: [number, number];
   overrides: LayerOverride[];
 };
 
@@ -103,10 +117,12 @@ const asObject = (value: unknown): Record<string, unknown> | null =>
 
 const OVERRIDE_VALUES: LayerOverride[] = [
   "visible",
-  "opacity",
-  "zoomRange",
   "fillColor",
   "fillOpacity",
+  "borderColor",
+  "borderWeight",
+  "opacity",
+  "zoomRange",
 ];
 
 /** A stored zoom range: two finite numbers with the low end not above the
@@ -125,18 +141,27 @@ const parseZoomRange = (raw: unknown): [number, number] | null => {
     : null;
 };
 
+/** A border width inside the shared bounds — the same constants the number
+ *  field is confined to, so a stored value can never ask for a width the UI
+ *  cannot display. */
+const isBorderWeight = (value: unknown): value is number =>
+  typeof value === "number" &&
+  Number.isFinite(value) &&
+  value >= BORDER_WEIGHT.MIN &&
+  value <= BORDER_WEIGHT.MAX;
+
+/** A hex color the panel's border and fill rows would accept: `#rgb` or
+ *  `#rrggbb`. Longer / shorter strings and non-hex characters are dropped so a
+ *  corrupt entry cannot leak a broken value into <input type=color>. */
+const isHexColor = (value: unknown): value is string =>
+  typeof value === "string" && /^#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(value);
+
 /**
  * Coerce one entry of `layers`. Validates value and provenance together, so a
  * value with no matching override -- and an override with no value -- is
  * dropped: keeping the value would persist a choice the record itself says was
  * never made, and failing closed sends the layer back to its declared default.
  */
-/** A hex color the panel's fill row would accept: `#rgb` or `#rrggbb`.
- *  Longer / shorter strings and non-hex characters are dropped so a corrupt
- *  entry cannot leak a broken value into <input type=color>. */
-const isHexColor = (value: unknown): value is string =>
-  typeof value === "string" && /^#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(value);
-
 const parseLayerState = (raw: unknown): PersistedLayerState | null => {
   const data = asObject(raw);
   if (!data) return null;
@@ -150,18 +175,6 @@ const parseLayerState = (raw: unknown): PersistedLayerState | null => {
       if (typeof data.visible === "boolean") {
         out.visible = data.visible;
         out.overrides.push("visible");
-      }
-      continue;
-    }
-    if (override === "opacity") {
-      if (
-        typeof data.opacity === "number" &&
-        Number.isFinite(data.opacity) &&
-        data.opacity >= 0 &&
-        data.opacity <= 1
-      ) {
-        out.opacity = data.opacity;
-        out.overrides.push("opacity");
       }
       continue;
     }
@@ -181,6 +194,32 @@ const parseLayerState = (raw: unknown): PersistedLayerState | null => {
       ) {
         out.fillOpacity = data.fillOpacity;
         out.overrides.push("fillOpacity");
+      }
+      continue;
+    }
+    if (override === "borderColor") {
+      if (isHexColor(data.borderColor)) {
+        out.borderColor = data.borderColor;
+        out.overrides.push("borderColor");
+      }
+      continue;
+    }
+    if (override === "borderWeight") {
+      if (isBorderWeight(data.borderWeight)) {
+        out.borderWeight = data.borderWeight;
+        out.overrides.push("borderWeight");
+      }
+      continue;
+    }
+    if (override === "opacity") {
+      if (
+        typeof data.opacity === "number" &&
+        Number.isFinite(data.opacity) &&
+        data.opacity >= 0 &&
+        data.opacity <= 1
+      ) {
+        out.opacity = data.opacity;
+        out.overrides.push("opacity");
       }
       continue;
     }
