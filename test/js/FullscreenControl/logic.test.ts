@@ -11,7 +11,7 @@ import {
 const mocks = vi.hoisted(() => ({
   FULLSCREEN_CHANGE: "fullscreenchange",
   isEnabled: false,
-  getFullscreenEl: vi.fn(() => null),
+  getFullscreenEl: vi.fn<() => Element | null>(() => null),
 }));
 
 vi.mock("#foliplus/FullscreenControl/api.js", () => ({
@@ -24,7 +24,7 @@ vi.mock("#foliplus/FullscreenControl/api.js", () => ({
   },
 }));
 
-const makeContainer = () => {
+const makeContainer = (): HTMLElement => {
   const el = document.createElement("div");
   el.innerHTML = `
     <button class="foliplus-fullscreen-toggle"></button>
@@ -34,7 +34,22 @@ const makeContainer = () => {
   return el;
 };
 
-const makeMapMock = container => ({
+// The mock map only implements the surface FullscreenControl touches; the
+// rest of L.Map is never exercised by these tests. Cast at the boundary so
+// the production signature (`L.Map`) is satisfied without faking the whole
+// Leaflet type.
+type MockMap = {
+  getContainer: () => HTMLElement & {
+    requestFullscreen?: () => Promise<void>;
+  };
+  isFullscreen: boolean;
+  invalidateSize: () => void;
+  foliplus: { showHint: () => void; hideHint: () => void };
+  on: () => void;
+  off: () => void;
+};
+
+const makeMapMock = (container: HTMLElement): MockMap => ({
   getContainer: () => container,
   isFullscreen: false,
   invalidateSize: vi.fn(),
@@ -43,16 +58,16 @@ const makeMapMock = container => ({
   off: vi.fn(),
 });
 
-const makeNativeMapMock = container => {
+const makeNativeMapMock = (container: HTMLElement): MockMap => {
   const map = makeMapMock(container);
   map.getContainer().requestFullscreen = vi.fn(() => Promise.resolve());
   return map;
 };
 
 describe("updateUI", () => {
-  let fsBtn;
-  let container;
-  let mapMock;
+  let fsBtn: HTMLButtonElement;
+  let container: HTMLElement;
+  let mapMock: MockMap;
 
   beforeEach(() => {
     fsBtn = document.createElement("button");
@@ -61,6 +76,9 @@ describe("updateUI", () => {
       getContainer: () => container,
       isFullscreen: false,
       foliplus: { showHint: vi.fn(), hideHint: vi.fn() },
+      invalidateSize: vi.fn(),
+      on: vi.fn(),
+      off: vi.fn(),
     };
   });
 
@@ -97,9 +115,9 @@ describe("updateUI", () => {
 });
 
 describe("toggleFullscreen — pseudo path", () => {
-  let fsBtn;
-  let container;
-  let mapMock;
+  let fsBtn: HTMLButtonElement;
+  let container: HTMLElement;
+  let mapMock: MockMap;
 
   beforeEach(() => {
     mocks.isEnabled = false;
@@ -135,9 +153,9 @@ describe("toggleFullscreen — pseudo path", () => {
 });
 
 describe("makeFullscreenChangeHandler", () => {
-  let fsBtn;
-  let container;
-  let mapMock;
+  let fsBtn: HTMLButtonElement;
+  let container: HTMLElement;
+  let mapMock: MockMap;
 
   beforeEach(() => {
     mocks.getFullscreenEl.mockReturnValue(null);
@@ -160,7 +178,7 @@ describe("makeFullscreenChangeHandler", () => {
 
   it("handler syncs isFullscreen from the native fullscreen element", () => {
     const handler = makeFullscreenChangeHandler(mapMock, fsBtn, container);
-    mocks.getFullscreenEl.mockReturnValue({});
+    mocks.getFullscreenEl.mockReturnValue(document.body);
     handler();
     expect(mapMock.isFullscreen).toBe(true);
     expect(fsBtn.innerHTML).toContain("M8 3v3"); // MINIMIZE
@@ -168,9 +186,9 @@ describe("makeFullscreenChangeHandler", () => {
 });
 
 describe("toggleFullscreen — native API path", () => {
-  let fsBtn;
-  let container;
-  let mapMock;
+  let fsBtn: HTMLButtonElement;
+  let container: HTMLElement;
+  let mapMock: MockMap;
 
   beforeEach(() => {
     mocks.isEnabled = true;
@@ -238,7 +256,7 @@ describe("toggleFullscreen — native API path", () => {
     });
 
     it("exits when getFullscreenEl returns an element", async () => {
-      mocks.getFullscreenEl.mockReturnValue({});
+      mocks.getFullscreenEl.mockReturnValue(document.body);
       document.exitFullscreen = vi.fn(() => Promise.resolve());
       toggleFullscreen(mapMock, fsBtn, container);
       expect(document.exitFullscreen).toHaveBeenCalled();

@@ -2,6 +2,7 @@
 .PHONY: lint html info env
 .PHONY: dist build-js build-js-dev build-python
 .PHONY: test test-browser test-python test-js
+.PHONY: typecheck typecheck-tests
 .PHONY: bundle-size-check
 .PHONY: clean clean-build clean-pyc clean-cov clean-html clean-bundle-treemap
 
@@ -21,6 +22,8 @@ help:
 	@echo "'test-browser' - run browser tests"
 	@echo "'test-python'  - run Python-only tests (skip browser)"
 	@echo "'test-js'      - run JS tests (skip Python)"
+	@echo "'typecheck'         - typecheck production sources (tsconfig.json)"
+	@echo "'typecheck-tests'   - typecheck the test program (test/js/tsconfig.json)"
 	@echo "'bundle-size-check'   - print bundle sizes (brotli) of the current build"
 	@echo "'bundle-gates'   - build + run fuse and delta gates (CI)"
 	@echo "'clean-build'  - remove build artifacts"
@@ -100,6 +103,16 @@ test-browser: build-js-dev
 
 test-js: build-js-dev
 	npm test
+
+# `test-js` runs vitest with coverage; these are pure typecheck gates that
+# need no build. Kept separate from `test` because they are fast, they
+# don't require the Python matrix, and CI runs each as its own job so the
+# signals stay independent.
+typecheck:
+	npm run typecheck
+
+typecheck-tests:
+	npm run typecheck:tests
 
 html:
 	make -C doc/source html

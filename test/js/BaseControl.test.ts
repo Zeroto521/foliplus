@@ -3,10 +3,10 @@ import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { BaseControl } from "#foliplus/BaseControl.js";
 
 describe("BaseControl", () => {
-  let map;
+  let map: L.Map;
 
   beforeEach(() => {
-    map = { on: vi.fn(), off: vi.fn() };
+    map = { on: vi.fn(), off: vi.fn() } as unknown as L.Map;
   });
 
   afterEach(() => {
@@ -413,7 +413,7 @@ describe("BaseControl", () => {
     ctrl._map = map;
     ctrl.onAdd();
 
-    ctrl.effect(() => ({ value: 42 }));
+    ctrl.effect(() => ({ value: 42 }) as unknown as void);
     expect(ctrl.cleanups).toHaveLength(0);
     expect(warn).toHaveBeenCalledTimes(1);
     expect(warn.mock.calls[0][0]).toMatch(/effect\(\).*no \.cancel/);
@@ -612,7 +612,7 @@ describe("BaseControl", () => {
     expect(() => ctrl.onRemove()).toThrow("boom");
     expect(cleanup).toHaveBeenCalledTimes(1);
     expect(ctrl.cleanups).toHaveLength(0);
-    expect(ctrl.ac).toBeNull();
+    expect((ctrl as unknown as { ac: AbortController | null }).ac).toBeNull();
   });
 
   it("the tracked surface is on / onMap / effect, with no legacy aliases", () => {

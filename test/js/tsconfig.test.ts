@@ -11,9 +11,9 @@ import { describe, expect, it } from "vitest";
 // lines it can classify, and no rule checks for `as any`. Without this the audit
 // finding "24 bypasses" could come back silently.
 //
-// The suite's own error count is tracked in the program file itself.
-// Its *shape* — that most of it is cascading implicit any rather than real
-// mismatches — is what keeps it honest, so that is asserted below.
+// The test program's own error count is tracked in its program file
+// (test/js/tsconfig.json), not here — `npm run typecheck:tests` runs the
+// program directly and CI reports its status through the typecheck-tests job.
 
 // Repo root via vitest's cwd — the convention build.test.ts and the bundle
 // size check use. This test walks the production tree and reads the program
@@ -248,58 +248,4 @@ for p in sys.argv[1:]:
       expect(dts[0].endsWith("foliplus/js/type/global.d.ts")).toBe(true);
     });
   }
-});
-
-// ── Test-program error shape ───────────────────────────────────
-//
-// The test suite is deliberately untyped today (test/js/tsconfig.json documents
-// why) and is not a CI gate. What IS worth holding still is the *composition*
-// of its errors: they are almost all implicit-any cascades from a mock-heavy
-// surface, not type-safety holes. If that ratio flips, the suite has moved from
-// "needs types" to "has real problems" and the tsconfig comment is stale.
-
-// Diagnostic codes tsc raises for an implicit `any`. TS18046 is the member
-// access off one of those.
-const IMPLICIT_ANY = new Set([
-  "TS7005",
-  "TS7006",
-  "TS7015",
-  "TS7031",
-  "TS7034",
-  "TS7053",
-  "TS18046",
-  "TS18047",
-  "TS18048",
-]);
-
-const classifyTestProgram = () => {
-  // Same invocation as `npm run typecheck:tests`. The program is red by
-  // design, so only its stderr is read.
-  const out = spawnSync(
-    process.execPath,
-    ["node_modules/typescript/bin/tsc", "--noEmit", "-p", "test/js/tsconfig.json"],
-    { cwd: process.cwd(), encoding: "utf-8" },
-  );
-  const text = [out.stdout ?? "", out.stderr ?? ""].join("\n");
-  const codes = [...text.matchAll(/error (TS\d+)/g)].map(m => m[1] as string);
-  return {
-    total: codes.length,
-    implicitAny: codes.filter(c => IMPLICIT_ANY.has(c)).length,
-  };
-};
-
-describe("test/js program error shape", () => {
-  const { total, implicitAny } = classifyTestProgram();
-
-  it("is still red (so removing the gate would not go unnoticed)", () => {
-    expect(total).toBeGreaterThan(0);
-  });
-
-  it("is dominated by implicit any, not real mismatches", () => {
-    // ~1600 total with ~75% cascading implicit any as of 2026-09-17. The bar
-    // stays deliberately coarse: the counts move with every test added, but a
-    // shift toward real mismatches is a different failure mode entirely.
-    expect(implicitAny).toBeGreaterThan(total * 0.5);
-    expect(implicitAny).toBeLessThan(total);
-  });
 });

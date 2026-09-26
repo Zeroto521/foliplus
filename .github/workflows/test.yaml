@@ -64,6 +64,36 @@ jobs:
       - run: npm install
       - run: npm run typecheck
 
+  # Test-suite typecheck — mirrors `typecheck` but runs the separate program at
+  # test/js/tsconfig.json, which extends the root program and adds the vitest
+  # globals + node types the tests need. Split into its own job because the
+  # programs have different `types`/`paths`, and because the test program is
+  # still carrying measured typing debt that is being cleared in batches; the
+  # gate is wired up first, flipped from `continue-on-error` to a real red
+  # signal once the remaining errors reach zero. That flip is deliberate, not
+  # automatic: dropping `continue-on-error` while the program is still red
+  # would break CI, so it has to be a coordinated last step.
+  #
+  # Deliberately NOT in `test`'s `needs:`: a `continue-on-error` job still
+  # reports its raw conclusion (failure) to dependents, which would skip the
+  # Python matrix on every red run. It stands alone so its status is visible
+  # in PR checks without gating anything. The final PR that removes
+  # `continue-on-error` adds it back to `needs:` at the same time.
+  typecheck-tests:
+    name: typecheck-tests
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: "package.json"
+          # setup-node auto-detects npm from the packageManager pin and turns on
+          # package-manager caching, which requires a lockfile this repo ignores.
+          package-manager-cache: false
+      - run: npm install
+      - run: npm run typecheck:tests
+
   # ── CHANGELOG existence check (needs GITHUB_TOKEN) ──
   # Sort-order is enforced by pre-commit.ci (language: system, --fix mode).
   # This job only checks that every referenced #NNN exists as a real PR/issue.
