@@ -6070,9 +6070,7 @@ class TestLayerPaneProbeBrowser:
                 f"no-basemap hatch must paint an opaque background, got {before['bg']}"
             )
             luma = (rgba["r"] + rgba["g"] + rgba["b"]) / 3
-            assert luma > 128, (
-                f"hatch background must stay light, got {before['bg']}"
-            )
+            assert luma > 128, f"hatch background must stay light, got {before['bg']}"
 
             # A real click is what grants the user activation the API requires.
             page.click("#foliplus-fs-trigger")
