@@ -250,7 +250,10 @@
   .foliplus-layer-toggle-all.foliplus-layer-folded .foliplus-layer-fold-btn {
     color: var(--accent-primary);
   }
-  .foliplus-layer-toggle-all:not(.foliplus-layer-folded):is(:hover, .foliplus-is-focused-row)
+  .foliplus-layer-toggle-all:not(.foliplus-layer-folded):is(
+      :hover,
+      .foliplus-is-focused-row
+    )
     .foliplus-layer-fold-btn {
     color: var(--accent-primary);
   }
@@ -381,7 +384,10 @@
       cursor: default;
     }
   }
-  .foliplus-layer-item[data-layer-type="base"].active:is(:hover, .foliplus-is-focused-row),
+  .foliplus-layer-item[data-layer-type="base"].active:is(
+      :hover,
+      .foliplus-is-focused-row
+    ),
   .foliplus-color-layer-item.active:is(:hover, .foliplus-is-focused-row) {
     background: var(--accent-light);
   }
