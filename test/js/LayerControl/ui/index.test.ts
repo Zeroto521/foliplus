@@ -197,8 +197,6 @@ describe("LayerUI shell �?delegates", () => {
 
   it("dropPersistedLayerState erases every stored dimension for one id", () => {
     // The single routine that erases a stored value, reached only from an
-<<<<<<< HEAD
-======
     // explicit delete — and it must not touch a neighbor's state.
     ui.hiddenIds = new Set(["overlay1", "base1"]);
     ui.opacityMap = { overlay1: 0.4 };

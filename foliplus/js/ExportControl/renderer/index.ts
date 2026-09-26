@@ -2,7 +2,7 @@
 // render() stays here (the class method that calls the other passes via `this`);
 // each pass's implementation lives in its own module and is delegated to by
 // the class method of the same name.
-import { findLayer, type LayerInfo } from "#core/layer/index.js";
+import { type LayerInfo, findLayer } from "#core/layer/index.js";
 import { layerUrl } from "#core/leafletAdapter.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { createLogger } from "#common/log.js";

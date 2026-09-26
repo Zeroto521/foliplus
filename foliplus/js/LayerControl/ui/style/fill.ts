@@ -96,10 +96,7 @@ const hasFillGeometry = (ui: LayerUI, li: LayerInfo): boolean => {
  *  (native/*). The basemap's fill is the container background, not a vector
  *  style, so the gate admits it on that capability pair alone, skipping the
  *  geometry check (it has no polygon leaves to walk). */
-const isColorBasemap = (
-  ui: LayerUI,
-  li: { id: string; canvas?: boolean; styleSetters?: unknown } | undefined,
-): boolean => {
+const isColorBasemap = (ui: LayerUI, li: LayerInfo | undefined): boolean => {
   if (!li || li.canvas || li.styleSetters) return false;
   const caps = ui.m.surfaceFor(li).capabilities;
   return caps.opacity === "pane" && caps.zoomRange === "none";
