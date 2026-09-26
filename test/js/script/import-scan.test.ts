@@ -168,7 +168,15 @@ describe("equivalence gate — engine == both legacy implementations", () => {
 // .foliplus/probe-import-scan.mjs; the rows below are dead code paths today).
 // ────────────────────────────────────────────────────────────────────────────
 
-const DIVERGENCES = [
+type DivergenceRow = {
+  id: string;
+  files: Record<string, string>;
+  registryBefore: Record<string, string[]>;
+  pluginBefore: Record<string, string[]>;
+  engineNow: Record<string, string[]>;
+};
+
+const DIVERGENCES: DivergenceRow[] = [
   {
     id: "single-quoted specifier",
     files: { "a.ts": "import { solo } from '#core/solo.js';\n" },
@@ -301,7 +309,7 @@ describe("divergences — engine takes the better of the two predecessors", () =
 // no source uses either form today.
 // ────────────────────────────────────────────────────────────────────────────
 
-const PREDECESSOR_BUGS = [
+const PREDECESSOR_BUGS: DivergenceRow[] = [
   {
     id: "type-prefixed identifier is not a type modifier",
     files: { "a.ts": 'import { typeFoo, type Bar, baz } from "#core/typed.js";\n' },

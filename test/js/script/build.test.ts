@@ -21,10 +21,13 @@ const distDir = resolve(ROOT, "foliplus/dist");
 // writes on every real build —the same list `test/python/test_asset.py`
 // asserts wheel membership against. A new component therefore shows up in
 // both stacks without either test hardcoding its name.
-const names = JSON.parse(
-  readFileSync(resolve(distDir, "artifacts.json"), "utf-8"),
+const names: string[] = (
+  JSON.parse(readFileSync(resolve(distDir, "artifacts.json"), "utf-8")) as {
+    artifacts: string[];
+  }
 ).artifacts;
-const artifactsFor = ext => names.map(name => `foliplus-${name}.min.${ext}`);
+const artifactsFor = (ext: string): string[] =>
+  names.map(name => `foliplus-${name}.min.${ext}`);
 
 const JS_ARTIFACTS = artifactsFor("js");
 const CSS_ARTIFACTS = artifactsFor("css");

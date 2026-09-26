@@ -14,6 +14,7 @@ import {
   searchAddress,
   searchCoord,
 } from "#foliplus/SearchControl/logic/search.js";
+import type { SearchHistoryEntry } from "#foliplus/SearchControl/type.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 
 // Module-level code captured window.foliplus and window.map from setup.js.
@@ -916,7 +917,7 @@ describe("mode-lock guard: history entry click when a mode is held", () => {
     // Now hold a mode and click — the click should be blocked.
     ensureModes(window.map).setMode("MeasureControl", "distance");
     const evt = { stopPropagation: vi.fn(), preventDefault: vi.fn() };
-    (item as HTMLElement).onmousedown!(evt);
+    (item as HTMLElement).onmousedown!(evt as unknown as MouseEvent);
     expect(ctrl.panelWrap).not.toBeNull();
     expect(map.flyTo).not.toHaveBeenCalled();
     expect(ctrl.marker).toBeNull();

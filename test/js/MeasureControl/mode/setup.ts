@@ -2,6 +2,7 @@
 // Each test file imports initMocks and calls it inside beforeEach.
 import { vi } from "vitest";
 import { isDragSyntheticClick } from "#foliplus/MeasureControl/edit.js";
+import type { MeasureManager } from "#foliplus/MeasureControl/manager.js";
 
 export function initMocks() {
   // Consume any pending drag-synthetic-click flag so a prior test's drag end
@@ -66,7 +67,7 @@ export function initMocks() {
   window.L.divIcon = vi.fn(opts => ({ _mockDivIconHtml: opts?.html }));
 
   globalThis.turf = {
-    point: coords => ({ coords }),
+    point: (coords: unknown) => ({ coords }),
     distance: vi.fn(() => 100),
     bearing: vi.fn(() => 45),
     midpoint: vi.fn(() => ({ geometry: { coordinates: [0, 0] } })),
@@ -98,7 +99,7 @@ export function initMocks() {
   };
 }
 
-export function makeManagerMock() {
+export function makeManagerMock(): MeasureManager {
   const editHandles: Map<string, any> = new Map();
   // Backing array so add/remove/update mutate the same live list the tests
   // assert against via manager.measurements (compatibility getter path).
@@ -194,5 +195,5 @@ export function makeManagerMock() {
       measurements.push(...v);
     },
     editHandles,
-  };
+  } as unknown as MeasureManager;
 }
