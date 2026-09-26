@@ -20,9 +20,7 @@
   }
 
   const panel = document.querySelector(".foliplus-layer-style-panel");
-  const input = panel
-    ? panel.querySelector(".foliplus-style-fill-color-input")
-    : null;
+  const input = panel ? panel.querySelector(".foliplus-style-fill-color-input") : null;
   if (input) {
     input.value = "#dc1e1e"; // rgb(220, 30, 30)
     input.dispatchEvent(new Event("input", { bubbles: true }));
