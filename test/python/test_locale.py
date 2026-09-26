@@ -262,6 +262,12 @@ _JS_USED_KEYS = {
     "MeasureControl.export_paused",
     # ScaleControl
     "ScaleControl.zoom_label",
+    # StyleKitControl
+    "StyleKitControl.title",
+    "StyleKitControl.restore_defaults",
+    "StyleKitControl.reset_map",
+    "StyleKitControl.restored",
+    "StyleKitControl.reset_done",
 }
 
 

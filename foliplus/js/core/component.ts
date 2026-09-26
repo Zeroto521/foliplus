@@ -16,6 +16,7 @@ const COMPONENTS = {
   LayerControl: "LayerControl",
   HeatmapControl: "HeatmapControl",
   ScaleControl: "ScaleControl",
+  StyleKitControl: "StyleKitControl",
 } as const;
 
 type ComponentName = (typeof COMPONENTS)[keyof typeof COMPONENTS];

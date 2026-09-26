@@ -452,7 +452,7 @@ describe("no module-level map.on in *Control/index.ts", () => {
     ).toEqual([]);
   });
 
-  it("the glob scope names exactly the 8 control entry files", () => {
+  it("the glob scope names exactly the 9 control entry files", () => {
     // Counter-proof. Without this a glob typo (`*Control/*.ts` or
     // `*Control/index.*`) would silently widen or narrow the scope and no
     // test would notice.
@@ -470,6 +470,7 @@ describe("no module-level map.on in *Control/index.ts", () => {
       "foliplus/js/MeasureControl/index.ts",
       "foliplus/js/ScaleControl/index.ts",
       "foliplus/js/SearchControl/index.ts",
+      "foliplus/js/StyleKitControl/index.ts",
     ]);
   });
 });
