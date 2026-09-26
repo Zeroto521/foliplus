@@ -79,6 +79,13 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
       "both calls are in bindOutsideCollapse, which binds a capture + bubble click pair on document and returns its own unbind closure — that is exactly the `effect` case, but the factory takes a container, not a BaseControl instance, so the control must register the closure itself",
   },
   {
+    f: "common/section.ts",
+    n: 1,
+    pairedOff: 0,
+    reason:
+      "createSection's head-click collapse listener lives on the section's own DOM node — the listener is collected with the head element the moment the section's root is removed from the panel, so there is no leak and no separate unbind path. No BaseControl instance is in scope (the section is a pure DOM builder); routing through a signal would cross section → panel → caller for no gain",
+  },
+  {
     f: "core/hint.ts",
     n: 1,
     pairedOff: 0,

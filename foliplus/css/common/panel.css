@@ -110,6 +110,20 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
+    .foliplus-header-caption {
+      flex-shrink: 0;
+      font-size: var(--font-size-xs);
+      font-weight: var(--font-weight-normal);
+      color: var(--text-muted);
+      text-transform: none;
+      letter-spacing: normal;
+      line-height: var(--line-height-hint);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 40%;
+      margin-right: var(--space-sm);
+    }
 
     /* ── Close affordance ──
        The × sits in the header but stays invisible until the header is

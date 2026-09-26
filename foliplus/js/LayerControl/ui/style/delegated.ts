@@ -14,10 +14,11 @@ import {
   numberInput,
 } from "#common/form.js";
 import { createRowPanel } from "#common/panel.js";
+import { createSection } from "#common/section.js";
 import * as CONST from "../../const.js";
 import * as SVGs from "../../icon.js";
 import type { LayerUI } from "../index.js";
-import { appendResetFooter, sectionHeading } from "./frame.js";
+import { appendResetFooter } from "./frame.js";
 import { buildOpacityRow, layerCanOpacity } from "./opacity.js";
 import { buildZoomRangeRow, canShowZoomRange } from "./zoomRange.js";
 
@@ -163,14 +164,17 @@ const renderDelegatedStylePanel = (
   const canOpacity = layerCanOpacity(ui, layerId);
   const canZoomRange = canShowZoomRange(ui, layerId);
   if (borderRow || canOpacity || canZoomRange) {
-    content.append(sectionHeading(ui.T("section_layer")));
-    if (borderRow) content.append(borderRow);
-    if (canOpacity) content.append(buildOpacityRow(ui, layerId));
-    if (canZoomRange) content.append(buildZoomRangeRow(ui, layerId));
+    const layerSection = createSection({ title: ui.T("section_layer") });
+    if (borderRow) layerSection.body.appendChild(borderRow);
+    if (canOpacity) layerSection.body.appendChild(buildOpacityRow(ui, layerId));
+    if (canZoomRange)
+      layerSection.body.appendChild(buildZoomRangeRow(ui, layerId));
+    content.append(layerSection.root);
   }
   if (root.children.length) {
-    content.append(sectionHeading(ui.T("section_label")));
-    content.append(root);
+    const labelSection = createSection({ title: ui.T("section_label") });
+    labelSection.body.appendChild(root);
+    content.append(labelSection.root);
   }
 
   // Reset only when the component published its Python CONF defaults.

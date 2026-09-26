@@ -74,6 +74,7 @@
 - `HeatmapControl`: border and label styling move to the layer style drawer; the panel keeps only aggregation controls ([#447](https://github.com/Zeroto521/foliplus/pull/447), [#473](https://github.com/Zeroto521/foliplus/pull/473))
 - `InteractionManager`/`ListCursor`/`LayerControl`: input ownership — one control × key table at dispatch replaces five per-call-site guards; adding a control to a panel is a table entry; `Escape` stays foliplus-owned ([#450](https://github.com/Zeroto521/foliplus/pull/450))
 - `LayerControl`: style panel sections read Layer above Label, and the Layer section rows read fill, border, opacity, zoom range — the two color axes sit adjacent and the two slider axes sit adjacent; rows the layer cannot carry stay hidden ([#458](https://github.com/Zeroto521/foliplus/pull/458))
+- `common`: declarative `createSection` builder — a titled head (title left, optional master switch right, optional muted caption under the title) plus a body, with an `is-collapsed` toggle wired to head clicks and a switch slot that keeps its own state; the style and attributes panels now declare their sections instead of hand-building headings, `createPanelHeader` gains a muted caption slot, and `.foliplus-form-label` reads left-aligned so multi-word labels no longer squeeze into a right-aligned column ([#T98](https://github.com/Zeroto521/foliplus/pull/T98))
 
 ### Removed
 
