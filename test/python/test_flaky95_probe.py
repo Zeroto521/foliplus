@@ -26,7 +26,7 @@ from pathlib import Path
 
 import conftest
 import pytest
-from conftest import _Flaky95Probe
+from conftest import _Flaky95Probe, _is_chromium_process
 
 TEST_DIR = Path(__file__).parent
 
@@ -170,7 +170,7 @@ def make_probe(
 class TestThresholdWarnings:
     """Once-per-metric warnings, and only above the threshold."""
 
-    def test_over_threshold_warns_once(self, make_probe, monkeypatch) -> None:
+    def test_over_threshold_warns_once(self, make_probe, monkeypatch):
         monkeypatch.setattr(conftest, "_HEALTH_THRESHOLDS", {"contexts": 3})
         probe = make_probe()
         probe._snapshot = lambda browser: _snap(contexts=5)
@@ -188,7 +188,7 @@ class TestThresholdWarnings:
         assert "pages_opened_total=1" in message
 
     @pytest.mark.parametrize("contexts", [1, 2, 3])
-    def test_at_and_below_threshold_is_quiet(self, make_probe, contexts) -> None:
+    def test_at_and_below_threshold_is_quiet(self, make_probe, contexts):
         probe = make_probe()
         probe._snapshot = lambda browser: _snap(contexts=contexts)
         with warnings.catch_warnings(record=True) as caught:
@@ -196,7 +196,7 @@ class TestThresholdWarnings:
             probe.maybe_sample(None)
         assert not caught
 
-    def test_none_metric_is_ignored(self, make_probe) -> None:
+    def test_none_metric_is_ignored(self, make_probe):
         # psutil or the browser can fail mid-snapshot; a None value must be
         # skipped, not compared against a threshold.
         probe = make_probe()
@@ -206,7 +206,7 @@ class TestThresholdWarnings:
             probe.maybe_sample(None)
         assert not caught
 
-    def test_repeated_over_threshold_samples_warn_once(self, make_probe) -> None:
+    def test_repeated_over_threshold_samples_warn_once(self, make_probe):
         probe = make_probe()
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
@@ -220,7 +220,7 @@ class TestThresholdWarnings:
         assert len(messages) == 1
         assert "pages_opened_total=1" in messages[0]
 
-    def test_each_metric_warns_once(self, make_probe, monkeypatch) -> None:
+    def test_each_metric_warns_once(self, make_probe, monkeypatch):
         monkeypatch.setattr(
             conftest, "_HEALTH_THRESHOLDS", {"contexts": 3, "handles": 10}
         )
@@ -236,9 +236,7 @@ class TestThresholdWarnings:
         assert sum(1 for m in messages if "[flaky-95] contexts=" in m) == 1
         assert sum(1 for m in messages if "[flaky-95] handles=" in m) == 1
 
-    def test_end_to_end_warns_and_logs(
-        self, make_probe, probe_dir, monkeypatch
-    ) -> None:
+    def test_end_to_end_warns_and_logs(self, make_probe, probe_dir, monkeypatch):
         # Real snapshot path: a browser object in, warning plus record out.
         monkeypatch.setattr(conftest, "_HEALTH_THRESHOLDS", {"contexts": 3})
         probe = make_probe()
@@ -257,7 +255,7 @@ class TestThresholdWarnings:
 class TestJsonlLog:
     """One JSON object per line, in the documented schema."""
 
-    def test_writes_one_line_per_sample(self, make_probe, probe_dir) -> None:
+    def test_writes_one_line_per_sample(self, make_probe, probe_dir):
         probe = make_probe()
         browser = _FakeBrowser([_FakeCtx(2)])
         for _ in range(3):
@@ -270,7 +268,7 @@ class TestJsonlLog:
         assert name.endswith(f"-{os.getpid()}.jsonl")
         assert len(_snapshot_records(probe_dir)) == 3
 
-    def test_line_is_a_single_json_object(self, make_probe, probe_dir) -> None:
+    def test_line_is_a_single_json_object(self, make_probe, probe_dir):
         probe = make_probe()
         probe.maybe_sample(_FakeBrowser([_FakeCtx(2)]))
 
@@ -301,7 +299,7 @@ class TestInertBehavior:
 
     def test_disabled_probe_logs_nothing_and_warns_nothing(
         self, tmp_path, monkeypatch, probes
-    ) -> None:
+    ):
         disabled_dir = tmp_path / "flaky95"
         monkeypatch.setattr(conftest, "_HEALTH_DIR", disabled_dir)
         monkeypatch.setattr(conftest, "_HEALTH_PROBE_ENABLED", False)
@@ -322,7 +320,7 @@ class TestInertBehavior:
         probe.close()  # nothing to close
         assert probe._log_fh is None
 
-    def test_unopenable_log_stays_inert(self, probe_dir, probes, monkeypatch) -> None:
+    def test_unopenable_log_stays_inert(self, probe_dir, probes, monkeypatch):
         # A failed open is swallowed: a locked file or full disk must not
         # abort the session fixture that constructed the probe.
         def _boom(*args, **kwargs):
@@ -335,7 +333,30 @@ class TestInertBehavior:
         probe.maybe_sample(_FakeBrowser([_FakeCtx()]))  # no raise
         assert probe._pages_opened == 1
 
-    def test_write_failure_is_swallowed(self, make_probe) -> None:
+    def test_uncreatable_log_dir_stays_inert(self, probe_dir, probes, monkeypatch):
+        # A failed mkdir is swallowed on the same path as a failed open: a
+        # stray file at the log path or a read-only checkout must not abort
+        # the session fixture that constructed the probe.
+        def _boom(*args, **kwargs):
+            raise OSError("permission denied")
+
+        monkeypatch.setattr(Path, "mkdir", _boom)
+        probe = _Flaky95Probe("gw0", 1)
+        probes.append(probe)
+        assert probe._log_fh is None
+
+        # 4 contexts would trip the contexts threshold; a degraded probe
+        # must stay quiet and keep counting.
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            for _ in range(3):
+                probe.maybe_sample(_FakeBrowser([_FakeCtx() for _ in range(4)]))
+
+        assert not caught
+        assert not probe_dir.exists()
+        assert probe._pages_opened == 3
+
+    def test_write_failure_is_swallowed(self, make_probe):
         class _BrokenHandle:
             def write(self, _text):
                 raise OSError("disk full")
@@ -351,7 +372,7 @@ class TestInertBehavior:
 
     def test_snapshot_failure_still_records_without_browser_metrics(
         self, make_probe, probe_dir
-    ) -> None:
+    ):
         probe = make_probe()
         probe.maybe_sample(_FakeBrowser(broken=True))  # no raise
 
@@ -365,7 +386,7 @@ class TestInertBehavior:
 class TestSamplingCadence:
     """One sample per N ``new_page`` calls."""
 
-    def test_one_sample_every_n_pages(self, make_probe, probe_dir) -> None:
+    def test_one_sample_every_n_pages(self, make_probe, probe_dir):
         probe = make_probe(sample_n=3)
         browser = _FakeBrowser([_FakeCtx()])
         for _ in range(9):
@@ -374,9 +395,7 @@ class TestSamplingCadence:
         records = _snapshot_records(probe_dir)
         assert [record["pages_opened_total"] for record in records] == [3, 6, 9]
 
-    def test_pages_before_first_sample_are_not_logged(
-        self, make_probe, probe_dir
-    ) -> None:
+    def test_pages_before_first_sample_are_not_logged(self, make_probe, probe_dir):
         probe = make_probe(sample_n=4)
         for _ in range(2):
             probe.maybe_sample(_FakeBrowser([_FakeCtx()]))
@@ -386,7 +405,7 @@ class TestSamplingCadence:
         assert len(files) == 1  # file is opened up front
         assert _snapshot_records(probe_dir) == []
 
-    def test_sample_n_is_clamped_to_one(self, make_probe, probe_dir) -> None:
+    def test_sample_n_is_clamped_to_one(self, make_probe, probe_dir):
         probe = make_probe(sample_n=0)
         assert probe._sample_n == 1
         for _ in range(3):
@@ -397,7 +416,7 @@ class TestSamplingCadence:
 class TestEnvSwitch:
     """Env overrides are read at import time, so test them in a subprocess."""
 
-    def test_health_probe_disabled_via_env(self, tmp_path) -> None:
+    def test_health_probe_disabled_via_env(self, tmp_path):
         env = {
             **os.environ,
             "FOLIPLUS_HEALTH_PROBE": "0",
@@ -420,3 +439,27 @@ class TestEnvSwitch:
         assert sample_n == "7"
         assert files == "0"  # FOLIPLUS_HEALTH_PROBE=0 writes nothing
         assert pages == "20"  # counter still advances, sampling just stops
+
+
+class TestChromiumFamily:
+    """``chromium_procs`` must count the Chromium family on any platform."""
+
+    @pytest.mark.parametrize(
+        ("name", "expected"),
+        [
+            ("chrome.exe", True),
+            ("Chrome.exe", True),
+            ("chrome", True),
+            ("chrome_crashpad_handler", True),
+            ("headless_shell", True),
+            ("chromium", True),
+            ("chromium-browser", True),
+            ("msedge.exe", False),
+            ("firefox.exe", False),
+            ("python.exe", False),
+            ("", False),
+            (None, False),
+        ],
+    )
+    def test_is_chromium_process(self, name, expected):
+        assert _is_chromium_process(name) is expected

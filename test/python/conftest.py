@@ -367,6 +367,18 @@ _HEALTH_THRESHOLDS = {
 }
 
 
+# Chromium reports as different binary names per platform and Playwright
+# build: ``chrome.exe`` on Windows, ``chrome`` on older Linux headless,
+# ``headless_shell`` on newer ones. Exact matching would read a constant
+# zero on Linux, so the family is matched by prefix.
+_CHROMIUM_NAME_PREFIXES = ("chrome", "headless_shell", "chromium")
+
+
+def _is_chromium_process(name: str | None) -> bool:
+    """Whether a process name belongs to the Chromium family."""
+    return bool(name) and name.lower().startswith(_CHROMIUM_NAME_PREFIXES)
+
+
 class _Flaky95Probe:
     """Per-worker sampler for browser-test resource health.
 
@@ -383,13 +395,18 @@ class _Flaky95Probe:
         self._warned: set[str] = set()
         self._log_fh: TextIO | None = None
         if _HEALTH_PROBE_ENABLED:
-            _HEALTH_DIR.mkdir(parents=True, exist_ok=True)
-            ts = time.strftime("%Y%m%d-%H%M%S")
-            # pid disambiguates two rounds that happen to start within the
-            # same second (fast CI retries, automated loops) — without it
-            # both probes append to the same file and their samples interleave.
-            path = _HEALTH_DIR / f"health-{ts}-{worker_id}-{os.getpid()}.jsonl"
             try:
+                # mkdir and open can both fail (a stray file at the log
+                # path, a read-only checkout, a locked file). Both degrade
+                # to observing-without-logging on the same path — raising
+                # would abort the session fixture that built the probe.
+                _HEALTH_DIR.mkdir(parents=True, exist_ok=True)
+                ts = time.strftime("%Y%m%d-%H%M%S")
+                # pid disambiguates two rounds that happen to start within
+                # the same second (fast CI retries, automated loops) —
+                # without it both probes append to the same file and their
+                # samples interleave.
+                path = _HEALTH_DIR / f"health-{ts}-{worker_id}-{os.getpid()}.jsonl"
                 # Line-buffered so each sample is durable even under a
                 # hard worker kill — that's the anomaly mode we want to
                 # recover from, so losing samples to a buffer flush on
@@ -428,7 +445,7 @@ class _Flaky95Probe:
             chromium_procs = sum(
                 1
                 for p in psutil.process_iter(["name"])
-                if (p.info or {}).get("name", "").lower() in ("chrome.exe", "chrome")
+                if _is_chromium_process((p.info or {}).get("name"))
             )
         except Exception:
             chromium_procs = None
