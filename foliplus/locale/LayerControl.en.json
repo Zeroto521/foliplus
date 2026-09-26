@@ -43,7 +43,7 @@
   "LayerControl.delete_layer": "Delete Layer",
   "LayerControl.delete_layer_confirm": "Confirm Delete",
   "LayerControl.delete_layer_tooltip": "Delete this layer and its saved settings — cannot be undone",
-  "LayerControl.delete_layer_disabled": "The solid colour basemap cannot be deleted — the map needs it for its background",
+  "LayerControl.delete_layer_disabled": "The solid color basemap cannot be deleted — the map needs it for its background",
   "LayerControl.attr_source": "Source",
   "LayerControl.attr_type": "Type",
   "LayerControl.attr_feature_count": "Features",
@@ -70,8 +70,10 @@
   "LayerControl.style_zoom_range_max": "Maximum Zoom",
   "LayerControl.style_zoom_range_current": "Current: {zoom}",
   "LayerControl.style_zoom_range_out_of_range": "Current zoom ({zoom}) is outside this range",
-  "LayerControl.style_border_color": "Border colour",
+  "LayerControl.style_border_color": "Border Color",
   "LayerControl.style_border_weight": "Border width",
+  "LayerControl.style_fill": "Fill Color",
+  "LayerControl.style_fill_opacity": "Fill Opacity",
   "LayerControl.section_heatmap": "Heatmap",
   "LayerControl.border": "Border"
 }

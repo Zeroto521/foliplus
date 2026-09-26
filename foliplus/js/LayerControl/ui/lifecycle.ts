@@ -71,7 +71,10 @@ const attachUI = (ui: LayerUI, containerDiv: HTMLElement): void => {
   // Last in the attach sequence: applyUserState() runs the full sweep
   // needed for rows rendered from the initial registry. Hidden ids are
   // loaded above but only applied here, so a row can never render visible
-  // and get removed afterwards.
+  // and get removed afterwards. The UI-shell method (not the state.ts
+  // function) so the border and fill dimensions are replayed too — the
+  // initial layers never go through registerLayer, which is where the
+  // id-specified path replays them for late registrations.
   ui.applyUserState();
   // Re-apply ARIA/roving after insertLayerItem / applyUserState may have
   // rebuilt rows.

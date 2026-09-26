@@ -72,6 +72,8 @@
   "LayerControl.style_zoom_range_out_of_range": "当前级别（{zoom}）不在此范围内",
   "LayerControl.style_border_color": "边框颜色",
   "LayerControl.style_border_weight": "边框宽度",
+  "LayerControl.style_fill": "填充颜色",
+  "LayerControl.style_fill_opacity": "填充透明度",
   "LayerControl.section_heatmap": "热力图",
   "LayerControl.border": "边框"
 }

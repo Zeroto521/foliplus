@@ -59,6 +59,7 @@ import {
   closeStylePanel,
   invalidateFields,
   openStylePanel,
+  replayFillState,
 } from "./style/index.js";
 import {
   applyVisibility,
@@ -189,6 +190,12 @@ class LayerUI {
   borderColorMap: Record<string, string>;
   /** Persisted per-layer border width (id → px), in the shared border bounds. */
   borderWeightMap: Record<string, number>;
+  /** Persisted per-layer fill color (id → hex). A self-managed dimension —
+   *  not part of the executor's visible/opacity/zoomRange family; the fill
+   *  row in ui/style/fill.ts writes through setStyle directly. */
+  fillColorMap: Record<string, string>;
+  /** Persisted per-layer fill opacity (id → 0-1). Same self-managed dimension. */
+  fillOpacityMap: Record<string, number>;
   /** The executor's last-write map: id → the projection `applyProjection`
    *  last wrote to the map. This is what makes the executor a diff, not a
    *  sweep — a changeless call re-projects, sees no delta, and calls no
@@ -249,6 +256,8 @@ class LayerUI {
     this.zoomRangeMap = {};
     this.borderColorMap = {};
     this.borderWeightMap = {};
+    this.fillColorMap = {};
+    this.fillOpacityMap = {};
     this.appliedState = new Map();
     this.focusRect = null;
     this.focusingLayerId = null;
@@ -347,12 +356,20 @@ class LayerUI {
   }
   applyUserState(id?: string) {
     applyUserState(this, id);
-    // The executor carries visible / opacity / zoomRange only. Border is a
-    // direct setStyle write, so without its own replay a reload would restore
-    // the drawer's swatch while the map kept the author's stroke. Hooked here
-    // rather than in state.ts to keep state.ts free of a border.js import
-    // (border.js imports state.js for markOverride/saveState).
+    // The executor carries visible / opacity / zoomRange only. Border and
+    // fill are direct setStyle writes, so without their own replay a reload
+    // would restore the drawer's swatch while the map kept the author's
+    // values. Hooked here rather than in state.ts to keep state.ts free of
+    // style-row imports (border.js and fill.js import state.js for
+    // markOverride/saveState).
     replayBorderState(this, id);
+    if (id) {
+      replayFillState(this, id);
+    } else {
+      for (const layerId of Object.keys(this.userOverrides)) {
+        replayFillState(this, layerId);
+      }
+    }
   }
   replayLayerState(layerId: string) {
     return replayLayerState(this, layerId);

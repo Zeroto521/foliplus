@@ -23,6 +23,7 @@ import {
   clampLabelSize,
   colorInput as formColorInput,
   numberInput as formNumberInput,
+  formRow,
   inlineControls,
   normalizeHexColor,
 } from "#common/form.js";
@@ -39,6 +40,13 @@ import {
   resetLayerBorder,
 } from "./border.js";
 import { layerHasStyleDelegation, renderDelegatedStylePanel } from "./delegated.js";
+import {
+  bindFillRow,
+  buildFillRow,
+  layerCanFill,
+  replayFillState,
+  resetLayerFill,
+} from "./fill.js";
 import { appendResetFooter, railPos, sectionHeading } from "./frame.js";
 import { applyPatch, layerFields, syncFormatRow } from "./label.js";
 import {
@@ -70,13 +78,14 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   const fields = layerFields(ui, layerId);
   const hasLabel = fields.length > 0;
   // A plain vector shape has no feature properties, so no labelable field —
-  // but it still owns the Layer section (opacity, border, zoom range). The
+  // but it still owns the Layer section (opacity, border, fill, zoom range). The
   // ⋮ menu enables Style on capability alone, so the panel has to honour the
   // same gate rather than demanding a field.
   const hasLayerDim =
     layerCanOpacity(ui, layerId) ||
-    canShowZoomRange(ui, layerId) ||
-    layerCanBorder(ui, layerId);
+    layerCanBorder(ui, layerId) ||
+    layerCanFill(ui, layerId) ||
+    canShowZoomRange(ui, layerId);
   if (!hasLabel && !hasLayerDim) return null;
 
   const cfg = ui.m.annotation.getConfig(layerId);
@@ -200,20 +209,7 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
       dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("style_label_field")),
       dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, fieldSelect),
     ),
-    dom.el(
-      "div",
-      { class: CONST.CLASSES.FORM_ROW },
-      dom.el(
-        "label",
-        { class: CONST.CLASSES.FORM_LABEL },
-        ui._("foliplus.label_style"),
-      ),
-      dom.el(
-        "div",
-        { class: CONST.CLASSES.FORM_CONTROL },
-        inlineControls(colorInput, sizeInput),
-      ),
-    ),
+    formRow(ui._("foliplus.label_style"), inlineControls(colorInput, sizeInput)),
     formatRow,
     dom.el(
       "div",
@@ -276,6 +272,7 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
     content.append(sectionHeading(ui.T("section_layer")));
     if (layerCanOpacity(ui, layerId)) content.append(buildOpacityRow(ui, layerId));
     if (layerCanBorder(ui, layerId)) content.append(buildBorderRow(ui, layerId));
+    if (layerCanFill(ui, layerId)) content.append(buildFillRow(ui, layerId));
     if (canShowZoomRange(ui, layerId)) content.append(buildZoomRangeRow(ui, layerId));
   }
   appendResetFooter(ui, content);
@@ -343,6 +340,13 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
         onCommit: value => applyPatch(ui, layerId, { size: value }),
       });
     }
+    // Fill is a self-managed dimension (not part of the executor's
+    // visible/opacity/zoomRange family): bindLiveColor commits straight to
+    // ui.fillColorMap + setStyle. Same live-recipe as label color.
+    const fillRow = panel.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_ROW}`,
+    ) as HTMLElement | null;
+    if (fillRow) bindFillRow(ui, layerId, fillRow);
   }
 
   // Control changes are handled on the panel itself; stopPropagation keeps
@@ -548,6 +552,9 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       // Border is LayerControl-owned too: restore the author's stroke and drop
       // the persisted colour / width, so a reload does not re-apply them.
       resetLayerBorder(ui, layerId);
+      // Fill is LayerControl-owned on the annotation flavour only (the gate
+      // excludes delegated layers).
+      resetLayerFill(ui, layerId);
       if (delegated) {
         // Call each setter with its Python CONF default. The components own
         // the values — never write localStorage or annotation config here.
@@ -670,3 +677,4 @@ export {
   layerHasLabelFields,
 } from "./label.js";
 export { layerHasStyleDelegation } from "./delegated.js";
+export { replayFillState } from "./fill.js";

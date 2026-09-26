@@ -55,4 +55,22 @@ describe("mountDelIcon", () => {
       mountDelIcon({ lat: 1, lng: 2 }, {}, vi.fn(), vi.fn(), null),
     ).not.toThrow();
   });
+
+  it("binds no click handler when onDelete is omitted (strict bare-mount equivalence)", () => {
+    // MeasureControl circle wires the ✕ delete later in attachCircleUI, so the
+    // mount step must stay equivalent to a bare makeDelIcon + addLayer: no
+    // attachDelClick, hence no extra stopEvent and no no-op handler.
+    const { on } = makeDelIconWithEl();
+    const mount = vi.fn();
+    const delIcon = mountDelIcon({ lat: 1, lng: 2 }, { title: "Del" }, mount);
+    expect(mount).toHaveBeenCalledWith(delIcon);
+    expect(on.mock.calls).toHaveLength(0);
+  });
+
+  it("still binds the click when onDelete is provided (Locate/Search path)", () => {
+    const { on } = makeDelIconWithEl();
+    mountDelIcon({ lat: 1, lng: 2 }, {}, vi.fn(), vi.fn());
+    expect(on.mock.calls).toHaveLength(1);
+    expect(on.mock.calls[0][0]).toBe("click");
+  });
 });
