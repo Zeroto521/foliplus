@@ -11,7 +11,7 @@ import type { PaneSpec } from "#foliplus/core/layer/type.js";
 class Path {
   options: Record<string, unknown> = {};
   _map: unknown = null;
-  element: HTMLElement | null = null;
+  element: Element | null = null;
   getElement() {
     return this.element;
   }
@@ -356,7 +356,7 @@ describe("LayerSurface.materialize", () => {
     const path = new Path();
     path._map = map;
     path.element = document.createElementNS("http://www.w3.org/2000/svg", "path");
-    document.body.appendChild(path.element);
+    document.body.appendChild(path.element!);
     const surface = new LayerSurface(host, {
       id: "plain",
       layer: new Group([path]) as unknown as L.Layer,
@@ -365,7 +365,7 @@ describe("LayerSurface.materialize", () => {
     const renderer = surface.panes[0].renderer as unknown as {
       _container: HTMLElement;
     };
-    expect(path.element.parentNode).toBe(renderer._container);
+    expect(path.element!.parentNode).toBe(renderer._container);
   });
 
   it("no-ops when the layer is null (canvas surface)", () => {
@@ -953,6 +953,7 @@ describe("LayerSurface capabilities", () => {
     const { map, host } = makeMap();
     const surface = new LayerSurface(host, {
       id: "canvas",
+      layer: null,
       canvas: true,
       getBounds: () => null,
     });
@@ -963,6 +964,7 @@ describe("LayerSurface capabilities", () => {
     const { map, host } = makeMap();
     const surface = new LayerSurface(host, {
       id: "canvas",
+      layer: null,
       canvas: true,
     });
     expect(surface.capabilities.bounds).toBe(false);
@@ -997,6 +999,7 @@ describe("LayerSurface capabilities", () => {
     const { map, host } = makeMap();
     const surface = new LayerSurface(host, {
       id: "empty",
+      layer: null,
     });
     expect(surface.capabilities.bounds).toBe(false);
   });
