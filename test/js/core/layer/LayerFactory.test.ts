@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { Mock } from "vitest";
 import { LayerFactory } from "#foliplus/core/layer/LayerFactory.js";
 import { PaneManager } from "#foliplus/core/layer/PaneManager.js";
+import type { RegisterLayerOpts } from "#foliplus/core/layer/type.js";
 
 // Coverage exemption for LayerFactory.ts — knowingly uncovered, not overlooked.
 // Lines and branches are at 100% (214/214, 106/106). Function coverage stops at
@@ -29,13 +31,13 @@ import { PaneManager } from "#foliplus/core/layer/PaneManager.js";
 //   registration would fail them.
 
 describe("LayerFactory", () => {
-  let factory;
-  let map;
-  let panes;
-  let registerLayer;
-  let unregisterLayer;
-  let bringLayerToFront;
-  let invalidateType;
+  let factory: LayerFactory;
+  let map: L.Map;
+  let panes: PaneManager;
+  let registerLayer: Mock<(opts: RegisterLayerOpts) => HTMLElement | null>;
+  let unregisterLayer: Mock<(id: string) => boolean>;
+  let bringLayerToFront: Mock<(id: string) => void>;
+  let invalidateType: Mock<(id: string) => void>;
 
   beforeEach(() => {
     class TileLayer {
@@ -310,7 +312,7 @@ describe("LayerFactory", () => {
       api.mainLayer.addLayer(layer);
       expect(layer.options.pane).toBe("graph1");
       // The sub-layer, not mainLayer, now owns the leaf.
-      const subLayers = Array.from(api.mainLayer.getLayers());
+      const subLayers: L.Layer[] = Array.from(api.mainLayer.getLayers());
       expect(subLayers.length).toBe(2); // graph + label sub-layers
       const graphSub = subLayers.find(g => g.options.pane === "graph1");
       expect(graphSub.hasLayer(layer)).toBe(true);
@@ -330,7 +332,7 @@ describe("LayerFactory", () => {
       (layer.options as { paneSet?: boolean }).paneSet = true;
       api.mainLayer.addLayer(layer);
       expect(layer.options.pane).toBe("label1");
-      const subLayers = Array.from(api.mainLayer.getLayers());
+      const subLayers: L.Layer[] = Array.from(api.mainLayer.getLayers());
       const labelSub = subLayers.find(g => g.options.pane === "label1");
       expect(labelSub.hasLayer(layer)).toBe(true);
     });
@@ -975,7 +977,7 @@ describe("LayerFactory", () => {
       try {
         const api = factory.createCanvas({ id: "canvas_test" });
         const handlers = Object.fromEntries(
-          map.on.mock.calls.map(([ev, cb]) => [ev, cb]),
+          (map.on as Mock).mock.calls as [string, () => void][],
         ) as Record<string, () => void>;
 
         window.L.DomUtil.getPosition = vi.fn(() => ({ x: -30, y: -12 }));
@@ -1268,7 +1270,7 @@ describe("LayerFactory", () => {
       });
       try {
         const h = make("solid");
-        expect(content(h).element.width).toBe(800);
+        expect((content(h).element as HTMLCanvasElement).width).toBe(800);
       } finally {
         Object.defineProperty(window, "devicePixelRatio", {
           value: original,
@@ -1292,7 +1294,7 @@ describe("LayerFactory", () => {
       try {
         const h = make("solid");
         const handlers = Object.fromEntries(
-          map.on.mock.calls.map(([ev, cb]) => [ev, cb]),
+          (map.on as Mock).mock.calls as [string, () => void][],
         ) as Record<string, () => void>;
 
         window.L.DomUtil.getPosition = vi.fn(() => ({ x: -30, y: -12 }));
@@ -1304,8 +1306,8 @@ describe("LayerFactory", () => {
 
         map.getContainer.mockReturnValue({ clientWidth: 400, clientHeight: 300 });
         handlers.resize();
-        expect(content(h).element.width).toBe(400);
-        expect(content(h).element.height).toBe(300);
+        expect((content(h).element as HTMLCanvasElement).width).toBe(400);
+        expect((content(h).element as HTMLCanvasElement).height).toBe(300);
       } finally {
         window.requestAnimationFrame = raf;
         window.cancelAnimationFrame = cancel;

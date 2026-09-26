@@ -23,16 +23,16 @@ class MockStorage {
   clear() {
     this._store = {};
   }
-  getItem(key) {
+  getItem(key: string) {
     return key in this._store ? this._store[key] : null;
   }
-  setItem(key, value) {
+  setItem(key: string, value: string) {
     this._store[key] = String(value);
   }
-  removeItem(key) {
+  removeItem(key: string) {
     delete this._store[key];
   }
-  key(index) {
+  key(index: number) {
     return Object.keys(this._store)[index] ?? null;
   }
 }
@@ -55,14 +55,18 @@ if (!hasLocalStorage) {
 // uses pointer events (mouse events have no capture contract, so one dropped
 // move mid-drag leaks the incremental delta). Subclass MouseEvent so the same
 // dispatch path applies and tests can pass `pointerId` in init.
+// The cast is required because our subclass does not implement every DOM
+// PointerEvent field (isPrimary, width, height, pressure, tiltX, tiltY,
+// twist, pointerType) — jsdom's callers only read `pointerId` and inherit
+// MouseEvent behavior.
 if (!globalThis.PointerEvent) {
-  globalThis.PointerEvent = class PointerEvent extends MouseEvent {
-    override pointerId: number | null;
+  globalThis.PointerEvent = (class PointerEvent extends MouseEvent {
+    pointerId: number | null;
     constructor(type: string, init: PointerEventInit = {}) {
       super(type, init);
       this.pointerId = init.pointerId ?? 0;
     }
-  };
+  }) as unknown as typeof PointerEvent;
 }
 
 // vitest's URL.createObjectURL polyfill (makeCompatBlob) accesses blob._buffer,
@@ -107,8 +111,8 @@ window.L = {
     disableScrollPropagation: vi.fn(),
   },
   Control: class {},
-  latLng: (lat, lng) => ({ lat, lng }),
-  point: (x, y) => ({ x, y }),
+  latLng: (lat: number, lng: number) => ({ lat, lng }),
+  point: (x: number, y: number) => ({ x, y }),
   marker: vi.fn(() => ({
     bindPopup: vi.fn(),
     openPopup: vi.fn(),
@@ -163,7 +167,7 @@ window.map = {
 // Mock turf (needed by MeasureControl: turf.circle, turf.distance, etc.
 // export.ts implements WKT inline (no turf.wkt dependency).
 globalThis.turf = {
-  point: coords => ({
+  point: (coords: [number, number]) => ({
     type: "Feature",
     properties: {},
     geometry: { type: "Point", coordinates: coords },
