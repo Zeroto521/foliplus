@@ -900,6 +900,81 @@ describe("PaneManager", () => {
     expect(layer.options.paneSet).toBe(true);
   });
 
+  it("pinLateContent batches two GridLayers of one pane into a single append", () => {
+    // The second GridLayer against the same target pane hits the already-
+    // existing group (`markerGroups.has` true) and appends after the first.
+    const paneEl = document.createElement("div");
+    document.body.appendChild(paneEl);
+    const map = { getPane: vi.fn(() => paneEl), createPane: vi.fn() };
+    const pm = new PaneManager(map);
+    const renderer = { _container: document.createElement("div") };
+
+    const c1 = document.createElement("div");
+    const c2 = document.createElement("div");
+    const mk = (container: HTMLElement) => {
+      const layer = {
+        getContainer: () => container,
+        options: {},
+        eachLayer: undefined,
+      };
+      Object.setPrototypeOf(layer, new window.L.GridLayer());
+      return layer;
+    };
+
+    pm.pinLateContent([
+      { layer: mk(c1), paneName: "foliplus-pane-1", renderer },
+      { layer: mk(c2), paneName: "foliplus-pane-1", renderer },
+    ]);
+
+    expect(Array.from(paneEl.children)).toEqual([c1, c2]);
+  });
+
+  it("pinLateContent skips the GridLayer move when the target pane is missing", () => {
+    // getPane can return null for a pane name the registry still reports —
+    // the GridLayer branch's `paneEl &&` guard short-circuits and nothing
+    // moves, but the layer is still marked handled.
+    const map = { getPane: vi.fn(() => null), createPane: vi.fn() };
+    const pm = new PaneManager(map);
+    const renderer = { _container: document.createElement("div") };
+
+    const container = document.createElement("div");
+    const layer = {
+      getContainer: () => container,
+      options: {},
+      eachLayer: undefined,
+    };
+    Object.setPrototypeOf(layer, new window.L.GridLayer());
+
+    expect(() =>
+      pm.pinLateContent([{ layer, paneName: "foliplus-pane-1", renderer }]),
+    ).not.toThrow();
+    expect(layer.options.pane).toBe("foliplus-pane-1");
+    expect(layer.options.paneSet).toBe(true);
+  });
+
+  it("pinLateContent skips the GridLayer move when getContainer returns null", () => {
+    // A GridLayer whose container was torn down before the pin runs: the
+    // `tileContainer &&` guard falls through, no throw.
+    const paneEl = document.createElement("div");
+    document.body.appendChild(paneEl);
+    const map = { getPane: vi.fn(() => paneEl), createPane: vi.fn() };
+    const pm = new PaneManager(map);
+    const renderer = { _container: document.createElement("div") };
+
+    const layer = {
+      getContainer: () => null,
+      options: {},
+      eachLayer: undefined,
+    };
+    Object.setPrototypeOf(layer, new window.L.GridLayer());
+
+    expect(() =>
+      pm.pinLateContent([{ layer, paneName: "foliplus-pane-1", renderer }]),
+    ).not.toThrow();
+    expect(layer.options.pane).toBe("foliplus-pane-1");
+    expect(layer.options.paneSet).toBe(true);
+  });
+
   it("pinLateContent skips layers without a paneName", () => {
     const map = { getPane: vi.fn(), createPane: vi.fn() };
     const pm = new PaneManager(map);
