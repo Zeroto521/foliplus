@@ -250,14 +250,18 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   // Label section is a decoration of it. High-frequency operations lead.
   if (hasLayerDim) {
     const layerSection = createSection({ title: ui.T("section_layer") });
-    if (layerCanFill(ui, layerId))
+    if (layerCanFill(ui, layerId)) {
       layerSection.body.appendChild(buildFillRow(ui, layerId));
-    if (layerCanBorder(ui, layerId))
+    }
+    if (layerCanBorder(ui, layerId)) {
       layerSection.body.appendChild(buildBorderRow(ui, layerId));
-    if (layerCanOpacity(ui, layerId))
+    }
+    if (layerCanOpacity(ui, layerId)) {
       layerSection.body.appendChild(buildOpacityRow(ui, layerId));
-    if (canShowZoomRange(ui, layerId))
+    }
+    if (canShowZoomRange(ui, layerId)) {
       layerSection.body.appendChild(buildZoomRangeRow(ui, layerId));
+    }
     content.append(layerSection.root);
   }
   // The Label section renders only when there is a field to label; a plain
