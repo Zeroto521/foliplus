@@ -431,7 +431,7 @@ class TestLayerControlRendering:
         """The Row-cursor recipe exists in the source CSS and drives every
         interactive element with one recipe.
 
-        Mouse hover and the JS cursor class (.is-focused-row) share a
+        Mouse hover and the JS cursor class (.foliplus-is-focused-row) share a
         single :is() rule, so they cannot drift apart: white surface, left bar
         accent, top/bottom red glow, drag grip, type icon black, more button
         red. White paints whenever the row is the interaction target (hover /
@@ -453,7 +453,7 @@ class TestLayerControlRendering:
         # opening brace of the :is() rule (NOT the parent's — the nearest
         # preceding `{` belongs to the sibling &.active rule), then count depth
         # to isolate exactly this rule's body without leaking into siblings.
-        mark = "is(:hover, .is-focused-row)"
+        mark = "is(:hover, .foliplus-is-focused-row)"
         # The recipe's :is() rule sits INSIDE the compound selector that opens
         # with `.foliplus-layer-item,` — anchor there so css.find() does not
         # match the fold-btn's own `:not(...):is(...)` rule earlier in the file.
@@ -462,7 +462,7 @@ class TestLayerControlRendering:
         start = css.find(mark, compound)
         assert start != -1, "unified Row-cursor recipe selector not found"
         # :focus-visible is never a recipe trigger — Esc cancel is one class off.
-        assert "is(:hover, :focus-visible, .is-focused-row)" not in css
+        assert "is(:hover, :focus-visible, .foliplus-is-focused-row)" not in css
         # Both row types join the parent compound selector that carries this
         # :is() rule (also asserted in test_toggle_all_hover_shares_row_cursor_
         # recipe, which checks the exact selector string).
@@ -703,8 +703,8 @@ class TestLayerControlRendering:
         private hover style anymore."""
         css = read_css("foliplus/css/LayerControl/index.css")
         assert ".foliplus-layer-sep.foliplus-layer-toggle-all" in css
-        assert "is(:hover, .is-focused-row)" in css
-        assert "is(:hover, :focus-visible, .is-focused-row)" not in css
+        assert "is(:hover, .foliplus-is-focused-row)" in css
+        assert "is(:hover, :focus-visible, .foliplus-is-focused-row)" not in css
         assert "border-left-color: var(--accent-primary)" in css
         # The old fold-row-only hover used a softer border than the data rows.
         assert "border-left-color: var(--accent-light)" not in css
@@ -714,7 +714,7 @@ class TestLayerControlRendering:
         index, so no sibling hover wake can paint over the menu or a row
         panel. A fixed overlay z-index is not enough: opening a menu focuses
         its first item, so the focusin delegate marks the OWNER row
-        `.is-focused-row`; the recipe then gives the owner a z-index
+        `.foliplus-is-focused-row`; the recipe then gives the owner a z-index
         1 stacking context that confines the overlay, and a later lit
         sibling paints over it (measured in the browser). Lifting the owner
         carries the overlay with it and settles every stacking combination.
@@ -876,12 +876,12 @@ class TestLayerControlRendering:
     def test_fold_btn_hover_bidirectional_preview(self):
         """Fold button shows bidirectional preview across hover and the arrow/Tab cursor.
 
-        Keyed on :is(:hover, .is-focused-row) so the fold icon wakes up
+        Keyed on :is(:hover, .foliplus-is-focused-row) so the fold icon wakes up
         identically to the Row-cursor recipe. Tab focus is not a CSS trigger —
         the focusin delegate maps it onto the same JS class.
         """
         css = read_css("foliplus/css/LayerControl/index.css")
-        wake = "is(:hover, .is-focused-row)"
+        wake = "is(:hover, .foliplus-is-focused-row)"
         # Expanded row interaction: black → red (preview folded)
         assert "foliplus-layer-toggle-all:not(.foliplus-layer-folded):is(" in css
         assert wake in css
@@ -3837,7 +3837,7 @@ class TestLayerControlBrowser:
     def test_outside_mousedown_clears_cursor(self, browser, tmp_path):
         """Clicking outside the panel drops the keyboard cursor.
 
-        The .is-focused-row marker is a panel-local navigation cursor, so
+        The .foliplus-is-focused-row marker is a panel-local navigation cursor, so
         clicking the map / another control must clear it rather than leaving the
         last navigated row highlighted. Uses mousedown so a panel-internal click
         that rebuilds the list (a fold button, a checkbox) is unaffected.
@@ -4593,7 +4593,7 @@ class TestLayerControlBrowser:
         the overlay pane carries ``foliplus-layer-pane`` — the semantic marker
         that the pane belongs to us and the interaction rules in focus.css
         apply uniformly. The focused-layer rule
-        ``.is-focus-mode .foliplus-layer-pane:not(.foliplus-focus-pane)``
+        ``.foliplus-is-focus-mode .foliplus-layer-pane:not(.foliplus-focus-pane)``
         would hide it too without the exclusion tag, so ``drawFocusMask`` adds
         ``foliplus-focus-pane`` alongside the base class. This gate reads the
         pane as the code left it, then toggles the exclusion class to prove
@@ -4623,7 +4623,7 @@ class TestLayerControlBrowser:
                 f"focus overlay pane missing after dblclick: {result}"
             )
             assert result["focusActive"] is True, (
-                f"container must carry is-focus-mode during focus: {result}"
+                f"container must carry foliplus-is-focus-mode during focus: {result}"
             )
             state = result["state"]
             assert state["base"] is True, (
