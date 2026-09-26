@@ -152,10 +152,10 @@ const renderDelegatedStylePanel = (
   });
 
   // The shared renderer emits controls only, no headings — the panel owns the
-  // section split: Layer on top (border, opacity, zoom range), Label below.
-  // The layer dimension is the axis LayerControl adds on top of whatever the
-  // component delegated, so it reads before the component's own presentation
-  // styling.
+  // section split and reads it as the annotation panel does: Layer on top,
+  // Label below. The Layer rows run border, opacity, zoom range; a delegated
+  // drawer has no fill, so this is the annotation panel's
+  // fill → border → opacity → zoom range with the fill slot absent.
   // Row-level capability gate (5.4): the opacity row only renders when the
   // surface can honestly carry the write. A layer with `opacity: "none"`
   // (MarkerCluster) would otherwise see a slider that writes nothing but
