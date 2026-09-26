@@ -3281,6 +3281,59 @@ class TestLayerControlBrowser:
                 "reorder back above: color z must increase again"
             )
 
+    def test_base_basemap_reorder_repaints_z(self, browser, tmp_path):
+        """Every base basemap repaints when its row moves.
+
+        The z ladder is written onto each base layer's own pane
+        (synthesized for tile layers, dedicated for the color basemap).
+        Reordering two tile basemaps must flip their pane z-indexes AND the
+        tiles must actually live in those panes — if they were still in the
+        shared .leaflet-tile-pane (z fixed at 200 by Leaflet CSS), the swap
+        would change numbers nothing draws on top of.
+        """
+        tile_a = folium.TileLayer("CartoDB positron", name="Tiles A", overlay=False)
+        tile_b = folium.TileLayer("OpenStreetMap", name="Tiles B", overlay=False)
+        with use_page(self._make_page, browser, tmp_path, tile_a, tile_b) as (page, _):
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+            )
+            page.wait_for_timeout(600)
+
+            state = page.evaluate(_js("LayerControl/base_zorder_reorder"))
+            assert state["ok"] is True, state
+            assert len(state["bases"]) >= 2, f"need two base layers, got {state}"
+
+            # Tiles must paint inside each base layer's own pane, not the
+            # shared tilePane — otherwise reorder cannot change the stack.
+            assert state["sharedTilePaneImages"] == 0, (
+                f"tiles still in shared tilePane: {state}"
+            )
+            for b in state["bases"]:
+                if b["id"] == "foliplus_color_map":
+                    continue
+                assert b["paintsHere"] > 0, (
+                    f"tile layer {b['name']} paints nothing in its own pane: {state}"
+                )
+                assert b["z"] is not None, (
+                    f"tile layer {b['name']} has no ladder z: {state}"
+                )
+
+            # Swap the last tile above the first; the two tile panes' z must
+            # flip with the row order.
+            page.evaluate("window.__probe = { action: 'swap-tiles' }")
+            state2 = page.evaluate(_js("LayerControl/base_zorder_reorder"))
+            assert state2["ok"] is True, state2
+            zs2 = {b["id"]: b["z"] for b in state2["bases"]}
+            moved = [b for b in state2["bases"] if b["id"] != "foliplus_color_map"]
+            first_z2 = moved[0]["z"]
+            last_z2 = moved[-1]["z"]
+            # The tile that moved to the top must now sit above the other.
+            assert first_z2 > last_z2, (
+                f"reordered tile panes did not flip z: {moved}"
+            )
     def test_register_layer_preserves_visible_on_reentry(self, browser, tmp_path):
         """registerLayer preserves the visible state from a previous registration."""
         with use_page(self._make_page, browser, tmp_path) as (page, _):
