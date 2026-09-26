@@ -56,6 +56,7 @@ _JS_USED_KEYS = {
     "FullscreenControl.enter",
     "FullscreenControl.exit",
     "FullscreenControl.unsupported",
+    "FullscreenControl.exit_fail",
     "FullscreenControl.zoom_in",
     "FullscreenControl.zoom_out",
     # ExportControl

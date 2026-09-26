@@ -17,15 +17,16 @@ from conftest import (
 from foliplus import FullscreenControl
 
 
-def _native_html() -> str:
+def _native_html(locale: str | None = None) -> str:
     """Render a native-fullscreen page for browser tests.
 
-    ``locale="en"`` pins the resolved language: both new browser gates read the
-    hint text, which is locale-dependent, and Playwright's default browser
-    language is not something these tests should depend on.
+    Pass ``locale="en"`` only for gates that read hint text: the hint string is
+    locale-dependent, and Playwright's default browser language is not
+    something those gates should depend on. Gates that only inspect DOM state
+    should leave it unset so the page renders with the ambient locale.
     """
     m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-    FullscreenControl(hide_self=True, hide_others=False, locale="en").add_to(m)
+    FullscreenControl(hide_self=True, hide_others=False, locale=locale).add_to(m)
     return m.get_root().render()
 
 
@@ -625,7 +626,7 @@ class TestFullscreenControlBrowser:
         would announce "Entered fullscreen" for a click that just failed.
         """
         page, errors = make_browser_page(
-            browser, tmp_path, _native_html(), "fullscreen_reject"
+            browser, tmp_path, _native_html(locale="en"), "fullscreen_reject"
         )
         try:
             page.wait_for_selector(

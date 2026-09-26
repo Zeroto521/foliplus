@@ -232,7 +232,7 @@ describe("toggleFullscreen — native API path", () => {
       expect(mapMock.isFullscreen).toBe(false);
     });
 
-    it("recovers state and reports the unsupported hint on exit reject", async () => {
+    it("recovers state and reports the exit-fail hint on exit reject", async () => {
       mapMock.isFullscreen = true;
       document.exitFullscreen = vi.fn(() => Promise.reject(new Error("failed")));
       toggleFullscreen(mapMock, fsBtn, container);
@@ -241,6 +241,12 @@ describe("toggleFullscreen — native API path", () => {
       expect(mapMock.isFullscreen).toBe(false);
       expect(fsBtn.innerHTML).toBe("");
       expect(mapMock.foliplus.showHint).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.stringContaining("exit_fail"),
+        expect.any(Number),
+      );
+      // Still in fullscreen — "unsupported" would say the opposite of what happened.
+      expect(mapMock.foliplus.showHint).not.toHaveBeenCalledWith(
         expect.any(String),
         expect.stringContaining("unsupported"),
         expect.any(Number),

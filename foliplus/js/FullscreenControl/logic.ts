@@ -42,8 +42,14 @@ const updateUI = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement) => {
   );
 };
 
+// A rejected request must not report the transition that just failed — each
+// branch announces what actually happened to the user instead.
 const showUnsupportedHint = (map: L.Map) => {
   map.foliplus!.showHint?.(CONF.name, T("unsupported"), HINT_DURATION.MEDIUM);
+};
+
+const showExitFailHint = (map: L.Map) => {
+  map.foliplus!.showHint?.(CONF.name, T("exit_fail"), HINT_DURATION.MEDIUM);
 };
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -59,7 +65,7 @@ const toggleFullscreen = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement
         })
         .catch(() => {
           map.isFullscreen = Boolean(getFullscreenEl());
-          showUnsupportedHint(map);
+          showExitFailHint(map);
         });
       return;
     }
