@@ -346,4 +346,5 @@ const applyProjectionAll = (ui: LayerUI): void => {
   for (const [id] of projectAll(ui)) applyProjection(ui, id);
 };
 
-export { applyProjection, applyProjectionAll, applyStateOp, type StateOp };
+export { applyProjection, applyProjectionAll, applyStateOp };
+export type { StateOp };

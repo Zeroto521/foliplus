@@ -75,3 +75,19 @@ repos:
         entry: python script/mojibake_check.py
         language: python
         types: [text]
+
+      # Enforces three code-style rules on foliplus/js/*.ts:
+      #   (1) one value export block at file end + optional `export type {}`
+      #       (inline type in value export must be split; re-exports are
+      #       barrel-only)
+      #   (2) singular file names
+      #   (3) American spelling in identifiers and string literals
+      # Function declarations and inline exports are covered by eslint's
+      # `func-style` and `no-restricted-syntax` — see eslint.config.js.
+      # Check-only — refactor in the editor. Barrels (index.ts) and
+      # type-collection files (type.ts / types.ts) are exempt from rule 1.
+      - id: style-check
+        name: style-check
+        entry: python script/style_check.py
+        language: python
+        files: ^foliplus/js/.*\.ts$
