@@ -167,8 +167,7 @@ const renderDelegatedStylePanel = (
     const layerSection = createSection({ title: ui.T("section_layer") });
     if (borderRow) layerSection.body.appendChild(borderRow);
     if (canOpacity) layerSection.body.appendChild(buildOpacityRow(ui, layerId));
-    if (canZoomRange)
-      layerSection.body.appendChild(buildZoomRangeRow(ui, layerId));
+    if (canZoomRange) layerSection.body.appendChild(buildZoomRangeRow(ui, layerId));
     content.append(layerSection.root);
   }
   if (root.children.length) {

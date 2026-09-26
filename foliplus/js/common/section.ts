@@ -93,11 +93,7 @@ const createSection = (opts: SectionOpts): SectionResult => {
     titleEl.setAttribute("aria-expanded", collapsed ? "false" : "true");
 
     head.addEventListener("click", (event: MouseEvent): void => {
-      if (
-        switchEl &&
-        event.target instanceof Node &&
-        switchEl.contains(event.target)
-      ) {
+      if (switchEl && event.target instanceof Node && switchEl.contains(event.target)) {
         return;
       }
       const next = !root.classList.contains("is-collapsed");

@@ -27,7 +27,10 @@ describe("createSection — DOM shape", () => {
   });
 
   it("renders the caption as a muted second line beneath the title", () => {
-    const s = createSection({ title: "Label", caption: "Shown when this layer renders." });
+    const s = createSection({
+      title: "Label",
+      caption: "Shown when this layer renders.",
+    });
 
     expect(s.captionEl).not.toBeNull();
     expect(s.captionEl!.className).toBe("foliplus-section-caption");
@@ -106,9 +109,7 @@ describe("createSection — collapsible", () => {
     // handler does nothing by itself — the collapse path is `click`.
     expect(s.root.classList.contains("is-collapsed")).toBe(false);
 
-    s.titleEl.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "a", bubbles: true }),
-    );
+    s.titleEl.dispatchEvent(new KeyboardEvent("keydown", { key: "a", bubbles: true }));
     expect(s.root.classList.contains("is-collapsed")).toBe(false);
 
     s.head.dispatchEvent(new MouseEvent("click", { bubbles: true }));
