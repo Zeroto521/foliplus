@@ -3609,7 +3609,9 @@ class TestLayerControlBrowser:
             )
 
             # Real hover on the unchecked row: same white as the JS cursor class.
-            page.hover(".foliplus-layer-item:not(.active):not(.foliplus-color-layer-item)")
+            page.hover(
+                ".foliplus-layer-item:not(.active):not(.foliplus-color-layer-item)"
+            )
             page.wait_for_timeout(120)
             hover_bg = page.evaluate(
                 "() => getComputedStyle("
