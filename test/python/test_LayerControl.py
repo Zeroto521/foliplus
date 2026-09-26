@@ -2713,9 +2713,7 @@ class TestLayerControlBrowser:
             # row displays.
             entry = record["layers"].get(after["id"])
             assert entry, f"border state never persisted: {record}"
-            assert entry["borderColor"] == "#ff0000", (
-                f"stored the wrong color: {entry}"
-            )
+            assert entry["borderColor"] == "#ff0000", f"stored the wrong color: {entry}"
             assert entry["borderWeight"] == 6, f"stored the wrong width: {entry}"
 
     def test_heatmap_keeps_its_own_border_row_only(self, browser, tmp_path):
