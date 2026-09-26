@@ -2935,7 +2935,7 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
             )
             page.wait_for_timeout(500)
 

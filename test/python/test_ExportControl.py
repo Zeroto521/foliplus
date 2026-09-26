@@ -930,7 +930,7 @@ class TestExportControlBrowser:
         page.wait_for_function(
             """() => {
                 const ctrl = document.querySelector('.foliplus-export-ctrl');
-                return ctrl && ctrl.classList.contains('collapsed');
+                return ctrl && ctrl.classList.contains('is-collapsed');
             }""",
             timeout=30000,
         )

@@ -70,7 +70,10 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
     return renderDelegatedStylePanel(ui, layerId);
   }
   const fields = layerFields(ui, layerId);
-  if (!fields.length) return null;
+  const canOpacity = layerCanOpacity(ui, layerId);
+  const canZoom = canShowZoomRange(ui, layerId);
+  const canFill = layerCanFill(ui, layerId);
+  if (!fields.length && !canOpacity && !canZoom && !canFill) return null;
 
   const cfg = ui.m.annotation.getConfig(layerId);
   const fmtLabel = (f: string) => ui._(`foliplus.label_format_${f}`) || f;
@@ -227,27 +230,27 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
     closeTitle: ui.T("close_title"),
     iconClass: "foliplus-layer-style-icon foliplus-header-icon",
   });
-  content.append(
-    sectionHeading(ui.T("section_label")),
-    dom.el(
-      "div",
-      { class: CONST.CLASSES.FORM_ROW },
-      dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui._("foliplus.label")),
+  if (fields.length) {
+    content.append(
+      sectionHeading(ui.T("section_label")),
       dom.el(
         "div",
-        { class: CONST.CLASSES.FORM_CONTROL },
-        // Resolving the toggle: clicking the input, the slider span, or the
-        // label should all flip the checkbox — the switch is one <label>.
+        { class: CONST.CLASSES.FORM_ROW },
+        dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui._("foliplus.label")),
         dom.el(
-          "label",
-          { class: CONST.CLASSES.TOGGLE_SWITCH },
-          showToggle,
-          dom.el("span", { class: CONST.CLASSES.TOGGLE_SLIDER }),
+          "div",
+          { class: CONST.CLASSES.FORM_CONTROL },
+          dom.el(
+            "label",
+            { class: CONST.CLASSES.TOGGLE_SWITCH },
+            showToggle,
+            dom.el("span", { class: CONST.CLASSES.TOGGLE_SLIDER }),
+          ),
         ),
       ),
-    ),
-    body,
-  );
+      body,
+    );
+  }
   if (
     layerCanOpacity(ui, layerId) ||
     canShowZoomRange(ui, layerId) ||

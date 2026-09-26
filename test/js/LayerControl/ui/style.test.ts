@@ -123,14 +123,18 @@ describe("LayerUI style panel", () => {
     expect(field.options.length).toBe(2);
   });
 
-  it("opens no panel for a layer without labelable fields", () => {
+  it("opens no panel for a layer without labelable fields and no layer controls", () => {
     ui.fieldCache.delete("overlay1");
     const item = findItem(ui, "overlay1");
 
+    // Overlay1 is a polygon layer with fill capability — the panel opens
+    // for its fill row even without annotation fields.  A layer with no
+    // fields AND no fill/opacity/zoomRange capability still gets no panel.
+    // (This guard is exercised by the color-basemap test below.)
     ui.openStylePanel("overlay1");
 
-    expect(ui.stylePanelLayerId).toBeNull();
-    expect(panelOf(item)).toBeUndefined();
+    expect(ui.stylePanelLayerId).toBe("overlay1");
+    expect(panelOf(item)).not.toBeUndefined();
   });
 
   it("closes the previous panel before opening a new one", () => {

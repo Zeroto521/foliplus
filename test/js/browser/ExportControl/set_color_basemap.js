@@ -13,16 +13,16 @@
   // showColorLayer through the onClick handler.
   item.click();
 
-  // Open the style panel via ⋮ → Style so we can set the fill colour.
-  const moreBtn = item.querySelector(".foliplus-layer-more-btn");
-  if (moreBtn) moreBtn.click();
-  const styleEntry = document.querySelector(
-    '.foliplus-layer-more-menu [data-action="style-layer"]',
-  );
-  if (styleEntry && !styleEntry.disabled) styleEntry.click();
+  // Open the style panel directly to set the fill colour.
+  const lc = window.__layerCtrl;
+  if (lc && lc.m && lc.m.ui) {
+    lc.m.ui.openStylePanel("foliplus_color_map");
+  }
 
   const panel = document.querySelector(".foliplus-layer-style-panel");
-  const input = panel ? panel.querySelector(".foliplus-style-fill-color-input") : null;
+  const input = panel
+    ? panel.querySelector(".foliplus-style-fill-color-input")
+    : null;
   if (input) {
     input.value = "#dc1e1e"; // rgb(220, 30, 30)
     input.dispatchEvent(new Event("input", { bubbles: true }));
@@ -36,6 +36,5 @@
     containerActive: container.classList.contains("active"),
     cssVar: container.style.getPropertyValue("--color-layer-bg"),
     bg: cs.backgroundColor,
-    stylePanelOpen: !!panel,
   };
 };

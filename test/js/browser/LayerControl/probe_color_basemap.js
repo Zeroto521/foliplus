@@ -18,9 +18,13 @@
   const item = document.querySelector(".foliplus-color-layer-item");
   if (!item) return { itemFound: false };
   item.click();
-  const input = document.querySelector(
-    ".foliplus-color-layer-item input[type='color']",
-  );
+  // Set the fill color through the style panel (fill row).
+  const lc = window.__layerCtrl;
+  if (lc && lc.m && lc.m.ui && item) {
+    lc.m.ui.openStylePanel('foliplus_color_map');
+  }
+  const panel = document.querySelector(".foliplus-layer-style-panel");
+  const input = panel ? panel.querySelector(".foliplus-style-fill-color-input") : null;
   if (input) {
     input.value = "#3366cc";
     input.dispatchEvent(new Event("input", { bubbles: true }));

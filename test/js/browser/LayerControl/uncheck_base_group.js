@@ -8,7 +8,7 @@
   // so a failure names which half broke.
   const ctrl = document.querySelector(".foliplus-layer-ctrl");
   if (!ctrl) return { ok: false, reason: "no layer panel" };
-  if (!ctrl.classList.contains("expanded")) {
+  if (!ctrl.classList.contains("is-expanded")) {
     ctrl.querySelector(".foliplus-toggle-btn").click();
   }
   const sel = '.foliplus-layer-toggle-all[data-group="base"] [data-role="toggle-all"]';
