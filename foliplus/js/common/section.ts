@@ -129,4 +129,5 @@ const createSection = (opts: SectionOpts): SectionResult => {
   };
 };
 
-export { createSection, type SectionOpts, type SectionResult };
+export { createSection };
+export type { SectionOpts, SectionResult };
