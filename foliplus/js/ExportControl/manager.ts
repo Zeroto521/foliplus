@@ -5,17 +5,12 @@ import { type EventBus, ensureEvents } from "#core/event/index.js";
 import { type ModeManager, ensureModes } from "#core/mode.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { type RafLoop } from "#common/rafLoop.js";
-import {
-  type CropRect,
-  type CropState,
-  type DragState,
-  type GeoBounds,
-  cropMethods,
-} from "./crop.js";
+import { cropMethods } from "./crop.js";
 import { registerInteractions } from "./interaction.js";
-import { type SavedBounds, persistenceMethods } from "./persistence.js";
+import { persistenceMethods } from "./persistence.js";
 import { type TileLoadStats } from "./renderer/index.js";
 import { canvasToBlob, sessionMethods } from "./session.js";
+import type { CropRect, CropState, DragState, GeoBounds, SavedBounds } from "./type.js";
 import {
   lockCropBox,
   removeCropBox,
@@ -205,4 +200,4 @@ class ExportManager {
 // identical to the pre-split class methods.
 Object.assign(ExportManager.prototype, cropMethods, persistenceMethods, sessionMethods);
 
-export { type CropRect, ExportManager, canvasToBlob };
+export { ExportManager, canvasToBlob };

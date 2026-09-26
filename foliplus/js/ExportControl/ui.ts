@@ -10,7 +10,8 @@ import { bindMapSync } from "#common/panel.js";
 import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
 import { registerCropMouseDown } from "./interaction.js";
-import type { CropRect, ExportManager } from "./manager.js";
+import type { ExportManager } from "./manager.js";
+import type { CropRect } from "./type.js";
 
 /** Toolbar action button config. */
 interface ToolbarButton {

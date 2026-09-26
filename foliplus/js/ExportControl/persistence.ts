@@ -7,17 +7,11 @@ import { createScopedTranslator } from "#common/locale.js";
 import * as Storage from "#common/storage.js";
 import { nextFrame } from "#common/throttle.js";
 import * as CONST from "./const.js";
-import type { GeoBounds, LatLngPoint } from "./crop.js";
 import type { ExportManager } from "./manager.js";
+import type { GeoBounds, LatLngPoint, SavedBounds } from "./type.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const T = createScopedTranslator(CONF);
-
-/** Loaded saved bounds from storage. */
-interface SavedBounds {
-  nw: LatLngPoint;
-  se: LatLngPoint;
-}
 
 const loadSavedBounds = function (this: ExportManager) {
   const data = Storage.loadRecord<SavedBounds | null>(CONST.STORAGE.KEY, CONF.name);
@@ -125,4 +119,4 @@ const persistenceMethods = {
   unlockMap,
 };
 
-export { persistenceMethods, type SavedBounds };
+export { persistenceMethods };

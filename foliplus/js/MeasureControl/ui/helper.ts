@@ -28,12 +28,6 @@ const bindOpenOverlay = (
   });
 };
 
-/** Handle returned by bindNodeDrag — enable/disable + unbind a node drag. */
-interface DragBind {
-  setEnabled: (enabled: boolean) => void;
-  cleanup: () => void;
-}
-
 /** Index of `target` in `points` (exact lat/lng match, with float tolerance).
  *  Nodes are created at point coordinates and moved in lockstep with them, so
  *  a tight tolerance is safe and avoids matching a nearby-but-different node. */
@@ -75,4 +69,3 @@ const bindSegmentLabels = (
 };
 
 export { bindOpenOverlay, bindSegmentLabels, findPointIndex, resortLayers };
-export type { DragBind };
