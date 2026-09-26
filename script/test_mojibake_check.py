@@ -104,7 +104,7 @@ class TestHit:
         captured = capsys.readouterr()
         assert f"{f}:2" in captured.out
         assert "U+FFFD" in captured.err
-        assert "1 file(s) contain" in captured.err
+        assert "1 line(s) contain" in captured.err
 
     def test_fffd_on_first_line(self, tmp_path, capsys, monkeypatch):
         f = tmp_path / "hit_first.txt"
@@ -129,7 +129,7 @@ class TestHit:
         # Every line with a hit is reported individually.
         assert f"{f}:1" in captured.out
         assert f"{f}:3" in captured.out
-        assert captured.err.count("file(s) contain") == 1
+        assert captured.err.count("line(s) contain") == 1
 
     def test_two_fffd_in_same_line_counts_as_one(self, tmp_path, capsys, monkeypatch):
         """The script is line-oriented: two hits on one line is one failure."""
@@ -138,7 +138,7 @@ class TestHit:
         assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 1
         captured = capsys.readouterr()
         assert captured.out.count(str(f)) == 1
-        assert "1 file(s) contain" in captured.err
+        assert "1 line(s) contain" in captured.err
 
     def test_crlf_line_endings_report_correct_line(self, tmp_path, capsys, monkeypatch):
         f = tmp_path / "crlf.txt"
@@ -241,3 +241,84 @@ class TestCLI:
 def test_fffd_constant_is_three_byte_utf8_encoding_of_u_fffd():
     """The script searches for the encoded sequence, not the codepoint."""
     assert mod.FFFD == "\ufffd".encode("utf-8")
+
+
+class TestCp1252Misread:
+    """UTF-8 decoded as Windows-1252 — the em dash / arrow / quote forms.
+
+    ``→`` is ``E2 86 92``. Under CP1252 that decodes byte-by-byte as
+    ``â`` + ``†`` + right single quote (U+2019). Same shape for
+    em dash (``E2 80 94`` → ``â`` + ``"`` + ``€``) and friends. The
+    ``â`` followed by any CP1252 symbol in the ``0x80``-``0x9F`` range
+    is a signature; a bare ``â`` outside that class stays unflagged.
+
+    Test literals are written as ``\\uXXXX`` escapes — the mojibake
+    signatures they represent would otherwise trigger this very hook
+    against the test file itself.
+    """
+
+    def test_arrow_misread_is_flagged(self, tmp_path, capsys, monkeypatch):
+        f = tmp_path / "cp1252.txt"
+        f.write_bytes("\u00e2\u2020\u2019 misread\n".encode("utf-8"))
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 1
+        captured = capsys.readouterr()
+        assert f"{f}:1" in captured.out
+
+    def test_em_dash_misread_is_flagged(self, tmp_path, capsys, monkeypatch):
+        f = tmp_path / "emdash.txt"
+        f.write_bytes("\u00e2\u201c\u20ac".encode("utf-8"))
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 1
+
+    def test_bare_accented_a_is_not_flagged(self, tmp_path, capsys, monkeypatch):
+        """A lone ``â`` outside a CP1252 signature stays clean."""
+        f = tmp_path / "accent.txt"
+        f.write_bytes("Mme. \u00e2 l\u2019\u00e9preuve\n".encode("utf-8"))
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 0
+
+
+class TestLossyByteAfterPunctuation:
+    """Real punctuation followed by a bare ``?`` — the ``\u2014?`` shape.
+
+    (Escaped form in this docstring to keep the file clean of the
+    signature it detects.)
+
+    Some codecs, on hitting a byte they cannot map at the tail of a
+    multi-byte sequence, substitute ``?``. The leading em dash / arrow
+    / en dash / middle dot / ideographic full stop survives intact and
+    sits next to the replacement. Optional whitespace between the anchor
+    and ``?`` is allowed.
+
+    Escaped form — see the note in ``TestCp1252Misread``.
+    """
+
+    def test_em_dash_followed_by_question_mark_is_flagged(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        f = tmp_path / "dashq.txt"
+        f.write_bytes("value \u2014? next\n".encode("utf-8"))
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 1
+
+    def test_arrow_space_question_is_flagged(self, tmp_path, capsys, monkeypatch):
+        f = tmp_path / "arrowq.txt"
+        f.write_bytes("step \u2192 ? done\n".encode("utf-8"))
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 1
+
+    def test_em_dash_alone_is_clean(self, tmp_path, capsys, monkeypatch):
+        """The dash without a trailing ``?`` stays clean."""
+        f = tmp_path / "dash.txt"
+        f.write_bytes("one \u2014 two\n".encode("utf-8"))
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 0
+
+
+class TestGbkMisread:
+    """UTF-8 decoded as GBK/CP936 — U+951F / U+94A5 / U+922B family."""
+
+    def test_gbk_replacement_run_is_flagged(self, tmp_path, capsys, monkeypatch):
+        f = tmp_path / "gbk.txt"
+        f.write_bytes("\u951f\u65a4\u62f7\n".encode("utf-8"))
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 1
+
+    def test_gbk_citation_shape_is_flagged(self, tmp_path, capsys, monkeypatch):
+        f = tmp_path / "gbk2.txt"
+        f.write_bytes("\u94a5\u00eb\u2019".encode("utf-8"))
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 1
