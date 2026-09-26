@@ -28,7 +28,7 @@ lists directly so they do not touch the filesystem; ``check_file`` and
 
 from __future__ import annotations
 
-import importlib.util
+import runpy
 import subprocess
 import sys
 from pathlib import Path
@@ -39,9 +39,24 @@ HERE = Path(__file__).resolve().parent
 REPO_ROOT = HERE.parent
 SCRIPT = HERE / "style_check.py"
 
-_spec = importlib.util.spec_from_file_location("style_check", SCRIPT)
-mod = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(mod)  # type: ignore[union-attr]
+
+class _ModuleView:
+    """Attribute access over runpy globals for concise test calls."""
+
+    def __init__(self, namespace: dict):
+        self._ns = namespace
+
+    def __getattr__(self, name: str):
+        try:
+            return self._ns[name]
+        except KeyError as exc:
+            raise AttributeError(name) from exc
+
+    def __getitem__(self, name: str):
+        return self._ns[name]
+
+
+mod = _ModuleView(runpy.run_path(str(SCRIPT)))
 
 
 def _run(argv: list[str], *, capsys, monkeypatch) -> int:
