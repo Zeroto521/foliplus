@@ -11,21 +11,16 @@
   }
 }
 
-/* ── Color layer background on map container (via Leaflet container) ── */
-.leaflet-container.active {
-  background: var(--color-layer-bg, #cccccc);
-}
-
 /* ── A′ no-basemap hatch on map container ──
    Decoration only: fills the "no basemap selected" state so the panel's
-   empty choice is visible on the map itself. `background-image` is what
-   ExportControl's resolveExportBackground ignores (it only reads
-   `backgroundColor`), so the hatch never reaches an export.
-   Both squares are semi-transparent so the hatch stays low-contrast on
-   light and dark container backgrounds alike — one implementation, no
-   fullscreen-specific override. */
+   empty choice is visible on the map itself. Both a light background and
+   the hatch are painted here so the state is self-contained — one
+   implementation covers light and dark container backgrounds (fullscreen
+   and non-fullscreen alike), no override needed. `background-image` is
+   what ExportControl's resolveExportBackground ignores (it only reads
+   `backgroundColor`), so the hatch never reaches an export. */
 .leaflet-container.no-base-map {
-  background-color: transparent;
+  background-color: var(--panel-bg, #ffffff);
   background-image: repeating-conic-gradient(
     rgba(0, 0, 0, var(--alpha-05)) 0% 25%,
     rgba(255, 255, 255, var(--alpha-05)) 0% 50%

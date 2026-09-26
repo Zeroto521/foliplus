@@ -1147,13 +1147,16 @@ class TestExportControlBrowser:
             self._install_canvas_hook(page)
 
             # Drive the color input through the real LayerControl UI path so
-            # the container gets `.active` + `--color-layer-bg` set, exactly as
-            # `showColorLayer` does.
+            # the color pane canvas gets painted with the chosen color,
+            # exactly as `showColorLayer` does. The colour lives on a pane-
+            # owned canvas now (not on the container's CSS variable), so the
+            # container keeps its default background and the export renderer
+            # draws the pane canvas as a layer.
             state = page.evaluate(_js("ExportControl/set_color_basemap"))
             assert state["ok"] is True, state
-            assert state["containerActive"] is True, state
-            assert state["cssVar"] == "#dc1e1e", state
-            assert state["bg"] == "rgb(220, 30, 30)", state
+            assert state["ok"] is True, state
+            assert state["colorPaneCount"] > 0, state
+            assert state["liVisible"] is True, state
 
             # Full export flow: open, lock, export.
             page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()

@@ -4,7 +4,6 @@ import { hideColorLayer, showColorLayer } from "#foliplus/LayerControl/ui/color.
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 
 const makeUi = (layers: Array<{ id: string; isBase: boolean }> = []) => {
-  const mapContainer = document.createElement("div");
   const uiContainer = document.createElement("div");
 
   for (const layer of layers) {
@@ -23,8 +22,24 @@ const makeUi = (layers: Array<{ id: string; isBase: boolean }> = []) => {
   colorRow.innerHTML = `<input type="color" class="${CONST.CLASSES.COLOR_INPUT}" />`;
   uiContainer.appendChild(colorRow);
 
+  // The color basemap owns a dedicated pane + canvas (via factory.createColor),
+  // not a container CSS variable. This mock records setColor/setVisible so the
+  // tests assert on the surface handle rather than on the map container.
+  const setColor = vi.fn();
+  const setVisible = vi.fn();
   const ui = {
     uiContainer,
+    colorSurface: null as null | {
+      element: HTMLCanvasElement;
+      setColor: typeof setColor;
+      setVisible: typeof setVisible;
+      register: () => void;
+      unregister: () => void;
+      registered: () => boolean;
+      bringToFront: () => void;
+      destroy: () => void;
+    },
+    currentColor: CONST.COLOR.DEFAULT,
     syncToggleAll: vi.fn(),
     userOverrides: {},
     hiddenIds: new Set<string>(),
@@ -39,42 +54,59 @@ const makeUi = (layers: Array<{ id: string; isBase: boolean }> = []) => {
       layers,
       findLayer: () => ({ isBase: true }),
       layerRegistry: new Map(),
+      debouncedEnforce: vi.fn(),
+      createColor: vi.fn(() => ({
+        element: document.createElement("canvas"),
+        setColor,
+        setVisible,
+        register: vi.fn(),
+        unregister: vi.fn(),
+        registered: vi.fn(() => true),
+        bringToFront: vi.fn(),
+        destroy: vi.fn(),
+      })),
       map: {
-        getContainer: () => mapContainer,
-        getPane: () => ({ classList: { remove: () => {}, add: () => {} } }),
+        getContainer: () => document.createElement("div"),
+        getPane: () => ({
+          classList: { add: vi.fn(), remove: vi.fn() },
+          appendChild: vi.fn(),
+          style: {},
+        }),
         hasLayer: vi.fn(() => true),
         removeLayer: vi.fn(),
       },
     },
   } as unknown as LayerUI;
-  return { ui, mapContainer };
+  return { ui, setColor, setVisible };
 };
 
 describe("ui/color", () => {
-  it("hideColorLayer clears the active flag and map container marker", () => {
-    const { ui, mapContainer } = makeUi();
-    mapContainer.classList.add(CONST.CLASSES.ACTIVE);
-    mapContainer.style.setProperty("--color-layer-bg", "red");
+  it("hideColorLayer clears the active flag on the color row", () => {
+    const { ui, setVisible } = makeUi();
+    showColorLayer(ui, "#ff0000");
+    const colorRow = ui.uiContainer.querySelector<HTMLElement>(CONST.SEL.COLOR_ITEM);
+    expect(colorRow?.classList.contains(CONST.CLASSES.ACTIVE)).toBe(true);
+
     hideColorLayer(ui);
-    expect(mapContainer.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
-    expect(mapContainer.style.getPropertyValue("--color-layer-bg")).toBe("");
+
+    expect(colorRow?.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
+    expect(setVisible).toHaveBeenCalledWith(false);
   });
 
-  it("showColorLayer paints the container and marks the row active", () => {
-    const { ui, mapContainer } = makeUi();
+  it("showColorLayer marks the row active and paints the color", () => {
+    const { ui, setColor, setVisible } = makeUi();
     showColorLayer(ui, "#ff0000");
     expect(ui.currentColor).toBe("#ff0000");
-    expect(mapContainer.classList.contains(CONST.CLASSES.ACTIVE)).toBe(true);
-    expect(mapContainer.style.getPropertyValue("--color-layer-bg")).toBe("#ff0000");
+    expect(setColor).toHaveBeenCalledWith("#ff0000");
+    expect(setVisible).toHaveBeenCalledWith(true);
     const colorRow = ui.uiContainer.querySelector<HTMLElement>(CONST.SEL.COLOR_ITEM);
     expect(colorRow?.classList.contains(CONST.CLASSES.ACTIVE)).toBe(true);
   });
 
   it("showColorLayer leaves base layers on the map and the shared tilePane untouched", () => {
-    // First-class basemap: colour and tiles coexist. The colour layer must
-    // not remove any tile layer from the map nor hide Leaflet's shared
-    // tilePane —those were the global side effects the mutual exclusion
-    // removed.
+    // First-class basemap: colour and tiles coexist. The colour layer owns
+    // its own pane — it must not remove any tile layer from the map nor
+    // touch Leaflet's shared tilePane.
     const { ui } = makeUi([
       { id: "base_1", isBase: true },
       { id: "base_2", isBase: true },
@@ -119,10 +151,8 @@ describe("ui/color", () => {
         checked: row.querySelector<HTMLInputElement>("input[type=checkbox]")?.checked,
         active: row.classList.contains(CONST.CLASSES.ACTIVE),
       };
-      // Checkboxes are untouched either way.
       expect(after.checked).toBe(before[i].checked);
     });
-    // The row that started active stays active.
     expect(rows[0].classList.contains(CONST.CLASSES.ACTIVE)).toBe(true);
   });
 
@@ -133,5 +163,19 @@ describe("ui/color", () => {
     );
     row!.innerHTML = "";
     expect(() => showColorLayer(ui, "#ff0000")).not.toThrow();
+  });
+
+  it("showColorLayer reuses the surface on subsequent calls", () => {
+    // The surface is created once and reused: a second show must not
+    // allocate a new canvas or pane.
+    const { ui, setColor } = makeUi();
+    showColorLayer(ui, "#ff0000");
+    const firstSurface = ui.colorSurface;
+    expect(firstSurface).not.toBeNull();
+
+    showColorLayer(ui, "#00ff00");
+
+    expect(ui.colorSurface).toBe(firstSurface);
+    expect(setColor).toHaveBeenLastCalledWith("#00ff00");
   });
 });

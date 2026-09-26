@@ -9,6 +9,8 @@ import { CANVAS_PANE_PREFIX, COLOR_PANE_PREFIX, PANE_NAME_PATTERN } from "./cons
 import type {
   CreateCanvasAPI,
   CreateCanvasOpts,
+  CreateColorAPI,
+  CreateColorOpts,
   CreateLayersAPI,
   CreateLayersOpts,
   CreateSurfaceOpts,
@@ -126,6 +128,26 @@ class LayerFactory {
       destroy: handle.destroy,
       bringToFront: handle.bringToFront,
       setVisible: handle.content.setVisible,
+    };
+  }
+
+  createColor(opts: CreateColorOpts): CreateColorAPI {
+    const handle = this.createSurface({
+      id: opts.id,
+      name: opts.name,
+      content: { kind: "color", color: opts.color },
+    });
+    // register() is called by the caller (LayerControl UI) after setting
+    // ui.colorSurface, to avoid a recursive call through applyProjection.
+    return {
+      element: handle.content.element,
+      setColor: handle.content.setColor,
+      setVisible: handle.content.setVisible,
+      register: handle.register,
+      unregister: handle.unregister,
+      registered: handle.registered,
+      bringToFront: handle.bringToFront,
+      destroy: handle.destroy,
     };
   }
 

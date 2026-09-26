@@ -4,7 +4,7 @@
 // refreshAllCounts moved to `./lifecycle.ts` (34.2).
 import { type EventBus, ensureEvents } from "#core/event/index.js";
 import type { LabelField } from "#core/labelField.js";
-import { type LayerInfo } from "#core/layer/index.js";
+import { type CreateColorAPI, type LayerInfo } from "#core/layer/index.js";
 import { ListCursor } from "#core/listCursor.js";
 import { createScopedTranslator, createTranslator } from "#common/locale.js";
 import * as CONST from "../const.js";
@@ -104,6 +104,11 @@ class LayerUI {
    *  layer's choice from another's. */
   userOverrides: Record<string, LayerOverride[]>;
   currentColor: string;
+  /** Lazy-created color basemap surface — the pane-owned canvas that carries
+   *  the fill. Built on first show (via `factory.createColor`), which also
+   *  upserts the LayerInfo so the pane participates in `enforceOrder`.
+   *  Null until the color basemap is first displayed. */
+  colorSurface: CreateColorAPI | null;
   /** Map of layer id → user-assigned display name (survives reload). */
   renamedNames: Record<string, string>;
   /** Layer id whose label is currently an inline rename input, or null. */
@@ -226,6 +231,7 @@ class LayerUI {
     this.authorVisible = new Map();
     this.userOverrides = {};
     this.currentColor = CONST.COLOR.DEFAULT;
+    this.colorSurface = null;
     this.renamedNames = {};
     this.activeRenameId = null;
     this.dragIdx = null;

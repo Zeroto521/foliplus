@@ -3,6 +3,8 @@ import { ensureLayerAPI } from "#core/layer/api.js";
 import {
   type CreateCanvasAPI,
   type CreateCanvasOpts,
+  type CreateColorAPI,
+  type CreateColorOpts,
   type CreateLayersAPI,
   type CreateLayersOpts,
   GEOM_TYPE,
@@ -320,6 +322,10 @@ class LayerManager implements LayerAPI {
 
   createCanvas(opts: CreateCanvasOpts): CreateCanvasAPI {
     return this.factory.createCanvas(opts);
+  }
+
+  createColor(opts: CreateColorOpts): CreateColorAPI {
+    return this.factory.createColor(opts);
   }
 
   /** True while any registered layer is unresolved (layerInfo.layer === null).
@@ -882,8 +888,8 @@ class LayerManager implements LayerAPI {
    *  directly, but this wrapper stays because LayerManager is the LayerAPI
    *  entry point — removing it would break the contract. Tests and probes
    *  may still call it. Do not grow this into real logic. */
-  computeZIndex(i: number, isTile: boolean): number {
-    return zFor({ index: i, count: this.layers.length, tile: isTile });
+  computeZIndex(i: number, isBase: boolean): number {
+    return zFor({ index: i, count: this.layers.length, isBase });
   }
 
   /** The surface for a registry entry, built on first use. Registration builds
@@ -945,10 +951,10 @@ class LayerManager implements LayerAPI {
       for (let i = 0; i < this.layers.length; i++) {
         const layerInfo = this.layers[i];
         const layer = this.findLayer(layerInfo);
-        // GridLayer covers TileLayer plus other grid subclasses (L.gridLayer());
-        // all of them are positioned from the tile base.
-        const isGrid = layer instanceof L.GridLayer;
-        const slot = { index: i, count: this.layers.length, tile: isGrid };
+        // Base-group layers (tile basemaps + the solid-color basemap) share
+        // the 200 ladder, so a color pane interleaves with tile basemaps
+        // row-by-row. Overlay-group layers use the 600 ladder.
+        const slot = { index: i, count: this.layers.length, isBase: layerInfo.isBase };
         const z = zFor(slot);
 
         // Callback-only layers (createCanvas / heatmap): no Leaflet layer, but

@@ -172,16 +172,12 @@ class ExportRenderer {
       // does the same filtering as the draw pass) and counted, and its own
       // total is reported against the running cross-layer sum.
       if (geoBounds && geoBounds.nw) {
-        // A solid-color basemap hides tilePane by class instead of unchecking
-        // the tile layers, so every `li.visible` is still true and the tile
-        // URLs would still be fetched — the tiles repaint over the color the
-        // user just picked.  Read the pane's computed state rather than the
-        // class: it is what the screen actually shows, and it does not bind to
-        // whichever rule produced the hiding.  Skipping here leaves sizedTiles
-        // empty, so the progress denominator correctly reports no tiles.
         // Size every tile layer up front: the sum is the progress denominator
         // and the surviving entries are the layers that get drawn, so the
-        // numerator and denominator describe the same set of tiles.
+        // numerator and denominator describe the same set of tiles. The
+        // solid-color basemap, when visible, is a separate canvas entry in
+        // `li.canvas` — it paints over the tile layer above it in row order
+        // exactly like any other pane.
         const zoom = this.map.getZoom();
         const sizedTiles: Array<{
           tiles: import("./util.js").TileDesc[];

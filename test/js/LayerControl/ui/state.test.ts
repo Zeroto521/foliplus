@@ -73,6 +73,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
           return el;
         }),
         getPane,
+        getPanes: vi.fn(() => ({ mapPane: document.createElement("div") })),
         createPane: vi.fn(() => ({
           style: {},
           classList: { add: vi.fn(), remove: vi.fn() },
@@ -525,6 +526,8 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       m.uiContainer = container;
       map.getPane.mockReturnValue({
         classList: { add: vi.fn(), remove: vi.fn() },
+        appendChild: vi.fn(),
+        style: {},
       });
 
       u.showColorLayer("#000000");
