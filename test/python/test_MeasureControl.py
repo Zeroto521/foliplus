@@ -174,7 +174,7 @@ class TestMeasureControlRendering:
     # ── Finish animation tests ──
 
     def test_dash_sweep_animation_classes(self):
-        """Distance finishDist adds is-dash-sweep class with --sweep-length."""
+        """Distance finishDist adds foliplus-measure-dash-sweep class with --sweep-length."""
         html = render_control(MeasureControl())
         assert "dash-sweep" in html
         assert "--sweep-length" in html

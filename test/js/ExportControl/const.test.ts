@@ -162,7 +162,7 @@ describe("CLASSES", () => {
   it("defines CSS class constants", () => {
     expect(CONST.CLASSES.COLLAPSED).toBe("foliplus-is-collapsed");
     expect(CONST.CLASSES.LOCKED).toBe("locked");
-    expect(CONST.CLASSES.DRAGGING).toBe("is-dragging");
+    expect(CONST.CLASSES.DRAGGING).toBe("foliplus-is-dragging");
   });
 });
 

@@ -138,7 +138,7 @@
        the border-color can transition. */
     border-left: var(--border-thick) solid transparent;
 
-    &.is-active {
+    &.foliplus-is-active {
       border-left-color: var(--accent-primary);
       /* Persistent "selected scheme" state: soft 5% wash, same language as
          the keyboard cursor. --accent-light (#fde8e8) was too saturated —

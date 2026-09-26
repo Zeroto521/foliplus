@@ -52,10 +52,10 @@ const CLASSES = {
   CLOSE: "foliplus-close-btn",
   HIDDEN: "foliplus-hidden",
   LOCKED: "locked",
-  ACTIVE: "is-active",
+  ACTIVE: "foliplus-is-active",
   CONFIRM: "confirm",
   CANCEL: "cancel",
-  DRAGGING: "is-dragging",
+  DRAGGING: "foliplus-is-dragging",
 };
 
 const SVG_NS = "http://www.w3.org/2000/svg";

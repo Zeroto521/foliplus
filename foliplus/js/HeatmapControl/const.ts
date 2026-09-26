@@ -73,7 +73,7 @@ const CLASSES = {
   HIDDEN: "foliplus-hidden",
   COLLAPSED: "foliplus-is-collapsed",
   EXPANDED: "foliplus-is-expanded",
-  ACTIVE: "is-active",
+  ACTIVE: "foliplus-is-active",
   PLACEHOLDER_OPTION: "foliplus-heatmap-placeholder-opt",
   SCHEME_DROPDOWN_ITEM: "foliplus-heatmap-scheme-dropdown-item",
   SECTION_HEADING: "foliplus-section-heading",

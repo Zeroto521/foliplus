@@ -29,7 +29,7 @@ const CLASSES = {
   RESULT_ITEM: "foliplus-search-result-item",
   RESULT_ICON: "foliplus-search-result-icon",
   RESULT_TEXT: "foliplus-search-result-text",
-  ACTIVE: "is-active",
+  ACTIVE: "foliplus-is-active",
   /** Content wrapper inside a result item (address + coord display). */
   RESULT_CONTENT: "foliplus-search-result-content",
   /** Secondary coordinate display line inside a result item. */
