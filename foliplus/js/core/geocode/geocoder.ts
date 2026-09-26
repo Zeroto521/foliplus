@@ -184,4 +184,5 @@ const cacheSuggestion = (
   geoCache.set(`reverse:${resolved.id}:${lng},${lat}`, displayName);
 };
 
-export { geocode, reverseGeocode, cacheSuggestion, type GeocodeResult };
+export { geocode, reverseGeocode, cacheSuggestion };
+export type { GeocodeResult };

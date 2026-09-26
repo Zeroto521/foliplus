@@ -41,4 +41,5 @@ const area = (points: LatLngPoint[]): number => {
   return turf.area(turf.polygon([coords]));
 };
 
-export { type LatLngPoint, area, bearing, centroid, distance, midpoint };
+export { area, bearing, centroid, distance, midpoint };
+export type { LatLngPoint };

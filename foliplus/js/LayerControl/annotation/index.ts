@@ -614,4 +614,5 @@ const parseNum = (v: string): number | null => {
   return Number.isFinite(n) ? n : null;
 };
 
-export { AnnotationManager, type AnnotationConfig, type LayerLabel };
+export { AnnotationManager };
+export type { AnnotationConfig, LayerLabel };
