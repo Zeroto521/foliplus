@@ -438,7 +438,7 @@ class TestCheckExportBlocks:
         assert v[0][0] == 1
         assert "inline `type X`" in v[0][1]
 
-    def test_multiple_value_blocks_are_reported_at_last_line(self):
+    def test_multiple_value_blocks_are_reported_at_first_line(self):
         path = "a.ts"
         lines = [
             "export { x }\n",
@@ -447,10 +447,10 @@ class TestCheckExportBlocks:
         ]
         v = mod.check_export_blocks(lines, path)
         assert len(v) == 1
-        assert v[0][0] == 3
+        assert v[0][0] == 1
         assert "3 value export blocks" in v[0][1]
 
-    def test_multiple_type_blocks_are_reported_at_last_line(self):
+    def test_multiple_type_blocks_are_reported_at_first_line(self):
         path = "a.ts"
         lines = [
             "export type { A }\n",
@@ -459,7 +459,7 @@ class TestCheckExportBlocks:
         ]
         v = mod.check_export_blocks(lines, path)
         assert len(v) == 1
-        assert v[0][0] == 3
+        assert v[0][0] == 1
         assert "3 type export blocks" in v[0][1]
 
     def test_star_export_in_non_barrel_is_reported(self):
@@ -485,6 +485,17 @@ class TestCheckExportBlocks:
             "export { y }\n",
         ]
         assert mod.check_export_blocks(lines, path) == []
+
+    def test_multiple_type_reexports_are_reported_at_first_line(self):
+        path = "a.ts"
+        lines = [
+            "export type { X } from './a.js'\n",
+            "export type { Y } from './b.js'\n",
+        ]
+        v = mod.check_export_blocks(lines, path)
+        assert len(v) == 1
+        assert v[0][0] == 1
+        assert "2 type export blocks" in v[0][1]
 
     def test_comment_export_is_ignored(self):
         path = "a.ts"
@@ -512,9 +523,9 @@ class TestCheckPluralNames:
         v = mod.check_plural_names("series.ts")
         assert len(v) == 1
 
-    def test_singular_s_suffixes_are_allowed(self):
+    def test_words_ending_in_s_are_plural(self):
         for name in ["axis.ts", "basis.ts", "thesis.ts", "crisis.ts"]:
-            assert mod.check_plural_names(name) == []
+            assert mod.check_plural_names(name) != []
 
     def test_whitelisted_names_are_allowed(self):
         for name in ["pelias.ts", "focus.ts", "canvas.ts", "index.ts"]:
@@ -558,7 +569,7 @@ class TestCheckFile:
         f.write_text("export { x }\nexport { y }\n", encoding="utf-8")
         v = mod.check_file(str(f))
         assert len(v) == 1
-        assert v[0][0] == 2
+        assert v[0][0] == 1
         assert "2 value export blocks" in v[0][1]
 
     def test_spelling_violation_reports_line_number(self, tmp_path):
@@ -577,7 +588,7 @@ class TestCheckFile:
         )
         v = mod.check_file(str(f))
         assert len(v) == 5
-        assert v[0][0] == 3
+        assert v[0][0] == 2
         assert v[1][0] == 0
         assert v[2][0] == 1
         assert v[3][0] == 2

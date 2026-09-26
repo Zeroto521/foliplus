@@ -87,38 +87,6 @@ BRITISH_RE = re.compile(
 BARREL_RE = re.compile(r"(^|/)index\.ts$")
 TYPE_FILE_RE = re.compile(r"(^|/)types?\.ts$")
 
-# Words that end in `s` but are clearly singular (not plurals).
-SINGULAR_S_SUFFIXES = (
-    "is",
-    "us",
-    "os",
-    "ss",
-    "bus",
-    "mas",
-    "has",
-    "das",
-    "was",
-    "cas",
-    "bas",
-    "las",
-    "kas",
-    "tas",
-    "gas",
-    "pas",
-    "fas",
-    "ras",
-    "nas",
-    "vas",
-    "sas",
-    "bus",
-    "virus",
-    "analysis",
-    "basis",
-    "thesis",
-    "crisis",
-    "axis",
-)
-
 
 def strip_comments_and_strings(line: str) -> str:
     """Blank out comments and string literals so brace counting and export
@@ -226,8 +194,8 @@ def check_export_blocks(lines: list[str], filepath: str) -> list[tuple[int, str]
 
     value_blocks = 0
     type_blocks = 0
-    last_value_lineno = 0
-    last_type_lineno = 0
+    first_value_lineno = 0
+    first_type_lineno = 0
 
     for lineno, raw in enumerate(lines, 1):
         stripped = strip_comments_and_strings(raw).strip()
@@ -247,8 +215,9 @@ def check_export_blocks(lines: list[str], filepath: str) -> list[tuple[int, str]
         if RE_EXPORT_RE.match(stripped):
             is_type_reexport = stripped.startswith("export type")
             if is_type_reexport:
+                if type_blocks == 0:
+                    first_type_lineno = lineno
                 type_blocks += 1
-                last_type_lineno = lineno
             else:
                 violations.append(
                     (
@@ -263,11 +232,10 @@ def check_export_blocks(lines: list[str], filepath: str) -> list[tuple[int, str]
         if m:
             is_type = bool(m.group(1))
             if is_type:
+                if type_blocks == 0:
+                    first_type_lineno = lineno
                 type_blocks += 1
-                last_type_lineno = lineno
             else:
-                # Detect inline `type X` mixed into a value export:
-                # `export { a, type B, c }`.
                 if INLINE_TYPE_IN_EXPORT_RE.search(stripped):
                     violations.append(
                         (
@@ -276,14 +244,15 @@ def check_export_blocks(lines: list[str], filepath: str) -> list[tuple[int, str]
                             "`export { ... }` then `export type { ... }`",
                         )
                     )
+                if value_blocks == 0:
+                    first_value_lineno = lineno
                 value_blocks += 1
-                last_value_lineno = lineno
             continue
 
     if value_blocks > 1:
         violations.append(
             (
-                last_value_lineno,
+                first_value_lineno,
                 f"{value_blocks} value export blocks — collapse into one "
                 "`export { a, b, c }` block at file end",
             )
@@ -291,7 +260,7 @@ def check_export_blocks(lines: list[str], filepath: str) -> list[tuple[int, str]
     if type_blocks > 1:
         violations.append(
             (
-                last_type_lineno,
+                first_type_lineno,
                 f"{type_blocks} type export blocks — collapse into one "
                 "`export type { ... }` block",
             )
@@ -312,12 +281,7 @@ def check_plural_names(filepath: str) -> list[tuple[int, str]]:
     lower = base.lower()
     if lower in PLURAL_WHITELIST:
         return violations
-    if lower.endswith("ies") or lower.endswith(("ses", "xes", "zes", "ches", "shes")):
-        is_plural = True
-    elif lower.endswith("s"):
-        is_plural = not lower.endswith(SINGULAR_S_SUFFIXES)
-    else:
-        is_plural = False
+    is_plural = lower.endswith("s")
     if is_plural:
         violations.append((0, f"name `{base}` looks plural — use singular"))
     return violations
