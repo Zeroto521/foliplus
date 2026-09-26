@@ -72,6 +72,7 @@
 - `common/storage`: share three persistence helpers (`saveVersioned` / `loadVersioned` / `makePersisted`) across `MeasureControl`/`HeatmapControl`/`SearchControl`/`LayerControl`; legacy records stay readable without migration ([#416](https://github.com/Zeroto521/foliplus/pull/416), [#417](https://github.com/Zeroto521/foliplus/pull/417), [#422](https://github.com/Zeroto521/foliplus/pull/422))
 - `HeatmapControl`: border and label styling move to the layer style drawer; the panel keeps only aggregation controls ([#447](https://github.com/Zeroto521/foliplus/pull/447))
 - `InteractionManager`/`ListCursor`/`LayerControl`: input ownership — one control × key table at dispatch replaces five per-call-site guards; adding a control to a panel is a table entry; `Escape` stays foliplus-owned ([#450](https://github.com/Zeroto521/foliplus/pull/450))
+- `LayerControl`: style panel sections read Layer above Label, and the Layer section rows read fill, border, opacity, zoom range — the two color axes sit adjacent and the two slider axes sit adjacent; rows the layer cannot carry stay hidden ([#458](https://github.com/Zeroto521/foliplus/pull/458))
 
 ### Removed
 

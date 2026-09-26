@@ -78,7 +78,7 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   const fields = layerFields(ui, layerId);
   const hasLabel = fields.length > 0;
   // A plain vector shape has no feature properties, so no labelable field —
-  // but it still owns the Layer section (opacity, fill, border, zoom range). The
+  // but it still owns the Layer section (fill, border, opacity, zoom range). The
   // ⋮ menu enables Style on capability alone, so the panel has to honour the
   // same gate rather than demanding a field.
   const hasLayerDim =
@@ -243,6 +243,17 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
     closeTitle: ui.T("close_title"),
     iconClass: "foliplus-layer-style-icon foliplus-header-icon",
   });
+  // The Layer section renders only when the layer owns a capable dimension;
+  // a layer without any of them reaches the panel for the Label section alone.
+  // Layer comes first: it is the primary surface (what the user drew), and the
+  // Label section is a decoration of it. High-frequency operations lead.
+  if (hasLayerDim) {
+    content.append(sectionHeading(ui.T("section_layer")));
+    if (layerCanFill(ui, layerId)) content.append(buildFillRow(ui, layerId));
+    if (layerCanBorder(ui, layerId)) content.append(buildBorderRow(ui, layerId));
+    if (layerCanOpacity(ui, layerId)) content.append(buildOpacityRow(ui, layerId));
+    if (canShowZoomRange(ui, layerId)) content.append(buildZoomRangeRow(ui, layerId));
+  }
   // The Label section renders only when there is a field to label; a plain
   // vector shape reaches the panel for the Layer section alone.
   if (hasLabel) {
@@ -267,13 +278,6 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
       ),
       body,
     );
-  }
-  if (hasLayerDim) {
-    content.append(sectionHeading(ui.T("section_layer")));
-    if (layerCanOpacity(ui, layerId)) content.append(buildOpacityRow(ui, layerId));
-    if (layerCanFill(ui, layerId)) content.append(buildFillRow(ui, layerId));
-    if (layerCanBorder(ui, layerId)) content.append(buildBorderRow(ui, layerId));
-    if (canShowZoomRange(ui, layerId)) content.append(buildZoomRangeRow(ui, layerId));
   }
   appendResetFooter(ui, content);
   return panel;
@@ -545,16 +549,16 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
   panel.addEventListener("click", (event: Event) => {
     const t = event.target as HTMLElement;
     if (t.closest(".foliplus-style-reset-btn")) {
-      // Opacity is LayerControl-owned in both flavours: always restore 1.
-      resetLayerOpacity(ui, layerId);
-      // Zoom range is LayerControl-owned: reset to the full map range.
-      resetLayerZoomRange(ui, layerId);
       // Fill is LayerControl-owned on the annotation flavour only (the gate
       // excludes delegated layers).
       resetLayerFill(ui, layerId);
       // Border is LayerControl-owned too: restore the author's stroke and drop
       // the persisted color / width, so a reload does not re-apply them.
       resetLayerBorder(ui, layerId);
+      // Opacity is LayerControl-owned in both flavours: always restore 1.
+      resetLayerOpacity(ui, layerId);
+      // Zoom range is LayerControl-owned: reset to the full map range.
+      resetLayerZoomRange(ui, layerId);
       if (delegated) {
         // Call each setter with its Python CONF default. The components own
         // the values — never write localStorage or annotation config here.
