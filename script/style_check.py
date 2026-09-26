@@ -47,6 +47,7 @@ PLURAL_WHITELIST = {
     "index",
     "js",
     "ts",
+    "type",
 }
 
 # Rule 3: American spelling — identifiers and string literals only.
@@ -88,46 +89,16 @@ BARREL_RE = re.compile(r"(^|/)index\.ts$")
 TYPE_FILE_RE = re.compile(r"(^|/)types?\.ts$")
 
 
-def strip_comments_and_strings(line: str) -> str:
-    """Blank out comments and string literals so brace counting and export
-    matching aren't confused by `// export { }` or `"{"`.
+def strip_comments(line: str, in_block: bool, keep_strings: bool = True) -> tuple[str, bool]:
+    """Strip comments from one line, optionally blanking string contents.
 
-    Handles `//` line comments and simple `"..."` / `'...'` / `` `...` ``
-    strings. Block comments (`/* */`) are not supported — they don't appear
-    in this codebase.
-    """
-    out: list[str] = []
-    i = 0
-    n = len(line)
-    while i < n:
-        c = line[i]
-        if c == "/" and i + 1 < n and line[i + 1] == "/":
-            break
-        if c in "\"'`":
-            quote = c
-            out.append(" ")
-            i += 1
-            while i < n and line[i] != quote:
-                if line[i] == "\\":
-                    i += 2
-                    continue
-                out.append(" ")
-                i += 1
-            if i < n:
-                out.append(" ")
-                i += 1
-            continue
-        out.append(c)
-        i += 1
-    return "".join(out)
+    Handles ``//`` line comments and ``/* */`` block comments (with state
+    carried across lines). When ``keep_strings`` is True (default), string
+    literals are copied verbatim so spelling checks cover user-facing
+    strings. When False, string contents are blanked to spaces so brace
+    counting and export matching aren't confused by ``"{"``.
 
-
-def strip_comments_line(line: str, in_block: bool) -> tuple[str, bool]:
-    """Strip comments from one line, tracking multi-line block comments.
-
-    String literals are kept verbatim so spelling checks cover user-facing
-    strings. Returns (code, in_block_after_line) — `in_block` tells the
-    caller whether the previous line opened a `/*` that this line continues.
+    Returns (code, in_block_after_line).
     """
     out: list[str] = []
     i = 0
@@ -135,33 +106,30 @@ def strip_comments_line(line: str, in_block: bool) -> tuple[str, bool]:
     while i < n:
         c = line[i]
         if in_block:
-            # Inside a block comment — look for the closing `*/`.
             if c == "*" and i + 1 < n and line[i + 1] == "/":
                 i += 2
                 in_block = False
                 continue
             i += 1
             continue
-        # String literal — copy verbatim so its content is still checked.
         if c in "\"'`":
             quote = c
-            out.append(c)
+            out.append(c if keep_strings else " ")
             i += 1
             while i < n and line[i] != quote:
                 if line[i] == "\\" and i + 1 < n:
-                    out.append(line[i : i + 2])
+                    if keep_strings:
+                        out.append(line[i : i + 2])
                     i += 2
                     continue
-                out.append(line[i])
+                out.append(line[i] if keep_strings else " ")
                 i += 1
             if i < n:
-                out.append(line[i])
+                out.append(line[i] if keep_strings else " ")
                 i += 1
             continue
-        # Line comment — rest of the line is prose.
         if c == "/" and i + 1 < n and line[i + 1] == "/":
             break
-        # Block comment — enters multi-line mode until a closing `*/`.
         if c == "/" and i + 1 < n and line[i + 1] == "*":
             i += 2
             in_block = True
@@ -176,7 +144,7 @@ def check_spelling(lines: list[str]) -> list[tuple[int, str]]:
     violations: list[tuple[int, str]] = []
     in_block = False
     for lineno, raw in enumerate(lines, 1):
-        code, in_block = strip_comments_line(raw, in_block)
+        code, in_block = strip_comments(raw, in_block, keep_strings=True)
         for m in BRITISH_RE.finditer(code):
             word = m.group(0)
             fix = BRITISH_TO_AMERICAN[word.lower()]
@@ -186,7 +154,12 @@ def check_spelling(lines: list[str]) -> list[tuple[int, str]]:
 
 def check_export_blocks(lines: list[str], filepath: str) -> list[tuple[int, str]]:
     """Rule 1: report files with >1 value export block, inline type in a
-    value export, or re-exports in non-barrel files."""
+    value export, or re-exports in non-barrel files.
+
+    Only single-line export blocks are detected (``export { a, b }``);
+    multi-line blocks (``export { a,\\n b }``) are not supported because
+    the codebase never uses them.
+    """
     violations: list[tuple[int, str]] = []
     basename = os.path.basename(filepath)
     if BARREL_RE.search(basename) or TYPE_FILE_RE.search(basename):
@@ -196,9 +169,11 @@ def check_export_blocks(lines: list[str], filepath: str) -> list[tuple[int, str]
     type_blocks = 0
     first_value_lineno = 0
     first_type_lineno = 0
+    in_block = False
 
     for lineno, raw in enumerate(lines, 1):
-        stripped = strip_comments_and_strings(raw).strip()
+        stripped, in_block = strip_comments(raw, in_block, keep_strings=False)
+        stripped = stripped.strip()
 
         # Re-export from another module.
         #   `export { X } from "./x.js"`   — value re-export, barrel-only.

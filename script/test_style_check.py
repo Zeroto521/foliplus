@@ -69,191 +69,204 @@ def _run(argv: list[str], *, capsys, monkeypatch) -> int:
     return mod.main()
 
 
-class TestStripCommentsAndStrings:
-    """Rule 1's helper: comments and string contents become spaces.
+class TestStripCommentsBlankStrings:
+    """strip_comments with keep_strings=False: comments go, strings blanked.
 
-    It is only used for brace/export matching, so strings may be blanked —
-    the point is that ``export {`` inside a comment or a string cannot be
-    mistaken for a real export block.
+    Used by check_export_blocks so ``export {`` inside a comment or a string
+    cannot be mistaken for a real export block.
     """
 
+    def _run(self, line: str) -> str:
+        out, _ = mod.strip_comments(line, False, keep_strings=False)
+        return out
+
     def test_line_comment_is_truncated(self):
-        assert mod.strip_comments_and_strings("a // export { x }") == "a "
+        assert self._run("a // export { x }") == "a "
 
     def test_line_comment_at_start(self):
-        assert mod.strip_comments_and_strings("// export { x }") == ""
+        assert self._run("// export { x }") == ""
 
     def test_double_quoted_string_is_blanked(self):
-        assert mod.strip_comments_and_strings('export { "a" }') == "export {     }"
+        assert self._run('export { "a" }') == "export {     }"
 
     def test_single_quoted_string_is_blanked(self):
-        assert mod.strip_comments_and_strings("export { 'a' }") == "export {     }"
+        assert self._run("export { 'a' }") == "export {     }"
 
     def test_template_string_is_blanked(self):
-        assert mod.strip_comments_and_strings("export { `a` }") == "export {     }"
+        assert self._run("export { `a` }") == "export {     }"
 
     def test_escaped_quote_inside_string(self):
         """A backslash inside a string must not terminate the string."""
-        assert mod.strip_comments_and_strings('export { "a\\"b" }') == "export {      }"
+        assert self._run('export { "a\\"b" }') == "export {      }"
 
     def test_escaped_backslash_at_string_end(self):
         """``"a\\"`` — the escape swallows the closing quote."""
-        assert mod.strip_comments_and_strings('export { "a\\" }') == "export {     "
+        assert self._run('export { "a\\" }') == "export {     "
 
     def test_unterminated_string_is_blanked_to_eol(self):
-        assert mod.strip_comments_and_strings('export { "a }') == "export {     "
+        assert self._run('export { "a }') == "export {     "
 
     def test_multiple_strings_and_comment(self):
-        out = mod.strip_comments_and_strings("a \"x\" b'y' c `z` // tail")
-        assert out == "a     b    c     "
+        assert self._run("a \"x\" b'y' c `z` // tail") == "a     b    c     "
 
     def test_empty_string_is_clean(self):
-        assert mod.strip_comments_and_strings("") == ""
+        assert self._run("") == ""
 
     def test_slash_alone_is_kept(self):
-        assert mod.strip_comments_and_strings("a / b") == "a / b"
+        assert self._run("a / b") == "a / b"
 
     def test_single_slash_before_end_is_kept(self):
-        assert mod.strip_comments_and_strings("a /") == "a /"
+        assert self._run("a /") == "a /"
+
+    def test_block_comment_is_stripped(self):
+        assert self._run("a /* export { x } */ b") == "a  b"
+
+    def test_block_comment_carries_across_lines(self):
+        _, in_block = mod.strip_comments("a /*", False, keep_strings=False)
+        out, in_block = mod.strip_comments("export { x }", in_block, keep_strings=False)
+        assert out == ""
+        assert in_block is True
+        out, in_block = mod.strip_comments("*/ b", in_block, keep_strings=False)
+        assert out == " b"
+        assert in_block is False
 
 
-class TestStripCommentsLine:
-    """Rule 3's helper: comments go, strings stay, block state carries over.
+class TestStripCommentsKeepStrings:
+    """strip_comments with keep_strings=True: comments go, strings stay.
 
-    Returns ``(code, in_block_after_line)``. Strings are copied verbatim so a
-    British word in a user-facing string is still checked; comments are dropped
-    because they hold English prose.
+    Used by check_spelling so British words in user-facing strings are still
+    checked. Returns ``(code, in_block_after_line)``.
     """
 
     def test_line_comment_is_truncated(self):
-        out, in_block = mod.strip_comments_line("a // colour", False)
+        out, in_block = mod.strip_comments("a // colour", False)
         assert out == "a "
         assert in_block is False
 
     def test_block_comment_open_closes_state(self):
-        out, in_block = mod.strip_comments_line("a /* colour */ b", False)
+        out, in_block = mod.strip_comments("a /* colour */ b", False)
         assert out == "a  b"
         assert in_block is False
 
     def test_block_comment_open_carries_across_lines(self):
         """The middle line of a multi-line ``/* */`` is dropped entirely."""
-        out, in_block = mod.strip_comments_line("/* colour", False)
+        out, in_block = mod.strip_comments("/* colour", False)
         assert out == ""
         assert in_block is True
-        out, in_block = mod.strip_comments_line("colour still inside", in_block)
+        out, in_block = mod.strip_comments("colour still inside", in_block)
         assert out == ""
         assert in_block is True
-        out, in_block = mod.strip_comments_line("colour */", in_block)
+        out, in_block = mod.strip_comments("colour */", in_block)
         assert out == ""
         assert in_block is False
 
     def test_text_after_closing_block_survives(self):
-        out, in_block = mod.strip_comments_line("/* c */ colour", False)
+        out, in_block = mod.strip_comments("/* c */ colour", False)
         assert out == " colour"
         assert in_block is False
 
     def test_open_with_text_after_is_carried(self):
-        out, in_block = mod.strip_comments_line("/* open colour /* inner", False)
+        out, in_block = mod.strip_comments("/* open colour /* inner", False)
         assert out == ""
         assert in_block is True
 
     def test_double_star_without_slash_does_not_close(self):
-        out, in_block = mod.strip_comments_line("colour ** colour", True)
+        out, in_block = mod.strip_comments("colour ** colour", True)
         assert out == ""
         assert in_block is True
 
     def test_star_only_does_not_close(self):
-        out, in_block = mod.strip_comments_line("colour *", True)
+        out, in_block = mod.strip_comments("colour *", True)
         assert out == ""
         assert in_block is True
 
     def test_closing_at_last_two_chars(self):
-        out, in_block = mod.strip_comments_line("colour */", True)
+        out, in_block = mod.strip_comments("colour */", True)
         assert out == ""
         assert in_block is False
 
     def test_double_star_at_end_without_slash_stays_open(self):
-        out, in_block = mod.strip_comments_line("colour **", True)
+        out, in_block = mod.strip_comments("colour **", True)
         assert out == ""
         assert in_block is True
 
     def test_string_is_kept_verbatim(self):
-        out, in_block = mod.strip_comments_line('const x = "colour"', False)
+        out, in_block = mod.strip_comments('const x = "colour"', False)
         assert out == 'const x = "colour"'
         assert in_block is False
 
     def test_slash_slash_inside_string_is_not_a_comment(self):
-        out, in_block = mod.strip_comments_line('export "a // b" colour', False)
+        out, in_block = mod.strip_comments('export "a // b" colour', False)
         assert out == 'export "a // b" colour'
         assert in_block is False
 
     def test_slash_star_inside_string_is_not_a_comment(self):
-        out, in_block = mod.strip_comments_line('export "a /* b" colour', False)
+        out, in_block = mod.strip_comments('export "a /* b" colour', False)
         assert out == 'export "a /* b" colour'
         assert in_block is False
 
     def test_escaped_quote_inside_string(self):
-        out, in_block = mod.strip_comments_line('export "a\\"b" colour', False)
+        out, in_block = mod.strip_comments('export "a\\"b" colour', False)
         assert out == 'export "a\\"b" colour'
         assert in_block is False
 
     def test_escaped_backslash_at_string_end(self):
         """The escape swallows the closing quote, so the string runs to EOL."""
-        out, in_block = mod.strip_comments_line('export "a\\" colour', False)
+        out, in_block = mod.strip_comments('export "a\\" colour', False)
         assert out == 'export "a\\" colour'
         assert in_block is False
 
     def test_escaped_char_is_copied_two_chars_at_a_time(self):
         """``\\n`` inside a string is copied verbatim as two characters."""
-        out, in_block = mod.strip_comments_line(r"export \"a\nb\" colour", False)
+        out, in_block = mod.strip_comments(r"export \"a\nb\" colour", False)
         assert out == r"export \"a\nb\" colour"
         assert in_block is False
 
     def test_unterminated_string_closes_state(self):
-        out, in_block = mod.strip_comments_line('export "colour', False)
+        out, in_block = mod.strip_comments('export "colour', False)
         assert out == 'export "colour'
         assert in_block is False
 
     def test_single_quote_string_is_kept(self):
-        out, in_block = mod.strip_comments_line("export 'colour'", False)
+        out, in_block = mod.strip_comments("export 'colour'", False)
         assert out == "export 'colour'"
         assert in_block is False
 
     def test_template_string_is_kept(self):
-        out, in_block = mod.strip_comments_line("export `colour`", False)
+        out, in_block = mod.strip_comments("export `colour`", False)
         assert out == "export `colour`"
         assert in_block is False
 
     def test_block_comment_open_at_end_of_line(self):
         """``/*`` as the last two characters opens state with nothing after."""
-        out, in_block = mod.strip_comments_line("a /*", False)
+        out, in_block = mod.strip_comments("a /*", False)
         assert out == "a "
         assert in_block is True
 
     def test_single_slash_at_end_is_kept(self):
-        out, in_block = mod.strip_comments_line("a /", False)
+        out, in_block = mod.strip_comments("a /", False)
         assert out == "a /"
         assert in_block is False
 
     def test_slash_slash_inside_block_is_ignored(self):
         """Inside a block comment, ``//`` is prose, not a line comment."""
-        out, in_block = mod.strip_comments_line("colour // colour", True)
+        out, in_block = mod.strip_comments("colour // colour", True)
         assert out == ""
         assert in_block is True
 
     def test_slash_star_inside_block_is_ignored(self):
         """A nested ``/*`` does not extend the comment."""
-        out, in_block = mod.strip_comments_line("colour /* colour", True)
+        out, in_block = mod.strip_comments("colour /* colour", True)
         assert out == ""
         assert in_block is True
 
     def test_empty_line_outside_block(self):
-        out, in_block = mod.strip_comments_line("", False)
+        out, in_block = mod.strip_comments("", False)
         assert out == ""
         assert in_block is False
 
     def test_empty_line_inside_block(self):
-        out, in_block = mod.strip_comments_line("", True)
+        out, in_block = mod.strip_comments("", True)
         assert out == ""
         assert in_block is True
 
