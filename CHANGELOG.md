@@ -2,14 +2,6 @@
 
 ## [Unreleased]
 
-### Fixed
-
-- **LayerControl**: restore provider-field presence comparison in `LayerSurface.matches` — a
-  re-registration that adds or removes a `getBounds` provider now correctly triggers a face
-  rebuild. #478 replaced the field comparison with a tautological layer-method check, which
-  silently ignored provider changes and caused spurious no-rebuilds for canvas and third-party
-  layers that lack a native `getBounds` method. (#479)
-
 ### Added
 
 - `ExportControl`: select any region on the map and export it as a high-resolution map image for presentations/demos ([#106](https://github.com/Zeroto521/foliplus/pull/106), [#154](https://github.com/Zeroto521/foliplus/pull/154), [#158](https://github.com/Zeroto521/foliplus/pull/158), [#167](https://github.com/Zeroto521/foliplus/pull/167), [#170](https://github.com/Zeroto521/foliplus/pull/170), [#171](https://github.com/Zeroto521/foliplus/pull/171), [#192](https://github.com/Zeroto521/foliplus/pull/192), [#208](https://github.com/Zeroto521/foliplus/pull/208), [#242](https://github.com/Zeroto521/foliplus/pull/242), [#245](https://github.com/Zeroto521/foliplus/pull/245), [#251](https://github.com/Zeroto521/foliplus/pull/251), [#306](https://github.com/Zeroto521/foliplus/pull/306), [#341](https://github.com/Zeroto521/foliplus/pull/341), [#396](https://github.com/Zeroto521/foliplus/pull/396), [#401](https://github.com/Zeroto521/foliplus/pull/401), [#455](https://github.com/Zeroto521/foliplus/pull/455), [#461](https://github.com/Zeroto521/foliplus/pull/461), [#462](https://github.com/Zeroto521/foliplus/pull/462), [#463](https://github.com/Zeroto521/foliplus/pull/463))
