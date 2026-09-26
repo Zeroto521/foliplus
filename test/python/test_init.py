@@ -37,6 +37,7 @@ class TestVersion:
             "SearchControl",
             "MeasureControl",
             "ScaleControl",
+            "StyleKitControl",
         }
         assert set(foliplus.__all__) == expected
 

@@ -16,5 +16,6 @@ API Reference
    LocateControl
    MeasureControl
    ScaleControl
+   StyleKitControl
    SearchControl
    locale

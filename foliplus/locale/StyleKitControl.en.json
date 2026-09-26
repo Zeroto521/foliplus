@@ -1,0 +1,9 @@
+{
+  "locale.name": "English",
+  "locale.code": "en",
+  "StyleKitControl.title": "Style",
+  "StyleKitControl.restore_defaults": "Restore defaults",
+  "StyleKitControl.reset_map": "Reset this map",
+  "StyleKitControl.restored": "Defaults restored",
+  "StyleKitControl.reset_done": "Reset — refresh to apply"
+}

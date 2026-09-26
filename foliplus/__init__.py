@@ -19,6 +19,7 @@ from .LocateControl import LocateControl
 from .MeasureControl import MeasureControl
 from .ScaleControl import ScaleControl
 from .SearchControl import SearchControl
+from .StyleKitControl import StyleKitControl
 
 __all__ = [
     "BaseControl",
@@ -30,4 +31,5 @@ __all__ = [
     "MeasureControl",
     "ScaleControl",
     "SearchControl",
+    "StyleKitControl",
 ]
