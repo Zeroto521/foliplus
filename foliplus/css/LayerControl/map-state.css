@@ -20,12 +20,15 @@
    Decoration only: fills the "no basemap selected" state so the panel's
    empty choice is visible on the map itself. `background-image` is what
    ExportControl's resolveExportBackground ignores (it only reads
-   `backgroundColor`), so the hatch never reaches an export. */
+   `backgroundColor`), so the hatch never reaches an export.
+   Both squares are semi-transparent so the hatch stays low-contrast on
+   light and dark container backgrounds alike — one implementation, no
+   fullscreen-specific override. */
 .leaflet-container.no-base-map {
   background-color: transparent;
   background-image: repeating-conic-gradient(
     rgba(0, 0, 0, var(--alpha-05)) 0% 25%,
-    var(--neutral-0) 0% 50%
+    rgba(255, 255, 255, var(--alpha-05)) 0% 50%
   );
   background-size: var(--size-16) var(--size-16);
 }

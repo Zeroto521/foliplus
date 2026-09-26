@@ -7,6 +7,7 @@ import * as CONST from "../../const.js";
 import { applyProjection } from "../apply.js";
 import type { LayerUI } from "../index.js";
 import { markOverride, saveState, unmarkOverride } from "../state.js";
+import { isColorBasemap } from "./fill.js";
 import { railPos, round5 } from "./frame.js";
 
 /** Whether the layer's surface can honestly carry a zoom-range write.
@@ -15,7 +16,9 @@ import { railPos, round5 } from "./frame.js";
  *    1. `!layerInfo.canvas` — callback-only canvas layers (heatmap / measure)
  *       have no real Leaflet layer to add/remove, so a range that hides them
  *       has no carrier (31.4-3).
- *    2. `!layerInfo.isBase` — basemaps carry no range control here.
+ *    2. `!layerInfo.isBase` — tile basemaps carry no range control here.
+ *       The solid-color basemap is exempt: it shares the tile basemap's
+ *       visibility gating (§42.1), so it carries a range like any overlay.
  *    3. `capabilities.zoomRange !== "none"` — MarkerCluster and ImageOverlay
  *       have no honest zoom-range carrier.
  *
@@ -28,8 +31,10 @@ const canShowZoomRange = (ui: LayerUI, layerId: string): boolean => {
   const li = ui.m.layerRegistry.get(layerId);
   if (!li) return false;
   if (li.canvas) return false;
-  if (li.isBase) return false;
-  return ui.m.surfaceFor(li).capabilities.zoomRange !== "none";
+  if (li.isBase && !isColorBasemap(ui, li)) return false;
+  return (
+    ui.m.surfaceFor(li).capabilities.zoomRange !== "none" || isColorBasemap(ui, li)
+  );
 };
 
 /** Clamp a zoom value into the map's current [min, max] range. */

@@ -39,6 +39,11 @@ const initTypesAndVisibility = (ui: LayerUI) => {
       ui.m.map,
     );
     ui.m.layerRegistry.upsert(colorLi);
+    // The colour basemap shares the tile basemap's visibility gating (§42.1):
+    // it carries a zoom-range write through the `pane` / `visible` executor
+    // path. The auto-detected surface says "none" (no Leaflet layer to hold
+    // minZoom/maxZoom); override it so the style panel shows the range row.
+    ui.m.surfaceFor(colorLi).capabilities.zoomRange = "pane";
     // The colour basemap starts unchecked (hidden) by default.
     ui.authorVisible.set(CONST.COLOR.MAP_ID, false);
   }
@@ -372,7 +377,7 @@ const renderColorLayerItem = (ui: LayerUI) => {
     "div",
     {
       class: `${CONST.CLASSES.LAYER_ITEM} ${CONST.CLASSES.COLOR_ITEM}`,
-      draggable: "false",
+      draggable: "true",
       [CONST.DATA.LAYER_ID]: CONST.COLOR.MAP_ID,
       "data-layer-type": CONST.GROUP.BASE,
       [CONST.DATA.TITLE]: colorType,

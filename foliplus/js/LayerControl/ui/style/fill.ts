@@ -90,16 +90,15 @@ const hasFillGeometry = (ui: LayerUI, li: LayerInfo): boolean => {
   return found;
 };
 
-/** Whether the layer is a solid-color basemap: its surface owns one pane
- *  (opacity "pane") but has no zoom range ("none") — the capability pair
- *  that distinguishes it from vector shapes (pane/pane) and grid layers
- *  (native/*). The basemap's fill is the container background, not a vector
- *  style, so the gate admits it on that capability pair alone, skipping the
- *  geometry check (it has no polygon leaves to walk). */
+/** Whether the layer is a solid-color basemap: a base layer with no Leaflet
+ *  layer (the fill is the container background) whose surface owns one pane
+ *  (opacity "pane"). Tile basemaps have a real GridLayer and `opacity:
+ *  "native"`; vector shapes are not `isBase`; canvas / delegated layers are
+ *  excluded by the guard. The `!li.layer` check is the honest discriminator —
+ *  the colour basemap has no Leaflet object to walk. */
 const isColorBasemap = (ui: LayerUI, li: LayerInfo | undefined): boolean => {
   if (!li || li.canvas || li.styleSetters) return false;
-  const caps = ui.m.surfaceFor(li).capabilities;
-  return caps.opacity === "pane" && caps.zoomRange === "none";
+  return !li.layer && li.isBase && ui.m.surfaceFor(li).capabilities.opacity === "pane";
 };
 
 const layerCanFill = (ui: LayerUI, layerId: string): boolean => {
@@ -459,6 +458,7 @@ export {
   buildFillRow,
   commitFillColor,
   commitFillOpacity,
+  isColorBasemap,
   layerCanFill,
   replayFillState,
   resetLayerFill,
