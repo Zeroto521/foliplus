@@ -2,6 +2,7 @@
 // see the header there for why it is split out.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as Collision from "#foliplus/MeasureControl/collision.js";
+import type { CollidableLabel, PlanResult } from "#foliplus/MeasureControl/type.js";
 
 type Box = { x: number; y: number; w: number; h: number };
 
@@ -33,16 +34,16 @@ const markerFor = (el: HTMLElement): L.Marker =>
 const label = (
   box: Box,
   priority: number,
-): { lb: Collision.CollidableLabel; el: HTMLElement } => {
+): { lb: CollidableLabel; el: HTMLElement } => {
   const el = makeChip();
   boxes.set(el, box);
   return { el, lb: { marker: markerFor(el), priority } };
 };
 
 const plan = (
-  labels: Collision.CollidableLabel[],
+  labels: CollidableLabel[],
   collide = true,
-): Collision.PlanResult => Collision.placeLabels(labels, projector, collide, chipOf);
+): PlanResult => Collision.placeLabels(labels, projector, collide, chipOf);
 
 const ANCHOR: Box = { x: 0, y: 0, w: 60, h: 20 };
 /** A second chip whose own box overlaps ANCHOR by most of its area. */
@@ -276,7 +277,7 @@ describe("placeLabels", () => {
     const mid = label(midBox, 60);
     const narrow = label(narrowBox, 60);
 
-    const resultOf = (order: Collision.CollidableLabel[]): boolean[] => {
+    const resultOf = (order: CollidableLabel[]): boolean[] => {
       plan(order);
       return [wide, mid, narrow].map(l => l.el.style.visibility === "");
     };
