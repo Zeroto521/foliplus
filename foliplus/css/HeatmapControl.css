@@ -172,8 +172,6 @@
   /* Section headings come from shared form.css (`.foliplus-section-heading`). */
 }
 
-/* createCanvas / createColor overlay styles are shared — see common/canvas.css. */
-
 /* Field selector: extra body / field reuse the shared `foliplus-hidden`
    (display: none !important) class, toggled by CONST.CLASSES.HIDDEN.
    No component-local `.hidden` rule is needed — see reset.css. */

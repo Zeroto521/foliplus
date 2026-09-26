@@ -33,7 +33,9 @@ const showColorLayer = (ui: LayerUI, color: string) => {
   const surface = getColorSurface(ui);
   surface.setColor(color);
   surface.setVisible(true);
-  ui.m.debouncedEnforce();
+  // Checking the box is a single user action — order the stack now, so the
+  // pane's z lands immediately instead of after the debounce.
+  ui.m.enforceOrder();
 
   ui.uiContainer
     .querySelector(CONST.SEL.COLOR_ITEM)

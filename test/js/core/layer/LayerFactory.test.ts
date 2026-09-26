@@ -1260,6 +1260,15 @@ describe("LayerFactory", () => {
       warn.mockRestore();
     });
 
+    it("stamps the lowest base z on the fresh pane (no Leaflet-default 400)", () => {
+      // Leaflet's CSS gives a fresh pane z-index 400 — above every basemap.
+      // Until the ordering pass rewrites the ladder z, the pane must sit at
+      // the bottom of the base ladder (200 + one step).
+      make("solid");
+      const pane = (map as any)._panes["foliplus-color-solid"] as HTMLElement;
+      expect(pane.style.zIndex).toBe("210");
+    });
+
     it("resize falls back to devicePixelRatio 1 when the browser reports 0", () => {
       const original = window.devicePixelRatio;
       Object.defineProperty(window, "devicePixelRatio", {

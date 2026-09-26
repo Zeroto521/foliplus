@@ -55,6 +55,7 @@ const makeUi = (layers: Array<{ id: string; isBase: boolean }> = []) => {
       findLayer: () => ({ isBase: true }),
       layerRegistry: new Map(),
       debouncedEnforce: vi.fn(),
+      enforceOrder: vi.fn(),
       createColor: vi.fn(() => ({
         element: document.createElement("canvas"),
         setColor,
@@ -163,6 +164,16 @@ describe("ui/color", () => {
     );
     row!.innerHTML = "";
     expect(() => showColorLayer(ui, "#ff0000")).not.toThrow();
+  });
+
+  it("showColorLayer orders the stack synchronously", () => {
+    // Checking the box is a single user action: the ladder z must land
+    // immediately, not after the debounce (the pane starts at Leaflet's CSS
+    // default z 400 — above every basemap). The provisional base z itself is
+    // stamped by LayerFactory.createColor (see its own test).
+    const { ui } = makeUi();
+    showColorLayer(ui, "#ff0000");
+    expect((ui.m as any).enforceOrder).toHaveBeenCalledTimes(1);
   });
 
   it("showColorLayer reuses the surface on subsequent calls", () => {
