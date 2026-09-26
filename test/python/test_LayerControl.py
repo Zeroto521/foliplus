@@ -3116,10 +3116,8 @@ class TestLayerControlBrowser:
 
     def test_color_layer_coexists_with_tiles(self, browser, tmp_path):
         """Colour and tile basemaps coexist. Clicking the colour layer
-        sets the container's background colour (`.active` + `--color-layer-bg`)
-        but no longer suppresses the shared tile pane — the retired
-        `foliplus-layer-tile-hidden` contract is gone. The colour paints on
-        top via CSS background; tiles stay in the DOM and remain fetchable."""
+        activates its own pane (the retired `foliplus-layer-tile-hidden`
+        contract is gone — tiles stay in the DOM and remain fetchable)."""
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
         LayerControl().add_to(m)
         folium.TileLayer("CartoDB positron", name="Light Canvas", overlay=False).add_to(
@@ -3152,7 +3150,7 @@ class TestLayerControlBrowser:
             assert result["tileHidden"] is False, (
                 "colour layer must not stamp foliplus-layer-tile-hidden"
             )
-            assert result["colorBg"] is True, "map container should have active class"
+            assert result["colorBg"] is True, "color item should have active class"
 
     def test_color_basemap_checkbox_toggles_visibility(self, browser, tmp_path):
         """Checking the colour basemap's checkbox must toggle its visibility.
@@ -3197,8 +3195,8 @@ class TestLayerControlBrowser:
 
             state = page.evaluate(_js("LayerControl/read_color_checkbox_state"))
             assert state["checked"] is True
-            assert state["active"] is True, "checking must paint the container"
-            assert state["colorBg"] != "", "checking must set --color-layer-bg"
+            assert state["active"] is True, "checking must mark the color row active"
+            assert state["colorVisible"] is True, "checking must show the color pane face"
 
             # Uncheck → container background cleared.
             result = page.evaluate(_js("LayerControl/toggle_color_checkbox"))
@@ -3207,8 +3205,75 @@ class TestLayerControlBrowser:
 
             state = page.evaluate(_js("LayerControl/read_color_checkbox_state"))
             assert state["checked"] is False
-            assert state["active"] is False, "unchecking must clear .active"
-            assert state["colorBg"] == "", "unchecking must clear --color-layer-bg"
+            assert state["active"] is False, "unchecking must clear the color row active class"
+            assert state["colorVisible"] is False, "unchecking must hide the color pane face"
+
+    def test_color_basemap_zorder_stack(self, browser, tmp_path):
+        """Color basemap participates in the z-order ladder like tile basemaps.
+
+        Row order = visual stack order. When the color row is above a tile
+        basemap, its pane has a higher z-index and covers the tiles; when
+        below, the tiles cover it. Reordering flips the stack live.
+        """
+        tile = folium.TileLayer("CartoDB positron", name="Light Canvas", overlay=False)
+        with use_page(self._make_page, browser, tmp_path, tile) as (page, _):
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+            )
+            page.wait_for_timeout(500)
+
+            # Read initial state.
+            state0 = page.evaluate(_js("LayerControl/read_color_checkbox_state"))
+            assert state0 is not None
+
+            # Ensure the color basemap is shown (check the checkbox if unchecked).
+            if not state0.get("checked"):
+                result = page.evaluate(_js("LayerControl/toggle_color_checkbox"))
+                assert result["ok"] is True
+            else:
+                # Already checked — verify the pane exists.
+                result = {"ok": True, "checked": True}
+
+            # Initial state: color pane exists and tile pane exists.
+            state = page.evaluate(_js("LayerControl/color_zorder_stack"))
+            assert state["ok"] is True
+            assert state["colorPaneFound"] is True, "color pane must exist after show"
+            assert state["tilePaneFound"] is True
+            assert state["colorPaneZ"] is not None
+            assert state["tilePaneZ"] is not None
+            initialColorZ = state["colorPaneZ"]
+
+            # Case 1: move color above tile → color pane z increases.
+            page.evaluate("window.__probe = { action: 'above' }")
+            state = page.evaluate(_js("LayerControl/color_zorder_stack"))
+            assert state["ok"] is True
+            assert state["colorPaneZ"] > initialColorZ, (
+                f"color above: z should increase, {initialColorZ} -> {state['colorPaneZ']}"
+            )
+
+            # Case 2: move color below tile → color pane z drops below the tile pane.
+            page.evaluate("window.__probe = { action: 'below' }")
+            state = page.evaluate(_js("LayerControl/color_zorder_stack"))
+            assert state["ok"] is True
+            assert state["colorPaneZ"] < state["tilePaneZ"], (
+                f"color below: color pane z must be below tile pane z, "
+                f"color={state['colorPaneZ']} tile={state['tilePaneZ']}"
+            )
+            assert state["colorPaneZ"] == initialColorZ, (
+                f"color below: z should return to initial, "
+                f"{initialColorZ} -> {state['colorPaneZ']}"
+            )
+
+            # Case 3: reorder back above → z-indexes flip again (live).
+            page.evaluate("window.__probe = { action: 'above' }")
+            state = page.evaluate(_js("LayerControl/color_zorder_stack"))
+            assert state["ok"] is True
+            assert state["colorPaneZ"] > state["tilePaneZ"], (
+                "reorder back above: color z must increase again"
+            )
 
     def test_register_layer_preserves_visible_on_reentry(self, browser, tmp_path):
         """registerLayer preserves the visible state from a previous registration."""
@@ -5804,11 +5869,10 @@ class TestLayerPaneProbeBrowser:
         assert r["afterReset"] == 0  # redraw clears out-of-range tiles
 
     def test_probe_color_basemap_no_pane(self, browser, tmp_path):
-        """#9 Solid-color basemap still has NO pane/element of its own — it
-        is the map container's CSS background via ``--color-layer-bg``
-        (`.leaflet-container.active { background: var(--color-layer-bg) }`).
-        Under basemap coexistence the retired `foliplus-layer-tile-hidden` gate is gone: the
-        tile pane stays visible underneath, the color paints on top."""
+        """#9 Solid-color basemap owns a dedicated pane + canvas — the old
+        container-CSS-background contract (--color-layer-bg) is retired.
+        Under basemap coexistence the retired `foliplus-layer-tile-hidden` gate
+        is gone: the tile pane stays visible underneath, the color paints in its own pane."""
         with use_page(
             self._probe,
             browser,
@@ -5818,9 +5882,9 @@ class TestLayerPaneProbeBrowser:
         ) as (page, _):
             r = page.evaluate(_js("LayerControl/probe_color_basemap"))
         assert r["itemFound"] is True
-        assert r["containerActive"] is True
-        assert r["cssVar"] == "#3366cc"
-        assert r["containerBg"].startswith("rgb(51,")
+        assert r["itemActive"] is True, "color item should be active"
+        assert r["colorPaneFound"] is True, "color pane must exist after show"
+        assert r["colorVisible"] is True, "color pane face must be visible"
         # Basemap coexistence: the shared tilePane is not hidden by the color basemap.
         assert r["tileHidden"] is False
         assert r["tileVisibility"] == "visible"

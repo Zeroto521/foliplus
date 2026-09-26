@@ -1,15 +1,10 @@
-// Probe: solid-color basemap DOM path after basemap coexistence.
+// Probe: solid-color basemap DOM path after the pane fix.
 //
-// The colour basemap is coequal with tile basemaps.  It paints via the map
-// container's CSS background (`.leaflet-container.active` reads
-// `--color-layer-bg`), but it no longer suppresses the shared tilePane:
-// the retired `foliplus-layer-tile-hidden` class and its visibility/opacity
-// side effects are gone, so the tile pane stays visible underneath and the
-// colour simply paints on top (container background is drawn above the
-// leaflet-pane stack).  Tile basemaps, when registered, get their own
-// synthesized `foliplus-pane-*` via LayerSurface; the colour basemap itself
-// has no Leaflet layer, so it contributes no pane of its own — the colour
-// "surface" is the container background.
+// The colour basemap is a first-class base-group layer: it owns a dedicated
+// pane + canvas (created through `factory.createColor`), so it participates
+// in the layer z ladder exactly like tile basemaps. Row order = visual stack
+// order. The old container-background contract (--color-layer-bg,
+// .leaflet-container.active) is retired.
 () => {
   const ctrl = document.querySelector(".foliplus-layer-ctrl");
   if (ctrl && !ctrl.classList.contains("is-expanded")) {
@@ -32,21 +27,39 @@
   }
   const container = document.querySelector(".leaflet-container");
   const tilePane = document.querySelector(".leaflet-tile-pane");
-  const cs = getComputedStyle(container);
-  const csVar = container.style.getPropertyValue("--color-layer-bg");
-  // Panes that carry a `foliplus-*` marker. Under basemap coexistence there is no
-  // tile-hidden class anywhere; the only foliplus panes are the
-  // synthesized `foliplus-pane-*` for registered TileLayers.
+  // Panes that carry a `foliplus-*` marker.
   const foliplusPanes = Array.from(document.querySelectorAll(".leaflet-pane"))
     .filter(p => /foliplus/.test(p.className))
     .map(p => p.className);
+  // The color pane and its face canvas.
+  const colorPane = foliplusPanes.find(c => c.includes("foliplus-color-"));
+  const colorFace = colorPane
+    ? Array.from(document.querySelectorAll(".leaflet-pane"))
+        .find(p => p.className.includes("foliplus-color-"))
+        ?.querySelector(".foliplus-canvas-layer")
+    : null;
+  // Read the fill color from the canvas pixel data.
+  let fillPixel = null;
+  if (colorFace) {
+    try {
+      const ctx = colorFace.getContext("2d");
+      const d = ctx.getImageData(0, 0, 1, 1).data;
+      fillPixel = `rgba(${d[0]},${d[1]},${d[2]},${d[3]})`;
+    } catch {
+      fillPixel = "read-failed";
+    }
+  }
   return {
     itemFound: true,
+    itemActive: item.classList.contains("active"),
     containerActive: container.classList.contains("active"),
-    cssVar: csVar.trim(),
-    containerBg: cs.backgroundColor,
+    cssVar: container.style.getPropertyValue("--color-layer-bg").trim(),
+    containerBg: getComputedStyle(container).backgroundColor,
     tileHidden: tilePane.classList.contains("foliplus-layer-tile-hidden"),
     tileVisibility: getComputedStyle(tilePane).visibility,
     foliplusPanes,
+    colorPaneFound: !!colorPane,
+    colorVisible: colorFace ? !colorFace.classList.contains("hidden") : false,
+    fillPixel,
   };
 };
