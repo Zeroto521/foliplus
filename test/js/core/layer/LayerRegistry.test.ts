@@ -48,10 +48,11 @@ describe("LayerRegistry", () => {
     });
 
     it("preserves existing values from existingLi", () => {
-      const info = registry.createLayerInfo(
-        { id: "test" },
-        { name: "Existing", visible: false, opacity: 0.5 } as LayerInfo,
-      );
+      const info = registry.createLayerInfo({ id: "test" }, {
+        name: "Existing",
+        visible: false,
+        opacity: 0.5,
+      } as LayerInfo);
       expect(info.name).toBe("Existing");
       expect(info.visible).toBe(false);
       expect(info.opacity).toBe(0.5);
@@ -59,10 +60,9 @@ describe("LayerRegistry", () => {
 
     it("preserves metaProvider from existingLi on re-registration", () => {
       const metaProvider = () => ({ count: 1 });
-      const info = registry.createLayerInfo(
-        { id: "test" },
-        { metaProvider } as unknown as LayerInfo,
-      );
+      const info = registry.createLayerInfo({ id: "test" }, {
+        metaProvider,
+      } as unknown as LayerInfo);
       expect(info.metaProvider).toBe(metaProvider);
     });
 

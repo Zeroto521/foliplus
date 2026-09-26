@@ -60,13 +60,13 @@ if (!hasLocalStorage) {
 // twist, pointerType) — jsdom's callers only read `pointerId` and inherit
 // MouseEvent behavior.
 if (!globalThis.PointerEvent) {
-  globalThis.PointerEvent = (class PointerEvent extends MouseEvent {
+  globalThis.PointerEvent = class PointerEvent extends MouseEvent {
     pointerId: number | null;
     constructor(type: string, init: PointerEventInit = {}) {
       super(type, init);
       this.pointerId = init.pointerId ?? 0;
     }
-  }) as unknown as typeof PointerEvent;
+  } as unknown as typeof PointerEvent;
 }
 
 // vitest's URL.createObjectURL polyfill (makeCompatBlob) accesses blob._buffer,

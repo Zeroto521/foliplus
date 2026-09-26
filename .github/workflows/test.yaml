@@ -73,6 +73,12 @@ jobs:
   # signal once the remaining errors reach zero. That flip is deliberate, not
   # automatic: dropping `continue-on-error` while the program is still red
   # would break CI, so it has to be a coordinated last step.
+  #
+  # Deliberately NOT in `test`'s `needs:`: a `continue-on-error` job still
+  # reports its raw conclusion (failure) to dependents, which would skip the
+  # Python matrix on every red run. It stands alone so its status is visible
+  # in PR checks without gating anything. The final PR that removes
+  # `continue-on-error` adds it back to `needs:` at the same time.
   typecheck-tests:
     name: typecheck-tests
     runs-on: ubuntu-latest
@@ -110,7 +116,7 @@ jobs:
   test:
     name: py${{ matrix.python }}-folium-${{ matrix.folium }}
     runs-on: ubuntu-latest
-    needs: [format, lint, typecheck, typecheck-tests]
+    needs: [format, lint, typecheck]
     strategy:
       fail-fast: false
       matrix:
