@@ -460,9 +460,9 @@ describe("createPanelHeader", () => {
     expect(header.className).toBe("foliplus-panel-header");
     expect(header.getAttribute("title")).toBe("Collapse");
 
-    const title = header.querySelector(".foliplus-header-title");
+    const title = header.querySelector(".foliplus-header-title") as HTMLElement;
     expect(title).not.toBeNull();
-    const icon = header.querySelector(".foliplus-header-icon");
+    const icon = header.querySelector(".foliplus-header-icon") as HTMLElement;
     expect(icon).not.toBeNull();
     expect(icon.getAttribute("aria-hidden")).toBe("true");
     expect(title.textContent).toBe("Layer A");
@@ -520,13 +520,13 @@ describe("createPanelControl", () => {
       panelTitle: "Panel",
       closeTitle: "Close",
     });
-    const header = result.ctrl.querySelector(".foliplus-panel-header");
+    const header = result.ctrl.querySelector(".foliplus-panel-header") as HTMLElement;
     expect(header).not.toBeNull();
     expect(header.getAttribute("role")).toBe("dialog");
     expect(header.getAttribute("aria-label")).toBe("Panel");
     // The toggle button is the only reachable control in the collapsed state,
     // so its accessible name must not depend on inner SVG text.
-    expect(result.toggleBtn.getAttribute("aria-label")).toBe("Toggle");
+    expect(result.toggleBtn!.getAttribute("aria-label")).toBe("Toggle");
   });
 
   it("applies ctrlId when given, otherwise derives one from cssClass", () => {
@@ -576,7 +576,7 @@ describe("createPanelControl", () => {
       closeTitle: "Close",
     });
     document.body.appendChild(result.container);
-    result.toggleBtn.click();
+    result.toggleBtn!.click();
     expect(result.ctrl.classList.contains("is-expanded")).toBe(true);
 
     result.destroy();
@@ -596,7 +596,7 @@ describe("createPanelControl", () => {
       closeTitle: "Close",
     });
     document.body.appendChild(result.container);
-    result.toggleBtn.click();
+    result.toggleBtn!.click();
     expect(result.ctrl.classList.contains("is-expanded")).toBe(true);
 
     const outside = document.createElement("div");
@@ -615,7 +615,7 @@ describe("createPanelControl", () => {
       collapseOnOutside: false,
     });
     document.body.appendChild(result.container);
-    result.toggleBtn.click();
+    result.toggleBtn!.click();
     expect(result.ctrl.classList.contains("is-expanded")).toBe(true);
 
     const outside = document.createElement("div");
@@ -632,7 +632,7 @@ describe("createPanelControl", () => {
       panelTitle: "Panel",
       closeTitle: "Close",
     });
-    result.toggleBtn.click();
+    result.toggleBtn!.click();
     expect(result.ctrl.classList.contains("is-expanded")).toBe(true);
   });
 });

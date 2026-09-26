@@ -77,4 +77,5 @@ const rafLoop = (
   };
 };
 
-export { type RafLoop, rafLoop };
+export { rafLoop };
+export type { RafLoop };

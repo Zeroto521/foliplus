@@ -548,11 +548,11 @@ describe("LayerUI focus", () => {
       );
     });
 
-    it("adds foliplus-layer-focusing class to the focused row", () => {
+    it("adds is-focusing class to the focused row", () => {
       ui.focusLayer("overlay1");
 
       const item = findItem(ui, "overlay1");
-      expect(item.classList.contains("foliplus-layer-focusing")).toBe(true);
+      expect(item.classList.contains("is-focusing")).toBe(true);
     });
 
     it("isFocusing() returns true while focus is in flight", () => {
@@ -569,7 +569,7 @@ describe("LayerUI focus", () => {
       ui.focusLayer("overlay1");
       const rect = ui.focusRect!;
       const item = findItem(ui, "overlay1");
-      expect(item.classList.contains("foliplus-layer-focusing")).toBe(true);
+      expect(item.classList.contains("is-focusing")).toBe(true);
 
       // Cancel hint — re-attach spy after ensureEvents().
       const hintSpy = vi.fn();
@@ -579,7 +579,7 @@ describe("LayerUI focus", () => {
 
       expect(map.removeLayer).toHaveBeenCalledWith(rect);
       expect(ui.focusRect).toBeNull();
-      expect(item.classList.contains("foliplus-layer-focusing")).toBe(false);
+      expect(item.classList.contains("is-focusing")).toBe(false);
       expect(hintSpy).toHaveBeenCalledWith(
         "LayerControl",
         "LayerControl.focus_cancelled",
@@ -1539,14 +1539,14 @@ describe("LayerUI focus", () => {
 
       ui.focusLayer("overlay1");
       const item = findItem(ui, "overlay1");
-      expect(item.classList.contains("foliplus-layer-focusing")).toBe(true);
+      expect(item.classList.contains("is-focusing")).toBe(true);
 
       const hintSpy = vi.fn();
       map.foliplus.showHint = hintSpy;
 
       ui.cancelFocus();
 
-      expect(item.classList.contains("foliplus-layer-focusing")).toBe(false);
+      expect(item.classList.contains("is-focusing")).toBe(false);
       expect(ui.isFocusing()).toBe(false);
       expect(hintSpy).toHaveBeenCalledWith(
         "LayerControl",

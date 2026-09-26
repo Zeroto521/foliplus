@@ -198,6 +198,54 @@ describe("LayerPersistence", () => {
         ghost: { show: true, field: "x", format: "int" },
       });
     });
+
+    it("expands short hex annotation color to #rrggbb", () => {
+      // The annotation color is the label paint and also goes through the
+      // style panel's <input type=color>, so the same expansion applies as
+      // to layers' fill/border: #rgb on disk becomes #rrggbb on read. Long
+      // hex (either case) is left alone — normalizeHexColor only expands the
+      // short form.
+      seedStorage({
+        annotations: {
+          a: { show: true, field: "n", format: "auto", color: "#fff" },
+          b: { show: true, field: "n", format: "auto", color: "#ABC" },
+          c: { show: true, field: "n", format: "auto", color: "#ff0000" },
+          d: { show: true, field: "n", format: "auto", color: "#FF0000" },
+        },
+      });
+      expect(makePersistence().load().annotations).toEqual({
+        a: { show: true, field: "n", format: "auto", color: "#ffffff" },
+        b: { show: true, field: "n", format: "auto", color: "#aabbcc" },
+        c: { show: true, field: "n", format: "auto", color: "#ff0000" },
+        d: { show: true, field: "n", format: "auto", color: "#FF0000" },
+      });
+    });
+
+    it("leaves a non-hex annotation color alone", () => {
+      // The annotations section has no isHexColor gate (unlike layers), so
+      // values the UI would not have written still round-trip unchanged —
+      // the write side is equally permissive, and both consumers (canvas
+      // fillStyle, color input) tolerate a bad value by falling back to
+      // their default.
+      seedStorage({
+        annotations: {
+          a: { show: true, field: "n", format: "auto", color: "red" },
+          b: { show: true, field: "n", format: "auto", color: "#ffff" },
+          c: { show: true, field: "n", format: "auto", color: "123" },
+          d: { show: true, field: "n", format: "auto", color: 42 },
+          e: { show: true, field: "n", format: "auto", color: null },
+          f: { show: true, field: "n", format: "auto" },
+        },
+      });
+      expect(makePersistence().load().annotations).toEqual({
+        a: { show: true, field: "n", format: "auto", color: "red" },
+        b: { show: true, field: "n", format: "auto", color: "#ffff" },
+        c: { show: true, field: "n", format: "auto", color: "123" },
+        d: { show: true, field: "n", format: "auto", color: 42 },
+        e: { show: true, field: "n", format: "auto", color: null },
+        f: { show: true, field: "n", format: "auto" },
+      });
+    });
   });
 
   // ── Version ─────────────────────────────────────────────────────
@@ -480,7 +528,9 @@ describe("LayerPersistence", () => {
         },
       });
       expect(makePersistence().load().layers).toEqual({
-        f: { borderColor: "#a1b", overrides: ["borderColor"] },
+        // #a1b is a valid short hex, so it survives — expanded to #rrggbb,
+        // which is what <input type=color> accepts.
+        f: { borderColor: "#aa11bb", overrides: ["borderColor"] },
         k: { borderWeight: 0.5, overrides: ["borderWeight"] },
         // The upper bound is inclusive: the field's own max.
         l: { borderWeight: 10, overrides: ["borderWeight"] },
@@ -497,10 +547,37 @@ describe("LayerPersistence", () => {
           e: { fillColor: "#fff", overrides: ["fillColor"] },
         },
       });
-      // a, b and c cannot feed <input type=color>; d and e are valid hex.
+      // a, b and c cannot feed <input type=color>; d and e are valid hex, and
+      // e is short-form — read back in its expanded form.
       expect(makePersistence().load().layers).toEqual({
         d: { fillColor: "#123456", overrides: ["fillColor"] },
-        e: { fillColor: "#fff", overrides: ["fillColor"] },
+        e: { fillColor: "#ffffff", overrides: ["fillColor"] },
+      });
+    });
+
+    it("expands #rgb to #rrggbb on fill and border, so #fff and #ffffff round-trip equal", () => {
+      // <input type=color> only accepts #rrggbb, and Python-authored defaults are
+      // frequently short hex. The panel must see the long form regardless of the
+      // shape on disk, so the two spellings collapse to the same stored value.
+      seedStorage({
+        layers: {
+          a: { fillColor: "#f00", overrides: ["fillColor"] },
+          b: { borderColor: "#0f0", overrides: ["borderColor"] },
+          c: {
+            fillColor: "#f0f",
+            borderColor: "#00f",
+            overrides: ["fillColor", "borderColor"],
+          },
+        },
+      });
+      expect(makePersistence().load().layers).toEqual({
+        a: { fillColor: "#ff0000", overrides: ["fillColor"] },
+        b: { borderColor: "#00ff00", overrides: ["borderColor"] },
+        c: {
+          fillColor: "#ff00ff",
+          borderColor: "#0000ff",
+          overrides: ["fillColor", "borderColor"],
+        },
       });
     });
 
@@ -724,6 +801,40 @@ describe("LayerPersistence", () => {
         expect.anything(),
         "LayerControl",
       );
+      save.mockRestore();
+      vi.useRealTimers();
+    });
+
+    it("leaves a short-hex color on disk expanded after a write that never touches layers", () => {
+      // `schedule` re-reads what storage holds and merges only the dimensions
+      // the caller scheduled, so a write that touches only the order still
+      // round-trips the layer record. The record is parsed on the way in,
+      // which is where short hex becomes long hex — so a write that never
+      // touches layers still re-stamps disk with the normalized colors. This
+      // is the write-side half of the normalization guarantee: read is where
+      // the change happens, and every later write carries the normalized form
+      // forward rather than regressing it.
+      seedStorage({
+        layers: {
+          a: {
+            fillColor: "#f00",
+            borderColor: "#0f0",
+            overrides: ["fillColor", "borderColor"],
+          },
+        },
+      });
+      vi.useFakeTimers();
+      const save = spySave();
+      const p = makePersistence();
+      p.schedule({ order: () => ["a"] });
+
+      vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
+
+      expect(lastRecord(save).layers.a).toEqual({
+        fillColor: "#ff0000",
+        borderColor: "#00ff00",
+        overrides: ["fillColor", "borderColor"],
+      });
       save.mockRestore();
       vi.useRealTimers();
     });

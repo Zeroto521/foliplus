@@ -1,6 +1,6 @@
 .foliplus-layer-ctrl {
   /* ── Layer row highlight while focus is active (list ↔ map linkage) ── */
-  .foliplus-layer-item.foliplus-layer-focusing {
+  .foliplus-layer-item.is-focusing {
     border-left-color: var(--accent-primary);
     background: color-mix(in srgb, var(--accent-primary) 12%, transparent);
     animation: foliplus-layer-focus-pulse 2.2s ease-in-out 2;

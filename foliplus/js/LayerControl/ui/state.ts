@@ -153,7 +153,8 @@ const unmarkOverride = (ui: LayerUI, id: string, override: LayerOverride) => {
 };
 
 /**
- * Propagate the user's stored state —hidden visibility and renames — * into the registry and the rendered rows.
+ * Propagate the user's stored state —hidden visibility and renames —
+ * into the registry and the rendered rows.
  *
  * `hiddenIds` and `renamedNames` are the source of truth; the registry's
  * `LayerInfo.visible` / `LayerInfo.name` and the row checkboxes / labels
@@ -320,7 +321,8 @@ const saveNamesState = (ui: LayerUI) => {
   ui.m.persistence.schedule({ renamedNames: () => ({ ...ui.renamedNames }) });
 };
 
-/** Full re-scan of every row (used on attach/fold-toggle). Idempotent — *  re-run on each CONTROL_ATTACHED so late-registering components are
+/** Full re-scan of every row (used on attach/fold-toggle). Idempotent —
+ *  re-run on each CONTROL_ATTACHED so late-registering components are
  *  folded in. Marks the panel ready for tests/consumers. */
 
 /**

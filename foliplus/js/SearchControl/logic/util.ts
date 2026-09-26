@@ -68,4 +68,5 @@ const canonicalQuery = (query: string, type: SearchType): string => {
   return parsed ? `${parsed.lng},${parsed.lat}` : query;
 };
 
-export { type SearchControlState, T, _, canonicalQuery, parseCoord };
+export { T, _, canonicalQuery, parseCoord };
+export type { SearchControlState };

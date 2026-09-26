@@ -12,7 +12,7 @@ import * as Util from "../util.js";
 // `_(this.NAME_LABEL_KEY)` must return the exact same short key so the
 // fallback to NAME_LABEL kicks in. createScopedTranslator prepends conf.name,
 // breaking that comparison — so base.ts deliberately uses createTranslator.
-const T = createTranslator(CONF);
+const _ = createTranslator(CONF);
 
 const log = createLogger(CONF.name);
 
@@ -29,7 +29,7 @@ class MeasureMode {
    * Shared by CSV export (getNameForType) and GeoJSON properties.name.
    */
   static getNameLabel(): string {
-    const label = T(this.NAME_LABEL_KEY);
+    const label = _(this.NAME_LABEL_KEY);
     return label === this.NAME_LABEL_KEY ? this.NAME_LABEL : label;
   }
 

@@ -24,10 +24,14 @@
   c.classList.remove("no-base-map");
   const api = window.map && window.map.foliplus && window.map.foliplus.LayerAPI;
   const panel = document.querySelector(".foliplus-panel-content");
+  const baseLabel = document.querySelector(
+    '.foliplus-layer-toggle-all[data-group="base"] .foliplus-layer-sep-label',
+  );
   return {
     ok: true,
     ...natural,
     manual,
+    baseLabelText: baseLabel ? baseLabel.textContent : null,
     layers:
       api && api.layers
         ? api.layers.map(li => ({ id: li.id, isBase: li.isBase, visible: li.visible }))

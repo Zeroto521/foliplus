@@ -252,8 +252,8 @@ describe("PaneManager", () => {
     const pm = new PaneManager(map);
     pm.registerPaneSpecs(specs("keep_label", "drop_label"));
     pm.sweepChildPanes([{ paneSpecs: specs("keep_label") }, {}, { paneSpecs: [] }]);
-    expect(pm.childPanes.has("keep_label")).toBe(true);
-    expect(pm.childPanes.has("drop_label")).toBe(false);
+    expect(pm.childPaneSpecs.has("keep_label")).toBe(true);
+    expect(pm.childPaneSpecs.has("drop_label")).toBe(false);
   });
 
   it("sweepChildPanes keeps a pane shared by multiple layers", () => {
@@ -266,14 +266,14 @@ describe("PaneManager", () => {
       { paneSpecs: specs("shared_label") },
       { paneSpecs: specs("shared_label") },
     ]);
-    expect(pm.childPanes.has("shared_label")).toBe(true);
+    expect(pm.childPaneSpecs.has("shared_label")).toBe(true);
   });
 
   it("sweepChildPanes is a no-op when nothing is registered", () => {
     const map = { getPane: vi.fn(), createPane: vi.fn() };
     const pm = new PaneManager(map);
     expect(() => pm.sweepChildPanes([{ paneSpecs: specs("phantom") }])).not.toThrow();
-    expect(pm.childPanes.size).toBe(0);
+    expect(pm.childPaneSpecs.size).toBe(0);
   });
 
   it("registerPaneSpecs is idempotent", () => {
@@ -282,10 +282,10 @@ describe("PaneManager", () => {
     pm.registerPaneSpecs(specs("a", "b"));
     pm.registerPaneSpecs(specs("a", "b", "c"));
     pm.registerPaneSpecs(specs("a", "b")); // duplicate
-    expect(pm.childPanes.size).toBe(3);
-    expect(pm.childPanes.has("a")).toBe(true);
-    expect(pm.childPanes.has("b")).toBe(true);
-    expect(pm.childPanes.has("c")).toBe(true);
+    expect(pm.childPaneSpecs.size).toBe(3);
+    expect(pm.childPaneSpecs.has("a")).toBe(true);
+    expect(pm.childPaneSpecs.has("b")).toBe(true);
+    expect(pm.childPaneSpecs.has("c")).toBe(true);
   });
 
   // ── Injection gate: name validation + role enum ────────────────
@@ -302,7 +302,7 @@ describe("PaneManager", () => {
       const map = { getPane: vi.fn(), createPane: vi.fn() };
       const pm = new PaneManager(map);
       pm.registerPaneSpecs(specs("")) as unknown; // empty string
-      expect(pm.childPanes.size).toBe(0);
+      expect(pm.childPaneSpecs.size).toBe(0);
       expect(warn).toHaveBeenCalled();
     } finally {
       warn.mockRestore();
@@ -315,7 +315,7 @@ describe("PaneManager", () => {
       const map = { getPane: vi.fn(), createPane: vi.fn() };
       const pm = new PaneManager(map);
       pm.registerPaneSpecs([{ role: "base", order: 0, name: 42 as unknown as string }]);
-      expect(pm.childPanes.size).toBe(0);
+      expect(pm.childPaneSpecs.size).toBe(0);
       expect(warn).toHaveBeenCalled();
     } finally {
       warn.mockRestore();
@@ -328,7 +328,7 @@ describe("PaneManager", () => {
       const map = { getPane: vi.fn(), createPane: vi.fn() };
       const pm = new PaneManager(map);
       pm.registerPaneSpecs(specs("x<script>"));
-      expect(pm.childPanes.size).toBe(0);
+      expect(pm.childPaneSpecs.size).toBe(0);
       expect(warn).toHaveBeenCalled();
     } finally {
       warn.mockRestore();
@@ -340,8 +340,8 @@ describe("PaneManager", () => {
     const pm = new PaneManager(map);
     pm.registerPaneSpecs(specs("valid-name_123", "another.valid"));
     // Hyphen and underscore are fine; the dot is not. Only the first survives.
-    expect(pm.childPanes.size).toBe(1);
-    expect(pm.childPanes.has("valid-name_123")).toBe(true);
+    expect(pm.childPaneSpecs.size).toBe(1);
+    expect(pm.childPaneSpecs.has("valid-name_123")).toBe(true);
   });
 
   it("registerPaneSpecs falls back to 'base' role for an unknown role value", () => {
@@ -352,7 +352,7 @@ describe("PaneManager", () => {
       pm.registerPaneSpecs([
         { role: "unknown" as unknown as PaneSpec["role"], order: 0, name: "a" },
       ]);
-      expect(pm.childPanes.size).toBe(1);
+      expect(pm.childPaneSpecs.size).toBe(1);
       expect(pm.childPaneSpecs.get("a")?.role).toBe("base");
       expect(warn).toHaveBeenCalled();
     } finally {
@@ -369,7 +369,7 @@ describe("PaneManager", () => {
       { role: "annotation", order: 2, name: "c" },
       { role: "preview", order: 3, name: "d" },
     ]);
-    expect(pm.childPanes.size).toBe(4);
+    expect(pm.childPaneSpecs.size).toBe(4);
     expect(pm.childPaneSpecs.get("a")?.role).toBe("base");
     expect(pm.childPaneSpecs.get("b")?.role).toBe("sub");
     expect(pm.childPaneSpecs.get("c")?.role).toBe("annotation");
@@ -627,7 +627,7 @@ describe("PaneManager", () => {
     expect(map._panes["foliplus-canvas-heat"]).toBeUndefined();
     expect(map._paneRenderers["foliplus-canvas-heat"]).toBeUndefined();
     expect(pane.parentNode).toBeNull();
-    expect(pm.childPanes.has("foliplus-canvas-heat")).toBe(false);
+    expect(pm.childPaneSpecs.has("foliplus-canvas-heat")).toBe(false);
   });
 
   it("removePane is a no-op for an unknown pane name", () => {
@@ -678,7 +678,7 @@ describe("PaneManager", () => {
     pm.discoverChildPanes({ options: { pane: "a" } } as unknown as L.Layer);
     pm.registerPaneSpecs(specs("foliplus-measure-label"));
     pm.destroy();
-    expect(pm.childPanes.size).toBe(0);
+    expect(pm.childPaneSpecs.size).toBe(0);
     // LayerManager.destroy() clears the registry without removing the
     // registered layers from the map — they are still live, so the pane DOM
     // must survive them.
@@ -867,10 +867,10 @@ describe("dual map isolation", () => {
     const pmB = new PaneManager(mapB);
     pmA.registerPaneSpecs(specs("a-only"));
     pmB.registerPaneSpecs(specs("b-only"));
-    expect(pmA.childPanes.has("a-only")).toBe(true);
-    expect(pmA.childPanes.has("b-only")).toBe(false);
-    expect(pmB.childPanes.has("a-only")).toBe(false);
-    expect(pmB.childPanes.has("b-only")).toBe(true);
+    expect(pmA.childPaneSpecs.has("a-only")).toBe(true);
+    expect(pmA.childPaneSpecs.has("b-only")).toBe(false);
+    expect(pmB.childPaneSpecs.has("a-only")).toBe(false);
+    expect(pmB.childPaneSpecs.has("b-only")).toBe(true);
   });
 
   it("sweepChildPanes on one instance does not affect the other", () => {
@@ -883,10 +883,10 @@ describe("dual map isolation", () => {
     // Sweep A so "dropped" is gone; B keeps both because "shared" is still
     // referenced and "kept" was never swept.
     pmA.sweepChildPanes([{ paneSpecs: specs("shared") }]);
-    expect(pmA.childPanes.has("dropped")).toBe(false);
-    expect(pmA.childPanes.has("shared")).toBe(true);
-    expect(pmB.childPanes.has("shared")).toBe(true);
-    expect(pmB.childPanes.has("kept")).toBe(true);
+    expect(pmA.childPaneSpecs.has("dropped")).toBe(false);
+    expect(pmA.childPaneSpecs.has("shared")).toBe(true);
+    expect(pmB.childPaneSpecs.has("shared")).toBe(true);
+    expect(pmB.childPaneSpecs.has("kept")).toBe(true);
   });
 
   it("cache invalidation on one instance does not touch the other", () => {

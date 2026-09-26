@@ -191,7 +191,7 @@ describe("LayerUI keyboard", () => {
 
   // ─────────────────── keyboard focus cursor visual class ───────────────────
 
-  describe("keyboard focus cursor class (.foliplus-layer-focused)", () => {
+  describe("keyboard focus cursor class (.is-focused-row)", () => {
     // getNavigableItems() enumerates row elements in DOM order: the "Toggle
     // All" row is index 0, then enforceOrder-sorted base/overlay layers. Look
     // up indices dynamically so a re-order doesn't silently break these tests.

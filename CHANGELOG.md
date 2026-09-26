@@ -71,8 +71,8 @@
 - `core/leafletAdapter`: single module for every Leaflet-private reach — a Leaflet upgrade is a one-file change, and a static guard test fails any other module naming those fields ([#371](https://github.com/Zeroto521/foliplus/pull/371), [#374](https://github.com/Zeroto521/foliplus/pull/374), [#386](https://github.com/Zeroto521/foliplus/pull/386), [#387](https://github.com/Zeroto521/foliplus/pull/387))
 - `MeasureControl`/`LocateControl`/`SearchControl`: share the delete-icon mount (`mountDelIcon` across components) and hoist the finalize skeleton into base hooks — the ✕ lifecycle lives in one place instead of four copies ([#413](https://github.com/Zeroto521/foliplus/pull/413), [#464](https://github.com/Zeroto521/foliplus/pull/464))
 - `common/storage`: share three persistence helpers (`saveVersioned` / `loadVersioned` / `makePersisted`) across `MeasureControl`/`HeatmapControl`/`SearchControl`/`LayerControl`; legacy records stay readable without migration ([#416](https://github.com/Zeroto521/foliplus/pull/416), [#417](https://github.com/Zeroto521/foliplus/pull/417), [#422](https://github.com/Zeroto521/foliplus/pull/422))
-- `LayerControl`: basemaps are first-class — colour and tile basemaps coexist without mutual exclusion, and an empty base group shows a hatch on the map ([#443](https://github.com/Zeroto521/foliplus/pull/443))
-- `HeatmapControl`: border and label styling move to the layer style drawer; the panel keeps only aggregation controls ([#447](https://github.com/Zeroto521/foliplus/pull/447))
+- `LayerControl`: basemaps are first-class — color and tile basemaps coexist without mutual exclusion, and an empty base group shows a hatch on the map ([#443](https://github.com/Zeroto521/foliplus/pull/443))
+- `HeatmapControl`: border and label styling move to the layer style drawer; the panel keeps only aggregation controls ([#447](https://github.com/Zeroto521/foliplus/pull/447), [#473](https://github.com/Zeroto521/foliplus/pull/473))
 - `InteractionManager`/`ListCursor`/`LayerControl`: input ownership — one control × key table at dispatch replaces five per-call-site guards; adding a control to a panel is a table entry; `Escape` stays foliplus-owned ([#450](https://github.com/Zeroto521/foliplus/pull/450))
 - `LayerControl`: style panel sections read Layer above Label, and the Layer section rows read fill, border, opacity, zoom range — the two color axes sit adjacent and the two slider axes sit adjacent; rows the layer cannot carry stay hidden ([#458](https://github.com/Zeroto521/foliplus/pull/458))
 
@@ -107,6 +107,7 @@
 - `MeasureControl`: destroy no longer loses persisted measurements — `onUnload` flushes pending drag mutations and marker drag's `throttleRaf` now `flush()`es on teardown ([#430](https://github.com/Zeroto521/foliplus/pull/430), [#442](https://github.com/Zeroto521/foliplus/pull/442))
 - `common/fetch`: a completed request no longer leaves its timeout and parent abort listener behind — the composed signal is disposed as soon as the fetch settles ([#433](https://github.com/Zeroto521/foliplus/pull/433))
 - `hint`: cap the toast at `min(480px, 80vw)` so a long locale string wraps instead of overflowing the map on a phone, with a wider cap under a 480px viewport ([#445](https://github.com/Zeroto521/foliplus/pull/445))
+- `LayerControl`: `fillColor` / `borderColor` and the annotation `color` in the persisted record are normalized to `#rrggbb` — `<input type=color>` only takes the long form; reuses `common/form.ts`'s `normalizeHexColor` ([#477](https://github.com/Zeroto521/foliplus/pull/477), [#482](https://github.com/Zeroto521/foliplus/pull/482))
 
 ## [v0.3.0] (2026-08-02)
 

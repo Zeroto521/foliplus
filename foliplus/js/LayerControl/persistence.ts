@@ -1,5 +1,5 @@
 import { type Debounced, debounce } from "#common/debounce.js";
-import { BORDER_WEIGHT } from "#common/form.js";
+import { BORDER_WEIGHT, normalizeHexColor } from "#common/form.js";
 import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
 
@@ -180,7 +180,7 @@ const parseLayerState = (raw: unknown): PersistedLayerState | null => {
     }
     if (override === "fillColor") {
       if (isHexColor(data.fillColor)) {
-        out.fillColor = data.fillColor;
+        out.fillColor = normalizeHexColor(data.fillColor);
         out.overrides.push("fillColor");
       }
       continue;
@@ -199,7 +199,7 @@ const parseLayerState = (raw: unknown): PersistedLayerState | null => {
     }
     if (override === "borderColor") {
       if (isHexColor(data.borderColor)) {
-        out.borderColor = data.borderColor;
+        out.borderColor = normalizeHexColor(data.borderColor);
         out.overrides.push("borderColor");
       }
       continue;
@@ -262,7 +262,12 @@ const parseRecord = (raw: unknown): PersistedRecord => {
   }
   for (const [id, config] of Object.entries(asObject(data.annotations) ?? {})) {
     if (config !== null && typeof config === "object" && !Array.isArray(config)) {
-      record.annotations[id] = config;
+      const cfg = config as Record<string, unknown>;
+      if (typeof cfg.color === "string") {
+        record.annotations[id] = { ...cfg, color: normalizeHexColor(cfg.color) };
+      } else {
+        record.annotations[id] = config;
+      }
     }
   }
   for (const [id, rawState] of Object.entries(asObject(data.layers) ?? {})) {

@@ -3,7 +3,7 @@
   // `foliplus-layer-pane` base class (that is the semantic: "the content
   // belongs to us", and it is what makes the interaction rules in focus.css
   // apply uniformly). The focus overlay pane is one of those panes, but the
-  // `.foliplus-focus-active .foliplus-layer-pane:not(.foliplus-focus-pane)`
+  // `.is-focus-mode .foliplus-layer-pane:not(.foliplus-focus-pane)`
   // rule in focus.css would hide it too — it is our mask, not another layer's
   // pane. Adding the exclusion class on top keeps the spotlight visible.
   //
@@ -56,7 +56,7 @@
 
         resolve({
           pane: true,
-          focusActive: container.classList.contains("foliplus-focus-active"),
+          focusActive: container.classList.contains("is-focus-mode"),
           state,
           maxPeerZ,
           withoutExclusion,

@@ -11,7 +11,7 @@ import type { PaneSpec } from "#foliplus/core/layer/type.js";
 class Path {
   options: Record<string, unknown> = {};
   _map: unknown = null;
-  element: HTMLElement | null = null;
+  element: Element | null = null;
   getElement() {
     return this.element;
   }
@@ -360,7 +360,7 @@ describe("LayerSurface.materialize", () => {
     const path = new Path();
     path._map = map;
     path.element = document.createElementNS("http://www.w3.org/2000/svg", "path");
-    document.body.appendChild(path.element);
+    document.body.appendChild(path.element!);
     const surface = new LayerSurface(host, {
       id: "plain",
       layer: new Group([path]) as unknown as L.Layer,
@@ -369,7 +369,7 @@ describe("LayerSurface.materialize", () => {
     const renderer = surface.panes[0].renderer as unknown as {
       _container: HTMLElement;
     };
-    expect(path.element.parentNode).toBe(renderer._container);
+    expect(path.element!.parentNode).toBe(renderer._container);
   });
 
   it("no-ops when the layer is null (canvas surface)", () => {
@@ -661,27 +661,78 @@ describe("LayerSurface.matches", () => {
     expect(bare.matches(color)).toBe(false);
   });
 
-  it("treats a redeclared bounds provider as the same face", () => {
-    // Presence, not value, and not reference either: `capabilities.bounds` is
-    // derived from the provider's presence, and a caller hands a fresh arrow on
-    // every register, so reference equality would read "changed" on every pass
-    // and rebuild a face that does not need rebuilding. Same rule as `color`.
+  // ── getBounds comparison compares the declared provider by presence ──────
+  // `capabilities.bounds` is derived from the OR of `hasBoundsProvider(layer)`
+  // and `opts.getBounds != null`. `matches` must detect when that OR changes:
+  //   - A layer with a native `getBounds` always has `capabilities.bounds: true`
+  //     regardless of the provider field, so the provider is irrelevant —
+  //     reference equality would read "changed" on every fresh arrow.
+  //   - A layer without a native `getBounds` (canvas, third-party wrapper)
+  //     derives its bounds entirely from the provider, so adding or removing
+  //     it changes `capabilities.bounds` and must trigger a rebuild.
+  // Presence (`!= null`), not reference — callers hand a fresh arrow each
+  // register, and a different arrow for the same shape is not a different face.
+
+  it("compares provider presence even when the layer has its own getBounds", () => {
+    const { host } = makeMap();
+    const layer = new Path();
+    Object.assign(layer, { getBounds: vi.fn() });
+    const base = {
+      id: "a",
+      layer: layer as unknown as L.Layer,
+      paneName: "graph",
+    };
+    const surface = new LayerSurface(host, base);
+    expect(surface.matches(base)).toBe(true);
+    // Provider added: declaration changed, even though `capabilities.bounds`
+    // is already true from the native method.
+    expect(surface.matches({ ...base, getBounds: () => null })).toBe(false);
+    // Reversed: surface built with a provider, matched without one.
+    const withProvider = new LayerSurface(host, { ...base, getBounds: () => null });
+    expect(withProvider.matches(base)).toBe(false);
+    expect(withProvider.matches({ ...base, getBounds: () => null })).toBe(true);
+  });
+
+  it("reports changed when a provider is added to a layer with no native getBounds", () => {
+    const { host } = makeMap();
+    const layer = { options: {} }; // no getBounds method
+    const base = {
+      id: "a",
+      layer: layer as unknown as L.Layer,
+    };
+    const surface = new LayerSurface(host, base);
+    // No provider → provider added: `capabilities.bounds` false → true.
+    expect(surface.matches({ ...base, getBounds: () => null })).toBe(false);
+  });
+
+  it("reports changed when a provider is removed from a layer with no native getBounds", () => {
+    const { host } = makeMap();
+    const layer = { options: {} };
+    const base = {
+      id: "a",
+      layer: layer as unknown as L.Layer,
+    };
+    const withProvider = new LayerSurface(host, { ...base, getBounds: () => null });
+    // Provider → no provider: `capabilities.bounds` true → false.
+    expect(withProvider.matches(base)).toBe(false);
+  });
+
+  it("reports changed when a canvas surface gains or loses its provider", () => {
     const { host } = makeMap();
     const base = {
       id: "heat",
       layer: null,
       paneName: CONST.CANVAS_PANE_PREFIX + "heat",
       canvas: true,
-      getBounds: () => null,
     };
     const surface = new LayerSurface(host, base);
-    expect(surface.matches({ ...base, getBounds: () => null })).toBe(true);
-    expect(surface.matches({ ...base, getBounds: undefined })).toBe(false);
-    expect(surface.matches({ ...base, getBounds: null })).toBe(false);
-
-    const bare = new LayerSurface(host, { ...base, getBounds: undefined });
-    expect(bare.matches({ ...base, getBounds: undefined })).toBe(true);
-    expect(bare.matches(base)).toBe(false);
+    // No provider → provider: capabilities.bounds false → true.
+    expect(surface.matches({ ...base, getBounds: () => null })).toBe(false);
+    // Reversed: provider → no provider.
+    const withProvider = new LayerSurface(host, { ...base, getBounds: () => null });
+    expect(withProvider.matches(base)).toBe(false);
+    // Same provider shape, different ref — not a different face.
+    expect(withProvider.matches({ ...base, getBounds: () => null })).toBe(true);
   });
 });
 
@@ -960,6 +1011,7 @@ describe("LayerSurface capabilities", () => {
     const { map, host } = makeMap();
     const surface = new LayerSurface(host, {
       id: "canvas",
+      layer: null,
       canvas: true,
       getBounds: () => null,
     });
@@ -970,6 +1022,7 @@ describe("LayerSurface capabilities", () => {
     const { map, host } = makeMap();
     const surface = new LayerSurface(host, {
       id: "canvas",
+      layer: null,
       canvas: true,
     });
     expect(surface.capabilities.bounds).toBe(false);
@@ -1004,6 +1057,7 @@ describe("LayerSurface capabilities", () => {
     const { map, host } = makeMap();
     const surface = new LayerSurface(host, {
       id: "empty",
+      layer: null,
     });
     expect(surface.capabilities.bounds).toBe(false);
   });

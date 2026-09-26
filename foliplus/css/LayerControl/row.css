@@ -240,7 +240,7 @@
   /* ── Fold button interaction: bidirectional state preview ──
     Folded → interaction: red → black (preview expanded state)
     Expanded → interaction: black → red (preview folded state)
-    Keyed on :is(:hover, .foliplus-layer-focused) so the fold icon wakes the
+    Keyed on :is(:hover, .is-focused-row) so the fold icon wakes the
     same way the row does. Tab focus is not a CSS trigger: the focusin
     delegate maps `:focus-visible` onto the row's JS class, which is already
     in this selector. */
@@ -250,14 +250,11 @@
   .foliplus-layer-toggle-all.foliplus-layer-folded .foliplus-layer-fold-btn {
     color: var(--accent-primary);
   }
-  .foliplus-layer-toggle-all:not(.foliplus-layer-folded):is(
-      :hover,
-      .foliplus-layer-focused
-    )
+  .foliplus-layer-toggle-all:not(.foliplus-layer-folded):is(:hover, .is-focused-row)
     .foliplus-layer-fold-btn {
     color: var(--accent-primary);
   }
-  .foliplus-layer-toggle-all.foliplus-layer-folded:is(:hover, .foliplus-layer-focused)
+  .foliplus-layer-toggle-all.foliplus-layer-folded:is(:hover, .is-focused-row)
     .foliplus-layer-fold-btn {
     color: var(--text-primary);
   }
@@ -284,7 +281,7 @@
 
   /* ── Row cursor ──
      ONE recipe for a row that is the interaction target: mouse hover and the
-     JS cursor class (.foliplus-layer-focused). They share the recipe, so the
+     JS cursor class (.is-focused-row). They share the recipe, so the
      white surface, glow, drag grip, type icon and more button read identically
      whichever way the user arrives at the row. The fold (toggle-all) row joins
      the same selector group, so it cannot drift back into its own hover style.
@@ -323,7 +320,7 @@
     /* Declared after .active so the interaction target wins over the wash
        at equal specificity: a checked row turns white when hover / Tab /
        arrow arrives, and the wash returns when it leaves. */
-    &:is(:hover, .foliplus-layer-focused) {
+    &:is(:hover, .is-focused-row) {
       /* Outboard box-shadow (the bottom glow) would be covered by the next
          row's opaque surface — rows are never transparent (#277). Raise the
          interaction target so both glow edges paint above its neighbors. */
@@ -357,7 +354,7 @@
      thing that must hold is the overlay staying visible. Its fixed z-index
      (9990 menu / 10 row panel) is NOT enough on its own: opening a menu
      focuses its first item, so the container's focusin delegate marks the
-     OWNER row `.foliplus-layer-focused` — the recipe then gives it z-index
+     OWNER row `.is-focused-row` — the recipe then gives it z-index
      1, confining the overlay inside a stacking context where a LATER lit
      sibling (z-index 1, later in DOM) paints over it (measured, not
      guessed). Lifting the owner row itself to the floating index carries
@@ -375,17 +372,14 @@
      the ⋮ menu). Checked `.active` wash still applies for visibility. */
   .foliplus-layer-item[data-layer-type="base"],
   .foliplus-color-layer-item {
-    &:is(:hover, .foliplus-layer-focused) {
+    &:is(:hover, .is-focused-row) {
       box-shadow: none;
       background: transparent;
       cursor: default;
     }
   }
-  .foliplus-layer-item[data-layer-type="base"].active:is(
-      :hover,
-      .foliplus-layer-focused
-    ),
-  .foliplus-color-layer-item.active:is(:hover, .foliplus-layer-focused) {
+  .foliplus-layer-item[data-layer-type="base"].active:is(:hover, .is-focused-row),
+  .foliplus-color-layer-item.active:is(:hover, .is-focused-row) {
     background: var(--accent-light);
   }
 

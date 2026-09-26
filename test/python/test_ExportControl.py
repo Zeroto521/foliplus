@@ -1293,11 +1293,17 @@ class TestExportControlBrowser:
             assert state["noBaseMap"] is True, (
                 f"container not in no-basemap state: clicked={clicked} state={state}"
             )
-            assert state["bg"] in ("rgba(0, 0, 0, 0)", "transparent"), (
-                f"hatch state must clear the container colour, got {state}"
+            assert state["bg"] != "rgb(0, 0, 0)", (
+                f"hatch state must be a light base, got {state['bg']}"
             )
             assert "conic-gradient" in state["bgImage"], (
                 f"hatch not painted on the container: {state}"
+            )
+            # The base group label swaps to the no-basemap variant when every
+            # basemap is unchecked (translated from `no_base_map_label`).
+            assert state["baseLabelText"] == "No Base Map", (
+                f"base group label must swap to the no-basemap variant, "
+                f"got {state['baseLabelText']}"
             )
 
             self._run_export(page)
@@ -1751,7 +1757,7 @@ class TestExportControlBrowser:
     def test_export_preview_excluded_finalized_retained(self, browser, tmp_path):
         """Preview lines are excluded from export; finalized lines are retained.
 
-        SKIP_EXPORT stamps the NO_EXPORT class on preview elements (addPreview).
+        SKIP_EXPORT stamps the `.foliplus-skip-export` class on preview elements (addPreview).
         The renderer's clone pruning removes them from the export. The finalized
         line (in mainLayer) has no such marking and must survive.
 

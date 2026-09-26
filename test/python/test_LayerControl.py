@@ -431,7 +431,7 @@ class TestLayerControlRendering:
         """The Row-cursor recipe exists in the source CSS and drives every
         interactive element with one recipe.
 
-        Mouse hover and the JS cursor class (.foliplus-layer-focused) share a
+        Mouse hover and the JS cursor class (.is-focused-row) share a
         single :is() rule, so they cannot drift apart: white surface, left bar
         accent, top/bottom red glow, drag grip, type icon black, more button
         red. White paints whenever the row is the interaction target (hover /
@@ -453,7 +453,7 @@ class TestLayerControlRendering:
         # opening brace of the :is() rule (NOT the parent's — the nearest
         # preceding `{` belongs to the sibling &.active rule), then count depth
         # to isolate exactly this rule's body without leaking into siblings.
-        mark = "is(:hover, .foliplus-layer-focused)"
+        mark = "is(:hover, .is-focused-row)"
         # The recipe's :is() rule sits INSIDE the compound selector that opens
         # with `.foliplus-layer-item,` — anchor there so css.find() does not
         # match the fold-btn's own `:not(...):is(...)` rule earlier in the file.
@@ -462,7 +462,7 @@ class TestLayerControlRendering:
         start = css.find(mark, compound)
         assert start != -1, "unified Row-cursor recipe selector not found"
         # :focus-visible is never a recipe trigger — Esc cancel is one class off.
-        assert "is(:hover, :focus-visible, .foliplus-layer-focused)" not in css
+        assert "is(:hover, :focus-visible, .is-focused-row)" not in css
         # Both row types join the parent compound selector that carries this
         # :is() rule (also asserted in test_toggle_all_hover_shares_row_cursor_
         # recipe, which checks the exact selector string).
@@ -703,8 +703,8 @@ class TestLayerControlRendering:
         private hover style anymore."""
         css = read_css("foliplus/css/LayerControl/index.css")
         assert ".foliplus-layer-sep.foliplus-layer-toggle-all" in css
-        assert "is(:hover, .foliplus-layer-focused)" in css
-        assert "is(:hover, :focus-visible, .foliplus-layer-focused)" not in css
+        assert "is(:hover, .is-focused-row)" in css
+        assert "is(:hover, :focus-visible, .is-focused-row)" not in css
         assert "border-left-color: var(--accent-primary)" in css
         # The old fold-row-only hover used a softer border than the data rows.
         assert "border-left-color: var(--accent-light)" not in css
@@ -714,7 +714,7 @@ class TestLayerControlRendering:
         index, so no sibling hover wake can paint over the menu or a row
         panel. A fixed overlay z-index is not enough: opening a menu focuses
         its first item, so the focusin delegate marks the OWNER row
-        `.foliplus-layer-focused`; the recipe then gives the owner a z-index
+        `.is-focused-row`; the recipe then gives the owner a z-index
         1 stacking context that confines the overlay, and a later lit
         sibling paints over it (measured in the browser). Lifting the owner
         carries the overlay with it and settles every stacking combination.
@@ -876,12 +876,12 @@ class TestLayerControlRendering:
     def test_fold_btn_hover_bidirectional_preview(self):
         """Fold button shows bidirectional preview across hover and the arrow/Tab cursor.
 
-        Keyed on :is(:hover, .foliplus-layer-focused) so the fold icon wakes up
+        Keyed on :is(:hover, .is-focused-row) so the fold icon wakes up
         identically to the Row-cursor recipe. Tab focus is not a CSS trigger —
         the focusin delegate maps it onto the same JS class.
         """
         css = read_css("foliplus/css/LayerControl/index.css")
-        wake = "is(:hover, .foliplus-layer-focused)"
+        wake = "is(:hover, .is-focused-row)"
         # Expanded row interaction: black → red (preview folded)
         assert "foliplus-layer-toggle-all:not(.foliplus-layer-folded):is(" in css
         assert wake in css
@@ -3965,7 +3965,7 @@ class TestLayerControlBrowser:
     def test_outside_mousedown_clears_cursor(self, browser, tmp_path):
         """Clicking outside the panel drops the keyboard cursor.
 
-        The .foliplus-layer-focused marker is a panel-local navigation cursor, so
+        The .is-focused-row marker is a panel-local navigation cursor, so
         clicking the map / another control must clear it rather than leaving the
         last navigated row highlighted. Uses mousedown so a panel-internal click
         that rebuilds the list (a fold button, a checkbox) is unaffected.
@@ -4721,7 +4721,7 @@ class TestLayerControlBrowser:
         the overlay pane carries ``foliplus-layer-pane`` — the semantic marker
         that the pane belongs to us and the interaction rules in focus.css
         apply uniformly. The focused-layer rule
-        ``.foliplus-focus-active .foliplus-layer-pane:not(.foliplus-focus-pane)``
+        ``.is-focus-mode .foliplus-layer-pane:not(.foliplus-focus-pane)``
         would hide it too without the exclusion tag, so ``drawFocusMask`` adds
         ``foliplus-focus-pane`` alongside the base class. This gate reads the
         pane as the code left it, then toggles the exclusion class to prove
@@ -4751,7 +4751,7 @@ class TestLayerControlBrowser:
                 f"focus overlay pane missing after dblclick: {result}"
             )
             assert result["focusActive"] is True, (
-                f"container must carry foliplus-focus-active during focus: {result}"
+                f"container must carry is-focus-mode during focus: {result}"
             )
             state = result["state"]
             assert state["base"] is True, (
@@ -5456,6 +5456,120 @@ class TestLayerControlBrowser:
             assert result["onMap"] == before, (
                 f"layer map membership changed across reload: before={before}, after={result['onMap']}"
             )
+
+    def test_zoom_range_canvas_row_hides_the_heatmap_canvas(self, browser, tmp_path):
+        """A callback-only canvas layer gets a zoom-range row that really hides it.
+
+        HeatmapControl registers through ``createCanvas``, so the range has no
+        Leaflet layer to add or remove: its carrier is the layer's ``onToggle``
+        callback, which the executor's ``visible`` op fires. Before 42.1 the row
+        was gated off for every canvas surface, because capability alone could
+        not tell "has content panes" from "callback-only canvas" (31.7) and the
+        ``!li.canvas`` early return stood in for that distinction.
+        """
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        fg = folium.FeatureGroup(name="Points", show=True)
+        folium.GeoJson(
+            json.dumps(
+                {
+                    "type": "FeatureCollection",
+                    "features": [
+                        {
+                            "type": "Feature",
+                            "properties": {"val": i},
+                            "geometry": {
+                                "type": "Point",
+                                "coordinates": [119.30 + i * 0.01, 26.08],
+                            },
+                        }
+                        for i in range(3)
+                    ],
+                }
+            )
+        ).add_to(fg)
+        fg.add_to(m)
+        LayerControl().add_to(m)
+        HeatmapControl().add_to(m)
+        _expand_panel(m)
+
+        page, errors = make_browser_page(
+            browser, tmp_path, m.get_root().render(), "zr_heatmap"
+        )
+        try:
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=10000
+            )
+            heatmap_ready(page, timeout=15000)
+            page.wait_for_timeout(200)
+
+            result = page.evaluate(_js("LayerControl/zoom_range_heatmap_canvas"))
+            assert result is not None, "probe returned None"
+            assert result.get("error") is None, f"setup failed: {result}"
+
+            # Drawer order: the rows LayerControl adds read before the rows the
+            # component delegated, and inside the layer section they run
+            # border -> opacity -> zoom range. The browser page resolves the en
+            # locale, so the headings read as rendered rather than as keys.
+            assert result["sections"] == ["Layer", "Label"], (
+                f"drawer section order drifted: {result['sections']}"
+            )
+            assert result["layerControls"] == ["border", "opacity", "zoomRange"], (
+                f"layer rows are not border -> opacity -> zoom range: "
+                f"{result['layerControls']} | skeleton: {result['struct']}"
+            )
+            assert result["zoomSection"] == "Layer", (
+                f"the zoom range row fell out of the layer section: "
+                f"{result['zoomSection']}"
+            )
+
+            # An untouched visit writes no zoom-range record at all: neither the
+            # value nor a provenance marker.
+            assert result["freshZoomRange"] is None, (
+                f"an untouched visit stored a zoom range: {result}"
+            )
+            assert "zoomRange" not in (result["freshOverrides"] or []), (
+                f"an untouched visit recorded a zoomRange override: "
+                f"{result['freshOverrides']}"
+            )
+
+            # The live pass hides and restores through the canvas's own
+            # visibility callback.
+            assert result["visibleBefore"] is True, f"canvas started hidden: {result}"
+            assert result["hiddenOut"] is True, (
+                f"the canvas stayed visible out of range: {result}"
+            )
+            assert result["visibleBack"] is True, (
+                f"the canvas stayed hidden after the range came back: {result}"
+            )
+
+            # The commit half lands in storage behind the write debounce.
+            page.wait_for_timeout(300)
+            stored = page.evaluate(
+                """(id) => {
+                    const key = Object.keys(localStorage).find(k =>
+                        k.startsWith("foliplus_layer_state_"));
+                    const record = key
+                        ? JSON.parse(localStorage.getItem(key) || "null")
+                        : null;
+                    const entry = record && record.layers
+                        ? record.layers[id]
+                        : null;
+                    return {
+                        stored: entry ? entry.zoomRange : null,
+                        overrides: entry ? entry.overrides : null,
+                    };
+                }""",
+                result["id"],
+            )
+            assert stored["stored"] == result["committed"], (
+                f"the committed range did not reach storage: {stored}"
+            )
+            assert "zoomRange" in (stored["overrides"] or []), (
+                f"the committed range carried no provenance marker: {stored}"
+            )
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
 
     # ── Row lookup by data-layer-id, not by registry / DOM position ──
     #

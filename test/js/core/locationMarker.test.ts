@@ -1,8 +1,9 @@
+import type { Map as LeafletMap } from "leaflet";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createLocationMarker } from "#core/locationMarker.js";
 
 describe("createLocationMarker", () => {
-  let map;
+  let map: LeafletMap;
   // Every test stubs _closeButton to null; the two title-setting tests below
   // create their own real anchor so the adapter reach is exercised.
   const mockMarker = {
@@ -21,7 +22,7 @@ describe("createLocationMarker", () => {
     map = {
       removeLayer: vi.fn(),
       addLayer: vi.fn(),
-    };
+    } as unknown as LeafletMap;
     window.L.marker = vi.fn(() => ({
       ...mockMarker,
       bindPopup: vi.fn().mockReturnThis(),
@@ -164,8 +165,8 @@ describe("createLocationMarker", () => {
       "Close",
       "en",
       null,
-      null,
-      null,
+      undefined,
+      undefined,
       false,
     );
     expect(marker.openPopup).not.toHaveBeenCalled();

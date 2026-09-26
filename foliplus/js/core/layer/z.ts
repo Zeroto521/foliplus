@@ -95,4 +95,5 @@ const zFor = ({
  *  native-pane offsets (popup / tooltip / marker) in `LayerManager.enforceOrder`. */
 const topSlotZ = (count: number): number => zFor({ index: -1, count });
 
-export { ANNOTATION_Z_OFFSET, FOCUS_Z, focusLayerZ, topSlotZ, zFor, type ZArgs };
+export { ANNOTATION_Z_OFFSET, FOCUS_Z, focusLayerZ, topSlotZ, zFor };
+export type { ZArgs };
