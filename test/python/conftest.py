@@ -23,7 +23,7 @@ import warnings
 from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TextIO
 
 import folium
 import pytest
@@ -381,11 +381,14 @@ class _Flaky95Probe:
         self._sample_n = max(1, sample_n)
         self._pages_opened = 0
         self._warned: set[str] = set()
-        self._log_fh = None
+        self._log_fh: TextIO | None = None
         if _HEALTH_PROBE_ENABLED:
             _HEALTH_DIR.mkdir(parents=True, exist_ok=True)
             ts = time.strftime("%Y%m%d-%H%M%S")
-            path = _HEALTH_DIR / f"health-{ts}-{worker_id}.jsonl"
+            # pid disambiguates two rounds that happen to start within the
+            # same second (fast CI retries, automated loops) — without it
+            # both probes append to the same file and their samples interleave.
+            path = _HEALTH_DIR / f"health-{ts}-{worker_id}-{os.getpid()}.jsonl"
             try:
                 # Line-buffered so each sample is durable even under a
                 # hard worker kill — that's the anomaly mode we want to
