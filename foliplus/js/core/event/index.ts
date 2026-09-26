@@ -20,4 +20,5 @@ const ensureEvents = (map: L.Map): EventBus => {
 export { ensureEvents };
 export { EVENTS, EVENT_REGISTRY } from "./const.js";
 export type { EventMeta, EventPayloadMap } from "./const.js";
-export { type EventHandler, EventBus } from "./EventBus.js";
+export { EventBus } from "./EventBus.js";
+export type { EventHandler } from "./EventBus.js";

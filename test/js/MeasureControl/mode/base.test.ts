@@ -1,5 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { type Mock, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/MeasureControl/const.js";
+import type { MeasureManager } from "#foliplus/MeasureControl/manager.js";
 import {
   createDeferredDelete,
   wireFinalized,
@@ -162,6 +163,14 @@ describe("createDeferredDelete — delayed delete thunk", () => {
 });
 
 describe("wireFinalized — registerFinalized + delete-then-teardown", () => {
+  type WireMgr = { registerFinalized: (c: () => void, id: string) => () => void };
+  const wire = (
+    m: MeasureManager,
+    o: { id: string; teardown: Mock; removeLayers: Mock; onDelete: Mock },
+  ) => wireFinalized(m as unknown as WireMgr, m.layers, o);
+  const handles = (m: MeasureManager) =>
+    (m as unknown as { editHandles: Map<string, unknown> }).editHandles;
+
   const makeOpts = () => ({
     id: "w1",
     teardown: vi.fn(),
@@ -172,9 +181,9 @@ describe("wireFinalized — registerFinalized + delete-then-teardown", () => {
   it("registers teardown via registerFinalized with the given id", () => {
     const manager = makeManagerMock();
     const opts = makeOpts();
-    wireFinalized(manager as any, manager.layers as any, opts);
+    wire(manager, opts);
     expect(manager.registerFinalized).toHaveBeenCalledWith(opts.teardown, "w1");
-    expect(manager.editHandles.has("w1")).toBe(true);
+    expect(handles(manager).has("w1")).toBe(true);
   });
 
   it("delete runs unregister → teardown → removeLayers → onDelete → unregister", () => {
@@ -186,18 +195,18 @@ describe("wireFinalized — registerFinalized + delete-then-teardown", () => {
     opts.onDelete.mockImplementation(() => order.push("onDelete"));
     manager.layers.unregister.mockImplementation(() => order.push("unregister"));
 
-    const { delete: del } = wireFinalized(manager as any, manager.layers as any, opts);
+    const { delete: del } = wire(manager, opts);
     del();
 
     expect(order).toEqual(["teardown", "removeLayers", "onDelete", "unregister"]);
     // registerFinalized's unregister thunk dropped the handle
-    expect(manager.editHandles.has("w1")).toBe(false);
+    expect(handles(manager).has("w1")).toBe(false);
   });
 
   it("delete calls teardown exactly once (no double-dispose)", () => {
     const manager = makeManagerMock();
     const opts = makeOpts();
-    const { delete: del } = wireFinalized(manager as any, manager.layers as any, opts);
+    const { delete: del } = wire(manager, opts);
     del();
     expect(opts.teardown).toHaveBeenCalledOnce();
     expect(opts.removeLayers).toHaveBeenCalledOnce();
@@ -207,7 +216,7 @@ describe("wireFinalized — registerFinalized + delete-then-teardown", () => {
   it("clearAll (finalized path) runs teardown without removeLayers/onDelete", () => {
     const manager = makeManagerMock();
     const opts = makeOpts();
-    wireFinalized(manager as any, manager.layers as any, opts);
+    wire(manager, opts);
     manager.clearAll();
     expect(opts.teardown).toHaveBeenCalledOnce();
     expect(opts.removeLayers).not.toHaveBeenCalled();

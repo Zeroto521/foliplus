@@ -18,6 +18,15 @@ import {
   stripLeadingBlockComment,
 } from "#script/bundle-size-lib.mjs";
 
+const rSizes = (root: string): Record<string, number> =>
+  readSizes(root) as Record<string, number>;
+
+const BundleArgs = (
+  argv: string[] = [],
+  extra: Record<string, unknown> = {},
+): Record<string, unknown> & { errors: string[] } =>
+  parseArgsWithBase(argv, extra) as Record<string, unknown> & { errors: string[] };
+
 // ── Exit codes ──────────────────────────────────────────────────────────────
 // One table, shared by both gates. Every code is a distinct meaning; a
 // duplicate number (the pre-refactor collision where EXIT_THRESHOLD and
@@ -137,7 +146,7 @@ describe("readSizes", () => {
   it("returns an empty object when dist/ holds no minified artifacts", () => {
     const root = mkTmp();
     mkDist(root, {});
-    expect(readSizes(root)).toEqual({});
+    expect(rSizes(root)).toEqual({});
   });
 
   it("reads the brotli size of every *.min.{js,css} and sorts by name", () => {
@@ -146,7 +155,7 @@ describe("readSizes", () => {
       "foliplus-zzz.min.css": payload(512),
       "foliplus-aaa.min.js": payload(512),
     });
-    const sizes = readSizes(root);
+    const sizes = rSizes(root);
     expect(Object.keys(sizes)).toEqual(["foliplus-aaa.min.js", "foliplus-zzz.min.css"]);
     // A 512-byte incompressible payload: its brotli size tracks its length.
     expect(sizes["foliplus-aaa.min.js"]).toBeGreaterThan(400);
@@ -160,7 +169,7 @@ describe("readSizes", () => {
       "artifacts.json": "{}",
       "foliplus-common.min.js": payload(512),
     });
-    const sizes = readSizes(root);
+    const sizes = rSizes(root);
     expect(Object.keys(sizes)).toEqual(["foliplus-common.min.js"]);
   });
 
@@ -175,7 +184,7 @@ describe("readSizes", () => {
       "with-banner.min.js": `/*! banner */${code}`,
       "no-banner.min.js": code,
     });
-    const sizes = readSizes(root);
+    const sizes = rSizes(root);
     expect(sizes["with-banner.min.js"]).toBe(sizes["no-banner.min.js"]);
   });
 });
@@ -210,12 +219,12 @@ describe("baseSpec", () => {
 // ── Arg parsing ─────────────────────────────────────────────────────────────
 describe("parseArgsWithBase", () => {
   it("returns a `root` key even when the caller's spec does not mention it", () => {
-    const args = parseArgsWithBase([], {});
+    const args = BundleArgs([], {});
     expect(args).toHaveProperty("root");
   });
 
   it("merges the caller's extra flags alongside --root", () => {
-    const args = parseArgsWithBase(["--root=/tmp/x", "--emit=/tmp/y.json"], {
+    const args = BundleArgs(["--root=/tmp/x", "--emit=/tmp/y.json"], {
       emit: { type: "string" },
     });
     expect(args.root).toBe("/tmp/x");
@@ -225,7 +234,7 @@ describe("parseArgsWithBase", () => {
   it("collects malformed input into args.errors rather than throwing", () => {
     // A non-numeric threshold is an error the caller surfaces via
     // `args.errors.length` — the same contract the other build scripts use.
-    const args = parseArgsWithBase(["--threshold=abc"], {
+    const args = BundleArgs(["--threshold=abc"], {
       threshold: { type: "number", default: 10 },
     });
     expect(args.errors.length).toBeGreaterThan(0);
@@ -233,7 +242,7 @@ describe("parseArgsWithBase", () => {
   });
 
   it("defaults bool flags to false", () => {
-    const args = parseArgsWithBase([], { enforce: { type: "bool" } });
+    const args = BundleArgs([], { enforce: { type: "bool" } });
     expect(args.enforce).toBe(false);
   });
 });

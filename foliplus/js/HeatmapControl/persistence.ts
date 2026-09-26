@@ -73,4 +73,5 @@ const applySavedConfig = (manager: ManagerLike, saved: SavedConfig): void => {
   manager.selectedLayerId = saved.layerId ?? null;
 };
 
-export { applySavedConfig, clearSavedConfig, loadSavedConfig, type ManagerLike };
+export { applySavedConfig, clearSavedConfig, loadSavedConfig };
+export type { ManagerLike };

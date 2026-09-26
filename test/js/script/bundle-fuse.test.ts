@@ -128,7 +128,7 @@ describe("bundle-fuse exit codes", () => {
   it("reads real sizes off disk", () => {
     const root = mkTmp();
     mkDist(root, { "foliplus-LocateControl.min.js": payload(20 * 1024) });
-    const sizes = readSizes(root);
+    const sizes = readSizes(root) as Record<string, number>;
     // 20 KB incompressible -> brotli size well over LocateControl's 4.88 KB
     // cap; that is exactly the condition the breach test above relies on.
     expect(sizes["foliplus-LocateControl.min.js"]).toBeGreaterThan(

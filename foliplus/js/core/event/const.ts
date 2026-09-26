@@ -101,4 +101,5 @@ const EVENT_REGISTRY: Record<string, EventMeta> = {
   },
 };
 
-export { type EventMeta, type EventPayloadMap, EVENTS, EVENT_REGISTRY };
+export { EVENTS, EVENT_REGISTRY };
+export type { EventMeta, EventPayloadMap };
