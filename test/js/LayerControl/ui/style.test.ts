@@ -1148,15 +1148,26 @@ describe("LayerUI style panel", () => {
     expect(styleItem.getAttribute("title")).toBe("LayerControl.style_layer_tooltip");
   });
 
-  it("the ⋮ menu's Style item is enabled for the color basemap (fill row)", () => {
+  it("the ⋮ menu's Style item follows the checkbox on a basemap row too", () => {
+    // Every row obeys one rule: Style is clickable only while the row is
+    // checked. A basemap row is not exempt — consulted ahead of the basemap
+    // "no extent" verdict, an off row is simply hidden and has nothing to
+    // style. The colour basemap starts unchecked, so its Style entry starts
+    // disabled and turns on with the box.
     const item = ui.uiContainer.querySelector(CONST.SEL.COLOR_ITEM) as HTMLElement;
+    const box = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
+    const styleItemOf = () =>
+      item.querySelector(
+        `.foliplus-layer-more-menu li[data-action="${CONST.ACTION.STYLE_LAYER}"]`,
+      ) as HTMLElement;
 
+    box.checked = false;
     ui.openMoreMenu(item);
+    expect(styleItemOf().getAttribute("disabled")).toBe("disabled");
 
-    const styleItem = item.querySelector(
-      `.foliplus-layer-more-menu li[data-action="${CONST.ACTION.STYLE_LAYER}"]`,
-    ) as HTMLElement;
-    expect(styleItem.getAttribute("disabled")).toBeNull();
+    box.checked = true;
+    ui.openMoreMenu(item);
+    expect(styleItemOf().getAttribute("disabled")).toBeNull();
   });
 
   // ─────────────────── field cache ───────────────────

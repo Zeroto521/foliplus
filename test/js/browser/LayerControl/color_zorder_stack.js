@@ -20,9 +20,9 @@
 
   // Read the z-index of a pane by its class prefix.
   const zOfPaneWithPrefix = prefix => {
-    const pane = Array.from(
-      document.querySelectorAll(".leaflet-pane"),
-    ).find(p => p.className.includes(prefix));
+    const pane = Array.from(document.querySelectorAll(".leaflet-pane")).find(p =>
+      p.className.includes(prefix),
+    );
     return pane ? parseInt(getComputedStyle(pane).zIndex, 10) || null : null;
   };
 

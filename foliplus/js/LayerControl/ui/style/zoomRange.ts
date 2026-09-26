@@ -1,4 +1,4 @@
-// Zoom-range row: dual-thumb rail + current-zoom marker + value labels +
+﻿// Zoom-range row: dual-thumb rail + current-zoom marker + value labels +
 // live / commit passes. Moved verbatim from ui/style.ts.
 // Used by both the delegated drawer and the annotation panel — the row is
 // LayerControl-owned, gated by surface capability.
@@ -39,10 +39,8 @@ import { railPos, round5 } from "./frame.js";
 const canShowZoomRange = (ui: LayerUI, layerId: string): boolean => {
   const li = ui.m.layerRegistry.get(layerId);
   if (!li) return false;
-  if (li.isBase && !isColorBasemap(ui, li)) return false;
-  return (
-    ui.m.surfaceFor(li).capabilities.zoomRange !== "none" || isColorBasemap(ui, li)
-  );
+  if (li.isBase && !isColorBasemap(li)) return false;
+  return ui.m.surfaceFor(li).capabilities.zoomRange !== "none" || isColorBasemap(li);
 };
 
 /** Clamp a zoom value into the map's current [min, max] range. */

@@ -1668,6 +1668,24 @@ describe("LayerUI focus", () => {
       expect(focusDisabledReason(ui, row({ checked: false }))).toBe("hidden");
     });
 
+    it("returns 'hidden' for an unchecked basemap row — same rule as data rows", () => {
+      // The basemap branches say "no useful extent", which is true whether or
+      // not the row is on. Consulted first (as they once were) they would let
+      // an off basemap keep an enabled Style entry, so the unchecked check has
+      // to come ahead of them.
+      expect(
+        focusDisabledReason(ui, row({ type: CONST.GROUP.BASE, checked: false })),
+      ).toBe("hidden");
+      expect(focusDisabledReason(ui, row({ color: true, checked: false }))).toBe(
+        "hidden",
+      );
+      // A checked basemap keeps the basemap verdict: no extent to focus on.
+      expect(
+        focusDisabledReason(ui, row({ type: CONST.GROUP.BASE, checked: true })),
+      ).toBe("base");
+      expect(focusDisabledReason(ui, row({ color: true, checked: true }))).toBe("base");
+    });
+
     it("returns 'no_bounds' when the surface reports capabilities.bounds false", () => {
       const item = row({ checked: true, layerId: "nob" });
       const layerInfo = { id: "nob" } as LayerInfo;

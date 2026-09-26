@@ -156,6 +156,21 @@ describe("LayerUI style panel — fill color", () => {
 
   // ─────────────────── capability gate ───────────────────
 
+  it("layerCanFill returns true for a solid-color basemap", () => {
+    // The colour basemap carries BOTH `color` (its fill) and `canvas` (the
+    // face element the export renderer draws). Gating on `canvas` — as this
+    // once did — drops its fill row, which is the one dimension this layer
+    // exists to expose. `color` is the discriminator.
+    manager.registerLayer({
+      id: "colormap",
+      name: "Color",
+      isBase: true,
+      color: "#3366cc",
+      canvas: document.createElement("canvas"),
+    });
+    expect(layerCanFill(ui, "colormap")).toBe(true);
+  });
+
   it("layerCanFill returns false for a canvas layer", () => {
     manager.registerLayer({
       id: "canvas1",

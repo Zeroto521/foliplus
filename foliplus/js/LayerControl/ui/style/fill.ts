@@ -1,4 +1,4 @@
-// Fill color row — the ⚙︎ drawer's "Layer" section fill swatch.
+﻿// Fill color row — the ⚙︎ drawer's "Layer" section fill swatch.
 //
 // A self-managed LayerControl dimension (like label, not like opacity /
 // zoom range): the value lives in `ui.fillColorMap`, is persisted under
@@ -90,21 +90,23 @@ const hasFillGeometry = (ui: LayerUI, li: LayerInfo): boolean => {
   return found;
 };
 
-/** Whether the layer is a solid-color basemap: a base layer with no Leaflet
- *  layer (the fill is the container background) whose surface owns one pane
- *  (opacity "pane"). Tile basemaps have a real GridLayer and `opacity:
- *  "native"`; vector shapes are not `isBase`; canvas / delegated layers are
- *  excluded by the guard. The `!li.layer` check is the honest discriminator —
- *  the colour basemap has no Leaflet object to walk. */
-const isColorBasemap = (ui: LayerUI, li: LayerInfo | undefined): boolean => {
-  if (!li || li.canvas || li.styleSetters) return false;
-  return !li.layer && li.isBase && ui.m.surfaceFor(li).capabilities.opacity === "pane";
+/** Whether the layer is a solid-color basemap: a base layer whose fill is the
+ *  value on `li.color` rather than a Leaflet layer's geometry.
+ *
+ *  `li.color` is the discriminator, not `li.canvas`: the colour basemap *does*
+ *  carry a `canvas` (its face element, which the export renderer draws — see
+ *  `LayerFactory.createColor`), so excluding on `canvas` would never match it
+ *  and silently drops its fill row. A heatmap canvas has no `color`, so it
+ *  still belongs to the canvas family and is excluded here. */
+const isColorBasemap = (li: LayerInfo | undefined): boolean => {
+  if (!li || li.styleSetters) return false;
+  return Boolean(li.color) && li.isBase;
 };
 
 const layerCanFill = (ui: LayerUI, layerId: string): boolean => {
   const li = ui.m.layerRegistry.get(layerId);
   if (!li) return false;
-  if (isColorBasemap(ui, li)) return true;
+  if (isColorBasemap(li)) return true;
   if (li.canvas) return false;
   if (li.styleSetters) return false;
   const caps = ui.m.surfaceFor(li).capabilities;
@@ -247,7 +249,7 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
   // style. Route to showColorLayer instead of walking leaves (the basemap
   // has none). Syncs ui.currentColor so a later checkbox toggle re-applies
   // the same color.
-  if (isColorBasemap(ui, li)) {
+  if (isColorBasemap(li)) {
     if (color !== undefined) {
       ui.currentColor = color;
       showColorLayer(ui, color);
@@ -300,7 +302,7 @@ const commitFillColor = (ui: LayerUI, layerId: string, rawColor: string): void =
 
   if (ui.fillOpacityMap[layerId] === undefined) {
     const li = ui.m.layerRegistry.get(layerId);
-    if (!isColorBasemap(ui, li)) {
+    if (!isColorBasemap(li)) {
       const layer = li?.layer as StyleCarrier | null;
       if (layer) {
         let hollow = false;
@@ -353,7 +355,7 @@ const resetLayerFill = (ui: LayerUI, layerId: string): void => {
   const li = ui.m.layerRegistry.get(layerId);
 
   // Solid-color basemap: restore the authored default colour.
-  if (isColorBasemap(ui, li)) {
+  if (isColorBasemap(li)) {
     ui.currentColor = CONST.COLOR.DEFAULT;
     showColorLayer(ui, CONST.COLOR.DEFAULT);
     return;
@@ -379,7 +381,7 @@ const resetLayerFill = (ui: LayerUI, layerId: string): void => {
  *  authored colors are resolved to the hex the picker can display. */
 const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
   const li = ui.m.layerRegistry.get(layerId);
-  const isBasemap = isColorBasemap(ui, li!);
+  const isBasemap = isColorBasemap(li!);
 
   const storedColor = ui.fillColorMap[layerId];
   const color = toHexColor(

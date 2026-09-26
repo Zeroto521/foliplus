@@ -6019,13 +6019,18 @@ class TestLayerPaneProbeBrowser:
         assert abs(r["canvasEff"] - 0.4) < 0.02
 
     def test_hatch_fullscreen_parity(self, browser, tmp_path):
-        """No-basemap hatch looks the same in fullscreen and non-fullscreen.
+        """No-basemap hatch keeps the same paint inside and outside fullscreen.
 
-        The browser's native fullscreen API paints a UA black background
-        over the container. The CSS fix adds an !important override for
-        :fullscreen.no-base-map so the hatch background survives. This
-        test verifies the CSS rule exists and the non-fullscreen state
-        has the correct background."""
+        The failure mode is an *absent opaque background*: with
+        ``background-color: transparent`` the container shows the page behind it
+        normally, but in fullscreen it shows the UA ``::backdrop`` (black) —
+        "white + grid" outside, "black + grid" inside. The backdrop itself is
+        not observable (``getComputedStyle`` describes the element; headless
+        Chromium does not composite the backdrop into a screenshot), so the
+        decisive assertion is that the container paints an opaque, light
+        background — that is what keeps the backdrop invisible. Parity of the
+        element's own paint across the fullscreen transition is asserted too.
+        """
         m = folium.Map(location=[26.08, 119.30], zoom_start=12, tiles=None)
         LayerControl().add_to(m)
         _expand_panel(m)
@@ -6042,25 +6047,40 @@ class TestLayerPaneProbeBrowser:
             )
             page.wait_for_timeout(500)
 
-            result = page.evaluate(_js("LayerControl/hatch_fullscreen_parity"))
-            assert result["ok"] is True
+            # Arm the empty-basemap state and mount the fullscreen trigger.
+            page.evaluate("window.__probe = { action: 'arm' }")
+            armed = page.evaluate(_js("LayerControl/hatch_fullscreen_parity"))
+            assert armed["ok"] is True, armed
+            before = armed["state"]
+            assert before["isFull"] is False, "read must start outside fullscreen"
+            assert before["hatch"] is True, f"hatch missing before fullscreen: {before}"
 
-            # Non-fullscreen: background-color should be light (not black).
-            state = result["state"]
-            assert state["hasNoBaseMap"] is True, "no-base-map class must be set"
-            assert state["bgImage"] is True, "hatch pattern must be present"
-            # Background should be a light color (not rgb(0, 0, 0)).
-            bg = state["bgColor"]
-            assert not bg.startswith("rgb(0, 0, 0"), (
-                f"background must not be black, got {bg}"
+            # The container must paint an opaque background: a transparent one
+            # is exactly what lets the black backdrop show through in
+            # fullscreen. Lightness keeps it the intended light-base hatch.
+            rgba = before["rgba"]
+            assert rgba is not None, f"unreadable background colour: {before}"
+            assert rgba["a"] == 1, (
+                f"no-basemap hatch must paint an opaque background, got {before['bg']}"
+            )
+            luma = (rgba["r"] + rgba["g"] + rgba["b"]) / 3
+            assert luma > 128, (
+                f"hatch background must stay light, got {before['bg']}"
             )
 
-            # CSS rule for :fullscreen.no-base-map must exist.
-            assert result["fullscreenRuleFound"] is True, (
-                "CSS rule for :fullscreen.no-base-map must exist"
+            # A real click is what grants the user activation the API requires.
+            page.click("#foliplus-fs-trigger")
+            page.wait_for_timeout(500)
+
+            after = page.evaluate(_js("LayerControl/hatch_fullscreen_parity"))
+            assert after["ok"] is True, after
+            state = after["state"]
+            assert state["isFull"] is True, (
+                f"requestFullscreen did not take effect: {state}"
             )
-            # The fullscreen rule must set background-color to a light color.
-            fs_bg = result["fullscreenBgColor"]
-            assert fs_bg and not fs_bg.startswith("rgb(0, 0, 0)"), (
-                f"fullscreen rule must set a light background, got {fs_bg}"
+
+            # Entering fullscreen must not change the element's own paint.
+            assert state["bg"] == before["bg"], (
+                f"background differs across fullscreen: {before['bg']} -> {state['bg']}"
             )
+            assert state["hatch"] is True, f"hatch lost in fullscreen: {state}"

@@ -497,7 +497,9 @@ describe("ui/drag", () => {
 
     it("handleDragStart tolerates a null dataTransfer", () => {
       const ui = makeUi({
-        layers: [{ id: "a", name: "A", layer: {} as L.Layer, visible: true, isBase: true }],
+        layers: [
+          { id: "a", name: "A", layer: {} as L.Layer, visible: true, isBase: true },
+        ],
         containers: ["a", "b"],
       });
       const row = ui.uiContainer.querySelector<HTMLElement>(

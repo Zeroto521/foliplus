@@ -6,9 +6,9 @@
   const cb = row.querySelector('input[type="checkbox"]');
   const active = row.classList.contains("active");
   // Read the fill color from the pane's canvas context if available.
-  const colorPane = Array.from(
-    document.querySelectorAll(".leaflet-pane"),
-  ).find(p => p.className.includes("foliplus-color-"));
+  const colorPane = Array.from(document.querySelectorAll(".leaflet-pane")).find(p =>
+    p.className.includes("foliplus-color-"),
+  );
   const colorFace = colorPane
     ? colorPane.querySelector(".foliplus-canvas-layer")
     : null;

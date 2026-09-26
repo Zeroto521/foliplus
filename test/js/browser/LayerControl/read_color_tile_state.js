@@ -9,9 +9,9 @@
     tilePane && tilePane.classList.contains("foliplus-layer-tile-hidden");
   const tileLayers = document.querySelectorAll(".leaflet-tile-loaded");
   // Color pane exists and is visible (its face canvas is not hidden).
-  const colorPane = Array.from(
-    document.querySelectorAll(".leaflet-pane"),
-  ).find(p => p.className.includes("foliplus-color-"));
+  const colorPane = Array.from(document.querySelectorAll(".leaflet-pane")).find(p =>
+    p.className.includes("foliplus-color-"),
+  );
   const colorFace = colorPane
     ? colorPane.querySelector(".foliplus-canvas-layer")
     : null;
