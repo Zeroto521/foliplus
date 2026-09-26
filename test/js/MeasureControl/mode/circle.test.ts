@@ -38,7 +38,7 @@ describe("CircleMode — click stops propagation to data layers", () => {
     mode.start();
 
     const clickHandler = manager.map.on.mock.calls.find(
-      ([event]) => event === "click",
+      ([event]: [unknown]) => event === "click",
     )?.[1];
     expect(clickHandler).toBeDefined();
 
@@ -142,10 +142,10 @@ describe("CircleMode — start drawing flow", () => {
       mode.start();
 
       const clickHandler = manager.map.on.mock.calls.find(
-        ([ev]) => ev === "click",
+        ([ev]: [unknown]) => ev === "click",
       )?.[1];
       const moveHandler = manager.map.on.mock.calls.find(
-        ([ev]) => ev === "mousemove",
+        ([ev]: [unknown]) => ev === "mousemove",
       )?.[1];
 
       clickHandler({ latlng: { lat: 31.2, lng: 121.5 } });
@@ -243,7 +243,7 @@ describe("CircleMode — drag persistence (onEnd)", () => {
       mode.start();
 
       const clickHandler = manager.map.on.mock.calls.find(
-        ([ev]) => ev === "click",
+        ([ev]: [unknown]) => ev === "click",
       )?.[1];
 
       clickHandler({ latlng: { lat: 31, lng: 121 } });

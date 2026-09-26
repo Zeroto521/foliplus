@@ -793,7 +793,9 @@ describe("attachSearchDelIcon", () => {
     attachSearchDelIcon(ctrl, [31.23, 121.47]);
     const delIcon = ctrl.delIcon;
 
-    const delClick = delIcon.on.mock.calls.find((c: unknown[]) => c[0] === "click")?.[1];
+    const delClick = delIcon.on.mock.calls.find(
+      (c: unknown[]) => c[0] === "click",
+    )?.[1];
     expect(delClick).toBeDefined();
     const x = document.createElement("span");
     x.setAttribute("data-del-icon", "");

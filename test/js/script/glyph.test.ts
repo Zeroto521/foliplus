@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  MIN_GROWTH_BYTES,
-  buildRows,
-  parseArgs,
-} from "#script/bundle-size-check.mjs";
+import { MIN_GROWTH_BYTES, buildRows, parseArgs } from "#script/bundle-size-check.mjs";
 import { FAIL, OK, STATUS, WARN } from "#script/glyph.mjs";
 
 const GlyphArgs = (argv: string[] = []): { threshold: number } =>

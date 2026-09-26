@@ -114,7 +114,9 @@ describe("MarkerMode — start + click", () => {
     const mode = new MarkerMode(manager);
     mode.start();
 
-    const clickHandler = manager.map.on.mock.calls.find(([ev]) => ev === "click")?.[1];
+    const clickHandler = manager.map.on.mock.calls.find(
+      ([ev]: [unknown]) => ev === "click",
+    )?.[1];
     clickHandler({ latlng: { lat: 31.2, lng: 121.5 } });
 
     expect(manager.measurements.length).toBe(1);

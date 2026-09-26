@@ -14,8 +14,8 @@ import {
   searchAddress,
   searchCoord,
 } from "#foliplus/SearchControl/logic/search.js";
-import { ensureModes } from "#foliplus/core/mode.js";
 import type { SearchHistoryEntry } from "#foliplus/SearchControl/type.js";
+import { ensureModes } from "#foliplus/core/mode.js";
 
 // Module-level code captured window.foliplus and window.map from setup.js.
 // Use vi.spyOn to track calls on those already-setup mocks.

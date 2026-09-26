@@ -103,8 +103,8 @@ describe("esbuildCfgFor", () => {
 
       const postcssPlugin = esbuildCfgFor({ dev: false, root: ROOT }).plugins[0];
       let onLoadHandler:
-        | ((args: { path: string }) => Promise<{ contents: string }>)
-        | undefined = undefined;
+        ((args: { path: string }) => Promise<{ contents: string }>) | undefined =
+        undefined;
 
       // Mock the esbuild build object with just the onLoad method.
       const mockBuild = {

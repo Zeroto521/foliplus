@@ -467,10 +467,16 @@ describe("globalNamespacePlugin", () => {
     };
     globalNamespacePlugin(dir).setup({
       initialOptions: { entryPoints: [join(dir, "index.ts")] },
-      onResolve: (_opts: unknown, cb: (o: { path: string }) => { path: string; namespace: string }) => {
+      onResolve: (
+        _opts: unknown,
+        cb: (o: { path: string }) => { path: string; namespace: string },
+      ) => {
         handlers.onResolve = cb;
       },
-      onLoad: (_opts: unknown, cb: (o: { path: string }) => { contents: string; loader: string }) => {
+      onLoad: (
+        _opts: unknown,
+        cb: (o: { path: string }) => { contents: string; loader: string },
+      ) => {
         handlers.onLoad = cb;
       },
     } as unknown as Parameters<ReturnType<typeof globalNamespacePlugin>["setup"]>[0]);
