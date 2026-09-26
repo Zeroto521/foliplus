@@ -362,13 +362,18 @@ class LayerUI {
     // values. Hooked here rather than in state.ts to keep state.ts free of
     // style-row imports (border.js and fill.js import state.js for
     // markOverride/saveState).
-    replayBorderState(this, id);
-    if (id) {
-      replayFillState(this, id);
-    } else {
-      for (const layerId of Object.keys(this.userOverrides)) {
-        replayFillState(this, layerId);
-      }
+    //
+    // Both dimensions enumerate `userOverrides` — the single source of truth
+    // for which layers the user actually touched. Border's map-union
+    // enumeration and fill's userOverrides loop were asymmetric: a value in
+    // `borderColorMap` that was never recorded as an override would replay
+    // for border but not for fill, and vice versa, so a reload could restore
+    // the drawer's swatch for one dimension while leaving the map with the
+    // author's for the other.
+    const layerIds = id !== undefined ? [id] : Object.keys(this.userOverrides);
+    for (const layerId of layerIds) {
+      replayBorderState(this, layerId);
+      replayFillState(this, layerId);
     }
   }
   replayLayerState(layerId: string) {

@@ -305,6 +305,29 @@ describe("LayerUI style panel — fill color", () => {
     expect(fillRow(item)).not.toBeNull();
   });
 
+  // §47.1 gate unification: the third condition requires a real setStyle
+  // leaf behind the layer. An empty group has eachLayer but yields no
+  // children, so the carrier check finds no setStyle leaf to write to.
+
+  it("layerCanFill is false for an empty group — eachLayer walks nothing", () => {
+    manager.registerLayer({
+      id: "empty1",
+      name: "E",
+      layer: {
+        options: {},
+        eachLayer: vi.fn((fn: (child: unknown) => void) => {
+          // no children to dispatch
+        }),
+        getBounds: vi.fn(() => ({
+          isValid: vi.fn(() => true),
+          getSouthWest: vi.fn(() => ({ lat: 0, lng: 0 })),
+          getNorthEast: vi.fn(() => ({ lat: 1, lng: 1 })),
+        })),
+      } as never,
+    });
+    expect(layerCanFill(ui, "empty1")).toBe(false);
+  });
+
   it("the swatch resolves a named authored color through the browser probe", () => {
     // jsdom cannot parse named colors and degrades to the default; the real
     // picker resolves them (Chromium: "gray" → #808080). The important
