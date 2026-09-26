@@ -29,6 +29,7 @@ import {
 } from "#common/form.js";
 import { NUMBER_FORMAT, type NumberStyle } from "#common/format.js";
 import { createRowPanel } from "#common/panel.js";
+import { createSection } from "#common/section.js";
 import * as CONST from "../../const.js";
 import * as SVGs from "../../icon.js";
 import type { LayerUI } from "../index.js";
@@ -47,7 +48,7 @@ import {
   replayFillState,
   resetLayerFill,
 } from "./fill.js";
-import { appendResetFooter, railPos, sectionHeading } from "./frame.js";
+import { appendResetFooter, railPos } from "./frame.js";
 import { applyPatch, layerFields, syncFormatRow } from "./label.js";
 import {
   buildOpacityRow,
@@ -248,17 +249,26 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   // Layer comes first: it is the primary surface (what the user drew), and the
   // Label section is a decoration of it. High-frequency operations lead.
   if (hasLayerDim) {
-    content.append(sectionHeading(ui.T("section_layer")));
-    if (layerCanFill(ui, layerId)) content.append(buildFillRow(ui, layerId));
-    if (layerCanBorder(ui, layerId)) content.append(buildBorderRow(ui, layerId));
-    if (layerCanOpacity(ui, layerId)) content.append(buildOpacityRow(ui, layerId));
-    if (canShowZoomRange(ui, layerId)) content.append(buildZoomRangeRow(ui, layerId));
+    const layerSection = createSection({ title: ui.T("section_layer") });
+    if (layerCanFill(ui, layerId)) {
+      layerSection.body.appendChild(buildFillRow(ui, layerId));
+    }
+    if (layerCanBorder(ui, layerId)) {
+      layerSection.body.appendChild(buildBorderRow(ui, layerId));
+    }
+    if (layerCanOpacity(ui, layerId)) {
+      layerSection.body.appendChild(buildOpacityRow(ui, layerId));
+    }
+    if (canShowZoomRange(ui, layerId)) {
+      layerSection.body.appendChild(buildZoomRangeRow(ui, layerId));
+    }
+    content.append(layerSection.root);
   }
   // The Label section renders only when there is a field to label; a plain
   // vector shape reaches the panel for the Layer section alone.
   if (hasLabel) {
-    content.append(
-      sectionHeading(ui.T("section_label")),
+    const labelSection = createSection({ title: ui.T("section_label") });
+    labelSection.body.appendChild(
       dom.el(
         "div",
         { class: CONST.CLASSES.FORM_ROW },
@@ -276,8 +286,9 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
           ),
         ),
       ),
-      body,
     );
+    labelSection.body.appendChild(body);
+    content.append(labelSection.root);
   }
   appendResetFooter(ui, content);
   return panel;

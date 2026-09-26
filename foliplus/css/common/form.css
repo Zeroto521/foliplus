@@ -26,9 +26,8 @@
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-normal);
   color: var(--text-primary);
-  text-align: right;
+  text-align: left;
   white-space: normal;
-  padding-right: var(--space-xs);
   box-sizing: border-box;
 }
 

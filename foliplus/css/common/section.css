@@ -1,0 +1,94 @@
+@import "token.css";
+
+/* ══════════════════════════════════════════════════════════════════════
+   Shared Section — declarative section groups inside a panel body.
+   Built by common/section.ts. Owns the head-row layout, the caption
+   grammar, the is-collapsed state, and the click-versus-switch routing.
+   Collapsing is a view-state class on the root, never persisted here.
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* Section root: stacks head + body. Reads only shared tokens. */
+.foliplus-section {
+  display: block;
+}
+
+/* Head row: two-column grid — title on the left, switch on the right,
+   and (when provided) a muted caption on a second row spanning the width.
+   The base typography and padding live on `.foliplus-section-heading`
+   in form.css — this rule just widens it from a plain block into a grid
+   and aligns the two cells vertically. */
+.foliplus-section-heading {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto;
+  column-gap: var(--space-sm);
+  row-gap: var(--space-xs);
+  align-items: center;
+  box-sizing: border-box;
+}
+
+/* Title: the left cell of the head row. A native `<button type="button">`
+   so Enter and Space fire `click` and reach the head's collapse listener.
+   `all: unset` strips the UA button chrome — no border, padding, or focus
+   ring — so the title reads as heading text until the section becomes
+   collapsible, where the hover and focus-visible rules below kick in. */
+.foliplus-section-title {
+  all: unset;
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 0;
+  cursor: default;
+  display: inline-block;
+}
+
+/* Collapsible affordance: shown only when the section is wired for
+   collapse (marked by `aria-expanded` on the title button). Kept out of
+   the base rule so a static section's title does not carry a hover color
+   or a focus ring the caller did not ask for. */
+.foliplus-section-heading .foliplus-section-title[aria-expanded] {
+  cursor: pointer;
+
+  &:hover {
+    color: var(--accent-primary);
+  }
+
+  &:focus-visible {
+    border-radius: var(--radius-sm);
+    box-shadow: var(--focus-ring);
+  }
+}
+
+/* Master switch slot: sits in the right cell of the head row. The caller's
+   element owns its behaviour (checked state, storage binding); this only
+   keeps it on the same vertical axis as the title and stops it shrinking
+   or growing past its intrinsic size. */
+.foliplus-section-heading > .foliplus-form-control,
+.foliplus-section-heading > label:not(.foliplus-section-title),
+.foliplus-section-heading > .foliplus-toggle-switch {
+  grid-column: 2;
+  grid-row: 1;
+  flex-shrink: 0;
+}
+
+/* Caption: muted second line beneath the title, spanning the full head
+   width so long captions wrap naturally. Nested inside `.head` (not
+   inside `.titleEl`) so `heading.textContent` still equals the title
+   alone when the caption is omitted — the existing section-heading tests
+   key on that exact string. */
+.foliplus-section-heading > .foliplus-section-caption {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-normal);
+  color: var(--text-muted);
+  text-transform: none;
+  letter-spacing: normal;
+  line-height: var(--line-height-hint);
+}
+
+/* Collapsed state: the body is display:none; the head remains as the
+   only visible affordance. No storage is written — the caller decides
+   whether to persist the collapsed preference. */
+.foliplus-section.is-collapsed .foliplus-section-body {
+  display: none;
+}

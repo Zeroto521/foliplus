@@ -4,6 +4,7 @@ import { getGeometryType } from "#core/layer/index.js";
 import { dom } from "#common/dom.js";
 import { formatNumber, formatTimestamp } from "#common/format.js";
 import { createRowPanel } from "#common/panel.js";
+import { createSection } from "#common/section.js";
 import * as CONST from "../const.js";
 import * as SVGs from "../icon.js";
 import * as Util from "../util.js";
@@ -164,8 +165,12 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
   });
   // One flat list: third-party meta rows continue the same rhythm instead
   // of opening a second group, so the panel reads as one column of facts.
+  // The list is wrapped in a single section so the vocabulary matches the
+  // style panel's grouped layout — one flat body, no subsections.
+  const section = createSection({ title: ui.T("attributes_layer") });
   const dlEl = renderList([...rows, ...metaRows]);
-  content.appendChild(dlEl);
+  section.body.appendChild(dlEl);
+  content.appendChild(section.root);
 
   // Live update: subscribe to LAYER_ITEM_COUNT_CHANGE (filtered by layerId)
   // so meta rows refresh in place when the store mutates.
