@@ -538,6 +538,24 @@ describe("resetLayerBorder", () => {
     expect(leaf.setStyle).not.toHaveBeenCalled();
   });
 
+  it("drops the persisted choice when the id resolves to no layer", () => {
+    // registerLayer keeps an id with no layer object — the manager's own
+    // lookup defends for the same case. The reset cannot restore a stroke it
+    // cannot find a carrier for, but the persisted choice is still dropped,
+    // so a reload does not try to apply a stroke to a layer that has none.
+    manager.registerLayer({ id: "ghost", name: "G", layer: null } as any);
+    ui.borderColorMap.ghost = "#ff0000";
+    ui.borderWeightMap.ghost = 4;
+    ui.userOverrides.ghost = ["borderColor", "borderWeight"];
+
+    expect(() => resetLayerBorder(ui, "ghost")).not.toThrow();
+    expect(ui.borderColorMap.ghost).toBeUndefined();
+    expect(ui.borderWeightMap.ghost).toBeUndefined();
+    const overrides = ui.userOverrides.ghost ?? [];
+    expect(overrides).not.toContain("borderColor");
+    expect(overrides).not.toContain("borderWeight");
+  });
+
   it("skips a leaf that was never written, rather than inventing its stroke", () => {
     // Reset restores from the base captured on the first write. A leaf the walk
     // has never touched has no base, so there is nothing honest to restore:
@@ -846,11 +864,11 @@ describe("buildBorderRow", () => {
   });
 
   it("hands the swatch hex for a named colour, not the name itself", () => {
-    // The colour input's value is only defined for #rrggbb, so anything else
-    // is left to the user agent's sanitization: browsers normalize "gray" to
-    // #808080, jsdom falls back to black. Resolving here makes the field's
-    // value the same everywhere, without touching the value the layer is set
-    // to — the map and a Reset still keep the name.
+    // The colour input's value is only defined for #rrggbb, so a name must
+    // reach the field resolved, not as the name. The resolver works through
+    // the browser, so there is no name-to-hex table to keep in step with the
+    // spec. The authored value is untouched: the map and a Reset keep the
+    // name, and only the display boundary normalizes.
     manager.registerLayer({
       id: "geo1",
       name: "G",
@@ -897,6 +915,27 @@ describe("buildBorderRow", () => {
     const row = buildBorderRow(ui, "vec1");
 
     expect(authoredBorder(ui, "vec1").color).toBe("notacolor");
+    expect(
+      (row.querySelector(".foliplus-style-border-color-input") as HTMLInputElement)
+        .value,
+    ).toBe("#000000");
+  });
+
+  it("passes a Color 4 stroke through unresolved and lets the field show its default", () => {
+    // Measured in this engine: oklch/lab/lch/color are legal CSS, so the probe
+    // accepts them into style.color, but getComputedStyle reports them
+    // unnormalized and never as rgb(). The rgb parse therefore finds no
+    // channel, the authored declaration is preserved, and the colour input is
+    // left to its own default rather than to a hex we invented.
+    manager.registerLayer({
+      id: "vec1",
+      name: "V",
+      layer: makeLeaf("oklch(0.5 0.1 100)", 2),
+    });
+
+    const row = buildBorderRow(ui, "vec1");
+
+    expect(authoredBorder(ui, "vec1").color).toBe("oklch(0.5 0.1 100)");
     expect(
       (row.querySelector(".foliplus-style-border-color-input") as HTMLInputElement)
         .value,

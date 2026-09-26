@@ -312,17 +312,23 @@ const replayBorderState = (ui: LayerUI, id?: string): void => {
  *  value is actually defined for.
  *
  *  The author may declare a stroke in any CSS form — a named colour is what
- *  folium's quickstart uses for its faces — and everything outside `#rrggbb`
- *  is left to the user agent's sanitization. Browsers normalize it
- *  (`"gray"` → `#808080`); jsdom does not, and falls back to black. Resolve
- *  it here instead of depending on the user agent, so this boundary's output
- *  is the same everywhere. The browser does the resolving, which keeps this
- *  from becoming a hand-kept table of colour names.
+ *  folium's quickstart uses for its faces. A non-hex declaration is resolved
+ *  here through the browser rather than through a hand-kept name-to-hex
+ *  table, so the field's value is stable in jsdom, in a headless engine and
+ *  in a real one without repeating the same lookup three times.
+ *
+ *  Resolution stops at two honest failures. A value no engine accepts is
+ *  rejected on assignment, so the probe stays empty and the declaration is
+ *  passed through. CSS Color 4 functions are accepted but reported by
+ *  `getComputedStyle` unnormalized, so the rgb parse finds no channel —
+ *  `oklch(...)`, `lab(...)` and `color(...)` reach the field as declared and
+ *  the input shows its own default. That is the limit of what this boundary
+ *  can say without a canvas the test doubles do not provide.
  *
  *  The display boundary only: the authored value stays what the layer is set
- *  to, so the map and a Reset keep it as declared. A value the browser will
- *  not accept is passed through untouched, so an unpaintable declaration is
- *  not silently invented into one that can be painted. */
+ *  to, so the map and a Reset keep it as declared. A value this resolver
+ *  will not accept is passed through untouched, so an unpaintable declaration
+ *  is not silently invented into one that can be painted. */
 const displayColor = (value: string): string => {
   if (/^#[0-9a-f]{6}$/i.test(value)) return value.toLowerCase();
   const probe = document.createElement("span");

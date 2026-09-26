@@ -18,7 +18,7 @@ import { resetLayerZoomRange } from "#foliplus/LayerControl/ui/style/zoomRange.j
 import { AUTO_FIELD } from "#foliplus/core/labelField.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 import { NUMBER_FORMAT } from "#common/format.js";
-import { findItem, initFixture } from "./fixture.js";
+import { findItem, initFixture, installLeafletGlobals } from "./fixture.js";
 
 /** Percentage the opacity fill is drawn at, read off its width expression.
  *  The fill's width is `calc((100% - var(--slider-thumb-hit)) * <fraction>)` —
@@ -998,6 +998,55 @@ describe("LayerUI style panel", () => {
     expect(index(".foliplus-style-border-row")).toBeLessThan(
       index(".foliplus-style-zoom-range-row"),
     );
+  });
+
+  it("renders both the border and the fill row in the layer section, in order", () => {
+    // Border and fill landed on separate branches. Both rows must survive the
+    // merge in one panel, and the two colour axes sit adjacent — a slider
+    // between them would read as two different concerns rather than as one
+    // painted shape. Designed order: opacity, border, fill, zoom range.
+    installLeafletGlobals();
+    const leaves = [new L.Polygon(), new L.Polygon()] as L.Polygon[];
+    leaves.forEach(leaf => {
+      leaf.options = {
+        color: "#000000",
+        weight: 2,
+        fillColor: "#aabbcc",
+        fillOpacity: 0.5,
+      };
+      leaf.setStyle = vi.fn();
+    });
+    manager.registerLayer({
+      id: "poly1",
+      name: "Poly",
+      isBase: false,
+      layer: {
+        options: {},
+        eachLayer: vi.fn((fn: (child: unknown) => void) => leaves.forEach(fn)),
+        getBounds: vi.fn(() => ({
+          isValid: vi.fn(() => true),
+          getSouthWest: vi.fn(() => ({ lat: 0, lng: 0 })),
+          getNorthEast: vi.fn(() => ({ lat: 1, lng: 1 })),
+        })),
+      },
+    });
+    ui.fieldCache.set("poly1", [{ name: "count", numeric: true }]);
+
+    const item = findItem(ui, "poly1");
+    ui.openStylePanel("poly1");
+    const panel = panelOf(item)!;
+
+    const rows = Array.from(panel.querySelectorAll(".foliplus-form-row"));
+    const index = (sel: string) =>
+      rows.findIndex(row => row.matches(sel) || row.querySelector(sel) !== null);
+    const order = [
+      ".foliplus-style-opacity-range",
+      ".foliplus-style-border-row",
+      ".foliplus-style-fill-row",
+      ".foliplus-style-zoom-range-row",
+    ].map(index);
+    expect(order).toEqual(order.slice().sort((a, b) => a - b));
+    expect(order.every(pos => pos >= 0)).toBe(true);
   });
 
   it("never builds the vector border row for a delegated layer — one border row total", () => {
