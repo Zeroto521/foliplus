@@ -29,10 +29,10 @@
   checked.dispatchEvent(
     new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
   );
-  const beforeEscape = panel.querySelector(".foliplus-layer-focused");
+  const beforeEscape = panel.querySelector(".is-focused-row");
   const beforeActive = document.activeElement;
   checked.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-  const afterEscape = panel.querySelector(".foliplus-layer-focused");
+  const afterEscape = panel.querySelector(".is-focused-row");
   const afterActive = document.activeElement;
   return {
     beforeEscape: !!beforeEscape,

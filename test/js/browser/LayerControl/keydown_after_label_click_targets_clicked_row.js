@@ -34,8 +34,7 @@
     // May be set: after keyboard nav Chromium can still report
     // :focus-visible on the next mouse focus, and focusin lights the row.
     focusedRow:
-      panel.querySelector(".foliplus-layer-focused")?.getAttribute("data-layer-id") ??
-      null,
+      panel.querySelector(".is-focused-row")?.getAttribute("data-layer-id") ?? null,
     expectedRow: items[1].getAttribute("data-layer-id"),
   };
 };

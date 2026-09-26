@@ -14,15 +14,15 @@
   // takes. The delegate samples that once and maps it onto the row class.
   checkbox.focus({ focusVisible: true });
   checkbox.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
-  const litByKeyboard = row.classList.contains("foliplus-layer-focused");
+  const litByKeyboard = row.classList.contains("is-focused-row");
 
   // Mouse-like focus must not light the recipe — :focus-visible is false, so
   // the delegate leaves the class off.
   checkbox.blur();
-  row.classList.remove("foliplus-layer-focused");
+  row.classList.remove("is-focused-row");
   checkbox.focus({ focusVisible: false });
   checkbox.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
-  const litByMouse = row.classList.contains("foliplus-layer-focused");
+  const litByMouse = row.classList.contains("is-focused-row");
 
   return {
     litByKeyboard,

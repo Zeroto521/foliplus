@@ -21,7 +21,7 @@
   );
 
   return {
-    cursorCleared: !item.classList.contains("foliplus-layer-focused"),
+    cursorCleared: !item.classList.contains("is-focused-row"),
     // Focus stays inside the row (checkbox or the row itself).
     focused: document.activeElement === item || item.contains(document.activeElement),
     suppressLeft: Boolean(panel.querySelector(".foliplus-layer-focus-suppressed")),
