@@ -357,7 +357,9 @@ describe("LayerPersistence", () => {
       // itself says was never chosen, so it is dropped: keeping it would hide a
       // layer the user never touched. An author's declared min_zoom / max_zoom
       // reaches the record the same way — as a value with no provenance — so the
-      // declaration must never masquerade as a user's drag.
+      // declaration must never masquerade as a user's drag. The border axes
+      // ride the same rule: an authored stroke with no provenance must stay a
+      // declaration, never a user choice.
       seedStorage({
         layers: {
           a: { visible: false, overrides: [] },
@@ -365,6 +367,10 @@ describe("LayerPersistence", () => {
           c: { opacity: 0.3 },
           d: { zoomRange: [3, 12], overrides: [] },
           e: { zoomRange: [3, 12] },
+          f: { borderColor: "#ff0000" },
+          g: { borderWeight: 3, overrides: [] },
+          h: { borderColor: "#ff0000", overrides: [] },
+          i: { borderWeight: 3 },
         },
       });
       expect(makePersistence().load().layers).toEqual({});
@@ -402,6 +408,32 @@ describe("LayerPersistence", () => {
       });
     });
 
+    it("restores a border color and width with their provenance", () => {
+      // The border dimensions ride the same value-plus-provenance rule as the
+      // rest: a stored stroke without an override is an author default, and
+      // reading it back as a user choice would repaint a layer nobody touched.
+      seedStorage({
+        layers: {
+          a: { borderColor: "#ff0000", overrides: ["borderColor"] },
+          b: { borderWeight: 3.5, overrides: ["borderWeight"] },
+          c: {
+            borderColor: "#00ff00",
+            borderWeight: 6,
+            overrides: ["borderColor", "borderWeight"],
+          },
+        },
+      });
+      expect(makePersistence().load().layers).toEqual({
+        a: { borderColor: "#ff0000", overrides: ["borderColor"] },
+        b: { borderWeight: 3.5, overrides: ["borderWeight"] },
+        c: {
+          borderColor: "#00ff00",
+          borderWeight: 6,
+          overrides: ["borderColor", "borderWeight"],
+        },
+      });
+    });
+
     it("keeps the fill color and opacity the user set, with provenance", () => {
       seedStorage({
         layers: {
@@ -422,6 +454,36 @@ describe("LayerPersistence", () => {
           fillOpacity: 0.6,
           overrides: ["fillColor", "fillOpacity"],
         },
+      });
+    });
+
+    it("drops border values the UI could not display", () => {
+      // A corrupt entry must not leak into <input type=color> nor ask for a
+      // width outside the shared bounds: both validators fail closed, and a
+      // dimension that loses its value drops its provenance with it. c and d
+      // are 4 and 5 hex digits — legal-looking, but no input type=color accepts
+      // anything but 3 or 6.
+      seedStorage({
+        layers: {
+          a: { borderColor: "red", overrides: ["borderColor"] },
+          b: { borderColor: "#1234567", overrides: ["borderColor"] },
+          c: { borderColor: "#aabb", overrides: ["borderColor"] },
+          d: { borderColor: "#aaabb", overrides: ["borderColor"] },
+          e: { borderColor: 42, overrides: ["borderColor"] },
+          f: { borderColor: "#a1b", overrides: ["borderColor"] },
+          g: { borderWeight: 99, overrides: ["borderWeight"] },
+          h: { borderWeight: -1, overrides: ["borderWeight"] },
+          i: { borderWeight: NaN, overrides: ["borderWeight"] },
+          j: { borderWeight: "3", overrides: ["borderWeight"] },
+          k: { borderWeight: 0.5, overrides: ["borderWeight"] },
+          l: { borderWeight: 10, overrides: ["borderWeight"] },
+        },
+      });
+      expect(makePersistence().load().layers).toEqual({
+        f: { borderColor: "#a1b", overrides: ["borderColor"] },
+        k: { borderWeight: 0.5, overrides: ["borderWeight"] },
+        // The upper bound is inclusive: the field's own max.
+        l: { borderWeight: 10, overrides: ["borderWeight"] },
       });
     });
 
