@@ -35,9 +35,9 @@
     baseBox.checked = true;
     baseBox.dispatchEvent(new Event("change", { bubbles: true }));
   }
-  base.classList.add("foliplus-layer-focused");
+  base.classList.add("is-focused-row");
   const baseCheckedHover = pick(base);
-  base.classList.remove("foliplus-layer-focused");
+  base.classList.remove("is-focused-row");
 
   // Overlay row still gets the full cursor recipe.
   const overlayBox = overlay.querySelector('input[type="checkbox"]');
