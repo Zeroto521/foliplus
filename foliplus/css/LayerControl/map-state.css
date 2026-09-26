@@ -27,3 +27,10 @@
   );
   background-size: var(--size-16) var(--size-16);
 }
+
+/* Native fullscreen API paints a UA black background over the container;
+   the hatch's background-color needs to survive that. */
+.leaflet-container:fullscreen.no-base-map,
+.leaflet-container:-webkit-full-screen.no-base-map {
+  background-color: var(--panel-bg, #ffffff) !important;
+}

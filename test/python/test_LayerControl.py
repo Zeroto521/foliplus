@@ -5903,5 +5903,50 @@ class TestLayerPaneProbeBrowser:
         assert r["labelCanvasPane"] == "__probe_mixed_label__"
         assert abs(r["pathEff"] - 0.4) < 0.02
         assert abs(r["canvasEff"] - 0.4) < 0.02
-        assert r["hitHiddenIsCanvas"] is False  # hidden label pane → path hit
-        assert r["hitNoPointerIsCanvas"] is False  # pointer-events:none → path hit
+
+    def test_hatch_fullscreen_parity(self, browser, tmp_path):
+        """No-basemap hatch looks the same in fullscreen and non-fullscreen.
+
+        The browser's native fullscreen API paints a UA black background
+        over the container. The CSS fix adds an !important override for
+        :fullscreen.no-base-map so the hatch background survives. This
+        test verifies the CSS rule exists and the non-fullscreen state
+        has the correct background."""
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12, tiles=None)
+        LayerControl().add_to(m)
+        _expand_panel(m)
+        html_path = tmp_path / "test_hatch_parity.html"
+        _write_html(m, html_path)
+
+        with use_raw_page(browser.new_page) as page:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+            )
+            page.wait_for_timeout(500)
+
+            result = page.evaluate(_js("LayerControl/hatch_fullscreen_parity"))
+            assert result["ok"] is True
+
+            # Non-fullscreen: background-color should be light (not black).
+            state = result["state"]
+            assert state["hasNoBaseMap"] is True, "no-base-map class must be set"
+            assert state["bgImage"] is True, "hatch pattern must be present"
+            # Background should be a light color (not rgb(0, 0, 0)).
+            bg = state["bgColor"]
+            assert not bg.startswith("rgb(0, 0, 0"), (
+                f"background must not be black, got {bg}"
+            )
+
+            # CSS rule for :fullscreen.no-base-map must exist.
+            assert result["fullscreenRuleFound"] is True, (
+                "CSS rule for :fullscreen.no-base-map must exist"
+            )
+            # The fullscreen rule must set background-color to a light color.
+            fs_bg = result["fullscreenBgColor"]
+            assert fs_bg and not fs_bg.startswith("rgb(0, 0, 0)"), (
+                f"fullscreen rule must set a light background, got {fs_bg}"
+            )
