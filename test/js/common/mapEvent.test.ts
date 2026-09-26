@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { Map as LeafletMap } from "leaflet";
 import { bindMapEvents, unbindMapEvents } from "#common/mapEvent.js";
 
 describe("mapEvents", () => {
-  let map;
+  let map: LeafletMap;
 
   beforeEach(() => {
-    map = { on: vi.fn(), off: vi.fn() };
+    map = { on: vi.fn(), off: vi.fn() } as unknown as LeafletMap;
   });
 
   it("binds each [event, handler] pair", () => {
