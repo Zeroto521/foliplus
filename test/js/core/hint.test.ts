@@ -18,7 +18,13 @@ beforeEach(() => {
  *  mode loud instead of invisible. */
 type StubMap = {
   foliplus?: {
-    showHint?: (key: string, text: string, duration: number, append?: boolean, subkey?: string) => void;
+    showHint?: (
+      key: string,
+      text: string,
+      duration: number,
+      append?: boolean,
+      subkey?: string,
+    ) => void;
     hideHint?: (key: string, sub?: string) => void;
     registerHintIcon?: (key: string, svg: string) => void;
   };

@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Map as LeafletMap } from "leaflet";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { bindMapEvents, unbindMapEvents } from "#common/mapEvent.js";
 
 describe("mapEvents", () => {

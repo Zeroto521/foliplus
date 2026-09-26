@@ -124,7 +124,9 @@ describe("MeasureManager — persistence", () => {
 
   it("featureCountProvider reports the live measurement count to LayerControl", () => {
     const { manager, map } = makeManager();
-    const opts = (map.foliplus.LayerAPI.createLayers.mock.calls as unknown as unknown[][])[0][0] as { featureCountProvider: () => number };
+    const opts = (
+      map.foliplus.LayerAPI.createLayers.mock.calls as unknown as unknown[][]
+    )[0][0] as { featureCountProvider: () => number };
     manager.measurements = [{}, {}, {}] as any;
     expect(opts.featureCountProvider()).toBe(3);
     manager.measurements = [] as any;
@@ -133,7 +135,9 @@ describe("MeasureManager — persistence", () => {
 
   it("metaProvider reports per-mode counts with T-locale keys", () => {
     const { manager, map } = makeManager();
-    const opts = (map.foliplus.LayerAPI.createLayers.mock.calls as unknown as unknown[][])[0][0] as { metaProvider: () => Record<string, number> };
+    const opts = (
+      map.foliplus.LayerAPI.createLayers.mock.calls as unknown as unknown[][]
+    )[0][0] as { metaProvider: () => Record<string, number> };
     expect(typeof opts.metaProvider).toBe("function");
 
     // No measurements → all four rows show 0.
@@ -234,7 +238,9 @@ describe("MeasureManager — mode switching", () => {
     map.latLngToContainerPoint = () => ({ x: 100, y: 100 });
     manager.setMode(CONST.MODE.MARKER);
     const readout = container.querySelector<HTMLElement>(".foliplus-measure-readout")!;
-    const move = (map.on as any).mock.calls.find(([ev]: unknown[]) => ev === "mousemove")?.[1];
+    const move = (map.on as any).mock.calls.find(
+      ([ev]: unknown[]) => ev === "mousemove",
+    )?.[1];
     move({ latlng: { lat: 31, lng: 121 } });
     expect(readout.hidden).toBe(false);
     manager.clearActiveMode();
@@ -248,7 +254,9 @@ describe("MeasureManager — mode switching", () => {
     manager.setEditMode(true);
     const readout = container.querySelector<HTMLElement>(".foliplus-measure-readout")!;
     expect(readout.hidden).toBe(true); // not positioned yet
-    const move = (map.on as any).mock.calls.find(([ev]: unknown[]) => ev === "mousemove")?.[1];
+    const move = (map.on as any).mock.calls.find(
+      ([ev]: unknown[]) => ev === "mousemove",
+    )?.[1];
     move({ latlng: { lat: 31, lng: 121 } });
     expect(readout.hidden).toBe(false);
     // Leaving edit mode hides it.
@@ -270,7 +278,9 @@ describe("MeasureManager — mode switching", () => {
 
     // The offset lives in CSS (translate), so the inline style is just the
     // cursor's container point; the horizontal clamp keeps it on-screen.
-    const move = (map.on as any).mock.calls.find(([ev]: unknown[]) => ev === "mousemove")?.[1];
+    const move = (map.on as any).mock.calls.find(
+      ([ev]: unknown[]) => ev === "mousemove",
+    )?.[1];
     move({ latlng: { lat: 31, lng: 121 } });
     expect(readout.style.left).toBe("500px");
     expect(readout.style.top).toBe("400px");
@@ -293,7 +303,9 @@ describe("MeasureManager — mode switching", () => {
     const { manager, map, container } = makeManager();
     manager.setMode(CONST.MODE.MARKER);
     const readout = container.querySelector<HTMLElement>(".foliplus-measure-readout")!;
-    const out = (map.on as any).mock.calls.find(([ev]: unknown[]) => ev === "mouseout")?.[1];
+    const out = (map.on as any).mock.calls.find(
+      ([ev]: unknown[]) => ev === "mouseout",
+    )?.[1];
     out();
     expect(readout.hidden).toBe(true);
   });
@@ -307,7 +319,9 @@ describe("MeasureManager — mode switching", () => {
     map.latLngToContainerPoint = vi.fn(() => ({ x: 120, y: 240 }));
     manager.setMode(CONST.MODE.MARKER);
     const readout = container.querySelector<HTMLElement>(".foliplus-measure-readout")!;
-    const move = (map.on as any).mock.calls.find(([ev]: unknown[]) => ev === "mousemove")?.[1];
+    const move = (map.on as any).mock.calls.find(
+      ([ev]: unknown[]) => ev === "mousemove",
+    )?.[1];
 
     expect(() => move({ latlng: { lat: 31, lng: 121 } })).not.toThrow();
     expect(map.latLngToContainerPoint).toHaveBeenCalledWith({ lat: 31, lng: 121 });
@@ -1211,7 +1225,10 @@ describe("MeasureManager — registerLabel lifecycle", () => {
 
     flushRaf();
     expect(placeLabels).toHaveBeenCalledTimes(1);
-    expect(((placeLabels.mock.calls as unknown as unknown[][])[0][0] as CollidableLabel[]).length).toBe(1);
+    expect(
+      ((placeLabels.mock.calls as unknown as unknown[][])[0][0] as CollidableLabel[])
+        .length,
+    ).toBe(1);
   });
 
   it("passes the collide flag through to placeLabels", () => {
@@ -1220,7 +1237,9 @@ describe("MeasureManager — registerLabel lifecycle", () => {
     manager.registerLabel(marker, 60);
 
     flushRaf();
-    expect((placeLabels.mock.calls as unknown as unknown[][])[0][2] as boolean).toBe(true);
+    expect((placeLabels.mock.calls as unknown as unknown[][])[0][2] as boolean).toBe(
+      true,
+    );
   });
 
   it("passes collide=false through when detection is off", () => {
@@ -1229,7 +1248,9 @@ describe("MeasureManager — registerLabel lifecycle", () => {
     manager.registerLabel(marker, 60);
 
     flushRaf();
-    expect((placeLabels.mock.calls as unknown as unknown[][])[0][2] as boolean).toBe(false);
+    expect((placeLabels.mock.calls as unknown as unknown[][])[0][2] as boolean).toBe(
+      false,
+    );
   });
 
   it("labelsCollide defaults to true and flips via setLabelCollide", () => {
@@ -1247,7 +1268,9 @@ describe("MeasureManager — registerLabel lifecycle", () => {
     manager.registerLabel(marker, 60);
 
     flushRaf();
-    const label = ((placeLabels.mock.calls as unknown as unknown[][])[0][0] as CollidableLabel[])[0]!;
+    const label = (
+      (placeLabels.mock.calls as unknown as unknown[][])[0][0] as CollidableLabel[]
+    )[0]!;
     expect(label.marker).toBe(marker);
     expect(label.priority).toBe(60);
   });
@@ -1260,9 +1283,9 @@ describe("MeasureManager — registerLabel lifecycle", () => {
     flushRaf();
     const initialCalls = placeLabels.mock.calls.length;
 
-    const moveendCall = ((map.on.mock.calls as unknown as [string, () => void][]).find(
+    const moveendCall = (map.on.mock.calls as unknown as [string, () => void][]).find(
       ([ev]) => ev === "moveend",
-    ))![1];
+    )![1];
 
     moveendCall();
     flushRaf();
@@ -1281,7 +1304,10 @@ describe("MeasureManager — registerLabel lifecycle", () => {
     // them; placeLabels must run exactly once with all three labels.
     flushRaf();
     expect(placeLabels).toHaveBeenCalledTimes(1);
-    expect(((placeLabels.mock.calls as unknown as unknown[][])[0][0] as CollidableLabel[]).length).toBe(3);
+    expect(
+      ((placeLabels.mock.calls as unknown as unknown[][])[0][0] as CollidableLabel[])
+        .length,
+    ).toBe(3);
   });
 
   it("passes a runtime label_collide flip through to the next plan", () => {
@@ -1289,16 +1315,20 @@ describe("MeasureManager — registerLabel lifecycle", () => {
     const marker = makeLabelMarker();
     manager.registerLabel(marker, 60);
     flushRaf();
-    expect((placeLabels.mock.calls as unknown as unknown[][])[0][2] as boolean).toBe(true);
+    expect((placeLabels.mock.calls as unknown as unknown[][])[0][2] as boolean).toBe(
+      true,
+    );
 
-    const moveendCall = ((map.on.mock.calls as unknown as [string, () => void][]).find(
+    const moveendCall = (map.on.mock.calls as unknown as [string, () => void][]).find(
       ([ev]) => ev === "moveend",
-    ))![1];
+    )![1];
 
     manager.setLabelCollide(false);
     moveendCall();
     flushRaf();
-    expect((placeLabels.mock.calls as unknown as unknown[][])[1][2] as boolean).toBe(false);
+    expect((placeLabels.mock.calls as unknown as unknown[][])[1][2] as boolean).toBe(
+      false,
+    );
   });
 
   it("setLabelsVisible hides and restores every chip via visibility", () => {
@@ -1379,17 +1409,25 @@ describe("MeasureManager — registerLabel lifecycle", () => {
 
     const unregisterA = manager.registerLabel(a, 60);
     flushRaf();
-    expect(((placeLabels.mock.calls as unknown as unknown[][])[0][0] as CollidableLabel[]).length).toBe(1);
+    expect(
+      ((placeLabels.mock.calls as unknown as unknown[][])[0][0] as CollidableLabel[])
+        .length,
+    ).toBe(1);
 
     manager.registerLabel(b, 60);
     flushRaf();
-    expect(((placeLabels.mock.calls as unknown as unknown[][])[1][0] as CollidableLabel[]).length).toBe(2);
+    expect(
+      ((placeLabels.mock.calls as unknown as unknown[][])[1][0] as CollidableLabel[])
+        .length,
+    ).toBe(2);
 
     unregisterA();
     flushRaf();
 
     expect(placeLabels).toHaveBeenCalledTimes(3);
-    const last = (placeLabels.mock.calls as unknown as unknown[][])[2] as [CollidableLabel[]];
+    const last = (placeLabels.mock.calls as unknown as unknown[][])[2] as [
+      CollidableLabel[],
+    ];
     expect(last[0].length).toBe(1);
     expect(last[0][0]!.marker).toBe(b);
   });
