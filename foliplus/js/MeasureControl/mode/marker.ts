@@ -11,7 +11,12 @@ import {
 } from "../edit.js";
 import type { MeasureManager } from "../manager.js";
 import * as Util from "../util.js";
-import { MeasureMode, mountDelIcon } from "./base.js";
+import {
+  MeasureMode,
+  createDeferredDelete,
+  mountDelIcon,
+  wireFinalized,
+} from "./base.js";
 
 // CONF is a free variable from the IIFE template wrapper.
 const _ = createTranslator(CONF);
@@ -131,7 +136,7 @@ class MarkerMode extends MeasureMode {
    * next full reload). `onPopupOpen` is bound to the marker's popupopen
    * event so the popup content can be refreshed when the popup is opened
    * after a late geocode resolution — bound after bindPinDrag but before
-   * deleteFn is assigned, preserving the popup-binding position relative
+   * the deferred delete thunk is set, preserving the popup-binding position relative
    * to the ✕ lifecycle in both callers.
    */
   private static finalize(
@@ -141,15 +146,14 @@ class MarkerMode extends MeasureMode {
     at: L.LatLngExpression,
     onPopupOpen?: () => void,
   ): () => void {
-    // mountDelIcon fires before deleteFn is assigned, so the callback captures
-    // a nullable ref. In practice the ✕ click always happens after the sync
-    // setup below, so ?.() is a safety net, not the normal path.
-    let deleteFn: (() => void) | null = null;
+    // mountDelIcon fires before the delete thunk exists, so the click
+    // callback is a deferred ref assigned after wireFinalized below.
+    const { onDelete, setDelete } = createDeferredDelete();
     const delMarker = mountDelIcon(
       manager.layers,
       at,
       { title: T("del_tooltip"), iconAnchor: DEL_ICON_MARKER_ANCHOR },
-      () => deleteFn?.(),
+      onDelete,
     );
 
     const cleanupPin = MarkerMode.bindPinDrag(
@@ -158,19 +162,23 @@ class MarkerMode extends MeasureMode {
       delMarker as L.Marker,
       measurement,
     );
-    const unregisterFinalized = manager.registerFinalized(cleanupPin, measurement.id);
+    // registerFinalized(cleanupPin) + the delete-then-teardown path live in
+    // wireFinalized. teardown is cleanupPin itself: it already unbinds drag,
+    // overlay, and edit-drag toggle, matching the previous hand-rolled path.
+    const { delete: deleteMeasurement } = wireFinalized(manager, manager.layers, {
+      id: measurement.id!,
+      teardown: cleanupPin,
+      removeLayers: () => {
+        manager.layers.removeLayer(marker);
+        manager.layers.removeLayer(delMarker);
+      },
+      onDelete: () => manager.store.remove(measurement.id!),
+    });
 
     if (onPopupOpen) marker.on("popupopen", onPopupOpen);
 
-    deleteFn = () => {
-      unregisterFinalized();
-      cleanupPin(); // unbind drag + overlay + edit-drag toggle before removing
-      manager.layers.removeLayer(marker);
-      manager.layers.removeLayer(delMarker);
-      manager.store.remove(measurement.id!);
-      manager.layers.unregister();
-    };
-    return () => deleteFn!();
+    setDelete(deleteMeasurement);
+    return deleteMeasurement;
   }
 
   /** Rebuild a persisted marker measurement.

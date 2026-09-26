@@ -13,10 +13,10 @@ import {
   displayName,
   snapshotAuthorVisible,
 } from "./rowView.js";
-import { applyUserState } from "./state.js";
 import { syncToggleAll } from "./visibility.js";
 
-/** Full re-scan of every row (used on attach/fold-toggle). Idempotent — *  re-run on each CONTROL_ATTACHED so late-registering components are
+/** Full re-scan of every row (used on attach/fold-toggle). Idempotent —
+ *  re-run on each CONTROL_ATTACHED so late-registering components are
  *  folded in. Marks the panel ready for tests/consumers. */
 const initTypesAndVisibility = (ui: LayerUI) => {
   // Snapshot the author default before the sweep below moves any layer: it
@@ -29,9 +29,10 @@ const initTypesAndVisibility = (ui: LayerUI) => {
   // Apply persisted hidden state first so initLayerItem reads the corrected
   // map state: folium adds every layer before the control IIFE runs, so on
   // reload hidden layers are back on the map. An id that is not in the
-  // registry is skipped by the sweep, not dropped from the record — stored
+  // registry is skipped by the sweep, not dropped from the record —
+  // stored
   // state is erased only by an explicit delete.
-  applyUserState(ui);
+  ui.applyUserState();
 
   let anyBaseVisible = false;
   for (let i = 0; i < ui.m.layers.length; i++) {
@@ -147,7 +148,7 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
     // The row lands where the registry put the layer, not at the group's top: a
     // late registration replayed onto a stored slot must sit at that depth in
     // the panel too, so the panel's visual order matches the drawn z-order.
-    // The neighbour above is used rather than the one below so the last row of
+    // The neighbor above is used rather than the one below so the last row of
     // a group has something to anchor on at all.
     const above = idx > 0 ? ui.m.layers[idx - 1] : null;
     const anchor =
@@ -159,12 +160,13 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
   }
 
   // insertLayerItem is where a late-registered (third-party) layer first
-  // shows up, so the author default is snapshotted here as well — before the
+  // shows up, so the author default is snapshotted here as well —
+  // before the
   // apply below, which is the other path that moves this layer. Only this
   // layer's id is applied: a full sweep would re-rewrite every renamed row
   // on each registration.
   snapshotAuthorVisible(ui, layerInfo);
-  applyUserState(ui, layerInfo.id);
+  ui.applyUserState(layerInfo.id);
   // New row must join the roving tabindex / ARIA set.
   syncListCursor(ui);
 };
@@ -345,7 +347,7 @@ const initLayerItem = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
   // Resolve the row by data-layer-id: a late registration lands where its
   // stored slot puts it, so the DOM order can diverge from the registry —an
   // index-based lookup would write the checkbox and type column into a
-  // neighbour's row.
+  // neighbor's row.
   const item = ui.uiContainer.querySelector(
     `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerInfo.id)}"]`,
   ) as HTMLElement | null;

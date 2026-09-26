@@ -1,4 +1,5 @@
 import { DEL_ICON_CHAR, DEL_ICON_SELECTOR } from "#common/delicon.js";
+import type { ExportFormat } from "./type.js";
 
 /** Timing / delay constants. */
 const TIMING = {
@@ -120,8 +121,6 @@ const EXPORT_FORMAT = {
   CSV: "csv",
 } as const;
 
-type ExportFormat = (typeof EXPORT_FORMAT)[keyof typeof EXPORT_FORMAT];
-
 /** Default format for `CONF.export_format` — used when the value is missing
  * or unknown. Python's `MeasureControl` rejects anything outside
  * `EXPORT_FORMAT`, so this only guards misconfiguration. */
@@ -162,7 +161,6 @@ export {
   RECORD_VERSION,
   EXPORT_FORMAT,
   DEFAULT_EXPORT_FORMAT,
-  type ExportFormat,
   GEOJSON,
   MODE,
 };

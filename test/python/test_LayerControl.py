@@ -32,7 +32,7 @@ def _rule(css: str, tail: str) -> str:
     """Body of the first rule whose selector ends with *tail*.
 
     Used to check one declaration without matching the same property in a
-    neighbouring rule (e.g. `margin-top` in the track rule but not the thumb's).
+    neighboring rule (e.g. `margin-top` in the track rule but not the thumb's).
     """
     start = css.index(tail)
     return css[start : css.index("}", start)]
@@ -437,7 +437,7 @@ class TestLayerControlRendering:
         red. White paints whenever the row is the interaction target (hover /
         Tab / arrow); a checked row shows its .active wash only at rest.
         :focus-visible is deliberately NOT a CSS trigger — Tab focus is mapped
-        onto the class by the focusin delegate. Only colour changes; the type
+        onto the class by the focusin delegate. Only color changes; the type
         icon must NOT scale."""
         html = render_control(LayerControl())
         css = read_css("foliplus/css/LayerControl/index.css")
@@ -765,7 +765,7 @@ class TestLayerControlRendering:
         the rail, the accent fill, the readout dots, the handles and the values
         row. Keeping the geometry here is what makes the two rails impossible to
         drift — they had already grown different rail heights, different handle
-        sizes, a handle sitting four px off centre, and an out-of-range state
+        sizes, a handle sitting four px off center, and an out-of-range state
         whose rules could not match.
         """
         css = read_css("foliplus/css/common/slider.css")
@@ -848,7 +848,7 @@ class TestLayerControlRendering:
     def test_zoom_range_row_css(self):
         """The row adds no styling of its own.
 
-        Coverage is a readout, not a recolouring: the dots' rings carry it (grey
+        Coverage is a readout, not a recoloring: the dots' rings carry it (gray
         where the range does not reach), so the rail stays accent and the text
         stays ink whatever the map's zoom is. The row keeps its hook class and
         the tooltip, nothing else.
@@ -1635,7 +1635,7 @@ class TestLayerControlBrowser:
             assert not errors, f"JS errors: {errors}"
 
     def test_annotation_each_layer_own_pane_ordered_by_layer(self, browser, tmp_path):
-        """Each labelled layer gets its own canvas pane, z-ordered with its layer.
+        """Each labeled layer gets its own canvas pane, z-ordered with its layer.
 
         The pane goes through ``PaneManager.ensurePane`` (the single entry
         point for owned panes), so it carries the base ``foliplus-layer-pane``
@@ -1646,7 +1646,7 @@ class TestLayerControlBrowser:
             panel_ready(page)
             result = page.evaluate(_js("LayerControl/annotation_multi_layer"))
             assert result is not None and result["canvas"] is True, result
-            # One pane + one canvas per labelled layer — not a shared canvas.
+            # One pane + one canvas per labeled layer — not a shared canvas.
             assert result["canvasCount"] == 2, result
             assert result["opaqueA"] > 0, result
             assert result["opaqueB"] > 0, result
@@ -1692,7 +1692,7 @@ class TestLayerControlBrowser:
         After the ordering pass every overlay layer — a plain folium one
         included — owns a pane and has its content migrated into it, so the
         opacity is a single style write instead of a sweep over the features.
-        The neighbour is the control: it is a different layer in a different
+        The neighbor is the control: it is a different layer in a different
         pane and must be untouched.
         """
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
@@ -1710,7 +1710,7 @@ class TestLayerControlBrowser:
             # ...and the features keep their own style (no per-feature sweep).
             assert result["plainLeafOpacity"], result
             assert all(v == 1 for v in result["plainLeafOpacity"]), result
-            # The neighbour is a different layer in a different pane.
+            # The neighbor is a different layer in a different pane.
             assert result["plainNeighbourSamePane"] is False, result
             assert result["plainNeighbourPaneOpacity"] in ("", "1"), result
             assert result["plainNeighbourLeafOpacity"], result
@@ -1731,13 +1731,13 @@ class TestLayerControlBrowser:
 
             # Case D: annotation pane follows the layer's opacity. The geometry
             # pane and the annotation pane must both carry the opacity. A
-            # neighbour layer's annotation pane is unaffected (per-layer pane,
+            # neighbor layer's annotation pane is unaffected (per-layer pane,
             # not shared).
             assert result["annotationPaneExists"] is True, result
             assert result["annotatedGeoPaneOpacity"] == "0", result
             assert result["annotatedAnnotationPaneOpacity"] == "0", result
-            assert result["neighbourAnnotationPaneExists"] is True, result
-            assert result["neighbourAnnotationPaneOpacity"] in ("", "1"), result
+            assert result["neighborAnnotationPaneExists"] is True, result
+            assert result["neighborAnnotationPaneOpacity"] in ("", "1"), result
             assert not errors, f"JS errors: {errors}"
 
     def test_unregister_layer_in_browser(self, browser, tmp_path):
@@ -2615,6 +2615,248 @@ class TestLayerControlBrowser:
             )
             assert after_reload["canvasOpacity"] == "0.35", (
                 f"reload painted the canvas at the author default: {after_reload}"
+            )
+
+    def test_vector_border_writes_the_stroke_and_survives_reload(
+        self, browser, tmp_path
+    ):
+        """A border change rewrites the vector's own stroke and outlives reload.
+
+        Border is not part of the executor's visible / opacity / zoomRange
+        family — the panel writes it with a direct ``setStyle`` — so nothing in
+        the projection replay would restore it. Without its own replay the row
+        could show the user's color while the map kept painting the author's
+        stroke, which is the one failure mode this asserts against.
+        """
+        m = folium.Map(location=[30.0, 120.0], zoom_start=6, tiles=None)
+        # The polygon rides inside a named, visible FeatureGroup: that is how a
+        # data layer earns a panel row (a bare vector has no control of its own).
+        fg = folium.FeatureGroup(name="Test Region", overlay=True, show=True)
+        folium.Polygon(
+            [[30.0, 120.0], [31.0, 121.0], [30.5, 121.5]],
+            color="#0000ff",
+            weight=2,
+        ).add_to(fg)
+        fg.add_to(m)
+        LayerControl().add_to(m)
+        _expand_panel(m)
+
+        html_path = tmp_path / "test_vector_border_reload.html"
+        _write_html(m, html_path)
+
+        with use_raw_page(browser.new_page) as page:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=10000
+            )
+            panel_ready(page)
+
+            before = page.evaluate(
+                _js("LayerControl/border_set_and_read"), ["Test Region"]
+            )
+            assert before.get("row"), f"layer row not found: {before}"
+            assert before["strokes"], f"no stroked path on the map: {before}"
+            for stroke in before["strokes"]:
+                assert stroke["stroke"] == "#0000ff", (
+                    f"author stroke never reached the map: {before}"
+                )
+                assert stroke["strokeWidth"] == "2", (
+                    f"author width never reached the map: {before}"
+                )
+
+            row = page.evaluate(
+                _js("LayerControl/border_set_and_read"),
+                ["Test Region", "#ff0000", 6],
+            )
+            assert row.get("panel"), f"the style panel did not open: {row}"
+            assert row["borderRows"] == 1, f"expected one border row: {row}"
+            assert row["color"] == "#ff0000", f"swatch did not take: {row}"
+            assert row["weight"] == "6", f"width field did not take: {row}"
+            assert row["strokes"], f"the stroke never reached the map: {row}"
+            for stroke in row["strokes"]:
+                assert stroke["stroke"] == "#ff0000", (
+                    f"the color change did not reach the SVG: {row}"
+                )
+                assert stroke["strokeWidth"] == "6", (
+                    f"the width change did not reach the SVG: {row}"
+                )
+
+            # Let the debounce commit, then reload — the stored record is the
+            # only thing that survives.
+            page.wait_for_timeout(300)
+            page.reload(wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=10000
+            )
+            panel_ready(page)
+
+            after = page.evaluate(
+                _js("LayerControl/border_set_and_read"), ["Test Region"]
+            )
+            assert after.get("panel"), f"the style panel did not reopen: {after}"
+            assert after["color"] == "#ff0000", (
+                f"reload reverted the border color: {after}"
+            )
+            assert after["weight"] == "6", f"reload reverted the border width: {after}"
+            assert after["strokes"], f"no stroked path after reload: {after}"
+            for stroke in after["strokes"]:
+                assert stroke["stroke"] == "#ff0000", (
+                    f"reload dropped the border stroke\n{after}"
+                )
+                assert stroke["strokeWidth"] == "6", (
+                    f"reload dropped the border width\n{after}"
+                )
+
+            key = next(k for k in after["storage"] if "layer_state" in k)
+            record = json.loads(after["storage"][key])
+            # The record is keyed by folium's generated id, not the label the
+            # row displays.
+            entry = record["layers"].get(after["id"])
+            assert entry, f"border state never persisted: {record}"
+            assert entry["borderColor"] == "#ff0000", f"stored the wrong color: {entry}"
+            assert entry["borderWeight"] == 6, f"stored the wrong width: {entry}"
+
+    def test_heatmap_keeps_its_own_border_row_only(self, browser, tmp_path):
+        """The delegated drawer owns the heatmap's border, so one row total.
+
+        The generic border row must never render next to the drawer's own
+        border row in the same panel — the two write through different paths
+        and would fight over the same visual axis.
+        """
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        # The heatmap only earns a panel row once it has a point layer to
+        # aggregate, so give it one — its id is the stable component id.
+        fg = folium.FeatureGroup(name="Points", show=True)
+        folium.GeoJson(
+            json.dumps(
+                {
+                    "type": "FeatureCollection",
+                    "features": [
+                        {
+                            "type": "Feature",
+                            "properties": {"val": 26.08},
+                            "geometry": {
+                                "type": "Point",
+                                "coordinates": [119.30, 26.08],
+                            },
+                        }
+                    ],
+                }
+            )
+        ).add_to(fg)
+        fg.add_to(m)
+        LayerControl().add_to(m)
+        HeatmapControl().add_to(m)
+        _expand_panel(m)
+
+        html_path = tmp_path / "test_border_heatmap.html"
+        _write_html(m, html_path)
+
+        with use_raw_page(browser.new_page) as page:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=10000
+            )
+            heatmap_ready(page, timeout=15000)
+            panel_ready(page)
+            page.wait_for_timeout(200)
+
+            panel = page.evaluate(
+                _js("LayerControl/border_set_and_read"), ["foliplus_heatmap"]
+            )
+            assert panel.get("panel"), f"the heatmap panel did not open: {panel}"
+            # The drawer builds its own border row with the shared FORM_ROW
+            # chrome but not the vector row's class.
+            assert panel["borderRows"] == 0, (
+                f"the vector border row rendered for a delegated layer: {panel}"
+            )
+            assert panel["labels"].count("Border") == 1, (
+                f"expected exactly one border row, got: {panel['labels']}"
+            )
+
+    def test_border_swatch_shows_a_named_color_as_hex(self, browser, tmp_path):
+        """The swatch agrees with the map for a named authored color.
+
+        folium's quickstart styles its faces with the named color ``gray``.
+        The GeoJSON read used to return the layer's own options instead of
+        its first feature's, which put a stroke the map was not painting into
+        the panel — the same "the swatch disagrees with the map" defect,
+        reached through the color form instead of through the layer tree.
+
+        The face paints ``stroke="gray"``; the swatch must therefore read
+        ``#808080``, the hex for that same color, not black and not
+        Leaflet's default. The neighbouring line keeps its own stroke, which
+        pins the assertion to the color form rather than to anything the
+        map does with it.
+        """
+        m = folium.Map(location=[30.0, 120.0], zoom_start=6, tiles=None)
+        fg = folium.FeatureGroup(name="Region", overlay=True, show=True)
+        folium.GeoJson(
+            json.dumps(
+                {
+                    "type": "FeatureCollection",
+                    "features": [
+                        {
+                            "type": "Feature",
+                            "properties": {"kind": "face"},
+                            "geometry": {
+                                "type": "Polygon",
+                                "coordinates": [
+                                    [
+                                        [120.0, 30.0],
+                                        [121.0, 30.0],
+                                        [121.0, 31.0],
+                                        [120.0, 30.0],
+                                    ]
+                                ],
+                            },
+                        },
+                        {
+                            "type": "Feature",
+                            "properties": {"kind": "line"},
+                            "geometry": {
+                                "type": "LineString",
+                                "coordinates": [[120.2, 30.2], [120.8, 30.8]],
+                            },
+                        },
+                    ],
+                }
+            ),
+            style_function=lambda f: (
+                {"color": "gray", "weight": 1.5}
+                if f["properties"]["kind"] == "face"
+                else {"color": "#e74c3c", "weight": 6}
+            ),
+        ).add_to(fg)
+        fg.add_to(m)
+        LayerControl().add_to(m)
+        _expand_panel(m)
+
+        html_path = tmp_path / "test_border_named_color.html"
+        _write_html(m, html_path)
+
+        with use_raw_page(browser.new_page) as page:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=10000
+            )
+            panel_ready(page)
+
+            row = page.evaluate(_js("LayerControl/border_set_and_read"), ["Region"])
+            assert row.get("panel"), f"the style panel did not open: {row}"
+            assert row["borderRows"] == 1, f"expected one border row: {row}"
+            # gray as hex — not black, and not Leaflet's default.
+            assert row["color"] == "#808080", (
+                f"the swatch did not show the authored name as hex: {row}"
+            )
+            assert row["weight"] == "1.5", f"the width field did not take: {row}"
+
+            strokes = {s["stroke"] for s in row["strokes"]}
+            assert "gray" in strokes, (
+                f"the face stopped painting the authored name\n{row['strokes']}"
+            )
+            assert "#e74c3c" in strokes, (
+                f"the neighbouring line lost its own stroke\n{row['strokes']}"
             )
 
     def test_unregister_keeps_stored_opacity_delete_drops_it(self, browser, tmp_path):
@@ -4075,7 +4317,7 @@ class TestLayerControlBrowser:
         keyboard pipeline: the key is pressed with ``page.keyboard`` after a
         real focus, and a capture listener reports the browser's final
         ``defaultPrevented``. Both halves of the gate are measured — the native
-        behaviour actually happened, and foliplus did not cancel the key to
+        behavior actually happened, and foliplus did not cancel the key to
         take it over. Synthetic ``dispatchEvent`` cannot prove either.
         """
         overlay = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
@@ -4705,7 +4947,7 @@ class TestLayerControlBrowser:
         overlay's z-index is confined to the owner's stacking context
         whenever the owner is hovered), so no lit sibling can paint over it.
         Probes both the ⋮ menu and the attrs panel: hovering a sibling
-        LIGHTS it, and the point at the overlay's centre still resolves to
+        LIGHTS it, and the point at the overlay's center still resolves to
         the overlay itself."""
         layers = [
             folium.FeatureGroup(name=f"Overlay {i}", overlay=True, show=True)
@@ -4737,7 +4979,7 @@ class TestLayerControlBrowser:
                 )
 
             def overlay_topmost(sel):
-                # The point at the overlay's centre must resolve to the overlay
+                # The point at the overlay's center must resolve to the overlay
                 # itself — a lit sibling would otherwise paint over it.
                 return page.evaluate(
                     "sel => { const el = document.querySelector(sel);"
@@ -4855,16 +5097,16 @@ class TestLayerControlBrowser:
             assert result["rowOor"] is True, f"row not marked out-of-range: {result}"
             assert result["rowTitle"], "row tooltip missing when out of range"
             assert result["markerLabelText"], "current-zoom label missing from marker"
-            # Out of range is a readout on the dots' rings, not a recolouring:
+            # Out of range is a readout on the dots' rings, not a recoloring:
             # the rail keeps its accent fill and the text stays ink, so nothing
-            # about "the layer is hidden at this zoom" is carried by colour on
+            # about "the layer is hidden at this zoom" is carried by color on
             # the numbers the user reads.
             assert result["fillComputedBg"] != self._sample_token(
                 page, "--neutral-500"
-            ), "out of range must not grey the selection"
+            ), "out of range must not gray the selection"
             assert result["currentValueColor"] == self._sample_token(
                 page, "--text-primary"
-            ), "out of range must not recolour the current level"
+            ), "out of range must not recolor the current level"
             assert result["markerRing"] == self._sample_token(page, "--neutral-500"), (
                 "out of range, the current dot must read as uncovered"
             )
@@ -5091,7 +5333,7 @@ class TestLayerControlBrowser:
     #
     # Each of these three scrambles the registry or the panel so the two
     # orders disagree, then asserts the mutation landed on the row named by
-    # the layer's id. A positional lookup would have hit a neighbour.
+    # the layer's id. A positional lookup would have hit a neighbor.
 
     def test_initlayeritem_updates_only_the_id_match_row(self, browser, tmp_path):
         """initLayerItem stamps the row named by data-layer-id, not the one at
@@ -5109,11 +5351,11 @@ class TestLayerControlBrowser:
             assert state["alphaRegistryIndex"] != state["alphaDomIndex"]
             # initLayerItem wrote alpha's name into alpha's own checkbox.
             assert state["labels"]["alpha"] == "A"
-            # ...and left the neighbours' checkboxes alone. An index-based
+            # ...and left the neighbors' checkboxes alone. An index-based
             # lookup would have stamped "A" onto whoever sat at alpha's
             # registry index.
             assert state["labels"]["beta"] == "B", (
-                "a neighbour's row was rewritten with alpha's name "
+                "a neighbor's row was rewritten with alpha's name "
                 f"({state['staleIndexWouldHaveHit']!r}) — row resolved by index"
             )
             assert state["labels"]["gamma"] == "C"
@@ -5168,7 +5410,7 @@ class TestLayerControlBrowser:
             # Whoever sat at alpha's registry index must keep their own name;
             # an index-based lookup would have written the rename there.
             assert state["labels"]["beta"] == "B", (
-                "a neighbour's row was rewritten with alpha's name "
+                "a neighbor's row was rewritten with alpha's name "
                 f"({state['staleIndexWouldHaveHit']!r}) — row resolved by index"
             )
             assert state["labels"]["gamma"] == "C"

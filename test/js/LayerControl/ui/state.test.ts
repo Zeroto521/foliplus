@@ -4,6 +4,7 @@ import { LayerManager } from "#foliplus/LayerControl/manager.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import {
   applyUserState,
+  dropPersistedLayerState,
   loadPersistedState,
   markOverride,
   replayLayerState,
@@ -308,6 +309,90 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       u.loadPersistedState();
 
       expect(u.hiddenIds).toEqual(new Set(["overlay1", "base1"]));
+    });
+
+    it("loads persisted fill color and opacity into their maps", () => {
+      const { map } = makeTestMap();
+      window.localStorage.setItem(
+        CONST.STORAGE.KEY,
+        JSON.stringify({
+          layers: {
+            overlay1: {
+              fillColor: "#ff8800",
+              fillOpacity: 0.35,
+              overrides: ["fillColor", "fillOpacity"],
+            },
+          },
+        }),
+      );
+      const m = new LayerManager(map, [
+        { id: "overlay1", name: "O", isBase: false, layer: testPolyLayer },
+      ]);
+      const u = new LayerUI(m);
+
+      u.loadPersistedState();
+
+      expect(u.fillColorMap["overlay1"]).toBe("#ff8800");
+      expect(u.fillOpacityMap["overlay1"]).toBe(0.35);
+      expect(u.userOverrides["overlay1"]).toEqual(["fillColor", "fillOpacity"]);
+    });
+
+    it("ignores a fill override whose value is missing or invalid", () => {
+      const { map } = makeTestMap();
+      window.localStorage.setItem(
+        CONST.STORAGE.KEY,
+        JSON.stringify({
+          layers: {
+            a: { overrides: ["fillColor"] },
+            b: { fillColor: "", overrides: ["fillColor"] },
+            c: { fillOpacity: "high", overrides: ["fillOpacity"] },
+            d: { fillColor: "#00ff00", overrides: ["fillColor"] },
+          },
+        }),
+      );
+      const m = new LayerManager(map, [
+        { id: "a", name: "A", isBase: false, layer: testPolyLayer },
+        { id: "b", name: "B", isBase: false, layer: testPolyLayer },
+        { id: "c", name: "C", isBase: false, layer: testPolyLayer },
+        { id: "d", name: "D", isBase: false, layer: testPolyLayer },
+      ]);
+      const u = new LayerUI(m);
+
+      u.loadPersistedState();
+
+      expect(u.fillColorMap["a"]).toBeUndefined();
+      expect(u.fillColorMap["b"]).toBeUndefined();
+      expect(u.fillOpacityMap["c"]).toBeUndefined();
+      expect(u.fillColorMap["d"]).toBe("#00ff00");
+    });
+
+    it("dropPersistedLayerState clears the fill maps and their provenance", () => {
+      const { map } = makeTestMap();
+      const m = new LayerManager(map, [
+        { id: "overlay1", name: "O", isBase: false, layer: testPolyLayer },
+      ]);
+      const u = new LayerUI(m);
+      u.hiddenIds.add("overlay1");
+      u.opacityMap["overlay1"] = 0.5;
+      u.zoomRangeMap["overlay1"] = [3, 12];
+      u.fillColorMap["overlay1"] = "#ff0000";
+      u.fillOpacityMap["overlay1"] = 0.5;
+      u.userOverrides["overlay1"] = [
+        "visible",
+        "opacity",
+        "zoomRange",
+        "fillColor",
+        "fillOpacity",
+      ];
+
+      dropPersistedLayerState(u, "overlay1");
+
+      expect(u.hiddenIds.has("overlay1")).toBe(false);
+      expect(u.opacityMap["overlay1"]).toBeUndefined();
+      expect(u.zoomRangeMap["overlay1"]).toBeUndefined();
+      expect(u.fillColorMap["overlay1"]).toBeUndefined();
+      expect(u.fillOpacityMap["overlay1"]).toBeUndefined();
+      expect(u.userOverrides["overlay1"]).toBeUndefined();
     });
 
     it("ignores non-array/corrupt storage data", () => {
@@ -1044,6 +1129,8 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
     const bare = {
       hiddenIds: new Set(),
       opacityMap: {},
+      fillColorMap: {},
+      fillOpacityMap: {},
       userOverrides: {},
       rangeHiddenIds: new Set(),
       m: { persistence: { schedule } },
@@ -1069,6 +1156,8 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
     const bare = {
       hiddenIds: new Set(["overlay1"]),
       opacityMap: {},
+      fillColorMap: {},
+      fillOpacityMap: {},
       userOverrides: { overlay1: ["visible"] },
       rangeHiddenIds: new Set(),
       m: { persistence: { schedule } },
@@ -1094,6 +1183,8 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
     const bare = {
       hiddenIds: new Set(),
       opacityMap: {},
+      fillColorMap: {},
+      fillOpacityMap: {},
       zoomRangeMap: { overlay1: [4, 10] },
       userOverrides: { overlay1: ["zoomRange"] },
       m: { persistence: { schedule } },
@@ -1117,6 +1208,8 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
     const bare = {
       hiddenIds: new Set(),
       opacityMap: {},
+      fillColorMap: {},
+      fillOpacityMap: {},
       zoomRangeMap: {},
       userOverrides: { overlay1: ["zoomRange"] },
       m: { persistence: { schedule } },
@@ -1154,6 +1247,8 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
     const bare = {
       hiddenIds: new Set(),
       opacityMap: {},
+      fillColorMap: {},
+      fillOpacityMap: {},
       zoomRangeMap: {},
       userOverrides: { overlay1: ["opacity"] },
       m: { persistence: { schedule } },
@@ -1177,6 +1272,8 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
     const bare = {
       hiddenIds: new Set(),
       opacityMap: {},
+      fillColorMap: {},
+      fillOpacityMap: {},
       zoomRangeMap: {},
       userOverrides: {},
       m: { persistence: { schedule } },
@@ -1187,6 +1284,32 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
     expect(bare.userOverrides.overlay1).toBeUndefined();
     expect(schedule).not.toHaveBeenCalled();
     expect(warn.mock.calls[0][0]).toContain("no stored value for this dimension");
+    warn.mockRestore();
+  });
+
+  it("refuses a border marker for a dimension that holds no stroke", () => {
+    // The guard is per dimension, so the two border dimensions need the same
+    // refusal as zoom range: marking a border with no value would be filtered
+    // out of the next write and the user's action would vanish silently.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const bare = {
+      hiddenIds: new Set(),
+      opacityMap: {},
+      zoomRangeMap: {},
+      borderColorMap: {},
+      borderWeightMap: {},
+      userOverrides: {},
+      m: { persistence: { schedule: vi.fn() } },
+    } as unknown as LayerUI;
+
+    markOverride(bare, "overlay1", "borderColor");
+    markOverride(bare, "overlay1", "borderWeight");
+
+    expect(bare.userOverrides.overlay1).toBeUndefined();
+    expect(warn).toHaveBeenCalledTimes(2);
+    expect(
+      warn.mock.calls.every(([msg]) => String(msg).includes("no stored value")),
+    ).toBe(true);
     warn.mockRestore();
   });
 
@@ -1219,12 +1342,43 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
     expect(ui.userOverrides.overlay1).toEqual(["opacity", "zoomRange"]);
   });
 
+  it("restores a stored border color and width from the record", () => {
+    // The border maps are the row's own source of truth, so a restore has to
+    // move the stored stroke into them: without it the drawer would reopen
+    // showing the author's stroke while the map kept painting the user's last
+    // choice.
+    window.localStorage.setItem(
+      CONST.STORAGE.KEY,
+      JSON.stringify({
+        order: null,
+        foldedGroups: [],
+        renamedNames: {},
+        annotations: {},
+        layers: {
+          overlay1: {
+            borderColor: "#0000ff",
+            borderWeight: 4.5,
+            overrides: ["borderColor", "borderWeight"],
+          },
+        },
+      }),
+    );
+
+    loadPersistedState(ui);
+
+    expect(ui.borderColorMap).toEqual({ overlay1: "#0000ff" });
+    expect(ui.borderWeightMap).toEqual({ overlay1: 4.5 });
+    expect(ui.userOverrides.overlay1).toEqual(["borderColor", "borderWeight"]);
+  });
+
   it("persists an opacity change together with its provenance", () => {
     const schedule = vi.fn();
     const bare = {
       hiddenIds: new Set(),
       opacityMap: { overlay1: 0.6 },
       zoomRangeMap: {},
+      fillColorMap: {},
+      fillOpacityMap: {},
       userOverrides: { overlay1: ["opacity"] },
       m: { persistence: { schedule } },
     } as unknown as LayerUI;

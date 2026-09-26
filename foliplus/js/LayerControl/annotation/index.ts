@@ -35,7 +35,7 @@ import {
 // CONF is a free variable from the IIFE template wrapper.
 
 /** How far outside the viewport an anchor may sit and still get laid out.
- *  A label is centred on its anchor and at most a few hundred px wide, so
+ *  A label is centered on its anchor and at most a few hundred px wide, so
  *  anything beyond this margin can never intersect the viewport — culling
  *  before layoutLabel skips the per-character width estimate for the bulk
  *  of a dense layer (6k points rarely have 6k on screen). */
@@ -242,7 +242,7 @@ class AnnotationManager {
     return String(props[field]);
   }
 
-  /** Whether a leaf's anchor is its own point (a marker) rather than the centre
+  /** Whether a leaf's anchor is its own point (a marker) rather than the center
    *  of its extents (a path). Same duck-typing `resolveAnchor` walks, exposed so
    *  the anchor kind and the anchor point are decided from one reading. */
   isPointAnchor(leaf: L.Layer): boolean {
@@ -274,7 +274,7 @@ class AnnotationManager {
    *  the shared auto pick over the layer's fields.
    *
    *  Resolved at render time rather than written into the config, so a layer
-   *  whose columns change keeps labelling itself instead of being pinned to a
+   *  whose columns change keeps labeling itself instead of being pinned to a
    *  field name that no longer exists. */
   resolveField(id: string): string {
     const explicit = this.getConfig(id).field;
@@ -324,7 +324,7 @@ class AnnotationManager {
       const anchor = this.resolveAnchor(leaf);
       if (raw === null || anchor === null) return;
       // The anchor kind is decided once here; the plan reads it to offset a
-      // point label below its marker and centre a path label on its centroid.
+      // point label below its marker and center a path label on its centroid.
       const atPoint = this.isPointAnchor(leaf);
       const text = this.formatValue(raw, cfg.format, locale);
       if (!text) return;

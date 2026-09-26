@@ -19,7 +19,7 @@ const STORAGE = { KEY: `foliplus_layer_state_${map.getContainer().id}` };
 /** Color map layer. */
 const COLOR = { MAP_ID: "foliplus_color_map", DEFAULT: "#cccccc" };
 
-/** Focus-on-layer behaviour. */
+/** Focus-on-layer behavior. */
 const FOCUS = {
   /** How long the focus rectangle stays visible. */
   RECT_DURATION_MS: 3500,
@@ -54,7 +54,7 @@ const FOCUS = {
 const FOCUS_PANE = "foliplus-focus-overlay";
 
 /** Leaflet pane name prefix for a layer's annotation labels: one pane per
- *  labelled layer, so its labels sit at that layer's place in the stack.
+ *  labeled layer, so its labels sit at that layer's place in the stack.
  *  `LayerManager.enforceOrder` z-orders each pane just above its layer. */
 const ANNOTATION_PANE_PREFIX = "foliplus-annotation-";
 
@@ -118,9 +118,21 @@ const CLASSES = {
   STYLE_BODY: "foliplus-style-body",
   STYLE_LABEL_COLOR_INPUT: "foliplus-style-label-color-input",
   STYLE_LABEL_SIZE_INPUT: "foliplus-style-label-size-input",
+  /** Border row (vector layers): stroke swatch + width field. Each control
+   *  gets its own class so the panel's change delegation and the tests can
+   *  tell it apart from the label color swatch. */
+  STYLE_BORDER_ROW: "foliplus-style-border-row",
+  STYLE_BORDER_COLOR_INPUT: "foliplus-style-border-color-input",
+  STYLE_BORDER_WEIGHT_INPUT: "foliplus-style-border-weight-input",
   /** The "avoid overlap" switch — its own class, because the panel's change
    *  delegation keys on the class to tell the two switches apart. */
   STYLE_COLLIDE_INPUT: "foliplus-style-collide-input",
+  /** Fill color row (vector layers): swatch + native <input type=color>.
+   *  Its own class so the change delegation can tell it from the label
+   *  color swatch, and so a future delegated drawer can gate on it. */
+  STYLE_FILL_ROW: "foliplus-style-fill-row",
+  STYLE_FILL_COLOR_INPUT: "foliplus-style-fill-color-input",
+  STYLE_FILL_OPACITY_NUMBER: "foliplus-style-fill-opacity-number",
   /** Shared section heading (form.css). */
   SECTION_HEADING: "foliplus-section-heading",
   /** Opacity control: range slider + paired number input. */
@@ -147,7 +159,7 @@ const CLASSES = {
   STYLE_ZOOM_RANGE_VAL: "foliplus-style-zoom-range-value",
   /** The round readouts on the rail: the map's two zoom limits (-min, -max) and
    *  the current level (-current). A dot's ring is accent where the layer
-   *  renders and grey where it does not. */
+   *  renders and gray where it does not. */
   STYLE_ZOOM_RANGE_DOT: "foliplus-style-zoom-range-dot",
   STYLE_ZOOM_RANGE_DOT_COVERED: "foliplus-style-zoom-range-dot-covered",
   /** Set on a value label whose mark is too close to a higher-priority one to
@@ -160,7 +172,7 @@ const CLASSES = {
   STYLE_ZOOM_RANGE_OUT_OF_RANGE: "foliplus-zoom-range-out-of-range",
   /* ── Shared slider component (common/slider.css) ──
      Both range controls are this component; the rows below add their own hook
-     classes for behaviour and tests, and set `--slider-thumb-ring` for their
+     classes for behavior and tests, and set `--slider-thumb-ring` for their
      own coverage state. Geometry is declared once, in the component. */
   SLIDER: "foliplus-slider",
   SLIDER_RAIL: "foliplus-slider-rail",

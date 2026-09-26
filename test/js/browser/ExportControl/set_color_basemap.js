@@ -1,18 +1,18 @@
 () => {
   // Set up a solid-color basemap the same way the user would: expand the
-  // LayerControl panel, click the colour-row item, then drive the colour
+  // LayerControl panel, click the color-row item, then drive the color
   // input. This mirrors the real user path so the export test exercises the
   // same DOM state (`.active` on the container + `--color-layer-bg` var +
   // tilePane hidden) that `showColorLayer` produces.
   //
   // Returns the container's computed backgroundColor so the caller can assert
-  // the colour took effect before triggering the export.
+  // the color took effect before triggering the export.
   const ctrl = document.querySelector(".foliplus-layer-ctrl");
   if (ctrl && !ctrl.classList.contains("is-expanded")) {
     ctrl.querySelector(".foliplus-toggle-btn").click();
   }
   const item = document.querySelector(".foliplus-color-layer-item");
-  if (!item) return { ok: false, reason: "no colour item" };
+  if (!item) return { ok: false, reason: "no color item" };
   item.click();
   const input = document.querySelector(
     ".foliplus-color-layer-item input[type='color']",

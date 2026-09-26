@@ -24,12 +24,12 @@ import { layerHasLabelFields, layerHasStyleDelegation } from "./style/index.js";
  *   5. Delete     — behind a divider, the one destructive entry. Armed in
  *                   place on the first click and executed on the second; it is
  *                   rendered only for rows that own a Leaflet layer (data
- *                   layers, tile basemaps included), the solid colour basemap
+ *                   layers, tile basemaps included), the solid color basemap
  *                   renders it disabled, and a component layer renders nothing.
  *
  * Focus leads because the trigger-adjacent slot is the mis-click zone: the menu
  * opens downward from the row's bottom edge (`top: 100%`) while the ⋮ button is
- * vertically centred in the row, so when the menu appears the pointer is *above
+ * vertically centered in the row, so when the menu appears the pointer is *above
  * its top edge* — nearest entry #1. The second click of an impatient
  * double-click lands there, so it holds the reversible view action.
  *
@@ -148,10 +148,10 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   // criterion is the row's shape, not something the caller declares — a row
   // that owns a Leaflet layer is a data layer and can be deleted, tile
   // basemaps included, since deleting every base layer down to the default
-  // grey background is a legal end state. A component layer (no layer of its
+  // gray background is a legal end state. A component layer (no layer of its
   // own: the heatmap and measure canvases) renders nothing here; its
   // "restore defaults" verb is a different action and lands separately. The
-  // one exception is the solid colour basemap, which renders the entry
+  // one exception is the solid color basemap, which renders the entry
   // disabled: hiding it would read as "the feature does not exist".
   const deleteMode = deleteModeFor(ui, layerId);
   if (deleteMode !== "absent") {
@@ -242,7 +242,7 @@ const buildDeleteItem = (
 
 /** Turn the delete entry into its confirming state: the label swaps to the
  *  confirmation text and the entry fills, so the second click is unambiguous
- *  without borrowing the accent colour (which already means hover and focus). */
+ *  without borrowing the accent color (which already means hover and focus). */
 const armDelete = (ui: LayerUI, li: HTMLElement): void => {
   const label = li.querySelector<HTMLElement>(`.${CONST.CLASSES.MENU_DELETE_LABEL}`);
   if (!label) return;

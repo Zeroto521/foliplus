@@ -11,9 +11,9 @@ import { createScopedTranslator } from "#common/locale.js";
 import { createLogger } from "#common/log.js";
 import { nextFrame } from "#common/throttle.js";
 import * as CONST from "./const.js";
-import type { CropRect, GeoBounds } from "./crop.js";
 import type { ExportManager } from "./manager.js";
 import { ExportRenderer, isCorsBlocked } from "./renderer/index.js";
+import type { CropRect, GeoBounds } from "./type.js";
 import { resolveExportBackground } from "./util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
@@ -214,7 +214,7 @@ const enlargeAndRender = function (
     this.map.setView(savedCenter, savedZoom, { animate: false });
   };
 
-  // Resize container and centre the map on the crop area.
+  // Resize container and center the map on the crop area.
   // Both invalidateSize and setView are synchronous (animate: false),
   // so the map state is updated immediately.  A single rAF ensures the
   // browser has applied the layout changes before we render.

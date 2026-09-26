@@ -23,6 +23,7 @@ import {
   clampLabelSize,
   colorInput as formColorInput,
   numberInput as formNumberInput,
+  formRow,
   inlineControls,
   normalizeHexColor,
 } from "#common/form.js";
@@ -32,7 +33,20 @@ import * as CONST from "../../const.js";
 import * as SVGs from "../../icon.js";
 import type { LayerUI } from "../index.js";
 import { finishRename } from "../rename.js";
+import {
+  bindBorderRow,
+  buildBorderRow,
+  layerCanBorder,
+  resetLayerBorder,
+} from "./border.js";
 import { layerHasStyleDelegation, renderDelegatedStylePanel } from "./delegated.js";
+import {
+  bindFillRow,
+  buildFillRow,
+  layerCanFill,
+  replayFillState,
+  resetLayerFill,
+} from "./fill.js";
 import { appendResetFooter, railPos, sectionHeading } from "./frame.js";
 import { applyPatch, layerFields, syncFormatRow } from "./label.js";
 import {
@@ -53,8 +67,8 @@ import {
   zoomToPct,
 } from "./zoomRange.js";
 
-/** Build the style panel DOM for a layer. Returns null when there are no
- *  labelable fields (defensive: the menu item should have been disabled). */
+/** Build the style panel DOM for a layer. Returns null when the layer owns
+ *  neither a labelable field nor a capable Layer dimension. */
 const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   // Third-party canvas layers (heatmap, measure) declare their own controls
   // via styleSetters — render those instead of the annotation panel.
@@ -62,7 +76,17 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
     return renderDelegatedStylePanel(ui, layerId);
   }
   const fields = layerFields(ui, layerId);
-  if (!fields.length) return null;
+  const hasLabel = fields.length > 0;
+  // A plain vector shape has no feature properties, so no labelable field —
+  // but it still owns the Layer section (fill, border, opacity, zoom range). The
+  // ⋮ menu enables Style on capability alone, so the panel has to honour the
+  // same gate rather than demanding a field.
+  const hasLayerDim =
+    layerCanOpacity(ui, layerId) ||
+    layerCanBorder(ui, layerId) ||
+    layerCanFill(ui, layerId) ||
+    canShowZoomRange(ui, layerId);
+  if (!hasLabel && !hasLayerDim) return null;
 
   const cfg = ui.m.annotation.getConfig(layerId);
   const fmtLabel = (f: string) => ui._(`foliplus.label_format_${f}`) || f;
@@ -75,7 +99,7 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   const showChecked = !!cfg.show;
   // The picker's "Auto" entry means "let foliplus choose", and the config
   // records it as the shared sentinel rather than a resolved name — so the layer
-  // keeps labelling itself when its columns change. `resolveSelectedField`
+  // keeps labeling itself when its columns change. `resolveSelectedField`
   // (core/labelField) is what turns the select's value back into a field.
   const selectedField = cfg.field;
 
@@ -185,20 +209,7 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
       dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("style_label_field")),
       dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, fieldSelect),
     ),
-    dom.el(
-      "div",
-      { class: CONST.CLASSES.FORM_ROW },
-      dom.el(
-        "label",
-        { class: CONST.CLASSES.FORM_LABEL },
-        ui._("foliplus.label_style"),
-      ),
-      dom.el(
-        "div",
-        { class: CONST.CLASSES.FORM_CONTROL },
-        inlineControls(colorInput, sizeInput),
-      ),
-    ),
+    formRow(ui._("foliplus.label_style"), inlineControls(colorInput, sizeInput)),
     formatRow,
     dom.el(
       "div",
@@ -232,31 +243,41 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
     closeTitle: ui.T("close_title"),
     iconClass: "foliplus-layer-style-icon foliplus-header-icon",
   });
-  content.append(
-    sectionHeading(ui.T("section_label")),
-    dom.el(
-      "div",
-      { class: CONST.CLASSES.FORM_ROW },
-      dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui._("foliplus.label")),
-      dom.el(
-        "div",
-        { class: CONST.CLASSES.FORM_CONTROL },
-        // Resolving the toggle: clicking the input, the slider span, or the
-        // label should all flip the checkbox — the switch is one <label>.
-        dom.el(
-          "label",
-          { class: CONST.CLASSES.TOGGLE_SWITCH },
-          showToggle,
-          dom.el("span", { class: CONST.CLASSES.TOGGLE_SLIDER }),
-        ),
-      ),
-    ),
-    body,
-  );
-  if (layerCanOpacity(ui, layerId) || canShowZoomRange(ui, layerId)) {
+  // The Layer section renders only when the layer owns a capable dimension;
+  // a layer without any of them reaches the panel for the Label section alone.
+  // Layer comes first: it is the primary surface (what the user drew), and the
+  // Label section is a decoration of it. High-frequency operations lead.
+  if (hasLayerDim) {
     content.append(sectionHeading(ui.T("section_layer")));
+    if (layerCanFill(ui, layerId)) content.append(buildFillRow(ui, layerId));
+    if (layerCanBorder(ui, layerId)) content.append(buildBorderRow(ui, layerId));
     if (layerCanOpacity(ui, layerId)) content.append(buildOpacityRow(ui, layerId));
     if (canShowZoomRange(ui, layerId)) content.append(buildZoomRangeRow(ui, layerId));
+  }
+  // The Label section renders only when there is a field to label; a plain
+  // vector shape reaches the panel for the Layer section alone.
+  if (hasLabel) {
+    content.append(
+      sectionHeading(ui.T("section_label")),
+      dom.el(
+        "div",
+        { class: CONST.CLASSES.FORM_ROW },
+        dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui._("foliplus.label")),
+        dom.el(
+          "div",
+          { class: CONST.CLASSES.FORM_CONTROL },
+          // Resolving the toggle: clicking the input, the slider span, or the
+          // label should all flip the checkbox — the switch is one <label>.
+          dom.el(
+            "label",
+            { class: CONST.CLASSES.TOGGLE_SWITCH },
+            showToggle,
+            dom.el("span", { class: CONST.CLASSES.TOGGLE_SLIDER }),
+          ),
+        ),
+      ),
+      body,
+    );
   }
   appendResetFooter(ui, content);
   return panel;
@@ -290,6 +311,16 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
   // the draggable row and so cannot answer it.
   panel.addEventListener("mousedown", e => e.stopPropagation());
 
+  // Border row: a self-managed dimension that writes `setStyle` directly, so
+  // its live binders attach to the row instead of going through the panel's
+  // change delegation — that only knows opacity, zoom range and the annotation
+  // rows. A delegated drawer never renders this row (its gate excludes
+  // styleSetters), so the lookup alone is the discriminator.
+  const borderRow = panel.querySelector(
+    `.${CONST.CLASSES.STYLE_BORDER_ROW}`,
+  ) as HTMLElement | null;
+  if (borderRow) bindBorderRow(ui, layerId, borderRow);
+
   const delegated = layerHasStyleDelegation(ui, layerId);
   // Annotation color/size commit live, same bindLive* recipe as the
   // heatmap panel and the delegated drawer.
@@ -313,6 +344,13 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
         onCommit: value => applyPatch(ui, layerId, { size: value }),
       });
     }
+    // Fill is a self-managed dimension (not part of the executor's
+    // visible/opacity/zoomRange family): bindLiveColor commits straight to
+    // ui.fillColorMap + setStyle. Same live-recipe as label color.
+    const fillRow = panel.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_ROW}`,
+    ) as HTMLElement | null;
+    if (fillRow) bindFillRow(ui, layerId, fillRow);
   }
 
   // Control changes are handled on the panel itself; stopPropagation keeps
@@ -451,7 +489,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       const show = t.checked;
       // Reveal / collapse the body under the toggle. No field is written here:
       // leaving it at the auto sentinel is what makes the picker read "Auto" and
-      // what lets the layer keep labelling itself if its columns change.
+      // what lets the layer keep labeling itself if its columns change.
       const body = panel.querySelector(
         `.${CONST.CLASSES.STYLE_BODY}`,
       ) as HTMLElement | null;
@@ -511,6 +549,12 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
   panel.addEventListener("click", (event: Event) => {
     const t = event.target as HTMLElement;
     if (t.closest(".foliplus-style-reset-btn")) {
+      // Fill is LayerControl-owned on the annotation flavour only (the gate
+      // excludes delegated layers).
+      resetLayerFill(ui, layerId);
+      // Border is LayerControl-owned too: restore the author's stroke and drop
+      // the persisted color / width, so a reload does not re-apply them.
+      resetLayerBorder(ui, layerId);
       // Opacity is LayerControl-owned in both flavours: always restore 1.
       resetLayerOpacity(ui, layerId);
       // Zoom range is LayerControl-owned: reset to the full map range.
@@ -637,3 +681,4 @@ export {
   layerHasLabelFields,
 } from "./label.js";
 export { layerHasStyleDelegation } from "./delegated.js";
+export { replayFillState } from "./fill.js";

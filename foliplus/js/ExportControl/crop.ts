@@ -5,45 +5,7 @@ import { type RafLoop, rafLoop } from "#common/rafLoop.js";
 import * as CONST from "./const.js";
 import { registerDrag } from "./interaction.js";
 import type { ExportManager } from "./manager.js";
-
-/** A screen-space rectangle. */
-interface CropRect {
-  left: number;
-  top: number;
-  width: number;
-  height: number;
-}
-
-/** A lat/lng point. */
-interface LatLngPoint {
-  lat: number;
-  lng: number;
-}
-
-/** Geo bounds for the crop area. */
-interface GeoBounds {
-  nw: LatLngPoint;
-  se: LatLngPoint;
-}
-
-/** Drag state for interactive crop box adjustment. */
-interface DragState {
-  dragging: boolean;
-  dragType: string | null;
-  lastX: number;
-  lastY: number;
-}
-
-/** Crop box state machine. */
-interface CropState {
-  overlay: HTMLElement;
-  box: HTMLElement;
-  rect: CropRect;
-  locked: boolean;
-  actions: HTMLElement;
-  geoBounds?: GeoBounds;
-  savedGeoBounds?: GeoBounds;
-}
+import type { CropRect } from "./type.js";
 
 /** Map an arrow-key name to a unit direction vector. Unknown keys → no-op. */
 const nudgeDirection = (key: string): { x: number; y: number } =>
@@ -218,7 +180,7 @@ const onPointerDown = function (this: ExportManager, event: PointerEvent) {
 
   // Claim the press. This must come after the target check: the handler also
   // runs for presses on the map outside the box, and preventing those would
-  // swallow native behaviour (map drag, tile click, focus move) for every
+  // swallow native behavior (map drag, tile click, focus move) for every
   // pointerdown on the page while a crop box is open.
   //
   // stopImmediatePropagation, not stopPropagation: the pointerdown wrapper in
@@ -414,11 +376,4 @@ const cropMethods = {
   resetCropBox,
 };
 
-export {
-  cropMethods,
-  type CropRect,
-  type CropState,
-  type DragState,
-  type GeoBounds,
-  type LatLngPoint,
-};
+export { cropMethods };

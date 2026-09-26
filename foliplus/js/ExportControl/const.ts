@@ -6,6 +6,7 @@
 // (mime type, file extension, codec class, pipeline routing) reads from one
 // `FORMAT` record — add a format by adding one row there.
 // ============================================================================
+import type { ExportFormat, FormatSpec } from "./type.js";
 
 /** Crop-box constraints. */
 const CROP = {
@@ -190,21 +191,6 @@ const TILE_CONCURRENCY: number = detectConcurrency();
 // Export formats — single source for everything format-specific.
 // ============================================================================
 
-/** Export format key — mirrors Python's `ExportControl.FORMAT` literal. */
-type ExportFormat = "png" | "jpeg" | "webp" | "geotiff";
-
-/** Per-format descriptor. */
-interface FormatSpec {
-  /** `toBlob()` / `toDataURL()` mime type. */
-  mime: string;
-  /** File extension (no dot). */
-  ext: string;
-  /** Lossy codec — the single compress pass happens at write time. */
-  lossy: boolean;
-  /** Routed through `downloadGeoTiff` instead of a plain blob download. */
-  geotiff: boolean;
-}
-
 const FORMAT: Record<ExportFormat, FormatSpec> = {
   png: { mime: "image/png", ext: "png", lossy: false, geotiff: false },
   // `ext` is the historical user-visible name — `jpeg`, not `jpg`.
@@ -230,7 +216,7 @@ const currentFormat = (): FormatSpec => FORMAT[resolveFormat(CONF.format)];
 
 // ============================================================================
 // Public API — every consumer reads CONST.<name>; add nothing to this block
-// without declaring it above. Values come first, then types.
+// without declaring it above.
 // ============================================================================
 
 export {
@@ -249,5 +235,3 @@ export {
   resolveFormat,
   currentFormat,
 };
-
-export type { ExportFormat, FormatSpec };

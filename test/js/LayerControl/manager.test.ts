@@ -937,7 +937,7 @@ describe("LayerManager", () => {
       expect(m.layers.map(l => l.id)).toEqual(["B", "A", "H"]);
     });
 
-    it("skips a saved neighbour that has not registered yet", () => {
+    it("skips a saved neighbor that has not registered yet", () => {
       // G sits between X and Y in the stored order but is not registered, so it
       // cannot be located. The walk keeps going past the gap instead of stopping
       // there and leaving X where prepend put it.
@@ -949,10 +949,10 @@ describe("LayerManager", () => {
       expect(m.layers.map(l => l.id)).toEqual(["X", "Y"]);
     });
 
-    it("re-applies the stored order to a layer that drifted below its neighbour", () => {
+    it("re-applies the stored order to a layer that drifted below its neighbor", () => {
       // The drag moved A under B without a flush landing yet. A is now below its
-      // own saved neighbour, which is the case where the target index is not the
-      // neighbour's shifted-down index.
+      // own saved neighbor, which is the case where the target index is not the
+      // neighbor's shifted-down index.
       seedStorage({ order: ["A", "B"] });
       const m = new LayerManager(map, [
         { id: "A", name: "A", isBase: false },
@@ -1195,6 +1195,8 @@ describe("LayerManager", () => {
             hiddenIds: new Set(),
             renamedNames: {},
             opacityMap: { heat: 0.4 },
+            fillColorMap: {},
+            fillOpacityMap: {},
             zoomRangeMap: {},
             appliedState: new Map(),
             authorVisible: new Map(),
@@ -1203,6 +1205,8 @@ describe("LayerManager", () => {
           id,
         ),
       opacityMap: { heat: 0.4 },
+      fillColorMap: {},
+      fillOpacityMap: {},
       hiddenIds: new Set(),
       zoomRangeMap: {},
       userOverrides: { heat: ["opacity"] },
@@ -1227,6 +1231,8 @@ describe("LayerManager", () => {
     manager.ui = {
       hiddenIds: new Set(),
       opacityMap: {},
+      fillColorMap: {},
+      fillOpacityMap: {},
       zoomRangeMap: {},
       userOverrides: {},
       saveState: vi.fn(),
@@ -1245,6 +1251,8 @@ describe("LayerManager", () => {
     manager.ui = {
       hiddenIds: new Set(),
       opacityMap: {},
+      fillColorMap: {},
+      fillOpacityMap: {},
       zoomRangeMap: {},
       userOverrides: {},
       saveState: vi.fn(),
@@ -1275,6 +1283,8 @@ describe("LayerManager", () => {
     manager.ui = {
       hiddenIds: new Set(["overlay1", "base1"]),
       opacityMap: { overlay1: 0.4, base1: 1 },
+      fillColorMap: {},
+      fillOpacityMap: {},
       zoomRangeMap: { overlay1: [3, 12] },
       userOverrides: {
         overlay1: ["visible", "opacity", "zoomRange"],
@@ -1307,8 +1317,12 @@ describe("LayerManager", () => {
     manager.ui = {
       hiddenIds: new Set(["overlay1", "base1"]),
       opacityMap: { overlay1: 0.4, base1: 1 },
+      fillColorMap: {},
+      fillOpacityMap: {},
       zoomRangeMap: { overlay1: [3, 12] },
       rangeHiddenIds: new Set(),
+      borderColorMap: {},
+      borderWeightMap: {},
       userOverrides: {
         overlay1: ["visible", "opacity", "zoomRange"],
         base1: ["visible"],
@@ -1336,6 +1350,8 @@ describe("LayerManager", () => {
     manager.ui = {
       hiddenIds: new Set(["overlay1"]),
       opacityMap: { overlay1: 0.4 },
+      fillColorMap: {},
+      fillOpacityMap: {},
       zoomRangeMap: {},
       userOverrides: { overlay1: ["opacity"] },
       renamedNames: {},
@@ -1368,8 +1384,14 @@ describe("LayerManager", () => {
     manager.ui = {
       hiddenIds: new Set(["overlay1", "base1"]),
       opacityMap: { overlay1: 0.4 },
+      fillColorMap: {},
+      fillOpacityMap: {},
       zoomRangeMap: { overlay1: [3, 12] },
+      fillColorMap: {},
+      fillOpacityMap: {},
       rangeHiddenIds: new Set(),
+      borderColorMap: {},
+      borderWeightMap: {},
       userOverrides: { overlay1: ["visible", "opacity"] },
       renamedNames: { base1: "Renamed" },
       dropPersistedLayerState: (id: string) => dropPersistedLayerState(manager.ui, id),
@@ -1415,8 +1437,14 @@ describe("LayerManager", () => {
       m,
       hiddenIds: new Set(),
       opacityMap: { overlay1: 0.4 },
+      fillColorMap: {},
+      fillOpacityMap: {},
       zoomRangeMap: {},
+      fillColorMap: {},
+      fillOpacityMap: {},
       rangeHiddenIds: new Set(),
+      borderColorMap: {},
+      borderWeightMap: {},
       userOverrides: { overlay1: ["opacity"] },
       renamedNames: { overlay1: "Renamed", base1: "Base" },
       dropPersistedLayerState: (id: string) => dropPersistedLayerState(m.ui, id),

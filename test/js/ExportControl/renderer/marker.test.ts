@@ -267,7 +267,7 @@ describe("renderFontAwesome", () => {
         root,
       ]);
       expect(ctx.fillText.mock.calls[0][0]).toBe("A");
-      // "normal" is normalised to 400 in the font spec.
+      // "normal" is normalized to 400 in the font spec.
       expect(ctx.font).toContain("400");
     } finally {
       restore();
@@ -362,7 +362,7 @@ describe("renderTextLabels", () => {
     }
   });
 
-  it("lays out multi-line text around the label centre", async () => {
+  it("lays out multi-line text around the label center", async () => {
     const ctx = textCtx();
     stubFonts();
     const root = document.createElement("div");
@@ -388,7 +388,7 @@ describe("renderTextLabels", () => {
         root,
       ]);
       expect(ctx.fillText).toHaveBeenCalledTimes(2);
-      // Two lines sit symmetric about the label centre, spacing 1.2 * fontSize.
+      // Two lines sit symmetric about the label center, spacing 1.2 * fontSize.
       const [y0, y1] = ctx.fillText.mock.calls.map(c => c[2]);
       expect(y1 - y0).toBeCloseTo(14 * 1.2);
       expect(ctx.fillText).toHaveBeenNthCalledWith(1, "a", 40, 21.6);
@@ -471,7 +471,7 @@ describe("renderTextLabels", () => {
     }
   });
 
-  it("falls back to the background colour when the label declares no border colour", async () => {
+  it("falls back to the background color when the label declares no border color", async () => {
     // `borderColor` can be an empty string when only width and style are set;
     // without the fallback the stroke would paint the canvas default (opaque
     // black) over a label that asked for its own fill as the outline.
@@ -548,7 +548,7 @@ describe("renderRemaining", () => {
     expect(ctx.drawImage).toHaveBeenCalledTimes(1);
   });
 
-  it("fills a background-coloured dot, rounded and bordered", async () => {
+  it("fills a background-colored dot, rounded and bordered", async () => {
     const ctx = textCtx();
     const root = document.createElement("div");
     pinBox(root, 10, 10, 10, 10);
@@ -571,7 +571,7 @@ describe("renderRemaining", () => {
     }
   });
 
-  it("fills a plain background colour when there is no border", async () => {
+  it("fills a plain background color when there is no border", async () => {
     const ctx = textCtx();
     const root = document.createElement("div");
     pinBox(root, 10, 10, 10, 10);
@@ -812,7 +812,7 @@ describe("marker passes — branch edges", () => {
     expect(ctx.drawImage).toHaveBeenCalled();
   });
 
-  it("renderFontAwesome: fontWeight bold normalises to 700", async () => {
+  it("renderFontAwesome: fontWeight bold normalizes to 700", async () => {
     const ctx = textCtx();
     stubFonts();
     const root = box(document.createElement("div"), 10, 10, 20, 20);

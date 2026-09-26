@@ -338,7 +338,7 @@ describe("LayerUI attrs", () => {
       );
     });
 
-    it("reflects the hidden state in the type row's neighbour set", () => {
+    it("reflects the hidden state in the type row's neighbor set", () => {
       const item = findItem(ui, "overlay1");
       (item.querySelector('input[type="checkbox"]') as HTMLInputElement).checked =
         false;

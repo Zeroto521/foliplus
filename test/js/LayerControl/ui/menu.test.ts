@@ -440,7 +440,7 @@ describe("LayerUI menu", () => {
       expect(deleteLi!.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)).toBe(false);
     });
 
-    it("renders the colour basemap's delete disabled with its reason as tooltip", () => {
+    it("renders the color basemap's delete disabled with its reason as tooltip", () => {
       const colorItem = ui.uiContainer.querySelector(CONST.SEL.COLOR_ITEM)!;
       ui.openMoreMenu(colorItem);
 
