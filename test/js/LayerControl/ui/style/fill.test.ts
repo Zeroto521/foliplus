@@ -256,6 +256,26 @@ describe("LayerUI style panel — fill color", () => {
     expect(fillRow(item)).not.toBeNull();
   });
 
+  it("layerCanFill is false for a POINT geometry type — no fill axis", () => {
+    // A surface that reports POINT (not POLYGON/LINE/UNKNOWN) has no fill
+    // concept: the early-return guard at hasFillGeometry L85 rejects it
+    // before the leaf walk. In reality Marker/Point layers report POINT and
+    // never enter the walkStyleLeaves path.
+    const marker = new L.Marker();
+    marker.options = {};
+    manager.registerLayer({
+      id: "point1",
+      name: "Points",
+      layer: marker as never,
+    });
+    const fake = {
+      capabilities: { opacity: "pane", zoomRange: "pane" },
+      geometryType: () => "point",
+    };
+    vi.spyOn(ui.m, "surfaceFor").mockReturnValue(fake as never);
+    expect(layerCanFill(ui, "point1")).toBe(false);
+  });
+
   it("layerCanFill is false when the mixed layer resolves no Leaflet object", () => {
     // UNKNOWN geometry with no layer object to walk — the gate must not
     // assume leaves exist when it cannot reach them. In reality a missing
@@ -652,6 +672,26 @@ describe("LayerUI style panel — fill color", () => {
       row.querySelector(`.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`),
     ).not.toBeNull();
     expect(row.querySelector(`.${CONST.CLASSES.STYLE_FILL_OPACITY_NUMBER}`)).toBeNull();
+  });
+
+  it("applyFillToLayer on a color basemap with only opacity skips showColorLayer", () => {
+    // L252: `color === undefined` branch — opacity-only on a color basemap
+    // must not call showColorLayer (there is no color to show).
+    registerColorBasemap();
+    ui.fillOpacityMap[CONST.COLOR.MAP_ID] = 0.5;
+    applyFillToLayer(ui, CONST.COLOR.MAP_ID);
+    // currentColor is untouched because only opacity was set
+    expect(ui.currentColor).toBe(CONST.COLOR.DEFAULT);
+  });
+
+  it("commitFillColor on a color basemap skips the hollow-opacity check", () => {
+    // L304: `!isColorBasemap` is false → the hollow-check branch is skipped.
+    // A color basemap has no fillOpacity concept, so there is nothing to bump.
+    registerColorBasemap();
+    commitFillColor(ui, CONST.COLOR.MAP_ID, "#ff0000");
+    expect(ui.fillColorMap[CONST.COLOR.MAP_ID]).toBe("#ff0000");
+    expect(ui.fillOpacityMap[CONST.COLOR.MAP_ID]).toBeUndefined();
+    expect(ui.currentColor).toBe("#ff0000");
   });
 
   it("commitFillColor handles a layer id that is not registered yet", () => {
