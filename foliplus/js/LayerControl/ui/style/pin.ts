@@ -58,4 +58,5 @@ const pinStyleOnHighlight = (
   });
 };
 
-export { isStyleSetter, pinStyleOnHighlight, type StyleSetter };
+export { isStyleSetter, pinStyleOnHighlight };
+export type { StyleSetter };
