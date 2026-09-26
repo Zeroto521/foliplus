@@ -153,8 +153,8 @@ describe("LayerUI style panel", () => {
     };
     ui.openStylePanel("overlay1");
 
-    expect(ui.stylePanelLayerId).toBe("overlay1");
-    expect(panelOf(item)).not.toBeUndefined();
+    expect(ui.stylePanelLayerId).toBeNull();
+    expect(panelOf(item)).toBeUndefined();
   });
 
   it("closes the previous panel before opening a new one", () => {

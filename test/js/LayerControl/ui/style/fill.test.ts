@@ -606,9 +606,55 @@ describe("LayerUI style panel — fill color", () => {
     expect(leaf.options.fillColor).toBe("#123456");
   });
 
+  // ─────────────────── color basemap ───────────────────
+
+  const registerColorBasemap = () => {
+    manager.registerLayer({
+      id: CONST.COLOR.MAP_ID,
+      name: "Color",
+      isBase: true,
+      color: CONST.COLOR.DEFAULT,
+    });
+    const li = manager.layerRegistry.get(CONST.COLOR.MAP_ID)!;
+    manager.surfaceFor(li).capabilities = {
+      opacity: "pane",
+      zoomRange: "none",
+      relocatable: false,
+      bounds: false,
+    };
+    ui.fieldCache.set(CONST.COLOR.MAP_ID, []);
+  };
+
+  it("layerCanFill returns true for a color basemap", () => {
+    registerColorBasemap();
+    expect(layerCanFill(ui, CONST.COLOR.MAP_ID)).toBe(true);
+  });
+
+  it("applyFillToLayer routes a color basemap to showColorLayer, not leaf walk", () => {
+    registerColorBasemap();
+    ui.fillColorMap[CONST.COLOR.MAP_ID] = "#ff0000";
+    applyFillToLayer(ui, CONST.COLOR.MAP_ID);
+    expect(ui.currentColor).toBe("#ff0000");
+  });
+
+  it("resetLayerFill restores the color basemap to its default", () => {
+    registerColorBasemap();
+    ui.fillColorMap[CONST.COLOR.MAP_ID] = "#ff0000";
+    resetLayerFill(ui, CONST.COLOR.MAP_ID);
+    expect(ui.currentColor).toBe(CONST.COLOR.DEFAULT);
+    expect(ui.fillColorMap[CONST.COLOR.MAP_ID]).toBeUndefined();
+  });
+
+  it("buildFillRow renders only the color swatch for a color basemap", () => {
+    registerColorBasemap();
+    const row = buildFillRow(ui, CONST.COLOR.MAP_ID);
+    expect(
+      row.querySelector(`.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`),
+    ).not.toBeNull();
+    expect(row.querySelector(`.${CONST.CLASSES.STYLE_FILL_OPACITY_NUMBER}`)).toBeNull();
+  });
+
   it("commitFillColor handles a layer id that is not registered yet", () => {
-    // The hollow-check walks only registered layers; an unregistered id still
-    // records the user's choice so a late registration can replay it.
     expect(() => commitFillColor(ui, "late-layer", "#ff0000")).not.toThrow();
     expect(ui.fillColorMap["late-layer"]).toBe("#ff0000");
     expect(ui.userOverrides["late-layer"]).toContain("fillColor");
