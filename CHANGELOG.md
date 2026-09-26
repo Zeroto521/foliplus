@@ -106,7 +106,7 @@
 - `MeasureControl`: destroy no longer loses persisted measurements — `onUnload` flushes pending drag mutations and marker drag's `throttleRaf` now `flush()`es on teardown ([#430](https://github.com/Zeroto521/foliplus/pull/430), [#442](https://github.com/Zeroto521/foliplus/pull/442))
 - `common/fetch`: a completed request no longer leaves its timeout and parent abort listener behind — the composed signal is disposed as soon as the fetch settles ([#433](https://github.com/Zeroto521/foliplus/pull/433))
 - `hint`: cap the toast at `min(480px, 80vw)` so a long locale string wraps instead of overflowing the map on a phone, with a wider cap under a 480px viewport ([#445](https://github.com/Zeroto521/foliplus/pull/445))
-- `LayerControl`: `fillColor` / `borderColor` in the persisted record are normalized to `#rrggbb` on read — `<input type=color>` only accepts the long form, and Python's `fill_color="#fff"` was silently rejected; normalization reuses `common/form.ts`'s `normalizeHexColor` ([#477](https://github.com/Zeroto521/foliplus/pull/477))
+- `LayerControl`: `fillColor` / `borderColor` in the persisted record are normalized to `#rrggbb` — `<input type=color>` only accepts the long form, and Python's `fill_color="#fff"` was silently rejected; normalization reuses `common/form.ts`'s `normalizeHexColor` ([#477](https://github.com/Zeroto521/foliplus/pull/477))
 
 ## [v0.3.0] (2026-08-02)
 
