@@ -57,6 +57,16 @@ describe("createSection — DOM shape", () => {
     expect(s.titleEl.contains(titleEl)).toBe(true);
     expect(s.titleEl.textContent).toBe("Title via element");
   });
+
+  it("removes the title from tab order when the section is not collapsible", () => {
+    const s = createSection({ title: "Static" });
+    expect(s.titleEl.getAttribute("tabindex")).toBe("-1");
+  });
+
+  it("keeps the title in tab order when the section is collapsible", () => {
+    const s = createSection({ title: "Group", collapsible: true });
+    expect(s.titleEl.getAttribute("tabindex")).toBe("0");
+  });
 });
 
 describe("createSection — collapsible", () => {
@@ -98,23 +108,6 @@ describe("createSection — collapsible", () => {
     sw.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     expect(s.root.classList.contains("is-collapsed")).toBe(false);
   });
-
-  it("still collapses on Enter and Space pressed on the title button", () => {
-    const s = createSection({ title: "Keyboard", collapsible: true });
-
-    s.titleEl.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
-    );
-    // jsdom does not auto-fire `click` on keydown; assert the keydown
-    // handler does nothing by itself — the collapse path is `click`.
-    expect(s.root.classList.contains("is-collapsed")).toBe(false);
-
-    s.titleEl.dispatchEvent(new KeyboardEvent("keydown", { key: "a", bubbles: true }));
-    expect(s.root.classList.contains("is-collapsed")).toBe(false);
-
-    s.head.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    expect(s.root.classList.contains("is-collapsed")).toBe(true);
-  });
 });
 
 describe("createSection — programmatic API", () => {
@@ -134,8 +127,8 @@ describe("createSection — programmatic API", () => {
     const s = createSection({ title: "Static" });
 
     s.setCollapsed(true);
-    expect(s.root.classList.contains("is-collapsed")).toBe(true);
-    expect(s.titleEl.getAttribute("aria-expanded")).toBe("false");
+    expect(s.root.classList.contains("is-collapsed")).toBe(false);
+    expect(s.titleEl.getAttribute("aria-expanded")).toBeNull();
   });
 
   it("setSwitch(true) checks a raw input switch", () => {

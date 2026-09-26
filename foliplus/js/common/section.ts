@@ -67,17 +67,14 @@ const createSection = (opts: SectionOpts): SectionResult => {
   const titleEl = dom.el("button", {
     type: "button",
     class: "foliplus-section-title",
+    tabindex: collapsible ? "0" : "-1",
   }) as HTMLButtonElement;
   if (typeof title === "string") titleEl.textContent = title;
   else titleEl.appendChild(title);
 
   let captionEl: HTMLElement | null = null;
   if (caption != null) {
-    captionEl = dom.el(
-      "div",
-      { class: "foliplus-section-caption" },
-      typeof caption === "string" ? caption : caption,
-    );
+    captionEl = dom.el("div", { class: "foliplus-section-caption" }, caption);
   }
 
   const body = dom.el("div", { class: "foliplus-section-body" });
@@ -112,6 +109,7 @@ const createSection = (opts: SectionOpts): SectionResult => {
     captionEl,
     switchEl,
     setCollapsed: (collapsed: boolean): void => {
+      if (!collapsible) return;
       root.classList.toggle("is-collapsed", collapsed);
       titleEl.setAttribute("aria-expanded", collapsed ? "false" : "true");
     },
