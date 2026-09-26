@@ -1,4 +1,4 @@
-// LayerUI shell (ui/index.ts) �?attach sequence, event subscriptions, and the
+// LayerUI shell (ui/index.ts) —?attach sequence, event subscriptions, and the
 // thin delegates to the ui/* modules. DOM interaction specifics live in the
 // per-module suites (list/keyboard/focus/...); this file pins the wiring.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -14,7 +14,7 @@ import {
   makePane,
 } from "./fixture.js";
 
-describe("LayerUI shell �?event subscriptions", () => {
+describe("LayerUI shell —?event subscriptions", () => {
   let manager: LayerManager;
   let ui: LayerUI;
   let map: any;
@@ -153,7 +153,7 @@ describe("LayerUI shell �?event subscriptions", () => {
   });
 });
 
-describe("LayerUI shell �?delegates", () => {
+describe("LayerUI shell —?delegates", () => {
   let manager: LayerManager;
   let ui: LayerUI;
   let map: any;
