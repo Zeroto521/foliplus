@@ -19,7 +19,7 @@ import {
 } from "./base.js";
 
 // CONF is a free variable from the IIFE template wrapper.
-const tr = createTranslator(CONF);
+const _ = createTranslator(CONF);
 const T = createScopedTranslator(CONF);
 
 // ==================== Marker Mode ====================
@@ -194,7 +194,7 @@ class MarkerMode extends MeasureMode {
       T("popup_loading"),
       T("popup_loc_label"),
       T("popup_addr_label"),
-      tr("foliplus.close_label"),
+      _("foliplus.close_label"),
       CONF.locale_code,
       null,
       manager.layers.mainLayer,
@@ -255,7 +255,7 @@ class MarkerMode extends MeasureMode {
       T("popup_loading"),
       T("popup_loc_label"),
       T("popup_addr_label"),
-      tr("foliplus.close_label"),
+      _("foliplus.close_label"),
       CONF.locale_code,
       null,
       this.layers.mainLayer,
