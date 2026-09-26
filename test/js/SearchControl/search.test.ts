@@ -132,7 +132,7 @@ describe("renderResults", () => {
         primaryText: "Shanghai, China",
         query: "121.4700, 31.2300",
         coordDisplay: "121.4700, 31.2300",
-        onClick: () => {},
+        onClick: () => false,
       },
       // Suggestion: no query — must NOT get the attribute, so keyboard nav
       // falls back to the display text.
@@ -141,7 +141,7 @@ describe("renderResults", () => {
         icon: "",
         primaryText: "Paris, France",
         coordDisplay: null,
-        onClick: () => {},
+        onClick: () => false,
       },
     ]);
     const items = ctrl.panelWrap.querySelectorAll(".foliplus-search-result-item");
@@ -168,7 +168,7 @@ describe("renderResults", () => {
         primaryText: "Chongqing",
         query: "121.47,31.23",
         coordDisplay: "121.470000, 31.230000",
-        onClick: () => {},
+        onClick: () => false,
       },
     ]);
     const coord = ctrl.panelWrap.querySelector(".foliplus-search-result-coord");
@@ -260,7 +260,7 @@ describe("initDebouncedFetch", () => {
       expect(globalThis.fetch).toHaveBeenCalledTimes(1);
     } finally {
       vi.useRealTimers();
-      delete globalThis.fetch;
+      Reflect.deleteProperty(globalThis, "fetch");
     }
   });
 });
@@ -339,7 +339,7 @@ describe("searchAddress", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
-    delete globalThis.fetch;
+    Reflect.deleteProperty(globalThis, "fetch");
   });
 
   it("delegates to foliplus.geocode (single global cache)", async () => {
@@ -793,7 +793,9 @@ describe("attachSearchDelIcon", () => {
     attachSearchDelIcon(ctrl, [31.23, 121.47]);
     const delIcon = ctrl.delIcon;
 
-    const delClick = delIcon.on.mock.calls.find(c => c[0] === "click")?.[1];
+    const delClick = delIcon.on.mock.calls.find(
+      (c: unknown[]) => c[0] === "click",
+    )?.[1];
     expect(delClick).toBeDefined();
     const x = document.createElement("span");
     x.setAttribute("data-del-icon", "");
@@ -936,7 +938,7 @@ describe("fetchSuggestions: throttle and abort", () => {
   });
   afterEach(() => {
     vi.useRealTimers();
-    delete globalThis.fetch;
+    Reflect.deleteProperty(globalThis, "fetch");
   });
 
   it("fires the throttled fetch when the throttle timer elapses", async () => {
@@ -1390,7 +1392,7 @@ describe("fetchSuggestions: render behavior", () => {
     const item = ctrl.panelWrap.querySelector("[data-index='0']");
     expect(item).not.toBeNull();
     const evt = { stopPropagation: vi.fn(), preventDefault: vi.fn() };
-    (item as HTMLElement).onmousedown!(evt);
+    (item as HTMLElement).onmousedown!(evt as unknown as MouseEvent);
     expect(evt.stopPropagation).toHaveBeenCalled();
     expect(evt.preventDefault).toHaveBeenCalled();
     expect(ctrl.marker).not.toBeNull();
@@ -1600,7 +1602,7 @@ describe("mode-lock guard: suggestion click when a mode is held", () => {
     // Now hold a mode and click — the click should be blocked.
     ensureModes(window.map).setMode("MeasureControl", "distance");
     const evt = { stopPropagation: vi.fn(), preventDefault: vi.fn() };
-    (item as HTMLElement).onmousedown!(evt);
+    (item as HTMLElement).onmousedown!(evt as unknown as MouseEvent);
     // Panel stays open — blocked click must not remove it.
     expect(ctrl.panelWrap).not.toBeNull();
     // No marker placed, no history recorded.

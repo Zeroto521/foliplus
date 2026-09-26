@@ -269,7 +269,7 @@ describe("SearchControl history — versioned envelope", () => {
     });
 
     it("drops null and non-object rows instead of crashing", () => {
-      store([null, "text", 42, { type: MODE.ADDR, ts: 1000 }]);
+      store([null, "text", 42, { type: MODE.ADDR, ts: 1000 }] as unknown as object[]);
       const [entry] = loadHistory();
       expect(entry).toEqual({
         query: "",
