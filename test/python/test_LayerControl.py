@@ -3331,9 +3331,8 @@ class TestLayerControlBrowser:
             first_z2 = moved[0]["z"]
             last_z2 = moved[-1]["z"]
             # The tile that moved to the top must now sit above the other.
-            assert first_z2 > last_z2, (
-                f"reordered tile panes did not flip z: {moved}"
-            )
+            assert first_z2 > last_z2, f"reordered tile panes did not flip z: {moved}"
+
     def test_register_layer_preserves_visible_on_reentry(self, browser, tmp_path):
         """registerLayer preserves the visible state from a previous registration."""
         with use_page(self._make_page, browser, tmp_path) as (page, _):
