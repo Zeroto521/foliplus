@@ -157,11 +157,7 @@ const renderDelegatedStylePanel = (
   // setStyle), so a third-party layer that publishes only border setters and
   // cannot carry opacity or zoom range still owns the Layer section — otherwise
   // the border row would render orphaned under the label heading.
-  if (
-    layerCanOpacity(ui, layerId) ||
-    canShowZoomRange(ui, layerId) ||
-    !!borderRow
-  ) {
+  if (layerCanOpacity(ui, layerId) || canShowZoomRange(ui, layerId) || !!borderRow) {
     root.append(sectionHeading(ui.T("section_layer")));
     if (borderRow) root.append(borderRow);
     if (layerCanOpacity(ui, layerId)) root.append(buildOpacityRow(ui, layerId));

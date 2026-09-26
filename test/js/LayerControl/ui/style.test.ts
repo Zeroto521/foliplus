@@ -2645,9 +2645,7 @@ describe("LayerUI style panel", () => {
     const panel = panelOf(item)!;
 
     expect(panel.querySelector(`.${CONST.CLASSES.STYLE_OPACITY_RANGE}`)).toBeNull();
-    expect(
-      panel.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`),
-    ).toBeNull();
+    expect(panel.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`)).toBeNull();
     const headings = [...panel.querySelectorAll(".foliplus-section-heading")];
     expect(headings.map(h => h.textContent)).toEqual([
       "LayerControl.section_label",
