@@ -40,10 +40,8 @@ const label = (
   return { el, lb: { marker: markerFor(el), priority } };
 };
 
-const plan = (
-  labels: CollidableLabel[],
-  collide = true,
-): PlanResult => Collision.placeLabels(labels, projector, collide, chipOf);
+const plan = (labels: CollidableLabel[], collide = true): PlanResult =>
+  Collision.placeLabels(labels, projector, collide, chipOf);
 
 const ANCHOR: Box = { x: 0, y: 0, w: 60, h: 20 };
 /** A second chip whose own box overlaps ANCHOR by most of its area. */
