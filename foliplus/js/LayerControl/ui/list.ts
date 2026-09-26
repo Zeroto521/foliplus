@@ -13,10 +13,10 @@ import {
   displayName,
   snapshotAuthorVisible,
 } from "./rowView.js";
-import { applyUserState } from "./state.js";
 import { syncToggleAll } from "./visibility.js";
 
-/** Full re-scan of every row (used on attach/fold-toggle). Idempotent — *  re-run on each CONTROL_ATTACHED so late-registering components are
+/** Full re-scan of every row (used on attach/fold-toggle). Idempotent —
+ *  re-run on each CONTROL_ATTACHED so late-registering components are
  *  folded in. Marks the panel ready for tests/consumers. */
 const initTypesAndVisibility = (ui: LayerUI) => {
   // Snapshot the author default before the sweep below moves any layer: it
@@ -29,9 +29,10 @@ const initTypesAndVisibility = (ui: LayerUI) => {
   // Apply persisted hidden state first so initLayerItem reads the corrected
   // map state: folium adds every layer before the control IIFE runs, so on
   // reload hidden layers are back on the map. An id that is not in the
-  // registry is skipped by the sweep, not dropped from the record — stored
+  // registry is skipped by the sweep, not dropped from the record —
+  // stored
   // state is erased only by an explicit delete.
-  applyUserState(ui);
+  ui.applyUserState();
 
   let anyBaseVisible = false;
   for (let i = 0; i < ui.m.layers.length; i++) {
@@ -159,12 +160,13 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
   }
 
   // insertLayerItem is where a late-registered (third-party) layer first
-  // shows up, so the author default is snapshotted here as well — before the
+  // shows up, so the author default is snapshotted here as well —
+  // before the
   // apply below, which is the other path that moves this layer. Only this
   // layer's id is applied: a full sweep would re-rewrite every renamed row
   // on each registration.
   snapshotAuthorVisible(ui, layerInfo);
-  applyUserState(ui, layerInfo.id);
+  ui.applyUserState(layerInfo.id);
   // New row must join the roving tabindex / ARIA set.
   syncListCursor(ui);
 };
