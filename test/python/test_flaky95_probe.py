@@ -292,7 +292,7 @@ class TestJsonlLog:
             assert record[field] is None or record[field] > 0
 
 
-class TestInertBehaviour:
+class TestInertBehavior:
     """The probe observes only: it never fails the test it observes."""
 
     def test_disabled_probe_logs_nothing_and_warns_nothing(
