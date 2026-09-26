@@ -219,20 +219,49 @@ describe("ui/drag", () => {
       expect(event.dataTransfer?.dropEffect).toBe("none");
     });
 
-    it("handleDragOver ignores the color basemap row", () => {
-      const { ui } = makeScrambledUi();
-      (ui as unknown as { dragIdx: number }).dragIdx = 0;
-      const color = document.createElement("div");
-      color.className = `${CONST.CLASSES.LAYER_ITEM} ${CONST.CLASSES.COLOR_ITEM}`;
-      ui.uiContainer.appendChild(color);
+    it("handleDragOver treats the color basemap row as a valid target", () => {
+      // The color row is a base-group member like any other: it participates
+      // in drag reorder (the old COLOR_ITEM exclusion was retired with the
+      // first-class basemaps). A row WITHOUT a data-layer-id is still ignored
+      // — that is the no-layer case, not the color case.
+      const layers: LayerInfo[] = [
+        { id: "A", name: "A", isBase: false } as LayerInfo,
+        { id: "foliplus_color_map", name: "Color", isBase: true } as LayerInfo,
+      ];
+      const uiContainer = document.createElement("div");
+      for (const id of ["A", "foliplus_color_map"]) {
+        const row = document.createElement("div");
+        row.className = CONST.CLASSES.LAYER_ITEM;
+        if (id === "foliplus_color_map") {
+          row.classList.add(CONST.CLASSES.COLOR_ITEM);
+        }
+        row.setAttribute(CONST.DATA.LAYER_ID, id);
+        uiContainer.appendChild(row);
+      }
+      const ui = {
+        uiContainer,
+        conf: { name: "LayerControl" },
+        T: (k: string) => k,
+        dragIdx: 0, // dragging the overlay row above
+        lastDragOverItem: null,
+        m: {
+          layers,
+          canReorderBetween: vi.fn(() => true),
+          enforceOrder: vi.fn(),
+          saveOrder: vi.fn(),
+          layerRegistry: { indexOf: () => 0 },
+        },
+      } as unknown as LayerUI;
 
-      const event = dragEvent(color);
+      const colorRow = uiContainer.querySelector<HTMLElement>(
+        `[${CONST.DATA.LAYER_ID}="foliplus_color_map"]`,
+      )!;
+      const event = dragEvent(colorRow);
       handleDragOver(ui, event);
 
       expect(event.preventDefault).toHaveBeenCalled();
-      expect(color.classList.contains(CONST.CLASSES.DRAG_OVER_TOP)).toBe(false);
-      expect(color.classList.contains(CONST.CLASSES.DRAG_OVER_BOTTOM)).toBe(false);
-      expect(ui.lastDragOverItem).toBe(null);
+      expect(colorRow.classList.contains(CONST.CLASSES.DRAG_OVER_BOTTOM)).toBe(true);
+      expect(ui.lastDragOverItem).toBe(colorRow);
     });
 
     it("handleDragOver does nothing until a drag is armed", () => {
@@ -367,6 +396,50 @@ describe("ui/drag", () => {
       expect((ui as unknown as { dragIdx: number | null }).dragIdx).toBe(null);
     });
 
+    it("handleDrop is a no-op when the drop lands outside every row", () => {
+      const { ui, reorder } = makeScrambledUi();
+      (ui as unknown as { dragIdx: number }).dragIdx = 0;
+      // The container itself is not a layer row: closest() finds nothing.
+      const event = dragEvent(ui.uiContainer);
+
+      handleDrop(ui, event);
+
+      // No target row: nothing reorders; the drag stays armed for a valid drop.
+      expect(reorder).not.toHaveBeenCalled();
+      expect((ui as unknown as { dragIdx: number }).dragIdx).toBe(0);
+    });
+
+    it("handleDrop ignores a drop onto the dragged row itself", () => {
+      const { ui, reorder } = makeScrambledUi();
+      (ui as unknown as { dragIdx: number }).dragIdx = 0;
+      const self = ui.uiContainer.querySelector<HTMLElement>(
+        `[${CONST.DATA.LAYER_ID}="A"]`,
+      )!;
+
+      handleDrop(ui, dragEvent(self));
+
+      // Same index: no reorder, no DOM move; the early return leaves the
+      // drag armed (unchanged) rather than disarming it.
+      expect(reorder).not.toHaveBeenCalled();
+      expect((ui as unknown as { dragIdx: number }).dragIdx).toBe(0);
+    });
+
+    it("handleDrop survives a target row that is detached from the DOM", () => {
+      const { ui, reorder } = makeScrambledUi();
+      (ui as unknown as { dragIdx: number }).dragIdx = 0;
+      const target = ui.uiContainer.querySelector<HTMLElement>(
+        `[${CONST.DATA.LAYER_ID}="B"]`,
+      )!;
+      // Registry reorders (order is registry state), but the DOM insert is
+      // skipped because the target has no parentNode to insert into.
+      target.remove();
+
+      handleDrop(ui, dragEvent(target));
+
+      expect(reorder).toHaveBeenCalledWith(0, 1);
+      expect((ui as unknown as { dragIdx: number | null }).dragIdx).toBe(null);
+    });
+
     it("handleDragStart ignores a row carrying no data-layer-id", () => {
       const { ui } = makeScrambledUi();
       const orphan = document.createElement("div");
@@ -432,109 +505,50 @@ describe("ui/drag", () => {
         expect(row.classList.contains(CONST.CLASSES.DRAG_OVER_BOTTOM)).toBe(false);
       });
     });
-  });
-});
 
-describe("LayerUI.deselectAllBaseMaps", () => {
-  it("unchecks every base row except the excluded registry index", () => {
-    const { ui, manager } = initFixture();
-    manager.registerLayer({
-      id: "base2",
-      name: "Sat",
-      isBase: true,
-      layer: { options: {}, eachLayer: vi.fn() } as unknown as L.Layer,
-      paneName: "tilePane",
+    it("handleDragStart is a no-op when the press began on a floating panel", () => {
+      const ui = makeUi({ containers: ["a", "b"] });
+      const row = ui.uiContainer.querySelector<HTMLElement>(
+        `[${CONST.DATA.LAYER_ID}="a"]`,
+      )!;
+      // Simulate a press that began on a floating row panel (e.g. the style panel).
+      (ui as unknown as { pressInPanel: boolean }).pressInPanel = true;
+      (ui as unknown as { dragIdx: number | null }).dragIdx = null;
+      const event = dragEvent(row);
+
+      handleDragStart(ui, event);
+
+      // The drag is never armed; preventDefault stops the browser's drag.
+      expect((ui as unknown as { dragIdx: number | null }).dragIdx).toBe(null);
+      expect(row.classList.contains(CONST.CLASSES.DRAGGING)).toBe(false);
+      expect(event.preventDefault).toHaveBeenCalled();
     });
-    const baseIdx = ui.m.layers.findIndex(li => li.id === "base1");
-    expect(baseIdx).toBeGreaterThanOrEqual(0);
-    ui.deselectAllBaseMaps(baseIdx);
 
-    const boxes = Array.from(
-      ui.uiContainer.querySelectorAll<HTMLInputElement>(
-        `${CONST.SEL.LAYER_ITEM}[data-layer-type="${CONST.GROUP.BASE}"] input[type="checkbox"]`,
-      ),
-    );
-    expect(boxes.length).toBeGreaterThanOrEqual(2);
-    // The excluded base keeps its checkbox; the other base is cleared.
-    const checked = boxes.filter(b => b.checked).length;
-    expect(checked).toBe(1);
-  });
+    it("handleDragStart tolerates a null dataTransfer", () => {
+      const ui = makeUi({
+        layers: [
+          { id: "a", name: "A", layer: {} as L.Layer, visible: true, isBase: true },
+        ],
+        containers: ["a", "b"],
+      });
+      const row = ui.uiContainer.querySelector<HTMLElement>(
+        `[${CONST.DATA.LAYER_ID}="a"]`,
+      )!;
+      (ui as unknown as { dragIdx: number | null }).dragIdx = null;
+      // Build an event with no dataTransfer.
+      const event = {
+        target: row,
+        preventDefault: vi.fn(),
+        stopPropagation: vi.fn(),
+        dataTransfer: null,
+      } as unknown as DragEvent;
 
-  it("skips removeLayer when findLayer returns null or the layer is not on the map", () => {
-    // Covers the `bLayer && this.m.map.hasLayer(bLayer)` false branch: a
-    // registry entry whose findLayer lookup fails (defensive case) still
-    // reaches the deselect loop, but the removeLayer half short-circuits.
-    const { ui, manager, map } = initFixture();
-    manager.registerLayer({
-      id: "base2",
-      name: "Sat",
-      isBase: true,
-      layer: { options: {}, eachLayer: vi.fn() } as unknown as L.Layer,
-      paneName: "tilePane",
+      handleDragStart(ui, event);
+
+      // The drag is armed; the class is added; no crash on dataTransfer.
+      expect((ui as unknown as { dragIdx: number | null }).dragIdx).toBe(0);
+      expect(row.classList.contains(CONST.CLASSES.DRAGGING)).toBe(true);
     });
-    vi.spyOn(manager, "findLayer").mockReturnValue(undefined as any);
-    vi.spyOn(map, "hasLayer").mockReturnValue(false);
-    // Reset so we only count calls from this specific deselectAllBaseMaps run.
-    vi.clearAllMocks();
-    vi.spyOn(manager, "findLayer").mockReturnValue(undefined as any);
-    vi.spyOn(map, "hasLayer").mockReturnValue(false);
-    const removeLayer = vi.spyOn(map, "removeLayer");
-
-    expect(() => ui.deselectAllBaseMaps(-1)).not.toThrow();
-    // findLayer returned null -> hasLayer guard never executes -> no removal.
-    expect(map.hasLayer).not.toHaveBeenCalled();
-    expect(removeLayer).not.toHaveBeenCalled();
-  });
-
-  it("tolerates a base layer whose row input is missing", () => {
-    // Covers the `if (inputs[i])` false branch: a base entry in the registry
-    // whose rendered row lacks an <input> is defensive-only (the loop must not
-    // crash on an undefined entry).
-    const { ui, manager } = initFixture();
-    manager.registerLayer({
-      id: "base2",
-      name: "Sat",
-      isBase: true,
-      layer: { options: {}, eachLayer: vi.fn() } as unknown as L.Layer,
-      paneName: "tilePane",
-    });
-    const boxes = Array.from(
-      ui.uiContainer.querySelectorAll<HTMLInputElement>(
-        `${CONST.SEL.LAYER_ITEM}[data-layer-type="${CONST.GROUP.BASE}"] input[type="checkbox"]`,
-      ),
-    );
-    // Remove all but the first so inputs[1] (base2) is missing.
-    for (const b of boxes.slice(1)) {
-      b.remove();
-    }
-    expect(() => ui.deselectAllBaseMaps(-1)).not.toThrow();
-  });
-
-  it("does not touch the checkbox when it is already unchecked", () => {
-    // Covers the `if (inputs[i].checked)` false branch: when the base's input
-    // exists but is already unchecked, the input stays false and the changed
-    // flag is not bumped by the checkbox half.
-    const { ui, manager } = initFixture();
-    manager.registerLayer({
-      id: "base2",
-      name: "Sat",
-      isBase: true,
-      layer: { options: {}, eachLayer: vi.fn() } as unknown as L.Layer,
-      paneName: "tilePane",
-    });
-    const boxes = Array.from(
-      ui.uiContainer.querySelectorAll<HTMLInputElement>(
-        `${CONST.SEL.LAYER_ITEM}[data-layer-type="${CONST.GROUP.BASE}"] input[type="checkbox"]`,
-      ),
-    );
-    // Force every base checkbox to unchecked before the deselect run.
-    for (const b of boxes) b.checked = false;
-    // removeLayer still runs (the map half is independent of the checkbox
-    // half), but the checkbox half must skip because checked is already false.
-    ui.deselectAllBaseMaps(-1);
-    for (const b of boxes) {
-      expect(b.checked).toBe(false);
-    }
   });
 });
 

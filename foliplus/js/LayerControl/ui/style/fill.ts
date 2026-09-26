@@ -33,6 +33,7 @@ import {
   numberInput,
 } from "#common/form.js";
 import * as CONST from "../../const.js";
+import { showColorLayer } from "../color.js";
 import type { LayerUI } from "../index.js";
 import { markOverride, saveState, unmarkOverride } from "../state.js";
 import { pinStyleOnHighlight } from "./pin.js";
@@ -89,9 +90,23 @@ const hasFillGeometry = (ui: LayerUI, li: LayerInfo): boolean => {
   return found;
 };
 
+/** Whether the layer is a solid-color basemap: a base layer whose fill is the
+ *  value on `li.color` rather than a Leaflet layer's geometry.
+ *
+ *  `li.color` is the discriminator, not `li.canvas`: the colour basemap *does*
+ *  carry a `canvas` (its face element, which the export renderer draws — see
+ *  `LayerFactory.createColor`), so excluding on `canvas` would never match it
+ *  and silently drops its fill row. A heatmap canvas has no `color`, so it
+ *  still belongs to the canvas family and is excluded here. */
+const isColorBasemap = (li: LayerInfo | undefined): boolean => {
+  if (!li || li.styleSetters) return false;
+  return Boolean(li.color) && li.isBase;
+};
+
 const layerCanFill = (ui: LayerUI, layerId: string): boolean => {
   const li = ui.m.layerRegistry.get(layerId);
   if (!li) return false;
+  if (isColorBasemap(li)) return true;
   if (li.canvas) return false;
   if (li.styleSetters) return false;
   const caps = ui.m.surfaceFor(li).capabilities;
@@ -226,11 +241,24 @@ const captureBase = (
  *  `commitFillOpacity`) so the walk is unit-testable without a storage timer. */
 const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
   const li = ui.m.layerRegistry.get(layerId);
-  const layer = li?.layer as StyleCarrier | null;
-  if (!layer) return;
   const color = ui.fillColorMap[layerId];
   const opacity = ui.fillOpacityMap[layerId];
   if (color === undefined && opacity === undefined) return;
+
+  // Solid-color basemap: the fill is the pane's paint, not a vector style.
+  // Route to showColorLayer instead of walking leaves (the basemap has none).
+  // Syncs ui.currentColor so a later checkbox toggle re-applies the same
+  // color.
+  if (isColorBasemap(li)) {
+    if (color !== undefined) {
+      ui.currentColor = color;
+      showColorLayer(ui, color);
+    }
+    return;
+  }
+
+  const layer = li?.layer as StyleCarrier | null;
+  if (!layer) return;
   walkStyleLeaves(layer, node => {
     captureBase(node);
     const style: Record<string, unknown> = {};
@@ -274,15 +302,17 @@ const commitFillColor = (ui: LayerUI, layerId: string, rawColor: string): void =
 
   if (ui.fillOpacityMap[layerId] === undefined) {
     const li = ui.m.layerRegistry.get(layerId);
-    const layer = li?.layer as StyleCarrier | null;
-    if (layer) {
-      let hollow = false;
-      walkStyleLeaves(layer, node => {
-        if (node.options?.fillOpacity === 0) hollow = true;
-      });
-      if (hollow) {
-        ui.fillOpacityMap[layerId] = VISIBLE_FILL_OPACITY;
-        markOverride(ui, layerId, "fillOpacity");
+    if (!isColorBasemap(li)) {
+      const layer = li?.layer as StyleCarrier | null;
+      if (layer) {
+        let hollow = false;
+        walkStyleLeaves(layer, node => {
+          if (node.options?.fillOpacity === 0) hollow = true;
+        });
+        if (hollow) {
+          ui.fillOpacityMap[layerId] = VISIBLE_FILL_OPACITY;
+          markOverride(ui, layerId, "fillOpacity");
+        }
       }
     }
   }
@@ -323,6 +353,14 @@ const resetLayerFill = (ui: LayerUI, layerId: string): void => {
   unmarkOverride(ui, layerId, "fillOpacity");
   saveState(ui);
   const li = ui.m.layerRegistry.get(layerId);
+
+  // Solid-color basemap: restore the authored default colour.
+  if (isColorBasemap(li)) {
+    ui.currentColor = CONST.COLOR.DEFAULT;
+    showColorLayer(ui, CONST.COLOR.DEFAULT);
+    return;
+  }
+
   const layer = li?.layer as StyleCarrier | null;
   if (!layer) return;
   walkStyleLeaves(layer, node => {
@@ -342,13 +380,28 @@ const resetLayerFill = (ui: LayerUI, layerId: string): void => {
  *  reflects what the layer is actually painting on first open, and named
  *  authored colors are resolved to the hex the picker can display. */
 const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
+  const li = ui.m.layerRegistry.get(layerId);
+  const isBasemap = isColorBasemap(li!);
+
   const storedColor = ui.fillColorMap[layerId];
-  const color = toHexColor(storedColor ?? authoredFillColor(ui, layerId));
+  const color = toHexColor(
+    storedColor ?? (isBasemap ? CONST.COLOR.DEFAULT : authoredFillColor(ui, layerId)),
+  );
   const colorInput = formColorInput({
     value: color,
     className: CONST.CLASSES.STYLE_FILL_COLOR_INPUT,
     ariaLabel: ui.T("style_fill"),
   }) as HTMLInputElement;
+
+  // Solid-color basemaps have no fill opacity (their transparency is the pane's
+  // CSS opacity, a different axis). Render only the color swatch.
+  if (isBasemap) {
+    return formRow(
+      ui.T("style_fill"),
+      dom.el("div", { class: "foliplus-form-inline" }, colorInput),
+      CONST.CLASSES.STYLE_FILL_ROW,
+    );
+  }
 
   const storedOpacity = ui.fillOpacityMap[layerId];
   const authoredOpacity = authoredFillOpacity(ui, layerId);
@@ -407,6 +460,7 @@ export {
   buildFillRow,
   commitFillColor,
   commitFillOpacity,
+  isColorBasemap,
   layerCanFill,
   replayFillState,
   resetLayerFill,

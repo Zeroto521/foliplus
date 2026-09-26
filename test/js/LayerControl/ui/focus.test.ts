@@ -1013,11 +1013,10 @@ describe("LayerUI focus", () => {
       expect(() => ui.focusLayer("overlay2")).not.toThrow();
     });
 
-    it("lifts discovered panes when the surface has no pane of its own", () => {
-      // A GridLayer's surface has no panes (it carries its z on itself), so
-      // setZOverride returns false and the fallback calls getLayerPanes. The
-      // shared default panes it discovers must be skipped — only the per-layer
-      // pane is lifted.
+    it("lifts the surface's synthesized pane for a basemap layer", () => {
+      // First-class basemaps: a TileLayer/GridLayer now owns a synthesized
+      // pane, so the focus lift writes there directly (setZOverride returns
+      // true) instead of falling back to getLayerPanes discovery.
       const panes = new Map<string, HTMLElement>();
       map.getPane.mockImplementation((name: string) => {
         if (!panes.has(name)) panes.set(name, makePane());
@@ -1035,24 +1034,15 @@ describe("LayerUI focus", () => {
         name: "Tiles",
         layer: gridLayer,
       });
-      vi.spyOn(manager, "getLayerPanes").mockReturnValue([
-        "custom_pane",
-        "overlayPane",
-      ]);
 
       ui.focusLayer("tiles");
 
-      expect(
-        panes.get("custom_pane")?.classList.contains(CONST.CLASSES.FOCUS_PANE),
-      ).toBe(true);
-      // The default pane is skipped before getPane is called, so it was
-      // never created — the loop `continue`s on it.
-      expect(map.getPane).not.toHaveBeenCalledWith("overlayPane");
+      // The layer's own pane got the focus class — the direct lift path.
+      const layerPane = map.getPane(gridLayer.options.pane);
+      expect(layerPane?.classList.contains(CONST.CLASSES.FOCUS_PANE)).toBe(true);
 
       ui.cancelFocus();
-      expect(
-        panes.get("custom_pane")?.classList.contains(CONST.CLASSES.FOCUS_PANE),
-      ).toBe(false);
+      expect(layerPane?.classList.contains(CONST.CLASSES.FOCUS_PANE)).toBe(false);
     });
 
     it("skips the pane loop without throwing when discovery fails on a pane-less surface", () => {
@@ -1676,6 +1666,24 @@ describe("LayerUI focus", () => {
 
     it("returns 'hidden' for a hidden row", () => {
       expect(focusDisabledReason(ui, row({ checked: false }))).toBe("hidden");
+    });
+
+    it("returns 'hidden' for an unchecked basemap row — same rule as data rows", () => {
+      // The basemap branches say "no useful extent", which is true whether or
+      // not the row is on. Consulted first (as they once were) they would let
+      // an off basemap keep an enabled Style entry, so the unchecked check has
+      // to come ahead of them.
+      expect(
+        focusDisabledReason(ui, row({ type: CONST.GROUP.BASE, checked: false })),
+      ).toBe("hidden");
+      expect(focusDisabledReason(ui, row({ color: true, checked: false }))).toBe(
+        "hidden",
+      );
+      // A checked basemap keeps the basemap verdict: no extent to focus on.
+      expect(
+        focusDisabledReason(ui, row({ type: CONST.GROUP.BASE, checked: true })),
+      ).toBe("base");
+      expect(focusDisabledReason(ui, row({ color: true, checked: true }))).toBe("base");
     });
 
     it("returns 'no_bounds' when the surface reports capabilities.bounds false", () => {

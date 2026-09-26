@@ -1,33 +1,32 @@
 () => {
-  // Set up a solid-color basemap the same way the user would: expand the
-  // LayerControl panel, click the color-row item, then drive the color
-  // input. This mirrors the real user path so the export test exercises the
-  // same DOM state (`.active` on the container + `--color-layer-bg` var +
-  // tilePane hidden) that `showColorLayer` produces.
-  //
-  // Returns the container's computed backgroundColor so the caller can assert
-  // the color took effect before triggering the export.
+  const lc = window.__layerCtrl;
+  if (!lc || !lc.m) return { ok: false, reason: "no layer ctrl" };
+
+  // Expand the layer panel if needed.
   const ctrl = document.querySelector(".foliplus-layer-ctrl");
   if (ctrl && !ctrl.classList.contains("is-expanded")) {
     ctrl.querySelector(".foliplus-toggle-btn").click();
   }
-  const item = document.querySelector(".foliplus-color-layer-item");
-  if (!item) return { ok: false, reason: "no color item" };
-  item.click();
-  const input = document.querySelector(
-    ".foliplus-color-layer-item input[type='color']",
-  );
-  if (input) {
-    input.value = "#dc1e1e"; // rgb(220, 30, 30)
-    input.dispatchEvent(new Event("input", { bubbles: true }));
-    input.dispatchEvent(new Event("change", { bubbles: true }));
+
+  // Show the color basemap through the public API.
+  const ok = lc.m.setVisible("foliplus_color_map", true);
+  if (!ok) return { ok: false, reason: "setVisible returned false" };
+
+  // Set the color directly through the surface.
+  const surface = lc.m.ui.colorSurface;
+  if (surface) {
+    surface.setColor("#dc1e1e");
   }
+
   const container = document.querySelector(".leaflet-container");
-  const cs = getComputedStyle(container);
+  const panes = container.querySelectorAll("[class*='foliplus-color-']");
+  const li = lc.m.layerRegistry.get("foliplus_color_map");
   return {
     ok: true,
-    containerActive: container.classList.contains("active"),
-    cssVar: container.style.getPropertyValue("--color-layer-bg"),
-    bg: cs.backgroundColor,
+    colorPaneCount: panes.length,
+    liVisible: li ? li.visible : "no-li",
+    liCanvas: li ? !!li.canvas : "no-li",
+    liColor: li ? li.color : "no-li",
+    surfaceColor: surface ? "has-surface" : "no-surface",
   };
 };

@@ -8,7 +8,7 @@
 // the layer's content to them, and hands the ordering pass a z target and
 // nothing else.
 //
-// Two invariants the rest of the tree leans on (design §3.2):
+// Two invariants the rest of the tree leans on:
 //
 //   I1  `materialize()` runs before `map.addLayer`, so `options.pane` is already
 //       right at the one moment Leaflet reads it — `Layer.options.pane` is
@@ -184,10 +184,13 @@ class LayerSurface implements LayerSurfaceContract {
       return;
     }
 
-    // No declared pane: a GridLayer paints in the shared tilePane and carries
-    // its z on itself, so it gets no pane of ours. Everything else either
-    // declares its panes in the tree or is pinned into a synthesized one.
-    if (!layer || layer instanceof L.GridLayer) {
+    // No declared pane: every layer gets a synthesized one so each carries
+    // its own z in the ordering ladder (row order = z order across
+    // kinds — a colour layer must be able to interleave with two tile layers).
+    // GridLayer/TileLayer used to short-circuit here and paint in the shared
+    // tilePane, which confined their z to that one shared stack; first-class
+    // basemaps retire that.
+    if (!layer) {
       this.pinTarget = null;
       return;
     }
@@ -478,7 +481,7 @@ const isMarkerCluster = (layer: L.Layer): boolean => {
   // Fallback: the plugin's private `_topClusterLevel` field. If the plugin is
   // renamed or the instanceof fails (plugin loaded without `L.MarkerClusterGroup`),
   // this still catches it. The failure mode — duck typing alone — is documented
-  // in the PR body per §25.3-3.
+  // in the PR body.
   return !!(layer as L.Layer & { _topClusterLevel?: unknown })._topClusterLevel;
 };
 
@@ -488,12 +491,12 @@ const isMarkerCluster = (layer: L.Layer): boolean => {
  *  its `TileLayer` subclass) carries `options.opacity` + `minZoom`/`maxZoom`
  *  and reads them at `addLayer`; `ImageOverlay`'s `<img>` stays in the shared
  *  `overlayPane` — a pane write would fade every layer in that shared pane —
- *  but its own `setOpacity` is immediate and correct (R1 §25.2). */
+ *  but its own `setOpacity` is immediate and correct. */
 const usesNativeSetter = (layer: L.Layer): boolean =>
   (typeof L.GridLayer !== "undefined" && layer instanceof L.GridLayer) ||
   (typeof L.ImageOverlay !== "undefined" && layer instanceof L.ImageOverlay);
 
-/** Resolve a surface's capabilities from what it actually owns (R1 probes).
+/** Resolve a surface's capabilities from what it actually owns.
  *
  *  Every situation where content could land outside our panes is either given
  *  a carrier or honestly downgraded to "none" here — that is the precondition
@@ -501,8 +504,8 @@ const usesNativeSetter = (layer: L.Layer): boolean =>
  *  neither owned nor declared impossible.
  *
  *    - MarkerCluster → "none" for both. The cluster icons stay in the shared
- *      `markerPane`, `eachLayer` cannot reach them (§25.3-3).
- *    - GridLayer / ImageOverlay → "native". R1 §25.2 measured: `ImageOverlay`
+ *      `markerPane`, `eachLayer` cannot reach them.
+ *    - GridLayer / ImageOverlay → "native". `ImageOverlay`
  *      `setOpacity` immediate-and-correct; `GridLayer` options immediate at
  *      addLayer (zoomRange honest only for GridLayer, not ImageOverlay).
  *    - Everything else registered with a content surface → "pane" (declared
@@ -531,11 +534,11 @@ const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
 
   if (opts.color != null) {
     // A solid-color basemap owns one pane of its own, so a CSS write on that
-    // pane is the only honest opacity carrier (§19). It carries no geographic
+    // pane is the only honest opacity carrier. It carries no geographic
     // extent, so the UI disables focus rather than offering a click that is a
     // silent no-op. And it deliberately has no zoom range: it is the fallback
     // color, the one thing that is always available, so a range would only add
-    // another "no basemap" path for no expressive gain (§19.1).
+    // another "no basemap" path for no expressive gain.
     return {
       opacity: "pane",
       zoomRange: "none",
@@ -550,7 +553,7 @@ const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
 
   if (layer && usesNativeSetter(layer)) {
     // ImageOverlay's zoomRange is declared in options but not runtime-effective
-    // once attached (R1 §25.3-5): only GridLayer honours min/maxZoom live.
+    // once attached: only GridLayer honours min/maxZoom live.
     const zoomRange: LayerCapabilities["zoomRange"] =
       layer instanceof L.GridLayer ? "native" : "none";
     return {
@@ -564,7 +567,7 @@ const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
   // The surface paints into panes we own — declared, sub, or synthesized — so
   // one style write per pane covers every child. `opts.canvas` covers the
   // createCanvas shape, whose canvas element sits inside its own dedicated
-  // pane and is addressable through the same CSS write (§4.2 first version:
+  // pane and is addressable through the same CSS write (first version:
   // canvas bakes alpha later, R11).
   const hasContentPanes =
     Boolean(opts.paneName) ||

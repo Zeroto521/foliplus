@@ -4,7 +4,9 @@
   const overlay = document.querySelector(
     '.foliplus-layer-item:not([data-layer-type="base"]):not(.foliplus-color-layer-item)',
   );
-  const base = document.querySelector('.foliplus-layer-item[data-layer-type="base"]');
+  const base = document.querySelector(
+    '.foliplus-layer-item[data-layer-type="base"]:not(.foliplus-color-layer-item)',
+  );
   if (!overlay || !base) return false;
   // Dragstart on the overlay arms the UI drag state (sets its dragIdx)
   overlay.dispatchEvent(

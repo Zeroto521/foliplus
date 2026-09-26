@@ -5,15 +5,12 @@ import { cancelMapPaneTranslate, dom } from "#common/dom.js";
 import { createLogger } from "#common/log.js";
 import { throttleRaf } from "#common/throttle.js";
 import { PaneManager } from "./PaneManager.js";
-import {
-  CANVAS_PANE_PREFIX,
-  COLOR_PANE_PREFIX,
-  PANE_NAME_PATTERN,
-  TILE_HIDDEN_CLASS,
-} from "./const.js";
+import { CANVAS_PANE_PREFIX, COLOR_PANE_PREFIX, PANE_NAME_PATTERN } from "./const.js";
 import type {
   CreateCanvasAPI,
   CreateCanvasOpts,
+  CreateColorAPI,
+  CreateColorOpts,
   CreateLayersAPI,
   CreateLayersOpts,
   CreateSurfaceOpts,
@@ -131,6 +128,26 @@ class LayerFactory {
       destroy: handle.destroy,
       bringToFront: handle.bringToFront,
       setVisible: handle.content.setVisible,
+    };
+  }
+
+  createColor(opts: CreateColorOpts): CreateColorAPI {
+    const handle = this.createSurface({
+      id: opts.id,
+      name: opts.name,
+      content: { kind: "color", color: opts.color },
+    });
+    // register() is called by the caller (LayerControl UI) after setting
+    // ui.colorSurface, to avoid a recursive call through applyProjection.
+    return {
+      element: handle.content.element,
+      setColor: handle.content.setColor,
+      setVisible: handle.content.setVisible,
+      register: handle.register,
+      unregister: handle.unregister,
+      registered: handle.registered,
+      bringToFront: handle.bringToFront,
+      destroy: handle.destroy,
     };
   }
 
@@ -366,11 +383,6 @@ class LayerFactory {
 
       const setVisible = (v: boolean) => {
         face.classList.toggle(HIDDEN, !v);
-        // The color pane sits *under* the tile panes in Leaflet's shared stack,
-        // so hiding the tiles is part of showing the color. Nobody else may
-        // switch them — it is this surface's write, not a global side effect
-        // that would outlive the layer (§22-4).
-        map.getPane("tilePane")?.classList.toggle(TILE_HIDDEN_CLASS, v);
       };
 
       layerOpts = {

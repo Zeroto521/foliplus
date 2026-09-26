@@ -4,6 +4,7 @@ import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import {
   initLayerItem,
+  initTypesAndVisibility,
   insertLayerItem,
   renderInitialList,
   updateLayerItem,
@@ -61,7 +62,9 @@ describe("ui/list row placement", () => {
 
     manager.registerLayer({ id: "H", name: "H", isBase: false });
 
-    const registryIds = manager.layers.map(l => l.id);
+    const registryIds = manager.layers
+      .map(l => l.id)
+      .filter(id => id !== CONST.COLOR.MAP_ID);
     const rowIds = Array.from(
       ui.uiContainer.querySelectorAll<HTMLElement>(
         `${CONST.SEL.LAYER_ITEM}:not(${CONST.SEL.COLOR_ITEM})`,
@@ -278,5 +281,21 @@ describe("ui/list row placement", () => {
     const color = ui.uiContainer.querySelector<HTMLElement>(CONST.SEL.COLOR_ITEM);
     expect(color).not.toBeNull();
     expect(color!.classList.contains(CONST.CLASSES.GROUP_FOLDED)).toBe(true);
+  });
+
+  it("routes the color layer's onToggle through showColorLayer and hideColorLayer", () => {
+    const { ui } = initFixture({
+      data: [{ id: "B1", name: "B1", isBase: true }],
+    });
+
+    initTypesAndVisibility(ui);
+
+    const colorLi = ui.m.layerRegistry.get(CONST.COLOR.MAP_ID) as unknown as {
+      onToggle?: (v: boolean) => void;
+    };
+    expect(colorLi).toBeDefined();
+
+    expect(() => colorLi.onToggle?.(true)).not.toThrow();
+    expect(() => colorLi.onToggle?.(false)).not.toThrow();
   });
 });

@@ -199,6 +199,7 @@ const initFixture = (
       return view;
     }),
     getContainer: vi.fn(() => container),
+    getPanes: vi.fn(() => ({ mapPane: document.createElement("div") })),
     getPane: vi.fn(() => {
       const p = makePane();
       p.style.zIndex = "0";

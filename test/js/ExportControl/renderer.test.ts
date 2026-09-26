@@ -935,42 +935,6 @@ describe("ExportRenderer.render — layer pass routing", () => {
     );
   });
 
-  it("skips the tile pass when tilePane is hidden by a solid-color basemap", async () => {
-    // Picking a color removes the tile layers with map.removeLayer and hides
-    // tilePane by class — it never goes through applyVisibility, so every
-    // li.visible is still true.  Re-fetching the tile URLs would repaint them
-    // over the color the user just picked, so the pass judges the pane's
-    // computed state instead of the class that produced it.
-    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(
-      makeMockCtx() as any,
-    );
-    const tilePane = document.createElement("div");
-    tilePane.style.visibility = "hidden";
-    const map = (globalThis as any).map;
-    map.getPane = (name: string) => (name === "tilePane" ? tilePane : null);
-    map.foliplus = {
-      LayerAPI: {
-        layers: [
-          { visible: true, layer: makeTileLayer() },
-          { visible: true, layer: { options: {} } },
-        ],
-        getLayerPanes: () => [],
-      },
-    };
-
-    const tileLayer = vi
-      .spyOn(ExportRenderer.prototype as any, "renderTileLayer")
-      .mockResolvedValue(undefined);
-    const onProgress = vi.fn();
-
-    await runRender(onProgress);
-
-    expect(tileLayer).not.toHaveBeenCalled();
-    // No tiles in the denominator, so the bar resumes at the layer range and
-    // the surviving vector layer still walks it to the top.
-    expect(onProgress.mock.calls.map(call => call[0])).toEqual([71, 90]);
-  });
-
   it("runs the four marker passes when the layer's panes hold markers", async () => {
     // The pane passes do not own marker DOM: collectLayerMarkers strips canvas
     // and svg from the pane and the four marker passes draw whatever is left.
@@ -1082,5 +1046,72 @@ describe("ExportRenderer.render — layer pass routing", () => {
     // No visible tile layer: 71 opens the layer range, and the single entry
     // closes it at 90 even though its pane was missing.
     expect(onProgress.mock.calls.map(call => call[0])).toEqual([71, 90]);
+  });
+
+  it("keeps a layer entry that resolves only in the filter out of the render", async () => {
+    // The tile phase, the passable filter, and the render loop each call
+    // resolveLayer. If the layer is present for the filter (entry survives)
+    // but gone by the loop (the `else if (layer)` fallthrough), the entry
+    // still consumes its unit of the layer range — the bar cannot stall
+    // below the top.
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(
+      makeMockCtx() as any,
+    );
+    const fakeLayer = { options: {} };
+    let reads = 0;
+    const map = (globalThis as any).map;
+    const previous = map.foliplus;
+    try {
+      map.foliplus = {
+        LayerAPI: {
+          layers: [
+            {
+              visible: true,
+              // Present for the tile/filter phases, gone by the render loop —
+              // as a torn-down map would appear between the two resolveLayer
+              // calls.
+              get layer() {
+                reads++;
+                return reads <= 2 ? fakeLayer : null;
+              },
+            },
+          ],
+          getLayerPanes: () => [],
+        },
+      };
+
+      const proto = ExportRenderer.prototype as any;
+      const paneSVG = vi.spyOn(proto, "renderPaneSVG");
+      const paneCanvas = vi.spyOn(proto, "renderPaneCanvas");
+      vi.spyOn(proto, "renderTileLayer").mockResolvedValue(undefined);
+
+      const onProgress = vi.fn();
+      await runRender(onProgress);
+
+      // The entry passed the filter but had no layer by the render loop, so
+      // no pane passes ran for it — and the single unit still closes the
+      // range.
+      expect(paneSVG).not.toHaveBeenCalled();
+      expect(paneCanvas).not.toHaveBeenCalled();
+      expect(onProgress.mock.calls.map(call => call[0])).toEqual([71, 90]);
+    } finally {
+      map.foliplus = previous;
+    }
+  });
+});
+
+describe("ExportRenderer — marker pass wrappers delegate without throwing", () => {
+  it("runs each marker pass wrapper with an empty root list", async () => {
+    const renderer = makeRenderer();
+    const rc = makeRC(100, 100);
+
+    // These four wrappers delegate to module functions. Calling them with an
+    // empty markerRoots list exercises the method body (the delegation itself)
+    // without needing marker fixtures; the delegated functions return
+    // undefined for an empty list, so the assertion is "does not throw".
+    await expect(renderer.renderMarkers(rc, [])).resolves.not.toThrow();
+    await expect(renderer.renderFontAwesome(rc, [])).resolves.not.toThrow();
+    await expect(renderer.renderTextLabels(rc, [])).resolves.not.toThrow();
+    await expect(renderer.renderRemaining(rc, [])).resolves.not.toThrow();
   });
 });

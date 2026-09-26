@@ -156,6 +156,21 @@ describe("LayerUI style panel — fill color", () => {
 
   // ─────────────────── capability gate ───────────────────
 
+  it("layerCanFill returns true for a solid-color basemap", () => {
+    // The colour basemap carries BOTH `color` (its fill) and `canvas` (the
+    // face element the export renderer draws). Gating on `canvas` — as this
+    // once did — drops its fill row, which is the one dimension this layer
+    // exists to expose. `color` is the discriminator.
+    manager.registerLayer({
+      id: "colormap",
+      name: "Color",
+      isBase: true,
+      color: "#3366cc",
+      canvas: document.createElement("canvas"),
+    });
+    expect(layerCanFill(ui, "colormap")).toBe(true);
+  });
+
   it("layerCanFill returns false for a canvas layer", () => {
     manager.registerLayer({
       id: "canvas1",
@@ -254,6 +269,26 @@ describe("LayerUI style panel — fill color", () => {
     const item = findItem(ui, "mixed1");
     ui.openStylePanel("mixed1");
     expect(fillRow(item)).not.toBeNull();
+  });
+
+  it("layerCanFill is false for a POINT geometry type — no fill axis", () => {
+    // A surface that reports POINT (not POLYGON/LINE/UNKNOWN) has no fill
+    // concept: the early-return guard at hasFillGeometry L85 rejects it
+    // before the leaf walk. In reality Marker/Point layers report POINT and
+    // never enter the walkStyleLeaves path.
+    const marker = new L.Marker();
+    marker.options = {};
+    manager.registerLayer({
+      id: "point1",
+      name: "Points",
+      layer: marker as never,
+    });
+    const fake = {
+      capabilities: { opacity: "pane", zoomRange: "pane" },
+      geometryType: () => "point",
+    };
+    vi.spyOn(ui.m, "surfaceFor").mockReturnValue(fake as never);
+    expect(layerCanFill(ui, "point1")).toBe(false);
   });
 
   it("layerCanFill is false when the mixed layer resolves no Leaflet object", () => {
@@ -606,9 +641,75 @@ describe("LayerUI style panel — fill color", () => {
     expect(leaf.options.fillColor).toBe("#123456");
   });
 
+  // ─────────────────── color basemap ───────────────────
+
+  const registerColorBasemap = () => {
+    manager.registerLayer({
+      id: CONST.COLOR.MAP_ID,
+      name: "Color",
+      isBase: true,
+      color: CONST.COLOR.DEFAULT,
+    });
+    const li = manager.layerRegistry.get(CONST.COLOR.MAP_ID)!;
+    manager.surfaceFor(li).capabilities = {
+      opacity: "pane",
+      zoomRange: "none",
+      relocatable: false,
+      bounds: false,
+    };
+    ui.fieldCache.set(CONST.COLOR.MAP_ID, []);
+  };
+
+  it("layerCanFill returns true for a color basemap", () => {
+    registerColorBasemap();
+    expect(layerCanFill(ui, CONST.COLOR.MAP_ID)).toBe(true);
+  });
+
+  it("applyFillToLayer routes a color basemap to showColorLayer, not leaf walk", () => {
+    registerColorBasemap();
+    ui.fillColorMap[CONST.COLOR.MAP_ID] = "#ff0000";
+    applyFillToLayer(ui, CONST.COLOR.MAP_ID);
+    expect(ui.currentColor).toBe("#ff0000");
+  });
+
+  it("resetLayerFill restores the color basemap to its default", () => {
+    registerColorBasemap();
+    ui.fillColorMap[CONST.COLOR.MAP_ID] = "#ff0000";
+    resetLayerFill(ui, CONST.COLOR.MAP_ID);
+    expect(ui.currentColor).toBe(CONST.COLOR.DEFAULT);
+    expect(ui.fillColorMap[CONST.COLOR.MAP_ID]).toBeUndefined();
+  });
+
+  it("buildFillRow renders only the color swatch for a color basemap", () => {
+    registerColorBasemap();
+    const row = buildFillRow(ui, CONST.COLOR.MAP_ID);
+    expect(
+      row.querySelector(`.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`),
+    ).not.toBeNull();
+    expect(row.querySelector(`.${CONST.CLASSES.STYLE_FILL_OPACITY_NUMBER}`)).toBeNull();
+  });
+
+  it("applyFillToLayer on a color basemap with only opacity skips showColorLayer", () => {
+    // L252: `color === undefined` branch — opacity-only on a color basemap
+    // must not call showColorLayer (there is no color to show).
+    registerColorBasemap();
+    ui.fillOpacityMap[CONST.COLOR.MAP_ID] = 0.5;
+    applyFillToLayer(ui, CONST.COLOR.MAP_ID);
+    // currentColor is untouched because only opacity was set
+    expect(ui.currentColor).toBe(CONST.COLOR.DEFAULT);
+  });
+
+  it("commitFillColor on a color basemap skips the hollow-opacity check", () => {
+    // L304: `!isColorBasemap` is false → the hollow-check branch is skipped.
+    // A color basemap has no fillOpacity concept, so there is nothing to bump.
+    registerColorBasemap();
+    commitFillColor(ui, CONST.COLOR.MAP_ID, "#ff0000");
+    expect(ui.fillColorMap[CONST.COLOR.MAP_ID]).toBe("#ff0000");
+    expect(ui.fillOpacityMap[CONST.COLOR.MAP_ID]).toBeUndefined();
+    expect(ui.currentColor).toBe("#ff0000");
+  });
+
   it("commitFillColor handles a layer id that is not registered yet", () => {
-    // The hollow-check walks only registered layers; an unregistered id still
-    // records the user's choice so a late registration can replay it.
     expect(() => commitFillColor(ui, "late-layer", "#ff0000")).not.toThrow();
     expect(ui.fillColorMap["late-layer"]).toBe("#ff0000");
     expect(ui.userOverrides["late-layer"]).toContain("fillColor");

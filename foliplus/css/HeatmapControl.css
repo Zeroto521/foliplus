@@ -172,24 +172,7 @@
   /* Section headings come from shared form.css (`.foliplus-section-heading`). */
 }
 
-/* ── createCanvas overlay (inside its own pane, offset by -panX/-panY) ──
-   Generic class from LayerFactory.createCanvas — any canvas layer shares
-   these overlay styles. HeatmapControl is the current consumer. Annotation
-   labels use AnnotationCanvas + inline styles, not this API. */
-.foliplus-canvas-layer {
-  position: absolute;
-  top: 0;
-  left: 0;
-  pointer-events: none;
-  image-rendering: auto;
-
-  /* ── Canvas visibility ──
-    `.hidden` here is the core LayerFactory toggle (canvas element), not the
-    shared `foliplus-hidden` class used by the panel sections. */
-  &.hidden {
-    display: none;
-  }
-}
+/* createCanvas / createColor overlay styles are shared — see common/canvas.css. */
 
 /* Field selector: extra body / field reuse the shared `foliplus-hidden`
    (display: none !important) class, toggled by CONST.CLASSES.HIDDEN.

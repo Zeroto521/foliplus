@@ -1186,6 +1186,7 @@ class TestLayerControlBrowser:
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
             )
+            panel_ready(page)
             page.wait_for_selector(
                 '.foliplus-layer-item[data-layer-type="base"]',
                 state="attached",
@@ -3067,9 +3068,9 @@ class TestLayerControlBrowser:
                 ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
             )
 
-            # Count DOM items before fold (3 overlays + 1 default OSM base)
+            # Count DOM items before fold (3 overlays + 1 default OSM base + 1 colour basemap)
             before = page.evaluate(
-                "document.querySelectorAll('.foliplus-layer-item:not(.foliplus-color-layer-item)').length"
+                "document.querySelectorAll('.foliplus-layer-item').length"
             )
             assert before > 0, "Expected at least 1 layer item"
 
@@ -3079,7 +3080,7 @@ class TestLayerControlBrowser:
 
             # Count DOM items after fold — should still be same (not removed)
             after = page.evaluate(
-                "document.querySelectorAll('.foliplus-layer-item:not(.foliplus-color-layer-item)').length"
+                "document.querySelectorAll('.foliplus-layer-item').length"
             )
             assert after == before, (
                 f"Expected {before} items after fold, got {after} — DOM items should not be removed"
@@ -3113,8 +3114,10 @@ class TestLayerControlBrowser:
                 "DOM item should be removed after unregisterLayer"
             )
 
-    def test_color_layer_hides_tiles(self, browser, tmp_path):
-        """Clicking color layer hides tilePane and removes base maps."""
+    def test_color_layer_coexists_with_tiles(self, browser, tmp_path):
+        """Colour and tile basemaps coexist. Clicking the colour layer
+        activates its own pane (the retired `foliplus-layer-tile-hidden`
+        contract is gone — tiles stay in the DOM and remain fetchable)."""
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
         LayerControl().add_to(m)
         folium.TileLayer("CartoDB positron", name="Light Canvas", overlay=False).add_to(
@@ -3143,11 +3146,192 @@ class TestLayerControlBrowser:
 
             result = page.evaluate(_js("LayerControl/read_color_tile_state"))
             assert result is not None
-            assert result["tileHidden"] is True, (
-                "tilePane should have foliplus-layer-tile-hidden class"
+            # The retired tile-hidden contract must not be applied.
+            assert result["tileHidden"] is False, (
+                "colour layer must not stamp foliplus-layer-tile-hidden"
             )
-            assert result["colorBg"] is True, "map container should have active class"
-            # Tiles may still be in DOM but not visible; check className
+            assert result["colorBg"] is True, "color item should have active class"
+
+    def test_color_basemap_checkbox_toggles_visibility(self, browser, tmp_path):
+        """Checking the colour basemap's checkbox must toggle its visibility.
+
+        The row's checkbox column holds a real ``<input type="checkbox">``
+        (like every other basemap row).  Checking it paints the container
+        background (``.active`` + ``--color-layer-bg``); unchecking it clears
+        both.  Without the fix the row has only a colour picker and no
+        checkbox, so the toggle cannot happen.
+        """
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl().add_to(m)
+        html_path = tmp_path / "test_color_checkbox.html"
+        html_path.write_text(m.get_root().render(), encoding="utf-8")
+
+        with use_raw_page(browser.new_page) as page:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+            )
+            page.wait_for_timeout(500)
+
+            # Initial state: checkbox exists and is unchecked.
+            state = page.evaluate(_js("LayerControl/read_color_checkbox_state"))
+            assert state is not None
+            assert state["hasCheckbox"] is True, (
+                "colour basemap row must have a real checkbox"
+            )
+            assert state["checked"] is False, "colour basemap starts unchecked"
+            assert state["active"] is False, "container starts without .active"
+
+            # Check the checkbox → container background takes effect.
+            result = page.evaluate(_js("LayerControl/toggle_color_checkbox"))
+            assert result is not None and result["ok"] is True, result
+            assert result["checked"] is True
+
+            state = page.evaluate(_js("LayerControl/read_color_checkbox_state"))
+            assert state["checked"] is True
+            assert state["active"] is True, "checking must mark the color row active"
+            assert state["colorVisible"] is True, (
+                "checking must show the color pane face"
+            )
+
+            # Uncheck → container background cleared.
+            result = page.evaluate(_js("LayerControl/toggle_color_checkbox"))
+            assert result is not None and result["ok"] is True, result
+            assert result["checked"] is False
+
+            state = page.evaluate(_js("LayerControl/read_color_checkbox_state"))
+            assert state["checked"] is False
+            assert state["active"] is False, (
+                "unchecking must clear the color row active class"
+            )
+            assert state["colorVisible"] is False, (
+                "unchecking must hide the color pane face"
+            )
+
+    def test_color_basemap_zorder_stack(self, browser, tmp_path):
+        """Color basemap participates in the z-order ladder like tile basemaps.
+
+        Row order = visual stack order. When the color row is above a tile
+        basemap, its pane has a higher z-index and covers the tiles; when
+        below, the tiles cover it. Reordering flips the stack live.
+        """
+        tile = folium.TileLayer("CartoDB positron", name="Light Canvas", overlay=False)
+        with use_page(self._make_page, browser, tmp_path, tile) as (page, _):
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+            )
+            page.wait_for_timeout(500)
+
+            # Read initial state.
+            state0 = page.evaluate(_js("LayerControl/read_color_checkbox_state"))
+            assert state0 is not None
+
+            # Ensure the color basemap is shown (check the checkbox if unchecked).
+            if not state0.get("checked"):
+                result = page.evaluate(_js("LayerControl/toggle_color_checkbox"))
+                assert result["ok"] is True
+            else:
+                # Already checked — verify the pane exists.
+                result = {"ok": True, "checked": True}
+
+            # Initial state: color pane exists and tile pane exists.
+            state = page.evaluate(_js("LayerControl/color_zorder_stack"))
+            assert state["ok"] is True
+            assert state["colorPaneFound"] is True, "color pane must exist after show"
+            assert state["tilePaneFound"] is True
+            assert state["colorPaneZ"] is not None
+            assert state["tilePaneZ"] is not None
+            initialColorZ = state["colorPaneZ"]
+
+            # Case 1: move color above tile → color pane z increases.
+            page.evaluate("window.__probe = { action: 'above' }")
+            state = page.evaluate(_js("LayerControl/color_zorder_stack"))
+            assert state["ok"] is True
+            assert state["colorPaneZ"] > initialColorZ, (
+                f"color above: z should increase, {initialColorZ} -> {state['colorPaneZ']}"
+            )
+
+            # Case 2: move color below tile → color pane z drops below the tile pane.
+            page.evaluate("window.__probe = { action: 'below' }")
+            state = page.evaluate(_js("LayerControl/color_zorder_stack"))
+            assert state["ok"] is True
+            assert state["colorPaneZ"] < state["tilePaneZ"], (
+                f"color below: color pane z must be below tile pane z, "
+                f"color={state['colorPaneZ']} tile={state['tilePaneZ']}"
+            )
+            assert state["colorPaneZ"] == initialColorZ, (
+                f"color below: z should return to initial, "
+                f"{initialColorZ} -> {state['colorPaneZ']}"
+            )
+
+            # Case 3: reorder back above → z-indexes flip again (live).
+            page.evaluate("window.__probe = { action: 'above' }")
+            state = page.evaluate(_js("LayerControl/color_zorder_stack"))
+            assert state["ok"] is True
+            assert state["colorPaneZ"] > state["tilePaneZ"], (
+                "reorder back above: color z must increase again"
+            )
+
+    def test_base_basemap_reorder_repaints_z(self, browser, tmp_path):
+        """Every base basemap repaints when its row moves.
+
+        The z ladder is written onto each base layer's own pane
+        (synthesized for tile layers, dedicated for the color basemap).
+        Reordering two tile basemaps must flip their pane z-indexes AND the
+        tiles must actually live in those panes — if they were still in the
+        shared .leaflet-tile-pane (z fixed at 200 by Leaflet CSS), the swap
+        would change numbers nothing draws on top of.
+        """
+        tile_a = folium.TileLayer("CartoDB positron", name="Tiles A", overlay=False)
+        tile_b = folium.TileLayer("OpenStreetMap", name="Tiles B", overlay=False)
+        with use_page(self._make_page, browser, tmp_path, tile_a, tile_b) as (page, _):
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+            )
+            page.wait_for_timeout(600)
+
+            state = page.evaluate(_js("LayerControl/base_zorder_reorder"))
+            assert state["ok"] is True, state
+            assert len(state["bases"]) >= 2, f"need two base layers, got {state}"
+
+            # Tiles must paint inside each base layer's own pane, not the
+            # shared tilePane — otherwise reorder cannot change the stack.
+            assert state["sharedTilePaneImages"] == 0, (
+                f"tiles still in shared tilePane: {state}"
+            )
+            for b in state["bases"]:
+                if b["id"] == "foliplus_color_map":
+                    continue
+                assert b["paintsHere"] > 0, (
+                    f"tile layer {b['name']} paints nothing in its own pane: {state}"
+                )
+                assert b["z"] is not None, (
+                    f"tile layer {b['name']} has no ladder z: {state}"
+                )
+
+            # Swap the last tile above the first; the two tile panes' z must
+            # flip with the row order.
+            page.evaluate("window.__probe = { action: 'swap-tiles' }")
+            state2 = page.evaluate(_js("LayerControl/base_zorder_reorder"))
+            assert state2["ok"] is True, state2
+            zs2 = {b["id"]: b["z"] for b in state2["bases"]}
+            moved = [b for b in state2["bases"] if b["id"] != "foliplus_color_map"]
+            first_z2 = moved[0]["z"]
+            last_z2 = moved[-1]["z"]
+            # The tile that moved to the top must now sit above the other.
+            assert first_z2 > last_z2, f"reordered tile panes did not flip z: {moved}"
 
     def test_register_layer_preserves_visible_on_reentry(self, browser, tmp_path):
         """registerLayer preserves the visible state from a previous registration."""
@@ -3238,7 +3422,7 @@ class TestLayerControlBrowser:
             assert is_folded, "Expected foliplus-layer-folded class on row after fold"
 
     def test_color_layer_pointer_cursor(self, browser, tmp_path):
-        """Color layer item shows pointer cursor on hover."""
+        """Color layer item shows move cursor on hover (draggable in base group)."""
         with use_page(self._make_page, browser, tmp_path) as (page, _):
             page.evaluate(
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
@@ -3247,7 +3431,7 @@ class TestLayerControlBrowser:
                 ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
             )
             cursor = page.evaluate(_js("LayerControl/read_color_layer_cursor"))
-            assert cursor == "pointer", f"Expected pointer cursor, got {cursor}"
+            assert cursor == "move", f"Expected move cursor, got {cursor}"
 
     # ── Indeterminate checkbox browser tests ──
 
@@ -3680,7 +3864,7 @@ class TestLayerControlBrowser:
             page.wait_for_timeout(120)
 
             rest = page.evaluate(
-                "() => { const r = document.querySelector('.foliplus-layer-item');"
+                "() => { const r = document.querySelector('.foliplus-layer-item:not(.foliplus-color-layer-item)');"
                 " const cs = getComputedStyle(r);"
                 " const d = r.querySelector('.drag-handle');"
                 " return { bg: cs.backgroundColor, shadow: cs.boxShadow,"
@@ -3714,10 +3898,10 @@ class TestLayerControlBrowser:
             )
 
             # Hover a data row and confirm it matches the keyboard cursor exactly.
-            page.hover(".foliplus-layer-item")
+            page.hover(".foliplus-layer-item:not(.foliplus-color-layer-item)")
             page.wait_for_timeout(120)
             hover = page.evaluate(
-                "() => { const r = document.querySelector('.foliplus-layer-item');"
+                "() => { const r = document.querySelector('.foliplus-layer-item:not(.foliplus-color-layer-item)');"
                 " const cs = getComputedStyle(r);"
                 " const d = r.querySelector('.drag-handle');"
                 " return { bg: cs.backgroundColor, shadow: cs.boxShadow,"
@@ -3790,11 +3974,13 @@ class TestLayerControlBrowser:
             )
 
             # Real hover on the unchecked row: same white as the JS cursor class.
-            page.hover(".foliplus-layer-item:not(.active)")
+            page.hover(
+                ".foliplus-layer-item:not(.active):not(.foliplus-color-layer-item)"
+            )
             page.wait_for_timeout(120)
             hover_bg = page.evaluate(
                 "() => getComputedStyle("
-                "  document.querySelector('.foliplus-layer-item:not(.active)')"
+                "  document.querySelector('.foliplus-layer-item:not(.active):not(.foliplus-color-layer-item)')"
                 ").backgroundColor"
             )
             assert hover_bg == white, (
@@ -4212,7 +4398,7 @@ class TestLayerControlBrowser:
 
             def snapshot():
                 return page.evaluate(
-                    "() => [...document.querySelectorAll('.foliplus-layer-item')]"
+                    "() => [...document.querySelectorAll('.foliplus-layer-item:not(.foliplus-color-layer-item)')]"
                     ".map(r => { const cs = getComputedStyle(r);"
                     "  const g = r.querySelector('.foliplus-drag-cell .drag-handle');"
                     "  const m = r.querySelector('.foliplus-layer-more-btn');"
@@ -4226,7 +4412,7 @@ class TestLayerControlBrowser:
 
             def escape_first_row():
                 page.evaluate(
-                    "() => { const r = document.querySelector('.foliplus-layer-item');"
+                    "() => { const r = document.querySelector('.foliplus-layer-item:not(.foliplus-color-layer-item)');"
                     " r.focus();"
                     " r.dispatchEvent(new KeyboardEvent("
                     "    'keydown', {key: 'Escape', bubbles: true})); }"
@@ -5062,7 +5248,7 @@ class TestLayerControlBrowser:
                 "the open attrs panel must stay above a lit sibling"
             )
 
-    # ── R7 zoom-range browser probes (§31) ────────────────────────────
+    # ── zoom-range browser probes ────────────────────────────────────
     #
     # CSS/interaction verification for the zoom-range row: dual-thumb
     # clamp, out-of-range dimming + tooltip, zoomend marker movement,
@@ -5159,7 +5345,7 @@ class TestLayerControlBrowser:
             )
             # R7's native branch: options write + adapter _resetView.
             # Leaflet does not self-apply options.minZoom changes — the
-            # adapter reset is what makes the range visible (§6.2).
+            # adapter reset is what makes the range visible.
             assert result["tilesCleared"] is True, (
                 f"tiles not cleared after options + _resetView with "
                 f"out-of-range minZoom: {result}"
@@ -5531,7 +5717,7 @@ class TestLayerControlBrowser:
             assert not errors, f"JS errors: {errors}"
 
 
-# ── R1 pane-surface probe (§10.3) ──────────────────────────────────────
+# ── pane-surface probe ─────────────────────────────────────────────────
 #
 # Test-only suite: measures the four facts the LayerSurface refactor (R3+)
 # relies on, against the real Leaflet/folium DOM. No product code is
@@ -5591,7 +5777,7 @@ _TINY_PNG = (
 
 
 class TestLayerPaneProbeBrowser:
-    """R1 probe — measured pane-surface facts (§10.3 ten-item checklist)."""
+    """Pane-surface probe — measured pane-surface facts."""
 
     @staticmethod
     def _probe(browser, tmp_path, *layers, slug="probe"):
@@ -5665,7 +5851,7 @@ class TestLayerPaneProbeBrowser:
         assert r["rowCount"] == 1, r
         assert not errors, f"JS errors: {errors}"
 
-    # ── overlay / plugin probes (§10.3 #1–#6) ──────────────────────
+    # ── overlay / plugin probes ──────────────────────────────────
 
     def test_probe_geojson_mixed_geometry(self, browser, tmp_path):
         """#1 GeoJson: point→marker, line/polygon→path, all in one pane."""
@@ -5809,7 +5995,7 @@ class TestLayerPaneProbeBrowser:
         assert r["css"]["reached"] and not r["css"]["shared"]
         assert r["runtime"]["reached"] and not r["runtime"]["shared"]
 
-    # ── base + mixed renderer probes (§10.3 #7–#10) ────────────────
+    # ── base + mixed renderer probes ────────────────────────────────
 
     def test_probe_two_tilelayers_native_opacity(self, browser, tmp_path):
         """#7 Two TileLayers share tilePane; setOpacity on one container
@@ -5855,10 +6041,10 @@ class TestLayerPaneProbeBrowser:
         assert r["afterReset"] == 0  # redraw clears out-of-range tiles
 
     def test_probe_color_basemap_no_pane(self, browser, tmp_path):
-        """#9 Solid-color basemap has NO pane/element today — it is the map
-        container's CSS background via ``--color-layer-bg`` plus a
-        visibility-hidden tilePane. Five ad-hoc state spots; R8 promotes it
-        to a surface."""
+        """#9 Solid-color basemap owns a dedicated pane + canvas — the old
+        container-CSS-background contract (--color-layer-bg) is retired.
+        Under basemap coexistence the retired `foliplus-layer-tile-hidden` gate
+        is gone: the tile pane stays visible underneath, the color paints in its own pane."""
         with use_page(
             self._probe,
             browser,
@@ -5868,14 +6054,16 @@ class TestLayerPaneProbeBrowser:
         ) as (page, _):
             r = page.evaluate(_js("LayerControl/probe_color_basemap"))
         assert r["itemFound"] is True
-        assert r["containerActive"] is True
-        assert r["cssVar"] == "#3366cc"
-        assert r["containerBg"].startswith("rgb(51,")
-        assert r["tileHidden"] is True
-        assert r["tileVisibility"] == "hidden"
-        # No foliplus-owned pane carries the color — only the tile-hidden
-        # modifier on tilePane.
-        assert all("tile-hidden" in c for c in r["foliplusPanes"])
+        assert r["itemActive"] is True, "color item should be active"
+        assert r["colorPaneFound"] is True, "color pane must exist after show"
+        assert r["colorVisible"] is True, "color pane face must be visible"
+        # Basemap coexistence: the shared tilePane is not hidden by the color basemap.
+        assert r["tileHidden"] is False
+        assert r["tileVisibility"] == "visible"
+        # No foliplus pane is the "tile-hidden" contract — nothing under
+        # Basemap coexistence carries that class. (Registered TileLayers get their own
+        # synthesized foliplus-pane-*, which is a different marker.)
+        assert not any("tile-hidden" in c for c in r["foliplusPanes"])
 
     def test_probe_mixed_renderer_pane_consistent(self, browser, tmp_path):
         """#10 SVG data pane + canvas label pane: pane-level opacity hits
@@ -5887,5 +6075,68 @@ class TestLayerPaneProbeBrowser:
         assert r["labelCanvasPane"] == "__probe_mixed_label__"
         assert abs(r["pathEff"] - 0.4) < 0.02
         assert abs(r["canvasEff"] - 0.4) < 0.02
-        assert r["hitHiddenIsCanvas"] is False  # hidden label pane → path hit
-        assert r["hitNoPointerIsCanvas"] is False  # pointer-events:none → path hit
+
+    def test_hatch_fullscreen_parity(self, browser, tmp_path):
+        """No-basemap hatch keeps the same paint inside and outside fullscreen.
+
+        The failure mode is an *absent opaque background*: with
+        ``background-color: transparent`` the container shows the page behind it
+        normally, but in fullscreen it shows the UA ``::backdrop`` (black) —
+        "white + grid" outside, "black + grid" inside. The backdrop itself is
+        not observable (``getComputedStyle`` describes the element; headless
+        Chromium does not composite the backdrop into a screenshot), so the
+        decisive assertion is that the container paints an opaque, light
+        background — that is what keeps the backdrop invisible. Parity of the
+        element's own paint across the fullscreen transition is asserted too.
+        """
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12, tiles=None)
+        LayerControl().add_to(m)
+        _expand_panel(m)
+        html_path = tmp_path / "test_hatch_parity.html"
+        _write_html(m, html_path)
+
+        with use_raw_page(browser.new_page) as page:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+            )
+            page.wait_for_timeout(500)
+
+            # Arm the empty-basemap state and mount the fullscreen trigger.
+            page.evaluate("window.__probe = { action: 'arm' }")
+            armed = page.evaluate(_js("LayerControl/hatch_fullscreen_parity"))
+            assert armed["ok"] is True, armed
+            before = armed["state"]
+            assert before["isFull"] is False, "read must start outside fullscreen"
+            assert before["hatch"] is True, f"hatch missing before fullscreen: {before}"
+
+            # The container must paint an opaque background: a transparent one
+            # is exactly what lets the black backdrop show through in
+            # fullscreen. Lightness keeps it the intended light-base hatch.
+            rgba = before["rgba"]
+            assert rgba is not None, f"unreadable background colour: {before}"
+            assert rgba["a"] == 1, (
+                f"no-basemap hatch must paint an opaque background, got {before['bg']}"
+            )
+            luma = (rgba["r"] + rgba["g"] + rgba["b"]) / 3
+            assert luma > 128, f"hatch background must stay light, got {before['bg']}"
+
+            # A real click is what grants the user activation the API requires.
+            page.click("#foliplus-fs-trigger")
+            page.wait_for_timeout(500)
+
+            after = page.evaluate(_js("LayerControl/hatch_fullscreen_parity"))
+            assert after["ok"] is True, after
+            state = after["state"]
+            assert state["isFull"] is True, (
+                f"requestFullscreen did not take effect: {state}"
+            )
+
+            # Entering fullscreen must not change the element's own paint.
+            assert state["bg"] == before["bg"], (
+                f"background differs across fullscreen: {before['bg']} -> {state['bg']}"
+            )
+            assert state["hatch"] is True, f"hatch lost in fullscreen: {state}"

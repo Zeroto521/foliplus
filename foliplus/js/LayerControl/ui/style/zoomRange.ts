@@ -1,4 +1,4 @@
-// Zoom-range row: dual-thumb rail + current-zoom marker + value labels +
+﻿// Zoom-range row: dual-thumb rail + current-zoom marker + value labels +
 // live / commit passes. Moved verbatim from ui/style.ts.
 // Used by both the delegated drawer and the annotation panel — the row is
 // LayerControl-owned, gated by surface capability.
@@ -7,15 +7,20 @@ import * as CONST from "../../const.js";
 import { applyProjection } from "../apply.js";
 import type { LayerUI } from "../index.js";
 import { markOverride, saveState, unmarkOverride } from "../state.js";
+import { isColorBasemap } from "./fill.js";
 import { railPos, round5 } from "./frame.js";
 
 /** Whether the layer's surface can honestly carry a zoom-range write.
  *
  *  Two conditions, both required:
- *    - `!layerInfo.isBase` — basemaps carry no range control here.
- *    - `capabilities.zoomRange !== "none"` — MarkerCluster and ImageOverlay
- *      have no honest zoom-range carrier (a row that persists a value the
- *      write cannot apply is a lie that survives reload).
+ *    1. `!layerInfo.isBase || isColorBasemap` — tile basemaps carry no range
+ *       control here. The solid-color basemap is exempt: it shares the tile
+ *       basemap's visibility gating (§42.1), so it carries a range like any
+ *       overlay.
+ *    2. `capabilities.zoomRange !== "none" || isColorBasemap` — MarkerCluster
+ *       and ImageOverlay have no honest zoom-range carrier (a row that
+ *       persists a value the write cannot apply is a lie that survives
+ *       reload).
  *
  *  The one callback-only canvas layer (heatmap, registered through
  *  createCanvas) was excluded here once (31.4-3): a canvas has no Leaflet
@@ -34,8 +39,8 @@ import { railPos, round5 } from "./frame.js";
 const canShowZoomRange = (ui: LayerUI, layerId: string): boolean => {
   const li = ui.m.layerRegistry.get(layerId);
   if (!li) return false;
-  if (li.isBase) return false;
-  return ui.m.surfaceFor(li).capabilities.zoomRange !== "none";
+  if (li.isBase && !isColorBasemap(li)) return false;
+  return ui.m.surfaceFor(li).capabilities.zoomRange !== "none" || isColorBasemap(li);
 };
 
 /** Clamp a zoom value into the map's current [min, max] range. */

@@ -123,6 +123,7 @@ _JS_USED_KEYS = {
     "LayerControl.panel_title",
     "LayerControl.close_title",
     "LayerControl.base_map_label",
+    "LayerControl.no_base_map_label",
     "LayerControl.color_map_label",
     "LayerControl.reorder_group_only",
     "LayerControl.reorder_top",
