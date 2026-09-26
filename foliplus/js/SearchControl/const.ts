@@ -20,8 +20,8 @@ const AUTOCOMPLETE = {
 };
 const PARAM = { Q: "q", LNG: "lng", LAT: "lat" };
 const CLASSES = {
-  EXPANDED: "is-expanded",
-  COLLAPSED: "is-collapsed",
+  EXPANDED: "foliplus-is-expanded",
+  COLLAPSED: "foliplus-is-collapsed",
   MAP_SEARCH: "foliplus-search",
   SEARCH_MODE_BTN: "foliplus-search-mode-btn",
   CLEAR: "clear",

@@ -41,8 +41,8 @@ const TIMING = {
 
 /** CSS class names used during render. */
 const CLASSES = {
-  COLLAPSED: "is-collapsed",
-  EXPANDED: "is-expanded",
+  COLLAPSED: "foliplus-is-collapsed",
+  EXPANDED: "foliplus-is-expanded",
   TOOL_BTN: "foliplus-tool-btn",
   MODE: "foliplus-export-mode",
   BOX: "foliplus-export-box",

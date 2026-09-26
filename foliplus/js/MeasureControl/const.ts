@@ -95,8 +95,8 @@ const CLASSES = {
   ACTIVE: "is-active",
   MEASURING: "foliplus-measuring",
   EDITING: "foliplus-measure-editing",
-  COLLAPSED: "is-collapsed",
-  EXPANDED: "is-expanded",
+  COLLAPSED: "foliplus-is-collapsed",
+  EXPANDED: "foliplus-is-expanded",
 };
 
 /** Style property names. */

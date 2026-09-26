@@ -160,7 +160,7 @@ describe("MIME_LOSSLESS", () => {
 
 describe("CLASSES", () => {
   it("defines CSS class constants", () => {
-    expect(CONST.CLASSES.COLLAPSED).toBe("is-collapsed");
+    expect(CONST.CLASSES.COLLAPSED).toBe("foliplus-is-collapsed");
     expect(CONST.CLASSES.LOCKED).toBe("locked");
     expect(CONST.CLASSES.DRAGGING).toBe("is-dragging");
   });

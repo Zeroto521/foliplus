@@ -10,7 +10,7 @@
 // gives it a pane + element so the same per-layer write path covers it.
 () => {
   const ctrl = document.querySelector(".foliplus-layer-ctrl");
-  if (ctrl && !ctrl.classList.contains("is-expanded")) {
+  if (ctrl && !ctrl.classList.contains("foliplus-is-expanded")) {
     ctrl.querySelector(".foliplus-toggle-btn").click();
   }
   const item = document.querySelector(".foliplus-color-layer-item");

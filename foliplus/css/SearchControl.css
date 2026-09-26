@@ -1,5 +1,5 @@
 .foliplus-search {
-  &.is-expanded {
+  &.foliplus-is-expanded {
     width: var(--panel-width);
     height: auto;
   }

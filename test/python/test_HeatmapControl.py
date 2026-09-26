@@ -602,7 +602,7 @@ class TestHeatmapControlBrowser:
                 "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
             )
             page.wait_for_selector(
-                ".foliplus-heatmap-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-heatmap-ctrl.foliplus-is-expanded", state="attached", timeout=5000
             )
             heatmap_ready(page)
 
@@ -625,7 +625,7 @@ class TestHeatmapControlBrowser:
                 "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
             )
             page.wait_for_selector(
-                ".foliplus-heatmap-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-heatmap-ctrl.foliplus-is-expanded", state="attached", timeout=5000
             )
             heatmap_ready(page)
 
@@ -651,7 +651,7 @@ class TestHeatmapControlBrowser:
                 "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
             )
             page.wait_for_selector(
-                ".foliplus-heatmap-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-heatmap-ctrl.foliplus-is-expanded", state="attached", timeout=5000
             )
             heatmap_ready(page)
 
@@ -664,7 +664,7 @@ class TestHeatmapControlBrowser:
                 "document.querySelector('.foliplus-heatmap-ctrl .foliplus-close-btn').click()"
             )
             page.wait_for_selector(
-                ".foliplus-heatmap-ctrl.is-collapsed", state="attached", timeout=5000
+                ".foliplus-heatmap-ctrl.foliplus-is-collapsed", state="attached", timeout=5000
             )
 
             assert not errors, f"JS errors: {errors}"
@@ -673,8 +673,8 @@ class TestHeatmapControlBrowser:
         """True while the heatmap panel is expanded, not collapsed."""
         return page.evaluate(
             "() => { const c = document.querySelector('.foliplus-heatmap-ctrl');"
-            " return !!c && c.classList.contains('is-expanded')"
-            " && !c.classList.contains('is-collapsed'); }"
+            " return !!c && c.classList.contains('foliplus-is-expanded')"
+            " && !c.classList.contains('foliplus-is-collapsed'); }"
         )
 
     def test_panel_collapses_on_outside_press_by_default(self, browser, tmp_path):
@@ -690,14 +690,14 @@ class TestHeatmapControlBrowser:
                 "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
             )
             page.wait_for_selector(
-                ".foliplus-heatmap-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-heatmap-ctrl.foliplus-is-expanded", state="attached", timeout=5000
             )
             heatmap_ready(page)
             assert self._panel_open(page)
 
             page.mouse.click(900, 450)
             page.wait_for_selector(
-                ".foliplus-heatmap-ctrl.is-collapsed", state="attached", timeout=5000
+                ".foliplus-heatmap-ctrl.foliplus-is-collapsed", state="attached", timeout=5000
             )
             assert not self._panel_open(page), (
                 "the heatmap panel stayed open after an outside press; its default "
@@ -719,7 +719,7 @@ class TestHeatmapControlBrowser:
                 "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
             )
             page.wait_for_selector(
-                ".foliplus-heatmap-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-heatmap-ctrl.foliplus-is-expanded", state="attached", timeout=5000
             )
             heatmap_ready(page)
             assert self._panel_open(page)
@@ -764,7 +764,7 @@ class TestHeatmapControlBrowser:
                 "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
             )
             page.wait_for_selector(
-                ".foliplus-heatmap-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-heatmap-ctrl.foliplus-is-expanded", state="attached", timeout=5000
             )
             heatmap_ready(page)
 
@@ -797,7 +797,7 @@ class TestHeatmapControlBrowser:
                 "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
             )
             page.wait_for_selector(
-                ".foliplus-heatmap-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-heatmap-ctrl.foliplus-is-expanded", state="attached", timeout=5000
             )
             heatmap_ready(page)
 
@@ -858,7 +858,7 @@ class TestHeatmapControlBrowser:
                 "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
             )
             page.wait_for_selector(
-                ".foliplus-heatmap-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-heatmap-ctrl.foliplus-is-expanded", state="attached", timeout=5000
             )
             heatmap_ready(page)
 
@@ -923,7 +923,7 @@ class TestHeatmapControlBrowser:
                 "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
             )
             page.wait_for_selector(
-                ".foliplus-heatmap-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-heatmap-ctrl.foliplus-is-expanded", state="attached", timeout=5000
             )
             heatmap_ready(page)
 
@@ -966,7 +966,7 @@ class TestHeatmapControlBrowser:
                 "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
             )
             page.wait_for_selector(
-                ".foliplus-heatmap-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-heatmap-ctrl.foliplus-is-expanded", state="attached", timeout=5000
             )
             heatmap_ready(page)
             opts = page.evaluate(
@@ -1000,7 +1000,7 @@ class TestHeatmapControlBrowser:
                 "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
             )
             page.wait_for_selector(
-                ".foliplus-heatmap-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-heatmap-ctrl.foliplus-is-expanded", state="attached", timeout=5000
             )
             heatmap_ready(page)
 
@@ -1028,7 +1028,7 @@ class TestHeatmapControlBrowser:
                 "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
             )
             page.wait_for_selector(
-                ".foliplus-heatmap-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-heatmap-ctrl.foliplus-is-expanded", state="attached", timeout=5000
             )
 
             # BEFORE_EXPORT sets renderAll = true
@@ -1056,7 +1056,7 @@ class TestHeatmapControlBrowser:
                 "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
             )
             page.wait_for_selector(
-                ".foliplus-heatmap-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-heatmap-ctrl.foliplus-is-expanded", state="attached", timeout=5000
             )
 
             # Set cachedAgg to simulate stale data
@@ -1195,7 +1195,7 @@ class TestHeatmapAutoFieldBrowser:
             "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
         )
         page.wait_for_selector(
-            ".foliplus-heatmap-ctrl.is-expanded", state="attached", timeout=5000
+            ".foliplus-heatmap-ctrl.foliplus-is-expanded", state="attached", timeout=5000
         )
         heatmap_ready(page)
 
