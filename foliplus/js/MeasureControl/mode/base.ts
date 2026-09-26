@@ -9,10 +9,10 @@ import * as Util from "../util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see global.d.ts).
 // `getNameLabel` relies on identity comparison: when no locale table exists,
-// `_(this.NAME_LABEL_KEY)` must return the exact same short key so the
+// `tr(this.NAME_LABEL_KEY)` must return the exact same short key so the
 // fallback to NAME_LABEL kicks in. createScopedTranslator prepends conf.name,
 // breaking that comparison — so base.ts deliberately uses createTranslator.
-const T = createTranslator(CONF);
+const tr = createTranslator(CONF);
 
 const log = createLogger(CONF.name);
 
@@ -29,7 +29,7 @@ class MeasureMode {
    * Shared by CSV export (getNameForType) and GeoJSON properties.name.
    */
   static getNameLabel(): string {
-    const label = T(this.NAME_LABEL_KEY);
+    const label = tr(this.NAME_LABEL_KEY);
     return label === this.NAME_LABEL_KEY ? this.NAME_LABEL : label;
   }
 
