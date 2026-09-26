@@ -32,14 +32,28 @@ describe("pinStyleOnHighlight", () => {
     document.body.innerHTML = "";
   });
 
-  it("registers one mouseout handler per leaf (WeakSet guard)", () => {
+  it("registers one mouseout handler per leaf; distinct getters stack and merge", () => {
     const { leaf, fire } = makeLeaf();
-    pinStyleOnHighlight(leaf, () => ({ fillColor: "#123456" }));
-    pinStyleOnHighlight(leaf, () => ({ fillColor: "#ffffff" }));
+    const fillGetter = () => ({ fillColor: "#123456" });
+    const borderGetter = () => ({ color: "#ffffff" });
+    pinStyleOnHighlight(leaf, fillGetter);
+    pinStyleOnHighlight(leaf, borderGetter);
 
+    // One handler regardless of how many dimensions stack.
     expect(leaf.on).toHaveBeenCalledTimes(1);
     fire();
-    expect(leaf.setStyle).toHaveBeenLastCalledWith({ fillColor: "#123456" });
+    expect(leaf.setStyle).toHaveBeenLastCalledWith({
+      fillColor: "#123456",
+      color: "#ffffff",
+    });
+  });
+
+  it("idempotent for the same getter object", () => {
+    const { leaf } = makeLeaf();
+    const g = () => ({ fillColor: "#123456" });
+    pinStyleOnHighlight(leaf, g);
+    pinStyleOnHighlight(leaf, g);
+    expect(leaf.on).toHaveBeenCalledTimes(1);
   });
 
   it("reapplies the user's style on mouseout", () => {

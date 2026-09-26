@@ -35,6 +35,7 @@ import {
 import * as CONST from "../../const.js";
 import type { LayerUI } from "../index.js";
 import { markOverride, saveState, unmarkOverride } from "../state.js";
+import { hasSetStyleLeaf, pinStyleOnHighlight } from "./pin.js";
 
 /** A node in the layer tree that a border walk may reach. `setStyle` alone
  *  does not make a node a carrier — L.GeoJSON owns one too (it fans a style
@@ -74,14 +75,23 @@ const isStyleSetter = (node: StyleCarrier): node is StyleSetter =>
  *  any surface whose `opacity` resolves to `"pane"` but whose `zoomRange` does
  *  not is a solid-color basemap, which owns a single background pane rather
  *  than vector shapes and has no stroke axis at all. The double check reads
- *  the capability honestly rather than special-casing the basemap id. */
+ *  the capability honestly rather than special-casing the basemap id.
+ *
+ *  The third gate narrows the row to layers that actually own a `setStyle`
+ *  leaf — the honest carrier for the write. A Marker or an empty LayerGroup
+ *  passes the capability check but has no leaf to stroke: the row would
+ *  persist a value with no visual effect, the same lie as Fill's Polygon-leaf
+ *  check. Reads the carrier through `hasSetStyleLeaf` (§44.2: capability =
+ *  the existence of a carrier object) so border and fill admit a layer on the
+ *  same invariant. */
 const layerCanBorder = (ui: LayerUI, layerId: string): boolean => {
   const li = ui.m.layerRegistry.get(layerId);
   if (!li) return false;
   if (li.canvas) return false;
   if (li.styleSetters) return false;
   const caps = ui.m.surfaceFor(li).capabilities;
-  return caps.opacity === "pane" && caps.zoomRange === "pane";
+  if (!(caps.opacity === "pane" && caps.zoomRange === "pane")) return false;
+  return hasSetStyleLeaf(li.layer as StyleCarrier | null);
 };
 
 /** The layer's authored border style, captured on the layer's first border
@@ -196,36 +206,24 @@ const applyBorderToLayer = (ui: LayerUI, layerId: string): void => {
     if (!isStyleSetter(node)) return;
     captureBase(node);
     node.setStyle(style);
-    pinLeaf(ui, layerId, node);
+    // Pin the leaf's stroke against folium's highlight restore via the shared
+    // pinStyleOnHighlight hook (§47.1-①). The border row previously kept its
+    // own WeakSet + pinLeaf; that fired a second `mouseout` handler on the
+    // same leaf as the fill row's pin, so a highlight-restore ran one, then
+    // the other, and the last-bound one won — border overwrote fill on the
+    // next mouseout, dropping the user's fill. One shared hook means the
+    // leaf keeps exactly one pin that reads both dimensions live.
+    pinStyleOnHighlight(node, () => {
+      const c = ui.borderColorMap[layerId];
+      const w = ui.borderWeightMap[layerId];
+      if (c === undefined && w === undefined) return null;
+      const stroke: Record<string, unknown> = {};
+      if (c !== undefined) stroke.color = c;
+      if (w !== undefined) stroke.weight = w;
+      return stroke;
+    });
   };
   walk(layer);
-};
-
-/** Leaves whose stroke is already pinned against the highlight restore. */
-const pinned = new WeakSet<StyleCarrier>();
-
-/** Pin a leaf's stroke against folium's GeoJson highlight. folium binds its
- *  own `mouseout` per feature during addData that runs the group's
- *  `resetStyle`, which re-applies the author's style function and undoes our
- *  write; a click on a feature necessarily crosses a mouseout, so without
- *  this the user's stroke is gone the moment the pointer leaves the geometry.
- *
- *  Our handler binds after folium's, so Leaflet's dispatch order runs it
- *  last: the highlight still applies while the pointer is over the feature,
- *  and the user's stroke is the value left behind. Nothing is written for a
- *  dimension the user never set, so a Reset keeps the author's stroke. */
-const pinLeaf = (ui: LayerUI, layerId: string, leaf: StyleSetter): void => {
-  if (pinned.has(leaf)) return;
-  pinned.add(leaf);
-  leaf.on("mouseout", () => {
-    const color = ui.borderColorMap[layerId];
-    const weight = ui.borderWeightMap[layerId];
-    if (color === undefined && weight === undefined) return;
-    const stroke: Record<string, unknown> = {};
-    if (color !== undefined) stroke.color = color;
-    if (weight !== undefined) stroke.weight = weight;
-    leaf.setStyle(stroke);
-  });
 };
 
 /** Write the color into the map, persist it, and mark the dimension as
