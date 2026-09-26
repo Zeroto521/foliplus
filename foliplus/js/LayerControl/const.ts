@@ -19,7 +19,7 @@ const STORAGE = { KEY: `foliplus_layer_state_${map.getContainer().id}` };
 /** Color map layer. */
 const COLOR = { MAP_ID: "foliplus_color_map", DEFAULT: "#cccccc" };
 
-/** Focus-on-layer behaviour. */
+/** Focus-on-layer behavior. */
 const FOCUS = {
   /** How long the focus rectangle stays visible. */
   RECT_DURATION_MS: 3500,
@@ -54,7 +54,7 @@ const FOCUS = {
 const FOCUS_PANE = "foliplus-focus-overlay";
 
 /** Leaflet pane name prefix for a layer's annotation labels: one pane per
- *  labelled layer, so its labels sit at that layer's place in the stack.
+ *  labeled layer, so its labels sit at that layer's place in the stack.
  *  `LayerManager.enforceOrder` z-orders each pane just above its layer. */
 const ANNOTATION_PANE_PREFIX = "foliplus-annotation-";
 
@@ -153,7 +153,7 @@ const CLASSES = {
   STYLE_ZOOM_RANGE_VAL: "foliplus-style-zoom-range-value",
   /** The round readouts on the rail: the map's two zoom limits (-min, -max) and
    *  the current level (-current). A dot's ring is accent where the layer
-   *  renders and grey where it does not. */
+   *  renders and gray where it does not. */
   STYLE_ZOOM_RANGE_DOT: "foliplus-style-zoom-range-dot",
   STYLE_ZOOM_RANGE_DOT_COVERED: "foliplus-style-zoom-range-dot-covered",
   /** Set on a value label whose mark is too close to a higher-priority one to
@@ -166,7 +166,7 @@ const CLASSES = {
   STYLE_ZOOM_RANGE_OUT_OF_RANGE: "foliplus-zoom-range-out-of-range",
   /* ── Shared slider component (common/slider.css) ──
      Both range controls are this component; the rows below add their own hook
-     classes for behaviour and tests, and set `--slider-thumb-ring` for their
+     classes for behavior and tests, and set `--slider-thumb-ring` for their
      own coverage state. Geometry is declared once, in the component. */
   SLIDER: "foliplus-slider",
   SLIDER_RAIL: "foliplus-slider-rail",

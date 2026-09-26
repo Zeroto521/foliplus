@@ -64,7 +64,7 @@ const namedPaneNameFor = (id: string, prefix: string, label: string): string => 
   const raw = String(id);
   const safe = raw.replace(/[^a-zA-Z0-9_-]+/g, "-");
   if (safe !== raw) {
-    log.warn(`${label} id normalised for injection safety: "${raw}" -> "${safe}"`);
+    log.warn(`${label} id normalized for injection safety: "${raw}" -> "${safe}"`);
   }
   return `${prefix}${safe}`;
 };

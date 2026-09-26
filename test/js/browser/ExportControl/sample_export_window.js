@@ -1,7 +1,7 @@
 () => {
   // Sample a specific rectangular window in the renderer's output canvas.
   // Takes window coords from window._sampleWindows (set by the test), and
-  // returns {hit, total} for each window. The caller picks the target colour
+  // returns {hit, total} for each window. The caller picks the target color
   // via window._sampleColor.
   //
   // Windows are specified as {x, y, w, h} in export-canvas pixel coords.

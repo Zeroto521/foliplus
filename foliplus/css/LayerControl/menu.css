@@ -109,7 +109,7 @@
      Muted ink, not `opacity`: these sit on an opaque menu surface, and a
      0.4-opacity row read as "the panel lost its background" rather than
      "this entry is unavailable" — for a hidden layer the Focus and Style
-     rows are both disabled, so half the menu went grey. Colour is the
+     rows are both disabled, so half the menu went gray. Color is the
      disabled signal everywhere else in the control. */
   .foliplus-layer-more-menu li[disabled] {
     cursor: not-allowed;
@@ -141,11 +141,11 @@
 
   /* ── Armed delete entry ──
      The confirming state fills with the accent. For this entry that is
-     already the delete colour — its rest ink and its shared hover are red —
+     already the delete color — its rest ink and its shared hover are red —
      so red reads as "the destructive verb is armed", not as "hover". The
      verb swap on the label carries the meaning; the fill only says the
      entry has changed state. The previous fill was `--text-primary`
-     (near-black), which was the one colour this control never otherwise
+     (near-black), which was the one color this control never otherwise
      uses as a surface and read as a foreign element.
      Every rule that touches the icon also carries the `:hover` leg:
      common/menu.css's `li:not([disabled]):hover svg` is (0,4,2) and would

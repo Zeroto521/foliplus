@@ -36,7 +36,7 @@ const COORD_BOUNDS = { LON: 180, LAT: 90 };
  *
  * The two reads keep their own try/catch so a warning still names the fact
  * that failed. A failed read degrades to the "not found" answer, matching the
- * old catch behaviour: probe misses fall back to WGS84 rather than aborting.
+ * old catch behavior: probe misses fall back to WGS84 rather than aborting.
  */
 const probeMap = (map: L.Map | null): Probe => {
   const urls: string[] = [];

@@ -20,7 +20,7 @@
 /** Match the bare quoted form of a CSS @import: `@import "name.css";`. */
 const IMPORT_RE = /^@import\s+["']([^"']+)["']\s*;/;
 
-/** Normalise an import target: `./focus.css` → `focus.css` (bare name). */
+/** Normalize an import target: `./focus.css` → `focus.css` (bare name). */
 const normalizeImport = name => name.replace(/^\.\//, "");
 
 /** Collect the filenames this source imports, in declaration order. */

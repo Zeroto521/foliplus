@@ -41,7 +41,7 @@ const round5 = (n: number): number => Math.round(n * 1e5) / 1e5;
  *  fill ends, the current-level dot and the numbers under them — goes
  *  through this one mapping, and it is the rail's own percentage: the
  *  stylesheet insets the rail by half a handle and lets the inputs reach
- *  that far beyond it, so a handle's centre *is* its percentage of the
+ *  that far beyond it, so a handle's center *is* its percentage of the
  *  rail, and every mark that shares the mapping lands on it.
  *
  *  Used by the opacity row (via `opacityFillWidth`) and the zoom-range row
