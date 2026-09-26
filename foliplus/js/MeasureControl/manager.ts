@@ -14,7 +14,7 @@ import { createScopedTranslator } from "#common/locale.js";
 import { bindMapEvents, unbindMapEvents } from "#common/mapEvent.js";
 import { adjustPanelZIndex } from "#common/panel.js";
 import { throttleRaf } from "#common/throttle.js";
-import { type CollidableLabel, mapProjector, placeLabels } from "./collision.js";
+import { mapProjector, placeLabels } from "./collision.js";
 import * as CONST from "./const.js";
 import * as Export from "./export.js";
 import * as SVGs from "./icon.js";
@@ -25,6 +25,7 @@ import {
 } from "./interaction.js";
 import { MODE_MAP, MeasureMode } from "./mode/index.js";
 import { MeasureStore } from "./store.js";
+import type { CollidableLabel } from "./type.js";
 import * as Util from "./util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).

@@ -12,10 +12,10 @@ import { HINT_DURATION } from "#core/hint.js";
 import { download } from "#common/download.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { createLogger } from "#common/log.js";
-import type { ExportFormat } from "./const.js";
 import * as CONST from "./const.js";
 import type { MeasureManager } from "./manager.js";
 import { MODE_MAP, MeasureMode } from "./mode/index.js";
+import type { ExportFormat } from "./type.js";
 
 // CONF is a free variable from the IIFE template wrapper (see global.d.ts).
 const T = createScopedTranslator(CONF);

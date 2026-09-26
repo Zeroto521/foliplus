@@ -12,6 +12,10 @@ import { type Persisted, makePersisted } from "#common/storage.js";
 import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
 
+// CONF is a free variable from the IIFE template wrapper (see global.d.ts);
+// bind the translator once, not per call site.
+const T = createScopedTranslator(CONF);
+
 /** Central store for all measurements. Owns the array, the id counter, the
  * persist-failure notification, and LAYER_ITEM_COUNT_CHANGE emission. Manager
  * exposes a thin compatibility shell (`.measurements` getter/setter,
@@ -24,9 +28,6 @@ class MeasureStore {
   private readonly layerId: string;
   private warned = false;
   private readonly persistBinding: Persisted;
-  // CONF is a free variable from the IIFE template wrapper (see global.d.ts);
-  // bind the translator once, not per call site.
-  private readonly T = createScopedTranslator(CONF);
 
   constructor(map: L.Map, layerId: string) {
     this.map = map;
@@ -47,7 +48,7 @@ class MeasureStore {
           this.warned = true;
           this.map.foliplus?.showHint?.(
             CONF.name,
-            this.T("err_not_saved"),
+            T("err_not_saved"),
             HINT_DURATION.PERSIST,
           );
         }
