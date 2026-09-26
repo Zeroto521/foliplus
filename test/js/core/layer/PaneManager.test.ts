@@ -880,6 +880,26 @@ describe("PaneManager", () => {
     expect(Array.from(paneEl.children)).toEqual([container]);
   });
 
+  it("pinLateContent tolerates a GridLayer without getContainer", () => {
+    // Leaflet mocks that strip the GridLayer implementation have no
+    // getContainer; the pin must fall through without moving anything or
+    // throwing, while still marking the layer handled.
+    const paneEl = document.createElement("div");
+    document.body.appendChild(paneEl);
+    const map = { getPane: vi.fn(() => paneEl), createPane: vi.fn() };
+    const pm = new PaneManager(map);
+    const renderer = { _container: document.createElement("div") };
+
+    const layer = { options: {}, eachLayer: undefined };
+    Object.setPrototypeOf(layer, new window.L.GridLayer());
+
+    expect(() =>
+      pm.pinLateContent([{ layer, paneName: "foliplus-pane-1", renderer }]),
+    ).not.toThrow();
+    expect(layer.options.pane).toBe("foliplus-pane-1");
+    expect(layer.options.paneSet).toBe(true);
+  });
+
   it("pinLateContent skips layers without a paneName", () => {
     const map = { getPane: vi.fn(), createPane: vi.fn() };
     const pm = new PaneManager(map);

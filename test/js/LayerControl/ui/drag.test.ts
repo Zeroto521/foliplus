@@ -454,6 +454,19 @@ describe("ui/drag", () => {
       expect(orphan.classList.contains(CONST.CLASSES.DRAGGING)).toBe(false);
     });
 
+    it("handleDragStart is a no-op when the press starts outside any row", () => {
+      // `closest(LAYER_ITEM)` finds nothing for a press on the panel shell,
+      // so the drag is never armed and nothing is marked.
+      const { ui } = makeScrambledUi();
+      (ui as unknown as { dragIdx: number | null }).dragIdx = null;
+      const shell = document.createElement("div");
+      ui.uiContainer.appendChild(shell);
+
+      handleDragStart(ui, dragEvent(shell));
+
+      expect((ui as unknown as { dragIdx: number | null }).dragIdx).toBe(null);
+    });
+
     it("handleDragOver and handleDrop ignore a row carrying no data-layer-id", () => {
       const { ui, reorder } = makeScrambledUi();
       const orphan = document.createElement("div");
