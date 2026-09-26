@@ -219,20 +219,49 @@ describe("ui/drag", () => {
       expect(event.dataTransfer?.dropEffect).toBe("none");
     });
 
-    it("handleDragOver ignores the color basemap row", () => {
-      const { ui } = makeScrambledUi();
-      (ui as unknown as { dragIdx: number }).dragIdx = 0;
-      const color = document.createElement("div");
-      color.className = `${CONST.CLASSES.LAYER_ITEM} ${CONST.CLASSES.COLOR_ITEM}`;
-      ui.uiContainer.appendChild(color);
+    it("handleDragOver treats the color basemap row as a valid target", () => {
+      // The color row is a base-group member like any other: it participates
+      // in drag reorder (the old COLOR_ITEM exclusion was retired with the
+      // first-class basemaps). A row WITHOUT a data-layer-id is still ignored
+      // — that is the no-layer case, not the color case.
+      const layers: LayerInfo[] = [
+        { id: "A", name: "A", isBase: false } as LayerInfo,
+        { id: "foliplus_color_map", name: "Color", isBase: true } as LayerInfo,
+      ];
+      const uiContainer = document.createElement("div");
+      for (const id of ["A", "foliplus_color_map"]) {
+        const row = document.createElement("div");
+        row.className = CONST.CLASSES.LAYER_ITEM;
+        if (id === "foliplus_color_map") {
+          row.classList.add(CONST.CLASSES.COLOR_ITEM);
+        }
+        row.setAttribute(CONST.DATA.LAYER_ID, id);
+        uiContainer.appendChild(row);
+      }
+      const ui = {
+        uiContainer,
+        conf: { name: "LayerControl" },
+        T: (k: string) => k,
+        dragIdx: 0, // dragging the overlay row above
+        lastDragOverItem: null,
+        m: {
+          layers,
+          canReorderBetween: vi.fn(() => true),
+          enforceOrder: vi.fn(),
+          saveOrder: vi.fn(),
+          layerRegistry: { indexOf: () => 0 },
+        },
+      } as unknown as LayerUI;
 
-      const event = dragEvent(color);
+      const colorRow = uiContainer.querySelector<HTMLElement>(
+        `[${CONST.DATA.LAYER_ID}="foliplus_color_map"]`,
+      )!;
+      const event = dragEvent(colorRow);
       handleDragOver(ui, event);
 
       expect(event.preventDefault).toHaveBeenCalled();
-      expect(color.classList.contains(CONST.CLASSES.DRAG_OVER_TOP)).toBe(false);
-      expect(color.classList.contains(CONST.CLASSES.DRAG_OVER_BOTTOM)).toBe(false);
-      expect(ui.lastDragOverItem).toBe(null);
+      expect(colorRow.classList.contains(CONST.CLASSES.DRAG_OVER_BOTTOM)).toBe(true);
+      expect(ui.lastDragOverItem).toBe(colorRow);
     });
 
     it("handleDragOver does nothing until a drag is armed", () => {

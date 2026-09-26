@@ -830,6 +830,56 @@ describe("PaneManager", () => {
     expect(Array.from(paneEl.children)).toEqual([shadow, icon, bareIcon]);
   });
 
+  it("pinLateContent moves a GridLayer's container into the target pane", () => {
+    // Tile basemaps are GridLayers: Leaflet appends their container to
+    // `options.pane` once at addLayer, so rewriting options.pane alone never
+    // moves the visible tiles. The pin must physically relocate the container
+    // — otherwise every tile stays in the shared tilePane (z fixed at 200)
+    // and base-basemap reorder cannot change what the user sees.
+    const paneEl = document.createElement("div");
+    document.body.appendChild(paneEl);
+    const map = { getPane: vi.fn(() => paneEl), createPane: vi.fn() };
+    const pm = new PaneManager(map);
+    const renderer = { _container: document.createElement("div") };
+
+    const container = document.createElement("div");
+    container.className = "leaflet-layer";
+    const layer = {
+      getContainer: () => container,
+      options: {},
+      eachLayer: undefined,
+    };
+    Object.setPrototypeOf(layer, new window.L.GridLayer());
+
+    pm.pinLateContent([{ layer, paneName: "foliplus-pane-1", renderer }]);
+
+    expect(container.parentNode).toBe(paneEl);
+    expect(layer.options.pane).toBe("foliplus-pane-1");
+    expect(layer.options.paneSet).toBe(true);
+  });
+
+  it("pinLateContent is idempotent for a GridLayer already in the target pane", () => {
+    const paneEl = document.createElement("div");
+    document.body.appendChild(paneEl);
+    const map = { getPane: vi.fn(() => paneEl), createPane: vi.fn() };
+    const pm = new PaneManager(map);
+    const renderer = { _container: document.createElement("div") };
+
+    const container = document.createElement("div");
+    paneEl.appendChild(container);
+    const layer = {
+      getContainer: () => container,
+      options: {},
+      eachLayer: undefined,
+    };
+    Object.setPrototypeOf(layer, new window.L.GridLayer());
+
+    pm.pinLateContent([{ layer, paneName: "foliplus-pane-1", renderer }]);
+
+    // Not re-appended: appending an existing child re-orders it.
+    expect(Array.from(paneEl.children)).toEqual([container]);
+  });
+
   it("pinLateContent skips layers without a paneName", () => {
     const map = { getPane: vi.fn(), createPane: vi.fn() };
     const pm = new PaneManager(map);

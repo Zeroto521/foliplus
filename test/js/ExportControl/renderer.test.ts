@@ -1047,6 +1047,57 @@ describe("ExportRenderer.render — layer pass routing", () => {
     // closes it at 90 even though its pane was missing.
     expect(onProgress.mock.calls.map(call => call[0])).toEqual([71, 90]);
   });
+
+  it("keeps a layer entry that resolves only in the filter out of the render", async () => {
+    // The tile phase, the passable filter, and the render loop each call
+    // resolveLayer. If the layer is present for the filter (entry survives)
+    // but gone by the loop (the `else if (layer)` fallthrough), the entry
+    // still consumes its unit of the layer range — the bar cannot stall
+    // below the top.
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(
+      makeMockCtx() as any,
+    );
+    const fakeLayer = { options: {} };
+    let reads = 0;
+    const map = (globalThis as any).map;
+    const previous = map.foliplus;
+    try {
+      map.foliplus = {
+        LayerAPI: {
+          layers: [
+            {
+              visible: true,
+              // Present for the tile/filter phases, gone by the render loop —
+              // as a torn-down map would appear between the two resolveLayer
+              // calls.
+              get layer() {
+                reads++;
+                return reads <= 2 ? fakeLayer : null;
+              },
+            },
+          ],
+          getLayerPanes: () => [],
+        },
+      };
+
+      const proto = ExportRenderer.prototype as any;
+      const paneSVG = vi.spyOn(proto, "renderPaneSVG");
+      const paneCanvas = vi.spyOn(proto, "renderPaneCanvas");
+      vi.spyOn(proto, "renderTileLayer").mockResolvedValue(undefined);
+
+      const onProgress = vi.fn();
+      await runRender(onProgress);
+
+      // The entry passed the filter but had no layer by the render loop, so
+      // no pane passes ran for it — and the single unit still closes the
+      // range.
+      expect(paneSVG).not.toHaveBeenCalled();
+      expect(paneCanvas).not.toHaveBeenCalled();
+      expect(onProgress.mock.calls.map(call => call[0])).toEqual([71, 90]);
+    } finally {
+      map.foliplus = previous;
+    }
+  });
 });
 
 describe("ExportRenderer — marker pass wrappers delegate without throwing", () => {

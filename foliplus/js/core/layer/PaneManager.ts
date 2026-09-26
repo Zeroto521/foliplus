@@ -235,6 +235,25 @@ class PaneManager {
             markerGroups.get(paneEl)!.push(iconEl);
           }
         }
+        // A GridLayer (TileLayer included) paints through its own container
+        // div, which Leaflet appends to `options.pane` once at addLayer.
+        // `options.pane` is read at that single moment, so rewriting it here
+        // (two lines above) does nothing visible; the container has to be
+        // physically moved into the target pane for the layer to take its
+        // place in the z ladder. Paths and markers get moved above; this is
+        // the GridLayer analogue. The `getContainer` guard keeps a stripped
+        // Leaflet mock (no GridLayer implementation) from blowing up the pin.
+        if (
+          l instanceof L.GridLayer &&
+          paneEl &&
+          typeof (l as { getContainer?: () => HTMLElement }).getContainer === "function"
+        ) {
+          const tileContainer = l.getContainer();
+          if (tileContainer && tileContainer.parentNode !== paneEl) {
+            if (!markerGroups.has(paneEl)) markerGroups.set(paneEl, []);
+            markerGroups.get(paneEl)!.push(tileContainer);
+          }
+        }
       };
       collect(layer);
     }
