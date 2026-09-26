@@ -981,7 +981,11 @@ describe("LayerUI style panel", () => {
     // The fixture's default overlay1 layer is a bare group with no setStyle
     // leaves — border needs at least one such leaf (§47.1), so register a
     // real vector for this test.
-    const leaf = { options: { color: "#3388ff", weight: 2 }, setStyle: vi.fn(), on: vi.fn() };
+    const leaf = {
+      options: { color: "#3388ff", weight: 2 },
+      setStyle: vi.fn(),
+      on: vi.fn(),
+    };
     manager.registerLayer({
       id: "border1",
       name: "Border",

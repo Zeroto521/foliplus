@@ -370,8 +370,7 @@ class LayerUI {
     // for border but not for fill, and vice versa, so a reload could restore
     // the drawer's swatch for one dimension while leaving the map with the
     // author's for the other.
-    const layerIds =
-      id !== undefined ? [id] : Object.keys(this.userOverrides);
+    const layerIds = id !== undefined ? [id] : Object.keys(this.userOverrides);
     for (const layerId of layerIds) {
       replayBorderState(this, layerId);
       replayFillState(this, layerId);
