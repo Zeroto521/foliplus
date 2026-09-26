@@ -304,7 +304,11 @@ def check_plural_names(filepath: str) -> list[tuple[int, str]]:
     """Rule 2: report plural-looking file names (basename only)."""
     violations: list[tuple[int, str]] = []
     basename = os.path.basename(filepath)
-    base = basename[:-3] if basename.endswith(".ts") else basename
+    lower_name = basename.lower()
+    if lower_name.endswith(".ts"):
+        base = basename[: -len(".ts")]
+    else:
+        base = basename
     lower = base.lower()
     if lower in PLURAL_WHITELIST:
         return violations
