@@ -3,8 +3,7 @@
   // so its zoom-range write lands on map membership rather than on an onToggle
   // callback. That surface was never excluded by the canvas gate, so this probe
   // pins the row as a regression guard rather than a new capability.
-  const el = document.querySelector(".leaflet-container");
-  const map = (el && window[el.id]) || window.__map || window.map;
+  const map = window.__map;
   const api = map.foliplus.LayerAPI;
   const li = api.layers.find(l => l.id.startsWith("foliplus_measure"));
   if (!li) {

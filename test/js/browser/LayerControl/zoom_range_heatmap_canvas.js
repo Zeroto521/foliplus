@@ -3,8 +3,7 @@
   // zoom-range write lands on the layer's onToggle callback rather than on
   // map membership. This probe drives the row through the same two clicks a
   // user makes, then reads the canvas back to prove the write reached it.
-  const el = document.querySelector(".leaflet-container");
-  const map = (el && window[el.id]) || window.map;
+  const map = window.map;
   const api = map && map.foliplus && map.foliplus.LayerAPI;
   const li = api && api.layers.find(l => l.id.startsWith("foliplus_heatmap"));
   if (!li) {
@@ -48,16 +47,12 @@
   const all = [...panel.querySelectorAll("*")];
   const pos = node => (node ? all.indexOf(node) : -1);
   const headings = [...panel.querySelectorAll(".foliplus-section-heading")];
-  // The zoom-range row is not wrapped in a form-row, so both shapes are
-  // collected and only the outermost of each kept.
+  // The zoom-range row node carries both classes (FORM_ROW + STYLE_ZOOM_RANGE_ROW),
+  // so both shapes are collected to reach it alongside the other rows;
+  // querySelectorAll returns a node only once regardless of how many of the
+  // shapes match it.
   const sels = [".foliplus-form-row", ".foliplus-style-zoom-range-row"];
   const sel = sels.join(", ");
-  const isOuter = n => {
-    for (let a = n.parentElement; a; a = a.parentElement) {
-      if (sels.some(s => a.matches(s))) return false;
-    }
-    return true;
-  };
   const kindOf = n =>
     n.classList.contains("foliplus-style-zoom-range-row")
       ? "zoomRange"
@@ -79,7 +74,7 @@
   const nextHeading = headings.find(h => pos(h) > firstPos);
   const end = nextHeading ? pos(nextHeading) : all.length;
   const controls = [...panel.querySelectorAll(sel)].filter(
-    n => isOuter(n) && pos(n) > firstPos && pos(n) < end,
+    n => pos(n) > firstPos && pos(n) < end,
   );
   // Document-order skeleton, so a mismatch names the shape that produced it.
   const struct = [...panel.querySelectorAll(`${sel}, .foliplus-section-heading`)].map(

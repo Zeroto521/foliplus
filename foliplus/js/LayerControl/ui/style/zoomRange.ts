@@ -11,20 +11,25 @@ import { railPos, round5 } from "./frame.js";
 
 /** Whether the layer's surface can honestly carry a zoom-range write.
  *
- *  Capability is the whole test:
+ *  Two conditions, both required:
  *    - `!layerInfo.isBase` — basemaps carry no range control here.
  *    - `capabilities.zoomRange !== "none"` — MarkerCluster and ImageOverlay
  *      have no honest zoom-range carrier (a row that persists a value the
  *      write cannot apply is a lie that survives reload).
  *
- *  Callback-only canvas layers (heatmap / measure) were excluded here once
- *  (31.4-3): a canvas has no Leaflet layer to add/remove, so a range that
- *  hides it looked like it had no carrier, and capability alone could not
- *  tell "has content panes" from "callback-only canvas" (31.7). That
- *  exclusion is stale — the executor's `visible` op is the carrier for every
- *  surface: map membership for a Leaflet layer, and the layer's `onToggle`
- *  callback for a canvas. So a canvas whose surface declares
- *  `zoomRange: "pane"` really does render, and the write really does land.
+ *  The one callback-only canvas layer (heatmap, registered through
+ *  createCanvas) was excluded here once (31.4-3): a canvas has no Leaflet
+ *  layer to add/remove, so a range that hides it looked like it had no
+ *  carrier, and capability alone could not tell "has content panes" from
+ *  "callback-only canvas" (31.7). That exclusion is stale — the executor's
+ *  `visible` op is the carrier for every surface: map membership for a
+ *  Leaflet layer, and the layer's `onToggle` callback for a canvas. So a
+ *  canvas whose surface declares `zoomRange: "pane"` really does render,
+ *  and the write really does land.
+ *
+ *  MeasureControl is not a canvas at all: it registers through createLayers
+ *  with a real L.layerGroup, so the old `!li.canvas` gate never applied to
+ *  it.
  */
 const canShowZoomRange = (ui: LayerUI, layerId: string): boolean => {
   const li = ui.m.layerRegistry.get(layerId);

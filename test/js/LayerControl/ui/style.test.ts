@@ -1988,6 +1988,44 @@ describe("LayerUI style panel", () => {
     );
   });
 
+  it("gives the Layer section to a delegated layer that publishes only border setters", () => {
+    // A styleSetters layer with neither an opacity carrier nor a zoom-range
+    // carrier: the border row is LayerControl-owned, so the Layer section must
+    // open for it — otherwise it renders orphaned under the label heading.
+    manager.registerLayer({
+      id: "borderOnly",
+      name: "BorderOnly",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: true, borderColor: "#abcdef" }),
+      styleSetters: {
+        labelShow: vi.fn(),
+        borderColor: vi.fn(),
+      },
+    });
+    // Each row answers to its own capability, and `detectCapabilities` never
+    // emits a surface that is opacity-less yet zoom-range-carrying — a canvas
+    // declares `zoomRange: "pane"`, so the sparse case needs both forced off.
+    const li = manager.layerRegistry.get("borderOnly")!;
+    manager.surfaceFor(li).capabilities.opacity = "none";
+    manager.surfaceFor(li).capabilities.zoomRange = "none";
+
+    const item = findItem(ui, "borderOnly");
+    ui.openStylePanel("borderOnly");
+    const panel = panelOf(item)!;
+
+    expect(panel.querySelector(`.${CONST.CLASSES.STYLE_OPACITY_RANGE}`)).toBeNull();
+    expect(panel.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`)).toBeNull();
+    const headings = [...panel.querySelectorAll(".foliplus-section-heading")];
+    expect(headings.map(h => h.textContent)).toEqual([
+      "LayerControl.section_layer",
+      "LayerControl.section_label",
+    ]);
+    const order = [...panel.querySelectorAll("*")];
+    expect(order.indexOf(headings[0])).toBeLessThan(
+      order.indexOf(panel.querySelector("input[type=color]") as Element),
+    );
+  });
+
   it("delegated panel omits the field select even when field setter is present", () => {
     manager.registerLayer({
       id: "heat1",
@@ -3192,7 +3230,9 @@ describe("LayerUI style panel — zoom range", () => {
     const item = findItem(ui, "canvas1");
     ui.openStylePanel("canvas1");
     const row = zoomRowOf(panelOf(item)!)!;
-    const minInput = row.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_MIN}`) as HTMLInputElement;
+    const minInput = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MIN}`,
+    ) as HTMLInputElement;
 
     // The current zoom is 5. Pushing the lower bound past it takes the canvas
     // out of range, and its toggle callback is what hides it.
@@ -3222,7 +3262,9 @@ describe("LayerUI style panel — zoom range", () => {
     const item = findItem(ui, "measure1");
     ui.openStylePanel("measure1");
     const row = zoomRowOf(panelOf(item)!)!;
-    const minInput = row.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_MIN}`) as HTMLInputElement;
+    const minInput = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MIN}`,
+    ) as HTMLInputElement;
 
     minInput.value = "6";
     minInput.dispatchEvent(new Event("input", { bubbles: true }));

@@ -5416,7 +5416,23 @@ class TestLayerControlBrowser:
 
             # The commit half lands in storage behind the write debounce.
             page.wait_for_timeout(300)
-            stored = page.evaluate(_js("LayerControl/read_zoom_range_state"))
+            stored = page.evaluate(
+                """(id) => {
+                    const key = Object.keys(localStorage).find(k =>
+                        k.startsWith("foliplus_layer_state_"));
+                    const record = key
+                        ? JSON.parse(localStorage.getItem(key) || "null")
+                        : null;
+                    const entry = record && record.layers
+                        ? record.layers[id]
+                        : null;
+                    return {
+                        stored: entry ? entry.zoomRange : null,
+                        overrides: entry ? entry.overrides : null,
+                    };
+                }""",
+                result["id"],
+            )
             assert stored["stored"] == result["committed"], (
                 f"the committed range did not reach storage: {stored}"
             )
