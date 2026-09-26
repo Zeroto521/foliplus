@@ -287,9 +287,13 @@ class TestJsonlLog:
         assert record["pages_open"] == 2
         assert record["pages_opened_total"] == 1
         assert isinstance(record["ts"], float)
-        # psutil is optional and platform-dependent: values may be None.
-        for field in ("rss_mb", "handles", "threads", "chromium_procs"):
-            assert record[field] is None or record[field] > 0
+        # psutil is optional, and platform-dependent (no ``num_handles`` on
+        # Linux); magnitudes also depend on the machine — a runner with no
+        # browser open reports ``chromium_procs`` of 0. Types are the
+        # contract, so assert those.
+        assert record["rss_mb"] is None or isinstance(record["rss_mb"], float)
+        for field in ("handles", "threads", "chromium_procs"):
+            assert record[field] is None or isinstance(record[field], int)
 
 
 class TestInertBehavior:
