@@ -9,14 +9,14 @@
   if (items.length < 2) return null;
   // Drive the keyboard cursor onto the next navigable row (the fold row's
   // ArrowDown land on the first data item), the same path the user's arrow
-  // keys trigger. The row the cursor lands on carries .foliplus-layer-focused.
+  // keys trigger. The row the cursor lands on carries .is-focused-row.
   const first = items[0];
   first.focus();
   first.dispatchEvent(
     new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
   );
-  const focused = panel.querySelector(".foliplus-layer-focused");
-  if (!focused) return { error: "no .foliplus-layer-focused row after ArrowDown" };
+  const focused = panel.querySelector(".is-focused-row");
+  if (!focused) return { error: "no .is-focused-row row after ArrowDown" };
   const pick = el => {
     const cs = getComputedStyle(el);
     const drag = el.querySelector(".drag-handle");

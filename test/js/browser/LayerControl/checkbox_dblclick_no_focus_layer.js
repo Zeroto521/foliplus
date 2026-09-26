@@ -14,8 +14,8 @@
   checkbox.click();
 
   return {
-    focusing: row.classList.contains("foliplus-layer-focusing"),
+    focusing: row.classList.contains("is-focusing"),
     mask: Boolean(document.querySelector(".foliplus-focus-mask")),
-    focusActive: Boolean(document.querySelector(".foliplus-focus-active")),
+    focusActive: Boolean(document.querySelector(".is-focus-mode")),
   };
 };
