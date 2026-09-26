@@ -1039,14 +1039,16 @@ describe("LayerUI style panel", () => {
     const rows = Array.from(panel.querySelectorAll(".foliplus-form-row"));
     const index = (sel: string) =>
       rows.findIndex(row => row.matches(sel) || row.querySelector(sel) !== null);
-    const order = [
-      ".foliplus-style-fill-row",
-      ".foliplus-style-border-row",
-      ".foliplus-style-opacity-range",
-      ".foliplus-style-zoom-range-row",
-    ].map(index);
-    expect(order).toEqual(order.slice().sort((a, b) => a - b));
-    expect(order.every(pos => pos >= 0)).toBe(true);
+    const positions = [
+      index(".foliplus-style-fill-row"),
+      index(".foliplus-style-border-row"),
+      index(".foliplus-style-opacity-range"),
+      index(".foliplus-style-zoom-range-row"),
+    ];
+    expect(positions.every(pos => pos >= 0)).toBe(true);
+    expect(positions[0]).toBeLessThan(positions[1]);
+    expect(positions[1]).toBeLessThan(positions[2]);
+    expect(positions[2]).toBeLessThan(positions[3]);
   });
 
   it("never builds the vector border row for a delegated layer — one border row total", () => {

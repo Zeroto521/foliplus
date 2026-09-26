@@ -357,7 +357,9 @@ describe("LayerPersistence", () => {
       // itself says was never chosen, so it is dropped: keeping it would hide a
       // layer the user never touched. An author's declared min_zoom / max_zoom
       // reaches the record the same way — as a value with no provenance — so the
-      // declaration must never masquerade as a user's drag.
+      // declaration must never masquerade as a user's drag. The border axes
+      // ride the same rule: an authored stroke with no provenance must stay a
+      // declaration, never a user choice.
       seedStorage({
         layers: {
           a: { visible: false, overrides: [] },
@@ -365,6 +367,10 @@ describe("LayerPersistence", () => {
           c: { opacity: 0.3 },
           d: { zoomRange: [3, 12], overrides: [] },
           e: { zoomRange: [3, 12] },
+          f: { borderColor: "#ff0000" },
+          g: { borderWeight: 3, overrides: [] },
+          h: { borderColor: "#ff0000", overrides: [] },
+          i: { borderWeight: 3 },
         },
       });
       expect(makePersistence().load().layers).toEqual({});
