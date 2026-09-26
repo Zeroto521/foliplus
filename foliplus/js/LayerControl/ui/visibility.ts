@@ -2,7 +2,6 @@
 import { type Debounced, debounce } from "#common/debounce.js";
 import * as CONST from "../const.js";
 import { applyProjection, applyProjectionAll } from "./apply.js";
-import { showColorLayer } from "./color.js";
 import type { LayerUI } from "./index.js";
 import { applyRowView, buildRowCell, rowChecked } from "./rowView.js";
 import { saveState, syncHiddenId } from "./state.js";
@@ -139,12 +138,6 @@ const applyVisibility = (ui: LayerUI, id: string, visible: boolean): boolean => 
 
 const handleChange = (ui: LayerUI, event: Event) => {
   const target = event.target as HTMLInputElement;
-  if (target.classList.contains(CONST.CLASSES.COLOR_INPUT)) {
-    showColorLayer(ui, target.value);
-    syncToggleAll(ui, CONST.GROUP.BASE);
-    ui.m.enforceOrder();
-    return;
-  }
   if (target.tagName.toLowerCase() !== "input" || target.type !== "checkbox") return;
 
   // The row carries the identity: data-layer-id, not a positional index —a
@@ -156,11 +149,7 @@ const handleChange = (ui: LayerUI, event: Event) => {
   applyVisibility(ui, id, target.checked);
 };
 
-const handleInput = (ui: LayerUI, event: Event) => {
-  if ((event.target as HTMLElement).classList.contains(CONST.CLASSES.COLOR_INPUT)) {
-    showColorLayer(ui, (event.target as HTMLInputElement).value);
-  }
-};
+const handleInput = (_ui: LayerUI, _event: Event) => {};
 
 export {
   getLayerItems,

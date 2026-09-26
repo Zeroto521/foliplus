@@ -325,12 +325,6 @@ const renderColorLayerItem = (ui: LayerUI) => {
   // The input announces the same name as the row's label cell below, so a
   // rename reaches assistive tech on both —not just the visible text.
   const colorName = colorLayerName(ui);
-  const colorInput = dom.el("input", {
-    type: "color",
-    class: CONST.CLASSES.COLOR_INPUT,
-    value: ui.currentColor,
-    "aria-label": colorName,
-  });
 
   // Real checkbox so the colour basemap can be checked / unchecked like
   // every other row.  Toggling it goes through applyVisibility →
@@ -374,9 +368,7 @@ const renderColorLayerItem = (ui: LayerUI) => {
     dom.el("span", { class: CONST.CLASSES.DRAG_CELL }, { html: SVGs.DRAG_HANDLE }),
     dom.el("div", { class: CONST.CLASSES.CHECKBOX }, checkbox),
     dom.el("label", { class: CONST.CLASSES.LAYER_LABEL }, colorLayerName(ui)),
-    // Colour picker temporarily occupies the count column; it will move to
-    // the style panel when the fill feature lands there.
-    dom.el("span", { class: CONST.CLASSES.COUNT_COL }, colorInput),
+    dom.el("span", { class: CONST.CLASSES.COUNT_COL }),
     dom.el("div", { class: CONST.CLASSES.TYPE_ICON_COL, innerHTML: SVGs.COLOR }),
     moreBtn,
   );

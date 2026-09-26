@@ -746,34 +746,6 @@ describe("DOM order diverges from registry order", () => {
     expect(manager.layerRegistry.get("C")?.visible).toBe(false);
   });
 
-  it("handleChange takes the color branch for the basemap input, never a layer id", () => {
-    scrambleDomOrder(ui);
-    const colorInput = ui.uiContainer.querySelector<HTMLInputElement>(
-      `.${CONST.CLASSES.COLOR_INPUT}`,
-    )!;
-    colorInput.value = "#00ff00";
-
-    handleChange(ui, { target: colorInput } as Event);
-
-    expect(ui.currentColor).toBe("#00ff00");
-    // The color row is keyed by its class, so no data-layer-id lookup runs and
-    // the scrambled overlay rows are left untouched.
-    expect(manager.layerRegistry.get("A")?.visible).toBe(true);
-    expect(manager.layerRegistry.get("B")?.visible).toBe(true);
-    expect(manager.layerRegistry.get("C")?.visible).toBe(true);
-  });
-
-  it("handleInput repaints the basemap while the color picker is being used", () => {
-    const colorInput = ui.uiContainer.querySelector<HTMLInputElement>(
-      `.${CONST.CLASSES.COLOR_INPUT}`,
-    )!;
-    colorInput.value = "#0000ff";
-
-    handleInput(ui, { target: colorInput } as Event);
-
-    expect(ui.currentColor).toBe("#0000ff");
-  });
-
   it("toggleAll does not activate the colour layer when the base group is cleared", () => {
     // First-class basemaps: the colour layer is one row like any other, not a
     // stand-in for the absence of a base. Clearing the base group leaves the

@@ -63,7 +63,6 @@ describe("CLASSES", () => {
   });
 
   it("defines color and utility classes", () => {
-    expect(CONST.CLASSES.COLOR_INPUT).toBe("foliplus-color-layer-input");
     expect(CONST.CLASSES.COLOR_ITEM).toBe("foliplus-color-layer-item");
     expect(CONST.CLASSES.FOCUSED).toBe("foliplus-layer-focused");
     // The FOCUS_SUPPRESSED mechanism was removed: Escape is a single class
@@ -85,7 +84,6 @@ describe("SEL", () => {
   it("defines DOM selectors", () => {
     expect(CONST.SEL.LAYER_ITEM).toBe(".foliplus-layer-item");
     expect(CONST.SEL.COLOR_ITEM).toBe(".foliplus-color-layer-item");
-    expect(CONST.SEL.COLOR_INPUT).toBe(".foliplus-color-layer-input");
     expect(CONST.SEL.TOGGLE_ALL).toBe(".foliplus-layer-toggle-all");
     expect(CONST.SEL.COUNT_COL).toBe(".foliplus-layer-count");
     expect(CONST.SEL.ROW).toBe(".foliplus-layer-item, .foliplus-layer-toggle-all");

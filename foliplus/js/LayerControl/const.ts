@@ -65,7 +65,6 @@ const CLASSES = {
   CHECKBOX: "foliplus-checkbox",
   DRAG_CELL: "foliplus-drag-cell",
   GROUP_FOLDED: "foliplus-layer-group-folded",
-  COLOR_INPUT: "foliplus-color-layer-input",
   COLOR_ITEM: "foliplus-color-layer-item",
   LAYER_LABEL: "foliplus-layer-label",
   /** Marks a row that owns the live Row-cursor visual (arrow keyboard cursor
@@ -215,7 +214,6 @@ const ACTION = {
 const SEL = {
   LAYER_ITEM: ".foliplus-layer-item",
   COLOR_ITEM: ".foliplus-color-layer-item",
-  COLOR_INPUT: ".foliplus-color-layer-input",
   TOGGLE_ALL: ".foliplus-layer-toggle-all",
   COUNT_COL: ".foliplus-layer-count",
   /** Any cursor-recipe row (data item or the fold/toggle-all row). Child

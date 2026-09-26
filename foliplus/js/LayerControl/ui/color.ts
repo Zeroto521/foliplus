@@ -12,10 +12,6 @@ const showColorLayer = (ui: LayerUI, color: string) => {
   ui.m.map.getContainer().style.setProperty("--color-layer-bg", color);
   ui.m.map.getContainer().classList.add(CONST.CLASSES.ACTIVE);
 
-  const ci = ui.uiContainer.querySelector(
-    CONST.SEL.COLOR_INPUT,
-  ) as HTMLInputElement | null;
-  if (ci) ci.value = color;
   ui.uiContainer
     .querySelector(CONST.SEL.COLOR_ITEM)
     ?.classList.add(CONST.CLASSES.ACTIVE);
