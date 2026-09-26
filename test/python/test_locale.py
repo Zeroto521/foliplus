@@ -188,7 +188,6 @@ _JS_USED_KEYS = {
     "LayerControl.style_zoom_range_out_of_range",
     "LayerControl.style_fill",
     "LayerControl.style_fill_opacity",
-    "LayerControl.section_heatmap",
     "LayerControl.border",
     "LayerControl.style_border_color",
     "LayerControl.style_border_weight",

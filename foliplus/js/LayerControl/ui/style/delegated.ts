@@ -145,21 +145,25 @@ const renderDelegatedStylePanel = (
   };
 
   // The shared renderer emits controls only, no headings — the panel owns the
-  // section split, and the Layer section (opacity) belongs to LayerControl
-  // rather than to the component that delegates its label style.
-  // Prepend the label heading first so it sits above its controls, then append
-  // the heatmap section below — each heading above its own content.
+  // section split, and the Layer section (border, opacity, zoom range) belongs
+  // to LayerControl rather than to the component that delegates its label
+  // style. Prepend the label heading so it sits above its controls.
   root.prepend(sectionHeading(ui.T("section_label")));
-  if (borderRow) {
-    root.append(sectionHeading(ui.T("section_heatmap")));
-    root.append(borderRow);
-  }
   // Row-level capability gate (5.4): the opacity row only renders when the
   // surface can honestly carry the write. A layer with `opacity: "none"`
   // (MarkerCluster) would otherwise see a slider that writes nothing but
-  // persists the value — a lie that survives reload (6.2).
-  if (layerCanOpacity(ui, layerId) || canShowZoomRange(ui, layerId)) {
+  // persists the value — a lie that survives reload (6.2). The border row is
+  // LayerControl-owned too (its setter lives on styleSetters, not the layer's
+  // setStyle), so a third-party layer that publishes only border setters and
+  // cannot carry opacity or zoom range still owns the Layer section — otherwise
+  // the border row would render orphaned under the label heading.
+  if (
+    layerCanOpacity(ui, layerId) ||
+    canShowZoomRange(ui, layerId) ||
+    !!borderRow
+  ) {
     root.append(sectionHeading(ui.T("section_layer")));
+    if (borderRow) root.append(borderRow);
     if (layerCanOpacity(ui, layerId)) root.append(buildOpacityRow(ui, layerId));
     if (canShowZoomRange(ui, layerId)) root.append(buildZoomRangeRow(ui, layerId));
   }

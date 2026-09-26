@@ -2574,7 +2574,7 @@ describe("LayerUI style panel", () => {
     expect(formatSelect.value).toBe("auto");
   });
 
-  it("delegated panel renders a border section with color and weight inputs when both setters exist", () => {
+  it("delegated panel renders the border row under the Layer section when both setters exist", () => {
     const borderColorSetter = vi.fn();
     const borderWeightSetter = vi.fn();
     manager.registerLayer({
@@ -2607,6 +2607,56 @@ describe("LayerUI style panel", () => {
     expect(weightInput.min).toBe("0");
     expect(weightInput.max).toBe("10");
     expect(weightInput.step).toBe("0.5");
+    // Border is a Layer dimension, not a component-specific one — the row
+    // sits under the Layer heading, not under a separate "component name"
+    // heading that would just repeat the drawer's own layer name.
+    const headings = [...panel.querySelectorAll(".foliplus-section-heading")];
+    expect(headings.map(h => h.textContent)).toEqual([
+      "LayerControl.section_label",
+      "LayerControl.section_layer",
+    ]);
+    const order = [...panel.querySelectorAll("*")];
+    expect(order.indexOf(headings[1])).toBeLessThan(
+      order.indexOf(colorInput as unknown as Element),
+    );
+  });
+
+  it("gives the Layer section to a delegated layer that publishes only border setters", () => {
+    // Third-party styleSetters layer with neither an opacity carrier nor a
+    // zoom-range carrier: a border-only row would otherwise render orphaned
+    // under the label heading. The border row is LayerControl-owned here (its
+    // setter is on styleSetters, not the layer's setStyle), so the Layer
+    // section must open for it.
+    manager.registerLayer({
+      id: "borderOnly",
+      name: "BorderOnly",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: true, borderColor: "#abcdef" }),
+      styleSetters: {
+        labelShow: vi.fn(),
+        borderColor: vi.fn(),
+      },
+    });
+    const li = manager.layerRegistry.get("borderOnly")!;
+    manager.surfaceFor(li).capabilities.opacity = "none";
+
+    const item = findItem(ui, "borderOnly");
+    ui.openStylePanel("borderOnly");
+    const panel = panelOf(item)!;
+
+    expect(panel.querySelector(`.${CONST.CLASSES.STYLE_OPACITY_RANGE}`)).toBeNull();
+    expect(
+      panel.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`),
+    ).toBeNull();
+    const headings = [...panel.querySelectorAll(".foliplus-section-heading")];
+    expect(headings.map(h => h.textContent)).toEqual([
+      "LayerControl.section_label",
+      "LayerControl.section_layer",
+    ]);
+    const order = [...panel.querySelectorAll("*")];
+    expect(order.indexOf(headings[1])).toBeLessThan(
+      order.indexOf(panel.querySelector("input[type=color]") as Element),
+    );
   });
 
   it("delegated border color input dispatches to styleSetters.borderColor on input", () => {
