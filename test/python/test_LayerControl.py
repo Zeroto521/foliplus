@@ -32,7 +32,7 @@ def _rule(css: str, tail: str) -> str:
     """Body of the first rule whose selector ends with *tail*.
 
     Used to check one declaration without matching the same property in a
-    neighbouring rule (e.g. `margin-top` in the track rule but not the thumb's).
+    neighboring rule (e.g. `margin-top` in the track rule but not the thumb's).
     """
     start = css.index(tail)
     return css[start : css.index("}", start)]
@@ -437,7 +437,7 @@ class TestLayerControlRendering:
         red. White paints whenever the row is the interaction target (hover /
         Tab / arrow); a checked row shows its .active wash only at rest.
         :focus-visible is deliberately NOT a CSS trigger — Tab focus is mapped
-        onto the class by the focusin delegate. Only colour changes; the type
+        onto the class by the focusin delegate. Only color changes; the type
         icon must NOT scale."""
         html = render_control(LayerControl())
         css = read_css("foliplus/css/LayerControl/index.css")
@@ -765,7 +765,7 @@ class TestLayerControlRendering:
         the rail, the accent fill, the readout dots, the handles and the values
         row. Keeping the geometry here is what makes the two rails impossible to
         drift — they had already grown different rail heights, different handle
-        sizes, a handle sitting four px off centre, and an out-of-range state
+        sizes, a handle sitting four px off center, and an out-of-range state
         whose rules could not match.
         """
         css = read_css("foliplus/css/common/slider.css")
@@ -848,7 +848,7 @@ class TestLayerControlRendering:
     def test_zoom_range_row_css(self):
         """The row adds no styling of its own.
 
-        Coverage is a readout, not a recolouring: the dots' rings carry it (grey
+        Coverage is a readout, not a recoloring: the dots' rings carry it (gray
         where the range does not reach), so the rail stays accent and the text
         stays ink whatever the map's zoom is. The row keeps its hook class and
         the tooltip, nothing else.
@@ -1635,7 +1635,7 @@ class TestLayerControlBrowser:
             assert not errors, f"JS errors: {errors}"
 
     def test_annotation_each_layer_own_pane_ordered_by_layer(self, browser, tmp_path):
-        """Each labelled layer gets its own canvas pane, z-ordered with its layer.
+        """Each labeled layer gets its own canvas pane, z-ordered with its layer.
 
         The pane goes through ``PaneManager.ensurePane`` (the single entry
         point for owned panes), so it carries the base ``foliplus-layer-pane``
@@ -1646,7 +1646,7 @@ class TestLayerControlBrowser:
             panel_ready(page)
             result = page.evaluate(_js("LayerControl/annotation_multi_layer"))
             assert result is not None and result["canvas"] is True, result
-            # One pane + one canvas per labelled layer — not a shared canvas.
+            # One pane + one canvas per labeled layer — not a shared canvas.
             assert result["canvasCount"] == 2, result
             assert result["opaqueA"] > 0, result
             assert result["opaqueB"] > 0, result
@@ -1692,7 +1692,7 @@ class TestLayerControlBrowser:
         After the ordering pass every overlay layer — a plain folium one
         included — owns a pane and has its content migrated into it, so the
         opacity is a single style write instead of a sweep over the features.
-        The neighbour is the control: it is a different layer in a different
+        The neighbor is the control: it is a different layer in a different
         pane and must be untouched.
         """
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
@@ -1710,7 +1710,7 @@ class TestLayerControlBrowser:
             # ...and the features keep their own style (no per-feature sweep).
             assert result["plainLeafOpacity"], result
             assert all(v == 1 for v in result["plainLeafOpacity"]), result
-            # The neighbour is a different layer in a different pane.
+            # The neighbor is a different layer in a different pane.
             assert result["plainNeighbourSamePane"] is False, result
             assert result["plainNeighbourPaneOpacity"] in ("", "1"), result
             assert result["plainNeighbourLeafOpacity"], result
@@ -1731,13 +1731,13 @@ class TestLayerControlBrowser:
 
             # Case D: annotation pane follows the layer's opacity. The geometry
             # pane and the annotation pane must both carry the opacity. A
-            # neighbour layer's annotation pane is unaffected (per-layer pane,
+            # neighbor layer's annotation pane is unaffected (per-layer pane,
             # not shared).
             assert result["annotationPaneExists"] is True, result
             assert result["annotatedGeoPaneOpacity"] == "0", result
             assert result["annotatedAnnotationPaneOpacity"] == "0", result
-            assert result["neighbourAnnotationPaneExists"] is True, result
-            assert result["neighbourAnnotationPaneOpacity"] in ("", "1"), result
+            assert result["neighborAnnotationPaneExists"] is True, result
+            assert result["neighborAnnotationPaneOpacity"] in ("", "1"), result
             assert not errors, f"JS errors: {errors}"
 
     def test_unregister_layer_in_browser(self, browser, tmp_path):
@@ -4319,7 +4319,7 @@ class TestLayerControlBrowser:
         keyboard pipeline: the key is pressed with ``page.keyboard`` after a
         real focus, and a capture listener reports the browser's final
         ``defaultPrevented``. Both halves of the gate are measured — the native
-        behaviour actually happened, and foliplus did not cancel the key to
+        behavior actually happened, and foliplus did not cancel the key to
         take it over. Synthetic ``dispatchEvent`` cannot prove either.
         """
         overlay = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
@@ -4949,7 +4949,7 @@ class TestLayerControlBrowser:
         overlay's z-index is confined to the owner's stacking context
         whenever the owner is hovered), so no lit sibling can paint over it.
         Probes both the ⋮ menu and the attrs panel: hovering a sibling
-        LIGHTS it, and the point at the overlay's centre still resolves to
+        LIGHTS it, and the point at the overlay's center still resolves to
         the overlay itself."""
         layers = [
             folium.FeatureGroup(name=f"Overlay {i}", overlay=True, show=True)
@@ -4981,7 +4981,7 @@ class TestLayerControlBrowser:
                 )
 
             def overlay_topmost(sel):
-                # The point at the overlay's centre must resolve to the overlay
+                # The point at the overlay's center must resolve to the overlay
                 # itself — a lit sibling would otherwise paint over it.
                 return page.evaluate(
                     "sel => { const el = document.querySelector(sel);"
@@ -5099,16 +5099,16 @@ class TestLayerControlBrowser:
             assert result["rowOor"] is True, f"row not marked out-of-range: {result}"
             assert result["rowTitle"], "row tooltip missing when out of range"
             assert result["markerLabelText"], "current-zoom label missing from marker"
-            # Out of range is a readout on the dots' rings, not a recolouring:
+            # Out of range is a readout on the dots' rings, not a recoloring:
             # the rail keeps its accent fill and the text stays ink, so nothing
-            # about "the layer is hidden at this zoom" is carried by colour on
+            # about "the layer is hidden at this zoom" is carried by color on
             # the numbers the user reads.
             assert result["fillComputedBg"] != self._sample_token(
                 page, "--neutral-500"
-            ), "out of range must not grey the selection"
+            ), "out of range must not gray the selection"
             assert result["currentValueColor"] == self._sample_token(
                 page, "--text-primary"
-            ), "out of range must not recolour the current level"
+            ), "out of range must not recolor the current level"
             assert result["markerRing"] == self._sample_token(page, "--neutral-500"), (
                 "out of range, the current dot must read as uncovered"
             )
@@ -5335,7 +5335,7 @@ class TestLayerControlBrowser:
     #
     # Each of these three scrambles the registry or the panel so the two
     # orders disagree, then asserts the mutation landed on the row named by
-    # the layer's id. A positional lookup would have hit a neighbour.
+    # the layer's id. A positional lookup would have hit a neighbor.
 
     def test_initlayeritem_updates_only_the_id_match_row(self, browser, tmp_path):
         """initLayerItem stamps the row named by data-layer-id, not the one at
@@ -5353,11 +5353,11 @@ class TestLayerControlBrowser:
             assert state["alphaRegistryIndex"] != state["alphaDomIndex"]
             # initLayerItem wrote alpha's name into alpha's own checkbox.
             assert state["labels"]["alpha"] == "A"
-            # ...and left the neighbours' checkboxes alone. An index-based
+            # ...and left the neighbors' checkboxes alone. An index-based
             # lookup would have stamped "A" onto whoever sat at alpha's
             # registry index.
             assert state["labels"]["beta"] == "B", (
-                "a neighbour's row was rewritten with alpha's name "
+                "a neighbor's row was rewritten with alpha's name "
                 f"({state['staleIndexWouldHaveHit']!r}) — row resolved by index"
             )
             assert state["labels"]["gamma"] == "C"
@@ -5412,7 +5412,7 @@ class TestLayerControlBrowser:
             # Whoever sat at alpha's registry index must keep their own name;
             # an index-based lookup would have written the rename there.
             assert state["labels"]["beta"] == "B", (
-                "a neighbour's row was rewritten with alpha's name "
+                "a neighbor's row was rewritten with alpha's name "
                 f"({state['staleIndexWouldHaveHit']!r}) — row resolved by index"
             )
             assert state["labels"]["gamma"] == "C"

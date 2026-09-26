@@ -331,7 +331,7 @@ describe("planVisible — grid edges", () => {
   });
 
   it("states its precondition: a zero-width box degenerates the rule", () => {
-    // Not a behaviour to preserve — the contract. The grid's equivalence rests
+    // Not a behavior to preserve — the contract. The grid's equivalence rests
     // on "hidden ⇒ the boxes share a cell", which needs a strictly positive
     // threshold; at a zero width the criterion collapses to `hOverlap >= 0`,
     // which even a separated pair satisfies. Both callers pass real widths.

@@ -5,7 +5,7 @@
   // each edge) and its red pixels are a stable discriminator in the export:
   // a canvas layer that is excluded from the export (a regression on the
   // `.foliplus-canvas-layer` "content, not decoration" contract) produces
-  // zero red pixels, and the red is unambiguous against the OSM grey
+  // zero red pixels, and the red is unambiguous against the OSM gray
   // palette.
   //
   // Draw AFTER register: createCanvas calls resize() which sets the backing

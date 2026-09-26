@@ -218,7 +218,7 @@ const onPointerDown = function (this: ExportManager, event: PointerEvent) {
 
   // Claim the press. This must come after the target check: the handler also
   // runs for presses on the map outside the box, and preventing those would
-  // swallow native behaviour (map drag, tile click, focus move) for every
+  // swallow native behavior (map drag, tile click, focus move) for every
   // pointerdown on the page while a crop box is open.
   //
   // stopImmediatePropagation, not stopPropagation: the pointerdown wrapper in

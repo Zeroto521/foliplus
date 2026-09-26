@@ -1,4 +1,4 @@
-"""Browser checks for .foliplus-hint width behaviour.
+"""Browser checks for .foliplus-hint width behavior.
 
 The hint is the one common block rendered directly on the map rather than inside
 a control container, so nothing constrains its width. ``max-width:

@@ -142,7 +142,7 @@
 
   // ── Case D: annotation pane follows the layer's opacity ─────────────
   // A data layer with labels on: the geometry pane and the annotation pane
-  // must both carry the opacity. A neighbour layer's annotation pane is
+  // must both carry the opacity. A neighbor layer's annotation pane is
   // unaffected (per-layer pane, not shared).
   const annotatedGeo = L.geoJson({
     type: "FeatureCollection",
@@ -165,13 +165,13 @@
     ],
   });
   api.registerLayer({ id: "op_annotated", name: "Annotated", layer: annotatedGeo });
-  // A neighbour layer with its own annotation, so we can assert isolation.
-  const neighbourGeo = L.geoJson({
+  // A neighbor layer with its own annotation, so we can assert isolation.
+  const neighborGeo = L.geoJson({
     type: "FeatureCollection",
     features: [
       {
         type: "Feature",
-        properties: { name: "neighbour", value: 1 },
+        properties: { name: "neighbor", value: 1 },
         geometry: {
           type: "Polygon",
           coordinates: [
@@ -189,7 +189,7 @@
   api.registerLayer({
     id: "op_annotated_nb",
     name: "AnnotatedNb",
-    layer: neighbourGeo,
+    layer: neighborGeo,
   });
   ctrl.m.enforceOrder();
 
@@ -207,7 +207,7 @@
 
   const annotatedGeoPane = paneOf(annotatedGeo);
   const annotationPane = map.getPane("foliplus-annotation-op_annotated");
-  const neighbourAnnotationPane = map.getPane("foliplus-annotation-op_annotated_nb");
+  const neighborAnnotationPane = map.getPane("foliplus-annotation-op_annotated_nb");
 
   // Set opacity to 0.
   ui.openStylePanel("op_annotated");
@@ -229,7 +229,7 @@
     plainOpened,
     plainRegistryOpacity: plainLi ? plainLi.opacity : null,
     plainLeafOpacity: leafOpacity(plain),
-    // Its neighbour is a different layer in a different pane, untouched.
+    // Its neighbor is a different layer in a different pane, untouched.
     plainNeighbourSamePane: plainNeighbourPane === plainPane,
     plainNeighbourPaneOpacity: plainNeighbourPane
       ? plainNeighbourPane.style.opacity
@@ -258,16 +258,16 @@
     hollowPaneAfter,
     hollowFillOpacity,
     // Case D: annotation pane follows the layer's opacity. The geometry pane
-    // and the annotation pane must both carry the opacity. A neighbour layer's
+    // and the annotation pane must both carry the opacity. A neighbor layer's
     // annotation pane is unaffected (per-layer pane, not shared).
     annotatedGeoPaneOpacity: annotatedGeoPane ? annotatedGeoPane.style.opacity : null,
     annotatedAnnotationPaneOpacity: annotationPane
       ? annotationPane.style.opacity
       : null,
-    neighbourAnnotationPaneOpacity: neighbourAnnotationPane
-      ? neighbourAnnotationPane.style.opacity
+    neighborAnnotationPaneOpacity: neighborAnnotationPane
+      ? neighborAnnotationPane.style.opacity
       : null,
     annotationPaneExists: !!annotationPane,
-    neighbourAnnotationPaneExists: !!neighbourAnnotationPane,
+    neighborAnnotationPaneExists: !!neighborAnnotationPane,
   };
 };

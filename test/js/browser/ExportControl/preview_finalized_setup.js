@@ -41,7 +41,7 @@
 
   // --- Compute window rectangles in export-canvas pixel coords ---
   // Export canvas: 1280x720. Crop box: CSS (320,240) to (960,600).
-  // CSS y=420 (centre) → canvas y = 2*(420-240) = 360.
+  // CSS y=420 (center) → canvas y = 2*(420-240) = 360.
   // CSS x = 320 + f*640 → canvas x = 2*f*640 = 1280*f.
   //
   // Left window (finalized): f=0.30 → canvas x=384, y=360

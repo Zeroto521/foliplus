@@ -1,7 +1,7 @@
 // Row lookup: updateLayerItem must resolve the row by data-layer-id, not by the
 // layer's registry index.
 //
-// Reorder the registry so a neighbour sits at alpha's registry index, then
+// Reorder the registry so a neighbor sits at alpha's registry index, then
 // rename alpha in place. An index-based lookup would have written the new name
 // into whoever is at that position.
 () => {

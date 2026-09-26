@@ -48,9 +48,9 @@
   &:hover {
     background: var(--accent-light);
 
-    /* Opt out of the shared item hover colour (common.css paints dropdown-item
+    /* Opt out of the shared item hover color (common.css paints dropdown-item
        text --accent-primary): a search result is a record, not an action, so the
-       text keeps its normal colour and only the identity icon wakes. */
+       text keeps its normal color and only the identity icon wakes. */
     color: var(--text-primary);
 
     .foliplus-search-result-icon {

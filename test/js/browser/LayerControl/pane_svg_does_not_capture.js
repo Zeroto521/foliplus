@@ -14,7 +14,7 @@
 
   const PANE = "__pane_svg_capture__";
   // GeoJSON coordinates are [longitude, latitude]. Small box around the map
-  // centre ([26.08, 119.30]) so the container's far corner stays free.
+  // center ([26.08, 119.30]) so the container's far corner stays free.
   const geo = {
     type: "FeatureCollection",
     features: [
@@ -67,7 +67,7 @@
 
   const rect = window.map.getContainer().getBoundingClientRect();
 
-  // On the geometry: the path's own painted centre.
+  // On the geometry: the path's own painted center.
   const bb = path.getBBox();
   const pt = svg.createSVGPoint();
   pt.x = bb.x + bb.width / 2;

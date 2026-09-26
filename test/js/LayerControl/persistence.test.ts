@@ -402,7 +402,7 @@ describe("LayerPersistence", () => {
       });
     });
 
-    it("restores a border colour and width with their provenance", () => {
+    it("restores a border color and width with their provenance", () => {
       // The border dimensions ride the same value-plus-provenance rule as the
       // rest: a stored stroke without an override is an author default, and
       // reading it back as a user choice would repaint a layer nobody touched.
@@ -428,7 +428,7 @@ describe("LayerPersistence", () => {
       });
     });
 
-    it("keeps the fill colour and opacity the user set, with provenance", () => {
+    it("keeps the fill color and opacity the user set, with provenance", () => {
       seedStorage({
         layers: {
           a: { fillColor: "#ff0000", overrides: ["fillColor"] },
@@ -481,7 +481,7 @@ describe("LayerPersistence", () => {
       });
     });
 
-    it("drops fill colours that are not #rgb or #rrggbb hex", () => {
+    it("drops fill colors that are not #rgb or #rrggbb hex", () => {
       seedStorage({
         layers: {
           a: { fillColor: "red", overrides: ["fillColor"] },

@@ -113,7 +113,7 @@ const isUrlRef = (v: string): boolean =>
  *  Parsing must be `image/svg+xml`, not `text/html`: the SVG namespace is
  *  what makes `<foreignObject>`/HTML breakout inert, and it keeps attribute
  *  case intact. A `text/html` parse silently moves SVG markup into the HTML
- *  namespace, which both defeats the namespace check and normalises
+ *  namespace, which both defeats the namespace check and normalizes
  *  `viewBox` to `viewbox`. */
 const parseSVG = (html: string): string => {
   if (!html) return "";
@@ -173,7 +173,7 @@ const isAllowedAttr = (
   if (lower.startsWith("on")) return false;
   // A namespace declaration is metadata, not content. Keeping it is a
   // no-op for safety — script inertness comes from the tag blacklist — and a
-  // no-op for behaviour: without it the browser still puts the children back
+  // no-op for behavior: without it the browser still puts the children back
   // in the SVG namespace and `class="foliplus-spin"` still matches. It is kept
   // only so an incoming declaration survives verbatim. No scheme.
   if (isNamespaceDecl) return !isUrlValue(value);

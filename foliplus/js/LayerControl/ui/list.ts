@@ -148,7 +148,7 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
     // The row lands where the registry put the layer, not at the group's top: a
     // late registration replayed onto a stored slot must sit at that depth in
     // the panel too, so the panel's visual order matches the drawn z-order.
-    // The neighbour above is used rather than the one below so the last row of
+    // The neighbor above is used rather than the one below so the last row of
     // a group has something to anchor on at all.
     const above = idx > 0 ? ui.m.layers[idx - 1] : null;
     const anchor =
@@ -347,7 +347,7 @@ const initLayerItem = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
   // Resolve the row by data-layer-id: a late registration lands where its
   // stored slot puts it, so the DOM order can diverge from the registry —an
   // index-based lookup would write the checkbox and type column into a
-  // neighbour's row.
+  // neighbor's row.
   const item = ui.uiContainer.querySelector(
     `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerInfo.id)}"]`,
   ) as HTMLElement | null;

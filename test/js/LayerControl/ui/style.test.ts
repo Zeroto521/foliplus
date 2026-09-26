@@ -413,7 +413,7 @@ describe("LayerUI style panel", () => {
     expect(collide.checked).toBe(false);
   });
 
-  it("normalises non-string persisted values instead of trusting storage", () => {
+  it("normalizes non-string persisted values instead of trusting storage", () => {
     // localStorage is writable by anything on the page, so a field or format of
     // the wrong shape must not reach the config as-is.
     ui.labelConfigs = { overlay1: { show: true, field: 42, format: 7 } };
@@ -491,7 +491,7 @@ describe("LayerUI style panel", () => {
 
   it("reveals the body when switched on, leaving the picker on Auto", () => {
     // The picker's Auto entry is not a placeholder: switching the toggle on
-    // leaves the field unresolved on purpose, so the layer keeps labelling
+    // leaves the field unresolved on purpose, so the layer keeps labeling
     // itself if its columns change. The auto rule itself (first numeric, else
     // first) is asserted in core/labelField.test.ts and below for the format row.
     ui.fieldCache.set("overlay1", [
@@ -3484,7 +3484,7 @@ describe("LayerUI style panel — zoom range", () => {
     });
     // `detectCapabilities` never returns an opacity-less surface that can still
     // carry a zoom range, so the two gates' independence is pinned by hand: each
-    // row answers to its own capability, never to its neighbour's.
+    // row answers to its own capability, never to its neighbor's.
     const li = manager.layerRegistry.get("rangeOnly")!;
     manager.surfaceFor(li).capabilities.opacity = "none";
 

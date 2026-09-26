@@ -937,7 +937,7 @@ describe("LayerManager", () => {
       expect(m.layers.map(l => l.id)).toEqual(["B", "A", "H"]);
     });
 
-    it("skips a saved neighbour that has not registered yet", () => {
+    it("skips a saved neighbor that has not registered yet", () => {
       // G sits between X and Y in the stored order but is not registered, so it
       // cannot be located. The walk keeps going past the gap instead of stopping
       // there and leaving X where prepend put it.
@@ -949,10 +949,10 @@ describe("LayerManager", () => {
       expect(m.layers.map(l => l.id)).toEqual(["X", "Y"]);
     });
 
-    it("re-applies the stored order to a layer that drifted below its neighbour", () => {
+    it("re-applies the stored order to a layer that drifted below its neighbor", () => {
       // The drag moved A under B without a flush landing yet. A is now below its
-      // own saved neighbour, which is the case where the target index is not the
-      // neighbour's shifted-down index.
+      // own saved neighbor, which is the case where the target index is not the
+      // neighbor's shifted-down index.
       seedStorage({ order: ["A", "B"] });
       const m = new LayerManager(map, [
         { id: "A", name: "A", isBase: false },

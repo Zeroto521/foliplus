@@ -99,7 +99,7 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   const showChecked = !!cfg.show;
   // The picker's "Auto" entry means "let foliplus choose", and the config
   // records it as the shared sentinel rather than a resolved name — so the layer
-  // keeps labelling itself when its columns change. `resolveSelectedField`
+  // keeps labeling itself when its columns change. `resolveSelectedField`
   // (core/labelField) is what turns the select's value back into a field.
   const selectedField = cfg.field;
 
@@ -485,7 +485,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       const show = t.checked;
       // Reveal / collapse the body under the toggle. No field is written here:
       // leaving it at the auto sentinel is what makes the picker read "Auto" and
-      // what lets the layer keep labelling itself if its columns change.
+      // what lets the layer keep labeling itself if its columns change.
       const body = panel.querySelector(
         `.${CONST.CLASSES.STYLE_BODY}`,
       ) as HTMLElement | null;

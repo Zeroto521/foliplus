@@ -130,7 +130,7 @@ describe("AnnotationManager — formatting and fields", () => {
     expect(mgr.formatValue("abc", "percent", "en")).toBe("abc");
   });
 
-  it("resolves a point anchor, a bounds centre, or null", () => {
+  it("resolves a point anchor, a bounds center, or null", () => {
     expect(
       mgr.resolveAnchor({
         getLatLng: () => ({ lat: 40, lng: -74 }),
@@ -320,7 +320,7 @@ describe("AnnotationManager — render & plan", () => {
 
     expect(labels).toHaveLength(1);
     expect(labels[0]!.text).toBe("1.2K");
-    // One pane + one canvas per labelled layer — that is what puts each layer's
+    // One pane + one canvas per labeled layer — that is what puts each layer's
     // labels at its own place in the stack.
     expect(Object.keys(panes).sort()).toEqual([
       "foliplus-annotation-a",
