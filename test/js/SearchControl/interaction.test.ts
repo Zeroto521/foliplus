@@ -7,7 +7,7 @@ import { ensureModes } from "#foliplus/core/mode.js";
 
 function makeCtrl(): any {
   const ctrlDiv = document.createElement("div");
-  ctrlDiv.className = "foliplus-search is-collapsed";
+  ctrlDiv.className = "foliplus-search foliplus-is-collapsed";
   const toggleBtn = document.createElement("button");
   const clearBtn = document.createElement("button");
   const inp = document.createElement("input");
@@ -86,31 +86,31 @@ describe("bindEvents", () => {
     const ctrl = makeCtrl();
     bindEvents(ctrl);
     ctrl.toggleBtn.click();
-    expect(ctrl.ctrl.classList.contains("is-expanded")).toBe(true);
+    expect(ctrl.ctrl.classList.contains("foliplus-is-expanded")).toBe(true);
     ctrl.toggleBtn.click();
-    expect(ctrl.ctrl.classList.contains("is-collapsed")).toBe(true);
+    expect(ctrl.ctrl.classList.contains("foliplus-is-collapsed")).toBe(true);
   });
 
   it("collapses and hides hint on Escape", () => {
     const ctrl = makeCtrl();
-    ctrl.ctrl.classList.add("is-expanded");
+    ctrl.ctrl.classList.add("foliplus-is-expanded");
     bindEvents(ctrl);
     ctrl.inp.dispatchEvent(
       new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
     );
-    expect(ctrl.ctrl.classList.contains("is-collapsed")).toBe(true);
+    expect(ctrl.ctrl.classList.contains("foliplus-is-collapsed")).toBe(true);
     expect(window.map.foliplus.hideHint).toHaveBeenCalledWith("SearchControl");
   });
 
   it("removes floating panel when container is collapsed", async () => {
     const ctrl = makeCtrl();
-    ctrl.ctrl.classList.add("is-expanded");
+    ctrl.ctrl.classList.add("foliplus-is-expanded");
     ctrl.panelWrap = document.createElement("div");
     document.body.appendChild(ctrl.panelWrap);
     bindEvents(ctrl);
     // Simulate collapse via outside click (class toggle without calling onCollapse)
-    ctrl.ctrl.classList.remove("is-expanded");
-    ctrl.ctrl.classList.add("is-collapsed");
+    ctrl.ctrl.classList.remove("foliplus-is-expanded");
+    ctrl.ctrl.classList.add("foliplus-is-collapsed");
     // MutationObserver fires asynchronously; flush microtasks
     await new Promise(r => setTimeout(r, 0));
     expect(ctrl.panelWrap).toBeNull();
@@ -118,8 +118,8 @@ describe("bindEvents", () => {
 
   it("does not remove the panel on unrelated class changes while expanded", async () => {
     const ctrl = makeCtrl();
-    ctrl.ctrl.classList.remove("is-collapsed");
-    ctrl.ctrl.classList.add("is-expanded");
+    ctrl.ctrl.classList.remove("foliplus-is-collapsed");
+    ctrl.ctrl.classList.add("foliplus-is-expanded");
     ctrl.panelWrap = dom.el("div");
     bindEvents(ctrl);
     // A class change while expanded must not trigger removePanel.
@@ -294,7 +294,7 @@ describe("bindEvents", () => {
 
   it("Escape with open suggestions removes suggestions", () => {
     const ctrl = makeCtrl();
-    ctrl.ctrl.classList.add("is-expanded");
+    ctrl.ctrl.classList.add("foliplus-is-expanded");
     ctrl.panelWrap = dom.el(
       "div",
       null,

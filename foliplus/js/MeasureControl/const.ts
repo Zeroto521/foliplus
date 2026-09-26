@@ -92,11 +92,11 @@ const CLASSES = {
   NODE_SOLID: "foliplus-measure-node foliplus-measure-node-solid",
   RIPPLE: "foliplus-measure-ripple",
   DASH_SWEEP: "foliplus-measure-dash-sweep",
-  ACTIVE: "is-active",
+  ACTIVE: "foliplus-is-active",
   MEASURING: "foliplus-measuring",
   EDITING: "foliplus-measure-editing",
-  COLLAPSED: "is-collapsed",
-  EXPANDED: "is-expanded",
+  COLLAPSED: "foliplus-is-collapsed",
+  EXPANDED: "foliplus-is-expanded",
 };
 
 /** Style property names. */

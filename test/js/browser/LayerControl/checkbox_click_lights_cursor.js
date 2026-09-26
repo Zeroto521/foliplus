@@ -12,7 +12,7 @@
   if (!checkbox || !otherBox) return null;
 
   const lit = el => ({
-    focusedClass: el.classList.contains("is-focused-row"),
+    focusedClass: el.classList.contains("foliplus-is-focused-row"),
     glow: getComputedStyle(el).boxShadow !== "none",
   });
 
@@ -29,7 +29,7 @@
   const handedOver = {
     first: lit(row),
     second: lit(other),
-    anyClass: Boolean(panel.querySelector(".is-focused-row")),
+    anyClass: Boolean(panel.querySelector(".foliplus-is-focused-row")),
   };
 
   return { afterClick, afterAgain, handedOver };

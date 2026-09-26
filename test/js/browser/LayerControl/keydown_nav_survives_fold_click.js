@@ -8,7 +8,7 @@
   );
   if (items.length < 2) return null;
 
-  const focusedRow = () => panel.querySelector(".is-focused-row");
+  const focusedRow = () => panel.querySelector(".foliplus-is-focused-row");
 
   const focusedKey = () => {
     const row = focusedRow();
@@ -68,7 +68,7 @@
 
   // Enter must still toggle the row the cursor is now on — read that row's own
   // checkbox rather than assuming a fixed group.
-  const cursorRow = panel.querySelector(".is-focused-row");
+  const cursorRow = panel.querySelector(".foliplus-is-focused-row");
   const cb = cursorRow?.querySelector('input[type="checkbox"]') ?? null;
   const beforeChecked = cb ? cb.checked : null;
   keydown("Enter");

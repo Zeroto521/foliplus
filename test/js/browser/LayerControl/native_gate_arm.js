@@ -54,7 +54,7 @@
   // Baseline cursor state before the press. Read before any focus move in this
   // probe: a later `focus()` on a row descendant legally re-homes the cursor,
   // so a post-press read alone cannot say who moved it.
-  const rowFocused = !!document.querySelector(".is-focused-row");
+  const rowFocused = !!document.querySelector(".foliplus-is-focused-row");
   return {
     sliderBefore: Number(slider.value),
     sliderStep: Number(slider.step),
