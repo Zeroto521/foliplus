@@ -354,7 +354,15 @@ class LayerSurface implements LayerSurfaceContract {
    *  decides whether to offer focus from that flag), and the pane name is
    *  compared as the surface normalized it, so a rejected name does not read
    *  as "changed" on every pass. `color` and `getBounds` are both compared as
-   *  presence, never as value or reference — see the fields. */
+   *  presence, never as value or reference — see the fields.
+   *
+   *  `getBounds` is compared by presence (`!= null`), not reference — callers
+   *  hand a fresh arrow on every register, and a different arrow for the same
+   *  shape is not a different face. A layer with a native `getBounds` always
+   *  has `capabilities.bounds: true` regardless of the provider field, so the
+   *  OR in `detectCapabilities` reduces to the provider alone for layers that
+   *  lack the method — adding or removing it changes the capability and must
+   *  trigger a rebuild. */
   matches(opts: SurfaceFaceOpts): boolean {
     const specs = opts.paneSpecs ?? [];
     // `role` and `order` are part of the declaration, not decoration: a spec

@@ -12,7 +12,7 @@
   lastItem.dispatchEvent(
     new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }),
   );
-  const activeItem = panel.querySelector(".foliplus-layer-focused");
+  const activeItem = panel.querySelector(".is-focused-row");
   const focusedId = activeItem
     ? activeItem.getAttribute("data-layer-id") || activeItem.getAttribute("data-group")
     : null;

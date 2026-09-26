@@ -432,7 +432,7 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
  * re-lighting the escaped one.
  *
  * Removing the class is sufficient: the CSS recipe keys only on
- * `.foliplus-layer-focused` + `:hover`, never on `:focus-visible`. DOM
+ * `.is-focused-row` + `:hover`, never on `:focus-visible`. DOM
  * focus stays on the row (Escape must not blur to `<body>`), and a later
  * focusin re-applies the class only if the browser still reports
  * keyboard-visible focus. */
