@@ -279,16 +279,15 @@ class TestCp1252Misread:
 class TestLossyByteAfterPunctuation:
     """Real punctuation followed by a bare ``?`` — the ``\u2014?`` shape.
 
-    (Escaped form in this docstring to keep the file clean of the
-    signature it detects.)
-
     Some codecs, on hitting a byte they cannot map at the tail of a
     multi-byte sequence, substitute ``?``. The leading em dash / arrow
     / en dash / middle dot / ideographic full stop survives intact and
     sits next to the replacement. Optional whitespace between the anchor
     and ``?`` is allowed.
 
-    Escaped form — see the note in ``TestCp1252Misread``.
+    (The signature literal appears as a ``\\uXXXX`` escape here to keep
+    the file clean of the signature it detects — see the note in
+    ``TestCp1252Misread``.)
     """
 
     def test_em_dash_followed_by_question_mark_is_flagged(
