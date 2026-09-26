@@ -3196,7 +3196,9 @@ class TestLayerControlBrowser:
             state = page.evaluate(_js("LayerControl/read_color_checkbox_state"))
             assert state["checked"] is True
             assert state["active"] is True, "checking must mark the color row active"
-            assert state["colorVisible"] is True, "checking must show the color pane face"
+            assert state["colorVisible"] is True, (
+                "checking must show the color pane face"
+            )
 
             # Uncheck → container background cleared.
             result = page.evaluate(_js("LayerControl/toggle_color_checkbox"))
@@ -3205,8 +3207,12 @@ class TestLayerControlBrowser:
 
             state = page.evaluate(_js("LayerControl/read_color_checkbox_state"))
             assert state["checked"] is False
-            assert state["active"] is False, "unchecking must clear the color row active class"
-            assert state["colorVisible"] is False, "unchecking must hide the color pane face"
+            assert state["active"] is False, (
+                "unchecking must clear the color row active class"
+            )
+            assert state["colorVisible"] is False, (
+                "unchecking must hide the color pane face"
+            )
 
     def test_color_basemap_zorder_stack(self, browser, tmp_path):
         """Color basemap participates in the z-order ladder like tile basemaps.
