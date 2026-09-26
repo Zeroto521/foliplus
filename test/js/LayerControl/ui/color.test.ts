@@ -73,7 +73,7 @@ describe("ui/color", () => {
   it("showColorLayer leaves base layers on the map and the shared tilePane untouched", () => {
     // First-class basemap: colour and tiles coexist. The colour layer must
     // not remove any tile layer from the map nor hide Leaflet's shared
-    // tilePane â€?those were the global side effects the mutual exclusion
+    // tilePane â€”those were the global side effects the mutual exclusion
     // removed.
     const { ui } = makeUi([
       { id: "base_1", isBase: true },

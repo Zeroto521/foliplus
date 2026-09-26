@@ -175,7 +175,12 @@ const bindEvents = (ui: LayerUI): void => {
       }
     }
 
-    if (el.closest(CONST.SEL.COLOR_ITEM)) {
+    // The ⋮ button and the menu it opens are the color row's style entry
+    // (fill row); they must not be swallowed by the colour toggle below.
+    if (
+      el.closest(CONST.SEL.COLOR_ITEM) &&
+      !el.closest(`.${CONST.CLASSES.MORE_BTN}, .foliplus-layer-more-menu`)
+    ) {
       ui.showColorLayer(ui.currentColor);
       syncToggleAll(ui, CONST.GROUP.BASE);
       ui.m.enforceOrder();

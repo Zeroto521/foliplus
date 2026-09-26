@@ -1011,7 +1011,7 @@ describe("LayerUI style panel", () => {
     expect(styleItem.getAttribute("title")).toBe("LayerControl.style_layer_tooltip");
   });
 
-  it("the ⋮ menu's Style item is disabled for the color basemap", () => {
+  it("the ⋮ menu's Style item is enabled for the color basemap (fill row)", () => {
     const item = ui.uiContainer.querySelector(CONST.SEL.COLOR_ITEM) as HTMLElement;
 
     ui.openMoreMenu(item);
@@ -1019,7 +1019,7 @@ describe("LayerUI style panel", () => {
     const styleItem = item.querySelector(
       `.foliplus-layer-more-menu li[data-action="${CONST.ACTION.STYLE_LAYER}"]`,
     ) as HTMLElement;
-    expect(styleItem.getAttribute("disabled")).toBe("disabled");
+    expect(styleItem.getAttribute("disabled")).toBeNull();
   });
 
   // ─────────────────── field cache ───────────────────

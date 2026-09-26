@@ -30,6 +30,7 @@ const initTypesAndVisibility = (ui: LayerUI) => {
         id: CONST.COLOR.MAP_ID,
         name: colorLayerName(ui),
         isBase: true,
+        color: CONST.COLOR.DEFAULT,
         onToggle: (v: boolean) =>
           v ? showColorLayer(ui, ui.currentColor) : hideColorLayer(ui),
       },
@@ -108,13 +109,22 @@ const renderInitialList = (ui: LayerUI) => {
   if (ui.foldedGroups.has(CONST.GROUP.BASE)) {
     colorItem.classList.add(CONST.CLASSES.GROUP_FOLDED);
   }
-  // Insert the colour row in the base section, before the first overlay
-  // toggle-all header (or at the end when no overlays exist).
-  const firstOverlay = Array.from(frag.children).findIndex(
-    el => el.getAttribute("data-group") === CONST.GROUP.OVERLAY,
-  );
-  if (firstOverlay >= 0) {
-    frag.insertBefore(colorItem, frag.children[firstOverlay]);
+  // Insert the colour row at the end of the base section (row order = z-order,
+  // top row = top of stack).  The base section contains both the toggle-all
+  // row (data-group=BASE) and the layer rows (data-layer-type=BASE); the
+  // last one is the correct anchor.
+  const children = Array.from(frag.children);
+  let lastBaseIdx = -1;
+  children.forEach((el, i) => {
+    if (
+      el.getAttribute("data-group") === CONST.GROUP.BASE ||
+      el.getAttribute("data-layer-type") === CONST.GROUP.BASE
+    ) {
+      lastBaseIdx = i;
+    }
+  });
+  if (lastBaseIdx >= 0) {
+    frag.insertBefore(colorItem, children[lastBaseIdx].nextSibling);
   } else {
     frag.appendChild(colorItem);
   }
