@@ -109,21 +109,20 @@ const renderDelegatedStylePanel = (
     T: ui._,
   });
 
-  // Border row (HeatmapControl only today) — a separate section heading so the
-  // drawer's Label vs. component-specific styling reads as two groups.
+  // Border row (HeatmapControl only today) — the component's own styling, so
+  // it groups with the LayerControl-owned rows rather than as its own section.
   let borderRow: HTMLElement | null = null;
   if (setters.borderWeight || setters.borderColor) {
     borderRow = buildBorderRow(ui, layerId);
   }
 
   // No presentation control at all (a data-only setter such as the
-  // aggregation field) means no drawer: the Layer section below is
+  // aggregation field) means no drawer: the Layer section is
   // LayerControl-owned, but it is not a reason to open one.
   if (!root.children.length && !borderRow) return null;
 
   // Refresh label controls and (if present) the border inputs off styleProvider,
-  // skipping whatever is under activeElement. Wired in after the border row is
-  // attached so the shared root's DOM queries see it.
+  // skipping whatever is under activeElement.
   ui.styleRefresh = () => {
     baseRefresh();
     if (!borderRow) return;
@@ -144,26 +143,6 @@ const renderDelegatedStylePanel = (
     }
   };
 
-  // The shared renderer emits controls only, no headings — the panel owns the
-  // section split, and the Layer section (opacity) belongs to LayerControl
-  // rather than to the component that delegates its label style.
-  // Prepend the label heading first so it sits above its controls, then append
-  // the heatmap section below — each heading above its own content.
-  root.prepend(sectionHeading(ui.T("section_label")));
-  if (borderRow) {
-    root.append(sectionHeading(ui.T("section_heatmap")));
-    root.append(borderRow);
-  }
-  // Row-level capability gate (5.4): the opacity row only renders when the
-  // surface can honestly carry the write. A layer with `opacity: "none"`
-  // (MarkerCluster) would otherwise see a slider that writes nothing but
-  // persists the value — a lie that survives reload (6.2).
-  if (layerCanOpacity(ui, layerId) || canShowZoomRange(ui, layerId)) {
-    root.append(sectionHeading(ui.T("section_layer")));
-    if (layerCanOpacity(ui, layerId)) root.append(buildOpacityRow(ui, layerId));
-    if (canShowZoomRange(ui, layerId)) root.append(buildZoomRangeRow(ui, layerId));
-  }
-
   const { panel, content } = createRowPanel({
     cssClass: CONST.CLASSES.STYLE_PANEL,
     title: ui.T("style_layer"),
@@ -171,7 +150,28 @@ const renderDelegatedStylePanel = (
     closeTitle: ui.T("close_title"),
     iconClass: "foliplus-layer-style-icon foliplus-header-icon",
   });
-  content.append(root);
+
+  // The shared renderer emits controls only, no headings — the panel owns the
+  // section split: Layer on top (border, opacity, zoom range), Label below.
+  // The layer dimension is the axis LayerControl adds on top of whatever the
+  // component delegated, so it reads before the component's own presentation
+  // styling.
+  // Row-level capability gate (5.4): the opacity row only renders when the
+  // surface can honestly carry the write. A layer with `opacity: "none"`
+  // (MarkerCluster) would otherwise see a slider that writes nothing but
+  // persists the value — a lie that survives reload (6.2).
+  const canOpacity = layerCanOpacity(ui, layerId);
+  const canZoomRange = canShowZoomRange(ui, layerId);
+  if (borderRow || canOpacity || canZoomRange) {
+    content.append(sectionHeading(ui.T("section_layer")));
+    if (borderRow) content.append(borderRow);
+    if (canOpacity) content.append(buildOpacityRow(ui, layerId));
+    if (canZoomRange) content.append(buildZoomRangeRow(ui, layerId));
+  }
+  if (root.children.length) {
+    content.append(sectionHeading(ui.T("section_label")));
+    content.append(root);
+  }
 
   // Reset only when the component published its Python CONF defaults.
   if (li.styleDefaults) appendResetFooter(ui, content);

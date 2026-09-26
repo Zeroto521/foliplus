@@ -5087,6 +5087,104 @@ class TestLayerControlBrowser:
                 f"layer map membership changed across reload: before={before}, after={result['onMap']}"
             )
 
+    def test_zoom_range_canvas_row_hides_the_heatmap_canvas(self, browser, tmp_path):
+        """A callback-only canvas layer gets a zoom-range row that really hides it.
+
+        HeatmapControl registers through ``createCanvas``, so the range has no
+        Leaflet layer to add or remove: its carrier is the layer's ``onToggle``
+        callback, which the executor's ``visible`` op fires. Before 42.1 the row
+        was gated off for every canvas surface, because capability alone could
+        not tell "has content panes" from "callback-only canvas" (31.7) and the
+        ``!li.canvas`` early return stood in for that distinction.
+        """
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        fg = folium.FeatureGroup(name="Points", show=True)
+        folium.GeoJson(
+            json.dumps(
+                {
+                    "type": "FeatureCollection",
+                    "features": [
+                        {
+                            "type": "Feature",
+                            "properties": {"val": i},
+                            "geometry": {
+                                "type": "Point",
+                                "coordinates": [119.30 + i * 0.01, 26.08],
+                            },
+                        }
+                        for i in range(3)
+                    ],
+                }
+            )
+        ).add_to(fg)
+        fg.add_to(m)
+        LayerControl().add_to(m)
+        HeatmapControl().add_to(m)
+        _expand_panel(m)
+
+        page, errors = make_browser_page(
+            browser, tmp_path, m.get_root().render(), "zr_heatmap"
+        )
+        try:
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=10000
+            )
+            heatmap_ready(page, timeout=15000)
+            page.wait_for_timeout(200)
+
+            result = page.evaluate(_js("LayerControl/zoom_range_heatmap_canvas"))
+            assert result is not None, "probe returned None"
+            assert result.get("error") is None, f"setup failed: {result}"
+
+            # Drawer order: the rows LayerControl adds read before the rows the
+            # component delegated, and inside the layer section they run
+            # border -> opacity -> zoom range. The browser page resolves the en
+            # locale, so the headings read as rendered rather than as keys.
+            assert result["sections"] == ["Layer", "Label"], (
+                f"drawer section order drifted: {result['sections']}"
+            )
+            assert result["layerControls"] == ["border", "opacity", "zoomRange"], (
+                f"layer rows are not border -> opacity -> zoom range: "
+                f"{result['layerControls']} | skeleton: {result['struct']}"
+            )
+            assert result["zoomSection"] == "Layer", (
+                f"the zoom range row fell out of the layer section: "
+                f"{result['zoomSection']}"
+            )
+
+            # An untouched visit writes no zoom-range record at all: neither the
+            # value nor a provenance marker.
+            assert result["freshZoomRange"] is None, (
+                f"an untouched visit stored a zoom range: {result}"
+            )
+            assert "zoomRange" not in (result["freshOverrides"] or []), (
+                f"an untouched visit recorded a zoomRange override: "
+                f"{result['freshOverrides']}"
+            )
+
+            # The live pass hides and restores through the canvas's own
+            # visibility callback.
+            assert result["visibleBefore"] is True, f"canvas started hidden: {result}"
+            assert result["hiddenOut"] is True, (
+                f"the canvas stayed visible out of range: {result}"
+            )
+            assert result["visibleBack"] is True, (
+                f"the canvas stayed hidden after the range came back: {result}"
+            )
+
+            # The commit half lands in storage behind the write debounce.
+            page.wait_for_timeout(300)
+            stored = page.evaluate(_js("LayerControl/read_zoom_range_state"))
+            assert stored["stored"] == result["committed"], (
+                f"the committed range did not reach storage: {stored}"
+            )
+            assert "zoomRange" in (stored["overrides"] or []), (
+                f"the committed range carried no provenance marker: {stored}"
+            )
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
     # ── Row lookup by data-layer-id, not by registry / DOM position ──
     #
     # Each of these three scrambles the registry or the panel so the two

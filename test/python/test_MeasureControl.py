@@ -423,6 +423,44 @@ class TestMeasureControlBrowser:
             assert registered, "addLayer should auto-register"
             assert not errors, f"JS errors: {errors}"
 
+    def test_style_drawer_zoom_range_hides_the_measure_layer(self, browser, tmp_path):
+        """The measure layer's style drawer carries a zoom-range row that really
+        hides it from the map.
+
+        MeasureControl registers through ``createLayers``, so the layer is a real
+        Leaflet group and the range's carrier is map membership rather than an
+        ``onToggle`` callback. That surface was never excluded by the canvas gate,
+        so the probe pins the row as a regression guard, not a new capability.
+        """
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            # Select a tool so the measure layer registers and gets a row.
+            page.evaluate("document.querySelector('[data-mode=distance]').click()")
+            page.wait_for_timeout(300)
+            page.evaluate(
+                "document.querySelector('.foliplus-layer-ctrl .foliplus-toggle-btn').click()"
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+            )
+            page.wait_for_timeout(300)
+
+            result = page.evaluate(_js("MeasureControl/zoom_range_layer_row"))
+            assert result is not None, "probe returned None"
+            assert result.get("error") is None, f"setup failed: {result}"
+            assert result["onMapBefore"] is True, (
+                f"the measure layer was not on the map before the range: {result}"
+            )
+            assert result["onMapOut"] is False, (
+                f"the measure layer stayed on the map out of range: {result}"
+            )
+            assert result["onMapBack"] is True, (
+                f"the measure layer did not come back onto the map: {result}"
+            )
+            assert result["sections"] == ["Layer", "Label"], (
+                f"drawer section order drifted: {result['sections']}"
+            )
+            assert not errors, f"JS errors: {errors}"
+
     def test_clear_all_empties_layers(self, browser, tmp_path):
         """destroy() empties content and unregisters."""
         with use_page(self._make_page, browser, tmp_path) as (page, errors):

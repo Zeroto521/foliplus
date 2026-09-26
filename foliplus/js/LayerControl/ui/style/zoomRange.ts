@@ -11,23 +11,24 @@ import { railPos, round5 } from "./frame.js";
 
 /** Whether the layer's surface can honestly carry a zoom-range write.
  *
- *  Three conditions, all required:
- *    1. `!layerInfo.canvas` — callback-only canvas layers (heatmap / measure)
- *       have no real Leaflet layer to add/remove, so a range that hides them
- *       has no carrier (31.4-3).
- *    2. `!layerInfo.isBase` — basemaps carry no range control here.
- *    3. `capabilities.zoomRange !== "none"` — MarkerCluster and ImageOverlay
- *       have no honest zoom-range carrier.
+ *  Capability is the whole test:
+ *    - `!layerInfo.isBase` — basemaps carry no range control here.
+ *    - `capabilities.zoomRange !== "none"` — MarkerCluster and ImageOverlay
+ *      have no honest zoom-range carrier (a row that persists a value the
+ *      write cannot apply is a lie that survives reload).
  *
- *  Condition 1 is the substantive gate (31.7): capability alone cannot tell
- *  "has content panes" from "callback-only canvas", because `detectCapabilities`
- *  returns `"pane"` for any surface with a canvas. The `!layerInfo.canvas`
- *  check is the same predicate 5.4 uses for the style panel's opacity row.
+ *  Callback-only canvas layers (heatmap / measure) were excluded here once
+ *  (31.4-3): a canvas has no Leaflet layer to add/remove, so a range that
+ *  hides it looked like it had no carrier, and capability alone could not
+ *  tell "has content panes" from "callback-only canvas" (31.7). That
+ *  exclusion is stale — the executor's `visible` op is the carrier for every
+ *  surface: map membership for a Leaflet layer, and the layer's `onToggle`
+ *  callback for a canvas. So a canvas whose surface declares
+ *  `zoomRange: "pane"` really does render, and the write really does land.
  */
 const canShowZoomRange = (ui: LayerUI, layerId: string): boolean => {
   const li = ui.m.layerRegistry.get(layerId);
   if (!li) return false;
-  if (li.canvas) return false;
   if (li.isBase) return false;
   return ui.m.surfaceFor(li).capabilities.zoomRange !== "none";
 };

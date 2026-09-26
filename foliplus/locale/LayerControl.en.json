@@ -72,6 +72,5 @@
   "LayerControl.style_zoom_range_out_of_range": "Current zoom ({zoom}) is outside this range",
   "LayerControl.style_fill": "Fill Color",
   "LayerControl.style_fill_opacity": "Fill Opacity",
-  "LayerControl.section_heatmap": "Heatmap",
   "LayerControl.border": "Border"
 }

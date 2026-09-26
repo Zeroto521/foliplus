@@ -942,8 +942,8 @@ describe("LayerUI style panel", () => {
   });
 
   it("canShowZoomRange declines a base layer: basemaps carry no range control", () => {
-    // The `!li.isBase` half of the guard — the only one of the three
-    // conditions that is about the layer rather than about its surface.
+    // The `!li.isBase` half of the guard — the one of the two conditions that
+    // is about the layer rather than about its surface.
     manager.registerLayer({
       id: "base1",
       name: "OSM",
@@ -1834,19 +1834,20 @@ describe("LayerUI style panel", () => {
     // delegated into the drawer.
     expect(panel.querySelector(".foliplus-style-field-select")).toBeNull();
     // The shared renderer emits controls only, so the panel still owns the
-    // section split: LABEL above the shared root, LAYER above the opacity row.
+    // section split: LAYER (the rows LayerControl adds) above LABEL (the rows
+    // the component delegated).
     const headings = [...panel.querySelectorAll(".foliplus-section-heading")];
     expect(headings.map(h => h.textContent)).toEqual([
-      "LayerControl.section_label",
       "LayerControl.section_layer",
+      "LayerControl.section_label",
     ]);
     // Document order, not just presence: each heading must precede its section.
     const order = [...panel.querySelectorAll("*")];
     expect(order.indexOf(headings[0])).toBeLessThan(
-      order.indexOf(showToggle as unknown as Element),
+      order.indexOf(panel.querySelector(".foliplus-style-opacity-range")!),
     );
     expect(order.indexOf(headings[1])).toBeLessThan(
-      order.indexOf(panel.querySelector(".foliplus-style-opacity-range")!),
+      order.indexOf(showToggle as unknown as Element),
     );
   });
 
@@ -3024,18 +3025,74 @@ describe("LayerUI style panel — zoom range", () => {
     map.on = origOn;
   });
 
-  it("omit zoom-range row for canvas layers", () => {
+  it("renders the zoom-range row for a canvas layer", () => {
+    // A canvas has no Leaflet layer to add/remove, so the range's carrier is
+    // the layer's onToggle callback — the executor's visible op is the carrier
+    // for every surface, so capability alone decides (42.1).
     manager.registerLayer({
       id: "canvas1",
       name: "Canvas",
       canvas: document.createElement("canvas"),
+      onToggle: vi.fn(),
+      styleProvider: () => ({ labelShow: true }),
+      styleSetters: { labelShow: vi.fn() },
+    });
+    const panel = renderDelegatedStylePanel(ui, "canvas1");
+    expect(panel).not.toBeNull();
+    expect(zoomRowOf(panel!)).not.toBeNull();
+  });
+
+  it("hides a canvas layer through onToggle when the range excludes the zoom", () => {
+    const onToggle = vi.fn();
+    manager.registerLayer({
+      id: "canvas1",
+      name: "Canvas",
+      canvas: document.createElement("canvas"),
+      onToggle,
+      styleProvider: () => ({ labelShow: true }),
+      styleSetters: { labelShow: vi.fn() },
     });
     const item = findItem(ui, "canvas1");
     ui.openStylePanel("canvas1");
-    const panel = panelOf(item);
-    if (!panel) return;
-    const row = zoomRowOf(panel);
-    expect(row).toBeNull();
+    const row = zoomRowOf(panelOf(item)!)!;
+    const minInput = row.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_MIN}`) as HTMLInputElement;
+
+    // The current zoom is 5. Pushing the lower bound past it takes the canvas
+    // out of range, and its toggle callback is what hides it.
+    minInput.value = "6";
+    minInput.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(ui.zoomRangeMap["canvas1"]).toEqual([6, 18]);
+    expect(onToggle).toHaveBeenLastCalledWith(false);
+
+    // Dragging the bound back drops it again — the write is reversible.
+    minInput.value = "0";
+    minInput.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(ui.zoomRangeMap["canvas1"]).toEqual([0, 18]);
+    expect(onToggle).toHaveBeenLastCalledWith(true);
+  });
+
+  it("gives a delegated layers-kind layer (Measure shape) a zoom row that hides it", () => {
+    // Measure's createLayers shape: a real layer, so the range's carrier is map
+    // membership rather than an onToggle callback.
+    const measureLayer = { options: {}, eachLayer: vi.fn() } as never;
+    manager.registerLayer({
+      id: "measure1",
+      name: "Measure",
+      layer: measureLayer,
+      styleProvider: () => ({ labelShow: true }),
+      styleSetters: { labelShow: vi.fn() },
+    });
+    const item = findItem(ui, "measure1");
+    ui.openStylePanel("measure1");
+    const row = zoomRowOf(panelOf(item)!)!;
+    const minInput = row.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_MIN}`) as HTMLInputElement;
+
+    minInput.value = "6";
+    minInput.dispatchEvent(new Event("input", { bubbles: true }));
+
+    expect(ui.zoomRangeMap["measure1"]).toEqual([6, 18]);
+    expect(manager.layerRegistry.get("measure1")!.visible).toBe(false);
+    expect(map.removeLayer).toHaveBeenCalledWith(measureLayer);
   });
 
   it("omit zoom-range row for base layers", () => {
