@@ -356,16 +356,13 @@ class LayerSurface implements LayerSurfaceContract {
    *  as "changed" on every pass. `color` and `getBounds` are both compared as
    *  presence, never as value or reference — see the fields.
    *
-   *  The bounds-presence check goes through `hasBoundsProvider` on both sides
-   *  rather than reading the captured `spec.getBounds`: the latter records
-   *  what the caller handed in at construct time, while `capabilities.bounds`
-   *  is derived from what the surface actually exposes — the OR of the
-   *  declared provider and the layer's own `getBounds()` method. Comparing
-   *  against `spec.getBounds` conflates those two sources and reads "changed"
-   *  on every native-layer re-registration that drops or adds a provider,
-   *  rebuilding a face whose `capabilities.bounds` did not move. Presence is
-   *  the invariant; the reference is not — `detectCapabilities` is the
-   *  authoritative source, and this check must mirror it. */
+   *  `getBounds` is compared by presence (`!= null`), not reference — callers
+   *  hand a fresh arrow on every register, and a different arrow for the same
+   *  shape is not a different face. A layer with a native `getBounds` always
+   *  has `capabilities.bounds: true` regardless of the provider field, so the
+   *  OR in `detectCapabilities` reduces to the provider alone for layers that
+   *  lack the method — adding or removing it changes the capability and must
+   *  trigger a rebuild. */
   matches(opts: SurfaceFaceOpts): boolean {
     const specs = opts.paneSpecs ?? [];
     // `role` and `order` are part of the declaration, not decoration: a spec
@@ -388,7 +385,7 @@ class LayerSurface implements LayerSurfaceContract {
       this.spec.paneName === declaredPaneName(opts.paneName) &&
       this.spec.canvas === Boolean(opts.canvas) &&
       this.spec.color === (opts.color != null) &&
-      hasBoundsProvider(this.spec.layer) === hasBoundsProvider(opts.layer) &&
+      Boolean(this.spec.getBounds) === Boolean(opts.getBounds ?? null) &&
       samePanes
     );
   }
