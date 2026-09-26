@@ -3299,7 +3299,7 @@ class TestLayerControlBrowser:
             assert is_folded, "Expected foliplus-layer-folded class on row after fold"
 
     def test_color_layer_pointer_cursor(self, browser, tmp_path):
-        """Color layer item shows pointer cursor on hover."""
+        """Color layer item shows move cursor on hover (draggable in base group)."""
         with use_page(self._make_page, browser, tmp_path) as (page, _):
             page.evaluate(
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
@@ -3308,7 +3308,7 @@ class TestLayerControlBrowser:
                 ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
             )
             cursor = page.evaluate(_js("LayerControl/read_color_layer_cursor"))
-            assert cursor == "pointer", f"Expected pointer cursor, got {cursor}"
+            assert cursor == "move", f"Expected move cursor, got {cursor}"
 
     # ── Indeterminate checkbox browser tests ──
 
