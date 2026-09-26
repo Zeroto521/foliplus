@@ -729,7 +729,7 @@ describe("DOM order diverges from registry order", () => {
 
   it("toggleAll skips a row that names no registered layer", () => {
     // A row left behind without a data-layer-id: it names no layer, so it must
-    // be skipped rather than dragging a neighbour into the sweep.
+    // be skipped rather than dragging a neighbor into the sweep.
     const orphan = document.createElement("div");
     orphan.className = CONST.CLASSES.LAYER_ITEM;
     const box = document.createElement("input");

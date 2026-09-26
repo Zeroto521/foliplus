@@ -45,7 +45,7 @@ const HIDE_OVERLAP = 0.75;
  *
  * Fixed, rather than derived from the widest box: one very long label would
  * otherwise blow the cell up and pack every other label into a handful of
- * buckets, which is exactly the quadratic behaviour the grid exists to avoid.
+ * buckets, which is exactly the quadratic behavior the grid exists to avoid.
  * A box larger than a cell simply spans several of them, at its own cost only.
  */
 const GRID_CELL = 64;

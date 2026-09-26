@@ -1,6 +1,6 @@
 // LayerControl annotation canvas — paints one layer's labels.
 //
-// One canvas per labelled layer, mounted in that layer's own annotation pane
+// One canvas per labeled layer, mounted in that layer's own annotation pane
 // (created here, z-ordered by LayerManager.enforceOrder), so labels take their
 // layer's place in the stack: a layer above covers them, and they cover the
 // layers below. Placement stays per layer — the manager plans each layer's

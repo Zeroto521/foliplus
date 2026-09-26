@@ -291,15 +291,15 @@ describe("LayerUI rename", () => {
       const input = (item.querySelector("label") as HTMLLabelElement).querySelector(
         "input",
       ) as HTMLInputElement;
-      input.value = "My Colour";
+      input.value = "My Color";
       input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
 
-      expect(item.querySelector("label")!.textContent).toBe("My Colour");
-      expect(colorInput.getAttribute("aria-label")).toBe("My Colour");
+      expect(item.querySelector("label")!.textContent).toBe("My Color");
+      expect(colorInput.getAttribute("aria-label")).toBe("My Color");
       // The row tooltip is the TYPE label, a different slot from the name —
       // a rename must not move into it.
       const tooltip = item.getAttribute("title");
-      expect(tooltip).not.toBe("My Colour");
+      expect(tooltip).not.toBe("My Color");
       expect(tooltip).not.toBe("");
     });
 

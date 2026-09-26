@@ -1,4 +1,4 @@
-// LayerUI shell (ui/index.ts) â€?attach sequence, event subscriptions, and the
+// LayerUI shell (ui/index.ts) ï¿½?attach sequence, event subscriptions, and the
 // thin delegates to the ui/* modules. DOM interaction specifics live in the
 // per-module suites (list/keyboard/focus/...); this file pins the wiring.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -14,7 +14,7 @@ import {
   makePane,
 } from "./fixture.js";
 
-describe("LayerUI shell â€?event subscriptions", () => {
+describe("LayerUI shell ï¿½?event subscriptions", () => {
   let manager: LayerManager;
   let ui: LayerUI;
   let map: any;
@@ -153,7 +153,7 @@ describe("LayerUI shell â€?event subscriptions", () => {
   });
 });
 
-describe("LayerUI shell â€?delegates", () => {
+describe("LayerUI shell ï¿½?delegates", () => {
   let manager: LayerManager;
   let ui: LayerUI;
   let map: any;
@@ -197,7 +197,9 @@ describe("LayerUI shell â€?delegates", () => {
 
   it("dropPersistedLayerState erases every stored dimension for one id", () => {
     // The single routine that erases a stored value, reached only from an
-    // explicit delete â€?and it must not touch a neighbour's state.
+<<<<<<< HEAD
+======
+    // explicit delete â€” and it must not touch a neighbor's state.
     ui.hiddenIds = new Set(["overlay1", "base1"]);
     ui.opacityMap = { overlay1: 0.4 };
     ui.zoomRangeMap = { overlay1: [3, 12] };

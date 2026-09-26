@@ -53,7 +53,7 @@ describe("zFor slots", () => {
   it("prices an index without a count at the base, not a slot", () => {
     // count defaults to index, so (count - index) is 0 — the base itself.
     // A caller that gives an index but forgets the count silently lands on
-    // the base rather than erroring; this pins the behaviour so a future
+    // the base rather than erroring; this pins the behavior so a future
     // change to the default is a conscious decision.
     expect(zFor({ index: 3 })).toBe(Z_INDEX.BASE);
   });

@@ -1084,9 +1084,9 @@ class TestExportControlBrowser:
 
             # Pixel gate: the export canvas now has an opaque background
             # fill (the container's computed backgroundColor), so the source
-            # annotation colour is blended. Instead of matching the source
-            # colour, check that the export canvas has non-background pixels —
-            # pixels that differ significantly from the grey background. The
+            # annotation color is blended. Instead of matching the source
+            # color, check that the export canvas has non-background pixels —
+            # pixels that differ significantly from the gray background. The
             # annotation canvas carries `.foliplus-canvas-layer`; a blanket
             # exclude of that class would drop the labels and leave zero
             # non-background pixels.
@@ -1098,7 +1098,7 @@ class TestExportControlBrowser:
                     const ctx = c.getContext('2d');
                     if (!ctx) return { found: false };
                     const { data } = ctx.getImageData(0, 0, c.width, c.height);
-                    // Count pixels that are NOT the background grey (221,221,221)
+                    // Count pixels that are NOT the background gray (221,221,221)
                     // within tolerance 20. These are the annotation label pixels.
                     let nonBg = 0;
                     for (let i = 0; i < data.length; i += 4) {
@@ -1135,7 +1135,7 @@ class TestExportControlBrowser:
         """Picking a solid-color basemap → the export canvas is filled with it.
 
         Before this fix the export background came from ``CONF.background`` (a
-        Python-static config), so the colour the user just picked on screen was
+        Python-static config), so the color the user just picked on screen was
         missing from the image. The export now reads the map container's computed
         ``backgroundColor`` — the same value the user sees — and fills the canvas
         with it.
@@ -1146,7 +1146,7 @@ class TestExportControlBrowser:
         ):
             self._install_canvas_hook(page)
 
-            # Drive the colour input through the real LayerControl UI path so
+            # Drive the color input through the real LayerControl UI path so
             # the container gets `.active` + `--color-layer-bg` set, exactly as
             # `showColorLayer` does.
             state = page.evaluate(_js("ExportControl/set_color_basemap"))
@@ -1174,16 +1174,16 @@ class TestExportControlBrowser:
             )
             page.wait_for_timeout(2000)
 
-            # Sample the whole canvas for the basemap colour. The fillRect
+            # Sample the whole canvas for the basemap color. The fillRect
             # covers every pixel, so the hit count should dominate the total.
             result = self._sample_bg_pixels_in_export(page, match=[220, 30, 30])
             assert result is not None, "Export canvas not captured"
-            assert result["hit"] > 0, f"basemap colour missing from export: {result}"
+            assert result["hit"] > 0, f"basemap color missing from export: {result}"
             # The fillRect paints the whole canvas, so nearly every non-
             # transparent pixel should match — a regression (e.g. falling back
             # to CONF.background, which was None/transparent) would leave hit ≈ 0.
             assert result["hit"] > result["total"] * 0.5, (
-                f"basemap colour not dominant in export: {result}"
+                f"basemap color not dominant in export: {result}"
             )
             assert len(errors) == 0, f"JS errors on color-basemap export: {errors}"
 
@@ -1195,7 +1195,7 @@ class TestExportControlBrowser:
 
         The container's computed ``backgroundColor`` is always opaque (Leaflet's
         own CSS sets ``#ddd``), so the export matches what the user sees: a
-        plain grey base, not a transparent one. This replaces the old
+        plain gray base, not a transparent one. This replaces the old
         ``CONF.background`` (default ``None`` → transparent canvas), which
         disagreed with the screen.
         """
@@ -1205,7 +1205,7 @@ class TestExportControlBrowser:
         ):
             self._install_canvas_hook(page)
 
-            # No colour basemap picked: container should be in its default
+            # No color basemap picked: container should be in its default
             # state (Leaflet #ddd, no .active, no --color-layer-bg).
             state = page.evaluate(
                 """() => {
@@ -1238,13 +1238,13 @@ class TestExportControlBrowser:
             )
             page.wait_for_timeout(2000)
 
-            # Sample for Leaflet's default grey. The fillRect paints the whole
+            # Sample for Leaflet's default gray. The fillRect paints the whole
             # canvas, so the hit count should dominate.
             result = self._sample_bg_pixels_in_export(page, match=[221, 221, 221])
             assert result is not None, "Export canvas not captured"
-            assert result["hit"] > 0, f"default grey missing from export: {result}"
+            assert result["hit"] > 0, f"default gray missing from export: {result}"
             assert result["hit"] > result["total"] * 0.5, (
-                f"default grey not dominant in export: {result}"
+                f"default gray not dominant in export: {result}"
             )
             assert len(errors) == 0, f"JS errors on default-bg export: {errors}"
 
@@ -1487,14 +1487,14 @@ class TestExportControlBrowser:
             # drawn. The export canvas now has an opaque background fill, so
             # the marker's alpha composites onto the background — the
             # resulting pixel alpha is 255 (from the background), and the
-            # opacity is reflected in the colour blend rather than in alpha.
+            # opacity is reflected in the color blend rather than in alpha.
             #
-            # The background is Leaflet's default grey (221, 221, 221). The
+            # The background is Leaflet's default gray (221, 221, 221). The
             # marker is a red pin; even at 0.4 opacity the blended pixel is
-            # visibly different from grey. Count pixels that differ from the
+            # visibly different from gray. Count pixels that differ from the
             # background by more than tolerance 30 in any channel — this
             # catches "marker drawn at any opacity" and "marker not drawn
-            # at all" (all pixels would be grey).
+            # at all" (all pixels would be gray).
             result = page.evaluate(
                 """() => {
                     const canvases = window._capturedCanvases || [];
@@ -1537,7 +1537,7 @@ class TestExportControlBrowser:
         B1 peels the pane's inline visibility before reading computed styles,
         so all three carriers survive. Before B1, vectors ≈ 0; after, all > 0.
 
-        Three non-overlapping windows: left (GeoJson vector), centre (marker),
+        Three non-overlapping windows: left (GeoJson vector), center (marker),
         right (heatmap canvas). Focusing the canvas layer hides the vector pane.
         """
         with use_page(self._make_page, browser, tmp_path, slug="export_focus") as (

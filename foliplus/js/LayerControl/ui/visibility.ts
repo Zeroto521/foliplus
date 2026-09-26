@@ -37,7 +37,7 @@ const toggleAll = (ui: LayerUI, group: string, newState: boolean) => {
     if (!checkbox) return;
     // The row carries the identity (data-layer-id): a late registration lands
     // where its stored slot puts it, so the DOM order can diverge from the
-    // registry and an index-based lookup would silently toggle a neighbour.
+    // registry and an index-based lookup would silently toggle a neighbor.
     const id = item.getAttribute(CONST.DATA.LAYER_ID);
     if (!id) return;
     const layerInfo = ui.m.layerRegistry.get(id);
@@ -142,7 +142,7 @@ const handleChange = (ui: LayerUI, event: Event) => {
 
   // The row carries the identity: data-layer-id, not a positional index —a
   // late registration can sit anywhere in the DOM, so an index-based lookup
-  // would apply the click to a neighbour's layer.
+  // would apply the click to a neighbor's layer.
   const row = target.closest(CONST.SEL.LAYER_ITEM);
   const id = row?.getAttribute(CONST.DATA.LAYER_ID);
   if (!id) return;

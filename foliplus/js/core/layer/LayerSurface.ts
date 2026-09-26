@@ -35,7 +35,7 @@ import { zFor } from "./z.js";
 
 const log = createLogger("LayerSurface");
 
-/** Normalise a caller-declared pane name to the value this surface will
+/** Normalize a caller-declared pane name to the value this surface will
  *  actually build with. A name outside `PANE_NAME_PATTERN` is not a pane we
  *  can create — it lands in the DOM as a Leaflet pane id and class — so it
  *  counts as "not declared" and the constructor's fallback synthesis takes
@@ -355,7 +355,7 @@ class LayerSurface implements LayerSurfaceContract {
    *  Every input `capabilities` is derived from belongs here: a declaration
    *  that gained or lost a bounds provider describes a different face (the UI
    *  decides whether to offer focus from that flag), and the pane name is
-   *  compared as the surface normalised it, so a rejected name does not read
+   *  compared as the surface normalized it, so a rejected name does not read
    *  as "changed" on every pass. `color` and `getBounds` are both compared as
    *  presence, never as value or reference — see the fields. */
   matches(opts: SurfaceFaceOpts): boolean {

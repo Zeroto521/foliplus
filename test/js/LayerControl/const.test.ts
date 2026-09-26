@@ -155,7 +155,7 @@ describe("CLASSES.SECTION_HEADING / opacity controls", () => {
     expect(CONST.CLASSES.SLIDER_HANDLE).toBe("foliplus-slider-handle");
     expect(CONST.CLASSES.SLIDER_DOT).toBe("foliplus-slider-dot");
     expect(CONST.CLASSES.SLIDER_BUBBLE).toBe("foliplus-slider-bubble");
-    // The opacity row's own hooks (behaviour and tests query these).
+    // The opacity row's own hooks (behavior and tests query these).
     expect(CONST.CLASSES.STYLE_OPACITY_RANGE).toBe("foliplus-style-opacity-range");
     expect(CONST.CLASSES.STYLE_OPACITY_RAIL).toBe("foliplus-style-opacity-rail");
     expect(CONST.CLASSES.STYLE_OPACITY_DOT).toBe("foliplus-style-opacity-dot");

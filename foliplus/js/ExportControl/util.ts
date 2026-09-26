@@ -85,10 +85,10 @@ const ensureFont = async (fontSpec: string) => {
   }
 };
 
-/** Read the map container's computed background colour, returning `undefined`
+/** Read the map container's computed background color, returning `undefined`
  *  for transparent values so the export canvas is not over-filled.  This is the
  *  single source of truth for "what the user sees" — Leaflet's default #ddd
- *  or whatever a colour basemap sets.  Kept as a pure function so the
+ *  or whatever a color basemap sets.  Kept as a pure function so the
  *  transparent / opaque branching can be unit-tested in isolation. */
 const resolveExportBackground = (container: HTMLElement): string | undefined => {
   const color = window.getComputedStyle(container).backgroundColor;

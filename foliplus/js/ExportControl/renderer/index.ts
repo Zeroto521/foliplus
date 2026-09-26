@@ -174,7 +174,7 @@ class ExportRenderer {
       if (geoBounds && geoBounds.nw) {
         // A solid-color basemap hides tilePane by class instead of unchecking
         // the tile layers, so every `li.visible` is still true and the tile
-        // URLs would still be fetched — the tiles repaint over the colour the
+        // URLs would still be fetched — the tiles repaint over the color the
         // user just picked.  Read the pane's computed state rather than the
         // class: it is what the screen actually shows, and it does not bind to
         // whichever rule produced the hiding.  Skipping here leaves sizedTiles

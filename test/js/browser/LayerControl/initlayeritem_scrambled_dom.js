@@ -2,7 +2,7 @@
 // layer's registry index.
 //
 // initLayerItem writes the layer name into the row's checkbox aria-label.
-// Reorder the registry so a neighbour sits at alpha's registry index, then run
+// Reorder the registry so a neighbor sits at alpha's registry index, then run
 // initLayerItem for alpha: an index-based lookup would have stamped alpha's
 // name into the checkbox of whatever layer is at that position.
 () => {

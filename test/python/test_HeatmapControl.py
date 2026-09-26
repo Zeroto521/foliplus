@@ -682,7 +682,7 @@ class TestHeatmapControlBrowser:
 
         Regression gate for ``collapse_on_outside``. HeatmapControl shares
         ``createPanelControl`` with LayerControl, so the shell option must keep
-        its historic behaviour for any caller that does not opt out — and only
+        its historic behavior for any caller that does not opt out — and only
         LayerControl passes ``false``.
         """
         with use_page(self._make_page, browser, tmp_path) as (page, errors):

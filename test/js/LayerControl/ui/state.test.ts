@@ -311,7 +311,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       expect(u.hiddenIds).toEqual(new Set(["overlay1", "base1"]));
     });
 
-    it("loads persisted fill colour and opacity into their maps", () => {
+    it("loads persisted fill color and opacity into their maps", () => {
       const { map } = makeTestMap();
       window.localStorage.setItem(
         CONST.STORAGE.KEY,

@@ -50,7 +50,7 @@ describe("ui/list row placement", () => {
   it("lands a late row at the depth the registry chose", () => {
     // The row must land at the depth the registry chose. Pinned to the top of
     // the group instead, the DOM order diverges from the drawn order and every
-    // index-based row lookup reads a neighbour's checkbox.
+    // index-based row lookup reads a neighbor's checkbox.
     const { manager, ui } = initFixture({
       seed: { order: ["B", "A", "H"] },
       data: [

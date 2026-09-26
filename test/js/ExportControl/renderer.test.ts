@@ -114,7 +114,7 @@ function makeRC(w: number, h: number, ctx = makeMockCtx(), scale = 1) {
     sh: h,
   };
 }
-/** Tiles centred on the container: 1000x1000 crop at zoom 2 keeps every tile
+/** Tiles centered on the container: 1000x1000 crop at zoom 2 keeps every tile
  *  inside the crop rect, so the viewport filter survives all of them. */
 
 const tilesNearCenter = (n: number) =>
@@ -516,7 +516,7 @@ describe("ExportRenderer.render — onProgress across tile layers", () => {
     return ctx;
   };
 
-  it("fills the canvas background when a bg colour is passed", async () => {
+  it("fills the canvas background when a bg color is passed", async () => {
     const ctx = stubCanvas();
     await renderer.render(
       { left: 0, top: 0, width: 100, height: 100 },
