@@ -73,25 +73,24 @@ See: https://en.wikipedia.org/wiki/Mojibake
 """
 
 
-def _find_hits(raw: bytes) -> list[int]:
-    """Return sorted 1-based line numbers where any signature is present."""
-    lines = raw.split(b"\n")
-    hits: set[int] = set()
-    for lineno, line in enumerate(lines, 1):
+def _find_hits(raw: bytes) -> list[tuple[int, str]]:
+    """Return ``(lineno, decoded_line)`` for each line containing a signature.
+
+    Byte-level ``EF BF BD`` (U+FFFD) is checked directly against the raw
+    bytes; text-side signatures (CP1252 misread, byte loss after
+    punctuation, GBK misread) are matched against the UTF-8 decoding.
+    Each line is split and decoded exactly once — the caller prints the
+    decoded text returned here rather than re-decoding.
+    """
+    hits: list[tuple[int, str]] = []
+    for lineno, line in enumerate(raw.split(b"\n"), 1):
         if FFFD in line:
-            hits.add(lineno)
+            hits.append((lineno, line.decode("utf-8", errors="replace").rstrip()))
             continue
-        # Decode this line alone — bad bytes here become U+FFFD, which we
-        # already caught in the byte scan above; here we only need to see
-        # the CP1252 / lossy-byte / GBK signatures in the readable text.
-        text = line.decode("utf-8", errors="replace")
+        text = line.decode("utf-8", errors="replace").rstrip()
         if MOJIBAKE_RE.search(text):
-            hits.add(lineno)
-    return sorted(hits)
-
-
-def _decode_line(raw_lines: list[bytes], lineno: int) -> str:
-    return raw_lines[lineno - 1].decode("utf-8", errors="replace").rstrip()
+            hits.append((lineno, text))
+    return hits
 
 
 def main() -> int:
@@ -99,17 +98,14 @@ def main() -> int:
         return 0
 
     failures = 0
-
     for filepath in sys.argv[1:]:
         try:
             with open(filepath, "rb") as f:
                 raw = f.read()
         except OSError:
             continue
-
-        lines = raw.split(b"\n")
-        for lineno in _find_hits(raw):
-            print(f"{filepath}:{lineno}: {_decode_line(lines, lineno)}")
+        for lineno, text in _find_hits(raw):
+            print(f"{filepath}:{lineno}: {text}")
             failures += 1
 
     if failures:
