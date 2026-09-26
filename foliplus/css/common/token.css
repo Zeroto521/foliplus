@@ -112,7 +112,7 @@
      handles.
      The handle is a dot, only slightly larger than the rail, with a white core
      and a ring — `--slider-thumb-ring` is the one thing a state changes (see
-     the zoom-range row: a grey ring is "the current level is outside this
+     the zoom-range row: a gray ring is "the current level is outside this
      range").
      `--slider-thumb-hit` is the interactive box, not the painted size: the
      thumb paints only its content box (background-clip: content-box), so the
@@ -121,10 +121,10 @@
      `--slider-thumb-core` is the white middle: the 2px out to
      `--slider-thumb-size` is the ring that carries the state.
      Deliberately absent: a thumb `margin-top` and a drop shadow. Chromium
-     centres the slider thumb on its own track, and the classic webkit
-     compensation `(rail - thumb) / 2` then lifts the handle off centre
+     centers the slider thumb on its own track, and the classic webkit
+     compensation `(rail - thumb) / 2` then lifts the handle off center
      (measured 4px high on an 8px rail). A drop shadow is drawn at the 24px hit
-     box, which is 5px clear of a 14px handle — it reads as a grey halo, not a
+     box, which is 5px clear of a 14px handle — it reads as a gray halo, not a
      lift. */
   --slider-rail-height: var(--size-6);
   --slider-thumb-size: 14px;
@@ -146,9 +146,9 @@
   );
   /* Held state of a handle: a soft accent halo, drawn at the hit box's edge. */
   --slider-thumb-glow: 0 0 0 var(--size-2) var(--accent-soft-shadow);
-  /* The uncovered span of a rail: a fine grey checkerboard, the "nothing
+  /* The uncovered span of a rail: a fine gray checkerboard, the "nothing
      rendered here" convention. Two tokens because a rail's uncovered span is
-     not always a plain colour — set `--slider-rail-pattern: none` and
+     not always a plain color — set `--slider-rail-pattern: none` and
      `--slider-rail-bg` to a tint for a flat rail instead. */
   --slider-rail-bg: var(--neutral-0);
   --slider-rail-pattern: repeating-conic-gradient(
@@ -161,7 +161,7 @@
      The text foliplus draws over the map: HeatmapControl's hex values (canvas,
      read through getComputedStyle) and LayerControl's annotation labels (DOM
      markers, consumed directly). One source, so the two cannot end up in
-     opposite colour schemes — which is exactly what happened while each
+     opposite color schemes — which is exactly what happened while each
      declared its own: the canvas drew white-on-dark-stroke and the DOM labels
      drew dark-on-white-halo. */
   --label-font-family: sans-serif;

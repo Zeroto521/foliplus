@@ -3,7 +3,7 @@
   // LayerControl stamps `.foliplus-layer-tile-hidden` rather than unchecking
   // every tile layer, so every `li.visible` stays true. That is the input the
   // export has to cope with — the URL enumeration still enumerates tile
-  // URLs, and without a guard they repaint over the colour the user just
+  // URLs, and without a guard they repaint over the color the user just
   // picked.
   const tilePane = window.map.getPane("tilePane");
   if (!tilePane) return false;

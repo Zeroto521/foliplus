@@ -633,7 +633,7 @@ describe("LayerSurface.matches", () => {
   });
 
   it("treats the color going away as a different face (both directions)", () => {
-    // `zoomRange: "none"` is the colour the color branch buys. If a re-register
+    // `zoomRange: "none"` is the color the color branch buys. If a re-register
     // that drops the fill matched the old face, a real canvas would inherit a
     // capability it does not have — the pane would keep answering "no range"
     // after the map could hide it again. Presence is the invariant, not value.

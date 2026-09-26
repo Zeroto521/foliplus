@@ -228,7 +228,7 @@ describe("BaseControl", () => {
   });
 
   it("`on` listener is actually unbound when the signal aborts (real DOM)", () => {
-    // Behaviour gate: the existing tests only spy on addEventListener options
+    // Behavior gate: the existing tests only spy on addEventListener options
     // shape — a wiring bug (e.g. dropping `signal`) would pass them silently.
     // This one uses a real DOM element and verifies the handler stops firing
     // after onRemove aborts the signal.
@@ -488,7 +488,7 @@ describe("BaseControl", () => {
   });
 
   it("N mount/unmount cycles leave no map listeners, no cleanups, no DOM", () => {
-    // Behaviour gate. N is 5, per the spec. A proxy for "map event
+    // Behavior gate. N is 5, per the spec. A proxy for "map event
     // listeners" is the mock map's `_events` registry (tests may read
     // Leaflet privates — the guard only scans foliplus/js/ production
     // code). A proxy for "cleanups" is a spy on the effect callback.
@@ -566,7 +566,7 @@ describe("BaseControl", () => {
 
   it("destroy() runs once per mounting even when onRemove is called twice", () => {
     // Idempotency guard: the earlier "onRemove is idempotent" test only
-    // checked that no throw; this one checks the observable behaviour —
+    // checked that no throw; this one checks the observable behavior —
     // destroy must not run twice, or a destroy() that resets state would
     // silently re-run its teardown.
     const destroy = vi.fn();

@@ -21,7 +21,7 @@ const showColorLayer = (ui: LayerUI, color: string) => {
 
   // Resolve each base row by data-layer-id, not by DOM position: a late
   // registration can land anywhere in the panel, so a positional read would
-  // clear a neighbour's checkbox and leave the real base row checked.
+  // clear a neighbor's checkbox and leave the real base row checked.
   for (const layerInfo of ui.m.layers) {
     if (!layerInfo.isBase) continue;
     const item = ui.uiContainer.querySelector<HTMLElement>(

@@ -141,7 +141,7 @@ describe("AnnotationCanvas", () => {
     );
   });
 
-  it("draws the text at the box's centre", () => {
+  it("draws the text at the box's center", () => {
     const { canvas } = makeEnv();
 
     canvas.paint([placed("alpha", { x: 100, y: 200, w: 40, h: 12 })]);

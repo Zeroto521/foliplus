@@ -57,7 +57,7 @@ const LABEL_MIN_GAP_PCT = 12;
  *  the bubble while held, and through the rail's geometry the rest of the time.
  *
  *  `--slider-dot-size` dots read coverage through their ring: accent where the
- *  layer renders (inside the range), grey where it does not. The current dot
+ *  layer renders (inside the range), gray where it does not. The current dot
  *  rides the row's existing out-of-range class for the same readout. */
 const syncValues = (
   row: HTMLElement,

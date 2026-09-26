@@ -221,7 +221,7 @@
     }
     /* Same wake as hover: fold-btn is a 20px icon button inside the row, so it
        can't take the row cursor's border/glow without looking oversized. The
-       colour + scale preview already say "expand this group" (see the state
+       color + scale preview already say "expand this group" (see the state
        preview rules below), so the soft glow is enough to mark it focused. */
     &:focus-visible {
       outline: none;

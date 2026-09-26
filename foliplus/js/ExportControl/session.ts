@@ -214,7 +214,7 @@ const enlargeAndRender = function (
     this.map.setView(savedCenter, savedZoom, { animate: false });
   };
 
-  // Resize container and centre the map on the crop area.
+  // Resize container and center the map on the crop area.
   // Both invalidateSize and setView are synchronous (animate: false),
   // so the map state is updated immediately.  A single rAF ensures the
   // browser has applied the layout changes before we render.

@@ -8,8 +8,8 @@ import { describe, expect, it } from "vitest";
 // computed `backgroundColor` — a public DOM surface — so ExportControl stays
 // decoupled from any particular component's state. A regression that reaches
 // for `COLOR_ITEM`, `--color-layer-bg`, or `ui.currentColor` to get the
-// basemap colour would couple the two components and make the export wrong
-// whenever the colour lives on the container for a different reason.
+// basemap color would couple the two components and make the export wrong
+// whenever the color lives on the container for a different reason.
 //
 // The gate is a source scan, not a runtime check: it pins the "genericity"
 // invariant at authoring time, before the bundle even builds.

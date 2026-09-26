@@ -31,7 +31,7 @@
         if (!canvas) return resolve({ canvas: false });
         const dpr = window.devicePixelRatio || 1;
         const ctx = canvas.getContext("2d");
-        // Point label: box top at anchor.y + 10, height 12 → text centre y =
+        // Point label: box top at anchor.y + 10, height 12 → text center y =
         // anchor.y + 16. Count opaque pixels in two horizontal bands.
         const band = (x0, x1) => {
           let n = 0;
@@ -47,9 +47,9 @@
           }
           return n;
         };
-        // First label's own extent (centre 300, ~144px wide → [228, 372]).
+        // First label's own extent (center 300, ~144px wide → [228, 372]).
         const aOpaque = band(240, 300);
-        // Second label's exclusive right edge (centre 320, right end ~392):
+        // Second label's exclusive right edge (center 320, right end ~392):
         // nothing here unless the second label was wrongly kept.
         const bOpaque = band(373, 390);
         resolve({ canvas: true, aOpaque, bOpaque });

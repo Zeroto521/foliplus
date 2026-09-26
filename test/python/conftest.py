@@ -489,7 +489,7 @@ class _CdnBrowserProxy:
     test preserves what it wrote (persistence tests rely on this).
 
     Routing is installed per page because the underlying context is not
-    exposed; this is the baseline behaviour. The proxy also raises the
+    exposed; this is the baseline behavior. The proxy also raises the
     navigation timeout from Playwright's 30 s default to 45 s so a
     legitimate slow first-paint doesn't trip as a flake on loaded CI.
     """

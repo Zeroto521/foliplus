@@ -783,7 +783,7 @@ describe("LayerFactory", () => {
       );
     });
 
-    it("normalises a pane name that would not be a valid element id", () => {
+    it("normalizes a pane name that would not be a valid element id", () => {
       // The pane name reaches Leaflet's createPane as both an element id and a
       // CSS class, so disallowed runs collapse to '-' rather than being
       // dropped — the pane stays recognisable and the caller's own id is left
@@ -792,7 +792,7 @@ describe("LayerFactory", () => {
       factory.createCanvas({ id: "canvas name" });
       expect(map.createPane).toHaveBeenCalledWith("foliplus-canvas-canvas-name");
       expect(warn).toHaveBeenCalledWith(
-        expect.stringContaining("normalised for injection safety"),
+        expect.stringContaining("normalized for injection safety"),
       );
       warn.mockRestore();
     });
@@ -1250,12 +1250,12 @@ describe("LayerFactory", () => {
       ).toThrow("color surface requires a 2d context");
     });
 
-    it("normalises a color pane name that would not be a valid element id", () => {
+    it("normalizes a color pane name that would not be a valid element id", () => {
       const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
       make("solid name");
       expect(map.createPane).toHaveBeenCalledWith("foliplus-color-solid-name");
       expect(warn).toHaveBeenCalledWith(
-        expect.stringContaining("normalised for injection safety"),
+        expect.stringContaining("normalized for injection safety"),
       );
       warn.mockRestore();
     });

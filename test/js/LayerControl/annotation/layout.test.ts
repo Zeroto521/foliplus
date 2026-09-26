@@ -22,8 +22,8 @@ const label = (
 ) => ({ id, text, anchor, atPoint, priority });
 
 describe("layoutLabel", () => {
-  it("places a point label below its marker, horizontally centred, halo included", () => {
-    // 3 chars at 12px × 0.6 → 22px wide + 2×3 halo; the box is centred on the
+  it("places a point label below its marker, horizontally centered, halo included", () => {
+    // 3 chars at 12px × 0.6 → 22px wide + 2×3 halo; the box is centered on the
     // text, so its top edge sits (10 − halo) below the marker.
     const { box } = layoutLabel(label("a", "abc", { x: 100, y: 200 }, true), SPEC);
 
@@ -33,7 +33,7 @@ describe("layoutLabel", () => {
     expect(box.h).toBe(18);
   });
 
-  it("centres a shape label on its anchor in both axes", () => {
+  it("centers a shape label on its anchor in both axes", () => {
     const { box } = layoutLabel(label("b", "abc", { x: 100, y: 200 }, false), SPEC);
 
     expect(box.x).toBeCloseTo(100 - 27.6 / 2, 5);
@@ -111,7 +111,7 @@ describe("planLabelLayout", () => {
     // Two one-character labels 6px apart: their glyphs nearly touch, and once
     // the 3px halo is inside each box the horizontal overlap covers over half
     // the narrower label — the case zooming out produces, where the pre-halo
-    // boxes let neighbours survive into a black smudge.
+    // boxes let neighbors survive into a black smudge.
     const labels = [
       label("a", "1", { x: 100, y: 100 }, true),
       label("b", "1", { x: 106, y: 100 }, true),

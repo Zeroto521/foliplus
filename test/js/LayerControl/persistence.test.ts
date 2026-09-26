@@ -402,7 +402,7 @@ describe("LayerPersistence", () => {
       });
     });
 
-    it("keeps the fill colour and opacity the user set, with provenance", () => {
+    it("keeps the fill color and opacity the user set, with provenance", () => {
       seedStorage({
         layers: {
           a: { fillColor: "#ff0000", overrides: ["fillColor"] },
@@ -425,7 +425,7 @@ describe("LayerPersistence", () => {
       });
     });
 
-    it("drops fill colours that are not #rgb or #rrggbb hex", () => {
+    it("drops fill colors that are not #rgb or #rrggbb hex", () => {
       seedStorage({
         layers: {
           a: { fillColor: "red", overrides: ["fillColor"] },
