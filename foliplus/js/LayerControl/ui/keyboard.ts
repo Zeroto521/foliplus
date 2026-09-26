@@ -391,7 +391,7 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
         const action = menuLi.getAttribute("data-action") ?? "";
         if (menuLi.getAttribute("disabled")) {
           // The entry's own title carries the reason (no useful extent, hidden
-          // row, no labelable fields, colour basemap cannot be deleted), so it
+          // row, no labelable fields, color basemap cannot be deleted), so it
           // is the hint too — a fixed "cannot focus" string would be wrong for
           // every disabled entry but focus. Every menu builder sets a title, so
           // an entry without one has nothing to say.

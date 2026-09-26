@@ -512,7 +512,7 @@ describe("createPanelControl", () => {
     expect(domEvent.disableClickPropagation).toHaveBeenCalled();
   });
 
-  it("marks the header as a labelled dialog for screen readers", () => {
+  it("marks the header as a labeled dialog for screen readers", () => {
     const result = createPanelControl({
       cssClass: "heatmap-ctrl",
       toggleTitle: "Toggle",

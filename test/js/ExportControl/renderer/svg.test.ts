@@ -156,7 +156,7 @@ describe("renderPaneSVG", () => {
     expect(ctx.drawImage).not.toHaveBeenCalled();
   });
 
-  it("keeps a child's own visibility: hidden and its neighbours visible", async () => {
+  it("keeps a child's own visibility: hidden and its neighbors visible", async () => {
     // The other half of the contract: only the ancestor contribution is peeled.
     // Collision suppression hides individual label chips the same way, and the
     // export is meant to keep drawing them.

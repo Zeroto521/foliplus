@@ -67,7 +67,7 @@
         };
         resolve({
           canvas: true,
-          // One pane + one canvas per labelled layer, z-ordered with the layer.
+          // One pane + one canvas per labeled layer, z-ordered with the layer.
           canvasCount: document.querySelectorAll(".foliplus-annotation-canvas").length,
           opaqueA: opaqueOf("__ml_a__"),
           opaqueB: opaqueOf("__ml_b__"),

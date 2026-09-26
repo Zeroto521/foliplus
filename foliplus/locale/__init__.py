@@ -58,7 +58,7 @@ def _load_tables(pattern: str) -> dict[str, dict[str, str]]:
 
 
 def resolve_locale(locale: str | LocaleConfig | None, component: str) -> LocaleConfig:
-    """Normalise a ``locale`` parameter to a :class:`LocaleConfig` instance.
+    """Normalize a ``locale`` parameter to a :class:`LocaleConfig` instance.
 
     Parameters
     ----------

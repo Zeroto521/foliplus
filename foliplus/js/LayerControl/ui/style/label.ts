@@ -37,7 +37,7 @@ const layerFields = (ui: LayerUI, layerId: string): LabelField[] => {
 const layerHasLabelFields = (ui: LayerUI, layerId: string): boolean =>
   layerFields(ui, layerId).length > 0;
 
-/** Drop a layer's cached field list and re-render if it is currently labelling.
+/** Drop a layer's cached field list and re-render if it is currently labeling.
  *  Called when a layer's features can change (runtime createLayers) or when the
  *  layer is removed.
  *

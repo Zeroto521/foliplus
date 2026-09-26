@@ -12,7 +12,7 @@ const normPath = p => p.replaceAll("\\", "/");
 /** True when a plugin path lies under the source dir.
  *
  *  esbuild hands plugin paths in the OS-native form (backslashes on
- *  Windows, forward slashes elsewhere), so both sides are normalised to
+ *  Windows, forward slashes elsewhere), so both sides are normalized to
  *  forward slashes before the prefix check — a hardcoded "/" suffix on a
  *  `path.resolve()`-based dir silently skipped EVERY file on Windows. */
 const isSourceFile = (srcDir, path) =>

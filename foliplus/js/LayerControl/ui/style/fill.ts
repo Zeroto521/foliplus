@@ -124,7 +124,7 @@ const authorFillBase = new WeakMap<
  *  for bare Leaflet layers with no style function at all. */
 const LEAFLET_DEFAULT_FILL = "#3388ff";
 
-/** Normalise a color for `<input type=color>`, which only accepts hex.
+/** Normalize a color for `<input type=color>`, which only accepts hex.
  *  3-digit hex passes through `normalizeHexColor`; named and functional
  *  colors (folium's `fillColor: "gray"`) are resolved by the browser —
  *  jsdom cannot parse them and falls back to `#000000`, which is the

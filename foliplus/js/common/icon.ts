@@ -9,7 +9,7 @@
 // SearchControl) sit outside any `svg { fill: none }` rule, so with no local paint
 // the arc — a closed path — fell back to fill: black and rendered as a solid pie
 // slice with a notch instead of an open ring. Inline presentation attributes have
-// the lowest CSS priority, so a component can still recolour it from CSS.
+// the lowest CSS priority, so a component can still recolor it from CSS.
 const LOADING_ICON = `
   <svg class="foliplus-spin" viewBox="0 0 24 24">
     <path fill="none" stroke="currentColor" stroke-width="2.4"

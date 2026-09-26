@@ -70,10 +70,10 @@ describe("collectLabelFields", () => {
     expect(fields.map(f => f.name)).toEqual(["name", "empty"]);
   });
 
-  it("drops folium's reserved colour key", () => {
+  it("drops folium's reserved color key", () => {
     // `__folium_color` is a primitive — the value rule alone would keep it — but
-    // it is how a GeoJSON colours a feature through its properties, not data; a
-    // label over it would print a hex colour.
+    // it is how a GeoJSON colors a feature through its properties, not data; a
+    // label over it would print a hex color.
     const fields = collectLabelFields([
       leaf({ name: "a", __folium_color: "#ff0000", value: 3 }),
     ]);
