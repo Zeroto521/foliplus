@@ -78,7 +78,7 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   const fields = layerFields(ui, layerId);
   const hasLabel = fields.length > 0;
   // A plain vector shape has no feature properties, so no labelable field —
-  // but it still owns the Layer section (opacity, border, fill, zoom range). The
+  // but it still owns the Layer section (opacity, fill, border, zoom range). The
   // ⋮ menu enables Style on capability alone, so the panel has to honour the
   // same gate rather than demanding a field.
   const hasLayerDim =
@@ -271,8 +271,8 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   if (hasLayerDim) {
     content.append(sectionHeading(ui.T("section_layer")));
     if (layerCanOpacity(ui, layerId)) content.append(buildOpacityRow(ui, layerId));
-    if (layerCanBorder(ui, layerId)) content.append(buildBorderRow(ui, layerId));
     if (layerCanFill(ui, layerId)) content.append(buildFillRow(ui, layerId));
+    if (layerCanBorder(ui, layerId)) content.append(buildBorderRow(ui, layerId));
     if (canShowZoomRange(ui, layerId)) content.append(buildZoomRangeRow(ui, layerId));
   }
   appendResetFooter(ui, content);
@@ -549,12 +549,12 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       resetLayerOpacity(ui, layerId);
       // Zoom range is LayerControl-owned: reset to the full map range.
       resetLayerZoomRange(ui, layerId);
-      // Border is LayerControl-owned too: restore the author's stroke and drop
-      // the persisted colour / width, so a reload does not re-apply them.
-      resetLayerBorder(ui, layerId);
       // Fill is LayerControl-owned on the annotation flavour only (the gate
       // excludes delegated layers).
       resetLayerFill(ui, layerId);
+      // Border is LayerControl-owned too: restore the author's stroke and drop
+      // the persisted color / width, so a reload does not re-apply them.
+      resetLayerBorder(ui, layerId);
       if (delegated) {
         // Call each setter with its Python CONF default. The components own
         // the values — never write localStorage or annotation config here.

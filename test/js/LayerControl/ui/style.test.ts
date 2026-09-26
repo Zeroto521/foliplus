@@ -987,8 +987,8 @@ describe("LayerUI style panel", () => {
     expect(width.max).toBe("10");
     expect(width.step).toBe("0.5");
 
-    // Layer section order: opacity, border, zoom range. The classes live on
-    // the rows themselves, so both the row and its descendants are checked.
+    // Layer section order: opacity, fill, border, zoom range. The classes live
+    // on the rows themselves, so both the row and its descendants are checked.
     const rows = Array.from(panel.querySelectorAll(".foliplus-form-row"));
     const index = (sel: string) =>
       rows.findIndex(row => row.matches(sel) || row.querySelector(sel) !== null);
@@ -1002,9 +1002,9 @@ describe("LayerUI style panel", () => {
 
   it("renders both the border and the fill row in the layer section, in order", () => {
     // Border and fill landed on separate branches. Both rows must survive the
-    // merge in one panel, and the two colour axes sit adjacent — a slider
+    // merge in one panel, and the two color axes sit adjacent — a slider
     // between them would read as two different concerns rather than as one
-    // painted shape. Designed order: opacity, border, fill, zoom range.
+    // painted shape. Designed order: opacity, fill, border, zoom range.
     installLeafletGlobals();
     const leaves = [new L.Polygon(), new L.Polygon()] as L.Polygon[];
     leaves.forEach(leaf => {
@@ -1041,8 +1041,8 @@ describe("LayerUI style panel", () => {
       rows.findIndex(row => row.matches(sel) || row.querySelector(sel) !== null);
     const order = [
       ".foliplus-style-opacity-range",
-      ".foliplus-style-border-row",
       ".foliplus-style-fill-row",
+      ".foliplus-style-border-row",
       ".foliplus-style-zoom-range-row",
     ].map(index);
     expect(order).toEqual(order.slice().sort((a, b) => a - b));

@@ -120,7 +120,7 @@ const CLASSES = {
   STYLE_LABEL_SIZE_INPUT: "foliplus-style-label-size-input",
   /** Border row (vector layers): stroke swatch + width field. Each control
    *  gets its own class so the panel's change delegation and the tests can
-   *  tell it apart from the label colour swatch. */
+   *  tell it apart from the label color swatch. */
   STYLE_BORDER_ROW: "foliplus-style-border-row",
   STYLE_BORDER_COLOR_INPUT: "foliplus-style-border-color-input",
   STYLE_BORDER_WEIGHT_INPUT: "foliplus-style-border-weight-input",

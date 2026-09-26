@@ -290,7 +290,7 @@ describe("commit pipeline", () => {
   it("keeps the receiver when it calls setStyle, as Leaflet needs it", () => {
     // Leaflet's Path.setStyle runs setOptions(this, style) and throws when the
     // method is invoked detached from its own object, so capturing it in a
-    // local first would hand the user's colour to nobody at all.
+    // local first would hand the user's color to nobody at all.
     const leaf = makeReceiverLeaf("#00ff00", 3);
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
 
@@ -340,8 +340,8 @@ describe("commit pipeline", () => {
     leaf.setStyle.mockClear();
     commitBorderWeight(ui, "vec1", 5);
 
-    // The width commit re-sends the colour already stored: the leaf sees one
-    // call carrying both, so colour and width can never disagree on the stroke.
+    // The width commit re-sends the color already stored: the leaf sees one
+    // call carrying both, so color and width can never disagree on the stroke.
     expect(leaf.setStyle).toHaveBeenCalledTimes(1);
     expect(leaf.setStyle).toHaveBeenCalledWith({ color: "#00ff00", weight: 5 });
   });
@@ -442,7 +442,7 @@ describe("bindBorderRow", () => {
     expect(leaf.setStyle).toHaveBeenCalledWith({ weight: 5 });
   });
 
-  it("commits the colour on every swatch movement", () => {
+  it("commits the color on every swatch movement", () => {
     const leaf = makeLeaf("#00ff00", 3);
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
     const row = buildBorderRow(ui, "vec1");
@@ -595,7 +595,7 @@ describe("resetLayerBorder", () => {
   });
 
   it("restores the module defaults for a carrier that declared no style", () => {
-    // A leaf that owns a setter but declares neither colour nor width has no
+    // A leaf that owns a setter but declares neither color nor width has no
     // author stroke to fall back on, so the base recorded on the first write
     // must be the module's own defaults — otherwise a Reset would have nothing
     // honest to write for that dimension.
@@ -638,7 +638,7 @@ describe("highlight restore", () => {
     // folium's GeoJson highlight runs the group's resetStyle on mouseout,
     // which re-applies the author's style function to the feature and wipes
     // our write. A click on a feature necessarily crosses a mouseout, so
-    // without a replay the user's colour is gone the moment the pointer
+    // without a replay the user's color is gone the moment the pointer
     // leaves the geometry.
     const leaf = makeHighlightLeaf("#00ff00", 3);
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
@@ -666,7 +666,7 @@ describe("highlight restore", () => {
   });
 
   it("pins the replay once per leaf, no matter how often the user commits", () => {
-    // A colour-picker drag commits many times, and every pass walks every
+    // A color-picker drag commits many times, and every pass walks every
     // feature of the layer: binding the replay once per commit would stack
     // handlers that all write the same stroke.
     const leaf = makeHighlightLeaf("#00ff00", 3);
@@ -863,8 +863,8 @@ describe("buildBorderRow", () => {
     ).toBe("#ff0000");
   });
 
-  it("hands the swatch hex for a named colour, not the name itself", () => {
-    // The colour input's value is only defined for #rrggbb, so a name must
+  it("hands the swatch hex for a named color, not the name itself", () => {
+    // The color input's value is only defined for #rrggbb, so a name must
     // reach the field resolved, not as the name. The resolver works through
     // the browser, so there is no name-to-hex table to keep in step with the
     // spec. The authored value is untouched: the map and a Reset keep the
@@ -883,9 +883,9 @@ describe("buildBorderRow", () => {
     ).toBe("#808080");
   });
 
-  it("hands the swatch hex for a functional colour too", () => {
+  it("hands the swatch hex for a functional color too", () => {
     // The author may declare a stroke in any CSS form, not only a name or a
-    // hex literal — a function colour resolves through the same path rather
+    // hex literal — a function color resolves through the same path rather
     // than through a hand-kept name-to-hex table.
     manager.registerLayer({
       id: "vec1",
@@ -902,7 +902,7 @@ describe("buildBorderRow", () => {
   });
 
   it("leaves an unpaintable declaration unchanged and preserves it", () => {
-    // A value no engine resolves to a colour must reach the field as declared,
+    // A value no engine resolves to a color must reach the field as declared,
     // not as a hex we invented: fabricating one would claim a stroke the
     // author never wrote and the layer is not said to paint. The authored
     // value stays intact, and the control is left to show its own default.
@@ -925,7 +925,7 @@ describe("buildBorderRow", () => {
     // Measured in this engine: oklch/lab/lch/color are legal CSS, so the probe
     // accepts them into style.color, but getComputedStyle reports them
     // unnormalized and never as rgb(). The rgb parse therefore finds no
-    // channel, the authored declaration is preserved, and the colour input is
+    // channel, the authored declaration is preserved, and the color input is
     // left to its own default rather than to a hex we invented.
     manager.registerLayer({
       id: "vec1",

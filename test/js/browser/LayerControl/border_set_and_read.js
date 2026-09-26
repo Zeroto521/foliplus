@@ -1,9 +1,9 @@
-// Opens the ⋮ → Style panel for one layer row, writes the border colour and
+// Opens the ⋮ → Style panel for one layer row, writes the border color and
 // width through the row's own inputs when given, and reports the panel
 // contents, the persisted record, and what the map is actually drawing.
 //
-// Passing colour and weight through the row's inputs instead of calling
-// setStyle is the point: this is the exact path a user takes. A null colour
+// Passing color and weight through the row's inputs instead of calling
+// setStyle is the point: this is the exact path a user takes. A null color
 // or weight leaves that input untouched, so the same snippet reads the panel
 // back after a reload.
 //

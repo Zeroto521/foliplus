@@ -1,6 +1,6 @@
 // Border row — the ⚙︎ drawer's "Layer" section stroke swatch + width.
 //
-// A self-managed LayerControl dimension (like label colour, not like opacity
+// A self-managed LayerControl dimension (like label color, not like opacity
 // or zoom range): the values live in `ui.borderColorMap` /
 // `ui.borderWeightMap`, are persisted under `layerState.borderColor` /
 // `layerState.borderWeight`, and reach the map by walking `eachLayer` and
@@ -87,7 +87,7 @@ const layerCanBorder = (ui: LayerUI, layerId: string): boolean => {
 /** The layer's authored border style, captured on the layer's first border
  *  write and never re-read. Same recipe as the opacity base: `setStyle`
  *  mutates `options` in place, so by reset time we cannot re-read the
- *  author's colour or width from the layer and must replay the captured
+ *  author's color or width from the layer and must replay the captured
  *  value.
  *
  *  Keyed by `layer` identity, not by layer id, so a re-registration of the
@@ -163,9 +163,9 @@ const authoredBorder = (
   };
 };
 
-/** Commit the current border colour and width to the layer. Walks the layer
+/** Commit the current border color and width to the layer. Walks the layer
  *  tree and calls `setStyle({color?, weight?})` once per leaf that has a
- *  setter — the two sub-dimensions ride the same call so a colour change
+ *  setter — the two sub-dimensions ride the same call so a color change
  *  and a width change can never disagree about the stroke. A node without a
  *  setter is skipped silently.
  *
@@ -228,9 +228,9 @@ const pinLeaf = (ui: LayerUI, layerId: string, leaf: StyleSetter): void => {
   });
 };
 
-/** Write the colour into the map, persist it, and mark the dimension as
+/** Write the color into the map, persist it, and mark the dimension as
  *  user-owned so it survives a reload. Only writes when the value actually
- *  moved — a colour-picker drag revisits every step, and each pass is a
+ *  moved — a color-picker drag revisits every step, and each pass is a
  *  sweep over every feature of the layer.
  *
  *  Called from `bindLiveColor`, so `rawColor` is a raw `input.value` and is
@@ -282,7 +282,7 @@ const resetLayerBorder = (ui: LayerUI, layerId: string): void => {
     const base = authorBorderBase.get(node);
     if (!base) return;
     // Both dimensions are written unconditionally: the captured base always
-    // holds a colour and a width, so there is nothing to omit here.
+    // holds a color and a width, so there is nothing to omit here.
     node.setStyle({ color: base.color, weight: base.weight });
   };
   walk(layer);
@@ -308,10 +308,10 @@ const replayBorderState = (ui: LayerUI, id?: string): void => {
   for (const layerId of ids) applyBorderToLayer(ui, layerId);
 };
 
-/** Resolve an authored colour to the `#rrggbb` form the colour input's
+/** Resolve an authored color to the `#rrggbb` form the color input's
  *  value is actually defined for.
  *
- *  The author may declare a stroke in any CSS form — a named colour is what
+ *  The author may declare a stroke in any CSS form — a named color is what
  *  folium's quickstart uses for its faces. A non-hex declaration is resolved
  *  here through the browser rather than through a hand-kept name-to-hex
  *  table, so the field's value is stable in jsdom, in a headless engine and
@@ -346,13 +346,13 @@ const displayColor = (value: string): string => {
     .join("")}`;
 };
 
-/** Build the border form row: colour swatch + width number input. Both
+/** Build the border form row: color swatch + width number input. Both
  *  controls live inside one FORM_CONTROL via `inlineControls`, so the row
  *  reads the same as the delegated border row and the label row.
  *
  *  Each input's initial value is the stored choice, falling back to the
  *  author's own `options` — never a constant — so the row shows what the
- *  layer is actually painting on first open. The colour is resolved to the
+ *  layer is actually painting on first open. The color is resolved to the
  *  swatch's own form by `displayColor` before it reaches the field. */
 const buildBorderRow = (ui: LayerUI, layerId: string): HTMLElement => {
   const author = authoredBorder(ui, layerId);
@@ -382,7 +382,7 @@ const buildBorderRow = (ui: LayerUI, layerId: string): HTMLElement => {
   );
 };
 
-/** Wire the shared live-colour and live-number binders to this row's commit
+/** Wire the shared live-color and live-number binders to this row's commit
  *  paths. Called from `openStylePanel`. */
 const bindBorderRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
   const colorEl = row.querySelector(

@@ -2625,7 +2625,7 @@ class TestLayerControlBrowser:
         Border is not part of the executor's visible / opacity / zoomRange
         family — the panel writes it with a direct ``setStyle`` — so nothing in
         the projection replay would restore it. Without its own replay the row
-        could show the user's colour while the map kept painting the author's
+        could show the user's color while the map kept painting the author's
         stroke, which is the one failure mode this asserts against.
         """
         m = folium.Map(location=[30.0, 120.0], zoom_start=6, tiles=None)
@@ -2675,7 +2675,7 @@ class TestLayerControlBrowser:
             assert row["strokes"], f"the stroke never reached the map: {row}"
             for stroke in row["strokes"]:
                 assert stroke["stroke"] == "#ff0000", (
-                    f"the colour change did not reach the SVG: {row}"
+                    f"the color change did not reach the SVG: {row}"
                 )
                 assert stroke["strokeWidth"] == "6", (
                     f"the width change did not reach the SVG: {row}"
@@ -2695,7 +2695,7 @@ class TestLayerControlBrowser:
             )
             assert after.get("panel"), f"the style panel did not reopen: {after}"
             assert after["color"] == "#ff0000", (
-                f"reload reverted the border colour: {after}"
+                f"reload reverted the border color: {after}"
             )
             assert after["weight"] == "6", f"reload reverted the border width: {after}"
             assert after["strokes"], f"no stroked path after reload: {after}"
@@ -2714,7 +2714,7 @@ class TestLayerControlBrowser:
             entry = record["layers"].get(after["id"])
             assert entry, f"border state never persisted: {record}"
             assert entry["borderColor"] == "#ff0000", (
-                f"stored the wrong colour: {entry}"
+                f"stored the wrong color: {entry}"
             )
             assert entry["borderWeight"] == 6, f"stored the wrong width: {entry}"
 
@@ -2776,19 +2776,19 @@ class TestLayerControlBrowser:
                 f"expected exactly one border row, got: {panel['labels']}"
             )
 
-    def test_border_swatch_shows_a_named_colour_as_hex(self, browser, tmp_path):
-        """The swatch agrees with the map for a named authored colour.
+    def test_border_swatch_shows_a_named_color_as_hex(self, browser, tmp_path):
+        """The swatch agrees with the map for a named authored color.
 
-        folium's quickstart styles its faces with the named colour ``gray``.
+        folium's quickstart styles its faces with the named color ``gray``.
         The GeoJSON read used to return the layer's own options instead of
         its first feature's, which put a stroke the map was not painting into
         the panel — the same "the swatch disagrees with the map" defect,
-        reached through the colour form instead of through the layer tree.
+        reached through the color form instead of through the layer tree.
 
         The face paints ``stroke="gray"``; the swatch must therefore read
-        ``#808080``, the hex for that same colour, not black and not
+        ``#808080``, the hex for that same color, not black and not
         Leaflet's default. The neighbouring line keeps its own stroke, which
-        pins the assertion to the colour form rather than to anything the
+        pins the assertion to the color form rather than to anything the
         map does with it.
         """
         m = folium.Map(location=[30.0, 120.0], zoom_start=6, tiles=None)
@@ -2834,7 +2834,7 @@ class TestLayerControlBrowser:
         LayerControl().add_to(m)
         _expand_panel(m)
 
-        html_path = tmp_path / "test_border_named_colour.html"
+        html_path = tmp_path / "test_border_named_color.html"
         _write_html(m, html_path)
 
         with use_raw_page(browser.new_page) as page:

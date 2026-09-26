@@ -1342,7 +1342,7 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
     expect(ui.userOverrides.overlay1).toEqual(["opacity", "zoomRange"]);
   });
 
-  it("restores a stored border colour and width from the record", () => {
+  it("restores a stored border color and width from the record", () => {
     // The border maps are the row's own source of truth, so a restore has to
     // move the stored stroke into them: without it the drawer would reopen
     // showing the author's stroke while the map kept painting the user's last

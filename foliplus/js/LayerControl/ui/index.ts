@@ -184,7 +184,7 @@ class LayerUI {
   /** Persisted per-layer zoom range the user moved the handles for
    *  (id → [minZoom, maxZoom]). Applied on load / late register. */
   zoomRangeMap: Record<string, [number, number]>;
-  /** Persisted per-layer border colour (id → hex). A self-managed dimension —
+  /** Persisted per-layer border color (id → hex). A self-managed dimension —
    *  not part of the executor's visible/opacity/zoomRange family; the border
    *  row in ui/style/border.ts writes through setStyle directly. */
   borderColorMap: Record<string, string>;

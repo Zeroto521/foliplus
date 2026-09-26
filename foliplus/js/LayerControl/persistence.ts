@@ -24,10 +24,10 @@ type LayerOverride =
   | "visible"
   | "opacity"
   | "zoomRange"
-  | "borderColor"
-  | "borderWeight"
   | "fillColor"
-  | "fillOpacity";
+  | "fillOpacity"
+  | "borderColor"
+  | "borderWeight";
 
 /** One layer's persisted intent: the values the user set, plus which dimensions
  *  they set them for. A value with no matching override is dropped on read. */
@@ -38,18 +38,18 @@ type PersistedLayerState = {
    *  min_zoom / max_zoom is only the starting value, so it reaches this field
    *  only once the user has dragged the handles. */
   zoomRange?: [number, number];
-  /** The hex stroke colour the user picked in the style panel. LayerControl
-   *  owns the write (a self-managed dimension — see ui/style/border.ts), so
-   *  it lives in this record rather than on the annotation config. */
-  borderColor?: string;
-  /** The stroke width the user set, in the shared border bounds. */
-  borderWeight?: number;
   /** The hex fill color the user picked in the style panel. LayerControl
    *  owns the write (a self-managed dimension — see ui/style/fill.ts), so
    *  it lives in this record rather than on the annotation config. */
   fillColor?: string;
   /** Fill opacity (0-1) the user set in the style panel. */
   fillOpacity?: number;
+  /** The hex stroke color the user picked in the style panel. LayerControl
+   *  owns the write (a self-managed dimension — see ui/style/border.ts), so
+   *  it lives in this record rather than on the annotation config. */
+  borderColor?: string;
+  /** The stroke width the user set, in the shared border bounds. */
+  borderWeight?: number;
   overrides: LayerOverride[];
 };
 
@@ -119,10 +119,10 @@ const OVERRIDE_VALUES: LayerOverride[] = [
   "visible",
   "opacity",
   "zoomRange",
-  "borderColor",
-  "borderWeight",
   "fillColor",
   "fillOpacity",
+  "borderColor",
+  "borderWeight",
 ];
 
 /** A stored zoom range: two finite numbers with the low end not above the
@@ -190,20 +190,6 @@ const parseLayerState = (raw: unknown): PersistedLayerState | null => {
       }
       continue;
     }
-    if (override === "borderColor") {
-      if (isHexColor(data.borderColor)) {
-        out.borderColor = data.borderColor;
-        out.overrides.push("borderColor");
-      }
-      continue;
-    }
-    if (override === "borderWeight") {
-      if (isBorderWeight(data.borderWeight)) {
-        out.borderWeight = data.borderWeight;
-        out.overrides.push("borderWeight");
-      }
-      continue;
-    }
     if (override === "fillColor") {
       if (isHexColor(data.fillColor)) {
         out.fillColor = data.fillColor;
@@ -220,6 +206,20 @@ const parseLayerState = (raw: unknown): PersistedLayerState | null => {
       ) {
         out.fillOpacity = data.fillOpacity;
         out.overrides.push("fillOpacity");
+      }
+      continue;
+    }
+    if (override === "borderColor") {
+      if (isHexColor(data.borderColor)) {
+        out.borderColor = data.borderColor;
+        out.overrides.push("borderColor");
+      }
+      continue;
+    }
+    if (override === "borderWeight") {
+      if (isBorderWeight(data.borderWeight)) {
+        out.borderWeight = data.borderWeight;
+        out.overrides.push("borderWeight");
       }
       continue;
     }
