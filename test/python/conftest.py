@@ -12,15 +12,18 @@ Guidelines
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import shutil
 import tempfile
+import time
 import urllib.request
+import warnings
 from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TextIO
 
 import folium
 import pytest
@@ -300,6 +303,183 @@ def _install_cdn_route(target: Any) -> None:
 _BROWSER_DEFAULT_NAV_TIMEOUT_MS = 45_000
 
 
+# ── Health probe (T150 flaky-95 investigation) ──
+#
+# Inert observer for browser tests under `-n 24` xdist load. Samples worker
+# process + Chromium resource usage to a per-worker JSONL log under
+# ``.foliplus/flaky95/`` so a future 95-anomaly-round can be attributed
+# (context accumulation? worker resource exhaustion? Chromium spawn burst?)
+# rather than filed as an unsolved flake.
+#
+# Sampling cadence is deliberately low (every Nth ``new_page()``) so the
+# probe itself does not distort the very behaviour it is measuring.
+# Threshold warnings fire once per metric per worker session — enough to
+# leave a marker in the run log, quiet enough to not spam healthy rounds.
+#
+# Env overrides (all opt-out / opt-in; nothing in main defaults changes):
+#   FOLIPLUS_HEALTH_PROBE=0       disable entirely (default on)
+#   FOLIPLUS_HEALTH_SAMPLE_N=N    sample every Nth ``new_page()`` (default 8)
+#   FOLIPLUS_BROWSER_MODE=shared  single session-scoped BrowserContext instead
+#                                 of the baseline per-page context. Diagnostic
+#                                 only — see T129 for the storage-isolation
+#                                 caveat under ``file://`` origins.
+#
+# ``.foliplus/`` is gitignored; the probe leaves no tracked artifacts.
+#
+# T150 findings (2026-09-25):
+#   Windows local (15 baseline rounds of -n 24):
+#   - 95-class anomaly reproduced (Round 14: 116 failures / 409 s; Round 12:
+#     99 failures / 321 s) with per-page context baseline.
+#   - Round 14 workers at page 8 show ``contexts`` = 1-5 (vs 1-2 in clean
+#     rounds) and ``chromium_procs`` = 19-31 (vs 19-29 in clean rounds).
+#   - Correlation: chromium process count tracks per-worker context count
+#     one-to-one — each open context is a Chromium renderer/helper.
+#   - 5 rounds of -n 12 (halved workers): 0 failures, ctxMax=1 throughout.
+#   - Root cause (Windows only): process pressure at -n 24 causes intermittent
+#     per-worker context accumulation, which cascades into the 95-anomaly
+#     (workers stuck on page.goto timeouts, unable to progress past po=8).
+#
+#   Linux CI (GitHub Actions, 51 failed test runs sampled):
+#   - No 95-class anomaly visible. Observed failures are 2-20 test flakes
+#     (normal level) or non-test failures (format / lint / esbuild).
+#   - Do NOT interpret the Windows root cause as universal. A global
+#     JOBS 24→12 change would mis-cap healthy Linux CI runners.
+#
+#   Disposition (per review):
+#   - Keep probes + tightened thresholds (contexts>3, chromium_procs>28).
+#   - Windows local workaround: run ``make test-browser JOBS=12`` on Windows
+#     machines when 24-worker flake rate spikes. Do not change the Makefile
+#     default (JOBS=auto) — Linux CI has not reproduced the symptom.
+#   - A future platform-conditional JOBS in Makefile is only justified once
+#     the same 95-anomaly class is observed on Linux CI.
+#
+_HEALTH_PROBE_ENABLED = os.environ.get("FOLIPLUS_HEALTH_PROBE", "1") != "0"
+_HEALTH_SAMPLE_N = int(os.environ.get("FOLIPLUS_HEALTH_SAMPLE_N", "8"))
+_BROWSER_MODE = os.environ.get("FOLIPLUS_BROWSER_MODE", "per_page")
+_HEALTH_DIR = Path(".foliplus") / "flaky95"
+# Permissive thresholds — outliers only, not normal variance. Adjust after
+# collecting a baseline distribution from the first round of clean runs.
+_HEALTH_THRESHOLDS = {
+    "rss_mb": 512,
+    "contexts": 3,
+    "chromium_procs": 28,
+    "handles": 2000,
+}
+
+
+class _Flaky95Probe:
+    """Per-worker sampler for browser-test resource health.
+
+    Observes only: never raises, never mutates a test's browser, never
+    fails a test from a probe exception. The proxy calls
+    :meth:`maybe_sample` on each ``new_page()``; the fixture calls
+    :meth:`close` at session end.
+    """
+
+    def __init__(self, worker_id: str, sample_n: int) -> None:
+        self._worker_id = worker_id
+        self._sample_n = max(1, sample_n)
+        self._pages_opened = 0
+        self._warned: set[str] = set()
+        self._log_fh: TextIO | None = None
+        if _HEALTH_PROBE_ENABLED:
+            _HEALTH_DIR.mkdir(parents=True, exist_ok=True)
+            ts = time.strftime("%Y%m%d-%H%M%S")
+            # pid disambiguates two rounds that happen to start within the
+            # same second (fast CI retries, automated loops) — without it
+            # both probes append to the same file and their samples interleave.
+            path = _HEALTH_DIR / f"health-{ts}-{worker_id}-{os.getpid()}.jsonl"
+            try:
+                # Line-buffered so each sample is durable even under a
+                # hard worker kill — that's the anomaly mode we want to
+                # recover from, so losing samples to a buffer flush on
+                # clean exit would defeat the purpose.
+                self._log_fh = path.open("a", encoding="utf-8", buffering=1)
+            except OSError:
+                self._log_fh = None
+
+    def maybe_sample(self, browser: Any) -> None:
+        """Increment the page counter; sample if we're on a multiple of N."""
+        self._pages_opened += 1
+        if self._log_fh is None or self._pages_opened % self._sample_n:
+            return
+        snap = self._snapshot(browser)
+        if snap is None:
+            return
+        self._warn_if_over(snap)
+        try:
+            self._log_fh.write(json.dumps(snap) + "\n")
+        except Exception:
+            # Never break a test from a probe failure.
+            pass
+
+    def _snapshot(self, browser: Any) -> dict[str, Any] | None:
+        try:
+            import psutil
+
+            proc = psutil.Process(os.getpid())
+            rss_mb = proc.memory_info().rss / 1024**2
+            handles = getattr(proc, "num_handles", lambda: None)()
+            threads = proc.num_threads()
+        except Exception:
+            rss_mb = handles = threads = None
+
+        try:
+            chromium_procs = sum(
+                1
+                for p in psutil.process_iter(["name"])
+                if (p.info or {}).get("name", "").lower() in ("chrome.exe", "chrome")
+            )
+        except Exception:
+            chromium_procs = None
+
+        contexts = pages_open = None
+        try:
+            contexts = len(browser.contexts)
+            pages_open = sum(len(ctx.pages) for ctx in browser.contexts)
+        except Exception:
+            pass
+
+        return {
+            "ts": round(time.time(), 2),
+            "worker": self._worker_id,
+            "pid": os.getpid(),
+            "mode": _BROWSER_MODE,
+            "rss_mb": round(rss_mb, 1) if rss_mb else None,
+            "handles": handles,
+            "threads": threads,
+            "chromium_procs": chromium_procs,
+            "contexts": contexts,
+            "pages_open": pages_open,
+            "pages_opened_total": self._pages_opened,
+        }
+
+    def _warn_if_over(self, snap: dict[str, Any]) -> None:
+        for metric, threshold in _HEALTH_THRESHOLDS.items():
+            value = snap.get(metric)
+            if value is None or value <= threshold or metric in self._warned:
+                continue
+            self._warned.add(metric)
+            try:
+                warnings.warn(
+                    f"[flaky-95] {metric}={value} exceeds threshold "
+                    f"{threshold} (worker={snap['worker']}, pid={snap['pid']}, "
+                    f"pages_opened_total={snap['pages_opened_total']})",
+                    UserWarning,
+                    stacklevel=2,
+                )
+            except Exception:
+                pass
+
+    def close(self) -> None:
+        if self._log_fh is not None:
+            try:
+                self._log_fh.close()
+            except Exception:
+                pass
+            self._log_fh = None
+
+
 class _CdnBrowserProxy:
     """Wrap a Playwright Browser so every ``new_page()`` gets the CDN route.
 
@@ -314,8 +494,9 @@ class _CdnBrowserProxy:
     legitimate slow first-paint doesn't trip as a flake on loaded CI.
     """
 
-    def __init__(self, browser: Browser) -> None:
+    def __init__(self, browser: Browser, probe: _Flaky95Probe | None = None) -> None:
         self._browser = browser
+        self._probe = probe
 
     def __getattr__(self, name: str):
         return getattr(self._browser, name)
@@ -324,6 +505,39 @@ class _CdnBrowserProxy:
         page = self._browser.new_page(*args, **kwargs)
         _install_cdn_route(page)
         page.set_default_navigation_timeout(_BROWSER_DEFAULT_NAV_TIMEOUT_MS)
+        if self._probe is not None:
+            self._probe.maybe_sample(self._browser)
+        return page
+
+
+class _SharedContextBrowserProxy:
+    """Variant of :class:`_CdnBrowserProxy` that shares one BrowserContext.
+
+    Diagnostic only (T150 comparison experiment): exercises the shared-context
+    path #448 originally attempted, so the 95-anomaly hypothesis "context
+    accumulation inside one context" can be tested against the reverted
+    per-page baseline. T129 found this variant breaks
+    ``test_saved_bounds_restore`` under ``file://`` origins (sessionStorage
+    marker fires an unwanted ``localStorage.clear`` on reload) — that failure
+    is expected evidence, not a regression.
+    """
+
+    def __init__(self, browser: Browser, probe: _Flaky95Probe | None = None) -> None:
+        self._browser = browser
+        self._probe = probe
+        self._context = browser.new_context()
+        # Route installed on the context covers every page in it — one
+        # handler, not one per page.
+        _install_cdn_route(self._context)
+
+    def __getattr__(self, name: str):
+        return getattr(self._browser, name)
+
+    def new_page(self, *args, **kwargs):
+        page = self._context.new_page(*args, **kwargs)
+        page.set_default_navigation_timeout(_BROWSER_DEFAULT_NAV_TIMEOUT_MS)
+        if self._probe is not None:
+            self._probe.maybe_sample(self._browser)
         return page
 
 
@@ -592,7 +806,18 @@ def browser() -> Generator[_CdnBrowserProxy, None, None]:
     # navigation during the run (main source of flaky browser tests on CI).
     _prefetch_cdn_cache()
 
+    # Per-worker health probe (see module-level T150 block). Worker id comes
+    # from xdist's env; falls back to "master" for serial runs so the log
+    # filename is always meaningful.
+    worker_id = os.environ.get("PYTEST_XDIST_WORKER", "master")
+    probe = _Flaky95Probe(worker_id, _HEALTH_SAMPLE_N)
+
     with sync_playwright() as pw:
         browser = pw.chromium.launch(headless=True)
-        yield _CdnBrowserProxy(browser)
+        if _BROWSER_MODE == "shared":
+            proxy = _SharedContextBrowserProxy(browser, probe)
+        else:
+            proxy = _CdnBrowserProxy(browser, probe)
+        yield proxy
+        probe.close()
         browser.close()
