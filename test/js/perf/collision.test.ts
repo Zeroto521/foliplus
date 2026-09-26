@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as Collision from "#foliplus/MeasureControl/collision.js";
+import type { CollidableLabel } from "#foliplus/MeasureControl/type.js";
 
 // Attribution for `test/js/perf/`: a test belongs here iff BOTH
 //   (a) it reads real elapsed time (not a fake clock), AND
@@ -114,7 +115,7 @@ const makePerfContainer = (): HTMLElement => {
 };
 
 /** Real DOM chip at `box` (container-relative). */
-const labelAt = (box: Box, perfContainer: HTMLElement): Collision.CollidableLabel => {
+const labelAt = (box: Box, perfContainer: HTMLElement): CollidableLabel => {
   const el = document.createElement("div");
   document.body.appendChild(el);
   perfRectOf(el, box.x + PERF_CONTAINER_LEFT, box.y + PERF_CONTAINER_TOP, box.w, box.h);
