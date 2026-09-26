@@ -101,10 +101,10 @@ class TestStripCommentsAndStrings:
         assert mod.strip_comments_and_strings('export { "a\\" }') == "export {     "
 
     def test_unterminated_string_is_blanked_to_eol(self):
-        assert mod.strip_comments_and_strings("export { \"a }") == "export {     "
+        assert mod.strip_comments_and_strings('export { "a }') == "export {     "
 
     def test_multiple_strings_and_comment(self):
-        out = mod.strip_comments_and_strings('a "x" b\'y\' c `z` // tail')
+        out = mod.strip_comments_and_strings("a \"x\" b'y' c `z` // tail")
         assert out == "a     b    c     "
 
     def test_empty_string_is_clean(self):
@@ -609,9 +609,13 @@ class TestMain:
         assert captured.out == ""
         assert captured.err == ""
 
-    def test_violation_reports_location_and_exit_one(self, tmp_path, capsys, monkeypatch):
+    def test_violation_reports_location_and_exit_one(
+        self, tmp_path, capsys, monkeypatch
+    ):
         f = tmp_path / "files.ts"
-        f.write_text("const colour = 1\nexport { colour }\nexport { colour }\n", encoding="utf-8")
+        f.write_text(
+            "const colour = 1\nexport { colour }\nexport { colour }\n", encoding="utf-8"
+        )
         assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 1
         captured = capsys.readouterr()
         assert str(f) in captured.out
@@ -619,7 +623,9 @@ class TestMain:
         assert "British spelling `colour`" in captured.out
         assert "code-style violation(s)" in captured.err
 
-    def test_summary_mentions_eslint_responsibilities(self, tmp_path, capsys, monkeypatch):
+    def test_summary_mentions_eslint_responsibilities(
+        self, tmp_path, capsys, monkeypatch
+    ):
         f = tmp_path / "bad.ts"
         f.write_text("export { a }\nexport { b }\n", encoding="utf-8")
         assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 1
