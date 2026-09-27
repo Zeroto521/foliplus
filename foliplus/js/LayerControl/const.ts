@@ -61,7 +61,7 @@ const ANNOTATION_PANE_PREFIX = "foliplus-annotation-";
 /** CSS class names. */
 const CLASSES = {
   LAYER_ITEM: "foliplus-layer-item",
-  ACTIVE: "active",
+  ACTIVE: "foliplus-active",
   CHECKBOX: "foliplus-checkbox",
   DRAG_CELL: "foliplus-drag-cell",
   GROUP_FOLDED: "foliplus-layer-group-folded",
@@ -86,7 +86,7 @@ const CLASSES = {
    *  Painted via CSS `background-image`, which ExportControl's
    *  resolveExportBackground deliberately skips — an empty state never
    *  reaches an export. */
-  NO_BASE_MAP: "no-base-map",
+  NO_BASE_MAP: "foliplus-no-base-map",
   FOCUSING: "foliplus-is-focusing",
   /** Set on the map container while a focus is active. CSS hides every
    *  `.foliplus-layer-pane` except the focused one (`.foliplus-focus-pane`)

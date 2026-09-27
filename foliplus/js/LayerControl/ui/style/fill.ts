@@ -187,9 +187,11 @@ const authoredFillOpacity = (ui: LayerUI, layerId: string): number | null => {
   return authored;
 };
 
-/** A visible `fillOpacity` used when the author set the fill to 0 (hollow).
- *  Without it a color change is invisible — the `fill` attribute updates but
- *  `fill-opacity="0"` hides it. 0.2 matches Leaflet's own default. */
+/** A visible `fillOpacity` used to *display* the row's opacity input when
+ *  neither a stored override nor an authored value exists. 0.2 matches
+ *  Leaflet's own default, so a row for a layer that never declared a fill
+ *  opacity shows what the layer is actually painting. Display only — no
+ *  write path reads this to change a layer's opacity. */
 const VISIBLE_FILL_OPACITY = 0.2;
 
 /** Visit every leaf that exposes a runtime style-setter. Groups (LayerGroup,
@@ -287,10 +289,11 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
  *  moved — a color-picker drag revisits every step, and each pass is a
  *  sweep over every feature of the layer.
  *
- *  When the layer is hollow (author fillOpacity === 0) and the user has not
- *  explicitly set fillOpacity, bumps fillOpacityMap to a visible value so
- *  the color change is visible. If the user HAS explicitly set fillOpacity
- *  (even to 0), their choice wins — no bump.
+ *  Color-only: this never touches `fillOpacityMap`. A hollow layer (author
+ *  fillOpacity === 0) stays hollow — the `fill` attribute takes the new color
+ *  and `fill-opacity="0"` keeps it hidden, which is the honest rendering of
+ *  the author's value. The opacity input beside the swatch (0-100) is how
+ *  the user makes the color visible.
  *
  *  Called from `bindLiveColor`, so `color` is a raw `input.value` and is
  *  normalized to 6-digit lowercase hex before landing in storage. */
@@ -299,24 +302,6 @@ const commitFillColor = (ui: LayerUI, layerId: string, rawColor: string): void =
   if (ui.fillColorMap[layerId] === color) return;
   ui.fillColorMap[layerId] = color;
   markOverride(ui, layerId, "fillColor");
-
-  if (ui.fillOpacityMap[layerId] === undefined) {
-    const li = ui.m.layerRegistry.get(layerId);
-    if (!isColorBasemap(li)) {
-      const layer = li?.layer as StyleCarrier | null;
-      if (layer) {
-        let hollow = false;
-        walkStyleLeaves(layer, node => {
-          if (node.options?.fillOpacity === 0) hollow = true;
-        });
-        if (hollow) {
-          ui.fillOpacityMap[layerId] = VISIBLE_FILL_OPACITY;
-          markOverride(ui, layerId, "fillOpacity");
-        }
-      }
-    }
-  }
-
   saveState(ui);
   applyFillToLayer(ui, layerId);
 };
@@ -338,10 +323,9 @@ const commitFillOpacity = (ui: LayerUI, layerId: string, pct: number): void => {
  *  place, so by reset time we cannot re-read the author's color from the
  *  layer and must replay the captured value.
  *
- *  Both `fillColor` and `fillOpacity` are restored from the captured base.
- *  `fillOpacity` was written by {@link applyFillToLayer} when it was 0
- *  (to make the color change visible); reset puts it back to the author's
- *  original — 0 for a hollow polygon, undefined for the default.
+ *  Both `fillColor` and `fillOpacity` are restored from the captured base —
+ *  0 for a hollow polygon, Leaflet's 0.2 default when the author never
+ *  declared an opacity.
  *
  *  The persisted override is removed either way so the next load does not
  *  re-apply a color the layer no longer shows. */
