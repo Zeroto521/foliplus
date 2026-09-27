@@ -6,9 +6,9 @@
   );
   if (items.length === 0) return null;
   // The style half of this probe needs a CHECKED row: the selected styling
-  // (accent wash, black type icon) only exists on .active rows, and Escape
+  // (accent wash, black type icon) only exists on .foliplus-active rows, and Escape
   // must restore that rest state once the JS cursor class is lifted.
-  const checked = items.find(i => i.classList.contains("active")) ?? items[0];
+  const checked = items.find(i => i.classList.contains("foliplus-active")) ?? items[0];
   checked.focus();
   const rowStyles = el => {
     const cs = getComputedStyle(el);
@@ -29,10 +29,10 @@
   checked.dispatchEvent(
     new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
   );
-  const beforeEscape = panel.querySelector(".is-focused-row");
+  const beforeEscape = panel.querySelector(".foliplus-is-focused-row");
   const beforeActive = document.activeElement;
   checked.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-  const afterEscape = panel.querySelector(".is-focused-row");
+  const afterEscape = panel.querySelector(".foliplus-is-focused-row");
   const afterActive = document.activeElement;
   return {
     beforeEscape: !!beforeEscape,

@@ -1,7 +1,5 @@
 // LayerControl UI — class shell: state, lifecycle, event wiring, delegates.
 // Heavy lifting lives in `ui/*` modules; this class owns state and delegates.
-// attachUI / bindEvents / unbindEvents / onLayerItemCountChange /
-// refreshAllCounts moved to `./lifecycle.ts` (34.2).
 import { type EventBus, ensureEvents } from "#core/event/index.js";
 import type { LabelField } from "#core/labelField.js";
 import { type CreateColorAPI, type LayerInfo } from "#core/layer/index.js";
@@ -9,7 +7,7 @@ import { ListCursor } from "#core/listCursor.js";
 import { createScopedTranslator, createTranslator } from "#common/locale.js";
 import * as CONST from "../const.js";
 import type { LayerManager } from "../manager.js";
-import type { LayerOverride } from "../persistence.js";
+import type { LayerOverride } from "../type.js";
 import { applyProjection, applyProjectionAll } from "./apply.js";
 import { closeAttrsPanel, openAttrsPanel } from "./attr.js";
 import { hideColorLayer, showColorLayer } from "./color.js";
@@ -338,13 +336,18 @@ class LayerUI {
     // values. Hooked here rather than in state.ts to keep state.ts free of
     // style-row imports (border.js and fill.js import state.js for
     // markOverride/saveState).
-    replayBorderState(this, id);
-    if (id) {
-      replayFillState(this, id);
-    } else {
-      for (const layerId of Object.keys(this.userOverrides)) {
-        replayFillState(this, layerId);
-      }
+    //
+    // Both dimensions enumerate `userOverrides` — the single source of truth
+    // for which layers the user actually touched. Border's map-union
+    // enumeration and fill's userOverrides loop were asymmetric: a value in
+    // `borderColorMap` that was never recorded as an override would replay
+    // for border but not for fill, and vice versa, so a reload could restore
+    // the drawer's swatch for one dimension while leaving the map with the
+    // author's for the other.
+    const layerIds = id !== undefined ? [id] : Object.keys(this.userOverrides);
+    for (const layerId of layerIds) {
+      replayBorderState(this, layerId);
+      replayFillState(this, layerId);
     }
   }
   replayLayerState(layerId: string) {

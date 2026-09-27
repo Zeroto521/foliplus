@@ -4,10 +4,10 @@
 // pane + canvas (created through `factory.createColor`), so it participates
 // in the layer z ladder exactly like tile basemaps. Row order = visual stack
 // order. The old container-background contract (--color-layer-bg,
-// .leaflet-container.active) is retired.
+// .leaflet-container.foliplus-active) is retired.
 () => {
   const ctrl = document.querySelector(".foliplus-layer-ctrl");
-  if (ctrl && !ctrl.classList.contains("is-expanded")) {
+  if (ctrl && !ctrl.classList.contains("foliplus-is-expanded")) {
     ctrl.querySelector(".foliplus-toggle-btn").click();
   }
   const item = document.querySelector(".foliplus-color-layer-item");
@@ -51,8 +51,8 @@
   }
   return {
     itemFound: true,
-    itemActive: item.classList.contains("active"),
-    containerActive: container.classList.contains("active"),
+    itemActive: item.classList.contains("foliplus-active"),
+    containerActive: container.classList.contains("foliplus-active"),
     cssVar: container.style.getPropertyValue("--color-layer-bg").trim(),
     containerBg: getComputedStyle(container).backgroundColor,
     tileHidden: tilePane.classList.contains("foliplus-layer-tile-hidden"),

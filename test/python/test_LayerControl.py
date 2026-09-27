@@ -269,10 +269,8 @@ class TestLayerControlRendering:
         """Style-panel locale keys exist in both en and zh.
 
         The container (``style_*``) and the annotation-only dimension
-        (``style_label_field`` / ``_no_data``) stay component-scoped. The shared
-        label vocabulary (color/size/format/collide) moved to the common table,
-        rendered by ``core/labelControl.ts`` for this drawer and the heatmap
-        panel alike — ``test_locale.py`` covers that cross-table key set.
+        (``style_label_field`` / ``_no_data``) stay component-scoped.
+        ``test_locale.py`` covers the cross-table key set.
         """
         root = Path(__file__).resolve().parent.parent.parent
         required = {
@@ -431,11 +429,11 @@ class TestLayerControlRendering:
         """The Row-cursor recipe exists in the source CSS and drives every
         interactive element with one recipe.
 
-        Mouse hover and the JS cursor class (.is-focused-row) share a
+        Mouse hover and the JS cursor class (.foliplus-is-focused-row) share a
         single :is() rule, so they cannot drift apart: white surface, left bar
         accent, top/bottom red glow, drag grip, type icon black, more button
         red. White paints whenever the row is the interaction target (hover /
-        Tab / arrow); a checked row shows its .active wash only at rest.
+        Tab / arrow); a checked row shows its .foliplus-active wash only at rest.
         :focus-visible is deliberately NOT a CSS trigger — Tab focus is mapped
         onto the class by the focusin delegate. Only color changes; the type
         icon must NOT scale."""
@@ -451,9 +449,9 @@ class TestLayerControlRendering:
         # The :is() selector only exists before PostCSS flattens nesting, so it
         # cannot be found in the built bundle. Anchor the brace scan at the
         # opening brace of the :is() rule (NOT the parent's — the nearest
-        # preceding `{` belongs to the sibling &.active rule), then count depth
+        # preceding `{` belongs to the sibling &.foliplus-active rule), then count depth
         # to isolate exactly this rule's body without leaking into siblings.
-        mark = "is(:hover, .is-focused-row)"
+        mark = "is(:hover, .foliplus-is-focused-row)"
         # The recipe's :is() rule sits INSIDE the compound selector that opens
         # with `.foliplus-layer-item,` — anchor there so css.find() does not
         # match the fold-btn's own `:not(...):is(...)` rule earlier in the file.
@@ -462,7 +460,7 @@ class TestLayerControlRendering:
         start = css.find(mark, compound)
         assert start != -1, "unified Row-cursor recipe selector not found"
         # :focus-visible is never a recipe trigger — Esc cancel is one class off.
-        assert "is(:hover, :focus-visible, .is-focused-row)" not in css
+        assert "is(:hover, :focus-visible, .foliplus-is-focused-row)" not in css
         # Both row types join the parent compound selector that carries this
         # :is() rule (also asserted in test_toggle_all_hover_shares_row_cursor_
         # recipe, which checks the exact selector string).
@@ -482,7 +480,7 @@ class TestLayerControlRendering:
         recipe = "".join(out)
         # The left accent bar is a PERSISTENT checked-status indicator, so the
         # interaction recipe must NOT force it — hover/keyboard/Tab show the
-        # glow, and the red left bar stays reserved for .active / folded groups.
+        # glow, and the red left bar stays reserved for .foliplus-active / folded groups.
         assert "border-left-color" not in recipe
         # Rest surface of the compound itself: explicit white, never
         # transparent (a transparent rest and a painted interaction white
@@ -503,12 +501,12 @@ class TestLayerControlRendering:
         # it without a stacking lift on the interaction target.
         assert "position: relative" in recipe
         assert "z-index: 1" in recipe, "cursor recipe must paint the white surface"
-        # Interaction white must sit AFTER the .active wash in source order so
+        # Interaction white must sit AFTER the .foliplus-active wash in source order so
         # it wins at equal specificity (postcss keeps declaration order).
-        active_idx = css.find("&.active", compound)
+        active_idx = css.find("&.foliplus-active", compound)
         recipe_idx = css.find(mark, compound)
         assert 0 < active_idx < recipe_idx, (
-            "interaction recipe must be declared after .active so white "
+            "interaction recipe must be declared after .foliplus-active so white "
             "out-ranks the wash"
         )
         # Base basemap / color picker stay quiet: no cursor glow/white.
@@ -519,7 +517,7 @@ class TestLayerControlRendering:
             "color picker row must opt out of the cursor recipe"
         )
         # Checked color basemap keeps the wash on hover.
-        assert "foliplus-color-layer-item.active" in css
+        assert "foliplus-color-layer-item.foliplus-active" in css
         assert "--panel-header-hover" not in recipe
         # Top/bottom red glow (blurred box-shadow) is part of the SHARED recipe,
         # not cursor-only, so mouse hover and Tab focus match the arrow-key cursor
@@ -535,13 +533,13 @@ class TestLayerControlRendering:
         # ── Type icon ──
         assert "foliplus-type-icon-col svg" in html
         assert "transition: transform" in html
-        # A checked row carries .active — a persistent checkbox state, not a
+        # A checked row carries .foliplus-active — a persistent checkbox state, not a
         # cursor — and the cursor-only type-icon tint comes from the recipe.
-        assert ".foliplus-layer-item.active .foliplus-type-icon-col" in html
+        assert ".foliplus-layer-item.foliplus-active .foliplus-type-icon-col" in html
         act_type = [
             html[i : html.index("}", i)]
             for i in range(len(html))
-            if "layer-item.active .foliplus-type-icon-col"
+            if "layer-item.foliplus-active .foliplus-type-icon-col"
             in html[max(0, i - 60) : i + 60]
         ]
         assert any("color: var(--text-primary)" in b for b in act_type), (
@@ -703,8 +701,8 @@ class TestLayerControlRendering:
         private hover style anymore."""
         css = read_css("foliplus/css/LayerControl/index.css")
         assert ".foliplus-layer-sep.foliplus-layer-toggle-all" in css
-        assert "is(:hover, .is-focused-row)" in css
-        assert "is(:hover, :focus-visible, .is-focused-row)" not in css
+        assert "is(:hover, .foliplus-is-focused-row)" in css
+        assert "is(:hover, :focus-visible, .foliplus-is-focused-row)" not in css
         assert "border-left-color: var(--accent-primary)" in css
         # The old fold-row-only hover used a softer border than the data rows.
         assert "border-left-color: var(--accent-light)" not in css
@@ -714,7 +712,7 @@ class TestLayerControlRendering:
         index, so no sibling hover wake can paint over the menu or a row
         panel. A fixed overlay z-index is not enough: opening a menu focuses
         its first item, so the focusin delegate marks the OWNER row
-        `.is-focused-row`; the recipe then gives the owner a z-index
+        `.foliplus-is-focused-row`; the recipe then gives the owner a z-index
         1 stacking context that confines the overlay, and a later lit
         sibling paints over it (measured in the browser). Lifting the owner
         carries the overlay with it and settles every stacking combination.
@@ -876,12 +874,12 @@ class TestLayerControlRendering:
     def test_fold_btn_hover_bidirectional_preview(self):
         """Fold button shows bidirectional preview across hover and the arrow/Tab cursor.
 
-        Keyed on :is(:hover, .is-focused-row) so the fold icon wakes up
+        Keyed on :is(:hover, .foliplus-is-focused-row) so the fold icon wakes up
         identically to the Row-cursor recipe. Tab focus is not a CSS trigger —
         the focusin delegate maps it onto the same JS class.
         """
         css = read_css("foliplus/css/LayerControl/index.css")
-        wake = "is(:hover, .is-focused-row)"
+        wake = "is(:hover, .foliplus-is-focused-row)"
         # Expanded row interaction: black → red (preview folded)
         assert "foliplus-layer-toggle-all:not(.foliplus-layer-folded):is(" in css
         assert wake in css
@@ -967,7 +965,7 @@ class TestLayerControlRendering:
 
           - checkbox: bg var(--input-bg) -> var(--accent-primary);
                       border var(--input-border) -> var(--accent-primary)
-          - layer item (.active): bg var(--panel-bg) -> var(--accent-light)
+          - layer item (.foliplus-active): bg var(--panel-bg) -> var(--accent-light)
           - toggle-all row: same mechanism if its bg ever changes on rebuild
 
         Transitions are kept only on properties that do not change on rebuild
@@ -1167,8 +1165,8 @@ class TestLayerControlBrowser:
         """True while the panel at *selector* is expanded, not collapsed."""
         return page.evaluate(
             "sel => { const c = document.querySelector(sel);"
-            " return !!c && c.classList.contains('is-expanded')"
-            " && !c.classList.contains('is-collapsed'); }",
+            " return !!c && c.classList.contains('foliplus-is-expanded')"
+            " && !c.classList.contains('foliplus-is-collapsed'); }",
             selector,
         )
 
@@ -1184,7 +1182,9 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
             panel_ready(page)
             page.wait_for_selector(
@@ -1380,7 +1380,9 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
             page.wait_for_selector(
                 ".foliplus-layer-item:not(.foliplus-color-layer-item)",
@@ -1895,7 +1897,9 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
 
             title = page.evaluate(_js("LayerControl/read_layer_item_title"))
@@ -1926,7 +1930,9 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
             page.wait_for_timeout(500)
 
@@ -1998,7 +2004,9 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
             page.wait_for_timeout(500)
 
@@ -2034,7 +2042,9 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
             page.wait_for_timeout(500)
 
@@ -2061,7 +2071,9 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
             page.wait_for_timeout(500)
 
@@ -2130,7 +2142,9 @@ class TestLayerControlBrowser:
         with use_raw_page(browser.new_page) as page:
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=10000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=10000,
             )
             page.wait_for_timeout(500)
 
@@ -2200,7 +2214,9 @@ class TestLayerControlBrowser:
                 ".foliplus-layer-ctrl", state="attached", timeout=10000
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=10000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=10000,
             )
             page.wait_for_timeout(500)
 
@@ -2216,7 +2232,9 @@ class TestLayerControlBrowser:
                 ".foliplus-layer-ctrl", state="attached", timeout=10000
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=10000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=10000,
             )
             page.wait_for_timeout(500)
 
@@ -2279,7 +2297,9 @@ class TestLayerControlBrowser:
                 ".foliplus-layer-ctrl", state="attached", timeout=10000
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=10000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=10000,
             )
             page.wait_for_timeout(500)
 
@@ -2309,7 +2329,9 @@ class TestLayerControlBrowser:
                 ".foliplus-layer-ctrl", state="attached", timeout=10000
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=10000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=10000,
             )
             page.wait_for_timeout(500)
 
@@ -2372,7 +2394,9 @@ class TestLayerControlBrowser:
                 ".foliplus-layer-ctrl", state="attached", timeout=10000
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=10000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=10000,
             )
             page.wait_for_timeout(500)
 
@@ -2390,7 +2414,9 @@ class TestLayerControlBrowser:
                     ".foliplus-layer-ctrl", state="attached", timeout=10000
                 )
                 page.wait_for_selector(
-                    ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=10000
+                    ".foliplus-layer-ctrl.foliplus-is-expanded",
+                    state="attached",
+                    timeout=10000,
                 )
                 page.wait_for_timeout(500)
 
@@ -2436,7 +2462,9 @@ class TestLayerControlBrowser:
                 ".foliplus-layer-ctrl", state="attached", timeout=10000
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=10000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=10000,
             )
             page.wait_for_timeout(500)
 
@@ -2455,7 +2483,9 @@ class TestLayerControlBrowser:
                 ".foliplus-layer-ctrl", state="attached", timeout=10000
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=10000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=10000,
             )
             page.wait_for_timeout(500)
 
@@ -2568,7 +2598,9 @@ class TestLayerControlBrowser:
                 ".foliplus-layer-ctrl", state="attached", timeout=10000
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=10000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=10000,
             )
             heatmap_ready(page, timeout=15000)
             page.wait_for_timeout(200)
@@ -2600,7 +2632,9 @@ class TestLayerControlBrowser:
                 ".foliplus-layer-ctrl", state="attached", timeout=10000
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=10000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=10000,
             )
             heatmap_ready(page, timeout=15000)
             page.wait_for_timeout(200)
@@ -2648,7 +2682,9 @@ class TestLayerControlBrowser:
         with use_raw_page(browser.new_page) as page:
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=10000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=10000,
             )
             panel_ready(page)
 
@@ -2687,7 +2723,9 @@ class TestLayerControlBrowser:
             page.wait_for_timeout(300)
             page.reload(wait_until="domcontentloaded")
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=10000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=10000,
             )
             panel_ready(page)
 
@@ -2756,7 +2794,9 @@ class TestLayerControlBrowser:
         with use_raw_page(browser.new_page) as page:
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=10000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=10000,
             )
             heatmap_ready(page, timeout=15000)
             panel_ready(page)
@@ -2839,7 +2879,9 @@ class TestLayerControlBrowser:
         with use_raw_page(browser.new_page) as page:
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=10000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=10000,
             )
             panel_ready(page)
 
@@ -2883,7 +2925,9 @@ class TestLayerControlBrowser:
                 ".foliplus-layer-ctrl", state="attached", timeout=10000
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=10000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=10000,
             )
             page.wait_for_timeout(200)
 
@@ -2939,7 +2983,9 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
 
             # Click the overlay fold button
@@ -2982,7 +3028,9 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
 
             # Click the base fold button
@@ -3022,7 +3070,9 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
 
             # Click fold button
@@ -3065,7 +3115,9 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
 
             # Count DOM items before fold (3 overlays + 1 default OSM base + 1 colour basemap)
@@ -3115,9 +3167,10 @@ class TestLayerControlBrowser:
             )
 
     def test_color_layer_coexists_with_tiles(self, browser, tmp_path):
-        """Colour and tile basemaps coexist. Clicking the colour layer
-        activates its own pane (the retired `foliplus-layer-tile-hidden`
-        contract is gone — tiles stay in the DOM and remain fetchable)."""
+        """Colour and tile basemaps coexist. Checking the colour basemap's
+        checkbox activates its own pane (the retired
+        `foliplus-layer-tile-hidden` contract is gone — tiles stay in the DOM
+        and remain fetchable)."""
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
         LayerControl().add_to(m)
         folium.TileLayer("CartoDB positron", name="Light Canvas", overlay=False).add_to(
@@ -3136,12 +3189,17 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
             page.wait_for_timeout(500)
 
-            # Click color layer item
-            page.evaluate(_js("LayerControl/click_color_layer_item"))
+            # Check the colour basemap's checkbox — the only legitimate path
+            # to show the color layer. Clicking the row body no longer does
+            # it (T201).
+            toggle = page.evaluate(_js("LayerControl/toggle_color_checkbox"))
+            assert toggle is not None and toggle["ok"] is True, toggle
             page.wait_for_timeout(500)
 
             result = page.evaluate(_js("LayerControl/read_color_tile_state"))
@@ -3157,7 +3215,7 @@ class TestLayerControlBrowser:
 
         The row's checkbox column holds a real ``<input type="checkbox">``
         (like every other basemap row).  Checking it paints the container
-        background (``.active`` + ``--color-layer-bg``); unchecking it clears
+        background (``.foliplus-active`` + ``--color-layer-bg``); unchecking it clears
         both.  Without the fix the row has only a colour picker and no
         checkbox, so the toggle cannot happen.
         """
@@ -3175,7 +3233,9 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
             page.wait_for_timeout(500)
 
@@ -3186,7 +3246,7 @@ class TestLayerControlBrowser:
                 "colour basemap row must have a real checkbox"
             )
             assert state["checked"] is False, "colour basemap starts unchecked"
-            assert state["active"] is False, "container starts without .active"
+            assert state["active"] is False, "container starts without .foliplus-active"
 
             # Check the checkbox → container background takes effect.
             result = page.evaluate(_js("LayerControl/toggle_color_checkbox"))
@@ -3227,7 +3287,9 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
             page.wait_for_timeout(500)
 
@@ -3298,7 +3360,9 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
             page.wait_for_timeout(600)
 
@@ -3401,7 +3465,9 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
 
             # Single SVG, 1 path before fold (SVGO converts polyline → path)
@@ -3428,7 +3494,9 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
             cursor = page.evaluate(_js("LayerControl/read_color_layer_cursor"))
             assert cursor == "move", f"Expected move cursor, got {cursor}"
@@ -3455,7 +3523,9 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
             page.wait_for_timeout(500)
 
@@ -3512,7 +3582,9 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
             page.wait_for_timeout(500)
 
@@ -3558,7 +3630,9 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
             page.wait_for_timeout(500)
 
@@ -3732,7 +3806,9 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
 
             result = page.evaluate(_js("LayerControl/handle_change_resets_paneset"))
@@ -3751,7 +3827,9 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
             page.wait_for_timeout(300)
             results = page.evaluate(_js("LayerControl/performance_toggle"))
@@ -3788,7 +3866,9 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
             result = page.evaluate(_js("LayerControl/keydown_up_moves_focus"))
             assert result is not None, "keydown_up_moves_focus failed"
@@ -3808,7 +3888,9 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
             result = page.evaluate(_js("LayerControl/keydown_down_moves_focus"))
             assert result is not None, "keydown_down_moves_focus failed"
@@ -3827,7 +3909,7 @@ class TestLayerControlBrowser:
 
         `show=False` is NOT a reliable "unchecked" pin: on folium 0.14 those
         overlays still land on the map and the init pass still marks the row
-        `.active` (wash). Force the checkbox off and measure that live row.
+        `.foliplus-active` (wash). Force the checkbox off and measure that live row.
         """
         overlay1 = folium.FeatureGroup(name="Overlay A", overlay=True, show=False)
         overlay2 = folium.FeatureGroup(name="Overlay B", overlay=True, show=False)
@@ -3839,7 +3921,9 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
             page.wait_for_selector(
                 ".foliplus-layer-item", state="attached", timeout=5000
@@ -3847,7 +3931,7 @@ class TestLayerControlBrowser:
             # The row surface is compared against this row's own resting state,
             # which is only meaningful once the init pass has run: rows render
             # checked by default and initLayerItem (on an init timer) decides
-            # the checkbox and the .active class.
+            # the checkbox and the .foliplus-active class.
             panel_ready(page)
             # Force a truly unchecked row — do not trust show=False across
             # folium versions (0.14 still checks them).
@@ -3869,7 +3953,7 @@ class TestLayerControlBrowser:
                 " const d = r.querySelector('.drag-handle');"
                 " return { bg: cs.backgroundColor, shadow: cs.boxShadow,"
                 " drag: d ? getComputedStyle(d).opacity : null,"
-                " active: r.classList.contains('active') }; }"
+                " active: r.classList.contains('foliplus-active') }; }"
             )
             assert rest["active"] is False, (
                 f"reference row must be unchecked after the forced toggle, got {rest}"
@@ -3918,7 +4002,7 @@ class TestLayerControlBrowser:
         """Hover, Tab and arrow-key cursor all turn the row white.
 
         The interaction target always paints `var(--neutral-0)` — including on
-        a checked row, whose `.active` wash is only the rest surface. White is
+        a checked row, whose `.foliplus-active` wash is only the rest surface. White is
         sampled from the token live, never hardcoded. Dropping the class (what
         Escape does) returns the rest surface. Tab is covered by the focusin
         delegate mapping onto the same JS class the probe applies.
@@ -3933,7 +4017,9 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
             panel_ready(page)
             page.mouse.move(0, 0)
@@ -3975,12 +4061,12 @@ class TestLayerControlBrowser:
 
             # Real hover on the unchecked row: same white as the JS cursor class.
             page.hover(
-                ".foliplus-layer-item:not(.active):not(.foliplus-color-layer-item)"
+                ".foliplus-layer-item:not(.foliplus-active):not(.foliplus-color-layer-item)"
             )
             page.wait_for_timeout(120)
             hover_bg = page.evaluate(
                 "() => getComputedStyle("
-                "  document.querySelector('.foliplus-layer-item:not(.active):not(.foliplus-color-layer-item)')"
+                "  document.querySelector('.foliplus-layer-item:not(.foliplus-active):not(.foliplus-color-layer-item)')"
                 ").backgroundColor"
             )
             assert hover_bg == white, (
@@ -4003,7 +4089,9 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
             result = page.evaluate(_js("LayerControl/read_fold_row_cursor_style"))
             assert result is not None and "error" not in result, (
@@ -4023,7 +4111,7 @@ class TestLayerControlBrowser:
     def test_outside_mousedown_clears_cursor(self, browser, tmp_path):
         """Clicking outside the panel drops the keyboard cursor.
 
-        The .is-focused-row marker is a panel-local navigation cursor, so
+        The .foliplus-is-focused-row marker is a panel-local navigation cursor, so
         clicking the map / another control must clear it rather than leaving the
         last navigated row highlighted. Uses mousedown so a panel-internal click
         that rebuilds the list (a fold button, a checkbox) is unaffected.
@@ -4038,7 +4126,9 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
             result = page.evaluate(_js("LayerControl/outside_mousedown_clears_cursor"))
             assert result is not None, "outside_mousedown_clears_cursor failed"
@@ -4057,7 +4147,9 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
             result = page.evaluate(_js("LayerControl/keydown_space_toggles_visibility"))
             assert result is not None, "keydown_space_toggles_visibility failed"
@@ -4073,7 +4165,9 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
             result = page.evaluate(_js("LayerControl/keydown_enter_toggles_visibility"))
             assert result is not None, "keydown_enter_toggles_visibility failed"
@@ -4089,7 +4183,9 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
             result = page.evaluate(_js("LayerControl/keydown_left_toggles_visibility"))
             assert result is not None, "keydown_left_toggles_visibility failed"
@@ -4105,7 +4201,9 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
             result = page.evaluate(_js("LayerControl/keydown_right_toggles_visibility"))
             assert result is not None, "keydown_right_toggles_visibility failed"
@@ -4125,7 +4223,9 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
             result = page.evaluate(
                 _js("LayerControl/keydown_after_label_click_targets_clicked_row")
@@ -4165,7 +4265,9 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
             result = page.evaluate(_js("LayerControl/keydown_nav_survives_fold_click"))
             assert result is not None, "keydown_nav_survives_fold_click failed"
@@ -4221,7 +4323,9 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
             result = page.evaluate(_js("LayerControl/keydown_ctrl_up_moves_layer"))
             assert result is not None, "keydown_ctrl_up_moves_layer failed"
@@ -4241,7 +4345,9 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
             result = page.evaluate(_js("LayerControl/keydown_ctrl_down_moves_layer"))
             assert result is not None, "keydown_ctrl_down_moves_layer failed"
@@ -4257,11 +4363,13 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
             # The style assertions below need the init pass done: rows render
             # checked by default and initLayerItem (on an init timer) is what
-            # adds the .active class and the per-state titles.
+            # adds the .foliplus-active class and the per-state titles.
             panel_ready(page)
             result = page.evaluate(_js("LayerControl/keydown_escape_clears_focus"))
             assert result is not None, "keydown_escape_clears_focus failed"
@@ -4302,25 +4410,25 @@ class TestLayerControlBrowser:
             # and assert the fall-back.
             page.evaluate(
                 "() => { const r = document.querySelector("
-                "    '.foliplus-layer-item.active'"
+                "    '.foliplus-layer-item.foliplus-active'"
                 ");"
                 " r.focus();"
                 " r.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true})); }"
             )
-            page.hover(".foliplus-layer-item.active")
+            page.hover(".foliplus-layer-item.foliplus-active")
             # The grip is the one recipe property with an opacity transition
             # (color/box-shadow are transition: none), so wait it out before
             # measuring or the computed value is mid-flight.
             page.wait_for_function(
                 "() => getComputedStyle("
                 "  document.querySelector("
-                "    '.foliplus-layer-item.active .foliplus-drag-cell .drag-handle'"
+                "    '.foliplus-layer-item.foliplus-active .foliplus-drag-cell .drag-handle'"
                 "  )"
                 ").opacity === '1'",
                 timeout=2000,
             )
             on_hover = page.evaluate(
-                "() => { const r = document.querySelector('.foliplus-layer-item.active');"
+                "() => { const r = document.querySelector('.foliplus-layer-item.foliplus-active');"
                 " return {"
                 "  grip: getComputedStyle("
                 "    r.querySelector('.foliplus-drag-cell .drag-handle')"
@@ -4335,13 +4443,13 @@ class TestLayerControlBrowser:
             page.wait_for_function(
                 "() => getComputedStyle("
                 "  document.querySelector("
-                "    '.foliplus-layer-item.active .foliplus-drag-cell .drag-handle'"
+                "    '.foliplus-layer-item.foliplus-active .foliplus-drag-cell .drag-handle'"
                 "  )"
                 ").opacity === '0'",
                 timeout=2000,
             )
             off_hover = page.evaluate(
-                "() => { const r = document.querySelector('.foliplus-layer-item.active');"
+                "() => { const r = document.querySelector('.foliplus-layer-item.foliplus-active');"
                 " return {"
                 "  grip: getComputedStyle("
                 "    r.querySelector('.foliplus-drag-cell .drag-handle')"
@@ -4361,7 +4469,7 @@ class TestLayerControlBrowser:
             )
             assert on_hover["more"] == off_hover["more"], (
                 "a checked row keeps the more button in the action color at "
-                "rest and on hover alike (its .active leg), got "
+                "rest and on hover alike (its .foliplus-active leg), got "
                 + str(on_hover)
                 + " vs "
                 + str(off_hover)
@@ -4391,7 +4499,9 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
             panel_ready(page)
             white = self._sample_neutral0(page)
@@ -4480,7 +4590,9 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
             result = page.evaluate(
                 _js("LayerControl/keydown_escape_keeps_focus_in_row")
@@ -4513,7 +4625,9 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
             arm = page.evaluate(_js("LayerControl/native_gate_arm"))
             assert arm.get("error") is None, f"setup failed: {arm}"
@@ -4566,7 +4680,9 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
             arm = page.evaluate(_js("LayerControl/native_gate_arm"))
             assert arm.get("error") is None, f"setup failed: {arm}"
@@ -4617,7 +4733,9 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
             result = page.evaluate(
                 _js("LayerControl/focusin_maps_checkbox_to_row_cursor")
@@ -4645,7 +4763,9 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
             panel_ready(page)
             page.mouse.move(0, 0)
@@ -4682,7 +4802,9 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
             panel_ready(page)
             page.mouse.move(0, 0)
@@ -4728,7 +4850,9 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
             panel_ready(page)
             result = page.evaluate(_js("LayerControl/checkbox_dblclick_no_focus_layer"))
@@ -4762,7 +4886,9 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
             result = page.evaluate(_js("LayerControl/focus_layer_draws_overlay"))
             assert result is not None, "focus_layer_draws_overlay failed"
@@ -4779,7 +4905,7 @@ class TestLayerControlBrowser:
         the overlay pane carries ``foliplus-layer-pane`` — the semantic marker
         that the pane belongs to us and the interaction rules in focus.css
         apply uniformly. The focused-layer rule
-        ``.is-focus-mode .foliplus-layer-pane:not(.foliplus-focus-pane)``
+        ``.foliplus-is-focus-mode .foliplus-layer-pane:not(.foliplus-focus-pane)``
         would hide it too without the exclusion tag, so ``drawFocusMask`` adds
         ``foliplus-focus-pane`` alongside the base class. This gate reads the
         pane as the code left it, then toggles the exclusion class to prove
@@ -4800,7 +4926,9 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
             result = page.evaluate(
                 _js("LayerControl/focus_overlay_pane_hides_with_base_class")
@@ -4809,7 +4937,7 @@ class TestLayerControlBrowser:
                 f"focus overlay pane missing after dblclick: {result}"
             )
             assert result["focusActive"] is True, (
-                f"container must carry is-focus-mode during focus: {result}"
+                f"container must carry foliplus-is-focus-mode during focus: {result}"
             )
             state = result["state"]
             assert state["base"] is True, (
@@ -4872,7 +5000,9 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
             result = page.evaluate(_js("LayerControl/focus_overlay_pane_click_through"))
             assert result is not None and result.get("pane") is True, (
@@ -4955,7 +5085,9 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
             # initTypesAndVisibility (which paints the count columns) runs on a
             # 300ms INIT_DELAY_MS timer after attach, so settle before reading.
@@ -5017,7 +5149,9 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
             page.wait_for_timeout(500)
             assert self._panel_open(page, ".foliplus-layer-ctrl"), "toggle failed"
@@ -5056,14 +5190,18 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
             page.wait_for_timeout(500)
             assert self._panel_open(page, ".foliplus-layer-ctrl"), "toggle failed"
 
             page.mouse.click(900, 450)
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-collapsed", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-collapsed",
+                state="attached",
+                timeout=5000,
             )
             assert not self._panel_open(page, ".foliplus-layer-ctrl"), (
                 "the panel stayed open after an outside press with "
@@ -5089,7 +5227,9 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
             page.wait_for_selector(
                 ".foliplus-layer-item[data-layer-type=overlay]",
@@ -5144,7 +5284,9 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
             panel_ready(page)
             page.mouse.move(5, 400)  # pointer off the panel
@@ -5431,7 +5573,9 @@ class TestLayerControlBrowser:
                 ".foliplus-layer-ctrl", state="attached", timeout=10000
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=10000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=10000,
             )
             page.wait_for_timeout(500)
 
@@ -5483,7 +5627,9 @@ class TestLayerControlBrowser:
                 ".foliplus-layer-ctrl", state="attached", timeout=10000
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=10000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=10000,
             )
             page.wait_for_timeout(500)
 
@@ -5555,7 +5701,9 @@ class TestLayerControlBrowser:
         )
         try:
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=10000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=10000,
             )
             heatmap_ready(page, timeout=15000)
             page.wait_for_timeout(200)
@@ -6101,7 +6249,9 @@ class TestLayerPaneProbeBrowser:
                 ".foliplus-layer-ctrl", state="attached", timeout=10000
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
             page.wait_for_timeout(500)
 

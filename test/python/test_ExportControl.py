@@ -447,13 +447,13 @@ class TestExportControlBrowser:
                 timeout=5000,
             )
             # Lock via confirm button
-            page.locator(".foliplus-tool-bar .confirm").click()
+            page.locator(".foliplus-tool-bar .foliplus-confirm").click()
             page.wait_for_selector(
-                ".foliplus-export-box.locked",
+                ".foliplus-export-box.foliplus-locked",
                 state="attached",
                 timeout=5000,
             )
-            assert page.locator(".foliplus-export-box.locked").is_visible()
+            assert page.locator(".foliplus-export-box.foliplus-locked").is_visible()
 
     def test_arrow_keys_nudge_crop_box(self, browser, tmp_path):
         """Arrow keys nudge the unlocked crop box by NUDGE_STEP without panning."""
@@ -623,16 +623,18 @@ class TestExportControlBrowser:
             )
 
             # Lock
-            page.locator(".foliplus-tool-bar .confirm").click()
+            page.locator(".foliplus-tool-bar .foliplus-confirm").click()
             page.wait_for_selector(
-                ".foliplus-export-box.locked", state="attached", timeout=5000
+                ".foliplus-export-box.foliplus-locked", state="attached", timeout=5000
             )
-            assert page.locator(".foliplus-export-box.locked").is_visible()
+            assert page.locator(".foliplus-export-box.foliplus-locked").is_visible()
 
             # Unlock (cancel resets to unlocked)
-            page.locator(".foliplus-tool-bar .cancel").click()
+            page.locator(".foliplus-tool-bar .foliplus-cancel").click()
             page.wait_for_selector(
-                ".foliplus-export-box:not(.locked)", state="attached", timeout=5000
+                ".foliplus-export-box:not(.foliplus-locked)",
+                state="attached",
+                timeout=5000,
             )
             assert page.locator(".foliplus-export-box").is_visible()
 
@@ -700,19 +702,19 @@ class TestExportControlBrowser:
             )
 
             # Lock crop box → switches to download button
-            page.locator(".foliplus-tool-bar .confirm").click()
+            page.locator(".foliplus-tool-bar .foliplus-confirm").click()
             page.wait_for_selector(
-                ".foliplus-export-box.locked", state="attached", timeout=5000
+                ".foliplus-export-box.foliplus-locked", state="attached", timeout=5000
             )
 
             # Click download button to trigger export
-            page.locator(".foliplus-tool-bar .confirm").click()
+            page.locator(".foliplus-tool-bar .foliplus-confirm").click()
 
             # Wait for export to finish — control collapses on completion
             page.wait_for_function(
                 """() => {
                 const ctrl = document.querySelector('.foliplus-export-ctrl');
-                return ctrl && ctrl.classList.contains('is-collapsed');
+                return ctrl && ctrl.classList.contains('foliplus-is-collapsed');
             }""",
                 timeout=30000,
             )
@@ -871,14 +873,14 @@ class TestExportControlBrowser:
             # Open export control — should auto-restore saved bounds
             page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
             page.wait_for_selector(
-                ".foliplus-export-box.locked", state="attached", timeout=5000
+                ".foliplus-export-box.foliplus-locked", state="attached", timeout=5000
             )
-            assert page.locator(".foliplus-export-box.locked").is_visible(), (
+            assert page.locator(".foliplus-export-box.foliplus-locked").is_visible(), (
                 "Saved bounds should auto-lock the crop box"
             )
 
             # Verify the export button (download) is shown after lock
-            assert page.locator(".foliplus-tool-bar .confirm").is_visible()
+            assert page.locator(".foliplus-tool-bar .foliplus-confirm").is_visible()
 
     @staticmethod
     def _solid_tile_url(rgb: tuple[int, int, int]) -> str:
@@ -922,15 +924,15 @@ class TestExportControlBrowser:
         """
         page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
         page.wait_for_selector(".foliplus-export-box", state="attached", timeout=5000)
-        page.locator(".foliplus-tool-bar .confirm").click()
+        page.locator(".foliplus-tool-bar .foliplus-confirm").click()
         page.wait_for_selector(
-            ".foliplus-export-box.locked", state="attached", timeout=5000
+            ".foliplus-export-box.foliplus-locked", state="attached", timeout=5000
         )
-        page.locator(".foliplus-tool-bar .confirm").click()
+        page.locator(".foliplus-tool-bar .foliplus-confirm").click()
         page.wait_for_function(
             """() => {
                 const ctrl = document.querySelector('.foliplus-export-ctrl');
-                return ctrl && ctrl.classList.contains('is-collapsed');
+                return ctrl && ctrl.classList.contains('foliplus-is-collapsed');
             }""",
             timeout=30000,
         )
@@ -999,15 +1001,15 @@ class TestExportControlBrowser:
             page.wait_for_selector(
                 ".foliplus-export-box", state="attached", timeout=5000
             )
-            page.locator(".foliplus-tool-bar .confirm").click()
+            page.locator(".foliplus-tool-bar .foliplus-confirm").click()
             page.wait_for_selector(
-                ".foliplus-export-box.locked", state="attached", timeout=5000
+                ".foliplus-export-box.foliplus-locked", state="attached", timeout=5000
             )
-            page.locator(".foliplus-tool-bar .confirm").click()
+            page.locator(".foliplus-tool-bar .foliplus-confirm").click()
             page.wait_for_function(
                 """() => {
                     const ctrl = document.querySelector('.foliplus-export-ctrl');
-                    return ctrl && ctrl.classList.contains('is-collapsed');
+                    return ctrl && ctrl.classList.contains('foliplus-is-collapsed');
                 }""",
                 timeout=30000,
             )
@@ -1052,15 +1054,15 @@ class TestExportControlBrowser:
             page.wait_for_selector(
                 ".foliplus-export-box", state="attached", timeout=5000
             )
-            page.locator(".foliplus-tool-bar .confirm").click()
+            page.locator(".foliplus-tool-bar .foliplus-confirm").click()
             page.wait_for_selector(
-                ".foliplus-export-box.locked", state="attached", timeout=5000
+                ".foliplus-export-box.foliplus-locked", state="attached", timeout=5000
             )
-            page.locator(".foliplus-tool-bar .confirm").click()
+            page.locator(".foliplus-tool-bar .foliplus-confirm").click()
             page.wait_for_function(
                 """() => {
                     const ctrl = document.querySelector('.foliplus-export-ctrl');
-                    return ctrl && ctrl.classList.contains('is-collapsed');
+                    return ctrl && ctrl.classList.contains('foliplus-is-collapsed');
                 }""",
                 timeout=30000,
             )
@@ -1163,15 +1165,15 @@ class TestExportControlBrowser:
             page.wait_for_selector(
                 ".foliplus-export-box", state="attached", timeout=5000
             )
-            page.locator(".foliplus-tool-bar .confirm").click()
+            page.locator(".foliplus-tool-bar .foliplus-confirm").click()
             page.wait_for_selector(
-                ".foliplus-export-box.locked", state="attached", timeout=5000
+                ".foliplus-export-box.foliplus-locked", state="attached", timeout=5000
             )
-            page.locator(".foliplus-tool-bar .confirm").click()
+            page.locator(".foliplus-tool-bar .foliplus-confirm").click()
             page.wait_for_function(
                 """() => {
                     const ctrl = document.querySelector('.foliplus-export-ctrl');
-                    return ctrl && ctrl.classList.contains('is-collapsed');
+                    return ctrl && ctrl.classList.contains('foliplus-is-collapsed');
                 }""",
                 timeout=30000,
             )
@@ -1209,13 +1211,13 @@ class TestExportControlBrowser:
             self._install_canvas_hook(page)
 
             # No color basemap picked: container should be in its default
-            # state (Leaflet #ddd, no .active, no --color-layer-bg).
+            # state (Leaflet #ddd, no .foliplus-active, no --color-layer-bg).
             state = page.evaluate(
                 """() => {
                     const c = document.querySelector(".leaflet-container");
                     return {
                         bg: getComputedStyle(c).backgroundColor,
-                        hasActive: c.classList.contains("active"),
+                        hasActive: c.classList.contains("foliplus-active"),
                     };
                 }"""
             )
@@ -1227,15 +1229,15 @@ class TestExportControlBrowser:
             page.wait_for_selector(
                 ".foliplus-export-box", state="attached", timeout=5000
             )
-            page.locator(".foliplus-tool-bar .confirm").click()
+            page.locator(".foliplus-tool-bar .foliplus-confirm").click()
             page.wait_for_selector(
-                ".foliplus-export-box.locked", state="attached", timeout=5000
+                ".foliplus-export-box.foliplus-locked", state="attached", timeout=5000
             )
-            page.locator(".foliplus-tool-bar .confirm").click()
+            page.locator(".foliplus-tool-bar .foliplus-confirm").click()
             page.wait_for_function(
                 """() => {
                     const ctrl = document.querySelector('.foliplus-export-ctrl');
-                    return ctrl && ctrl.classList.contains('is-collapsed');
+                    return ctrl && ctrl.classList.contains('foliplus-is-collapsed');
                 }""",
                 timeout=30000,
             )
@@ -1255,7 +1257,7 @@ class TestExportControlBrowser:
         """Empty-basemap state: the map shows the A' hatch, the export does not.
 
         With every basemap unchecked the map container turns into an empty
-        state (`.no-base-map`: transparent background + a `background-image`
+        state (`.foliplus-no-base-map`: transparent background + a `background-image`
         hatch). The hatch is decoration on the screen only — the renderer fills
         from `backgroundColor` and never reads `background-image`, so the
         exported image must be identical to what a no-basemap map without any
@@ -1419,9 +1421,9 @@ class TestExportControlBrowser:
             )
 
             # Lock the box
-            page.locator(".foliplus-tool-bar .confirm").click()
+            page.locator(".foliplus-tool-bar .foliplus-confirm").click()
             page.wait_for_selector(
-                ".foliplus-export-box.locked", state="attached", timeout=5000
+                ".foliplus-export-box.foliplus-locked", state="attached", timeout=5000
             )
 
             # Zoom in — the locked box should keep tracking the same geo area
@@ -1429,7 +1431,7 @@ class TestExportControlBrowser:
             page.wait_for_timeout(1000)
 
             # Box should still be visible and locked
-            assert page.locator(".foliplus-export-box.locked").is_visible()
+            assert page.locator(".foliplus-export-box.foliplus-locked").is_visible()
             after_zoom = page.evaluate(_js("ExportControl/read_box_rect"))
             assert after_zoom["w"] > 0 and after_zoom["h"] > 0, (
                 f"Box disappeared after zoom, size={after_zoom}"
@@ -1478,15 +1480,15 @@ class TestExportControlBrowser:
             page.wait_for_selector(
                 ".foliplus-export-box", state="attached", timeout=5000
             )
-            page.locator(".foliplus-tool-bar .confirm").click()
+            page.locator(".foliplus-tool-bar .foliplus-confirm").click()
             page.wait_for_selector(
-                ".foliplus-export-box.locked", state="attached", timeout=5000
+                ".foliplus-export-box.foliplus-locked", state="attached", timeout=5000
             )
-            page.locator(".foliplus-tool-bar .confirm").click()
+            page.locator(".foliplus-tool-bar .foliplus-confirm").click()
             page.wait_for_function(
                 """() => {
                     const ctrl = document.querySelector('.foliplus-export-ctrl');
-                    return ctrl && ctrl.classList.contains('is-collapsed');
+                    return ctrl && ctrl.classList.contains('foliplus-is-collapsed');
                 }""",
                 timeout=30000,
             )
@@ -1569,15 +1571,15 @@ class TestExportControlBrowser:
             page.wait_for_selector(
                 ".foliplus-export-box", state="attached", timeout=5000
             )
-            page.locator(".foliplus-tool-bar .confirm").click()
+            page.locator(".foliplus-tool-bar .foliplus-confirm").click()
             page.wait_for_selector(
-                ".foliplus-export-box.locked", state="attached", timeout=5000
+                ".foliplus-export-box.foliplus-locked", state="attached", timeout=5000
             )
-            page.locator(".foliplus-tool-bar .confirm").click()
+            page.locator(".foliplus-tool-bar .foliplus-confirm").click()
             page.wait_for_function(
                 """() => {
                     const ctrl = document.querySelector('.foliplus-export-ctrl');
-                    return ctrl && ctrl.classList.contains('is-collapsed');
+                    return ctrl && ctrl.classList.contains('foliplus-is-collapsed');
                 }""",
                 timeout=30000,
             )
@@ -1648,15 +1650,15 @@ class TestExportControlBrowser:
             page.wait_for_selector(
                 ".foliplus-export-box", state="attached", timeout=5000
             )
-            page.locator(".foliplus-tool-bar .confirm").click()
+            page.locator(".foliplus-tool-bar .foliplus-confirm").click()
             page.wait_for_selector(
-                ".foliplus-export-box.locked", state="attached", timeout=5000
+                ".foliplus-export-box.foliplus-locked", state="attached", timeout=5000
             )
-            page.locator(".foliplus-tool-bar .confirm").click()
+            page.locator(".foliplus-tool-bar .foliplus-confirm").click()
             page.wait_for_function(
                 """() => {
                     const ctrl = document.querySelector('.foliplus-export-ctrl');
-                    return ctrl && ctrl.classList.contains('is-collapsed');
+                    return ctrl && ctrl.classList.contains('foliplus-is-collapsed');
                 }""",
                 timeout=30000,
             )
@@ -1722,15 +1724,15 @@ class TestExportControlBrowser:
             page.wait_for_selector(
                 ".foliplus-export-box", state="attached", timeout=5000
             )
-            page.locator(".foliplus-tool-bar .confirm").click()
+            page.locator(".foliplus-tool-bar .foliplus-confirm").click()
             page.wait_for_selector(
-                ".foliplus-export-box.locked", state="attached", timeout=5000
+                ".foliplus-export-box.foliplus-locked", state="attached", timeout=5000
             )
-            page.locator(".foliplus-tool-bar .confirm").click()
+            page.locator(".foliplus-tool-bar .foliplus-confirm").click()
             page.wait_for_function(
                 """() => {
                     const ctrl = document.querySelector('.foliplus-export-ctrl');
-                    return ctrl && ctrl.classList.contains('is-collapsed');
+                    return ctrl && ctrl.classList.contains('foliplus-is-collapsed');
                 }""",
                 timeout=30000,
             )
@@ -1839,15 +1841,15 @@ class TestExportControlBrowser:
             page.wait_for_selector(
                 ".foliplus-export-box", state="attached", timeout=5000
             )
-            page.locator(".foliplus-tool-bar .confirm").click()
+            page.locator(".foliplus-tool-bar .foliplus-confirm").click()
             page.wait_for_selector(
-                ".foliplus-export-box.locked", state="attached", timeout=5000
+                ".foliplus-export-box.foliplus-locked", state="attached", timeout=5000
             )
-            page.locator(".foliplus-tool-bar .confirm").click()
+            page.locator(".foliplus-tool-bar .foliplus-confirm").click()
             page.wait_for_function(
                 """() => {
                     const ctrl = document.querySelector('.foliplus-export-ctrl');
-                    return ctrl && ctrl.classList.contains('is-collapsed');
+                    return ctrl && ctrl.classList.contains('foliplus-is-collapsed');
                 }""",
                 timeout=30000,
             )
@@ -1970,15 +1972,15 @@ class TestExportControlBrowser:
             page.wait_for_selector(
                 ".foliplus-export-box", state="attached", timeout=5000
             )
-            page.locator(".foliplus-tool-bar .confirm").click()
+            page.locator(".foliplus-tool-bar .foliplus-confirm").click()
             page.wait_for_selector(
-                ".foliplus-export-box.locked", state="attached", timeout=5000
+                ".foliplus-export-box.foliplus-locked", state="attached", timeout=5000
             )
-            page.locator(".foliplus-tool-bar .confirm").click()
+            page.locator(".foliplus-tool-bar .foliplus-confirm").click()
             page.wait_for_function(
                 """() => {
                     const ctrl = document.querySelector('.foliplus-export-ctrl');
-                    return ctrl && ctrl.classList.contains('is-collapsed');
+                    return ctrl && ctrl.classList.contains('foliplus-is-collapsed');
                 }""",
                 timeout=30000,
             )

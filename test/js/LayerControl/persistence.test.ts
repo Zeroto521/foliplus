@@ -4,7 +4,7 @@ import {
   LayerPersistence,
   RECORD_VERSION,
 } from "#foliplus/LayerControl/persistence.js";
-import type { PersistedRecord } from "#foliplus/LayerControl/persistence.js";
+import type { PersistedRecord } from "#foliplus/LayerControl/type.js";
 import * as Storage from "#common/storage.js";
 
 const makePersistence = () => new LayerPersistence();

@@ -38,7 +38,7 @@ describe("COLOR", () => {
 describe("CLASSES", () => {
   it("defines layer item and interaction classes", () => {
     expect(CONST.CLASSES.LAYER_ITEM).toBe("foliplus-layer-item");
-    expect(CONST.CLASSES.ACTIVE).toBe("active");
+    expect(CONST.CLASSES.ACTIVE).toBe("foliplus-active");
     expect(CONST.CLASSES.DRAGGING).toBe("foliplus-layer-dragging");
     expect(CONST.CLASSES.DRAG_OVER_TOP).toBe("foliplus-layer-drag-over-top");
     expect(CONST.CLASSES.DRAG_OVER_BOTTOM).toBe("foliplus-layer-drag-over-bottom");
@@ -64,7 +64,7 @@ describe("CLASSES", () => {
 
   it("defines color and utility classes", () => {
     expect(CONST.CLASSES.COLOR_ITEM).toBe("foliplus-color-layer-item");
-    expect(CONST.CLASSES.FOCUSED).toBe("is-focused-row");
+    expect(CONST.CLASSES.FOCUSED).toBe("foliplus-is-focused-row");
     // The FOCUS_SUPPRESSED mechanism was removed: Escape is a single class
     // removal, and the recipe CSS keys only on FOCUSED + :hover.
     expect((CONST.CLASSES as Record<string, string>).FOCUS_SUPPRESSED).toBeUndefined();
@@ -139,7 +139,7 @@ describe("FOCUS", () => {
 
 describe("CLASSES.FOCUSING", () => {
   it("defines the focusing row class", () => {
-    expect(CONST.CLASSES.FOCUSING).toBe("is-focusing");
+    expect(CONST.CLASSES.FOCUSING).toBe("foliplus-is-focusing");
   });
 });
 
@@ -164,7 +164,7 @@ describe("CLASSES.SECTION_HEADING / opacity controls", () => {
 
 describe("CLASSES.FOCUS_ACTIVE / FOCUS_PANE / FOCUS_GLOW", () => {
   it("defines the container + focused-pane classes for declarative hiding", () => {
-    expect(CONST.CLASSES.FOCUS_ACTIVE).toBe("is-focus-mode");
+    expect(CONST.CLASSES.FOCUS_ACTIVE).toBe("foliplus-is-focus-mode");
     expect(CONST.CLASSES.FOCUS_PANE).toBe("foliplus-focus-pane");
     expect(CONST.CLASSES.FOCUS_GLOW).toBe("foliplus-focus-glow");
   });

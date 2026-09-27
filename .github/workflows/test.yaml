@@ -67,8 +67,8 @@ jobs:
   # ── CHANGELOG existence check (needs GITHUB_TOKEN) ──
   # Sort-order is enforced by pre-commit.ci (language: system, --fix mode).
   # This job only checks that every referenced #NNN exists as a real PR/issue.
-  changelog-exists:
-    name: changelog-exists
+  changelog:
+    name: changelog
     runs-on: ubuntu-latest
     if: >-
       github.event_name == 'pull_request'
@@ -78,15 +78,57 @@ jobs:
       issues: read
     steps:
       - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
       - run: python script/changelog_check.py --path CHANGELOG.md
         env:
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
 
-  test:
+  # ── Test jobs ──
+  # `js` and `python` run independently in parallel — no artifact handoff,
+  # and no `needs:` on the quality gates (format / lint / typecheck). Tests
+  # are informational gates (we always want results, even when the quality
+  # gates are red); the quality gates are separate checkmarks.
+  # `make test-js` runs `build-js-dev + npm test` (some vitest tests read
+  # `foliplus/dist/` artifacts — see `test/js/script/build.test.ts` and the
+  # Makefile-invariant test in `test/js/script/Makefile.test.ts`).
+  # `make test-python` also builds internally before pytest. Both entry
+  # points are the same Makefile commands a developer runs locally, so CI
+  # drift stays visible.
+  js:
+    name: js
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: "package.json"
+          # setup-node auto-detects npm from the packageManager pin and turns on
+          # package-manager caching, which requires a lockfile this repo ignores.
+          package-manager-cache: false
+      - run: npm install
+
+      - run: make test-js
+
+      - uses: codecov/codecov-action@v6
+        with:
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+          verbose: true
+          flags: ${{ job.name }}
+      - uses: codecov/codecov-action@v6
+        if: ${{ !cancelled() }}
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          report_type: test_results
+          files: test-report.junit.xml
+          flags: ${{ job.name }}
+
+  python:
+    # Matrix-expanded per slot; codecov flags reference `job.name` so there is
+    # one source of truth for the label.
     name: py${{ matrix.python }}-folium-${{ matrix.folium }}
     runs-on: ubuntu-latest
-    needs: [format, lint, typecheck]
     strategy:
       fail-fast: false
       matrix:
@@ -119,16 +161,19 @@ jobs:
       - run: uv run playwright install chromium
       - run: uv run make info
 
-      - run: uv run make test
+      # `make test-python` builds `foliplus/dist/` internally and runs only
+      # pytest. JS tests live in the `js` job above (see comment there).
+      - run: uv run make test-python
 
       - uses: codecov/codecov-action@v6
         with:
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
           verbose: true
+          flags: ${{ job.name }}
       - uses: codecov/codecov-action@v6
         if: ${{ !cancelled() }}
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           report_type: test_results
-          flags: py${{ matrix.python }}-folium-${{ matrix.folium }}
+          flags: ${{ job.name }}

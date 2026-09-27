@@ -4,7 +4,7 @@
 
   // Expand the layer panel if needed.
   const ctrl = document.querySelector(".foliplus-layer-ctrl");
-  if (ctrl && !ctrl.classList.contains("is-expanded")) {
+  if (ctrl && !ctrl.classList.contains("foliplus-is-expanded")) {
     ctrl.querySelector(".foliplus-toggle-btn").click();
   }
 

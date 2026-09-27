@@ -1,6 +1,6 @@
 () => {
   // Probe the map container's own background state. The A' no-basemap hatch
-  // is a `background-image` on `.leaflet-container.no-base-map`; the export
+  // is a `background-image` on `.leaflet-container.foliplus-no-base-map`; the export
   // renderer reads only `backgroundColor` (see resolveExportBackground), so
   // the gate needs the computed values to prove the empty state is real
   // before it asserts on the export output.
@@ -13,15 +13,15 @@
   const read = () => {
     const cs = getComputedStyle(c);
     return {
-      noBaseMap: c.classList.contains("no-base-map"),
+      noBaseMap: c.classList.contains("foliplus-no-base-map"),
       bg: cs.backgroundColor,
       bgImage: cs.backgroundImage,
     };
   };
   const natural = read();
-  c.classList.add("no-base-map");
+  c.classList.add("foliplus-no-base-map");
   const manual = read();
-  c.classList.remove("no-base-map");
+  c.classList.remove("foliplus-no-base-map");
   const api = window.map && window.map.foliplus && window.map.foliplus.LayerAPI;
   const panel = document.querySelector(".foliplus-panel-content");
   const baseLabel = document.querySelector(

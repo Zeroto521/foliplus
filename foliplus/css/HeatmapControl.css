@@ -97,10 +97,7 @@
     pointer-events: none;
   }
   /* Scheme row: the control cell needs relative positioning so the dropdown
-     hangs off it. Both classes are the shared form primitives — the component
-     prefixed names here stopped matching when the template moved to
-     `foliplus-form-row` / `foliplus-form-control`, which silently returned the
-     dropdown to the page flow. */
+     hangs off it (not the page flow). */
   .foliplus-form-row:has(.foliplus-heatmap-scheme-bar) .foliplus-form-control {
     position: relative;
   }
@@ -134,11 +131,11 @@
     height: var(--ctrl-size);
     box-sizing: border-box;
     /* Reserved border: same "selected" language as layer items — a permanent
-       transparent left border, .active only recolors it. No layout shift and
+       transparent left border, .foliplus-is-active only recolors it. No layout shift and
        the border-color can transition. */
     border-left: var(--border-thick) solid transparent;
 
-    &.is-active {
+    &.foliplus-is-active {
       border-left-color: var(--accent-primary);
       /* Persistent "selected scheme" state: soft 5% wash, same language as
          the keyboard cursor. --accent-light (#fde8e8) was too saturated —
@@ -173,8 +170,7 @@
 }
 
 /* Field selector: extra body / field reuse the shared `foliplus-hidden`
-   (display: none !important) class, toggled by CONST.CLASSES.HIDDEN.
-   No component-local `.hidden` rule is needed — see reset.css. */
+   (display: none !important) class, toggled by CONST.CLASSES.HIDDEN. */
 /* Placeholder select styling */
 :is(
   .foliplus-heatmap-ctrl select.foliplus-heatmap-placeholder,
