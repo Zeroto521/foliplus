@@ -105,5 +105,15 @@ const getDimension = <D = unknown>(key: string): LayerDimension<D> | undefined =
 /** Every registered descriptor, in registration order. */
 const listDimensions = (): readonly LayerDimension<any>[] => [...registry.values()];
 
+/** Whether the layer owns any registered dimension whose `gate` passes.
+ *  The single "has-any" question the panel needs before deciding whether
+ *  to render the Layer section at all — the annotation panel asks it to
+ *  decide between an empty panel and a Layer-only panel, and the
+ *  delegated drawer asks it to decide whether to render the Layer
+ *  heading alongside the delegated border row. Every dimension
+ *  contributes through its own `gate`; no switch table of keys. */
+const hasAnyDimension = (ui: LayerUI, layerId: string): boolean =>
+  [...registry.values()].some(d => d.gate(ui, layerId));
+
 export type { LayerDimension };
-export { getDimension, listDimensions, registerDimension };
+export { getDimension, hasAnyDimension, listDimensions, registerDimension };

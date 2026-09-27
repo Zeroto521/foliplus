@@ -22,6 +22,7 @@
 // No CONF / translator dependency: core/layer, not a component dir.
 import { createLogger } from "#common/log.js";
 import type { PaneManager } from "./PaneManager.js";
+import { hasFillLeaf, hasSetStyleLeaf } from "./capability.js";
 import { FALLBACK_PANE_PREFIX, PANE_NAME_PATTERN } from "./const.js";
 import type {
   LayerCapabilities,
@@ -109,6 +110,15 @@ interface SurfaceDeclaration {
    *  rebuilding. The reference is kept only so the value can be reported back
    *  as-is; nothing reads it through. */
   getBounds: (() => L.LatLngBounds | null) | null;
+  /** Whether the layer's tree has a `setStyle` leaf (vector stroke axis).
+   *  Probe-derived, cached per surface. Part of the declaration so a
+   *  re-registration that added or lost a stroke carrier triggers a
+   *  rebuild — otherwise the surface would keep answering with the
+   *  previous tree's probe result. */
+  stroke: "native" | "none";
+  /** Whether the layer's tree has an areal `setStyle` leaf (vector fill
+   *  axis). Same probe-and-cache contract as `stroke`. */
+  fill: "native" | "none";
 }
 
 class LayerSurface implements LayerSurfaceContract {
@@ -161,6 +171,8 @@ class LayerSurface implements LayerSurfaceContract {
       canvas: opts.canvas === true,
       color: opts.color != null,
       getBounds: opts.getBounds ?? null,
+      stroke: probeVectorCarrier(layer, "stroke"),
+      fill: probeVectorCarrier(layer, "fill"),
     };
     // Capabilities are resolved here, before any early return below, so every
     // branch — declared, synthesized, native — reports the same way. A GridLayer
@@ -378,12 +390,20 @@ class LayerSurface implements LayerSurfaceContract {
           spec.order === specs[i].order &&
           spec.name === specs[i].name,
       );
+    // Probe results are part of the declaration: a tree that gained or lost a
+    // `setStyle` leaf describes a different face, and the surface has to be
+    // rebuilt so the next read of `capabilities.stroke` / `.fill` sees the
+    // fresh answer. Recomputed on every `matches` call — the walk is bounded
+    // by the layer's own tree and the surface is resolved once per register,
+    // so the cost is one tree walk per re-registration, not per frame.
     return (
       this.spec.layer === opts.layer &&
       this.spec.paneName === declaredPaneName(opts.paneName) &&
       this.spec.canvas === Boolean(opts.canvas) &&
       this.spec.color === (opts.color != null) &&
       Boolean(this.spec.getBounds) === Boolean(opts.getBounds ?? null) &&
+      this.spec.stroke === probeVectorCarrier(opts.layer, "stroke") &&
+      this.spec.fill === probeVectorCarrier(opts.layer, "fill") &&
       samePanes
     );
   }
@@ -490,6 +510,20 @@ const usesNativeSetter = (layer: L.Layer): boolean =>
   (typeof L.GridLayer !== "undefined" && layer instanceof L.GridLayer) ||
   (typeof L.ImageOverlay !== "undefined" && layer instanceof L.ImageOverlay);
 
+/** Resolve one vector-style probe against the layer's tree. `axis` picks
+ *  the probe (`stroke` → `hasSetStyleLeaf`, `fill` → `hasFillLeaf`). A
+ *  null layer yields "none" — there is no tree to walk. Called from the
+ *  constructor (to seed `spec.stroke` / `spec.fill`) and from `matches`
+ *  (to detect a tree change on re-registration). */
+const probeVectorCarrier = (
+  layer: L.Layer | null,
+  axis: "stroke" | "fill",
+): "native" | "none" => {
+  if (!layer) return "none";
+  const found = axis === "stroke" ? hasSetStyleLeaf(layer) : hasFillLeaf(layer);
+  return found ? "native" : "none";
+};
+
 /** Resolve a surface's capabilities from what it actually owns.
  *
  *  Every situation where content could land outside our panes is either given
@@ -530,29 +564,43 @@ const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
     // A solid-color basemap owns one pane of its own, so a CSS write on that
     // pane is the only honest opacity carrier. It carries no geographic
     // extent, so the UI disables focus rather than offering a click that is a
-    // silent no-op. And it deliberately has no zoom range: it is the fallback
-    // color, the one thing that is always available, so a range would only add
-    // another "no basemap" path for no expressive gain.
+    // silent no-op. `fill: "native"` — the pane's paint *is* the fill — and
+    // `zoomRange: "pane"` so the row renders (the executor's `visible` op is
+    // the carrier, same as every other surface). Stroke stays "none": there
+    // is no vector stroke axis on a solid colour.
     return {
       opacity: "pane",
-      zoomRange: "none",
+      zoomRange: "pane",
+      fill: "native",
+      stroke: "none",
       relocatable: true,
       bounds: false,
     };
   }
 
   if (layer && isMarkerCluster(layer)) {
-    return { opacity: "none", zoomRange: "none", relocatable: false, bounds: false };
+    return {
+      opacity: "none",
+      zoomRange: "none",
+      stroke: "none",
+      fill: "none",
+      relocatable: false,
+      bounds: false,
+    };
   }
 
   if (layer && usesNativeSetter(layer)) {
     // ImageOverlay's zoomRange is declared in options but not runtime-effective
-    // once attached: only GridLayer honours min/maxZoom live.
+    // once attached: only GridLayer honours min/maxZoom live. Native setter
+    // surfaces (GridLayer / ImageOverlay) own no `setStyle` leaf, so both
+    // vector axes are "none".
     const zoomRange: LayerCapabilities["zoomRange"] =
       layer instanceof L.GridLayer ? "native" : "none";
     return {
       opacity: "native",
       zoomRange,
+      stroke: "none",
+      fill: "none",
       relocatable: true,
       bounds: hasBoundsProvider(layer),
     };
@@ -572,6 +620,8 @@ const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
     return {
       opacity: "pane",
       zoomRange: "pane",
+      stroke: probeVectorCarrier(layer, "stroke"),
+      fill: probeVectorCarrier(layer, "fill"),
       relocatable: true,
       bounds: Boolean(opts.getBounds) || hasBoundsProvider(layer),
     };
@@ -584,13 +634,22 @@ const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
     return {
       opacity: "pane",
       zoomRange: "pane",
+      stroke: probeVectorCarrier(layer, "stroke"),
+      fill: probeVectorCarrier(layer, "fill"),
       relocatable: true,
       bounds: hasBoundsProvider(layer),
     };
   }
 
   // No layer at all and no canvas — nothing to write.
-  return { opacity: "none", zoomRange: "none", relocatable: false, bounds: false };
+  return {
+    opacity: "none",
+    zoomRange: "none",
+    stroke: "none",
+    fill: "none",
+    relocatable: false,
+    bounds: false,
+  };
 };
 
 export { LayerSurface };

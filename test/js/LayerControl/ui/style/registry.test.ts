@@ -47,9 +47,18 @@ describe("LayerControl style-panel dimension registry", () => {
   });
 
   it("listDimensions lists built-in and test dims in insertion order", () => {
-    // opacity is registered at module load; test.dim.registry right
-    // after, at file scope. Order is insertion order.
-    expect(listDimensions().map(d => d.key)).toEqual(["opacity", TEST_DIM_KEY]);
+    // Every built-in dim registers at module load (fill / border /
+    // opacity / zoomRange, whichever order this test's import graph
+    // happens to pull them in); test.dim.registry registers right
+    // after, at file scope of this test. Insertion order among the
+    // built-ins is not part of the registry contract — what is
+    // contract is that the built-ins are present, and test.dim.registry
+    // sits at the tail (the last registration this file performs).
+    const keys = listDimensions().map(d => d.key);
+    for (const k of ["fill", "border", "opacity", "zoomRange"]) {
+      expect(keys, `missing built-in "${k}"`).toContain(k);
+    }
+    expect(keys.at(-1)).toBe(TEST_DIM_KEY);
   });
 
   it("registerDimension throws on a duplicate key — the built-in opacity", () => {

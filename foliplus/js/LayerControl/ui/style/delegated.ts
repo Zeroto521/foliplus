@@ -11,8 +11,7 @@ import * as SVGs from "../../icon.js";
 import type { LayerUI } from "../index.js";
 import { bindBorderRowShell, buildBorderRowShell } from "./border.js";
 import { appendResetFooter, sectionHeading } from "./frame.js";
-import { buildOpacityRow, layerCanOpacity } from "./opacity.js";
-import { buildZoomRangeRow, canShowZoomRange } from "./zoomRange.js";
+import { hasAnyDimension, listDimensions } from "./registry.js";
 
 /** Whether the layer delegates its style to the drawer via styleSetters
  *  (third-party canvas layers: Heatmap, Measure). The ⋮ menu's Style item
@@ -141,13 +140,17 @@ const renderDelegatedStylePanel = (
   // surface can honestly carry the write. A layer with `opacity: "none"`
   // (MarkerCluster) would otherwise see a slider that writes nothing but
   // persists the value — a lie that survives reload (6.2).
-  const canOpacity = layerCanOpacity(ui, layerId);
-  const canZoomRange = canShowZoomRange(ui, layerId);
-  if (borderRow || canOpacity || canZoomRange) {
+  // Registry discovery: `listDimensions()` returns descriptors in
+  // registration order, so the delegated drawer inherits the annotation
+  // panel's display order for free. The delegated-only border row is
+  // prepended — it is not a registry dimension (it writes through
+  // `styleSetters`, a path the vector border descriptor does not own).
+  if (borderRow || hasAnyDimension(ui, layerId)) {
     content.append(sectionHeading(ui.T("section_layer")));
     if (borderRow) content.append(borderRow);
-    if (canOpacity) content.append(buildOpacityRow(ui, layerId));
-    if (canZoomRange) content.append(buildZoomRangeRow(ui, layerId));
+    for (const dim of listDimensions()) {
+      if (dim.gate(ui, layerId)) content.append(dim.row(ui, layerId));
+    }
   }
   if (root.children.length) {
     content.append(sectionHeading(ui.T("section_label")));

@@ -37,6 +37,29 @@ interface LayerCapabilities {
    *  cannot (a plugin that owns its own z) can say so without another shape
    *  change. */
   relocatable: boolean;
+  /** Whether the layer's tree has a write carrier for stroke (border):
+   *    - "native" — a `setStyle` leaf exists in the tree (a Path-family
+   *      member: Polygon, Polyline, Circle, CircleMarker, Rectangle). The
+   *      write walks `eachLayer` and calls `setStyle` per leaf.
+   *    - "none"   — no `setStyle` leaf. Marker (Icon, divIcon) and every
+   *      non-vector surface (canvas, color basemap, MarkerCluster, native
+   *      ImageOverlay / GridLayer) have no vector stroke axis.
+   *
+   *  Probe-derived, cached per surface. The probe result is part of
+   *  `SurfaceDeclaration`, so a change in the tree's shape triggers a
+   *  rebuild through `matches`. */
+  stroke?: "native" | "none";
+  /** Whether the layer's tree has a write carrier for fill: areal geometry
+   *  (`L.Polygon` / `L.Circle` / `L.CircleMarker` — the last two because
+   *  they extend the polygon-side ancestor) with a `setStyle` leaf.
+   *    - "native" — an areal carrier exists; `setStyle({fillColor,
+   *      fillOpacity})` writes through the tree.
+   *    - "none"   — no areal carrier. Line-only layers (Polyline, Circle
+   *      without a fill), Marker, canvas, color basemap, MarkerCluster,
+   *      and native setter surfaces all fall out.
+   *
+   *  Same probe-and-cache contract as `stroke`. */
+  fill?: "native" | "none";
   /** Whether the surface exposes a geographic-bounds provider the UI can use
    *  to focus it. A static declaration, not a probe: `getBounds()` on a
    *  live layer may still throw or answer empty until the layer is attached,

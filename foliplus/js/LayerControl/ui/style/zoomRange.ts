@@ -7,34 +7,23 @@ import * as CONST from "../../const.js";
 import { applyProjection, authorZoomBoundsForLayer } from "../apply.js";
 import type { LayerUI } from "../index.js";
 import { markOverride, saveState, unmarkOverride } from "../state.js";
-import { isColorBasemap } from "./fill.js";
 import { railPos, round5 } from "./frame.js";
+import { registerDimension } from "./registry.js";
 
 /** Whether the layer's surface can honestly carry a zoom-range write.
+ *  Pure capability check: `capabilities.zoomRange !== "none"`.
  *
- *  A single capability check, no `isBase` exemption: a basemap is just a
- *  layer that happens to be a base, and its surface either carries an
- *  honest range (GridLayer min/maxZoom, or a pane carrier on a canvas) or
- *  it does not. The old `!li.isBase` gate came from 398 R7 and excluded
- *  tile basemaps wholesale even though their native `minZoom`/`maxZoom`
- *  options are the carrier the row already writes through.
- *
- *  The one layer whose surface reports `zoomRange: "none"` but still
- *  needs the row is the solid-color basemap (#443): its own surface
- *  carries no range because it is the always-on fallback color, but the
- *  panel offers a range like any overlay since the executor's `visible`
- *  op hides it either way.
- *
- *  MarkerCluster and ImageOverlay stay out on capability grounds — a row
- *  that persists a value the write cannot apply is a lie that survives
- *  reload. The callback-only canvas carve-out (31.4-3) is stale for the
- *  same reason the earlier `!li.isBase` gate is: the executor's `visible`
- *  op is the carrier for every surface, so capability alone decides.
- */
+ *  The zoomRange capability is derived at the surface (see
+ *  `detectCapabilities` in core/layer/LayerSurface.ts). MarkerCluster
+ *  and ImageOverlay declare `"none"` — a row that persists a value
+ *  the write cannot apply is a lie that survives reload. The colour
+ *  basemap declares `"pane"` (the executor's `visible` op is the
+ *  carrier, same as every other surface). No `isColorBasemap`
+ *  special-case, no `isBase` exemption: capability alone decides. */
 const canShowZoomRange = (ui: LayerUI, layerId: string): boolean => {
   const li = ui.m.layerRegistry.get(layerId);
   if (!li) return false;
-  return ui.m.surfaceFor(li).capabilities.zoomRange !== "none" || isColorBasemap(li);
+  return ui.m.surfaceFor(li).capabilities.zoomRange !== "none";
 };
 
 /** Clamp a zoom value into the map's current [min, max] range. */
@@ -294,6 +283,31 @@ const resetLayerZoomRange = (ui: LayerUI, layerId: string): void => {
   if (row) syncZoomRangeRow(ui, layerId, row);
 };
 
+/** Register zoom range as a per-layer dimension. The descriptor wires up
+ *  the existing helpers — nothing moves. `value` returns the effective
+ *  [min, max] pair: the user's stored choice when present, else the map's
+ *  full range (the author-undeclared default). The write path
+ *  (`commitZoomRange`) stays outside the descriptor contract.
+ *
+ *  Registered last — the annotation panel's Layer section runs
+ *  fill → border → opacity → zoomRange, and `listDimensions()` returns
+ *  descriptors in registration order. */
+const ZOOM_RANGE_DIMENSION = registerDimension<{ min: number; max: number }>({
+  key: "zoomRange",
+  gate: canShowZoomRange,
+  value: (ui, layerId) => {
+    const li = ui.m.layerRegistry.get(layerId);
+    if (!li) return undefined;
+    const [mapMin, mapMax] = authorZoomBoundsForLayer(ui, layerId);
+    const stored = ui.zoomRangeMap[layerId];
+    return {
+      min: stored ? Math.max(stored[0], mapMin) : mapMin,
+      max: stored ? Math.min(stored[1], mapMax) : mapMax,
+    };
+  },
+  row: buildZoomRangeRow,
+});
+
 export {
   applyZoomRangeLive,
   buildZoomRangeRow,
@@ -303,5 +317,6 @@ export {
   resetLayerZoomRange,
   syncZoomRangeRow,
   syncValues,
+  ZOOM_RANGE_DIMENSION,
   zoomToPct,
 };

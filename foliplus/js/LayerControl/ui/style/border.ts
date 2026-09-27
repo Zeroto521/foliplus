@@ -35,7 +35,8 @@ import {
 import * as CONST from "../../const.js";
 import type { LayerUI } from "../index.js";
 import { markOverride, saveState, unmarkOverride } from "../state.js";
-import { hasSetStyleLeaf, pinStyleOnHighlight } from "./pin.js";
+import { pinStyleOnHighlight } from "./pin.js";
+import { registerDimension } from "./registry.js";
 
 /** A node in the layer tree that a border walk may reach. `setStyle` alone
  *  does not make a node a carrier — L.GeoJSON owns one too (it fans a style
@@ -59,39 +60,21 @@ type StyleSetter = StyleCarrier & {
 const isStyleSetter = (node: StyleCarrier): node is StyleSetter =>
   typeof node.setStyle === "function";
 
-/** Whether the layer's surface can honestly carry a border write. Requires
- *  the surface to resolve to a pane carrier for BOTH opacity and zoom range —
- *  that is exactly the vector-shape population. Anything else falls out:
- *    - `layerInfo.canvas` — callback-only canvas layers (heatmap / measure)
- *      have no `eachLayer` to walk, so a `setStyle` would silently no-op.
- *    - `layerInfo.styleSetters` — third-party delegated drawers own their
- *      style write; this row would fight for the same visual axis.
- *    - `capabilities.opacity === "native"` — GridLayer / ImageOverlay paint
- *      through native options, not through `setStyle`.
- *    - `capabilities.opacity === "none"` — MarkerCluster and the "no content
- *      panes" surface have no honest write target.
+/** Whether the layer's surface can honestly carry a border write.
+ *  Pure capability check: `capabilities.stroke === "native"`.
  *
- *  Requiring `zoomRange !== "none"` too is the same test from the other side:
- *  any surface whose `opacity` resolves to `"pane"` but whose `zoomRange` does
- *  not is a solid-color basemap, which owns a single background pane rather
- *  than vector shapes and has no stroke axis at all. The double check reads
- *  the capability honestly rather than special-casing the basemap id.
- *
- *  The third gate narrows the row to layers that actually own a `setStyle`
- *  leaf — the honest carrier for the write. A Marker or an empty LayerGroup
- *  passes the capability check but has no leaf to stroke: the row would
- *  persist a value with no visual effect, the same lie as Fill's Polygon-leaf
- *  check. Reads the carrier through `hasSetStyleLeaf` (§44.2: capability =
- *  the existence of a carrier object) so border and fill admit a layer on the
- *  same invariant. */
+ *  The stroke capability is probe-derived at the surface (see
+ *  `detectCapabilities` in core/layer/LayerSurface.ts) — a layer whose
+ *  tree has no `setStyle` leaf declares `"none"`, so the gate rejects
+ *  it naturally. Canvas layers, MarkerCluster, GridLayer / ImageOverlay,
+ *  and the colour basemap all declare `"none"` for stroke. No extra
+ *  checks belong here: the invariant is that `gate` is exactly the
+ *  capability check, no carrier probes, no `isColorBasemap`
+ *  special-cases, no canvas exclusion. */
 const layerCanBorder = (ui: LayerUI, layerId: string): boolean => {
   const li = ui.m.layerRegistry.get(layerId);
   if (!li) return false;
-  if (li.canvas) return false;
-  if (li.styleSetters) return false;
-  const caps = ui.m.surfaceFor(li).capabilities;
-  if (!(caps.opacity === "pane" && caps.zoomRange === "pane")) return false;
-  return hasSetStyleLeaf(li.layer as StyleCarrier | null);
+  return ui.m.surfaceFor(li).capabilities.stroke === "native";
 };
 
 /** The layer's authored border style, captured on the layer's first border
@@ -481,11 +464,37 @@ const bindBorderRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => 
   });
 };
 
+/** Register border as a per-layer dimension. The descriptor wires up the
+ *  existing helpers — nothing moves. `value` returns the current
+ *  {color, weight} pair (user override or author default). The write
+ *  path stays outside the descriptor contract: `commitBorderColor` and
+ *  `commitBorderWeight` remain the authoritative writers.
+ *
+ *  Registered ahead of `opacity` and `zoomRange` — see the import order
+ *  in `style/index.ts`: border comes second in the annotation panel's
+ *  Layer section, right after fill, and `listDimensions()` returns
+ *  descriptors in registration order. */
+const BORDER_DIMENSION = registerDimension<{ color: string; weight: number }>({
+  key: "border",
+  gate: layerCanBorder,
+  value: (ui, layerId) => {
+    const li = ui.m.layerRegistry.get(layerId);
+    if (!li) return undefined;
+    const author = authoredBorder(ui, layerId);
+    return {
+      color: ui.borderColorMap[layerId] ?? author.color,
+      weight: ui.borderWeightMap[layerId] ?? author.weight,
+    };
+  },
+  row: buildBorderRow,
+});
+
 export {
   applyBorderToLayer,
   authoredBorder,
   bindBorderRow,
   bindBorderRowShell,
+  BORDER_DIMENSION,
   buildBorderRow,
   buildBorderRowShell,
   commitBorderColor,

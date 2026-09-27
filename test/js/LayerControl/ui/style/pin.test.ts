@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { hasSetStyleLeaf } from "#core/layer/capability.js";
 import {
-  hasSetStyleLeaf,
   isStyleSetter,
   pinStyleOnHighlight,
 } from "#foliplus/LayerControl/ui/style/pin.js";
