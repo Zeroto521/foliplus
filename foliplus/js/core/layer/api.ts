@@ -45,10 +45,10 @@ const ensureLayerAPI = (map: L.Map, force = false): LayerAPI => {
     unregisterLayer: () => true,
     bringLayerToFront: () => {},
     invalidateType: () => {}, // no registry in the lightweight API
-    // The lightweight API has no registry, so the provisional z is priced
-    // against an empty tier: the top slot of count 0, which is the base
-    // itself. `enforceOrder` never runs here, but the pane still avoids
-    // Leaflet's CSS default of 400.
+    // The lightweight API has no registry, so a canvas / color pane created
+    // here prices at index = count = 0: the base of its tier. `enforceOrder`
+    // never runs, so the pane keeps that base z — never Leaflet's CSS default
+    // of 400, and never the top of the stack.
     getCount: () => 0,
   });
 

@@ -30,10 +30,13 @@
 
   if (spec.action === "create-canvas") {
     const api = map.foliplus.LayerAPI;
-    const id = `probe_canvas_${Date.now()}`;
+    const id = `probe_canvas_${Date.now()}_${Math.random().toString(36).slice(2)}`;
     const handle = api.createCanvas({ id, name: "Probe Canvas" });
     const panes = readPanes();
     const newPane = panes.find(p => p.name.includes(id));
+    // Destroy inside the probe — a returned handle cannot survive page.evaluate
+    // serialization, so leave the registry clean for the next action.
+    handle.destroy();
     return {
       ok: true,
       action: "create-canvas",

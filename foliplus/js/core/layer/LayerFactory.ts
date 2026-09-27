@@ -42,12 +42,12 @@ interface LayerFactoryDeps {
    */
   onDataChange?: (id: string) => void;
   /**
-   * How many layers the registry holds. Used to price the provisional z a
-   * freshly created canvas / color pane is stamped with (the layers branch
-   * gets its count from the surface the registry builds for it, which sees
-   * the new entry already inserted). Defaults to 0 for callers that haven't
-   * adopted the dep — the provisional z is then priced against an empty tier,
-   * which is still above Leaflet's CSS default of 400.
+   * How many layers the registry holds. Used to price the slot z a freshly
+   * created canvas / color pane is stamped with (the layers branch gets its
+   * index and count from the surface the registry builds for it, which sees
+   * the new entry already inserted). The canvas / color layer is not yet in
+   * the registry at pane-creation time, so index defaults to count: the pane
+   * prices at the base of its tier. Optional — absent callers fall back to 0.
    */
   getCount?: () => number;
 }
@@ -348,12 +348,13 @@ class LayerFactory {
       const { color } = opts.content;
       const paneName = namedPaneNameFor(opts.id, COLOR_PANE_PREFIX, "color surface");
       // Leaflet's CSS gives a fresh pane z-index 400 — above every basemap.
-      // `ensurePane` stamps a provisional ladder z (one step above the top
-      // base slot) so the pane is never at 400; the ordering pass rewrites
+      // The layer is not yet in the registry, so index = count prices the
+      // pane at the base of the base tier (TILE_BASE); `enforceOrder` rewrites
       // the exact slot z once the layer is registered.
+      const count = this.deps.getCount?.() ?? 0;
       const { pane } = panes.ensurePane(paneName, false, {
-        index: this.deps.getCount?.() ?? 0,
-        count: this.deps.getCount?.() ?? 0,
+        index: count,
+        count,
         isBase: true,
       });
 
@@ -467,9 +468,10 @@ class LayerFactory {
     } = opts.content;
 
     const paneName = namedPaneNameFor(opts.id, CANVAS_PANE_PREFIX, "createCanvas");
+    const count = this.deps.getCount?.() ?? 0;
     const { pane } = panes.ensurePane(paneName, false, {
-      index: this.deps.getCount?.() ?? 0,
-      count: this.deps.getCount?.() ?? 0,
+      index: count,
+      count,
       isBase: false,
     });
 

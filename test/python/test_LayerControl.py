@@ -3339,6 +3339,45 @@ class TestLayerControlBrowser:
                 "reorder back above: color z must increase again"
             )
 
+    def test_pane_creation_is_never_at_400(self, browser, tmp_path):
+        """A freshly materialized pane carries its slot z, never Leaflet's 400.
+
+        The 400 window between pane creation and `enforceOrder` was the root of
+        "勾选就置顶". `PaneManager.ensurePane` now stamps the layer's slot z at
+        creation (exact index when registered, else the base of its tier), so no
+        foliplus-layer pane ever sits at Leaflet's CSS default of 400.
+        """
+        base = folium.TileLayer("CartoDB positron", name="Base", overlay=False)
+        with use_page(self._make_page, browser, tmp_path, base) as (page, _):
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            page.wait_for_timeout(500)
+
+            # Every registered layer's pane is at its ladder z — none at 400.
+            read = page.evaluate(_js("LayerControl/creation_z"))
+            assert read["ok"] is True
+            assert read["panes"], "expected at least one foliplus-layer pane"
+            for p in read["panes"]:
+                assert p["z"] != 400, (
+                    f"pane '{p['name']}' sits at Leaflet's default 400"
+                )
+
+            # A freshly created (unregistered) canvas pane prices at the base of
+            # its tier — not 400, and not the top of the stack.
+            page.evaluate("window.__probe = { action: 'create-canvas' }")
+            state = page.evaluate(_js("LayerControl/creation_z"))
+            assert state["ok"] is True
+            assert state["notAt400"] is True, (
+                "new canvas pane must not sit at Leaflet's default 400"
+            )
+            assert state["newPane"] is not None, "created canvas pane should exist"
+
     def test_base_basemap_reorder_repaints_z(self, browser, tmp_path):
         """Every base basemap repaints when its row moves.
 
