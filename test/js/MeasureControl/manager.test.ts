@@ -1021,6 +1021,12 @@ describe("MeasureManager — EVENTS.LAYER_DELETED auto-clear", () => {
 
     expect(clearSpy).not.toHaveBeenCalled();
   });
+
+  it("destroy skips offLayerDeleted when it was never bound", () => {
+    const { manager } = makeManager();
+    (manager as any).offLayerDeleted = null;
+    expect(() => manager.destroy()).not.toThrow();
+  });
 });
 
 describe("MeasureManager — export click", () => {

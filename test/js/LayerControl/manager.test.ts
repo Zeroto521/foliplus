@@ -2094,6 +2094,14 @@ describe("LayerManager", () => {
       expect((manager as any).removedIds.has("overlay1")).toBe(true);
     });
 
+    it("returns false when unregisterLayer fails for a user layer", () => {
+      manager.map.hasLayer.mockReturnValue(false);
+      vi.spyOn(manager, "unregisterLayer").mockReturnValue(false);
+
+      expect(manager.deleteLayer("overlay1")).toBe(false);
+      expect((manager as any).removedIds.has("overlay1")).toBe(false);
+    });
+
     it("clears the colour basemap — unregisters but keeps the id registerable", () => {
       manager.map.hasLayer.mockReturnValue(false);
       manager.registerLayer({
