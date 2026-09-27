@@ -626,6 +626,36 @@ describe("LayerUI menu", () => {
       expect(deleteSpy).not.toHaveBeenCalled();
     });
 
+    it("arms on the first click and deletes on the second for a component layer's clear entry", () => {
+      // Component layers (Measure, Heatmap) render the clear branch of
+      // armDelete / disarmDelete: isClear=true flows through the confirm
+      // label, the tooltip, and the disarm text. Exercising the delete-mode
+      // path alone leaves those branches partial.
+      manager.registerLayer({
+        id: "measure1",
+        name: "Measure",
+        isBase: false,
+        layer: { options: {}, eachLayer: vi.fn() },
+        styleSetters: {},
+      } as never);
+      const item = ui.uiContainer.querySelector(`[${CONST.DATA.LAYER_ID}="measure1"]`)!;
+      ui.openMoreMenu(item);
+      const deleteLi = deleteEntryOf(item)!;
+      expect(deleteLi.dataset.mode).toBe("clear");
+
+      click(deleteLi);
+      expect(deleteLi.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)).toBe(true);
+      expect(deleteLi.querySelector(CONST.SEL.MENU_DELETE_LABEL)!.textContent).toBe(
+        "LayerControl.clear_data_confirm",
+      );
+      expect(deleteLi.title).toBe("LayerControl.clear_data_confirm");
+      expect(deleteSpy).not.toHaveBeenCalled();
+
+      click(deleteLi);
+      expect(deleteSpy).toHaveBeenCalledWith("measure1");
+      expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(0);
+    });
+
     it("auto-disarms after the arm timeout", () => {
       vi.useFakeTimers();
       try {

@@ -268,7 +268,9 @@ const armDelete = (ui: LayerUI, li: HTMLElement): void => {
   if (!label) return;
   disarmDelete();
   const isClear = li.dataset.mode === "clear";
-  const originalTitle = li.getAttribute("title") ?? "";
+  // The title attribute is set by buildDeleteItem at entry construction, so
+  // there is no null to fall back to.
+  const originalTitle = li.getAttribute("title")!;
   armedDelete = { ui, label, li, isClear, originalTitle };
   label.textContent = ui.T(isClear ? "clear_data_confirm" : "delete_layer_confirm");
   li.classList.add(CONST.CLASSES.MENU_DELETE_ARMED);
