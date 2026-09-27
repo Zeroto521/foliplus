@@ -129,7 +129,8 @@ describe("LayerUI keyboard", () => {
       ui.handleChange({ target: cb } as Event);
 
       expect(ui.hiddenIds).toContain("overlay1");
-      expect(ui.m.layers.length).toBe(3);
+      // 3 seeded layers + the colour basemap registered by initTypesAndVisibility.
+      expect(ui.m.layers.length).toBe(4);
     });
 
     it("Enter on the more button still opens the menu and does not toggle", () => {
@@ -190,7 +191,7 @@ describe("LayerUI keyboard", () => {
 
   // ─────────────────── keyboard focus cursor visual class ───────────────────
 
-  describe("keyboard focus cursor class (.is-focused-row)", () => {
+  describe("keyboard focus cursor class (.foliplus-is-focused-row)", () => {
     // getNavigableItems() enumerates row elements in DOM order: the "Toggle
     // All" row is index 0, then enforceOrder-sorted base/overlay layers. Look
     // up indices dynamically so a re-order doesn't silently break these tests.

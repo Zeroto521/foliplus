@@ -65,13 +65,12 @@ const CLASSES = {
   CHECKBOX: "foliplus-checkbox",
   DRAG_CELL: "foliplus-drag-cell",
   GROUP_FOLDED: "foliplus-layer-group-folded",
-  COLOR_INPUT: "foliplus-color-layer-input",
   COLOR_ITEM: "foliplus-color-layer-item",
   LAYER_LABEL: "foliplus-layer-label",
   /** Marks a row that owns the live Row-cursor visual (arrow keyboard cursor
    *  or Tab focus). The recipe CSS keys only on this class + `:hover` — never
    *  on `:focus-visible` — so Escape is a single class removal. */
-  FOCUSED: "is-focused-row",
+  FOCUSED: "foliplus-is-focused-row",
   DRAG_OVER_TOP: "foliplus-layer-drag-over-top",
   DRAG_OVER_BOTTOM: "foliplus-layer-drag-over-bottom",
   DRAGGING: "foliplus-layer-dragging",
@@ -83,13 +82,18 @@ const CLASSES = {
   TOGGLE_ALL: "foliplus-layer-toggle-all",
   FOLD_BTN_CTR: "foliplus-layer-sep",
   SEP_LABEL: "foliplus-layer-sep-label",
-  FOCUSING: "is-focusing",
+  /** Set on the map container when zero basemaps are visible (A′ hatch).
+   *  Painted via CSS `background-image`, which ExportControl's
+   *  resolveExportBackground deliberately skips — an empty state never
+   *  reaches an export. */
+  NO_BASE_MAP: "no-base-map",
+  FOCUSING: "foliplus-is-focusing",
   /** Set on the map container while a focus is active. CSS hides every
    *  `.foliplus-layer-pane` except the focused one (`.foliplus-focus-pane`)
    *  declaratively — one class write instead of a JS visibility loop. */
-  FOCUS_ACTIVE: "is-focus-mode",
+  FOCUS_ACTIVE: "foliplus-is-focus-mode",
   /** Marked on the focused layer's pane(s)/canvas so it stays visible while
-   *  every other layer is hidden by the `.is-focus-mode` rule. */
+   *  every other layer is hidden by the `.foliplus-is-focus-mode` rule. */
   FOCUS_PANE: "foliplus-focus-pane",
   /** Added to the focused layer's element(s) so its accent drop-shadow glow
    *  fades in (CSS animation) — a single element, not a per-layer loop. */
@@ -216,13 +220,13 @@ const ACTION = {
 const SEL = {
   LAYER_ITEM: ".foliplus-layer-item",
   COLOR_ITEM: ".foliplus-color-layer-item",
-  COLOR_INPUT: ".foliplus-color-layer-input",
   TOGGLE_ALL: ".foliplus-layer-toggle-all",
   COUNT_COL: ".foliplus-layer-count",
   /** Any cursor-recipe row (data item or the fold/toggle-all row). Child
    *  control focus (checkbox / more / fold) attributes to this via closest(). */
   ROW: ".foliplus-layer-item, .foliplus-layer-toggle-all",
   MENU_DELETE_LABEL: `.${CLASSES.MENU_DELETE_LABEL}`,
+  SEP_LABEL: `.${CLASSES.SEP_LABEL}`,
 };
 
 /** Group names. */

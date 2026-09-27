@@ -41,8 +41,8 @@ const TIMING = {
 
 /** CSS class names used during render. */
 const CLASSES = {
-  COLLAPSED: "is-collapsed",
-  EXPANDED: "is-expanded",
+  COLLAPSED: "foliplus-is-collapsed",
+  EXPANDED: "foliplus-is-expanded",
   TOOL_BTN: "foliplus-tool-btn",
   MODE: "foliplus-export-mode",
   BOX: "foliplus-export-box",
@@ -52,10 +52,10 @@ const CLASSES = {
   CLOSE: "foliplus-close-btn",
   HIDDEN: "foliplus-hidden",
   LOCKED: "locked",
-  ACTIVE: "is-active",
+  ACTIVE: "foliplus-is-active",
   CONFIRM: "confirm",
   CANCEL: "cancel",
-  DRAGGING: "is-dragging",
+  DRAGGING: "foliplus-is-dragging",
 };
 
 const SVG_NS = "http://www.w3.org/2000/svg";

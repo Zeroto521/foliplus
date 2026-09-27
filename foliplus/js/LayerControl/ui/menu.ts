@@ -79,19 +79,19 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   // dimensions, so the panel is disabled unless it still has label fields or
   // style delegation to configure.
   //
-  // `focusReason` cascades into `styleDisabled` only for the reasons that also
-  // make styling impossible: a basemap has no configurable dimensions of its
-  // own, and a hidden row has nothing visible to style. A "no_bounds" row is
-  // still visible and configurable — it simply has no geographic extent to
-  // focus on — so it keeps its style entry enabled.
+  // `focusReason` cascades into `styleDisabled` only for the reasons that
+  // make styling impossible: a hidden row has nothing visible to style.
+  // A "no_bounds" row is still visible and configurable — it simply has no
+  // geographic extent to focus on — so it keeps its style entry enabled.
+  // Basemaps are configurable too: the solid-color basemap has a fill row
+  // in its style panel, and tile basemaps can still tune opacity.
   const layerInfo = ui.m.layerRegistry.get(layerId);
   const caps = layerInfo ? ui.m.surfaceFor(layerInfo).capabilities : null;
   const canConfigure =
     (caps && (caps.opacity !== "none" || caps.zoomRange !== "none")) ||
     layerHasLabelFields(ui, layerId) ||
     layerHasStyleDelegation(ui, layerId);
-  const styleDisabled =
-    focusReason === "base" || focusReason === "hidden" || !canConfigure;
+  const styleDisabled = focusReason === "hidden" || !canConfigure;
 
   menu.appendChild(
     dom.el(

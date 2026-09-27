@@ -4,7 +4,7 @@
 // refreshAllCounts moved to `./lifecycle.ts` (34.2).
 import { type EventBus, ensureEvents } from "#core/event/index.js";
 import type { LabelField } from "#core/labelField.js";
-import { type LayerInfo } from "#core/layer/index.js";
+import { type CreateColorAPI, type LayerInfo } from "#core/layer/index.js";
 import { ListCursor } from "#core/listCursor.js";
 import { createScopedTranslator, createTranslator } from "#common/locale.js";
 import * as CONST from "../const.js";
@@ -103,8 +103,12 @@ class LayerUI {
    *  a map-level "did the user choose at all" flag, which could not tell one
    *  layer's choice from another's. */
   userOverrides: Record<string, LayerOverride[]>;
-  isColorActive: boolean;
   currentColor: string;
+  /** Lazy-created color basemap surface — the pane-owned canvas that carries
+   *  the fill. Built on first show (via `factory.createColor`), which also
+   *  upserts the LayerInfo so the pane participates in `enforceOrder`.
+   *  Null until the color basemap is first displayed. */
+  colorSurface: CreateColorAPI | null;
   /** Map of layer id → user-assigned display name (survives reload). */
   renamedNames: Record<string, string>;
   /** Layer id whose label is currently an inline rename input, or null. */
@@ -226,8 +230,8 @@ class LayerUI {
     this.hiddenIds = new Set();
     this.authorVisible = new Map();
     this.userOverrides = {};
-    this.isColorActive = false;
     this.currentColor = CONST.COLOR.DEFAULT;
+    this.colorSurface = null;
     this.renamedNames = {};
     this.activeRenameId = null;
     this.dragIdx = null;
@@ -312,35 +316,6 @@ class LayerUI {
     return unbindEvents(this);
   }
 
-  deselectAllBaseMaps(exceptIdx: number) {
-    // The rows carry their identity (data-layer-id): a saved order can place a
-    // row elsewhere in the DOM than its position in the registry.
-    const bases = this.m.layers.filter((li, i) => li.isBase && i !== exceptIdx);
-    let changed = false;
-    for (const layerInfo of bases) {
-      const bLayer = this.m.findLayer(layerInfo);
-      if (bLayer && this.m.map.hasLayer(bLayer)) {
-        this.m.map.removeLayer(bLayer);
-        changed = true;
-      }
-      if (rowChecked(this, layerInfo)) changed = true;
-    }
-    // Excluded from handleChange: it is the mutual-exclusion half of that
-    // handler, so walking it would recurse. The bases it deselects are hidden
-    // by the user's own choice, so they still need to persist -- otherwise a
-    // reload re-checks them and the "only one base at a time" invariant
-    // silently resets. The selected base is already tracked by the caller.
-    if (changed) {
-      for (const layerInfo of bases) {
-        syncHiddenId(this, layerInfo.id, true);
-        const item = this.uiContainer.querySelector(
-          `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerInfo.id)}"]`,
-        ) as HTMLElement | null;
-        if (item) applyRowView(this, item, buildRowCell(this, layerInfo));
-      }
-    }
-  }
-
   // ── delegates: state ──
   loadPersistedState() {
     return loadPersistedState(this);
@@ -362,13 +337,18 @@ class LayerUI {
     // values. Hooked here rather than in state.ts to keep state.ts free of
     // style-row imports (border.js and fill.js import state.js for
     // markOverride/saveState).
-    replayBorderState(this, id);
-    if (id) {
-      replayFillState(this, id);
-    } else {
-      for (const layerId of Object.keys(this.userOverrides)) {
-        replayFillState(this, layerId);
-      }
+    //
+    // Both dimensions enumerate `userOverrides` — the single source of truth
+    // for which layers the user actually touched. Border's map-union
+    // enumeration and fill's userOverrides loop were asymmetric: a value in
+    // `borderColorMap` that was never recorded as an override would replay
+    // for border but not for fill, and vice versa, so a reload could restore
+    // the drawer's swatch for one dimension while leaving the map with the
+    // author's for the other.
+    const layerIds = id !== undefined ? [id] : Object.keys(this.userOverrides);
+    for (const layerId of layerIds) {
+      replayBorderState(this, layerId);
+      replayFillState(this, layerId);
     }
   }
   replayLayerState(layerId: string) {
