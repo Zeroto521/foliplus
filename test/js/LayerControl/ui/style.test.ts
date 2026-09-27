@@ -18,7 +18,7 @@ import { resetLayerZoomRange } from "#foliplus/LayerControl/ui/style/zoomRange.j
 import { AUTO_FIELD } from "#foliplus/core/labelField.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 import { NUMBER_FORMAT } from "#common/format.js";
-import { findItem, initFixture, installLeafletGlobals } from "./fixture.js";
+import { findItem, initFixture, installLeafletGlobals, GridLayer } from "./fixture.js";
 
 /** Percentage the opacity fill is drawn at, read off its width expression.
  *  The fill's width is `calc((100% - var(--slider-thumb-hit)) * <fraction>)` —
@@ -1107,20 +1107,84 @@ describe("LayerUI style panel", () => {
     expect(borderRows(panel)).toHaveLength(1);
   });
 
-  it("canShowZoomRange declines a base layer: basemaps carry no range control", () => {
-    // The `!li.isBase` half of the guard — the one of the two conditions that
-    // is about the layer rather than about its surface.
+  // Row-rendering matrix for the two basemap faces — T190 pins the zoomRange
+  // cells. Both basemap kinds now render the zoomRange row: a real GridLayer
+  // carries it through native min/maxZoom (the honest carrier), and the
+  // solid-color basemap through the isColorBasemap fallback (its surface
+  // reports zoomRange: "none", but the executor's visible op is still the
+  // carrier, so the row is not a lie). fill/border cells are documented for
+  // the reader — border needs caps = {opacity:pane, zoomRange:pane}, which
+  // no basemap satisfies; fill needs the same for the vector path but is
+  // re-routed through isColorBasemap for the color face.
+  //
+  //   Tile (isBase + GridLayer): fill ✗ / border ✗ / opacity ✓ (native) / zoomRange ✓ (native)
+  //   Color (isBase + pane):     fill ✓  / border ✗ / opacity ✓ (pane)   / zoomRange ✓ (isColorBasemap)
+
+  it("tile basemap (GridLayer) renders the zoomRange row: native min/maxZoom is the carrier", () => {
+    // The 398 R7 `!li.isBase` blanket was dropped in T190: a TileLayer is a
+    // GridLayer subclass whose options.minZoom/maxZoom are exactly the
+    // carrier the row writes through, so refusing it was a false refusal.
+    // GridLayer is required — a bare `{ options: {} } as never` also gets a
+    // row, but through the content-panes fallback, which is not the carrier
+    // this test is checking.
     manager.registerLayer({
-      id: "base1",
+      id: "tileBase1",
       name: "OSM",
+      isBase: true,
+      layer: new GridLayer() as never,
+    });
+    ui.fieldCache.set("tileBase1", [{ name: "count", numeric: true }]);
+
+    const item = findItem(ui, "tileBase1");
+    ui.openStylePanel("tileBase1");
+    const panel = panelOf(item);
+    expect(panel, "the style panel rendered").toBeTruthy();
+
+    expect(panel!.querySelector(".foliplus-style-zoom-range-row")).not.toBeNull();
+  });
+
+  it("color basemap renders the zoomRange row through the isColorBasemap fallback", () => {
+    // detectCapabilities reports zoomRange: "none" for the color face
+    // (the always-on fallback color has no honest range carrier of its
+    // own); isColorBasemap is the second clause that lets the row still
+    // render, because the executor's visible op is the real carrier.
+    // Without the flag the row would be a lie (writes a value that never
+    // lands), which is what the flag guards against.
+    manager.registerLayer({
+      id: "colormap",
+      name: "Color",
+      isBase: true,
+      color: "#3366cc",
+    });
+    ui.fieldCache.set("colormap", [{ name: "count", numeric: true }]);
+
+    const item = findItem(ui, "colormap");
+    ui.openStylePanel("colormap");
+    const panel = panelOf(item);
+    expect(panel, "the style panel rendered").toBeTruthy();
+
+    expect(panel!.querySelector(".foliplus-style-zoom-range-row")).not.toBeNull();
+  });
+
+  it("declines a zoomRange row for a base layer whose surface carries no range", () => {
+    // A fake base layer with `capabilities.zoomRange` forced to "none" —
+    // the honest-degradation path that used to be papered over by the
+    // blanket isBase guard. The panel still renders (opacity carrier is
+    // intact), but the zoomRange row is omitted rather than written as a
+    // lie that would persist and never apply.
+    manager.registerLayer({
+      id: "norange1",
+      name: "N",
       isBase: true,
       layer: { options: {} } as never,
       paneName: "tilePane",
     });
-    ui.fieldCache.set("base1", [{ name: "count", numeric: true }]);
+    const li = manager.layerRegistry.get("norange1")!;
+    manager.surfaceFor(li).capabilities.zoomRange = "none";
+    ui.fieldCache.set("norange1", [{ name: "count", numeric: true }]);
 
-    const item = findItem(ui, "base1");
-    ui.openStylePanel("base1");
+    const item = findItem(ui, "norange1");
+    ui.openStylePanel("norange1");
     const panel = panelOf(item);
     expect(panel, "the style panel rendered").toBeTruthy();
 
@@ -3314,13 +3378,16 @@ describe("LayerUI style panel — zoom range", () => {
     expect(map.removeLayer).toHaveBeenCalledWith(measureLayer);
   });
 
-  it("omit zoom-range row for base layers", () => {
+  it("gives the fixture's tile base layer a zoom row: the GridLayer native min/maxZoom is the carrier", () => {
+    // T190 — the old `!li.isBase` blanket was dropped; the fixture's base1 is
+    // a TileLayer (GridLayer subclass) whose options.minZoom/maxZoom are the
+    // honest carrier, so the row now renders for it just like any overlay.
     const item = findItem(ui, "base1");
     ui.openStylePanel("base1");
     const panel = panelOf(item);
     if (!panel) return;
     const row = zoomRowOf(panel);
-    expect(row).toBeNull();
+    expect(row).not.toBeNull();
   });
 
   it("reset button clears zoom range and restores full map range", () => {
