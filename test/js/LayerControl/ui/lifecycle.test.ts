@@ -113,7 +113,9 @@ describe("LayerUI lifecycle — defensive rails", () => {
       const showColorLayerSpy = vi
         .spyOn(ui, "showColorLayer")
         .mockImplementation(() => {});
-      const colorRow = ui.uiContainer.querySelector<HTMLElement>(CONST.SEL.COLOR_ITEM);
+      const colorRow = ui.uiContainer.querySelector<HTMLElement>(
+        `[${CONST.DATA.LAYER_ID}="${CONST.COLOR.MAP_ID}"]`,
+      );
       expect(colorRow).toBeTruthy();
       // Click the row's label cell — well outside the checkbox, drag handle,
       // and ⋮ button, so none of the excluded descendants match.
