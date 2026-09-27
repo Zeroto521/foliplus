@@ -1332,6 +1332,8 @@ describe("LayerManager", () => {
       saveState,
       saveNamesState,
       invalidateFields: vi.fn(),
+      syncToggleAll: vi.fn(),
+      syncNoBasemap: vi.fn(),
     } as any;
     manager.deleteLayer("overlay1");
 
@@ -1398,6 +1400,8 @@ describe("LayerManager", () => {
       saveState,
       saveNamesState,
       invalidateFields: vi.fn(),
+      syncToggleAll: vi.fn(),
+      syncNoBasemap: vi.fn(),
     } as any;
 
     expect(manager.deleteLayer("overlay1")).toBe(true);
@@ -1451,6 +1455,8 @@ describe("LayerManager", () => {
       saveState: () => saveState(m.ui),
       saveNamesState: () => saveNamesState(m.ui),
       invalidateFields: vi.fn(),
+      syncToggleAll: vi.fn(),
+      syncNoBasemap: vi.fn(),
     } as any;
 
     expect(m.deleteLayer("overlay1")).toBe(true);
@@ -2102,6 +2108,26 @@ describe("LayerManager", () => {
       expect((manager as any).removedIds.has("overlay1")).toBe(false);
     });
 
+    it("syncs toggle-all and no-basemap state after deleting a base layer", () => {
+      manager.map.hasLayer.mockReturnValue(false);
+      const syncToggleAll = vi.fn();
+      const syncNoBasemap = vi.fn();
+      manager.ui = {
+        syncToggleAll,
+        syncNoBasemap,
+        dropPersistedLayerState: vi.fn(),
+        saveState: vi.fn(),
+        renamedNames: {},
+        saveNamesState: vi.fn(),
+        invalidateFields: vi.fn(),
+      } as any;
+
+      expect(manager.deleteLayer("base1")).toBe(true);
+
+      expect(syncToggleAll).toHaveBeenCalledWith(CONST.GROUP.BASE);
+      expect(syncNoBasemap).toHaveBeenCalled();
+    });
+
     it("clears the colour basemap — unregisters but keeps the id registerable", () => {
       manager.map.hasLayer.mockReturnValue(false);
       manager.registerLayer({
@@ -2112,11 +2138,15 @@ describe("LayerManager", () => {
       } as any);
 
       const saveStateSpy = vi.fn();
+      const syncToggleAll = vi.fn();
+      const syncNoBasemap = vi.fn();
       manager.ui = {
         colorSurface: {} as any,
         currentColor: "#ff0000",
         authorVisible: new Map([[CONST.COLOR.MAP_ID, true]]),
         saveState: saveStateSpy,
+        syncToggleAll,
+        syncNoBasemap,
         invalidateFields: vi.fn(),
       } as any;
       const unregisterSpy = vi.spyOn(manager, "unregisterLayer");
@@ -2128,6 +2158,8 @@ describe("LayerManager", () => {
       expect(manager.ui.currentColor).toBe(CONST.COLOR.DEFAULT);
       expect(manager.ui.authorVisible.get(CONST.COLOR.MAP_ID)).toBe(false);
       expect(saveStateSpy).toHaveBeenCalled();
+      expect(syncToggleAll).toHaveBeenCalledWith(CONST.GROUP.BASE);
+      expect(syncNoBasemap).toHaveBeenCalled();
       expect((manager as any).removedIds.has(CONST.COLOR.MAP_ID)).toBe(false);
     });
 

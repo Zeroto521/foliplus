@@ -855,6 +855,8 @@ class LayerManager implements LayerAPI {
         this.ui.currentColor = CONST.COLOR.DEFAULT;
         this.ui.authorVisible.set(id, false);
         this.ui.saveState();
+        this.ui.syncToggleAll(CONST.GROUP.BASE);
+        this.ui.syncNoBasemap();
       }
       this.persistence.flushAll();
       return true;
@@ -892,6 +894,8 @@ class LayerManager implements LayerAPI {
       this.ui.saveNamesState();
     }
     this.ui.saveState();
+    this.ui.syncToggleAll(layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY);
+    this.ui.syncNoBasemap();
     this.persistence.flushAll();
     return true;
   }
