@@ -78,6 +78,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
           style: {},
           classList: { add: vi.fn(), remove: vi.fn() },
         })),
+        options: { maxZoom: 18 },
         foliplus: { showHint: vi.fn(), hideHint: vi.fn() },
       },
       addLayer,
@@ -576,6 +577,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
         getZoom: vi.fn(() => 5),
         getMaxZoom: vi.fn(() => 18),
         getMinZoom: vi.fn(() => 0),
+        options: { maxZoom: 18 },
         getBounds: vi.fn(() => ({
           pad: vi.fn(() => ({})),
           getSouthWest: () => ({ lat: 20, lng: 90 }),
@@ -594,6 +596,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
         })),
         _container: container,
         _layers: {},
+        options: { maxZoom: 18 },
         attributionControl: { _attributions: {}, _update: vi.fn() },
         foliplus: { showHint: vi.fn(), hideHint: vi.fn() },
       };
@@ -740,6 +743,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
               style: {},
               classList: { add: vi.fn(), remove: vi.fn() },
             })),
+            options: { maxZoom: 18 },
             foliplus: { showHint: vi.fn(), hideHint: vi.fn() },
           },
           removeLayer: rl,
@@ -885,6 +889,7 @@ describe("LayerUI opacity restore / retention", () => {
       getZoom: vi.fn(() => 4),
       getMaxZoom: vi.fn(() => 18),
       getMinZoom: vi.fn(() => 0),
+      options: { maxZoom: 18 },
     };
     return { map, layer, setStyle, panes };
   };

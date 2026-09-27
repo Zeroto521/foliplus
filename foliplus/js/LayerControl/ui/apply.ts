@@ -26,6 +26,7 @@
 // Naming: "state op" is the shape the carrier dispatcher accepts.
 // "Projection" is what the diff compares — intent + policy together, so
 // a change on either side produces an op.
+import * as CONST from "../const.js";
 import type { LayerUI } from "./index.js";
 import { projectAll, projectLayer } from "./store.js";
 
@@ -54,10 +55,6 @@ const authorOpacityBaseOf = (layer: L.Layer): number => {
   return base;
 };
 
-/** Fallback for a layer that declares no max zoom and a map that itself has
- *  no declared max — a bare TileLayer. */
-const AUTHOR_ZOOM_FALLBACK_MAX = 20;
-
 /** The layer's own author-declared min/max, frozen on first write.
  *
  *  Frozen, not re-read: `applyStateOp` writes `options.minZoom/maxZoom` on
@@ -74,8 +71,8 @@ const AUTHOR_ZOOM_FALLBACK_MAX = 20;
  *  when the layer declares none — a TileLayer without `options.maxZoom`
  *  means "whatever the map allows", not "Infinity". `map.getMaxZoom()`
  *  itself returns `Infinity` for a map without a declared max, so that
- *  path gets its own finite fallback: `AUTHOR_ZOOM_FALLBACK_MAX`, so the
- *  values row can never print the literal string "Infinity".
+ *  path gets its own finite fallback: `CONST.AUTHOR_ZOOM_FALLBACK_MAX`, so
+ *  the values row can never print the literal string "Infinity".
  *
  *  Min end is symmetric: dragging the left thumb writes `options.minZoom`,
  *  which would ratchet the slider's own min upward on the next build. */
@@ -98,7 +95,7 @@ const authorZoomBoundsOf = (
     maxZoom?: number;
   };
   const mapMin = finiteOr(ui.m.map.getMinZoom(), 0);
-  const mapMax = finiteOr(ui.m.map.getMaxZoom(), AUTHOR_ZOOM_FALLBACK_MAX);
+  const mapMax = finiteOr(ui.m.map.getMaxZoom(), CONST.AUTHOR_ZOOM_FALLBACK_MAX);
   const bounds: [number, number] = [
     finiteOr(opts.minZoom, mapMin),
     finiteOr(opts.maxZoom, mapMax),

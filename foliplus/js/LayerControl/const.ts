@@ -232,6 +232,13 @@ const SEL = {
 /** Group names. */
 const GROUP = { OVERLAY: "overlay", BASE: "base" };
 
+/** Upper bound for a map and layer that declare no max zoom.
+
+ *  One value for both the map's fallback ceiling and the slider's author-bound
+ *  fallback: two different numbers would let the panel offer a range the map
+ *  itself refuses. */
+const AUTHOR_ZOOM_FALLBACK_MAX = 20;
+
 /** Default annotation config for a layer (disabled). */
 const DEFAULT_ANNOTATION = {
   show: false,
@@ -245,6 +252,7 @@ export {
   ACTION,
   ANNOTATION_PANE_PREFIX,
   ANNOTATION_Z_OFFSET,
+  AUTHOR_ZOOM_FALLBACK_MAX,
   CLASSES,
   COLOR,
   DATA,
