@@ -9,6 +9,7 @@ import {
   handleInput,
   syncNoBasemap,
   syncToggleAll,
+  syncToggleAllFromCount,
   toggleAll,
 } from "#foliplus/LayerControl/ui/visibility.js";
 import { initFixture, installLeafletGlobals } from "./fixture.js";
@@ -471,6 +472,23 @@ describe("applyVisibility", () => {
       });
     });
 
+    it("exposes syncToggleAllFromCount as a delegator on LayerUI", () => {
+      // The public method on LayerUI is the wrapper around the module-level
+      // function; a host page that holds the UI instance calls it through
+      // that slot. Pinned so the delegator stays reachable and writes the
+      // tri-state checkbox off the cached count.
+      syncToggleAll(ui, CONST.GROUP.OVERLAY);
+      applyVisibility(ui, "overlay1", false);
+      expect(ui.checkedCount[CONST.GROUP.OVERLAY]).toEqual({
+        total: 2,
+        on: 1,
+      });
+      ui.syncToggleAllFromCount(CONST.GROUP.OVERLAY);
+      const all = allToggle(ui);
+      expect(all.checked).toBe(false);
+      expect(all.indeterminate).toBe(true);
+    });
+
     it("skips syncNoBasemap for overlay clicks but calls it for base clicks", () => {
       // syncNoBasemap is the only code that toggles NO_BASE_MAP on the map
       // container, so observing that toggle is equivalent to observing the
@@ -837,6 +855,28 @@ describe("DOM order diverges from registry order", () => {
     expect(ui.intentVisible("C")).toBe(false);
   });
 
+  it("toggleAll skips a row whose id names no registry entry", () => {
+    // The second defensive bail: the row carries a data-layer-id, but that id
+    // is not in the layer registry (e.g. a stale DOM node after an unregister
+    // that raced the sweep). It must be skipped rather than applied against a
+    // null layerInfo.
+    const stale = document.createElement("div");
+    stale.className = CONST.CLASSES.LAYER_ITEM;
+    stale.setAttribute(CONST.DATA.LAYER_ID, "never-registered");
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.checked = true;
+    stale.appendChild(box);
+    ui.uiContainer.appendChild(stale);
+
+    ui.toggleAll(CONST.GROUP.OVERLAY, false);
+
+    expect(box.checked).toBe(true);
+    expect(ui.intentVisible("A")).toBe(false);
+    expect(ui.intentVisible("B")).toBe(false);
+    expect(ui.intentVisible("C")).toBe(false);
+  });
+
   it("toggleAll does not activate the colour layer when the base group is cleared", () => {
     // First-class basemaps: the colour layer is one row like any other, not a
     // stand-in for the absence of a base. Clearing the base group leaves the
@@ -1064,5 +1104,58 @@ describe("unit helpers", () => {
     } as unknown as LayerUI;
 
     expect(() => syncToggleAll(ui, CONST.GROUP.OVERLAY)).not.toThrow();
+  });
+
+  it("syncToggleAllFromCount bails when the group header is absent", () => {
+    // The row that carries the group's toggle-all checkbox is not present in
+    // the panel —nothing to write to, so the sync must bail rather than null-
+    // deref. Pinned so the O(1) path fails open like the full-rescan path
+    // does.
+    const uiContainer = document.createElement("div");
+    const ui = {
+      uiContainer,
+      checkedCount: {},
+      T: (k: string) => k,
+    } as unknown as LayerUI;
+
+    expect(() => syncToggleAllFromCount(ui, CONST.GROUP.OVERLAY)).not.toThrow();
+  });
+
+  it("syncToggleAllFromCount bails when the header has no toggle-all input", () => {
+    // The header row resolves but carries no [data-role="toggle-all"] input:
+    // there is nothing to paint, so the sync must bail rather than write into
+    // a null element —the same guard the full-rescan path already carries.
+    const uiContainer = document.createElement("div");
+    uiContainer.innerHTML = `<div class="foliplus-layer-toggle-all" data-group="${CONST.GROUP.OVERLAY}"></div>`;
+    const ui = {
+      uiContainer,
+      checkedCount: {},
+      T: (k: string) => k,
+    } as unknown as LayerUI;
+
+    expect(() => syncToggleAllFromCount(ui, CONST.GROUP.OVERLAY)).not.toThrow();
+  });
+
+  it("syncToggleAllFromCount treats a missing counter as an empty group", () => {
+    // A thin stub that skips the constructor leaves checkedCount empty; the
+    // write must still degrade to `checked=false, indeterminate=false` rather
+    // than crashing on the `?? { total: 0, on: 0 }` fallback. This also pins
+    // the empty-group tri-state semantics: `on === 0` means nothing checked,
+    // not a partial state.
+    const uiContainer = document.createElement("div");
+    uiContainer.innerHTML = `<div class="foliplus-layer-toggle-all" data-group="${CONST.GROUP.OVERLAY}"><input type="checkbox" data-role="toggle-all" /></div>`;
+    const ui = {
+      uiContainer,
+      checkedCount: {},
+      T: (k: string) => k,
+    } as unknown as LayerUI;
+
+    syncToggleAllFromCount(ui, CONST.GROUP.OVERLAY);
+
+    const all = uiContainer.querySelector<HTMLInputElement>(
+      '[data-role="toggle-all"]',
+    )!;
+    expect(all.checked).toBe(false);
+    expect(all.indeterminate).toBe(false);
   });
 });
