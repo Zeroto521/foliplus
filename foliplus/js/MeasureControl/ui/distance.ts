@@ -83,7 +83,7 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): void => {
   nodeMarkers.forEach((node, idx) => {
     const isFirst = idx === 0;
     const isLastWhenTwo = points.length === 2 && idx === 1;
-    const title = isFirst || isLastWhenTwo ? mgr.T("clear_all") : mgr.T("del_node");
+    const title = isFirst || isLastWhenTwo ? mgr.T("del_all") : mgr.T("del_node");
     const delMarker = mountDelIcon(
       layers,
       node.getLatLng(),
@@ -109,7 +109,7 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): void => {
               attachDelClick(lastDelMarker, deleteMeasurement);
               bindOpenOverlay(lastDelMarker, openOverlay);
               const iconEl = lastDelMarker.getElement();
-              if (iconEl) iconEl.title = mgr.T("clear_all");
+              if (iconEl) iconEl.title = mgr.T("del_all");
             }
 
             finalPoly.setLatLngs(points);

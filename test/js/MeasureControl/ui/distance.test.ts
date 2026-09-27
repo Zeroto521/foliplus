@@ -97,25 +97,25 @@ describe("attachDistanceUI", () => {
     window.CONF = {
       ...savedConf,
       name: "MeasureControl",
-      locale_tables: { en: { "MeasureControl.clear_all": "AMBIENT clear_all" } },
+      locale_tables: { en: { "MeasureControl.del_all": "AMBIENT del_all" } },
     };
     try {
       const conf = makeConf({
-        locale_tables: { en: { "MeasureControl.clear_all": "INJECTED clear_all" } },
+        locale_tables: { en: { "MeasureControl.del_all": "INJECTED del_all" } },
       });
       const mgr = makeMgr(conf);
       UI.attachDistanceUI(mgr as any, makeOpts() as any);
 
       const titles = (makeDelIcon as any).mock.calls.map(c => c[1]?.title);
-      expect(titles).toEqual(["INJECTED clear_all", "INJECTED clear_all"]);
-      expect(mgr.T).toHaveBeenCalledWith("clear_all");
+      expect(titles).toEqual(["INJECTED del_all", "INJECTED del_all"]);
+      expect(mgr.T).toHaveBeenCalledWith("del_all");
       expect(mgr.T).not.toHaveBeenCalledWith("del_node");
     } finally {
       window.CONF = savedConf;
     }
   });
 
-  it("re-titles the last endpoint's ✕ to clear_all when a 3-point distance collapses to 2 (regression)", () => {
+  it("re-titles the last endpoint's ✕ to del_all when a 3-point distance collapses to 2 (regression)", () => {
     const points = [
       { lat: 0, lng: 0 },
       { lat: 1, lng: 1 },
@@ -159,7 +159,7 @@ describe("attachDistanceUI", () => {
     (middleDel as any)._delClick();
 
     expect(iconEl.title).toBe("Delete measurement");
-    expect(mgr.T).toHaveBeenCalledWith("clear_all");
+    expect(mgr.T).toHaveBeenCalledWith("del_all");
   });
 
   it("registers a drag toggle so edit mode enables node drag directly", () => {

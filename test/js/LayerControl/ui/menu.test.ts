@@ -520,6 +520,28 @@ describe("LayerUI menu", () => {
       expect(item.querySelector(".foliplus-layer-more-menu-divider")).toBeNull();
     });
 
+    it("omits the delete item for a row without a layer id", () => {
+      // A row registered in the layer registry but never added to the map's
+      // own child registry — `deleteModeFor` returns "absent" (nothing to
+      // retire) and the menu skips the destructive entry.
+      manager.registerLayer({
+        id: "orphan1",
+        name: "Orphan",
+        config: {},
+      } as never);
+
+      const item = ui.uiContainer.querySelector(
+        `[${CONST.DATA.LAYER_ID}="orphan1"]`,
+      ) as HTMLElement;
+      expect(item).not.toBeNull();
+
+      ui.openMoreMenu(item);
+      expect(
+        item.querySelector(`li[data-action="${CONST.ACTION.DELETE_LAYER}"]`),
+      ).toBeNull();
+      expect(item.querySelector(".foliplus-layer-more-menu-divider")).toBeNull();
+    });
+
     it("renders a delete item for a component layer with styleSetters, with the component tooltip", () => {
       // Measure/Heatmap own a live handle and register styleSetters, so
       // deleteModeFor treats them as "clear" — the tooltip distinguishes the

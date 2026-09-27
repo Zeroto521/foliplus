@@ -251,7 +251,7 @@ _JS_USED_KEYS = {
     "MeasureControl.no_layercontrol",
     "MeasureControl.del_tooltip",
     "MeasureControl.del_node",
-    "MeasureControl.clear_all",
+    "MeasureControl.del_all",
     "MeasureControl.tool_export",
     "MeasureControl.err_not_saved",
     "MeasureControl.name_marker",

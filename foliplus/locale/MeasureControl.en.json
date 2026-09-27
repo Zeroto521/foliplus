@@ -26,7 +26,7 @@
   "MeasureControl.no_layercontrol": "MeasureControl requires LayerControl — please add LayerControl to the map first",
   "MeasureControl.del_tooltip": "Delete",
   "MeasureControl.del_node": "Delete this point",
-  "MeasureControl.clear_all": "Clear Data",
+  "MeasureControl.del_all": "Delete all",
   "MeasureControl.export_paused": "Export in progress — measurement paused",
   "MeasureControl.export_no_data": "No data to export",
   "MeasureControl.export_success": "Exported ",

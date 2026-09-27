@@ -183,8 +183,10 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   ui.activeMenu = { item, menu, layerId };
 
   // Focus the first menu item so Enter/Space activate it and Escape closes.
-  const firstItem = menu.querySelector(".foliplus-layer-more-menu li") as HTMLElement;
-  if (firstItem) firstItem.focus();
+  // The focus-layer entry is always appended first, so this is a straight cast.
+  (
+    menu.querySelector<HTMLElement>(".foliplus-layer-more-menu li") as HTMLElement
+  ).focus();
 };
 
 /** Why the ⋮ menu shows a delete/clear entry for `item`. `absent` means render
