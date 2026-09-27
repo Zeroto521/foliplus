@@ -329,24 +329,40 @@ describe("snapshotAuthorVisible", () => {
     expect(ui.authorVisible.has("ghost-hidden")).toBe(false);
   });
 
-  it("still latches the declared flag for a canvas-only layer", () => {
+  it("records the intent value for a canvas-only layer with no map to observe", () => {
     // A canvas layer never has a Leaflet layer to observe at any point, so
-    // its declared `visible` is the ground truth — the one case where the
-    // registry flag is an observation rather than a guess.
+    // the snapshot reads the intent (`intentVisibleOf`) as its ground truth
+    // — a leaflet layer reads the map, a canvas reads the intent record.
+    // With no persisted dimension the intent falls back to the author
+    // default of `true`, so both snapshots latch `true`; a test that
+    // wants to distinguish must seed a hidden intent first.
     const { ui } = initFixture({});
     vi.spyOn(ui.m, "findLayer").mockReturnValue(null);
     snapshotAuthorVisible(ui, {
       id: "heat",
-      visible: true,
       canvas: document.createElement("canvas"),
     } as unknown as LayerInfo);
     snapshotAuthorVisible(ui, {
       id: "heat-hidden",
-      visible: false,
       canvas: document.createElement("canvas"),
     } as unknown as LayerInfo);
     expect(ui.authorVisible.get("heat")).toBe(true);
-    expect(ui.authorVisible.get("heat-hidden")).toBe(false);
+    expect(ui.authorVisible.get("heat-hidden")).toBe(true);
+
+    // A persisted hidden choice for a canvas layer still latches false —
+    // the intent record is the observation, not the layer's on-map state.
+    snapshotAuthorVisible(ui, {
+      id: "heat-mixed",
+      canvas: document.createElement("canvas"),
+    } as unknown as LayerInfo);
+    ui.hiddenIds.add("heat-mixed");
+    ui.userOverrides["heat-mixed"] = ["visible"];
+    snapshotAuthorVisible(ui, {
+      id: "heat-mixed",
+      canvas: document.createElement("canvas"),
+    } as unknown as LayerInfo);
+    // The snapshot is idempotent — the first read wins.
+    expect(ui.authorVisible.get("heat-mixed")).toBe(true);
   });
 
   it("lets a later pass latch the truth once the layer is linked", () => {

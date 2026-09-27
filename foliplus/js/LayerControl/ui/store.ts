@@ -42,24 +42,34 @@ interface AppliedProjection extends Projection {
   carrier: unknown;
 }
 
+/** The user's own visibility choice, or the author's declared default
+ *  (captured once at first sight by `snapshotAuthorVisible`) when the user
+ *  never touched it. This is the single entry point other modules —
+ *  `syncNoBasemap`, `rowView`, `snapshotAuthorVisible` itself, and the
+ *  executor's baseline — read the intent through, so no mirror is stored on
+ *  the layer record.
+ *
+ *  The user's choice is signalled by the dimension's `overrides` provenance
+ *  marker *or* by membership in `hiddenIds`. The two travel together out of
+ *  `loadPersistedState` and `syncHiddenId`, so either alone still means "the
+ *  user chose this" — a caller that records the value (a restored record, a
+ *  test fixture, a re-registration replay) must not have it silently read
+ *  back as the author's default. */
+const intentVisibleOf = (ui: LayerUI, id: string): boolean => {
+  const overrides = ui.userOverrides?.[id];
+  const hidden = ui.hiddenIds?.has(id) ?? false;
+  const hasVisible = overrides?.includes("visible") || hidden;
+  const authorDefault = ui.authorVisible.get(id) ?? true;
+  return hasVisible ? !hidden : authorDefault;
+};
+
 /** Build one layer's projection from the persisted intent and the current
  *  policy inputs (focus, map zoom). Read-only. */
 const projectLayer = (ui: LayerUI, layerInfo: LayerInfo): Projection => {
   const id = layerInfo.id;
-  const overrides = ui.userOverrides?.[id];
-  // The user's own choice is signalled by the dimension's `overrides`
-  // provenance marker *or* by the value being present. The two travel
-  // together out of `loadPersistedState` and `syncHiddenId`, so either alone
-  // still means "the user chose this" — a caller that records the value
-  // (a restored record, a test fixture, a re-registration replay) must not
-  // have it silently read back as the author's default. Absent both, the
-  // author's declared default stands.
-  const hidden = ui.hiddenIds?.has(id) ?? false;
-  const hasVisible = overrides?.includes("visible") || hidden;
   // The author's default is the map state folium left at boot (see
   // `snapshotAuthorVisible`), captured before any policy moved layers.
-  const authorDefault = ui.authorVisible.get(id) ?? true;
-  const intent = hasVisible ? !hidden : authorDefault;
+  const intent = intentVisibleOf(ui, id);
 
   // Policy is independent of intent: focus overrides range, range may
   // exclude, but neither touches the user's stored choice.
@@ -103,5 +113,5 @@ const projectAll = (ui: LayerUI): Map<string, Projection> => {
   return result;
 };
 
-export { projectAll, projectLayer };
+export { projectAll, projectLayer, intentVisibleOf };
 export type { Projection, AppliedProjection };

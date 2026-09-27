@@ -23,10 +23,9 @@ import { initFixture, installLeafletGlobals } from "./fixture.js";
 // delegation cannot regress silently.
 //
 // The map mock is inlined rather than taken from ui/fixture.ts because the
-// shared one returns `hasLayer: () => true` ?`syncVisibility()` derives
-// `LayerInfo.visible` from `hasLayer()`, so a static true makes every hide
-// read back as visible. Membership is tracked here instead, the same way real
-// Leaflet tracks it.
+// shared one returns `hasLayer: () => true`, so a static true makes every
+// hide read back as visible. Membership is tracked here instead, the same
+// way real Leaflet tracks it.
 // ===========================================================================
 
 const layerFixture = () => ({ options: {} as Record<string, unknown> });
@@ -144,7 +143,6 @@ describe("applyVisibility", () => {
 
     expect(map.removeLayer).toHaveBeenCalledWith(layer);
     expect(onToggle).toHaveBeenCalledWith(false);
-    expect(manager.layerRegistry.get("ov")?.visible).toBe(false);
     expect(map.hasLayer(layer)).toBe(false);
 
     // The panel row must not disagree with the map: a programmatic hide that
@@ -174,7 +172,6 @@ describe("applyVisibility", () => {
     expect(applyVisibility(ui, "overlay1", true)).toBe(true);
     expect(map.addLayer).toHaveBeenCalledWith(layer);
     expect(layer.options.paneSet).toBe(paneSetBefore);
-    expect(manager.layerRegistry.get("overlay1")?.visible).toBe(true);
     expect(map.hasLayer(layer)).toBe(true);
   });
 
@@ -190,9 +187,9 @@ describe("applyVisibility", () => {
     const seeded = makeUi(map, [
       { id: "overlay1", name: "Points", isBase: false, layer: layerFixture() },
     ]);
-    expect(seeded.layerRegistry.get("overlay1")?.visible).toBe(false);
+    expect(seeded.ui.intentVisible("overlay1")).toBe(false);
     expect(applyVisibility(seeded.ui as LayerUI, "overlay1", true)).toBe(true);
-    expect(seeded.layerRegistry.get("overlay1")?.visible).toBe(true);
+    expect(seeded.ui.intentVisible("overlay1")).toBe(true);
     expect(
       seeded.ui.uiContainer.querySelector(
         `[${CONST.DATA.LAYER_ID}="overlay1"] input[type="checkbox"]`,
@@ -235,7 +232,6 @@ describe("applyVisibility", () => {
     // ...but policy suppresses the display: no map write at all.
     expect(map.addLayer).not.toHaveBeenCalled();
     expect(map.hasLayer(layer)).toBe(false);
-    expect(manager.layerRegistry.get("overlay1")?.visible).toBe(false);
   });
 
   it("fires the callback instead of touching the map for a canvas-only layer", () => {
@@ -254,7 +250,7 @@ describe("applyVisibility", () => {
     expect(map.removeLayer).not.toHaveBeenCalled();
     expect(map.addLayer).not.toHaveBeenCalled();
     expect(onToggle).toHaveBeenCalledWith(false);
-    expect(manager.layerRegistry.get("canvas1")?.visible).toBe(false);
+    expect(ui.intentVisible("canvas1")).toBe(false);
   });
 
   it("returns false for an unknown id and reports it the same either way", () => {
@@ -283,7 +279,6 @@ describe("applyVisibility", () => {
 
     expect(map.removeLayer).toHaveBeenCalledWith(layer);
     expect(ui.hiddenIds.has("ov")).toBe(true);
-    expect(manager.layerRegistry.get("ov")?.visible).toBe(false);
   });
 
   it("persists the hidden set so the choice survives a reload", () => {
@@ -302,7 +297,7 @@ describe("applyVisibility", () => {
     const fresh = makeUi(map, [
       { id: "overlay1", name: "Points", isBase: false, layer: layerFixture() },
     ]);
-    expect(fresh.layerRegistry.get("overlay1")?.visible).toBe(false);
+    expect(fresh.ui.intentVisible("overlay1")).toBe(false);
     fresh.ui = null;
     fresh.destroy();
   });
@@ -328,7 +323,7 @@ describe("applyVisibility", () => {
     const fresh = makeUi(map, [
       { id: "overlay1", name: "Points", isBase: false, layer: layerFixture() },
     ]);
-    expect(fresh.layerRegistry.get("overlay1")?.visible).toBe(true);
+    expect(fresh.ui.intentVisible("overlay1")).toBe(true);
     fresh.ui = null;
     fresh.destroy();
   });
@@ -350,7 +345,6 @@ describe("applyVisibility", () => {
     expect(applyVisibility(ui2, "base1", false)).toBe(true);
     expect(map.removeLayer).toHaveBeenCalledWith(layer);
     expect(map.hasLayer(layer)).toBe(false);
-    expect(fresh.layerRegistry.get("base1")?.visible).toBe(false);
     expect(
       fresh.ui.uiContainer.querySelector(
         `[${CONST.DATA.LAYER_ID}="base1"] input[type="checkbox"]`,
@@ -464,7 +458,6 @@ describe("LayerManager.setVisible", () => {
 
     expect(map.removeLayer).toHaveBeenCalledWith(layer);
     expect(onToggle).toHaveBeenCalledWith(false);
-    expect(manager.layerRegistry.get("ov")?.visible).toBe(false);
     expect(map.hasLayer(layer)).toBe(false);
     expect(
       ui.uiContainer.querySelector(
@@ -492,7 +485,7 @@ describe("LayerManager.setVisible", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     expect(bare.setVisible("overlay1", false)).toBe(false);
     expect(warn).toHaveBeenCalled();
-    expect(bare.layerRegistry.get("overlay1")?.visible).toBe(true);
+    expect(bare.intentVisible("overlay1")).toBe(true);
     expect(map.addLayer).not.toHaveBeenCalled();
     expect(map.removeLayer).not.toHaveBeenCalled();
     warn.mockRestore();
@@ -541,7 +534,6 @@ describe("LayerUI.handleChange", () => {
     change(ui, "overlay1", false);
 
     expect(map.removeLayer).toHaveBeenCalledWith(layer);
-    expect(manager.layerRegistry.get("overlay1")?.visible).toBe(false);
     expect(map.hasLayer(layer)).toBe(false);
   });
 
@@ -556,7 +548,7 @@ describe("LayerUI.handleChange", () => {
     change(ui, "overlay1", true);
     expect(map.addLayer).toHaveBeenCalledWith(layer);
     expect(layer.options.paneSet).toBe(paneSetBefore);
-    expect(manager.layerRegistry.get("overlay1")?.visible).toBe(true);
+    expect(map.hasLayer(layer)).toBe(true);
   });
 
   it("ignores a checkbox with no row index rather than toggling the first layer", () => {
@@ -567,7 +559,7 @@ describe("LayerUI.handleChange", () => {
 
     expect(map.addLayer).not.toHaveBeenCalled();
     expect(map.removeLayer).not.toHaveBeenCalled();
-    expect(manager.layerRegistry.get("overlay1")?.visible).toBe(true);
+    expect(ui.intentVisible("overlay1")).toBe(true);
   });
 
   it("fires the callback only, for a canvas-only layer", () => {
@@ -709,12 +701,12 @@ describe("DOM order diverges from registry order", () => {
     cb.checked = false;
     ui.handleChange({ target: cb } as Event);
 
-    expect(manager.layerRegistry.get("A")?.visible).toBe(false);
+    expect(ui.intentVisible("A")).toBe(false);
     expect(map.removeLayer).toHaveBeenCalledWith(layerA);
     // B must not have been toggled —the old handler would have read index 1
     // and hit B (registry idx 1) instead.
-    expect(manager.layerRegistry.get("B")?.visible).toBe(true);
-    expect(manager.layerRegistry.get("C")?.visible).toBe(true);
+    expect(ui.intentVisible("B")).toBe(true);
+    expect(ui.intentVisible("C")).toBe(true);
   });
 
   it("toggleAll hits every layer by id, not by DOM position", () => {
@@ -722,9 +714,9 @@ describe("DOM order diverges from registry order", () => {
     // The DOM order is C-A-B but toggleAll must hide all three regardless.
     ui.toggleAll(CONST.GROUP.OVERLAY, false);
 
-    expect(manager.layerRegistry.get("A")?.visible).toBe(false);
-    expect(manager.layerRegistry.get("B")?.visible).toBe(false);
-    expect(manager.layerRegistry.get("C")?.visible).toBe(false);
+    expect(ui.intentVisible("A")).toBe(false);
+    expect(ui.intentVisible("B")).toBe(false);
+    expect(ui.intentVisible("C")).toBe(false);
   });
 
   it("toggleAll skips a row that names no registered layer", () => {
@@ -741,9 +733,9 @@ describe("DOM order diverges from registry order", () => {
     ui.toggleAll(CONST.GROUP.OVERLAY, false);
 
     expect(box.checked).toBe(true);
-    expect(manager.layerRegistry.get("A")?.visible).toBe(false);
-    expect(manager.layerRegistry.get("B")?.visible).toBe(false);
-    expect(manager.layerRegistry.get("C")?.visible).toBe(false);
+    expect(ui.intentVisible("A")).toBe(false);
+    expect(ui.intentVisible("B")).toBe(false);
+    expect(ui.intentVisible("C")).toBe(false);
   });
 
   it("toggleAll does not activate the colour layer when the base group is cleared", () => {
@@ -844,8 +836,8 @@ describe("toggleAll base group", () => {
     expect(onToggle).toHaveBeenCalledWith(true);
     expect(onToggle).toHaveBeenCalledTimes(1);
     expect(map.removeLayer).not.toHaveBeenCalled();
-    expect(manager.layerRegistry.get("B1")?.visible).toBe(true);
-    expect(manager.layerRegistry.get("B2")?.visible).toBe(true);
+    expect(ui.intentVisible("B1")).toBe(true);
+    expect(ui.intentVisible("B2")).toBe(true);
   });
 
   it("does not touch the colour layer when the base group is toggled", () => {
@@ -885,9 +877,8 @@ describe("unit helpers", () => {
     expect(items[0].getAttribute("data-layer-type")).toBe("overlay");
   });
 
-  // syncVisibility is gone: the executor's visible op is
-  // the single writer of `layerInfo.visible`, so there is no mirror helper
-  // to test.
+  // syncVisibility is gone: the executor is the only writer of map
+  // membership, and there is no mirror helper to test.
 
   it("handleInput is a no-op for non-color inputs", () => {
     const ui = makeUi();

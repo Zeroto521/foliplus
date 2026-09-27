@@ -34,7 +34,11 @@
     baseLabelText: baseLabel ? baseLabel.textContent : null,
     layers:
       api && api.layers
-        ? api.layers.map(li => ({ id: li.id, isBase: li.isBase, visible: li.visible }))
+        ? api.layers.map(li => ({
+            id: li.id,
+            isBase: li.isBase,
+            visible: api.intentVisible ? api.intentVisible(li.id) : null,
+          }))
         : null,
     layerItems: document.querySelectorAll(".foliplus-layer-item").length,
     layerCtrlReady: panel ? panel.hasAttribute("data-ready") : false,

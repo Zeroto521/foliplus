@@ -7,7 +7,7 @@
     id: li.id,
     name: li.name,
     isBase: li.isBase,
-    visible: li.visible,
+    visible: api && api.intentVisible ? api.intentVisible(li.id) : null,
     paneName: li.paneName,
     layerType: li.layer ? li.layer.constructor.name : null,
     url: li.layer && li.layer._url ? li.layer._url.slice(0, 50) : null,

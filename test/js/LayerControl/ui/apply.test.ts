@@ -482,7 +482,6 @@ describe("executor: carrier dispatch", () => {
 
     expect(map.addLayer).toHaveBeenCalledWith(layer);
     expect(onToggle).toHaveBeenCalledWith(true);
-    expect(manager.layerRegistry.get("h")?.visible).toBe(true);
   });
 
   it("a 'none' opacity carrier stores nothing and writes nothing", () => {
@@ -670,7 +669,6 @@ describe("executor: the branches behind the gates", () => {
     applyProjection(ui, "on");
 
     expect(map.removeLayer).toHaveBeenCalledWith(layer);
-    expect(manager.layerRegistry.get("on")?.visible).toBe(false);
   });
 
   it("captures the author's opacity base once, defaulting to 1 when undeclared", () => {
@@ -800,7 +798,7 @@ describe("executor: the branches behind the gates", () => {
     applyProjection(ui, "a2");
 
     expect(map.addLayer).toHaveBeenCalledWith(layer);
-    expect(ui.m.layerRegistry.get("a2")?.visible).toBe(true);
+    expect(ui.intentVisible("a2")).toBe(true);
   });
 
   it("the dispatcher itself is idempotent when the value already matches", () => {
@@ -855,5 +853,90 @@ describe("executor: the branches behind the gates", () => {
 
     expect(map.addLayer).not.toHaveBeenCalled();
     expect(map.removeLayer).not.toHaveBeenCalled();
+  });
+});
+
+describe("§40.5 invariants: only intent + author snapshot authorise membership", () => {
+  beforeEach(() => {
+    installLeafletGlobals();
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  /** Boot a manager with one leaflet layer not yet on the map. No
+   *  persisted dimension, no author snapshot observed — the folium
+   *  `show=False` boot state. */
+  const bootUnobserved = (id = "x") => {
+    const { container, map } = makeOffMapFixture();
+    const layer = { options: {} } as L.Layer;
+    const manager = new LayerManager(map, [
+      { id, name: id, isBase: false, layer },
+    ]);
+    manager.ui = new LayerUI(manager);
+    const ui = manager.ui as LayerUI;
+    vi.useFakeTimers();
+    manager.attachUI(container);
+    vi.advanceTimersByTime(350);
+    vi.useRealTimers();
+    return { map, manager, ui, layer };
+  };
+
+  it("an unobserved layer is not added when policy is fully permissive", () => {
+    // No user intent, no author snapshot observed, policy permissive.
+    // The projection's `effectiveShown` is `true` (intent falls back to
+    // the author default of `true`), but the `authorised` gate in the
+    // executor refuses to write — turning a guess into an add is exactly
+    // what the one-way gate must prevent.
+    //
+    // Attach happens later: the snapshot in `initTypesAndVisibility` would
+    // have observed the fixture's `hasLayer=false` and recorded the layer
+    // as an author-declared default, which is not the case we're pinning.
+    const { map } = makeOffMapFixture();
+    const layer = { options: {} } as L.Layer;
+    const manager = new LayerManager(map, [
+      { id: "unobs", name: "U", isBase: false, layer },
+    ]);
+    manager.ui = new LayerUI(manager);
+    const ui = manager.ui as LayerUI;
+
+    expect(ui.authorVisible.has("unobs")).toBe(false);
+    expect(ui.hiddenIds.has("unobs")).toBe(false);
+
+    applyProjectionAll(ui);
+    expect(map.addLayer).not.toHaveBeenCalled();
+  });
+
+  it("a policy-only flip can never add a layer the user has hidden", () => {
+    // intent.visible = false (user chose to hide), policy permissive.
+    // effectiveShown is false by `intent && policy`, so the projection
+    // already says "not shown" — the policy dimension cannot flip it back.
+    const { map, ui } = bootUnobserved("hidden");
+
+    ui.hiddenIds.add("hidden");
+    ui.userOverrides.hidden = ["visible"];
+    ui.focusingLayerId = null; // policy permissive
+
+    applyProjectionAll(ui);
+    expect(map.addLayer).not.toHaveBeenCalled();
+    expect(ui.hiddenIds.has("hidden")).toBe(true);
+  });
+
+  it("dismissing focus after intent=false does not add the layer back", () => {
+    // The reverse half of the one-way gate: focus retracts a layer the
+    // user has checked on and dismissing focus restores it via the
+    // executor's own write path. But intent=false + policy=true must stay
+    // false — a policy dimension can only suppress.
+    const { map, ui } = bootUnobserved("p");
+    ui.hiddenIds.add("p");
+    ui.userOverrides.p = ["visible"];
+    ui.focusingLayerId = null;
+
+    applyProjectionAll(ui);
+    expect(map.addLayer).not.toHaveBeenCalled();
+    expect(ui.hiddenIds.has("p")).toBe(true);
   });
 });

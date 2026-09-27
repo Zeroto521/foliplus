@@ -19,7 +19,7 @@ import * as CONST from "../const.js";
 import * as SVGs from "../icon.js";
 import * as Util from "../util.js";
 import type { LayerUI } from "./index.js";
-import { projectLayer } from "./store.js";
+import { intentVisibleOf, projectLayer } from "./store.js";
 
 /** One layer's inputs to the row visual. Nothing here is written back. */
 interface RowCell {
@@ -64,26 +64,12 @@ interface RowLabels {
  * The checkbox state — the user's own choice when they made one, else the
  * author's declared default.
  *
- *  The map membership must never carry this slot. `layerInfo.visible` is a
- *  real-time mirror that the policy writes, so reading it here would read
- *  `false` for a layer the policy is hiding and un-check a box the user never
- *  touched: a stored zoom range hides the layer, and the row would claim the
- *  user hid it — while un-checking is exactly what the policy was doing.
- *
- *  `userOverrides` records that the `visible` dimension was ever set, which is
- *  the user-intent test; `hiddenIds` holds the current value. Neither is
- *  derived from the map, so the row cannot drift away from the user's choice
- *  while a policy is hiding the layer.
+ *  The map membership must never carry this slot: `intentVisibleOf` is
+ *  derived from the persisted record alone, so the row cannot drift away
+ *  from the user's choice while a policy is hiding the layer.
  */
-const rowChecked = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
-  // Same rule as `projectLayer.intent`: the `visible` provenance marker or
-  // membership in `hiddenIds` — either alone is the user's own choice.
-  const hidden = ui.hiddenIds?.has(layerInfo.id) ?? false;
-  if (ui.userOverrides?.[layerInfo.id]?.includes("visible") || hidden) {
-    return !hidden;
-  }
-  return ui.authorVisible.get(layerInfo.id) ?? true;
-};
+const rowChecked = (ui: LayerUI, layerInfo: LayerInfo): boolean =>
+  intentVisibleOf(ui, layerInfo.id);
 
 /**
  * Whether the stored range covers the map's current zoom.
@@ -161,7 +147,7 @@ const displayName = (ui: LayerUI, id: string): string => {
  *  latched, it may only be taken from an *observed* map state: a folium
  *  layer's JS global is emitted after the control's IIFE, so at attach the
  *  layer is not resolvable yet and the only honest answer is "not yet
- *  known". Latching `layerInfo.visible !== false` there would record `true`
+ *  known". Latching the map's current state there would record `true`
  *  for an author `show=False` layer and, the snapshot being idempotent,
  *  keep the later correct reading out for good — which is how a `show=False`
  *  layer came back onto the map on the first zoom sweep.
@@ -175,7 +161,7 @@ const snapshotAuthorVisible = (ui: LayerUI, layerInfo: LayerInfo): void => {
   if (!layer && !layerInfo.canvas) return; // not linked yet — leave unknown
   ui.authorVisible.set(
     layerInfo.id,
-    layer ? ui.m.map.hasLayer(layer) : layerInfo.visible !== false,
+    layer ? ui.m.map.hasLayer(layer) : intentVisibleOf(ui, layerInfo.id),
   );
 };
 
