@@ -94,8 +94,6 @@ jobs:
     name: js
     runs-on: ubuntu-latest
     needs: [format, lint, typecheck]
-    env:
-      COV_FLAGS: js
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -113,23 +111,21 @@ jobs:
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
           verbose: true
-          flags: ${{ env.COV_FLAGS }}
+          flags: ${{ job.name }}
       - uses: codecov/codecov-action@v6
         if: ${{ !cancelled() }}
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           report_type: test_results
           files: test-report.junit.xml
-          flags: ${{ env.COV_FLAGS }}
+          flags: ${{ job.name }}
 
   python:
+    # Matrix-expanded per slot; codecov flags reference `job.name` so there is
+    # one source of truth for the label.
     name: ${{ matrix.python }}-folium-${{ matrix.folium }}
     runs-on: ubuntu-latest
     needs: [format, lint, typecheck]
-    env:
-      # Match the display name so codecov flags and job labels stay in sync
-      # with a single edit.
-      COV_FLAGS: ${{ matrix.python }}-folium-${{ matrix.folium }}
     strategy:
       fail-fast: false
       matrix:
@@ -171,10 +167,10 @@ jobs:
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
           verbose: true
-          flags: ${{ env.COV_FLAGS }}
+          flags: ${{ job.name }}
       - uses: codecov/codecov-action@v6
         if: ${{ !cancelled() }}
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           report_type: test_results
-          flags: ${{ env.COV_FLAGS }}
+          flags: ${{ job.name }}
