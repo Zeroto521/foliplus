@@ -13,9 +13,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-
 jobs:
   # ── Node jobs ──
   # Format, lint, and typecheck are independent of the Python matrix, so they
@@ -94,11 +91,10 @@ jobs:
 
   # ── Test jobs ──
   # `js` and `python` run independently in parallel — no artifact handoff.
-  # `make test-js` runs `build-js-dev + npm test` (vitest reads source via
-  # aliases, so the build is a harmless belt-and-suspenders — CI keeps the
-  # `foliplus/dist/` artifacts fresh as a side effect). `make test-python`
-  # builds internally too. Both entry points are the same Makefile commands
-  # a developer runs locally, so CI drift stays visible.
+  # `make test-js` runs `npm test` (vitest reads source via aliases, so no
+  # build step is needed). `make test-python` builds `foliplus/dist/` internally
+  # before pytest. Both entry points are the same Makefile commands a developer
+  # runs locally, so CI drift stays visible.
   js:
     name: js
     runs-on: ubuntu-latest
@@ -118,13 +114,13 @@ jobs:
       - uses: codecov/codecov-action@v6
         with:
           fail_ci_if_error: true
-          token: ${{ env.CODECOV_TOKEN }}
+          token: ${{ secrets.CODECOV_TOKEN }}
           verbose: true
           flags: ${{ job.name }}
       - uses: codecov/codecov-action@v6
         if: ${{ !cancelled() }}
         with:
-          token: ${{ env.CODECOV_TOKEN }}
+          token: ${{ secrets.CODECOV_TOKEN }}
           report_type: test_results
           files: test-report.junit.xml
           flags: ${{ job.name }}
@@ -174,12 +170,12 @@ jobs:
       - uses: codecov/codecov-action@v6
         with:
           fail_ci_if_error: true
-          token: ${{ env.CODECOV_TOKEN }}
+          token: ${{ secrets.CODECOV_TOKEN }}
           verbose: true
           flags: ${{ job.name }}
       - uses: codecov/codecov-action@v6
         if: ${{ !cancelled() }}
         with:
-          token: ${{ env.CODECOV_TOKEN }}
+          token: ${{ secrets.CODECOV_TOKEN }}
           report_type: test_results
           flags: ${{ job.name }}

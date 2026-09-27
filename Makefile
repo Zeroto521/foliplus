@@ -98,7 +98,7 @@ test-browser: build-js-dev
 	npm run build:verify
 	pytest -v -r a --color=yes -n $(JOBS) -m "browser" --cov=foliplus --cov=script --cov-append --cov-report=term-missing --cov-report=xml --junitxml=junit-browser.xml -o junit_family=legacy test/python script
 
-test-js: build-js-dev
+test-js:
 	npm test
 
 html:
