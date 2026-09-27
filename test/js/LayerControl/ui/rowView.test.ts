@@ -290,6 +290,34 @@ describe("applyRowView (the single DOM write point)", () => {
     expect(el.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
     expect(el.getAttribute(CONST.DATA.TITLE)).toBe("polygon");
   });
+
+  it("buildRowCell handles undefined userOverrides and hiddenIds", () => {
+    // The `?.` and `?? false` fallbacks on the inline intent check: a thin
+    // stub may not have populated these maps yet, so the check must degrade to
+    // the author default rather than crashing.
+    const layerRegistry = new Map([["x", { id: "x", layer: { options: {} } }]]);
+    const bare = {
+      m: { findLayer: () => null, layerRegistry },
+      mgmt: { getFeatureCount: () => 0 },
+      renamedNames: {},
+      authorVisible: new Map(),
+      hiddenIds: undefined,
+      userOverrides: undefined,
+      zoomRangeMap: {},
+      opacityMap: {},
+      fillColorMap: {},
+      fillOpacityMap: {},
+      focusingLayerId: null,
+      appliedState: new Map(),
+      T: (k: string) => k,
+      conf: { locale_code: "en" },
+    } as unknown as LayerUI;
+
+    const info = { id: "x", layer: { options: {} } } as LayerInfo;
+    const result = buildRowCell(bare, info);
+    expect(result.checked).toBe(true);
+    expect(result.shown).toBe(true);
+  });
 });
 
 describe("snapshotAuthorVisible", () => {

@@ -7,6 +7,7 @@ import {
   getLayerItems,
   handleChange,
   handleInput,
+  syncNoBasemap,
   syncToggleAll,
   toggleAll,
 } from "#foliplus/LayerControl/ui/visibility.js";
@@ -916,6 +917,51 @@ describe("unit helpers", () => {
     const ui = {
       uiContainer,
       m: { layerRegistry: { get: () => undefined } },
+      T: (k: string) => k,
+    } as unknown as LayerUI;
+
+    expect(() => syncToggleAll(ui, CONST.GROUP.OVERLAY)).not.toThrow();
+  });
+
+  it("syncNoBasemap handles undefined userOverrides and hiddenIds", () => {
+    // The `?.` and `?? false` fallbacks on the inline intent check: a thin stub
+    // may not have populated these maps yet, so the check must degrade to the
+    // author default rather than crashing.
+    const uiContainer = document.createElement("div");
+    uiContainer.innerHTML = `<div class="foliplus-layer-toggle-all" data-group="${CONST.GROUP.BASE}"><span></span></div>`;
+    const ui = {
+      uiContainer,
+      m: {
+        layers: [{ id: "b1", isBase: true }],
+        map: { getContainer: () => document.createElement("div") },
+      },
+      authorVisible: new Map(),
+      hiddenIds: undefined,
+      userOverrides: undefined,
+      T: (k: string) => k,
+    } as unknown as LayerUI;
+
+    expect(() => syncNoBasemap(ui)).not.toThrow();
+  });
+
+  it("syncToggleAll handles undefined userOverrides and hiddenIds", () => {
+    // Same fallback pattern: the inline intent check in syncToggleAll must
+    // degrade gracefully when the choice maps are absent.
+    const uiContainer = document.createElement("div");
+    uiContainer.innerHTML = `
+      <div class="foliplus-layer-toggle-all" data-group="${CONST.GROUP.OVERLAY}">
+        <input type="checkbox" data-role="toggle-all" />
+      </div>
+      <div class="foliplus-layer-item" data-layer-type="overlay" data-layer-id="x">
+        <input type="checkbox" />
+      </div>
+    `;
+    const ui = {
+      uiContainer,
+      m: { layerRegistry: { get: () => ({ id: "x" }) } },
+      authorVisible: new Map(),
+      hiddenIds: undefined,
+      userOverrides: undefined,
       T: (k: string) => k,
     } as unknown as LayerUI;
 
