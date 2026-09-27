@@ -1140,6 +1140,7 @@ describe("LayerManager", () => {
       expect(api.canvas).toBeInstanceOf(HTMLCanvasElement);
       expect(typeof api.register).toBe("function");
       expect(typeof api.bringToFront).toBe("function");
+      api.register();
       expect(api.canvas.parentElement?.classList.contains("foliplus-layer-pane")).toBe(
         true,
       );

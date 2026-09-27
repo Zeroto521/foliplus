@@ -1139,6 +1139,57 @@ class TestHeatmapControlBrowser:
         finally:
             page.close()
 
+    def test_canvas_pane_birth_z_is_final(self, browser, tmp_path):
+        """HeatmapControl's canvas pane is born at its final z.
+
+        Selecting a layer renders hexagons, which registers the canvas overlay
+        — creating its pane and stamping its slot z in one synchronous stack.
+        The prelude records the computed z one microtask after ``createPane``
+        returns (the value that first frame paints), and the assertion compares
+        it with the z read after an explicit ordering pass.
+        """
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            expose_ctrl=True,
+            prelude=_js("LayerControl/pane_birth_z_prelude"),
+        ) as (page, errors):
+            page.evaluate(
+                "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
+            )
+            page.wait_for_selector(
+                ".foliplus-heatmap-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            heatmap_ready(page)
+            opts = page.evaluate(
+                "Array.from(window.__heatmapCtrl.layerSelect"
+                ".querySelectorAll('option')).slice(1).map(o => o.value)"
+            )
+            assert opts, "No layer options found"
+            page.evaluate(_js("HeatmapControl/select_layer"), opts[0])
+            page.wait_for_timeout(1000)
+            state = page.evaluate(_js("LayerControl/pane_birth_z_state"))
+        assert state["hooked"] is True, "createPane hook never installed"
+        canvas_panes = {
+            name: z
+            for name, z in state["panes"].items()
+            if name.startswith("foliplus-canvas-")
+        }
+        assert canvas_panes, (
+            f"heatmap canvas pane not found; panes={list(state['panes'])}"
+        )
+        for name, z in canvas_panes.items():
+            assert z["zAtMicrotask"] != "400", (
+                f"{name} painted at Leaflet's default z on the first frame: {z}"
+            )
+            assert z["zAtMicrotask"] == z["zAfterOrder"], (
+                f"{name} moved after the ordering pass: {z}"
+            )
+        assert not errors, f"JS errors: {errors}"
+
 
 class TestHeatmapAutoFieldBrowser:
     """Browser tests verifying auto-field selection logic in the DOM.
