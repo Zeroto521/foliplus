@@ -91,13 +91,23 @@ function makeManager() {
   return manager;
 }
 
-function setCropState(manager, rect = { left: 10, top: 10, width: 100, height: 100 }) {
+function setCropState(
+  manager: ExportManager,
+  rect = { left: 10, top: 10, width: 100, height: 100 },
+) {
   const box = document.createElement("div");
-  manager.cropState = { rect, locked: false, box, geoBounds: null };
+  manager.cropState = {
+    rect,
+    locked: false,
+    box,
+    overlay: box,
+    actions: box,
+    geoBounds: undefined,
+  };
 }
 
 describe("ExportManager — onKeyDown", () => {
-  let manager;
+  let manager: ExportManager;
 
   beforeEach(() => {
     manager = makeManager();
@@ -105,31 +115,31 @@ describe("ExportManager — onKeyDown", () => {
   });
 
   it("Escape with unlocked crop box calls removeCropBox", () => {
-    manager.onKeyDown({ key: "Escape" });
+    manager.onKeyDown({ key: "Escape" } as KeyboardEvent);
     expect(manager.removeCropBox).toHaveBeenCalled();
   });
 
   it("Escape with locked crop box calls unlockCropBox", () => {
-    manager.cropState.locked = true;
-    manager.onKeyDown({ key: "Escape" });
+    manager.cropState!.locked = true;
+    manager.onKeyDown({ key: "Escape" } as KeyboardEvent);
     expect(manager.unlockCropBox).toHaveBeenCalled();
   });
 
   it("Enter with unlocked crop box calls lockCropBox", () => {
-    manager.onKeyDown({ key: "Enter" });
+    manager.onKeyDown({ key: "Enter" } as KeyboardEvent);
     expect(manager.lockCropBox).toHaveBeenCalled();
   });
 
   it("Enter with locked crop box calls doExport", () => {
-    manager.cropState.locked = true;
+    manager.cropState!.locked = true;
     manager.doExport = vi.fn();
-    manager.onKeyDown({ key: "Enter" });
+    manager.onKeyDown({ key: "Enter" } as KeyboardEvent);
     expect(manager.doExport).toHaveBeenCalled();
   });
 });
 
 describe("ExportManager — shortcut routing (R + arrows)", () => {
-  let manager;
+  let manager: ExportManager;
 
   beforeEach(() => {
     manager = makeManager();
@@ -139,16 +149,16 @@ describe("ExportManager — shortcut routing (R + arrows)", () => {
   });
 
   it("R routes to resetCropBox when unlocked", () => {
-    manager.onKeyDown({ key: "r" });
+    manager.onKeyDown({ key: "r" } as KeyboardEvent);
     expect(manager.resetCropBox).toHaveBeenCalledTimes(1);
-    manager.onKeyDown({ key: "R" });
+    manager.onKeyDown({ key: "R" } as KeyboardEvent);
     expect(manager.resetCropBox).toHaveBeenCalledTimes(2);
     expect(manager.nudgeCropBox).not.toHaveBeenCalled();
   });
 
   it("R is ignored when locked", () => {
-    manager.cropState.locked = true;
-    manager.onKeyDown({ key: "r" });
+    manager.cropState!.locked = true;
+    manager.onKeyDown({ key: "r" } as KeyboardEvent);
     expect(manager.resetCropBox).not.toHaveBeenCalled();
   });
 
@@ -163,33 +173,33 @@ describe("ExportManager — shortcut routing (R + arrows)", () => {
     setCropState(m2);
     // Patch the rafLoop handle so each keydown is observable: nudgeLoop is
     // created fresh on each press (nudgeStop clears the previous one first).
-    m2.onKeyDown({ key: "ArrowLeft" });
+    m2.onKeyDown({ key: "ArrowLeft" } as KeyboardEvent);
     expect((m2 as any).nudgeLoop).toBeDefined();
     // Each subsequent press stop()s the prior loop then starts a new one;
     // the box receives a nudge on the sync first frame of each.
-    m2.onKeyDown({ key: "ArrowRight" });
-    m2.onKeyDown({ key: "ArrowUp" });
-    m2.onKeyDown({ key: "ArrowDown" });
+    m2.onKeyDown({ key: "ArrowRight" } as KeyboardEvent);
+    m2.onKeyDown({ key: "ArrowUp" } as KeyboardEvent);
+    m2.onKeyDown({ key: "ArrowDown" } as KeyboardEvent);
     expect((m2 as any).nudgeLoop).toBeDefined();
   });
 
   it("arrow keys are ignored when locked", () => {
-    manager.cropState.locked = true;
-    manager.onKeyDown({ key: "ArrowLeft" });
+    manager.cropState!.locked = true;
+    manager.onKeyDown({ key: "ArrowLeft" } as KeyboardEvent);
     expect((manager as any).nudgeLoop).toBeUndefined();
   });
 
   it("R and arrows are no-ops without a crop box", () => {
     manager.cropState = null;
-    manager.onKeyDown({ key: "r" });
-    manager.onKeyDown({ key: "ArrowRight" });
+    manager.onKeyDown({ key: "r" } as KeyboardEvent);
+    manager.onKeyDown({ key: "ArrowRight" } as KeyboardEvent);
     expect(manager.resetCropBox).not.toHaveBeenCalled();
     expect((manager as any).nudgeLoop).toBeUndefined();
   });
 
   it("unrecognized keys are ignored", () => {
-    manager.onKeyDown({ key: "a" });
-    manager.onKeyDown({ key: " " });
+    manager.onKeyDown({ key: "a" } as KeyboardEvent);
+    manager.onKeyDown({ key: " " } as KeyboardEvent);
     expect(manager.resetCropBox).not.toHaveBeenCalled();
     expect((manager as any).nudgeLoop).toBeUndefined();
   });
@@ -199,20 +209,20 @@ describe("ExportManager — shortcut routing (R + arrows)", () => {
     setCropState(m3);
     const resetSpy = vi.fn();
     m3.resetCropBox = resetSpy;
-    m3.onKeyDown({ key: "ArrowRight" });
+    m3.onKeyDown({ key: "ArrowRight" } as KeyboardEvent);
     expect((m3 as any).nudgeLoop).toBeDefined();
     // Press R while the loop is still running. The loop must be killed so
     // the box stays at the reset position instead of being shoved off by a
     // still-ticking rafLoop.
-    m3.onKeyDown({ key: "R" });
+    m3.onKeyDown({ key: "R" } as KeyboardEvent);
     expect((m3 as any).nudgeLoop).toBeUndefined();
     expect(resetSpy).toHaveBeenCalled();
   });
 });
 
 describe("ExportManager — shortcut lifecycle", () => {
-  let manager;
-  let container;
+  let manager: ExportManager;
+  let container: HTMLElement;
 
   beforeEach(() => {
     manager = makeManager();
@@ -267,7 +277,7 @@ describe("ExportManager — shortcut lifecycle", () => {
     const keydown = new KeyboardEvent("keydown", { key: "Enter", bubbles: true });
     document.dispatchEvent(keydown);
     expect(manager.lockCropBox).toHaveBeenCalled();
-    manager.lockCropBox.mockReset();
+    vi.mocked(manager.lockCropBox).mockReset();
 
     manager.unregisterShortcuts();
     expect(manager.interactionCleanup).toBeUndefined();
@@ -287,7 +297,7 @@ describe("ExportManager — shortcut lifecycle", () => {
       new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
     );
     expect(manager.lockCropBox).toHaveBeenCalledTimes(1);
-    manager.lockCropBox.mockReset();
+    vi.mocked(manager.lockCropBox).mockReset();
 
     manager.unregisterShortcuts();
 
@@ -338,7 +348,7 @@ describe("ExportManager — shortcut lifecycle", () => {
       new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
     );
     expect(manager.lockCropBox).toHaveBeenCalledTimes(1);
-    manager.lockCropBox.mockReset();
+    vi.mocked(manager.lockCropBox).mockReset();
 
     manager.unregisterShortcuts();
     expect(manager.interactionCleanup).toBeUndefined();
@@ -350,7 +360,7 @@ describe("ExportManager — hint lifecycle", () => {
   // nothing clears them on its own. Before this, they stayed on screen through
   // the whole export and outlived it — a stale "100 × 100 px" label under the
   // "exporting…" spinner.
-  let manager;
+  let manager: ExportManager;
 
   beforeEach(() => {
     manager = makeManager();
@@ -387,7 +397,7 @@ describe("ExportManager — hint lifecycle", () => {
     const hideHint = vi.spyOn(manager.map.foliplus!, "hideHint");
     manager.map.foliplus!.showHint(CONF.name, "100 × 100 px", 0, undefined, "size");
     manager.map.foliplus!.showHint(CONF.name, "too large", 0, undefined, "limit");
-    manager.cropState.rect = { left: 0, top: 0, width: 1000, height: 1000 };
+    manager.cropState!.rect = { left: 0, top: 0, width: 1000, height: 1000 };
     // CONF.max_pixels is captured by const.ts at import time, so it cannot be
     // set per-test here — set the flag checkPixelLimit() normally produces.
     manager.pixelOverLimit = true;
@@ -408,7 +418,7 @@ describe("ExportManager — hint lifecycle", () => {
     // doExport() calls lockMap() before the pixel-limit check, so an abort
     // that only ends the export state would leave dragging/zoom disabled with
     // the overlay long gone — the map looks broken and doesn't tell you why.
-    manager.cropState.rect = { left: 0, top: 0, width: 1000, height: 1000 };
+    manager.cropState!.rect = { left: 0, top: 0, width: 1000, height: 1000 };
     manager.pixelOverLimit = true;
     const unlockMap = vi.spyOn(manager, "unlockMap");
 
@@ -423,7 +433,7 @@ describe("ExportManager — hint lifecycle", () => {
 });
 
 describe("ExportManager — export progress", () => {
-  let manager;
+  let manager: ExportManager;
 
   beforeEach(() => {
     // The {pct} string comes from the locale mock at the top of this file.
@@ -453,9 +463,9 @@ describe("ExportManager — export progress", () => {
     manager.doRender = vi.fn();
     manager.doExport();
 
-    const args = manager.doRender.mock.calls[0];
+    const args = vi.mocked(manager.doRender).mock.calls[0];
     expect(args.length).toBe(5);
-    expect(args[0]).toEqual(manager.cropState.rect);
+    expect(args[0]).toEqual(manager.cropState!.rect);
     expect(args[4]).toBeTypeOf("function");
   });
 
@@ -463,7 +473,7 @@ describe("ExportManager — export progress", () => {
     manager.doRender = vi.fn();
     manager.doExport();
 
-    manager.doRender.mock.calls[0][4](42);
+    vi.mocked(manager.doRender).mock.calls[0][4]!(42);
 
     expect(manager.showGlobalHint).toHaveBeenCalledWith(
       expect.stringContaining("42%"),
@@ -473,8 +483,8 @@ describe("ExportManager — export progress", () => {
   });
 
   it("onProgress works through enlargeAndRender for over-size crops", () => {
-    manager.cropState.rect = { left: 1000, top: 1000, width: 500, height: 500 };
-    manager.cropState.geoBounds = {
+    manager.cropState!.rect = { left: 1000, top: 1000, width: 500, height: 500 };
+    manager.cropState!.geoBounds = {
       nw: { lat: 26.1, lng: 119.2 },
       se: { lat: 26.0, lng: 119.4 },
     };
@@ -484,9 +494,9 @@ describe("ExportManager — export progress", () => {
     manager.doExport();
 
     expect(manager.enlargeAndRender).toHaveBeenCalledTimes(1);
-    const args = manager.enlargeAndRender.mock.calls[0];
+    const args = vi.mocked(manager.enlargeAndRender).mock.calls[0];
     expect(args.slice(4)).toEqual([800, 600, expect.any(Function)]);
-    args[6](77);
+    args[6]!(77);
     expect(manager.showGlobalHint).toHaveBeenCalledWith(
       expect.stringContaining("77%"),
       0,
@@ -499,7 +509,7 @@ describe("ExportManager — export progress", () => {
     // but the render itself has to wait a frame so the browser applies the new
     // layout first — otherwise it measures the old size.  The callback also
     // owns the restore, so a failed render still puts the map back.
-    const rafQueue: Array<() => void> = [];
+    const rafQueue: FrameRequestCallback[] = [];
     const rafSpy = vi.spyOn(window, "requestAnimationFrame").mockImplementation(cb => {
       rafQueue.push(cb);
       return 1;
@@ -513,8 +523,9 @@ describe("ExportManager — export progress", () => {
     manager.map.options = { zoomAnimation: true };
     manager.map.invalidateSize = invalidateSize;
     manager.map.setView = setView;
-    const doRender = vi.fn(() => Promise.resolve());
-    manager.doRender = doRender as any;
+    const doRender = vi.fn<ExportManager["doRender"]>();
+    doRender.mockResolvedValue(undefined);
+    manager.doRender = doRender;
 
     manager.enlargeAndRender(
       { left: 1000, top: 1000, width: 500, height: 500 },
@@ -523,7 +534,7 @@ describe("ExportManager — export progress", () => {
       { nw: { lat: 26.1, lng: 119.2 }, se: { lat: 26.0, lng: 119.4 } },
       800,
       600,
-      percent => manager.showGlobalHint(percent),
+      (percent: number) => manager.showGlobalHint(String(percent), 0),
     );
 
     // Resize and re-center happen synchronously; the render does not.
@@ -532,14 +543,14 @@ describe("ExportManager — export progress", () => {
     expect(doRender).not.toHaveBeenCalled();
     expect(rafQueue).toHaveLength(1);
 
-    rafQueue[0]();
+    rafQueue[0](0);
     await vi.waitFor(() => expect(doRender).toHaveBeenCalledTimes(1));
 
     const args = doRender.mock.calls[0];
     expect(args[0]).toEqual({ left: 1000, top: 1000, width: 500, height: 500 });
     expect(args[4]).toBeTypeOf("function");
-    args[4](88);
-    expect(manager.showGlobalHint).toHaveBeenCalledWith(88);
+    args[4]!(88);
+    expect(vi.mocked(manager.showGlobalHint)).toHaveBeenCalledWith("88", 0);
     // The frame callback finished, so the map state is back where it started.
     expect(manager.map.options.zoomAnimation).toBe(true);
     expect(invalidateSize.mock.calls.filter(call => call[0] === false)).toHaveLength(2);
@@ -554,7 +565,10 @@ describe("ExportManager — export progress", () => {
     // message that says nothing more.
     manager.finishExport = vi.fn(async () => {});
 
-    manager.onRenderSuccess(document.createElement("canvas"), []);
+    manager.onRenderSuccess(
+      document.createElement("canvas"),
+      document.querySelectorAll("x"),
+    );
 
     expect(manager.showGlobalHint).not.toHaveBeenCalled();
     await vi.waitFor(() => expect(manager.finishExport).toHaveBeenCalled());
@@ -567,13 +581,18 @@ describe("ExportManager — export progress", () => {
     const downloadSpy = vi.spyOn(downloadMod, "download");
 
     try {
-      manager.onRenderSuccess(document.createElement("canvas"), []);
+      manager.onRenderSuccess(
+        document.createElement("canvas"),
+        document.querySelectorAll("x"),
+      );
       await vi.waitFor(() => expect(downloadSpy).toHaveBeenCalledTimes(1));
 
       // The 100 lands right before the download and nothing claims it
       // earlier: the encode used to sit behind a full bar with nothing to
       // show for it.
-      const hints = manager.showGlobalHint.mock.calls.map(c => c[0]);
+      const hints = vi
+        .mocked(manager.showGlobalHint)
+        .mock.calls.map((c: unknown[]) => c[0]);
       expect(hints).toEqual(["Exporting map... (100%)", "Export successful"]);
     } finally {
       HTMLCanvasElement.prototype.toBlob = origToBlob;
@@ -593,10 +612,15 @@ describe("ExportManager — export progress", () => {
     manager.lastTileFailures = [{ total: 4, failed: 4 }];
 
     try {
-      manager.onRenderSuccess(document.createElement("canvas"), []);
+      manager.onRenderSuccess(
+        document.createElement("canvas"),
+        document.querySelectorAll("x"),
+      );
       await vi.waitFor(() => expect(downloadSpy).toHaveBeenCalledTimes(1));
 
-      const hints = manager.showGlobalHint.mock.calls.map(c => c[0]);
+      const hints = vi
+        .mocked(manager.showGlobalHint)
+        .mock.calls.map((c: unknown[]) => c[0]);
       expect(hints[hints.length - 1]).toBe("status_partial");
     } finally {
       HTMLCanvasElement.prototype.toBlob = origToBlob;
@@ -613,10 +637,15 @@ describe("ExportManager — export progress", () => {
     manager.lastTileFailures = [{ total: 10, failed: 4 }];
 
     try {
-      manager.onRenderSuccess(document.createElement("canvas"), []);
+      manager.onRenderSuccess(
+        document.createElement("canvas"),
+        document.querySelectorAll("x"),
+      );
       await vi.waitFor(() => expect(downloadSpy).toHaveBeenCalledTimes(1));
 
-      const hints = manager.showGlobalHint.mock.calls.map(c => c[0]);
+      const hints = vi
+        .mocked(manager.showGlobalHint)
+        .mock.calls.map((c: unknown[]) => c[0]);
       // The locale mock maps status_success to its display text; the plain
       // success label must appear unchanged when nothing was blocked.
       expect(hints[hints.length - 1]).toBe("Export successful");
@@ -634,7 +663,10 @@ describe("ExportManager — export progress", () => {
     manager.lastTileFailures = [{ total: 1, failed: 1 }];
 
     try {
-      manager.onRenderSuccess(document.createElement("canvas"), []);
+      manager.onRenderSuccess(
+        document.createElement("canvas"),
+        document.querySelectorAll("x"),
+      );
       await vi.waitFor(() => expect(downloadSpy).toHaveBeenCalledTimes(1));
       // The stats are per-export state: read-and-clear so a second export
       // cannot inherit the first one's warning.

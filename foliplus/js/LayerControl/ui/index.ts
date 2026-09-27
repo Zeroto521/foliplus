@@ -1,7 +1,5 @@
 // LayerControl UI — class shell: state, lifecycle, event wiring, delegates.
 // Heavy lifting lives in `ui/*` modules; this class owns state and delegates.
-// attachUI / bindEvents / unbindEvents / onLayerItemCountChange /
-// refreshAllCounts moved to `./lifecycle.ts` (34.2).
 import { type EventBus, ensureEvents } from "#core/event/index.js";
 import type { LabelField } from "#core/labelField.js";
 import { type CreateColorAPI, type LayerInfo } from "#core/layer/index.js";
