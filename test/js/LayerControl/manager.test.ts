@@ -2093,6 +2093,35 @@ describe("LayerManager", () => {
       expect(unregisterSpy).toHaveBeenCalledWith("overlay1");
       expect((manager as any).removedIds.has("overlay1")).toBe(true);
     });
+
+    it("clears the colour basemap — unregisters but keeps the id registerable", () => {
+      manager.map.hasLayer.mockReturnValue(false);
+      manager.registerLayer({
+        id: CONST.COLOR.MAP_ID,
+        name: "Colour",
+        isBase: true,
+        layer: { options: {} },
+      } as any);
+
+      const saveStateSpy = vi.fn();
+      manager.ui = {
+        colorSurface: {} as any,
+        currentColor: "#ff0000",
+        authorVisible: new Map([[CONST.COLOR.MAP_ID, true]]),
+        saveState: saveStateSpy,
+        invalidateFields: vi.fn(),
+      } as any;
+      const unregisterSpy = vi.spyOn(manager, "unregisterLayer");
+
+      expect(manager.deleteLayer(CONST.COLOR.MAP_ID)).toBe(true);
+
+      expect(unregisterSpy).toHaveBeenCalledWith(CONST.COLOR.MAP_ID);
+      expect(manager.ui.colorSurface).toBeNull();
+      expect(manager.ui.currentColor).toBe(CONST.COLOR.DEFAULT);
+      expect(manager.ui.authorVisible.get(CONST.COLOR.MAP_ID)).toBe(false);
+      expect(saveStateSpy).toHaveBeenCalled();
+      expect((manager as any).removedIds.has(CONST.COLOR.MAP_ID)).toBe(false);
+    });
   });
 });
 
