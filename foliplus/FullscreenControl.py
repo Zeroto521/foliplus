@@ -36,7 +36,7 @@ class FullscreenControl(BaseControl):
     >>> FullscreenControl().add_to(m)
     """
 
-    _export_fields = ("hide_self", "hide_others")
+    _config_fields = ("hide_self", "hide_others")
 
     def __init__(
         self,

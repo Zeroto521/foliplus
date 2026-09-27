@@ -433,7 +433,6 @@ describe("LayerUI focus", () => {
         id: "heat1",
         name: "Heat",
         canvas,
-        onToggle: () => {},
         getBounds: () => ({
           isValid: () => true,
           getSouthWest: () => ({ lat: 30, lng: 100 }),
@@ -781,7 +780,6 @@ describe("LayerUI focus", () => {
         name: "Heat",
         canvas,
         paneName,
-        onToggle: () => {},
         getBounds: () => ({
           isValid: () => true,
           getSouthWest: () => ({ lat: 30, lng: 100 }),
@@ -803,7 +801,6 @@ describe("LayerUI focus", () => {
         name: "Heat",
         canvas,
         paneName: "foliplus-canvas-heat2",
-        onToggle: () => {},
         getBounds: () => ({
           isValid: () => true,
           getSouthWest: () => ({ lat: 30, lng: 100 }),
@@ -879,7 +876,6 @@ describe("LayerUI focus", () => {
         id: "heat1",
         name: "Heat",
         canvas,
-        onToggle: () => {},
         getBounds: () => ({
           isValid: () => true,
           getSouthWest: () => ({ lat: 30, lng: 100 }),
@@ -902,7 +898,6 @@ describe("LayerUI focus", () => {
         id: "heat1",
         name: "Heat",
         canvas,
-        onToggle: () => {},
         getBounds: () => ({
           isValid: () => true,
           getSouthWest: () => ({ lat: 30, lng: 100 }),
@@ -1173,7 +1168,6 @@ describe("LayerUI focus", () => {
         id: "heat1",
         name: "Heat",
         canvas,
-        onToggle: () => {},
         getBounds: () => ({
           isValid: () => true,
           getSouthWest: () => ({ lat: 30, lng: 100 }),

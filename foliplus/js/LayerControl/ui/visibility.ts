@@ -5,7 +5,7 @@ import { applyProjection, applyProjectionAll } from "./apply.js";
 import type { LayerUI } from "./index.js";
 import { applyRowView, buildRowCell } from "./rowView.js";
 import { saveState, syncHiddenId } from "./state.js";
-import { intentVisibleOf } from "./store.js";
+import { intentVisibleOf } from "./projection.js";
 
 const getLayerItems = (ui: LayerUI, group: string): NodeListOf<Element> => {
   return ui.uiContainer.querySelectorAll(

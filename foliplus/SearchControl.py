@@ -107,7 +107,7 @@ class SearchControl(BaseControl):
     ... ).add_to(m)
     """
 
-    _export_fields = (
+    _config_fields = (
         "mode",
         "zoom",
         "provider",

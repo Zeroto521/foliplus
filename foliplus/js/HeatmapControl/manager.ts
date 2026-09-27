@@ -1,4 +1,8 @@
 // HeatmapControl data aggregation & rendering logic (HeatmapManager).
+import {
+  METHOD as CLASSIFY_METHOD,
+  computeBreaks as computeBreaksFn,
+} from "#core/classify.js";
 import { generateId } from "#core/component.js";
 import { EVENTS, type EventBus, ensureEvents } from "#core/event/index.js";
 import { bareFieldName } from "#core/labelField.js";
@@ -15,7 +19,6 @@ import * as CONST from "./const.js";
 import {
   aggregateData as aggregateDataFn,
   buildFeatures as buildFeaturesFn,
-  computeBreaks as computeBreaksFn,
   getColorScale as getColorScaleFn,
   getH3Res as getH3ResFn,
   pickAutoField as pickAutoFieldFn,
@@ -126,6 +129,7 @@ class HeatmapManager {
   declare onZoomEnd: Debounced;
   declare onLayerChange: Debounced;
   declare removeLayerChangeListener: () => void;
+  declare removeLayerDeletedListener: () => void;
   declare removeExportListener: () => void;
 
   /** The layer id used to register this manager's heatmap canvas. */
@@ -153,7 +157,7 @@ class HeatmapManager {
     this.currentAgg = CONF.agg ?? CONST.AGG.COUNT;
     this.currentField = "";
     this.currentScheme = CONF.color_scheme ?? "Reds";
-    this.currentMethod = CONF.method ?? CONST.METHOD.JENKS;
+    this.currentMethod = CONF.method ?? CLASSIFY_METHOD.JENKS;
     this.autoFieldKey = null;
     this.numClasses = CONF.n_classes ?? CONST.CLASS_COUNT.DEFAULT;
     this.borderWeight = CONF.border_weight ?? BORDER_WEIGHT.DEFAULT;
@@ -275,7 +279,7 @@ class HeatmapManager {
     };
     this.overlay = map.foliplus!.LayerAPI!.createCanvas({
       id: this.layerId,
-      name: this.T("title"),
+      name: T("title"),
       iconSvg: SVGs.HEXAGON,
       featureCountProvider: () => this.cachedFeatures?.length ?? 0,
       getBounds: () => this.computeBounds(),
@@ -376,6 +380,13 @@ class HeatmapManager {
     this.removeLayerChangeListener = this.events.on(EVENTS.LAYER_CHANGE, () =>
       this.onLayerChange(),
     );
+    // LayerControl's deleteLayer emits LAYER_DELETED for component-owned layers
+    // instead of retiring the id in removedIds, so the heatmap can clear its
+    // data and stay registerable for the next source pick. clearHeatmapCanvas
+    // also unregisters the overlay, which the panel reflects immediately.
+    this.removeLayerDeletedListener = this.events.on(EVENTS.LAYER_DELETED, ({ id }) => {
+      if (id === this.layerId) this.clearHeatmapCanvas();
+    });
   }
 
   /** Drop out of export clip mode: redraw with the full feature set. */
@@ -694,8 +705,8 @@ class HeatmapManager {
       if (key) fieldLabel = bareFieldName(key);
     }
 
-    const sourceKey = this.T("meta_source_layer");
-    const fieldKey = this.T("meta_agg_field");
+    const sourceKey = T("meta_source_layer");
+    const fieldKey = T("meta_agg_field");
     const changed =
       this.sourceMeta[sourceKey] !== layerName ||
       this.sourceMeta[fieldKey] !== fieldLabel;

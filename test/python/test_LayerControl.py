@@ -59,8 +59,8 @@ class TestLayerControlPython:
     def test_custom_label_collide(self):
         assert LayerControl(label_collide=False).label_collide is False
 
-    def test_label_collide_in_export_fields(self):
-        assert "label_collide" in LayerControl._export_fields
+    def test_label_collide_in_config_fields(self):
+        assert "label_collide" in LayerControl._config_fields
 
     def test_custom_locale(self):
         assert LayerControl(locale="zh")._locale_code == "zh"
@@ -1303,7 +1303,6 @@ class TestLayerControlBrowser:
             assert len(result["kids"]) == 2, f"unexpected child count: {result}"
             for kid in result["kids"]:
                 assert kid["pane"] == "__geojson_pane__", f"child not pinned: {kid}"
-                assert kid["paneSet"] is True, f"child not marked pinned: {kid}"
                 assert kid["hasRendererOpt"], f"child has no renderer option: {kid}"
                 assert kid["hasRenderer"], f"child has no _renderer: {kid}"
                 assert kid["isPath"], f"child has no renderer container: {kid}"
@@ -3609,11 +3608,11 @@ class TestLayerControlBrowser:
             )
 
     def test_paneset_reset_after_hide_show(self, browser, tmp_path):
-        """Hiding and re-showing a layer resets paneSet so enforceOrder re-moves paths.
+        """Hiding and re-showing a layer re-pins the leaf marker to its sub-pane.
 
         Uses a FeatureGroup with a child marker — the marker (leaf) is what
-        gets migrated, so paneSet is asserted on the leaf layer. An empty
-        container has no DOM to migrate, so paneSet is meaningless there.
+        gets pinned, so the pane value is asserted on the leaf layer. An empty
+        container has no DOM to pin, so the assertion is meaningless there.
         """
         fg = folium.FeatureGroup(name="TestLayer", overlay=True, show=True)
         folium.Marker([26.08, 119.30], name="test_marker").add_to(fg)
@@ -3631,11 +3630,11 @@ class TestLayerControlBrowser:
             )
             page.wait_for_timeout(500)
 
-            # Step 1: enforceOrder sets paneSet=true on the leaf marker
+            # Step 1: enforceOrder pins the leaf marker to the group's sub-pane
             result = page.evaluate(_js("LayerControl/read_leaf_paneset"))
             assert result is not None, "Layer not found"
-            assert result["paneSet"] is True, (
-                f"Expected paneSet=true on leaf after enforceOrder, got {result['paneSet']}"
+            assert result["pane"], (
+                f"Expected non-empty pane on leaf after enforceOrder, got {result['pane']}"
             )
 
             # Step 2: Hide the layer by unchecking checkbox
@@ -3646,11 +3645,11 @@ class TestLayerControlBrowser:
             page.evaluate(_js("LayerControl/click_first_checkbox"))
             page.wait_for_timeout(300)
 
-            # Step 4: handleChange reset the container paneSet; enforceOrder
-            # re-migrates the leaf marker and sets its paneSet back to true
+            # Step 4: handleChange resets the container pane; enforceOrder
+            # re-pins the leaf marker to the group's sub-pane
             paneset = page.evaluate(_js("LayerControl/read_leaf_paneset_value"))
-            assert paneset is True, (
-                f"Expected paneSet=true on leaf after re-show, got {paneset}"
+            assert paneset, (
+                f"Expected non-empty pane on leaf after re-show, got {paneset}"
             )
 
     def test_enforce_order_end_to_end(self, browser, tmp_path):
@@ -3795,7 +3794,7 @@ class TestLayerControlBrowser:
             )
 
     def test_handle_change_resets_paneset_on_show(self, browser, tmp_path):
-        """Checkbox toggle triggers handleChange which resets paneSet."""
+        """Checkbox toggle triggers handleChange which re-pins layers."""
         with use_page(self._make_page, browser, tmp_path) as (page, _):
             page.evaluate(
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
