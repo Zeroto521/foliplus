@@ -2275,7 +2275,9 @@ describe("LayerManager", () => {
       expect(manager.deleteLayer("base1")).toBe(true);
 
       expect(
-        manager.uiContainer.querySelector(`[data-group="base"][data-role="toggle-all"]`),
+        manager.uiContainer.querySelector(
+          `[data-group="base"][data-role="toggle-all"]`,
+        ),
       ).toBeNull();
       expect(
         manager.uiContainer.querySelector(`[data-layer-id="${CONST.COLOR.MAP_ID}"]`),

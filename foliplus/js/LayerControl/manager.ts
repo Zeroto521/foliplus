@@ -817,9 +817,9 @@ class LayerManager implements LayerAPI {
             ? `${CONST.SEL.LAYER_ITEM}[data-layer-type="${CONST.GROUP.BASE}"]:not(${CONST.SEL.COLOR_ITEM})`
             : `${CONST.SEL.LAYER_ITEM}:not([data-layer-type="${CONST.GROUP.BASE}"])`;
         if (!this.uiContainer.querySelector(anchorSel)) {
-          this.uiContainer.querySelector(
-            `.${CONST.CLASSES.TOGGLE_ALL}[data-group="${group}"]`,
-          )?.remove();
+          this.uiContainer
+            .querySelector(`.${CONST.CLASSES.TOGGLE_ALL}[data-group="${group}"]`)
+            ?.remove();
         }
       }
     }
