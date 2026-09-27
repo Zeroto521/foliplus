@@ -16,7 +16,7 @@ import {
   normalizeHexColor,
 } from "#common/form.js";
 import { NUMBER_FORMAT } from "#common/format.js";
-import type { AnnotationConfig } from "../../annotation/index.js";
+import type { AnnotationConfig } from "../../type.js";
 import * as CONST from "../../const.js";
 import type { LayerUI } from "../index.js";
 
