@@ -187,7 +187,7 @@ class ExportRenderer {
         for (const li of layers) {
           const layer = this.resolveLayer(li);
           if (
-            !api.intentVisible?.(li.id) ||
+            !(api.intentVisible?.(li.id) ?? true) ||
             !(layer instanceof L.TileLayer) ||
             !layerUrl(layer)
           ) {
@@ -231,7 +231,7 @@ class ExportRenderer {
       const passable = layers.filter(li => {
         const layer = this.resolveLayer(li);
         return (
-          api.intentVisible?.(li.id) &&
+          (api.intentVisible?.(li.id) ?? true) &&
           (li.canvas || (layer && !(layer instanceof L.TileLayer && layerUrl(layer))))
         );
       });
