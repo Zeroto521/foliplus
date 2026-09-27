@@ -82,7 +82,7 @@
 - `HeatmapControl`: remove the nested `style` dict parameter; `border_weight`, `border_color`, `fill_opacity`, `border_opacity`, `label_show`, `label_size`, `label_color`, `label_format` are now first-class constructor keyword arguments — no `style=` wrapper needed ([#169](https://github.com/Zeroto521/foliplus/pull/169))
 - `ScaleControl`: drop the `unit` parameter — a breaking change against the v0.3.x API, since `unit=` now raises `TypeError`; scale bars always render metric units and `isMetric` is no longer exported to the JS `CONF` ([#186](https://github.com/Zeroto521/foliplus/pull/186))
 - `HeatmapControl`: remove the `field` parameter — a breaking change; the candidate list already enumerates all numeric shapes, so user selection covers every case ([#375](https://github.com/Zeroto521/foliplus/pull/375))
-- `LayerControl`: `LayerInfo.visible` and `RegisterLayerOpts.visible` removed — the map's membership was mirrored into the substrate, so a stray `visible` write on either side silently forked the source of truth. The persisted `intent` is now the single source, read via `LayerAPI.intentVisible(id)` ([#T126](https://github.com/Zeroto521/foliplus/pull/T126))
+- `LayerControl`: `LayerInfo.visible` and `RegisterLayerOpts.visible` removed — the map's membership was mirrored into the substrate, so a stray `visible` write on either side silently forked the source of truth. The persisted `intent` is now the single source, read via `LayerAPI.intentVisible(id)` ([#498](https://github.com/Zeroto521/foliplus/pull/498))
 
 ### Fixed
 
