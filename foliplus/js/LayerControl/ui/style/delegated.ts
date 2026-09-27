@@ -10,9 +10,9 @@ import * as CONST from "../../const.js";
 import * as SVGs from "../../icon.js";
 import type { LayerUI } from "../index.js";
 import {
-  bindBorderRow as bindBorderRowShared,
-  buildBorderRow as buildBorderRowShared,
-} from "./borderRow.js";
+  bindBorderRowShell,
+  buildBorderRowShell,
+} from "./border.js";
 import { appendResetFooter, sectionHeading } from "./frame.js";
 import { buildOpacityRow, layerCanOpacity } from "./opacity.js";
 import { buildZoomRangeRow, canShowZoomRange } from "./zoomRange.js";
@@ -45,7 +45,7 @@ const buildBorderRow = (ui: LayerUI, layerId: string): HTMLElement | null => {
 
   const hasColor = !!setters.borderColor;
   const hasWeight = !!setters.borderWeight;
-  const row = buildBorderRowShared({
+  const row = buildBorderRowShell({
     rowClass: CONST.CLASSES.FORM_ROW,
     label: ui.T("border"),
     color: values.borderColor,
@@ -53,7 +53,7 @@ const buildBorderRow = (ui: LayerUI, layerId: string): HTMLElement | null => {
     hasColorInput: hasColor,
     hasWeightInput: hasWeight,
   });
-  bindBorderRowShared(row, {
+  bindBorderRowShell(row, {
     onChangeColor: hasColor
       ? value => entry()?.styleSetters?.borderColor?.(value)
       : undefined,

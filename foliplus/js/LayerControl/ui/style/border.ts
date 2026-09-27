@@ -22,14 +22,19 @@
 // `inlineControls` — the same recipe as the delegated border row and the
 // annotation label row, so a border row reads identically whether the layer
 // paints through `setStyle` or through a component's own canvas.
-import { BORDER_WEIGHT, normalizeHexColor } from "#common/form.js";
+import { dom } from "#common/dom.js";
+import {
+  BORDER_WEIGHT,
+  bindLiveColor,
+  bindLiveNumber,
+  colorInput,
+  inlineControls,
+  normalizeHexColor,
+  numberInput,
+} from "#common/form.js";
 import * as CONST from "../../const.js";
 import type { LayerUI } from "../index.js";
 import { markOverride, saveState, unmarkOverride } from "../state.js";
-import {
-  bindBorderRow as bindBorderRowShared,
-  buildBorderRow as buildBorderRowShared,
-} from "./borderRow.js";
 import { hasSetStyleLeaf, pinStyleOnHighlight } from "./pin.js";
 
 /** A node in the layer tree that a border walk may reach. `setStyle` alone
@@ -339,10 +344,118 @@ const displayColor = (value: string): string => {
     .join("")}`;
 };
 
+/** Shared border-row shell. Two callers — the vector `buildBorderRow`
+ *  (which supplies `setStyle` chrome + hooks) and the delegated drawer's
+ *  `buildBorderRow` (which supplies plain chrome + `styleSetters` write
+ *  target) — both need a color swatch plus a width number input wired to a
+ *  live commit path. The shell owns the row DOM and the bind recipe; the
+ *  caller supplies its own chrome and write callbacks.
+ *
+ *  `buildBorderRowShell` and `bindBorderRowShell` take separate targets:
+ *  the build side needs shell/chrome options, the bind side needs write
+ *  callbacks. Folding them into one target would force the bind caller to
+ *  supply dummy shell fields and vice versa. */
+export interface BorderRowBuildTarget {
+  /** Resolved row label text. */
+  label: string;
+  /** Row `class` — `FORM_ROW` plus any caller-specific hook. */
+  rowClass: string;
+  /** Initial color value (already display-ready for the swatch). */
+  color?: string;
+  /** Initial width value. */
+  weight: number;
+  /** Present iff a color input should render. */
+  hasColorInput?: boolean;
+  /** Present iff a width input should render. */
+  hasWeightInput?: boolean;
+  /** Optional color input `class`. */
+  className?: string;
+  /** Optional weight input `class`. */
+  weightClassName?: string;
+  /** Optional aria-label for the color swatch. */
+  colorAria?: string;
+  /** Optional aria-label for the width input. */
+  weightAria?: string;
+}
+
+export interface BorderRowBindTarget {
+  /** Write callback for the color input. */
+  onChangeColor?: (value: string) => void;
+  /** Write callback for the width input. */
+  onChangeWeight?: (value: number) => void;
+  /** Same class hook the build side used on the color input. */
+  className?: string;
+  /** Same class hook the build side used on the weight input. */
+  weightClassName?: string;
+}
+
+const colorSelector = (className?: string) =>
+  className ? `input.${className}` : "input[type=color]";
+const weightSelector = (className?: string) =>
+  className ? `input.${className}` : "input[type=number]";
+
+export const buildBorderRowShell = (target: BorderRowBuildTarget): HTMLElement => {
+  const parts: HTMLElement[] = [];
+  if (target.hasColorInput) {
+    parts.push(
+      colorInput({
+        value: target.color,
+        className: target.className,
+        ariaLabel: target.colorAria,
+      }),
+    );
+  }
+  if (target.hasWeightInput) {
+    parts.push(
+      numberInput({
+        value: target.weight,
+        min: BORDER_WEIGHT.MIN,
+        max: BORDER_WEIGHT.MAX,
+        step: BORDER_WEIGHT.STEP,
+        className: target.weightClassName,
+        ariaLabel: target.weightAria,
+      }),
+    );
+  }
+  return dom.el(
+    "div",
+    { class: target.rowClass },
+    dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, target.label),
+    dom.el(
+      "div",
+      { class: CONST.CLASSES.FORM_CONTROL },
+      inlineControls(...parts),
+    ),
+  );
+};
+
+export const bindBorderRowShell = (
+  row: HTMLElement,
+  target: BorderRowBindTarget,
+): void => {
+  const colorEl = row.querySelector(colorSelector(target.className)) as
+    | HTMLInputElement
+    | null;
+  if (colorEl && target.onChangeColor) {
+    bindLiveColor(colorEl, value => target.onChangeColor?.(value));
+  }
+  const weightEl = row.querySelector(weightSelector(target.weightClassName)) as
+    | HTMLInputElement
+    | null;
+  if (weightEl && target.onChangeWeight) {
+    bindLiveNumber(weightEl, {
+      min: BORDER_WEIGHT.MIN,
+      max: BORDER_WEIGHT.MAX,
+      fallback: BORDER_WEIGHT.DEFAULT,
+      onCommit: value => target.onChangeWeight?.(value),
+    });
+  }
+};
+
 /** Build the border form row: color swatch + width number input. Delegates
- *  to the shared builder in `./borderRow.ts` — same shell as the delegated
- *  drawer's border row, so the two read identically — with the vector write
- *  target: `commitBorderColor` / `commitBorderWeight` on every commit.
+ *  to `buildBorderRowShell` — same shell as the delegated drawer's border
+ *  row, so the two read identically — with the vector write target:
+ *  `commitBorderColor` / `commitBorderWeight` on every commit.
  *
  *  Each input's initial value is the stored choice, falling back to the
  *  author's own `options` — never a constant — so the row shows what the
@@ -350,7 +463,7 @@ const displayColor = (value: string): string => {
  *  swatch's own form by `displayColor` before it reaches the field. */
 const buildBorderRow = (ui: LayerUI, layerId: string): HTMLElement => {
   const author = authoredBorder(ui, layerId);
-  return buildBorderRowShared({
+  return buildBorderRowShell({
     rowClass: `${CONST.CLASSES.FORM_ROW} ${CONST.CLASSES.STYLE_BORDER_ROW}`,
     label: ui.T("border"),
     color: displayColor(ui.borderColorMap[layerId] ?? author.color),
@@ -367,7 +480,7 @@ const buildBorderRow = (ui: LayerUI, layerId: string): HTMLElement => {
 /** Wire the shared live-color and live-number binders to this row's commit
  *  paths. Called from `openStylePanel`. */
 const bindBorderRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
-  bindBorderRowShared(row, {
+  bindBorderRowShell(row, {
     className: CONST.CLASSES.STYLE_BORDER_COLOR_INPUT,
     weightClassName: CONST.CLASSES.STYLE_BORDER_WEIGHT_INPUT,
     onChangeColor: value => commitBorderColor(ui, layerId, value),
