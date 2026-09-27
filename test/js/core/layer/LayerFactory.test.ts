@@ -1260,13 +1260,14 @@ describe("LayerFactory", () => {
       warn.mockRestore();
     });
 
-    it("stamps the lowest base z on the fresh pane (no Leaflet-default 400)", () => {
+    it("stamps the base z on the fresh pane (no Leaflet-default 400, no ceiling)", () => {
       // Leaflet's CSS gives a fresh pane z-index 400 — above every basemap.
-      // Until the ordering pass rewrites the ladder z, the pane must sit at
-      // the bottom of the base ladder (200 + one step).
+      // The layer is not yet in the registry, so index = count = 0 prices the
+      // pane at TILE_BASE (200) — the bottom of the base tier, not the top.
+      // `enforceOrder` overwrites this with the exact slot z on registration.
       make("solid");
       const pane = (map as any)._panes["foliplus-color-solid"] as HTMLElement;
-      expect(pane.style.zIndex).toBe("210");
+      expect(pane.style.zIndex).toBe("200");
     });
 
     it("resize falls back to devicePixelRatio 1 when the browser reports 0", () => {

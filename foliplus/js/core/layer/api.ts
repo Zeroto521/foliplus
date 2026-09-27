@@ -45,6 +45,11 @@ const ensureLayerAPI = (map: L.Map, force = false): LayerAPI => {
     unregisterLayer: () => true,
     bringLayerToFront: () => {},
     invalidateType: () => {}, // no registry in the lightweight API
+    // The lightweight API has no registry, so the provisional z is priced
+    // against an empty tier: the top slot of count 0, which is the base
+    // itself. `enforceOrder` never runs here, but the pane still avoids
+    // Leaflet's CSS default of 400.
+    getCount: () => 0,
   });
 
   map.foliplus!.LayerAPI = {

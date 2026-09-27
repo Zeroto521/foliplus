@@ -20,7 +20,6 @@ import type {
   SurfaceContentHandle,
   SurfaceHandle,
 } from "./type.js";
-import { zFor } from "./z.js";
 
 /** Dependency injection contract for LayerFactory. */
 interface LayerFactoryDeps {
@@ -42,6 +41,15 @@ interface LayerFactoryDeps {
    * causing redundant UI refreshes of an unchanged count. Skip it.
    */
   onDataChange?: (id: string) => void;
+  /**
+   * How many layers the registry holds. Used to price the provisional z a
+   * freshly created canvas / color pane is stamped with (the layers branch
+   * gets its count from the surface the registry builds for it, which sees
+   * the new entry already inserted). Defaults to 0 for callers that haven't
+   * adopted the dep — the provisional z is then priced against an empty tier,
+   * which is still above Leaflet's CSS default of 400.
+   */
+  getCount?: () => number;
 }
 
 // core/layer is not a component dir, so CONF is unavailable here — the module
@@ -339,12 +347,15 @@ class LayerFactory {
     if (opts.content.kind === "color") {
       const { color } = opts.content;
       const paneName = namedPaneNameFor(opts.id, COLOR_PANE_PREFIX, "color surface");
-      const { pane } = panes.ensurePane(paneName, false);
       // Leaflet's CSS gives a fresh pane z-index 400 — above every basemap.
-      // The ordering pass rewrites the ladder z once the layer is registered,
-      // but until then the pane must not sit on top of the tiles, so stamp
-      // the lowest base z here as a safe provisional.
-      pane.style.zIndex = String(zFor({ index: 0, count: 1, isBase: true }));
+      // `ensurePane` stamps a provisional ladder z (one step above the top
+      // base slot) so the pane is never at 400; the ordering pass rewrites
+      // the exact slot z once the layer is registered.
+      const { pane } = panes.ensurePane(paneName, false, {
+        index: this.deps.getCount?.() ?? 0,
+        count: this.deps.getCount?.() ?? 0,
+        isBase: true,
+      });
 
       // A canvas face, reused rather than invented: a Leaflet pane has no size
       // of its own, so the fill must live on a child element that is sized to
@@ -456,7 +467,11 @@ class LayerFactory {
     } = opts.content;
 
     const paneName = namedPaneNameFor(opts.id, CANVAS_PANE_PREFIX, "createCanvas");
-    const { pane } = panes.ensurePane(paneName, false);
+    const { pane } = panes.ensurePane(paneName, false, {
+      index: this.deps.getCount?.() ?? 0,
+      count: this.deps.getCount?.() ?? 0,
+      isBase: false,
+    });
 
     const canvas = dom.el("canvas", {
       class: "foliplus-canvas-layer",

@@ -125,20 +125,42 @@ class PaneManager {
    *  @param {string} paneName - Pane name.
    *  @param {boolean} [needRenderer=true] - Whether to build an SVG renderer
    *    for it. False for canvas panes and for sub-panes, whose renderer the
-   *    content that routes into them creates (`ensureVector`). */
+   *    content that routes into them creates (`ensureVector`).
+   *  @param {object} [initialZ] - The registry position used to price the
+   *    pane's slot z when it is first created. When `index` equals `count`
+   *    (the layer is not yet in the registry) the pane is priced at the base
+   *    of its tier — the bottom of the stack — so it is never at Leaflet's
+   *    CSS default of 400 and never at the top. `enforceOrder` overwrites
+   *    this with the exact slot z once the registry changes. */
   ensurePane(
     paneName: string,
     needRenderer = true,
+    initialZ?: { index: number; count: number; isBase?: boolean },
   ): { pane: HTMLElement; renderer: L.SVG | null } {
     let pane = this.map.getPane(paneName);
     if (!pane) {
       pane = this.map.createPane(paneName);
       pane.classList.add("foliplus-layer-pane");
-      // Provisional z so panes of one layer already draw in the right relative
-      // order before the ordering pass assigns their position-based base
-      // (which may never come if LayerControl is absent).
       const spec = this.paneSpecs.get(paneName);
-      if (spec) {
+      if (initialZ) {
+        // Exact slot z: the layer's position in the registry. When `index`
+        // equals `count` (layer not yet registered) the pane prices at the
+        // base of its tier — the bottom — not the top. Sub-panes keep their
+        // draw offset via the spec's role/order.
+        pane.style.zIndex = String(
+          zFor({
+            index: initialZ.index,
+            count: initialZ.count,
+            isBase: initialZ.isBase,
+            role: spec?.role ?? "base",
+            order: spec?.order ?? 0,
+          }),
+        );
+      } else if (spec) {
+        // Legacy fallback for callers that haven't adopted `initialZ`: the
+        // pane-level z the old code wrote (BASE + role_offset + order). No
+        // layer index is known, so the pane sits at the stack base — still
+        // above Leaflet's CSS default of 400.
         pane.style.zIndex = String(zFor({ role: spec.role, order: spec.order }));
       }
     }

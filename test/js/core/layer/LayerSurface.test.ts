@@ -481,8 +481,9 @@ describe("LayerSurface.setZOverride / restoreZ", () => {
 
   it("restores the panes' pre-lift z when the ordering pass has not written yet", () => {
     const { panes, surface } = makeStacked();
-    // PaneManager gave the declared panes their provisional z, so that is what
-    // a lift records and restore returns to.
+    // PaneManager gave the declared panes their slot z at creation time
+    // (index=count=0 → BASE), so that is what a lift records and restore
+    // returns to.
     expect(panes.graph.style.zIndex).toBe("600");
     expect(panes.node.style.zIndex).toBe("601");
     expect(panes.label.style.zIndex).toBe("602");

@@ -71,6 +71,18 @@ interface SurfaceFaceOpts {
    *  honest carrier for focus, so the UI disables the action rather than
    *  letting a click land as a silent no-op. */
   getBounds?: (() => L.LatLngBounds | null) | null;
+  /** Registry size at the moment the surface is built: prices the slot z a
+   *  freshly created pane is stamped with. Only used by the pane-creation
+   *  path — never persisted, never compared by `matches`. */
+  count?: number;
+  /** The layer's position in the registry: index 0 is the topmost. When the
+   *  layer is not yet in the registry (canvas / color before `register()`)
+   *  this equals `count`, pricing the pane at the base of its tier — the
+   *  bottom of the stack, not the top. */
+  index?: number;
+  /** Tier the layer belongs to: base-group layers (tile basemaps, color) share
+   *  the lower `TILE_BASE` ladder. Same caveat as `count` above. */
+  isBase?: boolean;
 }
 
 /** A layer with the mutable option surface the pin writes to. Containers carry
@@ -136,6 +148,15 @@ class LayerSurface implements LayerSurfaceContract {
   private readonly host: PaneManager;
   private readonly specs: readonly PaneSpec[];
   private readonly spec: SurfaceDeclaration;
+  /** Registry size at the moment this surface was built. Only used to price
+   *  the slot z a freshly created pane is stamped with (via `addPane`);
+   *  never read after construction. */
+  private readonly count: number;
+  /** The layer's position in the registry at the moment this surface was built.
+   *  Same caveat as `count`. */
+  private readonly index: number;
+  /** Tier the layer belongs to; same caveat as `count`. */
+  private readonly isBase: boolean;
   /** The pane this surface synthesized because the layer declared none. Its
    *  content is pinned here; a declared pane's content is routed by whoever
    *  declared it (createLayers), so there is nothing for us to pin. */
@@ -146,6 +167,9 @@ class LayerSurface implements LayerSurfaceContract {
     this.id = opts.id;
     this.layer = opts.layer;
     this.specs = opts.paneSpecs ?? [];
+    this.count = opts.count ?? 0;
+    this.index = opts.index ?? opts.count ?? 0;
+    this.isBase = opts.isBase ?? false;
 
     // The declared paneName is a third-party input that reaches the DOM as a
     // Leaflet pane id / class. If it fails `PANE_NAME_PATTERN`, treat it as
@@ -411,7 +435,11 @@ class LayerSurface implements LayerSurfaceContract {
     role: PaneRole = "base",
     order = 0,
   ): void {
-    const { pane, renderer } = this.host.ensurePane(name, needRenderer);
+    const { pane, renderer } = this.host.ensurePane(
+      name,
+      needRenderer,
+      { index: this.index, count: this.count, isBase: this.isBase },
+    );
     this.panes.push({
       role,
       order,

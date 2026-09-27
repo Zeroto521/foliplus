@@ -247,6 +247,7 @@ class LayerManager implements LayerAPI {
       // Runtime content changes (createLayers add/remove/clear) refresh the
       // count column live. No-op until a UI row subscribes.
       onDataChange: id => this.refreshCount(id),
+      getCount: () => this.layers.length,
     });
 
     this.lastAttribution = null;
@@ -906,6 +907,12 @@ class LayerManager implements LayerAPI {
       canvas: Boolean(layerInfo.canvas),
       getBounds: layerInfo.getBounds,
       color: layerInfo.color,
+      // Prices the slot z a freshly created pane is stamped with: the
+      // layer's position in the registry. `enforceOrder` overwrites this
+      // with the exact slot z once the registry changes.
+      index: this.layers.indexOf(layerInfo),
+      count: this.layers.length,
+      isBase: layerInfo.isBase,
     };
     const existing = this.surfaces.get(layerInfo.id);
     if (existing?.matches(spec)) return existing;
@@ -937,11 +944,18 @@ class LayerManager implements LayerAPI {
 
   /** Give every layer a surface and write its z.
    *
-   *  Ordering only. Panes are allocated at materialization (before the layer
-   *  joins the map, so `options.pane` is already right at the one moment
-   *  Leaflet reads it), and content that arrived since the last pass is
-   *  re-pinned by `materialize()` itself. What is left here is the z arithmetic
-   *  and the shared panes around it, untouched. */
+   *  Ordering only. The pass used to allocate fallback panes, queue DOM moves
+   *  for a later migration, and stamp the *first* z on a freshly created pane.
+   *  All three moved out: panes are allocated at materialization (before the
+   *  layer joins the map, so `options.pane` is already right at the one moment
+   *  Leaflet reads it), content that arrived since the last pass is re-pinned
+   *  by `materialize()` itself, and a pane's slot z is written at creation
+   *  (`PaneManager.ensurePane` prices it from the layer's registry index, so
+   *  no pane ever sits at Leaflet's CSS default of 400). What is left here is
+   *  the exact slot arithmetic and the shared panes around it — this pass only
+   *  runs when the registry changes (register / unregister / reorder / focus
+   *  lift), so it overwrites the creation-time z with the current slot z
+   *  rather than backfilling a missing one. */
   enforceOrder() {
     if (this.isEnforcing) return;
     this.debouncedEnforce?.cancel();

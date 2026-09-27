@@ -2,11 +2,10 @@
 //
 // Four sites used to each derive a z by hand: the ordering pass priced a
 // layer's slot from its registry index, a surface added its pane's draw
-// offset, PaneManager gave a freshly created pane a provisional one, and
-// LayerControl's focus lift derived its own ladder from component constants.
-// They agreed with each other only by coincidence — a step change in one
-// desynchronised the rest silently. Every z the layer stack writes now comes
-// out of `zFor`.
+// offset, PaneManager gave a freshly created pane a slot, and LayerControl's
+// focus lift derived its own ladder from component constants. They agreed with
+// each other only by coincidence — a step change in one desynchronised the
+// rest silently. Every z the layer stack writes now comes out of `zFor`.
 //
 // One ladder stays out on purpose: the popup/tooltip/marker relationship the
 // ordering pass writes onto Leaflet's own panes (`topZ + 1 / topZ / topZ - 1`
@@ -92,8 +91,11 @@ const zFor = ({
 };
 
 /** The z one step above the topmost layer's slot — the base for the three
- *  native-pane offsets (popup / tooltip / marker) in `LayerManager.enforceOrder`. */
-const topSlotZ = (count: number): number => zFor({ index: -1, count });
+ *  native-pane offsets (popup / tooltip / marker) in `LayerManager.enforceOrder`.
+ *  Takes `isBase` so callers can price the top slot of either tier; the default
+ *  is the overlay tier, matching every existing call site. */
+const topSlotZ = (count: number, isBase = false): number =>
+  zFor({ index: -1, count, isBase });
 
 export { ANNOTATION_Z_OFFSET, FOCUS_Z, focusLayerZ, topSlotZ, zFor };
 export type { ZArgs };

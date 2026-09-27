@@ -75,6 +75,42 @@ describe("zFor slots", () => {
   });
 });
 
+describe("creation-time z (the slot z a fresh pane is stamped with)", () => {
+  it("prices an exact slot z when the layer is in the registry (index < count)", () => {
+    // A layer at index 1 of 3 layers sits at BASE + (3-1)*STEP = 620.
+    // The pane created at registration time carries this exact z — no
+    // provisional ceiling, no 400 window.
+    const count = 3;
+    expect(zFor({ index: 1, count })).toBe(Z_INDEX.BASE + 2 * Z_INDEX.STEP);
+    expect(zFor({ index: 0, count })).toBe(Z_INDEX.BASE + 3 * Z_INDEX.STEP);
+  });
+
+  it("prices the base of the tier when the layer is not yet registered (index = count)", () => {
+    // index = count means the layer is not yet in the registry (canvas / color
+    // before register()). The pane prices at BASE — the bottom of the tier —
+    // not the top. This is the "垫底" behavior: never at 400, never at the top.
+    const count = 3;
+    expect(zFor({ index: count, count })).toBe(Z_INDEX.BASE);
+    expect(zFor({ index: count, count, isBase: true })).toBe(Z_INDEX.TILE_BASE);
+  });
+
+  it("prices base-group layers from the tile base", () => {
+    expect(zFor({ index: 0, count: 2, isBase: true })).toBe(
+      Z_INDEX.TILE_BASE + 2 * Z_INDEX.STEP,
+    );
+    expect(zFor({ index: 1, count: 2, isBase: true })).toBe(
+      Z_INDEX.TILE_BASE + Z_INDEX.STEP,
+    );
+  });
+
+  it("threads a sub-pane's draw offset through the slot z", () => {
+    const count = 3;
+    const slot = zFor({ index: 1, count });
+    expect(zFor({ index: 1, count, role: "sub", order: 2 })).toBe(slot + 2);
+    expect(zFor({ index: 1, count, role: "annotation" })).toBe(slot + 1);
+  });
+});
+
 describe("the focus ladder", () => {
   it("lifts a layer one gap below the focus overlay", () => {
     expect(FOCUS_Z.overlay).toBe(9000);
