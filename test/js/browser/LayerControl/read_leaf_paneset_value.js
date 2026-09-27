@@ -13,5 +13,5 @@
     if (!leaf) leaf = l;
   });
   if (!leaf) return null;
-  return leaf.options.paneSet;
+  return leaf.options.pane;
 };

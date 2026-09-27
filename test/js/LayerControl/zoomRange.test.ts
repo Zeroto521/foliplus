@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
-import { projectLayer } from "#foliplus/LayerControl/ui/store.js";
+import { projectLayer } from "#foliplus/LayerControl/ui/projection.js";
 
 const mockMap = {
   getMinZoom: () => 0,

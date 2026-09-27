@@ -160,7 +160,7 @@ class LayerManager implements LayerAPI {
   /** The rendering face of each registered layer, keyed by layer id. Created on
    *  registration (and materialized before the layer joins the map) and dropped
    *  on unregistration — it is the replacement for the stamp-keyed fallback
-   *  pane map plus the `options.paneSet` "already moved" flag. */
+   *  pane map and the per-layer `options.paneSet` "already moved" flag. */
   surfaces: Map<string, LayerSurface>;
   /** The same surfaces keyed by the live layer's stamp, for the lookups that
    *  start from a layer rather than from a registry entry. */

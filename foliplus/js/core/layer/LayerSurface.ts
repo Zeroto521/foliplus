@@ -2,9 +2,9 @@
 //
 // Before this module the answer to "where does this layer draw, and at which z"
 // was assembled in three places inside LayerManager's ordering pass: a
-// `fallbackPaneMap` keyed by `L.stamp`, an `options.paneSet` flag standing in
-// for "already moved", and a queue of DOM moves replayed after the pass. The
-// surface owns those concerns instead: it resolves the pane handles once, pins
+// `fallbackPaneMap` keyed by `L.stamp`, a per-layer `options.paneSet` dirty
+// flag, and a queue of DOM moves replayed after the pass. The surface owns
+// those concerns instead: it resolves the pane handles once, pins
 // the layer's content to them, and hands the ordering pass a z target and
 // nothing else.
 //
@@ -78,11 +78,6 @@ interface SurfaceFaceOpts {
  *  why the pin hands such a node's whole tree to `pinLateContent` instead of
  *  writing one pane name onto the group. */
 interface PinnableNode extends L.Layer {
-  options: L.LayerOptions & {
-    renderer?: L.Renderer;
-    pane?: string;
-    paneSet?: boolean;
-  };
   eachLayer?: (fn: (layer: L.Layer) => void) => void;
 }
 
@@ -451,7 +446,6 @@ class LayerSurface implements LayerSurfaceContract {
     // every leaf onto the base pane.
     const node = this.layer as PinnableNode;
     node.options.pane = base.name;
-    node.options.paneSet = true;
   }
 }
 

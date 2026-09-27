@@ -19,7 +19,7 @@ import * as CONST from "../const.js";
 import * as SVGs from "../icon.js";
 import * as Util from "../util.js";
 import type { LayerUI } from "./index.js";
-import { intentVisibleOf, projectLayer } from "./store.js";
+import { intentVisibleOf, projectLayer } from "./projection.js";
 
 /** One layer's inputs to the row visual. Nothing here is written back. */
 interface RowCell {
