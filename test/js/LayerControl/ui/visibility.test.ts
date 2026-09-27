@@ -413,6 +413,102 @@ describe("applyVisibility", () => {
       only.ui = null;
       only.destroy();
     });
+
+    it("keeps checkedCount in sync with a full rescan across many clicks", () => {
+      // The incremental counter is the fast path; the full rescan is the
+      // reconcile path. This test pins that the two agree after a series of
+      // toggles, so an off-by-one in bumpCheckedCount (or a missed
+      // reconcile-point call) shows up here.
+      //
+      // The attach-time initTypesAndVisibility runs in setTimeout(0), so
+      // the synchronous test body bootstraps the counter itself before the
+      // first click.
+      syncToggleAll(ui, CONST.GROUP.OVERLAY);
+      expect(ui.checkedCount[CONST.GROUP.OVERLAY]).toEqual({
+        total: 2,
+        on: 2,
+      });
+
+      // Hide overlay1: on 2 → 1. Rescan agrees.
+      applyVisibility(ui, "overlay1", false);
+      expect(ui.checkedCount[CONST.GROUP.OVERLAY]).toEqual({
+        total: 2,
+        on: 1,
+      });
+      syncToggleAll(ui, CONST.GROUP.OVERLAY);
+      expect(ui.checkedCount[CONST.GROUP.OVERLAY]).toEqual({
+        total: 2,
+        on: 1,
+      });
+
+      // Hide overlay2: on 1 → 0. Rescan agrees.
+      applyVisibility(ui, "overlay2", false);
+      expect(ui.checkedCount[CONST.GROUP.OVERLAY]).toEqual({
+        total: 2,
+        on: 0,
+      });
+      syncToggleAll(ui, CONST.GROUP.OVERLAY);
+      expect(ui.checkedCount[CONST.GROUP.OVERLAY]).toEqual({
+        total: 2,
+        on: 0,
+      });
+
+      // Show both: on 0 → 2. Rescan agrees.
+      applyVisibility(ui, "overlay1", true);
+      applyVisibility(ui, "overlay2", true);
+      syncToggleAll(ui, CONST.GROUP.OVERLAY);
+      expect(ui.checkedCount[CONST.GROUP.OVERLAY]).toEqual({
+        total: 2,
+        on: 2,
+      });
+
+      // Setting a value to the same value it already has is a no-op: the
+      // delta is zero and the count is unchanged.
+      applyVisibility(ui, "overlay1", true);
+      expect(ui.checkedCount[CONST.GROUP.OVERLAY]).toEqual({
+        total: 2,
+        on: 2,
+      });
+    });
+
+    it("skips syncNoBasemap for overlay clicks but calls it for base clicks", () => {
+      // syncNoBasemap is the only code that toggles NO_BASE_MAP on the map
+      // container, so observing that toggle is equivalent to observing the
+      // call. Overlay toggles cannot change the visible-basemap count, so
+      // the path skips syncNoBasemap entirely; base toggles still call it
+      // because the hatch and group label are user-visible.
+      const { manager: m2, ui: u2, map: map2 } = initFixture({
+        data: [
+          { id: "overlay1", name: "O1", isBase: false, layer: layerFixture() },
+        ],
+      });
+      try {
+        const toggleMock = vi.fn();
+        const fakeContainer = {
+          classList: { toggle: toggleMock, contains: vi.fn(() => false) },
+        };
+        map2.getContainer = vi.fn(() => fakeContainer);
+
+        // Overlay click: syncNoBasemap NOT called, so no NO_BASE_MAP toggle.
+        applyVisibility(u2, "overlay1", false);
+        const overlayCalls = toggleMock.mock.calls.filter(
+          c => c[0] === CONST.CLASSES.NO_BASE_MAP,
+        );
+        expect(overlayCalls).toEqual([]);
+
+        // Base click (colour row): syncNoBasemap called, so NO_BASE_MAP is
+        // toggled.
+        toggleMock.mockClear();
+        applyVisibility(u2, CONST.COLOR.MAP_ID, true);
+        const baseCalls = toggleMock.mock.calls.filter(
+          c => c[0] === CONST.CLASSES.NO_BASE_MAP,
+        );
+        expect(baseCalls.length).toBeGreaterThan(0);
+      } finally {
+        m2.ui = null;
+        m2.destroy();
+      }
+    });
   });
 });
 

@@ -66,6 +66,7 @@ import {
   handleChange,
   handleInput,
   syncToggleAll,
+  syncToggleAllFromCount,
   toggleAll,
 } from "./visibility.js";
 
@@ -85,6 +86,13 @@ class LayerUI {
    *  a test can inject either independently. */
   _: (key: string) => string;
   foldedGroups: Set<string>;
+  /** Per-group tri-state counts maintained incrementally so a single-row
+   *  click is O(1). Populated by the full-scan `syncToggleAll` at reconcile
+   *  points (attach, insert, delete, reload) and kept in sync by
+   *  `bumpCheckedCount` on each single-row toggle. `total` is the row count
+   *  `getLayerItems(group).length` returns; `on` is the subset whose intent
+   *  is visible. `syncToggleAllFromCount` writes the checkbox off `on`. */
+  checkedCount: Record<string, { total: number; on: number }>;
   /** Layer ids hidden by the user (checked-off); survives page reload. */
   hiddenIds: Set<string>;
   /** The author's declared default per layer id, snapshotted once per id from
@@ -226,6 +234,7 @@ class LayerUI {
     this.T = createScopedTranslator(CONF);
     this._ = createTranslator(CONF);
     this.foldedGroups = new Set();
+    this.checkedCount = {};
     this.hiddenIds = new Set();
     this.authorVisible = new Map();
     this.userOverrides = {};
@@ -394,6 +403,9 @@ class LayerUI {
   }
   syncToggleAll(group: string) {
     return syncToggleAll(this, group);
+  }
+  syncToggleAllFromCount(group: string) {
+    return syncToggleAllFromCount(this, group);
   }
   applyVisibility(id: string, visible: boolean) {
     return applyVisibility(this, id, visible);

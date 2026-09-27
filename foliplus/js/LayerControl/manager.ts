@@ -817,6 +817,9 @@ class LayerManager implements LayerAPI {
     // Tear down any annotation labels attached to this layer.
     this.annotation.destroyLayer(id);
     this.ui?.invalidateFields(id);
+    // The row was just removed: rescan the group's count so the toggle-all
+    // checkbox reflects the removal in the same frame.
+    this.ui?.syncToggleAll?.(layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY);
     // Unregister is rare, so flush rather than riding out the 100ms window.
     // Any pending write carries the registry's current order, which no longer
     // lists this id —that dimension reads the registry live, so the removal is
