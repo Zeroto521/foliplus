@@ -39,7 +39,7 @@ import {
 } from "./list.js";
 import { closeMoreMenu, openMoreMenu } from "./menu.js";
 import { finishRename, renameLayer } from "./rename.js";
-import { applyRowView, buildRowCell, displayName, rowChecked } from "./rowView.js";
+import { applyRowView, buildRowCell, displayName } from "./rowView.js";
 import {
   applyUserState,
   dropPersistedLayerState,
@@ -51,6 +51,7 @@ import {
   syncHiddenId,
 } from "./state.js";
 import type { AppliedProjection } from "./store.js";
+import { intentVisibleOf } from "./store.js";
 import { replayBorderState } from "./style/border.js";
 import {
   applyStyleLabelState,
@@ -93,9 +94,9 @@ class LayerUI {
    *  Folium ships the layer list without a visibility field, so the author's
    *  `show=` default reaches the UI only as the map state folium left behind
    *  when the panel boots. It must be captured before the policy starts moving
-   *  layers: `layerInfo.visible` is a real-time mirror that the diff executor
-   *  writes, so by the time a row first paints it can already carry a policy
-   *  decision, not the author's. See `rowChecked`. */
+   *  layers: by the time a row first paints a policy sweep may already have
+   *  moved the layer off the map, and reading the map back would record that
+   *  policy decision as the author's. See `intentVisibleOf`. */
   authorVisible: Map<string, boolean>;
   /** Which dimensions the user has actually set, per layer id. A layer absent
    *  here keeps the author's `show=` / opacity default -- that is what replaces
@@ -400,6 +401,15 @@ class LayerUI {
   }
   applyVisibility(id: string, visible: boolean) {
     return applyVisibility(this, id, visible);
+  }
+  /** The user's stored visibility choice for a layer id (persisted intent
+   *  or the author's declared default). This is the panel checkbox's fact,
+   *  not the map's membership — the projection's `effectiveShown` composes
+   *  intent with policy and is what the map reflects. Only LayerManager
+   *  (via the `intentVisible` API slot) and tests reach this through LayerUI;
+   *  everything internal calls the module function directly. */
+  intentVisible(id: string) {
+    return intentVisibleOf(this, id);
   }
   applyProjection(layerId: string) {
     return applyProjection(this, layerId);
