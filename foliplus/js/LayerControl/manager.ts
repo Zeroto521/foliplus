@@ -628,10 +628,20 @@ class LayerManager implements LayerAPI {
 
     if (existingIdx !== -1) this.layerRegistry.upsert(layerInfo);
     else if (layerInfo.isBase) {
-      const firstBaseIdx = this.layerRegistry.firstBaseIdx;
-      if (firstBaseIdx === -1) {
-        this.layerRegistry.insertAt(layerInfo, this.layers.length);
-      } else this.layerRegistry.insertAt(layerInfo, firstBaseIdx);
+      // The color basemap's row is pinned at the bottom of the base section
+      // (and its creation z is the tier base), so a first registration must
+      // not land it at the top of the base group: the attach replay path
+      // (`applyUserState` → `showColorLayer`) can register the color before
+      // `initTypesAndVisibility` has upserted it, and `firstBaseIdx` would
+      // then give it the topmost base slot — covering the tile basemaps.
+      // Append instead, the same position the attach upsert uses.
+      if (layerInfo.color != null) this.layerRegistry.upsert(layerInfo);
+      else {
+        const firstBaseIdx = this.layerRegistry.firstBaseIdx;
+        if (firstBaseIdx === -1) {
+          this.layerRegistry.insertAt(layerInfo, this.layers.length);
+        } else this.layerRegistry.insertAt(layerInfo, firstBaseIdx);
+      }
     } else this.insertOverlayAt(layerInfo);
 
     // I1: give the layer its rendering face and materialize it *before* it

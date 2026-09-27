@@ -3309,6 +3309,13 @@ class TestLayerControlBrowser:
             assert state["colorPaneZ"] is not None
             assert state["tilePaneZ"] is not None
             initialColorZ = state["colorPaneZ"]
+            # A freshly checked color sits at the bottom of the base group:
+            # its pane must never cover the tile basemap (regression for the
+            # registerLayer firstBaseIdx insert that topped the stack).
+            assert state["colorPaneZ"] < state["tilePaneZ"], (
+                "checking the color must not cover the tile basemap: "
+                f"color={state['colorPaneZ']} tile={state['tilePaneZ']}"
+            )
 
             # Case 1: move color above tile → color pane z increases.
             page.evaluate("window.__probe = { action: 'above' }")

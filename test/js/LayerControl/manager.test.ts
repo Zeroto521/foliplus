@@ -157,6 +157,7 @@ describe("LayerManager", () => {
       el.style.zIndex = "0";
       return el;
     };
+    const paneStore = new Map<string, HTMLElement>();
 
     map = {
       on: vi.fn(),
@@ -169,15 +170,19 @@ describe("LayerManager", () => {
       getMaxZoom: vi.fn(() => 18),
       getMinZoom: vi.fn(() => 0),
       getContainer: vi.fn(() => map._container),
-      getPane: vi.fn(() => {
-        const p = makePane();
-        p.style.zIndex = "0";
-        return p;
+      getPanes: vi.fn(() => ({ mapPane: document.createElement("div") })),
+      getPane: vi.fn((name: string) => {
+        const el = paneStore.get(name) ?? makePane();
+        paneStore.set(name, el);
+        el.style.zIndex = el.style.zIndex || "0";
+        return el;
       }),
-      createPane: vi.fn(() => {
-        const p = makePane();
-        p.classList.add("foliplus-layer-pane");
-        return p;
+      createPane: vi.fn((name: string) => {
+        const el = paneStore.get(name) ?? makePane();
+        paneStore.set(name, el);
+        el.classList.add("foliplus-layer-pane");
+        el.style.zIndex = el.style.zIndex || "0";
+        return el;
       }),
       _container: document.createElement("div"),
       _layers: {},
@@ -210,6 +215,79 @@ describe("LayerManager", () => {
     manager.registerLayer({ id: "grid1", name: "Grid", layer: grid, isBase: true });
     manager.enforceOrder();
     expect(grid.options.pane).toMatch(new RegExp(`^${FALLBACK_PANE_PREFIX}`));
+  });
+
+  // ── color basemap registration position (row order = registry = z) ──
+
+  /** The inline z of a layer's first pane (its base pane), or -1. */
+  const basePaneZ = (m: LayerManager, id: string): number => {
+    const z = (m.surfaces as Map<string, { panes: Array<{ element: HTMLElement }> }>)
+      .get(id)
+      ?.panes?.[0]?.element.style.zIndex;
+    return z == null ? -1 : Number(z);
+  };
+
+  it("attach-path check keeps the color at the end of the base group", () => {
+    // initTypesAndVisibility upserts the color (append → last), so a later
+    // register() via getColorSurface upserts in place — the color stays at the
+    // bottom of the stack, below every tile basemap.
+    manager.map.hasLayer.mockReturnValue(true);
+    const m = new LayerManager(map, [
+      { id: "base1", name: "OSM", isBase: true, layer: new TileLayer() },
+      { id: "base2", name: "Sat", isBase: true, layer: new TileLayer() },
+    ]);
+    m.layerRegistry.upsert(
+      m.layerRegistry.createLayerInfo(
+        {
+          id: CONST.COLOR.MAP_ID,
+          name: "Color",
+          isBase: true,
+          color: CONST.COLOR.DEFAULT,
+          onToggle: vi.fn(),
+        },
+        undefined,
+        map,
+      ),
+    );
+    const handle = m.createColor({
+      id: CONST.COLOR.MAP_ID,
+      name: "Color",
+      color: "#3366cc",
+    });
+    handle.register();
+    m.enforceOrder();
+
+    const ids = m.layers.map(l => l.id);
+    expect(ids.indexOf(CONST.COLOR.MAP_ID)).toBe(ids.length - 1);
+    const colorZ = basePaneZ(m, CONST.COLOR.MAP_ID);
+    expect(colorZ).not.toBe(400);
+    expect(colorZ).toBeLessThan(Math.min(basePaneZ(m, "base1"), basePaneZ(m, "base2")));
+  });
+
+  it("replay-path registration appends the color instead of topping the base group", () => {
+    // The attach replay (applyUserState → showColorLayer) can register the
+    // color before initTypesAndVisibility upserts it. registerLayer's isBase
+    // branch must then append (upsert), not insert at firstBaseIdx — the
+    // latter put the color at the top of the base group and its z above the
+    // tiles, covering them on load.
+    manager.map.hasLayer.mockReturnValue(true);
+    const m = new LayerManager(map, [
+      { id: "base1", name: "OSM", isBase: true, layer: new TileLayer() },
+      { id: "base2", name: "Sat", isBase: true, layer: new TileLayer() },
+    ]);
+    const handle = m.createColor({
+      id: CONST.COLOR.MAP_ID,
+      name: "Color",
+      color: "#3366cc",
+    });
+    handle.register();
+    m.enforceOrder();
+
+    const ids = m.layers.map(l => l.id);
+    expect(ids.indexOf(CONST.COLOR.MAP_ID)).toBe(ids.length - 1);
+    const colorZ = basePaneZ(m, CONST.COLOR.MAP_ID);
+    expect(colorZ).not.toBe(400);
+    expect(colorZ).toBeLessThan(Math.min(basePaneZ(m, "base1"), basePaneZ(m, "base2")));
   });
 
   it("slots a layer's label pane just above that layer", () => {
@@ -2142,6 +2220,7 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
       el.style.zIndex = "0";
       return el;
     };
+    const paneStore = new Map<string, HTMLElement>();
 
     map = {
       on: vi.fn(),
@@ -2154,15 +2233,19 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
       getMaxZoom: vi.fn(() => 18),
       getMinZoom: vi.fn(() => 0),
       getContainer: vi.fn(() => map._container),
-      getPane: vi.fn(() => {
-        const p = makePane();
-        p.style.zIndex = "0";
-        return p;
+      getPanes: vi.fn(() => ({ mapPane: document.createElement("div") })),
+      getPane: vi.fn((name: string) => {
+        const el = paneStore.get(name) ?? makePane();
+        paneStore.set(name, el);
+        el.style.zIndex = el.style.zIndex || "0";
+        return el;
       }),
-      createPane: vi.fn(() => {
-        const p = makePane();
-        p.classList.add("foliplus-layer-pane");
-        return p;
+      createPane: vi.fn((name: string) => {
+        const el = paneStore.get(name) ?? makePane();
+        paneStore.set(name, el);
+        el.classList.add("foliplus-layer-pane");
+        el.style.zIndex = el.style.zIndex || "0";
+        return el;
       }),
       _container: document.createElement("div"),
       _layers: {},
@@ -2506,6 +2589,7 @@ describe("LayerManager user-assigned names", () => {
       el.style.zIndex = "0";
       return el;
     };
+    const paneStore = new Map<string, HTMLElement>();
 
     map = {
       on: vi.fn(),
@@ -2518,15 +2602,19 @@ describe("LayerManager user-assigned names", () => {
       getMaxZoom: vi.fn(() => 18),
       getMinZoom: vi.fn(() => 0),
       getContainer: vi.fn(() => map._container),
-      getPane: vi.fn(() => {
-        const p = makePane();
-        p.style.zIndex = "0";
-        return p;
+      getPanes: vi.fn(() => ({ mapPane: document.createElement("div") })),
+      getPane: vi.fn((name: string) => {
+        const el = paneStore.get(name) ?? makePane();
+        paneStore.set(name, el);
+        el.style.zIndex = el.style.zIndex || "0";
+        return el;
       }),
-      createPane: vi.fn(() => {
-        const p = makePane();
-        p.classList.add("foliplus-layer-pane");
-        return p;
+      createPane: vi.fn((name: string) => {
+        const el = paneStore.get(name) ?? makePane();
+        paneStore.set(name, el);
+        el.classList.add("foliplus-layer-pane");
+        el.style.zIndex = el.style.zIndex || "0";
+        return el;
       }),
       _container: document.createElement("div"),
       _layers: {},
