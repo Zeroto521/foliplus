@@ -41,7 +41,6 @@ describe("makeLayerUIMock — LayerUI field completeness", () => {
     expect(ui.zoomRangeMap).toEqual({});
     expect(ui.labelConfigs).toEqual({});
     // Primitives with sensible defaults
-    expect(ui.isColorActive).toBe(false);
     expect(ui.currentColor).toBe("#cccccc");
     expect(ui.lastDragHintAt).toBe(0);
     expect(ui.pressInPanel).toBe(false);

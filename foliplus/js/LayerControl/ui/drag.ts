@@ -63,7 +63,7 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
   const item = (event.target as HTMLElement).closest(
     CONST.SEL.LAYER_ITEM,
   ) as HTMLElement | null;
-  if (!item || item.classList.contains(CONST.CLASSES.COLOR_ITEM)) return;
+  if (!item) return;
 
   const targetIdx = registryIdx(ui, item.getAttribute(CONST.DATA.LAYER_ID));
   if (targetIdx < 0) return;
@@ -102,7 +102,7 @@ const handleDrop = (ui: LayerUI, event: DragEvent) => {
     CONST.SEL.LAYER_ITEM,
   ) as HTMLElement | null;
   if (ui.dragIdx === null) return;
-  if (!target || target.classList.contains(CONST.CLASSES.COLOR_ITEM)) return;
+  if (!target) return;
 
   if (ui.dragIdx < 0 || ui.dragIdx >= ui.m.layers.length) {
     ui.dragIdx = null;

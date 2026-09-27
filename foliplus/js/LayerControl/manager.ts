@@ -3,6 +3,8 @@ import { ensureLayerAPI } from "#core/layer/api.js";
 import {
   type CreateCanvasAPI,
   type CreateCanvasOpts,
+  type CreateColorAPI,
+  type CreateColorOpts,
   type CreateLayersAPI,
   type CreateLayersOpts,
   GEOM_TYPE,
@@ -320,6 +322,10 @@ class LayerManager implements LayerAPI {
 
   createCanvas(opts: CreateCanvasOpts): CreateCanvasAPI {
     return this.factory.createCanvas(opts);
+  }
+
+  createColor(opts: CreateColorOpts): CreateColorAPI {
+    return this.factory.createColor(opts);
   }
 
   /** True while any registered layer is unresolved (layerInfo.layer === null).
@@ -882,8 +888,8 @@ class LayerManager implements LayerAPI {
    *  directly, but this wrapper stays because LayerManager is the LayerAPI
    *  entry point — removing it would break the contract. Tests and probes
    *  may still call it. Do not grow this into real logic. */
-  computeZIndex(i: number, isTile: boolean): number {
-    return zFor({ index: i, count: this.layers.length, tile: isTile });
+  computeZIndex(i: number, isBase: boolean): number {
+    return zFor({ index: i, count: this.layers.length, isBase });
   }
 
   /** The surface for a registry entry, built on first use. Registration builds
@@ -899,6 +905,7 @@ class LayerManager implements LayerAPI {
       paneSpecs: layerInfo.paneSpecs,
       canvas: Boolean(layerInfo.canvas),
       getBounds: layerInfo.getBounds,
+      color: layerInfo.color,
     };
     const existing = this.surfaces.get(layerInfo.id);
     if (existing?.matches(spec)) return existing;
@@ -944,11 +951,10 @@ class LayerManager implements LayerAPI {
       for (let i = 0; i < this.layers.length; i++) {
         const layerInfo = this.layers[i];
         const layer = this.findLayer(layerInfo);
-        // GridLayer covers TileLayer plus other grid subclasses (L.gridLayer());
-        // all of them are positioned from the tile base.
-        const isGrid = layer instanceof L.GridLayer;
-        const isTile = layer instanceof L.TileLayer;
-        const slot = { index: i, count: this.layers.length, tile: isGrid };
+        // Base-group layers (tile basemaps + the solid-color basemap) share
+        // the 200 ladder, so a color pane interleaves with tile basemaps
+        // row-by-row. Overlay-group layers use the 600 ladder.
+        const slot = { index: i, count: this.layers.length, isBase: layerInfo.isBase };
         const z = zFor(slot);
 
         // Callback-only layers (createCanvas / heatmap): no Leaflet layer, but
@@ -964,14 +970,7 @@ class LayerManager implements LayerAPI {
 
         const surface = this.surfaceFor(layerInfo);
         surface.materialize();
-        if (!surface.setZ(z)) {
-          // `setZ` answers false only for a layer with no pane of its own, which
-          // is exactly a GridLayer: it paints in the shared tilePane and carries
-          // its z natively. TileLayer has the public setter; every other grid
-          // subclass keeps `options.zIndex`, which Leaflet applies on update.
-          if (isTile) (layer as L.TileLayer).setZIndex(z);
-          else (layer.options as L.GridLayerOptions).zIndex = z;
-        }
+        surface.setZ(z);
 
         // The layer's label pane (created by AnnotationManager) rides just
         // above it: labels cover that layer's own geometry, and the next layer
