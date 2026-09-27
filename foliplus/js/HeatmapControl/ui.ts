@@ -1,5 +1,6 @@
 // HeatmapControl UI building — standalone functions.
 // All internal refs use direct function calls instead of `this.`.
+import { METHOD as CLASSIFY_METHOD } from "#core/classify.js";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { dom } from "#common/dom.js";
@@ -201,7 +202,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
       ctrl.classSelect,
       String(ctrl.conf.n_classes ?? CONST.CLASS_COUNT.DEFAULT),
     );
-    syncSelect(ctrl, ctrl.methodSelect, ctrl.conf.method ?? CONST.METHOD.JENKS);
+    syncSelect(ctrl, ctrl.methodSelect, ctrl.conf.method ?? CLASSIFY_METHOD.JENKS);
     ctrl.schemeSelectHidden.value = ctrl.conf.color_scheme ?? "Reds";
     updateSchemeBar(ctrl);
     updateFieldSelector(ctrl);
@@ -518,7 +519,7 @@ const resetAll = (ctrl: HeatmapControlUI) => {
   ctrl.m.currentAgg = CONST.AGG.COUNT;
   ctrl.m.currentField = "";
   ctrl.m.numClasses = ctrl.conf.n_classes ?? CONST.CLASS_COUNT.DEFAULT;
-  ctrl.m.currentMethod = ctrl.conf.method ?? CONST.METHOD.JENKS;
+  ctrl.m.currentMethod = ctrl.conf.method ?? CLASSIFY_METHOD.JENKS;
   ctrl.m.currentScheme = ctrl.conf.color_scheme ?? "Reds";
   ctrl.m.clearHeatmapCanvas();
 };
