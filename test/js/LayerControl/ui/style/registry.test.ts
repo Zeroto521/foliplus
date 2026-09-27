@@ -15,12 +15,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerManager } from "#foliplus/LayerControl/manager.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
+import { BORDER_DIMENSION } from "#foliplus/LayerControl/ui/style/border.js";
+import { FILL_DIMENSION } from "#foliplus/LayerControl/ui/style/fill.js";
 import { OPACITY_DIMENSION } from "#foliplus/LayerControl/ui/style/opacity.js";
 import {
   getDimension,
   listDimensions,
   registerDimension,
 } from "#foliplus/LayerControl/ui/style/registry.js";
+import { ZOOM_RANGE_DIMENSION } from "#foliplus/LayerControl/ui/style/zoomRange.js";
 import { initFixture, installLeafletGlobals } from "../fixture.js";
 
 const TEST_DIM_KEY = "test.dim.registry";
@@ -166,5 +169,152 @@ describe("LayerControl style-panel dimension registry — opacity descriptor", (
   it("value returns the user's stored override when one exists", () => {
     ui.opacityMap.overlay1 = 0.3;
     expect(OPACITY_DIMENSION.value(ui, "overlay1")).toBe(0.3);
+  });
+});
+
+describe("LayerControl style-panel dimension registry — fill descriptor", () => {
+  let manager: LayerManager;
+  let ui: LayerUI;
+
+  const overlayLayer = {
+    options: {},
+    setZIndex: vi.fn(),
+    eachLayer: vi.fn(),
+    getBounds: vi.fn(() => ({
+      isValid: () => true,
+      getSouthWest: () => ({ lat: 0, lng: 0 }),
+      getNorthEast: () => ({ lat: 1, lng: 1 }),
+    })),
+  };
+
+  beforeEach(() => {
+    installLeafletGlobals();
+    ({ manager, ui } = initFixture({
+      data: [{ id: "overlay1", name: "Overlay", isBase: false, layer: overlayLayer }],
+    }));
+  });
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+  });
+
+  it("value returns undefined for a layer not in the registry", () => {
+    expect(FILL_DIMENSION.value(ui, "not-registered")).toBeUndefined();
+  });
+
+  it("value returns the user's stored override when one exists", () => {
+    ui.fillColorMap.overlay1 = "#ff0000";
+    ui.fillOpacityMap.overlay1 = 0.5;
+    expect(FILL_DIMENSION.value(ui, "overlay1")).toEqual({
+      color: "#ff0000",
+      opacity: 0.5,
+    });
+  });
+
+  it("value falls back to the authored value when no override is set", () => {
+    expect(FILL_DIMENSION.value(ui, "overlay1")).toEqual({
+      color: "#3388ff",
+      opacity: null,
+    });
+  });
+});
+
+describe("LayerControl style-panel dimension registry — border descriptor", () => {
+  let manager: LayerManager;
+  let ui: LayerUI;
+
+  const overlayLayer = {
+    options: {},
+    setZIndex: vi.fn(),
+    eachLayer: vi.fn(),
+    getBounds: vi.fn(() => ({
+      isValid: () => true,
+      getSouthWest: () => ({ lat: 0, lng: 0 }),
+      getNorthEast: () => ({ lat: 1, lng: 1 }),
+    })),
+  };
+
+  beforeEach(() => {
+    installLeafletGlobals();
+    ({ manager, ui } = initFixture({
+      data: [{ id: "overlay1", name: "Overlay", isBase: false, layer: overlayLayer }],
+    }));
+  });
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+  });
+
+  it("value returns undefined for a layer not in the registry", () => {
+    expect(BORDER_DIMENSION.value(ui, "not-registered")).toBeUndefined();
+  });
+
+  it("value returns the user's stored override when one exists", () => {
+    ui.borderColorMap.overlay1 = "#ff0000";
+    ui.borderWeightMap.overlay1 = 3;
+    expect(BORDER_DIMENSION.value(ui, "overlay1")).toEqual({
+      color: "#ff0000",
+      weight: 3,
+    });
+  });
+
+  it("value falls back to the authored value when no override is set", () => {
+    expect(BORDER_DIMENSION.value(ui, "overlay1")).toEqual({
+      color: "#3388ff",
+      weight: 1,
+    });
+  });
+});
+
+describe("LayerControl style-panel dimension registry — zoomRange descriptor", () => {
+  let manager: LayerManager;
+  let ui: LayerUI;
+
+  const overlayLayer = {
+    options: {},
+    setZIndex: vi.fn(),
+    eachLayer: vi.fn(),
+    getBounds: vi.fn(() => ({
+      isValid: () => true,
+      getSouthWest: () => ({ lat: 0, lng: 0 }),
+      getNorthEast: () => ({ lat: 1, lng: 1 }),
+    })),
+  };
+
+  beforeEach(() => {
+    installLeafletGlobals();
+    ({ manager, ui } = initFixture({
+      data: [{ id: "overlay1", name: "Overlay", isBase: false, layer: overlayLayer }],
+    }));
+  });
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+  });
+
+  it("value returns undefined for a layer not in the registry", () => {
+    expect(ZOOM_RANGE_DIMENSION.value(ui, "not-registered")).toBeUndefined();
+  });
+
+  it("value returns the user's stored override when one exists", () => {
+    ui.zoomRangeMap.overlay1 = [5, 10];
+    const v = ZOOM_RANGE_DIMENSION.value(ui, "overlay1");
+    expect(v).toBeDefined();
+    expect(v!.min).toBeGreaterThanOrEqual(5);
+    expect(v!.max).toBeLessThanOrEqual(10);
+  });
+
+  it("value falls back to the author's bounds when no override is set", () => {
+    const v = ZOOM_RANGE_DIMENSION.value(ui, "overlay1");
+    expect(v).toBeDefined();
+    expect(v).toHaveProperty("min");
+    expect(v).toHaveProperty("max");
+    expect(v!.min).toBeLessThanOrEqual(v!.max);
   });
 });
