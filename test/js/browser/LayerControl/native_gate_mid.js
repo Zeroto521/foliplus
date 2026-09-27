@@ -10,7 +10,7 @@
   // Read the cursor BEFORE focusing the checkbox: focusing a row descendant
   // re-homes the cursor by design, so a read after it cannot attribute the
   // cursor to the keypress under test.
-  const rowFocused = !!document.querySelector(".is-focused-row");
+  const rowFocused = !!document.querySelector(".foliplus-is-focused-row");
   cb.focus();
   return {
     sliderAfter: Number(slider.value),
@@ -22,6 +22,6 @@
     rowFocused,
     // The cursor state the checkbox focus alone left behind — the baseline the
     // keypress under test is measured against.
-    rowFocusedAfterFocus: !!document.querySelector(".is-focused-row"),
+    rowFocusedAfterFocus: !!document.querySelector(".foliplus-is-focused-row"),
   };
 };

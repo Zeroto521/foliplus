@@ -136,8 +136,13 @@ describe("LayerUI style panel", () => {
     expect(panel!.querySelector(".foliplus-style-field-select")).toBeNull();
     expect(panel!.querySelector(".foliplus-style-body")).toBeNull();
     expect(panel!.querySelectorAll(".foliplus-section-heading")).toHaveLength(1);
-    // The Layer dimensions still render.
-    expect(panel!.querySelector(".foliplus-style-border-row")).not.toBeNull();
+    // The Layer dimensions still render — opacity and zoom range own a pane
+    // carrier. Border and fill need a setStyle leaf (§47.1 gate), and the
+    // fixture's bare group has none, so those rows are absent here.
+    expect(panel!.querySelector(".foliplus-style-opacity-range")).not.toBeNull();
+    expect(panel!.querySelector(".foliplus-style-zoom-range-row")).not.toBeNull();
+    expect(panel!.querySelector(".foliplus-style-border-row")).toBeNull();
+    expect(panel!.querySelector(".foliplus-style-fill-row")).toBeNull();
   });
 
   it("opens no panel for a layer with neither a labelable field nor a capable dimension", () => {
@@ -973,8 +978,32 @@ describe("LayerUI style panel", () => {
     );
 
   it("builds one border row for a vector layer, before the opacity row", () => {
-    const item = findItem(ui, "overlay1");
-    ui.openStylePanel("overlay1");
+    // The fixture's default overlay1 layer is a bare group with no setStyle
+    // leaves — border needs at least one such leaf (§47.1), so register a
+    // real vector for this test.
+    const leaf = {
+      options: { color: "#3388ff", weight: 2 },
+      setStyle: vi.fn(),
+      on: vi.fn(),
+    };
+    manager.registerLayer({
+      id: "border1",
+      name: "Border",
+      layer: {
+        options: {},
+        eachLayer: vi.fn((fn: (child: unknown) => void) => {
+          fn(leaf);
+        }),
+        getBounds: vi.fn(() => ({
+          isValid: vi.fn(() => true),
+          getSouthWest: () => ({ lat: 0, lng: 0 }),
+          getNorthEast: () => ({ lat: 1, lng: 1 }),
+        })),
+      } as never,
+    });
+    ui.fieldCache.set("border1", [{ name: "count", numeric: true }]);
+    const item = findItem(ui, "border1");
+    ui.openStylePanel("border1");
     const panel = panelOf(item)!;
 
     expect(borderRows(panel)).toHaveLength(1);

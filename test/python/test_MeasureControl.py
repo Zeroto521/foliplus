@@ -174,7 +174,7 @@ class TestMeasureControlRendering:
     # ── Finish animation tests ──
 
     def test_dash_sweep_animation_classes(self):
-        """Distance finishDist adds is-dash-sweep class with --sweep-length."""
+        """Distance finishDist adds foliplus-measure-dash-sweep class with --sweep-length."""
         html = render_control(MeasureControl())
         assert "dash-sweep" in html
         assert "--sweep-length" in html
@@ -278,21 +278,25 @@ class TestMeasureControlBrowser:
                 "document.querySelector('.foliplus-measure-ctrl .foliplus-toggle-btn').click()"
             )
             page.wait_for_selector(
-                ".foliplus-measure-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-measure-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
             page.wait_for_timeout(300)
             assert page.evaluate(
                 "() => { const c = document.querySelector('.foliplus-measure-ctrl');"
-                " return c.classList.contains('is-expanded')"
-                " && !c.classList.contains('is-collapsed'); }"
+                " return c.classList.contains('foliplus-is-expanded')"
+                " && !c.classList.contains('foliplus-is-collapsed'); }"
             ), "the measure panel did not expand"
 
             page.mouse.click(600, 300)
             page.wait_for_selector(
-                ".foliplus-measure-ctrl.is-collapsed", state="attached", timeout=5000
+                ".foliplus-measure-ctrl.foliplus-is-collapsed",
+                state="attached",
+                timeout=5000,
             )
             assert page.evaluate(
-                "document.querySelector('.foliplus-measure-ctrl').classList.contains('is-collapsed')"
+                "document.querySelector('.foliplus-measure-ctrl').classList.contains('foliplus-is-collapsed')"
             ), "the measure panel stayed open after an outside press"
             assert not errors, f"JS errors: {errors}"
 
@@ -440,7 +444,9 @@ class TestMeasureControlBrowser:
                 "document.querySelector('.foliplus-layer-ctrl .foliplus-toggle-btn').click()"
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
             page.wait_for_timeout(300)
 
