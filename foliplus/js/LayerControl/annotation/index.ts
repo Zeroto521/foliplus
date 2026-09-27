@@ -23,6 +23,7 @@ import {
 import { type NumberStyle, formatLabelNumber } from "#common/format.js";
 import { bindMapSync } from "#common/panel.js";
 import * as CONST from "../const.js";
+import type { AnnotationConfig, LayerLabel } from "../type.js";
 import { AnnotationCanvas } from "./canvas.js";
 import {
   type LabelCandidate,
@@ -40,29 +41,6 @@ import {
  *  before layoutLabel skips the per-character width estimate for the bulk
  *  of a dense layer (6k points rarely have 6k on screen). */
 const ANCHOR_CULL_MARGIN = 300;
-
-/** A label a layer asked for, described by its feature rather than by pixels —
- *  the plan converts the latlng on every frame, so a pan leaves no stale
- *  coordinates behind. */
-interface LayerLabel {
-  id: string;
-  text: string;
-  latlng: L.LatLng;
-  atPoint: boolean;
-  priority: number;
-}
-
-/** Per-layer annotation config (matches what persistence stores). */
-interface AnnotationConfig {
-  show: boolean;
-  field: string;
-  /** Runtime paint overrides — fall back to the shared --label-* tokens. */
-  color: string;
-  size: number;
-  format: NumberStyle;
-  /** Whether this layer's own labels thin themselves out where they overlap. */
-  collide: boolean;
-}
 
 /** Label priority is uniform within a layer: collision is per layer, so the
  *  planner's tie-breaks (box width, then insertion order) decide which of two
@@ -615,4 +593,3 @@ const parseNum = (v: string): number | null => {
 };
 
 export { AnnotationManager };
-export type { AnnotationConfig, LayerLabel };
