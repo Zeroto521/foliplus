@@ -1462,3 +1462,23 @@ describe("HeatmapManager — source meta for the attrs panel", () => {
     expect(touch).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("HeatmapManager — EVENTS.LAYER_DELETED auto-clear", () => {
+  it("clears the heatmap canvas when own layer is deleted via LAYER_DELETED", () => {
+    const m = makeManager();
+    const clearSpy = vi.spyOn(m, "clearHeatmapCanvas");
+
+    ensureEvents(m.map).emit(EVENTS.LAYER_DELETED, { id: m.layerId });
+
+    expect(clearSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("does NOT clear when a different layer is deleted", () => {
+    const m = makeManager();
+    const clearSpy = vi.spyOn(m, "clearHeatmapCanvas");
+
+    ensureEvents(m.map).emit(EVENTS.LAYER_DELETED, { id: "some_other_layer" });
+
+    expect(clearSpy).not.toHaveBeenCalled();
+  });
+});

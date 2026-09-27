@@ -155,25 +155,13 @@ interface LayerInfo {
 /** Leaflet layer with a custom `isLabel` flag (foliplus adds it).
  *
  *  Write contract for a third-party layer's `options` — the exact write set
- *  is `pane`, `renderer`, and `paneSet`; nothing else:
- *    - `pane` and `renderer` — Leaflet's own, and the two a correct draw
- *      position actually needs (Leaflet reads `pane` only at attach time and
- *      ignores a group's for its children, so both must be written to survive a
- *      re-attach).
- *    - `paneSet` — ours: "foliplus decided this layer's pane". Not a Leaflet
- *      key and not a legacy vestige. `LayerFactory.addLayer` reads it to tell
- *      a pane the caller declared apart from one foliplus routed the layer
- *      into — without it a pin would be mistaken for a declaration and the
- *      layer routed back to the base pane.
- *
- *  Read `LayerFactory.addLayer` before treating `paneSet` as dead. */
+ *  is `pane` and `renderer`; nothing else:
+ *    - Both are Leaflet's own, and the two a correct draw position actually
+ *      needs (Leaflet reads `pane` only at attach time and ignores a group's
+ *      for its children, so both must be written to survive a re-attach).
+ */
 interface LabelAwareLayer extends L.Layer {
   isLabel?: boolean;
-  options: L.LayerOptions & {
-    renderer?: L.Renderer;
-    pane?: string;
-    paneSet?: boolean;
-  };
 }
 
 /** What a surface's pane is for. `annotation` and `preview` have no producer
@@ -226,9 +214,9 @@ interface PaneHandle {
 /** The rendering face of one registered layer: which panes carry its content,
  *  and (later) the derived state those panes are written from.
  *
- *  Replaces the two ad-hoc records the layer manager used to keep — the
- *  stamp-keyed fallback-pane map and the `options.paneSet` flag that stood in
- *  for "already moved" — with the real state. See core/layer/LayerSurface.ts
+ *  Replaces the stamp-keyed fallback-pane map and the per-layer `options.paneSet`
+ *  dirty flag the layer manager used to keep — both are now surface-side
+ *  bookkeeping (`materialized`, `contentDirty`). See core/layer/LayerSurface.ts
  *  for the two invariants (materialize-before-add, fixed pane set). */
 interface LayerSurface {
   readonly id: string;

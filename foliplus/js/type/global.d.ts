@@ -93,9 +93,6 @@ declare module "leaflet" {
   interface LayerGroup {
     _layers: Record<string, L.Layer>;
   }
-  interface LayerOptions {
-    paneSet?: boolean;
-  }
   interface TileLayer {
     // Leaflet keeps the tile URL template in _url (no public accessor).
     _url: string;

@@ -160,7 +160,7 @@ class LayerManager implements LayerAPI {
   /** The rendering face of each registered layer, keyed by layer id. Created on
    *  registration (and materialized before the layer joins the map) and dropped
    *  on unregistration — it is the replacement for the stamp-keyed fallback
-   *  pane map plus the `options.paneSet` "already moved" flag. */
+   *  pane map and the per-layer `options.paneSet` "already moved" flag. */
   surfaces: Map<string, LayerSurface>;
   /** The same surfaces keyed by the live layer's stamp, for the lookups that
    *  start from a layer rather than from a registry entry. */
@@ -186,12 +186,21 @@ class LayerManager implements LayerAPI {
    *  panel attaches, which is why this lives on the manager rather than the UI.
    */
   private removedIds: Set<string>;
+  /** Whether the author set a finite `map.options.maxZoom`.
+
+   *  Captured in the constructor, before the first enforceOrder can write its
+   *  own fallback, so the guard below never reads back our own write. */
+  private authorMaxZoomDeclared: boolean;
   annotation: AnnotationManager;
   onLayerAdd: (event: L.LeafletEvent) => void;
   getLayerPanes: (layer: L.Layer) => string[];
 
   constructor(mapInstance: L.Map, data: LayerInfo[]) {
     this.map = mapInstance;
+    // Captured before the constructor's own enforceOrder can write a fallback,
+    // so the guard is the author's declaration and never our previous write.
+    // folium emits the map config once at init, ahead of every control.
+    this.authorMaxZoomDeclared = Number.isFinite(mapInstance.options?.maxZoom);
     this.events = ensureEvents(this.map);
     this.persistence = new LayerPersistence();
     // One read of the record at construction. `order` seeds the registry's
@@ -825,7 +834,20 @@ class LayerManager implements LayerAPI {
       const target = this.uiContainer.querySelector(
         `[${CONST.DATA.LAYER_ID}="${CSS.escape(id)}"]`,
       );
-      if (target) target.remove();
+      if (target) {
+        target.remove();
+        // Check if the group is now empty and remove the toggle-all row if so.
+        const group = layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY;
+        const anchorSel =
+          group === CONST.GROUP.BASE
+            ? `${CONST.SEL.LAYER_ITEM}[data-layer-type="${CONST.GROUP.BASE}"]:not([${CONST.DATA.LAYER_ID}="${CONST.COLOR.MAP_ID}"])`
+            : `${CONST.SEL.LAYER_ITEM}:not([data-layer-type="${CONST.GROUP.BASE}"])`;
+        if (!this.uiContainer.querySelector(anchorSel)) {
+          this.uiContainer
+            .querySelector(`.${CONST.CLASSES.TOGGLE_ALL}[data-group="${group}"]`)
+            ?.remove();
+        }
+      }
     }
     // Nothing below writes persisted state —see the method's doc. The rename
     // and the per-layer intent both survive this teardown, so a component that
@@ -847,18 +869,19 @@ class LayerManager implements LayerAPI {
   }
 
   /**
-   * Delete a layer: unregister it and drop every persisted value the user set
-   * for it —the single place that does, and the only one.
+   * Delete a layer: two semantics, dispatched by layer ownership.
    *
-   * {@link unregisterLayer} is a generic teardown and cannot say whether a
-   * layer is gone for good, so it never erases anything. Only a user who
-   * pointed at a row and chose "delete" knows; per-dimension resets instead
-   * drop one provenance marker via `unmarkOverride`, which is the same
-   * guarantee at the dimension level. Deletion is one level deeper still: it
-   * also records the id in `removed` so the registry entry point refuses it
-   * again, and prunes the three sections that key by layer id —order, the
-   * rename, and the annotation config. None of that belongs to the generic
-   * teardown, where it would erase a layer that is only temporarily empty.
+   * Component-owned layers (Measure, Heatmap) clear their data —no id is
+   * recorded in `removed`, so the component can re-register after redraw.
+   * The event bus carries the notification; the component owns the wipe.
+   *
+   * User-added layers are deleted for good: the id is added to `removed` so
+   * the registry refuses it again, and the three sections that key by layer
+   * id —order, the rename, the annotation config—are pruned. Only a user
+   * who pointed at a row and chose "delete" knows the layer is gone for
+   * good; per-dimension resets drop one provenance marker instead, which is
+   * the same guarantee at the dimension level. Deletion is one level deeper
+   * still — nothing about generic teardown can say the id is retired.
    *
    * Everything pruned here is scheduled on the one shared debounce, so the
    * whole record —removed, order, annotations, names, per-layer intent— leaves
@@ -868,6 +891,35 @@ class LayerManager implements LayerAPI {
    * @returns {boolean} true if the layer existed, false otherwise.
    */
   deleteLayer(id: string): boolean {
+    const layerInfo = this.layerRegistry.get(id);
+    if (!layerInfo) return false;
+
+    // Component-owned layers clear their data instead of being retired —
+    // MeasureControl and HeatmapControl still own a live handle and need the
+    // id to stay registerable for the next draw.
+    if (layerInfo.styleSetters) {
+      this.events.emit(EVENTS.LAYER_DELETED, { id });
+      return true;
+    }
+
+    // The colour basemap is also component-owned: clearing it unregisters the
+    // surface and resets the fill state so the map returns to the grid empty
+    // state. The id stays registerable so the colour can be re-picked.
+    if (id === CONST.COLOR.MAP_ID) {
+      const removed = this.unregisterLayer(id);
+      if (!removed) return false;
+      if (this.ui) {
+        this.ui.colorSurface = null;
+        this.ui.currentColor = CONST.COLOR.DEFAULT;
+        this.ui.authorVisible.set(id, false);
+        this.ui.saveState();
+        this.ui.syncToggleAll(CONST.GROUP.BASE);
+        this.ui.syncNoBasemap();
+      }
+      this.persistence.flushAll();
+      return true;
+    }
+
     const removed = this.unregisterLayer(id);
     if (!removed) return false;
 
@@ -900,6 +952,8 @@ class LayerManager implements LayerAPI {
       this.ui.saveNamesState();
     }
     this.ui.saveState();
+    this.ui.syncToggleAll(layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY);
+    this.ui.syncNoBasemap();
     this.persistence.flushAll();
     return true;
   }
@@ -985,6 +1039,34 @@ class LayerManager implements LayerAPI {
     this.debouncedEnforce?.cancel();
     this.isEnforcing = true;
     try {
+      // Leaflet's getMaxZoom() is options.maxZoom ?? <max of the layers'
+      // options.maxZoom> ?? Infinity, and folium emits a map with no declared
+      // max zoom: the map would zoom past every layer's native range into
+      // empty space. Own the ceiling in that case — the union of the
+      // registered layers' native options.maxZoom, falling back to a default
+      // when nothing declares one. The layers' native values are the author's
+      // declaration, not the user's zoomRange (which resolves through
+      // effectiveShown, not map zoom limits).
+      //
+      // Re-runs every pass instead of guarding on map.options.maxZoom: that
+      // value is our own previous write, so guarding on it froze the ceiling
+      // at the first pass and a layer registered later could never raise it.
+      // And it stays a union rather than max(prev, layers), so a removed
+      // layer's range no longer holds the ceiling up.
+      if (!this.authorMaxZoomDeclared) {
+        let max = 0;
+        for (const li of this.layers) {
+          const opts = li.layer?.options as { maxZoom?: number } | undefined;
+          if (
+            typeof opts?.maxZoom === "number" &&
+            Number.isFinite(opts.maxZoom) &&
+            opts.maxZoom > max
+          ) {
+            max = opts.maxZoom;
+          }
+        }
+        this.map.options.maxZoom = max > 0 ? max : CONST.AUTHOR_ZOOM_FALLBACK_MAX;
+      }
       for (let i = 0; i < this.layers.length; i++) {
         const layerInfo = this.layers[i];
         const layer = this.findLayer(layerInfo);

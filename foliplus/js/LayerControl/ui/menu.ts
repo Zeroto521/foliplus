@@ -23,9 +23,9 @@ import { layerHasLabelFields, layerHasStyleDelegation } from "./style/index.js";
  *                   disabled, so it closes the quiet part of the list.
  *   5. Delete     — behind a divider, the one destructive entry. Armed in
  *                   place on the first click and executed on the second; it is
- *                   rendered only for rows that own a Leaflet layer (data
- *                   layers, tile basemaps included), the solid color basemap
- *                   renders it disabled, and a component layer renders nothing.
+ *                   rendered for every layer. The label varies by semantics:
+ *                   "Delete Layer" for user-owned data layers, "Clear Data"
+ *                   for component-owned layers.
  *
  * Focus leads because the trigger-adjacent slot is the mis-click zone: the menu
  * opens downward from the row's bottom edge (`top: 100%`) while the ⋮ button is
@@ -144,15 +144,14 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   );
 
   // Delete goes behind a divider: everything above it is reversible (view,
-  // configure, rename, inspect), and this is the only entry that is not. The
-  // criterion is the row's shape, not something the caller declares — a row
-  // that owns a Leaflet layer is a data layer and can be deleted, tile
-  // basemaps included, since deleting every base layer down to the default
-  // gray background is a legal end state. A component layer (no layer of its
-  // own: the heatmap and measure canvases) renders nothing here; its
-  // "restore defaults" verb is a different action and lands separately. The
-  // one exception is the solid color basemap, which renders the entry
-  // disabled: hiding it would read as "the feature does not exist".
+  // configure, rename, inspect), and this is the only entry that is not. Three
+  // modes share the entry: user-owned data layers (retire the id for good,
+  // tile basemaps included — dropping to a bare background is a legal end
+  // state), component-owned layers (Measure, Heatmap: clear their data through
+  // LAYER_DELETED, id stays registerable), and the solid colour basemap (clear
+  // the fill and return to the grid empty state). The label and tooltip vary
+  // by mode — "Delete Layer" for real deletion, "Clear Data" for component
+  // clear — so the action name matches the effect.
   const deleteMode = deleteModeFor(ui, layerId);
   if (deleteMode !== "absent") {
     menu.appendChild(
@@ -184,14 +183,16 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   ui.activeMenu = { item, menu, layerId };
 
   // Focus the first menu item so Enter/Space activate it and Escape closes.
-  const firstItem = menu.querySelector(".foliplus-layer-more-menu li") as HTMLElement;
-  if (firstItem) firstItem.focus();
+  // The focus-layer entry is always appended first, so this is a straight cast.
+  (
+    menu.querySelector<HTMLElement>(".foliplus-layer-more-menu li") as HTMLElement
+  ).focus();
 };
 
-/** Why the ⋮ menu shows a delete entry for `item`. `absent` means render
+/** Why the ⋮ menu shows a delete/clear entry for `item`. `absent` means render
  *  nothing — see the comment at the call site for why a component layer is
  *  not "disabled delete". */
-type DeleteMode = "available" | "disabled" | "absent";
+type DeleteMode = "clear" | "delete" | "absent";
 
 /** How long an armed delete entry waits for its confirming click. Anything
  *  that closes the menu disarms it anyway, so this only covers the case where
@@ -200,43 +201,62 @@ const DELETE_ARMED_TIMEOUT_MS = 3000;
 
 /** The one armed delete entry, if any: only one menu is open at a time, so a
  *  module-level pointer cannot refer to two rows at once. */
-let armedDelete: { ui: LayerUI; label: HTMLElement; li: HTMLElement } | null = null;
+let armedDelete: {
+  ui: LayerUI;
+  label: HTMLElement;
+  li: HTMLElement;
+  isClear: boolean;
+  originalTitle: string;
+} | null = null;
 let armedDeleteTimer: ReturnType<typeof setTimeout> | undefined;
 
 const deleteModeFor = (ui: LayerUI, layerId: string): DeleteMode => {
   if (!layerId) return "absent";
-  if (layerId === CONST.COLOR.MAP_ID) return "disabled";
+  // The solid colour basemap uses delete semantics (row disappears, id stays
+  // registerable so the colour can be re-picked) — same as a user data layer.
+  if (layerId === CONST.COLOR.MAP_ID) return "delete";
+  // Component-owned layers (Measure, Heatmap) clear their data instead of being
+  // retired. The id stays registerable so the component can re-draw.
+  if (isComponentLayer(ui, layerId)) return "clear";
   // `findLayer`, not `registry.get(id).layer`: folium registers its own layers
   // by id only, so the entry's `layer` stays null until something resolves it.
   // Testing the field would read every layer on a real folium map as a component
   // layer and render no delete entry at all. `findLayer` walks the map's own
   // layer registry to find the object.
-  return ui.m.findLayer(layerId) ? "available" : "absent";
+  return ui.m.findLayer(layerId) ? "delete" : "absent";
+};
+
+/** True when the layer is owned by a foliplus component — Measure, Heatmap
+ *  (styleSetters). Matches the discriminator in `LayerManager.deleteLayer`, so
+ *  the two stay in lockstep. The solid colour basemap is handled separately in
+ *  `deleteModeFor` and returns "delete" instead of "clear". */
+const isComponentLayer = (ui: LayerUI, layerId: string): boolean => {
+  return Boolean(ui.m.layerRegistry.get(layerId)?.styleSetters);
 };
 
 const buildDeleteItem = (
   ui: LayerUI,
   mode: Exclude<DeleteMode, "absent">,
 ): HTMLElement => {
-  const disabled = mode === "disabled";
+  const isClear = mode === "clear";
   const label = dom.el(
     "span",
     { class: CONST.CLASSES.MENU_DELETE_LABEL },
-    ui.T("delete_layer"),
+    ui.T(isClear ? "clear_data" : "delete_layer"),
   );
+  const tooltip = ui.T(isClear ? "clear_data_tooltip" : "delete_layer_tooltip");
   const item = dom.el(
     "li",
     {
       "data-action": CONST.ACTION.DELETE_LAYER,
+      "data-mode": mode,
       role: "menuitem",
       tabindex: "0",
-      title: disabled ? ui.T("delete_layer_disabled") : ui.T("delete_layer_tooltip"),
-      "aria-disabled": disabled ? "true" : "false",
+      title: tooltip,
     },
     { html: Icons.DELETE_ICON },
     label,
   );
-  if (disabled) item.setAttribute("disabled", "disabled");
   return item;
 };
 
@@ -247,10 +267,17 @@ const armDelete = (ui: LayerUI, li: HTMLElement): void => {
   const label = li.querySelector<HTMLElement>(`.${CONST.CLASSES.MENU_DELETE_LABEL}`);
   if (!label) return;
   disarmDelete();
-  armedDelete = { ui, label, li };
-  label.textContent = ui.T("delete_layer_confirm");
+  const isClear = li.dataset.mode === "clear";
+  // The title attribute is set by buildDeleteItem at entry construction, so
+  // there is no null to fall back to.
+  const originalTitle = li.getAttribute("title")!;
+  armedDelete = { ui, label, li, isClear, originalTitle };
+  label.textContent = ui.T(isClear ? "clear_data_confirm" : "delete_layer_confirm");
   li.classList.add(CONST.CLASSES.MENU_DELETE_ARMED);
-  li.setAttribute("title", ui.T("delete_layer_confirm"));
+  li.setAttribute(
+    "title",
+    ui.T(isClear ? "clear_data_confirm" : "delete_layer_confirm"),
+  );
   armedDeleteTimer = setTimeout(disarmDelete, DELETE_ARMED_TIMEOUT_MS);
 };
 
@@ -261,7 +288,8 @@ const disarmDelete = (): void => {
   armedDeleteTimer = undefined;
   const armed = armedDelete;
   if (!armed) return;
-  armed.label.textContent = armed.ui.T("delete_layer");
+  armed.label.textContent = armed.ui.T(armed.isClear ? "clear_data" : "delete_layer");
+  armed.li.setAttribute("title", armed.originalTitle);
   armed.li.classList.remove(CONST.CLASSES.MENU_DELETE_ARMED);
   armedDelete = null;
 };

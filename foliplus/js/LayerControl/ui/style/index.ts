@@ -31,6 +31,7 @@ import { NUMBER_FORMAT, type NumberStyle } from "#common/format.js";
 import { createRowPanel } from "#common/panel.js";
 import * as CONST from "../../const.js";
 import * as SVGs from "../../icon.js";
+import { authorZoomBoundsForLayer } from "../apply.js";
 import type { LayerUI } from "../index.js";
 import { finishRename } from "../rename.js";
 import {
@@ -411,8 +412,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
     const maxInput = row.querySelector(
       `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MAX}`,
     ) as HTMLInputElement;
-    const mapMin = ui.m.map.getMinZoom();
-    const mapMax = ui.m.map.getMaxZoom();
+    const [mapMin, mapMax] = authorZoomBoundsForLayer(ui, layerId);
     let min = clampZoom(parseFloat(minInput.value), mapMin, mapMax);
     let max = clampZoom(parseFloat(maxInput.value), mapMin, mapMax);
 
