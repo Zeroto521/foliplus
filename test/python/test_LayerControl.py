@@ -252,7 +252,11 @@ class TestLayerControlRendering:
         folium.TileLayer("OpenStreetMap", name="OSM", overlay=False).add_to(m)
         html = render(m)
         # DOM API sets draggable at runtime via setAttribute
-        assert 'draggable:"true"' in html or 'draggable: "true"' in html or 'draggable="true"' in html
+        assert (
+            'draggable:"true"' in html
+            or 'draggable: "true"' in html
+            or 'draggable="true"' in html
+        )
 
     def test_locale_en_keys(self, base_map: folium.Map):
         """Default (en) locale keys rendered."""
