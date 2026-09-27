@@ -81,7 +81,7 @@ function makeRenderer(crs: any = makeEPSG3857Mock()): ExportRenderer {
   const map = {
     options: { crs },
     getContainer: () => container,
-    foliplus: { LayerAPI: { layers: [], getLayerPanes: () => [] } },
+    foliplus: { LayerAPI: withApi([]) },
   };
   return new ExportRenderer(map as any);
 }
@@ -114,6 +114,23 @@ function makeRC(w: number, h: number, ctx = makeMockCtx(), scale = 1) {
     sh: h,
   };
 }
+
+/** Wrap layer entries in a LayerAPI mock with intentVisible derived from
+ *  each entry's `visible` field (defaulting to true). */
+function withApi(
+  layers: Array<{ id: string; visible?: boolean; layer?: unknown; canvas?: unknown }>,
+  getLayerPanes: (layer: unknown) => string[] = () => [],
+) {
+  return {
+    layers,
+    getLayerPanes,
+    intentVisible: (id: string) => {
+      const entry = layers.find(l => l.id === id);
+      return entry?.visible ?? true;
+    },
+  };
+}
+
 /** Tiles centered on the container: 1000x1000 crop at zoom 2 keeps every tile
  *  inside the crop rect, so the viewport filter survives all of them. */
 
@@ -149,7 +166,7 @@ const rcTiles = (rc: ReturnType<typeof makeRC>, n: number) => {
     getZoom: () => 2,
     getCenter: () => ({ lat: 26.08, lng: 119.3 }),
     getContainer: () => document.createElement("div"),
-    foliplus: { LayerAPI: { layers: [], getLayerPanes: () => [] } },
+    foliplus: { LayerAPI: withApi([]) },
   };
   return new ExportRenderer(map).tilePositions(
     rc,
@@ -549,14 +566,11 @@ describe("ExportRenderer.render — onProgress across tile layers", () => {
     // bar from the top of the tile range to the end of render()'s budget.
     const vector = { options: {} };
     renderer.map.foliplus = {
-      LayerAPI: {
-        layers: [
-          { visible: true, layer: bottomLayer },
-          { visible: true, layer: topLayer },
-          { visible: true, layer: vector },
-        ],
-        getLayerPanes: () => [],
-      },
+      LayerAPI: withApi([
+        { id: "bottom", visible: true, layer: bottomLayer },
+        { id: "top", visible: true, layer: topLayer },
+        { id: "vector", visible: true, layer: vector },
+      ]),
     };
 
     const onProgress = vi.fn();
@@ -581,15 +595,11 @@ describe("ExportRenderer.render — onProgress across tile layers", () => {
     stubBitmaps();
     stubCanvas();
     renderer.map.foliplus = {
-      LayerAPI: {
-        layers: [
-          { visible: false, layer: hidden },
-          // No `layer` at all: an ImageOverlay that has no URL either.
-          { visible: true, layer: {} },
-          { visible: true, layer: visible },
-        ],
-        getLayerPanes: () => [],
-      },
+      LayerAPI: withApi([
+        { id: "hidden", visible: false, layer: hidden },
+        { id: "empty", visible: true, layer: {} },
+        { id: "visible", visible: true, layer: visible },
+      ]),
     };
 
     const onProgress = vi.fn();
@@ -631,13 +641,10 @@ describe("ExportRenderer.render — onProgress across tile layers", () => {
     // bar must still leave the 0-70 range rather than sit at 0.
     const vector = { options: {} };
     renderer.map.foliplus = {
-      LayerAPI: {
-        layers: [
-          { visible: true, layer },
-          { visible: true, layer: vector },
-        ],
-        getLayerPanes: () => [],
-      },
+      LayerAPI: withApi([
+        { id: "a", visible: true, layer },
+        { id: "vector", visible: true, layer: vector },
+      ]),
     };
 
     const onProgress = vi.fn();
@@ -667,14 +674,10 @@ describe("ExportRenderer.render — onProgress across tile layers", () => {
     stubBitmaps();
     const renderTileLayer = vi.spyOn(renderer, "renderTileLayer");
     renderer.map.foliplus = {
-      LayerAPI: {
-        layers: [
-          // Enumerates tiles, but none survive the viewport clip.
-          { visible: true, layer: emptyLayer },
-          { visible: true, layer: realLayer },
-        ],
-        getLayerPanes: () => [],
-      },
+      LayerAPI: withApi([
+        { id: "empty", visible: true, layer: emptyLayer },
+        { id: "real", visible: true, layer: realLayer },
+      ]),
     };
 
     const onProgress = vi.fn();
@@ -699,10 +702,7 @@ describe("ExportRenderer.render — onProgress across tile layers", () => {
     // A vector layer, not a TileLayer instance: a makeTileLayer() fixture would
     // pass the `instanceof L.TileLayer` gate and be sized as a tile layer.
     renderer.map.foliplus = {
-      LayerAPI: {
-        layers: [{ visible: true, layer: { options: {} } }],
-        getLayerPanes: () => [],
-      },
+      LayerAPI: withApi([{ id: "vec", visible: true, layer: { options: {} } }]),
     };
 
     const onProgress = vi.fn();
@@ -727,10 +727,7 @@ describe("ExportRenderer.render — onProgress across tile layers", () => {
       tilesNearCenter(CONST.TILE_CONCURRENCY),
     );
     renderer.map.foliplus = {
-      LayerAPI: {
-        layers: [{ visible: true, layer }],
-        getLayerPanes: () => [],
-      },
+      LayerAPI: withApi([{ id: "a", visible: true, layer }]),
     };
 
     await runRender(() => {});
@@ -746,6 +743,50 @@ describe("ExportRenderer.render — onProgress across tile layers", () => {
       { total: CONST.TILE_CONCURRENCY, failed: CONST.TILE_CONCURRENCY },
     ]);
     expect(renderer.tileFailures).toHaveLength(1);
+  });
+
+  it("skips a layer when LayerControl's intent says hidden", async () => {
+    // intentVisible (from LayerControl) returns false even though the layer
+    // is still on the map — the layer should be skipped, no tiles drawn.
+    bigCenter();
+    stubCanvas();
+    const hidden = makeTileLayer();
+    const calcTiles = vi.spyOn(renderer, "calcTiles");
+    renderer.map.foliplus = {
+      LayerAPI: {
+        layers: [{ id: "hidden", layer: hidden }],
+        getLayerPanes: () => [],
+        intentVisible: () => false,
+      },
+    };
+    const renderTileLayer = vi.spyOn(renderer, "renderTileLayer");
+    await runRender(vi.fn());
+    expect(calcTiles).not.toHaveBeenCalled();
+    expect(renderTileLayer).not.toHaveBeenCalled();
+  });
+
+  it("renders a tile layer when no LayerControl is present (fallback to true)", async () => {
+    // No LayerControl on the map → api.intentVisible is undefined → the
+    // `?? true` fallback applies, so a tile layer with a URL is sized and
+    // handed to renderTileLayer.
+    bigCenter();
+    stubCanvas();
+    stubBitmaps();
+    const layer = makeTileLayer();
+    const calcTiles = vi
+      .spyOn(renderer, "calcTiles")
+      .mockReturnValue(tilesNearCenter(CONST.TILE_CONCURRENCY));
+    renderer.map.foliplus = {
+      LayerAPI: {
+        layers: [{ id: "tile", layer }],
+        getLayerPanes: () => [],
+      },
+    };
+    const renderTileLayer = vi.spyOn(renderer, "renderTileLayer");
+    await runRender(vi.fn());
+    expect(calcTiles).toHaveBeenCalledTimes(1);
+    expect(calcTiles.mock.calls[0][0]).toBe(layer);
+    expect(renderTileLayer).toHaveBeenCalled();
   });
 });
 
@@ -772,7 +813,7 @@ describe("ExportRenderer.render — layer pass routing", () => {
       getContainer: () => container,
       getZoom: () => 2,
       getCenter: () => ({ lat: 26.08, lng: 119.3 }),
-      foliplus: { LayerAPI: { layers: [], getLayerPanes: () => [] } },
+      foliplus: { LayerAPI: withApi([]) },
     };
     savedMapDesc = Object.getOwnPropertyDescriptor(globalThis, "map");
     savedLDesc = Object.getOwnPropertyDescriptor(globalThis, "L");
@@ -844,14 +885,14 @@ describe("ExportRenderer.render — layer pass routing", () => {
     const getLayerPanes = vi.fn(() => ["vector-pane"]);
     const map = (globalThis as any).map;
     map.foliplus = {
-      LayerAPI: {
-        layers: [
-          { visible: true, canvas: canvasLayer },
-          { visible: true, layer: makeTileLayer() },
-          { visible: true, layer: vector },
+      LayerAPI: withApi(
+        [
+          { id: "canvas", visible: true, canvas: canvasLayer },
+          { id: "tile", visible: true, layer: makeTileLayer() },
+          { id: "vector", visible: true, layer: vector },
         ],
         getLayerPanes,
-      },
+      ),
     };
     map.getPane = (name: string) => (name === "vector-pane" ? roots : null);
 
@@ -914,10 +955,7 @@ describe("ExportRenderer.render — layer pass routing", () => {
     map.getPane = (name: string) =>
       name === CONST.ANNOTATION_PANE_PREFIX + "vec" ? labelPane : null;
     map.foliplus = {
-      LayerAPI: {
-        layers: [{ visible: true, id: "vec", layer: { options: {} } }],
-        getLayerPanes: () => [],
-      },
+      LayerAPI: withApi([{ id: "vec", visible: true, layer: { options: {} } }]),
     };
 
     const proto = ExportRenderer.prototype as any;
@@ -966,10 +1004,9 @@ describe("ExportRenderer.render — layer pass routing", () => {
     const vector = { options: {} };
     const map = (globalThis as any).map;
     map.foliplus = {
-      LayerAPI: {
-        layers: [{ visible: true, layer: vector }],
-        getLayerPanes: () => ["vector-pane"],
-      },
+      LayerAPI: withApi([{ id: "vec", visible: true, layer: vector }], () => [
+        "vector-pane",
+      ]),
     };
     map.getPane = () => roots;
 
@@ -1024,10 +1061,9 @@ describe("ExportRenderer.render — layer pass routing", () => {
     const vector = { options: {} };
     const map = (globalThis as any).map;
     map.foliplus = {
-      LayerAPI: {
-        layers: [{ visible: true, layer: vector }],
-        getLayerPanes: () => ["gone-pane"],
-      },
+      LayerAPI: withApi([{ id: "vec", visible: true, layer: vector }], () => [
+        "gone-pane",
+      ]),
     };
     map.getPane = () => null;
 
@@ -1063,9 +1099,10 @@ describe("ExportRenderer.render — layer pass routing", () => {
     const previous = map.foliplus;
     try {
       map.foliplus = {
-        LayerAPI: {
-          layers: [
+        LayerAPI: withApi(
+          [
             {
+              id: "torn",
               visible: true,
               // Present for the tile/filter phases, gone by the render loop —
               // as a torn-down map would appear between the two resolveLayer
@@ -1076,8 +1113,8 @@ describe("ExportRenderer.render — layer pass routing", () => {
               },
             },
           ],
-          getLayerPanes: () => [],
-        },
+          () => [],
+        ),
       };
 
       const proto = ExportRenderer.prototype as any;

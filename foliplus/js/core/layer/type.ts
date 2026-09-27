@@ -73,7 +73,6 @@ interface RegisterLayerOpts {
    */
   paneSpecs?: PaneSpec[];
   iconSvg?: string | null;
-  visible?: boolean;
   /** Layer opacity in [0, 1]. Defaults to 1 (fully opaque). */
   opacity?: number;
   canvas?: HTMLCanvasElement | null;
@@ -115,7 +114,6 @@ interface LayerInfo {
   id: string;
   name: string;
   layer: L.Layer | null;
-  visible: boolean;
   /** Layer opacity in [0, 1]. Defaults to 1 (fully opaque). */
   opacity?: number;
   isBase: boolean;
@@ -535,14 +533,26 @@ interface LayerAPI {
    * toggle-all control follow, and the persisted hidden set is updated so the
    * choice survives a reload.
    *
-   * This closes the write side of the visibility contract. `LayerInfo.visible`,
-   * `onToggle`, and the persisted hidden set all existed already, but only the
-   * panel's checkbox wrote them, so a host page that wanted to hide layers by
-   * id had to synthesize a DOM event against a row it does not own.
+   * This closes the write side of the visibility contract. The intent
+   * (persisted hidden set + `userOverrides`) is the only stored source;
+   * `LayerInfo` itself carries no visibility — so a host page that wanted to
+   * hide layers by id never had to synthesize a DOM event against a row it
+   * does not own.
    *
    * @returns true if the layer was found and its visibility was set.
    */
   setVisible: (id: string, visible: boolean) => boolean;
+  /** The user's stored visibility choice (persisted intent) for a layer id,
+   *  or the author's declared default when the user never touched it.
+   *  This is the panel checkbox's fact, not the map's membership — a layer
+   *  marked visible here may still be off the map because policy (focus,
+   *  zoom range) is suppressing it. Callers that need "is it drawn right
+   *  now" read the map directly; callers that need "did the user hide it"
+   *  read this. Only LayerManager implements this; the lightweight stub
+   *  has no intent storage, so a consumer sees `undefined` and falls back
+   *  to `true`.
+   */
+  intentVisible?: (id: string) => boolean;
   createCanvas: (opts: CreateCanvasOpts) => CreateCanvasAPI;
   createLayers: (opts: CreateLayersOpts) => CreateLayersAPI;
   extractPoints: (

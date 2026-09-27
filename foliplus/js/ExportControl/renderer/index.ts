@@ -186,7 +186,11 @@ class ExportRenderer {
         }> = [];
         for (const li of layers) {
           const layer = this.resolveLayer(li);
-          if (!li.visible || !(layer instanceof L.TileLayer) || !layerUrl(layer)) {
+          if (
+            !(api.intentVisible?.(li.id) ?? true) ||
+            !(layer instanceof L.TileLayer) ||
+            !layerUrl(layer)
+          ) {
             continue;
           }
           const tiles = this.tilePositions(
@@ -227,7 +231,7 @@ class ExportRenderer {
       const passable = layers.filter(li => {
         const layer = this.resolveLayer(li);
         return (
-          li.visible &&
+          (api.intentVisible?.(li.id) ?? true) &&
           (li.canvas || (layer && !(layer instanceof L.TileLayer && layerUrl(layer))))
         );
       });

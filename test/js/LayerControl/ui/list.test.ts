@@ -145,12 +145,12 @@ describe("ui/list row placement", () => {
     );
     expect(row).not.toBeNull();
     const layer = manager.layerRegistry.get("A")!;
-    const visibleBefore = layer.visible;
     row!.remove();
 
     expect(initLayerItem(ui, layer)).toBe(false);
-    // No row means no syncVisibility: the mirror keeps whatever it held.
-    expect(layer.visible).toBe(visibleBefore);
+    // No row means no buildRowCell: nothing is derived from the (now missing)
+    // row, and the registry entry itself is untouched.
+    expect(manager.layerRegistry.get("A")).toBe(layer);
   });
 
   it("brings its own header when the first row of an empty group arrives", () => {

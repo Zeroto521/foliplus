@@ -5,10 +5,11 @@
 
   // Simulate user hiding tile layers so the export canvas has only the
   // marker — without this the opaque tile pixels would mask the marker's
-  // alpha in the final image. Uses the same shallow field-write pattern as
-  // register_preserves_visible_on_reentry.js ("Simulate user hiding the layer").
+  // alpha in the final image. `setVisible` records the intent and drives
+  // the map; directly writing `layer.visible` would no longer reach the
+  // executor after T126 collapsed that mirror.
   for (const li of [...api.layers]) {
-    if (li.layer instanceof L.TileLayer) li.visible = false;
+    if (li.layer instanceof L.TileLayer) api.setVisible(li.id, false);
   }
 
   const id = "__export_opacity_marker__";

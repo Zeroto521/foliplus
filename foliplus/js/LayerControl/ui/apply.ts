@@ -28,7 +28,7 @@
 // a change on either side produces an op.
 import { resetGridLayerView } from "#core/leafletAdapter.js";
 import type { LayerUI } from "./index.js";
-import { type Projection, projectAll, projectLayer } from "./store.js";
+import { type Projection, intentVisibleOf, projectAll, projectLayer } from "./store.js";
 
 /** One write the carrier dispatcher accepts. `opacity` and `zoomRange`
  *  being `undefined` mean "no user value" — a Reset back to the author's
@@ -128,11 +128,6 @@ const applyStateOp = (ui: LayerUI, layerInfo: LayerInfo, op: StateOp): void => {
     // layer AND an `onToggle` (a hybrid) fires both: the map membership and
     // the callback each carry a distinct piece of state.
     if (layerInfo.onToggle) layerInfo.onToggle(op.value);
-    // `layerInfo.visible` is a real-time mirror of the map state; the
-    // user's intent lives in `hiddenIds` / `userOverrides`. This is
-    // now the only writer of this field — the visibility sweep's mirror
-    // write is gone.
-    layerInfo.visible = op.value;
     return;
   }
   if (op.type === "opacity") {
@@ -225,15 +220,14 @@ const applyStateOp = (ui: LayerUI, layerInfo: LayerInfo, op: StateOp): void => {
  *  across the swap.
  *
  *  This is the invariant the executor is built around: the only field that
- *  writes `layerInfo.visible`
- *  and `ui.m.map.addLayer` / `removeLayer` is `effectiveShown`, and
- *  `effectiveShown = intent && policy` — a derived dimension (focus, zoom
- *  range) can only pull a layer off the map, never push one onto it. That
- *  is why this executor is the only write path for map membership and why
- *  `intent.visible` is no longer diffed separately: any change that would
- *  authorise an add goes through `intent`, so the effective value already
- *  reflects the user's authorisation. The one-way gate that used to live in
- *  `rangeHiddenIds` is now the shape of this diff.
+ *  writes map membership is `effectiveShown`, and `effectiveShown = intent
+ *  && policy` — a derived dimension (focus, zoom range) can only pull a
+ *  layer off the map, never push one onto it. That is why this executor is
+ *  the only write path for map membership and why `intent.visible` is no
+ *  longer diffed separately: any change that would authorise an add goes
+ *  through `intent`, so the effective value already reflects the user's
+ *  authorisation. The one-way gate that used to live in `rangeHiddenIds`
+ *  is now the shape of this diff.
  */
 const applyProjection = (ui: LayerUI, id: string): void => {
   const layerInfo = ui.m.layerRegistry.get(id);
@@ -253,9 +247,7 @@ const applyProjection = (ui: LayerUI, id: string): void => {
     // the ground truth — `hasLayer` would always return false and mask a
     // real visible→hidden transition.
     const layer = layerInfo.layer ?? ui.m.findLayer(layerInfo);
-    const baselineVisible = layer
-      ? ui.m.map.hasLayer(layer)
-      : layerInfo.visible !== false;
+    const baselineVisible = layer ? ui.m.map.hasLayer(layer) : intentVisibleOf(ui, id);
     prev = {
       id,
       intent: { visible: baselineVisible },
@@ -318,23 +310,9 @@ const applyProjection = (ui: LayerUI, id: string): void => {
     applyStateOp(ui, layerInfo, { type: "zoomRange", value: next.zoomRange });
   }
 
-  // The mirror field is the panel's "is this on the map" fact, and the
-  // executor is its only writer. It records what the write *achieved*: the
-  // projection's answer when the op had a carrier to land on, `false` when
-  // the layer is not linked yet and there was nothing to write to. Recording
-  // an unlandable write as done is what made `checked`, `visible` and map
-  // membership disagree on reload — the op is skipped and the next
-  // `applyProjection`, once the layer is linked, still sees the difference.
-  const canWriteVisible = Boolean(layer) || Boolean(layerInfo.onToggle);
-  layerInfo.visible = !authorised
-    ? layerInfo.visible // unauthorised — the declaration stands
-    : canWriteVisible
-      ? next.effectiveShown
-      : false;
-
   ui.appliedState.set(id, {
     ...next,
-    effectiveShown: layerInfo.visible,
+    effectiveShown: next.effectiveShown,
     carrier: carrierToken,
   });
 };

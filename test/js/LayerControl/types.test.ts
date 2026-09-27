@@ -43,21 +43,37 @@ describe("RegisterLayerOpts", () => {
   it("rejects a declared key with the wrong value type", () => {
     // The whole point of typing opts rather than accepting unknown: a truthy
     // garbage value must not be admissible where a boolean is expected.
-    // @ts-expect-error visible is boolean | undefined
-    const bad = make().createLayerInfo({ id: "l1", visible: "yes" });
-
     // @ts-expect-error paneSpecs is PaneSpec[]
     const notArray = make().createLayerInfo({ id: "l1", paneSpecs: "pane" });
 
     // @ts-expect-error isBase is boolean
     const notBool = make().createLayerInfo({ id: "l1", isBase: "true" });
 
+    // @ts-expect-error opacity is number
+    const notNumber = make().createLayerInfo({ id: "l1", opacity: "half" });
+
     // createLayerInfo runs `opts.x ?? existing ?? default` with no type check,
     // so garbage at a declared key lands in the registry verbatim. This is
     // what callers are protected from by the type alone.
-    expect(bad.visible).toBe("yes");
     expect(notArray.paneSpecs).toBe("pane");
     expect(notBool.isBase).toBe("true");
+    expect(notNumber.opacity).toBe("half");
+  });
+
+  it("rejects a removed field that used to leak intent onto the substrate", () => {
+    // `visible` used to live on RegisterLayerOpts / LayerInfo as a mirror of
+    // the map's membership. T126 folded it into the persisted intent, so it
+    // no longer accepts a caller value at all — an index-signature hole that
+    // would let callers write a stray `visible` back onto LayerInfo is
+    // exactly what this file exists to close.
+    // @ts-expect-error visible was removed from RegisterLayerOpts
+    make().createLayerInfo({ id: "l1", visible: false });
+
+    // The closure is verified at compile time by the two directives above; a
+    // runtime assertion would have to construct a `LayerInfo` with the removed
+    // field, which is exactly what the closure exists to prevent.
+    const li = new LayerRegistry([{ id: "l1", name: "L1" }], null).at(0)!;
+    expect(Object.keys(li)).not.toContain("visible");
   });
 
   it("accepts every declared field at its declared type", () => {
@@ -86,7 +102,6 @@ describe("RegisterLayerOpts", () => {
       paneName: "myPane",
       paneSpecs,
       iconSvg: svg,
-      visible: false,
       opacity: 0.5,
       canvas: null,
       onToggle,
@@ -105,7 +120,6 @@ describe("RegisterLayerOpts", () => {
       isBase: false,
       paneName: "myPane",
       paneSpecs,
-      visible: false,
       opacity: 0.5,
       source: "data.csv",
       updatedAt: 123,
