@@ -236,7 +236,6 @@ const applyStateOp = (ui: LayerUI, layerInfo: LayerInfo, op: StateOp): void => {
       }
       layerInfo.opacity = value;
     }
-    return;
   }
 };
 
