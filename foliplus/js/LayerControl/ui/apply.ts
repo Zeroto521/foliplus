@@ -27,7 +27,7 @@
 // "Projection" is what the diff compares — intent + policy together, so
 // a change on either side produces an op.
 import type { LayerUI } from "./index.js";
-import { type Projection, projectAll, projectLayer } from "./store.js";
+import { projectAll, projectLayer } from "./store.js";
 
 /** One write the carrier dispatcher accepts. `opacity` and `zoomRange`
  *  being `undefined` mean "no user value" — a Reset back to the author's
