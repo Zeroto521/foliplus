@@ -217,7 +217,10 @@ describe("LayerUI shell — delegates", () => {
     expect(typeof ui.colorLayerName()).toBe("string");
   });
 
-  it("clicking the color checkbox hides basemaps and activates the color layer", () => {
+  it("checking the color row's checkbox activates the color layer", () => {
+    // Row-body clicks used to trigger showColorLayer directly; the checkbox
+    // change is now the only legitimate path (T201). The row still gets the
+    // .active class + the enforceOrder z-order write-through.
     const enforce = vi.spyOn(manager, "enforceOrder");
     const colorItem = ui.uiContainer.querySelector(
       `[${CONST.DATA.LAYER_ID}="${CONST.COLOR.MAP_ID}"]`,
