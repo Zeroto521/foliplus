@@ -4,19 +4,15 @@
 // "Label" drawer that layers their own setters alongside LayerControl's
 // opacity / zoom-range rows.
 import { type LabelStyleValues, renderLabelControls } from "#core/labelControl.js";
-import { dom } from "#common/dom.js";
-import {
-  BORDER_WEIGHT,
-  bindLiveColor,
-  bindLiveNumber,
-  colorInput,
-  inlineControls,
-  numberInput,
-} from "#common/form.js";
+import { BORDER_WEIGHT } from "#common/form.js";
 import { createRowPanel } from "#common/panel.js";
 import * as CONST from "../../const.js";
 import * as SVGs from "../../icon.js";
 import type { LayerUI } from "../index.js";
+import {
+  bindBorderRow as bindBorderRowShared,
+  buildBorderRow as buildBorderRowShared,
+} from "./borderRow.js";
 import { appendResetFooter, sectionHeading } from "./frame.js";
 import { buildOpacityRow, layerCanOpacity } from "./opacity.js";
 import { buildZoomRangeRow, canShowZoomRange } from "./zoomRange.js";
@@ -30,9 +26,10 @@ const layerHasStyleDelegation = (ui: LayerUI, layerId: string): boolean => {
 };
 
 /** Build the border-style row for a delegated layer (only HeatmapControl
- *  publishes borderWeight / borderColor today). Shares the color+number
- *  inline chrome with the label color/size row so the drawer stays visually
- *  consistent. Returns null when the layer publishes no border setters. */
+ *  publishes borderWeight / borderColor today). Delegates to the shared
+ *  builder in `./borderRow.ts` — same shell as the vector border row, so
+ *  the two read identically — with the `styleSetters` write target.
+ *  Returns null when the layer publishes no border setters. */
 const buildBorderRow = (ui: LayerUI, layerId: string): HTMLElement | null => {
   const li = ui.m.layerRegistry.get(layerId);
   const setters = li?.styleSetters;
@@ -46,43 +43,25 @@ const buildBorderRow = (ui: LayerUI, layerId: string): HTMLElement | null => {
     borderColor?: string;
   };
 
-  const parts: HTMLElement[] = [];
-  if (setters.borderColor) {
-    const colorInputEl = colorInput({
-      value: values.borderColor,
-      ariaLabel: ui._("foliplus.border_color"),
-    });
-    bindLiveColor(colorInputEl as HTMLInputElement, value =>
-      entry()?.styleSetters?.borderColor?.(value),
-    );
-    parts.push(colorInputEl);
-  }
-  if (setters.borderWeight) {
-    const numberInputEl = numberInput({
-      value:
-        typeof values.borderWeight === "number"
-          ? values.borderWeight
-          : BORDER_WEIGHT.DEFAULT,
-      min: BORDER_WEIGHT.MIN,
-      max: BORDER_WEIGHT.MAX,
-      step: BORDER_WEIGHT.STEP,
-      ariaLabel: ui._("foliplus.border_weight"),
-    });
-    bindLiveNumber(numberInputEl as HTMLInputElement, {
-      min: BORDER_WEIGHT.MIN,
-      max: BORDER_WEIGHT.MAX,
-      fallback: BORDER_WEIGHT.DEFAULT,
-      onCommit: value => entry()?.styleSetters?.borderWeight?.(value),
-    });
-    parts.push(numberInputEl);
-  }
-
-  return dom.el(
-    "div",
-    { class: CONST.CLASSES.FORM_ROW },
-    dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("border")),
-    dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, inlineControls(...parts)),
-  );
+  const hasColor = !!setters.borderColor;
+  const hasWeight = !!setters.borderWeight;
+  const row = buildBorderRowShared({
+    rowClass: CONST.CLASSES.FORM_ROW,
+    label: ui.T("border"),
+    color: values.borderColor,
+    weight: typeof values.borderWeight === "number" ? values.borderWeight : BORDER_WEIGHT.DEFAULT,
+    hasColorInput: hasColor,
+    hasWeightInput: hasWeight,
+  });
+  bindBorderRowShared(row, {
+    onChangeColor: hasColor
+      ? value => entry()?.styleSetters?.borderColor?.(value)
+      : undefined,
+    onChangeWeight: hasWeight
+      ? value => entry()?.styleSetters?.borderWeight?.(value)
+      : undefined,
+  });
+  return row;
 };
 
 /** Build the style panel DOM for a layer that delegates its style via

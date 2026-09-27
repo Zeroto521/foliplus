@@ -22,19 +22,14 @@
 // `inlineControls` — the same recipe as the delegated border row and the
 // annotation label row, so a border row reads identically whether the layer
 // paints through `setStyle` or through a component's own canvas.
-import { dom } from "#common/dom.js";
-import {
-  BORDER_WEIGHT,
-  bindLiveColor,
-  bindLiveNumber,
-  colorInput as formColorInput,
-  inlineControls,
-  normalizeHexColor,
-  numberInput,
-} from "#common/form.js";
+import { BORDER_WEIGHT, normalizeHexColor } from "#common/form.js";
 import * as CONST from "../../const.js";
 import type { LayerUI } from "../index.js";
 import { markOverride, saveState, unmarkOverride } from "../state.js";
+import {
+  bindBorderRow as bindBorderRowShared,
+  buildBorderRow as buildBorderRowShared,
+} from "./borderRow.js";
 import { hasSetStyleLeaf, pinStyleOnHighlight } from "./pin.js";
 
 /** A node in the layer tree that a border walk may reach. `setStyle` alone
@@ -344,9 +339,10 @@ const displayColor = (value: string): string => {
     .join("")}`;
 };
 
-/** Build the border form row: color swatch + width number input. Both
- *  controls live inside one FORM_CONTROL via `inlineControls`, so the row
- *  reads the same as the delegated border row and the label row.
+/** Build the border form row: color swatch + width number input. Delegates
+ *  to the shared builder in `./borderRow.ts` — same shell as the delegated
+ *  drawer's border row, so the two read identically — with the vector write
+ *  target: `commitBorderColor` / `commitBorderWeight` on every commit.
  *
  *  Each input's initial value is the stored choice, falling back to the
  *  author's own `options` — never a constant — so the row shows what the
@@ -354,51 +350,29 @@ const displayColor = (value: string): string => {
  *  swatch's own form by `displayColor` before it reaches the field. */
 const buildBorderRow = (ui: LayerUI, layerId: string): HTMLElement => {
   const author = authoredBorder(ui, layerId);
-  const colorInput = formColorInput({
-    value: displayColor(ui.borderColorMap[layerId] ?? author.color),
+  return buildBorderRowShared({
+    rowClass: `${CONST.CLASSES.FORM_ROW} ${CONST.CLASSES.STYLE_BORDER_ROW}`,
+    label: ui.T("border"),
+    color: displayColor(ui.borderColorMap[layerId] ?? author.color),
+    weight: ui.borderWeightMap[layerId] ?? author.weight,
+    hasColorInput: true,
+    hasWeightInput: true,
     className: CONST.CLASSES.STYLE_BORDER_COLOR_INPUT,
-    ariaLabel: ui.T("style_border_color"),
-  }) as HTMLInputElement;
-  const weightInput = numberInput({
-    value: ui.borderWeightMap[layerId] ?? author.weight,
-    min: BORDER_WEIGHT.MIN,
-    max: BORDER_WEIGHT.MAX,
-    step: BORDER_WEIGHT.STEP,
-    className: CONST.CLASSES.STYLE_BORDER_WEIGHT_INPUT,
-    ariaLabel: ui.T("style_border_weight"),
-  }) as HTMLInputElement;
-
-  return dom.el(
-    "div",
-    { class: `${CONST.CLASSES.FORM_ROW} ${CONST.CLASSES.STYLE_BORDER_ROW}` },
-    dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("border")),
-    dom.el(
-      "div",
-      { class: CONST.CLASSES.FORM_CONTROL },
-      inlineControls(colorInput, weightInput),
-    ),
-  );
+    weightClassName: CONST.CLASSES.STYLE_BORDER_WEIGHT_INPUT,
+    colorAria: ui.T("style_border_color"),
+    weightAria: ui.T("style_border_weight"),
+  });
 };
 
 /** Wire the shared live-color and live-number binders to this row's commit
  *  paths. Called from `openStylePanel`. */
 const bindBorderRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
-  const colorEl = row.querySelector(
-    `.${CONST.CLASSES.STYLE_BORDER_COLOR_INPUT}`,
-  ) as HTMLInputElement | null;
-  if (colorEl) bindLiveColor(colorEl, value => commitBorderColor(ui, layerId, value));
-
-  const weightEl = row.querySelector(
-    `.${CONST.CLASSES.STYLE_BORDER_WEIGHT_INPUT}`,
-  ) as HTMLInputElement | null;
-  if (weightEl) {
-    bindLiveNumber(weightEl, {
-      min: BORDER_WEIGHT.MIN,
-      max: BORDER_WEIGHT.MAX,
-      fallback: BORDER_WEIGHT.DEFAULT,
-      onCommit: value => commitBorderWeight(ui, layerId, value),
-    });
-  }
+  bindBorderRowShared(row, {
+    className: CONST.CLASSES.STYLE_BORDER_COLOR_INPUT,
+    weightClassName: CONST.CLASSES.STYLE_BORDER_WEIGHT_INPUT,
+    onChangeColor: value => commitBorderColor(ui, layerId, value),
+    onChangeWeight: value => commitBorderWeight(ui, layerId, value),
+  });
 };
 
 export {
