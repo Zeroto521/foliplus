@@ -237,7 +237,7 @@ _JS_USED_KEYS = {
     "MeasureControl.tool_distance",
     "MeasureControl.tool_polygon",
     "MeasureControl.tool_circle",
-    "MeasureControl.clear_data",
+    "MeasureControl.tool_clear",
     "MeasureControl.hint_marker",
     "MeasureControl.hint_dist_start",
     "MeasureControl.hint_polygon",
