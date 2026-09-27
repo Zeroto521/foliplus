@@ -9,6 +9,9 @@ const EVENTS = {
   LAYER_CHANGE: "foliplus:layer:change",
   /** A layer was removed from the registry by an external caller (e.g. panel delete). */
   LAYER_REMOVED: "foliplus:layer:removed",
+  /** A layer was deleted from the panel — component-owned layers clear their
+   *  data instead of being marked permanently removed. */
+  LAYER_DELETED: "foliplus:layer:deleted",
   /** A component's active mode changed (measurement start/stop, search mode switch). */
   MODE_CHANGE: "foliplus:mode:change",
   /** Export process started (crop locked / download initiated). */
@@ -30,6 +33,7 @@ const EVENTS = {
 interface EventPayloadMap {
   [EVENTS.LAYER_CHANGE]: undefined;
   [EVENTS.LAYER_REMOVED]: { id: string };
+  [EVENTS.LAYER_DELETED]: { id: string };
   [EVENTS.MODE_CHANGE]: { component: string; mode: string | null };
   [EVENTS.BEFORE_EXPORT]: { component: string };
   [EVENTS.AFTER_EXPORT]: { component: string };
@@ -59,6 +63,13 @@ const EVENT_REGISTRY: Record<string, EventMeta> = {
       "A layer was removed from the registry by an external caller (e.g. panel delete)",
     publisher: COMPONENTS.LayerManager,
     subscribers: [COMPONENTS.MeasureControl],
+    payload: "{ id: string }",
+  },
+  [EVENTS.LAYER_DELETED]: {
+    description:
+      "A layer was deleted from the panel — component-owned layers clear their data",
+    publisher: COMPONENTS.LayerManager,
+    subscribers: [COMPONENTS.MeasureControl, COMPONENTS.HeatmapControl],
     payload: "{ id: string }",
   },
   [EVENTS.MODE_CHANGE]: {

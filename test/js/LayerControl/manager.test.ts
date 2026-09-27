@@ -1344,6 +1344,8 @@ describe("LayerManager", () => {
       saveState,
       saveNamesState,
       invalidateFields: vi.fn(),
+      syncToggleAll: vi.fn(),
+      syncNoBasemap: vi.fn(),
     } as any;
     manager.deleteLayer("overlay1");
 
@@ -1410,6 +1412,8 @@ describe("LayerManager", () => {
       saveState,
       saveNamesState,
       invalidateFields: vi.fn(),
+      syncToggleAll: vi.fn(),
+      syncNoBasemap: vi.fn(),
     } as any;
 
     expect(manager.deleteLayer("overlay1")).toBe(true);
@@ -1463,6 +1467,8 @@ describe("LayerManager", () => {
       saveState: () => saveState(m.ui),
       saveNamesState: () => saveNamesState(m.ui),
       invalidateFields: vi.fn(),
+      syncToggleAll: vi.fn(),
+      syncNoBasemap: vi.fn(),
     } as any;
 
     expect(m.deleteLayer("overlay1")).toBe(true);
@@ -2072,6 +2078,212 @@ describe("LayerManager", () => {
     expect(map.attributionControl.removeAttribution).toHaveBeenCalledWith(
       "© OpenStreetMap",
     );
+  });
+
+  describe("deleteLayer — component ownership", () => {
+    it("early-returns for a component layer, emits LAYER_DELETED, and keeps the id registerable", () => {
+      manager.map.hasLayer.mockReturnValue(false);
+      manager.registerLayer({
+        id: "measure1",
+        name: "Measure",
+        layer: { options: {} },
+        styleSetters: { color: vi.fn() },
+      } as any);
+      const bus = map.foliplus!.events;
+      const handler = vi.fn();
+      bus.on(EVENTS.LAYER_DELETED, handler);
+      const unregisterSpy = vi.spyOn(manager, "unregisterLayer");
+
+      expect(manager.deleteLayer("measure1")).toBe(true);
+
+      expect(handler).toHaveBeenCalledWith({ id: "measure1" });
+      expect(unregisterSpy).not.toHaveBeenCalled();
+      expect(manager.layerRegistry.has("measure1")).toBe(true);
+      expect((manager as any).removedIds.has("measure1")).toBe(false);
+    });
+
+    it("still retires a user layer through unregisterLayer and removedIds", () => {
+      manager.map.hasLayer.mockReturnValue(false);
+      const unregisterSpy = vi.spyOn(manager, "unregisterLayer");
+
+      expect(manager.deleteLayer("overlay1")).toBe(true);
+
+      expect(unregisterSpy).toHaveBeenCalledWith("overlay1");
+      expect((manager as any).removedIds.has("overlay1")).toBe(true);
+    });
+
+    it("returns false when unregisterLayer fails for a user layer", () => {
+      manager.map.hasLayer.mockReturnValue(false);
+      vi.spyOn(manager, "unregisterLayer").mockReturnValue(false);
+
+      expect(manager.deleteLayer("overlay1")).toBe(false);
+      expect((manager as any).removedIds.has("overlay1")).toBe(false);
+    });
+
+    it("syncs toggle-all and no-basemap state after deleting a base layer", () => {
+      manager.map.hasLayer.mockReturnValue(false);
+      const syncToggleAll = vi.fn();
+      const syncNoBasemap = vi.fn();
+      manager.ui = {
+        syncToggleAll,
+        syncNoBasemap,
+        dropPersistedLayerState: vi.fn(),
+        saveState: vi.fn(),
+        renamedNames: {},
+        saveNamesState: vi.fn(),
+        invalidateFields: vi.fn(),
+      } as any;
+
+      expect(manager.deleteLayer("base1")).toBe(true);
+
+      expect(syncToggleAll).toHaveBeenCalledWith(CONST.GROUP.BASE);
+      expect(syncNoBasemap).toHaveBeenCalled();
+    });
+
+    it("clears the colour basemap — unregisters but keeps the id registerable", () => {
+      manager.map.hasLayer.mockReturnValue(false);
+      manager.registerLayer({
+        id: CONST.COLOR.MAP_ID,
+        name: "Colour",
+        isBase: true,
+        layer: { options: {} },
+      } as any);
+
+      const saveStateSpy = vi.fn();
+      const syncToggleAll = vi.fn();
+      const syncNoBasemap = vi.fn();
+      manager.ui = {
+        colorSurface: {} as any,
+        currentColor: "#ff0000",
+        authorVisible: new Map([[CONST.COLOR.MAP_ID, true]]),
+        saveState: saveStateSpy,
+        syncToggleAll,
+        syncNoBasemap,
+        invalidateFields: vi.fn(),
+      } as any;
+      const unregisterSpy = vi.spyOn(manager, "unregisterLayer");
+
+      expect(manager.deleteLayer(CONST.COLOR.MAP_ID)).toBe(true);
+
+      expect(unregisterSpy).toHaveBeenCalledWith(CONST.COLOR.MAP_ID);
+      expect(manager.ui.colorSurface).toBeNull();
+      expect(manager.ui.currentColor).toBe(CONST.COLOR.DEFAULT);
+      expect(manager.ui.authorVisible.get(CONST.COLOR.MAP_ID)).toBe(false);
+      expect(saveStateSpy).toHaveBeenCalled();
+      expect(syncToggleAll).toHaveBeenCalledWith(CONST.GROUP.BASE);
+      expect(syncNoBasemap).toHaveBeenCalled();
+      expect((manager as any).removedIds.has(CONST.COLOR.MAP_ID)).toBe(false);
+    });
+
+    it("clears the colour basemap without a panel attached", () => {
+      manager.map.hasLayer.mockReturnValue(false);
+      manager.registerLayer({
+        id: CONST.COLOR.MAP_ID,
+        name: "Colour",
+        isBase: true,
+        layer: { options: {} },
+      } as any);
+      manager.ui = null;
+      const unregisterSpy = vi.spyOn(manager, "unregisterLayer");
+
+      expect(manager.deleteLayer(CONST.COLOR.MAP_ID)).toBe(true);
+
+      expect(unregisterSpy).toHaveBeenCalledWith(CONST.COLOR.MAP_ID);
+      expect((manager as any).removedIds.has(CONST.COLOR.MAP_ID)).toBe(false);
+    });
+
+    it("returns false when the colour basemap cannot be unregistered", () => {
+      manager.map.hasLayer.mockReturnValue(false);
+      manager.registerLayer({
+        id: CONST.COLOR.MAP_ID,
+        name: "Colour",
+        isBase: true,
+        layer: { options: {} },
+      } as any);
+      vi.spyOn(manager, "unregisterLayer").mockReturnValue(false);
+
+      expect(manager.deleteLayer(CONST.COLOR.MAP_ID)).toBe(false);
+      expect((manager as any).removedIds.has(CONST.COLOR.MAP_ID)).toBe(false);
+    });
+
+    it("removes the overlay toggle-all row when the last overlay layer is deleted", () => {
+      manager.map.hasLayer.mockReturnValue(false);
+      manager.uiContainer = document.createElement("div");
+      manager.uiContainer.innerHTML = `
+        <div class="foliplus-layer-toggle-all" data-group="overlay">
+          <div class="foliplus-checkbox"><input type="checkbox" data-role="toggle-all" /></div>
+        </div>
+        <div class="foliplus-layer-item" data-layer-id="overlay1" data-layer-type="overlay"></div>
+        <div class="foliplus-layer-toggle-all" data-group="base">
+          <div class="foliplus-checkbox"><input type="checkbox" data-role="toggle-all" /></div>
+        </div>
+        <div class="foliplus-layer-item" data-layer-id="base1" data-layer-type="base"></div>
+      `;
+      manager.ui = {
+        dropPersistedLayerState: vi.fn(),
+        saveState: vi.fn(),
+        syncToggleAll: vi.fn(),
+        syncNoBasemap: vi.fn(),
+        renamedNames: {},
+        saveNamesState: vi.fn(),
+        invalidateFields: vi.fn(),
+      } as any;
+
+      expect(manager.deleteLayer("overlay1")).toBe(true);
+
+      expect(
+        manager.uiContainer.querySelector(
+          `.foliplus-layer-toggle-all[data-group="overlay"]`,
+        ),
+      ).toBeNull();
+      expect(
+        manager.uiContainer.querySelector(
+          `.foliplus-layer-toggle-all[data-group="base"]`,
+        ),
+      ).not.toBeNull();
+    });
+
+    it("removes the base toggle-all row when the last non-colour base layer is deleted", () => {
+      manager.map.hasLayer.mockReturnValue(false);
+      manager.registerLayer({
+        id: CONST.COLOR.MAP_ID,
+        name: "Colour",
+        isBase: true,
+        layer: { options: {} },
+      } as any);
+      manager.uiContainer = document.createElement("div");
+      manager.uiContainer.innerHTML = `
+        <div class="foliplus-layer-item" data-layer-id="overlay1" data-layer-type="overlay"></div>
+        <div class="foliplus-layer-toggle-all" data-group="base">
+          <div class="foliplus-checkbox"><input type="checkbox" data-role="toggle-all" /></div>
+        </div>
+        <div class="foliplus-layer-item" data-layer-id="base1" data-layer-type="base"></div>
+        <div class="foliplus-layer-item foliplus-color-layer-item" data-layer-id="${CONST.COLOR.MAP_ID}" data-layer-type="base"></div>
+      `;
+      manager.ui = {
+        colorSurface: {} as any,
+        currentColor: "#ff0000",
+        authorVisible: new Map([[CONST.COLOR.MAP_ID, true]]),
+        dropPersistedLayerState: vi.fn(),
+        saveState: vi.fn(),
+        syncToggleAll: vi.fn(),
+        syncNoBasemap: vi.fn(),
+        renamedNames: {},
+        saveNamesState: vi.fn(),
+        invalidateFields: vi.fn(),
+      } as any;
+
+      expect(manager.deleteLayer("base1")).toBe(true);
+
+      expect(
+        manager.uiContainer.querySelector(
+          `[data-group="base"][data-role="toggle-all"]`,
+        ),
+      ).toBeNull();
+      expect(
+        manager.uiContainer.querySelector(`[data-layer-id="${CONST.COLOR.MAP_ID}"]`),
+      ).not.toBeNull();
+    });
   });
 });
 
