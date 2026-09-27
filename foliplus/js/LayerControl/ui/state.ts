@@ -193,12 +193,12 @@ const applyUserState = (ui: LayerUI, id?: string) => {
 
   // visible / opacity / zoomRange belong to the diff executor: one write per
   // dimension, diffed against the executor's own last write. Routing them
-  // through `applyProjection` keeps exactly one writer of map membership and
-  // of the `layerInfo.visible` mirror. The per-dimension helpers below were a
-  // second writer, and the mirror drifted away from the checkbox whenever the
-  // author's snapshot landed after the first projection — which is the normal
-  // order on folium 0.20+, where a `show=False` layer is not on the map at
-  // boot and the snapshot can only be taken once its JS global exists.
+  // through `applyProjection` keeps exactly one writer of map membership. The
+  // per-dimension helpers below were a second writer, and the state it wrote
+  // drifted away from the checkbox whenever the author's snapshot landed after
+  // the first projection — which is the normal order on folium 0.20+, where a
+  // `show=False` layer is not on the map at boot and the snapshot can only be
+  // taken once its JS global exists.
   if (id) {
     const layerInfo = registry.get(id);
     if (!layerInfo) return; // not registered yet —its stored state is kept

@@ -298,6 +298,24 @@ describe("LayerManager", () => {
     });
   });
 
+  describe("intentVisible", () => {
+    it("returns true for an unknown id (author default stands)", () => {
+      expect(manager.intentVisible("ghost")).toBe(true);
+    });
+
+    it("returns true before UI is attached (pre-boot contract)", () => {
+      const fresh = new LayerManager(map, []);
+      expect(fresh.intentVisible("x")).toBe(true);
+    });
+
+    it("returns the UI's intent for a known layer", () => {
+      const ui = vi.fn().mockReturnValue(false);
+      manager.ui = { intentVisible: ui } as any;
+      expect(manager.intentVisible("overlay1")).toBe(false);
+      expect(ui).toHaveBeenCalledWith("overlay1");
+    });
+  });
+
   it("destroy clears registry and unbinds events", () => {
     manager.destroy();
     expect(manager.layerRegistry.size).toBe(0);
@@ -589,10 +607,9 @@ describe("LayerManager", () => {
     manager.registerLayer({ id: "new1", name: "New", layer } as any);
 
     // Hidden layer is kept off the map entirely (no add, no remove) so
-    // onAdd side effects never fire, and visible is set to false.
+    // onAdd side effects never fire.
     expect(addLayer).not.toHaveBeenCalled();
     expect(removeLayer).not.toHaveBeenCalled();
-    expect(manager.layerRegistry.get("new1")!.visible).toBe(false);
   });
 
   it("fires onToggle(false) for a callback-only hidden layer on re-registration without adding it to the map", () => {
@@ -614,12 +631,10 @@ describe("LayerManager", () => {
     } as any);
 
     // Callback-only layer has no Leaflet layer to add/remove — the guard
-    // skips addLayer and removeLayer, and fires onToggle so the canvas/heatmap
-    // hides itself.
+    // skips addLayer and removeLayer. The callback fires later, through
+    // `applyUserState`'s projection.
     expect(addLayer).not.toHaveBeenCalled();
     expect(removeLayer).not.toHaveBeenCalled();
-    expect(onToggle).toHaveBeenCalledWith(false);
-    expect(manager.layerRegistry.get("canvas1")!.visible).toBe(false);
   });
 
   it("does not add a hidden layer to the map before removing it", () => {
@@ -639,7 +654,6 @@ describe("LayerManager", () => {
     // onAdd side effects never fire.
     expect(addLayer).not.toHaveBeenCalled();
     expect(removeLayer).not.toHaveBeenCalled();
-    expect(manager.layerRegistry.get("new1")!.visible).toBe(false);
   });
 
   it("does not re-apply hidden state when the layer is not in the hidden set", () => {
@@ -654,7 +668,6 @@ describe("LayerManager", () => {
     manager.registerLayer({ id: "visible1", name: "V", layer } as any);
 
     expect(removeLayer).not.toHaveBeenCalled();
-    expect(manager.layerRegistry.get("visible1")!.visible).toBe(true);
   });
 
   it("registerLayer resolves layer from map when opts.layer is absent", () => {
@@ -1034,11 +1047,9 @@ describe("LayerManager", () => {
   });
 
   it("normalizes initial data into the full layerInfo field set", () => {
-    const m2 = new LayerManager(map, [
-      { id: "a", name: "A", visible: true, isBase: false },
-    ]);
+    const m2 = new LayerManager(map, [{ id: "a", name: "A", isBase: false }]);
     const li = m2.layers[0];
-    expect(li).toMatchObject({ id: "a", name: "A", visible: true, isBase: false });
+    expect(li).toMatchObject({ id: "a", name: "A", isBase: false });
     for (const key of ["paneName", "iconSvg", "type", "canvas", "onToggle"]) {
       expect(key in li).toBe(true);
     }

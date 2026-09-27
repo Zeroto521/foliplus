@@ -3,7 +3,7 @@ import { type Debounced, debounce } from "#common/debounce.js";
 import * as CONST from "../const.js";
 import { applyProjection, applyProjectionAll } from "./apply.js";
 import type { LayerUI } from "./index.js";
-import { applyRowView, buildRowCell, rowChecked } from "./rowView.js";
+import { applyRowView, buildRowCell } from "./rowView.js";
 import { saveState, syncHiddenId } from "./state.js";
 
 const getLayerItems = (ui: LayerUI, group: string): NodeListOf<Element> => {
@@ -18,7 +18,15 @@ const getLayerItems = (ui: LayerUI, group: string): NodeListOf<Element> => {
  *  resolveExportBackground deliberately skips (it reads only
  *  `backgroundColor`), so an empty state never reaches an export. */
 const syncNoBasemap = (ui: LayerUI): void => {
-  const anyBaseVisible = ui.m.layers.some(li => li.isBase && li.visible);
+  const anyBaseVisible = ui.m.layers.some(li => {
+    if (!li.isBase) return false;
+    // Inline intent check to avoid function-call overhead on the click hot path.
+    const overrides = ui.userOverrides?.[li.id];
+    const hidden = ui.hiddenIds?.has(li.id) ?? false;
+    const hasVisible = overrides?.includes("visible") || hidden;
+    const authorDefault = ui.authorVisible.get(li.id) ?? true;
+    return hasVisible ? !hidden : authorDefault;
+  });
   ui.m.map.getContainer().classList.toggle(CONST.CLASSES.NO_BASE_MAP, !anyBaseVisible);
   const label = ui.uiContainer.querySelector(
     `${CONST.SEL.TOGGLE_ALL}[data-group="${CONST.GROUP.BASE}"] ${CONST.SEL.SEP_LABEL}`,
@@ -46,10 +54,10 @@ const toggleAll = (ui: LayerUI, group: string, newState: boolean) => {
     // No persist per iteration —schedule a single debounced write after the
     // loop so the debounce timer isn't reset for every layer.
     syncHiddenId(ui, id, !newState, false);
-    // The executor is the only writer of `layerInfo.visible` and the map's
-    // membership for this layer: syncHiddenId recorded the intent, so the
-    // projection's `visible` field now matches the intended state and the
-    // diff fires whatever op is needed.
+    // The executor is the only writer of map membership for this layer:
+    // syncHiddenId recorded the intent, so the projection's `visible` field
+    // now matches the intended state and the diff fires whatever op is
+    // needed.
     applyProjection(ui, id);
     applyRowView(ui, item as HTMLElement, buildRowCell(ui, layerInfo));
   });
@@ -77,8 +85,15 @@ const syncToggleAll = (ui: LayerUI, group: string) => {
   // a stale state must not skew the group state it is about to set.
   const checkedCount = Array.from(items).filter((item: Element) => {
     const id = item.getAttribute(CONST.DATA.LAYER_ID);
-    const layerInfo = id ? ui.m.layerRegistry.get(id) : undefined;
-    return layerInfo ? rowChecked(ui, layerInfo) : false;
+    if (!id) return false;
+    const layerInfo = ui.m.layerRegistry.get(id);
+    if (!layerInfo) return false;
+    // Inline intent check to avoid function-call overhead on the click hot path.
+    const overrides = ui.userOverrides?.[id];
+    const hidden = ui.hiddenIds?.has(id) ?? false;
+    const hasVisible = overrides?.includes("visible") || hidden;
+    const authorDefault = ui.authorVisible.get(id) ?? true;
+    return hasVisible ? !hidden : authorDefault;
   }).length;
   const allChecked = items.length > 0 && checkedCount === items.length;
   const noneChecked = checkedCount === 0;
@@ -102,9 +117,9 @@ const syncToggleAll = (ui: LayerUI, group: string) => {
  * hidden set, the group toggle-all, and the debounced z-order enforcement.
  *
  * The user's intent is recorded first, then the executor re-projects — the
- * single writer of `layerInfo.visible` and of map membership for this layer.
- * The old code wrote `visible` from two sites (here and the executor), which
- * is what this refactor wanted gone.
+ * single writer of map membership for this layer. The old code wrote the
+ * mirror flag from two sites (here and the executor), which is what this
+ * refactor wanted gone.
  *
  * @returns true if the layer id resolved to a registry entry.
  */

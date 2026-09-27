@@ -3310,7 +3310,6 @@ describe("LayerUI style panel — zoom range", () => {
     minInput.dispatchEvent(new Event("input", { bubbles: true }));
 
     expect(ui.zoomRangeMap["measure1"]).toEqual([6, 18]);
-    expect(manager.layerRegistry.get("measure1")!.visible).toBe(false);
     expect(map.removeLayer).toHaveBeenCalledWith(measureLayer);
   });
 
