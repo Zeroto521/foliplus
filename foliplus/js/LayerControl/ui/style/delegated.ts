@@ -52,6 +52,8 @@ const buildBorderRow = (ui: LayerUI, layerId: string): HTMLElement | null => {
         : BORDER_WEIGHT.DEFAULT,
     hasColorInput: hasColor,
     hasWeightInput: hasWeight,
+    colorAria: ui._("foliplus.border_color"),
+    weightAria: ui._("foliplus.border_weight"),
   });
   bindBorderRowShell(row, {
     onChangeColor: hasColor
