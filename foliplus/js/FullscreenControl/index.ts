@@ -71,7 +71,7 @@ class FullscreenControl extends BaseControl {
     // Document-level fullscreenchange, owned by the mounting's signal: the
     // listener drops with the control, so a map torn down while fullscreen is
     // on leaves nothing behind.
-    if (isEnabled) {
+    if (isEnabled()) {
       this.on(
         document,
         FULLSCREEN_CHANGE,
