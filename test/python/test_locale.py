@@ -197,6 +197,7 @@ _JS_USED_KEYS = {
     "LayerControl.delete_layer",
     "LayerControl.delete_layer_confirm",
     "LayerControl.delete_layer_tooltip",
+    "LayerControl.delete_component_layer_tooltip",
     "LayerControl.delete_layer_disabled",
     "MeasureControl.tool_edit",
     "MeasureControl.hint_edit",

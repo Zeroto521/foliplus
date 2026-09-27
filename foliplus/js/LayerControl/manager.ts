@@ -811,18 +811,19 @@ class LayerManager implements LayerAPI {
   }
 
   /**
-   * Delete a layer: unregister it and drop every persisted value the user set
-   * for it —the single place that does, and the only one.
+   * Delete a layer: two semantics, dispatched by layer ownership.
    *
-   * {@link unregisterLayer} is a generic teardown and cannot say whether a
-   * layer is gone for good, so it never erases anything. Only a user who
-   * pointed at a row and chose "delete" knows; per-dimension resets instead
-   * drop one provenance marker via `unmarkOverride`, which is the same
-   * guarantee at the dimension level. Deletion is one level deeper still: it
-   * also records the id in `removed` so the registry entry point refuses it
-   * again, and prunes the three sections that key by layer id —order, the
-   * rename, and the annotation config. None of that belongs to the generic
-   * teardown, where it would erase a layer that is only temporarily empty.
+   * Component-owned layers (Measure, Heatmap) clear their data —no id is
+   * recorded in `removed`, so the component can re-register after redraw.
+   * The event bus carries the notification; the component owns the wipe.
+   *
+   * User-added layers are deleted for good: the id is added to `removed` so
+   * the registry refuses it again, and the three sections that key by layer
+   * id —order, the rename, the annotation config—are pruned. Only a user
+   * who pointed at a row and chose "delete" knows the layer is gone for
+   * good; per-dimension resets drop one provenance marker instead, which is
+   * the same guarantee at the dimension level. Deletion is one level deeper
+   * still — nothing about generic teardown can say the id is retired.
    *
    * Everything pruned here is scheduled on the one shared debounce, so the
    * whole record —removed, order, annotations, names, per-layer intent— leaves
@@ -832,6 +833,17 @@ class LayerManager implements LayerAPI {
    * @returns {boolean} true if the layer existed, false otherwise.
    */
   deleteLayer(id: string): boolean {
+    const layerInfo = this.layerRegistry.get(id);
+    if (!layerInfo) return false;
+
+    // Component-owned layers clear their data instead of being retired —
+    // MeasureControl and HeatmapControl still own a live handle and need the
+    // id to stay registerable for the next draw.
+    if (layerInfo.styleSetters) {
+      this.events.emit(EVENTS.LAYER_DELETED, { id });
+      return true;
+    }
+
     const removed = this.unregisterLayer(id);
     if (!removed) return false;
 

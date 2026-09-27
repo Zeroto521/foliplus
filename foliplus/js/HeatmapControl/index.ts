@@ -114,6 +114,7 @@ class HeatmapControl extends BaseControl {
       mgr.onLayerChange.cancel();
       mgr.removeLayerChangeListener();
     }
+    mgr.removeLayerDeletedListener();
     mgr.removeExportListener();
 
     // Disconnect MutationObserver

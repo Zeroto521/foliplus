@@ -109,6 +109,12 @@
 - `hint`: cap the toast at `min(480px, 80vw)` so a long locale string wraps instead of overflowing the map on a phone, with a wider cap under a 480px viewport ([#445](https://github.com/Zeroto521/foliplus/pull/445))
 - `LayerControl`: `fillColor` / `borderColor` and the annotation `color` in the persisted record are normalized to `#rrggbb` — `<input type=color>` only takes the long form; reuses `common/form.ts`'s `normalizeHexColor` ([#477](https://github.com/Zeroto521/foliplus/pull/477), [#482](https://github.com/Zeroto521/foliplus/pull/482))
 - `FullscreenControl`: a denied fullscreen entry or exit now reports the honest hint (`unsupported` / `exit_fail`) instead of "Entered fullscreen" ([#486](https://github.com/Zeroto521/foliplus/pull/486))
+- `LayerControl`: `deleteLayer` dispatches by ownership — component-owned layers (Measure, Heatmap) emit `LAYER_DELETED` and their id stays registerable, so a deleted measure layer can be redrawn instead of being permanently blocked by `removedIds`; user-owned layers still retire the id and prune persisted order, annotations, and rename
+- `HeatmapControl`: the ⋮ menu now shows a delete entry that clears the heatmap data (features, aggregation, canvas) through `LAYER_DELETED`; the id stays registerable so the next source pick lands cleanly
+
+### Changed
+
+- `LayerControl`: component-owned layer rows share the delete entry with data layers but with a distinct tooltip ("clear this component's data — the layer stays registerable") so the two semantics — clear vs. delete-for-good — read differently from the ⋮ menu
 
 ## [v0.3.0] (2026-08-02)
 

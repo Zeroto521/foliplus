@@ -144,15 +144,13 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   );
 
   // Delete goes behind a divider: everything above it is reversible (view,
-  // configure, rename, inspect), and this is the only entry that is not. The
-  // criterion is the row's shape, not something the caller declares — a row
-  // that owns a Leaflet layer is a data layer and can be deleted, tile
-  // basemaps included, since deleting every base layer down to the default
-  // gray background is a legal end state. A component layer (no layer of its
-  // own: the heatmap and measure canvases) renders nothing here; its
-  // "restore defaults" verb is a different action and lands separately. The
-  // one exception is the solid color basemap, which renders the entry
-  // disabled: hiding it would read as "the feature does not exist".
+  // configure, rename, inspect), and this is the only entry that is not. Two
+  // shapes share the entry: user-owned data layers (retire the id for good,
+  // tile basemaps included — dropping to a bare background is a legal end
+  // state) and component-owned layers (Measure, Heatmap: clear their data
+  // through LAYER_DELETED, id stays registerable). The one exception is the
+  // solid color basemap, which renders the entry disabled: hiding it would
+  // read as "the feature does not exist".
   const deleteMode = deleteModeFor(ui, layerId);
   if (deleteMode !== "absent") {
     menu.appendChild(
@@ -162,7 +160,7 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
         "aria-hidden": "true",
       }),
     );
-    menu.appendChild(buildDeleteItem(ui, deleteMode));
+    menu.appendChild(buildDeleteItem(ui, deleteMode, isComponentLayer(ui, layerId)));
   }
 
   item.style.position = "relative";
@@ -206,6 +204,11 @@ let armedDeleteTimer: ReturnType<typeof setTimeout> | undefined;
 const deleteModeFor = (ui: LayerUI, layerId: string): DeleteMode => {
   if (!layerId) return "absent";
   if (layerId === CONST.COLOR.MAP_ID) return "disabled";
+  // Component-owned layers (Measure, Heatmap) always expose delete —
+  // deleteLayer dispatches by styleSetters and clears the component's data
+  // instead of retiring the id. `findLayer` misses the canvas-only case, so
+  // check the registry entry directly for that signal.
+  if (isComponentLayer(ui, layerId)) return "available";
   // `findLayer`, not `registry.get(id).layer`: folium registers its own layers
   // by id only, so the entry's `layer` stays null until something resolves it.
   // Testing the field would read every layer on a real folium map as a component
@@ -214,9 +217,18 @@ const deleteModeFor = (ui: LayerUI, layerId: string): DeleteMode => {
   return ui.m.findLayer(layerId) ? "available" : "absent";
 };
 
+/** True when the layer is owned by a foliplus component (Measure, Heatmap) —
+ *  detected by `styleSetters`, which only component layers that delegate
+ *  style-panel control to LayerControl supply. Matches the discriminator in
+ *  `LayerManager.deleteLayer`, so the two stay in lockstep. */
+const isComponentLayer = (ui: LayerUI, layerId: string): boolean => {
+  return Boolean(ui.m.layerRegistry.get(layerId)?.styleSetters);
+};
+
 const buildDeleteItem = (
   ui: LayerUI,
   mode: Exclude<DeleteMode, "absent">,
+  isComponent: boolean,
 ): HTMLElement => {
   const disabled = mode === "disabled";
   const label = dom.el(
@@ -224,13 +236,18 @@ const buildDeleteItem = (
     { class: CONST.CLASSES.MENU_DELETE_LABEL },
     ui.T("delete_layer"),
   );
+  const tooltip = disabled
+    ? ui.T("delete_layer_disabled")
+    : isComponent
+      ? ui.T("delete_component_layer_tooltip")
+      : ui.T("delete_layer_tooltip");
   const item = dom.el(
     "li",
     {
       "data-action": CONST.ACTION.DELETE_LAYER,
       role: "menuitem",
       tabindex: "0",
-      title: disabled ? ui.T("delete_layer_disabled") : ui.T("delete_layer_tooltip"),
+      title: tooltip,
       "aria-disabled": disabled ? "true" : "false",
     },
     { html: Icons.DELETE_ICON },
