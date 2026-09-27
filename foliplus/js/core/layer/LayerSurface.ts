@@ -54,7 +54,7 @@ const hasBoundsProvider = (layer: L.Layer | null | undefined): boolean =>
     "function";
 
 /** Options a surface is resolved from — the register-time declaration only. */
-interface SurfaceFaceOpts {
+interface SurfaceFaceSpec {
   id: string;
   layer: L.Layer | null;
   /** The pane the caller declared for this layer, if any. */
@@ -141,7 +141,7 @@ class LayerSurface implements LayerSurfaceContract {
    *  declared it (createLayers), so there is nothing for us to pin. */
   private readonly pinTarget: string | null;
 
-  constructor(host: PaneManager, opts: SurfaceFaceOpts) {
+  constructor(host: PaneManager, opts: SurfaceFaceSpec) {
     this.host = host;
     this.id = opts.id;
     this.layer = opts.layer;
@@ -366,7 +366,7 @@ class LayerSurface implements LayerSurfaceContract {
    *  OR in `detectCapabilities` reduces to the provider alone for layers that
    *  lack the method — adding or removing it changes the capability and must
    *  trigger a rebuild. */
-  matches(opts: SurfaceFaceOpts): boolean {
+  matches(opts: SurfaceFaceSpec): boolean {
     const specs = opts.paneSpecs ?? [];
     // `role` and `order` are part of the declaration, not decoration: a spec
     // whose role changes describes a different face, and the surface has to be
@@ -529,7 +529,7 @@ const usesNativeSetter = (layer: L.Layer): boolean =>
  *      groups with leaves that expose bounds) gets `true`.
  *    - A canvas surface gets `true` only if the caller provided a
  *      `getBounds` provider; a bare canvas has no idea what it covers. */
-const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
+const detectCapabilities = (opts: SurfaceFaceSpec): LayerCapabilities => {
   const layer = opts.layer;
 
   if (opts.color != null) {

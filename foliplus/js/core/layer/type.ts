@@ -166,7 +166,9 @@ interface LayerInfo {
  *      into — without it a pin would be mistaken for a declaration and the
  *      layer routed back to the base pane.
  *
- *  Read `LayerFactory.addLayer` before treating `paneSet` as dead. */
+ *  Load-bearing reader: `LayerFactory.ts:264` — the intercepted
+ *  group.addLayer that decides how a pin routes. Read it before treating
+ *  `paneSet` as dead. */
 interface LabelAwareLayer extends L.Layer {
   isLabel?: boolean;
   options: L.LayerOptions & {
@@ -226,9 +228,10 @@ interface PaneHandle {
 /** The rendering face of one registered layer: which panes carry its content,
  *  and (later) the derived state those panes are written from.
  *
- *  Replaces the two ad-hoc records the layer manager used to keep — the
- *  stamp-keyed fallback-pane map and the `options.paneSet` flag that stood in
- *  for "already moved" — with the real state. See core/layer/LayerSurface.ts
+ *  Replaces the stamp-keyed fallback-pane map the layer manager used to keep.
+ *  It does not replace `options.paneSet` — that flag lives on the layer itself
+ *  (see `LabelAwareLayer` above) and is still read by `LayerFactory.ts:264` to
+ *  decide how an intercepted addLayer routes a pin. See core/layer/LayerSurface.ts
  *  for the two invariants (materialize-before-add, fixed pane set). */
 interface LayerSurface {
   readonly id: string;
