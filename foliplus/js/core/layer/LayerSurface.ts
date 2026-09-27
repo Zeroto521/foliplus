@@ -435,11 +435,11 @@ class LayerSurface implements LayerSurfaceContract {
     role: PaneRole = "base",
     order = 0,
   ): void {
-    const { pane, renderer } = this.host.ensurePane(
-      name,
-      needRenderer,
-      { index: this.index, count: this.count, isBase: this.isBase },
-    );
+    const { pane, renderer } = this.host.ensurePane(name, needRenderer, {
+      index: this.index,
+      count: this.count,
+      isBase: this.isBase,
+    });
     this.panes.push({
       role,
       order,
