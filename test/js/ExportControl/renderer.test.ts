@@ -744,6 +744,50 @@ describe("ExportRenderer.render — onProgress across tile layers", () => {
     ]);
     expect(renderer.tileFailures).toHaveLength(1);
   });
+
+  it("skips a layer when LayerControl's intent says hidden", async () => {
+    // intentVisible (from LayerControl) returns false even though the layer
+    // is still on the map — the layer should be skipped, no tiles drawn.
+    bigCenter();
+    stubCanvas();
+    const hidden = makeTileLayer();
+    const calcTiles = vi.spyOn(renderer, "calcTiles");
+    renderer.map.foliplus = {
+      LayerAPI: {
+        layers: [{ id: "hidden", layer: hidden }],
+        getLayerPanes: () => [],
+        intentVisible: () => false,
+      },
+    };
+    const renderTileLayer = vi.spyOn(renderer, "renderTileLayer");
+    await runRender(vi.fn());
+    expect(calcTiles).not.toHaveBeenCalled();
+    expect(renderTileLayer).not.toHaveBeenCalled();
+  });
+
+  it("renders a tile layer when no LayerControl is present (fallback to true)", async () => {
+    // No LayerControl on the map → api.intentVisible is undefined → the
+    // `?? true` fallback applies, so a tile layer with a URL is sized and
+    // handed to renderTileLayer.
+    bigCenter();
+    stubCanvas();
+    stubBitmaps();
+    const layer = makeTileLayer();
+    const calcTiles = vi
+      .spyOn(renderer, "calcTiles")
+      .mockReturnValue(tilesNearCenter(CONST.TILE_CONCURRENCY));
+    renderer.map.foliplus = {
+      LayerAPI: {
+        layers: [{ id: "tile", layer }],
+        getLayerPanes: () => [],
+      },
+    };
+    const renderTileLayer = vi.spyOn(renderer, "renderTileLayer");
+    await runRender(vi.fn());
+    expect(calcTiles).toHaveBeenCalledTimes(1);
+    expect(calcTiles.mock.calls[0][0]).toBe(layer);
+    expect(renderTileLayer).toHaveBeenCalled();
+  });
 });
 
 describe("ExportRenderer.render — layer pass routing", () => {
