@@ -269,10 +269,8 @@ class TestLayerControlRendering:
         """Style-panel locale keys exist in both en and zh.
 
         The container (``style_*``) and the annotation-only dimension
-        (``style_label_field`` / ``_no_data``) stay component-scoped. The shared
-        label vocabulary (color/size/format/collide) moved to the common table,
-        rendered by ``core/labelControl.ts`` for this drawer and the heatmap
-        panel alike — ``test_locale.py`` covers that cross-table key set.
+        (``style_label_field`` / ``_no_data``) stay component-scoped.
+        ``test_locale.py`` covers the cross-table key set.
         """
         root = Path(__file__).resolve().parent.parent.parent
         required = {

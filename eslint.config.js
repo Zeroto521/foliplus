@@ -133,7 +133,7 @@ export default [
   },
 
   // ── Runtime only: no bare console ──
-  // foliplus/js logs through createLogger() (see common/log.ts). Excluded on
+  // foliplus/js logs through createLogger(). Excluded on
   // purpose: script/* is build tooling whose entire output *is* console.log,
   // and test/js talks to the console through its mocks.
   //
