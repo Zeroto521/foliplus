@@ -632,7 +632,9 @@ class TestExportControlBrowser:
             # Unlock (cancel resets to unlocked)
             page.locator(".foliplus-tool-bar .foliplus-cancel").click()
             page.wait_for_selector(
-                ".foliplus-export-box:not(.foliplus-locked)", state="attached", timeout=5000
+                ".foliplus-export-box:not(.foliplus-locked)",
+                state="attached",
+                timeout=5000,
             )
             assert page.locator(".foliplus-export-box").is_visible()
 
