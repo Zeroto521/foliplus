@@ -1,4 +1,5 @@
 // HeatmapControl data aggregation & rendering logic (HeatmapManager).
+import { computeBreaks as computeBreaksFn } from "#core/classify.js";
 import { generateId } from "#core/component.js";
 import { EVENTS, type EventBus, ensureEvents } from "#core/event/index.js";
 import { bareFieldName } from "#core/labelField.js";
@@ -15,7 +16,6 @@ import * as CONST from "./const.js";
 import {
   aggregateData as aggregateDataFn,
   buildFeatures as buildFeaturesFn,
-  computeBreaks as computeBreaksFn,
   getColorScale as getColorScaleFn,
   getH3Res as getH3ResFn,
   pickAutoField as pickAutoFieldFn,
