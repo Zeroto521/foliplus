@@ -1260,6 +1260,15 @@ describe("LayerFactory", () => {
       warn.mockRestore();
     });
 
+    it("stamps the lowest base z on the fresh pane (no Leaflet-default 400)", () => {
+      // Leaflet's CSS gives a fresh pane z-index 400 — above every basemap.
+      // Until the ordering pass rewrites the ladder z, the pane must sit at
+      // the bottom of the base ladder (200 + one step).
+      make("solid");
+      const pane = (map as any)._panes["foliplus-color-solid"] as HTMLElement;
+      expect(pane.style.zIndex).toBe("210");
+    });
+
     it("resize falls back to devicePixelRatio 1 when the browser reports 0", () => {
       const original = window.devicePixelRatio;
       Object.defineProperty(window, "devicePixelRatio", {
@@ -1339,21 +1348,6 @@ describe("LayerFactory", () => {
       );
     });
 
-    it("hides the tile panes when shown and restores them when hidden", () => {
-      const tilePane = document.createElement("div");
-      map._panes["tilePane"] = tilePane;
-      const h = make("solid");
-      const c = content(h);
-
-      c.setVisible(true);
-      expect(tilePane.classList.contains("foliplus-layer-tile-hidden")).toBe(true);
-      expect(c.element.classList.contains("hidden")).toBe(false);
-
-      c.setVisible(false);
-      expect(tilePane.classList.contains("foliplus-layer-tile-hidden")).toBe(false);
-      expect(c.element.classList.contains("hidden")).toBe(true);
-    });
-
     it("ignores a missing tilePane rather than throwing", () => {
       const h = make("solid");
       const c = content(h);
@@ -1378,12 +1372,15 @@ describe("LayerFactory", () => {
       expect(content(h).color).toBe("#123456");
     });
 
-    it("unregister hides the layer and gives the tiles back", () => {
+    it("unregister hides the face and does not touch the shared tile panes", () => {
+      // The color surface owns only its own face: visibility is a `hidden`
+      // class on the canvas element. Tile pane state was the old mutual
+      // exclusion's side effect — first-class basemaps retire it.
       const tilePane = document.createElement("div");
       map._panes["tilePane"] = tilePane;
       const h = make("solid");
       h.register();
-      expect(tilePane.classList.contains("foliplus-layer-tile-hidden")).toBe(true);
+      expect(tilePane.classList.contains("foliplus-layer-tile-hidden")).toBe(false);
 
       h.unregister();
       expect(unregisterLayer).toHaveBeenCalledWith("solid");

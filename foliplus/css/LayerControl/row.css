@@ -280,10 +280,7 @@
     transition: opacity var(--transition-fast);
   }
   /* The visible state comes from the Row-cursor recipe below; color rows are
-     never draggable, so their handle stays hidden regardless of the cursor. */
-  .foliplus-color-layer-item .drag-handle {
-    visibility: hidden;
-  }
+     draggable within the base group, so their handle shows like any other row. */
 
   /* ── Row cursor ──
      ONE recipe for a row that is the interaction target: mouse hover and the

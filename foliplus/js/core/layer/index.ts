@@ -39,6 +39,8 @@ export { ensureLayerAPI, requireLayerAPI } from "./api.js";
 export type {
   CreateCanvasAPI,
   CreateCanvasOpts,
+  CreateColorAPI,
+  CreateColorOpts,
   CreateLayersAPI,
   CreateLayersOpts,
   LabelAwareLayer,

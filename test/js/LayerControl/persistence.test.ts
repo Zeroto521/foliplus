@@ -198,6 +198,54 @@ describe("LayerPersistence", () => {
         ghost: { show: true, field: "x", format: "int" },
       });
     });
+
+    it("expands short hex annotation color to #rrggbb", () => {
+      // The annotation color is the label paint and also goes through the
+      // style panel's <input type=color>, so the same expansion applies as
+      // to layers' fill/border: #rgb on disk becomes #rrggbb on read. Long
+      // hex (either case) is left alone — normalizeHexColor only expands the
+      // short form.
+      seedStorage({
+        annotations: {
+          a: { show: true, field: "n", format: "auto", color: "#fff" },
+          b: { show: true, field: "n", format: "auto", color: "#ABC" },
+          c: { show: true, field: "n", format: "auto", color: "#ff0000" },
+          d: { show: true, field: "n", format: "auto", color: "#FF0000" },
+        },
+      });
+      expect(makePersistence().load().annotations).toEqual({
+        a: { show: true, field: "n", format: "auto", color: "#ffffff" },
+        b: { show: true, field: "n", format: "auto", color: "#aabbcc" },
+        c: { show: true, field: "n", format: "auto", color: "#ff0000" },
+        d: { show: true, field: "n", format: "auto", color: "#FF0000" },
+      });
+    });
+
+    it("leaves a non-hex annotation color alone", () => {
+      // The annotations section has no isHexColor gate (unlike layers), so
+      // values the UI would not have written still round-trip unchanged —
+      // the write side is equally permissive, and both consumers (canvas
+      // fillStyle, color input) tolerate a bad value by falling back to
+      // their default.
+      seedStorage({
+        annotations: {
+          a: { show: true, field: "n", format: "auto", color: "red" },
+          b: { show: true, field: "n", format: "auto", color: "#ffff" },
+          c: { show: true, field: "n", format: "auto", color: "123" },
+          d: { show: true, field: "n", format: "auto", color: 42 },
+          e: { show: true, field: "n", format: "auto", color: null },
+          f: { show: true, field: "n", format: "auto" },
+        },
+      });
+      expect(makePersistence().load().annotations).toEqual({
+        a: { show: true, field: "n", format: "auto", color: "red" },
+        b: { show: true, field: "n", format: "auto", color: "#ffff" },
+        c: { show: true, field: "n", format: "auto", color: "123" },
+        d: { show: true, field: "n", format: "auto", color: 42 },
+        e: { show: true, field: "n", format: "auto", color: null },
+        f: { show: true, field: "n", format: "auto" },
+      });
+    });
   });
 
   // ── Version ─────────────────────────────────────────────────────

@@ -1,0 +1,18 @@
+/* ── LayerFactory surface overlay (canvas / color) ──
+   Generic class stamped on every canvas element LayerFactory creates — the
+   heatmap's canvas, the solid-color basemap's face, annotation labels. Lives
+   in common so any consumer of the surface API gets the overlay positioning
+   and the visibility toggle without depending on another component's
+   stylesheet. `.hidden` here is the core LayerFactory toggle (canvas element),
+   not the shared `foliplus-hidden` class used by the panel sections. */
+.foliplus-canvas-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  image-rendering: auto;
+
+  &.hidden {
+    display: none;
+  }
+}

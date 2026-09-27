@@ -23,11 +23,11 @@ describe("zFor slots", () => {
     expect(zFor({ index: 2, count: 3 })).toBe(Z_INDEX.BASE + Z_INDEX.STEP);
   });
 
-  it("prices tile layers from the tile base", () => {
-    expect(zFor({ index: 0, count: 2, tile: true })).toBe(
+  it("prices base-group layers from the tile base", () => {
+    expect(zFor({ index: 0, count: 2, isBase: true })).toBe(
       Z_INDEX.TILE_BASE + 2 * Z_INDEX.STEP,
     );
-    expect(zFor({ index: 1, count: 2, tile: true })).toBe(
+    expect(zFor({ index: 1, count: 2, isBase: true })).toBe(
       Z_INDEX.TILE_BASE + Z_INDEX.STEP,
     );
   });
@@ -70,8 +70,8 @@ describe("zFor slots", () => {
     expect(zFor({ base: 8990 })).toBe(8990);
     expect(zFor({ base: 8990, order: 2 })).toBe(8992);
     expect(zFor({ base: 8990, role: "annotation" })).toBe(8991);
-    // The base wins over index/count/tile.
-    expect(zFor({ base: 8990, index: 0, count: 9, tile: true })).toBe(8990);
+    // The base wins over index/count/isBase.
+    expect(zFor({ base: 8990, index: 0, count: 9, isBase: true })).toBe(8990);
   });
 });
 
