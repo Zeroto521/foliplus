@@ -1010,6 +1010,17 @@ describe("MeasureManager — EVENTS.LAYER_DELETED auto-clear", () => {
 
     expect(clearSpy).not.toHaveBeenCalled();
   });
+
+  it("destroy unsubscribes LAYER_DELETED so post-destroy emits are ignored", () => {
+    const { manager, map } = makeManager();
+    manager.destroy();
+
+    const bus = map.foliplus!.events;
+    const clearSpy = vi.spyOn(manager, "clearAll");
+    bus.emit(EVENTS.LAYER_DELETED, { id: manager.layerId });
+
+    expect(clearSpy).not.toHaveBeenCalled();
+  });
 });
 
 describe("MeasureManager — export click", () => {

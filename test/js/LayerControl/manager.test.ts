@@ -2122,6 +2122,37 @@ describe("LayerManager", () => {
       expect(saveStateSpy).toHaveBeenCalled();
       expect((manager as any).removedIds.has(CONST.COLOR.MAP_ID)).toBe(false);
     });
+
+    it("clears the colour basemap without a panel attached", () => {
+      manager.map.hasLayer.mockReturnValue(false);
+      manager.registerLayer({
+        id: CONST.COLOR.MAP_ID,
+        name: "Colour",
+        isBase: true,
+        layer: { options: {} },
+      } as any);
+      manager.ui = null;
+      const unregisterSpy = vi.spyOn(manager, "unregisterLayer");
+
+      expect(manager.deleteLayer(CONST.COLOR.MAP_ID)).toBe(true);
+
+      expect(unregisterSpy).toHaveBeenCalledWith(CONST.COLOR.MAP_ID);
+      expect((manager as any).removedIds.has(CONST.COLOR.MAP_ID)).toBe(false);
+    });
+
+    it("returns false when the colour basemap cannot be unregistered", () => {
+      manager.map.hasLayer.mockReturnValue(false);
+      manager.registerLayer({
+        id: CONST.COLOR.MAP_ID,
+        name: "Colour",
+        isBase: true,
+        layer: { options: {} },
+      } as any);
+      vi.spyOn(manager, "unregisterLayer").mockReturnValue(false);
+
+      expect(manager.deleteLayer(CONST.COLOR.MAP_ID)).toBe(false);
+      expect((manager as any).removedIds.has(CONST.COLOR.MAP_ID)).toBe(false);
+    });
   });
 });
 
