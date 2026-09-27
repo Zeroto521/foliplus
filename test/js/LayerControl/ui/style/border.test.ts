@@ -184,6 +184,66 @@ describe("layerCanBorder", () => {
     manager.surfaceFor(li).capabilities.zoomRange = "none";
     expect(layerCanBorder(ui, "bas1")).toBe(false);
   });
+
+  // §47.1 gate unification: the third condition requires a real setStyle
+  // leaf behind the layer. Without it, a Marker or an empty LayerGroup
+  // would pass the capability check and get a Border row that persists a
+  // value with no visual effect.
+
+  it("declines a point layer — no setStyle leaf behind a group", () => {
+    // A Marker duck: options + getBounds, but no setStyle and no eachLayer.
+    // The capability check passes (pane opacity, pane zoom range), but the
+    // carrier check finds no setStyle leaf to write to.
+    manager.registerLayer({
+      id: "point1",
+      name: "P",
+      layer: {
+        options: {},
+        getBounds: vi.fn(() => ({
+          isValid: vi.fn(() => true),
+          getSouthWest: () => ({ lat: 0, lng: 0 }),
+          getNorthEast: () => ({ lat: 1, lng: 1 }),
+        })),
+      } as never,
+    });
+    expect(layerCanBorder(ui, "point1")).toBe(false);
+  });
+
+  it("declines an empty group — eachLayer walks nothing", () => {
+    // An empty LayerGroup has eachLayer (so it looks like a container) but
+    // yields no children. The capability check passes, but the carrier
+    // check walks the tree and finds no setStyle leaf to write to.
+    manager.registerLayer({
+      id: "empty1",
+      name: "E",
+      layer: {
+        options: {},
+        eachLayer: vi.fn((fn: (child: unknown) => void) => {
+          // no children to dispatch
+        }),
+        getBounds: vi.fn(() => ({
+          isValid: vi.fn(() => true),
+          getSouthWest: () => ({ lat: 0, lng: 0 }),
+          getNorthEast: () => ({ lat: 1, lng: 1 }),
+        })),
+      } as never,
+    });
+    expect(layerCanBorder(ui, "empty1")).toBe(false);
+  });
+
+  it("declines an empty L.GeoJSON — its own setStyle is not a carrier when there is nothing to fan to", () => {
+    // L.GeoJSON owns setStyle (it fans a style out to its features), which
+    // is why a setStyle-only check stops there. An empty one has no feature
+    // to write to, so the walk must descend through eachLayer (which yields
+    // nothing) and refuse — the same rule as an empty LayerGroup, just
+    // exercised against a shape that looks like it owns a carrier.
+    manager.registerLayer({
+      id: "emptyGeo1",
+      name: "G",
+      layer: makeGeoJsonGroup(),
+    });
+    expect(layerCanBorder(ui, "emptyGeo1")).toBe(false);
+  });
 });
 
 describe("authoredBorder", () => {

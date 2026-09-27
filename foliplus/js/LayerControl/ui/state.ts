@@ -102,7 +102,7 @@ const buildLayerStates = (ui: LayerUI): Record<string, PersistedLayerState> => {
     if (declared.includes("fillOpacity") && typeof fillOpacity === "number") {
       state.fillOpacity = fillOpacity;
     }
-    if (declared.includes("borderColor") && ui.borderColorMap[id]) {
+    if (declared.includes("borderColor") && typeof ui.borderColorMap[id] === "string") {
       state.borderColor = ui.borderColorMap[id];
     }
     if (declared.includes("borderWeight") && ui.borderWeightMap[id] !== undefined) {
