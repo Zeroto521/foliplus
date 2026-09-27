@@ -25,10 +25,10 @@ from conftest import (
 class TestBaseControlPython:
     """Python-side API tests for BaseControl internals."""
 
-    def test_export_fields_defaults_to_empty(self):
+    def test_config_fields_defaults_to_empty(self):
         from foliplus.BaseControl import BaseControl
 
-        assert BaseControl._export_fields == ()
+        assert BaseControl._config_fields == ()
 
     def test_extra_config_defaults_to_empty(self):
         from foliplus.BaseControl import BaseControl
@@ -64,11 +64,11 @@ class TestBaseControlPython:
         assert ctrl._config is config
 
     def test_build_config_missing_export_field_raises(self):
-        """If _export_fields names an attribute that doesn't exist, _build_config raises."""
+        """If _config_fields names an attribute that doesn't exist, _build_config raises."""
         from foliplus.BaseControl import BaseControl
 
         class BadControl(BaseControl):
-            _export_fields = ("nonexistent",)
+            _config_fields = ("nonexistent",)
 
         ctrl = BadControl()
         with pytest.raises(ValueError, match=r"nonexistent"):
@@ -79,7 +79,7 @@ class TestBaseControlPython:
         from foliplus.BaseControl import BaseControl
 
         class BadControl(BaseControl):
-            _export_fields = ("typo",)
+            _config_fields = ("typo",)
 
         ctrl = BadControl()
         with pytest.raises(ValueError) as exc:
@@ -92,7 +92,7 @@ class TestBaseControlPython:
         from foliplus.BaseControl import BaseControl
 
         class BadControl(BaseControl):
-            _export_fields = ("alpha", "beta")
+            _config_fields = ("alpha", "beta")
 
         ctrl = BadControl()
         with pytest.raises(ValueError) as exc:
@@ -105,7 +105,7 @@ class TestBaseControlPython:
         from foliplus.BaseControl import BaseControl
 
         class NullControl(BaseControl):
-            _export_fields = ("nullable",)
+            _config_fields = ("nullable",)
 
             def __init__(self):
                 super().__init__()
@@ -114,11 +114,11 @@ class TestBaseControlPython:
         assert_config_block(NullControl(), {"nullable": None})
 
     def test_build_config_field_set_in_subclass_init(self):
-        """Validation passes when _export_fields fields are set after super().__init__."""
+        """Validation passes when _config_fields fields are set after super().__init__."""
         from foliplus.BaseControl import BaseControl
 
         class LateControl(BaseControl):
-            _export_fields = ("late_value",)
+            _config_fields = ("late_value",)
 
             def __init__(self):
                 super().__init__()
@@ -142,7 +142,7 @@ class TestBaseControlPython:
         assert "locale_tables" not in ctrl._config
         assert "locale_code" not in ctrl._config
 
-    def test_export_fields_are_serialized_in_config(self):
+    def test_config_fields_are_serialized_in_config(self):
         from foliplus import FullscreenControl
 
         assert_config_block(
@@ -162,13 +162,13 @@ class TestBaseControlPython:
         assert "data" in config
         assert isinstance(config["data"], list)
 
-    def test_export_fields_shared_keys_extra_config_merge_order(self):
+    def test_config_fields_shared_keys_extra_config_merge_order(self):
         """_build_config merge order: shared keys → export fields → extra_config.
         Later wins on conflicts."""
         from foliplus.BaseControl import BaseControl
 
         class OverrideControl(BaseControl):
-            _export_fields = ("position",)
+            _config_fields = ("position",)
 
             def __init__(self):
                 super().__init__(position="topleft")

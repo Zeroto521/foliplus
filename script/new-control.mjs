@@ -230,7 +230,7 @@ class ${name}(BaseControl):
     >>> ${name}().add_to(m)
     """
 
-    _export_fields = ()
+    _config_fields = ()
 
     def __init__(
         self,
@@ -408,7 +408,7 @@ const report = result => {
   }
   console.log(`
 Manual next steps:
-  1. Implement buildDOM() / __init__ kwargs / _export_fields as needed
+  1. Implement buildDOM() / __init__ kwargs / _config_fields as needed
   2. Add real locale strings to foliplus/locale/${name}.{en,zh}.json
      and keep test/python/test_locale.py::_JS_USED_KEYS in sync
   3. If the control participates in mode locking or EventBus, register it in
