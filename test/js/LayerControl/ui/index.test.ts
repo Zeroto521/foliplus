@@ -222,7 +222,9 @@ describe("LayerUI shell — delegates", () => {
     // .active class + the enforceOrder z-order write-through.
     const enforce = vi.spyOn(manager, "enforceOrder");
     const colorItem = ui.uiContainer.querySelector(CONST.SEL.COLOR_ITEM) as HTMLElement;
-    const checkbox = colorItem.querySelector('input[type="checkbox"]') as HTMLInputElement;
+    const checkbox = colorItem.querySelector(
+      'input[type="checkbox"]',
+    ) as HTMLInputElement;
 
     checkbox.checked = true;
     checkbox.dispatchEvent(new Event("change", { bubbles: true }));

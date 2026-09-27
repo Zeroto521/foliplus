@@ -35,12 +35,7 @@ import { applyRowView, buildRowCell } from "./rowView.js";
 import { snapshotAuthorVisible } from "./rowView.js";
 import { loadPersistedState, syncHiddenId } from "./state.js";
 import { closeStylePanel, invalidateFields } from "./style/index.js";
-import {
-  getLayerItems,
-  handleChange,
-  handleInput,
-  toggleAll,
-} from "./visibility.js";
+import { getLayerItems, handleChange, handleInput, toggleAll } from "./visibility.js";
 
 /**
  * Attach UI to the given container div.
