@@ -20,8 +20,10 @@
   // This program covers only production sources. `test/js` has its own program
   // (test/js/tsconfig.json) which also runs `strict: true` — see that file for
   // the measured error count, and `npm run typecheck:tests` to reproduce it.
-  // test/js is not part of `npm run typecheck` yet; the suite needs typing
-  // work before it can gate CI.
+  // The test program is wired into CI as the `typecheck-tests` job (see
+  // .github/workflows/test.yaml). That job runs with `continue-on-error: true`
+  // until the remaining errors are cleared in batches; the flip to a real red
+  // signal happens in a separate PR once the program is green.
   // List the ambient declaration explicitly instead of globbing `**/*.d.ts`:
   // the glob sweeps any `.d.ts` that lands under foliplus/js into the program
   // with no review gate. `type/global.d.ts` cannot be imported to anchor it —

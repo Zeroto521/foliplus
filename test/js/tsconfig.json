@@ -2,16 +2,19 @@
   // Typecheck program for the test suite. Same strictness as the production
   // program (inherited from ../../tsconfig.json) — tests are NOT exempt.
   //
-  // Run `npm run typecheck:tests`. This program is red and is therefore NOT
-  // part of `npm run typecheck` / CI. Measured 2026-09-17: ~1614 errors of
-  // which ~1222 are implicit-any cascades (TS7005/7034/7006/7031/18046) and
-  // ~392 are real mismatches (TS2339/2345/2322/2352/2493/2348/2740/...). The
-  // counts are kept deliberately approximate — they move with every test added —
-  // but the *shape* is the contract: the vast majority is cascading implicit
-  // any from a mock-heavy surface (vi.fn() without type args, `{}` stub
-  // objects, partial fake events), not type-safety holes. Lifting the gate
-  // means typing those, not relaxing anything here. The split is asserted in
-  // test/js/tsconfig.test.ts.
+  // Run `npm run typecheck:tests`. This program is red and is therefore wired
+  // into CI with `continue-on-error: true` (see .github/workflows/test.yaml)
+  // until the errors below are cleared. Once the count reaches zero the
+  // `continue-on-error` line is dropped and the job becomes a hard gate.
+  // Measured 2026-09-26 (after the first clearing batch, PR #469): ~1591
+  // errors of which ~1164 are implicit-any cascades (TS7005/7006/7015/7031/
+  // 7034/7053/18046/18047/18048) and ~427 are real mismatches
+  // (TS2339/2345/2322/2352/2493/2348/2740/...). The counts are kept
+  // deliberately approximate — they move with every test added — but the
+  // *shape* is the contract: the vast majority is cascading implicit any from
+  // a mock-heavy surface (vi.fn() without type args, `{}` stub objects,
+  // partial fake events), not type-safety holes. Lifting the gate means
+  // typing those, not relaxing anything here.
   //
   // The differences from the production program are all about what the tests
   // need to compile at all: `node` types for the script/ fixtures that touch
