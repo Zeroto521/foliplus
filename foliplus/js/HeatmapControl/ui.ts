@@ -25,8 +25,6 @@ interface HeatmapControlUI {
   conf: ComponentConfig;
   /** Translator bound to `conf`, created once by the control / test fixture. */
   T: (key: string) => string;
-  /** Unscoped translator for the shared `foliplus.*` vocabulary. */
-  _: (key: string) => string;
   ctrl: HTMLElement;
   schemeDropdown: HTMLElement | null;
   expandHookDone: boolean;
