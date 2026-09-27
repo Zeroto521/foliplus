@@ -38,6 +38,8 @@ import {
   updateLayerItem,
 } from "./list.js";
 import { closeMoreMenu, openMoreMenu } from "./menu.js";
+import type { AppliedProjection } from "./projection.js";
+import { intentVisibleOf } from "./projection.js";
 import { finishRename, renameLayer } from "./rename.js";
 import { applyRowView, buildRowCell, displayName } from "./rowView.js";
 import {
@@ -50,8 +52,6 @@ import {
   saveState,
   syncHiddenId,
 } from "./state.js";
-import type { AppliedProjection } from "./store.js";
-import { intentVisibleOf } from "./store.js";
 import { replayBorderState } from "./style/border.js";
 import {
   applyStyleLabelState,
