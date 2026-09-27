@@ -78,6 +78,7 @@ jobs:
       issues: read
     steps:
       - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
       - run: python script/changelog_check.py --path CHANGELOG.md
         env:
           GITHUB_REPOSITORY: ${{ github.repository }}
@@ -85,11 +86,12 @@ jobs:
 
   # ── Test jobs ──
   # `js` and `python` run independently in parallel — no artifact handoff.
-  # `make test-js` runs `build-js-dev + npm test` (vitest reads source via
-  # aliases, so the build is a harmless belt-and-suspenders — CI keeps the
-  # `foliplus/dist/` artifacts fresh as a side effect). `make test-python`
-  # builds internally too. Both entry points are the same Makefile commands
-  # a developer runs locally, so CI drift stays visible.
+  # `make test-js` runs `build-js-dev + npm test` (some vitest tests read
+  # `foliplus/dist/` artifacts — see `test/js/script/build.test.ts` and the
+  # Makefile-invariant test in `test/js/script/Makefile.test.ts`).
+  # `make test-python` also builds internally before pytest. Both entry
+  # points are the same Makefile commands a developer runs locally, so CI
+  # drift stays visible.
   js:
     name: js
     runs-on: ubuntu-latest
