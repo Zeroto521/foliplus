@@ -550,8 +550,12 @@ describe("executor: carrier dispatch", () => {
     let onMap = false;
     const { ui, map } = boot([{ id: "z", name: "Z", isBase: false, layer }]);
     map.hasLayer.mockImplementation(() => onMap);
-    map.addLayer.mockImplementation(() => { onMap = true; });
-    map.removeLayer.mockImplementation(() => { onMap = false; });
+    map.addLayer.mockImplementation(() => {
+      onMap = true;
+    });
+    map.removeLayer.mockImplementation(() => {
+      onMap = false;
+    });
     ui.userOverrides.z = ["visible"]; // authorise map writes
 
     // A range that includes the current zoom: layer is added.
