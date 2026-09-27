@@ -3783,13 +3783,13 @@ describe("LayerUI style panel — zoom range", () => {
     expect(ui.zoomRangeMap["overlay1"]).toEqual([3, 9]);
   });
 
-  // The two slider ends must not read back through `layer.options.maxZoom`
-  // (or minZoom) after we write them — `applyStateOp` sets those on every
-  // live drag, and reading them on the next sync would feed the slider its
-  // own last drag. The bounds are frozen per layer in apply.ts; the tests
-  // below cover the freeze, the finite fallback when the layer declares
-  // nothing, and the persistence-replay path where the write happens
-  // before the panel opens.
+  // The two slider ends read the layer's author-declared bounds from the
+  // WeakMap snapshot in apply.ts, not from `layer.options.maxZoom` (or
+  // minZoom) directly — the map's max can change after the bounds are
+  // frozen, and the slider must track the author's declaration, not the
+  // map's current state. The tests below cover the freeze, the finite
+  // fallback when the layer declares nothing, and the persistence-replay
+  // path.
   it("the slider's max bound is the layer's declared maxZoom, not the map's", () => {
     const li = manager.layerRegistry.get("base1")!;
     (li.layer!.options as { maxZoom?: number }).maxZoom = 15;
@@ -3804,10 +3804,10 @@ describe("LayerUI style panel — zoom range", () => {
   });
 
   it("does not ratchet the slider's max when the map derives from the write", () => {
-    // applyStateOp writes layer.options.maxZoom = newMax on every live drag.
-    // Leaflet derives the map's max from the layer's max, so the map's
-    // max drops to the last drag. If the slider re-read map.getMaxZoom()
-    // next time, it can never widen back — the bounds ratchet.
+    // If applyStateOp wrote layer.options.maxZoom, Leaflet would derive
+    // the map's max from the layer's max, and the map's max would drop to
+    // the last drag. The WeakMap snapshot prevents the slider from
+    // re-reading the polluted value. The mock simulates the pollution.
     const li = manager.layerRegistry.get("base1")!;
     (li.layer!.options as { maxZoom?: number }).maxZoom = 15;
     map.getMaxZoom.mockReturnValue(18);
@@ -3891,20 +3891,11 @@ describe("LayerUI style panel — zoom range", () => {
     expect(newMinInput.min).toBe("3");
   });
 
-  it("captures the author's bounds before the first write (persistence replay)", () => {
-    // The WeakMap snapshot is captured at first write, not first read —
-    // the difference is the persistence-replay case. On reload,
-    // applyUserState fires applyStateOp before any panel opens; the write
-    // mutates options.maxZoom. A first-read snapshot would capture the
-    // mutated value, freezing the slider at the last drag instead of at
-    // the author's declared range. Capturing at first write, before the
-    // mutate, keeps the author's bounds.
-    //
-    // The fixture's base1 is a TileLayer with `paneName: "tilePane"`, so
-    // its surface reports `zoomRange: "pane"` — applyStateOp resolves
-    // through the visible op, not a native write. For this test we need
-    // a layer whose surface reports `zoomRange: "native"`: a GridLayer
-    // with `setOpacity`.
+  it("persistence replay: slider bounds are the author's declared range, not the persisted zoomRange", () => {
+    // On reload, applyUserState fires applyProjection before any panel opens.
+    // The zoomRange resolves through the visible op — no write to
+    // layer.options — so the author's declared bounds are never mutated.
+    // The slider reads them on first panel open via the WeakMap snapshot.
     const gridLayer = new GridLayer();
     (gridLayer as unknown as { setOpacity: unknown }).setOpacity = vi.fn();
     manager.registerLayer({
@@ -3915,22 +3906,17 @@ describe("LayerUI style panel — zoom range", () => {
     });
     // Author declared no maxZoom: the fallback is the map's declared max.
     ui.zoomRangeMap["grid1"] = [0, 10];
-    // applyUserState → applyProjection → applyStateOp. The snapshot is
-    // captured before the write, so it sees options.maxZoom === undefined
-    // and falls back to map.getMaxZoom() === 18.
     applyProjection(ui, "grid1");
-    // After the write, the layer's options.maxZoom is 10.
-    expect((gridLayer.options as { maxZoom?: number }).maxZoom).toBe(10);
-    // The map is now polluted to 10 (Leaflet derives map max from layer max).
-    map.getMaxZoom.mockReturnValue(10);
+    // The layer's options are untouched — the zoomRange did not write.
+    expect((gridLayer.options as { maxZoom?: number }).maxZoom).toBeUndefined();
     const item = findItem(ui, "grid1");
     ui.openStylePanel("grid1");
     const row = zoomRowOf(panelOf(item)!)!;
     const maxInput = row.querySelector(
       `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MAX}`,
     ) as HTMLInputElement;
-    // Snapshot was captured at first write, before the pollution: the
-    // author declared no max, so it fell back to the map's original 18.
+    // The author declared no max, so it fell back to the map's 18 —
+    // not the persisted zoomRange value of 10.
     expect(Number(maxInput.max)).toBe(18);
   });
 });

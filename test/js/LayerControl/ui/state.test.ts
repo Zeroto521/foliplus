@@ -1412,17 +1412,20 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
     // A stored range has to come back with its layer: without this pass a layer
     // that was out of range on the previous load would join the map at its
     // author default instead of staying inside the range the user chose.
+    // With Option A, the zoomRange resolves through the visible op — the
+    // layer's options are never written.
     manager.registerLayer({ id: "grid1", name: "Grid", layer: new GridLayer() });
     const li = manager.layerRegistry.get("grid1")!;
+    ui.authorVisible.set("grid1", true); // author default: visible
     ui.zoomRangeMap = { grid1: [4, 9] };
+    ui.userOverrides.grid1 = ["zoomRange"];
 
     ui.applyUserState("grid1");
 
-    // The native carrier is the layer's own options.
-    expect((li.layer as { options: Record<string, unknown> }).options).toMatchObject({
-      minZoom: 4,
-      maxZoom: 9,
-    });
+    // The layer's options are untouched — zoomRange does not write them.
+    const opts = (li.layer as { options: Record<string, unknown> }).options;
+    expect("minZoom" in opts).toBe(false);
+    expect("maxZoom" in opts).toBe(false);
   });
 
   it("applyUserState(id) leaves a native range alone when there is no layer", () => {

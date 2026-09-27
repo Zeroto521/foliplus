@@ -26,7 +26,6 @@
 // Naming: "state op" is the shape the carrier dispatcher accepts.
 // "Projection" is what the diff compares — intent + policy together, so
 // a change on either side produces an op.
-import { resetGridLayerView } from "#core/leafletAdapter.js";
 import type { LayerUI } from "./index.js";
 import { type Projection, projectAll, projectLayer } from "./store.js";
 
@@ -158,9 +157,10 @@ const sameCarrier = (prev: unknown, curr: unknown): boolean =>
  *    visible  — map membership for Leaflet layers, `onToggle` for
  *               callback-only canvas layers (heatmap / measure)
  *    opacity  — canvas element / own pane / native setter / "none"
- *    zoomRange — native `options.minZoom/maxZoom` / "none" (the `pane`
- *               carrier resolves through the `visible` op in the
- *               executor, not here)
+ *    zoomRange — resolved through the `visible` op for all carriers.
+ *               Writing `options.minZoom/maxZoom` would pollute
+ *               `map.getMaxZoom()` (Leaflet derives map zoom from
+ *               layer options), locking the map's +/- controls.
  *
  *  The "none" carrier check is the rule that a slider that writes
  *  nothing must not persist — when the surface declares "none" we skip
@@ -237,32 +237,6 @@ const applyStateOp = (ui: LayerUI, layerInfo: LayerInfo, op: StateOp): void => {
       layerInfo.opacity = value;
     }
     return;
-  }
-  // zoomRange — the `pane` carrier resolves through the visible op in
-  // the executor, so nothing to write here for pane.
-  const caps = ui.m.surfaceFor(layerInfo).capabilities;
-  if (caps.zoomRange === "native") {
-    const layer = layerInfo.layer;
-    if (!layer) return;
-    // Snapshot the author's declared bounds before we mutate them, so a
-    // later slider build reads the declaration, not our previous write.
-    authorZoomBoundsOf(ui, layer);
-    const opts = layer.options as L.LayerOptions & {
-      minZoom?: number;
-      maxZoom?: number;
-    };
-    if (op.value) {
-      opts.minZoom = op.value[0];
-      opts.maxZoom = op.value[1];
-    } else {
-      delete opts.minZoom;
-      delete opts.maxZoom;
-    }
-    // Leaflet does not self-apply options.minZoom/maxZoom: already-loaded
-    // tiles stay until the level set is rebuilt. Without this the range
-    // would be silently stale — the user sets it and nothing changes on
-    // the map.
-    resetGridLayerView(layer);
   }
 };
 

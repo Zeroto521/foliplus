@@ -543,30 +543,33 @@ describe("executor: carrier dispatch", () => {
     expect((layer.options as { opacity?: number }).opacity).toBe(0.4);
   });
 
-  it("a native zoomRange carrier sets and then clears minZoom/maxZoom", () => {
-    // Leaflet does not self-apply `options.minZoom/maxZoom`, so the write is
-    // paired with a level-set reset. Clearing the range removes both keys
-    // and goes back to the author's declared default.
+  it("zoomRange does not write to layer options (visibility-only resolution)", () => {
+    // Writing `options.minZoom/maxZoom` pollutes `map.getMaxZoom()` —
+    // Leaflet derives map zoom from layer options, so the +/- controls
+    // lock. The zoomRange resolves through the `visible` op instead.
     const layer = { options: {} } as L.Layer;
-    const { ui, manager } = boot([{ id: "z", name: "Z", isBase: false, layer }]);
-    vi.spyOn(manager, "surfaceFor").mockReturnValue({
-      capabilities: { opacity: "pane", zoomRange: "native" },
-      paneNames: [],
-      geometryType: () => "polygon",
-    } as unknown as ReturnType<typeof manager.surfaceFor>);
+    let onMap = false;
+    const { ui, map } = boot([{ id: "z", name: "Z", isBase: false, layer }]);
+    map.hasLayer.mockImplementation(() => onMap);
+    map.addLayer.mockImplementation(() => { onMap = true; });
+    map.removeLayer.mockImplementation(() => { onMap = false; });
+    ui.userOverrides.z = ["visible"]; // authorise map writes
 
+    // A range that includes the current zoom: layer is added.
     ui.zoomRangeMap.z = [4, 10];
-    ui.userOverrides.z = ["zoomRange"];
     applyProjection(ui, "z");
     const opts = layer.options as { minZoom?: number; maxZoom?: number };
-    expect(opts.minZoom).toBe(4);
-    expect(opts.maxZoom).toBe(10);
+    expect("minZoom" in opts).toBe(false);
+    expect("maxZoom" in opts).toBe(false);
+    expect(map.addLayer).toHaveBeenCalledWith(layer);
 
-    delete ui.zoomRangeMap.z;
-    delete ui.userOverrides.z;
+    // A range that excludes the current zoom: layer is removed, but
+    // options are still untouched.
+    map.getZoom.mockReturnValue(12);
     applyProjection(ui, "z");
     expect("minZoom" in opts).toBe(false);
     expect("maxZoom" in opts).toBe(false);
+    expect(map.removeLayer).toHaveBeenCalledWith(layer);
   });
 
   it("the LayerUI delegates reach the same executor", () => {
