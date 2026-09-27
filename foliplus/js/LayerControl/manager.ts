@@ -643,16 +643,16 @@ class LayerManager implements LayerAPI {
     // cached child-pane list for this layer is stale.
     if (opts.layer) this.panes.reset(L.stamp(opts.layer));
 
-    // If the layer was previously hidden by the user, re-apply that state on
-    // re-entry so it isn't silently re-added by runtime re-registration. The
-    // guard runs before addLayer: a hidden layer is kept off the map entirely
-    // (avoiding onAdd side effects), and a callback-only hidden layer
-    // (no Leaflet layer, onToggle only) still gets its callback fired so
-    // canvas/heatmap can hide itself.
-    if (this.ui?.hiddenIds?.has(opts.id)) {
-      layerInfo.visible = false;
-      if (layerInfo.onToggle) layerInfo.onToggle(false);
-    } else if (opts.layer && !this.map.hasLayer(opts.layer)) {
+    // If the layer was previously hidden by the user, keep it off the map on
+    // re-entry so it isn't silently re-added by runtime re-registration. A
+    // callback-only hidden layer (no Leaflet layer, onToggle only) is handled
+    // by `applyUserState` further below, which re-projects the hidden intent
+    // and fires the callback through the executor's single write path.
+    if (
+      !this.ui?.hiddenIds?.has(opts.id) &&
+      opts.layer &&
+      !this.map.hasLayer(opts.layer)
+    ) {
       this.map.addLayer(opts.layer);
     }
 
@@ -749,6 +749,25 @@ class LayerManager implements LayerAPI {
       return false;
     }
     return this.ui.applyVisibility(id, visible);
+  }
+
+  /**
+   * The user's stored visibility choice for a layer id: the persisted intent
+   * when the user has set it, else the author's declared default.
+   *
+   * The panel checkbox reads this; the map reflects the projection's
+   * `effectiveShown` (intent ∧ policy), which a policy may suppress below
+   * what the intent allows. Callers that want "is it drawn right now" ask
+   * the map directly — `map.hasLayer`, `LayerAPI.getLayersByType`, etc.
+   *
+   * Returns `true` for an unknown id or a pre-attach call — the author's
+   * declared default stands until someone records a choice — so a caller
+   * that only wants the boolean doesn't have to branch on null.
+   */
+  intentVisible(id: string): boolean {
+    if (!this.layerRegistry.has(id)) return true;
+    if (!this.ui) return true;
+    return this.ui.intentVisible(id);
   }
 
   /**
