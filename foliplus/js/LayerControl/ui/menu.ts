@@ -230,7 +230,10 @@ const isComponentLayer = (ui: LayerUI, layerId: string): boolean => {
   return Boolean(ui.m.layerRegistry.get(layerId)?.styleSetters);
 };
 
-const buildDeleteItem = (ui: LayerUI, mode: Exclude<DeleteMode, "absent">): HTMLElement => {
+const buildDeleteItem = (
+  ui: LayerUI,
+  mode: Exclude<DeleteMode, "absent">,
+): HTMLElement => {
   const isClear = mode === "clear";
   const label = dom.el(
     "span",
@@ -264,7 +267,10 @@ const armDelete = (ui: LayerUI, li: HTMLElement): void => {
   armedDelete = { ui, label, li, isClear };
   label.textContent = ui.T(isClear ? "clear_data_confirm" : "delete_layer_confirm");
   li.classList.add(CONST.CLASSES.MENU_DELETE_ARMED);
-  li.setAttribute("title", ui.T(isClear ? "clear_data_confirm" : "delete_layer_confirm"));
+  li.setAttribute(
+    "title",
+    ui.T(isClear ? "clear_data_confirm" : "delete_layer_confirm"),
+  );
   armedDeleteTimer = setTimeout(disarmDelete, DELETE_ARMED_TIMEOUT_MS);
 };
 
@@ -275,9 +281,7 @@ const disarmDelete = (): void => {
   armedDeleteTimer = undefined;
   const armed = armedDelete;
   if (!armed) return;
-  armed.label.textContent = armed.ui.T(
-    armed.isClear ? "clear_data" : "delete_layer",
-  );
+  armed.label.textContent = armed.ui.T(armed.isClear ? "clear_data" : "delete_layer");
   armed.li.classList.remove(CONST.CLASSES.MENU_DELETE_ARMED);
   armedDelete = null;
 };
