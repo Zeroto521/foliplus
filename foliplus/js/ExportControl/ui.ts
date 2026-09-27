@@ -230,7 +230,7 @@ const showCropBox = (mgr: ExportManager) => {
 const lockCropBox = (mgr: ExportManager, skipHint = false) => {
   if (!mgr.cropState || mgr.cropState.locked) return;
   mgr.cropState.locked = true;
-  mgr.cropState.box.classList.add("locked");
+  mgr.cropState.box.classList.add(CONST.CLASSES.LOCKED);
   // Drop the editing class if an arrow-key nudge is still in flight — nudging
   // suppresses the box transition, which a locked box should not keep.
   mgr.cropState.box.classList.remove(CONST.CLASSES.DRAGGING);
@@ -272,7 +272,7 @@ const lockCropBox = (mgr: ExportManager, skipHint = false) => {
 const unlockCropBox = (mgr: ExportManager) => {
   if (!mgr.cropState || !mgr.cropState.locked) return;
   mgr.cropState.locked = false;
-  mgr.cropState.box.classList.remove("locked");
+  mgr.cropState.box.classList.remove(CONST.CLASSES.LOCKED);
   if (mgr.mapMoveCleanup) mgr.mapMoveCleanup();
   renderToolbarActions(mgr, {
     confirm: {
