@@ -162,18 +162,18 @@ describe("applyVisibility", () => {
 
   it("re-shows a hidden layer without touching its pane pin", () => {
     // The layer's `options.pane` was set when its surface was materialized, and
-    // `map.addLayer` reads it back ?so a re-show needs no "re-push" flag any
-    // more (the retired `options.paneSet = false`).
+    // `map.addLayer` reads it back — so a re-show needs no "re-push" flag any
+    // more.
     const layer = manager.layerRegistry.get("overlay1")!.layer as {
       options: Record<string, unknown>;
     };
-    const paneSetBefore = layer.options.paneSet;
+    const paneBefore = layer.options.pane;
     expect(applyVisibility(ui, "overlay1", false)).toBe(true);
-    expect(layer.options.paneSet).toBe(paneSetBefore);
+    expect(layer.options.pane).toBe(paneBefore);
 
     expect(applyVisibility(ui, "overlay1", true)).toBe(true);
     expect(map.addLayer).toHaveBeenCalledWith(layer);
-    expect(layer.options.paneSet).toBe(paneSetBefore);
+    expect(layer.options.pane).toBe(paneBefore);
     expect(map.hasLayer(layer)).toBe(true);
   });
 
@@ -543,13 +543,13 @@ describe("LayerUI.handleChange", () => {
     const layer = manager.layerRegistry.get("overlay1")!.layer as {
       options: Record<string, unknown>;
     };
-    const paneSetBefore = layer.options.paneSet;
+    const paneBefore = layer.options.pane;
     change(ui, "overlay1", false);
-    expect(layer.options.paneSet).toBe(paneSetBefore);
+    expect(layer.options.pane).toBe(paneBefore);
 
     change(ui, "overlay1", true);
     expect(map.addLayer).toHaveBeenCalledWith(layer);
-    expect(layer.options.paneSet).toBe(paneSetBefore);
+    expect(layer.options.pane).toBe(paneBefore);
     expect(map.hasLayer(layer)).toBe(true);
   });
 
