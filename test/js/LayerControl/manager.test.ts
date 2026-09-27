@@ -1163,7 +1163,6 @@ describe("LayerManager", () => {
     manager.map.hasLayer.mockReturnValue(false);
     manager.registerLayer({ id: "p", name: "P", layer, paneName: "my_pane" });
     expect(layer.options.pane).toBe("my_pane");
-    expect(layer.options.paneSet).toBe(true);
   });
 
   it("re-registering an existing layer updates the UI row", () => {
@@ -1679,8 +1678,8 @@ describe("LayerManager", () => {
   });
 
   it("registerLayer pins the pane on a layer with a container of its own", () => {
-    // A non-Path/Marker layer with children (L.GeoJSON-style) must get
-    // paneSet written so enforceOrder does not fall back to a generated pane.
+    // A non-Path/Marker layer with children (L.GeoJSON-style) must get its
+    // pane written so enforceOrder does not fall back to a generated pane.
     const child = { options: {} };
     const parent = { options: {}, eachLayer: vi.fn(cb => cb(child)) };
     manager.map.hasLayer.mockReturnValue(false);
@@ -1691,7 +1690,6 @@ describe("LayerManager", () => {
       paneName: "layer_graph",
     });
     expect(parent.options.pane).toBe("layer_graph");
-    expect(parent.options.paneSet).toBe(true);
   });
 
   it("TileLayer z is written to its synthesized pane, not through setZIndex", () => {
@@ -1862,7 +1860,6 @@ describe("LayerManager", () => {
     manager.registerLayer({ id: "fb", name: "Fb", layer });
     manager.enforceOrder();
     expect(layer.options.pane).toMatch(new RegExp(`^${FALLBACK_PANE_PREFIX}`));
-    expect(layer.options.paneSet).toBe(true);
   });
 
   describe("getFeatureCount", () => {

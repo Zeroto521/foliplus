@@ -2,9 +2,9 @@
 //
 // Before this module the answer to "where does this layer draw, and at which z"
 // was assembled in three places inside LayerManager's ordering pass: a
-// `fallbackPaneMap` keyed by `L.stamp`, an `options.paneSet` flag standing in
-// for "already moved", and a queue of DOM moves replayed after the pass. The
-// surface owns those concerns instead: it resolves the pane handles once, pins
+// `fallbackPaneMap` keyed by `L.stamp`, a per-layer `options.paneSet` dirty
+// flag, and a queue of DOM moves replayed after the pass. The surface owns
+// those concerns instead: it resolves the pane handles once, pins
 // the layer's content to them, and hands the ordering pass a z target and
 // nothing else.
 //
@@ -54,7 +54,7 @@ const hasBoundsProvider = (layer: L.Layer | null | undefined): boolean =>
     "function";
 
 /** Options a surface is resolved from — the register-time declaration only. */
-interface SurfaceFaceSpec {
+interface SurfaceFaceOpts {
   id: string;
   layer: L.Layer | null;
   /** The pane the caller declared for this layer, if any. */
@@ -136,7 +136,7 @@ class LayerSurface implements LayerSurfaceContract {
    *  declared it (createLayers), so there is nothing for us to pin. */
   private readonly pinTarget: string | null;
 
-  constructor(host: PaneManager, opts: SurfaceFaceSpec) {
+  constructor(host: PaneManager, opts: SurfaceFaceOpts) {
     this.host = host;
     this.id = opts.id;
     this.layer = opts.layer;
@@ -361,7 +361,7 @@ class LayerSurface implements LayerSurfaceContract {
    *  OR in `detectCapabilities` reduces to the provider alone for layers that
    *  lack the method — adding or removing it changes the capability and must
    *  trigger a rebuild. */
-  matches(opts: SurfaceFaceSpec): boolean {
+  matches(opts: SurfaceFaceOpts): boolean {
     const specs = opts.paneSpecs ?? [];
     // `role` and `order` are part of the declaration, not decoration: a spec
     // whose role changes describes a different face, and the surface has to be
@@ -446,7 +446,6 @@ class LayerSurface implements LayerSurfaceContract {
     // every leaf onto the base pane.
     const node = this.layer as PinnableNode;
     node.options.pane = base.name;
-    node.options.paneSet = true;
   }
 }
 
@@ -524,7 +523,7 @@ const usesNativeSetter = (layer: L.Layer): boolean =>
  *      groups with leaves that expose bounds) gets `true`.
  *    - A canvas surface gets `true` only if the caller provided a
  *      `getBounds` provider; a bare canvas has no idea what it covers. */
-const detectCapabilities = (opts: SurfaceFaceSpec): LayerCapabilities => {
+const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
   const layer = opts.layer;
 
   if (opts.color != null) {

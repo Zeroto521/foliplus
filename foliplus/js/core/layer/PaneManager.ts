@@ -179,8 +179,7 @@ class PaneManager {
    * the steady-state ordering pass never builds it.
    *
    * The write contract on a third-party node's `options` is the one declared on
-   * `LabelAwareLayer`: `pane`, `renderer` (a Path only), and `paneSet` — the
-   * last being foliplus's own marker, not a Leaflet key.
+   * `LabelAwareLayer`: `pane` and `renderer` (a Path only) — both Leaflet's own.
    */
   pinLateContent(
     layersToMove: Array<{
@@ -201,7 +200,6 @@ class PaneManager {
         // still be marked handled — otherwise a dirty surface would re-queue it
         // on every reconcile.
         layer.options.pane = paneName;
-        layer.options.paneSet = true;
         continue;
       }
       const paneEl = this.map.getPane(paneName);
@@ -216,7 +214,6 @@ class PaneManager {
           return;
         }
         l.options.pane = paneName;
-        l.options.paneSet = true;
         if (l instanceof L.Path) l.options.renderer = renderer ?? undefined;
         const pathEl = l instanceof L.Path ? (l.getElement() as HTMLElement) : null;
         if (pathEl && pathEl.parentNode !== container) {
@@ -369,11 +366,8 @@ class PaneManager {
    * written too: without it a later re-attach recreates the `<path>` in the
    * default SVG.
    *
-   * The write contract is the one declared on `LabelAwareLayer`: `pane`,
-   * `renderer` (a Path only), and `paneSet`. `paneSet` is foliplus's own
-   * "we decided this layer's pane" marker rather than a legacy flag —
-   * `LayerFactory.addLayer` reads it back to tell a caller-declared pane apart
-   * from one foliplus routed the layer into. Nothing else on a third-party
+   * The write contract is the one declared on `LabelAwareLayer`: `pane` and
+   * `renderer` (a Path only). Nothing else on a third-party
    * layer's `options` is written here.
    *
    * `paneName` always names a **declared** pane that already exists, by two
@@ -393,7 +387,6 @@ class PaneManager {
   pinTree(node: L.Layer, paneName: string): void {
     const walk = (n: PinnableNode): void => {
       n.options.pane = paneName;
-      n.options.paneSet = true;
       if (!n.eachLayer) {
         // A Path needs its renderer pinned; every other leaf just carries the
         // pane name written above.

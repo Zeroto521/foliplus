@@ -261,7 +261,8 @@ class LayerFactory {
 
       mainLayer.addLayer = (layer: LabelAwareLayer) => {
         const declared = layer.options.pane;
-        const requested = layer.options.paneSet ? declared : basePaneName;
+        const requested =
+          declared && paneNames.includes(declared) ? declared : basePaneName;
         if (requested && paneNames.includes(requested)) {
           if (!map.hasLayer(mainLayer)) register();
           panes.pinTree(layer, requested);
@@ -304,7 +305,6 @@ class LayerFactory {
         const target = paneName ?? undefined;
         if (target && paneNames.includes(target)) {
           (layer as LabelAwareLayer).options.pane = target;
-          (layer as LabelAwareLayer).options.paneSet = true;
           (layer as LabelAwareLayer).isLabel = labelPanes.has(target);
         }
         mainLayer.addLayer(layer as LabelAwareLayer);
