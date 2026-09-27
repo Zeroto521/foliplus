@@ -24,7 +24,11 @@
   return {
     ok: true,
     colorPaneCount: panes.length,
-    liVisible: api ? api.intentVisible ? api.intentVisible("foliplus_color_map") : null : "no-li",
+    liVisible: api
+      ? api.intentVisible
+        ? api.intentVisible("foliplus_color_map")
+        : null
+      : "no-li",
     liCanvas: li ? !!li.canvas : "no-li",
     liColor: li ? li.color : "no-li",
     surfaceColor: surface ? "has-surface" : "no-surface",
