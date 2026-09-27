@@ -9,9 +9,9 @@ import * as SVGs from "../icon.js";
 import * as Util from "../util.js";
 import { ATTRS_ROW_WRAP_CHARS } from "./context.js";
 import type { LayerUI } from "./index.js";
-import { colorLayerName } from "./list.js";
 import { closeMoreMenu } from "./menu.js";
 import { finishRename } from "./rename.js";
+import { displayName } from "./rowView.js";
 import { closeStylePanel } from "./style/index.js";
 
 /**
@@ -141,7 +141,7 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
   };
   const metaRows = buildMetaRows();
 
-  const displayName = isColor ? colorLayerName(ui) : (layerInfo?.name ?? layerId);
+  const label = displayName(ui, layerId) || layerId;
   // iconSvg is the layer's own logo (basemaps and custom layers ship one);
   // otherwise fall back to the geometry glyph the layer row shows.
   const typeSvg =
@@ -154,7 +154,7 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
   // (Collapse), same as the main panel.
   const { panel, header, content } = createRowPanel({
     cssClass: CONST.CLASSES.ATTRS_PANEL,
-    title: displayName,
+    title: label,
     // The header names the layer; the dialog itself is named by what the
     // surface is, so a screen reader announces the panel, not the layer twice.
     ariaLabel: ui.T("attributes_layer"),
