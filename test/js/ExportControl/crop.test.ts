@@ -81,9 +81,19 @@ function makeManager(
   return manager;
 }
 
-function setCropState(manager: ExportManager, rect = { left: 10, top: 10, width: 100, height: 100 }) {
+function setCropState(
+  manager: ExportManager,
+  rect = { left: 10, top: 10, width: 100, height: 100 },
+) {
   const box = document.createElement("div");
-  manager.cropState = { rect, locked: false, box, overlay: box, actions: box, geoBounds: undefined };
+  manager.cropState = {
+    rect,
+    locked: false,
+    box,
+    overlay: box,
+    actions: box,
+    geoBounds: undefined,
+  };
 }
 
 describe("cropMethods — resetCropBox / nudgeCropBox", () => {
@@ -93,7 +103,7 @@ describe("cropMethods — resetCropBox / nudgeCropBox", () => {
     manager = makeManager();
     setCropState(manager);
     manager.mapContainer.getBoundingClientRect = () =>
-      ({ width: 500, height: 400 } as DOMRect);
+      ({ width: 500, height: 400 }) as DOMRect;
   });
 
   it("resetCropBox restores the default centered box", () => {
@@ -151,13 +161,17 @@ describe("cropMethods — resetCropBox / nudgeCropBox", () => {
     // And since the size never changes, the hint text is unchanged — refreshing
     // it would rebuild the element and re-run its entry animation every press.
     manager.nudgeCropBox("ArrowRight");
-    expect(manager.cropState!.box.classList.contains(CONST.CLASSES.DRAGGING)).toBe(true);
+    expect(manager.cropState!.box.classList.contains(CONST.CLASSES.DRAGGING)).toBe(
+      true,
+    );
     expect(manager.showHintWithInfo).not.toHaveBeenCalled();
   });
 
   it("onKeyUp restores the box transition suppressed by nudging", () => {
     manager.nudgeCropBox("ArrowDown");
-    expect(manager.cropState!.box.classList.contains(CONST.CLASSES.DRAGGING)).toBe(true);
+    expect(manager.cropState!.box.classList.contains(CONST.CLASSES.DRAGGING)).toBe(
+      true,
+    );
 
     manager.onKeyUp({ key: "ArrowDown" } as KeyboardEvent);
     expect(manager.cropState!.box.classList.contains(CONST.CLASSES.DRAGGING)).toBe(
@@ -627,7 +641,7 @@ describe("cropMethods — nudge continuous stream", () => {
     container = manager.map.getContainer();
     document.body.appendChild(container);
     container.getBoundingClientRect = () =>
-      ({ left: 0, top: 0, width: 500, height: 400 } as DOMRect);
+      ({ left: 0, top: 0, width: 500, height: 400 }) as DOMRect;
     setCropState(manager, { left: 100, top: 100, width: 100, height: 100 });
   });
 

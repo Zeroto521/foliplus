@@ -91,9 +91,19 @@ function makeManager() {
   return manager;
 }
 
-function setCropState(manager: ExportManager, rect = { left: 10, top: 10, width: 100, height: 100 }) {
+function setCropState(
+  manager: ExportManager,
+  rect = { left: 10, top: 10, width: 100, height: 100 },
+) {
   const box = document.createElement("div");
-  manager.cropState = { rect, locked: false, box, overlay: box, actions: box, geoBounds: undefined };
+  manager.cropState = {
+    rect,
+    locked: false,
+    box,
+    overlay: box,
+    actions: box,
+    geoBounds: undefined,
+  };
 }
 
 describe("ExportManager — onKeyDown", () => {
@@ -555,7 +565,10 @@ describe("ExportManager — export progress", () => {
     // message that says nothing more.
     manager.finishExport = vi.fn(async () => {});
 
-    manager.onRenderSuccess(document.createElement("canvas"), document.querySelectorAll("x"));
+    manager.onRenderSuccess(
+      document.createElement("canvas"),
+      document.querySelectorAll("x"),
+    );
 
     expect(manager.showGlobalHint).not.toHaveBeenCalled();
     await vi.waitFor(() => expect(manager.finishExport).toHaveBeenCalled());
@@ -568,13 +581,18 @@ describe("ExportManager — export progress", () => {
     const downloadSpy = vi.spyOn(downloadMod, "download");
 
     try {
-      manager.onRenderSuccess(document.createElement("canvas"), document.querySelectorAll("x"));
+      manager.onRenderSuccess(
+        document.createElement("canvas"),
+        document.querySelectorAll("x"),
+      );
       await vi.waitFor(() => expect(downloadSpy).toHaveBeenCalledTimes(1));
 
       // The 100 lands right before the download and nothing claims it
       // earlier: the encode used to sit behind a full bar with nothing to
       // show for it.
-      const hints = vi.mocked(manager.showGlobalHint).mock.calls.map((c: unknown[]) => c[0]);
+      const hints = vi
+        .mocked(manager.showGlobalHint)
+        .mock.calls.map((c: unknown[]) => c[0]);
       expect(hints).toEqual(["Exporting map... (100%)", "Export successful"]);
     } finally {
       HTMLCanvasElement.prototype.toBlob = origToBlob;
@@ -594,10 +612,15 @@ describe("ExportManager — export progress", () => {
     manager.lastTileFailures = [{ total: 4, failed: 4 }];
 
     try {
-      manager.onRenderSuccess(document.createElement("canvas"), document.querySelectorAll("x"));
+      manager.onRenderSuccess(
+        document.createElement("canvas"),
+        document.querySelectorAll("x"),
+      );
       await vi.waitFor(() => expect(downloadSpy).toHaveBeenCalledTimes(1));
 
-      const hints = vi.mocked(manager.showGlobalHint).mock.calls.map((c: unknown[]) => c[0]);
+      const hints = vi
+        .mocked(manager.showGlobalHint)
+        .mock.calls.map((c: unknown[]) => c[0]);
       expect(hints[hints.length - 1]).toBe("status_partial");
     } finally {
       HTMLCanvasElement.prototype.toBlob = origToBlob;
@@ -614,10 +637,15 @@ describe("ExportManager — export progress", () => {
     manager.lastTileFailures = [{ total: 10, failed: 4 }];
 
     try {
-      manager.onRenderSuccess(document.createElement("canvas"), document.querySelectorAll("x"));
+      manager.onRenderSuccess(
+        document.createElement("canvas"),
+        document.querySelectorAll("x"),
+      );
       await vi.waitFor(() => expect(downloadSpy).toHaveBeenCalledTimes(1));
 
-      const hints = vi.mocked(manager.showGlobalHint).mock.calls.map((c: unknown[]) => c[0]);
+      const hints = vi
+        .mocked(manager.showGlobalHint)
+        .mock.calls.map((c: unknown[]) => c[0]);
       // The locale mock maps status_success to its display text; the plain
       // success label must appear unchanged when nothing was blocked.
       expect(hints[hints.length - 1]).toBe("Export successful");
@@ -635,7 +663,10 @@ describe("ExportManager — export progress", () => {
     manager.lastTileFailures = [{ total: 1, failed: 1 }];
 
     try {
-      manager.onRenderSuccess(document.createElement("canvas"), document.querySelectorAll("x"));
+      manager.onRenderSuccess(
+        document.createElement("canvas"),
+        document.querySelectorAll("x"),
+      );
       await vi.waitFor(() => expect(downloadSpy).toHaveBeenCalledTimes(1));
       // The stats are per-export state: read-and-clear so a second export
       // cannot inherit the first one's warning.
