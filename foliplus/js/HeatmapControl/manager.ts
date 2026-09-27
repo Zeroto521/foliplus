@@ -126,6 +126,7 @@ class HeatmapManager {
   declare onZoomEnd: Debounced;
   declare onLayerChange: Debounced;
   declare removeLayerChangeListener: () => void;
+  declare removeLayerDeletedListener: () => void;
   declare removeExportListener: () => void;
 
   /** The layer id used to register this manager's heatmap canvas. */
@@ -376,6 +377,13 @@ class HeatmapManager {
     this.removeLayerChangeListener = this.events.on(EVENTS.LAYER_CHANGE, () =>
       this.onLayerChange(),
     );
+    // LayerControl's deleteLayer emits LAYER_DELETED for component-owned layers
+    // instead of retiring the id in removedIds, so the heatmap can clear its
+    // data and stay registerable for the next source pick. clearHeatmapCanvas
+    // also unregisters the overlay, which the panel reflects immediately.
+    this.removeLayerDeletedListener = this.events.on(EVENTS.LAYER_DELETED, ({ id }) => {
+      if (id === this.layerId) this.clearHeatmapCanvas();
+    });
   }
 
   /** Drop out of export clip mode: redraw with the full feature set. */

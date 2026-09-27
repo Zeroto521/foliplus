@@ -72,6 +72,7 @@ const fixture = () => {
     getZoom: vi.fn(() => 5),
     getMinZoom: vi.fn(() => 0),
     getMaxZoom: vi.fn(() => 18),
+    options: { maxZoom: 18 },
     _paneRenderers: {},
     attributionControl: { _attributions: {}, _update: vi.fn() },
   } as FixtureMap & Record<string, unknown>;
@@ -617,6 +618,7 @@ describe("DOM order diverges from registry order", () => {
         map._layers.delete(layer);
       }),
       _paneRenderers: {},
+      options: { maxZoom: 18 },
       attributionControl: { _attributions: {}, _update: vi.fn() },
     } as FixtureMap & Record<string, unknown>;
 
@@ -772,6 +774,7 @@ describe("toggleAll base group", () => {
         map._layers.delete(layer);
       }),
       _paneRenderers: {},
+      options: { maxZoom: 18 },
       attributionControl: { _attributions: {}, _update: vi.fn() },
     } as FixtureMap & Record<string, unknown>;
 

@@ -65,6 +65,7 @@ import {
   getLayerItems,
   handleChange,
   handleInput,
+  syncNoBasemap,
   syncToggleAll,
   toggleAll,
 } from "./visibility.js";
@@ -394,6 +395,9 @@ class LayerUI {
   }
   syncToggleAll(group: string) {
     return syncToggleAll(this, group);
+  }
+  syncNoBasemap() {
+    return syncNoBasemap(this);
   }
   applyVisibility(id: string, visible: boolean) {
     return applyVisibility(this, id, visible);
