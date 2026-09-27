@@ -11,7 +11,7 @@ import * as SVGs from "../../icon.js";
 import type { LayerUI } from "../index.js";
 import { bindBorderRowShell, buildBorderRowShell } from "./border.js";
 import { appendResetFooter, sectionHeading } from "./frame.js";
-import { hasAnyDimension, listDimensions } from "./registry.js";
+import { DIM_ORDER, getDimension, hasAnyDimension } from "./registry.js";
 
 /** Whether the layer delegates its style to the drawer via styleSetters
  *  (third-party canvas layers: Heatmap, Measure). The ⋮ menu's Style item
@@ -140,16 +140,20 @@ const renderDelegatedStylePanel = (
   // surface can honestly carry the write. A layer with `opacity: "none"`
   // (MarkerCluster) would otherwise see a slider that writes nothing but
   // persists the value — a lie that survives reload (6.2).
-  // Registry discovery: `listDimensions()` returns descriptors in
-  // registration order, so the delegated drawer inherits the annotation
-  // panel's display order for free. The delegated-only border row is
-  // prepended — it is not a registry dimension (it writes through
-  // `styleSetters`, a path the vector border descriptor does not own).
+  // Row iteration follows `DIM_ORDER`, the same authoritative display
+  // order the annotation panel uses (see `./registry.js`). Registration
+  // order is not display order — it tracks the ES module import graph,
+  // which varies across load graphs. The delegated-only border row is
+  // prepended before the registry sweep: it is not a registry dimension
+  // (it writes through `styleSetters`, a path the vector border descriptor
+  // does not own), and the vector `border` descriptor's gate rejects
+  // delegated layers anyway, so no duplicate row can appear.
   if (borderRow || hasAnyDimension(ui, layerId)) {
     content.append(sectionHeading(ui.T("section_layer")));
     if (borderRow) content.append(borderRow);
-    for (const dim of listDimensions()) {
-      if (dim.gate(ui, layerId)) content.append(dim.row(ui, layerId));
+    for (const key of DIM_ORDER) {
+      const dim = getDimension(key);
+      if (dim?.gate(ui, layerId)) content.append(dim.row(ui, layerId));
     }
   }
   if (root.children.length) {

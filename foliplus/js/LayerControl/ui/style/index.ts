@@ -40,7 +40,7 @@ import { bindFillRow, replayFillState, resetLayerFill } from "./fill.js";
 import { appendResetFooter, railPos, sectionHeading } from "./frame.js";
 import { applyPatch, layerFields, syncFormatRow } from "./label.js";
 import { clampPct, commitOpacityPct, resetLayerOpacity } from "./opacity.js";
-import { hasAnyDimension, listDimensions } from "./registry.js";
+import { DIM_ORDER, getDimension, hasAnyDimension } from "./registry.js";
 import {
   applyZoomRangeLive,
   clampZoom,
@@ -226,16 +226,19 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   // a layer without any of them reaches the panel for the Label section alone.
   // Layer comes first: it is the primary surface (what the user drew), and the
   // Label section is a decoration of it. High-frequency operations lead.
-  // Rows are discovered through the style-panel dimension registry —
-  // `listDimensions()` returns descriptors in registration order, which
-  // is the panel's display order (fill → border → opacity → zoomRange),
-  // so the panel never restates that order in code. See the import order
-  // at the top of this file: each dimension registers on import, so the
-  // declaration order here is the display order.
+  // Rows are discovered through the style-panel dimension registry, and
+  // iteration follows `DIM_ORDER` — the authoritative display order
+  // (fill → border → opacity → zoomRange, per #458). Registration order
+  // is *not* display order: it tracks the ES module import graph, which
+  // varies across load graphs (opacity was registered at #505 top-level,
+  // before `fill` and `border` in most of them), so the panel asserts its
+  // order explicitly rather than inferring it from the registry. See the
+  // `DIM_ORDER` comment in `./registry.js`.
   if (hasLayerDim) {
     content.append(sectionHeading(ui.T("section_layer")));
-    for (const dim of listDimensions()) {
-      if (dim.gate(ui, layerId)) content.append(dim.row(ui, layerId));
+    for (const key of DIM_ORDER) {
+      const dim = getDimension(key);
+      if (dim?.gate(ui, layerId)) content.append(dim.row(ui, layerId));
     }
   }
   // The Label section renders only when there is a field to label; a plain

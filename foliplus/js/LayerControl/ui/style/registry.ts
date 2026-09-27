@@ -105,6 +105,25 @@ const getDimension = <D = unknown>(key: string): LayerDimension<D> | undefined =
 /** Every registered descriptor, in registration order. */
 const listDimensions = (): readonly LayerDimension<any>[] => [...registry.values()];
 
+/** The Layer section's authoritative display order.
+ *
+ *  Registration order is NOT display order: `listDimensions()` returns the
+ *  Map's insertion order, which tracks the ES module import graph, not the
+ *  source order of the importing file. `opacity` was registered at #505
+ *  top-level, so in most load graphs it lands ahead of `fill` and `border`
+ *  — the display order would silently regress. The panel wants a stable
+ *  contract (fill → border → opacity → zoomRange, per #458), so the
+ *  order is declared here rather than inferred from the import graph.
+ *
+ *  The panel iterates this array, calls `getDimension(key)` for each key
+ *  and drops any unregistered key, so an unregistered key degrades the
+ *  panel to fewer rows rather than erroring. A dimension that is
+ *  registered but missing from this array is unreachable from the panel —
+ *  adding a dimension without adding it here is a bug that this test
+ *  suite catches in `style.test.ts` (the Layer-section order assertion).
+ */
+const DIM_ORDER = ["fill", "border", "opacity", "zoomRange"] as const;
+
 /** Whether the layer owns any registered dimension whose `gate` passes.
  *  The single "has-any" question the panel needs before deciding whether
  *  to render the Layer section at all — the annotation panel asks it to
@@ -116,4 +135,4 @@ const hasAnyDimension = (ui: LayerUI, layerId: string): boolean =>
   [...registry.values()].some(d => d.gate(ui, layerId));
 
 export type { LayerDimension };
-export { getDimension, hasAnyDimension, listDimensions, registerDimension };
+export { DIM_ORDER, getDimension, hasAnyDimension, listDimensions, registerDimension };
