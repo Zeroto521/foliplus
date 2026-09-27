@@ -221,9 +221,9 @@ describe("LayerManager", () => {
 
   /** The inline z of a layer's first pane (its base pane), or -1. */
   const basePaneZ = (m: LayerManager, id: string): number => {
-    const z = (m.surfaces as Map<string, { panes: Array<{ element: HTMLElement }> }>)
-      .get(id)
-      ?.panes?.[0]?.element.style.zIndex;
+    const z = (
+      m.surfaces as Map<string, { panes: Array<{ element: HTMLElement }> }>
+    ).get(id)?.panes?.[0]?.element.style.zIndex;
     return z == null ? -1 : Number(z);
   };
 
