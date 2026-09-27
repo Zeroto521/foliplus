@@ -210,9 +210,11 @@ let armedDeleteTimer: ReturnType<typeof setTimeout> | undefined;
 
 const deleteModeFor = (ui: LayerUI, layerId: string): DeleteMode => {
   if (!layerId) return "absent";
-  // Component-owned layers — Measure, Heatmap (styleSetters), and the solid
-  // colour basemap — clear their data instead of being retired. The id stays
-  // registerable so the component can re-draw or the colour can be re-picked.
+  // The solid colour basemap uses delete semantics (row disappears, id stays
+  // registerable so the colour can be re-picked) — same as a user data layer.
+  if (layerId === CONST.COLOR.MAP_ID) return "delete";
+  // Component-owned layers (Measure, Heatmap) clear their data instead of being
+  // retired. The id stays registerable so the component can re-draw.
   if (isComponentLayer(ui, layerId)) return "clear";
   // `findLayer`, not `registry.get(id).layer`: folium registers its own layers
   // by id only, so the entry's `layer` stays null until something resolves it.
@@ -223,11 +225,10 @@ const deleteModeFor = (ui: LayerUI, layerId: string): DeleteMode => {
 };
 
 /** True when the layer is owned by a foliplus component — Measure, Heatmap
- *  (styleSetters), or the solid colour basemap (id === COLOR.MAP_ID). Matches
- *  the discriminator in `LayerManager.deleteLayer`, so the two stay in
- *  lockstep. */
+ *  (styleSetters). Matches the discriminator in `LayerManager.deleteLayer`, so
+ *  the two stay in lockstep. The solid colour basemap is handled separately in
+ *  `deleteModeFor` and returns "delete" instead of "clear". */
 const isComponentLayer = (ui: LayerUI, layerId: string): boolean => {
-  if (layerId === CONST.COLOR.MAP_ID) return true;
   return Boolean(ui.m.layerRegistry.get(layerId)?.styleSetters);
 };
 

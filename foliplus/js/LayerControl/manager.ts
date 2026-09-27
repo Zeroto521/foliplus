@@ -789,7 +789,20 @@ class LayerManager implements LayerAPI {
       const target = this.uiContainer.querySelector(
         `[${CONST.DATA.LAYER_ID}="${CSS.escape(id)}"]`,
       );
-      if (target) target.remove();
+      if (target) {
+        target.remove();
+        // Check if the group is now empty and remove the toggle-all row if so.
+        const group = layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY;
+        const anchorSel =
+          group === CONST.GROUP.BASE
+            ? `${CONST.SEL.LAYER_ITEM}[data-layer-type="${CONST.GROUP.BASE}"]:not(${CONST.SEL.COLOR_ITEM})`
+            : `${CONST.SEL.LAYER_ITEM}:not([data-layer-type="${CONST.GROUP.BASE}"])`;
+        if (!this.uiContainer.querySelector(anchorSel)) {
+          this.uiContainer.querySelector(
+            `.${CONST.CLASSES.TOGGLE_ALL}[data-group="${group}"]`,
+          )?.remove();
+        }
+      }
     }
     // Nothing below writes persisted state —see the method's doc. The rename
     // and the per-layer intent both survive this teardown, so a component that

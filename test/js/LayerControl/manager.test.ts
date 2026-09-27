@@ -2193,6 +2193,83 @@ describe("LayerManager", () => {
       expect(manager.deleteLayer(CONST.COLOR.MAP_ID)).toBe(false);
       expect((manager as any).removedIds.has(CONST.COLOR.MAP_ID)).toBe(false);
     });
+
+    it("removes the overlay toggle-all row when the last overlay layer is deleted", () => {
+      manager.map.hasLayer.mockReturnValue(false);
+      manager.uiContainer = document.createElement("div");
+      manager.uiContainer.innerHTML = `
+        <div class="foliplus-layer-toggle-all" data-group="overlay">
+          <div class="foliplus-checkbox"><input type="checkbox" data-role="toggle-all" /></div>
+        </div>
+        <div class="foliplus-layer-item" data-layer-id="overlay1" data-layer-type="overlay"></div>
+        <div class="foliplus-layer-toggle-all" data-group="base">
+          <div class="foliplus-checkbox"><input type="checkbox" data-role="toggle-all" /></div>
+        </div>
+        <div class="foliplus-layer-item" data-layer-id="base1" data-layer-type="base"></div>
+      `;
+      manager.ui = {
+        dropPersistedLayerState: vi.fn(),
+        saveState: vi.fn(),
+        syncToggleAll: vi.fn(),
+        syncNoBasemap: vi.fn(),
+        renamedNames: {},
+        saveNamesState: vi.fn(),
+        invalidateFields: vi.fn(),
+      } as any;
+
+      expect(manager.deleteLayer("overlay1")).toBe(true);
+
+      expect(
+        manager.uiContainer.querySelector(
+          `.foliplus-layer-toggle-all[data-group="overlay"]`,
+        ),
+      ).toBeNull();
+      expect(
+        manager.uiContainer.querySelector(
+          `.foliplus-layer-toggle-all[data-group="base"]`,
+        ),
+      ).not.toBeNull();
+    });
+
+    it("removes the base toggle-all row when the last non-colour base layer is deleted", () => {
+      manager.map.hasLayer.mockReturnValue(false);
+      manager.registerLayer({
+        id: CONST.COLOR.MAP_ID,
+        name: "Colour",
+        isBase: true,
+        layer: { options: {} },
+      } as any);
+      manager.uiContainer = document.createElement("div");
+      manager.uiContainer.innerHTML = `
+        <div class="foliplus-layer-item" data-layer-id="overlay1" data-layer-type="overlay"></div>
+        <div class="foliplus-layer-toggle-all" data-group="base">
+          <div class="foliplus-checkbox"><input type="checkbox" data-role="toggle-all" /></div>
+        </div>
+        <div class="foliplus-layer-item" data-layer-id="base1" data-layer-type="base"></div>
+        <div class="foliplus-layer-item foliplus-color-layer-item" data-layer-id="${CONST.COLOR.MAP_ID}" data-layer-type="base"></div>
+      `;
+      manager.ui = {
+        colorSurface: {} as any,
+        currentColor: "#ff0000",
+        authorVisible: new Map([[CONST.COLOR.MAP_ID, true]]),
+        dropPersistedLayerState: vi.fn(),
+        saveState: vi.fn(),
+        syncToggleAll: vi.fn(),
+        syncNoBasemap: vi.fn(),
+        renamedNames: {},
+        saveNamesState: vi.fn(),
+        invalidateFields: vi.fn(),
+      } as any;
+
+      expect(manager.deleteLayer("base1")).toBe(true);
+
+      expect(
+        manager.uiContainer.querySelector(`[data-group="base"][data-role="toggle-all"]`),
+      ).toBeNull();
+      expect(
+        manager.uiContainer.querySelector(`[data-layer-id="${CONST.COLOR.MAP_ID}"]`),
+      ).not.toBeNull();
+    });
   });
 });
 

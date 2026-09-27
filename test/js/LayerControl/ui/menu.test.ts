@@ -440,14 +440,14 @@ describe("LayerUI menu", () => {
       expect(deleteLi!.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)).toBe(false);
     });
 
-    it("renders a clear entry for the colour basemap, not disabled", () => {
+    it("renders a delete entry for the colour basemap, not disabled", () => {
       const colorItem = ui.uiContainer.querySelector(CONST.SEL.COLOR_ITEM)!;
       ui.openMoreMenu(colorItem);
 
       const deleteLi = deleteEntryOf(colorItem);
       expect(deleteLi).not.toBeNull();
-      expect(deleteLi.dataset.mode).toBe("clear");
-      expect(deleteLi.title).toBe("LayerControl.clear_data_tooltip");
+      expect(deleteLi.dataset.mode).toBe("delete");
+      expect(deleteLi.title).toBe("LayerControl.delete_layer_tooltip");
       expect(
         colorItem.querySelector("li.foliplus-layer-more-menu-divider"),
       ).not.toBeNull();
@@ -544,7 +544,7 @@ describe("LayerUI menu", () => {
       expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(0);
     });
 
-    it("arms on the first click and clears on the second for a component layer", () => {
+    it("arms on the first click and deletes on the second for the colour basemap", () => {
       const item = ui.uiContainer.querySelector(CONST.SEL.COLOR_ITEM)!;
       ui.openMoreMenu(item);
       const deleteLi = deleteEntryOf(item);
@@ -552,9 +552,9 @@ describe("LayerUI menu", () => {
       click(deleteLi);
       expect(deleteLi.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)).toBe(true);
       expect(deleteLi.querySelector(CONST.SEL.MENU_DELETE_LABEL)!.textContent).toBe(
-        "LayerControl.clear_data_confirm",
+        "LayerControl.delete_layer_confirm",
       );
-      expect(deleteLi.title).toBe("LayerControl.clear_data_confirm");
+      expect(deleteLi.title).toBe("LayerControl.delete_layer_confirm");
       expect(deleteSpy).not.toHaveBeenCalled();
 
       click(deleteLi);
