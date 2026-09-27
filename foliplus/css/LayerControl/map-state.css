@@ -19,7 +19,7 @@
    and non-fullscreen alike), no override needed. `background-image` is
    what ExportControl's resolveExportBackground ignores (it only reads
    `backgroundColor`), so the hatch never reaches an export. */
-.leaflet-container.no-base-map {
+.leaflet-container.foliplus-no-base-map {
   background-color: var(--panel-bg, #ffffff);
   background-image: repeating-conic-gradient(
     rgba(0, 0, 0, var(--alpha-05)) 0% 25%,

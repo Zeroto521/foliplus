@@ -1,10 +1,10 @@
 () => {
-  // After the pane fix, "active" is on the color row, not the map container.
+  // After the pane fix, "foliplus-active" is on the color row, not the map container.
   // --color-layer-bg CSS var is no longer set; the color is in the pane.
   const row = document.querySelector(".foliplus-color-layer-item");
   if (!row) return null;
   const cb = row.querySelector('input[type="checkbox"]');
-  const active = row.classList.contains("active");
+  const active = row.classList.contains("foliplus-active");
   // Read the fill color from the pane's canvas context if available.
   const colorPane = Array.from(document.querySelectorAll(".leaflet-pane")).find(p =>
     p.className.includes("foliplus-color-"),

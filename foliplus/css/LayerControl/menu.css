@@ -2,7 +2,7 @@
   /* ── More options button (reserved slot, always visible) ──
     An unchecked row rests it black; a checked row keeps it in the action
     color — the layer is live, and the button is the row's only in-line
-    action. Hover lights it either way. (The .active leg was dropped by the
+    action. Hover lights it either way. (The .foliplus-active leg was dropped by the
     cursor unification in #229; restoring it — selected rows read their
     state through the button, same as they do through the left bar.) */
   .foliplus-layer-more-btn {
@@ -21,7 +21,7 @@
     transition: none;
     /* color intentionally NOT animated: the more button is destroyed and
        re-created on every list rebuild, so a color transition would cause
-       .active rows' more buttons to flash var(--accent-primary) on each
+       .foliplus-active rows' more buttons to flash var(--accent-primary) on each
        rebuild. The focus ring below is supplied here — not by the global
        :focus-visible rule — because that rule paints a border-color on this
        7px-wide button, and border-box sizing would collapse its box to 3px and
@@ -40,7 +40,7 @@
     }
   }
   .foliplus-layer-item:hover .foliplus-layer-more-btn,
-  .foliplus-layer-item.active .foliplus-layer-more-btn {
+  .foliplus-layer-item.foliplus-active .foliplus-layer-more-btn {
     color: var(--accent-primary);
   }
 

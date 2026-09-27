@@ -68,7 +68,7 @@
   z-index: var(--export-ctrl-z);
 
   /* Confirm/download buttons: red accent to distinguish from cancel */
-  .foliplus-tool-btn.confirm {
+  .foliplus-tool-btn.foliplus-confirm {
     color: var(--accent-primary);
   }
 }
@@ -159,7 +159,7 @@
     box-shadow: 0 0 0 var(--export-dim-extent) var(--export-dim-color);
     z-index: -1;
   }
-  &.locked {
+  &.foliplus-locked {
     cursor: default;
     /* Same accent color + thickness as the dashed border, only solid. */
     border: var(--border-thick) solid var(--accent-primary);
@@ -254,10 +254,10 @@
 }
 
 /* Locked: hide handles and center anchor */
-.foliplus-export-box.locked .foliplus-export-handle {
+.foliplus-export-box.foliplus-locked .foliplus-export-handle {
   display: none;
 }
-.foliplus-export-box.locked .foliplus-export-center {
+.foliplus-export-box.foliplus-locked .foliplus-export-center {
   display: none;
 }
 
