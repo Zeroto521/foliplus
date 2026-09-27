@@ -119,7 +119,7 @@ describe("production type-system bypasses", () => {
   // `ComponentConfig` ends in `[key: string]: unknown`, so a field Python
   // stops exporting still typechecks — JS just reads `undefined`. This is the
   // blind spot that hides the whole Python↔JS contract, and it is not covered
-  // anywhere else: the Python tests only assert that `_export_fields` resolves
+  // anywhere else: the Python tests only assert that `_config_fields` resolves
   // at build time, never that every field JS reads was exported.
   //
   // The reverse half (Python exports something JS never reads) is not checked
@@ -155,7 +155,7 @@ def fields(n):
                 if isinstance(x, ast.AnnAssign)
                 else (x.targets[0] if len(x.targets) == 1 else None)
             )
-            if not (isinstance(t, ast.Name) and t.id == "_export_fields"):
+            if not (isinstance(t, ast.Name) and t.id == "_config_fields"):
                 continue
             out += [
                 e.value

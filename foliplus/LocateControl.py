@@ -30,7 +30,7 @@ class LocateControl(BaseControl):
     >>> LocateControl().add_to(m)
     """
 
-    _export_fields = ("zoom",)
+    _config_fields = ("zoom",)
 
     default_js = load_cdn("LocateControl")
 

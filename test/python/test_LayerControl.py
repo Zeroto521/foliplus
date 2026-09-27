@@ -59,8 +59,8 @@ class TestLayerControlPython:
     def test_custom_label_collide(self):
         assert LayerControl(label_collide=False).label_collide is False
 
-    def test_label_collide_in_export_fields(self):
-        assert "label_collide" in LayerControl._export_fields
+    def test_label_collide_in_config_fields(self):
+        assert "label_collide" in LayerControl._config_fields
 
     def test_custom_locale(self):
         assert LayerControl(locale="zh")._locale_code == "zh"
