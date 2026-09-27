@@ -182,7 +182,7 @@ const rowType = (
   if (layer) {
     const gtype = ui.m.surfaceFor(layerInfo).geometryType();
     layerInfo.type = gtype;
-    return { svg: Util.getTypeSVG(layer, gtype), key: `type_${gtype}` };
+    return { svg: Util.getTypeSVG(gtype), key: `type_${gtype}` };
   }
   layerInfo.type = GEOM_TYPE.UNKNOWN;
   return { svg: SVGs.UNKNOWN, key: "type_unknown" };

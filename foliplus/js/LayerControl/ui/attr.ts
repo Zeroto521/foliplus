@@ -1,6 +1,6 @@
 // LayerControl UI —Layer attributes panel.
 import { EVENTS } from "#core/event/index.js";
-import { getGeometryType } from "#core/layer/index.js";
+import { GEOM_TYPE } from "#core/layer/index.js";
 import { dom } from "#common/dom.js";
 import { formatNumber, formatTimestamp } from "#common/format.js";
 import { createRowPanel } from "#common/panel.js";
@@ -57,14 +57,22 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
   // empty. The order mirrors how the layer row reads: type, feature count,
   // then provenance (source / created / updated).
   const layer = layerInfo?.layer ?? null;
-  // getGeometryType returns EMPTY for a container with no data geometry and
-  // UNKNOWN for mixed/unrecognisable data —both have locale keys.
-  const rawGtype = layerInfo?.type ?? (layer ? getGeometryType(layer) : null);
+  // The surface is the authority for the geometry probe; reading it here is
+  // the snapshot sync, not a second source of truth. EMPTY means a container
+  // with no data geometry; UNKNOWN means mixed/unrecognisable data.
+  const rawGtype = layerInfo ? ui.manager.surfaceFor(layerInfo).geometryType() : null;
   const gtype = !rawGtype ? "unknown" : rawGtype;
   // A basemap has no data geometry, so name it by what it is rather than by
-  // a geometry type it never had.
+  // a geometry type it never had; a custom layer ships its own logo instead
+  // of a geometry glyph —same rowView decision tree, same labels.
   const isBase = layerInfo?.isBase ?? item.dataset.layerType === "base";
-  const typeKey = isColor ? "type_color_map" : isBase ? "type_base" : `type_${gtype}`;
+  const typeKey = isColor
+    ? "type_color_map"
+    : isBase
+      ? "type_base"
+      : layerInfo?.iconSvg
+        ? "type_custom"
+        : `type_${gtype}`;
   addRow(ui.T("attr_type"), ui.T(typeKey));
   if (!isColor) {
     const count = layerInfo ? ui.manager.getFeatureCount(layerId) : null;
@@ -146,7 +154,7 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
   // otherwise fall back to the geometry glyph the layer row shows.
   const typeSvg =
     layerInfo?.iconSvg ??
-    (isColor ? SVGs.COLOR : layer ? Util.getTypeSVG(layer, gtype) : SVGs.UNKNOWN);
+    (isColor ? SVGs.COLOR : layer ? Util.getTypeSVG(gtype) : SVGs.UNKNOWN);
 
   // Shell (surface, header, content scroll) comes from the shared row-panel
   // factory, so this surface is built by the same code as the per-layer style
