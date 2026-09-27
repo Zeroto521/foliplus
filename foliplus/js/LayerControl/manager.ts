@@ -628,9 +628,12 @@ class LayerManager implements LayerAPI {
     if (existingIdx !== -1) this.layerRegistry.upsert(layerInfo);
     else if (layerInfo.isBase) {
       const firstBaseIdx = this.layerRegistry.firstBaseIdx;
-      if (firstBaseIdx === -1) {
+      const atBottom = opts.baseInsert === "bottom";
+      if (firstBaseIdx === -1 || atBottom) {
         this.layerRegistry.insertAt(layerInfo, this.layers.length);
-      } else this.layerRegistry.insertAt(layerInfo, firstBaseIdx);
+      } else {
+        this.layerRegistry.insertAt(layerInfo, firstBaseIdx);
+      }
     } else this.insertOverlayAt(layerInfo);
 
     // I1: give the layer its rendering face and materialize it *before* it

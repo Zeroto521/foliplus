@@ -816,12 +816,12 @@ describe("LayerUI keyboard", () => {
 
     it("getNavigableItems lists rows by class, so a checkbox-less row is reachable", () => {
       const colorRow = ui.uiContainer.querySelector(
-        `.${CONST.CLASSES.COLOR_ITEM}`,
+        `[${CONST.DATA.LAYER_ID}="${CONST.COLOR.MAP_ID}"]`,
       ) as HTMLElement | null;
 
       const items = ui.getNavigableItems();
-      // The color row is a picker, not a layer, so it stays out of the list.
-      if (colorRow) expect(items).not.toContain(colorRow);
+      // The color row is a regular layer row now — it is navigable.
+      if (colorRow) expect(items).toContain(colorRow);
       // Rows are enumerated by class, never filtered by checkbox presence.
       const isRow = (el: HTMLElement) =>
         el.classList.contains(CONST.CLASSES.LAYER_ITEM) ||

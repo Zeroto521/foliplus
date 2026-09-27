@@ -299,7 +299,7 @@ const onLayerItemCountChange = (ui: LayerUI, id: string): void => {
 const refreshAllCounts = (ui: LayerUI): void => {
   if (!ui.uiContainer) return;
   const items = ui.uiContainer.querySelectorAll(
-    `${CONST.SEL.LAYER_ITEM}:not(${CONST.SEL.COLOR_ITEM}):not(${CONST.SEL.TOGGLE_ALL})`,
+    `${CONST.SEL.LAYER_ITEM}:not(${CONST.SEL.TOGGLE_ALL})`,
   );
   items.forEach((item: Element) => {
     const id = item.getAttribute(CONST.DATA.LAYER_ID);

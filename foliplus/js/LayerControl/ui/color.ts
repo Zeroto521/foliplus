@@ -18,6 +18,10 @@ const getColorSurface = (ui: LayerUI): CreateColorAPI => {
       id: CONST.COLOR.MAP_ID,
       name: ui.T("color_map_label"),
       color: CONST.COLOR.DEFAULT,
+      onToggle: v => {
+        if (v) showColorLayer(ui, ui.currentColor);
+        else hideColorLayer(ui);
+      },
     });
     ui.colorSurface = surface;
     // register() inserts the LayerInfo into the registry. Called after
@@ -36,10 +40,6 @@ const showColorLayer = (ui: LayerUI, color: string) => {
   // Checking the box is a single user action — order the stack now, so the
   // pane's z lands immediately instead of after the debounce.
   ui.m.enforceOrder();
-
-  ui.uiContainer
-    .querySelector(CONST.SEL.COLOR_ITEM)
-    ?.classList.add(CONST.CLASSES.ACTIVE);
 };
 
 const hideColorLayer = (ui: LayerUI) => {
@@ -48,9 +48,6 @@ const hideColorLayer = (ui: LayerUI) => {
   // surface does not exist yet — nothing to hide, and the pane is not
   // allocated.
   ui.colorSurface?.setVisible(false);
-  ui.uiContainer
-    .querySelector(CONST.SEL.COLOR_ITEM)
-    ?.classList.remove(CONST.CLASSES.ACTIVE);
 };
 
-export { showColorLayer, hideColorLayer };
+export { getColorSurface, showColorLayer, hideColorLayer };
