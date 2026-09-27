@@ -2,7 +2,6 @@
 // ``import * as CONST`` so callers keep the ``CONST.X`` access pattern.
 // Only pure static constants live here; CONF-derived values are accessed
 // via ``CONF.*`` directly in the consuming code.
-import { METHOD as CLASSIFY_METHOD } from "#core/classify.js";
 import { LABEL_COLOR_DEFAULT, LABEL_SIZE } from "#common/form.js";
 
 const TIMING = {
@@ -48,12 +47,6 @@ const AGG = {
   MIN: "min",
   MAX: "max",
 };
-
-/** The shared classification-method protocol, with Heatmap's default layered
- *  on top. The four method names themselves live in `core/classify.ts` so
- *  any other consumer (LayerControl value-fill, T202) reads the same
- *  literals. */
-const METHOD = { DEFAULT: CONF.method ?? CLASSIFY_METHOD.JENKS, ...CLASSIFY_METHOD };
 
 const CLASS_COUNT = {
   MIN: 2,
@@ -131,7 +124,6 @@ export {
   H3,
   ID,
   LABEL,
-  METHOD,
   SEL,
   STORAGE,
   RECORD_VERSION,

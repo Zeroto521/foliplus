@@ -2,10 +2,19 @@
 // The `ss` global is injected by the build; tests stub it here the same way
 // the old HeatmapControl/data.test.ts did.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { computeBreaks } from "#core/classify.js";
+import { METHOD, computeBreaks } from "#core/classify.js";
 
 afterEach(() => {
   delete globalThis.ss;
+});
+
+describe("METHOD", () => {
+  it("defines standard classification methods", () => {
+    expect(METHOD.JENKS).toBe("jenks");
+    expect(METHOD.QUANTILE).toBe("quantile");
+    expect(METHOD.EQUAL).toBe("equal");
+    expect(METHOD.HEADS).toBe("heads");
+  });
 });
 
 describe("computeBreaks", () => {

@@ -3,6 +3,7 @@
 // (set by the fixture), never from the ambient window.CONF — these tests
 // therefore prove both the behavior and the per-instance CONF injection.
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { METHOD } from "#core/classify.js";
 import { HINT_DURATION } from "#core/hint.js";
 import * as CONST from "#foliplus/HeatmapControl/const.js";
 import { HeatmapManager } from "#foliplus/HeatmapControl/manager.js";
@@ -134,9 +135,9 @@ describe("bindControls — change handlers", () => {
     const { ctrl, m } = setup();
     const save = vi.spyOn(m, "saveConfig");
     const render = vi.spyOn(m, "renderHexagons");
-    ctrl.methodSelect.value = CONST.METHOD.QUANTILE;
+    ctrl.methodSelect.value = METHOD.QUANTILE;
     fire(ctrl.methodSelect, "change");
-    expect(m.currentMethod).toBe(CONST.METHOD.QUANTILE);
+    expect(m.currentMethod).toBe(METHOD.QUANTILE);
     expect(render).toHaveBeenCalled();
     expect(save).toHaveBeenCalled();
   });
@@ -246,7 +247,7 @@ describe("bindControls — clear (reset) button", () => {
 
     expect(m.currentScheme).toBe("Reds");
     expect(m.numClasses).toBe(CONST.CLASS_COUNT.DEFAULT);
-    expect(m.currentMethod).toBe(CONST.METHOD.JENKS);
+    expect(m.currentMethod).toBe(METHOD.JENKS);
     expect(m.currentField).toBe("");
     expect(ctrl.aggSelect.value).toBe(CONST.AGG.COUNT);
   });

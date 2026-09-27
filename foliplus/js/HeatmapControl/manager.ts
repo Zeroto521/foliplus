@@ -1,5 +1,8 @@
 // HeatmapControl data aggregation & rendering logic (HeatmapManager).
-import { computeBreaks as computeBreaksFn } from "#core/classify.js";
+import {
+  METHOD as CLASSIFY_METHOD,
+  computeBreaks as computeBreaksFn,
+} from "#core/classify.js";
 import { generateId } from "#core/component.js";
 import { EVENTS, type EventBus, ensureEvents } from "#core/event/index.js";
 import { bareFieldName } from "#core/labelField.js";
@@ -154,7 +157,7 @@ class HeatmapManager {
     this.currentAgg = CONF.agg ?? CONST.AGG.COUNT;
     this.currentField = "";
     this.currentScheme = CONF.color_scheme ?? "Reds";
-    this.currentMethod = CONF.method ?? CONST.METHOD.JENKS;
+    this.currentMethod = CONF.method ?? CLASSIFY_METHOD.JENKS;
     this.autoFieldKey = null;
     this.numClasses = CONF.n_classes ?? CONST.CLASS_COUNT.DEFAULT;
     this.borderWeight = CONF.border_weight ?? BORDER_WEIGHT.DEFAULT;
