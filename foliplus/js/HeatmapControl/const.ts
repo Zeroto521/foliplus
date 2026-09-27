@@ -48,14 +48,6 @@ const AGG = {
   MAX: "max",
 };
 
-const METHOD = {
-  DEFAULT: CONF.method ?? "jenks",
-  JENKS: "jenks",
-  QUANTILE: "quantile",
-  EQUAL: "equal",
-  HEADS: "heads",
-};
-
 const CLASS_COUNT = {
   MIN: 2,
   MAX: 9,
@@ -132,7 +124,6 @@ export {
   H3,
   ID,
   LABEL,
-  METHOD,
   SEL,
   STORAGE,
   RECORD_VERSION,
