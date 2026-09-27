@@ -9,10 +9,7 @@ import { createRowPanel } from "#common/panel.js";
 import * as CONST from "../../const.js";
 import * as SVGs from "../../icon.js";
 import type { LayerUI } from "../index.js";
-import {
-  bindBorderRowShell,
-  buildBorderRowShell,
-} from "./border.js";
+import { bindBorderRowShell, buildBorderRowShell } from "./border.js";
 import { appendResetFooter, sectionHeading } from "./frame.js";
 import { buildOpacityRow, layerCanOpacity } from "./opacity.js";
 import { buildZoomRangeRow, canShowZoomRange } from "./zoomRange.js";
@@ -27,7 +24,7 @@ const layerHasStyleDelegation = (ui: LayerUI, layerId: string): boolean => {
 
 /** Build the border-style row for a delegated layer (only HeatmapControl
  *  publishes borderWeight / borderColor today). Delegates to the shared
- *  builder in `./borderRow.ts` — same shell as the vector border row, so
+ *  builder in `./border.js` — same shell as the vector border row, so
  *  the two read identically — with the `styleSetters` write target.
  *  Returns null when the layer publishes no border setters. */
 const buildBorderRow = (ui: LayerUI, layerId: string): HTMLElement | null => {
@@ -49,7 +46,10 @@ const buildBorderRow = (ui: LayerUI, layerId: string): HTMLElement | null => {
     rowClass: CONST.CLASSES.FORM_ROW,
     label: ui.T("border"),
     color: values.borderColor,
-    weight: typeof values.borderWeight === "number" ? values.borderWeight : BORDER_WEIGHT.DEFAULT,
+    weight:
+      typeof values.borderWeight === "number"
+        ? values.borderWeight
+        : BORDER_WEIGHT.DEFAULT,
     hasColorInput: hasColor,
     hasWeightInput: hasWeight,
   });

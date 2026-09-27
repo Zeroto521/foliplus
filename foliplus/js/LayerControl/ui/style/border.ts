@@ -355,7 +355,7 @@ const displayColor = (value: string): string => {
  *  the build side needs shell/chrome options, the bind side needs write
  *  callbacks. Folding them into one target would force the bind caller to
  *  supply dummy shell fields and vice versa. */
-export interface BorderRowBuildTarget {
+interface BorderRowBuildTarget {
   /** Resolved row label text. */
   label: string;
   /** Row `class` — `FORM_ROW` plus any caller-specific hook. */
@@ -378,7 +378,7 @@ export interface BorderRowBuildTarget {
   weightAria?: string;
 }
 
-export interface BorderRowBindTarget {
+interface BorderRowBindTarget {
   /** Write callback for the color input. */
   onChangeColor?: (value: string) => void;
   /** Write callback for the width input. */
@@ -394,7 +394,7 @@ const colorSelector = (className?: string) =>
 const weightSelector = (className?: string) =>
   className ? `input.${className}` : "input[type=number]";
 
-export const buildBorderRowShell = (target: BorderRowBuildTarget): HTMLElement => {
+const buildBorderRowShell = (target: BorderRowBuildTarget): HTMLElement => {
   const parts: HTMLElement[] = [];
   if (target.hasColorInput) {
     parts.push(
@@ -421,27 +421,20 @@ export const buildBorderRowShell = (target: BorderRowBuildTarget): HTMLElement =
     "div",
     { class: target.rowClass },
     dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, target.label),
-    dom.el(
-      "div",
-      { class: CONST.CLASSES.FORM_CONTROL },
-      inlineControls(...parts),
-    ),
+    dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, inlineControls(...parts)),
   );
 };
 
-export const bindBorderRowShell = (
-  row: HTMLElement,
-  target: BorderRowBindTarget,
-): void => {
-  const colorEl = row.querySelector(colorSelector(target.className)) as
-    | HTMLInputElement
-    | null;
+const bindBorderRowShell = (row: HTMLElement, target: BorderRowBindTarget): void => {
+  const colorEl = row.querySelector(
+    colorSelector(target.className),
+  ) as HTMLInputElement | null;
   if (colorEl && target.onChangeColor) {
     bindLiveColor(colorEl, value => target.onChangeColor?.(value));
   }
-  const weightEl = row.querySelector(weightSelector(target.weightClassName)) as
-    | HTMLInputElement
-    | null;
+  const weightEl = row.querySelector(
+    weightSelector(target.weightClassName),
+  ) as HTMLInputElement | null;
   if (weightEl && target.onChangeWeight) {
     bindLiveNumber(weightEl, {
       min: BORDER_WEIGHT.MIN,
@@ -492,10 +485,14 @@ export {
   applyBorderToLayer,
   authoredBorder,
   bindBorderRow,
+  bindBorderRowShell,
   buildBorderRow,
+  buildBorderRowShell,
   commitBorderColor,
   commitBorderWeight,
   layerCanBorder,
   replayBorderState,
   resetLayerBorder,
 };
+
+export type { BorderRowBindTarget, BorderRowBuildTarget };
