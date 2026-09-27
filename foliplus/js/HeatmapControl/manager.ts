@@ -276,7 +276,7 @@ class HeatmapManager {
     };
     this.overlay = map.foliplus!.LayerAPI!.createCanvas({
       id: this.layerId,
-      name: this.T("title"),
+      name: T("title"),
       iconSvg: SVGs.HEXAGON,
       featureCountProvider: () => this.cachedFeatures?.length ?? 0,
       getBounds: () => this.computeBounds(),
@@ -702,8 +702,8 @@ class HeatmapManager {
       if (key) fieldLabel = bareFieldName(key);
     }
 
-    const sourceKey = this.T("meta_source_layer");
-    const fieldKey = this.T("meta_agg_field");
+    const sourceKey = T("meta_source_layer");
+    const fieldKey = T("meta_agg_field");
     const changed =
       this.sourceMeta[sourceKey] !== layerName ||
       this.sourceMeta[fieldKey] !== fieldLabel;
