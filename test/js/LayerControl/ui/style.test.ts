@@ -18,7 +18,7 @@ import { resetLayerZoomRange } from "#foliplus/LayerControl/ui/style/zoomRange.j
 import { AUTO_FIELD } from "#foliplus/core/labelField.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 import { NUMBER_FORMAT } from "#common/format.js";
-import { findItem, initFixture, installLeafletGlobals, GridLayer } from "./fixture.js";
+import { GridLayer, findItem, initFixture, installLeafletGlobals } from "./fixture.js";
 
 /** Percentage the opacity fill is drawn at, read off its width expression.
  *  The fill's width is `calc((100% - var(--slider-thumb-hit)) * <fraction>)` —
