@@ -76,14 +76,14 @@ path.foliplus-focus-mask {
 }
 
 /* ── Focus: hide every non-focused layer, declaratively ──
-   While focusing, the map container gets `.is-focus-mode` and every
+   While focusing, the map container gets `.foliplus-is-focus-mode` and every
    layer pane except the focused one (marked `.foliplus-focus-pane`) is hidden
    with a single CSS rule — no per-pane JS visibility loop. The basemap lives
    in tilePane which has no `.foliplus-layer-pane` class, so it stays visible
    and keeps the spatial context. Canvas layers (heatmap) live in their own
    `.foliplus-layer-pane`, and so do the annotation panes — every owned pane
    is covered by the one base class, so the selector lists it once. */
-.is-focus-mode .foliplus-layer-pane:not(.foliplus-focus-pane) {
+.foliplus-is-focus-mode .foliplus-layer-pane:not(.foliplus-focus-pane) {
   visibility: hidden;
 }
 @keyframes foliplus-focus-march {

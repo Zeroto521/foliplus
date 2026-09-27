@@ -19,12 +19,12 @@
   first.dispatchEvent(
     new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
   );
-  const dataRow = panel.querySelector(".is-focused-row");
+  const dataRow = panel.querySelector(".foliplus-is-focused-row");
   if (!dataRow) return { error: "no data-row cursor after ArrowDown" };
   dataRow.dispatchEvent(
     new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }),
   );
-  const fold = panel.querySelector(".is-focused-row");
+  const fold = panel.querySelector(".foliplus-is-focused-row");
   if (!fold) return { error: "no fold cursor after ArrowUp" };
   const cs = getComputedStyle(fold);
   const cursorBtn = fold.querySelector(".foliplus-layer-fold-btn");

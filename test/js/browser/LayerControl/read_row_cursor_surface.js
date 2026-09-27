@@ -31,9 +31,9 @@
     box.dispatchEvent(new Event("change", { bubbles: true }));
   }
   const rest = pick(unchecked);
-  unchecked.classList.add("is-focused-row");
+  unchecked.classList.add("foliplus-is-focused-row");
   const cursor = pick(unchecked);
-  unchecked.classList.remove("is-focused-row");
+  unchecked.classList.remove("foliplus-is-focused-row");
   const after = pick(unchecked);
 
   // Row 1: force CHECKED. Rest shows the wash; cursor/hover still paints white
@@ -45,9 +45,9 @@
     cbox.dispatchEvent(new Event("change", { bubbles: true }));
   }
   const checkedRest = pick(checkedRow);
-  checkedRow.classList.add("is-focused-row");
+  checkedRow.classList.add("foliplus-is-focused-row");
   const checkedCursor = pick(checkedRow);
-  checkedRow.classList.remove("is-focused-row");
+  checkedRow.classList.remove("foliplus-is-focused-row");
   const checkedAfter = pick(checkedRow);
 
   return {

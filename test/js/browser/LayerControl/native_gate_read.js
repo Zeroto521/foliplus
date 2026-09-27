@@ -5,7 +5,7 @@
   return {
     records,
     cbAfter: cb ? cb.checked : null,
-    rowFocused: !!document.querySelector(".is-focused-row"),
+    rowFocused: !!document.querySelector(".foliplus-is-focused-row"),
     focusedTag: document.activeElement.tagName.toLowerCase(),
     focusedType: document.activeElement.type,
   };
