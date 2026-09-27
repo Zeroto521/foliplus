@@ -830,6 +830,151 @@ describe("PaneManager", () => {
     expect(Array.from(paneEl.children)).toEqual([shadow, icon, bareIcon]);
   });
 
+  it("pinLateContent moves a GridLayer's container into the target pane", () => {
+    // Tile basemaps are GridLayers: Leaflet appends their container to
+    // `options.pane` once at addLayer, so rewriting options.pane alone never
+    // moves the visible tiles. The pin must physically relocate the container
+    // — otherwise every tile stays in the shared tilePane (z fixed at 200)
+    // and base-basemap reorder cannot change what the user sees.
+    const paneEl = document.createElement("div");
+    document.body.appendChild(paneEl);
+    const map = { getPane: vi.fn(() => paneEl), createPane: vi.fn() };
+    const pm = new PaneManager(map);
+    const renderer = { _container: document.createElement("div") };
+
+    const container = document.createElement("div");
+    container.className = "leaflet-layer";
+    const layer = {
+      getContainer: () => container,
+      options: {},
+      eachLayer: undefined,
+    };
+    Object.setPrototypeOf(layer, new window.L.GridLayer());
+
+    pm.pinLateContent([{ layer, paneName: "foliplus-pane-1", renderer }]);
+
+    expect(container.parentNode).toBe(paneEl);
+    expect(layer.options.pane).toBe("foliplus-pane-1");
+    expect(layer.options.paneSet).toBe(true);
+  });
+
+  it("pinLateContent is idempotent for a GridLayer already in the target pane", () => {
+    const paneEl = document.createElement("div");
+    document.body.appendChild(paneEl);
+    const map = { getPane: vi.fn(() => paneEl), createPane: vi.fn() };
+    const pm = new PaneManager(map);
+    const renderer = { _container: document.createElement("div") };
+
+    const container = document.createElement("div");
+    paneEl.appendChild(container);
+    const layer = {
+      getContainer: () => container,
+      options: {},
+      eachLayer: undefined,
+    };
+    Object.setPrototypeOf(layer, new window.L.GridLayer());
+
+    pm.pinLateContent([{ layer, paneName: "foliplus-pane-1", renderer }]);
+
+    // Not re-appended: appending an existing child re-orders it.
+    expect(Array.from(paneEl.children)).toEqual([container]);
+  });
+
+  it("pinLateContent tolerates a GridLayer without getContainer", () => {
+    // Leaflet mocks that strip the GridLayer implementation have no
+    // getContainer; the pin must fall through without moving anything or
+    // throwing, while still marking the layer handled.
+    const paneEl = document.createElement("div");
+    document.body.appendChild(paneEl);
+    const map = { getPane: vi.fn(() => paneEl), createPane: vi.fn() };
+    const pm = new PaneManager(map);
+    const renderer = { _container: document.createElement("div") };
+
+    const layer = { options: {}, eachLayer: undefined };
+    Object.setPrototypeOf(layer, new window.L.GridLayer());
+
+    expect(() =>
+      pm.pinLateContent([{ layer, paneName: "foliplus-pane-1", renderer }]),
+    ).not.toThrow();
+    expect(layer.options.pane).toBe("foliplus-pane-1");
+    expect(layer.options.paneSet).toBe(true);
+  });
+
+  it("pinLateContent batches two GridLayers of one pane into a single append", () => {
+    // The second GridLayer against the same target pane hits the already-
+    // existing group (`markerGroups.has` true) and appends after the first.
+    const paneEl = document.createElement("div");
+    document.body.appendChild(paneEl);
+    const map = { getPane: vi.fn(() => paneEl), createPane: vi.fn() };
+    const pm = new PaneManager(map);
+    const renderer = { _container: document.createElement("div") };
+
+    const c1 = document.createElement("div");
+    const c2 = document.createElement("div");
+    const mk = (container: HTMLElement) => {
+      const layer = {
+        getContainer: () => container,
+        options: {},
+        eachLayer: undefined,
+      };
+      Object.setPrototypeOf(layer, new window.L.GridLayer());
+      return layer;
+    };
+
+    pm.pinLateContent([
+      { layer: mk(c1), paneName: "foliplus-pane-1", renderer },
+      { layer: mk(c2), paneName: "foliplus-pane-1", renderer },
+    ]);
+
+    expect(Array.from(paneEl.children)).toEqual([c1, c2]);
+  });
+
+  it("pinLateContent skips the GridLayer move when the target pane is missing", () => {
+    // getPane can return null for a pane name the registry still reports —
+    // the GridLayer branch's `paneEl &&` guard short-circuits and nothing
+    // moves, but the layer is still marked handled.
+    const map = { getPane: vi.fn(() => null), createPane: vi.fn() };
+    const pm = new PaneManager(map);
+    const renderer = { _container: document.createElement("div") };
+
+    const container = document.createElement("div");
+    const layer = {
+      getContainer: () => container,
+      options: {},
+      eachLayer: undefined,
+    };
+    Object.setPrototypeOf(layer, new window.L.GridLayer());
+
+    expect(() =>
+      pm.pinLateContent([{ layer, paneName: "foliplus-pane-1", renderer }]),
+    ).not.toThrow();
+    expect(layer.options.pane).toBe("foliplus-pane-1");
+    expect(layer.options.paneSet).toBe(true);
+  });
+
+  it("pinLateContent skips the GridLayer move when getContainer returns null", () => {
+    // A GridLayer whose container was torn down before the pin runs: the
+    // `tileContainer &&` guard falls through, no throw.
+    const paneEl = document.createElement("div");
+    document.body.appendChild(paneEl);
+    const map = { getPane: vi.fn(() => paneEl), createPane: vi.fn() };
+    const pm = new PaneManager(map);
+    const renderer = { _container: document.createElement("div") };
+
+    const layer = {
+      getContainer: () => null,
+      options: {},
+      eachLayer: undefined,
+    };
+    Object.setPrototypeOf(layer, new window.L.GridLayer());
+
+    expect(() =>
+      pm.pinLateContent([{ layer, paneName: "foliplus-pane-1", renderer }]),
+    ).not.toThrow();
+    expect(layer.options.pane).toBe("foliplus-pane-1");
+    expect(layer.options.paneSet).toBe(true);
+  });
+
   it("pinLateContent skips layers without a paneName", () => {
     const map = { getPane: vi.fn(), createPane: vi.fn() };
     const pm = new PaneManager(map);

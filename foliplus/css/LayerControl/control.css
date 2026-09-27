@@ -16,9 +16,9 @@
   }
 
   /* ── Color layer item overrides ──
-     Pointer cursor (not draggable) */
+     Draggable within the base group — same cursor as tile basemap rows. */
   .foliplus-color-layer-item {
-    cursor: pointer;
+    cursor: move;
   }
   /* ── Checkbox styles ── */
   .foliplus-checkbox {

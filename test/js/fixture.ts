@@ -272,7 +272,6 @@ export function makeLayerUIMock(extra: Overrides = {}): LayerUI {
     rangeHiddenIds: new Set<string>(),
     authorVisible: new Map<string, boolean>(),
     userOverrides: {},
-    isColorActive: false,
     currentColor: "#cccccc",
     renamedNames: {},
     activeRenameId: null,

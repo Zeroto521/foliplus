@@ -4,7 +4,7 @@
 // refreshAllCounts moved to `./lifecycle.ts` (34.2).
 import { type EventBus, ensureEvents } from "#core/event/index.js";
 import type { LabelField } from "#core/labelField.js";
-import { type LayerInfo } from "#core/layer/index.js";
+import { type CreateColorAPI, type LayerInfo } from "#core/layer/index.js";
 import { ListCursor } from "#core/listCursor.js";
 import { createScopedTranslator, createTranslator } from "#common/locale.js";
 import * as CONST from "../const.js";
@@ -103,8 +103,12 @@ class LayerUI {
    *  a map-level "did the user choose at all" flag, which could not tell one
    *  layer's choice from another's. */
   userOverrides: Record<string, LayerOverride[]>;
-  isColorActive: boolean;
   currentColor: string;
+  /** Lazy-created color basemap surface — the pane-owned canvas that carries
+   *  the fill. Built on first show (via `factory.createColor`), which also
+   *  upserts the LayerInfo so the pane participates in `enforceOrder`.
+   *  Null until the color basemap is first displayed. */
+  colorSurface: CreateColorAPI | null;
   /** Map of layer id → user-assigned display name (survives reload). */
   renamedNames: Record<string, string>;
   /** Layer id whose label is currently an inline rename input, or null. */
@@ -226,8 +230,8 @@ class LayerUI {
     this.hiddenIds = new Set();
     this.authorVisible = new Map();
     this.userOverrides = {};
-    this.isColorActive = false;
     this.currentColor = CONST.COLOR.DEFAULT;
+    this.colorSurface = null;
     this.renamedNames = {};
     this.activeRenameId = null;
     this.dragIdx = null;
@@ -310,35 +314,6 @@ class LayerUI {
 
   unbindEvents() {
     return unbindEvents(this);
-  }
-
-  deselectAllBaseMaps(exceptIdx: number) {
-    // The rows carry their identity (data-layer-id): a saved order can place a
-    // row elsewhere in the DOM than its position in the registry.
-    const bases = this.m.layers.filter((li, i) => li.isBase && i !== exceptIdx);
-    let changed = false;
-    for (const layerInfo of bases) {
-      const bLayer = this.m.findLayer(layerInfo);
-      if (bLayer && this.m.map.hasLayer(bLayer)) {
-        this.m.map.removeLayer(bLayer);
-        changed = true;
-      }
-      if (rowChecked(this, layerInfo)) changed = true;
-    }
-    // Excluded from handleChange: it is the mutual-exclusion half of that
-    // handler, so walking it would recurse. The bases it deselects are hidden
-    // by the user's own choice, so they still need to persist -- otherwise a
-    // reload re-checks them and the "only one base at a time" invariant
-    // silently resets. The selected base is already tracked by the caller.
-    if (changed) {
-      for (const layerInfo of bases) {
-        syncHiddenId(this, layerInfo.id, true);
-        const item = this.uiContainer.querySelector(
-          `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerInfo.id)}"]`,
-        ) as HTMLElement | null;
-        if (item) applyRowView(this, item, buildRowCell(this, layerInfo));
-      }
-    }
   }
 
   // ── delegates: state ──

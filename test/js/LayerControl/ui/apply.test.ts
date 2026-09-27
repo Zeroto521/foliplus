@@ -310,6 +310,8 @@ describe("executor: late-carrier replay", () => {
       capabilities: { opacity: "pane", zoomRange: "none" },
       paneNames: ["labels-pane"],
       geometryType: () => "polygon",
+      materialize: () => {},
+      setZ: () => {},
     } as unknown as ReturnType<typeof manager.surfaceFor>);
 
     vi.useFakeTimers();

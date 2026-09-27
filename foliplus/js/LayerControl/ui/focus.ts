@@ -34,15 +34,23 @@ const focusDisabledLocaleKey = (reason: FocusDisabled): string =>
   FOCUS_DISABLED_LOCALE[reason];
 
 /** Why the ⋮ menu / keyboard / double-click path should not focus `item`.
- *  Basemaps (no useful extent), hidden rows (nothing to show), and surfaces
- *  whose `capabilities.bounds` is false (no honest carrier to focus on — a
- *  MarkerCluster group, a canvas without a `getBounds` provider, a third-party
- *  layer that never advertised a bounds) all fail this check. */
+ *
+ *  An unchecked row comes first: it is hidden, so there is nothing to focus
+ *  and nothing to style. That check sits ahead of the basemap branches so a
+ *  basemap row obeys the same "checked first" rule as every data row — the
+ *  branches below only say "no useful extent", which is true whether or not
+ *  the row is on, so consulting them first would let an off basemap keep an
+ *  enabled Style entry.
+ *
+ *  Basemaps (no useful extent) and surfaces whose `capabilities.bounds` is
+ *  false (no honest carrier to focus on — a MarkerCluster group, a canvas
+ *  without a `getBounds` provider, a third-party layer that never advertised
+ *  a bounds) are off for focus only. */
 const focusDisabledReason = (ui: LayerUI, item: HTMLElement): FocusDisabledReason => {
-  if (item.classList.contains(CONST.CLASSES.COLOR_ITEM)) return "base";
-  if (item.dataset.layerType === CONST.GROUP.BASE) return "base";
   const box = item.querySelector('input[type="checkbox"]') as HTMLInputElement | null;
   if (box !== null && !box.checked) return "hidden";
+  if (item.classList.contains(CONST.CLASSES.COLOR_ITEM)) return "base";
+  if (item.dataset.layerType === CONST.GROUP.BASE) return "base";
   const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
   const layerInfo = ui.m.layerRegistry.get(layerId);
   if (layerInfo && ui.m.surfaceFor(layerInfo).capabilities.bounds === false) {
