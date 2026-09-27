@@ -115,12 +115,13 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       ]);
       const u = new LayerUI(m);
       u.hiddenIds = new Set(["overlay1"]);
+      u.userOverrides = { overlay1: ["visible"] };
 
       u.applyUserState();
 
       expect(removeLayer).toHaveBeenCalledWith(testPolyLayer);
       expect(u.hiddenIds).toContain("overlay1");
-      expect(m.layerRegistry.get("overlay1")?.visible).toBe(false);
+      expect(u.intentVisible("overlay1")).toBe(false);
     });
 
     it("re-adds a layer the user un-hid, once the visibility key exists", () => {
@@ -152,7 +153,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
 
       expect(map.addLayer).toHaveBeenCalledWith(testPolyLayer);
       expect(removeLayer).not.toHaveBeenCalled();
-      expect(m.layerRegistry.get("overlay1")?.visible).toBe(true);
+      expect(m.intentVisible("overlay1")).toBe(true);
     });
 
     it("leaves the author's show=False defaults alone when the key is absent", () => {
@@ -178,7 +179,10 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       u.applyUserState();
 
       expect(map.addLayer).not.toHaveBeenCalled();
-      expect(m.layerRegistry.get("overlay1")?.visible).toBe(true);
+      // The author's `show=False` default is not a user choice, so the
+      // intent record stays untouched — the layer's membership on the map
+      // reflects that author default, not this load's decision.
+      expect(m.intentVisible("overlay1")).toBe(true);
     });
 
     it("fires onToggle(true) for a callback-only layer the user un-hid", () => {
@@ -756,15 +760,20 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       ]);
       const u = new LayerUI(m);
       u.hiddenIds = new Set(["overlay1", "base1", "canvas1"]);
+      u.userOverrides = {
+        overlay1: ["visible"],
+        base1: ["visible"],
+        canvas1: ["visible"],
+      };
 
       u.applyUserState();
 
       expect(removeLayer).toHaveBeenCalledWith(poly);
       expect(removeLayer).toHaveBeenCalledWith(baseLayer);
       expect(onToggle).toHaveBeenCalledWith(false);
-      expect(m.layerRegistry.get("overlay1")?.visible).toBe(false);
-      expect(m.layerRegistry.get("base1")?.visible).toBe(false);
-      expect(m.layerRegistry.get("canvas1")?.visible).toBe(false);
+      expect(u.intentVisible("overlay1")).toBe(false);
+      expect(u.intentVisible("base1")).toBe(false);
+      expect(u.intentVisible("canvas1")).toBe(false);
       expect(u.hiddenIds).toEqual(new Set(["overlay1", "base1", "canvas1"]));
     });
   });
@@ -1410,7 +1419,7 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
 
     ui.applyUserState("overlay1");
 
-    expect(manager.layerRegistry.get("overlay1")?.visible).toBe(false);
+    expect(manager.intentVisible("overlay1")).toBe(false);
   });
 
   it("applyUserState(id) re-applies a stored zoom range on late registration", () => {

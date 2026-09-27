@@ -46,7 +46,7 @@
     out.push({
       id,
       checked: cb ? cb.checked : null,
-      visible: info ? info.visible : null,
+      visible: api && api.intentVisible ? api.intentVisible(id) : null,
       onMap: resolve(id),
     });
   });
