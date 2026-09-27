@@ -11,7 +11,7 @@ const makeConf = (overrides: Partial<ComponentConfig> = {}): ComponentConfig => 
   locale_code: "en",
   locale_tables: {
     en: {
-      "MeasureControl.del_all": "Delete measurement",
+      "MeasureControl.clear_all": "Delete measurement",
       "MeasureControl.del_node": "Delete point",
     },
   },

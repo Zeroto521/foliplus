@@ -236,7 +236,7 @@ describe("attachPolygonUI", () => {
 
     expect(onDelete).not.toHaveBeenCalled();
     expect(iconEl.title).toBe("Delete measurement");
-    expect(mgr.T).toHaveBeenCalledWith("del_all");
+    expect(mgr.T).toHaveBeenCalledWith("clear_all");
 
     const clickCalls = (survivor.on as any).mock.calls.filter(
       (c: any[]) => c[0] === "click",

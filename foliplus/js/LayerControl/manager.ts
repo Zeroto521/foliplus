@@ -817,7 +817,7 @@ class LayerManager implements LayerAPI {
         const group = layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY;
         const anchorSel =
           group === CONST.GROUP.BASE
-            ? `${CONST.SEL.LAYER_ITEM}[data-layer-type="${CONST.GROUP.BASE}"]:not(${CONST.SEL.COLOR_ITEM})`
+            ? `${CONST.SEL.LAYER_ITEM}[data-layer-type="${CONST.GROUP.BASE}"]:not([${CONST.DATA.LAYER_ID}="${CONST.COLOR.MAP_ID}"])`
             : `${CONST.SEL.LAYER_ITEM}:not([data-layer-type="${CONST.GROUP.BASE}"])`;
         if (!this.uiContainer.querySelector(anchorSel)) {
           this.uiContainer

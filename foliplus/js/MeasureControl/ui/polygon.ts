@@ -140,7 +140,7 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
     centroidDelMarker = mountDelIcon(
       layers,
       centroid,
-      { title: mgr.T("del_all") },
+      { title: mgr.T("clear_all") },
       deleteMeasurement,
     );
   };
@@ -165,7 +165,7 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
     const delMarker = mountDelIcon(
       layers,
       node.getLatLng(),
-      { title: is3pt ? mgr.T("del_all") : mgr.T("del_node") },
+      { title: is3pt ? mgr.T("clear_all") : mgr.T("del_node") },
       is3pt
         ? deleteMeasurement
         : () => {
@@ -189,7 +189,7 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
                   } else openOverlay(event);
                 });
                 const iconEl = d.getElement();
-                if (iconEl) iconEl.title = mgr.T("del_all");
+                if (iconEl) iconEl.title = mgr.T("clear_all");
               });
             }
 
