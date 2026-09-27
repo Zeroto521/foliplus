@@ -960,10 +960,9 @@ describe("ExportRenderer.render — layer pass routing", () => {
     const vector = { options: {} };
     const map = (globalThis as any).map;
     map.foliplus = {
-      LayerAPI: withApi(
-        [{ id: "vec", visible: true, layer: vector }],
-        () => ["vector-pane"],
-      ),
+      LayerAPI: withApi([{ id: "vec", visible: true, layer: vector }], () => [
+        "vector-pane",
+      ]),
     };
     map.getPane = () => roots;
 
@@ -1018,10 +1017,9 @@ describe("ExportRenderer.render — layer pass routing", () => {
     const vector = { options: {} };
     const map = (globalThis as any).map;
     map.foliplus = {
-      LayerAPI: withApi(
-        [{ id: "vec", visible: true, layer: vector }],
-        () => ["gone-pane"],
-      ),
+      LayerAPI: withApi([{ id: "vec", visible: true, layer: vector }], () => [
+        "gone-pane",
+      ]),
     };
     map.getPane = () => null;
 

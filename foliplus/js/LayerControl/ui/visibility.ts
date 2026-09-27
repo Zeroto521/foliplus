@@ -4,8 +4,8 @@ import * as CONST from "../const.js";
 import { applyProjection, applyProjectionAll } from "./apply.js";
 import type { LayerUI } from "./index.js";
 import { applyRowView, buildRowCell, rowChecked } from "./rowView.js";
-import { intentVisibleOf } from "./store.js";
 import { saveState, syncHiddenId } from "./state.js";
+import { intentVisibleOf } from "./store.js";
 
 const getLayerItems = (ui: LayerUI, group: string): NodeListOf<Element> => {
   return ui.uiContainer.querySelectorAll(
@@ -19,7 +19,9 @@ const getLayerItems = (ui: LayerUI, group: string): NodeListOf<Element> => {
  *  resolveExportBackground deliberately skips (it reads only
  *  `backgroundColor`), so an empty state never reaches an export. */
 const syncNoBasemap = (ui: LayerUI): void => {
-  const anyBaseVisible = ui.m.layers.some(li => li.isBase && intentVisibleOf(ui, li.id));
+  const anyBaseVisible = ui.m.layers.some(
+    li => li.isBase && intentVisibleOf(ui, li.id),
+  );
   ui.m.map.getContainer().classList.toggle(CONST.CLASSES.NO_BASE_MAP, !anyBaseVisible);
   const label = ui.uiContainer.querySelector(
     `${CONST.SEL.TOGGLE_ALL}[data-group="${CONST.GROUP.BASE}"] ${CONST.SEL.SEP_LABEL}`,

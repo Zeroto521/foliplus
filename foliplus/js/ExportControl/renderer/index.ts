@@ -186,7 +186,11 @@ class ExportRenderer {
         }> = [];
         for (const li of layers) {
           const layer = this.resolveLayer(li);
-          if (!api.intentVisible?.(li.id) || !(layer instanceof L.TileLayer) || !layerUrl(layer)) {
+          if (
+            !api.intentVisible?.(li.id) ||
+            !(layer instanceof L.TileLayer) ||
+            !layerUrl(layer)
+          ) {
             continue;
           }
           const tiles = this.tilePositions(

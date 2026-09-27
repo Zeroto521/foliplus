@@ -873,9 +873,7 @@ describe("§40.5 invariants: only intent + author snapshot authorise membership"
   const bootUnobserved = (id = "x") => {
     const { container, map } = makeOffMapFixture();
     const layer = { options: {} } as L.Layer;
-    const manager = new LayerManager(map, [
-      { id, name: id, isBase: false, layer },
-    ]);
+    const manager = new LayerManager(map, [{ id, name: id, isBase: false, layer }]);
     manager.ui = new LayerUI(manager);
     const ui = manager.ui as LayerUI;
     vi.useFakeTimers();

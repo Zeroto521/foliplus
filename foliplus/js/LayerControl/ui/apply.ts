@@ -28,12 +28,7 @@
 // a change on either side produces an op.
 import { resetGridLayerView } from "#core/leafletAdapter.js";
 import type { LayerUI } from "./index.js";
-import {
-  type Projection,
-  intentVisibleOf,
-  projectAll,
-  projectLayer,
-} from "./store.js";
+import { type Projection, intentVisibleOf, projectAll, projectLayer } from "./store.js";
 
 /** One write the carrier dispatcher accepts. `opacity` and `zoomRange`
  *  being `undefined` mean "no user value" — a Reset back to the author's
@@ -252,9 +247,7 @@ const applyProjection = (ui: LayerUI, id: string): void => {
     // the ground truth — `hasLayer` would always return false and mask a
     // real visible→hidden transition.
     const layer = layerInfo.layer ?? ui.m.findLayer(layerInfo);
-    const baselineVisible = layer
-      ? ui.m.map.hasLayer(layer)
-      : intentVisibleOf(ui, id);
+    const baselineVisible = layer ? ui.m.map.hasLayer(layer) : intentVisibleOf(ui, id);
     prev = {
       id,
       intent: { visible: baselineVisible },

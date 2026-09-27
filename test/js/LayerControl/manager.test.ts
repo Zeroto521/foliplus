@@ -1029,9 +1029,7 @@ describe("LayerManager", () => {
   });
 
   it("normalizes initial data into the full layerInfo field set", () => {
-    const m2 = new LayerManager(map, [
-      { id: "a", name: "A", isBase: false },
-    ]);
+    const m2 = new LayerManager(map, [{ id: "a", name: "A", isBase: false }]);
     const li = m2.layers[0];
     expect(li).toMatchObject({ id: "a", name: "A", isBase: false });
     for (const key of ["paneName", "iconSvg", "type", "canvas", "onToggle"]) {
