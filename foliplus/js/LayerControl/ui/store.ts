@@ -69,7 +69,15 @@ const projectLayer = (ui: LayerUI, layerInfo: LayerInfo): Projection => {
   const id = layerInfo.id;
   // The author's default is the map state folium left at boot (see
   // `snapshotAuthorVisible`), captured before any policy moved layers.
-  const intent = intentVisibleOf(ui, id);
+  // Inline the intent logic here (instead of calling `intentVisibleOf`)
+  // to avoid function-call overhead on the zoomend hot path — this runs
+  // per layer per zoom, so the JIT benefits from seeing all lookups in
+  // one scope.
+  const overrides = ui.userOverrides?.[id];
+  const hidden = ui.hiddenIds?.has(id) ?? false;
+  const hasVisible = overrides?.includes("visible") || hidden;
+  const authorDefault = ui.authorVisible.get(id) ?? true;
+  const intent = hasVisible ? !hidden : authorDefault;
 
   // Policy is independent of intent: focus overrides range, range may
   // exclude, but neither touches the user's stored choice.

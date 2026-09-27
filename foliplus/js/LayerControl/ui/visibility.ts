@@ -5,7 +5,6 @@ import { applyProjection, applyProjectionAll } from "./apply.js";
 import type { LayerUI } from "./index.js";
 import { applyRowView, buildRowCell } from "./rowView.js";
 import { saveState, syncHiddenId } from "./state.js";
-import { intentVisibleOf } from "./store.js";
 
 const getLayerItems = (ui: LayerUI, group: string): NodeListOf<Element> => {
   return ui.uiContainer.querySelectorAll(
@@ -19,9 +18,15 @@ const getLayerItems = (ui: LayerUI, group: string): NodeListOf<Element> => {
  *  resolveExportBackground deliberately skips (it reads only
  *  `backgroundColor`), so an empty state never reaches an export. */
 const syncNoBasemap = (ui: LayerUI): void => {
-  const anyBaseVisible = ui.m.layers.some(
-    li => li.isBase && intentVisibleOf(ui, li.id),
-  );
+  const anyBaseVisible = ui.m.layers.some(li => {
+    if (!li.isBase) return false;
+    // Inline intent check to avoid function-call overhead on the click hot path.
+    const overrides = ui.userOverrides?.[li.id];
+    const hidden = ui.hiddenIds?.has(li.id) ?? false;
+    const hasVisible = overrides?.includes("visible") || hidden;
+    const authorDefault = ui.authorVisible.get(li.id) ?? true;
+    return hasVisible ? !hidden : authorDefault;
+  });
   ui.m.map.getContainer().classList.toggle(CONST.CLASSES.NO_BASE_MAP, !anyBaseVisible);
   const label = ui.uiContainer.querySelector(
     `${CONST.SEL.TOGGLE_ALL}[data-group="${CONST.GROUP.BASE}"] ${CONST.SEL.SEP_LABEL}`,
@@ -80,8 +85,15 @@ const syncToggleAll = (ui: LayerUI, group: string) => {
   // a stale state must not skew the group state it is about to set.
   const checkedCount = Array.from(items).filter((item: Element) => {
     const id = item.getAttribute(CONST.DATA.LAYER_ID);
-    const layerInfo = id ? ui.m.layerRegistry.get(id) : undefined;
-    return layerInfo ? intentVisibleOf(ui, layerInfo.id) : false;
+    if (!id) return false;
+    const layerInfo = ui.m.layerRegistry.get(id);
+    if (!layerInfo) return false;
+    // Inline intent check to avoid function-call overhead on the click hot path.
+    const overrides = ui.userOverrides?.[id];
+    const hidden = ui.hiddenIds?.has(id) ?? false;
+    const hasVisible = overrides?.includes("visible") || hidden;
+    const authorDefault = ui.authorVisible.get(id) ?? true;
+    return hasVisible ? !hidden : authorDefault;
   }).length;
   const allChecked = items.length > 0 && checkedCount === items.length;
   const noneChecked = checkedCount === 0;
