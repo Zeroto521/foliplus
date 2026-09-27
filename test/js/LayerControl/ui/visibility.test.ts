@@ -477,10 +477,12 @@ describe("applyVisibility", () => {
       // call. Overlay toggles cannot change the visible-basemap count, so
       // the path skips syncNoBasemap entirely; base toggles still call it
       // because the hatch and group label are user-visible.
-      const { manager: m2, ui: u2, map: map2 } = initFixture({
-        data: [
-          { id: "overlay1", name: "O1", isBase: false, layer: layerFixture() },
-        ],
+      const {
+        manager: m2,
+        ui: u2,
+        map: map2,
+      } = initFixture({
+        data: [{ id: "overlay1", name: "O1", isBase: false, layer: layerFixture() }],
       });
       try {
         const toggleMock = vi.fn();

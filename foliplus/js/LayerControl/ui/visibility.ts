@@ -4,8 +4,8 @@ import * as CONST from "../const.js";
 import { applyProjection, applyProjectionAll } from "./apply.js";
 import type { LayerUI } from "./index.js";
 import { applyRowView, buildRowCell } from "./rowView.js";
-import { intentVisibleOf } from "./store.js";
 import { saveState, syncHiddenId } from "./state.js";
+import { intentVisibleOf } from "./store.js";
 
 const getLayerItems = (ui: LayerUI, group: string): NodeListOf<Element> => {
   return ui.uiContainer.querySelectorAll(
@@ -155,11 +155,7 @@ const writeToggleAllCheckbox = (
  *  already reflects the transition this caller just recorded, so no delta
  *  needs applying. After the first reconcile the counter is populated and
  *  every later call is O(1). */
-const bumpCheckedCount = (
-  ui: LayerUI,
-  group: string,
-  delta: number,
-): void => {
+const bumpCheckedCount = (ui: LayerUI, group: string, delta: number): void => {
   if (!ui.checkedCount?.[group]) {
     syncToggleAll(ui, group);
     return;
