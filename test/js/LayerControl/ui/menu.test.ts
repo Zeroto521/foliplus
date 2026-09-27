@@ -180,6 +180,23 @@ describe("LayerUI menu", () => {
       expect(ui.activeMenu).toBeNull();
     });
 
+    it("closes when focus leaves to a null relatedTarget", () => {
+      // Tabbing past the end of the menu in some engines yields no explicit
+      // target — treat that as "focus left the menu" and dismiss.
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+
+      item.querySelector(".foliplus-layer-more-menu")!.dispatchEvent(
+        new FocusEvent("focusout", {
+          bubbles: true,
+          relatedTarget: null,
+        }),
+      );
+
+      expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(0);
+      expect(ui.activeMenu).toBeNull();
+    });
+
     it("stays open while focus moves within the menu", () => {
       const item = findItem(ui, "overlay1");
       ui.openMoreMenu(item);
