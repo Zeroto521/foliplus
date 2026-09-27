@@ -250,7 +250,6 @@ describe("LayerSurface.materialize", () => {
     });
     surface.materialize();
     expect(layer.options.pane).toBe("graph");
-    expect(layer.options.paneSet).toBe(true);
     expect(layer.options.renderer).toBe(surface.panes[0].renderer);
     expect(surface.materialized).toBe(true);
   });
@@ -283,7 +282,6 @@ describe("LayerSurface.materialize", () => {
     surface.materialize();
     const pane = surface.synthesizedPaneName!;
     expect(child.options.pane).toBe(pane);
-    expect(child.options.paneSet).toBe(true);
     // A container is not given options.pane — Leaflet ignores a group's pane
     // for its children, which is why the pin walks the tree at all.
     expect(layer.options.pane).toBeUndefined();

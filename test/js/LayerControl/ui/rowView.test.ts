@@ -3,6 +3,7 @@ import { GEOM_TYPE } from "#core/layer/index.js";
 import type { LayerInfo } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
+import { intentVisibleOf } from "#foliplus/LayerControl/ui/projection.js";
 import {
   applyRowView,
   buildRowCell,
@@ -10,7 +11,6 @@ import {
   snapshotAuthorVisible,
 } from "#foliplus/LayerControl/ui/rowView.js";
 import type { RowCell } from "#foliplus/LayerControl/ui/rowView.js";
-import { intentVisibleOf } from "#foliplus/LayerControl/ui/store.js";
 import * as Icons from "#common/icon.js";
 import { findItem, initFixture } from "./fixture.js";
 

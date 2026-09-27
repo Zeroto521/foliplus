@@ -188,7 +188,6 @@ describe("LayerFactory", () => {
       // then re-added without an explicit pane (resortLayers path).
       const nodeLayer = new window.L.Marker();
       nodeLayer.options.pane = "node1";
-      nodeLayer.options.paneSet = true;
       api.addLayer(nodeLayer);
       expect(nodeLayer.options.pane).toBe("node1");
     });
@@ -324,10 +323,8 @@ describe("LayerFactory", () => {
       });
       const layer = new window.L.Path();
       layer.options.pane = "label1";
-      // `paneSet` marks the pane as explicitly authored (not a Leaflet
-      // class default like 'overlayPane' / 'markerPane'). The wrapper
-      // honours the declared value only when this flag is true.
-      (layer.options as { paneSet?: boolean }).paneSet = true;
+      // The wrapper honours a declared `options.pane` when the name is in
+      // the factory's declared pane list — no separate flag needed.
       api.mainLayer.addLayer(layer);
       expect(layer.options.pane).toBe("label1");
       const subLayers = Array.from(api.mainLayer.getLayers());
@@ -335,10 +332,10 @@ describe("LayerFactory", () => {
       expect(labelSub.hasLayer(layer)).toBe(true);
     });
 
-    it("mainLayer.addLayer falls through to origAddLayer when options.pane names a pane not in subPanes", () => {
+    it("mainLayer.addLayer routes an unknown options.pane to the base sub-layer", () => {
       // A caller that sets options.pane to a name outside subPanes (a
-      // third-party pane, or a stale reference after a rebuild) is left
-      // alone: the leaf lands in mainLayer directly, no pin, no crash.
+      // third-party pane, or a stale reference after a rebuild) is routed
+      // to the base sub-layer: the leaf is pinned there, no crash.
       const api = factory.createLayers({
         id: "test",
         name: "Test",
@@ -346,13 +343,12 @@ describe("LayerFactory", () => {
       });
       const layer = new window.L.Path();
       layer.options.pane = "__not_ours__";
-      (layer.options as { paneSet?: boolean }).paneSet = true;
       api.mainLayer.addLayer(layer);
-      expect(layer.options.pane).toBe("__not_ours__");
-      // Direct on mainLayer (not in any sub-layer).
+      // Not directly on mainLayer — it is in the base sub-layer.
       const subLayers = Array.from(api.mainLayer.getLayers());
       const directOnMain = subLayers.filter(g => g === layer).length;
-      expect(directOnMain).toBe(1);
+      expect(directOnMain).toBe(0);
+      expect(subLayers.some(g => g.hasLayer(layer))).toBe(true);
     });
 
     it("notifies onDataChange when graph content changes", () => {
@@ -701,7 +697,7 @@ describe("LayerFactory", () => {
       expect(onDataChange).not.toHaveBeenCalled();
     });
 
-    it("falls through to the LayerGroup prototype when L.LayerGroup is defined", () => {
+    it("routes unknown options.pane to the base sub-layer, not the LayerGroup prototype", () => {
       const protoAddLayer = vi.fn(function (this: unknown) {
         return this;
       });
@@ -721,25 +717,18 @@ describe("LayerFactory", () => {
         });
         const layer = new window.L.Path();
         layer.options.pane = "__not_ours__";
-        (layer.options as { paneSet?: boolean }).paneSet = true;
         api.mainLayer.addLayer(layer);
-        // The "not our pane" fallthrough must hit the LayerGroup prototype —
-        // not the instance's own addLayer (which the wrapper just replaced).
-        // The pane-unchanged assertion the test used to make held on both
-        // branches, so it did not pin anything; this one does.
-        expect(protoAddLayer).toHaveBeenCalledTimes(1);
-        expect(protoAddLayer).toHaveBeenCalledWith(layer);
+        // The wrapper intercepts unknown panes and routes them to the
+        // base sub-layer — it never falls through to the prototype.
+        expect(protoAddLayer).not.toHaveBeenCalled();
+        // The layer is in the base sub-layer, not directly on mainLayer.
+        expect(api.mainLayer.getLayers()).not.toContain(layer);
       } finally {
         Reflect.deleteProperty(window.L, "LayerGroup");
       }
     });
 
-    it("does not consult the LayerGroup prototype when L.LayerGroup is undefined", () => {
-      // setup.ts's L stub has no LayerGroup key, so the falsy branch delegates
-      // to the layerGroup mock's own addLayer, which pushes into `children`.
-      // Observable via getLayers(). Complements the test above: that one fails
-      // if the truthy branch stops running; this one fails if the falsy branch
-      // stops running.
+    it("routes unknown options.pane to the base sub-layer when L.LayerGroup is undefined", () => {
       const api = factory.createLayers({
         id: "test",
         name: "Test",
@@ -747,9 +736,11 @@ describe("LayerFactory", () => {
       });
       const layer = new window.L.Path();
       layer.options.pane = "__not_ours__";
-      (layer.options as { paneSet?: boolean }).paneSet = true;
       api.mainLayer.addLayer(layer);
-      expect(api.mainLayer.getLayers()).toContain(layer);
+      // The layer is pinned to the base sub-layer, not directly on mainLayer.
+      expect(api.mainLayer.getLayers()).not.toContain(layer);
+      const subLayers = Array.from(api.mainLayer.getLayers());
+      expect(subLayers.some(g => g.hasLayer(layer))).toBe(true);
     });
   });
 
