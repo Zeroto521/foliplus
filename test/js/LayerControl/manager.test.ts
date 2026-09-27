@@ -298,6 +298,24 @@ describe("LayerManager", () => {
     });
   });
 
+  describe("intentVisible", () => {
+    it("returns true for an unknown id (author default stands)", () => {
+      expect(manager.intentVisible("ghost")).toBe(true);
+    });
+
+    it("returns true before UI is attached (pre-boot contract)", () => {
+      const fresh = new LayerManager(map, []);
+      expect(fresh.intentVisible("x")).toBe(true);
+    });
+
+    it("returns the UI's intent for a known layer", () => {
+      const ui = vi.fn().mockReturnValue(false);
+      manager.ui = { intentVisible: ui } as any;
+      expect(manager.intentVisible("overlay1")).toBe(false);
+      expect(ui).toHaveBeenCalledWith("overlay1");
+    });
+  });
+
   it("destroy clears registry and unbinds events", () => {
     manager.destroy();
     expect(manager.layerRegistry.size).toBe(0);
