@@ -1150,6 +1150,36 @@ describe("LayerManager", () => {
     }
   });
 
+  it("does not price a pane for a canvas whose id was deleted", () => {
+    // registerLayer refuses an id the user deleted and returns before inserting
+    // it, so slotOf has nothing to look up. preRegister still mounted the pane,
+    // and it must be left unpriced rather than given a slot that does not exist
+    // — and the path must not throw, since a late component can hold that id.
+    seedStorage({ removed: ["gone"] });
+    window.L.DomUtil = { getPosition: vi.fn(() => ({ x: 0, y: 0 })) };
+    map.getPanes = vi.fn(() => ({ mapPane: document.createElement("div") }));
+    const m2 = new LayerManager(map, [
+      { id: "kept", name: "K", isBase: false, layer: { options: {} } },
+    ]);
+    const warn = vi.fn();
+    vi.spyOn(console, "warn").mockImplementation(warn);
+    try {
+      const api = m2.createCanvas({ id: "gone" });
+      expect(() => api.register()).not.toThrow();
+      expect(m2.layerRegistry.get("gone")).toBeUndefined();
+      // Mounted, but carrying the mock pane's untouched default z: nothing was
+      // written by the factory.
+      expect(api.canvas.parentElement).toBeTruthy();
+      expect(api.canvas.parentElement?.style.zIndex).toBe("0");
+      api.destroy();
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining('registerLayer: refusing "gone"'),
+      );
+    } finally {
+      vi.restoreAllMocks();
+    }
+  });
+
   it("registerLayer appends a base layer when no base exists yet", () => {
     const m2 = new LayerManager(map, [
       { id: "only_overlay", name: "O", isBase: false },
