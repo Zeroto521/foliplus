@@ -3231,7 +3231,7 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded", state="attached", timeout=5000
             )
             page.wait_for_timeout(500)
 
@@ -3283,7 +3283,7 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded", state="attached", timeout=5000
             )
             page.wait_for_timeout(500)
 
@@ -3354,7 +3354,7 @@ class TestLayerControlBrowser:
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded", state="attached", timeout=5000
             )
             page.wait_for_timeout(600)
 
@@ -6241,7 +6241,7 @@ class TestLayerPaneProbeBrowser:
                 ".foliplus-layer-ctrl", state="attached", timeout=10000
             )
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded", state="attached", timeout=5000
             )
             page.wait_for_timeout(500)
 
