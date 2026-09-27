@@ -3,7 +3,7 @@ import { ListCursor } from "#core/listCursor.js";
 import { dom, updateItemLabel } from "#common/dom.js";
 import * as CONST from "../const.js";
 import * as SVGs from "../icon.js";
-import { hideColorLayer, showColorLayer } from "./color.js";
+import { getColorSurface } from "./color.js";
 import type { LayerUI } from "./index.js";
 import { cursorRef, restoreCursor } from "./keyboard.js";
 import { syncListCursor } from "./keyboard.js";
@@ -20,25 +20,14 @@ import { syncNoBasemap, syncToggleAll } from "./visibility.js";
  *  re-run on each CONTROL_ATTACHED so late-registering components are
  *  folded in. Marks the panel ready for tests/consumers. */
 const initTypesAndVisibility = (ui: LayerUI) => {
-  // Register the colour basemap in the registry so the projection-diff
-  // executor can resolve it.  It has no Leaflet layer — `onToggle` carries
-  // the visibility write (showColorLayer / hideColorLayer).  Registered here
-  // rather than via registerLayer() to avoid a duplicate DOM row: the colour
-  // row is rendered by renderColorLayerItem below.
-  if (!ui.m.layerRegistry.has(CONST.COLOR.MAP_ID)) {
-    const colorLi = ui.m.layerRegistry.createLayerInfo(
-      {
-        id: CONST.COLOR.MAP_ID,
-        name: colorLayerName(ui),
-        isBase: true,
-        color: CONST.COLOR.DEFAULT,
-        onToggle: (v: boolean) =>
-          v ? showColorLayer(ui, ui.currentColor) : hideColorLayer(ui),
-      },
-      undefined,
-      ui.m.map,
-    );
-    ui.m.layerRegistry.upsert(colorLi);
+  // The colour basemap is a first-class base-group layer: `getColorSurface`
+  // runs `surface.register()`, which inserts its LayerInfo through the
+  // standard registerLayer path. All visibility / zoom / order machinery
+  // then treats it identically to a tile basemap. `surface.register()` is
+  // idempotent, so a re-run of this pass is a no-op on the registry side.
+  getColorSurface(ui);
+  const colorLi = ui.m.layerRegistry.get(CONST.COLOR.MAP_ID);
+  if (colorLi) {
     // The colour basemap shares the tile basemap's visibility gating (§42.1):
     // it carries a zoom-range write through the `pane` / `visible` executor
     // path. The auto-detected surface says "none" (no Leaflet layer to hold
@@ -95,9 +84,6 @@ const renderInitialList = (ui: LayerUI) => {
   let hasOverlays = false;
 
   for (const layerInfo of ui.m.layers) {
-    // The colour basemap row is rendered separately by renderColorLayerItem
-    // below — skip it here to avoid a duplicate DOM row.
-    if (layerInfo.id === CONST.COLOR.MAP_ID) continue;
     if (!layerInfo.isBase && !hasOverlays) {
       hasOverlays = true;
       frag.appendChild(renderToggleAllRow(ui, CONST.GROUP.OVERLAY, "data_layer_label"));
@@ -110,30 +96,6 @@ const renderInitialList = (ui: LayerUI) => {
     const item = renderLayerItem(ui, layerInfo);
     if (ui.foldedGroups.has(group)) item.classList.add(CONST.CLASSES.GROUP_FOLDED);
     frag.appendChild(item);
-  }
-
-  const colorItem = renderColorLayerItem(ui);
-  if (ui.foldedGroups.has(CONST.GROUP.BASE)) {
-    colorItem.classList.add(CONST.CLASSES.GROUP_FOLDED);
-  }
-  // Insert the colour row at the end of the base section (row order = z-order,
-  // top row = top of stack).  The base section contains both the toggle-all
-  // row (data-group=BASE) and the layer rows (data-layer-type=BASE); the
-  // last one is the correct anchor.
-  const children = Array.from(frag.children);
-  let lastBaseIdx = -1;
-  children.forEach((el, i) => {
-    if (
-      el.getAttribute("data-group") === CONST.GROUP.BASE ||
-      el.getAttribute("data-layer-type") === CONST.GROUP.BASE
-    ) {
-      lastBaseIdx = i;
-    }
-  });
-  if (lastBaseIdx >= 0) {
-    frag.insertBefore(colorItem, children[lastBaseIdx].nextSibling);
-  } else {
-    frag.appendChild(colorItem);
   }
 
   ui.uiContainer.innerHTML = "";
@@ -163,7 +125,7 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
 
   const anchorSel =
     group === CONST.GROUP.BASE
-      ? `${CONST.SEL.LAYER_ITEM}[data-layer-type="${CONST.GROUP.BASE}"]:not(${CONST.SEL.COLOR_ITEM})`
+      ? `${CONST.SEL.LAYER_ITEM}[data-layer-type="${CONST.GROUP.BASE}"]`
       : `${CONST.SEL.LAYER_ITEM}:not([data-layer-type="${CONST.GROUP.BASE}"])`;
   const firstOfGroup = container.querySelector(anchorSel);
 
@@ -182,15 +144,12 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
   frag.appendChild(item);
 
   if (!firstOfGroup) {
-    // BASE inserts before the colour row (end of the base section). OVERLAY
-    // inserts before the first real base row (excluding the colour row); when
-    // none exists, append at the end.
-    const nextAnchor =
-      group === CONST.GROUP.BASE
-        ? container.querySelector(CONST.SEL.COLOR_ITEM)
-        : container.querySelector(
-            `${CONST.SEL.LAYER_ITEM}[data-layer-type="${CONST.GROUP.BASE}"]:not(${CONST.SEL.COLOR_ITEM})`,
-          );
+    // BASE inserts before the first base row (end of the base section).
+    // OVERLAY inserts before the first base row; when none exists, append at
+    // the end.
+    const nextAnchor = container.querySelector(
+      `${CONST.SEL.LAYER_ITEM}[data-layer-type="${CONST.GROUP.BASE}"]`,
+    );
     if (nextAnchor) container.insertBefore(frag, nextAnchor);
     else container.appendChild(frag);
   } else {
@@ -339,59 +298,6 @@ const colorLayerName = (ui: LayerUI): string => {
   return displayName(ui, CONST.COLOR.MAP_ID);
 };
 
-const renderColorLayerItem = (ui: LayerUI) => {
-  // The input announces the same name as the row's label cell below, so a
-  // rename reaches assistive tech on both —not just the visible text.
-  const colorName = colorLayerName(ui);
-
-  // Real checkbox so the colour basemap can be checked / unchecked like
-  // every other row.  Toggling it goes through applyVisibility →
-  // applyProjection (the executor); onToggle carries the showColorLayer /
-  // hideColorLayer write.
-  const checkbox = dom.el("input", {
-    type: "checkbox",
-    class: CONST.CLASSES.CHECKBOX,
-    "aria-label": colorName,
-  });
-
-  // Color layer lives outside layerRegistry —rename is the only overflow
-  // action (no focus on a basemap without bounds).
-  const moreBtn = dom.el(
-    "button",
-    {
-      class: CONST.CLASSES.MORE_BTN,
-      type: "button",
-      title: ui.T("more_tooltip"),
-      "aria-label": ui.T("more_tooltip"),
-    },
-    { html: SVGs.MORE },
-  );
-
-  // The color basemap's hover tooltip is its TYPE label (like every other
-  // row, which shows "count / type"); the layer name lives in the label
-  // cell, not the tooltip. Persist the type label in data-item-title so a
-  // rebuild can restore it; this must be the constant ui.T("type_color_map"),
-  // NOT colorLayerName() —a rename must not change the tooltip.
-  const colorType = ui.T("type_color_map");
-  return dom.el(
-    "div",
-    {
-      class: `${CONST.CLASSES.LAYER_ITEM} ${CONST.CLASSES.COLOR_ITEM}`,
-      draggable: "true",
-      [CONST.DATA.LAYER_ID]: CONST.COLOR.MAP_ID,
-      "data-layer-type": CONST.GROUP.BASE,
-      [CONST.DATA.TITLE]: colorType,
-      title: colorType,
-    },
-    dom.el("span", { class: CONST.CLASSES.DRAG_CELL }, { html: SVGs.DRAG_HANDLE }),
-    dom.el("div", { class: CONST.CLASSES.CHECKBOX }, checkbox),
-    dom.el("label", { class: CONST.CLASSES.LAYER_LABEL }, colorLayerName(ui)),
-    dom.el("span", { class: CONST.CLASSES.COUNT_COL }),
-    dom.el("div", { class: CONST.CLASSES.TYPE_ICON_COL, innerHTML: SVGs.COLOR }),
-    moreBtn,
-  );
-};
-
 /** Initialize one layer row's checkbox + type icon (incremental path).
  *  @returns {boolean} true when the row is a visible base layer. */
 const initLayerItem = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
@@ -443,7 +349,6 @@ export {
   renderToggleAllRow,
   renderLayerItem,
   colorLayerName,
-  renderColorLayerItem,
   initLayerItem,
   reindexAfterMove,
 };

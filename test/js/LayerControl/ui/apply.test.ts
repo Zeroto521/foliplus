@@ -58,6 +58,7 @@ const makeOffMapFixture = () => {
       p.style.zIndex = "0";
       return p;
     }),
+    getPanes: vi.fn(() => ({ mapPane: null })),
     createPane: vi.fn(() => {
       const p = document.createElement("div");
       p.style.zIndex = "0";

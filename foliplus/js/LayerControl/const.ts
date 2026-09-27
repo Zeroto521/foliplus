@@ -65,7 +65,6 @@ const CLASSES = {
   CHECKBOX: "foliplus-checkbox",
   DRAG_CELL: "foliplus-drag-cell",
   GROUP_FOLDED: "foliplus-layer-group-folded",
-  COLOR_ITEM: "foliplus-color-layer-item",
   LAYER_LABEL: "foliplus-layer-label",
   /** Marks a row that owns the live Row-cursor visual (arrow keyboard cursor
    *  or Tab focus). The recipe CSS keys only on this class + `:hover` — never
@@ -219,7 +218,6 @@ const ACTION = {
 /** DOM selectors. */
 const SEL = {
   LAYER_ITEM: ".foliplus-layer-item",
-  COLOR_ITEM: ".foliplus-color-layer-item",
   TOGGLE_ALL: ".foliplus-layer-toggle-all",
   COUNT_COL: ".foliplus-layer-count",
   /** Any cursor-recipe row (data item or the fold/toggle-all row). Child

@@ -368,24 +368,20 @@
     }
   }
 
-  /* ── Base basemap / color picker rows stay quiet ──
+  /* ── Base basemap rows stay quiet ──
      No cursor glow or white wash on hover / keyboard focus: these are
      stack slots, not data layers you navigate to. The row itself stays
      clickable (checkbox) — only the focus-layer action is disabled (see
      the ⋮ menu). Checked `.foliplus-active` wash still applies for visibility. */
-  .foliplus-layer-item[data-layer-type="base"],
-  .foliplus-color-layer-item {
-    &:is(:hover, .foliplus-is-focused-row) {
-      box-shadow: none;
-      background: transparent;
-      cursor: default;
-    }
+  .foliplus-layer-item[data-layer-type="base"]:is(:hover, .foliplus-is-focused-row) {
+    box-shadow: none;
+    background: transparent;
+    cursor: default;
   }
   .foliplus-layer-item[data-layer-type="base"].foliplus-active:is(
       :hover,
       .foliplus-is-focused-row
-    ),
-  .foliplus-color-layer-item.foliplus-active:is(:hover, .foliplus-is-focused-row) {
+    ) {
     background: var(--accent-light);
   }
 

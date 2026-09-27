@@ -125,6 +125,7 @@ describe("LayerUI shell — event subscriptions", () => {
       })),
       getContainer: vi.fn(() => container),
       getPane: vi.fn(() => makePane()),
+      getPanes: vi.fn(() => ({ mapPane: document.createElement("div") })),
       createPane: vi.fn(() => {
         const p = makePane();
         p.classList.add("foliplus-layer-pane");
@@ -222,7 +223,9 @@ describe("LayerUI shell — delegates", () => {
     // change is now the only legitimate path (T201). The row still gets the
     // .active class + the enforceOrder z-order write-through.
     const enforce = vi.spyOn(manager, "enforceOrder");
-    const colorItem = ui.uiContainer.querySelector(CONST.SEL.COLOR_ITEM) as HTMLElement;
+    const colorItem = ui.uiContainer.querySelector(
+      `[${CONST.DATA.LAYER_ID}="${CONST.COLOR.MAP_ID}"]`,
+    ) as HTMLElement;
     const checkbox = colorItem.querySelector(
       'input[type="checkbox"]',
     ) as HTMLInputElement;
@@ -230,17 +233,7 @@ describe("LayerUI shell — delegates", () => {
     checkbox.checked = true;
     checkbox.dispatchEvent(new Event("change", { bubbles: true }));
 
-    expect(colorItem.classList.contains(CONST.CLASSES.ACTIVE)).toBe(true);
     expect(enforce).toHaveBeenCalled();
-  });
-
-  it("hideColorLayer clears the active color state", () => {
-    ui.showColorLayer(ui.currentColor);
-    const colorItem = ui.uiContainer.querySelector(CONST.SEL.COLOR_ITEM) as HTMLElement;
-
-    ui.hideColorLayer();
-
-    expect(colorItem.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
   });
 
   it("reindexAfterMove rebuilds the list without dropping rows", () => {

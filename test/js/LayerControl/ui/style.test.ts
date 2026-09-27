@@ -1248,7 +1248,9 @@ describe("LayerUI style panel", () => {
     // "no extent" verdict, an off row is simply hidden and has nothing to
     // style. The colour basemap starts unchecked, so its Style entry starts
     // disabled and turns on with the box.
-    const item = ui.uiContainer.querySelector(CONST.SEL.COLOR_ITEM) as HTMLElement;
+    const item = ui.uiContainer.querySelector(
+      `[${CONST.DATA.LAYER_ID}="${CONST.COLOR.MAP_ID}"]`,
+    ) as HTMLElement;
     const box = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
     const styleItemOf = () =>
       item.querySelector(
