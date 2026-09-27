@@ -506,7 +506,7 @@ describe("LayerUI keyboard", () => {
     it("Escape on a checked row clears the cursor and keeps the active class", () => {
       const overlay = findItem(ui, "overlay1");
 
-      // .active is the persistent selected state: it must outlive the Escape,
+      // .foliplus-active is the persistent selected state: it must outlive the Escape,
       // because cancelling the cursor is not a visibility change.
       const checkbox = overlay.querySelector(
         'input[type="checkbox"]',
@@ -523,10 +523,10 @@ describe("LayerUI keyboard", () => {
       expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
     });
 
-    it("FOCUSED class coexists with .active (checkbox-checked) without conflict", () => {
+    it("FOCUSED class coexists with .foliplus-active (checkbox-checked) without conflict", () => {
       const overlay = findItem(ui, "overlay1");
 
-      // Check the checkbox (adds .active via the toggle path) then set cursor
+      // Check the checkbox (adds .foliplus-active via the toggle path) then set cursor
       // onto the same row — both classes must be present simultaneously so the
       // visual distinction between "checked" (5% wash) and "cursor-on" (8%
       // wash + accent bar) is preserved.

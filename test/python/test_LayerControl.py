@@ -433,7 +433,7 @@ class TestLayerControlRendering:
         single :is() rule, so they cannot drift apart: white surface, left bar
         accent, top/bottom red glow, drag grip, type icon black, more button
         red. White paints whenever the row is the interaction target (hover /
-        Tab / arrow); a checked row shows its .active wash only at rest.
+        Tab / arrow); a checked row shows its .foliplus-active wash only at rest.
         :focus-visible is deliberately NOT a CSS trigger — Tab focus is mapped
         onto the class by the focusin delegate. Only color changes; the type
         icon must NOT scale."""
@@ -449,7 +449,7 @@ class TestLayerControlRendering:
         # The :is() selector only exists before PostCSS flattens nesting, so it
         # cannot be found in the built bundle. Anchor the brace scan at the
         # opening brace of the :is() rule (NOT the parent's — the nearest
-        # preceding `{` belongs to the sibling &.active rule), then count depth
+        # preceding `{` belongs to the sibling &.foliplus-active rule), then count depth
         # to isolate exactly this rule's body without leaking into siblings.
         mark = "is(:hover, .foliplus-is-focused-row)"
         # The recipe's :is() rule sits INSIDE the compound selector that opens
@@ -480,7 +480,7 @@ class TestLayerControlRendering:
         recipe = "".join(out)
         # The left accent bar is a PERSISTENT checked-status indicator, so the
         # interaction recipe must NOT force it — hover/keyboard/Tab show the
-        # glow, and the red left bar stays reserved for .active / folded groups.
+        # glow, and the red left bar stays reserved for .foliplus-active / folded groups.
         assert "border-left-color" not in recipe
         # Rest surface of the compound itself: explicit white, never
         # transparent (a transparent rest and a painted interaction white
@@ -501,12 +501,12 @@ class TestLayerControlRendering:
         # it without a stacking lift on the interaction target.
         assert "position: relative" in recipe
         assert "z-index: 1" in recipe, "cursor recipe must paint the white surface"
-        # Interaction white must sit AFTER the .active wash in source order so
+        # Interaction white must sit AFTER the .foliplus-active wash in source order so
         # it wins at equal specificity (postcss keeps declaration order).
-        active_idx = css.find("&.active", compound)
+        active_idx = css.find("&.foliplus-active", compound)
         recipe_idx = css.find(mark, compound)
         assert 0 < active_idx < recipe_idx, (
-            "interaction recipe must be declared after .active so white "
+            "interaction recipe must be declared after .foliplus-active so white "
             "out-ranks the wash"
         )
         # Base basemap / color picker stay quiet: no cursor glow/white.
@@ -517,7 +517,7 @@ class TestLayerControlRendering:
             "color picker row must opt out of the cursor recipe"
         )
         # Checked color basemap keeps the wash on hover.
-        assert "foliplus-color-layer-item.active" in css
+        assert "foliplus-color-layer-item.foliplus-active" in css
         assert "--panel-header-hover" not in recipe
         # Top/bottom red glow (blurred box-shadow) is part of the SHARED recipe,
         # not cursor-only, so mouse hover and Tab focus match the arrow-key cursor
@@ -533,13 +533,13 @@ class TestLayerControlRendering:
         # ── Type icon ──
         assert "foliplus-type-icon-col svg" in html
         assert "transition: transform" in html
-        # A checked row carries .active — a persistent checkbox state, not a
+        # A checked row carries .foliplus-active — a persistent checkbox state, not a
         # cursor — and the cursor-only type-icon tint comes from the recipe.
-        assert ".foliplus-layer-item.active .foliplus-type-icon-col" in html
+        assert ".foliplus-layer-item.foliplus-active .foliplus-type-icon-col" in html
         act_type = [
             html[i : html.index("}", i)]
             for i in range(len(html))
-            if "layer-item.active .foliplus-type-icon-col"
+            if "layer-item.foliplus-active .foliplus-type-icon-col"
             in html[max(0, i - 60) : i + 60]
         ]
         assert any("color: var(--text-primary)" in b for b in act_type), (
@@ -965,7 +965,7 @@ class TestLayerControlRendering:
 
           - checkbox: bg var(--input-bg) -> var(--accent-primary);
                       border var(--input-border) -> var(--accent-primary)
-          - layer item (.active): bg var(--panel-bg) -> var(--accent-light)
+          - layer item (.foliplus-active): bg var(--panel-bg) -> var(--accent-light)
           - toggle-all row: same mechanism if its bg ever changes on rebuild
 
         Transitions are kept only on properties that do not change on rebuild
@@ -3211,7 +3211,7 @@ class TestLayerControlBrowser:
 
         The row's checkbox column holds a real ``<input type="checkbox">``
         (like every other basemap row).  Checking it paints the container
-        background (``.active`` + ``--color-layer-bg``); unchecking it clears
+        background (``.foliplus-active`` + ``--color-layer-bg``); unchecking it clears
         both.  Without the fix the row has only a colour picker and no
         checkbox, so the toggle cannot happen.
         """
@@ -3242,7 +3242,7 @@ class TestLayerControlBrowser:
                 "colour basemap row must have a real checkbox"
             )
             assert state["checked"] is False, "colour basemap starts unchecked"
-            assert state["active"] is False, "container starts without .active"
+            assert state["active"] is False, "container starts without .foliplus-active"
 
             # Check the checkbox → container background takes effect.
             result = page.evaluate(_js("LayerControl/toggle_color_checkbox"))
@@ -3951,7 +3951,7 @@ class TestLayerControlBrowser:
 
         `show=False` is NOT a reliable "unchecked" pin: on folium 0.14 those
         overlays still land on the map and the init pass still marks the row
-        `.active` (wash). Force the checkbox off and measure that live row.
+        `.foliplus-active` (wash). Force the checkbox off and measure that live row.
         """
         overlay1 = folium.FeatureGroup(name="Overlay A", overlay=True, show=False)
         overlay2 = folium.FeatureGroup(name="Overlay B", overlay=True, show=False)
@@ -3973,7 +3973,7 @@ class TestLayerControlBrowser:
             # The row surface is compared against this row's own resting state,
             # which is only meaningful once the init pass has run: rows render
             # checked by default and initLayerItem (on an init timer) decides
-            # the checkbox and the .active class.
+            # the checkbox and the .foliplus-active class.
             panel_ready(page)
             # Force a truly unchecked row — do not trust show=False across
             # folium versions (0.14 still checks them).
@@ -3995,7 +3995,7 @@ class TestLayerControlBrowser:
                 " const d = r.querySelector('.drag-handle');"
                 " return { bg: cs.backgroundColor, shadow: cs.boxShadow,"
                 " drag: d ? getComputedStyle(d).opacity : null,"
-                " active: r.classList.contains('active') }; }"
+                " active: r.classList.contains('foliplus-active') }; }"
             )
             assert rest["active"] is False, (
                 f"reference row must be unchecked after the forced toggle, got {rest}"
@@ -4044,7 +4044,7 @@ class TestLayerControlBrowser:
         """Hover, Tab and arrow-key cursor all turn the row white.
 
         The interaction target always paints `var(--neutral-0)` — including on
-        a checked row, whose `.active` wash is only the rest surface. White is
+        a checked row, whose `.foliplus-active` wash is only the rest surface. White is
         sampled from the token live, never hardcoded. Dropping the class (what
         Escape does) returns the rest surface. Tab is covered by the focusin
         delegate mapping onto the same JS class the probe applies.
@@ -4103,12 +4103,12 @@ class TestLayerControlBrowser:
 
             # Real hover on the unchecked row: same white as the JS cursor class.
             page.hover(
-                ".foliplus-layer-item:not(.active):not(.foliplus-color-layer-item)"
+                ".foliplus-layer-item:not(.foliplus-active):not(.foliplus-color-layer-item)"
             )
             page.wait_for_timeout(120)
             hover_bg = page.evaluate(
                 "() => getComputedStyle("
-                "  document.querySelector('.foliplus-layer-item:not(.active):not(.foliplus-color-layer-item)')"
+                "  document.querySelector('.foliplus-layer-item:not(.foliplus-active):not(.foliplus-color-layer-item)')"
                 ").backgroundColor"
             )
             assert hover_bg == white, (
@@ -4411,7 +4411,7 @@ class TestLayerControlBrowser:
             )
             # The style assertions below need the init pass done: rows render
             # checked by default and initLayerItem (on an init timer) is what
-            # adds the .active class and the per-state titles.
+            # adds the .foliplus-active class and the per-state titles.
             panel_ready(page)
             result = page.evaluate(_js("LayerControl/keydown_escape_clears_focus"))
             assert result is not None, "keydown_escape_clears_focus failed"
@@ -4452,25 +4452,25 @@ class TestLayerControlBrowser:
             # and assert the fall-back.
             page.evaluate(
                 "() => { const r = document.querySelector("
-                "    '.foliplus-layer-item.active'"
+                "    '.foliplus-layer-item.foliplus-active'"
                 ");"
                 " r.focus();"
                 " r.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true})); }"
             )
-            page.hover(".foliplus-layer-item.active")
+            page.hover(".foliplus-layer-item.foliplus-active")
             # The grip is the one recipe property with an opacity transition
             # (color/box-shadow are transition: none), so wait it out before
             # measuring or the computed value is mid-flight.
             page.wait_for_function(
                 "() => getComputedStyle("
                 "  document.querySelector("
-                "    '.foliplus-layer-item.active .foliplus-drag-cell .drag-handle'"
+                "    '.foliplus-layer-item.foliplus-active .foliplus-drag-cell .drag-handle'"
                 "  )"
                 ").opacity === '1'",
                 timeout=2000,
             )
             on_hover = page.evaluate(
-                "() => { const r = document.querySelector('.foliplus-layer-item.active');"
+                "() => { const r = document.querySelector('.foliplus-layer-item.foliplus-active');"
                 " return {"
                 "  grip: getComputedStyle("
                 "    r.querySelector('.foliplus-drag-cell .drag-handle')"
@@ -4485,13 +4485,13 @@ class TestLayerControlBrowser:
             page.wait_for_function(
                 "() => getComputedStyle("
                 "  document.querySelector("
-                "    '.foliplus-layer-item.active .foliplus-drag-cell .drag-handle'"
+                "    '.foliplus-layer-item.foliplus-active .foliplus-drag-cell .drag-handle'"
                 "  )"
                 ").opacity === '0'",
                 timeout=2000,
             )
             off_hover = page.evaluate(
-                "() => { const r = document.querySelector('.foliplus-layer-item.active');"
+                "() => { const r = document.querySelector('.foliplus-layer-item.foliplus-active');"
                 " return {"
                 "  grip: getComputedStyle("
                 "    r.querySelector('.foliplus-drag-cell .drag-handle')"
@@ -4511,7 +4511,7 @@ class TestLayerControlBrowser:
             )
             assert on_hover["more"] == off_hover["more"], (
                 "a checked row keeps the more button in the action color at "
-                "rest and on hover alike (its .active leg), got "
+                "rest and on hover alike (its .foliplus-active leg), got "
                 + str(on_hover)
                 + " vs "
                 + str(off_hover)

@@ -85,7 +85,10 @@ jobs:
           GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
 
   # ── Test jobs ──
-  # `js` and `python` run independently in parallel — no artifact handoff.
+  # `js` and `python` run independently in parallel — no artifact handoff,
+  # and no `needs:` on the quality gates (format / lint / typecheck). Tests
+  # are informational gates (we always want results, even when the quality
+  # gates are red); the quality gates are separate checkmarks.
   # `make test-js` runs `build-js-dev + npm test` (some vitest tests read
   # `foliplus/dist/` artifacts — see `test/js/script/build.test.ts` and the
   # Makefile-invariant test in `test/js/script/Makefile.test.ts`).
@@ -95,7 +98,6 @@ jobs:
   js:
     name: js
     runs-on: ubuntu-latest
-    needs: [format, lint, typecheck]
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -127,7 +129,6 @@ jobs:
     # one source of truth for the label.
     name: py${{ matrix.python }}-folium-${{ matrix.folium }}
     runs-on: ubuntu-latest
-    needs: [format, lint, typecheck]
     strategy:
       fail-fast: false
       matrix:

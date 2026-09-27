@@ -77,7 +77,7 @@ const initTypesAndVisibility = (ui: LayerUI) => {
   syncNoBasemap(ui);
   // enforceOrder may have moved rows; keep roving tabindex aligned.
   syncListCursor(ui);
-  // Ready signal for tests: checkbox titles / .active / counts are final
+  // Ready signal for tests: checkbox titles / .foliplus-active / counts are final
   // for the current layer set (late components re-trigger this pass and
   // re-set the attribute, so "ready" always reflects the latest pass).
   ui.uiContainer?.setAttribute("data-ready", "true");
