@@ -19,7 +19,7 @@
     return {
       bg: cs.backgroundColor,
       shadow: cs.boxShadow,
-      active: el.classList.contains("active"),
+      active: el.classList.contains("foliplus-active"),
     };
   };
 
