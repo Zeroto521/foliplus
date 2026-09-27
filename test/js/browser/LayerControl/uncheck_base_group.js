@@ -27,7 +27,7 @@
     ok: true,
     before,
     after: readRows(),
-    noBaseMap: cont.classList.contains("no-base-map"),
+    noBaseMap: cont.classList.contains("foliplus-no-base-map"),
     allChecked: cb.checked,
   };
 };

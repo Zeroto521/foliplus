@@ -38,7 +38,7 @@ describe("COLOR", () => {
 describe("CLASSES", () => {
   it("defines layer item and interaction classes", () => {
     expect(CONST.CLASSES.LAYER_ITEM).toBe("foliplus-layer-item");
-    expect(CONST.CLASSES.ACTIVE).toBe("active");
+    expect(CONST.CLASSES.ACTIVE).toBe("foliplus-active");
     expect(CONST.CLASSES.DRAGGING).toBe("foliplus-layer-dragging");
     expect(CONST.CLASSES.DRAG_OVER_TOP).toBe("foliplus-layer-drag-over-top");
     expect(CONST.CLASSES.DRAG_OVER_BOTTOM).toBe("foliplus-layer-drag-over-bottom");
