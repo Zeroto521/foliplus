@@ -1630,7 +1630,7 @@ describe("LayerUI focus", () => {
       ui.uiContainer.querySelectorAll<HTMLElement>(
         `${CONST.SEL.LAYER_ITEM},${CONST.SEL.TOGGLE_ALL}`,
       ),
-    ).filter(el => !el.classList.contains(CONST.CLASSES.COLOR_ITEM));
+    );
 
   describe("focusDisabledReason()", () => {
     const row = (
@@ -1642,7 +1642,7 @@ describe("LayerUI focus", () => {
       } = {},
     ) => {
       const item = document.createElement("div");
-      if (opts.color) item.classList.add(CONST.CLASSES.COLOR_ITEM);
+      if (opts.color) item.dataset.layerType = CONST.GROUP.BASE;
       if (opts.type !== undefined) item.dataset.layerType = opts.type;
       if (opts.checked !== undefined) {
         const box = document.createElement("input");

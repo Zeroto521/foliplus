@@ -49,7 +49,6 @@ const focusDisabledLocaleKey = (reason: FocusDisabled): string =>
 const focusDisabledReason = (ui: LayerUI, item: HTMLElement): FocusDisabledReason => {
   const box = item.querySelector('input[type="checkbox"]') as HTMLInputElement | null;
   if (box !== null && !box.checked) return "hidden";
-  if (item.classList.contains(CONST.CLASSES.COLOR_ITEM)) return "base";
   if (item.dataset.layerType === CONST.GROUP.BASE) return "base";
   const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
   const layerInfo = ui.m.layerRegistry.get(layerId);

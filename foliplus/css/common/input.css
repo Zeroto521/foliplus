@@ -21,8 +21,7 @@
   .foliplus-form-color-input,
   .foliplus-form-number-input,
   .foliplus-heatmap-ctrl .foliplus-heatmap-scheme-bar,
-  .foliplus-layer-ctrl input[type="checkbox"],
-  .foliplus-layer-ctrl .foliplus-color-layer-input
+  .foliplus-layer-ctrl input[type="checkbox"]
 ):is(:hover, :focus-visible),
 .foliplus-heatmap-ctrl .foliplus-heatmap-scheme-bar-open {
   border-color: var(--accent-primary);

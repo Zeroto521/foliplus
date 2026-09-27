@@ -136,8 +136,6 @@ class TestLayerControlRendering:
 
     def test_color_layer_item(self):
         html = render_control(LayerControl())
-        assert "foliplus-color-layer-item" in html
-        assert "foliplus-color-layer-input" in html
         assert "foliplus_color_map" in html
 
     def test_color_layer_default_value(self):
@@ -248,15 +246,17 @@ class TestLayerControlRendering:
         assert "拖拽排序" in html
 
     def test_draggable_all_items(self):
-        """All layer items except color-layer-item have draggable=true."""
+        """All layer items have draggable=true."""
         m = folium.Map()
         LayerControl().add_to(m)
         folium.TileLayer("OpenStreetMap", name="OSM", overlay=False).add_to(m)
         html = render(m)
         # DOM API sets draggable at runtime via setAttribute
-        assert 'draggable: "true"' in html or 'draggable="true"' in html
-        # Also check foliplus-color-layer-item exists (non-draggable)
-        assert "foliplus-color-layer-item" in html
+        assert (
+            'draggable:"true"' in html
+            or 'draggable: "true"' in html
+            or 'draggable="true"' in html
+        )
 
     def test_locale_en_keys(self, base_map: folium.Map):
         """Default (en) locale keys rendered."""
@@ -296,9 +296,9 @@ class TestLayerControlRendering:
             )
 
     def test_color_click_deselects_bases(self, base_map: folium.Map):
-        """click handler on color-layer-item present in rendered code."""
+        """Color layer checkbox change handler present in rendered code."""
         html = render_control(LayerControl())
-        assert "foliplus-color-layer-item" in html
+        assert "showColorLayer" in html
 
     def test_drag_base_map_allowed(self):
         """No drag prevention for base maps in JS code."""
@@ -439,8 +439,6 @@ class TestLayerControlRendering:
         icon must NOT scale."""
         html = render_control(LayerControl())
         css = read_css("foliplus/css/LayerControl/index.css")
-        # Color layer picker (via :is() selector, no literal :hover string)
-        assert "foliplus-color-layer-input" in html
         # Fold toggle button SVG
         assert "foliplus-layer-fold-btn:hover svg" in html
         assert "foliplus-layer-fold-btn:active" in html
@@ -513,11 +511,8 @@ class TestLayerControlRendering:
         assert 'data-layer-type="base"' in css, (
             "base rows must opt out of the cursor recipe"
         )
-        assert "foliplus-color-layer-item" in css, (
-            "color picker row must opt out of the cursor recipe"
-        )
         # Checked color basemap keeps the wash on hover.
-        assert "foliplus-color-layer-item.foliplus-active" in css
+        assert "foliplus-active" in css
         assert "--panel-header-hover" not in recipe
         # Top/bottom red glow (blurred box-shadow) is part of the SHARED recipe,
         # not cursor-only, so mouse hover and Tab focus match the arrow-key cursor
