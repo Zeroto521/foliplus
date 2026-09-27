@@ -12,9 +12,7 @@ import {
   suspendMapInteractions,
 } from "#foliplus/core/layer/util.js";
 
-// The `_map` probe used to live in this file. It moved into core/leafletAdapter
-// with the rest of the Leaflet-private reaches (leafletAdapter.test.ts pins the
-// casts there). What is worth pinning here now is the other half: nothing in
+// What is worth pinning here is the other half: nothing in
 // util.ts touches a private field any more.
 
 describe("source pins", () => {
