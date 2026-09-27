@@ -129,7 +129,8 @@ describe("LayerUI keyboard", () => {
       ui.handleChange({ target: cb } as Event);
 
       expect(ui.hiddenIds).toContain("overlay1");
-      expect(ui.m.layers.length).toBe(3);
+      // 3 seeded layers + the colour basemap registered by initTypesAndVisibility.
+      expect(ui.m.layers.length).toBe(4);
     });
 
     it("Enter on the more button still opens the menu and does not toggle", () => {

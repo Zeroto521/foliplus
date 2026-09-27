@@ -352,6 +352,28 @@ interface CreateCanvasAPI {
   setVisible: (v: boolean) => void;
 }
 
+/** Options for creating a solid-color basemap surface. */
+interface CreateColorOpts {
+  id: string;
+  name?: string;
+  color: string;
+}
+
+/** Return type of the color-surface factory — the solid-color basemap's
+ *  rendering face, owned by a dedicated pane so it participates in the
+ *  layer z ladder like any other base-group member. */
+interface CreateColorAPI {
+  /** The canvas element that carries the fill (inside the color pane). */
+  element: HTMLCanvasElement;
+  setColor: (color: string) => void;
+  setVisible: (v: boolean) => void;
+  register: () => void;
+  unregister: () => void;
+  registered: () => boolean;
+  bringToFront: () => void;
+  destroy: () => void;
+}
+
 /** Return type of `LayerAPI.createLayers`. */
 interface CreateLayersAPI {
   mainLayer: L.LayerGroup;
@@ -432,17 +454,17 @@ type SurfaceContentHandle =
       setVisible: (v: boolean) => void;
     }
   | {
-      /** The pane that carries the fill. Unlike a canvas there is no child
-       *  element — the pane itself is the face, so a single style write on it
-       *  is the whole content model. */
-      element: HTMLElement;
+      /** The canvas element that paints the fill, inside a dedicated
+       *  pane. Full-size viewport canvas, same plumbing as createCanvas:
+       *  the pane owns its z in the ladder, the canvas fills it. */
+      element: HTMLCanvasElement;
       kind: "color";
       /** The fill currently written onto `element`. */
       color: string;
       setColor: (color: string) => void;
-      /** Show or hide the color basemap. Hiding restores the tile panes:
-       *  the color surface is the only thing that may hide them, and it does
-       *  so here rather than in a shared global class. */
+      /** Show or hide the color basemap. Visibility toggles the HIDDEN
+       *  class on `element`; the pane itself stays in the DOM so its z
+       *  in the ladder is preserved across toggles. */
       setVisible: (v: boolean) => void;
     };
 
@@ -543,6 +565,8 @@ interface LayerAPI {
 export type {
   CreateCanvasAPI,
   CreateCanvasOpts,
+  CreateColorAPI,
+  CreateColorOpts,
   CreateLayersAPI,
   CreateLayersOpts,
   CreateLayersPane,
