@@ -396,6 +396,7 @@ class LayerFactory {
       layerOpts = {
         ...commonLayerOpts,
         isBase: true,
+        baseInsert: "bottom",
         canvas: face,
         color,
         paneName,

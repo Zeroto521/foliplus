@@ -144,9 +144,9 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
   frag.appendChild(item);
 
   if (!firstOfGroup) {
-    // BASE inserts before the colour row (end of the base section). OVERLAY
-    // inserts before the first real base row (excluding the colour row); when
-    // none exists, append at the end.
+    // BASE inserts before the first base row (end of the base section).
+    // OVERLAY inserts before the first base row; when none exists, append at
+    // the end.
     const nextAnchor = container.querySelector(
       `${CONST.SEL.LAYER_ITEM}[data-layer-type="${CONST.GROUP.BASE}"]`,
     );

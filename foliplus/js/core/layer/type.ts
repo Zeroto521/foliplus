@@ -55,6 +55,9 @@ interface RegisterLayerOpts {
   name?: string | null;
   layer?: L.Layer | null;
   isBase?: boolean;
+  /** New base layer insertion: "top" (default, tile basemaps) or "bottom"
+   *  (solid-color basemap — lowest z, tiles cover it). */
+  baseInsert?: "top" | "bottom";
   paneName?: string | null;
   /**
    * The panes this layer paints into, in draw order. Absent means the layer
