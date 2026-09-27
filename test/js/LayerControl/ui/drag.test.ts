@@ -232,9 +232,7 @@ describe("ui/drag", () => {
       for (const id of ["A", "foliplus_color_map"]) {
         const row = document.createElement("div");
         row.className = CONST.CLASSES.LAYER_ITEM;
-        if (id === "foliplus_color_map") {
-          row.classList.add(CONST.CLASSES.COLOR_ITEM);
-        }
+        row.setAttribute(CONST.DATA.LAYER_ID, id);
         row.setAttribute(CONST.DATA.LAYER_ID, id);
         uiContainer.appendChild(row);
       }

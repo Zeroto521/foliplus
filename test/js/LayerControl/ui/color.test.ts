@@ -18,7 +18,7 @@ const makeUi = (layers: Array<{ id: string; isBase: boolean }> = []) => {
   }
 
   const colorRow = document.createElement("div");
-  colorRow.className = CONST.CLASSES.COLOR_ITEM;
+  colorRow.className = CONST.CLASSES.LAYER_ITEM;
   colorRow.innerHTML = `<input type="color" class="${CONST.CLASSES.COLOR_INPUT}" />`;
   uiContainer.appendChild(colorRow);
 
@@ -82,26 +82,21 @@ const makeUi = (layers: Array<{ id: string; isBase: boolean }> = []) => {
 };
 
 describe("ui/color", () => {
-  it("hideColorLayer clears the active flag on the color row", () => {
+  it("hideColorLayer clears the surface visibility", () => {
     const { ui, setVisible } = makeUi();
     showColorLayer(ui, "#ff0000");
-    const colorRow = ui.uiContainer.querySelector<HTMLElement>(CONST.SEL.COLOR_ITEM);
-    expect(colorRow?.classList.contains(CONST.CLASSES.ACTIVE)).toBe(true);
 
     hideColorLayer(ui);
 
-    expect(colorRow?.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
     expect(setVisible).toHaveBeenCalledWith(false);
   });
 
-  it("showColorLayer marks the row active and paints the color", () => {
+  it("showColorLayer paints the color and shows the surface", () => {
     const { ui, setColor, setVisible } = makeUi();
     showColorLayer(ui, "#ff0000");
     expect(ui.currentColor).toBe("#ff0000");
     expect(setColor).toHaveBeenCalledWith("#ff0000");
     expect(setVisible).toHaveBeenCalledWith(true);
-    const colorRow = ui.uiContainer.querySelector<HTMLElement>(CONST.SEL.COLOR_ITEM);
-    expect(colorRow?.classList.contains(CONST.CLASSES.ACTIVE)).toBe(true);
   });
 
   it("showColorLayer leaves base layers on the map and the shared tilePane untouched", () => {

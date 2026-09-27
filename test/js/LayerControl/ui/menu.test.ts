@@ -239,7 +239,9 @@ describe("LayerUI menu", () => {
     });
 
     it("color layer has more button (rename entry point)", () => {
-      const colorItem = ui.uiContainer.querySelector(`${CONST.SEL.COLOR_ITEM}`)!;
+      const colorItem = ui.uiContainer.querySelector(
+        `[${CONST.DATA.LAYER_ID}="${CONST.COLOR.MAP_ID}"]`,
+      )!;
       const btn = colorItem.querySelector(`.${CONST.CLASSES.MORE_BTN}`);
       expect(btn).not.toBeNull();
     });
@@ -441,7 +443,9 @@ describe("LayerUI menu", () => {
     });
 
     it("renders the color basemap's delete disabled with its reason as tooltip", () => {
-      const colorItem = ui.uiContainer.querySelector(CONST.SEL.COLOR_ITEM)!;
+      const colorItem = ui.uiContainer.querySelector(
+        `[${CONST.DATA.LAYER_ID}="${CONST.COLOR.MAP_ID}"]`,
+      )!;
       ui.openMoreMenu(colorItem);
 
       const deleteLi = deleteEntryOf(colorItem);
@@ -520,7 +524,9 @@ describe("LayerUI menu", () => {
     });
 
     it("does not arm or fire when the entry is disabled", () => {
-      const colorItem = ui.uiContainer.querySelector(CONST.SEL.COLOR_ITEM)!;
+      const colorItem = ui.uiContainer.querySelector(
+        `[${CONST.DATA.LAYER_ID}="${CONST.COLOR.MAP_ID}"]`,
+      )!;
       ui.openMoreMenu(colorItem);
       const deleteLi = deleteEntryOf(colorItem);
 

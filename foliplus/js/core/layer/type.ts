@@ -55,6 +55,9 @@ interface RegisterLayerOpts {
   name?: string | null;
   layer?: L.Layer | null;
   isBase?: boolean;
+  /** New base layer insertion: "top" (default, tile basemaps) or "bottom"
+   *  (solid-color basemap — lowest z, tiles cover it). */
+  baseInsert?: "top" | "bottom";
   paneName?: string | null;
   /**
    * The panes this layer paints into, in draw order. Absent means the layer
@@ -355,6 +358,7 @@ interface CreateColorOpts {
   id: string;
   name?: string;
   color: string;
+  onToggle?: ((visible: boolean) => void) | null;
 }
 
 /** Return type of the color-surface factory — the solid-color basemap's
@@ -418,6 +422,7 @@ type SurfaceContentOpts =
        *  `background` shorthand accepts. */
       kind: "color";
       color: string;
+      onToggle?: ((visible: boolean) => void) | null;
     };
 
 /** Options for `LayerFactory.createSurface`. */

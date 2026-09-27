@@ -136,7 +136,7 @@ class LayerFactory {
     const handle = this.createSurface({
       id: opts.id,
       name: opts.name,
-      content: { kind: "color", color: opts.color },
+      content: { kind: "color", color: opts.color, onToggle: opts.onToggle },
     });
     // register() is called by the caller (LayerControl UI) after setting
     // ui.colorSurface, to avoid a recursive call through applyProjection.
@@ -337,7 +337,7 @@ class LayerFactory {
     }
 
     if (opts.content.kind === "color") {
-      const { color } = opts.content;
+      const { color, onToggle: onToggleOpt } = opts.content;
       const paneName = namedPaneNameFor(opts.id, COLOR_PANE_PREFIX, "color surface");
       const { pane } = panes.ensurePane(paneName, false);
       // Leaflet's CSS gives a fresh pane z-index 400 — above every basemap.
@@ -391,12 +391,16 @@ class LayerFactory {
         face.classList.toggle(HIDDEN, !v);
       };
 
+      const onToggle = onToggleOpt ?? setVisible;
+
       layerOpts = {
         ...commonLayerOpts,
         isBase: true,
+        baseInsert: "bottom",
         canvas: face,
         color,
         paneName,
+        onToggle,
       };
 
       const onMove = throttleRaf(() => updatePosition());

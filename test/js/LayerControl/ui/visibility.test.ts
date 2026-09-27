@@ -810,7 +810,7 @@ describe("toggleAll base group", () => {
     // picker. It is the row that has no checkbox ?a bare null check is what
     // keeps the sweep from typing the whole panel row.
     const bare = document.createElement("div");
-    bare.className = `${CONST.CLASSES.LAYER_ITEM} ${CONST.CLASSES.COLOR_ITEM}`;
+    bare.className = CONST.CLASSES.LAYER_ITEM;
     bare.setAttribute("data-layer-type", CONST.GROUP.BASE);
     ui.uiContainer.appendChild(bare);
 
@@ -896,7 +896,7 @@ describe("unit helpers", () => {
     const boxes = () =>
       Array.from(
         ui.uiContainer.querySelectorAll<HTMLInputElement>(
-          `.${CONST.CLASSES.LAYER_ITEM}:not(${CONST.SEL.COLOR_ITEM}) input[type="checkbox"]`,
+          `.${CONST.CLASSES.LAYER_ITEM}[data-layer-type="${CONST.GROUP.OVERLAY}"] input[type="checkbox"]`,
         ),
       );
 

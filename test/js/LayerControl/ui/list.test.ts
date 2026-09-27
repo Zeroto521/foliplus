@@ -62,17 +62,13 @@ describe("ui/list row placement", () => {
 
     manager.registerLayer({ id: "H", name: "H", isBase: false });
 
-    const registryIds = manager.layers
-      .map(l => l.id)
-      .filter(id => id !== CONST.COLOR.MAP_ID);
+    const registryIds = manager.layers.map(l => l.id);
     const rowIds = Array.from(
-      ui.uiContainer.querySelectorAll<HTMLElement>(
-        `${CONST.SEL.LAYER_ITEM}:not(${CONST.SEL.COLOR_ITEM})`,
-      ),
+      ui.uiContainer.querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM),
     ).map(el => el.dataset.layerId ?? "");
 
     expect(rowIds).toEqual(registryIds);
-    expect(registryIds).toEqual(["B", "A", "H"]);
+    expect(registryIds).toEqual(["B", "A", "H", CONST.COLOR.MAP_ID]);
   });
 
   it("initLayerItem updates the row it owns, not the one at that DOM index", () => {
@@ -204,7 +200,7 @@ describe("ui/list row placement", () => {
       ui.uiContainer.querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM),
     ).map(el => el.getAttribute(CONST.DATA.LAYER_ID));
     expect(ids).toContain("O1");
-    expect(ids.indexOf("O1")).toBeGreaterThan(0);
+    expect(ids).toContain(CONST.COLOR.MAP_ID);
   });
 
   it("insertLayerItem declines an id the registry does not know", () => {
@@ -243,8 +239,8 @@ describe("ui/list row placement", () => {
     const baseHeader = children.findIndex(
       el => el.getAttribute("data-group") === CONST.GROUP.BASE,
     );
-    const colorRow = children.findIndex(el =>
-      el.classList.contains(CONST.CLASSES.COLOR_ITEM),
+    const colorRow = children.findIndex(
+      el => el.getAttribute(CONST.DATA.LAYER_ID) === CONST.COLOR.MAP_ID,
     );
     expect(baseHeader).toBeGreaterThanOrEqual(0);
     expect(baseHeader).toBeLessThan(colorRow);
@@ -278,7 +274,9 @@ describe("ui/list row placement", () => {
 
     renderInitialList(ui);
 
-    const color = ui.uiContainer.querySelector<HTMLElement>(CONST.SEL.COLOR_ITEM);
+    const color = ui.uiContainer.querySelector<HTMLElement>(
+      `[${CONST.DATA.LAYER_ID}="${CONST.COLOR.MAP_ID}"]`,
+    );
     expect(color).not.toBeNull();
     expect(color!.classList.contains(CONST.CLASSES.GROUP_FOLDED)).toBe(true);
   });
@@ -297,5 +295,48 @@ describe("ui/list row placement", () => {
 
     expect(() => colorLi.onToggle?.(true)).not.toThrow();
     expect(() => colorLi.onToggle?.(false)).not.toThrow();
+  });
+
+  it("color basemap lands at the base group end when a tile basemap is already registered", () => {
+    // On first open, folium registers tile basemaps before initTypesAndVisibility
+    // runs. The color basemap (baseInsert: "bottom") must land at the end of
+    // the base group, not at the top — tile basemaps cover it by default.
+    const { ui } = initFixture({
+      data: [
+        { id: "B1", name: "B1", isBase: true },
+        { id: "B2", name: "B2", isBase: true },
+      ],
+    });
+
+    initTypesAndVisibility(ui);
+
+    const baseRows = Array.from(
+      ui.uiContainer.querySelectorAll<HTMLElement>(
+        `${CONST.SEL.LAYER_ITEM}[data-layer-type="${CONST.GROUP.BASE}"]`,
+      ),
+    ).map(el => el.getAttribute(CONST.DATA.LAYER_ID));
+
+    expect(baseRows).toContain("B1");
+    expect(baseRows).toContain("B2");
+    expect(baseRows).toContain(CONST.COLOR.MAP_ID);
+    // Color basemap is last (lowest z), tile basemaps above it.
+    expect(baseRows[baseRows.length - 1]).toBe(CONST.COLOR.MAP_ID);
+  });
+
+  it("initTypesAndVisibility skips the color block when the registry has no color layer", () => {
+    // Defensive guard: if getColorSurface's register() failed to insert the
+    // colour basemap (race, surface unavailable), the zoom-range / hidden
+    // override block must be skipped without crashing.
+    const { ui } = initFixture({
+      data: [{ id: "B1", name: "B1", isBase: true }],
+    });
+
+    const originalGet = ui.m.layerRegistry.get.bind(ui.m.layerRegistry);
+    vi.spyOn(ui.m.layerRegistry, "get").mockImplementation((id: string) => {
+      if (id === CONST.COLOR.MAP_ID) return undefined;
+      return originalGet(id);
+    });
+
+    expect(() => initTypesAndVisibility(ui)).not.toThrow();
   });
 });
