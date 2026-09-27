@@ -239,8 +239,8 @@ describe("ui/list row placement", () => {
     const baseHeader = children.findIndex(
       el => el.getAttribute("data-group") === CONST.GROUP.BASE,
     );
-    const colorRow = children.findIndex(el =>
-      el.getAttribute(CONST.DATA.LAYER_ID) === CONST.COLOR.MAP_ID,
+    const colorRow = children.findIndex(
+      el => el.getAttribute(CONST.DATA.LAYER_ID) === CONST.COLOR.MAP_ID,
     );
     expect(baseHeader).toBeGreaterThanOrEqual(0);
     expect(baseHeader).toBeLessThan(colorRow);
