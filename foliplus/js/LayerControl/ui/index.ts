@@ -41,7 +41,7 @@ import {
 } from "./list.js";
 import { closeMoreMenu, openMoreMenu } from "./menu.js";
 import { finishRename, renameLayer } from "./rename.js";
-import { applyRowView, buildRowCell, displayName, rowChecked } from "./rowView.js";
+import { applyRowView, buildRowCell, displayName } from "./rowView.js";
 import {
   applyUserState,
   dropPersistedLayerState,
@@ -97,7 +97,7 @@ class LayerUI {
    *  when the panel boots. It must be captured before the policy starts moving
    *  layers: by the time a row first paints a policy sweep may already have
    *  moved the layer off the map, and reading the map back would record that
-   *  policy decision as the author's. See `rowChecked`. */
+   *  policy decision as the author's. See `intentVisibleOf`. */
   authorVisible: Map<string, boolean>;
   /** Which dimensions the user has actually set, per layer id. A layer absent
    *  here keeps the author's `show=` / opacity default -- that is what replaces

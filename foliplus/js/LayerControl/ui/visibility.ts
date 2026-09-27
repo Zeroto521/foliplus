@@ -3,7 +3,7 @@ import { type Debounced, debounce } from "#common/debounce.js";
 import * as CONST from "../const.js";
 import { applyProjection, applyProjectionAll } from "./apply.js";
 import type { LayerUI } from "./index.js";
-import { applyRowView, buildRowCell, rowChecked } from "./rowView.js";
+import { applyRowView, buildRowCell } from "./rowView.js";
 import { saveState, syncHiddenId } from "./state.js";
 import { intentVisibleOf } from "./store.js";
 
@@ -81,7 +81,7 @@ const syncToggleAll = (ui: LayerUI, group: string) => {
   const checkedCount = Array.from(items).filter((item: Element) => {
     const id = item.getAttribute(CONST.DATA.LAYER_ID);
     const layerInfo = id ? ui.m.layerRegistry.get(id) : undefined;
-    return layerInfo ? rowChecked(ui, layerInfo) : false;
+    return layerInfo ? intentVisibleOf(ui, layerInfo.id) : false;
   }).length;
   const allChecked = items.length > 0 && checkedCount === items.length;
   const noneChecked = checkedCount === 0;

@@ -10,7 +10,7 @@
 // of state, not a sweep that mutates the world.
 //
 // Two pieces:
-//   rowChecked / inZoomRange / rowView — the projection (read-only + pure)
+//   inZoomRange / rowView — the projection (read-only + pure)
 //   buildRowCell / applyRowView        — gather the cell, then paint the row
 import { GEOM_TYPE } from "#core/layer/index.js";
 import { formatNumber } from "#common/format.js";
@@ -59,17 +59,6 @@ interface RowLabels {
   select: string;
   deselect: string;
 }
-
-/**
- * The checkbox state — the user's own choice when they made one, else the
- * author's declared default.
- *
- *  The map membership must never carry this slot: `intentVisibleOf` is
- *  derived from the persisted record alone, so the row cannot drift away
- *  from the user's choice while a policy is hiding the layer.
- */
-const rowChecked = (ui: LayerUI, layerInfo: LayerInfo): boolean =>
-  intentVisibleOf(ui, layerInfo.id);
 
 /**
  * Whether the stored range covers the map's current zoom.
@@ -208,7 +197,7 @@ const rowType = (
  */
 const buildRowCell = (ui: LayerUI, layerInfo: LayerInfo): RowCell => {
   const layer = ui.m.findLayer(layerInfo);
-  const checked = rowChecked(ui, layerInfo);
+  const checked = intentVisibleOf(ui, layerInfo.id);
   const type = rowType(ui, layerInfo, layer);
   const count = ui.mgmt.getFeatureCount(layerInfo.id);
   return {
@@ -269,7 +258,6 @@ export {
   buildRowCell,
   displayName,
   inZoomRange,
-  rowChecked,
   rowView,
   snapshotAuthorVisible,
   type RowCell,

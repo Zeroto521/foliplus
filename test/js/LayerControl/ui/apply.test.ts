@@ -6,8 +6,7 @@ import {
   applyStateOp,
 } from "#foliplus/LayerControl/ui/apply.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
-import { rowChecked } from "#foliplus/LayerControl/ui/rowView.js";
-import { projectLayer } from "#foliplus/LayerControl/ui/store.js";
+import { intentVisibleOf, projectLayer } from "#foliplus/LayerControl/ui/store.js";
 import { installLeafletGlobals } from "./fixture.js";
 
 // ────────────────────────────────────────────────────────────────────────
@@ -744,7 +743,7 @@ describe("executor: the branches behind the gates", () => {
 
   it("a ui with no hiddenIds and no userOverrides still projects", () => {
     // The `?? false` fallbacks on both choice maps: `applyProjection`,
-    // `rowChecked` and `projectLayer` all read them as optional, because a
+    // `intentVisibleOf` and `projectLayer` all read them as optional, because a
     // thin stub (and a partially-built shell) may not have them yet.
     const bare = {
       hiddenIds: undefined,
@@ -781,7 +780,7 @@ describe("executor: the branches behind the gates", () => {
     const projection = projectLayer(bare, info);
     expect(projection.intent.visible).toBe(true);
     expect(projection.effectiveShown).toBe(true);
-    expect(rowChecked(bare, info)).toBe(true);
+    expect(intentVisibleOf(bare, info.id)).toBe(true);
     expect(() => applyProjection(bare, "n")).not.toThrow();
   });
 

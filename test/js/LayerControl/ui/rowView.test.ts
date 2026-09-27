@@ -6,11 +6,11 @@ import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import {
   applyRowView,
   buildRowCell,
-  rowChecked,
   rowView,
   snapshotAuthorVisible,
 } from "#foliplus/LayerControl/ui/rowView.js";
 import type { RowCell } from "#foliplus/LayerControl/ui/rowView.js";
+import { intentVisibleOf } from "#foliplus/LayerControl/ui/store.js";
 import * as Icons from "#common/icon.js";
 import { findItem, initFixture } from "./fixture.js";
 
@@ -69,7 +69,7 @@ describe("rowView (pure projection)", () => {
   });
 });
 
-describe("rowChecked (the intent seam)", () => {
+describe("intentVisibleOf (the intent seam)", () => {
   const intentUi = (
     overrides: Record<string, string[]> = {},
     hidden: string[] = [],
@@ -109,7 +109,7 @@ describe("rowChecked (the intent seam)", () => {
       false,
     ],
   ])("%s -> %s", (_label, overrides, hidden, author, want) => {
-    expect(rowChecked(intentUi(overrides, hidden, author), info("a"))).toBe(want);
+    expect(intentVisibleOf(intentUi(overrides, hidden, author), "a")).toBe(want);
   });
 });
 
@@ -382,7 +382,7 @@ describe("snapshotAuthorVisible", () => {
   });
 });
 
-describe("rowChecked: what counts as the user's choice", () => {
+describe("intentVisibleOf: what counts as the user's choice", () => {
   it("a bare hiddenIds entry is already a choice — the row reads unchecked", () => {
     // `syncHiddenId` always marks, but a restored record or a direct write
     // can leave an entry without its provenance marker. Either half is the
@@ -392,7 +392,7 @@ describe("rowChecked: what counts as the user's choice", () => {
     ui.userOverrides.overlay1 = undefined as never;
     delete ui.userOverrides.overlay1;
     ui.hiddenIds.add("overlay1");
-    expect(rowChecked(ui, layerInfo)).toBe(false);
+    expect(intentVisibleOf(ui, layerInfo.id)).toBe(false);
   });
 
   it("neither half present falls back to the author's declared default", () => {
@@ -401,6 +401,6 @@ describe("rowChecked: what counts as the user's choice", () => {
     delete ui.userOverrides.overlay1;
     ui.hiddenIds.delete("overlay1");
     ui.authorVisible.set("overlay1", false);
-    expect(rowChecked(ui, layerInfo)).toBe(false);
+    expect(intentVisibleOf(ui, layerInfo.id)).toBe(false);
   });
 });
