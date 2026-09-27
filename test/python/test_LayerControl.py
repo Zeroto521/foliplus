@@ -3167,9 +3167,10 @@ class TestLayerControlBrowser:
             )
 
     def test_color_layer_coexists_with_tiles(self, browser, tmp_path):
-        """Colour and tile basemaps coexist. Clicking the colour layer
-        activates its own pane (the retired `foliplus-layer-tile-hidden`
-        contract is gone — tiles stay in the DOM and remain fetchable)."""
+        """Colour and tile basemaps coexist. Checking the colour basemap's
+        checkbox activates its own pane (the retired
+        `foliplus-layer-tile-hidden` contract is gone — tiles stay in the DOM
+        and remain fetchable)."""
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
         LayerControl().add_to(m)
         folium.TileLayer("CartoDB positron", name="Light Canvas", overlay=False).add_to(
@@ -3194,8 +3195,11 @@ class TestLayerControlBrowser:
             )
             page.wait_for_timeout(500)
 
-            # Click color layer item
-            page.evaluate(_js("LayerControl/click_color_layer_item"))
+            # Check the colour basemap's checkbox — the only legitimate path
+            # to show the color layer. Clicking the row body no longer does
+            # it (T201).
+            toggle = page.evaluate(_js("LayerControl/toggle_color_checkbox"))
+            assert toggle is not None and toggle["ok"] is True, toggle
             page.wait_for_timeout(500)
 
             result = page.evaluate(_js("LayerControl/read_color_tile_state"))

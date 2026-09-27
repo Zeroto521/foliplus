@@ -39,7 +39,6 @@ import {
   getLayerItems,
   handleChange,
   handleInput,
-  syncToggleAll,
   toggleAll,
 } from "./visibility.js";
 
@@ -175,22 +174,6 @@ const bindEvents = (ui: LayerUI): void => {
       }
     }
 
-    // The ⋮ button, the menu, and the checkbox are not the colour toggle's
-    // target: the checkbox's change event already routes through
-    // applyVisibility → onToggle → showColorLayer, and a second call here
-    // would rebuild the list (via surface.register) and destroy the checkbox
-    // mid-click, leaving `checked` un-updated.
-    if (
-      el.closest(CONST.SEL.COLOR_ITEM) &&
-      !el.closest(
-        `.${CONST.CLASSES.MORE_BTN}, .foliplus-layer-more-menu, input[type="checkbox"]`,
-      )
-    ) {
-      ui.showColorLayer(ui.currentColor);
-      syncToggleAll(ui, CONST.GROUP.BASE);
-      ui.m.enforceOrder();
-      return;
-    }
     const toggleAllEl = el.closest(CONST.SEL.TOGGLE_ALL) as HTMLElement | null;
     if (!toggleAllEl || el.closest('[data-role="toggle-all"]')) return;
     toggleFold(ui, toggleAllEl.dataset.group ?? "");

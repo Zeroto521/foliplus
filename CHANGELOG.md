@@ -108,6 +108,7 @@
 - `common/fetch`: a completed request no longer leaves its timeout and parent abort listener behind — the composed signal is disposed as soon as the fetch settles ([#433](https://github.com/Zeroto521/foliplus/pull/433))
 - `hint`: cap the toast at `min(480px, 80vw)` so a long locale string wraps instead of overflowing the map on a phone, with a wider cap under a 480px viewport ([#445](https://github.com/Zeroto521/foliplus/pull/445))
 - `LayerControl`: `fillColor` / `borderColor` and the annotation `color` in the persisted record are normalized to `#rrggbb` — `<input type=color>` only takes the long form; reuses `common/form.ts`'s `normalizeHexColor` ([#477](https://github.com/Zeroto521/foliplus/pull/477), [#482](https://github.com/Zeroto521/foliplus/pull/482))
+- `LayerControl`: clicking the solid-color basemap row's body (label / drag / count cells) no longer shows the color layer — the checkbox change was already routing through `applyVisibility → onToggle → showColorLayer`, and the row-click branch was double-triggering on top of it ([#494](https://github.com/Zeroto521/foliplus/pull/494))
 
 ## [v0.3.0] (2026-08-02)
 
