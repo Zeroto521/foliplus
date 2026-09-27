@@ -186,12 +186,21 @@ class LayerManager implements LayerAPI {
    *  panel attaches, which is why this lives on the manager rather than the UI.
    */
   private removedIds: Set<string>;
+  /** Whether the author set a finite `map.options.maxZoom`.
+
+   *  Captured in the constructor, before the first enforceOrder can write its
+   *  own fallback, so the guard below never reads back our own write. */
+  private authorMaxZoomDeclared: boolean;
   annotation: AnnotationManager;
   onLayerAdd: (event: L.LeafletEvent) => void;
   getLayerPanes: (layer: L.Layer) => string[];
 
   constructor(mapInstance: L.Map, data: LayerInfo[]) {
     this.map = mapInstance;
+    // Captured before the constructor's own enforceOrder can write a fallback,
+    // so the guard is the author's declaration and never our previous write.
+    // folium emits the map config once at init, ahead of every control.
+    this.authorMaxZoomDeclared = Number.isFinite(mapInstance.options?.maxZoom);
     this.events = ensureEvents(this.map);
     this.persistence = new LayerPersistence();
     // One read of the record at construction. `order` seeds the registry's
@@ -1014,6 +1023,34 @@ class LayerManager implements LayerAPI {
     this.debouncedEnforce?.cancel();
     this.isEnforcing = true;
     try {
+      // Leaflet's getMaxZoom() is options.maxZoom ?? <max of the layers'
+      // options.maxZoom> ?? Infinity, and folium emits a map with no declared
+      // max zoom: the map would zoom past every layer's native range into
+      // empty space. Own the ceiling in that case — the union of the
+      // registered layers' native options.maxZoom, falling back to a default
+      // when nothing declares one. The layers' native values are the author's
+      // declaration, not the user's zoomRange (which resolves through
+      // effectiveShown, not map zoom limits).
+      //
+      // Re-runs every pass instead of guarding on map.options.maxZoom: that
+      // value is our own previous write, so guarding on it froze the ceiling
+      // at the first pass and a layer registered later could never raise it.
+      // And it stays a union rather than max(prev, layers), so a removed
+      // layer's range no longer holds the ceiling up.
+      if (!this.authorMaxZoomDeclared) {
+        let max = 0;
+        for (const li of this.layers) {
+          const opts = li.layer?.options as { maxZoom?: number } | undefined;
+          if (
+            typeof opts?.maxZoom === "number" &&
+            Number.isFinite(opts.maxZoom) &&
+            opts.maxZoom > max
+          ) {
+            max = opts.maxZoom;
+          }
+        }
+        this.map.options.maxZoom = max > 0 ? max : CONST.AUTHOR_ZOOM_FALLBACK_MAX;
+      }
       for (let i = 0; i < this.layers.length; i++) {
         const layerInfo = this.layers[i];
         const layer = this.findLayer(layerInfo);

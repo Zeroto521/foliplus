@@ -27,6 +27,7 @@
 // "Projection" is what the diff compares — intent + policy together, so
 // a change on either side produces an op.
 import { resetGridLayerView } from "#core/leafletAdapter.js";
+import * as CONST from "../const.js";
 import type { LayerUI } from "./index.js";
 import { type Projection, intentVisibleOf, projectAll, projectLayer } from "./store.js";
 
@@ -54,6 +55,59 @@ const authorOpacityBaseOf = (layer: L.Layer): number => {
   }
   return base;
 };
+
+/** The layer's own author-declared min/max, frozen on first write.
+ *
+ *  Frozen, not re-read: `applyStateOp` writes `options.minZoom/maxZoom` on
+ *  every live drag, so reading them back next time would feed the slider
+ *  its own last drag — a ratchet that shrinks the slider's range with
+ *  every drag. The snapshot is captured in `applyStateOp` before the write,
+ *  which is also what makes persistence-replay safe: on reload the state
+ *  replay fires before the panel opens, so any snapshot that captures at
+ *  first read would already see `options.maxZoom` set to the persisted
+ *  value, freezing the slider at that last drag instead of at the author's
+ *  declared range.
+ *
+ *  `layer.options.minZoom/maxZoom` fall back to the map's declared values
+ *  when the layer declares none — a TileLayer without `options.maxZoom`
+ *  means "whatever the map allows", not "Infinity". `map.getMaxZoom()`
+ *  itself returns `Infinity` for a map without a declared max, so that
+ *  path gets its own finite fallback: `CONST.AUTHOR_ZOOM_FALLBACK_MAX`, so
+ *  the values row can never print the literal string "Infinity".
+ *
+ *  Min end is symmetric: dragging the left thumb writes `options.minZoom`,
+ *  which would ratchet the slider's own min upward on the next build. */
+const authorZoomBounds = new WeakMap<L.Layer, [number, number]>();
+
+const finiteOr = (v: number | undefined, fallback: number): number =>
+  typeof v === "number" && Number.isFinite(v) ? v : fallback;
+
+/** Snapshot the layer's declared zoom bounds on first access. Callers must
+ *  call this before any write to `options.minZoom/maxZoom`, so the value
+ *  is the author's declaration and not our own previous write. */
+const authorZoomBoundsOf = (
+  ui: LayerUI,
+  layer: L.Layer | null | undefined,
+): [number, number] => {
+  const stored = layer ? authorZoomBounds.get(layer) : undefined;
+  if (stored) return stored;
+  const opts = (layer?.options ?? {}) as L.LayerOptions & {
+    minZoom?: number;
+    maxZoom?: number;
+  };
+  const mapMin = finiteOr(ui.m.map.getMinZoom(), 0);
+  const mapMax = finiteOr(ui.m.map.getMaxZoom(), CONST.AUTHOR_ZOOM_FALLBACK_MAX);
+  const bounds: [number, number] = [
+    finiteOr(opts.minZoom, mapMin),
+    finiteOr(opts.maxZoom, mapMax),
+  ];
+  if (layer) authorZoomBounds.set(layer, bounds);
+  return bounds;
+};
+
+/** Same lookup keyed by layer id — the panel code has only the id in hand. */
+const authorZoomBoundsForLayer = (ui: LayerUI, layerId: string): [number, number] =>
+  authorZoomBoundsOf(ui, ui.m.layerRegistry.get(layerId)?.layer);
 
 /** Carrier identity the executor's last write landed on.
  *
@@ -101,9 +155,10 @@ const sameCarrier = (prev: unknown, curr: unknown): boolean =>
  *    visible  — map membership for Leaflet layers, `onToggle` for
  *               callback-only canvas layers (heatmap / measure)
  *    opacity  — canvas element / own pane / native setter / "none"
- *    zoomRange — native `options.minZoom/maxZoom` / "none" (the `pane`
- *               carrier resolves through the `visible` op in the
- *               executor, not here)
+ *    zoomRange — resolved through the `visible` op for all carriers.
+ *               Writing `options.minZoom/maxZoom` would pollute
+ *               `map.getMaxZoom()` (Leaflet derives map zoom from
+ *               layer options), locking the map's +/- controls.
  *
  *  The "none" carrier check is the rule that a slider that writes
  *  nothing must not persist — when the surface declares "none" we skip
@@ -174,30 +229,6 @@ const applyStateOp = (ui: LayerUI, layerInfo: LayerInfo, op: StateOp): void => {
       }
       layerInfo.opacity = value;
     }
-    return;
-  }
-  // zoomRange — the `pane` carrier resolves through the visible op in
-  // the executor, so nothing to write here for pane.
-  const caps = ui.m.surfaceFor(layerInfo).capabilities;
-  if (caps.zoomRange === "native") {
-    const layer = layerInfo.layer;
-    if (!layer) return;
-    const opts = layer.options as L.LayerOptions & {
-      minZoom?: number;
-      maxZoom?: number;
-    };
-    if (op.value) {
-      opts.minZoom = op.value[0];
-      opts.maxZoom = op.value[1];
-    } else {
-      delete opts.minZoom;
-      delete opts.maxZoom;
-    }
-    // Leaflet does not self-apply options.minZoom/maxZoom: already-loaded
-    // tiles stay until the level set is rebuilt. Without this the range
-    // would be silently stale — the user sets it and nothing changes on
-    // the map.
-    resetGridLayerView(layer);
   }
 };
 
@@ -324,5 +355,5 @@ const applyProjectionAll = (ui: LayerUI): void => {
   for (const [id] of projectAll(ui)) applyProjection(ui, id);
 };
 
-export { applyProjection, applyProjectionAll, applyStateOp };
+export { applyProjection, applyProjectionAll, applyStateOp, authorZoomBoundsForLayer };
 export type { StateOp };

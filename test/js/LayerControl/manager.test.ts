@@ -182,6 +182,7 @@ describe("LayerManager", () => {
       _container: document.createElement("div"),
       _layers: {},
       _paneRenderers: {},
+      options: { maxZoom: 18 },
       attributionControl: { _attributions: {}, _update: vi.fn() },
     };
 
@@ -2389,6 +2390,7 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
       }),
       _container: document.createElement("div"),
       _layers: {},
+      options: { maxZoom: 18 },
       attributionControl: { _attributions: {}, _update: vi.fn() },
     };
   });
@@ -2754,6 +2756,7 @@ describe("LayerManager user-assigned names", () => {
       _container: document.createElement("div"),
       _layers: {},
       _paneRenderers: {},
+      options: { maxZoom: 18 },
       attributionControl: { _attributions: {}, _update: vi.fn() },
     };
 
@@ -2899,5 +2902,74 @@ describe("LayerManager user-assigned names", () => {
 
     expect(manager.unregisterLayer("never-registered")).toBe(false);
     expect(save).not.toHaveBeenCalled();
+  });
+
+  // ===========================================================================
+  // Map maxZoom fallback: when the author does not declare map.options.maxZoom
+  // (Leaflet's default Infinity), enforceOrder computes a finite upper bound
+  // from the registered layers' declared options.maxZoom — the author's
+  // declaration, not the user's zoomRange (which resolves through
+  // effectiveShown, not map zoom limits).
+  // ===========================================================================
+
+  describe("map maxZoom fallback", () => {
+    // `authorMaxZoomDeclared` is captured at construction, so mutating
+    // `map.options` on an already-built manager can't re-arm the fallback:
+    // each case builds a fresh manager after setting the map's own options.
+    const freshManager = (authorMaxZoom?: number) => {
+      map.options = { maxZoom: authorMaxZoom };
+      return new LayerManager(map, []);
+    };
+
+    const tile = (maxZoom: number) => {
+      const layer = new TileLayer();
+      layer.options.maxZoom = maxZoom;
+      return layer;
+    };
+
+    it("caps the map at the highest registered layer's maxZoom (basemaps + data)", () => {
+      const m = freshManager();
+      m.registerLayer({ id: "base16", name: "Base16", isBase: true, layer: tile(16) });
+      m.registerLayer({ id: "base20", name: "Base20", isBase: true, layer: tile(20) });
+      m.registerLayer({ id: "data22", name: "Data22", isBase: false, layer: tile(22) });
+      m.enforceOrder();
+      expect(map.options.maxZoom).toBe(22);
+    });
+
+    it("raises the ceiling when a higher layer registers later", () => {
+      const m = freshManager();
+      m.registerLayer({ id: "base16", name: "Base16", isBase: true, layer: tile(16) });
+      m.enforceOrder();
+      expect(map.options.maxZoom).toBe(16);
+
+      m.registerLayer({ id: "data22", name: "Data22", isBase: false, layer: tile(22) });
+      m.enforceOrder();
+      expect(map.options.maxZoom).toBe(22);
+    });
+
+    it("lowers the ceiling when the highest layer is unregistered", () => {
+      const m = freshManager();
+      m.registerLayer({ id: "base16", name: "Base16", isBase: true, layer: tile(16) });
+      m.registerLayer({ id: "data22", name: "Data22", isBase: false, layer: tile(22) });
+      m.enforceOrder();
+      expect(map.options.maxZoom).toBe(22);
+
+      m.unregisterLayer("data22");
+      m.enforceOrder();
+      expect(map.options.maxZoom).toBe(16);
+    });
+
+    it("falls back to the default when no layer declares maxZoom", () => {
+      const m = freshManager();
+      m.enforceOrder();
+      expect(map.options.maxZoom).toBe(CONST.AUTHOR_ZOOM_FALLBACK_MAX);
+    });
+
+    it("does not override an author-declared map.maxZoom", () => {
+      const m = freshManager(25);
+      m.registerLayer({ id: "base16", name: "Base16", isBase: true, layer: tile(16) });
+      m.enforceOrder();
+      expect(map.options.maxZoom).toBe(25);
+    });
   });
 });
