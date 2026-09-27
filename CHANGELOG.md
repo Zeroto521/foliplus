@@ -74,7 +74,7 @@
 - `LayerControl`: basemaps are first-class — color and tile basemaps coexist without mutual exclusion, row order = z-order via the color basemap's pane, and an empty base group shows a hatch ([#443](https://github.com/Zeroto521/foliplus/pull/443), [#494](https://github.com/Zeroto521/foliplus/pull/494))
 - `HeatmapControl`: border and label styling move to the layer style drawer; the panel keeps only aggregation controls ([#447](https://github.com/Zeroto521/foliplus/pull/447), [#473](https://github.com/Zeroto521/foliplus/pull/473))
 - `InteractionManager`/`ListCursor`/`LayerControl`: input ownership — one control × key table at dispatch replaces five per-call-site guards; adding a control to a panel is a table entry; `Escape` stays foliplus-owned ([#450](https://github.com/Zeroto521/foliplus/pull/450))
-- `LayerControl`: style panel sections read Layer above Label, and the Layer section rows read fill, border, opacity, zoom range — the two color axes sit adjacent and the two slider axes sit adjacent; rows the layer cannot carry stay hidden ([#458](https://github.com/Zeroto521/foliplus/pull/458))
+- `LayerControl`: style panel sections read Layer above Label, and the Layer section rows read fill, border, opacity, zoom range — the two color axes sit adjacent and the two slider axes sit adjacent; rows the layer cannot carry stay hidden ([#458](https://github.com/Zeroto521/foliplus/pull/458), [#502](https://github.com/Zeroto521/foliplus/pull/502))
 
 ### Removed
 
