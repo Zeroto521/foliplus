@@ -23,9 +23,9 @@ import { layerHasLabelFields, layerHasStyleDelegation } from "./style/index.js";
  *                   disabled, so it closes the quiet part of the list.
  *   5. Delete     — behind a divider, the one destructive entry. Armed in
  *                   place on the first click and executed on the second; it is
- *                   rendered only for rows that own a Leaflet layer (data
- *                   layers, tile basemaps included), the solid color basemap
- *                   renders it disabled, and a component layer renders nothing.
+ *                   rendered for every layer. The label varies by semantics:
+ *                   "Delete Layer" for user-owned data layers, "Clear Data"
+ *                   for component-owned layers.
  *
  * Focus leads because the trigger-adjacent slot is the mis-click zone: the menu
  * opens downward from the row's bottom edge (`top: 100%`) while the ⋮ button is
@@ -204,6 +204,7 @@ let armedDelete: {
   label: HTMLElement;
   li: HTMLElement;
   isClear: boolean;
+  originalTitle: string;
 } | null = null;
 let armedDeleteTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -264,7 +265,8 @@ const armDelete = (ui: LayerUI, li: HTMLElement): void => {
   if (!label) return;
   disarmDelete();
   const isClear = li.dataset.mode === "clear";
-  armedDelete = { ui, label, li, isClear };
+  const originalTitle = li.getAttribute("title") ?? "";
+  armedDelete = { ui, label, li, isClear, originalTitle };
   label.textContent = ui.T(isClear ? "clear_data_confirm" : "delete_layer_confirm");
   li.classList.add(CONST.CLASSES.MENU_DELETE_ARMED);
   li.setAttribute(
@@ -282,6 +284,7 @@ const disarmDelete = (): void => {
   const armed = armedDelete;
   if (!armed) return;
   armed.label.textContent = armed.ui.T(armed.isClear ? "clear_data" : "delete_layer");
+  armed.li.setAttribute("title", armed.originalTitle);
   armed.li.classList.remove(CONST.CLASSES.MENU_DELETE_ARMED);
   armedDelete = null;
 };

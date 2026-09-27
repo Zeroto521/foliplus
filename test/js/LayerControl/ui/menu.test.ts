@@ -554,6 +554,7 @@ describe("LayerUI menu", () => {
       expect(deleteLi.querySelector(CONST.SEL.MENU_DELETE_LABEL)!.textContent).toBe(
         "LayerControl.clear_data_confirm",
       );
+      expect(deleteLi.title).toBe("LayerControl.clear_data_confirm");
       expect(deleteSpy).not.toHaveBeenCalled();
 
       click(deleteLi);
@@ -597,6 +598,7 @@ describe("LayerUI menu", () => {
         expect(deleteLi.querySelector(CONST.SEL.MENU_DELETE_LABEL)!.textContent).toBe(
           "LayerControl.delete_layer",
         );
+        expect(deleteLi.title).toBe("LayerControl.delete_layer_tooltip");
 
         // A click after the timeout re-arms rather than firing.
         click(deleteLi);
