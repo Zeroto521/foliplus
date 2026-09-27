@@ -5,23 +5,33 @@
 // minimal slice — a descriptor shape + register + lookup — that lets the
 // panel discover which dimensions apply to a layer without a switch table.
 //
-// Gate invariant (contract, not convention): every dimension's `gate` is
-// exactly `capabilities.{dim} !== "none"` — the surface's capability slot is
-// the single source of truth for whether the row is honest. No other
-// checks belong in `gate`:
-//   - carrier probes (`hasSetStyleLeaf` for stroke, `hasFillGeometry` for
-//     fill, etc.) belong to *capability derivation* at the surface, not the
-//     gate — otherwise every gate is a fresh restatement of the surface.
-//   - `isColorBasemap` cases ("solid colour counts as fillable", "count as
-//     zoomRange-able") are capability declarations, not gate special-cases.
+// Gate invariant (contract, not convention): every dimension's `gate` has
+// exactly two layers, in this order:
+//   1. Layer existence — the layer must be in the registry. A missing
+//      layer is a programming error (the panel asked about something we
+//      don't own), so return `false` immediately rather than probing a
+//      surface we cannot resolve. This is a precondition guard, not a
+//      capability check.
+//   2. Capability — `capabilities.{dim} !== "none"`. The surface's
+//      capability slot is the single source of truth for whether the
+//      row is honest.
+// Nothing else belongs in `gate`. Three classes of check explicitly
+// do not:
+//   - carrier probes (`hasSetStyleLeaf` for stroke, `hasFillGeometry`
+//     for fill, etc.) belong to *capability derivation* at the
+//     surface, not the gate — otherwise every gate is a fresh
+//     restatement of the surface.
+//   - `isColorBasemap` cases ("solid colour counts as fillable", "count
+//     as zoomRange-able") are capability declarations, not gate
+//     special-cases.
 //   - canvas / styleSetters exclusion is *already* covered: a canvas-only
-//     surface declares `capabilities.{dim}: "none"`, so the gate rejects it
-//     naturally. Adding an extra `if (!canvas) return false` here would
-//     be duplicate work — and every extra check is another place a future
-//     dimension can drift.
-// The pilot (`opacity`) is already in this form; legacy `fill` / `border` /
-// `zoomRange` gates carry extras and are scheduled for a follow-up PR that
-// moves those checks into their surface declarations.
+//     surface declares `capabilities.{dim}: "none"`, so the gate rejects
+//     it naturally. Adding an extra `if (!canvas) return false` here
+//     would be duplicate work — and every extra check is another place
+//     a future dimension can drift.
+// The pilot (`opacity`) is already in this form; legacy `fill` / `border`
+// / `zoomRange` gates carry extras and are scheduled for a follow-up PR
+// that moves those checks into their surface declarations.
 //
 // First pilot: `opacity`. Its existing helpers (`layerCanOpacity`,
 // `buildOpacityRow`, `commitOpacityPct`, `resetLayerOpacity`) stay as the
@@ -32,28 +42,34 @@
 // migration work can move `write` / `reset` in once that coupling is
 // broken.
 //
-// The registry is a module-level Map. It is not scoped to a single map
-// instance — dimensions are keyed by name, not by map id, because a
-// descriptor is a *shape* ("this layer supports opacity"), not state
-// ("layer X has opacity 0.4").
+// The registry is a module-level Map. BaseControl renders each control
+// instance as a fresh IIFE around the bundled JS, so every map eval gets
+// its own copy of this module — the registry is per-map-instance, not a
+// process singleton. Descriptors must be pure shape ("this layer supports
+// opacity"); never attach map-level state in the descriptor's closure. A
+// dimension that needs per-map state belongs on the UI object, not here.
 //
 // Duplicate registration throws: two components shipping the same key
-// (a third-party `registerDimension({ key: "opacity", ... })` alongside
-// our built-in) is a bug that must fail loudly, not silently overwrite.
+// alongside our built-in is a bug that must fail loudly, not silently
+// overwrite. This registry is currently an internal surface only — the
+// public extensibility API (a `registerDimension` re-exported from
+// `LayerControl/index.ts`) is deferred.
 import type { LayerUI } from "../index.js";
 
 /** One per-layer dimension. `key` is the persistence-identifier and the
- *  registry key (`"opacity"`, later `"zoomRange"`, `"fillColor"`, or a
- *  third-party namespaced key like `"myplugin.radius"`). */
+ *  registry key (`"opacity"`, later `"zoomRange"`, `"fillColor"`, ...). */
 type LayerDimension<D = unknown> = {
   key: string;
-  /** Row-honest gate. **Must be exactly `capabilities.{dim} !== "none"`** —
-   *  the surface's declared capability is the single source of truth for
-   *  whether this row is honest to render (§6.2). Nothing else: no carrier
-   *  probes, no `isColorBasemap` special-cases, no canvas/styleSetters
-   *  exclusion (a canvas-only surface already declares `"none"` for the
-   *  dimension it can't carry, so the gate rejects it naturally). See the
-   *  file header for the full invariant. */
+  /** Row-honest gate, two layers in order:
+   *  1. **Layer existence** — return `false` when the layer is not in the
+   *     registry (a precondition guard against a programming error).
+   *  2. **Capability** — `capabilities.{dim} !== "none"`, the surface's
+   *     declared capability is the single source of truth for whether this
+   *     row is honest to render (§6.2).
+   *  Nothing else: no carrier probes, no `isColorBasemap` special-cases,
+   *  no canvas/styleSetters exclusion (a canvas-only surface already
+   *  declares `"none"` for the dimension it can't carry, so the gate
+   *  rejects it naturally). See the file header for the full invariant. */
   gate: (ui: LayerUI, layerId: string) => boolean;
   /** Resolved current value — the user's stored override, falling back to
    *  the author's declared default when the user has never touched the

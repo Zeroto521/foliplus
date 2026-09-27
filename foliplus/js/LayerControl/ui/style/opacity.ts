@@ -185,8 +185,10 @@ const resetLayerOpacity = (ui: LayerUI, layerId: string): void => {
  *  descriptor yet: `commitOpacityPct` needs the panel root to sync the
  *  slider, which is a UI argument that does not belong on the descriptor.
  *
- *  Gate invariant (§43.9, first-class from day one): `gate` is exactly
- *  `capabilities.opacity !== "none"` — no carrier probes, no special-cases.
+ *  Gate invariant (§43.9, first-class from day one): `gate` is two layers —
+ *  layer existence (`!li` returns `false` as a precondition guard) and
+ *  then the pure capability check `capabilities.opacity !== "none"`. No
+ *  carrier probes, no `isColorBasemap` special-cases, no canvas exclusion.
  *  Canvas-only layers (heatmap, measure, …) already declare `"none"` for
  *  opacity because they don't own a leaf to walk, so the gate rejects them
  *  naturally. Any extra check here would drift from the invariant and the
