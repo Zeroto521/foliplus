@@ -600,6 +600,22 @@ describe("MeasureManager — setEditMode", () => {
     expect(toggleDrag).not.toHaveBeenCalled();
   });
 
+  it("clearAll drops the layer id from the stored order so a redraw lands on top", () => {
+    const { manager, map } = makeManager();
+    const forgetSavedOrder = vi.fn(() => true);
+    map.foliplus.LayerAPI.forgetSavedOrder = forgetSavedOrder;
+
+    manager.clearAll();
+
+    expect(forgetSavedOrder).toHaveBeenCalledWith(manager.layerId);
+  });
+
+  it("clearAll tolerates a LayerAPI without forgetSavedOrder", () => {
+    const { manager, map } = makeManager();
+    delete map.foliplus.LayerAPI.forgetSavedOrder;
+    expect(() => manager.clearAll()).not.toThrow();
+  });
+
   it("setMode EDIT enters edit mode when off", () => {
     const { manager } = makeManager();
     manager.measurements = [{ id: "m1", type: "marker" }];

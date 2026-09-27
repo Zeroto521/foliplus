@@ -512,6 +512,13 @@ interface LayerAPI {
    *  because a component that unregisters itself may simply be temporarily
    *  empty. */
   deleteLayer: (id: string) => boolean;
+  /** Drop one id from the stored order so its next registration lands at the
+   *  top of the overlay stack instead of returning to the slot the user
+   *  arranged. The counterpart to deleteLayer's saved-order prune, but without
+   *  the `removedIds` recording — the layer stays registerable. Called by
+   *  component clear paths (Heatmap, Measure) after they unregister, so a
+   *  clear-and-redraw cycle resets the position rather than preserving it. */
+  forgetSavedOrder?: (id: string) => boolean;
   /** Bring a registered overlay layer to the front. */
   bringLayerToFront: (id: string) => void;
   /**

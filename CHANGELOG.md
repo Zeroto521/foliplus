@@ -110,6 +110,7 @@
 - `hint`: cap the toast at `min(480px, 80vw)` so a long locale string wraps instead of overflowing the map on a phone, with a wider cap under a 480px viewport ([#445](https://github.com/Zeroto521/foliplus/pull/445))
 - `LayerControl`: `fillColor` / `borderColor` and the annotation `color` in the persisted record are normalized to `#rrggbb` — `<input type=color>` only takes the long form; reuses `common/form.ts`'s `normalizeHexColor` ([#477](https://github.com/Zeroto521/foliplus/pull/477), [#482](https://github.com/Zeroto521/foliplus/pull/482))
 - `FullscreenControl`: a denied fullscreen entry or exit now reports the honest hint (`unsupported` / `exit_fail`) instead of "Entered fullscreen" ([#486](https://github.com/Zeroto521/foliplus/pull/486))
+- `LayerControl`/`HeatmapControl`/`MeasureControl`: clear-and-redraw now lands the layer at the top of the overlay stack — component clear paths drop the layer's id from the persisted order via a new `LayerAPI.forgetSavedOrder(id)` so the next `registerLayer` takes `insertOverlayAt`'s prepend branch rather than `placeBeforeSavedNeighbor`'s return-to-slot path. Neighbors' positions and `removedIds` are untouched, so a cleared layer stays registerable and unrelated layers keep their arrangement across a reload.
 
 ## [v0.3.0] (2026-08-02)
 
