@@ -51,7 +51,6 @@
     const parent = container ? container.parentNode : null;
     kids.push({
       pane: c.options.pane,
-      paneSet: c.options.paneSet,
       hasRendererOpt: Boolean(c.options.renderer),
       hasRenderer: Boolean(renderer),
       isPath: Boolean(container),

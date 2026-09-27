@@ -14,5 +14,5 @@
     if (!leaf) leaf = l;
   });
   if (!leaf) return null;
-  return { id: "TestLayer", paneSet: leaf.options.paneSet };
+  return { id: "TestLayer", pane: leaf.options.pane };
 };
