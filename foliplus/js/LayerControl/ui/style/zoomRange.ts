@@ -4,7 +4,7 @@
 // LayerControl-owned, gated by surface capability.
 import { dom } from "#common/dom.js";
 import * as CONST from "../../const.js";
-import { applyProjection } from "../apply.js";
+import { applyProjection, authorZoomBoundsForLayer } from "../apply.js";
 import type { LayerUI } from "../index.js";
 import { markOverride, saveState, unmarkOverride } from "../state.js";
 import { isColorBasemap } from "./fill.js";
@@ -119,8 +119,7 @@ const syncZoomRangeRow = (
   row: HTMLElement,
   liveRange?: [number, number],
 ): void => {
-  const mapMin = ui.m.map.getMinZoom();
-  const mapMax = ui.m.map.getMaxZoom();
+  const [mapMin, mapMax] = authorZoomBoundsForLayer(ui, layerId);
   const range = liveRange ?? ui.zoomRangeMap[layerId];
   const min = range ? Math.max(range[0], mapMin) : mapMin;
   const max = range ? Math.min(range[1], mapMax) : mapMax;
@@ -166,8 +165,7 @@ const syncZoomRangeRow = (
  *  clamped to the map's current [min, max]. When no range is stored, the
  *  full map range is used — the "author-undeclared" default. */
 const buildZoomRangeRow = (ui: LayerUI, layerId: string): HTMLElement => {
-  const mapMin = ui.m.map.getMinZoom();
-  const mapMax = ui.m.map.getMaxZoom();
+  const [mapMin, mapMax] = authorZoomBoundsForLayer(ui, layerId);
   const stored = ui.zoomRangeMap[layerId];
   const min = stored ? Math.max(stored[0], mapMin) : mapMin;
   const max = stored ? Math.min(stored[1], mapMax) : mapMax;

@@ -55,6 +55,63 @@ const authorOpacityBaseOf = (layer: L.Layer): number => {
   return base;
 };
 
+/** Fallback for a layer that declares no max zoom and a map that itself has
+ *  no declared max — a bare TileLayer. */
+const AUTHOR_ZOOM_FALLBACK_MAX = 20;
+
+/** The layer's own author-declared min/max, frozen on first write.
+ *
+ *  Frozen, not re-read: `applyStateOp` writes `options.minZoom/maxZoom` on
+ *  every live drag, so reading them back next time would feed the slider
+ *  its own last drag — a ratchet that shrinks the slider's range with
+ *  every drag. The snapshot is captured in `applyStateOp` before the write,
+ *  which is also what makes persistence-replay safe: on reload the state
+ *  replay fires before the panel opens, so any snapshot that captures at
+ *  first read would already see `options.maxZoom` set to the persisted
+ *  value, freezing the slider at that last drag instead of at the author's
+ *  declared range.
+ *
+ *  `layer.options.minZoom/maxZoom` fall back to the map's declared values
+ *  when the layer declares none — a TileLayer without `options.maxZoom`
+ *  means "whatever the map allows", not "Infinity". `map.getMaxZoom()`
+ *  itself returns `Infinity` for a map without a declared max, so that
+ *  path gets its own finite fallback: `AUTHOR_ZOOM_FALLBACK_MAX`, so the
+ *  values row can never print the literal string "Infinity".
+ *
+ *  Min end is symmetric: dragging the left thumb writes `options.minZoom`,
+ *  which would ratchet the slider's own min upward on the next build. */
+const authorZoomBounds = new WeakMap<L.Layer, [number, number]>();
+
+const finiteOr = (v: number | undefined, fallback: number): number =>
+  typeof v === "number" && Number.isFinite(v) ? v : fallback;
+
+/** Snapshot the layer's declared zoom bounds on first access. Callers must
+ *  call this before any write to `options.minZoom/maxZoom`, so the value
+ *  is the author's declaration and not our own previous write. */
+const authorZoomBoundsOf = (
+  ui: LayerUI,
+  layer: L.Layer | null | undefined,
+): [number, number] => {
+  const stored = layer ? authorZoomBounds.get(layer) : undefined;
+  if (stored) return stored;
+  const opts = (layer?.options ?? {}) as L.LayerOptions & {
+    minZoom?: number;
+    maxZoom?: number;
+  };
+  const mapMin = finiteOr(ui.m.map.getMinZoom(), 0);
+  const mapMax = finiteOr(ui.m.map.getMaxZoom(), AUTHOR_ZOOM_FALLBACK_MAX);
+  const bounds: [number, number] = [
+    finiteOr(opts.minZoom, mapMin),
+    finiteOr(opts.maxZoom, mapMax),
+  ];
+  if (layer) authorZoomBounds.set(layer, bounds);
+  return bounds;
+};
+
+/** Same lookup keyed by layer id — the panel code has only the id in hand. */
+const authorZoomBoundsForLayer = (ui: LayerUI, layerId: string): [number, number] =>
+  authorZoomBoundsOf(ui, ui.m.layerRegistry.get(layerId)?.layer);
+
 /** Carrier identity the executor's last write landed on.
  *
  *  The projection's numeric diff is not enough for carriers that can be
@@ -187,6 +244,9 @@ const applyStateOp = (ui: LayerUI, layerInfo: LayerInfo, op: StateOp): void => {
   if (caps.zoomRange === "native") {
     const layer = layerInfo.layer;
     if (!layer) return;
+    // Snapshot the author's declared bounds before we mutate them, so a
+    // later slider build reads the declaration, not our previous write.
+    authorZoomBoundsOf(ui, layer);
     const opts = layer.options as L.LayerOptions & {
       minZoom?: number;
       maxZoom?: number;
@@ -346,5 +406,5 @@ const applyProjectionAll = (ui: LayerUI): void => {
   for (const [id] of projectAll(ui)) applyProjection(ui, id);
 };
 
-export { applyProjection, applyProjectionAll, applyStateOp };
+export { applyProjection, applyProjectionAll, applyStateOp, authorZoomBoundsForLayer };
 export type { StateOp };
