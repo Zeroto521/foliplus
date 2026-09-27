@@ -6,7 +6,7 @@ import {
   applyStateOp,
 } from "#foliplus/LayerControl/ui/apply.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
-import { intentVisibleOf, projectLayer } from "#foliplus/LayerControl/ui/store.js";
+import { intentVisibleOf, projectLayer } from "#foliplus/LayerControl/ui/projection.js";
 import { installLeafletGlobals } from "./fixture.js";
 
 // ────────────────────────────────────────────────────────────────────────
