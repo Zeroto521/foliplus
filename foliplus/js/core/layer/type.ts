@@ -331,9 +331,11 @@ interface CreateCanvasAPI {
   /** The canvas that receives draws. Built at `createCanvas` time but mounted
    *  into its own pane only when `register()` runs, so until then the element
    *  has no parent. `ctx`, `resize` and `setVisible` are all safe before that
-   *  — they act on the element, which is never null — and anything drawn early
-   *  is dropped with the element on `destroy()`; the owner re-draws from its own
-   *  state at register, which is why HeatmapControl re-renders on attach. */
+   *  — they act on the element, which is never null. `resize` re-runs on mount
+   *  and resets the backing store when the container size has changed, so a
+   *  draw made before register is not a reliable carrier: the owner re-draws
+   *  from its own state at register, which is why HeatmapControl re-renders on
+   *  attach. Unlike the color surface, nothing here repaints the owner's pixels. */
   canvas: HTMLCanvasElement;
   ctx: CanvasRenderingContext2D | null;
   resize: () => void;

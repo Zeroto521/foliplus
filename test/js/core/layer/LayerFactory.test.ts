@@ -928,10 +928,13 @@ describe("LayerFactory", () => {
       expect(map._panes[paneName].style.zIndex).toBe(String(zFor(slot)));
     });
 
-    it("leaves the pane at Leaflet's own z when there is no registry slot", () => {
+    it("leaves the pane unpriced when there is no registry slot", () => {
       // The lightweight LayerAPI has no registry and no ordering pass, so
-      // nothing prices the pane. That is today's behaviour for a canvas —
-      // neither a provisional bottom step nor a 400.
+      // nothing prices the pane: the inline z stays empty and the pane renders
+      // at Leaflet's own z of 400. That is the value a bare canvas overlay
+      // belongs at when no ladder manages it (the same tier as overlayPane) —
+      // and the value the PR that retired the provisional bottom step had to
+      // pick for this path too.
       slotOf.mockReturnValue(null);
       const api = factory.createCanvas({ id: "canvas_test" });
       api.register();
@@ -1287,7 +1290,9 @@ describe("LayerFactory", () => {
       expect(map._panes["foliplus-color-solid"].style.zIndex).toBe(String(zFor(slot)));
     });
 
-    it("leaves the pane at Leaflet's own z when there is no registry slot", () => {
+    it("leaves the pane unpriced when there is no registry slot", () => {
+      // Same contract as the canvas branch: no registry, no ordering pass, no
+      // inline z written — the pane renders at Leaflet's own 400.
       slotOf.mockReturnValue(null);
       const h = make("solid");
       h.register();
