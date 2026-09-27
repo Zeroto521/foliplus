@@ -937,12 +937,11 @@ class LayerManager implements LayerAPI {
 
   /** Give every layer a surface and write its z.
    *
-   *  Ordering only. The pass used to allocate fallback panes and queue DOM moves
-   *  for a later migration; both moved into LayerSurface — panes are allocated
-   *  at materialization (before the layer joins the map, so `options.pane` is
-   *  already right at the one moment Leaflet reads it), and content that arrived
-   *  since the last pass is re-pinned by `materialize()` itself. What is left
-   *  here is the z arithmetic and the shared panes around it, untouched. */
+   *  Ordering only. Panes are allocated at materialization (before the layer
+   *  joins the map, so `options.pane` is already right at the one moment
+   *  Leaflet reads it), and content that arrived since the last pass is
+   *  re-pinned by `materialize()` itself. What is left here is the z arithmetic
+   *  and the shared panes around it, untouched. */
   enforceOrder() {
     if (this.isEnforcing) return;
     this.debouncedEnforce?.cancel();
