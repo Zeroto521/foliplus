@@ -51,7 +51,7 @@
   };
 
   if (spec.action === "arm") {
-    container.classList.add("no-base-map");
+    container.classList.add("foliplus-no-base-map");
     const btn = document.createElement("button");
     btn.id = "foliplus-fs-trigger";
     btn.textContent = "fs";

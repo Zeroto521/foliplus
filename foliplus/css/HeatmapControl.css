@@ -131,7 +131,7 @@
     height: var(--ctrl-size);
     box-sizing: border-box;
     /* Reserved border: same "selected" language as layer items — a permanent
-       transparent left border, .active only recolors it. No layout shift and
+       transparent left border, .foliplus-is-active only recolors it. No layout shift and
        the border-color can transition. */
     border-left: var(--border-thick) solid transparent;
 

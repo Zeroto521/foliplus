@@ -736,7 +736,7 @@ def panel_ready(page: Page, timeout: float = 5000) -> None:
     """Wait until the layer panel finished its init pass.
 
     LayerControl marks ``.foliplus-panel-content`` with ``data-ready`` when
-    ``initTypesAndVisibility`` completes (checkbox titles / ``.active`` /
+    ``initTypesAndVisibility`` completes (checkbox titles / ``.foliplus-active`` /
     counts are final for the current layer set). Replaces the hand-written
     ``wait_for_function(title non-empty)`` boilerplate — the ready criterion
     lives in one place.

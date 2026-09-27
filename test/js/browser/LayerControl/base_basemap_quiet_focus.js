@@ -24,7 +24,7 @@
       glow: cs.boxShadow !== "none",
       bg: cs.backgroundColor,
       cursor: cs.cursor,
-      active: el.classList.contains("active"),
+      active: el.classList.contains("foliplus-active"),
     };
   };
 

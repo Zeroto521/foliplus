@@ -51,10 +51,10 @@ const CLASSES = {
   PREVIEW: "foliplus-export-preview",
   CLOSE: "foliplus-close-btn",
   HIDDEN: "foliplus-hidden",
-  LOCKED: "locked",
+  LOCKED: "foliplus-locked",
   ACTIVE: "foliplus-is-active",
-  CONFIRM: "confirm",
-  CANCEL: "cancel",
+  CONFIRM: "foliplus-confirm",
+  CANCEL: "foliplus-cancel",
   DRAGGING: "foliplus-is-dragging",
 };
 

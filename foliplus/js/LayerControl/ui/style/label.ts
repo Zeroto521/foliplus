@@ -16,8 +16,8 @@ import {
   normalizeHexColor,
 } from "#common/form.js";
 import { NUMBER_FORMAT } from "#common/format.js";
-import type { AnnotationConfig } from "../../annotation/index.js";
 import * as CONST from "../../const.js";
+import type { AnnotationConfig } from "../../type.js";
 import type { LayerUI } from "../index.js";
 
 /** Field list for a layer (cached on the UI shell). collectFields walks every
