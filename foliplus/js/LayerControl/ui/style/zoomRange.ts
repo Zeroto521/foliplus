@@ -1,10 +1,10 @@
-﻿// Zoom-range row: dual-thumb rail + current-zoom marker + value labels +
+// Zoom-range row: dual-thumb rail + current-zoom marker + value labels +
 // live / commit passes. Moved verbatim from ui/style.ts.
 // Used by both the delegated drawer and the annotation panel — the row is
 // LayerControl-owned, gated by surface capability.
 import { dom } from "#common/dom.js";
 import * as CONST from "../../const.js";
-import { applyProjection } from "../apply.js";
+import { applyProjection, authorZoomBoundsForLayer } from "../apply.js";
 import type { LayerUI } from "../index.js";
 import { markOverride, saveState, unmarkOverride } from "../state.js";
 import { isColorBasemap } from "./fill.js";
@@ -12,34 +12,28 @@ import { railPos, round5 } from "./frame.js";
 
 /** Whether the layer's surface can honestly carry a zoom-range write.
  *
- *  Two conditions, both required:
- *    1. `!layerInfo.isBase || isColorBasemap` — tile basemaps carry no range
- *       control here. The solid-color basemap is exempt: it shares the tile
- *       basemap's visibility gating (§42.1), so it carries a range like any
- *       overlay.
- *    2. `capabilities.zoomRange !== "none" || isColorBasemap` — MarkerCluster
- *       and ImageOverlay have no honest zoom-range carrier (a row that
- *       persists a value the write cannot apply is a lie that survives
- *       reload).
+ *  A single capability check, no `isBase` exemption: a basemap is just a
+ *  layer that happens to be a base, and its surface either carries an
+ *  honest range (GridLayer min/maxZoom, or a pane carrier on a canvas) or
+ *  it does not. The old `!li.isBase` gate came from 398 R7 and excluded
+ *  tile basemaps wholesale even though their native `minZoom`/`maxZoom`
+ *  options are the carrier the row already writes through.
  *
- *  The one callback-only canvas layer (heatmap, registered through
- *  createCanvas) was excluded here once (31.4-3): a canvas has no Leaflet
- *  layer to add/remove, so a range that hides it looked like it had no
- *  carrier, and capability alone could not tell "has content panes" from
- *  "callback-only canvas" (31.7). That exclusion is stale — the executor's
- *  `visible` op is the carrier for every surface: map membership for a
- *  Leaflet layer, and the layer's `onToggle` callback for a canvas. So a
- *  canvas whose surface declares `zoomRange: "pane"` really does render,
- *  and the write really does land.
+ *  The one layer whose surface reports `zoomRange: "none"` but still
+ *  needs the row is the solid-color basemap (#443): its own surface
+ *  carries no range because it is the always-on fallback color, but the
+ *  panel offers a range like any overlay since the executor's `visible`
+ *  op hides it either way.
  *
- *  MeasureControl is not a canvas at all: it registers through createLayers
- *  with a real L.layerGroup, so the old `!li.canvas` gate never applied to
- *  it.
+ *  MarkerCluster and ImageOverlay stay out on capability grounds — a row
+ *  that persists a value the write cannot apply is a lie that survives
+ *  reload. The callback-only canvas carve-out (31.4-3) is stale for the
+ *  same reason the earlier `!li.isBase` gate is: the executor's `visible`
+ *  op is the carrier for every surface, so capability alone decides.
  */
 const canShowZoomRange = (ui: LayerUI, layerId: string): boolean => {
   const li = ui.m.layerRegistry.get(layerId);
   if (!li) return false;
-  if (li.isBase && !isColorBasemap(li)) return false;
   return ui.m.surfaceFor(li).capabilities.zoomRange !== "none" || isColorBasemap(li);
 };
 
@@ -125,8 +119,7 @@ const syncZoomRangeRow = (
   row: HTMLElement,
   liveRange?: [number, number],
 ): void => {
-  const mapMin = ui.m.map.getMinZoom();
-  const mapMax = ui.m.map.getMaxZoom();
+  const [mapMin, mapMax] = authorZoomBoundsForLayer(ui, layerId);
   const range = liveRange ?? ui.zoomRangeMap[layerId];
   const min = range ? Math.max(range[0], mapMin) : mapMin;
   const max = range ? Math.min(range[1], mapMax) : mapMax;
@@ -172,8 +165,7 @@ const syncZoomRangeRow = (
  *  clamped to the map's current [min, max]. When no range is stored, the
  *  full map range is used — the "author-undeclared" default. */
 const buildZoomRangeRow = (ui: LayerUI, layerId: string): HTMLElement => {
-  const mapMin = ui.m.map.getMinZoom();
-  const mapMax = ui.m.map.getMaxZoom();
+  const [mapMin, mapMax] = authorZoomBoundsForLayer(ui, layerId);
   const stored = ui.zoomRangeMap[layerId];
   const min = stored ? Math.max(stored[0], mapMin) : mapMin;
   const max = stored ? Math.min(stored[1], mapMax) : mapMax;
