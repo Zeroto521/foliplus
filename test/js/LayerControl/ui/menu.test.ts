@@ -440,15 +440,14 @@ describe("LayerUI menu", () => {
       expect(deleteLi!.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)).toBe(false);
     });
 
-    it("renders the color basemap's delete disabled with its reason as tooltip", () => {
+    it("renders a clear entry for the colour basemap, not disabled", () => {
       const colorItem = ui.uiContainer.querySelector(CONST.SEL.COLOR_ITEM)!;
       ui.openMoreMenu(colorItem);
 
       const deleteLi = deleteEntryOf(colorItem);
       expect(deleteLi).not.toBeNull();
-      expect(deleteLi.getAttribute("disabled")).toBe("disabled");
-      expect(deleteLi.getAttribute("aria-disabled")).toBe("true");
-      expect(deleteLi.title).toBe("LayerControl.delete_layer_disabled");
+      expect(deleteLi.dataset.mode).toBe("clear");
+      expect(deleteLi.title).toBe("LayerControl.clear_data_tooltip");
       expect(
         colorItem.querySelector("li.foliplus-layer-more-menu-divider"),
       ).not.toBeNull();
@@ -500,6 +499,32 @@ describe("LayerUI menu", () => {
       expect(item.querySelector(".foliplus-layer-more-menu-divider")).toBeNull();
     });
 
+    it("renders a delete item for a component layer with styleSetters, with the component tooltip", () => {
+      // Measure/Heatmap own a live handle and register styleSetters, so
+      // deleteModeFor treats them as "clear" — the tooltip distinguishes the
+      // "clear data" branch from the user-layer "retire the id" branch.
+      manager.registerLayer({
+        id: "measure1",
+        name: "Measure",
+        isBase: false,
+        layer: { options: {}, eachLayer: vi.fn() },
+        styleSetters: { labelShow: vi.fn() },
+      } as never);
+
+      const item = ui.uiContainer.querySelector(
+        `[data-layer-id="measure1"]`,
+      ) as HTMLElement;
+      expect(item).not.toBeNull();
+
+      ui.openMoreMenu(item);
+
+      const deleteLi = deleteEntryOf(item);
+      expect(deleteLi).not.toBeNull();
+      expect(deleteLi.getAttribute("disabled")).toBeNull();
+      expect(deleteLi.dataset.mode).toBe("clear");
+      expect(deleteLi.title).toBe("LayerControl.clear_data_tooltip");
+    });
+
     it("arms on the first click and deletes on the second, then closes", () => {
       const item = findItem(ui, "overlay1");
       ui.openMoreMenu(item);
@@ -519,18 +544,21 @@ describe("LayerUI menu", () => {
       expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(0);
     });
 
-    it("does not arm or fire when the entry is disabled", () => {
-      const colorItem = ui.uiContainer.querySelector(CONST.SEL.COLOR_ITEM)!;
-      ui.openMoreMenu(colorItem);
-      const deleteLi = deleteEntryOf(colorItem);
+    it("arms on the first click and clears on the second for a component layer", () => {
+      const item = ui.uiContainer.querySelector(CONST.SEL.COLOR_ITEM)!;
+      ui.openMoreMenu(item);
+      const deleteLi = deleteEntryOf(item);
 
-      // The disabled attribute is the guard: the click path skips it entirely,
-      // so the entry can never be armed into a delete.
       click(deleteLi);
-      expect(deleteLi.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)).toBe(false);
+      expect(deleteLi.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)).toBe(true);
+      expect(deleteLi.querySelector(CONST.SEL.MENU_DELETE_LABEL)!.textContent).toBe(
+        "LayerControl.clear_data_confirm",
+      );
       expect(deleteSpy).not.toHaveBeenCalled();
-      // The menu stays open so the user still sees why.
-      expect(colorItem.querySelectorAll(".foliplus-layer-more-menu").length).toBe(1);
+
+      click(deleteLi);
+      expect(deleteSpy).toHaveBeenCalledWith(CONST.COLOR.MAP_ID);
+      expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(0);
     });
 
     it("arms again rather than firing when the menu is reopened", () => {

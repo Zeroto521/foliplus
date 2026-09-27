@@ -978,6 +978,40 @@ describe("MeasureManager — EVENTS.LAYER_REMOVED auto-cleanup", () => {
   });
 });
 
+describe("MeasureManager — EVENTS.LAYER_DELETED auto-clear", () => {
+  it("clears all measurements when own layer is deleted via EVENTS.LAYER_DELETED", () => {
+    const { manager, map } = makeManager();
+    const clearSpy = vi.spyOn(manager, "clearAll");
+
+    const bus = map.foliplus!.events;
+    bus.emit(EVENTS.LAYER_DELETED, { id: manager.layerId });
+
+    expect(clearSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("does NOT react when a different layer is deleted", () => {
+    const { manager, map } = makeManager();
+    const clearSpy = vi.spyOn(manager, "clearAll");
+
+    const bus = map.foliplus!.events;
+    bus.emit(EVENTS.LAYER_DELETED, { id: "some_other_layer" });
+
+    expect(clearSpy).not.toHaveBeenCalled();
+  });
+
+  it("LAYER_REMOVED is a separate channel and does not trigger the LAYER_DELETED handler", () => {
+    // LAYER_REMOVED clears active mode only; LAYER_DELETED clears the store.
+    // Confusing the two would leave a user's "clear data" request unhandled.
+    const { manager, map } = makeManager();
+    const clearSpy = vi.spyOn(manager, "clearAll");
+
+    const bus = map.foliplus!.events;
+    bus.emit(EVENTS.LAYER_REMOVED, { id: manager.layerId });
+
+    expect(clearSpy).not.toHaveBeenCalled();
+  });
+});
+
 describe("MeasureManager — export click", () => {
   it("bindExportClick registers the click handler", () => {
     const { manager } = makeManager();

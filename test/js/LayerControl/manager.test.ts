@@ -2061,6 +2061,39 @@ describe("LayerManager", () => {
       "© OpenStreetMap",
     );
   });
+
+  describe("deleteLayer — component ownership", () => {
+    it("early-returns for a component layer, emits LAYER_DELETED, and keeps the id registerable", () => {
+      manager.map.hasLayer.mockReturnValue(false);
+      manager.registerLayer({
+        id: "measure1",
+        name: "Measure",
+        layer: { options: {} },
+        styleSetters: { color: vi.fn() },
+      } as any);
+      const bus = map.foliplus!.events;
+      const handler = vi.fn();
+      bus.on(EVENTS.LAYER_DELETED, handler);
+      const unregisterSpy = vi.spyOn(manager, "unregisterLayer");
+
+      expect(manager.deleteLayer("measure1")).toBe(true);
+
+      expect(handler).toHaveBeenCalledWith({ id: "measure1" });
+      expect(unregisterSpy).not.toHaveBeenCalled();
+      expect(manager.layerRegistry.has("measure1")).toBe(true);
+      expect((manager as any).removedIds.has("measure1")).toBe(false);
+    });
+
+    it("still retires a user layer through unregisterLayer and removedIds", () => {
+      manager.map.hasLayer.mockReturnValue(false);
+      const unregisterSpy = vi.spyOn(manager, "unregisterLayer");
+
+      expect(manager.deleteLayer("overlay1")).toBe(true);
+
+      expect(unregisterSpy).toHaveBeenCalledWith("overlay1");
+      expect((manager as any).removedIds.has("overlay1")).toBe(true);
+    });
+  });
 });
 
 // ===========================================================================

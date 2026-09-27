@@ -31,7 +31,7 @@
 - `SearchControl`: pluggable geocode providers — built-in Nominatim, Photon and Pelias plus a declarative custom-provider interface for address search, autocomplete and reverse geocoding, with per-provider throttling and provider-scoped cache ([#310](https://github.com/Zeroto521/foliplus/pull/310), [#314](https://github.com/Zeroto521/foliplus/pull/314))
 - `LayerControl`: `setVisible(id, visible)` on `LayerAPI` for programmatic layer visibility, taking the same transition and persistence as the panel checkbox ([#321](https://github.com/Zeroto521/foliplus/pull/321))
 - `LayerControl`/`HeatmapControl`/`SearchControl`/`MeasureControl`: `collapse_on_outside` — whether a press outside the panel collapses it. Default `false` for `LayerControl`, whose panel is read alongside the map and whose busiest gesture is drag-pan / click-select; `true` for the other three, so their behaviour is unchanged ([#428](https://github.com/Zeroto521/foliplus/pull/428))
-- `LayerControl`: delete a layer from its ⋮ menu — a two-click confirm behind a divider, deletions persisted per map, and the solid colour basemap shows the entry disabled ([#431](https://github.com/Zeroto521/foliplus/pull/431))
+- `LayerControl`: delete a layer from its ⋮ menu — a two-click confirm behind a divider, deletions persisted per map. Component-owned layers (Measure, Heatmap, colour basemap) clear their data instead of retiring the id; user-owned layers are deleted for good. The menu label varies by semantics: "Delete Layer" for real deletion, "Clear Data" for component clear ([#431](https://github.com/Zeroto521/foliplus/pull/431), [#499](https://github.com/Zeroto521/foliplus/pull/499))
 
 ### Changed
 
@@ -109,12 +109,8 @@
 - `hint`: cap the toast at `min(480px, 80vw)` so a long locale string wraps instead of overflowing the map on a phone, with a wider cap under a 480px viewport ([#445](https://github.com/Zeroto521/foliplus/pull/445))
 - `LayerControl`: `fillColor` / `borderColor` and the annotation `color` in the persisted record are normalized to `#rrggbb` — `<input type=color>` only takes the long form; reuses `common/form.ts`'s `normalizeHexColor` ([#477](https://github.com/Zeroto521/foliplus/pull/477), [#482](https://github.com/Zeroto521/foliplus/pull/482))
 - `FullscreenControl`: a denied fullscreen entry or exit now reports the honest hint (`unsupported` / `exit_fail`) instead of "Entered fullscreen" ([#486](https://github.com/Zeroto521/foliplus/pull/486))
-- `LayerControl`: `deleteLayer` dispatches by ownership — component-owned layers (Measure, Heatmap) emit `LAYER_DELETED` and their id stays registerable, so a deleted measure layer can be redrawn instead of being permanently blocked by `removedIds`; user-owned layers still retire the id and prune persisted order, annotations, and rename ([#499](https://github.com/Zeroto521/foliplus/pull/499))
-- `HeatmapControl`: the ⋮ menu now shows a delete entry that clears the heatmap data (features, aggregation, canvas) through `LAYER_DELETED`; the id stays registerable so the next source pick lands cleanly ([#499](https://github.com/Zeroto521/foliplus/pull/499))
 
 ### Changed
-
-- `LayerControl`: component-owned layer rows share the delete entry with data layers but with a distinct tooltip ("clear this component's data — the layer stays registerable") so the two semantics — clear vs. delete-for-good — read differently from the ⋮ menu ([#499](https://github.com/Zeroto521/foliplus/pull/499))
 
 ## [v0.3.0] (2026-08-02)
 
