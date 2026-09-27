@@ -110,6 +110,8 @@ class MeasureManager {
   layerId: string;
   /** Event bus unsubscribe for EVENTS.LAYER_REMOVED. */
   private offLayerRemoved!: () => void;
+  /** Event bus unsubscribe for EVENTS.LAYER_DELETED. */
+  private offLayerDeleted!: () => void;
   /** Event bus unsubscribe for the EVENTS.MODE_CHANGE export-pause interrupt. */
   private offModeChange!: () => void;
   private onMapClick!: (event: L.LeafletMouseEvent) => void;
@@ -203,6 +205,7 @@ class MeasureManager {
     this.bindGlobalEvents();
     this.restoreMeasurements();
     this.bindLayerRemoved();
+    this.bindLayerDeleted();
   }
 
   // ── Persistence (compatibility shell over MeasureStore) ──
@@ -709,6 +712,7 @@ class MeasureManager {
   destroy() {
     if (this.offModeChange) this.offModeChange();
     if (this.offLayerRemoved) this.offLayerRemoved();
+    if (this.offLayerDeleted) this.offLayerDeleted();
     this.map.off("unload", this.onUnload);
     this.scheduleLabelPlan.cancel();
     this.clearTransientState();
@@ -734,6 +738,21 @@ class MeasureManager {
         this.clearActiveMode();
       }
     }) as EventHandler);
+  }
+
+  /**
+   * Subscribe to EVENTS.LAYER_DELETED: LayerControl's deleteLayer emits this
+   * for component-owned layers (styleSetters discriminator), skipping the
+   * removedIds retirement — so this id stays registerable and the panel keeps
+   * its row. Clearing the store is the user's request; the layer itself stays
+   * registered at 0 features so the next draw lands cleanly without needing a
+   * re-register. Re-registering here would double-count an already-present
+   * entry and clobber the persisted order.
+   */
+  bindLayerDeleted() {
+    this.offLayerDeleted = this.events.on(EVENTS.LAYER_DELETED, ({ id }) => {
+      if (id === this.layerId) this.clearAll();
+    });
   }
 
   /** Clean up current mode instance and hide hints. */
