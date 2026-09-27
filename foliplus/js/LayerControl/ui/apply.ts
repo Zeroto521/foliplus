@@ -1,7 +1,7 @@
 // LayerControl UI — diff-driven projection executor.
 //
 // `applyProjection(ui, id)` reads the layer's projection from
-// `store.ts`, diffs it against the last projection it wrote to the map
+// `projection.ts`, diffs it against the last projection it wrote to the map
 // (`ui.appliedState`), and calls `applyStateOp` only for the dimensions
 // that actually moved. The old model — a sweep that re-read the whole
 // registry per layer, walked `hiddenIds` / `opacityMap` / `zoomRangeMap`
@@ -29,7 +29,12 @@
 import { resetGridLayerView } from "#core/leafletAdapter.js";
 import * as CONST from "../const.js";
 import type { LayerUI } from "./index.js";
-import { type Projection, intentVisibleOf, projectAll, projectLayer } from "./store.js";
+import {
+  type Projection,
+  intentVisibleOf,
+  projectAll,
+  projectLayer,
+} from "./projection.js";
 
 /** One write the carrier dispatcher accepts. `opacity` and `zoomRange`
  *  being `undefined` mean "no user value" — a Reset back to the author's

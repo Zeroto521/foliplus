@@ -10,7 +10,7 @@ import {
   snapshotAuthorVisible,
 } from "#foliplus/LayerControl/ui/rowView.js";
 import type { RowCell } from "#foliplus/LayerControl/ui/rowView.js";
-import { intentVisibleOf } from "#foliplus/LayerControl/ui/store.js";
+import { intentVisibleOf } from "#foliplus/LayerControl/ui/projection.js";
 import * as Icons from "#common/icon.js";
 import { findItem, initFixture } from "./fixture.js";
 

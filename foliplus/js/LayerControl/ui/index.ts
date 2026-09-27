@@ -50,8 +50,8 @@ import {
   saveState,
   syncHiddenId,
 } from "./state.js";
-import type { AppliedProjection } from "./store.js";
-import { intentVisibleOf } from "./store.js";
+import type { AppliedProjection } from "./projection.js";
+import { intentVisibleOf } from "./projection.js";
 import { replayBorderState } from "./style/border.js";
 import {
   applyStyleLabelState,
