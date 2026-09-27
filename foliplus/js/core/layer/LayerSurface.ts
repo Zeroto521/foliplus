@@ -78,11 +78,6 @@ interface SurfaceFaceSpec {
  *  why the pin hands such a node's whole tree to `pinLateContent` instead of
  *  writing one pane name onto the group. */
 interface PinnableNode extends L.Layer {
-  options: L.LayerOptions & {
-    renderer?: L.Renderer;
-    pane?: string;
-    paneSet?: boolean;
-  };
   eachLayer?: (fn: (layer: L.Layer) => void) => void;
 }
 

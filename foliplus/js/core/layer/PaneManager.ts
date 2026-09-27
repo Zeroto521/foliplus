@@ -41,7 +41,6 @@ type PathWithPane = L.Path & { options: L.PathOptions & { pane?: string } };
 /** Anything we may be asked to pin into a pane: a leaf, or a container that
  *  enumerates its children. */
 type PinnableNode = L.Layer & {
-  options: L.LayerOptions & { renderer?: L.Renderer; pane?: string; paneSet?: boolean };
   eachLayer?: (fn: (layer: L.Layer) => void) => void;
 };
 

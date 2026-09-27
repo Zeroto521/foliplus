@@ -171,11 +171,6 @@ interface LayerInfo {
  *  `paneSet` as dead. */
 interface LabelAwareLayer extends L.Layer {
   isLabel?: boolean;
-  options: L.LayerOptions & {
-    renderer?: L.Renderer;
-    pane?: string;
-    paneSet?: boolean;
-  };
 }
 
 /** What a surface's pane is for. `annotation` and `preview` have no producer
