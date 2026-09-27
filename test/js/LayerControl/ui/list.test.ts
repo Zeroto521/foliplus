@@ -296,4 +296,21 @@ describe("ui/list row placement", () => {
     expect(() => colorLi.onToggle?.(true)).not.toThrow();
     expect(() => colorLi.onToggle?.(false)).not.toThrow();
   });
+
+  it("initTypesAndVisibility skips the color block when the registry has no color layer", () => {
+    // Defensive guard: if getColorSurface's register() failed to insert the
+    // colour basemap (race, surface unavailable), the zoom-range / hidden
+    // override block must be skipped without crashing.
+    const { ui } = initFixture({
+      data: [{ id: "B1", name: "B1", isBase: true }],
+    });
+
+    const originalGet = ui.m.layerRegistry.get.bind(ui.m.layerRegistry);
+    vi.spyOn(ui.m.layerRegistry, "get").mockImplementation((id: string) => {
+      if (id === CONST.COLOR.MAP_ID) return undefined;
+      return originalGet(id);
+    });
+
+    expect(() => initTypesAndVisibility(ui)).not.toThrow();
+  });
 });

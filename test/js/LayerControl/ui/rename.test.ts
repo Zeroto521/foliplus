@@ -309,6 +309,28 @@ describe("LayerUI rename", () => {
       expect(ui.activeRenameId).toBeNull();
     });
 
+    it("finishRename bails when the layer was removed from the registry mid-rename", () => {
+      // Simulates a race: the user starts renaming, the layer is deleted
+      // (e.g. another tab deletes it), and the commit callback fires.
+      // The guard prevents writing into a stale row — the teardown
+      // (removeInlineEditInput / updateItemLabel) is skipped, which is
+      // correct: the registry entry is gone, so there's nothing to restore.
+      const item = findItem(ui, "overlay1");
+      ui.renameLayer("overlay1");
+      expect(ui.activeRenameId).toBe("overlay1");
+
+      manager.layerRegistry.remove("overlay1");
+
+      const label = item.querySelector("label") as HTMLLabelElement;
+      const input = label.querySelector("input") as HTMLInputElement;
+      input.value = "Ghost";
+      input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+
+      // finishRename cleared activeRenameId before the guard, so subsequent
+      // rename calls are not blocked. No exception was thrown.
+      expect(ui.activeRenameId).toBeNull();
+    });
+
     it("Enter on the rename-layer menu item calls renameLayer (not focusLayer)", () => {
       const item = findItem(ui, "overlay1");
       ui.openMoreMenu(item);
