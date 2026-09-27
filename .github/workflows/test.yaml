@@ -13,6 +13,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
 jobs:
   # ── Node jobs ──
   # Format, lint, and typecheck are independent of the Python matrix, so they
@@ -78,6 +81,12 @@ jobs:
       issues: read
     steps:
       - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          # GitHub-hosted ubuntu runners ship 3.12; pin explicitly so a
+          # future runner bump (3.13+) can't surprise us. The script is
+          # stdlib-only, so any 3.x works — 3.12 just matches the default.
+          python-version: "3.12"
       - run: python script/changelog_check.py --path CHANGELOG.md
         env:
           GITHUB_REPOSITORY: ${{ github.repository }}
@@ -109,13 +118,13 @@ jobs:
       - uses: codecov/codecov-action@v6
         with:
           fail_ci_if_error: true
-          token: ${{ secrets.CODECOV_TOKEN }}
+          token: ${{ env.CODECOV_TOKEN }}
           verbose: true
           flags: ${{ job.name }}
       - uses: codecov/codecov-action@v6
         if: ${{ !cancelled() }}
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
+          token: ${{ env.CODECOV_TOKEN }}
           report_type: test_results
           files: test-report.junit.xml
           flags: ${{ job.name }}
@@ -165,12 +174,12 @@ jobs:
       - uses: codecov/codecov-action@v6
         with:
           fail_ci_if_error: true
-          token: ${{ secrets.CODECOV_TOKEN }}
+          token: ${{ env.CODECOV_TOKEN }}
           verbose: true
           flags: ${{ job.name }}
       - uses: codecov/codecov-action@v6
         if: ${{ !cancelled() }}
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
+          token: ${{ env.CODECOV_TOKEN }}
           report_type: test_results
           flags: ${{ job.name }}
