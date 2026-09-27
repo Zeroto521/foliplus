@@ -357,6 +357,7 @@ interface CreateColorOpts {
   id: string;
   name?: string;
   color: string;
+  onToggle?: ((visible: boolean) => void) | null;
 }
 
 /** Return type of the color-surface factory — the solid-color basemap's
@@ -420,6 +421,7 @@ type SurfaceContentOpts =
        *  `background` shorthand accepts. */
       kind: "color";
       color: string;
+      onToggle?: ((visible: boolean) => void) | null;
     };
 
 /** Options for `LayerFactory.createSurface`. */

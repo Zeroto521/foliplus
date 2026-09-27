@@ -358,7 +358,9 @@ describe("LayerUI attrs", () => {
     });
 
     it("color basemap shows type and no provenance rows", () => {
-      const item = ui.uiContainer.querySelector(`${CONST.SEL.COLOR_ITEM}`)!;
+      const item = ui.uiContainer.querySelector(
+        `[${CONST.DATA.LAYER_ID}="${CONST.COLOR.MAP_ID}"]`,
+      )!;
 
       ui.openAttrsPanel(item);
 
@@ -385,7 +387,9 @@ describe("LayerUI attrs", () => {
       ).toContainEqual(["LayerControl.attr_type", "LayerControl.type_base"]);
 
       ui.closeAttrsPanel(false);
-      const colorItem = ui.uiContainer.querySelector(`${CONST.SEL.COLOR_ITEM}`)!;
+      const colorItem = ui.uiContainer.querySelector(
+        `[${CONST.DATA.LAYER_ID}="${CONST.COLOR.MAP_ID}"]`,
+      )!;
       ui.openAttrsPanel(colorItem);
       expect(
         rows(colorItem.querySelector(".foliplus-layer-attrs-panel")!),

@@ -74,10 +74,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
         }),
         getPane,
         getPanes: vi.fn(() => ({ mapPane: document.createElement("div") })),
-        createPane: vi.fn(() => ({
-          style: {},
-          classList: { add: vi.fn(), remove: vi.fn() },
-        })),
+        createPane: vi.fn(() => document.createElement("div")),
         foliplus: { showHint: vi.fn(), hideHint: vi.fn() },
       },
       addLayer,
@@ -584,14 +581,9 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
           getSouthEast: () => ({ lat: 20, lng: 120 }),
         })),
         getContainer: vi.fn(() => container),
-        getPane: vi.fn(() => ({
-          style: {},
-          classList: { add: vi.fn(), remove: vi.fn() },
-        })),
-        createPane: vi.fn(() => ({
-          style: {},
-          classList: { add: vi.fn(), remove: vi.fn() },
-        })),
+        getPane: vi.fn(() => document.createElement("div")),
+        getPanes: vi.fn(() => ({ mapPane: document.createElement("div") })),
+        createPane: vi.fn(() => document.createElement("div")),
         _container: container,
         _layers: {},
         attributionControl: { _attributions: {}, _update: vi.fn() },
@@ -647,7 +639,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       expect(map.removeLayer).toHaveBeenCalledWith(base2);
       // Color-layer fallback must NOT activate when the user intentionally hid every base.
       const colorItem = ui.uiContainer.querySelector(
-        CONST.SEL.COLOR_ITEM,
+        `[${CONST.DATA.LAYER_ID}="${CONST.COLOR.MAP_ID}"]`,
       ) as HTMLElement | null;
       expect(colorItem?.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
       // The hidden set is preserved after the attach pass.
@@ -669,7 +661,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       ]);
 
       const colorItem = ui.uiContainer.querySelector(
-        CONST.SEL.COLOR_ITEM,
+        `[${CONST.DATA.LAYER_ID}="${CONST.COLOR.MAP_ID}"]`,
       ) as HTMLElement | null;
       expect(colorItem?.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
       expect(map.removeLayer).not.toHaveBeenCalled();
@@ -705,7 +697,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       // must NOT activate —the user might re-show base1 at any time.
       expect(map.removeLayer).toHaveBeenCalledWith(base1);
       const colorItem = ui.uiContainer.querySelector(
-        CONST.SEL.COLOR_ITEM,
+        `[${CONST.DATA.LAYER_ID}="${CONST.COLOR.MAP_ID}"]`,
       ) as HTMLElement | null;
       expect(colorItem?.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
     });
@@ -732,14 +724,9 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
             addLayer: vi.fn(),
             removeLayer: rl,
             getContainer: vi.fn(() => document.createElement("div")),
-            getPane: vi.fn(() => ({
-              style: {},
-              classList: { add: vi.fn(), remove: vi.fn() },
-            })),
-            createPane: vi.fn(() => ({
-              style: {},
-              classList: { add: vi.fn(), remove: vi.fn() },
-            })),
+            getPane: vi.fn(() => document.createElement("div")),
+            getPanes: vi.fn(() => ({ mapPane: document.createElement("div") })),
+            createPane: vi.fn(() => document.createElement("div")),
             foliplus: { showHint: vi.fn(), hideHint: vi.fn() },
           },
           removeLayer: rl,

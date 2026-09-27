@@ -62,17 +62,13 @@ describe("ui/list row placement", () => {
 
     manager.registerLayer({ id: "H", name: "H", isBase: false });
 
-    const registryIds = manager.layers
-      .map(l => l.id)
-      .filter(id => id !== CONST.COLOR.MAP_ID);
+    const registryIds = manager.layers.map(l => l.id);
     const rowIds = Array.from(
-      ui.uiContainer.querySelectorAll<HTMLElement>(
-        `${CONST.SEL.LAYER_ITEM}:not(${CONST.SEL.COLOR_ITEM})`,
-      ),
+      ui.uiContainer.querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM),
     ).map(el => el.dataset.layerId ?? "");
 
     expect(rowIds).toEqual(registryIds);
-    expect(registryIds).toEqual(["B", "A", "H"]);
+    expect(registryIds).toEqual(["B", "A", "H", CONST.COLOR.MAP_ID]);
   });
 
   it("initLayerItem updates the row it owns, not the one at that DOM index", () => {
@@ -204,7 +200,7 @@ describe("ui/list row placement", () => {
       ui.uiContainer.querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM),
     ).map(el => el.getAttribute(CONST.DATA.LAYER_ID));
     expect(ids).toContain("O1");
-    expect(ids.indexOf("O1")).toBeGreaterThan(0);
+    expect(ids).toContain(CONST.COLOR.MAP_ID);
   });
 
   it("insertLayerItem declines an id the registry does not know", () => {
@@ -244,7 +240,7 @@ describe("ui/list row placement", () => {
       el => el.getAttribute("data-group") === CONST.GROUP.BASE,
     );
     const colorRow = children.findIndex(el =>
-      el.classList.contains(CONST.CLASSES.COLOR_ITEM),
+      el.getAttribute(CONST.DATA.LAYER_ID) === CONST.COLOR.MAP_ID,
     );
     expect(baseHeader).toBeGreaterThanOrEqual(0);
     expect(baseHeader).toBeLessThan(colorRow);
@@ -278,7 +274,9 @@ describe("ui/list row placement", () => {
 
     renderInitialList(ui);
 
-    const color = ui.uiContainer.querySelector<HTMLElement>(CONST.SEL.COLOR_ITEM);
+    const color = ui.uiContainer.querySelector<HTMLElement>(
+      `[${CONST.DATA.LAYER_ID}="${CONST.COLOR.MAP_ID}"]`,
+    );
     expect(color).not.toBeNull();
     expect(color!.classList.contains(CONST.CLASSES.GROUP_FOLDED)).toBe(true);
   });

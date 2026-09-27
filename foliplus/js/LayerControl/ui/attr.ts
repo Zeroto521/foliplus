@@ -31,8 +31,8 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
   closeStylePanel(ui, false);
 
   const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
-  const isColor = item.classList.contains(CONST.CLASSES.COLOR_ITEM);
-  const layerInfo = isColor ? null : ui.manager.layerRegistry.get(layerId);
+  const isColor = layerId === CONST.COLOR.MAP_ID;
+  const layerInfo = ui.manager.layerRegistry.get(layerId);
 
   // Row kind: a value that runs long (a URL source) drops below its label
   // and takes the full panel width instead of squeezing the label column.
