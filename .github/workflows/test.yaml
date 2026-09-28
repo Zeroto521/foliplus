@@ -82,19 +82,21 @@ jobs:
       - run: python script/changelog_check.py --path CHANGELOG.md
         env:
           GITHUB_REPOSITORY: ${{ github.repository }}
-          GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
+          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
 
   # ── Test jobs ──
-  # `js` and `python` run independently in parallel — no artifact handoff,
-  # and no `needs:` on the quality gates (format / lint / typecheck). Tests
-  # are informational gates (we always want results, even when the quality
-  # gates are red); the quality gates are separate checkmarks.
+  # `js`, `python`, and `browser` run independently in parallel — no artifact
+  # handoff, and no `needs:` on the quality gates (format / lint / typecheck).
+  # Tests are informational gates (we always want results, even when the
+  # quality gates are red); the quality gates are separate checkmarks.
   # `make test-js` runs `build-js-dev + npm test` (some vitest tests read
   # `foliplus/dist/` artifacts — see `test/js/script/build.test.ts` and the
   # Makefile-invariant test in `test/js/script/Makefile.test.ts`).
-  # `make test-python` also builds internally before pytest. Both entry
-  # points are the same Makefile commands a developer runs locally, so CI
-  # drift stays visible.
+  # `make test-python-fast` also builds internally before pytest. `python`
+  # runs the non-browser suite on the version matrix; `browser` runs the
+  # Playwright suite once (3.14 × folium latest). All entry points are the
+  # same Makefile commands a developer runs locally, so CI drift stays
+  # visible.
   js:
     name: js
     runs-on: ubuntu-latest
@@ -158,12 +160,12 @@ jobs:
         if: ${{ matrix.folium != 'latest' }}
       - run: uv sync --group test
         if: ${{ matrix.folium == 'latest' }}
-      - run: uv run playwright install chromium
       - run: uv run make info
 
-      # `make test-python` builds `foliplus/dist/` internally and runs only
-      # pytest. JS tests live in the `js` job above (see comment there).
-      - run: uv run make test-python
+      # `make test-python-fast` builds `foliplus/dist/` internally and runs the
+      # non-browser pytest suite (matrix = version compatibility). Browser
+      # tests live in the `browser` job below (single cell) — see comment there.
+      - run: uv run make test-python-fast
 
       - uses: codecov/codecov-action@v6
         with:
@@ -176,4 +178,58 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           report_type: test_results
+          flags: ${{ job.name }}
+
+  browser:
+    # Browser tests once (3.14 × folium latest), not on the matrix: they are
+    # Playwright-bound, slow, and version-independent — running them twice buys
+    # nothing. `make test-browser` is the same entry point a developer runs
+    # locally. The CDN cache proxy in test/python/conftest.py serves folium's
+    # Leaflet/jQuery/Bootstrap assets from /tmp/foliplus-cdn-cache (downloaded
+    # once per job, retained via actions/cache so a re-run is network-independent
+    # after the first download).
+    name: browser
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # Full history needed for setuptools_scm to derive __version__ from tags.
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - uses: astral-sh/setup-uv@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: "package.json"
+          # setup-node auto-detects npm from the packageManager pin and turns on
+          # package-manager caching, which requires a lockfile this repo ignores.
+          package-manager-cache: false
+      - run: npm install
+
+      - run: uv sync --group test
+
+      # Persist the CDN cache proxy's download dir across runs (see conftest).
+      - uses: actions/cache@v4
+        with:
+          path: /tmp/foliplus-cdn-cache
+          key: foliplus-cdn-cache-${{ runner.os }}-${{ hashFiles('foliplus/cdn.json') }}
+
+      - run: uv run playwright install chromium
+      - run: uv run make info
+
+      - run: uv run make test-browser
+
+      - uses: codecov/codecov-action@v6
+        with:
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+          verbose: true
+          flags: ${{ job.name }}
+      - uses: codecov/codecov-action@v6
+        if: ${{ !cancelled() }}
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          report_type: test_results
+          files: junit-browser.xml
           flags: ${{ job.name }}
