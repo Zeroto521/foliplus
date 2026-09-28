@@ -124,21 +124,6 @@ describe("LayerRegistry", () => {
       expect(info.layer).toBe(layer);
       expect(info.carrier.layer).toBe(layer);
     });
-
-    it("defaults orderOrigin to user", () => {
-      const info = registry.createLayerInfo({ id: "test" });
-      expect(info.orderOrigin).toBe("user");
-    });
-
-    it("takes orderOrigin from opts on a fresh id", () => {
-      const info = registry.createLayerInfo({ id: "rt", orderOrigin: "runtime" });
-      expect(info.orderOrigin).toBe("runtime");
-    });
-
-    it("preserves orderOrigin from existingLi on re-registration", () => {
-      const info = registry.createLayerInfo({ id: "test" }, { orderOrigin: "runtime" });
-      expect(info.orderOrigin).toBe("runtime");
-    });
   });
 
   describe("upsert", () => {

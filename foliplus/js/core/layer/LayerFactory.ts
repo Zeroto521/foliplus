@@ -148,10 +148,6 @@ class LayerFactory {
     const handle = this.createSurface({
       id: opts.id,
       name: opts.name,
-      // Always a runtime surface: the solid-color basemap is foliplus chrome,
-      // and its slot is attach timing among the base group — never a user
-      // arrangement to persist.
-      orderOrigin: "runtime",
       content: { kind: "color", color: opts.color },
     });
     // register() is called by the caller (LayerControl UI) after setting
@@ -430,7 +426,6 @@ class LayerFactory {
         kind: "solid" as const,
         group: GROUP.BASE,
         baseInsert: "bottom",
-        orderOrigin: opts.orderOrigin,
         canvas: face,
         color,
         paneName,
