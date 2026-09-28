@@ -1,8 +1,8 @@
 () => {
   // MeasureControl registers through createLayers: a real Leaflet layer group,
-  // so its zoom-range write lands on map membership rather than on an onToggle
-  // callback. That surface was never excluded by the canvas gate, so this probe
-  // pins the row as a regression guard rather than a new capability.
+  // so its zoom-range write lands on map membership (native carrier). That
+  // surface was never excluded by the canvas gate, so this probe pins the row
+  // as a regression guard rather than a new capability.
   const map = window.__map;
   const api = map.foliplus.LayerAPI;
   const li = api.layers.find(l => l.id.startsWith("foliplus_measure"));

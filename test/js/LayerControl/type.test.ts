@@ -74,11 +74,11 @@ describe("RegisterLayerOpts", () => {
     // field, which is exactly what the closure exists to prevent.
     const li = new LayerRegistry([{ id: "l1", name: "L1" }], null).at(0)!;
     expect(Object.keys(li)).not.toContain("visible");
+    expect(Object.keys(li)).not.toContain("onToggle");
   });
 
   it("accepts every declared field at its declared type", () => {
     const layer = { options: {} } as unknown as L.Layer;
-    const onToggle = vi.fn();
     const featureCountProvider = () => 3;
     const getBounds = () => null;
 
@@ -104,7 +104,6 @@ describe("RegisterLayerOpts", () => {
       iconSvg: svg,
       opacity: 0.5,
       canvas: null,
-      onToggle,
       featureCountProvider,
       getBounds,
       source: "data.csv",
@@ -126,7 +125,6 @@ describe("RegisterLayerOpts", () => {
       meta: { count: 4, unit: "rows" },
     });
     expect(info.layer).toBe(layer);
-    expect(info.onToggle).toBe(onToggle);
     expect(info.featureCountProvider).toBe(featureCountProvider);
     expect(info.getBounds).toBe(getBounds);
     expect(info.iconSvg).toContain("<rect");

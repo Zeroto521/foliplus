@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { HIDDEN } from "#core/layer/const.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { LayerManager } from "#foliplus/LayerControl/manager.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
@@ -132,20 +133,17 @@ describe("applyVisibility", () => {
   });
 
   it("hides a visible layer and syncs the row, the flag, and the callback", () => {
-    const onToggle = vi.fn();
     const layer = layerFixture();
     manager.registerLayer({
       id: "ov",
       name: "Overlay",
       isBase: false,
       layer,
-      onToggle,
     });
 
     expect(applyVisibility(ui, "ov", false)).toBe(true);
 
     expect(map.removeLayer).toHaveBeenCalledWith(layer);
-    expect(onToggle).toHaveBeenCalledWith(false);
     expect(map.hasLayer(layer)).toBe(false);
 
     // The panel row must not disagree with the map: a programmatic hide that
@@ -237,22 +235,22 @@ describe("applyVisibility", () => {
     expect(map.hasLayer(layer)).toBe(false);
   });
 
-  it("fires the callback instead of touching the map for a canvas-only layer", () => {
-    // No Leaflet layer: HeatmapControl's canvas registers onToggle only, so
-    // there is nothing to add or remove and the callback is the whole
-    // transition.
-    const onToggle = vi.fn();
+  it("writes the canvas HIDDEN class instead of touching the map for a canvas-only layer", () => {
+    // No Leaflet layer: HeatmapControl's canvas is registered with a real
+    // canvas element only, so there is nothing to add or remove — the
+    // `HIDDEN` class on that element is the whole transition.
+    const canvas = document.createElement("canvas");
     manager.registerLayer({
       id: "canvas1",
       name: "Heat",
       isBase: false,
-      onToggle,
+      canvas,
     });
 
     expect(applyVisibility(ui, "canvas1", false)).toBe(true);
     expect(map.removeLayer).not.toHaveBeenCalled();
     expect(map.addLayer).not.toHaveBeenCalled();
-    expect(onToggle).toHaveBeenCalledWith(false);
+    expect(canvas.classList.contains("hidden")).toBe(true);
     expect(ui.intentVisible("canvas1")).toBe(false);
   });
 
@@ -363,23 +361,19 @@ describe("applyVisibility", () => {
   it("fires the callback only on a change, not on a repeated set", () => {
     // A programmatic caller may re-set the same value; the executor diffs
     // against its own last write, so a no-op set is a no-op ?including for
-    // the `onToggle` callback. The callback is the canvas layer's signal that
-    // its own `HIDDEN` class needs toggling; firing it on a value it already
-    // has would be redundant work the canvas would just ignore.
-    const onToggle = vi.fn();
+    // map membership. Firing `removeLayer` on a value the map already had
+    // would be redundant work Leaflet would just ignore.
     const layer = layerFixture();
     manager.registerLayer({
       id: "repeat",
       name: "Repeat",
       isBase: false,
       layer,
-      onToggle,
     });
 
     expect(applyVisibility(ui, "repeat", false)).toBe(true);
     expect(applyVisibility(ui, "repeat", false)).toBe(true);
-    expect(onToggle).toHaveBeenCalledTimes(1);
-    expect(onToggle).toHaveBeenNthCalledWith(1, false);
+    expect(map.removeLayer).toHaveBeenCalledTimes(1);
     expect(map.removeLayer).toHaveBeenCalledWith(layer);
   });
 
@@ -562,20 +556,17 @@ describe("LayerManager.setVisible", () => {
   });
 
   it("delegates the whole transition and reports the id it resolved", () => {
-    const onToggle = vi.fn();
     const layer = layerFixture();
     manager.registerLayer({
       id: "ov",
       name: "Overlay",
       isBase: false,
       layer,
-      onToggle,
     });
 
     expect(manager.setVisible("ov", false)).toBe(true);
 
     expect(map.removeLayer).toHaveBeenCalledWith(layer);
-    expect(onToggle).toHaveBeenCalledWith(false);
     expect(map.hasLayer(layer)).toBe(false);
     expect(
       ui.uiContainer.querySelector(
@@ -680,17 +671,17 @@ describe("LayerUI.handleChange", () => {
     expect(ui.intentVisible("overlay1")).toBe(true);
   });
 
-  it("fires the callback only, for a canvas-only layer", () => {
-    const onToggle = vi.fn();
+  it("writes the canvas HIDDEN class only, for a canvas-only layer", () => {
+    const canvas = document.createElement("canvas");
     manager.registerLayer({
       id: "canvas1",
       name: "Heat",
       isBase: false,
-      onToggle,
+      canvas,
     });
     change(ui, "canvas1", false);
 
-    expect(onToggle).toHaveBeenCalledWith(false);
+    expect(canvas.classList.contains("hidden")).toBe(true);
     expect(map.addLayer).not.toHaveBeenCalled();
     expect(map.removeLayer).not.toHaveBeenCalled();
   });
@@ -918,8 +909,13 @@ describe("toggleAll base group", () => {
 
     const layers: ConstructorParameters<typeof LayerManager>[1] = [
       { id: "B1", name: "Base 1", isBase: true, layer: layerFixture() },
-      // Canvas-style base: onToggle only, no Leaflet layer to add or remove.
-      { id: "B2", name: "Base 2", isBase: true, onToggle: vi.fn() },
+      // Canvas-style base: a real canvas element, no Leaflet layer to add or remove.
+      {
+        id: "B2",
+        name: "Base 2",
+        isBase: true,
+        canvas: document.createElement("canvas"),
+      },
     ];
     const manager = new LayerManager(map, layers);
     manager.ui = new LayerUI(manager);
@@ -960,23 +956,21 @@ describe("toggleAll base group", () => {
     expect(ui.hiddenIds.size).toBe(0);
   });
 
-  it("runs every branch of the sweep: real layer, canvas-only base, and the callback", () => {
-    const onToggle = manager.layerRegistry.get("B2")!.onToggle!;
+  it("runs every branch of the sweep: real layer and canvas-only base", () => {
+    const b2 = manager.layerRegistry.get("B2")!;
+    const b2Canvas = b2.canvas as HTMLCanvasElement;
 
     // Hide both first so the sweep has a visible→shown transition to fire.
     toggleAll(ui, CONST.GROUP.BASE, false);
 
-    // Clear the mocks so we only count the un-hide call.
-    onToggle.mockClear();
     map.addLayer.mockClear();
     map.removeLayer.mockClear();
 
     toggleAll(ui, CONST.GROUP.BASE, true);
 
     expect(map.addLayer).toHaveBeenCalledWith(manager.layerRegistry.get("B1")!.layer);
-    // B2 has no Leaflet layer: the callback is its whole transition.
-    expect(onToggle).toHaveBeenCalledWith(true);
-    expect(onToggle).toHaveBeenCalledTimes(1);
+    // B2 has no Leaflet layer: its canvas's HIDDEN class is the carrier.
+    expect(b2Canvas.classList.contains(HIDDEN)).toBe(false);
     expect(map.removeLayer).not.toHaveBeenCalled();
     expect(ui.intentVisible("B1")).toBe(true);
     expect(ui.intentVisible("B2")).toBe(true);
@@ -1088,6 +1082,61 @@ describe("unit helpers", () => {
     } as unknown as LayerUI;
 
     expect(() => syncNoBasemap(ui)).not.toThrow();
+  });
+
+  describe("syncNoBasemap opacity gate", () => {
+    // The effective-visible rule is intent AND opacity > 0. A basemap that
+    // the user dragged to opacity=0 is visually empty too, so the hatch has
+    // to show for it. The gate reads `li.opacity` (LayerInfo's projection
+    // field, which the executor writes on every opacity change) and treats
+    // undefined as fully opaque — freshly registered layers have not been
+    // touched by the executor yet, so their `li.opacity` is still undefined.
+    const makeUiWithBase = (
+      opacity?: number,
+    ): { ui: LayerUI; container: HTMLElement } => {
+      const uiContainer = document.createElement("div");
+      uiContainer.innerHTML = `<div class="foliplus-layer-toggle-all" data-group="${CONST.GROUP.BASE}"><span></span></div>`;
+      const container = document.createElement("div");
+      const layers =
+        opacity === undefined
+          ? [{ id: "b1", isBase: true }]
+          : [{ id: "b1", isBase: true, opacity }];
+      const ui = {
+        uiContainer,
+        m: { layers, map: { getContainer: () => container } },
+        authorVisible: new Map(),
+        hiddenIds: new Set<string>(),
+        userOverrides: {},
+        T: (k: string) => k,
+      } as unknown as LayerUI;
+      return { ui, container };
+    };
+
+    it("shows the hatch when a basemap is dragged to opacity 0", () => {
+      // The bug T207: intent says visible, so the pre-fix check kept the
+      // basemap class off — the user's slider at 0 was silently ignored.
+      const { ui, container } = makeUiWithBase(0);
+      syncNoBasemap(ui);
+      expect(container.classList.contains(CONST.CLASSES.NO_BASE_MAP)).toBe(true);
+    });
+
+    it("keeps the basemap class on when opacity is positive", () => {
+      // Any strictly positive value (down to the slider's smallest step) is
+      // still visible — the gate is a strict `> 0`, no epsilon tolerance.
+      const { ui, container } = makeUiWithBase(0.5);
+      syncNoBasemap(ui);
+      expect(container.classList.contains(CONST.CLASSES.NO_BASE_MAP)).toBe(false);
+    });
+
+    it("treats undefined opacity as fully opaque", () => {
+      // Freshly registered basemaps have not been written by the executor yet,
+      // so `li.opacity` is still undefined. The `?? 1` fallback treats that as
+      // the author's default (opaque) rather than as invisible — the reverse
+      // would paint the hatch on every pristine page.
+      const { ui, container } = makeUiWithBase();
+      syncNoBasemap(ui);
+      expect(container.classList.contains(CONST.CLASSES.NO_BASE_MAP)).toBe(false);
+    });
   });
 
   it("syncToggleAll handles undefined userOverrides and hiddenIds", () => {

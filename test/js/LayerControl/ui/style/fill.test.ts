@@ -340,7 +340,7 @@ describe("LayerUI style panel — fill color", () => {
     expect(fillRow(item)).not.toBeNull();
   });
 
-  // §47.1 gate unification: the third condition requires a real setStyle
+  // Gate unification: the third condition requires a real setStyle
   // leaf behind the layer. An empty group has eachLayer but yields no
   // children, so the carrier check finds no setStyle leaf to write to.
 

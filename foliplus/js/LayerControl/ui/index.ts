@@ -46,13 +46,12 @@ import {
   applyUserState,
   dropPersistedLayerState,
   loadPersistedState,
-  replayLayerState,
   saveFoldState,
   saveNamesState,
   saveState,
   syncHiddenId,
 } from "./state.js";
-import { replayBorderState } from "./style/border.js";
+import { applyBorderToLayer } from "./style/border.js";
 import {
   applyStyleLabelState,
   closeStylePanel,
@@ -356,12 +355,9 @@ class LayerUI {
     // author's for the other.
     const layerIds = id !== undefined ? [id] : Object.keys(this.userOverrides);
     for (const layerId of layerIds) {
-      replayBorderState(this, layerId);
+      applyBorderToLayer(this, layerId);
       replayFillState(this, layerId);
     }
-  }
-  replayLayerState(layerId: string) {
-    return replayLayerState(this, layerId);
   }
   dropPersistedLayerState(layerId: string) {
     return dropPersistedLayerState(this, layerId);

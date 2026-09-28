@@ -41,6 +41,16 @@ describe("LayerUI style panel", () => {
     // layer's leaves, and the fixture's data layer has none. `count` is a
     // number, which is what makes the number-format row reachable.
     ui.fieldCache.set("overlay1", [{ name: "count", numeric: true }]);
+    // The Label section's gate is the surface's annotation capability — a
+    // probe over real feature data, which this fixture layer has none of.
+    // The field cache supplies the picker's options; this bit supplies the
+    // section's right to render — the two dials the old `hasLabel` gate
+    // read from a single place.
+    const li = manager.layerRegistry.get("overlay1")!;
+    const surface = manager.surfaceFor(li) as unknown as {
+      capabilities: Record<string, unknown>;
+    };
+    surface.capabilities = { ...surface.capabilities, annotation: "pane" };
   });
 
   afterEach(() => {
@@ -124,8 +134,16 @@ describe("LayerUI style panel", () => {
     expect(field.options.length).toBe(2);
   });
 
-  it("opens a Layer-only panel for a field-less layer with capable dimensions", () => {
+  it("opens a Layer-only panel for a layer without labelable content and capable dimensions", () => {
+    // Field-less now means capability "none" (the probe over real features,
+    // which the fixture layer has none of) — the field cache only feeds the
+    // picker's options and cannot veto the section.
     ui.fieldCache.delete("overlay1");
+    const li = manager.layerRegistry.get("overlay1")!;
+    const surface = manager.surfaceFor(li) as unknown as {
+      capabilities: Record<string, unknown>;
+    };
+    surface.capabilities = { ...surface.capabilities, annotation: "none" };
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
 
@@ -138,7 +156,8 @@ describe("LayerUI style panel", () => {
     expect(panel!.querySelector(".foliplus-style-body")).toBeNull();
     expect(panel!.querySelectorAll(".foliplus-section-heading")).toHaveLength(0);
     // The Layer dimensions still render — opacity and zoom range own a pane
-    // carrier. Border and fill need a setStyle leaf (§47.1 gate), and the
+    // carrier. Border and fill need a setStyle leaf (the fill / border gate),
+    // and the
     // fixture's bare group has none, so those rows are absent here.
     expect(panel!.querySelector(".foliplus-style-opacity-range")).not.toBeNull();
     expect(panel!.querySelector(".foliplus-style-zoom-range-row")).not.toBeNull();
@@ -149,11 +168,14 @@ describe("LayerUI style panel", () => {
   it("opens no panel for a layer with neither a labelable field nor a capable dimension", () => {
     ui.fieldCache.delete("overlay1");
     const item = findItem(ui, "overlay1");
-    // Strip every dimension: the surface can carry no honest write.
+    // Strip every dimension: the surface can carry no honest write. The
+    // label bit included — `annotation: "none"` is what says "no labelable
+    // content" (a missing key would read as capable).
     const li = manager.layerRegistry.get("overlay1")!;
     manager.surfaceFor(li).capabilities = {
       opacity: "none",
       zoomRange: "none",
+      annotation: "none",
       relocatable: false,
       bounds: false,
     };
@@ -161,6 +183,47 @@ describe("LayerUI style panel", () => {
 
     expect(ui.stylePanelLayerId).toBeNull();
     expect(panelOf(item)).toBeUndefined();
+  });
+
+  it("the Label section follows a live layer's labelable content — no reload", () => {
+    // The biggest risk of the capability move: the probe decides the section,
+    // and the probe runs on the live tree — so a layer that GAINS its first
+    // labelable feature must show the Label section on the next panel open,
+    // and one that loses its last must drop it again. Same id, no
+    // re-registration, no reload.
+    const bareLeaf = () => ({ options: {}, eachLayer: vi.fn() }) as unknown as L.Layer;
+    const labelableLeaf = () =>
+      ({
+        options: {},
+        eachLayer: (fn: (l: L.Layer) => void) =>
+          fn({
+            options: {},
+            feature: { properties: { count: 1 } },
+          } as unknown as L.Layer),
+      }) as unknown as L.Layer;
+
+    manager.registerLayer({ id: "growing", name: "Growing", layer: bareLeaf() });
+    let li = manager.layerRegistry.get("growing")!;
+    const item = findItem(ui, "growing");
+    ui.openStylePanel("growing");
+    expect(panelOf(item)!.querySelector(".foliplus-style-toggle-input")).toBeNull();
+    ui.closeStylePanel(false);
+
+    // Gains labelable content: the next open re-probes through surfaceFor
+    // (the same read every gate performs) and the section is there.
+    li.layer = labelableLeaf();
+    ui.fieldCache.set("growing", [{ name: "count", numeric: true }]);
+    ui.openStylePanel("growing");
+    expect(panelOf(item)!.querySelector(".foliplus-style-toggle-input")).not.toBeNull();
+    ui.closeStylePanel(false);
+
+    // Loses it again: the section leaves with the capability.
+    li = manager.layerRegistry.get("growing")!;
+    li.layer = bareLeaf();
+    ui.fieldCache.delete("growing");
+    ui.openStylePanel("growing");
+    expect(panelOf(item)!.querySelector(".foliplus-style-toggle-input")).toBeNull();
+    ui.closeStylePanel(false);
   });
 
   it("closes the previous panel before opening a new one", () => {
@@ -292,10 +355,12 @@ describe("LayerUI style panel", () => {
     expect(setConfig).toHaveBeenCalled();
     expect(renderLabels).toHaveBeenCalledWith("overlay1");
     expect(saveAnnotations).toHaveBeenCalled();
+    // The label config rides the `layers` section now (`layers[id].
+    // annotation`) — the legacy top-level `annotations` source is gone.
     const fields = saveAnnotations.mock.calls.at(-1)![0] as {
-      annotations: () => Record<string, Record<string, unknown>>;
+      layers: () => Record<string, { annotation?: Record<string, unknown> }>;
     };
-    expect(fields.annotations().overlay1).toEqual(
+    expect(fields.layers().overlay1.annotation).toEqual(
       expect.objectContaining({ show: true }),
     );
     expect(manager.annotation.getConfig("overlay1").show).toBe(true);
@@ -735,6 +800,13 @@ describe("LayerUI style panel", () => {
     expect(layer).not.toBeNull();
     expect(label).not.toBeNull();
     expect(order.indexOf(layer!)).toBeLessThan(order.indexOf(label as Element));
+    // The annotation dimension's row is one wrapper (toggle + body) — the
+    // structural hook the Label content is selected by.
+    const labelSection = panel.querySelector(`.${CONST.CLASSES.STYLE_LABEL_SECTION}`);
+    expect(labelSection).not.toBeNull();
+    expect(
+      labelSection!.querySelector(`.${CONST.CLASSES.STYLE_TOGGLE_INPUT}`),
+    ).not.toBeNull();
   });
 
   it("suppresses the row's hover tooltip on the panel body", () => {
@@ -984,7 +1056,7 @@ describe("LayerUI style panel", () => {
 
   it("builds one border row for a vector layer, before the opacity row", () => {
     // The fixture's default overlay1 layer is a bare group with no setStyle
-    // leaves — border needs at least one such leaf (§47.1), so register a
+    // leaves — border needs at least one such leaf (the border gate), so register a
     // real vector for this test.
     const leaf = {
       options: { color: "#3388ff", weight: 2 },
@@ -1578,17 +1650,23 @@ describe("LayerUI style panel", () => {
       vi.advanceTimersByTime(200);
 
       expect(saveAnnotations).toHaveBeenCalled();
+      // Label config rides `layers[id].annotation`; the layers source
+      // re-reads every live dimension at flush, and this test touched only
+      // the annotation one.
       const fields = saveAnnotations.mock.calls.at(-1)![0] as {
-        annotations: () => Record<string, unknown>;
+        layers: () => Record<string, { annotation?: Record<string, unknown> }>;
       };
-      expect(fields.annotations()).toEqual({
+      expect(fields.layers()).toEqual({
         overlay1: {
-          show: true,
-          field: "count",
-          color: CONST.DEFAULT_ANNOTATION.color,
-          size: CONST.DEFAULT_ANNOTATION.size,
-          format: NUMBER_FORMAT.AUTO,
-          collide: true,
+          overrides: [],
+          annotation: {
+            show: true,
+            field: "count",
+            color: CONST.DEFAULT_ANNOTATION.color,
+            size: CONST.DEFAULT_ANNOTATION.size,
+            format: NUMBER_FORMAT.AUTO,
+            collide: true,
+          },
         },
       });
     } finally {
@@ -3057,6 +3135,94 @@ describe("LayerUI style panel", () => {
     expect(ui.opacityMap.overlay1).toBe(0.6);
   });
 
+  it("commitOpacityPct re-syncs the no-basemap hatch for base layers", () => {
+    // Dragging the only basemap to opacity=0 leaves it visually empty — the
+    // hatch has to light up, which happens only if commitOpacityPct fires
+    // syncNoBasemap. Overlay opacity is unrelated, so a base-vs-overlay
+    // toggle must be observable.
+    const toggleSpy = vi.fn();
+    vi.spyOn(ui.m.map, "getContainer").mockImplementation(
+      () => ({ classList: { toggle: toggleSpy } }) as unknown as HTMLElement,
+    );
+    try {
+      const item = findItem(ui, "base1");
+      ui.openStylePanel("base1");
+      const range = panelOf(item)!.querySelector(
+        ".foliplus-style-opacity-range",
+      ) as HTMLInputElement;
+      range.value = "0";
+      range.dispatchEvent(new Event("input", { bubbles: true }));
+      const baseCalls = toggleSpy.mock.calls.filter(
+        c => c[0] === CONST.CLASSES.NO_BASE_MAP,
+      );
+      expect(baseCalls.length).toBeGreaterThan(0);
+    } finally {
+      vi.restoreAllMocks();
+    }
+  });
+
+  it("commitOpacityPct skips the hatch sync for overlays", () => {
+    const toggleSpy = vi.fn();
+    vi.spyOn(ui.m.map, "getContainer").mockImplementation(
+      () => ({ classList: { toggle: toggleSpy } }) as unknown as HTMLElement,
+    );
+    try {
+      const item = findItem(ui, "overlay1");
+      ui.openStylePanel("overlay1");
+      const range = panelOf(item)!.querySelector(
+        ".foliplus-style-opacity-range",
+      ) as HTMLInputElement;
+      range.value = "0";
+      range.dispatchEvent(new Event("input", { bubbles: true }));
+      const calls = toggleSpy.mock.calls.filter(
+        c => c[0] === CONST.CLASSES.NO_BASE_MAP,
+      );
+      expect(calls).toEqual([]);
+    } finally {
+      vi.restoreAllMocks();
+    }
+  });
+
+  it("resetLayerOpacity re-syncs the hatch for base layers", () => {
+    // Resetting a basemap that was at 0 back to 1 flips the hatch off.
+    // Same invariant as commitOpacityPct: base → sync, overlay → skip.
+    const toggleSpy = vi.fn();
+    vi.spyOn(ui.m.map, "getContainer").mockImplementation(
+      () => ({ classList: { toggle: toggleSpy } }) as unknown as HTMLElement,
+    );
+    try {
+      const li = manager.layerRegistry.get("base1")!;
+      ui.opacityMap.base1 = 0;
+      li.opacity = 0;
+      resetLayerOpacity(ui, "base1");
+      const calls = toggleSpy.mock.calls.filter(
+        c => c[0] === CONST.CLASSES.NO_BASE_MAP,
+      );
+      expect(calls.length).toBeGreaterThan(0);
+    } finally {
+      vi.restoreAllMocks();
+    }
+  });
+
+  it("resetLayerOpacity skips the hatch sync for overlays", () => {
+    const toggleSpy = vi.fn();
+    vi.spyOn(ui.m.map, "getContainer").mockImplementation(
+      () => ({ classList: { toggle: toggleSpy } }) as unknown as HTMLElement,
+    );
+    try {
+      const li = manager.layerRegistry.get("overlay1")!;
+      ui.opacityMap.overlay1 = 0;
+      li.opacity = 0;
+      resetLayerOpacity(ui, "overlay1");
+      const calls = toggleSpy.mock.calls.filter(
+        c => c[0] === CONST.CLASSES.NO_BASE_MAP,
+      );
+      expect(calls).toEqual([]);
+    } finally {
+      vi.restoreAllMocks();
+    }
+  });
+
   it("reopening the panel seeds the opacity slider from opacityMap", () => {
     const li = manager.layerRegistry.get("overlay1")!;
     const item = findItem(ui, "overlay1");
@@ -3127,6 +3293,17 @@ describe("LayerUI style panel", () => {
       layer: { options: {}, eachLayer: vi.fn(), _topClusterLevel: {} } as never,
     });
     ui.fieldCache.set("cluster2", [{ name: "count", numeric: true }]);
+    // The cluster's own probe finds no labelable leaves (empty eachLayer),
+    // but this test pins the OPACITY carrier — the Label section stands in
+    // for "a panel exists at all", so declare the label bit by hand.
+    const clusterLi = manager.layerRegistry.get("cluster2")!;
+    const clusterSurface = manager.surfaceFor(clusterLi) as unknown as {
+      capabilities: Record<string, unknown>;
+    };
+    clusterSurface.capabilities = {
+      ...clusterSurface.capabilities,
+      annotation: "pane",
+    };
     const item = findItem(ui, "cluster2");
     ui.openStylePanel("cluster2");
     const panel = panelOf(item)!;
@@ -3351,13 +3528,12 @@ describe("LayerUI style panel — zoom range", () => {
 
   it("renders the zoom-range row for a canvas layer", () => {
     // A canvas has no Leaflet layer to add/remove, so the range's carrier is
-    // the layer's onToggle callback — the executor's visible op is the carrier
+    // the canvas's `HIDDEN` class — the executor's visible op is the carrier
     // for every surface, so capability alone decides (42.1).
     manager.registerLayer({
       id: "canvas1",
       name: "Canvas",
       canvas: document.createElement("canvas"),
-      onToggle: vi.fn(),
       styleProvider: () => ({ labelShow: true }),
       styleSetters: { labelShow: vi.fn() },
     });
@@ -3366,13 +3542,12 @@ describe("LayerUI style panel — zoom range", () => {
     expect(zoomRowOf(panel!)).not.toBeNull();
   });
 
-  it("hides a canvas layer through onToggle when the range excludes the zoom", () => {
-    const onToggle = vi.fn();
+  it("hides a canvas layer through its HIDDEN class when the range excludes the zoom", () => {
+    const canvas = document.createElement("canvas");
     manager.registerLayer({
       id: "canvas1",
       name: "Canvas",
-      canvas: document.createElement("canvas"),
-      onToggle,
+      canvas,
       styleProvider: () => ({ labelShow: true }),
       styleSetters: { labelShow: vi.fn() },
     });
@@ -3384,22 +3559,22 @@ describe("LayerUI style panel — zoom range", () => {
     ) as HTMLInputElement;
 
     // The current zoom is 5. Pushing the lower bound past it takes the canvas
-    // out of range, and its toggle callback is what hides it.
+    // out of range, and its HIDDEN class is what hides it.
     minInput.value = "6";
     minInput.dispatchEvent(new Event("input", { bubbles: true }));
     expect(ui.zoomRangeMap["canvas1"]).toEqual([6, 18]);
-    expect(onToggle).toHaveBeenLastCalledWith(false);
+    expect(canvas.classList.contains("hidden")).toBe(true);
 
     // Dragging the bound back drops it again — the write is reversible.
     minInput.value = "0";
     minInput.dispatchEvent(new Event("input", { bubbles: true }));
     expect(ui.zoomRangeMap["canvas1"]).toEqual([0, 18]);
-    expect(onToggle).toHaveBeenLastCalledWith(true);
+    expect(canvas.classList.contains("hidden")).toBe(false);
   });
 
   it("gives a delegated layers-kind layer (Measure shape) a zoom row that hides it", () => {
     // Measure's createLayers shape: a real layer, so the range's carrier is map
-    // membership rather than an onToggle callback.
+    // membership rather than a canvas HIDDEN class.
     const measureLayer = { options: {}, eachLayer: vi.fn() } as never;
     manager.registerLayer({
       id: "measure1",
@@ -4017,6 +4192,13 @@ describe("style utility guards", () => {
     // Removing the elements from the panel DOM exercises the false sides.
     const { ui } = initFixture();
     ui.fieldCache.set("overlay1", [{ name: "count", numeric: true }]);
+    // The Label section needs the annotation capability (the gate no longer
+    // reads the field cache).
+    const li = ui.m.layerRegistry.get("overlay1")!;
+    const surface = ui.m.surfaceFor(li) as unknown as {
+      capabilities: Record<string, unknown>;
+    };
+    surface.capabilities = { ...surface.capabilities, annotation: "pane" };
     const panelOf = (item: HTMLElement) =>
       item.querySelector(`.${CONST.CLASSES.STYLE_PANEL}`) as HTMLElement | null;
     const item = findItem(ui, "overlay1");

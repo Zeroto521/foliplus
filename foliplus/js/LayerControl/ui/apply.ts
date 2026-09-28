@@ -26,6 +26,7 @@
 // Naming: "state op" is the shape the carrier dispatcher accepts.
 // "Projection" is what the diff compares — intent + policy together, so
 // a change on either side produces an op.
+import { HIDDEN } from "#core/layer/index.js";
 import { resetGridLayerView } from "#core/leafletAdapter.js";
 import * as CONST from "../const.js";
 import type { LayerUI } from "./index.js";
@@ -118,16 +119,17 @@ const authorZoomBoundsForLayer = (ui: LayerUI, layerId: string): [number, number
  *
  *  The projection's numeric diff is not enough for carriers that can be
  *  replaced underneath the executor: a re-registered canvas element starts
- *  opaque, an annotation pane is created lazily long after the slider was
- *  last moved. In both cases the executor's `prev.opacity` matches
- *  `next.opacity`, so a value-only diff misses the write — the
- *  late-carrier regression this file exists to close. The fix is to record which DOM element we last
- *  wrote to, and force a rewrite when the carrier has moved.
+ *  opaque, so the executor's `prev.opacity` can match `next.opacity` while
+ *  the DOM in front of it is fresh. The fix is to record which DOM element
+ *  we last wrote to, and force a rewrite when the carrier has moved.
  *
  *  The token is opaque to callers: it's just enough identity to say "the
  *  thing I wrote to before is not the thing in front of me now". A
- *  canvas-only layer is one DOM element; a pane carrier is a set of pane
- *  names. Anything else (native `options.opacity`) is keyed by the
+ *  canvas-only layer is one DOM element; a pane carrier is the surface's
+ *  own pane set — which, since the label pane is a declared `role:
+ *  "annotation"` PaneSpec, already includes it with no side channel (the
+ *  pane exists from surface construction, so there is no late carrier to
+ *  splice in). Anything else (native `options.opacity`) is keyed by the
  *  layer's own `options` object, which is the actual write target.
  */
 const carrierOf = (ui: LayerUI, layerInfo: LayerInfo): unknown => {
@@ -138,10 +140,7 @@ const carrierOf = (ui: LayerUI, layerInfo: LayerInfo): unknown => {
     // freshly built array would never match and every pane layer would
     // rewrite on every call. Sorted, so the order the pane specs happen to
     // arrive in cannot register as "the carrier moved".
-    const names = [...surface.paneNames];
-    const annotationPane = ui.m.annotation?.paneNameFor(layerInfo.id);
-    if (annotationPane) names.push(annotationPane);
-    return names.sort().join("|");
+    return [...surface.paneNames].sort().join("|");
   }
   return (layerInfo.layer?.options ?? null) as object | null;
 };
@@ -155,10 +154,12 @@ const sameCarrier = (prev: unknown, curr: unknown): boolean =>
 /** The single write pipeline: dispatch one op onto its carrier.
  *
  *  Every layer resolves to exactly one write target per dimension (see
- *  `LayerSurface.capabilities.opacity` / `.zoomRange`):
+ *  `LayerSurface.capabilities.*`):
  *
- *    visible  — map membership for Leaflet layers, `onToggle` for
- *               callback-only canvas layers (heatmap / measure)
+ *    visible  — map membership ("native") for real L.Layers including
+ *               MarkerCluster, canvas HIDDEN class ("pane") for canvas-only
+ *               surfaces (heatmap / measure / color face), "none" is a
+ *               no-op — no honest write exists, the UI hides the checkbox.
  *    opacity  — canvas element / own pane / native setter / "none"
  *    zoomRange — resolved through the `visible` op for all carriers.
  *               Writing `options.minZoom/maxZoom` would pollute
@@ -171,23 +172,27 @@ const sameCarrier = (prev: unknown, curr: unknown): boolean =>
  */
 const applyStateOp = (ui: LayerUI, layerInfo: LayerInfo, op: StateOp): void => {
   if (op.type === "visible") {
-    const layer = layerInfo.layer ?? ui.m.findLayer(layerInfo);
-    if (layer) {
-      // Map membership. Written only when it differs from what is there —
-      // `addLayer` on a live layer is a no-op at best and re-orders the
-      // stacking at worst, so both halves collapse to one condition.
-      const has = ui.m.map.hasLayer(layer);
-      if (op.value !== has) {
-        if (op.value) ui.m.map.addLayer(layer);
-        else ui.m.map.removeLayer(layer);
+    const carrier = ui.m.surfaceFor(layerInfo).capabilities.visibility;
+    if (carrier === "native") {
+      const layer = layerInfo.layer ?? ui.m.findLayer(layerInfo);
+      if (layer) {
+        // Map membership. Written only when it differs from what is there —
+        // `addLayer` on a live layer is a no-op at best and re-orders the
+        // stacking at worst, so both halves collapse to one condition.
+        const has = ui.m.map.hasLayer(layer);
+        if (op.value !== has) {
+          if (op.value) ui.m.map.addLayer(layer);
+          else ui.m.map.removeLayer(layer);
+        }
       }
+    } else if (carrier === "pane") {
+      // Canvas HIDDEN class — the carrier for canvas-only surfaces that have
+      // no Leaflet layer to add/remove.
+      const canvas = layerInfo.canvas;
+      if (canvas) canvas.classList.toggle(HIDDEN, !op.value);
     }
-    // `onToggle` is the callback for canvas-only layers (heatmap / measure)
-    // that have no Leaflet layer to add/remove — it fires the toggle so the
-    // canvas toggles its own `HIDDEN` class. A layer that has both a Leaflet
-    // layer AND an `onToggle` (a hybrid) fires both: the map membership and
-    // the callback each carry a distinct piece of state.
-    if (layerInfo.onToggle) layerInfo.onToggle(op.value);
+    // "none" — no honest write exists; the UI hides the checkbox rather
+    // than offering one that lies.
     return;
   }
   if (op.type === "opacity") {
@@ -221,14 +226,11 @@ const applyStateOp = (ui: LayerUI, layerInfo: LayerInfo, op: StateOp): void => {
       }
       layerInfo.opacity = op.value ?? 1;
     } else {
-      // One CSS write per pane we own — declared, sub, synthesized, or
-      // the layer's annotation pane. Multiplicative over each feature's
-      // own style, so a hollow polygon keeps its hole.
+      // One CSS write per pane the surface owns — declared, sub,
+      // synthesized, or the `role: "annotation"` label pane. Multiplicative
+      // over each feature's own style, so a hollow polygon keeps its hole.
       const value = op.value ?? 1;
-      const names = [...ui.m.surfaceFor(layerInfo).paneNames];
-      const annotationPane = ui.m.annotation?.paneNameFor(layerInfo.id);
-      if (annotationPane) names.push(annotationPane);
-      for (const name of names) {
+      for (const name of ui.m.surfaceFor(layerInfo).paneNames) {
         const pane = ui.m.map.getPane(name);
         if (pane) pane.style.opacity = String(value);
       }
@@ -321,16 +323,22 @@ const applyProjection = (ui: LayerUI, id: string): void => {
     (ui.userOverrides?.[id]?.includes("visible") ?? false) ||
     (ui.hiddenIds?.has(id) ?? false);
   const authorised = hasUserIntent || ui.authorVisible.has(id);
-  // A callback-only layer has no map to read and its registry flag is the
-  // declaration, not "what we last told it", so the first call must always
-  // fire the callback once.
-  const currentShown = layer
-    ? ui.m.map.hasLayer(layer)
-    : layerInfo.onToggle
-      ? ui.appliedState.has(id)
-        ? prev.effectiveShown
-        : !next.effectiveShown
-      : false;
+  // Current visibility, read from the carrier the write would land on.
+  // "native" — the map's own membership flag; "pane" — the canvas's
+  // HIDDEN class; "none" — no carrier at all, so no meaningful "shown".
+  // Reading the carrier (not the last value we wrote) makes the executor
+  // converge on `effectiveShown` no matter who moved the layer in between.
+  const visibility = ui.m.surfaceFor(layerInfo).capabilities.visibility;
+  const currentShown =
+    visibility === "native"
+      ? layer
+        ? ui.m.map.hasLayer(layer)
+        : false
+      : visibility === "pane"
+        ? layerInfo.canvas
+          ? !layerInfo.canvas.classList.contains(HIDDEN)
+          : false
+        : false;
   if (authorised && currentShown !== next.effectiveShown) {
     applyStateOp(ui, layerInfo, { type: "visible", value: next.effectiveShown });
   }

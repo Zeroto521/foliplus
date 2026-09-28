@@ -432,9 +432,9 @@ class TestMeasureControlBrowser:
         hides it from the map.
 
         MeasureControl registers through ``createLayers``, so the layer is a real
-        Leaflet group and the range's carrier is map membership rather than an
-        ``onToggle`` callback. That surface was never excluded by the canvas gate,
-        so the probe pins the row as a regression guard, not a new capability.
+        Leaflet group and the range's carrier is map membership (native). That
+        surface was never excluded by the canvas gate, so the probe pins the row
+        as a regression guard, not a new capability.
         """
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
             # Select a tool so the measure layer registers and gets a row.

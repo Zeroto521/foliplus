@@ -95,6 +95,65 @@ describe("LayerPersistence", () => {
       expect(makePersistence().load()).toEqual(record);
     });
 
+    it("reads a v2 record's legacy label segment (write-new / read-old)", () => {
+      // RECORD_VERSION 2 → 3 moved the label config into
+      // `layers[id].annotation`. A v2 record must still read: the legacy
+      // segment is the fallback, the version is re-stamped as the current
+      // shape in the loaded record, and nothing migrates the segment itself.
+      seedStorage({
+        version: 2,
+        annotations: { a: { show: true, field: "name", format: "auto" } },
+      });
+
+      const rec = makePersistence().load();
+      expect(rec.version).toBe(RECORD_VERSION);
+      expect(rec.annotations).toEqual({
+        a: { show: true, field: "name", format: "auto" },
+      });
+      expect(rec.layers).toEqual({});
+    });
+
+    it("keeps both label segments intact, new key preferred by the reader", () => {
+      // Write-new / read-old: the legacy segment passes through byte-for-
+      // byte, `layers[id].annotation` is the current key, and the reader
+      // (the label seed) picks the new one — each side owns its own order.
+      seedStorage({
+        version: RECORD_VERSION,
+        annotations: { both: { show: false, field: "old" } },
+        layers: {
+          // An annotation-only entry — empty `overrides` survives parse.
+          both: { overrides: [], annotation: { show: true, field: "new" } },
+        },
+      });
+
+      const rec = makePersistence().load();
+      expect(rec.layers.both).toEqual({
+        overrides: [],
+        annotation: { show: true, field: "new" },
+      });
+      expect(rec.annotations.both).toEqual({ show: false, field: "old" });
+    });
+
+    it("prunes a deleted id from both label segments on read", () => {
+      // Deletion is not migration: the write side drops the ids it records
+      // as removed, and the read side does the same — so a record written
+      // before either prune still loads without resurrecting the config.
+      seedStorage({
+        removed: ["gone"],
+        annotations: { gone: { show: true }, kept: { show: false } },
+        layers: {
+          gone: { overrides: [], annotation: { show: true } },
+          kept: { overrides: [], annotation: { show: false } },
+        },
+      });
+
+      const rec = makePersistence().load();
+      expect(rec.annotations).toEqual({ kept: { show: false } });
+      expect(rec.layers).toEqual({
+        kept: { overrides: [], annotation: { show: false } },
+      });
+    });
+
     it("keeps ids that are not registered yet", () => {
       // load() runs from LayerUI.attachUI, which lands before HeatmapControl and
       // MeasureControl register in their own constructor. Pruning against the
@@ -705,14 +764,13 @@ describe("LayerPersistence", () => {
       });
       p.schedule({ foldedGroups: () => ["OVERLAYS"] });
       p.schedule({ renamedNames: () => ({ a: "A" }) });
-      p.schedule({
-        annotations: () => ({ a: { show: true, field: "n", format: "auto" } }),
-      });
 
       vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
 
-      // Five schedules, one write: there is a single timer for the whole
-      // record, so no dimension needs its own debounce bookkeeping.
+      // Four schedules, one write: there is a single timer for the whole
+      // record, so no dimension needs its own debounce bookkeeping. The
+      // legacy `annotations` segment has no live source — it passes through
+      // as whatever storage holds (empty here).
       expect(save).toHaveBeenCalledTimes(1);
       expect(lastRecord(save)).toEqual({
         version: RECORD_VERSION,
@@ -720,7 +778,7 @@ describe("LayerPersistence", () => {
         removed: [],
         foldedGroups: ["OVERLAYS"],
         renamedNames: { a: "A" },
-        annotations: { a: { show: true, field: "n", format: "auto" } },
+        annotations: {},
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
       save.mockRestore();

@@ -273,16 +273,15 @@ describe("executor: late-carrier replay", () => {
     expect(oldCanvas.style.opacity).toBe("0.4"); // the old element still holds it
   });
 
-  it("a delayed annotation pane picks up the value, and nothing rewrites once settled", () => {
-    // The annotation pane is created lazily — the pane carrier set is empty
-    // on the first write and only includes the annotation name once the
-    // label layer renders. A value-only diff sees `prev.opacity ===
-    // next.opacity` and misses the write; carrier-identity detection fires
-    // the replay onto the pane that just appeared.
-    //
-    // The second half is what the stable carrier key is for: once the value
-    // and the carrier set have both settled, a repeated apply must not touch
-    // the DOM at all. A per-call array key would rewrite here every time.
+  it("the label pane rides the surface's pane set — the first write covers it", () => {
+    // Third cut of the dimension-registry series: the label pane is a
+    // DECLARED `role: "annotation"`
+    // PaneSpec of the layer's surface — the registration edge appends it
+    // iff the layer's features expose a labelable field, and `carrierOf` /
+    // the pane write read `surface.paneNames` alone. No side channel, no
+    // late-carrier replay: the pane exists from surface construction, so
+    // the stored value lands on it with the very first write. Settled
+    // state rewrites nothing.
     const { container, map } = makeOffMapFixture();
 
     // Stable panes per name, so a write and a later read can meet.
@@ -296,58 +295,43 @@ describe("executor: late-carrier replay", () => {
       return pane;
     };
     map.getPane = vi.fn((name: string) => paneFor(name));
+    map.createPane = vi.fn((name: string) => paneFor(name));
 
-    const layer = { options: {} } as L.Layer;
+    // A layer whose features carry a labelable field — the declaration
+    // edge's probe (`hasLabelField`) hits, so the annotation spec rides
+    // the surface's pane list.
+    const layer = {
+      options: {},
+      feature: { properties: { name: "Depot" } },
+    } as unknown as L.Layer;
+
     const manager = new LayerManager(map, [
       { id: "a1", name: "Labels", isBase: false, layer },
     ]);
     manager.ui = new LayerUI(manager);
     const ui = manager.ui as LayerUI;
 
-    // Pin the carrier to a pane set. The surface's capability resolution is
-    // not what this test is about — the executor's replay onto a moved
-    // carrier is.
-    vi.spyOn(manager, "surfaceFor").mockReturnValue({
-      capabilities: { opacity: "pane", zoomRange: "none" },
-      paneNames: ["labels-pane"],
-      geometryType: () => "polygon",
-      materialize: () => {},
-      setZ: () => {},
-    } as unknown as ReturnType<typeof manager.surfaceFor>);
-
     vi.useFakeTimers();
     manager.attachUI(container);
     vi.advanceTimersByTime(350);
     vi.useRealTimers();
 
-    // Stored opacity, no annotation yet: the value lands on the declared pane.
+    // The structural claim of this cut: the declared pane is part of the
+    // face — the old `annotation.paneNameFor` side channel could never
+    // satisfy this, which is what makes the test red without the fix.
+    const li = manager.layerRegistry.get("a1")!;
+    expect(manager.surfaceFor(li).paneNames).toContain("foliplus-annotation-a1");
+
+    // Stored opacity: the first write covers every declared pane, the label
+    // pane included — no replay hook fires, none exists.
     ui.opacityMap.a1 = 0.3;
     ui.userOverrides.a1 = ["opacity"];
     applyProjection(ui, "a1");
-    expect(paneFor("labels-pane").style.opacity).toBe("0.3");
+    expect(paneFor("foliplus-annotation-a1").style.opacity).toBe("0.3");
 
-    // Settled: value and carrier are unchanged, so no pane is written again.
+    // Settled: value and carrier unchanged, so nothing is written again.
     (map.getPane as ReturnType<typeof vi.fn>).mockClear();
     applyProjection(ui, "a1");
-    applyProjection(ui, "a1");
-    expect(map.getPane).not.toHaveBeenCalled();
-
-    // The annotation pane appears — the carrier set grows, so the stored
-    // value must land on it too.
-    vi.spyOn(manager, "surfaceFor").mockReturnValue({
-      capabilities: { opacity: "pane", zoomRange: "none" },
-      paneNames: ["labels-pane"],
-      geometryType: () => "polygon",
-    } as unknown as ReturnType<typeof manager.surfaceFor>);
-    (manager as any).annotation = {
-      paneNameFor: (id: string) => (id === "a1" ? "fp-annotation-a1" : null),
-    };
-    applyProjection(ui, "a1");
-    expect(paneFor("fp-annotation-a1").style.opacity).toBe("0.3");
-    expect(paneFor("labels-pane").style.opacity).toBe("0.3");
-
-    // Settled again.
-    (map.getPane as ReturnType<typeof vi.fn>).mockClear();
     applyProjection(ui, "a1");
     expect(map.getPane).not.toHaveBeenCalled();
   });
@@ -467,22 +451,117 @@ describe("executor: carrier dispatch", () => {
     expect(map.addLayer).not.toHaveBeenCalled();
   });
 
-  it("a hybrid layer fires both the map write and its callback", () => {
-    // A layer that owns a Leaflet layer *and* an `onToggle` carries a
-    // distinct piece of state in each: membership on the map, and the
-    // canvas's own HIDDEN class. Both must fire on a visible write.
-    const onToggle = vi.fn();
-    const layer = { options: {} } as L.Layer;
-    const { ui, map, manager } = boot([
-      { id: "h", name: "Hybrid", isBase: false, layer, onToggle },
-    ]);
+  it("a pane-carrier visible write toggles the canvas HIDDEN class", () => {
+    // The canvas-only branch of the visibility dispatch: no Leaflet layer
+    // exists to add/remove, so the class on the canvas IS the carrier.
+    const canvas = document.createElement("canvas");
+    const { ui } = boot([{ id: "cv", name: "CV", isBase: false, canvas }]);
+    const li = () => ui.m.layerRegistry.get("cv")!;
+
+    applyStateOp(ui, li(), { type: "visible", value: false });
+    expect(canvas.classList.contains("hidden")).toBe(true);
+
+    applyStateOp(ui, li(), { type: "visible", value: true });
+    expect(canvas.classList.contains("hidden")).toBe(false);
+  });
+
+  it("applyProjection reads the canvas class back as the current carrier state", () => {
+    // The executor's `currentShown` comes from the live class, not from
+    // `appliedState`: a canvas somebody hid out-of-band converges back to
+    // intent, and an intent hide lands even though the class started clear.
+    const canvas = document.createElement("canvas");
+    const { ui } = boot([{ id: "cv2", name: "CV2", isBase: false, canvas }]);
+    ui.authorVisible.set("cv2", true);
+
+    canvas.classList.add("hidden"); // out-of-band hide while intent says shown
+    applyProjection(ui, "cv2");
+    expect(canvas.classList.contains("hidden")).toBe(false);
+
+    ui.hiddenIds.add("cv2"); // the user unchecks
+    applyProjection(ui, "cv2");
+    expect(canvas.classList.contains("hidden")).toBe(true);
+  });
+
+  it("a visible op on a 'none' carrier writes nothing", () => {
+    // No Leaflet layer, no canvas — neither branch of the dispatcher has an
+    // honest target, and the read side reports `false` for "shown" rather
+    // than guessing.
+    const { ui, map } = boot([{ id: "nc", name: "NC", isBase: false }]);
     (map.addLayer as ReturnType<typeof vi.fn>).mockClear();
 
-    ui.userOverrides.h = ["visible"]; // author default is off the map
-    applyProjection(ui, "h");
+    applyStateOp(ui, ui.m.layerRegistry.get("nc")!, {
+      type: "visible",
+      value: false,
+    });
 
-    expect(map.addLayer).toHaveBeenCalledWith(layer);
-    expect(onToggle).toHaveBeenCalledWith(true);
+    expect(map.addLayer).not.toHaveBeenCalled();
+    expect(map.removeLayer).not.toHaveBeenCalled();
+  });
+
+  it("a pane-carrier visible write whose canvas vanished writes nothing", () => {
+    // The surface resolved `visibility: "pane"` while the canvas existed;
+    // if the element is gone by write time the dispatcher must not throw —
+    // there is simply no element left to stamp.
+    const canvas = document.createElement("canvas");
+    const { ui } = boot([{ id: "pc", name: "PC", isBase: false, canvas }]);
+    ui.m.layerRegistry.get("pc")!.canvas = null;
+
+    expect(() =>
+      applyStateOp(ui, ui.m.layerRegistry.get("pc")!, {
+        type: "visible",
+        value: false,
+      }),
+    ).not.toThrow();
+    expect(canvas.classList.contains("hidden")).toBe(false);
+  });
+
+  it("defensive: a pane carrier whose canvas target vanished writes nothing", () => {
+    // Unlike the test above (where surfaceFor re-resolves and reports
+    // "none"), pin the dispatcher's own guard: the carrier may still say
+    // "pane" while the element is gone — stub the surface so the branch
+    // under test is the `if (canvas)` miss, not the rebuild.
+    const { ui, map } = boot([
+      {
+        id: "pc2",
+        name: "PC2",
+        isBase: false,
+        canvas: document.createElement("canvas"),
+      },
+    ]);
+    const li = ui.m.layerRegistry.get("pc2")!;
+    li.canvas = null;
+    ui.m.surfaceFor = (() => ({
+      capabilities: { visibility: "pane", opacity: "none", zoomRange: "none" },
+    })) as unknown as typeof ui.m.surfaceFor;
+    (map.addLayer as ReturnType<typeof vi.fn>).mockClear();
+
+    applyStateOp(ui, li, { type: "visible", value: false });
+
+    expect(map.addLayer).not.toHaveBeenCalled();
+  });
+
+  it("defensive: a native carrier whose layer target vanished writes nothing", () => {
+    // Carrier says "native", but the registry entry lost its layer and the
+    // window/map lookup finds nothing: both the `?? findLayer` miss and the
+    // `if (layer)` miss must fall through to no write, and the projection's
+    // currentShown read must report `false` rather than throw.
+    const { ui, map } = boot([
+      { id: "nv", name: "NV", isBase: false, layer: { options: {} } as L.Layer },
+    ]);
+    const li = ui.m.layerRegistry.get("nv")!;
+    li.layer = null;
+    ui.m.findLayer = vi.fn(() => null) as typeof ui.m.findLayer;
+    ui.m.surfaceFor = (() => ({
+      capabilities: { visibility: "native", opacity: "none", zoomRange: "none" },
+    })) as unknown as typeof ui.m.surfaceFor;
+    ui.authorVisible.set("nv", true);
+    (map.addLayer as ReturnType<typeof vi.fn>).mockClear();
+    (map.hasLayer as ReturnType<typeof vi.fn>).mockReturnValue(false);
+
+    applyStateOp(ui, li, { type: "visible", value: true });
+    applyProjection(ui, "nv");
+
+    expect(map.addLayer).not.toHaveBeenCalled();
   });
 
   it("a 'none' opacity carrier stores nothing and writes nothing", () => {
@@ -864,7 +943,7 @@ describe("executor: the branches behind the gates", () => {
   });
 });
 
-describe("§40.5 invariants: only intent + author snapshot authorise membership", () => {
+describe("membership invariants: only intent + author snapshot authorise membership", () => {
   beforeEach(() => {
     installLeafletGlobals();
   });

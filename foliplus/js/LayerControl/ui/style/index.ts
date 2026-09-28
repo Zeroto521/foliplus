@@ -12,22 +12,15 @@
 // frame-level helpers (section heading, reset footer, rail positioning)
 // live in ./frame.ts.
 import { EVENTS } from "#core/event/index.js";
-import { type LabelStyleValues, numberFormatOptions } from "#core/labelControl.js";
-import { AUTO_FIELD, type LabelField, resolveSelectedField } from "#core/labelField.js";
+import { resolveSelectedField } from "#core/labelField.js";
 import { dom } from "#common/dom.js";
 import {
-  LABEL_COLOR_DEFAULT,
   LABEL_SIZE,
   bindLiveColor,
   bindLiveNumber,
-  clampLabelSize,
-  colorInput as formColorInput,
-  numberInput as formNumberInput,
-  formRow,
-  inlineControls,
   normalizeHexColor,
 } from "#common/form.js";
-import { NUMBER_FORMAT, type NumberStyle } from "#common/format.js";
+import { type NumberStyle } from "#common/format.js";
 import { createRowPanel } from "#common/panel.js";
 import * as CONST from "../../const.js";
 import * as SVGs from "../../icon.js";
@@ -40,7 +33,12 @@ import { bindFillRow, replayFillState, resetLayerFill } from "./fill.js";
 import { appendResetFooter, railPos } from "./frame.js";
 import { applyPatch, layerFields, syncFormatRow } from "./label.js";
 import { clampPct, commitOpacityPct, resetLayerOpacity } from "./opacity.js";
-import { DIM_ORDER, getDimension, hasAnyDimension } from "./registry.js";
+import {
+  DIM_ORDER,
+  LABEL_DIM_ORDER,
+  type LayerDimension,
+  getDimension,
+} from "./registry.js";
 import {
   applyZoomRangeLive,
   clampZoom,
@@ -51,166 +49,37 @@ import {
 } from "./zoomRange.js";
 
 /** Build the style panel DOM for a layer. Returns null when the layer owns
- *  neither a labelable field nor a capable Layer dimension. */
+ *  neither a capable Label dimension nor a capable Layer dimension. */
 const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   // Third-party canvas layers (heatmap, measure) declare their own controls
   // via styleSetters — render those instead of the annotation panel.
   if (layerHasStyleDelegation(ui, layerId)) {
     return renderDelegatedStylePanel(ui, layerId);
   }
-  const fields = layerFields(ui, layerId);
-  const hasLabel = fields.length > 0;
-  // A plain vector shape has no feature properties, so no labelable field —
-  // but it still owns the Layer section (fill, border, opacity, zoom range). The
-  // ⋮ menu enables Style on capability alone, so the panel has to honour the
-  // same gate rather than demanding a field.
-  const hasLayerDim = hasAnyDimension(ui, layerId);
-  if (!hasLabel && !hasLayerDim) return null;
-
-  const cfg = ui.m.annotation.getConfig(layerId);
-  const fmtLabel = (f: string) => ui._(`foliplus.label_format_${f}`) || f;
-  // Labels are off by default — the user opens the panel, sees the field and
-  // format chooser idle, and flips the switch to begin. `cfg.show ? "" : null`
-  // follows the persisted state when this is a reopen, but the *first* open
-  // never reads from storage (DEFAULT_ANNOTATION.show = false). The body
-  // collapses under the toggle on first paint and on every reopen where
-  // show === false, mirroring the heatmap's "switch off → hide body" rule.
-  const showChecked = !!cfg.show;
-  // The picker's "Auto" entry means "let foliplus choose", and the config
-  // records it as the shared sentinel rather than a resolved name — so the layer
-  // keeps labeling itself when its columns change. `resolveSelectedField`
-  // (core/labelField) is what turns the select's value back into a field.
-  const selectedField = cfg.field;
-
-  // Field options: the auto entry first, then one per field. The auto entry is
-  // the select's own empty value, so it is what a fresh panel shows, and it is
-  // a disabled placeholder exactly like the heatmap's `field_auto`. Disabled
-  // rather than merely first, so it reads as the current state instead of an
-  // option to pick: the way back to auto is Reset, which restores the default
-  // config. The per-field <option>s are appended to the select itself —
-  // appending them into the first option would nest <option> inside <option>,
-  // and the browser skips nested options when it builds the options list.
-  const fieldSelect = dom.el(
-    "select",
-    {
-      class: `foliplus-form-select ${CONST.CLASSES.STYLE_FIELD_SELECT}`,
-      "aria-label": ui.T("style_label_field"),
-    },
-    dom.el(
-      "option",
-      { value: AUTO_FIELD, disabled: true },
-      ui.T("style_label_field_auto"),
-    ),
-  );
-  fields.forEach(f =>
-    fieldSelect.appendChild(
-      dom.el(
-        "option",
-        { value: f.name, selected: f.name === selectedField ? "" : null },
-        f.name,
-      ),
-    ),
-  );
-  (fieldSelect as HTMLSelectElement).value = selectedField || AUTO_FIELD;
-
-  // Appearance row — same chrome as the heatmap border / delegated drawer.
-  const colorInput = formColorInput({
-    value: normalizeHexColor(cfg.color || LABEL_COLOR_DEFAULT),
-    className: CONST.CLASSES.STYLE_LABEL_COLOR_INPUT,
-    ariaLabel: ui._("foliplus.label_color"),
-  }) as HTMLInputElement;
-  const sizeInput = formNumberInput({
-    value: clampLabelSize(cfg.size || LABEL_SIZE.SIZE_DEFAULT),
-    min: LABEL_SIZE.SIZE_MIN,
-    max: LABEL_SIZE.SIZE_MAX,
-    step: LABEL_SIZE.SIZE_STEP,
-    className: CONST.CLASSES.STYLE_LABEL_SIZE_INPUT,
-    ariaLabel: ui._("foliplus.label_size"),
-  }) as HTMLInputElement;
-
-  const formatOpts = numberFormatOptions(fmtLabel);
-
-  // The toggle gets a focus-visible ring tied to the panel's design token,
-  // not the browser default — without it, a tab stop on a switch looks
-  // identical to "not focused", which is the heatmap-style bug we hit.
-  const showToggle = dom.el("input", {
-    type: "checkbox",
-    class: CONST.CLASSES.STYLE_TOGGLE_INPUT,
-    checked: showChecked ? "" : null,
-    "aria-label": ui._("foliplus.label_tooltip"),
-  });
-  // "Avoid overlap": thins this layer's own labels where they collide. Labels
-  // from *different* layers never avoid each other — the layers are stacked, so
-  // an upper layer simply covers the lower one's.
-  const collideToggle = dom.el("input", {
-    type: "checkbox",
-    class: CONST.CLASSES.STYLE_COLLIDE_INPUT,
-    checked: cfg.collide ? "" : null,
-    "aria-label": ui._("foliplus.label_collide_tooltip"),
-  });
-  const formatSelect = dom.el(
-    "select",
-    {
-      class: `foliplus-form-select ${CONST.CLASSES.STYLE_FORMAT_SELECT}`,
-      "aria-label": ui._("foliplus.label_format"),
-    },
-    ...formatOpts,
-  );
-  (formatSelect as HTMLSelectElement).value = cfg.format || NUMBER_FORMAT.AUTO;
-
-  // Numeric-only: hide the format dropdown when the picked field is not a
-  // number — comma/percent/int all render the same as auto in that case.
-  const formatRow = dom.el(
-    "div",
-    { class: `${CONST.CLASSES.FORM_ROW} ${CONST.CLASSES.STYLE_FORMAT_ROW}` },
-    dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui._("foliplus.label_format")),
-    dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, formatSelect),
-  );
-  syncFormatRow(
-    fields,
-    formatRow,
-    resolveSelectedField((fieldSelect as HTMLSelectElement).value, fields),
-  );
-
-  // Body wrapper: hidden by default when cfg.show is false, shown on toggle
-  // on. Listens to the toggle so flipping it reveals the field/format rows
-  // and auto-picks a field if none was selected yet (the "warm start" from
-  // the heatmap's rule: open the gate, the first thing shows up).
-  // Body order is shared with the delegated drawer: data → appearance →
-  // format → behavior. Field first (annotation-only), then color/size,
-  // then number format, then avoid-overlap.
-  const body = dom.el(
-    "div",
-    { class: CONST.CLASSES.STYLE_BODY },
-    dom.el(
-      "div",
-      { class: CONST.CLASSES.FORM_ROW },
-      dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("style_label_field")),
-      dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, fieldSelect),
-    ),
-    formRow(ui._("foliplus.label_style"), inlineControls(colorInput, sizeInput)),
-    formatRow,
-    dom.el(
-      "div",
-      { class: CONST.CLASSES.FORM_ROW },
-      dom.el(
-        "label",
-        { class: CONST.CLASSES.FORM_LABEL },
-        ui._("foliplus.label_collide"),
-      ),
-      dom.el(
-        "div",
-        { class: CONST.CLASSES.FORM_CONTROL },
-        dom.el(
-          "label",
-          { class: CONST.CLASSES.TOGGLE_SWITCH },
-          collideToggle,
-          dom.el("span", { class: CONST.CLASSES.TOGGLE_SLIDER }),
-        ),
-      ),
-    ),
-  );
-  body.classList.toggle("foliplus-hidden", !showChecked);
+  // Both sections are discovered through the dimension registry: the Layer
+  // section by `DIM_ORDER`, the Label section by `LABEL_DIM_ORDER` — one
+  // gate pass per dimension, and the same rows that render also decide the
+  // panel exists at all. A plain vector shape has no labelable content
+  // (capability "none") but still owns the Layer section; a fielded layer
+  // owns the Label section even when no Layer dimension applies. The ⋮ menu
+  // enables Style on the same two signals — `layerCanLabel` IS the
+  // annotation dimension's gate — so the panel honours them rather than
+  // demanding both.
+  const gatedRows = (keys: readonly string[]): LayerDimension[] => {
+    const rows: LayerDimension[] = [];
+    for (const key of keys) {
+      // Every key in a section order is registered — `registry.test` locks
+      // the union of both orders against the built-ins — so the lookup
+      // cannot miss; the cast states that contract instead of branching on
+      // a null arm no test can reach.
+      const dim = getDimension(key) as LayerDimension;
+      if (dim.gate(ui, layerId)) rows.push(dim);
+    }
+    return rows;
+  };
+  const layerRows = gatedRows(DIM_ORDER);
+  const labelRows = gatedRows(LABEL_DIM_ORDER);
+  if (layerRows.length === 0 && labelRows.length === 0) return null;
 
   // Shell (surface, header, content scroll) comes from the shared row-panel
   // factory — the attributes panel's twin, built by the same code, so the
@@ -223,47 +92,21 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
     iconClass: "foliplus-layer-style-icon foliplus-header-icon",
   });
   // The Layer section renders only when the layer owns a capable dimension;
-  // a layer without any of them reaches the panel for the Label section alone.
-  // Layer comes first: it is the primary surface (what the user drew), and the
-  // Label section is a decoration of it. High-frequency operations lead.
-  // Rows are discovered through the style-panel dimension registry, and
-  // iteration follows `DIM_ORDER` — the authoritative display order
-  // (fill → border → opacity → zoomRange, per #458). Registration order
-  // is *not* display order: it tracks the ES module import graph, which
-  // varies across load graphs (opacity was registered at #505 top-level,
-  // before `fill` and `border` in most of them), so the panel asserts its
-  // order explicitly rather than inferring it from the registry. See the
-  // `DIM_ORDER` comment in `./registry.js`.
-  if (hasLayerDim) {
-    for (const key of DIM_ORDER) {
-      const dim = getDimension(key);
-      if (dim?.gate(ui, layerId)) content.appendChild(dim.row(ui, layerId));
-    }
-  }
-  // The Label rows render only when there is a field to label; a plain
-  // vector shape reaches the panel for the Layer rows alone.
-  if (hasLabel) {
-    content.appendChild(
-      dom.el(
-        "div",
-        { class: CONST.CLASSES.FORM_ROW },
-        dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui._("foliplus.label")),
-        dom.el(
-          "div",
-          { class: CONST.CLASSES.FORM_CONTROL },
-          // Resolving the toggle: clicking the input, the slider span, or the
-          // label should all flip the checkbox — the switch is one <label>.
-          dom.el(
-            "label",
-            { class: CONST.CLASSES.TOGGLE_SWITCH },
-            showToggle,
-            dom.el("span", { class: CONST.CLASSES.TOGGLE_SLIDER }),
-          ),
-        ),
-      ),
-    );
-    content.appendChild(body);
-  }
+  // a layer without any of them reaches the panel for the Label section
+  // alone. Layer comes first: it is the primary surface (what the user
+  // drew), and the Label section is a decoration of it. High-frequency
+  // operations lead. Row order inside each section is its declared order
+  // array, never the registry's insertion order — registration order
+  // tracks the ES module import graph (see the `DIM_ORDER` /
+  // `LABEL_DIM_ORDER` comments in `./registry.js`). Neither group carries a
+  // heading any more: the panel reads as one flat row list, and Layer before
+  // Label is what document order alone conveys.
+  for (const dim of layerRows) content.append(dim.row(ui, layerId));
+  // The Label section's gate is a pure capability bit (layer exists +
+  // `capabilities.annotation !== "none"`) — the labelable-fields probe that
+  // keeps the row honest lives at the surface declaration edge, so the panel
+  // never re-asks it here.
+  for (const dim of labelRows) content.append(dim.row(ui, layerId));
   appendResetFooter(ui, content);
   return panel;
 };
@@ -658,11 +501,13 @@ export { closeStylePanel, openStylePanel, renderStylePanel };
 
 // Re-exports for external callers (menu.ts, attr.ts, ui/index.ts, tests):
 // the style barrel still surfaces the same six symbols the pre-split
-// ui/style.ts did — the split is invisible to consumers.
+// ui/style.ts did — the split is invisible to consumers. The Label
+// dimension rides along too: importing this barrel registers it.
 export {
   applyStyleLabelState,
   invalidateFields,
   layerHasLabelFields,
 } from "./label.js";
+export { ANNOTATION_DIMENSION, layerCanLabel } from "./annotation.js";
 export { layerHasStyleDelegation } from "./delegated.js";
 export { replayFillState } from "./fill.js";

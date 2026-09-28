@@ -9,9 +9,10 @@ import {
   commitBorderColor,
   commitBorderWeight,
   layerCanBorder,
-  replayBorderState,
   resetLayerBorder,
 } from "#foliplus/LayerControl/ui/style/border.js";
+import { commitFillColor } from "#foliplus/LayerControl/ui/style/fill.js";
+import { pinnedGetterCount } from "#foliplus/LayerControl/ui/style/pin.js";
 import { initFixture } from "../fixture.js";
 
 /** A Leaflet vector leaf: an `options` bag plus the `setStyle` writer the
@@ -185,7 +186,7 @@ describe("layerCanBorder", () => {
     expect(layerCanBorder(ui, "bas1")).toBe(false);
   });
 
-  // §47.1 gate unification: the third condition requires a real setStyle
+  // Gate unification: the third condition requires a real setStyle
   // leaf behind the layer. Without it, a Marker or an empty LayerGroup
   // would pass the capability check and get a Border row that persists a
   // value with no visual effect.
@@ -739,6 +740,60 @@ describe("highlight restore", () => {
     expect(leaf.mouseoutCount()).toBe(2);
   });
 
+  it("replays fill and border together after folium's highlight restore", () => {
+    // A layer with BOTH dimensions set must come out of a hover
+    // with both user values. folium's resetStyle runs first in the dispatch
+    // order, then our single shared handler merges the fill getter and the
+    // border getter into one setStyle — neither dimension may be dropped.
+    const leaf = makeHighlightLeaf("#00ff00", 3);
+    manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
+
+    commitFillColor(ui, "vec1", "#123456");
+    commitBorderWeight(ui, "vec1", 9);
+
+    // One slot per dimension on the shared leaf — fill and border never
+    // share a slot, and neither one doubles up.
+    expect(pinnedGetterCount(leaf)).toBe(2);
+    leaf.setStyle.mockClear();
+
+    leaf.fireMouseout();
+
+    // folium's restore writes the authored stroke back, then exactly one
+    // merged replay writes both of the user's dimensions over it.
+    expect(leaf.setStyle).toHaveBeenCalledTimes(2);
+    expect(leaf.setStyle).toHaveBeenLastCalledWith({
+      fillColor: "#123456",
+      weight: 9,
+    });
+  });
+
+  it("repeated commits replace the replay getter instead of stacking", () => {
+    // Every apply pass builds a fresh closure, so identity-based dedupe can
+    // never match: an unbounded getter array is a real leak (each mouseout
+    // re-runs every stale closure) even when the merged output is correct.
+    const leaf = makeHighlightLeaf("#00ff00", 3);
+    manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
+
+    commitBorderColor(ui, "vec1", "#111111");
+    commitBorderColor(ui, "vec1", "#222222");
+    commitBorderColor(ui, "vec1", "#333333");
+    commitBorderWeight(ui, "vec1", 5);
+    commitBorderWeight(ui, "vec1", 9);
+
+    // One getter slot per dimension, however many commits passed through it.
+    expect(pinnedGetterCount(leaf)).toBe(1);
+
+    leaf.setStyle.mockClear();
+    leaf.fireMouseout();
+
+    // folium's restore + a single merged replay, not one write per getter.
+    expect(leaf.setStyle).toHaveBeenCalledTimes(2);
+    expect(leaf.setStyle).toHaveBeenLastCalledWith({
+      color: "#333333",
+      weight: 9,
+    });
+  });
+
   it("leaves the author's stroke alone once the user has reset", () => {
     // A reset clears the stored intent, so the replay has nothing to write:
     // folium's restore stands and the layer keeps the author's stroke.
@@ -767,57 +822,6 @@ describe("highlight restore", () => {
   });
 });
 
-describe("replayBorderState", () => {
-  let manager: LayerManager;
-  let ui: LayerUI;
-
-  beforeEach(() => {
-    ({ manager, ui } = initFixture());
-    ui.foldedGroups = new Set();
-    ui.hiddenIds = new Set();
-  });
-
-  afterEach(() => {
-    manager?.debouncedEnforce?.cancel?.();
-    document.body.innerHTML = "";
-    vi.clearAllMocks();
-  });
-
-  it("replays a stored stroke onto the layer, so a reload keeps it", () => {
-    const leaf = makeLeaf();
-    manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
-    ui.borderColorMap.vec1 = "#0000ff";
-    ui.borderWeightMap.vec1 = 6;
-
-    replayBorderState(ui);
-
-    expect(leaf.setStyle).toHaveBeenCalledWith({ color: "#0000ff", weight: 6 });
-  });
-
-  it("scopes a single id when one is given", () => {
-    const a = makeLeaf();
-    const b = makeLeaf();
-    manager.registerLayer({ id: "vecA", name: "A", layer: a });
-    manager.registerLayer({ id: "vecB", name: "B", layer: b });
-    ui.borderColorMap.vecA = "#0000ff";
-    ui.borderColorMap.vecB = "#00ff00";
-
-    replayBorderState(ui, "vecA");
-
-    expect(a.setStyle).toHaveBeenCalledTimes(1);
-    expect(b.setStyle).not.toHaveBeenCalled();
-  });
-
-  it("leaves a layer alone when the user never set a border", () => {
-    const leaf = makeLeaf();
-    manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
-
-    replayBorderState(ui);
-
-    expect(leaf.setStyle).not.toHaveBeenCalled();
-  });
-});
-
 describe("applyBorderToLayer", () => {
   let manager: LayerManager;
   let ui: LayerUI;
@@ -834,6 +838,31 @@ describe("applyBorderToLayer", () => {
     vi.clearAllMocks();
   });
 
+  it("writes the stored stroke onto the layer's leaves", () => {
+    const leaf = makeLeaf();
+    manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
+    ui.borderColorMap.vec1 = "#0000ff";
+    ui.borderWeightMap.vec1 = 6;
+
+    applyBorderToLayer(ui, "vec1");
+
+    expect(leaf.setStyle).toHaveBeenCalledWith({ color: "#0000ff", weight: 6 });
+  });
+
+  it("writes only the named layer, never a neighbor's stored stroke", () => {
+    const a = makeLeaf();
+    const b = makeLeaf();
+    manager.registerLayer({ id: "vecA", name: "A", layer: a });
+    manager.registerLayer({ id: "vecB", name: "B", layer: b });
+    ui.borderColorMap.vecA = "#0000ff";
+    ui.borderColorMap.vecB = "#00ff00";
+
+    applyBorderToLayer(ui, "vecA");
+
+    expect(a.setStyle).toHaveBeenCalledTimes(1);
+    expect(b.setStyle).not.toHaveBeenCalled();
+  });
+
   it("is a no-op with no stored value", () => {
     const leaf = makeLeaf();
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
@@ -847,6 +876,24 @@ describe("applyBorderToLayer", () => {
     ui.borderColorMap.ghost = "#0000ff";
 
     expect(() => applyBorderToLayer(ui, "ghost")).not.toThrow();
+  });
+
+  it("the applyUserState sweep writes only userOverrides keys, so a stored value with no record is not replayed", () => {
+    const recorded = makeLeaf();
+    const orphan = makeLeaf();
+    manager.registerLayer({ id: "vec1", name: "V", layer: recorded });
+    manager.registerLayer({ id: "vec2", name: "W", layer: orphan });
+    ui.borderColorMap.vec1 = "#0000ff";
+    ui.borderColorMap.vec2 = "#00ff00";
+    ui.userOverrides.vec1 = ["borderColor"];
+    // vec2 holds a stored value that never went through markOverride — the
+    // drift the single enumeration source exists to ignore. Enumerating the
+    // maps instead of userOverrides would replay it while fill stayed put.
+
+    ui.applyUserState();
+
+    expect(recorded.setStyle).toHaveBeenCalledWith({ color: "#0000ff" });
+    expect(orphan.setStyle).not.toHaveBeenCalled();
   });
 });
 

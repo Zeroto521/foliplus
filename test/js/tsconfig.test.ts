@@ -81,6 +81,10 @@ const BANNED: Array<{ name: string; re: RegExp }> = [
 const NARROW_CASTS = [
   { f: "core/mapApi.ts", n: 1 },
   { f: "ExportControl/index.ts", n: 1 },
+  // Tolerant label-config parse: the object shape and colour are checked,
+  // field-level coercion is the applier's (`applyStyleLabelState`) — the
+  // cast says "reader validates". See `parseAnnotationConfig`.
+  { f: "LayerControl/persistence.ts", n: 1 },
 ] as const;
 const NARROW_CAST_RE = /\bas\s+unknown\s+as\b|\bas\s+never\b/g;
 

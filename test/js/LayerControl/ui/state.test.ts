@@ -7,7 +7,6 @@ import {
   dropPersistedLayerState,
   loadPersistedState,
   markOverride,
-  replayLayerState,
   saveFoldState,
   saveNamesState,
   saveState,
@@ -182,28 +181,30 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       expect(m.intentVisible("overlay1")).toBe(true);
     });
 
-    it("fires onToggle(true) for a callback-only layer the user un-hid", () => {
+    it("writes the canvas HIDDEN class for a callback-only layer the user un-hid", () => {
       // Canvas/heatmap layers have no Leaflet layer to addLayer, so the inverse
-      // path must call the callback instead or they stay hidden after a reload.
+      // path must clear the canvas's `HIDDEN` class instead or they stay
+      // hidden after a reload.
       const { map } = makeTestMap();
-      const onToggle = vi.fn();
+      const canvas = document.createElement("canvas");
+      canvas.classList.add("hidden");
       const m = new LayerManager(map, [
         {
           id: "canvas1",
           name: "Canvas",
           layer: null,
-          onToggle,
+          canvas,
         },
       ]);
       const u = new LayerUI(m);
       u.hiddenIds = new Set();
-      // A canvas layer with a `visible` override fires onToggle(true) instead
-      // of `addLayer` -- it has no Leaflet layer to add.
+      // A canvas layer with a `visible` override clears `HIDDEN` instead of
+      // `addLayer` -- it has no Leaflet layer to add.
       u.userOverrides = { canvas1: ["visible"] };
 
       u.applyUserState();
 
-      expect(onToggle).toHaveBeenCalledWith(true);
+      expect(canvas.classList.contains("hidden")).toBe(false);
     });
 
     it("keeps hidden ids that have no registry entry", () => {
@@ -273,15 +274,15 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       expect(Object.keys(stored.layers).sort()).toEqual(["ghost", "gone", "overlay1"]);
     });
 
-    it("fires onToggle(false) for callback-only layers (canvas/heatmap)", () => {
+    it("writes the canvas HIDDEN class for canvas-only layers (canvas/heatmap)", () => {
       const { map } = makeTestMap();
-      const onToggle = vi.fn();
+      const canvas = document.createElement("canvas");
       const m = new LayerManager(map, [
         {
           id: "canvas1",
           name: "Canvas",
           layer: null,
-          onToggle,
+          canvas,
         },
       ]);
       const u = new LayerUI(m);
@@ -289,7 +290,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
 
       u.applyUserState();
 
-      expect(onToggle).toHaveBeenCalledWith(false);
+      expect(canvas.classList.contains("hidden")).toBe(true);
     });
 
     it("loads hidden ids from localStorage into hiddenIds", () => {
@@ -713,14 +714,14 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
   // ─────────────────── applyUserState with multiple layers ───────────────────
 
   describe("applyUserState with multiple hidden layers", () => {
-    it("handles overlay, base, and callback-only layers in one pass", () => {
+    it("handles overlay, base, and canvas layers in one pass", () => {
       const poly = {
         options: {},
         eachLayer: vi.fn(),
         getBounds: vi.fn(() => ({ isValid: vi.fn(() => true) })),
       };
       const baseLayer = new TileLayer();
-      const onToggle = vi.fn();
+      const canvas = document.createElement("canvas");
       const { map, removeLayer } = (() => {
         const rl = vi.fn();
         return {
@@ -743,7 +744,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       const m = new LayerManager(map, [
         { id: "overlay1", name: "O", isBase: false, layer: poly },
         { id: "base1", name: "B1", isBase: true, layer: baseLayer },
-        { id: "canvas1", name: "Canvas", layer: null, onToggle },
+        { id: "canvas1", name: "Canvas", layer: null, canvas },
       ]);
       const u = new LayerUI(m);
       u.hiddenIds = new Set(["overlay1", "base1", "canvas1"]);
@@ -757,7 +758,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
 
       expect(removeLayer).toHaveBeenCalledWith(poly);
       expect(removeLayer).toHaveBeenCalledWith(baseLayer);
-      expect(onToggle).toHaveBeenCalledWith(false);
+      expect(canvas.classList.contains("hidden")).toBe(true);
       expect(u.intentVisible("overlay1")).toBe(false);
       expect(u.intentVisible("base1")).toBe(false);
       expect(u.intentVisible("canvas1")).toBe(false);
@@ -766,12 +767,69 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
   });
 });
 
+describe("label config seed — read order (write-new / read-old)", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
+  afterEach(() => {
+    window.localStorage.clear();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+  });
+
+  it("layers[id].annotation wins over the legacy segment; legacy alone still seeds", () => {
+    // The compat contract in one round trip: a record carrying BOTH keys
+    // for the same id reads the current one, an id only the legacy segment
+    // knows (a v2 record) still seeds, and neither side is migrated into
+    // the other by the read.
+    window.localStorage.setItem(
+      CONST.STORAGE.KEY,
+      JSON.stringify({
+        version: 3,
+        annotations: {
+          legacyOnly: { show: true, field: "l", format: "int" },
+          both: { show: false, field: "old" },
+        },
+        layers: {
+          both: {
+            overrides: [],
+            annotation: { show: true, field: "new", format: "comma" },
+          },
+          withOverride: {
+            overrides: ["opacity"],
+            opacity: 0.5,
+            annotation: { show: true, field: "p" },
+          },
+        },
+      }),
+    );
+    const { ui } = initFixture();
+    loadPersistedState(ui);
+
+    expect(ui.labelConfigs.both).toEqual({
+      show: true,
+      field: "new",
+      format: "comma",
+    });
+    expect(ui.labelConfigs.legacyOnly).toEqual({
+      show: true,
+      field: "l",
+      format: "int",
+    });
+    expect(ui.labelConfigs.withOverride).toEqual({ show: true, field: "p" });
+  });
+});
+
 describe("ui/state saveFoldState", () => {
   it("schedules the folded set through persistence", () => {
     const schedule = vi.fn();
     const ui = {
       foldedGroups: new Set(["overlay"]),
-      m: { persistence: { schedule } },
+      m: {
+        persistence: { schedule },
+        annotation: { configEntries: () => [] },
+      },
     } as unknown as LayerUI;
     saveFoldState(ui);
     // schedule takes a getter map so a later write can read the live state
@@ -783,68 +841,6 @@ describe("ui/state saveFoldState", () => {
 });
 
 // ─────────────────── opacity apply / restore / retention ─────────────────
-
-describe("replayLayerState", () => {
-  // An annotation pane is created lazily —when labels first turn on, which can
-  // be long after the slider was last moved —and nothing writes to a pane that
-  // does not exist yet. The pane's appearance is its own replay point, so the
-  // stored intent has to be re-applied there instead of being assumed present.
-  let manager: LayerManager;
-  let ui: LayerUI;
-
-  beforeEach(() => {
-    window.localStorage.removeItem(CONST.STORAGE.KEY);
-    ({ manager, ui } = initFixture());
-  });
-
-  afterEach(() => {
-    manager?.debouncedEnforce?.cancel?.();
-    document.body.innerHTML = "";
-    vi.clearAllMocks();
-    vi.useRealTimers();
-  });
-
-  it("writes the stored opacity onto the layer", () => {
-    ui.userOverrides.overlay1 = ["opacity"];
-    ui.opacityMap.overlay1 = 0.3;
-
-    replayLayerState(ui, "overlay1");
-
-    expect(manager.layerRegistry.get("overlay1")!.opacity).toBe(0.3);
-  });
-
-  it("gates the write on the override flag, not on a stored value", () => {
-    // A value without its flag must not reach the write pipeline; the layer
-    // keeps the default the author declared. `unmarkOverride` (Reset) drops
-    // the flag and leaves the value behind, so this is what makes Reset stick.
-    const before = manager.layerRegistry.get("overlay1")!.opacity;
-    ui.opacityMap.overlay1 = 0.4;
-
-    replayLayerState(ui, "overlay1");
-
-    expect(manager.layerRegistry.get("overlay1")!.opacity).toBe(before);
-    expect(ui.userOverrides.overlay1).toBeUndefined();
-  });
-
-  it("skips an override whose value never reached the map", () => {
-    // The record can claim an override whose value is absent; sending that
-    // through the write pipeline would be an undefined opacity.
-    const before = manager.layerRegistry.get("overlay1")!.opacity;
-    ui.userOverrides.overlay1 = ["opacity"];
-
-    replayLayerState(ui, "overlay1");
-
-    expect(manager.layerRegistry.get("overlay1")!.opacity).toBe(before);
-  });
-
-  it("replays nothing for an id the registry does not know", () => {
-    ui.userOverrides.ghost = ["opacity"];
-    ui.opacityMap.ghost = 0.3;
-
-    expect(() => replayLayerState(ui, "ghost")).not.toThrow();
-    expect(manager.layers.every(l => l.opacity !== 0.3)).toBe(true);
-  });
-});
 
 describe("LayerUI opacity restore / retention", () => {
   const makeMap = () => {
@@ -920,7 +916,7 @@ describe("LayerUI opacity restore / retention", () => {
     const { map } = makeMap();
     const canvas = document.createElement("canvas");
     const m = new LayerManager(map, [
-      { id: "heat", name: "Heat", canvas, layer: null, onToggle: vi.fn() },
+      { id: "heat", name: "Heat", canvas, layer: null },
     ]);
     const u = new LayerUI(m);
     u.opacityMap = { heat: 0.25 };
@@ -1137,7 +1133,10 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
       fillOpacityMap: {},
       userOverrides: {},
       rangeHiddenIds: new Set(),
-      m: { persistence: { schedule } },
+      m: {
+        persistence: { schedule },
+        annotation: { configEntries: () => [] },
+      },
     } as unknown as LayerUI;
 
     syncHiddenId(bare, "overlay1", true);
@@ -1164,7 +1163,10 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
       fillOpacityMap: {},
       userOverrides: { overlay1: ["visible"] },
       rangeHiddenIds: new Set(),
-      m: { persistence: { schedule } },
+      m: {
+        persistence: { schedule },
+        annotation: { configEntries: () => [] },
+      },
     } as unknown as LayerUI;
 
     syncHiddenId(bare, "overlay1", false);
@@ -1191,7 +1193,10 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
       fillOpacityMap: {},
       zoomRangeMap: { overlay1: [4, 10] },
       userOverrides: { overlay1: ["zoomRange"] },
-      m: { persistence: { schedule } },
+      m: {
+        persistence: { schedule },
+        annotation: { configEntries: () => [] },
+      },
     } as unknown as LayerUI;
 
     saveState(bare);
@@ -1216,7 +1221,10 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
       fillOpacityMap: {},
       zoomRangeMap: {},
       userOverrides: { overlay1: ["zoomRange"] },
-      m: { persistence: { schedule } },
+      m: {
+        persistence: { schedule },
+        annotation: { configEntries: () => [] },
+      },
     } as unknown as LayerUI;
 
     unmarkOverride(bare, "overlay1", "zoomRange");
@@ -1255,7 +1263,10 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
       fillOpacityMap: {},
       zoomRangeMap: {},
       userOverrides: { overlay1: ["opacity"] },
-      m: { persistence: { schedule } },
+      m: {
+        persistence: { schedule },
+        annotation: { configEntries: () => [] },
+      },
     } as unknown as LayerUI;
 
     saveState(bare);
@@ -1280,7 +1291,10 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
       fillOpacityMap: {},
       zoomRangeMap: {},
       userOverrides: {},
-      m: { persistence: { schedule } },
+      m: {
+        persistence: { schedule },
+        annotation: { configEntries: () => [] },
+      },
     } as unknown as LayerUI;
 
     markOverride(bare, "overlay1", "zoomRange");
@@ -1384,7 +1398,10 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
       fillColorMap: {},
       fillOpacityMap: {},
       userOverrides: { overlay1: ["opacity"] },
-      m: { persistence: { schedule } },
+      m: {
+        persistence: { schedule },
+        annotation: { configEntries: () => [] },
+      },
     } as unknown as LayerUI;
 
     saveState(bare);
@@ -1394,6 +1411,47 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
     };
     expect(fields.layers()).toEqual({
       overlay1: { opacity: 0.6, overrides: ["opacity"] },
+    });
+  });
+
+  it("persists border values by type presence, not truthiness", () => {
+    // The gate (hasLiveValue) and the writer both speak typeof, so undefined
+    // is the only absence: a weight of 0 survives while a marker whose value
+    // went missing drops its whole entry. An empty string still reads as a
+    // string here — no writer can produce one (hydration is truthy and the
+    // color input only ever yields hex), and the read side discards it via
+    // isHexColor, so a truthy carve-out in buildLayerStates would only make
+    // this layer disagree with applyBorderToLayer's `!== undefined` reads.
+    const schedule = vi.fn();
+    const bare = {
+      hiddenIds: new Set(),
+      opacityMap: {},
+      zoomRangeMap: {},
+      fillColorMap: {},
+      fillOpacityMap: {},
+      borderColorMap: { kept: "#0000ff", blank: "" },
+      borderWeightMap: { zero: 0 },
+      userOverrides: {
+        kept: ["borderColor"],
+        blank: ["borderColor"],
+        zero: ["borderWeight"],
+        missing: ["borderColor", "borderWeight"],
+      },
+      m: {
+        persistence: { schedule },
+        annotation: { configEntries: () => [] },
+      },
+    } as unknown as LayerUI;
+
+    saveState(bare);
+
+    const fields = schedule.mock.calls[0][0] as {
+      layers: () => Record<string, unknown>;
+    };
+    expect(fields.layers()).toEqual({
+      kept: { borderColor: "#0000ff", overrides: ["borderColor"] },
+      blank: { borderColor: "", overrides: ["borderColor"] },
+      zero: { borderWeight: 0, overrides: ["borderWeight"] },
     });
   });
 
@@ -1430,10 +1488,10 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
   });
 
   it("applyUserState(id) leaves a native range alone when there is no layer", () => {
-    // A callback-only entry carries no Leaflet layer. A surface that reports the
+    // A canvas-only entry carries no Leaflet layer. A surface that reports the
     // range as native has nothing to dereference, so the pass has to bail
     // instead of writing into a layer that is not there.
-    manager.registerLayer({ id: "ghostLayer", name: "Ghost", onToggle: vi.fn() });
+    manager.registerLayer({ id: "ghostLayer", name: "Ghost" });
     const li = manager.layerRegistry.get("ghostLayer")!;
     manager.surfaceFor(li).capabilities.zoomRange = "native";
     ui.zoomRangeMap = { ghostLayer: [4, 9] };
@@ -1499,7 +1557,10 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
     const schedule = vi.fn();
     const bare = {
       renamedNames: { overlay1: "Renamed" },
-      m: { persistence: { schedule } },
+      m: {
+        persistence: { schedule },
+        annotation: { configEntries: () => [] },
+      },
     } as unknown as LayerUI;
 
     saveNamesState(bare);

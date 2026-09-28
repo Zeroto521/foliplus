@@ -72,6 +72,27 @@ describe("HeatmapManager — caching & lifecycle", () => {
     expect(m.overlay.unregister).toHaveBeenCalled();
   });
 
+  it("stays a pure canvas clear — the render empty states keep the user's selection", () => {
+    const m = makeManager();
+    m.selectedLayerId = "pts";
+    m.currentAgg = CONST.AGG.SUM;
+    m.currentField = "price";
+    m.currentMethod = "quantile";
+    m.numClasses = 9;
+    m.autoFieldKey = "price";
+
+    // A zoom that lands on no features runs clearHeatmapCanvas through the
+    // render empty path — the selection is a user choice, not a render artifact.
+    m.renderFeatures([]);
+
+    expect(m.selectedLayerId).toBe("pts");
+    expect(m.currentAgg).toBe(CONST.AGG.SUM);
+    expect(m.currentField).toBe("price");
+    expect(m.currentMethod).toBe("quantile");
+    expect(m.numClasses).toBe(9);
+    expect(m.autoFieldKey).toBe("price");
+  });
+
   it("clearHeatmapCanvas runs the UI listener cleanups so detached handlers die with the canvas", () => {
     const m = makeManager();
     const schemeBarCleanup = vi.fn();
@@ -241,11 +262,6 @@ describe("HeatmapManager — caching & lifecycle", () => {
 });
 
 describe("HeatmapManager — layer visibility vs zoom", () => {
-  // createCanvas is called once in the constructor; recover the onToggle the
-  // manager passed in so LayerControl's hide/show callbacks can be replayed.
-  const onToggleOf = (m: HeatmapManager): ((visible: boolean) => void) =>
-    window.map.foliplus.LayerAPI.createCanvas.mock.calls[0][0].onToggle;
-
   const zoomendHandlers = (m: HeatmapManager): Array<() => void> =>
     m.map.on.mock.calls
       .filter(([evt]: [string]) => evt === "zoomend")
@@ -254,76 +270,69 @@ describe("HeatmapManager — layer visibility vs zoom", () => {
   const zoomstartHandler = (m: HeatmapManager): (() => void) =>
     m.map.on.mock.calls.filter(([evt]: [string]) => evt === "zoomstart")[0][1];
 
-  it("onToggle(false) mirrors a LayerControl hide into manager state", () => {
+  it("zoomstart borrows the canvas away through its visibility style", () => {
+    // The anti-flicker temp-hide must not stamp the HIDDEN class: that
+    // class is the LayerControl intent channel, and stamping it would make
+    // "zoom hid it" indistinguishable from "the user hid it" at restore.
     const m = makeManager();
-    onToggleOf(m)(false);
-    expect(m.layerVisible).toBe(false);
-    expect(m.overlay.setVisible).toHaveBeenCalledWith(false);
-  });
-
-  it("onToggle(true) restores visibility after the layer is re-checked", () => {
-    const m = makeManager();
-    const onToggle = onToggleOf(m);
-    onToggle(false);
-    m.overlay.setVisible.mockClear();
-
-    onToggle(true);
-
-    expect(m.layerVisible).toBe(true);
-    expect(m.overlay.setVisible).toHaveBeenCalledWith(true);
-  });
-
-  it("zoomstart hides the canvas even when the layer is logically visible", () => {
-    const m = makeManager();
-    m.overlay.setVisible.mockClear();
+    m.overlay.canvas = document.createElement("canvas");
     zoomstartHandler(m)();
-    expect(m.overlay.setVisible).toHaveBeenCalledWith(false);
+    expect(m.overlay.canvas.style.visibility).toBe("hidden");
+    expect(m.overlay.canvas.classList.contains("hidden")).toBe(false);
+    expect(m.overlay.setVisible).not.toHaveBeenCalled();
   });
 
-  it("zoomend does not re-show a layer the user hid in LayerControl", () => {
+  it("zoomend hands the visibility style back and never touches the HIDDEN class", () => {
     const m = makeManager();
-    m.layerVisible = false;
-    m.overlay.setVisible.mockClear();
-    // zoomend fires two handlers: bindMapSync.onShow (immediate) and the
-    // debounced onZoomEnd. Neither may re-show a hidden layer.
+    m.overlay.canvas = document.createElement("canvas");
+    zoomstartHandler(m)();
     zoomendHandlers(m).forEach(fn => fn());
+    expect(m.overlay.canvas.style.visibility).toBe("");
+    expect(m.overlay.canvas.classList.contains("hidden")).toBe(false);
+    expect(m.overlay.setVisible).not.toHaveBeenCalledWith(true);
+    expect(m.overlay.setVisible).not.toHaveBeenCalledWith(false);
+  });
+
+  it("a user-hidden canvas keeps its HIDDEN class through a full zoom cycle", () => {
+    // The class is the executor's channel: the zoom cycle borrows and
+    // returns only the style, so the user's hide survives untouched — no
+    // LayerControl state mirror needed on this side anymore.
+    const m = makeManager();
+    m.overlay.canvas = document.createElement("canvas");
+    m.overlay.canvas.classList.add("hidden"); // LayerControl checkbox off
+    zoomstartHandler(m)();
+    zoomendHandlers(m).forEach(fn => fn());
+    expect(m.overlay.canvas.classList.contains("hidden")).toBe(true);
+    expect(m.overlay.canvas.style.visibility).toBe("");
     expect(m.overlay.setVisible).not.toHaveBeenCalledWith(true);
   });
 
-  it("zoomend re-shows a still-visible layer after the zoomstart hide", () => {
-    const m = makeManager();
-    m.overlay.setVisible.mockClear();
-    zoomendHandlers(m).forEach(fn => fn());
-    expect(m.overlay.setVisible).toHaveBeenCalledWith(true);
-  });
-
-  it("onZoomEnd re-renders a hidden layer but does not re-show it", () => {
+  it("onZoomEnd re-renders and still leaves the intent channel alone", () => {
     const m = makeManager();
     m.selectedLayerId = "layer1";
-    m.layerVisible = false;
+    m.overlay.canvas = document.createElement("canvas");
+    m.overlay.canvas.classList.add("hidden");
     const renderSpy = vi.spyOn(m, "renderHexagons").mockImplementation(() => {});
-    m.overlay.setVisible.mockClear();
 
     m.onZoomEnd();
     m.onZoomEnd.flush();
 
     expect(renderSpy).toHaveBeenCalled();
+    expect(m.overlay.canvas.classList.contains("hidden")).toBe(true);
+    expect(m.overlay.canvas.style.visibility).toBe("");
     expect(m.overlay.setVisible).not.toHaveBeenCalledWith(true);
   });
 
-  it("hide → zoom → re-check → zoom obeys the latest LayerControl state", () => {
+  it("the zoom cycle is a no-op before the canvas exists", () => {
+    // The style borrows guard on the element: a zoom that lands between
+    // construction and the first draw (fixture default: canvas null) must
+    // not throw or fall back to the setVisible stub.
     const m = makeManager();
-    const onToggle = onToggleOf(m);
-
-    onToggle(false);
-    m.overlay.setVisible.mockClear();
+    m.selectedLayerId = "layer1";
+    zoomstartHandler(m)();
     zoomendHandlers(m).forEach(fn => fn());
-    expect(m.overlay.setVisible).not.toHaveBeenCalledWith(true);
 
-    onToggle(true);
-    m.overlay.setVisible.mockClear();
-    zoomendHandlers(m).forEach(fn => fn());
-    expect(m.overlay.setVisible).toHaveBeenCalledWith(true);
+    expect(m.overlay.setVisible).not.toHaveBeenCalled();
   });
 });
 
@@ -1507,5 +1516,91 @@ describe("HeatmapManager — EVENTS.LAYER_DELETED auto-clear", () => {
     ensureEvents(m.map).emit(EVENTS.LAYER_DELETED, { id: "some_other_layer" });
 
     expect(clearSpy).not.toHaveBeenCalled();
+  });
+
+  it("resets the panel to its initial state when own layer is deleted", () => {
+    const conf = makeConf({ color_scheme: "Blues", n_classes: 4, method: "equal" });
+    const m = makeManager();
+    const ctrl = makeCtrl(m, conf);
+    // The fixture's selects are bare elements: without options, `el.value`
+    // falls back to "" regardless of what was assigned.
+    const addOptions = (el: HTMLSelectElement, values: string[]) => {
+      values.forEach(value => {
+        const option = document.createElement("option");
+        option.value = value;
+        el.appendChild(option);
+      });
+    };
+    addOptions(ctrl.aggSelect, [CONST.AGG.COUNT, CONST.AGG.SUM]);
+    addOptions(ctrl.methodSelect, ["equal", "jenks"]);
+    addOptions(ctrl.classSelect, ["4", "6"]);
+    addOptions(ctrl.schemeSelectHidden, ["Blues", "Reds"]);
+    // The panel still shows the deleted layer's id when the clear lands —
+    // that is the stale state this reset has to undo.
+    addOptions(ctrl.layerSelect, ["", "pts"]);
+    ctrl.layerSelect.value = "pts";
+    m.ui = ctrl;
+    m.selectedLayerId = "pts";
+    m.currentAgg = CONST.AGG.SUM;
+    m.currentField = "price";
+    m.autoFieldKey = "price";
+    m.currentScheme = "Greens";
+    m.numClasses = 8;
+    m.currentMethod = "quantile";
+    const clearSpy = vi.spyOn(m, "clearHeatmapCanvas");
+    const clearSaved = vi.spyOn(m, "clearSavedConfig");
+
+    ensureEvents(m.map).emit(EVENTS.LAYER_DELETED, { id: m.layerId });
+
+    // State back to the declared defaults, no stale selection left behind.
+    expect(m.selectedLayerId).toBeNull();
+    expect(m.autoFieldKey).toBeNull();
+    expect(m.currentAgg).toBe(CONST.AGG.COUNT);
+    expect(m.currentField).toBe("");
+    expect(m.currentMethod).toBe(conf.method);
+    expect(m.currentScheme).toBe(conf.color_scheme);
+    expect(m.numClasses).toBe(conf.n_classes);
+    expect(m.cachedFeatures).toBeNull();
+    // Every dropdown reflects the reset — the reported bug was the panel
+    // still showing the cleared layer and field.
+    expect(ctrl.layerSelect.value).toBe("");
+    expect(ctrl.aggSelect.value).toBe(CONST.AGG.COUNT);
+    expect(ctrl.methodSelect.value).toBe(conf.method);
+    expect(ctrl.classSelect.value).toBe(String(conf.n_classes));
+    expect(ctrl.schemeSelectHidden.value).toBe(conf.color_scheme);
+    expect(ctrl.extraBody.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
+    // The record is dropped so a reload does not resurrect the cleared layer,
+    // the same teardown as MeasureControl's LAYER_DELETED -> clearAll.
+    expect(clearSaved).toHaveBeenCalledTimes(1);
+    // resetPanel owns the single canvas wipe — the event handler must not add
+    // another one on top of it.
+    expect(clearSpy).toHaveBeenCalledTimes(1);
+    // Only the contents reset — the panel stays open for the next pick.
+    expect(ctrl.ctrl.classList.contains(CONST.CLASSES.COLLAPSED)).toBe(false);
+  });
+
+  it("resets state and drops the record when own layer is deleted with no panel", () => {
+    const m = makeManager();
+    m.ui = null;
+    m.selectedLayerId = "pts";
+    m.currentAgg = CONST.AGG.SUM;
+    m.currentField = "price";
+    m.currentScheme = "Greens";
+    m.numClasses = 8;
+    m.autoFieldKey = "price";
+    const clearSpy = vi.spyOn(m, "clearHeatmapCanvas");
+    const clearSaved = vi.spyOn(m, "clearSavedConfig");
+
+    ensureEvents(m.map).emit(EVENTS.LAYER_DELETED, { id: m.layerId });
+
+    expect(clearSpy).toHaveBeenCalledTimes(1);
+    expect(clearSaved).toHaveBeenCalledTimes(1);
+    expect(m.selectedLayerId).toBeNull();
+    expect(m.autoFieldKey).toBeNull();
+    expect(m.currentAgg).toBe(CONST.AGG.COUNT);
+    expect(m.currentField).toBe("");
+    expect(m.currentScheme).toBe("Reds");
+    expect(m.currentMethod).toBe("jenks");
+    expect(m.numClasses).toBe(6);
   });
 });

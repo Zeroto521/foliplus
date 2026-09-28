@@ -166,8 +166,9 @@ const authoredBorder = (
  *  omitted from the `setStyle` call so the author's declared default stays
  *  in force.
  *
- *  Called from the two commit paths and from the replay hook, so the walk
- *  is the single writer of a border style — the commits only record intent. */
+ *  Called from the two commit paths and from the applyUserState sweep, so
+ *  the walk is the single writer of a border style — the commits only record
+ *  intent. */
 const applyBorderToLayer = (ui: LayerUI, layerId: string): void => {
   const color = ui.borderColorMap[layerId];
   const weight = ui.borderWeightMap[layerId];
@@ -190,13 +191,13 @@ const applyBorderToLayer = (ui: LayerUI, layerId: string): void => {
     captureBase(node);
     node.setStyle(style);
     // Pin the leaf's stroke against folium's highlight restore via the shared
-    // pinStyleOnHighlight hook (§47.1-①). The border row previously kept its
-    // own WeakSet + pinLeaf; that fired a second `mouseout` handler on the
-    // same leaf as the fill row's pin, so a highlight-restore ran one, then
-    // the other, and the last-bound one won — border overwrote fill on the
-    // next mouseout, dropping the user's fill. One shared hook means the
-    // leaf keeps exactly one pin that reads both dimensions live.
-    pinStyleOnHighlight(node, () => {
+    // pinStyleOnHighlight hook, keyed "border" so a re-commit
+    // replaces this dimension's getter instead of stacking another closure.
+    // The fill row pins under its own key on the same leaf: one shared
+    // mouseout handler merges both dimensions into a single setStyle, so a
+    // highlight-restore can neither drop one dimension nor grow a getter
+    // list with every commit.
+    pinStyleOnHighlight(node, "border", () => {
       const c = ui.borderColorMap[layerId];
       const w = ui.borderWeightMap[layerId];
       if (c === undefined && w === undefined) return null;
@@ -267,26 +268,6 @@ const resetLayerBorder = (ui: LayerUI, layerId: string): void => {
     node.setStyle({ color: base.color, weight: base.weight });
   };
   walk(layer);
-};
-
-/** Replay the stored border intent onto the layer's own leaves. The executor
- *  never carries a border — `setStyle` is a direct Leaflet call, so nothing
- *  else writes it — which means a reload would otherwise restore the row's
- *  value in the drawer while the map keeps painting the author's stroke.
- *
- *  Called from `LayerUI.applyUserState`, so it runs on the attach sweep and
- *  on a late registration alike: a layer that registers after the sweep has
- *  taken its stored state replays itself, exactly as opacity does. `id`
- *  scopes the replay to one layer; omitted replays every stored intent.
- *
- *  Only stored values are replayed, so a layer the user never touched keeps
- *  the author's declared stroke. */
-const replayBorderState = (ui: LayerUI, id?: string): void => {
-  const ids =
-    id !== undefined
-      ? [id]
-      : Object.keys({ ...ui.borderColorMap, ...ui.borderWeightMap });
-  for (const layerId of ids) applyBorderToLayer(ui, layerId);
 };
 
 /** Resolve an authored color to the `#rrggbb` form the color input's
@@ -499,7 +480,6 @@ export {
   commitBorderColor,
   commitBorderWeight,
   layerCanBorder,
-  replayBorderState,
   resetLayerBorder,
 };
 
