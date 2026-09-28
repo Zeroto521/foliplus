@@ -2593,7 +2593,9 @@ describe("LayerManager", () => {
         ),
       ).toBeNull();
       expect(
-        manager.uiContainer.querySelector(`[data-layer-id="${CONST.SOLID_BASEMAP_ID}"]`),
+        manager.uiContainer.querySelector(
+          `[data-layer-id="${CONST.SOLID_BASEMAP_ID}"]`,
+        ),
       ).not.toBeNull();
     });
   });

@@ -103,7 +103,10 @@ const hasLiveValue = (ui: LayerUI, id: string, override: LayerOverride): boolean
 const buildLayerStates = (ui: LayerUI): Record<string, PersistedLayerState> => {
   const states: Record<string, PersistedLayerState> = {};
   const annotations = Object.fromEntries(ui.m.annotation.configEntries());
-  const ids = new Set([...Object.keys(ui.intentProvenance), ...Object.keys(annotations)]);
+  const ids = new Set([
+    ...Object.keys(ui.intentProvenance),
+    ...Object.keys(annotations),
+  ]);
   for (const id of ids) {
     const declared = (ui.intentProvenance[id] ?? []).filter(override =>
       hasLiveValue(ui, id, override),

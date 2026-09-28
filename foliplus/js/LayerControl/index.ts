@@ -3,7 +3,11 @@ import { BaseControl } from "#foliplus/BaseControl.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { createPanelControl } from "#common/panel.js";
 import * as SVGs from "./icon.js";
-import { LayerManager, installBringToFrontPatch, uninstallBringToFrontPatch } from "./manager.js";
+import {
+  LayerManager,
+  installBringToFrontPatch,
+  uninstallBringToFrontPatch,
+} from "./manager.js";
 import { LayerUI } from "./ui/index.js";
 
 createControlEnv(CONF, SVGs.LAYERS);

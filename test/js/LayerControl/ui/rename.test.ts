@@ -442,7 +442,9 @@ describe("LayerUI rename", () => {
       expect(ui.renamedNames[CONST.SOLID_BASEMAP_ID]).toBe("My Base");
       // The colour basemap is now in the registry (for the executor) — rename
       // still persists to renamedNames, not the registry entry's name field.
-      expect(manager.layerRegistry.get(CONST.SOLID_BASEMAP_ID)?.name).not.toBe("My Base");
+      expect(manager.layerRegistry.get(CONST.SOLID_BASEMAP_ID)?.name).not.toBe(
+        "My Base",
+      );
     });
 
     it("applying a persisted rename restores the color-layer label text", () => {
