@@ -750,6 +750,10 @@ describe("highlight restore", () => {
 
     commitFillColor(ui, "vec1", "#123456");
     commitBorderWeight(ui, "vec1", 9);
+
+    // One slot per dimension on the shared leaf — fill and border never
+    // share a slot, and neither one doubles up.
+    expect(pinnedGetterCount(leaf)).toBe(2);
     leaf.setStyle.mockClear();
 
     leaf.fireMouseout();
