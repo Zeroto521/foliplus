@@ -789,12 +789,12 @@ describe("replayBorderState", () => {
     ui.borderColorMap.vec1 = "#0000ff";
     ui.borderWeightMap.vec1 = 6;
 
-    replayBorderState(ui);
+    replayBorderState(ui, "vec1");
 
     expect(leaf.setStyle).toHaveBeenCalledWith({ color: "#0000ff", weight: 6 });
   });
 
-  it("scopes a single id when one is given", () => {
+  it("replays only the named layer, never a stored-but-unnamed one", () => {
     const a = makeLeaf();
     const b = makeLeaf();
     manager.registerLayer({ id: "vecA", name: "A", layer: a });
@@ -812,9 +812,27 @@ describe("replayBorderState", () => {
     const leaf = makeLeaf();
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
 
-    replayBorderState(ui);
+    replayBorderState(ui, "vec1");
 
     expect(leaf.setStyle).not.toHaveBeenCalled();
+  });
+
+  it("sweeps only userOverrides keys, so a stored value with no record is not replayed", () => {
+    const recorded = makeLeaf();
+    const orphan = makeLeaf();
+    manager.registerLayer({ id: "vec1", name: "V", layer: recorded });
+    manager.registerLayer({ id: "vec2", name: "W", layer: orphan });
+    ui.borderColorMap.vec1 = "#0000ff";
+    ui.borderColorMap.vec2 = "#00ff00";
+    ui.userOverrides.vec1 = ["borderColor"];
+    // vec2 holds a stored value that never went through markOverride — the
+    // drift the single enumeration source exists to ignore. Enumerating the
+    // maps instead of userOverrides would replay it while fill stayed put.
+
+    ui.applyUserState();
+
+    expect(recorded.setStyle).toHaveBeenCalledWith({ color: "#0000ff" });
+    expect(orphan.setStyle).not.toHaveBeenCalled();
   });
 });
 

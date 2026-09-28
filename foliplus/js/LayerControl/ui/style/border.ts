@@ -276,17 +276,16 @@ const resetLayerBorder = (ui: LayerUI, layerId: string): void => {
  *
  *  Called from `LayerUI.applyUserState`, so it runs on the attach sweep and
  *  on a late registration alike: a layer that registers after the sweep has
- *  taken its stored state replays itself, exactly as opacity does. `id`
- *  scopes the replay to one layer; omitted replays every stored intent.
+ *  taken its stored state replays itself, exactly as opacity does. `id` is
+ *  required: the sweep enumerates `userOverrides` (the single source fill's
+ *  replay walks too), so this function never picks its own target set — a
+ *  map-union fallback here would diverge from fill the moment the two
+ *  sources drift.
  *
  *  Only stored values are replayed, so a layer the user never touched keeps
  *  the author's declared stroke. */
-const replayBorderState = (ui: LayerUI, id?: string): void => {
-  const ids =
-    id !== undefined
-      ? [id]
-      : Object.keys({ ...ui.borderColorMap, ...ui.borderWeightMap });
-  for (const layerId of ids) applyBorderToLayer(ui, layerId);
+const replayBorderState = (ui: LayerUI, id: string): void => {
+  applyBorderToLayer(ui, id);
 };
 
 /** Resolve an authored color to the `#rrggbb` form the color input's
