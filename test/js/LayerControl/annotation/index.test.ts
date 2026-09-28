@@ -514,6 +514,25 @@ describe("AnnotationManager — render & plan", () => {
     expect(painted(0)).toHaveLength(0);
   });
 
+  it("mounts nothing when the map has no pane for the layer", () => {
+    // Capability "none" means the surface never declared a label pane —
+    // the mount must no-op honestly (no canvas, no throw) instead of
+    // inventing a carrier the executor will never write to.
+    const { map } = makeMap();
+    (map as unknown as { getPane: (n: string) => HTMLElement | null }).getPane = () =>
+      null;
+    const mgr = new AnnotationManager({
+      map,
+      layerFind: () => oneLabel(),
+    });
+    mgr.setConfig("a", CONFIG);
+    const before = mocks.instances.length;
+
+    mgr.renderLabels("a");
+
+    expect(mocks.instances.length).toBe(before);
+  });
+
   it("destroy tears down the map wiring and the canvases", () => {
     const { map, panes } = makeMap();
     const mgr = new AnnotationManager({

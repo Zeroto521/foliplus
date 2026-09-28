@@ -144,6 +144,22 @@ describe("LayerSurface pane resolution", () => {
     expect(window.L.svg).toHaveBeenCalledTimes(1);
   });
 
+  it("skips a declared spec the tree already routes into", () => {
+    // `addMissingSpecs` fills the gap the non-declared branches leave (they
+    // only walk discovered or synthesized panes) — but a spec whose name is
+    // ALREADY booked by discovery must not be double-added: the handle the
+    // tree routed into is the one that stands.
+    const { host } = makeMap();
+    const annName = "foliplus-annotation-a";
+    const surface = new LayerSurface(host, {
+      id: "a",
+      layer: { options: { pane: annName } } as unknown as L.Layer,
+      paneSpecs: [{ role: "annotation", order: 1, name: annName }],
+    });
+
+    expect(surface.paneNames.filter(name => name === annName)).toHaveLength(1);
+  });
+
   it("gives a canvas pane no renderer", () => {
     const { map, host } = makeMap();
     const surface = new LayerSurface(host, {

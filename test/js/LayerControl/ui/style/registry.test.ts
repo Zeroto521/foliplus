@@ -15,6 +15,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerManager } from "#foliplus/LayerControl/manager.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
+import { ANNOTATION_DIMENSION } from "#foliplus/LayerControl/ui/style/annotation.js";
 import { BORDER_DIMENSION } from "#foliplus/LayerControl/ui/style/border.js";
 import { FILL_DIMENSION } from "#foliplus/LayerControl/ui/style/fill.js";
 import { OPACITY_DIMENSION } from "#foliplus/LayerControl/ui/style/opacity.js";
@@ -43,6 +44,20 @@ registerDimension(testDim);
 describe("LayerControl style-panel dimension registry", () => {
   it("getDimension returns the built-in opacity descriptor", () => {
     expect(getDimension("opacity")).toBe(OPACITY_DIMENSION);
+  });
+
+  it("getDimension returns the annotation descriptor", () => {
+    // The Label section's dimension: registered like every other built-in,
+    // its `gate` IS `layerCanLabel` (what the ⋮ menu imports), and its
+    // `value` hands back the resolved per-layer config.
+    expect(getDimension("annotation")).toBe(ANNOTATION_DIMENSION);
+    expect(ANNOTATION_DIMENSION.key).toBe("annotation");
+    expect(
+      ANNOTATION_DIMENSION.value(
+        { m: { annotation: { getConfig: () => ({ show: true }) } } } as never,
+        "x",
+      ),
+    ).toEqual({ show: true });
   });
 
   it("getDimension returns undefined for an unregistered key", () => {

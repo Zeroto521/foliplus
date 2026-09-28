@@ -27,14 +27,18 @@ import * as SVGs from "../../icon.js";
 import { authorZoomBoundsForLayer } from "../apply.js";
 import type { LayerUI } from "../index.js";
 import { finishRename } from "../rename.js";
-import { layerCanLabel } from "./annotation.js";
 import { bindBorderRow, resetLayerBorder } from "./border.js";
 import { layerHasStyleDelegation, renderDelegatedStylePanel } from "./delegated.js";
 import { bindFillRow, replayFillState, resetLayerFill } from "./fill.js";
 import { appendResetFooter, railPos, sectionHeading } from "./frame.js";
 import { applyPatch, layerFields, syncFormatRow } from "./label.js";
 import { clampPct, commitOpacityPct, resetLayerOpacity } from "./opacity.js";
-import { DIM_ORDER, LABEL_DIM_ORDER, getDimension } from "./registry.js";
+import {
+  DIM_ORDER,
+  LABEL_DIM_ORDER,
+  type LayerDimension,
+  getDimension,
+} from "./registry.js";
 import {
   applyZoomRangeLive,
   clampZoom,
@@ -53,14 +57,29 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
     return renderDelegatedStylePanel(ui, layerId);
   }
   // Both sections are discovered through the dimension registry: the Layer
-  // section by `DIM_ORDER`, the Label section by `LABEL_DIM_ORDER`. A plain
-  // vector shape has no labelable fields (capability "none") but still owns
-  // the Layer section; a fielded layer owns the Label section even when no
-  // Layer dimension applies. The ⋮ menu enables Style on the same two
-  // signals, so the panel honours them rather than demanding both.
-  const hasLabelSection = layerCanLabel(ui, layerId);
-  const hasLayerDim = DIM_ORDER.some(key => getDimension(key)?.gate(ui, layerId));
-  if (!hasLabelSection && !hasLayerDim) return null;
+  // section by `DIM_ORDER`, the Label section by `LABEL_DIM_ORDER` — one
+  // gate pass per dimension, and the same rows that render also decide the
+  // panel exists at all. A plain vector shape has no labelable content
+  // (capability "none") but still owns the Layer section; a fielded layer
+  // owns the Label section even when no Layer dimension applies. The ⋮ menu
+  // enables Style on the same two signals — `layerCanLabel` IS the
+  // annotation dimension's gate — so the panel honours them rather than
+  // demanding both.
+  const gatedRows = (keys: readonly string[]): LayerDimension[] => {
+    const rows: LayerDimension[] = [];
+    for (const key of keys) {
+      // Every key in a section order is registered — `registry.test` locks
+      // the union of both orders against the built-ins — so the lookup
+      // cannot miss; the cast states that contract instead of branching on
+      // a null arm no test can reach.
+      const dim = getDimension(key) as LayerDimension;
+      if (dim.gate(ui, layerId)) rows.push(dim);
+    }
+    return rows;
+  };
+  const layerRows = gatedRows(DIM_ORDER);
+  const labelRows = gatedRows(LABEL_DIM_ORDER);
+  if (layerRows.length === 0 && labelRows.length === 0) return null;
 
   // Shell (surface, header, content scroll) comes from the shared row-panel
   // factory — the attributes panel's twin, built by the same code, so the
@@ -73,36 +92,24 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
     iconClass: "foliplus-layer-style-icon foliplus-header-icon",
   });
   // The Layer section renders only when the layer owns a capable dimension;
-  // a layer without any of them reaches the panel for the Label section alone.
-  // Layer comes first: it is the primary surface (what the user drew), and the
-  // Label section is a decoration of it. High-frequency operations lead.
-  // Rows are discovered through the style-panel dimension registry, and
-  // iteration follows `DIM_ORDER` — the authoritative display order
-  // (fill → border → opacity → zoomRange, per #458). Registration order
-  // is *not* display order: it tracks the ES module import graph, which
-  // varies across load graphs (opacity was registered at #505 top-level,
-  // before `fill` and `border` in most of them), so the panel asserts its
-  // order explicitly rather than inferring it from the registry. See the
-  // `DIM_ORDER` comment in `./registry.js`.
-  if (hasLayerDim) {
+  // a layer without any of them reaches the panel for the Label section
+  // alone. Layer comes first: it is the primary surface (what the user
+  // drew), and the Label section is a decoration of it. High-frequency
+  // operations lead. Row order inside each section is its declared order
+  // array, never the registry's insertion order — registration order
+  // tracks the ES module import graph (see the `DIM_ORDER` /
+  // `LABEL_DIM_ORDER` comments in `./registry.js`).
+  if (layerRows.length > 0) {
     content.append(sectionHeading(ui.T("section_layer")));
-    for (const key of DIM_ORDER) {
-      const dim = getDimension(key);
-      if (dim?.gate(ui, layerId)) content.append(dim.row(ui, layerId));
-    }
+    for (const dim of layerRows) content.append(dim.row(ui, layerId));
   }
-  // The Label section renders through the registry exactly like the Layer
-  // section above: heading, then each dimension in `LABEL_DIM_ORDER` whose
-  // gate passes. The gate is a pure capability bit (layer exists +
+  // The Label section's gate is a pure capability bit (layer exists +
   // `capabilities.annotation !== "none"`) — the labelable-fields probe that
   // keeps the row honest lives at the surface declaration edge, so the panel
   // never re-asks it here.
-  if (LABEL_DIM_ORDER.some(key => getDimension(key)?.gate(ui, layerId))) {
+  if (labelRows.length > 0) {
     content.append(sectionHeading(ui.T("section_label")));
-    for (const key of LABEL_DIM_ORDER) {
-      const dim = getDimension(key);
-      if (dim?.gate(ui, layerId)) content.append(dim.row(ui, layerId));
-    }
+    for (const dim of labelRows) content.append(dim.row(ui, layerId));
   }
   appendResetFooter(ui, content);
   return panel;

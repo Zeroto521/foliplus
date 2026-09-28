@@ -248,6 +248,33 @@ describe("LayerManager", () => {
     );
   });
 
+  it("keeps a foreign annotation spec as declared instead of re-probing over it", () => {
+    // `withAnnotationSpec` appends the probe's spec only when nobody has
+    // declared one: a caller that owns its own `role: "annotation"` pane
+    // keeps that name — the probe must not stack a second label pane next
+    // to it, and the capability reads whichever spec came in.
+    manager.map.hasLayer.mockReturnValue(true);
+    manager.registerLayer({
+      id: "foreignAnn",
+      name: "ForeignAnn",
+      isBase: false,
+      // Labelable, so the probe alone WOULD append its own spec.
+      layer: {
+        options: {},
+        feature: { properties: { name: "x" } },
+      } as unknown as L.Layer,
+      paneSpecs: [{ role: "annotation", order: 1, name: "custom-annotation-pane" }],
+    });
+
+    const li = manager.layerRegistry.get("foreignAnn")!;
+    const names = manager.surfaceFor(li).paneNames;
+    expect(names).toContain("custom-annotation-pane");
+    expect(names.some(name => name.startsWith(CONST.ANNOTATION_PANE_PREFIX))).toBe(
+      false,
+    );
+    expect(manager.surfaceFor(li).capabilities.annotation).toBe("pane");
+  });
+
   it("skips the label-pane slot when the layer has no annotation pane", () => {
     manager.map.hasLayer.mockReturnValue(true);
     const realGetPane = map.getPane;
