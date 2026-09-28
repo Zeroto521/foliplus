@@ -34,7 +34,7 @@ describe("CircleMode — click stops propagation to data layers", () => {
   it("calls L.DomEvent.stopPropagation when placing center", () => {
     const manager = makeManagerMock();
     const mode = new CircleMode(manager);
-    manager.currentMode = CONST.MODE.CIRCLE;
+    manager.currentMode = CONST.MEASURE_MODE.CIRCLE;
     mode.start();
 
     const clickHandler = manager.map.on.mock.calls.find(
@@ -137,7 +137,7 @@ describe("CircleMode — start drawing flow", () => {
     vi.useFakeTimers();
     try {
       const manager = makeManagerMock() as any;
-      manager.currentMode = CONST.MODE.CIRCLE;
+      manager.currentMode = CONST.MEASURE_MODE.CIRCLE;
       const mode = new CircleMode(manager);
       mode.start();
 
@@ -238,7 +238,7 @@ describe("CircleMode — drag persistence (onEnd)", () => {
     vi.useFakeTimers();
     try {
       const manager = makeManagerMock() as any;
-      manager.currentMode = CONST.MODE.CIRCLE;
+      manager.currentMode = CONST.MEASURE_MODE.CIRCLE;
       const mode = new CircleMode(manager);
       mode.start();
 

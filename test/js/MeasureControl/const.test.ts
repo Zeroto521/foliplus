@@ -63,13 +63,13 @@ describe("CLASSES", () => {
   });
 });
 
-describe("MODE", () => {
+describe("MEASURE_MODE", () => {
   it("defines mode names", () => {
-    expect(CONST.MODE.DISTANCE).toBe("distance");
-    expect(CONST.MODE.POLYGON).toBe("polygon");
-    expect(CONST.MODE.CIRCLE).toBe("circle");
-    expect(CONST.MODE.MARKER).toBe("marker");
-    expect(CONST.MODE.CLEAR).toBe("clear");
+    expect(CONST.MEASURE_MODE.DISTANCE).toBe("distance");
+    expect(CONST.MEASURE_MODE.POLYGON).toBe("polygon");
+    expect(CONST.MEASURE_MODE.CIRCLE).toBe("circle");
+    expect(CONST.MEASURE_MODE.MARKER).toBe("marker");
+    expect(CONST.MEASURE_MODE.CLEAR).toBe("clear");
   });
 });
 

@@ -176,10 +176,10 @@ class MeasureManager {
           counts[m.type] = (counts[m.type] ?? 0) + 1;
         }
         return {
-          [T("tool_marker")]: counts[CONST.MODE.MARKER] ?? 0,
-          [T("tool_distance")]: counts[CONST.MODE.DISTANCE] ?? 0,
-          [T("tool_polygon")]: counts[CONST.MODE.POLYGON] ?? 0,
-          [T("tool_circle")]: counts[CONST.MODE.CIRCLE] ?? 0,
+          [T("tool_marker")]: counts[CONST.MEASURE_MODE.MARKER] ?? 0,
+          [T("tool_distance")]: counts[CONST.MEASURE_MODE.DISTANCE] ?? 0,
+          [T("tool_polygon")]: counts[CONST.MEASURE_MODE.POLYGON] ?? 0,
+          [T("tool_circle")]: counts[CONST.MEASURE_MODE.CIRCLE] ?? 0,
         };
       },
     });
@@ -293,11 +293,11 @@ class MeasureManager {
 
   /** Activate a measurement mode, or toggle the edit / clear modes. */
   setMode(mode: string | null) {
-    if (mode === CONST.MODE.CLEAR) {
+    if (mode === CONST.MEASURE_MODE.CLEAR) {
       this.clearAll();
       return;
     }
-    if (mode === CONST.MODE.EDIT) {
+    if (mode === CONST.MEASURE_MODE.EDIT) {
       if (this.isEditMode) {
         this.setEditMode(false);
         return;
@@ -365,10 +365,10 @@ class MeasureManager {
     this.measureEscapeCleanup = registerActiveEscape(this);
 
     const hintKey = {
-      [CONST.MODE.MARKER]: T("hint_marker"),
-      [CONST.MODE.DISTANCE]: T("hint_dist_start"),
-      [CONST.MODE.POLYGON]: T("hint_polygon"),
-      [CONST.MODE.CIRCLE]: T("hint_circle_start"),
+      [CONST.MEASURE_MODE.MARKER]: T("hint_marker"),
+      [CONST.MEASURE_MODE.DISTANCE]: T("hint_dist_start"),
+      [CONST.MEASURE_MODE.POLYGON]: T("hint_polygon"),
+      [CONST.MEASURE_MODE.CIRCLE]: T("hint_circle_start"),
     }[mode];
 
     if (hintKey) {
@@ -619,12 +619,12 @@ class MeasureManager {
     // suspended while the measure panes stay interactive.
     this.modes.setMode(
       CONF.name,
-      on ? CONST.MODE.EDIT : null,
+      on ? CONST.MEASURE_MODE.EDIT : null,
       on ? skipMeasureLayers : undefined,
     );
     this.map.getContainer().classList.toggle(CONST.CLASSES.EDITING, on);
     this.toolBtns.forEach(btn => {
-      if (btn.dataset.mode === CONST.MODE.EDIT) {
+      if (btn.dataset.mode === CONST.MEASURE_MODE.EDIT) {
         btn.classList.toggle(CONST.CLASSES.ACTIVE, on);
       }
     });

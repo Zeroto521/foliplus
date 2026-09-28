@@ -183,9 +183,9 @@ const showCropBox = (mgr: ExportManager) => {
     class: `foliplus-export-overlay foliplus-is-active`,
     parent: mgr.mapContainer,
   });
-  mgr.mapContainer.classList.add(CONST.CLASSES.MODE);
-  document.body.classList.add(CONST.CLASSES.MODE);
-  const cropBox = dom.el("div", { class: CONST.CLASSES.BOX, parent: mgr.mapContainer });
+  mgr.mapContainer.classList.add(CONST.CLASSES.EXPORT_MODE);
+  document.body.classList.add(CONST.CLASSES.EXPORT_MODE);
+  const cropBox = dom.el("div", { class: CONST.CLASSES.EXPORT_BOX, parent: mgr.mapContainer });
 
   ["tl", "tr", "bl", "br", "t", "b", "l", "r"].forEach(pos => {
     dom.el("div", {
@@ -194,7 +194,7 @@ const showCropBox = (mgr: ExportManager) => {
       "data-pos": pos,
     });
   });
-  dom.el("div", { class: CONST.CLASSES.CENTER, parent: cropBox });
+  dom.el("div", { class: CONST.CLASSES.EXPORT_CROP_CENTER, parent: cropBox });
 
   renderToolbarActions(mgr, {
     confirm: {
@@ -296,8 +296,8 @@ const unlockCropBox = (mgr: ExportManager) => {
 const removeCropBox = (mgr: ExportManager) => {
   if (!mgr.cropState) return;
   mgr.lastScreenRect = Object.assign({}, mgr.cropState.rect);
-  mgr.mapContainer.classList.remove(CONST.CLASSES.MODE);
-  document.body.classList.remove(CONST.CLASSES.MODE);
+  mgr.mapContainer.classList.remove(CONST.CLASSES.EXPORT_MODE);
+  document.body.classList.remove(CONST.CLASSES.EXPORT_MODE);
   mgr.unregisterShortcuts();
   mgr.dragCleanup?.();
   mgr.dragState.dragging = false;
