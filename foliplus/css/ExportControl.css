@@ -24,7 +24,7 @@
   --foliplus-export-controls-z: calc(var(--foliplus-z-export-base) + 10);
   --foliplus-export-scale-z: 850;
   /* Fold control z-index */
-  --foliplus-export-ctrl-z: calc(var(--foliplus-z-export-base) + 200);
+  --foliplus-export-fold-z: calc(var(--foliplus-z-export-base) + 200);
   /* Handle/center anchor size */
   --foliplus-export-anchor-size: var(--foliplus-size-12);
   /* Handle/center offset from box edge (half of 1px border) */
@@ -65,7 +65,7 @@
 
 /* Export ctrl container (above overlay, below hints at 10000+) */
 .foliplus-export-ctrl {
-  z-index: var(--foliplus-export-ctrl-z);
+  z-index: var(--foliplus-export-fold-z);
 
   /* Confirm/download buttons: red accent to distinguish from cancel */
   .foliplus-tool-btn.foliplus-confirm {
