@@ -2,8 +2,7 @@
   // Replaces the first data layer's name, commits it via blur, then reports
   // the committed label plus the checkbox's title and aria-label. Returns
   // null until the row settles. Pair with rename_first_layer.js.
-  const row = () =>
-    document.querySelector(".foliplus-layer-item:not(.foliplus-color-layer-item)");
+  const row = () => document.querySelector(".foliplus-layer-item");
   const input = row()?.querySelector(".foliplus-layer-rename-input");
   if (!input) return null;
   input.value = "RenamedLayer";
