@@ -220,10 +220,8 @@ class TestLayerControlRendering:
         folium.FeatureGroup(name="Points", overlay=True, show=True).add_to(m)
         html = render(m)
 
-        # Base maps have the attribute; overlay items should be checked separately
-        # Prettier wraps the attribute key onto its own line, so assert the
-        # ternary that derives the value rather than the full statement.
-        assert 'layerInfo.group === "base" ? GROUP.BASE : GROUP.OVERLAY' in html
+        # The row's data-layer-type is the layer's group field, verbatim.
+        assert '"data-layer-type": layerInfo.group' in html
 
     def test_drag_handle_present(self):
         """Drag handle SVG present for all layer items."""

@@ -275,7 +275,7 @@ const onLayerItemCountChange = (ui: LayerUI, id: string): void => {
   ) as HTMLElement | null;
   if (!item) return;
   const layerInfo = ui.m.layerRegistry.get(id);
-  if (!layerInfo || layerInfo.group === "base") return;
+  if (!layerInfo || layerInfo.group === CONST.GROUP.BASE) return;
   invalidateFields(ui, id);
 
   applyRowView(ui, item, buildRowCell(ui, layerInfo));

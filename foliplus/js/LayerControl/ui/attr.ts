@@ -66,8 +66,8 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
   // a geometry type it never had; a custom layer ships its own logo instead
   // of a geometry glyph —same rowView decision tree, same labels.
   const isBaseLayer = layerInfo
-    ? layerInfo.group === "base"
-    : item.dataset.layerType === "base";
+    ? layerInfo.group === CONST.GROUP.BASE
+    : item.dataset.layerType === CONST.GROUP.BASE;
   const typeKey = isColor
     ? "type_color_map"
     : isBaseLayer
