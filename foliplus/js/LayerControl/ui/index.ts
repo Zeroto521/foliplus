@@ -46,7 +46,6 @@ import {
   applyUserState,
   dropPersistedLayerState,
   loadPersistedState,
-  replayLayerState,
   saveFoldState,
   saveNamesState,
   saveState,
@@ -359,9 +358,6 @@ class LayerUI {
       applyBorderToLayer(this, layerId);
       replayFillState(this, layerId);
     }
-  }
-  replayLayerState(layerId: string) {
-    return replayLayerState(this, layerId);
   }
   dropPersistedLayerState(layerId: string) {
     return dropPersistedLayerState(this, layerId);

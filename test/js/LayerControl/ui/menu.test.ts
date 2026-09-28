@@ -851,9 +851,10 @@ describe("LayerUI menu", () => {
       ui.closeMoreMenu();
     });
 
-    it("disables the style entry when the layer has no label fields and no style delegation", () => {
+    it("disables the style entry when the layer has no labelable content and no style delegation", () => {
       // A layer whose surface reports opacity/zoomRange as "none" (MarkerCluster)
-      // and has no label fields or style delegation — canConfigure is false.
+      // and whose label probe found nothing (capability "none") — no style
+      // delegation either — canConfigure is false.
       const li = manager.layerRegistry.get("overlay1");
       li!.styleSetters = undefined;
       // Force the surface to report "none" capabilities
@@ -861,6 +862,7 @@ describe("LayerUI menu", () => {
       (surface as unknown as { capabilities: Record<string, string> }).capabilities = {
         opacity: "none",
         zoomRange: "none",
+        annotation: "none",
         relocatable: false,
       };
 

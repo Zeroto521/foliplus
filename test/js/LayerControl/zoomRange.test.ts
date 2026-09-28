@@ -23,7 +23,6 @@ const mockUI: LayerUI = {
       paneNames: new Set(["overlayPane"]),
     }),
     findLayer: () => undefined,
-    annotation: { paneNameFor: () => null },
     events: { on: () => () => {}, emit: () => {} },
     persistence: {
       load: () => ({}) as any,

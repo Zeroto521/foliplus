@@ -16,8 +16,12 @@ const loadPersistedState = (ui: LayerUI) => {
   ui.foldedGroups = new Set(state.foldedGroups);
   ui.renamedNames = state.renamedNames;
   // Style (label) configs are stored on the UI shell and applied by
-  // ui/style.ts once the layers resolve (deferred init passes).
-  ui.labelConfigs = state.annotations;
+  // ui/style.ts once the layers resolve (deferred init passes). Read order
+  // is the compat contract: the current `layers[id].annotation` key WINS,
+  // the legacy top-level `annotations` segment is the fallback underneath
+  // (write-new / read-old — a v2 record reads exactly as it always did,
+  // and neither side is migrated into the other).
+  ui.labelConfigs = { ...state.annotations };
   // Per-layer intent: the value lives in hiddenIds / opacityMap, `overrides`
   // records that the user set it. A layer with no entry keeps the author's
   // declared default -- there is no map-level "did the user choose at all" flag,
@@ -31,6 +35,9 @@ const loadPersistedState = (ui: LayerUI) => {
   ui.zoomRangeMap = {};
   ui.userOverrides = {};
   for (const [id, entry] of Object.entries(state.layers)) {
+    // New-key label config overrides the legacy-segment fallback spread
+    // above — same id, current segment wins.
+    if (entry.annotation) ui.labelConfigs[id] = entry.annotation;
     ui.userOverrides[id] = [...entry.overrides];
     if (entry.overrides.includes("visible") && entry.visible === false) {
       ui.hiddenIds.add(id);
@@ -86,12 +93,23 @@ const hasLiveValue = (ui: LayerUI, id: string, override: LayerOverride): boolean
 
 /** Build the record's `layers` section from the live state: one entry per
  *  layer the user has actually touched, so an untouched layer keeps the
- *  author's declared default across a reload. */
+ *  author's declared default across a reload.
+ *
+ *  The label (annotation) config is the one rider that does not follow the
+ *  touch rule: it is a style configuration with no override provenance, so
+ *  every id the annotation manager holds a config for joins the walk — a
+ *  layer configured *only* for labels still gets an entry (with an empty
+ *  `overrides` array, which `parseLayerState` keeps for exactly this). */
 const buildLayerStates = (ui: LayerUI): Record<string, PersistedLayerState> => {
   const states: Record<string, PersistedLayerState> = {};
-  for (const [id, overrides] of Object.entries(ui.userOverrides)) {
-    const declared = overrides.filter(override => hasLiveValue(ui, id, override));
-    if (declared.length === 0) continue;
+  const annotations = Object.fromEntries(ui.m.annotation.configEntries());
+  const ids = new Set([...Object.keys(ui.userOverrides), ...Object.keys(annotations)]);
+  for (const id of ids) {
+    const declared = (ui.userOverrides[id] ?? []).filter(override =>
+      hasLiveValue(ui, id, override),
+    );
+    const annotation = annotations[id];
+    if (declared.length === 0 && !annotation) continue;
     const state: PersistedLayerState = { overrides: declared };
     if (declared.includes("visible")) state.visible = !ui.hiddenIds.has(id);
     const fillColor = ui.fillColorMap[id];
@@ -116,13 +134,14 @@ const buildLayerStates = (ui: LayerUI): Record<string, PersistedLayerState> => {
       state.opacity = opacity;
     }
     if (declared.includes("zoomRange")) state.zoomRange = ui.zoomRangeMap[id];
+    if (annotation) state.annotation = annotation;
     states[id] = state;
   }
   return states;
 };
 
-/** Save the per-layer intent --visibility, opacity and zoom range--
- *  coalescing rapid calls. */
+/** Save the per-layer intent -- visibility, opacity, zoom range and the
+ *  label config -- coalescing rapid calls. */
 const saveState = (ui: LayerUI) => {
   ui.m.persistence.schedule({ layers: () => buildLayerStates(ui) });
 };
@@ -288,36 +307,6 @@ const dropPersistedLayerState = (ui: LayerUI, id: string) => {
   delete ui.userOverrides[id];
 };
 
-/**
- * Replay one layer's stored intent at the moment a carrier for it appears.
- *
- * An annotation pane is created lazily — when labels first turn on, which can
- * be long after the slider was last moved — and nothing writes to a pane that
- * does not exist yet, so the pane's appearance is its own replay point.
- *
- * Going through the diff executor rather than setting the style directly is
- * what keeps this honest: the executor resolves whichever write target is
- * right for this layer (a canvas-only layer keeps writing `canvas.style`
- * instead of picking up a second, multiplying write on a pane), and its
- * carrier identity already treats "the carrier set grew" as a change — so
- * the stored value lands on the new pane and nowhere else.
- *
- * Only stored values are replayed, so an untouched layer keeps the author's
- * declared default: the projection reads the per-dimension maps, which hold
- * nothing for a layer the user never touched.
- */
-const replayLayerState = (ui: LayerUI, id: string) => {
-  const layerInfo = ui.m.layerRegistry.get(id);
-  if (!layerInfo) return; // not registered yet
-  // Only a dimension the user actually set is replayed here. A bare stored
-  // value is what `unmarkOverride` (Reset) leaves behind, and a marker with
-  // no value is not a value to send — so neither is a replay. An untouched
-  // layer keeps the author's declared default.
-  const flagged = (ui.userOverrides?.[id] ?? []).includes("opacity");
-  if (!flagged || typeof ui.opacityMap?.[id] !== "number") return;
-  applyProjection(ui, id);
-};
-
 /** Save user-assigned names, coalescing rapid calls. */
 
 const saveNamesState = (ui: LayerUI) => {
@@ -372,7 +361,6 @@ export {
   unmarkOverride,
   applyUserState,
   dropPersistedLayerState,
-  replayLayerState,
   saveNamesState,
   syncHiddenId,
 };

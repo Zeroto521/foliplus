@@ -1,5 +1,5 @@
 // Per-layer dimension registry — the discovery surface for the style panel.
-// §43.9: opacity / zoomRange / border / fill / … are all per-layer dimensions
+// opacity / zoomRange / border / fill / annotation … are all per-layer dimensions
 // with the same shape (gate → row → state write), just different carriers.
 // Today each dimension has its own set of helpers; the registry is the
 // minimal slice — a descriptor shape + register + lookup — that lets the
@@ -64,7 +64,7 @@ type LayerDimension<D = unknown> = {
    *     registry (a precondition guard against a programming error).
    *  2. **Capability** — `capabilities.{dim} !== "none"`, the surface's
    *     declared capability is the single source of truth for whether this
-   *     row is honest to render (§6.2).
+   *     row is honest to render.
    *  Nothing else: no carrier probes, no `isColorBasemap` special-cases,
    *  no canvas/styleSetters exclusion (a canvas-only surface already
    *  declares `"none"` for the dimension it can't carry, so the gate
@@ -97,7 +97,7 @@ const registerDimension = <D>(d: LayerDimension<D>): LayerDimension<D> => {
 /** Fetch a dimension descriptor by key. `undefined` for unregistered keys —
  *  the panel treats that as "this dimension does not apply" rather than
  *  erroring, matching the honest-degradation rule for unknown dimensions
- *  (§43.9). */
+ *  (honest degradation for unknown dimensions). */
 const getDimension = <D = unknown>(key: string): LayerDimension<D> | undefined =>
   registry.get(key) as LayerDimension<D> | undefined;
 
@@ -114,25 +114,45 @@ const listDimensions = (): readonly LayerDimension<any>[] => [...registry.values
  *  contract (fill → border → opacity → zoomRange, per #458), so the
  *  order is declared here rather than inferred from the import graph.
  *
- *  The panel iterates this array, calls `getDimension(key)` for each key
- *  and drops any unregistered key, so an unregistered key degrades the
- *  panel to fewer rows rather than erroring. A dimension that is
- *  registered but missing from this array is unreachable from the panel —
- *  adding a dimension without adding it here is a bug that
- *  `registry.test.ts` catches (DIM_ORDER covers every registered
- *  built-in key and nothing more).
+ *  The panel iterates this array through `gatedRows`, which casts each
+ *  lookup straight to a descriptor — so a key listed here MUST be
+ *  registered. That is a different contract from degrading: the cast
+ *  states the invariant this array already implies, and
+ *  `registry.test.ts` locks it (both order arrays together cover every
+ *  registered built-in key and nothing more). A dimension that is
+ *  registered but missing from both arrays is unreachable from the panel —
+ *  adding a dimension without adding it to its section's order is the bug
+ *  that same test catches.
  */
 const DIM_ORDER = ["fill", "border", "opacity", "zoomRange"] as const;
 
+/** The Label section's authoritative display order — the second section of
+ *  the same panel, iterated exactly like `DIM_ORDER` (heading + gated rows).
+ *  Sections own their own order arrays: the panel renders a heading per
+ *  section, so one flat order cannot express "which section does this row
+ *  live in". `registry.test.ts` asserts the UNION of both arrays covers
+ *  every registered built-in key and nothing more, which is the drift this
+ *  split would otherwise open: a dimension registered but put in neither
+ *  order is unreachable from the panel. */
+const LABEL_DIM_ORDER = ["annotation"] as const;
+
 /** Whether the layer owns any registered dimension whose `gate` passes.
- *  The single "has-any" question the panel needs before deciding whether
- *  to render the Layer section at all — the annotation panel asks it to
- *  decide between an empty panel and a Layer-only panel, and the
- *  delegated drawer asks it to decide whether to render the Layer
- *  heading alongside the delegated border row. Every dimension
- *  contributes through its own `gate`; no switch table of keys. */
+ *  The single "has-any" question a caller needs before deciding whether a
+ *  section or a panel is worth rendering — the delegated drawer asks it to
+ *  decide whether to render the Layer heading alongside the delegated
+ *  border row. The annotation panel no longer asks it (it collects the
+ *  two sections' gated rows directly and checks those), but the question
+ *  is unchanged. Every dimension contributes through its own `gate`; no
+ *  switch table of keys. */
 const hasAnyDimension = (ui: LayerUI, layerId: string): boolean =>
   [...registry.values()].some(d => d.gate(ui, layerId));
 
 export type { LayerDimension };
-export { DIM_ORDER, getDimension, hasAnyDimension, listDimensions, registerDimension };
+export {
+  DIM_ORDER,
+  LABEL_DIM_ORDER,
+  getDimension,
+  hasAnyDimension,
+  listDimensions,
+  registerDimension,
+};

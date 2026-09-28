@@ -15,11 +15,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerManager } from "#foliplus/LayerControl/manager.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
+import { ANNOTATION_DIMENSION } from "#foliplus/LayerControl/ui/style/annotation.js";
 import { BORDER_DIMENSION } from "#foliplus/LayerControl/ui/style/border.js";
 import { FILL_DIMENSION } from "#foliplus/LayerControl/ui/style/fill.js";
 import { OPACITY_DIMENSION } from "#foliplus/LayerControl/ui/style/opacity.js";
 import {
   DIM_ORDER,
+  LABEL_DIM_ORDER,
   getDimension,
   listDimensions,
   registerDimension,
@@ -44,6 +46,20 @@ describe("LayerControl style-panel dimension registry", () => {
     expect(getDimension("opacity")).toBe(OPACITY_DIMENSION);
   });
 
+  it("getDimension returns the annotation descriptor", () => {
+    // The Label section's dimension: registered like every other built-in,
+    // its `gate` IS `layerCanLabel` (what the ⋮ menu imports), and its
+    // `value` hands back the resolved per-layer config.
+    expect(getDimension("annotation")).toBe(ANNOTATION_DIMENSION);
+    expect(ANNOTATION_DIMENSION.key).toBe("annotation");
+    expect(
+      ANNOTATION_DIMENSION.value(
+        { m: { annotation: { getConfig: () => ({ show: true }) } } } as never,
+        "x",
+      ),
+    ).toEqual({ show: true });
+  });
+
   it("getDimension returns undefined for an unregistered key", () => {
     // Unknown dimensions degrade honestly — the panel treats them as
     // "this layer does not support this dimension" rather than erroring.
@@ -65,15 +81,19 @@ describe("LayerControl style-panel dimension registry", () => {
     expect(keys.at(-1)).toBe(TEST_DIM_KEY);
   });
 
-  it("DIM_ORDER covers every registered built-in key and nothing more", () => {
-    // Adding a dimension to the registry without adding it to DIM_ORDER
-    // makes it unreachable from the panel. This test fails loudly on
-    // that drift: every key in DIM_ORDER must be registered, and every
-    // registered built-in must appear in DIM_ORDER. Order is irrelevant —
-    // DIM_ORDER is the display contract, listDimensions is insertion order.
+  it("DIM_ORDER + LABEL_DIM_ORDER cover every registered built-in key", () => {
+    // Adding a dimension to the registry without adding it to a section
+    // order makes it unreachable from the panel. This test fails loudly on
+    // that drift: every key in either order must be registered, and every
+    // registered built-in must appear in exactly one order (the sections
+    // own their headings, so a key in both would render twice). Order
+    // within a section is the display contract; listDimensions is insertion
+    // order.
     const registered = listDimensions().map(d => d.key);
     const builtIn = registered.filter(k => k !== TEST_DIM_KEY);
-    expect(new Set(DIM_ORDER)).toEqual(new Set(builtIn));
+    const ordered = [...DIM_ORDER, ...LABEL_DIM_ORDER];
+    expect(new Set(ordered)).toEqual(new Set(builtIn));
+    expect(ordered.length).toBe(new Set(ordered).size);
   });
 
   it("registerDimension throws on a duplicate key — the built-in opacity", () => {
@@ -155,7 +175,7 @@ describe("LayerControl style-panel dimension registry — opacity descriptor", (
   });
 
   it("gate is the pure capability check: true when capabilities.opacity !== 'none'", () => {
-    // Invariant (§43.9, first-class from day one): gate is exactly
+    // Invariant (first-class from day one): gate is exactly
     // `capabilities.{dim} !== "none"`. No carrier probes, no
     // `isColorBasemap`, no canvas/styleSetters exclusion — those belong
     // to capability derivation at the surface, not the gate.
