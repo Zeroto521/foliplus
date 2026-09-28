@@ -245,7 +245,9 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
     // pinStyleOnHighlight reapplies the user's fill after folium's handler
     // fires so the color survives the hover. `walkStyleLeaves` already
     // guarantees a setStyle, so no isStyleSetter guard is needed here.
-    pinStyleOnHighlight(node, () => {
+    // The "fill" key makes each commit replace this dimension's getter
+    // instead of stacking a fresh closure.
+    pinStyleOnHighlight(node, "fill", () => {
       const c = ui.fillColorMap[layerId];
       const o = ui.fillOpacityMap[layerId];
       if (c === undefined && o === undefined) return null;

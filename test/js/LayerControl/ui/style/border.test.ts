@@ -11,6 +11,8 @@ import {
   layerCanBorder,
   resetLayerBorder,
 } from "#foliplus/LayerControl/ui/style/border.js";
+import { commitFillColor } from "#foliplus/LayerControl/ui/style/fill.js";
+import { pinnedGetterCount } from "#foliplus/LayerControl/ui/style/pin.js";
 import { initFixture } from "../fixture.js";
 
 /** A Leaflet vector leaf: an `options` bag plus the `setStyle` writer the
@@ -736,6 +738,60 @@ describe("highlight restore", () => {
 
     // 2 = folium's own handler plus our replay, not one per commit.
     expect(leaf.mouseoutCount()).toBe(2);
+  });
+
+  it("replays fill and border together after folium's highlight restore", () => {
+    // A layer with BOTH dimensions set must come out of a hover
+    // with both user values. folium's resetStyle runs first in the dispatch
+    // order, then our single shared handler merges the fill getter and the
+    // border getter into one setStyle — neither dimension may be dropped.
+    const leaf = makeHighlightLeaf("#00ff00", 3);
+    manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
+
+    commitFillColor(ui, "vec1", "#123456");
+    commitBorderWeight(ui, "vec1", 9);
+
+    // One slot per dimension on the shared leaf — fill and border never
+    // share a slot, and neither one doubles up.
+    expect(pinnedGetterCount(leaf)).toBe(2);
+    leaf.setStyle.mockClear();
+
+    leaf.fireMouseout();
+
+    // folium's restore writes the authored stroke back, then exactly one
+    // merged replay writes both of the user's dimensions over it.
+    expect(leaf.setStyle).toHaveBeenCalledTimes(2);
+    expect(leaf.setStyle).toHaveBeenLastCalledWith({
+      fillColor: "#123456",
+      weight: 9,
+    });
+  });
+
+  it("repeated commits replace the replay getter instead of stacking", () => {
+    // Every apply pass builds a fresh closure, so identity-based dedupe can
+    // never match: an unbounded getter array is a real leak (each mouseout
+    // re-runs every stale closure) even when the merged output is correct.
+    const leaf = makeHighlightLeaf("#00ff00", 3);
+    manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
+
+    commitBorderColor(ui, "vec1", "#111111");
+    commitBorderColor(ui, "vec1", "#222222");
+    commitBorderColor(ui, "vec1", "#333333");
+    commitBorderWeight(ui, "vec1", 5);
+    commitBorderWeight(ui, "vec1", 9);
+
+    // One getter slot per dimension, however many commits passed through it.
+    expect(pinnedGetterCount(leaf)).toBe(1);
+
+    leaf.setStyle.mockClear();
+    leaf.fireMouseout();
+
+    // folium's restore + a single merged replay, not one write per getter.
+    expect(leaf.setStyle).toHaveBeenCalledTimes(2);
+    expect(leaf.setStyle).toHaveBeenLastCalledWith({
+      color: "#333333",
+      weight: 9,
+    });
   });
 
   it("leaves the author's stroke alone once the user has reset", () => {

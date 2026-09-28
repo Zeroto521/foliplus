@@ -191,13 +191,13 @@ const applyBorderToLayer = (ui: LayerUI, layerId: string): void => {
     captureBase(node);
     node.setStyle(style);
     // Pin the leaf's stroke against folium's highlight restore via the shared
-    // pinStyleOnHighlight hook. The border row previously kept its
-    // own WeakSet + pinLeaf; that fired a second `mouseout` handler on the
-    // same leaf as the fill row's pin, so a highlight-restore ran one, then
-    // the other, and the last-bound one won — border overwrote fill on the
-    // next mouseout, dropping the user's fill. One shared hook means the
-    // leaf keeps exactly one pin that reads both dimensions live.
-    pinStyleOnHighlight(node, () => {
+    // pinStyleOnHighlight hook, keyed "border" so a re-commit
+    // replaces this dimension's getter instead of stacking another closure.
+    // The fill row pins under its own key on the same leaf: one shared
+    // mouseout handler merges both dimensions into a single setStyle, so a
+    // highlight-restore can neither drop one dimension nor grow a getter
+    // list with every commit.
+    pinStyleOnHighlight(node, "border", () => {
       const c = ui.borderColorMap[layerId];
       const w = ui.borderWeightMap[layerId];
       if (c === undefined && w === undefined) return null;
