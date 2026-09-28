@@ -113,6 +113,8 @@ class LayerRegistry {
       name: existingLi ? existingLi.name : (opts.name ?? opts.id),
       id: opts.id,
       opacity: opts.opacity ?? existingLi?.opacity ?? 1,
+      onOpacity: opts.onOpacity ?? existingLi?.onOpacity ?? null,
+      opacityBake: opts.opacityBake ?? existingLi?.opacityBake ?? "redraw",
       group: opts.group ?? existingLi?.group ?? GROUP.OVERLAY,
       paneName: opts.paneName ?? existingLi?.paneName ?? null,
       paneSpecs: opts.paneSpecs ?? existingLi?.paneSpecs ?? [],
@@ -149,7 +151,6 @@ class LayerRegistry {
       // Registration time: set once on first registration, never rewritten by a
       // provider re-registration.
       registeredAt: existingLi?.registeredAt ?? Date.now(),
-      orderOrigin: opts.orderOrigin ?? existingLi?.orderOrigin ?? "user",
     };
   }
 

@@ -23,7 +23,6 @@ import { type NumberStyle } from "#common/format.js";
 import { createRowPanel } from "#common/panel.js";
 import * as CONST from "../../const.js";
 import * as SVGs from "../../icon.js";
-import type { LayerDimension } from "../../type.js";
 import { authorZoomBoundsForLayer } from "../apply.js";
 import type { LayerUI } from "../index.js";
 import { finishRename } from "../rename.js";
@@ -33,7 +32,7 @@ import { bindFillRow, replayFillState, resetLayerFill } from "./fill.js";
 import { appendResetFooter, railPos } from "./frame.js";
 import { applyPatch, layerFields, syncFormatRow } from "./label.js";
 import { clampPct, commitOpacityPct, resetLayerOpacity } from "./opacity.js";
-import { DIM_ORDER, LABEL_DIM_ORDER, getDimension } from "./registry.js";
+import { DIM_ORDER, LABEL_DIM_ORDER, gatedRows } from "./registry.js";
 import {
   applyZoomRangeLive,
   clampZoom,
@@ -60,20 +59,8 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   // enables Style on the same two signals — `layerCanLabel` IS the
   // annotation dimension's gate — so the panel honours them rather than
   // demanding both.
-  const gatedRows = (keys: readonly string[]): LayerDimension[] => {
-    const rows: LayerDimension[] = [];
-    for (const key of keys) {
-      // Every key in a section order is registered — `registry.test` locks
-      // the union of both orders against the built-ins — so the lookup
-      // cannot miss; the cast states that contract instead of branching on
-      // a null arm no test can reach.
-      const dim = getDimension(key) as LayerDimension;
-      if (dim.gate(ui, layerId)) rows.push(dim);
-    }
-    return rows;
-  };
-  const layerRows = gatedRows(DIM_ORDER);
-  const labelRows = gatedRows(LABEL_DIM_ORDER);
+  const layerRows = gatedRows(ui, layerId, DIM_ORDER);
+  const labelRows = gatedRows(ui, layerId, LABEL_DIM_ORDER);
   if (layerRows.length === 0 && labelRows.length === 0) return null;
 
   // Shell (surface, header, content scroll) comes from the shared row-panel

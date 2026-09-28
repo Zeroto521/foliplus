@@ -3,6 +3,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AnnotationCanvas } from "#foliplus/LayerControl/annotation/canvas.js";
 import type { PlacedLabel } from "#foliplus/LayerControl/annotation/layout.js";
+import { getLayerAlpha, setLayerAlpha } from "#common/canvasAlpha.js";
 
 const makeCtx = () => ({
   font: "",
@@ -155,6 +156,30 @@ describe("AnnotationCanvas", () => {
     canvas.paint([]);
 
     expect(ctx.clearRect).toHaveBeenCalled();
+    expect(ctx.fillText).not.toHaveBeenCalled();
+  });
+
+  it("setLayerAlpha bakes into paint and repaints the last plan (R11)", () => {
+    const { canvas } = makeEnv();
+    const el = elOf(canvas);
+    canvas.paint([placed("alpha")]);
+    ctx.fillText.mockClear();
+
+    canvas.setLayerAlpha(0.4);
+    expect(getLayerAlpha(el)).toBeCloseTo(0.4);
+    // Immediate repaint of the last plan — opacity commit must land now.
+    expect(ctx.fillText).toHaveBeenCalledWith(
+      "alpha",
+      expect.any(Number),
+      expect.any(Number),
+    );
+  });
+
+  it("setLayerAlpha is a no-op repaint when nothing was painted yet", () => {
+    const { canvas } = makeEnv();
+    const el = elOf(canvas);
+    canvas.setLayerAlpha(0.2);
+    expect(getLayerAlpha(el)).toBeCloseTo(0.2);
     expect(ctx.fillText).not.toHaveBeenCalled();
   });
 

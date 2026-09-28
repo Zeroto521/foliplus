@@ -627,8 +627,11 @@ const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
   // The surface paints into panes we own — declared, sub, or synthesized — so
   // one style write per pane covers every child. `opts.canvas` covers the
   // createCanvas shape, whose canvas element sits inside its own dedicated
-  // pane and is addressable through the same CSS write (first version:
-  // canvas bakes alpha later, R11).
+  // pane. Since R11 the canvas face bakes layerAlpha into its draws
+  // (`#common/canvasAlpha`); the capability still reports `"pane"` because
+  // that is the honest "we own this face" tier — the bake-vs-CSS mechanism
+  // distinction is a T222 capabilities shape (`"baked"`/`"redraw"`), not
+  // something this detector invents.
   const hasContentPanes =
     Boolean(opts.paneName) ||
     (opts.paneSpecs && opts.paneSpecs.length > 0) ||

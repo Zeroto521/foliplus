@@ -32,18 +32,9 @@ jobs:
         with:
           # Keep tags/history available for setuptools_scm versioning
           fetch-depth: 0
-      - uses: actions/setup-python@v6
+      - uses: ./.github/actions/setup-deps
         with:
           python-version: "3.x"
-      - uses: astral-sh/setup-uv@v5
-      - uses: actions/setup-node@v6
-        with:
-          node-version-file: "package.json"
-          # setup-node auto-detects npm from the packageManager pin and turns on
-          # package-manager caching, which requires a lockfile this repo ignores.
-          package-manager-cache: false
-
-      - run: npm install
 
       - name: Build dist for main TestPyPI (.postN)
         if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
