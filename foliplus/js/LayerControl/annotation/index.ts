@@ -301,14 +301,24 @@ class AnnotationManager {
     this.refresh();
   }
 
-  /** Tear down labels for a layer and forget its config (e.g. on
-   *  unregister). Deleting the entry keeps a removed layer's id from being
-   *  written back to localStorage by the next annotations save. */
-  destroyLayer(id: string): void {
+  /** Tear down a layer's rendering state — labels, canvas, auto-field
+   *  cache — but KEEP its config: an unregister is a teardown, not a
+   *  delete, and the stored label intent has to survive it. The `layers`
+   *  live source re-reads `configEntries` on every flush, so dropping the
+   *  config here would erase `layers[id].annotation` from storage on the
+   *  next save — a label-only layer would lose its section entirely. */
+  unloadLayer(id: string): void {
     this.clearLabels(id);
     this.dropCanvas(id);
-    this.config.delete(id);
     this.autoFieldCache.delete(id);
+  }
+
+  /** Forget a layer entirely — rendering state AND config. `deleteLayer`
+   *  only: a removed id must not answer `configEntries`. The record's
+   *  `removed` prune is the storage-side backstop either way. */
+  destroyLayer(id: string): void {
+    this.unloadLayer(id);
+    this.config.delete(id);
   }
 
   destroy(): void {

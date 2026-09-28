@@ -246,7 +246,7 @@ const parseRecord = (raw: unknown): PersistedRecord => {
  *  `layers[id].annotation`. The stored segment passes through (write-new /
  *  read-old, no migration), MINUS ids the write itself records as deleted:
  *  deletion is not migration, and a zombie config must not outlive its layer
- *  on disk either. `parseLayerState` prunes the same ids on read, so a
+ *  on disk either. `parseRecord` prunes the same ids on read, so a
  *  record written before this prune still loads clean. */
 const mergeFields = (record: PersistedRecord, fields: LiveState): PersistedRecord => {
   const removed = fields.removed ? fields.removed() : record.removed;

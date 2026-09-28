@@ -160,6 +160,28 @@ describe("LayerSurface pane resolution", () => {
     expect(surface.paneNames.filter(name => name === annName)).toHaveLength(1);
   });
 
+  it("resolves the declared base's role by name, not by position", () => {
+    // A spec list whose index 0 is NOT the declared pane (an appended label
+    // pane arriving first): the base must take its own spec's role — or
+    // none — while the extra spec still gets its pane booked. A position-
+    // based read would stamp `annotation` onto the base and drop the label
+    // pane entirely.
+    const { host } = makeMap();
+    const surface = new LayerSurface(host, {
+      id: "a",
+      layer: new Path() as unknown as L.Layer,
+      paneName: "graph",
+      paneSpecs: [
+        { role: "annotation", order: 3, name: "foliplus-annotation-a" },
+        { role: "sub", order: 1, name: "graph" },
+      ],
+    });
+
+    expect(surface.paneNames).toEqual(["graph", "foliplus-annotation-a"]);
+    expect(surface.panes[0].role).toBe("sub");
+    expect(surface.panes[1].role).toBe("annotation");
+  });
+
   it("gives a canvas pane no renderer", () => {
     const { map, host } = makeMap();
     const surface = new LayerSurface(host, {

@@ -888,8 +888,10 @@ class LayerManager implements LayerAPI {
     // and the per-layer intent both survive this teardown, so a component that
     // unregisters an empty layer and registers it again comes back with the
     // name and the settings the user chose.
-    // Tear down any annotation labels attached to this layer.
-    this.annotation.destroyLayer(id);
+    // Tear down the annotation RENDERING state; the label config stays —
+    // it is part of that surviving intent (a flush after this point must
+    // not erase `layers[id].annotation` from storage).
+    this.annotation.unloadLayer(id);
     this.ui?.invalidateFields(id);
     // The row was just removed: rescan the group's count so the toggle-all
     // checkbox reflects the removal in the same frame.
@@ -963,6 +965,10 @@ class LayerManager implements LayerAPI {
 
     this.removedIds.add(id);
     this.persistence.schedule({ removed: () => [...this.removedIds] });
+    // unregisterLayer keeps the label config (a teardown is not a delete);
+    // this is the delete, so forget it here — `configEntries` must stop
+    // answering for a removed id.
+    this.annotation.destroyLayer(id);
 
     // `saveOrder` merges the live registry against `savedOrder`, re-inserting
     // any stored id that is not registered yet — so the id has to leave the
@@ -973,8 +979,8 @@ class LayerManager implements LayerAPI {
     this.saveOrder();
 
     // The label config needs no schedule here: it rides `layers[id]`
-    // (re-saved through `ui.saveState` below — the live config is already
-    // gone via `annotation.destroyLayer`), and the legacy `annotations`
+    // (re-saved through `ui.saveState` below — the live config is gone via
+    // `annotation.destroyLayer` above), and the legacy `annotations`
     // segment is pruned on READ for ids in `removed` (parseRecord), so a
     // v2 entry cannot resurrect behind the new key's absence.
 

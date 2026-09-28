@@ -180,9 +180,14 @@ class LayerSurface implements LayerSurfaceContract {
     this.capabilities = detectCapabilities(opts);
 
     if (declared) {
-      const base = this.specs[0];
+      // The declared pane's own spec — matched BY NAME, not position: a
+      // caller may hand a spec list whose index 0 is something else (an
+      // appended label pane, for one), and a position-based read would
+      // stamp that spec's role onto the base pane while never booking the
+      // pane the extra spec names.
+      const base = this.specs.find(spec => spec.name === declared);
       this.addPane(declared, !opts.canvas, base?.role, base?.order);
-      for (const spec of this.specs.slice(1)) {
+      for (const spec of this.specs) {
         if (spec.name !== declared) {
           this.addPane(spec.name, false, spec.role, spec.order);
         }

@@ -248,6 +248,59 @@ describe("LayerManager", () => {
     );
   });
 
+  it("unregisterLayer keeps the label config so a later flush cannot erase it", () => {
+    // An unregister is a teardown, not a delete: the `layers` live source
+    // re-reads `configEntries` on every flush, so dropping the config here
+    // would wipe `layers[id].annotation` from storage the next time any
+    // dimension saves — a label-only layer would lose its section for good.
+    const m = new LayerManager(map, [
+      {
+        id: "keepcfg",
+        name: "KeepCfg",
+        isBase: false,
+        layer: {
+          options: {},
+          feature: { properties: { n: 1 } },
+        } as unknown as L.Layer,
+      },
+    ]);
+    m.map.hasLayer.mockReturnValue(true);
+    m.annotation.setConfig("keepcfg", {
+      show: true,
+      field: "n",
+      color: "#ffffff",
+      size: 12,
+      format: "auto",
+      collide: true,
+    });
+    const schedule = vi.spyOn(m.persistence, "schedule");
+    m.ui = {
+      m,
+      invalidateFields: vi.fn(),
+      syncToggleAll: vi.fn(),
+      userOverrides: {},
+      hiddenIds: new Set(),
+      opacityMap: {},
+      fillColorMap: {},
+      fillOpacityMap: {},
+      borderColorMap: {},
+      borderWeightMap: {},
+      zoomRangeMap: {},
+      saveState: () => saveState(m.ui),
+    } as unknown as LayerUI;
+
+    expect(m.unregisterLayer("keepcfg")).toBe(true);
+    expect(m.annotation.hasConfig("keepcfg")).toBe(true);
+
+    saveState(m.ui);
+    const fields = schedule.mock.calls.at(-1)![0] as {
+      layers: () => Record<string, { annotation?: { show?: boolean } }>;
+    };
+    expect(fields.layers().keepcfg.annotation).toEqual(
+      expect.objectContaining({ show: true }),
+    );
+  });
+
   it("keeps a foreign annotation spec as declared instead of re-probing over it", () => {
     // `withAnnotationSpec` appends the probe's spec only when nobody has
     // declared one: a caller that owns its own `role: "annotation"` pane

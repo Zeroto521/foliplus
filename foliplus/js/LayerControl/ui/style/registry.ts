@@ -114,13 +114,15 @@ const listDimensions = (): readonly LayerDimension<any>[] => [...registry.values
  *  contract (fill → border → opacity → zoomRange, per #458), so the
  *  order is declared here rather than inferred from the import graph.
  *
- *  The panel iterates this array, calls `getDimension(key)` for each key
- *  and drops any unregistered key, so an unregistered key degrades the
- *  panel to fewer rows rather than erroring. A dimension that is
- *  registered but missing from this array is unreachable from the panel —
- *  adding a dimension without adding it here is a bug that
- *  `registry.test.ts` catches (DIM_ORDER covers every registered
- *  built-in key and nothing more).
+ *  The panel iterates this array through `gatedRows`, which casts each
+ *  lookup straight to a descriptor — so a key listed here MUST be
+ *  registered. That is a different contract from degrading: the cast
+ *  states the invariant this array already implies, and
+ *  `registry.test.ts` locks it (both order arrays together cover every
+ *  registered built-in key and nothing more). A dimension that is
+ *  registered but missing from both arrays is unreachable from the panel —
+ *  adding a dimension without adding it to its section's order is the bug
+ *  that same test catches.
  */
 const DIM_ORDER = ["fill", "border", "opacity", "zoomRange"] as const;
 
@@ -135,12 +137,13 @@ const DIM_ORDER = ["fill", "border", "opacity", "zoomRange"] as const;
 const LABEL_DIM_ORDER = ["annotation"] as const;
 
 /** Whether the layer owns any registered dimension whose `gate` passes.
- *  The single "has-any" question the panel needs before deciding whether
- *  to render the Layer section at all — the annotation panel asks it to
- *  decide between an empty panel and a Layer-only panel, and the
- *  delegated drawer asks it to decide whether to render the Layer
- *  heading alongside the delegated border row. Every dimension
- *  contributes through its own `gate`; no switch table of keys. */
+ *  The single "has-any" question a caller needs before deciding whether a
+ *  section or a panel is worth rendering — the delegated drawer asks it to
+ *  decide whether to render the Layer heading alongside the delegated
+ *  border row. The annotation panel no longer asks it (it collects the
+ *  two sections' gated rows directly and checks those), but the question
+ *  is unchanged. Every dimension contributes through its own `gate`; no
+ *  switch table of keys. */
 const hasAnyDimension = (ui: LayerUI, layerId: string): boolean =>
   [...registry.values()].some(d => d.gate(ui, layerId));
 

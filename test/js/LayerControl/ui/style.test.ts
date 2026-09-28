@@ -796,6 +796,13 @@ describe("LayerUI style panel", () => {
     expect(headings.length).toBe(2);
     expect(headings[0].textContent).toBe("LayerControl.section_layer");
     expect(headings[1].textContent).toBe("LayerControl.section_label");
+    // The annotation dimension's row is one wrapper (toggle + body) — the
+    // structural hook the section and the tests select the Label content by.
+    const labelSection = panel.querySelector(`.${CONST.CLASSES.STYLE_LABEL_SECTION}`);
+    expect(labelSection).not.toBeNull();
+    expect(
+      labelSection!.querySelector(`.${CONST.CLASSES.STYLE_TOGGLE_INPUT}`),
+    ).not.toBeNull();
   });
 
   it("suppresses the row's hover tooltip on the panel body", () => {

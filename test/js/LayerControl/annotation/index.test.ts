@@ -533,6 +533,28 @@ describe("AnnotationManager — render & plan", () => {
     expect(mocks.instances.length).toBe(before);
   });
 
+  it("unloadLayer keeps the config; destroyLayer forgets it", () => {
+    // The teardown/delete split: an unregister may only drop rendering
+    // state — the `layers` live source reads configEntries on every flush,
+    // so losing the config here would erase the stored label section.
+    // Forgetting the config is deleteLayer's alone.
+    const { map } = makeMap();
+    const mgr = new AnnotationManager({
+      map,
+      layerFind: () => oneLabel(),
+    });
+    mgr.setConfig("a", CONFIG);
+    mgr.renderLabels("a");
+
+    mgr.unloadLayer("a");
+    expect(canvas().destroy).toHaveBeenCalled();
+    expect(mgr.hasConfig("a")).toBe(true);
+
+    mgr.destroyLayer("a");
+    expect(mgr.hasConfig("a")).toBe(false);
+    expect(mgr.configEntries()).toHaveLength(0);
+  });
+
   it("destroy tears down the map wiring and the canvases", () => {
     const { map, panes } = makeMap();
     const mgr = new AnnotationManager({
