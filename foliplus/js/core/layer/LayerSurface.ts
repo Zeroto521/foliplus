@@ -180,9 +180,14 @@ class LayerSurface implements LayerSurfaceContract {
     this.capabilities = detectCapabilities(opts);
 
     if (declared) {
-      const base = this.specs[0];
+      // The declared pane's own spec — matched BY NAME, not position: a
+      // caller may hand a spec list whose index 0 is something else (an
+      // appended label pane, for one), and a position-based read would
+      // stamp that spec's role onto the base pane while never booking the
+      // pane the extra spec names.
+      const base = this.specs.find(spec => spec.name === declared);
       this.addPane(declared, !opts.canvas, base?.role, base?.order);
-      for (const spec of this.specs.slice(1)) {
+      for (const spec of this.specs) {
         if (spec.name !== declared) {
           this.addPane(spec.name, false, spec.role, spec.order);
         }
@@ -199,6 +204,7 @@ class LayerSurface implements LayerSurfaceContract {
     // basemaps retire that.
     if (!layer) {
       this.pinTarget = null;
+      this.addMissingSpecs();
       return;
     }
 
@@ -220,6 +226,7 @@ class LayerSurface implements LayerSurfaceContract {
     }
     if (childPanes.length) {
       this.pinTarget = null;
+      this.addMissingSpecs();
       return;
     }
 
@@ -231,6 +238,23 @@ class LayerSurface implements LayerSurfaceContract {
     const name = `${FALLBACK_PANE_PREFIX}${L.stamp(layer)}`;
     this.addPane(name, true);
     this.pinTarget = name;
+    this.addMissingSpecs();
+  }
+
+  /** Materialize every declared spec the constructor's branch did not already
+   *  add. The declared-pane route books its whole spec list; the other routes
+   *  only walk panes they discovered in the live tree or synthesized — so a
+   *  spec with no DOM pane to discover (the registration edge's
+   *  `role: "annotation"` label pane) would otherwise be declared in
+   *  `capabilities` and never exist. Fills the gap in place: handles already
+   *  booked are skipped, so the base pane stays `panes[0]` and `reconcile`
+   *  still pins content into it. */
+  private addMissingSpecs(): void {
+    for (const spec of this.specs) {
+      if (!this.panes.some(pane => pane.name === spec.name)) {
+        this.addPane(spec.name, false, spec.role, spec.order);
+      }
+    }
   }
 
   /** Resolve the pane handles and pin the layer's content to them. Re-entrant:
@@ -559,6 +583,19 @@ const probeVectorCarrier = (
  *      `getBounds` provider; a bare canvas has no idea what it covers. */
 const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
   const layer = opts.layer;
+  // The label pane is a declared carrier, read like `bounds` rather than
+  // probed: the registration edge (`LayerManager.surfaceFor`) appends the
+  // `role: "annotation"` spec exactly when the layer's features expose
+  // labelable `feature.properties`, and the constructor below materializes
+  // that spec's pane in every branch — so the capability and the pane are
+  // the same fact. Every branch reports it, early returns included: a
+  // MarkerCluster whose children carry properties still has an honest
+  // label pane (the probe decides the spec, not the branch shape).
+  const annotation: LayerCapabilities["annotation"] = opts.paneSpecs?.some(
+    spec => spec.role === "annotation",
+  )
+    ? "pane"
+    : "none";
 
   if (opts.color != null) {
     // A solid-color basemap owns one pane of its own, so a CSS write on that
@@ -573,6 +610,7 @@ const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
       stroke: "none",
       opacity: "pane",
       zoomRange: "pane",
+      annotation,
       relocatable: true,
       bounds: false,
       visibility: "pane",
@@ -585,6 +623,7 @@ const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
       stroke: "none",
       opacity: "none",
       zoomRange: "none",
+      annotation,
       relocatable: false,
       bounds: false,
       visibility: "native",
@@ -603,6 +642,7 @@ const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
       stroke: "none",
       opacity: "native",
       zoomRange,
+      annotation,
       relocatable: true,
       bounds: hasBoundsProvider(layer),
       visibility: "native",
@@ -635,6 +675,7 @@ const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
       stroke: probeVectorCarrier(layer, "stroke"),
       opacity: "pane",
       zoomRange: "pane",
+      annotation,
       relocatable: true,
       bounds: Boolean(opts.getBounds) || hasBoundsProvider(layer),
       visibility,
@@ -650,6 +691,7 @@ const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
       stroke: probeVectorCarrier(layer, "stroke"),
       opacity: "pane",
       zoomRange: "pane",
+      annotation,
       relocatable: true,
       bounds: hasBoundsProvider(layer),
       visibility,
@@ -662,6 +704,7 @@ const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
     stroke: "none",
     opacity: "none",
     zoomRange: "none",
+    annotation,
     relocatable: false,
     bounds: false,
     visibility,

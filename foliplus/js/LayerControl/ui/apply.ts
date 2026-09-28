@@ -119,16 +119,17 @@ const authorZoomBoundsForLayer = (ui: LayerUI, layerId: string): [number, number
  *
  *  The projection's numeric diff is not enough for carriers that can be
  *  replaced underneath the executor: a re-registered canvas element starts
- *  opaque, an annotation pane is created lazily long after the slider was
- *  last moved. In both cases the executor's `prev.opacity` matches
- *  `next.opacity`, so a value-only diff misses the write — the
- *  late-carrier regression this file exists to close. The fix is to record which DOM element we last
- *  wrote to, and force a rewrite when the carrier has moved.
+ *  opaque, so the executor's `prev.opacity` can match `next.opacity` while
+ *  the DOM in front of it is fresh. The fix is to record which DOM element
+ *  we last wrote to, and force a rewrite when the carrier has moved.
  *
  *  The token is opaque to callers: it's just enough identity to say "the
  *  thing I wrote to before is not the thing in front of me now". A
- *  canvas-only layer is one DOM element; a pane carrier is a set of pane
- *  names. Anything else (native `options.opacity`) is keyed by the
+ *  canvas-only layer is one DOM element; a pane carrier is the surface's
+ *  own pane set — which, since the label pane is a declared `role:
+ *  "annotation"` PaneSpec, already includes it with no side channel (the
+ *  pane exists from surface construction, so there is no late carrier to
+ *  splice in). Anything else (native `options.opacity`) is keyed by the
  *  layer's own `options` object, which is the actual write target.
  */
 const carrierOf = (ui: LayerUI, layerInfo: LayerInfo): unknown => {
@@ -139,10 +140,7 @@ const carrierOf = (ui: LayerUI, layerInfo: LayerInfo): unknown => {
     // freshly built array would never match and every pane layer would
     // rewrite on every call. Sorted, so the order the pane specs happen to
     // arrive in cannot register as "the carrier moved".
-    const names = [...surface.paneNames];
-    const annotationPane = ui.m.annotation?.paneNameFor(layerInfo.id);
-    if (annotationPane) names.push(annotationPane);
-    return names.sort().join("|");
+    return [...surface.paneNames].sort().join("|");
   }
   return (layerInfo.layer?.options ?? null) as object | null;
 };
@@ -228,14 +226,11 @@ const applyStateOp = (ui: LayerUI, layerInfo: LayerInfo, op: StateOp): void => {
       }
       layerInfo.opacity = op.value ?? 1;
     } else {
-      // One CSS write per pane we own — declared, sub, synthesized, or
-      // the layer's annotation pane. Multiplicative over each feature's
-      // own style, so a hollow polygon keeps its hole.
+      // One CSS write per pane the surface owns — declared, sub,
+      // synthesized, or the `role: "annotation"` label pane. Multiplicative
+      // over each feature's own style, so a hollow polygon keeps its hole.
       const value = op.value ?? 1;
-      const names = [...ui.m.surfaceFor(layerInfo).paneNames];
-      const annotationPane = ui.m.annotation?.paneNameFor(layerInfo.id);
-      if (annotationPane) names.push(annotationPane);
-      for (const name of names) {
+      for (const name of ui.m.surfaceFor(layerInfo).paneNames) {
         const pane = ui.m.map.getPane(name);
         if (pane) pane.style.opacity = String(value);
       }

@@ -191,7 +191,7 @@ const applyBorderToLayer = (ui: LayerUI, layerId: string): void => {
     captureBase(node);
     node.setStyle(style);
     // Pin the leaf's stroke against folium's highlight restore via the shared
-    // pinStyleOnHighlight hook (§47.1-①), keyed "border" so a re-commit
+    // pinStyleOnHighlight hook, keyed "border" so a re-commit
     // replaces this dimension's getter instead of stacking another closure.
     // The fill row pins under its own key on the same leaf: one shared
     // mouseout handler merges both dimensions into a single setStyle, so a

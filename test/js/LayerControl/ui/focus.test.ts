@@ -957,7 +957,17 @@ describe("LayerUI focus", () => {
         name: "Shapes",
         layer: {
           options: { pane: "custom_pane" },
-          eachLayer: vi.fn(),
+          // One labelable child: the registration edge's `hasLabelField`
+          // probe walks leaves, so the group itself carrying nothing is
+          // fine — its child declares the annotation spec. (The label pane
+          // is a PaneHandle now, and `setZOverride` prices it at
+          // focusedZ + 1 through the same ladder this used to spot-write
+          // by hand.)
+          eachLayer: (fn: (l: L.Layer) => void) =>
+            fn({
+              options: {},
+              feature: { properties: { name: "x" } },
+            } as unknown as L.Layer),
           getBounds: () => ({
             isValid: () => true,
             getSouthWest: () => ({ lat: 30, lng: 100 }),
@@ -975,6 +985,9 @@ describe("LayerUI focus", () => {
         String(CONST.FOCUS.PANE_Z - CONST.FOCUS.FOCUSED_Z_GAP + 1),
       );
       expect(labelPane.classList.contains(CONST.CLASSES.FOCUS_GLOW)).toBe(false);
+      // The visibility mark still lands — without it the focus-hide CSS
+      // would swallow the layer's own labels.
+      expect(labelPane.classList.contains(CONST.CLASSES.FOCUS_PANE)).toBe(true);
 
       ui.cancelFocus();
 
@@ -1186,6 +1199,19 @@ describe("LayerUI focus", () => {
   // ─────────────────── overflow menu ───────────────────
 
   describe("row dblclick only focuses from dead space", () => {
+    // The Label section exists iff the surface declares the annotation
+    // capability (the panel gate reads it through surfaceFor). The three
+    // style-panel denylist tests below only need the section's controls in
+    // the DOM — the denylist is what they pin — so they flip the shared
+    // fixture layer's capability bit rather than reshaping its data.
+    const stubLabelPanelSurface = () => {
+      const li = ui.m.layerRegistry.get("overlay1")!;
+      const surface = ui.m.surfaceFor(li) as unknown as {
+        capabilities: Record<string, unknown>;
+      };
+      surface.capabilities = { ...surface.capabilities, annotation: "pane" };
+    };
+
     it("focuses the layer on a dblclick of the row's label area", () => {
       const focusSpy = vi.spyOn(ui, "focusLayer");
       const label = findItem(ui, "overlay1").querySelector(
@@ -1300,6 +1326,7 @@ describe("LayerUI focus", () => {
       // The toggle switch is <label><input><span.slider></label>. Users click
       // the slider span, which is not an `input`/`button` — two quick flips
       // used to bubble a dblclick that fell through to focusLayer.
+      stubLabelPanelSurface();
       ui.fieldCache.set("overlay1", [{ name: "count", numeric: true }]);
       ui.openStylePanel("overlay1");
       const focusSpy = vi.spyOn(ui, "focusLayer");
@@ -1317,6 +1344,7 @@ describe("LayerUI focus", () => {
       // Same class of hit as the toggle slider: a <select> is neither
       // `input` nor `button` in the denylist, so only the floating-panel
       // early return keeps a double-click on it from focusing the layer.
+      stubLabelPanelSurface();
       ui.fieldCache.set("overlay1", [{ name: "count", numeric: true }]);
       ui.openStylePanel("overlay1");
       const focusSpy = vi.spyOn(ui, "focusLayer");
@@ -1333,6 +1361,7 @@ describe("LayerUI focus", () => {
     it("does NOT focus the layer on a dblclick of the style-panel collide slider", () => {
       // The "avoid overlap" switch uses the same <label><input><span.slider>
       // chrome as the show toggle — same double-flip hazard.
+      stubLabelPanelSurface();
       ui.fieldCache.set("overlay1", [{ name: "count", numeric: true }]);
       ui.openStylePanel("overlay1");
       const focusSpy = vi.spyOn(ui, "focusLayer");
@@ -1913,8 +1942,11 @@ describe("LayerUI focus", () => {
     });
 
     // Both guards end in a no-op: the ladder panes are still lifted, but
-    // nothing is restored for the layer itself.
-    const LADDER_PANES = 4; // annotation + marker / tooltip / popup
+    // nothing is restored for the layer itself. Three, not four — the label
+    // pane used to be spot-lifted by name here too; it is a PaneHandle now,
+    // declared only when the layer has labelable content (these guard shapes
+    // have no layer at all), and it rides the surface's own restore.
+    const LADDER_PANES = 3; // marker / tooltip / popup
 
     it("lifts nothing of the layer when the declared pane is absent and there is no canvas", () => {
       const realGetPane = map.getPane;

@@ -1,4 +1,5 @@
 import { EVENTS, type EventBus, ensureEvents } from "#core/event/index.js";
+import { hasLabelField } from "#core/labelField.js";
 import { ensureLayerAPI } from "#core/layer/api.js";
 import {
   type CreateCanvasAPI,
@@ -21,6 +22,7 @@ import {
   topSlotZ,
   zFor,
 } from "#core/layer/index.js";
+import type { PaneSpec } from "#core/layer/type.js";
 import {
   attributionEntries,
   hasAttachedPath,
@@ -140,6 +142,37 @@ const mergeStoredOrder = (stored: string[] | null, live: string[]): string[] => 
 //             findLayer, refreshType, refreshCount, forEachLeaf,
 //             clearAllLayers
 //   Private   patchBringToFront, unpatchBringToFront, mergeStoredOrder
+
+/** The pane specs a surface is declared with: the registry entry's own, plus
+ *  the label (annotation) pane when the layer's features expose a labelable
+ *  field. This is the one probe behind `capabilities.annotation` — run on
+ *  *every* surface resolution, so a live layer that gained its first
+ *  labelable feature flips the declared specs on the next gate / menu /
+ *  panel read and `matches` rebuilds the surface (pane and capability with
+ *  it) — no reload. Losing the last one flips back the same way.
+ *
+ *  The spec rides this call's copy, never `layerInfo.paneSpecs`: the
+ *  declaration belongs to the surface face (like the fill / stroke probe
+ *  results), and a re-registration re-derives it fresh. A spec someone else
+ *  already declared is theirs — the probe only appends what is absent and
+ *  never removes a foreign declaration. */
+const withAnnotationSpec = (
+  layerInfo: LayerInfo,
+  layer: L.Layer | null,
+): PaneSpec[] => {
+  const specs = layerInfo.paneSpecs ?? [];
+  if (specs.some(spec => spec.role === "annotation")) return specs;
+  if (!layer || !hasLabelField(layer)) return specs;
+  return [
+    ...specs,
+    {
+      role: "annotation",
+      order: specs.length,
+      name: CONST.ANNOTATION_PANE_PREFIX + layerInfo.id,
+    },
+  ];
+};
+
 class LayerManager implements LayerAPI {
   /** Diagnostic marker: set by LayerManager (true).  The lightweight stub
    * sets this to false.  For the actual LayerControl check, prefer
@@ -304,19 +337,15 @@ class LayerManager implements LayerAPI {
     };
     this.map.on("layeradd", this.onLayerAdd);
     // The annotation manager plans each layer's labels on that layer's own
-    // pane; enforceOrder z-orders the panes along with their layers. The pane
-    // comes through PaneManager.ensurePane so it carries the base
-    // foliplus-layer-pane class like every other owned pane, and it goes back
-    // out through removePane so the spec/cache are cleared in step. The
-    // last hook is the pane's appearance replaying the layer's stored intent:
-    // the pane is a carrier and it is created lazily, so without it a slider
-    // move made before labels turned on would never reach them.
+    // label pane — which is a declared `role: "annotation"` PaneSpec of the
+    // layer's surface (see `withAnnotationSpec`), created and z-priced with
+    // the rest of the face. The manager only mounts canvases into it; there
+    // is no pane hook and no stored-intent replay to wire — the pane exists
+    // before any intent can, so the executor's registration-pass write
+    // already landed on it.
     this.annotation = new AnnotationManager({
       map: this.map,
       layerFind: id => this.findLayer(id),
-      ensureOwnedPane: name => this.panes.ensurePane(name, false).pane,
-      releaseOwnedPane: name => this.panes.removePane(name),
-      replayLayerState: id => this.ui?.replayLayerState(id),
     });
     this.loadSavedOrder();
     this.layerRegistry.normalizeGroups();
@@ -859,8 +888,10 @@ class LayerManager implements LayerAPI {
     // and the per-layer intent both survive this teardown, so a component that
     // unregisters an empty layer and registers it again comes back with the
     // name and the settings the user chose.
-    // Tear down any annotation labels attached to this layer.
-    this.annotation.destroyLayer(id);
+    // Tear down the annotation RENDERING state; the label config stays —
+    // it is part of that surviving intent (a flush after this point must
+    // not erase `layers[id].annotation` from storage).
+    this.annotation.unloadLayer(id);
     this.ui?.invalidateFields(id);
     // The row was just removed: rescan the group's count so the toggle-all
     // checkbox reflects the removal in the same frame.
@@ -934,6 +965,10 @@ class LayerManager implements LayerAPI {
 
     this.removedIds.add(id);
     this.persistence.schedule({ removed: () => [...this.removedIds] });
+    // unregisterLayer keeps the label config (a teardown is not a delete);
+    // this is the delete, so forget it here — `configEntries` must stop
+    // answering for a removed id.
+    this.annotation.destroyLayer(id);
 
     // `saveOrder` merges the live registry against `savedOrder`, re-inserting
     // any stored id that is not registered yet — so the id has to leave the
@@ -943,13 +978,11 @@ class LayerManager implements LayerAPI {
     if (saved) this.savedOrder = saved.filter(other => other !== id);
     this.saveOrder();
 
-    // unregisterLayer already dropped the live annotation config through
-    // annotation.destroyLayer, so re-scheduling the existing annotations
-    // source writes the map with this id gone. Scheduling it unconditionally
-    // is the only call that cannot miss an entry it failed to predict.
-    this.persistence.schedule({
-      annotations: () => Object.fromEntries(this.annotation.configEntries()),
-    });
+    // The label config needs no schedule here: it rides `layers[id]`
+    // (re-saved through `ui.saveState` below — the live config is gone via
+    // `annotation.destroyLayer` above), and the legacy `annotations`
+    // segment is pruned on READ for ids in `removed` (parseRecord), so a
+    // v2 entry cannot resurrect behind the new key's absence.
 
     if (!this.ui) {
       this.persistence.flushAll();
@@ -1027,11 +1060,12 @@ class LayerManager implements LayerAPI {
    *  registry knows them only as unresolved ids and the ordering pass is where
    *  they first get a rendering face. */
   surfaceFor(layerInfo: LayerInfo): LayerSurface {
+    const layer = this.findLayer(layerInfo);
     const spec = {
       id: layerInfo.id,
-      layer: this.findLayer(layerInfo),
+      layer,
       paneName: layerInfo.paneName,
-      paneSpecs: layerInfo.paneSpecs,
+      paneSpecs: withAnnotationSpec(layerInfo, layer),
       canvas: Boolean(layerInfo.canvas),
       getBounds: layerInfo.getBounds,
       color: layerInfo.color,
@@ -1128,17 +1162,12 @@ class LayerManager implements LayerAPI {
 
         const surface = this.surfaceFor(layerInfo);
         surface.materialize();
+        // One write covers every pane the face owns — including the
+        // `role: "annotation"` label pane, a PaneHandle since the surface
+        // materialized it. The ordering pass used to spot-write that pane by
+        // name here; `writeZ` prices it through the same `zFor({ role:
+        // "annotation" })` ladder now, so the special case is gone.
         surface.setZ(z);
-
-        // The layer's label pane (created by AnnotationManager) rides just
-        // above it: labels cover that layer's own geometry, and the next layer
-        // up still covers the labels — the stack the panel shows.
-        const annotationPane = this.map.getPane(
-          CONST.ANNOTATION_PANE_PREFIX + layerInfo.id,
-        );
-        if (annotationPane) {
-          annotationPane.style.zIndex = String(zFor({ ...slot, role: "annotation" }));
-        }
       }
 
       // Data panes start at BASE (== Leaflet's markerPane 600). Popup must sit

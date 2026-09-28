@@ -3,6 +3,7 @@ import { BORDER_WEIGHT, normalizeHexColor } from "#common/form.js";
 import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
 import type {
+  AnnotationConfig,
   LayerOverride,
   LiveState,
   PersistedLayerState,
@@ -17,8 +18,12 @@ import type {
  *  absent); every write stamps `RECORD_VERSION`, which is what brings the
  *  record up to date. Presence, not value, is the compatibility marker — a
  *  record without a `version` is read as-is and re-stamped on the next write.
- *  Bump only when a new record shape lands. */
-const RECORD_VERSION = 2;
+ *
+ *  2 → 3: the label config moved into `layers[id].annotation` (a style
+ *  dimension of the layer, not a parallel segment). v2 records still read —
+ *  their `annotations[id]` entries are the fallback when the new key is
+ *  absent, and the segment is passed through on every write untouched. */
+const RECORD_VERSION = 3;
 
 const emptyRecord = (): PersistedRecord => ({
   version: RECORD_VERSION,
@@ -77,11 +82,39 @@ const isBorderWeight = (value: unknown): value is number =>
 const isHexColor = (value: unknown): value is string =>
   typeof value === "string" && /^#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(value);
 
+/** One stored label (annotation) config: an object, colour-normalised the
+ *  same way in the new `layers[id].annotation` key and the legacy
+ *  `annotations[id]` segment so both read paths hand the seed identical
+ *  shapes. Field-level coercion (size clamps, format enums, collide)
+ *  belongs to the reader that applies it — `applyStyleLabelState` — the
+ *  same split the legacy segment always had; this keeps a non-object from
+ *  reaching the config map, nothing more. */
+const parseAnnotationConfig = (raw: unknown): AnnotationConfig | null => {
+  const cfg = asObject(raw);
+  if (!cfg) return null;
+  const out = { ...cfg };
+  if (typeof out.color === "string") {
+    out.color = normalizeHexColor(out.color);
+  }
+  // Structural tolerance, not a lie: only the object shape and the colour
+  // are checked here — the field-level coercion is `applyStyleLabelState`'s
+  // (it clamps sizes, normalizes formats, defaults collide), which is where
+  // the value is actually applied. The cast says "reader validates", the
+  // same contract the legacy segment had.
+  return out as unknown as AnnotationConfig;
+};
+
 /**
  * Coerce one entry of `layers`. Validates value and provenance together, so a
  * value with no matching override -- and an override with no value -- is
  * dropped: keeping the value would persist a choice the record itself says was
  * never made, and failing closed sends the layer back to its declared default.
+ *
+ * `annotation` is the exception to the provenance rule — it is a style
+ * configuration, not an override the user "marked": there is no
+ * `markOverride` for it and none is wanted. It is parsed on its own and
+ * survives with an empty `overrides` array (a layer configured only for
+ * labels is still a stored layer).
  */
 const parseLayerState = (raw: unknown): PersistedLayerState | null => {
   const data = asObject(raw);
@@ -150,7 +183,9 @@ const parseLayerState = (raw: unknown): PersistedLayerState | null => {
       out.overrides.push("zoomRange");
     }
   }
-  return out.overrides.length > 0 ? out : null;
+  const annotation = parseAnnotationConfig(data.annotation);
+  if (annotation) out.annotation = annotation;
+  return out.overrides.length > 0 || out.annotation ? out : null;
 };
 
 /**
@@ -181,17 +216,19 @@ const parseRecord = (raw: unknown): PersistedRecord => {
   for (const [id, name] of Object.entries(asObject(data.renamedNames) ?? {})) {
     if (typeof name === "string") record.renamedNames[id] = name;
   }
+  // The legacy label segment, read for tolerance (v2 records) and passed
+  // through on every write. Entries belonging to a DELETED id are dropped
+  // here rather than written back: `removed` is one-way and the segment is
+  // never rewritten by a live source, so without this read-side prune a
+  // v2 config would resurrect behind `layers[id].annotation`'s absence on
+  // the next load. This prunes the read, not storage — no migration.
   for (const [id, config] of Object.entries(asObject(data.annotations) ?? {})) {
-    if (config !== null && typeof config === "object" && !Array.isArray(config)) {
-      const cfg = config as Record<string, unknown>;
-      if (typeof cfg.color === "string") {
-        record.annotations[id] = { ...cfg, color: normalizeHexColor(cfg.color) };
-      } else {
-        record.annotations[id] = config;
-      }
-    }
+    if (record.removed.includes(id)) continue;
+    const cfg = parseAnnotationConfig(config);
+    if (cfg) record.annotations[id] = cfg;
   }
   for (const [id, rawState] of Object.entries(asObject(data.layers) ?? {})) {
+    if (record.removed.includes(id)) continue;
     const state = parseLayerState(rawState);
     if (state) record.layers[id] = state;
   }
@@ -203,16 +240,28 @@ const parseRecord = (raw: unknown): PersistedRecord => {
  *  layer order cannot wipe the fold, rename, or label state it never read.
  *
  *  Named per dimension rather than keyed generically: PersistedRecord is a
- *  literal type, so adding a field without adding it here is a compile error. */
-const mergeFields = (record: PersistedRecord, fields: LiveState): PersistedRecord => ({
-  version: RECORD_VERSION,
-  order: fields.order ? fields.order() : record.order,
-  removed: fields.removed ? fields.removed() : record.removed,
-  foldedGroups: fields.foldedGroups ? fields.foldedGroups() : record.foldedGroups,
-  renamedNames: fields.renamedNames ? fields.renamedNames() : record.renamedNames,
-  annotations: fields.annotations ? fields.annotations() : record.annotations,
-  layers: fields.layers ? fields.layers() : record.layers,
-});
+ *  literal type, so adding a field without adding it here is a compile error.
+ *
+ *  `annotations` has no live source anymore — the label config writes through
+ *  `layers[id].annotation`. The stored segment passes through (write-new /
+ *  read-old, no migration), MINUS ids the write itself records as deleted:
+ *  deletion is not migration, and a zombie config must not outlive its layer
+ *  on disk either. `parseRecord` prunes the same ids on read, so a
+ *  record written before this prune still loads clean. */
+const mergeFields = (record: PersistedRecord, fields: LiveState): PersistedRecord => {
+  const removed = fields.removed ? fields.removed() : record.removed;
+  const dropRemoved = <T>(entries: Record<string, T>): Record<string, T> =>
+    Object.fromEntries(Object.entries(entries).filter(([id]) => !removed.includes(id)));
+  return {
+    version: RECORD_VERSION,
+    order: fields.order ? fields.order() : record.order,
+    removed,
+    foldedGroups: fields.foldedGroups ? fields.foldedGroups() : record.foldedGroups,
+    renamedNames: fields.renamedNames ? fields.renamedNames() : record.renamedNames,
+    annotations: dropRemoved(record.annotations),
+    layers: dropRemoved(fields.layers ? fields.layers() : record.layers),
+  };
+};
 
 /**
  * Single entry point for all LayerControl persistence (localStorage).

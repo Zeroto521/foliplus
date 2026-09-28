@@ -186,7 +186,7 @@ describe("layerCanBorder", () => {
     expect(layerCanBorder(ui, "bas1")).toBe(false);
   });
 
-  // §47.1 gate unification: the third condition requires a real setStyle
+  // Gate unification: the third condition requires a real setStyle
   // leaf behind the layer. Without it, a Marker or an empty LayerGroup
   // would pass the capability check and get a Border row that persists a
   // value with no visual effect.
@@ -741,7 +741,7 @@ describe("highlight restore", () => {
   });
 
   it("replays fill and border together after folium's highlight restore", () => {
-    // §47.1-②: a layer with BOTH dimensions set must come out of a hover
+    // A layer with BOTH dimensions set must come out of a hover
     // with both user values. folium's resetStyle runs first in the dispatch
     // order, then our single shared handler merges the fill getter and the
     // border getter into one setStyle — neither dimension may be dropped.

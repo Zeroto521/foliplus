@@ -4,6 +4,7 @@ import {
   autoLabelField,
   bareFieldName,
   collectLabelFields,
+  hasLabelField,
   isNumericField,
   resolveSelectedField,
 } from "#foliplus/core/labelField.js";
@@ -11,6 +12,12 @@ import {
 /** A leaf that carries a GeoJSON feature, or one that carries none. */
 const leaf = (properties?: Record<string, unknown>): L.Layer =>
   ({ feature: properties ? { properties } : undefined }) as unknown as L.Layer;
+
+/** A container whose walk reaches every child as a leaf. */
+const group = (...leaves: L.Layer[]): L.Layer =>
+  ({
+    eachLayer: (fn: (l: L.Layer) => void) => leaves.forEach(fn),
+  }) as unknown as L.Layer;
 
 describe("collectLabelFields", () => {
   it("keeps first-seen order and samples each key's type once", () => {
@@ -79,6 +86,40 @@ describe("collectLabelFields", () => {
     ]);
 
     expect(fields.map(f => f.name)).toEqual(["name", "value"]);
+  });
+});
+
+describe("hasLabelField", () => {
+  // The declaration-edge probe behind `capabilities.annotation`: a tree walk
+  // (unlike the collector's plain-iterable input) that stops *checking* at
+  // the first hit — the walk itself cannot be interrupted, so leaves after
+  // the hit still reach the callback and take the `found` guard arm.
+  it("hits on the first labelable leaf and guards the rest of the walk", () => {
+    expect(hasLabelField(group(leaf({ a: 1 }), leaf({ b: 2 })))).toBe(true);
+    expect(hasLabelField(group(leaf({ a: 1 }), leaf()))).toBe(true);
+  });
+
+  it("rejects reserved keys and non-primitive values on the way", () => {
+    // Both arms of the condition in one props object: `__folium_color` fails
+    // the key check, `style` passes it and fails the value check — and with
+    // nothing labelable left the probe answers false.
+    expect(
+      hasLabelField(group(leaf({ __folium_color: "#ff0000", style: { c: 1 } }))),
+    ).toBe(false);
+    // A labelable primitive alongside them still wins.
+    expect(
+      hasLabelField(group(leaf({ __folium_color: "#ff0000", style: { c: 1 }, n: 1 }))),
+    ).toBe(true);
+  });
+
+  it("skips leaves without feature.properties", () => {
+    expect(hasLabelField(group(leaf(), leaf({ ok: 1 })))).toBe(true);
+    expect(hasLabelField(group(leaf(), leaf()))).toBe(false);
+  });
+
+  it("reads a lone flat layer (no eachLayer) as its own leaf", () => {
+    expect(hasLabelField(leaf({ x: 1 }))).toBe(true);
+    expect(hasLabelField(leaf())).toBe(false);
   });
 });
 

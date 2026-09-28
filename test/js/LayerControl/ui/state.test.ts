@@ -7,7 +7,6 @@ import {
   dropPersistedLayerState,
   loadPersistedState,
   markOverride,
-  replayLayerState,
   saveFoldState,
   saveNamesState,
   saveState,
@@ -768,12 +767,69 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
   });
 });
 
+describe("label config seed — read order (write-new / read-old)", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
+  afterEach(() => {
+    window.localStorage.clear();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+  });
+
+  it("layers[id].annotation wins over the legacy segment; legacy alone still seeds", () => {
+    // The compat contract in one round trip: a record carrying BOTH keys
+    // for the same id reads the current one, an id only the legacy segment
+    // knows (a v2 record) still seeds, and neither side is migrated into
+    // the other by the read.
+    window.localStorage.setItem(
+      CONST.STORAGE.KEY,
+      JSON.stringify({
+        version: 3,
+        annotations: {
+          legacyOnly: { show: true, field: "l", format: "int" },
+          both: { show: false, field: "old" },
+        },
+        layers: {
+          both: {
+            overrides: [],
+            annotation: { show: true, field: "new", format: "comma" },
+          },
+          withOverride: {
+            overrides: ["opacity"],
+            opacity: 0.5,
+            annotation: { show: true, field: "p" },
+          },
+        },
+      }),
+    );
+    const { ui } = initFixture();
+    loadPersistedState(ui);
+
+    expect(ui.labelConfigs.both).toEqual({
+      show: true,
+      field: "new",
+      format: "comma",
+    });
+    expect(ui.labelConfigs.legacyOnly).toEqual({
+      show: true,
+      field: "l",
+      format: "int",
+    });
+    expect(ui.labelConfigs.withOverride).toEqual({ show: true, field: "p" });
+  });
+});
+
 describe("ui/state saveFoldState", () => {
   it("schedules the folded set through persistence", () => {
     const schedule = vi.fn();
     const ui = {
       foldedGroups: new Set(["overlay"]),
-      m: { persistence: { schedule } },
+      m: {
+        persistence: { schedule },
+        annotation: { configEntries: () => [] },
+      },
     } as unknown as LayerUI;
     saveFoldState(ui);
     // schedule takes a getter map so a later write can read the live state
@@ -785,68 +841,6 @@ describe("ui/state saveFoldState", () => {
 });
 
 // ─────────────────── opacity apply / restore / retention ─────────────────
-
-describe("replayLayerState", () => {
-  // An annotation pane is created lazily —when labels first turn on, which can
-  // be long after the slider was last moved —and nothing writes to a pane that
-  // does not exist yet. The pane's appearance is its own replay point, so the
-  // stored intent has to be re-applied there instead of being assumed present.
-  let manager: LayerManager;
-  let ui: LayerUI;
-
-  beforeEach(() => {
-    window.localStorage.removeItem(CONST.STORAGE.KEY);
-    ({ manager, ui } = initFixture());
-  });
-
-  afterEach(() => {
-    manager?.debouncedEnforce?.cancel?.();
-    document.body.innerHTML = "";
-    vi.clearAllMocks();
-    vi.useRealTimers();
-  });
-
-  it("writes the stored opacity onto the layer", () => {
-    ui.userOverrides.overlay1 = ["opacity"];
-    ui.opacityMap.overlay1 = 0.3;
-
-    replayLayerState(ui, "overlay1");
-
-    expect(manager.layerRegistry.get("overlay1")!.opacity).toBe(0.3);
-  });
-
-  it("gates the write on the override flag, not on a stored value", () => {
-    // A value without its flag must not reach the write pipeline; the layer
-    // keeps the default the author declared. `unmarkOverride` (Reset) drops
-    // the flag and leaves the value behind, so this is what makes Reset stick.
-    const before = manager.layerRegistry.get("overlay1")!.opacity;
-    ui.opacityMap.overlay1 = 0.4;
-
-    replayLayerState(ui, "overlay1");
-
-    expect(manager.layerRegistry.get("overlay1")!.opacity).toBe(before);
-    expect(ui.userOverrides.overlay1).toBeUndefined();
-  });
-
-  it("skips an override whose value never reached the map", () => {
-    // The record can claim an override whose value is absent; sending that
-    // through the write pipeline would be an undefined opacity.
-    const before = manager.layerRegistry.get("overlay1")!.opacity;
-    ui.userOverrides.overlay1 = ["opacity"];
-
-    replayLayerState(ui, "overlay1");
-
-    expect(manager.layerRegistry.get("overlay1")!.opacity).toBe(before);
-  });
-
-  it("replays nothing for an id the registry does not know", () => {
-    ui.userOverrides.ghost = ["opacity"];
-    ui.opacityMap.ghost = 0.3;
-
-    expect(() => replayLayerState(ui, "ghost")).not.toThrow();
-    expect(manager.layers.every(l => l.opacity !== 0.3)).toBe(true);
-  });
-});
 
 describe("LayerUI opacity restore / retention", () => {
   const makeMap = () => {
@@ -1139,7 +1133,10 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
       fillOpacityMap: {},
       userOverrides: {},
       rangeHiddenIds: new Set(),
-      m: { persistence: { schedule } },
+      m: {
+        persistence: { schedule },
+        annotation: { configEntries: () => [] },
+      },
     } as unknown as LayerUI;
 
     syncHiddenId(bare, "overlay1", true);
@@ -1166,7 +1163,10 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
       fillOpacityMap: {},
       userOverrides: { overlay1: ["visible"] },
       rangeHiddenIds: new Set(),
-      m: { persistence: { schedule } },
+      m: {
+        persistence: { schedule },
+        annotation: { configEntries: () => [] },
+      },
     } as unknown as LayerUI;
 
     syncHiddenId(bare, "overlay1", false);
@@ -1193,7 +1193,10 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
       fillOpacityMap: {},
       zoomRangeMap: { overlay1: [4, 10] },
       userOverrides: { overlay1: ["zoomRange"] },
-      m: { persistence: { schedule } },
+      m: {
+        persistence: { schedule },
+        annotation: { configEntries: () => [] },
+      },
     } as unknown as LayerUI;
 
     saveState(bare);
@@ -1218,7 +1221,10 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
       fillOpacityMap: {},
       zoomRangeMap: {},
       userOverrides: { overlay1: ["zoomRange"] },
-      m: { persistence: { schedule } },
+      m: {
+        persistence: { schedule },
+        annotation: { configEntries: () => [] },
+      },
     } as unknown as LayerUI;
 
     unmarkOverride(bare, "overlay1", "zoomRange");
@@ -1257,7 +1263,10 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
       fillOpacityMap: {},
       zoomRangeMap: {},
       userOverrides: { overlay1: ["opacity"] },
-      m: { persistence: { schedule } },
+      m: {
+        persistence: { schedule },
+        annotation: { configEntries: () => [] },
+      },
     } as unknown as LayerUI;
 
     saveState(bare);
@@ -1282,7 +1291,10 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
       fillOpacityMap: {},
       zoomRangeMap: {},
       userOverrides: {},
-      m: { persistence: { schedule } },
+      m: {
+        persistence: { schedule },
+        annotation: { configEntries: () => [] },
+      },
     } as unknown as LayerUI;
 
     markOverride(bare, "overlay1", "zoomRange");
@@ -1386,7 +1398,10 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
       fillColorMap: {},
       fillOpacityMap: {},
       userOverrides: { overlay1: ["opacity"] },
-      m: { persistence: { schedule } },
+      m: {
+        persistence: { schedule },
+        annotation: { configEntries: () => [] },
+      },
     } as unknown as LayerUI;
 
     saveState(bare);
@@ -1422,7 +1437,10 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
         zero: ["borderWeight"],
         missing: ["borderColor", "borderWeight"],
       },
-      m: { persistence: { schedule } },
+      m: {
+        persistence: { schedule },
+        annotation: { configEntries: () => [] },
+      },
     } as unknown as LayerUI;
 
     saveState(bare);
@@ -1539,7 +1557,10 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
     const schedule = vi.fn();
     const bare = {
       renamedNames: { overlay1: "Renamed" },
-      m: { persistence: { schedule } },
+      m: {
+        persistence: { schedule },
+        annotation: { configEntries: () => [] },
+      },
     } as unknown as LayerUI;
 
     saveNamesState(bare);

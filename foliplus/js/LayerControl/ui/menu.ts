@@ -6,7 +6,7 @@ import * as SVGs from "../icon.js";
 import { focusDisabledLocaleKey, focusDisabledReason } from "./focus.js";
 import type { LayerUI } from "./index.js";
 import { finishRename } from "./rename.js";
-import { layerHasLabelFields, layerHasStyleDelegation } from "./style/index.js";
+import { layerCanLabel, layerHasStyleDelegation } from "./style/index.js";
 
 /**
  * Open the "more" overflow dropdown for a given layer row.
@@ -87,9 +87,12 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   // in its style panel, and tile basemaps can still tune opacity.
   const layerInfo = ui.m.layerRegistry.get(layerId);
   const caps = layerInfo ? ui.m.surfaceFor(layerInfo).capabilities : null;
+  // `layerCanLabel` is the Label section's gate itself (pure capability
+  // bit) — the menu and the panel ask one function, so the entry can never
+  // enable a panel whose Label section would not render (or vice versa).
   const canConfigure =
     (caps && (caps.opacity !== "none" || caps.zoomRange !== "none")) ||
-    layerHasLabelFields(ui, layerId) ||
+    layerCanLabel(ui, layerId) ||
     layerHasStyleDelegation(ui, layerId);
   const styleDisabled = focusReason === "hidden" || !canConfigure;
 

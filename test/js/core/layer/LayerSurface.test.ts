@@ -144,6 +144,44 @@ describe("LayerSurface pane resolution", () => {
     expect(window.L.svg).toHaveBeenCalledTimes(1);
   });
 
+  it("skips a declared spec the tree already routes into", () => {
+    // `addMissingSpecs` fills the gap the non-declared branches leave (they
+    // only walk discovered or synthesized panes) — but a spec whose name is
+    // ALREADY booked by discovery must not be double-added: the handle the
+    // tree routed into is the one that stands.
+    const { host } = makeMap();
+    const annName = "foliplus-annotation-a";
+    const surface = new LayerSurface(host, {
+      id: "a",
+      layer: { options: { pane: annName } } as unknown as L.Layer,
+      paneSpecs: [{ role: "annotation", order: 1, name: annName }],
+    });
+
+    expect(surface.paneNames.filter(name => name === annName)).toHaveLength(1);
+  });
+
+  it("resolves the declared base's role by name, not by position", () => {
+    // A spec list whose index 0 is NOT the declared pane (an appended label
+    // pane arriving first): the base must take its own spec's role — or
+    // none — while the extra spec still gets its pane booked. A position-
+    // based read would stamp `annotation` onto the base and drop the label
+    // pane entirely.
+    const { host } = makeMap();
+    const surface = new LayerSurface(host, {
+      id: "a",
+      layer: new Path() as unknown as L.Layer,
+      paneName: "graph",
+      paneSpecs: [
+        { role: "annotation", order: 3, name: "foliplus-annotation-a" },
+        { role: "sub", order: 1, name: "graph" },
+      ],
+    });
+
+    expect(surface.paneNames).toEqual(["graph", "foliplus-annotation-a"]);
+    expect(surface.panes[0].role).toBe("sub");
+    expect(surface.panes[1].role).toBe("annotation");
+  });
+
   it("gives a canvas pane no renderer", () => {
     const { map, host } = makeMap();
     const surface = new LayerSurface(host, {
@@ -902,6 +940,9 @@ describe("LayerSurface capabilities", () => {
     expect(surface.capabilities).toEqual({
       opacity: "pane",
       zoomRange: "pane",
+      // A color face has no features to label — the registration edge never
+      // declares the `role: "annotation"` spec for it.
+      annotation: "none",
       fill: "native",
       stroke: "none",
       relocatable: true,
