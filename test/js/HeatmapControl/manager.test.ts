@@ -1547,6 +1547,10 @@ describe("HeatmapManager — EVENTS.LAYER_DELETED auto-clear", () => {
     addOptions(ctrl.methodSelect, ["equal", "jenks"]);
     addOptions(ctrl.classSelect, ["4", "6"]);
     addOptions(ctrl.schemeSelectHidden, ["Blues", "Reds"]);
+    // The panel still shows the deleted layer's id when the clear lands —
+    // that is the stale state this reset has to undo.
+    addOptions(ctrl.layerSelect, ["", "pts"]);
+    ctrl.layerSelect.value = "pts";
     m.ui = ctrl;
     m.selectedLayerId = "pts";
     m.currentAgg = CONST.AGG.SUM;
@@ -1555,6 +1559,7 @@ describe("HeatmapManager — EVENTS.LAYER_DELETED auto-clear", () => {
     m.currentScheme = "Greens";
     m.numClasses = 8;
     m.currentMethod = "quantile";
+    const clearSpy = vi.spyOn(m, "clearHeatmapCanvas");
     const clearSaved = vi.spyOn(m, "clearSavedConfig");
 
     ensureEvents(m.map).emit(EVENTS.LAYER_DELETED, { id: m.layerId });
@@ -1579,6 +1584,9 @@ describe("HeatmapManager — EVENTS.LAYER_DELETED auto-clear", () => {
     // The record is dropped so a reload does not resurrect the cleared layer,
     // the same teardown as MeasureControl's LAYER_DELETED -> clearAll.
     expect(clearSaved).toHaveBeenCalledTimes(1);
+    // resetPanel owns the single canvas wipe — the event handler must not add
+    // another one on top of it.
+    expect(clearSpy).toHaveBeenCalledTimes(1);
     // Only the contents reset — the panel stays open for the next pick.
     expect(ctrl.ctrl.classList.contains(CONST.CLASSES.COLLAPSED)).toBe(false);
   });

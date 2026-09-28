@@ -215,7 +215,7 @@ describe("bindControls — clear (reset) button", () => {
     expect(m.numClasses).toBe(conf.n_classes);
     expect(m.currentMethod).toBe(conf.method);
     expect(m.currentScheme).toBe(conf.color_scheme);
-    expect(clearSaved).toHaveBeenCalled();
+    expect(clearSaved).toHaveBeenCalledTimes(1);
 
     expect(ctrl.extraBody.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
     expect(ctrl.ctrl.classList.contains(CONST.CLASSES.COLLAPSED)).toBe(true);
@@ -285,6 +285,17 @@ describe("resetPanel — shared reset (Clear button + more-menu clear)", () => {
     expect(ctrl.schemeSelectHidden.value).toBe(conf.color_scheme);
     expect(ctrl.fieldSelect.value).toBe("");
     expect(ctrl.extraBody.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
+  });
+
+  it("resets the aggregation to the declared default, not count", () => {
+    // The constructor honours conf.agg, so a clear has to land back on the
+    // declared value instead of dropping an agg="sum" map to count.
+    const { ctrl, m } = setup(makeConf({ agg: "sum" }));
+
+    resetPanel(ctrl);
+
+    expect(m.currentAgg).toBe(CONST.AGG.SUM);
+    expect(ctrl.aggSelect.value).toBe(CONST.AGG.SUM);
   });
 
   it("leaves the panel open and the persisted record alone", () => {

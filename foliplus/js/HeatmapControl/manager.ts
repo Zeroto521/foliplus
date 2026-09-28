@@ -396,6 +396,7 @@ class HeatmapManager {
         // canvas directly so a re-add does not render the stale selection.
         this.resetState(CONF);
         this.clearHeatmapCanvas();
+        this.syncSourceMeta();
       }
       this.clearSavedConfig();
     });
@@ -688,7 +689,7 @@ class HeatmapManager {
   resetState(conf: ComponentConfig) {
     this.selectedLayerId = null;
     this.autoFieldKey = null;
-    this.currentAgg = CONST.AGG.COUNT;
+    this.currentAgg = conf.agg ?? CONST.AGG.COUNT;
     this.currentField = "";
     this.numClasses = conf.n_classes ?? CONST.CLASS_COUNT.DEFAULT;
     this.currentMethod = conf.method ?? CLASSIFY_METHOD.JENKS;

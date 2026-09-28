@@ -1,6 +1,5 @@
 // HeatmapControl UI building — standalone functions.
 // All internal refs use direct function calls instead of `this.`.
-import { METHOD as CLASSIFY_METHOD } from "#core/classify.js";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { dom } from "#common/dom.js";
@@ -505,15 +504,23 @@ const initScan = (ctrl: HeatmapControlUI): (() => void) => {
 const resetPanel = (ctrl: HeatmapControlUI) => {
   ctrl.m.resetState(ctrl.conf);
   ctrl.m.clearHeatmapCanvas();
+  // Read the reset values off the manager instead of recomputing the defaults —
+  // resetState is the single source, and bindControls' initial clamp (see above)
+  // is the one the class select needs.
   syncSelect(ctrl, ctrl.layerSelect, "");
-  syncSelect(ctrl, ctrl.aggSelect, CONST.AGG.COUNT);
+  syncSelect(ctrl, ctrl.aggSelect, ctrl.m.currentAgg);
   syncSelect(
     ctrl,
     ctrl.classSelect,
-    String(ctrl.conf.n_classes ?? CONST.CLASS_COUNT.DEFAULT),
+    String(
+      Math.min(
+        CONST.CLASS_COUNT.MAX,
+        Math.max(CONST.CLASS_COUNT.MIN, ctrl.m.numClasses),
+      ),
+    ),
   );
-  syncSelect(ctrl, ctrl.methodSelect, ctrl.conf.method ?? CLASSIFY_METHOD.JENKS);
-  ctrl.schemeSelectHidden.value = ctrl.conf.color_scheme ?? "Reds";
+  syncSelect(ctrl, ctrl.methodSelect, ctrl.m.currentMethod);
+  ctrl.schemeSelectHidden.value = ctrl.m.currentScheme;
   updateSchemeBar(ctrl);
   updateFieldSelector(ctrl);
   // Drop the published source rows — the canvas unregisters on clear, but the
