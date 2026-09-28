@@ -1436,7 +1436,10 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
         zero: ["borderWeight"],
         missing: ["borderColor", "borderWeight"],
       },
-      m: { persistence: { schedule } },
+      m: {
+        persistence: { schedule },
+        annotation: { configEntries: () => [] },
+      },
     } as unknown as LayerUI;
 
     saveState(bare);
