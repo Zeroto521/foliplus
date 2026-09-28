@@ -94,7 +94,7 @@ class LayerUI {
    *  is visible. `syncToggleAllFromCount` writes the checkbox off `on`. */
   checkedCount: Record<string, { total: number; on: number }>;
   /** Layer ids hidden by the user (checked-off); survives page reload. */
-  hiddenIds: Set<string>;
+  hiddenLayerIds: Set<string>;
   /** The author's declared default per layer id, snapshotted once per id from
    *  the map membership at first sight.
    *
@@ -146,7 +146,7 @@ class LayerUI {
   /** Map zoomend handler — re-evaluates every layer's effective-shown after
    *  a zoom change so a layer whose range excludes the new level is hidden
    *  (and vice versa). Writes through the single pipeline, never touches
-   *  hiddenIds / overrides. */
+   *  hiddenLayerIds / overrides. */
   onZoomEnd: (() => void) | null;
   /** Unsubscribe function for LAYER_ITEM_COUNT_CHANGE. */
   unsubscribeCountChange: (() => void) | null;
@@ -235,7 +235,7 @@ class LayerUI {
     this._ = createTranslator(CONF);
     this.foldedGroups = new Set();
     this.checkedCount = {};
-    this.hiddenIds = new Set();
+    this.hiddenLayerIds = new Set();
     this.authorVisible = new Map();
     this.userOverrides = {};
     this.currentColor = CONST.COLOR.DEFAULT;

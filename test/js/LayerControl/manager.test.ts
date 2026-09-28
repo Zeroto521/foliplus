@@ -279,7 +279,7 @@ describe("LayerManager", () => {
       invalidateFields: vi.fn(),
       syncToggleAll: vi.fn(),
       userOverrides: {},
-      hiddenIds: new Set(),
+      hiddenLayerIds: new Set(),
       opacityMap: {},
       fillColorMap: {},
       fillOpacityMap: {},
@@ -708,7 +708,7 @@ describe("LayerManager", () => {
     manager.map.addLayer = addLayer;
     manager.map.removeLayer = removeLayer;
     manager.ui = {
-      hiddenIds: new Set(["new1"]),
+      hiddenLayerIds: new Set(["new1"]),
       saveState: vi.fn(),
     } as any;
     manager.registerLayer({ id: "new1", name: "New", layer } as any);
@@ -726,7 +726,7 @@ describe("LayerManager", () => {
     manager.map.addLayer = addLayer;
     manager.map.removeLayer = removeLayer;
     manager.ui = {
-      hiddenIds: new Set(["canvas1"]),
+      hiddenLayerIds: new Set(["canvas1"]),
       saveState: vi.fn(),
     } as any;
     manager.registerLayer({
@@ -749,7 +749,7 @@ describe("LayerManager", () => {
     manager.map.addLayer = addLayer;
     manager.map.removeLayer = removeLayer;
     manager.ui = {
-      hiddenIds: new Set(["new1"]),
+      hiddenLayerIds: new Set(["new1"]),
       saveState: vi.fn(),
     } as any;
     manager.registerLayer({ id: "new1", name: "New", layer } as any);
@@ -766,7 +766,7 @@ describe("LayerManager", () => {
     const removeLayer = vi.fn();
     manager.map.removeLayer = removeLayer;
     manager.ui = {
-      hiddenIds: new Set(["other"]),
+      hiddenLayerIds: new Set(["other"]),
       saveState: vi.fn(),
     } as any;
     manager.registerLayer({ id: "visible1", name: "V", layer } as any);
@@ -1493,7 +1493,7 @@ describe("LayerManager", () => {
           {
             m: manager,
             uiContainer: manager.uiContainer,
-            hiddenIds: new Set(),
+            hiddenLayerIds: new Set(),
             renamedNames: {},
             opacityMap: { heat: 0.4 },
             fillColorMap: {},
@@ -1508,7 +1508,7 @@ describe("LayerManager", () => {
       opacityMap: { heat: 0.4 },
       fillColorMap: {},
       fillOpacityMap: {},
-      hiddenIds: new Set(),
+      hiddenLayerIds: new Set(),
       zoomRangeMap: {},
       userOverrides: { heat: ["opacity"] },
       appliedState: new Map(),
@@ -1530,7 +1530,7 @@ describe("LayerManager", () => {
     manager.uiContainer = document.createElement("div");
     manager.uiContainer.appendChild(row);
     manager.ui = {
-      hiddenIds: new Set(),
+      hiddenLayerIds: new Set(),
       opacityMap: {},
       fillColorMap: {},
       fillOpacityMap: {},
@@ -1550,7 +1550,7 @@ describe("LayerManager", () => {
     manager.map.hasLayer.mockReturnValue(false);
     manager.uiContainer = document.createElement("div");
     manager.ui = {
-      hiddenIds: new Set(),
+      hiddenLayerIds: new Set(),
       opacityMap: {},
       fillColorMap: {},
       fillOpacityMap: {},
@@ -1569,7 +1569,7 @@ describe("LayerManager", () => {
     manager.map.hasLayer.mockReturnValue(false);
     const syncToggleAll = vi.fn();
     manager.ui = {
-      hiddenIds: new Set(),
+      hiddenLayerIds: new Set(),
       opacityMap: {},
       fillColorMap: {},
       fillOpacityMap: {},
@@ -1603,7 +1603,7 @@ describe("LayerManager", () => {
     manager.map.hasLayer.mockReturnValue(false);
     const saveState = vi.fn();
     manager.ui = {
-      hiddenIds: new Set(["overlay1", "base1"]),
+      hiddenLayerIds: new Set(["overlay1", "base1"]),
       opacityMap: { overlay1: 0.4, base1: 1 },
       fillColorMap: {},
       fillOpacityMap: {},
@@ -1619,7 +1619,7 @@ describe("LayerManager", () => {
     } as any;
     manager.unregisterLayer("overlay1");
 
-    expect(manager.ui.hiddenIds).toEqual(new Set(["overlay1", "base1"]));
+    expect(manager.ui.hiddenLayerIds).toEqual(new Set(["overlay1", "base1"]));
     expect(manager.ui.opacityMap).toEqual({ overlay1: 0.4, base1: 1 });
     expect(manager.ui.zoomRangeMap).toEqual({ overlay1: [3, 12] });
     expect(manager.ui.userOverrides).toEqual({
@@ -1637,7 +1637,7 @@ describe("LayerManager", () => {
     const saveState = vi.fn();
     const saveNamesState = vi.fn();
     manager.ui = {
-      hiddenIds: new Set(["overlay1", "base1"]),
+      hiddenLayerIds: new Set(["overlay1", "base1"]),
       opacityMap: { overlay1: 0.4, base1: 1 },
       fillColorMap: {},
       fillOpacityMap: {},
@@ -1658,7 +1658,7 @@ describe("LayerManager", () => {
     } as any;
     manager.deleteLayer("overlay1");
 
-    expect(manager.ui.hiddenIds).toEqual(new Set(["base1"]));
+    expect(manager.ui.hiddenLayerIds).toEqual(new Set(["base1"]));
     expect(manager.ui.opacityMap).toEqual({ base1: 1 });
     expect(manager.ui.zoomRangeMap).toEqual({});
     expect(manager.ui.userOverrides).toEqual({ base1: ["visible"] });
@@ -1671,7 +1671,7 @@ describe("LayerManager", () => {
     manager.map.hasLayer.mockReturnValue(false);
     const saveState = vi.fn();
     manager.ui = {
-      hiddenIds: new Set(["overlay1"]),
+      hiddenLayerIds: new Set(["overlay1"]),
       opacityMap: { overlay1: 0.4 },
       fillColorMap: {},
       fillOpacityMap: {},
@@ -1685,7 +1685,7 @@ describe("LayerManager", () => {
     } as any;
 
     expect(manager.deleteLayer("never-registered")).toBe(false);
-    expect(manager.ui.hiddenIds).toEqual(new Set(["overlay1"]));
+    expect(manager.ui.hiddenLayerIds).toEqual(new Set(["overlay1"]));
     expect(saveState).not.toHaveBeenCalled();
   });
 
@@ -1705,7 +1705,7 @@ describe("LayerManager", () => {
     const saveState = vi.fn();
     const saveNamesState = vi.fn();
     manager.ui = {
-      hiddenIds: new Set(["overlay1", "base1"]),
+      hiddenLayerIds: new Set(["overlay1", "base1"]),
       opacityMap: { overlay1: 0.4 },
       fillColorMap: {},
       fillOpacityMap: {},
@@ -1728,7 +1728,7 @@ describe("LayerManager", () => {
 
     expect(saveState).toHaveBeenCalledTimes(1);
     expect(saveNamesState).not.toHaveBeenCalled();
-    expect(manager.ui.hiddenIds).toEqual(new Set(["base1"]));
+    expect(manager.ui.hiddenLayerIds).toEqual(new Set(["base1"]));
     expect(manager.ui.renamedNames).toEqual({ base1: "Renamed" });
   });
 
@@ -1759,7 +1759,7 @@ describe("LayerManager", () => {
     m.map.hasLayer.mockReturnValue(false);
     m.ui = {
       m,
-      hiddenIds: new Set(),
+      hiddenLayerIds: new Set(),
       opacityMap: { overlay1: 0.4 },
       fillColorMap: {},
       fillOpacityMap: {},

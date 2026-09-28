@@ -137,7 +137,7 @@ describe("executor: only intent authorises display", () => {
     map.getZoom.mockReturnValue(2);
     applyProjectionAll(ui);
     expect(map.addLayer).not.toHaveBeenCalled();
-    expect(ui.hiddenIds.has("a")).toBe(false);
+    expect(ui.hiddenLayerIds.has("a")).toBe(false);
   });
 });
 
@@ -188,14 +188,14 @@ describe("executor: intent authorises, policy only suppresses", () => {
     expect(map.addLayer).toHaveBeenCalledWith(layer);
 
     // Intent is unchanged throughout: the user's choice is `visible`,
-    // which never went into `hiddenIds`. This is the #329 lock.
-    expect(ui.hiddenIds.has("r")).toBe(false);
+    // which never went into `hiddenLayerIds`. This is the #329 lock.
+    expect(ui.hiddenLayerIds.has("r")).toBe(false);
     expect(ui.userOverrides.r).toEqual(["zoomRange"]);
   });
 
   it("#329 lock — a policy-only zoom crossing never mutates intent", () => {
     // #329's specific assertion: after a zoom crossing out of the stored
-    // range, the checkbox, hiddenIds, and userOverrides are byte-identical
+    // range, the checkbox, hiddenLayerIds, and userOverrides are byte-identical
     // to before. The layer goes off the map (that is policy working), but
     // the user's own choice is not touched — the derived dimension cannot
     // authorise, and it also cannot record.
@@ -215,7 +215,7 @@ describe("executor: intent authorises, policy only suppresses", () => {
     ui.userOverrides.s = ["zoomRange"];
 
     // Snapshot the intent state.
-    const hiddenBefore = new Set(ui.hiddenIds);
+    const hiddenBefore = new Set(ui.hiddenLayerIds);
     const overridesBefore = { ...ui.userOverrides };
 
     map.getZoom.mockReturnValue(2);
@@ -224,7 +224,7 @@ describe("executor: intent authorises, policy only suppresses", () => {
     // The layer is removed from the map by policy.
     expect(map.removeLayer).toHaveBeenCalledWith(layer);
     // ...but the user's own choice is untouched.
-    expect(ui.hiddenIds).toEqual(hiddenBefore);
+    expect(ui.hiddenLayerIds).toEqual(hiddenBefore);
     expect(ui.userOverrides).toEqual(overridesBefore);
   });
 });
@@ -477,7 +477,7 @@ describe("executor: carrier dispatch", () => {
     applyProjection(ui, "cv2");
     expect(canvas.classList.contains("hidden")).toBe(false);
 
-    ui.hiddenIds.add("cv2"); // the user unchecks
+    ui.hiddenLayerIds.add("cv2"); // the user unchecks
     applyProjection(ui, "cv2");
     expect(canvas.classList.contains("hidden")).toBe(true);
   });
@@ -751,7 +751,7 @@ describe("executor: the branches behind the gates", () => {
 
     map.removeLayer.mockClear();
     map.hasLayer = vi.fn(() => true);
-    ui.hiddenIds.add("on");
+    ui.hiddenLayerIds.add("on");
     ui.userOverrides.on = ["visible"];
     applyProjection(ui, "on");
 
@@ -829,12 +829,12 @@ describe("executor: the branches behind the gates", () => {
     expect(manager.layerRegistry.get("gone")?.opacity).toBe(0.4);
   });
 
-  it("a ui with no hiddenIds and no userOverrides still projects", () => {
+  it("a ui with no hiddenLayerIds and no userOverrides still projects", () => {
     // The `?? false` fallbacks on both choice maps: `applyProjection`,
     // `intentVisibleOf` and `projectLayer` all read them as optional, because a
     // thin stub (and a partially-built shell) may not have them yet.
     const bare = {
-      hiddenIds: undefined,
+      hiddenLayerIds: undefined,
       userOverrides: undefined,
       authorVisible: new Map<string, boolean>(),
       opacityMap: {},
@@ -932,7 +932,7 @@ describe("executor: the branches behind the gates", () => {
     map.addLayer.mockClear();
     map.removeLayer = vi.fn();
     map.hasLayer = vi.fn(() => true);
-    // No `hiddenIds` / override, and the author's default was observed as
+    // No `hiddenLayerIds` / override, and the author's default was observed as
     // `true` while the layer sits on the map — so intent and policy both
     // say "shown" and the layer is already shown.
     ui.authorVisible.set("up", true);
@@ -989,7 +989,7 @@ describe("membership invariants: only intent + author snapshot authorise members
     const ui = manager.ui as LayerUI;
 
     expect(ui.authorVisible.has("unobs")).toBe(false);
-    expect(ui.hiddenIds.has("unobs")).toBe(false);
+    expect(ui.hiddenLayerIds.has("unobs")).toBe(false);
 
     applyProjectionAll(ui);
     expect(map.addLayer).not.toHaveBeenCalled();
@@ -1001,13 +1001,13 @@ describe("membership invariants: only intent + author snapshot authorise members
     // already says "not shown" — the policy dimension cannot flip it back.
     const { map, ui } = bootUnobserved("hidden");
 
-    ui.hiddenIds.add("hidden");
+    ui.hiddenLayerIds.add("hidden");
     ui.userOverrides.hidden = ["visible"];
     ui.focusingLayerId = null; // policy permissive
 
     applyProjectionAll(ui);
     expect(map.addLayer).not.toHaveBeenCalled();
-    expect(ui.hiddenIds.has("hidden")).toBe(true);
+    expect(ui.hiddenLayerIds.has("hidden")).toBe(true);
   });
 
   it("dismissing focus after intent=false does not add the layer back", () => {
@@ -1016,12 +1016,12 @@ describe("membership invariants: only intent + author snapshot authorise members
     // executor's own write path. But intent=false + policy=true must stay
     // false — a policy dimension can only suppress.
     const { map, ui } = bootUnobserved("p");
-    ui.hiddenIds.add("p");
+    ui.hiddenLayerIds.add("p");
     ui.userOverrides.p = ["visible"];
     ui.focusingLayerId = null;
 
     applyProjectionAll(ui);
     expect(map.addLayer).not.toHaveBeenCalled();
-    expect(ui.hiddenIds.has("p")).toBe(true);
+    expect(ui.hiddenLayerIds.has("p")).toBe(true);
   });
 });

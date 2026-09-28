@@ -4,7 +4,7 @@
 // `projection.ts`, diffs it against the last projection it wrote to the map
 // (`ui.appliedState`), and calls `applyStateOp` only for the dimensions
 // that actually moved. The old model — a sweep that re-read the whole
-// registry per layer, walked `hiddenIds` / `opacityMap` / `zoomRangeMap`
+// registry per layer, walked `hiddenLayerIds` / `opacityMap` / `zoomRangeMap`
 // by id, and picked per-dimension helpers — is what made the three
 // regressions structurally reachable:
 //
@@ -320,7 +320,7 @@ const applyProjection = (ui: LayerUI, id: string): void => {
   // decide — writing `effectiveShown` for it would turn a guess into an add.
   const hasUserIntent =
     (ui.userOverrides?.[id]?.includes("visible") ?? false) ||
-    (ui.hiddenIds?.has(id) ?? false);
+    (ui.hiddenLayerIds?.has(id) ?? false);
   const authorised = hasUserIntent || ui.authorVisible.has(id);
   // Current visibility, read from the carrier the write would land on.
   // "native" — the map's own membership flag; "pane" — the canvas's

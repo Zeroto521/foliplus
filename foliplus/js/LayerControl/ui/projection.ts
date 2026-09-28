@@ -50,14 +50,14 @@ interface AppliedProjection extends Projection {
  *  the layer record.
  *
  *  The user's choice is signalled by the dimension's `overrides` provenance
- *  marker *or* by membership in `hiddenIds`. The two travel together out of
+ *  marker *or* by membership in `hiddenLayerIds`. The two travel together out of
  *  `loadPersistedState` and `syncHiddenId`, so either alone still means "the
  *  user chose this" — a caller that records the value (a restored record, a
  *  test fixture, a re-registration replay) must not have it silently read
  *  back as the author's default. */
 const intentVisibleOf = (ui: LayerUI, id: string): boolean => {
   const overrides = ui.userOverrides?.[id];
-  const hidden = ui.hiddenIds?.has(id) ?? false;
+  const hidden = ui.hiddenLayerIds?.has(id) ?? false;
   const hasVisible = overrides?.includes("visible") || hidden;
   const authorDefault = ui.authorVisible.get(id) ?? true;
   return hasVisible ? !hidden : authorDefault;
@@ -74,7 +74,7 @@ const projectLayer = (ui: LayerUI, layerInfo: LayerInfo): Projection => {
   // per layer per zoom, so the JIT benefits from seeing all lookups in
   // one scope.
   const overrides = ui.userOverrides?.[id];
-  const hidden = ui.hiddenIds?.has(id) ?? false;
+  const hidden = ui.hiddenLayerIds?.has(id) ?? false;
   const hasVisible = overrides?.includes("visible") || hidden;
   const authorDefault = ui.authorVisible.get(id) ?? true;
   const intent = hasVisible ? !hidden : authorDefault;
@@ -107,7 +107,7 @@ const projectLayer = (ui: LayerUI, layerInfo: LayerInfo): Projection => {
 const projectAll = (ui: LayerUI): Map<string, Projection> => {
   const ids = new Set([
     ...ui.m.layers.map(li => li.id),
-    ...ui.hiddenIds,
+    ...ui.hiddenLayerIds,
     ...Object.keys(ui.renamedNames),
     ...Object.keys(ui.opacityMap),
     ...Object.keys(ui.zoomRangeMap),

@@ -1,6 +1,6 @@
 async () => {
   // Gate 1: the zoomend sweep path. A folium show=False layer has no
-  // hiddenIds entry and (before the fix) the sweep's applyLayerState
+  // hiddenLayerIds entry and (before the fix) the sweep's applyLayerState
   // would unconditionally addLayer on every zoomend — putting the layer
   // on the map while the checkbox stayed unchecked. This test verifies
   // that a zoomend sweep does not resurrect a layer the author left

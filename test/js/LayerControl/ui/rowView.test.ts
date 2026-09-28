@@ -77,7 +77,7 @@ describe("intentVisibleOf (the intent seam)", () => {
   ): LayerUI =>
     ({
       userOverrides: overrides,
-      hiddenIds: new Set(hidden),
+      hiddenLayerIds: new Set(hidden),
       authorVisible: new Map(Object.entries(author)),
     }) as unknown as LayerUI;
 
@@ -186,7 +186,7 @@ describe("buildRowCell + applyRowView (one writer per row)", () => {
     const item = findItem(ui, "overlay1");
 
     ui.applyVisibility("overlay1", false);
-    expect(ui.hiddenIds.has("overlay1")).toBe(true);
+    expect(ui.hiddenLayerIds.has("overlay1")).toBe(true);
     expect(buildRowCell(ui, layerInfo).checked).toBe(false);
     expect(box(item).checked).toBe(false);
     expect(item.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
@@ -291,7 +291,7 @@ describe("applyRowView (the single DOM write point)", () => {
     expect(el.getAttribute(CONST.DATA.TITLE)).toBe("polygon");
   });
 
-  it("buildRowCell handles undefined userOverrides and hiddenIds", () => {
+  it("buildRowCell handles undefined userOverrides and hiddenLayerIds", () => {
     // The `?.` and `?? false` fallbacks on the inline intent check: a thin
     // stub may not have populated these maps yet, so the check must degrade to
     // the author default rather than crashing.
@@ -301,7 +301,7 @@ describe("applyRowView (the single DOM write point)", () => {
       mgmt: { getFeatureCount: () => 0 },
       renamedNames: {},
       authorVisible: new Map(),
-      hiddenIds: undefined,
+      hiddenLayerIds: undefined,
       userOverrides: undefined,
       zoomRangeMap: {},
       opacityMap: {},
@@ -383,7 +383,7 @@ describe("snapshotAuthorVisible", () => {
       id: "heat-mixed",
       canvas: document.createElement("canvas"),
     } as unknown as LayerInfo);
-    ui.hiddenIds.add("heat-mixed");
+    ui.hiddenLayerIds.add("heat-mixed");
     ui.userOverrides["heat-mixed"] = ["visible"];
     snapshotAuthorVisible(ui, {
       id: "heat-mixed",
@@ -411,7 +411,7 @@ describe("snapshotAuthorVisible", () => {
 });
 
 describe("intentVisibleOf: what counts as the user's choice", () => {
-  it("a bare hiddenIds entry is already a choice — the row reads unchecked", () => {
+  it("a bare hiddenLayerIds entry is already a choice — the row reads unchecked", () => {
     // `syncHiddenId` always marks, but a restored record or a direct write
     // can leave an entry without its provenance marker. Either half is the
     // user's choice; only the author's default is the fallback.
@@ -419,7 +419,7 @@ describe("intentVisibleOf: what counts as the user's choice", () => {
     const layerInfo = ui.m.layers.find(li => li.id === "overlay1")!;
     ui.userOverrides.overlay1 = undefined as never;
     delete ui.userOverrides.overlay1;
-    ui.hiddenIds.add("overlay1");
+    ui.hiddenLayerIds.add("overlay1");
     expect(intentVisibleOf(ui, layerInfo.id)).toBe(false);
   });
 
@@ -427,7 +427,7 @@ describe("intentVisibleOf: what counts as the user's choice", () => {
     const { ui } = initFixture({});
     const layerInfo = ui.m.layers.find(li => li.id === "overlay1")!;
     delete ui.userOverrides.overlay1;
-    ui.hiddenIds.delete("overlay1");
+    ui.hiddenLayerIds.delete("overlay1");
     ui.authorVisible.set("overlay1", false);
     expect(intentVisibleOf(ui, layerInfo.id)).toBe(false);
   });

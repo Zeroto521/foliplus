@@ -22,11 +22,11 @@ const loadPersistedState = (ui: LayerUI) => {
   // (write-new / read-old — a v2 record reads exactly as it always did,
   // and neither side is migrated into the other).
   ui.labelConfigs = { ...state.annotations };
-  // Per-layer intent: the value lives in hiddenIds / opacityMap, `overrides`
+  // Per-layer intent: the value lives in hiddenLayerIds / opacityMap, `overrides`
   // records that the user set it. A layer with no entry keeps the author's
   // declared default -- there is no map-level "did the user choose at all" flag,
   // because the distinction is per layer.
-  ui.hiddenIds = new Set();
+  ui.hiddenLayerIds = new Set();
   ui.fillColorMap = {};
   ui.fillOpacityMap = {};
   ui.borderColorMap = {};
@@ -40,7 +40,7 @@ const loadPersistedState = (ui: LayerUI) => {
     if (entry.annotation) ui.labelConfigs[id] = entry.annotation;
     ui.userOverrides[id] = [...entry.overrides];
     if (entry.overrides.includes("visible") && entry.visible === false) {
-      ui.hiddenIds.add(id);
+      ui.hiddenLayerIds.add(id);
     }
     if (entry.overrides.includes("fillColor") && entry.fillColor) {
       ui.fillColorMap[id] = entry.fillColor;
@@ -111,7 +111,7 @@ const buildLayerStates = (ui: LayerUI): Record<string, PersistedLayerState> => {
     const annotation = annotations[id];
     if (declared.length === 0 && !annotation) continue;
     const state: PersistedLayerState = { overrides: declared };
-    if (declared.includes("visible")) state.visible = !ui.hiddenIds.has(id);
+    if (declared.includes("visible")) state.visible = !ui.hiddenLayerIds.has(id);
     const fillColor = ui.fillColorMap[id];
     if (declared.includes("fillColor") && typeof fillColor === "string") {
       state.fillColor = fillColor;
@@ -178,7 +178,7 @@ const unmarkOverride = (ui: LayerUI, id: string, override: LayerOverride) => {
  * Propagate the user's stored state —hidden visibility and renames —
  * into the registry and the rendered rows.
  *
- * `hiddenIds` and `renamedNames` are the source of truth; the registry's
+ * `hiddenLayerIds` and `renamedNames` are the source of truth; the registry's
  * `LayerInfo.visible` / `LayerInfo.name` and the row checkboxes / labels
  * are their projections, refreshed here whenever a row or the registry is
  * rebuilt from a third-party layer's own metadata. Hidden is a same-axis
@@ -238,8 +238,8 @@ const applyUserState = (ui: LayerUI, id?: string) => {
     return;
   }
 
-  // The registry is the sweep, not `hiddenIds`: a layer the user left
-  // visible is absent from `hiddenIds` by design, so iterating that set
+  // The registry is the sweep, not `hiddenLayerIds`: a layer the user left
+  // visible is absent from `hiddenLayerIds` by design, so iterating that set
   // alone can never reach it and the hide half of the round trip has no
   // inverse. Walking the registry asserts every layer's map membership
   // against the persisted intent; the color basemap has no registry entry,
@@ -297,7 +297,7 @@ const applyUserState = (ui: LayerUI, id?: string) => {
  * longer holds, and {@link markOverride} refuses that combination.
  */
 const dropPersistedLayerState = (ui: LayerUI, id: string) => {
-  ui.hiddenIds.delete(id);
+  ui.hiddenLayerIds.delete(id);
   delete ui.fillColorMap[id];
   delete ui.fillOpacityMap[id];
   delete ui.borderColorMap[id];
@@ -329,8 +329,8 @@ const syncHiddenId = (
   hidden: boolean,
   persist: boolean = true,
 ) => {
-  if (hidden) ui.hiddenIds.add(id);
-  else ui.hiddenIds.delete(id);
+  if (hidden) ui.hiddenLayerIds.add(id);
+  else ui.hiddenLayerIds.delete(id);
   // The user's explicit action (either direction) supersedes any record the
   // zoom-range mechanism kept for this id: without this line, a layer the
   // sweep had removed would be re-added by the sweep the moment the user
