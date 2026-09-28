@@ -3,8 +3,8 @@ import { EVENTS } from "#core/event/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { LayerManager } from "#foliplus/LayerControl/manager.js";
 import {
-  patchBringToFront,
-  unpatchBringToFront,
+  installBringToFrontPatch,
+  uninstallBringToFrontPatch,
 } from "#foliplus/LayerControl/manager.js";
 import { LayerPersistence } from "#foliplus/LayerControl/persistence.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
@@ -52,17 +52,17 @@ describe("bringToFront patch refcounting", () => {
     const proto = window.L.Path.prototype;
     const base = proto.bringToFront;
     try {
-      patchBringToFront();
-      patchBringToFront();
+      installBringToFrontPatch();
+      installBringToFrontPatch();
       expect(proto.bringToFront).not.toBe(base);
-      unpatchBringToFront();
+      uninstallBringToFrontPatch();
       expect(proto.bringToFront).not.toBe(base); // second instance still patched
-      unpatchBringToFront();
+      uninstallBringToFrontPatch();
       expect(proto.bringToFront).toBe(base); // last instance restored
     } finally {
       // leave the module counter at zero even if an assertion failed
-      unpatchBringToFront();
-      unpatchBringToFront();
+      uninstallBringToFrontPatch();
+      uninstallBringToFrontPatch();
       proto.bringToFront = base;
     }
   });
@@ -70,7 +70,7 @@ describe("bringToFront patch refcounting", () => {
   it("guarded bringToFront skips detached paths without throwing", () => {
     const proto = window.L.Path.prototype;
     const base = proto.bringToFront;
-    patchBringToFront();
+    installBringToFrontPatch();
     try {
       const guarded = proto.bringToFront as unknown as (this: unknown) => unknown;
       // _path missing / detached → no-op, returns this
@@ -79,7 +79,7 @@ describe("bringToFront patch refcounting", () => {
       expect(() => guarded.call({ _path: { parentNode: null } })).not.toThrow();
       expect(() => guarded.call({ _path: { parentNode: {} } })).not.toThrow();
     } finally {
-      unpatchBringToFront();
+      uninstallBringToFrontPatch();
       proto.bringToFront = base;
     }
   });

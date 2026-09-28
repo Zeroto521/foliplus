@@ -50,7 +50,7 @@ const origBringToFront = L.Path.prototype.bringToFront;
 // the prototype; only the last unpatch restores the original implementation.
 let bringToFrontPatchRefs = 0;
 
-const patchBringToFront = () => {
+const installBringToFrontPatch = () => {
   bringToFrontPatchRefs++;
   if (bringToFrontPatchRefs > 1) return;
   L.Path.prototype.bringToFront = function () {
@@ -59,7 +59,7 @@ const patchBringToFront = () => {
   };
 };
 
-const unpatchBringToFront = () => {
+const uninstallBringToFrontPatch = () => {
   if (bringToFrontPatchRefs <= 0) return;
   bringToFrontPatchRefs--;
   if (bringToFrontPatchRefs > 0) return;
@@ -141,7 +141,7 @@ const mergeStoredOrder = (stored: string[] | null, live: string[]): string[] => 
 //             syncAttribution, attachUI, destroy, canReorderBetween,
 //             findLayer, refreshType, refreshCount, forEachLeaf,
 //             clearAllLayers
-//   Private   patchBringToFront, unpatchBringToFront, mergeStoredOrder
+//   Private   installBringToFrontPatch, uninstallBringToFrontPatch, mergeStoredOrder
 
 /** The pane specs a surface is declared with: the registry entry's own, plus
  *  the label (annotation) pane when the layer's features expose a labelable
@@ -1311,4 +1311,4 @@ class LayerManager implements LayerAPI {
   }
 }
 
-export { LayerManager, patchBringToFront, unpatchBringToFront };
+export { LayerManager, installBringToFrontPatch, uninstallBringToFrontPatch };
