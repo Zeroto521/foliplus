@@ -115,7 +115,7 @@
 - `LayerControl`: `fillColor` / `borderColor` and the annotation `color` in the persisted record are normalized to `#rrggbb` — `<input type=color>` only takes the long form; reuses `common/form.ts`'s `normalizeHexColor` ([#477](https://github.com/Zeroto521/foliplus/pull/477), [#482](https://github.com/Zeroto521/foliplus/pull/482))
 - `FullscreenControl`: a denied fullscreen entry or exit now reports the honest hint (`unsupported` / `exit_fail`) instead of "Entered fullscreen" ([#486](https://github.com/Zeroto521/foliplus/pull/486))
 - `LayerControl`: rapid visibility toggles stay smooth at 6k layers — the toggle-all tri-state counter updates O(1) per click instead of rescanning the group, and overlay clicks skip the basemap scan ([#504](https://github.com/Zeroto521/foliplus/pull/504))
-- `LayerControl`: dragging the solid-color basemap to a new position now persists across reloads — the saved order is written only by explicit user reorders (drag, move up/down, bring to front), and registration alone no longer writes it
+- `LayerControl`: dragging the solid-color basemap to a new position now persists across reloads — the saved order is written only by explicit user reorders (drag, move up/down, bring to front), and registration alone no longer writes it ([#537](https://github.com/Zeroto521/foliplus/pull/537))
 
 ## [v0.3.0] (2026-08-02)
 
