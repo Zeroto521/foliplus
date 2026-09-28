@@ -73,14 +73,23 @@ const uninstallBringToFrontPatch = () => {
  *  *slot* it was stored in, not just its existence: appending it at the end
  *  would sink a layer the user parked mid-stack, and the drift is permanent
  *  because the next flush would persist the sunk position.
+ *
+ *  Runtime-origin ids (see `LayerInfo.orderOrigin`) are dropped from the write
+ *  entirely — live or stored, registered or pending. Their slots are attach
+ *  timing, not a user arrangement; a legacy disk may still carry them and the
+ *  next save is where that gets cleaned (deletion-is-not-migration).
  */
-const mergeStoredOrder = (stored: string[] | null, live: string[]): string[] => {
-  if (!stored || stored.length === 0) return [...live];
+const mergeStoredOrder = (
+  stored: string[] | null,
+  live: string[],
+  isRuntime: (id: string) => boolean,
+): string[] => {
+  const order = live.filter(id => !isRuntime(id));
+  if (!stored || stored.length === 0) return order;
   const rank = new Map(stored.map((id, i) => [id, i]));
-  const known = new Set(live);
-  const order = [...live];
+  const known = new Set(order);
   for (const [storedAt, id] of stored.entries()) {
-    if (known.has(id)) continue;
+    if (isRuntime(id) || known.has(id)) continue;
     // Insert before the first live id stored below it — at the end when every
     // registered layer sits above it.
     let at = order.length;
@@ -393,18 +402,31 @@ class LayerManager implements LayerAPI {
   loadSavedOrder() {
     const data = this.savedOrder;
     if (!data) return;
-    const layerMap = new Map(this.layers.map(l => [l.id, l]));
+    // Runtime layers keep their live registration positions; user layers
+    // reorder by the stored rank. A legacy runtime id in the record is not a
+    // user arrangement, so it never pulls a runtime layer into a stale slot.
+    const items = [...this.layers];
+    this.layerRegistry.replace(this.sortUserByStored(items, data));
+  }
+
+  /** Reorder `items` by `stored`, leaving runtime layers at their live indices. */
+  private sortUserByStored(items: LayerInfo[], stored: string[]): LayerInfo[] {
+    const rank = new Map(stored.map((id, i) => [id, i]));
+    const userItems = items.filter(l => l.orderOrigin !== "runtime");
+    userItems.sort((a, b) => {
+      const ra = rank.get(a.id);
+      const rb = rank.get(b.id);
+      if (ra === undefined) return rb === undefined ? 0 : 1;
+      if (rb === undefined) return -1;
+      return ra - rb;
+    });
     const ordered: LayerInfo[] = [];
-    for (const id of data) {
-      if (layerMap.has(id)) {
-        ordered.push(layerMap.get(id)!);
-        layerMap.delete(id);
-      }
+    let userAt = 0;
+    for (const item of items) {
+      if (item.orderOrigin === "runtime") ordered.push(item);
+      else ordered.push(userItems[userAt++]!);
     }
-    // Ids with no stored position go last. insertOverlayAt appends a new layer
-    // to the same end, so both paths leave the position the user never chose at
-    // the bottom and the user's own arrangement on top.
-    this.layerRegistry.replace(ordered.concat([...layerMap.values()]));
+    return ordered;
   }
 
   /** Persist layer order — delegates to LayerPersistence for centralized I/O.
@@ -415,17 +437,21 @@ class LayerManager implements LayerAPI {
    *  constructor, after LayerControl has attached), and a write of the live ids
    *  alone would erase the position that registration is meant to read back.
    *
-   *  `persist=false` skips both the schedule and the in-memory rewrite: a
-   *  registration that must not write its slot must not let that slot be read
-   *  back as the stored order by a later `replaySavedOrder` in the same boot
-   *  pass.
+   *  Runtime-origin layers are excluded from the write (see
+   *  `mergeStoredOrder`): their slots are attach timing, and a later
+   *  `replaySavedOrder` must not read them back as a user arrangement either.
    */
-  saveOrder(persist = true) {
-    if (!persist) return;
+  saveOrder() {
+    const isRuntime = this.isOrderRuntime.bind(this);
     const live = this.layers.map(l => l.id);
-    const order = mergeStoredOrder(this.savedOrder, live);
+    const order = mergeStoredOrder(this.savedOrder, live, isRuntime);
     this.savedOrder = order;
     this.persistence.schedule({ order: () => order });
+  }
+
+  /** True when the id's order slot is system attach-timing, not user intent. */
+  private isOrderRuntime(id: string): boolean {
+    return this.layerRegistry.get(id)?.orderOrigin === "runtime";
   }
 
   /** Re-apply the stored order now that a layer exists.
@@ -445,25 +471,18 @@ class LayerManager implements LayerAPI {
 
     if (id !== undefined) {
       const layerInfo = registry.get(id);
-      if (!layerInfo) return;
+      if (!layerInfo || layerInfo.orderOrigin === "runtime") return;
       const target = saved.indexOf(id);
       if (target === -1) return;
       this.placeBeforeSavedNeighbor(layerInfo, saved, target);
       return;
     }
 
-    const rank = new Map(saved.map((sid, i) => [sid, i]));
     const items = [...this.layers];
-    // Stable, so ids with no stored rank keep their relative order and stay at
-    // the bottom -- the same end loadSavedOrder appends to.
-    items.sort((a, b) => {
-      const ra = rank.get(a.id);
-      const rb = rank.get(b.id);
-      if (ra === undefined) return rb === undefined ? 0 : 1;
-      if (rb === undefined) return -1;
-      return ra - rb;
-    });
-    registry.replace(items);
+    // Runtime layers keep their live registration positions — a legacy stored
+    // rank must not pull them into a slot the user never chose. User layers
+    // sort by stored rank; ids with no rank stay at the bottom in live order.
+    registry.replace(this.sortUserByStored(items, saved));
   }
 
   /** Move `layerInfo` just before the first saved-order neighbor that is
@@ -511,6 +530,9 @@ class LayerManager implements LayerAPI {
    */
   private insertOverlayAt(layerInfo: LayerInfo): void {
     this.layerRegistry.prepend(layerInfo);
+    // Runtime layers never read a stored slot — their birth position is attach
+    // timing, and a legacy id in the record is not a user arrangement.
+    if (layerInfo.orderOrigin === "runtime") return;
     const saved = this.savedOrder;
     if (!saved) return;
     const target = saved.indexOf(layerInfo.id);
@@ -747,7 +769,7 @@ class LayerManager implements LayerAPI {
       // Defer z-order enforcement so batch registration coalesces into one pass.
       this.debouncedEnforce();
     }
-    this.saveOrder(opts.persistOrder !== false);
+    this.saveOrder();
     this.events.emit(EVENTS.LAYER_CHANGE);
     return this.uiContainer.querySelector(
       `[${CONST.DATA.LAYER_ID}="${CSS.escape(opts.id)}"]`,

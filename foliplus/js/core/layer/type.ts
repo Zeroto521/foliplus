@@ -112,12 +112,14 @@ interface RegisterLayerOpts {
   /** New base layer insertion: "top" (default, tile basemaps) or "bottom"
    *  (solid-color basemap — lowest z, tiles cover it). */
   baseInsert?: "top" | "bottom";
-  /** Persist this registration's slot into the stored order. Defaults to
-   *  true. A runtime-created surface (the solid-color basemap) passes false:
-   *  its insertion slot is a side effect of attach timing, not a user
-   *  arrangement, so writing it would clobber an order the user already
-   *  set. Its slot is recovered from storage by `replaySavedOrder` instead. */
-  persistOrder?: boolean;
+  /** Where this layer's order slot comes from. Defaults to `"user"`.
+   *
+   *  `"runtime"` marks a system surface whose insertion slot is a side effect
+   *  of attach timing (the solid-color basemap). Those slots never enter the
+   *  persisted order — writing one would clobber an arrangement the user
+   *  already set. Do not use the name `provenance`: that word is already the
+   *  attributes-panel data source and `intentProvenance`. */
+  orderOrigin?: "user" | "runtime";
   paneName?: string | null;
   /**
    * The panes this layer paints into, in draw order. Absent means the layer
@@ -207,6 +209,8 @@ interface LayerInfo {
   /** Epoch ms of the layer's first registration. Set by the registry itself —
    *  never by the provider — so a re-registration keeps the original value. */
   registeredAt?: number;
+  /** Order-slot origin. See {@link RegisterLayerOpts.orderOrigin}. */
+  orderOrigin?: "user" | "runtime";
 }
 
 /** Leaflet layer with a custom `isLabel` flag (foliplus adds it).
@@ -410,8 +414,6 @@ interface CreateColorOpts {
   id: string;
   name?: string;
   color: string;
-  /** See {@link RegisterLayerOpts.persistOrder}. */
-  persistOrder?: boolean;
 }
 
 /** Return type of the color-surface factory — the solid-color basemap's
@@ -491,8 +493,8 @@ interface CreateSurfaceOpts {
   styleSetters?: Record<string, (value: unknown) => void> | null;
   styleDefaults?: (() => Record<string, unknown>) | null;
   metaProvider?: (() => Record<string, string | number>) | null;
-  /** See {@link RegisterLayerOpts.persistOrder}. */
-  persistOrder?: boolean;
+  /** See {@link RegisterLayerOpts.orderOrigin}. */
+  orderOrigin?: "user" | "runtime";
 }
 
 /** Content handle returned by `createSurface` — the discriminated-union branch. */
