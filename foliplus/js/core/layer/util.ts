@@ -220,7 +220,82 @@ const isLayerInPanes = (panes: readonly string[]): ((leaf: L.Layer) => boolean) 
   };
 };
 
+/** Honest capability profile for `kind: "cluster"`. Named so the UI and the
+ *  regression suite share one answer: cluster icons live in the shared
+ *  `markerPane` (opacity/zoomRange/bounds have no honest carrier), but the
+ *  group itself is an `L.Layer` so visibility is still map membership. */
+const CLUSTER_CAPABILITIES = {
+  fill: "none",
+  stroke: "none",
+  opacity: "none",
+  zoomRange: "none",
+  visibility: "native",
+  relocatable: false,
+  bounds: false,
+} as const;
+
+/** The MarkerCluster plugin's group — kind derivation only. Capability
+ *  dispatch goes through `kind: "cluster"` + `CLUSTER_CAPABILITIES`, not
+ *  through this probe. Callers should declare `kind: "cluster"`. */
+const isMarkerCluster = (layer: L.Layer): boolean => {
+  const ctor = (window.L as { MarkerClusterGroup?: unknown })?.MarkerClusterGroup;
+  if (
+    typeof ctor === "function" &&
+    layer instanceof (ctor as new (...args: never[]) => unknown)
+  ) {
+    return true;
+  }
+  return !!(layer as L.Layer & { _topClusterLevel?: unknown })._topClusterLevel;
+};
+
+/** Whether the layer is a tile-family GridLayer (TileLayer is a subclass). */
+const isTileFamily = (layer: L.Layer): boolean =>
+  typeof L.GridLayer !== "undefined" && layer instanceof L.GridLayer;
+
+/** Whether the layer is in the Path/Marker vector family (or a container of
+ *  them). Same probe family as capability detection — not a new duck type. */
+const isVectorFamily = (layer: L.Layer): boolean => {
+  if (typeof L.Path !== "undefined" && layer instanceof L.Path) return true;
+  if (typeof L.Marker !== "undefined" && layer instanceof L.Marker) return true;
+  if (typeof L.LayerGroup !== "undefined" && layer instanceof L.LayerGroup) {
+    return true;
+  }
+  return false;
+};
+
+/** Derive `kind` when the caller did not declare one.
+ *
+ *  `tile | vector` comes from the Leaflet layer family (GridLayer/TileLayer vs
+ *  Path/Marker/LayerGroup) — the same probe family as capabilities. MarkerCluster
+ *  may derive `"cluster"` so a folium plugin group still lands in the honest
+ *  capability tier; callers should declare `kind: "cluster"` explicitly. */
+const deriveLayerKind = (opts: {
+  kind?: import("./type.js").LayerKind;
+  color?: string | null;
+  custom?: unknown;
+  canvas?: boolean;
+  layer?: L.Layer | null;
+}): import("./type.js").LayerKind => {
+  if (opts.kind) return opts.kind;
+  if (opts.color != null) return "solid";
+  if (opts.custom !== undefined) return "custom";
+  if (opts.canvas && !opts.layer) return "canvas";
+  const layer = opts.layer;
+  if (layer && isMarkerCluster(layer)) return "cluster";
+  if (layer && isTileFamily(layer)) return "tile";
+  if (layer && isVectorFamily(layer)) return "vector";
+  if (layer) return "vector";
+  // No layer and no explicit non-layer carrier: a pending Leaflet-layer
+  // registration (folium script-stream). NOT "custom" — that kind means an
+  // explicit no-carrier third-party payload and would hide the entry from
+  // `hasUnresolvedLayers`.
+  return "vector";
+};
+
 export {
+  CLUSTER_CAPABILITIES,
+  deriveLayerKind,
+  isMarkerCluster,
   findLayer,
   forEachLayer,
   forEachLeaf,

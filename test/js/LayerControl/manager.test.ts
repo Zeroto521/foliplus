@@ -3301,4 +3301,44 @@ describe("LayerManager user-assigned names", () => {
       expect(map.options.maxZoom).toBe(25);
     });
   });
+
+  describe("hasUnresolvedLayers (explicit no-carrier is not unresolved)", () => {
+    it("canvas / solid / custom entries with layer:null are not unresolved", () => {
+      manager.registerLayer({
+        id: "heat",
+        name: "Heat",
+        layer: null,
+        canvas: document.createElement("canvas"),
+      } as any);
+      manager.registerLayer({
+        id: "color1",
+        name: "Color",
+        layer: null,
+        canvas: document.createElement("canvas"),
+        color: "#000000",
+      } as any);
+      manager.registerLayer({
+        id: "third",
+        name: "Third",
+        layer: null,
+        kind: "custom",
+        custom: { plugin: 1 },
+      } as any);
+      expect((manager as any).hasUnresolvedLayers()).toBe(false);
+    });
+
+    it("a declared layer carrier that is still null is unresolved", () => {
+      manager.registerLayer({ id: "ghost", name: "G", layer: null } as any);
+      expect((manager as any).hasUnresolvedLayers()).toBe(true);
+    });
+
+    it("resolves once a layer appears", () => {
+      manager.registerLayer({ id: "late", name: "L", layer: null } as any);
+      expect((manager as any).hasUnresolvedLayers()).toBe(true);
+      const li = manager.layerRegistry.get("late");
+      li.layer = { options: {} } as any;
+      expect((manager as any).hasUnresolvedLayers()).toBe(false);
+    });
+  });
+
 });

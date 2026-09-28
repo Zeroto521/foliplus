@@ -1418,4 +1418,36 @@ describe("LayerFactory", () => {
       expect(registerLayer).toHaveBeenCalledTimes(1);
     });
   });
+
+  describe("createSurface custom branch", () => {
+    it("registers a custom carrier without synthesizing panes", () => {
+      const custom = { plugin: "acme" };
+      const handle = factory.createSurface({
+        id: "third",
+        content: { kind: "custom", custom },
+      });
+      expect(handle.content.kind).toBe("custom");
+      expect(handle.content.custom).toBe(custom);
+      handle.register();
+      expect(registerLayer).toHaveBeenCalledTimes(1);
+      const opts = registerLayer.mock.calls[0][0] as {
+        kind?: string;
+        custom?: unknown;
+      };
+      expect(opts.kind).toBe("custom");
+      expect(opts.custom).toBe(custom);
+    });
+
+    it("carries an optional layer alongside the custom payload", () => {
+      const layer = {} as L.Layer;
+      const handle = factory.createSurface({
+        id: "third2",
+        content: { kind: "custom", custom: {}, layer },
+      });
+      handle.register();
+      const opts = registerLayer.mock.calls[0][0] as { layer?: L.Layer | null };
+      expect(opts.layer).toBe(layer);
+    });
+  });
+
 });
