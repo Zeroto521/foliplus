@@ -1,4 +1,10 @@
-// LayerControl UI —Persisted user state (fold / hidden / names) apply + save.
+// LayerControl UI — persisted user state (fold / hidden / names) apply + save.
+//
+// The record ↔ UI assembly layer: `loadPersistedState` fills the shell from
+// the persistence record, the save/build helpers project it back, and the
+// override markers keep provenance in step. Storage I/O and the record
+// schema live in ../persistence.ts — this file only routes through
+// LayerPersistence and never touches localStorage itself.
 import { createLogger } from "#common/log.js";
 import * as CONST from "../const.js";
 import type { LayerManager } from "../manager.js";
