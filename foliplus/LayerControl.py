@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from folium.elements import Element
+from branca.element import Element
 from folium.map import Layer
 
 from ._typing import Position

@@ -9,7 +9,12 @@ listed in ``[tool.setuptools.package-data]``).
 
 from __future__ import annotations
 
+import glob
+import tarfile
+import zipfile
 from pathlib import Path
+
+import pytest
 
 from foliplus import __path__
 
@@ -28,3 +33,34 @@ def test_py_typed_is_listed_in_package_data():
         "py.typed must be listed in [tool.setuptools.package-data] so the "
         "include-package-data = false build still ships it"
     )
+
+
+def _member_names(path: str) -> list[str]:
+    if path.endswith(".whl"):
+        with zipfile.ZipFile(path) as archive:
+            names = archive.namelist()
+    else:
+        with tarfile.open(path) as archive:
+            names = archive.getnames()
+    return [n.replace("\\", "/") for n in names]
+
+
+def _has_py_typed(path: str) -> bool:
+    return any(
+        parts[-1] == "py.typed" and "foliplus" in parts
+        for parts in (n.split("/") for n in _member_names(path))
+    )
+
+
+def test_wheel_ships_py_typed():
+    wheels = glob.glob(str(Path.cwd() / "dist" / "*.whl"))
+    if not wheels:
+        pytest.skip("no wheel built — run `make build-python` first")
+    assert _has_py_typed(wheels[0]), f"{wheels[0]} is missing foliplus/py.typed"
+
+
+def test_sdist_ships_py_typed():
+    sdists = glob.glob(str(Path.cwd() / "dist" / "*.tar.gz"))
+    if not sdists:
+        pytest.skip("no sdist built — run `make build-python` first")
+    assert _has_py_typed(sdists[0]), f"{sdists[0]} is missing foliplus/py.typed"

@@ -333,7 +333,7 @@ class BaseControl(JSCSSMixin, MacroElement):
         :attr:`_config_block` copies this dict before adding the locale overlay, so
         the cache is never polluted with render-time keys.
         """
-        config = {"name": self._name, "position": self.position}
+        config: dict[str, object] = {"name": self._name, "position": self.position}
         for f in self._config_fields:
             try:
                 config[f] = getattr(self, f)
