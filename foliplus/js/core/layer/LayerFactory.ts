@@ -448,13 +448,7 @@ class LayerFactory {
       };
     }
 
-    const {
-      className,
-      getBounds,
-      source,
-      updatedAt,
-      meta,
-    } = opts.content;
+    const { className, getBounds, source, updatedAt, meta } = opts.content;
 
     const paneName = namedPaneNameFor(opts.id, CANVAS_PANE_PREFIX, "createCanvas");
     const { pane } = panes.ensurePane(paneName, false);

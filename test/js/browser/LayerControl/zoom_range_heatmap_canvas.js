@@ -98,8 +98,13 @@
   const dispatched = minInput.dispatchEvent(new Event("input", { bubbles: true }));
   const hiddenOut = canvas.classList.contains("hidden");
   const rowOutOfRange = zoomRow.classList.contains("foliplus-zoom-range-out-of-range");
-  const rangeMap = JSON.parse(localStorage.getItem(Object.keys(localStorage).find(k => k.startsWith("foliplus_layer_state_")) || "") || "{}");
-  const rangeAfterInput = rangeMap.layers && rangeMap.layers[li.id] ? rangeMap.layers[li.id].zoomRange : null;
+  const rangeMap = JSON.parse(
+    localStorage.getItem(
+      Object.keys(localStorage).find(k => k.startsWith("foliplus_layer_state_")) || "",
+    ) || "{}",
+  );
+  const rangeAfterInput =
+    rangeMap.layers && rangeMap.layers[li.id] ? rangeMap.layers[li.id].zoomRange : null;
 
   // Dragging the bound back is reversible.
   minInput.value = String(mapMin);

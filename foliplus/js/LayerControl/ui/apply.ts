@@ -26,8 +26,8 @@
 // Naming: "state op" is the shape the carrier dispatcher accepts.
 // "Projection" is what the diff compares — intent + policy together, so
 // a change on either side produces an op.
-import { resetGridLayerView } from "#core/leafletAdapter.js";
 import { HIDDEN } from "#core/layer/index.js";
+import { resetGridLayerView } from "#core/leafletAdapter.js";
 import * as CONST from "../const.js";
 import type { LayerUI } from "./index.js";
 import {
@@ -336,9 +336,13 @@ const applyProjection = (ui: LayerUI, id: string): void => {
   const visibility = ui.m.surfaceFor(layerInfo).capabilities.visibility;
   const currentShown =
     visibility === "native"
-      ? (layer ? ui.m.map.hasLayer(layer) : false)
+      ? layer
+        ? ui.m.map.hasLayer(layer)
+        : false
       : visibility === "pane"
-        ? (layerInfo.canvas ? !layerInfo.canvas.classList.contains(HIDDEN) : false)
+        ? layerInfo.canvas
+          ? !layerInfo.canvas.classList.contains(HIDDEN)
+          : false
         : false;
   if (authorised && currentShown !== next.effectiveShown) {
     applyStateOp(ui, layerInfo, { type: "visible", value: next.effectiveShown });

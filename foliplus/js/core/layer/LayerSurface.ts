@@ -580,8 +580,11 @@ const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
   // (map membership), "pane" for canvas-only surfaces (heatmap / color face),
   // "none" only when neither exists — a layer with no map to add to and no
   // canvas to hide would have no honest toggle at all.
-  const visibility: LayerCapabilities["visibility"] =
-    layer ? "native" : opts.canvas ? "pane" : "none";
+  const visibility: LayerCapabilities["visibility"] = layer
+    ? "native"
+    : opts.canvas
+      ? "pane"
+      : "none";
 
   if (hasContentPanes) {
     return {
@@ -607,7 +610,13 @@ const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
   }
 
   // No layer at all and no canvas — nothing to write.
-  return { opacity: "none", zoomRange: "none", relocatable: false, bounds: false, visibility };
+  return {
+    opacity: "none",
+    zoomRange: "none",
+    relocatable: false,
+    bounds: false,
+    visibility,
+  };
 };
 
 export { LayerSurface };

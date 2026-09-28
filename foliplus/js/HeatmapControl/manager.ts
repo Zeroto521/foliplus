@@ -1,8 +1,8 @@
 // HeatmapControl data aggregation & rendering logic (HeatmapManager).
 import { generateId } from "#core/component.js";
-import { HIDDEN as CANVAS_HIDDEN } from "#core/layer/index.js";
 import { EVENTS, type EventBus, ensureEvents } from "#core/event/index.js";
 import { bareFieldName } from "#core/labelField.js";
+import { HIDDEN as CANVAS_HIDDEN } from "#core/layer/index.js";
 import { type CanvasLabelStyle } from "#common/canvasLabel.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import { BORDER_WEIGHT, clampLabelSize, normalizeHexColor } from "#common/form.js";
