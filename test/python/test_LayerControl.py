@@ -476,6 +476,9 @@ class TestLayerControlRendering:
                     break
             out.append(ch)
         recipe = "".join(out)
+        # Normalize whitespace so a Prettier reflow of a long value (e.g. the
+        # multi-line box-shadow) cannot break the substring assertions below.
+        recipe = re.sub(r"\s+", " ", recipe)
         # The left accent bar is a PERSISTENT checked-status indicator, so the
         # interaction recipe must NOT force it — hover/keyboard/Tab show the
         # glow, and the red left bar stays reserved for .foliplus-active / folded groups.
