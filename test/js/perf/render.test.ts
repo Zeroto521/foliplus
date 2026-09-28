@@ -1,4 +1,5 @@
-// R11 micro-benchmark: heatmap redraw cost at ≥5k hexes (JS side).
+// Wall-clock gate for HeatmapControl/render.ts — drawHexagon × 5k.
+// Named for the logic script it exercises, same as collision.test.ts.
 //
 // Decision rule (pre-set): slider interaction must not regress. If a full
 // bake redraw of 5k hexes stays under 16ms/frame, baking on commit is fine.
