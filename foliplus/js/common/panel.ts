@@ -265,6 +265,9 @@ const createPanelHeader = (opts: {
   title: string;
   iconSvg: string;
   closeTitle: string;
+  /** Optional muted second line beneath the title. Omit for a title-only
+   *  header — every existing caller keeps rendering exactly as before. */
+  caption?: string | null;
   titleClass?: string;
   iconClass?: string;
 }): HTMLElement => {
@@ -272,21 +275,25 @@ const createPanelHeader = (opts: {
     class: CLASSES.PANEL_HEADER,
     title: opts.closeTitle,
   });
-  header.appendChild(
+  const title = dom.el(
+    "span",
+    { class: opts.titleClass ?? "foliplus-header-title" },
     dom.el(
       "span",
-      { class: opts.titleClass ?? "foliplus-header-title" },
-      dom.el(
-        "span",
-        {
-          class: opts.iconClass ?? "foliplus-header-icon",
-          "aria-hidden": "true",
-        },
-        { html: opts.iconSvg },
-      ),
-      opts.title,
+      {
+        class: opts.iconClass ?? "foliplus-header-icon",
+        "aria-hidden": "true",
+      },
+      { html: opts.iconSvg },
     ),
+    opts.title,
   );
+  header.appendChild(title);
+  if (opts.caption != null) {
+    header.appendChild(
+      dom.el("span", { class: "foliplus-header-caption" }, opts.caption),
+    );
+  }
   header.appendChild(
     dom.el(
       "button",
