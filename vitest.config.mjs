@@ -18,7 +18,7 @@ export default defineConfig({
     // JUnit XML output for Codecov Test Analytics.
     reporters: [
       "default",
-      ["junit", { outputFile: "test-report.junit.xml", className: "{filepath}" }],
+      ["junit", { outputFile: "test-js.junit.xml", className: "{filepath}" }],
     ],
     coverage: {
       provider: "v8",

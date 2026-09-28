@@ -72,14 +72,17 @@ describe("test targets build before asserting on dist/", () => {
     expect(ignore.some(l => l.replace(/\s/g, "") === "foliplus/dist/")).toBe(true);
   });
 
-  it.each([["test"], ["test-python"], ["test-browser"], ["test-js"]])(
-    "%s builds the JS bundle before running",
-    target => {
-      expect(prereqs(target)).toContain("build-js-dev");
-    },
-  );
+  it.each([
+    ["test"],
+    ["test-python"],
+    ["test-python-fast"],
+    ["test-browser"],
+    ["test-js"],
+  ])("%s builds the JS bundle before running", target => {
+    expect(prereqs(target)).toContain("build-js-dev");
+  });
 
-  it.each([["test"], ["test-python"], ["test-browser"]])(
+  it.each([["test"], ["test-python"], ["test-python-fast"], ["test-browser"]])(
     "%s verifies the bundle is complete before running Python",
     target => {
       expect(recipe(target)).toContain("npm run build:verify");
