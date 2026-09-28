@@ -170,12 +170,7 @@ describe("LayerControl style-panel dimension registry — gatedRows", () => {
       annotation: "none",
     });
     const rows = gatedRows(ui, "overlay1", DIM_ORDER);
-    expect(rows.map(d => d.key)).toEqual([
-      "fill",
-      "border",
-      "opacity",
-      "zoomRange",
-    ]);
+    expect(rows.map(d => d.key)).toEqual(["fill", "border", "opacity", "zoomRange"]);
   });
 
   it("skips dimensions whose gate declines", () => {
@@ -216,9 +211,7 @@ describe("LayerControl style-panel dimension registry — gatedRows", () => {
     });
     const layerRows = gatedRows(ui, "overlay1", DIM_ORDER);
     const delegatedRows = gatedRows(ui, "overlay1", DELEGATED_DIM_ORDER);
-    const expected = layerRows.filter(
-      d => d.key !== "fill" && d.key !== "border",
-    );
+    const expected = layerRows.filter(d => d.key !== "fill" && d.key !== "border");
     expect(delegatedRows).toEqual(expected);
     expect(delegatedRows.map(d => d.key)).toEqual(["opacity", "zoomRange"]);
   });

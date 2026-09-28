@@ -19,9 +19,7 @@ import { DIM_ORDER, gatedRows, hasAnyDimension } from "./registry.js";
  *  its own geometry (e.g. Measure), and fill has no delegated rendering path
  *  at all. Only LayerControl-owned rows (opacity, zoomRange) ride the
  *  delegated sweep; they survive a component's redraw. */
-const DELEGATED_DIM_ORDER = DIM_ORDER.filter(
-  key => key !== "fill" && key !== "border",
-);
+const DELEGATED_DIM_ORDER = DIM_ORDER.filter(key => key !== "fill" && key !== "border");
 
 /** Whether the layer delegates its style to the drawer via styleSetters
  *  (third-party canvas layers: Heatmap, Measure). The ⋮ menu's Style item
