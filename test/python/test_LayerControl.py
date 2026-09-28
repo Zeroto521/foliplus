@@ -78,9 +78,9 @@ class TestLayerControlPython:
         folium.FeatureGroup(name="Points", overlay=True, show=True).add_to(m)
         m.render()
 
-        flags = {d["name"]: d["isBase"] for d in ctrl._config["data"]}
-        assert flags["OSM"] is True, f"OSM should be base: {flags}"
-        assert flags["Points"] is False, f"Points should be overlay: {flags}"
+        flags = {d["name"]: d["group"] for d in ctrl._config["data"]}
+        assert flags["OSM"] == "base", f"OSM should be base: {flags}"
+        assert flags["Points"] == "overlay", f"Points should be overlay: {flags}"
 
     def test_render_collects_layers_attached_to_control(self):
         """Layers added to the control itself are collected, not just the map.
@@ -103,9 +103,9 @@ class TestLayerControlPython:
         folium.FeatureGroup(name="Points", overlay=True, show=True).add_to(ctrl)
         m.render()
 
-        flags = {d["name"]: d["isBase"] for d in ctrl._config["data"]}
-        assert flags["Carto"] is True, f"Carto should be base: {flags}"
-        assert flags["Points"] is False, f"Points should be overlay: {flags}"
+        flags = {d["name"]: d["group"] for d in ctrl._config["data"]}
+        assert flags["Carto"] == "base", f"Carto should be base: {flags}"
+        assert flags["Points"] == "overlay", f"Points should be overlay: {flags}"
 
     def test_render_dedupes_layer_reached_from_both(self):
         """A layer on both the map and the control appears once, keyed by name."""
@@ -197,8 +197,8 @@ class TestLayerControlRendering:
         assert "OSM" in data
         assert "Carto" in data
         assert "Terrain" in data
-        assert sum(1 for d in ctrl._config["data"] if d["isBase"]) >= 3
-        assert sum(1 for d in ctrl._config["data"] if not d["isBase"]) == 0
+        assert sum(1 for d in ctrl._config["data"] if d["group"] == "base") >= 3
+        assert sum(1 for d in ctrl._config["data"] if d["group"] != "base") == 0
 
     def test_base_and_overlay_in_template(self):
         """Both base_layers and overlays appear in the JS template."""
@@ -208,9 +208,9 @@ class TestLayerControlRendering:
         folium.FeatureGroup(name="Markers", overlay=True, show=True).add_to(m)
         html = render(m)
 
-        # JS data should contain both with correct isBase flags
-        assert '"isBase": true' in html
-        assert '"isBase": false' in html
+        # JS data should contain both with correct group values
+        assert '"group": "base"' in html
+        assert '"group": "overlay"' in html
 
     def test_is_base_class_on_base_items(self):
         """Only base map items get the data-layer-type attribute."""
@@ -220,8 +220,8 @@ class TestLayerControlRendering:
         folium.FeatureGroup(name="Points", overlay=True, show=True).add_to(m)
         html = render(m)
 
-        # Base maps have the attribute; overlay items should be checked separately
-        assert 'data-layer-type": layerInfo.isBase ? GROUP.BASE : GROUP.OVERLAY' in html
+        # The row's data-layer-type is the layer's group field, verbatim.
+        assert '"data-layer-type": layerInfo.group' in html
 
     def test_drag_handle_present(self):
         """Drag handle SVG present for all layer items."""
@@ -307,7 +307,7 @@ class TestLayerControlRendering:
         folium.TileLayer("OpenStreetMap", name="OSM", overlay=False).add_to(m)
         html = render(m)
         # Should NOT contain old drag prevention for base maps
-        assert "this.layers[idx].isBase" not in html
+        assert "this.layers[idx].group" not in html
 
     def test_separator_in_template(self):
         """Separator label 'BASE MAP' appears before base layer items."""
@@ -3482,7 +3482,7 @@ class TestLayerControlBrowser:
         """A partial re-register never drops previously registered fields.
 
         createLayerInfo is idempotent: fields absent from the second opts
-        (layer/paneName/iconSvg/name/isBase) fall back to
+        (layer/paneName/iconSvg/name/group) fall back to
         the existing layerInfo instead of being reset to defaults.
         """
         with use_page(self._make_page, browser, tmp_path) as (page, _):
@@ -3497,7 +3497,7 @@ class TestLayerControlBrowser:
                 # registration falls back to the id, and the partial one
                 # keeps it.
                 assert r["name"] in ("Keep Me", "__keep__"), f"{phase}: name lost"
-                assert r["isBase"] is True, f"{phase}: isBase lost"
+                assert r["group"] == "base", f"{phase}: group lost"
                 assert r["layerSame"] is True, f"{phase}: layer lost"
                 assert r["paneName"] == "customPane", f"{phase}: paneName lost"
                 # The value must be the registered icon, unchanged by the

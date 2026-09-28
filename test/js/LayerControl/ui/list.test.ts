@@ -56,12 +56,12 @@ describe("ui/list row placement", () => {
     const { manager, ui } = initFixture({
       seed: { order: ["B", "A", "H"] },
       data: [
-        { id: "A", name: "A", isBase: false },
-        { id: "B", name: "B", isBase: false },
+        { id: "A", name: "A", group: "overlay" },
+        { id: "B", name: "B", group: "overlay" },
       ],
     });
 
-    manager.registerLayer({ id: "H", name: "H", isBase: false });
+    manager.registerLayer({ id: "H", name: "H", group: "overlay" });
 
     const registryIds = manager.layers.map(l => l.id);
     const rowIds = Array.from(
@@ -79,19 +79,19 @@ describe("ui/list row placement", () => {
         {
           id: "A",
           name: "A",
-          isBase: false,
+          group: "overlay",
           layer: { options: {}, eachLayer: vi.fn() },
         },
         {
           id: "B",
           name: "B",
-          isBase: false,
+          group: "overlay",
           layer: { options: {}, eachLayer: vi.fn() },
         },
         {
           id: "C",
           name: "C",
-          isBase: false,
+          group: "overlay",
           layer: { options: {}, eachLayer: vi.fn() },
         },
       ],
@@ -126,7 +126,7 @@ describe("ui/list row placement", () => {
 
   it("initLayerItem declines an id the registry does not know", () => {
     const { ui } = initFixture({
-      data: [{ id: "A", name: "A", isBase: false }],
+      data: [{ id: "A", name: "A", group: "overlay" }],
     });
 
     // A late callback for a torn-down layer must not write into a row: the id
@@ -139,7 +139,7 @@ describe("ui/list row placement", () => {
     // leaves the layer behind. The sweep must bail rather than write a stale
     // cell into whatever row now sits there.
     const { manager, ui } = initFixture({
-      data: [{ id: "A", name: "A", isBase: false }],
+      data: [{ id: "A", name: "A", group: "overlay" }],
     });
     const row = ui.uiContainer.querySelector<HTMLElement>(
       `[${CONST.DATA.LAYER_ID}="A"]`,
@@ -160,7 +160,7 @@ describe("ui/list row placement", () => {
     // group — appending it at the panel's end would leave the header stranded
     // below the layers it controls.
     const { manager, ui } = initFixture({
-      data: [{ id: "B1", name: "B1", isBase: true }],
+      data: [{ id: "B1", name: "B1", group: "base" }],
     });
     expect(
       ui.uiContainer.querySelectorAll(
@@ -168,7 +168,7 @@ describe("ui/list row placement", () => {
       ).length,
     ).toBe(0);
 
-    manager.registerLayer({ id: "O1", name: "O1", isBase: false });
+    manager.registerLayer({ id: "O1", name: "O1", group: "overlay" });
 
     const children = Array.from(ui.uiContainer.children);
     const overlayHeader = children.findIndex(
@@ -195,7 +195,7 @@ describe("ui/list row placement", () => {
     // lands at the end of the list, after the color row.
     const { manager, ui } = initFixture({ data: [] });
 
-    manager.registerLayer({ id: "O1", name: "O1", isBase: false });
+    manager.registerLayer({ id: "O1", name: "O1", group: "overlay" });
 
     const ids = Array.from(
       ui.uiContainer.querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM),
@@ -209,7 +209,7 @@ describe("ui/list row placement", () => {
     // carries no row: the guard bails before any DOM write instead of inserting
     // a row the registry cannot find.
     const { ui } = initFixture({
-      data: [{ id: "A", name: "A", isBase: false }],
+      data: [{ id: "A", name: "A", group: "overlay" }],
     });
     const rowsBefore = ui.uiContainer.querySelectorAll(CONST.SEL.LAYER_ITEM);
 
@@ -225,14 +225,14 @@ describe("ui/list row placement", () => {
     // before the color row — anchored at the panel's end instead, the header
     // would sit below the layers it controls.
     const { manager, ui } = initFixture({
-      data: [{ id: "O1", name: "O1", isBase: false }],
+      data: [{ id: "O1", name: "O1", group: "overlay" }],
     });
     ui.foldedGroups.add(CONST.GROUP.BASE);
 
     manager.registerLayer({
       id: "B1",
       name: "B1",
-      isBase: true,
+      group: "base",
       layer: new TileLayer(),
     });
 
@@ -259,7 +259,7 @@ describe("ui/list row placement", () => {
     // registerLayer's count change can land after the row was removed (a layer
     // deleted mid-sweep). The refresh must not raise and must not rebuild a row.
     const { ui } = initFixture({
-      data: [{ id: "A", name: "A", isBase: false }],
+      data: [{ id: "A", name: "A", group: "overlay" }],
     });
     ui.uiContainer.querySelector<HTMLElement>(`[${CONST.DATA.LAYER_ID}="A"]`)!.remove();
 
@@ -269,7 +269,7 @@ describe("ui/list row placement", () => {
 
   it("renders the color row folded when the base group is folded", () => {
     const { ui } = initFixture({
-      data: [{ id: "B1", name: "B1", isBase: true }],
+      data: [{ id: "B1", name: "B1", group: "base" }],
     });
     ui.foldedGroups.add(CONST.GROUP.BASE);
 
@@ -284,7 +284,7 @@ describe("ui/list row placement", () => {
 
   it("color layer's applyVisibility routes through showColorLayer and hideColorLayer", () => {
     const { ui } = initFixture({
-      data: [{ id: "B1", name: "B1", isBase: true }],
+      data: [{ id: "B1", name: "B1", group: "base" }],
     });
 
     initTypesAndVisibility(ui);
@@ -302,8 +302,8 @@ describe("ui/list row placement", () => {
     // the base group, not at the top — tile basemaps cover it by default.
     const { ui } = initFixture({
       data: [
-        { id: "B1", name: "B1", isBase: true },
-        { id: "B2", name: "B2", isBase: true },
+        { id: "B1", name: "B1", group: "base" },
+        { id: "B2", name: "B2", group: "base" },
       ],
     });
 
@@ -327,7 +327,7 @@ describe("ui/list row placement", () => {
     // colour basemap (race, surface unavailable), the zoom-range / hidden
     // override block must be skipped without crashing.
     const { ui } = initFixture({
-      data: [{ id: "B1", name: "B1", isBase: true }],
+      data: [{ id: "B1", name: "B1", group: "base" }],
     });
 
     const originalGet = ui.m.layerRegistry.get.bind(ui.m.layerRegistry);

@@ -1125,7 +1125,7 @@ describe("LayerUI style panel", () => {
     manager.registerLayer({
       id: "poly1",
       name: "Poly",
-      isBase: false,
+      group: "overlay",
       layer: {
         options: {},
         eachLayer: vi.fn((fn: (child: unknown) => void) => leaves.forEach(fn)),
@@ -1196,11 +1196,11 @@ describe("LayerUI style panel", () => {
   // no basemap satisfies; fill needs the same for the vector path but is
   // re-routed through isColorBasemap for the color face.
   //
-  //   Tile (isBase + GridLayer): fill ✗ / border ✗ / opacity ✓ (native) / zoomRange ✓ (native)
-  //   Color (isBase + pane):     fill ✓  / border ✗ / opacity ✓ (pane)   / zoomRange ✓ (isColorBasemap)
+  //   Tile (base + GridLayer): fill ✗ / border ✗ / opacity ✓ (native) / zoomRange ✓ (native)
+  //   Color (base + pane):     fill ✓  / border ✗ / opacity ✓ (pane)   / zoomRange ✓ (isColorBasemap)
 
   it("tile basemap (GridLayer) renders the zoomRange row: native min/maxZoom is the carrier", () => {
-    // The 398 R7 `!li.isBase` blanket was dropped in T190: a TileLayer is a
+    // The 398 R7 `li.group !== "base"` blanket was dropped in T190: a TileLayer is a
     // GridLayer subclass whose options.minZoom/maxZoom are exactly the
     // carrier the row writes through, so refusing it was a false refusal.
     // GridLayer is required — a bare `{ options: {} } as never` also gets a
@@ -1209,7 +1209,7 @@ describe("LayerUI style panel", () => {
     manager.registerLayer({
       id: "tileBase1",
       name: "OSM",
-      isBase: true,
+      group: "base",
       layer: new GridLayer() as never,
     });
     ui.fieldCache.set("tileBase1", [{ name: "count", numeric: true }]);
@@ -1232,7 +1232,7 @@ describe("LayerUI style panel", () => {
     manager.registerLayer({
       id: "colormap",
       name: "Color",
-      isBase: true,
+      group: "base",
       color: "#3366cc",
     });
     ui.fieldCache.set("colormap", [{ name: "count", numeric: true }]);
@@ -1248,13 +1248,13 @@ describe("LayerUI style panel", () => {
   it("declines a zoomRange row for a base layer whose surface carries no range", () => {
     // A fake base layer with `capabilities.zoomRange` forced to "none" —
     // the honest-degradation path that used to be papered over by the
-    // blanket isBase guard. The panel still renders (opacity carrier is
+    // blanket base-group guard. The panel still renders (opacity carrier is
     // intact), but the zoomRange row is omitted rather than written as a
     // lie that would persist and never apply.
     manager.registerLayer({
       id: "norange1",
       name: "N",
-      isBase: true,
+      group: "base",
       layer: { options: {} } as never,
       paneName: "tilePane",
     });
@@ -3598,7 +3598,7 @@ describe("LayerUI style panel — zoom range", () => {
   });
 
   it("gives the fixture's tile base layer a zoom row: the GridLayer native min/maxZoom is the carrier", () => {
-    // T190 — the old `!li.isBase` blanket was dropped; the fixture's base1 is
+    // T190 — the old `li.group !== "base"` blanket was dropped; the fixture's base1 is
     // a TileLayer (GridLayer subclass) whose options.minZoom/maxZoom are the
     // honest carrier, so the row now renders for it just like any overlay.
     const item = findItem(ui, "base1");
@@ -4119,7 +4119,7 @@ describe("LayerUI style panel — zoom range", () => {
     manager.registerLayer({
       id: "grid1",
       name: "Grid",
-      isBase: false,
+      group: "overlay",
       layer: gridLayer,
     });
     // Author declared no maxZoom: the fallback is the map's declared max.

@@ -75,7 +75,7 @@ class LayerRegistry {
       name: existingLi ? existingLi.name : (opts.name ?? opts.id),
       id: opts.id,
       opacity: opts.opacity ?? existingLi?.opacity ?? 1,
-      isBase: opts.isBase ?? existingLi?.isBase ?? false,
+      group: opts.group ?? existingLi?.group ?? "overlay",
       paneName: opts.paneName ?? existingLi?.paneName ?? null,
       paneSpecs: opts.paneSpecs ?? existingLi?.paneSpecs ?? [],
       // The only externally supplied HTML in the layer model: callers of
@@ -117,7 +117,7 @@ class LayerRegistry {
 
   /** Recompute the cached first-base-layer index. */
   refreshFirstBaseIdx() {
-    this._firstBaseIdx = this.items.findIndex(l => Boolean(l.isBase));
+    this._firstBaseIdx = this.items.findIndex(l => Boolean(l.group === "base"));
   }
 
   /** Index of the first base layer, or -1 if none. */
@@ -262,7 +262,7 @@ class LayerRegistry {
     const overlays = [];
     const bases = [];
     for (const layerInfo of this.items) {
-      if (layerInfo && layerInfo.isBase) bases.push(layerInfo);
+      if (layerInfo && layerInfo.group === "base") bases.push(layerInfo);
       else overlays.push(layerInfo);
     }
     this.items.splice(0, this.items.length, ...overlays.concat(bases));
@@ -280,12 +280,12 @@ class LayerRegistry {
     const from = this.items[fromIdx];
     const to = this.items[toIdx];
     if (!from || !to) return false;
-    if (Boolean(from.isBase) !== Boolean(to.isBase)) return false;
+    if (from.group !== to.group) return false;
 
     const firstBaseIdx = this._firstBaseIdx;
     const hasBase = firstBaseIdx !== -1;
 
-    if (!from.isBase) {
+    if (from.group !== "base") {
       const overlayEnd = hasBase ? firstBaseIdx - 1 : this.items.length - 1;
       return fromIdx <= overlayEnd && toIdx <= overlayEnd;
     }

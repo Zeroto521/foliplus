@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import cast
-
 from folium.elements import Element
 from folium.map import Layer
 
@@ -119,7 +117,7 @@ class LayerControl(BaseControl):
         Returns
         -------
         dict
-            ``{"data": [{"name", "id", "isBase"}, ...]}`` — the ``data`` key is merged
+            ``{"data": [{"name", "id", "group"}, ...]}`` — the ``data`` key is merged
             into the JS ``CONF`` object by :meth:`BaseControl._build_config`.
         """
         data: list[dict[str, object]] = []
@@ -141,10 +139,10 @@ class LayerControl(BaseControl):
                 {
                     "name": item.layer_name,
                     "id": name,
-                    "isBase": not item.overlay,
+                    "group": "overlay" if item.overlay else "base",
                 }
             )
 
         # Stable ordering: overlays first, then base layers (matches JS enforceOrder).
-        data.sort(key=lambda d: cast(bool, d["isBase"]))
+        data.sort(key=lambda d: d["group"] == "base")
         return {"data": data}

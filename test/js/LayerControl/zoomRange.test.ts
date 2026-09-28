@@ -60,7 +60,7 @@ describe("computeEffectiveShown", () => {
       id,
       layer: null,
       canvas: null,
-      isBase: false,
+      group: "overlay",
       visible: true,
       opacity: 1,
       ...overrides,

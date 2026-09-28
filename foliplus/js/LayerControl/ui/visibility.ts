@@ -20,7 +20,7 @@ const getLayerItems = (ui: LayerUI, group: string): NodeListOf<Element> => {
  *  `backgroundColor`), so an empty state never reaches an export. */
 const syncNoBasemap = (ui: LayerUI): void => {
   const anyBaseVisible = ui.m.layers.some(li => {
-    if (!li.isBase) return false;
+    if (li.group !== CONST.GROUP.BASE) return false;
     // Inline intent check to avoid function-call overhead on the click hot path.
     const overrides = ui.userOverrides?.[li.id];
     const hidden = ui.hiddenIds?.has(li.id) ?? false;
@@ -191,7 +191,7 @@ const bumpCheckedCount = (ui: LayerUI, group: string, delta: number): void => {
  * reload, bulk toggleAll), so a single-row click does not walk every row in
  * the group.
  *
- * `syncNoBasemap` only reads `isBase && intent`; an overlay toggle cannot
+ * `syncNoBasemap` only reads `group === CONST.GROUP.BASE && intent`; an overlay toggle cannot
  * change the visible-basemap count, so this path skips it for overlays and
  * only calls it for base rows where the hatch and the group label are the
  * user-visible output.
@@ -214,22 +214,22 @@ const applyVisibility = (ui: LayerUI, id: string, visible: boolean): boolean => 
 
   // Incremental tri-state: O(1) count update rather than a full rescan.
   const newChecked = intentVisibleOf(ui, id);
-  const group = layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY;
+  const group = layerInfo.group;
   const delta = newChecked === oldChecked ? 0 : newChecked ? 1 : -1;
   bumpCheckedCount(ui, group, delta);
 
   // Overlay toggles cannot change the visible-basemap count (syncNoBasemap
-  // only reads `isBase`), so skip for overlay: the call was pure O(n) waste
+  // only reads `group === CONST.GROUP.BASE`), so skip for overlay: the call was pure O(n) waste
   // on the click hot path. Base toggles still call it synchronously — the
   // hatch and the group label are user-visible, cannot be deferred.
-  if (layerInfo.isBase) syncNoBasemap(ui);
+  if (layerInfo.group === CONST.GROUP.BASE) syncNoBasemap(ui);
 
   ui.m.debouncedEnforce();
 
   // A basemap switch changes the map's min/max zoom without firing zoomend,
   // so re-evaluate effective shown across every layer and refresh the open
   // panel's row.
-  if (layerInfo.isBase) {
+  if (layerInfo.group === CONST.GROUP.BASE) {
     applyProjectionAll(ui);
     ui.styleZoomEndHandler?.();
   }

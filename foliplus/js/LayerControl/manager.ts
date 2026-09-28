@@ -106,7 +106,7 @@ const mergeStoredOrder = (stored: string[] | null, live: string[]): string[] => 
 //      `createLayers`, `createCanvas`, `bringLayerToFront`, `touchLayer`,
 //      `setVisible`, `getLayerType`, `getLayersByType`, `getFeatureCount`,
 //      `refreshCount`, `findLayer`, `forEachLeaf`, `extractPoints`,
-//      `computeZIndex`, `isBase`, and the `isLayerControl` flag. Anything
+//      `computeZIndex`, `group`, and the `isLayerControl` flag. Anything
 //      outside the component reads through these.
 //   2. **Internal coordination** — the plumbing between LayerRegistry,
 //      PaneManager, LayerSurface, LayerFactory, AnnotationManager and
@@ -296,7 +296,7 @@ class LayerManager implements LayerAPI {
           ? {
               index: this.layerRegistry.indexOf(li),
               count: this.layers.length,
-              isBase: li.isBase,
+              group: li.group,
             }
           : null;
       },
@@ -532,7 +532,7 @@ class LayerManager implements LayerAPI {
   getLayerType(id: string): string | null {
     const layerInfo = this.layerRegistry.get(id);
     if (!layerInfo) return null;
-    if (layerInfo.isBase) {
+    if (layerInfo.group === CONST.GROUP.BASE) {
       layerInfo.type = CONST.GROUP.BASE;
       return CONST.GROUP.BASE;
     }
@@ -582,7 +582,7 @@ class LayerManager implements LayerAPI {
   getFeatureCount(id: string): number | null {
     const layerInfo = this.layerRegistry.get(id);
     if (!layerInfo) return null;
-    if (layerInfo.isBase) return null;
+    if (layerInfo.group === CONST.GROUP.BASE) return null;
     // 1. Third-party provider (Canvas layers must supply this).
     const provider = layerInfo.featureCountProvider;
     if (typeof provider === "function") {
@@ -616,7 +616,7 @@ class LayerManager implements LayerAPI {
    *  subscriber simply finds no row to update and becomes a no-op.
    *  @param {string} id - Layer id. */
   refreshCount(id: string) {
-    if (this.layerRegistry.get(id)?.isBase) return;
+    if (this.layerRegistry.get(id)?.group === CONST.GROUP.BASE) return;
     // Invalidate the cached geometry type so onLayerItemCountChange can re-detect
     // it — a layer that gains/mixes geometry at runtime (e.g. Point + LineString
     // added via createLayers) would otherwise keep its stale type icon.
@@ -684,7 +684,7 @@ class LayerManager implements LayerAPI {
     const layerInfo = this.layerRegistry.createLayerInfo(opts, existingLi, this.map);
 
     if (existingIdx !== -1) this.layerRegistry.upsert(layerInfo);
-    else if (layerInfo.isBase) {
+    else if (layerInfo.group === CONST.GROUP.BASE) {
       const firstBaseIdx = this.layerRegistry.firstBaseIdx;
       const atBottom = opts.baseInsert === "bottom";
       if (firstBaseIdx === -1 || atBottom) {
@@ -743,7 +743,7 @@ class LayerManager implements LayerAPI {
       // Incremental: initialize only the new/updated row instead of re-scanning
       // every row (initTypesAndVisibility is a full pass used on attach/fold).
       this.ui.initLayerItem(layerInfo);
-      this.ui.syncToggleAll(layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY);
+      this.ui.syncToggleAll(layerInfo.group);
       // Defer z-order enforcement so batch registration coalesces into one pass.
       this.debouncedEnforce();
     }
@@ -763,7 +763,7 @@ class LayerManager implements LayerAPI {
     if (!item) return;
     const idx = this.layerRegistry.indexOf(item);
     if (idx <= 0) return;
-    if (item?.isBase) return;
+    if (item?.group === CONST.GROUP.BASE) return;
     this.layerRegistry.moveToFront(id);
     this.enforceOrder();
     this.saveOrder();
@@ -872,7 +872,7 @@ class LayerManager implements LayerAPI {
       if (target) {
         target.remove();
         // Check if the group is now empty and remove the toggle-all row if so.
-        const group = layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY;
+        const group = layerInfo.group;
         const anchorSel =
           group === CONST.GROUP.BASE
             ? `${CONST.SEL.LAYER_ITEM}[data-layer-type="${CONST.GROUP.BASE}"]:not([${CONST.DATA.LAYER_ID}="${CONST.COLOR.MAP_ID}"])`
@@ -895,7 +895,7 @@ class LayerManager implements LayerAPI {
     this.ui?.invalidateFields(id);
     // The row was just removed: rescan the group's count so the toggle-all
     // checkbox reflects the removal in the same frame.
-    this.ui?.syncToggleAll?.(layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY);
+    this.ui?.syncToggleAll?.(layerInfo.group);
     // Unregister is rare, so flush rather than riding out the 100ms window.
     // Any pending write carries the registry's current order, which no longer
     // lists this id —that dimension reads the registry live, so the removal is
@@ -994,7 +994,7 @@ class LayerManager implements LayerAPI {
       this.ui.saveNamesState();
     }
     this.ui.saveState();
-    this.ui.syncToggleAll(layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY);
+    this.ui.syncToggleAll(layerInfo.group);
     this.ui.syncNoBasemap();
     this.persistence.flushAll();
     return true;
@@ -1050,8 +1050,8 @@ class LayerManager implements LayerAPI {
    *  directly, but this wrapper stays because LayerManager is the LayerAPI
    *  entry point — removing it would break the contract. Tests and probes
    *  may still call it. Do not grow this into real logic. */
-  computeZIndex(i: number, isBase: boolean): number {
-    return zFor({ index: i, count: this.layers.length, isBase });
+  computeZIndex(i: number, group: "base" | "overlay"): number {
+    return zFor({ index: i, count: this.layers.length, group });
   }
 
   /** The surface for a registry entry, built on first use. Registration builds
@@ -1146,7 +1146,7 @@ class LayerManager implements LayerAPI {
         // Base-group layers (tile basemaps + the solid-color basemap) share
         // the 200 ladder, so a color pane interleaves with tile basemaps
         // row-by-row. Overlay-group layers use the 600 ladder.
-        const slot = { index: i, count: this.layers.length, isBase: layerInfo.isBase };
+        const slot = { index: i, count: this.layers.length, group: layerInfo.group };
         const z = zFor(slot);
 
         // Callback-only layers (createCanvas / heatmap): no Leaflet layer, but
@@ -1202,7 +1202,7 @@ class LayerManager implements LayerAPI {
       i++
     ) {
       const layerInfo = this.layers[i];
-      if (!layerInfo.isBase) continue;
+      if (layerInfo.group !== CONST.GROUP.BASE) continue;
       const layer = this.findLayer(layerInfo);
       if (!(layer instanceof L.TileLayer) || !layer.options.attribution) continue;
       if (this.map.hasLayer(layer)) {

@@ -79,15 +79,15 @@ const renderInitialList = (ui: LayerUI) => {
   let hasOverlays = false;
 
   for (const layerInfo of ui.m.layers) {
-    if (!layerInfo.isBase && !hasOverlays) {
+    if (layerInfo.group !== CONST.GROUP.BASE && !hasOverlays) {
       hasOverlays = true;
       frag.appendChild(renderToggleAllRow(ui, CONST.GROUP.OVERLAY, "data_layer_label"));
     }
-    if (layerInfo.isBase && !hasBaseMaps) {
+    if (layerInfo.group === CONST.GROUP.BASE && !hasBaseMaps) {
       hasBaseMaps = true;
       frag.appendChild(renderToggleAllRow(ui, CONST.GROUP.BASE, "base_map_label"));
     }
-    const group = layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY;
+    const group = layerInfo.group;
     const item = renderLayerItem(ui, layerInfo);
     if (ui.foldedGroups.has(group)) item.classList.add(CONST.CLASSES.GROUP_FOLDED);
     frag.appendChild(item);
@@ -116,7 +116,7 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
   const idx = ui.m.layerRegistry.indexOf(layerInfo);
   if (idx === -1) return;
   const container = ui.uiContainer;
-  const group = layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY;
+  const group = layerInfo.group;
 
   const anchorSel =
     group === CONST.GROUP.BASE
@@ -155,7 +155,7 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
     // a group has something to anchor on at all.
     const above = idx > 0 ? ui.m.layers[idx - 1] : null;
     const anchor =
-      above && above.isBase === layerInfo.isBase
+      above && above.group === layerInfo.group
         ? container.querySelector(`[${CONST.DATA.LAYER_ID}="${CSS.escape(above.id)}"]`)
         : null;
     if (anchor) anchor.after(frag);
@@ -281,7 +281,7 @@ const renderLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
       draggable: "true",
       tabindex: "0",
       [CONST.DATA.LAYER_ID]: layerInfo.id,
-      "data-layer-type": layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY,
+      "data-layer-type": layerInfo.group,
     },
     ...children,
   );
@@ -312,7 +312,7 @@ const initLayerItem = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
   // that runs before this row lands, so the visible mirror here matches
   // what the map actually shows.
 
-  return cell.shown && layerInfo.isBase;
+  return cell.shown && layerInfo.group === CONST.GROUP.BASE;
 };
 
 /** Reindex all layer items after a move, preserving the active focus position.

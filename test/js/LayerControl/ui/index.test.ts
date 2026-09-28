@@ -91,7 +91,7 @@ describe("LayerUI shell — event subscriptions", () => {
     const lateLayer = {
       id: "late1",
       name: "Late",
-      isBase: false,
+      group: "overlay",
       layer: {
         options: {},
         eachLayer: vi.fn(),

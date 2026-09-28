@@ -35,7 +35,7 @@
       m.layerRegistry.reorder(colorIdx, 0);
     } else {
       // Move to the last index among base layers.
-      const baseCount = m.layers.filter(l => l.isBase).length;
+      const baseCount = m.layers.filter(l => l.group === "base").length;
       const lastBaseIdx = m.layerRegistry.indexOf(m.layers[baseCount - 1]);
       m.layerRegistry.reorder(colorIdx, lastBaseIdx);
     }
@@ -44,11 +44,13 @@
 
   // Read the layer order.
   const baseLayers = m.layers
-    .map((l, i) => ({ idx: i, id: l.id, name: l.name, isBase: l.isBase }))
-    .filter(l => l.isBase);
+    .map((l, i) => ({ idx: i, id: l.id, name: l.name, group: l.group }))
+    .filter(l => l.group === "base");
 
   // Find the tile basemap.
-  const tileLi = m.layers.find(l => l.isBase && l.id !== "foliplus_color_map");
+  const tileLi = m.layers.find(
+    l => l.group === "base" && l.id !== "foliplus_color_map",
+  );
 
   // Force the ladder to be applied before reading. Without this the panes
   // carry Leaflet's CSS default (.leaflet-pane = 400), not the ladder z.
