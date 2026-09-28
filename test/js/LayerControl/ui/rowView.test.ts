@@ -208,7 +208,7 @@ describe("buildRowCell + applyRowView (one writer per row)", () => {
 
   it("uses the custom icon when the layer declares one", () => {
     const { ui } = initFixture({
-      data: [{ id: "custom1", name: "Custom", isBase: false }],
+      data: [{ id: "custom1", name: "Custom", group: "overlay" }],
     });
     const layerInfo = ui.m.layers.find(li => li.id === "custom1")!;
     layerInfo.iconSvg = '<svg id="custom" />';

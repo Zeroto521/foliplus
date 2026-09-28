@@ -19,7 +19,7 @@ import { registerDimension } from "./registry.js";
  *  the write cannot apply is a lie that survives reload. The colour
  *  basemap declares `"pane"` (the executor's `visible` op is the
  *  carrier, same as every other surface). No `isColorBasemap`
- *  special-case, no `isBase` exemption: capability alone decides. */
+ *  special-case, no `group` exemption: capability alone decides. */
 const canShowZoomRange = (ui: LayerUI, layerId: string): boolean => {
   const li = ui.m.layerRegistry.get(layerId);
   if (!li) return false;

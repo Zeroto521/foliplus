@@ -61,14 +61,15 @@ const focusLayerZ = (): number => FOCUS_Z.overlay - FOCUS_Z.gap;
 const zFor = ({
   index = 0,
   count = index,
-  isBase = false,
+  group = "overlay",
   role = "base",
   order = 0,
   base,
 }: ZArgs): number => {
   const slot =
     base ??
-    (isBase ? Z_INDEX.TILE_BASE : Z_INDEX.BASE) + (count - index) * Z_INDEX.STEP;
+    (group === "base" ? Z_INDEX.TILE_BASE : Z_INDEX.BASE) +
+      (count - index) * Z_INDEX.STEP;
   return role === "annotation" ? slot + ANNOTATION_Z_OFFSET : slot + order;
 };
 
