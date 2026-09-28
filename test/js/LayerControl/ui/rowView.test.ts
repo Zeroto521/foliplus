@@ -198,6 +198,20 @@ describe("buildRowCell + applyRowView (one writer per row)", () => {
     expect(item.classList.contains(CONST.CLASSES.ACTIVE)).toBe(true);
   });
 
+  it("a provenance marker with no value reads as the user's show choice", () => {
+    // A restored record can carry the marker without the value; the row must
+    // read it as the user's choice (checked), not fall back to the author's
+    // default. Same fallback as `intentVisibleOf` — this pins the inlined
+    // variant in `buildRowCell`.
+    const { ui } = initFixture({});
+    const layerInfo = overlay(ui);
+    ui.authorVisible.set("overlay1", false);
+    ui.intentProvenance.overlay1 = ["visible"];
+    delete ui.visibleMap.overlay1;
+
+    expect(buildRowCell(ui, layerInfo).checked).toBe(true);
+  });
+
   it("labels a base row with the base icon instead of probing the layer", () => {
     const { ui } = initFixture({});
     const base = ui.m.layers.find(li => li.id === "base1")!;

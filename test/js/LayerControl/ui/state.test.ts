@@ -110,7 +110,7 @@ describe("LayerUI visibility persistence (visibleMap)", () => {
         },
       ]);
       const u = new LayerUI(m);
-      u.visibleMap = {overlay1: false};
+      u.visibleMap = { overlay1: false };
       u.intentProvenance = { overlay1: ["visible"] };
 
       u.applyUserState();
@@ -138,7 +138,7 @@ describe("LayerUI visibility persistence (visibleMap)", () => {
       const u = new LayerUI(m);
       // The user checked the layer ON, so it is absent from visibleMap -- but the
       // key exists, so every registered layer must be on the map.
-      u.visibleMap = {other: false};
+      u.visibleMap = { other: false };
       // The user unhid overlay1 (a `show=False` folium layer), so it is absent
       // from visibleMap -- but a `visible` override says it must come back on.
       u.intentProvenance = { overlay1: ["visible"] };
@@ -223,7 +223,7 @@ describe("LayerUI visibility persistence (visibleMap)", () => {
         },
       ]);
       const u = new LayerUI(m);
-      u.visibleMap = {overlay1: false, later: false, ghost: false, gone: false};
+      u.visibleMap = { overlay1: false, later: false, ghost: false, gone: false };
       m.pendingRegistrations.push({
         id: "later",
         name: "Later",
@@ -233,7 +233,12 @@ describe("LayerUI visibility persistence (visibleMap)", () => {
 
       u.applyUserState();
 
-      expect(u.visibleMap).toEqual({overlay1: false, later: false, ghost: false, gone: false});
+      expect(u.visibleMap).toEqual({
+        overlay1: false,
+        later: false,
+        ghost: false,
+        gone: false,
+      });
     });
 
     it("schedules no write and drops no stored id", () => {
@@ -269,7 +274,7 @@ describe("LayerUI visibility persistence (visibleMap)", () => {
       u.applyUserState();
 
       expect(schedule).not.toHaveBeenCalled();
-      expect(u.visibleMap).toEqual({overlay1: false, ghost: false, gone: false});
+      expect(u.visibleMap).toEqual({ overlay1: false, ghost: false, gone: false });
       const stored = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!);
       expect(Object.keys(stored.layers).sort()).toEqual(["ghost", "gone", "overlay1"]);
     });
@@ -312,7 +317,7 @@ describe("LayerUI visibility persistence (visibleMap)", () => {
 
       u.loadPersistedState();
 
-      expect(u.visibleMap).toEqual({overlay1: false, base1: false});
+      expect(u.visibleMap).toEqual({ overlay1: false, base1: false });
     });
 
     it("loads persisted fill color and opacity into their maps", () => {
@@ -457,7 +462,7 @@ describe("LayerUI visibility persistence (visibleMap)", () => {
         },
       ]);
       const u = new LayerUI(m);
-      u.visibleMap = {overlay1: false};
+      u.visibleMap = { overlay1: false };
       u.intentProvenance = { overlay1: ["visible"] };
 
       vi.useFakeTimers();
@@ -522,7 +527,7 @@ describe("LayerUI visibility persistence (visibleMap)", () => {
         { id: "base1", name: "OSM", group: "base", layer: new TileLayer() },
       ]);
       const u = new LayerUI(m);
-      u.visibleMap = {overlay1: false};
+      u.visibleMap = { overlay1: false };
       // Simulate a container + rows so showSolidBasemap can iterate bases.
       const container = document.createElement("div");
       document.body.appendChild(container);
@@ -538,7 +543,7 @@ describe("LayerUI visibility persistence (visibleMap)", () => {
       // overlay1 was hidden before the color activation and should stay hidden.
       expect(u.visibleMap["overlay1"] === false).toBe(true);
       // No base-layer id was added even though showSolidBasemap deselects all bases.
-      expect(u.visibleMap).toEqual({overlay1: false});
+      expect(u.visibleMap).toEqual({ overlay1: false });
     });
   });
 
@@ -656,7 +661,7 @@ describe("LayerUI visibility persistence (visibleMap)", () => {
       ) as HTMLElement | null;
       expect(colorItem?.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
       // The hidden set is preserved after the attach pass.
-      expect(ui.visibleMap).toEqual({base1: false, base2: false});
+      expect(ui.visibleMap).toEqual({ base1: false, base2: false });
     });
 
     it("does not activate the colour layer when no base layers are registered", () => {
@@ -752,7 +757,7 @@ describe("LayerUI visibility persistence (visibleMap)", () => {
         { id: "canvas1", name: "Canvas", layer: null, canvas },
       ]);
       const u = new LayerUI(m);
-      u.visibleMap = {overlay1: false, base1: false, canvas1: false};
+      u.visibleMap = { overlay1: false, base1: false, canvas1: false };
       u.intentProvenance = {
         overlay1: ["visible"],
         base1: ["visible"],
@@ -767,7 +772,7 @@ describe("LayerUI visibility persistence (visibleMap)", () => {
       expect(u.intentVisible("overlay1")).toBe(false);
       expect(u.intentVisible("base1")).toBe(false);
       expect(u.intentVisible("canvas1")).toBe(false);
-      expect(u.visibleMap).toEqual({overlay1: false, base1: false, canvas1: false});
+      expect(u.visibleMap).toEqual({ overlay1: false, base1: false, canvas1: false });
     });
   });
 });
@@ -1161,7 +1166,7 @@ describe("ui/state intentProvenance and per-layer state persistence", () => {
     // unhide would only be visible for the current session.
     const schedule = vi.fn();
     const bare = {
-      visibleMap: {overlay1: false},
+      visibleMap: { overlay1: false },
       opacityMap: {},
       fillColorMap: {},
       fillOpacityMap: {},
@@ -1463,7 +1468,7 @@ describe("ui/state intentProvenance and per-layer state persistence", () => {
   });
 
   it("applyUserState(id) projects a hidden flag onto a single late layer", () => {
-    ui.visibleMap = {overlay1: false};
+    ui.visibleMap = { overlay1: false };
 
     ui.applyUserState("overlay1");
 

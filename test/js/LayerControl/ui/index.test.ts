@@ -200,7 +200,7 @@ describe("LayerUI shell — delegates", () => {
   it("dropPersistedLayerState erases every stored dimension for one id", () => {
     // The single routine that erases a stored value, reached only from an
     // explicit delete — and it must not touch a neighbor's state.
-    ui.visibleMap = {overlay1: false, base1: false};
+    ui.visibleMap = { overlay1: false, base1: false };
     ui.opacityMap = { overlay1: 0.4 };
     ui.zoomRangeMap = { overlay1: [3, 12] };
     ui.intentProvenance = { overlay1: ["visible", "opacity"] };

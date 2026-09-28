@@ -708,7 +708,7 @@ describe("LayerManager", () => {
     manager.map.addLayer = addLayer;
     manager.map.removeLayer = removeLayer;
     manager.ui = {
-      visibleMap: {new1: false},
+      visibleMap: { new1: false },
       saveState: vi.fn(),
     } as any;
     manager.registerLayer({ id: "new1", name: "New", layer } as any);
@@ -726,7 +726,7 @@ describe("LayerManager", () => {
     manager.map.addLayer = addLayer;
     manager.map.removeLayer = removeLayer;
     manager.ui = {
-      visibleMap: {canvas1: false},
+      visibleMap: { canvas1: false },
       saveState: vi.fn(),
     } as any;
     manager.registerLayer({
@@ -749,7 +749,7 @@ describe("LayerManager", () => {
     manager.map.addLayer = addLayer;
     manager.map.removeLayer = removeLayer;
     manager.ui = {
-      visibleMap: {new1: false},
+      visibleMap: { new1: false },
       saveState: vi.fn(),
     } as any;
     manager.registerLayer({ id: "new1", name: "New", layer } as any);
@@ -766,7 +766,7 @@ describe("LayerManager", () => {
     const removeLayer = vi.fn();
     manager.map.removeLayer = removeLayer;
     manager.ui = {
-      visibleMap: {other: false},
+      visibleMap: { other: false },
       saveState: vi.fn(),
     } as any;
     manager.registerLayer({ id: "visible1", name: "V", layer } as any);
@@ -1674,7 +1674,7 @@ describe("LayerManager", () => {
     manager.map.hasLayer.mockReturnValue(false);
     const saveState = vi.fn();
     manager.ui = {
-      visibleMap: {overlay1: false, base1: false},
+      visibleMap: { overlay1: false, base1: false },
       opacityMap: { overlay1: 0.4, base1: 1 },
       fillColorMap: {},
       fillOpacityMap: {},
@@ -1690,7 +1690,7 @@ describe("LayerManager", () => {
     } as any;
     manager.unregisterLayer("overlay1");
 
-    expect(manager.ui.visibleMap).toEqual({overlay1: false, base1: false});
+    expect(manager.ui.visibleMap).toEqual({ overlay1: false, base1: false });
     expect(manager.ui.opacityMap).toEqual({ overlay1: 0.4, base1: 1 });
     expect(manager.ui.zoomRangeMap).toEqual({ overlay1: [3, 12] });
     expect(manager.ui.intentProvenance).toEqual({
@@ -1708,7 +1708,7 @@ describe("LayerManager", () => {
     const saveState = vi.fn();
     const saveNamesState = vi.fn();
     manager.ui = {
-      visibleMap: {overlay1: false, base1: false},
+      visibleMap: { overlay1: false, base1: false },
       opacityMap: { overlay1: 0.4, base1: 1 },
       fillColorMap: {},
       fillOpacityMap: {},
@@ -1729,7 +1729,7 @@ describe("LayerManager", () => {
     } as any;
     manager.deleteLayer("overlay1");
 
-    expect(manager.ui.visibleMap).toEqual({base1: false});
+    expect(manager.ui.visibleMap).toEqual({ base1: false });
     expect(manager.ui.opacityMap).toEqual({ base1: 1 });
     expect(manager.ui.zoomRangeMap).toEqual({});
     expect(manager.ui.intentProvenance).toEqual({ base1: ["visible"] });
@@ -1742,7 +1742,7 @@ describe("LayerManager", () => {
     manager.map.hasLayer.mockReturnValue(false);
     const saveState = vi.fn();
     manager.ui = {
-      visibleMap: {overlay1: false},
+      visibleMap: { overlay1: false },
       opacityMap: { overlay1: 0.4 },
       fillColorMap: {},
       fillOpacityMap: {},
@@ -1756,7 +1756,7 @@ describe("LayerManager", () => {
     } as any;
 
     expect(manager.deleteLayer("never-registered")).toBe(false);
-    expect(manager.ui.visibleMap).toEqual({overlay1: false});
+    expect(manager.ui.visibleMap).toEqual({ overlay1: false });
     expect(saveState).not.toHaveBeenCalled();
   });
 
@@ -1776,7 +1776,7 @@ describe("LayerManager", () => {
     const saveState = vi.fn();
     const saveNamesState = vi.fn();
     manager.ui = {
-      visibleMap: {overlay1: false, base1: false},
+      visibleMap: { overlay1: false, base1: false },
       opacityMap: { overlay1: 0.4 },
       fillColorMap: {},
       fillOpacityMap: {},
@@ -1799,7 +1799,7 @@ describe("LayerManager", () => {
 
     expect(saveState).toHaveBeenCalledTimes(1);
     expect(saveNamesState).not.toHaveBeenCalled();
-    expect(manager.ui.visibleMap).toEqual({base1: false});
+    expect(manager.ui.visibleMap).toEqual({ base1: false });
     expect(manager.ui.renamedNames).toEqual({ base1: "Renamed" });
   });
 

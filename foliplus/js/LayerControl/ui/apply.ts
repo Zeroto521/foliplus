@@ -310,7 +310,7 @@ const applyProjection = (ui: LayerUI, id: string): void => {
   // decide — writing `effectiveShown` for it would turn a guess into an add.
   const hasUserIntent =
     (ui.intentProvenance?.[id]?.includes("visible") ?? false) ||
-    (typeof ui.visibleMap?.[id] === "boolean");
+    typeof ui.visibleMap?.[id] === "boolean";
   const authorised = hasUserIntent || ui.authorVisible.has(id);
   // Current visibility, read from the carrier the write would land on.
   // "native" — the map's own membership flag; "pane" — the canvas's
