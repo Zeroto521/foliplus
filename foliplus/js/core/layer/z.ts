@@ -26,7 +26,7 @@
 // recreate the "two places must stay in sync" problem this file exists to end.
 //
 // Pure: no DOM, no CONF, no Leaflet.
-import { Z_INDEX } from "./const.js";
+import { GROUP, Z_INDEX } from "./const.js";
 import type { ZArgs } from "./type.js";
 
 /** A layer's label pane rides one step above its own panes: the labels cover
@@ -61,14 +61,14 @@ const focusLayerZ = (): number => FOCUS_Z.overlay - FOCUS_Z.gap;
 const zFor = ({
   index = 0,
   count = index,
-  group = "overlay",
+  group = GROUP.OVERLAY,
   role = "base",
   order = 0,
   base,
 }: ZArgs): number => {
   const slot =
     base ??
-    (group === "base" ? Z_INDEX.TILE_BASE : Z_INDEX.BASE) +
+    (group === GROUP.BASE ? Z_INDEX.TILE_BASE : Z_INDEX.BASE) +
       (count - index) * Z_INDEX.STEP;
   return role === "annotation" ? slot + ANNOTATION_Z_OFFSET : slot + order;
 };
