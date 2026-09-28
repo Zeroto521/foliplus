@@ -67,14 +67,5 @@ const pinStyleOnHighlight = (leaf: StyleSetter, getStyle: StyleGetter): void => 
   });
 };
 
-/** A node in the layer tree that a style walk may reach. `setStyle` alone does
- *  not make a node a carrier — L.GeoJSON owns one too (it fans a style out to
- *  its features) — so walks descend groups through `eachLayer` first and treat
- *  a setter as a leaf only. */
-type WalkableNode = {
-  setStyle?: (style: Record<string, unknown>) => void;
-  eachLayer?: (fn: (child: L.Layer) => void) => void;
-};
-
 export { isStyleSetter, pinStyleOnHighlight };
 export type { StyleSetter };

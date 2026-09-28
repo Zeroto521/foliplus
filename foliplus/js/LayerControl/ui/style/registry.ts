@@ -29,9 +29,8 @@
 //     it naturally. Adding an extra `if (!canvas) return false` here
 //     would be duplicate work — and every extra check is another place
 //     a future dimension can drift.
-// The pilot (`opacity`) is already in this form; legacy `fill` / `border`
-// / `zoomRange` gates carry extras and are scheduled for a follow-up PR
-// that moves those checks into their surface declarations.
+// The pilot (`opacity`) is already in this form; `fill` / `border` /
+// `zoomRange` gates are now pure capability checks too (#513).
 //
 // First pilot: `opacity`. Its existing helpers (`layerCanOpacity`,
 // `buildOpacityRow`, `commitOpacityPct`, `resetLayerOpacity`) stay as the
