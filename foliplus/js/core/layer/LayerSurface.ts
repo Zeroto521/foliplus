@@ -110,15 +110,15 @@ interface SurfaceDeclaration {
    *  rebuilding. The reference is kept only so the value can be reported back
    *  as-is; nothing reads it through. */
   getBounds: (() => L.LatLngBounds | null) | null;
+  /** Whether the layer's tree has an areal `setStyle` leaf (vector fill
+   *  axis). Same probe-and-cache contract as `stroke`. */
+  fill: "native" | "none";
   /** Whether the layer's tree has a `setStyle` leaf (vector stroke axis).
    *  Probe-derived, cached per surface. Part of the declaration so a
    *  re-registration that added or lost a stroke carrier triggers a
    *  rebuild — otherwise the surface would keep answering with the
    *  previous tree's probe result. */
   stroke: "native" | "none";
-  /** Whether the layer's tree has an areal `setStyle` leaf (vector fill
-   *  axis). Same probe-and-cache contract as `stroke`. */
-  fill: "native" | "none";
 }
 
 class LayerSurface implements LayerSurfaceContract {
@@ -171,8 +171,8 @@ class LayerSurface implements LayerSurfaceContract {
       canvas: opts.canvas === true,
       color: opts.color != null,
       getBounds: opts.getBounds ?? null,
-      stroke: probeVectorCarrier(layer, "stroke"),
       fill: probeVectorCarrier(layer, "fill"),
+      stroke: probeVectorCarrier(layer, "stroke"),
     };
     // Capabilities are resolved here, before any early return below, so every
     // branch — declared, synthesized, native — reports the same way. A GridLayer
@@ -402,8 +402,8 @@ class LayerSurface implements LayerSurfaceContract {
       this.spec.canvas === Boolean(opts.canvas) &&
       this.spec.color === (opts.color != null) &&
       Boolean(this.spec.getBounds) === Boolean(opts.getBounds ?? null) &&
-      this.spec.stroke === probeVectorCarrier(opts.layer, "stroke") &&
       this.spec.fill === probeVectorCarrier(opts.layer, "fill") &&
+      this.spec.stroke === probeVectorCarrier(opts.layer, "stroke") &&
       samePanes
     );
   }
