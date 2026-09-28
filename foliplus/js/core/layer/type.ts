@@ -13,6 +13,30 @@
  *  it does not have, and the honest-degradation contract (never silently
  *  degrade) depends on the answer being the surface's, not the caller's. */
 interface LayerCapabilities {
+  /** Whether the layer's tree has a write carrier for fill: areal geometry
+   *  (`L.Polygon` / `L.Circle` / `L.CircleMarker` — the last two because
+   *  they extend the polygon-side ancestor) with a `setStyle` leaf.
+   *    - "native" — an areal carrier exists; `setStyle({fillColor,
+   *      fillOpacity})` writes through the tree. A solid-colour basemap
+   *      also declares "native": the pane's paint *is* the fill.
+   *    - "none"   — no areal carrier. Line-only layers (Polyline, Circle
+   *      without a fill), Marker, canvas, MarkerCluster, and native setter
+   *      surfaces (ImageOverlay / GridLayer) all fall out.
+   *
+   *  Same probe-and-cache contract as `stroke`. */
+  fill: "native" | "none";
+  /** Whether the layer's tree has a write carrier for stroke (border):
+   *    - "native" — a `setStyle` leaf exists in the tree (a Path-family
+   *      member: Polygon, Polyline, Circle, CircleMarker, Rectangle). The
+   *      write walks `eachLayer` and calls `setStyle` per leaf.
+   *    - "none"   — no `setStyle` leaf. Marker (Icon, divIcon) and every
+   *      non-vector surface (canvas, color basemap, MarkerCluster, native
+   *      ImageOverlay / GridLayer) have no vector stroke axis.
+   *
+   *  Probe-derived, cached per surface. The probe result is part of
+   *  `SurfaceDeclaration`, so a change in the tree's shape triggers a
+   *  rebuild through `matches`. */
+  stroke: "native" | "none";
   /** How the layer's opacity is written:
    *    - "native" — the layer owns its own setter (`ImageOverlay.setOpacity`,
    *      `TileLayer.options.opacity`). Immediate and correct; the UI reads/writes
@@ -58,6 +82,12 @@ interface RegisterLayerOpts {
   /** New base layer insertion: "top" (default, tile basemaps) or "bottom"
    *  (solid-color basemap — lowest z, tiles cover it). */
   baseInsert?: "top" | "bottom";
+  /** Persist this registration's slot into the stored order. Defaults to
+   *  true. A runtime-created surface (the solid-color basemap) passes false:
+   *  its insertion slot is a side effect of attach timing, not a user
+   *  arrangement, so writing it would clobber an order the user already
+   *  set. Its slot is recovered from storage by `replaySavedOrder` instead. */
+  persistOrder?: boolean;
   paneName?: string | null;
   /**
    * The panes this layer paints into, in draw order. Absent means the layer
@@ -355,6 +385,8 @@ interface CreateColorOpts {
   name?: string;
   color: string;
   onToggle?: ((visible: boolean) => void) | null;
+  /** See {@link RegisterLayerOpts.persistOrder}. */
+  persistOrder?: boolean;
 }
 
 /** Return type of the color-surface factory — the solid-color basemap's
@@ -436,6 +468,8 @@ interface CreateSurfaceOpts {
   styleSetters?: Record<string, (value: unknown) => void> | null;
   styleDefaults?: (() => Record<string, unknown>) | null;
   metaProvider?: (() => Record<string, string | number>) | null;
+  /** See {@link RegisterLayerOpts.persistOrder}. */
+  persistOrder?: boolean;
 }
 
 /** Content handle returned by `createSurface` — the discriminated-union branch. */

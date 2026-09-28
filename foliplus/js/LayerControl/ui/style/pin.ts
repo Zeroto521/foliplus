@@ -67,39 +67,5 @@ const pinStyleOnHighlight = (leaf: StyleSetter, getStyle: StyleGetter): void => 
   });
 };
 
-/** A node in the layer tree that a style walk may reach. `setStyle` alone does
- *  not make a node a carrier — L.GeoJSON owns one too (it fans a style out to
- *  its features) — so walks descend groups through `eachLayer` first and treat
- *  a setter as a leaf only. */
-type WalkableNode = {
-  setStyle?: (style: Record<string, unknown>) => void;
-  eachLayer?: (fn: (child: L.Layer) => void) => void;
-};
-
-/** Whether any leaf in the tree exposes a runtime `setStyle` — the honest
- *  carrier check for the vector style axis (border / fill). Groups are
- *  descended; a node with `setStyle` of its own counts only when it is a
- *  leaf (no `eachLayer`). Groups that own a `setStyle` of their own
- *  (L.GeoJSON, L.FeatureGroup) are still descended: an empty one has no
- *  feature to fan the style out to, so it returns false like an empty
- *  LayerGroup or a Marker with no children — the `setStyle` of its own is
- *  not a real carrier when the walk finds nothing to write to. A null node
- *  also falls out.
- *
- *  Shared by `layerCanBorder` and `hasFillGeometry` so the two vector axes
- *  read the same honest-degradation invariant (§44.2: capability = the
- *  existence of a carrier object). */
-const hasSetStyleLeaf = (node: WalkableNode | null): boolean => {
-  if (!node) return false;
-  if (typeof node.eachLayer === "function") {
-    let found = false;
-    node.eachLayer(child => {
-      if (!found) found = hasSetStyleLeaf(child as WalkableNode);
-    });
-    return found;
-  }
-  return typeof node.setStyle === "function";
-};
-
-export { hasSetStyleLeaf, isStyleSetter, pinStyleOnHighlight };
+export { isStyleSetter, pinStyleOnHighlight };
 export type { StyleSetter };

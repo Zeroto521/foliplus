@@ -745,21 +745,23 @@ describe("LayerManager", () => {
       <div class="foliplus-layer-toggle-all" data-group="base">
         <div class="foliplus-checkbox"><input type="checkbox" data-role="toggle-all" /></div>
       </div>
-      <div class="foliplus-layer-item foliplus-color-layer-item" data-layer-id="color">
-        <input type="color" />
+      <div class="foliplus-layer-item" data-layer-id="color" data-layer-type="base">
+        <input type="checkbox" />
       </div>
     `;
     manager.uiContainer = container;
     manager.ui = { reindexAfterMove: vi.fn() } as any;
-    // verify DOM structure includes toggle-all rows and layer items
+    // verify DOM structure includes toggle-all rows and every layer item
     // (getNavigableItems is tested via browser tests)
     const items = container.querySelectorAll(
-      ".foliplus-layer-item:not(.foliplus-color-layer-item), .foliplus-layer-toggle-all",
+      ".foliplus-layer-item, .foliplus-layer-toggle-all",
     );
-    expect(items.length).toBe(3);
+    expect(items.length).toBe(4);
     expect(items[0].classList.contains("foliplus-layer-toggle-all")).toBe(true);
     expect(items[1].classList.contains("foliplus-layer-item")).toBe(true);
     expect(items[2].classList.contains("foliplus-layer-toggle-all")).toBe(true);
+    // The base row that carries the color control is navigable too.
+    expect(items[3].classList.contains("foliplus-layer-item")).toBe(true);
   });
 
   it("onLayerAdd responds to container layers (GeoJSON/FeatureGroup) too", () => {
@@ -1044,6 +1046,45 @@ describe("LayerManager", () => {
         order: string[] | null;
       };
       expect(record.order).toEqual(["H1", "A", "X", "H2"]);
+    });
+
+    it("skips both the write and the rewrite when the caller opts out", () => {
+      // The colour basemap registers before the tile basemaps do, so its live
+      // slot is the head of the base group — a slot the user never chose. That
+      // registration must not schedule a write, and must not let its slot stand
+      // in for the stored order a later replay reads back. (registerLayer routes
+      // the flag to saveOrder once a panel exists; that path is gated on
+      // uiContainer, so the write side is driven directly here and the wiring is
+      // covered by the author-defaults browser test.)
+      seedStorage({ order: ["fg", "tile", "foliplus_color_map"] });
+      const m = new LayerManager(map, [
+        { id: "fg", name: "FG", isBase: false },
+        { id: "tile", name: "Tile", isBase: true },
+      ]);
+      m.registerLayer({ id: "foliplus_color_map", name: "Color", isBase: true });
+      expect(m.layers.map(l => l.id)).toEqual(["fg", "foliplus_color_map", "tile"]);
+
+      m.saveOrder(false);
+      m.persistence.flushAll();
+
+      expect(m.savedOrder).toEqual(["fg", "tile", "foliplus_color_map"]);
+      const record = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!) as {
+        order: string[] | null;
+      };
+      expect(record.order).toEqual(["fg", "tile", "foliplus_color_map"]);
+    });
+
+    it("keeps persisting the slot on the default path", () => {
+      seedStorage({ order: ["fg", "tile"] });
+      const m = new LayerManager(map, [
+        { id: "fg", name: "FG", isBase: false },
+        { id: "tile", name: "Tile", isBase: true },
+      ]);
+      m.registerLayer({ id: "foliplus_color_map", name: "Color", isBase: true });
+
+      m.saveOrder();
+
+      expect(m.savedOrder).toEqual(["fg", "foliplus_color_map", "tile"]);
     });
   });
 
@@ -2422,7 +2463,7 @@ describe("LayerManager", () => {
           <div class="foliplus-checkbox"><input type="checkbox" data-role="toggle-all" /></div>
         </div>
         <div class="foliplus-layer-item" data-layer-id="base1" data-layer-type="base"></div>
-        <div class="foliplus-layer-item foliplus-color-layer-item" data-layer-id="${CONST.COLOR.MAP_ID}" data-layer-type="base"></div>
+        <div class="foliplus-layer-item" data-layer-id="${CONST.COLOR.MAP_ID}" data-layer-type="base"></div>
       `;
       manager.ui = {
         colorSurface: {} as any,

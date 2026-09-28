@@ -1,7 +1,9 @@
 () => {
   // After the pane fix, "foliplus-active" is on the color row, not the map container.
   // --color-layer-bg CSS var is no longer set; the color is in the pane.
-  const row = document.querySelector(".foliplus-color-layer-item");
+  const row = document.querySelector(
+    '.foliplus-layer-item[data-layer-id="foliplus_color_map"]',
+  );
   if (!row) return null;
   const cb = row.querySelector('input[type="checkbox"]');
   const active = row.classList.contains("foliplus-active");

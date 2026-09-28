@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { hasFillLeaf, hasSetStyleLeaf } from "#core/layer/capability.js";
 import {
-  hasSetStyleLeaf,
   isStyleSetter,
   pinStyleOnHighlight,
 } from "#foliplus/LayerControl/ui/style/pin.js";
@@ -199,5 +199,75 @@ describe("hasSetStyleLeaf", () => {
     const group: any = { options: {}, eachLayer };
     expect(hasSetStyleLeaf(group)).toBe(false);
     expect(calls).toEqual([1, 2]);
+  });
+});
+
+describe("hasFillLeaf", () => {
+  const { Polygon, Circle } = window.L;
+
+  it("returns false for a null node", () => {
+    expect(hasFillLeaf(null)).toBe(false);
+  });
+
+  it("returns false for a node with neither a setter nor children", () => {
+    expect(hasFillLeaf({ options: {} })).toBe(false);
+  });
+
+  it("returns false for a leaf with setStyle that is not a Polygon or Circle", () => {
+    expect(hasFillLeaf({ setStyle: () => {} })).toBe(false);
+  });
+
+  it("returns false for an empty group", () => {
+    expect(hasFillLeaf({ options: {}, eachLayer: () => {} })).toBe(false);
+  });
+
+  it("returns true for a Polygon leaf with setStyle", () => {
+    const leaf: any = Object.assign(new Polygon(), { setStyle: vi.fn() });
+    expect(hasFillLeaf(leaf)).toBe(true);
+  });
+
+  it("returns true for a Circle leaf with setStyle", () => {
+    const leaf: any = Object.assign(new Circle(), { setStyle: vi.fn() });
+    expect(hasFillLeaf(leaf)).toBe(true);
+  });
+
+  it("returns true when a Polygon is nested in a group", () => {
+    const leaf: any = Object.assign(new Polygon(), { setStyle: vi.fn() });
+    const group: any = {
+      options: {},
+      eachLayer: (fn: (child: unknown) => void) => fn(leaf),
+    };
+    expect(hasFillLeaf(group)).toBe(true);
+  });
+
+  it("returns false when a Polyline is nested in a group", () => {
+    const { Polyline } = window.L;
+    const leaf = new Polyline();
+    const group: any = {
+      options: {},
+      eachLayer: (fn: (child: unknown) => void) => fn(leaf),
+    };
+    expect(hasFillLeaf(group)).toBe(false);
+  });
+
+  it("returns true for a Polygon even when L.Circle is undefined", () => {
+    const saved = window.L.Circle;
+    delete (window.L as any).Circle;
+    try {
+      const leaf: any = Object.assign(new Polygon(), { setStyle: vi.fn() });
+      expect(hasFillLeaf(leaf)).toBe(true);
+    } finally {
+      (window.L as any).Circle = saved;
+    }
+  });
+
+  it("returns false for a non-Polygon leaf when L.Circle is undefined", () => {
+    const saved = window.L.Circle;
+    delete (window.L as any).Circle;
+    try {
+      expect(hasFillLeaf({ setStyle: () => {} })).toBe(false);
+    } finally {
+      (window.L as any).Circle = saved;
+    }
   });
 });
