@@ -803,7 +803,7 @@ describe("LayerFactory", () => {
       // migration hint at the factory door instead of a silent drop.
       const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
       // @ts-expect-error — deliberately passing the removed field
-      factory.createCanvas({ id: "canvas_ot", onToggle: () => {} });
+      factory.createCanvas({ id: "canvas_legacy_cb", onToggle: () => {} });
       expect(warn).toHaveBeenCalledWith(
         expect.stringContaining('"onToggle" is deprecated'),
       );
@@ -1235,7 +1235,7 @@ describe("LayerFactory", () => {
     it("createColor warns when a caller still passes the retired onToggle", () => {
       const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
       // @ts-expect-error — deliberately passing the removed field
-      factory.createColor({ id: "color_ot", color: "#3366cc", onToggle: () => {} });
+      factory.createColor({ id: "color_legacy_cb", color: "#3366cc", onToggle: () => {} });
       expect(warn).toHaveBeenCalledWith(
         expect.stringContaining('"onToggle" is deprecated'),
       );

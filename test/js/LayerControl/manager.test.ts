@@ -352,16 +352,16 @@ describe("LayerManager", () => {
     // bundle is enough — a re-registration loop must not spam the console.
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     // @ts-expect-error — deliberately passing the removed field
-    manager.registerLayer({ id: "ot_1", name: "OT", onToggle: () => {} });
+    manager.registerLayer({ id: "legacy_cb_1", name: "Legacy", onToggle: () => {} });
     // @ts-expect-error — a second offender stays latched
-    manager.registerLayer({ id: "ot_2", name: "OT2", onToggle: () => {} });
+    manager.registerLayer({ id: "legacy_cb_2", name: "Legacy2", onToggle: () => {} });
     const hints = warn.mock.calls.filter(([msg]) =>
       String(msg).includes('"onToggle" is deprecated'),
     );
     warn.mockRestore();
     expect(hints).toHaveLength(1);
-    manager.unregisterLayer("ot_1");
-    manager.unregisterLayer("ot_2");
+    manager.unregisterLayer("legacy_cb_1");
+    manager.unregisterLayer("legacy_cb_2");
   });
 
   it("unregisterLayer reclaims only the unregistered layer's synthesized pane", () => {
