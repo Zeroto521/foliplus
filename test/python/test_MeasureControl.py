@@ -1049,7 +1049,7 @@ class TestMeasureControlBrowser:
             page.wait_for_timeout(500)
 
             info = page.evaluate("""() => {
-                const dot = document.querySelector('path.foliplus-measure-node-solid');
+                const dot = document.querySelector('path.foliplus-dot-solid');
                 if (!dot) return { error: 'no centroid dot path found' };
                 const fill = document.querySelector('.foliplus-measure-shape-fill');
                 if (!fill) return { error: 'no fill path found' };
@@ -1089,7 +1089,7 @@ class TestMeasureControlBrowser:
             page.wait_for_timeout(500)
 
             info2 = page.evaluate("""() => {
-                const dot = document.querySelector('path.foliplus-measure-node-solid');
+                const dot = document.querySelector('path.foliplus-dot-solid');
                 if (!dot) return { error: 'no centroid dot path found' };
                 const fill = document.querySelector('.foliplus-measure-shape-fill');
                 if (!fill) return { error: 'no fill path found' };

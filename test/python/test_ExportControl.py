@@ -374,6 +374,52 @@ class TestExportControlBrowser:
             assert page.locator(".foliplus-export-overlay").is_visible()
             assert page.locator(".foliplus-export-handle").count() == 8
 
+    def test_anchor_dots_share_the_dot_token_geometry(self, browser, tmp_path):
+        """Handle and center anchors match the shared --foliplus-dot-size.
+
+        Pins the visual equivalence that the dot-token unification promises:
+        every interactive anchor dot is a circle of the same outer diameter,
+        sized by the single token, with border-box so the ring sits inside.
+        Chromium snaps border-width to whole device pixels (2.5px -> 2px at
+        dpr 1); the outer diameter is what must stay equal.
+        """
+
+        with use_page(self._make_page, browser, tmp_path) as (page, _):
+            page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
+            page.wait_for_selector(
+                ".foliplus-export-box",
+                state="attached",
+                timeout=5000,
+            )
+            info = page.evaluate(
+                """() => {
+                const handle = document.querySelector('.foliplus-export-handle');
+                const center = document.querySelector('.foliplus-export-center');
+                const measure = (el) => {
+                    const cs = getComputedStyle(el);
+                    const r = el.getBoundingClientRect();
+                    return {
+                        boxSizing: cs.boxSizing,
+                        w: r.width, h: r.height,
+                        border: parseFloat(cs.borderTopWidth),
+                    };
+                };
+                return { handle: measure(handle), center: measure(center) };
+            }"""
+            )
+            handle, center = info["handle"], info["center"]
+            # Outer diameter comes from the shared token (12.5px default).
+            assert abs(handle["w"] - 12.5) < 0.51, handle
+            assert abs(center["w"] - 12.5) < 0.51, center
+            # Both are circles, not rectangles.
+            assert abs(handle["w"] - handle["h"]) < 0.01, handle
+            assert abs(center["w"] - center["h"]) < 0.01, center
+            # Ring sits inside the box (border-box from .foliplus-dot).
+            assert handle["boxSizing"] == "border-box", handle
+            assert center["boxSizing"] == "border-box", center
+            # Handle and center agree — one token, one geometry.
+            assert abs(handle["w"] - center["w"]) < 0.01, (handle, center)
+
     def test_escape_closes_crop_box(self, browser, tmp_path):
         """Pressing Escape with unlocked crop box removes it."""
 

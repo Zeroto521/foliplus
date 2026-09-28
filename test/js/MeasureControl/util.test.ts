@@ -117,13 +117,40 @@ describe("makeNode", () => {
     Util.makeNode({ lat: 1, lng: 2 });
     expect(window.L.circleMarker).toHaveBeenCalledWith(
       { lat: 1, lng: 2 },
-      { radius: 5, className: "foliplus-measure-node" },
+      { radius: 5, className: CONST.CLASSES.NODE_HOLLOW },
     );
+    // The shared dot look is on every node; the hook class stays for selectors.
+    expect(CONST.CLASSES.NODE_HOLLOW).toContain("foliplus-dot");
+    expect(CONST.CLASSES.NODE_HOLLOW).toContain("foliplus-dot-hollow");
+    expect(CONST.CLASSES.NODE_HOLLOW).toContain("foliplus-measure-node");
+    expect(CONST.CLASSES.NODE_SOLID).toContain("foliplus-dot-solid");
   });
 
   it("accepts a custom className", () => {
     Util.makeNode({ lat: 1, lng: 2 }, "custom");
     expect(window.L.circleMarker.mock.calls[0][1].className).toBe("custom");
+  });
+});
+
+describe("nodeRadius", () => {
+  it("falls back to MARKER.RADIUS when tokens are unreadable", () => {
+    // jsdom has no foliplus CSS loaded — both cssVar reads return "".
+    expect(Util.nodeRadius()).toBe(CONST.MARKER.RADIUS);
+  });
+
+  it("derives (size - stroke) / 2 from the shared tokens", () => {
+    const root = document.documentElement;
+    const prevSize = root.style.getPropertyValue("--foliplus-dot-size");
+    const prevStroke = root.style.getPropertyValue("--foliplus-dot-stroke");
+    root.style.setProperty("--foliplus-dot-size", "12.5px");
+    root.style.setProperty("--foliplus-dot-stroke", "2.5px");
+    try {
+      // Default pair is Leaflet-round-safe: radius 5.0, identity Math.round.
+      expect(Util.nodeRadius()).toBe(5);
+    } finally {
+      root.style.setProperty("--foliplus-dot-size", prevSize);
+      root.style.setProperty("--foliplus-dot-stroke", prevStroke);
+    }
   });
 });
 

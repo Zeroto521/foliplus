@@ -1,5 +1,6 @@
 // MeasureControl utility functions — standalone, no manager dependency.
 import { area, bearing, centroid, distance, midpoint } from "#core/geo/index.js";
+import { cssVar } from "#common/cssvar.js";
 import { toggleDelIcon } from "#common/delicon.js";
 import { buildPopupEl } from "#common/dom.js";
 import {
@@ -104,12 +105,36 @@ const makeMidLabelDivIcon = (html: string): L.DivIcon => {
   );
 };
 
+/** SVG radius for a `.foliplus-dot` node, read from the same tokens that size
+ *  the DOM anchors. The shared outer diameter is `--foliplus-dot-size`; the
+ *  centered stroke sits half in / half out of the path, so the circleMarker
+ *  radius is `(size - stroke) / 2`. Both renderings keep the same outer edge.
+ *
+ *  `L.circleMarker` rounds `radius` to an integer CSS pixel when it writes the
+ *  SVG path (`Math.round(_radius)` in the SVG renderer's `_updateCircle`), so
+ *  the default pair 12.5 / 2.5 is round-safe (radius 5.0, identity round). A
+ *  non-round-safe override (e.g. size 11px ⇒ radius 4.25) snaps the measure
+ *  nodes to the rounded pixel while the DOM anchors keep the subpixel — the
+ *  token comment in token.css documents this; do not paper over it here.
+ *  Keeping the read here means a token change sizes every dot at once —
+ *  `CONST.MARKER.RADIUS` is only the token-less fallback. */
+const nodeRadius = (): number => {
+  const size = parseFloat(cssVar(document.documentElement, "--foliplus-dot-size", ""));
+  const stroke = parseFloat(
+    cssVar(document.documentElement, "--foliplus-dot-stroke", ""),
+  );
+  if (Number.isFinite(size) && Number.isFinite(stroke) && size > stroke) {
+    return (size - stroke) / 2;
+  }
+  return CONST.MARKER.RADIUS;
+};
+
 /** Create a measure node circle marker. */
 const makeNode = (
   latlng: L.LatLng,
   className: string = CONST.CLASSES.NODE_HOLLOW,
 ): L.CircleMarker => {
-  return L.circleMarker(latlng, { radius: CONST.MARKER.RADIUS, className });
+  return L.circleMarker(latlng, { radius: nodeRadius(), className });
 };
 
 /** A non-interactive node used for transient previews (center, centroid and
@@ -119,7 +144,7 @@ const makePreviewNode = (
   className: string = CONST.CLASSES.NODE_HOLLOW,
 ): L.CircleMarker => {
   return L.circleMarker(latlng, {
-    radius: CONST.MARKER.RADIUS,
+    radius: nodeRadius(),
     className,
     interactive: false,
   });
@@ -242,6 +267,7 @@ export {
   formatSegmentLabel,
   labelChipOf,
   midpoint,
+  nodeRadius,
   pointsToLatLngs,
   recalculateSegments,
   readLatLng,
