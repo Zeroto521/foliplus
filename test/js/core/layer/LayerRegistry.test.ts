@@ -91,10 +91,7 @@ describe("LayerRegistry", () => {
     });
 
     it("preserves orderOrigin from existingLi on re-registration", () => {
-      const info = registry.createLayerInfo(
-        { id: "test" },
-        { orderOrigin: "runtime" },
-      );
+      const info = registry.createLayerInfo({ id: "test" }, { orderOrigin: "runtime" });
       expect(info.orderOrigin).toBe("runtime");
     });
   });
