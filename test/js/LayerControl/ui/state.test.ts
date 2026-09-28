@@ -1413,6 +1413,44 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
     });
   });
 
+  it("persists border values by type presence, not truthiness", () => {
+    // The gate (hasLiveValue) and the writer both speak typeof, so undefined
+    // is the only absence: a weight of 0 survives while a marker whose value
+    // went missing drops its whole entry. An empty string still reads as a
+    // string here — no writer can produce one (hydration is truthy and the
+    // color input only ever yields hex), and the read side discards it via
+    // isHexColor, so a truthy carve-out in buildLayerStates would only make
+    // this layer disagree with applyBorderToLayer's `!== undefined` reads.
+    const schedule = vi.fn();
+    const bare = {
+      hiddenIds: new Set(),
+      opacityMap: {},
+      zoomRangeMap: {},
+      fillColorMap: {},
+      fillOpacityMap: {},
+      borderColorMap: { kept: "#0000ff", blank: "" },
+      borderWeightMap: { zero: 0 },
+      userOverrides: {
+        kept: ["borderColor"],
+        blank: ["borderColor"],
+        zero: ["borderWeight"],
+        missing: ["borderColor", "borderWeight"],
+      },
+      m: { persistence: { schedule } },
+    } as unknown as LayerUI;
+
+    saveState(bare);
+
+    const fields = schedule.mock.calls[0][0] as {
+      layers: () => Record<string, unknown>;
+    };
+    expect(fields.layers()).toEqual({
+      kept: { borderColor: "#0000ff", overrides: ["borderColor"] },
+      blank: { borderColor: "", overrides: ["borderColor"] },
+      zero: { borderWeight: 0, overrides: ["borderWeight"] },
+    });
+  });
+
   it("applyUserState(id) ignores an id with no registry entry", () => {
     expect(() => ui.applyUserState("ghost")).not.toThrow();
   });

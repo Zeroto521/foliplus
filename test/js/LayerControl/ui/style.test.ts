@@ -3136,6 +3136,94 @@ describe("LayerUI style panel", () => {
     expect(ui.opacityMap.overlay1).toBe(0.6);
   });
 
+  it("commitOpacityPct re-syncs the no-basemap hatch for base layers", () => {
+    // Dragging the only basemap to opacity=0 leaves it visually empty — the
+    // hatch has to light up, which happens only if commitOpacityPct fires
+    // syncNoBasemap. Overlay opacity is unrelated, so a base-vs-overlay
+    // toggle must be observable.
+    const toggleSpy = vi.fn();
+    vi.spyOn(ui.m.map, "getContainer").mockImplementation(
+      () => ({ classList: { toggle: toggleSpy } }) as unknown as HTMLElement,
+    );
+    try {
+      const item = findItem(ui, "base1");
+      ui.openStylePanel("base1");
+      const range = panelOf(item)!.querySelector(
+        ".foliplus-style-opacity-range",
+      ) as HTMLInputElement;
+      range.value = "0";
+      range.dispatchEvent(new Event("input", { bubbles: true }));
+      const baseCalls = toggleSpy.mock.calls.filter(
+        c => c[0] === CONST.CLASSES.NO_BASE_MAP,
+      );
+      expect(baseCalls.length).toBeGreaterThan(0);
+    } finally {
+      vi.restoreAllMocks();
+    }
+  });
+
+  it("commitOpacityPct skips the hatch sync for overlays", () => {
+    const toggleSpy = vi.fn();
+    vi.spyOn(ui.m.map, "getContainer").mockImplementation(
+      () => ({ classList: { toggle: toggleSpy } }) as unknown as HTMLElement,
+    );
+    try {
+      const item = findItem(ui, "overlay1");
+      ui.openStylePanel("overlay1");
+      const range = panelOf(item)!.querySelector(
+        ".foliplus-style-opacity-range",
+      ) as HTMLInputElement;
+      range.value = "0";
+      range.dispatchEvent(new Event("input", { bubbles: true }));
+      const calls = toggleSpy.mock.calls.filter(
+        c => c[0] === CONST.CLASSES.NO_BASE_MAP,
+      );
+      expect(calls).toEqual([]);
+    } finally {
+      vi.restoreAllMocks();
+    }
+  });
+
+  it("resetLayerOpacity re-syncs the hatch for base layers", () => {
+    // Resetting a basemap that was at 0 back to 1 flips the hatch off.
+    // Same invariant as commitOpacityPct: base → sync, overlay → skip.
+    const toggleSpy = vi.fn();
+    vi.spyOn(ui.m.map, "getContainer").mockImplementation(
+      () => ({ classList: { toggle: toggleSpy } }) as unknown as HTMLElement,
+    );
+    try {
+      const li = manager.layerRegistry.get("base1")!;
+      ui.opacityMap.base1 = 0;
+      li.opacity = 0;
+      resetLayerOpacity(ui, "base1");
+      const calls = toggleSpy.mock.calls.filter(
+        c => c[0] === CONST.CLASSES.NO_BASE_MAP,
+      );
+      expect(calls.length).toBeGreaterThan(0);
+    } finally {
+      vi.restoreAllMocks();
+    }
+  });
+
+  it("resetLayerOpacity skips the hatch sync for overlays", () => {
+    const toggleSpy = vi.fn();
+    vi.spyOn(ui.m.map, "getContainer").mockImplementation(
+      () => ({ classList: { toggle: toggleSpy } }) as unknown as HTMLElement,
+    );
+    try {
+      const li = manager.layerRegistry.get("overlay1")!;
+      ui.opacityMap.overlay1 = 0;
+      li.opacity = 0;
+      resetLayerOpacity(ui, "overlay1");
+      const calls = toggleSpy.mock.calls.filter(
+        c => c[0] === CONST.CLASSES.NO_BASE_MAP,
+      );
+      expect(calls).toEqual([]);
+    } finally {
+      vi.restoreAllMocks();
+    }
+  });
+
   it("reopening the panel seeds the opacity slider from opacityMap", () => {
     const li = manager.layerRegistry.get("overlay1")!;
     const item = findItem(ui, "overlay1");
