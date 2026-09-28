@@ -2,12 +2,12 @@
 @keyframes foliplus-drag-pulse {
   0%,
   100% {
-    border-color: var(--drag-border-from);
-    box-shadow: var(--drag-shadow-from);
+    border-color: var(--foliplus-drag-border-from);
+    box-shadow: var(--foliplus-drag-shadow-from);
   }
   50% {
-    border-color: var(--drag-border-to);
-    box-shadow: var(--drag-shadow-to);
+    border-color: var(--foliplus-drag-border-to);
+    box-shadow: var(--foliplus-drag-shadow-to);
   }
 }
 
@@ -20,10 +20,10 @@
    what ExportControl's resolveExportBackground ignores (it only reads
    `backgroundColor`), so the hatch never reaches an export. */
 .leaflet-container.foliplus-no-base-map {
-  background-color: var(--panel-bg, #ffffff);
+  background-color: var(--foliplus-panel-bg, #ffffff);
   background-image: repeating-conic-gradient(
-    rgba(0, 0, 0, var(--alpha-05)) 0% 25%,
-    rgba(255, 255, 255, var(--alpha-05)) 0% 50%
+    rgba(0, 0, 0, var(--foliplus-alpha-05)) 0% 25%,
+    rgba(255, 255, 255, var(--foliplus-alpha-05)) 0% 50%
   );
-  background-size: var(--size-16) var(--size-16);
+  background-size: var(--foliplus-size-16) var(--foliplus-size-16);
 }

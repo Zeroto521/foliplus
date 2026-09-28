@@ -11,7 +11,7 @@
   so it stays above geopandas legends and other sibling controls.
   Leaflet's .leaflet-control has z-index:800, override with !important. */
 .leaflet-bar:has(.foliplus-is-expanded) {
-  z-index: var(--z-index-floating);
+  z-index: var(--foliplus-z-index-floating);
 }
 
 /* ── Animations ── */
@@ -54,17 +54,17 @@
 @keyframes foliplus-input-breathe {
   0%,
   100% {
-    box-shadow: 0 0 0 var(--border-thick) var(--accent-soft-shadow);
+    box-shadow: 0 0 0 var(--foliplus-border-thick) var(--foliplus-accent-soft-shadow);
   }
   50% {
-    box-shadow: 0 0 0 var(--size-4) var(--accent-soft-shadow);
+    box-shadow: 0 0 0 var(--foliplus-size-4) var(--foliplus-accent-soft-shadow);
   }
 }
 
 /* Breathing animation value, single-sourced so the reduced-motion override
    below only flips the variable instead of repeating the selector list. */
 :root {
-  --input-breathe-anim: foliplus-input-breathe 2s ease-in-out infinite;
+  --foliplus-input-breathe-anim: foliplus-input-breathe 2s ease-in-out infinite;
 }
 
 /* ── Focus: breathing glow ──
@@ -84,13 +84,13 @@
   .foliplus-heatmap-ctrl .foliplus-heatmap-scheme-bar
 ):focus,
 .foliplus-heatmap-ctrl .foliplus-heatmap-scheme-bar-open {
-  animation: var(--input-breathe-anim);
+  animation: var(--foliplus-input-breathe-anim);
 }
 
 /* Respect reduced motion: disable breathing animation by clearing the value */
 @media (prefers-reduced-motion: reduce) {
   :root {
-    --input-breathe-anim: none;
+    --foliplus-input-breathe-anim: none;
   }
 }
 
@@ -99,8 +99,8 @@
 .leaflet-control.foliplus-scale-wrap,
 .leaflet-control-attribution {
   line-height: 14px;
-  border-radius: var(--radius-sm);
-  background: var(--ctrl-bg-translucent);
-  border: var(--border-thin) solid var(--divider-color);
-  box-shadow: var(--shadow-xs);
+  border-radius: var(--foliplus-radius-sm);
+  background: var(--foliplus-ctrl-bg-translucent);
+  border: var(--foliplus-border-thin) solid var(--foliplus-divider-color);
+  box-shadow: var(--foliplus-shadow-xs);
 }

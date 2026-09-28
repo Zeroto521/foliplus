@@ -156,7 +156,7 @@ describe("animateDashSweep", () => {
       removeEventListener: vi.fn(),
     };
     Util.animateDashSweep(path as any);
-    expect(path.style.setProperty).toHaveBeenCalledWith("--sweep-length", "120");
+    expect(path.style.setProperty).toHaveBeenCalledWith("--foliplus-sweep-length", "120");
     expect(path.classList.add).toHaveBeenCalledWith("foliplus-measure-dash-sweep");
 
     // Fire animationend → cleanup runs

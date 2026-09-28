@@ -17,8 +17,8 @@
    unchanged from the long-standing recipe — a harder middle looked worse on the
    narrow group divider. */
 .foliplus-section-divider {
-  height: var(--border-thin);
-  background: linear-gradient(to right, transparent, var(--divider-color), transparent);
+  height: var(--foliplus-border-thin);
+  background: linear-gradient(to right, transparent, var(--foliplus-divider-color), transparent);
   border: none;
 }
 
@@ -38,27 +38,27 @@
   align-items: center;
   justify-content: center;
   position: absolute;
-  width: var(--icon-size-sm);
-  height: var(--icon-size-sm);
-  background: var(--accent-primary);
-  border: var(--border-thick) solid var(--ctrl-bg);
-  border-radius: var(--radius-round);
-  color: var(--ctrl-bg);
-  font-size: var(--font-size-sm);
+  width: var(--foliplus-icon-size-sm);
+  height: var(--foliplus-icon-size-sm);
+  background: var(--foliplus-accent-primary);
+  border: var(--foliplus-border-thick) solid var(--foliplus-ctrl-bg);
+  border-radius: var(--foliplus-radius-round);
+  color: var(--foliplus-ctrl-bg);
+  font-size: var(--foliplus-font-size-sm);
   cursor: pointer;
   pointer-events: auto;
   box-shadow: none;
   opacity: 0;
   visibility: hidden;
   top: -18px;
-  left: var(--size-2);
+  left: var(--foliplus-size-2);
   right: auto;
   margin: 0;
   transition:
-    opacity var(--transition-fast),
-    visibility var(--transition-fast),
-    transform var(--transition-fast),
-    background var(--transition-fast);
+    opacity var(--foliplus-transition-fast),
+    visibility var(--foliplus-transition-fast),
+    transform var(--foliplus-transition-fast),
+    background var(--foliplus-transition-fast);
 
   &.visible {
     opacity: 1;
@@ -66,11 +66,11 @@
     display: flex;
   }
   &:hover {
-    background: rgba(var(--red-rgb), var(--alpha-95));
-    box-shadow: var(--shadow-xs);
-    transform: scale(var(--scale-hover));
+    background: rgba(var(--foliplus-red-rgb), var(--foliplus-alpha-95));
+    box-shadow: var(--foliplus-shadow-xs);
+    transform: scale(var(--foliplus-scale-hover));
   }
   &:active {
-    transform: scale(var(--scale-press));
+    transform: scale(var(--foliplus-scale-press));
   }
 }

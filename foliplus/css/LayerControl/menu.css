@@ -10,27 +10,27 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: var(--more-btn-width);
-    height: var(--space-xl);
+    width: var(--foliplus-more-btn-width);
+    height: var(--foliplus-space-xl);
     background: none;
     border: none;
     padding: 0;
     margin: 0;
-    color: var(--text-primary);
+    color: var(--foliplus-text-primary);
     cursor: pointer;
     transition: none;
     /* color intentionally NOT animated: the more button is destroyed and
        re-created on every list rebuild, so a color transition would cause
-       .foliplus-active rows' more buttons to flash var(--accent-primary) on each
+       .foliplus-active rows' more buttons to flash var(--foliplus-accent-primary) on each
        rebuild. The focus ring below is supplied here — not by the global
        :focus-visible rule — because that rule paints a border-color on this
        7px-wide button, and border-box sizing would collapse its box to 3px and
        clip the glyph. */
     &:focus-visible {
       outline: none;
-      color: var(--accent-primary);
-      box-shadow: var(--focus-ring);
-      border-radius: var(--radius-sm);
+      color: var(--foliplus-accent-primary);
+      box-shadow: var(--foliplus-focus-ring);
+      border-radius: var(--foliplus-radius-sm);
     }
 
     svg {
@@ -41,7 +41,7 @@
   }
   .foliplus-layer-item:hover .foliplus-layer-more-btn,
   .foliplus-layer-item.foliplus-active .foliplus-layer-more-btn {
-    color: var(--accent-primary);
+    color: var(--foliplus-accent-primary);
   }
 
   /* ── Overflow dropdown menu ──
@@ -63,7 +63,7 @@
        Min-width — not fixed — so a future longer label widens it instead of
        clipping. */
     min-width: 112px;
-    padding: var(--space-xs) 0;
+    padding: var(--foliplus-space-xs) 0;
     display: none;
     list-style: none;
   }
@@ -75,23 +75,23 @@
     align-items: center;
     /* Icon stays left, label aligns right (the gap is the minimum spacing). */
     justify-content: space-between;
-    gap: var(--space-md);
-    padding: var(--space-xs) var(--space-sm);
+    gap: var(--foliplus-space-md);
+    padding: var(--foliplus-space-xs) var(--foliplus-space-sm);
     white-space: nowrap;
   }
   .foliplus-layer-more-menu li:focus-visible {
     outline: none;
-    box-shadow: var(--focus-ring);
-    border-radius: var(--radius-sm);
+    box-shadow: var(--foliplus-focus-ring);
+    border-radius: var(--foliplus-radius-sm);
   }
   .foliplus-layer-more-menu li svg {
     flex-shrink: 0;
-    width: var(--icon-size-xs);
-    height: var(--icon-size-xs);
-    color: var(--text-muted);
+    width: var(--foliplus-icon-size-xs);
+    height: var(--foliplus-icon-size-xs);
+    color: var(--foliplus-text-muted);
     fill: none;
     stroke: currentColor;
-    stroke-width: var(--stroke-icon);
+    stroke-width: var(--foliplus-stroke-icon);
     stroke-linecap: round;
     stroke-linejoin: round;
   }
@@ -99,11 +99,11 @@
      type-icon language (identity wakes to black, not accent — accent is reserved
      for actions/status). Disabled stays muted. */
   .foliplus-layer-more-menu li:not([disabled]) svg {
-    transition: color var(--transition-fast);
+    transition: color var(--foliplus-transition-fast);
   }
   .foliplus-layer-more-menu li:not([disabled]):hover svg,
   .foliplus-layer-more-menu li:not([disabled]):focus-visible svg {
-    color: var(--text-primary);
+    color: var(--foliplus-text-primary);
   }
   /* Disabled menu item (e.g. layer is hidden).
      Muted ink, not `opacity`: these sit on an opaque menu surface, and a
@@ -113,16 +113,16 @@
      disabled signal everywhere else in the control. */
   .foliplus-layer-more-menu li[disabled] {
     cursor: not-allowed;
-    color: var(--text-muted);
+    color: var(--foliplus-text-muted);
   }
   .foliplus-layer-more-menu li[disabled] svg {
-    color: var(--text-muted);
+    color: var(--foliplus-text-muted);
   }
   .foliplus-layer-more-menu li[disabled]:hover {
     background: transparent;
     /* Keep text muted: the unified hover tints text accent, but a disabled
        item must not answer with accent. */
-    color: var(--text-muted);
+    color: var(--foliplus-text-muted);
   }
 
   /* ── Divider above the destructive entry ──
@@ -135,7 +135,7 @@
      class (0,2,0) and pad the hairline back open. */
   .foliplus-layer-more-menu li.foliplus-layer-more-menu-divider {
     padding: 0;
-    margin: var(--space-xs) 0;
+    margin: var(--foliplus-space-xs) 0;
     cursor: default;
   }
 
@@ -144,7 +144,7 @@
      already the delete color — its rest ink and its shared hover are red —
      so red reads as "the destructive verb is armed", not as "hover". The
      verb swap on the label carries the meaning; the fill only says the
-     entry has changed state. The previous fill was `--text-primary`
+     entry has changed state. The previous fill was `--foliplus-text-primary`
      (near-black), which was the one color this control never otherwise
      uses as a surface and read as a foreign element.
      Every rule that touches the icon also carries the `:hover` leg:
@@ -155,17 +155,17 @@
      `currentColor`, so a later `color` rule cannot desync the glyph. */
   .foliplus-layer-more-menu li.foliplus-layer-more-menu-delete-armed,
   .foliplus-layer-more-menu li.foliplus-layer-more-menu-delete-armed:hover {
-    background: var(--accent-primary);
-    color: var(--neutral-0);
+    background: var(--foliplus-accent-primary);
+    color: var(--foliplus-neutral-0);
   }
   .foliplus-layer-more-menu li.foliplus-layer-more-menu-delete-armed:active,
   .foliplus-layer-more-menu li.foliplus-layer-more-menu-delete-armed:hover:active {
-    background: var(--accent-hover);
-    color: var(--neutral-0);
+    background: var(--foliplus-accent-hover);
+    color: var(--foliplus-neutral-0);
   }
   .foliplus-layer-more-menu li.foliplus-layer-more-menu-delete-armed svg,
   .foliplus-layer-more-menu li.foliplus-layer-more-menu-delete-armed:hover svg {
-    color: var(--neutral-0);
-    stroke: var(--neutral-0);
+    color: var(--foliplus-neutral-0);
+    stroke: var(--foliplus-neutral-0);
   }
 }

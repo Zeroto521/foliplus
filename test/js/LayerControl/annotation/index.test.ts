@@ -221,7 +221,7 @@ describe("AnnotationManager — config", () => {
   });
 
   it("layerSpec short-circuits when the layer size equals the token default", () => {
-    // The shared --label-* token default is 12; a layer pinned to 12 must
+    // The shared --foliplus-label-* token default is 12; a layer pinned to 12 must
     // reuse the base spec object rather than allocating a copy.
     const { map } = makeMap();
     const mgr = new AnnotationManager({

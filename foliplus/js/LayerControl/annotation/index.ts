@@ -76,7 +76,7 @@ class AnnotationManager {
    *  bindMapSync): zoom hide/show, pan translate, full plan on zoom/resize. */
   private readonly mapCleanup: () => void;
   private readonly unsubscribe: Array<() => void> = [];
-  /** Typography from the --label-* tokens, cached like the canvases cache their
+  /** Typography from the --foliplus-label-* tokens, cached like the canvases cache their
    *  paint style: re-reading six CSS variables per throttled frame is pure
    *  overhead, and the tokens only change with the theme. */
   private cachedSpec: LabelSpec | null = null;
@@ -546,7 +546,7 @@ class AnnotationManager {
   }
 }
 
-/** The label typography for the plan, from the shared --label-* tokens. */
+/** The label typography for the plan, from the shared --foliplus-label-* tokens. */
 const specOf = (root: HTMLElement): LabelSpec => {
   const style: CanvasLabelStyle = resolveCanvasLabelStyle(root);
   return {

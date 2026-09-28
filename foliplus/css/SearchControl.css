@@ -1,6 +1,6 @@
 .foliplus-search {
   &.foliplus-is-expanded {
-    width: var(--panel-width);
+    width: var(--foliplus-panel-width);
     height: auto;
   }
 
@@ -10,15 +10,15 @@
     display: flex;
     align-items: center;
     width: 100%;
-    height: var(--ctrl-size);
+    height: var(--foliplus-ctrl-size);
   }
 
   /* ── Input Field ──
      Visual chrome comes from the shared .foliplus-input base (common.css);
      only padding/size live here — the right padding reserves space for the
-     clear (✕) button, whose width is --ctrl-size. */
+     clear (✕) button, whose width is --foliplus-ctrl-size. */
   .foliplus-input {
-    padding: 0 calc(var(--ctrl-size) - var(--space-xs)) 0 var(--space-md);
+    padding: 0 calc(var(--foliplus-ctrl-size) - var(--foliplus-space-xs)) 0 var(--foliplus-space-md);
     width: 100%;
     height: 100%;
   }
@@ -29,72 +29,72 @@
 .foliplus-search-result-panel {
   position: fixed;
   /* Above other floating controls: the panel is mounted on the map container. */
-  z-index: calc(var(--z-index-floating) + 9);
-  width: var(--panel-width);
+  z-index: calc(var(--foliplus-z-index-floating) + 9);
+  width: var(--foliplus-panel-width);
   max-height: 240px;
 }
 .foliplus-search-result-item {
   display: flex;
   align-items: flex-start;
-  gap: var(--space-md);
-  padding: var(--space-md) var(--space-lg);
-  border-left: var(--border-thin) solid transparent;
+  gap: var(--foliplus-space-md);
+  padding: var(--foliplus-space-md) var(--foliplus-space-lg);
+  border-left: var(--foliplus-border-thin) solid transparent;
   transition:
-    background-color var(--transition-fast),
-    border-color var(--transition-fast);
+    background-color var(--foliplus-transition-fast),
+    border-color var(--foliplus-transition-fast);
 
   /* Hover (mouse): 5% wash — the item is "under cursor".
      Icon wakes to black, matching the LayerControl type-icon language. */
   &:hover {
-    background: var(--accent-light);
+    background: var(--foliplus-accent-light);
 
     /* Opt out of the shared item hover color (common.css paints dropdown-item
-       text --accent-primary): a search result is a record, not an action, so the
+       text --foliplus-accent-primary): a search result is a record, not an action, so the
        text keeps its normal color and only the identity icon wakes. */
-    color: var(--text-primary);
+    color: var(--foliplus-text-primary);
 
     .foliplus-search-result-icon {
-      color: var(--text-primary);
+      color: var(--foliplus-text-primary);
     }
   }
 
   /* Keyboard cursor / selected row (ArrowUp/ArrowDown): `.foliplus-is-active` picks up the
-     shared wash in common.css (`background: var(--accent-light)`). SearchControl
+     shared wash in common.css (`background: var(--foliplus-accent-light)`). SearchControl
      is a dropdown of records (not layer rows), so it keeps a simple selected
      wash rather than the LayerControl row cursor recipe. Only the icon wake
      stays here (the icon structure is search-specific). */
   &.foliplus-is-active {
     .foliplus-search-result-icon {
-      color: var(--text-primary);
+      color: var(--foliplus-text-primary);
     }
   }
 
   /* Tab/Space lands focus here; keep the identity icon woken like hover. */
   &:focus-visible .foliplus-search-result-icon {
-    color: var(--text-primary);
+    color: var(--foliplus-text-primary);
   }
 }
 .foliplus-search-result-icon {
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  color: var(--text-muted);
+  color: var(--foliplus-text-muted);
   /* Identity icon: gray at rest, wakes to black on hover and keyboard cursor,
      matching the LayerControl type-icon language. */
-  transition: color var(--transition-fast);
+  transition: color var(--foliplus-transition-fast);
 
   svg {
-    width: var(--icon-size-xs);
-    height: var(--icon-size-xs);
+    width: var(--foliplus-icon-size-xs);
+    height: var(--foliplus-icon-size-xs);
     stroke: currentColor;
     fill: none;
-    stroke-width: var(--stroke-icon);
+    stroke-width: var(--foliplus-stroke-icon);
     stroke-linecap: round;
     stroke-linejoin: round;
   }
 }
 .foliplus-search-result-text {
-  line-height: var(--line-height-hint);
+  line-height: var(--foliplus-line-height-hint);
   word-break: break-word;
   overflow-wrap: break-word;
 }
@@ -107,8 +107,8 @@
   flex-direction: column;
 }
 .foliplus-search-result-coord {
-  font-size: var(--font-size-xs);
-  color: var(--text-muted);
+  font-size: var(--foliplus-font-size-xs);
+  color: var(--foliplus-text-muted);
   line-height: 1.4;
   margin-top: 1px;
 }

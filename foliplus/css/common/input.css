@@ -24,8 +24,8 @@
   .foliplus-layer-ctrl input[type="checkbox"]
 ):is(:hover, :focus-visible),
 .foliplus-heatmap-ctrl .foliplus-heatmap-scheme-bar-open {
-  border-color: var(--accent-primary);
-  box-shadow: var(--focus-ring);
+  border-color: var(--foliplus-accent-primary);
+  box-shadow: var(--foliplus-focus-ring);
   /* The focus ring above replaces the UA outline. Without this the browser
      paints its default black outline *on top of* the red glow, so a focused
      control showed a black rim around the red one. */
@@ -33,8 +33,8 @@
 }
 
 .foliplus-popup-content {
-  font-size: var(--font-size-md);
-  line-height: var(--line-height-popup);
+  font-size: var(--foliplus-font-size-md);
+  line-height: var(--foliplus-line-height-popup);
 }
 
 /* ── Shared text input base (used by SearchControl + LayerControl rename) ──
@@ -42,22 +42,22 @@
    CSS; the shared class covers all the visual chrome that must look identical. */
 .foliplus-input {
   font: inherit;
-  font-size: var(--font-size-md);
-  color: var(--text-primary);
-  background: var(--input-bg);
-  border: var(--border-thin) solid var(--input-border);
-  border-radius: var(--radius-sm);
+  font-size: var(--foliplus-font-size-md);
+  color: var(--foliplus-text-primary);
+  background: var(--foliplus-input-bg);
+  border: var(--foliplus-border-thin) solid var(--foliplus-input-border);
+  border-radius: var(--foliplus-radius-sm);
   box-sizing: border-box;
   box-shadow: none;
   outline: none;
-  transition: var(--transition-input);
+  transition: var(--foliplus-transition-input);
   margin: 0;
 
   &::placeholder {
-    color: var(--text-muted);
+    color: var(--foliplus-text-muted);
   }
 }
 .foliplus-input:focus {
-  border-color: var(--accent-primary);
-  box-shadow: 0 0 0 var(--border-thick) var(--input-focus-shadow);
+  border-color: var(--foliplus-accent-primary);
+  box-shadow: 0 0 0 var(--foliplus-border-thick) var(--foliplus-input-focus-shadow);
 }

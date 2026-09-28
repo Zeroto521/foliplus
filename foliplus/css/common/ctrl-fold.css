@@ -14,28 +14,28 @@
 .foliplus-ctrl-fold {
   display: flex;
   align-items: stretch;
-  background: var(--ctrl-bg);
+  background: var(--foliplus-ctrl-bg);
   box-sizing: border-box;
-  border-radius: var(--radius-sm);
-  box-shadow: var(--shadow-ctrl-strong);
+  border-radius: var(--foliplus-radius-sm);
+  box-shadow: var(--foliplus-shadow-ctrl-strong);
 
   &.foliplus-is-collapsed {
-    width: var(--ctrl-size);
-    height: var(--ctrl-size);
+    width: var(--foliplus-ctrl-size);
+    height: var(--foliplus-ctrl-size);
     border: 0;
     overflow: visible;
   }
   /* Expanded: panel-shadow overrides base shadow-ctrl-strong */
   &.foliplus-is-expanded {
-    box-shadow: var(--panel-shadow);
+    box-shadow: var(--foliplus-panel-shadow);
 
     /* Expanded toggle-btn shared styles */
     .foliplus-toggle-btn {
       background: transparent;
-      color: var(--accent-primary);
+      color: var(--foliplus-accent-primary);
 
       &:hover {
-        background: var(--accent-light);
+        background: var(--foliplus-accent-light);
       }
     }
   }
@@ -64,10 +64,10 @@
 
 /* ── Separator between toggle button and tools (non-panel) ── */
 .foliplus-ctrl-fold:not(.foliplus-panel).foliplus-is-expanded .foliplus-toggle-btn {
-  border-right-color: var(--divider-color);
+  border-right-color: var(--foliplus-divider-color);
 }
 .foliplus-ctrl-fold:not(.foliplus-panel).foliplus-is-expanded.foliplus-align-right
   .foliplus-toggle-btn {
   border-right-color: transparent;
-  border-left-color: var(--divider-color);
+  border-left-color: var(--foliplus-divider-color);
 }

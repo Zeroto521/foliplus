@@ -44,7 +44,7 @@ class AnnotationCanvas {
   }
 
   /** Paint this layer's slice of the plan; replaces the previous frame.
-   *  `style` overlays runtime color/size on the shared --label-* tokens. */
+   *  `style` overlays runtime color/size on the shared --foliplus-label-* tokens. */
   paint(planned: readonly PlacedLabel[], style?: CanvasLabelStyle): void {
     this.resize();
     this.updatePosition();

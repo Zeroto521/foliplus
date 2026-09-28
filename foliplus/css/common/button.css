@@ -24,11 +24,11 @@
     .foliplus-type-icon-col
   )
   svg {
-  width: var(--icon-size-md);
-  height: var(--icon-size-md);
+  width: var(--foliplus-icon-size-md);
+  height: var(--foliplus-icon-size-md);
   stroke: currentColor;
   fill: none;
-  stroke-width: var(--stroke-icon);
+  stroke-width: var(--foliplus-stroke-icon);
   stroke-linecap: round;
   stroke-linejoin: round;
 }
@@ -58,17 +58,17 @@
   margin: 0;
   box-sizing: border-box;
   transition:
-    color var(--transition-fast),
-    background-color var(--transition-fast),
-    transform var(--transition-fast);
+    color var(--foliplus-transition-fast),
+    background-color var(--foliplus-transition-fast),
+    transform var(--foliplus-transition-fast);
   will-change: transform;
 
   /* ── Hover ── */
   &:hover {
-    background-color: var(--accent-light);
-    color: var(--accent-primary);
-    border-radius: var(--radius-sm);
-    transform: scale(var(--scale-hover));
+    background-color: var(--foliplus-accent-light);
+    color: var(--foliplus-accent-primary);
+    border-radius: var(--foliplus-radius-sm);
+    transform: scale(var(--foliplus-scale-hover));
   }
 
   /* ── Active ──
@@ -76,26 +76,26 @@
      Click/press gets the same background/color feedback as hover
      so there's a tangible press-down feel. */
   &:active {
-    transform: scale(var(--scale-press));
+    transform: scale(var(--foliplus-scale-press));
   }
 
   /* ── Focus-visible ──
      Unified keyboard focus ring across all foliplus controls.
      Replaces the old harsh red outline with a soft double-ring:
        - Inner: thin accent-primary hairline
-       - Outer: semi-transparent red glow (var(--shadow-sm) feel)
+       - Outer: semi-transparent red glow (var(--foliplus-shadow-sm) feel)
      Mouse click alone does NOT trigger :focus-visible, so no persistent highlight. */
   &:focus-visible {
     outline: none;
-    box-shadow: var(--focus-ring);
-    border-radius: var(--radius-sm);
-    transition: box-shadow var(--transition-fast);
+    box-shadow: var(--foliplus-focus-ring);
+    border-radius: var(--foliplus-radius-sm);
+    transition: box-shadow var(--foliplus-transition-fast);
   }
 
   /* ── Disabled ──
      Grayed out, no hover/active feedback, no pointer events. */
   &:disabled {
-    opacity: var(--alpha-30);
+    opacity: var(--foliplus-alpha-30);
     pointer-events: none;
     transform: none;
   }
@@ -104,10 +104,10 @@
   SVG-level parallax for buttons that also have button-level scale.
   toggle-btn added via expanded context for fold controls. */
 :is(.foliplus-tool-btn, .foliplus-search-mode-btn, .foliplus-ctrl-btn):hover svg {
-  transform: scale(var(--scale-hover));
+  transform: scale(var(--foliplus-scale-hover));
 }
 :is(.foliplus-tool-btn, .foliplus-search-mode-btn, .foliplus-ctrl-btn):active svg {
-  transform: scale(var(--scale-press));
+  transform: scale(var(--foliplus-scale-press));
 }
 
 /* ── Panel action button ──
@@ -122,35 +122,35 @@
    panel's reset had none, leaving keyboard users with no visible focus). */
 .foliplus-panel-btn {
   flex: 1;
-  height: var(--ctrl-size);
+  height: var(--foliplus-ctrl-size);
   box-sizing: border-box;
-  border: var(--border-thin) solid var(--btn-secondary-border);
-  border-radius: var(--radius-sm);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
+  border: var(--foliplus-border-thin) solid var(--foliplus-btn-secondary-border);
+  border-radius: var(--foliplus-radius-sm);
+  font-size: var(--foliplus-font-size-sm);
+  font-weight: var(--foliplus-font-weight-medium);
   cursor: pointer;
-  color: var(--text-primary);
-  background: var(--input-bg);
+  color: var(--foliplus-text-primary);
+  background: var(--foliplus-input-bg);
   transition:
-    background var(--transition-fast),
-    border-color var(--transition-fast),
-    box-shadow var(--transition-fast),
-    transform var(--transition-fast);
+    background var(--foliplus-transition-fast),
+    border-color var(--foliplus-transition-fast),
+    box-shadow var(--foliplus-transition-fast),
+    transform var(--foliplus-transition-fast);
 
   &:hover {
-    background: var(--ctrl-hover-bg);
-    border-color: var(--input-focus-border);
-    transform: scale(var(--scale-hover));
+    background: var(--foliplus-ctrl-hover-bg);
+    border-color: var(--foliplus-input-focus-border);
+    transform: scale(var(--foliplus-scale-hover));
   }
   &:active {
-    transform: scale(var(--scale-press));
+    transform: scale(var(--foliplus-scale-press));
   }
   &:focus-visible {
     outline: none;
-    box-shadow: var(--focus-ring);
+    box-shadow: var(--foliplus-focus-ring);
   }
   &:disabled {
-    opacity: var(--alpha-30);
+    opacity: var(--foliplus-alpha-30);
     pointer-events: none;
     transform: none;
   }
@@ -167,8 +167,8 @@
    regress into a full-width edge-to-edge line. */
 :is(.foliplus-btn-row, .foliplus-heatmap-btn-row) {
   display: flex;
-  gap: var(--space-md);
-  padding: 0 var(--space-lg) var(--space-md);
+  gap: var(--foliplus-space-md);
+  padding: 0 var(--foliplus-space-lg) var(--foliplus-space-md);
 }
 
 /* ── Toggle Button / Tool Button Base ──
@@ -177,15 +177,15 @@
 .foliplus-toggle-btn,
 .foliplus-tool-btn,
 .foliplus-search-mode-btn {
-  width: var(--ctrl-size);
-  height: var(--ctrl-size);
-  min-width: var(--ctrl-size);
+  width: var(--foliplus-ctrl-size);
+  height: var(--foliplus-ctrl-size);
+  min-width: var(--foliplus-ctrl-size);
   flex-shrink: 0;
-  color: var(--text-primary);
+  color: var(--foliplus-text-primary);
 }
 .foliplus-toggle-btn {
-  border-radius: var(--radius-sm);
-  border: var(--border-thin) solid transparent;
+  border-radius: var(--foliplus-radius-sm);
+  border: var(--foliplus-border-thin) solid transparent;
 }
 .foliplus-tool-btn,
 .foliplus-search-mode-btn {
@@ -193,13 +193,13 @@
 }
 /* Shared active state for tool buttons */
 .foliplus-tool-btn.foliplus-is-active {
-  background-color: var(--input-bg);
-  color: var(--accent-primary);
-  border: var(--border-thin) solid var(--input-focus-border);
-  box-shadow: inset 0 0 0 var(--border-thick) var(--accent-soft-shadow);
+  background-color: var(--foliplus-input-bg);
+  color: var(--foliplus-accent-primary);
+  border: var(--foliplus-border-thin) solid var(--foliplus-input-focus-border);
+  box-shadow: inset 0 0 0 var(--foliplus-border-thick) var(--foliplus-accent-soft-shadow);
 
   svg {
-    stroke: var(--accent-primary);
-    transform: scale(var(--scale-hover));
+    stroke: var(--foliplus-accent-primary);
+    transform: scale(var(--foliplus-scale-hover));
   }
 }

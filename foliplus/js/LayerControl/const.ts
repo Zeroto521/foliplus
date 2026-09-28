@@ -36,7 +36,7 @@ const FOCUS = {
   /** Bounds area (deg²) below which we treat the layer as a single point → flyTo center. */
   MIN_BOUNDS_AREA: 0.0001,
   /** Opacity of the "dim outside" mask. Keep in sync with ExportControl's
-   *  --export-dim-color (rgba(0,0,0,0.4)) so both selection boxes dim alike. */
+   *  --foliplus-export-dim-color (rgba(0,0,0,0.4)) so both selection boxes dim alike. */
   MASK_OPACITY: 0.4,
   /** Z-index of the focus overlay pane (mask + rectangle). Layer panes live
    *  below this; the focused layer is temporarily lifted just below it so
@@ -178,7 +178,7 @@ const CLASSES = {
   STYLE_ZOOM_RANGE_OUT_OF_RANGE: "foliplus-zoom-range-out-of-range",
   /* ── Shared slider component (common/slider.css) ──
      Both range controls are this component; the rows below add their own hook
-     classes for behavior and tests, and set `--slider-thumb-ring` for their
+     classes for behavior and tests, and set `--foliplus-slider-thumb-ring` for their
      own coverage state. Geometry is declared once, in the component. */
   SLIDER: "foliplus-slider",
   SLIDER_RAIL: "foliplus-slider-rail",
