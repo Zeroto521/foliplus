@@ -1195,18 +1195,40 @@ describe("LayerManager", () => {
       };
       expect(record.order).toEqual(["fg", "foliplus_color_map", "tile"]);
 
-      // Reload: a fresh manager reads the snapshot and replays it, so the
-      // dragged position survives.
+      // Reload, the way a real page does it: the color basemap is not part of
+      // the author's data — LayerControl re-creates it through registerLayer
+      // (baseInsert bottom), which must replay the dragged slot from the
+      // record instead of sinking to the bottom of the base block.
       const reloaded = new LayerManager(map, [
         { id: "fg", name: "FG", group: "overlay" },
         { id: "tile", name: "Tile", group: "base" },
-        { id: "foliplus_color_map", name: "Color", group: "base" },
       ]);
+      reloaded.registerLayer({
+        id: "foliplus_color_map",
+        name: "Color",
+        group: "base",
+        baseInsert: "bottom",
+      });
       expect(reloaded.layers.map(l => l.id)).toEqual([
         "fg",
         "foliplus_color_map",
         "tile",
       ]);
+    });
+
+    it("replays a dragged base layer into the base block, never the overlay end", () => {
+      // placeBeforeSavedNeighbor's no-registered-neighbor fallback is
+      // group-local: a base layer with no registered saved neighbor below it
+      // lands at the end of the base block (the registry end), not at the end
+      // of the overlay block — the overlay-before-base invariant holds.
+      seedStorage({ order: ["fg", "baseA", "baseB"] });
+      const m = new LayerManager(map, [{ id: "fg", name: "FG", group: "overlay" }]);
+      m.registerLayer({ id: "baseA", name: "A", group: "base" });
+
+      // Neither baseB nor anything else is registered below baseA in the
+      // stored order, so the fallback is the base-block end: below the
+      // overlay, at the bottom of the registry.
+      expect(m.layers.map(l => l.id)).toEqual(["fg", "baseA"]);
     });
   });
 

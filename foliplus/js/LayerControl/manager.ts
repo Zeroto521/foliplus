@@ -448,14 +448,16 @@ class LayerManager implements LayerAPI {
       return;
     }
     // Nothing below it in the saved order is registered yet, so it is the
-    // rightmost of the layers that exist. That end is the overlay group's,
-    // never the registry's: an overlay that lands under a base layer breaks the
-    // overlay-before-base invariant, and the panel's index-based row lookup
-    // would then read a neighbor's checkbox instead of its own.
+    // rightmost of the layers that exist. That end is group-local: an overlay
+    // that lands under a base layer breaks the overlay-before-base invariant,
+    // so overlays fall back to the end of the overlay block; a base layer
+    // falls back to the end of the base block (the registry end).
     goal =
-      registry.firstBaseIdx === -1
+      layerInfo.group === CONST.GROUP.BASE
         ? registry.layers.length - 1
-        : registry.firstBaseIdx - 1;
+        : registry.firstBaseIdx === -1
+          ? registry.layers.length - 1
+          : registry.firstBaseIdx - 1;
     if (from !== goal) registry.reorder(from, goal);
   }
 
@@ -469,10 +471,18 @@ class LayerManager implements LayerAPI {
    */
   private insertOverlayAt(layerInfo: LayerInfo): void {
     this.layerRegistry.prepend(layerInfo);
+    this.placeAtSavedSlot(layerInfo);
+  }
+
+  /** Move a fresh layer to its stored slot when the record ranks it — prepend
+   *  (overlay) and `baseInsert` (base) stay the defaults for a layer the user
+   *  never arranged. Shared so base registrations replay a dragged slot the
+   *  same way overlay registrations do. */
+  private placeAtSavedSlot(layerInfo: LayerInfo): void {
     const saved = this.savedOrder;
     if (!saved) return;
     const target = saved.indexOf(layerInfo.id);
-    if (target === -1) return; // no stored position — a fresh layer stays on top
+    if (target === -1) return; // no stored position — keep the default insert
     this.placeBeforeSavedNeighbor(layerInfo, saved, target);
   }
 
@@ -650,6 +660,7 @@ class LayerManager implements LayerAPI {
       } else {
         this.layerRegistry.insertAt(layerInfo, firstBaseIdx);
       }
+      this.placeAtSavedSlot(layerInfo);
     } else this.insertOverlayAt(layerInfo);
 
     // I1: give the layer its rendering face and materialize it *before* it
