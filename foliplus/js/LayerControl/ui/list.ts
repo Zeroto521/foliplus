@@ -214,7 +214,7 @@ const renderToggleAllRow = (ui: LayerUI, group: string, labelKey: string) => {
         title: ui.T("toggle_all_deselect_tooltip"),
       }),
     ),
-    dom.el("span", { class: CONST.CLASSES.SEP_LABEL }, ui.T(labelKey)),
+    dom.el("span", { class: CONST.CLASSES.SEPARATOR_LABEL }, ui.T(labelKey)),
     dom.el("div", { class: "foliplus-section-divider" }),
   );
 };

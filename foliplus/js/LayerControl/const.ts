@@ -81,7 +81,7 @@ const CLASSES = {
   MORE_BTN: "foliplus-layer-more-btn",
   TOGGLE_ALL: "foliplus-layer-toggle-all",
   FOLD_BTN_CTR: "foliplus-layer-sep",
-  SEP_LABEL: "foliplus-layer-sep-label",
+  SEPARATOR_LABEL: "foliplus-layer-sep-label",
   /** Set on the map container when zero basemaps are visible (A′ hatch).
    *  Painted via CSS `background-image`, which ExportControl's
    *  resolveExportBackground deliberately skips — an empty state never
@@ -229,7 +229,7 @@ const SEL = {
    *  control focus (checkbox / more / fold) attributes to this via closest(). */
   ROW: ".foliplus-layer-item, .foliplus-layer-toggle-all",
   MENU_DELETE_LABEL: `.${CLASSES.MENU_DELETE_LABEL}`,
-  SEP_LABEL: `.${CLASSES.SEP_LABEL}`,
+  SEPARATOR_LABEL: `.${CLASSES.SEPARATOR_LABEL}`,
 };
 
 /** Group names. */

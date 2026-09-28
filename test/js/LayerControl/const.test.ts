@@ -58,7 +58,7 @@ describe("CLASSES", () => {
     expect(CONST.CLASSES.FOLDED).toBe("foliplus-layer-folded");
     expect(CONST.CLASSES.TOGGLE_ALL).toBe("foliplus-layer-toggle-all");
     expect(CONST.CLASSES.FOLD_BTN_CTR).toBe("foliplus-layer-sep");
-    expect(CONST.CLASSES.SEP_LABEL).toBe("foliplus-layer-sep-label");
+    expect(CONST.CLASSES.SEPARATOR_LABEL).toBe("foliplus-layer-sep-label");
     expect(CONST.CLASSES.GROUP_FOLDED).toBe("foliplus-layer-group-folded");
   });
 
