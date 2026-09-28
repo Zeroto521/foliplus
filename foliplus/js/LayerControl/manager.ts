@@ -66,45 +66,6 @@ const uninstallBringToFrontPatch = () => {
   L.Path.prototype.bringToFront = origBringToFront;
 };
 
-/** The stored order with the ids it held that are not registered yet spliced
- *  back into it.
- *
- *  Registered ids keep their live positions untouched. A pending id keeps the
- *  *slot* it was stored in, not just its existence: appending it at the end
- *  would sink a layer the user parked mid-stack, and the drift is permanent
- *  because the next flush would persist the sunk position.
- *
- *  Runtime-origin ids (see `LayerInfo.orderOrigin`) are dropped from the write
- *  entirely — live or stored, registered or pending. Their slots are attach
- *  timing, not a user arrangement; a legacy disk may still carry them and the
- *  next save is where that gets cleaned (deletion-is-not-migration).
- */
-const mergeStoredOrder = (
-  stored: string[] | null,
-  live: string[],
-  isRuntime: (id: string) => boolean,
-): string[] => {
-  const order = live.filter(id => !isRuntime(id));
-  if (!stored || stored.length === 0) return order;
-  const rank = new Map(stored.map((id, i) => [id, i]));
-  const known = new Set(order);
-  for (const [storedAt, id] of stored.entries()) {
-    if (isRuntime(id) || known.has(id)) continue;
-    // Insert before the first live id stored below it — at the end when every
-    // registered layer sits above it.
-    let at = order.length;
-    for (let i = 0; i < order.length; i++) {
-      const liveAt = rank.get(order[i]);
-      if (liveAt !== undefined && liveAt > storedAt) {
-        at = i;
-        break;
-      }
-    }
-    order.splice(at, 0, id);
-  }
-  return order;
-};
-
 // ==================== Core Manager: LayerManager ====================
 //
 // LayerManager is the orchestrator for the LayerControl component. Its
@@ -150,7 +111,7 @@ const mergeStoredOrder = (
 //             syncAttribution, attachUI, destroy, canReorderBetween,
 //             findLayer, refreshType, refreshCount, forEachLeaf,
 //             clearAllLayers
-//   Private   installBringToFrontPatch, uninstallBringToFrontPatch, mergeStoredOrder
+//   Private   installBringToFrontPatch, uninstallBringToFrontPatch
 
 /** The pane specs a surface is declared with: the registry entry's own, plus
  *  the label (annotation) pane when the layer's features expose a labelable
@@ -212,13 +173,11 @@ class LayerManager implements LayerAPI {
   ui: LayerUI | null;
   debouncedEnforce: Debounced;
   persistence: LayerPersistence;
-  /** The order we know about: the live registry order together with the ids the
-   *  record stored that are not registered yet. NOT "the order the user
-   *  arranged" — {@link saveOrder} rewrites it to the current live order with
-   *  the pending ids spliced back into their stored slots, so a late
-   *  registration reads its position out of this rather than out of a stale
-   *  record. `null` means the record carried no order at all (a fresh page),
-   *  which is what keeps a new overlay on top. */
+  /** The order the user arranged: a snapshot of the live registry taken by the
+   *  last user reorder (drag, moveLayerUp/Down, bringLayerToFront). Registration
+   *  never writes it — a slot the author's code picked is not intent. `null`
+   *  means the user never arranged an order, and replay falls back to the
+   *  registration sequence. */
   private savedOrder: string[] | null;
   /** Layer ids the user deleted, one-way: nothing removes an entry.
    *
@@ -414,56 +373,38 @@ class LayerManager implements LayerAPI {
   loadSavedOrder() {
     const data = this.savedOrder;
     if (!data) return;
-    // Runtime layers keep their live registration positions; user layers
-    // reorder by the stored rank. A legacy runtime id in the record is not a
-    // user arrangement, so it never pulls a runtime layer into a stale slot.
     const items = [...this.layers];
-    this.layerRegistry.replace(this.sortUserByStored(items, data));
+    this.layerRegistry.replace(this.sortByStored(items, data));
   }
 
-  /** Reorder `items` by `stored`, leaving runtime layers at their live indices. */
-  private sortUserByStored(items: LayerInfo[], stored: string[]): LayerInfo[] {
+  /** Reorder `items` by `stored` rank; ids the record never ranked keep their
+   *  live relative order at the bottom. */
+  private sortByStored(items: LayerInfo[], stored: string[]): LayerInfo[] {
     const rank = new Map(stored.map((id, i) => [id, i]));
-    const userItems = items.filter(l => l.orderOrigin !== "runtime");
-    userItems.sort((a, b) => {
+    const sorted = [...items];
+    sorted.sort((a, b) => {
       const ra = rank.get(a.id);
       const rb = rank.get(b.id);
       if (ra === undefined) return rb === undefined ? 0 : 1;
       if (rb === undefined) return -1;
       return ra - rb;
     });
-    const ordered: LayerInfo[] = [];
-    let userAt = 0;
-    for (const item of items) {
-      if (item.orderOrigin === "runtime") ordered.push(item);
-      else ordered.push(userItems[userAt++]!);
-    }
-    return ordered;
+    return sorted;
   }
 
-  /** Persist layer order — delegates to LayerPersistence for centralized I/O.
+  /** Persist the current live order as a full snapshot — the user just
+   *  reordered, so every layer present participates equally, the solid-color
+   *  basemap included. Registration never reaches here: a slot picked by attach
+   *  timing is not a user arrangement (see {@link registerLayer}).
    *
-   *  The write is the live registry order merged with the stored ids that are
-   *  not registered yet. A flush can land between the record being loaded and a
-   *  component registering (Heatmap and Measure register in their own
-   *  constructor, after LayerControl has attached), and a write of the live ids
-   *  alone would erase the position that registration is meant to read back.
-   *
-   *  Runtime-origin layers are excluded from the write (see
-   *  `mergeStoredOrder`): their slots are attach timing, and a later
-   *  `replaySavedOrder` must not read them back as a user arrangement either.
+   *  Prune paths (deleteLayer / forgetSavedOrder) filter `savedOrder` and
+   *  schedule the record directly instead of calling this, so a prune never
+   *  turns a registration sequence into a snapshot.
    */
   saveOrder() {
-    const isRuntime = this.isOrderRuntime.bind(this);
-    const live = this.layers.map(l => l.id);
-    const order = mergeStoredOrder(this.savedOrder, live, isRuntime);
+    const order = this.layers.map(l => l.id);
     this.savedOrder = order;
     this.persistence.schedule({ order: () => order });
-  }
-
-  /** True when the id's order slot is system attach-timing, not user intent. */
-  private isOrderRuntime(id: string): boolean {
-    return this.layerRegistry.get(id)?.orderOrigin === "runtime";
   }
 
   /** Re-apply the stored order now that a layer exists.
@@ -483,7 +424,7 @@ class LayerManager implements LayerAPI {
 
     if (id !== undefined) {
       const layerInfo = registry.get(id);
-      if (!layerInfo || layerInfo.orderOrigin === "runtime") return;
+      if (!layerInfo) return;
       const target = saved.indexOf(id);
       if (target === -1) return;
       this.placeBeforeSavedNeighbor(layerInfo, saved, target);
@@ -491,10 +432,8 @@ class LayerManager implements LayerAPI {
     }
 
     const items = [...this.layers];
-    // Runtime layers keep their live registration positions — a legacy stored
-    // rank must not pull them into a slot the user never chose. User layers
-    // sort by stored rank; ids with no rank stay at the bottom in live order.
-    registry.replace(this.sortUserByStored(items, saved));
+    // Ids with no stored rank stay at the bottom in live order.
+    registry.replace(this.sortByStored(items, saved));
   }
 
   /** Move `layerInfo` just before the first saved-order neighbor that is
@@ -521,14 +460,16 @@ class LayerManager implements LayerAPI {
       return;
     }
     // Nothing below it in the saved order is registered yet, so it is the
-    // rightmost of the layers that exist. That end is the overlay group's,
-    // never the registry's: an overlay that lands under a base layer breaks the
-    // overlay-before-base invariant, and the panel's index-based row lookup
-    // would then read a neighbor's checkbox instead of its own.
+    // rightmost of the layers that exist. That end is group-local: an overlay
+    // that lands under a base layer breaks the overlay-before-base invariant,
+    // so overlays fall back to the end of the overlay block; a base layer
+    // falls back to the end of the base block (the registry end).
     goal =
-      registry.firstBaseIdx === -1
+      layerInfo.group === CONST.GROUP.BASE
         ? registry.layers.length - 1
-        : registry.firstBaseIdx - 1;
+        : registry.firstBaseIdx === -1
+          ? registry.layers.length - 1
+          : registry.firstBaseIdx - 1;
     if (from !== goal) registry.reorder(from, goal);
   }
 
@@ -542,13 +483,18 @@ class LayerManager implements LayerAPI {
    */
   private insertOverlayAt(layerInfo: LayerInfo): void {
     this.layerRegistry.prepend(layerInfo);
-    // Runtime layers never read a stored slot — their birth position is attach
-    // timing, and a legacy id in the record is not a user arrangement.
-    if (layerInfo.orderOrigin === "runtime") return;
+    this.placeAtSavedSlot(layerInfo);
+  }
+
+  /** Move a fresh layer to its stored slot when the record ranks it — prepend
+   *  (overlay) and `baseInsert` (base) stay the defaults for a layer the user
+   *  never arranged. Shared so base registrations replay a dragged slot the
+   *  same way overlay registrations do. */
+  private placeAtSavedSlot(layerInfo: LayerInfo): void {
     const saved = this.savedOrder;
     if (!saved) return;
     const target = saved.indexOf(layerInfo.id);
-    if (target === -1) return; // no stored position — a fresh layer stays on top
+    if (target === -1) return; // no stored position — keep the default insert
     this.placeBeforeSavedNeighbor(layerInfo, saved, target);
   }
 
@@ -726,6 +672,7 @@ class LayerManager implements LayerAPI {
       } else {
         this.layerRegistry.insertAt(layerInfo, firstBaseIdx);
       }
+      this.placeAtSavedSlot(layerInfo);
     } else this.insertOverlayAt(layerInfo);
 
     // I1: give the layer its rendering face and materialize it *before* it
@@ -781,7 +728,11 @@ class LayerManager implements LayerAPI {
       // Defer z-order enforcement so batch registration coalesces into one pass.
       this.debouncedEnforce();
     }
-    this.saveOrder();
+    // Registration never writes the saved order: the slot this layer just took
+    // is where attach timing put it, not a user arrangement. Only an explicit
+    // user reorder (drag, moveLayerUp/Down, bringLayerToFront) snapshots the
+    // live order. A layer the user *did* arrange still replays here through
+    // insertOverlayAt / applyUserState above.
     this.events.emit(EVENTS.LAYER_CHANGE);
     return this.uiContainer.querySelector(
       `[${CONST.DATA.LAYER_ID}="${CSS.escape(opts.id)}"]`,
@@ -1004,13 +955,14 @@ class LayerManager implements LayerAPI {
     // answering for a removed id.
     this.annotation.destroyLayer(id);
 
-    // `saveOrder` merges the live registry against `savedOrder`, re-inserting
-    // any stored id that is not registered yet — so the id has to leave the
-    // stored order itself, not just the registry, or it comes straight back
-    // as a pending position.
+    // Prune the id from the stored order directly — `saveOrder` is a full live
+    // snapshot reserved for user reorders, and a delete is not a reorder. No
+    // record (the user never arranged an order) means nothing to prune.
     const saved = this.savedOrder;
-    if (saved) this.savedOrder = saved.filter(other => other !== id);
-    this.saveOrder();
+    if (saved) {
+      this.savedOrder = saved.filter(other => other !== id);
+      this.persistence.schedule({ order: () => this.savedOrder! });
+    }
 
     // The label config needs no schedule here: it rides `layers[id]`
     // (re-saved through `ui.saveState` below — the live config is gone via
@@ -1046,10 +998,10 @@ class LayerManager implements LayerAPI {
    * hit `insertOverlayAt`'s prepend branch rather than
    * `placeBeforeSavedNeighbor`'s return-to-slot path.
    *
-   * `saveOrder` is delegated (not the direct filter alone) so the write is
-   * merged with the live registry order the same way deleteLayer does it:
-   * an id that is not registered yet stays out of the record, and neighbors
-   * keep their rank.
+   * `saveOrder` is NOT delegated: it is a full live snapshot reserved for
+   * user reorders, while this is a prune. The filtered record is scheduled
+   * directly so neighbors keep their rank and no snapshot is born from a
+   * registration sequence.
    *
    * @param id - The layer ID whose stored position is being dropped.
    * @returns true if the id was in the stored order and got removed, false
@@ -1060,7 +1012,7 @@ class LayerManager implements LayerAPI {
     const saved = this.savedOrder;
     if (!saved || !saved.includes(id)) return false;
     this.savedOrder = saved.filter(other => other !== id);
-    this.saveOrder();
+    this.persistence.schedule({ order: () => this.savedOrder! });
     return true;
   }
 
