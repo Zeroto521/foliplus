@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { METHOD } from "#core/classify.js";
 import * as CONST from "#foliplus/HeatmapControl/const.js";
 import { HeatmapManager } from "#foliplus/HeatmapControl/manager.js";
 import { makeManager } from "./fixture.js";
@@ -11,7 +12,7 @@ describe("HeatmapManager — versioned persisted config", () => {
       const m = makeManager();
       m.selectedLayerId = "layer_abc";
       m.currentAgg = CONST.AGG.SUM;
-      m.currentMethod = CONST.METHOD.QUANTILE;
+      m.currentMethod = METHOD.QUANTILE;
       m.currentScheme = "Blues";
       m.numClasses = 4;
       m.borderWeight = 2;

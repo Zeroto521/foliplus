@@ -74,15 +74,6 @@ describe("ID", () => {
   });
 });
 
-describe("METHOD", () => {
-  it("defines standard classification methods", () => {
-    expect(CONST.METHOD.JENKS).toBe("jenks");
-    expect(CONST.METHOD.QUANTILE).toBe("quantile");
-    expect(CONST.METHOD.EQUAL).toBe("equal");
-    expect(CONST.METHOD.HEADS).toBe("heads");
-  });
-});
-
 describe("CLASS_COUNT", () => {
   it("defines valid range and default", () => {
     expect(CONST.CLASS_COUNT.MIN).toBe(2);

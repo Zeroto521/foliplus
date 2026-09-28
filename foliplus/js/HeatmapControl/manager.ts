@@ -1,4 +1,8 @@
 // HeatmapControl data aggregation & rendering logic (HeatmapManager).
+import {
+  METHOD as CLASSIFY_METHOD,
+  computeBreaks as computeBreaksFn,
+} from "#core/classify.js";
 import { generateId } from "#core/component.js";
 import { EVENTS, type EventBus, ensureEvents } from "#core/event/index.js";
 import { bareFieldName } from "#core/labelField.js";
@@ -15,7 +19,6 @@ import * as CONST from "./const.js";
 import {
   aggregateData as aggregateDataFn,
   buildFeatures as buildFeaturesFn,
-  computeBreaks as computeBreaksFn,
   getColorScale as getColorScaleFn,
   getH3Res as getH3ResFn,
   pickAutoField as pickAutoFieldFn,
@@ -154,7 +157,7 @@ class HeatmapManager {
     this.currentAgg = CONF.agg ?? CONST.AGG.COUNT;
     this.currentField = "";
     this.currentScheme = CONF.color_scheme ?? "Reds";
-    this.currentMethod = CONF.method ?? CONST.METHOD.JENKS;
+    this.currentMethod = CONF.method ?? CLASSIFY_METHOD.JENKS;
     this.autoFieldKey = null;
     this.numClasses = CONF.n_classes ?? CONST.CLASS_COUNT.DEFAULT;
     this.borderWeight = CONF.border_weight ?? BORDER_WEIGHT.DEFAULT;
@@ -655,6 +658,12 @@ class HeatmapManager {
     this.cachedFeatures = null;
     this.cachedAgg = null;
     if (this.overlay) this.overlay.unregister();
+    // The panel row is gone and the next draw is new content: drop this id
+    // from the stored order so the next registration lands at the top of the
+    // overlay stack instead of returning to the slot the user arranged.
+    // Without this, insertOverlayAt would find a stored rank and placeBeforeSavedNeighbor
+    // would put the redrawn heatmap back where it was, not on top.
+    this.map.foliplus?.LayerAPI?.forgetSavedOrder?.(this.layerId);
     this.ui?.schemeBarCleanup?.();
     this.ui?.dropdownCleanup?.();
     // Notify LayerControl to refresh the count column (now 0).

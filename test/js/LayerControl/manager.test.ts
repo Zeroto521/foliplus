@@ -1047,6 +1047,121 @@ describe("LayerManager", () => {
     });
   });
 
+  // ── forgetSavedOrder ──
+
+  // Component clear paths (Heatmap, Measure) call this to drop an id from the
+  // stored order without retiring the layer. The next registration lands at
+  // the top of the overlay stack rather than back at the old slot. Contrast
+  // with deleteLayer: forgetSavedOrder filters savedOrder only; it must never
+  // touch removedIds, otherwise a cleared layer could not be re-registered.
+  describe("forgetSavedOrder", () => {
+    it("drops the id from savedOrder and persists the change", () => {
+      // Component clears always unregister the layer before calling this —
+      // saveOrder would otherwise re-insert an id that is still live.
+      seedStorage({ order: ["A", "H", "B", "C"] });
+      const m = new LayerManager(map, [
+        { id: "A", name: "A", isBase: false },
+        { id: "H", name: "H", isBase: false },
+        { id: "B", name: "B", isBase: false },
+        { id: "C", name: "C", isBase: false },
+      ]);
+      m.unregisterLayer("H");
+
+      expect(m.forgetSavedOrder("H")).toBe(true);
+      expect((m as any).savedOrder).toEqual(["A", "B", "C"]);
+    });
+
+    it("persists the pruned order so a reload does not resurrect the old slot", () => {
+      seedStorage({ order: ["A", "H", "B"] });
+      const m = new LayerManager(map, [
+        { id: "A", name: "A", isBase: false },
+        { id: "H", name: "H", isBase: false },
+        { id: "B", name: "B", isBase: false },
+      ]);
+      m.unregisterLayer("H");
+      m.forgetSavedOrder("H");
+      m.persistence.flushAll();
+
+      const record = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!) as {
+        order: string[] | null;
+      };
+      expect(record.order).toEqual(["A", "B"]);
+    });
+
+    it("returns false for an id that is not in savedOrder", () => {
+      seedStorage({ order: ["A", "B"] });
+      const m = new LayerManager(map, [
+        { id: "A", name: "A", isBase: false },
+        { id: "B", name: "B", isBase: false },
+      ]);
+      expect(m.forgetSavedOrder("never")).toBe(false);
+    });
+
+    it("returns false when savedOrder is null (fresh page)", () => {
+      const m = new LayerManager(map, [{ id: "A", name: "A", isBase: false }]);
+      expect((m as any).savedOrder).toBeNull();
+      expect(m.forgetSavedOrder("A")).toBe(false);
+    });
+
+    it("does NOT add the id to removedIds — the layer stays registerable", () => {
+      seedStorage({ order: ["A", "H", "B"] });
+      const m = new LayerManager(map, [
+        { id: "A", name: "A", isBase: false },
+        { id: "H", name: "H", isBase: false },
+        { id: "B", name: "B", isBase: false },
+      ]);
+      m.unregisterLayer("H");
+      m.forgetSavedOrder("H");
+
+      expect((m as any).removedIds.has("H")).toBe(false);
+      // And a subsequent registration actually works:
+      m.registerLayer({ id: "H", name: "H", isBase: false });
+      expect(m.layerRegistry.has("H")).toBe(true);
+    });
+
+    it("next registration lands at the top of the overlay stack", () => {
+      // Without forgetSavedOrder the re-registration would land back at index 1
+      // (below A). With it, insertOverlayAt's prepend branch wins because the
+      // id has no stored rank anymore.
+      seedStorage({ order: ["A", "H", "B"] });
+      const m = new LayerManager(map, [
+        { id: "A", name: "A", isBase: false },
+        { id: "H", name: "H", isBase: false },
+        { id: "B", name: "B", isBase: false },
+      ]);
+      m.unregisterLayer("H");
+      m.forgetSavedOrder("H");
+      m.registerLayer({ id: "H", name: "H", isBase: false });
+
+      expect(m.layers.map(l => l.id)).toEqual(["H", "A", "B"]);
+    });
+
+    it("preserves neighbor order across a reload after forget", () => {
+      // A clear must not disturb the layers around it: forget only removes the
+      // one id and leaves the rest in their saved positions, which replay on
+      // the next construction.
+      seedStorage({ order: ["A", "H", "B", "C"] });
+      const m = new LayerManager(map, [
+        { id: "A", name: "A", isBase: false },
+        { id: "H", name: "H", isBase: false },
+        { id: "B", name: "B", isBase: false },
+        { id: "C", name: "C", isBase: false },
+      ]);
+      m.unregisterLayer("H");
+      m.forgetSavedOrder("H");
+      m.persistence.flushAll();
+
+      // Simulate reload: a fresh manager reads the record and gets neighbors
+      // in the same relative order.
+      const fresh = new LayerManager(map, [
+        { id: "A", name: "A", isBase: false },
+        { id: "B", name: "B", isBase: false },
+        { id: "C", name: "C", isBase: false },
+      ]);
+      expect(fresh.layers.map(l => l.id)).toEqual(["A", "B", "C"]);
+    });
+  });
+
   it("normalizes initial data into the full layerInfo field set", () => {
     const m2 = new LayerManager(map, [{ id: "a", name: "A", isBase: false }]);
     const li = m2.layers[0];
@@ -1141,12 +1256,43 @@ describe("LayerManager", () => {
       expect(api.canvas).toBeInstanceOf(HTMLCanvasElement);
       expect(typeof api.register).toBe("function");
       expect(typeof api.bringToFront).toBe("function");
+      api.register();
       expect(api.canvas.parentElement?.classList.contains("foliplus-layer-pane")).toBe(
         true,
       );
       api.destroy();
     } finally {
       map.getPane = realGetPane;
+    }
+  });
+
+  it("does not price a pane for a canvas whose id was deleted", () => {
+    // registerLayer refuses an id the user deleted and returns before inserting
+    // it, so slotOf has nothing to look up. preRegister still mounted the pane,
+    // and it must be left unpriced rather than given a slot that does not exist
+    // — and the path must not throw, since a late component can hold that id.
+    seedStorage({ removed: ["gone"] });
+    window.L.DomUtil = { getPosition: vi.fn(() => ({ x: 0, y: 0 })) };
+    map.getPanes = vi.fn(() => ({ mapPane: document.createElement("div") }));
+    const m2 = new LayerManager(map, [
+      { id: "kept", name: "K", isBase: false, layer: { options: {} } },
+    ]);
+    const warn = vi.fn();
+    vi.spyOn(console, "warn").mockImplementation(warn);
+    try {
+      const api = m2.createCanvas({ id: "gone" });
+      expect(() => api.register()).not.toThrow();
+      expect(m2.layerRegistry.get("gone")).toBeUndefined();
+      // Mounted, but carrying the mock pane's untouched default z: nothing was
+      // written by the factory.
+      expect(api.canvas.parentElement).toBeTruthy();
+      expect(api.canvas.parentElement?.style.zIndex).toBe("0");
+      api.destroy();
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining('registerLayer: refusing "gone"'),
+      );
+    } finally {
+      vi.restoreAllMocks();
     }
   });
 
@@ -1270,6 +1416,27 @@ describe("LayerManager", () => {
       invalidateFields: vi.fn(),
     } as any;
     expect(manager.unregisterLayer("overlay1")).toBe(true);
+  });
+
+  it("unregisterLayer reconciles the base group when a base layer is dropped", () => {
+    // The unregister sweep's sync call reads `layerInfo.isBase` to pick the
+    // group to rescan. Existing tests only unregister overlays, so the BASE
+    // branch of the ternary would silently rot without a pin.
+    manager.map.hasLayer.mockReturnValue(false);
+    const syncToggleAll = vi.fn();
+    manager.ui = {
+      hiddenIds: new Set(),
+      opacityMap: {},
+      fillColorMap: {},
+      fillOpacityMap: {},
+      zoomRangeMap: {},
+      userOverrides: {},
+      saveState: vi.fn(),
+      invalidateFields: vi.fn(),
+      syncToggleAll,
+    } as any;
+    expect(manager.unregisterLayer("base1")).toBe(true);
+    expect(syncToggleAll).toHaveBeenCalledWith(CONST.GROUP.BASE);
   });
 
   it("attachUI skips a null entry in pending registrations", () => {
