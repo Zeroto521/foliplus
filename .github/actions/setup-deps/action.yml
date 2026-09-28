@@ -15,16 +15,16 @@ inputs:
 runs:
   using: composite
   steps:
-    - if: inputs.python-version != ''
-      uses: actions/setup-python@v6
+    - uses: actions/setup-python@v6
+      if: inputs.python-version != ''
       with:
         python-version: ${{ inputs.python-version }}
 
     # uv caches wheels by content hash; no uv.lock means the resolved set can
     # drift between runs, but a stale cache entry can never install the wrong
     # wheel — enable-cache keys off pyproject.toml and only governs hit rate.
-    - if: inputs.python-version != ''
-      uses: astral-sh/setup-uv@v5
+    - uses: astral-sh/setup-uv@v5
+      if: inputs.python-version != ''
       with:
         enable-cache: true
         cache-dependency-glob: "pyproject.toml"
@@ -42,8 +42,8 @@ runs:
       with:
         path: ~/.npm
         key: npm-${{ runner.os }}-${{ hashFiles('package.json') }}
-        restore-keys: |
-          npm-${{ runner.os }}-
+        restore-keys: npm-${{ runner.os }}-
 
+    # shell is mandatory on composite run steps (GitHub requires it explicitly).
     - shell: bash
       run: npm install
