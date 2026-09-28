@@ -1418,6 +1418,27 @@ describe("LayerManager", () => {
     expect(manager.unregisterLayer("overlay1")).toBe(true);
   });
 
+  it("unregisterLayer reconciles the base group when a base layer is dropped", () => {
+    // The unregister sweep's sync call reads `layerInfo.isBase` to pick the
+    // group to rescan. Existing tests only unregister overlays, so the BASE
+    // branch of the ternary would silently rot without a pin.
+    manager.map.hasLayer.mockReturnValue(false);
+    const syncToggleAll = vi.fn();
+    manager.ui = {
+      hiddenIds: new Set(),
+      opacityMap: {},
+      fillColorMap: {},
+      fillOpacityMap: {},
+      zoomRangeMap: {},
+      userOverrides: {},
+      saveState: vi.fn(),
+      invalidateFields: vi.fn(),
+      syncToggleAll,
+    } as any;
+    expect(manager.unregisterLayer("base1")).toBe(true);
+    expect(syncToggleAll).toHaveBeenCalledWith(CONST.GROUP.BASE);
+  });
+
   it("attachUI skips a null entry in pending registrations", () => {
     // attachUI drains pendingRegistrations in a loop and guards each shift()
     // result; a null entry must be skipped rather than reaching
