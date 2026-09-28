@@ -15,20 +15,17 @@
 // hits, and `detectCapabilities` reads that spec back). A second probe in
 // the gate would be exactly the drift the gate invariant forbids.
 import { numberFormatOptions } from "#core/labelControl.js";
-import {
-  AUTO_FIELD,
-  resolveSelectedField,
-} from "#core/labelField.js";
+import { AUTO_FIELD, resolveSelectedField } from "#core/labelField.js";
 import { dom } from "#common/dom.js";
 import {
   LABEL_COLOR_DEFAULT,
   LABEL_SIZE,
   clampLabelSize,
   colorInput as formColorInput,
+  numberInput as formNumberInput,
   formRow,
   inlineControls,
   normalizeHexColor,
-  numberInput as formNumberInput,
 } from "#common/form.js";
 import { NUMBER_FORMAT } from "#common/format.js";
 import * as CONST from "../../const.js";

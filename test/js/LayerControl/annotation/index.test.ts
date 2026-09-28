@@ -90,7 +90,6 @@ const mkGroup = (leaves: L.Layer[]): L.Layer =>
 const oneLabel = (): L.Layer =>
   mkGroup([mkLeaf({ props: { v: "1200" }, latlng: { lat: 40, lng: -74 } })]);
 
-
 const CONFIG = {
   show: true,
   field: "v",
@@ -655,7 +654,6 @@ describe("AnnotationManager — render & plan", () => {
     // Both sides of the export refresh in the same frame the capture reads.
     expect(c.paint).toHaveBeenCalledTimes(2);
   });
-
 });
 
 describe("a layer that gains labelable content gets the stored intent on its new pane", () => {

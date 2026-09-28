@@ -203,7 +203,7 @@ describe("LayerUI style panel", () => {
 
     manager.registerLayer({ id: "growing", name: "Growing", layer: bareLeaf() });
     let li = manager.layerRegistry.get("growing")!;
-    let item = findItem(ui, "growing");
+    const item = findItem(ui, "growing");
     ui.openStylePanel("growing");
     expect(panelOf(item)!.querySelector(".foliplus-style-toggle-input")).toBeNull();
     ui.closeStylePanel(false);

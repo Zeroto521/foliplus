@@ -840,7 +840,6 @@ describe("ui/state saveFoldState", () => {
 
 // ─────────────────── opacity apply / restore / retention ─────────────────
 
-
 describe("LayerUI opacity restore / retention", () => {
   const makeMap = () => {
     const setStyle = vi.fn();
