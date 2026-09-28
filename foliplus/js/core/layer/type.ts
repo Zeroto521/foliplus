@@ -153,7 +153,7 @@ interface RegisterLayerOpts {
   /** Python CONF defaults for the delegated style fields. The drawer's Reset
    *  button calls each styleSetter with the matching default — never the
    *  localStorage-persisted value. Absent means the layer offers no Reset. */
-  styleDefaults?: (() => Record<string, unknown>) | null;
+  styleDefaultsProvider?: (() => Record<string, unknown>) | null;
   /** Optional geographic-bounds provider. Canvas layers have no Leaflet layer
    *  to derive bounds from, so they supply this for layer focus to work. */
   getBounds?: (() => L.LatLngBounds | null) | null;
@@ -196,7 +196,7 @@ interface LayerInfo {
   /** Canonical style setters shared by the component panel and the drawer. */
   styleSetters?: Record<string, (value: unknown) => void> | null;
   /** Python CONF defaults for the delegated style fields. See RegisterLayerOpts. */
-  styleDefaults?: (() => Record<string, unknown>) | null;
+  styleDefaultsProvider?: (() => Record<string, unknown>) | null;
   /** Optional geographic-bounds provider (Canvas layers). See RegisterLayerOpts. */
   getBounds?: (() => L.LatLngBounds | null) | null;
   /** Static caller-supplied provenance / freshness for the attributes panel.
@@ -353,7 +353,7 @@ interface CreateLayersOpts {
   /** See RegisterLayerOpts. */
   styleSetters?: Record<string, (value: unknown) => void> | null;
   /** See RegisterLayerOpts. */
-  styleDefaults?: (() => Record<string, unknown>) | null;
+  styleDefaultsProvider?: (() => Record<string, unknown>) | null;
   /** See RegisterLayerOpts. */
   metaProvider?: (() => Record<string, string | number>) | null;
 }
@@ -373,7 +373,7 @@ interface CreateCanvasOpts {
   /** See RegisterLayerOpts. */
   styleSetters?: Record<string, (value: unknown) => void> | null;
   /** See RegisterLayerOpts. */
-  styleDefaults?: (() => Record<string, unknown>) | null;
+  styleDefaultsProvider?: (() => Record<string, unknown>) | null;
   /** Optional callback returning the canvas layer's geographic bounds, so
    *  LayerControl can focus it (Canvas layers have no Leaflet layer). */
   getBounds?: (() => L.LatLngBounds | null) | null;
@@ -491,7 +491,7 @@ interface CreateSurfaceOpts {
   featureCountProvider?: (() => number) | null;
   styleProvider?: (() => Record<string, unknown>) | null;
   styleSetters?: Record<string, (value: unknown) => void> | null;
-  styleDefaults?: (() => Record<string, unknown>) | null;
+  styleDefaultsProvider?: (() => Record<string, unknown>) | null;
   metaProvider?: (() => Record<string, string | number>) | null;
   /** See {@link RegisterLayerOpts.orderOrigin}. */
   orderOrigin?: "user" | "runtime";

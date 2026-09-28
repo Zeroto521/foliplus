@@ -386,7 +386,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
         // the values — never write localStorage or annotation config here.
         const li = ui.m.layerRegistry.get(layerId);
         const setters = li?.styleSetters;
-        const defaults = li?.styleDefaults?.() ?? {};
+        const defaults = li?.styleDefaultsProvider?.() ?? {};
         if (setters) {
           for (const [key, setter] of Object.entries(setters)) {
             if (key in defaults) setter(defaults[key]);
