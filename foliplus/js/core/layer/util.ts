@@ -7,7 +7,7 @@ import {
   reinitInteraction,
 } from "../leafletAdapter.js";
 import * as CONST from "./const.js";
-import type { LabelAwareLayer } from "./type.js";
+import type { LabelAwareLayer, LayerCapabilities, LayerKind } from "./type.js";
 
 /** Resolve a layer from the map's internal registry or a window global.
  *  @param {L.Map} map - Leaflet map.
@@ -224,7 +224,7 @@ const isLayerInPanes = (panes: readonly string[]): ((leaf: L.Layer) => boolean) 
  *  regression suite share one answer: cluster icons live in the shared
  *  `markerPane` (opacity/zoomRange/bounds have no honest carrier), but the
  *  group itself is an `L.Layer` so visibility is still map membership. */
-const CLUSTER_CAPABILITIES = {
+const CLUSTER_CAPABILITIES: Omit<LayerCapabilities, "annotation"> = {
   fill: "none",
   stroke: "none",
   opacity: "none",
@@ -232,11 +232,17 @@ const CLUSTER_CAPABILITIES = {
   visibility: "native",
   relocatable: false,
   bounds: false,
-} as const;
+};
 
-/** The MarkerCluster plugin's group — kind derivation only. Capability
+/** The MarkerCluster plugin's group — **kind derivation only**. Capability
  *  dispatch goes through `kind: "cluster"` + `CLUSTER_CAPABILITIES`, not
- *  through this probe. Callers should declare `kind: "cluster"`. */
+ *  through this probe; callers should declare `kind: "cluster"`.
+ *
+ *  Two tells: the plugin attaches `_topClusterLevel`, and (when loaded) the
+ *  group is an `L.MarkerClusterGroup`. Why the honest tier drops opacity:
+ *  `eachLayer` reaches the individual markers, but the cluster icons live in
+ *  the shared `markerPane` and never enter `eachLayer` — a pane write would
+ *  fade the leaves and not the clusters (half the layer). */
 const isMarkerCluster = (layer: L.Layer): boolean => {
   const ctor = (window.L as { MarkerClusterGroup?: unknown })?.MarkerClusterGroup;
   if (
@@ -270,12 +276,12 @@ const isVectorFamily = (layer: L.Layer): boolean => {
  *  may derive `"cluster"` so a folium plugin group still lands in the honest
  *  capability tier; callers should declare `kind: "cluster"` explicitly. */
 const deriveLayerKind = (opts: {
-  kind?: import("./type.js").LayerKind;
+  kind?: LayerKind;
   color?: string | null;
   custom?: unknown;
   canvas?: boolean;
   layer?: L.Layer | null;
-}): import("./type.js").LayerKind => {
+}): LayerKind => {
   if (opts.kind) return opts.kind;
   if (opts.color != null) return "solid";
   if (opts.custom !== undefined) return "custom";
@@ -295,7 +301,6 @@ const deriveLayerKind = (opts: {
 export {
   CLUSTER_CAPABILITIES,
   deriveLayerKind,
-  isMarkerCluster,
   findLayer,
   forEachLayer,
   forEachLeaf,

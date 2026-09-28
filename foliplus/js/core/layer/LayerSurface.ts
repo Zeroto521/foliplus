@@ -32,8 +32,7 @@ import type {
   PaneRole,
   PaneSpec,
 } from "./type.js";
-import { CLUSTER_CAPABILITIES, deriveLayerKind } from "./util.js";
-import { getGeometryType } from "./util.js";
+import { CLUSTER_CAPABILITIES, deriveLayerKind, getGeometryType } from "./util.js";
 import { zFor } from "./z.js";
 
 const log = createLogger("LayerSurface");
