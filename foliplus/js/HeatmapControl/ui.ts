@@ -193,23 +193,8 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     `[${CONST.DATA_ATTR.BTN_CLEAR}]`,
   ) as HTMLButtonElement;
   clearBtn.onclick = () => {
-    resetAll(ctrl);
+    resetPanel(ctrl);
     ctrl.m.clearSavedConfig();
-    syncSelect(ctrl, ctrl.layerSelect, "");
-    syncSelect(ctrl, ctrl.aggSelect, CONST.AGG.COUNT);
-    syncSelect(
-      ctrl,
-      ctrl.classSelect,
-      String(ctrl.conf.n_classes ?? CONST.CLASS_COUNT.DEFAULT),
-    );
-    syncSelect(ctrl, ctrl.methodSelect, ctrl.conf.method ?? CLASSIFY_METHOD.JENKS);
-    ctrl.schemeSelectHidden.value = ctrl.conf.color_scheme ?? "Reds";
-    updateSchemeBar(ctrl);
-    updateFieldSelector(ctrl);
-    // Drop the published source rows — the canvas unregisters on clear, but the
-    // shared meta object outlives it and would repopulate stale values on re-register.
-    ctrl.m.syncSourceMeta();
-    ctrl.extraBody.classList.add(CONST.CLASSES.HIDDEN);
     ctrl.ctrl.classList.remove(CONST.CLASSES.EXPANDED);
     ctrl.ctrl.classList.add(CONST.CLASSES.COLLAPSED);
     adjustPanelZIndex({ container: ctrl.ctrl, expanded: false });
@@ -513,15 +498,28 @@ const initScan = (ctrl: HeatmapControlUI): (() => void) => {
   };
 };
 
-const resetAll = (ctrl: HeatmapControlUI) => {
-  ctrl.m.selectedLayerId = null;
-  ctrl.m.autoFieldKey = null;
-  ctrl.m.currentAgg = CONST.AGG.COUNT;
-  ctrl.m.currentField = "";
-  ctrl.m.numClasses = ctrl.conf.n_classes ?? CONST.CLASS_COUNT.DEFAULT;
-  ctrl.m.currentMethod = ctrl.conf.method ?? CLASSIFY_METHOD.JENKS;
-  ctrl.m.currentScheme = ctrl.conf.color_scheme ?? "Reds";
+/** Reset the panel to its initial state — manager state back to the declared
+ *  defaults, canvas wiped, every dropdown on its placeholder. Shared by the
+ *  panel's Clear button and the LAYER_DELETED path (LayerControl's more-menu
+ *  clear) so clearing the heatmap reads the same way from either entry. */
+const resetPanel = (ctrl: HeatmapControlUI) => {
+  ctrl.m.resetState(ctrl.conf);
   ctrl.m.clearHeatmapCanvas();
+  syncSelect(ctrl, ctrl.layerSelect, "");
+  syncSelect(ctrl, ctrl.aggSelect, CONST.AGG.COUNT);
+  syncSelect(
+    ctrl,
+    ctrl.classSelect,
+    String(ctrl.conf.n_classes ?? CONST.CLASS_COUNT.DEFAULT),
+  );
+  syncSelect(ctrl, ctrl.methodSelect, ctrl.conf.method ?? CLASSIFY_METHOD.JENKS);
+  ctrl.schemeSelectHidden.value = ctrl.conf.color_scheme ?? "Reds";
+  updateSchemeBar(ctrl);
+  updateFieldSelector(ctrl);
+  // Drop the published source rows — the canvas unregisters on clear, but the
+  // shared meta object outlives it and would repopulate stale values on re-register.
+  ctrl.m.syncSourceMeta();
+  ctrl.extraBody.classList.add(CONST.CLASSES.HIDDEN);
 };
 
 const syncSelect = (ctrl: HeatmapControlUI, el: HTMLSelectElement, value: string) => {
@@ -534,5 +532,6 @@ export {
   bindControls,
   initScan,
   rebuildLayerDropdown,
+  resetPanel,
   setupObserver,
 };

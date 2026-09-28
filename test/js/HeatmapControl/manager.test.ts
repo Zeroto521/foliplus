@@ -72,6 +72,27 @@ describe("HeatmapManager — caching & lifecycle", () => {
     expect(m.overlay.unregister).toHaveBeenCalled();
   });
 
+  it("stays a pure canvas clear — the render empty states keep the user's selection", () => {
+    const m = makeManager();
+    m.selectedLayerId = "pts";
+    m.currentAgg = CONST.AGG.SUM;
+    m.currentField = "price";
+    m.currentMethod = "quantile";
+    m.numClasses = 9;
+    m.autoFieldKey = "price";
+
+    // A zoom that lands on no features runs clearHeatmapCanvas through the
+    // render empty path — the selection is a user choice, not a render artifact.
+    m.renderFeatures([]);
+
+    expect(m.selectedLayerId).toBe("pts");
+    expect(m.currentAgg).toBe(CONST.AGG.SUM);
+    expect(m.currentField).toBe("price");
+    expect(m.currentMethod).toBe("quantile");
+    expect(m.numClasses).toBe(9);
+    expect(m.autoFieldKey).toBe("price");
+  });
+
   it("clearHeatmapCanvas runs the UI listener cleanups so detached handlers die with the canvas", () => {
     const m = makeManager();
     const schemeBarCleanup = vi.fn();
@@ -1507,5 +1528,83 @@ describe("HeatmapManager — EVENTS.LAYER_DELETED auto-clear", () => {
     ensureEvents(m.map).emit(EVENTS.LAYER_DELETED, { id: "some_other_layer" });
 
     expect(clearSpy).not.toHaveBeenCalled();
+  });
+
+  it("resets the panel to its initial state when own layer is deleted", () => {
+    const conf = makeConf({ color_scheme: "Blues", n_classes: 4, method: "equal" });
+    const m = makeManager();
+    const ctrl = makeCtrl(m, conf);
+    // The fixture's selects are bare elements: without options, `el.value`
+    // falls back to "" regardless of what was assigned.
+    const addOptions = (el: HTMLSelectElement, values: string[]) => {
+      values.forEach(value => {
+        const option = document.createElement("option");
+        option.value = value;
+        el.appendChild(option);
+      });
+    };
+    addOptions(ctrl.aggSelect, [CONST.AGG.COUNT, CONST.AGG.SUM]);
+    addOptions(ctrl.methodSelect, ["equal", "jenks"]);
+    addOptions(ctrl.classSelect, ["4", "6"]);
+    addOptions(ctrl.schemeSelectHidden, ["Blues", "Reds"]);
+    m.ui = ctrl;
+    m.selectedLayerId = "pts";
+    m.currentAgg = CONST.AGG.SUM;
+    m.currentField = "price";
+    m.autoFieldKey = "price";
+    m.currentScheme = "Greens";
+    m.numClasses = 8;
+    m.currentMethod = "quantile";
+    const clearSaved = vi.spyOn(m, "clearSavedConfig");
+
+    ensureEvents(m.map).emit(EVENTS.LAYER_DELETED, { id: m.layerId });
+
+    // State back to the declared defaults, no stale selection left behind.
+    expect(m.selectedLayerId).toBeNull();
+    expect(m.autoFieldKey).toBeNull();
+    expect(m.currentAgg).toBe(CONST.AGG.COUNT);
+    expect(m.currentField).toBe("");
+    expect(m.currentMethod).toBe(conf.method);
+    expect(m.currentScheme).toBe(conf.color_scheme);
+    expect(m.numClasses).toBe(conf.n_classes);
+    expect(m.cachedFeatures).toBeNull();
+    // Every dropdown reflects the reset — the reported bug was the panel
+    // still showing the cleared layer and field.
+    expect(ctrl.layerSelect.value).toBe("");
+    expect(ctrl.aggSelect.value).toBe(CONST.AGG.COUNT);
+    expect(ctrl.methodSelect.value).toBe(conf.method);
+    expect(ctrl.classSelect.value).toBe(String(conf.n_classes));
+    expect(ctrl.schemeSelectHidden.value).toBe(conf.color_scheme);
+    expect(ctrl.extraBody.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
+    // The record is dropped so a reload does not resurrect the cleared layer,
+    // the same teardown as MeasureControl's LAYER_DELETED -> clearAll.
+    expect(clearSaved).toHaveBeenCalledTimes(1);
+    // Only the contents reset — the panel stays open for the next pick.
+    expect(ctrl.ctrl.classList.contains(CONST.CLASSES.COLLAPSED)).toBe(false);
+  });
+
+  it("resets state and drops the record when own layer is deleted with no panel", () => {
+    const m = makeManager();
+    m.ui = null;
+    m.selectedLayerId = "pts";
+    m.currentAgg = CONST.AGG.SUM;
+    m.currentField = "price";
+    m.currentScheme = "Greens";
+    m.numClasses = 8;
+    m.autoFieldKey = "price";
+    const clearSpy = vi.spyOn(m, "clearHeatmapCanvas");
+    const clearSaved = vi.spyOn(m, "clearSavedConfig");
+
+    ensureEvents(m.map).emit(EVENTS.LAYER_DELETED, { id: m.layerId });
+
+    expect(clearSpy).toHaveBeenCalledTimes(1);
+    expect(clearSaved).toHaveBeenCalledTimes(1);
+    expect(m.selectedLayerId).toBeNull();
+    expect(m.autoFieldKey).toBeNull();
+    expect(m.currentAgg).toBe(CONST.AGG.COUNT);
+    expect(m.currentField).toBe("");
+    expect(m.currentScheme).toBe("Reds");
+    expect(m.currentMethod).toBe("jenks");
+    expect(m.numClasses).toBe(6);
   });
 });
