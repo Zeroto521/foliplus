@@ -2175,7 +2175,9 @@ describe("LayerUI style panel", () => {
 
     // Opacity and zoomRange are LayerControl-owned — they survive.
     expect(panel.querySelector(`.${CONST.CLASSES.STYLE_OPACITY_RANGE}`)).not.toBeNull();
-    expect(panel.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`)).not.toBeNull();
+    expect(
+      panel.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`),
+    ).not.toBeNull();
 
     // The Layer section still renders (opacity/zoomRange give it content).
     const headings = [...panel.querySelectorAll(".foliplus-section-heading")];
