@@ -10,12 +10,12 @@
 // set by provider-aware controls) and finally to Nominatim.
 import { getMapCrsType } from "#core/geo/coord.js";
 import { Cache } from "#common/cache.js";
-import { GEODECODE_TIMEOUT_MS, fetchWithTimeout } from "#common/fetch.js";
+import { GEOCODE_TIMEOUT_MS, fetchWithTimeout } from "#common/fetch.js";
 import { withMapCRS } from "./mapProvider.js";
 import { formatAddress } from "./nominatim.js";
 import { createThrottleQueue } from "./rateLimit.js";
 import { resolveProvider } from "./registry.js";
-import type { GeocodeProvider, ProviderConfig } from "./type.js";
+import type { GeocodeProvider, GeocodeResult, ProviderConfig } from "./type.js";
 
 // FIFO cache shared by both directions, bounded to bound memory.
 // Entries expire after 24h so upstream result changes are not served stale.
@@ -50,7 +50,7 @@ const localeFallback = (code: string, key: string, fallback: string) => {
 
 const requestJson = (provider: GeocodeProvider, url: string): Promise<unknown> =>
   fetchWithTimeout(url, {
-    timeoutMs: GEODECODE_TIMEOUT_MS,
+    timeoutMs: GEOCODE_TIMEOUT_MS,
     headers: provider.headers,
   }).then(r => r.json());
 
@@ -105,13 +105,6 @@ const reverseGeocode = (
       .catch(() => fail),
   );
 };
-
-/** A resolved forward-geocode result (already in the map's CRS). */
-interface GeocodeResult {
-  lng: number;
-  lat: number;
-  display_name: string;
-}
 
 /** Forward geocode an address to coordinates via the given provider (cached, throttled). */
 const geocode = (
@@ -184,4 +177,4 @@ const cacheSuggestion = (
   geoCache.set(`reverse:${resolved.id}:${lng},${lat}`, displayName);
 };
 
-export { geocode, reverseGeocode, cacheSuggestion, type GeocodeResult };
+export { geocode, reverseGeocode, cacheSuggestion };

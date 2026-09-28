@@ -7,11 +7,21 @@ const SOURCE = { SUGGESTION: "suggestion", HISTORY: "history" } as const;
 /** Result source: live geocode hit or saved history entry. */
 type SearchSource = (typeof SOURCE)[keyof typeof SOURCE];
 const ZOOM = { MAX: 16, MIN: 12, BASE: 18, DIVISOR: 20 };
-const AUTOCOMPLETE = { DEBOUNCE_MS: 300, MIN_CHARS: 3, MAX_ITEMS: 5 };
+const AUTOCOMPLETE = {
+  DEBOUNCE_MS: 300,
+  MIN_CHARS: 3,
+  MAX_ITEMS: 5,
+  /** FIFO capacity of the suggestion cache. */
+  CACHE_MAX: 50,
+  /** TTL for cached suggestions. Suggestions depend on the map center (bias),
+   *  so an entry outlives its usefulness once the map is panned; expiring it
+   *  makes the next keystroke refetch against the current view. */
+  CACHE_TTL_MS: 5 * 60 * 1000,
+};
 const PARAM = { Q: "q", LNG: "lng", LAT: "lat" };
 const CLASSES = {
-  EXPANDED: "expanded",
-  COLLAPSED: "collapsed",
+  EXPANDED: "foliplus-is-expanded",
+  COLLAPSED: "foliplus-is-collapsed",
   MAP_SEARCH: "foliplus-search",
   SEARCH_MODE_BTN: "foliplus-search-mode-btn",
   CLEAR: "clear",
@@ -19,7 +29,7 @@ const CLASSES = {
   RESULT_ITEM: "foliplus-search-result-item",
   RESULT_ICON: "foliplus-search-result-icon",
   RESULT_TEXT: "foliplus-search-result-text",
-  ACTIVE: "active",
+  ACTIVE: "foliplus-is-active",
   /** Content wrapper inside a result item (address + coord display). */
   RESULT_CONTENT: "foliplus-search-result-content",
   /** Secondary coordinate display line inside a result item. */
@@ -36,12 +46,19 @@ const HISTORY = {
   STORAGE_KEY: `foliplus_search_${map.getContainer().id}`,
 };
 
+/** Version stamp for the persisted history record (positive integer,
+ * incremented only when the record shape changes). Readers accept
+ * older/unknown values and never migrate (a legacy bare array is read as-is
+ * and re-wrapped on the next save). */
+const RECORD_VERSION = 1;
+
 export {
   type SearchSource,
   type SearchType,
   AUTOCOMPLETE,
   CLASSES,
   HISTORY,
+  RECORD_VERSION,
   MODE,
   PARAM,
   SOURCE,

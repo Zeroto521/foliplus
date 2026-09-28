@@ -17,9 +17,9 @@ describe("CHECK", () => {
   });
 });
 
-describe("DOWNLOAD", () => {
+describe("DOWNLOAD_ICON", () => {
   it("is an SVG string", () => {
-    expect(CommonIcons.DOWNLOAD).toContain("<svg");
-    expect(CommonIcons.DOWNLOAD).toContain("path");
+    expect(CommonIcons.DOWNLOAD_ICON).toContain("<svg");
+    expect(CommonIcons.DOWNLOAD_ICON).toContain("path");
   });
 });

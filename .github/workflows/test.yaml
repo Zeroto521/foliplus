@@ -22,18 +22,14 @@ jobs:
   #   format     — prettier reports a diff (never writes in CI)
   #   lint       — eslint pass 1, non-type-aware (the quality rules)
   #   typecheck  — tsc plus the type-aware Promise rules (both read tsconfig)
+  # All shared bootstrap (Node pin, npm download cache, npm install, optional
+  # Python + uv wheel cache) lives in .github/actions/setup-deps.
   format:
     name: format
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
-        with:
-          node-version-file: "package.json"
-          # setup-node auto-detects npm from the packageManager pin and turns on
-          # package-manager caching, which requires a lockfile this repo ignores.
-          package-manager-cache: false
-      - run: npm install
+      - uses: ./.github/actions/setup-deps
       - run: npm run format:check
 
   lint:
@@ -41,13 +37,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
-        with:
-          node-version-file: "package.json"
-          # setup-node auto-detects npm from the packageManager pin and turns on
-          # package-manager caching, which requires a lockfile this repo ignores.
-          package-manager-cache: false
-      - run: npm install
+      - uses: ./.github/actions/setup-deps
       - run: npm run lint
 
   typecheck:
@@ -55,19 +45,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
-        with:
-          node-version-file: "package.json"
-          # setup-node auto-detects npm from the packageManager pin and turns on
-          # package-manager caching, which requires a lockfile this repo ignores.
-          package-manager-cache: false
-      - run: npm install
+      - uses: ./.github/actions/setup-deps
       - run: npm run typecheck
 
   # ── PEP 561 consumer check ──
   # Builds the wheel, installs it into a scratch venv, and runs mypy from a
   # *downstream* script: with py.typed shipped, a Literal-bound constructor
-  # argument ("method") must be flagged instead of the package being skipped.
+  # argument must be flagged instead of the package being skipped as untyped.
   typed-consumer:
     name: typed-consumer
     runs-on: ubuntu-latest
@@ -76,10 +60,9 @@ jobs:
         with:
           # Full history needed for setuptools_scm to derive __version__ from tags.
           fetch-depth: 0
-      - uses: actions/setup-python@v6
+      - uses: ./.github/actions/setup-deps
         with:
-          python-version: "3.13"
-      - uses: astral-sh/setup-uv@v5
+          python-version: "3.14"
 
       - run: uv build
 
@@ -92,7 +75,7 @@ jobs:
       - name: assert a downstream mypy catches a Literal mismatch
         run: |
           cat > /tmp/consumer/consumer.py <<'EOF'
-          from foliplus import HeatmapControl, LocaleConfig
+          from foliplus import HeatmapControl
 
           HeatmapControl(method="quantile")  # valid — must not be flagged
           HeatmapControl(method="bogus")  # invalid — mypy must flag it
@@ -112,10 +95,67 @@ jobs:
             exit 1
           }
 
-  test:
+  # ── CHANGELOG existence check (needs GITHUB_TOKEN) ──
+  # Sort-order is enforced by pre-commit.ci (language: system, --fix mode).
+  # This job only checks that every referenced #NNN exists as a real PR/issue.
+  changelog:
+    name: changelog
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'pull_request'
+      && github.base_ref == 'main'
+      && github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      issues: read
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+      - run: python script/changelog_check.py --path CHANGELOG.md
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+
+  # ── Test jobs ──
+  # `js`, `python`, and `browser` run independently in parallel — no artifact
+  # handoff, and no `needs:` on the quality gates (format / lint / typecheck).
+  # Tests are informational gates (we always want results, even when the
+  # quality gates are red); the quality gates are separate checkmarks.
+  # `make test-js` runs `build-js-dev + npm test` (some vitest tests read
+  # `foliplus/dist/` artifacts — see `test/js/script/build.test.ts` and the
+  # Makefile-invariant test in `test/js/script/Makefile.test.ts`).
+  # `make test-python-fast` also builds internally before pytest. `python`
+  # runs the non-browser suite on the version matrix; `browser` runs the
+  # Playwright suite once (3.14 × folium latest). All entry points are the
+  # same Makefile commands a developer runs locally, so CI drift stays
+  # visible.
+  js:
+    name: js
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup-deps
+
+      - run: make test-js
+
+      - uses: codecov/codecov-action@v6
+        with:
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+          verbose: true
+          flags: ${{ job.name }}
+      - uses: codecov/codecov-action@v6
+        if: ${{ !cancelled() }}
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          report_type: test_results
+          files: test-js.junit.xml
+          flags: ${{ job.name }}
+
+  python:
+    # Matrix-expanded per slot; codecov flags reference `job.name` so there is
+    # one source of truth for the label.
     name: py${{ matrix.python }}-folium-${{ matrix.folium }}
     runs-on: ubuntu-latest
-    needs: [format, lint, typecheck]
     strategy:
       fail-fast: false
       matrix:
@@ -129,34 +169,88 @@ jobs:
         with:
           # Full history needed for setuptools_scm to derive __version__ from tags.
           fetch-depth: 0
-      - uses: actions/setup-python@v6
+      - uses: ./.github/actions/setup-deps
         with:
           python-version: "${{ matrix.python }}"
-      - uses: astral-sh/setup-uv@v5
-      - uses: actions/setup-node@v6
-        with:
-          node-version-file: "package.json"
-          # setup-node auto-detects npm from the packageManager pin and turns on
-          # package-manager caching, which requires a lockfile this repo ignores.
-          package-manager-cache: false
-      - run: npm install
 
       - run: uv sync --group test --upgrade-package "folium==${{ matrix.folium }}"
         if: ${{ matrix.folium != 'latest' }}
       - run: uv sync --group test
         if: ${{ matrix.folium == 'latest' }}
-      - run: uv run playwright install chromium
       - run: uv run make info
-      - run: uv run make test
+
+      # `make test-python-fast` builds `foliplus/dist/` internally and runs the
+      # non-browser pytest suite (matrix = version compatibility). Browser
+      # tests live in the `browser` job below (single cell) — see comment there.
+      - run: uv run make test-python-fast
 
       - uses: codecov/codecov-action@v6
         with:
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
           verbose: true
+          flags: ${{ job.name }}
       - uses: codecov/codecov-action@v6
         if: ${{ !cancelled() }}
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           report_type: test_results
-          flags: py${{ matrix.python }}-folium-${{ matrix.folium }}
+          flags: ${{ job.name }}
+
+  browser:
+    # Browser tests once (3.14 × folium latest), not on the matrix: they are
+    # Playwright-bound, slow, and version-independent — running them twice buys
+    # nothing. `make test-browser` is the same entry point a developer runs
+    # locally. The CDN cache proxy in test/python/conftest.py serves folium's
+    # Leaflet/jQuery/Bootstrap assets from /tmp/foliplus-cdn-cache (downloaded
+    # once per job, retained via actions/cache so a re-run is network-independent
+    # after the first download).
+    name: browser
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # Full history needed for setuptools_scm to derive __version__ from tags.
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-deps
+        with:
+          python-version: "3.14"
+
+      - run: uv sync --group test
+
+      # Playwright browsers keyed by the resolved playwright version — no
+      # lockfile needed, and `playwright install` still diffs against its own
+      # browsers.json so a stale cache can never hide a required revision.
+      - id: pwver
+        run: |
+          echo "version=$(uv run python -c 'import importlib.metadata as m; print(m.version("playwright"))')" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.pwver.outputs.version }}
+          restore-keys: playwright-${{ runner.os }}-
+
+      # Persist the CDN cache proxy's download dir across runs (see conftest).
+      - uses: actions/cache@v4
+        with:
+          path: /tmp/foliplus-cdn-cache
+          key: foliplus-cdn-cache-${{ runner.os }}-${{ hashFiles('foliplus/cdn.json') }}
+
+      - run: uv run playwright install chromium
+      - run: uv run make info
+
+      - run: uv run make test-browser
+
+      - uses: codecov/codecov-action@v6
+        with:
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+          verbose: true
+          flags: ${{ job.name }}
+      - uses: codecov/codecov-action@v6
+        if: ${{ !cancelled() }}
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          report_type: test_results
+          files: test-browser.junit.xml
+          flags: ${{ job.name }}

@@ -13,7 +13,8 @@ import { hideDelIcons } from "#common/delicon.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { bindMapEvents, unbindMapEvents } from "#common/mapEvent.js";
 import { adjustPanelZIndex } from "#common/panel.js";
-import { type CollidableLabel, mapProjector, placeLabels } from "./collision.js";
+import { throttleRaf } from "#common/throttle.js";
+import { mapProjector, placeLabels } from "./collision.js";
 import * as CONST from "./const.js";
 import * as Export from "./export.js";
 import * as SVGs from "./icon.js";
@@ -24,6 +25,7 @@ import {
 } from "./interaction.js";
 import { MODE_MAP, MeasureMode } from "./mode/index.js";
 import { MeasureStore } from "./store.js";
+import type { CollidableLabel } from "./type.js";
 import * as Util from "./util.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
@@ -92,7 +94,7 @@ class MeasureManager {
    *   together instead of one measurement at a time. */
   private collidableLabels: CollidableLabel[] = [];
   /** Deferred re-plan; coalesces bursts of label updates into one pass. */
-  private labelPlanFrame: number | null = null;
+  private readonly scheduleLabelPlan = throttleRaf(() => this.planLabels());
   /** Bound map-move/zoom/resize listener that invalidates label placements. */
   private onLabelMapMove: (() => void) | null = null;
   /** Cursor-following coordinate readout, live for the manager's lifetime.
@@ -108,6 +110,8 @@ class MeasureManager {
   layerId: string;
   /** Event bus unsubscribe for EVENTS.LAYER_REMOVED. */
   private offLayerRemoved!: () => void;
+  /** Event bus unsubscribe for EVENTS.LAYER_DELETED. */
+  private offLayerDeleted!: () => void;
   /** Event bus unsubscribe for the EVENTS.MODE_CHANGE export-pause interrupt. */
   private offModeChange!: () => void;
   private onMapClick!: (event: L.LeafletMouseEvent) => void;
@@ -136,6 +140,10 @@ class MeasureManager {
     this.T = T;
     this.layerId = generateId(CONST.ID, opts?.id);
     this.store = new MeasureStore(this.map, this.layerId);
+    // Class fields already hold the Python CONF defaults at this point —
+    // snapshot them before any runtime toggle so Reset cannot drift.
+    const defaultLabelShow = this.labelShow;
+    const defaultLabelCollide = this.labelCollide;
     this.layers = this.map.foliplus!.LayerAPI!.createLayers({
       id: this.layerId,
       name: T("tool_toggle"),
@@ -146,6 +154,34 @@ class MeasureManager {
       ],
       iconSvg: SVGs.RULER,
       featureCountProvider: () => this.store.count(),
+      // The layer style drawer renders these two switches; the component owns
+      // the values (single source — both UIs call the same setters).
+      styleProvider: () => ({
+        labelShow: this.labelShow,
+        labelCollide: this.labelCollide,
+      }),
+      styleSetters: {
+        labelShow: v => this.setLabelsVisible(v === true),
+        labelCollide: v => this.setLabelCollide(v === true),
+      },
+      // Snapshot taken at construction — Reset restores these, never the
+      // live runtime toggles.
+      styleDefaultsProvider: () => ({
+        labelShow: defaultLabelShow,
+        labelCollide: defaultLabelCollide,
+      }),
+      metaProvider: () => {
+        const counts: Record<string, number> = {};
+        for (const m of this.store.all()) {
+          counts[m.type] = (counts[m.type] ?? 0) + 1;
+        }
+        return {
+          [T("tool_marker")]: counts[CONST.MEASURE_MODE.MARKER] ?? 0,
+          [T("tool_distance")]: counts[CONST.MEASURE_MODE.DISTANCE] ?? 0,
+          [T("tool_polygon")]: counts[CONST.MEASURE_MODE.POLYGON] ?? 0,
+          [T("tool_circle")]: counts[CONST.MEASURE_MODE.CIRCLE] ?? 0,
+        };
+      },
     });
     this.currentMode = null;
     this.modeInstance = null;
@@ -169,6 +205,7 @@ class MeasureManager {
     this.bindGlobalEvents();
     this.restoreMeasurements();
     this.bindLayerRemoved();
+    this.bindLayerDeleted();
   }
 
   // ── Persistence (compatibility shell over MeasureStore) ──
@@ -236,10 +273,17 @@ class MeasureManager {
     this.interactionCleanup = registerInteractions(this);
 
     const cleanup =
-      // On map unload (page refresh/close), clear transient UI state but KEEP
-      // persisted measurements. clearAll() would wipe localStorage, losing all
-      // saved data on every reload.
+      // On map unload (page refresh/close), flush any pending writes, then
+      // clear transient UI state but KEEP persisted measurements.
+      //
+      // Flush first: marker drag persists via a rAF throttle, so the last
+      // mutation during a drag lands only when the next frame fires — if the
+      // browser closes inside that window, the position is in memory only.
+      // store.persist() is write-through (debounceMs=0), so calling it here
+      // writes the current list synchronously. clearAll() would wipe
+      // localStorage, losing all saved data on every reload.
       (this.onUnload = () => {
+        this.store.persist();
         this.clearActiveMode();
         this.layers.clearLayers();
         this.disposeAllHandles();
@@ -249,11 +293,11 @@ class MeasureManager {
 
   /** Activate a measurement mode, or toggle the edit / clear modes. */
   setMode(mode: string | null) {
-    if (mode === CONST.MODE.CLEAR) {
+    if (mode === CONST.MEASURE_MODE.CLEAR) {
       this.clearAll();
       return;
     }
-    if (mode === CONST.MODE.EDIT) {
+    if (mode === CONST.MEASURE_MODE.EDIT) {
       if (this.isEditMode) {
         this.setEditMode(false);
         return;
@@ -321,10 +365,10 @@ class MeasureManager {
     this.measureEscapeCleanup = registerActiveEscape(this);
 
     const hintKey = {
-      [CONST.MODE.MARKER]: T("hint_marker"),
-      [CONST.MODE.DISTANCE]: T("hint_dist_start"),
-      [CONST.MODE.POLYGON]: T("hint_polygon"),
-      [CONST.MODE.CIRCLE]: T("hint_circle_start"),
+      [CONST.MEASURE_MODE.MARKER]: T("hint_marker"),
+      [CONST.MEASURE_MODE.DISTANCE]: T("hint_dist_start"),
+      [CONST.MEASURE_MODE.POLYGON]: T("hint_polygon"),
+      [CONST.MEASURE_MODE.CIRCLE]: T("hint_circle_start"),
     }[mode];
 
     if (hintKey) {
@@ -468,10 +512,40 @@ class MeasureManager {
 
   // ── Label collision detection ─────────────────────────────────
 
-  /** True unless collision detection was switched off by the Python config. */
+  /** True unless collision detection was switched off (Python default, overridable
+   *  from the layer style drawer at runtime). */
+  private labelCollide = CONF.label_collide !== false;
+  /** True unless the labels were switched off (Python default, overridable
+   *  from the layer style drawer at runtime). */
+  private labelShow = CONF.label_show !== false;
+
   get labelsCollide(): boolean {
-    return CONF.collide_labels !== false;
+    return this.labelCollide;
   }
+
+  get labelsVisible(): boolean {
+    return this.labelShow;
+  }
+
+  /** Runtime toggle for label visibility (the drawer's label switch). Hides
+   *  every chip via the same `visibility` mechanism collision uses, so the two
+   *  never fight over the element. */
+  setLabelsVisible = (visible: boolean): void => {
+    this.labelShow = visible;
+    for (const { marker } of this.collidableLabels) {
+      const chip = Util.labelChipOf(marker);
+      if (chip) chip.style.visibility = visible ? "" : "hidden";
+    }
+    if (visible) this.scheduleLabelPlan();
+    this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
+  };
+
+  /** Runtime toggle for collision (the drawer's avoid-overlap switch). */
+  setLabelCollide = (on: boolean): void => {
+    this.labelCollide = on;
+    this.scheduleLabelPlan();
+    this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
+  };
 
   /**
    * Register a label chip for collision detection. `priority` says how much
@@ -485,6 +559,12 @@ class MeasureManager {
   registerLabel = (marker: L.Marker, priority: number): (() => void) => {
     const label: CollidableLabel = { marker, priority };
     this.collidableLabels.push(label);
+    // Respect a label_show=False initial state: hide the chip immediately so
+    // a newly registered label does not flash visible before the next plan.
+    if (!this.labelShow) {
+      const chip = Util.labelChipOf(marker);
+      if (chip) chip.style.visibility = "hidden";
+    }
     this.bindLabelMapEvents();
     this.scheduleLabelPlan();
 
@@ -499,20 +579,6 @@ class MeasureManager {
       }
     };
   };
-
-  /** Defer a collision re-plan to the next frame so a burst of label updates
-   *  (a drag move, a node delete, a map move) runs one planner pass, not one
-   *  per update. */
-  private scheduleLabelPlan(): void {
-    if (this.labelPlanFrame !== null) return;
-    // Mark in-flight before the rAF call so the guard coalesces even when a
-    // synchronous test stub returns 0 (falsy but not null).
-    this.labelPlanFrame = 1;
-    requestAnimationFrame(() => {
-      this.labelPlanFrame = null;
-      this.planLabels();
-    });
-  }
 
   /** Placement depends on pixel geometry, so a pan, zoom or resize makes the
    *  last plan stale. Bound lazily on the first label, released when the
@@ -553,12 +619,12 @@ class MeasureManager {
     // suspended while the measure panes stay interactive.
     this.modes.setMode(
       CONF.name,
-      on ? CONST.MODE.EDIT : null,
+      on ? CONST.MEASURE_MODE.EDIT : null,
       on ? skipMeasureLayers : undefined,
     );
     this.map.getContainer().classList.toggle(CONST.CLASSES.EDITING, on);
     this.toolBtns.forEach(btn => {
-      if (btn.dataset.mode === CONST.MODE.EDIT) {
+      if (btn.dataset.mode === CONST.MEASURE_MODE.EDIT) {
         btn.classList.toggle(CONST.CLASSES.ACTIVE, on);
       }
     });
@@ -605,10 +671,13 @@ class MeasureManager {
     this.layers.unregister();
   }
 
-  /** Clear all measurements, layers, and persisted data. */
-  clearAll() {
+  /** Transient-only cleanup: drop every live layer, cancel the armed mode,
+   *  run each measurement's dispose, and collapse the panel — but leave the
+   *  store's persisted list untouched. Called by destroy(), which runs on
+   *  control removal and must not wipe localStorage (only an explicit
+   *  user action may drop saved data). */
+  private clearTransientState() {
     this.layers.clearLayers();
-    this.store.clear();
     this.clearActiveMode();
     // Run each handle's dispose to unbind its map-click listener; clearLayers
     // above removed the targets, so dangling listeners would otherwise persist.
@@ -616,7 +685,7 @@ class MeasureManager {
     // Safety net: each measurement's dispose (run above) drains its labels
     // through the unregister, but clearing the array here is O(1) insurance
     // against a measurement that skips its dispose, and unbinding the map
-    // events guarantees no plan fires after clearAll.
+    // events guarantees no plan fires after the call.
     this.collidableLabels = [];
     this.unbindLabelMapEvents();
     // Collapse the panel after clearing all measurements
@@ -627,20 +696,37 @@ class MeasureManager {
     }
   }
 
-  /** Full cleanup including global events. Called on control removal. */
+  /** Clear all measurements, layers, and persisted data. Called only by the
+   *  explicit CLEAR mode (setMode(CLEAR)) — the one place where dropping the
+   *  saved list is the user's request. */
+  clearAll() {
+    this.clearTransientState();
+    this.store.clear();
+    // Same reason as Heatmap's clearHeatmapCanvas: the panel row is gone and
+    // the next draw is new content, so the id must leave the stored order or
+    // insertOverlayAt will place the re-drawn measurement back at the old
+    // slot instead of the top.
+    this.map.foliplus?.LayerAPI?.forgetSavedOrder?.(this.layerId);
+  }
+
+  /** Full cleanup including global events. Called on control removal; the
+   *  in-memory list is left alone so a follow-up `removeControl` + `addControl`
+   *  restores every saved measurement from localStorage (constructor calls
+   *  restoreMeasurements). clearAll() would wipe the saved list here, losing
+   *  everything the user had — hence the split above. */
   destroy() {
     if (this.offModeChange) this.offModeChange();
     if (this.offLayerRemoved) this.offLayerRemoved();
+    if (this.offLayerDeleted) this.offLayerDeleted();
     this.map.off("unload", this.onUnload);
-    this.clearAll();
+    this.scheduleLabelPlan.cancel();
+    this.clearTransientState();
     this.hideCoordReadout();
     this.coordReadoutEl?.remove();
     this.coordReadoutEl = null;
     this.interactionCleanup?.();
     this.exportClickCleanup?.();
     this.map.off("click", this.onMapClick);
-    this.unbindLabelMapEvents();
-    this.collidableLabels = [];
   }
 
   /**
@@ -657,6 +743,21 @@ class MeasureManager {
         this.clearActiveMode();
       }
     }) as EventHandler);
+  }
+
+  /**
+   * Subscribe to EVENTS.LAYER_DELETED: LayerControl's deleteLayer emits this
+   * for component-owned layers (styleSetters discriminator), skipping the
+   * removedIds retirement — so this id stays registerable and the panel keeps
+   * its row. Clearing the store is the user's request; the layer itself stays
+   * registered at 0 features so the next draw lands cleanly without needing a
+   * re-register. Re-registering here would double-count an already-present
+   * entry and clobber the persisted order.
+   */
+  bindLayerDeleted() {
+    this.offLayerDeleted = this.events.on(EVENTS.LAYER_DELETED, ({ id }) => {
+      if (id === this.layerId) this.clearAll();
+    });
   }
 
   /** Clean up current mode instance and hide hints. */

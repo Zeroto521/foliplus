@@ -6,16 +6,19 @@ This is the single source of truth for CDN dependencies.  Both Python
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import cast
 
 _CDN_PATH = Path(__file__).parent / "cdn.json"
-_cache: dict[str, Any] | None = None
+_cache: dict[str, list[tuple[str, str]]] | None = None
 
 
-def _load_all() -> dict[str, Any]:
+def _load_all() -> dict[str, list[tuple[str, str]]]:
     global _cache
     if _cache is None:
-        _cache = json.loads(_CDN_PATH.read_text(encoding="utf-8"))
+        _cache = cast(
+            "dict[str, list[tuple[str, str]]]",
+            json.loads(_CDN_PATH.read_text(encoding="utf-8")),
+        )
     return _cache
 
 

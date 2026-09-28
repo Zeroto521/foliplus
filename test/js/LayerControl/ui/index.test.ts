@@ -1,0 +1,276 @@
+// LayerUI shell (ui/index.ts) — attach sequence, event subscriptions, and the
+// thin delegates to the ui/* modules. DOM interaction specifics live in the
+// per-module suites (list/keyboard/focus/...); this file pins the wiring.
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { EVENTS, ensureEvents } from "#core/event/index.js";
+import * as CONST from "#foliplus/LayerControl/const.js";
+import { LayerManager } from "#foliplus/LayerControl/manager.js";
+import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
+import {
+  TileLayer,
+  findItem,
+  initFixture,
+  installLeafletGlobals,
+  makePane,
+} from "./fixture.js";
+
+describe("LayerUI shell — event subscriptions", () => {
+  let manager: LayerManager;
+  let ui: LayerUI;
+  let map: any;
+
+  beforeEach(() => {
+    ({ manager, ui, map } = initFixture());
+  });
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  it("CONTROL_ATTACHED re-runs the init pass and reapplies annotation state", () => {
+    const initSpy = vi.spyOn(ui, "initTypesAndVisibility");
+    const applySpy = vi.spyOn(ui, "applyStyleLabelState");
+
+    ensureEvents(map).emit(EVENTS.CONTROL_ATTACHED, { component: "HeatmapControl" });
+
+    expect(initSpy).toHaveBeenCalledTimes(1);
+    expect(applySpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("CONTROL_ATTACHED is ignored once the container is detached", () => {
+    (ui.uiContainer as HTMLElement).remove();
+    const initSpy = vi.spyOn(ui, "initTypesAndVisibility");
+
+    ensureEvents(map).emit(EVENTS.CONTROL_ATTACHED, { component: "HeatmapControl" });
+
+    expect(initSpy).not.toHaveBeenCalled();
+  });
+
+  it("LAYER_ITEM_COUNT_CHANGE updates the row count and drops the field cache", () => {
+    ui.fieldCache.set("overlay1", [{ name: "stale", numeric: false }]);
+    const getFeatureCount = vi.spyOn(manager, "getFeatureCount").mockReturnValue(5);
+    const item = findItem(ui, "overlay1");
+    const countCol = item.querySelector("[data-role='count']") as HTMLElement | null;
+
+    ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "overlay1" });
+
+    expect(getFeatureCount).toHaveBeenCalledWith("overlay1");
+    expect(ui.fieldCache.has("overlay1")).toBe(false);
+    if (countCol) expect(countCol.textContent).toBe("5");
+  });
+
+  it("LAYER_ITEM_COUNT_CHANGE clears the count column when no count is available", () => {
+    vi.spyOn(manager, "getFeatureCount").mockReturnValue(null);
+    const item = findItem(ui, "overlay1");
+    const countCol = item.querySelector("[data-role='count']") as HTMLElement | null;
+
+    ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "overlay1" });
+
+    if (countCol) expect(countCol.textContent).toBe("");
+  });
+
+  it("LAYER_ITEM_COUNT_CHANGE is a no-op for unknown ids", () => {
+    const getFeatureCount = vi.spyOn(manager, "getFeatureCount");
+
+    ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "ghost" });
+
+    expect(getFeatureCount).not.toHaveBeenCalled();
+  });
+
+  it("attach flushes pendingRegistrations into rendered rows", () => {
+    // Rebuild a manager the fixture way but keep one layer unregistered until
+    // after attach: the attach sequence must drain the pending queue.
+    installLeafletGlobals();
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const sw = { lat: 30, lng: 100 };
+    const ne = { lat: 40, lng: 110 };
+    const lateLayer = {
+      id: "late1",
+      name: "Late",
+      group: "overlay",
+      layer: {
+        options: {},
+        eachLayer: vi.fn(),
+        getBounds: vi.fn(() => ({
+          isValid: vi.fn(() => true),
+          getSouthWest: () => sw,
+          getNorthEast: () => ne,
+        })),
+      },
+    };
+    const m: any = {
+      on: vi.fn(),
+      off: vi.fn(),
+      eachLayer: vi.fn(),
+      invalidateSize: vi.fn(),
+      hasLayer: vi.fn(() => true),
+      addLayer: vi.fn(),
+      removeLayer: vi.fn(),
+      fitBounds: vi.fn(),
+      flyTo: vi.fn(),
+      getZoom: vi.fn(() => 5),
+      getMaxZoom: vi.fn(() => 18),
+      getMinZoom: vi.fn(() => 0),
+      options: { maxZoom: 18 },
+      getBounds: vi.fn(() => ({
+        pad: vi.fn(() => m),
+        getSouthWest: () => ({ lat: 20, lng: 90 }),
+        getNorthWest: () => ({ lat: 50, lng: 90 }),
+        getNorthEast: () => ({ lat: 50, lng: 120 }),
+        getSouthEast: () => ({ lat: 20, lng: 120 }),
+      })),
+      getContainer: vi.fn(() => container),
+      getPane: vi.fn(() => makePane()),
+      getPanes: vi.fn(() => ({ mapPane: document.createElement("div") })),
+      createPane: vi.fn(() => {
+        const p = makePane();
+        p.classList.add("foliplus-layer-pane");
+        return p;
+      }),
+      _container: container,
+      _layers: {},
+      attributionControl: { _attributions: {}, _update: vi.fn() },
+      foliplus: { showHint: vi.fn(), hideHint: vi.fn() },
+    };
+    const mgr = new LayerManager(m, []);
+    mgr.ui = new LayerUI(mgr);
+    // registerLayer's pre-attach contract: overlays prepend into the
+    // registry, the pending queue only defers the UI insertion until attach.
+    mgr.layerRegistry.prepend(lateLayer as never);
+    mgr.pendingRegistrations.push(lateLayer as never);
+
+    vi.useFakeTimers();
+    mgr.attachUI(container);
+    const attached = mgr.ui!;
+    vi.advanceTimersByTime(350);
+    vi.useRealTimers();
+
+    expect(
+      attached.uiContainer!.querySelector("[data-layer-id='late1']"),
+    ).not.toBeNull();
+  });
+});
+
+describe("LayerUI shell — delegates", () => {
+  let manager: LayerManager;
+  let ui: LayerUI;
+  let map: any;
+
+  beforeEach(() => {
+    ({ manager, ui, map } = initFixture());
+  });
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  it("saveFoldState persists the folded-group set", () => {
+    const save = vi.spyOn(manager.persistence, "schedule");
+    ui.foldedGroups = new Set(["overlays"]);
+
+    ui.saveFoldState();
+
+    expect(save).toHaveBeenCalled();
+    const fields = save.mock.calls[0][0] as { foldedGroups: () => string[] };
+    expect(fields.foldedGroups()).toEqual(["overlays"]);
+  });
+
+  it("saveNamesState persists the rename map", () => {
+    const save = vi.spyOn(manager.persistence, "schedule");
+    ui.renamedNames = { overlay1: "Renamed" };
+
+    ui.saveNamesState();
+
+    expect(save).toHaveBeenCalled();
+    const fields = save.mock.calls[0][0] as {
+      renamedNames: () => Record<string, string>;
+    };
+    expect(fields.renamedNames()).toEqual({
+      overlay1: "Renamed",
+    });
+  });
+
+  it("dropPersistedLayerState erases every stored dimension for one id", () => {
+    // The single routine that erases a stored value, reached only from an
+    // explicit delete — and it must not touch a neighbor's state.
+    ui.hiddenLayerIds = new Set(["overlay1", "base1"]);
+    ui.opacityMap = { overlay1: 0.4 };
+    ui.zoomRangeMap = { overlay1: [3, 12] };
+    ui.intentProvenance = { overlay1: ["visible", "opacity"] };
+
+    ui.dropPersistedLayerState("overlay1");
+
+    expect(ui.hiddenLayerIds.has("overlay1")).toBe(false);
+    expect(ui.hiddenLayerIds.has("base1")).toBe(true);
+    expect(ui.opacityMap.overlay1).toBeUndefined();
+    expect(ui.zoomRangeMap.overlay1).toBeUndefined();
+    expect(ui.intentProvenance.overlay1).toBeUndefined();
+  });
+
+  it("colorLayerName resolves the color row's display name", () => {
+    expect(typeof ui.colorLayerName()).toBe("string");
+  });
+
+  it("checking the color row's checkbox activates the color layer", () => {
+    // Row-body clicks used to trigger showSolidBasemap directly; the checkbox
+    // change is now the only legitimate path (T201). The row still goes
+    // through the same visibility carrier + debounced z-order write-through
+    // as any other layer.
+    const enforce = vi.spyOn(manager, "debouncedEnforce");
+    const colorItem = ui.uiContainer.querySelector(
+      `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
+    ) as HTMLElement;
+    const checkbox = colorItem.querySelector(
+      'input[type="checkbox"]',
+    ) as HTMLInputElement;
+
+    checkbox.checked = true;
+    checkbox.dispatchEvent(new Event("change", { bubbles: true }));
+
+    expect(enforce).toHaveBeenCalled();
+  });
+
+  it("reindexAfterMove rebuilds the list without dropping rows", () => {
+    ui.reindexAfterMove();
+
+    expect(ui.uiContainer!.querySelector("[data-layer-id='overlay1']")).not.toBeNull();
+    expect(ui.uiContainer!.querySelector("[data-layer-id='base1']")).not.toBeNull();
+  });
+
+  it("unbindEvents() tolerates an onZoomEnd that was never set", () => {
+    ui.onZoomEnd = null;
+    expect(() => ui.unbindEvents()).not.toThrow();
+  });
+
+  it("getLayerItems() returns the overlay rows for the overlay group", () => {
+    // Covers the delegate wrapper at L379: the method exists for external
+    // callers, so a single call suffices to cover the delegate line.
+    const items = ui.getLayerItems(CONST.GROUP.OVERLAY);
+    expect(items.length).toBeGreaterThanOrEqual(1);
+    // Every returned item is a layer-item with the overlay group.
+    for (const el of items) {
+      expect(el.classList.contains(CONST.CLASSES.LAYER_ITEM)).toBe(true);
+    }
+  });
+
+  it("handleInput() delegates to the module-level input handler", () => {
+    // Covers the delegate wrapper at L397: the method is called when an input
+    // event fires on the panel. Dispatching from a real element sets the
+    // event target, which the handler reads via closest().
+    const input = ui.uiContainer.querySelector(
+      'input[type="checkbox"]',
+    ) as HTMLInputElement;
+    const event = new Event("input", { bubbles: true });
+    // Dispatch from the element so event.target is set.
+    input.dispatchEvent(event);
+    // Also call the wrapper directly to cover the delegate line.
+    expect(() => ui.handleInput(event)).not.toThrow();
+  });
+});

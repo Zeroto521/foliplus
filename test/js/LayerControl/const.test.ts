@@ -22,16 +22,15 @@ describe("RECURSION", () => {
 });
 
 describe("STORAGE", () => {
-  it("derives keys from map container id", () => {
-    expect(CONST.STORAGE.ORDER_KEY).toContain("foliplus_layer_order_");
-    expect(CONST.STORAGE.FOLD_KEY).toContain("foliplus_fold_state_");
-    expect(CONST.STORAGE.VISIBILITY_KEY).toContain("foliplus_layer_visibility_");
+  it("exposes exactly one key derived from the map container id", () => {
+    expect(Object.keys(CONST.STORAGE)).toEqual(["KEY"]);
+    expect(CONST.STORAGE.KEY).toMatch(/^foliplus_layer_state_/);
   });
 });
 
 describe("COLOR", () => {
   it("defines color map id and default value", () => {
-    expect(CONST.COLOR.MAP_ID).toBe("foliplus_color_map");
+    expect(CONST.SOLID_BASEMAP_ID).toBe("foliplus_color_map");
     expect(CONST.COLOR.DEFAULT).toBe("#cccccc");
   });
 });
@@ -39,7 +38,7 @@ describe("COLOR", () => {
 describe("CLASSES", () => {
   it("defines layer item and interaction classes", () => {
     expect(CONST.CLASSES.LAYER_ITEM).toBe("foliplus-layer-item");
-    expect(CONST.CLASSES.ACTIVE).toBe("active");
+    expect(CONST.CLASSES.ACTIVE).toBe("foliplus-active");
     expect(CONST.CLASSES.DRAGGING).toBe("foliplus-layer-dragging");
     expect(CONST.CLASSES.DRAG_OVER_TOP).toBe("foliplus-layer-drag-over-top");
     expect(CONST.CLASSES.DRAG_OVER_BOTTOM).toBe("foliplus-layer-drag-over-bottom");
@@ -59,14 +58,12 @@ describe("CLASSES", () => {
     expect(CONST.CLASSES.FOLDED).toBe("foliplus-layer-folded");
     expect(CONST.CLASSES.TOGGLE_ALL).toBe("foliplus-layer-toggle-all");
     expect(CONST.CLASSES.FOLD_BTN_CTR).toBe("foliplus-layer-sep");
-    expect(CONST.CLASSES.SEP_LABEL).toBe("foliplus-layer-sep-label");
+    expect(CONST.CLASSES.SEPARATOR_LABEL).toBe("foliplus-layer-sep-label");
     expect(CONST.CLASSES.GROUP_FOLDED).toBe("foliplus-layer-group-folded");
   });
 
   it("defines color and utility classes", () => {
-    expect(CONST.CLASSES.COLOR_INPUT).toBe("foliplus-color-layer-input");
-    expect(CONST.CLASSES.COLOR_ITEM).toBe("foliplus-color-layer-item");
-    expect(CONST.CLASSES.FOCUSED).toBe("foliplus-layer-focused");
+    expect(CONST.CLASSES.FOCUSED).toBe("foliplus-is-focused-row");
     // The FOCUS_SUPPRESSED mechanism was removed: Escape is a single class
     // removal, and the recipe CSS keys only on FOCUSED + :hover.
     expect((CONST.CLASSES as Record<string, string>).FOCUS_SUPPRESSED).toBeUndefined();
@@ -85,8 +82,6 @@ describe("DATA", () => {
 describe("SEL", () => {
   it("defines DOM selectors", () => {
     expect(CONST.SEL.LAYER_ITEM).toBe(".foliplus-layer-item");
-    expect(CONST.SEL.COLOR_ITEM).toBe(".foliplus-color-layer-item");
-    expect(CONST.SEL.COLOR_INPUT).toBe(".foliplus-color-layer-input");
     expect(CONST.SEL.TOGGLE_ALL).toBe(".foliplus-layer-toggle-all");
     expect(CONST.SEL.COUNT_COL).toBe(".foliplus-layer-count");
     expect(CONST.SEL.ROW).toBe(".foliplus-layer-item, .foliplus-layer-toggle-all");
@@ -142,13 +137,28 @@ describe("FOCUS", () => {
 
 describe("CLASSES.FOCUSING", () => {
   it("defines the focusing row class", () => {
-    expect(CONST.CLASSES.FOCUSING).toBe("foliplus-layer-focusing");
+    expect(CONST.CLASSES.FOCUSING).toBe("foliplus-is-focusing");
+  });
+});
+
+describe("CLASSES opacity controls", () => {
+  it("defines the opacity row and shared slider classes", () => {
+    // The shared component both range controls are built from.
+    expect(CONST.CLASSES.SLIDER).toBe("foliplus-slider");
+    expect(CONST.CLASSES.SLIDER_RAIL).toBe("foliplus-slider-rail");
+    expect(CONST.CLASSES.SLIDER_HANDLE).toBe("foliplus-slider-handle");
+    expect(CONST.CLASSES.SLIDER_DOT).toBe("foliplus-slider-dot");
+    expect(CONST.CLASSES.SLIDER_BUBBLE).toBe("foliplus-slider-bubble");
+    // The opacity row's own hooks (behavior and tests query these).
+    expect(CONST.CLASSES.STYLE_OPACITY_RANGE).toBe("foliplus-style-opacity-range");
+    expect(CONST.CLASSES.STYLE_OPACITY_RAIL).toBe("foliplus-style-opacity-rail");
+    expect(CONST.CLASSES.STYLE_OPACITY_DOT).toBe("foliplus-style-opacity-dot");
   });
 });
 
 describe("CLASSES.FOCUS_ACTIVE / FOCUS_PANE / FOCUS_GLOW", () => {
   it("defines the container + focused-pane classes for declarative hiding", () => {
-    expect(CONST.CLASSES.FOCUS_ACTIVE).toBe("foliplus-focus-active");
+    expect(CONST.CLASSES.FOCUS_ACTIVE).toBe("foliplus-is-focus-mode");
     expect(CONST.CLASSES.FOCUS_PANE).toBe("foliplus-focus-pane");
     expect(CONST.CLASSES.FOCUS_GLOW).toBe("foliplus-focus-glow");
   });

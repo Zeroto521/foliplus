@@ -264,6 +264,107 @@ describe("ListCursor", () => {
       expect(c.index).toBe(0);
       c.destroy();
     });
+
+    it("lets range sliders consume arrow keys when focus is inside a bound input", () => {
+      const c = new ListCursor({ root, itemSelector: ".opt", activeClass: "on" });
+      const slider = document.createElement("input");
+      slider.type = "range";
+      root.appendChild(slider);
+      const unbind = c.bindKeys(root);
+      c.set(1);
+      slider.focus();
+      const event = new KeyboardEvent("keydown", {
+        key: "ArrowDown",
+        bubbles: true,
+        cancelable: true,
+      });
+      slider.dispatchEvent(event);
+      expect(event.defaultPrevented).toBe(false);
+      expect(c.index).toBe(1);
+      unbind();
+      c.destroy();
+    });
+
+    it.each([
+      [
+        "textarea",
+        ["ArrowDown", "ArrowUp", "Home", "End"],
+        () => {
+          const el = document.createElement("textarea");
+          root.appendChild(el);
+          return el;
+        },
+      ],
+      [
+        "select",
+        ["ArrowDown", "ArrowUp"],
+        () => {
+          const el = document.createElement("select");
+          root.appendChild(el);
+          return el;
+        },
+      ],
+    ])("handleKey lets %s consume %s", (_, keys, mk) => {
+      const c = new ListCursor({ root, itemSelector: ".opt", activeClass: "on" });
+      const active = mk();
+      const unbind = c.bindKeys(root);
+      c.set(1);
+      active.focus();
+      for (const key of keys) {
+        const event = new KeyboardEvent("keydown", {
+          key,
+          bubbles: true,
+          cancelable: true,
+        });
+        active.dispatchEvent(event);
+        expect(event.defaultPrevented).toBe(false);
+      }
+      expect(c.index).toBe(1);
+      unbind();
+      c.destroy();
+    });
+
+    it("handleKey claims Home / End from a select: it does not own them", () => {
+      // The ownership table gives a select only the arrows and Space. A
+      // select does not jump to its first / last option on Home / End, so
+      // the cursor keeps those two keys.
+      const c = new ListCursor({ root, itemSelector: ".opt", activeClass: "on" });
+      const select = document.createElement("select");
+      root.appendChild(select);
+      const unbind = c.bindKeys(root);
+      c.set(1);
+      select.focus();
+      const event = new KeyboardEvent("keydown", {
+        key: "Home",
+        bubbles: true,
+        cancelable: true,
+      });
+      select.dispatchEvent(event);
+      expect(event.defaultPrevented).toBe(true);
+      expect(c.index).toBe(0);
+      unbind();
+      c.destroy();
+    });
+
+    it("handleKey does not skip Enter / Space on a form control", () => {
+      const c = new ListCursor({ root, itemSelector: ".opt", activeClass: "on" });
+      const slider = document.createElement("input");
+      slider.type = "range";
+      root.appendChild(slider);
+      const unbind = c.bindKeys(root);
+      c.set(1);
+      slider.focus();
+      const event = new KeyboardEvent("keydown", {
+        key: "Enter",
+        bubbles: true,
+        cancelable: true,
+      });
+      slider.dispatchEvent(event);
+      // Enter is not in the arrow guard — handleKey proceeds to activate().
+      expect(c.handleKey(event)).toBe(true);
+      unbind();
+      c.destroy();
+    });
   });
 
   describe("custom roles", () => {

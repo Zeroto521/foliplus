@@ -1,9 +1,7 @@
 () => {
   const panel = document.querySelector(".foliplus-panel-content");
   if (!panel) return null;
-  const items = Array.from(
-    panel.querySelectorAll(".foliplus-layer-item:not(.foliplus-color-layer-item)"),
-  );
+  const items = Array.from(panel.querySelectorAll(".foliplus-layer-item"));
   if (items.length === 0) return null;
   const item = items[0];
   item.focus();
@@ -21,7 +19,7 @@
   );
 
   return {
-    cursorCleared: !item.classList.contains("foliplus-layer-focused"),
+    cursorCleared: !item.classList.contains("foliplus-is-focused-row"),
     // Focus stays inside the row (checkbox or the row itself).
     focused: document.activeElement === item || item.contains(document.activeElement),
     suppressLeft: Boolean(panel.querySelector(".foliplus-layer-focus-suppressed")),

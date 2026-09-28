@@ -1,5 +1,10 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { type Mock, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/MeasureControl/const.js";
+import type { MeasureManager } from "#foliplus/MeasureControl/manager.js";
+import {
+  createDeferredDelete,
+  wireFinalized,
+} from "#foliplus/MeasureControl/mode/base.js";
 import {
   DistanceMode,
   MeasureMode,
@@ -98,14 +103,123 @@ describe("PreviewMode — tracking preview layers", () => {
     const result = mode.addPreview(fakeLayer);
     expect(result).toBe(fakeLayer);
   });
+
+  it("stamps the export opt-out onto a preview layer's element", () => {
+    // The preview is a drawing aid, so a mid-drawing export must not freeze it
+    // in the picture.  addPreview is the single funnel — pinToTop and
+    // moveCursorNode rebuild by remove + re-add through it — so the stamp lives
+    // here rather than at each call site.
+    const manager = makeManagerMock();
+    const mode = new PreviewMode(manager);
+    const classList = { add: vi.fn() };
+    mode.addPreview({ getElement: () => ({ classList }) } as any);
+    expect(classList.add).toHaveBeenCalledWith(CONST.CLASSES.SKIP_EXPORT);
+  });
+
+  it("re-stamps after a pinToTop rebuild and skips a layer with no element", () => {
+    const manager = makeManagerMock();
+    const mode = new PreviewMode(manager);
+    const classList = { add: vi.fn() };
+    mode.pinToTop({ getElement: () => ({ classList }) } as any);
+    expect(classList.add).toHaveBeenCalledTimes(1);
+    expect(() => mode.addPreview({} as any)).not.toThrow();
+  });
 });
 
 describe("Mode — TYPE constants", () => {
-  it("DistanceMode TYPE equals MODE.DISTANCE", () => {
-    expect(DistanceMode.TYPE).toBe(CONST.MODE.DISTANCE);
+  it("DistanceMode TYPE equals MEASURE_MODE.DISTANCE", () => {
+    expect(DistanceMode.TYPE).toBe(CONST.MEASURE_MODE.DISTANCE);
   });
 
-  it("PolygonMode TYPE equals MODE.POLYGON", () => {
-    expect(PolygonMode.TYPE).toBe(CONST.MODE.POLYGON);
+  it("PolygonMode TYPE equals MEASURE_MODE.POLYGON", () => {
+    expect(PolygonMode.TYPE).toBe(CONST.MEASURE_MODE.POLYGON);
+  });
+});
+
+describe("createDeferredDelete — delayed delete thunk", () => {
+  it("onDelete is a no-op before setDelete", () => {
+    const { onDelete } = createDeferredDelete();
+    expect(() => onDelete()).not.toThrow();
+  });
+
+  it("onDelete forwards to the thunk assigned by setDelete", () => {
+    const { onDelete, setDelete } = createDeferredDelete();
+    const fn = vi.fn();
+    setDelete(fn);
+    onDelete();
+    expect(fn).toHaveBeenCalledOnce();
+  });
+
+  it("setDelete replaces the previous thunk", () => {
+    const { onDelete, setDelete } = createDeferredDelete();
+    const first = vi.fn();
+    const second = vi.fn();
+    setDelete(first);
+    setDelete(second);
+    onDelete();
+    expect(first).not.toHaveBeenCalled();
+    expect(second).toHaveBeenCalledOnce();
+  });
+});
+
+describe("wireFinalized — registerFinalized + delete-then-teardown", () => {
+  type WireMgr = { registerFinalized: (c: () => void, id: string) => () => void };
+  const wire = (
+    m: MeasureManager,
+    o: { id: string; teardown: Mock; removeLayers: Mock; onDelete: Mock },
+  ) => wireFinalized(m as unknown as WireMgr, m.layers, o);
+  const handles = (m: MeasureManager) =>
+    (m as unknown as { editHandles: Map<string, unknown> }).editHandles;
+
+  const makeOpts = () => ({
+    id: "w1",
+    teardown: vi.fn(),
+    removeLayers: vi.fn(),
+    onDelete: vi.fn(),
+  });
+
+  it("registers teardown via registerFinalized with the given id", () => {
+    const manager = makeManagerMock();
+    const opts = makeOpts();
+    wire(manager, opts);
+    expect(manager.registerFinalized).toHaveBeenCalledWith(opts.teardown, "w1");
+    expect(handles(manager).has("w1")).toBe(true);
+  });
+
+  it("delete runs unregister → teardown → removeLayers → onDelete → unregister", () => {
+    const manager = makeManagerMock();
+    const opts = makeOpts();
+    const order: string[] = [];
+    opts.teardown.mockImplementation(() => order.push("teardown"));
+    opts.removeLayers.mockImplementation(() => order.push("removeLayers"));
+    opts.onDelete.mockImplementation(() => order.push("onDelete"));
+    manager.layers.unregister.mockImplementation(() => order.push("unregister"));
+
+    const { delete: del } = wire(manager, opts);
+    del();
+
+    expect(order).toEqual(["teardown", "removeLayers", "onDelete", "unregister"]);
+    // registerFinalized's unregister thunk dropped the handle
+    expect(handles(manager).has("w1")).toBe(false);
+  });
+
+  it("delete calls teardown exactly once (no double-dispose)", () => {
+    const manager = makeManagerMock();
+    const opts = makeOpts();
+    const { delete: del } = wire(manager, opts);
+    del();
+    expect(opts.teardown).toHaveBeenCalledOnce();
+    expect(opts.removeLayers).toHaveBeenCalledOnce();
+    expect(opts.onDelete).toHaveBeenCalledOnce();
+  });
+
+  it("clearAll (finalized path) runs teardown without removeLayers/onDelete", () => {
+    const manager = makeManagerMock();
+    const opts = makeOpts();
+    wire(manager, opts);
+    manager.clearAll();
+    expect(opts.teardown).toHaveBeenCalledOnce();
+    expect(opts.removeLayers).not.toHaveBeenCalled();
+    expect(opts.onDelete).not.toHaveBeenCalled();
   });
 });

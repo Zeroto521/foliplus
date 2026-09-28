@@ -6,7 +6,7 @@ import {
 } from "#common/mapEvent.js";
 import * as CONST from "../const.js";
 import type { MeasureManager } from "../manager.js";
-import { attachDistanceUI } from "../ui.js";
+import { attachDistanceUI } from "../ui/index.js";
 import * as Util from "../util.js";
 import { PreviewMode } from "./base.js";
 
@@ -15,7 +15,7 @@ import { PreviewMode } from "./base.js";
 // ==================== Distance Mode ====================
 /** Distance measurement mode. Click to place nodes, double-click/context to finish. */
 class DistanceMode extends PreviewMode {
-  static TYPE = CONST.MODE.DISTANCE;
+  static TYPE = CONST.MEASURE_MODE.DISTANCE;
   static NAME_LABEL = "Distance Measurement";
   static NAME_LABEL_KEY = "name_distance";
 

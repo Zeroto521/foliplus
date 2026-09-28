@@ -3,6 +3,7 @@
 // (set by the fixture), never from the ambient window.CONF — these tests
 // therefore prove both the behavior and the per-instance CONF injection.
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { METHOD } from "#core/classify.js";
 import { HINT_DURATION } from "#core/hint.js";
 import * as CONST from "#foliplus/HeatmapControl/const.js";
 import { HeatmapManager } from "#foliplus/HeatmapControl/manager.js";
@@ -10,6 +11,7 @@ import {
   bindControls,
   initScan,
   rebuildLayerDropdown,
+  resetPanel,
   setupObserver,
 } from "#foliplus/HeatmapControl/ui.js";
 import { makeConf, makeCtrl, makeManager } from "./fixture.js";
@@ -30,9 +32,28 @@ afterEach(() => {
   delete globalThis.h3;
   delete globalThis.chroma;
   delete globalThis.ss;
-  window.localStorage.clear();
   document.body.innerHTML = "";
   vi.restoreAllMocks();
+});
+
+describe("bindControls — lifecycle hooks", () => {
+  it("installs every listener cleanup and callback onto the state", () => {
+    const { ctrl } = setup();
+    // schemeBarCleanup is registered here, unconditionally. The other three are
+    // only wired when the dropdown is opened. Declaring all of them on the
+    // control class in index.ts makes a missing assignment a compile error;
+    // this covers the runtime half.
+    expect(ctrl.schemeBarCleanup).toBeTypeOf("function");
+    expect(ctrl.toggleDropdown).toBeTypeOf("function");
+    expect(ctrl.selectScheme).toBeTypeOf("function");
+    expect(ctrl.dropdownCleanup).toBeNull();
+
+    ctrl.schemeBar.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(ctrl.dropdownCleanup).toBeTypeOf("function");
+    // Two distinct unbind closures — the scheme bar and the dropdown have
+    // independent document-level listeners that must not collapse into one.
+    expect(ctrl.schemeBarCleanup).not.toBe(ctrl.dropdownCleanup);
+  });
 });
 
 describe("bindControls — template render and initial values", () => {
@@ -46,9 +67,6 @@ describe("bindControls — template render and initial values", () => {
 
   it("initialises controls from the manager state", () => {
     const { ctrl, m } = setup();
-    expect(ctrl.borderColorInput.value).toBe(m.borderColor);
-    expect(ctrl.borderWeightInput.value).toBe(String(m.borderWeight));
-    expect(ctrl.labelChk.checked).toBe(m.currentLabelShow);
     expect(ctrl.methodSelect.value).toBe(m.currentMethod);
     expect(ctrl.aggSelect.value).toBe(m.currentAgg);
     expect(ctrl.classSelect.value).toBe(String(m.numClasses));
@@ -103,14 +121,13 @@ describe("bindControls — change handlers", () => {
     ]);
     ctrl.aggSelect.value = CONST.AGG.SUM;
     fire(ctrl.aggSelect, "change");
-    expect(m.autoFieldKey).toBe("properties.sales");
+    expect(m.autoFieldKey).toBe("sales");
 
     const save = vi.spyOn(m, "saveConfig");
     const render = vi.spyOn(m, "renderHexagons");
-    ctrl.fieldSelect.value = "properties.sales";
+    ctrl.fieldSelect.value = "sales";
     fire(ctrl.fieldSelect, "change");
-    expect(m.currentField).toBe("properties.sales");
-    expect(m.fieldAuto).toBe(false);
+    expect(m.currentField).toBe("sales");
     expect(render).toHaveBeenCalled();
     expect(save).toHaveBeenCalled();
   });
@@ -119,9 +136,9 @@ describe("bindControls — change handlers", () => {
     const { ctrl, m } = setup();
     const save = vi.spyOn(m, "saveConfig");
     const render = vi.spyOn(m, "renderHexagons");
-    ctrl.methodSelect.value = CONST.METHOD.QUANTILE;
+    ctrl.methodSelect.value = METHOD.QUANTILE;
     fire(ctrl.methodSelect, "change");
-    expect(m.currentMethod).toBe(CONST.METHOD.QUANTILE);
+    expect(m.currentMethod).toBe(METHOD.QUANTILE);
     expect(render).toHaveBeenCalled();
     expect(save).toHaveBeenCalled();
   });
@@ -159,56 +176,14 @@ describe("bindControls — change handlers", () => {
     expect(save).toHaveBeenCalled();
   });
 
-  it("border color input updates the manager on input", () => {
+  it("field change emits LAYER_STYLE_CHANGE so the drawer refreshes", () => {
     const { ctrl, m } = setup();
-    const render = vi.spyOn(m, "renderHexagons");
-    ctrl.borderColorInput.value = "#000000";
-    fire(ctrl.borderColorInput, "input");
-    expect(m.borderColor).toBe("#000000");
-    expect(render).toHaveBeenCalled();
-  });
-
-  it("border color change persists without re-rendering", () => {
-    const { ctrl, m } = setup();
-    const save = vi.spyOn(m, "saveConfig");
-    const render = vi.spyOn(m, "renderHexagons");
-    ctrl.borderColorInput.value = "#000000";
-    fire(ctrl.borderColorInput, "change");
-    expect(save).toHaveBeenCalled();
-    expect(render).not.toHaveBeenCalled();
-  });
-
-  it("border weight change clamps out-of-range values back into range", () => {
-    const { ctrl, m } = setup();
-    ctrl.borderWeightInput.value = "999";
-    fire(ctrl.borderWeightInput, "change");
-    expect(m.borderWeight).toBe(CONST.BORDER.WEIGHT_MAX);
-    expect(ctrl.borderWeightInput.value).toBe(String(CONST.BORDER.WEIGHT_MAX));
-  });
-
-  it("border weight input ignores out-of-range edits and persists in-range ones", () => {
-    const { ctrl, m } = setup();
-    const save = vi.spyOn(m, "saveConfig");
-    ctrl.borderWeightInput.value = "999";
-    fire(ctrl.borderWeightInput, "input");
-    expect(m.borderWeight).toBe(1.5);
-    expect(save).not.toHaveBeenCalled();
-
-    ctrl.borderWeightInput.value = "2.5";
-    fire(ctrl.borderWeightInput, "input");
-    expect(m.borderWeight).toBe(2.5);
-    expect(save).toHaveBeenCalled();
-  });
-
-  it("label toggle updates the manager and persists", () => {
-    const { ctrl, m } = setup();
-    const save = vi.spyOn(m, "saveConfig");
-    const render = vi.spyOn(m, "renderHexagons");
-    ctrl.labelChk.checked = false;
-    fire(ctrl.labelChk, "change");
-    expect(m.currentLabelShow).toBe(false);
-    expect(render).toHaveBeenCalled();
-    expect(save).toHaveBeenCalled();
+    const emitSpy = vi.spyOn(m.events, "emit");
+    ctrl.fieldSelect.value = "sales";
+    fire(ctrl.fieldSelect, "change");
+    expect(emitSpy).toHaveBeenCalledWith("foliplus:layer:style-change", {
+      id: m.layerId,
+    });
   });
 });
 
@@ -218,23 +193,15 @@ describe("bindControls — clear (reset) button", () => {
       color_scheme: "Blues",
       n_classes: 4,
       method: "equal",
-      label_show: false,
-      border_weight: 3,
-      border_color: "#abcdef",
-      field: "value",
     });
     const { ctrl, m, panel } = setup(conf);
     m.selectedLayerId = "p1";
     m.currentAgg = CONST.AGG.SUM;
-    m.currentField = "properties.x";
-    m.fieldAuto = false;
-    m.autoFieldKey = "properties.y";
+    m.currentField = "x";
+    m.autoFieldKey = "y";
     m.currentScheme = "Greens";
     m.numClasses = 8;
     m.currentMethod = "quantile";
-    m.currentLabelShow = true;
-    m.borderWeight = 5;
-    m.borderColor = "#111111";
 
     const clearBtn = panel.querySelector(
       `[${CONST.DATA_ATTR.BTN_CLEAR}]`,
@@ -244,14 +211,11 @@ describe("bindControls — clear (reset) button", () => {
 
     expect(m.selectedLayerId).toBeNull();
     expect(m.currentAgg).toBe(CONST.AGG.COUNT);
-    expect(m.currentField).toBe(conf.field);
+    expect(m.currentField).toBe("");
     expect(m.numClasses).toBe(conf.n_classes);
     expect(m.currentMethod).toBe(conf.method);
     expect(m.currentScheme).toBe(conf.color_scheme);
-    expect(m.currentLabelShow).toBe(conf.label_show);
-    expect(m.borderWeight).toBe(conf.border_weight);
-    expect(m.borderColor).toBe(conf.border_color);
-    expect(clearSaved).toHaveBeenCalled();
+    expect(clearSaved).toHaveBeenCalledTimes(1);
 
     expect(ctrl.extraBody.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
     expect(ctrl.ctrl.classList.contains(CONST.CLASSES.COLLAPSED)).toBe(true);
@@ -261,8 +225,6 @@ describe("bindControls — clear (reset) button", () => {
     expect(ctrl.classSelect.value).toBe(String(conf.n_classes));
     expect(ctrl.methodSelect.value).toBe(conf.method);
     expect(ctrl.schemeSelectHidden.value).toBe(conf.color_scheme);
-    expect(ctrl.borderWeightInput.value).toBe(String(conf.border_weight));
-    expect(ctrl.borderColorInput.value).toBe(conf.border_color);
   });
 
   it("clear falls back to library defaults when conf omits style fields", () => {
@@ -273,9 +235,6 @@ describe("bindControls — clear (reset) button", () => {
         color_scheme: undefined,
         method: undefined,
         n_classes: undefined,
-        label_show: undefined,
-        border_weight: undefined,
-        border_color: undefined,
         field: undefined,
       }),
     );
@@ -289,12 +248,68 @@ describe("bindControls — clear (reset) button", () => {
 
     expect(m.currentScheme).toBe("Reds");
     expect(m.numClasses).toBe(CONST.CLASS_COUNT.DEFAULT);
-    expect(m.currentMethod).toBe(CONST.METHOD.JENKS);
-    expect(m.currentLabelShow).toBe(false);
-    expect(m.borderWeight).toBe(CONST.BORDER.WEIGHT_DEFAULT);
-    expect(m.borderColor).toBe(CONST.GRAY);
+    expect(m.currentMethod).toBe(METHOD.JENKS);
     expect(m.currentField).toBe("");
     expect(ctrl.aggSelect.value).toBe(CONST.AGG.COUNT);
+  });
+});
+
+describe("resetPanel — shared reset (Clear button + more-menu clear)", () => {
+  it("resets state, canvas, and every dropdown back to the declared defaults", () => {
+    const conf = makeConf({ color_scheme: "Blues", n_classes: 4, method: "equal" });
+    const { ctrl, m } = setup(conf);
+    m.selectedLayerId = "p1";
+    m.currentAgg = CONST.AGG.SUM;
+    m.currentField = "price";
+    m.autoFieldKey = "price";
+    m.currentScheme = "Greens";
+    m.numClasses = 8;
+    m.currentMethod = "quantile";
+    m.cachedFeatures = [] as never;
+
+    resetPanel(ctrl);
+
+    expect(m.selectedLayerId).toBeNull();
+    expect(m.autoFieldKey).toBeNull();
+    expect(m.currentAgg).toBe(CONST.AGG.COUNT);
+    expect(m.currentField).toBe("");
+    expect(m.currentMethod).toBe(conf.method);
+    expect(m.currentScheme).toBe(conf.color_scheme);
+    expect(m.numClasses).toBe(conf.n_classes);
+    expect(m.cachedFeatures).toBeNull();
+
+    expect(ctrl.layerSelect.value).toBe("");
+    expect(ctrl.aggSelect.value).toBe(CONST.AGG.COUNT);
+    expect(ctrl.classSelect.value).toBe(String(conf.n_classes));
+    expect(ctrl.methodSelect.value).toBe(conf.method);
+    expect(ctrl.schemeSelectHidden.value).toBe(conf.color_scheme);
+    expect(ctrl.fieldSelect.value).toBe("");
+    expect(ctrl.extraBody.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
+  });
+
+  it("resets the aggregation to the declared default, not count", () => {
+    // The constructor honours conf.agg, so a clear has to land back on the
+    // declared value instead of dropping an agg="sum" map to count.
+    const { ctrl, m } = setup(makeConf({ agg: "sum" }));
+
+    resetPanel(ctrl);
+
+    expect(m.currentAgg).toBe(CONST.AGG.SUM);
+    expect(ctrl.aggSelect.value).toBe(CONST.AGG.SUM);
+  });
+
+  it("leaves the panel open and the persisted record alone", () => {
+    // Only the Clear button's own handler collapses the panel and clears the
+    // record — the more-menu clear keeps the panel open for the next pick.
+    const removeItem = vi.spyOn(window.localStorage, "removeItem");
+    const { ctrl } = setup();
+    ctrl.ctrl.classList.add(CONST.CLASSES.EXPANDED);
+
+    resetPanel(ctrl);
+
+    expect(ctrl.ctrl.classList.contains(CONST.CLASSES.EXPANDED)).toBe(true);
+    expect(ctrl.ctrl.classList.contains(CONST.CLASSES.COLLAPSED)).toBe(false);
+    expect(removeItem).not.toHaveBeenCalled();
   });
 });
 
@@ -419,6 +434,120 @@ describe("layer dropdown change handler", () => {
     expect(m.selectedLayerId).toBeNull();
     expect(ctrl.extraBody.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
     expect(clear).toHaveBeenCalled();
+  });
+});
+
+describe("layer dropdown — source meta publish", () => {
+  beforeEach(() => {
+    vi.spyOn(HeatmapManager.prototype, "scanMapLayers").mockImplementation(function () {
+      // no-op: keep the seeded pointLayers stable across rebuilds
+    });
+  });
+
+  it("publishes source layer + field when a layer is selected", () => {
+    const m = makeManager();
+    m.pointLayers = [{ id: "p1", name: "Stores", layer: {}, count: 2 }];
+    const ctrl = makeCtrl(m, makeConf());
+    const panel = document.createElement("div");
+    bindControls(ctrl, panel);
+    rebuildLayerDropdown(ctrl);
+
+    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
+      {
+        lat: 1,
+        lng: 2,
+        marker: { feature: { properties: { sales: 5 } } },
+      },
+    ]);
+    ctrl.aggSelect.value = CONST.AGG.SUM;
+    fire(ctrl.aggSelect, "change");
+    ctrl.layerSelect.value = "p1";
+    fire(ctrl.layerSelect, "change");
+
+    expect(m.currentAgg).toBe(CONST.AGG.SUM);
+    expect(m.sourceMeta["HeatmapControl.meta_source_layer"]).toBe("Stores");
+    expect(m.sourceMeta["HeatmapControl.meta_agg_field"]).toBe("sales");
+    expect(window.map.foliplus.LayerAPI.touchLayer).toHaveBeenCalledWith(m.layerId);
+  });
+
+  it("clears the published rows when the selection is cleared", () => {
+    const m = makeManager();
+    m.pointLayers = [{ id: "p1", name: "Stores", layer: {}, count: 1 }];
+    m.selectedLayerId = "p1";
+    m.sourceMeta["HeatmapControl.meta_source_layer"] = "Stores";
+    m.sourceMeta["HeatmapControl.meta_agg_field"] = "sales";
+    const ctrl = makeCtrl(m, makeConf());
+    rebuildLayerDropdown(ctrl);
+
+    ctrl.layerSelect.value = "";
+    fire(ctrl.layerSelect, "change");
+
+    expect(m.sourceMeta["HeatmapControl.meta_source_layer"]).toBe("");
+    expect(m.sourceMeta["HeatmapControl.meta_agg_field"]).toBe("");
+  });
+
+  it("resolves autoFieldKey before publishing on a restored selection", () => {
+    const m = makeManager();
+    // Restored from localStorage: layer already selected, field still auto.
+    m.pointLayers = [{ id: "p1", name: "Stores", layer: {}, count: 2 }];
+    m.selectedLayerId = "p1";
+    m.currentAgg = "avg";
+    m.currentField = "";
+    m.autoFieldKey = null;
+    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
+      {
+        lat: 1,
+        lng: 2,
+        marker: { feature: { properties: { dwell: 12 } } },
+      },
+    ]);
+
+    const ctrl = makeCtrl(m, makeConf());
+    rebuildLayerDropdown(ctrl);
+
+    expect(m.autoFieldKey).toBe("dwell");
+    expect(m.sourceMeta["HeatmapControl.meta_source_layer"]).toBe("Stores");
+    expect(m.sourceMeta["HeatmapControl.meta_agg_field"]).toBe("dwell");
+  });
+
+  it("clears a stale currentField that is no longer in the layer's fields", () => {
+    const m = makeManager();
+    m.pointLayers = [{ id: "p1", name: "Stores", layer: {}, count: 1 }];
+    m.selectedLayerId = "p1";
+    m.currentAgg = "sum";
+    m.currentField = "old_field";
+    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
+      {
+        lat: 1,
+        lng: 2,
+        marker: { feature: { properties: { sales: 5 } } },
+      },
+    ]);
+
+    const ctrl = makeCtrl(m, makeConf());
+    rebuildLayerDropdown(ctrl);
+
+    expect(m.currentField).toBe("");
+  });
+
+  it("preserves a currentField that is still in the layer's fields", () => {
+    const m = makeManager();
+    m.pointLayers = [{ id: "p1", name: "Stores", layer: {}, count: 1 }];
+    m.selectedLayerId = "p1";
+    m.currentAgg = "sum";
+    m.currentField = "sales";
+    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
+      {
+        lat: 1,
+        lng: 2,
+        marker: { feature: { properties: { sales: 5, price: 10 } } },
+      },
+    ]);
+
+    const ctrl = makeCtrl(m, makeConf());
+    rebuildLayerDropdown(ctrl);
+
+    expect(m.currentField).toBe("sales");
   });
 });
 

@@ -8,10 +8,8 @@ describe("panelContentHTML", () => {
 
   const T = (key: string) => {
     const map: Record<string, string> = {
-      section_data: "Data",
-      section_style: "Style",
       layer: "Layer",
-      agg_method: "Aggregation",
+      agg_method: "Method",
       agg_count: "Count",
       agg_sum: "Sum",
       agg_avg: "Average",
@@ -24,8 +22,6 @@ describe("panelContentHTML", () => {
       equal: "Equal",
       heads: "Heads",
       scheme: "Color",
-      border: "Border",
-      label: "Label",
       clear: "Clear",
     };
     return map[key] ?? key;
@@ -39,52 +35,43 @@ describe("panelContentHTML", () => {
     expect(html).toContain("foliplus-heatmap-config-body");
     expect(html).toContain("foliplus-heatmap-extra-body");
 
-    // Section headings
-    expect(html).toContain("foliplus-heatmap-section-heading");
+    // Section headings are gone: the panel is one flat row list, matching the
+    // style and attributes panels.
+    expect(html).not.toContain("foliplus-section-heading");
 
-    // Form rows
-    expect(html).toContain("foliplus-heatmap-form-row");
-    expect(html).toContain("foliplus-heatmap-form-label");
-    expect(html).toContain("foliplus-heatmap-form-control");
+    // Form rows — shared common/form.css primitives
+    expect(html).toContain("foliplus-form-row");
+    expect(html).toContain("foliplus-form-label");
+    expect(html).toContain("foliplus-form-control");
+    expect(html).toContain("foliplus-form-select");
   });
 
-  it("includes all data-hm-* query targets", () => {
+  it("includes all data-heatmap-* query targets", () => {
     const html = panelContentHTML(T);
     const expectedAttrs = [
-      "data-hm-layer",
-      "data-hm-extra-body",
-      "data-hm-agg",
-      "data-hm-field",
-      "data-hm-field-select",
-      "data-hm-method",
-      "data-hm-class-count",
-      "data-hm-scheme-ctrl",
-      "data-hm-scheme-hidden",
-      "data-hm-border-color",
-      "data-hm-border-weight",
-      "data-hm-label-chk",
-      "data-hm-btn-clear",
+      "data-heatmap-layer",
+      "data-heatmap-extra-body",
+      "data-heatmap-agg",
+      "data-heatmap-field",
+      "data-heatmap-field-select",
+      "data-heatmap-method",
+      "data-heatmap-class-count",
+      "data-heatmap-scheme-ctrl",
+      "data-heatmap-scheme-hidden",
+      "data-heatmap-btn-clear",
     ];
     for (const attr of expectedAttrs) {
       expect(html).toContain(attr);
     }
   });
 
-  it("includes translated section headings", () => {
-    const html = panelContentHTML(T);
-    expect(html).toContain("Data");
-    expect(html).toContain("Style");
-  });
-
   it("includes translated form labels", () => {
     const html = panelContentHTML(T);
     expect(html).toContain("Layer");
-    expect(html).toContain("Aggregation");
+    expect(html).toContain("Method");
     expect(html).toContain("Field");
     expect(html).toContain("Classify");
     expect(html).toContain("Color");
-    expect(html).toContain("Border");
-    expect(html).toContain("Label");
   });
 
   it("includes translated action button text", () => {
@@ -127,38 +114,12 @@ describe("panelContentHTML", () => {
     }
   });
 
-  it("includes border weight input constraints", () => {
-    const html = panelContentHTML(T);
-    expect(html).toContain('type="number"');
-    expect(html).toContain('min="0"');
-    expect(html).toContain('max="10"');
-    expect(html).toContain('step="0.5"');
-  });
-
   it("includes scheme bar with combobox role", () => {
     const html = panelContentHTML(T);
     expect(html).toContain("foliplus-heatmap-scheme-bar");
     expect(html).toContain('tabindex="0"');
     expect(html).toContain('role="combobox"');
     expect(html).toContain("foliplus-heatmap-scheme-bar-inner");
-  });
-
-  it("includes label toggle switch structure", () => {
-    const html = panelContentHTML(T);
-    expect(html).toContain("foliplus-heatmap-toggle-switch");
-    expect(html).toContain("foliplus-heatmap-toggle-slider");
-    expect(html).toContain('type="checkbox"');
-  });
-
-  it("includes border color picker", () => {
-    const html = panelContentHTML(T);
-    expect(html).toContain("foliplus-heatmap-color-input");
-    expect(html).toContain('type="color"');
-  });
-
-  it("includes border weight input", () => {
-    const html = panelContentHTML(T);
-    expect(html).toContain("foliplus-heatmap-weight-input");
   });
 
   it("includes section divider", () => {
@@ -171,12 +132,12 @@ describe("panelContentHTML", () => {
     expect(html).toContain("foliplus-heatmap-btn-row");
     expect(html).toContain("foliplus-heatmap-btn-clear");
     expect(html).not.toContain("foliplus-heatmap-btn-confirm");
-    expect(html).not.toContain("data-hm-btn-confirm");
+    expect(html).not.toContain("data-heatmap-btn-confirm");
   });
 
   it("extra body uses shared foliplus-hidden class by default", () => {
     const html = panelContentHTML(T);
-    expect(html).toContain("data-hm-extra-body>");
+    expect(html).toContain("data-heatmap-extra-body>");
     expect(html).toMatch(/foliplus-heatmap-extra-body\s+foliplus-hidden/);
   });
 

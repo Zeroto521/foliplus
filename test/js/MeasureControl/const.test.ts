@@ -28,7 +28,7 @@ describe("LABEL anchors", () => {
 
   it("anchors the label chip above the point so it covers the center dot", () => {
     // The centroid label and the 12×12 center dot share a latlng. The dot
-    // goes to measure_graph, the label to measure_label —
+    // goes to foliplus-measure-graph, the label to foliplus-measure-label —
     // the label pane always paints above the graph pane, so pane ordering
     // alone covers the dot without any z-index or anchor trickery. The
     // default [0, -10] anchor sits the chip *above* the point (negative y in
@@ -54,7 +54,7 @@ describe("LABEL anchors", () => {
 
 describe("CLASSES", () => {
   it("defines CSS class constants", () => {
-    expect(CONST.CLASSES.ACTIVE).toBe("active");
+    expect(CONST.CLASSES.ACTIVE).toBe("foliplus-is-active");
     expect(CONST.CLASSES.MEASURING).toBe("foliplus-measuring");
     expect(CONST.CLASSES.PATH_SOLID).toContain("foliplus-measure-path-solid");
     expect(CONST.CLASSES.PATH_DASHED).toContain("foliplus-measure-path-dashed");
@@ -63,13 +63,13 @@ describe("CLASSES", () => {
   });
 });
 
-describe("MODE", () => {
+describe("MEASURE_MODE", () => {
   it("defines mode names", () => {
-    expect(CONST.MODE.DISTANCE).toBe("distance");
-    expect(CONST.MODE.POLYGON).toBe("polygon");
-    expect(CONST.MODE.CIRCLE).toBe("circle");
-    expect(CONST.MODE.MARKER).toBe("marker");
-    expect(CONST.MODE.CLEAR).toBe("clear");
+    expect(CONST.MEASURE_MODE.DISTANCE).toBe("distance");
+    expect(CONST.MEASURE_MODE.POLYGON).toBe("polygon");
+    expect(CONST.MEASURE_MODE.CIRCLE).toBe("circle");
+    expect(CONST.MEASURE_MODE.MARKER).toBe("marker");
+    expect(CONST.MEASURE_MODE.CLEAR).toBe("clear");
   });
 });
 
@@ -81,9 +81,9 @@ describe("ID", () => {
 
 describe("PANES", () => {
   it("defines pane names", () => {
-    expect(CONST.PANES.GRAPH).toBe("measure_graph");
-    expect(CONST.PANES.NODE).toBe("measure_node");
-    expect(CONST.PANES.LABEL).toBe("measure_label");
+    expect(CONST.PANES.GRAPH).toBe("foliplus-measure-graph");
+    expect(CONST.PANES.NODE).toBe("foliplus-measure-node");
+    expect(CONST.PANES.LABEL).toBe("foliplus-measure-label");
   });
 });
 
@@ -95,8 +95,8 @@ describe("LABEL anchors", () => {
   });
 
   it("anchors the label chip above the point (negative y) so it clears the center dot", () => {
-    // The centroid label (measure_label pane) and the center dot
-    // (CircleMarker in measure_graph pane) share a latlng. The label pane's
+    // The centroid label (foliplus-measure-label pane) and the center dot
+    // (CircleMarker in foliplus-measure-graph pane) share a latlng. The label pane's
     // z is graph + 1, so the label always paints above the dot by pane
     // ordering. The [0, -10] anchor lifts the chip above the dot's centered
     // position, so the dot stays visible underneath as the edit-mode drag

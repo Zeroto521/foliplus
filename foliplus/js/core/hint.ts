@@ -4,7 +4,7 @@
 import { ensureMapFoliplus } from "#core/mapApi.js";
 import { cssVar } from "#common/cssvar.js";
 import { dom } from "#common/dom.js";
-import { LOADING } from "#common/icon.js";
+import { LOADING_ICON } from "#common/icon.js";
 import { createLogger } from "#common/log.js";
 import { parseSVG } from "#common/sanitize.js";
 
@@ -133,7 +133,7 @@ class HintManager {
     // `{ html }` must be a CHILD, not an attr — `dom.el` sets an attr for any
     // unrecognised key.
     const icon = withLoadingIcon
-      ? LOADING
+      ? LOADING_ICON
       : (this.hintIcons && this.hintIcons[key]) || "";
     const el = dom.el(
       "div",

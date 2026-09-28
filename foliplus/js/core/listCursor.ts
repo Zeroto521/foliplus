@@ -13,9 +13,9 @@
  * option `role=option` (override via `roles.item`). Option ids are
  * generated for `aria-activedescendant`.
  */
+import { keyOwner, nativeConsumesKey } from "#core/inputOwnership.js";
 
 type ListCursorMode = "roving" | "active-descendant";
-
 type ListCursorRoles = {
   /** Root role. Default `listbox`. */
   list?: string;
@@ -159,6 +159,10 @@ class ListCursor {
 
   /** Arrow key handler for `keydown` on `target`. Returns true if handled. */
   handleKey(event: KeyboardEvent): boolean {
+    // The one ownership rule: a control that natively consumes the key keeps
+    // it. Shared with the central dispatcher, so a new native control bound
+    // into this list is let through without a per-cursor copy.
+    if (nativeConsumesKey(keyOwner(event), event.key)) return false;
     if (event.key === "ArrowDown") {
       event.preventDefault();
       this.move(1);

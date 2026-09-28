@@ -42,4 +42,5 @@ const createLogger = (name: string): Logger => {
   };
 };
 
-export { createLogger, type LogFn, type Logger };
+export { createLogger };
+export type { LogFn, Logger };

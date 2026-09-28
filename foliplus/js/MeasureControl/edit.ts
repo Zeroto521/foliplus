@@ -3,33 +3,12 @@
 // for readability; kept as pure helpers, not a manager class, because edit-mode
 // lifecycle (isEditMode toggle, ModeManager lock, Escape priority) lives in
 // MeasureManager and can't be cleanly delegated to a separate controller.
-
-/** Input the overlay expects from its host — a subset of MeasureManager. */
-interface EditOverlayHost {
-  isEditMode: boolean;
-  map: L.Map;
-  registerEditOverlayCloser?: (close: () => void, id?: string) => () => void;
-  closeOtherEditOverlays?: (exceptId: string) => void;
-}
-
-/** Per-node drag options wired by bindNodeDrag. */
-interface NodeDragHandlers {
-  onDrag?: (latlng: L.LatLng) => void;
-  onEnd?: (latlng: L.LatLng) => void;
-}
-
-/** Per-node drag handle returned by bindNodeDrag. */
-interface NodeDragHandle {
-  setEnabled: (enabled: boolean) => void;
-  cleanup: () => void;
-}
-
-/** Public surface of the shared ✕ overlay returned by buildEditOverlay. */
-interface EditOverlay {
-  open: (ev: L.LeafletMouseEvent) => void;
-  close: () => void;
-  cleanup: () => void;
-}
+import type {
+  EditOverlay,
+  EditOverlayHost,
+  NodeDragHandle,
+  NodeDragHandlers,
+} from "./type.js";
 
 /** Minimum container-point movement (px) to count as a drag rather than a tap. */
 const DRAG_THRESHOLD = 4;
@@ -204,13 +183,4 @@ const isDragSyntheticClick = (): boolean => {
   return v;
 };
 
-export {
-  bindNodeDrag,
-  buildEditOverlay,
-  isDragSyntheticClick,
-  markDragSyntheticClick,
-  type EditOverlay,
-  type EditOverlayHost,
-  type NodeDragHandle,
-  type NodeDragHandlers,
-};
+export { bindNodeDrag, buildEditOverlay, isDragSyntheticClick, markDragSyntheticClick };

@@ -1,7 +1,8 @@
 // Vitest setup — runs before all test file imports.
 // Sets up global mocks needed by module-level code (e.g. `const foliplus = window.foliplus`).
 // Use vi.fn() so tests can spy on calls even when module captures at import time.
-import { vi } from "vitest";
+import { beforeEach, vi } from "vitest";
+import { installWindowLExtensions, resetState } from "./fixture.js";
 
 // Spec-compliant in-memory Web Storage fallback.
 // Node.js (24.19+, and newer 24.x used by CI) exposes an experimental global
@@ -50,6 +51,49 @@ if (!hasLocalStorage) {
   });
 }
 
+// jsdom has no PointerEvent constructor, but the ExportControl crop box drag
+// uses pointer events (mouse events have no capture contract, so one dropped
+// move mid-drag leaks the incremental delta). Subclass MouseEvent so the same
+// dispatch path applies and tests can pass `pointerId` in init.
+if (!globalThis.PointerEvent) {
+  globalThis.PointerEvent = class PointerEvent extends MouseEvent {
+    override pointerId: number | null;
+    constructor(type: string, init: PointerEventInit = {}) {
+      super(type, init);
+      this.pointerId = init.pointerId ?? 0;
+    }
+  };
+}
+
+// vitest's URL.createObjectURL polyfill (makeCompatBlob) accesses blob._buffer,
+// which plain `new Blob(["…"])` does not have — it throws TypeError in CI where
+// jsdom lacks a native implementation. Replace it with a minimal stub so
+// ExportControl tests that exercise showPreview / renderPaneSVG don't crash
+// before their real assertions. Tests that spy on createObjectURL re-stub it
+// themselves via vi.stubGlobal.
+Object.defineProperty(URL, "createObjectURL", {
+  value: vi.fn(() => "blob:mock"),
+  configurable: true,
+  writable: true,
+});
+Object.defineProperty(URL, "revokeObjectURL", {
+  value: vi.fn(),
+  configurable: true,
+  writable: true,
+});
+
+// jsdom does not implement the Canvas 2D context; LayerFactory.createCanvas
+// and createColor both call into it, so stub the methods they use.
+HTMLCanvasElement.prototype.getContext = vi.fn(() => ({
+  setTransform: vi.fn(),
+  clearRect: vi.fn(),
+  fillRect: vi.fn(),
+  get fillStyle() {
+    return "";
+  },
+  set fillStyle(_: unknown) {},
+})) as any;
+
 // Mock window.foliplus runtime (must be set before module imports that capture it)
 window.foliplus = {
   showHint: vi.fn(),
@@ -87,6 +131,11 @@ window.L = {
 // L.Path.prototype.bringToFront is captured at module import time by
 // LayerControl.manager.js — set it up before test imports.
 window.L.Path.prototype.bringToFront = vi.fn();
+
+// Extend the base L stub with every constructor/factory production code
+// touches. Uses Object.assign so window.L identity stays stable (setup and
+// production code both see the same reference). See fixture.ts.
+installWindowLExtensions();
 
 // Mock Jinja IIFE free variables
 window.CONF = {
@@ -150,3 +199,9 @@ globalThis.turf = {
     },
   }),
 };
+
+// Global per-test isolation: clear localStorage and mock call history.
+// Deliberately does not touch document.body — a test file that mounts DOM
+// in `beforeAll` would have its container wiped before the first `it` runs.
+// See `mountFixtureRoot()` in fixture.ts for a scoped alternative.
+beforeEach(resetState);

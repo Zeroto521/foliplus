@@ -98,7 +98,7 @@ class TestLocateControlRendering:
         html = render_control(LocateControl())
         assert "locate-btn-icon" in html
         assert "locate-btn-loading" in html
-        # The spinner markup ships from the shared Icons.LOADING in common.js.
+        # The spinner markup ships from the shared Icons.LOADING_ICON in common.js.
         assert "foliplus-spin" in html
 
     def test_spins_with_shared_keyframes(self):
@@ -175,7 +175,7 @@ class TestLocateControlBrowser:
     def test_popup_spinner_stays_bounded(self, browser, tmp_path):
         """The reverse-geocode loading spinner renders at icon size, not full width.
 
-        ``Icons.LOADING`` declares a ``viewBox`` but no ``width``/``height``, so it
+        ``Icons.LOADING_ICON`` declares a ``viewBox`` but no ``width``/``height``, so it
         has no intrinsic size. Its flex parent — the popup — then sizes it from a
         flex base size of 0 and it grows to fill the popup (measured 213px wide in
         a 213px popup, 301px in a full-viewport one). ``.foliplus-spin`` in

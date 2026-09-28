@@ -12,15 +12,12 @@ import {
   suspendMapInteractions,
 } from "#foliplus/core/layer/util.js";
 
-// Pinned deliberately: `_map` is a Leaflet-internal field with no public type,
-// so it cannot be read through an L.Layer declaration at all. The cast narrows
-// to just the field being probed rather than widening the whole layer to any,
-// which is what makes it a real cast and not a bypass.
+// What is worth pinning here is the other half: nothing in
+// util.ts touches a private field any more.
 
 describe("source pins", () => {
-  it("layer/util.ts: one `as unknown as`, in the _map probe", () => {
-    expect(utilSource.match(/as unknown as/g)).toHaveLength(1);
-    expect(utilSource).toContain("layer as unknown as { _map?: L.Map })._map");
+  it("layer/util.ts: no double assertions left", () => {
+    expect(utilSource.match(/as unknown as/g)).toBeNull();
   });
 });
 
@@ -101,6 +98,17 @@ describe("core/layer util", () => {
       const visited: L.Layer[] = [];
       forEachLeaf(layer as never, l => visited.push(l));
       expect(visited).toEqual([a]);
+    });
+
+    it("walks only a node's own registry entries, not inherited ones", () => {
+      // Leaflet's registries are plain objects, so a registry built on a
+      // prototype would expose its keys to `for..in`. Only entries the node
+      // actually owns are children of its tree.
+      const own = { own: true };
+      const registry = Object.assign(Object.create({ inherited: {} }), { own });
+      const visited: L.Layer[] = [];
+      forEachLeaf({ _layers: registry } as never, l => visited.push(l));
+      expect(visited).toEqual([own]);
     });
 
     it("recurses into nested _layers (fallback branch)", () => {

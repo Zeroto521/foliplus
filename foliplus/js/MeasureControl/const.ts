@@ -1,4 +1,5 @@
 import { DEL_ICON_CHAR, DEL_ICON_SELECTOR } from "#common/delicon.js";
+import type { ExportFormat } from "./type.js";
 
 /** Timing / delay constants. */
 const TIMING = {
@@ -15,9 +16,9 @@ const LABEL = {
   RADIUS_ANCHOR: [0, 0],
   MID_ANCHOR: [0, 0],
   // The centroid label shares the same latlng as the center dot. The dot is
-  // a CircleMarker (SVG path) in measure_node, so it paints above graph
-  // geometry by pane z-index. The label's pane is measure_label (z = graph
-  // + 2), so it always paints above the dot by pane ordering.
+  // a CircleMarker (SVG path) in foliplus-measure-node, so it paints above
+  // graph geometry by pane z-index. The label's pane is foliplus-measure-label
+  // (z = graph + 2), so it always paints above the dot by pane ordering.
   // The [0, -10] anchor lifts the chip above the dot's centered position.
   // Within the label pane it also needs a zIndexOffset (CENTROID_Z_OFFSET)
   // so it stays above segment labels — sortLayers re-sorts by Y on zoom,
@@ -67,12 +68,12 @@ const FORMAT = {
   KM2_DECIMALS: 2,
 };
 
-/** IDs and pane names. */
+/** IDs and pane names. Hyphenated + foliplus-namespaced like annotation/canvas. */
 const ID = "foliplus_measure";
 const PANES = {
-  GRAPH: "measure_graph",
-  NODE: "measure_node",
-  LABEL: "measure_label",
+  GRAPH: "foliplus-measure-graph",
+  NODE: "foliplus-measure-node",
+  LABEL: "foliplus-measure-label",
 };
 
 /** CSS class names. */
@@ -84,14 +85,18 @@ const CLASSES = {
   // Fill modifier for area shapes (circle/polygon).
   SHAPE_FILL: "foliplus-measure-shape-fill",
   NODE_HOLLOW: "foliplus-measure-node",
+  // ExportControl's SKIP_EXPORT selector drops anything carrying this class from
+  // the exported image.  Stamped on preview layers only — the preview is a
+  // drawing aid, not content.
+  SKIP_EXPORT: "foliplus-skip-export",
   NODE_SOLID: "foliplus-measure-node foliplus-measure-node-solid",
   RIPPLE: "foliplus-measure-ripple",
   DASH_SWEEP: "foliplus-measure-dash-sweep",
-  ACTIVE: "active",
+  ACTIVE: "foliplus-is-active",
   MEASURING: "foliplus-measuring",
   EDITING: "foliplus-measure-editing",
-  COLLAPSED: "collapsed",
-  EXPANDED: "expanded",
+  COLLAPSED: "foliplus-is-collapsed",
+  EXPANDED: "foliplus-is-expanded",
 };
 
 /** Style property names. */
@@ -104,16 +109,17 @@ const SEL = {
   TOOL_BTN: ".foliplus-tool-btn[data-mode]",
 };
 
-/** Persistent storage key. */
+/** Persistent storage key + the record shape's version stamp (positive
+ * integer, incremented only when the record shape changes; readers accept
+ * older/unknown values and never migrate). */
 const STORAGE = { KEY: `foliplus_measure_${map.getContainer().id}` };
+const RECORD_VERSION = 1;
 
 /** Export formats. */
 const EXPORT_FORMAT = {
   GEOJSON: "geojson",
   CSV: "csv",
 } as const;
-
-type ExportFormat = (typeof EXPORT_FORMAT)[keyof typeof EXPORT_FORMAT];
 
 /** Default format for `CONF.export_format` — used when the value is missing
  * or unknown. Python's `MeasureControl` rejects anything outside
@@ -130,7 +136,7 @@ const GEOJSON = {
 } as const;
 
 /** Mode names. */
-const MODE = {
+const MEASURE_MODE = {
   MARKER: "marker",
   DISTANCE: "distance",
   POLYGON: "polygon",
@@ -152,9 +158,9 @@ export {
   STYLE,
   SEL,
   STORAGE,
+  RECORD_VERSION,
   EXPORT_FORMAT,
   DEFAULT_EXPORT_FORMAT,
-  type ExportFormat,
   GEOJSON,
-  MODE,
+  MEASURE_MODE,
 };

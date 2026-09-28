@@ -9,19 +9,19 @@
    mode, override Leaflet's default pointer cursor so they don't look
    clickable. In edit mode they read as clickable; draggable nodes get
    an inline `move` cursor (bindNodeDrag) for the whole edit session. */
-.leaflet-measure_graph-pane .leaflet-interactive,
-.leaflet-measure_node-pane .leaflet-interactive,
-.leaflet-measure_label-pane .leaflet-interactive {
+.leaflet-foliplus-measure-graph-pane .leaflet-interactive,
+.leaflet-foliplus-measure-node-pane .leaflet-interactive,
+.leaflet-foliplus-measure-label-pane .leaflet-interactive {
   cursor: default;
 }
-.foliplus-measure-editing .leaflet-measure_graph-pane .leaflet-interactive,
-.foliplus-measure-editing .leaflet-measure_node-pane .leaflet-interactive,
-.foliplus-measure-editing .leaflet-measure_label-pane .leaflet-interactive {
+.foliplus-measure-editing .leaflet-foliplus-measure-graph-pane .leaflet-interactive,
+.foliplus-measure-editing .leaflet-foliplus-measure-node-pane .leaflet-interactive,
+.foliplus-measure-editing .leaflet-foliplus-measure-label-pane .leaflet-interactive {
   cursor: pointer;
 }
 /* Location pin keeps the pointer cursor in every mode — clicking it opens the
    location popup even outside edit mode. */
-.leaflet-measure_graph-pane .leaflet-marker-icon:has(.foliplus-pin) {
+.leaflet-foliplus-measure-graph-pane .leaflet-marker-icon:has(.foliplus-pin) {
   cursor: pointer;
 }
 

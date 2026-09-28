@@ -2,7 +2,12 @@
 import { area, bearing, centroid, distance, midpoint } from "#core/geo/index.js";
 import { toggleDelIcon } from "#common/delicon.js";
 import { buildPopupEl } from "#common/dom.js";
-import { LAT_LNG_PRECISION, formatLatLng, formatNumber } from "#common/format.js";
+import {
+  LAT_LNG_PRECISION,
+  NUMBER_FORMAT,
+  formatLatLng,
+  formatNumber,
+} from "#common/format.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { createLogger } from "#common/log.js";
 import * as CONST from "./const.js";
@@ -18,8 +23,8 @@ const log = createLogger(CONF.name);
  *  then "1.0 km", "1,234.5 km" — km values keep one decimal with grouping. */
 const formatDistance = (meters: number): string =>
   meters >= CONST.FORMAT.KM_THRESHOLD
-    ? `${formatNumber(meters / 1000, "comma", "en", CONST.FORMAT.KM_DECIMALS)} km`
-    : `${formatNumber(meters, "comma", "en", CONST.FORMAT.SMALL_DECIMALS)} m`;
+    ? `${formatNumber(meters / 1000, NUMBER_FORMAT.COMMA, "en", CONST.FORMAT.KM_DECIMALS)} km`
+    : `${formatNumber(meters, NUMBER_FORMAT.COMMA, "en", CONST.FORMAT.SMALL_DECIMALS)} m`;
 
 /** Format a segment label: "45° | 1.2 km", or just "1.2 km" when show_bearing is off. */
 const formatSegmentLabel = (
@@ -36,15 +41,10 @@ const formatSegmentLabel = (
 /** Format area: "999,999 m²" below a km², then "1.23 km²", "1,234.57 km²". */
 const formatArea = (sqMeters: number): string => {
   if (sqMeters >= 1_000_000) {
-    return `${formatNumber(sqMeters / 1_000_000, "comma", "en", CONST.FORMAT.KM2_DECIMALS)} km²`;
+    return `${formatNumber(sqMeters / 1_000_000, NUMBER_FORMAT.COMMA, "en", CONST.FORMAT.KM2_DECIMALS)} km²`;
   }
-  return `${formatNumber(sqMeters, "comma", "en", CONST.FORMAT.SMALL_DECIMALS)} m²`;
+  return `${formatNumber(sqMeters, NUMBER_FORMAT.COMMA, "en", CONST.FORMAT.SMALL_DECIMALS)} m²`;
 };
-
-// Edit-specific helpers (buildEditOverlay, bindNodeDrag, drag-synthetic click
-// flag) live in edit.ts. They are re-exported below for backward compatibility
-// so all existing callers (ui.ts, mode/marker.ts, util.test.ts) keep working
-// through the Util namespace without a follow-up rename.
 
 /** Resolve the label chip inside a marker's icon element, or null when the
  *  marker has no rendered element. Callers that read the chip must go through

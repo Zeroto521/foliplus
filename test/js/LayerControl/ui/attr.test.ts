@@ -1,0 +1,719 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import * as CONST from "#foliplus/LayerControl/const.js";
+import type { LayerManager } from "#foliplus/LayerControl/manager.js";
+import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
+import { ensureModes } from "#foliplus/core/mode.js";
+import { createScopedTranslator } from "#common/locale.js";
+import {
+  allFolded,
+  attachWithGroup,
+  findItem,
+  initFixture,
+  overlayFoldBtn,
+  pressKey,
+} from "./fixture.js";
+
+describe("LayerUI attrs", () => {
+  let manager: LayerManager;
+  let ui: LayerUI;
+  let map: any;
+
+  beforeEach(() => {
+    ({ manager, ui, map } = initFixture());
+    // Fold tests need two overlay layers, so overlay1 isn't collapsed into the
+    // single-child "no toggle-all" layout. Registered here (not in the tests)
+    // because initFixture() flushes the 300ms initTypesAndVisibility timeout
+    // AFTER any nested beforeEach, which would drop a layer added inside a test.
+    if (!manager.layerRegistry.get("overlay2")) {
+      manager.registerLayer({
+        id: "overlay2",
+        name: "Circles",
+        group: "overlay",
+        layer: { options: {}, eachLayer: vi.fn() },
+      });
+    }
+    ui.foldedGroups = new Set();
+    ui.hiddenLayerIds = new Set();
+    // Folded-group state is persisted to localStorage, so a fold from one test
+    // would be re-read by the next test's LayerUI constructor and present as
+    // already-folded.
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+  });
+
+  afterEach(() => {
+    // Drop the debounced enforceOrder before tearing down the DOM — a real
+    // timer would otherwise fire after body.innerHTML = "" and hit a detached
+    // container (PaneManager.ensurePane).
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+    // LayerControl holds "focusing" mode during an in-flight focus; clear it
+    // on the FIXTURE map (not window.map) so a focus-holding test cannot leak.
+    if (map) {
+      const modes = ensureModes(map);
+      if (modes.getMode("LayerControl") === "focusing") {
+        modes.setMode("LayerControl", null);
+      }
+    }
+  });
+
+  // ─────────────────── focusLayer() ───────────────────
+
+  describe("openAttrsPanel() / closeAttrsPanel()", () => {
+    const rows = (panel: HTMLElement): Array<[string, string]> =>
+      Array.from(panel.querySelectorAll(".foliplus-form-row")).map(
+        r =>
+          [
+            r.querySelector(".foliplus-form-label")!.textContent!,
+            r.querySelector(".foliplus-form-control")!.textContent!,
+          ] as [string, string],
+      );
+
+    it("panel title and row labels come from the injected conf, not window.CONF", () => {
+      // The LayerUI was built under window.CONF (name "LayerControl"); swap in
+      // a per-test conf with its own locale table — every UI read must key off
+      // it: the panel aria-label from T("attributes_layer") and the row label
+      // from T("attr_type").
+      ui.T = createScopedTranslator({
+        name: "LayerControl",
+        locale_code: "en",
+        locale_tables: {
+          en: {
+            "LayerControl.attributes_layer": "ATTRIBUTES PANEL",
+            "LayerControl.attr_type": "KIND",
+          },
+        },
+      } as ComponentConfig);
+
+      const item = findItem(ui, "overlay1");
+      ui.openAttrsPanel(item);
+
+      const panel = item.querySelector(".foliplus-layer-attrs-panel")!;
+      expect(panel.getAttribute("aria-label")).toBe("ATTRIBUTES PANEL");
+      expect(panel.textContent).toContain("KIND");
+    });
+
+    it("renders the built-in rows only (nothing registered → no — padding)", () => {
+      const item = findItem(ui, "overlay1");
+
+      ui.openAttrsPanel(item);
+
+      const panel = item.querySelector(".foliplus-layer-attrs-panel")!;
+      expect(panel).not.toBeNull();
+      expect(panel.getAttribute("role")).toBe("dialog");
+      const rendered = rows(panel);
+      // T() falls back to the locale key in jsdom, so assert on keys. The
+      // layer name lives in the header, not in the row list; type and feature
+      // count stay on the layer row, so the panel carries provenance only.
+      const keys = rendered.map(([label]) => label);
+      // Nothing registered → no source / no update time. Type, feature count
+      // and the registration timestamp are always known, so those rows show.
+      expect(keys).toEqual([
+        "LayerControl.attr_type",
+        "LayerControl.attr_feature_count",
+        "LayerControl.attr_created_at",
+      ]);
+      expect(keys).not.toContain("LayerControl.attr_name");
+      expect(panel.querySelector(".foliplus-header-title")!.textContent).toContain(
+        "Polygons",
+      );
+    });
+
+    it("reads name / source / updatedAt / meta from registerLayer opts", () => {
+      // A fresh id — `opts.name` only applies on first registration; the
+      // registry keeps the existing name for an already-known id (a user
+      // rename must survive the provider re-registering).
+      manager.registerLayer({
+        id: "attr-prov1",
+        name: "Parks",
+        source: "https://example.com/parks.geojson",
+        updatedAt: "2026-09-01T08:00:00Z",
+        meta: { area_km2: 12.5 },
+      });
+
+      const item = findItem(ui, "attr-prov1");
+      ui.openAttrsPanel(item);
+      const panel = item.querySelector(".foliplus-layer-attrs-panel")!;
+      const rendered = rows(panel);
+
+      // The layer name is the panel header now, not a row.
+      expect(panel.querySelector(".foliplus-header-title")!.textContent).toContain(
+        "Parks",
+      );
+      expect(rendered).toContainEqual([
+        "LayerControl.attr_source",
+        "https://example.com/parks.geojson",
+      ]);
+      expect(rendered.find(([k]) => k === "LayerControl.attr_updated_at")?.[1]).toBe(
+        // Expectation built with the same formatTimestamp options, so the
+        // assertion holds regardless of the runner's timezone / ICU data.
+        new Date("2026-09-01T08:00:00Z").toLocaleString(CONF.locale_code, {
+          dateStyle: "medium",
+          timeStyle: "short",
+        }),
+      );
+      expect(rendered).toContainEqual(["area_km2", "12.5"]);
+      // No grouping: third-party rows continue the same list, so there is no
+      // separator and only one list in the panel.
+      expect(item.querySelectorAll(".foliplus-layer-attrs-sep").length).toBe(0);
+      expect(item.querySelectorAll(".foliplus-layer-attrs-panel dl").length).toBe(1);
+    });
+
+    it("omits the custom-attributes block when meta is empty", () => {
+      manager.registerLayer({ id: "overlay1", meta: { empty: "" } });
+
+      const item = findItem(ui, "overlay1");
+      ui.openAttrsPanel(item);
+
+      expect(item.querySelectorAll(".foliplus-layer-attrs-sep").length).toBe(0);
+      // One block only: a single heading and a single list.
+      expect(item.querySelectorAll(".foliplus-header-title").length).toBe(1);
+      expect(item.querySelectorAll(".foliplus-layer-attrs-panel dl").length).toBe(1);
+    });
+
+    it("formats integer meta without a fraction digit", () => {
+      manager.registerLayer({
+        id: "attr-int",
+        name: "Stats",
+        meta: { features: 3 },
+      });
+
+      const item = findItem(ui, "attr-int");
+      ui.openAttrsPanel(item);
+
+      const rendered = rows(item.querySelector(".foliplus-layer-attrs-panel")!);
+      expect(rendered).toContainEqual(["features", "3"]);
+    });
+
+    it("opens on an unregistered row without provenance rows", () => {
+      const ghost = document.createElement("div");
+      ghost.className = CONST.CLASSES.LAYER_ITEM;
+      ghost.setAttribute(CONST.DATA.LAYER_ID, "ghost");
+      ui.uiContainer.appendChild(ghost);
+
+      ui.openAttrsPanel(ghost);
+
+      const panel = ghost.querySelector(".foliplus-layer-attrs-panel")!;
+      // No registry entry → no source / created / updated rows; the panel
+      // still renders (with the empty fallback branches).
+      expect(panel).not.toBeNull();
+      expect(rows(panel).map(([k]) => k)).not.toContain("LayerControl.attr_source");
+    });
+
+    it("continues meta rows in the same list, after the built-in rows", () => {
+      manager.registerLayer({ id: "attr-meta1", meta: { area_km2: 12.5 } });
+
+      const item = findItem(ui, "attr-meta1");
+      ui.openAttrsPanel(item);
+
+      // One flat list: no separator, no second block heading.
+      expect(item.querySelectorAll(".foliplus-layer-attrs-panel dl").length).toBe(1);
+      expect(item.querySelectorAll(".foliplus-layer-attrs-sep").length).toBe(0);
+
+      const labels = Array.from(item.querySelectorAll(".foliplus-form-label")).map(
+        el => el.textContent,
+      );
+      expect(labels[labels.length - 1]).toBe("area_km2");
+    });
+
+    it("renders metaProvider rows and overrides static meta for the same key", () => {
+      const count = 0;
+      manager.registerLayer({
+        id: "attr-meta1",
+        meta: { area_km2: 12.5, features: 0 },
+        metaProvider: () => ({ features: count, extra: "dynamic" }),
+      });
+
+      const item = findItem(ui, "attr-meta1");
+      ui.openAttrsPanel(item);
+
+      const rendered = rows(item.querySelector(".foliplus-layer-attrs-panel")!);
+      // Static meta + dynamic meta merged; same-key dynamic wins.
+      expect(rendered).toContainEqual(["area_km2", "12.5"]);
+      expect(rendered).toContainEqual(["features", "0"]);
+      expect(rendered).toContainEqual(["extra", "dynamic"]);
+    });
+
+    it("refreshes metaProvider rows on LAYER_ITEM_COUNT_CHANGE for the same layer", () => {
+      let count = 0;
+      manager.registerLayer({
+        id: "attr-live1",
+        meta: { features: 0 },
+        metaProvider: () => ({ features: count }),
+      });
+
+      const item = findItem(ui, "attr-live1");
+      ui.openAttrsPanel(item);
+
+      // Change the count and emit the event; the panel row should refresh.
+      count = 7;
+      ui.events.emit("foliplus:layer:item-count-change", { id: "attr-live1" });
+
+      const rendered = rows(item.querySelector(".foliplus-layer-attrs-panel")!);
+      expect(rendered).toContainEqual(["features", "7"]);
+    });
+
+    it("ignores LAYER_ITEM_COUNT_CHANGE for other layers", () => {
+      let count = 0;
+      manager.registerLayer({
+        id: "attr-live2",
+        meta: { features: 0 },
+        metaProvider: () => ({ features: count }),
+      });
+
+      const item = findItem(ui, "attr-live2");
+      ui.openAttrsPanel(item);
+
+      count = 5;
+      // Emit for a different layer id — the panel should not refresh.
+      ui.events.emit("foliplus:layer:item-count-change", { id: "other-layer" });
+
+      const rendered = rows(item.querySelector(".foliplus-layer-attrs-panel")!);
+      expect(rendered).toContainEqual(["features", "0"]);
+    });
+
+    it("unsubscribes the count listener when the panel closes", () => {
+      const unsubSpy = vi.fn();
+      const origOn = ui.events.on;
+      vi.spyOn(ui.events, "on").mockReturnValue(unsubSpy);
+
+      manager.registerLayer({
+        id: "attr-live3",
+        meta: { features: 0 },
+        metaProvider: () => ({ features: 0 }),
+      });
+
+      const item = findItem(ui, "attr-live3");
+      ui.openAttrsPanel(item);
+      expect(ui.attrsUnsubscribe).toBe(unsubSpy);
+
+      ui.closeAttrsPanel(item, false);
+      expect(unsubSpy).toHaveBeenCalled();
+      expect(ui.attrsUnsubscribe).toBeNull();
+
+      vi.restoreAllMocks();
+    });
+
+    it("names the panel in its header and flags the source row as wide", () => {
+      manager.registerLayer({
+        id: "attr-hero1",
+        name: "Parks",
+        source: "https://example.com/parks.geojson",
+      });
+
+      const item = findItem(ui, "attr-hero1");
+      ui.openAttrsPanel(item);
+
+      const header = item.querySelector(".foliplus-panel-header")!;
+      expect(header.querySelector(".foliplus-header-title")!.textContent).toContain(
+        "Parks",
+      );
+      // A close affordance sits at the end of the header bar (shared ×).
+      expect(header.querySelector(".foliplus-close-btn")).not.toBeNull();
+      const wide = item.querySelector(".foliplus-form-control.wide");
+      expect(wide!.textContent).toBe("https://example.com/parks.geojson");
+    });
+
+    it("formats the timestamp from epoch ms", () => {
+      manager.registerLayer({
+        id: "attr-time1",
+        updatedAt: new Date(Date.UTC(2026, 8, 1, 8, 0, 0)).getTime(),
+      });
+
+      const item = findItem(ui, "attr-time1");
+      ui.openAttrsPanel(item);
+
+      expect(
+        rows(item.querySelector(".foliplus-layer-attrs-panel")!).find(
+          ([k]) => k === "LayerControl.attr_updated_at",
+        )?.[1],
+        // Derived from the same Date + options the implementation formats, so
+        // this passes under any runner timezone or ICU build.
+      ).toBe(
+        new Date(Date.UTC(2026, 8, 1, 8, 0, 0)).toLocaleString(CONF.locale_code, {
+          dateStyle: "medium",
+          timeStyle: "short",
+        }),
+      );
+    });
+
+    it("reflects the hidden state in the type row's neighbor set", () => {
+      const item = findItem(ui, "overlay1");
+      (item.querySelector('input[type="checkbox"]') as HTMLInputElement).checked =
+        false;
+
+      ui.openAttrsPanel(item);
+
+      // Visibility is intentionally not listed; the panel still opens and
+      // names the layer.
+      const panel = item.querySelector(".foliplus-layer-attrs-panel")!;
+      const labels = Array.from(panel.querySelectorAll(".foliplus-form-label")).map(
+        el => el.textContent,
+      );
+      expect(labels).not.toContain("LayerControl.attr_visible");
+      expect(panel.querySelector(".foliplus-header-title")!.textContent).toContain(
+        "Polygons",
+      );
+    });
+
+    it("color basemap shows type and no provenance rows", () => {
+      const item = ui.uiContainer.querySelector(
+        `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
+      )!;
+
+      ui.openAttrsPanel(item);
+
+      const panel = item.querySelector(".foliplus-layer-attrs-panel")!;
+      const keys = rows(panel).map(([label]) => label);
+      // No source / timestamp registered → the color basemap's panel shows its
+      // type only.
+      expect(keys).toEqual(["LayerControl.attr_type"]);
+      expect(keys).not.toContain("LayerControl.attr_source");
+      // The color basemap's own name still titles the panel (T() falls back to
+      // the key in jsdom).
+      expect(panel.querySelector(".foliplus-header-title")!.textContent).toContain(
+        "color_map_label",
+      );
+      expect(keys).not.toContain("LayerControl.attr_updated_at");
+    });
+
+    it("names the type row by what the layer is, not by a missing geometry", () => {
+      manager.registerLayer({ id: "attr-base1", group: "base" });
+      const baseItem = findItem(ui, "attr-base1");
+      ui.openAttrsPanel(baseItem);
+      expect(
+        rows(baseItem.querySelector(".foliplus-layer-attrs-panel")!),
+      ).toContainEqual(["LayerControl.attr_type", "LayerControl.type_base"]);
+
+      ui.closeAttrsPanel(false);
+      const colorItem = ui.uiContainer.querySelector(
+        `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
+      )!;
+      ui.openAttrsPanel(colorItem);
+      expect(
+        rows(colorItem.querySelector(".foliplus-layer-attrs-panel")!),
+      ).toContainEqual(["LayerControl.attr_type", "LayerControl.type_color_map"]);
+    });
+
+    it("reads the geometry type from the surface, not the manager snapshot", () => {
+      // The panel reads through surfaceFor(layerInfo).geometryType() so a
+      // snapshot the manager hasn't stamped yet (invalidateType, or a fresh
+      // registration whose render pass hasn't run) still shows the right row.
+      manager.registerLayer({
+        id: "attr-surface1",
+        layer: new window.L.Polygon(),
+      });
+      const item = findItem(ui, "attr-surface1");
+      manager.invalidateType("attr-surface1");
+      expect(manager.layerRegistry.get("attr-surface1")!.type).toBeNull();
+
+      ui.openAttrsPanel(item);
+      expect(rows(item.querySelector(".foliplus-layer-attrs-panel")!)).toContainEqual([
+        "LayerControl.attr_type",
+        "LayerControl.type_polygon",
+      ]);
+    });
+
+    it("names a custom (iconSvg) layer as custom, not by its underlying geometry", () => {
+      // The surface would resolve a data layer's geometry (point / line /
+      // polygon); a layer with its own logo is labelled by what it is. Same
+      // decision tree as rowView.rowType — a data layer registered with an
+      // iconSvg reads as custom in both the row and the panel.
+      const logo =
+        '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" class="logo"/></svg>';
+      manager.registerLayer({
+        id: "attr-custom1",
+        name: "Ruler",
+        iconSvg: logo,
+        layer: new window.L.Polygon(),
+      });
+
+      const item = findItem(ui, "attr-custom1");
+      ui.openAttrsPanel(item);
+      expect(rows(item.querySelector(".foliplus-layer-attrs-panel")!)).toContainEqual([
+        "LayerControl.attr_type",
+        "LayerControl.type_custom",
+      ]);
+    });
+
+    it("shows the feature count grouped, without a stray fraction digit", () => {
+      vi.spyOn(ui.m, "getFeatureCount").mockReturnValue(1234);
+
+      const item = findItem(ui, "overlay1");
+      ui.openAttrsPanel(item);
+
+      const count = rows(item.querySelector(".foliplus-layer-attrs-panel")!).find(
+        ([k]) => k === "LayerControl.attr_feature_count",
+      )?.[1];
+      // `comma` is language-agnostic (always en grouping) and the panel passes
+      // fractionDigits 0, so the value is exactly "1,234" — not "1,234.0".
+      expect(count).toBe("1,234");
+    });
+
+    it("builds on the shared panel vocabulary (header, content, form rows)", () => {
+      const item = findItem(ui, "overlay1");
+      ui.openAttrsPanel(item);
+      const panel = item.querySelector(".foliplus-layer-attrs-panel")!;
+
+      expect(panel.classList.contains("foliplus-panel")).toBe(true);
+      expect(panel.querySelector(".foliplus-panel-header")).not.toBeNull();
+      expect(panel.querySelector(".foliplus-panel-content")).not.toBeNull();
+      expect(panel.querySelectorAll(".foliplus-form-row").length).toBeGreaterThan(0);
+      expect(panel.querySelectorAll(".foliplus-form-label").length).toBeGreaterThan(0);
+
+      const close = panel.querySelector(".foliplus-close-btn");
+      expect(close).not.toBeNull();
+      expect(close!.querySelector("svg")).not.toBeNull();
+    });
+
+    it("prefers the layer's own iconSvg for the header logo", () => {
+      // A non-empty logo: the registry rejects an icon with no content (the
+      // allowlist gate treats a bare <svg> as "no icon") and falls through to
+      // the geometry glyph, which is what this test must beat. The mark rides
+      // on class - the gate keeps presentation attributes, never data-*.
+      const logo =
+        '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" class="logo"/></svg>';
+      manager.registerLayer({ id: "attr-logo1", name: "Logo Layer", iconSvg: logo });
+
+      const item = findItem(ui, "attr-logo1");
+      ui.openAttrsPanel(item);
+
+      const icon = item.querySelector(".foliplus-layer-attrs-icon")!.innerHTML;
+      // Both marks are this layer's logo; the UNKNOWN/geometry glyphs do not
+      // carry either.
+      expect(icon).toContain('r="10"');
+      expect(icon).toContain('class="logo"');
+    });
+
+    it("closeAttrsPanel(setFocus=true) returns focus to the layer row", () => {
+      const item = findItem(ui, "overlay1");
+      const focusSpy = vi.fn();
+      item.focus = focusSpy;
+
+      ui.openAttrsPanel(item);
+      ui.closeAttrsPanel(true);
+
+      expect(focusSpy).toHaveBeenCalled();
+      expect(item.querySelector(".foliplus-layer-attrs-panel")).toBeNull();
+    });
+
+    it("closeAttrsPanel(setFocus=false) does not focus the layer row", () => {
+      const item = findItem(ui, "overlay1");
+      const focusSpy = vi.fn();
+      item.focus = focusSpy;
+
+      ui.openAttrsPanel(item);
+      ui.closeAttrsPanel(false);
+
+      expect(focusSpy).not.toHaveBeenCalled();
+    });
+
+    it("closeAttrsPanel() is a no-op when no panel is open", () => {
+      expect(() => ui.closeAttrsPanel(false)).not.toThrow();
+    });
+
+    it("document capture mousedown outside the panel dismisses it", () => {
+      const item = findItem(ui, "overlay1");
+      ui.openAttrsPanel(item);
+      expect(item.querySelector(".foliplus-layer-attrs-panel")).not.toBeNull();
+
+      // The handler has to be registered in the *capture* phase, because the
+      // layer control stops mousedown from bubbling (Leaflet's
+      // disableClickPropagation). Dispatching on `document` cannot prove that —
+      // target === currentTarget, so a bubble-phase listener would run too. A
+      // wrapper that swallows the bubble, plus a press on its child, does.
+      const wrapper = document.createElement("div");
+      wrapper.addEventListener("mousedown", e => e.stopPropagation());
+      const outside = document.createElement("button");
+      wrapper.appendChild(outside);
+      document.body.appendChild(wrapper);
+
+      outside.dispatchEvent(
+        new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
+      );
+
+      expect(item.querySelector(".foliplus-layer-attrs-panel")).toBeNull();
+      wrapper.remove();
+    });
+
+    it("mousedown inside the panel does not dismiss it", () => {
+      const item = findItem(ui, "overlay1");
+      ui.openAttrsPanel(item);
+      const panel = item.querySelector(".foliplus-layer-attrs-panel")!;
+      panel.dispatchEvent(
+        new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
+      );
+      expect(item.querySelector(".foliplus-layer-attrs-panel")).not.toBeNull();
+    });
+
+    it("records the drag verdict on the press and drops it when the panel closes", () => {
+      // The row is the drag source for any press in the row, panel included, and
+      // `dragstart` cannot say where the press began — so the verdict is recorded
+      // here, on the press, and read by handleDragStart.
+      const item = findItem(ui, "overlay1");
+      ui.openAttrsPanel(item);
+      const panel = item.querySelector(".foliplus-layer-attrs-panel")!;
+
+      panel.dispatchEvent(
+        new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
+      );
+      expect(ui.pressInPanel).toBe(true);
+
+      // A press outside closes the panel and clears the verdict, so a stale
+      // `true` cannot cancel the next legitimate drag.
+      document.body.dispatchEvent(
+        new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
+      );
+      expect(item.querySelector(".foliplus-layer-attrs-panel")).toBeNull();
+      expect(ui.pressInPanel).toBe(false);
+    });
+
+    it("Escape closes an open attributes panel and returns focus to its row", () => {
+      const item = findItem(ui, "overlay1");
+      const focusSpy = vi.fn();
+      item.focus = focusSpy;
+
+      ui.openAttrsPanel(item);
+      const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
+      checkbox.focus();
+
+      ui.handleKeyDown(
+        new KeyboardEvent("keydown", {
+          bubbles: true,
+          cancelable: true,
+          key: "Escape",
+        }) as unknown as KeyboardEvent,
+      );
+
+      expect(item.querySelector(".foliplus-layer-attrs-panel")).toBeNull();
+      expect(focusSpy).toHaveBeenCalled();
+    });
+
+    it("Escape prefers the overflow menu over an open attributes panel", () => {
+      const item = findItem(ui, "overlay1");
+
+      // openAttrsPanel dismisses the menu it came from, so open both and
+      // rebuild the "menu sits on top" state to exercise the precedence.
+      ui.openAttrsPanel(item);
+      const panel = item.querySelector(".foliplus-layer-attrs-panel")!;
+      ui.activeAttrsPanel = { item, panel, layerId: "overlay1" };
+      ui.openMoreMenu(item);
+
+      const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
+      checkbox.focus();
+
+      ui.handleKeyDown(
+        new KeyboardEvent("keydown", {
+          bubbles: true,
+          cancelable: true,
+          key: "Escape",
+        }) as unknown as KeyboardEvent,
+      );
+
+      expect(ui.activeMenu).toBeNull();
+      // One surface per keypress — the panel survives this Escape.
+      expect(item.querySelector(".foliplus-layer-attrs-panel")).toBe(panel);
+    });
+
+    it("closes the previously open panel before opening a new one", () => {
+      const a = findItem(ui, "overlay1");
+      const b = findItem(ui, "base1");
+
+      ui.openAttrsPanel(a);
+      ui.openAttrsPanel(b);
+
+      expect(a.querySelector(".foliplus-layer-attrs-panel")).toBeNull();
+      expect(b.querySelectorAll(".foliplus-layer-attrs-panel").length).toBe(1);
+    });
+
+    it("dismisses the panel on a press outside it, keeps it on a press inside", () => {
+      const item = findItem(ui, "overlay1");
+      ui.openAttrsPanel(item);
+      const panel = item.querySelector(".foliplus-layer-attrs-panel")!;
+
+      // jsdom does not populate event.target on dispatch, so pin it directly.
+      const pressOn = (el: Element): void => {
+        const event = new MouseEvent("mousedown", { bubbles: true });
+        Object.defineProperty(event, "target", { value: el });
+        ui.handleOutsideMousedown(event);
+      };
+
+      pressOn(panel.firstElementChild!);
+      expect(item.querySelector(".foliplus-layer-attrs-panel")).toBe(panel);
+
+      pressOn(document.body);
+      expect(item.querySelector(".foliplus-layer-attrs-panel")).toBeNull();
+    });
+
+    // ── metaProvider tests ────────────────────────────────────────────
+
+    it("displays metaProvider rows including zero values", () => {
+      manager.registerLayer({
+        id: "attr-prov0",
+        metaProvider: () => ({ marker: 0, distance: 2, circle: 1 }),
+      });
+
+      const item = findItem(ui, "attr-prov0");
+      ui.openAttrsPanel(item);
+      const rendered = rows(item.querySelector(".foliplus-layer-attrs-panel")!);
+
+      expect(rendered).toContainEqual(["marker", "0"]);
+      expect(rendered).toContainEqual(["distance", "2"]);
+      expect(rendered).toContainEqual(["circle", "1"]);
+    });
+
+    it("metaProvider overrides static meta for the same key", () => {
+      manager.registerLayer({
+        id: "attr-prov1",
+        meta: { marker: 5 },
+        metaProvider: () => ({ marker: 3 }),
+      });
+
+      const item = findItem(ui, "attr-prov1");
+      ui.openAttrsPanel(item);
+      const rendered = rows(item.querySelector(".foliplus-layer-attrs-panel")!);
+
+      expect(rendered).toContainEqual(["marker", "3"]);
+      expect(rendered).not.toContainEqual(["marker", "5"]);
+    });
+
+    it("refreshes metaProvider rows in place on LAYER_ITEM_COUNT_CHANGE", () => {
+      let count = 0;
+      manager.registerLayer({
+        id: "attr-prov2",
+        metaProvider: () => ({ marker: count }),
+      });
+
+      const item = findItem(ui, "attr-prov2");
+      ui.openAttrsPanel(item);
+
+      const panel = item.querySelector(".foliplus-layer-attrs-panel")!;
+      expect(rows(panel)).toContainEqual(["marker", "0"]);
+
+      count = 2;
+      ui.events.emit("foliplus:layer:item-count-change", { id: "attr-prov2" });
+
+      expect(rows(panel)).toContainEqual(["marker", "2"]);
+    });
+
+    it("ignores LAYER_ITEM_COUNT_CHANGE for a different layer id", () => {
+      manager.registerLayer({
+        id: "attr-prov3",
+        metaProvider: () => ({ marker: 1 }),
+      });
+
+      const item = findItem(ui, "attr-prov3");
+      ui.openAttrsPanel(item);
+
+      const panel = item.querySelector(".foliplus-layer-attrs-panel")!;
+      expect(rows(panel)).toContainEqual(["marker", "1"]);
+
+      ui.events.emit("foliplus:layer:item-count-change", { id: "other" });
+
+      expect(rows(panel)).toContainEqual(["marker", "1"]);
+    });
+  });
+
+  // ─────────────────── more button visibility ───────────────────
+});

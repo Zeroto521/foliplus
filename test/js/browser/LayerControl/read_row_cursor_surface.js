@@ -1,9 +1,7 @@
 () => {
   const panel = document.querySelector(".foliplus-panel-content");
   if (!panel) return null;
-  const items = Array.from(
-    panel.querySelectorAll(".foliplus-layer-item:not(.foliplus-color-layer-item)"),
-  );
+  const items = Array.from(panel.querySelectorAll(".foliplus-layer-item"));
   if (items.length < 2) return null;
 
   // Sample the design-token white the recipe is supposed to paint — never
@@ -19,7 +17,7 @@
     return {
       bg: cs.backgroundColor,
       shadow: cs.boxShadow,
-      active: el.classList.contains("active"),
+      active: el.classList.contains("foliplus-active"),
     };
   };
 
@@ -31,9 +29,9 @@
     box.dispatchEvent(new Event("change", { bubbles: true }));
   }
   const rest = pick(unchecked);
-  unchecked.classList.add("foliplus-layer-focused");
+  unchecked.classList.add("foliplus-is-focused-row");
   const cursor = pick(unchecked);
-  unchecked.classList.remove("foliplus-layer-focused");
+  unchecked.classList.remove("foliplus-is-focused-row");
   const after = pick(unchecked);
 
   // Row 1: force CHECKED. Rest shows the wash; cursor/hover still paints white
@@ -45,9 +43,9 @@
     cbox.dispatchEvent(new Event("change", { bubbles: true }));
   }
   const checkedRest = pick(checkedRow);
-  checkedRow.classList.add("foliplus-layer-focused");
+  checkedRow.classList.add("foliplus-is-focused-row");
   const checkedCursor = pick(checkedRow);
-  checkedRow.classList.remove("foliplus-layer-focused");
+  checkedRow.classList.remove("foliplus-is-focused-row");
   const checkedAfter = pick(checkedRow);
 
   return {

@@ -1,9 +1,7 @@
 () => {
   const panel = document.querySelector(".foliplus-panel-content");
   if (!panel) return null;
-  const items = Array.from(
-    panel.querySelectorAll(".foliplus-layer-item:not(.foliplus-color-layer-item)"),
-  );
+  const items = Array.from(panel.querySelectorAll(".foliplus-layer-item"));
   if (items.length === 0) return null;
   const row = items[0];
   const checkbox = row.querySelector('input[type="checkbox"]');
@@ -14,15 +12,15 @@
   // takes. The delegate samples that once and maps it onto the row class.
   checkbox.focus({ focusVisible: true });
   checkbox.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
-  const litByKeyboard = row.classList.contains("foliplus-layer-focused");
+  const litByKeyboard = row.classList.contains("foliplus-is-focused-row");
 
   // Mouse-like focus must not light the recipe — :focus-visible is false, so
   // the delegate leaves the class off.
   checkbox.blur();
-  row.classList.remove("foliplus-layer-focused");
+  row.classList.remove("foliplus-is-focused-row");
   checkbox.focus({ focusVisible: false });
   checkbox.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
-  const litByMouse = row.classList.contains("foliplus-layer-focused");
+  const litByMouse = row.classList.contains("foliplus-is-focused-row");
 
   return {
     litByKeyboard,

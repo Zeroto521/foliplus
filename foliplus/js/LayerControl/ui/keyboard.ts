@@ -1,19 +1,20 @@
 // LayerControl UI —Roving keyboard cursor + key handling.
 import { HINT_DURATION } from "#core/hint.js";
+import { isNativeControl } from "#core/inputOwnership.js";
 import { ListCursor } from "#core/listCursor.js";
 import * as CONST from "../const.js";
-import { closeAttrsPanel } from "./attrs.js";
-import { owningRow } from "./context.js";
+import { closeAttrsPanel } from "./attr.js";
+import { inFloatingPanel, owningRow } from "./context.js";
 import { toggleFold } from "./drag.js";
 import {
   cancelFocus,
   focusLayer,
   isFocusing,
-  showBaseFocusHint,
+  showFocusDisabledHint,
   toggleFocusedLayer,
 } from "./focus.js";
 import type { LayerUI } from "./index.js";
-import { closeMoreMenu, openMoreMenu } from "./menu.js";
+import { activateDeleteItem, closeMoreMenu, openMoreMenu } from "./menu.js";
 import { finishRename, renameLayer } from "./rename.js";
 
 /** Ensure the shared ListCursor and re-apply ARIA / roving tabindex.
@@ -26,8 +27,7 @@ const syncListCursor = (ui: LayerUI): void => {
   if (!ui.listCursor) {
     ui.listCursor = new ListCursor({
       root: ui.uiContainer,
-      // Same set as getNavigableItems(): layer rows + toggle-all, no color.
-      itemSelector: `${CONST.SEL.LAYER_ITEM}:not(${CONST.SEL.COLOR_ITEM}),${CONST.SEL.TOGGLE_ALL}`,
+      itemSelector: `${CONST.SEL.LAYER_ITEM},${CONST.SEL.TOGGLE_ALL}`,
       activeClass: CONST.CLASSES.FOCUSED,
       mode: "roving",
     });
@@ -75,7 +75,7 @@ const restoreCursor = (ui: LayerUI, ref: string | null): void => {
 };
 
 /** Get all keyboard-navigable rows: layer items and toggle-all rows, in DOM
- *  order. The color item is excluded (it is a picker, not a layer).
+ *  order.
  *
  *  Enumerates the row elements themselves, not their checkboxes. The old
  *  checkbox-first traversal silently dropped any row without a checkbox, so
@@ -87,12 +87,13 @@ const getNavigableItems = (ui: LayerUI): HTMLElement[] => {
     ui.uiContainer.querySelectorAll<HTMLElement>(
       `${CONST.SEL.LAYER_ITEM},${CONST.SEL.TOGGLE_ALL}`,
     ),
-  ).filter(el => !el.classList.contains(CONST.CLASSES.COLOR_ITEM));
+  );
 };
 
 /** Index of the nearest row in `step` direction that is not folded away,
  *  or -1 when the cursor would leave the list. Folded rows are display:none
- *  and not focusable, so plain index 卤 1 would strand the cursor on them. */
+ *  and not focusable, so a plain index + 1 / - 1 would strand the cursor
+ *  on them. */
 
 const findVisibleNeighbor = (
   ui: LayerUI,
@@ -185,14 +186,17 @@ const handleOutsideMousedown = (ui: LayerUI, event: MouseEvent): void => {
   const target = event.target as HTMLElement | null;
   if (!target || typeof target.closest !== "function") {
     ui.closeAttrsPanel(false);
+    ui.closeStylePanel(false);
     clearActiveItem(ui);
     return;
   }
-  // The attributes panel is a floating surface anchored to its row: a press
-  // anywhere outside it dismisses it, panel and map alike. One surface per
-  // press —the overflow menu keeps its own click-delegated close in
-  // interaction.ts, and Escape pops the menu before the panel.
+  // The attributes panel and the style panel are floating surfaces anchored
+  // to their row: a press anywhere outside them dismisses them, panel and
+  // map alike. One surface per press —the overflow menu keeps its own
+  // click-delegated close in interaction.ts, and Escape pops the menu before
+  // the panels.
   if (!target.closest(`.${CONST.CLASSES.ATTRS_PANEL}`)) ui.closeAttrsPanel(false);
+  if (!target.closest(`.${CONST.CLASSES.STYLE_PANEL}`)) ui.closeStylePanel(false);
   if (!target.closest(".foliplus-layer-ctrl")) clearActiveItem(ui);
 };
 
@@ -228,7 +232,13 @@ const syncActiveItem = (ui: LayerUI): void => {
 
 /**
  * Keyboard event handler for layer navigation and interaction.
- * Only responds when focus is within the layer panel.
+ *
+ * Ownership is decided before this runs, not here: the dispatcher checks the
+ * key-ownership table once and drops the event if the focused control
+ * natively consumes the key, so a range slider or a row checkbox parked in
+ * the panel never reaches this function. This handler used to re-ask "is
+ * focus inside my panel?" itself — the same answer the dispatcher had already
+ * settled, which is how a new native control in a panel went unnoticed.
  *
  * Supported shortcuts:
  *   ArrowUp / ArrowDown - Navigate between layer items
@@ -238,8 +248,6 @@ const syncActiveItem = (ui: LayerUI): void => {
  *     the layer focus overlay, or the row keyboard cursor
  */
 const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
-  if (!ui.uiContainer.contains(document.activeElement)) return;
-
   // Escape discharges whatever is open, in the order the user would
   // dismiss it, and otherwise lifts the keyboard cursor. It runs before the
   // cursor guard below: the point of Escape is to drop the cursor.
@@ -259,8 +267,14 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
       ui.closeMoreMenu(true);
     } else if (ui.activeAttrsPanel) {
       // The attributes panel and the overflow menu both float from the same
-      // 鈰?button, so Escape dismisses whichever is on top.
+      // ⋮ button, so Escape dismisses whichever is on top.
       ui.closeAttrsPanel(true);
+    } else if (ui.stylePanelLayerId) {
+      // The style panel floats from the same ⋮ button; Escape dismisses it
+      // and returns focus to its row (the panel's own controls consume the
+      // key first, so this is the fallback for Escape from the row, the map,
+      // or a control that does not handle it).
+      ui.closeStylePanel(true);
     } else if (ui.isFocusing()) {
       ui.cancelFocus();
     }
@@ -311,7 +325,7 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
   }
 
   // Alt+Enter: focus-layer on the currently navigated layer item. This
-  // is a dedicated keyboard entry point (in addition to the 鈰?menu) so
+  // is a dedicated keyboard entry point (in addition to the overflow menu) so
   // power users can focus without leaving the keyboard.
   if (event.altKey && event.key === "Enter" && ui.activeIdx !== null) {
     const item = items[ui.activeIdx];
@@ -342,7 +356,7 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
     case "ArrowRight":
     case " ":
     case "Enter": {
-      // A 鈰?button is focused —that key opens the overflow menu, not the
+      // An overflow-menu button is focused —that key opens the overflow menu, not the
       // row checkbox.
       if (document.activeElement?.classList.contains(CONST.CLASSES.MORE_BTN)) {
         event.preventDefault();
@@ -367,19 +381,29 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
       }
       // Menu item (li) is focused —trigger the focus-layer action.
       // Skip disabled items so the hidden-layer guard applies to keyboard too.
-      const menuLi = (document.activeElement as HTMLElement | null)?.closest?.(
+      const menuLi = ((document.activeElement as HTMLElement | null)?.closest?.(
         ".foliplus-layer-more-menu li",
-      );
+      ) ?? null) as HTMLElement | null;
       if (menuLi && ui.activeMenu) {
         event.preventDefault();
         event.stopPropagation();
         const action = menuLi.getAttribute("data-action") ?? "";
         if (menuLi.getAttribute("disabled")) {
-          ui.m.map.foliplus!.showHint(
-            ui.conf.name,
-            ui.T("focus_layer_hidden"),
-            HINT_DURATION.SHORT,
-          );
+          // The entry's own title carries the reason (no useful extent, hidden
+          // row, no labelable fields, color basemap cannot be deleted), so it
+          // is the hint too — a fixed "cannot focus" string would be wrong for
+          // every disabled entry but focus. Every menu builder sets a title, so
+          // an entry without one has nothing to say.
+          const reason = menuLi.getAttribute("title");
+          if (reason) {
+            ui.m.map.foliplus!.showHint(ui.conf.name, reason, HINT_DURATION.SHORT);
+          }
+          break;
+        }
+        if (action === CONST.ACTION.DELETE_LAYER) {
+          // Armed in place like the click path: the first Enter arms, the
+          // second deletes. While armed the menu stays open.
+          if (activateDeleteItem(ui, menuLi)) ui.closeMoreMenu(true);
           break;
         }
         if (action === CONST.ACTION.RENAME_LAYER) {
@@ -407,7 +431,7 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
  * re-lighting the escaped one.
  *
  * Removing the class is sufficient: the CSS recipe keys only on
- * `.foliplus-layer-focused` + `:hover`, never on `:focus-visible`. DOM
+ * `.foliplus-is-focused-row` + `:hover`, never on `:focus-visible`. DOM
  * focus stays on the row (Escape must not blur to `<body>`), and a later
  * focusin re-applies the class only if the browser still reports
  * keyboard-visible focus. */
@@ -428,46 +452,37 @@ const focusLayerRow = (ui: LayerUI, layerId: string): void => {
 };
 
 /** Double-click on a layer row →focus the map on that layer.
- *  Only dead space on the row counts. Every control on the row is a
- *  denylist hit: two quick toggles / menu clicks / rename edits must not
- *  zoom the map. */
+ *  Only dead space on the row counts: every row control is a denylist hit,
+ *  and presses inside floating panels (style / attributes) are the panel's
+ *  business — two quick toggles / menu clicks / rename edits / label-switch
+ *  flips must not zoom the map. */
 
 const handleDblClick = (ui: LayerUI, event: MouseEvent): void => {
   const target = event.target as HTMLElement;
   const item = target.closest(CONST.SEL.LAYER_ITEM) as HTMLElement | null;
   if (!item) return;
+  if (inFloatingPanel(target)) return;
+  // Every control on the row owns its own press — checkbox, rename field,
+  // color picker, ⋮, chevron — so foliplus owns the row's dead space only.
+  // One shared predicate rather than a selector list: a new control type is
+  // not a new entry here.
   if (
-    target.closest(
-      [
-        "input",
-        "button",
-        `.${CONST.CLASSES.MORE_BTN}`,
-        `.${CONST.CLASSES.FOLD_BTN}`,
-        `.${CONST.CLASSES.RENAME_INPUT}`,
-        `.${CONST.CLASSES.COLOR_INPUT}`,
-        ".foliplus-layer-more-menu",
-        ".drag-handle",
-      ].join(","),
-    )
+    isNativeControl(target) ||
+    target.closest(".foliplus-layer-more-menu, .drag-handle")
   ) {
     return;
   }
-  // Base basemap / color picker have no meaningful extent to zoom to —  // explain instead of silently ignoring the double-click. Hidden layers
-  // ARE passed through: focusLayer shows the "hidden" hint for them.
-  if (item.classList.contains(CONST.CLASSES.COLOR_ITEM)) {
-    showBaseFocusHint(ui);
-    return;
-  }
+  // Base basemap has no meaningful extent to zoom to — explain instead of
+  // silently ignoring the double-click. Hidden layers ARE passed through:
+  // focusLayer shows the "hidden" hint for them.
   if (item.dataset.layerType === CONST.GROUP.BASE) {
-    showBaseFocusHint(ui);
+    showFocusDisabledHint(ui, "base");
     return;
   }
   const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
   if (!layerId) return;
   ui.focusLayer(layerId);
 };
-
-/** Basemaps / color pickers cannot be focused —hint instead of silence. */
 
 export {
   syncListCursor,

@@ -8,8 +8,8 @@ import {
 } from "#common/dom.js";
 import * as CONST from "../const.js";
 import type { LayerUI } from "./index.js";
-import { displayName } from "./list.js";
-import { applyUserState, saveNamesState } from "./state.js";
+import { displayName } from "./rowView.js";
+import { saveNamesState } from "./state.js";
 
 /**
  * Turn the layer's label into an inline editable input so the user can
@@ -25,8 +25,7 @@ const renameLayer = (ui: LayerUI, layerId: string): void => {
   finishRename(ui);
 
   const layerInfo = ui.m.layerRegistry.get(layerId);
-  const isColorLayer = layerId === CONST.COLOR.MAP_ID;
-  if (!layerInfo && !isColorLayer) return;
+  if (!layerInfo) return;
 
   const item = ui.uiContainer.querySelector(
     `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"]`,
@@ -60,7 +59,7 @@ const renameLayer = (ui: LayerUI, layerId: string): void => {
         // layer's own metadata cannot resurrect the author's original name.
         ui.renamedNames[layerId] = trimmed;
         saveNamesState(ui);
-        applyUserState(ui);
+        ui.applyUserState();
       }
       finishRename(ui, true);
     },
@@ -106,8 +105,7 @@ const finishRename = (ui: LayerUI, restoreText = true): void => {
   if (!ui.uiContainer) return;
 
   const layerInfo = ui.m.layerRegistry.get(layerId);
-  const isColorLayer = layerId === CONST.COLOR.MAP_ID;
-  if (!layerInfo && !isColorLayer) return;
+  if (!layerInfo) return;
 
   const item = ui.uiContainer.querySelector(
     `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"]`,
@@ -127,10 +125,11 @@ const finishRename = (ui: LayerUI, restoreText = true): void => {
  * 2. If the layer is not on the map, bring it on temporarily so the bounds
  *    and the visual highlight are consistent with the user's action.
  * 3. If the bounds area is below MIN_BOUNDS_AREA (single Marker, tiny
- *    polygon, etc.), `flyTo` the layer center instead of `fitBounds` — *    `fitBounds` on a degenerate box has no effect.
+ *    polygon, etc.), `flyTo` the layer center instead of `fitBounds` —
+ *    `fitBounds` on a degenerate box has no effect.
  * 4. Draw a dashed rectangle on the exact bounds so the user sees exactly
  *    what "this layer" covers.
- * 5. Highlight the focused layer row with the `foliplus-layer-focusing`
+ * 5. Highlight the focused layer row with the `foliplus-is-focusing`
  *    class so the list →map linkage is visible.
  * 6. Call `fitBounds` with `padding` and `maxZoom` capped to current +
  *    `FOCUS.MAX_ZOOM_STEP` to avoid satellite-zoom snaps on small features.

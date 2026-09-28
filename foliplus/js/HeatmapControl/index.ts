@@ -32,12 +32,13 @@ class HeatmapControl extends BaseControl {
   declare schemeBar: HTMLElement;
   declare schemeBarInner: HTMLElement;
   declare schemeSelectHidden: HTMLSelectElement;
-  declare borderColorInput: HTMLInputElement;
-  declare borderWeightInput: HTMLInputElement;
-  declare labelChk: HTMLInputElement;
-  declare closeSchemeDropdown: (event: MouseEvent) => void;
+  declare closeSchemeDropdown: (event: Event) => void;
   declare toggleSchemeDropdown: () => void;
   initScanCleanup: (() => void) | null = null;
+  schemeBarCleanup: (() => void) | null = null;
+  dropdownCleanup: (() => void) | null = null;
+  toggleDropdown: (() => void) | null = null;
+  selectScheme: ((idx: number) => void) | null = null;
 
   constructor(options?: L.ControlOptions) {
     super(options);
@@ -45,6 +46,10 @@ class HeatmapControl extends BaseControl {
     this.T = T;
     this.schemeDropdown = null;
     this.expandHookDone = false;
+    this.schemeBarCleanup = null;
+    this.dropdownCleanup = null;
+    this.toggleDropdown = null;
+    this.selectScheme = null;
   }
 
   /** Alias for convenience (creates the manager on first access). */
@@ -59,10 +64,11 @@ class HeatmapControl extends BaseControl {
       toggleSvg: SVGs.HEXAGON,
       panelTitle: T("title"),
       closeTitle: T("close_title"),
+      collapseOnOutside: CONF.collapse_on_outside,
     });
     // See LayerControl.buildDOM: keeps the factory's document-level listeners
     // from outliving a control that is removed but not garbage-collected.
-    this.trackCleanup(destroy);
+    this.effect(() => destroy);
     this.ctrl = ctrl;
     this.m.ui = this;
     bindControls(this, panelContent);
@@ -72,7 +78,9 @@ class HeatmapControl extends BaseControl {
   }
 
   /** (Re)start the initial layer scan. Runs on every add, so the control
-   *  recovers after removeControl + addControl (destroy cancels the old scan). */
+   *  recovers after removeControl + addControl (destroy cancels the old scan).
+   *  The scheme-bar handler is only ever (re)bound by bindControls, which
+   *  itself guards the double-registration case. */
   startScan() {
     this.initScanCleanup?.();
     this.initScanCleanup = initScan(this);
@@ -83,6 +91,13 @@ class HeatmapControl extends BaseControl {
     // Clean up map event listeners
     this.initScanCleanup?.();
     this.initScanCleanup = null;
+    this.schemeBarCleanup?.();
+    this.schemeBarCleanup = null;
+    // dropdownCleanup is optional: only the dropdown open/close cycle writes
+    // it, and clearHeatmapCanvas already runs it. Null it here so a handler
+    // can't survive the control — it re-registers on the next dropdown open.
+    this.dropdownCleanup?.();
+    this.dropdownCleanup = null;
 
     const mgr = this.manager;
     this.manager = null;
@@ -96,11 +111,16 @@ class HeatmapControl extends BaseControl {
       mgr.onLayerChange.cancel();
       mgr.removeLayerChangeListener();
     }
+    mgr.removeLayerDeletedListener();
     mgr.removeExportListener();
 
     // Disconnect MutationObserver
     if (this.observer) this.observer.disconnect();
     this.observer = null;
+
+    // Flush any pending write so the last user-initiated change is durable
+    // (write-through here, so the flush is a no-op safety net).
+    mgr.flush();
 
     mgr.clearHeatmapCanvas();
     mgr.overlay.destroy();

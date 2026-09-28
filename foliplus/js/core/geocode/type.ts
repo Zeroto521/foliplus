@@ -79,4 +79,17 @@ interface ProviderConfig {
   };
 }
 
-export type { GeocodeProvider, ProviderConfig, ProviderOpConfig, SuggestItem };
+/** A resolved forward-geocode result (already in the map's CRS). */
+interface GeocodeResult {
+  lng: number;
+  lat: number;
+  display_name: string;
+}
+
+export type {
+  GeocodeProvider,
+  GeocodeResult,
+  ProviderConfig,
+  ProviderOpConfig,
+  SuggestItem,
+};

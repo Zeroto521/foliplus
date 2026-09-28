@@ -193,8 +193,11 @@ describe("InteractionManager", () => {
     document.body.appendChild(outer);
     const inner = document.createElement("div");
     outer.appendChild(inner);
-    const input = document.createElement("input");
-    inner.appendChild(input);
+    // A neutral focusable surface: an <input> would own Enter natively, which
+    // is what the ownership gate defers to, not what this test is about.
+    const row = document.createElement("div");
+    row.tabIndex = 0;
+    inner.appendChild(row);
 
     const outerHandler = vi.fn();
     const innerHandler = vi.fn();
@@ -205,7 +208,7 @@ describe("InteractionManager", () => {
       { key: "Enter", container: inner, handler: innerHandler },
     ]);
 
-    input.focus();
+    row.focus();
     document.dispatchEvent(
       new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
     );
@@ -224,8 +227,9 @@ describe("InteractionManager", () => {
     document.body.appendChild(outer);
     const inner = document.createElement("div");
     outer.appendChild(inner);
-    const input = document.createElement("input");
-    inner.appendChild(input);
+    const row = document.createElement("div");
+    row.tabIndex = 0;
+    inner.appendChild(row);
 
     // Inner container (deeper) but priority=0
     const innerHandler = vi.fn();
@@ -238,7 +242,7 @@ describe("InteractionManager", () => {
       { key: "Enter", container: outer, priority: 1, handler: outerHandler },
     ]);
 
-    input.focus();
+    row.focus();
     document.dispatchEvent(
       new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
     );
@@ -829,5 +833,214 @@ describe("InteractionManager", () => {
     ensureInteraction(map).unregister("Key");
     ensureInteraction(map).unregister("Mouse");
     document.body.removeChild(container);
+  });
+
+  // --- Form-control arrow-key guard: the dispatcher must let native form
+  // controls keep arrow keys instead of passing them to a container shortcut.
+
+  describe("form-control arrow-key guard", () => {
+    it("ArrowDown on textarea is not swallowed", async () => {
+      const { ensureInteraction } = await import("#core/interaction.js");
+      const map = makeMap();
+      const container = document.createElement("div");
+      container.tabIndex = 0;
+      document.body.appendChild(container);
+      const el = document.createElement("textarea");
+      container.appendChild(el);
+      const handler = vi.fn();
+      ensureInteraction(map).register("Guard", [
+        { key: "ArrowDown", container, handler },
+      ]);
+      el.focus();
+      const event = new KeyboardEvent("keydown", {
+        key: "ArrowDown",
+        bubbles: true,
+        cancelable: true,
+      });
+      el.dispatchEvent(event);
+      expect(event.defaultPrevented).toBe(false);
+      expect(handler).not.toHaveBeenCalled();
+      ensureInteraction(map).unregister("Guard");
+      document.body.removeChild(container);
+    });
+
+    it("ArrowDown on select is not swallowed", async () => {
+      const { ensureInteraction } = await import("#core/interaction.js");
+      const map = makeMap();
+      const container = document.createElement("div");
+      container.tabIndex = 0;
+      document.body.appendChild(container);
+      const el = document.createElement("select");
+      container.appendChild(el);
+      const handler = vi.fn();
+      ensureInteraction(map).register("Guard", [
+        { key: "ArrowDown", container, handler },
+      ]);
+      el.focus();
+      const event = new KeyboardEvent("keydown", {
+        key: "ArrowDown",
+        bubbles: true,
+        cancelable: true,
+      });
+      el.dispatchEvent(event);
+      expect(handler).not.toHaveBeenCalled();
+      ensureInteraction(map).unregister("Guard");
+      document.body.removeChild(container);
+    });
+
+    it("ArrowDown on input[type=text] is not swallowed", async () => {
+      const { ensureInteraction } = await import("#core/interaction.js");
+      const map = makeMap();
+      const container = document.createElement("div");
+      container.tabIndex = 0;
+      document.body.appendChild(container);
+      const el = document.createElement("input");
+      el.type = "text";
+      container.appendChild(el);
+      const handler = vi.fn();
+      ensureInteraction(map).register("Guard", [
+        { key: "ArrowDown", container, handler },
+      ]);
+      el.focus();
+      const event = new KeyboardEvent("keydown", {
+        key: "ArrowDown",
+        bubbles: true,
+        cancelable: true,
+      });
+      el.dispatchEvent(event);
+      expect(handler).not.toHaveBeenCalled();
+      ensureInteraction(map).unregister("Guard");
+      document.body.removeChild(container);
+    });
+
+    it("ArrowDown on checkbox is NOT skipped (does not consume arrows)", async () => {
+      const { ensureInteraction } = await import("#core/interaction.js");
+      const map = makeMap();
+      const container = document.createElement("div");
+      container.tabIndex = 0;
+      document.body.appendChild(container);
+      const el = document.createElement("input");
+      el.type = "checkbox";
+      container.appendChild(el);
+      const handler = vi.fn();
+      ensureInteraction(map).register("Guard", [
+        { key: "ArrowDown", container, handler },
+      ]);
+      el.focus();
+      const event = new KeyboardEvent("keydown", {
+        key: "ArrowDown",
+        bubbles: true,
+        cancelable: true,
+      });
+      el.dispatchEvent(event);
+      expect(handler).toHaveBeenCalledTimes(1);
+      ensureInteraction(map).unregister("Guard");
+      document.body.removeChild(container);
+    });
+
+    it("ArrowDown on radio is NOT skipped (does not consume arrows)", async () => {
+      const { ensureInteraction } = await import("#core/interaction.js");
+      const map = makeMap();
+      const container = document.createElement("div");
+      container.tabIndex = 0;
+      document.body.appendChild(container);
+      const el = document.createElement("input");
+      el.type = "radio";
+      container.appendChild(el);
+      const handler = vi.fn();
+      ensureInteraction(map).register("Guard", [
+        { key: "ArrowDown", container, handler },
+      ]);
+      el.focus();
+      const event = new KeyboardEvent("keydown", {
+        key: "ArrowDown",
+        bubbles: true,
+        cancelable: true,
+      });
+      el.dispatchEvent(event);
+      expect(handler).toHaveBeenCalledTimes(1);
+      ensureInteraction(map).unregister("Guard");
+      document.body.removeChild(container);
+    });
+
+    it("non-arrow key on a form control is NOT skipped by the guard", async () => {
+      const { ensureInteraction } = await import("#core/interaction.js");
+      const map = makeMap();
+      const container = document.createElement("div");
+      container.tabIndex = 0;
+      document.body.appendChild(container);
+      const el = document.createElement("input");
+      el.type = "range";
+      container.appendChild(el);
+      const handler = vi.fn();
+      ensureInteraction(map).register("Guard", [
+        { key: "ArrowDown", container, handler },
+      ]);
+      el.focus();
+      const event = new KeyboardEvent("keydown", {
+        key: "Enter",
+        bubbles: true,
+        cancelable: true,
+      });
+      el.dispatchEvent(event);
+      // Enter is not an arrow key — the guard does not fire, so the
+      // shortcut matcher proceeds. No Enter shortcut is registered, so
+      // handler is not called, but the guard's early return did not run.
+      expect(handler).not.toHaveBeenCalled();
+      ensureInteraction(map).unregister("Guard");
+      document.body.removeChild(container);
+    });
+
+    it("non-keyboard event skips the guard entirely", async () => {
+      const { ensureInteraction } = await import("#core/interaction.js");
+      const map = makeMap();
+      const container = document.createElement("div");
+      container.tabIndex = 0;
+      document.body.appendChild(container);
+      const el = document.createElement("input");
+      el.type = "range";
+      container.appendChild(el);
+      const handler = vi.fn();
+      ensureInteraction(map).register("Guard", [
+        { key: "ArrowDown", container, handler },
+      ]);
+      el.focus();
+      // A mousedown event has no key property — the guard's first condition
+      // (eventType === "keydown" || "keyup") is false, so it never reaches
+      // isArrowKey or isFormInput.
+      const event = new MouseEvent("mousedown", {
+        bubbles: true,
+        cancelable: true,
+      });
+      el.dispatchEvent(event);
+      expect(handler).not.toHaveBeenCalled();
+      ensureInteraction(map).unregister("Guard");
+      document.body.removeChild(container);
+    });
+
+    it("keyup on a form control is also let through", async () => {
+      const { ensureInteraction } = await import("#core/interaction.js");
+      const map = makeMap();
+      const container = document.createElement("div");
+      container.tabIndex = 0;
+      document.body.appendChild(container);
+      const el = document.createElement("input");
+      el.type = "range";
+      container.appendChild(el);
+      const handler = vi.fn();
+      ensureInteraction(map).register("Guard", [
+        { key: "ArrowDown", container, handler },
+      ]);
+      el.focus();
+      const event = new KeyboardEvent("keyup", {
+        key: "ArrowDown",
+        bubbles: true,
+        cancelable: true,
+      });
+      el.dispatchEvent(event);
+      expect(handler).not.toHaveBeenCalled();
+      ensureInteraction(map).unregister("Guard");
+      document.body.removeChild(container);
+    });
   });
 });

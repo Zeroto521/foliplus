@@ -27,16 +27,16 @@ describe("LayerUI rename", () => {
       manager.registerLayer({
         id: "overlay2",
         name: "Circles",
-        isBase: false,
+        group: "overlay",
         layer: { options: {}, eachLayer: vi.fn() },
       });
     }
     ui.foldedGroups = new Set();
-    ui.hiddenIds = new Set();
+    ui.hiddenLayerIds = new Set();
     // Folded-group state is persisted to localStorage, so a fold from one test
     // would be re-read by the next test's LayerUI constructor and present as
     // already-folded.
-    window.localStorage.removeItem(CONST.STORAGE.FOLD_KEY);
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
   });
 
   afterEach(() => {
@@ -271,39 +271,63 @@ describe("LayerUI rename", () => {
     });
 
     it("renaming the color basemap updates the color input's aria-label too", () => {
-      // The color row has no checkbox — its toggle is the type="color" input.
-      // Both the label cell and the input must announce the rename, otherwise
-      // assistive tech keeps reading the locale default after a rename.
-      const item = findItem(ui, CONST.COLOR.MAP_ID);
-      const colorInput = item.querySelector(`input[type="color"]`) as HTMLInputElement;
+      // The colour row now carries a real checkbox (visibility toggle through
+      // the executor). Both the label cell and the checkbox must announce the
+      // rename, otherwise assistive tech keeps reading the locale default.
+      const item = findItem(ui, CONST.SOLID_BASEMAP_ID);
+      const colorInput = item.querySelector(
+        `input[type="checkbox"]`,
+      ) as HTMLInputElement;
       // Capture the pre-rename value from the source of truth, not the DOM:
       // the aria-label and the label cell are both projections of
       // displayName(), so comparing them against each other would pass either
       // way — vacuously if neither propagated, and without ever observing a
       // rename at all.
-      const before = ui.displayName(CONST.COLOR.MAP_ID);
+      const before = ui.displayName(CONST.SOLID_BASEMAP_ID);
 
       expect(colorInput.getAttribute("aria-label")).toBe(before);
 
-      ui.renameLayer(CONST.COLOR.MAP_ID);
+      ui.renameLayer(CONST.SOLID_BASEMAP_ID);
       const input = (item.querySelector("label") as HTMLLabelElement).querySelector(
         "input",
       ) as HTMLInputElement;
-      input.value = "My Colour";
+      input.value = "My Color";
       input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
 
-      expect(item.querySelector("label")!.textContent).toBe("My Colour");
-      expect(colorInput.getAttribute("aria-label")).toBe("My Colour");
+      expect(item.querySelector("label")!.textContent).toBe("My Color");
+      expect(colorInput.getAttribute("aria-label")).toBe("My Color");
       // The row tooltip is the TYPE label, a different slot from the name —
       // a rename must not move into it.
       const tooltip = item.getAttribute("title");
-      expect(tooltip).not.toBe("My Colour");
+      expect(tooltip).not.toBe("My Color");
       expect(tooltip).not.toBe("");
     });
 
     it("renameLayer(no-op) for an unknown layer id does nothing", () => {
       ui.renameLayer("no-such-layer");
 
+      expect(ui.activeRenameId).toBeNull();
+    });
+
+    it("finishRename bails when the layer was removed from the registry mid-rename", () => {
+      // Simulates a race: the user starts renaming, the layer is deleted
+      // (e.g. another tab deletes it), and the commit callback fires.
+      // The guard prevents writing into a stale row — the teardown
+      // (removeInlineEditInput / updateItemLabel) is skipped, which is
+      // correct: the registry entry is gone, so there's nothing to restore.
+      const item = findItem(ui, "overlay1");
+      ui.renameLayer("overlay1");
+      expect(ui.activeRenameId).toBe("overlay1");
+
+      manager.layerRegistry.remove("overlay1");
+
+      const label = item.querySelector("label") as HTMLLabelElement;
+      const input = label.querySelector("input") as HTMLInputElement;
+      input.value = "Ghost";
+      input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+
+      // finishRename cleared activeRenameId before the guard, so subsequent
+      // rename calls are not blocked. No exception was thrown.
       expect(ui.activeRenameId).toBeNull();
     });
 
@@ -367,7 +391,9 @@ describe("LayerUI rename", () => {
     // ─────────── color basemap (outside layerRegistry) ───────────
 
     it("color layer more menu shows a disabled focus-layer item", () => {
-      const colorItem = ui.uiContainer.querySelector(`${CONST.SEL.COLOR_ITEM}`)!;
+      const colorItem = ui.uiContainer.querySelector(
+        `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
+      )!;
       ui.openMoreMenu(colorItem);
 
       const focusLi = colorItem.querySelector(
@@ -381,14 +407,16 @@ describe("LayerUI rename", () => {
       expect(renameLi).not.toBeNull();
     });
 
-    it("renameLayer(COLOR.MAP_ID) opens an inline input seeded with the displayed name", () => {
-      const colorItem = ui.uiContainer.querySelector(`${CONST.SEL.COLOR_ITEM}`)!;
+    it("renameLayer(SOLID_BASEMAP_ID) opens an inline input seeded with the displayed name", () => {
+      const colorItem = ui.uiContainer.querySelector(
+        `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
+      )!;
       // Capture the label the UI already shows (locale "Solid Color") BEFORE
       // renaming — createInlineEditInput clears the label's text node.
       const displayed = colorItem.querySelector("label")!.textContent;
-      ui.renameLayer(CONST.COLOR.MAP_ID);
+      ui.renameLayer(CONST.SOLID_BASEMAP_ID);
 
-      expect(ui.activeRenameId).toBe(CONST.COLOR.MAP_ID);
+      expect(ui.activeRenameId).toBe(CONST.SOLID_BASEMAP_ID);
       const label = colorItem.querySelector("label") as HTMLLabelElement;
       const input = label.querySelector("input") as HTMLInputElement | null;
       expect(input).not.toBeNull();
@@ -399,8 +427,10 @@ describe("LayerUI rename", () => {
     });
 
     it("committing a color-layer rename persists to renamedNames (not the registry)", () => {
-      const colorItem = ui.uiContainer.querySelector(`${CONST.SEL.COLOR_ITEM}`)!;
-      ui.renameLayer(CONST.COLOR.MAP_ID);
+      const colorItem = ui.uiContainer.querySelector(
+        `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
+      )!;
+      ui.renameLayer(CONST.SOLID_BASEMAP_ID);
 
       const label = colorItem.querySelector("label") as HTMLLabelElement;
       const input = label.querySelector("input") as HTMLInputElement;
@@ -409,34 +439,40 @@ describe("LayerUI rename", () => {
 
       expect(ui.activeRenameId).toBeNull();
       expect(label.textContent).toBe("My Base");
-      expect(ui.renamedNames[CONST.COLOR.MAP_ID]).toBe("My Base");
-      // The color basemap is not in the registry, so the registry should be
-      // untouched.
-      expect(manager.layerRegistry.get(CONST.COLOR.MAP_ID)).toBeUndefined();
+      expect(ui.renamedNames[CONST.SOLID_BASEMAP_ID]).toBe("My Base");
+      // The colour basemap is now in the registry (for the executor) — rename
+      // still persists to renamedNames, not the registry entry's name field.
+      expect(manager.layerRegistry.get(CONST.SOLID_BASEMAP_ID)?.name).not.toBe(
+        "My Base",
+      );
     });
 
     it("applying a persisted rename restores the color-layer label text", () => {
       window.localStorage.setItem(
-        CONST.STORAGE.NAMES_KEY,
-        JSON.stringify({ [CONST.COLOR.MAP_ID]: "Custom Color" }),
+        CONST.STORAGE.KEY,
+        JSON.stringify({ renamedNames: { [CONST.SOLID_BASEMAP_ID]: "Custom Color" } }),
       );
       ui.loadPersistedState();
       ui.applyUserState();
 
-      const colorItem = ui.uiContainer.querySelector(`${CONST.SEL.COLOR_ITEM}`)!;
+      const colorItem = ui.uiContainer.querySelector(
+        `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
+      )!;
       expect(colorItem.querySelector("label")!.textContent).toBe("Custom Color");
       // The color input's aria-label and tooltip belong to the row builder:
       // the tooltip is the palette type label, and the aria-label stays the
       // color_map_label so the swatch is still announced as the basemap.
-      const colorInput = colorItem.querySelector(
-        'input[type="color"]',
+      const checkbox = colorItem.querySelector(
+        'input[type="checkbox"]',
       ) as HTMLInputElement;
-      expect(colorInput.title).not.toBe("Custom Color");
+      expect(checkbox.title).not.toBe("Custom Color");
     });
 
     it("keeps a renamed color basemap through a re-render (fold/reorder)", () => {
-      ui.renameLayer(CONST.COLOR.MAP_ID);
-      const firstLabel = ui.uiContainer.querySelector(`${CONST.SEL.COLOR_ITEM} label`)!;
+      ui.renameLayer(CONST.SOLID_BASEMAP_ID);
+      const firstLabel = ui.uiContainer.querySelector(
+        `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"] label`,
+      )!;
       // The rename input lives inside the label; the first bare `input` in the
       // item is the color swatch, so scope to the label.
       const firstInput = firstLabel.querySelector("input") as HTMLInputElement;
@@ -444,10 +480,13 @@ describe("LayerUI rename", () => {
       firstInput.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
       expect(firstLabel.textContent).toBe("My Base");
 
-      // Fold toggle / reorder rebuild the list via renderInitialList.
+      // Fold toggle / reorder rebuild the list via renderInitialList + initTypesAndVisibility.
       ui.renderInitialList();
+      ui.initTypesAndVisibility();
 
-      const colorItem = ui.uiContainer.querySelector(`${CONST.SEL.COLOR_ITEM}`)!;
+      const colorItem = ui.uiContainer.querySelector(
+        `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
+      )!;
       expect(colorItem.querySelector("label")!.textContent).toBe("My Base");
       // The tooltip is the TYPE label, not the layer name — a rename must not
       // change it, and it survives a re-render.
@@ -466,8 +505,8 @@ describe("LayerUI rename", () => {
 
     it("loadPersistedState reads renamed names from localStorage", () => {
       window.localStorage.setItem(
-        CONST.STORAGE.NAMES_KEY,
-        JSON.stringify({ overlay1: "Over1", base1: "Over2" }),
+        CONST.STORAGE.KEY,
+        JSON.stringify({ renamedNames: { overlay1: "Over1", base1: "Over2" } }),
       );
 
       ui.loadPersistedState();
@@ -477,8 +516,8 @@ describe("LayerUI rename", () => {
 
     it("applyUserState overwrites the registry name and the label text", () => {
       window.localStorage.setItem(
-        CONST.STORAGE.NAMES_KEY,
-        JSON.stringify({ overlay1: "Persisted Name" }),
+        CONST.STORAGE.KEY,
+        JSON.stringify({ renamedNames: { overlay1: "Persisted Name" } }),
       );
 
       ui.loadPersistedState();
@@ -497,8 +536,8 @@ describe("LayerUI rename", () => {
 
     it("does not re-write a row that already holds the stored name", () => {
       window.localStorage.setItem(
-        CONST.STORAGE.NAMES_KEY,
-        JSON.stringify({ overlay1: "Persisted Name" }),
+        CONST.STORAGE.KEY,
+        JSON.stringify({ renamedNames: { overlay1: "Persisted Name" } }),
       );
       ui.loadPersistedState();
       ui.applyUserState();
@@ -528,8 +567,10 @@ describe("LayerUI rename", () => {
 
     it("a targeted apply updates only that layer's registry entry", () => {
       window.localStorage.setItem(
-        CONST.STORAGE.NAMES_KEY,
-        JSON.stringify({ overlay1: "Renamed", base1: "Also Renamed" }),
+        CONST.STORAGE.KEY,
+        JSON.stringify({
+          renamedNames: { overlay1: "Renamed", base1: "Also Renamed" },
+        }),
       );
       ui.loadPersistedState();
 
@@ -574,15 +615,15 @@ describe("LayerUI rename", () => {
       checkbox.title = "Polygons";
       ui.renamedNames = {};
 
-      window.localStorage.setItem(CONST.STORAGE.NAMES_KEY, "not-json");
+      window.localStorage.setItem(CONST.STORAGE.KEY, "not-json");
       ui.loadPersistedState();
       expect(ui.renamedNames).toEqual({});
 
-      window.localStorage.setItem(CONST.STORAGE.NAMES_KEY, "[]");
+      window.localStorage.setItem(CONST.STORAGE.KEY, "[]");
       ui.loadPersistedState();
       expect(ui.renamedNames).toEqual({});
 
-      window.localStorage.setItem(CONST.STORAGE.NAMES_KEY, "null");
+      window.localStorage.setItem(CONST.STORAGE.KEY, "null");
       ui.loadPersistedState();
       expect(ui.renamedNames).toEqual({});
 
@@ -599,11 +640,11 @@ describe("LayerUI rename", () => {
       vi.useFakeTimers();
       input.value = "Persisted";
       input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
-      vi.advanceTimersByTime(CONST.SAVE_ORDER_DEBOUNCE_MS + 50);
+      vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
       vi.useRealTimers();
 
-      const stored = JSON.parse(window.localStorage.getItem(CONST.STORAGE.NAMES_KEY)!);
-      expect(stored).toEqual({ overlay1: "Persisted" });
+      const stored = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!);
+      expect(stored.renamedNames).toEqual({ overlay1: "Persisted" });
     });
 
     it("debounces rapid renames into a single localStorage write", () => {
@@ -639,13 +680,17 @@ describe("LayerUI rename", () => {
       input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
 
       expect(setItem).not.toHaveBeenCalled();
-      vi.advanceTimersByTime(CONST.SAVE_ORDER_DEBOUNCE_MS + 50);
+      vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
 
-      const namesCall = setItem.mock.calls.find(
-        (c: string[]) => c[0] === CONST.STORAGE.NAMES_KEY,
-      );
+      const namesCall = setItem.mock.calls.find((c: [string, string]) => {
+        try {
+          return "overlay1" in (JSON.parse(c[1]).renamedNames ?? {});
+        } catch {
+          return false;
+        }
+      });
       expect(namesCall).toBeDefined();
-      expect(JSON.parse(namesCall![1])).toEqual({ overlay1: "Third" });
+      expect(JSON.parse(namesCall![1]).renamedNames).toEqual({ overlay1: "Third" });
 
       vi.useRealTimers();
       Object.defineProperty(window, "localStorage", {
@@ -677,11 +722,15 @@ describe("LayerUI rename", () => {
       input.value = "Polygons"; // unchanged
       input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
 
-      vi.advanceTimersByTime(CONST.SAVE_ORDER_DEBOUNCE_MS + 50);
+      vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
 
-      const namesCall = setItem.mock.calls.find(
-        (c: string[]) => c[0] === CONST.STORAGE.NAMES_KEY,
-      );
+      const namesCall = setItem.mock.calls.find((c: [string, string]) => {
+        try {
+          return "overlay1" in (JSON.parse(c[1]).renamedNames ?? {});
+        } catch {
+          return false;
+        }
+      });
       expect(namesCall).toBeUndefined();
 
       vi.useRealTimers();

@@ -21,10 +21,3 @@ describe("CIRCLE", () => {
     expect(SVGs.CIRCLE).toContain("</svg>");
   });
 });
-
-describe("TRASH", () => {
-  it("is an SVG string", () => {
-    expect(SVGs.TRASH).toContain("<svg");
-    expect(SVGs.TRASH).toContain("</svg>");
-  });
-});

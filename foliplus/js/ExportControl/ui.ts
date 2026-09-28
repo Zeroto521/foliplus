@@ -10,7 +10,8 @@ import { bindMapSync } from "#common/panel.js";
 import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
 import { registerCropMouseDown } from "./interaction.js";
-import type { ExportManager, Rect } from "./manager.js";
+import type { ExportManager } from "./manager.js";
+import type { CropRect } from "./type.js";
 
 /** Toolbar action button config. */
 interface ToolbarButton {
@@ -53,7 +54,7 @@ const renderToolbarActions = (
 };
 
 /** Update crop box element position/size. */
-const updateBoxStyle = (mgr: ExportManager, el: HTMLElement, r: Rect) => {
+const updateBoxStyle = (mgr: ExportManager, el: HTMLElement, r: CropRect) => {
   el.style.left = `${r.left}px`;
   el.style.top = `${r.top}px`;
   el.style.width = `${r.width}px`;
@@ -92,7 +93,7 @@ const showGlobalHint = (
 };
 
 /** Show a hint with crop box size info. */
-const showHintWithInfo = (mgr: ExportManager, r: Rect, instruction?: string) => {
+const showHintWithInfo = (mgr: ExportManager, r: CropRect, instruction?: string) => {
   mgr.checkPixelLimit(r);
   mgr.map.foliplus!.showHint(
     mgr.conf.name,
@@ -179,12 +180,15 @@ const showCropBox = (mgr: ExportManager) => {
   }
 
   const overlay = dom.el("div", {
-    class: `foliplus-export-overlay active`,
+    class: `foliplus-export-overlay foliplus-is-active`,
     parent: mgr.mapContainer,
   });
-  mgr.mapContainer.classList.add(CONST.CLASSES.MODE);
-  document.body.classList.add(CONST.CLASSES.MODE);
-  const cropBox = dom.el("div", { class: CONST.CLASSES.BOX, parent: mgr.mapContainer });
+  mgr.mapContainer.classList.add(CONST.CLASSES.EXPORT_MODE);
+  document.body.classList.add(CONST.CLASSES.EXPORT_MODE);
+  const cropBox = dom.el("div", {
+    class: CONST.CLASSES.EXPORT_BOX,
+    parent: mgr.mapContainer,
+  });
 
   ["tl", "tr", "bl", "br", "t", "b", "l", "r"].forEach(pos => {
     dom.el("div", {
@@ -193,7 +197,7 @@ const showCropBox = (mgr: ExportManager) => {
       "data-pos": pos,
     });
   });
-  dom.el("div", { class: CONST.CLASSES.CENTER, parent: cropBox });
+  dom.el("div", { class: CONST.CLASSES.EXPORT_CROP_CENTER, parent: cropBox });
 
   renderToolbarActions(mgr, {
     confirm: {
@@ -203,7 +207,7 @@ const showCropBox = (mgr: ExportManager) => {
     },
     cancel: {
       title: mgr.T("btn_cancel"),
-      svg: Icons.CLOSE,
+      svg: Icons.CLOSE_ICON,
       onclick: () => mgr.removeCropBox(),
     },
   });
@@ -229,7 +233,7 @@ const showCropBox = (mgr: ExportManager) => {
 const lockCropBox = (mgr: ExportManager, skipHint = false) => {
   if (!mgr.cropState || mgr.cropState.locked) return;
   mgr.cropState.locked = true;
-  mgr.cropState.box.classList.add("locked");
+  mgr.cropState.box.classList.add(CONST.CLASSES.LOCKED);
   // Drop the editing class if an arrow-key nudge is still in flight — nudging
   // suppresses the box transition, which a locked box should not keep.
   mgr.cropState.box.classList.remove(CONST.CLASSES.DRAGGING);
@@ -242,12 +246,12 @@ const lockCropBox = (mgr: ExportManager, skipHint = false) => {
   renderToolbarActions(mgr, {
     confirm: {
       title: mgr.T("btn_export"),
-      svg: Icons.DOWNLOAD,
+      svg: Icons.DOWNLOAD_ICON,
       onclick: () => mgr.doExport(),
     },
     cancel: {
       title: mgr.T("btn_cancel"),
-      svg: Icons.CLOSE,
+      svg: Icons.CLOSE_ICON,
       onclick: () => mgr.unlockCropBox(),
     },
   });
@@ -271,7 +275,7 @@ const lockCropBox = (mgr: ExportManager, skipHint = false) => {
 const unlockCropBox = (mgr: ExportManager) => {
   if (!mgr.cropState || !mgr.cropState.locked) return;
   mgr.cropState.locked = false;
-  mgr.cropState.box.classList.remove("locked");
+  mgr.cropState.box.classList.remove(CONST.CLASSES.LOCKED);
   if (mgr.mapMoveCleanup) mgr.mapMoveCleanup();
   renderToolbarActions(mgr, {
     confirm: {
@@ -281,7 +285,7 @@ const unlockCropBox = (mgr: ExportManager) => {
     },
     cancel: {
       title: mgr.T("btn_cancel"),
-      svg: Icons.CLOSE,
+      svg: Icons.CLOSE_ICON,
       onclick: () => mgr.removeCropBox(),
     },
   });
@@ -295,8 +299,8 @@ const unlockCropBox = (mgr: ExportManager) => {
 const removeCropBox = (mgr: ExportManager) => {
   if (!mgr.cropState) return;
   mgr.lastScreenRect = Object.assign({}, mgr.cropState.rect);
-  mgr.mapContainer.classList.remove(CONST.CLASSES.MODE);
-  document.body.classList.remove(CONST.CLASSES.MODE);
+  mgr.mapContainer.classList.remove(CONST.CLASSES.EXPORT_MODE);
+  document.body.classList.remove(CONST.CLASSES.EXPORT_MODE);
   mgr.unregisterShortcuts();
   mgr.dragCleanup?.();
   mgr.dragState.dragging = false;

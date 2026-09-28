@@ -3,7 +3,7 @@
   if (!panel) return null;
   const base = panel.querySelector('.foliplus-layer-item[data-layer-type="base"]');
   const overlay = panel.querySelector(
-    '.foliplus-layer-item:not([data-layer-type="base"]):not(.foliplus-color-layer-item)',
+    '.foliplus-layer-item:not([data-layer-type="base"])',
   );
   if (!base || !overlay) return null;
 
@@ -24,7 +24,7 @@
       glow: cs.boxShadow !== "none",
       bg: cs.backgroundColor,
       cursor: cs.cursor,
-      active: el.classList.contains("active"),
+      active: el.classList.contains("foliplus-active"),
     };
   };
 
@@ -35,9 +35,9 @@
     baseBox.checked = true;
     baseBox.dispatchEvent(new Event("change", { bubbles: true }));
   }
-  base.classList.add("foliplus-layer-focused");
+  base.classList.add("foliplus-is-focused-row");
   const baseCheckedHover = pick(base);
-  base.classList.remove("foliplus-layer-focused");
+  base.classList.remove("foliplus-is-focused-row");
 
   // Overlay row still gets the full cursor recipe.
   const overlayBox = overlay.querySelector('input[type="checkbox"]');
@@ -45,7 +45,9 @@
   const overlayAfter = pick(overlay);
 
   // Color picker row is quiet too.
-  const color = panel.querySelector(".foliplus-color-layer-item");
+  const color = panel.querySelector(
+    '.foliplus-layer-item[data-layer-id="foliplus_color_map"]',
+  );
   const colorAfter = color ? pick(color) : null;
 
   return { white, wash, baseCheckedHover, overlayAfter, colorAfter };

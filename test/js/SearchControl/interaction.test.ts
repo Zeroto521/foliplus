@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { HISTORY_STORAGE_KEY } from "#foliplus/SearchControl/const.js";
+import { HISTORY } from "#foliplus/SearchControl/const.js";
 import { bindEvents, initFromUrl } from "#foliplus/SearchControl/interaction.js";
 import { Cache } from "#foliplus/common/cache.js";
 import { dom } from "#foliplus/common/dom.js";
@@ -7,17 +7,19 @@ import { ensureModes } from "#foliplus/core/mode.js";
 
 function makeCtrl(): any {
   const ctrlDiv = document.createElement("div");
-  ctrlDiv.className = "foliplus-search collapsed";
+  ctrlDiv.className = "foliplus-search foliplus-is-collapsed";
   const toggleBtn = document.createElement("button");
   const clearBtn = document.createElement("button");
   const inp = document.createElement("input");
-  const handlers = {};
+  const handlers: Record<string, unknown> = {};
+  const cleanup: Array<() => void> = [];
+  const ac = new AbortController();
   const originalAdd = inp.addEventListener.bind(inp);
-  inp.addEventListener = vi.fn((event, fn) => {
+  inp.addEventListener = vi.fn((event, fn, options) => {
     // keydown: let KeyboardManager bind normally (real listener)
     // other events (input, focus, blur): capture for direct test calls
     if (event !== "keydown") handlers[event] = fn;
-    originalAdd(event, fn);
+    originalAdd(event, fn, options);
   });
   return {
     ctrl: ctrlDiv,
@@ -25,6 +27,8 @@ function makeCtrl(): any {
     clearBtn,
     inp,
     _handlers: handlers,
+    _ac: ac,
+    _cleanup: cleanup,
     mode: "coord",
     marker: null,
     delIcon: null,
@@ -36,11 +40,26 @@ function makeCtrl(): any {
     cachedAddress: {},
     cachedSuggestions: new Cache<string, object>(50),
     searchHistory: [],
+    get signal() {
+      return ac.signal;
+    },
+    on(
+      target: EventTarget,
+      type: string,
+      fn: EventListener,
+      options?: AddEventListenerOptions,
+    ) {
+      target.addEventListener(type, fn, { ...options, signal: ac.signal });
+      return () => target.removeEventListener(type, fn, options?.capture ?? false);
+    },
+    effect(setup: () => unknown) {
+      const r = setup();
+      if (typeof r === "function") cleanup.push(r as () => void);
+    },
   };
 }
 
 beforeEach(() => {
-  vi.clearAllMocks();
   // Let panel.js bindFoldToggle delegate to real DOM listeners so clicks fire.
   window.L.DomEvent.on = vi.fn((el, event, fn) => el.addEventListener(event, fn));
   window.L.DomEvent.off = vi.fn((el, event, fn) => el.removeEventListener(event, fn));
@@ -48,12 +67,12 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  delete globalThis.fetch;
+  Reflect.deleteProperty(globalThis, "fetch");
   document.body.innerHTML = "";
   window.history.replaceState(null, "", "/");
   // Clear search history so a test that runs a real geocode (searchCoord /
   // searchAddress) cannot pollute a later test that asserts on an empty store.
-  delete window.localStorage[HISTORY_STORAGE_KEY];
+  window.localStorage.removeItem(HISTORY.STORAGE_KEY);
   // window.map is shared across tests; clear active modes so a blocked-mode
   // test cannot leak and silently fail the next test.
   const modes = ensureModes(window.map);
@@ -67,31 +86,31 @@ describe("bindEvents", () => {
     const ctrl = makeCtrl();
     bindEvents(ctrl);
     ctrl.toggleBtn.click();
-    expect(ctrl.ctrl.classList.contains("expanded")).toBe(true);
+    expect(ctrl.ctrl.classList.contains("foliplus-is-expanded")).toBe(true);
     ctrl.toggleBtn.click();
-    expect(ctrl.ctrl.classList.contains("collapsed")).toBe(true);
+    expect(ctrl.ctrl.classList.contains("foliplus-is-collapsed")).toBe(true);
   });
 
   it("collapses and hides hint on Escape", () => {
     const ctrl = makeCtrl();
-    ctrl.ctrl.classList.add("expanded");
+    ctrl.ctrl.classList.add("foliplus-is-expanded");
     bindEvents(ctrl);
     ctrl.inp.dispatchEvent(
       new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
     );
-    expect(ctrl.ctrl.classList.contains("collapsed")).toBe(true);
+    expect(ctrl.ctrl.classList.contains("foliplus-is-collapsed")).toBe(true);
     expect(window.map.foliplus.hideHint).toHaveBeenCalledWith("SearchControl");
   });
 
   it("removes floating panel when container is collapsed", async () => {
     const ctrl = makeCtrl();
-    ctrl.ctrl.classList.add("expanded");
+    ctrl.ctrl.classList.add("foliplus-is-expanded");
     ctrl.panelWrap = document.createElement("div");
     document.body.appendChild(ctrl.panelWrap);
     bindEvents(ctrl);
     // Simulate collapse via outside click (class toggle without calling onCollapse)
-    ctrl.ctrl.classList.remove("expanded");
-    ctrl.ctrl.classList.add("collapsed");
+    ctrl.ctrl.classList.remove("foliplus-is-expanded");
+    ctrl.ctrl.classList.add("foliplus-is-collapsed");
     // MutationObserver fires asynchronously; flush microtasks
     await new Promise(r => setTimeout(r, 0));
     expect(ctrl.panelWrap).toBeNull();
@@ -99,8 +118,8 @@ describe("bindEvents", () => {
 
   it("does not remove the panel on unrelated class changes while expanded", async () => {
     const ctrl = makeCtrl();
-    ctrl.ctrl.classList.remove("collapsed");
-    ctrl.ctrl.classList.add("expanded");
+    ctrl.ctrl.classList.remove("foliplus-is-collapsed");
+    ctrl.ctrl.classList.add("foliplus-is-expanded");
     ctrl.panelWrap = dom.el("div");
     bindEvents(ctrl);
     // A class change while expanded must not trigger removePanel.
@@ -112,7 +131,7 @@ describe("bindEvents", () => {
   it("navigates suggestions with ArrowDown", () => {
     const ctrl = makeCtrl();
     ctrl.panelWrap = dom.el("div");
-    const mk = text =>
+    const mk = (text: string) =>
       dom.el(
         "div",
         { class: "foliplus-search-result-item" },
@@ -153,7 +172,7 @@ describe("bindEvents", () => {
   it("navigates suggestions with ArrowUp", () => {
     const ctrl = makeCtrl();
     ctrl.panelWrap = dom.el("div");
-    const mk = text =>
+    const mk = (text: string) =>
       dom.el(
         "div",
         { class: "foliplus-search-result-item" },
@@ -275,7 +294,7 @@ describe("bindEvents", () => {
 
   it("Escape with open suggestions removes suggestions", () => {
     const ctrl = makeCtrl();
-    ctrl.ctrl.classList.add("expanded");
+    ctrl.ctrl.classList.add("foliplus-is-expanded");
     ctrl.panelWrap = dom.el(
       "div",
       null,
@@ -301,7 +320,7 @@ describe("bindEvents", () => {
   it("adopts the keyboard-highlighted entry on Enter", () => {
     const ctrl = makeCtrl();
     ctrl.mode = "addr";
-    const mk = text =>
+    const mk = (text: string) =>
       dom.el(
         "div",
         { class: "foliplus-search-result-item" },
@@ -357,7 +376,7 @@ describe("bindEvents", () => {
     // (matching the mouse-click path).
     expect(click).toHaveBeenCalledTimes(1);
     expect(map.flyTo).not.toHaveBeenCalled();
-    expect(window.localStorage.getItem(HISTORY_STORAGE_KEY)).toBeNull();
+    expect(window.localStorage.getItem(HISTORY.STORAGE_KEY)).toBeNull();
     // Panel stays open so the user sees why they were refused.
     expect(ctrl.selectedIdx).toBe(0);
     expect(ctrl.currentItems).toHaveLength(1);
@@ -643,7 +662,7 @@ describe("bindEvents", () => {
   it("keyboard navigation clamps at panel boundaries", () => {
     const ctrl = makeCtrl();
     ctrl.panelWrap = dom.el("div");
-    const mk = text =>
+    const mk = (text: string) =>
       dom.el(
         "div",
         { class: "foliplus-search-result-item" },
@@ -696,7 +715,7 @@ describe("bindEvents", () => {
 
   it("returns cleanup function that disconnects observer", () => {
     const ctrl = makeCtrl();
-    const cleanup = bindEvents(ctrl);
+    const cleanup = bindEvents(ctrl) as () => void;
     expect(typeof cleanup).toBe("function");
     cleanup();
     expect(typeof cleanup).toBe("function");

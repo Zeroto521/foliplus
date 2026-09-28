@@ -1,4 +1,3 @@
-import type { LayerEvent } from "leaflet";
 import { createControlEnv } from "#core/controlEnv.js";
 import { requireLayerAPI } from "#core/layer/index.js";
 import { BaseControl } from "#foliplus/BaseControl.js";
@@ -10,40 +9,6 @@ import { ExportManager } from "./manager.js";
 createControlEnv(CONF, SVGs.CAMERA);
 const T = createScopedTranslator(CONF);
 requireLayerAPI(CONF.name, T, map);
-
-// ==================== CORS Pre-setup ====================
-// Set crossOrigin on ALL existing TileLayers so tiles load with CORS
-// from the start. This is THE KEY to avoiding canvas taint — if tiles
-// are loaded without CORS, drawImage will taint the canvas and
-// toBlob() will return null (blank image).
-//
-// We also intercept future layer additions to set crossOrigin.
-// Deliberately module-level (not instance-level): these bindings hang off
-// the map, so `map.removeControl()` must NOT tear them down — exporting
-// must keep working after the control is re-added.
-map.eachLayer((layer: L.Layer) => {
-  if (layer instanceof L.GridLayer) {
-    const opts = layer.options as L.TileLayerOptions;
-    if (!opts.crossOrigin) {
-      opts.crossOrigin = "anonymous";
-      if (map.hasLayer(layer)) {
-        map.removeLayer(layer);
-        map.addLayer(layer);
-      }
-    }
-  }
-});
-
-map.on("layeradd", (event: L.LeafletEvent) => {
-  // `LayerEvent` is an exported interface, not a member of the `L` namespace
-  // (`export as namespace L` only re-exports namespaces and classes), so it must
-  // be imported as a type — `L.LayerEvent` resolves to `any` and defeats the cast.
-  const layer = (event as LayerEvent).layer;
-  if (layer instanceof L.GridLayer) {
-    const opts = layer.options as L.TileLayerOptions;
-    if (!opts.crossOrigin) opts.crossOrigin = "anonymous";
-  }
-});
 
 // ==================== Leaflet Control ====================
 // Manager creation is lazy so destroy() + re-add re-creates a fresh manager.

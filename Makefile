@@ -1,7 +1,7 @@
 .PHONY : help
 .PHONY: lint html info env
 .PHONY: dist build-js build-js-dev build-python
-.PHONY: test test-browser test-python test-js
+.PHONY: test test-browser test-python test-python-fast test-js
 .PHONY: bundle-size-check
 .PHONY: clean clean-build clean-pyc clean-cov clean-html clean-bundle-treemap
 
@@ -19,9 +19,11 @@ help:
 	@echo "               'python -m build', which skips the JS build gate"
 	@echo "'test'         - run all tests with coverage"
 	@echo "'test-browser' - run browser tests"
-	@echo "'test-python'  - run Python-only tests (skip browser)"
+	@echo "'test-python'  - run all Python tests (unit + browser)"
+	@echo "'test-python-fast' - run Python tests without the browser (local quick pass)"
 	@echo "'test-js'      - run JS tests (skip Python)"
 	@echo "'bundle-size-check'   - print bundle sizes (brotli) of the current build"
+	@echo "'bundle-gates'   - build + run fuse and delta gates (CI)"
 	@echo "'clean-build'  - remove build artifacts"
 	@echo "'clean-pyc'    - remove Python cache files"
 	@echo "'clean-cov'    - remove coverage files"
@@ -65,6 +67,14 @@ build-js-dev:
 bundle-size-check: build-js
 	npm run bundle-size:check
 
+bundle-gates: build-js
+	node script/bundle-fuse.mjs
+	@if [ -f base-sizes.json ]; then \
+		node script/bundle-size-check.mjs --baseline=base-sizes.json --enforce; \
+	else \
+		@echo "No baseline — skipping delta check."; \
+	fi
+
 build-python:
 	# `foliplus/dist` is not under version control, so without this gate
 	# `uv build` happily ships a wheel with zero bundled JS/CSS — it installs,
@@ -79,17 +89,24 @@ JOBS ?= auto
 
 test: build-js-dev test-js
 	npm run build:verify
-	pytest -v -r a --color=yes -n $(JOBS) --cov=foliplus --cov-append --cov-report=term-missing --cov-report=xml --junitxml=junit.xml -o junit_family=legacy test/python
+	pytest -v -r a --color=yes -n $(JOBS) --cov=foliplus --cov=script --cov-append --cov-report=term-missing --cov-report=xml --junitxml=junit.xml -o junit_family=legacy test/python script
 
+# Full Python suite (unit + browser). This is the honest name for the Python
+# half of `test`; the browser marker is not filtered here.
 test-python: build-js-dev
 	npm run build:verify
-	pytest -v -r a --color=yes -n $(JOBS) -m "not browser" --cov=foliplus --cov-append --cov-report=term-missing --cov-report=xml --junitxml=junit.xml -o junit_family=legacy test/python
+	pytest -v -r a --color=yes -n $(JOBS) --cov=foliplus --cov=script --cov-append --cov-report=term-missing --cov-report=xml --junitxml=junit.xml -o junit_family=legacy test/python script
+
+# Local quick pass: everything except browser tests (no Playwright needed).
+test-python-fast: build-js-dev
+	npm run build:verify
+	pytest -v -r a --color=yes -n $(JOBS) -m "not browser" --cov=foliplus --cov=script --cov-append --cov-report=term-missing --cov-report=xml --junitxml=junit.xml -o junit_family=legacy test/python script
 
 test-browser: build-js-dev
 	npm run build:verify
-	pytest -v -r a --color=yes -n $(JOBS) -m "browser" --cov=foliplus --cov-append --cov-report=term-missing --cov-report=xml --junitxml=junit-browser.xml -o junit_family=legacy test/python
+	pytest -v -r a --color=yes -n $(JOBS) -m "browser" --cov=foliplus --cov=script --cov-append --cov-report=term-missing --cov-report=xml --junitxml=test-browser.junit.xml -o junit_family=legacy test/python script
 
-test-js:
+test-js: build-js-dev
 	npm test
 
 html:

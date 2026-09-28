@@ -12,6 +12,14 @@ import { panelContentHTML } from "./template.js";
 /** Shape of the HeatmapControl instance as consumed by UI functions. */
 interface HeatmapControlUI {
   m: HeatmapManager;
+  /** BaseControl.on — DOM listeners bound through the control's mounting
+   *  signal, so a removed control tears them down with everything else. */
+  on: (
+    target: EventTarget,
+    type: string,
+    fn: EventListenerOrEventListenerObject,
+    options?: AddEventListenerOptions,
+  ) => () => void;
   /** Component config — carried on the state object instead of a module-level
    *  free variable, so every UI function is unit-testable with its own CONF. */
   conf: ComponentConfig;
@@ -20,10 +28,10 @@ interface HeatmapControlUI {
   ctrl: HTMLElement;
   schemeDropdown: HTMLElement | null;
   expandHookDone: boolean;
-  schemeBarCleanup?: () => void;
-  dropdownCleanup?: () => void;
-  toggleDropdown?: () => void;
-  selectScheme?: (idx: number) => void;
+  schemeBarCleanup: (() => void) | null;
+  dropdownCleanup: (() => void) | null;
+  toggleDropdown: (() => void) | null;
+  selectScheme: ((idx: number) => void) | null;
   observer: MutationObserver | null;
   layerSelect: HTMLSelectElement;
   extraBody: HTMLElement;
@@ -36,19 +44,18 @@ interface HeatmapControlUI {
   schemeBar: HTMLElement;
   schemeBarInner: HTMLElement;
   schemeSelectHidden: HTMLSelectElement;
-  borderColorInput: HTMLInputElement;
-  borderWeightInput: HTMLInputElement;
-  labelChk: HTMLInputElement;
-  closeSchemeDropdown: (event: MouseEvent) => void;
+  /** Takes `Event`, not `MouseEvent`, because it is handed to `on()` as an
+   *  `EventListener` — only `.target` is read. */
+  closeSchemeDropdown: (event: Event) => void;
   toggleSchemeDropdown: () => void;
 }
 
 /** Save the current config after any user-initiated change. */
 const persist = (ctrl: HeatmapControlUI) => {
   ctrl.m.saveConfig();
-  // Field/method/scheme changes rewrite the canvas — stamp the layer so the
-  // attributes panel's Updated row reflects the latest render.
-  ctrl.m.map.foliplus?.LayerAPI?.touchLayer?.(ctrl.m.layerId);
+  // Field/layer changes rewrite the canvas — mirror source layer + field into
+  // the attrs panel and stamp Updated so the panel tracks the latest render.
+  ctrl.m.syncSourceMeta();
 };
 
 const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
@@ -92,20 +99,8 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   ctrl.schemeSelectHidden = panelContent.querySelector(
     `[${CONST.DATA_ATTR.SCHEME_HIDDEN}]`,
   ) as HTMLSelectElement;
-  ctrl.borderColorInput = panelContent.querySelector(
-    `[${CONST.DATA_ATTR.BORDER_COLOR}]`,
-  ) as HTMLInputElement;
-  ctrl.borderWeightInput = panelContent.querySelector(
-    `[${CONST.DATA_ATTR.BORDER_WEIGHT}]`,
-  ) as HTMLInputElement;
-  ctrl.labelChk = panelContent.querySelector(
-    `[${CONST.DATA_ATTR.LABEL_CHK}]`,
-  ) as HTMLInputElement;
 
   // Set initial values from manager defaults
-  ctrl.borderColorInput.value = ctrl.m.borderColor;
-  ctrl.borderWeightInput.value = String(ctrl.m.borderWeight);
-  ctrl.labelChk.checked = ctrl.m.currentLabelShow;
   ctrl.classSelect.value = String(
     Math.min(CONST.CLASS_COUNT.MAX, Math.max(CONST.CLASS_COUNT.MIN, ctrl.m.numClasses)),
   );
@@ -127,10 +122,10 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
 
   ctrl.fieldSelect.onchange = () => {
     ctrl.m.currentField = ctrl.fieldSelect.value;
-    ctrl.m.fieldAuto = false;
     syncSelect(ctrl, ctrl.fieldSelect, ctrl.fieldSelect.value);
     ctrl.m.renderHexagons();
     persist(ctrl);
+    ctrl.m.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: ctrl.m.layerId });
   };
 
   ctrl.methodSelect.onchange = () => {
@@ -171,42 +166,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     persist(ctrl);
   };
 
-  ctrl.borderColorInput.oninput = () => {
-    ctrl.m.borderColor = ctrl.borderColorInput.value;
-    ctrl.m.renderHexagons();
-    persist(ctrl);
-  };
-  ctrl.borderColorInput.onchange = () => {
-    persist(ctrl);
-  };
-
-  ctrl.borderWeightInput.oninput = () => {
-    const v = parseFloat(ctrl.borderWeightInput.value);
-    if (!isNaN(v) && v >= CONST.BORDER.WEIGHT_MIN && v <= CONST.BORDER.WEIGHT_MAX) {
-      ctrl.m.borderWeight = v;
-      ctrl.m.renderHexagons();
-      // Persist during input (not only onchange) so an uncommitted edit
-      // still survives a reload instead of snapping back to the default.
-      persist(ctrl);
-    }
-  };
-  ctrl.borderWeightInput.onchange = () => {
-    const v = parseFloat(ctrl.borderWeightInput.value);
-    ctrl.m.borderWeight = isNaN(v)
-      ? CONST.BORDER.WEIGHT_DEFAULT
-      : Math.min(CONST.BORDER.WEIGHT_MAX, Math.max(CONST.BORDER.WEIGHT_MIN, v));
-    ctrl.borderWeightInput.value = String(ctrl.m.borderWeight);
-    ctrl.m.renderHexagons();
-    persist(ctrl);
-  };
-
-  ctrl.labelChk.onchange = () => {
-    ctrl.m.currentLabelShow = ctrl.labelChk.checked;
-    ctrl.m.renderHexagons();
-    persist(ctrl);
-  };
-
-  ctrl.closeSchemeDropdown = (event: MouseEvent) => {
+  ctrl.closeSchemeDropdown = (event: Event) => {
     if (
       ctrl.schemeDropdown &&
       !ctrl.schemeBar.contains(event.target as Node) &&
@@ -215,13 +175,16 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
       ctrl.schemeDropdown.remove();
       ctrl.schemeDropdown = null;
       ctrl.schemeBar.classList.remove(CONST.CLASSES.SCHEME_BAR_OPEN);
-      document.removeEventListener("click", ctrl.closeSchemeDropdown);
     }
   };
   ctrl.toggleSchemeDropdown = () => {
     toggleSchemeDropdown(ctrl);
+    // Document-level outside-click, bound through the control's signal so a
+    // control removed with the dropdown open leaves no listener behind. The
+    // handler no-ops when no dropdown is open, so re-registering on each open
+    // is idempotent rather than additive.
     if (ctrl.schemeDropdown) {
-      document.addEventListener("click", ctrl.closeSchemeDropdown);
+      ctrl.on(document, "click", ctrl.closeSchemeDropdown);
     }
   };
 
@@ -229,25 +192,8 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     `[${CONST.DATA_ATTR.BTN_CLEAR}]`,
   ) as HTMLButtonElement;
   clearBtn.onclick = () => {
-    resetAll(ctrl);
+    resetPanel(ctrl);
     ctrl.m.clearSavedConfig();
-    syncSelect(ctrl, ctrl.layerSelect, "");
-    syncSelect(ctrl, ctrl.aggSelect, CONST.AGG.COUNT);
-    syncSelect(
-      ctrl,
-      ctrl.classSelect,
-      String(ctrl.conf.n_classes ?? CONST.CLASS_COUNT.DEFAULT),
-    );
-    syncSelect(ctrl, ctrl.methodSelect, ctrl.conf.method ?? CONST.METHOD.JENKS);
-    ctrl.schemeSelectHidden.value = ctrl.conf.color_scheme ?? "Reds";
-    ctrl.labelChk.checked = ctrl.conf.label_show ?? false;
-    ctrl.borderWeightInput.value = String(
-      ctrl.conf.border_weight ?? CONST.BORDER.WEIGHT_DEFAULT,
-    );
-    ctrl.borderColorInput.value = ctrl.conf.border_color ?? CONST.GRAY;
-    updateSchemeBar(ctrl);
-    updateFieldSelector(ctrl);
-    ctrl.extraBody.classList.add(CONST.CLASSES.HIDDEN);
     ctrl.ctrl.classList.remove(CONST.CLASSES.EXPANDED);
     ctrl.ctrl.classList.add(CONST.CLASSES.COLLAPSED);
     adjustPanelZIndex({ container: ctrl.ctrl, expanded: false });
@@ -302,7 +248,16 @@ const buildLayerListItems = (ctrl: HeatmapControlUI, sel: HTMLSelectElement) => 
     syncSelect(ctrl, sel, ctrl.m.selectedLayerId);
     updateFieldSelector(ctrl);
     ctrl.m.renderHexagons();
+  } else if (ctrl.m.selectedLayerId) {
+    // Restored selection (localStorage / rebuild): resolve the field list
+    // first so autoFieldKey is fresh — syncSourceMeta reads it under currentField.
+    updateFieldSelector(ctrl);
   }
+
+  // Selection (auto, restored, or user) and field resolution are settled here —
+  // publish source-layer / agg-field so the attrs panel is current without a
+  // further user edit.
+  ctrl.m.syncSourceMeta();
 
   if (ctrl.m.selectedLayerId) sel.value = ctrl.m.selectedLayerId;
   else sel.selectedIndex = 0;
@@ -356,15 +311,13 @@ const updateFieldSelector = (ctrl: HeatmapControlUI) => {
   );
 
   fields.forEach(f => {
-    dom.el(
-      "option",
-      { value: f, parent: ctrl.fieldSelect },
-      f.startsWith("properties.") ? f.substring(11) : f,
-    );
+    dom.el("option", { value: f, parent: ctrl.fieldSelect }, f);
   });
 
-  ctrl.m.fieldAuto = !fields.includes(ctrl.m.currentField);
-  ctrl.fieldSelect.value = ctrl.m.fieldAuto ? "" : ctrl.m.currentField;
+  if (ctrl.m.currentField && !fields.includes(ctrl.m.currentField)) {
+    ctrl.m.currentField = "";
+  }
+  ctrl.fieldSelect.value = ctrl.m.currentField;
 
   syncSelect(ctrl, ctrl.fieldSelect, ctrl.fieldSelect.value);
 };
@@ -544,19 +497,36 @@ const initScan = (ctrl: HeatmapControlUI): (() => void) => {
   };
 };
 
-const resetAll = (ctrl: HeatmapControlUI) => {
-  ctrl.m.selectedLayerId = null;
-  ctrl.m.autoFieldKey = null;
-  ctrl.m.fieldAuto = true;
-  ctrl.m.currentAgg = CONST.AGG.COUNT;
-  ctrl.m.currentField = ctrl.conf.field ?? "";
-  ctrl.m.numClasses = ctrl.conf.n_classes ?? CONST.CLASS_COUNT.DEFAULT;
-  ctrl.m.currentMethod = ctrl.conf.method ?? CONST.METHOD.JENKS;
-  ctrl.m.currentScheme = ctrl.conf.color_scheme ?? "Reds";
-  ctrl.m.currentLabelShow = ctrl.conf.label_show ?? false;
-  ctrl.m.borderWeight = ctrl.conf.border_weight ?? CONST.BORDER.WEIGHT_DEFAULT;
-  ctrl.m.borderColor = ctrl.conf.border_color ?? CONST.GRAY;
+/** Reset the panel to its initial state — manager state back to the declared
+ *  defaults, canvas wiped, every dropdown on its placeholder. Shared by the
+ *  panel's Clear button and the LAYER_DELETED path (LayerControl's more-menu
+ *  clear) so clearing the heatmap reads the same way from either entry. */
+const resetPanel = (ctrl: HeatmapControlUI) => {
+  ctrl.m.resetState(ctrl.conf);
   ctrl.m.clearHeatmapCanvas();
+  // Read the reset values off the manager instead of recomputing the defaults —
+  // resetState is the single source, and bindControls' initial clamp (see above)
+  // is the one the class select needs.
+  syncSelect(ctrl, ctrl.layerSelect, "");
+  syncSelect(ctrl, ctrl.aggSelect, ctrl.m.currentAgg);
+  syncSelect(
+    ctrl,
+    ctrl.classSelect,
+    String(
+      Math.min(
+        CONST.CLASS_COUNT.MAX,
+        Math.max(CONST.CLASS_COUNT.MIN, ctrl.m.numClasses),
+      ),
+    ),
+  );
+  syncSelect(ctrl, ctrl.methodSelect, ctrl.m.currentMethod);
+  ctrl.schemeSelectHidden.value = ctrl.m.currentScheme;
+  updateSchemeBar(ctrl);
+  updateFieldSelector(ctrl);
+  // Drop the published source rows — the canvas unregisters on clear, but the
+  // shared meta object outlives it and would repopulate stale values on re-register.
+  ctrl.m.syncSourceMeta();
+  ctrl.extraBody.classList.add(CONST.CLASSES.HIDDEN);
 };
 
 const syncSelect = (ctrl: HeatmapControlUI, el: HTMLSelectElement, value: string) => {
@@ -569,5 +539,6 @@ export {
   bindControls,
   initScan,
   rebuildLayerDropdown,
+  resetPanel,
   setupObserver,
 };

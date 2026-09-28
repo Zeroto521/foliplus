@@ -10,8 +10,8 @@ import { throttleRaf } from "./throttle.js";
 
 // ── Panel CSS classes ───────────────────────────────────────────
 const CLASSES = {
-  COLLAPSED: "collapsed",
-  EXPANDED: "expanded",
+  COLLAPSED: "foliplus-is-collapsed",
+  EXPANDED: "foliplus-is-expanded",
   FOLD: "foliplus-ctrl-fold",
   TOGGLE_BTN: "foliplus-toggle-btn",
   LEAFLET_BAR: "leaflet-bar leaflet-control",
@@ -296,18 +296,76 @@ const createPanelHeader = (opts: {
         title: opts.closeTitle,
         "aria-label": opts.closeTitle,
       },
-      { html: SVGs.CLOSE },
+      { html: SVGs.CLOSE_ICON },
     ),
   );
   return header;
 };
 
 /**
+ * Create the floating surface a layer row opens from its ⋮ menu: the
+ * attributes panel and the per-layer style panel.
+ *
+ * It is a `foliplus-panel` with the fold panels' header/content vocabulary, but
+ * anchored under its own row instead of folded into the control — so the caller
+ * mounts the returned `panel` on the row. Anchoring, width, height cap, card
+ * chrome and the `stretch` axis all come from the shared `.foliplus-row-panel`
+ * recipe, and the header from {@link createPanelHeader}, so a new row panel
+ * cannot drift into a lookalike of the ones already here.
+ *
+ * `iconClass` stays a parameter because each component's SVGs are viewBox-only
+ * and need their own sizing hook inside the shared icon box.
+ */
+const createRowPanel = (opts: {
+  cssClass: string;
+  title: string;
+  iconSvg: string;
+  closeTitle: string;
+  iconClass: string;
+  /** Accessible name of the dialog. Defaults to `title`; the attributes panel
+   *  names the *surface* (Layer attributes) while its header shows the layer's
+   *  own display name, so the two are separate knobs. */
+  ariaLabel?: string;
+}): {
+  panel: HTMLElement;
+  header: HTMLElement;
+  content: HTMLElement;
+} => {
+  const panel = dom.el("div", {
+    class: `${opts.cssClass} foliplus-panel foliplus-row-panel`,
+    role: "dialog",
+    "aria-label": opts.ariaLabel ?? opts.title,
+    // The panel is anchored inside the layer row, which carries a hover
+    // tooltip ("6 point layer"). An empty title suppresses that inherited
+    // tooltip so hovering the panel body does not echo the row's text; the
+    // header's own visible title and the close button's title still apply.
+    title: "",
+  });
+  const header = createPanelHeader({
+    title: opts.title,
+    iconSvg: opts.iconSvg,
+    closeTitle: opts.closeTitle,
+    iconClass: opts.iconClass,
+  });
+  const content = dom.el("div", { class: "foliplus-panel-content" });
+  panel.appendChild(header);
+  panel.appendChild(content);
+  return { panel, header, content };
+};
+
+/**
  * Create a panel-style control with toggle button, header, and content area.
  * Used by HeatmapControl and LayerControl for consistent panel UI.
- * Automatically wires up bindPanelToggle and bindOutsideCollapse.
+ * Automatically wires up bindPanelToggle, plus the press-outside collapse
+ * decided by `collapseOnOutside` (default on: the shell's historic behavior).
  *
- * @returns `destroy` unbinds both document listeners. `BaseControl.onRemove`
+ * The map's busiest gesture is drag-pan / click-select, so an outside press is
+ * a poor trigger for a panel the user is actively working in — LayerControl
+ * passes `false` on that ground. The header close affordance is always the
+ * explicit collapse path, so no capability is lost either way. Popup-style
+ * surfaces use createRowPanel, which owns its own dismiss.
+ *
+ * @returns `destroy` unbinds the outside-collapse listeners. `BaseControl.onRemove`
  *   calls it so a control removed while still in the DOM (detached and later
  *   re-added) does not leak a document-level capture + bubble pair; the
  *   MutationObserver only covers the plain "removed from body" case.
@@ -319,6 +377,10 @@ const createPanelControl = (opts: {
   panelTitle: string;
   closeTitle: string;
   ctrlId?: string;
+  /** Collapse the panel on a press outside it. Defaults to `true` so a caller
+   *  that omits it keeps the shell's historic behavior; LayerControl passes
+   *  `false` because the panel is a working surface read alongside the map. */
+  collapseOnOutside?: boolean;
 }): {
   container: HTMLElement;
   ctrl: HTMLElement;
@@ -368,7 +430,12 @@ const createPanelControl = (opts: {
     toggleBtn: `.${CLASSES.TOGGLE_BTN}`,
     header: `.${CLASSES.PANEL_HEADER}`,
   });
-  const unbindOutside = bindOutsideCollapse({ container: ctrl });
+  const unbindOutside = bindOutsideCollapse({
+    container: ctrl,
+    // skipCheck short-circuits the capture pass too, so the panel is inert to
+    // outside presses rather than collapsing.
+    skipCheck: opts.collapseOnOutside === false ? () => true : undefined,
+  });
 
   return {
     container,
@@ -388,4 +455,5 @@ export {
   createFoldControl,
   createPanelControl,
   createPanelHeader,
+  createRowPanel,
 };

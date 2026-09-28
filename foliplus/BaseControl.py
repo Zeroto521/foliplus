@@ -10,13 +10,14 @@ inherits from :class:`BaseControl`. This module owns the Python → JS bridge:
 
 * **Config serialization** — each control's instance attributes are serialized into
   the JS ``CONF`` object. The static part is assembled by :meth:`BaseControl._build_config`
-  (shared ``name``/``position`` keys + subclass-declared :attr:`_export_fields` +
+  (shared ``name``/``position`` keys + subclass-declared :attr:`_config_fields` +
   dynamic :meth:`_extra_config` data), then :attr:`BaseControl._config_block` overlays
   the locale tables and code.
 """
 
 from __future__ import annotations
 
+import json
 from functools import cache
 from pathlib import Path
 from textwrap import dedent
@@ -34,6 +35,12 @@ from .locale import LocaleConfig, _load_tables, resolve_locale
 
 src_dir = Path(__file__).parent
 dist_dir = src_dir / "dist"
+
+# `script/build.mjs` writes this on every real build, listing what actually
+# landed in `dist/`. Both test suites read it instead of re-deriving the
+# artifact names from prose, so a new component can't be forgotten on one
+# side and pass on the other.
+ARTIFACTS_MANIFEST = dist_dir / "artifacts.json"
 
 # JS line terminators. Legal JSON, but emitted literally they would end the
 # containing ``<script>`` statement early — folium's ``|tojson`` drops them,
@@ -114,6 +121,35 @@ def _load_asset(artifact: Path) -> str:
     return artifact.read_text(encoding="utf-8")
 
 
+def control_assets(name: str) -> tuple[Path, Path]:
+    """Return the ``dist/`` pair for one control: ``(js, css)``.
+
+    The single place that knows how a control name maps to artifacts, so a
+    control cannot ship one half without the other.
+    """
+
+    return (
+        dist_dir / f"foliplus-{name}.min.js",
+        dist_dir / f"foliplus-{name}.min.css",
+    )
+
+
+def expected_artifacts() -> list[str]:
+    """Every ``dist/`` filename a complete build emits, as bare names.
+
+    Read from the manifest the build writes, not re-derived: ``test_asset.py``
+    asserts wheel membership against this list and ``build.test.ts`` asserts
+    artifact presence, so a component added on one side fails both stacks.
+
+    Filenames come through :func:`control_assets`, the one place that knows how
+    a component name maps to artifacts — re-deriving them here would let a
+    rename land on one side and miss the other.
+    """
+
+    names = json.loads(ARTIFACTS_MANIFEST.read_text(encoding="utf-8"))["artifacts"]
+    return [p.name for name in names for p in control_assets(name)]
+
+
 @cache
 def _build_component_template(name: str) -> Template:
     """Read a component's JS/CSS and compile its Jinja template once (cached).
@@ -122,8 +158,9 @@ def _build_component_template(name: str) -> Template:
     render-time CONF / map name differ, both resolved at render time), so it
     is built a single time per component name instead of on every render.
     """
-    js = _load_asset(dist_dir.joinpath(f"foliplus-{name}.min.js"))
-    css = _load_asset(dist_dir.joinpath(f"foliplus-{name}.min.css"))
+    js_artifact, css_artifact = control_assets(name)
+    js = _load_asset(js_artifact)
+    css = _load_asset(css_artifact)
 
     # jinja2's own stub types ``Template.__init__`` as returning Any, so the
     # constructor call needs an explicit cast to satisfy a typed return.
@@ -159,7 +196,15 @@ class MissingAssetsError(RuntimeError):
     """
 
     def __init__(self, missing: list[Path]) -> None:
-        names = ", ".join(str(p.relative_to(src_dir.parent)) for p in missing)
+        # A missing path outside the source tree (a test pointing `dist_dir`
+        # at a throwaway copy) cannot be made repo-relative; the message must
+        # not itself raise, so fall back to the absolute path.
+        names = ", ".join(
+            str(p.relative_to(src_dir.parent))
+            if p.is_relative_to(src_dir.parent)
+            else str(p)
+            for p in missing
+        )
         super().__init__(
             f"foliplus bundled assets missing: {names}. "
             "Run `make build-js` in the source checkout, then rebuild the "
@@ -175,7 +220,7 @@ class BaseControl(JSCSSMixin, MacroElement):
     from this class.
 
     Subclasses declare which instance attributes are exported to the JS ``CONF`` object
-    via :attr:`_export_fields`, and may supply dynamic render-time data by overriding
+    via :attr:`_config_fields`, and may supply dynamic render-time data by overriding
     :meth:`_extra_config`. The base class merges these with the shared
     ``name``/``position`` keys and the locale tables into the ``CONF`` dict.
 
@@ -197,7 +242,7 @@ class BaseControl(JSCSSMixin, MacroElement):
     #: must be set in ``__init__`` before the template is rendered. A name that does
     #: not resolve raises ``ValueError`` from :meth:`_build_config` (fail-fast) rather
     #: than failing later as a bare ``AttributeError``.
-    _export_fields: tuple[str, ...] = ()
+    _config_fields: tuple[str, ...] = ()
 
     @validate
     def __init__(
@@ -212,7 +257,7 @@ class BaseControl(JSCSSMixin, MacroElement):
         self._locale = (
             resolve_locale(locale, self._name) if locale is not None else None
         )
-        self._config: dict[str, Any] = {}
+        self._config: dict[str, object] = {}
 
     @property
     def _locale_code(self) -> str:
@@ -262,7 +307,7 @@ class BaseControl(JSCSSMixin, MacroElement):
         # config always contains at least name/position — never empty.
         return _safe_json(config)
 
-    def _extra_config(self) -> dict[str, Any]:
+    def _extra_config(self) -> dict[str, object]:
         """Return render-time config injected into the JS ``CONF`` object.
 
         Subclasses override this to supply data that is only known at render time
@@ -271,13 +316,13 @@ class BaseControl(JSCSSMixin, MacroElement):
         """
         return {}
 
-    def _build_config(self) -> dict[str, Any]:
+    def _build_config(self) -> dict[str, object]:
         """Assemble the static part of the JS ``CONF`` dict.
 
         The merge order is:
 
         1. Shared keys — ``name`` and ``position`` (always present).
-        2. Exported fields — every attribute named in :attr:`_export_fields`. A name
+        2. Exported fields — every attribute named in :attr:`_config_fields`. A name
            that does not resolve to a real instance attribute raises ``ValueError``
            (fail-fast, naming the control and the offending field).
         3. Dynamic data — whatever :meth:`_extra_config` returns (render-time only,
@@ -289,12 +334,12 @@ class BaseControl(JSCSSMixin, MacroElement):
         the cache is never polluted with render-time keys.
         """
         config = {"name": self._name, "position": self.position}
-        for f in self._export_fields:
+        for f in self._config_fields:
             try:
                 config[f] = getattr(self, f)
             except AttributeError:
                 raise ValueError(
-                    f"{self._name}._export_fields: '{f}' not set in __init__"
+                    f"{self._name}._config_fields: '{f}' not set in __init__"
                 ) from None
         config.update(self._extra_config())
         self._config = config

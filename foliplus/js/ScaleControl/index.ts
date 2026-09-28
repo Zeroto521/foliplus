@@ -1,4 +1,5 @@
 import { createControlEnv } from "#core/controlEnv.js";
+import { primeControlMap } from "#core/leafletAdapter.js";
 import { BaseControl } from "#foliplus/BaseControl.js";
 import { dom } from "#common/dom.js";
 import { createScopedTranslator } from "#common/locale.js";
@@ -9,9 +10,12 @@ const T = createScopedTranslator(CONF);
 
 // ==================== Control Definition ====================
 class ScaleControl extends BaseControl {
+  private scaleCtrl?: L.Control;
+
   buildDOM() {
     const scaleCtrl = L.control.scale({ metric: true, imperial: false });
-    Reflect.set(scaleCtrl, "_map", this._map);
+    this.scaleCtrl = scaleCtrl;
+    primeControlMap(scaleCtrl, this._map);
     const ctrl = (scaleCtrl.onAdd as (map: L.Map) => HTMLElement)(this._map);
     ctrl.classList.add("foliplus-scale-wrap");
 
@@ -28,11 +32,19 @@ class ScaleControl extends BaseControl {
         );
       };
       updateZoom();
-      // Tracked via listenMap — auto-unbound in onRemove.
-      this.listenMap("zoomend", updateZoom);
+      // Tracked via onMap — auto-unbound in onRemove.
+      this.onMap("zoomend", updateZoom);
     }
 
     return ctrl;
+  }
+
+  destroy() {
+    // scaleCtrl's onAdd bound a 'move' listener on the map directly; it is
+    // invisible to BaseControl.mapListeners, so unbind it here, symmetric to
+    // the manual onAdd in buildDOM.
+    this.scaleCtrl?.onRemove?.(this._map);
+    this.scaleCtrl = undefined;
   }
 }
 

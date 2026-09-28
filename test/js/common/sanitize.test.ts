@@ -126,7 +126,7 @@ describe("parseSVG — strips executable content", () => {
       '<g xmlns="http://www.w3.org/2000/svg"><rect width="2" height="2"/></g></svg>';
     const out = parseSVG(src);
     expect(out).toContain("http://www.w3.org/2000/svg");
-    // The parser normalises both declarations to the element's default
+    // The parser normalizes both declarations to the element's default
     // namespace, so an explicit one becomes inert and is dropped. Only the
     // root's survives — the serialiser's single point of truth.
     expect(withAttr(out, "xmlns")).toHaveLength(1);

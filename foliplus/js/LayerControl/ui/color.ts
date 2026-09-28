@@ -1,52 +1,50 @@
 // LayerControl UI —Solid-color basemap visibility.
+// The color basemap is a first-class base-group layer: it owns a dedicated
+// pane + canvas (created through `factory.createColor`) so it participates
+// in the layer z ladder exactly like tile basemaps. Row order = visual stack
+// order — drag the color row above a tile basemap and it covers the tiles;
+// below and the tiles cover it. No mutual exclusion: color and tiles are
+// coequal, each with its own checkbox and its own pane.
+//
+// The pane is created lazily on first show so a color that never gets
+// checked does not allocate a canvas or a pane in the DOM.
+import type { CreateColorAPI } from "#core/layer/index.js";
 import * as CONST from "../const.js";
 import type { LayerUI } from "./index.js";
 
-const showColorLayer = (ui: LayerUI, color: string) => {
-  ui.isColorActive = true;
-  ui.currentColor = color;
-  ui.m.map.getContainer().style.setProperty("--color-layer-bg", color);
-  ui.m.map.getContainer().classList.add(CONST.CLASSES.ACTIVE);
-
-  for (let i = 0; i < ui.m.layers.length; i++) {
-    if (ui.m.layers[i].isBase) {
-      const bLayer = ui.m.findLayer(ui.m.layers[i]);
-      if (bLayer && ui.m.map.hasLayer(bLayer)) ui.m.map.removeLayer(bLayer);
-    }
+const getColorSurface = (ui: LayerUI): CreateColorAPI => {
+  if (!ui.colorSurface) {
+    const surface = ui.m.createColor({
+      id: CONST.SOLID_BASEMAP_ID,
+      name: ui.T("color_map_label"),
+      color: CONST.COLOR.DEFAULT,
+    });
+    ui.colorSurface = surface;
+    // register() inserts the LayerInfo into the registry. Called after
+    // setting ui.colorSurface so a subsequent getColorSurface call (from
+    // showSolidBasemap during the register-triggered applyProjection) finds
+    // the surface instead of creating a second one.
+    surface.register();
   }
-
-  const tilePane = ui.m.map.getPane("tilePane");
-  if (tilePane) tilePane.classList.add("foliplus-layer-tile-hidden");
-
-  const inputs = ui.uiContainer.querySelectorAll(
-    `${CONST.SEL.LAYER_ITEM}:not(${CONST.SEL.COLOR_ITEM}) input`,
-  ) as NodeListOf<HTMLInputElement>;
-  inputs.forEach((input: HTMLInputElement, j: number) => {
-    if (ui.m.layers[j]?.isBase) {
-      input.checked = false;
-      input.closest(CONST.SEL.LAYER_ITEM)?.classList.remove(CONST.CLASSES.ACTIVE);
-    }
-  });
-
-  const ci = ui.uiContainer.querySelector(
-    CONST.SEL.COLOR_INPUT,
-  ) as HTMLInputElement | null;
-  if (ci) ci.value = color;
-  ui.uiContainer
-    .querySelector(CONST.SEL.COLOR_ITEM)
-    ?.classList.add(CONST.CLASSES.ACTIVE);
-  ui.syncToggleAll(CONST.GROUP.BASE);
+  return ui.colorSurface;
 };
 
-const hideColorLayer = (ui: LayerUI) => {
-  ui.isColorActive = false;
-  ui.m.map.getContainer().classList.remove(CONST.CLASSES.ACTIVE);
-  ui.m.map.getContainer().style.removeProperty("--color-layer-bg");
-  const tilePane = ui.m.map.getPane("tilePane");
-  if (tilePane) tilePane.classList.remove("foliplus-layer-tile-hidden");
-  ui.uiContainer
-    .querySelector(CONST.SEL.COLOR_ITEM)
-    ?.classList.remove(CONST.CLASSES.ACTIVE);
+const showSolidBasemap = (ui: LayerUI, color: string) => {
+  ui.currentColor = color;
+  const surface = getColorSurface(ui);
+  surface.setColor(color);
+  surface.setVisible(true);
+  // Checking the box is a single user action — order the stack now, so the
+  // pane's z lands immediately instead of after the debounce.
+  ui.m.enforceOrder();
 };
 
-export { showColorLayer, hideColorLayer };
+const hideSolidBasemap = (ui: LayerUI) => {
+  // The surface is created lazily on first show. An init-time hide
+  // (the author default is unchecked) runs before any show, so the
+  // surface does not exist yet — nothing to hide, and the pane is not
+  // allocated.
+  ui.colorSurface?.setVisible(false);
+};
+
+export { getColorSurface, showSolidBasemap, hideSolidBasemap };

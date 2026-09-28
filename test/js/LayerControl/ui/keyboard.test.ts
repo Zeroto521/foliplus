@@ -28,16 +28,16 @@ describe("LayerUI keyboard", () => {
       manager.registerLayer({
         id: "overlay2",
         name: "Circles",
-        isBase: false,
+        group: "overlay",
         layer: { options: {}, eachLayer: vi.fn() },
       });
     }
     ui.foldedGroups = new Set();
-    ui.hiddenIds = new Set();
+    ui.hiddenLayerIds = new Set();
     // Folded-group state is persisted to localStorage, so a fold from one test
     // would be re-read by the next test's LayerUI constructor and present as
     // already-folded.
-    window.localStorage.removeItem(CONST.STORAGE.FOLD_KEY);
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
   });
 
   afterEach(() => {
@@ -117,21 +117,20 @@ describe("LayerUI keyboard", () => {
       restore();
     });
 
-    it("a checkbox change hides the layer at that row's own index", () => {
-      // The handler resolves the layer from `dataset.index`, not from the row,
-      // so an unregistered layer's row is simply no longer toggleable here —
-      // nothing is lost by the index lookup while the row is live.
+    it("a checkbox change hides the layer its row owns", () => {
+      // The handler resolves the layer by the row's data-layer-id, so a
+      // late registration can sit anywhere in the DOM without changing which
+      // layer the click toggles.
       const cb = findItem(ui, "overlay1").querySelector(
         'input[type="checkbox"]',
       ) as HTMLInputElement;
-      const idx = parseInt(cb.dataset.index ?? "", 10);
-      expect(ui.m.layers[idx].id).toBe("overlay1");
 
       cb.checked = false;
       ui.handleChange({ target: cb } as Event);
 
-      expect(ui.hiddenIds).toContain("overlay1");
-      expect(ui.m.layers.length).toBe(3);
+      expect(ui.hiddenLayerIds).toContain("overlay1");
+      // 3 seeded layers + the colour basemap registered by initTypesAndVisibility.
+      expect(ui.m.layers.length).toBe(4);
     });
 
     it("Enter on the more button still opens the menu and does not toggle", () => {
@@ -192,7 +191,7 @@ describe("LayerUI keyboard", () => {
 
   // ─────────────────── keyboard focus cursor visual class ───────────────────
 
-  describe("keyboard focus cursor class (.foliplus-layer-focused)", () => {
+  describe("keyboard focus cursor class (.foliplus-is-focused-row)", () => {
     // getNavigableItems() enumerates row elements in DOM order: the "Toggle
     // All" row is index 0, then enforceOrder-sorted base/overlay layers. Look
     // up indices dynamically so a re-order doesn't silently break these tests.
@@ -507,7 +506,7 @@ describe("LayerUI keyboard", () => {
     it("Escape on a checked row clears the cursor and keeps the active class", () => {
       const overlay = findItem(ui, "overlay1");
 
-      // .active is the persistent selected state: it must outlive the Escape,
+      // .foliplus-active is the persistent selected state: it must outlive the Escape,
       // because cancelling the cursor is not a visibility change.
       const checkbox = overlay.querySelector(
         'input[type="checkbox"]',
@@ -524,10 +523,10 @@ describe("LayerUI keyboard", () => {
       expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
     });
 
-    it("FOCUSED class coexists with .active (checkbox-checked) without conflict", () => {
+    it("FOCUSED class coexists with .foliplus-active (checkbox-checked) without conflict", () => {
       const overlay = findItem(ui, "overlay1");
 
-      // Check the checkbox (adds .active via the toggle path) then set cursor
+      // Check the checkbox (adds .foliplus-active via the toggle path) then set cursor
       // onto the same row — both classes must be present simultaneously so the
       // visual distinction between "checked" (5% wash) and "cursor-on" (8%
       // wash + accent bar) is preserved.
@@ -672,6 +671,49 @@ describe("LayerUI keyboard", () => {
       expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
     });
 
+    it("focusin on a non-row target inside the container is a no-op", () => {
+      // owningRow() is null for chrome that sits beside the rows (panel
+      // padding, group headings). The early return must not throw or paint.
+      const stray = document.createElement("div");
+      ui.uiContainer.appendChild(stray);
+
+      stray.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+
+      expect(ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSED}`)).toHaveLength(
+        0,
+      );
+      stray.remove();
+    });
+
+    it("focusout into a floating panel keeps the row cursor", () => {
+      // The PR's onFocusOut guard: a relatedTarget inside a style/attrs panel
+      // is a detail task on the same row, not an abandon — even when the panel
+      // element is not a DOM descendant of the row that lost focus.
+      const overlay = findItem(ui, "overlay1");
+      const checkbox = overlay.querySelector(
+        'input[type="checkbox"]',
+      ) as HTMLInputElement;
+      ui.setActiveItem(indexFor("overlay1"));
+      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
+
+      const detachedPanel = document.createElement("div");
+      detachedPanel.className = CONST.CLASSES.STYLE_PANEL;
+      const panelControl = document.createElement("button");
+      detachedPanel.appendChild(panelControl);
+      document.body.appendChild(detachedPanel);
+
+      checkbox.dispatchEvent(
+        new FocusEvent("focusout", {
+          bubbles: true,
+          relatedTarget: panelControl,
+        }),
+      );
+
+      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
+
+      detachedPanel.remove();
+    });
+
     it("Escape is complete without any residual suppress class", () => {
       const overlay = findItem(ui, "overlay1");
       const spy = stubFocusVisible(overlay, true);
@@ -700,7 +742,7 @@ describe("LayerUI keyboard", () => {
     // not flip the row's select-all checkbox.
     //
     // The group needs two overlay layers so overlay1 isn't collapsed into the
-    // single-child "no toggle-all" layout of initFixture(), and hiddenIds must
+    // single-child "no toggle-all" layout of initFixture(), and hiddenLayerIds must
     // be empty so a visibility collapse can't read as a fold (the outer
     // beforeEach owns both).
 
@@ -774,12 +816,12 @@ describe("LayerUI keyboard", () => {
 
     it("getNavigableItems lists rows by class, so a checkbox-less row is reachable", () => {
       const colorRow = ui.uiContainer.querySelector(
-        `.${CONST.CLASSES.COLOR_ITEM}`,
+        `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       ) as HTMLElement | null;
 
       const items = ui.getNavigableItems();
-      // The color row is a picker, not a layer, so it stays out of the list.
-      if (colorRow) expect(items).not.toContain(colorRow);
+      // The color row is a regular layer row now — it is navigable.
+      if (colorRow) expect(items).toContain(colorRow);
       // Rows are enumerated by class, never filtered by checkbox presence.
       const isRow = (el: HTMLElement) =>
         el.classList.contains(CONST.CLASSES.LAYER_ITEM) ||
@@ -836,6 +878,110 @@ describe("LayerUI keyboard", () => {
         expect.stringContaining("reorder_bottom"),
         HINT_DURATION.SHORT,
       );
+    });
+  });
+
+  describe("form controls inside floating panels", () => {
+    // Arrow keys on a range slider inside the style panel must not move the
+    // row keyboard cursor. The native slider behavior is more useful than
+    // jumping to the next layer row.
+
+    beforeEach(() => {
+      // Seed the field cache so the style panel builds (same recipe as style.test.ts).
+      ui.fieldCache.set("overlay1", [{ name: "count", numeric: true }]);
+    });
+
+    it("ArrowDown on a range slider does not move the cursor or preventDefault", () => {
+      const item = findItem(ui, "overlay1");
+      ui.openStylePanel("overlay1");
+      const panel = item.querySelector(`.${CONST.CLASSES.STYLE_PANEL}`)!;
+      const slider = panel.querySelector(
+        `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MIN}`,
+      ) as HTMLInputElement;
+
+      slider.focus();
+      const event = new KeyboardEvent("keydown", {
+        key: "ArrowDown",
+        bubbles: true,
+        cancelable: true,
+      });
+      slider.dispatchEvent(event);
+
+      expect(event.defaultPrevented).toBe(false);
+      expect(ui.activeIdx).toBeNull();
+    });
+
+    it("ArrowUp on a range slider does not move the cursor or preventDefault", () => {
+      const item = findItem(ui, "overlay1");
+      ui.openStylePanel("overlay1");
+      const panel = item.querySelector(`.${CONST.CLASSES.STYLE_PANEL}`)!;
+      const slider = panel.querySelector(
+        `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MAX}`,
+      ) as HTMLInputElement;
+
+      slider.focus();
+      const event = new KeyboardEvent("keydown", {
+        key: "ArrowUp",
+        bubbles: true,
+        cancelable: true,
+      });
+      slider.dispatchEvent(event);
+
+      expect(event.defaultPrevented).toBe(false);
+      expect(ui.activeIdx).toBeNull();
+    });
+
+    it("ArrowDown on a range slider does not move the cursor after a row was clicked first", () => {
+      // "Click row → focus style-panel slider → press ArrowDown" must not
+      // fall through to any list-cursor path, whether via the central
+      // dispatcher or a direct keydown listener on the panel. This is the
+      // combined scenario the standalone ListCursor guard protects against.
+      const indexFor = (id: string) => ui.getNavigableItems().indexOf(findItem(ui, id));
+      const item = findItem(ui, "overlay1");
+      ui.setActiveItem(indexFor("overlay1"));
+      const rowIdx = ui.activeIdx;
+      expect(ui.listCursor?.index).toBe(rowIdx);
+      expect(rowIdx).not.toBeNull();
+
+      ui.openStylePanel("overlay1");
+      const panel = item.querySelector(`.${CONST.CLASSES.STYLE_PANEL}`)!;
+      const slider = panel.querySelector(
+        `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MIN}`,
+      ) as HTMLInputElement;
+
+      slider.focus();
+      const event = new KeyboardEvent("keydown", {
+        key: "ArrowDown",
+        bubbles: true,
+        cancelable: true,
+      });
+      slider.dispatchEvent(event);
+
+      expect(event.defaultPrevented).toBe(false);
+      expect(ui.activeIdx).toBe(rowIdx);
+      expect(ui.listCursor?.index).toBe(rowIdx);
+    });
+
+    it("Escape on a range slider still closes the style panel", () => {
+      const item = findItem(ui, "overlay1");
+      ui.openStylePanel("overlay1");
+      expect(ui.stylePanelLayerId).toBe("overlay1");
+
+      const panel = item.querySelector(`.${CONST.CLASSES.STYLE_PANEL}`)!;
+      const slider = panel.querySelector(
+        `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MIN}`,
+      ) as HTMLInputElement;
+
+      slider.focus();
+      slider.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "Escape",
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+
+      expect(ui.stylePanelLayerId).toBeNull();
     });
   });
 

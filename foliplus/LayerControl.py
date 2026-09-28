@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, cast
-
-from branca.element import Element
+from folium.elements import Element
 from folium.map import Layer
 
 from ._typing import Position
@@ -64,6 +62,19 @@ class LayerControl(BaseControl):
     position : str, default "topleft"
         One of "topleft", "topright", "bottomleft", "bottomright".
 
+    label_collide : bool, default True
+        Page-wide default for the per-layer "avoid overlap" setting: when
+        enabled, a layer's own labels thin themselves out where they overlap.
+        Labels from *different* layers never avoid each other — the layers are
+        stacked, so an upper layer simply covers the lower one's. The style
+        panel overrides this per layer.
+
+    collapse_on_outside : bool, default False
+        Whether a press outside the panel collapses it. Off by default: the
+        panel is a working surface read at the same time as the map, and the
+        map's busiest gesture is drag-pan / click-select. The header close
+        button collapses it explicitly either way.
+
     locale : str or LocaleConfig, optional
         Language code ("en", "zh") or a LocaleConfig instance.
         Defaults to auto-detection, falling back to English.
@@ -76,16 +87,22 @@ class LayerControl(BaseControl):
     >>> LayerControl().add_to(m)
     """
 
+    _config_fields = ("label_collide", "collapse_on_outside")
+
     def __init__(
         self,
         *,
         position: Position = "topleft",
+        label_collide: bool = True,
+        collapse_on_outside: bool = False,
         locale: str | LocaleConfig | None = None,
     ):
         super().__init__(position=position, locale=locale)
+        self.label_collide = label_collide
+        self.collapse_on_outside = collapse_on_outside
         self._template = self._get_template()
 
-    def _extra_config(self) -> dict[str, Any]:
+    def _extra_config(self) -> dict[str, object]:
         """Collect layers from the parent map at render time.
 
         This is the canonical example of a control that needs render-time data the
@@ -100,7 +117,7 @@ class LayerControl(BaseControl):
         Returns
         -------
         dict
-            ``{"data": [{"name", "id", "isBase"}, ...]}`` — the ``data`` key is merged
+            ``{"data": [{"name", "id", "group"}, ...]}`` — the ``data`` key is merged
             into the JS ``CONF`` object by :meth:`BaseControl._build_config`.
         """
         data: list[dict[str, object]] = []
@@ -122,10 +139,10 @@ class LayerControl(BaseControl):
                 {
                     "name": item.layer_name,
                     "id": name,
-                    "isBase": not item.overlay,
+                    "group": "overlay" if item.overlay else "base",
                 }
             )
 
         # Stable ordering: overlays first, then base layers (matches JS enforceOrder).
-        data.sort(key=lambda d: cast(bool, d["isBase"]))
+        data.sort(key=lambda d: d["group"] == "base")
         return {"data": data}

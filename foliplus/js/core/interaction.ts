@@ -2,6 +2,7 @@
 // Provides a central document-level keydown listener that dispatches to
 // registered shortcuts by priority, avoiding duplicate listeners across
 // components and resolving key conflicts.
+import { keyOwner, nativeConsumesKey } from "#core/inputOwnership.js";
 import { ensureMapFoliplus } from "#core/mapApi.js";
 
 /**
@@ -28,8 +29,10 @@ interface InteractionDef {
   /** Higher priority wins when multiple shortcuts match the same key.
    *  Default 0. Negative values are allowed for fallback handlers. */
   priority?: number;
-  /** If set, the shortcut only fires when the container (or a child) has focus.
-   *  Uses document-level listener with focus check. */
+  /** If set, the shortcut only fires when the container (or a child) has
+   *  focus **and that focus is not held by a control that natively consumes
+   *  the key** — the ownership half is decided once by the manager before
+   *  dispatch, not re-checked by the handler. */
   container?: HTMLElement;
   /** If set, binds keydown directly to this element instead of the document.
    *  Only fires when this element has focus (native behavior). */
@@ -152,6 +155,13 @@ class InteractionManager {
             if (entry.meta && !ke.metaKey) return;
             if (entry.shift && !ke.shiftKey) return;
             if (entry.alt && !ke.altKey) return;
+            // Same gate as the document-level path. A binding on the focused
+            // control itself is the `element:` opt-in — an explicit claim (a
+            // combobox input navigating its list with the arrows). A binding
+            // on a container that now holds a *different* native consumer must
+            // stand aside rather than swallow the key.
+            const owner = keyOwner(event);
+            if (owner !== entry.element && nativeConsumesKey(owner, ke.key)) return;
           }
           if (entry.preventDefault ?? true) {
             event.preventDefault();
@@ -234,6 +244,16 @@ class InteractionManager {
   private handleEvent(event: Event): void {
     const eventType = event.type;
     const ke = event as KeyboardEvent;
+    // Input ownership, decided once before dispatch: a control that natively
+    // consumes the key keeps it — foliplus neither acts nor cancels. The
+    // table in inputOwnership is the single source, so a new native control
+    // in a panel is let through here without touching any handler.
+    if (
+      (eventType === "keydown" || eventType === "keyup") &&
+      nativeConsumesKey(keyOwner(event), ke.key)
+    ) {
+      return;
+    }
     // For container-bound shortcuts, the deepest (innermost) container that
     // contains activeElement should win when priorities are tied — matches
     // how native DOM focus/keyboard events work.
@@ -299,4 +319,5 @@ class InteractionManager {
   }
 }
 
-export { type InteractionDef, InteractionManager, ensureInteraction };
+export { InteractionManager, ensureInteraction };
+export type { InteractionDef };

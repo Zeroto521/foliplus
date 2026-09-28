@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   buildPopupEl,
+  cancelMapPaneTranslate,
   createIconButton,
   createInlineEditInput,
-  createLocationMarker,
   dom,
   removeInlineEditInput,
   stopEvent,
@@ -193,207 +193,6 @@ describe("buildPopupEl", () => {
   });
 });
 
-describe("createLocationMarker", () => {
-  let map;
-  const mockMarker = {
-    bindPopup: vi.fn().mockReturnThis(),
-    openPopup: vi.fn().mockReturnThis(),
-    getPopup: vi.fn(() => ({
-      _closeButton: null,
-      isOpen: vi.fn(() => false),
-    })),
-    addTo: vi.fn().mockReturnThis(),
-  };
-
-  beforeEach(() => {
-    vi.restoreAllMocks();
-    map = {
-      removeLayer: vi.fn(),
-      addLayer: vi.fn(),
-    };
-    window.L.marker = vi.fn(() => ({
-      ...mockMarker,
-      bindPopup: vi.fn().mockReturnThis(),
-      openPopup: vi.fn().mockReturnThis(),
-      getPopup: vi.fn(() => ({
-        _closeButton: null,
-        isOpen: vi.fn(() => false),
-      })),
-      addTo: vi.fn().mockReturnThis(),
-    }));
-    window.L.divIcon = vi.fn(() => ({}));
-  });
-
-  it("creates a marker with popup", () => {
-    const marker = createLocationMarker(
-      map,
-      120,
-      30,
-      "Address",
-      "Title",
-      "Loading...",
-      "Lng,Lat:",
-      "Address:",
-      "Close",
-    );
-    expect(window.L.marker).toHaveBeenCalledWith([30, 120], expect.any(Object));
-    expect(map.addLayer).toHaveBeenCalled();
-    expect(marker.bindPopup).toHaveBeenCalled();
-    expect(marker.openPopup).toHaveBeenCalled();
-  });
-
-  it("removes existing marker", () => {
-    const existing = { _map: map };
-    createLocationMarker(
-      map,
-      120,
-      30,
-      "Address",
-      "Title",
-      "Loading...",
-      "Lng,Lat:",
-      "Address:",
-      "Close",
-      "en",
-      existing,
-    );
-    expect(map.removeLayer).toHaveBeenCalledWith(existing);
-  });
-
-  it("adds marker to layerGroup instead of map", () => {
-    const layerGroup = { addLayer: vi.fn() };
-    createLocationMarker(
-      map,
-      120,
-      30,
-      "Address",
-      "Title",
-      "Loading...",
-      "Lng,Lat:",
-      "Address:",
-      "Close",
-      "en",
-      null,
-      layerGroup,
-    );
-    expect(layerGroup.addLayer).toHaveBeenCalled();
-    expect(map.addLayer).not.toHaveBeenCalled();
-  });
-
-  it("does not open popup when openPopup is false", () => {
-    const marker = createLocationMarker(
-      map,
-      120,
-      30,
-      "Address",
-      "Title",
-      "Loading...",
-      "Lng,Lat:",
-      "Address:",
-      "Close",
-      "en",
-      null,
-      null,
-      null,
-      false,
-    );
-    expect(marker.openPopup).not.toHaveBeenCalled();
-  });
-
-  it("calls onAddress and updates popup when reverseGeocode resolves", async () => {
-    const marker = {
-      bindPopup: vi.fn().mockReturnThis(),
-      openPopup: vi.fn(),
-      setPopupContent: vi.fn(),
-      getPopup: () => ({
-        _closeButton: null,
-        isOpen: vi.fn(() => true),
-      }),
-    };
-    window.L.marker = vi.fn(() => marker);
-    window.foliplus.reverseGeocode = vi.fn(() => Promise.resolve("Resolved Address"));
-    const onAddress = vi.fn();
-
-    createLocationMarker(
-      map,
-      120,
-      30,
-      null,
-      "Title",
-      "Loading...",
-      "Lng,Lat:",
-      "Address:",
-      "Close",
-      "en",
-      null,
-      null,
-      onAddress,
-    );
-
-    await Promise.resolve();
-    await Promise.resolve();
-    expect(onAddress).toHaveBeenCalledWith("Resolved Address");
-    expect(marker.setPopupContent).toHaveBeenCalled();
-  });
-
-  it("does nothing when reverseGeocode is unavailable", () => {
-    delete window.foliplus.reverseGeocode;
-    expect(() =>
-      createLocationMarker(
-        map,
-        120,
-        30,
-        null,
-        "Title",
-        "Loading...",
-        "Lng,Lat:",
-        "Address:",
-        "Close",
-      ),
-    ).not.toThrow();
-  });
-
-  it("leaves the loading placeholder when the popup is closed by the time the lookup resolves", async () => {
-    // A slow lookup resolving after the user closed the marker would otherwise
-    // overwrite the closed marker's content with the resolved address. The
-    // popup must stay closed and keep its loading placeholder.
-    const openPopup = vi.fn().mockReturnThis();
-    const setPopupContent = vi.fn();
-    let open = true;
-    const marker = {
-      bindPopup: vi.fn().mockReturnThis(),
-      openPopup,
-      setPopupContent,
-      getPopup: () => ({
-        _closeButton: null,
-        isOpen: () => open,
-      }),
-    };
-    window.L.marker = vi.fn(() => marker);
-    const deferred = new Promise<string>(resolve => {
-      open = false;
-      setTimeout(() => resolve("Resolved Address"), 0);
-    });
-    window.foliplus.reverseGeocode = vi.fn(() => deferred);
-
-    createLocationMarker(
-      map,
-      120,
-      30,
-      null,
-      "Title",
-      "Loading...",
-      "Lng,Lat:",
-      "Address:",
-      "Close",
-    );
-
-    await new Promise(r => setTimeout(r, 10));
-    expect(setPopupContent).not.toHaveBeenCalled();
-    expect(openPopup).toHaveBeenCalled();
-  });
-});
-
 describe("createIconButton", () => {
   it("creates a button with class, title, and svg content", () => {
     const btn = createIconButton({
@@ -465,6 +264,31 @@ describe("stopEvent", () => {
     stopEvent({ originalEvent: original });
     expect(original.stopPropagation).toHaveBeenCalled();
     expect(original.preventDefault).toHaveBeenCalled();
+  });
+});
+
+describe("cancelMapPaneTranslate", () => {
+  it("offsets the canvas by the negated mapPane position", () => {
+    const canvas = document.createElement("canvas");
+    (window.L as unknown as { DomUtil: unknown }).DomUtil = {
+      getPosition: () => ({ x: 12, y: -5 }),
+    };
+    const map = {
+      getPanes: () => ({ mapPane: document.createElement("div") }),
+    } as unknown as L.Map;
+
+    cancelMapPaneTranslate(canvas, map);
+
+    expect(canvas.style.left).toBe("-12px");
+    expect(canvas.style.top).toBe("5px");
+  });
+
+  it("tolerates a map without a mapPane", () => {
+    const canvas = document.createElement("canvas");
+    const map = { getPanes: () => ({}) } as unknown as L.Map;
+
+    expect(() => cancelMapPaneTranslate(canvas, map)).not.toThrow();
+    expect(canvas.style.left).toBe("");
   });
 });
 

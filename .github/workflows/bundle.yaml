@@ -22,14 +22,8 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - uses: actions/setup-node@v6
-        with:
-          node-version-file: "package.json"
-          # setup-node auto-detects npm from the packageManager pin and turns on
-          # package-manager caching, which requires a lockfile this repo ignores.
-          package-manager-cache: false
+      - uses: ./.github/actions/setup-deps
 
-      - run: npm install
       - run: npm run build:sonda
 
       # Build the base branch in a detached worktree and capture its sizes, then
@@ -53,7 +47,18 @@ jobs:
           node script/bundle-size-check.mjs --root=/tmp/base --emit=base-sizes.json
           git worktree remove --force /tmp/base
 
-      - name: Compare with main
+      # Absolute cap per artifact — the fuse that fires only on tens-of-KB
+      # incidents. Runs on the PR build produced by `build:sonda` above; the
+      # report step below is what publishes the verdict, so the fuse must
+      # land before it.
+      - run: node script/bundle-fuse.mjs
+
+      # The report must land on the PR no matter what the verdict is, so it is
+      # always published before the gate is evaluated. `check` exits 0 on a
+      # threshold breach by design — the table has to reach the PR first — so
+      # this step cannot abort the job; `--enforce` in the gate step is what
+      # decides.
+      - name: Report
         run: |
           # Neither `github.base_sha` nor `HEAD` is the SHA to show. The checkout
           # is detached at the merge commit `merge(main, PR)`, so `HEAD` is a SHA
@@ -87,3 +92,17 @@ jobs:
         with:
           header: bundle-report
           path: bundle-report.md
+
+      # Gate last: the table above already names the offenders, so the failure
+      # here adds nothing to the PR and must never keep it from appearing. The
+      # verdict is the one the Report step recorded against the same baseline,
+      # so this is a re-read of the same numbers, not a re-measure.
+      - name: Enforce threshold
+        # The gate lives on pull_request only, so a branch push does not see a
+        # base-sizes.json from a Capture step that ran against the PR's own
+        # `head_ref`. The if is defensive, not reachable from the workflow's
+        # current triggers: it keeps the step skipped rather than failing on a
+        # missing file if a push trigger is added later.
+        if: ${{ github.event.pull_request }}
+        run: |
+          node script/bundle-size-check.mjs --baseline=base-sizes.json --enforce

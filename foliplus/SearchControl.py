@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Literal, get_args
+from typing import Literal, Mapping, TypedDict, get_args
 
 from ._cdn_loader import load_cdn
 from ._typing import Position, Zoom
@@ -13,6 +13,41 @@ MODE = Literal["coord", "addr"]
 # checks) and the runtime allowlist below.
 ProviderId = Literal["nominatim", "photon", "pelias"]
 PROVIDER_IDS = get_args(ProviderId)
+
+
+class ProviderEndpoint(TypedDict):
+    """One geocode endpoint template: ``url`` plus query ``params``."""
+
+    url: str
+    params: Mapping[str, object]
+
+
+class ProviderConfig(TypedDict, total=False):
+    """Overrides allowed for a built-in string provider."""
+
+    baseUrl: str
+    throttleMs: int
+    headers: Mapping[str, str]
+
+
+class _CustomProviderRequired(TypedDict):
+    id: str
+
+
+class CustomProvider(_CustomProviderRequired, total=False):
+    """Declarative custom geocode provider (serialized to the JS runtime).
+
+    ``id`` is required at runtime (enforced in ``__init__``); the remaining
+    keys are optional endpoint templates and tuning knobs.
+    """
+
+    baseUrl: str
+    throttleMs: int
+    headers: Mapping[str, str]
+    suggest: ProviderEndpoint
+    search: ProviderEndpoint
+    reverse: ProviderEndpoint
+    normalize: Mapping[str, str]
 
 
 class SearchControl(BaseControl):
@@ -85,6 +120,9 @@ class SearchControl(BaseControl):
         for the id wins. Give each distinct API instance (different
         ``baseUrl`` or throttle) its own ``id`` / provider string.
 
+    collapse_on_outside : bool, default True
+        Whether a press outside the panel collapses it.
+
     locale : str or LocaleConfig, optional
         Language code ("en", "zh") or a LocaleConfig instance.
         Defaults to auto-detection, falling back to English.
@@ -104,7 +142,13 @@ class SearchControl(BaseControl):
     ... ).add_to(m)
     """
 
-    _export_fields = ("mode", "zoom", "provider", "provider_config")
+    _config_fields = (
+        "mode",
+        "zoom",
+        "provider",
+        "provider_config",
+        "collapse_on_outside",
+    )
 
     default_js = load_cdn("SearchControl")
 
@@ -115,8 +159,9 @@ class SearchControl(BaseControl):
         position: Position = "topleft",
         mode: MODE = "coord",
         zoom: Zoom = 15,
-        provider: ProviderId | dict[str, Any] = "nominatim",
-        provider_config: dict[str, Any] | None = None,
+        provider: ProviderId | CustomProvider = "nominatim",
+        provider_config: ProviderConfig | None = None,
+        collapse_on_outside: bool = True,
         locale: str | LocaleConfig | None = None,
     ):
         if isinstance(provider, str):
@@ -140,4 +185,5 @@ class SearchControl(BaseControl):
         self.zoom = zoom
         self.provider = provider
         self.provider_config = provider_config
+        self.collapse_on_outside = collapse_on_outside
         self._template = self._get_template()

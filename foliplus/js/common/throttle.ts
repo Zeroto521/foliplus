@@ -6,9 +6,13 @@
 /**
  * Throttle a function to at most one invocation per animation frame.
  * Calls within a frame are coalesced; the last one runs on the next frame.
- * Returns the wrapped function with a `cancel()` method to drop a pending frame.
+ * Returns the wrapped function with a `cancel()` method to drop a pending
+ * frame, and a `flush()` method to execute it immediately (no-op if none
+ * is pending). Use `flush` in teardown so the final call is never lost.
  */
-const throttleRaf = (fn: () => void): (() => void) & { cancel: () => void } => {
+const throttleRaf = (
+  fn: () => void,
+): (() => void) & { cancel: () => void; flush: () => void } => {
   let rafId: number | null = null;
   const wrapped = () => {
     if (rafId) return;
@@ -23,7 +27,25 @@ const throttleRaf = (fn: () => void): (() => void) & { cancel: () => void } => {
       rafId = null;
     }
   };
+  wrapped.flush = () => {
+    if (rafId) {
+      cancelAnimationFrame(rafId);
+      rafId = null;
+      fn();
+    }
+  };
   return wrapped;
 };
 
-export { throttleRaf };
+/**
+ * Schedule a one-shot run on the next animation frame and return a cancel
+ * function — call it on teardown to drop a frame that must not land. Unlike
+ * {@link throttleRaf} there is no coalescing: each call schedules its own
+ * frame, which is what a "after the layout settles" defer wants.
+ */
+const nextFrame = (fn: () => void): (() => void) => {
+  const rafId = requestAnimationFrame(fn);
+  return () => cancelAnimationFrame(rafId);
+};
+
+export { nextFrame, throttleRaf };

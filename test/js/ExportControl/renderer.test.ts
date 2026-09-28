@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/ExportControl/const.js";
-import { ExportRenderer, pooledEach } from "#foliplus/ExportControl/renderer.js";
+import {
+  ExportRenderer,
+  isCorsBlocked,
+} from "#foliplus/ExportControl/renderer/index.js";
 import * as UTIL from "#foliplus/ExportControl/util.js";
 
 // renderer.ts binds its logger to CONF.name at module-import time, so the
@@ -30,83 +33,6 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("pooledEach", () => {
-  it("returns empty array for empty input", async () => {
-    expect(await pooledEach([], 3, () => 42)).toEqual([]);
-  });
-
-  it("processes all items and preserves order", async () => {
-    const input = [10, 20, 30];
-    const result = await pooledEach(input, 2, item => item * 2);
-    expect(result).toEqual([20, 40, 60]);
-  });
-
-  it("converts returned undefined/null to null in results", async () => {
-    const input = [1, 2, 3];
-    const result = await pooledEach(input, 3, item => (item === 2 ? null : item));
-    expect(result).toEqual([1, null, 3]);
-  });
-
-  it("swallows per-item errors and records null", async () => {
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const input = [1, 2, 3];
-    const result = await pooledEach(input, 3, item => {
-      if (item === 2) throw new Error("boom");
-      return item;
-    });
-    expect(result).toEqual([1, null, 3]);
-    expect(warnSpy).toHaveBeenCalledWith(
-      expect.stringContaining("tile load failed"),
-      expect.any(Error),
-    );
-  });
-
-  it("caps concurrency at 1 (serial)", async () => {
-    let active = 0;
-    let maxActive = 0;
-    const input = [1, 2, 3, 4];
-    await pooledEach(input, 1, async item => {
-      active++;
-      maxActive = Math.max(maxActive, active);
-      await new Promise(r => setTimeout(r, 5));
-      active--;
-      return item;
-    });
-    expect(maxActive).toBe(1);
-  });
-
-  it("honors concurrency cap > 1", async () => {
-    let active = 0;
-    let maxActive = 0;
-    const input = Array.from({ length: 8 }, (_, i) => i);
-    await pooledEach(input, 3, async () => {
-      active++;
-      maxActive = Math.max(maxActive, active);
-      await new Promise(r => setTimeout(r, 8));
-      active--;
-    });
-    expect(maxActive).toBe(3);
-  });
-
-  it("handles negative concurrency gracefully (cap = 1)", async () => {
-    const result = await pooledEach([1, 2], -5, item => item);
-    expect(result).toEqual([1, 2]);
-  });
-
-  it("handles async null correctly", async () => {
-    const result = await pooledEach([1, 2], 2, async () => null);
-    expect(result).toEqual([null, null]);
-  });
-
-  it("receives correct index argument", async () => {
-    const indices: number[] = [];
-    await pooledEach([10, 20, 30], 5, (_item, idx) => {
-      indices.push(idx);
-      return null;
-    });
-    expect(indices.sort()).toEqual([0, 1, 2]);
-  });
-});
 //===========================================================================
 // calcTiles — deterministic tile coordinate computation.
 //===========================================================================
@@ -155,7 +81,7 @@ function makeRenderer(crs: any = makeEPSG3857Mock()): ExportRenderer {
   const map = {
     options: { crs },
     getContainer: () => container,
-    foliplus: { LayerAPI: { layers: [], getLayerPanes: () => [] } },
+    foliplus: { LayerAPI: withApi([]) },
   };
   return new ExportRenderer(map as any);
 }
@@ -188,7 +114,24 @@ function makeRC(w: number, h: number, ctx = makeMockCtx(), scale = 1) {
     sh: h,
   };
 }
-/** Tiles centred on the container: 1000x1000 crop at zoom 2 keeps every tile
+
+/** Wrap layer entries in a LayerAPI mock with intentVisible derived from
+ *  each entry's `visible` field (defaulting to true). */
+function withApi(
+  layers: Array<{ id: string; visible?: boolean; layer?: unknown; canvas?: unknown }>,
+  getLayerPanes: (layer: unknown) => string[] = () => [],
+) {
+  return {
+    layers,
+    getLayerPanes,
+    intentVisible: (id: string) => {
+      const entry = layers.find(l => l.id === id);
+      return entry?.visible ?? true;
+    },
+  };
+}
+
+/** Tiles centered on the container: 1000x1000 crop at zoom 2 keeps every tile
  *  inside the crop rect, so the viewport filter survives all of them. */
 
 const tilesNearCenter = (n: number) =>
@@ -223,7 +166,7 @@ const rcTiles = (rc: ReturnType<typeof makeRC>, n: number) => {
     getZoom: () => 2,
     getCenter: () => ({ lat: 26.08, lng: 119.3 }),
     getContainer: () => document.createElement("div"),
-    foliplus: { LayerAPI: { layers: [], getLayerPanes: () => [] } },
+    foliplus: { LayerAPI: withApi([]) },
   };
   return new ExportRenderer(map).tilePositions(
     rc,
@@ -246,287 +189,6 @@ function stubBitmaps(width = 64, height = 64) {
     close: () => undefined,
   });
 }
-
-describe("calcTiles", () => {
-  it("throws without a valid CRS", () => {
-    const renderer = makeRenderer({ latLngToPoint: undefined });
-    expect(() =>
-      renderer.calcTiles(
-        makeTileLayer(),
-        {
-          nw: { lat: 10, lng: 10 },
-          se: { lat: 5, lng: 15 },
-        },
-        5,
-        1,
-      ),
-    ).toThrow();
-  });
-
-  it("does not throw when map has no crs option (falls back to L.CRS.EPSG3857)", () => {
-    const container = document.createElement("div");
-    container.id = "test";
-    const map = {
-      options: {},
-      getContainer: () => container,
-      foliplus: { LayerAPI: { layers: [], getLayerPanes: () => [] } },
-    };
-    const renderer = new ExportRenderer(map as any);
-    const tiles = renderer.calcTiles(
-      makeTileLayer(),
-      {
-        nw: { lat: 10, lng: 10 },
-        se: { lat: 5, lng: 15 },
-      },
-      5,
-      1,
-    );
-    expect(Array.isArray(tiles)).toBe(true);
-  });
-
-  it("produces one tile for a zoom-0 full-extent bounding box", () => {
-    const renderer = makeRenderer();
-    const tiles = renderer.calcTiles(
-      makeTileLayer(),
-      {
-        nw: { lat: 85.051129, lng: -180 },
-        se: { lat: -85.051129, lng: 180 },
-      },
-      0,
-      1,
-    );
-    expect(tiles.length).toBe(1);
-    expect(tiles[0]).toMatchObject({ x: 0, y: 0, z: 0 });
-  });
-
-  it("produces 4 tiles for zoom-1 full extent", () => {
-    const renderer = makeRenderer();
-    const tiles = renderer.calcTiles(
-      makeTileLayer(),
-      {
-        nw: { lat: 85.051129, lng: -180 },
-        se: { lat: -85.051129, lng: 180 },
-      },
-      1,
-      1,
-    );
-    expect(tiles.length).toBe(4);
-  });
-
-  it("clamps tile coords to maxTile for finite CRS", () => {
-    const renderer = makeRenderer();
-    const tiles = renderer.calcTiles(
-      makeTileLayer(),
-      {
-        nw: { lat: 85.051129, lng: -180 },
-        se: { lat: -85.051129, lng: 180 },
-      },
-      1,
-      1,
-    );
-    for (const t of tiles) {
-      expect(t.x).toBeLessThan(2);
-      expect(t.y).toBeLessThan(2);
-      expect(t.x).toBeGreaterThanOrEqual(0);
-      expect(t.y).toBeGreaterThanOrEqual(0);
-    }
-  });
-
-  it("skips negative tile coords", () => {
-    const renderer = makeRenderer();
-    // Very small lat/lng box that falls between tile boundaries — no negative
-    // coords should leak through the filter.
-    const tiles = renderer.calcTiles(
-      makeTileLayer(),
-      {
-        nw: { lat: 45, lng: -180 },
-        se: { lat: 44, lng: -179 },
-      },
-      5,
-      1,
-    );
-    for (const t of tiles) {
-      expect(t.x).toBeGreaterThanOrEqual(0);
-      expect(t.y).toBeGreaterThanOrEqual(0);
-    }
-  });
-
-  it("substitutes {s} from subdomains string", () => {
-    const renderer = makeRenderer();
-    const tiles = renderer.calcTiles(
-      makeTileLayer({ subdomains: "abc" }),
-      {
-        nw: { lat: 85.051129, lng: -180 },
-        se: { lat: -85.051129, lng: 180 },
-      },
-      0,
-      1,
-    );
-    expect(tiles.length).toBe(1);
-    expect(tiles[0].url).toMatch(/^https:\/\/[a-c]\.tile\.example\.com\/0\/0\/0\.png$/);
-  });
-
-  it("substitutes {s} from subdomains array", () => {
-    const renderer = makeRenderer();
-    const tiles = renderer.calcTiles(
-      makeTileLayer({ subdomains: ["a", "b", "c"] }),
-      {
-        nw: { lat: 85.051129, lng: -180 },
-        se: { lat: -85.051129, lng: 180 },
-      },
-      0,
-      1,
-    );
-    expect(tiles[0].url).toMatch(/^https:\/\/[a-c]\.tile\.example\.com\/0\/0\/0\.png$/);
-  });
-
-  it("uses 256 default tileSize when not specified", () => {
-    const renderer = makeRenderer();
-    // TileLayer with options but no tileSize → defaults to 256
-    const tiles = renderer.calcTiles(
-      makeTileLayer({ subdomains: "abc" }),
-      {
-        nw: { lat: 85.051129, lng: -180 },
-        se: { lat: -85.051129, lng: 180 },
-      },
-      0,
-      1,
-    );
-    expect(tiles[0].size).toBe(256);
-  });
-
-  it("uses numeric tileSize from options", () => {
-    const renderer = makeRenderer();
-    const tiles = renderer.calcTiles(
-      makeTileLayer({ tileSize: 512 }),
-      {
-        nw: { lat: 85.051129, lng: -180 },
-        se: { lat: -85.051129, lng: 180 },
-      },
-      0,
-      1,
-    );
-    expect(tiles[0].size).toBe(512);
-  });
-
-  it("uses empty string urlTemplate when _url is missing", () => {
-    const renderer = makeRenderer();
-    const tiles = renderer.calcTiles(
-      makeTileLayer({ _url: "" }),
-      {
-        nw: { lat: 85.051129, lng: -180 },
-        se: { lat: -85.051129, lng: 180 },
-      },
-      0,
-      1,
-    );
-    expect(tiles[0].url).toBe("");
-  });
-
-  it("substitutes {z} with zoom value", () => {
-    const renderer = makeRenderer();
-    const tiles = renderer.calcTiles(
-      makeTileLayer({ _url: "https://tile.example.com/{z}/{x}/{y}.png" }),
-      {
-        nw: { lat: 85.051129, lng: -180 },
-        se: { lat: -85.051129, lng: 180 },
-      },
-      7,
-      1,
-    );
-    expect(tiles[0].url).toMatch(/\/7\/0\/0\.png$/);
-  });
-
-  it("appends @2x to {r} when scale > 1", () => {
-    const renderer = makeRenderer();
-    const tiles = renderer.calcTiles(
-      makeTileLayer({ _url: "https://tile.example.com/{z}/{x}/{y}{r}.png" }),
-      {
-        nw: { lat: 85.051129, lng: -180 },
-        se: { lat: -85.051129, lng: 180 },
-      },
-      0,
-      2,
-    );
-    expect(tiles[0].url).toContain("@2x");
-  });
-
-  it("replaces {r} with empty string when scale is 1", () => {
-    const renderer = makeRenderer();
-    const tiles = renderer.calcTiles(
-      makeTileLayer({ _url: "https://tile.example.com/{z}/{x}/{y}{r}.png" }),
-      {
-        nw: { lat: 85.051129, lng: -180 },
-        se: { lat: -85.051129, lng: 180 },
-      },
-      0,
-      1,
-    );
-    expect(tiles[0].url).toBe("https://tile.example.com/0/0/0.png");
-    expect(tiles[0].url).not.toContain("@2x");
-  });
-
-  it("sets left and top to tile pixel positions", () => {
-    const renderer = makeRenderer();
-    const tiles = renderer.calcTiles(
-      makeTileLayer({ tileSize: 256 }),
-      {
-        nw: { lat: 85.051129, lng: -180 },
-        se: { lat: -85.051129, lng: 180 },
-      },
-      0,
-      1,
-    );
-    expect(tiles[0].left).toBe(0);
-    expect(tiles[0].top).toBe(0);
-  });
-
-  it("produces 16 tiles for zoom 2 full extent", () => {
-    const renderer = makeRenderer();
-    const tiles = renderer.calcTiles(
-      makeTileLayer(),
-      {
-        nw: { lat: 85.051129, lng: -180 },
-        se: { lat: -85.051129, lng: 180 },
-      },
-      2,
-      1,
-    );
-    expect(tiles.length).toBe(16);
-  });
-
-  it("uses subdomains[0] when subdomains array has single entry", () => {
-    const renderer = makeRenderer();
-    const tiles = renderer.calcTiles(
-      makeTileLayer({ subdomains: ["x"] }),
-      {
-        nw: { lat: 85.051129, lng: -180 },
-        se: { lat: -85.051129, lng: 180 },
-      },
-      0,
-      1,
-    );
-    expect(tiles[0].url).toBe("https://x.tile.example.com/0/0/0.png");
-  });
-
-  it("cycles subdomains deterministically via (x+y) % len", () => {
-    const renderer = makeRenderer();
-    const tiles = renderer.calcTiles(
-      makeTileLayer({ subdomains: "ab" }),
-      {
-        nw: { lat: 85.051129, lng: -180 },
-        se: { lat: -85.051129, lng: 180 },
-      },
-      1,
-      1,
-    );
-    const subdomainSets = new Set(tiles.map(t => t.url.match(/\/\/([ab])\./)![1]));
-    expect(subdomainSets).toEqual(new Set(["a", "b"]));
-  });
-});
-//===========================================================================
-//  ExportRenderer.render — crop-too-small guard + canvas creation.
-//===========================================================================
 
 describe("ExportRenderer.render — canvas creation", () => {
   let renderer: ExportRenderer;
@@ -621,13 +283,15 @@ describe("ExportRenderer.render — canvas creation", () => {
 //===========================================================================
 
 describe("ExportRenderer.renderTileLayer — onProgress", () => {
+  const mockLayer = { options: { opacity: 1 } } as L.TileLayer;
+
   it("reports the cumulative tiles drawn after each batch", async () => {
     const total = CONST.TILE_CONCURRENCY * 2;
     stubBitmaps();
     const rc = makeRC(4096, 4096);
     const onProgress = vi.fn();
 
-    await makeRenderer().renderTileLayer(rc, rcTiles(rc, total), onProgress);
+    await makeRenderer().renderTileLayer(rc, rcTiles(rc, total), mockLayer, onProgress);
 
     // One report per batch, counting the tiles actually painted so far —
     // never the batch index, which would credit tiles that were still loading.
@@ -641,7 +305,7 @@ describe("ExportRenderer.renderTileLayer — onProgress", () => {
     // render() does the clipping before calling, so an empty list is the only
     // way this pass starts.  The early return must not report anything.
     const onProgress = vi.fn();
-    await makeRenderer().renderTileLayer(makeRC(100, 100), [], onProgress);
+    await makeRenderer().renderTileLayer(makeRC(100, 100), [], mockLayer, onProgress);
     expect(onProgress).not.toHaveBeenCalled();
   });
 
@@ -652,7 +316,12 @@ describe("ExportRenderer.renderTileLayer — onProgress", () => {
     stubBitmaps();
 
     const onProgress = vi.fn();
-    await makeRenderer().renderTileLayer(makeRC(1536, 512), survivors, onProgress);
+    await makeRenderer().renderTileLayer(
+      makeRC(1536, 512),
+      survivors,
+      mockLayer,
+      onProgress,
+    );
     expect(onProgress.mock.calls.map(c => c[0])).toEqual([
       CONST.TILE_CONCURRENCY,
       survivors.length,
@@ -679,6 +348,7 @@ describe("ExportRenderer.renderTileLayer — onProgress", () => {
     await makeRenderer().renderTileLayer(
       makeRC(4096, 4096, ctx),
       rcTiles(makeRC(4096, 4096, ctx), 2),
+      mockLayer,
       onProgress,
     );
 
@@ -694,6 +364,7 @@ describe("ExportRenderer.renderTileLayer — onProgress", () => {
     await makeRenderer().renderTileLayer(
       makeRC(4096, 4096),
       rcTiles(makeRC(4096, 4096), total),
+      mockLayer,
       onProgress,
     );
     // Two batches: a full one, then the single leftover tile — the last report
@@ -711,11 +382,98 @@ describe("ExportRenderer.renderTileLayer — onProgress", () => {
     await makeRenderer().renderTileLayer(
       makeRC(4096, 4096),
       rcTiles(makeRC(4096, 4096), CONST.TILE_CONCURRENCY),
+      mockLayer,
       onProgress,
     );
     // The tile was fetched and enumerated but nothing reached the canvas, so it
     // earns no progress: counting it would say the map is more done than it is.
     expect(onProgress.mock.calls.map(c => c[0])).toEqual([0]);
+  });
+
+  it("falls back to the 1x tile when the retina fetch fails", async () => {
+    // A source without retina tiles 404s every {r} URL; the draw pass must
+    // retry the recorded 1x fallback instead of blanking the whole layer —
+    // otherwise a scale>1 export loses the layer and misreports it as CORS
+    // blocking.
+    (UTIL.loadImageBitmap as any).mockClear();
+    (UTIL.loadImageBitmap as any)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ width: 64, height: 64, close: () => {} });
+    const rc = makeRC(4096, 4096);
+    const renderer = makeRenderer();
+    const tiles = withPixels([
+      {
+        x: 1,
+        y: 1,
+        z: 2,
+        url: "tile@2x",
+        fallback: "tile",
+        left: 256,
+        top: 512,
+        size: 256,
+      },
+    ]);
+
+    await renderer.renderTileLayer(rc, tiles, mockLayer);
+
+    expect(UTIL.loadImageBitmap).toHaveBeenNthCalledWith(1, "tile@2x");
+    expect(UTIL.loadImageBitmap).toHaveBeenNthCalledWith(2, "tile");
+    expect(renderer.tileFailures).toEqual([{ total: 1, failed: 0 }]);
+  });
+
+  it("still draws every tile when no onProgress callback is passed", async () => {
+    // render() always forwards its own callback, but renderTileLayer is also
+    // reachable on its own, so the report has to stay optional.
+    const ctx = makeMockCtx();
+    (UTIL.loadImageBitmap as any).mockClear();
+    stubBitmaps();
+
+    await makeRenderer().renderTileLayer(
+      makeRC(4096, 4096, ctx),
+      rcTiles(makeRC(4096, 4096, ctx), CONST.TILE_CONCURRENCY),
+      mockLayer,
+    );
+
+    expect(ctx.drawImage).toHaveBeenCalledTimes(CONST.TILE_CONCURRENCY);
+  });
+});
+
+//===========================================================================
+//  tileFailures / isCorsBlocked — per-layer failure stats behind the
+//  post-export CORS warning.  renderTileLayer records what each tile layer's
+//  fetch achieved; the manager turns a predominantly-failed layer into a
+//  warning instead of a bare success.
+//===========================================================================
+
+describe("ExportRenderer.tileFailures", () => {
+  const mockLayer = { options: { opacity: 1 } } as L.TileLayer;
+
+  it("records one entry per rendered layer, split into drawn and failed", async () => {
+    stubBitmaps();
+    const rc = makeRC(4096, 4096);
+    const renderer = makeRenderer();
+    await renderer.renderTileLayer(rc, rcTiles(rc, CONST.TILE_CONCURRENCY), mockLayer);
+    expect(renderer.tileFailures).toEqual([
+      { total: CONST.TILE_CONCURRENCY, failed: 0 },
+    ]);
+  });
+
+  it("counts failed loads as failed tiles — the CORS-blocked profile", async () => {
+    (UTIL.loadImageBitmap as any).mockClear();
+    (UTIL.loadImageBitmap as any).mockResolvedValue(null);
+    const rc = makeRC(4096, 4096);
+    const renderer = makeRenderer();
+    await renderer.renderTileLayer(rc, rcTiles(rc, CONST.TILE_CONCURRENCY), mockLayer);
+    expect(renderer.tileFailures).toEqual([
+      { total: CONST.TILE_CONCURRENCY, failed: CONST.TILE_CONCURRENCY },
+    ]);
+    expect(renderer.tileFailures.some(isCorsBlocked)).toBe(true);
+  });
+
+  it("does not record a layer with no tiles to draw", async () => {
+    const renderer = makeRenderer();
+    await renderer.renderTileLayer(makeRC(100, 100), [], mockLayer);
+    expect(renderer.tileFailures).toEqual([]);
   });
 });
 
@@ -775,6 +533,19 @@ describe("ExportRenderer.render — onProgress across tile layers", () => {
     return ctx;
   };
 
+  it("fills the canvas background when a bg color is passed", async () => {
+    const ctx = stubCanvas();
+    await renderer.render(
+      { left: 0, top: 0, width: 100, height: 100 },
+      1,
+      "#ff0000",
+      undefined,
+      vi.fn(),
+    );
+    expect(ctx.fillStyle).toBe("#ff0000");
+    expect(ctx.fillRect).toHaveBeenCalledWith(0, 0, 100, 100);
+  });
+
   it("climbs monotonically across layers and stops short of 100", async () => {
     bigCenter();
     const c = CONST.TILE_CONCURRENCY;
@@ -795,14 +566,11 @@ describe("ExportRenderer.render — onProgress across tile layers", () => {
     // bar from the top of the tile range to the end of render()'s budget.
     const vector = { options: {} };
     renderer.map.foliplus = {
-      LayerAPI: {
-        layers: [
-          { visible: true, layer: bottomLayer },
-          { visible: true, layer: topLayer },
-          { visible: true, layer: vector },
-        ],
-        getLayerPanes: () => [],
-      },
+      LayerAPI: withApi([
+        { id: "bottom", visible: true, layer: bottomLayer },
+        { id: "top", visible: true, layer: topLayer },
+        { id: "vector", visible: true, layer: vector },
+      ]),
     };
 
     const onProgress = vi.fn();
@@ -827,15 +595,11 @@ describe("ExportRenderer.render — onProgress across tile layers", () => {
     stubBitmaps();
     stubCanvas();
     renderer.map.foliplus = {
-      LayerAPI: {
-        layers: [
-          { visible: false, layer: hidden },
-          // No `layer` at all: an ImageOverlay that has no URL either.
-          { visible: true, layer: {} },
-          { visible: true, layer: visible },
-        ],
-        getLayerPanes: () => [],
-      },
+      LayerAPI: withApi([
+        { id: "hidden", visible: false, layer: hidden },
+        { id: "empty", visible: true, layer: {} },
+        { id: "visible", visible: true, layer: visible },
+      ]),
     };
 
     const onProgress = vi.fn();
@@ -877,13 +641,10 @@ describe("ExportRenderer.render — onProgress across tile layers", () => {
     // bar must still leave the 0-70 range rather than sit at 0.
     const vector = { options: {} };
     renderer.map.foliplus = {
-      LayerAPI: {
-        layers: [
-          { visible: true, layer },
-          { visible: true, layer: vector },
-        ],
-        getLayerPanes: () => [],
-      },
+      LayerAPI: withApi([
+        { id: "a", visible: true, layer },
+        { id: "vector", visible: true, layer: vector },
+      ]),
     };
 
     const onProgress = vi.fn();
@@ -913,14 +674,10 @@ describe("ExportRenderer.render — onProgress across tile layers", () => {
     stubBitmaps();
     const renderTileLayer = vi.spyOn(renderer, "renderTileLayer");
     renderer.map.foliplus = {
-      LayerAPI: {
-        layers: [
-          // Enumerates tiles, but none survive the viewport clip.
-          { visible: true, layer: emptyLayer },
-          { visible: true, layer: realLayer },
-        ],
-        getLayerPanes: () => [],
-      },
+      LayerAPI: withApi([
+        { id: "empty", visible: true, layer: emptyLayer },
+        { id: "real", visible: true, layer: realLayer },
+      ]),
     };
 
     const onProgress = vi.fn();
@@ -945,10 +702,7 @@ describe("ExportRenderer.render — onProgress across tile layers", () => {
     // A vector layer, not a TileLayer instance: a makeTileLayer() fixture would
     // pass the `instanceof L.TileLayer` gate and be sized as a tile layer.
     renderer.map.foliplus = {
-      LayerAPI: {
-        layers: [{ visible: true, layer: { options: {} } }],
-        getLayerPanes: () => [],
-      },
+      LayerAPI: withApi([{ id: "vec", visible: true, layer: { options: {} } }]),
     };
 
     const onProgress = vi.fn();
@@ -960,6 +714,79 @@ describe("ExportRenderer.render — onProgress across tile layers", () => {
     expect(calcTiles).not.toHaveBeenCalled();
     expect(renderTileLayer).not.toHaveBeenCalled();
     expect(onProgress.mock.calls.map(call => call[0])).toEqual([71, 90]);
+  });
+
+  it("records failing tiles end-to-end and resets stats between renders", async () => {
+    bigCenter();
+    // Every tile of the single visible layer fails: the CORS-blocked profile
+    // through the real render() → renderTileLayer pipeline.
+    (UTIL.loadImageBitmap as any).mockResolvedValue(null);
+    stubCanvas();
+    const layer = makeTileLayer();
+    vi.spyOn(renderer, "calcTiles").mockReturnValue(
+      tilesNearCenter(CONST.TILE_CONCURRENCY),
+    );
+    renderer.map.foliplus = {
+      LayerAPI: withApi([{ id: "a", visible: true, layer }]),
+    };
+
+    await runRender(() => {});
+    expect(renderer.tileFailures).toEqual([
+      { total: CONST.TILE_CONCURRENCY, failed: CONST.TILE_CONCURRENCY },
+    ]);
+    expect(renderer.tileFailures.some(isCorsBlocked)).toBe(true);
+
+    // A second render starts from a clean slate — the previous export's
+    // failures must not be carried into the next one.
+    await runRender(() => {});
+    expect(renderer.tileFailures).toEqual([
+      { total: CONST.TILE_CONCURRENCY, failed: CONST.TILE_CONCURRENCY },
+    ]);
+    expect(renderer.tileFailures).toHaveLength(1);
+  });
+
+  it("skips a layer when LayerControl's intent says hidden", async () => {
+    // intentVisible (from LayerControl) returns false even though the layer
+    // is still on the map — the layer should be skipped, no tiles drawn.
+    bigCenter();
+    stubCanvas();
+    const hidden = makeTileLayer();
+    const calcTiles = vi.spyOn(renderer, "calcTiles");
+    renderer.map.foliplus = {
+      LayerAPI: {
+        layers: [{ id: "hidden", layer: hidden }],
+        getLayerPanes: () => [],
+        intentVisible: () => false,
+      },
+    };
+    const renderTileLayer = vi.spyOn(renderer, "renderTileLayer");
+    await runRender(vi.fn());
+    expect(calcTiles).not.toHaveBeenCalled();
+    expect(renderTileLayer).not.toHaveBeenCalled();
+  });
+
+  it("renders a tile layer when no LayerControl is present (fallback to true)", async () => {
+    // No LayerControl on the map → api.intentVisible is undefined → the
+    // `?? true` fallback applies, so a tile layer with a URL is sized and
+    // handed to renderTileLayer.
+    bigCenter();
+    stubCanvas();
+    stubBitmaps();
+    const layer = makeTileLayer();
+    const calcTiles = vi
+      .spyOn(renderer, "calcTiles")
+      .mockReturnValue(tilesNearCenter(CONST.TILE_CONCURRENCY));
+    renderer.map.foliplus = {
+      LayerAPI: {
+        layers: [{ id: "tile", layer }],
+        getLayerPanes: () => [],
+      },
+    };
+    const renderTileLayer = vi.spyOn(renderer, "renderTileLayer");
+    await runRender(vi.fn());
+    expect(calcTiles).toHaveBeenCalledTimes(1);
+    expect(calcTiles.mock.calls[0][0]).toBe(layer);
+    expect(renderTileLayer).toHaveBeenCalled();
   });
 });
 
@@ -986,7 +813,7 @@ describe("ExportRenderer.render — layer pass routing", () => {
       getContainer: () => container,
       getZoom: () => 2,
       getCenter: () => ({ lat: 26.08, lng: 119.3 }),
-      foliplus: { LayerAPI: { layers: [], getLayerPanes: () => [] } },
+      foliplus: { LayerAPI: withApi([]) },
     };
     savedMapDesc = Object.getOwnPropertyDescriptor(globalThis, "map");
     savedLDesc = Object.getOwnPropertyDescriptor(globalThis, "L");
@@ -1058,14 +885,14 @@ describe("ExportRenderer.render — layer pass routing", () => {
     const getLayerPanes = vi.fn(() => ["vector-pane"]);
     const map = (globalThis as any).map;
     map.foliplus = {
-      LayerAPI: {
-        layers: [
-          { visible: true, canvas: canvasLayer },
-          { visible: true, layer: makeTileLayer() },
-          { visible: true, layer: vector },
+      LayerAPI: withApi(
+        [
+          { id: "canvas", visible: true, canvas: canvasLayer },
+          { id: "tile", visible: true, layer: makeTileLayer() },
+          { id: "vector", visible: true, layer: vector },
         ],
         getLayerPanes,
-      },
+      ),
     };
     map.getPane = (name: string) => (name === "vector-pane" ? roots : null);
 
@@ -1079,9 +906,11 @@ describe("ExportRenderer.render — layer pass routing", () => {
     const tileLayer = spy("renderTileLayer");
     // The draw pass reports one step per batch, so the callback is what puts a
     // number on the bar at all.
-    tileLayer.mockImplementation(async (_rc: any, _tiles: any, cb: any) => {
-      cb(1);
-    });
+    tileLayer.mockImplementation(
+      async (_rc: any, _tiles: any, _layer: any, cb: any) => {
+        cb(1);
+      },
+    );
     const markers = spy("collectLayerMarkers");
     // render() reads collectLayerMarkers' return value to decide whether the
     // marker passes run, so an empty stub keeps them out of this test's scope.
@@ -1107,6 +936,41 @@ describe("ExportRenderer.render — layer pass routing", () => {
     // rather than stepping partway; the three layer entries then walk the
     // layer range to its top at 90.
     expect(onProgress.mock.calls.map(call => call[0])).toEqual([70, 81, 90]);
+  });
+
+  it("renders a layer's annotation labels right after its content", async () => {
+    // Each layer's label canvas mounts in its own pane (map.createPane), a
+    // sibling of the content panes the walk visits. render() draws it right
+    // after the layer's content — before the next layer up covers it — so the
+    // exported stack order matches the map's.
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(
+      makeMockCtx() as any,
+    );
+    const map = (globalThis as any).map;
+    const labelPane = document.createElement("div");
+    labelPane.className = "foliplus-annotation-pane";
+    const annCanvas = document.createElement("canvas");
+    annCanvas.className = "foliplus-annotation-canvas";
+    labelPane.appendChild(annCanvas);
+    map.getPane = (name: string) =>
+      name === CONST.ANNOTATION_PANE_PREFIX + "vec" ? labelPane : null;
+    map.foliplus = {
+      LayerAPI: withApi([{ id: "vec", visible: true, layer: { options: {} } }]),
+    };
+
+    const proto = ExportRenderer.prototype as any;
+    const paneCanvas = vi.spyOn(proto, "renderPaneCanvas").mockResolvedValue(undefined);
+
+    await runRender(vi.fn());
+
+    // The label pane is swept once, with the annotation selector, right after
+    // the layer's content walk (which passed no panes of its own).
+    expect(paneCanvas).toHaveBeenCalledTimes(1);
+    expect(paneCanvas).toHaveBeenCalledWith(
+      expect.anything(),
+      labelPane,
+      CONST.SEL.ANNOTATION_CANVAS,
+    );
   });
 
   it("runs the four marker passes when the layer's panes hold markers", async () => {
@@ -1140,10 +1004,9 @@ describe("ExportRenderer.render — layer pass routing", () => {
     const vector = { options: {} };
     const map = (globalThis as any).map;
     map.foliplus = {
-      LayerAPI: {
-        layers: [{ visible: true, layer: vector }],
-        getLayerPanes: () => ["vector-pane"],
-      },
+      LayerAPI: withApi([{ id: "vec", visible: true, layer: vector }], () => [
+        "vector-pane",
+      ]),
     };
     map.getPane = () => roots;
 
@@ -1198,10 +1061,9 @@ describe("ExportRenderer.render — layer pass routing", () => {
     const vector = { options: {} };
     const map = (globalThis as any).map;
     map.foliplus = {
-      LayerAPI: {
-        layers: [{ visible: true, layer: vector }],
-        getLayerPanes: () => ["gone-pane"],
-      },
+      LayerAPI: withApi([{ id: "vec", visible: true, layer: vector }], () => [
+        "gone-pane",
+      ]),
     };
     map.getPane = () => null;
 
@@ -1221,994 +1083,72 @@ describe("ExportRenderer.render — layer pass routing", () => {
     // closes it at 90 even though its pane was missing.
     expect(onProgress.mock.calls.map(call => call[0])).toEqual([71, 90]);
   });
-});
 
-describe("ExportRenderer.renderCanvasElement", () => {
-  const rectOf = (width: number, height: number, left = 0, top = 0) =>
-    ({
-      left,
-      top,
-      width,
-      height,
-      right: left + width,
-      bottom: top + height,
-    }) as DOMRect;
-
-  it("skips a canvas with no area", async () => {
-    const ctx = makeMockCtx();
-    const canvas = document.createElement("canvas");
-    canvas.getBoundingClientRect = () => rectOf(0, 0);
-    const load = vi.spyOn(UTIL, "loadImage").mockResolvedValue({} as any);
-
-    await new ExportRenderer(makeRenderer().map).renderCanvasElement(
-      positionedRC(1000, 1000, ctx),
-      canvas,
+  it("keeps a layer entry that resolves only in the filter out of the render", async () => {
+    // The tile phase, the passable filter, and the render loop each call
+    // resolveLayer. If the layer is present for the filter (entry survives)
+    // but gone by the loop (the `else if (layer)` fallthrough), the entry
+    // still consumes its unit of the layer range — the bar cannot stall
+    // below the top.
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(
+      makeMockCtx() as any,
     );
-
-    expect(load).not.toHaveBeenCalled();
-    expect(ctx.drawImage).not.toHaveBeenCalled();
-  });
-
-  it("draws nothing when loading the canvas data URL fails", async () => {
-    const ctx = makeMockCtx();
-    const canvas = document.createElement("canvas");
-    canvas.getBoundingClientRect = () => rectOf(200, 200, 10, 10);
-    const load = vi.spyOn(UTIL, "loadImage").mockRejectedValue(new Error("boom"));
-
-    await new ExportRenderer(makeRenderer().map).renderCanvasElement(
-      positionedRC(1000, 1000, ctx),
-      canvas,
-    );
-
-    expect(load).toHaveBeenCalled();
-    expect(ctx.drawImage).not.toHaveBeenCalled();
-  });
-});
-
-// =============================================================================
-//  renderPaneSVG / renderPaneCanvas — the two pane-level passes.  Both read the
-//  real element box, so each needs an element whose getBoundingClientRect
-//  answers something the crop rect can compare against.
-// =============================================================================
-
-/** jsdom reports every box as 0x0, which makes each pass bail out at its first
- *  area guard.  Pin a box on the element under test and let the rest fall
- *  through real. */
-const pinBox = (el, left = 0, top = 0, width = 100, height = 100) => {
-  el.getBoundingClientRect = () =>
-    ({
-      left,
-      top,
-      width,
-      height,
-      right: left + width,
-      bottom: top + height,
-    }) as DOMRect;
-  return el;
-};
-
-/** Both pane passes resolve their image through util.loadImage; jsdom cannot
- *  load an object URL, so stub it for the tests that reach the draw call. */
-const stubLoad = () => vi.spyOn(UTIL, "loadImage").mockResolvedValue({} as any);
-
-describe("ExportRenderer.renderPaneSVG", () => {
-  const NS = CONST.SVG_NS;
-
-  const pane = () => {
-    const p = document.createElement("div");
-    p.className = "leaflet-map-pane";
-    return p;
-  };
-
-  it("paints an svg that carries a shape element", async () => {
-    const ctx = makeMockCtx();
-    const p = pane();
-    const svg = document.createElementNS(NS, "svg");
-    pinBox(svg, 0, 0, 200, 200);
-    svg.appendChild(document.createElementNS(NS, "path"));
-    p.appendChild(svg);
-    stubLoad();
-
-    await new ExportRenderer(makeRenderer().map).renderPaneSVG(
-      positionedRC(1000, 1000, ctx),
-      p,
-    );
-
-    expect(ctx.drawImage).toHaveBeenCalledTimes(1);
-  });
-
-  it("counts a g element that itself holds a shape", async () => {
-    const ctx = makeMockCtx();
-    const p = pane();
-    const svg = document.createElementNS(NS, "svg");
-    pinBox(svg, 0, 0, 200, 200);
-    const g = document.createElementNS(NS, "g");
-    g.appendChild(document.createElementNS(NS, "circle"));
-    svg.appendChild(g);
-    p.appendChild(svg);
-    stubLoad();
-
-    await new ExportRenderer(makeRenderer().map).renderPaneSVG(
-      positionedRC(1000, 1000, ctx),
-      p,
-    );
-
-    expect(ctx.drawImage).toHaveBeenCalledTimes(1);
-  });
-
-  it("skips an svg with no content", async () => {
-    const ctx = makeMockCtx();
-    const p = pane();
-    const svg = document.createElementNS(NS, "svg");
-    pinBox(svg, 0, 0, 200, 200);
-    p.appendChild(svg);
-    const load = stubLoad();
-
-    await new ExportRenderer(makeRenderer().map).renderPaneSVG(
-      positionedRC(1000, 1000, ctx),
-      p,
-    );
-
-    expect(load).not.toHaveBeenCalled();
-    expect(ctx.drawImage).not.toHaveBeenCalled();
-  });
-
-  it("skips an svg with no area", async () => {
-    const ctx = makeMockCtx();
-    const p = pane();
-    const svg = document.createElementNS(NS, "svg");
-    pinBox(svg, 0, 0, 0, 0);
-    svg.appendChild(document.createElementNS(NS, "path"));
-    p.appendChild(svg);
-    const load = stubLoad();
-
-    await new ExportRenderer(makeRenderer().map).renderPaneSVG(
-      positionedRC(1000, 1000, ctx),
-      p,
-    );
-
-    expect(load).not.toHaveBeenCalled();
-    expect(ctx.drawImage).not.toHaveBeenCalled();
-  });
-});
-
-describe("ExportRenderer.renderPaneCanvas", () => {
-  const pane = () => {
-    const p = document.createElement("div");
-    p.className = "leaflet-map-pane";
-    return p;
-  };
-
-  const canvasEl = (left, top, width, height) => {
-    const ce = document.createElement("canvas");
-    ce.className = "leaflet-map-pane foliplus-heatmap-canvas";
-    pinBox(ce, left, top, width, height);
-    ce.toDataURL = () => "data:image/png;base64,AAAA";
-    return ce;
-  };
-
-  it("paints a pane canvas in place", async () => {
-    const ctx = makeMockCtx();
-    const p = pane();
-    p.appendChild(canvasEl(10, 10, 200, 200));
-    stubLoad();
-
-    await new ExportRenderer(makeRenderer().map).renderPaneCanvas(
-      positionedRC(1000, 1000, ctx),
-      p,
-    );
-
-    expect(ctx.drawImage).toHaveBeenCalledTimes(1);
-  });
-
-  it("skips a pane canvas with no area", async () => {
-    const ctx = makeMockCtx();
-    const p = pane();
-    p.appendChild(canvasEl(0, 0, 0, 0));
-    const load = stubLoad();
-
-    await new ExportRenderer(makeRenderer().map).renderPaneCanvas(
-      positionedRC(1000, 1000, ctx),
-      p,
-    );
-
-    expect(load).not.toHaveBeenCalled();
-    expect(ctx.drawImage).not.toHaveBeenCalled();
-  });
-
-  it("skips a pane canvas outside the crop rect", async () => {
-    const ctx = makeMockCtx();
-    const p = pane();
-    // The rect spans 0..100 on both axes, so a box at 500 is fully outside.
-    p.appendChild(canvasEl(500, 500, 200, 200));
-    const load = stubLoad();
-    await new ExportRenderer(makeRenderer().map).renderPaneCanvas(
-      positionedRC(100, 100, ctx),
-      p,
-    );
-
-    expect(load).not.toHaveBeenCalled();
-    expect(ctx.drawImage).not.toHaveBeenCalled();
-  });
-
-  it("draws nothing when the data URL cannot load", async () => {
-    const ctx = makeMockCtx();
-    const p = pane();
-    p.appendChild(canvasEl(10, 10, 200, 200));
-    vi.spyOn(UTIL, "loadImage").mockRejectedValue(new Error("boom"));
-
-    await new ExportRenderer(makeRenderer().map).renderPaneCanvas(
-      positionedRC(1000, 1000, ctx),
-      p,
-    );
-
-    expect(ctx.drawImage).not.toHaveBeenCalled();
-  });
-});
-
-// =============================================================================
-//  Marker passes — collectLayerMarkers plus the four per-marker render passes.
-//  collectLayerMarkers resolves panes through the module-level map, so each test
-//  points the global at a mock whose LayerAPI returns the pane it wants.
-// =============================================================================
-
-/** Pin the module-level map that collectLayerMarkers reads, for the duration of
- *  one test.  Restores whatever the earlier tests left in place. */
-const withLayerPanes = (pane, roots) => {
-  const prev = globalThis.map;
-  Object.defineProperty(globalThis, "map", {
-    value: {
-      foliplus: { LayerAPI: { getLayerPanes: () => [pane] } },
-      getPane: () => roots,
-    },
-    configurable: true,
-  });
-  return () => {
-    Object.defineProperty(globalThis, "map", { value: prev, configurable: true });
-  };
-};
-
-/** jsdom has no canvas backend, so any context that must answer real calls is
- *  handed in explicitly rather than read from a canvas element. */
-const textCtx = () =>
-  ({
-    ...makeMockCtx(),
-    beginPath: vi.fn(),
-    fill: vi.fn(),
-    stroke: vi.fn(),
-    strokeRect: vi.fn(),
-    roundRect: vi.fn(),
-    fillText: vi.fn(),
-    save: vi.fn(),
-    restore: vi.fn(),
-    fillStyle: "",
-    strokeStyle: "",
-    lineWidth: 0,
-    font: "",
-    textAlign: "",
-    textBaseline: "",
-  }) as unknown as CanvasRenderingContext2D;
-
-/** makeRC leaves contRect without an origin, so the offsets the passes compute
- *  from it are NaN and every visibility guard silently passes.  Tests that need
- *  a position-relative result state the container origin explicitly. */
-const positionedRC = (w: number, h: number, ctx) => {
-  const rc = makeRC(w, h, ctx);
-  rc.contRect = { left: 0, top: 0, width: w, height: h } as DOMRect;
-  return rc;
-};
-
-/** document.fonts does not exist in jsdom; both text passes wait on it. */
-const stubFonts = () => {
-  Object.defineProperty(document, "fonts", {
-    configurable: true,
-    value: {
-      load: vi.fn().mockResolvedValue(undefined),
-      check: vi.fn().mockReturnValue(true),
-      ready: Promise.resolve(),
-    },
-  });
-};
-
-/** Answer computed style from a small prop map.  Both read shapes matter: the
- *  passes read properties directly (cs.backgroundImage) and through
- *  getPropertyValue (the SVG pass copies a fixed prop list). */
-const withStyle = (props: Record<string, string>) => {
-  const real = window.getComputedStyle;
-  vi.spyOn(window, "getComputedStyle").mockImplementation(() =>
-    Object.assign(Object.create(null), props, {
-      getPropertyValue: (prop: string) => props[prop] || "",
-    }),
-  );
-  return () => real;
-};
-
-describe("ExportRenderer.collectLayerMarkers", () => {
-  it("returns the pane's children, skipping canvas and svg", () => {
-    const pane = "vector";
-    const keep = document.createElement("div");
-    const canvas = document.createElement("canvas");
-    const svg = document.createElementNS(CONST.SVG_NS, "svg");
-    svg.setAttribute("data-foliplus-export", "exclude");
-    const roots = document.createElement("div");
-    roots.append(canvas, keep, svg);
-    const restore = withLayerPanes(pane, roots as any);
+    const fakeLayer = { options: {} };
+    let reads = 0;
+    const map = (globalThis as any).map;
+    const previous = map.foliplus;
     try {
-      const map = makeRenderer().map;
-      (map as any).getPane = () => roots;
-      expect(new ExportRenderer(map).collectLayerMarkers({} as L.Layer)).toEqual([
-        keep,
-      ]);
-    } finally {
-      restore();
-    }
-  });
+      map.foliplus = {
+        LayerAPI: withApi(
+          [
+            {
+              id: "torn",
+              visible: true,
+              // Present for the tile/filter phases, gone by the render loop —
+              // as a torn-down map would appear between the two resolveLayer
+              // calls.
+              get layer() {
+                reads++;
+                return reads <= 2 ? fakeLayer : null;
+              },
+            },
+          ],
+          () => [],
+        ),
+      };
 
-  it("skips an element marked exclude and one that contains one", () => {
-    const skip = document.createElement("div");
-    skip.setAttribute("data-foliplus-export", "exclude");
-    const nested = document.createElement("div");
-    const mark = document.createElement("span");
-    mark.setAttribute("data-foliplus-export", "exclude");
-    nested.appendChild(mark);
-    const keep = document.createElement("div");
-    const roots = document.createElement("div");
-    roots.append(skip, nested, keep);
-    const restore = withLayerPanes("vector", roots as any);
-    try {
-      const map = makeRenderer().map;
-      (map as any).getPane = () => roots;
-      expect(new ExportRenderer(map).collectLayerMarkers({} as L.Layer)).toEqual([
-        keep,
-      ]);
-    } finally {
-      restore();
-    }
-  });
+      const proto = ExportRenderer.prototype as any;
+      const paneSVG = vi.spyOn(proto, "renderPaneSVG");
+      const paneCanvas = vi.spyOn(proto, "renderPaneCanvas");
+      vi.spyOn(proto, "renderTileLayer").mockResolvedValue(undefined);
 
-  it("returns nothing when the pane is absent", () => {
-    const restore = withLayerPanes("missing", null as any);
-    try {
-      const map = makeRenderer().map;
-      (map as any).getPane = () => null;
-      expect(new ExportRenderer(map).collectLayerMarkers({} as L.Layer)).toEqual([]);
+      const onProgress = vi.fn();
+      await runRender(onProgress);
+
+      // The entry passed the filter but had no layer by the render loop, so
+      // no pane passes ran for it — and the single unit still closes the
+      // range.
+      expect(paneSVG).not.toHaveBeenCalled();
+      expect(paneCanvas).not.toHaveBeenCalled();
+      expect(onProgress.mock.calls.map(call => call[0])).toEqual([71, 90]);
     } finally {
-      restore();
+      map.foliplus = previous;
     }
   });
 });
 
-describe("ExportRenderer.renderMarkers", () => {
-  const markerEl = (bg, opts: Record<string, string> = {}) => {
-    const el = document.createElement("div");
-    pinBox(el, 10, 10, 20, 20);
-    const style = { ...opts, backgroundImage: bg };
-    const restore = withStyle(style);
-    el.__restoreStyle = restore;
-    return el;
-  };
-
-  it("draws a sprite through the pooled loader and closes it", async () => {
-    const ctx = textCtx();
-    const el = markerEl('url("sprite.png")', {
-      backgroundSize: "64px 64px",
-      backgroundPosition: "0 0",
-    });
-    stubBitmaps();
-    stubLoad();
-    await new ExportRenderer(makeRenderer().map).renderMarkers(
-      positionedRC(1000, 1000, ctx),
-      [el],
-    );
-    expect(ctx.drawImage).toHaveBeenCalledTimes(1);
-  });
-
-  it("scales the sprite source rect by the background size", async () => {
-    const ctx = textCtx();
-    // A 20x20 element at 125% background-size is 25x25 in CSS pixels, so the
-    // sprite source is scaled by 100/25 and the 4px/2px position offsets are
-    // scaled by the same ratio.
-    const el = markerEl('url("sprite.png")', {
-      backgroundSize: "125%",
-      backgroundPosition: "4px 2px",
-    });
-    stubBitmaps(100, 100);
-    stubLoad();
-    await new ExportRenderer(makeRenderer().map).renderMarkers(
-      positionedRC(1000, 1000, ctx),
-      [el],
-    );
-    expect(ctx.drawImage).toHaveBeenCalledTimes(1);
-    const [, sx, sy, sw, sh] = ctx.drawImage.mock.calls[0];
-    expect(sx).toBeCloseTo(16);
-    expect(sy).toBeCloseTo(8);
-    expect(sw).toBeCloseTo(80);
-    expect(sh).toBeCloseTo(80);
-  });
-
-  it("draws from the auto-sized source using devicePixelRatio", async () => {
-    const ctx = textCtx();
-    Object.defineProperty(window, "devicePixelRatio", {
-      configurable: true,
-      value: 2,
-    });
-    const el = markerEl('url("sprite.png")', { backgroundSize: "auto" });
-    stubBitmaps();
-    stubLoad();
-    await new ExportRenderer(makeRenderer().map).renderMarkers(
-      positionedRC(1000, 1000, ctx),
-      [el],
-    );
-    expect(ctx.drawImage).toHaveBeenCalledTimes(1);
-  });
-
-  it("skips a marker whose sprite window runs off the sprite", async () => {
-    const ctx = textCtx();
-    // A 20x20 element whose background is 10px wide over a 10x10 sprite maps
-    // 1:1, so the 20px background position lands at source offset 20 and the
-    // 20px-wide window runs straight off the sprite edge.  The guard must drop
-    // it rather than draw a fraction.  A percentage background-size cannot
-    // reach this branch: the size is a fraction of the element, so the source
-    // window is always no larger than the element.
-    const el = markerEl('url("sprite.png")', {
-      backgroundSize: "10px 10px",
-      backgroundPosition: "20px 20px",
-    });
-    stubBitmaps(10, 10);
-    stubLoad();
-    await new ExportRenderer(makeRenderer().map).renderMarkers(
-      positionedRC(1000, 1000, ctx),
-      [el],
-    );
-    expect(ctx.drawImage).not.toHaveBeenCalled();
-  });
-
-  it("skips a marker with no area", async () => {
-    const ctx = textCtx();
-    const el = markerEl('url("sprite.png")');
-    el.getBoundingClientRect = () =>
-      ({ left: 0, top: 0, width: 0, height: 0 }) as DOMRect;
-    stubBitmaps();
-    stubLoad();
-    await new ExportRenderer(makeRenderer().map).renderMarkers(
-      positionedRC(1000, 1000, ctx),
-      [el],
-    );
-    expect(ctx.drawImage).not.toHaveBeenCalled();
-  });
-});
-
-describe("ExportRenderer.renderFontAwesome", () => {
-  it("renders the icon's pseudo-element content", async () => {
-    const ctx = textCtx();
-    stubFonts();
-    const root = document.createElement("div");
-    pinBox(root, 10, 10, 20, 20);
-    const icon = document.createElement("i");
-    pinBox(icon, 0, 0, 20, 20);
-    root.appendChild(icon);
-    const restore = withStyle({
-      fontSize: "14px",
-      fontFamily: "FontAwesome",
-      color: "#fff",
-      content: "\\f000",
-      fontWeight: "900",
-    });
-    try {
-      await new ExportRenderer(makeRenderer().map).renderFontAwesome(
-        positionedRC(1000, 1000, ctx),
-        [root],
-      );
-      expect(ctx.fillText).toHaveBeenCalledTimes(1);
-      expect(ctx.fillText.mock.calls[0][0]).toBe(
-        String.fromCharCode(parseInt("f000", 16)),
-      );
-    } finally {
-      restore();
-    }
-  });
-
-  it("renders a single literal character", async () => {
-    const ctx = textCtx();
-    stubFonts();
-    const root = document.createElement("div");
-    pinBox(root, 10, 10, 20, 20);
-    const icon = document.createElement("i");
-    pinBox(icon, 0, 0, 20, 20);
-    root.appendChild(icon);
-    const restore = withStyle({
-      fontSize: "14px",
-      fontFamily: "FontAwesome",
-      color: "#fff",
-      content: '\"A\"',
-      fontWeight: "normal",
-    });
-    try {
-      await new ExportRenderer(makeRenderer().map).renderFontAwesome(
-        positionedRC(1000, 1000, ctx),
-        [root],
-      );
-      expect(ctx.fillText.mock.calls[0][0]).toBe("A");
-      // "normal" is normalised to 400 in the font spec.
-      expect(ctx.font).toContain("400");
-    } finally {
-      restore();
-    }
-  });
-
-  it("skips a marker with no icon element", async () => {
-    const ctx = textCtx();
-    stubFonts();
-    const root = document.createElement("div");
-    pinBox(root, 10, 10, 20, 20);
-    await new ExportRenderer(makeRenderer().map).renderFontAwesome(
-      positionedRC(1000, 1000, ctx),
-      [root],
-    );
-    expect(ctx.fillText).not.toHaveBeenCalled();
-  });
-
-  it("skips a marker that falls outside the crop", async () => {
-    const ctx = textCtx();
-    stubFonts();
-    const root = document.createElement("div");
-    pinBox(root, 500, 500, 20, 20);
-    const icon = document.createElement("i");
-    root.appendChild(icon);
-    await new ExportRenderer(makeRenderer().map).renderFontAwesome(
-      positionedRC(100, 100, ctx),
-      [root],
-    );
-    expect(ctx.fillText).not.toHaveBeenCalled();
-  });
-});
-
-describe("ExportRenderer.renderTextLabels", () => {
-  it("draws text with a rounded background and a border", async () => {
-    const ctx = textCtx();
-    stubFonts();
-    const root = document.createElement("div");
-    pinBox(root, 10, 10, 60, 20);
-    const label = document.createElement("span");
-    label.setAttribute("data-foliplus-export", "label");
-    label.textContent = "100 m";
-    pinBox(label, 0, 0, 60, 20);
-    root.appendChild(label);
-    const restore = withStyle({
-      backgroundColor: "rgb(20, 20, 20)",
-      borderRadius: "4px",
-      borderWidth: "1px",
-      borderStyle: "solid",
-      borderColor: "rgb(255, 255, 255)",
-      fontSize: "14px",
-      fontFamily: "sans-serif",
-      color: "#fff",
-      fontWeight: "bold",
-    });
-    try {
-      await new ExportRenderer(makeRenderer().map).renderTextLabels(
-        positionedRC(1000, 1000, ctx),
-        [root],
-      );
-      expect(ctx.roundRect).toHaveBeenCalled();
-      expect(ctx.strokeRect).not.toHaveBeenCalled();
-      expect(ctx.fillText).toHaveBeenCalledWith("100 m", 30, 10);
-      expect(ctx.font).toContain("700");
-    } finally {
-      restore();
-    }
-  });
-
-  it("draws a square background without a border", async () => {
-    const ctx = textCtx();
-    stubFonts();
-    const root = document.createElement("div");
-    pinBox(root, 10, 10, 60, 20);
-    root.textContent = "plain";
-    const restore = withStyle({
-      backgroundColor: "rgb(10, 10, 10)",
-      borderRadius: "0px",
-      borderWidth: "0px",
-      borderStyle: "none",
-      fontSize: "14px",
-      fontFamily: "sans-serif",
-      color: "#fff",
-      fontWeight: "400",
-    });
-    try {
-      await new ExportRenderer(makeRenderer().map).renderTextLabels(
-        positionedRC(1000, 1000, ctx),
-        [root],
-      );
-      expect(ctx.fillRect).toHaveBeenCalledTimes(1);
-      expect(ctx.roundRect).not.toHaveBeenCalled();
-      expect(ctx.fillText).toHaveBeenCalledTimes(1);
-    } finally {
-      restore();
-    }
-  });
-
-  it("lays out multi-line text around the label centre", async () => {
-    const ctx = textCtx();
-    stubFonts();
-    const root = document.createElement("div");
-    pinBox(root, 10, 10, 60, 40);
-    // The label span keeps the newline; the pass reads the box from the label
-    // element itself, so it needs its own rect rather than the root's.
-    const lines = document.createElement("span");
-    lines.setAttribute("data-foliplus-export", "label");
-    lines.textContent = "a\nb";
-    pinBox(lines, 10, 10, 60, 40);
-    root.appendChild(lines);
-    // The pass reads the font from the label element, not the root, so the
-    // style mock must answer for both.
-    const restore = withStyle({
-      backgroundColor: "transparent",
-      fontSize: "14px",
-      fontFamily: "sans-serif",
-      color: "#fff",
-      fontWeight: "400",
-    });
-    try {
-      await new ExportRenderer(makeRenderer().map).renderTextLabels(
-        positionedRC(1000, 1000, ctx),
-        [root],
-      );
-      expect(ctx.fillText).toHaveBeenCalledTimes(2);
-      // Two lines sit symmetric about the label centre, spacing 1.2 * fontSize.
-      const [y0, y1] = ctx.fillText.mock.calls.map(c => c[2]);
-      expect(y1 - y0).toBeCloseTo(14 * 1.2);
-      expect(ctx.fillText).toHaveBeenNthCalledWith(1, "a", 40, 21.6);
-      expect(ctx.fillText.mock.calls[1][0]).toBe("b");
-      expect(ctx.fillText.mock.calls[1][2]).toBeCloseTo(38.4);
-    } finally {
-      restore();
-    }
-  });
-
-  it("skips an empty label", async () => {
-    const ctx = textCtx();
-    stubFonts();
-    const root = document.createElement("div");
-    pinBox(root, 10, 10, 60, 20);
-    root.textContent = "   ";
-    await new ExportRenderer(makeRenderer().map).renderTextLabels(
-      positionedRC(1000, 1000, ctx),
-      [root],
-    );
-    expect(ctx.fillText).not.toHaveBeenCalled();
-  });
-
-  it("skips a marker that carries an icon", async () => {
-    const ctx = textCtx();
-    stubFonts();
-    const root = document.createElement("div");
-    pinBox(root, 10, 10, 60, 20);
-    root.textContent = "100 m";
-    root.appendChild(document.createElement("i"));
-    await new ExportRenderer(makeRenderer().map).renderTextLabels(
-      positionedRC(1000, 1000, ctx),
-      [root],
-    );
-    expect(ctx.fillText).not.toHaveBeenCalled();
-  });
-
-  it("skips a marker whose background is a sprite", async () => {
-    const ctx = textCtx();
-    stubFonts();
-    const root = document.createElement("div");
-    pinBox(root, 10, 10, 60, 20);
-    root.textContent = "100 m";
-    const restore = withStyle({ backgroundImage: 'url("sprite.png")' });
-    try {
-      await new ExportRenderer(makeRenderer().map).renderTextLabels(
-        positionedRC(1000, 1000, ctx),
-        [root],
-      );
-      expect(ctx.fillText).not.toHaveBeenCalled();
-    } finally {
-      restore();
-    }
-  });
-});
-
-describe("ExportRenderer.renderRemaining", () => {
-  it("draws an img child", async () => {
-    const ctx = textCtx();
-    stubLoad();
-    const root = document.createElement("div");
-    pinBox(root, 10, 10, 24, 24);
-    const img = document.createElement("img");
-    img.src = "https://example.com/m.png";
-    root.appendChild(img);
-    await new ExportRenderer(makeRenderer().map).renderRemaining(
-      positionedRC(1000, 1000, ctx),
-      [root],
-    );
-    expect(ctx.drawImage).toHaveBeenCalledTimes(1);
-  });
-
-  it("falls back to the inline svg when the img cannot load", async () => {
-    const ctx = textCtx();
-    vi.spyOn(UTIL, "loadImage").mockRejectedValue(new Error("boom"));
-    const root = document.createElement("div");
-    pinBox(root, 10, 10, 24, 24);
-    const img = document.createElement("img");
-    img.src = "https://example.com/m.png";
-    root.appendChild(img);
-    await new ExportRenderer(makeRenderer().map).renderRemaining(
-      positionedRC(1000, 1000, ctx),
-      [root],
-    );
-    expect(ctx.drawImage).not.toHaveBeenCalled();
-  });
-
-  it("renders an inline svg through the blob path", async () => {
-    const ctx = textCtx();
-    stubLoad();
-    const root = document.createElement("div");
-    pinBox(root, 10, 10, 24, 24);
-    const svg = document.createElementNS(CONST.SVG_NS, "svg");
-    pinBox(svg, 0, 0, 24, 24);
-    svg.appendChild(document.createElementNS(CONST.SVG_NS, "path"));
-    root.appendChild(svg);
-    await new ExportRenderer(makeRenderer().map).renderRemaining(
-      positionedRC(1000, 1000, ctx),
-      [root],
-    );
-    expect(ctx.drawImage).toHaveBeenCalledTimes(1);
-  });
-
-  it("fills a background-coloured dot, rounded and bordered", async () => {
-    const ctx = textCtx();
-    const root = document.createElement("div");
-    pinBox(root, 10, 10, 10, 10);
-    const restore = withStyle({
-      backgroundColor: "rgb(255, 0, 0)",
-      backgroundImage: "none",
-      borderRadius: "5px",
-      borderWidth: "1px",
-      borderStyle: "solid",
-      borderColor: "rgb(0, 0, 0)",
-    });
-    try {
-      await new ExportRenderer(makeRenderer().map).renderRemaining(
-        positionedRC(1000, 1000, ctx),
-        [root],
-      );
-      expect(ctx.roundRect).toHaveBeenCalled();
-      expect(ctx.strokeRect).not.toHaveBeenCalled();
-    } finally {
-      restore();
-    }
-  });
-
-  it("fills a plain background colour when there is no border", async () => {
-    const ctx = textCtx();
-    const root = document.createElement("div");
-    pinBox(root, 10, 10, 10, 10);
-    const restore = withStyle({
-      backgroundColor: "rgb(0, 0, 255)",
-      backgroundImage: "none",
-      borderRadius: "0px",
-      borderWidth: "0px",
-      borderStyle: "none",
-    });
-    try {
-      await new ExportRenderer(makeRenderer().map).renderRemaining(
-        positionedRC(1000, 1000, ctx),
-        [root],
-      );
-      expect(ctx.fillRect).toHaveBeenCalledTimes(1);
-      expect(ctx.roundRect).not.toHaveBeenCalled();
-    } finally {
-      restore();
-    }
-  });
-
-  it("leaves a label element untouched", async () => {
-    const ctx = textCtx();
-    const root = document.createElement("div");
-    pinBox(root, 10, 10, 60, 20);
-    root.setAttribute("data-foliplus-export", "label");
-    const restore = withStyle({
-      backgroundColor: "rgb(20, 20, 20)",
-      backgroundImage: "none",
-    });
-    try {
-      await new ExportRenderer(makeRenderer().map).renderRemaining(
-        positionedRC(1000, 1000, ctx),
-        [root],
-      );
-      expect(ctx.fillRect).not.toHaveBeenCalled();
-      expect(ctx.roundRect).not.toHaveBeenCalled();
-    } finally {
-      restore();
-    }
-  });
-
-  it("does not paint a background over a sprite marker", async () => {
-    const ctx = textCtx();
-    const root = document.createElement("div");
-    pinBox(root, 10, 10, 24, 24);
-    const restore = withStyle({
-      backgroundColor: "rgb(0, 255, 0)",
-      backgroundImage: 'url("sprite.png")',
-    });
-    try {
-      await new ExportRenderer(makeRenderer().map).renderRemaining(
-        positionedRC(1000, 1000, ctx),
-        [root],
-      );
-      expect(ctx.fillRect).not.toHaveBeenCalled();
-    } finally {
-      restore();
-    }
-  });
-});
-
-describe("ExportRenderer.tilePositions", () => {
-  // A centre whose zoom-2 projection is (512, 768): lng 0 puts the viewport
-  // left edge at 0, and a 1024x768 container puts the viewport top at
-  // 768 - 768/2 = 384.  Both sit on tile grid lines, so a tile's destination
-  // rect is its world position minus (0, 384) -- arithmetic, no re-projection.
-  const CENTER = { lat: 40.97989806962013, lng: 0 };
-  const CONCRECT = { width: 1024, height: 768 };
-  const makeRC = (w: number, h: number, scale = 1) => {
-    const canvas = document.createElement("canvas");
-    canvas.width = w * scale;
-    canvas.height = h * scale;
-    return {
-      // jsdom has no canvas backend, so `getContext` throws; tilePositions
-      // never draws, it only computes rects.
-      ctx: {} as CanvasRenderingContext2D,
-      rect: { left: 0, top: 0, width: w, height: h },
-      scale,
-      contRect: { ...CONCRECT } as DOMRect,
-      cw: w * scale,
-      ch: h * scale,
-      sw: w * scale,
-      sh: h * scale,
-    };
-  };
-  const make = () => {
+describe("ExportRenderer — marker pass wrappers delegate without throwing", () => {
+  it("runs each marker pass wrapper with an empty root list", async () => {
     const renderer = makeRenderer();
-    (renderer.map as any).getZoom = () => 2;
-    (renderer.map as any).getCenter = () => CENTER;
-    return renderer;
-  };
-  // Real Web Mercator at zoom 2: world 1024x1024, so tile columns/rows 0-3
-  // occupy 0-1024 in both axes.  The crop at 0,0/1000x600 therefore reaches
-  // into tile 3 on the right and row 2 at the bottom.
-  const tile = (url: string, x: number, y: number) => ({
-    x,
-    y,
-    z: 2,
-    url,
-    left: x * 256,
-    top: y * 256,
-    size: 256,
-  });
+    const rc = makeRC(100, 100);
 
-  it("keeps overlapping tiles with their destination rect and drops the rest", () => {
-    const renderer = make();
-    const survivors = (renderer as any).tilePositions(makeRC(1000, 600), [
-      // World 512-768 x 512-768 overlaps the 1000x600 crop; viewport-relative
-      // that is 512-768 x 128-384.
-      tile("keep", 2, 2),
-      // Its viewport bottom is 128, so it lands fully inside the crop and its
-      // destination rect keeps the viewport offset.
-      tile("inner", 2, 1),
-      // Right of the crop: it starts at 1024, past the crop's 1000 right edge.
-      tile("right", 4, 2),
-      // Above the viewport: its top is 384 above the crop top and its 256
-      // height does not reach back, so dy + dh is still negative.
-      tile("above", 2, 0),
-      // Below the crop: it starts at viewport y 640, past the crop's 600 bottom.
-      tile("below", 2, 4),
-      // Starts at viewport y 384 and the crop ends at 600, so only 216 of
-      // its 256 pixels lie inside -- the filter still keeps it.
-      tile("partial", 2, 3),
-    ]);
-    // The list arrives pre-enumerated: calcTiles ran in render(), so the map
-    // mock only has to answer zoom, center and CRS for the viewport math.
-    expect(survivors.length).toBe(3);
-    // The destination rect is the viewport position scaled into crop pixels.
-    expect(survivors[0]).toMatchObject({
-      url: "keep",
-      dx: 512,
-      dy: 128,
-      dw: 256,
-      dh: 256,
-    });
-    expect(survivors[1]).toMatchObject({
-      url: "inner",
-      dx: 512,
-      dy: -128,
-      dw: 256,
-      dh: 256,
-    });
-    expect(survivors[2]).toMatchObject({
-      url: "partial",
-      dx: 512,
-      dy: 384,
-      dw: 256,
-      dh: 256,
-    });
-    for (const url of ["right", "above", "below"]) {
-      expect(survivors.map((t: any) => t.url)).not.toContain(url);
-    }
-  });
-
-  it("drops tiles whose viewport position is past the crop, even when they intersect the output", () => {
-    // Two guards are separate from isVisible: one rejects a tile that ends
-    // above the crop's top, the other one that starts right of the crop's
-    // right edge.  Both are cheap skips that keep the draw pass off tiles
-    // the crop cannot show -- and neither can be expressed as a destination
-    // rect test, because the rect still intersects the output.
-    const renderer = make();
-    const rc = {
-      ...makeRC(1000, 600),
-      rect: { left: 0, top: 500, width: 1000, height: 100 },
-    };
-    const survivors = (renderer as any).tilePositions(rc, [
-      // Viewport 512-768 x 128-384, crop 0-1000 x 500-600: the tile ends
-      // 116 viewport pixels above the crop top, so the "ends above the crop
-      // top" guard rejects it -- in viewport units, a check isVisible
-      // cannot make on its own.
-      tile("above", 2, 2),
-      // Viewport 512-768 x 384-640: it ends exactly on the crop's bottom
-      // edge of 500 plus its own height, so it is the tile the crop's lower
-      // edge touches and survives every guard.
-      tile("edge", 2, 3),
-      // World 1024-1280 x 768-1024: viewport 1024-1280 x 384-640 starts
-      // past the crop's right edge of 1000, so the right-edge guard drops
-      // it even though the destination rect overlaps the output.
-      tile("past-right", 4, 3),
-    ]);
-    expect(survivors.length).toBe(1);
-    expect(survivors[0]).toMatchObject({
-      url: "edge",
-      // The crop is 0-1000 x 500-600; the tile's viewport extent is
-      // 512-768 x 384-640, so its top sits 116 viewport pixels above the
-      // crop top -- the rect crosses the crop but starts above it.
-      dx: 512,
-      dy: -116,
-      dw: 256,
-      dh: 256,
-    });
-  });
-
-  it("scales the destination rect by the render scale", () => {
-    // Viewport-relative 256-512 x 128-384.  At scale 2 the output is
-    // 1000x600, so this tile lands at 512-1024 x 256-768 and intersects
-    // the crop -- a wider tile here would be clipped out of the output.
-    // A 500x300 crop at scale 2 renders 1000x600 output pixels, so the
-    // destination rect is the viewport value multiplied by the scale.
-    const survivors = make().tilePositions(makeRC(500, 300, 2), [tile("keep", 1, 2)]);
-    expect(survivors.length).toBe(1);
-    expect(survivors[0]).toMatchObject({
-      url: "keep",
-      dx: 512,
-      dy: 256,
-      dw: 512,
-      dh: 512,
-    });
-  });
-
-  it("returns an empty list when every tile is outside the crop rect", () => {
-    expect(make().tilePositions(makeRC(1000, 600), [tile("far", 9, 9)])).toEqual([]);
-  });
-
-  it("falls back to L.CRS.EPSG3857 when the map has no crs option", () => {
-    // Must not throw even though only the global L.CRS provides the CRS.
-    const renderer = makeRenderer(undefined);
-    (renderer.map as any).options = {};
-    (renderer.map as any).getZoom = () => 2;
-    (renderer.map as any).getCenter = () => CENTER;
-    const survivors = (renderer as any).tilePositions(makeRC(1000, 600), [
-      tile("keep", 3, 2),
-    ]);
-    expect(Array.isArray(survivors)).toBe(true);
+    // These four wrappers delegate to module functions. Calling them with an
+    // empty markerRoots list exercises the method body (the delegation itself)
+    // without needing marker fixtures; the delegated functions return
+    // undefined for an empty list, so the assertion is "does not throw".
+    await expect(renderer.renderMarkers(rc, [])).resolves.not.toThrow();
+    await expect(renderer.renderFontAwesome(rc, [])).resolves.not.toThrow();
+    await expect(renderer.renderTextLabels(rc, [])).resolves.not.toThrow();
+    await expect(renderer.renderRemaining(rc, [])).resolves.not.toThrow();
   });
 });

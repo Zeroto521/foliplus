@@ -2,21 +2,19 @@
   const panel = document.querySelector(".foliplus-panel-content");
   if (!panel) return null;
   const items = Array.from(
-    panel.querySelectorAll(
-      ".foliplus-layer-item:not(.foliplus-color-layer-item), .foliplus-layer-toggle-all",
-    ),
+    panel.querySelectorAll(".foliplus-layer-item, .foliplus-layer-toggle-all"),
   );
   if (items.length < 2) return null;
   // Drive the keyboard cursor onto the next navigable row (the fold row's
   // ArrowDown land on the first data item), the same path the user's arrow
-  // keys trigger. The row the cursor lands on carries .foliplus-layer-focused.
+  // keys trigger. The row the cursor lands on carries .foliplus-is-focused-row.
   const first = items[0];
   first.focus();
   first.dispatchEvent(
     new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
   );
-  const focused = panel.querySelector(".foliplus-layer-focused");
-  if (!focused) return { error: "no .foliplus-layer-focused row after ArrowDown" };
+  const focused = panel.querySelector(".foliplus-is-focused-row");
+  if (!focused) return { error: "no .foliplus-is-focused-row row after ArrowDown" };
   const pick = el => {
     const cs = getComputedStyle(el);
     const drag = el.querySelector(".drag-handle");

@@ -64,3 +64,32 @@ describe("one shape, two deliveries", () => {
     expect(log.msg("dropped stale ids")).toBe("[LayerControl] dropped stale ids");
   });
 });
+
+describe("unstubbed console", () => {
+  // Every other case here stubs the console object, so the stub is what gets
+  // exercised — not whether log() reaches the real one. These are the ones
+  // that break if createLogger captured console.warn at module-import time
+  // instead of resolving console on each call: the module would then hold
+  // jsdom's console forever and never see a test-level replacement.
+  it("warn() and error() resolve console per call, not at import time", () => {
+    const warn = vi.fn();
+    const error = vi.fn();
+    vi.spyOn(console, "warn").mockImplementation(warn);
+    vi.spyOn(console, "error").mockImplementation(error);
+    const log = createLogger("MeasureControl");
+    log.warn("line");
+    log.error("line");
+    expect(warn).toHaveBeenCalledWith("[MeasureControl] line");
+    expect(error).toHaveBeenCalledWith("[MeasureControl] line");
+  });
+
+  it("forwards the error as a separate arg, preserving its class", () => {
+    const warn = vi.fn();
+    vi.spyOn(console, "warn").mockImplementation(warn);
+    const err = new TypeError("boom");
+    createLogger("foliplus").warn("CRS probe failed:", err);
+    expect(warn.mock.calls[0][0]).toBe("[foliplus] CRS probe failed:");
+    expect(warn.mock.calls[0][1]).toBe(err);
+    expect(warn.mock.calls[0].length).toBe(2);
+  });
+});

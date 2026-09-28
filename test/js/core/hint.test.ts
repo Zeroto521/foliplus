@@ -17,7 +17,17 @@ beforeEach(() => {
  *  exercise a real handler — recording and invoking here keeps that failure
  *  mode loud instead of invisible. */
 type StubMap = {
-  foliplus?: Record<string, unknown>;
+  foliplus?: {
+    showHint?: (
+      key: string,
+      text: string,
+      duration: number,
+      append?: boolean,
+      subkey?: string,
+    ) => void;
+    hideHint?: (key: string, sub?: string) => void;
+    registerHintIcon?: (key: string, svg: string) => void;
+  };
   on: (type: string, fn: unknown) => void;
   handlers: Record<string, Array<() => void>>;
 };
@@ -27,7 +37,7 @@ const makeMap = (): StubMap => {
   return {
     on: (type, fn) => {
       if (typeof fn !== "function") return; // mirror Leaflet's `_on` guard
-      handlers[type] = [...(handlers[type] ?? []), fn];
+      handlers[type] = [...(handlers[type] ?? []), fn as () => void];
     },
     handlers,
   };
@@ -128,7 +138,7 @@ describe("HintManager", () => {
     const mgr = new HintManager();
     mgr.showHint("a", "one", 0);
     mgr.showHint("b", "two", 0);
-    const els = document.querySelectorAll(".foliplus-hint");
+    const els = document.querySelectorAll<HTMLElement>(".foliplus-hint");
     expect(els.length).toBe(2);
     expect(els[1].style.bottom).not.toBe(els[0].style.bottom);
   });
@@ -235,11 +245,11 @@ describe("ensureHint", () => {
     const map = makeMap();
     ensureHint(map);
     expect(typeof map.foliplus!.registerHintIcon).toBe("function");
-    map.foliplus!.registerHintIcon(
+    map.foliplus!.registerHintIcon!(
       "via_map",
       '<svg viewBox="0 0 8 8"><rect width="4" height="4"/></svg>',
     );
-    map.foliplus!.showHint("via_map", "text", 0);
+    map.foliplus!.showHint!("via_map", "text", 0);
     expect(document.querySelector(".foliplus-hint-icon")).not.toBeNull();
   });
 
@@ -266,7 +276,7 @@ describe("ensureHint", () => {
       "late_icon",
       '<svg viewBox="0 0 8 8"><rect width="4" height="4"/></svg>',
     );
-    map.foliplus!.showHint("late_icon", "text", 0);
+    map.foliplus!.showHint!("late_icon", "text", 0);
     const icon = document.querySelector(".foliplus-hint-icon");
     expect(icon).not.toBeNull();
     expect(document.querySelector(".foliplus-hint")!.textContent).toBe("text");
@@ -306,7 +316,7 @@ describe("ensureHint", () => {
       );
       // Clear any previously shown hint so only the current one exists.
       document.body.innerHTML = "";
-      map.foliplus!.showHint(name, name + " msg", 0);
+      map.foliplus!.showHint!(name, name + " msg", 0);
       const icon = document.querySelector(".foliplus-hint-icon");
       expect(icon, name + " hint should have an icon").not.toBeNull();
       expect(icon!.innerHTML, name + " icon should match").toContain(name);
@@ -352,7 +362,7 @@ describe("map unload teardown", () => {
     mgr.showHint("persist", "still open", HINT_DURATION.PERSIST);
     // Grab the element this manager just created. A global selector would
     // also match stray nodes left behind by sibling tests.
-    const el = mgr.hintMap.values().next().value.element;
+    const el = mgr.hintMap.values().next().value!.element;
 
     document.dispatchEvent(new Event("fullscreenchange"));
     expect(migrateSpy).toHaveBeenCalledTimes(1); // listener still bound

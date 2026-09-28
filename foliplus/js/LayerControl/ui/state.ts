@@ -1,34 +1,193 @@
-// LayerControl UI —Persisted user state (fold / hidden / names) apply + save.
-import { type Debounced, debounce } from "#common/debounce.js";
+// LayerControl UI — persisted user state (fold / hidden / names) apply + save.
+//
+// The record ↔ UI assembly layer: `loadPersistedState` fills the shell from
+// the persistence record, the save/build helpers project it back, and the
+// override markers keep provenance in step. Storage I/O and the record
+// schema live in ../persistence.ts — this file only routes through
+// LayerPersistence and never touches localStorage itself.
+import { createLogger } from "#common/log.js";
 import * as CONST from "../const.js";
+import type { LayerManager } from "../manager.js";
+import type { LayerOverride, PersistedLayerState } from "../type.js";
+import { applyProjection, applyProjectionAll } from "./apply.js";
 import { applyNameProjection } from "./context.js";
 import type { LayerUI } from "./index.js";
+
+// CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
+const log = createLogger(CONF.name);
 
 /** Load every persisted dimension in one call. */
 const loadPersistedState = (ui: LayerUI) => {
   const state = ui.m.persistence.load();
-  ui.foldedGroups = state.foldedGroups;
-  ui.hiddenIds = state.hiddenIds;
-  ui.renamedNames = state.names;
-  ui.hiddenHasState = state.hiddenHasState;
+  ui.foldedGroups = new Set(state.foldedGroups);
+  ui.renamedNames = state.renamedNames;
+  // Style (label) configs are stored on the UI shell and applied by
+  // ui/style.ts once the layers resolve (deferred init passes). Read order
+  // is the compat contract: the current `layers[id].annotation` key WINS,
+  // the legacy top-level `annotations` segment is the fallback underneath
+  // (write-new / read-old — a v2 record reads exactly as it always did,
+  // and neither side is migrated into the other).
+  ui.labelConfigs = { ...state.annotations };
+  // Per-layer intent: the value lives in hiddenLayerIds / opacityMap, `overrides`
+  // records that the user set it. A layer with no entry keeps the author's
+  // declared default -- there is no map-level "did the user choose at all" flag,
+  // because the distinction is per layer.
+  ui.hiddenLayerIds = new Set();
+  ui.fillColorMap = {};
+  ui.fillOpacityMap = {};
+  ui.borderColorMap = {};
+  ui.borderWeightMap = {};
+  ui.opacityMap = {};
+  ui.zoomRangeMap = {};
+  ui.intentProvenance = {};
+  for (const [id, entry] of Object.entries(state.layers)) {
+    // New-key label config overrides the legacy-segment fallback spread
+    // above — same id, current segment wins.
+    if (entry.annotation) ui.labelConfigs[id] = entry.annotation;
+    ui.intentProvenance[id] = [...entry.overrides];
+    if (entry.overrides.includes("visible") && entry.visible === false) {
+      ui.hiddenLayerIds.add(id);
+    }
+    if (entry.overrides.includes("fillColor") && entry.fillColor) {
+      ui.fillColorMap[id] = entry.fillColor;
+    }
+    if (
+      entry.overrides.includes("fillOpacity") &&
+      typeof entry.fillOpacity === "number"
+    ) {
+      ui.fillOpacityMap[id] = entry.fillOpacity;
+    }
+    if (entry.overrides.includes("borderColor") && entry.borderColor) {
+      ui.borderColorMap[id] = entry.borderColor;
+    }
+    if (
+      entry.overrides.includes("borderWeight") &&
+      typeof entry.borderWeight === "number"
+    ) {
+      ui.borderWeightMap[id] = entry.borderWeight;
+    }
+    const opacity = entry.opacity;
+    if (entry.overrides.includes("opacity") && typeof opacity === "number") {
+      ui.opacityMap[id] = opacity;
+    }
+    // Value and provenance are validated together on read, so presence of the
+    // provenance guarantees presence of the value.
+    if (entry.overrides.includes("zoomRange") && entry.zoomRange) {
+      ui.zoomRangeMap[id] = entry.zoomRange;
+    }
+  }
 };
 
 /** Save fold state to localStorage. */
 
 const saveFoldState = (ui: LayerUI) => {
-  ui.m.persistence.saveFoldedGroups(ui.foldedGroups);
+  ui.m.persistence.schedule({ foldedGroups: () => [...ui.foldedGroups] });
 };
 
-/** Save hidden-layer ids to localStorage, coalescing rapid calls. */
+/** Whether one dimension still holds a live value. An override with none means
+ *  the user reset it, so the dimension drops back to the author's declared
+ *  default instead of persisting an empty choice. */
+const hasLiveValue = (ui: LayerUI, id: string, override: LayerOverride): boolean => {
+  if (override === "fillColor") return typeof ui.fillColorMap[id] === "string";
+  if (override === "fillOpacity") return typeof ui.fillOpacityMap[id] === "number";
+  if (override === "borderColor") return typeof ui.borderColorMap[id] === "string";
+  if (override === "borderWeight") return typeof ui.borderWeightMap[id] === "number";
+  if (override === "opacity") return typeof ui.opacityMap[id] === "number";
+  if (override === "zoomRange") return Array.isArray(ui.zoomRangeMap[id]);
+  return true;
+};
 
-const saveHiddenIds = (ui: LayerUI) => {
-  ui.m.persistence.saveHiddenIds(() => ui.hiddenIds);
+/** Build the record's `layers` section from the live state: one entry per
+ *  layer the user has actually touched, so an untouched layer keeps the
+ *  author's declared default across a reload.
+ *
+ *  The label (annotation) config is the one rider that does not follow the
+ *  touch rule: it is a style configuration with no override provenance, so
+ *  every id the annotation manager holds a config for joins the walk — a
+ *  layer configured *only* for labels still gets an entry (with an empty
+ *  `overrides` array, which `parseLayerState` keeps for exactly this). */
+const buildLayerStates = (ui: LayerUI): Record<string, PersistedLayerState> => {
+  const states: Record<string, PersistedLayerState> = {};
+  const annotations = Object.fromEntries(ui.m.annotation.configEntries());
+  const ids = new Set([
+    ...Object.keys(ui.intentProvenance),
+    ...Object.keys(annotations),
+  ]);
+  for (const id of ids) {
+    const declared = (ui.intentProvenance[id] ?? []).filter(override =>
+      hasLiveValue(ui, id, override),
+    );
+    const annotation = annotations[id];
+    if (declared.length === 0 && !annotation) continue;
+    const state: PersistedLayerState = { overrides: declared };
+    if (declared.includes("visible")) state.visible = !ui.hiddenLayerIds.has(id);
+    const fillColor = ui.fillColorMap[id];
+    if (declared.includes("fillColor") && typeof fillColor === "string") {
+      state.fillColor = fillColor;
+    }
+    const fillOpacity = ui.fillOpacityMap[id];
+    if (declared.includes("fillOpacity") && typeof fillOpacity === "number") {
+      state.fillOpacity = fillOpacity;
+    }
+    if (declared.includes("borderColor") && typeof ui.borderColorMap[id] === "string") {
+      state.borderColor = ui.borderColorMap[id];
+    }
+    if (
+      declared.includes("borderWeight") &&
+      typeof ui.borderWeightMap[id] === "number"
+    ) {
+      state.borderWeight = ui.borderWeightMap[id];
+    }
+    const opacity = ui.opacityMap[id];
+    if (declared.includes("opacity") && typeof opacity === "number") {
+      state.opacity = opacity;
+    }
+    if (declared.includes("zoomRange")) state.zoomRange = ui.zoomRangeMap[id];
+    if (annotation) state.annotation = annotation;
+    states[id] = state;
+  }
+  return states;
+};
+
+/** Save the per-layer intent -- visibility, opacity, zoom range and the
+ *  label config -- coalescing rapid calls. */
+const saveState = (ui: LayerUI) => {
+  ui.m.persistence.schedule({ layers: () => buildLayerStates(ui) });
+};
+
+/** Record that the user has set a dimension for one layer. The first action is
+ *  what turns an author's declared default into the user's own state.
+ *
+ *  Refuses a marker for a dimension that holds no live value: {@link buildLayerStates}
+ *  filters such a marker out of the next write, so recording it here would mean the
+ *  user's action is lost with nothing in the console. Failing loud at the one gate
+ *  every caller passes through keeps that from being a silent failure. */
+const markOverride = (ui: LayerUI, id: string, override: LayerOverride) => {
+  if (!hasLiveValue(ui, id, override)) {
+    log.warn(
+      `markOverride("${override}", "${id}"): no stored value for this dimension, ` +
+        `marker not recorded — set the value before marking`,
+    );
+    return;
+  }
+  const overrides = ui.intentProvenance[id] ?? [];
+  if (!overrides.includes(override)) overrides.push(override);
+  ui.intentProvenance[id] = overrides;
+};
+
+/** Drop one dimension's provenance -- the single rule a Reset button reduces to,
+ *  sending the value back to the author's declared default. */
+const unmarkOverride = (ui: LayerUI, id: string, override: LayerOverride) => {
+  const overrides = (ui.intentProvenance[id] ?? []).filter(entry => entry !== override);
+  if (overrides.length > 0) ui.intentProvenance[id] = overrides;
+  else delete ui.intentProvenance[id];
 };
 
 /**
- * Propagate the user's stored state —hidden visibility and renames — * into the registry and the rendered rows.
+ * Propagate the user's stored state —hidden visibility and renames —
+ * into the registry and the rendered rows.
  *
- * `hiddenIds` and `renamedNames` are the source of truth; the registry's
+ * `hiddenLayerIds` and `renamedNames` are the source of truth; the registry's
  * `LayerInfo.visible` / `LayerInfo.name` and the row checkboxes / labels
  * are their projections, refreshed here whenever a row or the registry is
  * rebuilt from a third-party layer's own metadata. Hidden is a same-axis
@@ -37,8 +196,19 @@ const saveHiddenIds = (ui: LayerUI) => {
  * it goes through `applyNameProjection`, which writes only where the
  * projection still differs —a repeated pass is therefore a no-op.
  *
- * The sweep also prunes ids whose layers no longer exist so stale
- * persistence doesn't accumulate.
+ * The sweep is a pure projection: it never prunes and never writes back.
+ * A persisted id with no registry entry is *ignored*, not treated as
+ * evidence that its stored state should go. That distinction is the whole
+ * point —HeatmapControl and MeasureControl register in their own
+ * constructor, which runs after this UI has attached, so on the first
+ * attach their ids are unresolvable. Deleting them there (and writing the
+ * deletion back to storage) would discard the user's stored opacity, zoom
+ * range, and visibility on every reload: the exact symptom of the layer
+ * coming back at its author default after a refresh.
+ *
+ * Dropping a stored value is an explicit-user-action concern, and it is
+ * {@link dropPersistedLayerState}: "delete this layer", or the per-dimension
+ * reset that reduces to {@link unmarkOverride}. Nothing else calls it.
  *
  * @param {string} [id] Restrict to one layer id —a late-arriving row is
  *   already rendered with the right label, so it only needs its registry
@@ -52,215 +222,108 @@ const applyUserState = (ui: LayerUI, id?: string) => {
   const registry = ui.m.layerRegistry;
   const container = ui.uiContainer;
 
+  // visible / opacity / zoomRange belong to the diff executor: one write per
+  // dimension, diffed against the executor's own last write. Routing them
+  // through `applyProjection` keeps exactly one writer of map membership. The
+  // per-dimension helpers below were a second writer, and the state it wrote
+  // drifted away from the checkbox whenever the author's snapshot landed after
+  // the first projection — which is the normal order on folium 0.20+, where a
+  // `show=False` layer is not on the map at boot and the snapshot can only be
+  // taken once its JS global exists.
   if (id) {
     const layerInfo = registry.get(id);
-    if (!layerInfo) return; // stale id —pruned by persistence on save
-    // Both projections are membership-guarded —this path runs for every
-    // late registration, including layers the user never touched. A layer
-    // that was never hidden must not be hidden, and a missing rename is a
-    // no-op rather than a write of undefined over the registry's own name.
-    if (ui.hiddenIds.has(id)) applyHiddenStateOne(ui, layerInfo);
+    if (!layerInfo) return; // not registered yet —its stored state is kept
+    // One id, one projection: a late registration replays every stored
+    // dimension on the same pass — visibility, opacity and zoom range — so
+    // nothing needs a per-caller replay path: a late arrival replays itself.
+    applyProjection(ui, id);
     if (id in ui.renamedNames) {
       applyNameProjection(layerInfo, null, ui.renamedNames[id]);
     }
+    // The order dimension is replayed on the same pass: this path runs once per
+    // late registration, so without it the layer would keep the slot it was
+    // inserted into rather than the position the user already arranged.
+    ui.m.replaySavedOrder(id);
     return;
   }
 
-  // The registry is the sweep, not `hiddenIds`: a layer the user left
-  // visible is absent from `hiddenIds` by design, so iterating that set
+  // The registry is the sweep, not `hiddenLayerIds`: a layer the user left
+  // visible is absent from `hiddenLayerIds` by design, so iterating that set
   // alone can never reach it and the hide half of the round trip has no
   // inverse. Walking the registry asserts every layer's map membership
   // against the persisted intent; the color basemap has no registry entry,
   // so its rename still comes from `renamedNames`.
-  const ids = new Set([
-    ...ui.m.layers.map(li => li.id),
-    ...ui.hiddenIds,
-    ...Object.keys(ui.renamedNames),
-  ]);
-  for (const layerId of ids) {
-    if (layerId in ui.renamedNames) {
-      if (layerId === CONST.COLOR.MAP_ID) {
-        // The color basemap has no registry entry —only its row label.
-        applyNameProjection(
-          null,
-          container?.querySelector(
-            `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"]`,
-          ) as HTMLElement | null,
-          ui.renamedNames[layerId],
-        );
-        continue;
-      }
-      const layerInfo = registry.get(layerId);
-      if (!layerInfo) continue; // stale id —pruned by persistence on save
+  applyProjectionAll(ui);
+  for (const layerId of Object.keys(ui.renamedNames)) {
+    if (layerId === CONST.SOLID_BASEMAP_ID) {
+      // The color basemap has no registry entry —only its row label.
       applyNameProjection(
-        layerInfo,
+        null,
         container?.querySelector(
           `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"]`,
         ) as HTMLElement | null,
         ui.renamedNames[layerId],
       );
+      continue;
     }
     const layerInfo = registry.get(layerId);
-    if (!layerInfo) continue; // stale id —pruned by persistence on save
-    if (ui.hiddenIds.has(layerId)) applyHiddenOne(ui, layerInfo, layerId);
-    else if (ui.hiddenHasState) applyVisibleStateOne(ui, layerInfo);
+    if (!layerInfo) continue; // not registered yet —its stored state is kept
+    applyNameProjection(
+      layerInfo,
+      container?.querySelector(
+        `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"]`,
+      ) as HTMLElement | null,
+      ui.renamedNames[layerId],
+    );
   }
 
-  // Prune ids whose layers are gone for good, so stale persistence does not
-  // accumulate. Live means "in the registry or still queued in
-  // pendingRegistrations" —attachUI drains that queue before this sweep, so
-  // neither implies a layer that will come back. The cost is a third-party
-  // layer hidden and re-registered on a later activation: it re-enters
-  // visible rather than coming back hidden. Keeping such ids would make the
-  // prune a no-op and let the set grow without bound.
-  //
-  // Persisted, because only the live ids are written back: the write can
-  // never drop an id that still resolves to a layer, so nothing is lost even
-  // though this runs before initLayerItem has corrected any checkbox.
-  const pending = new Set(ui.m.pendingRegistrations.map(li => li.id));
-  const stillPresent = (layerId: string) =>
-    registry.get(layerId) != null || pending.has(layerId);
-  const gone = [...ui.hiddenIds].filter(layerId => !stillPresent(layerId));
-  if (gone.length > 0) {
-    ui.hiddenIds = new Set([...ui.hiddenIds].filter(layerId => stillPresent(layerId)));
-    ui.hiddenHasState = true;
-    saveHiddenIds(ui);
-  }
+  // Deliberately no prune here. An unresolvable id is not proof of absence —
+  // it may be a component that registers later, and the id space is bounded by
+  // the layers an author ever declares, so the record cannot grow away.
+  // Pruning was the one thing this sweep did that lost user work: the entry
+  // went from memory *and* storage in the same pass, so a late-registered
+  // layer (heatmap, measure) lost its stored opacity, zoom range, and
+  // visibility on the first attach of every reload.
+
+  // The order comes from the same read as the dimensions above, which lands
+  // before late registrations -- so it is replayed across the registry that
+  // exists now, and each later registration refines its own slot.
+  ui.m.replaySavedOrder();
 };
 
 /**
- * Apply one hidden id: remove the layer from the map, fire the toggle
- * callback (so callback-only canvas/heatmap layers hide themselves), and
- * sync the row's checkbox and tooltip.
+ * Drop every persisted dimension for one layer —visibility, opacity, zoom
+ * range, and the provenance that says the user set them.
+ *
+ * This is the only routine that erases a stored value, and it is reachable
+ * from an explicit user action alone: "delete this layer". A layer that is
+ * merely not registered right now must keep its stored state, because the
+ * component that owns the id may register it later in this session or on the
+ * next load —{@link applyUserState} projects it then, unchanged.
+ *
+ * The value and its provenance leave together: a provenance marker with no
+ * value would be a record claiming the user chose something the record no
+ * longer holds, and {@link markOverride} refuses that combination.
  */
-
-const applyHiddenOne = (ui: LayerUI, layerInfo: LayerInfo, id: string) => {
-  const container = ui.uiContainer;
-  const item = container
-    ? container.querySelector(`[${CONST.DATA.LAYER_ID}="${CSS.escape(id)}"]`)
-    : null;
-  const checkbox = item?.querySelector(
-    'input[type="checkbox"]',
-  ) as HTMLInputElement | null;
-
-  applyHiddenStateOne(ui, layerInfo);
-
-  if (checkbox) {
-    checkbox.checked = false;
-    checkbox.title = ui.T("select_tooltip");
-  }
-  item?.classList.remove(CONST.CLASSES.ACTIVE);
-};
-
-/**
- * Hide one layer without touching its row —the map removal, the callback
- * for canvas-only layers, and the registry's `visible` flag.
- *
- * Split from {@link LayerUI.applyHiddenOne} because the registry projection
- * must run before the row is rendered: a late registration gets its
- * projection via {@link LayerUI.applyUserState}(id) before its row lands in
- * the DOM, so a callback-only layer hidden that way would otherwise stay
- * "visible" until the next full sweep and re-enter the map.
- */
-
-const applyHiddenStateOne = (ui: LayerUI, layerInfo: LayerInfo) => {
-  const layer = ui.m.findLayer(layerInfo);
-
-  // Callback-only layers (canvas) have no Leaflet layer to remove —fire
-  // the toggle callback so the canvas itself hides.
-  if (!layer && layerInfo.onToggle) layerInfo.onToggle(false);
-  else if (layer && ui.m.map.hasLayer(layer)) ui.m.map.removeLayer(layer);
-
-  layerInfo.visible = false;
-};
-
-/**
- * Bring one layer back on to the map —the inverse of
- * {@link LayerUI.applyHiddenStateOne}.
- *
- * Needed because folium renders a `show=False` layer absent from the map
- * and nothing else ever puts it back. On reload such a layer is correctly
- * *absent* from `hiddenIds` (the user did not hide it), so the hide sweep
- * leaves it alone —and the map comes up with the author's default rather
- * than the user's last choice. This closes that half of the round trip.
- *
- * `addLayer` is a no-op when the layer is already on the map, so the sweep
- * can call this for every unhidden layer without re-adding the layers
- * folium already placed. Callback-only layers (canvas) have no Leaflet
- * layer to add, so they get the callback instead.
- */
-
-const applyVisibleStateOne = (ui: LayerUI, layerInfo: LayerInfo) => {
-  const layer = ui.m.findLayer(layerInfo);
-
-  if (!layer && layerInfo.onToggle) layerInfo.onToggle(true);
-  else if (layer && !ui.m.map.hasLayer(layer)) ui.m.map.addLayer(layer);
-
-  layerInfo.visible = true;
-};
-
-/**
- * Rebuild {@link LayerUI.hiddenIds} from the rendered rows, making the set
- * absolute instead of "ids the user toggled".
- *
- * A layer the author declared `show=False` is off the map and absent from
- * `hiddenIds`, so checking it on calls `hiddenIds.delete(id)` on an id that
- * was never added and leaves the set unchanged. Every subsequent toggle then
- * differs from the author's defaults by zero entries, so the saved set cannot
- * distinguish "user hid this" from "author hid this" and a reload restores the
- * author's `show=False` instead of the user's choice. Reading the rows closes
- * that gap.
- *
- * Runs once, straight after the first
- * {@link LayerUI.initTypesAndVisibility} pass has corrected every checkbox
- * from `map.hasLayer()`. That pass repeats on fold-toggle, and only ids
- * already in the registry are considered, so the set never acquires a stale
- * id and no later pass writes again.
- *
- * It writes only when the set actually changed. On an unchanged load -- the
- * common case, where the user comes back and sees the author's defaults -- a
- * write would replace a previously saved set with the current one, which
- * still holds ids this map no longer registers. Those ids had been pruned
- * before the rows rendered, so this would be a write that drops saved state
- * the user made. Skipping keeps the load read-only.
- */
-
-const reconcileHiddenIds = (ui: LayerUI) => {
-  const container = ui.uiContainer;
-  if (!container) return;
-
-  // Additions only. A row can read as checked while its id sits in hiddenIds
-  // -- initLayerItem derives the checkbox from map.hasLayer(), so any map
-  // that still reports membership (stale state, a stub in tests) makes the
-  // row disagree with the set applyUserState() just built. Deleting here
-  // would then discard state the user persisted, so the disagreement is
-  // trusted in one direction only. Removal belongs to the change paths, where
-  // a user actually acted: handleChange, syncAllChecked, deselectAllBaseMaps.
-  let changed = false;
-  for (const li of ui.m.layers) {
-    const item = container.querySelector(
-      `[${CONST.DATA.LAYER_ID}="${CSS.escape(li.id)}"]`,
-    ) as HTMLElement | null;
-    const checkbox = item?.querySelector(
-      'input[type="checkbox"]',
-    ) as HTMLInputElement | null;
-    if (!checkbox || checkbox.checked || ui.hiddenIds.has(li.id)) continue;
-    ui.hiddenIds.add(li.id);
-    changed = true;
-  }
-  if (changed) {
-    ui.hiddenHasState = true;
-    saveHiddenIds(ui);
-  }
+const dropPersistedLayerState = (ui: LayerUI, id: string) => {
+  ui.hiddenLayerIds.delete(id);
+  delete ui.fillColorMap[id];
+  delete ui.fillOpacityMap[id];
+  delete ui.borderColorMap[id];
+  delete ui.borderWeightMap[id];
+  delete ui.opacityMap[id];
+  delete ui.zoomRangeMap[id];
+  delete ui.intentProvenance[id];
 };
 
 /** Save user-assigned names, coalescing rapid calls. */
 
 const saveNamesState = (ui: LayerUI) => {
-  ui.m.persistence.saveNames(() => ui.renamedNames);
+  ui.m.persistence.schedule({ renamedNames: () => ({ ...ui.renamedNames }) });
 };
 
-/** Full re-scan of every row (used on attach/fold-toggle). Idempotent — *  re-run on each CONTROL_ATTACHED so late-registering components are
+/** Full re-scan of every row (used on attach/fold-toggle). Idempotent —
+ *  re-run on each CONTROL_ATTACHED so late-registering components are
  *  folded in. Marks the panel ready for tests/consumers. */
 
 /**
@@ -275,14 +338,19 @@ const syncHiddenId = (
   hidden: boolean,
   persist: boolean = true,
 ) => {
-  if (hidden) ui.hiddenIds.add(id);
-  else ui.hiddenIds.delete(id);
-  // The first change is what turns author defaults into the user's state.
-  // Until it has happened the visibility key does not exist, so the unhide
-  // half of the sweep must stay off or an empty saved set would override the
-  // author's `show=False` on the next load.
-  ui.hiddenHasState = true;
-  if (persist) saveHiddenIds(ui);
+  if (hidden) ui.hiddenLayerIds.add(id);
+  else ui.hiddenLayerIds.delete(id);
+  // The user's explicit action (either direction) supersedes any record the
+  // zoom-range mechanism kept for this id: without this line, a layer the
+  // sweep had removed would be re-added by the sweep the moment the user
+  // checked it back on, because the sweep's own record says "I removed
+  // this, so I'm allowed to put it back".
+  // The first change is what turns the author's default into the user's own
+  // state: until it has happened the layer has no entry in `layers` at all, so
+  // the unhide half of the sweep must leave it alone or an empty choice would
+  // override the author's `show=False` on the next load.
+  markOverride(ui, id, "visible");
+  if (persist) saveState(ui);
 };
 
 /** Get all keyboard-navigable rows: layer items and toggle-all rows, in DOM
@@ -297,12 +365,11 @@ const syncHiddenId = (
 export {
   loadPersistedState,
   saveFoldState,
-  saveHiddenIds,
+  saveState,
+  markOverride,
+  unmarkOverride,
   applyUserState,
-  applyHiddenOne,
-  applyHiddenStateOne,
-  applyVisibleStateOne,
-  reconcileHiddenIds,
+  dropPersistedLayerState,
   saveNamesState,
   syncHiddenId,
 };

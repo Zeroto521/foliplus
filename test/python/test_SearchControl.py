@@ -199,7 +199,7 @@ class TestSearchControlBrowser:
             "document.querySelector('.foliplus-search .foliplus-toggle-btn').click()"
         )
         page.wait_for_selector(
-            ".foliplus-search.expanded", state="attached", timeout=5000
+            ".foliplus-search.foliplus-is-expanded", state="attached", timeout=5000
         )
 
     def test_initial_mode_addr(self, browser, tmp_path):
@@ -211,13 +211,13 @@ class TestSearchControlBrowser:
         ):
             self._expand(page)
 
-            # Verify the mode button shows the pin icon (LOCATE) for address mode
-            # LOCATE has a small circle at cy=9 (pin head), GLOBE has a large circle at cy=12
+            # Verify the mode button shows the pin icon (LOCATE_ICON) for address mode
+            # LOCATE_ICON has a small circle at cy=9 (pin head), GLOBE_ICON has a large circle at cy=12
             is_pin = page.evaluate(
                 """document.querySelector('.foliplus-search-mode-btn')
                     .querySelector('circle[cx="12"][cy="9"]') !== null"""
             )
-            assert is_pin, "Expected pin icon (LOCATE) for address mode"
+            assert is_pin, "Expected pin icon (LOCATE_ICON) for address mode"
 
             # Verify the placeholder is for address search
             placeholder = page.evaluate("document.querySelector('input').placeholder")
@@ -249,15 +249,15 @@ class TestSearchControlBrowser:
             ), f"Expected coordinate placeholder, got: {placeholder}"
 
     def test_mode_switch_icon(self, browser, tmp_path):
-        """Toggling mode switches from GLOBE (coord) to LOCATE (addr)."""
+        """Toggling mode switches from GLOBE_ICON (coord) to LOCATE_ICON (addr)."""
         with use_page(self._make_page, browser, tmp_path, mode="coord") as (
             page,
             errors,
         ):
             self._expand(page)
 
-            # Coord mode starts with GLOBE (globe) icon
-            # GLOBE has a large circle at cy=12, LOCATE has a small circle at cy=9
+            # Coord mode starts with GLOBE_ICON (globe) icon
+            # GLOBE_ICON has a large circle at cy=12, LOCATE_ICON has a small circle at cy=9
             is_globe = page.evaluate(
                 """document.querySelector('.foliplus-search-mode-btn')
                     .querySelector('circle[cx="12"][cy="12"][r="10"]') !== null"""
@@ -268,12 +268,14 @@ class TestSearchControlBrowser:
             page.evaluate("document.querySelector('.foliplus-search-mode-btn').click()")
             page.wait_for_timeout(500)
 
-            # After switch, should be address mode with LOCATE (pin) icon
+            # After switch, should be address mode with LOCATE_ICON (pin) icon
             is_pin = page.evaluate(
                 """document.querySelector('.foliplus-search-mode-btn')
                     .querySelector('circle[cx="12"][cy="9"]') !== null"""
             )
-            assert is_pin, "Expected pin icon (LOCATE) after mode switch to address"
+            assert is_pin, (
+                "Expected pin icon (LOCATE_ICON) after mode switch to address"
+            )
 
             # Also verify input placeholder was updated
             placeholder = page.evaluate("document.querySelector('input').placeholder")
@@ -384,9 +386,33 @@ class TestSearchControlBrowser:
 
             # Verify control is collapsed
             ctrl_has_collapsed = page.evaluate(
-                "document.querySelector('.foliplus-search').classList.contains('collapsed')"
+                "document.querySelector('.foliplus-search').classList.contains('foliplus-is-collapsed')"
             )
             assert ctrl_has_collapsed, "Expected control to be collapsed after Escape"
+
+    def test_panel_collapses_on_outside_press_by_default(self, browser, tmp_path):
+        """Default unchanged: a press outside the panel still collapses it.
+
+        SearchControl binds ``bindOutsideCollapse`` on its own rather than
+        through the shared panel shell, so this pins that its own binding is
+        still live at the new parameter's default.
+        """
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            self._expand(page)
+            assert page.evaluate(
+                "() => { const c = document.querySelector('.foliplus-search');"
+                " return c.classList.contains('foliplus-is-expanded')"
+                " && !c.classList.contains('foliplus-is-collapsed'); }"
+            ), "the search panel did not expand"
+
+            page.mouse.click(900, 450)
+            page.wait_for_selector(
+                ".foliplus-search.foliplus-is-collapsed", state="attached", timeout=5000
+            )
+            assert page.evaluate(
+                "document.querySelector('.foliplus-search').classList.contains('foliplus-is-collapsed')"
+            ), "the search panel stayed open after an outside press"
+            assert not errors, f"JS errors: {errors}"
 
     def test_result_panel_body_mount(self, browser, tmp_path):
         """Result panel (suggestions/history) is mounted on document.body, not inside toolBar."""

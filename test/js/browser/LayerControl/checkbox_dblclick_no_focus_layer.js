@@ -1,9 +1,7 @@
 () => {
   const panel = document.querySelector(".foliplus-panel-content");
   if (!panel) return null;
-  const items = Array.from(
-    panel.querySelectorAll(".foliplus-layer-item:not(.foliplus-color-layer-item)"),
-  );
+  const items = Array.from(panel.querySelectorAll(".foliplus-layer-item"));
   if (items.length === 0) return null;
   const row = items[0];
   const checkbox = row.querySelector('input[type="checkbox"]');
@@ -14,8 +12,8 @@
   checkbox.click();
 
   return {
-    focusing: row.classList.contains("foliplus-layer-focusing"),
+    focusing: row.classList.contains("foliplus-is-focusing"),
     mask: Boolean(document.querySelector(".foliplus-focus-mask")),
-    focusActive: Boolean(document.querySelector(".foliplus-focus-active")),
+    focusActive: Boolean(document.querySelector(".foliplus-is-focus-mode")),
   };
 };

@@ -8,8 +8,13 @@
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { createScopedTranslator } from "#common/locale.js";
+import { type Persisted, makePersisted } from "#common/storage.js";
 import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
+
+// CONF is a free variable from the IIFE template wrapper (see global.d.ts);
+// bind the translator once, not per call site.
+const T = createScopedTranslator(CONF);
 
 /** Central store for all measurements. Owns the array, the id counter, the
  * persist-failure notification, and LAYER_ITEM_COUNT_CHANGE emission. Manager
@@ -22,13 +27,33 @@ class MeasureStore {
   private readonly map: L.Map;
   private readonly layerId: string;
   private warned = false;
-  // CONF is a free variable from the IIFE template wrapper (see global.d.ts);
-  // bind the translator once, not per call site.
-  private readonly T = createScopedTranslator(CONF);
+  private readonly persistBinding: Persisted;
 
   constructor(map: L.Map, layerId: string) {
     this.map = map;
     this.layerId = layerId;
+    // Write-through binding: the array is durable the moment a mutation lands,
+    // so teardown flush is a no-op safety net. Failure surfaces through the
+    // quota hint below rather than through the return value.
+    this.persistBinding = makePersisted({
+      save: () =>
+        Storage.saveVersioned(CONST.STORAGE.KEY, {
+          data: this.list,
+          version: CONST.RECORD_VERSION,
+          name: CONF.name,
+          dataField: "items",
+        }),
+      onFlushError: () => {
+        if (!this.warned) {
+          this.warned = true;
+          this.map.foliplus?.showHint?.(
+            CONF.name,
+            T("err_not_saved"),
+            HINT_DURATION.PERSIST,
+          );
+        }
+      },
+    });
   }
 
   /** Current measurements (live reference — mutating it without a store method
@@ -44,10 +69,15 @@ class MeasureStore {
 
   // ── Persistence ────────────────────────────────────────────────────
 
-  /** Load measurements from localStorage (defensive: non-array → []). */
+  /** Load measurements from localStorage via the shared versioned envelope
+   *  reader. Tolerates the legacy bare-array shape and corrupt records. */
   load(): MeasureData[] {
-    const data = Storage.load<MeasureData[]>(CONST.STORAGE.KEY, CONF.name);
-    return Array.isArray(data) ? data : [];
+    return (
+      Storage.loadVersioned<MeasureData>(CONST.STORAGE.KEY, {
+        name: CONF.name,
+        dataField: "items",
+      }) ?? []
+    );
   }
 
   /** Replace the in-memory list without persisting (used by restore, which
@@ -85,14 +115,7 @@ class MeasureStore {
    *  is lost, which is what the message says. Count emission still runs, so the
    *  LayerControl count column keeps tracking the live list. */
   persist(): void {
-    if (!Storage.save(CONST.STORAGE.KEY, this.list, CONF.name) && !this.warned) {
-      this.warned = true;
-      this.map.foliplus?.showHint?.(
-        CONF.name,
-        this.T("err_not_saved"),
-        HINT_DURATION.PERSIST,
-      );
-    }
+    this.persistBinding.schedule();
     this.emitCount();
   }
 
@@ -136,6 +159,30 @@ class MeasureStore {
     const m = this.list.find(x => x.id === id);
     if (!m) return;
     Object.assign(m, patch);
+    this.persist();
+  }
+
+  /** Apply an arbitrary mutation to a measurement by id WITHOUT persisting.
+   *  No-op if not found (defensive: a stale id from a torn-down handle must
+   *  not crash — the caller already unbound the drag that would have called
+   *  this, so a not-found is a no-op that costs one Map lookup).
+   *
+   *  Used by drag handlers that persist on a throttle: the mutation runs
+   *  synchronously, the caller decides when to persist (onEnd, cancel, etc.).
+   */
+  mutate(id: string, fn: (m: MeasureData) => void): void {
+    const m = this.list.find(x => x.id === id);
+    if (!m) return;
+    fn(m);
+  }
+
+  /** Apply a mutation AND persist. Equivalent to `mutate` + `persist`, but
+   *  as one call site so the caller cannot forget the persist. No-op if
+   *  not found (same reason as `mutate`). */
+  mutateAndPersist(id: string, fn: (m: MeasureData) => void): void {
+    const m = this.list.find(x => x.id === id);
+    if (!m) return;
+    fn(m);
     this.persist();
   }
 

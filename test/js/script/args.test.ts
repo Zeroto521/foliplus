@@ -9,46 +9,58 @@ const SPEC = {
   limit: { type: "number", default: 10 },
 };
 
+type Args = {
+  help: boolean;
+  errors: string[];
+  dev: boolean;
+  check: boolean;
+  root: string;
+  names: string[];
+  limit: number;
+};
+
+const args = (argv: string[] = []): Args => parseArgs(argv, SPEC) as unknown as Args;
+
 describe("parseArgs", () => {
   describe("boolean flags", () => {
     it("sets flag to true", () => {
-      expect(parseArgs(["--dev"], SPEC)).toMatchObject({ dev: true });
+      expect(args(["--dev"])).toMatchObject({ dev: true });
     });
 
     it("keeps flag false when not present", () => {
-      expect(parseArgs([], SPEC)).toMatchObject({ dev: false });
+      expect(args([])).toMatchObject({ dev: false });
     });
 
     it("rejects value on boolean flag", () => {
-      const r = parseArgs(["--dev=yes"], SPEC);
+      const r = args(["--dev=yes"]);
       expect(r.errors).toContain("--dev is a boolean flag, does not take a value");
     });
   });
 
   describe("string values", () => {
     it("parses --root=path", () => {
-      const r = parseArgs(["--root=/foo"], SPEC);
+      const r = args(["--root=/foo"]);
       expect(r.root).toBe("/foo");
     });
 
     it("parses --root path", () => {
-      const r = parseArgs(["--root", "/bar"], SPEC);
+      const r = args(["--root", "/bar"]);
       expect(r.root).toBe("/bar");
     });
 
     it("reports missing value", () => {
-      const r = parseArgs(["--root"], SPEC);
+      const r = args(["--root"]);
       expect(r.errors).toContain("--root requires a value");
     });
 
     it("uses default value when absent", () => {
-      expect(parseArgs([], SPEC).root).toBe(".");
+      expect(args([]).root).toBe(".");
     });
   });
 
   describe("number values", () => {
     it("coerces --limit=25 to a number", () => {
-      const r = parseArgs(["--limit=25"], SPEC);
+      const r = args(["--limit=25"]);
       expect(r.limit).toBe(25);
       expect(typeof r.limit).toBe("number");
     });
@@ -56,17 +68,17 @@ describe("parseArgs", () => {
     it("keeps a fractional value", () => {
       // Truncating would silently widen a threshold band, so `--limit 15.5`
       // must arrive as 15.5 rather than 15.
-      expect(parseArgs(["--limit=15.5"], SPEC).limit).toBe(15.5);
+      expect(args(["--limit=15.5"]).limit).toBe(15.5);
     });
 
     it("parses a positional value", () => {
-      expect(parseArgs(["--limit", "20"], SPEC).limit).toBe(20);
+      expect(args(["--limit", "20"]).limit).toBe(20);
     });
 
     it("reports a non-numeric value and keeps the default", () => {
       // Silently keeping the default would run the tool at a threshold the
       // user never asked for, so this is an error instead.
-      const r = parseArgs(["--limit=abc"], SPEC);
+      const r = args(["--limit=abc"]);
       expect(r.limit).toBe(10);
       expect(r.errors).toContain("--limit must be a number: abc");
     });
@@ -74,72 +86,72 @@ describe("parseArgs", () => {
     it("treats a blank value as an omission", () => {
       // `Number("")` is 0, which would masquerade as an explicit zero rather
       // than a mistake.
-      const r = parseArgs(["--limit="], SPEC);
+      const r = args(["--limit="]);
       expect(r.limit).toBe(10);
       expect(r.errors).toContain("--limit requires a value");
     });
 
     it("uses the default when the flag is absent", () => {
-      expect(parseArgs([], SPEC).limit).toBe(10);
+      expect(args([]).limit).toBe(10);
     });
   });
 
   describe("array flags", () => {
     it("collects repeated values", () => {
-      const r = parseArgs(["--names=alice", "--names=bob"], SPEC);
+      const r = args(["--names=alice", "--names=bob"]);
       expect(r.names).toEqual(["alice", "bob"]);
     });
 
     it("collects positional values", () => {
-      const r = parseArgs(["--names", "alice", "--names", "bob"], SPEC);
+      const r = args(["--names", "alice", "--names", "bob"]);
       expect(r.names).toEqual(["alice", "bob"]);
     });
 
     it("starts empty", () => {
-      expect(parseArgs([], SPEC).names).toEqual([]);
+      expect(args([]).names).toEqual([]);
     });
   });
 
   describe("short flags", () => {
     it("maps -d to --dev", () => {
-      expect(parseArgs(["-d"], SPEC).dev).toBe(true);
+      expect(args(["-d"]).dev).toBe(true);
     });
 
     it("reports unknown short flag", () => {
-      const r = parseArgs(["-x"], SPEC);
+      const r = args(["-x"]);
       expect(r.errors).toContain("Unknown short flag: -x");
     });
   });
 
   describe("--help", () => {
     it("returns help=true for --help", () => {
-      expect(parseArgs(["--help"], SPEC).help).toBe(true);
+      expect(args(["--help"]).help).toBe(true);
     });
 
     it("returns help=true for -h", () => {
-      expect(parseArgs(["-h"], SPEC).help).toBe(true);
+      expect(args(["-h"]).help).toBe(true);
     });
 
     it("stops parsing after --help", () => {
-      expect(parseArgs(["--help", "--dev"], SPEC).help).toBe(true);
+      expect(args(["--help", "--dev"]).help).toBe(true);
     });
   });
 
   describe("unknown flags", () => {
     it("reports unknown flag", () => {
-      const r = parseArgs(["--unknown"], SPEC);
+      const r = args(["--unknown"]);
       expect(r.errors).toContain("Unknown flag: --unknown");
     });
 
     it("reports unknown positional argument", () => {
-      const r = parseArgs(["positional"], SPEC);
+      const r = args(["positional"]);
       expect(r.errors).toContain("Unknown argument: positional");
     });
   });
 
   describe("empty input", () => {
     it("returns all defaults with no errors", () => {
-      const r = parseArgs([], SPEC);
+      const r = args([]);
       expect(r.errors).toEqual([]);
       expect(r.help).toBe(false);
       expect(r.dev).toBe(false);

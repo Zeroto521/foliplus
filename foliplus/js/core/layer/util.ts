@@ -1,6 +1,13 @@
 // core layer-traversal utilities — pure functions, no DOM / CONF.
+import {
+  internalLayers,
+  layerElements,
+  layerIcon,
+  layerMap,
+  reinitInteraction,
+} from "../leafletAdapter.js";
 import * as CONST from "./const.js";
-import type { LabelAwareLayer } from "./type.js";
+import type { LabelAwareLayer, LayerCapabilities, LayerKind } from "./type.js";
 
 /** Resolve a layer from the map's internal registry or a window global.
  *  @param {L.Map} map - Leaflet map.
@@ -8,15 +15,15 @@ import type { LabelAwareLayer } from "./type.js";
  *  @returns {Object|null} Leaflet layer. */
 const findLayer = (map: L.Map, id: string): L.Layer | null => {
   if (typeof window === "undefined") return null;
-  return ((map._layers && map._layers[id]) ||
+  return (internalLayers(map)?.[id] ||
     Reflect.get(window, id) ||
     null) as L.Layer | null;
 };
 
 /** Depth-limited walk over a layer tree, invoking fn per visited node.
- *  Prefer eachLayer (Leaflet's own recursion) over _layers — that keeps
- *  nested groups like mainLayer → [graph, label] traversed correctly.
- *  The _layers branch is a fallback for non-Leaflet containers (window
+ *  Prefer eachLayer (Leaflet's own recursion) over the child registry — that
+ *  keeps nested groups like mainLayer → [graph, label] traversed correctly.
+ *  The registry branch is a fallback for non-Leaflet containers (window
  *  globals and ad-hoc registry wrappers) that don't implement eachLayer.
  */
 const traverse = (
@@ -30,13 +37,16 @@ const traverse = (
   const isContainer = typeof container.eachLayer === "function";
   if (!leafOnly) fn(layer);
   if (isContainer) container.eachLayer(c => traverse(c, fn, depth + 1, leafOnly));
-  else if (container._layers) {
-    for (const k in container._layers) {
-      if (Object.hasOwn(container._layers, k)) {
-        traverse(container._layers[k], fn, depth + 1, leafOnly);
+  else {
+    const children = internalLayers(layer);
+    if (children) {
+      // Object.keys, not for..in: a registry that inherits from a prototype
+      // would otherwise walk entries this layer tree does not own.
+      for (const k of Object.keys(children)) {
+        traverse(children[k], fn, depth + 1, leafOnly);
       }
-    }
-  } else if (leafOnly) fn(layer);
+    } else if (leafOnly) fn(layer);
+  }
 };
 
 /** Iterate every leaf node (no intermediate containers) of a layer tree. */
@@ -54,9 +64,9 @@ const forEachLayer = (layer: L.Layer, fn: (layer: L.Layer) => void, depth = 0) =
  *
  * Leaflet registers a layer's per-element hit targets once, at add time, and
  * only reads options.interactive live for the canvas renderer's hit test:
- *   - SVG paths  → _addPath calls addInteractiveTarget(_path)
- *   - Markers    → _initInteraction calls addInteractiveTarget(_icon)
- *   - DivOverlay → onAdd calls addInteractiveTarget(_container)
+ *   - SVG paths  → _addPath calls addInteractiveTarget on the path element
+ *   - Markers    → _initInteraction calls addInteractiveTarget on the icon
+ *   - DivOverlay → onAdd calls addInteractiveTarget on the container
  * Flipping options.interactive alone therefore leaves those elements in
  * map._targets, so their click handlers still fire and the pointer cursor /
  * hover events keep going. Marker._initInteraction is also a no-op when
@@ -69,7 +79,7 @@ const forEachLayer = (layer: L.Layer, fn: (layer: L.Layer) => void, depth = 0) =
  * is unregistered, Leaflet's DOM dispatch (_findEventTargets) falls through
  * to the map, so clicks land on the map as intended while measuring.
  *
- * A layer without _map has never registered targets — setting the option is
+ * A layer with no map has never registered targets — setting the option is
  * enough; it is applied the next time the layer is added.
  *
  * Container layers (LayerGroup) carry no interactivity of their own — walk a
@@ -82,22 +92,18 @@ const setInteractive = (layer: L.Layer, interactive: boolean): void => {
   const opts = layer.options as L.LayerOptions & { interactive?: boolean };
   if (!opts || opts.interactive === interactive) return;
   opts.interactive = interactive;
-  // _map is `protected` in @types/leaflet, so read it through a narrow cast.
-  if (!(layer as unknown as { _map?: L.Map })._map) return;
+  if (!layerMap(layer)) return;
 
-  const els = [layer._icon, layer._path, layer._container].filter(
-    (el): el is HTMLElement => !!el,
-  );
+  const els = layerElements(layer);
+  const icon = layerIcon(layer);
 
   if (interactive) {
     // Marker._initInteraction re-adds the icon class, hit target, and any
     // dragging hooks — prefer it for the icon. The explicit pass below covers
-    // SVG paths (layer._path) and DivOverlay containers (layer._container).
-    if (typeof layer._initInteraction === "function") layer._initInteraction();
+    // SVG paths and DivOverlay containers.
+    const reinit = reinitInteraction(layer);
     for (const el of els) {
-      if (el === layer._icon && typeof layer._initInteraction === "function") {
-        continue;
-      }
+      if (el === icon && reinit) continue;
       el.classList.add("leaflet-interactive");
       layer.addInteractiveTarget(el);
     }
@@ -214,7 +220,87 @@ const isLayerInPanes = (panes: readonly string[]): ((leaf: L.Layer) => boolean) 
   };
 };
 
+/** Honest capability profile for `kind: "cluster"`. Named so the UI and the
+ *  regression suite share one answer: cluster icons live in the shared
+ *  `markerPane` (opacity/zoomRange/bounds have no honest carrier), but the
+ *  group itself is an `L.Layer` so visibility is still map membership. */
+const CLUSTER_CAPABILITIES: Omit<LayerCapabilities, "annotation"> = {
+  fill: "none",
+  stroke: "none",
+  opacity: "none",
+  zoomRange: "none",
+  visibility: "native",
+  relocatable: false,
+  bounds: false,
+};
+
+/** The MarkerCluster plugin's group — **kind derivation only**. Capability
+ *  dispatch goes through `kind: "cluster"` + `CLUSTER_CAPABILITIES`, not
+ *  through this probe; callers should declare `kind: "cluster"`.
+ *
+ *  Two tells: the plugin attaches `_topClusterLevel`, and (when loaded) the
+ *  group is an `L.MarkerClusterGroup`. Why the honest tier drops opacity:
+ *  `eachLayer` reaches the individual markers, but the cluster icons live in
+ *  the shared `markerPane` and never enter `eachLayer` — a pane write would
+ *  fade the leaves and not the clusters (half the layer). */
+const isMarkerCluster = (layer: L.Layer): boolean => {
+  const ctor = (window.L as { MarkerClusterGroup?: unknown })?.MarkerClusterGroup;
+  if (
+    typeof ctor === "function" &&
+    layer instanceof (ctor as new (...args: never[]) => unknown)
+  ) {
+    return true;
+  }
+  return !!(layer as L.Layer & { _topClusterLevel?: unknown })._topClusterLevel;
+};
+
+/** Whether the layer is a tile-family GridLayer (TileLayer is a subclass). */
+const isTileFamily = (layer: L.Layer): boolean =>
+  typeof L.GridLayer !== "undefined" && layer instanceof L.GridLayer;
+
+/** Whether the layer is in the Path/Marker vector family (or a container of
+ *  them). Same probe family as capability detection — not a new duck type. */
+const isVectorFamily = (layer: L.Layer): boolean => {
+  if (typeof L.Path !== "undefined" && layer instanceof L.Path) return true;
+  if (typeof L.Marker !== "undefined" && layer instanceof L.Marker) return true;
+  if (typeof L.LayerGroup !== "undefined" && layer instanceof L.LayerGroup) {
+    return true;
+  }
+  return false;
+};
+
+/** Derive `kind` when the caller did not declare one.
+ *
+ *  `tile | vector` comes from the Leaflet layer family (GridLayer/TileLayer vs
+ *  Path/Marker/LayerGroup) — the same probe family as capabilities. MarkerCluster
+ *  may derive `"cluster"` so a folium plugin group still lands in the honest
+ *  capability tier; callers should declare `kind: "cluster"` explicitly. */
+const deriveLayerKind = (opts: {
+  kind?: LayerKind;
+  color?: string | null;
+  custom?: unknown;
+  canvas?: boolean;
+  layer?: L.Layer | null;
+}): LayerKind => {
+  if (opts.kind) return opts.kind;
+  if (opts.color != null) return "solid";
+  if (opts.custom !== undefined) return "custom";
+  if (opts.canvas && !opts.layer) return "canvas";
+  const layer = opts.layer;
+  if (layer && isMarkerCluster(layer)) return "cluster";
+  if (layer && isTileFamily(layer)) return "tile";
+  if (layer && isVectorFamily(layer)) return "vector";
+  if (layer) return "vector";
+  // No layer and no explicit non-layer carrier: a pending Leaflet-layer
+  // registration (folium script-stream). NOT "custom" — that kind means an
+  // explicit no-carrier third-party payload and would hide the entry from
+  // `hasUnresolvedLayers`.
+  return "vector";
+};
+
 export {
+  CLUSTER_CAPABILITIES,
+  deriveLayerKind,
   findLayer,
   forEachLayer,
   forEachLeaf,

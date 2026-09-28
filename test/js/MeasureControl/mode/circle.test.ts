@@ -19,9 +19,9 @@ const { attachCircleUIMock } = vi.hoisted(() => ({
 }));
 let capturedCircleOpts: any = null;
 
-vi.mock("#foliplus/MeasureControl/ui.js", async importOriginal => {
+vi.mock("#foliplus/MeasureControl/ui/index.js", async importOriginal => {
   const actual =
-    await importOriginal<typeof import("#foliplus/MeasureControl/ui.js")>();
+    await importOriginal<typeof import("#foliplus/MeasureControl/ui/index.js")>();
   return { ...actual, attachCircleUI: attachCircleUIMock };
 });
 
@@ -34,11 +34,11 @@ describe("CircleMode — click stops propagation to data layers", () => {
   it("calls L.DomEvent.stopPropagation when placing center", () => {
     const manager = makeManagerMock();
     const mode = new CircleMode(manager);
-    manager.currentMode = CONST.MODE.CIRCLE;
+    manager.currentMode = CONST.MEASURE_MODE.CIRCLE;
     mode.start();
 
     const clickHandler = manager.map.on.mock.calls.find(
-      ([event]) => event === "click",
+      ([event]: [unknown]) => event === "click",
     )?.[1];
     expect(clickHandler).toBeDefined();
 
@@ -137,15 +137,15 @@ describe("CircleMode — start drawing flow", () => {
     vi.useFakeTimers();
     try {
       const manager = makeManagerMock() as any;
-      manager.currentMode = CONST.MODE.CIRCLE;
+      manager.currentMode = CONST.MEASURE_MODE.CIRCLE;
       const mode = new CircleMode(manager);
       mode.start();
 
       const clickHandler = manager.map.on.mock.calls.find(
-        ([ev]) => ev === "click",
+        ([ev]: [unknown]) => ev === "click",
       )?.[1];
       const moveHandler = manager.map.on.mock.calls.find(
-        ([ev]) => ev === "mousemove",
+        ([ev]: [unknown]) => ev === "mousemove",
       )?.[1];
 
       clickHandler({ latlng: { lat: 31.2, lng: 121.5 } });
@@ -214,6 +214,7 @@ describe("CircleMode — drag persistence (onEnd)", () => {
       radius: 5000,
       area: Math.PI * 5000 * 5000,
     };
+    manager.measurements = [data];
 
     CircleMode.restore(manager, data);
 
@@ -230,19 +231,19 @@ describe("CircleMode — drag persistence (onEnd)", () => {
     expect(data.target).toEqual({ lng: 121, lat: 32 });
     expect(data.radius).toBe(8000);
     expect(data.area).toBe(Math.PI * 8000 * 8000);
-    expect(manager.store.persist).toHaveBeenCalled();
+    expect(manager.store.mutateAndPersist).toHaveBeenCalled();
   });
 
   it("finishCircle: onEnd syncs the just-saved measurement's fields", () => {
     vi.useFakeTimers();
     try {
       const manager = makeManagerMock() as any;
-      manager.currentMode = CONST.MODE.CIRCLE;
+      manager.currentMode = CONST.MEASURE_MODE.CIRCLE;
       const mode = new CircleMode(manager);
       mode.start();
 
       const clickHandler = manager.map.on.mock.calls.find(
-        ([ev]) => ev === "click",
+        ([ev]: [unknown]) => ev === "click",
       )?.[1];
 
       clickHandler({ latlng: { lat: 31, lng: 121 } });

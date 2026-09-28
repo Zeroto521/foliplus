@@ -14,6 +14,7 @@ from conftest import (
     assert_locale,
     heatmap_ready,
     make_browser_page,
+    read_css,
     read_css_dir,
     render_control,
     use_page,
@@ -49,6 +50,9 @@ class TestHeatmapControlPython:
         assert_config_value(html, "agg", "count")
         assert_config_value(html, "border_weight", 1.5)
         assert_config_value(html, "label_show", True)
+        assert_config_value(html, "label_color", "#fff")
+        assert_config_value(html, "label_size", 11)
+        assert_config_value(html, "label_format", "auto")
 
     def test_custom_params(self):
         """Custom params produce correct CONFIG JSON."""
@@ -61,6 +65,7 @@ class TestHeatmapControlPython:
                 schemes=["Reds", "Blues"],
                 border_weight=2.0,
                 label_show=False,
+                label_format="percent",
             )
         )
         assert_config_value(html, "color_scheme", "Reds")
@@ -69,6 +74,11 @@ class TestHeatmapControlPython:
         assert_config_value(html, "agg", "sum")
         assert_config_value(html, "border_weight", 2.0)
         assert_config_value(html, "label_show", False)
+        assert_config_value(html, "label_format", "percent")
+
+    def test_invalid_label_format_raises(self):
+        with pytest.raises(ValueError, match="label_format must be one of"):
+            HeatmapControl(label_format="invalid")
 
     def test_invalid_method_raises(self):
         """Invalid method raises ValueError."""
@@ -146,10 +156,10 @@ class TestHeatmapControlRendering:
         html = render_control(HeatmapControl(locale="zh"))
         assert_locale(html, "网格聚合")
 
-    def test_field_kwarg(self):
-        """Direct field kwarg is injected into JS template."""
-        html = render_control(HeatmapControl(field="value"))
-        assert_config_value(html, "field", "value")
+    def test_field_kwarg_removed(self):
+        """field kwarg is no longer accepted — it was a dead declaration."""
+        with pytest.raises(TypeError):
+            HeatmapControl(field="value")
 
     def test_scheme_names_inline(self):
         """schemes list is inlined as JSON array."""
@@ -170,7 +180,7 @@ class TestHeatmapControlRendering:
     def test_error_keys_injected(self):
         """Error/warning locale keys appear in rendered HTML."""
         html = render_control(HeatmapControl())
-        assert "Falling back to 1" in html
+        assert "value fallback to 1" in html
         assert "h3 cell conversion failed" in html
         assert "h3 boundary conversion failed" in html
         assert "HeatmapControl.close_title" in html
@@ -223,23 +233,6 @@ class TestHeatmapControlRendering:
         for method in ("jenks", "quantile", "equal", "heads"):
             assert method in html
 
-    def test_border_control_renders(self):
-        """Border weight slider and color input are rendered."""
-        html = render_control(HeatmapControl())
-        assert "weight-input" in html
-        assert "color-input" in html
-
-    def test_border_weight_input_has_min_max(self):
-        """Border weight input has min:0 max:10, clamps on change, and previews on input."""
-        html = render_control(HeatmapControl())
-        assert "weight-input" in html
-        assert "color-input" in html
-        assert "weight-input" in html
-        # oninput for live preview (only fires when value is in range)
-        assert "weight-input" in html
-        # onchange for final clamp
-        assert "color-input" in html
-
     def test_placeholder_options_disabled(self):
         """Layer placeholder and field auto options use disabled:true (not the string)."""
         html = render_control(HeatmapControl())
@@ -248,27 +241,14 @@ class TestHeatmapControlRendering:
         # Must NOT use the string variant which silently sets disabled=false
         assert 'disabled: "disabled"' not in html
 
-    def test_border_weight_breathing_focus(self):
-        """weight-input is included in the shared breathing-focus rule."""
-        from pathlib import Path
-
-        css = read_css_dir("foliplus/css/common", "reset.css")
-        assert "foliplus-heatmap-weight-input" in css
-        assert "input-breathe" in css
-
     def test_focus_breathe_selector_single_definition(self):
         """The breathing-focus selector list is defined once (no animation/reduced-motion duplication)."""
         css = read_css_dir("foliplus/css/common", "reset.css")
-        # `foliplus-heatmap-weight-input` appears once inside the shared :is(...) list.
-        assert css.count("foliplus-heatmap-weight-input") == 1
+        # `foliplus-form-number-input` appears once inside the shared :is(...) list.
+        assert css.count("foliplus-form-number-input") == 1
         # The animation is driven by a custom property so reduced-motion only
         # overrides the value, not the selector list.
         assert "var(--input-breathe-anim)" in css
-
-    def test_label_toggle_renders(self):
-        """Label toggle switch is rendered."""
-        html = render_control(HeatmapControl())
-        assert "toggle-switch" in html
 
     def test_confirm_button_removed(self):
         """Confirm button is gone: every control re-renders live (no Apply)."""
@@ -282,11 +262,23 @@ class TestHeatmapControlRendering:
         assert "btn-clear" in html
         assert "HeatmapControl.clear" in html
 
-    def test_section_data_and_style(self):
-        """Data and Style section labels are rendered."""
+    def test_no_section_headings(self):
+        """The panel is one flat row list: no Data/Style headings ship.
+
+        Neither the shared `.foliplus-section-heading` nor a heatmap-local
+        lookalike reaches the markup, and the two locale keys that used to
+        name them are gone from the JSON too.
+        """
         html = render_control(HeatmapControl())
-        assert "HeatmapControl.section_data" in html
-        assert "HeatmapControl.section_style" in html
+        assert "foliplus-section-heading" not in html
+        assert "foliplus-heatmap-section-heading" not in html
+        assert "HeatmapControl.section_data" not in html
+        assert "HeatmapControl.section_style" not in html
+
+        css = read_css("foliplus/css/HeatmapControl.css")
+        assert ".foliplus-heatmap-section-heading" not in css
+        shared = read_css("foliplus/css/common/form.css")
+        assert ".foliplus-section-heading" not in shared
 
     def test_close_button_renders(self):
         """Close button is rendered in the panel header."""
@@ -408,7 +400,15 @@ class TestHeatmapControlBrowser:
             )
         return html
 
-    def _make_page(self, browser, tmp_path, expose_ctrl=False, num_layers=3):
+    def _make_page(
+        self,
+        browser,
+        tmp_path,
+        expose_ctrl=False,
+        num_layers=3,
+        prelude=None,
+        **ctrl_kwargs,
+    ):
         """Build a page with point layers + HeatmapControl and return (page, errors).
 
         Parameters
@@ -422,6 +422,12 @@ class TestHeatmapControlBrowser:
         num_layers
             Number of independent point FeatureGroups (default 3). Set to 1
             for auto-select tests.
+        prelude
+            Optional JS source installed before the page's own scripts run —
+            a listener-counting probe needs this so its counts are absolute.
+        ctrl_kwargs
+            Forwarded to ``HeatmapControl()`` so a test can exercise a
+            non-default parameter (e.g. ``collapse_on_outside=False``).
         """
         from foliplus import LayerControl
 
@@ -445,12 +451,14 @@ class TestHeatmapControlBrowser:
             fg.add_to(m)
 
         LayerControl().add_to(m)
-        HeatmapControl().add_to(m)
+        HeatmapControl(**ctrl_kwargs).add_to(m)
 
         html = self._stub_html(m.get_root().render())
         if expose_ctrl:
             html = self._expose_ctrl(html)
-        page, errors = make_browser_page(browser, tmp_path, html, "heatmap")
+        page, errors = make_browser_page(
+            browser, tmp_path, html, "heatmap", prelude=prelude
+        )
         page.wait_for_selector(
             ".foliplus-heatmap-ctrl", state="attached", timeout=10000
         )
@@ -468,6 +476,124 @@ class TestHeatmapControlBrowser:
             heatmap_ready(page)  # re-scan settles: [data-ready] re-appears
             assert not errors, f"JS errors: {errors}"
 
+    def test_remove_readd_leaves_no_listener_residue(self, browser, tmp_path):
+        """N=3 remove→add cycles must not grow map._events listener sum.
+
+        Baseline round[0] is captured right after the initial addControl
+        (which the harness already performed in page setup); rounds[1] and
+        rounds[2] follow remove→add. A listener leak — whether it lands on
+        round[0] or only shows up in a later round — registers as a drift
+        and fails the assertion.
+        """
+        with use_page(
+            self._make_page, browser, tmp_path, expose_ctrl=True, num_layers=1
+        ) as (page, errors):
+            heatmap_ready(page)
+            state = page.evaluate(_js("HeatmapControl/destroy_readd"))
+            rounds = state["rounds"]
+            assert len(rounds) == 3, f"expected 3 rounds, got {rounds!r}"
+            for i, n in enumerate(rounds[1:], start=1):
+                assert n == rounds[0], (
+                    f"HeatmapControl: map._events listener sum grew on round {i}: "
+                    f"{rounds!r}"
+                )
+            heatmap_ready(page)
+            assert not errors, f"JS errors: {errors}"
+
+    def test_probe_leak_listener_control_group_grows(self, browser, tmp_path):
+        """A single bare map.on() must register as a +1 in the listener sum.
+
+        Control group for the drift gate above: if this control fails, the
+        sumMapEvents measure is measuring nothing and the drift assertion
+        in test_remove_readd_leaves_no_listener_residue has no teeth.
+        """
+        with use_page(
+            self._make_page, browser, tmp_path, expose_ctrl=True, num_layers=1
+        ) as (page, errors):
+            heatmap_ready(page)
+            result = page.evaluate(_js("HeatmapControl/probe_leak_listener"))
+            assert result["delta"] > 0, (
+                f"Leak control group: expected a positive delta, got {result!r}"
+            )
+            assert not errors, f"JS errors: {errors}"
+
+    def test_remove_readd_leaves_no_document_listener_residue(self, browser, tmp_path):
+        """Two remove→add cycles with the dropdown open must not accumulate
+        document/window listeners.
+
+        The ``map._events`` gate above only counts listeners on the Leaflet map
+        instance, which is the layer the orphan ``map.on("unload")`` class of
+        leak lives on. This gate covers the other layer: HeatmapControl's
+        scheme-dropdown outside-click handler is bound on document, and #408
+        moved it from a bare ``document.addEventListener`` to the signal-managed
+        ``ctrl.on(document, ...)`` form. Each cycle opens the dropdown before
+        removing the control, so a listener still bound at removal time — a bare
+        listener with no cleanup, or one bound to a controller that is never
+        aborted — registers as drift.
+
+        The counting probe is installed as a page prelude, so its counts are
+        absolute rather than deltas measured from somewhere in the middle of the
+        page's life. That makes both invariants checkable against the baseline:
+        a re-attach must leave exactly the listeners that were there before the
+        first cycle (``added[i] == base``), and every removal must tear down the
+        same things (``closed[i] == closed[0]``). ``open`` doubles as a
+        self-check on the measurement path.
+        """
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            expose_ctrl=True,
+            num_layers=1,
+            prelude=_js("_probe/doc_listener_probe"),
+        ) as (page, errors):
+            heatmap_ready(page)
+            state = page.evaluate(_js("HeatmapControl/doc_listener_drift"))
+            assert all(o > c for o, c in zip(state["open"], state["closed"])), (
+                "HeatmapControl: the scheme dropdown no longer binds a document "
+                f"listener (open={state['open']!r}, closed={state['closed']!r}) — "
+                "this gate has no teeth"
+            )
+            for i, n in enumerate(state["added"], start=1):
+                assert n == state["base"], (
+                    "HeatmapControl: the document/window listener count after a "
+                    f"re-attach drifted on cycle {i} (base={state['base']}): "
+                    f"{state!r}"
+                )
+            for i, n in enumerate(state["closed"][1:], start=1):
+                assert n == state["closed"][0], (
+                    "HeatmapControl: the document/window listener count after a "
+                    f"removal drifted on cycle {i} (first={state['closed'][0]}): "
+                    f"{state!r}"
+                )
+            heatmap_ready(page)
+            assert not errors, f"JS errors: {errors}"
+
+    def test_probe_leak_listener_doc_control_group_moves(self, browser, tmp_path):
+        """Bare and signal-managed document listeners must both move the count.
+
+        Control group for the drift gate above: without these two directions the
+        flat verdict would be meaningless, and the ``AbortController.abort``
+        hook in the shared probe — the part that keeps a signal-managed listener
+        from registering as a phantom leak — would go untested.
+        """
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            expose_ctrl=True,
+            num_layers=1,
+            prelude=_js("_probe/doc_listener_probe"),
+        ) as (page, errors):
+            heatmap_ready(page)
+            result = page.evaluate(_js("HeatmapControl/probe_leak_listener_doc"))
+            assert result["addDelta"] == 1, result
+            assert result["removeDelta"] == -1, result
+            assert result["signalAddDelta"] == 1, result
+            assert result["abortDelta"] == -1, result
+            assert result["settled"] == result["before"], result
+            assert not errors, f"JS errors: {errors}"
+
     def test_auto_select_single_layer(self, browser, tmp_path):
         """Single point layer is auto-selected on panel expand."""
         with use_page(
@@ -477,7 +603,9 @@ class TestHeatmapControlBrowser:
                 "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
             )
             page.wait_for_selector(
-                ".foliplus-heatmap-ctrl.expanded", state="attached", timeout=5000
+                ".foliplus-heatmap-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
             heatmap_ready(page)
 
@@ -500,7 +628,9 @@ class TestHeatmapControlBrowser:
                 "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
             )
             page.wait_for_selector(
-                ".foliplus-heatmap-ctrl.expanded", state="attached", timeout=5000
+                ".foliplus-heatmap-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
             heatmap_ready(page)
 
@@ -526,7 +656,9 @@ class TestHeatmapControlBrowser:
                 "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
             )
             page.wait_for_selector(
-                ".foliplus-heatmap-ctrl.expanded", state="attached", timeout=5000
+                ".foliplus-heatmap-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
             heatmap_ready(page)
 
@@ -539,9 +671,80 @@ class TestHeatmapControlBrowser:
                 "document.querySelector('.foliplus-heatmap-ctrl .foliplus-close-btn').click()"
             )
             page.wait_for_selector(
-                ".foliplus-heatmap-ctrl.collapsed", state="attached", timeout=5000
+                ".foliplus-heatmap-ctrl.foliplus-is-collapsed",
+                state="attached",
+                timeout=5000,
             )
 
+            assert not errors, f"JS errors: {errors}"
+
+    def _panel_open(self, page):
+        """True while the heatmap panel is expanded, not collapsed."""
+        return page.evaluate(
+            "() => { const c = document.querySelector('.foliplus-heatmap-ctrl');"
+            " return !!c && c.classList.contains('foliplus-is-expanded')"
+            " && !c.classList.contains('foliplus-is-collapsed'); }"
+        )
+
+    def test_panel_collapses_on_outside_press_by_default(self, browser, tmp_path):
+        """Default unchanged: a press outside the panel still collapses it.
+
+        Regression gate for ``collapse_on_outside``. HeatmapControl shares
+        ``createPanelControl`` with LayerControl, so the shell option must keep
+        its historic behavior for any caller that does not opt out — and only
+        LayerControl passes ``false``.
+        """
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            page.evaluate(
+                "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
+            )
+            page.wait_for_selector(
+                ".foliplus-heatmap-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            heatmap_ready(page)
+            assert self._panel_open(page)
+
+            page.mouse.click(900, 450)
+            page.wait_for_selector(
+                ".foliplus-heatmap-ctrl.foliplus-is-collapsed",
+                state="attached",
+                timeout=5000,
+            )
+            assert not self._panel_open(page), (
+                "the heatmap panel stayed open after an outside press; its default "
+                "is unchanged"
+            )
+            assert not errors, f"JS errors: {errors}"
+
+    def test_panel_stays_open_on_outside_press_when_disabled(self, browser, tmp_path):
+        """``collapse_on_outside=False`` also works for HeatmapControl.
+
+        The second half of the wiring proof: the flag reaches the shell through
+        the same option for both controls, so it is not a LayerControl special
+        case.
+        """
+        with use_page(
+            self._make_page, browser, tmp_path, collapse_on_outside=False
+        ) as (page, errors):
+            page.evaluate(
+                "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
+            )
+            page.wait_for_selector(
+                ".foliplus-heatmap-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            heatmap_ready(page)
+            assert self._panel_open(page)
+
+            page.mouse.click(900, 450)
+            page.wait_for_timeout(300)
+            assert self._panel_open(page), (
+                "the heatmap panel collapsed on an outside press with "
+                "collapse_on_outside=False"
+            )
             assert not errors, f"JS errors: {errors}"
 
     def test_default_values_initialized(self, browser, tmp_path):
@@ -566,30 +769,6 @@ class TestHeatmapControlBrowser:
             assert vals["currentAgg"] == "count"
             assert not errors, f"JS errors: {errors}"
 
-    def test_label_toggle_updates_state(self, browser, tmp_path):
-        """Toggling the label checkbox updates manager.currentLabelShow."""
-        with use_page(self._make_page, browser, tmp_path, expose_ctrl=True) as (
-            page,
-            errors,
-        ):
-            page.evaluate(
-                "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
-            )
-            page.wait_for_selector(
-                ".foliplus-heatmap-ctrl.expanded", state="attached", timeout=5000
-            )
-            heatmap_ready(page)
-
-            before = page.evaluate("window.__heatmapCtrl.manager.currentLabelShow")
-            # Uncheck label
-            page.evaluate(
-                "document.querySelector('.foliplus-heatmap-ctrl .foliplus-heatmap-toggle-switch input').click()"
-            )
-            after = page.evaluate("window.__heatmapCtrl.manager.currentLabelShow")
-            assert before is True, f"expected True, got {before}"
-            assert after is False, f"expected False, got {after}"
-            assert not errors, f"JS errors: {errors}"
-
     def test_layer_selection_triggers_render(self, browser, tmp_path):
         """Selecting a layer calls renderHexagons (cachedFeatures should be set)."""
         with use_page(self._make_page, browser, tmp_path, expose_ctrl=True) as (
@@ -600,7 +779,9 @@ class TestHeatmapControlBrowser:
                 "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
             )
             page.wait_for_selector(
-                ".foliplus-heatmap-ctrl.expanded", state="attached", timeout=5000
+                ".foliplus-heatmap-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
             heatmap_ready(page)
 
@@ -633,7 +814,9 @@ class TestHeatmapControlBrowser:
                 "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
             )
             page.wait_for_selector(
-                ".foliplus-heatmap-ctrl.expanded", state="attached", timeout=5000
+                ".foliplus-heatmap-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
             heatmap_ready(page)
 
@@ -694,7 +877,9 @@ class TestHeatmapControlBrowser:
                 "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
             )
             page.wait_for_selector(
-                ".foliplus-heatmap-ctrl.expanded", state="attached", timeout=5000
+                ".foliplus-heatmap-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
             heatmap_ready(page)
 
@@ -750,7 +935,7 @@ class TestHeatmapControlBrowser:
             assert not errors, f"JS errors: {errors}"
 
     def test_ui_control_changes_persist(self, browser, tmp_path):
-        """Style controls (agg/method/scheme/label/border) write to localStorage
+        """Style controls (agg/method/scheme) write to localStorage
         on change, not just the layer select."""
         with use_page(
             self._make_page, browser, tmp_path, expose_ctrl=True, num_layers=1
@@ -759,7 +944,9 @@ class TestHeatmapControlBrowser:
                 "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
             )
             page.wait_for_selector(
-                ".foliplus-heatmap-ctrl.expanded", state="attached", timeout=5000
+                ".foliplus-heatmap-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
             heatmap_ready(page)
 
@@ -789,78 +976,6 @@ class TestHeatmapControlBrowser:
             page.wait_for_timeout(300)
             assert stored()["scheme"] == "Blues", "scheme change must persist"
 
-            # label toggle
-            page.evaluate(
-                "window.__heatmapCtrl.labelChk.checked = false; window.__heatmapCtrl.labelChk.dispatchEvent(new Event('change'))"
-            )
-            page.wait_for_timeout(300)
-            assert stored()["labelShow"] is False, "label toggle must persist"
-
-            # border weight (onchange clamps then persists)
-            page.evaluate(
-                "window.__heatmapCtrl.borderWeightInput.value = '2.5'; window.__heatmapCtrl.borderWeightInput.dispatchEvent(new Event('change'))"
-            )
-            page.wait_for_timeout(300)
-            assert stored()["borderWeight"] == 2.5, "border weight must persist"
-
-            assert not errors, f"JS errors: {errors}"
-
-    def test_uncommitted_borderweight_survives_reload(self, browser, tmp_path):
-        """A border weight typed into the input field but not yet committed
-        (no change/blur event) still persists on reload.
-
-        Regression: ``borderWeightInput.oninput`` updated ``manager.borderWeight``
-        and re-rendered but never called ``saveConfig`` — only the ``onchange``
-        handler persisted.  A reload before the user blurred the field therefore
-        snapped the weight back to the Python default.
-        """
-        with use_page(
-            self._make_page, browser, tmp_path, expose_ctrl=True, num_layers=1
-        ) as (page, errors):
-            page.evaluate(
-                "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
-            )
-            page.wait_for_selector(
-                ".foliplus-heatmap-ctrl.expanded", state="attached", timeout=5000
-            )
-            heatmap_ready(page)
-
-            # Focus + set value + fire INPUT only — no change event, no blur.
-            page.evaluate(
-                """() => {
-                    const el = window.__heatmapCtrl.borderWeightInput;
-                    el.focus();
-                    el.value = '3.5';
-                    el.dispatchEvent(new Event('input'));
-                }"""
-            )
-            page.wait_for_timeout(500)
-
-            stored = page.evaluate(
-                "() => { const k = Object.keys(localStorage).find(x => x.startsWith('foliplus_heatmap_')); return k ? JSON.parse(localStorage.getItem(k)) : null; }"
-            )
-            assert stored["borderWeight"] == 3.5, (
-                f"uncommitted border weight must persist on input, got {stored['borderWeight']!r}"
-            )
-
-            page.reload()
-            page.wait_for_selector(
-                ".foliplus-heatmap-ctrl", state="attached", timeout=10000
-            )
-            page.wait_for_timeout(3000)
-
-            after = page.evaluate(
-                """() => ({
-                    m: window.__heatmapCtrl.manager.borderWeight,
-                    input: document.querySelector('.foliplus-heatmap-weight-input').value,
-                })"""
-            )
-            assert after["m"] == 3.5, (
-                f"border weight must be restored after reload, got {after['m']!r}"
-            )
-            assert after["input"] == "3.5", (
-                f"input field must show the restored weight, got {after['input']!r}"
-            )
             assert not errors, f"JS errors: {errors}"
 
     def test_clear_all_removes_content(self, browser, tmp_path):
@@ -874,7 +989,9 @@ class TestHeatmapControlBrowser:
                 "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
             )
             page.wait_for_selector(
-                ".foliplus-heatmap-ctrl.expanded", state="attached", timeout=5000
+                ".foliplus-heatmap-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
             heatmap_ready(page)
             opts = page.evaluate(
@@ -908,7 +1025,9 @@ class TestHeatmapControlBrowser:
                 "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
             )
             page.wait_for_selector(
-                ".foliplus-heatmap-ctrl.expanded", state="attached", timeout=5000
+                ".foliplus-heatmap-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
             heatmap_ready(page)
 
@@ -936,7 +1055,9 @@ class TestHeatmapControlBrowser:
                 "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
             )
             page.wait_for_selector(
-                ".foliplus-heatmap-ctrl.expanded", state="attached", timeout=5000
+                ".foliplus-heatmap-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
 
             # BEFORE_EXPORT sets renderAll = true
@@ -964,7 +1085,9 @@ class TestHeatmapControlBrowser:
                 "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
             )
             page.wait_for_selector(
-                ".foliplus-heatmap-ctrl.expanded", state="attached", timeout=5000
+                ".foliplus-heatmap-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
 
             # Set cachedAgg to simulate stale data
@@ -1016,6 +1139,57 @@ class TestHeatmapControlBrowser:
             assert not errors, f"JS errors: {errors}"
         finally:
             page.close()
+
+    def test_canvas_pane_birth_z_is_final(self, browser, tmp_path):
+        """HeatmapControl's canvas pane is born at its final z.
+
+        Selecting a layer renders hexagons, which registers the canvas overlay
+        — creating its pane and stamping its slot z in one synchronous stack.
+        The prelude records the computed z one microtask after ``createPane``
+        returns (the value that first frame paints), and the assertion compares
+        it with the z read after an explicit ordering pass.
+        """
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            expose_ctrl=True,
+            prelude=_js("LayerControl/pane_birth_z_prelude"),
+        ) as (page, errors):
+            page.evaluate(
+                "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
+            )
+            page.wait_for_selector(
+                ".foliplus-heatmap-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            heatmap_ready(page)
+            opts = page.evaluate(
+                "Array.from(window.__heatmapCtrl.layerSelect"
+                ".querySelectorAll('option')).slice(1).map(o => o.value)"
+            )
+            assert opts, "No layer options found"
+            page.evaluate(_js("HeatmapControl/select_layer"), opts[0])
+            page.wait_for_timeout(1000)
+            state = page.evaluate(_js("LayerControl/pane_birth_z_state"))
+        assert state["hooked"] is True, "createPane hook never installed"
+        canvas_panes = {
+            name: z
+            for name, z in state["panes"].items()
+            if name.startswith("foliplus-canvas-")
+        }
+        assert canvas_panes, (
+            f"heatmap canvas pane not found; panes={list(state['panes'])}"
+        )
+        for name, z in canvas_panes.items():
+            assert z["zAtMicrotask"] != "400", (
+                f"{name} painted at Leaflet's default z on the first frame: {z}"
+            )
+            assert z["zAtMicrotask"] == z["zAfterOrder"], (
+                f"{name} moved after the ordering pass: {z}"
+            )
+        assert not errors, f"JS errors: {errors}"
 
 
 class TestHeatmapAutoFieldBrowser:
@@ -1103,7 +1277,9 @@ class TestHeatmapAutoFieldBrowser:
             "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
         )
         page.wait_for_selector(
-            ".foliplus-heatmap-ctrl.expanded", state="attached", timeout=5000
+            ".foliplus-heatmap-ctrl.foliplus-is-expanded",
+            state="attached",
+            timeout=5000,
         )
         heatmap_ready(page)
 
@@ -1145,7 +1321,7 @@ class TestHeatmapAutoFieldBrowser:
 
             # Switch aggregation to 'sum' so the field selector appears.
             # The agg select is the first <select> inside .foliplus-extra-body.
-            agg_select = ".foliplus-heatmap-ctrl .foliplus-heatmap-extra-body > .foliplus-heatmap-form-row:nth-child(1) .foliplus-heatmap-form-control select"
+            agg_select = ".foliplus-heatmap-ctrl .foliplus-heatmap-extra-body > .foliplus-form-row:nth-child(1) .foliplus-form-control select"
             page.evaluate(f"document.querySelector('{agg_select}').value = 'sum'")
             page.evaluate(
                 f"document.querySelector('{agg_select}').dispatchEvent(new Event('change'))"
@@ -1154,7 +1330,7 @@ class TestHeatmapAutoFieldBrowser:
 
             # Verify field selector is visible and AUTO is selected.
             # The field select is the <select> inside .foliplus-heatmap-field.
-            field_select = ".foliplus-heatmap-ctrl .foliplus-heatmap-field .foliplus-heatmap-form-control select"
+            field_select = ".foliplus-heatmap-ctrl .foliplus-heatmap-field .foliplus-form-control select"
             field_val = page.evaluate(f"document.querySelector('{field_select}').value")
             assert field_val == "", f"Expected empty string (AUTO), got '{field_val}'"
 
@@ -1162,21 +1338,14 @@ class TestHeatmapAutoFieldBrowser:
             field_opts = page.evaluate(
                 f"Array.from(document.querySelectorAll('{field_select} option')).map(o => o.value)"
             )
-            assert "properties.population" in field_opts, (
-                f"Missing 'properties.population': {field_opts}"
-            )
-            assert "properties.density" in field_opts, (
-                f"Missing 'properties.density': {field_opts}"
-            )
+            assert "population" in field_opts, f"Missing 'population': {field_opts}"
+            assert "density" in field_opts, f"Missing 'density': {field_opts}"
 
             # collectFields returns fields in the order they are discovered
             # during marker iteration.  The exact key depends on V8 property
             # enumeration order — the important thing is deterministic choice.
             auto_key = page.evaluate("window.__heatmapCtrl.manager.autoFieldKey")
-            assert auto_key and auto_key.startswith("properties."), (
-                f"Expected a 'properties.*' key, got '{auto_key}'"
-            )
-            assert auto_key in ("properties.population", "properties.density"), (
+            assert auto_key in ("population", "density"), (
                 f"Unexpected autoFieldKey '{auto_key}'"
             )
 
@@ -1210,7 +1379,7 @@ class TestHeatmapAutoFieldBrowser:
 
             # Switch to 'avg' so field selector appears.
             # The agg select is the first <select> inside .foliplus-extra-body.
-            agg_select = ".foliplus-heatmap-ctrl .foliplus-heatmap-extra-body > .foliplus-heatmap-form-row:nth-child(1) .foliplus-heatmap-form-control select"
+            agg_select = ".foliplus-heatmap-ctrl .foliplus-heatmap-extra-body > .foliplus-form-row:nth-child(1) .foliplus-form-control select"
             page.evaluate(f"document.querySelector('{agg_select}').value = 'avg'")
             page.evaluate(
                 f"document.querySelector('{agg_select}').dispatchEvent(new Event('change'))"
@@ -1219,22 +1388,18 @@ class TestHeatmapAutoFieldBrowser:
 
             # Verify AUTO is selected.
             # The field select is the <select> inside .foliplus-heatmap-field.
-            field_select = ".foliplus-heatmap-ctrl .foliplus-heatmap-field .foliplus-heatmap-form-control select"
+            field_select = ".foliplus-heatmap-ctrl .foliplus-heatmap-field .foliplus-form-control select"
             field_val = page.evaluate(f"document.querySelector('{field_select}').value")
             assert field_val == "", f"Expected empty string (AUTO), got '{field_val}'"
 
             # Single field → pickAutoField returns it directly
             auto_key = page.evaluate("window.__heatmapCtrl.manager.autoFieldKey")
-            assert auto_key == "properties.elevation", (
-                f"Expected 'properties.elevation', got '{auto_key}'"
-            )
+            assert auto_key == "elevation", f"Expected 'elevation', got '{auto_key}'"
 
             # The single property option should be visible
             field_opts = page.evaluate(
                 f"Array.from(document.querySelectorAll('{field_select} option')).map(o => o.value)"
             )
-            assert "properties.elevation" in field_opts, (
-                f"Missing 'properties.elevation': {field_opts}"
-            )
+            assert "elevation" in field_opts, f"Missing 'elevation': {field_opts}"
 
             assert not errors, f"JS errors: {errors}"

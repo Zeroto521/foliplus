@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CLASSES } from "#foliplus/FullscreenControl/const.js";
 import {
-  bindFullscreenEvents,
+  makeFullscreenChangeHandler,
   toggleFullscreen,
   updateUI,
 } from "#foliplus/FullscreenControl/logic.js";
@@ -16,9 +16,9 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("#foliplus/FullscreenControl/api.js", () => ({
   FULLSCREEN_CHANGE: mocks.FULLSCREEN_CHANGE,
-  get isEnabled() {
-    return mocks.isEnabled;
-  },
+  // Production reads this lazily per call — keep the mock lazy too so
+  // `mocks.isEnabled = …` flips the branch on the very next toggle.
+  isEnabled: vi.fn(() => mocks.isEnabled),
   get getFullscreenEl() {
     return mocks.getFullscreenEl;
   },
@@ -55,7 +55,6 @@ describe("updateUI", () => {
   let mapMock;
 
   beforeEach(() => {
-    vi.clearAllMocks();
     fsBtn = document.createElement("button");
     container = makeContainer();
     mapMock = {
@@ -103,7 +102,6 @@ describe("toggleFullscreen — pseudo path", () => {
   let mapMock;
 
   beforeEach(() => {
-    vi.clearAllMocks();
     mocks.isEnabled = false;
     mocks.getFullscreenEl.mockReturnValue(null);
     fsBtn = document.createElement("button");
@@ -136,14 +134,12 @@ describe("toggleFullscreen — pseudo path", () => {
   });
 });
 
-describe("bindFullscreenEvents — pseudo path", () => {
+describe("makeFullscreenChangeHandler", () => {
   let fsBtn;
   let container;
   let mapMock;
 
   beforeEach(() => {
-    vi.clearAllMocks();
-    mocks.isEnabled = false;
     mocks.getFullscreenEl.mockReturnValue(null);
     fsBtn = document.createElement("button");
     container = makeContainer();
@@ -151,26 +147,23 @@ describe("bindFullscreenEvents — pseudo path", () => {
   });
 
   it("returns a handler function", () => {
-    const handler = bindFullscreenEvents(mapMock, fsBtn, container);
+    const handler = makeFullscreenChangeHandler(mapMock, fsBtn, container);
     expect(typeof handler).toBe("function");
   });
 
-  it("does not register fullscreenchange when native API is disabled", () => {
-    const addSpy = vi.spyOn(document, "addEventListener");
-    bindFullscreenEvents(mapMock, fsBtn, container);
-    expect(addSpy).not.toHaveBeenCalled();
-  });
-
-  it("wires unload event listener", () => {
-    bindFullscreenEvents(mapMock, fsBtn, container);
-    expect(mapMock.on).toHaveBeenCalledWith("unload", expect.any(Function));
-  });
-
   it("handler calls updateUI (MAXIMIZE when not fullscreen)", () => {
-    const handler = bindFullscreenEvents(mapMock, fsBtn, container);
+    const handler = makeFullscreenChangeHandler(mapMock, fsBtn, container);
     handler();
     expect(mapMock.isFullscreen).toBe(false);
     expect(fsBtn.innerHTML).toContain("M8 3H5"); // MAXIMIZE
+  });
+
+  it("handler syncs isFullscreen from the native fullscreen element", () => {
+    const handler = makeFullscreenChangeHandler(mapMock, fsBtn, container);
+    mocks.getFullscreenEl.mockReturnValue({});
+    handler();
+    expect(mapMock.isFullscreen).toBe(true);
+    expect(fsBtn.innerHTML).toContain("M8 3v3"); // MINIMIZE
   });
 });
 
@@ -180,7 +173,6 @@ describe("toggleFullscreen — native API path", () => {
   let mapMock;
 
   beforeEach(() => {
-    vi.clearAllMocks();
     mocks.isEnabled = true;
     mocks.getFullscreenEl.mockReturnValue(null);
     fsBtn = document.createElement("button");
@@ -192,8 +184,6 @@ describe("toggleFullscreen — native API path", () => {
       document as unknown as { requestFullscreen: () => Promise<void> }
     ).requestFullscreen = vi.fn(() => Promise.resolve());
     document.exitFullscreen = vi.fn(() => Promise.resolve());
-    document.addEventListener = vi.fn();
-    document.removeEventListener = vi.fn();
   });
 
   it("calls requestFullscreen and sets isFullscreen on resolve", async () => {
@@ -213,7 +203,7 @@ describe("toggleFullscreen — native API path", () => {
     expect(fsBtn.innerHTML).toBe("");
   });
 
-  it("recovers state on reject", async () => {
+  it("recovers state and reports the unsupported hint on reject", async () => {
     mapMock.getContainer().requestFullscreen = vi.fn(() =>
       Promise.reject(new Error("denied")),
     );
@@ -221,8 +211,14 @@ describe("toggleFullscreen — native API path", () => {
     await Promise.resolve();
     await Promise.resolve();
     expect(mapMock.isFullscreen).toBe(false);
-    // updateUI called with isFull=false → MAXIMIZE
-    expect(fsBtn.innerHTML).toContain("M8 3H5");
+    // Reject does not re-run updateUI — that would announce "entered
+    // fullscreen" for a click that failed. It only reports the hint.
+    expect(fsBtn.innerHTML).toBe("");
+    expect(mapMock.foliplus.showHint).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.stringContaining("unsupported"),
+      expect.any(Number),
+    );
   });
 
   describe("toggle — exit", () => {
@@ -236,15 +232,25 @@ describe("toggleFullscreen — native API path", () => {
       expect(mapMock.isFullscreen).toBe(false);
     });
 
-    it("recovers state on exit reject", async () => {
+    it("recovers state and reports the exit-fail hint on exit reject", async () => {
       mapMock.isFullscreen = true;
       document.exitFullscreen = vi.fn(() => Promise.reject(new Error("failed")));
       toggleFullscreen(mapMock, fsBtn, container);
       await Promise.resolve();
       await Promise.resolve();
       expect(mapMock.isFullscreen).toBe(false);
-      // updateUI called in catch with isFull=false → MAXIMIZE icon
-      expect(fsBtn.innerHTML).toContain("M8 3H5");
+      expect(fsBtn.innerHTML).toBe("");
+      expect(mapMock.foliplus.showHint).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.stringContaining("exit_fail"),
+        expect.any(Number),
+      );
+      // Still in fullscreen — "unsupported" would say the opposite of what happened.
+      expect(mapMock.foliplus.showHint).not.toHaveBeenCalledWith(
+        expect.any(String),
+        expect.stringContaining("unsupported"),
+        expect.any(Number),
+      );
     });
 
     it("exits when getFullscreenEl returns an element", async () => {
@@ -253,49 +259,5 @@ describe("toggleFullscreen — native API path", () => {
       toggleFullscreen(mapMock, fsBtn, container);
       expect(document.exitFullscreen).toHaveBeenCalled();
     });
-  });
-});
-
-describe("bindFullscreenEvents — native API path", () => {
-  let fsBtn;
-  let container;
-  let mapMock;
-
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mocks.isEnabled = true;
-    mocks.getFullscreenEl.mockReturnValue(null);
-    fsBtn = document.createElement("button");
-    container = makeContainer();
-    mapMock = makeNativeMapMock(container);
-
-    document.addEventListener = vi.fn();
-    document.removeEventListener = vi.fn();
-  });
-
-  it("registers fullscreenchange listener when enabled", () => {
-    bindFullscreenEvents(mapMock, fsBtn, container);
-    expect(document.addEventListener).toHaveBeenCalledWith(
-      "fullscreenchange",
-      expect.any(Function),
-    );
-  });
-
-  it("unregisters listener on unload", () => {
-    bindFullscreenEvents(mapMock, fsBtn, container);
-    const unloadHandler = mapMock.on.mock.calls[0][1];
-    unloadHandler();
-    expect(document.removeEventListener).toHaveBeenCalledWith(
-      "fullscreenchange",
-      expect.any(Function),
-    );
-  });
-
-  it("returns handleFSChange that syncs state", () => {
-    const handler = bindFullscreenEvents(mapMock, fsBtn, container);
-    mocks.getFullscreenEl.mockReturnValue({});
-    handler();
-    expect(mapMock.isFullscreen).toBe(true);
-    expect(fsBtn.innerHTML).toContain("M8 3v3"); // MINIMIZE
   });
 });

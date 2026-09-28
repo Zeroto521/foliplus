@@ -60,11 +60,20 @@ include-package-data = false
 [tool.setuptools.packages.find]
 include = ["foliplus*"]
 
+# artifacts.json is the manifest script/build.mjs writes; `script/smoke-wheel.py`
+# and the Python/JS test suites all read it, so the wheel has to ship it.
 [tool.setuptools.package-data]
-foliplus = ["py.typed", "cdn.json", "locale/*.json", "dist/*.min.js", "dist/*.min.css"]
+foliplus = [
+  "py.typed",
+  "cdn.json",
+  "locale/*.json",
+  "dist/*.min.js",
+  "dist/*.min.css",
+  "dist/artifacts.json",
+]
 
 [tool.pytest.ini_options]
-testpaths = ["test/python"]
+testpaths = ["test/python", "script"]
 python_files = ["test_*.py"]
 addopts = "-v --tb=short --cov=foliplus --cov-report=term-missing"
 markers = [
@@ -82,7 +91,7 @@ select = ["I", "UP"]
 known-first-party = ["foliplus"]
 
 [tool.coverage.run]
-source = ["foliplus"]
+source = ["foliplus", "script"]
 branch = true
 
 [tool.coverage.report]
@@ -107,7 +116,7 @@ exclude_lines = [
 omit = ["*/test/*", "*/site-packages/*"]
 
 [tool.codespell]
-ignore-words-list = "afterAll"
+ignore-words-list = "afterAll, vas"
 
 [tool.mypy]
 # Mirrors the pre-commit hook — the package ships py.typed, so the check holds

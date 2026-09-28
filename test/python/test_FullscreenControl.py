@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import re
+
 import folium
 from conftest import (
+    _js,
     assert_config_value,
     assert_locale,
     make_browser_page,
@@ -12,6 +15,19 @@ from conftest import (
 )
 
 from foliplus import FullscreenControl
+
+
+def _native_html(locale: str | None = None) -> str:
+    """Render a native-fullscreen page for browser tests.
+
+    Pass ``locale="en"`` only for gates that read hint text: the hint string is
+    locale-dependent, and Playwright's default browser language is not
+    something those gates should depend on. Gates that only inspect DOM state
+    should leave it unset so the page renders with the ambient locale.
+    """
+    m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+    FullscreenControl(hide_self=True, hide_others=False, locale=locale).add_to(m)
+    return m.get_root().render()
 
 
 class TestFullscreenControlPython:
@@ -124,13 +140,126 @@ class TestFullscreeControlRendering:
 class TestFullscreenControlBrowser:
     """Browser-based smoke tests for FullscreenControl."""
 
-    def _make_page(self, browser, tmp_path, hide_self=True, hide_others=False):
-        """Build a page with FullscreenControl and return (page, errors)."""
+    @staticmethod
+    def _expose_ctrl(html: str) -> str:
+        """Expose the FullscreenControl instance as ``window.__fullscreenCtrl``.
+
+        The control is constructed inline — ``new FullscreenControl({...}).addTo(map)``
+        — so the statement is rewritten to assign the *instance*. Reaching for
+        the matched identifier alone would hand us the constructor, not the
+        instance.
+        """
+        match = re.search(r"new ([A-Za-z0-9_$.]+)\(([^)]*)\)\.addTo\(map\);", html)
+        if not match:
+            return html
+        ctor, args = match.group(1), match.group(2)
+        return (
+            html[: match.start()]
+            + f"window.__fullscreenCtrl = new {ctor}({args}).addTo(map);"
+            + html[match.end() :]
+        )
+
+    def _make_page(
+        self,
+        browser,
+        tmp_path,
+        hide_self=True,
+        hide_others=False,
+        expose_ctrl=False,
+        prelude=None,
+    ):
+        """Build a page with FullscreenControl and return (page, errors).
+
+        Parameters
+        ----------
+        browser
+            Playwright browser fixture.
+        tmp_path
+            Pytest tmp_path fixture.
+        hide_self
+            Hide the fullscreen button together with zoom +/- in fullscreen.
+        hide_others
+            Hide the other controls in fullscreen.
+        expose_ctrl
+            If True, expose ``window.__fullscreenCtrl`` for test assertions.
+        prelude
+            Optional JS source installed before the page's own scripts run —
+            a listener-counting probe needs this so its counts are absolute.
+        """
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
         FullscreenControl(hide_self=hide_self, hide_others=hide_others).add_to(m)
         html = m.get_root().render()
-        page, errors = make_browser_page(browser, tmp_path, html, "fullscreen")
+        if expose_ctrl:
+            html = self._expose_ctrl(html)
+        page, errors = make_browser_page(
+            browser, tmp_path, html, "fullscreen", prelude=prelude
+        )
         return page, errors
+
+    def test_remove_readd_leaves_no_document_listener_residue(self, browser, tmp_path):
+        """Two remove→add cycles must not accumulate document/window listeners.
+
+        The existing ``map._events`` gates only count listeners on the Leaflet
+        map instance — the layer FullscreenControl's orphan ``map.on("unload")``
+        lived on, so it is still covered by the other gates. This one covers the
+        other layer: anything bound on document or window, where no gate
+        existed.
+
+        The counting probe is installed as a page prelude, so its counts are
+        absolute rather than deltas measured from somewhere in the middle of the
+        page's life. That makes both invariants checkable against the baseline:
+        a re-attach must leave exactly the listeners that were there before the
+        first cycle (``added[i] == base``), and every removal must tear down the
+        same things (``closed[i] == closed[0]``).
+        """
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            expose_ctrl=True,
+            prelude=_js("_probe/doc_listener_probe"),
+        ) as (page, errors):
+            page.wait_for_selector(
+                ".foliplus-fullscreen-toggle", state="attached", timeout=10000
+            )
+            state = page.evaluate(_js("FullscreenControl/doc_listener_drift"))
+            for i, n in enumerate(state["added"], start=1):
+                assert n == state["base"], (
+                    "FullscreenControl: the document/window listener count after a "
+                    f"re-attach drifted on cycle {i} (base={state['base']}): "
+                    f"{state!r}"
+                )
+            for i, n in enumerate(state["closed"][1:], start=1):
+                assert n == state["closed"][0], (
+                    "FullscreenControl: the document/window listener count after a "
+                    f"removal drifted on cycle {i} (first={state['closed'][0]}): "
+                    f"{state!r}"
+                )
+            assert not errors, f"JS errors: {errors}"
+
+    def test_probe_leak_listener_doc_control_group_moves(self, browser, tmp_path):
+        """A bare document listener must move the document/window count.
+
+        Control group for the drift gate above: without it, a flat count is
+        compatible with the count measuring nothing. The signal-managed half of
+        the counter — the AbortController.abort patch — is exercised by the gate
+        itself, since FullscreenControl's own ``fullscreenchange`` binding is
+        signal-managed and torn down on every removal.
+        """
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            expose_ctrl=True,
+            prelude=_js("_probe/doc_listener_probe"),
+        ) as (page, errors):
+            page.wait_for_selector(
+                ".foliplus-fullscreen-toggle", state="attached", timeout=10000
+            )
+            result = page.evaluate(_js("FullscreenControl/probe_leak_listener_doc"))
+            assert result["addDelta"] == 1, result
+            assert result["removeDelta"] == -1, result
+            assert not errors, f"JS errors: {errors}"
 
     def test_button_exists(self, browser, tmp_path):
         """FullscreenControl button is present in the DOM."""
@@ -431,3 +560,119 @@ class TestFullscreenControlBrowser:
             )
             assert visible, "zoom not restored after exiting pseudo-fullscreen"
             assert not errors, f"JS errors: {errors}"
+
+    def test_pseudo_fullscreen_after_late_downgrade(self, browser, tmp_path):
+        """Downgrading AFTER the bundle loads still routes to pseudo-fullscreen.
+
+        `document.fullscreenEnabled` is document-level state that can flip at
+        runtime (iframe policy, embedder restrictions). `isEnabled` must be
+        re-read per call — a module-load-time snapshot would pin the native
+        branch for every later toggle.
+
+        This is deliberately distinct from `_make_pseudo_page`: that fixture
+        defines the flag *before* the control script runs, so a snapshot read
+        and a lazy read both see `false` and the test cannot tell them apart.
+        Here the page loads with a fully working native API and the flag flips
+        only after, so only the lazy implementation reaches the pseudo path.
+        """
+        page, errors = make_browser_page(
+            browser, tmp_path, _native_html(), "fullscreen_late_downgrade"
+        )
+        try:
+            page.wait_for_selector(
+                ".foliplus-fullscreen-toggle", state="attached", timeout=10000
+            )
+            # Native API is intact at load time — this is the precondition
+            # that makes a snapshot read take the native branch.
+            assert page.evaluate("() => document.fullscreenEnabled") is True
+            assert page.evaluate("() => typeof document.exitFullscreen") == "function"
+
+            # Flip the flag only now, after every module has been evaluated.
+            page.evaluate(
+                """() => {
+                    Object.defineProperty(document, 'fullscreenEnabled', {
+                        value: false,
+                        configurable: true,
+                    });
+                }"""
+            )
+            assert page.evaluate("() => document.fullscreenEnabled") is False
+
+            page.click(".foliplus-fullscreen-toggle")
+            page.wait_for_function(
+                """() => document
+                    .querySelector('.leaflet-container')
+                    .classList.contains('leaflet-pseudo-fullscreen')"""
+            )
+            # A snapshot read would have called requestFullscreen() instead —
+            # no native fullscreen session, and the container carries the
+            # pseudo class.
+            assert page.evaluate("() => document.fullscreenElement") is None
+            hidden = page.evaluate(
+                """() => document
+                    .querySelector('.foliplus-zoom-in')
+                    .classList.contains('foliplus-hidden')"""
+            )
+            assert hidden, "zoom not hidden after a late downgrade to pseudo mode"
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    def test_native_reject_reports_unsupported_hint(self, browser, tmp_path):
+        """A rejected requestFullscreen reports the unsupported hint.
+
+        The native API is present but every request fails — the realistic
+        shape of a browser policy denial. Reject must not run `updateUI`, which
+        would announce "Entered fullscreen" for a click that just failed.
+        """
+        page, errors = make_browser_page(
+            browser, tmp_path, _native_html(locale="en"), "fullscreen_reject"
+        )
+        try:
+            page.wait_for_selector(
+                ".foliplus-fullscreen-toggle", state="attached", timeout=10000
+            )
+            # Policy denial: the API is available but the container refuses.
+            page.evaluate(
+                """() => {
+                    document
+                        .querySelector('.leaflet-container')
+                        .requestFullscreen = function () {
+                            return Promise.reject(
+                                new Error('simulated browser policy')
+                            );
+                        };
+                }"""
+            )
+            page.click(".foliplus-fullscreen-toggle")
+            page.wait_for_function(
+                """() => {
+                    const hint = document.querySelector('.foliplus-hint');
+                    return !!hint && /not available/i.test(hint.innerText);
+                }""",
+                timeout=5000,
+            )
+
+            # Nothing entered fullscreen.
+            assert page.evaluate("() => document.fullscreenElement") is None
+            assert not page.evaluate(
+                """() => document
+                    .querySelector('.leaflet-container')
+                    .classList.contains('leaflet-pseudo-fullscreen')"""
+            )
+            # The toggle was not re-drawn into the "entered" state either.
+            icon = page.evaluate(
+                "document.querySelector('.foliplus-fullscreen-toggle path')"
+                ".getAttribute('d')"
+            )
+            assert "M8 3H5" in icon, (
+                f"toggle re-drew into the entered state: {icon[:12]}"
+            )
+            # And the user is told the truth instead of "entered fullscreen".
+            hint = page.evaluate(
+                "() => document.querySelector('.foliplus-hint')?.innerText || ''"
+            )
+            assert "not available" in hint.lower(), f"unexpected reject hint: {hint!r}"
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()

@@ -1,9 +1,7 @@
 () => {
   const panel = document.querySelector(".foliplus-panel-content");
   if (!panel) return null;
-  const items = Array.from(
-    panel.querySelectorAll(".foliplus-layer-item:not(.foliplus-color-layer-item)"),
-  );
+  const items = Array.from(panel.querySelectorAll(".foliplus-layer-item"));
   if (items.length < 2) return null;
   const row = items[0];
   const other = items[1];
@@ -12,7 +10,7 @@
   if (!checkbox || !otherBox) return null;
 
   const lit = el => ({
-    focusedClass: el.classList.contains("foliplus-layer-focused"),
+    focusedClass: el.classList.contains("foliplus-is-focused-row"),
     glow: getComputedStyle(el).boxShadow !== "none",
   });
 
@@ -29,7 +27,7 @@
   const handedOver = {
     first: lit(row),
     second: lit(other),
-    anyClass: Boolean(panel.querySelector(".foliplus-layer-focused")),
+    anyClass: Boolean(panel.querySelector(".foliplus-is-focused-row")),
   };
 
   return { afterClick, afterAgain, handedOver };

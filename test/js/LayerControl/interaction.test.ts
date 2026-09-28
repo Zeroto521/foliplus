@@ -48,6 +48,9 @@ function makeUI(): any {
     openMoreMenu: vi.fn(),
     focusLayer: vi.fn(),
     closeMoreMenu: vi.fn(),
+    renameLayer: vi.fn(),
+    openStylePanel: vi.fn(),
+    openAttrsPanel: vi.fn(),
     activeIdx: null,
     activeMenu: null,
   };
@@ -230,6 +233,44 @@ describe("LayerControl handleMoreMenuClick", () => {
     expect(ui.closeMoreMenu).toHaveBeenCalledWith(true);
   });
 
+  it("dispatches rename-layer action → renames inline and keeps focus in the row", () => {
+    const { ui, li } = buildMenu();
+    li.dataset.action = "rename-layer";
+
+    const event = new MouseEvent("click", { bubbles: true, cancelable: true });
+    Object.defineProperty(event, "target", { value: li });
+    handleMoreMenuClick(ui, event);
+
+    expect(ui.renameLayer).toHaveBeenCalledWith("layer1");
+    // The inline rename input must keep focus: returning it to the row would
+    // blur-commit the pre-edit value.
+    expect(ui.closeMoreMenu).toHaveBeenCalledWith(false);
+  });
+
+  it("dispatches style-layer action → opens the style panel by layer id", () => {
+    const { ui, li } = buildMenu();
+    li.dataset.action = "style-layer";
+
+    const event = new MouseEvent("click", { bubbles: true, cancelable: true });
+    Object.defineProperty(event, "target", { value: li });
+    handleMoreMenuClick(ui, event);
+
+    expect(ui.openStylePanel).toHaveBeenCalledWith("layer1");
+    expect(ui.closeMoreMenu).toHaveBeenCalledWith(true);
+  });
+
+  it("dispatches attrs action → anchors the attributes panel to the menu's row", () => {
+    const { ui, li } = buildMenu();
+    li.dataset.action = "layer-attributes";
+
+    const event = new MouseEvent("click", { bubbles: true, cancelable: true });
+    Object.defineProperty(event, "target", { value: li });
+    handleMoreMenuClick(ui, event);
+
+    expect(ui.openAttrsPanel).toHaveBeenCalledWith(ui.activeMenu.item);
+    expect(ui.closeMoreMenu).toHaveBeenCalledWith(true);
+  });
+
   it("skips focusLayer when the menu item is disabled (hidden layer)", () => {
     const { ui, li } = buildMenu(true);
 
@@ -337,5 +378,28 @@ describe("LayerControl handleMoreMenuClick", () => {
 
     expect(ui.focusLayer).toHaveBeenCalledWith("");
     expect(ui.closeMoreMenu).toHaveBeenCalledWith(true);
+  });
+
+  it("rename/style/attrs actions with no active menu fall back safely", () => {
+    const ui = makeUI(); // activeMenu stays null
+    const menu = document.createElement("ul");
+    menu.className = "foliplus-layer-more-menu";
+    const li = document.createElement("li");
+    menu.appendChild(li);
+    document.body.appendChild(menu);
+
+    // rename/style fall back to an empty id; attrs anchors to the li itself.
+    const cases = [
+      ["rename-layer", ui.renameLayer, ""],
+      ["style-layer", ui.openStylePanel, ""],
+      ["layer-attributes", ui.openAttrsPanel, li],
+    ] as const;
+    for (const [action, spy, expected] of cases) {
+      li.dataset.action = action;
+      const event = new MouseEvent("click", { bubbles: true, cancelable: true });
+      Object.defineProperty(event, "target", { value: li });
+      handleMoreMenuClick(ui, event);
+      expect(spy).toHaveBeenCalledWith(expected);
+    }
   });
 });

@@ -19,16 +19,7 @@ const makeCtrl = () => {
 };
 
 beforeEach(() => {
-  vi.clearAllMocks();
   window.CONF = { ...window.CONF, name: "LocateControl", zoom: 16 };
-  // placeMarker attaches popup/del-icon handlers via `.on` on both markers.
-  window.L.marker = vi.fn(() => ({
-    bindPopup: vi.fn(),
-    openPopup: vi.fn(),
-    addTo: vi.fn(),
-    getPopup: () => null,
-    on: vi.fn(),
-  }));
 });
 
 describe("locateMe", () => {
@@ -89,6 +80,31 @@ describe("locateMe", () => {
     expect(window.map.foliplus.hideHint).toHaveBeenCalledWith("LocateControl");
     expect(map.flyTo).toHaveBeenCalledWith([26.08, 119.3], 16);
     expect(ctrl.marker).not.toBeNull();
+  });
+
+  it("clicking the ✕ removes the pin and its delete icon", () => {
+    const getCurrentPosition = geoStub();
+    const ctrl: any = makeCtrl();
+
+    locateMe(ctrl);
+    getCurrentPosition.mock.calls[0][0]({
+      coords: { longitude: 119.3, latitude: 26.08 },
+    });
+
+    const marker = ctrl.marker;
+    const delIcon = ctrl.delIcon;
+    expect(delIcon).not.toBeNull();
+
+    const delClick = delIcon.on.mock.calls.find((c: any) => c[0] === "click")?.[1];
+    expect(delClick).toBeDefined();
+    const x = document.createElement("span");
+    x.setAttribute("data-del-icon", "");
+    delClick({ originalEvent: { target: x } });
+
+    expect(map.removeLayer).toHaveBeenCalledWith(marker);
+    expect(map.removeLayer).toHaveBeenCalledWith(delIcon);
+    expect(ctrl.marker).toBeNull();
+    expect(ctrl.delIcon).toBeNull();
   });
 
   it("locating hint is plain text, not an inline SVG string", () => {

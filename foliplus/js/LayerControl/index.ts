@@ -3,7 +3,11 @@ import { BaseControl } from "#foliplus/BaseControl.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { createPanelControl } from "#common/panel.js";
 import * as SVGs from "./icon.js";
-import { LayerManager, patchBringToFront, unpatchBringToFront } from "./manager.js";
+import {
+  LayerManager,
+  installBringToFrontPatch,
+  uninstallBringToFrontPatch,
+} from "./manager.js";
 import { LayerUI } from "./ui/index.js";
 
 createControlEnv(CONF, SVGs.LAYERS);
@@ -33,7 +37,7 @@ class LayerControl extends BaseControl {
   }
 
   buildDOM() {
-    patchBringToFront();
+    installBringToFrontPatch();
     const { container, panelContent, destroy } = createPanelControl({
       cssClass: "foliplus-layer-ctrl",
       ctrlId: `${CONF.name}_ctrl`,
@@ -41,12 +45,13 @@ class LayerControl extends BaseControl {
       toggleSvg: SVGs.LAYERS,
       panelTitle: T("panel_title"),
       closeTitle: T("close_title"),
+      collapseOnOutside: CONF.collapse_on_outside,
     });
 
     // The factory's document listeners outlive the MutationObserver when the
     // control is detached but kept around, so hand its unbind to the base
     // class for teardown on remove.
-    this.trackCleanup(destroy);
+    this.effect(() => destroy);
 
     this.m.attachUI(panelContent);
 
@@ -57,7 +62,7 @@ class LayerControl extends BaseControl {
   destroy() {
     this.manager?.destroy();
     this.manager = null;
-    unpatchBringToFront();
+    uninstallBringToFrontPatch();
   }
 }
 

@@ -2,29 +2,41 @@
 // Imported statically by components at build time.
 import { intlLocale } from "#common/locale.js";
 
-type NumberStyle = "auto" | "comma" | "int";
+type NumberStyle = "auto" | "comma" | "int" | "percent";
+
+/** Label number-format presets shared by annotation and delegated style panels.
+ *  Named rather than raw string literals so locale keys and dropdown options
+ *  stay aligned with `NumberStyle`. */
+const NUMBER_FORMAT = {
+  AUTO: "auto",
+  INT: "int",
+  COMMA: "comma",
+  PERCENT: "percent",
+} as const satisfies Record<"AUTO" | "INT" | "COMMA" | "PERCENT", NumberStyle>;
 
 /**
  * Format a number for display.
  * @param val Value to format
  * @param style 'auto' (compact: en 1.2K, zh 1.2万 — locale-native units),
  *              'comma' (thousands separator: 6,000),
- *              'int' (plain integer, no grouping: 6000)
+ *              'int' (plain integer, no grouping: 6000),
+ *              'percent' (fraction × 100: 0.35 → 35% — for 0..1 values)
  * @param locale Locale code for 'auto'/'int', defaults to 'en'. Never
  *               consulted by 'comma', which always groups en-style.
  * @param fractionDigits Fixed fraction digits, 'comma' only (default 1). Min
  *               and max are pinned together, so decimals stay fixed rather
  *               than trailing-digit-trimmed (1.0, not 1; 2.50, not 2.5). Pass
- *               0 for whole numbers to drop the ".0".
+ *               0 for whole numbers to drop the ".0". For 'percent' it caps
+ *               the decimals instead (max-only, trailing digits trim).
  */
 const formatNumber = (
   val: number,
-  style: NumberStyle = "auto",
+  style: NumberStyle = NUMBER_FORMAT.AUTO,
   locale: string = "en",
   fractionDigits: number = 1,
 ): string => {
   // 'comma' is language-agnostic: always en grouping, fixed fraction digits.
-  if (style === "comma") {
+  if (style === NUMBER_FORMAT.COMMA) {
     return new Intl.NumberFormat("en", {
       minimumFractionDigits: fractionDigits,
       maximumFractionDigits: fractionDigits,
@@ -35,17 +47,28 @@ const formatNumber = (
 
   const fmt = (maxFrac: number) =>
     new Intl.NumberFormat(locale, {
-      notation: style === "auto" && absVal >= 1000 ? "compact" : "standard",
+      notation: style === NUMBER_FORMAT.AUTO && absVal >= 1000 ? "compact" : "standard",
       compactDisplay: "short",
       maximumFractionDigits: maxFrac,
     });
 
   // int: plain integer, no grouping separator (6000) — distinct from comma's
   // thousands separator (6,000). Both are locale-agnostic.
-  if (style === "int") {
+  if (style === NUMBER_FORMAT.INT) {
     return new Intl.NumberFormat(locale, {
       maximumFractionDigits: 0,
       useGrouping: false,
+    }).format(val);
+  }
+
+  // percent: fraction × 100 with % suffix (0.35 → 35%) — meant for 0..1
+  // fractional values such as a share/ratio column. Locale-grouped like any
+  // other standard-notation format. `fractionDigits` caps the decimals
+  // (max-only: trailing zeros trim, 0.3333 → 33.3% at 1, → 33% at 0).
+  if (style === NUMBER_FORMAT.PERCENT) {
+    return new Intl.NumberFormat(locale, {
+      style: "percent",
+      maximumFractionDigits: fractionDigits,
     }).format(val);
   }
 
@@ -68,10 +91,28 @@ const formatNumber = (
  *  makes the same point display differently in two places. */
 const LAT_LNG_PRECISION = 6;
 
+/** A number as it reads inside a map label.
+ *
+ *  A label states a count or an id, so an explicit style pins the fraction
+ *  digits to 0 — 'comma' otherwise inherits the one-decimal default and turns
+ *  6000 into "6,000.0" on the map. `auto` already trims its own decimals.
+ *
+ *  Shared by the canvas hex labels (HeatmapControl) and the DOM annotation
+ *  labels (LayerControl): the same feature must not read two ways depending on
+ *  which control drew it. */
+const formatLabelNumber = (
+  val: number,
+  style: NumberStyle = NUMBER_FORMAT.AUTO,
+  locale: string = "en",
+): string =>
+  style === NUMBER_FORMAT.AUTO
+    ? formatNumber(val, style, locale)
+    : formatNumber(val, style, locale, 0);
+
 /** One coordinate for a location readout: fixed decimals, en grouping,
  *  language-agnostic — the operator reads the number itself, not the locale. */
 const formatCoord = (n: number, digits = LAT_LNG_PRECISION): string =>
-  formatNumber(n, "comma", "en", digits);
+  formatNumber(n, NUMBER_FORMAT.COMMA, "en", digits);
 
 /** An lng/lat pair as the readout string, longitude leading. */
 const formatLatLng = (lng: number, lat: number, digits = LAT_LNG_PRECISION): string =>
@@ -99,9 +140,11 @@ const formatTimestamp = (value: number | string, locale: string = "en"): string 
 
 export {
   type NumberStyle,
+  NUMBER_FORMAT,
   formatNumber,
   formatTimestamp,
   LAT_LNG_PRECISION,
   formatCoord,
+  formatLabelNumber,
   formatLatLng,
 };

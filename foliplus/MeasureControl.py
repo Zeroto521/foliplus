@@ -21,7 +21,7 @@ class MeasureControl(BaseControl):
     - 📏 **Distance**: click to draw a polyline. Segment and total distances update in
       real-time. Double-click / right-click / click the last node to finish.
     - 🔲 **Area**: click to draw a polygon. The enclosed area and each side's length are
-      labelled. Double-click / right-click / click the first or last node to finish.
+      labeled. Double-click / right-click / click the first or last node to finish.
     - ⭕ **Circle**: first click sets the center; move the mouse to set the radius;
       second click confirms.
     - ✏️ **Edit**: enter edit mode to reposition finished measurements. Click a
@@ -33,7 +33,7 @@ class MeasureControl(BaseControl):
     - 🏷️ **Labels**: measurement labels sit on their anchor (segment midpoint,
       centroid, or radius) and are never nudged. When dense, the collision
       detector hides the least-important overlapping chips so labels remain
-      readable — see ``collide_labels`` for the exact hiding rule and
+      readable — see ``label_collide`` for the exact hiding rule and
       priority order.
 
     **Editing.** The pencil toolbar button toggles edit mode. Outside edit mode,
@@ -62,7 +62,13 @@ class MeasureControl(BaseControl):
         the distance in segment labels, e.g. ``45° | 1.2 km``. Only applies to distance
         mode; area and circle modes always show plain distance.
 
-    collide_labels : bool, default True
+    label_show : bool, default True
+        Whether to show the measurement labels. Hidden labels stay registered
+        (collision and placement state is untouched) — switching back on
+        restores them on their anchors. Overridable at runtime from the layer
+        style drawer.
+
+    label_collide : bool, default True
         Whether to run the label collision detector. When enabled, a label is
         hidden only when two chips **intersect on the y-axis AND** overlap at
         least 75% of the narrower chip's width on the x-axis, so chips that
@@ -102,6 +108,9 @@ class MeasureControl(BaseControl):
         - ``"csv"`` produces one row per measurement with an ``id`` column and a
           ``wkt`` column holding the Well-Known-Text geometry.
 
+    collapse_on_outside : bool, default True
+        Whether a press outside the panel collapses it.
+
     locale : str or LocaleConfig, optional
         Language code ("en", "zh") or a LocaleConfig instance.
         Defaults to auto-detection, falling back to English.
@@ -135,12 +144,14 @@ class MeasureControl(BaseControl):
     >>> MeasureControl().add_to(m)
     """
 
-    _export_fields = (
+    _config_fields = (
         "show_bearing",
-        "collide_labels",
+        "label_show",
+        "label_collide",
         "show_live_coords",
         "filename",
         "export_format",
+        "collapse_on_outside",
     )
 
     default_js = load_cdn("MeasureControl")
@@ -151,16 +162,20 @@ class MeasureControl(BaseControl):
         *,
         position: Position = "bottomright",
         show_bearing: bool = True,
-        collide_labels: bool = True,
+        label_show: bool = True,
+        label_collide: bool = True,
         show_live_coords: bool = True,
         filename: str = "measurements",
         export_format: ExportFormat = "geojson",
+        collapse_on_outside: bool = True,
         locale: str | LocaleConfig | None = None,
     ):
         super().__init__(position=position, locale=locale)
         self.show_bearing = show_bearing
-        self.collide_labels = collide_labels
+        self.label_show = label_show
+        self.label_collide = label_collide
         self.show_live_coords = show_live_coords
         self.filename = filename
         self.export_format = export_format
+        self.collapse_on_outside = collapse_on_outside
         self._template = self._get_template()

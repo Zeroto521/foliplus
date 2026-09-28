@@ -1,113 +1,99 @@
 // HeatmapControl data aggregation & rendering logic (HeatmapManager).
+import {
+  METHOD as CLASSIFY_METHOD,
+  computeBreaks as computeBreaksFn,
+} from "#core/classify.js";
 import { generateId } from "#core/component.js";
 import { EVENTS, type EventBus, ensureEvents } from "#core/event/index.js";
-import { cssVar } from "#common/cssvar.js";
+import { bareFieldName } from "#core/labelField.js";
+import { type CanvasLabelStyle } from "#common/canvasLabel.js";
 import { type Debounced, debounce } from "#common/debounce.js";
-import { formatNumber } from "#common/format.js";
+import { BORDER_WEIGHT, clampLabelSize, normalizeHexColor } from "#common/form.js";
+import { NUMBER_FORMAT, type NumberStyle } from "#common/format.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { createLogger } from "#common/log.js";
 import { bindMapSync } from "#common/panel.js";
+import { type Persisted, makePersisted } from "#common/storage.js";
 import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
+import {
+  aggregateData as aggregateDataFn,
+  buildFeatures as buildFeaturesFn,
+  getColorScale as getColorScaleFn,
+  getH3Res as getH3ResFn,
+  pickAutoField as pickAutoFieldFn,
+  readMarkerField as readMarkerFieldFn,
+} from "./data.js";
 import * as SVGs from "./icon.js";
-import { type HeatmapControlUI, rebuildLayerDropdown } from "./ui.js";
+import {
+  applySavedConfig as applySavedConfigFn,
+  clearSavedConfig as clearSavedConfigFn,
+  loadSavedConfig as loadSavedConfigFn,
+} from "./persistence.js";
+import {
+  drawHexLabel as drawHexLabelFn,
+  drawHexagon as drawHexagonFn,
+  resolveLabelStyle as resolveLabelStyleFn,
+} from "./render.js";
+import type {
+  AggregatedData,
+  HeatmapPointMarker,
+  HexCell,
+  HexFeature,
+  PointLayerInfo,
+  SavedConfig,
+  SelectedPoint,
+} from "./type.js";
+import { type HeatmapControlUI, rebuildLayerDropdown, resetPanel } from "./ui.js";
 
 const T = createScopedTranslator(CONF);
 const log = createLogger(CONF.name);
 
-/** A point marker carrying an optional numeric value (foliplus data contract). */
-type HeatmapPointMarker = (L.Marker | L.CircleMarker) & {
-  value?: number;
-  options?: { value?: number };
-};
-
-/** A hexagon feature drawn on the heatmap canvas. */
-interface HexFeature {
-  type?: string;
-  geometry: { type: string; coordinates: number[][][] };
-  properties: {
-    centroid: [number, number] | null;
-    fillColor?: string;
-    value?: number;
-    classIdx?: number;
-    [key: string]: unknown;
-  };
-}
-
-/** Aggregated hex cell. */
-interface HexCell {
-  sum: number;
-  count: number;
-  min: number;
-  max: number;
-}
-
-/** Aggregated data returned by aggregateData. */
-interface AggregatedData {
-  hexCells: Record<string, HexCell>;
-  getAggValue: (cell: HexCell) => number;
-  valueToClassIdx: (val: number) => number;
-  classColors: string[];
-}
-
-/** Canvas label style resolved from CSS custom properties. */
-interface LabelStyle {
-  font: string;
-  color: string;
-  stroke: string;
-  strokeWidth: number;
-}
-
-/** A point layer collected from LayerControl. */
-interface PointLayerInfo {
-  id: string;
-  name: string;
-  layer: L.Layer | null;
-  count: number;
-}
-
-/** A selected point with its aggregated value. */
-interface SelectedPoint {
-  lat: number;
-  lng: number;
-  value: number;
-  marker: L.Marker;
-}
-
-/** Persisted heatmap configuration (survives page reload). */
-interface SavedConfig {
-  layerId?: string | null;
-  agg?: string;
-  method?: string;
-  scheme?: string;
-  numClasses?: number;
-  borderWeight?: number;
-  borderColor?: string;
-  labelShow?: boolean;
-  field?: string;
-  fieldAuto?: boolean;
-}
-
 // ==================== Core: Data Aggregation & Rendering ====================
 class HeatmapManager {
   map: L.Map;
+  /** Translator bound to the module-level CONF, assigned once in the
+   *  constructor — same shape as MeasureControl / ExportControl managers. */
+  T: (key: string) => string;
   /** Per-map event bus — bound once in the constructor (ensure-style getters
    *  return the cached instance, so hold it like the logger does). */
   events: EventBus;
   selectedLayerId: string | null;
   pointLayers: PointLayerInfo[];
   currentAgg: string;
+  /** Selected aggregation field — starts empty (no Python-side declaration),
+   *  becomes the first numeric property name in auto mode, or whatever the
+   *  user picked from the field dropdown. */
   currentField: string;
   currentScheme: string;
   currentMethod: string;
   autoFieldKey: string | null;
-  fieldAuto: boolean;
   numClasses: number;
   borderWeight: number;
   borderColor: string;
   currentLabelShow: boolean;
+  /** Runtime label color/size — heatmap panel and layer drawer both write these. */
+  currentLabelColor: string;
+  currentLabelSize: number;
+  /** Runtime label number format — heatmap panel and layer drawer both write
+   *  this; Python CONF only seeds the initial value. */
+  currentLabelFormat: NumberStyle;
+  /** Style provider — shared by the layer drawer and the heatmap panel's
+   *  label controls (core/labelControl). Reads live state; the drawer refreshes on
+   *  LAYER_STYLE_CHANGE. */
+  styleProvider: () => Record<string, unknown>;
+  /** Style setters — shared by the layer drawer and the heatmap panel's
+   *  label controls. Each setter updates state, renders, persists, and emits
+   *  LAYER_STYLE_CHANGE so the other panel's refresh fires. */
+  styleSetters: Record<string, (v: unknown) => void>;
   valueFallbackWarned: boolean;
   overlay: CreateCanvasAPI;
+  /**
+   * Mutable metadata published to LayerControl's attributes panel (source
+   * layer name + aggregation field). Created once and handed to createCanvas
+   * so later in-place updates ride the same object the registry holds.
+   */
+  sourceMeta: Record<string, string | number>;
   /**
    * This manager viewed as a `HeatmapControlUI`: the UI helpers take the
    * manager and read/write sibling fields through that shape, so it is typed
@@ -118,26 +104,35 @@ class HeatmapManager {
   cachedPoints: { key: string; pts: SelectedPoint[] } | null;
   cachedFeatures: HexFeature[] | null;
   cachedAgg: { key: string; data: AggregatedData } | null;
-  cachedLabelStyle: LabelStyle | null;
+  cachedLabelStyle: CanvasLabelStyle | null;
   renderAll: boolean;
   /**
-   * One-shot guard: true after the first successful initScan rebuild (or the
-   * terminal no-layer hint).  Prevents the single-layer auto-select in
-   * buildLayerListItems from re-firing on later rebuilds (zoomend,
-   * layeradd/layerremove), which would override a user's manual clear.
-   * Set once in initScan and never reset — a runtime flag, not persisted state
-   * (reload re-enters initScan fresh, so the initial single-layer auto-select
-   * still fires on every page load).
+   * One-shot guard for the single-layer auto-select in buildLayerListItems.
+   * Set to true in initScan after the first successful rebuild (or the
+   * terminal no-layer hint), and also true in applySavedConfig when a
+   * persisted record is loaded — a record means the user already spoke in a
+   * previous session (picked a layer, or explicitly cleared it), and neither
+   * that choice nor the clear should be overridden by auto-select on reload.
+   * Only the absence of any record keeps the guard open, so a genuinely first
+   * open still auto-selects when there is exactly one point layer. Reset
+   * (clearSavedConfig) deletes the record and takes the manager back to the
+   * Python-declared state, so auto-select may fire again after that.
    */
   hasScanned: boolean;
   declare mapCleanup: () => void;
   declare onZoomEnd: Debounced;
   declare onLayerChange: Debounced;
   declare removeLayerChangeListener: () => void;
+  declare removeLayerDeletedListener: () => void;
   declare removeExportListener: () => void;
 
   /** The layer id used to register this manager's heatmap canvas. */
   layerId: string;
+
+  /** Persisted-config binding — write-through (no debounce window). Owns the
+   *  save entry point so teardown flush is idempotent. The flat inline-version
+   *  record stays as-is (no envelope), matching the pre-existing shape. */
+  private persist: Persisted;
 
   /**
    * @param mapInstance - Leaflet map instance.
@@ -147,32 +142,155 @@ class HeatmapManager {
    */
   constructor(mapInstance: L.Map, opts?: { id?: string }) {
     this.map = mapInstance;
+    this.T = T;
     this.layerId = generateId(CONST.ID, opts?.id);
 
     // State management
     this.selectedLayerId = null;
     this.pointLayers = [];
     this.currentAgg = CONF.agg ?? CONST.AGG.COUNT;
-    this.currentField = CONF.field ?? "";
+    this.currentField = "";
     this.currentScheme = CONF.color_scheme ?? "Reds";
-    this.currentMethod = CONF.method ?? CONST.METHOD.JENKS;
+    this.currentMethod = CONF.method ?? CLASSIFY_METHOD.JENKS;
     this.autoFieldKey = null;
-    this.fieldAuto = true;
     this.numClasses = CONF.n_classes ?? CONST.CLASS_COUNT.DEFAULT;
-    this.borderWeight = CONF.border_weight ?? CONST.BORDER.WEIGHT_DEFAULT;
+    this.borderWeight = CONF.border_weight ?? BORDER_WEIGHT.DEFAULT;
     this.borderColor = CONF.border_color ?? CONST.GRAY;
-    this.currentLabelShow = CONF.label_show ?? false;
+    // Python default is True; only an explicit false turns labels off — same
+    // `!== false` rule MeasureControl uses for label_show / label_collide.
+    this.currentLabelShow = CONF.label_show !== false;
+    // Color inputs require #rrggbb — normalize the short #fff Python default.
+    this.currentLabelColor = normalizeHexColor(
+      CONF.label_color ?? CONST.LABEL.COLOR_DEFAULT,
+    );
+    this.currentLabelSize = clampLabelSize(CONF.label_size ?? CONST.LABEL.SIZE_DEFAULT);
+    this.currentLabelFormat = (CONF.label_format ?? NUMBER_FORMAT.AUTO) as NumberStyle;
     this.valueFallbackWarned = false;
-    // Create a managed canvas via LayerControl API.
-    // Canvas lives in `.leaflet-map-pane` with position offset to cancel
-    // the mapPane CSS transform.  Drawn with latLngToContainerPoint.
-    // LayerControl handles visibility (checkbox) and z-order (drag-reorder).
+    this.sourceMeta = {};
+    // Write-through binding: config is durable the moment a UI change lands,
+    // so there is nothing to coalesce. Flush on teardown stays idempotent.
+    this.persist = makePersisted({
+      save: () =>
+        Storage.saveRecord(
+          CONST.STORAGE.KEY,
+          {
+            version: CONST.RECORD_VERSION,
+            layerId: this.selectedLayerId,
+            agg: this.currentAgg,
+            method: this.currentMethod,
+            scheme: this.currentScheme,
+            numClasses: this.numClasses,
+            borderWeight: this.borderWeight,
+            borderColor: this.borderColor,
+            labelShow: this.currentLabelShow,
+            labelColor: this.currentLabelColor,
+            labelSize: this.currentLabelSize,
+            labelFormat: this.currentLabelFormat,
+            field: this.currentField,
+          } satisfies SavedConfig,
+          CONF.name,
+        ),
+    });
+    // Snapshot the Python CONF style defaults before any runtime toggle so
+    // Reset restores exactly what construction started from (never localStorage).
+    const defaultLabelShow = this.currentLabelShow;
+    const defaultLabelColor = this.currentLabelColor;
+    const defaultLabelSize = this.currentLabelSize;
+    const defaultLabelFormat = this.currentLabelFormat;
+    const defaultBorderWeight = this.borderWeight;
+    const defaultBorderColor = this.borderColor;
+    // Style delegation for the layer style drawer. The drawer mirrors every
+    // presentation style (labels + hexagon border); aggregation field stays
+    // data config on the heatmap panel. Stored on the manager so the drawer
+    // dispatches changes through the same setters and refreshes from the same
+    // provider.
+    this.styleProvider = () => ({
+      labelShow: this.currentLabelShow,
+      labelColor: this.currentLabelColor,
+      labelSize: this.currentLabelSize,
+      labelFormat: this.currentLabelFormat,
+      borderWeight: this.borderWeight,
+      borderColor: this.borderColor,
+    });
+    this.styleSetters = {
+      labelShow: v => {
+        this.currentLabelShow = v === true;
+        this.renderHexagons();
+        this.saveConfig();
+        this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
+        this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
+      },
+      // Size/color only rewrite label paint — drop the cached style and
+      // redraw from the feature cache.
+      labelColor: v => {
+        this.currentLabelColor =
+          typeof v === "string" ? normalizeHexColor(v) : this.currentLabelColor;
+        this.cachedLabelStyle = null;
+        this.redrawHeatmap();
+        this.saveConfig();
+        this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
+        this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
+      },
+      labelSize: v => {
+        const n = typeof v === "number" && !Number.isNaN(v) ? v : this.currentLabelSize;
+        this.currentLabelSize = clampLabelSize(n);
+        this.cachedLabelStyle = null;
+        this.redrawHeatmap();
+        this.saveConfig();
+        this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
+        this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
+      },
+      // Format only rewrites the label text — redraw from cache, skip the
+      // H3 re-aggregation that labelShow triggers.
+      labelFormat: v => {
+        this.currentLabelFormat = (
+          typeof v === "string" ? v : NUMBER_FORMAT.AUTO
+        ) as NumberStyle;
+        this.redrawHeatmap();
+        this.saveConfig();
+        this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
+        this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
+      },
+      // Border weight only redraws the hexagon strokes — the H3 aggregation
+      // result is unaffected.
+      borderWeight: v => {
+        const n = typeof v === "number" && !Number.isNaN(v) ? v : this.borderWeight;
+        this.borderWeight = Math.min(BORDER_WEIGHT.MAX, Math.max(BORDER_WEIGHT.MIN, n));
+        this.redrawHeatmap();
+        this.saveConfig();
+        this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
+        this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
+      },
+      borderColor: v => {
+        this.borderColor =
+          typeof v === "string" ? normalizeHexColor(v) : this.borderColor;
+        this.redrawHeatmap();
+        this.saveConfig();
+        this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
+        this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
+      },
+    };
     this.overlay = map.foliplus!.LayerAPI!.createCanvas({
       id: this.layerId,
       name: T("title"),
       iconSvg: SVGs.HEXAGON,
       featureCountProvider: () => this.cachedFeatures?.length ?? 0,
       getBounds: () => this.computeBounds(),
+      // Shared with the registry — syncSourceMeta mutates it in place so the
+      // attrs panel always reads the latest source layer / field.
+      meta: this.sourceMeta,
+      styleProvider: this.styleProvider,
+      styleSetters: this.styleSetters,
+      // Snapshot taken at construction — Reset restores this, never the
+      // live toggle or the localStorage-persisted config.
+      styleDefaultsProvider: () => ({
+        labelShow: defaultLabelShow,
+        labelColor: defaultLabelColor,
+        labelSize: defaultLabelSize,
+        labelFormat: defaultLabelFormat,
+        borderWeight: defaultBorderWeight,
+        borderColor: defaultBorderColor,
+      }),
     });
     // ExportControl publishes BEFORE/AFTER_EXPORT to request a full-resolution
     // capture pass: un-clip the render (renderAll) so out-of-bounds hexes
@@ -209,18 +327,30 @@ class HeatmapManager {
       onMove: () => {
         if (this.overlay.canvas && this.cachedFeatures) this.redrawHeatmap();
       },
+      // Anti-flicker: the painted bitmap is borrowed away for the zoom and
+      // handed back on zoomend. This rides the element's own `visibility`
+      // style, NOT the HIDDEN class: that class is the LayerControl intent
+      // channel (the executor is its single writer), and a temp-hide that
+      // stamped it cannot tell "user hid it" apart from "zoom hid it" at
+      // restore time.
       onHide: () => {
-        this.overlay.setVisible?.(false);
+        const c = this.overlay.canvas;
+        if (c) c.style.visibility = "hidden";
       },
       onShow: () => {
-        this.overlay.setVisible?.(true);
+        const c = this.overlay.canvas;
+        if (c) c.style.visibility = "";
       },
     });
 
     this.onZoomEnd = debounce(() => {
       if (this.selectedLayerId) {
         this.renderHexagons();
-        this.overlay.setVisible?.(true);
+        // Safety clear in case a rebuild swapped the canvas between the
+        // immediate handler and this debounced one; the style write is
+        // idempotent and never touches the HIDDEN class.
+        const c = this.overlay.canvas;
+        if (c) c.style.visibility = "";
       }
     }, CONST.TIMING.ZOOM_DEBOUNCE);
     this.map.on("zoomend", this.onZoomEnd);
@@ -228,10 +358,21 @@ class HeatmapManager {
     this.onLayerChange = debounce(() => {
       this.cachedPoints = null;
       this.cachedAgg = null;
-      if (this.ui) {
-        this.scanMapLayers();
-        rebuildLayerDropdown(this.ui);
+      this.scanMapLayers();
+      // A deleted source has to take its derived view with it. The heatmap
+      // draws another layer's points, so unregistering that layer must drop
+      // the selection and wipe the canvas in this pass — a clear deferred to
+      // the next zoom leaves the old render painted until something
+      // re-aggregates. Deliberately outside `if (this.ui)`: the canvas is map
+      // state, and a map can lose a source layer before (or without) a panel.
+      if (
+        this.selectedLayerId &&
+        !this.pointLayers.some(p => p.id === this.selectedLayerId)
+      ) {
+        this.selectedLayerId = null;
+        this.clearHeatmapCanvas();
       }
+      if (this.ui) rebuildLayerDropdown(this.ui);
     }, CONST.TIMING.LAYER_SCAN_DEBOUNCE);
     // Subscribe to the semantic registry-change event instead of raw Leaflet
     // layeradd/layerremove — LayerManager emits EVENTS.LAYER_CHANGE on
@@ -240,6 +381,26 @@ class HeatmapManager {
     this.removeLayerChangeListener = this.events.on(EVENTS.LAYER_CHANGE, () =>
       this.onLayerChange(),
     );
+    // LayerControl's deleteLayer emits LAYER_DELETED for component-owned layers
+    // instead of retiring the id in removedIds, so the heatmap can clear its
+    // data and stay registerable for the next source pick. The clear resets
+    // the panel to its initial state (the panel's Clear button is the same
+    // operation) and drops the persisted record so a reload does not
+    // resurrect the cleared layer — same teardown as MeasureControl's
+    // LAYER_DELETED -> clearAll.
+    this.removeLayerDeletedListener = this.events.on(EVENTS.LAYER_DELETED, ({ id }) => {
+      if (id !== this.layerId) return;
+      if (this.ui) {
+        resetPanel(this.ui);
+      } else {
+        // No panel (control removed, or never built): reset state and wipe the
+        // canvas directly so a re-add does not render the stale selection.
+        this.resetState(CONF);
+        this.clearHeatmapCanvas();
+        this.syncSourceMeta();
+      }
+      this.clearSavedConfig();
+    });
   }
 
   /** Drop out of export clip mode: redraw with the full feature set. */
@@ -281,38 +442,20 @@ class HeatmapManager {
 
   /** Draw a single hexagon polygon (fill + stroke). */
   drawHexagon(ctx: CanvasRenderingContext2D, feat: HexFeature) {
-    const pts = feat.geometry.coordinates[0].map(p =>
-      this.map.latLngToContainerPoint(L.latLng(p[1], p[0])),
-    );
-    ctx.beginPath();
-    ctx.moveTo(pts[0].x, pts[0].y);
-    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
-    ctx.closePath();
-    ctx.fillStyle = feat.properties.fillColor || CONST.GRAY;
-    ctx.globalAlpha = CONF.fill_opacity ?? 1;
-    ctx.fill();
-    ctx.globalAlpha = 1;
-
-    if (this.borderWeight > 0 && (CONF.border_opacity ?? 0) > 0) {
-      ctx.strokeStyle = this.borderColor;
-      ctx.lineWidth = this.borderWeight;
-      ctx.globalAlpha = CONF.border_opacity ?? 1;
-      ctx.stroke();
-      ctx.globalAlpha = 1;
-    }
+    drawHexagonFn(ctx, feat, this.map, this.borderWeight, this.borderColor);
   }
 
-  /** Resolve label styling from CSS custom properties (cached once). */
-  resolveLabelStyle(): LabelStyle {
+  /** Resolve label styling from the shared --label-* tokens (cached once). The
+   *  values are the same the annotation canvas reads — both go through
+   *  common/canvasLabel — so a hex value and an annotation label render as one
+   *  language. */
+  resolveLabelStyle(): CanvasLabelStyle {
     if (this.cachedLabelStyle) return this.cachedLabelStyle;
-
-    const css = (prop: string, fb = "") => cssVar(this.ui!.ctrl, prop, fb);
-    this.cachedLabelStyle = {
-      font: `${css("--heatmap-label-font-weight")} ${css("--heatmap-label-font-size")} ${css("--heatmap-label-font-family")}`,
-      color: css("--heatmap-label-color", "#fff"),
-      stroke: css("--heatmap-label-stroke-color", "rgba(0,0,0,0.75)"),
-      strokeWidth: parseFloat(css("--heatmap-label-stroke-width", "3")),
-    };
+    this.cachedLabelStyle = resolveLabelStyleFn(
+      this.ui!.ctrl,
+      this.currentLabelSize,
+      this.currentLabelColor,
+    );
     return this.cachedLabelStyle;
   }
 
@@ -320,25 +463,9 @@ class HeatmapManager {
   drawHexLabel(
     ctx: CanvasRenderingContext2D,
     feat: HexFeature,
-    { font, color, stroke, strokeWidth }: LabelStyle,
+    style: CanvasLabelStyle,
   ) {
-    const centroid = feat.properties.centroid;
-    if (!centroid) return;
-    const pt = this.map.latLngToContainerPoint(L.latLng(centroid[0], centroid[1]));
-    const text = formatNumber(
-      feat.properties.value ?? 0,
-      CONF.label_format,
-      CONF.locale_code,
-    );
-    if (ctx.font !== font) ctx.font = font;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.strokeStyle = stroke;
-    ctx.lineWidth = strokeWidth;
-    ctx.lineJoin = "round";
-    ctx.strokeText(text, pt.x, pt.y);
-    ctx.fillStyle = color;
-    ctx.fillText(text, pt.x, pt.y);
+    drawHexLabelFn(ctx, feat, style, this.map, this.currentLabelFormat);
   }
 
   // --- Data Extraction ---
@@ -391,58 +518,64 @@ class HeatmapManager {
     }
   }
 
+  /** Numeric property keys on the source points — bare `feature.properties`
+   *  keys plus the two foliplus data-contract shapes (`value`, `options.value`).
+   *  Same contract as LayerControl's annotation field picker for the bare keys. */
   collectFields(layers: Array<{ id: string }>): string[] {
     const fields: string[] = [];
     const seen = new Set<string>();
     layers.forEach(info => {
       map.foliplus!.LayerAPI!.extractPoints(info.id).forEach(pt => {
-        const m = pt.marker;
-        if (m?.feature?.properties) {
-          const props = m.feature.properties;
-          Object.keys(props).forEach(k => {
-            if (typeof props[k] === "number" && !seen.has(k)) {
-              seen.add(k);
-              fields.push(`properties.${k}`);
-            }
-          });
+        const marker = pt.marker;
+        if (!marker) return;
+        const extended = marker as HeatmapPointMarker;
+        if (typeof extended.value === "number" && !seen.has("value")) {
+          seen.add("value");
+          fields.push("value");
         }
+        if (typeof extended.options?.value === "number" && !seen.has("options.value")) {
+          seen.add("options.value");
+          fields.push("options.value");
+        }
+        const props = marker.feature?.properties;
+        if (!props) return;
+        Object.keys(props).forEach(k => {
+          if (typeof props[k] === "number" && !seen.has(k)) {
+            seen.add(k);
+            fields.push(k);
+          }
+        });
       });
     });
     return fields;
   }
 
+  /** The field to use when the user has not picked one. */
   pickAutoField(fields: string[] | null): string | null {
-    if (!fields || fields.length === 0) return null;
-    return fields[0];
+    return pickAutoFieldFn(fields);
   }
 
   /**
    * Read a numeric field off a point marker (foliplus data contract).
-   * Supported field syntax: "value", "options.value", "properties.<key>".
+   * Supported field syntax: "value", "options.value", and a bare
+   * `feature.properties` key. A legacy `"properties.<key>"` id is accepted
+   * and stripped so older saved configs keep working.
    */
   readMarkerField(
     marker: L.Marker | L.CircleMarker,
     field: string | null,
   ): number | undefined {
-    if (!field) return undefined;
-    const extended = marker as HeatmapPointMarker;
-    if (field === "value") return extended.value;
-    if (field === "options.value") return extended.options?.value;
-    if (field.startsWith("properties.")) {
-      const key = field.substring(11);
-      return marker.feature?.properties?.[key];
-    }
-    return undefined;
+    return readMarkerFieldFn(marker, field);
   }
 
   getPointValue(marker: L.Marker | L.CircleMarker): number {
     if (this.currentAgg === CONST.AGG.COUNT) return 1;
-    const key = this.fieldAuto ? this.autoFieldKey : this.currentField;
+    const key = this.currentField || this.autoFieldKey;
     const val = this.readMarkerField(marker, key);
     if (val === undefined || isNaN(val)) {
       if (!this.valueFallbackWarned) {
         this.valueFallbackWarned = true;
-        log.warn(`Falling back to 1 for missing values, field=${this.currentField}`);
+        log.warn("value fallback to 1", this.currentField);
       }
       return 1;
     }
@@ -451,7 +584,7 @@ class HeatmapManager {
 
   getSelectedPoints(): SelectedPoint[] {
     this.valueFallbackWarned = false;
-    const key = `${this.selectedLayerId}|${this.currentAgg}|${this.fieldAuto}|${this.currentField}`;
+    const key = `${this.selectedLayerId}|${this.currentAgg}|${this.currentField}`;
     if (this.cachedPoints && this.cachedPoints.key === key) {
       return this.cachedPoints.pts;
     }
@@ -474,56 +607,15 @@ class HeatmapManager {
   }
 
   getH3Res(zoom: number): number {
-    const entry = (CONST.H3.RES_MAP as Array<[number, number]>).find(
-      ([z]) => zoom <= z,
-    );
-    return entry ? entry[1] : CONST.H3.RES_FALLBACK;
+    return getH3ResFn(zoom);
   }
 
   getColorScale(name: string, n: number): string[] {
-    if (typeof chroma !== "undefined") {
-      return chroma.scale(name).mode("lab").colors(n) as string[];
-    }
-    return Array(n).fill(CONST.GRAY);
+    return getColorScaleFn(name, n);
   }
 
   computeBreaks(data: number[], nClasses: number, method: string): number[] {
-    if (data.length === 0) return [];
-    const sorted = data.slice().sort((a, b) => a - b);
-    const n = sorted.length;
-    if (n <= 2) return [sorted[0], sorted[n - 1]];
-    nClasses = Math.max(3, Math.min(nClasses, n));
-
-    const lo = sorted[0];
-    const hi = sorted[n - 1];
-
-    if (method === CONST.METHOD.JENKS) {
-      try {
-        const clusters = ss.ckmeans(data, nClasses);
-        const breaks: number[] = [clusters[0][0]];
-        clusters.forEach(c => breaks.push(c[c.length - 1]));
-        return breaks;
-      } catch (e) {
-        /* fall through */
-      }
-      return [lo, hi];
-    } else if (method === CONST.METHOD.QUANTILE) {
-      const b: number[] = [lo];
-      for (let i = 1; i < nClasses; i++) {
-        b.push(ss.quantileSorted(sorted, i / nClasses));
-      }
-      return b.concat(hi);
-    } else if (method === CONST.METHOD.HEADS) {
-      const b: number[] = [lo];
-      for (let i = 1; i < nClasses; i++) {
-        b.push(sorted[Math.min(Math.floor((i * n) / nClasses), n - 1)]);
-      }
-      return b.concat(hi);
-    }
-    const step = (hi - lo) / nClasses;
-    const b: number[] = [];
-    for (let i = 0; i <= nClasses; i++) b.push(lo + step * i);
-    return b;
+    return computeBreaksFn(data, nClasses, method);
   }
 
   renderHexagons() {
@@ -535,7 +627,7 @@ class HeatmapManager {
     const pts = this.getSelectedPoints();
     const zoom = this.map.getZoom();
     const res = this.getH3Res(zoom);
-    const aggKey = `${this.selectedLayerId}|${this.currentAgg}|${this.fieldAuto}|${this.currentField}|${res}|${this.currentMethod}|${this.currentScheme}|${this.numClasses}`;
+    const aggKey = `${this.selectedLayerId}|${this.currentAgg}|${this.currentField}|${res}|${this.currentMethod}|${this.currentScheme}|${this.numClasses}`;
     let aggregated: AggregatedData | undefined;
     if (this.cachedAgg && this.cachedAgg.key === aggKey) {
       aggregated = this.cachedAgg.data;
@@ -549,98 +641,19 @@ class HeatmapManager {
   }
 
   aggregateData(pts: SelectedPoint[], res: number): AggregatedData | null {
-    const hexCells: Record<string, HexCell> = {};
-    pts.forEach(pt => {
-      try {
-        const h3Idx = h3.latLngToCell(pt.lat, pt.lng, res);
-        if (!hexCells[h3Idx]) {
-          hexCells[h3Idx] = { sum: 0, count: 0, min: Infinity, max: -Infinity };
-        }
-        const cell = hexCells[h3Idx];
-        cell.sum += pt.value;
-        cell.count += 1;
-        if (pt.value < cell.min) cell.min = pt.value;
-        if (pt.value > cell.max) cell.max = pt.value;
-      } catch (e) {
-        log.warn("h3 cell conversion failed", pt.lat, pt.lng, e);
-      }
-    });
-
-    const getAggValue = (cell: HexCell): number => {
-      switch (this.currentAgg) {
-        case CONST.AGG.COUNT:
-          return cell.count;
-        case CONST.AGG.SUM:
-          return cell.sum;
-        case CONST.AGG.AVG:
-          return cell.count > 0 ? cell.sum / cell.count : 0;
-        case CONST.AGG.MIN:
-          return cell.min;
-        case CONST.AGG.MAX:
-          return cell.max;
-        default:
-          return cell.count;
-      }
-    };
-
-    const allVals = Object.values(hexCells).map(getAggValue);
-    if (allVals.length === 0) {
-      this.clearHeatmapCanvas();
-      return null;
-    }
-
-    const nClasses = Math.min(this.numClasses, allVals.length);
-    const breaks = this.computeBreaks(allVals, nClasses, this.currentMethod);
-    const classColors = this.getColorScale(this.currentScheme, nClasses);
-    const valueToClassIdx = (val: number): number => {
-      if (breaks.length < 2) return 0;
-      for (let i = 1; i < breaks.length; i++) if (val <= breaks[i]) return i - 1;
-      return breaks.length - 2;
-    };
-    return { hexCells, getAggValue, valueToClassIdx, classColors };
+    return aggregateDataFn(
+      pts,
+      res,
+      this.currentAgg,
+      this.numClasses,
+      this.currentMethod,
+      this.currentScheme,
+      () => this.clearHeatmapCanvas(),
+    );
   }
 
-  buildFeatures({
-    hexCells,
-    getAggValue,
-    valueToClassIdx,
-    classColors,
-  }: AggregatedData): HexFeature[] {
-    const features: HexFeature[] = [];
-    for (const [h3Idx, cell] of Object.entries(hexCells)) {
-      const val = getAggValue(cell);
-      const classIdx = valueToClassIdx(val);
-      const fillColor = classColors[classIdx];
-      let centroid: [number, number] | null = null;
-      try {
-        const c = h3.cellToLatLng(h3Idx);
-        centroid = [c[0], c[1]];
-      } catch (e) {
-        /* fallback */
-      }
-      try {
-        const boundary = h3.cellToBoundary(h3Idx);
-        const coords = boundary.map(p => [p[1], p[0]]);
-        coords.push(coords[0]);
-        if (!centroid) {
-          let cx = 0;
-          let cy = 0;
-          for (let j = 0; j < coords.length - 1; j++) {
-            cx += coords[j][0];
-            cy += coords[j][1];
-          }
-          centroid = [cy / (coords.length - 1), cx / (coords.length - 1)];
-        }
-        features.push({
-          type: "Feature",
-          geometry: { type: "Polygon", coordinates: [coords] },
-          properties: { value: val, classIdx, fillColor, h3: h3Idx, centroid },
-        });
-      } catch (e) {
-        log.warn("h3 boundary conversion failed", h3Idx, e);
-      }
-    }
-    return features;
+  buildFeatures(agg: AggregatedData): HexFeature[] {
+    return buildFeaturesFn(agg);
   }
 
   renderFeatures(features: HexFeature[]) {
@@ -659,66 +672,90 @@ class HeatmapManager {
     this.cachedFeatures = null;
     this.cachedAgg = null;
     if (this.overlay) this.overlay.unregister();
+    // The panel row is gone and the next draw is new content: drop this id
+    // from the stored order so the next registration lands at the top of the
+    // overlay stack instead of returning to the slot the user arranged.
+    // Without this, insertOverlayAt would find a stored rank and placeBeforeSavedNeighbor
+    // would put the redrawn heatmap back where it was, not on top.
+    this.map.foliplus?.LayerAPI?.forgetSavedOrder?.(this.layerId);
     this.ui?.schemeBarCleanup?.();
     this.ui?.dropdownCleanup?.();
     // Notify LayerControl to refresh the count column (now 0).
     this.events.emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: this.layerId });
   }
 
-  /** Load saved configuration from localStorage into this manager's state. */
-  loadSavedConfig(): SavedConfig | null {
-    // Storage.load already returns null when the key is missing/unreadable.
-    return Storage.load<SavedConfig | null>(CONST.STORAGE.KEY, CONF.name);
+  /** Reset selection + style state to the defaults declared in `conf`. Both
+   *  clear entries (the panel's Clear button and LayerControl's more-menu
+   *  delete) go through here, so the two can never drift apart. */
+  resetState(conf: ComponentConfig) {
+    this.selectedLayerId = null;
+    this.autoFieldKey = null;
+    this.currentAgg = conf.agg ?? CONST.AGG.COUNT;
+    this.currentField = "";
+    this.numClasses = conf.n_classes ?? CONST.CLASS_COUNT.DEFAULT;
+    this.currentMethod = conf.method ?? CLASSIFY_METHOD.JENKS;
+    this.currentScheme = conf.color_scheme ?? "Reds";
   }
 
-  /** Save the current manager state to localStorage. */
+  /** Load saved configuration from localStorage into this manager's state. */
+  loadSavedConfig(): SavedConfig | null {
+    return loadSavedConfigFn();
+  }
+
+  /** Save the current manager state to localStorage through the write-through
+   *  binding, so the flat inline-version record stays durable the moment a UI
+   *  change lands. The binding reads live state at save time, so callers just
+   *  signal a change without restating the fields. */
   saveConfig() {
-    Storage.save(
-      CONST.STORAGE.KEY,
-      {
-        layerId: this.selectedLayerId,
-        agg: this.currentAgg,
-        method: this.currentMethod,
-        scheme: this.currentScheme,
-        numClasses: this.numClasses,
-        borderWeight: this.borderWeight,
-        borderColor: this.borderColor,
-        labelShow: this.currentLabelShow,
-        field: this.currentField,
-        fieldAuto: this.fieldAuto,
-      } satisfies SavedConfig,
-      CONF.name,
-    );
+    this.persist.schedule();
+  }
+
+  /** Flush any pending write through the binding — idempotent and teardown-safe. */
+  flush() {
+    this.persist.flush();
   }
 
   /** Remove persisted configuration from localStorage. */
   clearSavedConfig() {
-    try {
-      window.localStorage.removeItem(CONST.STORAGE.KEY);
-    } catch (e) {
-      log.warn(`failed to clear saved data (key=${CONST.STORAGE.KEY})`, e);
+    clearSavedConfigFn();
+  }
+
+  /**
+   * Publish the current source layer name + aggregation field into
+   * `sourceMeta` (the object createCanvas registered), so LayerControl's
+   * attributes panel can answer "where did this heatmap come from?".
+   * Empty values are written too — the attrs panel drops blank rows.
+   * `touchLayer` fires only when a published value actually changed, so a
+   * no-op dropdown rebuild does not bump the panel's Updated stamp.
+   */
+  syncSourceMeta() {
+    const layerName = this.selectedLayerId
+      ? (this.pointLayers.find(i => i.id === this.selectedLayerId)?.name ?? "")
+      : "";
+    let fieldLabel = "";
+    if (this.selectedLayerId && this.currentAgg !== CONST.AGG.COUNT) {
+      const key = this.currentField || this.autoFieldKey;
+      if (key) fieldLabel = bareFieldName(key);
     }
+
+    const sourceKey = T("meta_source_layer");
+    const fieldKey = T("meta_agg_field");
+    const changed =
+      this.sourceMeta[sourceKey] !== layerName ||
+      this.sourceMeta[fieldKey] !== fieldLabel;
+    this.sourceMeta[sourceKey] = layerName;
+    this.sourceMeta[fieldKey] = fieldLabel;
+
+    if (!changed) return;
+    // Stamp updatedAt so the panel's "Updated" row tracks the latest binding.
+    // Free `map` (window.map) — same channel createCanvas / scanMapLayers use;
+    // `this.map` is the Leaflet instance and may not carry the foliplus namespace.
+    map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
   }
 
   /** Apply a loaded config object to the manager's state. */
   applySavedConfig(saved: SavedConfig) {
-    if (saved.agg) this.currentAgg = saved.agg;
-    if (saved.method) this.currentMethod = saved.method;
-    if (saved.scheme) this.currentScheme = saved.scheme;
-    if (saved.numClasses !== undefined) {
-      this.numClasses = Math.min(
-        CONST.CLASS_COUNT.MAX,
-        Math.max(CONST.CLASS_COUNT.MIN, saved.numClasses),
-      );
-    }
-    if (saved.borderWeight !== undefined) {
-      this.borderWeight = saved.borderWeight;
-    }
-    if (saved.borderColor) this.borderColor = saved.borderColor;
-    if (saved.labelShow !== undefined) this.currentLabelShow = saved.labelShow;
-    if (saved.field) this.currentField = saved.field;
-    if (saved.fieldAuto !== undefined) this.fieldAuto = saved.fieldAuto;
-    this.selectedLayerId = saved.layerId ?? null;
+    applySavedConfigFn(this, saved);
   }
 }
 

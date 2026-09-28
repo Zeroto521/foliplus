@@ -25,7 +25,7 @@ repos:
 
   # ── Lint & Format (ruff) ──
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.16.6
+    rev: v0.16.8
     hooks:
       - id: ruff
         args: [--fix, --exit-non-zero-on-fix]
@@ -36,9 +36,11 @@ repos:
     rev: v2.3.1
     hooks:
       - id: mypy
-        # Pinned: the hook's type analysis depends on folium/jinja2 stubs, and
-        # an unpinned bump can surface new/unused `# type: ignore` errors.
-        additional_dependencies: [folium==0.20.0, jinja2==3.1.6]
+        # Pinned: the hook's type analysis depends on folium stubs, and an
+        # unpinned bump can surface new/unused `# type: ignore` errors. jinja2
+        # is a transitive dep of folium (not declared in pyproject) — leave it
+        # unpinned so the resolution follows folium.
+        additional_dependencies: [folium==0.20.0]
         # --strict + --ignore-missing-imports live in pyproject.toml
         # ([tool.mypy]); the hook only names the package to check.
         args: [foliplus]
@@ -49,3 +51,49 @@ repos:
     rev: v2.4.3
     hooks:
       - id: codespell
+
+  # ── Repo-local checks ──
+  # --fix mode: auto-reorder PR numbers within bullets and reorder bullets
+  # within a subsection by first-number. Stable sort — ties (the #122×4 /
+  # #147×4 / #37×2 / #48×3 mega-PR sibling groups) keep their relative
+  # order. Two invariants gate the fix:
+  #   - only adjacent ", "-separated label pairs are reordered
+  #   - the normalized line multiset is unchanged
+  # If either invariant would fail, the hook refuses to write.
+  # Existence check is skipped here — pre-commit.ci does not carry a
+  # GITHUB_TOKEN, and the check needs one. GitHub CI re-runs the same
+  # script in --check mode so the existence check gets enforced there.
+  - repo: local
+    hooks:
+      - id: changelog-order
+        name: changelog-order
+        entry: python script/changelog_check.py --fix --skip-exists
+        language: python
+        files: ^CHANGELOG\.md$
+        pass_filenames: false
+
+      # Detects U+FFFD replacement characters introduced by non-UTF-8
+      # encoding round-trips (PowerShell redirects, wrong editor encoding).
+      # Check-only — FFFD cannot be auto-fixed; the original character must
+      # be restored from source.
+      - id: mojibake-check
+        name: mojibake-check
+        entry: python script/mojibake_check.py
+        language: python
+        types: [text]
+
+      # Enforces three code-style rules on foliplus/js/*.ts:
+      #   (1) one value export block at file end + optional `export type {}`
+      #       (inline type in value export must be split; re-exports are
+      #       barrel-only)
+      #   (2) singular file names
+      #   (3) American spelling in identifiers and string literals
+      # Function declarations and inline exports are covered by eslint's
+      # `func-style` and `no-restricted-syntax` — see eslint.config.js.
+      # Check-only — refactor in the editor. Barrels (index.ts) and
+      # type-collection files (type.ts / types.ts) are exempt from rule 1.
+      - id: style-check
+        name: style-check
+        entry: python script/style_check.py
+        language: python
+        files: ^foliplus/js/.*\.ts$

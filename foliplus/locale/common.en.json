@@ -3,5 +3,17 @@
   "locale.code": "en",
   "foliplus.close_label": "Close",
   "foliplus.addr_not_found": "Address not found — try different keywords",
-  "foliplus.geo_fail": "Lookup failed"
+  "foliplus.geo_fail": "Lookup failed",
+  "foliplus.label": "Labels",
+  "foliplus.label_color": "Label Color",
+  "foliplus.label_collide": "Avoid Overlap",
+  "foliplus.label_collide_tooltip": "Hide this layer's own labels where they overlap",
+  "foliplus.label_format": "Number Format",
+  "foliplus.label_format_auto": "Auto",
+  "foliplus.label_format_comma": "Thousands Separator",
+  "foliplus.label_format_int": "Integer",
+  "foliplus.label_format_percent": "Percent",
+  "foliplus.label_size": "Label Font Size",
+  "foliplus.label_style": "Color / Font Size",
+  "foliplus.label_tooltip": "Show text labels on features"
 }

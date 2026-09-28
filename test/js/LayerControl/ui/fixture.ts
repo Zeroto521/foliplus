@@ -26,30 +26,40 @@ const makePane = () => {
   }
 };
 
+// Module-level stub classes, assigned to window.L by installLeafletGlobals.
+// Defined ONCE so repeated installs keep the same class identity — a layer
+// created between installs must still satisfy `instanceof L.Polygon`.
+class Renderer {}
+
+class Path {
+  options = {};
+}
+
+class Polygon {
+  options = {};
+}
+
+class Polyline {
+  options = {};
+}
+
+// Real Leaflet: Circle extends Polyline (not Polygon); only Rectangle extends
+// Polygon. Both carry a fill, so the areal gate must recognise them.
+class Circle {
+  options = {};
+}
+
+class Marker {}
+
+class CircleMarker {
+  constructor(_latlng: unknown, _opts: unknown) {}
+  addTo(_map: unknown) {
+    return this;
+  }
+}
+
 /** Populate window.L with the stubs LayerManager / PaneManager expect. */
 const installLeafletGlobals = () => {
-  class Renderer {}
-
-  class Path {
-    options = {};
-  }
-
-  class Polygon {
-    options = {};
-  }
-
-  class Polyline {
-    options = {};
-  }
-
-  class Marker {}
-
-  class CircleMarker {
-    constructor(_latlng: unknown, _opts: unknown) {}
-    addTo(_map: unknown) {
-      return this;
-    }
-  }
   const stamp = (() => {
     let id = 0;
     return vi.fn(() => ++id);
@@ -69,6 +79,7 @@ const installLeafletGlobals = () => {
   window.L.Path = Path;
   window.L.Polygon = Polygon;
   window.L.Polyline = Polyline;
+  window.L.Circle = Circle;
   window.L.Marker = Marker;
   window.L.CircleMarker = CircleMarker;
   window.L.stamp = stamp;
@@ -134,10 +145,16 @@ const initFixture = (
   options: {
     initialZoom?: number;
     maxZoom?: number;
+    data?: ConstructorParameters<typeof LayerManager>[1];
+    /** The persisted record, written before the manager is constructed. */
+    seed?: Record<string, unknown>;
   } = {},
 ): { manager: LayerManager; ui: LayerUI; map: any } => {
   window.CONF.name = "LayerControl";
   window.CONF.locale_code = "en";
+  if (options.seed) {
+    window.localStorage.setItem(CONST.STORAGE.KEY, JSON.stringify(options.seed));
+  }
 
   installLeafletGlobals();
 
@@ -170,6 +187,8 @@ const initFixture = (
     flyTo: vi.fn(),
     getZoom: vi.fn(() => options.initialZoom ?? 5),
     getMaxZoom: vi.fn(() => options.maxZoom ?? 18),
+    getMinZoom: vi.fn(() => 0),
+    options: { maxZoom: options.maxZoom ?? 18 },
     getBounds: vi.fn(() => {
       const view = {
         pad: vi.fn(() => view),
@@ -181,6 +200,7 @@ const initFixture = (
       return view;
     }),
     getContainer: vi.fn(() => container),
+    getPanes: vi.fn(() => ({ mapPane: document.createElement("div") })),
     getPane: vi.fn(() => {
       const p = makePane();
       p.style.zIndex = "0";
@@ -200,16 +220,19 @@ const initFixture = (
     },
   };
 
-  const manager = new LayerManager(map, [
-    { id: "overlay1", name: "Polygons", isBase: false, layer: polygonLayer },
-    {
-      id: "base1",
-      name: "OSM",
-      isBase: true,
-      layer: new TileLayer(),
-      paneName: "tilePane",
-    },
-  ]);
+  const manager = new LayerManager(
+    map,
+    options.data ?? [
+      { id: "overlay1", name: "Polygons", group: "overlay", layer: polygonLayer },
+      {
+        id: "base1",
+        name: "OSM",
+        group: "base",
+        layer: new TileLayer(),
+        paneName: "tilePane",
+      },
+    ],
+  );
   manager.enforceOrder();
   manager.ui = new LayerUI(manager);
 

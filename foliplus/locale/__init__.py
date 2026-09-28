@@ -24,7 +24,6 @@ from dataclasses import dataclass, field
 from functools import cache
 from json import dumps, loads
 from pathlib import Path
-from typing import Any
 
 # ===========================================================================
 # Locale directory — used to locate built-in JSON locale files
@@ -58,7 +57,7 @@ def _load_tables(pattern: str) -> dict[str, dict[str, str]]:
 
 
 def resolve_locale(locale: str | LocaleConfig | None, component: str) -> LocaleConfig:
-    """Normalise a ``locale`` parameter to a :class:`LocaleConfig` instance.
+    """Normalize a ``locale`` parameter to a :class:`LocaleConfig` instance.
 
     Parameters
     ----------
@@ -169,7 +168,7 @@ class LocaleConfig:
             raise ValueError(
                 f"only .json locale files are supported, got '{path.suffix}'"
             )
-        raw: Any = loads(path.read_text(encoding="utf-8"))
+        raw: object = loads(path.read_text(encoding="utf-8"))
         if not isinstance(raw, dict):
             raise ValueError(
                 f"locale file must contain a JSON object, got "
