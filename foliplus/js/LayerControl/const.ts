@@ -1,4 +1,4 @@
-import { ANNOTATION_Z_OFFSET, FOCUS_Z } from "#core/layer/index.js";
+import { ANNOTATION_Z_OFFSET, FOCUS_Z, GROUP } from "#core/layer/index.js";
 import { LABEL_COLOR_DEFAULT, LABEL_SIZE } from "#common/form.js";
 import { NUMBER_FORMAT } from "#common/format.js";
 
@@ -228,9 +228,6 @@ const SEL = {
   MENU_DELETE_LABEL: `.${CLASSES.MENU_DELETE_LABEL}`,
   SEP_LABEL: `.${CLASSES.SEP_LABEL}`,
 };
-
-/** Group names. */
-const GROUP = { OVERLAY: "overlay", BASE: "base" } as const;
 
 /** Upper bound for a map and layer that declare no max zoom.
 
