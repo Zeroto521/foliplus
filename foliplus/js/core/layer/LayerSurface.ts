@@ -569,10 +569,10 @@ const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
     // the carrier, same as every other surface). Stroke stays "none": there
     // is no vector stroke axis on a solid colour.
     return {
-      opacity: "pane",
-      zoomRange: "pane",
       fill: "native",
       stroke: "none",
+      opacity: "pane",
+      zoomRange: "pane",
       relocatable: true,
       bounds: false,
     };
@@ -580,10 +580,10 @@ const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
 
   if (layer && isMarkerCluster(layer)) {
     return {
+      fill: "none",
+      stroke: "none",
       opacity: "none",
       zoomRange: "none",
-      stroke: "none",
-      fill: "none",
       relocatable: false,
       bounds: false,
     };
@@ -597,10 +597,10 @@ const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
     const zoomRange: LayerCapabilities["zoomRange"] =
       layer instanceof L.GridLayer ? "native" : "none";
     return {
+      fill: "none",
+      stroke: "none",
       opacity: "native",
       zoomRange,
-      stroke: "none",
-      fill: "none",
       relocatable: true,
       bounds: hasBoundsProvider(layer),
     };
@@ -618,10 +618,10 @@ const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
 
   if (hasContentPanes) {
     return {
+      fill: probeVectorCarrier(layer, "fill"),
+      stroke: probeVectorCarrier(layer, "stroke"),
       opacity: "pane",
       zoomRange: "pane",
-      stroke: probeVectorCarrier(layer, "stroke"),
-      fill: probeVectorCarrier(layer, "fill"),
       relocatable: true,
       bounds: Boolean(opts.getBounds) || hasBoundsProvider(layer),
     };
@@ -632,10 +632,10 @@ const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
   // That pane is addressable on its own.
   if (layer) {
     return {
+      fill: probeVectorCarrier(layer, "fill"),
+      stroke: probeVectorCarrier(layer, "stroke"),
       opacity: "pane",
       zoomRange: "pane",
-      stroke: probeVectorCarrier(layer, "stroke"),
-      fill: probeVectorCarrier(layer, "fill"),
       relocatable: true,
       bounds: hasBoundsProvider(layer),
     };
@@ -643,10 +643,10 @@ const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
 
   // No layer at all and no canvas — nothing to write.
   return {
+    fill: "none",
+    stroke: "none",
     opacity: "none",
     zoomRange: "none",
-    stroke: "none",
-    fill: "none",
     relocatable: false,
     bounds: false,
   };
