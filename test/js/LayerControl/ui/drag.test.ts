@@ -163,6 +163,21 @@ describe("ui/drag", () => {
       expect(reorder).toHaveBeenCalledWith(0, 1);
     });
 
+    it("handleDrop snapshots the order through saveOrder after a drop", () => {
+      // A drop is a user reorder: the manager's saveOrder path writes the live
+      // order — every layer present, color basemap included.
+      const { ui, reorder } = makeScrambledUi();
+      (ui as unknown as { dragIdx: number }).dragIdx = 0;
+      const target = ui.uiContainer.querySelector<HTMLElement>(
+        `[${CONST.DATA.LAYER_ID}="B"]`,
+      )!;
+
+      handleDrop(ui, dragEvent(target));
+
+      expect(reorder).toHaveBeenCalledWith(0, 1);
+      expect(ui.m.saveOrder).toHaveBeenCalled();
+    });
+
     it("handleDragOver marks the row below when the id resolves past the drag index", () => {
       const { ui } = makeScrambledUi();
       // C sits at DOM position 0 while A is being dragged (registry 0): a

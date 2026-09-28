@@ -114,7 +114,6 @@ class LayerRegistry {
       // Registration time: set once on first registration, never rewritten by a
       // provider re-registration.
       registeredAt: existingLi?.registeredAt ?? Date.now(),
-      orderOrigin: opts.orderOrigin ?? existingLi?.orderOrigin ?? "user",
     };
   }
 

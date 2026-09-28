@@ -112,14 +112,6 @@ interface RegisterLayerOpts {
   /** New base layer insertion: "top" (default, tile basemaps) or "bottom"
    *  (solid-color basemap — lowest z, tiles cover it). */
   baseInsert?: "top" | "bottom";
-  /** Where this layer's order slot comes from. Defaults to `"user"`.
-   *
-   *  `"runtime"` marks a system surface whose insertion slot is a side effect
-   *  of attach timing (the solid-color basemap). Those slots never enter the
-   *  persisted order — writing one would clobber an arrangement the user
-   *  already set. Do not use the name `provenance`: that word is already the
-   *  attributes-panel data source and `intentProvenance`. */
-  orderOrigin?: "user" | "runtime";
   paneName?: string | null;
   /**
    * The panes this layer paints into, in draw order. Absent means the layer
@@ -209,8 +201,6 @@ interface LayerInfo {
   /** Epoch ms of the layer's first registration. Set by the registry itself —
    *  never by the provider — so a re-registration keeps the original value. */
   registeredAt?: number;
-  /** Order-slot origin. See {@link RegisterLayerOpts.orderOrigin}. */
-  orderOrigin?: "user" | "runtime";
 }
 
 /** Leaflet layer with a custom `isLabel` flag (foliplus adds it).
@@ -493,8 +483,6 @@ interface CreateSurfaceOpts {
   styleSetters?: Record<string, (value: unknown) => void> | null;
   styleDefaultsProvider?: (() => Record<string, unknown>) | null;
   metaProvider?: (() => Record<string, string | number>) | null;
-  /** See {@link RegisterLayerOpts.orderOrigin}. */
-  orderOrigin?: "user" | "runtime";
 }
 
 /** Content handle returned by `createSurface` — the discriminated-union branch. */
