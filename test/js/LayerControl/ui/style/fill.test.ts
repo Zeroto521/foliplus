@@ -61,13 +61,13 @@ const initWithFillLayer = () => {
       {
         id: "overlay1",
         name: "Polygons",
-        isBase: false,
+        group: "overlay",
         layer: fillLayer,
       },
       {
         id: "base1",
         name: "OSM",
-        isBase: true,
+        group: "base",
         layer: { options: {}, setZIndex: vi.fn() } as never,
         paneName: "tilePane",
       },
@@ -164,7 +164,7 @@ describe("LayerUI style panel — fill color", () => {
     manager.registerLayer({
       id: "colormap",
       name: "Color",
-      isBase: true,
+      group: "base",
       color: "#3366cc",
       canvas: document.createElement("canvas"),
     });
@@ -671,7 +671,7 @@ describe("LayerUI style panel — fill color", () => {
     manager.registerLayer({
       id: CONST.COLOR.MAP_ID,
       name: "Color",
-      isBase: true,
+      group: "base",
       color: CONST.COLOR.DEFAULT,
     });
     const li = manager.layerRegistry.get(CONST.COLOR.MAP_ID)!;
@@ -1232,11 +1232,11 @@ describe("replayFillState", () => {
     );
     const fixture = initFixture({
       data: [
-        { id: "overlay1", name: "Polygons", isBase: false, layer: fillLayer },
+        { id: "overlay1", name: "Polygons", group: "overlay", layer: fillLayer },
         {
           id: "base1",
           name: "OSM",
-          isBase: true,
+          group: "base",
           layer: { options: {}, setZIndex: vi.fn() } as never,
           paneName: "tilePane",
         },

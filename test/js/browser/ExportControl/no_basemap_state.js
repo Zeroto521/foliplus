@@ -36,7 +36,7 @@
       api && api.layers
         ? api.layers.map(li => ({
             id: li.id,
-            isBase: li.isBase,
+            group: li.group,
             visible: api.intentVisible ? api.intentVisible(li.id) : null,
           }))
         : null,

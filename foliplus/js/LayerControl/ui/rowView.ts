@@ -167,7 +167,7 @@ const rowType = (
   layerInfo: LayerInfo,
   layer: L.Layer | null,
 ): { svg: string; key: string } => {
-  if (layerInfo.isBase) {
+  if (layerInfo.group === "base") {
     layerInfo.type = CONST.GROUP.BASE;
     // The colour basemap uses its own swatch icon, not the globe.
     if (layerInfo.id === CONST.COLOR.MAP_ID) {

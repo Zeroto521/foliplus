@@ -727,7 +727,7 @@ class TestExportControlBrowser:
             api_layers = page.evaluate(_js("ExportControl/read_api_layers"))
             assert len(api_layers) > 0, f"No layers in API. errors={errors}"
 
-            overlay_layers = [l for l in api_layers if not l["isBase"] and l["visible"]]
+            overlay_layers = [l for l in api_layers if l["group"] != "base" and l["visible"]]
             assert len(overlay_layers) > 0, (
                 f"No visible overlay layers. api={api_layers} errors={errors}"
             )
@@ -1368,7 +1368,7 @@ class TestExportControlBrowser:
             tile_layers = [
                 li for li in state["layers"] if li["id"] != "foliplus_color_map"
             ]
-            assert all(li["isBase"] and li["visible"] for li in tile_layers), (
+            assert all(li["group"] == "base" and li["visible"] for li in tile_layers), (
                 f"both tile basemaps should be visible: {tile_layers}"
             )
 

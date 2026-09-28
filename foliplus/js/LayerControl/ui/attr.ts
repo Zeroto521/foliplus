@@ -65,10 +65,12 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
   // A basemap has no data geometry, so name it by what it is rather than by
   // a geometry type it never had; a custom layer ships its own logo instead
   // of a geometry glyph —same rowView decision tree, same labels.
-  const isBase = layerInfo?.isBase ?? item.dataset.layerType === "base";
+  const isBaseLayer = layerInfo
+    ? layerInfo.group === "base"
+    : item.dataset.layerType === "base";
   const typeKey = isColor
     ? "type_color_map"
-    : isBase
+    : isBaseLayer
       ? "type_base"
       : layerInfo?.iconSvg
         ? "type_custom"

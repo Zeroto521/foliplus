@@ -112,7 +112,7 @@ const commitOpacityPct = (
   // label must follow — `syncNoBasemap` gates on `li.opacity ?? 1 > 0`.
   // Overlay opacity is unrelated to basemap visibility, so skip it: the
   // call would be a wasted O(n) scan on the drag hot path.
-  if (li.isBase) syncNoBasemap(ui);
+  if (li.group === "base") syncNoBasemap(ui);
   syncOpacityInputs(panel, pct);
 };
 
@@ -186,7 +186,7 @@ const resetLayerOpacity = (ui: LayerUI, layerId: string): void => {
   saveState(ui);
   applyProjection(ui, layerId);
   // Resetting a base layer from 0 back to 1 un-hides it — flip the hatch.
-  if (li.isBase) syncNoBasemap(ui);
+  if (li.group === "base") syncNoBasemap(ui);
 };
 
 /** Register opacity as the first per-layer dimension in the style-panel

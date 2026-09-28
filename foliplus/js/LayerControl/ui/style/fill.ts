@@ -65,7 +65,7 @@ type StyleCarrier = L.Layer & {
  *  leaves. The gate (`layerCanFill`) reads the capability, not this. */
 const isColorBasemap = (li: LayerInfo | undefined): boolean => {
   if (!li || li.styleSetters) return false;
-  return Boolean(li.color) && li.isBase;
+  return Boolean(li.color) && li.group === "base";
 };
 
 /** Whether the layer's surface can honestly carry a fill write.

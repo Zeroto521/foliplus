@@ -245,7 +245,7 @@ describe("LayerUI focus", () => {
       manager.registerLayer({
         id: "overlay2",
         name: "Circles",
-        isBase: false,
+        group: "overlay",
         layer: { options: {}, eachLayer: vi.fn() },
       });
     }
@@ -1883,7 +1883,7 @@ describe("LayerUI focus", () => {
       const info = {
         id: "heat1",
         name: "Heat",
-        isBase: false,
+        group: "overlay",
         canvas,
         ...(paneName ? { paneName } : {}),
       } as LayerInfo;
@@ -1924,7 +1924,7 @@ describe("LayerUI focus", () => {
       bringFocusedLayerToFront(ui, {
         id: "none",
         name: "N",
-        isBase: false,
+        group: "overlay",
         paneName: "missing-pane",
       } as LayerInfo);
       expect(ui.focusedPaneRestores).toHaveLength(LADDER_PANES);
@@ -1934,7 +1934,7 @@ describe("LayerUI focus", () => {
       bringFocusedLayerToFront(ui, {
         id: "none",
         name: "N",
-        isBase: false,
+        group: "overlay",
       } as LayerInfo);
       expect(ui.focusedPaneRestores).toHaveLength(LADDER_PANES);
     });

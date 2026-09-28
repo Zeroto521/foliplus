@@ -187,11 +187,11 @@ describe("LayerManager", () => {
     };
 
     manager = new LayerManager(map, [
-      { id: "overlay1", name: "Points", isBase: false },
+      { id: "overlay1", name: "Points", group: "overlay" },
       {
         id: "base1",
         name: "OSM",
-        isBase: true,
+        group: "base",
         layer: new TileLayer(),
         paneName: "tilePane",
       },
@@ -208,7 +208,7 @@ describe("LayerManager", () => {
     // rides on options.zIndex (which only works inside a shared pane).
     const grid = new GridLayer();
     manager.map.hasLayer.mockReturnValue(true);
-    manager.registerLayer({ id: "grid1", name: "Grid", layer: grid, isBase: true });
+    manager.registerLayer({ id: "grid1", name: "Grid", layer: grid, group: "base" });
     manager.enforceOrder();
     expect(grid.options.pane).toMatch(new RegExp(`^${FALLBACK_PANE_PREFIX}`));
   });
@@ -226,7 +226,7 @@ describe("LayerManager", () => {
     // base1 is a TileLayer, so its own z is the tile-based one — the same
     // `computeZIndex` the ordering pass uses for it.
     expect(pane.style.zIndex).toBe(
-      String(manager.computeZIndex(1, true) + CONST.ANNOTATION_Z_OFFSET),
+      String(manager.computeZIndex(1, "base") + CONST.ANNOTATION_Z_OFFSET),
     );
   });
 
@@ -245,11 +245,11 @@ describe("LayerManager", () => {
     // z = Z_INDEX.BASE + (2 - 0) * 10 = 600 + 20 = 620
     const base = Z_INDEX.BASE;
     const step = Z_INDEX.STEP;
-    expect(manager.computeZIndex(0, false)).toBe(base + 2 * step);
+    expect(manager.computeZIndex(0, "overlay")).toBe(base + 2 * step);
     // eslint-disable-next-line no-implicit-coercion -- false positive: reads `+ 1 *` as unary
-    expect(manager.computeZIndex(1, false)).toBe(base + 1 * step);
+    expect(manager.computeZIndex(1, "overlay")).toBe(base + 1 * step);
     // Tile layers use TILE_BASE
-    expect(manager.computeZIndex(0, true)).toBe(Z_INDEX.TILE_BASE + 2 * step);
+    expect(manager.computeZIndex(0, "base")).toBe(Z_INDEX.TILE_BASE + 2 * step);
   });
 
   it("getLayerType returns null for unknown id", () => {
@@ -411,7 +411,7 @@ describe("LayerManager", () => {
       feature: { properties: { name: "hello" } },
     } as unknown as L.Layer;
     const m = new LayerManager(map, [
-      { id: "lbl", name: "Lbl", isBase: false, layer: leaf },
+      { id: "lbl", name: "Lbl", group: "overlay", layer: leaf },
     ]);
     m.map.hasLayer.mockReturnValue(true);
     m.annotation.setConfig("lbl", {
@@ -817,8 +817,8 @@ describe("LayerManager", () => {
     // Re-register base1 with the test instance; base2 registers ahead of it
     // (insertAt firstBaseIdx) but is invisible, so base1 is the topmost
     // visible tile whose attribution wins.
-    manager.registerLayer({ id: "base1", name: "Base1", layer: tile1, isBase: true });
-    manager.registerLayer({ id: "base2", name: "Base2", layer: tile2, isBase: true });
+    manager.registerLayer({ id: "base1", name: "Base1", layer: tile1, group: "base" });
+    manager.registerLayer({ id: "base2", name: "Base2", layer: tile2, group: "base" });
     manager.enforceOrder();
     expect(manager.lastAttribution).toBe("© OpenStreetMap");
   });
@@ -836,7 +836,7 @@ describe("LayerManager", () => {
     // new one lands in, not just be replaced inside the manager.
     const tile = new TileLayer();
     manager.map.hasLayer.mockImplementation(l => l === tile);
-    manager.registerLayer({ id: "base1", name: "OSM", layer: tile, isBase: true });
+    manager.registerLayer({ id: "base1", name: "OSM", layer: tile, group: "base" });
 
     const attr = map.attributionControl;
     manager.syncAttribution();
@@ -871,8 +871,8 @@ describe("LayerManager", () => {
         .spyOn(Storage, "loadRecord")
         .mockReturnValue(["overlay1", "base1"]);
       const m = new LayerManager(map, [
-        { id: "base1", name: "B", isBase: true },
-        { id: "overlay1", name: "O", isBase: false },
+        { id: "base1", name: "B", group: "base" },
+        { id: "overlay1", name: "O", group: "overlay" },
       ]);
       expect(m.layers.map(l => l.id)).toEqual(["overlay1", "base1"]);
       spy.mockRestore();
@@ -883,8 +883,8 @@ describe("LayerManager", () => {
         .spyOn(Storage, "loadRecord")
         .mockReturnValue(["ghost", "overlay1", "gone", "base1"]);
       const m = new LayerManager(map, [
-        { id: "base1", name: "B", isBase: true },
-        { id: "overlay1", name: "O", isBase: false },
+        { id: "base1", name: "B", group: "base" },
+        { id: "overlay1", name: "O", group: "overlay" },
       ]);
       expect(m.layers.map(l => l.id)).toEqual(["overlay1", "base1"]);
       spy.mockRestore();
@@ -892,7 +892,9 @@ describe("LayerManager", () => {
 
     it("ignores non-array storage data", () => {
       const spy = vi.spyOn(Storage, "loadRecord").mockReturnValue("nope");
-      const m = new LayerManager(map, [{ id: "overlay1", name: "O", isBase: false }]);
+      const m = new LayerManager(map, [
+        { id: "overlay1", name: "O", group: "overlay" },
+      ]);
       // falls back to the initial (insertion) order
       expect(m.layers.map(l => l.id)).toEqual(["overlay1"]);
       spy.mockRestore();
@@ -905,8 +907,8 @@ describe("LayerManager", () => {
       // against a registry that has since grown.
       const spy = vi.spyOn(Storage, "loadRecord");
       new LayerManager(map, [
-        { id: "base1", name: "B", isBase: true },
-        { id: "overlay1", name: "O", isBase: false },
+        { id: "base1", name: "B", group: "base" },
+        { id: "overlay1", name: "O", group: "overlay" },
       ]);
       const keys = spy.mock.calls.map(c => c[0]);
       expect(keys).toEqual([CONST.STORAGE.KEY]);
@@ -926,11 +928,11 @@ describe("LayerManager", () => {
     it("places a late registration at its persisted position", () => {
       seedStorage({ order: ["B", "H", "A"] });
       const m = new LayerManager(map, [
-        { id: "A", name: "A", isBase: false },
-        { id: "B", name: "B", isBase: false },
+        { id: "A", name: "A", group: "overlay" },
+        { id: "B", name: "B", group: "overlay" },
       ]);
 
-      m.registerLayer({ id: "H", name: "H", isBase: false });
+      m.registerLayer({ id: "H", name: "H", group: "overlay" });
 
       expect(m.layers.map(l => l.id)).toEqual(["B", "H", "A"]);
     });
@@ -941,11 +943,11 @@ describe("LayerManager", () => {
       // rightmost of the layers that exist, not the topmost.
       seedStorage({ order: ["B", "A", "H"] });
       const m = new LayerManager(map, [
-        { id: "A", name: "A", isBase: false },
-        { id: "B", name: "B", isBase: false },
+        { id: "A", name: "A", group: "overlay" },
+        { id: "B", name: "B", group: "overlay" },
       ]);
 
-      m.registerLayer({ id: "H", name: "H", isBase: false });
+      m.registerLayer({ id: "H", name: "H", group: "overlay" });
 
       expect(m.layers.map(l => l.id)).toEqual(["B", "A", "H"]);
     });
@@ -955,9 +957,9 @@ describe("LayerManager", () => {
       // cannot be located. The walk keeps going past the gap instead of stopping
       // there and leaving X where prepend put it.
       seedStorage({ order: ["X", "G", "Y"] });
-      const m = new LayerManager(map, [{ id: "Y", name: "Y", isBase: false }]);
+      const m = new LayerManager(map, [{ id: "Y", name: "Y", group: "overlay" }]);
 
-      m.registerLayer({ id: "X", name: "X", isBase: false });
+      m.registerLayer({ id: "X", name: "X", group: "overlay" });
 
       expect(m.layers.map(l => l.id)).toEqual(["X", "Y"]);
     });
@@ -968,8 +970,8 @@ describe("LayerManager", () => {
       // neighbor's shifted-down index.
       seedStorage({ order: ["A", "B"] });
       const m = new LayerManager(map, [
-        { id: "A", name: "A", isBase: false },
-        { id: "B", name: "B", isBase: false },
+        { id: "A", name: "A", group: "overlay" },
+        { id: "B", name: "B", group: "overlay" },
       ]);
       m.layerRegistry.reorder(0, 1);
       expect(m.layers.map(l => l.id)).toEqual(["B", "A"]);
@@ -981,7 +983,7 @@ describe("LayerManager", () => {
 
     it("leaves the registry alone for an id that is not registered", () => {
       seedStorage({ order: ["A"] });
-      const m = new LayerManager(map, [{ id: "A", name: "A", isBase: false }]);
+      const m = new LayerManager(map, [{ id: "A", name: "A", group: "overlay" }]);
 
       expect(() => m.replaySavedOrder("ghost")).not.toThrow();
       expect(m.layers.map(l => l.id)).toEqual(["A"]);
@@ -993,10 +995,10 @@ describe("LayerManager", () => {
       // relative order at the bottom.
       seedStorage({ order: ["D"] });
       const m = new LayerManager(map, [
-        { id: "A", name: "A", isBase: false },
-        { id: "B", name: "B", isBase: false },
-        { id: "C", name: "C", isBase: false },
-        { id: "D", name: "D", isBase: false },
+        { id: "A", name: "A", group: "overlay" },
+        { id: "B", name: "B", group: "overlay" },
+        { id: "C", name: "C", group: "overlay" },
+        { id: "D", name: "D", group: "overlay" },
       ]);
       m.layerRegistry.reorder(0, 2);
       expect(m.layers.map(l => l.id)).toEqual(["A", "B", "D", "C"]);
@@ -1013,8 +1015,8 @@ describe("LayerManager", () => {
       // where the next flush would persist the sink.
       seedStorage({ order: ["B", "H", "A"] });
       const m = new LayerManager(map, [
-        { id: "A", name: "A", isBase: false },
-        { id: "B", name: "B", isBase: false },
+        { id: "A", name: "A", group: "overlay" },
+        { id: "B", name: "B", group: "overlay" },
       ]);
 
       m.saveOrder();
@@ -1032,8 +1034,8 @@ describe("LayerManager", () => {
       // the ranked layers; the unranked one keeps its live position.
       seedStorage({ order: ["H1", "A", "H2"] });
       const m = new LayerManager(map, [
-        { id: "A", name: "A", isBase: false },
-        { id: "X", name: "X", isBase: false },
+        { id: "A", name: "A", group: "overlay" },
+        { id: "X", name: "X", group: "overlay" },
       ]);
 
       m.saveOrder();
@@ -1055,10 +1057,10 @@ describe("LayerManager", () => {
       // covered by the author-defaults browser test.)
       seedStorage({ order: ["fg", "tile", "foliplus_color_map"] });
       const m = new LayerManager(map, [
-        { id: "fg", name: "FG", isBase: false },
-        { id: "tile", name: "Tile", isBase: true },
+        { id: "fg", name: "FG", group: "overlay" },
+        { id: "tile", name: "Tile", group: "base" },
       ]);
-      m.registerLayer({ id: "foliplus_color_map", name: "Color", isBase: true });
+      m.registerLayer({ id: "foliplus_color_map", name: "Color", group: "base" });
       expect(m.layers.map(l => l.id)).toEqual(["fg", "foliplus_color_map", "tile"]);
 
       m.saveOrder(false);
@@ -1074,10 +1076,10 @@ describe("LayerManager", () => {
     it("keeps persisting the slot on the default path", () => {
       seedStorage({ order: ["fg", "tile"] });
       const m = new LayerManager(map, [
-        { id: "fg", name: "FG", isBase: false },
-        { id: "tile", name: "Tile", isBase: true },
+        { id: "fg", name: "FG", group: "overlay" },
+        { id: "tile", name: "Tile", group: "base" },
       ]);
-      m.registerLayer({ id: "foliplus_color_map", name: "Color", isBase: true });
+      m.registerLayer({ id: "foliplus_color_map", name: "Color", group: "base" });
 
       m.saveOrder();
 
@@ -1098,10 +1100,10 @@ describe("LayerManager", () => {
       // saveOrder would otherwise re-insert an id that is still live.
       seedStorage({ order: ["A", "H", "B", "C"] });
       const m = new LayerManager(map, [
-        { id: "A", name: "A", isBase: false },
-        { id: "H", name: "H", isBase: false },
-        { id: "B", name: "B", isBase: false },
-        { id: "C", name: "C", isBase: false },
+        { id: "A", name: "A", group: "overlay" },
+        { id: "H", name: "H", group: "overlay" },
+        { id: "B", name: "B", group: "overlay" },
+        { id: "C", name: "C", group: "overlay" },
       ]);
       m.unregisterLayer("H");
 
@@ -1112,9 +1114,9 @@ describe("LayerManager", () => {
     it("persists the pruned order so a reload does not resurrect the old slot", () => {
       seedStorage({ order: ["A", "H", "B"] });
       const m = new LayerManager(map, [
-        { id: "A", name: "A", isBase: false },
-        { id: "H", name: "H", isBase: false },
-        { id: "B", name: "B", isBase: false },
+        { id: "A", name: "A", group: "overlay" },
+        { id: "H", name: "H", group: "overlay" },
+        { id: "B", name: "B", group: "overlay" },
       ]);
       m.unregisterLayer("H");
       m.forgetSavedOrder("H");
@@ -1129,14 +1131,14 @@ describe("LayerManager", () => {
     it("returns false for an id that is not in savedOrder", () => {
       seedStorage({ order: ["A", "B"] });
       const m = new LayerManager(map, [
-        { id: "A", name: "A", isBase: false },
-        { id: "B", name: "B", isBase: false },
+        { id: "A", name: "A", group: "overlay" },
+        { id: "B", name: "B", group: "overlay" },
       ]);
       expect(m.forgetSavedOrder("never")).toBe(false);
     });
 
     it("returns false when savedOrder is null (fresh page)", () => {
-      const m = new LayerManager(map, [{ id: "A", name: "A", isBase: false }]);
+      const m = new LayerManager(map, [{ id: "A", name: "A", group: "overlay" }]);
       expect((m as any).savedOrder).toBeNull();
       expect(m.forgetSavedOrder("A")).toBe(false);
     });
@@ -1144,16 +1146,16 @@ describe("LayerManager", () => {
     it("does NOT add the id to removedIds — the layer stays registerable", () => {
       seedStorage({ order: ["A", "H", "B"] });
       const m = new LayerManager(map, [
-        { id: "A", name: "A", isBase: false },
-        { id: "H", name: "H", isBase: false },
-        { id: "B", name: "B", isBase: false },
+        { id: "A", name: "A", group: "overlay" },
+        { id: "H", name: "H", group: "overlay" },
+        { id: "B", name: "B", group: "overlay" },
       ]);
       m.unregisterLayer("H");
       m.forgetSavedOrder("H");
 
       expect((m as any).removedIds.has("H")).toBe(false);
       // And a subsequent registration actually works:
-      m.registerLayer({ id: "H", name: "H", isBase: false });
+      m.registerLayer({ id: "H", name: "H", group: "overlay" });
       expect(m.layerRegistry.has("H")).toBe(true);
     });
 
@@ -1163,13 +1165,13 @@ describe("LayerManager", () => {
       // id has no stored rank anymore.
       seedStorage({ order: ["A", "H", "B"] });
       const m = new LayerManager(map, [
-        { id: "A", name: "A", isBase: false },
-        { id: "H", name: "H", isBase: false },
-        { id: "B", name: "B", isBase: false },
+        { id: "A", name: "A", group: "overlay" },
+        { id: "H", name: "H", group: "overlay" },
+        { id: "B", name: "B", group: "overlay" },
       ]);
       m.unregisterLayer("H");
       m.forgetSavedOrder("H");
-      m.registerLayer({ id: "H", name: "H", isBase: false });
+      m.registerLayer({ id: "H", name: "H", group: "overlay" });
 
       expect(m.layers.map(l => l.id)).toEqual(["H", "A", "B"]);
     });
@@ -1180,10 +1182,10 @@ describe("LayerManager", () => {
       // the next construction.
       seedStorage({ order: ["A", "H", "B", "C"] });
       const m = new LayerManager(map, [
-        { id: "A", name: "A", isBase: false },
-        { id: "H", name: "H", isBase: false },
-        { id: "B", name: "B", isBase: false },
-        { id: "C", name: "C", isBase: false },
+        { id: "A", name: "A", group: "overlay" },
+        { id: "H", name: "H", group: "overlay" },
+        { id: "B", name: "B", group: "overlay" },
+        { id: "C", name: "C", group: "overlay" },
       ]);
       m.unregisterLayer("H");
       m.forgetSavedOrder("H");
@@ -1192,18 +1194,18 @@ describe("LayerManager", () => {
       // Simulate reload: a fresh manager reads the record and gets neighbors
       // in the same relative order.
       const fresh = new LayerManager(map, [
-        { id: "A", name: "A", isBase: false },
-        { id: "B", name: "B", isBase: false },
-        { id: "C", name: "C", isBase: false },
+        { id: "A", name: "A", group: "overlay" },
+        { id: "B", name: "B", group: "overlay" },
+        { id: "C", name: "C", group: "overlay" },
       ]);
       expect(fresh.layers.map(l => l.id)).toEqual(["A", "B", "C"]);
     });
   });
 
   it("normalizes initial data into the full layerInfo field set", () => {
-    const m2 = new LayerManager(map, [{ id: "a", name: "A", isBase: false }]);
+    const m2 = new LayerManager(map, [{ id: "a", name: "A", group: "overlay" }]);
     const li = m2.layers[0];
-    expect(li).toMatchObject({ id: "a", name: "A", isBase: false });
+    expect(li).toMatchObject({ id: "a", name: "A", group: "overlay" });
     for (const key of ["paneName", "iconSvg", "type", "canvas"]) {
       expect(key in li).toBe(true);
     }
@@ -1313,7 +1315,7 @@ describe("LayerManager", () => {
     window.L.DomUtil = { getPosition: vi.fn(() => ({ x: 0, y: 0 })) };
     map.getPanes = vi.fn(() => ({ mapPane: document.createElement("div") }));
     const m2 = new LayerManager(map, [
-      { id: "kept", name: "K", isBase: false, layer: { options: {} } },
+      { id: "kept", name: "K", group: "overlay", layer: { options: {} } },
     ]);
     const warn = vi.fn();
     vi.spyOn(console, "warn").mockImplementation(warn);
@@ -1336,10 +1338,10 @@ describe("LayerManager", () => {
 
   it("registerLayer appends a base layer when no base exists yet", () => {
     const m2 = new LayerManager(map, [
-      { id: "only_overlay", name: "O", isBase: false },
+      { id: "only_overlay", name: "O", group: "overlay" },
     ]);
     map.hasLayer.mockReturnValue(false);
-    m2.registerLayer({ id: "first_base", name: "B", isBase: true });
+    m2.registerLayer({ id: "first_base", name: "B", group: "base" });
     expect(m2.layerRegistry.firstBaseIdx).toBe(1);
   });
 
@@ -1457,7 +1459,7 @@ describe("LayerManager", () => {
   });
 
   it("unregisterLayer reconciles the base group when a base layer is dropped", () => {
-    // The unregister sweep's sync call reads `layerInfo.isBase` to pick the
+    // The unregister sweep's sync call reads `layerInfo.group === "base"` to pick the
     // group to rescan. Existing tests only unregister overlays, so the BASE
     // branch of the ternary would silently rot without a pin.
     manager.map.hasLayer.mockReturnValue(false);
@@ -1641,8 +1643,8 @@ describe("LayerManager", () => {
       layers: { overlay1: { opacity: 0.4, overrides: ["opacity"] } },
     });
     const m = new LayerManager(map, [
-      { id: "overlay1", name: "O", isBase: false, layer: { options: {} } },
-      { id: "base1", name: "B", isBase: true, layer: { options: {} } },
+      { id: "overlay1", name: "O", group: "overlay", layer: { options: {} } },
+      { id: "base1", name: "B", group: "base", layer: { options: {} } },
     ]);
     m.annotation.setConfig("overlay1", {
       show: true,
@@ -1697,8 +1699,8 @@ describe("LayerManager", () => {
     vi.useFakeTimers();
     const save = vi.spyOn(Storage, "saveRecord").mockImplementation(() => true);
     const m = new LayerManager(map, [
-      { id: "overlay1", name: "O", isBase: false, layer: { options: {} } },
-      { id: "base1", name: "B", isBase: true, layer: { options: {} } },
+      { id: "overlay1", name: "O", group: "overlay", layer: { options: {} } },
+      { id: "base1", name: "B", group: "base", layer: { options: {} } },
     ]);
     m.map.hasLayer.mockReturnValue(false);
 
@@ -1722,8 +1724,8 @@ describe("LayerManager", () => {
     // on the next reload.
     seedStorage({ removed: ["gone"] });
     const m = new LayerManager(map, [
-      { id: "gone", name: "G", isBase: false, layer: { options: {} } },
-      { id: "kept", name: "K", isBase: false, layer: { options: {} } },
+      { id: "gone", name: "G", group: "overlay", layer: { options: {} } },
+      { id: "kept", name: "K", group: "overlay", layer: { options: {} } },
     ]);
 
     expect(m.layers.map(l => l.id)).toEqual(["kept"]);
@@ -1742,8 +1744,8 @@ describe("LayerManager", () => {
     const removeLayer = vi.fn();
     map.removeLayer = removeLayer;
     const m = new LayerManager(map, [
-      { id: "gone", name: "G", isBase: false },
-      { id: "kept", name: "K", isBase: false },
+      { id: "gone", name: "G", group: "overlay" },
+      { id: "kept", name: "K", group: "overlay" },
     ]);
 
     expect(m.layers.map(l => l.id)).toEqual(["kept"]);
@@ -1757,7 +1759,7 @@ describe("LayerManager", () => {
     // a late Heatmap/Measure component) instead of just dropping the layer.
     seedStorage({ removed: ["gone"] });
     const m = new LayerManager(map, [
-      { id: "kept", name: "K", isBase: false, layer: { options: {} } },
+      { id: "kept", name: "K", group: "overlay", layer: { options: {} } },
     ]);
     const warn = vi.fn();
     vi.spyOn(console, "warn").mockImplementation(warn);
@@ -1776,7 +1778,7 @@ describe("LayerManager", () => {
     // not start getting refused.
     seedStorage({ removed: ["gone"] });
     const m = new LayerManager(map, [
-      { id: "kept", name: "K", isBase: false, layer: { options: {} } },
+      { id: "kept", name: "K", group: "overlay", layer: { options: {} } },
     ]);
 
     m.registerLayer({ id: "other", name: "Other" });
@@ -1804,7 +1806,7 @@ describe("LayerManager", () => {
     // A map without LayerControl on it has a manager with a registry but no
     // panel: destroy still must unbind the layeradd listener and clear the
     // registry.
-    const m = new LayerManager(map, [{ id: "a", name: "A", isBase: false }]);
+    const m = new LayerManager(map, [{ id: "a", name: "A", group: "overlay" }]);
     expect(m.uiContainer).toBeNull();
     m.destroy();
     expect(map.off).toHaveBeenCalledWith("layeradd", m.onLayerAdd);
@@ -1815,7 +1817,7 @@ describe("LayerManager", () => {
   it("onLayerAdd is a no-op once the manager is destroyed", () => {
     // A destroyed manager must ignore stray layeradd events, including ones
     // fired before its off() takes effect in the same teardown pass.
-    const m = new LayerManager(map, [{ id: "a", name: "A", isBase: false }]);
+    const m = new LayerManager(map, [{ id: "a", name: "A", group: "overlay" }]);
     const spy = vi.spyOn(m, "enforceOrder");
     m.destroy();
     m.onLayerAdd({ layer: { options: {} } } as any);
@@ -1825,7 +1827,7 @@ describe("LayerManager", () => {
   it("debouncedEnforce skips scheduling once destroyed", () => {
     // A register/unregister racing the teardown must not reschedule a
     // z-order pass on a manager that no longer has a map.
-    const m = new LayerManager(map, [{ id: "a", name: "A", isBase: false }]);
+    const m = new LayerManager(map, [{ id: "a", name: "A", group: "overlay" }]);
     const spy = vi.spyOn(m, "enforceOrder");
     m.destroy();
     m.debouncedEnforce();
@@ -1836,8 +1838,8 @@ describe("LayerManager", () => {
     // persistence.destroy cancels the timer, so the UI's flush in unbindEvents
     // must run first — otherwise the last reorder in the debounce window is lost.
     const m = new LayerManager(map, [
-      { id: "a", name: "A", isBase: false },
-      { id: "b", name: "B", isBase: false },
+      { id: "a", name: "A", group: "overlay" },
+      { id: "b", name: "B", group: "overlay" },
     ]);
     m.persistence = new LayerPersistence();
     const save = vi.spyOn(Storage, "saveRecord");
@@ -1854,7 +1856,7 @@ describe("LayerManager", () => {
   it("destroy flushes a pending intent write instead of cancelling it", () => {
     // Same ordering for per-layer intent: a hide just before teardown must
     // survive a reload, which is the whole point of the flush.
-    const m = new LayerManager(map, [{ id: "a", name: "A", isBase: false }]);
+    const m = new LayerManager(map, [{ id: "a", name: "A", group: "overlay" }]);
     m.persistence = new LayerPersistence();
     const save = vi.spyOn(Storage, "saveRecord");
     m.persistence.schedule({
@@ -1911,7 +1913,7 @@ describe("LayerManager", () => {
     // ladder writes there instead.
     const tile = new TileLayer();
     manager.map.hasLayer.mockReturnValue(true);
-    manager.registerLayer({ id: "t1", name: "T", layer: tile, isBase: true });
+    manager.registerLayer({ id: "t1", name: "T", layer: tile, group: "base" });
     manager.enforceOrder();
     expect(tile.setZIndex).not.toHaveBeenCalled();
   });
@@ -1939,7 +1941,7 @@ describe("LayerManager", () => {
 
     // Overlays are prepended, so heat1 lands at index 0 of
     // [heat1, overlay1, base1].
-    const expected = manager.computeZIndex(0, false);
+    const expected = manager.computeZIndex(0, "overlay");
     expect(canvasPane.style.zIndex).toBe(String(expected));
     map.getPane = realGetPane;
     map.createPane = realCreatePane;
@@ -2060,7 +2062,12 @@ describe("LayerManager", () => {
 
   it("bringLayerToFront ignores base layers", () => {
     manager.map.hasLayer.mockReturnValue(false);
-    manager.registerLayer({ id: "b", name: "B", layer: new TileLayer(), isBase: true });
+    manager.registerLayer({
+      id: "b",
+      name: "B",
+      layer: new TileLayer(),
+      group: "base",
+    });
     const orderBefore = manager.layers.map(l => l.id);
     manager.bringLayerToFront("b");
     expect(manager.layers.map(l => l.id)).toEqual(orderBefore);
@@ -2100,7 +2107,7 @@ describe("LayerManager", () => {
         id: "b1",
         name: "B",
         layer: { options: {} },
-        isBase: true,
+        group: "base",
       });
       expect(manager.getFeatureCount("b1")).toBe(null);
     });
@@ -2207,7 +2214,7 @@ describe("LayerManager", () => {
         id: "b1",
         name: "B",
         layer: { options: {} },
-        isBase: true,
+        group: "base",
       });
       const bus = map.foliplus!.events;
       const handler = vi.fn();
@@ -2267,7 +2274,7 @@ describe("LayerManager", () => {
     map.attributionControl.removeAttribution = vi.fn();
     map.attributionControl.addAttribution = vi.fn();
     manager.map.hasLayer.mockImplementation(l => l === tile);
-    manager.registerLayer({ id: "b1", name: "B1", layer: tile, isBase: true });
+    manager.registerLayer({ id: "b1", name: "B1", layer: tile, group: "base" });
     manager.enforceOrder();
     expect(manager.lastAttribution).toBe("© OpenStreetMap");
     expect(map.attributionControl.addAttribution).toHaveBeenCalledWith(
@@ -2347,7 +2354,7 @@ describe("LayerManager", () => {
       manager.registerLayer({
         id: CONST.COLOR.MAP_ID,
         name: "Colour",
-        isBase: true,
+        group: "base",
         layer: { options: {} },
       } as any);
 
@@ -2382,7 +2389,7 @@ describe("LayerManager", () => {
       manager.registerLayer({
         id: CONST.COLOR.MAP_ID,
         name: "Colour",
-        isBase: true,
+        group: "base",
         layer: { options: {} },
       } as any);
       manager.ui = null;
@@ -2399,7 +2406,7 @@ describe("LayerManager", () => {
       manager.registerLayer({
         id: CONST.COLOR.MAP_ID,
         name: "Colour",
-        isBase: true,
+        group: "base",
         layer: { options: {} },
       } as any);
       vi.spyOn(manager, "unregisterLayer").mockReturnValue(false);
@@ -2450,7 +2457,7 @@ describe("LayerManager", () => {
       manager.registerLayer({
         id: CONST.COLOR.MAP_ID,
         name: "Colour",
-        isBase: true,
+        group: "base",
         layer: { options: {} },
       } as any);
       manager.uiContainer = document.createElement("div");
@@ -2599,9 +2606,9 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
 
   it("moves an overlay one position up", () => {
     manager = new LayerManager(map, [
-      { id: "a", name: "A", isBase: false },
-      { id: "b", name: "B", isBase: false },
-      { id: "c", name: "C", isBase: false },
+      { id: "a", name: "A", group: "overlay" },
+      { id: "b", name: "B", group: "overlay" },
+      { id: "c", name: "C", group: "overlay" },
     ]);
     expect(manager.moveLayerUp("b")).toBe(true);
     expect(manager.layers[0].id).toBe("b");
@@ -2611,23 +2618,23 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
 
   it("returns false when layer is already at top", () => {
     manager = new LayerManager(map, [
-      { id: "a", name: "A", isBase: false },
-      { id: "b", name: "B", isBase: false },
+      { id: "a", name: "A", group: "overlay" },
+      { id: "b", name: "B", group: "overlay" },
     ]);
     expect(manager.moveLayerUp("a")).toBe(false);
   });
 
   it("returns false for unknown layer id", () => {
-    manager = new LayerManager(map, [{ id: "a", name: "A", isBase: false }]);
+    manager = new LayerManager(map, [{ id: "a", name: "A", group: "overlay" }]);
     expect(manager.moveLayerUp("unknown")).toBe(false);
   });
 
   it("does not move base layer past overlay boundary", () => {
     manager = new LayerManager(map, [
-      { id: "a", name: "A", isBase: false },
-      { id: "b", name: "B", isBase: false },
-      { id: "base1", name: "Base", isBase: true },
-      { id: "base2", name: "Base2", isBase: true },
+      { id: "a", name: "A", group: "overlay" },
+      { id: "b", name: "B", group: "overlay" },
+      { id: "base1", name: "Base", group: "base" },
+      { id: "base2", name: "Base2", group: "base" },
     ]);
     expect(manager.moveLayerUp("base2")).toBe(true);
     expect(manager.layers[2].id).toBe("base2");
@@ -2636,9 +2643,9 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
 
   it("moves an overlay one position down", () => {
     manager = new LayerManager(map, [
-      { id: "a", name: "A", isBase: false },
-      { id: "b", name: "B", isBase: false },
-      { id: "c", name: "C", isBase: false },
+      { id: "a", name: "A", group: "overlay" },
+      { id: "b", name: "B", group: "overlay" },
+      { id: "c", name: "C", group: "overlay" },
     ]);
     expect(manager.moveLayerDown("a")).toBe(true);
     expect(manager.layers[0].id).toBe("b");
@@ -2648,26 +2655,26 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
 
   it("returns false when layer is already at bottom of group", () => {
     manager = new LayerManager(map, [
-      { id: "a", name: "A", isBase: false },
-      { id: "b", name: "B", isBase: false },
+      { id: "a", name: "A", group: "overlay" },
+      { id: "b", name: "B", group: "overlay" },
     ]);
     expect(manager.moveLayerDown("b")).toBe(false);
   });
 
   it("does not move overlay past base boundary", () => {
     manager = new LayerManager(map, [
-      { id: "a", name: "A", isBase: false },
-      { id: "base1", name: "Base", isBase: true },
-      { id: "base2", name: "Base2", isBase: true },
+      { id: "a", name: "A", group: "overlay" },
+      { id: "base1", name: "Base", group: "base" },
+      { id: "base2", name: "Base2", group: "base" },
     ]);
     expect(manager.moveLayerDown("a")).toBe(false);
   });
 
   it("moves base layer down within base group", () => {
     manager = new LayerManager(map, [
-      { id: "a", name: "A", isBase: false },
-      { id: "base1", name: "Base1", isBase: true },
-      { id: "base2", name: "Base2", isBase: true },
+      { id: "a", name: "A", group: "overlay" },
+      { id: "base1", name: "Base1", group: "base" },
+      { id: "base2", name: "Base2", group: "base" },
     ]);
     expect(manager.moveLayerDown("base1")).toBe(true);
     expect(manager.layers[1].id).toBe("base2");
@@ -2676,9 +2683,9 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
 
   it("moveLayerUp and moveLayerDown are inverse operations", () => {
     manager = new LayerManager(map, [
-      { id: "a", name: "A", isBase: false },
-      { id: "b", name: "B", isBase: false },
-      { id: "c", name: "C", isBase: false },
+      { id: "a", name: "A", group: "overlay" },
+      { id: "b", name: "B", group: "overlay" },
+      { id: "c", name: "C", group: "overlay" },
     ]);
     manager.moveLayerUp("c");
     expect(manager.layers).toEqual(
@@ -2700,33 +2707,33 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
 
   it("maintains z-index order after move", () => {
     manager = new LayerManager(map, [
-      { id: "a", name: "A", isBase: false },
-      { id: "b", name: "B", isBase: false },
+      { id: "a", name: "A", group: "overlay" },
+      { id: "b", name: "B", group: "overlay" },
     ]);
     manager.moveLayerUp("b");
     const zB = manager.computeZIndex(
       manager.layerRegistry.indexOf(manager.layerRegistry.get("b")!),
-      false,
+      "overlay",
     );
     const zA = manager.computeZIndex(
       manager.layerRegistry.indexOf(manager.layerRegistry.get("a")!),
-      false,
+      "overlay",
     );
     expect(zB).toBeGreaterThan(zA);
   });
 
   it("returns false when only one layer exists", () => {
-    manager = new LayerManager(map, [{ id: "a", name: "A", isBase: false }]);
+    manager = new LayerManager(map, [{ id: "a", name: "A", group: "overlay" }]);
     expect(manager.moveLayerUp("a")).toBe(false);
     expect(manager.moveLayerDown("a")).toBe(false);
   });
 
   it("moves first overlay to the top of overlay group", () => {
     manager = new LayerManager(map, [
-      { id: "a", name: "A", isBase: false },
-      { id: "b", name: "B", isBase: false },
-      { id: "c", name: "C", isBase: false },
-      { id: "base1", name: "Base1", isBase: true },
+      { id: "a", name: "A", group: "overlay" },
+      { id: "b", name: "B", group: "overlay" },
+      { id: "c", name: "C", group: "overlay" },
+      { id: "base1", name: "Base1", group: "base" },
     ]);
     expect(manager.moveLayerUp("b")).toBe(true);
     expect(manager.layers[0].id).toBe("b");
@@ -2737,19 +2744,19 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
 
   it("does not move overlay that is the only overlay into base group", () => {
     manager = new LayerManager(map, [
-      { id: "a", name: "A", isBase: false },
-      { id: "base1", name: "Base1", isBase: true },
+      { id: "a", name: "A", group: "overlay" },
+      { id: "base1", name: "Base1", group: "base" },
     ]);
     expect(manager.moveLayerDown("a")).toBe(false);
   });
 
   it("reorder works across multiple base layers", () => {
     manager = new LayerManager(map, [
-      { id: "a", name: "A", isBase: false },
-      { id: "b", name: "B", isBase: false },
-      { id: "base1", name: "Base1", isBase: true },
-      { id: "base2", name: "Base2", isBase: true },
-      { id: "base3", name: "Base3", isBase: true },
+      { id: "a", name: "A", group: "overlay" },
+      { id: "b", name: "B", group: "overlay" },
+      { id: "base1", name: "Base1", group: "base" },
+      { id: "base2", name: "Base2", group: "base" },
+      { id: "base3", name: "Base3", group: "base" },
     ]);
     expect(manager.moveLayerDown("base1")).toBe(true);
     expect(manager.moveLayerDown("base1")).toBe(true);
@@ -2761,8 +2768,8 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
 
   it("moveLayerUp calls enforceOrder", () => {
     manager = new LayerManager(map, [
-      { id: "a", name: "A", isBase: false },
-      { id: "b", name: "B", isBase: false },
+      { id: "a", name: "A", group: "overlay" },
+      { id: "b", name: "B", group: "overlay" },
     ]);
     const enforceSpy = vi.spyOn(manager, "enforceOrder");
     manager.moveLayerUp("b");
@@ -2771,32 +2778,32 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
 
   it("moveLayerDown returns false when layer is already at bottom of base group", () => {
     manager = new LayerManager(map, [
-      { id: "a", name: "A", isBase: false },
-      { id: "base1", name: "Base1", isBase: true },
+      { id: "a", name: "A", group: "overlay" },
+      { id: "base1", name: "Base1", group: "base" },
     ]);
     expect(manager.moveLayerDown("base1")).toBe(false);
   });
 
   it("moveLayerUp returns false when layer is the only overlay", () => {
     manager = new LayerManager(map, [
-      { id: "a", name: "A", isBase: false },
-      { id: "base1", name: "Base1", isBase: true },
+      { id: "a", name: "A", group: "overlay" },
+      { id: "base1", name: "Base1", group: "base" },
     ]);
     expect(manager.moveLayerUp("a")).toBe(false);
   });
 
   it("moveLayerUp returns false when layer is the only base map", () => {
     manager = new LayerManager(map, [
-      { id: "a", name: "A", isBase: false },
-      { id: "base1", name: "Base1", isBase: true },
+      { id: "a", name: "A", group: "overlay" },
+      { id: "base1", name: "Base1", group: "base" },
     ]);
     expect(manager.moveLayerUp("base1")).toBe(false);
   });
 
   it("moveLayerDown calls enforceOrder", () => {
     manager = new LayerManager(map, [
-      { id: "a", name: "A", isBase: false },
-      { id: "b", name: "B", isBase: false },
+      { id: "a", name: "A", group: "overlay" },
+      { id: "b", name: "B", group: "overlay" },
     ]);
     const enforceSpy = vi.spyOn(manager, "enforceOrder");
     manager.moveLayerDown("a");
@@ -2816,9 +2823,9 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
     vi.clearAllTimers();
     window.localStorage.clear();
     manager = new LayerManager(map, [
-      { id: "a", name: "A", isBase: false },
-      { id: "b", name: "B", isBase: false },
-      { id: "c", name: "C", isBase: false },
+      { id: "a", name: "A", group: "overlay" },
+      { id: "b", name: "B", group: "overlay" },
+      { id: "c", name: "C", group: "overlay" },
     ]);
     const onLayerChange = vi.fn();
     manager.events.on(EVENTS.LAYER_CHANGE, onLayerChange);
@@ -2844,8 +2851,8 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
     // check and the early return, these catch it; the per-case behavior itself
     // is covered by the boundary tests above.
     manager = new LayerManager(map, [
-      { id: "a", name: "A", isBase: false },
-      { id: "base1", name: "Base1", isBase: true },
+      { id: "a", name: "A", group: "overlay" },
+      { id: "base1", name: "Base1", group: "base" },
     ]);
     // Spy before the act: an unspy'd method assertion is a no-op claim.
     const enforceSpy = vi.spyOn(manager, "enforceOrder");
@@ -2967,7 +2974,7 @@ describe("LayerManager user-assigned names", () => {
     const extLayer = { options: {} };
 
     manager = new LayerManager(map, [
-      { id: "ext", name: "Provider Layer", isBase: false, layer: extLayer },
+      { id: "ext", name: "Provider Layer", group: "overlay", layer: extLayer },
     ]);
     manager.ui = new LayerUI(manager);
     manager.attachUI(document.createElement("div"));
@@ -3002,7 +3009,7 @@ describe("LayerManager user-assigned names", () => {
     // before `attachUI` — but after the LayerManager constructor, which has
     // already built the registry that loadPersistedState reads against.
     const fresh = new LayerManager(map, [
-      { id: "ext", name: "Provider Layer", isBase: false, layer: { options: {} } },
+      { id: "ext", name: "Provider Layer", group: "overlay", layer: { options: {} } },
     ]);
     fresh.ui = new LayerUI(fresh);
     window.localStorage.setItem(
@@ -3025,7 +3032,7 @@ describe("LayerManager user-assigned names", () => {
     // rename survives the attach and is projected the moment the layer
     // registers. A registry filter here would have reverted it on every reload.
     const fresh = new LayerManager(map, [
-      { id: "ext", name: "Provider Layer", isBase: false, layer: { options: {} } },
+      { id: "ext", name: "Provider Layer", group: "overlay", layer: { options: {} } },
     ]);
     fresh.ui = new LayerUI(fresh);
     window.localStorage.setItem(
@@ -3046,7 +3053,7 @@ describe("LayerManager user-assigned names", () => {
     // A fresh id has no existing entry, so the caller's `opts.name` wins
     // instead of the registry defaulting to the id.
     const fresh = new LayerManager(map, [
-      { id: "fresh", name: "Fresh Layer", isBase: false, layer: { options: {} } },
+      { id: "fresh", name: "Fresh Layer", group: "overlay", layer: { options: {} } },
     ]);
 
     expect(fresh.layerRegistry.get("fresh")?.name).toBe("Fresh Layer");
@@ -3131,28 +3138,43 @@ describe("LayerManager user-assigned names", () => {
 
     it("caps the map at the highest registered layer's maxZoom (basemaps + data)", () => {
       const m = freshManager();
-      m.registerLayer({ id: "base16", name: "Base16", isBase: true, layer: tile(16) });
-      m.registerLayer({ id: "base20", name: "Base20", isBase: true, layer: tile(20) });
-      m.registerLayer({ id: "data22", name: "Data22", isBase: false, layer: tile(22) });
+      m.registerLayer({ id: "base16", name: "Base16", group: "base", layer: tile(16) });
+      m.registerLayer({ id: "base20", name: "Base20", group: "base", layer: tile(20) });
+      m.registerLayer({
+        id: "data22",
+        name: "Data22",
+        group: "overlay",
+        layer: tile(22),
+      });
       m.enforceOrder();
       expect(map.options.maxZoom).toBe(22);
     });
 
     it("raises the ceiling when a higher layer registers later", () => {
       const m = freshManager();
-      m.registerLayer({ id: "base16", name: "Base16", isBase: true, layer: tile(16) });
+      m.registerLayer({ id: "base16", name: "Base16", group: "base", layer: tile(16) });
       m.enforceOrder();
       expect(map.options.maxZoom).toBe(16);
 
-      m.registerLayer({ id: "data22", name: "Data22", isBase: false, layer: tile(22) });
+      m.registerLayer({
+        id: "data22",
+        name: "Data22",
+        group: "overlay",
+        layer: tile(22),
+      });
       m.enforceOrder();
       expect(map.options.maxZoom).toBe(22);
     });
 
     it("lowers the ceiling when the highest layer is unregistered", () => {
       const m = freshManager();
-      m.registerLayer({ id: "base16", name: "Base16", isBase: true, layer: tile(16) });
-      m.registerLayer({ id: "data22", name: "Data22", isBase: false, layer: tile(22) });
+      m.registerLayer({ id: "base16", name: "Base16", group: "base", layer: tile(16) });
+      m.registerLayer({
+        id: "data22",
+        name: "Data22",
+        group: "overlay",
+        layer: tile(22),
+      });
       m.enforceOrder();
       expect(map.options.maxZoom).toBe(22);
 
@@ -3169,7 +3191,7 @@ describe("LayerManager user-assigned names", () => {
 
     it("does not override an author-declared map.maxZoom", () => {
       const m = freshManager(25);
-      m.registerLayer({ id: "base16", name: "Base16", isBase: true, layer: tile(16) });
+      m.registerLayer({ id: "base16", name: "Base16", group: "base", layer: tile(16) });
       m.enforceOrder();
       expect(map.options.maxZoom).toBe(25);
     });

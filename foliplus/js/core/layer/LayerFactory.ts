@@ -54,7 +54,9 @@ interface LayerFactoryDeps {
    * rather than assumed. Null when the id never joined a registry (the
    * lightweight LayerAPI has no ordering pass either): no slot exists to price.
    */
-  slotOf?: (id: string) => { index: number; count: number; isBase: boolean } | null;
+  slotOf?: (
+    id: string,
+  ) => { index: number; count: number; group: "base" | "overlay" } | null;
 }
 
 // core/layer is not a component dir, so CONF is unavailable here — the module
@@ -277,7 +279,7 @@ class LayerFactory {
       layerOpts = {
         ...commonLayerOpts,
         name: opts.name,
-        isBase: false,
+        group: "overlay",
         layer: mainLayer,
         paneName: basePaneName,
         paneSpecs,
@@ -417,7 +419,7 @@ class LayerFactory {
 
       layerOpts = {
         ...commonLayerOpts,
-        isBase: true,
+        group: "base",
         baseInsert: "bottom",
         persistOrder: opts.persistOrder,
         canvas: face,

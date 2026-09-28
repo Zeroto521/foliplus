@@ -29,7 +29,7 @@ describe("LayerUI menu", () => {
       manager.registerLayer({
         id: "overlay2",
         name: "Circles",
-        isBase: false,
+        group: "overlay",
         layer: { options: {}, eachLayer: vi.fn() },
       });
     }
@@ -223,7 +223,7 @@ describe("LayerUI menu", () => {
       manager.registerLayer({
         id: "delegated1",
         name: "Heatmap",
-        isBase: false,
+        group: "overlay",
         layer: { options: {}, eachLayer: vi.fn() },
         styleSetters: { labelShow: vi.fn() },
       } as any);
@@ -549,7 +549,7 @@ describe("LayerUI menu", () => {
       manager.registerLayer({
         id: "measure1",
         name: "Measure",
-        isBase: false,
+        group: "overlay",
         layer: { options: {}, eachLayer: vi.fn() },
         styleSetters: { labelShow: vi.fn() },
       } as never);
@@ -634,7 +634,7 @@ describe("LayerUI menu", () => {
       manager.registerLayer({
         id: "measure1",
         name: "Measure",
-        isBase: false,
+        group: "overlay",
         layer: { options: {}, eachLayer: vi.fn() },
         styleSetters: {},
       } as never);

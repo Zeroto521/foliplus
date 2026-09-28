@@ -84,6 +84,7 @@
 - `ScaleControl`: drop the `unit` parameter — a breaking change against the v0.3.x API, since `unit=` now raises `TypeError`; scale bars always render metric units and `isMetric` is no longer exported to the JS `CONF` ([#186](https://github.com/Zeroto521/foliplus/pull/186))
 - `HeatmapControl`: remove the `field` parameter — a breaking change; the candidate list already enumerates all numeric shapes, so user selection covers every case ([#375](https://github.com/Zeroto521/foliplus/pull/375))
 - `LayerControl`: remove the `onToggle` callback from `registerLayer` / `createCanvas` / `createColor` — breaking against the v0.3.x API; visibility rides the surface's `capabilities.visibility` carrier (canvas HIDDEN class / map membership), `LayerAPI.setVisible` for programmatic control ([#518](https://github.com/Zeroto521/foliplus/pull/518))
+- `LayerControl`: rename `isBase` to `group: "base" | "overlay"` — breaking against the v0.3.x API; the field lives on `LayerInfo` / `RegisterLayerOpts`, the z-slot opts, and the Python-rendered `data` payload — migrate `isBase: true` to `group: "base"` and `isBase: false` to `group: "overlay"`
 
 ### Fixed
 

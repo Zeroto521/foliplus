@@ -106,7 +106,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
         {
           id: "overlay1",
           name: "Polygons",
-          isBase: false,
+          group: "overlay",
           layer: testPolyLayer,
         },
       ]);
@@ -132,7 +132,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
         {
           id: "overlay1",
           name: "Polygons",
-          isBase: false,
+          group: "overlay",
           layer: testPolyLayer,
         },
       ]);
@@ -162,7 +162,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
         {
           id: "overlay1",
           name: "Polygons",
-          isBase: false,
+          group: "overlay",
           layer: testPolyLayer,
         },
       ]);
@@ -219,7 +219,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
         {
           id: "overlay1",
           name: "Polygons",
-          isBase: false,
+          group: "overlay",
           layer: testPolyLayer,
         },
       ]);
@@ -228,7 +228,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       m.pendingRegistrations.push({
         id: "later",
         name: "Later",
-        isBase: false,
+        group: "overlay",
         layer: testPolyLayer,
       } as any);
 
@@ -259,7 +259,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
         {
           id: "overlay1",
           name: "Polygons",
-          isBase: false,
+          group: "overlay",
           layer: testPolyLayer,
         },
       ]);
@@ -306,8 +306,8 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
         }),
       );
       const m = new LayerManager(map, [
-        { id: "overlay1", name: "O", isBase: false, layer: testPolyLayer },
-        { id: "base1", name: "B", isBase: true, layer: new TileLayer() },
+        { id: "overlay1", name: "O", group: "overlay", layer: testPolyLayer },
+        { id: "base1", name: "B", group: "base", layer: new TileLayer() },
       ]);
       const u = new LayerUI(m);
 
@@ -331,7 +331,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
         }),
       );
       const m = new LayerManager(map, [
-        { id: "overlay1", name: "O", isBase: false, layer: testPolyLayer },
+        { id: "overlay1", name: "O", group: "overlay", layer: testPolyLayer },
       ]);
       const u = new LayerUI(m);
 
@@ -356,10 +356,10 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
         }),
       );
       const m = new LayerManager(map, [
-        { id: "a", name: "A", isBase: false, layer: testPolyLayer },
-        { id: "b", name: "B", isBase: false, layer: testPolyLayer },
-        { id: "c", name: "C", isBase: false, layer: testPolyLayer },
-        { id: "d", name: "D", isBase: false, layer: testPolyLayer },
+        { id: "a", name: "A", group: "overlay", layer: testPolyLayer },
+        { id: "b", name: "B", group: "overlay", layer: testPolyLayer },
+        { id: "c", name: "C", group: "overlay", layer: testPolyLayer },
+        { id: "d", name: "D", group: "overlay", layer: testPolyLayer },
       ]);
       const u = new LayerUI(m);
 
@@ -374,7 +374,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
     it("dropPersistedLayerState clears the fill maps and their provenance", () => {
       const { map } = makeTestMap();
       const m = new LayerManager(map, [
-        { id: "overlay1", name: "O", isBase: false, layer: testPolyLayer },
+        { id: "overlay1", name: "O", group: "overlay", layer: testPolyLayer },
       ]);
       const u = new LayerUI(m);
       u.hiddenIds.add("overlay1");
@@ -404,7 +404,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       const { map } = makeTestMap();
       window.localStorage.setItem(CONST.STORAGE.KEY, "not-json");
       const m = new LayerManager(map, [
-        { id: "overlay1", name: "O", isBase: false, layer: testPolyLayer },
+        { id: "overlay1", name: "O", group: "overlay", layer: testPolyLayer },
       ]);
       const u = new LayerUI(m);
 
@@ -423,7 +423,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
         {
           id: "overlay1",
           name: "Polygons",
-          isBase: false,
+          group: "overlay",
           layer: testPolyLayer,
         },
       ]);
@@ -453,7 +453,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
         {
           id: "overlay1",
           name: "Polygons",
-          isBase: false,
+          group: "overlay",
           layer: testPolyLayer,
         },
       ]);
@@ -474,7 +474,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
     it("debounces rapid saves into one localStorage write", () => {
       const { map } = makeTestMap();
       const m = new LayerManager(map, [
-        { id: "overlay1", name: "O", isBase: false, layer: testPolyLayer },
+        { id: "overlay1", name: "O", group: "overlay", layer: testPolyLayer },
       ]);
       const u = new LayerUI(m);
 
@@ -519,8 +519,8 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
     it("does not pollute hiddenIds when color layer activates", () => {
       const { map } = makeTestMap();
       const m = new LayerManager(map, [
-        { id: "overlay1", name: "O", isBase: false, layer: testPolyLayer },
-        { id: "base1", name: "OSM", isBase: true, layer: new TileLayer() },
+        { id: "overlay1", name: "O", group: "overlay", layer: testPolyLayer },
+        { id: "base1", name: "OSM", group: "base", layer: new TileLayer() },
       ]);
       const u = new LayerUI(m);
       u.hiddenIds = new Set(["overlay1"]);
@@ -561,7 +561,12 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
     // Build a fixture with an explicit set of layers and control the 300ms
     // initTypesAndVisibility timeout so the full attach flow runs deterministically.
     const attachFixture = (
-      data: Array<{ id: string; name: string; isBase?: boolean; layer?: any }>,
+      data: Array<{
+        id: string;
+        name: string;
+        group?: "base" | "overlay";
+        layer?: any;
+      }>,
     ) => {
       window.CONF.name = "LayerControl";
       window.CONF.locale_code = "en";
@@ -626,18 +631,18 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
         }),
       );
       const { ui, map } = attachFixture([
-        { id: "overlay1", name: "O", isBase: false, layer: poly },
+        { id: "overlay1", name: "O", group: "overlay", layer: poly },
         {
           id: "base1",
           name: "B1",
-          isBase: true,
+          group: "base",
           layer: base1,
           paneName: "tilePane",
         },
         {
           id: "base2",
           name: "B2",
-          isBase: true,
+          group: "base",
           layer: base2,
           paneName: "tilePane",
         },
@@ -666,7 +671,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
         getBounds: vi.fn(() => ({ isValid: vi.fn(() => true) })),
       };
       const { ui, map } = attachFixture([
-        { id: "overlay1", name: "O", isBase: false, layer: poly },
+        { id: "overlay1", name: "O", group: "overlay", layer: poly },
       ]);
 
       const colorItem = ui.uiContainer.querySelector(
@@ -691,11 +696,11 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
         }),
       );
       const { ui, map } = attachFixture([
-        { id: "overlay1", name: "O", isBase: false, layer: poly },
+        { id: "overlay1", name: "O", group: "overlay", layer: poly },
         {
           id: "base1",
           name: "B1",
-          isBase: true,
+          group: "base",
           layer: base1,
           paneName: "tilePane",
         },
@@ -743,8 +748,8 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
         };
       })();
       const m = new LayerManager(map, [
-        { id: "overlay1", name: "O", isBase: false, layer: poly },
-        { id: "base1", name: "B1", isBase: true, layer: baseLayer },
+        { id: "overlay1", name: "O", group: "overlay", layer: poly },
+        { id: "base1", name: "B1", group: "base", layer: baseLayer },
         { id: "canvas1", name: "Canvas", layer: null, canvas },
       ]);
       const u = new LayerUI(m);
@@ -991,7 +996,7 @@ describe("event-driven row refresh", () => {
       manager.registerLayer({
         id: "overlay2",
         name: "Circles",
-        isBase: false,
+        group: "overlay",
         layer: { options: {}, eachLayer: vi.fn() },
       });
     }
@@ -1057,7 +1062,7 @@ describe("event-driven row refresh", () => {
     manager.registerLayer({
       id: "custom1",
       name: "Custom",
-      isBase: false,
+      group: "overlay",
       iconSvg,
     });
     const info = manager.layerRegistry.get("custom1")!;
