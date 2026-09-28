@@ -1745,6 +1745,74 @@ class TestLayerControlBrowser:
             assert result["before"] is True
             assert result["after"] is False
 
+    def test_sole_basemap_opacity_zero_shows_hatch(self, browser, tmp_path):
+        """Dragging the sole basemap's opacity slider to 0 lights the no-basemap hatch.
+
+        The judgement in `syncNoBasemap` (effective visibility = intent
+        AND `opacity ?? 1 > 0`) is unit-tested; the trigger is the slider
+        drag, which goes through `commitOpacityPct` → `applyProjection`.
+        This is the end-to-end bridge — the failure mode is a correct
+        judgement that is never called, so the hatch stays off after the
+        user has visually emptied every basemap. Overlay opacity must not
+        touch the hatch (unrelated to basemap visibility).
+        """
+        # Default folium map carries one OSM TileLayer; LayerControl picks
+        # it up on attach as the sole base row. Hiding that one is enough
+        # to leave the map with no visible basemap — which is exactly the
+        # T207 scenario.
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl().add_to(m)
+        _expand_panel(m)
+        # Expose the control instance for the probe (dev build keeps names).
+        html, n = re.subn(
+            r"(new LayerControl\(\{ position: CONF\.position \}\)\.addTo\(map\);)",
+            r"window.__layerCtrl = \1",
+            m.get_root().render(),
+            count=1,
+        )
+        assert n == 1, "LayerControl instantiation not found"
+        html_path = tmp_path / "test_sole_basemap_opacity.html"
+        html_path.write_text(html, encoding="utf-8")
+
+        with use_raw_page(browser.new_page) as page:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=10000,
+            )
+            page.wait_for_timeout(500)
+
+            result = page.evaluate(_js("LayerControl/base_opacity_e2e"))
+            assert result is not None
+            assert result.get("error") is None, f"setup failed: {result}"
+
+            # Sole base layer, untouched: no hatch.
+            assert result["before"]["noBaseMap"] is False, result
+
+            # Drag the sole basemap's opacity to 0: hatch on.
+            assert result["atZero"]["noBaseMap"] is True, (
+                f"opacity=0 on sole basemap did not light the hatch: {result}"
+            )
+            assert result["atZero"]["liOpacity"] == 0, result
+
+            # Overlay opacity is unrelated to basemap visibility. Assert the
+            # slider actually rendered (a bare featureGroup would not) so the
+            # assertion is not vacuous.
+            assert result["overlayZero"]["sliderFound"] is True, (
+                f"overlay had no opacity slider — vacuous assertion: {result}"
+            )
+            assert result["overlayZero"]["liOpacity"] == 0, result
+            assert result["overlayZero"]["noBaseMap"] is True, (
+                f"overlay opacity must not clear the hatch: {result}"
+            )
+
+            # Back to 100: hatch off again.
+            assert result["atHundred"]["noBaseMap"] is False, (
+                f"opacity=1 did not clear the hatch: {result}"
+            )
+            assert result["atHundred"]["liOpacity"] == 1, result
+
     def test_create_canvas_basic_api(self, browser, tmp_path):
         """createCanvas returns canvas API object with expected methods."""
         with use_page(self._make_page, browser, tmp_path) as (page, _):
