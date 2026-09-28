@@ -11,7 +11,17 @@ import * as SVGs from "../../icon.js";
 import type { LayerUI } from "../index.js";
 import { bindBorderRowShell, buildBorderRowShell } from "./border.js";
 import { appendResetFooter } from "./frame.js";
-import { DIM_ORDER, getDimension, hasAnyDimension } from "./registry.js";
+import { DIM_ORDER, gatedRows, hasAnyDimension } from "./registry.js";
+
+/** The delegated drawer's Layer-row order: `DIM_ORDER` minus the two
+ *  vector-only rows. `fill` and `border` are never delegated — the vector
+ *  write path (`setStyle`) is unreliable for layers whose component redraws
+ *  its own geometry (e.g. Measure), and fill has no delegated rendering path
+ *  at all. Only LayerControl-owned rows (opacity, zoomRange) ride the
+ *  delegated sweep; they survive a component's redraw. */
+const DELEGATED_DIM_ORDER = DIM_ORDER.filter(
+  key => key !== "fill" && key !== "border",
+);
 
 /** Whether the layer delegates its style to the drawer via styleSetters
  *  (third-party canvas layers: Heatmap, Measure). The ⋮ menu's Style item
@@ -142,23 +152,15 @@ const renderDelegatedStylePanel = (
   // surface can honestly carry the write. A layer with `opacity: "none"`
   // (MarkerCluster) would otherwise see a slider that writes nothing but
   // persists the value — a lie that survives reload (6.2).
-  // Row iteration follows `DIM_ORDER`, the same authoritative display
-  // order the annotation panel uses (see `./registry.js`). Registration
-  // order is not display order — it tracks the ES module import graph,
-  // which varies across load graphs. The delegated-only border row is
-  // prepended before the registry sweep: it is not a registry dimension
-  // (it writes through `styleSetters`, a path the vector border descriptor
-  // does not own). `fill` and `border` are skipped in the sweep — the
-  // vector write path (`setStyle`) is unreliable for layers whose component
-  // redraws its own geometry (e.g. Measure), and fill has no delegated
-  // rendering path at all. Only opacity and zoomRange ride the sweep:
-  // they are LayerControl-owned and survive a component's redraw.
+  // Row iteration follows `DELEGATED_DIM_ORDER` (see the constant above) —
+  // the same gate sweep the annotation panel uses. The delegated-only border
+  // row is prepended before the registry sweep: it is not a registry
+  // dimension (it writes through `styleSetters`, a path the vector border
+  // descriptor does not own).
   if (borderRow || hasAnyDimension(ui, layerId)) {
     if (borderRow) content.appendChild(borderRow);
-    for (const key of DIM_ORDER) {
-      if (key === "fill" || key === "border") continue;
-      const dim = getDimension(key);
-      if (dim?.gate(ui, layerId)) content.appendChild(dim.row(ui, layerId));
+    for (const dim of gatedRows(ui, layerId, DELEGATED_DIM_ORDER)) {
+      content.appendChild(dim.row(ui, layerId));
     }
   }
   if (root.children.length) {
@@ -170,4 +172,9 @@ const renderDelegatedStylePanel = (
   return panel;
 };
 
-export { buildBorderRow, layerHasStyleDelegation, renderDelegatedStylePanel };
+export {
+  DELEGATED_DIM_ORDER,
+  buildBorderRow,
+  layerHasStyleDelegation,
+  renderDelegatedStylePanel,
+};

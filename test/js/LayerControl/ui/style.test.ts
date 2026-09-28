@@ -1186,6 +1186,92 @@ describe("LayerUI style panel", () => {
     expect(borderRows(panel)).toHaveLength(1);
   });
 
+  it("panel and delegated share one gate sweep — delegated rows ≡ panel Layer rows minus vector-only dims", () => {
+    // Single gatedRows implementation behind both consumers: the rows the
+    // delegated drawer renders through the registry sweep must be exactly
+    // the rows the annotation panel renders for the same keys. Only
+    // styleSetters differ between the two paths; capabilities are made
+    // identical so the gates answer identically.
+    installLeafletGlobals();
+    const caps = {
+      fill: "native",
+      stroke: "native",
+      opacity: "pane",
+      zoomRange: "pane",
+      annotation: "none",
+    };
+    const rowSel = [
+      ".foliplus-style-fill-row",
+      ".foliplus-style-border-row",
+      ".foliplus-style-opacity-range",
+      ".foliplus-style-zoom-range-row",
+    ];
+
+    // Path A — annotation panel (no styleSetters): a vector layer whose
+    // surface admits all four Layer dims.
+    const leaf = {
+      options: {
+        color: "#000000",
+        weight: 2,
+        fillColor: "#aabbcc",
+        fillOpacity: 0.5,
+      },
+      setStyle: vi.fn(),
+      on: vi.fn(),
+    };
+    manager.registerLayer({
+      id: "sweepVector",
+      name: "Vector",
+      group: "overlay",
+      layer: {
+        options: {},
+        eachLayer: vi.fn((fn: (child: unknown) => void) => fn(leaf)),
+        getBounds: vi.fn(() => ({
+          isValid: vi.fn(() => true),
+          getSouthWest: () => ({ lat: 0, lng: 0 }),
+          getNorthEast: () => ({ lat: 1, lng: 1 }),
+        })),
+      } as never,
+    });
+    ui.fieldCache.set("sweepVector", [{ name: "count", numeric: true }]);
+    const surfaceV = manager.surfaceFor(
+      manager.layerRegistry.get("sweepVector")!,
+    ) as unknown as { capabilities: Record<string, unknown> };
+    surfaceV.capabilities = caps;
+
+    const itemV = findItem(ui, "sweepVector");
+    ui.openStylePanel("sweepVector");
+    const panelV = panelOf(itemV)!;
+    const panelRows = rowSel.filter(sel => panelV.querySelector(sel));
+    expect(panelRows).toEqual(rowSel);
+    ui.closeStylePanel(false);
+
+    // Path B — delegated drawer (styleSetters present): the same
+    // capabilities, so the registry gates answer the same way. The sweep
+    // must render exactly the non-vector-only rows.
+    manager.registerLayer({
+      id: "sweepDeleg",
+      name: "Deleg",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: true }),
+      styleSetters: { labelShow: vi.fn() },
+      styleDefaultsProvider: () => ({ labelShow: true }),
+    });
+    const surfaceD = manager.surfaceFor(
+      manager.layerRegistry.get("sweepDeleg")!,
+    ) as unknown as { capabilities: Record<string, unknown> };
+    surfaceD.capabilities = caps;
+
+    const itemD = findItem(ui, "sweepDeleg");
+    ui.openStylePanel("sweepDeleg");
+    const panelD = panelOf(itemD)!;
+    const delegatedRows = rowSel.filter(sel => panelD.querySelector(sel));
+    expect(delegatedRows).toEqual([
+      ".foliplus-style-opacity-range",
+      ".foliplus-style-zoom-range-row",
+    ]);
+  });
+
   // Row-rendering matrix for the two basemap faces — T190 pins the zoomRange
   // cells. Both basemap kinds now render the zoomRange row: a real GridLayer
   // carries it through native min/maxZoom (the honest carrier), and the

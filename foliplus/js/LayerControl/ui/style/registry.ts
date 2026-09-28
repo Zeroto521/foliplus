@@ -122,9 +122,33 @@ const LABEL_DIM_ORDER = ["annotation"] as const;
 const hasAnyDimension = (ui: LayerUI, layerId: string): boolean =>
   [...registry.values()].some(d => d.gate(ui, layerId));
 
+/** Collect the descriptors whose `gate` passes, in the caller's declared
+ *  order — the one gate pass every panel flavour shares. The annotation
+ *  panel passes `DIM_ORDER` / `LABEL_DIM_ORDER`; the delegated drawer passes
+ *  its own slice (`DELEGATED_DIM_ORDER` in `./delegated.js`). Same single
+ *  implementation behind both consumers.
+ *
+ *  Every key listed in a section order is registered — `registry.test` locks
+ *  the union of both orders against the built-ins — so the lookup cannot
+ *  miss; the cast states that contract instead of branching on a null arm no
+ *  test can reach. */
+const gatedRows = (
+  ui: LayerUI,
+  layerId: string,
+  keys: readonly string[],
+): LayerDimension[] => {
+  const rows: LayerDimension[] = [];
+  for (const key of keys) {
+    const dim = getDimension(key) as LayerDimension;
+    if (dim.gate(ui, layerId)) rows.push(dim);
+  }
+  return rows;
+};
+
 export {
   DIM_ORDER,
   LABEL_DIM_ORDER,
+  gatedRows,
   getDimension,
   hasAnyDimension,
   listDimensions,
