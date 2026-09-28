@@ -204,7 +204,7 @@ class TestBaseControlRendering:
         from foliplus import SearchControl
 
         html = render_control(SearchControl())
-        assert "--ctrl-bg" in html
+        assert "--foliplus-ctrl-bg" in html
 
     # ── BaseControl Python API ──
 
@@ -259,25 +259,25 @@ class TestBaseControlRendering:
         # Shared locale tables table definition is injected exactly once
         assert html.count("window.foliplus._TABLES = {") == 1
         # Common CSS root custom properties definition is injected exactly once
-        assert html.count("--ctrl-bg:") == 1
+        assert html.count("--foliplus-ctrl-bg:") == 1
 
     # ── shared stylesheet design tokens ──
 
     def test_z_index_floating_css_variable(self, base_map: folium.Map):
-        """--z-index-floating CSS custom property is defined in the shared stylesheet."""
+        """--foliplus-z-index-floating CSS custom property is defined in the shared stylesheet."""
         from foliplus import SearchControl
 
         html = render_control(SearchControl())
-        assert "--z-index-floating" in html
+        assert "--foliplus-z-index-floating" in html
         assert "9990" in html
 
     def test_z_index_ladder_tokens(self, base_map: folium.Map):
         """The z-index ladder is fully tokenized in token.css (no magic numbers in components)."""
         css = read_css_dir("foliplus/css/common", "token.css")
-        assert "--z-index-floating" in css
-        assert "--z-index-hint" in css
-        assert "--z-index-fullscreen" in css
-        assert "--z-index-top" in css
+        assert "--foliplus-z-index-floating" in css
+        assert "--foliplus-z-index-hint" in css
+        assert "--foliplus-z-index-fullscreen" in css
+        assert "--foliplus-z-index-top" in css
 
     def test_ctrl_fold_classes(self, base_map: folium.Map):
         """ctrl-fold is a common pattern for expand/collapse panels."""
@@ -314,11 +314,11 @@ class TestBaseControlRendering:
         assert "pointer-events: none" in html
 
     def test_panel_max_height_variable(self, base_map: folium.Map):
-        """The shared stylesheet defines --panel-max-height."""
+        """The shared stylesheet defines --foliplus-panel-max-height."""
         from foliplus import SearchControl
 
         html = render_control(SearchControl())
-        assert "--panel-max-height" in html
+        assert "--foliplus-panel-max-height" in html
         assert "panel-max-height" in html
 
     def test_unified_button_hover_border_radius(self, base_map: folium.Map):
@@ -326,10 +326,10 @@ class TestBaseControlRendering:
         from foliplus import SearchControl
 
         html = render_control(SearchControl())
-        assert "border-radius: var(--radius-sm)" in html
+        assert "border-radius: var(--foliplus-radius-sm)" in html
 
     def test_collapsed_shadow_shared(self, base_map: folium.Map):
-        """foliplus-ctrl-fold.foliplus-is-collapsed uses --shadow-ctrl-strong (shared shadow for all collapsed controls)."""
+        """foliplus-ctrl-fold.foliplus-is-collapsed uses --foliplus-shadow-ctrl-strong (shared shadow for all collapsed controls)."""
         from foliplus import SearchControl
 
         html = render_control(SearchControl())
@@ -338,7 +338,7 @@ class TestBaseControlRendering:
         assert "ctrl-fold.foliplus-is-collapsed" in html
 
     def test_expanded_shadow_shared(self, base_map: folium.Map):
-        """foliplus-ctrl-fold.foliplus-is-expanded uses --panel-shadow (shared shadow for all expanded controls)."""
+        """foliplus-ctrl-fold.foliplus-is-expanded uses --foliplus-panel-shadow (shared shadow for all expanded controls)."""
         from foliplus import SearchControl
 
         html = render_control(SearchControl())

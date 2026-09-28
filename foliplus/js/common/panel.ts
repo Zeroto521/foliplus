@@ -36,9 +36,9 @@ const adjustPanelZIndex = (opts: {
     if (section) section.style.zIndex = "";
     return;
   }
-  // Read --z-index-floating from :root (defined in CSS), then offset bar and section.
+  // Read --foliplus-z-index-floating from :root (defined in CSS), then offset bar and section.
   const base = parseInt(
-    cssVar(document.documentElement, "--z-index-floating", "500"),
+    cssVar(document.documentElement, "--foliplus-z-index-floating", "500"),
     10,
   );
   if (bar) bar.style.zIndex = String(base + 1);

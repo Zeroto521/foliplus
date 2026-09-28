@@ -1,17 +1,17 @@
 .foliplus-layer-ctrl {
   /* ── Layer row highlight while focus is active (list ↔ map linkage) ── */
   .foliplus-layer-item.foliplus-is-focusing {
-    border-left-color: var(--accent-primary);
-    background: color-mix(in srgb, var(--accent-primary) 12%, transparent);
+    border-left-color: var(--foliplus-accent-primary);
+    background: color-mix(in srgb, var(--foliplus-accent-primary) 12%, transparent);
     animation: foliplus-layer-focus-pulse 2.2s ease-in-out 2;
   }
   @keyframes foliplus-layer-focus-pulse {
     0%,
     100% {
-      background: color-mix(in srgb, var(--accent-primary) 12%, transparent);
+      background: color-mix(in srgb, var(--foliplus-accent-primary) 12%, transparent);
     }
     50% {
-      background: color-mix(in srgb, var(--accent-primary) 22%, transparent);
+      background: color-mix(in srgb, var(--foliplus-accent-primary) 22%, transparent);
     }
   }
 
@@ -20,20 +20,20 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: var(--space-xl);
-    height: var(--space-xl);
+    width: var(--foliplus-space-xl);
+    height: var(--foliplus-space-xl);
   }
   input[type="checkbox"] {
     position: relative;
     appearance: none;
     margin: 0;
-    width: var(--space-xl);
-    height: var(--space-xl);
-    border: var(--border-thin) solid var(--input-border);
-    border-radius: var(--radius-sm);
-    background: var(--input-bg);
+    width: var(--foliplus-space-xl);
+    height: var(--foliplus-space-xl);
+    border: var(--foliplus-border-thin) solid var(--foliplus-input-border);
+    border-radius: var(--foliplus-radius-sm);
+    background: var(--foliplus-input-bg);
     cursor: pointer;
-    transition: box-shadow var(--transition-fast);
+    transition: box-shadow var(--foliplus-transition-fast);
     /* background-color and border-color intentionally NOT animated: the
        checkbox is destroyed and re-created on every list rebuild
        (fold click -> renderInitialList), so a transition on either would
@@ -44,8 +44,8 @@
 
     /* ── Checked & indeterminate (partial selection) share active bg ── */
     &:is(:checked, :indeterminate) {
-      background: var(--accent-primary);
-      border-color: var(--accent-primary);
+      background: var(--foliplus-accent-primary);
+      border-color: var(--foliplus-accent-primary);
 
       /* ── Shared ::after positioning for both states ── */
       &::after {
@@ -55,7 +55,7 @@
         top: 0;
         width: 100%;
         height: 100%;
-        background-size: var(--size-12);
+        background-size: var(--foliplus-size-12);
         background-position: center;
         background-repeat: no-repeat;
       }

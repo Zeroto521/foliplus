@@ -86,7 +86,7 @@ class TestFullscreeControlRendering:
         from conftest import read_css
 
         css = read_css("foliplus/css/FullscreenControl.css")
-        assert "var(--z-index-fullscreen)" in css
+        assert "var(--foliplus-z-index-fullscreen)" in css
         # The rule uses the token; the literal may only appear in a comment.
         assert "z-index: 99999" not in css
 

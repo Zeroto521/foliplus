@@ -49,7 +49,7 @@ const drawHexagon = (
   }
 };
 
-/** Resolve label styling from the shared --label-* tokens. Runtime
+/** Resolve label styling from the shared --foliplus-label-* tokens. Runtime
  *  size/color override the token defaults so the panel and drawer can
  *  restyle hex labels without a CSS override. */
 const resolveLabelStyle = (

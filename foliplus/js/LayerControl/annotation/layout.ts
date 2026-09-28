@@ -13,13 +13,13 @@
 // one may hide it.
 import { type Box, planVisible, withinRect } from "#core/labelCollision.js";
 
-/** The label typography the renderer will apply; taken from the shared --label-*
+/** The label typography the renderer will apply; taken from the shared --foliplus-label-*
  *  tokens by the renderer and handed in as plain numbers. */
 interface LabelSpec {
   fontFamily: string;
   fontSize: number;
   fontWeight: string;
-  /** Halo stroke width (the shared --label-halo-width). The box must grow by
+  /** Halo stroke width (the shared --foliplus-label-halo-width). The box must grow by
    *  it, or two labels whose text is clear of each other still have their black
    *  halos overlap into a smudge when the map is zoomed out. */
   haloWidth: number;

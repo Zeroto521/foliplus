@@ -8,102 +8,106 @@
     Rule: layout spacing follows this scale; border allows 1px for visual sharpness.
     Rule: component/business dimensions (e.g. 30/36/280/400) can be semantic exceptions.
   */
-  --size-2: 2px;
-  --size-4: 4px;
-  --size-6: 6px;
-  --size-8: 8px;
-  --size-12: 12px;
-  --size-16: 16px;
-  --size-20: 20px;
-  --size-24: 24px;
+  --foliplus-size-2: 2px;
+  --foliplus-size-4: 4px;
+  --foliplus-size-6: 6px;
+  --foliplus-size-8: 8px;
+  --foliplus-size-12: 12px;
+  --foliplus-size-16: 16px;
+  --foliplus-size-20: 20px;
+  --foliplus-size-24: 24px;
 
   /* ── Alpha Scale ── */
-  --alpha-05: 0.05;
-  --alpha-15: 0.15;
-  --alpha-20: 0.2;
-  --alpha-30: 0.3;
-  --alpha-50: 0.5;
-  --alpha-70: 0.7;
-  --alpha-80: 0.8;
-  --alpha-95: 0.95;
+  --foliplus-alpha-05: 0.05;
+  --foliplus-alpha-15: 0.15;
+  --foliplus-alpha-20: 0.2;
+  --foliplus-alpha-30: 0.3;
+  --foliplus-alpha-50: 0.5;
+  --foliplus-alpha-70: 0.7;
+  --foliplus-alpha-80: 0.8;
+  --foliplus-alpha-95: 0.95;
 
   /* ── Neutral Palette ── */
-  --neutral-0: #fff;
-  --neutral-100: #f5f5f5;
-  --neutral-300: #e0e0e0;
-  --neutral-500: #aaa;
-  --neutral-800: #333;
+  --foliplus-neutral-0: #fff;
+  --foliplus-neutral-100: #f5f5f5;
+  --foliplus-neutral-300: #e0e0e0;
+  --foliplus-neutral-500: #aaa;
+  --foliplus-neutral-800: #333;
 
   /* ── Brand Red Palette ── */
-  --red-50: #fde8e8;
-  --red-500: #e74c3c;
-  --red-600: #c0392b;
-  --red-rgb: 231, 76, 60;
+  --foliplus-red-50: #fde8e8;
+  --foliplus-red-500: #e74c3c;
+  --foliplus-red-600: #c0392b;
+  --foliplus-red-rgb: 231, 76, 60;
 
   /* ── Colors ── */
-  --ctrl-bg: var(--neutral-0);
-  --ctrl-hover-bg: var(--neutral-100);
+  --foliplus-ctrl-bg: var(--foliplus-neutral-0);
+  --foliplus-ctrl-hover-bg: var(--foliplus-neutral-100);
 
-  --text-primary: var(--neutral-800);
-  --text-muted: var(--neutral-500);
+  --foliplus-text-primary: var(--foliplus-neutral-800);
+  --foliplus-text-muted: var(--foliplus-neutral-500);
 
-  --input-bg: var(--neutral-0);
-  --input-border: var(--neutral-300);
-  --input-focus-border: var(--red-500);
+  --foliplus-input-bg: var(--foliplus-neutral-0);
+  --foliplus-input-border: var(--foliplus-neutral-300);
+  --foliplus-input-focus-border: var(--foliplus-red-500);
 
-  --divider-color: var(--neutral-300);
+  --foliplus-divider-color: var(--foliplus-neutral-300);
 
-  --panel-header-bg: var(--neutral-100);
-  --panel-header-hover: var(--neutral-300);
+  --foliplus-panel-header-bg: var(--foliplus-neutral-100);
+  --foliplus-panel-header-hover: var(--foliplus-neutral-300);
 
-  --accent-primary: var(--red-500);
-  --accent-hover: var(--red-600);
-  --accent-light: var(--red-50);
+  --foliplus-accent-primary: var(--foliplus-red-500);
+  --foliplus-accent-hover: var(--foliplus-red-600);
+  --foliplus-accent-light: var(--foliplus-red-50);
 
-  --btn-primary-bg: var(--accent-primary);
-  --btn-primary-hover: var(--accent-hover);
-  --btn-secondary-border: var(--neutral-300);
+  --foliplus-btn-primary-bg: var(--foliplus-accent-primary);
+  --foliplus-btn-primary-hover: var(--foliplus-accent-hover);
+  --foliplus-btn-secondary-border: var(--foliplus-neutral-300);
 
   /* ── Effects ── */
   /* Semi-transparent red glow used in focus rings, breathing animation,
      button active-state inset shadow, and ExportControl crop glow. */
-  --accent-soft-shadow: rgba(var(--red-rgb), var(--alpha-50));
+  --foliplus-accent-soft-shadow: rgba(
+    var(--foliplus-red-rgb),
+    var(--foliplus-alpha-50)
+  );
   /* Unified keyboard focus ring: thin accent hairline + soft red glow.
      Single source of truth for all :focus-visible rules across foliplus. */
-  --focus-ring:
-    0 0 0 var(--border-thin) var(--accent-primary),
-    0 0 0 var(--size-4) var(--accent-soft-shadow);
-  --accent-soft-bg: rgba(var(--red-rgb), var(--alpha-05));
-  --ctrl-bg-translucent: rgba(255, 255, 255, var(--alpha-70));
-  --panel-shadow: 0 var(--size-4) var(--size-12) rgba(0, 0, 0, var(--alpha-20));
+  --foliplus-focus-ring:
+    0 0 0 var(--foliplus-border-thin) var(--foliplus-accent-primary),
+    0 0 0 var(--foliplus-size-4) var(--foliplus-accent-soft-shadow);
+  --foliplus-accent-soft-bg: rgba(var(--foliplus-red-rgb), var(--foliplus-alpha-05));
+  --foliplus-ctrl-bg-translucent: rgba(255, 255, 255, var(--foliplus-alpha-70));
+  --foliplus-panel-shadow: 0 var(--foliplus-size-4) var(--foliplus-size-12)
+    rgba(0, 0, 0, var(--foliplus-alpha-20));
 
   /* ── Typography ── */
-  --font-size-xs: 10px;
-  --font-size-sm: 12px;
-  --font-size-md: 14px;
-  --font-weight-normal: 400;
-  --font-weight-medium: 500;
-  --font-weight-semibold: 600;
-  --line-height-hint: 1.4;
-  --line-height-popup: 1.8;
-  --letter-spacing-tight: 0.5px;
+  --foliplus-font-size-xs: 10px;
+  --foliplus-font-size-sm: 12px;
+  --foliplus-font-size-md: 14px;
+  --foliplus-font-weight-normal: 400;
+  --foliplus-font-weight-medium: 500;
+  --foliplus-font-weight-semibold: 600;
+  --foliplus-line-height-hint: 1.4;
+  --foliplus-line-height-popup: 1.8;
+  --foliplus-letter-spacing-tight: 0.5px;
 
   /* ── Spacing ── */
-  --space-xs: var(--size-2);
-  --space-sm: var(--size-4);
-  --space-md: var(--size-8);
-  --space-lg: var(--size-12);
-  --space-xl: var(--size-16);
-  --space-xxl: var(--size-20);
+  --foliplus-space-xs: var(--foliplus-size-2);
+  --foliplus-space-sm: var(--foliplus-size-4);
+  --foliplus-space-md: var(--foliplus-size-8);
+  --foliplus-space-lg: var(--foliplus-size-12);
+  --foliplus-space-xl: var(--foliplus-size-16);
+  --foliplus-space-xxl: var(--foliplus-size-20);
 
   /* ── Sizing ── */
-  --ctrl-size: 30px;
-  --scale-press: 0.92;
-  --scale-hover: 1.08;
-  --icon-size-sm: var(--size-16);
-  --icon-size-xs: 14px;
-  --icon-size-md: 18px;
-  --stroke-icon: 1.8;
+  --foliplus-ctrl-size: 30px;
+  --foliplus-scale-press: 0.92;
+  --foliplus-scale-hover: 1.08;
+  --foliplus-icon-size-sm: var(--foliplus-size-16);
+  --foliplus-icon-size-xs: 14px;
+  --foliplus-icon-size-md: 18px;
+  --foliplus-stroke-icon: 1.8;
 
   /* ── Slider (range input) ──
      One geometry for every range control: LayerControl's opacity row
@@ -111,51 +115,56 @@
      read these, so the two rails cannot drift into different heights or
      handles.
      The handle is a dot, only slightly larger than the rail, with a white core
-     and a ring — `--slider-thumb-ring` is the one thing a state changes (see
+     and a ring — `--foliplus-slider-thumb-ring` is the one thing a state changes (see
      the zoom-range row: a gray ring is "the current level is outside this
      range").
-     `--slider-thumb-hit` is the interactive box, not the painted size: the
+     `--foliplus-slider-thumb-hit` is the interactive box, not the painted size: the
      thumb paints only its content box (background-clip: content-box), so the
      ring of transparent padding widens the grab target to the WCAG 2.5.8
      minimum of 24px without inflating the visible handle.
-     `--slider-thumb-core` is the white middle: the 2px out to
-     `--slider-thumb-size` is the ring that carries the state.
+     `--foliplus-slider-thumb-core` is the white middle: the 2px out to
+     `--foliplus-slider-thumb-size` is the ring that carries the state.
      Deliberately absent: a thumb `margin-top` and a drop shadow. Chromium
      centers the slider thumb on its own track, and the classic webkit
      compensation `(rail - thumb) / 2` then lifts the handle off center
      (measured 4px high on an 8px rail). A drop shadow is drawn at the 24px hit
      box, which is 5px clear of a 14px handle — it reads as a gray halo, not a
      lift. */
-  --slider-rail-height: var(--size-6);
-  --slider-thumb-size: 14px;
-  --slider-dot-size: 10px;
+  --foliplus-slider-rail-height: var(--foliplus-size-6);
+  --foliplus-slider-thumb-size: 14px;
+  --foliplus-slider-dot-size: 10px;
   /* The thumb's box IS its visible size: the travel is inset by half of it, so a
      box larger than the handle leaves the handle short of the rail's ends. The
      24px grab target is not achievable that way — the input is inert and a
      thumb's transparent padding is not hit-testable — so the handle is the
      target, and it is flush. */
-  --slider-thumb-hit: var(--slider-thumb-size);
-  --slider-thumb-pad: calc((var(--slider-thumb-hit) - var(--slider-thumb-size)) / 2);
-  --slider-thumb-core: calc(var(--slider-thumb-size) / 2 - var(--size-2));
-  --slider-thumb-ring: var(--accent-primary);
+  --foliplus-slider-thumb-hit: var(--foliplus-slider-thumb-size);
+  --foliplus-slider-thumb-pad: calc(
+    (var(--foliplus-slider-thumb-hit) - var(--foliplus-slider-thumb-size)) / 2
+  );
+  --foliplus-slider-thumb-core: calc(
+    var(--foliplus-slider-thumb-size) / 2 - var(--foliplus-size-2)
+  );
+  --foliplus-slider-thumb-ring: var(--foliplus-accent-primary);
   /* Both engines anchor a thumb's TOP edge to the track's top edge rather than
      centring it, so the taller handle hangs below the rail by half the
      difference. This is that compensation. */
-  --slider-thumb-offset: calc(
-    (var(--slider-rail-height) - var(--slider-thumb-size)) / 2
+  --foliplus-slider-thumb-offset: calc(
+    (var(--foliplus-slider-rail-height) - var(--foliplus-slider-thumb-size)) / 2
   );
   /* Held state of a handle: a soft accent halo, drawn at the hit box's edge. */
-  --slider-thumb-glow: 0 0 0 var(--size-2) var(--accent-soft-shadow);
+  --foliplus-slider-thumb-glow: 0 0 0 var(--foliplus-size-2)
+    var(--foliplus-accent-soft-shadow);
   /* The uncovered span of a rail: a fine gray checkerboard, the "nothing
      rendered here" convention. Two tokens because a rail's uncovered span is
-     not always a plain color — set `--slider-rail-pattern: none` and
-     `--slider-rail-bg` to a tint for a flat rail instead. */
-  --slider-rail-bg: var(--neutral-0);
-  --slider-rail-pattern: repeating-conic-gradient(
-    var(--neutral-300) 0% 25%,
-    var(--neutral-0) 0% 50%
+     not always a plain color — set `--foliplus-slider-rail-pattern: none` and
+     `--foliplus-slider-rail-bg` to a tint for a flat rail instead. */
+  --foliplus-slider-rail-bg: var(--foliplus-neutral-0);
+  --foliplus-slider-rail-pattern: repeating-conic-gradient(
+    var(--foliplus-neutral-300) 0% 25%,
+    var(--foliplus-neutral-0) 0% 50%
   );
-  --slider-rail-pattern-size: var(--size-4) var(--size-4);
+  --foliplus-slider-rail-pattern-size: var(--foliplus-size-4) var(--foliplus-size-4);
 
   /* ── Map label style ──
      The text foliplus draws over the map: HeatmapControl's hex values (canvas,
@@ -164,33 +173,33 @@
      opposite color schemes — which is exactly what happened while each
      declared its own: the canvas drew white-on-dark-stroke and the DOM labels
      drew dark-on-white-halo. */
-  --label-font-family: sans-serif;
-  --label-font-size: var(--font-size-sm);
-  --label-font-weight: bold;
-  --label-color: var(--neutral-0);
-  --label-halo-color: rgba(0, 0, 0, 0.75);
-  --label-halo-width: 3px;
+  --foliplus-label-font-family: sans-serif;
+  --foliplus-label-font-size: var(--foliplus-font-size-sm);
+  --foliplus-label-font-weight: bold;
+  --foliplus-label-color: var(--foliplus-neutral-0);
+  --foliplus-label-halo-color: rgba(0, 0, 0, 0.75);
+  --foliplus-label-halo-width: 3px;
 
   /* ── Layout Metrics ── */
-  --toggle-size: 36px;
-  --panel-width: 280px;
-  --panel-max-height: 400px;
-  --panel-header-padding-left: var(--size-6);
-  --panel-header-padding-right: var(--ctrl-size);
+  --foliplus-toggle-size: 36px;
+  --foliplus-panel-width: 280px;
+  --foliplus-panel-max-height: 400px;
+  --foliplus-panel-header-padding-left: var(--foliplus-size-6);
+  --foliplus-panel-header-padding-right: var(--foliplus-ctrl-size);
   /* Fixed label column shared by every form row (heatmap config, attrs
      panel, style panel). Not min-width: a longer label must wrap inside
      this box, never push the control column — one vertical line for all
      panels. */
-  --form-label-width: 88px;
+  --foliplus-form-label-width: 88px;
   /* Toast width cap. Below the 480px viewport the media block in hint.css
      widens the cap to calc(100vw - 16px); the breakpoint 480px there is the
      same value and must stay in sync with this token (media queries do not
      accept var()). */
-  --hint-max-width: 480px;
+  --foliplus-hint-max-width: 480px;
 
   /* ── Border Width ── */
-  --border-thin: 1px;
-  --border-thick: var(--size-2);
+  --foliplus-border-thin: 1px;
+  --foliplus-border-thick: var(--foliplus-size-2);
 
   /* ── Dashed Rhythm ──
     Shared stroke-dasharray for every map-operation dashed border: measure
@@ -200,32 +209,36 @@
     The icon-level dashed pattern (LayerControl EMPTY/UNKNOWN, 4 3) is
     intentionally a different token context — it's a small-scale SVG
     texture, not an operation border. */
-  --dash-rhythm: var(--size-6) var(--size-4);
+  --foliplus-dash-rhythm: var(--foliplus-size-6) var(--foliplus-size-4);
 
   /* ── Border Radius ── */
-  --radius-sm: var(--size-4);
-  --radius-lg: var(--size-6);
-  --radius-round: 50%;
-  --radius-card: var(--size-8);
+  --foliplus-radius-sm: var(--foliplus-size-4);
+  --foliplus-radius-lg: var(--foliplus-size-6);
+  --foliplus-radius-round: 50%;
+  --foliplus-radius-card: var(--foliplus-size-8);
 
   /* ── Shadows ── */
-  --shadow-md: 0 var(--size-4) var(--size-12) rgba(0, 0, 0, var(--alpha-15));
-  --shadow-xs: 0 var(--size-2) var(--size-4) rgba(0, 0, 0, var(--alpha-15));
-  --shadow-ctrl-strong: 0 var(--size-2) var(--size-8) rgba(0, 0, 0, var(--alpha-50));
+  --foliplus-shadow-md: 0 var(--foliplus-size-4) var(--foliplus-size-12)
+    rgba(0, 0, 0, var(--foliplus-alpha-15));
+  --foliplus-shadow-xs: 0 var(--foliplus-size-2) var(--foliplus-size-4)
+    rgba(0, 0, 0, var(--foliplus-alpha-15));
+  --foliplus-shadow-ctrl-strong: 0 var(--foliplus-size-2) var(--foliplus-size-8)
+    rgba(0, 0, 0, var(--foliplus-alpha-50));
 
   /* ── Transitions ── */
-  --transition-fast: 0.15s ease;
-  --transition-input:
-    border-color var(--transition-fast), box-shadow var(--transition-fast);
+  --foliplus-transition-fast: 0.15s ease;
+  --foliplus-transition-input:
+    border-color var(--foliplus-transition-fast),
+    box-shadow var(--foliplus-transition-fast);
 
   /* ── Z-index ──
   LayerControl JS manages pane z-index dynamically.
-  Hint z-index is managed by runtime.js, reading --z-index-hint (fallback 10000).
+  Hint z-index is managed by runtime.js, reading --foliplus-z-index-hint (fallback 10000).
   Fullscreen uses the browser Fullscreen API convention (99999).
-  --z-index-top sits above everything (export blocker/preview).
+  --foliplus-z-index-top sits above everything (export blocker/preview).
   Order: floating (9990) < hint (10000) < fullscreen (99999) < top (100000). */
-  --z-index-floating: 9990;
-  --z-index-hint: 10000;
-  --z-index-fullscreen: 99999;
-  --z-index-top: 100000;
+  --foliplus-z-index-floating: 9990;
+  --foliplus-z-index-hint: 10000;
+  --foliplus-z-index-fullscreen: 99999;
+  --foliplus-z-index-top: 100000;
 }
