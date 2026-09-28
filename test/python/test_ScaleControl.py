@@ -86,7 +86,7 @@ class TestScaleControlRendering:
     def test_common_css_injected(self):
         """Common design tokens are injected into the page."""
         html = render_control(ScaleControl())
-        assert "--ctrl-bg" in html
+        assert "--foliplus-ctrl-bg" in html
         assert "foliplus-scale-wrap" in html
 
 

@@ -320,10 +320,10 @@ class TestLayerControlRendering:
     def test_css_variables_used(self, base_map: folium.Map):
         """CSS variables from the shared stylesheet are referenced in rendered output."""
         html = render_control(LayerControl())
-        assert "var(--space-xl)" in html
-        assert "var(--accent-primary)" in html
-        assert "var(--radius-sm)" in html
-        assert "var(--transition-fast)" in html
+        assert "var(--foliplus-space-xl)" in html
+        assert "var(--foliplus-accent-primary)" in html
+        assert "var(--foliplus-radius-sm)" in html
+        assert "var(--foliplus-transition-fast)" in html
 
     def test_leaflet_control_classes_applied(self, base_map: folium.Map):
         """LayerControl renders with leaflet-control classes for Leaflet theming."""
@@ -376,29 +376,29 @@ class TestLayerControlRendering:
     def test_type_icon_col_size_anchored_to_checkbox(self):
         """type-icon-col is 16px (space-xl) to anchor to the checkbox square."""
         css = read_css("foliplus/css/LayerControl/index.css")
-        # type-icon-col width/height use the checkbox square (--space-xl = 16px),
+        # type-icon-col width/height use the checkbox square (--foliplus-space-xl = 16px),
         # not the old 14px/18px icon-size tokens.
         idx = css.find(".foliplus-type-icon-col {")
         assert idx != -1
         block = css[idx : css.index("}", idx) + 1]
-        assert "var(--space-xl)" in block
-        assert "var(--icon-size-xs)" not in block
-        assert "var(--icon-size-md)" not in block
+        assert "var(--foliplus-space-xl)" in block
+        assert "var(--foliplus-icon-size-xs)" not in block
+        assert "var(--foliplus-icon-size-md)" not in block
 
     def test_more_column_width_named_vars(self):
-        """More grid column and button both use --more-btn-width (7px),
-        and the count column uses --count-track-width; both keep the track and
+        """More grid column and button both use --foliplus-more-btn-width (7px),
+        and the count column uses --foliplus-count-track-width; both keep the track and
         each element's own width synchronised without magic numbers."""
         css = read_css("foliplus/css/LayerControl/index.css")
         # Named dimension vars are defined once
-        assert "--count-track-width: 38px" in css
-        assert "--more-btn-width: 7px" in css
+        assert "--foliplus-count-track-width: 38px" in css
+        assert "--foliplus-more-btn-width: 7px" in css
         # grid track references the named vars (not literals)
-        idx = css.find("--grid-layer-cols:")
+        idx = css.find("--foliplus-grid-layer-cols:")
         assert idx != -1
         track = css[idx : css.index(";", idx)]
-        assert "var(--more-btn-width)" in track
-        assert "var(--count-track-width)" in track
+        assert "var(--foliplus-more-btn-width)" in track
+        assert "var(--foliplus-count-track-width)" in track
         # more-btn width uses the named var, not icon-size-xs
         blks = [
             css[i : css.index("}", i) + 1]
@@ -406,8 +406,8 @@ class TestLayerControlRendering:
             if css.startswith(".foliplus-layer-more-btn {", i)
         ]
         assert blks, "no .foliplus-layer-more-btn { rule found"
-        assert "var(--more-btn-width)" in "\n".join(blks)
-        assert not any("var(--icon-size-xs)" in b for b in blks)
+        assert "var(--foliplus-more-btn-width)" in "\n".join(blks)
+        assert not any("var(--foliplus-icon-size-xs)" in b for b in blks)
 
     def test_color_map_id_constant(self, base_map: folium.Map):
         """Color map uses a special constant ID for identification."""
@@ -485,7 +485,7 @@ class TestLayerControlRendering:
         # would disagree about what "white row" means).
         parent_body_start = css.index("{", compound)
         parent_snip = css[parent_body_start : parent_body_start + 400]
-        assert "background: var(--neutral-0)" in parent_snip, (
+        assert "background: var(--foliplus-neutral-0)" in parent_snip, (
             "recipe rows must rest on the explicit white surface"
         )
         assert "background: transparent" not in parent_snip, (
@@ -494,7 +494,7 @@ class TestLayerControlRendering:
         # White surface is painted whenever the row is the interaction target
         # (hover / Tab / arrow share this recipe). Checked rows show the wash
         # only at rest — the cursor paints white on top.
-        assert "background: var(--neutral-0)" in recipe
+        assert "background: var(--foliplus-neutral-0)" in recipe
         # Bottom glow is outboard; the next row's opaque surface would cover
         # it without a stacking lift on the interaction target.
         assert "position: relative" in recipe
@@ -513,17 +513,17 @@ class TestLayerControlRendering:
         )
         # Checked color basemap keeps the wash on hover.
         assert "foliplus-active" in css
-        assert "--panel-header-hover" not in recipe
+        assert "--foliplus-panel-header-hover" not in recipe
         # Top/bottom red glow (blurred box-shadow) is part of the SHARED recipe,
         # not cursor-only, so mouse hover and Tab focus match the arrow-key cursor
         # exactly. A 0 X-offset keeps it vertical (only top/bottom glow, no
         # left/right bleed).
         assert (
-            "0 calc(-1 * var(--size-2)) var(--size-4) var(--accent-primary)" in recipe
+            "0 calc(-1 * var(--foliplus-size-2)) var(--foliplus-size-4) var(--foliplus-accent-primary)" in recipe
         )
-        assert "0 var(--size-2) var(--size-4) var(--accent-primary)" in recipe
-        assert "color: var(--text-primary)" in recipe
-        assert "color: var(--accent-primary)" in recipe
+        assert "0 var(--foliplus-size-2) var(--foliplus-size-4) var(--foliplus-accent-primary)" in recipe
+        assert "color: var(--foliplus-text-primary)" in recipe
+        assert "color: var(--foliplus-accent-primary)" in recipe
 
         # ── Type icon ──
         assert "foliplus-type-icon-col svg" in html
@@ -537,10 +537,10 @@ class TestLayerControlRendering:
             if "layer-item.foliplus-active .foliplus-type-icon-col"
             in html[max(0, i - 60) : i + 60]
         ]
-        assert any("color: var(--text-primary)" in b for b in act_type), (
+        assert any("color: var(--foliplus-text-primary)" in b for b in act_type), (
             "type icon on active row must be black, not accent"
         )
-        assert not any("color: var(--accent-primary)" in b for b in act_type), (
+        assert not any("color: var(--foliplus-accent-primary)" in b for b in act_type), (
             "type icon must never tint accent"
         )
         # Regression guard: no scale transform may be reintroduced on the icon
@@ -555,7 +555,7 @@ class TestLayerControlRendering:
             for i in range(len(html))
             if "more-menu li svg" in html[max(0, i - 60) : i + 60]
         ]
-        assert any("color: var(--text-muted)" in b for b in more_icon), (
+        assert any("color: var(--foliplus-text-muted)" in b for b in more_icon), (
             "more-menu icon must be muted at rest"
         )
         more_icon_hover = [
@@ -563,10 +563,10 @@ class TestLayerControlRendering:
             for i in range(len(html))
             if "more-menu li:not([disabled]):hover svg" in html[max(0, i - 60) : i + 60]
         ]
-        assert any("color: var(--text-primary)" in b for b in more_icon_hover), (
+        assert any("color: var(--foliplus-text-primary)" in b for b in more_icon_hover), (
             "more-menu icon must wake to black on hover"
         )
-        assert not any("color: var(--accent-primary)" in b for b in more_icon_hover), (
+        assert not any("color: var(--foliplus-accent-primary)" in b for b in more_icon_hover), (
             "more-menu icon must not tint accent"
         )
 
@@ -598,7 +598,7 @@ class TestLayerControlRendering:
         css = read_css("foliplus/css/LayerControl/index.css")
         # left border and fold-btn turn accent when folded — both expected
         assert "foliplus-layer-folded" in css
-        assert "border-left-color: var(--accent-primary)" in css
+        assert "border-left-color: var(--foliplus-accent-primary)" in css
         # label must NOT be colored accent when folded (label stays text-primary)
         assert "foliplus-layer-folded .foliplus-layer-sep-label" not in css, (
             "folded label must not override color (label stays text-primary)"
@@ -648,7 +648,7 @@ class TestLayerControlRendering:
         css = read_css("foliplus/css/LayerControl/index.css")
         # The shared track defines exactly 6 columns:
         #   drag(16) check(16) label(1fr) count(38) icon(16) more(7)
-        idx = css.find("--grid-layer-cols:")
+        idx = css.find("--foliplus-grid-layer-cols:")
         assert idx != -1
         track = css[idx : css.index(";", idx)]
         # Count the track's space tokens — each column is one term separated
@@ -656,7 +656,7 @@ class TestLayerControlRendering:
         col_terms = [
             t.rstrip(":;")
             for t in track.split()
-            if t.rstrip(":;") not in ("", "--grid-layer-cols")
+            if t.rstrip(":;") not in ("", "--foliplus-grid-layer-cols")
         ]
         assert len(col_terms) == 6, (
             f"expected 6-col track, got {len(col_terms)}: {col_terms}"
@@ -666,7 +666,7 @@ class TestLayerControlRendering:
         ta_idx = css.find(".foliplus-layer-sep.foliplus-layer-toggle-all {")
         assert ta_idx != -1
         ta_block = css[ta_idx : css.index("}", ta_idx) + 1]
-        assert "var(--grid-layer-cols)" in ta_block
+        assert "var(--foliplus-grid-layer-cols)" in ta_block
         div_idx = css[ta_idx:].find(".foliplus-section-divider {")
         assert div_idx != -1, "divider rule not inside toggle-all container"
         div_block = css[ta_idx : ta_idx + css[ta_idx:].index("}", div_idx) + 1]
@@ -687,8 +687,8 @@ class TestLayerControlRendering:
         """Section header label is semibold and text-primary so it reads as a real header."""
         css = read_css("foliplus/css/LayerControl/index.css")
         assert "foliplus-layer-toggle-all .foliplus-layer-sep-label" in css
-        assert "font-weight: var(--font-weight-semibold)" in css
-        assert "color: var(--text-primary)" in css
+        assert "font-weight: var(--foliplus-font-weight-semibold)" in css
+        assert "color: var(--foliplus-text-primary)" in css
 
     def test_toggle_all_hover_shares_row_cursor_recipe(self):
         """Toggle-all row joins the shared Row-cursor recipe: hover uses
@@ -698,9 +698,9 @@ class TestLayerControlRendering:
         assert ".foliplus-layer-sep.foliplus-layer-toggle-all" in css
         assert "is(:hover, .foliplus-is-focused-row)" in css
         assert "is(:hover, :focus-visible, .foliplus-is-focused-row)" not in css
-        assert "border-left-color: var(--accent-primary)" in css
+        assert "border-left-color: var(--foliplus-accent-primary)" in css
         # The old fold-row-only hover used a softer border than the data rows.
-        assert "border-left-color: var(--accent-light)" not in css
+        assert "border-left-color: var(--foliplus-accent-light)" not in css
 
     def test_open_overlay_lifts_owner_row_above_sibling_wake(self):
         """While a row overlay is open the owner row is lifted to the floating
@@ -721,7 +721,7 @@ class TestLayerControlRendering:
         assert ".foliplus-layer-item:has(" in css, (
             "the owner row (the row containing the open overlay) is raised"
         )
-        assert "z-index: var(--z-index-floating)" in css
+        assert "z-index: var(--foliplus-z-index-floating)" in css
         # The ⋮ dropdown anchors flush to its row (the shared shell adds a 2px
         # margin-top that would open a sliver of list under the cursor path).
         assert "margin-top: 0" in css
@@ -736,7 +736,7 @@ class TestLayerControlRendering:
             css,
         )
         assert match, "folded fold-btn rule not found"
-        assert "var(--accent-primary)" in match.group(1)
+        assert "var(--foliplus-accent-primary)" in match.group(1)
 
     def test_section_divider_fades_when_folded(self):
         """Section divider fades to opacity 0 when the group is folded."""
@@ -757,7 +757,7 @@ class TestLayerControlRendering:
         assert ".foliplus-section-heading" not in css
         label = _rule(css, ".foliplus-form-label {")
         assert "text-align: right" in label
-        assert "padding-right: var(--space-xs)" in label
+        assert "padding-right: var(--foliplus-space-xs)" in label
 
     def test_slider_component_css(self):
         """One shared slider component carries all the geometry.
@@ -783,34 +783,34 @@ class TestLayerControlRendering:
             assert name in css, name
         # Geometry comes from the shared tokens, never from literal sizes.
         for token in (
-            "--slider-rail-height",
-            "--slider-thumb-size",
-            "--slider-dot-size",
-            "--slider-thumb-hit",
-            "--slider-thumb-ring",
+            "--foliplus-slider-rail-height",
+            "--foliplus-slider-thumb-size",
+            "--foliplus-slider-dot-size",
+            "--foliplus-slider-thumb-hit",
+            "--foliplus-slider-thumb-ring",
         ):
             assert token in tokens, token
-        assert "height: var(--slider-rail-height)" in css
-        assert "width: var(--slider-thumb-size)" in css
-        assert "width: var(--slider-dot-size)" in css
-        assert "--slider-rail-pattern" in css
+        assert "height: var(--foliplus-slider-rail-height)" in css
+        assert "width: var(--foliplus-slider-thumb-size)" in css
+        assert "width: var(--foliplus-slider-dot-size)" in css
+        assert "--foliplus-slider-rail-pattern" in css
         # The uncovered span is a checkerboard, not a flat tint.
         assert "repeating-conic-gradient" in tokens
         # Thumb: the wider hit box is transparent padding, and background-clip
         # keeps the painted handle at the token size rather than the box size.
         thumb = _rule(css, ".foliplus-slider-handle::-webkit-slider-thumb {")
-        assert "padding: var(--slider-thumb-pad)" in thumb
+        assert "padding: var(--foliplus-slider-thumb-pad)" in thumb
         assert "box-sizing: content-box" in thumb
         assert "background-clip: content-box" in thumb
         # The centring compensation is required: both engines anchor the thumb's
         # top edge to the track's top edge, so a taller handle hangs below the
         # rail without it (a 14px handle on a 6px rail sat 4px low).
-        assert "margin-top: var(--slider-thumb-offset)" in thumb
+        assert "margin-top: var(--foliplus-slider-thumb-offset)" in thumb
         assert (
-            "--slider-thumb-offset: calc("
-            "(var(--slider-rail-height) - var(--slider-thumb-size)) / 2"
+            "--foliplus-slider-thumb-offset: calc("
+            "(var(--foliplus-slider-rail-height) - var(--foliplus-slider-thumb-size)) / 2"
             in tokens.replace("\n", "").replace("  ", "")
-            or "--slider-thumb-offset" in tokens
+            or "--foliplus-slider-thumb-offset" in tokens
         )
         # Both engines are styled — and the two rules must stay SEPARATE: a
         # selector list is invalid as a whole when it names a pseudo-element the
@@ -844,7 +844,7 @@ class TestLayerControlRendering:
             raw = (root / rel).read_text(encoding="utf-8")
             assert "::-webkit-slider-thumb" not in raw, rel
             assert "::-moz-range-thumb" not in raw, rel
-            assert "--slider-rail-height" not in raw, rel
+            assert "--foliplus-slider-rail-height" not in raw, rel
 
     def test_zoom_range_row_css(self):
         """The row adds no styling of its own.
@@ -856,7 +856,7 @@ class TestLayerControlRendering:
         """
         css = read_css("foliplus/css/LayerControl/style.css")
         assert ".foliplus-style-zoom-range-row" in css
-        assert "--slider-thumb-ring" not in css
+        assert "--foliplus-slider-thumb-ring" not in css
         assert "foliplus-zoom-range-out-of-range .foliplus-slider-fill" not in css
         assert ".foliplus-style-zoom-range-current-value" in css
 
@@ -870,7 +870,7 @@ class TestLayerControlRendering:
         css = read_css("foliplus/css/LayerControl/index.css")
         assert ".foliplus-layer-fold-btn" in css
         assert "&:hover" in css
-        assert "color: var(--accent-primary)" in css
+        assert "color: var(--foliplus-accent-primary)" in css
 
     def test_fold_btn_hover_bidirectional_preview(self):
         """Fold button shows bidirectional preview across hover and the arrow/Tab cursor.
@@ -884,10 +884,10 @@ class TestLayerControlRendering:
         # Expanded row interaction: black → red (preview folded)
         assert "foliplus-layer-toggle-all:not(.foliplus-layer-folded):is(" in css
         assert wake in css
-        assert "color: var(--accent-primary)" in css
+        assert "color: var(--foliplus-accent-primary)" in css
         # Folded row interaction: red → black (preview expanded)
         assert "foliplus-layer-toggle-all.foliplus-layer-folded:is(" in css
-        assert "color: var(--text-primary)" in css
+        assert "color: var(--foliplus-text-primary)" in css
 
     def test_fold_btn_background_transition(self):
         """Fold button transitions color and transform (background removed — no bg to transition)."""
@@ -901,9 +901,9 @@ class TestLayerControlRendering:
         assert t_idx != -1, "transition property not found"
         t_end = block.find("\n  }", t_idx)
         trans_val = block[t_idx:t_end]
-        assert "background var(--transition-fast)" not in trans_val
-        assert "color var(--transition-fast)" in trans_val
-        assert "transform var(--transition-fast)" in trans_val
+        assert "background var(--foliplus-transition-fast)" not in trans_val
+        assert "color var(--foliplus-transition-fast)" in trans_val
+        assert "transform var(--foliplus-transition-fast)" in trans_val
 
     def test_fold_btn_svg_fill_none(self):
         """fold-btn svg rule includes fill:none so chevrons render as outlines."""
@@ -918,8 +918,8 @@ class TestLayerControlRendering:
         css = read_css("foliplus/css/LayerControl/index.css")
         assert ".drag-handle" in css
         assert "display: block" in css
-        assert "width: var(--space-xl)" in css
-        assert "height: var(--space-xl)" in css
+        assert "width: var(--foliplus-space-xl)" in css
+        assert "height: var(--foliplus-space-xl)" in css
 
     def test_icon_svg_in_render_list(self, base_map: folium.Map):
         """Custom iconSvg is rendered in type-icon-col during initial render."""
@@ -932,19 +932,19 @@ class TestLayerControlRendering:
         """CSS defines drag-pulse keyframes with variable-driven values."""
         css = read_css("foliplus/css/LayerControl/index.css")
         assert "@keyframes foliplus-drag-pulse" in css
-        assert "var(--drag-border-from" in css
-        assert "var(--drag-border-to" in css
-        assert "var(--drag-shadow-from" in css
-        assert "var(--drag-shadow-to" in css
+        assert "var(--foliplus-drag-border-from" in css
+        assert "var(--foliplus-drag-border-to" in css
+        assert "var(--foliplus-drag-shadow-from" in css
+        assert "var(--foliplus-drag-shadow-to" in css
 
     def test_drag_over_css_variables(self):
         """Drag-over drop indicators use CSS custom properties for all parameters."""
         css = read_css("foliplus/css/LayerControl/index.css")
-        assert "--drag-border-width" in css
-        assert "--drag-top-shadow" in css
-        assert "--drag-bottom-shadow" in css
-        assert "--drag-pulse-duration" in css
-        assert "--drag-pulse-count" in css
+        assert "--foliplus-drag-border-width" in css
+        assert "--foliplus-drag-top-shadow" in css
+        assert "--foliplus-drag-bottom-shadow" in css
+        assert "--foliplus-drag-pulse-duration" in css
+        assert "--foliplus-drag-pulse-count" in css
 
     # ── Indeterminate checkbox (partial selection) styles ──
 
@@ -964,9 +964,9 @@ class TestLayerControlRendering:
         MUST NOT transition that property — otherwise it animates from its
         initial state to the target state, producing a flash:
 
-          - checkbox: bg var(--input-bg) -> var(--accent-primary);
-                      border var(--input-border) -> var(--accent-primary)
-          - layer item (.foliplus-active): bg var(--panel-bg) -> var(--accent-light)
+          - checkbox: bg var(--foliplus-input-bg) -> var(--foliplus-accent-primary);
+                      border var(--foliplus-input-border) -> var(--foliplus-accent-primary)
+          - layer item (.foliplus-active): bg var(--foliplus-panel-bg) -> var(--foliplus-accent-light)
           - toggle-all row: same mechanism if its bg ever changes on rebuild
 
         Transitions are kept only on properties that do not change on rebuild
@@ -1158,8 +1158,8 @@ class TestLayerControlBrowser:
 
     @staticmethod
     def _sample_neutral0(page):
-        """Computed color of `var(--neutral-0)` — never hardcode a hex/rgb."""
-        return TestLayerControlBrowser._sample_token(page, "--neutral-0")
+        """Computed color of `var(--foliplus-neutral-0)` — never hardcode a hex/rgb."""
+        return TestLayerControlBrowser._sample_token(page, "--foliplus-neutral-0")
 
     @staticmethod
     def _panel_open(page, selector: str) -> bool:
@@ -4076,7 +4076,7 @@ class TestLayerControlBrowser:
     def test_row_cursor_turns_row_white_on_hover_tab_and_arrow(self, browser, tmp_path):
         """Hover, Tab and arrow-key cursor all turn the row white.
 
-        The interaction target always paints `var(--neutral-0)` — including on
+        The interaction target always paints `var(--foliplus-neutral-0)` — including on
         a checked row, whose `.foliplus-active` wash is only the rest surface. White is
         sampled from the token live, never hardcoded. Dropping the class (what
         Escape does) returns the rest surface. Tab is covered by the focusin
@@ -5503,12 +5503,12 @@ class TestLayerControlBrowser:
             # about "the layer is hidden at this zoom" is carried by color on
             # the numbers the user reads.
             assert result["fillComputedBg"] != self._sample_token(
-                page, "--neutral-500"
+                page, "--foliplus-neutral-500"
             ), "out of range must not gray the selection"
             assert result["currentValueColor"] == self._sample_token(
-                page, "--text-primary"
+                page, "--foliplus-text-primary"
             ), "out of range must not recolor the current level"
-            assert result["markerRing"] == self._sample_token(page, "--neutral-500"), (
+            assert result["markerRing"] == self._sample_token(page, "--foliplus-neutral-500"), (
                 "out of range, the current dot must read as uncovered"
             )
             assert not errors, f"JS errors: {errors}"
