@@ -86,6 +86,7 @@
 - `HeatmapControl`: remove the `field` parameter — a breaking change; the candidate list already enumerates all numeric shapes, so user selection covers every case ([#375](https://github.com/Zeroto521/foliplus/pull/375))
 - `LayerControl`: remove the `onToggle` callback from `registerLayer` / `createCanvas` / `createColor` — breaking against the v0.3.x API; visibility rides the surface's `capabilities.visibility` carrier (canvas HIDDEN class / map membership), `LayerAPI.setVisible` for programmatic control ([#518](https://github.com/Zeroto521/foliplus/pull/518))
 - `LayerControl`: rename `isBase` to `group: "base" | "overlay"` — breaking against the v0.3.x API; migrate `isBase: true` → `group: "base"`, `isBase: false` → `group: "overlay"` ([#524](https://github.com/Zeroto521/foliplus/pull/524))
+- `core/layer`: rename `styleDefaults` to `styleDefaultsProvider` — breaking against the v0.3.x API; migrate `styleDefaults: …` → `styleDefaultsProvider: …` ([#530](https://github.com/Zeroto521/foliplus/pull/530))
 
 ### Fixed
 
