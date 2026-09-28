@@ -986,22 +986,6 @@ describe("LayerFactory", () => {
       }
     });
 
-    it("passes custom onToggle to registerLayer", () => {
-      const onToggle = vi.fn();
-      const reg = vi.fn(() => null);
-      const f = new LayerFactory({
-        map,
-        panes: new PaneManager(map),
-        registerLayer: reg,
-        unregisterLayer: vi.fn(),
-        bringLayerToFront: vi.fn(),
-        invalidateType: vi.fn(),
-      });
-      const api = f.createCanvas({ id: "test", onToggle });
-      api.register();
-      expect(reg).toHaveBeenCalledWith(expect.objectContaining({ onToggle }));
-    });
-
     it("removeLayer routes from the sub-layer when present", () => {
       const api = factory.createLayers({
         id: "test",
@@ -1067,24 +1051,6 @@ describe("LayerFactory", () => {
       const api = f.createCanvas({ id: "test", getBounds });
       api.register();
       expect(reg).toHaveBeenCalledWith(expect.objectContaining({ getBounds }));
-    });
-
-    it("default onToggle hides the canvas when invoked with false", () => {
-      const reg = vi.fn((opts: any) => {
-        opts.onToggle(false);
-        return null;
-      });
-      const f = new LayerFactory({
-        map,
-        panes: new PaneManager(map),
-        registerLayer: reg,
-        unregisterLayer: vi.fn(),
-        bringLayerToFront: vi.fn(),
-        invalidateType: vi.fn(),
-      });
-      const api = f.createCanvas({ id: "test" });
-      api.register();
-      expect(api.canvas.classList.contains("hidden")).toBe(true);
     });
   });
 

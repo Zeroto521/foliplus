@@ -3407,7 +3407,7 @@ class TestLayerControlBrowser:
         """A partial re-register never drops previously registered fields.
 
         createLayerInfo is idempotent: fields absent from the second opts
-        (layer/paneName/iconSvg/onToggle/name/isBase) fall back to
+        (layer/paneName/iconSvg/name/isBase) fall back to
         the existing layerInfo instead of being reset to defaults.
         """
         with use_page(self._make_page, browser, tmp_path) as (page, _):
@@ -3428,7 +3428,6 @@ class TestLayerControlBrowser:
                 # The value must be the registered icon, unchanged by the
                 # partial re-register.
                 assert r["iconSvg"] == svg, f"{phase}: iconSvg lost"
-                assert r["hasOnToggle"] is True, f"{phase}: onToggle lost"
 
     def test_extract_points_api(self, browser, tmp_path):
         """extractPoints returns geo points from registered layers."""
@@ -5656,13 +5655,13 @@ class TestLayerControlBrowser:
             )
 
     def test_zoom_range_canvas_row_hides_the_heatmap_canvas(self, browser, tmp_path):
-        """A callback-only canvas layer gets a zoom-range row that really hides it.
+        """A canvas-only layer gets a zoom-range row that really hides it.
 
         HeatmapControl registers through ``createCanvas``, so the range has no
-        Leaflet layer to add or remove: its carrier is the layer's ``onToggle``
-        callback, which the executor's ``visible`` op fires. Before 42.1 the row
+        Leaflet layer to add or remove: its carrier is the canvas HIDDEN class,
+        which the executor's ``visible`` op writes. Before 42.1 the row
         was gated off for every canvas surface, because capability alone could
-        not tell "has content panes" from "callback-only canvas" (31.7) and the
+        not tell "has content panes" from "canvas-only" (31.7) and the
         ``!li.canvas`` early return stood in for that distinction.
         """
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)

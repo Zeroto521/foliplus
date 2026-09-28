@@ -182,28 +182,30 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       expect(m.intentVisible("overlay1")).toBe(true);
     });
 
-    it("fires onToggle(true) for a callback-only layer the user un-hid", () => {
+    it("writes the canvas HIDDEN class for a callback-only layer the user un-hid", () => {
       // Canvas/heatmap layers have no Leaflet layer to addLayer, so the inverse
-      // path must call the callback instead or they stay hidden after a reload.
+      // path must clear the canvas's `HIDDEN` class instead or they stay
+      // hidden after a reload.
       const { map } = makeTestMap();
-      const onToggle = vi.fn();
+      const canvas = document.createElement("canvas");
+      canvas.classList.add("hidden");
       const m = new LayerManager(map, [
         {
           id: "canvas1",
           name: "Canvas",
           layer: null,
-          onToggle,
+          canvas,
         },
       ]);
       const u = new LayerUI(m);
       u.hiddenIds = new Set();
-      // A canvas layer with a `visible` override fires onToggle(true) instead
-      // of `addLayer` -- it has no Leaflet layer to add.
+      // A canvas layer with a `visible` override clears `HIDDEN` instead of
+      // `addLayer` -- it has no Leaflet layer to add.
       u.userOverrides = { canvas1: ["visible"] };
 
       u.applyUserState();
 
-      expect(onToggle).toHaveBeenCalledWith(true);
+      expect(canvas.classList.contains("hidden")).toBe(false);
     });
 
     it("keeps hidden ids that have no registry entry", () => {
@@ -273,15 +275,15 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       expect(Object.keys(stored.layers).sort()).toEqual(["ghost", "gone", "overlay1"]);
     });
 
-    it("fires onToggle(false) for callback-only layers (canvas/heatmap)", () => {
+    it("writes the canvas HIDDEN class for canvas-only layers (canvas/heatmap)", () => {
       const { map } = makeTestMap();
-      const onToggle = vi.fn();
+      const canvas = document.createElement("canvas");
       const m = new LayerManager(map, [
         {
           id: "canvas1",
           name: "Canvas",
           layer: null,
-          onToggle,
+          canvas,
         },
       ]);
       const u = new LayerUI(m);
@@ -289,7 +291,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
 
       u.applyUserState();
 
-      expect(onToggle).toHaveBeenCalledWith(false);
+      expect(canvas.classList.contains("hidden")).toBe(true);
     });
 
     it("loads hidden ids from localStorage into hiddenIds", () => {
@@ -713,14 +715,14 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
   // ─────────────────── applyUserState with multiple layers ───────────────────
 
   describe("applyUserState with multiple hidden layers", () => {
-    it("handles overlay, base, and callback-only layers in one pass", () => {
+    it("handles overlay, base, and canvas layers in one pass", () => {
       const poly = {
         options: {},
         eachLayer: vi.fn(),
         getBounds: vi.fn(() => ({ isValid: vi.fn(() => true) })),
       };
       const baseLayer = new TileLayer();
-      const onToggle = vi.fn();
+      const canvas = document.createElement("canvas");
       const { map, removeLayer } = (() => {
         const rl = vi.fn();
         return {
@@ -743,7 +745,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       const m = new LayerManager(map, [
         { id: "overlay1", name: "O", isBase: false, layer: poly },
         { id: "base1", name: "B1", isBase: true, layer: baseLayer },
-        { id: "canvas1", name: "Canvas", layer: null, onToggle },
+        { id: "canvas1", name: "Canvas", layer: null, canvas },
       ]);
       const u = new LayerUI(m);
       u.hiddenIds = new Set(["overlay1", "base1", "canvas1"]);
@@ -757,7 +759,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
 
       expect(removeLayer).toHaveBeenCalledWith(poly);
       expect(removeLayer).toHaveBeenCalledWith(baseLayer);
-      expect(onToggle).toHaveBeenCalledWith(false);
+      expect(canvas.classList.contains("hidden")).toBe(true);
       expect(u.intentVisible("overlay1")).toBe(false);
       expect(u.intentVisible("base1")).toBe(false);
       expect(u.intentVisible("canvas1")).toBe(false);
@@ -920,7 +922,7 @@ describe("LayerUI opacity restore / retention", () => {
     const { map } = makeMap();
     const canvas = document.createElement("canvas");
     const m = new LayerManager(map, [
-      { id: "heat", name: "Heat", canvas, layer: null, onToggle: vi.fn() },
+      { id: "heat", name: "Heat", canvas, layer: null },
     ]);
     const u = new LayerUI(m);
     u.opacityMap = { heat: 0.25 };
@@ -1430,10 +1432,10 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
   });
 
   it("applyUserState(id) leaves a native range alone when there is no layer", () => {
-    // A callback-only entry carries no Leaflet layer. A surface that reports the
+    // A canvas-only entry carries no Leaflet layer. A surface that reports the
     // range as native has nothing to dereference, so the pass has to bail
     // instead of writing into a layer that is not there.
-    manager.registerLayer({ id: "ghostLayer", name: "Ghost", onToggle: vi.fn() });
+    manager.registerLayer({ id: "ghostLayer", name: "Ghost" });
     const li = manager.layerRegistry.get("ghostLayer")!;
     manager.surfaceFor(li).capabilities.zoomRange = "native";
     ui.zoomRangeMap = { ghostLayer: [4, 9] };

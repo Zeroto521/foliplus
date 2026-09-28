@@ -18,15 +18,12 @@ const getColorSurface = (ui: LayerUI): CreateColorAPI => {
       id: CONST.COLOR.MAP_ID,
       name: ui.T("color_map_label"),
       color: CONST.COLOR.DEFAULT,
-      onToggle: v => {
-        if (v) showColorLayer(ui, ui.currentColor);
-        else hideColorLayer(ui);
-      },
     });
     ui.colorSurface = surface;
     // register() inserts the LayerInfo into the registry. Called after
-    // setting ui.colorSurface to avoid a recursive call through
-    // applyProjection → onToggle → showColorLayer → getColorSurface.
+    // setting ui.colorSurface so a subsequent getColorSurface call (from
+    // showColorLayer during the register-triggered applyProjection) finds
+    // the surface instead of creating a second one.
     surface.register();
   }
   return ui.colorSurface;

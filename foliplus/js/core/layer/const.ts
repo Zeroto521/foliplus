@@ -11,6 +11,12 @@ const RECURSION = { PANE_DEPTH: 5, LAYER_DEPTH: 10 };
  *  saves on its next hit. */
 const CACHE = { PANE_DISCOVERY_ENTRIES: 4096 };
 
+/** The class name a hidden canvas face carries — the visibility carrier for
+ *  canvas-only surfaces (`capabilities.visibility === "pane"`). Shared here
+ *  so `LayerFactory` (which writes it) and the executor's dispatcher (which
+ *  reads it) both point at the same CSS token. */
+const HIDDEN = "hidden";
+
 /** Auto-generated per-layer fallback pane (hyphenated, stamp-keyed).
  *  Named component panes share the same hyphen convention — see
  *  CANVAS_PANE_PREFIX and LayerControl's ANNOTATION_PANE_PREFIX. */
@@ -61,6 +67,7 @@ export {
   COLOR_PANE_PREFIX,
   FALLBACK_PANE_PREFIX,
   GEOM_TYPE,
+  HIDDEN,
   PANE_NAME_PATTERN,
   RECURSION,
   Z_INDEX,

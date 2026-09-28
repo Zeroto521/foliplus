@@ -616,6 +616,16 @@ class LayerManager implements LayerAPI {
   registerLayer(opts: RegisterLayerOpts): HTMLElement | null {
     if (!opts?.id) throw new Error(log.msg(T("id_required")));
 
+    // Deprecated: onToggle was the canvas visibility callback (T139a). The
+    // field is removed from the type; visibility now rides the surface's
+    // `capabilities.visibility` carrier. Warn once so JS callers migrate.
+    if ((opts as { onToggle?: unknown }).onToggle) {
+      log.warn(
+        `registerLayer: "onToggle" is deprecated and ignored — use the ` +
+          `surface's visibility carrier (canvas HIDDEN class) instead`,
+      );
+    }
+
     // A deleted layer is refused, not erased: the id has left the registry for
     // good, so accepting it again would silently undo the user's delete. Null
     // (not an exception) keeps the caller's rebuild loop alive — throwing here
@@ -657,9 +667,9 @@ class LayerManager implements LayerAPI {
 
     // If the layer was previously hidden by the user, keep it off the map on
     // re-entry so it isn't silently re-added by runtime re-registration. A
-    // callback-only hidden layer (no Leaflet layer, onToggle only) is handled
-    // by `applyUserState` further below, which re-projects the hidden intent
-    // and fires the callback through the executor's single write path.
+    // canvas-only hidden layer (no Leaflet layer, HIDDEN class carrier) is
+    // handled by `applyUserState` further below, which re-projects the hidden
+    // intent and writes the carrier through the executor's single write path.
     if (
       !this.ui?.hiddenIds?.has(opts.id) &&
       opts.layer &&

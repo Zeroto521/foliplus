@@ -11,6 +11,7 @@ import {
 } from "#foliplus/LayerControl/ui/list.js";
 import { displayName } from "#foliplus/LayerControl/ui/rowView.js";
 import { TileLayer, initFixture } from "./fixture.js";
+import { applyVisibility } from "#foliplus/LayerControl/ui/visibility.js";
 
 const makeUi = () =>
   ({
@@ -281,20 +282,18 @@ describe("ui/list row placement", () => {
     expect(color!.classList.contains(CONST.CLASSES.GROUP_FOLDED)).toBe(true);
   });
 
-  it("routes the color layer's onToggle through showColorLayer and hideColorLayer", () => {
+  it("color layer's applyVisibility routes through showColorLayer and hideColorLayer", () => {
     const { ui } = initFixture({
       data: [{ id: "B1", name: "B1", isBase: true }],
     });
 
     initTypesAndVisibility(ui);
 
-    const colorLi = ui.m.layerRegistry.get(CONST.COLOR.MAP_ID) as unknown as {
-      onToggle?: (v: boolean) => void;
-    };
+    const colorLi = ui.m.layerRegistry.get(CONST.COLOR.MAP_ID) as LayerInfo;
     expect(colorLi).toBeDefined();
 
-    expect(() => colorLi.onToggle?.(true)).not.toThrow();
-    expect(() => colorLi.onToggle?.(false)).not.toThrow();
+    expect(() => applyVisibility(ui, CONST.COLOR.MAP_ID, true)).not.toThrow();
+    expect(() => applyVisibility(ui, CONST.COLOR.MAP_ID, false)).not.toThrow();
   });
 
   it("color basemap lands at the base group end when a tile basemap is already registered", () => {

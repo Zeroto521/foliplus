@@ -904,6 +904,7 @@ describe("LayerSurface capabilities", () => {
       zoomRange: "none",
       relocatable: true,
       bounds: false,
+      visibility: "pane",
     });
     // The declared color pane is taken as base — no synthesis, and no SVG
     // renderer, since a flat fill has no vectors to render into.

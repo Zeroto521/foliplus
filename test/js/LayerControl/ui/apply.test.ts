@@ -467,24 +467,6 @@ describe("executor: carrier dispatch", () => {
     expect(map.addLayer).not.toHaveBeenCalled();
   });
 
-  it("a hybrid layer fires both the map write and its callback", () => {
-    // A layer that owns a Leaflet layer *and* an `onToggle` carries a
-    // distinct piece of state in each: membership on the map, and the
-    // canvas's own HIDDEN class. Both must fire on a visible write.
-    const onToggle = vi.fn();
-    const layer = { options: {} } as L.Layer;
-    const { ui, map, manager } = boot([
-      { id: "h", name: "Hybrid", isBase: false, layer, onToggle },
-    ]);
-    (map.addLayer as ReturnType<typeof vi.fn>).mockClear();
-
-    ui.userOverrides.h = ["visible"]; // author default is off the map
-    applyProjection(ui, "h");
-
-    expect(map.addLayer).toHaveBeenCalledWith(layer);
-    expect(onToggle).toHaveBeenCalledWith(true);
-  });
-
   it("a 'none' opacity carrier stores nothing and writes nothing", () => {
     // A slider that writes nothing must not pretend it wrote. MarkerCluster
     // icons live in the shared markerPane, which no per-layer CSS write can
