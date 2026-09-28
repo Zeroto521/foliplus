@@ -15,7 +15,7 @@ import { PreviewMode } from "./base.js";
 // ==================== Polygon Area Mode ====================
 /** Polygon area measurement mode. Click to place nodes, closes on first/last node click. */
 class PolygonMode extends PreviewMode {
-  static TYPE = CONST.MODE.POLYGON;
+  static TYPE = CONST.MEASURE_MODE.POLYGON;
   static NAME_LABEL = "Area Measurement";
   static NAME_LABEL_KEY = "name_polygon";
 

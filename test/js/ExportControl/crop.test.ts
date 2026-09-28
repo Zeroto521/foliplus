@@ -300,7 +300,7 @@ describe("cropMethods — pointer drag", () => {
 
   it("onPointerDown sets dragging true for box body", () => {
     const box = document.createElement("div");
-    box.classList.add(CONST.CLASSES.BOX);
+    box.classList.add(CONST.CLASSES.EXPORT_BOX);
     manager.cropState!.box = box;
     const event = makePointerEvent({ target: box, clientX: 100, clientY: 100 });
 
@@ -313,7 +313,7 @@ describe("cropMethods — pointer drag", () => {
 
   it("onPointerDown captures the pointer on the box", () => {
     const box = document.createElement("div");
-    box.classList.add(CONST.CLASSES.BOX);
+    box.classList.add(CONST.CLASSES.EXPORT_BOX);
     box.setPointerCapture = vi.fn();
     manager.cropState!.box = box;
     const event = makePointerEvent({ target: box, pointerId: 42 });
@@ -325,7 +325,7 @@ describe("cropMethods — pointer drag", () => {
 
   it("onPointerDown still starts the drag if capture throws", () => {
     const box = document.createElement("div");
-    box.classList.add(CONST.CLASSES.BOX);
+    box.classList.add(CONST.CLASSES.EXPORT_BOX);
     box.setPointerCapture = vi.fn(() => {
       throw new Error("capture failed");
     });
@@ -359,7 +359,7 @@ describe("cropMethods — pointer drag", () => {
 
   it("onPointerDown sets dragType move for the center", () => {
     const center = document.createElement("div");
-    center.classList.add(CONST.CLASSES.CENTER);
+    center.classList.add(CONST.CLASSES.EXPORT_CROP_CENTER);
     manager.cropState!.box = document.createElement("div");
 
     manager.onPointerDown(makePointerEvent({ target: center }) as any);
@@ -370,7 +370,7 @@ describe("cropMethods — pointer drag", () => {
   it("onPointerDown ignores the press when the box is locked", () => {
     manager.cropState!.locked = true;
     const box = document.createElement("div");
-    box.classList.add(CONST.CLASSES.BOX);
+    box.classList.add(CONST.CLASSES.EXPORT_BOX);
     manager.cropState!.box = box;
     const event = makePointerEvent({ target: box });
 
@@ -407,7 +407,7 @@ describe("cropMethods — pointer drag", () => {
 
   it("onPointerDown cancels the press so mousedown cannot also fire", () => {
     const box = document.createElement("div");
-    box.classList.add(CONST.CLASSES.BOX);
+    box.classList.add(CONST.CLASSES.EXPORT_BOX);
     manager.cropState!.box = box;
     const event = makePointerEvent({ target: box });
 

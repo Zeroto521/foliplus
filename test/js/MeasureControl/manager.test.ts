@@ -150,10 +150,10 @@ describe("MeasureManager — persistence", () => {
 
     // Mixed measurements → per-mode counts match the store.
     manager.measurements = [
-      { id: "1", type: CONST.MODE.MARKER },
-      { id: "2", type: CONST.MODE.MARKER },
-      { id: "3", type: CONST.MODE.DISTANCE },
-      { id: "4", type: CONST.MODE.POLYGON },
+      { id: "1", type: CONST.MEASURE_MODE.MARKER },
+      { id: "2", type: CONST.MEASURE_MODE.MARKER },
+      { id: "3", type: CONST.MEASURE_MODE.DISTANCE },
+      { id: "4", type: CONST.MEASURE_MODE.POLYGON },
     ] as any;
     expect(opts.metaProvider()).toEqual({
       [manager.T("tool_marker")]: 2,
@@ -195,21 +195,21 @@ describe("MeasureManager — mode switching", () => {
   it("setMode CLEAR clears all measurements", () => {
     const { manager } = makeManager();
     const clearSpy = vi.spyOn(manager, "clearAll");
-    manager.setMode(CONST.MODE.CLEAR);
+    manager.setMode(CONST.MEASURE_MODE.CLEAR);
     expect(clearSpy).toHaveBeenCalled();
   });
 
   it("setMode to same active mode clears it", () => {
     const { manager } = makeManager();
-    manager.currentMode = CONST.MODE.MARKER;
+    manager.currentMode = CONST.MEASURE_MODE.MARKER;
     const clearSpy = vi.spyOn(manager, "clearActiveMode");
-    manager.setMode(CONST.MODE.MARKER);
+    manager.setMode(CONST.MEASURE_MODE.MARKER);
     expect(clearSpy).toHaveBeenCalled();
   });
 
   it("clearActiveMode resets currentMode and hides hints", () => {
     const { manager } = makeManager();
-    manager.currentMode = CONST.MODE.DISTANCE;
+    manager.currentMode = CONST.MEASURE_MODE.DISTANCE;
     manager.clearActiveMode();
     expect(manager.currentMode).toBeNull();
     expect(manager.map.foliplus!.hideHint).toHaveBeenCalled();
@@ -227,7 +227,7 @@ describe("MeasureManager — mode switching", () => {
     // Regression: showing the chip before the first mousemove left it at the
     // container's default spot (by the hint) with no inline left/top.
     const { manager, container } = makeManager();
-    manager.setMode(CONST.MODE.MARKER);
+    manager.setMode(CONST.MEASURE_MODE.MARKER);
     const readout = container.querySelector<HTMLElement>(".foliplus-measure-readout")!;
     expect(readout.hidden).toBe(true);
   });
@@ -236,7 +236,7 @@ describe("MeasureManager — mode switching", () => {
     const { manager, map, container } = makeManager();
     map.getSize = () => ({ x: 1000, y: 800 });
     map.latLngToContainerPoint = () => ({ x: 100, y: 100 });
-    manager.setMode(CONST.MODE.MARKER);
+    manager.setMode(CONST.MEASURE_MODE.MARKER);
     const readout = container.querySelector<HTMLElement>(".foliplus-measure-readout")!;
     const move = (map.on as any).mock.calls.find(
       ([ev]: unknown[]) => ev === "mousemove",
@@ -269,7 +269,7 @@ describe("MeasureManager — mode switching", () => {
     map.getSize = () => ({ x: 1000, y: 800 });
     let px = { x: 500, y: 400 };
     map.latLngToContainerPoint = () => px;
-    manager.setMode(CONST.MODE.MARKER);
+    manager.setMode(CONST.MEASURE_MODE.MARKER);
     const readout = container.querySelector<HTMLElement>(".foliplus-measure-readout")!;
     // jsdom reports no layout, so the flip decision (which depends on the
     // chip's measured height) has no signal without a stubbed size.
@@ -301,7 +301,7 @@ describe("MeasureManager — mode switching", () => {
 
   it("hides the chip on mouseout", () => {
     const { manager, map, container } = makeManager();
-    manager.setMode(CONST.MODE.MARKER);
+    manager.setMode(CONST.MEASURE_MODE.MARKER);
     const readout = container.querySelector<HTMLElement>(".foliplus-measure-readout")!;
     const out = (map.on as any).mock.calls.find(
       ([ev]: unknown[]) => ev === "mouseout",
@@ -317,7 +317,7 @@ describe("MeasureManager — mode switching", () => {
     const { manager, map, container } = makeManager();
     map.getSize = () => ({ x: 1000, y: 800 });
     map.latLngToContainerPoint = vi.fn(() => ({ x: 120, y: 240 }));
-    manager.setMode(CONST.MODE.MARKER);
+    manager.setMode(CONST.MEASURE_MODE.MARKER);
     const readout = container.querySelector<HTMLElement>(".foliplus-measure-readout")!;
     const move = (map.on as any).mock.calls.find(
       ([ev]: unknown[]) => ev === "mousemove",
@@ -340,15 +340,15 @@ describe("MeasureManager — mode switching", () => {
   it("setMode toggles active class on matching tool button", () => {
     const { manager } = makeManager();
     const btn = document.createElement("button");
-    btn.dataset.mode = CONST.MODE.MARKER;
+    btn.dataset.mode = CONST.MEASURE_MODE.MARKER;
     manager.toolBtns = [btn];
-    manager.setMode(CONST.MODE.MARKER);
+    manager.setMode(CONST.MEASURE_MODE.MARKER);
     expect(btn.classList.contains(CONST.CLASSES.ACTIVE)).toBe(true);
   });
 
   it("keeps the mode hint visible after entering a drawing mode (regression)", () => {
     const { manager } = makeManager();
-    manager.setMode(CONST.MODE.DISTANCE);
+    manager.setMode(CONST.MEASURE_MODE.DISTANCE);
     // The start hint must persist until the mode is cleared. setMode shows it
     // AFTER cleanMapEvents hides any previous hint, so showHint must be the
     // last hint operation (previously a trailing hideHint swallowed it).
@@ -381,7 +381,7 @@ describe("MeasureManager — mode switching", () => {
     // here to exercise the clearActiveMode branch.
     const { manager } = makeManager();
     manager.setEditMode(true);
-    manager.currentMode = CONST.MODE.DISTANCE;
+    manager.currentMode = CONST.MEASURE_MODE.DISTANCE;
 
     const spy = vi.spyOn(manager, "setEditMode");
 
@@ -397,9 +397,9 @@ describe("MeasureManager — setEditMode", () => {
   it("shows the edit hint and activates the edit button when enabled", () => {
     const { manager } = makeManager();
     const editBtn = document.createElement("button");
-    editBtn.dataset.mode = CONST.MODE.EDIT;
+    editBtn.dataset.mode = CONST.MEASURE_MODE.EDIT;
     const otherBtn = document.createElement("button");
-    otherBtn.dataset.mode = CONST.MODE.DISTANCE;
+    otherBtn.dataset.mode = CONST.MEASURE_MODE.DISTANCE;
     manager.toolBtns = [editBtn, otherBtn];
 
     manager.setEditMode(true);
@@ -428,7 +428,7 @@ describe("MeasureManager — setEditMode", () => {
   it("hides the hint and deactivates the edit button when disabled", () => {
     const { manager } = makeManager();
     const editBtn = document.createElement("button");
-    editBtn.dataset.mode = CONST.MODE.EDIT;
+    editBtn.dataset.mode = CONST.MEASURE_MODE.EDIT;
     manager.toolBtns = [editBtn];
     manager.setEditMode(true);
     manager.map.foliplus!.showHint.mockClear();
@@ -619,24 +619,24 @@ describe("MeasureManager — setEditMode", () => {
   it("setMode EDIT enters edit mode when off", () => {
     const { manager } = makeManager();
     manager.measurements = [{ id: "m1", type: "marker" }];
-    manager.setMode(CONST.MODE.EDIT);
+    manager.setMode(CONST.MEASURE_MODE.EDIT);
     expect(manager.isEditMode).toBe(true);
   });
 
   it("setMode EDIT exits edit mode when already on (toggle)", () => {
     const { manager } = makeManager();
     manager.isEditMode = true;
-    manager.setMode(CONST.MODE.EDIT);
+    manager.setMode(CONST.MEASURE_MODE.EDIT);
     expect(manager.isEditMode).toBe(false);
   });
 
   it("setMode EDIT cancels an active drawing mode (mutual exclusivity)", () => {
     const { manager } = makeManager();
     manager.measurements = [{ id: "m1", type: "marker" }];
-    manager.currentMode = CONST.MODE.DISTANCE;
+    manager.currentMode = CONST.MEASURE_MODE.DISTANCE;
     const clearSpy = vi.spyOn(manager, "clearActiveMode");
 
-    manager.setMode(CONST.MODE.EDIT);
+    manager.setMode(CONST.MEASURE_MODE.EDIT);
 
     expect(clearSpy).toHaveBeenCalledTimes(1);
     expect(manager.isEditMode).toBe(true);
@@ -646,7 +646,7 @@ describe("MeasureManager — setEditMode", () => {
     const { manager } = makeManager();
     manager.measurements = [];
 
-    manager.setMode(CONST.MODE.EDIT);
+    manager.setMode(CONST.MEASURE_MODE.EDIT);
 
     expect(manager.isEditMode).toBe(false);
     expect(manager.map.foliplus!.showHint).toHaveBeenCalledWith(
@@ -660,17 +660,17 @@ describe("MeasureManager — setEditMode", () => {
     const { manager } = makeManager();
     manager.setEditMode(true);
 
-    manager.setMode(CONST.MODE.DISTANCE);
+    manager.setMode(CONST.MEASURE_MODE.DISTANCE);
 
     expect(manager.isEditMode).toBe(false);
-    expect(manager.currentMode).toBe(CONST.MODE.DISTANCE);
+    expect(manager.currentMode).toBe(CONST.MEASURE_MODE.DISTANCE);
   });
 
   it("setMode drawing returns early when another component holds the map (blocked)", () => {
     const { manager } = makeManager();
     modeMocks.guardBlocked.mockReturnValue(true);
 
-    manager.setMode(CONST.MODE.DISTANCE);
+    manager.setMode(CONST.MEASURE_MODE.DISTANCE);
 
     expect(modeMocks.guardBlocked).toHaveBeenCalledWith(
       manager.map,
@@ -720,7 +720,7 @@ describe("MeasureManager — global events", () => {
   it("onUnload clears active mode and layers without wiping measurements", () => {
     const { manager, map, layers } = makeManager();
     manager.measurements = [{ id: 1, type: "marker" }];
-    manager.currentMode = CONST.MODE.DISTANCE;
+    manager.currentMode = CONST.MEASURE_MODE.DISTANCE;
     // onUnload is bound via this.map.on("unload", ...). Leaflet fires all
     // bound handlers on unload, so invoke every "unload" handler the manager
     // registered (InteractionManager's own unload cleanup runs first).
@@ -739,7 +739,7 @@ describe("MeasureManager — global events", () => {
   it("Escape keydown calls clearActiveMode when mode is active", () => {
     const { manager } = makeManager();
     const spy = vi.spyOn(manager, "clearActiveMode");
-    manager.currentMode = CONST.MODE.DISTANCE;
+    manager.currentMode = CONST.MEASURE_MODE.DISTANCE;
     // The Escape shortcut is registered via registerInteractions →
     // InteractionManager, which listens on document. Dispatch a real keydown
     // so the handler reaches onKeyDown through the real routing path.
@@ -776,7 +776,7 @@ describe("MeasureManager — global events", () => {
     const { manager } = makeManager();
     const clearSpy = vi.spyOn(manager, "clearActiveMode");
     const editSpy = vi.spyOn(manager, "setEditMode");
-    manager.currentMode = CONST.MODE.DISTANCE;
+    manager.currentMode = CONST.MEASURE_MODE.DISTANCE;
     document.dispatchEvent(
       new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
     );
@@ -804,7 +804,7 @@ describe("MeasureManager — cleanMapEvents", () => {
 describe("MeasureManager — active Escape shortcut lifecycle", () => {
   it("setMode registers high-priority active-escape shortcut", () => {
     const { manager, map } = makeManager();
-    manager.setMode(CONST.MODE.DISTANCE);
+    manager.setMode(CONST.MEASURE_MODE.DISTANCE);
 
     const im = map.foliplus.interaction;
     // After setMode, the interaction manager has an active-escape registration
@@ -818,7 +818,7 @@ describe("MeasureManager — active Escape shortcut lifecycle", () => {
 
   it("clearActiveMode unregisters active-escape shortcut", () => {
     const { manager, map } = makeManager();
-    manager.setMode(CONST.MODE.DISTANCE);
+    manager.setMode(CONST.MEASURE_MODE.DISTANCE);
     manager.clearActiveMode();
 
     const im = map.foliplus.interaction;
@@ -830,9 +830,9 @@ describe("MeasureManager — active Escape shortcut lifecycle", () => {
 
   it("re-entering mode re-registers active-escape shortcut", () => {
     const { manager, map } = makeManager();
-    manager.setMode(CONST.MODE.MARKER);
+    manager.setMode(CONST.MEASURE_MODE.MARKER);
     manager.clearActiveMode();
-    manager.setMode(CONST.MODE.POLYGON);
+    manager.setMode(CONST.MEASURE_MODE.POLYGON);
 
     const im = map.foliplus.interaction;
     const activeRegs = im.shortcuts.filter(
@@ -891,7 +891,7 @@ describe("MeasureManager — export auto-clear", () => {
 describe("MeasureManager — EVENTS.LAYER_REMOVED auto-cleanup", () => {
   it("clears active mode when own layer is removed via EVENTS.LAYER_REMOVED event", () => {
     const { manager, map } = makeManager();
-    manager.currentMode = CONST.MODE.DISTANCE;
+    manager.currentMode = CONST.MEASURE_MODE.DISTANCE;
     const clearSpy = vi.spyOn(manager, "clearActiveMode");
 
     // Simulate the LayerControl panel deleting the measure layer
@@ -904,31 +904,31 @@ describe("MeasureManager — EVENTS.LAYER_REMOVED auto-cleanup", () => {
 
   it("does NOT react when a different layer is removed", () => {
     const { manager, map } = makeManager();
-    manager.currentMode = CONST.MODE.DISTANCE;
+    manager.currentMode = CONST.MEASURE_MODE.DISTANCE;
     const clearSpy = vi.spyOn(manager, "clearActiveMode");
 
     const bus = map.foliplus!.events;
     bus.emit(EVENTS.LAYER_REMOVED, { id: "some_other_layer" });
 
     expect(clearSpy).not.toHaveBeenCalled();
-    expect(manager.currentMode).toBe(CONST.MODE.DISTANCE);
+    expect(manager.currentMode).toBe(CONST.MEASURE_MODE.DISTANCE);
   });
 
   it("does NOT react when EVENTS.LAYER_REMOVED has no id payload", () => {
     const { manager, map } = makeManager();
-    manager.currentMode = CONST.MODE.DISTANCE;
+    manager.currentMode = CONST.MEASURE_MODE.DISTANCE;
     const clearSpy = vi.spyOn(manager, "clearActiveMode");
 
     const bus = map.foliplus!.events;
     bus.emit(EVENTS.LAYER_REMOVED, {});
 
     expect(clearSpy).not.toHaveBeenCalled();
-    expect(manager.currentMode).toBe(CONST.MODE.DISTANCE);
+    expect(manager.currentMode).toBe(CONST.MEASURE_MODE.DISTANCE);
   });
 
   it("does NOT react when EVENTS.LAYER_REMOVED is called with undefined payload", () => {
     const { manager, map } = makeManager();
-    manager.currentMode = CONST.MODE.DISTANCE;
+    manager.currentMode = CONST.MEASURE_MODE.DISTANCE;
     const clearSpy = vi.spyOn(manager, "clearActiveMode");
 
     const bus = map.foliplus!.events;
@@ -939,7 +939,7 @@ describe("MeasureManager — EVENTS.LAYER_REMOVED auto-cleanup", () => {
 
   it("destroy unsubscribes from EVENTS.LAYER_REMOVED (no reaction after destroy)", () => {
     const { manager, map } = makeManager();
-    manager.currentMode = CONST.MODE.DISTANCE;
+    manager.currentMode = CONST.MEASURE_MODE.DISTANCE;
 
     const clearSpy = vi.spyOn(manager, "clearActiveMode");
     manager.destroy();
@@ -955,7 +955,7 @@ describe("MeasureManager — EVENTS.LAYER_REMOVED auto-cleanup", () => {
 
   it("destroy unsubscribes from EVENTS.MODE_CHANGE (no reaction after destroy)", () => {
     const { manager, map } = makeManager();
-    manager.currentMode = CONST.MODE.DISTANCE;
+    manager.currentMode = CONST.MEASURE_MODE.DISTANCE;
 
     const clearSpy = vi.spyOn(manager, "clearActiveMode");
     manager.destroy();
@@ -973,7 +973,7 @@ describe("MeasureManager — EVENTS.LAYER_REMOVED auto-cleanup", () => {
   it("works with namespaced layer ID (opts.id)", () => {
     const { manager, map } = makeManager({ id: "map2" });
     expect(manager.layerId).toBe("foliplus_measure_map2");
-    manager.currentMode = CONST.MODE.DISTANCE;
+    manager.currentMode = CONST.MEASURE_MODE.DISTANCE;
     const clearSpy = vi.spyOn(manager, "clearActiveMode");
 
     const bus = map.foliplus!.events;
@@ -984,13 +984,13 @@ describe("MeasureManager — EVENTS.LAYER_REMOVED auto-cleanup", () => {
 
   it("ignores default ID when using namespaced layer ID", () => {
     const { manager, map } = makeManager({ id: "map2" });
-    manager.currentMode = CONST.MODE.DISTANCE;
+    manager.currentMode = CONST.MEASURE_MODE.DISTANCE;
     const clearSpy = vi.spyOn(manager, "clearActiveMode");
 
     const bus = map.foliplus!.events;
     bus.emit(EVENTS.LAYER_REMOVED, { id: "foliplus_measure" });
     expect(clearSpy).not.toHaveBeenCalled();
-    expect(manager.currentMode).toBe(CONST.MODE.DISTANCE);
+    expect(manager.currentMode).toBe(CONST.MEASURE_MODE.DISTANCE);
   });
 });
 
@@ -1083,7 +1083,7 @@ describe("MeasureManager — mode-driven layer interaction lock", () => {
     const { leaf } = makeLeaf(map);
     map.eachLayer.mockImplementation((fn: (l: unknown) => void) => fn(makeTop(leaf)));
 
-    manager.setMode(CONST.MODE.MARKER);
+    manager.setMode(CONST.MEASURE_MODE.MARKER);
     expect(leaf.options.interactive).toBe(false);
     expect(leaf.removeInteractiveTarget).toHaveBeenCalled();
 
@@ -1097,11 +1097,11 @@ describe("MeasureManager — mode-driven layer interaction lock", () => {
     const { leaf } = makeLeaf(map);
     map.eachLayer.mockImplementation((fn: (l: unknown) => void) => fn(makeTop(leaf)));
 
-    manager.setMode(CONST.MODE.MARKER);
+    manager.setMode(CONST.MEASURE_MODE.MARKER);
     const callsAfterFirst = map.eachLayer.mock.calls.length;
     expect(callsAfterFirst).toBe(1);
 
-    manager.setMode(CONST.MODE.DISTANCE);
+    manager.setMode(CONST.MEASURE_MODE.DISTANCE);
     // Already suspended by ModeManager → no second walk.
     expect(map.eachLayer.mock.calls.length).toBe(callsAfterFirst);
     expect(leaf.options.interactive).toBe(false);
@@ -1112,7 +1112,7 @@ describe("MeasureManager — mode-driven layer interaction lock", () => {
     const { leaf } = makeLeaf(map, false);
     map.eachLayer.mockImplementation((fn: (l: unknown) => void) => fn(makeTop(leaf)));
 
-    manager.setMode(CONST.MODE.MARKER);
+    manager.setMode(CONST.MEASURE_MODE.MARKER);
     expect(leaf.removeInteractiveTarget).not.toHaveBeenCalled();
     expect(() => manager.clearActiveMode()).not.toThrow();
   });
@@ -1752,7 +1752,7 @@ describe("MeasureManager — persistence guarantees", () => {
     manager.store.add(marker);
     expect(manager.store.count()).toBe(1);
 
-    manager.setMode(CONST.MODE.CLEAR);
+    manager.setMode(CONST.MEASURE_MODE.CLEAR);
 
     expect(manager.store.count()).toBe(0);
     const raw = window.localStorage.getItem(KEY);
@@ -1762,7 +1762,7 @@ describe("MeasureManager — persistence guarantees", () => {
 
   it("destroy still runs the transient-only cleanup pass", () => {
     const { manager } = makeManager();
-    manager.setMode(CONST.MODE.DISTANCE);
+    manager.setMode(CONST.MEASURE_MODE.DISTANCE);
     manager.store.add(marker);
 
     manager.destroy();

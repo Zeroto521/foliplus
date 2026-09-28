@@ -25,7 +25,7 @@ const T = createScopedTranslator(CONF);
 // ==================== Marker Mode ====================
 /** Marker placement mode. Places a geocoded marker on click. */
 class MarkerMode extends MeasureMode {
-  static TYPE = CONST.MODE.MARKER;
+  static TYPE = CONST.MEASURE_MODE.MARKER;
   static NAME_LABEL = "Location Marker";
   static NAME_LABEL_KEY = "name_marker";
 
