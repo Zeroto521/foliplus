@@ -42,7 +42,7 @@ const makeUi = (layers: Array<{ id: string; group: "base" | "overlay" }> = []) =
     currentColor: CONST.COLOR.DEFAULT,
     syncToggleAll: vi.fn(),
     intentProvenance: {},
-    hiddenLayerIds: new Set<string>(),
+    visibleMap: {},
     authorVisible: new Map<string, boolean>(),
     renamedNames: {},
     zoomRangeMap: {},
