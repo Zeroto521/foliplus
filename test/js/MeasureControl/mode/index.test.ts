@@ -10,14 +10,14 @@ import {
 
 describe("MODE_MAP", () => {
   it("maps all four mode types to their classes", () => {
-    expect(MODE_MAP[CONST.MODE.MARKER]).toBe(MarkerMode);
-    expect(MODE_MAP[CONST.MODE.DISTANCE]).toBe(DistanceMode);
-    expect(MODE_MAP[CONST.MODE.POLYGON]).toBe(PolygonMode);
-    expect(MODE_MAP[CONST.MODE.CIRCLE]).toBe(CircleMode);
+    expect(MODE_MAP[CONST.MEASURE_MODE.MARKER]).toBe(MarkerMode);
+    expect(MODE_MAP[CONST.MEASURE_MODE.DISTANCE]).toBe(DistanceMode);
+    expect(MODE_MAP[CONST.MEASURE_MODE.POLYGON]).toBe(PolygonMode);
+    expect(MODE_MAP[CONST.MEASURE_MODE.CIRCLE]).toBe(CircleMode);
   });
 
-  it("covers all CONST.MODE keys except clear and edit", () => {
-    const modeKeys = Object.values(CONST.MODE).filter(
+  it("covers all CONST.MEASURE_MODE keys except clear and edit", () => {
+    const modeKeys = Object.values(CONST.MEASURE_MODE).filter(
       k => k !== "clear" && k !== "edit",
     );
     for (const key of modeKeys) {
@@ -25,6 +25,6 @@ describe("MODE_MAP", () => {
     }
     // EDIT is a global overlay mode, not a layer-drawing mode — it has no
     // entry in MODE_MAP (there is no EditMode class).
-    expect(MODE_MAP[CONST.MODE.EDIT]).toBeUndefined();
+    expect(MODE_MAP[CONST.MEASURE_MODE.EDIT]).toBeUndefined();
   });
 });

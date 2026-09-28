@@ -19,7 +19,7 @@ const enableDrag = (manager: any) => {
 
 describe("MarkerMode — TYPE", () => {
   it("has correct TYPE constant", () => {
-    expect(MarkerMode.TYPE).toBe(CONST.MODE.MARKER);
+    expect(MarkerMode.TYPE).toBe(CONST.MEASURE_MODE.MARKER);
   });
 });
 
@@ -101,7 +101,7 @@ describe("MarkerMode — restore", () => {
 describe("MarkerMode — start + click", () => {
   it("binds a map click handler on start", () => {
     const manager = makeManagerMock() as any;
-    manager.currentMode = CONST.MODE.MARKER;
+    manager.currentMode = CONST.MEASURE_MODE.MARKER;
     const mode = new MarkerMode(manager);
     mode.start();
 
@@ -110,7 +110,7 @@ describe("MarkerMode — start + click", () => {
 
   it("places a marker and persists measurement on click", () => {
     const manager = makeManagerMock() as any;
-    manager.currentMode = CONST.MODE.MARKER;
+    manager.currentMode = CONST.MEASURE_MODE.MARKER;
     const mode = new MarkerMode(manager);
     mode.start();
 
@@ -655,7 +655,7 @@ describe("MarkerMode — start + click", () => {
 
   it("deletes a placed marker via the ✕ handle", () => {
     const manager = makeManagerMock() as any;
-    manager.currentMode = CONST.MODE.MARKER;
+    manager.currentMode = CONST.MEASURE_MODE.MARKER;
     const mode = new MarkerMode(manager);
     mode.start();
     const clickHandler = manager.map.on.mock.calls.find(
@@ -679,7 +679,7 @@ describe("MarkerMode — start + click", () => {
 
   it("refreshes placed-marker popup content when the address is set", () => {
     const manager = makeManagerMock() as any;
-    manager.currentMode = CONST.MODE.MARKER;
+    manager.currentMode = CONST.MEASURE_MODE.MARKER;
     const mode = new MarkerMode(manager);
     mode.start();
     const clickHandler = manager.map.on.mock.calls.find(

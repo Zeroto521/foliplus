@@ -40,15 +40,23 @@ class MeasureControl extends BaseControl {
       position: CONF.position,
     });
     const btnConfigs: Array<{ mode?: string; title: string; svg: string }> = [
-      { mode: CONST.MODE.MARKER, title: T("tool_marker"), svg: Icons.LOCATE_ICON },
-      { mode: CONST.MODE.DISTANCE, title: T("tool_distance"), svg: SVGs.RULER },
-      { mode: CONST.MODE.POLYGON, title: T("tool_polygon"), svg: SVGs.POLYGON },
-      { mode: CONST.MODE.CIRCLE, title: T("tool_circle"), svg: SVGs.CIRCLE },
+      {
+        mode: CONST.MEASURE_MODE.MARKER,
+        title: T("tool_marker"),
+        svg: Icons.LOCATE_ICON,
+      },
+      { mode: CONST.MEASURE_MODE.DISTANCE, title: T("tool_distance"), svg: SVGs.RULER },
+      { mode: CONST.MEASURE_MODE.POLYGON, title: T("tool_polygon"), svg: SVGs.POLYGON },
+      { mode: CONST.MEASURE_MODE.CIRCLE, title: T("tool_circle"), svg: SVGs.CIRCLE },
       // Export — no mode, so it stays out of toolBtns (no data-mode);
       // its click is bound via the interaction manager (see manager.ts).
       { title: T("tool_export"), svg: Icons.DOWNLOAD_ICON },
-      { mode: CONST.MODE.EDIT, title: T("tool_edit"), svg: Icons.EDIT_ICON },
-      { mode: CONST.MODE.CLEAR, title: T("tool_clear"), svg: Icons.DELETE_ICON },
+      { mode: CONST.MEASURE_MODE.EDIT, title: T("tool_edit"), svg: Icons.EDIT_ICON },
+      {
+        mode: CONST.MEASURE_MODE.CLEAR,
+        title: T("tool_clear"),
+        svg: Icons.DELETE_ICON,
+      },
     ];
     let exportBtn: HTMLElement | null = null;
     btnConfigs.forEach(({ mode, title, svg }) => {
