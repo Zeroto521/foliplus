@@ -56,6 +56,8 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
   // Every field is listed by default; addRow drops a row whose value is
   // empty. The order mirrors how the layer row reads: type, feature count,
   // then provenance (source / created / updated).
+  // Explicit no-carrier: color rows short-circuit above; a null here means
+  // the entry declared no Leaflet layer (canvas/solid/custom), not a lazy miss.
   const layer = layerInfo?.layer ?? null;
   // The surface is the authority for the geometry probe; reading it here is
   // the snapshot sync, not a second source of truth. EMPTY means a container

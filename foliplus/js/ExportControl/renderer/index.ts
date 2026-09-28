@@ -56,6 +56,9 @@ class ExportRenderer {
    *  basemap and the export is missing its base layer. Mirrors the same
    *  pattern at LayerControl/manager.ts#210. */
   private resolveLayer(li: LayerInfo): L.Layer | null {
+    // Late-binding fallback for basemaps whose TileLayer `var` was emitted
+    // after the LayerControl IIFE — mirrors manager.findLayer. Explicit
+    // no-carrier entries (canvas/solid/custom) return null here by design.
     return li.layer ?? findLayer(this.map, li.id);
   }
 
