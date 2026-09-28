@@ -177,6 +177,9 @@ class LayerFactory {
   createSurface(
     opts: CreateSurfaceOpts & { content: { kind: "color"; color: string } },
   ): Extract<SurfaceHandle, { content: { kind: "color" } }>;
+  createSurface(
+    opts: CreateSurfaceOpts & { content: { kind: "custom" } },
+  ): Extract<SurfaceHandle, { content: { kind: "custom" } }>;
   createSurface(opts: CreateSurfaceOpts): SurfaceHandle {
     // Unreachable for typed callers (CreateSurfaceOpts.id is required); kept as a
     // guard for untyped JS callers that skip the overload.
@@ -283,6 +286,7 @@ class LayerFactory {
       layerOpts = {
         ...commonLayerOpts,
         name: opts.name,
+        kind: "vector" as const,
         group: GROUP.OVERLAY,
         layer: mainLayer,
         paneName: basePaneName,
@@ -423,6 +427,7 @@ class LayerFactory {
 
       layerOpts = {
         ...commonLayerOpts,
+        kind: "solid" as const,
         group: GROUP.BASE,
         baseInsert: "bottom",
         orderOrigin: opts.orderOrigin,
@@ -480,6 +485,36 @@ class LayerFactory {
       };
     }
 
+    // Third-party carrier: shape first, door later. No synthesized pane;
+    // register the opaque payload and an optional layer. Capability defaults
+    // are the honest `none` (see deriveLayerKind / detectCapabilities).
+    if (opts.content.kind === "custom") {
+      const custom = opts.content.custom;
+      const customLayer = opts.content.layer ?? null;
+      layerOpts = {
+        ...commonLayerOpts,
+        kind: "custom" as const,
+        custom,
+        layer: customLayer,
+      };
+      registerIdempotent = true;
+      content = { kind: "custom", custom, layer: customLayer };
+      return {
+        content,
+        register,
+        unregister,
+        registered: () => registered,
+        bringToFront,
+      };
+    }
+
+    if (opts.content.kind !== "canvas") {
+      throw new Error(
+        log.msg(
+          `unhandled surface kind: ${String((opts.content as { kind: string }).kind)}`,
+        ),
+      );
+    }
     const { className, getBounds, source, updatedAt, meta } = opts.content;
 
     const paneName = namedPaneNameFor(opts.id, CANVAS_PANE_PREFIX, "createCanvas");
@@ -519,6 +554,7 @@ class LayerFactory {
 
     layerOpts = {
       ...commonLayerOpts,
+      kind: "canvas" as const,
       canvas,
       paneName,
       getBounds: getBounds ?? null,

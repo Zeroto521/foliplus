@@ -3,8 +3,8 @@
 import { createLogger } from "#common/log.js";
 import { safeSVG } from "#common/sanitize.js";
 import { GROUP } from "./const.js";
-import type { LayerInfo, RegisterLayerOpts } from "./type.js";
-import { findLayer } from "./util.js";
+import type { LayerInfo, LayerKind, RegisterLayerOpts } from "./type.js";
+import { deriveLayerKind, findLayer } from "./util.js";
 
 // Mutating methods blocked on the read-only view.
 const log = createLogger("LayerRegistry");
@@ -21,6 +21,32 @@ const MUTATING_METHODS = new Set([
   "fill",
   "copyWithin",
 ]);
+
+/** Derive `kind` at the registration edge (once). Same probe family as the
+ *  surface's `deriveLayerKind` so `LayerInfo.kind` is always populated. */
+const kindFor = (opts: RegisterLayerOpts, layer: L.Layer | null): LayerKind =>
+  deriveLayerKind({
+    kind: opts.kind,
+    color: opts.color,
+    custom: opts.custom,
+    canvas: Boolean(opts.canvas),
+    layer,
+  });
+
+/** Carrier projection — the target `carrier` shape, derived from the flat
+ *  registration fields. Explicit no-carrier (canvas-only / color / custom)
+ *  fills the matching slot; `layer` stays null when there is no Leaflet layer. */
+const carrierFor = (
+  layer: L.Layer | null,
+  canvas: HTMLCanvasElement | null,
+  color: string | null,
+  custom: unknown,
+): LayerInfo["carrier"] => ({
+  layer,
+  canvas,
+  element: color != null ? canvas : null,
+  custom,
+});
 
 /**
  * Ordered layer info list with O(1) id index.
@@ -67,6 +93,17 @@ class LayerRegistry {
     existingLi?: LayerInfo,
     map?: L.Map,
   ): LayerInfo {
+    // Resolve-once at registration (target: no `layer: null` lazy residue on
+    // this path). A later `li.layer ?? findLayer` is the documented
+    // late-binding fallback for folium's script-stream order only.
+    const layer =
+      opts.layer ||
+      (map && opts.id ? findLayer(map, opts.id) : null) ||
+      existingLi?.layer ||
+      null;
+    const canvas = opts.canvas ?? existingLi?.canvas ?? null;
+    const color = opts.color ?? existingLi?.color ?? null;
+    const custom = opts.custom ?? existingLi?.carrier?.custom;
     return {
       // A re-registration's caller name is the provider's own metadata, which
       // resets `name` and would clobber a user rename on the next render or
@@ -89,13 +126,11 @@ class LayerRegistry {
           ? safeSVG(opts.iconSvg) || null
           : (existingLi?.iconSvg ?? null),
       type: null,
-      layer:
-        opts.layer ||
-        (map && opts.id ? findLayer(map, opts.id) : null) ||
-        existingLi?.layer ||
-        null,
-      canvas: opts.canvas ?? existingLi?.canvas ?? null,
-      color: opts.color ?? existingLi?.color ?? null,
+      layer,
+      kind: kindFor(opts, layer),
+      carrier: carrierFor(layer, canvas, color, custom),
+      canvas,
+      color,
       featureCountProvider:
         opts.featureCountProvider ?? existingLi?.featureCountProvider ?? null,
       styleProvider: opts.styleProvider ?? existingLi?.styleProvider ?? null,
