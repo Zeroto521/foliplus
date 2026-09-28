@@ -50,6 +50,8 @@ describe("drawAlpha", () => {
     expect(drawAlpha(-1, 1)).toBe(0);
     expect(drawAlpha(Number.NaN, 0.5)).toBeCloseTo(0.5);
     expect(drawAlpha(0.5, Number.NaN)).toBeCloseTo(0.5);
+    expect(drawAlpha(Number.NaN, Number.NaN)).toBe(1);
+    expect(drawAlpha(0.4, 0.4)).toBeCloseTo(0.16);
   });
 
   it("keeps declared fill/border semantics when layerAlpha is 1", () => {
@@ -99,5 +101,18 @@ describe("withCanvasLayerAlpha", () => {
     });
     expect(seen).toEqual([0.25]);
     expect(ctx.globalAlpha).toBe(1);
+  });
+
+  it("treats a canvas with no stored alpha as 1 (branch cover)", () => {
+    const canvas = makeCanvas();
+    const ctx = {
+      canvas,
+      globalAlpha: 1,
+    } as unknown as CanvasRenderingContext2D;
+    const seen: number[] = [];
+    withCanvasLayerAlpha(ctx, () => {
+      seen.push(ctx.globalAlpha);
+    });
+    expect(seen).toEqual([1]);
   });
 });

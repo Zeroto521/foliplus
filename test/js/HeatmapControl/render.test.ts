@@ -169,6 +169,24 @@ describe("drawHexagon", () => {
     expect(alphasDuring[0]).toBeCloseTo(0.7);
     expect(ctx.globalAlpha).toBe(1);
   });
+
+  it("falls back to 1 when CONF.fill_opacity is absent (branch cover)", () => {
+    Object.assign(window.CONF, { fill_opacity: undefined, border_opacity: 0 });
+    const ctx = makeCtx();
+    const alphasDuring: number[] = [];
+    ctx.fill = vi.fn(() => {
+      alphasDuring.push(ctx.globalAlpha);
+    });
+    drawHexagon(
+      ctx as unknown as CanvasRenderingContext2D,
+      makeFeat(),
+      makeMap() as unknown as L.Map,
+      0,
+      "#000000",
+    );
+    expect(alphasDuring[0]).toBe(1);
+    expect(ctx.globalAlpha).toBe(1);
+  });
 });
 
 describe("resolveLabelStyle", () => {
