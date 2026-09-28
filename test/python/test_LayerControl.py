@@ -3468,15 +3468,21 @@ class TestLayerControlBrowser:
             assert first_z2 > last_z2, f"reordered tile panes did not flip z: {moved}"
 
     def test_register_layer_preserves_visible_on_reentry(self, browser, tmp_path):
-        """registerLayer preserves the visible state from a previous registration."""
+        """registerLayer preserves the visible state from a previous registration.
+
+        Intent is the single source of truth (#498): a hide recorded through
+        setVisible survives unregisterLayer — which is a teardown, not a
+        delete — and is replayed on the next registerLayer of the same id.
+        """
         with use_page(self._make_page, browser, tmp_path) as (page, _):
             result = page.evaluate(
                 _js("LayerControl/register_preserves_visible_on_reentry")
             )
             assert result is not None
             assert result["defaultVisible"] is True, "Default visible should be true"
-            assert result["newVisible"] is True, (
-                "registerLayer after unregisterLayer resets visible to true"
+            assert result["newVisible"] is False, (
+                "the hide recorded by setVisible must survive unregister/re-register; "
+                f"got {result}"
             )
 
     def test_register_re_register_preserves_fields(self, browser, tmp_path):

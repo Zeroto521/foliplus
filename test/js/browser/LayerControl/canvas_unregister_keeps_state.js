@@ -1,11 +1,17 @@
 async () => {
-  // A canvas layer that unregisters itself keeps the user's stored opacity.
+  // A user-added layer keeps the user's stored opacity across unregister and
+  // loses it only on an explicit delete.
   //
   // unregisterLayer is a generic teardown, and HeatmapControl reaches it
   // whenever its data goes empty: clearHeatmapCanvas() calls
   // overlay.unregister(). Nothing about an empty frame says the user's
   // opacity should revert to the author default, so the only call that may
   // erase a value is an explicit delete.
+  //
+  // The layer is registered WITHOUT styleSetters so it is user-owned:
+  // deleteLayer dispatches by ownership (#499) — a component-owned layer
+  // (styleSetters present) only gets a LAYER_DELETED event and keeps its
+  // stored state, while a user layer is retired and its record is pruned.
   const api = window.map?.foliplus?.LayerAPI;
   if (!api) return { error: "no LayerAPI" };
   // Writes are debounced (SAVE_DEBOUNCE_MS), so every read waits past the flush.
@@ -24,20 +30,11 @@ async () => {
   };
   const registered = () => api.layers.some(l => l.id === id);
 
-  // Created the way the heatmap's overlay is: a canvas that declares its own
-  // label style setters, which is what makes LayerControl render its style
-  // panel at all (renderLabelControls only emits rows for the label vocabulary,
-  // and a delegated drawer with no rows is dropped) — and the Layer section
-  // then appends the opacity row.
+  // A plain featureGroup is user-owned and still gets the Layer section's
+  // opacity row (its surface capability is "pane", not "none").
   const makeOverlay = () =>
-    api.createCanvas({
-      id,
-      name: "Delete Probe",
-      styleProvider: () => ({ labelColor: "#000000", labelSize: 12 }),
-      styleSetters: { labelColor: () => {}, labelSize: () => {} },
-    });
-  const overlay = makeOverlay();
-  overlay.register();
+    api.registerLayer({ id, name: "Delete Probe", layer: L.featureGroup() });
+  makeOverlay();
   const row = document.querySelector(`.foliplus-layer-item[data-layer-id="${id}"]`);
   if (!row) return { error: "row not rendered", registered: registered() };
   row.querySelector(".foliplus-layer-more-btn").click();
@@ -60,15 +57,13 @@ async () => {
   const afterSet = stored();
 
   // Unregister is how an empty data frame tears the layer down.
-  overlay.unregister();
+  api.unregisterLayer(id);
   await wait(250);
   const afterUnregister = stored();
   const registeredAfterUnregister = registered();
 
-  // Data comes back, and now the user deletes the layer for good. deleteLayer
-  // is only a live layer's action, so an already-unregistered id is refused.
-  const revived = makeOverlay();
-  revived.register();
+  // Data comes back, and now the user deletes the layer for good.
+  makeOverlay();
   let deleteReturn = null;
   let deleteError = null;
   try {
