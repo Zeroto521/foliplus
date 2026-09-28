@@ -49,7 +49,7 @@ import {
   saveFoldState,
   saveNamesState,
   saveState,
-  syncHiddenId,
+  setVisible,
 } from "./state.js";
 import { applyBorderToLayer } from "./style/border.js";
 import {
@@ -98,8 +98,9 @@ class LayerUI {
    *  `getLayerItems(group).length` returns; `on` is the subset whose intent
    *  is visible. `syncToggleAllFromCount` writes the checkbox off `on`. */
   checkedCount: Record<string, { total: number; on: number }>;
-  /** Layer ids hidden by the user (checked-off); survives page reload. */
-  hiddenLayerIds: Set<string>;
+  /** Layer id → the user's own visibility choice (true = shown), absent when
+   *  the user never chose; survives page reload. */
+  visibleMap: Record<string, boolean>;
   /** The author's declared default per layer id, snapshotted once per id from
    *  the map membership at first sight.
    *
@@ -151,7 +152,7 @@ class LayerUI {
   /** Map zoomend handler — re-evaluates every layer's effective-shown after
    *  a zoom change so a layer whose range excludes the new level is hidden
    *  (and vice versa). Writes through the single pipeline, never touches
-   *  hiddenLayerIds / overrides. */
+   *  visibleMap / overrides. */
   onZoomEnd: (() => void) | null;
   /** Unsubscribe function for LAYER_ITEM_COUNT_CHANGE. */
   unsubscribeCountChange: (() => void) | null;
@@ -240,7 +241,7 @@ class LayerUI {
     this._ = _;
     this.foldedGroups = new Set();
     this.checkedCount = {};
-    this.hiddenLayerIds = new Set();
+    this.visibleMap = {};
     this.authorVisible = new Map();
     this.intentProvenance = {};
     this.currentColor = CONST.COLOR.DEFAULT;
@@ -336,8 +337,8 @@ class LayerUI {
   saveFoldState() {
     return saveFoldState(this);
   }
-  syncHiddenId(id: string, hidden: boolean, persist: boolean = true) {
-    return syncHiddenId(this, id, hidden, persist);
+  setVisible(id: string, visible: boolean, persist: boolean = true) {
+    return setVisible(this, id, visible, persist);
   }
   saveState() {
     return saveState(this);

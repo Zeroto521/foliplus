@@ -37,7 +37,8 @@ interface LayerFactoryDeps {
   registerLayer: (opts: RegisterLayerOpts) => HTMLElement | null;
   unregisterLayer: (id: string) => boolean;
   bringLayerToFront: (id: string) => void;
-  /** Drop a registered layer's cached geometry type when its content changes. */
+  /** Drop a registered layer's cached geometry type when its content changes
+   *  (add/remove/clear). */
   invalidateType: (id: string) => void;
   /**
    * Optional: notify on runtime layer content changes (add/remove/clear).
@@ -336,7 +337,10 @@ class LayerFactory {
           directCount() > 0 ||
           Array.from(subLayers.values()).some(g => g.getLayers().length > 0);
         for (const g of subLayers.values()) g.clearLayers();
-        if (hadContent && !onDataChangeSkip) onDataChange?.(opts.id);
+        if (hadContent) {
+          invalidateType(opts.id);
+          if (!onDataChangeSkip) onDataChange?.(opts.id);
+        }
         if (map.hasLayer(mainLayer)) map.removeLayer(mainLayer);
         unregister();
         return mainLayer;
