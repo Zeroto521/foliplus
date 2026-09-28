@@ -771,6 +771,29 @@ describe("LayerFactory", () => {
       );
     });
 
+    it("forwards opacityBake and onOpacity into the registration (R11)", () => {
+      const registered: Array<Record<string, unknown>> = [];
+      const f = new LayerFactory({
+        map,
+        panes,
+        registerLayer: opts => {
+          registered.push(opts as unknown as Record<string, unknown>);
+          return null;
+        },
+        unregisterLayer: () => true,
+        bringLayerToFront: () => {},
+      });
+      const onOpacity = vi.fn();
+      f.createCanvas({
+        id: "heat",
+        opacityBake: "redraw",
+        onOpacity,
+      }).register();
+      const opts = registered.at(-1)!;
+      expect(opts.opacityBake).toBe("redraw");
+      expect(opts.onOpacity).toBe(onOpacity);
+    });
+
     it("normalizes a pane name that would not be a valid element id", () => {
       // The pane name reaches Leaflet's createPane as both an element id and a
       // CSS class, so disallowed runs collapse to '-' rather than being

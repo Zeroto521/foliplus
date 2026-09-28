@@ -122,6 +122,7 @@ class LayerFactory {
       styleSetters: opts.styleSetters,
       styleDefaults: opts.styleDefaults,
       onOpacity: opts.onOpacity,
+      opacityBake: opts.opacityBake,
       content: {
         kind: "canvas",
         className: opts.className,
@@ -152,6 +153,7 @@ class LayerFactory {
       name: opts.name,
       persistOrder: opts.persistOrder,
       onOpacity: opts.onOpacity,
+      opacityBake: opts.opacityBake,
       content: { kind: "color", color: opts.color },
     });
     // register() is called by the caller (LayerControl UI) after setting

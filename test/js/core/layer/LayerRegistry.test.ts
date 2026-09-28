@@ -38,6 +38,8 @@ describe("LayerRegistry", () => {
       expect(info.id).toBe("test");
       expect(info.name).toBe("test");
       expect(info.opacity).toBe(1);
+      expect(info.opacityBake).toBe("redraw");
+      expect(info.onOpacity).toBeNull();
       expect(info.group === "base").toBe(false);
       expect(info.paneName).toBeNull();
       expect(info.iconSvg).toBeNull();
