@@ -1067,11 +1067,12 @@ class LayerManager implements LayerAPI {
     }
   }
 
-  /** z-space forwarding — pure forward to `core/layer/z.zFor`. The z-space
-   *  is defined there, not here. Since R9 production code calls `zFor`
-   *  directly, but this wrapper stays because LayerManager is the LayerAPI
-   *  entry point — removing it would break the contract. Tests and probes
-   *  may still call it. Do not grow this into real logic. */
+  /** Thin forwarder only — gathers the args and hands the z arithmetic to
+   *  `core/layer/z.zFor`. There is no second z-semantics here: the z-space
+   *  is defined in `z.ts`, not in this file. Since R9 production code calls
+   *  `zFor` directly, but this wrapper stays because LayerManager is the
+   *  LayerAPI entry point — removing it would break the contract. Tests and
+   *  probes may still call it. Do not grow this into real logic. */
   computeZIndex(i: number, group: "base" | "overlay"): number {
     return zFor({ index: i, count: this.layers.length, group });
   }
