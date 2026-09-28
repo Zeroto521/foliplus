@@ -246,7 +246,7 @@ const bindEvents = (ui: LayerUI): void => {
   // stored range excludes the new level is hidden, and one whose range
   // includes it is brought back. This is the "inRange" half of
   // effectiveShown = intent && inRange, and it writes through the single
-  // pipeline so the checkbox / hiddenIds / overrides stay untouched (#329).
+  // pipeline so the checkbox / hiddenLayerIds / overrides stay untouched (#329).
   ui.onZoomEnd = () => applyProjectionAll(ui);
   ui.m.map.on("zoomend", ui.onZoomEnd);
   // Keyboard dispatch for the "more" button (Enter/Space/Escape) is handled

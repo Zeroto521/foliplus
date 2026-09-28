@@ -33,7 +33,7 @@ describe("LayerUI keyboard", () => {
       });
     }
     ui.foldedGroups = new Set();
-    ui.hiddenIds = new Set();
+    ui.hiddenLayerIds = new Set();
     // Folded-group state is persisted to localStorage, so a fold from one test
     // would be re-read by the next test's LayerUI constructor and present as
     // already-folded.
@@ -128,7 +128,7 @@ describe("LayerUI keyboard", () => {
       cb.checked = false;
       ui.handleChange({ target: cb } as Event);
 
-      expect(ui.hiddenIds).toContain("overlay1");
+      expect(ui.hiddenLayerIds).toContain("overlay1");
       // 3 seeded layers + the colour basemap registered by initTypesAndVisibility.
       expect(ui.m.layers.length).toBe(4);
     });
@@ -742,7 +742,7 @@ describe("LayerUI keyboard", () => {
     // not flip the row's select-all checkbox.
     //
     // The group needs two overlay layers so overlay1 isn't collapsed into the
-    // single-child "no toggle-all" layout of initFixture(), and hiddenIds must
+    // single-child "no toggle-all" layout of initFixture(), and hiddenLayerIds must
     // be empty so a visibility collapse can't read as a fold (the outer
     // beforeEach owns both).
 
@@ -816,7 +816,7 @@ describe("LayerUI keyboard", () => {
 
     it("getNavigableItems lists rows by class, so a checkbox-less row is reachable", () => {
       const colorRow = ui.uiContainer.querySelector(
-        `[${CONST.DATA.LAYER_ID}="${CONST.COLOR.MAP_ID}"]`,
+        `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       ) as HTMLElement | null;
 
       const items = ui.getNavigableItems();

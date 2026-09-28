@@ -28,25 +28,25 @@ const loadPersistedState = (ui: LayerUI) => {
   // (write-new / read-old — a v2 record reads exactly as it always did,
   // and neither side is migrated into the other).
   ui.labelConfigs = { ...state.annotations };
-  // Per-layer intent: the value lives in hiddenIds / opacityMap, `overrides`
+  // Per-layer intent: the value lives in hiddenLayerIds / opacityMap, `overrides`
   // records that the user set it. A layer with no entry keeps the author's
   // declared default -- there is no map-level "did the user choose at all" flag,
   // because the distinction is per layer.
-  ui.hiddenIds = new Set();
+  ui.hiddenLayerIds = new Set();
   ui.fillColorMap = {};
   ui.fillOpacityMap = {};
   ui.borderColorMap = {};
   ui.borderWeightMap = {};
   ui.opacityMap = {};
   ui.zoomRangeMap = {};
-  ui.userOverrides = {};
+  ui.intentProvenance = {};
   for (const [id, entry] of Object.entries(state.layers)) {
     // New-key label config overrides the legacy-segment fallback spread
     // above — same id, current segment wins.
     if (entry.annotation) ui.labelConfigs[id] = entry.annotation;
-    ui.userOverrides[id] = [...entry.overrides];
+    ui.intentProvenance[id] = [...entry.overrides];
     if (entry.overrides.includes("visible") && entry.visible === false) {
-      ui.hiddenIds.add(id);
+      ui.hiddenLayerIds.add(id);
     }
     if (entry.overrides.includes("fillColor") && entry.fillColor) {
       ui.fillColorMap[id] = entry.fillColor;
@@ -109,15 +109,18 @@ const hasLiveValue = (ui: LayerUI, id: string, override: LayerOverride): boolean
 const buildLayerStates = (ui: LayerUI): Record<string, PersistedLayerState> => {
   const states: Record<string, PersistedLayerState> = {};
   const annotations = Object.fromEntries(ui.m.annotation.configEntries());
-  const ids = new Set([...Object.keys(ui.userOverrides), ...Object.keys(annotations)]);
+  const ids = new Set([
+    ...Object.keys(ui.intentProvenance),
+    ...Object.keys(annotations),
+  ]);
   for (const id of ids) {
-    const declared = (ui.userOverrides[id] ?? []).filter(override =>
+    const declared = (ui.intentProvenance[id] ?? []).filter(override =>
       hasLiveValue(ui, id, override),
     );
     const annotation = annotations[id];
     if (declared.length === 0 && !annotation) continue;
     const state: PersistedLayerState = { overrides: declared };
-    if (declared.includes("visible")) state.visible = !ui.hiddenIds.has(id);
+    if (declared.includes("visible")) state.visible = !ui.hiddenLayerIds.has(id);
     const fillColor = ui.fillColorMap[id];
     if (declared.includes("fillColor") && typeof fillColor === "string") {
       state.fillColor = fillColor;
@@ -167,24 +170,24 @@ const markOverride = (ui: LayerUI, id: string, override: LayerOverride) => {
     );
     return;
   }
-  const overrides = ui.userOverrides[id] ?? [];
+  const overrides = ui.intentProvenance[id] ?? [];
   if (!overrides.includes(override)) overrides.push(override);
-  ui.userOverrides[id] = overrides;
+  ui.intentProvenance[id] = overrides;
 };
 
 /** Drop one dimension's provenance -- the single rule a Reset button reduces to,
  *  sending the value back to the author's declared default. */
 const unmarkOverride = (ui: LayerUI, id: string, override: LayerOverride) => {
-  const overrides = (ui.userOverrides[id] ?? []).filter(entry => entry !== override);
-  if (overrides.length > 0) ui.userOverrides[id] = overrides;
-  else delete ui.userOverrides[id];
+  const overrides = (ui.intentProvenance[id] ?? []).filter(entry => entry !== override);
+  if (overrides.length > 0) ui.intentProvenance[id] = overrides;
+  else delete ui.intentProvenance[id];
 };
 
 /**
  * Propagate the user's stored state —hidden visibility and renames —
  * into the registry and the rendered rows.
  *
- * `hiddenIds` and `renamedNames` are the source of truth; the registry's
+ * `hiddenLayerIds` and `renamedNames` are the source of truth; the registry's
  * `LayerInfo.visible` / `LayerInfo.name` and the row checkboxes / labels
  * are their projections, refreshed here whenever a row or the registry is
  * rebuilt from a third-party layer's own metadata. Hidden is a same-axis
@@ -244,15 +247,15 @@ const applyUserState = (ui: LayerUI, id?: string) => {
     return;
   }
 
-  // The registry is the sweep, not `hiddenIds`: a layer the user left
-  // visible is absent from `hiddenIds` by design, so iterating that set
+  // The registry is the sweep, not `hiddenLayerIds`: a layer the user left
+  // visible is absent from `hiddenLayerIds` by design, so iterating that set
   // alone can never reach it and the hide half of the round trip has no
   // inverse. Walking the registry asserts every layer's map membership
   // against the persisted intent; the color basemap has no registry entry,
   // so its rename still comes from `renamedNames`.
   applyProjectionAll(ui);
   for (const layerId of Object.keys(ui.renamedNames)) {
-    if (layerId === CONST.COLOR.MAP_ID) {
+    if (layerId === CONST.SOLID_BASEMAP_ID) {
       // The color basemap has no registry entry —only its row label.
       applyNameProjection(
         null,
@@ -303,14 +306,14 @@ const applyUserState = (ui: LayerUI, id?: string) => {
  * longer holds, and {@link markOverride} refuses that combination.
  */
 const dropPersistedLayerState = (ui: LayerUI, id: string) => {
-  ui.hiddenIds.delete(id);
+  ui.hiddenLayerIds.delete(id);
   delete ui.fillColorMap[id];
   delete ui.fillOpacityMap[id];
   delete ui.borderColorMap[id];
   delete ui.borderWeightMap[id];
   delete ui.opacityMap[id];
   delete ui.zoomRangeMap[id];
-  delete ui.userOverrides[id];
+  delete ui.intentProvenance[id];
 };
 
 /** Save user-assigned names, coalescing rapid calls. */
@@ -335,8 +338,8 @@ const syncHiddenId = (
   hidden: boolean,
   persist: boolean = true,
 ) => {
-  if (hidden) ui.hiddenIds.add(id);
-  else ui.hiddenIds.delete(id);
+  if (hidden) ui.hiddenLayerIds.add(id);
+  else ui.hiddenLayerIds.delete(id);
   // The user's explicit action (either direction) supersedes any record the
   // zoom-range mechanism kept for this id: without this line, a layer the
   // sweep had removed would be re-added by the sweep the moment the user

@@ -50,7 +50,7 @@ const origBringToFront = L.Path.prototype.bringToFront;
 // the prototype; only the last unpatch restores the original implementation.
 let bringToFrontPatchRefs = 0;
 
-const patchBringToFront = () => {
+const installBringToFrontPatch = () => {
   bringToFrontPatchRefs++;
   if (bringToFrontPatchRefs > 1) return;
   L.Path.prototype.bringToFront = function () {
@@ -59,7 +59,7 @@ const patchBringToFront = () => {
   };
 };
 
-const unpatchBringToFront = () => {
+const uninstallBringToFrontPatch = () => {
   if (bringToFrontPatchRefs <= 0) return;
   bringToFrontPatchRefs--;
   if (bringToFrontPatchRefs > 0) return;
@@ -141,7 +141,7 @@ const mergeStoredOrder = (stored: string[] | null, live: string[]): string[] => 
 //             syncAttribution, attachUI, destroy, canReorderBetween,
 //             findLayer, refreshType, refreshCount, forEachLeaf,
 //             clearAllLayers
-//   Private   patchBringToFront, unpatchBringToFront, mergeStoredOrder
+//   Private   installBringToFrontPatch, uninstallBringToFrontPatch, mergeStoredOrder
 
 /** The pane specs a surface is declared with: the registry entry's own, plus
  *  the label (annotation) pane when the layer's features expose a labelable
@@ -710,7 +710,7 @@ class LayerManager implements LayerAPI {
     // handled by `applyUserState` further below, which re-projects the hidden
     // intent and writes the carrier through the executor's single write path.
     if (
-      !this.ui?.hiddenIds?.has(opts.id) &&
+      !this.ui?.hiddenLayerIds?.has(opts.id) &&
       opts.layer &&
       !this.map.hasLayer(opts.layer)
     ) {
@@ -875,7 +875,7 @@ class LayerManager implements LayerAPI {
         const group = layerInfo.group;
         const anchorSel =
           group === CONST.GROUP.BASE
-            ? `${CONST.SEL.LAYER_ITEM}[data-layer-type="${CONST.GROUP.BASE}"]:not([${CONST.DATA.LAYER_ID}="${CONST.COLOR.MAP_ID}"])`
+            ? `${CONST.SEL.LAYER_ITEM}[data-layer-type="${CONST.GROUP.BASE}"]:not([${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"])`
             : `${CONST.SEL.LAYER_ITEM}:not([data-layer-type="${CONST.GROUP.BASE}"])`;
         if (!this.uiContainer.querySelector(anchorSel)) {
           this.uiContainer
@@ -945,7 +945,7 @@ class LayerManager implements LayerAPI {
     // The colour basemap is also component-owned: clearing it unregisters the
     // surface and resets the fill state so the map returns to the grid empty
     // state. The id stays registerable so the colour can be re-picked.
-    if (id === CONST.COLOR.MAP_ID) {
+    if (id === CONST.SOLID_BASEMAP_ID) {
       const removed = this.unregisterLayer(id);
       if (!removed) return false;
       if (this.ui) {
@@ -1311,4 +1311,4 @@ class LayerManager implements LayerAPI {
   }
 }
 
-export { LayerManager, patchBringToFront, unpatchBringToFront };
+export { LayerManager, installBringToFrontPatch, uninstallBringToFrontPatch };

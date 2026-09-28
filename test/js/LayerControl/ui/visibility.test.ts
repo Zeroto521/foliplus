@@ -218,13 +218,13 @@ describe("applyVisibility", () => {
     // The user stores a zoom range that excludes the current zoom (2), then
     // checks the box again.
     ui.zoomRangeMap.overlay1 = [3, 12];
-    ui.userOverrides.overlay1 = ["zoomRange"];
+    ui.intentProvenance.overlay1 = ["zoomRange"];
     (map.addLayer as ReturnType<typeof vi.fn>).mockClear();
 
     expect(applyVisibility(ui, "overlay1", true)).toBe(true);
 
     // Intent is recorded: the box is checked and the layer is no longer hidden.
-    expect(ui.hiddenIds.has("overlay1")).toBe(false);
+    expect(ui.hiddenLayerIds.has("overlay1")).toBe(false);
     expect(
       ui.uiContainer.querySelector(
         `[${CONST.DATA.LAYER_ID}="overlay1"] input[type="checkbox"]`,
@@ -279,7 +279,7 @@ describe("applyVisibility", () => {
     expect(applyVisibility(ui, "ov", false)).toBe(true);
 
     expect(map.removeLayer).toHaveBeenCalledWith(layer);
-    expect(ui.hiddenIds.has("ov")).toBe(true);
+    expect(ui.hiddenLayerIds.has("ov")).toBe(true);
   });
 
   it("persists the hidden set so the choice survives a reload", () => {
@@ -514,7 +514,7 @@ describe("applyVisibility", () => {
         // Base click (colour row): syncNoBasemap called, so NO_BASE_MAP is
         // toggled.
         toggleMock.mockClear();
-        applyVisibility(u2, CONST.COLOR.MAP_ID, true);
+        applyVisibility(u2, CONST.SOLID_BASEMAP_ID, true);
         const baseCalls = toggleMock.mock.calls.filter(
           c => c[0] === CONST.CLASSES.NO_BASE_MAP,
         );
@@ -953,7 +953,7 @@ describe("toggleAll base group", () => {
 
     expect(() => toggleAll(ui, CONST.GROUP.BASE, true)).not.toThrow();
     expect(bare.querySelector("input")).toBeNull();
-    expect(ui.hiddenIds.size).toBe(0);
+    expect(ui.hiddenLayerIds.size).toBe(0);
   });
 
   it("runs every branch of the sweep: real layer and canvas-only base", () => {
@@ -996,7 +996,7 @@ describe("unit helpers", () => {
     </div>
     <div
       class="foliplus-layer-item"
-      data-layer-id="${CONST.COLOR.MAP_ID}"
+      data-layer-id="${CONST.SOLID_BASEMAP_ID}"
       data-layer-type="base"
     ></div>
   `;
@@ -1008,7 +1008,7 @@ describe("unit helpers", () => {
     const items = getLayerItems(ui, CONST.GROUP.BASE);
     expect(items.length).toBe(2);
     expect(items[0].getAttribute("data-layer-type")).toBe("base");
-    expect(items[1].getAttribute("data-layer-id")).toBe(CONST.COLOR.MAP_ID);
+    expect(items[1].getAttribute("data-layer-id")).toBe(CONST.SOLID_BASEMAP_ID);
   });
 
   it("getLayerItems returns overlay rows and excludes the color basemap", () => {
@@ -1063,7 +1063,7 @@ describe("unit helpers", () => {
     expect(() => syncToggleAll(ui, CONST.GROUP.OVERLAY)).not.toThrow();
   });
 
-  it("syncNoBasemap handles undefined userOverrides and hiddenIds", () => {
+  it("syncNoBasemap handles undefined intentProvenance and hiddenLayerIds", () => {
     // The `?.` and `?? false` fallbacks on the inline intent check: a thin stub
     // may not have populated these maps yet, so the check must degrade to the
     // author default rather than crashing.
@@ -1076,8 +1076,8 @@ describe("unit helpers", () => {
         map: { getContainer: () => document.createElement("div") },
       },
       authorVisible: new Map(),
-      hiddenIds: undefined,
-      userOverrides: undefined,
+      hiddenLayerIds: undefined,
+      intentProvenance: undefined,
       T: (k: string) => k,
     } as unknown as LayerUI;
 
@@ -1105,8 +1105,8 @@ describe("unit helpers", () => {
         uiContainer,
         m: { layers, map: { getContainer: () => container } },
         authorVisible: new Map(),
-        hiddenIds: new Set<string>(),
-        userOverrides: {},
+        hiddenLayerIds: new Set<string>(),
+        intentProvenance: {},
         T: (k: string) => k,
       } as unknown as LayerUI;
       return { ui, container };
@@ -1139,7 +1139,7 @@ describe("unit helpers", () => {
     });
   });
 
-  it("syncToggleAll handles undefined userOverrides and hiddenIds", () => {
+  it("syncToggleAll handles undefined intentProvenance and hiddenLayerIds", () => {
     // Same fallback pattern: the inline intent check in syncToggleAll must
     // degrade gracefully when the choice maps are absent.
     const uiContainer = document.createElement("div");
@@ -1155,8 +1155,8 @@ describe("unit helpers", () => {
       uiContainer,
       m: { layerRegistry: { get: () => ({ id: "x" }) } },
       authorVisible: new Map(),
-      hiddenIds: undefined,
-      userOverrides: undefined,
+      hiddenLayerIds: undefined,
+      intentProvenance: undefined,
       T: (k: string) => k,
     } as unknown as LayerUI;
 

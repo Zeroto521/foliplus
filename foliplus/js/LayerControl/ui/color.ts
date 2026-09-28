@@ -15,7 +15,7 @@ import type { LayerUI } from "./index.js";
 const getColorSurface = (ui: LayerUI): CreateColorAPI => {
   if (!ui.colorSurface) {
     const surface = ui.m.createColor({
-      id: CONST.COLOR.MAP_ID,
+      id: CONST.SOLID_BASEMAP_ID,
       name: ui.T("color_map_label"),
       color: CONST.COLOR.DEFAULT,
       // Runtime-created surface: its insertion slot follows attach timing, not a
@@ -26,14 +26,14 @@ const getColorSurface = (ui: LayerUI): CreateColorAPI => {
     ui.colorSurface = surface;
     // register() inserts the LayerInfo into the registry. Called after
     // setting ui.colorSurface so a subsequent getColorSurface call (from
-    // showColorLayer during the register-triggered applyProjection) finds
+    // showSolidBasemap during the register-triggered applyProjection) finds
     // the surface instead of creating a second one.
     surface.register();
   }
   return ui.colorSurface;
 };
 
-const showColorLayer = (ui: LayerUI, color: string) => {
+const showSolidBasemap = (ui: LayerUI, color: string) => {
   ui.currentColor = color;
   const surface = getColorSurface(ui);
   surface.setColor(color);
@@ -43,7 +43,7 @@ const showColorLayer = (ui: LayerUI, color: string) => {
   ui.m.enforceOrder();
 };
 
-const hideColorLayer = (ui: LayerUI) => {
+const hideSolidBasemap = (ui: LayerUI) => {
   // The surface is created lazily on first show. An init-time hide
   // (the author default is unchecked) runs before any show, so the
   // surface does not exist yet — nothing to hide, and the pane is not
@@ -51,4 +51,4 @@ const hideColorLayer = (ui: LayerUI) => {
   ui.colorSurface?.setVisible(false);
 };
 
-export { getColorSurface, showColorLayer, hideColorLayer };
+export { getColorSurface, showSolidBasemap, hideSolidBasemap };

@@ -31,7 +31,7 @@ import {
   numberInput,
 } from "#common/form.js";
 import * as CONST from "../../const.js";
-import { showColorLayer } from "../color.js";
+import { showSolidBasemap } from "../color.js";
 import type { LayerUI } from "../index.js";
 import { markOverride, saveState, unmarkOverride } from "../state.js";
 import { pinStyleOnHighlight } from "./pin.js";
@@ -61,7 +61,7 @@ type StyleCarrier = L.Layer & {
  *  still belongs to the canvas family and is excluded here.
  *
  *  Used only by write paths (applyFillToLayer, resetLayerFill, buildFillRow)
- *  to route the colour basemap's fill to `showColorLayer` instead of walking
+ *  to route the colour basemap's fill to `showSolidBasemap` instead of walking
  *  leaves. The gate (`layerCanFill`) reads the capability, not this. */
 const isColorBasemap = (li: LayerInfo | undefined): boolean => {
   if (!li || li.styleSetters) return false;
@@ -221,13 +221,13 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
   if (color === undefined && opacity === undefined) return;
 
   // Solid-color basemap: the fill is the pane's paint, not a vector style.
-  // Route to showColorLayer instead of walking leaves (the basemap has none).
+  // Route to showSolidBasemap instead of walking leaves (the basemap has none).
   // Syncs ui.currentColor so a later checkbox toggle re-applies the same
   // color.
   if (isColorBasemap(li)) {
     if (color !== undefined) {
       ui.currentColor = color;
-      showColorLayer(ui, color);
+      showSolidBasemap(ui, color);
     }
     return;
   }
@@ -316,7 +316,7 @@ const resetLayerFill = (ui: LayerUI, layerId: string): void => {
   // Solid-color basemap: restore the authored default colour.
   if (isColorBasemap(li)) {
     ui.currentColor = CONST.COLOR.DEFAULT;
-    showColorLayer(ui, CONST.COLOR.DEFAULT);
+    showSolidBasemap(ui, CONST.COLOR.DEFAULT);
     return;
   }
 

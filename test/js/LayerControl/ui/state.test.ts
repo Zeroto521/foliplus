@@ -32,7 +32,7 @@ import { GridLayer, TileLayer, installLeafletGlobals } from "./fixture.js";
 const specs = (...names: string[]): PaneSpec[] =>
   names.map((name, i) => ({ role: i === 0 ? "base" : "sub", order: i, name }));
 
-describe("LayerUI visibility persistence (hiddenIds)", () => {
+describe("LayerUI visibility persistence (hiddenLayerIds)", () => {
   // Reusable layer stubs at module scope so standalone test blocks don't
   // depend on initFixture()'s internal scope.
   const testPolyLayer = {
@@ -110,20 +110,20 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
         },
       ]);
       const u = new LayerUI(m);
-      u.hiddenIds = new Set(["overlay1"]);
-      u.userOverrides = { overlay1: ["visible"] };
+      u.hiddenLayerIds = new Set(["overlay1"]);
+      u.intentProvenance = { overlay1: ["visible"] };
 
       u.applyUserState();
 
       expect(removeLayer).toHaveBeenCalledWith(testPolyLayer);
-      expect(u.hiddenIds).toContain("overlay1");
+      expect(u.hiddenLayerIds).toContain("overlay1");
       expect(u.intentVisible("overlay1")).toBe(false);
     });
 
     it("re-adds a layer the user un-hid, once the visibility key exists", () => {
       // folium renders a show=False layer absent from the map and nothing else
       // puts it back, so the hide half of the round trip had no inverse: a
-      // layer the user left visible was correctly absent from hiddenIds, and the
+      // layer the user left visible was correctly absent from hiddenLayerIds, and the
       // sweep left it off the map. That is what made a checked Commuting Routes
       // come back unchecked after a reload.
       const { map, removeLayer } = makeTestMap();
@@ -136,12 +136,12 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
         },
       ]);
       const u = new LayerUI(m);
-      // The user checked the layer ON, so it is absent from hiddenIds -- but the
+      // The user checked the layer ON, so it is absent from hiddenLayerIds -- but the
       // key exists, so every registered layer must be on the map.
-      u.hiddenIds = new Set(["other"]);
+      u.hiddenLayerIds = new Set(["other"]);
       // The user unhid overlay1 (a `show=False` folium layer), so it is absent
-      // from hiddenIds -- but a `visible` override says it must come back on.
-      u.userOverrides = { overlay1: ["visible"] };
+      // from hiddenLayerIds -- but a `visible` override says it must come back on.
+      u.intentProvenance = { overlay1: ["visible"] };
       // Simulate the layer being off the map (folium show=False).
       map.hasLayer = vi.fn(() => false);
 
@@ -166,10 +166,10 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
         },
       ]);
       const u = new LayerUI(m);
-      u.hiddenIds = new Set();
+      u.hiddenLayerIds = new Set();
       // No user override —overlay1 keeps its author's declared state, which
       // is `show=False` (absent from the map). Nothing must force it on.
-      u.userOverrides = {};
+      u.intentProvenance = {};
       map.hasLayer = vi.fn(() => false);
 
       u.applyUserState();
@@ -197,10 +197,10 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
         },
       ]);
       const u = new LayerUI(m);
-      u.hiddenIds = new Set();
+      u.hiddenLayerIds = new Set();
       // A canvas layer with a `visible` override clears `HIDDEN` instead of
       // `addLayer` -- it has no Leaflet layer to add.
-      u.userOverrides = { canvas1: ["visible"] };
+      u.intentProvenance = { canvas1: ["visible"] };
 
       u.applyUserState();
 
@@ -223,7 +223,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
         },
       ]);
       const u = new LayerUI(m);
-      u.hiddenIds = new Set(["overlay1", "later", "ghost", "gone"]);
+      u.hiddenLayerIds = new Set(["overlay1", "later", "ghost", "gone"]);
       m.pendingRegistrations.push({
         id: "later",
         name: "Later",
@@ -233,7 +233,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
 
       u.applyUserState();
 
-      expect(u.hiddenIds).toEqual(new Set(["overlay1", "later", "ghost", "gone"]));
+      expect(u.hiddenLayerIds).toEqual(new Set(["overlay1", "later", "ghost", "gone"]));
     });
 
     it("schedules no write and drops no stored id", () => {
@@ -269,7 +269,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       u.applyUserState();
 
       expect(schedule).not.toHaveBeenCalled();
-      expect(u.hiddenIds).toEqual(new Set(["overlay1", "ghost", "gone"]));
+      expect(u.hiddenLayerIds).toEqual(new Set(["overlay1", "ghost", "gone"]));
       const stored = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!);
       expect(Object.keys(stored.layers).sort()).toEqual(["ghost", "gone", "overlay1"]);
     });
@@ -286,14 +286,14 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
         },
       ]);
       const u = new LayerUI(m);
-      u.hiddenIds.add("canvas1");
+      u.hiddenLayerIds.add("canvas1");
 
       u.applyUserState();
 
       expect(canvas.classList.contains("hidden")).toBe(true);
     });
 
-    it("loads hidden ids from localStorage into hiddenIds", () => {
+    it("loads hidden ids from localStorage into hiddenLayerIds", () => {
       const { map } = makeTestMap();
       window.localStorage.setItem(
         CONST.STORAGE.KEY,
@@ -312,7 +312,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
 
       u.loadPersistedState();
 
-      expect(u.hiddenIds).toEqual(new Set(["overlay1", "base1"]));
+      expect(u.hiddenLayerIds).toEqual(new Set(["overlay1", "base1"]));
     });
 
     it("loads persisted fill color and opacity into their maps", () => {
@@ -338,7 +338,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
 
       expect(u.fillColorMap["overlay1"]).toBe("#ff8800");
       expect(u.fillOpacityMap["overlay1"]).toBe(0.35);
-      expect(u.userOverrides["overlay1"]).toEqual(["fillColor", "fillOpacity"]);
+      expect(u.intentProvenance["overlay1"]).toEqual(["fillColor", "fillOpacity"]);
     });
 
     it("ignores a fill override whose value is missing or invalid", () => {
@@ -376,12 +376,12 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
         { id: "overlay1", name: "O", group: "overlay", layer: testPolyLayer },
       ]);
       const u = new LayerUI(m);
-      u.hiddenIds.add("overlay1");
+      u.hiddenLayerIds.add("overlay1");
       u.opacityMap["overlay1"] = 0.5;
       u.zoomRangeMap["overlay1"] = [3, 12];
       u.fillColorMap["overlay1"] = "#ff0000";
       u.fillOpacityMap["overlay1"] = 0.5;
-      u.userOverrides["overlay1"] = [
+      u.intentProvenance["overlay1"] = [
         "visible",
         "opacity",
         "zoomRange",
@@ -391,12 +391,12 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
 
       dropPersistedLayerState(u, "overlay1");
 
-      expect(u.hiddenIds.has("overlay1")).toBe(false);
+      expect(u.hiddenLayerIds.has("overlay1")).toBe(false);
       expect(u.opacityMap["overlay1"]).toBeUndefined();
       expect(u.zoomRangeMap["overlay1"]).toBeUndefined();
       expect(u.fillColorMap["overlay1"]).toBeUndefined();
       expect(u.fillOpacityMap["overlay1"]).toBeUndefined();
-      expect(u.userOverrides["overlay1"]).toBeUndefined();
+      expect(u.intentProvenance["overlay1"]).toBeUndefined();
     });
 
     it("ignores non-array/corrupt storage data", () => {
@@ -409,7 +409,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
 
       u.loadPersistedState();
 
-      expect(u.hiddenIds).toEqual(new Set());
+      expect(u.hiddenLayerIds).toEqual(new Set());
     });
   });
 
@@ -428,7 +428,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       ]);
       map.hasLayer.mockReturnValue(true);
       const u = new LayerUI(m);
-      u.hiddenIds = new Set();
+      u.hiddenLayerIds = new Set();
 
       vi.useFakeTimers();
       u.syncHiddenId("overlay1", true);
@@ -457,8 +457,8 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
         },
       ]);
       const u = new LayerUI(m);
-      u.hiddenIds = new Set(["overlay1"]);
-      u.userOverrides = { overlay1: ["visible"] };
+      u.hiddenLayerIds = new Set(["overlay1"]);
+      u.intentProvenance = { overlay1: ["visible"] };
 
       vi.useFakeTimers();
       u.syncHiddenId("overlay1", false);
@@ -515,15 +515,15 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
   // ─────────────────── color-layer is transient ───────────────────
 
   describe("color layer activation is transient", () => {
-    it("does not pollute hiddenIds when color layer activates", () => {
+    it("does not pollute hiddenLayerIds when color layer activates", () => {
       const { map } = makeTestMap();
       const m = new LayerManager(map, [
         { id: "overlay1", name: "O", group: "overlay", layer: testPolyLayer },
         { id: "base1", name: "OSM", group: "base", layer: new TileLayer() },
       ]);
       const u = new LayerUI(m);
-      u.hiddenIds = new Set(["overlay1"]);
-      // Simulate a container + rows so showColorLayer can iterate bases.
+      u.hiddenLayerIds = new Set(["overlay1"]);
+      // Simulate a container + rows so showSolidBasemap can iterate bases.
       const container = document.createElement("div");
       document.body.appendChild(container);
       m.uiContainer = container;
@@ -533,12 +533,12 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
         style: {},
       });
 
-      u.showColorLayer("#000000");
+      u.showSolidBasemap("#000000");
 
       // overlay1 was hidden before the color activation and should stay hidden.
-      expect(u.hiddenIds).toContain("overlay1");
-      // No base-layer id was added even though showColorLayer deselects all bases.
-      expect(u.hiddenIds).toEqual(new Set(["overlay1"]));
+      expect(u.hiddenLayerIds).toContain("overlay1");
+      // No base-layer id was added even though showSolidBasemap deselects all bases.
+      expect(u.hiddenLayerIds).toEqual(new Set(["overlay1"]));
     });
   });
 
@@ -652,11 +652,11 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       expect(map.removeLayer).toHaveBeenCalledWith(base2);
       // Color-layer fallback must NOT activate when the user intentionally hid every base.
       const colorItem = ui.uiContainer.querySelector(
-        `[${CONST.DATA.LAYER_ID}="${CONST.COLOR.MAP_ID}"]`,
+        `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       ) as HTMLElement | null;
       expect(colorItem?.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
       // The hidden set is preserved after the attach pass.
-      expect(ui.hiddenIds).toEqual(new Set(["base1", "base2"]));
+      expect(ui.hiddenLayerIds).toEqual(new Set(["base1", "base2"]));
     });
 
     it("does not activate the colour layer when no base layers are registered", () => {
@@ -674,11 +674,11 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       ]);
 
       const colorItem = ui.uiContainer.querySelector(
-        `[${CONST.DATA.LAYER_ID}="${CONST.COLOR.MAP_ID}"]`,
+        `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       ) as HTMLElement | null;
       expect(colorItem?.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
       expect(map.removeLayer).not.toHaveBeenCalled();
-      expect(ui.hiddenIds).toEqual(new Set());
+      expect(ui.hiddenLayerIds).toEqual(new Set());
     });
 
     it("keeps the color layer off when at least one base layer remains visible", () => {
@@ -710,7 +710,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       // must NOT activate —the user might re-show base1 at any time.
       expect(map.removeLayer).toHaveBeenCalledWith(base1);
       const colorItem = ui.uiContainer.querySelector(
-        `[${CONST.DATA.LAYER_ID}="${CONST.COLOR.MAP_ID}"]`,
+        `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       ) as HTMLElement | null;
       expect(colorItem?.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
     });
@@ -752,8 +752,8 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
         { id: "canvas1", name: "Canvas", layer: null, canvas },
       ]);
       const u = new LayerUI(m);
-      u.hiddenIds = new Set(["overlay1", "base1", "canvas1"]);
-      u.userOverrides = {
+      u.hiddenLayerIds = new Set(["overlay1", "base1", "canvas1"]);
+      u.intentProvenance = {
         overlay1: ["visible"],
         base1: ["visible"],
         canvas1: ["visible"],
@@ -767,7 +767,7 @@ describe("LayerUI visibility persistence (hiddenIds)", () => {
       expect(u.intentVisible("overlay1")).toBe(false);
       expect(u.intentVisible("base1")).toBe(false);
       expect(u.intentVisible("canvas1")).toBe(false);
-      expect(u.hiddenIds).toEqual(new Set(["overlay1", "base1", "canvas1"]));
+      expect(u.hiddenLayerIds).toEqual(new Set(["overlay1", "base1", "canvas1"]));
     });
   });
 });
@@ -959,12 +959,12 @@ describe("LayerUI opacity restore / retention", () => {
     const m = new LayerManager(map, [{ id: "overlay1", name: "Poly", layer }]);
     const u = new LayerUI(m);
     u.zoomRangeMap = { overlay1: [4, 10], ghost: [2, 8] };
-    u.userOverrides = { ghost: ["zoomRange"] };
+    u.intentProvenance = { ghost: ["zoomRange"] };
 
     u.applyUserState();
 
     expect(u.zoomRangeMap).toEqual({ overlay1: [4, 10], ghost: [2, 8] });
-    expect(u.userOverrides.ghost).toEqual(["zoomRange"]);
+    expect(u.intentProvenance.ghost).toEqual(["zoomRange"]);
   });
 
   it("leaves a live layer alone when no opacity is stored", () => {
@@ -1081,11 +1081,11 @@ describe("event-driven row refresh", () => {
     const events = ensureEvents(ui.m.map);
     const li = manager.layerRegistry.get("overlay1")!;
     li.paneSpecs = specs("__test_opacity_pane__");
-    // The projection reads `opacityMap[id]` gated by the `userOverrides`
+    // The projection reads `opacityMap[id]` gated by the `intentProvenance`
     // provenance marker, so both must be set for the stored value to flow
     // through —a raw `opacityMap` write is not a user intent.
     ui.opacityMap = { overlay1: 0.4 };
-    ui.userOverrides.overlay1 = ["opacity"];
+    ui.intentProvenance.overlay1 = ["opacity"];
 
     const paneEl = document.createElement("div");
     vi.spyOn(manager.map, "getPane").mockReturnValue(paneEl);
@@ -1106,9 +1106,9 @@ describe("event-driven row refresh", () => {
   });
 });
 
-// ─────────────────── userOverrides + per-layer persistence ───────────────────
+// ─────────────────── intentProvenance + per-layer persistence ───────────────────
 
-describe("ui/state userOverrides and per-layer state persistence", () => {
+describe("ui/state intentProvenance and per-layer state persistence", () => {
   let manager: LayerManager;
   let ui: LayerUI;
   let map: any;
@@ -1125,19 +1125,18 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
     window.localStorage.clear();
   });
 
-  it("a user hide goes into hiddenIds and persists visible:false", () => {
+  it("a user hide goes into hiddenLayerIds and persists visible:false", () => {
     // The record has to distinguish "user hid it" from "author declared
-    // show=False" -- the same hiddenIds value is either. markOverride is what
+    // show=False" -- the same hiddenLayerIds value is either. markOverride is what
     // records that distinction: without it, reload would drop the id and the
     // layer would come back visible, undoing the user's last choice.
     const schedule = vi.fn();
     const bare = {
-      hiddenIds: new Set(),
+      hiddenLayerIds: new Set(),
       opacityMap: {},
       fillColorMap: {},
       fillOpacityMap: {},
-      userOverrides: {},
-      rangeHiddenIds: new Set(),
+      intentProvenance: {},
       m: {
         persistence: { schedule },
         annotation: { configEntries: () => [] },
@@ -1146,7 +1145,7 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
 
     syncHiddenId(bare, "overlay1", true);
 
-    expect(bare.userOverrides.overlay1).toContain("visible");
+    expect(bare.intentProvenance.overlay1).toContain("visible");
     const fields = schedule.mock.calls[0][0] as {
       layers: () => Record<string, { visible?: boolean; overrides: string[] }>;
     };
@@ -1162,12 +1161,11 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
     // unhide would only be visible for the current session.
     const schedule = vi.fn();
     const bare = {
-      hiddenIds: new Set(["overlay1"]),
+      hiddenLayerIds: new Set(["overlay1"]),
       opacityMap: {},
       fillColorMap: {},
       fillOpacityMap: {},
-      userOverrides: { overlay1: ["visible"] },
-      rangeHiddenIds: new Set(),
+      intentProvenance: { overlay1: ["visible"] },
       m: {
         persistence: { schedule },
         annotation: { configEntries: () => [] },
@@ -1176,7 +1174,7 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
 
     syncHiddenId(bare, "overlay1", false);
 
-    expect(bare.hiddenIds.has("overlay1")).toBe(false);
+    expect(bare.hiddenLayerIds.has("overlay1")).toBe(false);
     const fields = schedule.mock.calls[0][0] as {
       layers: () => Record<string, { visible?: boolean; overrides: string[] }>;
     };
@@ -1192,12 +1190,12 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
     // a reload.
     const schedule = vi.fn();
     const bare = {
-      hiddenIds: new Set(),
+      hiddenLayerIds: new Set(),
       opacityMap: {},
       fillColorMap: {},
       fillOpacityMap: {},
       zoomRangeMap: { overlay1: [4, 10] },
-      userOverrides: { overlay1: ["zoomRange"] },
+      intentProvenance: { overlay1: ["zoomRange"] },
       m: {
         persistence: { schedule },
         annotation: { configEntries: () => [] },
@@ -1220,12 +1218,12 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
     // say "the user reset this", so absence is what restores the declared value.
     const schedule = vi.fn();
     const bare = {
-      hiddenIds: new Set(),
+      hiddenLayerIds: new Set(),
       opacityMap: {},
       fillColorMap: {},
       fillOpacityMap: {},
       zoomRangeMap: {},
-      userOverrides: { overlay1: ["zoomRange"] },
+      intentProvenance: { overlay1: ["zoomRange"] },
       m: {
         persistence: { schedule },
         annotation: { configEntries: () => [] },
@@ -1235,7 +1233,7 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
     unmarkOverride(bare, "overlay1", "zoomRange");
     saveState(bare);
 
-    expect(bare.userOverrides.overlay1).toBeUndefined();
+    expect(bare.intentProvenance.overlay1).toBeUndefined();
     const fields = schedule.mock.calls[0][0] as {
       layers: () => Record<string, unknown>;
     };
@@ -1247,12 +1245,12 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
     // other choices -- wiping the whole entry here would make one Reset button
     // forget the opacity the user set moments earlier.
     const bare = {
-      userOverrides: { overlay1: ["visible", "zoomRange"] },
+      intentProvenance: { overlay1: ["visible", "zoomRange"] },
     } as unknown as LayerUI;
 
     unmarkOverride(bare, "overlay1", "zoomRange");
 
-    expect(bare.userOverrides.overlay1).toEqual(["visible"]);
+    expect(bare.intentProvenance.overlay1).toEqual(["visible"]);
   });
 
   it("drops an entry whose only marker holds no live value", () => {
@@ -1262,12 +1260,12 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
     // persisted marker has a value.
     const schedule = vi.fn();
     const bare = {
-      hiddenIds: new Set(),
+      hiddenLayerIds: new Set(),
       opacityMap: {},
       fillColorMap: {},
       fillOpacityMap: {},
       zoomRangeMap: {},
-      userOverrides: { overlay1: ["opacity"] },
+      intentProvenance: { overlay1: ["opacity"] },
       m: {
         persistence: { schedule },
         annotation: { configEntries: () => [] },
@@ -1290,12 +1288,12 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const schedule = vi.fn();
     const bare = {
-      hiddenIds: new Set(),
+      hiddenLayerIds: new Set(),
       opacityMap: {},
       fillColorMap: {},
       fillOpacityMap: {},
       zoomRangeMap: {},
-      userOverrides: {},
+      intentProvenance: {},
       m: {
         persistence: { schedule },
         annotation: { configEntries: () => [] },
@@ -1304,7 +1302,7 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
 
     markOverride(bare, "overlay1", "zoomRange");
 
-    expect(bare.userOverrides.overlay1).toBeUndefined();
+    expect(bare.intentProvenance.overlay1).toBeUndefined();
     expect(schedule).not.toHaveBeenCalled();
     expect(warn.mock.calls[0][0]).toContain("no stored value for this dimension");
     warn.mockRestore();
@@ -1316,19 +1314,19 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
     // out of the next write and the user's action would vanish silently.
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const bare = {
-      hiddenIds: new Set(),
+      hiddenLayerIds: new Set(),
       opacityMap: {},
       zoomRangeMap: {},
       borderColorMap: {},
       borderWeightMap: {},
-      userOverrides: {},
+      intentProvenance: {},
       m: { persistence: { schedule: vi.fn() } },
     } as unknown as LayerUI;
 
     markOverride(bare, "overlay1", "borderColor");
     markOverride(bare, "overlay1", "borderWeight");
 
-    expect(bare.userOverrides.overlay1).toBeUndefined();
+    expect(bare.intentProvenance.overlay1).toBeUndefined();
     expect(warn).toHaveBeenCalledTimes(2);
     expect(
       warn.mock.calls.every(([msg]) => String(msg).includes("no stored value")),
@@ -1362,7 +1360,7 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
     expect(ui.foldedGroups).toEqual(new Set(["Overlay"]));
     expect(ui.opacityMap).toEqual({ overlay1: 0.35 });
     expect(ui.zoomRangeMap).toEqual({ overlay1: [3, 12] });
-    expect(ui.userOverrides.overlay1).toEqual(["opacity", "zoomRange"]);
+    expect(ui.intentProvenance.overlay1).toEqual(["opacity", "zoomRange"]);
   });
 
   it("restores a stored border color and width from the record", () => {
@@ -1391,18 +1389,18 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
 
     expect(ui.borderColorMap).toEqual({ overlay1: "#0000ff" });
     expect(ui.borderWeightMap).toEqual({ overlay1: 4.5 });
-    expect(ui.userOverrides.overlay1).toEqual(["borderColor", "borderWeight"]);
+    expect(ui.intentProvenance.overlay1).toEqual(["borderColor", "borderWeight"]);
   });
 
   it("persists an opacity change together with its provenance", () => {
     const schedule = vi.fn();
     const bare = {
-      hiddenIds: new Set(),
+      hiddenLayerIds: new Set(),
       opacityMap: { overlay1: 0.6 },
       zoomRangeMap: {},
       fillColorMap: {},
       fillOpacityMap: {},
-      userOverrides: { overlay1: ["opacity"] },
+      intentProvenance: { overlay1: ["opacity"] },
       m: {
         persistence: { schedule },
         annotation: { configEntries: () => [] },
@@ -1429,14 +1427,14 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
     // this layer disagree with applyBorderToLayer's `!== undefined` reads.
     const schedule = vi.fn();
     const bare = {
-      hiddenIds: new Set(),
+      hiddenLayerIds: new Set(),
       opacityMap: {},
       zoomRangeMap: {},
       fillColorMap: {},
       fillOpacityMap: {},
       borderColorMap: { kept: "#0000ff", blank: "" },
       borderWeightMap: { zero: 0 },
-      userOverrides: {
+      intentProvenance: {
         kept: ["borderColor"],
         blank: ["borderColor"],
         zero: ["borderWeight"],
@@ -1465,7 +1463,7 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
   });
 
   it("applyUserState(id) projects a hidden flag onto a single late layer", () => {
-    ui.hiddenIds = new Set(["overlay1"]);
+    ui.hiddenLayerIds = new Set(["overlay1"]);
 
     ui.applyUserState("overlay1");
 
@@ -1482,7 +1480,7 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
     const li = manager.layerRegistry.get("grid1")!;
     ui.authorVisible.set("grid1", true); // author default: visible
     ui.zoomRangeMap = { grid1: [4, 9] };
-    ui.userOverrides.grid1 = ["zoomRange"];
+    ui.intentProvenance.grid1 = ["zoomRange"];
 
     ui.applyUserState("grid1");
 
@@ -1515,12 +1513,12 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
     // The color basemap has no LayerInfo in the registry —its rename goes
     // straight to the row label. Without the id guard at the top of the
     // sweep the color item would be skipped and the label would stay stale.
-    ui.renamedNames = { [CONST.COLOR.MAP_ID]: "Renamed Color" };
+    ui.renamedNames = { [CONST.SOLID_BASEMAP_ID]: "Renamed Color" };
 
     ui.applyUserState();
 
     const colorItem = ui.uiContainer.querySelector(
-      `[${CONST.DATA.LAYER_ID}="${CONST.COLOR.MAP_ID}"]`,
+      `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
     ) as HTMLElement | null;
     expect(colorItem).not.toBeNull();
     const label = colorItem!.querySelector("label") as HTMLElement | null;

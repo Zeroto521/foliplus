@@ -4,7 +4,7 @@
 // `projection.ts`, diffs it against the last projection it wrote to the map
 // (`ui.appliedState`), and calls `applyStateOp` only for the dimensions
 // that actually moved. The old model — a sweep that re-read the whole
-// registry per layer, walked `hiddenIds` / `opacityMap` / `zoomRangeMap`
+// registry per layer, walked `hiddenLayerIds` / `opacityMap` / `zoomRangeMap`
 // by id, and picked per-dimension helpers — is what made the three
 // regressions structurally reachable:
 //
@@ -264,8 +264,7 @@ const applyStateOp = (ui: LayerUI, layerInfo: LayerInfo, op: StateOp): void => {
  *  the only write path for map membership and why `intent.visible` is no
  *  longer diffed separately: any change that would authorise an add goes
  *  through `intent`, so the effective value already reflects the user's
- *  authorisation. The one-way gate that used to live in `rangeHiddenIds`
- *  is now the shape of this diff.
+ *  authorisation. The one-way gate is now the shape of this diff.
  */
 const applyProjection = (ui: LayerUI, id: string): void => {
   const layerInfo = ui.m.layerRegistry.get(id);
@@ -320,8 +319,8 @@ const applyProjection = (ui: LayerUI, id: string): void => {
   // linked) and that the user never touched is not this executor's to
   // decide — writing `effectiveShown` for it would turn a guess into an add.
   const hasUserIntent =
-    (ui.userOverrides?.[id]?.includes("visible") ?? false) ||
-    (ui.hiddenIds?.has(id) ?? false);
+    (ui.intentProvenance?.[id]?.includes("visible") ?? false) ||
+    (ui.hiddenLayerIds?.has(id) ?? false);
   const authorised = hasUserIntent || ui.authorVisible.has(id);
   // Current visibility, read from the carrier the write would land on.
   // "native" — the map's own membership flag; "pane" — the canvas's

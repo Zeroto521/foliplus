@@ -262,22 +262,23 @@ class TestHeatmapControlRendering:
         assert "btn-clear" in html
         assert "HeatmapControl.clear" in html
 
-    def test_section_data_and_style(self):
-        """Data and Style section labels are rendered."""
-        html = render_control(HeatmapControl())
-        assert "HeatmapControl.section_data" in html
-        assert "HeatmapControl.section_style" in html
+    def test_no_section_headings(self):
+        """The panel is one flat row list: no Data/Style headings ship.
 
-    def test_uses_shared_section_heading_class(self):
-        """Section headings use the shared form.css class, not a heatmap-local one."""
+        Neither the shared `.foliplus-section-heading` nor a heatmap-local
+        lookalike reaches the markup, and the two locale keys that used to
+        name them are gone from the JSON too.
+        """
         html = render_control(HeatmapControl())
-        assert "foliplus-section-heading" in html
+        assert "foliplus-section-heading" not in html
         assert "foliplus-heatmap-section-heading" not in html
+        assert "HeatmapControl.section_data" not in html
+        assert "HeatmapControl.section_style" not in html
+
         css = read_css("foliplus/css/HeatmapControl.css")
         assert ".foliplus-heatmap-section-heading" not in css
         shared = read_css("foliplus/css/common/form.css")
-        assert ".foliplus-section-heading" in shared
-        assert "letter-spacing: var(--letter-spacing-tight)" in shared
+        assert ".foliplus-section-heading" not in shared
 
     def test_close_button_renders(self):
         """Close button is rendered in the panel header."""

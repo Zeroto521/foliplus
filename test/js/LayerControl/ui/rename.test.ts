@@ -32,7 +32,7 @@ describe("LayerUI rename", () => {
       });
     }
     ui.foldedGroups = new Set();
-    ui.hiddenIds = new Set();
+    ui.hiddenLayerIds = new Set();
     // Folded-group state is persisted to localStorage, so a fold from one test
     // would be re-read by the next test's LayerUI constructor and present as
     // already-folded.
@@ -274,7 +274,7 @@ describe("LayerUI rename", () => {
       // The colour row now carries a real checkbox (visibility toggle through
       // the executor). Both the label cell and the checkbox must announce the
       // rename, otherwise assistive tech keeps reading the locale default.
-      const item = findItem(ui, CONST.COLOR.MAP_ID);
+      const item = findItem(ui, CONST.SOLID_BASEMAP_ID);
       const colorInput = item.querySelector(
         `input[type="checkbox"]`,
       ) as HTMLInputElement;
@@ -283,11 +283,11 @@ describe("LayerUI rename", () => {
       // displayName(), so comparing them against each other would pass either
       // way — vacuously if neither propagated, and without ever observing a
       // rename at all.
-      const before = ui.displayName(CONST.COLOR.MAP_ID);
+      const before = ui.displayName(CONST.SOLID_BASEMAP_ID);
 
       expect(colorInput.getAttribute("aria-label")).toBe(before);
 
-      ui.renameLayer(CONST.COLOR.MAP_ID);
+      ui.renameLayer(CONST.SOLID_BASEMAP_ID);
       const input = (item.querySelector("label") as HTMLLabelElement).querySelector(
         "input",
       ) as HTMLInputElement;
@@ -392,7 +392,7 @@ describe("LayerUI rename", () => {
 
     it("color layer more menu shows a disabled focus-layer item", () => {
       const colorItem = ui.uiContainer.querySelector(
-        `[${CONST.DATA.LAYER_ID}="${CONST.COLOR.MAP_ID}"]`,
+        `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       )!;
       ui.openMoreMenu(colorItem);
 
@@ -407,16 +407,16 @@ describe("LayerUI rename", () => {
       expect(renameLi).not.toBeNull();
     });
 
-    it("renameLayer(COLOR.MAP_ID) opens an inline input seeded with the displayed name", () => {
+    it("renameLayer(SOLID_BASEMAP_ID) opens an inline input seeded with the displayed name", () => {
       const colorItem = ui.uiContainer.querySelector(
-        `[${CONST.DATA.LAYER_ID}="${CONST.COLOR.MAP_ID}"]`,
+        `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       )!;
       // Capture the label the UI already shows (locale "Solid Color") BEFORE
       // renaming — createInlineEditInput clears the label's text node.
       const displayed = colorItem.querySelector("label")!.textContent;
-      ui.renameLayer(CONST.COLOR.MAP_ID);
+      ui.renameLayer(CONST.SOLID_BASEMAP_ID);
 
-      expect(ui.activeRenameId).toBe(CONST.COLOR.MAP_ID);
+      expect(ui.activeRenameId).toBe(CONST.SOLID_BASEMAP_ID);
       const label = colorItem.querySelector("label") as HTMLLabelElement;
       const input = label.querySelector("input") as HTMLInputElement | null;
       expect(input).not.toBeNull();
@@ -428,9 +428,9 @@ describe("LayerUI rename", () => {
 
     it("committing a color-layer rename persists to renamedNames (not the registry)", () => {
       const colorItem = ui.uiContainer.querySelector(
-        `[${CONST.DATA.LAYER_ID}="${CONST.COLOR.MAP_ID}"]`,
+        `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       )!;
-      ui.renameLayer(CONST.COLOR.MAP_ID);
+      ui.renameLayer(CONST.SOLID_BASEMAP_ID);
 
       const label = colorItem.querySelector("label") as HTMLLabelElement;
       const input = label.querySelector("input") as HTMLInputElement;
@@ -439,22 +439,24 @@ describe("LayerUI rename", () => {
 
       expect(ui.activeRenameId).toBeNull();
       expect(label.textContent).toBe("My Base");
-      expect(ui.renamedNames[CONST.COLOR.MAP_ID]).toBe("My Base");
+      expect(ui.renamedNames[CONST.SOLID_BASEMAP_ID]).toBe("My Base");
       // The colour basemap is now in the registry (for the executor) — rename
       // still persists to renamedNames, not the registry entry's name field.
-      expect(manager.layerRegistry.get(CONST.COLOR.MAP_ID)?.name).not.toBe("My Base");
+      expect(manager.layerRegistry.get(CONST.SOLID_BASEMAP_ID)?.name).not.toBe(
+        "My Base",
+      );
     });
 
     it("applying a persisted rename restores the color-layer label text", () => {
       window.localStorage.setItem(
         CONST.STORAGE.KEY,
-        JSON.stringify({ renamedNames: { [CONST.COLOR.MAP_ID]: "Custom Color" } }),
+        JSON.stringify({ renamedNames: { [CONST.SOLID_BASEMAP_ID]: "Custom Color" } }),
       );
       ui.loadPersistedState();
       ui.applyUserState();
 
       const colorItem = ui.uiContainer.querySelector(
-        `[${CONST.DATA.LAYER_ID}="${CONST.COLOR.MAP_ID}"]`,
+        `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       )!;
       expect(colorItem.querySelector("label")!.textContent).toBe("Custom Color");
       // The color input's aria-label and tooltip belong to the row builder:
@@ -467,9 +469,9 @@ describe("LayerUI rename", () => {
     });
 
     it("keeps a renamed color basemap through a re-render (fold/reorder)", () => {
-      ui.renameLayer(CONST.COLOR.MAP_ID);
+      ui.renameLayer(CONST.SOLID_BASEMAP_ID);
       const firstLabel = ui.uiContainer.querySelector(
-        `[${CONST.DATA.LAYER_ID}="${CONST.COLOR.MAP_ID}"] label`,
+        `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"] label`,
       )!;
       // The rename input lives inside the label; the first bare `input` in the
       // item is the color swatch, so scope to the label.
@@ -483,7 +485,7 @@ describe("LayerUI rename", () => {
       ui.initTypesAndVisibility();
 
       const colorItem = ui.uiContainer.querySelector(
-        `[${CONST.DATA.LAYER_ID}="${CONST.COLOR.MAP_ID}"]`,
+        `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       )!;
       expect(colorItem.querySelector("label")!.textContent).toBe("My Base");
       // The tooltip is the TYPE label, not the layer name — a rename must not

@@ -1,16 +1,9 @@
 // Frame-level helpers for the style panel — pure DOM builders and math.
 // No state, no events, no manager calls. Moved verbatim from ui/style.ts
-// Owns the panel's frame pieces: section heading, reset
-// footer, and the slider-rail positioning math the opacity / zoom-range
-// rows share.
+// Owns the panel's frame pieces: reset footer, and the slider-rail
+// positioning math the opacity / zoom-range rows share.
 import { dom } from "#common/dom.js";
-import * as CONST from "../../const.js";
 import type { LayerUI } from "../index.js";
-
-/** Shared section heading (common/form.css `.foliplus-section-heading`).
- *  Used by label.ts / delegated.ts / zoomRange.ts. */
-const sectionHeading = (text: string): HTMLElement =>
-  dom.el("div", { class: CONST.CLASSES.SECTION_HEADING }, text);
 
 /** Reset footer — divider + button, same vocabulary for the annotation
  *  and the delegated panel. */
@@ -48,4 +41,4 @@ const round5 = (n: number): number => Math.round(n * 1e5) / 1e5;
  *  (via `railPos`). */
 const railPos = (pct: number): string => `${round5(pct)}%`;
 
-export { appendResetFooter, railPos, round5, sectionHeading };
+export { appendResetFooter, railPos, round5 };

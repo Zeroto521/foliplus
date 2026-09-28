@@ -298,7 +298,7 @@ class TestLayerControlRendering:
     def test_color_click_deselects_bases(self, base_map: folium.Map):
         """Color layer checkbox change handler present in rendered code."""
         html = render_control(LayerControl())
-        assert "showColorLayer" in html
+        assert "showSolidBasemap" in html
 
     def test_drag_base_map_allowed(self):
         """No drag prevention for base maps in JS code."""
@@ -744,12 +744,20 @@ class TestLayerControlRendering:
         assert "foliplus-section-divider" in css
         assert "opacity: 0" in css
 
-    def test_shared_section_heading_in_form_css(self):
-        """Shared section heading lives in form.css (Heatmap + style panel)."""
+    def test_form_label_right_aligned_no_section_heading(self):
+        """Row labels are right-aligned; the shared section heading is gone.
+
+        Both rules lived in form.css — the heading because HeatmapControl and
+        the style panel shared it, the label because all three panels share one
+        label column. Panels are now a flat row list, so only the label rule
+        survives, and it must keep the right alignment the attributes panel's
+        flex twin mirrors in attr.css.
+        """
         css = read_css("foliplus/css/common/form.css")
-        assert ".foliplus-section-heading" in css
-        assert "text-transform: uppercase" in css
-        assert "letter-spacing: var(--letter-spacing-tight)" in css
+        assert ".foliplus-section-heading" not in css
+        label = _rule(css, ".foliplus-form-label {")
+        assert "text-align: right" in label
+        assert "padding-right: var(--space-xs)" in label
 
     def test_slider_component_css(self):
         """One shared slider component carries all the geometry.
@@ -853,10 +861,8 @@ class TestLayerControlRendering:
         assert ".foliplus-style-zoom-range-current-value" in css
 
     def test_style_panel_locale_keys_present(self):
-        """Opacity / section keys are injected into the LayerControl bundle."""
+        """Opacity key is injected into the LayerControl bundle."""
         html = render_control(LayerControl())
-        assert "LayerControl.section_label" in html
-        assert "LayerControl.section_layer" in html
         assert "LayerControl.style_opacity" in html
 
     def test_fold_btn_hover_color(self):
@@ -2320,7 +2326,7 @@ class TestLayerControlBrowser:
         """A layer the author declared ``show=False`` and the user checked ON
         comes back ON after a reload.
 
-        This is the reported regression: ``hiddenIds`` recorded *which layers
+        This is the reported regression: ``hiddenLayerIds`` recorded *which layers
         the user hid* rather than *which layers are hidden*, so an id that
         folium had rendered off-map was never in the set. Checking it on
         therefore removed nothing from nothing, storage stayed ``[]``, and the
@@ -2328,7 +2334,7 @@ class TestLayerControlBrowser:
 
         It is also the inverse of test_hidden_layers_survive_reload: that one
         proves the hide half of the round trip, this one proves the unhide
-        half. A sweep that only walks ``hiddenIds`` can never reach a layer the
+        half. A sweep that only walks ``hiddenLayerIds`` can never reach a layer the
         user left visible.
         """
         m = folium.Map(location=[26.08, 119.30], zoom_start=12, tiles=None)
@@ -5774,19 +5780,16 @@ class TestLayerControlBrowser:
             assert result.get("error") is None, f"setup failed: {result}"
 
             # Drawer order: the rows LayerControl adds read before the rows the
-            # component delegated, and inside the layer section they run
-            # border -> opacity -> zoom range. The browser page resolves the en
-            # locale, so the headings read as rendered rather than as keys.
-            assert result["sections"] == ["Layer", "Label"], (
-                f"drawer section order drifted: {result['sections']}"
+            # component delegated, and among themselves they run
+            # border -> opacity -> zoom range. No heading marks that split —
+            # document order is the whole invariant now.
+            assert result["layerBeforeLabel"] is True, (
+                f"the Layer rows no longer precede the delegated Label rows: "
+                f"{result['struct']}"
             )
             assert result["layerControls"] == ["border", "opacity", "zoomRange"], (
                 f"layer rows are not border -> opacity -> zoom range: "
                 f"{result['layerControls']} | skeleton: {result['struct']}"
-            )
-            assert result["zoomSection"] == "Layer", (
-                f"the zoom range row fell out of the layer section: "
-                f"{result['zoomSection']}"
             )
 
             # An untouched visit writes no zoom-range record at all: neither the
