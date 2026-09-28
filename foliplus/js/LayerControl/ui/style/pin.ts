@@ -15,7 +15,6 @@
 // empty object) means "nothing to restore", so a Reset keeps the author's
 // value. This is the shared mechanism both self-managed style dimensions
 // (fill, border) use; it becomes the unified hook when those merge.
-
 import type { StyleSetter } from "../../type.js";
 
 const isStyleSetter = (node: unknown): node is StyleSetter =>

@@ -14,11 +14,7 @@ import {
   type SearchType,
   ZOOM,
 } from "../const.js";
-import type {
-  ResultItem,
-  SearchControlState,
-  SearchHistoryEntry,
-} from "../type.js";
+import type { ResultItem, SearchControlState, SearchHistoryEntry } from "../type.js";
 import { attachSearchDelIcon, removePanel, renderResults } from "./search.js";
 import { T, _, canonicalQuery } from "./util.js";
 

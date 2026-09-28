@@ -14,7 +14,6 @@
 // to fan the style out to, so it returns false like an empty LayerGroup or
 // a Marker with no children — the `setStyle` of its own is not a real
 // carrier when the walk finds nothing to write to.
-
 import type { StyleProbeNode } from "./type.js";
 
 /** Coerce any layer to the probe node shape. The walk is duck-typed: it

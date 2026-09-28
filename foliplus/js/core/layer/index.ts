@@ -10,13 +10,7 @@ export {
   RECURSION,
   Z_INDEX,
 } from "./const.js";
-export {
-  ANNOTATION_Z_OFFSET,
-  FOCUS_Z,
-  focusLayerZ,
-  topSlotZ,
-  zFor,
-} from "./z.js";
+export { ANNOTATION_Z_OFFSET, FOCUS_Z, focusLayerZ, topSlotZ, zFor } from "./z.js";
 export { LayerFactory } from "./LayerFactory.js";
 export { LayerRegistry } from "./LayerRegistry.js";
 // The class, not `type.ts`'s interface of the same name: it is what the manager
