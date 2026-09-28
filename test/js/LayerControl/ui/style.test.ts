@@ -156,7 +156,8 @@ describe("LayerUI style panel", () => {
     expect(panel!.querySelector(".foliplus-style-body")).toBeNull();
     expect(panel!.querySelectorAll(".foliplus-section-heading")).toHaveLength(1);
     // The Layer dimensions still render — opacity and zoom range own a pane
-    // carrier. Border and fill need a setStyle leaf (§47.1 gate), and the
+    // carrier. Border and fill need a setStyle leaf (the fill / border gate),
+    // and the
     // fixture's bare group has none, so those rows are absent here.
     expect(panel!.querySelector(".foliplus-style-opacity-range")).not.toBeNull();
     expect(panel!.querySelector(".foliplus-style-zoom-range-row")).not.toBeNull();
@@ -1044,7 +1045,7 @@ describe("LayerUI style panel", () => {
 
   it("builds one border row for a vector layer, before the opacity row", () => {
     // The fixture's default overlay1 layer is a bare group with no setStyle
-    // leaves — border needs at least one such leaf (§47.1), so register a
+    // leaves — border needs at least one such leaf (the border gate), so register a
     // real vector for this test.
     const leaf = {
       options: { color: "#3388ff", weight: 2 },

@@ -1,6 +1,6 @@
 // LayerControl style-panel — the Label section's dimension descriptor.
 //
-// §43.6: labels are a dimension of the layer's style, registered in the
+// Labels are a dimension of the layer's style, registered in the
 // same discovery registry as fill / border / opacity / zoomRange instead
 // of being a hand-written section in the panel assembly. The panel iterates
 // `LABEL_DIM_ORDER` exactly like it iterates `DIM_ORDER` for the Layer

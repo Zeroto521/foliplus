@@ -184,7 +184,7 @@ describe("layerCanBorder", () => {
     expect(layerCanBorder(ui, "bas1")).toBe(false);
   });
 
-  // §47.1 gate unification: the third condition requires a real setStyle
+  // Gate unification: the third condition requires a real setStyle
   // leaf behind the layer. Without it, a Marker or an empty LayerGroup
   // would pass the capability check and get a Border row that persists a
   // value with no visual effect.

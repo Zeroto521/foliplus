@@ -274,7 +274,8 @@ describe("executor: late-carrier replay", () => {
   });
 
   it("the label pane rides the surface's pane set — the first write covers it", () => {
-    // §43.6 (third cut): the label pane is a DECLARED `role: "annotation"`
+    // Third cut of the dimension-registry series: the label pane is a
+    // DECLARED `role: "annotation"`
     // PaneSpec of the layer's surface — the registration edge appends it
     // iff the layer's features expose a labelable field, and `carrierOf` /
     // the pane write read `surface.paneNames` alone. No side channel, no
@@ -942,7 +943,7 @@ describe("executor: the branches behind the gates", () => {
   });
 });
 
-describe("§40.5 invariants: only intent + author snapshot authorise membership", () => {
+describe("membership invariants: only intent + author snapshot authorise membership", () => {
   beforeEach(() => {
     installLeafletGlobals();
   });

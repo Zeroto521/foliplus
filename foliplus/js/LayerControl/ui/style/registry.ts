@@ -1,5 +1,5 @@
 // Per-layer dimension registry — the discovery surface for the style panel.
-// §43.9: opacity / zoomRange / border / fill / … are all per-layer dimensions
+// opacity / zoomRange / border / fill / annotation … are all per-layer dimensions
 // with the same shape (gate → row → state write), just different carriers.
 // Today each dimension has its own set of helpers; the registry is the
 // minimal slice — a descriptor shape + register + lookup — that lets the
@@ -64,7 +64,7 @@ type LayerDimension<D = unknown> = {
    *     registry (a precondition guard against a programming error).
    *  2. **Capability** — `capabilities.{dim} !== "none"`, the surface's
    *     declared capability is the single source of truth for whether this
-   *     row is honest to render (§6.2).
+   *     row is honest to render.
    *  Nothing else: no carrier probes, no `isColorBasemap` special-cases,
    *  no canvas/styleSetters exclusion (a canvas-only surface already
    *  declares `"none"` for the dimension it can't carry, so the gate
@@ -97,7 +97,7 @@ const registerDimension = <D>(d: LayerDimension<D>): LayerDimension<D> => {
 /** Fetch a dimension descriptor by key. `undefined` for unregistered keys —
  *  the panel treats that as "this dimension does not apply" rather than
  *  erroring, matching the honest-degradation rule for unknown dimensions
- *  (§43.9). */
+ *  (honest degradation for unknown dimensions). */
 const getDimension = <D = unknown>(key: string): LayerDimension<D> | undefined =>
   registry.get(key) as LayerDimension<D> | undefined;
 

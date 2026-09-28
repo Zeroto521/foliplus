@@ -175,7 +175,7 @@ describe("LayerControl style-panel dimension registry — opacity descriptor", (
   });
 
   it("gate is the pure capability check: true when capabilities.opacity !== 'none'", () => {
-    // Invariant (§43.9, first-class from day one): gate is exactly
+    // Invariant (first-class from day one): gate is exactly
     // `capabilities.{dim} !== "none"`. No carrier probes, no
     // `isColorBasemap`, no canvas/styleSetters exclusion — those belong
     // to capability derivation at the surface, not the gate.

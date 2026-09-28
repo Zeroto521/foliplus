@@ -191,7 +191,7 @@ const applyBorderToLayer = (ui: LayerUI, layerId: string): void => {
     captureBase(node);
     node.setStyle(style);
     // Pin the leaf's stroke against folium's highlight restore via the shared
-    // pinStyleOnHighlight hook (§47.1-①). The border row previously kept its
+    // pinStyleOnHighlight hook. The border row previously kept its
     // own WeakSet + pinLeaf; that fired a second `mouseout` handler on the
     // same leaf as the fill row's pin, so a highlight-restore ran one, then
     // the other, and the last-bound one won — border overwrote fill on the
