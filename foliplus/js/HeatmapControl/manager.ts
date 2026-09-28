@@ -332,8 +332,7 @@ class HeatmapManager {
       // style, NOT the HIDDEN class: that class is the LayerControl intent
       // channel (the executor is its single writer), and a temp-hide that
       // stamped it cannot tell "user hid it" apart from "zoom hid it" at
-      // restore time — pre-T139a that distinction lived in the now-retired
-      // `layerVisible` field.
+      // restore time.
       onHide: () => {
         const c = this.overlay.canvas;
         if (c) c.style.visibility = "hidden";

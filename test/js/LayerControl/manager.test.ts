@@ -346,24 +346,6 @@ describe("LayerManager", () => {
     expect(result).toBe(true);
   });
 
-  it("registerLayer warns once when a caller still passes the retired onToggle", () => {
-    // T139a retired the callback: the field is gone from RegisterLayerOpts,
-    // but plain-JS callers can still hand it over. One migration hint per
-    // bundle is enough — a re-registration loop must not spam the console.
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    // @ts-expect-error — deliberately passing the removed field
-    manager.registerLayer({ id: "legacy_cb_1", name: "Legacy", onToggle: () => {} });
-    // @ts-expect-error — a second offender stays latched
-    manager.registerLayer({ id: "legacy_cb_2", name: "Legacy2", onToggle: () => {} });
-    const hints = warn.mock.calls.filter(([msg]) =>
-      String(msg).includes('"onToggle" is deprecated'),
-    );
-    warn.mockRestore();
-    expect(hints).toHaveLength(1);
-    manager.unregisterLayer("legacy_cb_1");
-    manager.unregisterLayer("legacy_cb_2");
-  });
-
   it("unregisterLayer reclaims only the unregistered layer's synthesized pane", () => {
     // A full sweep on every unregister would also delete another registered
     // layer's pane. The map fixture needs the Leaflet pane registry for the

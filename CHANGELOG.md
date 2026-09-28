@@ -83,7 +83,7 @@
 - `HeatmapControl`: remove the nested `style` dict parameter; `border_weight`, `border_color`, `fill_opacity`, `border_opacity`, `label_show`, `label_size`, `label_color`, `label_format` are now first-class constructor keyword arguments — no `style=` wrapper needed ([#169](https://github.com/Zeroto521/foliplus/pull/169))
 - `ScaleControl`: drop the `unit` parameter — a breaking change against the v0.3.x API, since `unit=` now raises `TypeError`; scale bars always render metric units and `isMetric` is no longer exported to the JS `CONF` ([#186](https://github.com/Zeroto521/foliplus/pull/186))
 - `HeatmapControl`: remove the `field` parameter — a breaking change; the candidate list already enumerates all numeric shapes, so user selection covers every case ([#375](https://github.com/Zeroto521/foliplus/pull/375))
-- `LayerControl`: `registerLayer({onToggle})` callback removed — canvas visibility now rides the surface's `capabilities.visibility` carrier (canvas HIDDEN class) instead of a per-layer callback. JS callers still passing `onToggle` get a runtime deprecation warn from `registerLayer` / `createCanvas` / `createColor`. Affects `LayerAPI.registerLayer`, `LayerAPI.createCanvas`, `LayerAPI.createColor` ([#518](https://github.com/Zeroto521/foliplus/pull/518))
+- `LayerControl`: remove the `onToggle` callback from `registerLayer` / `createCanvas` / `createColor` — breaking against the v0.3.x API; visibility rides the surface's `capabilities.visibility` carrier (canvas HIDDEN class / map membership), `LayerAPI.setVisible` for programmatic control ([#518](https://github.com/Zeroto521/foliplus/pull/518))
 
 ### Fixed
 
@@ -113,9 +113,6 @@
 - `FullscreenControl`: a denied fullscreen entry or exit now reports the honest hint (`unsupported` / `exit_fail`) instead of "Entered fullscreen" ([#486](https://github.com/Zeroto521/foliplus/pull/486))
 - `LayerControl`: rapid visibility toggles stay smooth at 6k layers — the toggle-all tri-state counter updates O(1) per click instead of rescanning the group, and overlay clicks skip the basemap scan ([#504](https://github.com/Zeroto521/foliplus/pull/504))
 
-### Breaking
-
-- `LayerControl`: the `onToggle` callback on `registerLayer` / `createCanvas` / `createColor` is retired. Visibility now rides the surface's `capabilities.visibility` carrier — canvas-only layers toggle their `HIDDEN` class directly, Leaflet layers toggle map membership — so the executor's `visible` op is the single write path. Passing `onToggle` is a TypeScript build error and, from plain JS, logs a deprecation warn then ignores the field; use `LayerAPI.setVisible(id, visible)` for programmatic control instead ([#518](https://github.com/Zeroto521/foliplus/pull/518))
 
 ## [v0.3.0] (2026-08-02)
 

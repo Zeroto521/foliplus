@@ -208,9 +208,9 @@ describe("generateRegistry", () => {
     // canonicalSpec keys `#core/layer/const.js` as `core/layer/const`, a key
     // the namespace loop never reads — yet the runtime shim resolves that
     // specifier to `foliplus.core.layer`, so without the fold the name
-    // registers nothing and the component reads `undefined` (the T139a
-    // `HIDDEN` incident). The generated import pulls from the sub's
-    // index.js, so the barrel must re-export the name or the build fails.
+    // registers nothing and the component reads `undefined`. The generated
+    // import pulls from the sub's index.js, so the barrel must re-export
+    // the name or the build fails.
     const [jsDir, buildDir] = buildFakeTree({
       "common/dom.ts": `export const dom = {};`,
       "core/layer/index.ts": `export const HIDDEN = "hidden";`,

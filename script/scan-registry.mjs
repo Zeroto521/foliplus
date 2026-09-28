@@ -128,9 +128,9 @@ const generateRegistry = (srcDirParam = srcDir, buildJsParam = buildJs) => {
     // `foliplus.core.<sub>` namespace in global-namespace-plugin (its rule
     // keys on the first path segment), but canonicalSpec files it under
     // `core/<sub>/<file>` — a key this loop would never read, so the name
-    // registered nothing and the shim resolved `undefined` at runtime (the
-    // T139a `#core/layer/const.js` incident). Fold the file keys into the
-    // namespace; the generated import below pulls from the sub's index.js,
+    // registered nothing and the shim resolved `undefined` at runtime.
+    // Fold the file keys into the namespace; the generated import below
+    // pulls from the sub's index.js,
     // so a name the barrel does not re-export fails the build loudly
     // instead of silently shimming to undefined.
     for (const key of Object.keys(usedExports)) {

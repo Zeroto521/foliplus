@@ -798,18 +798,6 @@ describe("LayerFactory", () => {
       );
     });
 
-    it("warns when a caller still passes the retired onToggle", () => {
-      // T139a removed the callback from the type; plain-JS callers get a
-      // migration hint at the factory door instead of a silent drop.
-      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-      // @ts-expect-error — deliberately passing the removed field
-      factory.createCanvas({ id: "canvas_legacy_cb", onToggle: () => {} });
-      expect(warn).toHaveBeenCalledWith(
-        expect.stringContaining('"onToggle" is deprecated'),
-      );
-      warn.mockRestore();
-    });
-
     it("register forwards source / updatedAt / meta provenance", () => {
       const meta = { "Source layer": "Stores", "Aggregation field": "sales" };
       const api = factory.createCanvas({
@@ -1230,20 +1218,6 @@ describe("LayerFactory", () => {
           content: { kind: "color", color: "#3366cc" },
         }),
       ).toThrow("color surface requires an id");
-    });
-
-    it("createColor warns when a caller still passes the retired onToggle", () => {
-      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-      // @ts-expect-error — deliberately passing the removed field
-      factory.createColor({
-        id: "color_legacy_cb",
-        color: "#3366cc",
-        onToggle: () => {},
-      });
-      expect(warn).toHaveBeenCalledWith(
-        expect.stringContaining('"onToggle" is deprecated'),
-      );
-      warn.mockRestore();
     });
 
     it("throws when the browser cannot provide a 2d context", () => {
