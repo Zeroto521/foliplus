@@ -57,7 +57,7 @@ interface ZArgs {
   /** Base-group layers (tile basemaps and the solid-color basemap) share the
    *  lower `TILE_BASE` ladder; overlay-group layers use `BASE`. Row order
    *  within a group = visual stack order, since both share one `STEP`. */
-  isBase?: boolean;
+  group?: "base" | "overlay";
   /** The pane's role in its layer's draw stack. Only `annotation` prices a
    *  relation of its own (one step above its layer); the rest use `order`. */
   role?: PaneRole;
@@ -80,14 +80,15 @@ interface ZArgs {
 const zFor = ({
   index = 0,
   count = index,
-  isBase = false,
+  group = "overlay",
   role = "base",
   order = 0,
   base,
 }: ZArgs): number => {
   const slot =
     base ??
-    (isBase ? Z_INDEX.TILE_BASE : Z_INDEX.BASE) + (count - index) * Z_INDEX.STEP;
+    (group === "base" ? Z_INDEX.TILE_BASE : Z_INDEX.BASE) +
+      (count - index) * Z_INDEX.STEP;
   return role === "annotation" ? slot + ANNOTATION_Z_OFFSET : slot + order;
 };
 

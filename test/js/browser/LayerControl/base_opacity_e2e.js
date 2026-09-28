@@ -22,7 +22,7 @@
   // basemap; the color starts hidden (authorVisible=false) so hiding it is
   // the same visual state as not having it. Real tile basemaps are the
   // ones the user drags the opacity slider on.
-  const realBases = api.layers.filter(l => l.isBase && l.id !== COLOR_ID);
+  const realBases = api.layers.filter(l => l.group === "base" && l.id !== COLOR_ID);
   if (realBases.length !== 1) {
     return { error: `expected exactly 1 real tile base, got ${realBases.length}` };
   }

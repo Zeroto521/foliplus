@@ -108,7 +108,7 @@ interface RegisterLayerOpts {
   id: string;
   name?: string | null;
   layer?: L.Layer | null;
-  isBase?: boolean;
+  group?: "base" | "overlay";
   /** New base layer insertion: "top" (default, tile basemaps) or "bottom"
    *  (solid-color basemap — lowest z, tiles cover it). */
   baseInsert?: "top" | "bottom";
@@ -175,7 +175,7 @@ interface LayerInfo {
   layer: L.Layer | null;
   /** Layer opacity in [0, 1]. Defaults to 1 (fully opaque). */
   opacity?: number;
-  isBase: boolean;
+  group: "base" | "overlay";
   paneName: string | null;
   /** The panes this layer paints into, in draw order. */
   paneSpecs: PaneSpec[];

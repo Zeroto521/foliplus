@@ -28,7 +28,7 @@ describe("LayerUI attrs", () => {
       manager.registerLayer({
         id: "overlay2",
         name: "Circles",
-        isBase: false,
+        group: "overlay",
         layer: { options: {}, eachLayer: vi.fn() },
       });
     }
@@ -379,7 +379,7 @@ describe("LayerUI attrs", () => {
     });
 
     it("names the type row by what the layer is, not by a missing geometry", () => {
-      manager.registerLayer({ id: "attr-base1", isBase: true });
+      manager.registerLayer({ id: "attr-base1", group: "base" });
       const baseItem = findItem(ui, "attr-base1");
       ui.openAttrsPanel(baseItem);
       expect(

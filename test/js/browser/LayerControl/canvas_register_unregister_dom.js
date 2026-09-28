@@ -19,7 +19,7 @@
   // The canvas is a single base-role pane, so its pane z is the ladder's
   // price for its own registry slot. api.layers is the read-only snapshot.
   const idx = api.layers.findIndex(l => l.id === id);
-  const expectedPaneZ = idx >= 0 ? String(api.computeZIndex(idx, false)) : null;
+  const expectedPaneZ = idx >= 0 ? String(api.computeZIndex(idx, "overlay")) : null;
 
   const item = document.querySelector(`[data-layer-id="${id}"]`);
   const hasItem = !!item;

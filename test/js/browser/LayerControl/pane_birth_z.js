@@ -31,6 +31,6 @@
     inlineAtRegister,
     zAfterOrder,
     layerCount: api.layers.length,
-    layers: api.layers.map(l => ({ id: l.id, isBase: Boolean(l.isBase) })),
+    layers: api.layers.map(l => ({ id: l.id, group: l.group })),
   };
 };

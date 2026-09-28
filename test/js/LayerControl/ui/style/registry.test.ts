@@ -138,13 +138,13 @@ describe("LayerControl style-panel dimension registry — opacity descriptor", (
         {
           id: "overlay1",
           name: "Overlay",
-          isBase: false,
+          group: "overlay",
           layer: overlayLayer,
         },
         {
           id: "base1",
           name: "OSM",
-          isBase: true,
+          group: "base",
           layer: { options: {}, setZIndex: vi.fn() } as never,
           paneName: "tilePane",
         },
@@ -222,7 +222,9 @@ describe("LayerControl style-panel dimension registry — fill descriptor", () =
   beforeEach(() => {
     installLeafletGlobals();
     ({ manager, ui } = initFixture({
-      data: [{ id: "overlay1", name: "Overlay", isBase: false, layer: overlayLayer }],
+      data: [
+        { id: "overlay1", name: "Overlay", group: "overlay", layer: overlayLayer },
+      ],
     }));
   });
 
@@ -271,7 +273,9 @@ describe("LayerControl style-panel dimension registry — border descriptor", ()
   beforeEach(() => {
     installLeafletGlobals();
     ({ manager, ui } = initFixture({
-      data: [{ id: "overlay1", name: "Overlay", isBase: false, layer: overlayLayer }],
+      data: [
+        { id: "overlay1", name: "Overlay", group: "overlay", layer: overlayLayer },
+      ],
     }));
   });
 
@@ -320,7 +324,9 @@ describe("LayerControl style-panel dimension registry — zoomRange descriptor",
   beforeEach(() => {
     installLeafletGlobals();
     ({ manager, ui } = initFixture({
-      data: [{ id: "overlay1", name: "Overlay", isBase: false, layer: overlayLayer }],
+      data: [
+        { id: "overlay1", name: "Overlay", group: "overlay", layer: overlayLayer },
+      ],
     }));
   });
 
