@@ -802,4 +802,18 @@ describe("a layer that gains labelable content gets the stored intent on its new
     // The bake write landed on the mounted label canvas.
     expect(canvas().setLayerAlpha).toHaveBeenCalledWith(0.3);
   });
+
+  it("applyLayerAlpha is a no-op when the layer has no canvas yet", () => {
+    // Labels off → no canvas. The write must not throw; the value is picked
+    // up by the next paint once a canvas mounts (setLayerAlpha at that point
+    // is the late-carrier replay).
+    const { map } = makeMap();
+    const mgr = new AnnotationManager({
+      map,
+      layerFind: () => null,
+      paneNameFor: () => null,
+      onConfigChange: () => {},
+    } as never);
+    expect(() => mgr.applyLayerAlpha("ghost", 0.5)).not.toThrow();
+  });
 });

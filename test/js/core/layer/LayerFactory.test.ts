@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { LayerFactory } from "#foliplus/core/layer/LayerFactory.js";
 import { PaneManager } from "#foliplus/core/layer/PaneManager.js";
 import { zFor } from "#foliplus/core/layer/z.js";
+import { getLayerAlpha, setLayerAlpha } from "#common/canvasAlpha.js";
 
 // Coverage exemption for LayerFactory.ts — knowingly uncovered, not overlooked.
 // Lines and branches are at 100%. Function coverage stops at 98.27% (57/58) on
@@ -1280,6 +1281,31 @@ describe("LayerFactory", () => {
           configurable: true,
         });
       }
+    });
+
+    it("color face bakes layerAlpha into its fillRect (R11 commit arm)", () => {
+      // Default opacityBake is "commit": the factory supplies onOpacity=paint
+      // so a slider commit repaints under the baked alpha without CSS.
+      const registered: Array<Record<string, unknown>> = [];
+      const f = new LayerFactory({
+        map,
+        panes,
+        registerLayer: opts => {
+          registered.push(opts as unknown as Record<string, unknown>);
+          return null;
+        },
+        unregisterLayer: () => true,
+        bringLayerToFront: () => {},
+      });
+      const h = f.createColor({ id: "solid", color: "#3366cc" });
+      h.register();
+      const opts = registered.at(-1)!;
+      expect(opts.opacityBake).toBe("commit");
+      expect(typeof opts.onOpacity).toBe("function");
+      // Invoking the hook repaints — the bake helper reads getLayerAlpha.
+      setLayerAlpha(h.element, 0.5);
+      (opts.onOpacity as (v: number) => void)(0.5);
+      expect(getLayerAlpha(h.element)).toBeCloseTo(0.5);
     });
 
     it("map move and resize events drive the counter-translate and the face size", () => {
