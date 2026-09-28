@@ -88,7 +88,7 @@
 - `LayerControl`: remove the `onToggle` callback from `registerLayer` / `createCanvas` / `createColor` — breaking against the v0.3.x API; visibility rides the surface's `capabilities.visibility` carrier (canvas HIDDEN class / map membership), `LayerAPI.setVisible` for programmatic control ([#518](https://github.com/Zeroto521/foliplus/pull/518))
 - `LayerControl`: rename `isBase` to `group: "base" | "overlay"` — breaking against the v0.3.x API; migrate `isBase: true` → `group: "base"`, `isBase: false` → `group: "overlay"` ([#524](https://github.com/Zeroto521/foliplus/pull/524))
 - `core/layer`: rename `styleDefaults` to `styleDefaultsProvider` — breaking against the v0.3.x API; migrate `styleDefaults: …` → `styleDefaultsProvider: …` ([#530](https://github.com/Zeroto521/foliplus/pull/530))
-- `CSS tokens`: namespace all custom properties under the `--foliplus-*` prefix and rename `--export-ctrl-z` to `--export-fold-z` — breaking against the v0.3.x API; migrate every override `--x` → `--foliplus-x` ([#542](https://github.com/Zeroto521/foliplus/pull/542))
+- `CSS tokens`: prefix all custom properties with `--foliplus-*` — breaking against the v0.3.x API; migrate every override `--x` → `--foliplus-x` ([#542](https://github.com/Zeroto521/foliplus/pull/542))
 
 ### Fixed
 
