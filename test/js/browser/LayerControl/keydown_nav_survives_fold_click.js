@@ -2,9 +2,7 @@
   const panel = document.querySelector(".foliplus-panel-content");
   if (!panel) return null;
   const items = Array.from(
-    panel.querySelectorAll(
-      ".foliplus-layer-item:not(.foliplus-color-layer-item), .foliplus-layer-toggle-all",
-    ),
+    panel.querySelectorAll(".foliplus-layer-item, .foliplus-layer-toggle-all"),
   );
   if (items.length < 2) return null;
 

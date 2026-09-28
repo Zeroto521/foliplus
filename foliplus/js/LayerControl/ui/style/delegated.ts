@@ -12,8 +12,7 @@ import * as SVGs from "../../icon.js";
 import type { LayerUI } from "../index.js";
 import { bindBorderRowShell, buildBorderRowShell } from "./border.js";
 import { appendResetFooter } from "./frame.js";
-import { buildOpacityRow, layerCanOpacity } from "./opacity.js";
-import { buildZoomRangeRow, canShowZoomRange } from "./zoomRange.js";
+import { DIM_ORDER, getDimension, hasAnyDimension } from "./registry.js";
 
 /** Whether the layer delegates its style to the drawer via styleSetters
  *  (third-party canvas layers: Heatmap, Measure). The ⋮ menu's Style item
@@ -135,20 +134,34 @@ const renderDelegatedStylePanel = (
 
   // The shared renderer emits controls only, no headings — the panel owns the
   // section split and reads it as the annotation panel does: Layer on top,
-  // Label below. The Layer rows run border, opacity, zoom range; a delegated
-  // drawer has no fill, so this is the annotation panel's
-  // fill → border → opacity → zoom range with the fill slot absent.
+  // Label below. The Layer rows run opacity, zoom range (border comes from
+  // the dedicated styleSetters path when the component publishes it, and
+  // fill is never delegated). This is the annotation panel's
+  // fill → border → opacity → zoom range with the fill and vector-border
+  // slots absent.
   // Row-level capability gate (5.4): the opacity row only renders when the
   // surface can honestly carry the write. A layer with `opacity: "none"`
   // (MarkerCluster) would otherwise see a slider that writes nothing but
   // persists the value — a lie that survives reload (6.2).
-  const canOpacity = layerCanOpacity(ui, layerId);
-  const canZoomRange = canShowZoomRange(ui, layerId);
-  if (borderRow || canOpacity || canZoomRange) {
+  // Row iteration follows `DIM_ORDER`, the same authoritative display
+  // order the annotation panel uses (see `./registry.js`). Registration
+  // order is not display order — it tracks the ES module import graph,
+  // which varies across load graphs. The delegated-only border row is
+  // prepended before the registry sweep: it is not a registry dimension
+  // (it writes through `styleSetters`, a path the vector border descriptor
+  // does not own). `fill` and `border` are skipped in the sweep — the
+  // vector write path (`setStyle`) is unreliable for layers whose component
+  // redraws its own geometry (e.g. Measure), and fill has no delegated
+  // rendering path at all. Only opacity and zoomRange ride the sweep:
+  // they are LayerControl-owned and survive a component's redraw.
+  if (borderRow || hasAnyDimension(ui, layerId)) {
     const layerSection = createSection({ title: ui.T("section_layer") });
     if (borderRow) layerSection.body.appendChild(borderRow);
-    if (canOpacity) layerSection.body.appendChild(buildOpacityRow(ui, layerId));
-    if (canZoomRange) layerSection.body.appendChild(buildZoomRangeRow(ui, layerId));
+    for (const key of DIM_ORDER) {
+      if (key === "fill" || key === "border") continue;
+      const dim = getDimension(key);
+      if (dim?.gate(ui, layerId)) layerSection.body.appendChild(dim.row(ui, layerId));
+    }
     content.append(layerSection.root);
   }
   if (root.children.length) {

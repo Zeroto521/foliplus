@@ -10,7 +10,7 @@
   const li = api.layers.find(l => l.name === name);
   if (!li) return null;
   const cb = document.querySelector(
-    `[data-layer-id="${li.id}"]:not([data-layer-type="base"]):not(.foliplus-color-layer-item) input[type="checkbox"]`,
+    `[data-layer-id="${li.id}"]:not([data-layer-type="base"]) input[type="checkbox"]`,
   );
   if (cb) cb.click();
   return !!cb;

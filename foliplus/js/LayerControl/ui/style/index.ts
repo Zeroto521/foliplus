@@ -35,33 +35,15 @@ import * as SVGs from "../../icon.js";
 import { authorZoomBoundsForLayer } from "../apply.js";
 import type { LayerUI } from "../index.js";
 import { finishRename } from "../rename.js";
-import {
-  bindBorderRow,
-  buildBorderRow,
-  layerCanBorder,
-  resetLayerBorder,
-} from "./border.js";
+import { bindBorderRow, resetLayerBorder } from "./border.js";
 import { layerHasStyleDelegation, renderDelegatedStylePanel } from "./delegated.js";
-import {
-  bindFillRow,
-  buildFillRow,
-  layerCanFill,
-  replayFillState,
-  resetLayerFill,
-} from "./fill.js";
+import { bindFillRow, replayFillState, resetLayerFill } from "./fill.js";
 import { appendResetFooter, railPos } from "./frame.js";
 import { applyPatch, layerFields, syncFormatRow } from "./label.js";
-import {
-  buildOpacityRow,
-  clampPct,
-  commitOpacityPct,
-  layerCanOpacity,
-  resetLayerOpacity,
-} from "./opacity.js";
+import { clampPct, commitOpacityPct, resetLayerOpacity } from "./opacity.js";
+import { DIM_ORDER, getDimension, hasAnyDimension } from "./registry.js";
 import {
   applyZoomRangeLive,
-  buildZoomRangeRow,
-  canShowZoomRange,
   clampZoom,
   commitZoomRange,
   resetLayerZoomRange,
@@ -83,11 +65,7 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   // but it still owns the Layer section (fill, border, opacity, zoom range). The
   // ⋮ menu enables Style on capability alone, so the panel has to honour the
   // same gate rather than demanding a field.
-  const hasLayerDim =
-    layerCanOpacity(ui, layerId) ||
-    layerCanBorder(ui, layerId) ||
-    layerCanFill(ui, layerId) ||
-    canShowZoomRange(ui, layerId);
+  const hasLayerDim = hasAnyDimension(ui, layerId);
   if (!hasLabel && !hasLayerDim) return null;
 
   const cfg = ui.m.annotation.getConfig(layerId);
@@ -249,19 +227,19 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   // a layer without any of them reaches the panel for the Label section alone.
   // Layer comes first: it is the primary surface (what the user drew), and the
   // Label section is a decoration of it. High-frequency operations lead.
+  // Rows are discovered through the style-panel dimension registry, and
+  // iteration follows `DIM_ORDER` — the authoritative display order
+  // (fill → border → opacity → zoomRange, per #458). Registration order
+  // is *not* display order: it tracks the ES module import graph, which
+  // varies across load graphs (opacity was registered at #505 top-level,
+  // before `fill` and `border` in most of them), so the panel asserts its
+  // order explicitly rather than inferring it from the registry. See the
+  // `DIM_ORDER` comment in `./registry.js`.
   if (hasLayerDim) {
     const layerSection = createSection({ title: ui.T("section_layer") });
-    if (layerCanFill(ui, layerId)) {
-      layerSection.body.appendChild(buildFillRow(ui, layerId));
-    }
-    if (layerCanBorder(ui, layerId)) {
-      layerSection.body.appendChild(buildBorderRow(ui, layerId));
-    }
-    if (layerCanOpacity(ui, layerId)) {
-      layerSection.body.appendChild(buildOpacityRow(ui, layerId));
-    }
-    if (canShowZoomRange(ui, layerId)) {
-      layerSection.body.appendChild(buildZoomRangeRow(ui, layerId));
+    for (const key of DIM_ORDER) {
+      const dim = getDimension(key);
+      if (dim?.gate(ui, layerId)) layerSection.body.appendChild(dim.row(ui, layerId));
     }
     content.append(layerSection.root);
   }

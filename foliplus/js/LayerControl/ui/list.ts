@@ -28,11 +28,6 @@ const initTypesAndVisibility = (ui: LayerUI) => {
   getColorSurface(ui);
   const colorLi = ui.m.layerRegistry.get(CONST.COLOR.MAP_ID);
   if (colorLi) {
-    // The colour basemap shares the tile basemap's visibility gating (§42.1):
-    // it carries a zoom-range write through the `pane` / `visible` executor
-    // path. The auto-detected surface says "none" (no Leaflet layer to hold
-    // minZoom/maxZoom); override it so the style panel shows the range row.
-    ui.m.surfaceFor(colorLi).capabilities.zoomRange = "pane";
     // The colour basemap starts unchecked (hidden) by default.
     ui.authorVisible.set(CONST.COLOR.MAP_ID, false);
   }
