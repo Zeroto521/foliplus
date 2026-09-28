@@ -21,7 +21,8 @@
   /* Fixed width, not min-width: every panel (heatmap / attrs / style) shares
      one control-column edge. Longer labels wrap inside the box instead of
      pushing the control right. Explicit normal weight: the attrs panel uses
-     <dt>, whose UA stylesheet is bold — bold stays on section headings. */
+     <dt>, whose UA stylesheet is bold — without it the three panels' labels
+     would not read alike. */
   width: var(--form-label-width);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-normal);
@@ -196,19 +197,6 @@
   outline: none;
   border-color: var(--accent-primary);
   box-shadow: var(--focus-ring);
-}
-
-/* Section heading used by HeatmapControl and LayerControl style panels. */
-.foliplus-section-heading {
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  color: var(--text-primary);
-  text-transform: uppercase;
-  letter-spacing: var(--letter-spacing-tight);
-  padding: var(--space-md) var(--space-xl) var(--space-sm);
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
 }
 
 /* ── Opacity control (LayerControl style drawer) ──

@@ -141,11 +141,7 @@ describe("CLASSES.FOCUSING", () => {
   });
 });
 
-describe("CLASSES.SECTION_HEADING / opacity controls", () => {
-  it("uses the shared form.css section heading", () => {
-    expect(CONST.CLASSES.SECTION_HEADING).toBe("foliplus-section-heading");
-  });
-
+describe("CLASSES opacity controls", () => {
   it("defines the opacity row and shared slider classes", () => {
     // The shared component both range controls are built from.
     expect(CONST.CLASSES.SLIDER).toBe("foliplus-slider");
