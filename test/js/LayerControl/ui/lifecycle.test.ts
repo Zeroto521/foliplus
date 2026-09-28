@@ -110,7 +110,7 @@ describe("LayerUI lifecycle — defensive rails", () => {
       // → showSolidBasemap) is covered by the browser test
       // test_color_basemap_checkbox_toggles_visibility, so this unit test
       // pins only the negative half of the contract.
-      const showColorLayerSpy = vi
+      const showSolidBasemapSpy = vi
         .spyOn(ui, "showSolidBasemap")
         .mockImplementation(() => {});
       const colorRow = ui.uiContainer.querySelector<HTMLElement>(
@@ -122,7 +122,7 @@ describe("LayerUI lifecycle — defensive rails", () => {
       const label = colorRow!.querySelector(`.${CONST.CLASSES.LAYER_LABEL}`)!;
       label.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 
-      expect(showColorLayerSpy).not.toHaveBeenCalled();
+      expect(showSolidBasemapSpy).not.toHaveBeenCalled();
     });
   });
 

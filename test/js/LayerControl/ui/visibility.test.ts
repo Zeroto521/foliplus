@@ -80,8 +80,8 @@ const fixture = () => {
   } as FixtureMap & Record<string, unknown>;
 
   const layers = [
-    { id: "overlay1", name: "Points", isBase: false, layer: layerFixture() },
-    { id: "overlay2", name: "Circles", isBase: false, layer: layerFixture() },
+    { id: "overlay1", name: "Points", group: "overlay", layer: layerFixture() },
+    { id: "overlay2", name: "Circles", group: "overlay", layer: layerFixture() },
   ];
   // Simulate folium adding the show=True layers to the map before LayerControl
   // attaches: the snapshotAuthorVisible pass reads map.hasLayer to capture the
@@ -137,7 +137,7 @@ describe("applyVisibility", () => {
     manager.registerLayer({
       id: "ov",
       name: "Overlay",
-      isBase: false,
+      group: "overlay",
       layer,
     });
 
@@ -186,7 +186,7 @@ describe("applyVisibility", () => {
       }),
     );
     const seeded = makeUi(map, [
-      { id: "overlay1", name: "Points", isBase: false, layer: layerFixture() },
+      { id: "overlay1", name: "Points", group: "overlay", layer: layerFixture() },
     ]);
     expect(seeded.ui.intentVisible("overlay1")).toBe(false);
     expect(applyVisibility(seeded.ui as LayerUI, "overlay1", true)).toBe(true);
@@ -243,7 +243,7 @@ describe("applyVisibility", () => {
     manager.registerLayer({
       id: "canvas1",
       name: "Heat",
-      isBase: false,
+      group: "overlay",
       canvas,
     });
 
@@ -269,7 +269,7 @@ describe("applyVisibility", () => {
     // panel, or one that has not rendered this layer yet. The map write and the
     // persisted choice must not depend on the row being there.
     const layer = layerFixture();
-    manager.registerLayer({ id: "ov", name: "Overlay", isBase: false, layer });
+    manager.registerLayer({ id: "ov", name: "Overlay", group: "overlay", layer });
     const row = ui.uiContainer.querySelector<HTMLElement>(
       `[${CONST.DATA.LAYER_ID}="ov"]`,
     );
@@ -296,7 +296,7 @@ describe("applyVisibility", () => {
     // A fresh manager over the same storage replays the hide rather than
     // restoring the author's default.
     const fresh = makeUi(map, [
-      { id: "overlay1", name: "Points", isBase: false, layer: layerFixture() },
+      { id: "overlay1", name: "Points", group: "overlay", layer: layerFixture() },
     ]);
     expect(fresh.ui.intentVisible("overlay1")).toBe(false);
     fresh.ui = null;
@@ -322,7 +322,7 @@ describe("applyVisibility", () => {
     });
 
     const fresh = makeUi(map, [
-      { id: "overlay1", name: "Points", isBase: false, layer: layerFixture() },
+      { id: "overlay1", name: "Points", group: "overlay", layer: layerFixture() },
     ]);
     expect(fresh.ui.intentVisible("overlay1")).toBe(true);
     fresh.ui = null;
@@ -338,7 +338,7 @@ describe("applyVisibility", () => {
     fresh.registerLayer({
       id: "base1",
       name: "OSM",
-      isBase: true,
+      group: "base",
       layer,
       paneName: "tilePane",
     });
@@ -367,7 +367,7 @@ describe("applyVisibility", () => {
     manager.registerLayer({
       id: "repeat",
       name: "Repeat",
-      isBase: false,
+      group: "overlay",
       layer,
     });
 
@@ -394,7 +394,7 @@ describe("applyVisibility", () => {
 
     it("is false when nothing in the group is checked", () => {
       const only = makeUi(map, [
-        { id: "only", name: "Only", isBase: false, layer: layerFixture() },
+        { id: "only", name: "Only", group: "overlay", layer: layerFixture() },
       ]);
       const all = allToggle(only.ui as LayerUI);
       expect(all.checked).toBe(true);
@@ -495,7 +495,7 @@ describe("applyVisibility", () => {
         ui: u2,
         map: map2,
       } = initFixture({
-        data: [{ id: "overlay1", name: "O1", isBase: false, layer: layerFixture() }],
+        data: [{ id: "overlay1", name: "O1", group: "overlay", layer: layerFixture() }],
       });
       try {
         const toggleMock = vi.fn();
@@ -560,7 +560,7 @@ describe("LayerManager.setVisible", () => {
     manager.registerLayer({
       id: "ov",
       name: "Overlay",
-      isBase: false,
+      group: "overlay",
       layer,
     });
 
@@ -587,7 +587,7 @@ describe("LayerManager.setVisible", () => {
 
   it("refuses before the panel is attached rather than no-op-ing", () => {
     const bare = new LayerManager(map, [
-      { id: "overlay1", name: "Points", isBase: false, layer: layerFixture() },
+      { id: "overlay1", name: "Points", group: "overlay", layer: layerFixture() },
     ]);
     // No ui: nothing to sync the row with and no hidden-set funnel to write,
     // so a success return would be a lie the caller cannot detect.
@@ -676,7 +676,7 @@ describe("LayerUI.handleChange", () => {
     manager.registerLayer({
       id: "canvas1",
       name: "Heat",
-      isBase: false,
+      group: "overlay",
       canvas,
     });
     change(ui, "canvas1", false);
@@ -730,9 +730,9 @@ describe("DOM order diverges from registry order", () => {
     } as FixtureMap & Record<string, unknown>;
 
     const layers = [
-      { id: "A", name: "Layer A", isBase: false, layer: layerFixture() },
-      { id: "B", name: "Layer B", isBase: false, layer: layerFixture() },
-      { id: "C", name: "Layer C", isBase: false, layer: layerFixture() },
+      { id: "A", name: "Layer A", group: "overlay", layer: layerFixture() },
+      { id: "B", name: "Layer B", group: "overlay", layer: layerFixture() },
+      { id: "C", name: "Layer C", group: "overlay", layer: layerFixture() },
     ];
     // Same folium simulation as fixture(): leave the map with the layers that
     // show=True would have added, so snapshotAuthorVisible reads true.
@@ -908,12 +908,12 @@ describe("toggleAll base group", () => {
     } as FixtureMap & Record<string, unknown>;
 
     const layers: ConstructorParameters<typeof LayerManager>[1] = [
-      { id: "B1", name: "Base 1", isBase: true, layer: layerFixture() },
+      { id: "B1", name: "Base 1", group: "base", layer: layerFixture() },
       // Canvas-style base: a real canvas element, no Leaflet layer to add or remove.
       {
         id: "B2",
         name: "Base 2",
-        isBase: true,
+        group: "base",
         canvas: document.createElement("canvas"),
       },
     ];
@@ -1072,7 +1072,7 @@ describe("unit helpers", () => {
     const ui = {
       uiContainer,
       m: {
-        layers: [{ id: "b1", isBase: true }],
+        layers: [{ id: "b1", group: "base" }],
         map: { getContainer: () => document.createElement("div") },
       },
       authorVisible: new Map(),
@@ -1099,8 +1099,8 @@ describe("unit helpers", () => {
       const container = document.createElement("div");
       const layers =
         opacity === undefined
-          ? [{ id: "b1", isBase: true }]
-          : [{ id: "b1", isBase: true, opacity }];
+          ? [{ id: "b1", group: "base" }]
+          : [{ id: "b1", group: "base", opacity }];
       const ui = {
         uiContainer,
         m: { layers, map: { getContainer: () => container } },

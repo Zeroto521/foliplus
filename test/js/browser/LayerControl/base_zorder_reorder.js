@@ -22,7 +22,7 @@
     m.enforceOrder();
     const bases = [];
     for (const li of m.layers) {
-      if (!li.isBase) continue;
+      if (li.group !== "base") continue;
       const surface = m.surfaceFor(li);
       const el = surface && surface.panes[0] ? surface.panes[0].element : null;
       bases.push({
@@ -40,7 +40,7 @@
 
   if (spec.action === "swap-tiles") {
     const tileIds = m.layers
-      .filter(l => l.isBase && l.id !== "foliplus_color_map")
+      .filter(l => l.group === "base" && l.id !== "foliplus_color_map")
       .map(l => l.id);
     if (tileIds.length < 2) return { error: `need two tile basemaps, got ${tileIds}` };
     const from = m.layerRegistry.get(tileIds[tileIds.length - 1]);

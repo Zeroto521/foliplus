@@ -233,7 +233,7 @@ const SEL = {
 };
 
 /** Group names. */
-const GROUP = { OVERLAY: "overlay", BASE: "base" };
+const GROUP = { OVERLAY: "overlay", BASE: "base" } as const;
 
 /** Upper bound for a map and layer that declare no max zoom.
 

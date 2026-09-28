@@ -135,7 +135,7 @@ declare global {
     zoom?: number;
     provider?: string | ProviderConfig;
     provider_config?: Record<string, unknown> | null;
-    data?: Array<{ name: string; id: string; isBase: boolean }>;
+    data?: Array<{ name: string; id: string; group: "base" | "overlay" }>;
     show_bearing?: boolean;
     label_show?: boolean;
     label_collide?: boolean;

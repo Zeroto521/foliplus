@@ -41,13 +41,13 @@ describe("RegisterLayerOpts", () => {
   });
 
   it("rejects a declared key with the wrong value type", () => {
-    // The whole point of typing opts rather than accepting unknown: a truthy
-    // garbage value must not be admissible where a boolean is expected.
+    // The whole point of typing opts rather than accepting unknown: a garbage
+    // value must not be admissible where a literal union is expected.
     // @ts-expect-error paneSpecs is PaneSpec[]
     const notArray = make().createLayerInfo({ id: "l1", paneSpecs: "pane" });
 
-    // @ts-expect-error isBase is boolean
-    const notBool = make().createLayerInfo({ id: "l1", isBase: "true" });
+    // @ts-expect-error group is "base" | "overlay"
+    const notBool = make().createLayerInfo({ id: "l1", group: "true" });
 
     // @ts-expect-error opacity is number
     const notNumber = make().createLayerInfo({ id: "l1", opacity: "half" });
@@ -56,7 +56,7 @@ describe("RegisterLayerOpts", () => {
     // so garbage at a declared key lands in the registry verbatim. This is
     // what callers are protected from by the type alone.
     expect(notArray.paneSpecs).toBe("pane");
-    expect(notBool.isBase).toBe("true");
+    expect(notBool.group).toBe("true");
     expect(notNumber.opacity).toBe("half");
   });
 
@@ -98,7 +98,7 @@ describe("RegisterLayerOpts", () => {
       id: "l1",
       name: "L1",
       layer,
-      isBase: false,
+      group: "overlay",
       paneName: "myPane",
       paneSpecs,
       iconSvg: svg,
@@ -116,7 +116,7 @@ describe("RegisterLayerOpts", () => {
     expect(info).toMatchObject({
       id: "l1",
       name: "L1",
-      isBase: false,
+      group: "overlay",
       paneName: "myPane",
       paneSpecs,
       opacity: 0.5,
