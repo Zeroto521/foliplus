@@ -21,7 +21,7 @@ import { inZoomRange } from "./rowView.js";
  *  `policy` (focus, zoom range) may only suppress it. That is the invariant
  *  that keeps a derived dimension from ever adding a layer back onto the
  *  map — the class of bug the quickstart regression records, and the structural root of the
- *  `rangeHiddenIds` one-way gate that used to live in state.ts.
+ *  one-way gate that used to live in state.ts.
  */
 interface Projection {
   id: string;

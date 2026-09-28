@@ -1642,7 +1642,6 @@ describe("LayerManager", () => {
       fillColorMap: {},
       fillOpacityMap: {},
       zoomRangeMap: { overlay1: [3, 12] },
-      rangeHiddenIds: new Set(),
       borderColorMap: {},
       borderWeightMap: {},
       userOverrides: {
@@ -1713,7 +1712,6 @@ describe("LayerManager", () => {
       zoomRangeMap: { overlay1: [3, 12] },
       fillColorMap: {},
       fillOpacityMap: {},
-      rangeHiddenIds: new Set(),
       borderColorMap: {},
       borderWeightMap: {},
       userOverrides: { overlay1: ["visible", "opacity"] },
@@ -1768,7 +1766,6 @@ describe("LayerManager", () => {
       zoomRangeMap: {},
       fillColorMap: {},
       fillOpacityMap: {},
-      rangeHiddenIds: new Set(),
       borderColorMap: {},
       borderWeightMap: {},
       userOverrides: { overlay1: ["opacity"] },

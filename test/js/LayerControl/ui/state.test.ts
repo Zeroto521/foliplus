@@ -1132,7 +1132,6 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
       fillColorMap: {},
       fillOpacityMap: {},
       userOverrides: {},
-      rangeHiddenIds: new Set(),
       m: {
         persistence: { schedule },
         annotation: { configEntries: () => [] },
@@ -1162,7 +1161,6 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
       fillColorMap: {},
       fillOpacityMap: {},
       userOverrides: { overlay1: ["visible"] },
-      rangeHiddenIds: new Set(),
       m: {
         persistence: { schedule },
         annotation: { configEntries: () => [] },

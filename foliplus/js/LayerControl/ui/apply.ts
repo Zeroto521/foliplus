@@ -264,8 +264,7 @@ const applyStateOp = (ui: LayerUI, layerInfo: LayerInfo, op: StateOp): void => {
  *  the only write path for map membership and why `intent.visible` is no
  *  longer diffed separately: any change that would authorise an add goes
  *  through `intent`, so the effective value already reflects the user's
- *  authorisation. The one-way gate that used to live in `rangeHiddenIds`
- *  is now the shape of this diff.
+ *  authorisation. The one-way gate is now the shape of this diff.
  */
 const applyProjection = (ui: LayerUI, id: string): void => {
   const layerInfo = ui.m.layerRegistry.get(id);

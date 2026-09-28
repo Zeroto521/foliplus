@@ -33,7 +33,6 @@ const mockUI: LayerUI = {
   T: (key: string) => key,
   uiContainer: { querySelector: () => null } as any,
   hiddenIds: new Set(),
-  rangeHiddenIds: new Set(),
   opacityMap: {},
   fillColorMap: {},
   fillOpacityMap: {},
