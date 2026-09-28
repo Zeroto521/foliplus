@@ -96,7 +96,7 @@ class LayerFactory {
       featureCountProvider: opts.featureCountProvider,
       styleProvider: opts.styleProvider,
       styleSetters: opts.styleSetters,
-      styleDefaults: opts.styleDefaults,
+      styleDefaultsProvider: opts.styleDefaultsProvider,
       metaProvider: opts.metaProvider,
       content: { kind: "layers", panes: opts.panes },
     });
@@ -120,7 +120,7 @@ class LayerFactory {
       featureCountProvider: opts.featureCountProvider,
       styleProvider: opts.styleProvider,
       styleSetters: opts.styleSetters,
-      styleDefaults: opts.styleDefaults,
+      styleDefaultsProvider: opts.styleDefaultsProvider,
       onOpacity: opts.onOpacity,
       opacityBake: opts.opacityBake,
       content: {
@@ -151,9 +151,12 @@ class LayerFactory {
     const handle = this.createSurface({
       id: opts.id,
       name: opts.name,
-      persistOrder: opts.persistOrder,
       onOpacity: opts.onOpacity,
       opacityBake: opts.opacityBake,
+      // Always a runtime surface: the solid-color basemap is foliplus chrome,
+      // and its slot is attach timing among the base group — never a user
+      // arrangement to persist.
+      orderOrigin: "runtime",
       content: { kind: "color", color: opts.color },
     });
     // register() is called by the caller (LayerControl UI) after setting
@@ -198,7 +201,7 @@ class LayerFactory {
       featureCountProvider: opts.featureCountProvider ?? null,
       styleProvider: opts.styleProvider ?? null,
       styleSetters: opts.styleSetters ?? null,
-      styleDefaults: opts.styleDefaults ?? null,
+      styleDefaultsProvider: opts.styleDefaultsProvider ?? null,
       metaProvider: opts.metaProvider ?? null,
       onOpacity: opts.onOpacity ?? null,
       opacityBake: opts.opacityBake,
@@ -442,7 +445,8 @@ class LayerFactory {
         opacityBake: opts.opacityBake ?? "commit",
         group: GROUP.BASE,
         baseInsert: "bottom",
-        persistOrder: opts.persistOrder,
+        // createColor always passes orderOrigin: "runtime" (see above).
+        orderOrigin: opts.orderOrigin,
         canvas: face,
         color,
         paneName,

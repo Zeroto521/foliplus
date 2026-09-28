@@ -102,7 +102,8 @@ class LayerRegistry {
         opts.featureCountProvider ?? existingLi?.featureCountProvider ?? null,
       styleProvider: opts.styleProvider ?? existingLi?.styleProvider ?? null,
       styleSetters: opts.styleSetters ?? existingLi?.styleSetters ?? null,
-      styleDefaults: opts.styleDefaults ?? existingLi?.styleDefaults ?? null,
+      styleDefaultsProvider:
+        opts.styleDefaultsProvider ?? existingLi?.styleDefaultsProvider ?? null,
       getBounds: opts.getBounds ?? existingLi?.getBounds ?? null,
       // Static caller-supplied metadata for the attributes panel. `??` (not
       // a spread) so a re-registration leaves the previous values in place —
@@ -115,6 +116,7 @@ class LayerRegistry {
       // Registration time: set once on first registration, never rewritten by a
       // provider re-registration.
       registeredAt: existingLi?.registeredAt ?? Date.now(),
+      orderOrigin: opts.orderOrigin ?? existingLi?.orderOrigin ?? "user",
     };
   }
 

@@ -559,7 +559,7 @@ describe("LayerFactory", () => {
       ensureVectorSpy.mockRestore();
     });
 
-    it("forwards styleProvider / styleSetters / styleDefaults to registerLayer", () => {
+    it("forwards styleProvider / styleSetters / styleDefaultsProvider to registerLayer", () => {
       const reg = vi.fn(() => null);
       const f = new LayerFactory({
         map,
@@ -571,18 +571,18 @@ describe("LayerFactory", () => {
       });
       const styleProvider = () => ({ color: "#f00" });
       const styleSetters = { color: () => {} };
-      const styleDefaults = () => ({ weight: 2 });
+      const styleDefaultsProvider = () => ({ weight: 2 });
       const api = f.createLayers({
         id: "test",
         name: "Test",
         panes: [{ name: "g1" }],
         styleProvider,
         styleSetters,
-        styleDefaults,
+        styleDefaultsProvider,
       });
       api.addLayer(new window.L.Path(), "g1");
       expect(reg).toHaveBeenCalledWith(
-        expect.objectContaining({ styleProvider, styleSetters, styleDefaults }),
+        expect.objectContaining({ styleProvider, styleSetters, styleDefaultsProvider }),
       );
     });
 
