@@ -328,6 +328,14 @@ interface CreateCanvasOpts {
 
 /** Return type of `LayerAPI.createCanvas`. */
 interface CreateCanvasAPI {
+  /** The canvas that receives draws. Built at `createCanvas` time but mounted
+   *  into its own pane only when `register()` runs, so until then the element
+   *  has no parent. `ctx`, `resize` and `setVisible` are all safe before that
+   *  — they act on the element, which is never null. `resize` re-runs on mount
+   *  and resets the backing store when the container size has changed, so a
+   *  draw made before register is not a reliable carrier: the owner re-draws
+   *  from its own state at register, which is why HeatmapControl re-renders on
+   *  attach. Unlike the color surface, nothing here repaints the owner's pixels. */
   canvas: HTMLCanvasElement;
   ctx: CanvasRenderingContext2D | null;
   resize: () => void;
@@ -353,7 +361,11 @@ interface CreateColorOpts {
  *  rendering face, owned by a dedicated pane so it participates in the
  *  layer z ladder like any other base-group member. */
 interface CreateColorAPI {
-  /** The canvas element that carries the fill (inside the color pane). */
+  /** The canvas element that carries the fill (inside the color pane). Built
+   *  at `createColor` time and mounted into its pane when `register()` runs;
+   *  `element` is never null, and `setColor` is safe before either — it repaints
+   *  into the element and the face is re-painted on mount, so an early
+   *  `setColor` survives until the pane appears. */
   element: HTMLCanvasElement;
   setColor: (color: string) => void;
   setVisible: (v: boolean) => void;
