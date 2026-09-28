@@ -70,6 +70,12 @@ class AnnotationManager {
   /** The labels each layer wants drawn. */
   private readonly labelsByLayer = new Map<string, LayerLabel[]>();
   private readonly canvases = new Map<string, AnnotationCanvas>();
+  /** Layer opacity per id, kept even while the label canvas is unmounted.
+   *  R11 bakes alpha into the draws (the pane no longer takes CSS opacity),
+   *  so a value written before the canvas exists has to be replayed onto it
+   *  at mount — otherwise labels would paint at 1 while the data panes sit
+   *  at the user's opacity. */
+  private readonly layerAlphas = new Map<string, number>();
   /** The layer the focus mode is spotlighting, or null when not focusing. */
   private focusFilter: string | null = null;
   /** Map-event wiring shared with the other canvas overlays (see
@@ -301,6 +307,19 @@ class AnnotationManager {
     this.refresh();
   }
 
+  /** Bake the layer's opacity slider value into this layer's label canvas
+   *  (R11) and repaint. The annotation pane no longer takes the CSS opacity
+   *  write — baking is the sole carrier so labels do not double-compound
+   *  with the vector data panes' CSS.
+   *
+   *  The value is recorded even when the canvas is unmounted (labels off):
+   *  `ensureCanvas` replays it onto the fresh canvas so a late-mounted label
+   *  never paints at full strength against a dimmed data layer. */
+  applyLayerAlpha(id: string, alpha: number): void {
+    this.layerAlphas.set(id, alpha);
+    this.canvases.get(id)?.setLayerAlpha(alpha);
+  }
+
   /** Tear down a layer's rendering state — labels, canvas, auto-field
    *  cache — but KEEP its config: an unregister is a teardown, not a
    *  delete, and the stored label intent has to survive it. The `layers`
@@ -319,6 +338,7 @@ class AnnotationManager {
   destroyLayer(id: string): void {
     this.unloadLayer(id);
     this.config.delete(id);
+    this.layerAlphas.delete(id);
   }
 
   destroy(): void {
@@ -332,6 +352,7 @@ class AnnotationManager {
     this.planOrigin = null;
     this.config.clear();
     this.autoFieldCache.clear();
+    this.layerAlphas.clear();
   }
 
   /** Restrict the plan to one layer while the focus mode spotlights it — the
@@ -523,17 +544,19 @@ class AnnotationManager {
    *
    *  The pane already exists — the registration edge declared it alongside
    *  the capability (`withAnnotationSpec`), so the surface created it with
-   *  the rest of the face, z-priced by the ordering pass and already
-   *  carrying any stored opacity. There is no late carrier and therefore no
-   *  replay: intent landed on the pane before the canvas was ever mounted
-   *  and the canvas inherits it. `foliplus-annotation-pane` is the role
-   *  marker class on top of the base pane class PaneManager stamps. */
+   *  the rest of the face and z-priced by the ordering pass. Opacity is NOT
+   *  inherited from the pane (R11: the pane stays at CSS 1 and the canvas
+   *  bakes layerAlpha) — `layerAlphas` is replayed onto the fresh canvas so
+   *  a value written while labels were off still lands. */
   private ensureCanvas(id: string): void {
     if (this.canvases.has(id)) return;
     const pane = this.map.getPane(CONST.ANNOTATION_PANE_PREFIX + id);
     if (!pane) return; // no declared carrier (capability "none") — no labels
     pane.classList.add("foliplus-annotation-pane");
-    this.canvases.set(id, new AnnotationCanvas(this.map, pane));
+    const canvas = new AnnotationCanvas(this.map, pane);
+    this.canvases.set(id, canvas);
+    const alpha = this.layerAlphas.get(id);
+    if (alpha !== undefined) canvas.setLayerAlpha(alpha);
   }
 
   /** Drop a layer's label canvas. Called on unregister and on teardown. The

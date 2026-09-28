@@ -19,6 +19,7 @@ import {
   GEOM_TYPE,
   Z_INDEX,
 } from "#foliplus/core/layer/const.js";
+import { getLayerAlpha } from "#common/canvasAlpha.js";
 import * as Storage from "#common/storage.js";
 
 const ENFORCE_ORDER_DEBOUNCE_MS = 50;
@@ -1560,7 +1561,9 @@ describe("LayerManager", () => {
     const fresh = document.createElement("canvas");
     manager.registerLayer({ id: "heat", name: "Heat", canvas: fresh });
 
+    // Default "redraw" arm: CSS live + layerAlpha stored.
     expect(fresh.style.opacity).toBe("0.4");
+    expect(getLayerAlpha(fresh)).toBeCloseTo(0.4);
     expect(manager.layerRegistry.get("heat")?.opacity).toBe(0.4);
   });
 

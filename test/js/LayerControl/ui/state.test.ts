@@ -17,6 +17,7 @@ import { EVENTS, ensureEvents } from "#foliplus/core/event/index.js";
 import { GEOM_TYPE } from "#foliplus/core/layer/const.js";
 import type { LayerInfo, PaneSpec } from "#foliplus/core/layer/index.js";
 import { ensureModes } from "#foliplus/core/mode.js";
+import { getLayerAlpha } from "#common/canvasAlpha.js";
 import {
   allFolded,
   attachWithGroup,
@@ -933,7 +934,9 @@ describe("LayerUI opacity restore / retention", () => {
 
     u.applyUserState("heat");
 
+    // Default "redraw" arm: CSS live + layerAlpha stored for the next paint.
     expect(canvas.style.opacity).toBe("0.25");
+    expect(getLayerAlpha(canvas)).toBeCloseTo(0.25);
     expect(m.layerRegistry.get("heat")?.opacity).toBe(0.25);
   });
 

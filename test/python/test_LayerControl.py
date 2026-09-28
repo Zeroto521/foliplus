@@ -1732,13 +1732,15 @@ class TestLayerControlBrowser:
             assert result["hollowPaneAfter"] == "0.4", result
             assert result["hollowFillOpacity"] == 0, result
 
-            # Case D: annotation pane follows the layer's opacity. The geometry
-            # pane and the annotation pane must both carry the opacity. A
-            # neighbor layer's annotation pane is unaffected (per-layer pane,
-            # not shared).
+            # Case D: annotation labels follow the layer's opacity via bake
+            # (R11). The geometry pane carries CSS; the annotation pane is
+            # excluded from CSS so it cannot double-compound, and the label
+            # canvas carries the baked layerAlpha. A neighbor layer's
+            # annotation pane is unaffected (per-layer pane, not shared).
             assert result["annotationPaneExists"] is True, result
             assert result["annotatedGeoPaneOpacity"] == "0", result
-            assert result["annotatedAnnotationPaneOpacity"] == "0", result
+            assert result["annotatedAnnotationPaneOpacity"] in ("", "1"), result
+            assert result["annotatedLabelBakeAlpha"] == 0, result
             assert result["neighborAnnotationPaneExists"] is True, result
             assert result["neighborAnnotationPaneOpacity"] in ("", "1"), result
             assert not errors, f"JS errors: {errors}"
