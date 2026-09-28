@@ -14,9 +14,13 @@ import {
   type SearchType,
   ZOOM,
 } from "../const.js";
-import type { ResultItem, SearchHistoryEntry } from "../type.js";
+import type {
+  ResultItem,
+  SearchControlState,
+  SearchHistoryEntry,
+} from "../type.js";
 import { attachSearchDelIcon, removePanel, renderResults } from "./search.js";
-import { type SearchControlState, T, _, canonicalQuery } from "./util.js";
+import { T, _, canonicalQuery } from "./util.js";
 
 /** Dedup key. Type is part of it: typing "120,32" in addr mode yields a
  * geocode result whose key string can collide with a coord entry's, and those

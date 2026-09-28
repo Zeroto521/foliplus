@@ -1,36 +1,12 @@
-// Shared SearchControl logic scaffolding — state shape + coordinate parsing,
-// called by ./search.ts and ./history.ts. Moved from logic.ts.
+// Shared SearchControl logic scaffolding — coordinate parsing, called by
+// ./search.ts and ./history.ts. Moved from logic.ts.
 import { COORD_BOUNDS } from "#core/geo/index.js";
-import type { SuggestItem } from "#core/geocode/index.js";
-import type { Cache } from "#common/cache.js";
-import type { Debounced } from "#common/debounce.js";
 import { createScopedTranslator, createTranslator } from "#common/locale.js";
 import { MODE, type SearchType } from "../const.js";
-import type { ResultItem, SearchHistoryEntry } from "../type.js";
 
 const _ = createTranslator(CONF);
 
 const T = createScopedTranslator(CONF);
-
-/** Subset of SearchControl state used by the logic functions (decouples the types). */
-interface SearchControlState {
-  inp: HTMLInputElement;
-  mode: SearchType;
-  modeBtn: HTMLElement;
-  cachedSuggestions: Cache<string, SuggestItem[]>;
-  searchHistory: SearchHistoryEntry[];
-  panelWrap: HTMLElement | null;
-  selectedIdx: number;
-  currentItems: ResultItem[];
-  lastSuggestFetch: number;
-  throttleTimer: ReturnType<typeof setTimeout> | null;
-  suggestAbortController: AbortController | null;
-  suggestSeq: number;
-  debouncedFetch: Debounced;
-  marker: L.Marker | null;
-  delIcon: L.Marker | null;
-  ctrl: HTMLElement;
-}
 
 /**
  * Parse raw coordinate input into a validated longitude/latitude pair.
@@ -69,4 +45,3 @@ const canonicalQuery = (query: string, type: SearchType): string => {
 };
 
 export { T, _, canonicalQuery, parseCoord };
-export type { SearchControlState };
