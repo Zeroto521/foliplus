@@ -75,7 +75,7 @@ const isStyleSetter = (node: StyleCarrier): node is StyleSetter =>
 const layerCanBorder = (ui: LayerUI, layerId: string): boolean => {
   const li = ui.m.layerRegistry.get(layerId);
   if (!li) return false;
-  return ui.m.surfaceFor(li).capabilities.stroke === "native";
+  return ui.m.surfaceFor(li).capabilities.stroke === CONST.CAP_TIER.NATIVE;
 };
 
 /** The layer's authored border style, captured on the layer's first border
@@ -198,7 +198,7 @@ const applyBorderToLayer = (ui: LayerUI, layerId: string): void => {
     // mouseout handler merges both dimensions into a single setStyle, so a
     // highlight-restore can neither drop one dimension nor grow a getter
     // list with every commit.
-    pinStyleOnHighlight(node, "border", () => {
+    pinStyleOnHighlight(node, CONST.DIM.BORDER, () => {
       const c = ui.borderColorMap[layerId];
       const w = ui.borderWeightMap[layerId];
       if (c === undefined && w === undefined) return null;
@@ -411,7 +411,7 @@ const bindBorderRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => 
  *  (see `./registry.js`): border comes second in the annotation panel's
  *  Layer section, right after fill. */
 const BORDER_DIMENSION = registerDimension<{ color: string; weight: number }>({
-  key: "border",
+  key: CONST.DIM.BORDER,
   gate: layerCanBorder,
   value: (ui, layerId) => {
     const li = ui.m.layerRegistry.get(layerId);

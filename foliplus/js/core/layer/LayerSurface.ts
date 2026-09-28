@@ -23,7 +23,7 @@
 import { createLogger } from "#common/log.js";
 import type { PaneManager } from "./PaneManager.js";
 import { hasFillLeaf, hasSetStyleLeaf } from "./capability.js";
-import { FALLBACK_PANE_PREFIX, PANE_NAME_PATTERN } from "./const.js";
+import { CAP_TIER, FALLBACK_PANE_PREFIX, KIND, PANE_NAME_PATTERN } from "./const.js";
 import type {
   LayerCapabilities,
   LayerKind,
@@ -524,9 +524,9 @@ const probeVectorCarrier = (
   layer: L.Layer | null,
   axis: "stroke" | "fill",
 ): "native" | "none" => {
-  if (!layer) return "none";
+  if (!layer) return CAP_TIER.NONE;
   const found = axis === "stroke" ? hasSetStyleLeaf(layer) : hasFillLeaf(layer);
-  return found ? "native" : "none";
+  return found ? CAP_TIER.NATIVE : CAP_TIER.NONE;
 };
 
 /** Resolve a surface's capabilities from what it actually owns.
@@ -575,8 +575,8 @@ const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
   const annotation: LayerCapabilities["annotation"] = opts.paneSpecs?.some(
     spec => spec.role === "annotation",
   )
-    ? "pane"
-    : "none";
+    ? CAP_TIER.PANE
+    : CAP_TIER.NONE;
 
   if (opts.color != null) {
     // A solid-color basemap owns one pane of its own, so a CSS write on that
@@ -587,21 +587,21 @@ const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
     // the carrier, same as every other surface). Stroke stays "none": there
     // is no vector stroke axis on a solid colour.
     return {
-      fill: "native",
-      stroke: "none",
-      opacity: "pane",
-      zoomRange: "pane",
+      fill: CAP_TIER.NATIVE,
+      stroke: CAP_TIER.NONE,
+      opacity: CAP_TIER.PANE,
+      zoomRange: CAP_TIER.PANE,
       annotation,
       relocatable: true,
       bounds: false,
-      visibility: "pane",
+      visibility: CAP_TIER.PANE,
     };
   }
 
   // Cluster is a first-class kind: capability dispatch goes through the
   // discriminant (`CLUSTER_CAPABILITIES`), not a duck-typed side path. An
   // undeclared MarkerCluster still derives `kind: "cluster"` above.
-  if (deriveLayerKind(opts) === "cluster") {
+  if (deriveLayerKind(opts) === KIND.CLUSTER) {
     return { ...CLUSTER_CAPABILITIES, annotation };
   }
 
@@ -611,16 +611,16 @@ const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
     // surfaces (GridLayer / ImageOverlay) own no `setStyle` leaf, so both
     // vector axes are "none".
     const zoomRange: LayerCapabilities["zoomRange"] =
-      layer instanceof L.GridLayer ? "native" : "none";
+      layer instanceof L.GridLayer ? CAP_TIER.NATIVE : CAP_TIER.NONE;
     return {
-      fill: "none",
-      stroke: "none",
-      opacity: "native",
+      fill: CAP_TIER.NONE,
+      stroke: CAP_TIER.NONE,
+      opacity: CAP_TIER.NATIVE,
       zoomRange,
       annotation,
       relocatable: true,
       bounds: hasBoundsProvider(layer),
-      visibility: "native",
+      visibility: CAP_TIER.NATIVE,
     };
   }
 
@@ -642,17 +642,17 @@ const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
   // "none" only when neither exists — a layer with no map to add to and no
   // canvas to hide would have no honest toggle at all.
   const visibility: LayerCapabilities["visibility"] = layer
-    ? "native"
+    ? CAP_TIER.NATIVE
     : opts.canvas
-      ? "pane"
-      : "none";
+      ? CAP_TIER.PANE
+      : CAP_TIER.NONE;
 
   if (hasContentPanes) {
     return {
       fill: probeVectorCarrier(layer, "fill"),
       stroke: probeVectorCarrier(layer, "stroke"),
-      opacity: "pane",
-      zoomRange: "pane",
+      opacity: CAP_TIER.PANE,
+      zoomRange: CAP_TIER.PANE,
       annotation,
       relocatable: true,
       bounds: Boolean(opts.getBounds) || hasBoundsProvider(layer),
@@ -667,8 +667,8 @@ const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
     return {
       fill: probeVectorCarrier(layer, "fill"),
       stroke: probeVectorCarrier(layer, "stroke"),
-      opacity: "pane",
-      zoomRange: "pane",
+      opacity: CAP_TIER.PANE,
+      zoomRange: CAP_TIER.PANE,
       annotation,
       relocatable: true,
       bounds: hasBoundsProvider(layer),
@@ -678,10 +678,10 @@ const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
 
   // No layer at all and no canvas — nothing to write.
   return {
-    fill: "none",
-    stroke: "none",
-    opacity: "none",
-    zoomRange: "none",
+    fill: CAP_TIER.NONE,
+    stroke: CAP_TIER.NONE,
+    opacity: CAP_TIER.NONE,
+    zoomRange: CAP_TIER.NONE,
     annotation,
     relocatable: false,
     bounds: false,
