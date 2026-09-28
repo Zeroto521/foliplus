@@ -41,7 +41,7 @@ const makeUi = (layers: Array<{ id: string; isBase: boolean }> = []) => {
     },
     currentColor: CONST.COLOR.DEFAULT,
     syncToggleAll: vi.fn(),
-    userOverrides: {},
+    intentProvenance: {},
     hiddenLayerIds: new Set<string>(),
     authorVisible: new Map<string, boolean>(),
     renamedNames: {},

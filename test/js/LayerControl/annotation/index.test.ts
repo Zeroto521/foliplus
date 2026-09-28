@@ -762,7 +762,7 @@ describe("a layer that gains labelable content gets the stored intent on its new
     };
 
     ui.opacityMap.overlay1 = 0.3;
-    ui.userOverrides.overlay1 = ["opacity"];
+    ui.intentProvenance.overlay1 = ["opacity"];
     applyProjection(ui, "overlay1");
     applyProjection(ui, "overlay1");
 

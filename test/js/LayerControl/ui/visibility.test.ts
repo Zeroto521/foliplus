@@ -218,7 +218,7 @@ describe("applyVisibility", () => {
     // The user stores a zoom range that excludes the current zoom (2), then
     // checks the box again.
     ui.zoomRangeMap.overlay1 = [3, 12];
-    ui.userOverrides.overlay1 = ["zoomRange"];
+    ui.intentProvenance.overlay1 = ["zoomRange"];
     (map.addLayer as ReturnType<typeof vi.fn>).mockClear();
 
     expect(applyVisibility(ui, "overlay1", true)).toBe(true);
@@ -1063,7 +1063,7 @@ describe("unit helpers", () => {
     expect(() => syncToggleAll(ui, CONST.GROUP.OVERLAY)).not.toThrow();
   });
 
-  it("syncNoBasemap handles undefined userOverrides and hiddenLayerIds", () => {
+  it("syncNoBasemap handles undefined intentProvenance and hiddenLayerIds", () => {
     // The `?.` and `?? false` fallbacks on the inline intent check: a thin stub
     // may not have populated these maps yet, so the check must degrade to the
     // author default rather than crashing.
@@ -1077,7 +1077,7 @@ describe("unit helpers", () => {
       },
       authorVisible: new Map(),
       hiddenLayerIds: undefined,
-      userOverrides: undefined,
+      intentProvenance: undefined,
       T: (k: string) => k,
     } as unknown as LayerUI;
 
@@ -1106,7 +1106,7 @@ describe("unit helpers", () => {
         m: { layers, map: { getContainer: () => container } },
         authorVisible: new Map(),
         hiddenLayerIds: new Set<string>(),
-        userOverrides: {},
+        intentProvenance: {},
         T: (k: string) => k,
       } as unknown as LayerUI;
       return { ui, container };
@@ -1139,7 +1139,7 @@ describe("unit helpers", () => {
     });
   });
 
-  it("syncToggleAll handles undefined userOverrides and hiddenLayerIds", () => {
+  it("syncToggleAll handles undefined intentProvenance and hiddenLayerIds", () => {
     // Same fallback pattern: the inline intent check in syncToggleAll must
     // degrade gracefully when the choice maps are absent.
     const uiContainer = document.createElement("div");
@@ -1156,7 +1156,7 @@ describe("unit helpers", () => {
       m: { layerRegistry: { get: () => ({ id: "x" }) } },
       authorVisible: new Map(),
       hiddenLayerIds: undefined,
-      userOverrides: undefined,
+      intentProvenance: undefined,
       T: (k: string) => k,
     } as unknown as LayerUI;
 

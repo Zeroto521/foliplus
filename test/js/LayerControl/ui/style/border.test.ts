@@ -343,7 +343,7 @@ describe("commit pipeline", () => {
     commitBorderColor(ui, "vec1", "#f00");
 
     expect(ui.borderColorMap.vec1).toBe("#ff0000");
-    expect(ui.userOverrides.vec1).toContain("borderColor");
+    expect(ui.intentProvenance.vec1).toContain("borderColor");
     expect(leaf.setStyle).toHaveBeenCalledTimes(1);
     expect(leaf.setStyle).toHaveBeenCalledWith({ color: "#ff0000" });
   });
@@ -389,7 +389,7 @@ describe("commit pipeline", () => {
     commitBorderWeight(ui, "vec1", 3.5);
 
     expect(ui.borderWeightMap.vec1).toBe(3.5);
-    expect(ui.userOverrides.vec1).toContain("borderWeight");
+    expect(ui.intentProvenance.vec1).toContain("borderWeight");
     expect(leaf.setStyle).toHaveBeenCalledWith({ weight: 3.5 });
   });
 
@@ -499,7 +499,7 @@ describe("bindBorderRow", () => {
     width.dispatchEvent(new Event("change", { bubbles: true }));
 
     expect(ui.borderWeightMap.vec1).toBe(5);
-    expect(ui.userOverrides.vec1).toContain("borderWeight");
+    expect(ui.intentProvenance.vec1).toContain("borderWeight");
     expect(leaf.setStyle).toHaveBeenCalledWith({ weight: 5 });
   });
 
@@ -516,7 +516,7 @@ describe("bindBorderRow", () => {
     swatch.dispatchEvent(new Event("input", { bubbles: true }));
 
     expect(ui.borderColorMap.vec1).toBe("#abcdef");
-    expect(ui.userOverrides.vec1).toContain("borderColor");
+    expect(ui.intentProvenance.vec1).toContain("borderColor");
     expect(leaf.setStyle).toHaveBeenCalledWith({ color: "#abcdef" });
   });
 
@@ -558,7 +558,7 @@ describe("resetLayerBorder", () => {
     expect(ui.borderColorMap.grp1).toBeUndefined();
     expect(ui.borderWeightMap.grp1).toBeUndefined();
     // unmarkOverride drops the entry once both dimensions are cleared.
-    const overrides = ui.userOverrides.grp1 ?? [];
+    const overrides = ui.intentProvenance.grp1 ?? [];
     expect(overrides).not.toContain("borderColor");
     expect(overrides).not.toContain("borderWeight");
     expect(first.setStyle).toHaveBeenCalledWith({ color: "#ff0000", weight: 2 });
@@ -607,12 +607,12 @@ describe("resetLayerBorder", () => {
     manager.registerLayer({ id: "ghost", name: "G", layer: null } as any);
     ui.borderColorMap.ghost = "#ff0000";
     ui.borderWeightMap.ghost = 4;
-    ui.userOverrides.ghost = ["borderColor", "borderWeight"];
+    ui.intentProvenance.ghost = ["borderColor", "borderWeight"];
 
     expect(() => resetLayerBorder(ui, "ghost")).not.toThrow();
     expect(ui.borderColorMap.ghost).toBeUndefined();
     expect(ui.borderWeightMap.ghost).toBeUndefined();
-    const overrides = ui.userOverrides.ghost ?? [];
+    const overrides = ui.intentProvenance.ghost ?? [];
     expect(overrides).not.toContain("borderColor");
     expect(overrides).not.toContain("borderWeight");
   });
@@ -878,17 +878,17 @@ describe("applyBorderToLayer", () => {
     expect(() => applyBorderToLayer(ui, "ghost")).not.toThrow();
   });
 
-  it("the applyUserState sweep writes only userOverrides keys, so a stored value with no record is not replayed", () => {
+  it("the applyUserState sweep writes only intentProvenance keys, so a stored value with no record is not replayed", () => {
     const recorded = makeLeaf();
     const orphan = makeLeaf();
     manager.registerLayer({ id: "vec1", name: "V", layer: recorded });
     manager.registerLayer({ id: "vec2", name: "W", layer: orphan });
     ui.borderColorMap.vec1 = "#0000ff";
     ui.borderColorMap.vec2 = "#00ff00";
-    ui.userOverrides.vec1 = ["borderColor"];
+    ui.intentProvenance.vec1 = ["borderColor"];
     // vec2 holds a stored value that never went through markOverride — the
     // drift the single enumeration source exists to ignore. Enumerating the
-    // maps instead of userOverrides would replay it while fill stayed put.
+    // maps instead of intentProvenance would replay it while fill stayed put.
 
     ui.applyUserState();
 

@@ -109,7 +109,7 @@ class LayerUI {
    *  here keeps the author's `show=` / opacity default -- that is what replaces
    *  a map-level "did the user choose at all" flag, which could not tell one
    *  layer's choice from another's. */
-  userOverrides: Record<string, LayerOverride[]>;
+  intentProvenance: Record<string, LayerOverride[]>;
   currentColor: string;
   /** Lazy-created color basemap surface — the pane-owned canvas that carries
    *  the fill. Built on first show (via `factory.createColor`), which also
@@ -237,7 +237,7 @@ class LayerUI {
     this.checkedCount = {};
     this.hiddenLayerIds = new Set();
     this.authorVisible = new Map();
-    this.userOverrides = {};
+    this.intentProvenance = {};
     this.currentColor = CONST.COLOR.DEFAULT;
     this.colorSurface = null;
     this.renamedNames = {};
@@ -346,14 +346,14 @@ class LayerUI {
     // style-row imports (border.js and fill.js import state.js for
     // markOverride/saveState).
     //
-    // Both dimensions enumerate `userOverrides` — the single source of truth
+    // Both dimensions enumerate `intentProvenance` — the single source of truth
     // for which layers the user actually touched. Border's map-union
-    // enumeration and fill's userOverrides loop were asymmetric: a value in
+    // enumeration and fill's intentProvenance loop were asymmetric: a value in
     // `borderColorMap` that was never recorded as an override would replay
     // for border but not for fill, and vice versa, so a reload could restore
     // the drawer's swatch for one dimension while leaving the map with the
     // author's for the other.
-    const layerIds = id !== undefined ? [id] : Object.keys(this.userOverrides);
+    const layerIds = id !== undefined ? [id] : Object.keys(this.intentProvenance);
     for (const layerId of layerIds) {
       applyBorderToLayer(this, layerId);
       replayFillState(this, layerId);

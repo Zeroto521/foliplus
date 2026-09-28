@@ -278,7 +278,7 @@ describe("LayerManager", () => {
       m,
       invalidateFields: vi.fn(),
       syncToggleAll: vi.fn(),
-      userOverrides: {},
+      intentProvenance: {},
       hiddenLayerIds: new Set(),
       opacityMap: {},
       fillColorMap: {},
@@ -1501,7 +1501,7 @@ describe("LayerManager", () => {
             zoomRangeMap: {},
             appliedState: new Map(),
             authorVisible: new Map(),
-            userOverrides: { heat: ["opacity"] },
+            intentProvenance: { heat: ["opacity"] },
           } as any,
           id,
         ),
@@ -1510,7 +1510,7 @@ describe("LayerManager", () => {
       fillOpacityMap: {},
       hiddenLayerIds: new Set(),
       zoomRangeMap: {},
-      userOverrides: { heat: ["opacity"] },
+      intentProvenance: { heat: ["opacity"] },
       appliedState: new Map(),
       authorVisible: new Map(),
     } as any;
@@ -1535,7 +1535,7 @@ describe("LayerManager", () => {
       fillColorMap: {},
       fillOpacityMap: {},
       zoomRangeMap: {},
-      userOverrides: {},
+      intentProvenance: {},
       saveState: vi.fn(),
       invalidateFields: vi.fn(),
     } as any;
@@ -1555,7 +1555,7 @@ describe("LayerManager", () => {
       fillColorMap: {},
       fillOpacityMap: {},
       zoomRangeMap: {},
-      userOverrides: {},
+      intentProvenance: {},
       saveState: vi.fn(),
       invalidateFields: vi.fn(),
     } as any;
@@ -1574,7 +1574,7 @@ describe("LayerManager", () => {
       fillColorMap: {},
       fillOpacityMap: {},
       zoomRangeMap: {},
-      userOverrides: {},
+      intentProvenance: {},
       saveState: vi.fn(),
       invalidateFields: vi.fn(),
       syncToggleAll,
@@ -1608,7 +1608,7 @@ describe("LayerManager", () => {
       fillColorMap: {},
       fillOpacityMap: {},
       zoomRangeMap: { overlay1: [3, 12] },
-      userOverrides: {
+      intentProvenance: {
         overlay1: ["visible", "opacity", "zoomRange"],
         base1: ["visible"],
       },
@@ -1622,7 +1622,7 @@ describe("LayerManager", () => {
     expect(manager.ui.hiddenLayerIds).toEqual(new Set(["overlay1", "base1"]));
     expect(manager.ui.opacityMap).toEqual({ overlay1: 0.4, base1: 1 });
     expect(manager.ui.zoomRangeMap).toEqual({ overlay1: [3, 12] });
-    expect(manager.ui.userOverrides).toEqual({
+    expect(manager.ui.intentProvenance).toEqual({
       overlay1: ["visible", "opacity", "zoomRange"],
       base1: ["visible"],
     });
@@ -1644,7 +1644,7 @@ describe("LayerManager", () => {
       zoomRangeMap: { overlay1: [3, 12] },
       borderColorMap: {},
       borderWeightMap: {},
-      userOverrides: {
+      intentProvenance: {
         overlay1: ["visible", "opacity", "zoomRange"],
         base1: ["visible"],
       },
@@ -1661,7 +1661,7 @@ describe("LayerManager", () => {
     expect(manager.ui.hiddenLayerIds).toEqual(new Set(["base1"]));
     expect(manager.ui.opacityMap).toEqual({ base1: 1 });
     expect(manager.ui.zoomRangeMap).toEqual({});
-    expect(manager.ui.userOverrides).toEqual({ base1: ["visible"] });
+    expect(manager.ui.intentProvenance).toEqual({ base1: ["visible"] });
     expect(manager.ui.renamedNames.overlay1).toBeUndefined();
     expect(saveState).toHaveBeenCalledTimes(1);
     expect(saveNamesState).toHaveBeenCalledTimes(1);
@@ -1676,7 +1676,7 @@ describe("LayerManager", () => {
       fillColorMap: {},
       fillOpacityMap: {},
       zoomRangeMap: {},
-      userOverrides: { overlay1: ["opacity"] },
+      intentProvenance: { overlay1: ["opacity"] },
       renamedNames: {},
       dropPersistedLayerState: vi.fn(),
       saveState,
@@ -1714,7 +1714,7 @@ describe("LayerManager", () => {
       fillOpacityMap: {},
       borderColorMap: {},
       borderWeightMap: {},
-      userOverrides: { overlay1: ["visible", "opacity"] },
+      intentProvenance: { overlay1: ["visible", "opacity"] },
       renamedNames: { base1: "Renamed" },
       dropPersistedLayerState: (id: string) => dropPersistedLayerState(manager.ui, id),
       saveState,
@@ -1768,7 +1768,7 @@ describe("LayerManager", () => {
       fillOpacityMap: {},
       borderColorMap: {},
       borderWeightMap: {},
-      userOverrides: { overlay1: ["opacity"] },
+      intentProvenance: { overlay1: ["opacity"] },
       renamedNames: { overlay1: "Renamed", base1: "Base" },
       dropPersistedLayerState: (id: string) => dropPersistedLayerState(m.ui, id),
       saveState: () => saveState(m.ui),

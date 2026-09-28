@@ -22,7 +22,7 @@ const syncNoBasemap = (ui: LayerUI): void => {
   const anyBaseVisible = ui.m.layers.some(li => {
     if (!li.isBase) return false;
     // Inline intent check to avoid function-call overhead on the click hot path.
-    const overrides = ui.userOverrides?.[li.id];
+    const overrides = ui.intentProvenance?.[li.id];
     const hidden = ui.hiddenLayerIds?.has(li.id) ?? false;
     const hasVisible = overrides?.includes("visible") || hidden;
     const authorDefault = ui.authorVisible.get(li.id) ?? true;
@@ -105,7 +105,7 @@ const syncToggleAll = (ui: LayerUI, group: string) => {
     if (!id) continue;
     const layerInfo = ui.m.layerRegistry.get(id);
     if (!layerInfo) continue;
-    const overrides = ui.userOverrides?.[id];
+    const overrides = ui.intentProvenance?.[id];
     const hidden = ui.hiddenLayerIds?.has(id) ?? false;
     const hasVisible = overrides?.includes("visible") || hidden;
     const authorDefault = ui.authorVisible.get(id) ?? true;

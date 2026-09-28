@@ -270,7 +270,7 @@ export function makeLayerUIMock(extra: Overrides = {}): LayerUI {
     foldedGroups: new Set<string>(),
     hiddenLayerIds: new Set<string>(),
     authorVisible: new Map<string, boolean>(),
-    userOverrides: {},
+    intentProvenance: {},
     currentColor: "#cccccc",
     renamedNames: {},
     activeRenameId: null,

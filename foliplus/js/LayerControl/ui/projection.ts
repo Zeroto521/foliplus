@@ -56,7 +56,7 @@ interface AppliedProjection extends Projection {
  *  test fixture, a re-registration replay) must not have it silently read
  *  back as the author's default. */
 const intentVisibleOf = (ui: LayerUI, id: string): boolean => {
-  const overrides = ui.userOverrides?.[id];
+  const overrides = ui.intentProvenance?.[id];
   const hidden = ui.hiddenLayerIds?.has(id) ?? false;
   const hasVisible = overrides?.includes("visible") || hidden;
   const authorDefault = ui.authorVisible.get(id) ?? true;
@@ -73,7 +73,7 @@ const projectLayer = (ui: LayerUI, layerInfo: LayerInfo): Projection => {
   // to avoid function-call overhead on the zoomend hot path — this runs
   // per layer per zoom, so the JIT benefits from seeing all lookups in
   // one scope.
-  const overrides = ui.userOverrides?.[id];
+  const overrides = ui.intentProvenance?.[id];
   const hidden = ui.hiddenLayerIds?.has(id) ?? false;
   const hasVisible = overrides?.includes("visible") || hidden;
   const authorDefault = ui.authorVisible.get(id) ?? true;
@@ -86,7 +86,7 @@ const projectLayer = (ui: LayerUI, layerInfo: LayerInfo): Projection => {
 
   // A dimension's value being present is what the sweep has always read as
   // the user's choice (a restored record, a late replay). The provenance
-  // marker lives on `userOverrides`, not on this projection.
+  // marker lives on `intentProvenance`, not on this projection.
   const opacity =
     typeof ui.opacityMap?.[id] === "number" ? ui.opacityMap[id] : undefined;
 

@@ -37,7 +37,7 @@ const mockUI: LayerUI = {
   fillColorMap: {},
   fillOpacityMap: {},
   zoomRangeMap: {},
-  userOverrides: {},
+  intentProvenance: {},
   authorVisible: new Map(),
   foldedGroups: new Set(),
   renamedNames: {},
@@ -71,10 +71,10 @@ describe("computeEffectiveShown", () => {
     // state to be authoritative. Without the override the author default
     // wins — a derived dimension may only suppress.
     mockUI.hiddenLayerIds.add("layer1");
-    mockUI.userOverrides.layer1 = ["visible"];
+    mockUI.intentProvenance.layer1 = ["visible"];
     expect(projectLayer(mockUI, makeLayerInfo("layer1")).effectiveShown).toBe(false);
     mockUI.hiddenLayerIds.delete("layer1");
-    delete mockUI.userOverrides.layer1;
+    delete mockUI.intentProvenance.layer1;
   });
 
   it("returns true when focus is active, even out of range", () => {

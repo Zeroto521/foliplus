@@ -111,7 +111,7 @@ describe("LayerUI visibility persistence (hiddenLayerIds)", () => {
       ]);
       const u = new LayerUI(m);
       u.hiddenLayerIds = new Set(["overlay1"]);
-      u.userOverrides = { overlay1: ["visible"] };
+      u.intentProvenance = { overlay1: ["visible"] };
 
       u.applyUserState();
 
@@ -141,7 +141,7 @@ describe("LayerUI visibility persistence (hiddenLayerIds)", () => {
       u.hiddenLayerIds = new Set(["other"]);
       // The user unhid overlay1 (a `show=False` folium layer), so it is absent
       // from hiddenLayerIds -- but a `visible` override says it must come back on.
-      u.userOverrides = { overlay1: ["visible"] };
+      u.intentProvenance = { overlay1: ["visible"] };
       // Simulate the layer being off the map (folium show=False).
       map.hasLayer = vi.fn(() => false);
 
@@ -169,7 +169,7 @@ describe("LayerUI visibility persistence (hiddenLayerIds)", () => {
       u.hiddenLayerIds = new Set();
       // No user override —overlay1 keeps its author's declared state, which
       // is `show=False` (absent from the map). Nothing must force it on.
-      u.userOverrides = {};
+      u.intentProvenance = {};
       map.hasLayer = vi.fn(() => false);
 
       u.applyUserState();
@@ -200,7 +200,7 @@ describe("LayerUI visibility persistence (hiddenLayerIds)", () => {
       u.hiddenLayerIds = new Set();
       // A canvas layer with a `visible` override clears `HIDDEN` instead of
       // `addLayer` -- it has no Leaflet layer to add.
-      u.userOverrides = { canvas1: ["visible"] };
+      u.intentProvenance = { canvas1: ["visible"] };
 
       u.applyUserState();
 
@@ -338,7 +338,7 @@ describe("LayerUI visibility persistence (hiddenLayerIds)", () => {
 
       expect(u.fillColorMap["overlay1"]).toBe("#ff8800");
       expect(u.fillOpacityMap["overlay1"]).toBe(0.35);
-      expect(u.userOverrides["overlay1"]).toEqual(["fillColor", "fillOpacity"]);
+      expect(u.intentProvenance["overlay1"]).toEqual(["fillColor", "fillOpacity"]);
     });
 
     it("ignores a fill override whose value is missing or invalid", () => {
@@ -381,7 +381,7 @@ describe("LayerUI visibility persistence (hiddenLayerIds)", () => {
       u.zoomRangeMap["overlay1"] = [3, 12];
       u.fillColorMap["overlay1"] = "#ff0000";
       u.fillOpacityMap["overlay1"] = 0.5;
-      u.userOverrides["overlay1"] = [
+      u.intentProvenance["overlay1"] = [
         "visible",
         "opacity",
         "zoomRange",
@@ -396,7 +396,7 @@ describe("LayerUI visibility persistence (hiddenLayerIds)", () => {
       expect(u.zoomRangeMap["overlay1"]).toBeUndefined();
       expect(u.fillColorMap["overlay1"]).toBeUndefined();
       expect(u.fillOpacityMap["overlay1"]).toBeUndefined();
-      expect(u.userOverrides["overlay1"]).toBeUndefined();
+      expect(u.intentProvenance["overlay1"]).toBeUndefined();
     });
 
     it("ignores non-array/corrupt storage data", () => {
@@ -458,7 +458,7 @@ describe("LayerUI visibility persistence (hiddenLayerIds)", () => {
       ]);
       const u = new LayerUI(m);
       u.hiddenLayerIds = new Set(["overlay1"]);
-      u.userOverrides = { overlay1: ["visible"] };
+      u.intentProvenance = { overlay1: ["visible"] };
 
       vi.useFakeTimers();
       u.syncHiddenId("overlay1", false);
@@ -748,7 +748,7 @@ describe("LayerUI visibility persistence (hiddenLayerIds)", () => {
       ]);
       const u = new LayerUI(m);
       u.hiddenLayerIds = new Set(["overlay1", "base1", "canvas1"]);
-      u.userOverrides = {
+      u.intentProvenance = {
         overlay1: ["visible"],
         base1: ["visible"],
         canvas1: ["visible"],
@@ -954,12 +954,12 @@ describe("LayerUI opacity restore / retention", () => {
     const m = new LayerManager(map, [{ id: "overlay1", name: "Poly", layer }]);
     const u = new LayerUI(m);
     u.zoomRangeMap = { overlay1: [4, 10], ghost: [2, 8] };
-    u.userOverrides = { ghost: ["zoomRange"] };
+    u.intentProvenance = { ghost: ["zoomRange"] };
 
     u.applyUserState();
 
     expect(u.zoomRangeMap).toEqual({ overlay1: [4, 10], ghost: [2, 8] });
-    expect(u.userOverrides.ghost).toEqual(["zoomRange"]);
+    expect(u.intentProvenance.ghost).toEqual(["zoomRange"]);
   });
 
   it("leaves a live layer alone when no opacity is stored", () => {
@@ -1076,11 +1076,11 @@ describe("event-driven row refresh", () => {
     const events = ensureEvents(ui.m.map);
     const li = manager.layerRegistry.get("overlay1")!;
     li.paneSpecs = specs("__test_opacity_pane__");
-    // The projection reads `opacityMap[id]` gated by the `userOverrides`
+    // The projection reads `opacityMap[id]` gated by the `intentProvenance`
     // provenance marker, so both must be set for the stored value to flow
     // through —a raw `opacityMap` write is not a user intent.
     ui.opacityMap = { overlay1: 0.4 };
-    ui.userOverrides.overlay1 = ["opacity"];
+    ui.intentProvenance.overlay1 = ["opacity"];
 
     const paneEl = document.createElement("div");
     vi.spyOn(manager.map, "getPane").mockReturnValue(paneEl);
@@ -1101,9 +1101,9 @@ describe("event-driven row refresh", () => {
   });
 });
 
-// ─────────────────── userOverrides + per-layer persistence ───────────────────
+// ─────────────────── intentProvenance + per-layer persistence ───────────────────
 
-describe("ui/state userOverrides and per-layer state persistence", () => {
+describe("ui/state intentProvenance and per-layer state persistence", () => {
   let manager: LayerManager;
   let ui: LayerUI;
   let map: any;
@@ -1131,7 +1131,7 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
       opacityMap: {},
       fillColorMap: {},
       fillOpacityMap: {},
-      userOverrides: {},
+      intentProvenance: {},
       m: {
         persistence: { schedule },
         annotation: { configEntries: () => [] },
@@ -1140,7 +1140,7 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
 
     syncHiddenId(bare, "overlay1", true);
 
-    expect(bare.userOverrides.overlay1).toContain("visible");
+    expect(bare.intentProvenance.overlay1).toContain("visible");
     const fields = schedule.mock.calls[0][0] as {
       layers: () => Record<string, { visible?: boolean; overrides: string[] }>;
     };
@@ -1160,7 +1160,7 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
       opacityMap: {},
       fillColorMap: {},
       fillOpacityMap: {},
-      userOverrides: { overlay1: ["visible"] },
+      intentProvenance: { overlay1: ["visible"] },
       m: {
         persistence: { schedule },
         annotation: { configEntries: () => [] },
@@ -1190,7 +1190,7 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
       fillColorMap: {},
       fillOpacityMap: {},
       zoomRangeMap: { overlay1: [4, 10] },
-      userOverrides: { overlay1: ["zoomRange"] },
+      intentProvenance: { overlay1: ["zoomRange"] },
       m: {
         persistence: { schedule },
         annotation: { configEntries: () => [] },
@@ -1218,7 +1218,7 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
       fillColorMap: {},
       fillOpacityMap: {},
       zoomRangeMap: {},
-      userOverrides: { overlay1: ["zoomRange"] },
+      intentProvenance: { overlay1: ["zoomRange"] },
       m: {
         persistence: { schedule },
         annotation: { configEntries: () => [] },
@@ -1228,7 +1228,7 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
     unmarkOverride(bare, "overlay1", "zoomRange");
     saveState(bare);
 
-    expect(bare.userOverrides.overlay1).toBeUndefined();
+    expect(bare.intentProvenance.overlay1).toBeUndefined();
     const fields = schedule.mock.calls[0][0] as {
       layers: () => Record<string, unknown>;
     };
@@ -1240,12 +1240,12 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
     // other choices -- wiping the whole entry here would make one Reset button
     // forget the opacity the user set moments earlier.
     const bare = {
-      userOverrides: { overlay1: ["visible", "zoomRange"] },
+      intentProvenance: { overlay1: ["visible", "zoomRange"] },
     } as unknown as LayerUI;
 
     unmarkOverride(bare, "overlay1", "zoomRange");
 
-    expect(bare.userOverrides.overlay1).toEqual(["visible"]);
+    expect(bare.intentProvenance.overlay1).toEqual(["visible"]);
   });
 
   it("drops an entry whose only marker holds no live value", () => {
@@ -1260,7 +1260,7 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
       fillColorMap: {},
       fillOpacityMap: {},
       zoomRangeMap: {},
-      userOverrides: { overlay1: ["opacity"] },
+      intentProvenance: { overlay1: ["opacity"] },
       m: {
         persistence: { schedule },
         annotation: { configEntries: () => [] },
@@ -1288,7 +1288,7 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
       fillColorMap: {},
       fillOpacityMap: {},
       zoomRangeMap: {},
-      userOverrides: {},
+      intentProvenance: {},
       m: {
         persistence: { schedule },
         annotation: { configEntries: () => [] },
@@ -1297,7 +1297,7 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
 
     markOverride(bare, "overlay1", "zoomRange");
 
-    expect(bare.userOverrides.overlay1).toBeUndefined();
+    expect(bare.intentProvenance.overlay1).toBeUndefined();
     expect(schedule).not.toHaveBeenCalled();
     expect(warn.mock.calls[0][0]).toContain("no stored value for this dimension");
     warn.mockRestore();
@@ -1314,14 +1314,14 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
       zoomRangeMap: {},
       borderColorMap: {},
       borderWeightMap: {},
-      userOverrides: {},
+      intentProvenance: {},
       m: { persistence: { schedule: vi.fn() } },
     } as unknown as LayerUI;
 
     markOverride(bare, "overlay1", "borderColor");
     markOverride(bare, "overlay1", "borderWeight");
 
-    expect(bare.userOverrides.overlay1).toBeUndefined();
+    expect(bare.intentProvenance.overlay1).toBeUndefined();
     expect(warn).toHaveBeenCalledTimes(2);
     expect(
       warn.mock.calls.every(([msg]) => String(msg).includes("no stored value")),
@@ -1355,7 +1355,7 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
     expect(ui.foldedGroups).toEqual(new Set(["Overlay"]));
     expect(ui.opacityMap).toEqual({ overlay1: 0.35 });
     expect(ui.zoomRangeMap).toEqual({ overlay1: [3, 12] });
-    expect(ui.userOverrides.overlay1).toEqual(["opacity", "zoomRange"]);
+    expect(ui.intentProvenance.overlay1).toEqual(["opacity", "zoomRange"]);
   });
 
   it("restores a stored border color and width from the record", () => {
@@ -1384,7 +1384,7 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
 
     expect(ui.borderColorMap).toEqual({ overlay1: "#0000ff" });
     expect(ui.borderWeightMap).toEqual({ overlay1: 4.5 });
-    expect(ui.userOverrides.overlay1).toEqual(["borderColor", "borderWeight"]);
+    expect(ui.intentProvenance.overlay1).toEqual(["borderColor", "borderWeight"]);
   });
 
   it("persists an opacity change together with its provenance", () => {
@@ -1395,7 +1395,7 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
       zoomRangeMap: {},
       fillColorMap: {},
       fillOpacityMap: {},
-      userOverrides: { overlay1: ["opacity"] },
+      intentProvenance: { overlay1: ["opacity"] },
       m: {
         persistence: { schedule },
         annotation: { configEntries: () => [] },
@@ -1429,7 +1429,7 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
       fillOpacityMap: {},
       borderColorMap: { kept: "#0000ff", blank: "" },
       borderWeightMap: { zero: 0 },
-      userOverrides: {
+      intentProvenance: {
         kept: ["borderColor"],
         blank: ["borderColor"],
         zero: ["borderWeight"],
@@ -1475,7 +1475,7 @@ describe("ui/state userOverrides and per-layer state persistence", () => {
     const li = manager.layerRegistry.get("grid1")!;
     ui.authorVisible.set("grid1", true); // author default: visible
     ui.zoomRangeMap = { grid1: [4, 9] };
-    ui.userOverrides.grid1 = ["zoomRange"];
+    ui.intentProvenance.grid1 = ["zoomRange"];
 
     ui.applyUserState("grid1");
 

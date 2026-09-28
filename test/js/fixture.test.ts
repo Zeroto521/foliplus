@@ -28,7 +28,7 @@ describe("makeLayerUIMock — LayerUI field completeness", () => {
     expect(ui.authorVisible).toBeInstanceOf(Map);
     expect(ui.fieldCache).toBeInstanceOf(Map);
     // Records
-    expect(ui.userOverrides).toEqual({});
+    expect(ui.intentProvenance).toEqual({});
     expect(ui.renamedNames).toEqual({});
     expect(ui.opacityMap).toEqual({});
     expect(ui.zoomRangeMap).toEqual({});

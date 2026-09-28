@@ -599,7 +599,7 @@ interface LayerAPI {
    * reload.
    *
    * This closes the write side of the visibility contract. The intent
-   * (persisted hidden set + `userOverrides`) is the only stored source;
+   * (persisted hidden set + `intentProvenance`) is the only stored source;
    * `LayerInfo` itself carries no visibility — so a host page that wanted to
    * hide layers by id never had to synthesize a DOM event against a row it
    * does not own.

@@ -33,12 +33,12 @@ const loadPersistedState = (ui: LayerUI) => {
   ui.borderWeightMap = {};
   ui.opacityMap = {};
   ui.zoomRangeMap = {};
-  ui.userOverrides = {};
+  ui.intentProvenance = {};
   for (const [id, entry] of Object.entries(state.layers)) {
     // New-key label config overrides the legacy-segment fallback spread
     // above — same id, current segment wins.
     if (entry.annotation) ui.labelConfigs[id] = entry.annotation;
-    ui.userOverrides[id] = [...entry.overrides];
+    ui.intentProvenance[id] = [...entry.overrides];
     if (entry.overrides.includes("visible") && entry.visible === false) {
       ui.hiddenLayerIds.add(id);
     }
@@ -103,9 +103,9 @@ const hasLiveValue = (ui: LayerUI, id: string, override: LayerOverride): boolean
 const buildLayerStates = (ui: LayerUI): Record<string, PersistedLayerState> => {
   const states: Record<string, PersistedLayerState> = {};
   const annotations = Object.fromEntries(ui.m.annotation.configEntries());
-  const ids = new Set([...Object.keys(ui.userOverrides), ...Object.keys(annotations)]);
+  const ids = new Set([...Object.keys(ui.intentProvenance), ...Object.keys(annotations)]);
   for (const id of ids) {
-    const declared = (ui.userOverrides[id] ?? []).filter(override =>
+    const declared = (ui.intentProvenance[id] ?? []).filter(override =>
       hasLiveValue(ui, id, override),
     );
     const annotation = annotations[id];
@@ -161,17 +161,17 @@ const markOverride = (ui: LayerUI, id: string, override: LayerOverride) => {
     );
     return;
   }
-  const overrides = ui.userOverrides[id] ?? [];
+  const overrides = ui.intentProvenance[id] ?? [];
   if (!overrides.includes(override)) overrides.push(override);
-  ui.userOverrides[id] = overrides;
+  ui.intentProvenance[id] = overrides;
 };
 
 /** Drop one dimension's provenance -- the single rule a Reset button reduces to,
  *  sending the value back to the author's declared default. */
 const unmarkOverride = (ui: LayerUI, id: string, override: LayerOverride) => {
-  const overrides = (ui.userOverrides[id] ?? []).filter(entry => entry !== override);
-  if (overrides.length > 0) ui.userOverrides[id] = overrides;
-  else delete ui.userOverrides[id];
+  const overrides = (ui.intentProvenance[id] ?? []).filter(entry => entry !== override);
+  if (overrides.length > 0) ui.intentProvenance[id] = overrides;
+  else delete ui.intentProvenance[id];
 };
 
 /**
@@ -304,7 +304,7 @@ const dropPersistedLayerState = (ui: LayerUI, id: string) => {
   delete ui.borderWeightMap[id];
   delete ui.opacityMap[id];
   delete ui.zoomRangeMap[id];
-  delete ui.userOverrides[id];
+  delete ui.intentProvenance[id];
 };
 
 /** Save user-assigned names, coalescing rapid calls. */

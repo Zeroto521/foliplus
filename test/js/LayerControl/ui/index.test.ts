@@ -203,7 +203,7 @@ describe("LayerUI shell — delegates", () => {
     ui.hiddenLayerIds = new Set(["overlay1", "base1"]);
     ui.opacityMap = { overlay1: 0.4 };
     ui.zoomRangeMap = { overlay1: [3, 12] };
-    ui.userOverrides = { overlay1: ["visible", "opacity"] };
+    ui.intentProvenance = { overlay1: ["visible", "opacity"] };
 
     ui.dropPersistedLayerState("overlay1");
 
@@ -211,7 +211,7 @@ describe("LayerUI shell — delegates", () => {
     expect(ui.hiddenLayerIds.has("base1")).toBe(true);
     expect(ui.opacityMap.overlay1).toBeUndefined();
     expect(ui.zoomRangeMap.overlay1).toBeUndefined();
-    expect(ui.userOverrides.overlay1).toBeUndefined();
+    expect(ui.intentProvenance.overlay1).toBeUndefined();
   });
 
   it("colorLayerName resolves the color row's display name", () => {

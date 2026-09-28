@@ -198,7 +198,7 @@ const rowType = (
 const buildRowCell = (ui: LayerUI, layerInfo: LayerInfo): RowCell => {
   const layer = ui.m.findLayer(layerInfo);
   // Inline intent check to avoid function-call overhead on the row-paint path.
-  const overrides = ui.userOverrides?.[layerInfo.id];
+  const overrides = ui.intentProvenance?.[layerInfo.id];
   const hidden = ui.hiddenLayerIds?.has(layerInfo.id) ?? false;
   const hasVisible = overrides?.includes("visible") || hidden;
   const authorDefault = ui.authorVisible.get(layerInfo.id) ?? true;

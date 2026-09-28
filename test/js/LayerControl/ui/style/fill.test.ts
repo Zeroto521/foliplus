@@ -410,7 +410,7 @@ describe("LayerUI style panel — fill color", () => {
     commitFillColor(ui, "overlay1", "#ff0000");
 
     expect(ui.fillColorMap["overlay1"]).toBe("#ff0000");
-    expect(ui.userOverrides["overlay1"]).toContain("fillColor");
+    expect(ui.intentProvenance["overlay1"]).toContain("fillColor");
     expect(setLayer).toHaveBeenCalled();
     const fields = setLayer.mock.calls.at(-1)![0] as {
       layers: () => Record<string, { fillColor?: string; overrides?: string[] }>;
@@ -738,7 +738,7 @@ describe("LayerUI style panel — fill color", () => {
   it("commitFillColor handles a layer id that is not registered yet", () => {
     expect(() => commitFillColor(ui, "late-layer", "#ff0000")).not.toThrow();
     expect(ui.fillColorMap["late-layer"]).toBe("#ff0000");
-    expect(ui.userOverrides["late-layer"]).toContain("fillColor");
+    expect(ui.intentProvenance["late-layer"]).toContain("fillColor");
   });
 
   it("resetLayerFill is a no-op for a registered layer with no Leaflet object", () => {
@@ -748,12 +748,12 @@ describe("LayerUI style panel — fill color", () => {
       canvas: document.createElement("canvas"),
     });
     ui.fillColorMap["canvas1"] = "#ff0000";
-    ui.userOverrides["canvas1"] = ["fillColor"];
+    ui.intentProvenance["canvas1"] = ["fillColor"];
 
     resetLayerFill(ui, "canvas1");
 
     expect(ui.fillColorMap["canvas1"]).toBeUndefined();
-    expect(ui.userOverrides["canvas1"]).toBeUndefined();
+    expect(ui.intentProvenance["canvas1"]).toBeUndefined();
   });
 
   it("resetLayerFill walks past a leaf with no setStyle or eachLayer", () => {
@@ -799,7 +799,7 @@ describe("LayerUI style panel — fill color", () => {
     input.dispatchEvent(new Event("input", { bubbles: true }));
 
     expect(ui.fillColorMap["overlay1"]).toBe("#3366cc");
-    expect(ui.userOverrides["overlay1"]).toContain("fillColor");
+    expect(ui.intentProvenance["overlay1"]).toContain("fillColor");
   });
 
   it("the fill opacity input commits through the live binder", () => {
@@ -813,7 +813,7 @@ describe("LayerUI style panel — fill color", () => {
     input.dispatchEvent(new Event("input", { bubbles: true }));
 
     expect(ui.fillOpacityMap["overlay1"]).toBe(0.5);
-    expect(ui.userOverrides["overlay1"]).toContain("fillOpacity");
+    expect(ui.intentProvenance["overlay1"]).toContain("fillOpacity");
   });
 
   it("the swatch keeps the value it was committed (no forced re-read)", () => {
@@ -833,13 +833,13 @@ describe("LayerUI style panel — fill color", () => {
 
   it("resetLayerFill drops the persisted entry and the override marker", () => {
     ui.fillColorMap["overlay1"] = "#ff0000";
-    ui.userOverrides["overlay1"] = ["fillColor"];
+    ui.intentProvenance["overlay1"] = ["fillColor"];
     const setLayer = vi.spyOn(manager.persistence, "schedule");
 
     resetLayerFill(ui, "overlay1");
 
     expect(ui.fillColorMap["overlay1"]).toBeUndefined();
-    expect(ui.userOverrides["overlay1"] ?? []).not.toContain("fillColor");
+    expect(ui.intentProvenance["overlay1"] ?? []).not.toContain("fillColor");
     expect(setLayer).toHaveBeenCalled();
   });
 
@@ -885,7 +885,7 @@ describe("LayerUI style panel — fill color", () => {
     reset.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 
     expect(ui.fillColorMap["overlay1"]).toBeUndefined();
-    expect(ui.userOverrides["overlay1"] ?? []).not.toContain("fillColor");
+    expect(ui.intentProvenance["overlay1"] ?? []).not.toContain("fillColor");
   });
 });
 
@@ -1070,7 +1070,7 @@ describe("buildFillRow", () => {
 
     expect(fixture.ui.fillColorMap["overlay1"]).toBe("#ff0000");
     expect(fixture.ui.fillOpacityMap["overlay1"]).toBeUndefined();
-    expect(fixture.ui.userOverrides["overlay1"]).not.toContain("fillOpacity");
+    expect(fixture.ui.intentProvenance["overlay1"]).not.toContain("fillOpacity");
     expect(leaf.setStyle).toHaveBeenCalledWith({ fillColor: "#ff0000" });
   });
 
@@ -1119,7 +1119,7 @@ describe("buildFillRow", () => {
     commitFillOpacity(ui, "overlay1", 50);
 
     expect(ui.fillOpacityMap["overlay1"]).toBe(0.5);
-    expect(ui.userOverrides["overlay1"]).toContain("fillOpacity");
+    expect(ui.intentProvenance["overlay1"]).toContain("fillOpacity");
     expect(setLayer).toHaveBeenCalled();
   });
 
@@ -1158,7 +1158,7 @@ describe("buildFillRow", () => {
     resetLayerFill(fixture.ui, "overlay1");
 
     expect(fixture.ui.fillOpacityMap["overlay1"]).toBeUndefined();
-    expect(fixture.ui.userOverrides["overlay1"] ?? []).not.toContain("fillOpacity");
+    expect(fixture.ui.intentProvenance["overlay1"] ?? []).not.toContain("fillOpacity");
     expect(leaf.setStyle).toHaveBeenLastCalledWith({
       fillColor: "#aabbcc",
       fillOpacity: 0,
