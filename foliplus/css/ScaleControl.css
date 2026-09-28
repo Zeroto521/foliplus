@@ -9,15 +9,15 @@
     display: inline-flex;
     align-items: baseline;
     justify-content: center;
-    padding: 0 var(--space-md);
+    padding: 0 var(--foliplus-space-md);
     box-sizing: border-box;
   }
 
   .leaflet-control-scale-line {
-    border: var(--border-thin) solid transparent;
-    border-bottom: var(--space-xs) solid var(--text-primary);
-    border-left: var(--space-xs) solid var(--text-primary);
-    border-right: var(--space-xs) solid var(--text-primary);
+    border: var(--foliplus-border-thin) solid transparent;
+    border-bottom: var(--foliplus-space-xs) solid var(--foliplus-text-primary);
+    border-left: var(--foliplus-space-xs) solid var(--foliplus-text-primary);
+    border-right: var(--foliplus-space-xs) solid var(--foliplus-text-primary);
     text-align: center;
     background: transparent;
   }

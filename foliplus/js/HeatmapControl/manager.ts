@@ -456,7 +456,7 @@ class HeatmapManager {
     drawHexagonFn(ctx, feat, this.map, this.borderWeight, this.borderColor);
   }
 
-  /** Resolve label styling from the shared --label-* tokens (cached once). The
+  /** Resolve label styling from the shared --foliplus-label-* tokens (cached once). The
    *  values are the same the annotation canvas reads — both go through
    *  common/canvasLabel — so a hex value and an annotation label render as one
    *  language. */

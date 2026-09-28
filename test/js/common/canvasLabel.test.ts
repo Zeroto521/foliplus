@@ -9,7 +9,7 @@ import {
   withLabelPaint,
 } from "#common/canvasLabel.js";
 
-/** A container carrying the shared --label-* tokens (jsdom reads inline
+/** A container carrying the shared --foliplus-label-* tokens (jsdom reads inline
  *  custom properties through getComputedStyle, the same way the real page
  *  inherits them from :root). */
 const root = (vars: Record<string, string> = {}): HTMLElement => {
@@ -37,12 +37,12 @@ describe("resolveCanvasLabelStyle", () => {
   it("reads every token when the page defines it", () => {
     const style = resolveCanvasLabelStyle(
       root({
-        "--label-font-family": "Georgia",
-        "--label-font-size": "16",
-        "--label-font-weight": "600",
-        "--label-color": "#123456",
-        "--label-halo-color": "rgba(1, 2, 3, 0.5)",
-        "--label-halo-width": "5",
+        "--foliplus-label-font-family": "Georgia",
+        "--foliplus-label-font-size": "16",
+        "--foliplus-label-font-weight": "600",
+        "--foliplus-label-color": "#123456",
+        "--foliplus-label-halo-color": "rgba(1, 2, 3, 0.5)",
+        "--foliplus-label-halo-width": "5",
       }),
     );
 
@@ -63,7 +63,10 @@ describe("resolveCanvasLabelStyle", () => {
 
   it("falls back per-token when a numeric token is not numeric", () => {
     const style = resolveCanvasLabelStyle(
-      root({ "--label-font-size": "abc", "--label-halo-width": "auto" }),
+      root({
+        "--foliplus-label-font-size": "abc",
+        "--foliplus-label-halo-width": "auto",
+      }),
     );
 
     // A junk size must not parse to NaN and poison the font string.

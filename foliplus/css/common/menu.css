@@ -22,12 +22,12 @@
   .foliplus-layer-more-menu
 ) {
   box-sizing: border-box;
-  margin-top: var(--space-xs);
-  background: var(--input-bg);
-  border: var(--border-thin) solid var(--input-border);
-  border-radius: var(--radius-sm);
-  box-shadow: var(--shadow-md);
-  z-index: var(--z-index-floating);
+  margin-top: var(--foliplus-space-xs);
+  background: var(--foliplus-input-bg);
+  border: var(--foliplus-border-thin) solid var(--foliplus-input-border);
+  border-radius: var(--foliplus-radius-sm);
+  box-shadow: var(--foliplus-shadow-md);
+  z-index: var(--foliplus-z-index-floating);
   overflow-y: auto;
   /* Entrance: subtle fade + slide-down, plays once when the menu mounts. */
   animation: foliplus-dropdown-in 0.15s ease-out;
@@ -35,9 +35,9 @@
 
 .foliplus-row-panel {
   box-sizing: border-box;
-  margin-top: var(--space-xs);
-  background: var(--input-bg);
-  border: var(--border-thin) solid var(--input-border);
+  margin-top: var(--foliplus-space-xs);
+  background: var(--foliplus-input-bg);
+  border: var(--foliplus-border-thin) solid var(--foliplus-input-border);
   overflow-y: auto;
   animation: foliplus-dropdown-in 0.15s ease-out;
 }
@@ -45,7 +45,7 @@
 @keyframes foliplus-dropdown-in {
   from {
     opacity: 0;
-    transform: translateY(calc(-1 * var(--space-sm)));
+    transform: translateY(calc(-1 * var(--foliplus-space-sm)));
   }
   to {
     opacity: 1;
@@ -72,11 +72,11 @@
   .foliplus-layer-more-menu li
 ) {
   cursor: pointer;
-  font-size: var(--font-size-sm);
-  color: var(--text-primary);
+  font-size: var(--foliplus-font-size-sm);
+  color: var(--foliplus-text-primary);
   transition:
-    background-color var(--transition-fast),
-    border-color var(--transition-fast);
+    background-color var(--foliplus-transition-fast),
+    border-color var(--foliplus-transition-fast);
 }
 
 /* ── Hover: dropdown items are actions, so they answer with accent (same
@@ -86,8 +86,8 @@
   .foliplus-heatmap-scheme-dropdown-item,
   .foliplus-layer-more-menu li
 ):hover {
-  background: var(--accent-light);
-  color: var(--accent-primary);
+  background: var(--foliplus-accent-light);
+  color: var(--foliplus-accent-primary);
 }
 
 /* ── Active: the layer-item "selected" language — accent light background,
@@ -97,7 +97,7 @@
   .foliplus-search-result-item,
   .foliplus-heatmap-scheme-dropdown-item
 ).foliplus-is-active {
-  background: var(--accent-light);
+  background: var(--foliplus-accent-light);
 }
 
 /* ── Dropdown / list item :focus-visible ──
@@ -113,19 +113,19 @@
   .foliplus-heatmap-scheme-dropdown-item
 ):focus-visible {
   outline: none;
-  border-color: var(--accent-primary);
-  box-shadow: var(--focus-ring);
-  border-radius: var(--radius-sm);
-  transition: box-shadow var(--transition-fast);
+  border-color: var(--foliplus-accent-primary);
+  box-shadow: var(--foliplus-focus-ring);
+  border-radius: var(--foliplus-radius-sm);
+  transition: box-shadow var(--foliplus-transition-fast);
 }
 
 .foliplus-ctrl-btn {
   position: absolute;
   right: 0;
-  top: calc(50% - var(--ctrl-size) / 2);
-  width: var(--ctrl-size);
-  height: var(--ctrl-size);
-  border-radius: var(--radius-sm);
+  top: calc(50% - var(--foliplus-ctrl-size) / 2);
+  width: var(--foliplus-ctrl-size);
+  height: var(--foliplus-ctrl-size);
+  border-radius: var(--foliplus-radius-sm);
 }
 
 /* ── Panel header actions ──
@@ -134,32 +134,32 @@
    header (a light wash + stronger glyph) instead of staying flat, and keep a
    visible ring for keyboard users. */
 .foliplus-close-btn {
-  color: var(--text-muted);
+  color: var(--foliplus-text-muted);
   transition:
-    background-color var(--transition-fast),
-    color var(--transition-fast);
+    background-color var(--foliplus-transition-fast),
+    color var(--foliplus-transition-fast);
 
   &:hover {
-    background: var(--accent-light);
-    color: var(--accent-primary);
+    background: var(--foliplus-accent-light);
+    color: var(--foliplus-accent-primary);
   }
 
   &:focus-visible {
     outline: none;
-    background: var(--accent-light);
-    color: var(--accent-primary);
-    box-shadow: var(--focus-ring);
+    background: var(--foliplus-accent-light);
+    color: var(--foliplus-accent-primary);
+    box-shadow: var(--foliplus-focus-ring);
   }
 
   &:active {
-    background: var(--accent-light);
-    color: var(--accent-primary);
+    background: var(--foliplus-accent-light);
+    color: var(--foliplus-accent-primary);
   }
 }
 
 .foliplus-pin {
   position: relative;
-  width: var(--size-24);
-  height: var(--toggle-size);
-  color: var(--accent-primary);
+  width: var(--foliplus-size-24);
+  height: var(--foliplus-toggle-size);
+  color: var(--foliplus-accent-primary);
 }

@@ -1,34 +1,34 @@
 /* ── H3 HEX icon layered fills ── */
 .foliplus-heatmap-fill-bg {
   fill: currentColor;
-  opacity: var(--alpha-05);
+  opacity: var(--foliplus-alpha-05);
   stroke: none;
 }
 .foliplus-heatmap-fill-center {
   fill: currentColor;
-  opacity: var(--alpha-15);
+  opacity: var(--foliplus-alpha-15);
   stroke: none;
 }
 .foliplus-heatmap-fill-secondary {
   fill: currentColor;
-  /* Deliberately not tokenized: 0.08 sits between --alpha-05 (bg) and
-     --alpha-15 (center) to keep the second/third hex visibly lighter.
-     var(--alpha-10) does not exist, so tokenizing this would force a
+  /* Deliberately not tokenized: 0.08 sits between --foliplus-alpha-05 (bg) and
+     --foliplus-alpha-15 (center) to keep the second/third hex visibly lighter.
+     var(--foliplus-alpha-10) does not exist, so tokenizing this would force a
      jump to 0.15 and erase the layering. */
   opacity: 0.08;
   stroke: none;
 }
 
 .foliplus-heatmap-ctrl {
-  font-size: var(--font-size-sm);
-  color: var(--text-primary);
-  --heatmap-inline-height: var(--icon-size-md);
-  --heatmap-inline-width: 52px;
-  --heatmap-accent-arrow-offset: var(--size-6);
+  font-size: var(--foliplus-font-size-sm);
+  color: var(--foliplus-text-primary);
+  --foliplus-heatmap-inline-height: var(--foliplus-icon-size-md);
+  --foliplus-heatmap-inline-width: 52px;
+  --foliplus-heatmap-accent-arrow-offset: var(--foliplus-size-6);
 
   /* Label typography is not redeclared here: the canvas renderer
      (common/canvasLabel, shared with LayerControl's annotation labels) reads the
-     shared map-label tokens — --label-font-family / -size / -weight / -color /
+     shared map-label tokens — --foliplus-label-font-family / -size / -weight / -color /
      -halo-color / -halo-width from common/token.css — directly, so one override
      styles a hex value and an annotation label alike. */
 
@@ -45,13 +45,13 @@
 
   /* Class count small select — width override on the shared form-select. */
   .foliplus-heatmap-class-select {
-    width: var(--heatmap-inline-width);
+    width: var(--foliplus-heatmap-inline-width);
     flex-shrink: 0;
   }
 
   /* Unified container */
   .foliplus-heatmap-config-body {
-    padding: 0 var(--space-lg);
+    padding: 0 var(--foliplus-space-lg);
   }
   /* Dynamic content container */
   .foliplus-heatmap-extra-body {
@@ -61,42 +61,42 @@
   /* ── Color Scheme Bar ── */
   .foliplus-heatmap-scheme-bar {
     width: 100%;
-    height: var(--ctrl-size);
-    border-radius: var(--radius-sm);
+    height: var(--foliplus-ctrl-size);
+    border-radius: var(--foliplus-radius-sm);
     cursor: pointer;
-    border: var(--border-thin) solid var(--btn-secondary-border);
+    border: var(--foliplus-border-thin) solid var(--foliplus-btn-secondary-border);
     position: relative;
-    padding-right: var(--icon-size-md);
+    padding-right: var(--foliplus-icon-size-md);
     display: flex;
     align-items: center;
     box-sizing: border-box;
-    transition: var(--transition-input);
+    transition: var(--foliplus-transition-input);
   }
   .foliplus-heatmap-scheme-bar-inner {
     flex: 1;
-    height: var(--heatmap-inline-height);
+    height: var(--foliplus-heatmap-inline-height);
     display: flex;
     overflow: hidden;
-    border-radius: var(--radius-sm);
+    border-radius: var(--foliplus-radius-sm);
   }
   .foliplus-heatmap-scheme-bar-block {
     flex: 1;
     height: 100%;
     transition:
-      filter var(--transition-fast),
-      opacity var(--transition-fast);
+      filter var(--foliplus-transition-fast),
+      opacity var(--foliplus-transition-fast);
   }
   .foliplus-heatmap-scheme-bar::after {
     content: "";
     position: absolute;
-    right: var(--heatmap-accent-arrow-offset);
+    right: var(--foliplus-heatmap-accent-arrow-offset);
     top: 50%;
     transform: translateY(-50%);
     width: 0;
     height: 0;
-    border-left: var(--size-4) solid transparent;
-    border-right: var(--size-4) solid transparent;
-    border-top: var(--size-6) solid var(--text-muted);
+    border-left: var(--foliplus-size-4) solid transparent;
+    border-right: var(--foliplus-size-4) solid transparent;
+    border-top: var(--foliplus-size-6) solid var(--foliplus-text-muted);
     pointer-events: none;
   }
   /* Scheme row: the control cell needs relative positioning so the dropdown
@@ -124,33 +124,33 @@
     left: 0;
     width: 100%;
     max-height: 200px;
-    padding: var(--space-sm) 0;
+    padding: var(--foliplus-space-sm) 0;
   }
   .foliplus-heatmap-scheme-dropdown-item {
     display: flex;
     align-items: center;
-    gap: var(--space-md);
-    padding: 0 var(--space-lg);
-    height: var(--ctrl-size);
+    gap: var(--foliplus-space-md);
+    padding: 0 var(--foliplus-space-lg);
+    height: var(--foliplus-ctrl-size);
     box-sizing: border-box;
     /* Reserved border: same "selected" language as layer items — a permanent
        transparent left border, .foliplus-is-active only recolors it. No layout shift and
        the border-color can transition. */
-    border-left: var(--border-thick) solid transparent;
+    border-left: var(--foliplus-border-thick) solid transparent;
 
     &.foliplus-is-active {
-      border-left-color: var(--accent-primary);
+      border-left-color: var(--foliplus-accent-primary);
       /* Persistent "selected scheme" state: soft 5% wash, same language as
-         the keyboard cursor. --accent-light (#fde8e8) was too saturated —
+         the keyboard cursor. --foliplus-accent-light (#fde8e8) was too saturated —
          it's a flat brand color, not a subtle persistent-status wash. */
-      background: var(--accent-soft-bg);
+      background: var(--foliplus-accent-soft-bg);
     }
   }
   .foliplus-heatmap-scheme-dropdown-bar {
     flex: 1;
-    height: var(--heatmap-inline-height);
-    border-radius: var(--radius-sm);
-    border: var(--border-thin) solid var(--btn-secondary-border);
+    height: var(--foliplus-heatmap-inline-height);
+    border-radius: var(--foliplus-radius-sm);
+    border: var(--foliplus-border-thin) solid var(--foliplus-btn-secondary-border);
     flex-shrink: 0;
     display: flex;
     overflow: hidden;
@@ -178,5 +178,5 @@
   .foliplus-heatmap-ctrl select option.foliplus-heatmap-placeholder-opt,
   .foliplus-heatmap-ctrl select option.foliplus-heatmap-placeholder-opt:disabled
 ) {
-  color: var(--text-muted);
+  color: var(--foliplus-text-muted);
 }

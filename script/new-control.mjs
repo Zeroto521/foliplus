@@ -271,12 +271,12 @@ new ${name}({ position: CONF.position }).addTo(map);
   files.set(
     `foliplus/css/${name}.css`,
     `.${cssClass} {
-  padding: var(--space-sm) var(--space-md);
-  background: var(--ctrl-bg);
-  color: var(--text-primary);
-  border: var(--border-thin) solid var(--divider-color);
-  border-radius: var(--radius-lg);
-  font-size: var(--font-size-sm);
+  padding: var(--foliplus-space-sm) var(--foliplus-space-md);
+  background: var(--foliplus-ctrl-bg);
+  color: var(--foliplus-text-primary);
+  border: var(--foliplus-border-thin) solid var(--foliplus-divider-color);
+  border-radius: var(--foliplus-radius-lg);
+  font-size: var(--foliplus-font-size-sm);
 }
 `,
   );
