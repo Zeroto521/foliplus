@@ -29,9 +29,8 @@
 //     it naturally. Adding an extra `if (!canvas) return false` here
 //     would be duplicate work — and every extra check is another place
 //     a future dimension can drift.
-// The pilot (`opacity`) is already in this form; legacy `fill` / `border`
-// / `zoomRange` gates carry extras and are scheduled for a follow-up PR
-// that moves those checks into their surface declarations.
+// The pilot (`opacity`) is already in this form; `fill` / `border` /
+// `zoomRange` gates are now pure capability checks too (#513).
 //
 // First pilot: `opacity`. Its existing helpers (`layerCanOpacity`,
 // `buildOpacityRow`, `commitOpacityPct`, `resetLayerOpacity`) stay as the
@@ -105,5 +104,35 @@ const getDimension = <D = unknown>(key: string): LayerDimension<D> | undefined =
 /** Every registered descriptor, in registration order. */
 const listDimensions = (): readonly LayerDimension<any>[] => [...registry.values()];
 
+/** The Layer section's authoritative display order.
+ *
+ *  Registration order is NOT display order: `listDimensions()` returns the
+ *  Map's insertion order, which tracks the ES module import graph, not the
+ *  source order of the importing file. `opacity` was registered at #505
+ *  top-level, so in most load graphs it lands ahead of `fill` and `border`
+ *  — the display order would silently regress. The panel wants a stable
+ *  contract (fill → border → opacity → zoomRange, per #458), so the
+ *  order is declared here rather than inferred from the import graph.
+ *
+ *  The panel iterates this array, calls `getDimension(key)` for each key
+ *  and drops any unregistered key, so an unregistered key degrades the
+ *  panel to fewer rows rather than erroring. A dimension that is
+ *  registered but missing from this array is unreachable from the panel —
+ *  adding a dimension without adding it here is a bug that
+ *  `registry.test.ts` catches (DIM_ORDER covers every registered
+ *  built-in key and nothing more).
+ */
+const DIM_ORDER = ["fill", "border", "opacity", "zoomRange"] as const;
+
+/** Whether the layer owns any registered dimension whose `gate` passes.
+ *  The single "has-any" question the panel needs before deciding whether
+ *  to render the Layer section at all — the annotation panel asks it to
+ *  decide between an empty panel and a Layer-only panel, and the
+ *  delegated drawer asks it to decide whether to render the Layer
+ *  heading alongside the delegated border row. Every dimension
+ *  contributes through its own `gate`; no switch table of keys. */
+const hasAnyDimension = (ui: LayerUI, layerId: string): boolean =>
+  [...registry.values()].some(d => d.gate(ui, layerId));
+
 export type { LayerDimension };
-export { getDimension, listDimensions, registerDimension };
+export { DIM_ORDER, getDimension, hasAnyDimension, listDimensions, registerDimension };

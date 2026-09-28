@@ -75,7 +75,7 @@
 - `HeatmapControl`: border and label styling move to the layer style drawer; the panel keeps only aggregation controls ([#447](https://github.com/Zeroto521/foliplus/pull/447), [#473](https://github.com/Zeroto521/foliplus/pull/473))
 - `InteractionManager`/`ListCursor`/`LayerControl`: input ownership — one control × key table at dispatch replaces five per-call-site guards; adding a control to a panel is a table entry; `Escape` stays foliplus-owned ([#450](https://github.com/Zeroto521/foliplus/pull/450))
 - `LayerControl`: style panel sections read Layer above Label, and the Layer section rows read fill, border, opacity, zoom range — the two color axes sit adjacent and the two slider axes sit adjacent; rows the layer cannot carry stay hidden ([#458](https://github.com/Zeroto521/foliplus/pull/458), [#502](https://github.com/Zeroto521/foliplus/pull/502))
-- `LayerControl`: per-layer style-panel dimensions become descriptors with a registry — `registerDimension` throws on duplicate keys, `opacity` is the first, `fill` / `border` / `zoomRange` follow ([#505](https://github.com/Zeroto521/foliplus/pull/505))
+- `LayerControl`: style-panel dimensions become registry descriptors (`registerDimension` / `DIM_ORDER`) — the panel discovers rows through the registry, gate = capability check ([#505](https://github.com/Zeroto521/foliplus/pull/505), [#513](https://github.com/Zeroto521/foliplus/pull/513))
 
 ### Removed
 
