@@ -642,6 +642,31 @@ interface LayerAPI {
   moveLayerDown?: (id: string) => boolean;
 }
 
+/** Everything `zFor` can be told about the pane it prices. */
+interface ZArgs {
+  /** The layer's position in the ordered registry: index 0 is the topmost. */
+  index?: number;
+  /** How many layers the registry holds — the step multiplier. */
+  count?: number;
+  /** Base-group layers (tile basemaps and the solid-color basemap) share the
+   *  lower `TILE_BASE` ladder; overlay-group layers use `BASE`. Row order
+   *  within a group = visual stack order, since both share one `STEP`. */
+  group?: "base" | "overlay";
+  /** The pane's role in its layer's draw stack. Only `annotation` prices a
+   *  relation of its own (one step above its layer); the rest use `order`. */
+  role?: PaneRole;
+  /** The pane's draw offset within its layer (`PaneSpec.order`). */
+  order?: number;
+  /** An absolute base z instead of a slot — the focus lift. */
+  base?: number;
+}
+
+/** A node in the layer tree a probe walk may reach. */
+type StyleProbeNode = {
+  setStyle?: (style: Record<string, unknown>) => void;
+  eachLayer?: (fn: (layer: L.Layer) => void) => void;
+};
+
 export type {
   CreateCanvasAPI,
   CreateCanvasOpts,
@@ -660,7 +685,9 @@ export type {
   PaneRole,
   PaneSpec,
   RegisterLayerOpts,
+  StyleProbeNode,
   SurfaceContentHandle,
   SurfaceContentOpts,
   SurfaceHandle,
+  ZArgs,
 };

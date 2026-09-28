@@ -14,12 +14,7 @@
 // to fan the style out to, so it returns false like an empty LayerGroup or
 // a Marker with no children — the `setStyle` of its own is not a real
 // carrier when the walk finds nothing to write to.
-
-/** A node in the layer tree a probe walk may reach. */
-type StyleProbeNode = {
-  setStyle?: (style: Record<string, unknown>) => void;
-  eachLayer?: (fn: (layer: L.Layer) => void) => void;
-};
+import type { StyleProbeNode } from "./type.js";
 
 /** Coerce any layer to the probe node shape. The walk is duck-typed: it
  *  checks for `eachLayer` and `setStyle` at runtime, so the cast is safe
@@ -68,4 +63,3 @@ const hasFillLeaf = (node: unknown): boolean => {
 };
 
 export { hasFillLeaf, hasSetStyleLeaf };
-export type { StyleProbeNode };

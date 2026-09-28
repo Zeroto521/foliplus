@@ -8,39 +8,9 @@
 // so a change on either input reaches the map through exactly one path.
 //
 // Nothing in this file touches the map, the registry, or storage.
+import type { Projection } from "../type.js";
 import type { LayerUI } from "./index.js";
 import { inZoomRange } from "./rowView.js";
-
-/** One layer's projection: intent (persisted) and the derived policy state
- *  together, so a diff sees both in one comparison.
- *
- *  `intent.visible` is what the checkbox shows — the user's choice when they
- *  made one, otherwise the author's declared default.
- *  `effectiveShown` is the composite `intent && policy` and is what the
- *  executor writes to map membership. Only `intent` may authorise display;
- *  `policy` (focus, zoom range) may only suppress it. That is the invariant
- *  that keeps a derived dimension from ever adding a layer back onto the
- *  map — the class of bug the quickstart regression records, and the structural root of the
- *  one-way gate that used to live in state.ts.
- */
-interface Projection {
-  id: string;
-  intent: { visible: boolean };
-  effectiveShown: boolean;
-  opacity: number | undefined;
-  zoomRange: [number, number] | null;
-}
-
-/** The executor's projection snapshot: the pure projection plus the carrier
- *  identity the last write landed on. Recording carrier is what closes
- *  value-only diff misses writes when a carrier element is replaced (a
- *  re-registered canvas, a lazily-created annotation pane), because the
- *  stored numeric opacity matches but the DOM in front of it is new.
- *  The token is opaque: a canvas element, a pane-names array, or an
- *  `options` object reference. */
-interface AppliedProjection extends Projection {
-  carrier: unknown;
-}
 
 /** The user's own visibility choice, or the author's declared default
  *  (captured once at first sight by `snapshotAuthorVisible`) when the user
@@ -122,4 +92,3 @@ const projectAll = (ui: LayerUI): Map<string, Projection> => {
 };
 
 export { projectAll, projectLayer, intentVisibleOf };
-export type { Projection, AppliedProjection };

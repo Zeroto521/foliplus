@@ -23,6 +23,7 @@ import { type NumberStyle } from "#common/format.js";
 import { createRowPanel } from "#common/panel.js";
 import * as CONST from "../../const.js";
 import * as SVGs from "../../icon.js";
+import type { LayerDimension } from "../../type.js";
 import { authorZoomBoundsForLayer } from "../apply.js";
 import type { LayerUI } from "../index.js";
 import { finishRename } from "../rename.js";
@@ -32,12 +33,7 @@ import { bindFillRow, replayFillState, resetLayerFill } from "./fill.js";
 import { appendResetFooter, railPos } from "./frame.js";
 import { applyPatch, layerFields, syncFormatRow } from "./label.js";
 import { clampPct, commitOpacityPct, resetLayerOpacity } from "./opacity.js";
-import {
-  DIM_ORDER,
-  LABEL_DIM_ORDER,
-  type LayerDimension,
-  getDimension,
-} from "./registry.js";
+import { DIM_ORDER, LABEL_DIM_ORDER, getDimension } from "./registry.js";
 import {
   applyZoomRangeLive,
   clampZoom,

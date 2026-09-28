@@ -75,11 +75,29 @@ interface SavedConfig {
   field?: string;
 }
 
+/** The minimal manager state surface the persistence helpers write to. */
+interface ManagerLike {
+  selectedLayerId: string | null;
+  currentAgg: string;
+  currentMethod: string;
+  currentScheme: string;
+  numClasses: number;
+  borderWeight: number;
+  borderColor: string;
+  currentLabelShow: boolean;
+  currentLabelColor: string;
+  currentLabelSize: number;
+  currentLabelFormat: NumberStyle;
+  currentField: string;
+  hasScanned: boolean;
+}
+
 export type {
   AggregatedData,
   HexCell,
   HexFeature,
   HeatmapPointMarker,
+  ManagerLike,
   PointLayerInfo,
   SavedConfig,
   SelectedPoint,

@@ -3,6 +3,7 @@
 // build, so persistence and annotation sub-modules can import without pulling
 // value code.
 import { type NumberStyle } from "#common/format.js";
+import type { LayerUI } from "./ui/index.js";
 
 /** A dimension the user has actually set. `overrides` is the provenance half of
  *  the record: a dimension absent from it means the user never chose it, so the
@@ -123,11 +124,139 @@ interface AnnotationConfig {
   collide: boolean;
 }
 
+/** One write the carrier dispatcher accepts. `opacity` and `zoomRange`
+ *  being `undefined` mean "no user value" — a Reset back to the author's
+ *  default — not "leave the carrier alone". */
+type StateOp =
+  | { type: "visible"; value: boolean }
+  | { type: "opacity"; value: number | undefined }
+  | { type: "zoomRange"; value: [number, number] | null };
+
+/** One layer's projection: intent (persisted) and the derived policy state
+ *  together, so a diff sees both in one comparison.
+ *
+ *  `intent.visible` is what the checkbox shows — the user's choice when they
+ *  made one, otherwise the author's declared default.
+ *  `effectiveShown` is the composite `intent && policy` and is what the
+ *  executor writes to map membership. Only `intent` may authorise display;
+ *  `policy` (focus, zoom range) may only suppress it. That is the invariant
+ *  that keeps a derived dimension from ever adding a layer back onto the
+ *  map — the class of bug the quickstart regression records, and the structural root of the
+ *  one-way gate that used to live in state.ts.
+ */
+interface Projection {
+  id: string;
+  intent: { visible: boolean };
+  effectiveShown: boolean;
+  opacity: number | undefined;
+  zoomRange: [number, number] | null;
+}
+
+/** The executor's projection snapshot: the pure projection plus the carrier
+ *  identity the last write landed on. Recording carrier is what closes
+ *  value-only diff misses writes when a carrier element is replaced (a
+ *  re-registered canvas, a lazily-created annotation pane), because the
+ *  stored numeric opacity matches but the DOM in front of it is new.
+ *  The token is opaque: a canvas element, a pane-names array, or an
+ *  `options` object reference. */
+interface AppliedProjection extends Projection {
+  carrier: unknown;
+}
+
+/** A leaf whose `setStyle` is there for real. Narrowing through a guard
+ *  rather than a `typeof` test keeps call sites plain method calls, which
+ *  matters: Leaflet's `Path.setStyle` runs `setOptions(this, style)`, so a
+ *  method captured into a local and called detached would see `this` as
+ *  undefined and throw instead of writing. */
+type StyleSetter = {
+  setStyle: (style: Record<string, unknown>) => void;
+  on?: (type: string, fn: () => void) => void;
+};
+
+/** Shared border-row shell. Two callers — the vector `buildBorderRow`
+ *  (which supplies `setStyle` chrome + hooks) and the delegated drawer's
+ *  `buildBorderRow` (which supplies plain chrome + `styleSetters` write
+ *  target) — both need a color swatch plus a width number input wired to a
+ *  live commit path. The shell owns the row DOM and the bind recipe; the
+ *  caller supplies its own chrome and write callbacks.
+ *
+ *  `buildBorderRowShell` and `bindBorderRowShell` take separate targets:
+ *  the build side needs shell/chrome options, the bind side needs write
+ *  callbacks. Folding them into one target would force the bind caller to
+ *  supply dummy shell fields and vice versa. */
+interface BorderRowBuildTarget {
+  /** Resolved row label text. */
+  label: string;
+  /** Row `class` — `FORM_ROW` plus any caller-specific hook. */
+  rowClass: string;
+  /** Initial color value (already display-ready for the swatch). */
+  color?: string;
+  /** Initial width value. */
+  weight: number;
+  /** Present iff a color input should render. */
+  hasColorInput?: boolean;
+  /** Present iff a width input should render. */
+  hasWeightInput?: boolean;
+  /** Optional color input `class`. */
+  className?: string;
+  /** Optional weight input `class`. */
+  weightClassName?: string;
+  /** Optional aria-label for the color swatch. */
+  colorAria?: string;
+  /** Optional aria-label for the width input. */
+  weightAria?: string;
+}
+
+interface BorderRowBindTarget {
+  /** Write callback for the color input. */
+  onChangeColor?: (value: string) => void;
+  /** Write callback for the width input. */
+  onChangeWeight?: (value: number) => void;
+  /** Same class hook the build side used on the color input. */
+  className?: string;
+  /** Same class hook the build side used on the weight input. */
+  weightClassName?: string;
+}
+
+/** One per-layer dimension. `key` is the persistence-identifier and the
+ *  registry key (`"opacity"`, later `"zoomRange"`, `"fillColor"`, ...). */
+type LayerDimension<D = unknown> = {
+  key: string;
+  /** Row-honest gate, two layers in order:
+   *  1. **Layer existence** — return `false` when the layer is not in the
+   *     registry (a precondition guard against a programming error).
+   *  2. **Capability** — `capabilities.{dim} !== "none"`, the surface's
+   *     declared capability is the single source of truth for whether this
+   *     row is honest to render.
+   *  Nothing else: no carrier probes, no `isColorBasemap` special-cases,
+   *  no canvas/styleSetters exclusion (a canvas-only surface already
+   *     declares `"none"` for the dimension it can't carry, so the gate
+   *  rejects it naturally). See the registry file header for the full
+   *  invariant. */
+  gate: (ui: LayerUI, layerId: string) => boolean;
+  /** Resolved current value — the user's stored override, falling back to
+   *  the author's declared default when the user has never touched the
+   *  dimension. `undefined` when the layer is not in the registry. */
+  value: (ui: LayerUI, layerId: string) => D | undefined;
+  /** Build the style-panel row. The descriptor owns the DOM shape; the
+   *  panel still owns event binding, because binding needs the row's
+   *  parent (the panel root) to install the drag bubble and shared
+   *  number-field commit handler. */
+  row: (ui: LayerUI, layerId: string) => HTMLElement;
+};
+
 export type {
   AnnotationConfig,
+  AppliedProjection,
+  BorderRowBindTarget,
+  BorderRowBuildTarget,
+  LayerDimension,
   LayerLabel,
   LayerOverride,
   LiveState,
   PersistedLayerState,
   PersistedRecord,
+  Projection,
+  StateOp,
+  StyleSetter,
 };
