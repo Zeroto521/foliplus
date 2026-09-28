@@ -14,7 +14,11 @@
     '.foliplus-layer-item[data-layer-id="foliplus_color_map"]',
   );
   if (!item) return { itemFound: false };
-  item.click();
+  // Show the colour basemap via its checkbox — the only legitimate path.
+  // Clicking the row body no longer activates the color layer (T201).
+  const cb = item.querySelector('input[type="checkbox"]');
+  if (!cb) return { itemFound: true, itemActive: false, reason: "no checkbox" };
+  if (!cb.checked) cb.click();
   // Set the fill color through the style panel (fill row).
   const lc = window.__layerCtrl;
   if (lc && lc.m && lc.m.ui && item) {
