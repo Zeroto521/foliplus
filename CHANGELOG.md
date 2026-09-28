@@ -111,6 +111,7 @@
 - `LayerControl`: `fillColor` / `borderColor` and the annotation `color` in the persisted record are normalized to `#rrggbb` — `<input type=color>` only takes the long form; reuses `common/form.ts`'s `normalizeHexColor` ([#477](https://github.com/Zeroto521/foliplus/pull/477), [#482](https://github.com/Zeroto521/foliplus/pull/482))
 - `FullscreenControl`: a denied fullscreen entry or exit now reports the honest hint (`unsupported` / `exit_fail`) instead of "Entered fullscreen" ([#486](https://github.com/Zeroto521/foliplus/pull/486))
 - `LayerControl`: rapid visibility toggles stay smooth at 6k layers — the toggle-all tri-state counter updates O(1) per click instead of rescanning the group, and overlay clicks skip the basemap scan ([#504](https://github.com/Zeroto521/foliplus/pull/504))
+- `LayerControl`: the style-pin mouseout replay no longer leaks one getter per commit — `pinStyleOnHighlight` keys its per-leaf registry by dimension (`fill` / `border`), so a re-commit replaces that dimension's getter instead of appending a fresh closure, while a fill + border layer still replays both user values in one `setStyle` after folium's `resetStyle` ([#521](https://github.com/Zeroto521/foliplus/pull/521))
 
 ## [v0.3.0] (2026-08-02)
 
