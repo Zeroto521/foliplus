@@ -16,7 +16,6 @@ export {
   focusLayerZ,
   topSlotZ,
   zFor,
-  type ZArgs,
 } from "./z.js";
 export { LayerFactory } from "./LayerFactory.js";
 export { LayerRegistry } from "./LayerRegistry.js";
@@ -51,4 +50,5 @@ export type {
   PaneHandle,
   PaneRole,
   RegisterLayerOpts,
+  ZArgs,
 } from "./type.js";
