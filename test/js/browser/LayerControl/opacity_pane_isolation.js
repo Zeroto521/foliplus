@@ -140,10 +140,11 @@
     if (child.options) hollowFillOpacity = child.options.fillOpacity;
   });
 
-  // ── Case D: annotation pane follows the layer's opacity ─────────────
-  // A data layer with labels on: the geometry pane and the annotation pane
-  // must both carry the opacity. A neighbor layer's annotation pane is
-  // unaffected (per-layer pane, not shared).
+  // ── Case D: annotation labels follow the layer's opacity via bake (R11) ──
+  // A data layer with labels on: the geometry pane keeps the CSS write; the
+  // annotation pane is deliberately excluded from CSS (baking would
+  // double-compound) and the label canvas carries the layerAlpha. A neighbor
+  // layer's annotation pane is unaffected (per-layer pane, not shared).
   const annotatedGeo = L.geoJson({
     type: "FeatureCollection",
     features: [
@@ -218,6 +219,13 @@
   }
   ui.closeStylePanel(false);
 
+  // R11: the label canvas bakes layerAlpha; read it back from the shared
+  // helper (same one the drawers use). Pane CSS is NOT the annotation carrier.
+  const labelCanvas = annotationPane ? annotationPane.querySelector("canvas") : null;
+  const bakeApi = window.foliplus?.common?.canvasAlpha;
+  const annotatedLabelBakeAlpha =
+    labelCanvas && bakeApi ? bakeApi.getLayerAlpha(labelCanvas) : null;
+
   return {
     error: null,
     // After the ordering pass a plain folium layer has its own pane too, so
@@ -257,13 +265,13 @@
     // own style. 0 × 0.4 = 0, so the fill stays invisible.
     hollowPaneAfter,
     hollowFillOpacity,
-    // Case D: annotation pane follows the layer's opacity. The geometry pane
-    // and the annotation pane must both carry the opacity. A neighbor layer's
-    // annotation pane is unaffected (per-layer pane, not shared).
+    // Case D: geometry pane takes CSS; annotation pane is excluded from CSS
+    // and the label canvas bakes layerAlpha (R11). Neighbor untouched.
     annotatedGeoPaneOpacity: annotatedGeoPane ? annotatedGeoPane.style.opacity : null,
     annotatedAnnotationPaneOpacity: annotationPane
       ? annotationPane.style.opacity
       : null,
+    annotatedLabelBakeAlpha,
     neighborAnnotationPaneOpacity: neighborAnnotationPane
       ? neighborAnnotationPane.style.opacity
       : null,

@@ -78,8 +78,11 @@ interface LayerCapabilities {
    *    - "native" — the layer owns its own setter (`ImageOverlay.setOpacity`,
    *      `TileLayer.options.opacity`). Immediate and correct; the UI reads/writes
    *      the layer's option, not a pane.
-   *    - "pane"   — we own a pane for this layer; one CSS write on the pane
-   *      covers every child (SVG path / marker / divIcon / canvas element).
+   *    - "pane"   — we own a pane (or canvas face) for this layer. Vector
+   *      children take one CSS write on the pane; self-drawn canvases bake
+   *      layerAlpha into their draws (R11, `#common/canvasAlpha`) so a large
+   *      canvas does not force a GPU composite buffer. The tier still reports
+   *      `"pane"` — a `"baked"`/`"redraw"` mechanism tier is owned by T222.
    *    - "none"   — no honest carrier exists. MarkerCluster's cluster icons stay
    *      in the shared `markerPane` where `eachLayer` cannot reach them, so a
    *      pane write would fade the individual markers but not the cluster —
@@ -157,14 +160,6 @@ interface RegisterLayerOpts {
   /** New base layer insertion: "top" (default, tile basemaps) or "bottom"
    *  (solid-color basemap — lowest z, tiles cover it). */
   baseInsert?: "top" | "bottom";
-  /** Where this layer's order slot comes from. Defaults to `"user"`.
-   *
-   *  `"runtime"` marks a system surface whose insertion slot is a side effect
-   *  of attach timing (the solid-color basemap). Those slots never enter the
-   *  persisted order — writing one would clobber an arrangement the user
-   *  already set. Do not use the name `provenance`: that word is already the
-   *  attributes-panel data source and `intentProvenance`. */
-  orderOrigin?: "user" | "runtime";
   paneName?: string | null;
   /**
    * The panes this layer paints into, in draw order. Absent means the layer
@@ -182,6 +177,23 @@ interface RegisterLayerOpts {
   iconSvg?: string | null;
   /** Layer opacity in [0, 1]. Defaults to 1 (fully opaque). */
   opacity?: number;
+  /** Called after LayerControl commits a layer-opacity write to this layer.
+   *  Self-drawn canvases that bake alpha (R11 — heatmap / color face) use it
+   *  to re-render under the new layerAlpha. Optional: CSS-opacity carriers
+   *  (vector panes, tile layers) need no redraw hook. */
+  onOpacity?: ((opacity: number) => void) | null;
+  /** R11 bake policy for self-drawn canvases (see `#common/canvasAlpha`).
+   *  The slider path must not regress: a full redraw of a ≥5k layer on every
+   *  commit is jank, while a CSS style write is O(1).
+   *    - "commit"  — bake layerAlpha and redraw on the slider commit itself.
+   *      Use when the redraw is cheap (color face: one fillRect; annotation
+   *      labels: a few hundred glyphs).
+   *    - "redraw"  — slider commit keeps CSS `opacity` (cheap live feedback);
+   *      the *next* pan/zoom redraw bakes layerAlpha into the draws and drops
+   *      the CSS so the two never compound. Default; heatmap uses this.
+   *  Drawers must always read layerAlpha via the shared helper so both arms
+   *  of the dual path render the same pixels. */
+  opacityBake?: "commit" | "redraw";
   canvas?: HTMLCanvasElement | null;
   /** The fill a solid-color basemap paints into its own pane. The pane element
    *  is the face, so the value — not an element — is what travels here. */
@@ -227,6 +239,10 @@ interface LayerInfo {
   carrier: LayerCarrier;
   /** Layer opacity in [0, 1]. Defaults to 1 (fully opaque). */
   opacity?: number;
+  /** See {@link RegisterLayerOpts.onOpacity}. */
+  onOpacity?: ((opacity: number) => void) | null;
+  /** See {@link RegisterLayerOpts.opacityBake}. */
+  opacityBake?: "commit" | "redraw";
   group: "base" | "overlay";
   paneName: string | null;
   /** The panes this layer paints into, in draw order. */
@@ -259,8 +275,6 @@ interface LayerInfo {
   /** Epoch ms of the layer's first registration. Set by the registry itself —
    *  never by the provider — so a re-registration keeps the original value. */
   registeredAt?: number;
-  /** Order-slot origin. See {@link RegisterLayerOpts.orderOrigin}. */
-  orderOrigin?: "user" | "runtime";
 }
 
 /** Leaflet layer with a custom `isLabel` flag (foliplus adds it).
@@ -434,6 +448,15 @@ interface CreateCanvasOpts {
   /** Third-party label/value pairs appended to the attributes panel
    *  (e.g. HeatmapControl's source layer + aggregation field). */
   meta?: Record<string, string | number> | null;
+  /** See {@link RegisterLayerOpts.onOpacity}. Called after a layer-opacity
+   *  commit so a `"commit"`-arm drawer can re-render immediately. Heatmap
+   *  omits this (it takes the default `"redraw"` arm and repaints on the
+   *  next pan/zoom instead). */
+  onOpacity?: ((opacity: number) => void) | null;
+  /** See {@link RegisterLayerOpts.opacityBake}. Heatmap uses the default
+   *  `"redraw"` (CSS live, bake on pan/zoom) so a ≥5k slider commit does
+   *  not force a full hexagon redraw. */
+  opacityBake?: "commit" | "redraw";
 }
 
 /** Return type of `LayerAPI.createCanvas`. */
@@ -464,6 +487,11 @@ interface CreateColorOpts {
   id: string;
   name?: string;
   color: string;
+  /** See {@link RegisterLayerOpts.onOpacity}. The color face bakes alpha into
+   *  its single fillRect; the factory usually supplies this itself. */
+  onOpacity?: ((opacity: number) => void) | null;
+  /** See {@link RegisterLayerOpts.opacityBake}. Color defaults to `"commit"`. */
+  opacityBake?: "commit" | "redraw";
 }
 
 /** Return type of the color-surface factory — the solid-color basemap's
@@ -551,8 +579,10 @@ interface CreateSurfaceOpts {
   styleSetters?: Record<string, (value: unknown) => void> | null;
   styleDefaultsProvider?: (() => Record<string, unknown>) | null;
   metaProvider?: (() => Record<string, string | number>) | null;
-  /** See {@link RegisterLayerOpts.orderOrigin}. */
-  orderOrigin?: "user" | "runtime";
+  /** See {@link RegisterLayerOpts.onOpacity}. */
+  onOpacity?: ((opacity: number) => void) | null;
+  /** See {@link RegisterLayerOpts.opacityBake}. */
+  opacityBake?: "commit" | "redraw";
 }
 
 /** Content handle returned by `createSurface` — the discriminated-union branch. */
