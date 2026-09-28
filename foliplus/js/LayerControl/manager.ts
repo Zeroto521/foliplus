@@ -559,10 +559,8 @@ class LayerManager implements LayerAPI {
    *  @returns {string|null} "point" | "line" | "polygon" | "base" | null
    *
    *  Snapshot contract: `layerInfo.type` is a snapshot of the surface's
-   *  probe result. This method is the primary writer; list.ts and
-   *  ui/index.ts also write it at render time, but always sourced from
-   *  `surface.geometryType()`. The manager never calls `getGeometryType`
-   *  directly — that probe lives on the surface. */
+   *  probe result and this method is its single writer. The manager never
+   *  calls `getGeometryType` directly — that probe lives on the surface. */
   getLayerType(id: string): string | null {
     const layerInfo = this.layerRegistry.get(id);
     if (!layerInfo) return null;
@@ -648,13 +646,14 @@ class LayerManager implements LayerAPI {
    *  Base layers are suppressed (their counts are null anyway). Unknown ids
    *  are emitted defensively so the bus contract stays uniform; the
    *  subscriber simply finds no row to update and becomes a no-op.
+   *
+   *  Emit-only: geometry-type invalidation is the content-change path's job
+   *  (LayerFactory invalidates on add/remove/clear). A caller that mutates
+   *  geometry without going through the factory must invalidateType itself
+   *  before emitting; the factory path stays single-invalidation.
    *  @param {string} id - Layer id. */
   refreshCount(id: string) {
     if (this.layerRegistry.get(id)?.group === CONST.GROUP.BASE) return;
-    // Invalidate the cached geometry type so onLayerItemCountChange can re-detect
-    // it — a layer that gains/mixes geometry at runtime (e.g. Point + LineString
-    // added via createLayers) would otherwise keep its stale type icon.
-    this.invalidateType(id);
     this.events.emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id });
   }
 

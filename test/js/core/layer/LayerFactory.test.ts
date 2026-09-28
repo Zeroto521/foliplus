@@ -416,6 +416,30 @@ describe("LayerFactory", () => {
       expect(onDataChange).toHaveBeenCalledWith("test");
     });
 
+    it("invalidates the cached type on clearLayers only when there was content", () => {
+      // clearLayers is a content-change path like add/remove: it must drop the
+      // surface's cached geometry type, or a cleared container would keep its
+      // stale type icon until an unrelated invalidation.
+      const invalidate = vi.fn();
+      const f = new LayerFactory({
+        map: { ...map, hasLayer: vi.fn(() => true) },
+        panes,
+        registerLayer,
+        unregisterLayer,
+        bringLayerToFront,
+        invalidateType: invalidate,
+      });
+      const api = f.createLayers({ id: "test", name: "Test" });
+      api.register();
+      api.clearLayers();
+      expect(invalidate).not.toHaveBeenCalled(); // nothing to clear
+      const layer = new window.L.Path();
+      api.addLayer(layer);
+      invalidate.mockClear();
+      api.clearLayers();
+      expect(invalidate).toHaveBeenCalledWith("test");
+    });
+
     it("does not notify onDataChange for an empty graph-pane layer on clearLayers", () => {
       const onDataChange = vi.fn();
       const f = new LayerFactory({

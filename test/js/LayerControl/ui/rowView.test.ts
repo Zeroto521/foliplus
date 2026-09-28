@@ -214,7 +214,9 @@ describe("buildRowCell + applyRowView (one writer per row)", () => {
     layerInfo.iconSvg = '<svg id="custom" />';
     const cellInfo = buildRowCell(ui, layerInfo);
     expect(cellInfo.typeSvg).toBe('<svg id="custom" />');
-    expect(layerInfo.type).toBe(GEOM_TYPE.CUSTOM);
+    // The row is a projection, not a writer: the snapshot stays null until
+    // getLayerType stamps it (single-writer 33.2).
+    expect(layerInfo.type).toBeNull();
   });
 
   it("shows the feature count in the count column and in the tooltip", () => {

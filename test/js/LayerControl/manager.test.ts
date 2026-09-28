@@ -2395,7 +2395,7 @@ describe("LayerManager", () => {
       expect(handler).not.toHaveBeenCalled();
     });
 
-    it("invalidates the layer's cached type before emitting, so mixed geometry at runtime is re-detected", () => {
+    it("emits without touching the cached type; invalidation belongs to the content-change path", () => {
       manager.map.hasLayer.mockReturnValue(false);
       const poly = Object.assign(Object.create(window.L.Polygon.prototype), {
         options: {},
@@ -2406,11 +2406,19 @@ describe("LayerManager", () => {
       };
       manager.registerLayer({ id: "rt", name: "RT", layer: polyLayer });
       expect(manager.getLayerType("rt")).toBe(GEOM_TYPE.POLYGON);
-      // refreshCount must clear the cached type so a subsequent runtime geometry
-      // mix is re-detected by getLayerType/getGeometryType
+      // refreshCount is emit-only: LayerFactory invalidates on add/remove/clear,
+      // so a caller that mutates geometry must invalidateType itself. The
+      // snapshot survives a bare count notification.
       manager.refreshCount("rt");
       const layerInfo = manager.layerRegistry.get("rt");
-      expect(layerInfo?.type).toBeNull();
+      expect(layerInfo?.type).toBe(GEOM_TYPE.POLYGON);
+      const bus = map.foliplus!.events;
+      const handler = vi.fn();
+      bus.on(EVENTS.LAYER_ITEM_COUNT_CHANGE, handler);
+      manager.refreshCount("rt");
+      expect(handler).toHaveBeenCalledWith({ id: "rt" });
+      manager.invalidateType("rt");
+      expect(manager.layerRegistry.get("rt")?.type).toBeNull();
     });
 
     it("emits for an unknown layer id (no-op subscriber; defensive)", () => {

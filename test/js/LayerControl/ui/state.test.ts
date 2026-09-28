@@ -1013,12 +1013,12 @@ describe("event-driven row refresh", () => {
     expect(item.querySelector(`.${CONST.CLASSES.TYPE_ICON_COL}`)).not.toBeNull();
   });
 
-  it("onLayerItemCountChange re-stamps the type snapshot from the surface's probe", () => {
+  it("onLayerItemCountChange renders the type from the surface without stamping the snapshot", () => {
     // 33.2 authority: the surface owns the geometry probe; the manager never
-    // calls getGeometryType directly. Writing layerInfo.type here is a snapshot
-    // sync for render, not a second source of truth. The fixture's plain object
-    // is not an L.Polygon, so the surface resolves it to EMPTY, which the
-    // branch stamps verbatim.
+    // calls getGeometryType directly, and the row only reads the surface — it
+    // does not write layerInfo.type (single-writer snapshot via getLayerType).
+    // The fixture's plain object is not an L.Polygon, so the surface resolves
+    // it to EMPTY, which the row renders verbatim.
     const info = manager.layerRegistry.get("overlay1")!;
     const geomSpy = vi
       .spyOn(manager.surfaces.get("overlay1"), "geometryType")
@@ -1027,21 +1027,21 @@ describe("event-driven row refresh", () => {
     ensureEvents(ui.m.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "overlay1" });
 
     expect(geomSpy).toHaveBeenCalledTimes(1);
-    expect(info.type).toBe(GEOM_TYPE.POLYGON);
+    expect(info.type).toBeNull();
     expect(
       findItem(ui, "overlay1").querySelector(`.${CONST.CLASSES.TYPE_ICON_COL}`),
     ).not.toBeNull();
   });
 
   it("onLayerItemCountChange falls back to UNKNOWN for an iconSvg-less layer with no resolvable layer object", () => {
-    // Canvas / late-registered surface: findLayer returns null, so the branch
-    // paints SVGs.UNKNOWN and stamps the snapshot.
+    // Canvas / late-registered surface: findLayer returns null, so the row
+    // paints SVGs.UNKNOWN without touching the snapshot.
     const info = manager.layerRegistry.get("overlay1")!;
     vi.spyOn(manager, "findLayer").mockReturnValue(null);
 
     ensureEvents(ui.m.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "overlay1" });
 
-    expect(info.type).toBe(GEOM_TYPE.UNKNOWN);
+    expect(info.type).toBeNull();
     expect(
       findItem(ui, "overlay1").querySelector(`.${CONST.CLASSES.TYPE_ICON_COL}`)
         ?.innerHTML,
@@ -1050,8 +1050,8 @@ describe("event-driven row refresh", () => {
 
   it("onLayerItemCountChange leaves an iconSvg layer's custom SVG untouched", () => {
     // iconSvg-only layers short-circuit the geometry branch: the type column
-    // keeps the custom icon, layerInfo.type stays at CUSTOM (list.ts stamped it
-    // at init), and the surface is never probed.
+    // keeps the custom icon, and the surface is never probed. The snapshot
+    // stays null until getLayerType stamps it.
     const iconSvg = '<svg viewBox="0 0 8 8"><rect width="8" height="8"/></svg>';
     manager.registerLayer({
       id: "custom1",
@@ -1061,7 +1061,7 @@ describe("event-driven row refresh", () => {
     });
     const info = manager.layerRegistry.get("custom1")!;
     const item = findItem(ui, "custom1");
-    expect(info.type).toBe(GEOM_TYPE.CUSTOM);
+    expect(info.type).toBeNull();
     expect(item.querySelector(`.${CONST.CLASSES.TYPE_ICON_COL}`)?.innerHTML).toContain(
       "rect",
     );
@@ -1071,7 +1071,7 @@ describe("event-driven row refresh", () => {
     expect(item.querySelector(`.${CONST.CLASSES.TYPE_ICON_COL}`)?.innerHTML).toContain(
       "rect",
     );
-    expect(info.type).toBe(GEOM_TYPE.CUSTOM);
+    expect(info.type).toBeNull();
   });
 
   it("onLayerItemCountChange re-applies the layer opacity to finalized geometry", () => {
