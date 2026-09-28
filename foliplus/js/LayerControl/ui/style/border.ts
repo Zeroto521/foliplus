@@ -166,8 +166,9 @@ const authoredBorder = (
  *  omitted from the `setStyle` call so the author's declared default stays
  *  in force.
  *
- *  Called from the two commit paths and from the replay hook, so the walk
- *  is the single writer of a border style — the commits only record intent. */
+ *  Called from the two commit paths and from the applyUserState sweep, so
+ *  the walk is the single writer of a border style — the commits only record
+ *  intent. */
 const applyBorderToLayer = (ui: LayerUI, layerId: string): void => {
   const color = ui.borderColorMap[layerId];
   const weight = ui.borderWeightMap[layerId];
@@ -267,25 +268,6 @@ const resetLayerBorder = (ui: LayerUI, layerId: string): void => {
     node.setStyle({ color: base.color, weight: base.weight });
   };
   walk(layer);
-};
-
-/** Replay the stored border intent onto the layer's own leaves. The executor
- *  never carries a border — `setStyle` is a direct Leaflet call, so nothing
- *  else writes it — which means a reload would otherwise restore the row's
- *  value in the drawer while the map keeps painting the author's stroke.
- *
- *  Called from `LayerUI.applyUserState`, so it runs on the attach sweep and
- *  on a late registration alike: a layer that registers after the sweep has
- *  taken its stored state replays itself, exactly as opacity does. `id` is
- *  required: the sweep enumerates `userOverrides` (the single source fill's
- *  replay walks too), so this function never picks its own target set — a
- *  map-union fallback here would diverge from fill the moment the two
- *  sources drift.
- *
- *  Only stored values are replayed, so a layer the user never touched keeps
- *  the author's declared stroke. */
-const replayBorderState = (ui: LayerUI, id: string): void => {
-  applyBorderToLayer(ui, id);
 };
 
 /** Resolve an authored color to the `#rrggbb` form the color input's
@@ -498,7 +480,6 @@ export {
   commitBorderColor,
   commitBorderWeight,
   layerCanBorder,
-  replayBorderState,
   resetLayerBorder,
 };
 
