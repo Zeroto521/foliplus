@@ -2,10 +2,10 @@
 //
 // Panels that group content (attributes, per-layer style, delegated drawer)
 // share one shape: a heading row with a title on the left and an optional
-// master switch on the right, an optional muted second line beneath the
-// title, and a body below. Each panel used to hand-build that shape — the
-// style panel from a one-line heading helper, the heatmap template from a bare
-// `<div class="foliplus-section-heading">` — so new sections drifted.
+// master switch on the right, and a body below. Each panel used to hand-build
+// that shape — the style panel from a one-line heading helper, the heatmap
+// template from a bare `<div class="foliplus-section-heading">` — so new
+// sections drifted.
 //
 // This module owns the DOM shape. Collapsing is pure view state
 // (`foliplus-is-collapsed` on the root, the same state-class namespace every
@@ -25,8 +25,9 @@
 // and keyboard, no `keydown` shim needed.
 //
 // The head keeps the `.foliplus-section-heading` class so existing tests
-// and CSS targeting that selector continue to work. When `caption` is
-// omitted, `head.textContent` equals exactly the title text.
+// and CSS targeting that selector continue to work. `head.textContent`
+// equals exactly the title text — nothing else lives in the head row but
+// the optional switch, which carries no text of its own.
 import { dom } from "./dom.js";
 
 // The collapsed-state class shares the foliplus state-class namespace
@@ -37,8 +38,6 @@ const COLLAPSED = "foliplus-is-collapsed";
 interface SectionOpts {
   /** Title text, or a caller-built element (the common case is a string). */
   title: string | HTMLElement;
-  /** Muted second line beneath the title. Omit for a title-only heading. */
-  caption?: string | HTMLElement | null;
   /** Master on/off control on the right of the head — a checkbox row, a pin,
    *  or any self-managed control. Callers own its behaviour; this is a slot. */
   switch?: HTMLElement | null;
@@ -53,7 +52,6 @@ interface SectionResult {
   head: HTMLElement;
   body: HTMLElement;
   titleEl: HTMLElement;
-  captionEl: HTMLElement | null;
   switchEl: HTMLElement | null;
   setCollapsed: (collapsed: boolean) => void;
   setSwitch: (checked: boolean) => void;
@@ -62,7 +60,6 @@ interface SectionResult {
 const createSection = (opts: SectionOpts): SectionResult => {
   const {
     title,
-    caption,
     switch: switchEl = null,
     collapsible = false,
     collapsed = false,
@@ -79,15 +76,9 @@ const createSection = (opts: SectionOpts): SectionResult => {
   if (typeof title === "string") titleEl.textContent = title;
   else titleEl.appendChild(title);
 
-  let captionEl: HTMLElement | null = null;
-  if (caption != null) {
-    captionEl = dom.el("div", { class: "foliplus-section-caption" }, caption);
-  }
-
   const body = dom.el("div", { class: "foliplus-section-body" });
 
   head.appendChild(titleEl);
-  if (captionEl) head.appendChild(captionEl);
   if (switchEl) head.appendChild(switchEl);
 
   root.appendChild(head);
@@ -113,7 +104,6 @@ const createSection = (opts: SectionOpts): SectionResult => {
     head,
     body,
     titleEl,
-    captionEl,
     switchEl,
     setCollapsed: (collapsed: boolean): void => {
       if (!collapsible) return;

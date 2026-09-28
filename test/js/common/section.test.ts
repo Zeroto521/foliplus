@@ -1,5 +1,47 @@
+import { readFileSync } from "fs";
+import { resolve } from "path";
 import { describe, expect, it } from "vitest";
 import { createSection } from "#common/section.js";
+
+// Resolved against cwd — the repo root every build script assumes.
+const ROOT = resolve(".");
+
+// Pull one block out of a stylesheet, brace-matched so a nested `&` rule
+// inside the block is not cut off at its first `}`.
+const ruleBlock = (src: string, selector: string): string => {
+  const start = src.indexOf(`${selector} {`);
+  if (start < 0) throw new Error(`selector not found: ${selector}`);
+  let depth = 0;
+  for (let i = start; i < src.length; i++) {
+    if (src[i] === "{") depth += 1;
+    else if (src[i] === "}") {
+      depth -= 1;
+      if (depth === 0) return src.slice(start, i + 1);
+    }
+  }
+  throw new Error(`unclosed rule: ${selector}`);
+};
+
+// First declaration of `prop` inside a block, value only.
+const decl = (block: string, prop: string): string => {
+  const m = block.match(new RegExp(`(?:^|[^-\\w])${prop}:\\s*([^;]+);`));
+  if (!m) throw new Error(`no ${prop} declaration`);
+  return m[1].trim();
+};
+
+// Spacing values are one indirection deep (`--space-lg` → `--size-12` →
+// `12px`), so chase the var() chain until a literal lands.
+const px = (tokens: string, value: string): number => {
+  let v = value.trim();
+  for (let i = 0; i < 4; i += 1) {
+    const ref = v.match(/^var\((--[\w-]+)\)$/);
+    if (!ref) break;
+    v = decl(tokens, ref[1]).trim();
+  }
+  const n = parseInt(v, 10);
+  if (Number.isNaN(n)) throw new Error(`${value} did not resolve to px: ${v}`);
+  return n;
+};
 
 describe("createSection — DOM shape", () => {
   it("wraps a title button and empty body in .foliplus-section", () => {
@@ -18,25 +60,12 @@ describe("createSection — DOM shape", () => {
     expect(s.head.textContent).toBe("Layer");
   });
 
-  it("returns null captionEl and switchEl when the caller omits them", () => {
+  it("renders exactly one child in the head when the caller passes no switch", () => {
     const s = createSection({ title: "Label" });
 
-    expect(s.captionEl).toBeNull();
     expect(s.switchEl).toBeNull();
-    expect(s.head.querySelector(".foliplus-section-caption")).toBeNull();
-  });
-
-  it("renders the caption as a muted second line beneath the title", () => {
-    const s = createSection({
-      title: "Label",
-      caption: "Shown when this layer renders.",
-    });
-
-    expect(s.captionEl).not.toBeNull();
-    expect(s.captionEl!.className).toBe("foliplus-section-caption");
-    expect(s.captionEl!.textContent).toBe("Shown when this layer renders.");
-    expect(s.head.children).toHaveLength(2);
-    expect(s.head.querySelector(".foliplus-section-caption")).not.toBeNull();
+    expect(s.head.children).toHaveLength(1);
+    expect(s.head.textContent).toBe("Label");
   });
 
   it("mounts the caller's switch element into the head's right slot", () => {
@@ -163,5 +192,65 @@ describe("createSection — programmatic API", () => {
   it("setSwitch is a no-op when no switch was provided", () => {
     const s = createSection({ title: "No switch" });
     expect(() => s.setSwitch(true)).not.toThrow();
+  });
+});
+
+// The group header's whole job is to sit between the panel title and the rows
+// without reading as either. jsdom never resolves custom properties, so the
+// declarations that carry that hierarchy are read from the stylesheet source
+// rather than from getComputedStyle.
+describe("createSection — group header styling", () => {
+  const form = readFileSync(resolve(ROOT, "foliplus/css/common/form.css"), "utf8");
+  const section = readFileSync(
+    resolve(ROOT, "foliplus/css/common/section.css"),
+    "utf8",
+  );
+  const tokens = readFileSync(resolve(ROOT, "foliplus/css/common/token.css"), "utf8");
+
+  it("sits one notch under the row label it introduces", () => {
+    const heading = ruleBlock(form, ".foliplus-section-heading");
+    const label = ruleBlock(form, ".foliplus-form-label");
+
+    // 11px against the row label's 12px: smaller than what it labels, so the
+    // eye lands on the row rather than on the group name.
+    expect(decl(heading, "font-size")).toBe("11px");
+    expect(px(tokens, decl(label, "font-size"))).toBe(12);
+    expect(px(tokens, decl(heading, "font-size"))).toBeLessThan(12);
+  });
+
+  it("reads muted and tracked so it does not compete with a row", () => {
+    const heading = ruleBlock(form, ".foliplus-section-heading");
+    const label = ruleBlock(form, ".foliplus-form-label");
+
+    // The rows keep full-strength ink; the contrast is what separates a
+    // group name from a fact.
+    expect(decl(heading, "color")).toBe("var(--text-muted)");
+    expect(decl(label, "color")).toBe("var(--text-primary)");
+    expect(decl(heading, "letter-spacing")).toBe("1.5px");
+    // The row keeps default tracking — only the group name is set apart.
+    expect(ruleBlock(form, ".foliplus-form-label")).not.toContain("letter-spacing");
+  });
+
+  it("spends more vertical whitespace than the gap between rows", () => {
+    const heading = ruleBlock(form, ".foliplus-section-heading");
+    const padding = decl(heading, "padding").split(/\s+/);
+    expect(padding).toHaveLength(3);
+
+    const top = px(tokens, padding[0]);
+    const bottom = px(tokens, padding[2]);
+    // Rows inside a group sit --space-xs apart; the group edge outranks it.
+    expect(top).toBeGreaterThan(px(tokens, "var(--space-xs)"));
+    expect(bottom).toBeGreaterThan(px(tokens, "var(--space-xs)"));
+  });
+
+  it("keeps the switch on the right of the title in the shared grid", () => {
+    const head = ruleBlock(section, ".foliplus-section-heading");
+    expect(decl(head, "display")).toBe("grid");
+    expect(decl(head, "grid-template-columns")).toBe("1fr auto");
+  });
+
+  it("declares no caption slot anywhere in the section styles", () => {
+    expect(section).not.toContain(".foliplus-section-caption");
+    expect(form).not.toContain("foliplus-section-caption");
   });
 });

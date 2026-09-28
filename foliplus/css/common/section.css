@@ -2,8 +2,8 @@
 
 /* ══════════════════════════════════════════════════════════════════════
    Shared Section — declarative section groups inside a panel body.
-   Built by common/section.ts. Owns the head-row layout, the caption
-   grammar, the is-collapsed state, and the click-versus-switch routing.
+   Built by common/section.ts. Owns the head-row layout, the
+   is-collapsed state, and the click-versus-switch routing.
    Collapsing is a view-state class on the root, never persisted here.
    ══════════════════════════════════════════════════════════════════════ */
 
@@ -12,20 +12,16 @@
   display: block;
 }
 
-/* Head row: two-column grid — title on the left, switch on the right,
-   and (when provided) a muted caption on a second row spanning the width.
+/* Head row: two-column grid — title on the left, switch on the right.
    The base typography and padding live on `.foliplus-section-heading`
    in form.css — this rule just widens it from a plain block into a grid
    and aligns the two cells vertically. A caller that keeps writing a bare
    `.foliplus-section-heading` with plain text (the heatmap template) still
-   renders: a text node becomes the row-1/col-1 item and the empty second
-   row collapses to zero height. */
+   renders: a text node becomes the row-1/col-1 item. */
 .foliplus-section-heading {
   display: grid;
   grid-template-columns: 1fr auto;
-  grid-template-rows: auto auto;
   column-gap: var(--space-sm);
-  row-gap: var(--space-xs);
   align-items: center;
   box-sizing: border-box;
 }
@@ -71,22 +67,6 @@
   grid-column: 2;
   grid-row: 1;
   flex-shrink: 0;
-}
-
-/* Caption: muted second line beneath the title, spanning the full head
-   width so long captions wrap naturally. Nested inside `.head` (not
-   inside `.titleEl`) so `heading.textContent` still equals the title
-   alone when the caption is omitted — the existing section-heading tests
-   key on that exact string. */
-.foliplus-section-heading > .foliplus-section-caption {
-  grid-column: 1 / -1;
-  grid-row: 2;
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-normal);
-  color: var(--text-muted);
-  text-transform: none;
-  letter-spacing: normal;
-  line-height: var(--line-height-hint);
 }
 
 /* Collapsed state: the body is display:none; the head remains as the

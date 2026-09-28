@@ -277,7 +277,10 @@ class TestHeatmapControlRendering:
         assert ".foliplus-heatmap-section-heading" not in css
         shared = read_css("foliplus/css/common/form.css")
         assert ".foliplus-section-heading" in shared
-        assert "letter-spacing: var(--letter-spacing-tight)" in shared
+        # One shared group-header rule for the heatmap and the style panel:
+        # tracked out and muted, so a group name reads as a label, not as a row.
+        assert "letter-spacing: 1.5px" in shared
+        assert "color: var(--text-muted)" in shared
 
     def test_close_button_renders(self):
         """Close button is rendered in the panel header."""

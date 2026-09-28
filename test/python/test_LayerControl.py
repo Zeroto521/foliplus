@@ -749,7 +749,11 @@ class TestLayerControlRendering:
         css = read_css("foliplus/css/common/form.css")
         assert ".foliplus-section-heading" in css
         assert "text-transform: uppercase" in css
-        assert "letter-spacing: var(--letter-spacing-tight)" in css
+        # The group header is one notch under the 12px row label, in muted ink,
+        # tracked out — deliberately lighter than the rows it introduces.
+        assert "font-size: 11px" in css
+        assert "letter-spacing: 1.5px" in css
+        assert "color: var(--text-muted)" in css
 
     def test_slider_component_css(self):
         """One shared slider component carries all the geometry.
