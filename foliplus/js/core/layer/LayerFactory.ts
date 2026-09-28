@@ -5,7 +5,12 @@ import { cancelMapPaneTranslate, dom } from "#common/dom.js";
 import { createLogger } from "#common/log.js";
 import { throttleRaf } from "#common/throttle.js";
 import { PaneManager } from "./PaneManager.js";
-import { CANVAS_PANE_PREFIX, COLOR_PANE_PREFIX, PANE_NAME_PATTERN } from "./const.js";
+import {
+  CANVAS_PANE_PREFIX,
+  COLOR_PANE_PREFIX,
+  HIDDEN,
+  PANE_NAME_PATTERN,
+} from "./const.js";
 import type {
   CreateCanvasAPI,
   CreateCanvasOpts,
@@ -55,9 +60,6 @@ interface LayerFactoryDeps {
 // core/layer is not a component dir, so CONF is unavailable here — the module
 // prefixes with its own class name.
 const log = createLogger("LayerFactory");
-
-/** The class a hidden face carries. */
-const HIDDEN = "hidden";
 
 /** The pane a canvas or color surface paints into. `opts.id` is caller input
  *  and this name reaches Leaflet's `createPane` as both an element id and a
@@ -118,7 +120,6 @@ class LayerFactory {
       content: {
         kind: "canvas",
         className: opts.className,
-        onToggle: opts.onToggle,
         getBounds: opts.getBounds,
         source: opts.source,
         updatedAt: opts.updatedAt,
@@ -145,7 +146,7 @@ class LayerFactory {
       id: opts.id,
       name: opts.name,
       persistOrder: opts.persistOrder,
-      content: { kind: "color", color: opts.color, onToggle: opts.onToggle },
+      content: { kind: "color", color: opts.color },
     });
     // register() is called by the caller (LayerControl UI) after setting
     // ui.colorSurface, to avoid a recursive call through applyProjection.
@@ -363,7 +364,7 @@ class LayerFactory {
     }
 
     if (opts.content.kind === "color") {
-      const { color, onToggle: onToggleOpt } = opts.content;
+      const { color } = opts.content;
       const paneName = namedPaneNameFor(opts.id, COLOR_PANE_PREFIX, "color surface");
 
       // The face is built detached and mounted into its pane at register time
@@ -414,8 +415,6 @@ class LayerFactory {
         face.classList.toggle(HIDDEN, !v);
       };
 
-      const onToggle = onToggleOpt ?? setVisible;
-
       layerOpts = {
         ...commonLayerOpts,
         isBase: true,
@@ -424,7 +423,6 @@ class LayerFactory {
         canvas: face,
         color,
         paneName,
-        onToggle,
       };
 
       const onMove = throttleRaf(() => updatePosition());
@@ -476,14 +474,7 @@ class LayerFactory {
       };
     }
 
-    const {
-      className,
-      onToggle: onToggleOpt,
-      getBounds,
-      source,
-      updatedAt,
-      meta,
-    } = opts.content;
+    const { className, getBounds, source, updatedAt, meta } = opts.content;
 
     const paneName = namedPaneNameFor(opts.id, CANVAS_PANE_PREFIX, "createCanvas");
 
@@ -520,17 +511,10 @@ class LayerFactory {
     resize();
     updatePosition();
 
-    const onToggle =
-      onToggleOpt ||
-      ((visible: boolean) => {
-        canvas.classList.toggle(HIDDEN, !visible);
-      });
-
     layerOpts = {
       ...commonLayerOpts,
       canvas,
       paneName,
-      onToggle,
       getBounds: getBounds ?? null,
       source: source ?? null,
       updatedAt: updatedAt ?? null,

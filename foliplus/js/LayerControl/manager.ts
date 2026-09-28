@@ -706,9 +706,9 @@ class LayerManager implements LayerAPI {
 
     // If the layer was previously hidden by the user, keep it off the map on
     // re-entry so it isn't silently re-added by runtime re-registration. A
-    // callback-only hidden layer (no Leaflet layer, onToggle only) is handled
-    // by `applyUserState` further below, which re-projects the hidden intent
-    // and fires the callback through the executor's single write path.
+    // canvas-only hidden layer (no Leaflet layer, HIDDEN class carrier) is
+    // handled by `applyUserState` further below, which re-projects the hidden
+    // intent and writes the carrier through the executor's single write path.
     if (
       !this.ui?.hiddenIds?.has(opts.id) &&
       opts.layer &&

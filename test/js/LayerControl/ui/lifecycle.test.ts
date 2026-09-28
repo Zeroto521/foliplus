@@ -104,9 +104,9 @@ describe("LayerUI lifecycle — defensive rails", () => {
     it("onClick: the color row's body no longer triggers showColorLayer", () => {
       // T201: row-body clicks used to call showColorLayer directly; the
       // checkbox's change event is the only legitimate path
-      // (applyVisibility → onToggle → showColorLayer). A second call from
-      // here would rebuild the list mid-click and leave the checkbox's
-      // `checked` un-updated. The positive path (checkbox → applyVisibility
+      // (applyVisibility → the executor's canvas HIDDEN write → showColorLayer).
+      // A second call from here would rebuild the list mid-click and leave the
+      // checkbox's `checked` un-updated. The positive path (checkbox → applyVisibility
       // → showColorLayer) is covered by the browser test
       // test_color_basemap_checkbox_toggles_visibility, so this unit test
       // pins only the negative half of the contract.

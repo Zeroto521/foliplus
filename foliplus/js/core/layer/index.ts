@@ -6,6 +6,7 @@ export {
   COLOR_PANE_PREFIX,
   FALLBACK_PANE_PREFIX,
   GEOM_TYPE,
+  HIDDEN,
   RECURSION,
   Z_INDEX,
 } from "./const.js";
