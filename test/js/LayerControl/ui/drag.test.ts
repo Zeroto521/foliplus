@@ -89,9 +89,9 @@ describe("ui/drag", () => {
      *  lookup would have read. */
     const makeScrambledUi = () => {
       const layers: LayerInfo[] = [
-        { id: "A", name: "A", isBase: false } as LayerInfo,
-        { id: "B", name: "B", isBase: false } as LayerInfo,
-        { id: "C", name: "C", isBase: false } as LayerInfo,
+        { id: "A", name: "A", group: "overlay" } as LayerInfo,
+        { id: "B", name: "B", group: "overlay" } as LayerInfo,
+        { id: "C", name: "C", group: "overlay" } as LayerInfo,
       ];
       const uiContainer = document.createElement("div");
       for (const id of ["C", "A", "B"]) {
@@ -221,20 +221,17 @@ describe("ui/drag", () => {
 
     it("handleDragOver treats the color basemap row as a valid target", () => {
       // The color row is a base-group member like any other: it participates
-      // in drag reorder (the old COLOR_ITEM exclusion was retired with the
-      // first-class basemaps). A row WITHOUT a data-layer-id is still ignored
-      // — that is the no-layer case, not the color case.
+      // in drag reorder. A row WITHOUT a data-layer-id is still ignored —
+      // that is the no-layer case, not the color case.
       const layers: LayerInfo[] = [
-        { id: "A", name: "A", isBase: false } as LayerInfo,
-        { id: "foliplus_color_map", name: "Color", isBase: true } as LayerInfo,
+        { id: "A", name: "A", group: "overlay" } as LayerInfo,
+        { id: "foliplus_color_map", name: "Color", group: "base" } as LayerInfo,
       ];
       const uiContainer = document.createElement("div");
       for (const id of ["A", "foliplus_color_map"]) {
         const row = document.createElement("div");
         row.className = CONST.CLASSES.LAYER_ITEM;
-        if (id === "foliplus_color_map") {
-          row.classList.add(CONST.CLASSES.COLOR_ITEM);
-        }
+        row.setAttribute(CONST.DATA.LAYER_ID, id);
         row.setAttribute(CONST.DATA.LAYER_ID, id);
         uiContainer.appendChild(row);
       }
@@ -333,8 +330,8 @@ describe("ui/drag", () => {
 
     it("handleDrop aborts when the dragged row is missing from the panel", () => {
       const layers: LayerInfo[] = [
-        { id: "A", name: "A", isBase: false } as LayerInfo,
-        { id: "B", name: "B", isBase: false } as LayerInfo,
+        { id: "A", name: "A", group: "overlay" } as LayerInfo,
+        { id: "B", name: "B", group: "overlay" } as LayerInfo,
       ];
       const uiContainer = document.createElement("div");
       const rowB = document.createElement("div");
@@ -381,7 +378,7 @@ describe("ui/drag", () => {
 
     it("handleDrop disarms when the armed index no longer names a layer", () => {
       const layers: LayerInfo[] = [
-        { id: "A", name: "A", isBase: false } as LayerInfo,
+        { id: "A", name: "A", group: "overlay" } as LayerInfo,
         // Torn down between dragstart and drop: in range, no id.
         {} as LayerInfo,
       ];
@@ -557,7 +554,7 @@ describe("ui/drag", () => {
     it("handleDragStart tolerates a null dataTransfer", () => {
       const ui = makeUi({
         layers: [
-          { id: "a", name: "A", layer: {} as L.Layer, visible: true, isBase: true },
+          { id: "a", name: "A", layer: {} as L.Layer, visible: true, group: "base" },
         ],
         containers: ["a", "b"],
       });

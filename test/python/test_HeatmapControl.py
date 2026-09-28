@@ -262,22 +262,23 @@ class TestHeatmapControlRendering:
         assert "btn-clear" in html
         assert "HeatmapControl.clear" in html
 
-    def test_section_data_and_style(self):
-        """Data and Style section labels are rendered."""
-        html = render_control(HeatmapControl())
-        assert "HeatmapControl.section_data" in html
-        assert "HeatmapControl.section_style" in html
+    def test_no_section_headings(self):
+        """The panel is one flat row list: no Data/Style headings ship.
 
-    def test_uses_shared_section_heading_class(self):
-        """Section headings use the shared form.css class, not a heatmap-local one."""
+        Neither the shared `.foliplus-section-heading` nor a heatmap-local
+        lookalike reaches the markup, and the two locale keys that used to
+        name them are gone from the JSON too.
+        """
         html = render_control(HeatmapControl())
-        assert "foliplus-section-heading" in html
+        assert "foliplus-section-heading" not in html
         assert "foliplus-heatmap-section-heading" not in html
+        assert "HeatmapControl.section_data" not in html
+        assert "HeatmapControl.section_style" not in html
+
         css = read_css("foliplus/css/HeatmapControl.css")
         assert ".foliplus-heatmap-section-heading" not in css
         shared = read_css("foliplus/css/common/form.css")
-        assert ".foliplus-section-heading" in shared
-        assert "letter-spacing: var(--letter-spacing-tight)" in shared
+        assert ".foliplus-section-heading" not in shared
 
     def test_close_button_renders(self):
         """Close button is rendered in the panel header."""
@@ -1138,6 +1139,57 @@ class TestHeatmapControlBrowser:
             assert not errors, f"JS errors: {errors}"
         finally:
             page.close()
+
+    def test_canvas_pane_birth_z_is_final(self, browser, tmp_path):
+        """HeatmapControl's canvas pane is born at its final z.
+
+        Selecting a layer renders hexagons, which registers the canvas overlay
+        — creating its pane and stamping its slot z in one synchronous stack.
+        The prelude records the computed z one microtask after ``createPane``
+        returns (the value that first frame paints), and the assertion compares
+        it with the z read after an explicit ordering pass.
+        """
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            expose_ctrl=True,
+            prelude=_js("LayerControl/pane_birth_z_prelude"),
+        ) as (page, errors):
+            page.evaluate(
+                "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn').click()"
+            )
+            page.wait_for_selector(
+                ".foliplus-heatmap-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            heatmap_ready(page)
+            opts = page.evaluate(
+                "Array.from(window.__heatmapCtrl.layerSelect"
+                ".querySelectorAll('option')).slice(1).map(o => o.value)"
+            )
+            assert opts, "No layer options found"
+            page.evaluate(_js("HeatmapControl/select_layer"), opts[0])
+            page.wait_for_timeout(1000)
+            state = page.evaluate(_js("LayerControl/pane_birth_z_state"))
+        assert state["hooked"] is True, "createPane hook never installed"
+        canvas_panes = {
+            name: z
+            for name, z in state["panes"].items()
+            if name.startswith("foliplus-canvas-")
+        }
+        assert canvas_panes, (
+            f"heatmap canvas pane not found; panes={list(state['panes'])}"
+        )
+        for name, z in canvas_panes.items():
+            assert z["zAtMicrotask"] != "400", (
+                f"{name} painted at Leaflet's default z on the first frame: {z}"
+            )
+            assert z["zAtMicrotask"] == z["zAfterOrder"], (
+                f"{name} moved after the ordering pass: {z}"
+            )
+        assert not errors, f"JS errors: {errors}"
 
 
 class TestHeatmapAutoFieldBrowser:

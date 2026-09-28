@@ -32,7 +32,10 @@
      -halo-color / -halo-width from common/token.css — directly, so one override
      styles a hex value and an annotation label alike. */
 
-  /* ── Sections: Data / Style / Labels ── */
+  /* ── Style rows block ──
+     Sits below the data rows with no heading of its own since the panel
+     dropped its Data / Style group titles; padding stays 0 so the rows
+     keep the config-body's own inset. */
   .foliplus-heatmap-section-block {
     padding: 0;
   }
@@ -97,10 +100,7 @@
     pointer-events: none;
   }
   /* Scheme row: the control cell needs relative positioning so the dropdown
-     hangs off it. Both classes are the shared form primitives — the component
-     prefixed names here stopped matching when the template moved to
-     `foliplus-form-row` / `foliplus-form-control`, which silently returned the
-     dropdown to the page flow. */
+     hangs off it (not the page flow). */
   .foliplus-form-row:has(.foliplus-heatmap-scheme-bar) .foliplus-form-control {
     position: relative;
   }
@@ -134,7 +134,7 @@
     height: var(--ctrl-size);
     box-sizing: border-box;
     /* Reserved border: same "selected" language as layer items — a permanent
-       transparent left border, .active only recolors it. No layout shift and
+       transparent left border, .foliplus-is-active only recolors it. No layout shift and
        the border-color can transition. */
     border-left: var(--border-thick) solid transparent;
 
@@ -168,13 +168,10 @@
   /* The divider above the footer action comes from the shared panel recipe
      (common/panel.css), so the heatmap's footer and the per-layer style
      panel's footer are inset and spaced identically. Nothing to add here. */
-
-  /* Section headings come from shared form.css (`.foliplus-section-heading`). */
 }
 
 /* Field selector: extra body / field reuse the shared `foliplus-hidden`
-   (display: none !important) class, toggled by CONST.CLASSES.HIDDEN.
-   No component-local `.hidden` rule is needed — see reset.css. */
+   (display: none !important) class, toggled by CONST.CLASSES.HIDDEN. */
 /* Placeholder select styling */
 :is(
   .foliplus-heatmap-ctrl select.foliplus-heatmap-placeholder,

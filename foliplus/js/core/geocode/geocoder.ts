@@ -15,7 +15,7 @@ import { withMapCRS } from "./mapProvider.js";
 import { formatAddress } from "./nominatim.js";
 import { createThrottleQueue } from "./rateLimit.js";
 import { resolveProvider } from "./registry.js";
-import type { GeocodeProvider, ProviderConfig } from "./type.js";
+import type { GeocodeProvider, GeocodeResult, ProviderConfig } from "./type.js";
 
 // FIFO cache shared by both directions, bounded to bound memory.
 // Entries expire after 24h so upstream result changes are not served stale.
@@ -106,13 +106,6 @@ const reverseGeocode = (
   );
 };
 
-/** A resolved forward-geocode result (already in the map's CRS). */
-interface GeocodeResult {
-  lng: number;
-  lat: number;
-  display_name: string;
-}
-
 /** Forward geocode an address to coordinates via the given provider (cached, throttled). */
 const geocode = (
   map: L.Map,
@@ -185,4 +178,3 @@ const cacheSuggestion = (
 };
 
 export { geocode, reverseGeocode, cacheSuggestion };
-export type { GeocodeResult };

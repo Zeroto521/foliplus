@@ -100,6 +100,30 @@ describe("LayerUI lifecycle — defensive rails", () => {
 
       expect(toggleFoldSpy).toHaveBeenCalledWith(ui, "");
     });
+
+    it("onClick: the color row's body no longer triggers showSolidBasemap", () => {
+      // T201: row-body clicks used to call showSolidBasemap directly; the
+      // checkbox's change event is the only legitimate path
+      // (applyVisibility → the executor's canvas HIDDEN write → showSolidBasemap).
+      // A second call from here would rebuild the list mid-click and leave the
+      // checkbox's `checked` un-updated. The positive path (checkbox → applyVisibility
+      // → showSolidBasemap) is covered by the browser test
+      // test_color_basemap_checkbox_toggles_visibility, so this unit test
+      // pins only the negative half of the contract.
+      const showSolidBasemapSpy = vi
+        .spyOn(ui, "showSolidBasemap")
+        .mockImplementation(() => {});
+      const colorRow = ui.uiContainer.querySelector<HTMLElement>(
+        `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
+      );
+      expect(colorRow).toBeTruthy();
+      // Click the row's label cell — well outside the checkbox, drag handle,
+      // and ⋮ button, so none of the excluded descendants match.
+      const label = colorRow!.querySelector(`.${CONST.CLASSES.LAYER_LABEL}`)!;
+      label.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+      expect(showSolidBasemapSpy).not.toHaveBeenCalled();
+    });
   });
 
   describe("onLayerItemCountChange — the refresh rails", () => {

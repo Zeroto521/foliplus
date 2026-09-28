@@ -15,20 +15,21 @@ import type { LayerUI } from "./index.js";
 const getColorSurface = (ui: LayerUI): CreateColorAPI => {
   if (!ui.colorSurface) {
     const surface = ui.m.createColor({
-      id: CONST.COLOR.MAP_ID,
+      id: CONST.SOLID_BASEMAP_ID,
       name: ui.T("color_map_label"),
       color: CONST.COLOR.DEFAULT,
     });
     ui.colorSurface = surface;
     // register() inserts the LayerInfo into the registry. Called after
-    // setting ui.colorSurface to avoid a recursive call through
-    // applyProjection → onToggle → showColorLayer → getColorSurface.
+    // setting ui.colorSurface so a subsequent getColorSurface call (from
+    // showSolidBasemap during the register-triggered applyProjection) finds
+    // the surface instead of creating a second one.
     surface.register();
   }
   return ui.colorSurface;
 };
 
-const showColorLayer = (ui: LayerUI, color: string) => {
+const showSolidBasemap = (ui: LayerUI, color: string) => {
   ui.currentColor = color;
   const surface = getColorSurface(ui);
   surface.setColor(color);
@@ -36,21 +37,14 @@ const showColorLayer = (ui: LayerUI, color: string) => {
   // Checking the box is a single user action — order the stack now, so the
   // pane's z lands immediately instead of after the debounce.
   ui.m.enforceOrder();
-
-  ui.uiContainer
-    .querySelector(CONST.SEL.COLOR_ITEM)
-    ?.classList.add(CONST.CLASSES.ACTIVE);
 };
 
-const hideColorLayer = (ui: LayerUI) => {
+const hideSolidBasemap = (ui: LayerUI) => {
   // The surface is created lazily on first show. An init-time hide
   // (the author default is unchecked) runs before any show, so the
   // surface does not exist yet — nothing to hide, and the pane is not
   // allocated.
   ui.colorSurface?.setVisible(false);
-  ui.uiContainer
-    .querySelector(CONST.SEL.COLOR_ITEM)
-    ?.classList.remove(CONST.CLASSES.ACTIVE);
 };
 
-export { showColorLayer, hideColorLayer };
+export { getColorSurface, showSolidBasemap, hideSolidBasemap };

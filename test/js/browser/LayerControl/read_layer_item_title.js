@@ -1,6 +1,4 @@
 () => {
-  const item = document.querySelector(
-    ".foliplus-layer-item:not(.foliplus-color-layer-item)",
-  );
+  const item = document.querySelector(".foliplus-layer-item");
   return item ? item.title : null;
 };

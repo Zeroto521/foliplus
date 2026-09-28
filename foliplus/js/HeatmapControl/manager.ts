@@ -1,4 +1,8 @@
 // HeatmapControl data aggregation & rendering logic (HeatmapManager).
+import {
+  METHOD as CLASSIFY_METHOD,
+  computeBreaks as computeBreaksFn,
+} from "#core/classify.js";
 import { generateId } from "#core/component.js";
 import { EVENTS, type EventBus, ensureEvents } from "#core/event/index.js";
 import { bareFieldName } from "#core/labelField.js";
@@ -15,7 +19,6 @@ import * as CONST from "./const.js";
 import {
   aggregateData as aggregateDataFn,
   buildFeatures as buildFeaturesFn,
-  computeBreaks as computeBreaksFn,
   getColorScale as getColorScaleFn,
   getH3Res as getH3ResFn,
   pickAutoField as pickAutoFieldFn,
@@ -41,7 +44,7 @@ import type {
   SavedConfig,
   SelectedPoint,
 } from "./type.js";
-import { type HeatmapControlUI, rebuildLayerDropdown } from "./ui.js";
+import { type HeatmapControlUI, rebuildLayerDropdown, resetPanel } from "./ui.js";
 
 const T = createScopedTranslator(CONF);
 const log = createLogger(CONF.name);
@@ -84,12 +87,6 @@ class HeatmapManager {
    *  LAYER_STYLE_CHANGE so the other panel's refresh fires. */
   styleSetters: Record<string, (v: unknown) => void>;
   valueFallbackWarned: boolean;
-  /**
-   * Whether LayerControl currently shows this heatmap layer. Mirrors the
-   * `onToggle` callback so the temporary zoomstart/zoomend hide/show cycle
-   * never overrides a user-initiated hide (checkbox off in LayerControl).
-   */
-  layerVisible: boolean;
   overlay: CreateCanvasAPI;
   /**
    * Mutable metadata published to LayerControl's attributes panel (source
@@ -126,6 +123,7 @@ class HeatmapManager {
   declare onZoomEnd: Debounced;
   declare onLayerChange: Debounced;
   declare removeLayerChangeListener: () => void;
+  declare removeLayerDeletedListener: () => void;
   declare removeExportListener: () => void;
 
   /** The layer id used to register this manager's heatmap canvas. */
@@ -153,7 +151,7 @@ class HeatmapManager {
     this.currentAgg = CONF.agg ?? CONST.AGG.COUNT;
     this.currentField = "";
     this.currentScheme = CONF.color_scheme ?? "Reds";
-    this.currentMethod = CONF.method ?? CONST.METHOD.JENKS;
+    this.currentMethod = CONF.method ?? CLASSIFY_METHOD.JENKS;
     this.autoFieldKey = null;
     this.numClasses = CONF.n_classes ?? CONST.CLASS_COUNT.DEFAULT;
     this.borderWeight = CONF.border_weight ?? BORDER_WEIGHT.DEFAULT;
@@ -168,7 +166,6 @@ class HeatmapManager {
     this.currentLabelSize = clampLabelSize(CONF.label_size ?? CONST.LABEL.SIZE_DEFAULT);
     this.currentLabelFormat = (CONF.label_format ?? NUMBER_FORMAT.AUTO) as NumberStyle;
     this.valueFallbackWarned = false;
-    this.layerVisible = true;
     this.sourceMeta = {};
     // Write-through binding: config is durable the moment a UI change lands,
     // so there is nothing to coalesce. Flush on teardown stays idempotent.
@@ -275,22 +272,18 @@ class HeatmapManager {
     };
     this.overlay = map.foliplus!.LayerAPI!.createCanvas({
       id: this.layerId,
-      name: this.T("title"),
+      name: T("title"),
       iconSvg: SVGs.HEXAGON,
       featureCountProvider: () => this.cachedFeatures?.length ?? 0,
       getBounds: () => this.computeBounds(),
       // Shared with the registry — syncSourceMeta mutates it in place so the
       // attrs panel always reads the latest source layer / field.
       meta: this.sourceMeta,
-      onToggle: (visible: boolean) => {
-        this.layerVisible = visible;
-        this.overlay.setVisible(visible);
-      },
       styleProvider: this.styleProvider,
       styleSetters: this.styleSetters,
       // Snapshot taken at construction — Reset restores this, never the
       // live toggle or the localStorage-persisted config.
-      styleDefaults: () => ({
+      styleDefaultsProvider: () => ({
         labelShow: defaultLabelShow,
         labelColor: defaultLabelColor,
         labelSize: defaultLabelSize,
@@ -334,18 +327,30 @@ class HeatmapManager {
       onMove: () => {
         if (this.overlay.canvas && this.cachedFeatures) this.redrawHeatmap();
       },
+      // Anti-flicker: the painted bitmap is borrowed away for the zoom and
+      // handed back on zoomend. This rides the element's own `visibility`
+      // style, NOT the HIDDEN class: that class is the LayerControl intent
+      // channel (the executor is its single writer), and a temp-hide that
+      // stamped it cannot tell "user hid it" apart from "zoom hid it" at
+      // restore time.
       onHide: () => {
-        this.overlay.setVisible?.(false);
+        const c = this.overlay.canvas;
+        if (c) c.style.visibility = "hidden";
       },
       onShow: () => {
-        if (this.layerVisible) this.overlay.setVisible?.(true);
+        const c = this.overlay.canvas;
+        if (c) c.style.visibility = "";
       },
     });
 
     this.onZoomEnd = debounce(() => {
       if (this.selectedLayerId) {
         this.renderHexagons();
-        if (this.layerVisible) this.overlay.setVisible?.(true);
+        // Safety clear in case a rebuild swapped the canvas between the
+        // immediate handler and this debounced one; the style write is
+        // idempotent and never touches the HIDDEN class.
+        const c = this.overlay.canvas;
+        if (c) c.style.visibility = "";
       }
     }, CONST.TIMING.ZOOM_DEBOUNCE);
     this.map.on("zoomend", this.onZoomEnd);
@@ -376,6 +381,26 @@ class HeatmapManager {
     this.removeLayerChangeListener = this.events.on(EVENTS.LAYER_CHANGE, () =>
       this.onLayerChange(),
     );
+    // LayerControl's deleteLayer emits LAYER_DELETED for component-owned layers
+    // instead of retiring the id in removedIds, so the heatmap can clear its
+    // data and stay registerable for the next source pick. The clear resets
+    // the panel to its initial state (the panel's Clear button is the same
+    // operation) and drops the persisted record so a reload does not
+    // resurrect the cleared layer — same teardown as MeasureControl's
+    // LAYER_DELETED -> clearAll.
+    this.removeLayerDeletedListener = this.events.on(EVENTS.LAYER_DELETED, ({ id }) => {
+      if (id !== this.layerId) return;
+      if (this.ui) {
+        resetPanel(this.ui);
+      } else {
+        // No panel (control removed, or never built): reset state and wipe the
+        // canvas directly so a re-add does not render the stale selection.
+        this.resetState(CONF);
+        this.clearHeatmapCanvas();
+        this.syncSourceMeta();
+      }
+      this.clearSavedConfig();
+    });
   }
 
   /** Drop out of export clip mode: redraw with the full feature set. */
@@ -647,10 +672,29 @@ class HeatmapManager {
     this.cachedFeatures = null;
     this.cachedAgg = null;
     if (this.overlay) this.overlay.unregister();
+    // The panel row is gone and the next draw is new content: drop this id
+    // from the stored order so the next registration lands at the top of the
+    // overlay stack instead of returning to the slot the user arranged.
+    // Without this, insertOverlayAt would find a stored rank and placeBeforeSavedNeighbor
+    // would put the redrawn heatmap back where it was, not on top.
+    this.map.foliplus?.LayerAPI?.forgetSavedOrder?.(this.layerId);
     this.ui?.schemeBarCleanup?.();
     this.ui?.dropdownCleanup?.();
     // Notify LayerControl to refresh the count column (now 0).
     this.events.emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: this.layerId });
+  }
+
+  /** Reset selection + style state to the defaults declared in `conf`. Both
+   *  clear entries (the panel's Clear button and LayerControl's more-menu
+   *  delete) go through here, so the two can never drift apart. */
+  resetState(conf: ComponentConfig) {
+    this.selectedLayerId = null;
+    this.autoFieldKey = null;
+    this.currentAgg = conf.agg ?? CONST.AGG.COUNT;
+    this.currentField = "";
+    this.numClasses = conf.n_classes ?? CONST.CLASS_COUNT.DEFAULT;
+    this.currentMethod = conf.method ?? CLASSIFY_METHOD.JENKS;
+    this.currentScheme = conf.color_scheme ?? "Reds";
   }
 
   /** Load saved configuration from localStorage into this manager's state. */
@@ -694,8 +738,8 @@ class HeatmapManager {
       if (key) fieldLabel = bareFieldName(key);
     }
 
-    const sourceKey = this.T("meta_source_layer");
-    const fieldKey = this.T("meta_agg_field");
+    const sourceKey = T("meta_source_layer");
+    const fieldKey = T("meta_agg_field");
     const changed =
       this.sourceMeta[sourceKey] !== layerName ||
       this.sourceMeta[fieldKey] !== fieldLabel;

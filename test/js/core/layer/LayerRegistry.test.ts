@@ -6,9 +6,9 @@ describe("LayerRegistry", () => {
 
   beforeEach(() => {
     registry = new LayerRegistry([
-      { id: "overlay1", name: "Points", isBase: false },
-      { id: "overlay2", name: "Lines", isBase: false },
-      { id: "base1", name: "OpenStreetMap", isBase: true },
+      { id: "overlay1", name: "Points", group: "overlay" },
+      { id: "overlay2", name: "Lines", group: "overlay" },
+      { id: "base1", name: "OpenStreetMap", group: "base" },
     ]);
   });
 
@@ -16,7 +16,7 @@ describe("LayerRegistry", () => {
     it("builds items and byId index", () => {
       expect(registry.size).toBe(3);
       expect(registry.get("overlay1").name).toBe("Points");
-      expect(registry.get("base1").isBase).toBe(true);
+      expect(registry.get("base1").group === "base").toBe(true);
     });
 
     it("resolves firstBaseIdx", () => {
@@ -25,8 +25,8 @@ describe("LayerRegistry", () => {
 
     it("returns -1 firstBaseIdx when no bases", () => {
       const r = new LayerRegistry([
-        { id: "a", isBase: false },
-        { id: "b", isBase: false },
+        { id: "a", group: "overlay" },
+        { id: "b", group: "overlay" },
       ]);
       expect(r.firstBaseIdx).toBe(-1);
     });
@@ -37,22 +37,19 @@ describe("LayerRegistry", () => {
       const info = registry.createLayerInfo({ id: "test" });
       expect(info.id).toBe("test");
       expect(info.name).toBe("test");
-      expect(info.visible).toBe(true);
       expect(info.opacity).toBe(1);
-      expect(info.isBase).toBe(false);
+      expect(info.group === "base").toBe(false);
       expect(info.paneName).toBeNull();
       expect(info.iconSvg).toBeNull();
       expect(info.canvas).toBeNull();
-      expect(info.onToggle).toBeNull();
     });
 
     it("preserves existing values from existingLi", () => {
       const info = registry.createLayerInfo(
         { id: "test" },
-        { name: "Existing", visible: false, opacity: 0.5 },
+        { name: "Existing", opacity: 0.5 },
       );
       expect(info.name).toBe("Existing");
-      expect(info.visible).toBe(false);
       expect(info.opacity).toBe(0.5);
     });
 
@@ -81,6 +78,66 @@ describe("LayerRegistry", () => {
     it("accepts opts.name for a fresh id", () => {
       const info = registry.createLayerInfo({ id: "new1", name: "Fresh" });
       expect(info.name).toBe("Fresh");
+    });
+
+    it("populates kind and carrier on every createLayerInfo", () => {
+      // No explicit carrier: pending Leaflet-layer registration (not custom).
+      const info = registry.createLayerInfo({ id: "shape" });
+      expect(info.kind).toBe("vector");
+      expect(info.carrier.layer).toBeNull();
+      expect(info.carrier.canvas).toBeNull();
+    });
+
+    it("derives solid kind and element carrier for a color face", () => {
+      const face = {} as HTMLCanvasElement;
+      const info = registry.createLayerInfo({
+        id: "color1",
+        color: "#112233",
+        canvas: face,
+      });
+      expect(info.kind).toBe("solid");
+      expect(info.carrier.element).toBe(face);
+      expect(info.carrier.layer).toBeNull();
+    });
+
+    it("derives canvas kind for a canvas-only face", () => {
+      const canvas = {} as HTMLCanvasElement;
+      const info = registry.createLayerInfo({ id: "heat", canvas });
+      expect(info.kind).toBe("canvas");
+      expect(info.carrier.canvas).toBe(canvas);
+    });
+
+    it("honors declared kind and custom payload", () => {
+      const custom = { plugin: "x" };
+      const info = registry.createLayerInfo({
+        id: "third",
+        kind: "custom",
+        custom,
+      });
+      expect(info.kind).toBe("custom");
+      expect(info.carrier.custom).toBe(custom);
+    });
+
+    it("resolves layer once at registration into carrier.layer", () => {
+      const layer = { id: "live" } as unknown as L.Layer;
+      const info = registry.createLayerInfo({ id: "mapped", layer });
+      expect(info.layer).toBe(layer);
+      expect(info.carrier.layer).toBe(layer);
+    });
+
+    it("defaults orderOrigin to user", () => {
+      const info = registry.createLayerInfo({ id: "test" });
+      expect(info.orderOrigin).toBe("user");
+    });
+
+    it("takes orderOrigin from opts on a fresh id", () => {
+      const info = registry.createLayerInfo({ id: "rt", orderOrigin: "runtime" });
+      expect(info.orderOrigin).toBe("runtime");
+    });
+
+    it("preserves orderOrigin from existingLi on re-registration", () => {
+      const info = registry.createLayerInfo({ id: "test" }, { orderOrigin: "runtime" });
+      expect(info.orderOrigin).toBe("runtime");
     });
   });
 
@@ -154,14 +211,14 @@ describe("LayerRegistry", () => {
   describe("normalizeGroups", () => {
     it("reorders so overlays come before bases", () => {
       const r = new LayerRegistry([
-        { id: "base1", name: "B1", isBase: true },
-        { id: "overlay1", name: "O1", isBase: false },
-        { id: "base2", name: "B2", isBase: true },
+        { id: "base1", name: "B1", group: "base" },
+        { id: "overlay1", name: "O1", group: "overlay" },
+        { id: "base2", name: "B2", group: "base" },
       ]);
       r.normalizeGroups();
       expect(r.at(0).id).toBe("overlay1");
-      expect(r.at(1).isBase).toBe(true);
-      expect(r.at(2).isBase).toBe(true);
+      expect(r.at(1).group === "base").toBe(true);
+      expect(r.at(2).group === "base").toBe(true);
     });
   });
 
@@ -227,7 +284,7 @@ describe("LayerRegistry", () => {
 
     it("view reflects the latest items after an internal mutation", () => {
       registry.prepend(
-        registry.createLayerInfo({ id: "new1", name: "New", isBase: false }),
+        registry.createLayerInfo({ id: "new1", name: "New", group: "overlay" }),
       );
       expect(registry.layers[0].id).toBe("new1");
       expect(registry.layers.length).toBe(4);
@@ -237,13 +294,13 @@ describe("LayerRegistry", () => {
   describe("replace", () => {
     it("rebuilds list and identifies from a new ordered array", () => {
       const newList = [
-        registry.createLayerInfo({ id: "a", name: "A", isBase: false }),
-        registry.createLayerInfo({ id: "b", name: "B", isBase: true }),
+        registry.createLayerInfo({ id: "a", name: "A", group: "overlay" }),
+        registry.createLayerInfo({ id: "b", name: "B", group: "base" }),
       ];
       registry.replace(newList);
       expect(registry.size).toBe(2);
       expect(registry.at(0).id).toBe("a");
-      expect(registry.get("b").isBase).toBe(true);
+      expect(registry.get("b").group === "base").toBe(true);
       expect(registry.firstBaseIdx).toBe(1);
     });
   });

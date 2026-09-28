@@ -35,13 +35,7 @@ import { applyRowView, buildRowCell } from "./rowView.js";
 import { snapshotAuthorVisible } from "./rowView.js";
 import { loadPersistedState, syncHiddenId } from "./state.js";
 import { closeStylePanel, invalidateFields } from "./style/index.js";
-import {
-  getLayerItems,
-  handleChange,
-  handleInput,
-  syncToggleAll,
-  toggleAll,
-} from "./visibility.js";
+import { getLayerItems, handleChange, handleInput, toggleAll } from "./visibility.js";
 
 /**
  * Attach UI to the given container div.
@@ -175,22 +169,6 @@ const bindEvents = (ui: LayerUI): void => {
       }
     }
 
-    // The ⋮ button, the menu, and the checkbox are not the colour toggle's
-    // target: the checkbox's change event already routes through
-    // applyVisibility → onToggle → showColorLayer, and a second call here
-    // would rebuild the list (via surface.register) and destroy the checkbox
-    // mid-click, leaving `checked` un-updated.
-    if (
-      el.closest(CONST.SEL.COLOR_ITEM) &&
-      !el.closest(
-        `.${CONST.CLASSES.MORE_BTN}, .foliplus-layer-more-menu, input[type="checkbox"]`,
-      )
-    ) {
-      ui.showColorLayer(ui.currentColor);
-      syncToggleAll(ui, CONST.GROUP.BASE);
-      ui.m.enforceOrder();
-      return;
-    }
     const toggleAllEl = el.closest(CONST.SEL.TOGGLE_ALL) as HTMLElement | null;
     if (!toggleAllEl || el.closest('[data-role="toggle-all"]')) return;
     toggleFold(ui, toggleAllEl.dataset.group ?? "");
@@ -268,7 +246,7 @@ const bindEvents = (ui: LayerUI): void => {
   // stored range excludes the new level is hidden, and one whose range
   // includes it is brought back. This is the "inRange" half of
   // effectiveShown = intent && inRange, and it writes through the single
-  // pipeline so the checkbox / hiddenIds / overrides stay untouched (#329).
+  // pipeline so the checkbox / hiddenLayerIds / overrides stay untouched (#329).
   ui.onZoomEnd = () => applyProjectionAll(ui);
   ui.m.map.on("zoomend", ui.onZoomEnd);
   // Keyboard dispatch for the "more" button (Enter/Space/Escape) is handled
@@ -297,7 +275,7 @@ const onLayerItemCountChange = (ui: LayerUI, id: string): void => {
   ) as HTMLElement | null;
   if (!item) return;
   const layerInfo = ui.m.layerRegistry.get(id);
-  if (!layerInfo || layerInfo.isBase) return;
+  if (!layerInfo || layerInfo.group === CONST.GROUP.BASE) return;
   invalidateFields(ui, id);
 
   applyRowView(ui, item, buildRowCell(ui, layerInfo));
@@ -321,7 +299,7 @@ const onLayerItemCountChange = (ui: LayerUI, id: string): void => {
 const refreshAllCounts = (ui: LayerUI): void => {
   if (!ui.uiContainer) return;
   const items = ui.uiContainer.querySelectorAll(
-    `${CONST.SEL.LAYER_ITEM}:not(${CONST.SEL.COLOR_ITEM}):not(${CONST.SEL.TOGGLE_ALL})`,
+    `${CONST.SEL.LAYER_ITEM}:not(${CONST.SEL.TOGGLE_ALL})`,
   );
   items.forEach((item: Element) => {
     const id = item.getAttribute(CONST.DATA.LAYER_ID);

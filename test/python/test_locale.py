@@ -55,6 +55,8 @@ _JS_USED_KEYS = {
     "FullscreenControl.title_cancel",
     "FullscreenControl.enter",
     "FullscreenControl.exit",
+    "FullscreenControl.unsupported",
+    "FullscreenControl.exit_fail",
     "FullscreenControl.zoom_in",
     "FullscreenControl.zoom_out",
     # ExportControl
@@ -93,7 +95,6 @@ _JS_USED_KEYS = {
     # HeatmapControl
     "HeatmapControl.title",
     "HeatmapControl.close_title",
-    "HeatmapControl.section_data",
     "HeatmapControl.layer",
     "HeatmapControl.layer_placeholder",
     "HeatmapControl.agg_method",
@@ -104,7 +105,6 @@ _JS_USED_KEYS = {
     "HeatmapControl.agg_max",
     "HeatmapControl.field",
     "HeatmapControl.field_auto",
-    "HeatmapControl.section_style",
     "HeatmapControl.class_method",
     "HeatmapControl.jenks",
     "HeatmapControl.quantile",
@@ -171,8 +171,6 @@ _JS_USED_KEYS = {
     "LayerControl.style_label_field_auto",
     "LayerControl.style_reset",
     "LayerControl.style_label_no_data",
-    "LayerControl.section_label",
-    "LayerControl.section_layer",
     "LayerControl.style_opacity",
     "LayerControl.attributes_layer",
     "LayerControl.attributes_layer_tooltip",
@@ -195,7 +193,9 @@ _JS_USED_KEYS = {
     "LayerControl.delete_layer",
     "LayerControl.delete_layer_confirm",
     "LayerControl.delete_layer_tooltip",
-    "LayerControl.delete_layer_disabled",
+    "LayerControl.clear_data",
+    "LayerControl.clear_data_confirm",
+    "LayerControl.clear_data_tooltip",
     "MeasureControl.tool_edit",
     "MeasureControl.hint_edit",
     "MeasureControl.hint_edit_empty",
@@ -530,7 +530,7 @@ class TestPartialCustomTable:
         assert table["HeatmapControl.title"] == "こんにちは"
         # Builtin en table carries every key, so the fallback is a real
         # translation, not a bare key.
-        assert table["HeatmapControl.layer"] == "Aggregation Layer"
+        assert table["HeatmapControl.layer"] == "Layer"
 
     def test_custom_table_not_bare_key(self):
         """Every key of the builtin table resolves to a real string."""

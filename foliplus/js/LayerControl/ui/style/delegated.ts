@@ -4,22 +4,22 @@
 // "Label" drawer that layers their own setters alongside LayerControl's
 // opacity / zoom-range rows.
 import { type LabelStyleValues, renderLabelControls } from "#core/labelControl.js";
-import { dom } from "#common/dom.js";
-import {
-  BORDER_WEIGHT,
-  bindLiveColor,
-  bindLiveNumber,
-  colorInput,
-  inlineControls,
-  numberInput,
-} from "#common/form.js";
+import { BORDER_WEIGHT } from "#common/form.js";
 import { createRowPanel } from "#common/panel.js";
 import * as CONST from "../../const.js";
 import * as SVGs from "../../icon.js";
 import type { LayerUI } from "../index.js";
-import { appendResetFooter, sectionHeading } from "./frame.js";
-import { buildOpacityRow, layerCanOpacity } from "./opacity.js";
-import { buildZoomRangeRow, canShowZoomRange } from "./zoomRange.js";
+import { bindBorderRowShell, buildBorderRowShell } from "./border.js";
+import { appendResetFooter } from "./frame.js";
+import { DIM_ORDER, gatedRows } from "./registry.js";
+
+/** The delegated drawer's Layer-row order: `DIM_ORDER` minus the two
+ *  vector-only rows. `fill` and `border` are never delegated — the vector
+ *  write path (`setStyle`) is unreliable for layers whose component redraws
+ *  its own geometry (e.g. Measure), and fill has no delegated rendering path
+ *  at all. Only LayerControl-owned rows (opacity, zoomRange) ride the
+ *  delegated sweep; they survive a component's redraw. */
+const DELEGATED_DIM_ORDER = DIM_ORDER.filter(key => key !== "fill" && key !== "border");
 
 /** Whether the layer delegates its style to the drawer via styleSetters
  *  (third-party canvas layers: Heatmap, Measure). The ⋮ menu's Style item
@@ -30,9 +30,10 @@ const layerHasStyleDelegation = (ui: LayerUI, layerId: string): boolean => {
 };
 
 /** Build the border-style row for a delegated layer (only HeatmapControl
- *  publishes borderWeight / borderColor today). Shares the color+number
- *  inline chrome with the label color/size row so the drawer stays visually
- *  consistent. Returns null when the layer publishes no border setters. */
+ *  publishes borderWeight / borderColor today). Delegates to the shared
+ *  builder in `./border.js` — same shell as the vector border row, so
+ *  the two read identically — with the `styleSetters` write target.
+ *  Returns null when the layer publishes no border setters. */
 const buildBorderRow = (ui: LayerUI, layerId: string): HTMLElement | null => {
   const li = ui.m.layerRegistry.get(layerId);
   const setters = li?.styleSetters;
@@ -46,49 +47,36 @@ const buildBorderRow = (ui: LayerUI, layerId: string): HTMLElement | null => {
     borderColor?: string;
   };
 
-  const parts: HTMLElement[] = [];
-  if (setters.borderColor) {
-    const colorInputEl = colorInput({
-      value: values.borderColor,
-      ariaLabel: ui._("foliplus.border_color"),
-    });
-    bindLiveColor(colorInputEl as HTMLInputElement, value =>
-      entry()?.styleSetters?.borderColor?.(value),
-    );
-    parts.push(colorInputEl);
-  }
-  if (setters.borderWeight) {
-    const numberInputEl = numberInput({
-      value:
-        typeof values.borderWeight === "number"
-          ? values.borderWeight
-          : BORDER_WEIGHT.DEFAULT,
-      min: BORDER_WEIGHT.MIN,
-      max: BORDER_WEIGHT.MAX,
-      step: BORDER_WEIGHT.STEP,
-      ariaLabel: ui._("foliplus.border_weight"),
-    });
-    bindLiveNumber(numberInputEl as HTMLInputElement, {
-      min: BORDER_WEIGHT.MIN,
-      max: BORDER_WEIGHT.MAX,
-      fallback: BORDER_WEIGHT.DEFAULT,
-      onCommit: value => entry()?.styleSetters?.borderWeight?.(value),
-    });
-    parts.push(numberInputEl);
-  }
-
-  return dom.el(
-    "div",
-    { class: CONST.CLASSES.FORM_ROW },
-    dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("border")),
-    dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, inlineControls(...parts)),
-  );
+  const hasColor = !!setters.borderColor;
+  const hasWeight = !!setters.borderWeight;
+  const row = buildBorderRowShell({
+    rowClass: CONST.CLASSES.FORM_ROW,
+    label: ui.T("border"),
+    color: values.borderColor,
+    weight:
+      typeof values.borderWeight === "number"
+        ? values.borderWeight
+        : BORDER_WEIGHT.DEFAULT,
+    hasColorInput: hasColor,
+    hasWeightInput: hasWeight,
+    colorAria: ui._("foliplus.border_color"),
+    weightAria: ui._("foliplus.border_weight"),
+  });
+  bindBorderRowShell(row, {
+    onChangeColor: hasColor
+      ? value => entry()?.styleSetters?.borderColor?.(value)
+      : undefined,
+    onChangeWeight: hasWeight
+      ? value => entry()?.styleSetters?.borderWeight?.(value)
+      : undefined,
+  });
+  return row;
 };
 
 /** Build the style panel DOM for a layer that delegates its style via
  *  styleSetters (third-party canvas layers). Renders only the controls the
  *  component declared. Reset is present only when the layer also supplies
- *  styleDefaults (the Python CONF snapshot). Returns null when the layer has
+ *  styleDefaultsProvider (the Python CONF snapshot). Returns null when the layer has
  *  no delegation (falls through to the annotation panel). */
 const renderDelegatedStylePanel = (
   ui: LayerUI,
@@ -153,29 +141,38 @@ const renderDelegatedStylePanel = (
 
   // The shared renderer emits controls only, no headings — the panel owns the
   // section split and reads it as the annotation panel does: Layer on top,
-  // Label below. The Layer rows run border, opacity, zoom range; a delegated
-  // drawer has no fill, so this is the annotation panel's
-  // fill → border → opacity → zoom range with the fill slot absent.
+  // Label below. The Layer rows run opacity, zoom range (border comes from
+  // the dedicated styleSetters path when the component publishes it, and
+  // fill is never delegated). This is the annotation panel's
+  // fill → border → opacity → zoom range with the fill and vector-border
+  // slots absent.
   // Row-level capability gate (5.4): the opacity row only renders when the
   // surface can honestly carry the write. A layer with `opacity: "none"`
   // (MarkerCluster) would otherwise see a slider that writes nothing but
   // persists the value — a lie that survives reload (6.2).
-  const canOpacity = layerCanOpacity(ui, layerId);
-  const canZoomRange = canShowZoomRange(ui, layerId);
-  if (borderRow || canOpacity || canZoomRange) {
-    content.append(sectionHeading(ui.T("section_layer")));
-    if (borderRow) content.append(borderRow);
-    if (canOpacity) content.append(buildOpacityRow(ui, layerId));
-    if (canZoomRange) content.append(buildZoomRangeRow(ui, layerId));
+  // Row iteration follows `DELEGATED_DIM_ORDER` (see the constant above) —
+  // the same gate sweep the annotation panel uses. One collection decides
+  // both the heading and the rows, so the two cannot drift. The
+  // delegated-only border row is prepended before the registry sweep: it is
+  // not a registry dimension (it writes through `styleSetters`, a path the
+  // vector border descriptor does not own).
+  const rows = gatedRows(ui, layerId, DELEGATED_DIM_ORDER);
+  if (borderRow || rows.length > 0) {
+    if (borderRow) content.appendChild(borderRow);
+    for (const dim of rows) content.appendChild(dim.row(ui, layerId));
   }
   if (root.children.length) {
-    content.append(sectionHeading(ui.T("section_label")));
-    content.append(root);
+    content.appendChild(root);
   }
 
   // Reset only when the component published its Python CONF defaults.
-  if (li.styleDefaults) appendResetFooter(ui, content);
+  if (li.styleDefaultsProvider) appendResetFooter(ui, content);
   return panel;
 };
 
-export { buildBorderRow, layerHasStyleDelegation, renderDelegatedStylePanel };
+export {
+  DELEGATED_DIM_ORDER,
+  buildBorderRow,
+  layerHasStyleDelegation,
+  renderDelegatedStylePanel,
+};

@@ -3,6 +3,7 @@ import { LayerSurface } from "#foliplus/core/layer/LayerSurface.js";
 import { PaneManager } from "#foliplus/core/layer/PaneManager.js";
 import * as CONST from "#foliplus/core/layer/const.js";
 import type { PaneSpec } from "#foliplus/core/layer/type.js";
+import { CLUSTER_CAPABILITIES, deriveLayerKind } from "#foliplus/core/layer/util.js";
 
 // Minimal Leaflet shapes: the surface only reads `options`, `eachLayer`
 // (containers), `getElement` + `_map` (attached DOM) and the `instanceof`
@@ -144,6 +145,44 @@ describe("LayerSurface pane resolution", () => {
     expect(window.L.svg).toHaveBeenCalledTimes(1);
   });
 
+  it("skips a declared spec the tree already routes into", () => {
+    // `addMissingSpecs` fills the gap the non-declared branches leave (they
+    // only walk discovered or synthesized panes) — but a spec whose name is
+    // ALREADY booked by discovery must not be double-added: the handle the
+    // tree routed into is the one that stands.
+    const { host } = makeMap();
+    const annName = "foliplus-annotation-a";
+    const surface = new LayerSurface(host, {
+      id: "a",
+      layer: { options: { pane: annName } } as unknown as L.Layer,
+      paneSpecs: [{ role: "annotation", order: 1, name: annName }],
+    });
+
+    expect(surface.paneNames.filter(name => name === annName)).toHaveLength(1);
+  });
+
+  it("resolves the declared base's role by name, not by position", () => {
+    // A spec list whose index 0 is NOT the declared pane (an appended label
+    // pane arriving first): the base must take its own spec's role — or
+    // none — while the extra spec still gets its pane booked. A position-
+    // based read would stamp `annotation` onto the base and drop the label
+    // pane entirely.
+    const { host } = makeMap();
+    const surface = new LayerSurface(host, {
+      id: "a",
+      layer: new Path() as unknown as L.Layer,
+      paneName: "graph",
+      paneSpecs: [
+        { role: "annotation", order: 3, name: "foliplus-annotation-a" },
+        { role: "sub", order: 1, name: "graph" },
+      ],
+    });
+
+    expect(surface.paneNames).toEqual(["graph", "foliplus-annotation-a"]);
+    expect(surface.panes[0].role).toBe("sub");
+    expect(surface.panes[1].role).toBe("annotation");
+  });
+
   it("gives a canvas pane no renderer", () => {
     const { map, host } = makeMap();
     const surface = new LayerSurface(host, {
@@ -250,7 +289,6 @@ describe("LayerSurface.materialize", () => {
     });
     surface.materialize();
     expect(layer.options.pane).toBe("graph");
-    expect(layer.options.paneSet).toBe(true);
     expect(layer.options.renderer).toBe(surface.panes[0].renderer);
     expect(surface.materialized).toBe(true);
   });
@@ -283,7 +321,6 @@ describe("LayerSurface.materialize", () => {
     surface.materialize();
     const pane = surface.synthesizedPaneName!;
     expect(child.options.pane).toBe(pane);
-    expect(child.options.paneSet).toBe(true);
     // A container is not given options.pane — Leaflet ignores a group's pane
     // for its children, which is why the pin walks the tree at all.
     expect(layer.options.pane).toBeUndefined();
@@ -903,9 +940,15 @@ describe("LayerSurface capabilities", () => {
     });
     expect(surface.capabilities).toEqual({
       opacity: "pane",
-      zoomRange: "none",
+      zoomRange: "pane",
+      // A color face has no features to label — the registration edge never
+      // declares the `role: "annotation"` spec for it.
+      annotation: "none",
+      fill: "native",
+      stroke: "none",
       relocatable: true,
       bounds: false,
+      visibility: "pane",
     });
     // The declared color pane is taken as base — no synthesis, and no SVG
     // renderer, since a flat fill has no vectors to render into.
@@ -1102,5 +1145,94 @@ describe("LayerSurface capabilities", () => {
     // The surface falls back to a synthesized pane.
     expect(surface.synthesizedPaneName).not.toBeNull();
     warnSpy.mockRestore();
+  });
+});
+
+describe("kind declaration (cluster / tile|vector)", () => {
+  it("declared kind:cluster matches the duck-typed cluster capability tier", () => {
+    const { host } = makeMap();
+    const cluster = new MarkerClusterGroup();
+    const ducked = new LayerSurface(host, {
+      id: "duck",
+      layer: cluster as unknown as L.Layer,
+    });
+    const declared = new LayerSurface(host, {
+      id: "declared",
+      layer: cluster as unknown as L.Layer,
+      kind: "cluster",
+    });
+    // Equivalence: declaration and derivation land in the same honest tier.
+    expect(declared.capabilities.opacity).toBe("none");
+    expect(declared.capabilities.zoomRange).toBe("none");
+    expect(declared.capabilities.relocatable).toBe(false);
+    expect(declared.capabilities.bounds).toBe(false);
+    expect(declared.capabilities.visibility).toBe("native");
+    expect(declared.capabilities.opacity).toBe(ducked.capabilities.opacity);
+    expect(declared.capabilities.zoomRange).toBe(ducked.capabilities.zoomRange);
+    expect(declared.capabilities.relocatable).toBe(ducked.capabilities.relocatable);
+    expect(declared.capabilities.bounds).toBe(ducked.capabilities.bounds);
+    expect(declared.capabilities.visibility).toBe(ducked.capabilities.visibility);
+    expect(declared.capabilities.fill).toBe(ducked.capabilities.fill);
+    expect(declared.capabilities.stroke).toBe(ducked.capabilities.stroke);
+  });
+
+  it("CLUSTER_CAPABILITIES is the named honest tier", () => {
+    expect(CLUSTER_CAPABILITIES).toEqual({
+      fill: "none",
+      stroke: "none",
+      opacity: "none",
+      zoomRange: "none",
+      visibility: "native",
+      relocatable: false,
+      bounds: false,
+    });
+  });
+
+  it("deriveLayerKind: GridLayer is tile, Path/Marker is vector", () => {
+    expect(
+      deriveLayerKind({ id: "t", layer: new GridLayer() as unknown as L.Layer }),
+    ).toBe("tile");
+    expect(deriveLayerKind({ id: "v", layer: new Path() as unknown as L.Layer })).toBe(
+      "vector",
+    );
+    expect(
+      deriveLayerKind({ id: "m", layer: new Marker() as unknown as L.Layer }),
+    ).toBe("vector");
+    expect(
+      deriveLayerKind({ id: "g", layer: new Group([]) as unknown as L.Layer }),
+    ).toBe("vector");
+  });
+
+  it("deriveLayerKind: declared kind wins; solid/canvas/custom from declaration shape", () => {
+    expect(
+      deriveLayerKind({
+        id: "x",
+        layer: new Path() as unknown as L.Layer,
+        kind: "cluster",
+      }),
+    ).toBe("cluster");
+    expect(deriveLayerKind({ id: "s", layer: null, color: "#000" })).toBe("solid");
+    expect(deriveLayerKind({ id: "c", layer: null, canvas: true })).toBe("canvas");
+    expect(deriveLayerKind({ id: "u", layer: null, custom: {} })).toBe("custom");
+    // Pending Leaflet-layer registration is NOT custom (see hasUnresolvedLayers).
+    expect(deriveLayerKind({ id: "p", layer: null })).toBe("vector");
+    // L.LayerGroup is a vector-family container.
+    (window as { L: Record<string, unknown> }).L.LayerGroup = Group;
+    expect(
+      deriveLayerKind({ id: "g2", layer: new Group([]) as unknown as L.Layer }),
+    ).toBe("vector");
+  });
+
+  it("kind:custom surface reports the honest none tier", () => {
+    const { host } = makeMap();
+    const surface = new LayerSurface(host, {
+      id: "third",
+      layer: null,
+      kind: "custom",
+      custom: { paint() {} },
+    });
+    expect(surface.capabilities.opacity).toBe("none");
+    expect(surface.capabilities.visibility).toBe("none");
+    expect(surface.capabilities.bounds).toBe(false);
   });
 });

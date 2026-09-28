@@ -110,6 +110,8 @@ class MeasureManager {
   layerId: string;
   /** Event bus unsubscribe for EVENTS.LAYER_REMOVED. */
   private offLayerRemoved!: () => void;
+  /** Event bus unsubscribe for EVENTS.LAYER_DELETED. */
+  private offLayerDeleted!: () => void;
   /** Event bus unsubscribe for the EVENTS.MODE_CHANGE export-pause interrupt. */
   private offModeChange!: () => void;
   private onMapClick!: (event: L.LeafletMouseEvent) => void;
@@ -164,7 +166,7 @@ class MeasureManager {
       },
       // Snapshot taken at construction — Reset restores these, never the
       // live runtime toggles.
-      styleDefaults: () => ({
+      styleDefaultsProvider: () => ({
         labelShow: defaultLabelShow,
         labelCollide: defaultLabelCollide,
       }),
@@ -174,10 +176,10 @@ class MeasureManager {
           counts[m.type] = (counts[m.type] ?? 0) + 1;
         }
         return {
-          [T("tool_marker")]: counts[CONST.MODE.MARKER] ?? 0,
-          [T("tool_distance")]: counts[CONST.MODE.DISTANCE] ?? 0,
-          [T("tool_polygon")]: counts[CONST.MODE.POLYGON] ?? 0,
-          [T("tool_circle")]: counts[CONST.MODE.CIRCLE] ?? 0,
+          [T("tool_marker")]: counts[CONST.MEASURE_MODE.MARKER] ?? 0,
+          [T("tool_distance")]: counts[CONST.MEASURE_MODE.DISTANCE] ?? 0,
+          [T("tool_polygon")]: counts[CONST.MEASURE_MODE.POLYGON] ?? 0,
+          [T("tool_circle")]: counts[CONST.MEASURE_MODE.CIRCLE] ?? 0,
         };
       },
     });
@@ -203,6 +205,7 @@ class MeasureManager {
     this.bindGlobalEvents();
     this.restoreMeasurements();
     this.bindLayerRemoved();
+    this.bindLayerDeleted();
   }
 
   // ── Persistence (compatibility shell over MeasureStore) ──
@@ -290,11 +293,11 @@ class MeasureManager {
 
   /** Activate a measurement mode, or toggle the edit / clear modes. */
   setMode(mode: string | null) {
-    if (mode === CONST.MODE.CLEAR) {
+    if (mode === CONST.MEASURE_MODE.CLEAR) {
       this.clearAll();
       return;
     }
-    if (mode === CONST.MODE.EDIT) {
+    if (mode === CONST.MEASURE_MODE.EDIT) {
       if (this.isEditMode) {
         this.setEditMode(false);
         return;
@@ -362,10 +365,10 @@ class MeasureManager {
     this.measureEscapeCleanup = registerActiveEscape(this);
 
     const hintKey = {
-      [CONST.MODE.MARKER]: T("hint_marker"),
-      [CONST.MODE.DISTANCE]: T("hint_dist_start"),
-      [CONST.MODE.POLYGON]: T("hint_polygon"),
-      [CONST.MODE.CIRCLE]: T("hint_circle_start"),
+      [CONST.MEASURE_MODE.MARKER]: T("hint_marker"),
+      [CONST.MEASURE_MODE.DISTANCE]: T("hint_dist_start"),
+      [CONST.MEASURE_MODE.POLYGON]: T("hint_polygon"),
+      [CONST.MEASURE_MODE.CIRCLE]: T("hint_circle_start"),
     }[mode];
 
     if (hintKey) {
@@ -616,12 +619,12 @@ class MeasureManager {
     // suspended while the measure panes stay interactive.
     this.modes.setMode(
       CONF.name,
-      on ? CONST.MODE.EDIT : null,
+      on ? CONST.MEASURE_MODE.EDIT : null,
       on ? skipMeasureLayers : undefined,
     );
     this.map.getContainer().classList.toggle(CONST.CLASSES.EDITING, on);
     this.toolBtns.forEach(btn => {
-      if (btn.dataset.mode === CONST.MODE.EDIT) {
+      if (btn.dataset.mode === CONST.MEASURE_MODE.EDIT) {
         btn.classList.toggle(CONST.CLASSES.ACTIVE, on);
       }
     });
@@ -699,6 +702,11 @@ class MeasureManager {
   clearAll() {
     this.clearTransientState();
     this.store.clear();
+    // Same reason as Heatmap's clearHeatmapCanvas: the panel row is gone and
+    // the next draw is new content, so the id must leave the stored order or
+    // insertOverlayAt will place the re-drawn measurement back at the old
+    // slot instead of the top.
+    this.map.foliplus?.LayerAPI?.forgetSavedOrder?.(this.layerId);
   }
 
   /** Full cleanup including global events. Called on control removal; the
@@ -709,6 +717,7 @@ class MeasureManager {
   destroy() {
     if (this.offModeChange) this.offModeChange();
     if (this.offLayerRemoved) this.offLayerRemoved();
+    if (this.offLayerDeleted) this.offLayerDeleted();
     this.map.off("unload", this.onUnload);
     this.scheduleLabelPlan.cancel();
     this.clearTransientState();
@@ -734,6 +743,21 @@ class MeasureManager {
         this.clearActiveMode();
       }
     }) as EventHandler);
+  }
+
+  /**
+   * Subscribe to EVENTS.LAYER_DELETED: LayerControl's deleteLayer emits this
+   * for component-owned layers (styleSetters discriminator), skipping the
+   * removedIds retirement — so this id stays registerable and the panel keeps
+   * its row. Clearing the store is the user's request; the layer itself stays
+   * registered at 0 features so the next draw lands cleanly without needing a
+   * re-register. Re-registering here would double-count an already-present
+   * entry and clobber the persisted order.
+   */
+  bindLayerDeleted() {
+    this.offLayerDeleted = this.events.on(EVENTS.LAYER_DELETED, ({ id }) => {
+      if (id === this.layerId) this.clearAll();
+    });
   }
 
   /** Clean up current mode instance and hide hints. */

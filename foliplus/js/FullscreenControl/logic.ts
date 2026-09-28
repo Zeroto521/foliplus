@@ -42,12 +42,22 @@ const updateUI = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement) => {
   );
 };
 
+// A rejected request must not report the transition that just failed — each
+// branch announces what actually happened to the user instead.
+const showUnsupportedHint = (map: L.Map) => {
+  map.foliplus!.showHint?.(CONF.name, T("unsupported"), HINT_DURATION.MEDIUM);
+};
+
+const showExitFailHint = (map: L.Map) => {
+  map.foliplus!.showHint?.(CONF.name, T("exit_fail"), HINT_DURATION.MEDIUM);
+};
+
 // ══════════════════════════════════════════════════════════════════════════════
 // toggleFullscreen  —  enter/exit fullscreen via native API or pseudo mode
 // ══════════════════════════════════════════════════════════════════════════════
 const toggleFullscreen = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement) => {
   if (getFullscreenEl() || map.isFullscreen) {
-    if (isEnabled) {
+    if (isEnabled()) {
       document
         .exitFullscreen()
         .then(() => {
@@ -55,7 +65,7 @@ const toggleFullscreen = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement
         })
         .catch(() => {
           map.isFullscreen = Boolean(getFullscreenEl());
-          updateUI(map, fsBtn, container);
+          showExitFailHint(map);
         });
       return;
     }
@@ -64,7 +74,7 @@ const toggleFullscreen = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement
 
     map.isFullscreen = false;
   } else {
-    if (isEnabled) {
+    if (isEnabled()) {
       map
         .getContainer()
         .requestFullscreen()
@@ -73,7 +83,7 @@ const toggleFullscreen = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement
         })
         .catch(() => {
           map.isFullscreen = Boolean(getFullscreenEl());
-          updateUI(map, fsBtn, container);
+          showUnsupportedHint(map);
         });
       return;
     }

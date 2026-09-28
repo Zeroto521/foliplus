@@ -10,7 +10,7 @@
 // of state, not a sweep that mutates the world.
 //
 // Two pieces:
-//   rowChecked / inZoomRange / rowView — the projection (read-only + pure)
+//   inZoomRange / rowView — the projection (read-only + pure)
 //   buildRowCell / applyRowView        — gather the cell, then paint the row
 import { GEOM_TYPE } from "#core/layer/index.js";
 import { formatNumber } from "#common/format.js";
@@ -19,7 +19,7 @@ import * as CONST from "../const.js";
 import * as SVGs from "../icon.js";
 import * as Util from "../util.js";
 import type { LayerUI } from "./index.js";
-import { projectLayer } from "./store.js";
+import { intentVisibleOf, projectLayer } from "./projection.js";
 
 /** One layer's inputs to the row visual. Nothing here is written back. */
 interface RowCell {
@@ -59,31 +59,6 @@ interface RowLabels {
   select: string;
   deselect: string;
 }
-
-/**
- * The checkbox state — the user's own choice when they made one, else the
- * author's declared default.
- *
- *  The map membership must never carry this slot. `layerInfo.visible` is a
- *  real-time mirror that the policy writes, so reading it here would read
- *  `false` for a layer the policy is hiding and un-check a box the user never
- *  touched: a stored zoom range hides the layer, and the row would claim the
- *  user hid it — while un-checking is exactly what the policy was doing.
- *
- *  `userOverrides` records that the `visible` dimension was ever set, which is
- *  the user-intent test; `hiddenIds` holds the current value. Neither is
- *  derived from the map, so the row cannot drift away from the user's choice
- *  while a policy is hiding the layer.
- */
-const rowChecked = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
-  // Same rule as `projectLayer.intent`: the `visible` provenance marker or
-  // membership in `hiddenIds` — either alone is the user's own choice.
-  const hidden = ui.hiddenIds?.has(layerInfo.id) ?? false;
-  if (ui.userOverrides?.[layerInfo.id]?.includes("visible") || hidden) {
-    return !hidden;
-  }
-  return ui.authorVisible.get(layerInfo.id) ?? true;
-};
 
 /**
  * Whether the stored range covers the map's current zoom.
@@ -142,7 +117,7 @@ const displayName = (ui: LayerUI, id: string): string => {
   return (
     ui.renamedNames[id] ??
     ui.m.layerRegistry.get(id)?.name ??
-    (id === CONST.COLOR.MAP_ID ? ui.T("color_map_label") : "")
+    (id === CONST.SOLID_BASEMAP_ID ? ui.T("color_map_label") : "")
   );
 };
 
@@ -161,7 +136,7 @@ const displayName = (ui: LayerUI, id: string): string => {
  *  latched, it may only be taken from an *observed* map state: a folium
  *  layer's JS global is emitted after the control's IIFE, so at attach the
  *  layer is not resolvable yet and the only honest answer is "not yet
- *  known". Latching `layerInfo.visible !== false` there would record `true`
+ *  known". Latching the map's current state there would record `true`
  *  for an author `show=False` layer and, the snapshot being idempotent,
  *  keep the later correct reading out for good — which is how a `show=False`
  *  layer came back onto the map on the first zoom sweep.
@@ -175,7 +150,7 @@ const snapshotAuthorVisible = (ui: LayerUI, layerInfo: LayerInfo): void => {
   if (!layer && !layerInfo.canvas) return; // not linked yet — leave unknown
   ui.authorVisible.set(
     layerInfo.id,
-    layer ? ui.m.map.hasLayer(layer) : layerInfo.visible !== false,
+    layer ? ui.m.map.hasLayer(layer) : intentVisibleOf(ui, layerInfo.id),
   );
 };
 
@@ -192,10 +167,10 @@ const rowType = (
   layerInfo: LayerInfo,
   layer: L.Layer | null,
 ): { svg: string; key: string } => {
-  if (layerInfo.isBase) {
+  if (layerInfo.group === CONST.GROUP.BASE) {
     layerInfo.type = CONST.GROUP.BASE;
     // The colour basemap uses its own swatch icon, not the globe.
-    if (layerInfo.id === CONST.COLOR.MAP_ID) {
+    if (layerInfo.id === CONST.SOLID_BASEMAP_ID) {
       return { svg: SVGs.COLOR, key: "type_color_map" };
     }
     return { svg: Icons.GLOBE_ICON, key: "type_base" };
@@ -207,7 +182,7 @@ const rowType = (
   if (layer) {
     const gtype = ui.m.surfaceFor(layerInfo).geometryType();
     layerInfo.type = gtype;
-    return { svg: Util.getTypeSVG(layer, gtype), key: `type_${gtype}` };
+    return { svg: Util.getTypeSVG(gtype), key: `type_${gtype}` };
   }
   layerInfo.type = GEOM_TYPE.UNKNOWN;
   return { svg: SVGs.UNKNOWN, key: "type_unknown" };
@@ -222,7 +197,12 @@ const rowType = (
  */
 const buildRowCell = (ui: LayerUI, layerInfo: LayerInfo): RowCell => {
   const layer = ui.m.findLayer(layerInfo);
-  const checked = rowChecked(ui, layerInfo);
+  // Inline intent check to avoid function-call overhead on the row-paint path.
+  const overrides = ui.intentProvenance?.[layerInfo.id];
+  const hidden = ui.hiddenLayerIds?.has(layerInfo.id) ?? false;
+  const hasVisible = overrides?.includes("visible") || hidden;
+  const authorDefault = ui.authorVisible.get(layerInfo.id) ?? true;
+  const checked = hasVisible ? !hidden : authorDefault;
   const type = rowType(ui, layerInfo, layer);
   const count = ui.mgmt.getFeatureCount(layerInfo.id);
   return {
@@ -283,7 +263,6 @@ export {
   buildRowCell,
   displayName,
   inZoomRange,
-  rowChecked,
   rowView,
   snapshotAuthorVisible,
   type RowCell,

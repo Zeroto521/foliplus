@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { hasFillLeaf, hasSetStyleLeaf } from "#core/layer/capability.js";
 import {
-  hasSetStyleLeaf,
   isStyleSetter,
   pinStyleOnHighlight,
+  pinnedGetterCount,
 } from "#foliplus/LayerControl/ui/style/pin.js";
 
 const makeLeaf = () => {
@@ -33,12 +34,12 @@ describe("pinStyleOnHighlight", () => {
     document.body.innerHTML = "";
   });
 
-  it("registers one mouseout handler per leaf; distinct getters stack and merge", () => {
+  it("registers one mouseout handler per leaf; distinct keys stack and merge", () => {
     const { leaf, fire } = makeLeaf();
     const fillGetter = () => ({ fillColor: "#123456" });
     const borderGetter = () => ({ color: "#ffffff" });
-    pinStyleOnHighlight(leaf, fillGetter);
-    pinStyleOnHighlight(leaf, borderGetter);
+    pinStyleOnHighlight(leaf, "fill", fillGetter);
+    pinStyleOnHighlight(leaf, "border", borderGetter);
 
     // One handler regardless of how many dimensions stack.
     expect(leaf.on).toHaveBeenCalledTimes(1);
@@ -49,17 +50,27 @@ describe("pinStyleOnHighlight", () => {
     });
   });
 
-  it("idempotent for the same getter object", () => {
-    const { leaf } = makeLeaf();
-    const g = () => ({ fillColor: "#123456" });
-    pinStyleOnHighlight(leaf, g);
-    pinStyleOnHighlight(leaf, g);
+  it("replaces the getter registered under the same key instead of stacking", () => {
+    // Every apply pass builds a fresh closure, so identity dedupe never
+    // matches — the key is the stable identity: re-registering "fill" swaps
+    // the getter in place and the registry stays at one entry per key.
+    const { leaf, fire } = makeLeaf();
+    pinStyleOnHighlight(leaf, "fill", () => ({ fillColor: "#111111" }));
+    pinStyleOnHighlight(leaf, "fill", () => ({ fillColor: "#222222" }));
+    pinStyleOnHighlight(leaf, "fill", () => ({ fillColor: "#333333" }));
+
     expect(leaf.on).toHaveBeenCalledTimes(1);
+    expect(pinnedGetterCount(leaf)).toBe(1);
+    fire();
+    expect(leaf.setStyle).toHaveBeenLastCalledWith({ fillColor: "#333333" });
   });
 
   it("reapplies the user's style on mouseout", () => {
     const { leaf, fire } = makeLeaf();
-    pinStyleOnHighlight(leaf, () => ({ fillColor: "#123456", fillOpacity: 0.4 }));
+    pinStyleOnHighlight(leaf, "fill", () => ({
+      fillColor: "#123456",
+      fillOpacity: 0.4,
+    }));
 
     fire();
 
@@ -72,7 +83,7 @@ describe("pinStyleOnHighlight", () => {
 
   it("skips the write when getStyle returns null (Reset keeps the author's value)", () => {
     const { leaf, fire } = makeLeaf();
-    pinStyleOnHighlight(leaf, () => null);
+    pinStyleOnHighlight(leaf, "fill", () => null);
 
     fire();
 
@@ -82,7 +93,7 @@ describe("pinStyleOnHighlight", () => {
   it("reads the style live on every fire, not once at pin time", () => {
     const { leaf, fire } = makeLeaf();
     let current: Record<string, unknown> | null = { fillColor: "#111111" };
-    pinStyleOnHighlight(leaf, () => current);
+    pinStyleOnHighlight(leaf, "fill", () => current);
 
     fire();
     current = { fillColor: "#222222" };
@@ -94,9 +105,14 @@ describe("pinStyleOnHighlight", () => {
   it("no-ops for a leaf without an event channel", () => {
     const leaf = { setStyle: vi.fn() };
     expect(() =>
-      pinStyleOnHighlight(leaf, () => ({ fillColor: "#123456" })),
+      pinStyleOnHighlight(leaf, "fill", () => ({ fillColor: "#123456" })),
     ).not.toThrow();
     expect(leaf.setStyle).not.toHaveBeenCalled();
+  });
+
+  it("pinnedGetterCount reports 0 for a leaf that was never pinned", () => {
+    const { leaf } = makeLeaf();
+    expect(pinnedGetterCount(leaf)).toBe(0);
   });
 
   it("isStyleSetter narrows on the presence of setStyle", () => {
@@ -199,5 +215,75 @@ describe("hasSetStyleLeaf", () => {
     const group: any = { options: {}, eachLayer };
     expect(hasSetStyleLeaf(group)).toBe(false);
     expect(calls).toEqual([1, 2]);
+  });
+});
+
+describe("hasFillLeaf", () => {
+  const { Polygon, Circle } = window.L;
+
+  it("returns false for a null node", () => {
+    expect(hasFillLeaf(null)).toBe(false);
+  });
+
+  it("returns false for a node with neither a setter nor children", () => {
+    expect(hasFillLeaf({ options: {} })).toBe(false);
+  });
+
+  it("returns false for a leaf with setStyle that is not a Polygon or Circle", () => {
+    expect(hasFillLeaf({ setStyle: () => {} })).toBe(false);
+  });
+
+  it("returns false for an empty group", () => {
+    expect(hasFillLeaf({ options: {}, eachLayer: () => {} })).toBe(false);
+  });
+
+  it("returns true for a Polygon leaf with setStyle", () => {
+    const leaf: any = Object.assign(new Polygon(), { setStyle: vi.fn() });
+    expect(hasFillLeaf(leaf)).toBe(true);
+  });
+
+  it("returns true for a Circle leaf with setStyle", () => {
+    const leaf: any = Object.assign(new Circle(), { setStyle: vi.fn() });
+    expect(hasFillLeaf(leaf)).toBe(true);
+  });
+
+  it("returns true when a Polygon is nested in a group", () => {
+    const leaf: any = Object.assign(new Polygon(), { setStyle: vi.fn() });
+    const group: any = {
+      options: {},
+      eachLayer: (fn: (child: unknown) => void) => fn(leaf),
+    };
+    expect(hasFillLeaf(group)).toBe(true);
+  });
+
+  it("returns false when a Polyline is nested in a group", () => {
+    const { Polyline } = window.L;
+    const leaf = new Polyline();
+    const group: any = {
+      options: {},
+      eachLayer: (fn: (child: unknown) => void) => fn(leaf),
+    };
+    expect(hasFillLeaf(group)).toBe(false);
+  });
+
+  it("returns true for a Polygon even when L.Circle is undefined", () => {
+    const saved = window.L.Circle;
+    delete (window.L as any).Circle;
+    try {
+      const leaf: any = Object.assign(new Polygon(), { setStyle: vi.fn() });
+      expect(hasFillLeaf(leaf)).toBe(true);
+    } finally {
+      (window.L as any).Circle = saved;
+    }
+  });
+
+  it("returns false for a non-Polygon leaf when L.Circle is undefined", () => {
+    const saved = window.L.Circle;
+    delete (window.L as any).Circle;
+    try {
+      expect(hasFillLeaf({ setStyle: () => {} })).toBe(false);
+    } finally {
+      (window.L as any).Circle = saved;
+    }
   });
 });

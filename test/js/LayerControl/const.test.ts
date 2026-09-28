@@ -30,7 +30,7 @@ describe("STORAGE", () => {
 
 describe("COLOR", () => {
   it("defines color map id and default value", () => {
-    expect(CONST.COLOR.MAP_ID).toBe("foliplus_color_map");
+    expect(CONST.SOLID_BASEMAP_ID).toBe("foliplus_color_map");
     expect(CONST.COLOR.DEFAULT).toBe("#cccccc");
   });
 });
@@ -38,7 +38,7 @@ describe("COLOR", () => {
 describe("CLASSES", () => {
   it("defines layer item and interaction classes", () => {
     expect(CONST.CLASSES.LAYER_ITEM).toBe("foliplus-layer-item");
-    expect(CONST.CLASSES.ACTIVE).toBe("active");
+    expect(CONST.CLASSES.ACTIVE).toBe("foliplus-active");
     expect(CONST.CLASSES.DRAGGING).toBe("foliplus-layer-dragging");
     expect(CONST.CLASSES.DRAG_OVER_TOP).toBe("foliplus-layer-drag-over-top");
     expect(CONST.CLASSES.DRAG_OVER_BOTTOM).toBe("foliplus-layer-drag-over-bottom");
@@ -58,12 +58,11 @@ describe("CLASSES", () => {
     expect(CONST.CLASSES.FOLDED).toBe("foliplus-layer-folded");
     expect(CONST.CLASSES.TOGGLE_ALL).toBe("foliplus-layer-toggle-all");
     expect(CONST.CLASSES.FOLD_BTN_CTR).toBe("foliplus-layer-sep");
-    expect(CONST.CLASSES.SEP_LABEL).toBe("foliplus-layer-sep-label");
+    expect(CONST.CLASSES.SEPARATOR_LABEL).toBe("foliplus-layer-sep-label");
     expect(CONST.CLASSES.GROUP_FOLDED).toBe("foliplus-layer-group-folded");
   });
 
   it("defines color and utility classes", () => {
-    expect(CONST.CLASSES.COLOR_ITEM).toBe("foliplus-color-layer-item");
     expect(CONST.CLASSES.FOCUSED).toBe("foliplus-is-focused-row");
     // The FOCUS_SUPPRESSED mechanism was removed: Escape is a single class
     // removal, and the recipe CSS keys only on FOCUSED + :hover.
@@ -83,7 +82,6 @@ describe("DATA", () => {
 describe("SEL", () => {
   it("defines DOM selectors", () => {
     expect(CONST.SEL.LAYER_ITEM).toBe(".foliplus-layer-item");
-    expect(CONST.SEL.COLOR_ITEM).toBe(".foliplus-color-layer-item");
     expect(CONST.SEL.TOGGLE_ALL).toBe(".foliplus-layer-toggle-all");
     expect(CONST.SEL.COUNT_COL).toBe(".foliplus-layer-count");
     expect(CONST.SEL.ROW).toBe(".foliplus-layer-item, .foliplus-layer-toggle-all");
@@ -143,11 +141,7 @@ describe("CLASSES.FOCUSING", () => {
   });
 });
 
-describe("CLASSES.SECTION_HEADING / opacity controls", () => {
-  it("uses the shared form.css section heading", () => {
-    expect(CONST.CLASSES.SECTION_HEADING).toBe("foliplus-section-heading");
-  });
-
+describe("CLASSES opacity controls", () => {
   it("defines the opacity row and shared slider classes", () => {
     // The shared component both range controls are built from.
     expect(CONST.CLASSES.SLIDER).toBe("foliplus-slider");

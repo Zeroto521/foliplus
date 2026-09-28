@@ -1,6 +1,6 @@
 // LayerControl UI —Layer attributes panel.
 import { EVENTS } from "#core/event/index.js";
-import { getGeometryType } from "#core/layer/index.js";
+import { GEOM_TYPE } from "#core/layer/index.js";
 import { dom } from "#common/dom.js";
 import { formatNumber, formatTimestamp } from "#common/format.js";
 import { createRowPanel } from "#common/panel.js";
@@ -9,9 +9,9 @@ import * as SVGs from "../icon.js";
 import * as Util from "../util.js";
 import { ATTRS_ROW_WRAP_CHARS } from "./context.js";
 import type { LayerUI } from "./index.js";
-import { colorLayerName } from "./list.js";
 import { closeMoreMenu } from "./menu.js";
 import { finishRename } from "./rename.js";
+import { displayName } from "./rowView.js";
 import { closeStylePanel } from "./style/index.js";
 
 /**
@@ -31,8 +31,8 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
   closeStylePanel(ui, false);
 
   const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
-  const isColor = item.classList.contains(CONST.CLASSES.COLOR_ITEM);
-  const layerInfo = isColor ? null : ui.manager.layerRegistry.get(layerId);
+  const isColor = layerId === CONST.SOLID_BASEMAP_ID;
+  const layerInfo = ui.manager.layerRegistry.get(layerId);
 
   // Row kind: a value that runs long (a URL source) drops below its label
   // and takes the full panel width instead of squeezing the label column.
@@ -56,15 +56,27 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
   // Every field is listed by default; addRow drops a row whose value is
   // empty. The order mirrors how the layer row reads: type, feature count,
   // then provenance (source / created / updated).
+  // Explicit no-carrier: color rows short-circuit above; a null here means
+  // the entry declared no Leaflet layer (canvas/solid/custom), not a lazy miss.
   const layer = layerInfo?.layer ?? null;
-  // getGeometryType returns EMPTY for a container with no data geometry and
-  // UNKNOWN for mixed/unrecognisable data —both have locale keys.
-  const rawGtype = layerInfo?.type ?? (layer ? getGeometryType(layer) : null);
+  // The surface is the authority for the geometry probe; reading it here is
+  // the snapshot sync, not a second source of truth. EMPTY means a container
+  // with no data geometry; UNKNOWN means mixed/unrecognisable data.
+  const rawGtype = layerInfo ? ui.manager.surfaceFor(layerInfo).geometryType() : null;
   const gtype = !rawGtype ? "unknown" : rawGtype;
   // A basemap has no data geometry, so name it by what it is rather than by
-  // a geometry type it never had.
-  const isBase = layerInfo?.isBase ?? item.dataset.layerType === "base";
-  const typeKey = isColor ? "type_color_map" : isBase ? "type_base" : `type_${gtype}`;
+  // a geometry type it never had; a custom layer ships its own logo instead
+  // of a geometry glyph —same rowView decision tree, same labels.
+  const isBaseLayer = layerInfo
+    ? layerInfo.group === CONST.GROUP.BASE
+    : item.dataset.layerType === CONST.GROUP.BASE;
+  const typeKey = isColor
+    ? "type_color_map"
+    : isBaseLayer
+      ? "type_base"
+      : layerInfo?.iconSvg
+        ? "type_custom"
+        : `type_${gtype}`;
   addRow(ui.T("attr_type"), ui.T(typeKey));
   if (!isColor) {
     const count = layerInfo ? ui.manager.getFeatureCount(layerId) : null;
@@ -141,12 +153,12 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
   };
   const metaRows = buildMetaRows();
 
-  const displayName = isColor ? colorLayerName(ui) : (layerInfo?.name ?? layerId);
+  const label = displayName(ui, layerId) || layerId;
   // iconSvg is the layer's own logo (basemaps and custom layers ship one);
   // otherwise fall back to the geometry glyph the layer row shows.
   const typeSvg =
     layerInfo?.iconSvg ??
-    (isColor ? SVGs.COLOR : layer ? Util.getTypeSVG(layer, gtype) : SVGs.UNKNOWN);
+    (isColor ? SVGs.COLOR : layer ? Util.getTypeSVG(gtype) : SVGs.UNKNOWN);
 
   // Shell (surface, header, content scroll) comes from the shared row-panel
   // factory, so this surface is built by the same code as the per-layer style
@@ -154,7 +166,7 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
   // (Collapse), same as the main panel.
   const { panel, header, content } = createRowPanel({
     cssClass: CONST.CLASSES.ATTRS_PANEL,
-    title: displayName,
+    title: label,
     // The header names the layer; the dialog itself is named by what the
     // surface is, so a screen reader announces the panel, not the layer twice.
     ariaLabel: ui.T("attributes_layer"),
@@ -163,7 +175,8 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
     iconClass: `${CONST.CLASSES.ATTRS_ICON} foliplus-header-icon`,
   });
   // One flat list: third-party meta rows continue the same rhythm instead
-  // of opening a second group, so the panel reads as one column of facts.
+  // of opening a second group, so the panel reads as one column of facts —
+  // the same unheaded row flow the style panel uses.
   const dlEl = renderList([...rows, ...metaRows]);
   content.appendChild(dlEl);
 

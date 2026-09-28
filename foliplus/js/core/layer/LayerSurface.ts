@@ -2,9 +2,9 @@
 //
 // Before this module the answer to "where does this layer draw, and at which z"
 // was assembled in three places inside LayerManager's ordering pass: a
-// `fallbackPaneMap` keyed by `L.stamp`, an `options.paneSet` flag standing in
-// for "already moved", and a queue of DOM moves replayed after the pass. The
-// surface owns those concerns instead: it resolves the pane handles once, pins
+// `fallbackPaneMap` keyed by `L.stamp`, a per-layer `options.paneSet` dirty
+// flag, and a queue of DOM moves replayed after the pass. The surface owns
+// those concerns instead: it resolves the pane handles once, pins
 // the layer's content to them, and hands the ordering pass a z target and
 // nothing else.
 //
@@ -22,15 +22,17 @@
 // No CONF / translator dependency: core/layer, not a component dir.
 import { createLogger } from "#common/log.js";
 import type { PaneManager } from "./PaneManager.js";
+import { hasFillLeaf, hasSetStyleLeaf } from "./capability.js";
 import { FALLBACK_PANE_PREFIX, PANE_NAME_PATTERN } from "./const.js";
 import type {
   LayerCapabilities,
+  LayerKind,
   LayerSurface as LayerSurfaceContract,
   PaneHandle,
   PaneRole,
   PaneSpec,
 } from "./type.js";
-import { getGeometryType } from "./util.js";
+import { CLUSTER_CAPABILITIES, deriveLayerKind, getGeometryType } from "./util.js";
 import { zFor } from "./z.js";
 
 const log = createLogger("LayerSurface");
@@ -57,6 +59,10 @@ const hasBoundsProvider = (layer: L.Layer | null | undefined): boolean =>
 interface SurfaceFaceOpts {
   id: string;
   layer: L.Layer | null;
+  /** Declared kind; when absent, `deriveLayerKind` probes the layer family. */
+  kind?: LayerKind;
+  /** Third-party carrier payload (`kind: "custom"`). */
+  custom?: unknown;
   /** The pane the caller declared for this layer, if any. */
   paneName?: string | null;
   /** The panes this layer paints into, in draw order. */
@@ -78,11 +84,6 @@ interface SurfaceFaceOpts {
  *  why the pin hands such a node's whole tree to `pinLateContent` instead of
  *  writing one pane name onto the group. */
 interface PinnableNode extends L.Layer {
-  options: L.LayerOptions & {
-    renderer?: L.Renderer;
-    pane?: string;
-    paneSet?: boolean;
-  };
   eachLayer?: (fn: (layer: L.Layer) => void) => void;
 }
 
@@ -96,6 +97,8 @@ const isContainer = (node: PinnableNode): boolean =>
  *  `matches` when the same id is registered again. */
 interface SurfaceDeclaration {
   layer: L.Layer | null;
+  kind: LayerKind;
+  custom: boolean;
   paneName: string | null;
   canvas: boolean;
   /** Whether the declaration names a color fill. Presence, not value: a color
@@ -114,6 +117,15 @@ interface SurfaceDeclaration {
    *  rebuilding. The reference is kept only so the value can be reported back
    *  as-is; nothing reads it through. */
   getBounds: (() => L.LatLngBounds | null) | null;
+  /** Whether the layer's tree has an areal `setStyle` leaf (vector fill
+   *  axis). Same probe-and-cache contract as `stroke`. */
+  fill: "native" | "none";
+  /** Whether the layer's tree has a `setStyle` leaf (vector stroke axis).
+   *  Probe-derived, cached per surface. Part of the declaration so a
+   *  re-registration that added or lost a stroke carrier triggers a
+   *  rebuild — otherwise the surface would keep answering with the
+   *  previous tree's probe result. */
+  stroke: "native" | "none";
 }
 
 class LayerSurface implements LayerSurfaceContract {
@@ -162,10 +174,14 @@ class LayerSurface implements LayerSurfaceContract {
     const layer = opts.layer;
     this.spec = {
       layer,
+      kind: deriveLayerKind(opts),
+      custom: opts.custom !== undefined,
       paneName: declared,
       canvas: opts.canvas === true,
       color: opts.color != null,
       getBounds: opts.getBounds ?? null,
+      fill: probeVectorCarrier(layer, "fill"),
+      stroke: probeVectorCarrier(layer, "stroke"),
     };
     // Capabilities are resolved here, before any early return below, so every
     // branch — declared, synthesized, native — reports the same way. A GridLayer
@@ -173,9 +189,14 @@ class LayerSurface implements LayerSurfaceContract {
     this.capabilities = detectCapabilities(opts);
 
     if (declared) {
-      const base = this.specs[0];
+      // The declared pane's own spec — matched BY NAME, not position: a
+      // caller may hand a spec list whose index 0 is something else (an
+      // appended label pane, for one), and a position-based read would
+      // stamp that spec's role onto the base pane while never booking the
+      // pane the extra spec names.
+      const base = this.specs.find(spec => spec.name === declared);
       this.addPane(declared, !opts.canvas, base?.role, base?.order);
-      for (const spec of this.specs.slice(1)) {
+      for (const spec of this.specs) {
         if (spec.name !== declared) {
           this.addPane(spec.name, false, spec.role, spec.order);
         }
@@ -192,6 +213,7 @@ class LayerSurface implements LayerSurfaceContract {
     // basemaps retire that.
     if (!layer) {
       this.pinTarget = null;
+      this.addMissingSpecs();
       return;
     }
 
@@ -213,6 +235,7 @@ class LayerSurface implements LayerSurfaceContract {
     }
     if (childPanes.length) {
       this.pinTarget = null;
+      this.addMissingSpecs();
       return;
     }
 
@@ -224,6 +247,23 @@ class LayerSurface implements LayerSurfaceContract {
     const name = `${FALLBACK_PANE_PREFIX}${L.stamp(layer)}`;
     this.addPane(name, true);
     this.pinTarget = name;
+    this.addMissingSpecs();
+  }
+
+  /** Materialize every declared spec the constructor's branch did not already
+   *  add. The declared-pane route books its whole spec list; the other routes
+   *  only walk panes they discovered in the live tree or synthesized — so a
+   *  spec with no DOM pane to discover (the registration edge's
+   *  `role: "annotation"` label pane) would otherwise be declared in
+   *  `capabilities` and never exist. Fills the gap in place: handles already
+   *  booked are skipped, so the base pane stays `panes[0]` and `reconcile`
+   *  still pins content into it. */
+  private addMissingSpecs(): void {
+    for (const spec of this.specs) {
+      if (!this.panes.some(pane => pane.name === spec.name)) {
+        this.addPane(spec.name, false, spec.role, spec.order);
+      }
+    }
   }
 
   /** Resolve the pane handles and pin the layer's content to them. Re-entrant:
@@ -383,12 +423,22 @@ class LayerSurface implements LayerSurfaceContract {
           spec.order === specs[i].order &&
           spec.name === specs[i].name,
       );
+    // Probe results are part of the declaration: a tree that gained or lost a
+    // `setStyle` leaf describes a different face, and the surface has to be
+    // rebuilt so the next read of `capabilities.stroke` / `.fill` sees the
+    // fresh answer. Recomputed on every `matches` call — the walk is bounded
+    // by the layer's own tree and the surface is resolved once per register,
+    // so the cost is one tree walk per re-registration, not per frame.
     return (
       this.spec.layer === opts.layer &&
+      this.spec.kind === deriveLayerKind(opts) &&
+      this.spec.custom === (opts.custom !== undefined) &&
       this.spec.paneName === declaredPaneName(opts.paneName) &&
       this.spec.canvas === Boolean(opts.canvas) &&
       this.spec.color === (opts.color != null) &&
       Boolean(this.spec.getBounds) === Boolean(opts.getBounds ?? null) &&
+      this.spec.fill === probeVectorCarrier(opts.layer, "fill") &&
+      this.spec.stroke === probeVectorCarrier(opts.layer, "stroke") &&
       samePanes
     );
   }
@@ -451,39 +501,8 @@ class LayerSurface implements LayerSurfaceContract {
     // every leaf onto the base pane.
     const node = this.layer as PinnableNode;
     node.options.pane = base.name;
-    node.options.paneSet = true;
   }
 }
-
-/** The MarkerCluster plugin's group — a shape this tree does not own.
- *
- *  Two tells distinguish it from every other LayerGroup: the plugin attaches
- *  `_topClusterLevel` (its own tree root) and, if the plugin is loaded, is
- *  reachable via `L.MarkerClusterGroup`. `eachLayer` on the group reaches the
- *  individual markers, but the cluster icons themselves live in the shared
- *  `markerPane` and never enter `eachLayer`, so there is no honest carrier for
- *  a per-layer opacity on a MarkerCluster group — the pane write would fade the
- *  individual markers but not the clusters (half the layer).
- *
- *  `L.MarkerClusterGroup` is not in the ambient typings; the plugin is optional
- *  and may not be loaded at all, so the reference is guarded with a runtime
- *  presence check rather than a hard instanceof. */
-const isMarkerCluster = (layer: L.Layer): boolean => {
-  // The plugin's `L.MarkerClusterGroup` is optional — the runtime may not
-  // have it. Read it off the Leaflet global and duck-type the rest.
-  const ctor = (window.L as { MarkerClusterGroup?: unknown })?.MarkerClusterGroup;
-  if (
-    typeof ctor === "function" &&
-    layer instanceof (ctor as new (...args: never[]) => unknown)
-  ) {
-    return true;
-  }
-  // Fallback: the plugin's private `_topClusterLevel` field. If the plugin is
-  // renamed or the instanceof fails (plugin loaded without `L.MarkerClusterGroup`),
-  // this still catches it. The failure mode — duck typing alone — is documented
-  // in the PR body.
-  return !!(layer as L.Layer & { _topClusterLevel?: unknown })._topClusterLevel;
-};
 
 /** Whether the layer paints through a setter of its own (not a pane of ours).
  *
@@ -495,6 +514,20 @@ const isMarkerCluster = (layer: L.Layer): boolean => {
 const usesNativeSetter = (layer: L.Layer): boolean =>
   (typeof L.GridLayer !== "undefined" && layer instanceof L.GridLayer) ||
   (typeof L.ImageOverlay !== "undefined" && layer instanceof L.ImageOverlay);
+
+/** Resolve one vector-style probe against the layer's tree. `axis` picks
+ *  the probe (`stroke` → `hasSetStyleLeaf`, `fill` → `hasFillLeaf`). A
+ *  null layer yields "none" — there is no tree to walk. Called from the
+ *  constructor (to seed `spec.stroke` / `spec.fill`) and from `matches`
+ *  (to detect a tree change on re-registration). */
+const probeVectorCarrier = (
+  layer: L.Layer | null,
+  axis: "stroke" | "fill",
+): "native" | "none" => {
+  if (!layer) return "none";
+  const found = axis === "stroke" ? hasSetStyleLeaf(layer) : hasFillLeaf(layer);
+  return found ? "native" : "none";
+};
 
 /** Resolve a surface's capabilities from what it actually owns.
  *
@@ -531,36 +564,63 @@ const usesNativeSetter = (layer: L.Layer): boolean =>
  *      `getBounds` provider; a bare canvas has no idea what it covers. */
 const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
   const layer = opts.layer;
+  // The label pane is a declared carrier, read like `bounds` rather than
+  // probed: the registration edge (`LayerManager.surfaceFor`) appends the
+  // `role: "annotation"` spec exactly when the layer's features expose
+  // labelable `feature.properties`, and the constructor below materializes
+  // that spec's pane in every branch — so the capability and the pane are
+  // the same fact. Every branch reports it, early returns included: a
+  // MarkerCluster whose children carry properties still has an honest
+  // label pane (the probe decides the spec, not the branch shape).
+  const annotation: LayerCapabilities["annotation"] = opts.paneSpecs?.some(
+    spec => spec.role === "annotation",
+  )
+    ? "pane"
+    : "none";
 
   if (opts.color != null) {
     // A solid-color basemap owns one pane of its own, so a CSS write on that
     // pane is the only honest opacity carrier. It carries no geographic
     // extent, so the UI disables focus rather than offering a click that is a
-    // silent no-op. And it deliberately has no zoom range: it is the fallback
-    // color, the one thing that is always available, so a range would only add
-    // another "no basemap" path for no expressive gain.
+    // silent no-op. `fill: "native"` — the pane's paint *is* the fill — and
+    // `zoomRange: "pane"` so the row renders (the executor's `visible` op is
+    // the carrier, same as every other surface). Stroke stays "none": there
+    // is no vector stroke axis on a solid colour.
     return {
+      fill: "native",
+      stroke: "none",
       opacity: "pane",
-      zoomRange: "none",
+      zoomRange: "pane",
+      annotation,
       relocatable: true,
       bounds: false,
+      visibility: "pane",
     };
   }
 
-  if (layer && isMarkerCluster(layer)) {
-    return { opacity: "none", zoomRange: "none", relocatable: false, bounds: false };
+  // Cluster is a first-class kind: capability dispatch goes through the
+  // discriminant (`CLUSTER_CAPABILITIES`), not a duck-typed side path. An
+  // undeclared MarkerCluster still derives `kind: "cluster"` above.
+  if (deriveLayerKind(opts) === "cluster") {
+    return { ...CLUSTER_CAPABILITIES, annotation };
   }
 
   if (layer && usesNativeSetter(layer)) {
     // ImageOverlay's zoomRange is declared in options but not runtime-effective
-    // once attached: only GridLayer honours min/maxZoom live.
+    // once attached: only GridLayer honours min/maxZoom live. Native setter
+    // surfaces (GridLayer / ImageOverlay) own no `setStyle` leaf, so both
+    // vector axes are "none".
     const zoomRange: LayerCapabilities["zoomRange"] =
       layer instanceof L.GridLayer ? "native" : "none";
     return {
+      fill: "none",
+      stroke: "none",
       opacity: "native",
       zoomRange,
+      annotation,
       relocatable: true,
       bounds: hasBoundsProvider(layer),
+      visibility: "native",
     };
   }
 
@@ -574,12 +634,26 @@ const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
     (opts.paneSpecs && opts.paneSpecs.length > 0) ||
     opts.canvas;
 
+  // Visibility carrier: "native" for any surface backed by a real L.Layer
+  // (map membership), "pane" for canvas-only surfaces (heatmap / color face),
+  // "none" only when neither exists — a layer with no map to add to and no
+  // canvas to hide would have no honest toggle at all.
+  const visibility: LayerCapabilities["visibility"] = layer
+    ? "native"
+    : opts.canvas
+      ? "pane"
+      : "none";
+
   if (hasContentPanes) {
     return {
+      fill: probeVectorCarrier(layer, "fill"),
+      stroke: probeVectorCarrier(layer, "stroke"),
       opacity: "pane",
       zoomRange: "pane",
+      annotation,
       relocatable: true,
       bounds: Boolean(opts.getBounds) || hasBoundsProvider(layer),
+      visibility,
     };
   }
 
@@ -588,15 +662,28 @@ const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
   // That pane is addressable on its own.
   if (layer) {
     return {
+      fill: probeVectorCarrier(layer, "fill"),
+      stroke: probeVectorCarrier(layer, "stroke"),
       opacity: "pane",
       zoomRange: "pane",
+      annotation,
       relocatable: true,
       bounds: hasBoundsProvider(layer),
+      visibility,
     };
   }
 
   // No layer at all and no canvas — nothing to write.
-  return { opacity: "none", zoomRange: "none", relocatable: false, bounds: false };
+  return {
+    fill: "none",
+    stroke: "none",
+    opacity: "none",
+    zoomRange: "none",
+    annotation,
+    relocatable: false,
+    bounds: false,
+    visibility,
+  };
 };
 
 export { LayerSurface };

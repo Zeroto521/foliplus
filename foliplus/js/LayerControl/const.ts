@@ -1,4 +1,4 @@
-import { ANNOTATION_Z_OFFSET, FOCUS_Z } from "#core/layer/index.js";
+import { ANNOTATION_Z_OFFSET, FOCUS_Z, GROUP } from "#core/layer/index.js";
 import { LABEL_COLOR_DEFAULT, LABEL_SIZE } from "#common/form.js";
 import { NUMBER_FORMAT } from "#common/format.js";
 
@@ -17,7 +17,8 @@ const DRAG = { HINT_COOLDOWN_MS: 800 };
 const STORAGE = { KEY: `foliplus_layer_state_${map.getContainer().id}` };
 
 /** Color map layer. */
-const COLOR = { MAP_ID: "foliplus_color_map", DEFAULT: "#cccccc" };
+const SOLID_BASEMAP_ID = "foliplus_color_map";
+const COLOR = { DEFAULT: "#cccccc" };
 
 /** Focus-on-layer behavior. */
 const FOCUS = {
@@ -61,11 +62,10 @@ const ANNOTATION_PANE_PREFIX = "foliplus-annotation-";
 /** CSS class names. */
 const CLASSES = {
   LAYER_ITEM: "foliplus-layer-item",
-  ACTIVE: "active",
+  ACTIVE: "foliplus-active",
   CHECKBOX: "foliplus-checkbox",
   DRAG_CELL: "foliplus-drag-cell",
   GROUP_FOLDED: "foliplus-layer-group-folded",
-  COLOR_ITEM: "foliplus-color-layer-item",
   LAYER_LABEL: "foliplus-layer-label",
   /** Marks a row that owns the live Row-cursor visual (arrow keyboard cursor
    *  or Tab focus). The recipe CSS keys only on this class + `:hover` — never
@@ -81,12 +81,12 @@ const CLASSES = {
   MORE_BTN: "foliplus-layer-more-btn",
   TOGGLE_ALL: "foliplus-layer-toggle-all",
   FOLD_BTN_CTR: "foliplus-layer-sep",
-  SEP_LABEL: "foliplus-layer-sep-label",
+  SEPARATOR_LABEL: "foliplus-layer-sep-label",
   /** Set on the map container when zero basemaps are visible (A′ hatch).
    *  Painted via CSS `background-image`, which ExportControl's
    *  resolveExportBackground deliberately skips — an empty state never
    *  reaches an export. */
-  NO_BASE_MAP: "no-base-map",
+  NO_BASE_MAP: "foliplus-no-base-map",
   FOCUSING: "foliplus-is-focusing",
   /** Set on the map container while a focus is active. CSS hides every
    *  `.foliplus-layer-pane` except the focused one (`.foliplus-focus-pane`)
@@ -120,6 +120,10 @@ const CLASSES = {
   STYLE_FORMAT_SELECT: "foliplus-style-format-select",
   STYLE_TOGGLE_INPUT: "foliplus-style-toggle-input",
   STYLE_BODY: "foliplus-style-body",
+  /** The Label section's row wrapper — the `annotation` dimension's `row`
+   *  element (toggle + body), so the panel assembly and the tests can
+   *  select the section's content as one unit. No styles hang off it. */
+  STYLE_LABEL_SECTION: "foliplus-style-label-section",
   STYLE_LABEL_COLOR_INPUT: "foliplus-style-label-color-input",
   STYLE_LABEL_SIZE_INPUT: "foliplus-style-label-size-input",
   /** Border row (vector layers): stroke swatch + width field. Each control
@@ -137,8 +141,6 @@ const CLASSES = {
   STYLE_FILL_ROW: "foliplus-style-fill-row",
   STYLE_FILL_COLOR_INPUT: "foliplus-style-fill-color-input",
   STYLE_FILL_OPACITY_NUMBER: "foliplus-style-fill-opacity-number",
-  /** Shared section heading (form.css). */
-  SECTION_HEADING: "foliplus-section-heading",
   /** Opacity control: range slider + paired number input. */
   STYLE_OPACITY_TRACK: "foliplus-style-opacity-track",
   STYLE_OPACITY_FILL: "foliplus-style-opacity-fill",
@@ -219,18 +221,21 @@ const ACTION = {
 /** DOM selectors. */
 const SEL = {
   LAYER_ITEM: ".foliplus-layer-item",
-  COLOR_ITEM: ".foliplus-color-layer-item",
   TOGGLE_ALL: ".foliplus-layer-toggle-all",
   COUNT_COL: ".foliplus-layer-count",
   /** Any cursor-recipe row (data item or the fold/toggle-all row). Child
    *  control focus (checkbox / more / fold) attributes to this via closest(). */
   ROW: ".foliplus-layer-item, .foliplus-layer-toggle-all",
   MENU_DELETE_LABEL: `.${CLASSES.MENU_DELETE_LABEL}`,
-  SEP_LABEL: `.${CLASSES.SEP_LABEL}`,
+  SEPARATOR_LABEL: `.${CLASSES.SEPARATOR_LABEL}`,
 };
 
-/** Group names. */
-const GROUP = { OVERLAY: "overlay", BASE: "base" };
+/** Upper bound for a map and layer that declare no max zoom.
+
+ *  One value for both the map's fallback ceiling and the slider's author-bound
+ *  fallback: two different numbers would let the panel offer a range the map
+ *  itself refuses. */
+const AUTHOR_ZOOM_FALLBACK_MAX = 20;
 
 /** Default annotation config for a layer (disabled). */
 const DEFAULT_ANNOTATION = {
@@ -245,6 +250,7 @@ export {
   ACTION,
   ANNOTATION_PANE_PREFIX,
   ANNOTATION_Z_OFFSET,
+  AUTHOR_ZOOM_FALLBACK_MAX,
   CLASSES,
   COLOR,
   DATA,
@@ -256,5 +262,6 @@ export {
   GROUP,
   SAVE_DEBOUNCE_MS,
   SEL,
+  SOLID_BASEMAP_ID,
   STORAGE,
 };

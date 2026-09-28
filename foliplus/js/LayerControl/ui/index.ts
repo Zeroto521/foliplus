@@ -1,7 +1,5 @@
 // LayerControl UI — class shell: state, lifecycle, event wiring, delegates.
 // Heavy lifting lives in `ui/*` modules; this class owns state and delegates.
-// attachUI / bindEvents / unbindEvents / onLayerItemCountChange /
-// refreshAllCounts moved to `./lifecycle.ts` (34.2).
 import { type EventBus, ensureEvents } from "#core/event/index.js";
 import type { LabelField } from "#core/labelField.js";
 import { type CreateColorAPI, type LayerInfo } from "#core/layer/index.js";
@@ -9,10 +7,11 @@ import { ListCursor } from "#core/listCursor.js";
 import { createScopedTranslator, createTranslator } from "#common/locale.js";
 import * as CONST from "../const.js";
 import type { LayerManager } from "../manager.js";
-import type { LayerOverride } from "../persistence.js";
+import type { LayerOverride } from "../type.js";
+import type { AppliedProjection } from "../type.js";
 import { applyProjection, applyProjectionAll } from "./apply.js";
 import { closeAttrsPanel, openAttrsPanel } from "./attr.js";
-import { hideColorLayer, showColorLayer } from "./color.js";
+import { hideSolidBasemap, showSolidBasemap } from "./color.js";
 import { cancelFocus, focusLayer, isFocusing } from "./focus.js";
 import {
   blurActiveItem,
@@ -40,20 +39,19 @@ import {
   updateLayerItem,
 } from "./list.js";
 import { closeMoreMenu, openMoreMenu } from "./menu.js";
+import { intentVisibleOf } from "./projection.js";
 import { finishRename, renameLayer } from "./rename.js";
-import { applyRowView, buildRowCell, displayName, rowChecked } from "./rowView.js";
+import { applyRowView, buildRowCell, displayName } from "./rowView.js";
 import {
   applyUserState,
   dropPersistedLayerState,
   loadPersistedState,
-  replayLayerState,
   saveFoldState,
   saveNamesState,
   saveState,
   syncHiddenId,
 } from "./state.js";
-import type { AppliedProjection } from "./store.js";
-import { replayBorderState } from "./style/border.js";
+import { applyBorderToLayer } from "./style/border.js";
 import {
   applyStyleLabelState,
   closeStylePanel,
@@ -66,9 +64,16 @@ import {
   getLayerItems,
   handleChange,
   handleInput,
+  syncNoBasemap,
   syncToggleAll,
+  syncToggleAllFromCount,
   toggleAll,
 } from "./visibility.js";
+
+// One creation per rendered IIFE; instances only forward (`this.T = T`),
+// keeping the per-instance injection seam the UI tests rely on.
+const T = createScopedTranslator(CONF);
+const _ = createTranslator(CONF);
 
 /** UI Controller for LayerControl. */
 class LayerUI {
@@ -79,30 +84,37 @@ class LayerUI {
   /** Component config — carried on the instance so the ui/* modules read it
    *  from `ui.conf` instead of a module-level free variable. */
   conf: ComponentConfig;
-  /** Translator bound to `conf`, created once in the constructor. */
+  /** Translator bound to `conf`, forwarded from the module const. */
   T: (key: string) => string;
   /** Unscoped translator for the shared `foliplus.*` vocabulary (the label
    *  controls the style panel shares with HeatmapControl). Kept beside `T` so
    *  a test can inject either independently. */
   _: (key: string) => string;
   foldedGroups: Set<string>;
+  /** Per-group tri-state counts maintained incrementally so a single-row
+   *  click is O(1). Populated by the full-scan `syncToggleAll` at reconcile
+   *  points (attach, insert, delete, reload) and kept in sync by
+   *  `bumpCheckedCount` on each single-row toggle. `total` is the row count
+   *  `getLayerItems(group).length` returns; `on` is the subset whose intent
+   *  is visible. `syncToggleAllFromCount` writes the checkbox off `on`. */
+  checkedCount: Record<string, { total: number; on: number }>;
   /** Layer ids hidden by the user (checked-off); survives page reload. */
-  hiddenIds: Set<string>;
+  hiddenLayerIds: Set<string>;
   /** The author's declared default per layer id, snapshotted once per id from
    *  the map membership at first sight.
    *
    *  Folium ships the layer list without a visibility field, so the author's
    *  `show=` default reaches the UI only as the map state folium left behind
    *  when the panel boots. It must be captured before the policy starts moving
-   *  layers: `layerInfo.visible` is a real-time mirror that the diff executor
-   *  writes, so by the time a row first paints it can already carry a policy
-   *  decision, not the author's. See `rowChecked`. */
+   *  layers: by the time a row first paints a policy sweep may already have
+   *  moved the layer off the map, and reading the map back would record that
+   *  policy decision as the author's. See `intentVisibleOf`. */
   authorVisible: Map<string, boolean>;
   /** Which dimensions the user has actually set, per layer id. A layer absent
    *  here keeps the author's `show=` / opacity default -- that is what replaces
    *  a map-level "did the user choose at all" flag, which could not tell one
    *  layer's choice from another's. */
-  userOverrides: Record<string, LayerOverride[]>;
+  intentProvenance: Record<string, LayerOverride[]>;
   currentColor: string;
   /** Lazy-created color basemap surface — the pane-owned canvas that carries
    *  the fill. Built on first show (via `factory.createColor`), which also
@@ -139,7 +151,7 @@ class LayerUI {
   /** Map zoomend handler — re-evaluates every layer's effective-shown after
    *  a zoom change so a layer whose range excludes the new level is hidden
    *  (and vice versa). Writes through the single pipeline, never touches
-   *  hiddenIds / overrides. */
+   *  hiddenLayerIds / overrides. */
   onZoomEnd: (() => void) | null;
   /** Unsubscribe function for LAYER_ITEM_COUNT_CHANGE. */
   unsubscribeCountChange: (() => void) | null;
@@ -224,12 +236,13 @@ class LayerUI {
     this.manager = manager;
     this.events = ensureEvents(this.m.map);
     this.conf = CONF;
-    this.T = createScopedTranslator(CONF);
-    this._ = createTranslator(CONF);
+    this.T = T;
+    this._ = _;
     this.foldedGroups = new Set();
-    this.hiddenIds = new Set();
+    this.checkedCount = {};
+    this.hiddenLayerIds = new Set();
     this.authorVisible = new Map();
-    this.userOverrides = {};
+    this.intentProvenance = {};
     this.currentColor = CONST.COLOR.DEFAULT;
     this.colorSurface = null;
     this.renamedNames = {};
@@ -338,21 +351,18 @@ class LayerUI {
     // style-row imports (border.js and fill.js import state.js for
     // markOverride/saveState).
     //
-    // Both dimensions enumerate `userOverrides` — the single source of truth
+    // Both dimensions enumerate `intentProvenance` — the single source of truth
     // for which layers the user actually touched. Border's map-union
-    // enumeration and fill's userOverrides loop were asymmetric: a value in
+    // enumeration and fill's intentProvenance loop were asymmetric: a value in
     // `borderColorMap` that was never recorded as an override would replay
     // for border but not for fill, and vice versa, so a reload could restore
     // the drawer's swatch for one dimension while leaving the map with the
     // author's for the other.
-    const layerIds = id !== undefined ? [id] : Object.keys(this.userOverrides);
+    const layerIds = id !== undefined ? [id] : Object.keys(this.intentProvenance);
     for (const layerId of layerIds) {
-      replayBorderState(this, layerId);
+      applyBorderToLayer(this, layerId);
       replayFillState(this, layerId);
     }
-  }
-  replayLayerState(layerId: string) {
-    return replayLayerState(this, layerId);
   }
   dropPersistedLayerState(layerId: string) {
     return dropPersistedLayerState(this, layerId);
@@ -396,8 +406,23 @@ class LayerUI {
   syncToggleAll(group: string) {
     return syncToggleAll(this, group);
   }
+  syncToggleAllFromCount(group: string) {
+    return syncToggleAllFromCount(this, group);
+  }
+  syncNoBasemap() {
+    return syncNoBasemap(this);
+  }
   applyVisibility(id: string, visible: boolean) {
     return applyVisibility(this, id, visible);
+  }
+  /** The user's stored visibility choice for a layer id (persisted intent
+   *  or the author's declared default). This is the panel checkbox's fact,
+   *  not the map's membership — the projection's `effectiveShown` composes
+   *  intent with policy and is what the map reflects. Only LayerManager
+   *  (via the `intentVisible` API slot) and tests reach this through LayerUI;
+   *  everything internal calls the module function directly. */
+  intentVisible(id: string) {
+    return intentVisibleOf(this, id);
   }
   applyProjection(layerId: string) {
     return applyProjection(this, layerId);
@@ -436,11 +461,11 @@ class LayerUI {
   }
 
   // ── delegates: color / menu / attrs / rename / focus ──
-  showColorLayer(color: string) {
-    return showColorLayer(this, color);
+  showSolidBasemap(color: string) {
+    return showSolidBasemap(this, color);
   }
-  hideColorLayer() {
-    return hideColorLayer(this);
+  hideSolidBasemap() {
+    return hideSolidBasemap(this);
   }
   openMoreMenu(item: HTMLElement) {
     return openMoreMenu(this, item);

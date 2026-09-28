@@ -26,8 +26,8 @@
 // recreate the "two places must stay in sync" problem this file exists to end.
 //
 // Pure: no DOM, no CONF, no Leaflet.
-import { Z_INDEX } from "./const.js";
-import type { PaneRole } from "./type.js";
+import { GROUP, Z_INDEX } from "./const.js";
+import type { ZArgs } from "./type.js";
 
 /** A layer's label pane rides one step above its own panes: the labels cover
  *  that layer's geometry, and the next layer up still covers the labels — the
@@ -48,25 +48,6 @@ const FOCUS_Z = {
  *  layer pane. */
 const focusLayerZ = (): number => FOCUS_Z.overlay - FOCUS_Z.gap;
 
-/** Everything `zFor` can be told about the pane it prices. */
-interface ZArgs {
-  /** The layer's position in the ordered registry: index 0 is the topmost. */
-  index?: number;
-  /** How many layers the registry holds — the step multiplier. */
-  count?: number;
-  /** Base-group layers (tile basemaps and the solid-color basemap) share the
-   *  lower `TILE_BASE` ladder; overlay-group layers use `BASE`. Row order
-   *  within a group = visual stack order, since both share one `STEP`. */
-  isBase?: boolean;
-  /** The pane's role in its layer's draw stack. Only `annotation` prices a
-   *  relation of its own (one step above its layer); the rest use `order`. */
-  role?: PaneRole;
-  /** The pane's draw offset within its layer (`PaneSpec.order`). */
-  order?: number;
-  /** An absolute base z instead of a slot — the focus lift. */
-  base?: number;
-}
-
 /**
  * The z one pane of the layer stack paints at.
  *
@@ -80,14 +61,15 @@ interface ZArgs {
 const zFor = ({
   index = 0,
   count = index,
-  isBase = false,
+  group = GROUP.OVERLAY,
   role = "base",
   order = 0,
   base,
 }: ZArgs): number => {
   const slot =
     base ??
-    (isBase ? Z_INDEX.TILE_BASE : Z_INDEX.BASE) + (count - index) * Z_INDEX.STEP;
+    (group === GROUP.BASE ? Z_INDEX.TILE_BASE : Z_INDEX.BASE) +
+      (count - index) * Z_INDEX.STEP;
   return role === "annotation" ? slot + ANNOTATION_Z_OFFSET : slot + order;
 };
 
@@ -96,4 +78,3 @@ const zFor = ({
 const topSlotZ = (count: number): number => zFor({ index: -1, count });
 
 export { ANNOTATION_Z_OFFSET, FOCUS_Z, focusLayerZ, topSlotZ, zFor };
-export type { ZArgs };

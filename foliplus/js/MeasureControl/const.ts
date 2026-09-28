@@ -136,7 +136,7 @@ const GEOJSON = {
 } as const;
 
 /** Mode names. */
-const MODE = {
+const MEASURE_MODE = {
   MARKER: "marker",
   DISTANCE: "distance",
   POLYGON: "polygon",
@@ -162,5 +162,5 @@ export {
   EXPORT_FORMAT,
   DEFAULT_EXPORT_FORMAT,
   GEOJSON,
-  MODE,
+  MEASURE_MODE,
 };

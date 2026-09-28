@@ -3,6 +3,7 @@
 // labels (canvas). Both answer the same two questions — which fields a layer
 // offers, and which one to fall back to when the user has not chosen — so the
 // answers live here rather than drifting apart per component.
+import { forEachLeaf } from "./layer/util.js";
 
 /**
  * One labelable field found on a layer's features.
@@ -79,6 +80,33 @@ const collectLabelFields = (leaves: Iterable<L.Layer>): LabelField[] => {
 };
 
 /**
+ * Whether any leaf exposes at least one labelable field — the short-circuit
+ * twin of {@link collectLabelFields}, sharing `isLabelableKey` /
+ * `isLabelableValue` so the two answers can never disagree.
+ *
+ * This is the label-pane capability probe: `LayerManager.surfaceFor` runs it
+ * over a registration entry's tree on every surface resolution, so it stops
+ * work at the first hit instead of sampling every key like the collector.
+ * A `true` here is what appends the `role: "annotation"` PaneSpec — the
+ * capability declaration and this probe are one fact.
+ */
+const hasLabelField = (layer: L.Layer): boolean => {
+  let found = false;
+  forEachLeaf(layer, leaf => {
+    if (found) return;
+    const props = leafProperties(leaf);
+    if (!props) return;
+    for (const [name, value] of Object.entries(props)) {
+      if (isLabelableKey(name) && isLabelableValue(value)) {
+        found = true;
+        return;
+      }
+    }
+  });
+  return found;
+};
+
+/**
  * Look up a field's sampled type. An unknown name is reported as non-numeric —
  * the safe answer for a control that only changes anything on numbers.
  */
@@ -131,6 +159,7 @@ export {
   autoLabelField,
   bareFieldName,
   collectLabelFields,
+  hasLabelField,
   isNumericField,
   resolveSelectedField,
   type LabelField,

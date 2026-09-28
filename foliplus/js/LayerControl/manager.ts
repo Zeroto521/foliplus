@@ -1,4 +1,5 @@
 import { EVENTS, type EventBus, ensureEvents } from "#core/event/index.js";
+import { hasLabelField } from "#core/labelField.js";
 import { ensureLayerAPI } from "#core/layer/api.js";
 import {
   type CreateCanvasAPI,
@@ -21,6 +22,7 @@ import {
   topSlotZ,
   zFor,
 } from "#core/layer/index.js";
+import type { PaneSpec } from "#core/layer/type.js";
 import {
   attributionEntries,
   hasAttachedPath,
@@ -48,7 +50,7 @@ const origBringToFront = L.Path.prototype.bringToFront;
 // the prototype; only the last unpatch restores the original implementation.
 let bringToFrontPatchRefs = 0;
 
-const patchBringToFront = () => {
+const installBringToFrontPatch = () => {
   bringToFrontPatchRefs++;
   if (bringToFrontPatchRefs > 1) return;
   L.Path.prototype.bringToFront = function () {
@@ -57,7 +59,7 @@ const patchBringToFront = () => {
   };
 };
 
-const unpatchBringToFront = () => {
+const uninstallBringToFrontPatch = () => {
   if (bringToFrontPatchRefs <= 0) return;
   bringToFrontPatchRefs--;
   if (bringToFrontPatchRefs > 0) return;
@@ -71,14 +73,23 @@ const unpatchBringToFront = () => {
  *  *slot* it was stored in, not just its existence: appending it at the end
  *  would sink a layer the user parked mid-stack, and the drift is permanent
  *  because the next flush would persist the sunk position.
+ *
+ *  Runtime-origin ids (see `LayerInfo.orderOrigin`) are dropped from the write
+ *  entirely — live or stored, registered or pending. Their slots are attach
+ *  timing, not a user arrangement; a legacy disk may still carry them and the
+ *  next save is where that gets cleaned (deletion-is-not-migration).
  */
-const mergeStoredOrder = (stored: string[] | null, live: string[]): string[] => {
-  if (!stored || stored.length === 0) return [...live];
+const mergeStoredOrder = (
+  stored: string[] | null,
+  live: string[],
+  isRuntime: (id: string) => boolean,
+): string[] => {
+  const order = live.filter(id => !isRuntime(id));
+  if (!stored || stored.length === 0) return order;
   const rank = new Map(stored.map((id, i) => [id, i]));
-  const known = new Set(live);
-  const order = [...live];
+  const known = new Set(order);
   for (const [storedAt, id] of stored.entries()) {
-    if (known.has(id)) continue;
+    if (isRuntime(id) || known.has(id)) continue;
     // Insert before the first live id stored below it — at the end when every
     // registered layer sits above it.
     let at = order.length;
@@ -104,7 +115,7 @@ const mergeStoredOrder = (stored: string[] | null, live: string[]): string[] => 
 //      `createLayers`, `createCanvas`, `bringLayerToFront`, `touchLayer`,
 //      `setVisible`, `getLayerType`, `getLayersByType`, `getFeatureCount`,
 //      `refreshCount`, `findLayer`, `forEachLeaf`, `extractPoints`,
-//      `computeZIndex`, `isBase`, and the `isLayerControl` flag. Anything
+//      `computeZIndex`, `group`, and the `isLayerControl` flag. Anything
 //      outside the component reads through these.
 //   2. **Internal coordination** — the plumbing between LayerRegistry,
 //      PaneManager, LayerSurface, LayerFactory, AnnotationManager and
@@ -129,8 +140,8 @@ const mergeStoredOrder = (stored: string[] | null, live: string[]): string[] => 
 // stable contract, change carefully. Internal = LayerUI sibling read
 // surface (ui/* + LayerUI); refactorable, but coordinate with ui/*.
 //   LayerAPI  layers, registerLayer, unregisterLayer, deleteLayer,
-//             bringLayerToFront, setVisible, createLayers, createCanvas,
-//             extractPoints, getLayerPanes, isLayerControl
+//             forgetSavedOrder, bringLayerToFront, setVisible, createLayers,
+//             createCanvas, extractPoints, getLayerPanes, isLayerControl
 //   Public    getLayerType, getLayersByType, getFeatureCount, touchLayer,
 //   extra     computeZIndex, moveLayerUp, moveLayerDown
 //   Internal  surfaceFor, surfaceForLayer, enforceOrder, debouncedEnforce,
@@ -139,7 +150,38 @@ const mergeStoredOrder = (stored: string[] | null, live: string[]): string[] => 
 //             syncAttribution, attachUI, destroy, canReorderBetween,
 //             findLayer, refreshType, refreshCount, forEachLeaf,
 //             clearAllLayers
-//   Private   patchBringToFront, unpatchBringToFront, mergeStoredOrder
+//   Private   installBringToFrontPatch, uninstallBringToFrontPatch, mergeStoredOrder
+
+/** The pane specs a surface is declared with: the registry entry's own, plus
+ *  the label (annotation) pane when the layer's features expose a labelable
+ *  field. This is the one probe behind `capabilities.annotation` — run on
+ *  *every* surface resolution, so a live layer that gained its first
+ *  labelable feature flips the declared specs on the next gate / menu /
+ *  panel read and `matches` rebuilds the surface (pane and capability with
+ *  it) — no reload. Losing the last one flips back the same way.
+ *
+ *  The spec rides this call's copy, never `layerInfo.paneSpecs`: the
+ *  declaration belongs to the surface face (like the fill / stroke probe
+ *  results), and a re-registration re-derives it fresh. A spec someone else
+ *  already declared is theirs — the probe only appends what is absent and
+ *  never removes a foreign declaration. */
+const withAnnotationSpec = (
+  layerInfo: LayerInfo,
+  layer: L.Layer | null,
+): PaneSpec[] => {
+  const specs = layerInfo.paneSpecs ?? [];
+  if (specs.some(spec => spec.role === "annotation")) return specs;
+  if (!layer || !hasLabelField(layer)) return specs;
+  return [
+    ...specs,
+    {
+      role: "annotation",
+      order: specs.length,
+      name: CONST.ANNOTATION_PANE_PREFIX + layerInfo.id,
+    },
+  ];
+};
+
 class LayerManager implements LayerAPI {
   /** Diagnostic marker: set by LayerManager (true).  The lightweight stub
    * sets this to false.  For the actual LayerControl check, prefer
@@ -160,7 +202,7 @@ class LayerManager implements LayerAPI {
   /** The rendering face of each registered layer, keyed by layer id. Created on
    *  registration (and materialized before the layer joins the map) and dropped
    *  on unregistration — it is the replacement for the stamp-keyed fallback
-   *  pane map plus the `options.paneSet` "already moved" flag. */
+   *  pane map and the per-layer `options.paneSet` "already moved" flag. */
   surfaces: Map<string, LayerSurface>;
   /** The same surfaces keyed by the live layer's stamp, for the lookups that
    *  start from a layer rather than from a registry entry. */
@@ -186,12 +228,21 @@ class LayerManager implements LayerAPI {
    *  panel attaches, which is why this lives on the manager rather than the UI.
    */
   private removedIds: Set<string>;
+  /** Whether the author set a finite `map.options.maxZoom`.
+
+   *  Captured in the constructor, before the first enforceOrder can write its
+   *  own fallback, so the guard below never reads back our own write. */
+  private authorMaxZoomDeclared: boolean;
   annotation: AnnotationManager;
   onLayerAdd: (event: L.LeafletEvent) => void;
   getLayerPanes: (layer: L.Layer) => string[];
 
   constructor(mapInstance: L.Map, data: LayerInfo[]) {
     this.map = mapInstance;
+    // Captured before the constructor's own enforceOrder can write a fallback,
+    // so the guard is the author's declaration and never our previous write.
+    // folium emits the map config once at init, ahead of every control.
+    this.authorMaxZoomDeclared = Number.isFinite(mapInstance.options?.maxZoom);
     this.events = ensureEvents(this.map);
     this.persistence = new LayerPersistence();
     // One read of the record at construction. `order` seeds the registry's
@@ -209,6 +260,8 @@ class LayerManager implements LayerAPI {
     this.layerRegistry = new LayerRegistry(
       data.filter(li => {
         if (!this.removedIds.has(li.id)) return true;
+        // Late-binding fallback (folium script-stream order) — same single
+        // point as `findLayer` / ExportControl's `resolveLayer`.
         const layer = li.layer ?? findLayer(this.map, li.id);
         if (layer && this.map.hasLayer(layer)) this.map.removeLayer(layer);
         return false;
@@ -244,6 +297,20 @@ class LayerManager implements LayerAPI {
       unregisterLayer: this.unregisterLayer,
       bringLayerToFront: this.bringLayerToFront,
       invalidateType: id => this.invalidateType(id),
+      // A canvas or color surface mounts its pane inside register() and needs
+      // its slot's z at birth — no provisional bottom step the ordering pass
+      // rewrites later. Index and size are stable by the time registerLayer
+      // has inserted, so the lookup is exact.
+      slotOf: id => {
+        const li = this.layerRegistry.get(id);
+        return li
+          ? {
+              index: this.layerRegistry.indexOf(li),
+              count: this.layers.length,
+              group: li.group,
+            }
+          : null;
+      },
       // Runtime content changes (createLayers add/remove/clear) refresh the
       // count column live. No-op until a UI row subscribes.
       onDataChange: id => this.refreshCount(id),
@@ -281,19 +348,15 @@ class LayerManager implements LayerAPI {
     };
     this.map.on("layeradd", this.onLayerAdd);
     // The annotation manager plans each layer's labels on that layer's own
-    // pane; enforceOrder z-orders the panes along with their layers. The pane
-    // comes through PaneManager.ensurePane so it carries the base
-    // foliplus-layer-pane class like every other owned pane, and it goes back
-    // out through removePane so the spec/cache are cleared in step. The
-    // last hook is the pane's appearance replaying the layer's stored intent:
-    // the pane is a carrier and it is created lazily, so without it a slider
-    // move made before labels turned on would never reach them.
+    // label pane — which is a declared `role: "annotation"` PaneSpec of the
+    // layer's surface (see `withAnnotationSpec`), created and z-priced with
+    // the rest of the face. The manager only mounts canvases into it; there
+    // is no pane hook and no stored-intent replay to wire — the pane exists
+    // before any intent can, so the executor's registration-pass write
+    // already landed on it.
     this.annotation = new AnnotationManager({
       map: this.map,
       layerFind: id => this.findLayer(id),
-      ensureOwnedPane: name => this.panes.ensurePane(name, false).pane,
-      releaseOwnedPane: name => this.panes.removePane(name),
-      replayLayerState: id => this.ui?.replayLayerState(id),
     });
     this.loadSavedOrder();
     this.layerRegistry.normalizeGroups();
@@ -328,12 +391,22 @@ class LayerManager implements LayerAPI {
     return this.factory.createColor(opts);
   }
 
-  /** True while any registered layer is unresolved (layerInfo.layer === null).
+  /** True while any registered layer that *declares a Leaflet carrier* is
+   *  still unresolved (`layer === null`).
+   *
+   *  Explicit no-carrier entries — `kind` canvas / solid / custom — are not
+   *  "unresolved": they never had a layer to find. Narrowing this predicate
+   *  stops those rows from keeping the folium-script-phase enforceOrder loop
+   *  alive forever.
+   *
    *  During the initial folium script phase any layeradd may make a registered
    *  layer resolvable, so unrelated adds must keep triggering enforceOrder. */
   private hasUnresolvedLayers(): boolean {
     for (const layerInfo of this.layers) {
-      if (!layerInfo.layer) return true;
+      if (layerInfo.layer) continue;
+      const kind = layerInfo.kind;
+      if (kind === "canvas" || kind === "solid" || kind === "custom") continue;
+      return true;
     }
     return false;
   }
@@ -341,18 +414,31 @@ class LayerManager implements LayerAPI {
   loadSavedOrder() {
     const data = this.savedOrder;
     if (!data) return;
-    const layerMap = new Map(this.layers.map(l => [l.id, l]));
+    // Runtime layers keep their live registration positions; user layers
+    // reorder by the stored rank. A legacy runtime id in the record is not a
+    // user arrangement, so it never pulls a runtime layer into a stale slot.
+    const items = [...this.layers];
+    this.layerRegistry.replace(this.sortUserByStored(items, data));
+  }
+
+  /** Reorder `items` by `stored`, leaving runtime layers at their live indices. */
+  private sortUserByStored(items: LayerInfo[], stored: string[]): LayerInfo[] {
+    const rank = new Map(stored.map((id, i) => [id, i]));
+    const userItems = items.filter(l => l.orderOrigin !== "runtime");
+    userItems.sort((a, b) => {
+      const ra = rank.get(a.id);
+      const rb = rank.get(b.id);
+      if (ra === undefined) return rb === undefined ? 0 : 1;
+      if (rb === undefined) return -1;
+      return ra - rb;
+    });
     const ordered: LayerInfo[] = [];
-    for (const id of data) {
-      if (layerMap.has(id)) {
-        ordered.push(layerMap.get(id)!);
-        layerMap.delete(id);
-      }
+    let userAt = 0;
+    for (const item of items) {
+      if (item.orderOrigin === "runtime") ordered.push(item);
+      else ordered.push(userItems[userAt++]!);
     }
-    // Ids with no stored position go last. insertOverlayAt appends a new layer
-    // to the same end, so both paths leave the position the user never chose at
-    // the bottom and the user's own arrangement on top.
-    this.layerRegistry.replace(ordered.concat([...layerMap.values()]));
+    return ordered;
   }
 
   /** Persist layer order — delegates to LayerPersistence for centralized I/O.
@@ -362,12 +448,22 @@ class LayerManager implements LayerAPI {
    *  component registering (Heatmap and Measure register in their own
    *  constructor, after LayerControl has attached), and a write of the live ids
    *  alone would erase the position that registration is meant to read back.
+   *
+   *  Runtime-origin layers are excluded from the write (see
+   *  `mergeStoredOrder`): their slots are attach timing, and a later
+   *  `replaySavedOrder` must not read them back as a user arrangement either.
    */
   saveOrder() {
+    const isRuntime = this.isOrderRuntime.bind(this);
     const live = this.layers.map(l => l.id);
-    const order = mergeStoredOrder(this.savedOrder, live);
+    const order = mergeStoredOrder(this.savedOrder, live, isRuntime);
     this.savedOrder = order;
     this.persistence.schedule({ order: () => order });
+  }
+
+  /** True when the id's order slot is system attach-timing, not user intent. */
+  private isOrderRuntime(id: string): boolean {
+    return this.layerRegistry.get(id)?.orderOrigin === "runtime";
   }
 
   /** Re-apply the stored order now that a layer exists.
@@ -387,25 +483,18 @@ class LayerManager implements LayerAPI {
 
     if (id !== undefined) {
       const layerInfo = registry.get(id);
-      if (!layerInfo) return;
+      if (!layerInfo || layerInfo.orderOrigin === "runtime") return;
       const target = saved.indexOf(id);
       if (target === -1) return;
       this.placeBeforeSavedNeighbor(layerInfo, saved, target);
       return;
     }
 
-    const rank = new Map(saved.map((sid, i) => [sid, i]));
     const items = [...this.layers];
-    // Stable, so ids with no stored rank keep their relative order and stay at
-    // the bottom -- the same end loadSavedOrder appends to.
-    items.sort((a, b) => {
-      const ra = rank.get(a.id);
-      const rb = rank.get(b.id);
-      if (ra === undefined) return rb === undefined ? 0 : 1;
-      if (rb === undefined) return -1;
-      return ra - rb;
-    });
-    registry.replace(items);
+    // Runtime layers keep their live registration positions — a legacy stored
+    // rank must not pull them into a slot the user never chose. User layers
+    // sort by stored rank; ids with no rank stay at the bottom in live order.
+    registry.replace(this.sortUserByStored(items, saved));
   }
 
   /** Move `layerInfo` just before the first saved-order neighbor that is
@@ -453,6 +542,9 @@ class LayerManager implements LayerAPI {
    */
   private insertOverlayAt(layerInfo: LayerInfo): void {
     this.layerRegistry.prepend(layerInfo);
+    // Runtime layers never read a stored slot — their birth position is attach
+    // timing, and a legacy id in the record is not a user arrangement.
+    if (layerInfo.orderOrigin === "runtime") return;
     const saved = this.savedOrder;
     if (!saved) return;
     const target = saved.indexOf(layerInfo.id);
@@ -474,7 +566,7 @@ class LayerManager implements LayerAPI {
   getLayerType(id: string): string | null {
     const layerInfo = this.layerRegistry.get(id);
     if (!layerInfo) return null;
-    if (layerInfo.isBase) {
+    if (layerInfo.group === CONST.GROUP.BASE) {
       layerInfo.type = CONST.GROUP.BASE;
       return CONST.GROUP.BASE;
     }
@@ -524,7 +616,7 @@ class LayerManager implements LayerAPI {
   getFeatureCount(id: string): number | null {
     const layerInfo = this.layerRegistry.get(id);
     if (!layerInfo) return null;
-    if (layerInfo.isBase) return null;
+    if (layerInfo.group === CONST.GROUP.BASE) return null;
     // 1. Third-party provider (Canvas layers must supply this).
     const provider = layerInfo.featureCountProvider;
     if (typeof provider === "function") {
@@ -558,7 +650,7 @@ class LayerManager implements LayerAPI {
    *  subscriber simply finds no row to update and becomes a no-op.
    *  @param {string} id - Layer id. */
   refreshCount(id: string) {
-    if (this.layerRegistry.get(id)?.isBase) return;
+    if (this.layerRegistry.get(id)?.group === CONST.GROUP.BASE) return;
     // Invalidate the cached geometry type so onLayerItemCountChange can re-detect
     // it — a layer that gains/mixes geometry at runtime (e.g. Point + LineString
     // added via createLayers) would otherwise keep its stale type icon.
@@ -626,11 +718,14 @@ class LayerManager implements LayerAPI {
     const layerInfo = this.layerRegistry.createLayerInfo(opts, existingLi, this.map);
 
     if (existingIdx !== -1) this.layerRegistry.upsert(layerInfo);
-    else if (layerInfo.isBase) {
+    else if (layerInfo.group === CONST.GROUP.BASE) {
       const firstBaseIdx = this.layerRegistry.firstBaseIdx;
-      if (firstBaseIdx === -1) {
+      const atBottom = opts.baseInsert === "bottom";
+      if (firstBaseIdx === -1 || atBottom) {
         this.layerRegistry.insertAt(layerInfo, this.layers.length);
-      } else this.layerRegistry.insertAt(layerInfo, firstBaseIdx);
+      } else {
+        this.layerRegistry.insertAt(layerInfo, firstBaseIdx);
+      }
     } else this.insertOverlayAt(layerInfo);
 
     // I1: give the layer its rendering face and materialize it *before* it
@@ -643,16 +738,16 @@ class LayerManager implements LayerAPI {
     // cached child-pane list for this layer is stale.
     if (opts.layer) this.panes.reset(L.stamp(opts.layer));
 
-    // If the layer was previously hidden by the user, re-apply that state on
-    // re-entry so it isn't silently re-added by runtime re-registration. The
-    // guard runs before addLayer: a hidden layer is kept off the map entirely
-    // (avoiding onAdd side effects), and a callback-only hidden layer
-    // (no Leaflet layer, onToggle only) still gets its callback fired so
-    // canvas/heatmap can hide itself.
-    if (this.ui?.hiddenIds?.has(opts.id)) {
-      layerInfo.visible = false;
-      if (layerInfo.onToggle) layerInfo.onToggle(false);
-    } else if (opts.layer && !this.map.hasLayer(opts.layer)) {
+    // If the layer was previously hidden by the user, keep it off the map on
+    // re-entry so it isn't silently re-added by runtime re-registration. A
+    // canvas-only hidden layer (no Leaflet layer, HIDDEN class carrier) is
+    // handled by `applyUserState` further below, which re-projects the hidden
+    // intent and writes the carrier through the executor's single write path.
+    if (
+      !this.ui?.hiddenLayerIds?.has(opts.id) &&
+      opts.layer &&
+      !this.map.hasLayer(opts.layer)
+    ) {
       this.map.addLayer(opts.layer);
     }
 
@@ -682,7 +777,7 @@ class LayerManager implements LayerAPI {
       // Incremental: initialize only the new/updated row instead of re-scanning
       // every row (initTypesAndVisibility is a full pass used on attach/fold).
       this.ui.initLayerItem(layerInfo);
-      this.ui.syncToggleAll(layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY);
+      this.ui.syncToggleAll(layerInfo.group);
       // Defer z-order enforcement so batch registration coalesces into one pass.
       this.debouncedEnforce();
     }
@@ -702,7 +797,7 @@ class LayerManager implements LayerAPI {
     if (!item) return;
     const idx = this.layerRegistry.indexOf(item);
     if (idx <= 0) return;
-    if (item?.isBase) return;
+    if (item?.group === CONST.GROUP.BASE) return;
     this.layerRegistry.moveToFront(id);
     this.enforceOrder();
     this.saveOrder();
@@ -752,6 +847,25 @@ class LayerManager implements LayerAPI {
   }
 
   /**
+   * The user's stored visibility choice for a layer id: the persisted intent
+   * when the user has set it, else the author's declared default.
+   *
+   * The panel checkbox reads this; the map reflects the projection's
+   * `effectiveShown` (intent ∧ policy), which a policy may suppress below
+   * what the intent allows. Callers that want "is it drawn right now" ask
+   * the map directly — `map.hasLayer`, `LayerAPI.getLayersByType`, etc.
+   *
+   * Returns `true` for an unknown id or a pre-attach call — the author's
+   * declared default stands until someone records a choice — so a caller
+   * that only wants the boolean doesn't have to branch on null.
+   */
+  intentVisible(id: string): boolean {
+    if (!this.layerRegistry.has(id)) return true;
+    if (!this.ui) return true;
+    return this.ui.intentVisible(id);
+  }
+
+  /**
    * Unregister and remove a layer from the map and panel.
    *
    * Generic teardown only —it never touches persisted user state. A layer
@@ -789,15 +903,33 @@ class LayerManager implements LayerAPI {
       const target = this.uiContainer.querySelector(
         `[${CONST.DATA.LAYER_ID}="${CSS.escape(id)}"]`,
       );
-      if (target) target.remove();
+      if (target) {
+        target.remove();
+        // Check if the group is now empty and remove the toggle-all row if so.
+        const group = layerInfo.group;
+        const anchorSel =
+          group === CONST.GROUP.BASE
+            ? `${CONST.SEL.LAYER_ITEM}[data-layer-type="${CONST.GROUP.BASE}"]:not([${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"])`
+            : `${CONST.SEL.LAYER_ITEM}:not([data-layer-type="${CONST.GROUP.BASE}"])`;
+        if (!this.uiContainer.querySelector(anchorSel)) {
+          this.uiContainer
+            .querySelector(`.${CONST.CLASSES.TOGGLE_ALL}[data-group="${group}"]`)
+            ?.remove();
+        }
+      }
     }
     // Nothing below writes persisted state —see the method's doc. The rename
     // and the per-layer intent both survive this teardown, so a component that
     // unregisters an empty layer and registers it again comes back with the
     // name and the settings the user chose.
-    // Tear down any annotation labels attached to this layer.
-    this.annotation.destroyLayer(id);
+    // Tear down the annotation RENDERING state; the label config stays —
+    // it is part of that surviving intent (a flush after this point must
+    // not erase `layers[id].annotation` from storage).
+    this.annotation.unloadLayer(id);
     this.ui?.invalidateFields(id);
+    // The row was just removed: rescan the group's count so the toggle-all
+    // checkbox reflects the removal in the same frame.
+    this.ui?.syncToggleAll?.(layerInfo.group);
     // Unregister is rare, so flush rather than riding out the 100ms window.
     // Any pending write carries the registry's current order, which no longer
     // lists this id —that dimension reads the registry live, so the removal is
@@ -811,18 +943,19 @@ class LayerManager implements LayerAPI {
   }
 
   /**
-   * Delete a layer: unregister it and drop every persisted value the user set
-   * for it —the single place that does, and the only one.
+   * Delete a layer: two semantics, dispatched by layer ownership.
    *
-   * {@link unregisterLayer} is a generic teardown and cannot say whether a
-   * layer is gone for good, so it never erases anything. Only a user who
-   * pointed at a row and chose "delete" knows; per-dimension resets instead
-   * drop one provenance marker via `unmarkOverride`, which is the same
-   * guarantee at the dimension level. Deletion is one level deeper still: it
-   * also records the id in `removed` so the registry entry point refuses it
-   * again, and prunes the three sections that key by layer id —order, the
-   * rename, and the annotation config. None of that belongs to the generic
-   * teardown, where it would erase a layer that is only temporarily empty.
+   * Component-owned layers (Measure, Heatmap) clear their data —no id is
+   * recorded in `removed`, so the component can re-register after redraw.
+   * The event bus carries the notification; the component owns the wipe.
+   *
+   * User-added layers are deleted for good: the id is added to `removed` so
+   * the registry refuses it again, and the three sections that key by layer
+   * id —order, the rename, the annotation config—are pruned. Only a user
+   * who pointed at a row and chose "delete" knows the layer is gone for
+   * good; per-dimension resets drop one provenance marker instead, which is
+   * the same guarantee at the dimension level. Deletion is one level deeper
+   * still — nothing about generic teardown can say the id is retired.
    *
    * Everything pruned here is scheduled on the one shared debounce, so the
    * whole record —removed, order, annotations, names, per-layer intent— leaves
@@ -832,11 +965,44 @@ class LayerManager implements LayerAPI {
    * @returns {boolean} true if the layer existed, false otherwise.
    */
   deleteLayer(id: string): boolean {
+    const layerInfo = this.layerRegistry.get(id);
+    if (!layerInfo) return false;
+
+    // Component-owned layers clear their data instead of being retired —
+    // MeasureControl and HeatmapControl still own a live handle and need the
+    // id to stay registerable for the next draw.
+    if (layerInfo.styleSetters) {
+      this.events.emit(EVENTS.LAYER_DELETED, { id });
+      return true;
+    }
+
+    // The colour basemap is also component-owned: clearing it unregisters the
+    // surface and resets the fill state so the map returns to the grid empty
+    // state. The id stays registerable so the colour can be re-picked.
+    if (id === CONST.SOLID_BASEMAP_ID) {
+      const removed = this.unregisterLayer(id);
+      if (!removed) return false;
+      if (this.ui) {
+        this.ui.colorSurface = null;
+        this.ui.currentColor = CONST.COLOR.DEFAULT;
+        this.ui.authorVisible.set(id, false);
+        this.ui.saveState();
+        this.ui.syncToggleAll(CONST.GROUP.BASE);
+        this.ui.syncNoBasemap();
+      }
+      this.persistence.flushAll();
+      return true;
+    }
+
     const removed = this.unregisterLayer(id);
     if (!removed) return false;
 
     this.removedIds.add(id);
     this.persistence.schedule({ removed: () => [...this.removedIds] });
+    // unregisterLayer keeps the label config (a teardown is not a delete);
+    // this is the delete, so forget it here — `configEntries` must stop
+    // answering for a removed id.
+    this.annotation.destroyLayer(id);
 
     // `saveOrder` merges the live registry against `savedOrder`, re-inserting
     // any stored id that is not registered yet — so the id has to leave the
@@ -846,13 +1012,11 @@ class LayerManager implements LayerAPI {
     if (saved) this.savedOrder = saved.filter(other => other !== id);
     this.saveOrder();
 
-    // unregisterLayer already dropped the live annotation config through
-    // annotation.destroyLayer, so re-scheduling the existing annotations
-    // source writes the map with this id gone. Scheduling it unconditionally
-    // is the only call that cannot miss an entry it failed to predict.
-    this.persistence.schedule({
-      annotations: () => Object.fromEntries(this.annotation.configEntries()),
-    });
+    // The label config needs no schedule here: it rides `layers[id]`
+    // (re-saved through `ui.saveState` below — the live config is gone via
+    // `annotation.destroyLayer` above), and the legacy `annotations`
+    // segment is pruned on READ for ids in `removed` (parseRecord), so a
+    // v2 entry cannot resurrect behind the new key's absence.
 
     if (!this.ui) {
       this.persistence.flushAll();
@@ -864,7 +1028,39 @@ class LayerManager implements LayerAPI {
       this.ui.saveNamesState();
     }
     this.ui.saveState();
+    this.ui.syncToggleAll(layerInfo.group);
+    this.ui.syncNoBasemap();
     this.persistence.flushAll();
+    return true;
+  }
+
+  /**
+   * Drop one id from the stored order without retiring the layer.
+   *
+   * The counterpart to {@link deleteLayer}'s saved-order prune, minus the
+   * `removedIds` recording: after this call the id leaves `savedOrder` but
+   * stays registerable. Component clear paths use it because a cleared layer
+   * is not the same as a deleted one — the user still owns the layer and the
+   * next draw should land at the top of the stack, not back in the slot they
+   * had arranged. Skipping this prune is what makes the next `registerLayer`
+   * hit `insertOverlayAt`'s prepend branch rather than
+   * `placeBeforeSavedNeighbor`'s return-to-slot path.
+   *
+   * `saveOrder` is delegated (not the direct filter alone) so the write is
+   * merged with the live registry order the same way deleteLayer does it:
+   * an id that is not registered yet stays out of the record, and neighbors
+   * keep their rank.
+   *
+   * @param id - The layer ID whose stored position is being dropped.
+   * @returns true if the id was in the stored order and got removed, false
+   *   otherwise (nothing to forget). Callers treat false as a no-op, not an
+   *   error — an id that was never registered has nothing to forget.
+   */
+  forgetSavedOrder(id: string): boolean {
+    const saved = this.savedOrder;
+    if (!saved || !saved.includes(id)) return false;
+    this.savedOrder = saved.filter(other => other !== id);
+    this.saveOrder();
     return true;
   }
 
@@ -883,13 +1079,14 @@ class LayerManager implements LayerAPI {
     }
   }
 
-  /** z-space forwarding — pure forward to `core/layer/z.zFor`. The z-space
-   *  is defined there, not here. Since R9 production code calls `zFor`
-   *  directly, but this wrapper stays because LayerManager is the LayerAPI
-   *  entry point — removing it would break the contract. Tests and probes
-   *  may still call it. Do not grow this into real logic. */
-  computeZIndex(i: number, isBase: boolean): number {
-    return zFor({ index: i, count: this.layers.length, isBase });
+  /** Thin forwarder only — gathers the args and hands the z arithmetic to
+   *  `core/layer/z.zFor`. There is no second z-semantics here: the z-space
+   *  is defined in `z.ts`, not in this file. Since R9 production code calls
+   *  `zFor` directly, but this wrapper stays because LayerManager is the
+   *  LayerAPI entry point — removing it would break the contract. Tests and
+   *  probes may still call it. Do not grow this into real logic. */
+  computeZIndex(i: number, group: "base" | "overlay"): number {
+    return zFor({ index: i, count: this.layers.length, group });
   }
 
   /** The surface for a registry entry, built on first use. Registration builds
@@ -898,11 +1095,12 @@ class LayerManager implements LayerAPI {
    *  registry knows them only as unresolved ids and the ordering pass is where
    *  they first get a rendering face. */
   surfaceFor(layerInfo: LayerInfo): LayerSurface {
+    const layer = this.findLayer(layerInfo);
     const spec = {
       id: layerInfo.id,
-      layer: this.findLayer(layerInfo),
+      layer,
       paneName: layerInfo.paneName,
-      paneSpecs: layerInfo.paneSpecs,
+      paneSpecs: withAnnotationSpec(layerInfo, layer),
       canvas: Boolean(layerInfo.canvas),
       getBounds: layerInfo.getBounds,
       color: layerInfo.color,
@@ -935,26 +1133,55 @@ class LayerManager implements LayerAPI {
     return this.panes.getLayerPanes(layer);
   }
 
-  /** Give every layer a surface and write its z.
+  /** Give every layer a surface and reprice its z.
    *
-   *  Ordering only. The pass used to allocate fallback panes and queue DOM moves
-   *  for a later migration; both moved into LayerSurface — panes are allocated
-   *  at materialization (before the layer joins the map, so `options.pane` is
-   *  already right at the one moment Leaflet reads it), and content that arrived
-   *  since the last pass is re-pinned by `materialize()` itself. What is left
-   *  here is the z arithmetic and the shared panes around it, untouched. */
+   *  Re-ordering only. Panes are allocated at register time — a canvas or
+   *  color face inside `register()`, a layer's tree inside `materialize()` —
+   *  and each is priced at its own slot then, so a pane is never seen at
+   *  Leaflet's default z. Content that arrived since the last pass is
+   *  re-pinned by `materialize()` itself. What is left here is to reprice
+   *  after the registry moves (add, delete, drag) and to place the shared
+   *  panes around the ladder. */
   enforceOrder() {
     if (this.isEnforcing) return;
     this.debouncedEnforce?.cancel();
     this.isEnforcing = true;
     try {
+      // Leaflet's getMaxZoom() is options.maxZoom ?? <max of the layers'
+      // options.maxZoom> ?? Infinity, and folium emits a map with no declared
+      // max zoom: the map would zoom past every layer's native range into
+      // empty space. Own the ceiling in that case — the union of the
+      // registered layers' native options.maxZoom, falling back to a default
+      // when nothing declares one. The layers' native values are the author's
+      // declaration, not the user's zoomRange (which resolves through
+      // effectiveShown, not map zoom limits).
+      //
+      // Re-runs every pass instead of guarding on map.options.maxZoom: that
+      // value is our own previous write, so guarding on it froze the ceiling
+      // at the first pass and a layer registered later could never raise it.
+      // And it stays a union rather than max(prev, layers), so a removed
+      // layer's range no longer holds the ceiling up.
+      if (!this.authorMaxZoomDeclared) {
+        let max = 0;
+        for (const li of this.layers) {
+          const opts = li.layer?.options as { maxZoom?: number } | undefined;
+          if (
+            typeof opts?.maxZoom === "number" &&
+            Number.isFinite(opts.maxZoom) &&
+            opts.maxZoom > max
+          ) {
+            max = opts.maxZoom;
+          }
+        }
+        this.map.options.maxZoom = max > 0 ? max : CONST.AUTHOR_ZOOM_FALLBACK_MAX;
+      }
       for (let i = 0; i < this.layers.length; i++) {
         const layerInfo = this.layers[i];
         const layer = this.findLayer(layerInfo);
         // Base-group layers (tile basemaps + the solid-color basemap) share
         // the 200 ladder, so a color pane interleaves with tile basemaps
         // row-by-row. Overlay-group layers use the 600 ladder.
-        const slot = { index: i, count: this.layers.length, isBase: layerInfo.isBase };
+        const slot = { index: i, count: this.layers.length, group: layerInfo.group };
         const z = zFor(slot);
 
         // Callback-only layers (createCanvas / heatmap): no Leaflet layer, but
@@ -970,17 +1197,12 @@ class LayerManager implements LayerAPI {
 
         const surface = this.surfaceFor(layerInfo);
         surface.materialize();
+        // One write covers every pane the face owns — including the
+        // `role: "annotation"` label pane, a PaneHandle since the surface
+        // materialized it. The ordering pass used to spot-write that pane by
+        // name here; `writeZ` prices it through the same `zFor({ role:
+        // "annotation" })` ladder now, so the special case is gone.
         surface.setZ(z);
-
-        // The layer's label pane (created by AnnotationManager) rides just
-        // above it: labels cover that layer's own geometry, and the next layer
-        // up still covers the labels — the stack the panel shows.
-        const annotationPane = this.map.getPane(
-          CONST.ANNOTATION_PANE_PREFIX + layerInfo.id,
-        );
-        if (annotationPane) {
-          annotationPane.style.zIndex = String(zFor({ ...slot, role: "annotation" }));
-        }
       }
 
       // Data panes start at BASE (== Leaflet's markerPane 600). Popup must sit
@@ -1015,7 +1237,7 @@ class LayerManager implements LayerAPI {
       i++
     ) {
       const layerInfo = this.layers[i];
-      if (!layerInfo.isBase) continue;
+      if (layerInfo.group !== CONST.GROUP.BASE) continue;
       const layer = this.findLayer(layerInfo);
       if (!(layer instanceof L.TileLayer) || !layer.options.attribution) continue;
       if (this.map.hasLayer(layer)) {
@@ -1124,4 +1346,4 @@ class LayerManager implements LayerAPI {
   }
 }
 
-export { LayerManager, patchBringToFront, unpatchBringToFront };
+export { LayerManager, installBringToFrontPatch, uninstallBringToFrontPatch };

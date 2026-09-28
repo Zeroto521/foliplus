@@ -30,6 +30,7 @@
     return null;
   };
   const declared = api.getLayerPanes(fg);
+  const declaredPane = declared[0];
   return {
     declared,
     iconPane: marker._icon ? paneNameOf(marker._icon) : null,
@@ -40,6 +41,7 @@
       const name = el ? paneNameOf(el) : null;
       return !name || !name.startsWith("foliplus-pane-");
     }),
-    leafPaneSet: marker.options.paneSet === true && poly.options.paneSet === true,
+    leafPaneSet:
+      marker.options.pane === declaredPane && poly.options.pane === declaredPane,
   };
 };

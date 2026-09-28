@@ -36,7 +36,7 @@ describe("DistanceMode — marker click stops map propagation", () => {
   it("does not add a duplicate point when re-clicking an existing node", () => {
     const manager = makeManagerMock();
     const mode = new DistanceMode(manager);
-    manager.currentMode = CONST.MODE.DISTANCE;
+    manager.currentMode = CONST.MEASURE_MODE.DISTANCE;
     mode.start();
 
     const clickHandler = manager.map.on.mock.calls.find(
@@ -73,7 +73,7 @@ describe("DistanceMode — first node uses NODE_SOLID", () => {
   it("creates the first node with NODE_SOLID class", () => {
     const manager = makeManagerMock();
     const mode = new DistanceMode(manager);
-    manager.currentMode = CONST.MODE.DISTANCE;
+    manager.currentMode = CONST.MEASURE_MODE.DISTANCE;
     mode.start();
 
     const clickHandler = manager.map.on.mock.calls.find(
@@ -95,7 +95,7 @@ describe("DistanceMode — drawing polyline uses PATH_PREVIEW", () => {
   it("creates distance preview polylines with PATH_PREVIEW class", () => {
     const manager = makeManagerMock();
     const mode = new DistanceMode(manager);
-    manager.currentMode = CONST.MODE.DISTANCE;
+    manager.currentMode = CONST.MEASURE_MODE.DISTANCE;
     mode.start();
 
     const polylineCall = window.L.polyline.mock.calls.find(
@@ -189,7 +189,7 @@ describe("DistanceMode — click stops propagation to data layers", () => {
   it("calls L.DomEvent.stopPropagation when placing a point", () => {
     const manager = makeManagerMock();
     const mode = new DistanceMode(manager);
-    manager.currentMode = CONST.MODE.DISTANCE;
+    manager.currentMode = CONST.MEASURE_MODE.DISTANCE;
     mode.start();
 
     const clickHandler = manager.map.on.mock.calls.find(
@@ -210,7 +210,7 @@ describe("DistanceMode — click stops propagation to data layers", () => {
 
 describe("DistanceMode — label count equals n-1", () => {
   function run(manager: MeasureManager, mode: DistanceMode) {
-    manager.currentMode = CONST.MODE.DISTANCE;
+    manager.currentMode = CONST.MEASURE_MODE.DISTANCE;
     mode.start();
     const clickHandler = manager.map.on.mock.calls.find(
       ([event]: [unknown]) => event === "click",
@@ -292,7 +292,7 @@ describe("DistanceMode — finish saves measurement", () => {
   it("persists a distance measurement on double-click finish", () => {
     const manager = makeManagerMock();
     const mode = new DistanceMode(manager);
-    manager.currentMode = CONST.MODE.DISTANCE;
+    manager.currentMode = CONST.MEASURE_MODE.DISTANCE;
     mode.start();
 
     const clickHandler = manager.map.on.mock.calls.find(
@@ -332,7 +332,7 @@ describe("DistanceMode — finish saves measurement", () => {
   it("registers the overlay cleanup and leaves _cleanup as a no-op", () => {
     const manager = makeManagerMock();
     const mode = new DistanceMode(manager);
-    manager.currentMode = CONST.MODE.DISTANCE;
+    manager.currentMode = CONST.MEASURE_MODE.DISTANCE;
     mode.start();
 
     const clickHandler = manager.map.on.mock.calls.find(
@@ -359,7 +359,7 @@ describe("DistanceMode — cleanup", () => {
   it("runs the registered cleanup callback", () => {
     const manager = makeManagerMock();
     const mode = new DistanceMode(manager);
-    manager.currentMode = CONST.MODE.DISTANCE;
+    manager.currentMode = CONST.MEASURE_MODE.DISTANCE;
     mode.start();
     mode.cleanup();
 
@@ -372,7 +372,7 @@ describe("DistanceMode — cleanup", () => {
   it("removes the preview cursor node when the mode is aborted", () => {
     const manager = makeManagerMock();
     const mode = new DistanceMode(manager);
-    manager.currentMode = CONST.MODE.DISTANCE;
+    manager.currentMode = CONST.MEASURE_MODE.DISTANCE;
     mode.start();
 
     const handlers = manager.map.on.mock.calls.find(
@@ -398,7 +398,7 @@ describe("DistanceMode — preview cursor node", () => {
   it("mounts a non-interactive hollow node only after the first point", () => {
     const manager = makeManagerMock();
     const mode = new DistanceMode(manager);
-    manager.currentMode = CONST.MODE.DISTANCE;
+    manager.currentMode = CONST.MEASURE_MODE.DISTANCE;
     mode.start();
 
     // Entering the mode adds only the drawing scaffolding — poly, previewLine,
@@ -441,7 +441,7 @@ describe("DistanceMode — preview cursor node", () => {
   it("moves the node with the cursor and removes it when the shape is finished", () => {
     const manager = makeManagerMock();
     const mode = new DistanceMode(manager);
-    manager.currentMode = CONST.MODE.DISTANCE;
+    manager.currentMode = CONST.MEASURE_MODE.DISTANCE;
     mode.start();
 
     const handlers = manager.map.on.mock.calls.find(
@@ -485,7 +485,7 @@ describe("DistanceMode — preview cursor node", () => {
   it("removes the node when the draw is aborted mid-way", () => {
     const manager = makeManagerMock();
     const mode = new DistanceMode(manager);
-    manager.currentMode = CONST.MODE.DISTANCE;
+    manager.currentMode = CONST.MEASURE_MODE.DISTANCE;
     mode.start();
 
     const handlers = manager.map.on.mock.calls.find(

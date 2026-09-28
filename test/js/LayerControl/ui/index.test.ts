@@ -91,7 +91,7 @@ describe("LayerUI shell — event subscriptions", () => {
     const lateLayer = {
       id: "late1",
       name: "Late",
-      isBase: false,
+      group: "overlay",
       layer: {
         options: {},
         eachLayer: vi.fn(),
@@ -115,6 +115,7 @@ describe("LayerUI shell — event subscriptions", () => {
       getZoom: vi.fn(() => 5),
       getMaxZoom: vi.fn(() => 18),
       getMinZoom: vi.fn(() => 0),
+      options: { maxZoom: 18 },
       getBounds: vi.fn(() => ({
         pad: vi.fn(() => m),
         getSouthWest: () => ({ lat: 20, lng: 90 }),
@@ -124,6 +125,7 @@ describe("LayerUI shell — event subscriptions", () => {
       })),
       getContainer: vi.fn(() => container),
       getPane: vi.fn(() => makePane()),
+      getPanes: vi.fn(() => ({ mapPane: document.createElement("div") })),
       createPane: vi.fn(() => {
         const p = makePane();
         p.classList.add("foliplus-layer-pane");
@@ -198,41 +200,41 @@ describe("LayerUI shell — delegates", () => {
   it("dropPersistedLayerState erases every stored dimension for one id", () => {
     // The single routine that erases a stored value, reached only from an
     // explicit delete — and it must not touch a neighbor's state.
-    ui.hiddenIds = new Set(["overlay1", "base1"]);
+    ui.hiddenLayerIds = new Set(["overlay1", "base1"]);
     ui.opacityMap = { overlay1: 0.4 };
     ui.zoomRangeMap = { overlay1: [3, 12] };
-    ui.userOverrides = { overlay1: ["visible", "opacity"] };
+    ui.intentProvenance = { overlay1: ["visible", "opacity"] };
 
     ui.dropPersistedLayerState("overlay1");
 
-    expect(ui.hiddenIds.has("overlay1")).toBe(false);
-    expect(ui.hiddenIds.has("base1")).toBe(true);
+    expect(ui.hiddenLayerIds.has("overlay1")).toBe(false);
+    expect(ui.hiddenLayerIds.has("base1")).toBe(true);
     expect(ui.opacityMap.overlay1).toBeUndefined();
     expect(ui.zoomRangeMap.overlay1).toBeUndefined();
-    expect(ui.userOverrides.overlay1).toBeUndefined();
+    expect(ui.intentProvenance.overlay1).toBeUndefined();
   });
 
   it("colorLayerName resolves the color row's display name", () => {
     expect(typeof ui.colorLayerName()).toBe("string");
   });
 
-  it("clicking the color row hides basemaps and activates the color layer", () => {
-    const enforce = vi.spyOn(manager, "enforceOrder");
-    const colorItem = ui.uiContainer.querySelector(CONST.SEL.COLOR_ITEM) as HTMLElement;
+  it("checking the color row's checkbox activates the color layer", () => {
+    // Row-body clicks used to trigger showSolidBasemap directly; the checkbox
+    // change is now the only legitimate path (T201). The row still goes
+    // through the same visibility carrier + debounced z-order write-through
+    // as any other layer.
+    const enforce = vi.spyOn(manager, "debouncedEnforce");
+    const colorItem = ui.uiContainer.querySelector(
+      `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
+    ) as HTMLElement;
+    const checkbox = colorItem.querySelector(
+      'input[type="checkbox"]',
+    ) as HTMLInputElement;
 
-    colorItem.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    checkbox.checked = true;
+    checkbox.dispatchEvent(new Event("change", { bubbles: true }));
 
-    expect(colorItem.classList.contains(CONST.CLASSES.ACTIVE)).toBe(true);
     expect(enforce).toHaveBeenCalled();
-  });
-
-  it("hideColorLayer clears the active color state", () => {
-    ui.showColorLayer(ui.currentColor);
-    const colorItem = ui.uiContainer.querySelector(CONST.SEL.COLOR_ITEM) as HTMLElement;
-
-    ui.hideColorLayer();
-
-    expect(colorItem.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
   });
 
   it("reindexAfterMove rebuilds the list without dropping rows", () => {

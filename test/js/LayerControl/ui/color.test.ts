@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/LayerControl/const.js";
-import { hideColorLayer, showColorLayer } from "#foliplus/LayerControl/ui/color.js";
+import { hideSolidBasemap, showSolidBasemap } from "#foliplus/LayerControl/ui/color.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 
-const makeUi = (layers: Array<{ id: string; isBase: boolean }> = []) => {
+const makeUi = (layers: Array<{ id: string; group: "base" | "overlay" }> = []) => {
   const uiContainer = document.createElement("div");
 
   for (const layer of layers) {
@@ -18,7 +18,7 @@ const makeUi = (layers: Array<{ id: string; isBase: boolean }> = []) => {
   }
 
   const colorRow = document.createElement("div");
-  colorRow.className = CONST.CLASSES.COLOR_ITEM;
+  colorRow.className = CONST.CLASSES.LAYER_ITEM;
   colorRow.innerHTML = `<input type="color" class="${CONST.CLASSES.COLOR_INPUT}" />`;
   uiContainer.appendChild(colorRow);
 
@@ -41,8 +41,8 @@ const makeUi = (layers: Array<{ id: string; isBase: boolean }> = []) => {
     },
     currentColor: CONST.COLOR.DEFAULT,
     syncToggleAll: vi.fn(),
-    userOverrides: {},
-    hiddenIds: new Set<string>(),
+    intentProvenance: {},
+    hiddenLayerIds: new Set<string>(),
     authorVisible: new Map<string, boolean>(),
     renamedNames: {},
     zoomRangeMap: {},
@@ -52,7 +52,7 @@ const makeUi = (layers: Array<{ id: string; isBase: boolean }> = []) => {
     conf: { locale_code: "en" },
     m: {
       layers,
-      findLayer: () => ({ isBase: true }),
+      findLayer: () => ({ group: "base" }),
       layerRegistry: new Map(),
       debouncedEnforce: vi.fn(),
       enforceOrder: vi.fn(),
@@ -82,35 +82,30 @@ const makeUi = (layers: Array<{ id: string; isBase: boolean }> = []) => {
 };
 
 describe("ui/color", () => {
-  it("hideColorLayer clears the active flag on the color row", () => {
+  it("hideSolidBasemap clears the surface visibility", () => {
     const { ui, setVisible } = makeUi();
-    showColorLayer(ui, "#ff0000");
-    const colorRow = ui.uiContainer.querySelector<HTMLElement>(CONST.SEL.COLOR_ITEM);
-    expect(colorRow?.classList.contains(CONST.CLASSES.ACTIVE)).toBe(true);
+    showSolidBasemap(ui, "#ff0000");
 
-    hideColorLayer(ui);
+    hideSolidBasemap(ui);
 
-    expect(colorRow?.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
     expect(setVisible).toHaveBeenCalledWith(false);
   });
 
-  it("showColorLayer marks the row active and paints the color", () => {
+  it("showSolidBasemap paints the color and shows the surface", () => {
     const { ui, setColor, setVisible } = makeUi();
-    showColorLayer(ui, "#ff0000");
+    showSolidBasemap(ui, "#ff0000");
     expect(ui.currentColor).toBe("#ff0000");
     expect(setColor).toHaveBeenCalledWith("#ff0000");
     expect(setVisible).toHaveBeenCalledWith(true);
-    const colorRow = ui.uiContainer.querySelector<HTMLElement>(CONST.SEL.COLOR_ITEM);
-    expect(colorRow?.classList.contains(CONST.CLASSES.ACTIVE)).toBe(true);
   });
 
-  it("showColorLayer leaves base layers on the map and the shared tilePane untouched", () => {
+  it("showSolidBasemap leaves base layers on the map and the shared tilePane untouched", () => {
     // First-class basemap: colour and tiles coexist. The colour layer owns
     // its own pane — it must not remove any tile layer from the map nor
     // touch Leaflet's shared tilePane.
     const { ui } = makeUi([
-      { id: "base_1", isBase: true },
-      { id: "base_2", isBase: true },
+      { id: "base_1", group: "base" },
+      { id: "base_2", group: "base" },
     ]);
     const tilePane = { classList: { add: vi.fn(), remove: vi.fn() } };
     (ui.m.map as unknown as { getPane: () => typeof tilePane }).getPane = () =>
@@ -120,21 +115,21 @@ describe("ui/color", () => {
     ).removeLayer;
     removeLayer.mockClear();
 
-    showColorLayer(ui, "#ff0000");
+    showSolidBasemap(ui, "#ff0000");
 
     expect(removeLayer).not.toHaveBeenCalled();
     expect(tilePane.classList.add).not.toHaveBeenCalled();
     expect(tilePane.classList.remove).not.toHaveBeenCalled();
   });
 
-  it("showColorLayer does not repaint base rows' checkboxes or active class", () => {
+  it("showSolidBasemap does not repaint base rows' checkboxes or active class", () => {
     // The colour layer is one row like any other; it must not paint
     // neighbouring rows' state. Intent-only invariant: a derived decision
     // (this colour layer became active) never authorises unchecking a
     // basemap the user explicitly chose.
     const { ui } = makeUi([
-      { id: "base_1", isBase: true },
-      { id: "overlay_1", isBase: false },
+      { id: "base_1", group: "base" },
+      { id: "overlay_1", group: "overlay" },
     ]);
     const rows = [
       ...ui.uiContainer.querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM),
@@ -145,7 +140,7 @@ describe("ui/color", () => {
     }));
     rows[0].classList.add(CONST.CLASSES.ACTIVE);
 
-    showColorLayer(ui, "#ff0000");
+    showSolidBasemap(ui, "#ff0000");
 
     rows.forEach((row, i) => {
       const after = {
@@ -157,34 +152,34 @@ describe("ui/color", () => {
     expect(rows[0].classList.contains(CONST.CLASSES.ACTIVE)).toBe(true);
   });
 
-  it("showColorLayer tolerates a row without a checkbox (partially rendered)", () => {
-    const { ui } = makeUi([{ id: "base_nochk", isBase: true }]);
+  it("showSolidBasemap tolerates a row without a checkbox (partially rendered)", () => {
+    const { ui } = makeUi([{ id: "base_nochk", group: "base" }]);
     const row = ui.uiContainer.querySelector<HTMLElement>(
       `[${CONST.DATA.LAYER_ID}="base_nochk"]`,
     );
     row!.innerHTML = "";
-    expect(() => showColorLayer(ui, "#ff0000")).not.toThrow();
+    expect(() => showSolidBasemap(ui, "#ff0000")).not.toThrow();
   });
 
-  it("showColorLayer orders the stack synchronously", () => {
+  it("showSolidBasemap orders the stack synchronously", () => {
     // Checking the box is a single user action: the ladder z must land
-    // immediately, not after the debounce (the pane starts at Leaflet's CSS
-    // default z 400 — above every basemap). The provisional base z itself is
-    // stamped by LayerFactory.createColor (see its own test).
+    // immediately, not after the debounce. The pane is born inside register()
+    // already carrying its slot's z, so there is no 400-default window to
+    // close and no provisional step left to rewrite.
     const { ui } = makeUi();
-    showColorLayer(ui, "#ff0000");
+    showSolidBasemap(ui, "#ff0000");
     expect((ui.m as any).enforceOrder).toHaveBeenCalledTimes(1);
   });
 
-  it("showColorLayer reuses the surface on subsequent calls", () => {
+  it("showSolidBasemap reuses the surface on subsequent calls", () => {
     // The surface is created once and reused: a second show must not
     // allocate a new canvas or pane.
     const { ui, setColor } = makeUi();
-    showColorLayer(ui, "#ff0000");
+    showSolidBasemap(ui, "#ff0000");
     const firstSurface = ui.colorSurface;
     expect(firstSurface).not.toBeNull();
 
-    showColorLayer(ui, "#00ff00");
+    showSolidBasemap(ui, "#00ff00");
 
     expect(ui.colorSurface).toBe(firstSurface);
     expect(setColor).toHaveBeenLastCalledWith("#00ff00");

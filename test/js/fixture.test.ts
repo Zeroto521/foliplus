@@ -1,6 +1,6 @@
 // Completeness + isolation gates: the shared fixture must cover the failure
 // modes that two prior incidents (a missing `bindPopup` on marker mocks, a
-// missing `rangeHiddenIds` on LayerUI) exposed, and the global beforeEach(resetState) must keep
+// missing state field on LayerUI) exposed, and the global beforeEach(resetState) must keep
 // localStorage clean across tests. Every field on `LayerUI` and every
 // constructor on `window.L` that production code touches is exercised here so
 // a new field landing in production code produces a loud test failure instead
@@ -19,23 +19,16 @@ describe("window.L marker mock", () => {
 });
 
 describe("makeLayerUIMock — LayerUI field completeness", () => {
-  it("exposes rangeHiddenIds as a Set with a working .delete (the missing-rangeHiddenIds incident)", () => {
-    const ui = makeLayerUIMock();
-    expect(ui.rangeHiddenIds).toBeDefined();
-    expect(typeof ui.rangeHiddenIds.delete).toBe("function");
-  });
-
   it("covers every field the LayerUI constructor initialises", () => {
     const ui = makeLayerUIMock() as Record<string, unknown>;
     // Sets
     expect(ui.foldedGroups).toBeInstanceOf(Set);
-    expect(ui.hiddenIds).toBeInstanceOf(Set);
-    expect(ui.rangeHiddenIds).toBeInstanceOf(Set);
+    expect(ui.hiddenLayerIds).toBeInstanceOf(Set);
     // Maps
     expect(ui.authorVisible).toBeInstanceOf(Map);
     expect(ui.fieldCache).toBeInstanceOf(Map);
     // Records
-    expect(ui.userOverrides).toEqual({});
+    expect(ui.intentProvenance).toEqual({});
     expect(ui.renamedNames).toEqual({});
     expect(ui.opacityMap).toEqual({});
     expect(ui.zoomRangeMap).toEqual({});

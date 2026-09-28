@@ -4,6 +4,33 @@
 // components (MeasureControl / HeatmapControl / ExportControl) keep the same
 // global names.
 
+/** What a registered layer *is* — the target discriminator, not how it paints.
+ *
+ *  Discrimination source for `tile | vector` is the same capability-family
+ *  probe family as `detectCapabilities` (GridLayer/TileLayer vs Path/Marker),
+ *  never a new duck type. `cluster` is declared (`kind: "cluster"`); an
+ *  undeclared MarkerCluster may still *derive* that kind, but capability
+ *  dispatch always goes through this discriminant. `solid` is the color
+ *  basemap (surface `content.kind === "color"`); `canvas` is createCanvas;
+ *  `custom` is a third-party carrier (`carrier.custom`).
+ *
+ *  Shape first, door later: `registerDimension` / third-party docs stay
+ *  closed. */
+type LayerKind = "tile" | "vector" | "canvas" | "solid" | "cluster" | "custom";
+
+/** Where a layer's paint actually lives. Flat `layer` / `canvas` / `color`
+ *  on `LayerInfo` remain the writable registration fields; this object is the
+ *  typed projection of those (plus `custom`) the target shape names. */
+interface LayerCarrier {
+  layer?: L.Layer | null;
+  canvas?: HTMLCanvasElement | null;
+  /** DOM face for a solid-color basemap (its pane canvas). */
+  element?: HTMLElement | null;
+  /** Third-party carrier payload for `kind: "custom"`. Opaque here — the
+   *  public extension door is deferred. */
+  custom?: unknown;
+}
+
 /** What a layer's surface can actually be asked to do, computed once at
  *  materialization by `LayerSurface` (which alone knows the panes it owns and
  *  the shape of its content — runtime probes pin each value).
@@ -13,6 +40,30 @@
  *  it does not have, and the honest-degradation contract (never silently
  *  degrade) depends on the answer being the surface's, not the caller's. */
 interface LayerCapabilities {
+  /** Whether the layer's tree has a write carrier for fill: areal geometry
+   *  (`L.Polygon` / `L.Circle` / `L.CircleMarker` — the last two because
+   *  they extend the polygon-side ancestor) with a `setStyle` leaf.
+   *    - "native" — an areal carrier exists; `setStyle({fillColor,
+   *      fillOpacity})` writes through the tree. A solid-colour basemap
+   *      also declares "native": the pane's paint *is* the fill.
+   *    - "none"   — no areal carrier. Line-only layers (Polyline, Circle
+   *      without a fill), Marker, canvas, MarkerCluster, and native setter
+   *      surfaces (ImageOverlay / GridLayer) all fall out.
+   *
+   *  Same probe-and-cache contract as `stroke`. */
+  fill: "native" | "none";
+  /** Whether the layer's tree has a write carrier for stroke (border):
+   *    - "native" — a `setStyle` leaf exists in the tree (a Path-family
+   *      member: Polygon, Polyline, Circle, CircleMarker, Rectangle). The
+   *      write walks `eachLayer` and calls `setStyle` per leaf.
+   *    - "none"   — no `setStyle` leaf. Marker (Icon, divIcon) and every
+   *      non-vector surface (canvas, color basemap, MarkerCluster, native
+   *      ImageOverlay / GridLayer) have no vector stroke axis.
+   *
+   *  Probe-derived, cached per surface. The probe result is part of
+   *  `SurfaceDeclaration`, so a change in the tree's shape triggers a
+   *  rebuild through `matches`. */
+  stroke: "native" | "none";
   /** How the layer's opacity is written:
    *    - "native" — the layer owns its own setter (`ImageOverlay.setOpacity`,
    *      `TileLayer.options.opacity`). Immediate and correct; the UI reads/writes
@@ -32,6 +83,36 @@ interface LayerCapabilities {
    *      basemap once it is promoted to a real surface; today that layer is not
    *      in the registry at all, so no placeholder is emitted. */
   zoomRange: "native" | "pane" | "none";
+  /** How the layer's visibility is written:
+   *    - "native" — the layer is a real `L.Layer`; map membership
+   *      (`map.addLayer` / `removeLayer`) is the carrier. MarkerCluster is an
+   *      `L.Layer` too, so it routes here — the `kind: "cluster"` branch in
+   *      `CLUSTER_CAPABILITIES` only takes over opacity / zoomRange
+   *      / bounds, not visibility.
+   *    - "pane"   — the surface paints into a canvas element we own (createCanvas
+   *      for heatmap/measure, createColor for the solid-color basemap's face);
+   *      the `HIDDEN` class on that element is the carrier. One CSS write, no
+   *      callback.
+   *    - "none"   — no honest carrier exists; the UI hides the checkbox rather
+   *      than offering one that lies. Today no materialized surface reaches
+   *      here; declared so a future shape that cannot carry visibility can say
+   *      so without another union change. */
+  visibility: "native" | "pane" | "none";
+  /** Whether the layer can host a label (annotation) pane:
+   *    - "pane" — the registration edge declared a `role: "annotation"`
+   *      PaneSpec (its features expose labelable `feature.properties`) and
+   *      LayerSurface materializes that pane with the rest of the face, so
+   *      the style panel's Label section is honest to render.
+   *    - "none" — no labelable content (base tiles, canvas / color surfaces,
+   *      shapes without properties): no pane, no row.
+   *
+   *  Declared, not probed in `detectCapabilities`: the probe lives at the
+   *  declaration edge (`LayerManager.surfaceFor`), so the capability and
+   *  the pane itself are one fact and can never disagree — and a
+   *  re-registration whose tree gained or lost labelable content re-probes
+   *  there, changing the declared specs, which rebuilds the surface through
+   *  `matches` (the fill / stroke probe's path). */
+  annotation: "pane" | "none";
   /** Whether the surface can be z-reordered by our own mechanism. Today every
    *  materialized surface can; the field is declared so a later carrier that
    *  cannot (a plugin that owns its own z) can say so without another shape
@@ -54,7 +135,26 @@ interface RegisterLayerOpts {
   id: string;
   name?: string | null;
   layer?: L.Layer | null;
-  isBase?: boolean;
+  /** Declared layer kind. When absent, `deriveLayerKind` probes the same
+   *  capability-family as `detectCapabilities` (GridLayer/TileLayer vs
+   *  Path/Marker; MarkerCluster may derive `"cluster"`). Declare `"cluster"`
+   *  / `"custom"` rather than relying on derivation. */
+  kind?: LayerKind;
+  /** Third-party carrier payload for `kind: "custom"`. Shape only — the
+   *  public registerDimension door stays closed. */
+  custom?: unknown;
+  group?: "base" | "overlay";
+  /** New base layer insertion: "top" (default, tile basemaps) or "bottom"
+   *  (solid-color basemap — lowest z, tiles cover it). */
+  baseInsert?: "top" | "bottom";
+  /** Where this layer's order slot comes from. Defaults to `"user"`.
+   *
+   *  `"runtime"` marks a system surface whose insertion slot is a side effect
+   *  of attach timing (the solid-color basemap). Those slots never enter the
+   *  persisted order — writing one would clobber an arrangement the user
+   *  already set. Do not use the name `provenance`: that word is already the
+   *  attributes-panel data source and `intentProvenance`. */
+  orderOrigin?: "user" | "runtime";
   paneName?: string | null;
   /**
    * The panes this layer paints into, in draw order. Absent means the layer
@@ -70,14 +170,12 @@ interface RegisterLayerOpts {
    */
   paneSpecs?: PaneSpec[];
   iconSvg?: string | null;
-  visible?: boolean;
   /** Layer opacity in [0, 1]. Defaults to 1 (fully opaque). */
   opacity?: number;
   canvas?: HTMLCanvasElement | null;
   /** The fill a solid-color basemap paints into its own pane. The pane element
    *  is the face, so the value — not an element — is what travels here. */
   color?: string | null;
-  onToggle?: ((visible: boolean) => void) | null;
   /** Third-party feature count provider (Canvas layers require this; FeatureGroup
    *  layers use the built-in fallback via forEachLeaf). Null means 'don't render'. */
   featureCountProvider?: (() => number) | null;
@@ -90,7 +188,7 @@ interface RegisterLayerOpts {
   /** Python CONF defaults for the delegated style fields. The drawer's Reset
    *  button calls each styleSetter with the matching default — never the
    *  localStorage-persisted value. Absent means the layer offers no Reset. */
-  styleDefaults?: (() => Record<string, unknown>) | null;
+  styleDefaultsProvider?: (() => Record<string, unknown>) | null;
   /** Optional geographic-bounds provider. Canvas layers have no Leaflet layer
    *  to derive bounds from, so they supply this for layer focus to work. */
   getBounds?: (() => L.LatLngBounds | null) | null;
@@ -112,10 +210,14 @@ interface LayerInfo {
   id: string;
   name: string;
   layer: L.Layer | null;
-  visible: boolean;
+  /** What this entry is (tile|vector|canvas|solid|cluster|custom). */
+  kind: LayerKind;
+  /** Typed projection of the paint carrier (layer / canvas / element / custom).
+   *  Flat `layer` / `canvas` / `color` stay the writable registration fields. */
+  carrier: LayerCarrier;
   /** Layer opacity in [0, 1]. Defaults to 1 (fully opaque). */
   opacity?: number;
-  isBase: boolean;
+  group: "base" | "overlay";
   paneName: string | null;
   /** The panes this layer paints into, in draw order. */
   paneSpecs: PaneSpec[];
@@ -127,8 +229,6 @@ interface LayerInfo {
   /** The fill a solid-color basemap paints into its own pane. */
   color?: string | null;
   isLabel?: boolean;
-  /** Visibility callback fired by LayerControl toggle (e.g. heatmap show/hide). */
-  onToggle?: ((visible: boolean) => void) | null;
   /** Third-party feature count provider. Null means 'don't render count'. */
   featureCountProvider?: (() => number) | null;
   /** Style values exposed to the drawer — pull on demand, never cached. */
@@ -136,7 +236,7 @@ interface LayerInfo {
   /** Canonical style setters shared by the component panel and the drawer. */
   styleSetters?: Record<string, (value: unknown) => void> | null;
   /** Python CONF defaults for the delegated style fields. See RegisterLayerOpts. */
-  styleDefaults?: (() => Record<string, unknown>) | null;
+  styleDefaultsProvider?: (() => Record<string, unknown>) | null;
   /** Optional geographic-bounds provider (Canvas layers). See RegisterLayerOpts. */
   getBounds?: (() => L.LatLngBounds | null) | null;
   /** Static caller-supplied provenance / freshness for the attributes panel.
@@ -149,30 +249,20 @@ interface LayerInfo {
   /** Epoch ms of the layer's first registration. Set by the registry itself —
    *  never by the provider — so a re-registration keeps the original value. */
   registeredAt?: number;
+  /** Order-slot origin. See {@link RegisterLayerOpts.orderOrigin}. */
+  orderOrigin?: "user" | "runtime";
 }
 
 /** Leaflet layer with a custom `isLabel` flag (foliplus adds it).
  *
  *  Write contract for a third-party layer's `options` — the exact write set
- *  is `pane`, `renderer`, and `paneSet`; nothing else:
- *    - `pane` and `renderer` — Leaflet's own, and the two a correct draw
- *      position actually needs (Leaflet reads `pane` only at attach time and
- *      ignores a group's for its children, so both must be written to survive a
- *      re-attach).
- *    - `paneSet` — ours: "foliplus decided this layer's pane". Not a Leaflet
- *      key and not a legacy vestige. `LayerFactory.addLayer` reads it to tell
- *      a pane the caller declared apart from one foliplus routed the layer
- *      into — without it a pin would be mistaken for a declaration and the
- *      layer routed back to the base pane.
- *
- *  Read `LayerFactory.addLayer` before treating `paneSet` as dead. */
+ *  is `pane` and `renderer`; nothing else:
+ *    - Both are Leaflet's own, and the two a correct draw position actually
+ *      needs (Leaflet reads `pane` only at attach time and ignores a group's
+ *      for its children, so both must be written to survive a re-attach).
+ */
 interface LabelAwareLayer extends L.Layer {
   isLabel?: boolean;
-  options: L.LayerOptions & {
-    renderer?: L.Renderer;
-    pane?: string;
-    paneSet?: boolean;
-  };
 }
 
 /** What a surface's pane is for. `annotation` and `preview` have no producer
@@ -225,9 +315,9 @@ interface PaneHandle {
 /** The rendering face of one registered layer: which panes carry its content,
  *  and (later) the derived state those panes are written from.
  *
- *  Replaces the two ad-hoc records the layer manager used to keep — the
- *  stamp-keyed fallback-pane map and the `options.paneSet` flag that stood in
- *  for "already moved" — with the real state. See core/layer/LayerSurface.ts
+ *  Replaces the stamp-keyed fallback-pane map and the per-layer `options.paneSet`
+ *  dirty flag the layer manager used to keep — both are now surface-side
+ *  bookkeeping (`materialized`, `contentDirty`). See core/layer/LayerSurface.ts
  *  for the two invariants (materialize-before-add, fixed pane set). */
 interface LayerSurface {
   readonly id: string;
@@ -303,7 +393,7 @@ interface CreateLayersOpts {
   /** See RegisterLayerOpts. */
   styleSetters?: Record<string, (value: unknown) => void> | null;
   /** See RegisterLayerOpts. */
-  styleDefaults?: (() => Record<string, unknown>) | null;
+  styleDefaultsProvider?: (() => Record<string, unknown>) | null;
   /** See RegisterLayerOpts. */
   metaProvider?: (() => Record<string, string | number>) | null;
 }
@@ -314,7 +404,6 @@ interface CreateCanvasOpts {
   name?: string;
   className?: string;
   iconSvg?: string;
-  onToggle?: ((visible: boolean) => void) | null;
   /** Optional callback returning the number of features in this layer.
    *  When set, LayerControl's count column uses this instead of returning
    *  null (the default for Canvas layers). */
@@ -324,7 +413,7 @@ interface CreateCanvasOpts {
   /** See RegisterLayerOpts. */
   styleSetters?: Record<string, (value: unknown) => void> | null;
   /** See RegisterLayerOpts. */
-  styleDefaults?: (() => Record<string, unknown>) | null;
+  styleDefaultsProvider?: (() => Record<string, unknown>) | null;
   /** Optional callback returning the canvas layer's geographic bounds, so
    *  LayerControl can focus it (Canvas layers have no Leaflet layer). */
   getBounds?: (() => L.LatLngBounds | null) | null;
@@ -339,6 +428,14 @@ interface CreateCanvasOpts {
 
 /** Return type of `LayerAPI.createCanvas`. */
 interface CreateCanvasAPI {
+  /** The canvas that receives draws. Built at `createCanvas` time but mounted
+   *  into its own pane only when `register()` runs, so until then the element
+   *  has no parent. `ctx`, `resize` and `setVisible` are all safe before that
+   *  — they act on the element, which is never null. `resize` re-runs on mount
+   *  and resets the backing store when the container size has changed, so a
+   *  draw made before register is not a reliable carrier: the owner re-draws
+   *  from its own state at register, which is why HeatmapControl re-renders on
+   *  attach. Unlike the color surface, nothing here repaints the owner's pixels. */
   canvas: HTMLCanvasElement;
   ctx: CanvasRenderingContext2D | null;
   resize: () => void;
@@ -363,7 +460,11 @@ interface CreateColorOpts {
  *  rendering face, owned by a dedicated pane so it participates in the
  *  layer z ladder like any other base-group member. */
 interface CreateColorAPI {
-  /** The canvas element that carries the fill (inside the color pane). */
+  /** The canvas element that carries the fill (inside the color pane). Built
+   *  at `createColor` time and mounted into its pane when `register()` runs;
+   *  `element` is never null, and `setColor` is safe before either — it repaints
+   *  into the element and the face is re-painted on mount, so an early
+   *  `setColor` survives until the pane appears. */
   element: HTMLCanvasElement;
   setColor: (color: string) => void;
   setVisible: (v: boolean) => void;
@@ -408,7 +509,6 @@ type SurfaceContentOpts =
   | {
       kind: "canvas";
       className?: string;
-      onToggle?: ((visible: boolean) => void) | null;
       getBounds?: (() => L.LatLngBounds | null) | null;
       source?: string | null;
       updatedAt?: string | number | null;
@@ -420,6 +520,14 @@ type SurfaceContentOpts =
        *  `background` shorthand accepts. */
       kind: "color";
       color: string;
+    }
+  | {
+      /** Third-party carrier. Shape first, door later: no public
+       *  registerDimension / third-party docs in this step. The factory does
+       *  not synthesize panes; capability defaults are the honest `none`. */
+      kind: "custom";
+      custom: unknown;
+      layer?: L.Layer | null;
     };
 
 /** Options for `LayerFactory.createSurface`. */
@@ -431,8 +539,10 @@ interface CreateSurfaceOpts {
   featureCountProvider?: (() => number) | null;
   styleProvider?: (() => Record<string, unknown>) | null;
   styleSetters?: Record<string, (value: unknown) => void> | null;
-  styleDefaults?: (() => Record<string, unknown>) | null;
+  styleDefaultsProvider?: (() => Record<string, unknown>) | null;
   metaProvider?: (() => Record<string, string | number>) | null;
+  /** See {@link RegisterLayerOpts.orderOrigin}. */
+  orderOrigin?: "user" | "runtime";
 }
 
 /** Content handle returned by `createSurface` — the discriminated-union branch. */
@@ -466,6 +576,13 @@ type SurfaceContentHandle =
        *  class on `element`; the pane itself stays in the DOM so its z
        *  in the ladder is preserved across toggles. */
       setVisible: (v: boolean) => void;
+    }
+  | {
+      /** Third-party carrier handle. Opaque `custom` payload; no synthesized
+       *  content API — the owner writes its own paint. */
+      kind: "custom";
+      custom: unknown;
+      layer: L.Layer | null;
     };
 
 /** Return type of `LayerFactory.createSurface`. Discriminated union:
@@ -494,6 +611,13 @@ type SurfaceHandle =
       registered: () => boolean;
       bringToFront: () => void;
       destroy: () => void;
+    }
+  | {
+      content: Extract<SurfaceContentHandle, { kind: "custom" }>;
+      register: () => void;
+      unregister: () => void;
+      registered: () => boolean;
+      bringToFront: () => void;
     };
 
 /** LayerControl public API, exposed on `map.foliplus.LayerAPI`.
@@ -521,23 +645,43 @@ interface LayerAPI {
    *  because a component that unregisters itself may simply be temporarily
    *  empty. */
   deleteLayer: (id: string) => boolean;
+  /** Drop one id from the stored order so its next registration lands at the
+   *  top of the overlay stack instead of returning to the slot the user
+   *  arranged. The counterpart to deleteLayer's saved-order prune, but without
+   *  the `removedIds` recording — the layer stays registerable. Called by
+   *  component clear paths (Heatmap, Measure) after they unregister, so a
+   *  clear-and-redraw cycle resets the position rather than preserving it. */
+  forgetSavedOrder?: (id: string) => boolean;
   /** Bring a registered overlay layer to the front. */
   bringLayerToFront: (id: string) => void;
   /**
    * Programmatically set a layer's visibility — the same transition the panel
-   * checkbox performs: the Leaflet layer is added to or removed from the map,
-   * callback-only (canvas) layers get `onToggle`, the panel row's checkbox and
-   * toggle-all control follow, and the persisted hidden set is updated so the
-   * choice survives a reload.
+   * checkbox performs: the Leaflet layer is added to or removed from the map
+   * (`visibility: "native"`), the canvas/face `HIDDEN` class is toggled
+   * (`visibility: "pane"`), the panel row's checkbox and toggle-all control
+   * follow, and the persisted hidden set is updated so the choice survives a
+   * reload.
    *
-   * This closes the write side of the visibility contract. `LayerInfo.visible`,
-   * `onToggle`, and the persisted hidden set all existed already, but only the
-   * panel's checkbox wrote them, so a host page that wanted to hide layers by
-   * id had to synthesize a DOM event against a row it does not own.
+   * This closes the write side of the visibility contract. The intent
+   * (persisted hidden set + `intentProvenance`) is the only stored source;
+   * `LayerInfo` itself carries no visibility — so a host page that wanted to
+   * hide layers by id never had to synthesize a DOM event against a row it
+   * does not own.
    *
    * @returns true if the layer was found and its visibility was set.
    */
   setVisible: (id: string, visible: boolean) => boolean;
+  /** The user's stored visibility choice (persisted intent) for a layer id,
+   *  or the author's declared default when the user never touched it.
+   *  This is the panel checkbox's fact, not the map's membership — a layer
+   *  marked visible here may still be off the map because policy (focus,
+   *  zoom range) is suppressing it. Callers that need "is it drawn right
+   *  now" read the map directly; callers that need "did the user hide it"
+   *  read this. Only LayerManager implements this; the lightweight stub
+   *  has no intent storage, so a consumer sees `undefined` and falls back
+   *  to `true`.
+   */
+  intentVisible?: (id: string) => boolean;
   createCanvas: (opts: CreateCanvasOpts) => CreateCanvasAPI;
   createLayers: (opts: CreateLayersOpts) => CreateLayersAPI;
   extractPoints: (
@@ -562,6 +706,31 @@ interface LayerAPI {
   moveLayerDown?: (id: string) => boolean;
 }
 
+/** Everything `zFor` can be told about the pane it prices. */
+interface ZArgs {
+  /** The layer's position in the ordered registry: index 0 is the topmost. */
+  index?: number;
+  /** How many layers the registry holds — the step multiplier. */
+  count?: number;
+  /** Base-group layers (tile basemaps and the solid-color basemap) share the
+   *  lower `TILE_BASE` ladder; overlay-group layers use `BASE`. Row order
+   *  within a group = visual stack order, since both share one `STEP`. */
+  group?: "base" | "overlay";
+  /** The pane's role in its layer's draw stack. Only `annotation` prices a
+   *  relation of its own (one step above its layer); the rest use `order`. */
+  role?: PaneRole;
+  /** The pane's draw offset within its layer (`PaneSpec.order`). */
+  order?: number;
+  /** An absolute base z instead of a slot — the focus lift. */
+  base?: number;
+}
+
+/** A node in the layer tree a probe walk may reach. */
+type StyleProbeNode = {
+  setStyle?: (style: Record<string, unknown>) => void;
+  eachLayer?: (fn: (layer: L.Layer) => void) => void;
+};
+
 export type {
   CreateCanvasAPI,
   CreateCanvasOpts,
@@ -573,6 +742,8 @@ export type {
   CreateSurfaceOpts,
   LabelAwareLayer,
   LayerAPI,
+  LayerCarrier,
+  LayerKind,
   LayerCapabilities,
   LayerInfo,
   LayerSurface,
@@ -580,7 +751,9 @@ export type {
   PaneRole,
   PaneSpec,
   RegisterLayerOpts,
+  StyleProbeNode,
   SurfaceContentHandle,
   SurfaceContentOpts,
   SurfaceHandle,
+  ZArgs,
 };

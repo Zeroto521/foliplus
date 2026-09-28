@@ -56,6 +56,9 @@ class ExportRenderer {
    *  basemap and the export is missing its base layer. Mirrors the same
    *  pattern at LayerControl/manager.ts#210. */
   private resolveLayer(li: LayerInfo): L.Layer | null {
+    // Late-binding fallback for basemaps whose TileLayer `var` was emitted
+    // after the LayerControl IIFE — mirrors manager.findLayer. Explicit
+    // no-carrier entries (canvas/solid/custom) return null here by design.
     return li.layer ?? findLayer(this.map, li.id);
   }
 
@@ -186,7 +189,11 @@ class ExportRenderer {
         }> = [];
         for (const li of layers) {
           const layer = this.resolveLayer(li);
-          if (!li.visible || !(layer instanceof L.TileLayer) || !layerUrl(layer)) {
+          if (
+            !(api.intentVisible?.(li.id) ?? true) ||
+            !(layer instanceof L.TileLayer) ||
+            !layerUrl(layer)
+          ) {
             continue;
           }
           const tiles = this.tilePositions(
@@ -227,7 +234,7 @@ class ExportRenderer {
       const passable = layers.filter(li => {
         const layer = this.resolveLayer(li);
         return (
-          li.visible &&
+          (api.intentVisible?.(li.id) ?? true) &&
           (li.canvas || (layer && !(layer instanceof L.TileLayer && layerUrl(layer))))
         );
       });

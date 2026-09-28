@@ -8,20 +8,18 @@
 // straight to the layer because `setStyle` is a direct Leaflet API call,
 // not a projection of a stored intent.
 //
-// Gate (honest degradation): only AREAL vector layers get a fill row —
-// the surface must resolve to a pane carrier for BOTH opacity and zoom range
-// (the vector-shape population), and the layer tree must actually contain a
-// polygon leaf. PolyLine has a stroke but no fill concept, so it falls out:
-// a fill row there would write a value with no visual effect. Canvas layers
-// (heatmap / measure) and third-party delegated drawers are excluded by
-// construction; base maps, MarkerCluster, GridLayer, and ImageOverlay fall
-// out of the capability check.
+// Gate (honest degradation): pure capability check — `capabilities.fill
+// === "native"`. The fill capability is probe-derived at the surface (a
+// tree walk for areal `setStyle` leaves), so a line-only layer, a marker,
+// a canvas layer, MarkerCluster, GridLayer / ImageOverlay all declare
+// `"none"` and the gate rejects them naturally. A solid-colour basemap
+// declares `"native"` — the pane's paint *is* the fill.
 //
 // UI chrome: shared `form.colorInput` + `bindLiveColor`, the same recipe as
 // the HeatmapControl border row and the annotation label row — one
 // <input type=color> inside a FORM_ROW, no reset button on the row itself
 // (the panel-wide Reset handles it, the way label color has it).
-import { GEOM_TYPE, type LayerInfo } from "#core/layer/index.js";
+import { type LayerInfo } from "#core/layer/index.js";
 import { dom } from "#common/dom.js";
 import {
   bindLiveColor,
@@ -33,10 +31,11 @@ import {
   numberInput,
 } from "#common/form.js";
 import * as CONST from "../../const.js";
-import { showColorLayer } from "../color.js";
+import { showSolidBasemap } from "../color.js";
 import type { LayerUI } from "../index.js";
 import { markOverride, saveState, unmarkOverride } from "../state.js";
 import { pinStyleOnHighlight } from "./pin.js";
+import { registerDimension } from "./registry.js";
 
 /** The swatch's last resort when even the browser probe cannot resolve the
  *  authored color to a hex — black, matching an empty `<input type=color>`. */
@@ -52,44 +51,6 @@ type StyleCarrier = L.Layer & {
   options?: { fillColor?: string; fillOpacity?: number };
 };
 
-/** Whether the layer's surface can honestly carry a fill write. Requires
- *  the surface to resolve to a pane carrier for BOTH opacity and zoom range
- *  — that is exactly the vector-shape population. Anything else falls out:
- *    - `layerInfo.canvas` — callback-only canvas layers (heatmap / measure)
- *      have no `eachLayer` to walk, so a `setStyle` would silently no-op.
- *    - `layerInfo.styleSetters` — third-party delegated drawers own their
- *      style write; this row would fight for the same visual axis.
- *    - `capabilities.opacity === "native"` — GridLayer / ImageOverlay paint
- *      through native options, not through `setStyle`.
- *    - `capabilities.opacity === "none"` — MarkerCluster and the "no
- *      content panes" surface have no honest write target.
- *
- *  Requiring `zoomRange !== "none"` too is the same test from the other
- *  side: any surface whose `opacity` resolves to `"pane"` but whose
- *  `zoomRange` does not is a solid-color basemap, which owns a single
- *  background pane rather than vector shapes and has no `fill` axis at
- *  all. The double check reads the capability honestly rather than
- *  special-casing the basemap id.
- *
- *  The third gate narrows the row to areal layers: only polygon/circle
- *  leaves (Polygon, Rectangle, Circle, CircleMarker) carry a fill, so a
- *  PolyLine — which also passes the capability check — must not get a row
- *  that would write a value with no visual effect. Real Leaflet makes Circle
- *  a Polyline subclass, so a LINE geometry can still be fillable; a mixed
- *  GeoJSON keeps the row when at least one leaf is a polygon or circle. */
-const hasFillGeometry = (ui: LayerUI, li: LayerInfo): boolean => {
-  const type = ui.m.surfaceFor(li).geometryType();
-  if (type === GEOM_TYPE.POLYGON) return true;
-  const layer = li.layer as StyleCarrier | null;
-  if (!layer) return false;
-  if (type !== GEOM_TYPE.LINE && type !== GEOM_TYPE.UNKNOWN) return false;
-  let found = false;
-  walkStyleLeaves(layer, leaf => {
-    if (leaf instanceof L.Polygon || leaf instanceof L.Circle) found = true;
-  });
-  return found;
-};
-
 /** Whether the layer is a solid-color basemap: a base layer whose fill is the
  *  value on `li.color` rather than a Leaflet layer's geometry.
  *
@@ -97,21 +58,33 @@ const hasFillGeometry = (ui: LayerUI, li: LayerInfo): boolean => {
  *  carry a `canvas` (its face element, which the export renderer draws — see
  *  `LayerFactory.createColor`), so excluding on `canvas` would never match it
  *  and silently drops its fill row. A heatmap canvas has no `color`, so it
- *  still belongs to the canvas family and is excluded here. */
+ *  still belongs to the canvas family and is excluded here.
+ *
+ *  Used only by write paths (applyFillToLayer, resetLayerFill, buildFillRow)
+ *  to route the colour basemap's fill to `showSolidBasemap` instead of walking
+ *  leaves. The gate (`layerCanFill`) reads the capability, not this. */
 const isColorBasemap = (li: LayerInfo | undefined): boolean => {
   if (!li || li.styleSetters) return false;
-  return Boolean(li.color) && li.isBase;
+  return Boolean(li.color) && li.group === CONST.GROUP.BASE;
 };
 
+/** Whether the layer's surface can honestly carry a fill write.
+ *  Pure capability check: `capabilities.fill === "native"`.
+ *
+ *  The fill capability is probe-derived at the surface (see
+ *  `detectCapabilities` in core/layer/LayerSurface.ts) — a layer whose
+ *  tree has no areal `setStyle` leaf (Polygon, Circle, CircleMarker)
+ *  declares `"none"`, so the gate rejects it naturally. Line-only layers
+ *  (Polyline), markers, canvas layers, MarkerCluster, GridLayer /
+ *  ImageOverlay all declare `"none"` for fill. A solid-colour basemap
+ *  declares `"native"` — the pane's paint *is* the fill.
+ *  No extra checks belong here: the invariant is that `gate` is exactly
+ *  the capability check, no carrier probes, no `isColorBasemap`
+ *  special-cases, no canvas exclusion. */
 const layerCanFill = (ui: LayerUI, layerId: string): boolean => {
   const li = ui.m.layerRegistry.get(layerId);
   if (!li) return false;
-  if (isColorBasemap(li)) return true;
-  if (li.canvas) return false;
-  if (li.styleSetters) return false;
-  const caps = ui.m.surfaceFor(li).capabilities;
-  if (!(caps.opacity === "pane" && caps.zoomRange === "pane")) return false;
-  return hasFillGeometry(ui, li);
+  return ui.m.surfaceFor(li).capabilities.fill === "native";
 };
 
 /** The layer's authored base style, captured on the layer's first fill
@@ -187,9 +160,11 @@ const authoredFillOpacity = (ui: LayerUI, layerId: string): number | null => {
   return authored;
 };
 
-/** A visible `fillOpacity` used when the author set the fill to 0 (hollow).
- *  Without it a color change is invisible — the `fill` attribute updates but
- *  `fill-opacity="0"` hides it. 0.2 matches Leaflet's own default. */
+/** A visible `fillOpacity` used to *display* the row's opacity input when
+ *  neither a stored override nor an authored value exists. 0.2 matches
+ *  Leaflet's own default, so a row for a layer that never declared a fill
+ *  opacity shows what the layer is actually painting. Display only — no
+ *  write path reads this to change a layer's opacity. */
 const VISIBLE_FILL_OPACITY = 0.2;
 
 /** Visit every leaf that exposes a runtime style-setter. Groups (LayerGroup,
@@ -246,13 +221,13 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
   if (color === undefined && opacity === undefined) return;
 
   // Solid-color basemap: the fill is the pane's paint, not a vector style.
-  // Route to showColorLayer instead of walking leaves (the basemap has none).
+  // Route to showSolidBasemap instead of walking leaves (the basemap has none).
   // Syncs ui.currentColor so a later checkbox toggle re-applies the same
   // color.
   if (isColorBasemap(li)) {
     if (color !== undefined) {
       ui.currentColor = color;
-      showColorLayer(ui, color);
+      showSolidBasemap(ui, color);
     }
     return;
   }
@@ -270,7 +245,9 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
     // pinStyleOnHighlight reapplies the user's fill after folium's handler
     // fires so the color survives the hover. `walkStyleLeaves` already
     // guarantees a setStyle, so no isStyleSetter guard is needed here.
-    pinStyleOnHighlight(node, () => {
+    // The "fill" key makes each commit replace this dimension's getter
+    // instead of stacking a fresh closure.
+    pinStyleOnHighlight(node, "fill", () => {
       const c = ui.fillColorMap[layerId];
       const o = ui.fillOpacityMap[layerId];
       if (c === undefined && o === undefined) return null;
@@ -287,10 +264,11 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
  *  moved — a color-picker drag revisits every step, and each pass is a
  *  sweep over every feature of the layer.
  *
- *  When the layer is hollow (author fillOpacity === 0) and the user has not
- *  explicitly set fillOpacity, bumps fillOpacityMap to a visible value so
- *  the color change is visible. If the user HAS explicitly set fillOpacity
- *  (even to 0), their choice wins — no bump.
+ *  Color-only: this never touches `fillOpacityMap`. A hollow layer (author
+ *  fillOpacity === 0) stays hollow — the `fill` attribute takes the new color
+ *  and `fill-opacity="0"` keeps it hidden, which is the honest rendering of
+ *  the author's value. The opacity input beside the swatch (0-100) is how
+ *  the user makes the color visible.
  *
  *  Called from `bindLiveColor`, so `color` is a raw `input.value` and is
  *  normalized to 6-digit lowercase hex before landing in storage. */
@@ -299,24 +277,6 @@ const commitFillColor = (ui: LayerUI, layerId: string, rawColor: string): void =
   if (ui.fillColorMap[layerId] === color) return;
   ui.fillColorMap[layerId] = color;
   markOverride(ui, layerId, "fillColor");
-
-  if (ui.fillOpacityMap[layerId] === undefined) {
-    const li = ui.m.layerRegistry.get(layerId);
-    if (!isColorBasemap(li)) {
-      const layer = li?.layer as StyleCarrier | null;
-      if (layer) {
-        let hollow = false;
-        walkStyleLeaves(layer, node => {
-          if (node.options?.fillOpacity === 0) hollow = true;
-        });
-        if (hollow) {
-          ui.fillOpacityMap[layerId] = VISIBLE_FILL_OPACITY;
-          markOverride(ui, layerId, "fillOpacity");
-        }
-      }
-    }
-  }
-
   saveState(ui);
   applyFillToLayer(ui, layerId);
 };
@@ -338,10 +298,9 @@ const commitFillOpacity = (ui: LayerUI, layerId: string, pct: number): void => {
  *  place, so by reset time we cannot re-read the author's color from the
  *  layer and must replay the captured value.
  *
- *  Both `fillColor` and `fillOpacity` are restored from the captured base.
- *  `fillOpacity` was written by {@link applyFillToLayer} when it was 0
- *  (to make the color change visible); reset puts it back to the author's
- *  original — 0 for a hollow polygon, undefined for the default.
+ *  Both `fillColor` and `fillOpacity` are restored from the captured base —
+ *  0 for a hollow polygon, Leaflet's 0.2 default when the author never
+ *  declared an opacity.
  *
  *  The persisted override is removed either way so the next load does not
  *  re-apply a color the layer no longer shows. */
@@ -357,7 +316,7 @@ const resetLayerFill = (ui: LayerUI, layerId: string): void => {
   // Solid-color basemap: restore the authored default colour.
   if (isColorBasemap(li)) {
     ui.currentColor = CONST.COLOR.DEFAULT;
-    showColorLayer(ui, CONST.COLOR.DEFAULT);
+    showSolidBasemap(ui, CONST.COLOR.DEFAULT);
     return;
   }
 
@@ -454,12 +413,40 @@ const replayFillState = (ui: LayerUI, id: string): void => {
   applyFillToLayer(ui, id);
 };
 
+/** Register fill as a per-layer dimension. The descriptor wires up the
+ *  existing helpers (gate + row + a two-slot value for the color /
+ *  opacity pair) — nothing moves. The write path is intentionally not
+ *  on the descriptor: `commitFillColor` / `commitFillOpacity` are the
+ *  authoritative implementations and the panel keeps them separate from
+ *  the discovery shape.
+ *
+ *  Registered ahead of `border` and `opacity` in `DIM_ORDER`
+ *  (see `./registry.js`): fill comes first in the annotation panel's
+ *  Layer section. */
+const FILL_DIMENSION = registerDimension<{
+  color: string;
+  opacity: number | null;
+}>({
+  key: "fill",
+  gate: layerCanFill,
+  value: (ui, layerId) => {
+    const li = ui.m.layerRegistry.get(layerId);
+    if (!li) return undefined;
+    return {
+      color: ui.fillColorMap[layerId] ?? authoredFillColor(ui, layerId),
+      opacity: ui.fillOpacityMap[layerId] ?? authoredFillOpacity(ui, layerId),
+    };
+  },
+  row: buildFillRow,
+});
+
 export {
   applyFillToLayer,
   bindFillRow,
   buildFillRow,
   commitFillColor,
   commitFillOpacity,
+  FILL_DIMENSION,
   isColorBasemap,
   layerCanFill,
   replayFillState,

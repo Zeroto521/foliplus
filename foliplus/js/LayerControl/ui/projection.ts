@@ -8,56 +8,44 @@
 // so a change on either input reaches the map through exactly one path.
 //
 // Nothing in this file touches the map, the registry, or storage.
+import type { Projection } from "../type.js";
 import type { LayerUI } from "./index.js";
 import { inZoomRange } from "./rowView.js";
 
-/** One layer's projection: intent (persisted) and the derived policy state
- *  together, so a diff sees both in one comparison.
+/** The user's own visibility choice, or the author's declared default
+ *  (captured once at first sight by `snapshotAuthorVisible`) when the user
+ *  never touched it. This is the single entry point other modules —
+ *  `syncNoBasemap`, `rowView`, `snapshotAuthorVisible` itself, and the
+ *  executor's baseline — read the intent through, so no mirror is stored on
+ *  the layer record.
  *
- *  `intent.visible` is what the checkbox shows — the user's choice when they
- *  made one, otherwise the author's declared default.
- *  `effectiveShown` is the composite `intent && policy` and is what the
- *  executor writes to map membership. Only `intent` may authorise display;
- *  `policy` (focus, zoom range) may only suppress it. That is the invariant
- *  that keeps a derived dimension from ever adding a layer back onto the
- *  map — the class of bug the quickstart regression records, and the structural root of the
- *  `rangeHiddenIds` one-way gate that used to live in state.ts.
- */
-interface Projection {
-  id: string;
-  intent: { visible: boolean };
-  effectiveShown: boolean;
-  opacity: number | undefined;
-  zoomRange: [number, number] | null;
-}
-
-/** The executor's projection snapshot: the pure projection plus the carrier
- *  identity the last write landed on. Recording carrier is what closes
- *  value-only diff misses writes when a carrier element is replaced (a
- *  re-registered canvas, a lazily-created annotation pane), because the
- *  stored numeric opacity matches but the DOM in front of it is new.
- *  The token is opaque: a canvas element, a pane-names array, or an
- *  `options` object reference. */
-interface AppliedProjection extends Projection {
-  carrier: unknown;
-}
+ *  The user's choice is signalled by the dimension's `overrides` provenance
+ *  marker *or* by membership in `hiddenLayerIds`. The two travel together out of
+ *  `loadPersistedState` and `syncHiddenId`, so either alone still means "the
+ *  user chose this" — a caller that records the value (a restored record, a
+ *  test fixture, a re-registration replay) must not have it silently read
+ *  back as the author's default. */
+const intentVisibleOf = (ui: LayerUI, id: string): boolean => {
+  const overrides = ui.intentProvenance?.[id];
+  const hidden = ui.hiddenLayerIds?.has(id) ?? false;
+  const hasVisible = overrides?.includes("visible") || hidden;
+  const authorDefault = ui.authorVisible.get(id) ?? true;
+  return hasVisible ? !hidden : authorDefault;
+};
 
 /** Build one layer's projection from the persisted intent and the current
  *  policy inputs (focus, map zoom). Read-only. */
 const projectLayer = (ui: LayerUI, layerInfo: LayerInfo): Projection => {
   const id = layerInfo.id;
-  const overrides = ui.userOverrides?.[id];
-  // The user's own choice is signalled by the dimension's `overrides`
-  // provenance marker *or* by the value being present. The two travel
-  // together out of `loadPersistedState` and `syncHiddenId`, so either alone
-  // still means "the user chose this" — a caller that records the value
-  // (a restored record, a test fixture, a re-registration replay) must not
-  // have it silently read back as the author's default. Absent both, the
-  // author's declared default stands.
-  const hidden = ui.hiddenIds?.has(id) ?? false;
-  const hasVisible = overrides?.includes("visible") || hidden;
   // The author's default is the map state folium left at boot (see
   // `snapshotAuthorVisible`), captured before any policy moved layers.
+  // Inline the intent logic here (instead of calling `intentVisibleOf`)
+  // to avoid function-call overhead on the zoomend hot path — this runs
+  // per layer per zoom, so the JIT benefits from seeing all lookups in
+  // one scope.
+  const overrides = ui.intentProvenance?.[id];
+  const hidden = ui.hiddenLayerIds?.has(id) ?? false;
+  const hasVisible = overrides?.includes("visible") || hidden;
   const authorDefault = ui.authorVisible.get(id) ?? true;
   const intent = hasVisible ? !hidden : authorDefault;
 
@@ -68,7 +56,7 @@ const projectLayer = (ui: LayerUI, layerInfo: LayerInfo): Projection => {
 
   // A dimension's value being present is what the sweep has always read as
   // the user's choice (a restored record, a late replay). The provenance
-  // marker is `replayLayerState`'s concern, not this projection's.
+  // marker lives on `intentProvenance`, not on this projection.
   const opacity =
     typeof ui.opacityMap?.[id] === "number" ? ui.opacityMap[id] : undefined;
 
@@ -89,7 +77,7 @@ const projectLayer = (ui: LayerUI, layerInfo: LayerInfo): Projection => {
 const projectAll = (ui: LayerUI): Map<string, Projection> => {
   const ids = new Set([
     ...ui.m.layers.map(li => li.id),
-    ...ui.hiddenIds,
+    ...ui.hiddenLayerIds,
     ...Object.keys(ui.renamedNames),
     ...Object.keys(ui.opacityMap),
     ...Object.keys(ui.zoomRangeMap),
@@ -103,5 +91,4 @@ const projectAll = (ui: LayerUI): Map<string, Projection> => {
   return result;
 };
 
-export { projectAll, projectLayer };
-export type { Projection, AppliedProjection };
+export { projectAll, projectLayer, intentVisibleOf };

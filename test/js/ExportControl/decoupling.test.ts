@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 // identifiers. The export background is read from the map container's
 // computed `backgroundColor` — a public DOM surface — so ExportControl stays
 // decoupled from any particular component's state. A regression that reaches
-// for `COLOR_ITEM`, `--color-layer-bg`, or `ui.currentColor` to get the
+// for `--color-layer-bg` or `ui.currentColor` to get the
 // basemap color would couple the two components and make the export wrong
 // whenever the color lives on the container for a different reason.
 //
@@ -27,11 +27,10 @@ const exportSources = () =>
 // container's computed backgroundColor is the one route it is allowed to
 // take.
 const FORBIDDEN = [
-  "COLOR_ITEM",
   "COLOR_INPUT",
   "currentColor",
-  "showColorLayer",
-  "hideColorLayer",
+  "showSolidBasemap",
+  "hideSolidBasemap",
   "colorLayer",
   "--color-layer-bg",
 ];

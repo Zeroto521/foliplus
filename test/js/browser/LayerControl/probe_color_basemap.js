@@ -4,15 +4,21 @@
 // pane + canvas (created through `factory.createColor`), so it participates
 // in the layer z ladder exactly like tile basemaps. Row order = visual stack
 // order. The old container-background contract (--color-layer-bg,
-// .leaflet-container.active) is retired.
+// .leaflet-container.foliplus-active) is retired.
 () => {
   const ctrl = document.querySelector(".foliplus-layer-ctrl");
   if (ctrl && !ctrl.classList.contains("foliplus-is-expanded")) {
     ctrl.querySelector(".foliplus-toggle-btn").click();
   }
-  const item = document.querySelector(".foliplus-color-layer-item");
+  const item = document.querySelector(
+    '.foliplus-layer-item[data-layer-id="foliplus_color_map"]',
+  );
   if (!item) return { itemFound: false };
-  item.click();
+  // Show the colour basemap via its checkbox — the only legitimate path.
+  // Clicking the row body no longer activates the color layer (T201).
+  const cb = item.querySelector('input[type="checkbox"]');
+  if (!cb) return { itemFound: true, itemActive: false, reason: "no checkbox" };
+  if (!cb.checked) cb.click();
   // Set the fill color through the style panel (fill row).
   const lc = window.__layerCtrl;
   if (lc && lc.m && lc.m.ui && item) {
@@ -51,8 +57,8 @@
   }
   return {
     itemFound: true,
-    itemActive: item.classList.contains("active"),
-    containerActive: container.classList.contains("active"),
+    itemActive: item.classList.contains("foliplus-active"),
+    containerActive: container.classList.contains("foliplus-active"),
     cssVar: container.style.getPropertyValue("--color-layer-bg").trim(),
     containerBg: getComputedStyle(container).backgroundColor,
     tileHidden: tilePane.classList.contains("foliplus-layer-tile-hidden"),

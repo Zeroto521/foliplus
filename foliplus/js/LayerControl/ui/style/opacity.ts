@@ -4,12 +4,19 @@
 // commit functions are used both by the delegated drawer (delegated.ts)
 // and the annotation panel (index.ts) — the row is LayerControl-owned,
 // not annotation-owned.
+//
+// Also registered in the style-panel dimension registry (./registry.ts)
+// as the first per-layer dimension: `gate` + `value` + `row` for
+// discovery. The write path (state + projection + DOM sync) stays as
+// `commitOpacityPct` for now — see ./registry.ts for the reason.
 import { dom } from "#common/dom.js";
 import * as CONST from "../../const.js";
 import { applyProjection } from "../apply.js";
 import type { LayerUI } from "../index.js";
 import { markOverride, saveState, unmarkOverride } from "../state.js";
+import { syncNoBasemap } from "../visibility.js";
 import { railPos, round5 } from "./frame.js";
+import { registerDimension } from "./registry.js";
 
 /** Whether the layer's surface can honestly carry an opacity write. Layers with
  *  `opacity: "none"` (e.g. MarkerCluster, whose cluster icons live in a shared
@@ -100,6 +107,12 @@ const commitOpacityPct = (
   }
   saveState(ui);
   applyProjection(ui, layerId);
+  // Base-layer opacity can move the visible-basemap count across the zero
+  // boundary (0 hides, >0 shows), so the no-basemap hatch and the group
+  // label must follow — `syncNoBasemap` gates on `li.opacity ?? 1 > 0`.
+  // Overlay opacity is unrelated to basemap visibility, so skip it: the
+  // call would be a wasted O(n) scan on the drag hot path.
+  if (li.group === CONST.GROUP.BASE) syncNoBasemap(ui);
   syncOpacityInputs(panel, pct);
 };
 
@@ -166,14 +179,43 @@ const buildOpacityRow = (ui: LayerUI, layerId: string): HTMLElement => {
 
 /** Reset one layer's opacity to fully opaque and drop its persisted entry. */
 const resetLayerOpacity = (ui: LayerUI, layerId: string): void => {
-  if (!ui.m.layerRegistry.has(layerId)) return;
+  const li = ui.m.layerRegistry.get(layerId);
+  if (!li) return;
   delete ui.opacityMap[layerId];
   unmarkOverride(ui, layerId, "opacity");
   saveState(ui);
   applyProjection(ui, layerId);
+  // Resetting a base layer from 0 back to 1 un-hides it — flip the hatch.
+  if (li.group === CONST.GROUP.BASE) syncNoBasemap(ui);
 };
 
+/** Register opacity as the first per-layer dimension in the style-panel
+ *  registry. The descriptor wires up the existing helpers — nothing moves,
+ *  nothing duplicates. The write path is intentionally not part of the
+ *  descriptor yet: `commitOpacityPct` needs the panel root to sync the
+ *  slider, which is a UI argument that does not belong on the descriptor.
+ *
+ *  Gate invariant (first-class from day one): `gate` is two layers —
+ *  layer existence (`!li` returns `false` as a precondition guard) and
+ *  then the pure capability check `capabilities.opacity !== "none"`. No
+ *  carrier probes, no `isColorBasemap` special-cases, no canvas exclusion.
+ *  Canvas-only layers (heatmap, measure, …) already declare `"none"` for
+ *  opacity because they don't own a leaf to walk, so the gate rejects them
+ *  naturally. Any extra check here would drift from the invariant and the
+ *  moment a new dimension lands with a different shape, the panel's own
+ *  honest-degradation rule stops being a rule. */
+const OPACITY_DIMENSION = registerDimension<number>({
+  key: "opacity",
+  gate: layerCanOpacity,
+  value: (ui, layerId) => {
+    const li = ui.m.layerRegistry.get(layerId);
+    return ui.opacityMap[layerId] ?? li?.opacity;
+  },
+  row: buildOpacityRow,
+});
+
 export {
+  OPACITY_DIMENSION,
   buildOpacityRow,
   clampPct,
   commitOpacityPct,

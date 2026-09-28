@@ -24,9 +24,9 @@ import { formatLatLng } from "#common/format.js";
 import * as Icons from "#common/icon.js";
 import { createLogger } from "#common/log.js";
 import { AUTOCOMPLETE, CLASSES, MODE, SOURCE, ZOOM } from "../const.js";
-import type { AddressResult, ResultItem } from "../type.js";
+import type { AddressResult, ResultItem, SearchControlState } from "../type.js";
 import { recordHistorySearch, renderHistory, saveHistory } from "./history.js";
-import { type SearchControlState, T, _, parseCoord } from "./util.js";
+import { T, _, parseCoord } from "./util.js";
 
 const log = createLogger(CONF.name);
 

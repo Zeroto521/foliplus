@@ -488,7 +488,6 @@ describe("PaneManager", () => {
       const path = makePath();
       pm.pinTree(path, "data");
       expect(path.options.pane).toBe("data");
-      expect(path.options.paneSet).toBe(true);
       expect(path.options.renderer).toBe(renderer);
     });
 
@@ -507,7 +506,6 @@ describe("PaneManager", () => {
       pm.pinTree(makeContainer(children), "data");
       for (const path of children) {
         expect(path.options.pane).toBe("data");
-        expect(path.options.paneSet).toBe(true);
         expect(path.options.renderer).toBeDefined();
       }
     });
@@ -709,7 +707,6 @@ describe("PaneManager", () => {
     const renderer = { _container: container };
     pm.pinLateContent([{ layer, paneName: "foliplus-measure-graph", renderer }]);
     expect(layer.options.pane).toBe("foliplus-measure-graph");
-    expect(layer.options.paneSet).toBe(true);
     expect(path.parentNode).toBe(container);
   });
 
@@ -730,7 +727,6 @@ describe("PaneManager", () => {
       { layer: parent, paneName: "foliplus-measure-graph", renderer },
     ]);
     expect(child.options.pane).toBe("foliplus-measure-graph");
-    expect(child.options.paneSet).toBe(true);
     expect(childPath.parentNode).toBe(container);
   });
 
@@ -855,7 +851,6 @@ describe("PaneManager", () => {
 
     expect(container.parentNode).toBe(paneEl);
     expect(layer.options.pane).toBe("foliplus-pane-1");
-    expect(layer.options.paneSet).toBe(true);
   });
 
   it("pinLateContent is idempotent for a GridLayer already in the target pane", () => {
@@ -897,7 +892,6 @@ describe("PaneManager", () => {
       pm.pinLateContent([{ layer, paneName: "foliplus-pane-1", renderer }]),
     ).not.toThrow();
     expect(layer.options.pane).toBe("foliplus-pane-1");
-    expect(layer.options.paneSet).toBe(true);
   });
 
   it("pinLateContent batches two GridLayers of one pane into a single append", () => {
@@ -949,7 +943,6 @@ describe("PaneManager", () => {
       pm.pinLateContent([{ layer, paneName: "foliplus-pane-1", renderer }]),
     ).not.toThrow();
     expect(layer.options.pane).toBe("foliplus-pane-1");
-    expect(layer.options.paneSet).toBe(true);
   });
 
   it("pinLateContent skips the GridLayer move when getContainer returns null", () => {
@@ -972,7 +965,6 @@ describe("PaneManager", () => {
       pm.pinLateContent([{ layer, paneName: "foliplus-pane-1", renderer }]),
     ).not.toThrow();
     expect(layer.options.pane).toBe("foliplus-pane-1");
-    expect(layer.options.paneSet).toBe(true);
   });
 
   it("pinLateContent skips layers without a paneName", () => {
@@ -989,11 +981,10 @@ describe("PaneManager", () => {
     const pm = new PaneManager(map);
     const layer = { options: {} as Record<string, unknown>, eachLayer: undefined };
     // A null renderer (e.g. tile layers with a paneName) previously skipped the
-    // whole layer without setting options.pane/paneSet, so a dirty surface
+    // whole layer without setting options.pane, so a dirty surface
     // re-queued it on every reconcile. The options must still be marked handled.
     pm.pinLateContent([{ layer, paneName: "foliplus-measure-graph", renderer: null }]);
     expect(layer.options.pane).toBe("foliplus-measure-graph");
-    expect(layer.options.paneSet).toBe(true);
   });
 });
 

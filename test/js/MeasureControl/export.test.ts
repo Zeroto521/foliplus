@@ -13,7 +13,7 @@ vi.mock("#common/locale.js", () => ({
 
 const markerData: MeasureData = {
   id: "foliplus_measure_marker_1000_1",
-  type: CONST.MODE.MARKER,
+  type: CONST.MEASURE_MODE.MARKER,
   lng: 119.3,
   lat: 26.08,
   address: "Taiwan",
@@ -21,7 +21,7 @@ const markerData: MeasureData = {
 
 const distanceData: MeasureData = {
   id: "foliplus_measure_distance_1000_2",
-  type: CONST.MODE.DISTANCE,
+  type: CONST.MEASURE_MODE.DISTANCE,
   points: [
     { lng: 119.3, lat: 26.08 },
     { lng: 119.31, lat: 26.09 },
@@ -36,7 +36,7 @@ const distanceData: MeasureData = {
 
 const polygonData: MeasureData = {
   id: "foliplus_measure_polygon_1000_3",
-  type: CONST.MODE.POLYGON,
+  type: CONST.MEASURE_MODE.POLYGON,
   points: [
     { lng: 119.3, lat: 26.08 },
     { lng: 119.32, lat: 26.08 },
@@ -53,7 +53,7 @@ const polygonData: MeasureData = {
 
 const circleData: MeasureData = {
   id: "foliplus_measure_circle_1000_4",
-  type: CONST.MODE.CIRCLE,
+  type: CONST.MEASURE_MODE.CIRCLE,
   center: { lng: 119.3, lat: 26.08 },
   target: { lng: 119.31, lat: 26.08 },
   radius: 5000,
@@ -447,7 +447,7 @@ describe("Export.getNameForType", () => {
   it("returns the label regardless of the marker's address", () => {
     const noAddress = {
       id: "1",
-      type: CONST.MODE.MARKER,
+      type: CONST.MEASURE_MODE.MARKER,
       lat: 0,
       lng: 0,
     } as MeasureData;
@@ -476,7 +476,7 @@ describe("Export.toCSV edge cases", () => {
   it("leaves the center column empty for a marker with no coordinates", () => {
     const marker = {
       id: "m1",
-      type: CONST.MODE.MARKER,
+      type: CONST.MEASURE_MODE.MARKER,
       lat: undefined,
       lng: undefined,
     } as MeasureData;
@@ -487,7 +487,7 @@ describe("Export.toCSV edge cases", () => {
   it("quotes an address that contains a comma", () => {
     const marker = {
       id: "m1",
-      type: CONST.MODE.MARKER,
+      type: CONST.MEASURE_MODE.MARKER,
       lat: 26.08,
       lng: 119.3,
       address: "City, District",
@@ -498,7 +498,7 @@ describe("Export.toCSV edge cases", () => {
   it("leaves the center column empty for a null-center circle", () => {
     const circle = {
       id: "c1",
-      type: CONST.MODE.CIRCLE,
+      type: CONST.MEASURE_MODE.CIRCLE,
       center: null,
     } as MeasureData;
     const row = Export.toCSV([circle]).split("\n")[1].split(",");
@@ -508,7 +508,7 @@ describe("Export.toCSV edge cases", () => {
   it("emits a row even for a distance with no points", () => {
     const dist = {
       id: "d1",
-      type: CONST.MODE.DISTANCE,
+      type: CONST.MEASURE_MODE.DISTANCE,
       points: [],
     } as MeasureData;
     expect(Export.toCSV([dist]).split("\n").length).toBe(2);

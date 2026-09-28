@@ -13,52 +13,52 @@
 //
 // `getStyle` must return only the dimensions the user set — `null` (or an
 // empty object) means "nothing to restore", so a Reset keeps the author's
-// value. This is the shared mechanism both self-managed style dimensions
-// (fill, border) use; it becomes the unified hook when those merge.
-
-/** A leaf whose `setStyle` is there for real. Narrowing through a guard
- *  rather than a `typeof` test keeps call sites plain method calls, which
- *  matters: Leaflet's `Path.setStyle` runs `setOptions(this, style)`, so a
- *  method captured into a local and called detached would see `this` as
- *  undefined and throw instead of writing. */
-type StyleSetter = {
-  setStyle: (style: Record<string, unknown>) => void;
-  on?: (type: string, fn: () => void) => void;
-};
+// value. This is the unified hook both self-managed style dimensions
+// (fill, border) share: one handler per leaf merges every keyed getter
+// into a single `setStyle` on fire.
+import type { StyleSetter } from "../../type.js";
 
 const isStyleSetter = (node: unknown): node is StyleSetter =>
   node != null && typeof (node as StyleSetter).setStyle === "function";
 
 type StyleGetter = () => Record<string, unknown> | null;
 
-/** One mouseout handler per leaf; every `pinStyleOnHighlight` call
- *  registers its own getter, and the shared handler reads all of them on
- *  fire. Two dimensions (fill, border) can share a leaf without one
- *  silently dropping the other's user value — folium's `resetStyle` fires
- *  first in the dispatch order, and each getter adds its own dims to the
- *  same `setStyle` call that goes last. */
-const pins = new WeakMap<StyleSetter, StyleGetter[]>();
+/** One mouseout handler per leaf; getters register under a dimension key
+ *  ("fill", "border") and a re-register REPLACES the entry for that key.
+ *  Identity dedupe cannot work here — every apply pass builds a fresh
+ *  closure, so an `includes` check never matches and a plain array grows
+ *  without bound on every commit. The key is the caller's stable dimension
+ *  id instead: two dimensions share a leaf without one silently dropping
+ *  the other's user value (folium's `resetStyle` fires first in the
+ *  dispatch order, and each getter adds its own dims to the same `setStyle`
+ *  call that goes last), and repeated commits hold at one getter per
+ *  dimension. */
+const pins = new WeakMap<StyleSetter, Map<string, StyleGetter>>();
 
 /** Pin one leaf's style against folium's `resetStyle` on mouseout. The pin
  *  handler runs last in the dispatch order (see above), so the user's values
  *  — read live from `getStyle` on each fire — win over the author's restore.
- *  Repeated calls with the same getter are idempotent; distinct getters
- *  stack, and each fire merges their output into a single `setStyle`. */
-const pinStyleOnHighlight = (leaf: StyleSetter, getStyle: StyleGetter): void => {
+ *  Distinct keys stack and each fire merges their output into a single
+ *  `setStyle`; re-registering a key replaces its getter rather than
+ *  appending another closure. */
+const pinStyleOnHighlight = (
+  leaf: StyleSetter,
+  key: string,
+  getStyle: StyleGetter,
+): void => {
   if (typeof leaf.on !== "function" || typeof leaf.setStyle !== "function") {
     return;
   }
   const existing = pins.get(leaf);
   if (existing) {
-    if (existing.includes(getStyle)) return;
-    existing.push(getStyle);
+    existing.set(key, getStyle);
     return;
   }
-  const getters: StyleGetter[] = [getStyle];
+  const getters = new Map<string, StyleGetter>([[key, getStyle]]);
   pins.set(leaf, getters);
   leaf.on("mouseout", () => {
     const style: Record<string, unknown> = {};
-    for (const g of getters) {
+    for (const g of getters.values()) {
       const s = g();
       if (s) Object.assign(style, s);
     }
@@ -67,39 +67,9 @@ const pinStyleOnHighlight = (leaf: StyleSetter, getStyle: StyleGetter): void => 
   });
 };
 
-/** A node in the layer tree that a style walk may reach. `setStyle` alone does
- *  not make a node a carrier — L.GeoJSON owns one too (it fans a style out to
- *  its features) — so walks descend groups through `eachLayer` first and treat
- *  a setter as a leaf only. */
-type WalkableNode = {
-  setStyle?: (style: Record<string, unknown>) => void;
-  eachLayer?: (fn: (child: L.Layer) => void) => void;
-};
+/** How many getters are currently pinned on a leaf. Exposed for tests:
+ *  repeated commits must hold at one getter per dimension key, never grow
+ *  the registry — a fresh closure per commit used to append without bound. */
+const pinnedGetterCount = (leaf: StyleSetter): number => pins.get(leaf)?.size ?? 0;
 
-/** Whether any leaf in the tree exposes a runtime `setStyle` — the honest
- *  carrier check for the vector style axis (border / fill). Groups are
- *  descended; a node with `setStyle` of its own counts only when it is a
- *  leaf (no `eachLayer`). Groups that own a `setStyle` of their own
- *  (L.GeoJSON, L.FeatureGroup) are still descended: an empty one has no
- *  feature to fan the style out to, so it returns false like an empty
- *  LayerGroup or a Marker with no children — the `setStyle` of its own is
- *  not a real carrier when the walk finds nothing to write to. A null node
- *  also falls out.
- *
- *  Shared by `layerCanBorder` and `hasFillGeometry` so the two vector axes
- *  read the same honest-degradation invariant (§44.2: capability = the
- *  existence of a carrier object). */
-const hasSetStyleLeaf = (node: WalkableNode | null): boolean => {
-  if (!node) return false;
-  if (typeof node.eachLayer === "function") {
-    let found = false;
-    node.eachLayer(child => {
-      if (!found) found = hasSetStyleLeaf(child as WalkableNode);
-    });
-    return found;
-  }
-  return typeof node.setStyle === "function";
-};
-
-export { hasSetStyleLeaf, isStyleSetter, pinStyleOnHighlight };
-export type { StyleSetter };
+export { isStyleSetter, pinnedGetterCount, pinStyleOnHighlight };

@@ -6,8 +6,8 @@
   const layers = (api && api.layers ? api.layers : []).map(li => ({
     id: li.id,
     name: li.name,
-    isBase: li.isBase,
-    visible: li.visible,
+    group: li.group,
+    visible: api && api.intentVisible ? api.intentVisible(li.id) : null,
     paneName: li.paneName,
     layerType: li.layer ? li.layer.constructor.name : null,
     url: li.layer && li.layer._url ? li.layer._url.slice(0, 50) : null,

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
-import { projectLayer } from "#foliplus/LayerControl/ui/store.js";
+import { projectLayer } from "#foliplus/LayerControl/ui/projection.js";
 
 const mockMap = {
   getMinZoom: () => 0,
@@ -23,7 +23,6 @@ const mockUI: LayerUI = {
       paneNames: new Set(["overlayPane"]),
     }),
     findLayer: () => undefined,
-    annotation: { paneNameFor: () => null },
     events: { on: () => () => {}, emit: () => {} },
     persistence: {
       load: () => ({}) as any,
@@ -33,13 +32,12 @@ const mockUI: LayerUI = {
   },
   T: (key: string) => key,
   uiContainer: { querySelector: () => null } as any,
-  hiddenIds: new Set(),
-  rangeHiddenIds: new Set(),
+  hiddenLayerIds: new Set(),
   opacityMap: {},
   fillColorMap: {},
   fillOpacityMap: {},
   zoomRangeMap: {},
-  userOverrides: {},
+  intentProvenance: {},
   authorVisible: new Map(),
   foldedGroups: new Set(),
   renamedNames: {},
@@ -61,22 +59,22 @@ describe("computeEffectiveShown", () => {
       id,
       layer: null,
       canvas: null,
-      isBase: false,
+      group: "overlay",
       visible: true,
       opacity: 1,
       ...overrides,
     }) as any;
 
   it("returns false when layer is hidden", () => {
-    // The new projection reads `intent && policy`; a `hiddenIds` entry alone
+    // The new projection reads `intent && policy`; a `hiddenLayerIds` entry alone
     // is not enough — the user must have overridden `visible` for the hidden
     // state to be authoritative. Without the override the author default
     // wins — a derived dimension may only suppress.
-    mockUI.hiddenIds.add("layer1");
-    mockUI.userOverrides.layer1 = ["visible"];
+    mockUI.hiddenLayerIds.add("layer1");
+    mockUI.intentProvenance.layer1 = ["visible"];
     expect(projectLayer(mockUI, makeLayerInfo("layer1")).effectiveShown).toBe(false);
-    mockUI.hiddenIds.delete("layer1");
-    delete mockUI.userOverrides.layer1;
+    mockUI.hiddenLayerIds.delete("layer1");
+    delete mockUI.intentProvenance.layer1;
   });
 
   it("returns true when focus is active, even out of range", () => {

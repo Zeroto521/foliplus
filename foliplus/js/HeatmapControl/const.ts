@@ -48,14 +48,6 @@ const AGG = {
   MAX: "max",
 };
 
-const METHOD = {
-  DEFAULT: CONF.method ?? "jenks",
-  JENKS: "jenks",
-  QUANTILE: "quantile",
-  EQUAL: "equal",
-  HEADS: "heads",
-};
-
 const CLASS_COUNT = {
   MIN: 2,
   MAX: 9,
@@ -76,7 +68,6 @@ const CLASSES = {
   ACTIVE: "foliplus-is-active",
   PLACEHOLDER_OPTION: "foliplus-heatmap-placeholder-opt",
   SCHEME_DROPDOWN_ITEM: "foliplus-heatmap-scheme-dropdown-item",
-  SECTION_HEADING: "foliplus-section-heading",
   SECTION_BLOCK: "foliplus-heatmap-section-block",
   SECTION_BLOCK_LAST: "foliplus-heatmap-section-block-last",
   CONFIG_BODY: "foliplus-heatmap-config-body",
@@ -132,7 +123,6 @@ export {
   H3,
   ID,
   LABEL,
-  METHOD,
   SEL,
   STORAGE,
   RECORD_VERSION,

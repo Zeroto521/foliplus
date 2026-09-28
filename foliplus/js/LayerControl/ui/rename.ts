@@ -25,8 +25,7 @@ const renameLayer = (ui: LayerUI, layerId: string): void => {
   finishRename(ui);
 
   const layerInfo = ui.m.layerRegistry.get(layerId);
-  const isColorLayer = layerId === CONST.COLOR.MAP_ID;
-  if (!layerInfo && !isColorLayer) return;
+  if (!layerInfo) return;
 
   const item = ui.uiContainer.querySelector(
     `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"]`,
@@ -106,8 +105,7 @@ const finishRename = (ui: LayerUI, restoreText = true): void => {
   if (!ui.uiContainer) return;
 
   const layerInfo = ui.m.layerRegistry.get(layerId);
-  const isColorLayer = layerId === CONST.COLOR.MAP_ID;
-  if (!layerInfo && !isColorLayer) return;
+  if (!layerInfo) return;
 
   const item = ui.uiContainer.querySelector(
     `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"]`,

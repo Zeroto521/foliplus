@@ -28,12 +28,12 @@ describe("LayerUI attrs", () => {
       manager.registerLayer({
         id: "overlay2",
         name: "Circles",
-        isBase: false,
+        group: "overlay",
         layer: { options: {}, eachLayer: vi.fn() },
       });
     }
     ui.foldedGroups = new Set();
-    ui.hiddenIds = new Set();
+    ui.hiddenLayerIds = new Set();
     // Folded-group state is persisted to localStorage, so a fold from one test
     // would be re-read by the next test's LayerUI constructor and present as
     // already-folded.
@@ -358,7 +358,9 @@ describe("LayerUI attrs", () => {
     });
 
     it("color basemap shows type and no provenance rows", () => {
-      const item = ui.uiContainer.querySelector(`${CONST.SEL.COLOR_ITEM}`)!;
+      const item = ui.uiContainer.querySelector(
+        `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
+      )!;
 
       ui.openAttrsPanel(item);
 
@@ -377,7 +379,7 @@ describe("LayerUI attrs", () => {
     });
 
     it("names the type row by what the layer is, not by a missing geometry", () => {
-      manager.registerLayer({ id: "attr-base1", isBase: true });
+      manager.registerLayer({ id: "attr-base1", group: "base" });
       const baseItem = findItem(ui, "attr-base1");
       ui.openAttrsPanel(baseItem);
       expect(
@@ -385,11 +387,54 @@ describe("LayerUI attrs", () => {
       ).toContainEqual(["LayerControl.attr_type", "LayerControl.type_base"]);
 
       ui.closeAttrsPanel(false);
-      const colorItem = ui.uiContainer.querySelector(`${CONST.SEL.COLOR_ITEM}`)!;
+      const colorItem = ui.uiContainer.querySelector(
+        `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
+      )!;
       ui.openAttrsPanel(colorItem);
       expect(
         rows(colorItem.querySelector(".foliplus-layer-attrs-panel")!),
       ).toContainEqual(["LayerControl.attr_type", "LayerControl.type_color_map"]);
+    });
+
+    it("reads the geometry type from the surface, not the manager snapshot", () => {
+      // The panel reads through surfaceFor(layerInfo).geometryType() so a
+      // snapshot the manager hasn't stamped yet (invalidateType, or a fresh
+      // registration whose render pass hasn't run) still shows the right row.
+      manager.registerLayer({
+        id: "attr-surface1",
+        layer: new window.L.Polygon(),
+      });
+      const item = findItem(ui, "attr-surface1");
+      manager.invalidateType("attr-surface1");
+      expect(manager.layerRegistry.get("attr-surface1")!.type).toBeNull();
+
+      ui.openAttrsPanel(item);
+      expect(rows(item.querySelector(".foliplus-layer-attrs-panel")!)).toContainEqual([
+        "LayerControl.attr_type",
+        "LayerControl.type_polygon",
+      ]);
+    });
+
+    it("names a custom (iconSvg) layer as custom, not by its underlying geometry", () => {
+      // The surface would resolve a data layer's geometry (point / line /
+      // polygon); a layer with its own logo is labelled by what it is. Same
+      // decision tree as rowView.rowType — a data layer registered with an
+      // iconSvg reads as custom in both the row and the panel.
+      const logo =
+        '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" class="logo"/></svg>';
+      manager.registerLayer({
+        id: "attr-custom1",
+        name: "Ruler",
+        iconSvg: logo,
+        layer: new window.L.Polygon(),
+      });
+
+      const item = findItem(ui, "attr-custom1");
+      ui.openAttrsPanel(item);
+      expect(rows(item.querySelector(".foliplus-layer-attrs-panel")!)).toContainEqual([
+        "LayerControl.attr_type",
+        "LayerControl.type_custom",
+      ]);
     });
 
     it("shows the feature count grouped, without a stray fraction digit", () => {

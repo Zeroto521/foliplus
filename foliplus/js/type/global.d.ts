@@ -93,9 +93,6 @@ declare module "leaflet" {
   interface LayerGroup {
     _layers: Record<string, L.Layer>;
   }
-  interface LayerOptions {
-    paneSet?: boolean;
-  }
   interface TileLayer {
     // Leaflet keeps the tile URL template in _url (no public accessor).
     _url: string;
@@ -138,7 +135,7 @@ declare global {
     zoom?: number;
     provider?: string | ProviderConfig;
     provider_config?: Record<string, unknown> | null;
-    data?: Array<{ name: string; id: string; isBase: boolean }>;
+    data?: Array<{ name: string; id: string; group: "base" | "overlay" }>;
     show_bearing?: boolean;
     label_show?: boolean;
     label_collide?: boolean;

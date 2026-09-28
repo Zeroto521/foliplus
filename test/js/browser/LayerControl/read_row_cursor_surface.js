@@ -1,9 +1,7 @@
 () => {
   const panel = document.querySelector(".foliplus-panel-content");
   if (!panel) return null;
-  const items = Array.from(
-    panel.querySelectorAll(".foliplus-layer-item:not(.foliplus-color-layer-item)"),
-  );
+  const items = Array.from(panel.querySelectorAll(".foliplus-layer-item"));
   if (items.length < 2) return null;
 
   // Sample the design-token white the recipe is supposed to paint — never
@@ -19,7 +17,7 @@
     return {
       bg: cs.backgroundColor,
       shadow: cs.boxShadow,
-      active: el.classList.contains("active"),
+      active: el.classList.contains("foliplus-active"),
     };
   };
 

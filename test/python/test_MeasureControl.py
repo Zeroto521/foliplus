@@ -49,8 +49,8 @@ class TestMeasureControlPython:
     def test_custom_label_show(self):
         assert MeasureControl(label_show=False).label_show is False
 
-    def test_label_show_in_export_fields(self):
-        assert "label_show" in MeasureControl._export_fields
+    def test_label_show_in_config_fields(self):
+        assert "label_show" in MeasureControl._config_fields
 
     def test_label_show_false_renders_false(self):
         """label_show=False renders false so the JS side hides labels on load."""
@@ -63,8 +63,8 @@ class TestMeasureControlPython:
     def test_custom_label_collide(self):
         assert MeasureControl(label_collide=False).label_collide is False
 
-    def test_label_collide_in_export_fields(self):
-        assert "label_collide" in MeasureControl._export_fields
+    def test_label_collide_in_config_fields(self):
+        assert "label_collide" in MeasureControl._config_fields
 
     def test_default_export_format(self):
         assert MeasureControl().export_format == "geojson"
@@ -72,8 +72,8 @@ class TestMeasureControlPython:
     def test_custom_export_format_csv(self):
         assert MeasureControl(export_format="csv").export_format == "csv"
 
-    def test_export_format_in_export_fields(self):
-        assert "export_format" in MeasureControl._export_fields
+    def test_export_format_in_config_fields(self):
+        assert "export_format" in MeasureControl._config_fields
 
     def test_export_format_combined_with_other_params(self):
         mc = MeasureControl(
@@ -432,9 +432,9 @@ class TestMeasureControlBrowser:
         hides it from the map.
 
         MeasureControl registers through ``createLayers``, so the layer is a real
-        Leaflet group and the range's carrier is map membership rather than an
-        ``onToggle`` callback. That surface was never excluded by the canvas gate,
-        so the probe pins the row as a regression guard, not a new capability.
+        Leaflet group and the range's carrier is map membership (native). That
+        surface was never excluded by the canvas gate, so the probe pins the row
+        as a regression guard, not a new capability.
         """
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
             # Select a tool so the measure layer registers and gets a row.
@@ -461,9 +461,6 @@ class TestMeasureControlBrowser:
             )
             assert result["onMapBack"] is True, (
                 f"the measure layer did not come back onto the map: {result}"
-            )
-            assert result["sections"] == ["Layer", "Label"], (
-                f"drawer section order drifted: {result['sections']}"
             )
             assert not errors, f"JS errors: {errors}"
 

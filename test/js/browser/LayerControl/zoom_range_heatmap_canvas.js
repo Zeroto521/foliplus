@@ -1,6 +1,6 @@
 () => {
-  // HeatmapControl registers through createCanvas: callback-only, so its
-  // zoom-range write lands on the layer's onToggle callback rather than on
+  // HeatmapControl registers through createCanvas: canvas-only (pane carrier),
+  // so its zoom-range write lands on the canvas HIDDEN class rather than on
   // map membership. This probe drives the row through the same two clicks a
   // user makes, then reads the canvas back to prove the write reached it.
   const map = window.map;
@@ -15,7 +15,7 @@
 
   // Read before touching the panel: an untouched visit writes no zoom-range
   // record at all, so the row's absence is storage-clean rather than a
-  // storage entry holding the author default.
+  // storage entry holding an author default.
   const key = Object.keys(localStorage).find(k =>
     k.startsWith("foliplus_layer_state_"),
   );
@@ -42,11 +42,10 @@
   if (!zoomRow) return { error: "zoom range row not rendered", id: li.id };
 
   // Drawer shape: the rows LayerControl adds read before the rows the
-  // component delegated, and inside the layer section they run border,
-  // opacity, zoom range.
+  // component delegated, and among themselves they run border, opacity,
+  // zoom range. No heading marks that split any more — document order does.
   const all = [...panel.querySelectorAll("*")];
   const pos = node => (node ? all.indexOf(node) : -1);
-  const headings = [...panel.querySelectorAll(".foliplus-section-heading")];
   // The zoom-range row node carries both classes (FORM_ROW + STYLE_ZOOM_RANGE_ROW),
   // so both shapes are collected to reach it alongside the other rows;
   // querySelectorAll returns a node only once regardless of how many of the
@@ -63,24 +62,24 @@
           : n.querySelector('input[type="color"]')
             ? "border"
             : "other";
-  let zoomSection = null;
-  const zoomPos = pos(zoomRow);
-  for (const h of headings) if (pos(h) < zoomPos) zoomSection = h.textContent;
 
-  // Only the first section belongs to LayerControl; its controls are the ones
-  // to check against the border -> opacity -> zoom range order.
-  const firstHeading = headings[0];
-  const firstPos = pos(firstHeading);
-  const nextHeading = headings.find(h => pos(h) > firstPos);
-  const end = nextHeading ? pos(nextHeading) : all.length;
-  const controls = [...panel.querySelectorAll(sel)].filter(
-    n => pos(n) > firstPos && pos(n) < end,
-  );
+  // Drawer shape: the rows LayerControl adds read before the rows the
+  // component delegated, and among themselves they run border, opacity,
+  // zoom range. No heading marks that split any more — the delegated Labels
+  // toggle does: everything before it is LayerControl's, everything after is
+  // the component's. Note the delegated border row carries no border class of
+  // its own (only the vector row gets one), so class signatures cannot draw
+  // this line — position against the toggle can.
+  const rows = [...panel.querySelectorAll(".foliplus-form-row")];
+  const labelRow = rows.find(r => r.querySelector(".foliplus-style-toggle-input"));
+  const controls = labelRow ? rows.slice(0, rows.indexOf(labelRow)) : rows;
+  const layerBeforeLabel = !!labelRow && rows.indexOf(labelRow) > 0;
+
   // Document-order skeleton, so a mismatch names the shape that produced it.
-  const struct = [...panel.querySelectorAll(`${sel}, .foliplus-section-heading`)].map(
+  const struct = [...panel.querySelectorAll(sel)].map(
     n =>
       `${pos(n)}` +
-      `:${n.classList.contains("foliplus-section-heading") ? "h" : kindOf(n)}` +
+      `:${kindOf(n)}` +
       `:${(n.textContent || "").replace(/\s+/g, " ").trim().slice(0, 16)}`,
   );
 
@@ -91,12 +90,20 @@
   // Push the lower bound past the current zoom: the canvas is now out of range.
   const outMin = Math.min(mapMax, current + 1);
 
-  // Live pass — the onToggle callback is what hides the canvas, not a map
+  // Live pass — the HIDDEN class is what hides the canvas, not a map
   // write, since a canvas has no Leaflet layer to add or remove.
   const visibleBefore = !canvas.classList.contains("hidden");
   minInput.value = String(outMin);
-  minInput.dispatchEvent(new Event("input", { bubbles: true }));
+  const dispatched = minInput.dispatchEvent(new Event("input", { bubbles: true }));
   const hiddenOut = canvas.classList.contains("hidden");
+  const rowOutOfRange = zoomRow.classList.contains("foliplus-zoom-range-out-of-range");
+  const rangeMap = JSON.parse(
+    localStorage.getItem(
+      Object.keys(localStorage).find(k => k.startsWith("foliplus_layer_state_")) || "",
+    ) || "{}",
+  );
+  const rangeAfterInput =
+    rangeMap.layers && rangeMap.layers[li.id] ? rangeMap.layers[li.id].zoomRange : null;
 
   // Dragging the bound back is reversible.
   minInput.value = String(mapMin);
@@ -110,12 +117,16 @@
 
   return {
     id: li.id,
+    hasCanvas: Boolean(li.canvas),
+    canvasMatches: li.canvas === canvas,
+    dispatched,
+    rowOutOfRange,
+    rangeAfterInput,
     freshZoomRange: entry ? entry.zoomRange : null,
     freshOverrides: entry ? entry.overrides : null,
-    sections: headings.map(h => h.textContent),
     layerControls: controls.map(kindOf),
+    layerBeforeLabel,
     struct,
-    zoomSection,
     visibleBefore,
     hiddenOut,
     visibleBack,

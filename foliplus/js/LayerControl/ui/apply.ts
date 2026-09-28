@@ -1,10 +1,10 @@
 // LayerControl UI — diff-driven projection executor.
 //
 // `applyProjection(ui, id)` reads the layer's projection from
-// `store.ts`, diffs it against the last projection it wrote to the map
+// `projection.ts`, diffs it against the last projection it wrote to the map
 // (`ui.appliedState`), and calls `applyStateOp` only for the dimensions
 // that actually moved. The old model — a sweep that re-read the whole
-// registry per layer, walked `hiddenIds` / `opacityMap` / `zoomRangeMap`
+// registry per layer, walked `hiddenLayerIds` / `opacityMap` / `zoomRangeMap`
 // by id, and picked per-dimension helpers — is what made the three
 // regressions structurally reachable:
 //
@@ -26,17 +26,12 @@
 // Naming: "state op" is the shape the carrier dispatcher accepts.
 // "Projection" is what the diff compares — intent + policy together, so
 // a change on either side produces an op.
+import { HIDDEN } from "#core/layer/index.js";
 import { resetGridLayerView } from "#core/leafletAdapter.js";
+import * as CONST from "../const.js";
+import type { Projection, StateOp } from "../type.js";
 import type { LayerUI } from "./index.js";
-import { type Projection, projectAll, projectLayer } from "./store.js";
-
-/** One write the carrier dispatcher accepts. `opacity` and `zoomRange`
- *  being `undefined` mean "no user value" — a Reset back to the author's
- *  default — not "leave the carrier alone". */
-type StateOp =
-  | { type: "visible"; value: boolean }
-  | { type: "opacity"; value: number | undefined }
-  | { type: "zoomRange"; value: [number, number] | null };
+import { intentVisibleOf, projectAll, projectLayer } from "./projection.js";
 
 /** Cache the layer's original `options.opacity` so repeated slider drags
  *  don't compound. The base is captured on first write and never re-read;
@@ -55,20 +50,74 @@ const authorOpacityBaseOf = (layer: L.Layer): number => {
   return base;
 };
 
+/** The layer's own author-declared min/max, frozen on first write.
+ *
+ *  Frozen, not re-read: `applyStateOp` writes `options.minZoom/maxZoom` on
+ *  every live drag, so reading them back next time would feed the slider
+ *  its own last drag — a ratchet that shrinks the slider's range with
+ *  every drag. The snapshot is captured in `applyStateOp` before the write,
+ *  which is also what makes persistence-replay safe: on reload the state
+ *  replay fires before the panel opens, so any snapshot that captures at
+ *  first read would already see `options.maxZoom` set to the persisted
+ *  value, freezing the slider at that last drag instead of at the author's
+ *  declared range.
+ *
+ *  `layer.options.minZoom/maxZoom` fall back to the map's declared values
+ *  when the layer declares none — a TileLayer without `options.maxZoom`
+ *  means "whatever the map allows", not "Infinity". `map.getMaxZoom()`
+ *  itself returns `Infinity` for a map without a declared max, so that
+ *  path gets its own finite fallback: `CONST.AUTHOR_ZOOM_FALLBACK_MAX`, so
+ *  the values row can never print the literal string "Infinity".
+ *
+ *  Min end is symmetric: dragging the left thumb writes `options.minZoom`,
+ *  which would ratchet the slider's own min upward on the next build. */
+const authorZoomBounds = new WeakMap<L.Layer, [number, number]>();
+
+const finiteOr = (v: number | undefined, fallback: number): number =>
+  typeof v === "number" && Number.isFinite(v) ? v : fallback;
+
+/** Snapshot the layer's declared zoom bounds on first access. Callers must
+ *  call this before any write to `options.minZoom/maxZoom`, so the value
+ *  is the author's declaration and not our own previous write. */
+const authorZoomBoundsOf = (
+  ui: LayerUI,
+  layer: L.Layer | null | undefined,
+): [number, number] => {
+  const stored = layer ? authorZoomBounds.get(layer) : undefined;
+  if (stored) return stored;
+  const opts = (layer?.options ?? {}) as L.LayerOptions & {
+    minZoom?: number;
+    maxZoom?: number;
+  };
+  const mapMin = finiteOr(ui.m.map.getMinZoom(), 0);
+  const mapMax = finiteOr(ui.m.map.getMaxZoom(), CONST.AUTHOR_ZOOM_FALLBACK_MAX);
+  const bounds: [number, number] = [
+    finiteOr(opts.minZoom, mapMin),
+    finiteOr(opts.maxZoom, mapMax),
+  ];
+  if (layer) authorZoomBounds.set(layer, bounds);
+  return bounds;
+};
+
+/** Same lookup keyed by layer id — the panel code has only the id in hand. */
+const authorZoomBoundsForLayer = (ui: LayerUI, layerId: string): [number, number] =>
+  authorZoomBoundsOf(ui, ui.m.layerRegistry.get(layerId)?.layer);
+
 /** Carrier identity the executor's last write landed on.
  *
  *  The projection's numeric diff is not enough for carriers that can be
  *  replaced underneath the executor: a re-registered canvas element starts
- *  opaque, an annotation pane is created lazily long after the slider was
- *  last moved. In both cases the executor's `prev.opacity` matches
- *  `next.opacity`, so a value-only diff misses the write — the
- *  late-carrier regression this file exists to close. The fix is to record which DOM element we last
- *  wrote to, and force a rewrite when the carrier has moved.
+ *  opaque, so the executor's `prev.opacity` can match `next.opacity` while
+ *  the DOM in front of it is fresh. The fix is to record which DOM element
+ *  we last wrote to, and force a rewrite when the carrier has moved.
  *
  *  The token is opaque to callers: it's just enough identity to say "the
  *  thing I wrote to before is not the thing in front of me now". A
- *  canvas-only layer is one DOM element; a pane carrier is a set of pane
- *  names. Anything else (native `options.opacity`) is keyed by the
+ *  canvas-only layer is one DOM element; a pane carrier is the surface's
+ *  own pane set — which, since the label pane is a declared `role:
+ *  "annotation"` PaneSpec, already includes it with no side channel (the
+ *  pane exists from surface construction, so there is no late carrier to
+ *  splice in). Anything else (native `options.opacity`) is keyed by the
  *  layer's own `options` object, which is the actual write target.
  */
 const carrierOf = (ui: LayerUI, layerInfo: LayerInfo): unknown => {
@@ -79,10 +128,7 @@ const carrierOf = (ui: LayerUI, layerInfo: LayerInfo): unknown => {
     // freshly built array would never match and every pane layer would
     // rewrite on every call. Sorted, so the order the pane specs happen to
     // arrive in cannot register as "the carrier moved".
-    const names = [...surface.paneNames];
-    const annotationPane = ui.m.annotation?.paneNameFor(layerInfo.id);
-    if (annotationPane) names.push(annotationPane);
-    return names.sort().join("|");
+    return [...surface.paneNames].sort().join("|");
   }
   return (layerInfo.layer?.options ?? null) as object | null;
 };
@@ -96,14 +142,17 @@ const sameCarrier = (prev: unknown, curr: unknown): boolean =>
 /** The single write pipeline: dispatch one op onto its carrier.
  *
  *  Every layer resolves to exactly one write target per dimension (see
- *  `LayerSurface.capabilities.opacity` / `.zoomRange`):
+ *  `LayerSurface.capabilities.*`):
  *
- *    visible  — map membership for Leaflet layers, `onToggle` for
- *               callback-only canvas layers (heatmap / measure)
+ *    visible  — map membership ("native") for real L.Layers including
+ *               MarkerCluster, canvas HIDDEN class ("pane") for canvas-only
+ *               surfaces (heatmap / measure / color face), "none" is a
+ *               no-op — no honest write exists, the UI hides the checkbox.
  *    opacity  — canvas element / own pane / native setter / "none"
- *    zoomRange — native `options.minZoom/maxZoom` / "none" (the `pane`
- *               carrier resolves through the `visible` op in the
- *               executor, not here)
+ *    zoomRange — resolved through the `visible` op for all carriers.
+ *               Writing `options.minZoom/maxZoom` would pollute
+ *               `map.getMaxZoom()` (Leaflet derives map zoom from
+ *               layer options), locking the map's +/- controls.
  *
  *  The "none" carrier check is the rule that a slider that writes
  *  nothing must not persist — when the surface declares "none" we skip
@@ -111,28 +160,27 @@ const sameCarrier = (prev: unknown, curr: unknown): boolean =>
  */
 const applyStateOp = (ui: LayerUI, layerInfo: LayerInfo, op: StateOp): void => {
   if (op.type === "visible") {
-    const layer = layerInfo.layer ?? ui.m.findLayer(layerInfo);
-    if (layer) {
-      // Map membership. Written only when it differs from what is there —
-      // `addLayer` on a live layer is a no-op at best and re-orders the
-      // stacking at worst, so both halves collapse to one condition.
-      const has = ui.m.map.hasLayer(layer);
-      if (op.value !== has) {
-        if (op.value) ui.m.map.addLayer(layer);
-        else ui.m.map.removeLayer(layer);
+    const carrier = ui.m.surfaceFor(layerInfo).capabilities.visibility;
+    if (carrier === "native") {
+      const layer = layerInfo.layer ?? ui.m.findLayer(layerInfo);
+      if (layer) {
+        // Map membership. Written only when it differs from what is there —
+        // `addLayer` on a live layer is a no-op at best and re-orders the
+        // stacking at worst, so both halves collapse to one condition.
+        const has = ui.m.map.hasLayer(layer);
+        if (op.value !== has) {
+          if (op.value) ui.m.map.addLayer(layer);
+          else ui.m.map.removeLayer(layer);
+        }
       }
+    } else if (carrier === "pane") {
+      // Canvas HIDDEN class — the carrier for canvas-only surfaces that have
+      // no Leaflet layer to add/remove.
+      const canvas = layerInfo.canvas;
+      if (canvas) canvas.classList.toggle(HIDDEN, !op.value);
     }
-    // `onToggle` is the callback for canvas-only layers (heatmap / measure)
-    // that have no Leaflet layer to add/remove — it fires the toggle so the
-    // canvas toggles its own `HIDDEN` class. A layer that has both a Leaflet
-    // layer AND an `onToggle` (a hybrid) fires both: the map membership and
-    // the callback each carry a distinct piece of state.
-    if (layerInfo.onToggle) layerInfo.onToggle(op.value);
-    // `layerInfo.visible` is a real-time mirror of the map state; the
-    // user's intent lives in `hiddenIds` / `userOverrides`. This is
-    // now the only writer of this field — the visibility sweep's mirror
-    // write is gone.
-    layerInfo.visible = op.value;
+    // "none" — no honest write exists; the UI hides the checkbox rather
+    // than offering one that lies.
     return;
   }
   if (op.type === "opacity") {
@@ -166,43 +214,16 @@ const applyStateOp = (ui: LayerUI, layerInfo: LayerInfo, op: StateOp): void => {
       }
       layerInfo.opacity = op.value ?? 1;
     } else {
-      // One CSS write per pane we own — declared, sub, synthesized, or
-      // the layer's annotation pane. Multiplicative over each feature's
-      // own style, so a hollow polygon keeps its hole.
+      // One CSS write per pane the surface owns — declared, sub,
+      // synthesized, or the `role: "annotation"` label pane. Multiplicative
+      // over each feature's own style, so a hollow polygon keeps its hole.
       const value = op.value ?? 1;
-      const names = [...ui.m.surfaceFor(layerInfo).paneNames];
-      const annotationPane = ui.m.annotation?.paneNameFor(layerInfo.id);
-      if (annotationPane) names.push(annotationPane);
-      for (const name of names) {
+      for (const name of ui.m.surfaceFor(layerInfo).paneNames) {
         const pane = ui.m.map.getPane(name);
         if (pane) pane.style.opacity = String(value);
       }
       layerInfo.opacity = value;
     }
-    return;
-  }
-  // zoomRange — the `pane` carrier resolves through the visible op in
-  // the executor, so nothing to write here for pane.
-  const caps = ui.m.surfaceFor(layerInfo).capabilities;
-  if (caps.zoomRange === "native") {
-    const layer = layerInfo.layer;
-    if (!layer) return;
-    const opts = layer.options as L.LayerOptions & {
-      minZoom?: number;
-      maxZoom?: number;
-    };
-    if (op.value) {
-      opts.minZoom = op.value[0];
-      opts.maxZoom = op.value[1];
-    } else {
-      delete opts.minZoom;
-      delete opts.maxZoom;
-    }
-    // Leaflet does not self-apply options.minZoom/maxZoom: already-loaded
-    // tiles stay until the level set is rebuilt. Without this the range
-    // would be silently stale — the user sets it and nothing changes on
-    // the map.
-    resetGridLayerView(layer);
   }
 };
 
@@ -225,15 +246,13 @@ const applyStateOp = (ui: LayerUI, layerInfo: LayerInfo, op: StateOp): void => {
  *  across the swap.
  *
  *  This is the invariant the executor is built around: the only field that
- *  writes `layerInfo.visible`
- *  and `ui.m.map.addLayer` / `removeLayer` is `effectiveShown`, and
- *  `effectiveShown = intent && policy` — a derived dimension (focus, zoom
- *  range) can only pull a layer off the map, never push one onto it. That
- *  is why this executor is the only write path for map membership and why
- *  `intent.visible` is no longer diffed separately: any change that would
- *  authorise an add goes through `intent`, so the effective value already
- *  reflects the user's authorisation. The one-way gate that used to live in
- *  `rangeHiddenIds` is now the shape of this diff.
+ *  writes map membership is `effectiveShown`, and `effectiveShown = intent
+ *  && policy` — a derived dimension (focus, zoom range) can only pull a
+ *  layer off the map, never push one onto it. That is why this executor is
+ *  the only write path for map membership and why `intent.visible` is no
+ *  longer diffed separately: any change that would authorise an add goes
+ *  through `intent`, so the effective value already reflects the user's
+ *  authorisation. The one-way gate is now the shape of this diff.
  */
 const applyProjection = (ui: LayerUI, id: string): void => {
   const layerInfo = ui.m.layerRegistry.get(id);
@@ -252,10 +271,10 @@ const applyProjection = (ui: LayerUI, id: string): void => {
     // Canvas-only layers have no Leaflet layer, so the author's default is
     // the ground truth — `hasLayer` would always return false and mask a
     // real visible→hidden transition.
+    // Late-binding fallback via manager.findLayer — the single resolve point
+    // (folium may emit the TileLayer var after this control's IIFE).
     const layer = layerInfo.layer ?? ui.m.findLayer(layerInfo);
-    const baselineVisible = layer
-      ? ui.m.map.hasLayer(layer)
-      : layerInfo.visible !== false;
+    const baselineVisible = layer ? ui.m.map.hasLayer(layer) : intentVisibleOf(ui, id);
     prev = {
       id,
       intent: { visible: baselineVisible },
@@ -290,19 +309,25 @@ const applyProjection = (ui: LayerUI, id: string): void => {
   // linked) and that the user never touched is not this executor's to
   // decide — writing `effectiveShown` for it would turn a guess into an add.
   const hasUserIntent =
-    (ui.userOverrides?.[id]?.includes("visible") ?? false) ||
-    (ui.hiddenIds?.has(id) ?? false);
+    (ui.intentProvenance?.[id]?.includes("visible") ?? false) ||
+    (ui.hiddenLayerIds?.has(id) ?? false);
   const authorised = hasUserIntent || ui.authorVisible.has(id);
-  // A callback-only layer has no map to read and its registry flag is the
-  // declaration, not "what we last told it", so the first call must always
-  // fire the callback once.
-  const currentShown = layer
-    ? ui.m.map.hasLayer(layer)
-    : layerInfo.onToggle
-      ? ui.appliedState.has(id)
-        ? prev.effectiveShown
-        : !next.effectiveShown
-      : false;
+  // Current visibility, read from the carrier the write would land on.
+  // "native" — the map's own membership flag; "pane" — the canvas's
+  // HIDDEN class; "none" — no carrier at all, so no meaningful "shown".
+  // Reading the carrier (not the last value we wrote) makes the executor
+  // converge on `effectiveShown` no matter who moved the layer in between.
+  const visibility = ui.m.surfaceFor(layerInfo).capabilities.visibility;
+  const currentShown =
+    visibility === "native"
+      ? layer
+        ? ui.m.map.hasLayer(layer)
+        : false
+      : visibility === "pane"
+        ? layerInfo.canvas
+          ? !layerInfo.canvas.classList.contains(HIDDEN)
+          : false
+        : false;
   if (authorised && currentShown !== next.effectiveShown) {
     applyStateOp(ui, layerInfo, { type: "visible", value: next.effectiveShown });
   }
@@ -318,23 +343,9 @@ const applyProjection = (ui: LayerUI, id: string): void => {
     applyStateOp(ui, layerInfo, { type: "zoomRange", value: next.zoomRange });
   }
 
-  // The mirror field is the panel's "is this on the map" fact, and the
-  // executor is its only writer. It records what the write *achieved*: the
-  // projection's answer when the op had a carrier to land on, `false` when
-  // the layer is not linked yet and there was nothing to write to. Recording
-  // an unlandable write as done is what made `checked`, `visible` and map
-  // membership disagree on reload — the op is skipped and the next
-  // `applyProjection`, once the layer is linked, still sees the difference.
-  const canWriteVisible = Boolean(layer) || Boolean(layerInfo.onToggle);
-  layerInfo.visible = !authorised
-    ? layerInfo.visible // unauthorised — the declaration stands
-    : canWriteVisible
-      ? next.effectiveShown
-      : false;
-
   ui.appliedState.set(id, {
     ...next,
-    effectiveShown: layerInfo.visible,
+    effectiveShown: next.effectiveShown,
     carrier: carrierToken,
   });
 };
@@ -346,5 +357,4 @@ const applyProjectionAll = (ui: LayerUI): void => {
   for (const [id] of projectAll(ui)) applyProjection(ui, id);
 };
 
-export { applyProjection, applyProjectionAll, applyStateOp };
-export type { StateOp };
+export { applyProjection, applyProjectionAll, applyStateOp, authorZoomBoundsForLayer };

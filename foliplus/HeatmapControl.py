@@ -117,7 +117,7 @@ class HeatmapControl(BaseControl):
 
     default_js = load_cdn("HeatmapControl")
 
-    _export_fields = (
+    _config_fields = (
         "color_scheme",
         "method",
         "n_classes",

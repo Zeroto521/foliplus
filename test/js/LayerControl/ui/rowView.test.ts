@@ -3,10 +3,10 @@ import { GEOM_TYPE } from "#core/layer/index.js";
 import type { LayerInfo } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
+import { intentVisibleOf } from "#foliplus/LayerControl/ui/projection.js";
 import {
   applyRowView,
   buildRowCell,
-  rowChecked,
   rowView,
   snapshotAuthorVisible,
 } from "#foliplus/LayerControl/ui/rowView.js";
@@ -69,15 +69,15 @@ describe("rowView (pure projection)", () => {
   });
 });
 
-describe("rowChecked (the intent seam)", () => {
+describe("intentVisibleOf (the intent seam)", () => {
   const intentUi = (
     overrides: Record<string, string[]> = {},
     hidden: string[] = [],
     author: Record<string, boolean> = {},
   ): LayerUI =>
     ({
-      userOverrides: overrides,
-      hiddenIds: new Set(hidden),
+      intentProvenance: overrides,
+      hiddenLayerIds: new Set(hidden),
       authorVisible: new Map(Object.entries(author)),
     }) as unknown as LayerUI;
 
@@ -109,7 +109,7 @@ describe("rowChecked (the intent seam)", () => {
       false,
     ],
   ])("%s -> %s", (_label, overrides, hidden, author, want) => {
-    expect(rowChecked(intentUi(overrides, hidden, author), info("a"))).toBe(want);
+    expect(intentVisibleOf(intentUi(overrides, hidden, author), "a")).toBe(want);
   });
 });
 
@@ -186,7 +186,7 @@ describe("buildRowCell + applyRowView (one writer per row)", () => {
     const item = findItem(ui, "overlay1");
 
     ui.applyVisibility("overlay1", false);
-    expect(ui.hiddenIds.has("overlay1")).toBe(true);
+    expect(ui.hiddenLayerIds.has("overlay1")).toBe(true);
     expect(buildRowCell(ui, layerInfo).checked).toBe(false);
     expect(box(item).checked).toBe(false);
     expect(item.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
@@ -208,7 +208,7 @@ describe("buildRowCell + applyRowView (one writer per row)", () => {
 
   it("uses the custom icon when the layer declares one", () => {
     const { ui } = initFixture({
-      data: [{ id: "custom1", name: "Custom", isBase: false }],
+      data: [{ id: "custom1", name: "Custom", group: "overlay" }],
     });
     const layerInfo = ui.m.layers.find(li => li.id === "custom1")!;
     layerInfo.iconSvg = '<svg id="custom" />';
@@ -290,6 +290,34 @@ describe("applyRowView (the single DOM write point)", () => {
     expect(el.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
     expect(el.getAttribute(CONST.DATA.TITLE)).toBe("polygon");
   });
+
+  it("buildRowCell handles undefined intentProvenance and hiddenLayerIds", () => {
+    // The `?.` and `?? false` fallbacks on the inline intent check: a thin
+    // stub may not have populated these maps yet, so the check must degrade to
+    // the author default rather than crashing.
+    const layerRegistry = new Map([["x", { id: "x", layer: { options: {} } }]]);
+    const bare = {
+      m: { findLayer: () => null, layerRegistry },
+      mgmt: { getFeatureCount: () => 0 },
+      renamedNames: {},
+      authorVisible: new Map(),
+      hiddenLayerIds: undefined,
+      intentProvenance: undefined,
+      zoomRangeMap: {},
+      opacityMap: {},
+      fillColorMap: {},
+      fillOpacityMap: {},
+      focusingLayerId: null,
+      appliedState: new Map(),
+      T: (k: string) => k,
+      conf: { locale_code: "en" },
+    } as unknown as LayerUI;
+
+    const info = { id: "x", layer: { options: {} } } as LayerInfo;
+    const result = buildRowCell(bare, info);
+    expect(result.checked).toBe(true);
+    expect(result.shown).toBe(true);
+  });
 });
 
 describe("snapshotAuthorVisible", () => {
@@ -329,24 +357,40 @@ describe("snapshotAuthorVisible", () => {
     expect(ui.authorVisible.has("ghost-hidden")).toBe(false);
   });
 
-  it("still latches the declared flag for a canvas-only layer", () => {
+  it("records the intent value for a canvas-only layer with no map to observe", () => {
     // A canvas layer never has a Leaflet layer to observe at any point, so
-    // its declared `visible` is the ground truth — the one case where the
-    // registry flag is an observation rather than a guess.
+    // the snapshot reads the intent (`intentVisibleOf`) as its ground truth
+    // — a leaflet layer reads the map, a canvas reads the intent record.
+    // With no persisted dimension the intent falls back to the author
+    // default of `true`, so both snapshots latch `true`; a test that
+    // wants to distinguish must seed a hidden intent first.
     const { ui } = initFixture({});
     vi.spyOn(ui.m, "findLayer").mockReturnValue(null);
     snapshotAuthorVisible(ui, {
       id: "heat",
-      visible: true,
       canvas: document.createElement("canvas"),
     } as unknown as LayerInfo);
     snapshotAuthorVisible(ui, {
       id: "heat-hidden",
-      visible: false,
       canvas: document.createElement("canvas"),
     } as unknown as LayerInfo);
     expect(ui.authorVisible.get("heat")).toBe(true);
-    expect(ui.authorVisible.get("heat-hidden")).toBe(false);
+    expect(ui.authorVisible.get("heat-hidden")).toBe(true);
+
+    // A persisted hidden choice for a canvas layer still latches false —
+    // the intent record is the observation, not the layer's on-map state.
+    snapshotAuthorVisible(ui, {
+      id: "heat-mixed",
+      canvas: document.createElement("canvas"),
+    } as unknown as LayerInfo);
+    ui.hiddenLayerIds.add("heat-mixed");
+    ui.intentProvenance["heat-mixed"] = ["visible"];
+    snapshotAuthorVisible(ui, {
+      id: "heat-mixed",
+      canvas: document.createElement("canvas"),
+    } as unknown as LayerInfo);
+    // The snapshot is idempotent — the first read wins.
+    expect(ui.authorVisible.get("heat-mixed")).toBe(true);
   });
 
   it("lets a later pass latch the truth once the layer is linked", () => {
@@ -366,25 +410,25 @@ describe("snapshotAuthorVisible", () => {
   });
 });
 
-describe("rowChecked: what counts as the user's choice", () => {
-  it("a bare hiddenIds entry is already a choice — the row reads unchecked", () => {
+describe("intentVisibleOf: what counts as the user's choice", () => {
+  it("a bare hiddenLayerIds entry is already a choice — the row reads unchecked", () => {
     // `syncHiddenId` always marks, but a restored record or a direct write
     // can leave an entry without its provenance marker. Either half is the
     // user's choice; only the author's default is the fallback.
     const { ui } = initFixture({});
     const layerInfo = ui.m.layers.find(li => li.id === "overlay1")!;
-    ui.userOverrides.overlay1 = undefined as never;
-    delete ui.userOverrides.overlay1;
-    ui.hiddenIds.add("overlay1");
-    expect(rowChecked(ui, layerInfo)).toBe(false);
+    ui.intentProvenance.overlay1 = undefined as never;
+    delete ui.intentProvenance.overlay1;
+    ui.hiddenLayerIds.add("overlay1");
+    expect(intentVisibleOf(ui, layerInfo.id)).toBe(false);
   });
 
   it("neither half present falls back to the author's declared default", () => {
     const { ui } = initFixture({});
     const layerInfo = ui.m.layers.find(li => li.id === "overlay1")!;
-    delete ui.userOverrides.overlay1;
-    ui.hiddenIds.delete("overlay1");
+    delete ui.intentProvenance.overlay1;
+    ui.hiddenLayerIds.delete("overlay1");
     ui.authorVisible.set("overlay1", false);
-    expect(rowChecked(ui, layerInfo)).toBe(false);
+    expect(intentVisibleOf(ui, layerInfo.id)).toBe(false);
   });
 });

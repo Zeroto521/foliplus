@@ -28,12 +28,12 @@ describe("LayerUI keyboard", () => {
       manager.registerLayer({
         id: "overlay2",
         name: "Circles",
-        isBase: false,
+        group: "overlay",
         layer: { options: {}, eachLayer: vi.fn() },
       });
     }
     ui.foldedGroups = new Set();
-    ui.hiddenIds = new Set();
+    ui.hiddenLayerIds = new Set();
     // Folded-group state is persisted to localStorage, so a fold from one test
     // would be re-read by the next test's LayerUI constructor and present as
     // already-folded.
@@ -128,7 +128,7 @@ describe("LayerUI keyboard", () => {
       cb.checked = false;
       ui.handleChange({ target: cb } as Event);
 
-      expect(ui.hiddenIds).toContain("overlay1");
+      expect(ui.hiddenLayerIds).toContain("overlay1");
       // 3 seeded layers + the colour basemap registered by initTypesAndVisibility.
       expect(ui.m.layers.length).toBe(4);
     });
@@ -506,7 +506,7 @@ describe("LayerUI keyboard", () => {
     it("Escape on a checked row clears the cursor and keeps the active class", () => {
       const overlay = findItem(ui, "overlay1");
 
-      // .active is the persistent selected state: it must outlive the Escape,
+      // .foliplus-active is the persistent selected state: it must outlive the Escape,
       // because cancelling the cursor is not a visibility change.
       const checkbox = overlay.querySelector(
         'input[type="checkbox"]',
@@ -523,10 +523,10 @@ describe("LayerUI keyboard", () => {
       expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
     });
 
-    it("FOCUSED class coexists with .active (checkbox-checked) without conflict", () => {
+    it("FOCUSED class coexists with .foliplus-active (checkbox-checked) without conflict", () => {
       const overlay = findItem(ui, "overlay1");
 
-      // Check the checkbox (adds .active via the toggle path) then set cursor
+      // Check the checkbox (adds .foliplus-active via the toggle path) then set cursor
       // onto the same row — both classes must be present simultaneously so the
       // visual distinction between "checked" (5% wash) and "cursor-on" (8%
       // wash + accent bar) is preserved.
@@ -742,7 +742,7 @@ describe("LayerUI keyboard", () => {
     // not flip the row's select-all checkbox.
     //
     // The group needs two overlay layers so overlay1 isn't collapsed into the
-    // single-child "no toggle-all" layout of initFixture(), and hiddenIds must
+    // single-child "no toggle-all" layout of initFixture(), and hiddenLayerIds must
     // be empty so a visibility collapse can't read as a fold (the outer
     // beforeEach owns both).
 
@@ -816,12 +816,12 @@ describe("LayerUI keyboard", () => {
 
     it("getNavigableItems lists rows by class, so a checkbox-less row is reachable", () => {
       const colorRow = ui.uiContainer.querySelector(
-        `.${CONST.CLASSES.COLOR_ITEM}`,
+        `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       ) as HTMLElement | null;
 
       const items = ui.getNavigableItems();
-      // The color row is a picker, not a layer, so it stays out of the list.
-      if (colorRow) expect(items).not.toContain(colorRow);
+      // The color row is a regular layer row now — it is navigable.
+      if (colorRow) expect(items).toContain(colorRow);
       // Rows are enumerated by class, never filtered by checkbox presence.
       const isRow = (el: HTMLElement) =>
         el.classList.contains(CONST.CLASSES.LAYER_ITEM) ||

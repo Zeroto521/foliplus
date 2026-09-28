@@ -1,32 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { LayerFactory } from "#foliplus/core/layer/LayerFactory.js";
 import { PaneManager } from "#foliplus/core/layer/PaneManager.js";
+import { zFor } from "#foliplus/core/layer/z.js";
 
 // Coverage exemption for LayerFactory.ts — knowingly uncovered, not overlooked.
-// Lines and branches are at 100% (214/214, 106/106). Function coverage stops at
-// 90.38% on five records, split between a deliberate choice and a tool limit:
+// Lines and branches are at 100%. Function coverage stops at 98.27% (57/58) on
+// one record:
 //
-//   LayerFactory.ts:172  `let shouldUnregister: () => boolean = () => true;`
+//   LayerFactory.ts:201  `let shouldUnregister: () => boolean = () => true;`
 //
-//   Deliberate. The default initializer never executes: every content dialect
-//   overwrites `shouldUnregister` before the handle is returned (the layers
-//   dialect with a remaining-content check, the canvas and color dialects with
-//   `() => true`). It stays anyway — for definite assignment across the
-//   `if (content.kind)` split the compiler cannot narrow, and as a fail-safe so
-//   a future dialect that forgets to overwrite it cannot leave a layer
-//   registered forever. Reaching 100% means deleting that default, i.e. trading
-//   a safety net for a number. If a new dialect lands, override
-//   `shouldUnregister` there rather than reworking this file's fixtures.
-//
-//   LayerFactory.ts:382,385 (color) and :490,493 (canvas) — the map
-//   "move"/"resize" callbacks. A v8 attribution limit, not a gap: v8 reports
-//   FNDA:0 for these four single-expression arrow bodies even when they run
-//   (lcov shows DA:490,84 and DA:493,84 in the same report that records
-//   FNDA:0 for the functions defined on those lines, and function coverage is
-//   byte-identical before and after the tests below exercise them). The two
-//   "map move and resize events drive ..." tests still exist because they pin
-//   real behavior the metric cannot see — a wrong event name or a dropped
-//   registration would fail them.
+// Deliberate. The default initializer never executes: every content dialect
+// overwrites `shouldUnregister` before the handle is returned (the layers
+// dialect with a remaining-content check, the canvas and color dialects with
+// `() => true`). It stays anyway — for definite assignment across the
+// `if (content.kind)` split the compiler cannot narrow, and as a fail-safe so
+// a future dialect that forgets to overwrite it cannot leave a layer
+// registered forever. Reaching 100% means deleting that default, i.e. trading
+// a safety net for a number. If a new dialect lands, override
+// `shouldUnregister` there rather than reworking this file's fixtures.
 
 describe("LayerFactory", () => {
   let factory;
@@ -36,6 +27,7 @@ describe("LayerFactory", () => {
   let unregisterLayer;
   let bringLayerToFront;
   let invalidateType;
+  let slotOf;
 
   beforeEach(() => {
     class TileLayer {
@@ -121,6 +113,9 @@ describe("LayerFactory", () => {
     unregisterLayer = vi.fn(() => true);
     bringLayerToFront = vi.fn();
     invalidateType = vi.fn();
+    // A real registry answers a slot; the lightweight LayerAPI answers null,
+    // which leaves the pane at Leaflet's own z.
+    slotOf = vi.fn(() => ({ index: 0, count: 3, group: "overlay" }));
 
     factory = new LayerFactory({
       map,
@@ -129,6 +124,7 @@ describe("LayerFactory", () => {
       unregisterLayer,
       bringLayerToFront,
       invalidateType,
+      slotOf,
     });
   });
 
@@ -188,7 +184,6 @@ describe("LayerFactory", () => {
       // then re-added without an explicit pane (resortLayers path).
       const nodeLayer = new window.L.Marker();
       nodeLayer.options.pane = "node1";
-      nodeLayer.options.paneSet = true;
       api.addLayer(nodeLayer);
       expect(nodeLayer.options.pane).toBe("node1");
     });
@@ -324,10 +319,8 @@ describe("LayerFactory", () => {
       });
       const layer = new window.L.Path();
       layer.options.pane = "label1";
-      // `paneSet` marks the pane as explicitly authored (not a Leaflet
-      // class default like 'overlayPane' / 'markerPane'). The wrapper
-      // honours the declared value only when this flag is true.
-      (layer.options as { paneSet?: boolean }).paneSet = true;
+      // The wrapper honours a declared `options.pane` when the name is in
+      // the factory's declared pane list — no separate flag needed.
       api.mainLayer.addLayer(layer);
       expect(layer.options.pane).toBe("label1");
       const subLayers = Array.from(api.mainLayer.getLayers());
@@ -335,10 +328,10 @@ describe("LayerFactory", () => {
       expect(labelSub.hasLayer(layer)).toBe(true);
     });
 
-    it("mainLayer.addLayer falls through to origAddLayer when options.pane names a pane not in subPanes", () => {
+    it("mainLayer.addLayer routes an unknown options.pane to the base sub-layer", () => {
       // A caller that sets options.pane to a name outside subPanes (a
-      // third-party pane, or a stale reference after a rebuild) is left
-      // alone: the leaf lands in mainLayer directly, no pin, no crash.
+      // third-party pane, or a stale reference after a rebuild) is routed
+      // to the base sub-layer: the leaf is pinned there, no crash.
       const api = factory.createLayers({
         id: "test",
         name: "Test",
@@ -346,13 +339,12 @@ describe("LayerFactory", () => {
       });
       const layer = new window.L.Path();
       layer.options.pane = "__not_ours__";
-      (layer.options as { paneSet?: boolean }).paneSet = true;
       api.mainLayer.addLayer(layer);
-      expect(layer.options.pane).toBe("__not_ours__");
-      // Direct on mainLayer (not in any sub-layer).
+      // Not directly on mainLayer — it is in the base sub-layer.
       const subLayers = Array.from(api.mainLayer.getLayers());
       const directOnMain = subLayers.filter(g => g === layer).length;
-      expect(directOnMain).toBe(1);
+      expect(directOnMain).toBe(0);
+      expect(subLayers.some(g => g.hasLayer(layer))).toBe(true);
     });
 
     it("notifies onDataChange when graph content changes", () => {
@@ -566,7 +558,7 @@ describe("LayerFactory", () => {
       ensureVectorSpy.mockRestore();
     });
 
-    it("forwards styleProvider / styleSetters / styleDefaults to registerLayer", () => {
+    it("forwards styleProvider / styleSetters / styleDefaultsProvider to registerLayer", () => {
       const reg = vi.fn(() => null);
       const f = new LayerFactory({
         map,
@@ -578,18 +570,18 @@ describe("LayerFactory", () => {
       });
       const styleProvider = () => ({ color: "#f00" });
       const styleSetters = { color: () => {} };
-      const styleDefaults = () => ({ weight: 2 });
+      const styleDefaultsProvider = () => ({ weight: 2 });
       const api = f.createLayers({
         id: "test",
         name: "Test",
         panes: [{ name: "g1" }],
         styleProvider,
         styleSetters,
-        styleDefaults,
+        styleDefaultsProvider,
       });
       api.addLayer(new window.L.Path(), "g1");
       expect(reg).toHaveBeenCalledWith(
-        expect.objectContaining({ styleProvider, styleSetters, styleDefaults }),
+        expect.objectContaining({ styleProvider, styleSetters, styleDefaultsProvider }),
       );
     });
 
@@ -701,7 +693,7 @@ describe("LayerFactory", () => {
       expect(onDataChange).not.toHaveBeenCalled();
     });
 
-    it("falls through to the LayerGroup prototype when L.LayerGroup is defined", () => {
+    it("routes unknown options.pane to the base sub-layer, not the LayerGroup prototype", () => {
       const protoAddLayer = vi.fn(function (this: unknown) {
         return this;
       });
@@ -721,25 +713,18 @@ describe("LayerFactory", () => {
         });
         const layer = new window.L.Path();
         layer.options.pane = "__not_ours__";
-        (layer.options as { paneSet?: boolean }).paneSet = true;
         api.mainLayer.addLayer(layer);
-        // The "not our pane" fallthrough must hit the LayerGroup prototype —
-        // not the instance's own addLayer (which the wrapper just replaced).
-        // The pane-unchanged assertion the test used to make held on both
-        // branches, so it did not pin anything; this one does.
-        expect(protoAddLayer).toHaveBeenCalledTimes(1);
-        expect(protoAddLayer).toHaveBeenCalledWith(layer);
+        // The wrapper intercepts unknown panes and routes them to the
+        // base sub-layer — it never falls through to the prototype.
+        expect(protoAddLayer).not.toHaveBeenCalled();
+        // The layer is in the base sub-layer, not directly on mainLayer.
+        expect(api.mainLayer.getLayers()).not.toContain(layer);
       } finally {
         Reflect.deleteProperty(window.L, "LayerGroup");
       }
     });
 
-    it("does not consult the LayerGroup prototype when L.LayerGroup is undefined", () => {
-      // setup.ts's L stub has no LayerGroup key, so the falsy branch delegates
-      // to the layerGroup mock's own addLayer, which pushes into `children`.
-      // Observable via getLayers(). Complements the test above: that one fails
-      // if the truthy branch stops running; this one fails if the falsy branch
-      // stops running.
+    it("routes unknown options.pane to the base sub-layer when L.LayerGroup is undefined", () => {
       const api = factory.createLayers({
         id: "test",
         name: "Test",
@@ -747,9 +732,11 @@ describe("LayerFactory", () => {
       });
       const layer = new window.L.Path();
       layer.options.pane = "__not_ours__";
-      (layer.options as { paneSet?: boolean }).paneSet = true;
       api.mainLayer.addLayer(layer);
-      expect(api.mainLayer.getLayers()).toContain(layer);
+      // The layer is pinned to the base sub-layer, not directly on mainLayer.
+      expect(api.mainLayer.getLayers()).not.toContain(layer);
+      const subLayers = Array.from(api.mainLayer.getLayers());
+      expect(subLayers.some(g => g.hasLayer(layer))).toBe(true);
     });
   });
 
@@ -789,7 +776,7 @@ describe("LayerFactory", () => {
       // dropped — the pane stays recognisable and the caller's own id is left
       // untouched.
       const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-      factory.createCanvas({ id: "canvas name" });
+      factory.createCanvas({ id: "canvas name" }).register();
       expect(map.createPane).toHaveBeenCalledWith("foliplus-canvas-canvas-name");
       expect(warn).toHaveBeenCalledWith(
         expect.stringContaining("normalized for injection safety"),
@@ -901,6 +888,8 @@ describe("LayerFactory", () => {
 
     it("mounts the canvas in a dedicated foliplus-layer-pane", () => {
       const api = factory.createCanvas({ id: "canvas_test" });
+      expect(api.canvas.parentElement).toBeNull();
+      api.register();
       const pane = api.canvas.parentElement;
       expect(pane?.classList.contains("foliplus-layer-pane")).toBe(true);
       expect(map.createPane).toHaveBeenCalledWith("foliplus-canvas-canvas_test");
@@ -913,7 +902,7 @@ describe("LayerFactory", () => {
     });
 
     it("keeps no SVG renderer on the canvas pane", () => {
-      factory.createCanvas({ id: "canvas_test" });
+      factory.createCanvas({ id: "canvas_test" }).register();
       expect(window.L.svg).not.toHaveBeenCalled();
       expect(map["foliplus_renderer_foliplus-canvas-canvas_test"]).toBeUndefined();
     });
@@ -926,8 +915,35 @@ describe("LayerFactory", () => {
       );
     });
 
+    it("creates no pane before register, then prices the pane at its slot z", () => {
+      const slot = { index: 2, count: 4, group: "overlay" };
+      slotOf.mockReturnValue(slot);
+      const api = factory.createCanvas({ id: "canvas_test" });
+      const paneName = "foliplus-canvas-canvas_test";
+      // The pane is not born at createCanvas: a fresh pane carries Leaflet's
+      // default z of 400 — above every basemap — until the ordering pass
+      // catches up. Deferring creation to register removes that window.
+      expect(map._panes[paneName]).toBeUndefined();
+      api.register();
+      expect(map._panes[paneName].style.zIndex).toBe(String(zFor(slot)));
+    });
+
+    it("leaves the pane unpriced when there is no registry slot", () => {
+      // The lightweight LayerAPI has no registry and no ordering pass, so
+      // nothing prices the pane: the inline z stays empty and the pane renders
+      // at Leaflet's own z of 400. That is the value a bare canvas overlay
+      // belongs at when no ladder manages it (the same tier as overlayPane) —
+      // and the value the PR that retired the provisional bottom step had to
+      // pick for this path too.
+      slotOf.mockReturnValue(null);
+      const api = factory.createCanvas({ id: "canvas_test" });
+      api.register();
+      expect(map._panes["foliplus-canvas-canvas_test"].style.zIndex).toBe("");
+    });
+
     it("destroy removes the dedicated pane from the Leaflet registry", () => {
       const api = factory.createCanvas({ id: "canvas_test" });
+      api.register();
       const paneName = "foliplus-canvas-canvas_test";
       expect(map._panes[paneName]).toBeTruthy();
       api.destroy();
@@ -995,22 +1011,6 @@ describe("LayerFactory", () => {
       }
     });
 
-    it("passes custom onToggle to registerLayer", () => {
-      const onToggle = vi.fn();
-      const reg = vi.fn(() => null);
-      const f = new LayerFactory({
-        map,
-        panes: new PaneManager(map),
-        registerLayer: reg,
-        unregisterLayer: vi.fn(),
-        bringLayerToFront: vi.fn(),
-        invalidateType: vi.fn(),
-      });
-      const api = f.createCanvas({ id: "test", onToggle });
-      api.register();
-      expect(reg).toHaveBeenCalledWith(expect.objectContaining({ onToggle }));
-    });
-
     it("removeLayer routes from the sub-layer when present", () => {
       const api = factory.createLayers({
         id: "test",
@@ -1076,24 +1076,6 @@ describe("LayerFactory", () => {
       const api = f.createCanvas({ id: "test", getBounds });
       api.register();
       expect(reg).toHaveBeenCalledWith(expect.objectContaining({ getBounds }));
-    });
-
-    it("default onToggle hides the canvas when invoked with false", () => {
-      const reg = vi.fn((opts: any) => {
-        opts.onToggle(false);
-        return null;
-      });
-      const f = new LayerFactory({
-        map,
-        panes: new PaneManager(map),
-        registerLayer: reg,
-        unregisterLayer: vi.fn(),
-        bringLayerToFront: vi.fn(),
-        invalidateType: vi.fn(),
-      });
-      const api = f.createCanvas({ id: "test" });
-      api.register();
-      expect(api.canvas.classList.contains("hidden")).toBe(true);
     });
   });
 
@@ -1252,7 +1234,8 @@ describe("LayerFactory", () => {
 
     it("normalizes a color pane name that would not be a valid element id", () => {
       const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-      make("solid name");
+      const h = make("solid name");
+      h.register();
       expect(map.createPane).toHaveBeenCalledWith("foliplus-color-solid-name");
       expect(warn).toHaveBeenCalledWith(
         expect.stringContaining("normalized for injection safety"),
@@ -1260,13 +1243,26 @@ describe("LayerFactory", () => {
       warn.mockRestore();
     });
 
-    it("stamps the lowest base z on the fresh pane (no Leaflet-default 400)", () => {
-      // Leaflet's CSS gives a fresh pane z-index 400 — above every basemap.
-      // Until the ordering pass rewrites the ladder z, the pane must sit at
-      // the bottom of the base ladder (200 + one step).
-      make("solid");
-      const pane = (map as any)._panes["foliplus-color-solid"] as HTMLElement;
-      expect(pane.style.zIndex).toBe("210");
+    it("creates no pane before register, then prices the pane at its slot z", () => {
+      // The provisional bottom step is retired along with the window it
+      // covered: a fresh pane carries Leaflet's default z of 400 — above every
+      // basemap — so the pane is not born until register, when its slot
+      // already exists and the slot's z can be written at birth.
+      const slot = { index: 0, count: 2, group: "base" };
+      slotOf.mockReturnValue(slot);
+      const h = make("solid");
+      expect(map._panes["foliplus-color-solid"]).toBeUndefined();
+      h.register();
+      expect(map._panes["foliplus-color-solid"].style.zIndex).toBe(String(zFor(slot)));
+    });
+
+    it("leaves the pane unpriced when there is no registry slot", () => {
+      // Same contract as the canvas branch: no registry, no ordering pass, no
+      // inline z written — the pane renders at Leaflet's own 400.
+      slotOf.mockReturnValue(null);
+      const h = make("solid");
+      h.register();
+      expect(map._panes["foliplus-color-solid"].style.zIndex).toBe("");
     });
 
     it("resize falls back to devicePixelRatio 1 when the browser reports 0", () => {
@@ -1323,6 +1319,7 @@ describe("LayerFactory", () => {
 
     it("owns a dedicated color pane and mounts the face in it", () => {
       const h = make("solid");
+      h.register();
       expect(map.createPane).toHaveBeenCalledWith("foliplus-color-solid");
       expect(
         content(h).element.parentElement?.classList.contains("foliplus-layer-pane"),
@@ -1340,7 +1337,7 @@ describe("LayerFactory", () => {
       expect(registerLayer).toHaveBeenCalledWith(
         expect.objectContaining({
           id: "solid",
-          isBase: true,
+          group: "base",
           color: "#3366cc",
           canvas: content(h).element,
           paneName: "foliplus-color-solid",
@@ -1392,10 +1389,10 @@ describe("LayerFactory", () => {
       map._panes["tilePane"] = tilePane;
       const h = make("solid");
       const face = content(h).element;
-      expect(map._panes["foliplus-color-solid"]).toBeTruthy();
 
       // The leak this guards against: the caller showed the color through
-      // `setVisible` but never registered, so `preUnregister` will not run.
+      // `setVisible` but never registered, so `preUnregister` will not run. No
+      // pane was allocated either, which is what register-time creation buys.
       content(h).setVisible(true);
       h.destroy();
 
@@ -1411,6 +1408,7 @@ describe("LayerFactory", () => {
       h.destroy();
       expect(unregisterLayer).toHaveBeenCalledWith("solid");
       expect(h.registered()).toBe(false);
+      expect(map._panes["foliplus-color-solid"]).toBeUndefined();
     });
 
     it("register is idempotent at the callback level", () => {
@@ -1418,6 +1416,48 @@ describe("LayerFactory", () => {
       h.register();
       h.register();
       expect(registerLayer).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("createSurface custom branch", () => {
+    it("registers a custom carrier without synthesizing panes", () => {
+      const custom = { plugin: "acme" };
+      const handle = factory.createSurface({
+        id: "third",
+        content: { kind: "custom", custom },
+      });
+      expect(handle.content.kind).toBe("custom");
+      expect(handle.content.custom).toBe(custom);
+      handle.register();
+      expect(registerLayer).toHaveBeenCalledTimes(1);
+      const opts = registerLayer.mock.calls[0][0] as {
+        kind?: string;
+        custom?: unknown;
+      };
+      expect(opts.kind).toBe("custom");
+      expect(opts.custom).toBe(custom);
+    });
+
+    it("carries an optional layer alongside the custom payload", () => {
+      const layer = {} as L.Layer;
+      const handle = factory.createSurface({
+        id: "third2",
+        content: { kind: "custom", custom: {}, layer },
+      });
+      expect(handle.registered()).toBe(false);
+      handle.register();
+      expect(handle.registered()).toBe(true);
+      const opts = registerLayer.mock.calls[0][0] as { layer?: L.Layer | null };
+      expect(opts.layer).toBe(layer);
+    });
+
+    it("throws on an unhandled surface kind", () => {
+      expect(() =>
+        factory.createSurface({
+          id: "bad",
+          content: { kind: "nope" } as never,
+        }),
+      ).toThrow(/unhandled surface kind/);
     });
   });
 });

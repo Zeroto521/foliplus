@@ -15,11 +15,6 @@
     }
   }
 
-  /* ── Color layer item overrides ──
-     Draggable within the base group — same cursor as tile basemap rows. */
-  .foliplus-color-layer-item {
-    cursor: move;
-  }
   /* ── Checkbox styles ── */
   .foliplus-checkbox {
     display: flex;
@@ -81,33 +76,5 @@
     &:focus-visible {
       outline: none;
     }
-  }
-  /* ── Solid color layer picker ── */
-  .foliplus-color-layer-input {
-    width: var(--space-xl);
-    height: var(--space-xl);
-    border: var(--border-thick) solid var(--input-border);
-    border-radius: var(--radius-round);
-    padding: 0;
-    background: none;
-    outline: none;
-    cursor: pointer;
-    transition: var(--transition-input);
-
-    &::-webkit-color-swatch-wrapper {
-      padding: 0;
-    }
-    &::-webkit-color-swatch {
-      border: none;
-      border-radius: var(--radius-round);
-    }
-    &::-moz-color-swatch {
-      border: none;
-      border-radius: var(--radius-round);
-    }
-  }
-  .foliplus-color-layer-item.active .foliplus-color-layer-input {
-    border-color: var(--accent-primary);
-    box-shadow: var(--focus-ring);
   }
 }

@@ -5,15 +5,12 @@
 // Form rows, selects, and the toggle reuse the shared common/form.css
 // primitives (foliplus-form-*); component-specific controls (scheme bar,
 // color/weight inputs) keep their own classes.
+import { METHOD as CLASSIFY_METHOD } from "#core/classify.js";
 import * as CONST from "./const.js";
 
-/** Build the panel-content HTML string (data section + style section). */
+/** Build the panel-content HTML string (data rows, then the style rows). */
 const panelContentHTML = (T: (key: string) => string): string => /* html */ `
 <div class="foliplus-heatmap-config-body">
-  <div class="foliplus-section-heading">
-    ${T("section_data")}
-  </div>
-
   <div class="foliplus-form-row">
     <label class="foliplus-form-label">${T("layer")}</label>
     <div class="foliplus-form-control">
@@ -43,19 +40,15 @@ const panelContentHTML = (T: (key: string) => string): string => /* html */ `
       </div>
     </div>
 
-    <div class="foliplus-section-heading">
-      ${T("section_style")}
-    </div>
-
     <div class="foliplus-heatmap-section-block">
       <div class="foliplus-form-row">
         <label class="foliplus-form-label">${T("class_method")}</label>
         <div class="foliplus-form-control foliplus-form-inline">
           <select class="foliplus-form-select" ${CONST.DATA_ATTR.METHOD}>
-            <option value="${CONST.METHOD.JENKS}">${T("jenks")}</option>
-            <option value="${CONST.METHOD.QUANTILE}">${T("quantile")}</option>
-            <option value="${CONST.METHOD.EQUAL}">${T("equal")}</option>
-            <option value="${CONST.METHOD.HEADS}">${T("heads")}</option>
+            <option value="${CLASSIFY_METHOD.JENKS}">${T("jenks")}</option>
+            <option value="${CLASSIFY_METHOD.QUANTILE}">${T("quantile")}</option>
+            <option value="${CLASSIFY_METHOD.EQUAL}">${T("equal")}</option>
+            <option value="${CLASSIFY_METHOD.HEADS}">${T("heads")}</option>
           </select>
           <select class="foliplus-form-select foliplus-heatmap-class-select" ${CONST.DATA_ATTR.CLASS_COUNT}>
             <option value="${CONST.CLASS_COUNT.MIN}">${CONST.CLASS_COUNT.MIN}</option>

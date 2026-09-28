@@ -188,6 +188,7 @@ const initFixture = (
     getZoom: vi.fn(() => options.initialZoom ?? 5),
     getMaxZoom: vi.fn(() => options.maxZoom ?? 18),
     getMinZoom: vi.fn(() => 0),
+    options: { maxZoom: options.maxZoom ?? 18 },
     getBounds: vi.fn(() => {
       const view = {
         pad: vi.fn(() => view),
@@ -222,11 +223,11 @@ const initFixture = (
   const manager = new LayerManager(
     map,
     options.data ?? [
-      { id: "overlay1", name: "Polygons", isBase: false, layer: polygonLayer },
+      { id: "overlay1", name: "Polygons", group: "overlay", layer: polygonLayer },
       {
         id: "base1",
         name: "OSM",
-        isBase: true,
+        group: "base",
         layer: new TileLayer(),
         paneName: "tilePane",
       },

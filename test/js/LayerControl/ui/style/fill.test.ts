@@ -61,13 +61,13 @@ const initWithFillLayer = () => {
       {
         id: "overlay1",
         name: "Polygons",
-        isBase: false,
+        group: "overlay",
         layer: fillLayer,
       },
       {
         id: "base1",
         name: "OSM",
-        isBase: true,
+        group: "base",
         layer: { options: {}, setZIndex: vi.fn() } as never,
         paneName: "tilePane",
       },
@@ -164,7 +164,7 @@ describe("LayerUI style panel — fill color", () => {
     manager.registerLayer({
       id: "colormap",
       name: "Color",
-      isBase: true,
+      group: "base",
       color: "#3366cc",
       canvas: document.createElement("canvas"),
     });
@@ -340,7 +340,7 @@ describe("LayerUI style panel — fill color", () => {
     expect(fillRow(item)).not.toBeNull();
   });
 
-  // §47.1 gate unification: the third condition requires a real setStyle
+  // Gate unification: the third condition requires a real setStyle
   // leaf behind the layer. An empty group has eachLayer but yields no
   // children, so the carrier check finds no setStyle leaf to write to.
 
@@ -410,7 +410,7 @@ describe("LayerUI style panel — fill color", () => {
     commitFillColor(ui, "overlay1", "#ff0000");
 
     expect(ui.fillColorMap["overlay1"]).toBe("#ff0000");
-    expect(ui.userOverrides["overlay1"]).toContain("fillColor");
+    expect(ui.intentProvenance["overlay1"]).toContain("fillColor");
     expect(setLayer).toHaveBeenCalled();
     const fields = setLayer.mock.calls.at(-1)![0] as {
       layers: () => Record<string, { fillColor?: string; overrides?: string[] }>;
@@ -466,8 +466,9 @@ describe("LayerUI style panel — fill color", () => {
   });
 
   it("commitFillColor walks past a node with no setStyle or eachLayer", () => {
-    // The hollow-check walk falls through a leaf that exposes neither a
-    // setter nor children — it must not throw, and the color still commits.
+    // The leaf walk in applyFillToLayer falls through a leaf that exposes
+    // neither a setter nor children — it must not throw, and the color
+    // still commits.
     const fixture = initWithFillLayer();
     fixture.fillLayer.leaves[1] = { options: {} } as never;
 
@@ -668,74 +669,76 @@ describe("LayerUI style panel — fill color", () => {
 
   const registerColorBasemap = () => {
     manager.registerLayer({
-      id: CONST.COLOR.MAP_ID,
+      id: CONST.SOLID_BASEMAP_ID,
       name: "Color",
-      isBase: true,
+      group: "base",
       color: CONST.COLOR.DEFAULT,
     });
-    const li = manager.layerRegistry.get(CONST.COLOR.MAP_ID)!;
+    const li = manager.layerRegistry.get(CONST.SOLID_BASEMAP_ID)!;
     manager.surfaceFor(li).capabilities = {
       opacity: "pane",
       zoomRange: "none",
       relocatable: false,
       bounds: false,
+      fill: "native",
+      stroke: "none",
     };
-    ui.fieldCache.set(CONST.COLOR.MAP_ID, []);
+    ui.fieldCache.set(CONST.SOLID_BASEMAP_ID, []);
   };
 
   it("layerCanFill returns true for a color basemap", () => {
     registerColorBasemap();
-    expect(layerCanFill(ui, CONST.COLOR.MAP_ID)).toBe(true);
+    expect(layerCanFill(ui, CONST.SOLID_BASEMAP_ID)).toBe(true);
   });
 
-  it("applyFillToLayer routes a color basemap to showColorLayer, not leaf walk", () => {
+  it("applyFillToLayer routes a color basemap to showSolidBasemap, not leaf walk", () => {
     registerColorBasemap();
-    ui.fillColorMap[CONST.COLOR.MAP_ID] = "#ff0000";
-    applyFillToLayer(ui, CONST.COLOR.MAP_ID);
+    ui.fillColorMap[CONST.SOLID_BASEMAP_ID] = "#ff0000";
+    applyFillToLayer(ui, CONST.SOLID_BASEMAP_ID);
     expect(ui.currentColor).toBe("#ff0000");
   });
 
   it("resetLayerFill restores the color basemap to its default", () => {
     registerColorBasemap();
-    ui.fillColorMap[CONST.COLOR.MAP_ID] = "#ff0000";
-    resetLayerFill(ui, CONST.COLOR.MAP_ID);
+    ui.fillColorMap[CONST.SOLID_BASEMAP_ID] = "#ff0000";
+    resetLayerFill(ui, CONST.SOLID_BASEMAP_ID);
     expect(ui.currentColor).toBe(CONST.COLOR.DEFAULT);
-    expect(ui.fillColorMap[CONST.COLOR.MAP_ID]).toBeUndefined();
+    expect(ui.fillColorMap[CONST.SOLID_BASEMAP_ID]).toBeUndefined();
   });
 
   it("buildFillRow renders only the color swatch for a color basemap", () => {
     registerColorBasemap();
-    const row = buildFillRow(ui, CONST.COLOR.MAP_ID);
+    const row = buildFillRow(ui, CONST.SOLID_BASEMAP_ID);
     expect(
       row.querySelector(`.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`),
     ).not.toBeNull();
     expect(row.querySelector(`.${CONST.CLASSES.STYLE_FILL_OPACITY_NUMBER}`)).toBeNull();
   });
 
-  it("applyFillToLayer on a color basemap with only opacity skips showColorLayer", () => {
+  it("applyFillToLayer on a color basemap with only opacity skips showSolidBasemap", () => {
     // L252: `color === undefined` branch — opacity-only on a color basemap
-    // must not call showColorLayer (there is no color to show).
+    // must not call showSolidBasemap (there is no color to show).
     registerColorBasemap();
-    ui.fillOpacityMap[CONST.COLOR.MAP_ID] = 0.5;
-    applyFillToLayer(ui, CONST.COLOR.MAP_ID);
+    ui.fillOpacityMap[CONST.SOLID_BASEMAP_ID] = 0.5;
+    applyFillToLayer(ui, CONST.SOLID_BASEMAP_ID);
     // currentColor is untouched because only opacity was set
     expect(ui.currentColor).toBe(CONST.COLOR.DEFAULT);
   });
 
-  it("commitFillColor on a color basemap skips the hollow-opacity check", () => {
-    // L304: `!isColorBasemap` is false → the hollow-check branch is skipped.
-    // A color basemap has no fillOpacity concept, so there is nothing to bump.
+  it("commitFillColor on a color basemap never writes fillOpacity", () => {
+    // A color basemap has no fillOpacity concept — the color routes to
+    // showSolidBasemap and the fill-opacity map stays empty.
     registerColorBasemap();
-    commitFillColor(ui, CONST.COLOR.MAP_ID, "#ff0000");
-    expect(ui.fillColorMap[CONST.COLOR.MAP_ID]).toBe("#ff0000");
-    expect(ui.fillOpacityMap[CONST.COLOR.MAP_ID]).toBeUndefined();
+    commitFillColor(ui, CONST.SOLID_BASEMAP_ID, "#ff0000");
+    expect(ui.fillColorMap[CONST.SOLID_BASEMAP_ID]).toBe("#ff0000");
+    expect(ui.fillOpacityMap[CONST.SOLID_BASEMAP_ID]).toBeUndefined();
     expect(ui.currentColor).toBe("#ff0000");
   });
 
   it("commitFillColor handles a layer id that is not registered yet", () => {
     expect(() => commitFillColor(ui, "late-layer", "#ff0000")).not.toThrow();
     expect(ui.fillColorMap["late-layer"]).toBe("#ff0000");
-    expect(ui.userOverrides["late-layer"]).toContain("fillColor");
+    expect(ui.intentProvenance["late-layer"]).toContain("fillColor");
   });
 
   it("resetLayerFill is a no-op for a registered layer with no Leaflet object", () => {
@@ -745,12 +748,12 @@ describe("LayerUI style panel — fill color", () => {
       canvas: document.createElement("canvas"),
     });
     ui.fillColorMap["canvas1"] = "#ff0000";
-    ui.userOverrides["canvas1"] = ["fillColor"];
+    ui.intentProvenance["canvas1"] = ["fillColor"];
 
     resetLayerFill(ui, "canvas1");
 
     expect(ui.fillColorMap["canvas1"]).toBeUndefined();
-    expect(ui.userOverrides["canvas1"]).toBeUndefined();
+    expect(ui.intentProvenance["canvas1"]).toBeUndefined();
   });
 
   it("resetLayerFill walks past a leaf with no setStyle or eachLayer", () => {
@@ -796,7 +799,7 @@ describe("LayerUI style panel — fill color", () => {
     input.dispatchEvent(new Event("input", { bubbles: true }));
 
     expect(ui.fillColorMap["overlay1"]).toBe("#3366cc");
-    expect(ui.userOverrides["overlay1"]).toContain("fillColor");
+    expect(ui.intentProvenance["overlay1"]).toContain("fillColor");
   });
 
   it("the fill opacity input commits through the live binder", () => {
@@ -810,7 +813,7 @@ describe("LayerUI style panel — fill color", () => {
     input.dispatchEvent(new Event("input", { bubbles: true }));
 
     expect(ui.fillOpacityMap["overlay1"]).toBe(0.5);
-    expect(ui.userOverrides["overlay1"]).toContain("fillOpacity");
+    expect(ui.intentProvenance["overlay1"]).toContain("fillOpacity");
   });
 
   it("the swatch keeps the value it was committed (no forced re-read)", () => {
@@ -830,13 +833,13 @@ describe("LayerUI style panel — fill color", () => {
 
   it("resetLayerFill drops the persisted entry and the override marker", () => {
     ui.fillColorMap["overlay1"] = "#ff0000";
-    ui.userOverrides["overlay1"] = ["fillColor"];
+    ui.intentProvenance["overlay1"] = ["fillColor"];
     const setLayer = vi.spyOn(manager.persistence, "schedule");
 
     resetLayerFill(ui, "overlay1");
 
     expect(ui.fillColorMap["overlay1"]).toBeUndefined();
-    expect(ui.userOverrides["overlay1"] ?? []).not.toContain("fillColor");
+    expect(ui.intentProvenance["overlay1"] ?? []).not.toContain("fillColor");
     expect(setLayer).toHaveBeenCalled();
   });
 
@@ -882,7 +885,7 @@ describe("LayerUI style panel — fill color", () => {
     reset.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 
     expect(ui.fillColorMap["overlay1"]).toBeUndefined();
-    expect(ui.userOverrides["overlay1"] ?? []).not.toContain("fillColor");
+    expect(ui.intentProvenance["overlay1"] ?? []).not.toContain("fillColor");
   });
 });
 
@@ -1051,11 +1054,11 @@ describe("buildFillRow", () => {
     expect(path.options.fillColor).toBe("#ff0000");
   });
 
-  it("commitFillColor bumps fillOpacity to 0.2 on a hollow layer", () => {
-    // The user's "改色后没生效" report: a hollow polygon (fillOpacity=0)
-    // has its fill invisible, so a color change is user-invisible. This
-    // test asserts that commitFillColor bumps fillOpacityMap to a visible
-    // value, making the color change actually visible.
+  it("commitFillColor changes a hollow layer's color without touching fillOpacity", () => {
+    // Honest rendering: a hollow polygon (fillOpacity=0) keeps its hole. The
+    // color change is committed and reaches the fill attribute, but
+    // fill-opacity stays 0, so the new color is not painted — the author's
+    // value is respected rather than silently lifted.
     const fixture = initWithFillLayer();
     const leaf = {
       options: { fillColor: "#aabbcc", fillOpacity: 0 },
@@ -1065,17 +1068,15 @@ describe("buildFillRow", () => {
 
     commitFillColor(fixture.ui, "overlay1", "#ff0000");
 
-    expect(fixture.ui.fillOpacityMap["overlay1"]).toBe(0.2);
-    expect(fixture.ui.userOverrides["overlay1"]).toContain("fillOpacity");
-    expect(leaf.setStyle).toHaveBeenCalledWith({
-      fillColor: "#ff0000",
-      fillOpacity: 0.2,
-    });
+    expect(fixture.ui.fillColorMap["overlay1"]).toBe("#ff0000");
+    expect(fixture.ui.fillOpacityMap["overlay1"]).toBeUndefined();
+    expect(fixture.ui.intentProvenance["overlay1"]).not.toContain("fillOpacity");
+    expect(leaf.setStyle).toHaveBeenCalledWith({ fillColor: "#ff0000" });
   });
 
-  it("after the hollow bump the panel's opacity input shows the bumped value", () => {
-    // The bump writes fillOpacityMap = 0.2; a reopened panel must show 20%,
-    // not the author's 0 — the map and the panel would otherwise disagree.
+  it("a hollow layer's opacity input still reads 0 after a color change", () => {
+    // No fillOpacity override was written, so a reopened panel falls back to
+    // the authored 0 — the panel and the map agree the layer is still hollow.
     const fixture = initWithFillLayer();
     const leaf = {
       options: { fillColor: "#aabbcc", fillOpacity: 0 },
@@ -1089,11 +1090,12 @@ describe("buildFillRow", () => {
     const input = row.querySelector(
       `.${CONST.CLASSES.STYLE_FILL_OPACITY_NUMBER}`,
     ) as HTMLInputElement;
-    expect(input.value).toBe("20");
+    expect(input.value).toBe("0");
   });
 
-  it("commitFillColor does not bump fillOpacity when the user set it explicitly", () => {
-    // If the user explicitly set fillOpacity (even to 0), their choice wins.
+  it("commitFillColor keeps a user-set fillOpacity (even 0) untouched", () => {
+    // An explicit fillOpacity is the user's own choice — the color commit
+    // only reads it when building the setStyle payload, never rewrites it.
     const fixture = initWithFillLayer();
     const leaf = {
       options: { fillColor: "#aabbcc", fillOpacity: 0 },
@@ -1117,7 +1119,7 @@ describe("buildFillRow", () => {
     commitFillOpacity(ui, "overlay1", 50);
 
     expect(ui.fillOpacityMap["overlay1"]).toBe(0.5);
-    expect(ui.userOverrides["overlay1"]).toContain("fillOpacity");
+    expect(ui.intentProvenance["overlay1"]).toContain("fillOpacity");
     expect(setLayer).toHaveBeenCalled();
   });
 
@@ -1139,6 +1141,9 @@ describe("buildFillRow", () => {
   });
 
   it("resetLayerFill clears fillOpacityMap and restores the author's opacity", () => {
+    // A fillOpacity the user wrote is dropped by reset: the captured authored
+    // base is replayed, so a hollow layer (0) comes back hollow rather than
+    // keeping the user's 0.5.
     const fixture = initWithFillLayer();
     const leaf = {
       options: { fillColor: "#aabbcc", fillOpacity: 0 },
@@ -1147,12 +1152,13 @@ describe("buildFillRow", () => {
     fixture.fillLayer.leaves[0] = leaf;
 
     commitFillColor(fixture.ui, "overlay1", "#ff0000");
-    expect(fixture.ui.fillOpacityMap["overlay1"]).toBe(0.2);
+    commitFillOpacity(fixture.ui, "overlay1", 50);
+    expect(fixture.ui.fillOpacityMap["overlay1"]).toBe(0.5);
 
     resetLayerFill(fixture.ui, "overlay1");
 
     expect(fixture.ui.fillOpacityMap["overlay1"]).toBeUndefined();
-    expect(fixture.ui.userOverrides["overlay1"] ?? []).not.toContain("fillOpacity");
+    expect(fixture.ui.intentProvenance["overlay1"] ?? []).not.toContain("fillOpacity");
     expect(leaf.setStyle).toHaveBeenLastCalledWith({
       fillColor: "#aabbcc",
       fillOpacity: 0,
@@ -1226,11 +1232,11 @@ describe("replayFillState", () => {
     );
     const fixture = initFixture({
       data: [
-        { id: "overlay1", name: "Polygons", isBase: false, layer: fillLayer },
+        { id: "overlay1", name: "Polygons", group: "overlay", layer: fillLayer },
         {
           id: "base1",
           name: "OSM",
-          isBase: true,
+          group: "base",
           layer: { options: {}, setZIndex: vi.fn() } as never,
           paneName: "tilePane",
         },

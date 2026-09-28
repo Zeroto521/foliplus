@@ -49,7 +49,6 @@ const focusDisabledLocaleKey = (reason: FocusDisabled): string =>
 const focusDisabledReason = (ui: LayerUI, item: HTMLElement): FocusDisabledReason => {
   const box = item.querySelector('input[type="checkbox"]') as HTMLInputElement | null;
   if (box !== null && !box.checked) return "hidden";
-  if (item.classList.contains(CONST.CLASSES.COLOR_ITEM)) return "base";
   if (item.dataset.layerType === CONST.GROUP.BASE) return "base";
   const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
   const layerInfo = ui.m.layerRegistry.get(layerId);
@@ -336,10 +335,12 @@ const bringFocusedLayerToFront = (ui: LayerUI, layerInfo: LayerInfo): void => {
   };
 
   // Ladder above the raised layer, preserving Leaflet's normal order and staying
-  // under the mask. Without the first the raised layer covers its own labels;
-  // without the rest, those labels would cover the popup a click just opened.
-  const labelPane = ui.m.map.getPane(CONST.ANNOTATION_PANE_PREFIX + layerInfo.id);
-  if (labelPane) lift(labelPane, zFor({ base: focusedZ, role: "annotation" }), false);
+  // under the mask. The label pane needs no spot-write here anymore: it is a
+  // `role: "annotation"` PaneHandle of the surface, so `setZOverride` below
+  // prices it at `focusedZ + 1` through the same `zFor` ladder this used to
+  // hand-derive — and its `FOCUS_PANE` mark comes from the same pass (glow
+  // stays off it, see there). The rest are Leaflet's own panes, outside the
+  // surface's override.
   const liftZ = (name: string, order: number): void => {
     const el = ui.m.map.getPane(name);
     if (!el) return;
@@ -359,15 +360,22 @@ const bringFocusedLayerToFront = (ui: LayerUI, layerInfo: LayerInfo): void => {
   if (layer) {
     const surface = ui.m.surfaceFor(layerInfo);
     if (surface.setZOverride(focusedZ)) {
-      const panes = surface.panes.map(pane => pane.element);
-      for (const el of panes) {
-        el.classList.add(CONST.CLASSES.FOCUS_PANE);
-        el.classList.add(CONST.CLASSES.FOCUS_GLOW);
+      // FOCUS_PANE on every pane — including the label pane, or the
+      // focus-hide CSS would swallow the layer's own labels. The glow stays
+      // off the annotation role: text labels are the layer's typography, not
+      // its geometry, and a drop-shadow halo on them reads as a second outline
+      // over the halo the label paint already carries.
+      const panes = surface.panes;
+      for (const pane of panes) {
+        pane.element.classList.add(CONST.CLASSES.FOCUS_PANE);
+        if (pane.role !== "annotation") {
+          pane.element.classList.add(CONST.CLASSES.FOCUS_GLOW);
+        }
       }
       restores.push(() => {
-        for (const el of panes) {
-          el.classList.remove(CONST.CLASSES.FOCUS_PANE);
-          el.classList.remove(CONST.CLASSES.FOCUS_GLOW);
+        for (const pane of panes) {
+          pane.element.classList.remove(CONST.CLASSES.FOCUS_PANE);
+          pane.element.classList.remove(CONST.CLASSES.FOCUS_GLOW);
         }
         surface.restoreZ();
       });

@@ -27,8 +27,7 @@ const syncListCursor = (ui: LayerUI): void => {
   if (!ui.listCursor) {
     ui.listCursor = new ListCursor({
       root: ui.uiContainer,
-      // Same set as getNavigableItems(): layer rows + toggle-all, no color.
-      itemSelector: `${CONST.SEL.LAYER_ITEM}:not(${CONST.SEL.COLOR_ITEM}),${CONST.SEL.TOGGLE_ALL}`,
+      itemSelector: `${CONST.SEL.LAYER_ITEM},${CONST.SEL.TOGGLE_ALL}`,
       activeClass: CONST.CLASSES.FOCUSED,
       mode: "roving",
     });
@@ -76,7 +75,7 @@ const restoreCursor = (ui: LayerUI, ref: string | null): void => {
 };
 
 /** Get all keyboard-navigable rows: layer items and toggle-all rows, in DOM
- *  order. The color item is excluded (it is a picker, not a layer).
+ *  order.
  *
  *  Enumerates the row elements themselves, not their checkboxes. The old
  *  checkbox-first traversal silently dropped any row without a checkbox, so
@@ -88,7 +87,7 @@ const getNavigableItems = (ui: LayerUI): HTMLElement[] => {
     ui.uiContainer.querySelectorAll<HTMLElement>(
       `${CONST.SEL.LAYER_ITEM},${CONST.SEL.TOGGLE_ALL}`,
     ),
-  ).filter(el => !el.classList.contains(CONST.CLASSES.COLOR_ITEM));
+  );
 };
 
 /** Index of the nearest row in `step` direction that is not folded away,
@@ -473,13 +472,10 @@ const handleDblClick = (ui: LayerUI, event: MouseEvent): void => {
   ) {
     return;
   }
-  // Base basemap / color picker have no meaningful extent to zoom to —
-  // explain instead of silently ignoring the double-click. Hidden layers
-  // ARE passed through: focusLayer shows the "hidden" hint for them.
-  if (
-    item.classList.contains(CONST.CLASSES.COLOR_ITEM) ||
-    item.dataset.layerType === CONST.GROUP.BASE
-  ) {
+  // Base basemap has no meaningful extent to zoom to — explain instead of
+  // silently ignoring the double-click. Hidden layers ARE passed through:
+  // focusLayer shows the "hidden" hint for them.
+  if (item.dataset.layerType === CONST.GROUP.BASE) {
     showFocusDisabledHint(ui, "base");
     return;
   }
