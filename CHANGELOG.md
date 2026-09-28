@@ -79,11 +79,11 @@
 
 ### Removed
 
-- `LayerControl`: `registerLayer({onToggle})` callback removed — canvas visibility now rides the surface's `capabilities.visibility` carrier (canvas HIDDEN class) instead of a per-layer callback. JS callers still passing `onToggle` get a runtime deprecation warn from `registerLayer` / `createCanvas` / `createColor`. Affects `LayerAPI.registerLayer`, `LayerAPI.createCanvas`, `LayerAPI.createColor` ([#518](https://github.com/Zeroto521/foliplus/pull/518))
 - `hint`: `window.foliplus.showHint` removed — hints are now per-map, with each map getting its own `HintManager` ([#147](https://github.com/Zeroto521/foliplus/pull/147), [#149](https://github.com/Zeroto521/foliplus/pull/149))
 - `HeatmapControl`: remove the nested `style` dict parameter; `border_weight`, `border_color`, `fill_opacity`, `border_opacity`, `label_show`, `label_size`, `label_color`, `label_format` are now first-class constructor keyword arguments — no `style=` wrapper needed ([#169](https://github.com/Zeroto521/foliplus/pull/169))
 - `ScaleControl`: drop the `unit` parameter — a breaking change against the v0.3.x API, since `unit=` now raises `TypeError`; scale bars always render metric units and `isMetric` is no longer exported to the JS `CONF` ([#186](https://github.com/Zeroto521/foliplus/pull/186))
 - `HeatmapControl`: remove the `field` parameter — a breaking change; the candidate list already enumerates all numeric shapes, so user selection covers every case ([#375](https://github.com/Zeroto521/foliplus/pull/375))
+- `LayerControl`: `registerLayer({onToggle})` callback removed — canvas visibility now rides the surface's `capabilities.visibility` carrier (canvas HIDDEN class) instead of a per-layer callback. JS callers still passing `onToggle` get a runtime deprecation warn from `registerLayer` / `createCanvas` / `createColor`. Affects `LayerAPI.registerLayer`, `LayerAPI.createCanvas`, `LayerAPI.createColor` ([#518](https://github.com/Zeroto521/foliplus/pull/518))
 
 ### Fixed
 
