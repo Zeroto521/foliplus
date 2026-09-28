@@ -14,6 +14,7 @@ import * as CONST from "../../const.js";
 import { applyProjection } from "../apply.js";
 import type { LayerUI } from "../index.js";
 import { markOverride, saveState, unmarkOverride } from "../state.js";
+import { syncNoBasemap } from "../visibility.js";
 import { railPos, round5 } from "./frame.js";
 import { registerDimension } from "./registry.js";
 
@@ -106,6 +107,12 @@ const commitOpacityPct = (
   }
   saveState(ui);
   applyProjection(ui, layerId);
+  // Base-layer opacity can move the visible-basemap count across the zero
+  // boundary (0 hides, >0 shows), so the no-basemap hatch and the group
+  // label must follow — `syncNoBasemap` gates on `li.opacity ?? 1 > 0`.
+  // Overlay opacity is unrelated to basemap visibility, so skip it: the
+  // call would be a wasted O(n) scan on the drag hot path.
+  if (li.isBase) syncNoBasemap(ui);
   syncOpacityInputs(panel, pct);
 };
 
@@ -172,11 +179,14 @@ const buildOpacityRow = (ui: LayerUI, layerId: string): HTMLElement => {
 
 /** Reset one layer's opacity to fully opaque and drop its persisted entry. */
 const resetLayerOpacity = (ui: LayerUI, layerId: string): void => {
-  if (!ui.m.layerRegistry.has(layerId)) return;
+  const li = ui.m.layerRegistry.get(layerId);
+  if (!li) return;
   delete ui.opacityMap[layerId];
   unmarkOverride(ui, layerId, "opacity");
   saveState(ui);
   applyProjection(ui, layerId);
+  // Resetting a base layer from 0 back to 1 un-hides it — flip the hatch.
+  if (li.isBase) syncNoBasemap(ui);
 };
 
 /** Register opacity as the first per-layer dimension in the style-panel
