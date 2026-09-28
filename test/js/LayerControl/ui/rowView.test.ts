@@ -186,7 +186,7 @@ describe("buildRowCell + applyRowView (one writer per row)", () => {
     const item = findItem(ui, "overlay1");
 
     ui.applyVisibility("overlay1", false);
-    expect(ui.visibleMap["overlay1"] === false).toBe(true);
+    expect(ui.visibleMap["overlay1"]).toBe(false);
     expect(buildRowCell(ui, layerInfo).checked).toBe(false);
     expect(box(item).checked).toBe(false);
     expect(item.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);

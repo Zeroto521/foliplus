@@ -224,7 +224,7 @@ describe("applyVisibility", () => {
     expect(applyVisibility(ui, "overlay1", true)).toBe(true);
 
     // Intent is recorded: the box is checked and the layer is no longer hidden.
-    expect(ui.visibleMap["overlay1"] === false).toBe(false);
+    expect(ui.visibleMap["overlay1"]).not.toBe(false);
     expect(
       ui.uiContainer.querySelector(
         `[${CONST.DATA.LAYER_ID}="overlay1"] input[type="checkbox"]`,
@@ -279,7 +279,7 @@ describe("applyVisibility", () => {
     expect(applyVisibility(ui, "ov", false)).toBe(true);
 
     expect(map.removeLayer).toHaveBeenCalledWith(layer);
-    expect(ui.visibleMap["ov"] === false).toBe(true);
+    expect(ui.visibleMap["ov"]).toBe(false);
   });
 
   it("persists the hidden set so the choice survives a reload", () => {

@@ -207,8 +207,8 @@ describe("LayerUI shell — delegates", () => {
 
     ui.dropPersistedLayerState("overlay1");
 
-    expect(ui.visibleMap["overlay1"] === false).toBe(false);
-    expect(ui.visibleMap["base1"] === false).toBe(true);
+    expect(ui.visibleMap["overlay1"]).not.toBe(false);
+    expect(ui.visibleMap["base1"]).toBe(false);
     expect(ui.opacityMap.overlay1).toBeUndefined();
     expect(ui.zoomRangeMap.overlay1).toBeUndefined();
     expect(ui.intentProvenance.overlay1).toBeUndefined();

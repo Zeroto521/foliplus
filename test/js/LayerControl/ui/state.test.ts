@@ -117,7 +117,7 @@ describe("LayerUI visibility persistence (visibleMap)", () => {
       u.applyUserState();
 
       expect(removeLayer).toHaveBeenCalledWith(testPolyLayer);
-      expect(u.visibleMap["overlay1"] === false).toBe(true);
+      expect(u.visibleMap["overlay1"]).toBe(false);
       expect(u.intentVisible("overlay1")).toBe(false);
     });
 
@@ -397,7 +397,7 @@ describe("LayerUI visibility persistence (visibleMap)", () => {
 
       dropPersistedLayerState(u, "overlay1");
 
-      expect(u.visibleMap["overlay1"] === false).toBe(false);
+      expect(u.visibleMap["overlay1"]).not.toBe(false);
       expect(u.opacityMap["overlay1"]).toBeUndefined();
       expect(u.zoomRangeMap["overlay1"]).toBeUndefined();
       expect(u.fillColorMap["overlay1"]).toBeUndefined();
@@ -542,7 +542,7 @@ describe("LayerUI visibility persistence (visibleMap)", () => {
       u.showSolidBasemap("#000000");
 
       // overlay1 was hidden before the color activation and should stay hidden.
-      expect(u.visibleMap["overlay1"] === false).toBe(true);
+      expect(u.visibleMap["overlay1"]).toBe(false);
       // No base-layer id was added even though showSolidBasemap deselects all bases.
       expect(u.visibleMap).toEqual({ overlay1: false });
     });
@@ -1182,7 +1182,7 @@ describe("ui/state intentProvenance and per-layer state persistence", () => {
 
     setVisible(bare, "overlay1", true);
 
-    expect(bare.visibleMap["overlay1"] === false).toBe(false);
+    expect(bare.visibleMap["overlay1"]).not.toBe(false);
     const fields = schedule.mock.calls[0][0] as {
       layers: () => Record<string, { visible?: boolean; overrides: string[] }>;
     };

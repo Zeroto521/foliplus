@@ -138,7 +138,7 @@ describe("executor: only intent authorises display", () => {
     map.getZoom.mockReturnValue(2);
     applyProjectionAll(ui);
     expect(map.addLayer).not.toHaveBeenCalled();
-    expect(ui.visibleMap["a"] === false).toBe(false);
+    expect(ui.visibleMap["a"]).not.toBe(false);
   });
 });
 
@@ -190,7 +190,7 @@ describe("executor: intent authorises, policy only suppresses", () => {
 
     // Intent is unchanged throughout: the user's choice is `visible`,
     // which never went into `visibleMap`. This is the #329 lock.
-    expect(ui.visibleMap["r"] === false).toBe(false);
+    expect(ui.visibleMap["r"]).not.toBe(false);
     expect(ui.intentProvenance.r).toEqual(["zoomRange"]);
   });
 
@@ -1003,7 +1003,7 @@ describe("membership invariants: only intent + author snapshot authorise members
     const ui = manager.ui as LayerUI;
 
     expect(ui.authorVisible.has("unobs")).toBe(false);
-    expect(ui.visibleMap["unobs"] === false).toBe(false);
+    expect(ui.visibleMap["unobs"]).not.toBe(false);
 
     applyProjectionAll(ui);
     expect(map.addLayer).not.toHaveBeenCalled();
@@ -1021,7 +1021,7 @@ describe("membership invariants: only intent + author snapshot authorise members
 
     applyProjectionAll(ui);
     expect(map.addLayer).not.toHaveBeenCalled();
-    expect(ui.visibleMap["hidden"] === false).toBe(true);
+    expect(ui.visibleMap["hidden"]).toBe(false);
   });
 
   it("dismissing focus after intent=false does not add the layer back", () => {
@@ -1036,6 +1036,6 @@ describe("membership invariants: only intent + author snapshot authorise members
 
     applyProjectionAll(ui);
     expect(map.addLayer).not.toHaveBeenCalled();
-    expect(ui.visibleMap["p"] === false).toBe(true);
+    expect(ui.visibleMap["p"]).toBe(false);
   });
 });

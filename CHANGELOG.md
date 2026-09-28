@@ -78,6 +78,7 @@
 - `LayerControl`: style-panel dimensions become registry descriptors (`registerDimension` / `DIM_ORDER`) — the panel discovers rows through the registry, gate = capability check ([#505](https://github.com/Zeroto521/foliplus/pull/505), [#513](https://github.com/Zeroto521/foliplus/pull/513), [#522](https://github.com/Zeroto521/foliplus/pull/522), [#536](https://github.com/Zeroto521/foliplus/pull/536))
 - `LayerControl` / `HeatmapControl`: the style, attributes and heatmap panels drop their group headings and read as one flat row list; row labels are right-aligned, so all three panels share one label edge ([#516](https://github.com/Zeroto521/foliplus/pull/516))
 - `HeatmapControl` / `LayerControl`: bake layer opacity into canvas draws (`globalAlpha`); heatmap slider stays CSS, bake on redraw ([#533](https://github.com/Zeroto521/foliplus/pull/533))
+- `LayerControl`: fold the hidden-layer value into the per-layer intent record — the `hiddenLayerIds` mirror is gone, and visibility now writes through one value + provenance pair (`visibleMap` + `intentProvenance`) instead of two hand-synced structures ([#539](https://github.com/Zeroto521/foliplus/pull/539))
 
 ### Removed
 
