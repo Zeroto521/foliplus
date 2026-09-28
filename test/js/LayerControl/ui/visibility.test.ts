@@ -1085,6 +1085,56 @@ describe("unit helpers", () => {
     expect(() => syncNoBasemap(ui)).not.toThrow();
   });
 
+  describe("syncNoBasemap opacity gate", () => {
+    // The effective-visible rule is intent AND opacity > 0. A basemap that
+    // the user dragged to opacity=0 is visually empty too, so the hatch has
+    // to show for it. The gate reads `li.opacity` (LayerInfo's projection
+    // field, which the executor writes on every opacity change) and treats
+    // undefined as fully opaque — freshly registered layers have not been
+    // touched by the executor yet, so their `li.opacity` is still undefined.
+    const makeUiWithBase = (opacity?: number): { ui: LayerUI; container: HTMLElement } => {
+      const uiContainer = document.createElement("div");
+      uiContainer.innerHTML = `<div class="foliplus-layer-toggle-all" data-group="${CONST.GROUP.BASE}"><span></span></div>`;
+      const container = document.createElement("div");
+      const layers = opacity === undefined ? [{ id: "b1", isBase: true }] : [{ id: "b1", isBase: true, opacity }];
+      const ui = {
+        uiContainer,
+        m: { layers, map: { getContainer: () => container } },
+        authorVisible: new Map(),
+        hiddenIds: new Set<string>(),
+        userOverrides: {},
+        T: (k: string) => k,
+      } as unknown as LayerUI;
+      return { ui, container };
+    };
+
+    it("shows the hatch when a basemap is dragged to opacity 0", () => {
+      // The bug T207: intent says visible, so the pre-fix check kept the
+      // basemap class off — the user's slider at 0 was silently ignored.
+      const { ui, container } = makeUiWithBase(0);
+      syncNoBasemap(ui);
+      expect(container.classList.contains(CONST.CLASSES.NO_BASE_MAP)).toBe(true);
+    });
+
+    it("keeps the basemap class on when opacity is positive", () => {
+      // Any strictly positive value (down to the slider's smallest step) is
+      // still visible — the gate is a strict `> 0`, no epsilon tolerance.
+      const { ui, container } = makeUiWithBase(0.5);
+      syncNoBasemap(ui);
+      expect(container.classList.contains(CONST.CLASSES.NO_BASE_MAP)).toBe(false);
+    });
+
+    it("treats undefined opacity as fully opaque", () => {
+      // Freshly registered basemaps have not been written by the executor yet,
+      // so `li.opacity` is still undefined. The `?? 1` fallback treats that as
+      // the author's default (opaque) rather than as invisible — the reverse
+      // would paint the hatch on every pristine page.
+      const { ui, container } = makeUiWithBase();
+      syncNoBasemap(ui);
+      expect(container.classList.contains(CONST.CLASSES.NO_BASE_MAP)).toBe(false);
+    });
+  });
+
   it("syncToggleAll handles undefined userOverrides and hiddenIds", () => {
     // Same fallback pattern: the inline intent check in syncToggleAll must
     // degrade gracefully when the choice maps are absent.
