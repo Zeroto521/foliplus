@@ -385,8 +385,14 @@ class LayerManager implements LayerAPI {
    *  component registering (Heatmap and Measure register in their own
    *  constructor, after LayerControl has attached), and a write of the live ids
    *  alone would erase the position that registration is meant to read back.
+   *
+   *  `persist=false` skips both the schedule and the in-memory rewrite: a
+   *  registration that must not write its slot must not let that slot be read
+   *  back as the stored order by a later `replaySavedOrder` in the same boot
+   *  pass.
    */
-  saveOrder() {
+  saveOrder(persist = true) {
+    if (!persist) return;
     const live = this.layers.map(l => l.id);
     const order = mergeStoredOrder(this.savedOrder, live);
     this.savedOrder = order;
@@ -712,7 +718,7 @@ class LayerManager implements LayerAPI {
       // Defer z-order enforcement so batch registration coalesces into one pass.
       this.debouncedEnforce();
     }
-    this.saveOrder();
+    this.saveOrder(opts.persistOrder !== false);
     this.events.emit(EVENTS.LAYER_CHANGE);
     return this.uiContainer.querySelector(
       `[${CONST.DATA.LAYER_ID}="${CSS.escape(opts.id)}"]`,

@@ -1082,8 +1082,10 @@ describe("LayerUI style panel", () => {
   });
 
   it("never builds the vector border row for a delegated layer — one border row total", () => {
-    // layerCanBorder excludes styleSetters, so the vector row cannot render
-    // alongside the drawer's own border row in the same panel.
+    // The delegated drawer skips `border` in the DIM_ORDER sweep, so the
+    // vector border row cannot render alongside the drawer's own border row.
+    // The drawer's border row comes from the styleSetters path (setters
+    // publishing borderWeight / borderColor), not the registry.
     manager.registerLayer({
       id: "heat1",
       name: "Heat",
@@ -2131,6 +2133,55 @@ describe("LayerUI style panel", () => {
     expect(order.indexOf(headings[0])).toBeLessThan(
       order.indexOf(panel.querySelector("input[type=color]") as Element),
     );
+  });
+
+  it("delegated panel with vector geometry skips fill/border — the component redraws them", () => {
+    // A measure-like layer: vector geometry (polygon) that detects fill/stroke
+    // as "native", but the component only delegates label style (labelShow,
+    // labelCollide) — no border/fill setters. The DIM_ORDER sweep must skip
+    // fill and border (the vector setStyle write is unreliable against a
+    // component that redraws its own geometry), keeping only opacity and
+    // zoomRange (LayerControl-owned).
+    const leaf = {
+      options: { color: "#3388ff", weight: 2, fillColor: "#3388ff", fillOpacity: 0.2 },
+      setStyle: vi.fn(),
+      on: vi.fn(),
+    };
+    manager.registerLayer({
+      id: "measure1",
+      name: "Measure",
+      layer: {
+        options: {},
+        eachLayer: vi.fn((fn: (child: unknown) => void) => {
+          fn(leaf);
+        }),
+        getBounds: vi.fn(() => ({
+          isValid: vi.fn(() => true),
+          getSouthWest: () => ({ lat: 0, lng: 0 }),
+          getNorthEast: () => ({ lat: 1, lng: 1 }),
+        })),
+      } as never,
+      styleProvider: () => ({ labelShow: true, labelCollide: false }),
+      styleSetters: { labelShow: vi.fn(), labelCollide: vi.fn() },
+    });
+    ui.fieldCache.set("measure1", [{ name: "count", numeric: true }]);
+    const item = findItem(ui, "measure1");
+    ui.openStylePanel("measure1");
+    const panel = panelOf(item)!;
+
+    // No fill or border rows — the delegated drawer skips both.
+    expect(panel.querySelector(`.${CONST.CLASSES.STYLE_FILL_ROW}`)).toBeNull();
+    expect(panel.querySelector(`.${CONST.CLASSES.STYLE_BORDER_ROW}`)).toBeNull();
+
+    // Opacity and zoomRange are LayerControl-owned — they survive.
+    expect(panel.querySelector(`.${CONST.CLASSES.STYLE_OPACITY_RANGE}`)).not.toBeNull();
+    expect(
+      panel.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`),
+    ).not.toBeNull();
+
+    // The Layer section still renders (opacity/zoomRange give it content).
+    const headings = [...panel.querySelectorAll(".foliplus-section-heading")];
+    expect(headings.map(h => h.textContent)).toContain("LayerControl.section_layer");
   });
 
   it("delegated panel omits the field select even when field setter is present", () => {

@@ -21,9 +21,7 @@
   // The invariant we actually pin is the CSS rule on the overlay pane itself;
   // if the base class ever drops off, that rule goes with it and the assert
   // fires.
-  const item = document.querySelector(
-    ".foliplus-layer-item:not(.foliplus-color-layer-item)",
-  );
+  const item = document.querySelector(".foliplus-layer-item");
   if (!item) return { row: false };
   item.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
 

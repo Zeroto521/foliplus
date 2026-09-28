@@ -1000,16 +1000,21 @@ describe("unit helpers", () => {
     <div class="foliplus-layer-item" data-layer-type="overlay">
       <input type="checkbox" data-index="0" />
     </div>
-    <div class="foliplus-color-layer-item"></div>
+    <div
+      class="foliplus-layer-item"
+      data-layer-id="${CONST.COLOR.MAP_ID}"
+      data-layer-type="base"
+    ></div>
   `;
     return { uiContainer } as unknown as LayerUI;
   };
 
-  it("getLayerItems returns only base rows for the base group", () => {
+  it("getLayerItems returns every base row, the colour row included", () => {
     const ui = makeUi();
     const items = getLayerItems(ui, CONST.GROUP.BASE);
-    expect(items.length).toBe(1);
+    expect(items.length).toBe(2);
     expect(items[0].getAttribute("data-layer-type")).toBe("base");
+    expect(items[1].getAttribute("data-layer-id")).toBe(CONST.COLOR.MAP_ID);
   });
 
   it("getLayerItems returns overlay rows and excludes the color basemap", () => {

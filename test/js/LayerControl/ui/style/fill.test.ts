@@ -680,6 +680,8 @@ describe("LayerUI style panel — fill color", () => {
       zoomRange: "none",
       relocatable: false,
       bounds: false,
+      fill: "native",
+      stroke: "none",
     };
     ui.fieldCache.set(CONST.COLOR.MAP_ID, []);
   };

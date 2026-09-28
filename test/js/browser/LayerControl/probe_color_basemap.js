@@ -10,7 +10,9 @@
   if (ctrl && !ctrl.classList.contains("foliplus-is-expanded")) {
     ctrl.querySelector(".foliplus-toggle-btn").click();
   }
-  const item = document.querySelector(".foliplus-color-layer-item");
+  const item = document.querySelector(
+    '.foliplus-layer-item[data-layer-id="foliplus_color_map"]',
+  );
   if (!item) return { itemFound: false };
   item.click();
   // Set the fill color through the style panel (fill row).

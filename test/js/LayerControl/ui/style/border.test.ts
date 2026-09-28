@@ -157,7 +157,7 @@ describe("layerCanBorder", () => {
       layer: makeLeaf(),
     });
     const li = manager.layerRegistry.get("nat1")!;
-    manager.surfaceFor(li).capabilities.opacity = "native";
+    manager.surfaceFor(li).capabilities.stroke = "none";
     expect(layerCanBorder(ui, "nat1")).toBe(false);
   });
 
@@ -168,20 +168,20 @@ describe("layerCanBorder", () => {
       layer: makeLeaf(),
     });
     const li = manager.layerRegistry.get("non1")!;
-    manager.surfaceFor(li).capabilities.opacity = "none";
+    manager.surfaceFor(li).capabilities.stroke = "none";
     expect(layerCanBorder(ui, "non1")).toBe(false);
   });
 
   it("declines a basemap-like surface — pane opacity but no zoom range", () => {
-    // The double check: a surface with pane opacity and no zoom range is a
-    // solid-color basemap, which owns a background pane, not vector shapes.
+    // The colour basemap has no vector stroke axis, so the probe returns
+    // "none" and the gate rejects it.
     manager.registerLayer({
       id: "bas1",
       name: "B",
       layer: makeLeaf(),
     });
     const li = manager.layerRegistry.get("bas1")!;
-    manager.surfaceFor(li).capabilities.zoomRange = "none";
+    manager.surfaceFor(li).capabilities.stroke = "none";
     expect(layerCanBorder(ui, "bas1")).toBe(false);
   });
 
