@@ -1,6 +1,6 @@
 () => {
-  // HeatmapControl registers through createCanvas: callback-only, so its
-  // zoom-range write lands on the layer's onToggle callback rather than on
+  // HeatmapControl registers through createCanvas: canvas-only (pane carrier),
+  // so its zoom-range write lands on the canvas HIDDEN class rather than on
   // map membership. This probe drives the row through the same two clicks a
   // user makes, then reads the canvas back to prove the write reached it.
   const map = window.map;
@@ -15,7 +15,7 @@
 
   // Read before touching the panel: an untouched visit writes no zoom-range
   // record at all, so the row's absence is storage-clean rather than a
-  // storage entry holding the author default.
+  // storage entry holding an author default.
   const key = Object.keys(localStorage).find(k =>
     k.startsWith("foliplus_layer_state_"),
   );
@@ -91,12 +91,20 @@
   // Push the lower bound past the current zoom: the canvas is now out of range.
   const outMin = Math.min(mapMax, current + 1);
 
-  // Live pass — the onToggle callback is what hides the canvas, not a map
+  // Live pass — the HIDDEN class is what hides the canvas, not a map
   // write, since a canvas has no Leaflet layer to add or remove.
   const visibleBefore = !canvas.classList.contains("hidden");
   minInput.value = String(outMin);
-  minInput.dispatchEvent(new Event("input", { bubbles: true }));
+  const dispatched = minInput.dispatchEvent(new Event("input", { bubbles: true }));
   const hiddenOut = canvas.classList.contains("hidden");
+  const rowOutOfRange = zoomRow.classList.contains("foliplus-zoom-range-out-of-range");
+  const rangeMap = JSON.parse(
+    localStorage.getItem(
+      Object.keys(localStorage).find(k => k.startsWith("foliplus_layer_state_")) || "",
+    ) || "{}",
+  );
+  const rangeAfterInput =
+    rangeMap.layers && rangeMap.layers[li.id] ? rangeMap.layers[li.id].zoomRange : null;
 
   // Dragging the bound back is reversible.
   minInput.value = String(mapMin);
@@ -110,6 +118,11 @@
 
   return {
     id: li.id,
+    hasCanvas: Boolean(li.canvas),
+    canvasMatches: li.canvas === canvas,
+    dispatched,
+    rowOutOfRange,
+    rangeAfterInput,
     freshZoomRange: entry ? entry.zoomRange : null,
     freshOverrides: entry ? entry.overrides : null,
     sections: headings.map(h => h.textContent),

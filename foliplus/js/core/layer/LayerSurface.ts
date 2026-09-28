@@ -575,6 +575,7 @@ const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
       zoomRange: "pane",
       relocatable: true,
       bounds: false,
+      visibility: "pane",
     };
   }
 
@@ -586,6 +587,7 @@ const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
       zoomRange: "none",
       relocatable: false,
       bounds: false,
+      visibility: "native",
     };
   }
 
@@ -603,6 +605,7 @@ const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
       zoomRange,
       relocatable: true,
       bounds: hasBoundsProvider(layer),
+      visibility: "native",
     };
   }
 
@@ -616,6 +619,16 @@ const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
     (opts.paneSpecs && opts.paneSpecs.length > 0) ||
     opts.canvas;
 
+  // Visibility carrier: "native" for any surface backed by a real L.Layer
+  // (map membership), "pane" for canvas-only surfaces (heatmap / color face),
+  // "none" only when neither exists — a layer with no map to add to and no
+  // canvas to hide would have no honest toggle at all.
+  const visibility: LayerCapabilities["visibility"] = layer
+    ? "native"
+    : opts.canvas
+      ? "pane"
+      : "none";
+
   if (hasContentPanes) {
     return {
       fill: probeVectorCarrier(layer, "fill"),
@@ -624,6 +637,7 @@ const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
       zoomRange: "pane",
       relocatable: true,
       bounds: Boolean(opts.getBounds) || hasBoundsProvider(layer),
+      visibility,
     };
   }
 
@@ -638,6 +652,7 @@ const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
       zoomRange: "pane",
       relocatable: true,
       bounds: hasBoundsProvider(layer),
+      visibility,
     };
   }
 
@@ -649,6 +664,7 @@ const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
     zoomRange: "none",
     relocatable: false,
     bounds: false,
+    visibility,
   };
 };
 
