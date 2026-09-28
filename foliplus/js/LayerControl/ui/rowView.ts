@@ -12,7 +12,6 @@
 // Two pieces:
 //   inZoomRange / rowView — the projection (read-only + pure)
 //   buildRowCell / applyRowView        — gather the cell, then paint the row
-import { GEOM_TYPE } from "#core/layer/index.js";
 import { formatNumber } from "#common/format.js";
 import * as Icons from "#common/icon.js";
 import * as CONST from "../const.js";
@@ -155,12 +154,12 @@ const snapshotAuthorVisible = (ui: LayerUI, layerInfo: LayerInfo): void => {
 };
 
 /**
- * The type icon and its label for one layer, plus the snapshot sync they come
- * with.
+ * The type icon and its label for one layer.
  *
- *  `layerInfo.type` is a snapshot of the surface's probe result: writing it
- *  here is the snapshot sync for render use, not a second probe. The
- *  authority for geometry-type detection lives on the surface.
+ *  Render-only: the surface is the probe authority, and `layerInfo.type` is
+ *  that result's snapshot with a single writer (`LayerManager.getLayerType`).
+ *  Reading the surface here is not a second probe, and painting must not
+ *  stamp the snapshot — the row is a projection, not a writer.
  */
 const rowType = (
   ui: LayerUI,
@@ -168,7 +167,6 @@ const rowType = (
   layer: L.Layer | null,
 ): { svg: string; key: string } => {
   if (layerInfo.group === CONST.GROUP.BASE) {
-    layerInfo.type = CONST.GROUP.BASE;
     // The colour basemap uses its own swatch icon, not the globe.
     if (layerInfo.id === CONST.SOLID_BASEMAP_ID) {
       return { svg: SVGs.COLOR, key: "type_color_map" };
@@ -176,24 +174,20 @@ const rowType = (
     return { svg: Icons.GLOBE_ICON, key: "type_base" };
   }
   if (layerInfo.iconSvg) {
-    layerInfo.type = GEOM_TYPE.CUSTOM;
     return { svg: layerInfo.iconSvg, key: "type_custom" };
   }
   if (layer) {
     const gtype = ui.m.surfaceFor(layerInfo).geometryType();
-    layerInfo.type = gtype;
     return { svg: Util.getTypeSVG(gtype), key: `type_${gtype}` };
   }
-  layerInfo.type = GEOM_TYPE.UNKNOWN;
   return { svg: SVGs.UNKNOWN, key: "type_unknown" };
 };
 
 /**
  * One layer's inputs to the row visual: the projection input builder.
  *
- *  Everything the row shows is read here and nothing is written except the
- *  type snapshot above, so the row cannot read a stale decoration and looking
- *  at a layer cannot move the map.
+ *  Everything the row shows is read here and nothing is written, so the row
+ *  cannot read a stale decoration and looking at a layer cannot move the map.
  */
 const buildRowCell = (ui: LayerUI, layerInfo: LayerInfo): RowCell => {
   const layer = ui.m.findLayer(layerInfo);
