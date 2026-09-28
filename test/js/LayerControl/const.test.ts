@@ -30,7 +30,7 @@ describe("STORAGE", () => {
 
 describe("COLOR", () => {
   it("defines color map id and default value", () => {
-    expect(CONST.COLOR.MAP_ID).toBe("foliplus_color_map");
+    expect(CONST.SOLID_BASEMAP_ID).toBe("foliplus_color_map");
     expect(CONST.COLOR.DEFAULT).toBe("#cccccc");
   });
 });
@@ -58,7 +58,7 @@ describe("CLASSES", () => {
     expect(CONST.CLASSES.FOLDED).toBe("foliplus-layer-folded");
     expect(CONST.CLASSES.TOGGLE_ALL).toBe("foliplus-layer-toggle-all");
     expect(CONST.CLASSES.FOLD_BTN_CTR).toBe("foliplus-layer-sep");
-    expect(CONST.CLASSES.SEP_LABEL).toBe("foliplus-layer-sep-label");
+    expect(CONST.CLASSES.SEPARATOR_LABEL).toBe("foliplus-layer-sep-label");
     expect(CONST.CLASSES.GROUP_FOLDED).toBe("foliplus-layer-group-folded");
   });
 
@@ -141,11 +141,7 @@ describe("CLASSES.FOCUSING", () => {
   });
 });
 
-describe("CLASSES.SECTION_HEADING / opacity controls", () => {
-  it("uses the shared form.css section heading", () => {
-    expect(CONST.CLASSES.SECTION_HEADING).toBe("foliplus-section-heading");
-  });
-
+describe("CLASSES opacity controls", () => {
   it("defines the opacity row and shared slider classes", () => {
     // The shared component both range controls are built from.
     expect(CONST.CLASSES.SLIDER).toBe("foliplus-slider");

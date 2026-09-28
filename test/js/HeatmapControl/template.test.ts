@@ -8,16 +8,14 @@ describe("panelContentHTML", () => {
 
   const T = (key: string) => {
     const map: Record<string, string> = {
-      section_data: "Data",
-      section_style: "Style",
-      layer: "Aggregation Layer",
-      agg_method: "Aggregation Method",
+      layer: "Layer",
+      agg_method: "Method",
       agg_count: "Count",
       agg_sum: "Sum",
       agg_avg: "Average",
       agg_min: "Min",
       agg_max: "Max",
-      field: "Aggregation Field",
+      field: "Field",
       class_method: "Classify",
       jenks: "Jenks",
       quantile: "Quantile",
@@ -37,8 +35,9 @@ describe("panelContentHTML", () => {
     expect(html).toContain("foliplus-heatmap-config-body");
     expect(html).toContain("foliplus-heatmap-extra-body");
 
-    // Section headings
-    expect(html).toContain("foliplus-section-heading");
+    // Section headings are gone: the panel is one flat row list, matching the
+    // style and attributes panels.
+    expect(html).not.toContain("foliplus-section-heading");
 
     // Form rows — shared common/form.css primitives
     expect(html).toContain("foliplus-form-row");
@@ -66,17 +65,11 @@ describe("panelContentHTML", () => {
     }
   });
 
-  it("includes translated section headings", () => {
-    const html = panelContentHTML(T);
-    expect(html).toContain("Data");
-    expect(html).toContain("Style");
-  });
-
   it("includes translated form labels", () => {
     const html = panelContentHTML(T);
-    expect(html).toContain("Aggregation Layer");
-    expect(html).toContain("Aggregation Method");
-    expect(html).toContain("Aggregation Field");
+    expect(html).toContain("Layer");
+    expect(html).toContain("Method");
+    expect(html).toContain("Field");
     expect(html).toContain("Classify");
     expect(html).toContain("Color");
   });

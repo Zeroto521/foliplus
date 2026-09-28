@@ -22,8 +22,8 @@ const syncNoBasemap = (ui: LayerUI): void => {
   const anyBaseVisible = ui.m.layers.some(li => {
     if (li.group !== CONST.GROUP.BASE) return false;
     // Inline intent check to avoid function-call overhead on the click hot path.
-    const overrides = ui.userOverrides?.[li.id];
-    const hidden = ui.hiddenIds?.has(li.id) ?? false;
+    const overrides = ui.intentProvenance?.[li.id];
+    const hidden = ui.hiddenLayerIds?.has(li.id) ?? false;
     const hasVisible = overrides?.includes("visible") || hidden;
     const authorDefault = ui.authorVisible.get(li.id) ?? true;
     if (!(hasVisible ? !hidden : authorDefault)) return false;
@@ -36,7 +36,7 @@ const syncNoBasemap = (ui: LayerUI): void => {
   });
   ui.m.map.getContainer().classList.toggle(CONST.CLASSES.NO_BASE_MAP, !anyBaseVisible);
   const label = ui.uiContainer.querySelector(
-    `${CONST.SEL.TOGGLE_ALL}[data-group="${CONST.GROUP.BASE}"] ${CONST.SEL.SEP_LABEL}`,
+    `${CONST.SEL.TOGGLE_ALL}[data-group="${CONST.GROUP.BASE}"] ${CONST.SEL.SEPARATOR_LABEL}`,
   );
   if (label) {
     label.textContent = ui.T(anyBaseVisible ? "base_map_label" : "no_base_map_label");
@@ -105,8 +105,8 @@ const syncToggleAll = (ui: LayerUI, group: string) => {
     if (!id) continue;
     const layerInfo = ui.m.layerRegistry.get(id);
     if (!layerInfo) continue;
-    const overrides = ui.userOverrides?.[id];
-    const hidden = ui.hiddenIds?.has(id) ?? false;
+    const overrides = ui.intentProvenance?.[id];
+    const hidden = ui.hiddenLayerIds?.has(id) ?? false;
     const hasVisible = overrides?.includes("visible") || hidden;
     const authorDefault = ui.authorVisible.get(id) ?? true;
     if (hasVisible ? !hidden : authorDefault) on++;

@@ -29,8 +29,8 @@ const exportSources = () =>
 const FORBIDDEN = [
   "COLOR_INPUT",
   "currentColor",
-  "showColorLayer",
-  "hideColorLayer",
+  "showSolidBasemap",
+  "hideSolidBasemap",
   "colorLayer",
   "--color-layer-bg",
 ];

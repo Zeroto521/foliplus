@@ -11,7 +11,7 @@ import type { LayerOverride } from "../type.js";
 import type { AppliedProjection } from "../type.js";
 import { applyProjection, applyProjectionAll } from "./apply.js";
 import { closeAttrsPanel, openAttrsPanel } from "./attr.js";
-import { hideColorLayer, showColorLayer } from "./color.js";
+import { hideSolidBasemap, showSolidBasemap } from "./color.js";
 import { cancelFocus, focusLayer, isFocusing } from "./focus.js";
 import {
   blurActiveItem,
@@ -94,7 +94,7 @@ class LayerUI {
    *  is visible. `syncToggleAllFromCount` writes the checkbox off `on`. */
   checkedCount: Record<string, { total: number; on: number }>;
   /** Layer ids hidden by the user (checked-off); survives page reload. */
-  hiddenIds: Set<string>;
+  hiddenLayerIds: Set<string>;
   /** The author's declared default per layer id, snapshotted once per id from
    *  the map membership at first sight.
    *
@@ -109,7 +109,7 @@ class LayerUI {
    *  here keeps the author's `show=` / opacity default -- that is what replaces
    *  a map-level "did the user choose at all" flag, which could not tell one
    *  layer's choice from another's. */
-  userOverrides: Record<string, LayerOverride[]>;
+  intentProvenance: Record<string, LayerOverride[]>;
   currentColor: string;
   /** Lazy-created color basemap surface — the pane-owned canvas that carries
    *  the fill. Built on first show (via `factory.createColor`), which also
@@ -146,7 +146,7 @@ class LayerUI {
   /** Map zoomend handler — re-evaluates every layer's effective-shown after
    *  a zoom change so a layer whose range excludes the new level is hidden
    *  (and vice versa). Writes through the single pipeline, never touches
-   *  hiddenIds / overrides. */
+   *  hiddenLayerIds / overrides. */
   onZoomEnd: (() => void) | null;
   /** Unsubscribe function for LAYER_ITEM_COUNT_CHANGE. */
   unsubscribeCountChange: (() => void) | null;
@@ -235,9 +235,9 @@ class LayerUI {
     this._ = createTranslator(CONF);
     this.foldedGroups = new Set();
     this.checkedCount = {};
-    this.hiddenIds = new Set();
+    this.hiddenLayerIds = new Set();
     this.authorVisible = new Map();
-    this.userOverrides = {};
+    this.intentProvenance = {};
     this.currentColor = CONST.COLOR.DEFAULT;
     this.colorSurface = null;
     this.renamedNames = {};
@@ -346,14 +346,14 @@ class LayerUI {
     // style-row imports (border.js and fill.js import state.js for
     // markOverride/saveState).
     //
-    // Both dimensions enumerate `userOverrides` — the single source of truth
+    // Both dimensions enumerate `intentProvenance` — the single source of truth
     // for which layers the user actually touched. Border's map-union
-    // enumeration and fill's userOverrides loop were asymmetric: a value in
+    // enumeration and fill's intentProvenance loop were asymmetric: a value in
     // `borderColorMap` that was never recorded as an override would replay
     // for border but not for fill, and vice versa, so a reload could restore
     // the drawer's swatch for one dimension while leaving the map with the
     // author's for the other.
-    const layerIds = id !== undefined ? [id] : Object.keys(this.userOverrides);
+    const layerIds = id !== undefined ? [id] : Object.keys(this.intentProvenance);
     for (const layerId of layerIds) {
       applyBorderToLayer(this, layerId);
       replayFillState(this, layerId);
@@ -456,11 +456,11 @@ class LayerUI {
   }
 
   // ── delegates: color / menu / attrs / rename / focus ──
-  showColorLayer(color: string) {
-    return showColorLayer(this, color);
+  showSolidBasemap(color: string) {
+    return showSolidBasemap(this, color);
   }
-  hideColorLayer() {
-    return hideColorLayer(this);
+  hideSolidBasemap() {
+    return hideSolidBasemap(this);
   }
   openMoreMenu(item: HTMLElement) {
     return openMoreMenu(this, item);

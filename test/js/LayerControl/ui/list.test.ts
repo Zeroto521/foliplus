@@ -33,7 +33,7 @@ describe("ui/list displayName", () => {
 
   it("labels the color basemap and falls back to empty for unknown ids", () => {
     const ui = makeUi();
-    expect(displayName(ui, CONST.COLOR.MAP_ID)).toContain("color_map_label");
+    expect(displayName(ui, CONST.SOLID_BASEMAP_ID)).toContain("color_map_label");
     expect(displayName(ui, "ghost")).toBe("");
   });
 });
@@ -69,7 +69,7 @@ describe("ui/list row placement", () => {
     ).map(el => el.dataset.layerId ?? "");
 
     expect(rowIds).toEqual(registryIds);
-    expect(registryIds).toEqual(["B", "A", "H", CONST.COLOR.MAP_ID]);
+    expect(registryIds).toEqual(["B", "A", "H", CONST.SOLID_BASEMAP_ID]);
   });
 
   it("initLayerItem updates the row it owns, not the one at that DOM index", () => {
@@ -201,7 +201,7 @@ describe("ui/list row placement", () => {
       ui.uiContainer.querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM),
     ).map(el => el.getAttribute(CONST.DATA.LAYER_ID));
     expect(ids).toContain("O1");
-    expect(ids).toContain(CONST.COLOR.MAP_ID);
+    expect(ids).toContain(CONST.SOLID_BASEMAP_ID);
   });
 
   it("insertLayerItem declines an id the registry does not know", () => {
@@ -241,7 +241,7 @@ describe("ui/list row placement", () => {
       el => el.getAttribute("data-group") === CONST.GROUP.BASE,
     );
     const colorRow = children.findIndex(
-      el => el.getAttribute(CONST.DATA.LAYER_ID) === CONST.COLOR.MAP_ID,
+      el => el.getAttribute(CONST.DATA.LAYER_ID) === CONST.SOLID_BASEMAP_ID,
     );
     expect(baseHeader).toBeGreaterThanOrEqual(0);
     expect(baseHeader).toBeLessThan(colorRow);
@@ -276,24 +276,24 @@ describe("ui/list row placement", () => {
     renderInitialList(ui);
 
     const color = ui.uiContainer.querySelector<HTMLElement>(
-      `[${CONST.DATA.LAYER_ID}="${CONST.COLOR.MAP_ID}"]`,
+      `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
     );
     expect(color).not.toBeNull();
     expect(color!.classList.contains(CONST.CLASSES.GROUP_FOLDED)).toBe(true);
   });
 
-  it("color layer's applyVisibility routes through showColorLayer and hideColorLayer", () => {
+  it("color layer's applyVisibility routes through showSolidBasemap and hideSolidBasemap", () => {
     const { ui } = initFixture({
       data: [{ id: "B1", name: "B1", group: "base" }],
     });
 
     initTypesAndVisibility(ui);
 
-    const colorLi = ui.m.layerRegistry.get(CONST.COLOR.MAP_ID) as LayerInfo;
+    const colorLi = ui.m.layerRegistry.get(CONST.SOLID_BASEMAP_ID) as LayerInfo;
     expect(colorLi).toBeDefined();
 
-    expect(() => applyVisibility(ui, CONST.COLOR.MAP_ID, true)).not.toThrow();
-    expect(() => applyVisibility(ui, CONST.COLOR.MAP_ID, false)).not.toThrow();
+    expect(() => applyVisibility(ui, CONST.SOLID_BASEMAP_ID, true)).not.toThrow();
+    expect(() => applyVisibility(ui, CONST.SOLID_BASEMAP_ID, false)).not.toThrow();
   });
 
   it("color basemap lands at the base group end when a tile basemap is already registered", () => {
@@ -317,9 +317,9 @@ describe("ui/list row placement", () => {
 
     expect(baseRows).toContain("B1");
     expect(baseRows).toContain("B2");
-    expect(baseRows).toContain(CONST.COLOR.MAP_ID);
+    expect(baseRows).toContain(CONST.SOLID_BASEMAP_ID);
     // Color basemap is last (lowest z), tile basemaps above it.
-    expect(baseRows[baseRows.length - 1]).toBe(CONST.COLOR.MAP_ID);
+    expect(baseRows[baseRows.length - 1]).toBe(CONST.SOLID_BASEMAP_ID);
   });
 
   it("initTypesAndVisibility skips the color block when the registry has no color layer", () => {
@@ -332,7 +332,7 @@ describe("ui/list row placement", () => {
 
     const originalGet = ui.m.layerRegistry.get.bind(ui.m.layerRegistry);
     vi.spyOn(ui.m.layerRegistry, "get").mockImplementation((id: string) => {
-      if (id === CONST.COLOR.MAP_ID) return undefined;
+      if (id === CONST.SOLID_BASEMAP_ID) return undefined;
       return originalGet(id);
     });
 

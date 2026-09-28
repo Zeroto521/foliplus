@@ -3,8 +3,8 @@ import { EVENTS } from "#core/event/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { LayerManager } from "#foliplus/LayerControl/manager.js";
 import {
-  patchBringToFront,
-  unpatchBringToFront,
+  installBringToFrontPatch,
+  uninstallBringToFrontPatch,
 } from "#foliplus/LayerControl/manager.js";
 import { LayerPersistence } from "#foliplus/LayerControl/persistence.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
@@ -52,17 +52,17 @@ describe("bringToFront patch refcounting", () => {
     const proto = window.L.Path.prototype;
     const base = proto.bringToFront;
     try {
-      patchBringToFront();
-      patchBringToFront();
+      installBringToFrontPatch();
+      installBringToFrontPatch();
       expect(proto.bringToFront).not.toBe(base);
-      unpatchBringToFront();
+      uninstallBringToFrontPatch();
       expect(proto.bringToFront).not.toBe(base); // second instance still patched
-      unpatchBringToFront();
+      uninstallBringToFrontPatch();
       expect(proto.bringToFront).toBe(base); // last instance restored
     } finally {
       // leave the module counter at zero even if an assertion failed
-      unpatchBringToFront();
-      unpatchBringToFront();
+      uninstallBringToFrontPatch();
+      uninstallBringToFrontPatch();
       proto.bringToFront = base;
     }
   });
@@ -70,7 +70,7 @@ describe("bringToFront patch refcounting", () => {
   it("guarded bringToFront skips detached paths without throwing", () => {
     const proto = window.L.Path.prototype;
     const base = proto.bringToFront;
-    patchBringToFront();
+    installBringToFrontPatch();
     try {
       const guarded = proto.bringToFront as unknown as (this: unknown) => unknown;
       // _path missing / detached → no-op, returns this
@@ -79,7 +79,7 @@ describe("bringToFront patch refcounting", () => {
       expect(() => guarded.call({ _path: { parentNode: null } })).not.toThrow();
       expect(() => guarded.call({ _path: { parentNode: {} } })).not.toThrow();
     } finally {
-      unpatchBringToFront();
+      uninstallBringToFrontPatch();
       proto.bringToFront = base;
     }
   });
@@ -278,8 +278,8 @@ describe("LayerManager", () => {
       m,
       invalidateFields: vi.fn(),
       syncToggleAll: vi.fn(),
-      userOverrides: {},
-      hiddenIds: new Set(),
+      intentProvenance: {},
+      hiddenLayerIds: new Set(),
       opacityMap: {},
       fillColorMap: {},
       fillOpacityMap: {},
@@ -708,7 +708,7 @@ describe("LayerManager", () => {
     manager.map.addLayer = addLayer;
     manager.map.removeLayer = removeLayer;
     manager.ui = {
-      hiddenIds: new Set(["new1"]),
+      hiddenLayerIds: new Set(["new1"]),
       saveState: vi.fn(),
     } as any;
     manager.registerLayer({ id: "new1", name: "New", layer } as any);
@@ -726,7 +726,7 @@ describe("LayerManager", () => {
     manager.map.addLayer = addLayer;
     manager.map.removeLayer = removeLayer;
     manager.ui = {
-      hiddenIds: new Set(["canvas1"]),
+      hiddenLayerIds: new Set(["canvas1"]),
       saveState: vi.fn(),
     } as any;
     manager.registerLayer({
@@ -749,7 +749,7 @@ describe("LayerManager", () => {
     manager.map.addLayer = addLayer;
     manager.map.removeLayer = removeLayer;
     manager.ui = {
-      hiddenIds: new Set(["new1"]),
+      hiddenLayerIds: new Set(["new1"]),
       saveState: vi.fn(),
     } as any;
     manager.registerLayer({ id: "new1", name: "New", layer } as any);
@@ -766,7 +766,7 @@ describe("LayerManager", () => {
     const removeLayer = vi.fn();
     manager.map.removeLayer = removeLayer;
     manager.ui = {
-      hiddenIds: new Set(["other"]),
+      hiddenLayerIds: new Set(["other"]),
       saveState: vi.fn(),
     } as any;
     manager.registerLayer({ id: "visible1", name: "V", layer } as any);
@@ -1495,7 +1495,7 @@ describe("LayerManager", () => {
           {
             m: manager,
             uiContainer: manager.uiContainer,
-            hiddenIds: new Set(),
+            hiddenLayerIds: new Set(),
             renamedNames: {},
             opacityMap: { heat: 0.4 },
             fillColorMap: {},
@@ -1503,16 +1503,16 @@ describe("LayerManager", () => {
             zoomRangeMap: {},
             appliedState: new Map(),
             authorVisible: new Map(),
-            userOverrides: { heat: ["opacity"] },
+            intentProvenance: { heat: ["opacity"] },
           } as any,
           id,
         ),
       opacityMap: { heat: 0.4 },
       fillColorMap: {},
       fillOpacityMap: {},
-      hiddenIds: new Set(),
+      hiddenLayerIds: new Set(),
       zoomRangeMap: {},
-      userOverrides: { heat: ["opacity"] },
+      intentProvenance: { heat: ["opacity"] },
       appliedState: new Map(),
       authorVisible: new Map(),
     } as any;
@@ -1532,12 +1532,12 @@ describe("LayerManager", () => {
     manager.uiContainer = document.createElement("div");
     manager.uiContainer.appendChild(row);
     manager.ui = {
-      hiddenIds: new Set(),
+      hiddenLayerIds: new Set(),
       opacityMap: {},
       fillColorMap: {},
       fillOpacityMap: {},
       zoomRangeMap: {},
-      userOverrides: {},
+      intentProvenance: {},
       saveState: vi.fn(),
       invalidateFields: vi.fn(),
     } as any;
@@ -1552,12 +1552,12 @@ describe("LayerManager", () => {
     manager.map.hasLayer.mockReturnValue(false);
     manager.uiContainer = document.createElement("div");
     manager.ui = {
-      hiddenIds: new Set(),
+      hiddenLayerIds: new Set(),
       opacityMap: {},
       fillColorMap: {},
       fillOpacityMap: {},
       zoomRangeMap: {},
-      userOverrides: {},
+      intentProvenance: {},
       saveState: vi.fn(),
       invalidateFields: vi.fn(),
     } as any;
@@ -1571,12 +1571,12 @@ describe("LayerManager", () => {
     manager.map.hasLayer.mockReturnValue(false);
     const syncToggleAll = vi.fn();
     manager.ui = {
-      hiddenIds: new Set(),
+      hiddenLayerIds: new Set(),
       opacityMap: {},
       fillColorMap: {},
       fillOpacityMap: {},
       zoomRangeMap: {},
-      userOverrides: {},
+      intentProvenance: {},
       saveState: vi.fn(),
       invalidateFields: vi.fn(),
       syncToggleAll,
@@ -1605,12 +1605,12 @@ describe("LayerManager", () => {
     manager.map.hasLayer.mockReturnValue(false);
     const saveState = vi.fn();
     manager.ui = {
-      hiddenIds: new Set(["overlay1", "base1"]),
+      hiddenLayerIds: new Set(["overlay1", "base1"]),
       opacityMap: { overlay1: 0.4, base1: 1 },
       fillColorMap: {},
       fillOpacityMap: {},
       zoomRangeMap: { overlay1: [3, 12] },
-      userOverrides: {
+      intentProvenance: {
         overlay1: ["visible", "opacity", "zoomRange"],
         base1: ["visible"],
       },
@@ -1621,10 +1621,10 @@ describe("LayerManager", () => {
     } as any;
     manager.unregisterLayer("overlay1");
 
-    expect(manager.ui.hiddenIds).toEqual(new Set(["overlay1", "base1"]));
+    expect(manager.ui.hiddenLayerIds).toEqual(new Set(["overlay1", "base1"]));
     expect(manager.ui.opacityMap).toEqual({ overlay1: 0.4, base1: 1 });
     expect(manager.ui.zoomRangeMap).toEqual({ overlay1: [3, 12] });
-    expect(manager.ui.userOverrides).toEqual({
+    expect(manager.ui.intentProvenance).toEqual({
       overlay1: ["visible", "opacity", "zoomRange"],
       base1: ["visible"],
     });
@@ -1639,15 +1639,14 @@ describe("LayerManager", () => {
     const saveState = vi.fn();
     const saveNamesState = vi.fn();
     manager.ui = {
-      hiddenIds: new Set(["overlay1", "base1"]),
+      hiddenLayerIds: new Set(["overlay1", "base1"]),
       opacityMap: { overlay1: 0.4, base1: 1 },
       fillColorMap: {},
       fillOpacityMap: {},
       zoomRangeMap: { overlay1: [3, 12] },
-      rangeHiddenIds: new Set(),
       borderColorMap: {},
       borderWeightMap: {},
-      userOverrides: {
+      intentProvenance: {
         overlay1: ["visible", "opacity", "zoomRange"],
         base1: ["visible"],
       },
@@ -1661,10 +1660,10 @@ describe("LayerManager", () => {
     } as any;
     manager.deleteLayer("overlay1");
 
-    expect(manager.ui.hiddenIds).toEqual(new Set(["base1"]));
+    expect(manager.ui.hiddenLayerIds).toEqual(new Set(["base1"]));
     expect(manager.ui.opacityMap).toEqual({ base1: 1 });
     expect(manager.ui.zoomRangeMap).toEqual({});
-    expect(manager.ui.userOverrides).toEqual({ base1: ["visible"] });
+    expect(manager.ui.intentProvenance).toEqual({ base1: ["visible"] });
     expect(manager.ui.renamedNames.overlay1).toBeUndefined();
     expect(saveState).toHaveBeenCalledTimes(1);
     expect(saveNamesState).toHaveBeenCalledTimes(1);
@@ -1674,12 +1673,12 @@ describe("LayerManager", () => {
     manager.map.hasLayer.mockReturnValue(false);
     const saveState = vi.fn();
     manager.ui = {
-      hiddenIds: new Set(["overlay1"]),
+      hiddenLayerIds: new Set(["overlay1"]),
       opacityMap: { overlay1: 0.4 },
       fillColorMap: {},
       fillOpacityMap: {},
       zoomRangeMap: {},
-      userOverrides: { overlay1: ["opacity"] },
+      intentProvenance: { overlay1: ["opacity"] },
       renamedNames: {},
       dropPersistedLayerState: vi.fn(),
       saveState,
@@ -1688,7 +1687,7 @@ describe("LayerManager", () => {
     } as any;
 
     expect(manager.deleteLayer("never-registered")).toBe(false);
-    expect(manager.ui.hiddenIds).toEqual(new Set(["overlay1"]));
+    expect(manager.ui.hiddenLayerIds).toEqual(new Set(["overlay1"]));
     expect(saveState).not.toHaveBeenCalled();
   });
 
@@ -1708,17 +1707,16 @@ describe("LayerManager", () => {
     const saveState = vi.fn();
     const saveNamesState = vi.fn();
     manager.ui = {
-      hiddenIds: new Set(["overlay1", "base1"]),
+      hiddenLayerIds: new Set(["overlay1", "base1"]),
       opacityMap: { overlay1: 0.4 },
       fillColorMap: {},
       fillOpacityMap: {},
       zoomRangeMap: { overlay1: [3, 12] },
       fillColorMap: {},
       fillOpacityMap: {},
-      rangeHiddenIds: new Set(),
       borderColorMap: {},
       borderWeightMap: {},
-      userOverrides: { overlay1: ["visible", "opacity"] },
+      intentProvenance: { overlay1: ["visible", "opacity"] },
       renamedNames: { base1: "Renamed" },
       dropPersistedLayerState: (id: string) => dropPersistedLayerState(manager.ui, id),
       saveState,
@@ -1732,7 +1730,7 @@ describe("LayerManager", () => {
 
     expect(saveState).toHaveBeenCalledTimes(1);
     expect(saveNamesState).not.toHaveBeenCalled();
-    expect(manager.ui.hiddenIds).toEqual(new Set(["base1"]));
+    expect(manager.ui.hiddenLayerIds).toEqual(new Set(["base1"]));
     expect(manager.ui.renamedNames).toEqual({ base1: "Renamed" });
   });
 
@@ -1763,17 +1761,16 @@ describe("LayerManager", () => {
     m.map.hasLayer.mockReturnValue(false);
     m.ui = {
       m,
-      hiddenIds: new Set(),
+      hiddenLayerIds: new Set(),
       opacityMap: { overlay1: 0.4 },
       fillColorMap: {},
       fillOpacityMap: {},
       zoomRangeMap: {},
       fillColorMap: {},
       fillOpacityMap: {},
-      rangeHiddenIds: new Set(),
       borderColorMap: {},
       borderWeightMap: {},
-      userOverrides: { overlay1: ["opacity"] },
+      intentProvenance: { overlay1: ["opacity"] },
       renamedNames: { overlay1: "Renamed", base1: "Base" },
       dropPersistedLayerState: (id: string) => dropPersistedLayerState(m.ui, id),
       saveState: () => saveState(m.ui),
@@ -2458,7 +2455,7 @@ describe("LayerManager", () => {
     it("clears the colour basemap — unregisters but keeps the id registerable", () => {
       manager.map.hasLayer.mockReturnValue(false);
       manager.registerLayer({
-        id: CONST.COLOR.MAP_ID,
+        id: CONST.SOLID_BASEMAP_ID,
         name: "Colour",
         group: "base",
         layer: { options: {} },
@@ -2470,7 +2467,7 @@ describe("LayerManager", () => {
       manager.ui = {
         colorSurface: {} as any,
         currentColor: "#ff0000",
-        authorVisible: new Map([[CONST.COLOR.MAP_ID, true]]),
+        authorVisible: new Map([[CONST.SOLID_BASEMAP_ID, true]]),
         saveState: saveStateSpy,
         syncToggleAll,
         syncNoBasemap,
@@ -2478,22 +2475,22 @@ describe("LayerManager", () => {
       } as any;
       const unregisterSpy = vi.spyOn(manager, "unregisterLayer");
 
-      expect(manager.deleteLayer(CONST.COLOR.MAP_ID)).toBe(true);
+      expect(manager.deleteLayer(CONST.SOLID_BASEMAP_ID)).toBe(true);
 
-      expect(unregisterSpy).toHaveBeenCalledWith(CONST.COLOR.MAP_ID);
+      expect(unregisterSpy).toHaveBeenCalledWith(CONST.SOLID_BASEMAP_ID);
       expect(manager.ui.colorSurface).toBeNull();
       expect(manager.ui.currentColor).toBe(CONST.COLOR.DEFAULT);
-      expect(manager.ui.authorVisible.get(CONST.COLOR.MAP_ID)).toBe(false);
+      expect(manager.ui.authorVisible.get(CONST.SOLID_BASEMAP_ID)).toBe(false);
       expect(saveStateSpy).toHaveBeenCalled();
       expect(syncToggleAll).toHaveBeenCalledWith(CONST.GROUP.BASE);
       expect(syncNoBasemap).toHaveBeenCalled();
-      expect((manager as any).removedIds.has(CONST.COLOR.MAP_ID)).toBe(false);
+      expect((manager as any).removedIds.has(CONST.SOLID_BASEMAP_ID)).toBe(false);
     });
 
     it("clears the colour basemap without a panel attached", () => {
       manager.map.hasLayer.mockReturnValue(false);
       manager.registerLayer({
-        id: CONST.COLOR.MAP_ID,
+        id: CONST.SOLID_BASEMAP_ID,
         name: "Colour",
         group: "base",
         layer: { options: {} },
@@ -2501,24 +2498,24 @@ describe("LayerManager", () => {
       manager.ui = null;
       const unregisterSpy = vi.spyOn(manager, "unregisterLayer");
 
-      expect(manager.deleteLayer(CONST.COLOR.MAP_ID)).toBe(true);
+      expect(manager.deleteLayer(CONST.SOLID_BASEMAP_ID)).toBe(true);
 
-      expect(unregisterSpy).toHaveBeenCalledWith(CONST.COLOR.MAP_ID);
-      expect((manager as any).removedIds.has(CONST.COLOR.MAP_ID)).toBe(false);
+      expect(unregisterSpy).toHaveBeenCalledWith(CONST.SOLID_BASEMAP_ID);
+      expect((manager as any).removedIds.has(CONST.SOLID_BASEMAP_ID)).toBe(false);
     });
 
     it("returns false when the colour basemap cannot be unregistered", () => {
       manager.map.hasLayer.mockReturnValue(false);
       manager.registerLayer({
-        id: CONST.COLOR.MAP_ID,
+        id: CONST.SOLID_BASEMAP_ID,
         name: "Colour",
         group: "base",
         layer: { options: {} },
       } as any);
       vi.spyOn(manager, "unregisterLayer").mockReturnValue(false);
 
-      expect(manager.deleteLayer(CONST.COLOR.MAP_ID)).toBe(false);
-      expect((manager as any).removedIds.has(CONST.COLOR.MAP_ID)).toBe(false);
+      expect(manager.deleteLayer(CONST.SOLID_BASEMAP_ID)).toBe(false);
+      expect((manager as any).removedIds.has(CONST.SOLID_BASEMAP_ID)).toBe(false);
     });
 
     it("removes the overlay toggle-all row when the last overlay layer is deleted", () => {
@@ -2561,7 +2558,7 @@ describe("LayerManager", () => {
     it("removes the base toggle-all row when the last non-colour base layer is deleted", () => {
       manager.map.hasLayer.mockReturnValue(false);
       manager.registerLayer({
-        id: CONST.COLOR.MAP_ID,
+        id: CONST.SOLID_BASEMAP_ID,
         name: "Colour",
         group: "base",
         layer: { options: {} },
@@ -2573,12 +2570,12 @@ describe("LayerManager", () => {
           <div class="foliplus-checkbox"><input type="checkbox" data-role="toggle-all" /></div>
         </div>
         <div class="foliplus-layer-item" data-layer-id="base1" data-layer-type="base"></div>
-        <div class="foliplus-layer-item" data-layer-id="${CONST.COLOR.MAP_ID}" data-layer-type="base"></div>
+        <div class="foliplus-layer-item" data-layer-id="${CONST.SOLID_BASEMAP_ID}" data-layer-type="base"></div>
       `;
       manager.ui = {
         colorSurface: {} as any,
         currentColor: "#ff0000",
-        authorVisible: new Map([[CONST.COLOR.MAP_ID, true]]),
+        authorVisible: new Map([[CONST.SOLID_BASEMAP_ID, true]]),
         dropPersistedLayerState: vi.fn(),
         saveState: vi.fn(),
         syncToggleAll: vi.fn(),
@@ -2596,7 +2593,9 @@ describe("LayerManager", () => {
         ),
       ).toBeNull();
       expect(
-        manager.uiContainer.querySelector(`[data-layer-id="${CONST.COLOR.MAP_ID}"]`),
+        manager.uiContainer.querySelector(
+          `[data-layer-id="${CONST.SOLID_BASEMAP_ID}"]`,
+        ),
       ).not.toBeNull();
     });
   });

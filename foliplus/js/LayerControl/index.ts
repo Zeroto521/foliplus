@@ -3,7 +3,11 @@ import { BaseControl } from "#foliplus/BaseControl.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { createPanelControl } from "#common/panel.js";
 import * as SVGs from "./icon.js";
-import { LayerManager, patchBringToFront, unpatchBringToFront } from "./manager.js";
+import {
+  LayerManager,
+  installBringToFrontPatch,
+  uninstallBringToFrontPatch,
+} from "./manager.js";
 import { LayerUI } from "./ui/index.js";
 
 createControlEnv(CONF, SVGs.LAYERS);
@@ -33,7 +37,7 @@ class LayerControl extends BaseControl {
   }
 
   buildDOM() {
-    patchBringToFront();
+    installBringToFrontPatch();
     const { container, panelContent, destroy } = createPanelControl({
       cssClass: "foliplus-layer-ctrl",
       ctrlId: `${CONF.name}_ctrl`,
@@ -58,7 +62,7 @@ class LayerControl extends BaseControl {
   destroy() {
     this.manager?.destroy();
     this.manager = null;
-    unpatchBringToFront();
+    uninstallBringToFrontPatch();
   }
 }
 

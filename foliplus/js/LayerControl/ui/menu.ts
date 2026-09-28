@@ -217,7 +217,7 @@ const deleteModeFor = (ui: LayerUI, layerId: string): DeleteMode => {
   if (!layerId) return "absent";
   // The solid colour basemap uses delete semantics (row disappears, id stays
   // registerable so the colour can be re-picked) — same as a user data layer.
-  if (layerId === CONST.COLOR.MAP_ID) return "delete";
+  if (layerId === CONST.SOLID_BASEMAP_ID) return "delete";
   // Component-owned layers (Measure, Heatmap) clear their data instead of being
   // retired. The id stays registerable so the component can re-draw.
   if (isComponentLayer(ui, layerId)) return "clear";

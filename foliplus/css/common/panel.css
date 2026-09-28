@@ -139,6 +139,10 @@
     flex: 1;
     overflow-x: hidden;
     overflow-y: auto;
+    /* Breathing room under the header, set equal to the divider's own
+       top margin (--space-md) so the panel reads the same at both ends:
+       first row to header == last row to the divider. */
+    padding-top: var(--space-md);
   }
 
   /* ── Expanded State ── */

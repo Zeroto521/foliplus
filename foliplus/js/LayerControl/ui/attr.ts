@@ -31,7 +31,7 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
   closeStylePanel(ui, false);
 
   const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
-  const isColor = layerId === CONST.COLOR.MAP_ID;
+  const isColor = layerId === CONST.SOLID_BASEMAP_ID;
   const layerInfo = ui.manager.layerRegistry.get(layerId);
 
   // Row kind: a value that runs long (a URL source) drops below its label
@@ -173,7 +173,8 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
     iconClass: `${CONST.CLASSES.ATTRS_ICON} foliplus-header-icon`,
   });
   // One flat list: third-party meta rows continue the same rhythm instead
-  // of opening a second group, so the panel reads as one column of facts.
+  // of opening a second group, so the panel reads as one column of facts —
+  // the same unheaded row flow the style panel uses.
   const dlEl = renderList([...rows, ...metaRows]);
   content.appendChild(dlEl);
 

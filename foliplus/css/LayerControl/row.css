@@ -52,9 +52,13 @@
     var(--space-md) * 2 + var(--font-size-md) * var(--line-height-hint)
   );
 
-  /* ── Panel Content Overrides ── */
+  /* ── Panel Content Overrides ──
+     The top gap under the header comes from panel.css (--space-md, equal to
+     the divider's own top margin) so every panel reads the same at both ends;
+     this override only keeps the layer list's small tail below its last row
+     and the shared max-height cap. */
   .foliplus-panel-content {
-    padding: var(--space-sm) 0;
+    padding-bottom: var(--space-sm);
     max-height: var(--panel-max-height);
   }
   /* ── LAYERS icon: stacked diamond opacity ── */

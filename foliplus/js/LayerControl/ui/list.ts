@@ -26,10 +26,10 @@ const initTypesAndVisibility = (ui: LayerUI) => {
   // then treats it identically to a tile basemap. `surface.register()` is
   // idempotent, so a re-run of this pass is a no-op on the registry side.
   getColorSurface(ui);
-  const colorLi = ui.m.layerRegistry.get(CONST.COLOR.MAP_ID);
+  const colorLi = ui.m.layerRegistry.get(CONST.SOLID_BASEMAP_ID);
   if (colorLi) {
     // The colour basemap starts unchecked (hidden) by default.
-    ui.authorVisible.set(CONST.COLOR.MAP_ID, false);
+    ui.authorVisible.set(CONST.SOLID_BASEMAP_ID, false);
   }
 
   // Snapshot the author default before the sweep below moves any layer: it
@@ -214,7 +214,7 @@ const renderToggleAllRow = (ui: LayerUI, group: string, labelKey: string) => {
         title: ui.T("toggle_all_deselect_tooltip"),
       }),
     ),
-    dom.el("span", { class: CONST.CLASSES.SEP_LABEL }, ui.T(labelKey)),
+    dom.el("span", { class: CONST.CLASSES.SEPARATOR_LABEL }, ui.T(labelKey)),
     dom.el("div", { class: "foliplus-section-divider" }),
   );
 };
@@ -290,7 +290,7 @@ const renderLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
 /** Current display name for the virtual color basemap: persisted rename if
  *  present, else the locale label. Name is persisted rename or locale label. */
 const colorLayerName = (ui: LayerUI): string => {
-  return displayName(ui, CONST.COLOR.MAP_ID);
+  return displayName(ui, CONST.SOLID_BASEMAP_ID);
 };
 
 /** Initialize one layer row's checkbox + type icon (incremental path).
