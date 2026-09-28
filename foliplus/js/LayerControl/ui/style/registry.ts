@@ -111,15 +111,6 @@ const DIM_ORDER = ["fill", "border", "opacity", "zoomRange"] as const;
  *  order is unreachable from the panel. */
 const LABEL_DIM_ORDER = ["annotation"] as const;
 
-/** Whether the layer owns any registered dimension whose `gate` passes —
- *  the direct boolean form of the sweep, over every registered key. Both
- *  panel flavors now collect their own gated rows (`gatedRows`) and check
- *  those, so this is the generic "any gate at all" question rather than a
- *  panel entry point. Every dimension contributes through its own `gate`;
- *  no switch table of keys. */
-const hasAnyDimension = (ui: LayerUI, layerId: string): boolean =>
-  [...registry.values()].some(d => d.gate(ui, layerId));
-
 /** Collect the descriptors whose `gate` passes, in the caller's declared
  *  order — the one gate pass every panel flavor shares. The annotation
  *  panel passes `DIM_ORDER` / `LABEL_DIM_ORDER`; the delegated drawer passes
@@ -148,7 +139,6 @@ export {
   LABEL_DIM_ORDER,
   gatedRows,
   getDimension,
-  hasAnyDimension,
   listDimensions,
   registerDimension,
 };
