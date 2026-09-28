@@ -462,9 +462,6 @@ class TestMeasureControlBrowser:
             assert result["onMapBack"] is True, (
                 f"the measure layer did not come back onto the map: {result}"
             )
-            assert result["sections"] == ["Layer", "Label"], (
-                f"drawer section order drifted: {result['sections']}"
-            )
             assert not errors, f"JS errors: {errors}"
 
     def test_clear_all_empties_layers(self, browser, tmp_path):

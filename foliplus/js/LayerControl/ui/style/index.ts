@@ -29,7 +29,6 @@ import {
 } from "#common/form.js";
 import { NUMBER_FORMAT, type NumberStyle } from "#common/format.js";
 import { createRowPanel } from "#common/panel.js";
-import { createSection } from "#common/section.js";
 import * as CONST from "../../const.js";
 import * as SVGs from "../../icon.js";
 import { authorZoomBoundsForLayer } from "../apply.js";
@@ -236,18 +235,15 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   // order explicitly rather than inferring it from the registry. See the
   // `DIM_ORDER` comment in `./registry.js`.
   if (hasLayerDim) {
-    const layerSection = createSection({ title: ui.T("section_layer") });
     for (const key of DIM_ORDER) {
       const dim = getDimension(key);
-      if (dim?.gate(ui, layerId)) layerSection.body.appendChild(dim.row(ui, layerId));
+      if (dim?.gate(ui, layerId)) content.appendChild(dim.row(ui, layerId));
     }
-    content.append(layerSection.root);
   }
-  // The Label section renders only when there is a field to label; a plain
-  // vector shape reaches the panel for the Layer section alone.
+  // The Label rows render only when there is a field to label; a plain
+  // vector shape reaches the panel for the Layer rows alone.
   if (hasLabel) {
-    const labelSection = createSection({ title: ui.T("section_label") });
-    labelSection.body.appendChild(
+    content.appendChild(
       dom.el(
         "div",
         { class: CONST.CLASSES.FORM_ROW },
@@ -266,8 +262,7 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
         ),
       ),
     );
-    labelSection.body.appendChild(body);
-    content.append(labelSection.root);
+    content.appendChild(body);
   }
   appendResetFooter(ui, content);
   return panel;

@@ -6,7 +6,6 @@
 import { type LabelStyleValues, renderLabelControls } from "#core/labelControl.js";
 import { BORDER_WEIGHT } from "#common/form.js";
 import { createRowPanel } from "#common/panel.js";
-import { createSection } from "#common/section.js";
 import * as CONST from "../../const.js";
 import * as SVGs from "../../icon.js";
 import type { LayerUI } from "../index.js";
@@ -155,19 +154,15 @@ const renderDelegatedStylePanel = (
   // rendering path at all. Only opacity and zoomRange ride the sweep:
   // they are LayerControl-owned and survive a component's redraw.
   if (borderRow || hasAnyDimension(ui, layerId)) {
-    const layerSection = createSection({ title: ui.T("section_layer") });
-    if (borderRow) layerSection.body.appendChild(borderRow);
+    if (borderRow) content.appendChild(borderRow);
     for (const key of DIM_ORDER) {
       if (key === "fill" || key === "border") continue;
       const dim = getDimension(key);
-      if (dim?.gate(ui, layerId)) layerSection.body.appendChild(dim.row(ui, layerId));
+      if (dim?.gate(ui, layerId)) content.appendChild(dim.row(ui, layerId));
     }
-    content.append(layerSection.root);
   }
   if (root.children.length) {
-    const labelSection = createSection({ title: ui.T("section_label") });
-    labelSection.body.appendChild(root);
-    content.append(labelSection.root);
+    content.appendChild(root);
   }
 
   // Reset only when the component published its Python CONF defaults.

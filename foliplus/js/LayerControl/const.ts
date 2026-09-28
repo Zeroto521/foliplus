@@ -136,8 +136,6 @@ const CLASSES = {
   STYLE_FILL_ROW: "foliplus-style-fill-row",
   STYLE_FILL_COLOR_INPUT: "foliplus-style-fill-color-input",
   STYLE_FILL_OPACITY_NUMBER: "foliplus-style-fill-opacity-number",
-  /** Shared section heading (form.css). */
-  SECTION_HEADING: "foliplus-section-heading",
   /** Opacity control: range slider + paired number input. */
   STYLE_OPACITY_TRACK: "foliplus-style-opacity-track",
   STYLE_OPACITY_FILL: "foliplus-style-opacity-fill",

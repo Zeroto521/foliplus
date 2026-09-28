@@ -8,8 +8,6 @@ describe("panelContentHTML", () => {
 
   const T = (key: string) => {
     const map: Record<string, string> = {
-      section_data: "Data",
-      section_style: "Style",
       layer: "Aggregation Layer",
       agg_method: "Aggregation Method",
       agg_count: "Count",
@@ -37,8 +35,9 @@ describe("panelContentHTML", () => {
     expect(html).toContain("foliplus-heatmap-config-body");
     expect(html).toContain("foliplus-heatmap-extra-body");
 
-    // Section headings
-    expect(html).toContain("foliplus-section-heading");
+    // Section headings are gone: the panel is one flat row list, matching the
+    // style and attributes panels.
+    expect(html).not.toContain("foliplus-section-heading");
 
     // Form rows — shared common/form.css primitives
     expect(html).toContain("foliplus-form-row");
@@ -64,12 +63,6 @@ describe("panelContentHTML", () => {
     for (const attr of expectedAttrs) {
       expect(html).toContain(attr);
     }
-  });
-
-  it("includes translated section headings", () => {
-    const html = panelContentHTML(T);
-    expect(html).toContain("Data");
-    expect(html).toContain("Style");
   });
 
   it("includes translated form labels", () => {

@@ -4,7 +4,6 @@ import { GEOM_TYPE } from "#core/layer/index.js";
 import { dom } from "#common/dom.js";
 import { formatNumber, formatTimestamp } from "#common/format.js";
 import { createRowPanel } from "#common/panel.js";
-import { createSection } from "#common/section.js";
 import * as CONST from "../const.js";
 import * as SVGs from "../icon.js";
 import * as Util from "../util.js";
@@ -172,13 +171,10 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
     iconClass: `${CONST.CLASSES.ATTRS_ICON} foliplus-header-icon`,
   });
   // One flat list: third-party meta rows continue the same rhythm instead
-  // of opening a second group, so the panel reads as one column of facts.
-  // The list is wrapped in a single section so the vocabulary matches the
-  // style panel's grouped layout — one flat body, no subsections.
-  const section = createSection({ title: ui.T("attributes_layer") });
+  // of opening a second group, so the panel reads as one column of facts —
+  // the same unheaded row flow the style panel uses.
   const dlEl = renderList([...rows, ...metaRows]);
-  section.body.appendChild(dlEl);
-  content.appendChild(section.root);
+  content.appendChild(dlEl);
 
   // Live update: subscribe to LAYER_ITEM_COUNT_CHANGE (filtered by layerId)
   // so meta rows refresh in place when the store mutates.

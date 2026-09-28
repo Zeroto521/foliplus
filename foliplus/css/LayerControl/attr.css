@@ -30,14 +30,15 @@
   .foliplus-layer-attrs-panel .foliplus-form-row {
     display: contents;
   }
-  /* Shared label typography from common/form.css — same language as the
-     heatmap form labels. Height/centering replace the flex-row min-height
-     that `display: contents` drops. */
+  /* Shared label typography and alignment from common/form.css — the same
+     left-aligned label the heatmap and style panels draw, so the three
+     panels' label column reads as one. Height/centering replace the
+     flex-row min-height that `display: contents` drops; no alignment
+     override here, or the attrs column would drift from the style panel's. */
   .foliplus-layer-attrs-panel .foliplus-form-label {
     min-height: var(--toggle-size);
     display: flex;
     align-items: center;
-    justify-content: flex-end;
   }
   .foliplus-layer-attrs-panel .foliplus-form-control {
     /* Read-only text: left-aligned, wrapping, tabular figures so counts and

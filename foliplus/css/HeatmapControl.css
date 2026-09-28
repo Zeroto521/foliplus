@@ -165,8 +165,6 @@
   /* The divider above the footer action comes from the shared panel recipe
      (common/panel.css), so the heatmap's footer and the per-layer style
      panel's footer are inset and spaced identically. Nothing to add here. */
-
-  /* Section headings come from shared form.css (`.foliplus-section-heading`). */
 }
 
 /* Field selector: extra body / field reuse the shared `foliplus-hidden`

@@ -8,13 +8,9 @@
 import { METHOD as CLASSIFY_METHOD } from "#core/classify.js";
 import * as CONST from "./const.js";
 
-/** Build the panel-content HTML string (data section + style section). */
+/** Build the panel-content HTML string (data rows, then the style rows). */
 const panelContentHTML = (T: (key: string) => string): string => /* html */ `
 <div class="foliplus-heatmap-config-body">
-  <div class="foliplus-section-heading">
-    ${T("section_data")}
-  </div>
-
   <div class="foliplus-form-row">
     <label class="foliplus-form-label">${T("layer")}</label>
     <div class="foliplus-form-control">
@@ -42,10 +38,6 @@ const panelContentHTML = (T: (key: string) => string): string => /* html */ `
       <div class="foliplus-form-control">
         <select class="foliplus-form-select" ${CONST.DATA_ATTR.FIELD_SELECT}></select>
       </div>
-    </div>
-
-    <div class="foliplus-section-heading">
-      ${T("section_style")}
     </div>
 
     <div class="foliplus-heatmap-section-block">

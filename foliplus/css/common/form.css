@@ -197,24 +197,6 @@
   box-shadow: var(--focus-ring);
 }
 
-/* Section heading used by HeatmapControl and LayerControl style panels.
-   A group header labels the rows under it — it is not a row itself. It sits
-   one notch under the 12px `.foliplus-form-label`, drops to the muted ink,
-   and tracks out, so the group reads as a label rather than a bold fact.
-   The top padding is wider than the row gap below it, which separates
-   groups by whitespace instead of a rule. */
-.foliplus-section-heading {
-  font-size: 11px;
-  font-weight: var(--font-weight-semibold);
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 1.5px;
-  padding: var(--space-lg) var(--space-xl) var(--space-md);
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-}
-
 /* ── Opacity control (LayerControl style drawer) ──
    The row is the shared slider component (common/slider.css) plus the shared
    number field, so it is level with the heatmap's border row and needs no slider
