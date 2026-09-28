@@ -101,6 +101,33 @@ describe("HeatmapManager — caching & lifecycle", () => {
     expect(handler).toHaveBeenCalledWith({ id: m.layerId });
   });
 
+  it("clearHeatmapCanvas drops the layer id from the stored order so a redraw lands on top", () => {
+    const m = makeManager();
+    const forgetSavedOrder = vi.fn(() => true);
+    (
+      m.map as unknown as { foliplus?: { LayerAPI?: Record<string, unknown> } }
+    ).foliplus = {
+      LayerAPI: { forgetSavedOrder },
+    };
+    m.clearHeatmapCanvas();
+    expect(forgetSavedOrder).toHaveBeenCalledWith(m.layerId);
+  });
+
+  it("clearHeatmapCanvas tolerates a LayerAPI without forgetSavedOrder", () => {
+    // An older / lightweight LayerAPI stub won't have forgetSavedOrder; the
+    // optional call chain should be a silent no-op so clear never throws.
+    const m = makeManager();
+    (m.map as unknown as { foliplus?: unknown }).foliplus = { LayerAPI: {} };
+    expect(() => m.clearHeatmapCanvas()).not.toThrow();
+  });
+
+  it("clearHeatmapCanvas tolerates a map without any LayerAPI", () => {
+    // A stripped map (e.g. before any foliplus wiring) must not throw either.
+    const m = makeManager();
+    (m.map as unknown as { foliplus?: unknown }).foliplus = undefined;
+    expect(() => m.clearHeatmapCanvas()).not.toThrow();
+  });
+
   it("renderHexagons clears canvas when no layer selected", () => {
     const m = makeManager();
     m.selectedLayerId = null;

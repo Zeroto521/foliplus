@@ -47,6 +47,14 @@ interface LayerFactoryDeps {
    * causing redundant UI refreshes of an unchanged count. Skip it.
    */
   onDataChange?: (id: string) => void;
+  /**
+   * The slot a layer occupies once `registerLayer` has placed it — what `zFor`
+   * prices. Canvas and color surfaces mount their pane inside `register()` and
+   * need its final z before the first paint, so the slot is asked for here
+   * rather than assumed. Null when the id never joined a registry (the
+   * lightweight LayerAPI has no ordering pass either): no slot exists to price.
+   */
+  slotOf?: (id: string) => { index: number; count: number; isBase: boolean } | null;
 }
 
 // core/layer is not a component dir, so CONF is unavailable here — the module
@@ -149,6 +157,7 @@ class LayerFactory {
     const handle = this.createSurface({
       id: opts.id,
       name: opts.name,
+      persistOrder: opts.persistOrder,
       content: { kind: "color", color: opts.color },
     });
     // register() is called by the caller (LayerControl UI) after setting
@@ -201,6 +210,7 @@ class LayerFactory {
     let layerOpts: RegisterLayerOpts;
     let registerIdempotent = false;
     let preRegister: () => void = () => {};
+    let postRegister: () => void = () => {};
     let preUnregister: () => void = () => {};
     let shouldUnregister: () => boolean = () => true;
     let content: SurfaceContentHandle;
@@ -214,6 +224,7 @@ class LayerFactory {
       registered = true;
       preRegister();
       registerLayer(layerOpts);
+      postRegister();
     };
 
     const unregister = () => {
@@ -228,6 +239,21 @@ class LayerFactory {
     };
 
     const bringToFront = () => bringLayerToFront(opts.id);
+
+    // A canvas or color face paints into its own pane, which is born at register
+    // time rather than at createSurface: only once registerLayer has placed the
+    // layer does it have a slot, and the pane must carry that slot's z from the
+    // moment it exists. Created earlier it would hold Leaflet's default z of
+    // 400 — above every basemap — until the ordering pass caught up.
+    let facePane: HTMLElement | null = null;
+    const mountFace = (paneName: string, face: HTMLCanvasElement) => {
+      facePane = panes.ensurePane(paneName, false).pane;
+      facePane.appendChild(face);
+    };
+    const stampBirthZ = (id: string) => {
+      const slot = this.deps.slotOf?.(id);
+      if (slot && facePane) facePane.style.zIndex = String(zFor(slot));
+    };
 
     if (opts.content.kind === "layers") {
       const { invalidateType, onDataChange } = this.deps;
@@ -352,13 +378,11 @@ class LayerFactory {
     if (opts.content.kind === "color") {
       const { color } = opts.content;
       const paneName = namedPaneNameFor(opts.id, COLOR_PANE_PREFIX, "color surface");
-      const { pane } = panes.ensurePane(paneName, false);
-      // Leaflet's CSS gives a fresh pane z-index 400 — above every basemap.
-      // The ordering pass rewrites the ladder z once the layer is registered,
-      // but until then the pane must not sit on top of the tiles, so stamp
-      // the lowest base z here as a safe provisional.
-      pane.style.zIndex = String(zFor({ index: 0, count: 1, isBase: true }));
 
+      // The face is built detached and mounted into its pane at register time
+      // (`preRegister` below): a detached canvas takes sizing and paint exactly
+      // like an attached one, so `resize()` runs here and the first mount is
+      // already at container size.
       // A canvas face, reused rather than invented: a Leaflet pane has no size
       // of its own, so the fill must live on a child element that is sized to
       // the container and counter-translated against the map's pan, exactly the
@@ -367,7 +391,6 @@ class LayerFactory {
       // keeps the fourth variant of viewport geometry from being born here.
       const face = dom.el("canvas", {
         class: "foliplus-canvas-layer",
-        parent: pane,
       }) as HTMLCanvasElement;
       const ctx = face.getContext("2d");
       if (!ctx) throw new Error(log.msg("color surface requires a 2d context"));
@@ -408,6 +431,7 @@ class LayerFactory {
         ...commonLayerOpts,
         isBase: true,
         baseInsert: "bottom",
+        persistOrder: opts.persistOrder,
         canvas: face,
         color,
         paneName,
@@ -421,10 +445,12 @@ class LayerFactory {
 
       registerIdempotent = true;
       preRegister = () => {
+        mountFace(paneName, face);
         resize();
         updatePosition();
         setVisible(true);
       };
+      postRegister = () => stampBirthZ(opts.id);
       preUnregister = () => setVisible(false);
       shouldUnregister = () => true;
       content = {
@@ -463,11 +489,11 @@ class LayerFactory {
     const { className, getBounds, source, updatedAt, meta } = opts.content;
 
     const paneName = namedPaneNameFor(opts.id, CANVAS_PANE_PREFIX, "createCanvas");
-    const { pane } = panes.ensurePane(paneName, false);
 
+    // Detached until `preRegister` mounts it: the pane is created at register
+    // time so it can be priced at its slot from birth (see `mountFace`).
     const canvas = dom.el("canvas", {
       class: "foliplus-canvas-layer",
-      parent: pane,
     }) as HTMLCanvasElement;
     if (className) canvas.classList.add(className);
 
@@ -515,10 +541,12 @@ class LayerFactory {
 
     registerIdempotent = true;
     preRegister = () => {
+      mountFace(paneName, canvas);
       resize();
       updatePosition();
       canvas.classList.remove(HIDDEN);
     };
+    postRegister = () => stampBirthZ(opts.id);
     preUnregister = () => {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.clearRect(0, 0, canvas.width, canvas.height);

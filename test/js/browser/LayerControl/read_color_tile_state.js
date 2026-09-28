@@ -2,7 +2,9 @@
   // After the pane fix, the color basemap paints via its own pane + canvas,
   // not via a CSS background on the map container. The "foliplus-active" class is on
   // the color row, not the container.
-  const colorRow = document.querySelector(".foliplus-color-layer-item");
+  const colorRow = document.querySelector(
+    '.foliplus-layer-item[data-layer-id="foliplus_color_map"]',
+  );
   const hasColorActive = colorRow && colorRow.classList.contains("foliplus-active");
   const tilePane = document.querySelector(".leaflet-tile-pane");
   const hasTileHidden =

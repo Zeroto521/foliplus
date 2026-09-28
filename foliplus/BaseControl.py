@@ -10,7 +10,7 @@ inherits from :class:`BaseControl`. This module owns the Python → JS bridge:
 
 * **Config serialization** — each control's instance attributes are serialized into
   the JS ``CONF`` object. The static part is assembled by :meth:`BaseControl._build_config`
-  (shared ``name``/``position`` keys + subclass-declared :attr:`_export_fields` +
+  (shared ``name``/``position`` keys + subclass-declared :attr:`_config_fields` +
   dynamic :meth:`_extra_config` data), then :attr:`BaseControl._config_block` overlays
   the locale tables and code.
 """
@@ -214,7 +214,7 @@ class BaseControl(JSCSSMixin, MacroElement):
     from this class.
 
     Subclasses declare which instance attributes are exported to the JS ``CONF`` object
-    via :attr:`_export_fields`, and may supply dynamic render-time data by overriding
+    via :attr:`_config_fields`, and may supply dynamic render-time data by overriding
     :meth:`_extra_config`. The base class merges these with the shared
     ``name``/``position`` keys and the locale tables into the ``CONF`` dict.
 
@@ -236,7 +236,7 @@ class BaseControl(JSCSSMixin, MacroElement):
     #: must be set in ``__init__`` before the template is rendered. A name that does
     #: not resolve raises ``ValueError`` from :meth:`_build_config` (fail-fast) rather
     #: than failing later as a bare ``AttributeError``.
-    _export_fields: tuple[str, ...] = ()
+    _config_fields: tuple[str, ...] = ()
 
     @validate
     def __init__(
@@ -316,7 +316,7 @@ class BaseControl(JSCSSMixin, MacroElement):
         The merge order is:
 
         1. Shared keys — ``name`` and ``position`` (always present).
-        2. Exported fields — every attribute named in :attr:`_export_fields`. A name
+        2. Exported fields — every attribute named in :attr:`_config_fields`. A name
            that does not resolve to a real instance attribute raises ``ValueError``
            (fail-fast, naming the control and the offending field).
         3. Dynamic data — whatever :meth:`_extra_config` returns (render-time only,
@@ -328,12 +328,12 @@ class BaseControl(JSCSSMixin, MacroElement):
         the cache is never polluted with render-time keys.
         """
         config = {"name": self._name, "position": self.position}
-        for f in self._export_fields:
+        for f in self._config_fields:
             try:
                 config[f] = getattr(self, f)
             except AttributeError:
                 raise ValueError(
-                    f"{self._name}._export_fields: '{f}' not set in __init__"
+                    f"{self._name}._config_fields: '{f}' not set in __init__"
                 ) from None
         config.update(self._extra_config())
         self._config = config

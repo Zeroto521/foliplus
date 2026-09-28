@@ -1,9 +1,7 @@
 () => {
   const panel = document.querySelector(".foliplus-panel-content");
   if (!panel) return null;
-  const item = panel.querySelector(
-    ".foliplus-layer-item:not(.foliplus-color-layer-item)",
-  );
+  const item = panel.querySelector(".foliplus-layer-item");
   if (!item) return null;
   // Focus via double-click on the layer row (a documented entry point).
   item.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));

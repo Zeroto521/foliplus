@@ -134,8 +134,8 @@ const mergeStoredOrder = (stored: string[] | null, live: string[]): string[] => 
 // stable contract, change carefully. Internal = LayerUI sibling read
 // surface (ui/* + LayerUI); refactorable, but coordinate with ui/*.
 //   LayerAPI  layers, registerLayer, unregisterLayer, deleteLayer,
-//             bringLayerToFront, setVisible, createLayers, createCanvas,
-//             extractPoints, getLayerPanes, isLayerControl
+//             forgetSavedOrder, bringLayerToFront, setVisible, createLayers,
+//             createCanvas, extractPoints, getLayerPanes, isLayerControl
 //   Public    getLayerType, getLayersByType, getFeatureCount, touchLayer,
 //   extra     computeZIndex, moveLayerUp, moveLayerDown
 //   Internal  surfaceFor, surfaceForLayer, enforceOrder, debouncedEnforce,
@@ -258,6 +258,20 @@ class LayerManager implements LayerAPI {
       unregisterLayer: this.unregisterLayer,
       bringLayerToFront: this.bringLayerToFront,
       invalidateType: id => this.invalidateType(id),
+      // A canvas or color surface mounts its pane inside register() and needs
+      // its slot's z at birth — no provisional bottom step the ordering pass
+      // rewrites later. Index and size are stable by the time registerLayer
+      // has inserted, so the lookup is exact.
+      slotOf: id => {
+        const li = this.layerRegistry.get(id);
+        return li
+          ? {
+              index: this.layerRegistry.indexOf(li),
+              count: this.layers.length,
+              isBase: li.isBase,
+            }
+          : null;
+      },
       // Runtime content changes (createLayers add/remove/clear) refresh the
       // count column live. No-op until a UI row subscribes.
       onDataChange: id => this.refreshCount(id),
@@ -376,8 +390,14 @@ class LayerManager implements LayerAPI {
    *  component registering (Heatmap and Measure register in their own
    *  constructor, after LayerControl has attached), and a write of the live ids
    *  alone would erase the position that registration is meant to read back.
+   *
+   *  `persist=false` skips both the schedule and the in-memory rewrite: a
+   *  registration that must not write its slot must not let that slot be read
+   *  back as the stored order by a later `replaySavedOrder` in the same boot
+   *  pass.
    */
-  saveOrder() {
+  saveOrder(persist = true) {
+    if (!persist) return;
     const live = this.layers.map(l => l.id);
     const order = mergeStoredOrder(this.savedOrder, live);
     this.savedOrder = order;
@@ -714,7 +734,7 @@ class LayerManager implements LayerAPI {
       // Defer z-order enforcement so batch registration coalesces into one pass.
       this.debouncedEnforce();
     }
-    this.saveOrder();
+    this.saveOrder(opts.persistOrder !== false);
     this.events.emit(EVENTS.LAYER_CHANGE);
     return this.uiContainer.querySelector(
       `[${CONST.DATA.LAYER_ID}="${CSS.escape(opts.id)}"]`,
@@ -858,6 +878,9 @@ class LayerManager implements LayerAPI {
     // Tear down any annotation labels attached to this layer.
     this.annotation.destroyLayer(id);
     this.ui?.invalidateFields(id);
+    // The row was just removed: rescan the group's count so the toggle-all
+    // checkbox reflects the removal in the same frame.
+    this.ui?.syncToggleAll?.(layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY);
     // Unregister is rare, so flush rather than riding out the 100ms window.
     // Any pending write carries the registry's current order, which no longer
     // lists this id —that dimension reads the registry live, so the removal is
@@ -960,6 +983,36 @@ class LayerManager implements LayerAPI {
     return true;
   }
 
+  /**
+   * Drop one id from the stored order without retiring the layer.
+   *
+   * The counterpart to {@link deleteLayer}'s saved-order prune, minus the
+   * `removedIds` recording: after this call the id leaves `savedOrder` but
+   * stays registerable. Component clear paths use it because a cleared layer
+   * is not the same as a deleted one — the user still owns the layer and the
+   * next draw should land at the top of the stack, not back in the slot they
+   * had arranged. Skipping this prune is what makes the next `registerLayer`
+   * hit `insertOverlayAt`'s prepend branch rather than
+   * `placeBeforeSavedNeighbor`'s return-to-slot path.
+   *
+   * `saveOrder` is delegated (not the direct filter alone) so the write is
+   * merged with the live registry order the same way deleteLayer does it:
+   * an id that is not registered yet stays out of the record, and neighbors
+   * keep their rank.
+   *
+   * @param id - The layer ID whose stored position is being dropped.
+   * @returns true if the id was in the stored order and got removed, false
+   *   otherwise (nothing to forget). Callers treat false as a no-op, not an
+   *   error — an id that was never registered has nothing to forget.
+   */
+  forgetSavedOrder(id: string): boolean {
+    const saved = this.savedOrder;
+    if (!saved || !saved.includes(id)) return false;
+    this.savedOrder = saved.filter(other => other !== id);
+    this.saveOrder();
+    return true;
+  }
+
   clearAllLayers(layer: L.Layer | null) {
     if (!layer) return;
     if (
@@ -1027,13 +1080,15 @@ class LayerManager implements LayerAPI {
     return this.panes.getLayerPanes(layer);
   }
 
-  /** Give every layer a surface and write its z.
+  /** Give every layer a surface and reprice its z.
    *
-   *  Ordering only. Panes are allocated at materialization (before the layer
-   *  joins the map, so `options.pane` is already right at the one moment
-   *  Leaflet reads it), and content that arrived since the last pass is
-   *  re-pinned by `materialize()` itself. What is left here is the z arithmetic
-   *  and the shared panes around it, untouched. */
+   *  Re-ordering only. Panes are allocated at register time — a canvas or
+   *  color face inside `register()`, a layer's tree inside `materialize()` —
+   *  and each is priced at its own slot then, so a pane is never seen at
+   *  Leaflet's default z. Content that arrived since the last pass is
+   *  re-pinned by `materialize()` itself. What is left here is to reprice
+   *  after the registry moves (add, delete, drag) and to place the shared
+   *  panes around the ladder. */
   enforceOrder() {
     if (this.isEnforcing) return;
     this.debouncedEnforce?.cancel();

@@ -901,7 +901,9 @@ describe("LayerSurface capabilities", () => {
     });
     expect(surface.capabilities).toEqual({
       opacity: "pane",
-      zoomRange: "none",
+      zoomRange: "pane",
+      fill: "native",
+      stroke: "none",
       relocatable: true,
       bounds: false,
       visibility: "pane",

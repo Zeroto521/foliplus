@@ -10,6 +10,7 @@ import {
   handleInput,
   syncNoBasemap,
   syncToggleAll,
+  syncToggleAllFromCount,
   toggleAll,
 } from "#foliplus/LayerControl/ui/visibility.js";
 import { initFixture, installLeafletGlobals } from "./fixture.js";
@@ -408,6 +409,121 @@ describe("applyVisibility", () => {
       only.ui = null;
       only.destroy();
     });
+
+    it("keeps checkedCount in sync with a full rescan across many clicks", () => {
+      // The incremental counter is the fast path; the full rescan is the
+      // reconcile path. This test pins that the two agree after a series of
+      // toggles, so an off-by-one in bumpCheckedCount (or a missed
+      // reconcile-point call) shows up here.
+      //
+      // The attach-time initTypesAndVisibility runs in setTimeout(0), so
+      // the synchronous test body bootstraps the counter itself before the
+      // first click.
+      syncToggleAll(ui, CONST.GROUP.OVERLAY);
+      expect(ui.checkedCount[CONST.GROUP.OVERLAY]).toEqual({
+        total: 2,
+        on: 2,
+      });
+
+      // Hide overlay1: on 2 → 1. Rescan agrees.
+      applyVisibility(ui, "overlay1", false);
+      expect(ui.checkedCount[CONST.GROUP.OVERLAY]).toEqual({
+        total: 2,
+        on: 1,
+      });
+      syncToggleAll(ui, CONST.GROUP.OVERLAY);
+      expect(ui.checkedCount[CONST.GROUP.OVERLAY]).toEqual({
+        total: 2,
+        on: 1,
+      });
+
+      // Hide overlay2: on 1 → 0. Rescan agrees.
+      applyVisibility(ui, "overlay2", false);
+      expect(ui.checkedCount[CONST.GROUP.OVERLAY]).toEqual({
+        total: 2,
+        on: 0,
+      });
+      syncToggleAll(ui, CONST.GROUP.OVERLAY);
+      expect(ui.checkedCount[CONST.GROUP.OVERLAY]).toEqual({
+        total: 2,
+        on: 0,
+      });
+
+      // Show both: on 0 → 2. Rescan agrees.
+      applyVisibility(ui, "overlay1", true);
+      applyVisibility(ui, "overlay2", true);
+      syncToggleAll(ui, CONST.GROUP.OVERLAY);
+      expect(ui.checkedCount[CONST.GROUP.OVERLAY]).toEqual({
+        total: 2,
+        on: 2,
+      });
+
+      // Setting a value to the same value it already has is a no-op: the
+      // delta is zero and the count is unchanged.
+      applyVisibility(ui, "overlay1", true);
+      expect(ui.checkedCount[CONST.GROUP.OVERLAY]).toEqual({
+        total: 2,
+        on: 2,
+      });
+    });
+
+    it("exposes syncToggleAllFromCount as a delegator on LayerUI", () => {
+      // The public method on LayerUI is the wrapper around the module-level
+      // function; a host page that holds the UI instance calls it through
+      // that slot. Pinned so the delegator stays reachable and writes the
+      // tri-state checkbox off the cached count.
+      syncToggleAll(ui, CONST.GROUP.OVERLAY);
+      applyVisibility(ui, "overlay1", false);
+      expect(ui.checkedCount[CONST.GROUP.OVERLAY]).toEqual({
+        total: 2,
+        on: 1,
+      });
+      ui.syncToggleAllFromCount(CONST.GROUP.OVERLAY);
+      const all = allToggle(ui);
+      expect(all.checked).toBe(false);
+      expect(all.indeterminate).toBe(true);
+    });
+
+    it("skips syncNoBasemap for overlay clicks but calls it for base clicks", () => {
+      // syncNoBasemap is the only code that toggles NO_BASE_MAP on the map
+      // container, so observing that toggle is equivalent to observing the
+      // call. Overlay toggles cannot change the visible-basemap count, so
+      // the path skips syncNoBasemap entirely; base toggles still call it
+      // because the hatch and group label are user-visible.
+      const {
+        manager: m2,
+        ui: u2,
+        map: map2,
+      } = initFixture({
+        data: [{ id: "overlay1", name: "O1", isBase: false, layer: layerFixture() }],
+      });
+      try {
+        const toggleMock = vi.fn();
+        const fakeContainer = {
+          classList: { toggle: toggleMock, contains: vi.fn(() => false) },
+        };
+        map2.getContainer = vi.fn(() => fakeContainer);
+
+        // Overlay click: syncNoBasemap NOT called, so no NO_BASE_MAP toggle.
+        applyVisibility(u2, "overlay1", false);
+        const overlayCalls = toggleMock.mock.calls.filter(
+          c => c[0] === CONST.CLASSES.NO_BASE_MAP,
+        );
+        expect(overlayCalls).toEqual([]);
+
+        // Base click (colour row): syncNoBasemap called, so NO_BASE_MAP is
+        // toggled.
+        toggleMock.mockClear();
+        applyVisibility(u2, CONST.COLOR.MAP_ID, true);
+        const baseCalls = toggleMock.mock.calls.filter(
+          c => c[0] === CONST.CLASSES.NO_BASE_MAP,
+        );
+        expect(baseCalls.length).toBeGreaterThan(0);
+      } finally {
+        m2.ui = null;
+        m2.destroy();
+      }
+    });
   });
 });
 
@@ -732,6 +848,28 @@ describe("DOM order diverges from registry order", () => {
     expect(ui.intentVisible("C")).toBe(false);
   });
 
+  it("toggleAll skips a row whose id names no registry entry", () => {
+    // The second defensive bail: the row carries a data-layer-id, but that id
+    // is not in the layer registry (e.g. a stale DOM node after an unregister
+    // that raced the sweep). It must be skipped rather than applied against a
+    // null layerInfo.
+    const stale = document.createElement("div");
+    stale.className = CONST.CLASSES.LAYER_ITEM;
+    stale.setAttribute(CONST.DATA.LAYER_ID, "never-registered");
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.checked = true;
+    stale.appendChild(box);
+    ui.uiContainer.appendChild(stale);
+
+    ui.toggleAll(CONST.GROUP.OVERLAY, false);
+
+    expect(box.checked).toBe(true);
+    expect(ui.intentVisible("A")).toBe(false);
+    expect(ui.intentVisible("B")).toBe(false);
+    expect(ui.intentVisible("C")).toBe(false);
+  });
+
   it("toggleAll does not activate the colour layer when the base group is cleared", () => {
     // First-class basemaps: the colour layer is one row like any other, not a
     // stand-in for the absence of a base. Clearing the base group leaves the
@@ -856,16 +994,21 @@ describe("unit helpers", () => {
     <div class="foliplus-layer-item" data-layer-type="overlay">
       <input type="checkbox" data-index="0" />
     </div>
-    <div class="foliplus-color-layer-item"></div>
+    <div
+      class="foliplus-layer-item"
+      data-layer-id="${CONST.COLOR.MAP_ID}"
+      data-layer-type="base"
+    ></div>
   `;
     return { uiContainer } as unknown as LayerUI;
   };
 
-  it("getLayerItems returns only base rows for the base group", () => {
+  it("getLayerItems returns every base row, the colour row included", () => {
     const ui = makeUi();
     const items = getLayerItems(ui, CONST.GROUP.BASE);
-    expect(items.length).toBe(1);
+    expect(items.length).toBe(2);
     expect(items[0].getAttribute("data-layer-type")).toBe("base");
+    expect(items[1].getAttribute("data-layer-id")).toBe(CONST.COLOR.MAP_ID);
   });
 
   it("getLayerItems returns overlay rows and excludes the color basemap", () => {
@@ -963,5 +1106,58 @@ describe("unit helpers", () => {
     } as unknown as LayerUI;
 
     expect(() => syncToggleAll(ui, CONST.GROUP.OVERLAY)).not.toThrow();
+  });
+
+  it("syncToggleAllFromCount bails when the group header is absent", () => {
+    // The row that carries the group's toggle-all checkbox is not present in
+    // the panel —nothing to write to, so the sync must bail rather than null-
+    // deref. Pinned so the O(1) path fails open like the full-rescan path
+    // does.
+    const uiContainer = document.createElement("div");
+    const ui = {
+      uiContainer,
+      checkedCount: {},
+      T: (k: string) => k,
+    } as unknown as LayerUI;
+
+    expect(() => syncToggleAllFromCount(ui, CONST.GROUP.OVERLAY)).not.toThrow();
+  });
+
+  it("syncToggleAllFromCount bails when the header has no toggle-all input", () => {
+    // The header row resolves but carries no [data-role="toggle-all"] input:
+    // there is nothing to paint, so the sync must bail rather than write into
+    // a null element —the same guard the full-rescan path already carries.
+    const uiContainer = document.createElement("div");
+    uiContainer.innerHTML = `<div class="foliplus-layer-toggle-all" data-group="${CONST.GROUP.OVERLAY}"></div>`;
+    const ui = {
+      uiContainer,
+      checkedCount: {},
+      T: (k: string) => k,
+    } as unknown as LayerUI;
+
+    expect(() => syncToggleAllFromCount(ui, CONST.GROUP.OVERLAY)).not.toThrow();
+  });
+
+  it("syncToggleAllFromCount treats a missing counter as an empty group", () => {
+    // A thin stub that skips the constructor leaves checkedCount empty; the
+    // write must still degrade to `checked=false, indeterminate=false` rather
+    // than crashing on the `?? { total: 0, on: 0 }` fallback. This also pins
+    // the empty-group tri-state semantics: `on === 0` means nothing checked,
+    // not a partial state.
+    const uiContainer = document.createElement("div");
+    uiContainer.innerHTML = `<div class="foliplus-layer-toggle-all" data-group="${CONST.GROUP.OVERLAY}"><input type="checkbox" data-role="toggle-all" /></div>`;
+    const ui = {
+      uiContainer,
+      checkedCount: {},
+      T: (k: string) => k,
+    } as unknown as LayerUI;
+
+    syncToggleAllFromCount(ui, CONST.GROUP.OVERLAY);
+
+    const all = uiContainer.querySelector<HTMLInputElement>(
+      '[data-role="toggle-all"]',
+    )!;
+    expect(all.checked).toBe(false);
+    expect(all.indeterminate).toBe(false);
   });
 });

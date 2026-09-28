@@ -144,7 +144,7 @@ class MeasureControl(BaseControl):
     >>> MeasureControl().add_to(m)
     """
 
-    _export_fields = (
+    _config_fields = (
         "show_bearing",
         "label_show",
         "label_collide",

@@ -13,9 +13,7 @@
   // field is what fails the gate before the fix (the pane is created via
   // map.createPane, bypassing the base-class assignment); `state.visibility`
   // is what fails the gate after the fix if the exclusion class is dropped.
-  const item = document.querySelector(
-    ".foliplus-layer-item:not(.foliplus-color-layer-item)",
-  );
+  const item = document.querySelector(".foliplus-layer-item");
   if (!item) return { row: false };
   item.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
 

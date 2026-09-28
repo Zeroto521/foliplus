@@ -117,7 +117,7 @@ class ExportControl(BaseControl):
 
     default_js = load_cdn("ExportControl")
 
-    _export_fields = (
+    _config_fields = (
         "filename",
         "format",
         "quality",

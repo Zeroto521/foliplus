@@ -18,6 +18,10 @@ const getColorSurface = (ui: LayerUI): CreateColorAPI => {
       id: CONST.COLOR.MAP_ID,
       name: ui.T("color_map_label"),
       color: CONST.COLOR.DEFAULT,
+      // Runtime-created surface: its insertion slot follows attach timing, not a
+      // user arrangement, so persisting it would clobber an order the user
+      // already set. `replaySavedOrder` restores the stored slot instead.
+      persistOrder: false,
     });
     ui.colorSurface = surface;
     // register() inserts the LayerInfo into the registry. Called after

@@ -702,6 +702,11 @@ class MeasureManager {
   clearAll() {
     this.clearTransientState();
     this.store.clear();
+    // Same reason as Heatmap's clearHeatmapCanvas: the panel row is gone and
+    // the next draw is new content, so the id must leave the stored order or
+    // insertOverlayAt will place the re-drawn measurement back at the old
+    // slot instead of the top.
+    this.map.foliplus?.LayerAPI?.forgetSavedOrder?.(this.layerId);
   }
 
   /** Full cleanup including global events. Called on control removal; the

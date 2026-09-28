@@ -163,9 +163,9 @@ describe("ui/color", () => {
 
   it("showColorLayer orders the stack synchronously", () => {
     // Checking the box is a single user action: the ladder z must land
-    // immediately, not after the debounce (the pane starts at Leaflet's CSS
-    // default z 400 — above every basemap). The provisional base z itself is
-    // stamped by LayerFactory.createColor (see its own test).
+    // immediately, not after the debounce. The pane is born inside register()
+    // already carrying its slot's z, so there is no 400-default window to
+    // close and no provisional step left to rewrite.
     const { ui } = makeUi();
     showColorLayer(ui, "#ff0000");
     expect((ui.m as any).enforceOrder).toHaveBeenCalledTimes(1);

@@ -53,11 +53,9 @@
     requestAnimationFrame(() => {
       const before = { annA: zOf("__fa__"), annB: zOf("__fb__") };
       // Focus layer A via double-click on its panel row — the documented entry.
-      const item = Array.from(
-        document.querySelectorAll(
-          ".foliplus-layer-item:not(.foliplus-color-layer-item)",
-        ),
-      ).find(el => el.getAttribute("data-layer-id") === "__fa__");
+      const item = Array.from(document.querySelectorAll(".foliplus-layer-item")).find(
+        el => el.getAttribute("data-layer-id") === "__fa__",
+      );
       if (!item) return resolve({ row: false });
       item.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
 

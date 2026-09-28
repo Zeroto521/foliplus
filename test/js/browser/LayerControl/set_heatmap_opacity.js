@@ -5,7 +5,7 @@
   // independent of row order.
   const row = document.querySelector(
     '.foliplus-layer-item:not([data-layer-type="base"])' +
-      ':not(.foliplus-color-layer-item)[data-layer-id^="foliplus_heatmap"]',
+      '[data-layer-id^="foliplus_heatmap"]',
   );
   if (!row) {
     return {
