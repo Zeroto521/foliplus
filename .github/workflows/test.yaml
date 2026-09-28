@@ -22,46 +22,33 @@ jobs:
   #   format     — prettier reports a diff (never writes in CI)
   #   lint       — eslint pass 1, non-type-aware (the quality rules)
   #   typecheck  — tsc plus the type-aware Promise rules (both read tsconfig)
+  # All shared bootstrap (Node pin, npm download cache, npm install, optional
+  # Python + uv wheel cache) lives in .github/actions/setup-deps.
   format:
     name: format
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
-        with:
-          node-version-file: "package.json"
-          # setup-node auto-detects npm from the packageManager pin and turns on
-          # package-manager caching, which requires a lockfile this repo ignores.
-          package-manager-cache: false
-      - run: npm install
+      - uses: ./.github/actions/setup-deps
       - run: npm run format:check
 
   lint:
     name: lint
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
-        with:
-          node-version-file: "package.json"
-          # setup-node auto-detects npm from the packageManager pin and turns on
-          # package-manager caching, which requires a lockfile this repo ignores.
-          package-manager-cache: false
-      - run: npm install
+      - uses: ./.github/actions/setup-deps
       - run: npm run lint
 
   typecheck:
     name: typecheck
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
-        with:
-          node-version-file: "package.json"
-          # setup-node auto-detects npm from the packageManager pin and turns on
-          # package-manager caching, which requires a lockfile this repo ignores.
-          package-manager-cache: false
-      - run: npm install
+      - uses: ./.github/actions/setup-deps
       - run: npm run typecheck
 
   # ── CHANGELOG existence check (needs GITHUB_TOKEN) ──
@@ -70,6 +57,7 @@ jobs:
   changelog:
     name: changelog
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     if: >-
       github.event_name == 'pull_request'
       && github.base_ref == 'main'
@@ -100,15 +88,10 @@ jobs:
   js:
     name: js
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
-        with:
-          node-version-file: "package.json"
-          # setup-node auto-detects npm from the packageManager pin and turns on
-          # package-manager caching, which requires a lockfile this repo ignores.
-          package-manager-cache: false
-      - run: npm install
+      - uses: ./.github/actions/setup-deps
 
       - run: make test-js
 
@@ -123,7 +106,7 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           report_type: test_results
-          files: test-report.junit.xml
+          files: test-js.junit.xml
           flags: ${{ job.name }}
 
   python:
@@ -131,6 +114,7 @@ jobs:
     # one source of truth for the label.
     name: py${{ matrix.python }}-folium-${{ matrix.folium }}
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -144,17 +128,9 @@ jobs:
         with:
           # Full history needed for setuptools_scm to derive __version__ from tags.
           fetch-depth: 0
-      - uses: actions/setup-python@v6
+      - uses: ./.github/actions/setup-deps
         with:
           python-version: "${{ matrix.python }}"
-      - uses: astral-sh/setup-uv@v5
-      - uses: actions/setup-node@v6
-        with:
-          node-version-file: "package.json"
-          # setup-node auto-detects npm from the packageManager pin and turns on
-          # package-manager caching, which requires a lockfile this repo ignores.
-          package-manager-cache: false
-      - run: npm install
 
       - run: uv sync --group test --upgrade-package "folium==${{ matrix.folium }}"
         if: ${{ matrix.folium != 'latest' }}
@@ -190,24 +166,30 @@ jobs:
     # after the first download).
     name: browser
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
         with:
           # Full history needed for setuptools_scm to derive __version__ from tags.
           fetch-depth: 0
-      - uses: actions/setup-python@v6
+      - uses: ./.github/actions/setup-deps
         with:
           python-version: "3.14"
-      - uses: astral-sh/setup-uv@v5
-      - uses: actions/setup-node@v6
-        with:
-          node-version-file: "package.json"
-          # setup-node auto-detects npm from the packageManager pin and turns on
-          # package-manager caching, which requires a lockfile this repo ignores.
-          package-manager-cache: false
-      - run: npm install
 
       - run: uv sync --group test
+
+      # Playwright browsers keyed by the resolved playwright version — no
+      # lockfile needed, and `playwright install` still diffs against its own
+      # browsers.json so a stale cache can never hide a required revision.
+      - id: pwver
+        run: |
+          echo "version=$(uv run python -c 'import importlib.metadata as m; print(m.version("playwright"))')" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.pwver.outputs.version }}
+          restore-keys: |
+            playwright-${{ runner.os }}-
 
       # Persist the CDN cache proxy's download dir across runs (see conftest).
       - uses: actions/cache@v4
@@ -231,5 +213,5 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           report_type: test_results
-          files: junit-browser.xml
+          files: test-browser.junit.xml
           flags: ${{ job.name }}

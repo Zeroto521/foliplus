@@ -1,0 +1,49 @@
+name: Setup dependencies
+description: >-
+  Shared job bootstrap — setup-node with the repo's packageManager pin, npm
+  download cache, npm install, and (optionally) Python + uv with its wheel
+  cache. Jobs call this instead of repeating the install/cache boilerplate.
+
+inputs:
+  python-version:
+    description: >-
+      CPython version to provision. Leave empty for JS-only jobs (format /
+      lint / typecheck / js).
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - if: inputs.python-version != ''
+      uses: actions/setup-python@v6
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    # uv caches wheels by content hash; no uv.lock means the resolved set can
+    # drift between runs, but a stale cache entry can never install the wrong
+    # wheel — enable-cache keys off pyproject.toml and only governs hit rate.
+    - if: inputs.python-version != ''
+      uses: astral-sh/setup-uv@v5
+      with:
+        enable-cache: true
+        cache-dependency-glob: "pyproject.toml"
+
+    - uses: actions/setup-node@v6
+      with:
+        node-version-file: "package.json"
+        # setup-node auto-detects npm from the packageManager pin and turns on
+        # package-manager caching, which requires a lockfile this repo ignores.
+        package-manager-cache: false
+
+    # npm's cache is content-addressed (per-tarball hashes), so a stale entry
+    # can never install the wrong version — the key only governs hit rate.
+    - uses: actions/cache@v4
+      with:
+        path: ~/.npm
+        key: npm-${{ runner.os }}-${{ hashFiles('package.json') }}
+        restore-keys: |
+          npm-${{ runner.os }}-
+
+    - shell: bash
+      run: npm install
