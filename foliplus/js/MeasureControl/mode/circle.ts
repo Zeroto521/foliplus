@@ -26,7 +26,7 @@ interface CirclePreviews {
 // ==================== Circle Mode ====================
 /** Circle radius measurement mode. Click center, then click edge. */
 class CircleMode extends PreviewMode {
-  static TYPE = CONST.MODE.CIRCLE;
+  static TYPE = CONST.MEASURE_MODE.CIRCLE;
   static NAME_LABEL = "Circle Measurement";
   static NAME_LABEL_KEY = "name_circle";
 

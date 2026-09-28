@@ -29,7 +29,7 @@ describe("PolygonMode — marker click stops map propagation", () => {
   it("does not add a duplicate point when re-clicking an existing node", () => {
     const manager = makeManagerMock();
     const mode = new PolygonMode(manager);
-    manager.currentMode = CONST.MODE.POLYGON;
+    manager.currentMode = CONST.MEASURE_MODE.POLYGON;
     mode.start();
 
     const clickHandler = manager.map.on.mock.calls.find(
@@ -66,7 +66,7 @@ describe("PolygonMode — drawing polyline uses PATH_PREVIEW", () => {
   it("creates polygon preview lines with PATH_PREVIEW class", () => {
     const manager = makeManagerMock();
     const mode = new PolygonMode(manager);
-    manager.currentMode = CONST.MODE.POLYGON;
+    manager.currentMode = CONST.MEASURE_MODE.POLYGON;
     mode.start();
 
     const polylineCall = window.L.polyline.mock.calls.find(
@@ -81,7 +81,7 @@ describe("PolygonMode — click stops propagation to data layers", () => {
   it("calls L.DomEvent.stopPropagation when placing a point", () => {
     const manager = makeManagerMock();
     const mode = new PolygonMode(manager);
-    manager.currentMode = CONST.MODE.POLYGON;
+    manager.currentMode = CONST.MEASURE_MODE.POLYGON;
     mode.start();
 
     const clickHandler = manager.map.on.mock.calls.find(
@@ -104,7 +104,7 @@ describe("PolygonMode — confirmedPoly uses PATH_DASHED", () => {
   it("creates a polyline with PATH_DASHED class for confirmed segments", () => {
     const manager = makeManagerMock();
     const mode = new PolygonMode(manager);
-    manager.currentMode = CONST.MODE.POLYGON;
+    manager.currentMode = CONST.MEASURE_MODE.POLYGON;
     mode.start();
 
     const polylineCall = window.L.polyline.mock.calls.find(
@@ -117,7 +117,7 @@ describe("PolygonMode — confirmedPoly uses PATH_DASHED", () => {
 
 describe("PolygonMode — label count equals n-1", () => {
   function run(manager: MeasureManager, mode: PolygonMode) {
-    manager.currentMode = CONST.MODE.POLYGON;
+    manager.currentMode = CONST.MEASURE_MODE.POLYGON;
     mode.start();
     const clickHandler = manager.map.on.mock.calls.find(
       ([event]: [unknown]) => event === "click",
@@ -161,7 +161,7 @@ describe("PolygonMode — finish saves centroid", () => {
   it("persists center when the polygon is finished", () => {
     const manager = makeManagerMock();
     const mode = new PolygonMode(manager);
-    manager.currentMode = CONST.MODE.POLYGON;
+    manager.currentMode = CONST.MEASURE_MODE.POLYGON;
     mode.start();
 
     const clickHandler = manager.map.on.mock.calls.find(
@@ -335,7 +335,7 @@ describe("PolygonMode — cleanup", () => {
   it("runs the registered cleanup callback", () => {
     const manager = makeManagerMock() as any;
     const mode = new PolygonMode(manager);
-    manager.currentMode = CONST.MODE.POLYGON;
+    manager.currentMode = CONST.MEASURE_MODE.POLYGON;
     mode.start();
     mode.cleanup();
 
@@ -348,7 +348,7 @@ describe("PolygonMode — cleanup", () => {
   it("removes the preview cursor node when the mode is aborted", () => {
     const manager = makeManagerMock() as any;
     const mode = new PolygonMode(manager);
-    manager.currentMode = CONST.MODE.POLYGON;
+    manager.currentMode = CONST.MEASURE_MODE.POLYGON;
     mode.start();
 
     const handlers = manager.map.on.mock.calls.find(
@@ -374,7 +374,7 @@ describe("PolygonMode — preview cursor node", () => {
   it("mounts a non-interactive hollow node only after the first point", () => {
     const manager = makeManagerMock() as any;
     const mode = new PolygonMode(manager);
-    manager.currentMode = CONST.MODE.POLYGON;
+    manager.currentMode = CONST.MEASURE_MODE.POLYGON;
     mode.start();
 
     // Entering the mode adds only the drawing scaffolding — poly, confirmedPoly,
@@ -414,7 +414,7 @@ describe("PolygonMode — preview cursor node", () => {
   it("moves the node with the cursor and removes it when the shape is finished", () => {
     const manager = makeManagerMock() as any;
     const mode = new PolygonMode(manager);
-    manager.currentMode = CONST.MODE.POLYGON;
+    manager.currentMode = CONST.MEASURE_MODE.POLYGON;
     mode.start();
 
     const handlers = manager.map.on.mock.calls.find(
@@ -457,7 +457,7 @@ describe("PolygonMode — preview cursor node", () => {
   it("removes the node when the draw is aborted mid-way", () => {
     const manager = makeManagerMock() as any;
     const mode = new PolygonMode(manager);
-    manager.currentMode = CONST.MODE.POLYGON;
+    manager.currentMode = CONST.MEASURE_MODE.POLYGON;
     mode.start();
 
     const handlers = manager.map.on.mock.calls.find(
@@ -486,7 +486,7 @@ describe("PolygonMode — preview cursor node", () => {
   it("places an interactive node marker on each confirmed vertex", () => {
     const manager = makeManagerMock() as any;
     const mode = new PolygonMode(manager);
-    manager.currentMode = CONST.MODE.POLYGON;
+    manager.currentMode = CONST.MEASURE_MODE.POLYGON;
     mode.start();
 
     const click = manager.map.on.mock.calls.find(

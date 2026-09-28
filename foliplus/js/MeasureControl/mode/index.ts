@@ -6,10 +6,10 @@ import { MarkerMode } from "./marker.js";
 import { PolygonMode } from "./polygon.js";
 
 const MODE_MAP = {
-  [CONST.MODE.MARKER]: MarkerMode,
-  [CONST.MODE.DISTANCE]: DistanceMode,
-  [CONST.MODE.POLYGON]: PolygonMode,
-  [CONST.MODE.CIRCLE]: CircleMode,
+  [CONST.MEASURE_MODE.MARKER]: MarkerMode,
+  [CONST.MEASURE_MODE.DISTANCE]: DistanceMode,
+  [CONST.MEASURE_MODE.POLYGON]: PolygonMode,
+  [CONST.MEASURE_MODE.CIRCLE]: CircleMode,
 };
 
 export {
