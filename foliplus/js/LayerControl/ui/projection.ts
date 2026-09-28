@@ -86,7 +86,7 @@ const projectLayer = (ui: LayerUI, layerInfo: LayerInfo): Projection => {
 
   // A dimension's value being present is what the sweep has always read as
   // the user's choice (a restored record, a late replay). The provenance
-  // marker is `replayLayerState`'s concern, not this projection's.
+  // marker lives on `userOverrides`, not on this projection.
   const opacity =
     typeof ui.opacityMap?.[id] === "number" ? ui.opacityMap[id] : undefined;
 

@@ -40,6 +40,14 @@ type PersistedLayerState = {
    *  min_zoom / max_zoom is only the starting value, so it reaches this field
    *  only once the user has dragged the handles. */
   zoomRange?: [number, number];
+  /** The layer's label (annotation) config — a style dimension of this layer,
+   *  not an override: it carries no provenance marker and survives alongside
+   *  an empty `overrides` array (a layer the user configured *only* labels
+   *  for is still an entry here). Readers fall back to the legacy
+   *  top-level `annotations[id]` segment when this key is absent
+   *  (write-new / read-old tolerance; the old segment is passed through
+   *  untouched, never migrated). */
+  annotation?: AnnotationConfig;
   overrides: LayerOverride[];
 };
 
@@ -69,7 +77,11 @@ type PersistedRecord = {
   foldedGroups: string[];
   /** Layer id → user-assigned display name. */
   renamedNames: Record<string, string>;
-  /** Layer id → annotation config (show/field/format). */
+  /** Layer id → annotation config (show/field/format) — the LEGACY segment,
+   *  superseded by `layers[id].annotation`. Kept for read tolerance: old
+   *  records are read from here when the new key is absent, and every write
+   *  passes the stored segment through unchanged (write-new / read-old, no
+   *  migration — the segment dies when the record does). */
   annotations: Record<string, unknown>;
   /** Layer id → the user's per-layer intent. Empty means the user changed
    *  nothing, so every layer falls back to its declared default. */
@@ -85,7 +97,6 @@ type LiveState = {
   removed?: () => string[];
   foldedGroups?: () => string[];
   renamedNames?: () => Record<string, string>;
-  annotations?: () => Record<string, unknown>;
   layers?: () => Record<string, PersistedLayerState>;
 };
 

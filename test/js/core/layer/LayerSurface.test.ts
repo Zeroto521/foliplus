@@ -902,6 +902,9 @@ describe("LayerSurface capabilities", () => {
     expect(surface.capabilities).toEqual({
       opacity: "pane",
       zoomRange: "pane",
+      // A color face has no features to label — the registration edge never
+      // declares the `role: "annotation"` spec for it.
+      annotation: "none",
       fill: "native",
       stroke: "none",
       relocatable: true,

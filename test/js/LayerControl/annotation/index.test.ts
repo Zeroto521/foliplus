@@ -50,7 +50,11 @@ const makeMap = () => {
   const mapPane = document.createElement("div");
   const map = {
     getContainer: () => container,
-    getPane: (name: string) => panes[name] ?? null,
+    // Panes are the SURFACE's — declared and materialized before any label
+    // can ask for one. This unit fixture stands that world in by handing
+    // back a pane on demand (the tests drive AnnotationManager alone, with
+    // no LayerSurface around to declare it).
+    getPane: (name: string) => (panes[name] ??= document.createElement("div")),
     createPane: (name: string) => (panes[name] = document.createElement("div")),
     getPanes: () => ({ mapPane }),
     hasLayer: () => true,
@@ -86,22 +90,6 @@ const mkGroup = (leaves: L.Layer[]): L.Layer =>
 const oneLabel = (): L.Layer =>
   mkGroup([mkLeaf({ props: { v: "1200" }, latlng: { lat: 40, lng: -74 } })]);
 
-/** The pane callback injected from LayerManager. Mimics the real one: get the
- *  pane from the map's `_panes` registry (Leaflet's registry, which `makeMap`
- *  seeds) or create it there. The unit tests do not care what it returns (the
- *  canvas is stubbed) — the map's `panes` registry is the thing tests read
- *  back. */
-const stubOwnedPane = (map: unknown) => (name: string) =>
-  ((map as { _panes: Record<string, HTMLElement> })._panes[name] ??=
-    document.createElement("div"));
-
-/** The release counterpart — drops the pane from the registry, mirroring
- *  PaneManager.removePane which also clears spec/cache (not modelled here
- *  because the annotation manager never reads those). */
-const stubReleaseOwnedPane = (map: unknown) => (name: string) => {
-  const panes = (map as { _panes: Record<string, HTMLElement> })._panes;
-  delete panes[name];
-};
 
 const CONFIG = {
   show: true,
@@ -117,9 +105,6 @@ describe("AnnotationManager — formatting and fields", () => {
   const mgr = new AnnotationManager({
     map,
     layerFind: () => null,
-    ensureOwnedPane: stubOwnedPane(map),
-    releaseOwnedPane: stubReleaseOwnedPane(map),
-    replayLayerState: () => {},
   });
 
   it("formats numbers per style and passes strings through", () => {
@@ -184,9 +169,6 @@ describe("AnnotationManager — formatting and fields", () => {
     const m = new AnnotationManager({
       map,
       layerFind: () => group,
-      ensureOwnedPane: stubOwnedPane(map),
-      releaseOwnedPane: stubReleaseOwnedPane(map),
-      replayLayerState: () => {},
     });
     expect(m.collectFields("l1")).toEqual([
       { name: "name", numeric: false },
@@ -205,9 +187,6 @@ describe("AnnotationManager — config", () => {
     const mgr = new AnnotationManager({
       map,
       layerFind: () => null,
-      ensureOwnedPane: stubOwnedPane(map),
-      releaseOwnedPane: stubReleaseOwnedPane(map),
-      replayLayerState: () => {},
     });
 
     expect(mgr.getConfig("none")).toEqual({
@@ -249,9 +228,6 @@ describe("AnnotationManager — config", () => {
     const mgr = new AnnotationManager({
       map,
       layerFind: () => oneLabel(),
-      ensureOwnedPane: stubOwnedPane(map),
-      releaseOwnedPane: stubReleaseOwnedPane(map),
-      replayLayerState: () => {},
     });
     mgr.setConfig("a", { ...CONFIG, size: 12 });
     mgr.renderLabels("a");
@@ -270,9 +246,6 @@ describe("AnnotationManager — config", () => {
       const mgr = new AnnotationManager({
         map,
         layerFind: () => null,
-        ensureOwnedPane: stubOwnedPane(map),
-        releaseOwnedPane: stubReleaseOwnedPane(map),
-        replayLayerState: () => {},
       });
       expect(mgr.getConfig("none").collide).toBe(false);
     } finally {
@@ -286,9 +259,6 @@ describe("AnnotationManager — config", () => {
       map,
       layerFind: () =>
         mkGroup([mkLeaf({ props: { v: "1200" }, latlng: { lat: 40, lng: -74 } })]),
-      ensureOwnedPane: stubOwnedPane(map),
-      releaseOwnedPane: stubReleaseOwnedPane(map),
-      replayLayerState: () => {},
     });
 
     // No explicit field: the shared auto pick resolves to the only column.
@@ -308,9 +278,6 @@ describe("AnnotationManager — render & plan", () => {
     const mgr = new AnnotationManager({
       map,
       layerFind: () => oneLabel(),
-      ensureOwnedPane: stubOwnedPane(map),
-      releaseOwnedPane: stubReleaseOwnedPane(map),
-      replayLayerState: () => {},
     });
 
     mgr.setConfig("a", CONFIG);
@@ -335,9 +302,6 @@ describe("AnnotationManager — render & plan", () => {
     const mgr = new AnnotationManager({
       map,
       layerFind: () => oneLabel(),
-      ensureOwnedPane: stubOwnedPane(map),
-      releaseOwnedPane: stubReleaseOwnedPane(map),
-      replayLayerState: () => {},
     });
     mgr.setConfig("a", { ...CONFIG, show: false });
 
@@ -351,9 +315,6 @@ describe("AnnotationManager — render & plan", () => {
     const mgr = new AnnotationManager({
       map,
       layerFind: () => oneLabel(),
-      ensureOwnedPane: stubOwnedPane(map),
-      releaseOwnedPane: stubReleaseOwnedPane(map),
-      replayLayerState: () => {},
     });
     mgr.setConfig("a", CONFIG);
     mgr.renderLabels("a");
@@ -366,9 +327,6 @@ describe("AnnotationManager — render & plan", () => {
     const mgr = new AnnotationManager({
       map,
       layerFind: () => oneLabel(),
-      ensureOwnedPane: stubOwnedPane(map),
-      releaseOwnedPane: stubReleaseOwnedPane(map),
-      replayLayerState: () => {},
     });
     for (const id of ["a", "b"]) {
       mgr.setConfig(id, CONFIG);
@@ -397,9 +355,6 @@ describe("AnnotationManager — render & plan", () => {
     const mgr = new AnnotationManager({
       map,
       layerFind: () => group,
-      ensureOwnedPane: stubOwnedPane(map),
-      releaseOwnedPane: stubReleaseOwnedPane(map),
-      replayLayerState: () => {},
     });
     mgr.setConfig("a", { ...CONFIG, collide: false });
     mgr.renderLabels("a");
@@ -417,9 +372,6 @@ describe("AnnotationManager — render & plan", () => {
     const mgr = new AnnotationManager({
       map,
       layerFind: () => group,
-      ensureOwnedPane: stubOwnedPane(map),
-      releaseOwnedPane: stubReleaseOwnedPane(map),
-      replayLayerState: () => {},
     });
     mgr.setConfig("a", CONFIG);
     mgr.renderLabels("a");
@@ -437,9 +389,6 @@ describe("AnnotationManager — render & plan", () => {
     const mgr = new AnnotationManager({
       map,
       layerFind: () => oneLabel(),
-      ensureOwnedPane: stubOwnedPane(map),
-      releaseOwnedPane: stubReleaseOwnedPane(map),
-      replayLayerState: () => {},
     });
     mgr.setConfig("a", CONFIG);
     mgr.renderLabels("a");
@@ -476,9 +425,6 @@ describe("AnnotationManager — render & plan", () => {
     const mgr = new AnnotationManager({
       map,
       layerFind: () => oneLabel(),
-      ensureOwnedPane: stubOwnedPane(map),
-      releaseOwnedPane: stubReleaseOwnedPane(map),
-      replayLayerState: () => {},
     });
     mgr.setConfig("a", CONFIG);
     mgr.renderLabels("a");
@@ -505,9 +451,6 @@ describe("AnnotationManager — render & plan", () => {
     const mgr = new AnnotationManager({
       map,
       layerFind: () => oneLabel(),
-      ensureOwnedPane: stubOwnedPane(map),
-      releaseOwnedPane: stubReleaseOwnedPane(map),
-      replayLayerState: () => {},
     });
     mgr.setConfig("a", CONFIG);
     mgr.renderLabels("a");
@@ -533,9 +476,6 @@ describe("AnnotationManager — render & plan", () => {
     const mgr = new AnnotationManager({
       map,
       layerFind: id => (id === "a" ? layerA : layerB),
-      ensureOwnedPane: stubOwnedPane(map),
-      releaseOwnedPane: stubReleaseOwnedPane(map),
-      replayLayerState: () => {},
     });
     mgr.setConfig("a", CONFIG);
     mgr.setConfig("b", CONFIG);
@@ -566,9 +506,6 @@ describe("AnnotationManager — render & plan", () => {
     const mgr = new AnnotationManager({
       map,
       layerFind: () => oneLabel(),
-      ensureOwnedPane: stubOwnedPane(map),
-      releaseOwnedPane: stubReleaseOwnedPane(map),
-      replayLayerState: () => {},
     });
     mgr.setConfig("a", CONFIG);
 
@@ -583,9 +520,6 @@ describe("AnnotationManager — render & plan", () => {
     const mgr = new AnnotationManager({
       map,
       layerFind: () => oneLabel(),
-      ensureOwnedPane: stubOwnedPane(map),
-      releaseOwnedPane: stubReleaseOwnedPane(map),
-      replayLayerState: () => {},
     });
     mgr.setConfig("a", CONFIG);
     mgr.renderLabels("a");
@@ -595,7 +529,9 @@ describe("AnnotationManager — render & plan", () => {
 
     expect(off).toHaveBeenCalled();
     expect(canvas().destroy).toHaveBeenCalled();
-    expect(panes["foliplus-annotation-a"]).toBeUndefined();
+    // The pane is the surface's declared face — teardown takes down our
+    // canvases and wiring, never the carrier itself.
+    expect(panes["foliplus-annotation-a"]).toBeDefined();
     expect(mgr.configEntries()).toHaveLength(0);
   });
 
@@ -609,9 +545,6 @@ describe("AnnotationManager — render & plan", () => {
     const mgr = new AnnotationManager({
       map,
       layerFind: () => oneLabel(),
-      ensureOwnedPane: stubOwnedPane(map),
-      releaseOwnedPane: stubReleaseOwnedPane(map),
-      replayLayerState: () => {},
     });
     mgr.setConfig("a", CONFIG);
     mgr.renderLabels("a");
@@ -635,9 +568,6 @@ describe("AnnotationManager — render & plan", () => {
     const mgr = new AnnotationManager({
       map,
       layerFind: () => oneLabel(),
-      ensureOwnedPane: stubOwnedPane(map),
-      releaseOwnedPane: stubReleaseOwnedPane(map),
-      replayLayerState: () => {},
     });
     mgr.setConfig("a", CONFIG);
     mgr.renderLabels("a");
@@ -645,36 +575,35 @@ describe("AnnotationManager — render & plan", () => {
     mgr.destroyLayer("a");
 
     expect(canvas().destroy).toHaveBeenCalled();
-    expect(panes["foliplus-annotation-a"]).toBeUndefined();
+    // The pane is the surface's declared face — it survives (the same id can
+    // register again without rebuilding its carrier); only our canvas goes.
+    expect(panes["foliplus-annotation-a"]).toBeDefined();
     expect(mgr.configEntries()).toHaveLength(0);
   });
 
-  it("rebuilds the pane from zero when the same id is annotated again", () => {
-    // The release path is the counterpart of ensurePane: it must leave no
-    // trace in the registry so a later render for the same id starts fresh
-    // (a stale spec would otherwise hand the rebuild the old z accounting).
+  it("remounts a fresh canvas into the same pane when the same id is annotated again", () => {
+    // Pane ownership split: the declared pane is the surface's and stays;
+    // the canvas is AnnotationManager's and is rebuilt from zero. A stale
+    // canvas must never be recycled into the second mount.
     const { map, panes } = makeMap();
     const mgr = new AnnotationManager({
       map,
       layerFind: () => oneLabel(),
-      ensureOwnedPane: stubOwnedPane(map),
-      releaseOwnedPane: stubReleaseOwnedPane(map),
-      replayLayerState: () => {},
     });
     mgr.setConfig("a", CONFIG);
     mgr.renderLabels("a");
     const firstPane = panes["foliplus-annotation-a"];
+    const firstCanvas = canvas();
     expect(firstPane).toBeDefined();
 
     mgr.destroyLayer("a");
-    expect(panes["foliplus-annotation-a"]).toBeUndefined();
+    expect(firstCanvas.destroy).toHaveBeenCalled();
+    expect(panes["foliplus-annotation-a"]).toBeDefined();
 
     mgr.setConfig("a", CONFIG);
     mgr.renderLabels("a");
-    const secondPane = panes["foliplus-annotation-a"];
-    expect(secondPane).toBeDefined();
-    // A rebuild is a fresh pane div, not the recycled one.
-    expect(secondPane).not.toBe(firstPane);
+    expect(panes["foliplus-annotation-a"]).toBe(firstPane);
+    expect(canvas()).not.toBe(firstCanvas);
   });
 
   it("hides the canvases during a zoom animation and redraws on zoomend", () => {
@@ -682,9 +611,6 @@ describe("AnnotationManager — render & plan", () => {
     const mgr = new AnnotationManager({
       map,
       layerFind: () => oneLabel(),
-      ensureOwnedPane: stubOwnedPane(map),
-      releaseOwnedPane: stubReleaseOwnedPane(map),
-      replayLayerState: () => {},
     });
     mgr.setConfig("a", CONFIG);
     mgr.renderLabels("a");
@@ -713,9 +639,6 @@ describe("AnnotationManager — render & plan", () => {
     const mgr = new AnnotationManager({
       map,
       layerFind: () => oneLabel(),
-      ensureOwnedPane: stubOwnedPane(map),
-      releaseOwnedPane: stubReleaseOwnedPane(map),
-      replayLayerState: () => {},
     });
     mgr.setConfig("a", CONFIG);
     mgr.renderLabels("a");
@@ -733,30 +656,16 @@ describe("AnnotationManager — render & plan", () => {
     expect(c.paint).toHaveBeenCalledTimes(2);
   });
 
-  it("paneNameFor returns the pane name when the layer has labels, null otherwise", () => {
-    const { map } = makeMap();
-    const mgr = new AnnotationManager({
-      map,
-      layerFind: () => oneLabel(),
-      ensureOwnedPane: stubOwnedPane(map),
-      releaseOwnedPane: stubReleaseOwnedPane(map),
-      replayLayerState: () => {},
-    });
-
-    expect(mgr.paneNameFor("a")).toBeNull();
-
-    mgr.setConfig("a", CONFIG);
-    mgr.renderLabels("a");
-    expect(mgr.paneNameFor("a")).toBe("foliplus-annotation-a");
-
-    mgr.destroyLayer("a");
-    expect(mgr.paneNameFor("a")).toBeNull();
-  });
 });
 
-describe("a pane that appears later picks up the stored intent", () => {
-  // The canvas is stubbed above, so `renderLabels` reaches `ensureCanvas` and
-  // the pane it creates is what is asserted on.
+describe("a layer that gains labelable content gets the stored intent on its new pane", () => {
+  // The label pane is declared by the registration edge's probe
+  // (`LayerManager.withAnnotationSpec`). When a live layer GAINS its first
+  // labelable feature, the next `surfaceFor` re-probes, the declared specs
+  // differ, and `matches` rebuilds the surface — pane and capability
+  // together. The pane name joining `surface.paneNames` is a carrier-set
+  // change the executor cannot miss, so the stored opacity lands on the
+  // pane that declaration just created. No replay hook — none exists.
   const labelLayer = () =>
     ({
       options: {},
@@ -779,9 +688,9 @@ describe("a pane that appears later picks up the stored intent", () => {
   });
 
   it("replays an opacity set before the annotation pane existed", () => {
-    // The stored opacity is applied on attach, when the layer has no annotation
-    // pane yet — so the pane that is created later must pick the value up at the
-    // moment it appears.
+    // Opacity is stored while the layer has no labelable content yet — no
+    // annotation spec, no pane. The pane appears only when the layer gains
+    // that content, and the value must land on it at that point.
     window.localStorage.setItem(
       CONST.STORAGE.KEY,
       JSON.stringify({
@@ -827,9 +736,19 @@ describe("a pane that appears later picks up the stored intent", () => {
       collide: true,
     });
     (manager.layerRegistry.get("overlay1") as { layer: L.Layer }).layer = labelLayer();
+    // The probe runs on the next surface resolution — the same read the
+    // panel gate and menu perform. Specs differ → surface rebuild → the
+    // label pane is declared and materialized.
+    const li = manager.layerRegistry.get("overlay1")!;
+    expect(
+      manager.surfaceFor(li).paneNames,
+      "the re-probe must declare the label pane",
+    ).toContain(CONST.ANNOTATION_PANE_PREFIX + "overlay1");
     manager.annotation.renderLabels("overlay1");
 
-    // Re-apply after the annotation pane exists so the executor picks it up.
+    // Re-apply: the carrier set grew (the pane name joined it), so the
+    // stored value is rewritten onto every declared pane, the new one
+    // included.
     applyProjection(ui, "overlay1");
     applyProjection(ui, "overlay1");
 

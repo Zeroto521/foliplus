@@ -56,6 +56,21 @@ interface LayerCapabilities {
    *      basemap once it is promoted to a real surface; today that layer is not
    *      in the registry at all, so no placeholder is emitted. */
   zoomRange: "native" | "pane" | "none";
+  /** Whether the layer can host a label (annotation) pane:
+   *    - "pane" — the registration edge declared a `role: "annotation"`
+   *      PaneSpec (its features expose labelable `feature.properties`) and
+   *      LayerSurface materializes that pane with the rest of the face, so
+   *      the style panel's Label section is honest to render.
+   *    - "none" — no labelable content (base tiles, canvas / color surfaces,
+   *      shapes without properties): no pane, no row.
+   *
+   *  Declared, not probed in `detectCapabilities`: the probe lives at the
+   *  declaration edge (`LayerManager.surfaceFor`), so the capability and
+   *  the pane itself are one fact and can never disagree — and a
+   *  re-registration whose tree gained or lost labelable content re-probes
+   *  there, changing the declared specs, which rebuilds the surface through
+   *  `matches` (the fill / stroke probe's path). */
+  annotation: "pane" | "none";
   /** Whether the surface can be z-reordered by our own mechanism. Today every
    *  materialized surface can; the field is declared so a later carrier that
    *  cannot (a plugin that owns its own z) can say so without another shape

@@ -215,18 +215,36 @@ describe("LayerManager", () => {
 
   it("slots a layer's label pane just above that layer", () => {
     manager.map.hasLayer.mockReturnValue(true);
-    const pane = document.createElement("div");
+    // Labelable overlay: the registration edge declares the
+    // `role: "annotation"` spec, the surface materializes it, and the
+    // ordering pass prices it through the same `zFor` ladder as every other
+    // PaneHandle (role annotation = one step above the slot) — no
+    // name-keyed spot-write in enforceOrder anymore.
+    const panes = new Map<string, HTMLElement>();
     const realGetPane = map.getPane;
-    map.getPane = vi.fn((name: string) =>
-      name === CONST.ANNOTATION_PANE_PREFIX + "base1" ? pane : realGetPane(name),
-    );
-
+    map.getPane = vi.fn((name: string) => {
+      if (!panes.has(name)) panes.set(name, realGetPane(name));
+      return panes.get(name)!;
+    });
+    manager.registerLayer({
+      id: "labelable",
+      name: "Labelable",
+      isBase: false,
+      layer: {
+        options: {},
+        feature: { properties: { name: "x" } },
+      } as unknown as L.Layer,
+    });
     manager.enforceOrder();
 
-    // base1 is a TileLayer, so its own z is the tile-based one — the same
-    // `computeZIndex` the ordering pass uses for it.
-    expect(pane.style.zIndex).toBe(
-      String(manager.computeZIndex(1, true) + CONST.ANNOTATION_Z_OFFSET),
+    const li = manager.layerRegistry.get("labelable")!;
+    const annName = manager
+      .surfaceFor(li)
+      .paneNames.find(name => name.startsWith(CONST.ANNOTATION_PANE_PREFIX));
+    expect(annName).toBeDefined();
+    const slotZ = manager.computeZIndex(manager.layers.indexOf(li), li.isBase);
+    expect(panes.get(annName!)!.style.zIndex).toBe(
+      String(slotZ + CONST.ANNOTATION_Z_OFFSET),
     );
   });
 
@@ -385,12 +403,13 @@ describe("LayerManager", () => {
     delete window["fb_b"];
   });
 
-  it("routes AnnotationManager's pane wiring through PaneManager", () => {
-    // AnnotationManager's own unit tests stub ensureOwnedPane / releaseOwnedPane,
-    // which leaves the two real wiring lambdas in LayerManager's constructor
-    // uncovered. This test drives the real manager end-to-end: renderLabels
-    // reaches PaneManager.ensurePane and unregisterLayer reaches
-    // PaneManager.removePane.
+  it("routes AnnotationManager's pane wiring through the surface", () => {
+    // The label pane is the surface's (declared `role: "annotation"` spec
+    // from the registration edge, materialized and class-stamped by
+    // PaneManager); AnnotationManager only mounts canvases into it. This
+    // test drives the real chain end-to-end: surfaceFor declares the pane,
+    // renderLabels mounts the canvas, unregisterLayer unmounts the canvas
+    // while the declared pane survives for a re-registration of the id.
     window.L.stamp = stableStamp;
     const paneRegistry: Record<string, HTMLElement> = {};
     map._panes = paneRegistry;
@@ -414,6 +433,10 @@ describe("LayerManager", () => {
       { id: "lbl", name: "Lbl", isBase: false, layer: leaf },
     ]);
     m.map.hasLayer.mockReturnValue(true);
+    // The panel gate is what resolves the surface in production (the menu /
+    // panel call surfaceFor before a label can render); drive it explicitly
+    // here so the declaration is on the record before renderLabels.
+    m.surfaceFor(m.layerRegistry.get("lbl")!);
     m.annotation.setConfig("lbl", {
       show: true,
       field: "name",
@@ -432,8 +455,11 @@ describe("LayerManager", () => {
     expect(pane!.classList.contains("foliplus-annotation-pane")).toBe(true);
 
     m.unregisterLayer("lbl");
-    expect(map._panes[paneName]).toBeUndefined();
-    expect(map.getPane(paneName)).toBeNull();
+    // The pane is declared, so it survives like every other declared pane
+    // (the same id can register again without rebuilding its face); what
+    // unregister takes down is our canvas.
+    expect(paneRegistry[paneName]).toBeDefined();
+    expect(pane!.querySelector("canvas")).toBeNull();
   });
 
   it("unregisterLayer emits EVENTS.LAYER_REMOVED event with the layer id", () => {

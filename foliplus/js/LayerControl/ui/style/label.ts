@@ -19,6 +19,7 @@ import { NUMBER_FORMAT } from "#common/format.js";
 import * as CONST from "../../const.js";
 import type { AnnotationConfig } from "../../type.js";
 import type { LayerUI } from "../index.js";
+import { saveState } from "../state.js";
 
 /** Field list for a layer (cached on the UI shell). collectFields walks every
  *  feature, so the answer is cached per layer id; invalidateFields drops a
@@ -52,11 +53,13 @@ const invalidateFields = (ui: LayerUI, layerId: string): void => {
   }
 };
 
-/** Persist the current per-layer annotation config map. */
+/** Persist the per-layer label config — it rides the record's `layers`
+ *  section (`layers[id].annotation`), so the same writer that saves
+ *  visibility / opacity / zoom range now saves it. The legacy top-level
+ *  `annotations` segment has no live source anymore: it passes through on
+ *  every write, read only as the fallback when the new key is absent. */
 const persistStyleLabel = (ui: LayerUI): void => {
-  ui.m.persistence.schedule({
-    annotations: () => Object.fromEntries(ui.m.annotation.configEntries()),
-  });
+  saveState(ui);
 };
 
 /** Apply one control change to the layer's config, re-render its labels and

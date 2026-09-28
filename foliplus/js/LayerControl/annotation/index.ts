@@ -52,34 +52,23 @@ const LABEL_PRIORITY = 50;
  * AnnotationManager owns per-layer label state, the per-layer plans and the
  * per-layer canvases. state and persistence are written to LayerPersistence
  * by LayerUI.
+ *
+ * Panes are NOT this manager's anymore: the label pane is a declared
+ * `role: "annotation"` PaneSpec of the layer's surface, created when the
+ * surface materializes (the registration edge declares it iff the layer has
+ * labelable fields — `LayerManager.withAnnotationSpec`). This manager only
+ * mounts and unmounts the canvas inside that pane, so the pane's lifetime,
+ * z and opacity carrier are the surface's — the same bookkeeping as every
+ * other pane the face owns.
  */
 class AnnotationManager {
   private readonly map: L.Map;
   private readonly layerFind: (id: string) => L.Layer | null;
-  /** Route to PaneManager.ensurePane — the one entry point every owned pane
-   *  goes through, which stamps the base `foliplus-layer-pane` class onto the
-   *  pane div so the interaction rules in focus.css apply. Injected as a
-   *  narrow function (not the PaneManager itself) to match the `layerFind`
-   *  pattern and keep the annotation module coupled only to what it needs. */
-  private readonly ensureOwnedPane: (name: string) => HTMLElement;
-  /** Symmetric release — routes to PaneManager.removePane, which also drops
-   *  the pane's spec and the discovery cache, so the create/destroy pair is
-   *  booked in one place. Without it a stale spec could hand a rebuild a
-   *  leftover z from the previous instance. */
-  private readonly releaseOwnedPane: (name: string) => void;
-  /** Replay this layer's stored intent the moment its annotation pane appears
-   *  (see {@link ensureCanvas}). Injected rather than inlined: the pane is the
-   *  opacity carrier, but the value and its carrier resolution both live
-   *  in the UI's write pipeline, which is also what makes a canvas layer land
-   *  on `canvas.style` instead of a pane. */
-  private readonly replayLayerState: (id: string) => void;
   private readonly config: Map<string, AnnotationConfig>;
   /** Resolved auto field per layer, dropped when its features can change. */
   private readonly autoFieldCache: Map<string, string>;
   /** The labels each layer wants drawn. */
   private readonly labelsByLayer = new Map<string, LayerLabel[]>();
-  /** A layer's own label pane and the canvas mounted in it. */
-  private readonly panes = new Map<string, HTMLElement>();
   private readonly canvases = new Map<string, AnnotationCanvas>();
   /** The layer the focus mode is spotlighting, or null when not focusing. */
   private focusFilter: string | null = null;
@@ -97,18 +86,9 @@ class AnnotationManager {
   /** What the last full plan handed each canvas, kept for the pan translate. */
   private readonly lastPlanned = new Map<string, PlacedLabel[]>();
 
-  constructor(opts: {
-    map: L.Map;
-    layerFind: (id: string) => L.Layer | null;
-    ensureOwnedPane: (name: string) => HTMLElement;
-    releaseOwnedPane: (name: string) => void;
-    replayLayerState: (id: string) => void;
-  }) {
+  constructor(opts: { map: L.Map; layerFind: (id: string) => L.Layer | null }) {
     this.map = opts.map;
     this.layerFind = opts.layerFind;
-    this.ensureOwnedPane = opts.ensureOwnedPane;
-    this.releaseOwnedPane = opts.releaseOwnedPane;
-    this.replayLayerState = opts.replayLayerState;
     this.config = new Map();
     this.autoFieldCache = new Map();
 
@@ -175,15 +155,6 @@ class AnnotationManager {
    *  overwrite live state. */
   hasConfig(id: string): boolean {
     return this.config.has(id);
-  }
-
-  /** The pane name a layer's labels render into, or null when it has none yet.
-   *  Read-only projection: the pane is created lazily by {@link ensureCanvas}
-   *  when labels first turn on, and lives outside the surface's frozen pane set.
-   *  The layer's opacity writer asks here at write time (one dimension,
-   *  one writer — the carrier set is surface panes ∪ annotation pane). */
-  paneNameFor(id: string): string | null {
-    return this.panes.has(id) ? CONST.ANNOTATION_PANE_PREFIX + id : null;
   }
 
   /** All configured layers' id → config entries (for persistence). */
@@ -538,37 +509,30 @@ class AnnotationManager {
     return !!layer && this.map.hasLayer(layer);
   }
 
-  /** Lazily create a layer's pane + canvas. The pane is what puts labels at the
-   *  layer's place in the stack — LayerManager.enforceOrder z-orders it. Goes
-   *  through PaneManager.ensurePane so the base `foliplus-layer-pane` class is
-   *  applied uniformly; `foliplus-annotation-pane` is the role marker on top. */
+  /** Mount a layer's label canvas into its surface-declared annotation pane.
+   *
+   *  The pane already exists — the registration edge declared it alongside
+   *  the capability (`withAnnotationSpec`), so the surface created it with
+   *  the rest of the face, z-priced by the ordering pass and already
+   *  carrying any stored opacity. There is no late carrier and therefore no
+   *  replay: intent landed on the pane before the canvas was ever mounted
+   *  and the canvas inherits it. `foliplus-annotation-pane` is the role
+   *  marker class on top of the base pane class PaneManager stamps. */
   private ensureCanvas(id: string): void {
     if (this.canvases.has(id)) return;
-    const name = CONST.ANNOTATION_PANE_PREFIX + id;
-    const pane = this.ensureOwnedPane(name);
+    const pane = this.map.getPane(CONST.ANNOTATION_PANE_PREFIX + id);
+    if (!pane) return; // no declared carrier (capability "none") — no labels
     pane.classList.add("foliplus-annotation-pane");
-    this.panes.set(id, pane);
     this.canvases.set(id, new AnnotationCanvas(this.map, pane));
-    // The pane is the opacity carrier, and it is created lazily -- often
-    // long after the slider was last moved -- so the stored intent has to be
-    // replayed at the moment the pane appears rather than waiting for the next
-    // write, which may never come. `panes.set` must come first, since the writer
-    // resolves the carrier through `paneNameFor`.
-    this.replayLayerState(id);
   }
 
-  /** Drop a layer's canvas and pane. Called on unregister and on teardown; the
-   *  pane has to leave Leaflet's registry too, or getPane keeps returning it.
-   *  Goes through PaneManager.removePane (the release counterpart of
-   *  ensurePane) so the manager's spec and cache entries are cleaned in step
-   *  with the DOM — the "booked in one place" invariant. */
+  /** Drop a layer's label canvas. Called on unregister and on teardown. The
+   *  pane itself is the surface's — it survives with the rest of a declared
+   *  face so the same id can register again without rebuilding its panes
+   *  (the core `LayerSurface.destroy` contract); only the canvas is ours. */
   private dropCanvas(id: string): void {
     this.canvases.get(id)?.destroy();
     this.canvases.delete(id);
-    const pane = this.panes.get(id);
-    if (!pane) return;
-    this.releaseOwnedPane(CONST.ANNOTATION_PANE_PREFIX + id);
-    this.panes.delete(id);
   }
 }
 

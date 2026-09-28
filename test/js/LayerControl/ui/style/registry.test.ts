@@ -20,6 +20,7 @@ import { FILL_DIMENSION } from "#foliplus/LayerControl/ui/style/fill.js";
 import { OPACITY_DIMENSION } from "#foliplus/LayerControl/ui/style/opacity.js";
 import {
   DIM_ORDER,
+  LABEL_DIM_ORDER,
   getDimension,
   listDimensions,
   registerDimension,
@@ -65,15 +66,19 @@ describe("LayerControl style-panel dimension registry", () => {
     expect(keys.at(-1)).toBe(TEST_DIM_KEY);
   });
 
-  it("DIM_ORDER covers every registered built-in key and nothing more", () => {
-    // Adding a dimension to the registry without adding it to DIM_ORDER
-    // makes it unreachable from the panel. This test fails loudly on
-    // that drift: every key in DIM_ORDER must be registered, and every
-    // registered built-in must appear in DIM_ORDER. Order is irrelevant —
-    // DIM_ORDER is the display contract, listDimensions is insertion order.
+  it("DIM_ORDER + LABEL_DIM_ORDER cover every registered built-in key", () => {
+    // Adding a dimension to the registry without adding it to a section
+    // order makes it unreachable from the panel. This test fails loudly on
+    // that drift: every key in either order must be registered, and every
+    // registered built-in must appear in exactly one order (the sections
+    // own their headings, so a key in both would render twice). Order
+    // within a section is the display contract; listDimensions is insertion
+    // order.
     const registered = listDimensions().map(d => d.key);
     const builtIn = registered.filter(k => k !== TEST_DIM_KEY);
-    expect(new Set(DIM_ORDER)).toEqual(new Set(builtIn));
+    const ordered = [...DIM_ORDER, ...LABEL_DIM_ORDER];
+    expect(new Set(ordered)).toEqual(new Set(builtIn));
+    expect(ordered.length).toBe(new Set(ordered).size);
   });
 
   it("registerDimension throws on a duplicate key — the built-in opacity", () => {

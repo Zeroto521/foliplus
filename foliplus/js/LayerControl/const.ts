@@ -119,6 +119,10 @@ const CLASSES = {
   STYLE_FORMAT_SELECT: "foliplus-style-format-select",
   STYLE_TOGGLE_INPUT: "foliplus-style-toggle-input",
   STYLE_BODY: "foliplus-style-body",
+  /** The Label section's row wrapper — the `annotation` dimension's `row`
+   *  element (toggle + body), so the panel assembly and the tests can
+   *  select the section's content as one unit. No styles hang off it. */
+  STYLE_LABEL_SECTION: "foliplus-style-label-section",
   STYLE_LABEL_COLOR_INPUT: "foliplus-style-label-color-input",
   STYLE_LABEL_SIZE_INPUT: "foliplus-style-label-size-input",
   /** Border row (vector layers): stroke swatch + width field. Each control

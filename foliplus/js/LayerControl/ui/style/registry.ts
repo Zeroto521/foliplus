@@ -124,6 +124,16 @@ const listDimensions = (): readonly LayerDimension<any>[] => [...registry.values
  */
 const DIM_ORDER = ["fill", "border", "opacity", "zoomRange"] as const;
 
+/** The Label section's authoritative display order — the second section of
+ *  the same panel, iterated exactly like `DIM_ORDER` (heading + gated rows).
+ *  Sections own their own order arrays: the panel renders a heading per
+ *  section, so one flat order cannot express "which section does this row
+ *  live in". `registry.test.ts` asserts the UNION of both arrays covers
+ *  every registered built-in key and nothing more, which is the drift this
+ *  split would otherwise open: a dimension registered but put in neither
+ *  order is unreachable from the panel. */
+const LABEL_DIM_ORDER = ["annotation"] as const;
+
 /** Whether the layer owns any registered dimension whose `gate` passes.
  *  The single "has-any" question the panel needs before deciding whether
  *  to render the Layer section at all — the annotation panel asks it to
@@ -135,4 +145,11 @@ const hasAnyDimension = (ui: LayerUI, layerId: string): boolean =>
   [...registry.values()].some(d => d.gate(ui, layerId));
 
 export type { LayerDimension };
-export { DIM_ORDER, getDimension, hasAnyDimension, listDimensions, registerDimension };
+export {
+  DIM_ORDER,
+  LABEL_DIM_ORDER,
+  getDimension,
+  hasAnyDimension,
+  listDimensions,
+  registerDimension,
+};
