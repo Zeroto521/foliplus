@@ -253,6 +253,20 @@ class LayerManager implements LayerAPI {
       unregisterLayer: this.unregisterLayer,
       bringLayerToFront: this.bringLayerToFront,
       invalidateType: id => this.invalidateType(id),
+      // A canvas or color surface mounts its pane inside register() and needs
+      // its slot's z at birth — no provisional bottom step the ordering pass
+      // rewrites later. Index and size are stable by the time registerLayer
+      // has inserted, so the lookup is exact.
+      slotOf: id => {
+        const li = this.layerRegistry.get(id);
+        return li
+          ? {
+              index: this.layerRegistry.indexOf(li),
+              count: this.layers.length,
+              isBase: li.isBase,
+            }
+          : null;
+      },
       // Runtime content changes (createLayers add/remove/clear) refresh the
       // count column live. No-op until a UI row subscribes.
       onDataChange: id => this.refreshCount(id),
@@ -1011,13 +1025,15 @@ class LayerManager implements LayerAPI {
     return this.panes.getLayerPanes(layer);
   }
 
-  /** Give every layer a surface and write its z.
+  /** Give every layer a surface and reprice its z.
    *
-   *  Ordering only. Panes are allocated at materialization (before the layer
-   *  joins the map, so `options.pane` is already right at the one moment
-   *  Leaflet reads it), and content that arrived since the last pass is
-   *  re-pinned by `materialize()` itself. What is left here is the z arithmetic
-   *  and the shared panes around it, untouched. */
+   *  Re-ordering only. Panes are allocated at register time — a canvas or
+   *  color face inside `register()`, a layer's tree inside `materialize()` —
+   *  and each is priced at its own slot then, so a pane is never seen at
+   *  Leaflet's default z. Content that arrived since the last pass is
+   *  re-pinned by `materialize()` itself. What is left here is to reprice
+   *  after the registry moves (add, delete, drag) and to place the shared
+   *  panes around the ladder. */
   enforceOrder() {
     if (this.isEnforcing) return;
     this.debouncedEnforce?.cancel();
