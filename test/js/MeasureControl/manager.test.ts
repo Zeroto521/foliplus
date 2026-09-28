@@ -1438,7 +1438,7 @@ describe("MeasureManager — registerLabel lifecycle", () => {
     expect(opts.styleProvider().labelCollide).toBe(true);
   });
 
-  it("styleDefaults returns the Python CONF snapshot, not live toggles", () => {
+  it("styleDefaultsProvider returns the Python CONF snapshot, not live toggles", () => {
     const { manager, map } = makeLabelManager({
       label_show: true,
       label_collide: false,
@@ -1447,15 +1447,21 @@ describe("MeasureManager — registerLabel lifecycle", () => {
       map.foliplus!.LayerAPI as unknown as { createLayers: ReturnType<typeof vi.fn> }
     ).createLayers;
     const opts = createLayers.mock.calls[0][0] as {
-      styleDefaults?: () => Record<string, unknown>;
+      styleDefaultsProvider?: () => Record<string, unknown>;
     };
-    expect(typeof opts.styleDefaults).toBe("function");
-    expect(opts.styleDefaults!()).toEqual({ labelShow: true, labelCollide: false });
+    expect(typeof opts.styleDefaultsProvider).toBe("function");
+    expect(opts.styleDefaultsProvider!()).toEqual({
+      labelShow: true,
+      labelCollide: false,
+    });
 
     // Runtime toggles must not leak into the Reset snapshot.
     manager.setLabelsVisible(false);
     manager.setLabelCollide(true);
-    expect(opts.styleDefaults!()).toEqual({ labelShow: true, labelCollide: false });
+    expect(opts.styleDefaultsProvider!()).toEqual({
+      labelShow: true,
+      labelCollide: false,
+    });
   });
 
   it("emits LAYER_STYLE_CHANGE when a setter fires", () => {

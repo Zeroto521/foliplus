@@ -283,7 +283,7 @@ class HeatmapManager {
       styleSetters: this.styleSetters,
       // Snapshot taken at construction — Reset restores this, never the
       // live toggle or the localStorage-persisted config.
-      styleDefaults: () => ({
+      styleDefaultsProvider: () => ({
         labelShow: defaultLabelShow,
         labelColor: defaultLabelColor,
         labelSize: defaultLabelSize,

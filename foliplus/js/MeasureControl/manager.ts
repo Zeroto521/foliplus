@@ -166,7 +166,7 @@ class MeasureManager {
       },
       // Snapshot taken at construction — Reset restores these, never the
       // live runtime toggles.
-      styleDefaults: () => ({
+      styleDefaultsProvider: () => ({
         labelShow: defaultLabelShow,
         labelCollide: defaultLabelCollide,
       }),

@@ -95,7 +95,7 @@ class LayerFactory {
       featureCountProvider: opts.featureCountProvider,
       styleProvider: opts.styleProvider,
       styleSetters: opts.styleSetters,
-      styleDefaults: opts.styleDefaults,
+      styleDefaultsProvider: opts.styleDefaultsProvider,
       metaProvider: opts.metaProvider,
       content: { kind: "layers", panes: opts.panes },
     });
@@ -119,7 +119,7 @@ class LayerFactory {
       featureCountProvider: opts.featureCountProvider,
       styleProvider: opts.styleProvider,
       styleSetters: opts.styleSetters,
-      styleDefaults: opts.styleDefaults,
+      styleDefaultsProvider: opts.styleDefaultsProvider,
       content: {
         kind: "canvas",
         className: opts.className,
@@ -193,7 +193,7 @@ class LayerFactory {
       featureCountProvider: opts.featureCountProvider ?? null,
       styleProvider: opts.styleProvider ?? null,
       styleSetters: opts.styleSetters ?? null,
-      styleDefaults: opts.styleDefaults ?? null,
+      styleDefaultsProvider: opts.styleDefaultsProvider ?? null,
       metaProvider: opts.metaProvider ?? null,
     };
 
