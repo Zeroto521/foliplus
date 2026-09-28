@@ -164,6 +164,9 @@ describe("ensureLayerAPI", () => {
     // deleteLayer erases stored state, so the stub cannot claim to do it —
     // false, not undefined, like the other registry-backed no-ops.
     expect(api.deleteLayer("x")).toBe(false);
+    // Same contract: forgetSavedOrder filters savedOrder, so the stub —which
+    // has no savedOrder—returns false to signal "nothing was forgotten".
+    expect(api.forgetSavedOrder("x")).toBe(false);
     expect(api.bringLayerToFront("x")).toBeUndefined();
     // false, not undefined: the stub is a real method, so callers can tell a
     // no-LayerControl call apart from an unknown id on a live one.

@@ -129,8 +129,8 @@ const mergeStoredOrder = (stored: string[] | null, live: string[]): string[] => 
 // stable contract, change carefully. Internal = LayerUI sibling read
 // surface (ui/* + LayerUI); refactorable, but coordinate with ui/*.
 //   LayerAPI  layers, registerLayer, unregisterLayer, deleteLayer,
-//             bringLayerToFront, setVisible, createLayers, createCanvas,
-//             extractPoints, getLayerPanes, isLayerControl
+//             forgetSavedOrder, bringLayerToFront, setVisible, createLayers,
+//             createCanvas, extractPoints, getLayerPanes, isLayerControl
 //   Public    getLayerType, getLayersByType, getFeatureCount, touchLayer,
 //   extra     computeZIndex, moveLayerUp, moveLayerDown
 //   Internal  surfaceFor, surfaceForLayer, enforceOrder, debouncedEnforce,
@@ -955,6 +955,36 @@ class LayerManager implements LayerAPI {
     this.ui.syncToggleAll(layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY);
     this.ui.syncNoBasemap();
     this.persistence.flushAll();
+    return true;
+  }
+
+  /**
+   * Drop one id from the stored order without retiring the layer.
+   *
+   * The counterpart to {@link deleteLayer}'s saved-order prune, minus the
+   * `removedIds` recording: after this call the id leaves `savedOrder` but
+   * stays registerable. Component clear paths use it because a cleared layer
+   * is not the same as a deleted one — the user still owns the layer and the
+   * next draw should land at the top of the stack, not back in the slot they
+   * had arranged. Skipping this prune is what makes the next `registerLayer`
+   * hit `insertOverlayAt`'s prepend branch rather than
+   * `placeBeforeSavedNeighbor`'s return-to-slot path.
+   *
+   * `saveOrder` is delegated (not the direct filter alone) so the write is
+   * merged with the live registry order the same way deleteLayer does it:
+   * an id that is not registered yet stays out of the record, and neighbors
+   * keep their rank.
+   *
+   * @param id - The layer ID whose stored position is being dropped.
+   * @returns true if the id was in the stored order and got removed, false
+   *   otherwise (nothing to forget). Callers treat false as a no-op, not an
+   *   error — an id that was never registered has nothing to forget.
+   */
+  forgetSavedOrder(id: string): boolean {
+    const saved = this.savedOrder;
+    if (!saved || !saved.includes(id)) return false;
+    this.savedOrder = saved.filter(other => other !== id);
+    this.saveOrder();
     return true;
   }
 
