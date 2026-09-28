@@ -1379,7 +1379,7 @@ class TestLayerControlBrowser:
                 timeout=5000,
             )
             page.wait_for_selector(
-                ".foliplus-layer-item:not(.foliplus-color-layer-item)",
+                ".foliplus-layer-item",
                 state="attached",
                 timeout=5000,
             )
@@ -1945,7 +1945,7 @@ class TestLayerControlBrowser:
             slug="rename_cb_title",
         ) as (page, _):
             page.wait_for_selector(
-                ".foliplus-layer-item:not(.foliplus-color-layer-item)",
+                ".foliplus-layer-item",
                 state="attached",
                 timeout=5000,
             )
@@ -2427,9 +2427,11 @@ class TestLayerControlBrowser:
                     f"{row['id']}: checkbox, registry and map disagree\n{rows}"
                 )
                 # Nothing may be persisted when the user never toggled: the
-                # unhide sweep must not synthesise a choice and write it down.
+                # unhide sweep must not synthesise a choice and write it down,
+                # and a runtime-created row (the colour basemap) must not
+                # rewrite the order the user arranged.
                 assert rows["storage"] == load_storage, (
-                    f"reload with no user choice wrote visibility state\n{rows}"
+                    f"reload with no user choice wrote a stored record\n{rows}"
                 )
 
     def test_hidden_layers_persist_across_reload(self, browser, tmp_path):
@@ -3942,7 +3944,7 @@ class TestLayerControlBrowser:
             page.wait_for_timeout(120)
 
             rest = page.evaluate(
-                "() => { const r = document.querySelector('.foliplus-layer-item:not(.foliplus-color-layer-item)');"
+                "() => { const r = document.querySelector('.foliplus-layer-item');"
                 " const cs = getComputedStyle(r);"
                 " const d = r.querySelector('.drag-handle');"
                 " return { bg: cs.backgroundColor, shadow: cs.boxShadow,"
@@ -3976,10 +3978,10 @@ class TestLayerControlBrowser:
             )
 
             # Hover a data row and confirm it matches the keyboard cursor exactly.
-            page.hover(".foliplus-layer-item:not(.foliplus-color-layer-item)")
+            page.hover(".foliplus-layer-item")
             page.wait_for_timeout(120)
             hover = page.evaluate(
-                "() => { const r = document.querySelector('.foliplus-layer-item:not(.foliplus-color-layer-item)');"
+                "() => { const r = document.querySelector('.foliplus-layer-item');"
                 " const cs = getComputedStyle(r);"
                 " const d = r.querySelector('.drag-handle');"
                 " return { bg: cs.backgroundColor, shadow: cs.boxShadow,"
@@ -4054,13 +4056,11 @@ class TestLayerControlBrowser:
             )
 
             # Real hover on the unchecked row: same white as the JS cursor class.
-            page.hover(
-                ".foliplus-layer-item:not(.foliplus-active):not(.foliplus-color-layer-item)"
-            )
+            page.hover(".foliplus-layer-item:not(.foliplus-active)")
             page.wait_for_timeout(120)
             hover_bg = page.evaluate(
                 "() => getComputedStyle("
-                "  document.querySelector('.foliplus-layer-item:not(.foliplus-active):not(.foliplus-color-layer-item)')"
+                "  document.querySelector('.foliplus-layer-item:not(.foliplus-active)')"
                 ").backgroundColor"
             )
             assert hover_bg == white, (
@@ -4502,7 +4502,7 @@ class TestLayerControlBrowser:
 
             def snapshot():
                 return page.evaluate(
-                    "() => [...document.querySelectorAll('.foliplus-layer-item:not(.foliplus-color-layer-item)')]"
+                    "() => [...document.querySelectorAll('.foliplus-layer-item')]"
                     ".map(r => { const cs = getComputedStyle(r);"
                     "  const g = r.querySelector('.foliplus-drag-cell .drag-handle');"
                     "  const m = r.querySelector('.foliplus-layer-more-btn');"
@@ -4516,7 +4516,7 @@ class TestLayerControlBrowser:
 
             def escape_first_row():
                 page.evaluate(
-                    "() => { const r = document.querySelector('.foliplus-layer-item:not(.foliplus-color-layer-item)');"
+                    "() => { const r = document.querySelector('.foliplus-layer-item');"
                     " r.focus();"
                     " r.dispatchEvent(new KeyboardEvent("
                     "    'keydown', {key: 'Escape', bubbles: true})); }"

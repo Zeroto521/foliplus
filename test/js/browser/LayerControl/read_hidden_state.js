@@ -10,7 +10,7 @@
   // registered layer either -- a registry lookup on it throws and would turn
   // every assertion in the suite that reads this fixture into a false failure.
   const rows = document.querySelectorAll(
-    ".foliplus-layer-item:not([data-layer-type='base']):not(.foliplus-color-layer-item)",
+    ".foliplus-layer-item:not([data-layer-type='base'])",
   );
   // folium declares the map as a per-map global named after the container's id,
   // not as window.map, so window.map is undefined and every map lookup through

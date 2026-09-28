@@ -221,9 +221,8 @@ describe("ui/drag", () => {
 
     it("handleDragOver treats the color basemap row as a valid target", () => {
       // The color row is a base-group member like any other: it participates
-      // in drag reorder (the old COLOR_ITEM exclusion was retired with the
-      // first-class basemaps). A row WITHOUT a data-layer-id is still ignored
-      // — that is the no-layer case, not the color case.
+      // in drag reorder. A row WITHOUT a data-layer-id is still ignored —
+      // that is the no-layer case, not the color case.
       const layers: LayerInfo[] = [
         { id: "A", name: "A", isBase: false } as LayerInfo,
         { id: "foliplus_color_map", name: "Color", isBase: true } as LayerInfo,

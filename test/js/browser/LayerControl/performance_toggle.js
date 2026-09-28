@@ -4,9 +4,7 @@
   const panel = document.querySelector(".foliplus-panel-content");
   if (!panel) return null;
   const items = Array.from(
-    panel.querySelectorAll(
-      '.foliplus-layer-item:not(.foliplus-color-layer-item) input[type="checkbox"]',
-    ),
+    panel.querySelectorAll('.foliplus-layer-item input[type="checkbox"]'),
   );
   if (items.length < 2) return null;
   const toggleAll = document.querySelector('[data-role="toggle-all"]');
