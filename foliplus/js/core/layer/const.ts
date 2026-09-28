@@ -61,12 +61,18 @@ const GEOM_TYPE = {
   CUSTOM: "custom",
 };
 
+/** Layer group names — the `LayerInfo.group` vocabulary ("base" | "overlay").
+ *  Owned by core so z / registry / factory compare against one definition;
+ *  LayerControl/const re-exports it as `CONST.GROUP`. */
+const GROUP = { OVERLAY: "overlay", BASE: "base" } as const;
+
 export {
   CACHE,
   CANVAS_PANE_PREFIX,
   COLOR_PANE_PREFIX,
   FALLBACK_PANE_PREFIX,
   GEOM_TYPE,
+  GROUP,
   HIDDEN,
   PANE_NAME_PATTERN,
   RECURSION,
