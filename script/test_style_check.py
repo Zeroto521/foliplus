@@ -1,16 +1,18 @@
-"""Tests for ``script/style_check.py`` — the three code-style rules.
+"""Tests for ``script/style_check.py`` — the code-style rules.
 
 The script is a check-only gate: it reports ``file:line: message`` and exits 1
 when any rule fires. It cannot auto-fix — the fix is a refactor in the editor.
 
-Three rules are checked:
+Four rules are checked:
 
   1. one value export block at file end, optionally followed by a single
      ``export type { ... }`` block; inline ``type X`` in a value export must be
      split; re-exports are barrel-only;
   2. singular file names (``pelias``, ``focus``, ``canvas`` are whitelisted);
   3. American spelling in identifiers and string literals — comments are
-     exempt because they carry English prose.
+     exempt because they carry English prose;
+  4. CSS custom properties must carry the ``--foliplus-`` prefix (declarations,
+     ``var()`` references and JS string literals alike).
 
 The two ``strip_*`` helpers are the load-bearing part: rule 1 needs strings
 *blanled* so ``// export { }`` and ``"{"`` cannot fake a brace, while rule 3
@@ -593,6 +595,73 @@ class TestCheckFile:
         assert v[2][0] == 1
         assert v[3][0] == 2
         assert v[4][0] == 3
+
+
+class TestCheckCustomPropertyPrefix:
+    """Rule 4: CSS custom properties must carry the --foliplus- prefix.
+
+    The gate scans declarations, `var()` references and JS string literals
+    so a bare token is caught on every surface. The deliberate-red proof:
+    a single bare token makes ``check_file`` report and the CLI exit 1.
+    """
+
+    def test_declaration_bare_token_reported(self):
+        v = mod.check_custom_property_prefix(["--ctrl-bg: #fff;\n"])
+        assert len(v) == 1
+        assert v[0][0] == 1
+        assert "missing the `--foliplus-` prefix" in v[0][1]
+        assert "`--foliplus-ctrl-bg`" in v[0][1]
+
+    def test_var_reference_bare_token_reported(self):
+        v = mod.check_custom_property_prefix(["color: var(--accent-primary);\n"])
+        assert len(v) == 1
+        assert v[0][0] == 1
+        assert "`--accent-primary`" in v[0][1]
+
+    def test_js_string_bare_token_reported(self):
+        v = mod.check_custom_property_prefix(
+            ['const size = cssVar(root, "--slider-rail-height", "6");\n']
+        )
+        assert len(v) == 1
+        assert v[0][0] == 1
+        assert "`--slider-rail-height`" in v[0][1]
+
+    def test_prefixed_token_passes(self):
+        lines = ["--foliplus-color-bg: #fff;\n", "color: var(--foliplus-accent-primary);\n"]
+        assert mod.check_custom_property_prefix(lines) == []
+
+    def test_multiple_bare_tokens_all_reported(self):
+        v = mod.check_custom_property_prefix(
+            ["--a: 1;\n", "--b: 2;\n", "ok: var(--foliplus-c);\n"]
+        )
+        assert len(v) == 2
+
+    def test_comment_bare_token_reported_in_css(self):
+        # CSS scans the whole line: a bare mention is a namespace break too.
+        v = mod.check_custom_property_prefix(["/* use --ctrl-bg here */\n"])
+        assert len(v) == 1
+
+    def test_clean_css_file_returns_no_violations(self, tmp_path):
+        f = tmp_path / "clean.css"
+        f.write_text(
+            ":root { --foliplus-size-2: 2px; }\n.a { color: var(--foliplus-size-2); }\n",
+            encoding="utf-8",
+        )
+        assert mod.check_file(str(f)) == []
+
+    def test_bare_css_file_reports_violation(self, tmp_path):
+        f = tmp_path / "bare.css"
+        f.write_text(".a { color: var(--ctrl-bg); }\n", encoding="utf-8")
+        v = mod.check_file(str(f))
+        assert len(v) == 1
+        assert v[0][0] == 1
+        assert "`--ctrl-bg`" in v[0][1]
+
+    def test_ts_comment_bare_token_is_exempt(self, tmp_path):
+        # TS scans code/strings only, so prose mentioning --x stays exempt.
+        f = tmp_path / "doc.ts"
+        f.write_text("// the --ctrl-bg on hover\nexport { x }\n", encoding="utf-8")
+        assert mod.check_file(str(f)) == []
 
 
 class TestMain:
