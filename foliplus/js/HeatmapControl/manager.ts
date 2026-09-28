@@ -658,6 +658,12 @@ class HeatmapManager {
     this.cachedFeatures = null;
     this.cachedAgg = null;
     if (this.overlay) this.overlay.unregister();
+    // The panel row is gone and the next draw is new content: drop this id
+    // from the stored order so the next registration lands at the top of the
+    // overlay stack instead of returning to the slot the user arranged.
+    // Without this, insertOverlayAt would find a stored rank and placeBeforeSavedNeighbor
+    // would put the redrawn heatmap back where it was, not on top.
+    this.map.foliplus?.LayerAPI?.forgetSavedOrder?.(this.layerId);
     this.ui?.schemeBarCleanup?.();
     this.ui?.dropdownCleanup?.();
     // Notify LayerControl to refresh the count column (now 0).
