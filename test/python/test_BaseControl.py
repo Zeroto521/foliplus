@@ -279,6 +279,14 @@ class TestBaseControlRendering:
         assert "--foliplus-z-index-fullscreen" in css
         assert "--foliplus-z-index-top" in css
 
+    def test_motion_ladder_tokens(self, base_map: folium.Map):
+        """The motion ladder is tokenized in token.css, with the values the
+        per-component --*-duration tokens had — names moved, values did not."""
+        tokens = read_css_dir("foliplus/css/common", "token.css")
+        assert "--foliplus-motion-fast: 0.5s" in tokens
+        assert "--foliplus-motion-normal: 0.7s" in tokens
+        assert "--foliplus-motion-slow: 0.8s" in tokens
+
     def test_ctrl_fold_classes(self, base_map: folium.Map):
         """ctrl-fold is a common pattern for expand/collapse panels."""
         from foliplus import SearchControl

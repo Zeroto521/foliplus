@@ -89,6 +89,7 @@
 - `LayerControl`: rename `isBase` to `group: "base" | "overlay"` — breaking against the v0.3.x API; migrate `isBase: true` → `group: "base"`, `isBase: false` → `group: "overlay"` ([#524](https://github.com/Zeroto521/foliplus/pull/524))
 - `core/layer`: rename `styleDefaults` to `styleDefaultsProvider` — breaking against the v0.3.x API; migrate `styleDefaults: …` → `styleDefaultsProvider: …` ([#530](https://github.com/Zeroto521/foliplus/pull/530))
 - `CSS tokens`: prefix all custom properties with `--foliplus-*` — breaking against the v0.3.x API; migrate every override `--x` → `--foliplus-x` ([#542](https://github.com/Zeroto521/foliplus/pull/542))
+- `CSS tokens`: remove the per-component `--foliplus-drag-pulse-duration`, `--foliplus-ripple-duration` and `--foliplus-sweep-duration` in favour of the motion ladder `--foliplus-motion-fast` / `--foliplus-motion-normal` / `--foliplus-motion-slow` (0.5s / 0.7s / 0.8s, values unchanged) — breaking against any override of the old names; migrate to the matching step ([#546](https://github.com/Zeroto521/foliplus/pull/546))
 
 ### Fixed
 

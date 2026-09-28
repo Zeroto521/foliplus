@@ -83,7 +83,7 @@
      Unified keyboard focus ring across all foliplus controls.
      Replaces the old harsh red outline with a soft double-ring:
        - Inner: thin accent-primary hairline
-       - Outer: semi-transparent red glow (var(--foliplus-shadow-sm) feel)
+       - Outer: semi-transparent red glow from --foliplus-accent-soft-shadow
      Mouse click alone does NOT trigger :focus-visible, so no persistent highlight. */
   &:focus-visible {
     outline: none;

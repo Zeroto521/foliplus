@@ -950,8 +950,8 @@ class TestLayerControlRendering:
         assert "--foliplus-drag-border-width" in css
         assert "--foliplus-drag-top-shadow" in css
         assert "--foliplus-drag-bottom-shadow" in css
-        assert "--foliplus-drag-pulse-duration" in css
         assert "--foliplus-drag-pulse-count" in css
+        assert "--foliplus-motion-slow" in css
 
     # ── Indeterminate checkbox (partial selection) styles ──
 

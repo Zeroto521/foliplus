@@ -55,7 +55,7 @@
   box-shadow: none;
   opacity: 0;
   visibility: hidden;
-  top: -18px;
+  top: calc(-1 * var(--foliplus-icon-size-md));
   left: var(--foliplus-size-2);
   right: auto;
   margin: 0;
