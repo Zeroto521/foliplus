@@ -531,6 +531,55 @@ describe("executor: carrier dispatch", () => {
     expect(canvas.classList.contains("hidden")).toBe(false);
   });
 
+  it("defensive: a pane carrier whose canvas target vanished writes nothing", () => {
+    // Unlike the test above (where surfaceFor re-resolves and reports
+    // "none"), pin the dispatcher's own guard: the carrier may still say
+    // "pane" while the element is gone — stub the surface so the branch
+    // under test is the `if (canvas)` miss, not the rebuild.
+    const { ui, map } = boot([
+      {
+        id: "pc2",
+        name: "PC2",
+        isBase: false,
+        canvas: document.createElement("canvas"),
+      },
+    ]);
+    const li = ui.m.layerRegistry.get("pc2")!;
+    li.canvas = null;
+    ui.m.surfaceFor = (() => ({
+      capabilities: { visibility: "pane", opacity: "none", zoomRange: "none" },
+    })) as unknown as typeof ui.m.surfaceFor;
+    (map.addLayer as ReturnType<typeof vi.fn>).mockClear();
+
+    applyStateOp(ui, li, { type: "visible", value: false });
+
+    expect(map.addLayer).not.toHaveBeenCalled();
+  });
+
+  it("defensive: a native carrier whose layer target vanished writes nothing", () => {
+    // Carrier says "native", but the registry entry lost its layer and the
+    // window/map lookup finds nothing: both the `?? findLayer` miss and the
+    // `if (layer)` miss must fall through to no write, and the projection's
+    // currentShown read must report `false` rather than throw.
+    const { ui, map } = boot([
+      { id: "nv", name: "NV", isBase: false, layer: { options: {} } as L.Layer },
+    ]);
+    const li = ui.m.layerRegistry.get("nv")!;
+    li.layer = null;
+    ui.m.findLayer = vi.fn(() => null) as typeof ui.m.findLayer;
+    ui.m.surfaceFor = (() => ({
+      capabilities: { visibility: "native", opacity: "none", zoomRange: "none" },
+    })) as unknown as typeof ui.m.surfaceFor;
+    ui.authorVisible.set("nv", true);
+    (map.addLayer as ReturnType<typeof vi.fn>).mockClear();
+    (map.hasLayer as ReturnType<typeof vi.fn>).mockReturnValue(false);
+
+    applyStateOp(ui, li, { type: "visible", value: true });
+    applyProjection(ui, "nv");
+
+    expect(map.addLayer).not.toHaveBeenCalled();
+  });
+
   it("a 'none' opacity carrier stores nothing and writes nothing", () => {
     // A slider that writes nothing must not pretend it wrote. MarkerCluster
     // icons live in the shared markerPane, which no per-layer CSS write can

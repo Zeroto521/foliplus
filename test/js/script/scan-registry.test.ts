@@ -226,6 +226,22 @@ describe("generateRegistry", () => {
     expect(output).not.toContain("core/layer/const");
   });
 
+  it("skips a core subdirectory nothing imports from", () => {
+    // The sub exists on disk (so the namespace loop visits it) but no
+    // component imports anything from it — with or without folded file
+    // keys, an empty name set must emit nothing rather than an empty
+    // import.
+    const [jsDir, buildDir] = buildFakeTree({
+      "common/dom.ts": `export const dom = {};`,
+      "core/lonely/index.ts": `export const nothing = 1;`,
+      "MyComponent/index.ts": `import { dom } from "#common/dom.js";`,
+    });
+    generateRegistry(jsDir, buildDir);
+    const output = readRegistry(buildDir);
+    expect(output).not.toContain('window.foliplus.core["lonely"]');
+    expect(output).not.toContain("#core/lonely/index.js");
+  });
+
   it("skips core files registered in runtime/index.ts", () => {
     const [jsDir, buildDir] = buildFakeTree({
       "common/dom.ts": `export const dom = {};`,
