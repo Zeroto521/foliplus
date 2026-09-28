@@ -57,7 +57,7 @@ const applyNameProjection = (
 };
 
 /** Above this length a value overflows the value column at the attrs panel's
- *  fixed label width (`--form-label-width`) and is rendered below its label
+ *  fixed label width (`--foliplus-form-label-width`) and is rendered below its label
  *  on the full panel width. */
 const ATTRS_ROW_WRAP_CHARS = 32;
 

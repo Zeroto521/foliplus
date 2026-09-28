@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Enforce three code-style rules on foliplus/js/*.ts files.
+"""Enforce code-style rules on foliplus/js/*.ts and foliplus/css/*.css files.
 
   1. One value export block at the end of the file, optionally followed by
      a single `export type { ... }` block. Inline type in a value export
@@ -13,6 +13,12 @@
 
   3. American spelling in identifiers and string literals (colour → color,
      normalise → normalize, ...). Comments (English prose) are exempt.
+
+  4. CSS custom properties must carry the `--foliplus-` namespace prefix.
+     A bare `--token` breaks the namespace contract and can collide with the
+     host page, so it is rejected in declarations, `var()` references, and
+     JS string literals alike. Test files are out of scope (they use
+     throwaway names like `--test-color`).
 
 Note: `function` declarations and inline exports (`export const x`) are
 covered by eslint's `func-style` and `no-restricted-syntax` rules — see
@@ -86,6 +92,31 @@ BRITISH_RE = re.compile(
 # File-name exemptions for Rule 1 (barrel + type-collection).
 BARREL_RE = re.compile(r"(^|/)index\.ts$")
 TYPE_FILE_RE = re.compile(r"(^|/)types?\.ts$")
+
+# Rule 4: CSS custom properties must be namespaced as --foliplus-*.
+# Matches any `--name` custom property in declarations, `var()` calls, and JS
+# string literals. The guard on foliplus/* source keeps the host-page override
+# surface namespaced; test files are out of scope.
+BARE_CUSTOM_PROPERTY_RE = re.compile(r"--[a-zA-Z][\w-]*")
+FOLIPLUS_PREFIX = "--foliplus-"
+
+
+def check_custom_property_prefix(lines: list[str]) -> list[tuple[int, str]]:
+    """Rule 4: report bare (non-`--foliplus-`) custom property names."""
+    violations: list[tuple[int, str]] = []
+    for lineno, raw in enumerate(lines, 1):
+        for m in BARE_CUSTOM_PROPERTY_RE.finditer(raw):
+            name = m.group(0)
+            if name.startswith(FOLIPLUS_PREFIX):
+                continue
+            violations.append(
+                (
+                    lineno,
+                    f"CSS custom property `{name}` is missing the "
+                    f"`--foliplus-` prefix — rename to `--foliplus-{name[2:]}`",
+                )
+            )
+    return violations
 
 
 def strip_comments_and_strings(line: str) -> str:
@@ -294,10 +325,24 @@ def check_file(filepath: str) -> list[tuple[int, str]]:
     except (OSError, UnicodeDecodeError):
         return []
 
+    if filepath.endswith(".css"):
+        # CSS: the whole line is scanned — declarations, `var()` references,
+        # and comments alike, since a bare token anywhere is a namespace break.
+        return check_custom_property_prefix(lines)
+
+    # TS: check custom properties only in code (string literals), not comment
+    # prose, so an em-dash or a descriptive "the --x token" note is exempt.
+    code_lines: list[str] = []
+    in_block = False
+    for raw in lines:
+        code, in_block = strip_comments_line(raw, in_block)
+        code_lines.append(code)
+
     return (
         check_export_blocks(lines, filepath)
         + check_plural_names(filepath)
         + check_spelling(lines)
+        + check_custom_property_prefix(code_lines)
     )
 
 
@@ -307,7 +352,7 @@ def main() -> int:
 
     total = 0
     for filepath in sys.argv[1:]:
-        if not filepath.endswith(".ts"):
+        if not (filepath.endswith(".ts") or filepath.endswith(".css")):
             continue
         for lineno, msg in check_file(filepath):
             loc = f"{filepath}:{lineno}" if lineno else filepath
@@ -318,7 +363,8 @@ def main() -> int:
         print(
             f"\n{total} code-style violation(s). Rules: (1) one value export "
             "block at file end + optional `export type { ... }`, "
-            "(2) singular file names, (3) American spelling in code/strings. "
+            "(2) singular file names, (3) American spelling in code/strings, "
+            "(4) CSS custom properties namespaced as `--foliplus-*`. "
             "Function declarations and inline exports are covered by eslint "
             "(func-style, no-restricted-syntax).",
             file=sys.stderr,

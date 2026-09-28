@@ -188,18 +188,18 @@ class TestHeatmapControlRendering:
     def test_css_variables_used(self):
         """CSS design tokens are referenced in rendered output."""
         html = render_control(HeatmapControl())
-        assert "var(--radius-sm)" in html
-        assert "var(--input-border)" in html
-        assert "var(--text-primary)" in html
-        assert "var(--accent-primary)" in html
+        assert "var(--foliplus-radius-sm)" in html
+        assert "var(--foliplus-input-border)" in html
+        assert "var(--foliplus-text-primary)" in html
+        assert "var(--foliplus-accent-primary)" in html
 
     def test_css_icon_size_variable(self):
-        """HeatmapControl SVGs use --icon-size-md via the shared stylesheet."""
+        """HeatmapControl SVGs use --foliplus-icon-size-md via the shared stylesheet."""
         html = render_control(HeatmapControl())
         assert "icon-size-md" in html
 
     def test_css_panel_shadow(self):
-        """Expanded heatmap panel uses --panel-shadow."""
+        """Expanded heatmap panel uses --foliplus-panel-shadow."""
         html = render_control(HeatmapControl())
         assert "panel-shadow" in html
 
@@ -248,7 +248,7 @@ class TestHeatmapControlRendering:
         assert css.count("foliplus-form-number-input") == 1
         # The animation is driven by a custom property so reduced-motion only
         # overrides the value, not the selector list.
-        assert "var(--input-breathe-anim)" in css
+        assert "var(--foliplus-input-breathe-anim)" in css
 
     def test_confirm_button_removed(self):
         """Confirm button is gone: every control re-renders live (no Apply)."""

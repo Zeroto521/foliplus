@@ -117,7 +117,7 @@ interface LayerLabel {
 interface AnnotationConfig {
   show: boolean;
   field: string;
-  /** Runtime paint overrides — fall back to the shared --label-* tokens. */
+  /** Runtime paint overrides — fall back to the shared --foliplus-label-* tokens. */
   color: string;
   size: number;
   format: NumberStyle;

@@ -100,7 +100,7 @@ const CLASSES = {
 };
 
 /** Style property names. */
-const STYLE = { SWEEP_LENGTH: "--sweep-length" };
+const STYLE = { SWEEP_LENGTH: "--foliplus-sweep-length" };
 
 /** DOM selectors. */
 const SEL = {
