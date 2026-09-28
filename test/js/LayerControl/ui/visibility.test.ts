@@ -1092,11 +1092,16 @@ describe("unit helpers", () => {
     // field, which the executor writes on every opacity change) and treats
     // undefined as fully opaque — freshly registered layers have not been
     // touched by the executor yet, so their `li.opacity` is still undefined.
-    const makeUiWithBase = (opacity?: number): { ui: LayerUI; container: HTMLElement } => {
+    const makeUiWithBase = (
+      opacity?: number,
+    ): { ui: LayerUI; container: HTMLElement } => {
       const uiContainer = document.createElement("div");
       uiContainer.innerHTML = `<div class="foliplus-layer-toggle-all" data-group="${CONST.GROUP.BASE}"><span></span></div>`;
       const container = document.createElement("div");
-      const layers = opacity === undefined ? [{ id: "b1", isBase: true }] : [{ id: "b1", isBase: true, opacity }];
+      const layers =
+        opacity === undefined
+          ? [{ id: "b1", isBase: true }]
+          : [{ id: "b1", isBase: true, opacity }];
       const ui = {
         uiContainer,
         m: { layers, map: { getContainer: () => container } },
