@@ -119,8 +119,9 @@ const listDimensions = (): readonly LayerDimension<any>[] => [...registry.values
  *  and drops any unregistered key, so an unregistered key degrades the
  *  panel to fewer rows rather than erroring. A dimension that is
  *  registered but missing from this array is unreachable from the panel —
- *  adding a dimension without adding it here is a bug that this test
- *  suite catches in `style.test.ts` (the Layer-section order assertion).
+ *  adding a dimension without adding it here is a bug that
+ *  `registry.test.ts` catches (DIM_ORDER covers every registered
+ *  built-in key and nothing more).
  */
 const DIM_ORDER = ["fill", "border", "opacity", "zoomRange"] as const;
 

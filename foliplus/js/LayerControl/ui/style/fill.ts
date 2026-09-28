@@ -9,10 +9,11 @@
 // not a projection of a stored intent.
 //
 // Gate (honest degradation): pure capability check — `capabilities.fill
-// !== "none"`. The fill capability is probe-derived at the surface (a
+// === "native"`. The fill capability is probe-derived at the surface (a
 // tree walk for areal `setStyle` leaves), so a line-only layer, a marker,
-// a canvas layer, MarkerCluster, GridLayer / ImageOverlay, or the colour
-// basemap all declare `"none"` and the gate rejects them naturally.
+// a canvas layer, MarkerCluster, GridLayer / ImageOverlay all declare
+// `"none"` and the gate rejects them naturally. A solid-colour basemap
+// declares `"native"` — the pane's paint *is* the fill.
 //
 // UI chrome: shared `form.colorInput` + `bindLiveColor`, the same recipe as
 // the HeatmapControl border row and the annotation label row — one
@@ -75,7 +76,8 @@ const isColorBasemap = (li: LayerInfo | undefined): boolean => {
  *  tree has no areal `setStyle` leaf (Polygon, Circle, CircleMarker)
  *  declares `"none"`, so the gate rejects it naturally. Line-only layers
  *  (Polyline), markers, canvas layers, MarkerCluster, GridLayer /
- *  ImageOverlay, and the colour basemap all declare `"none"` for fill.
+ *  ImageOverlay all declare `"none"` for fill. A solid-colour basemap
+ *  declares `"native"` — the pane's paint *is* the fill.
  *  No extra checks belong here: the invariant is that `gate` is exactly
  *  the capability check, no carrier probes, no `isColorBasemap`
  *  special-cases, no canvas exclusion. */
@@ -416,10 +418,9 @@ const replayFillState = (ui: LayerUI, id: string): void => {
  *  authoritative implementations and the panel keeps them separate from
  *  the discovery shape.
  *
- *  Registered ahead of `border` and `opacity` — see the import order in
- *  `style/index.ts`: fill comes first in the annotation panel's Layer
- *  section, and `listDimensions()` returns descriptors in registration
- *  order. */
+ *  Registered ahead of `border` and `opacity` in `DIM_ORDER`
+ *  (see `./registry.js`): fill comes first in the annotation panel's
+ *  Layer section. */
 const FILL_DIMENSION = registerDimension<{
   color: string;
   opacity: number | null;

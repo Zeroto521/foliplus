@@ -60,6 +60,7 @@ const hasFillLeaf = (node: unknown): boolean => {
     return found;
   }
   if (typeof n.setStyle !== "function") return false;
+  // CircleMarker extends Circle, so instanceof L.Circle catches both.
   return (
     node instanceof L.Polygon ||
     (typeof L.Circle !== "undefined" && node instanceof L.Circle)

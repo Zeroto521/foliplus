@@ -470,10 +470,9 @@ const bindBorderRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => 
  *  path stays outside the descriptor contract: `commitBorderColor` and
  *  `commitBorderWeight` remain the authoritative writers.
  *
- *  Registered ahead of `opacity` and `zoomRange` — see the import order
- *  in `style/index.ts`: border comes second in the annotation panel's
- *  Layer section, right after fill, and `listDimensions()` returns
- *  descriptors in registration order. */
+ *  Registered ahead of `opacity` and `zoomRange` in `DIM_ORDER`
+ *  (see `./registry.js`): border comes second in the annotation panel's
+ *  Layer section, right after fill. */
 const BORDER_DIMENSION = registerDimension<{ color: string; weight: number }>({
   key: "border",
   gate: layerCanBorder,

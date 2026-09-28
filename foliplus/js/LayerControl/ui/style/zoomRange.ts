@@ -289,9 +289,8 @@ const resetLayerZoomRange = (ui: LayerUI, layerId: string): void => {
  *  full range (the author-undeclared default). The write path
  *  (`commitZoomRange`) stays outside the descriptor contract.
  *
- *  Registered last — the annotation panel's Layer section runs
- *  fill → border → opacity → zoomRange, and `listDimensions()` returns
- *  descriptors in registration order. */
+ *  Registered last in `DIM_ORDER` (see `./registry.js`): the annotation
+ *  panel's Layer section runs fill → border → opacity → zoomRange. */
 const ZOOM_RANGE_DIMENSION = registerDimension<{ min: number; max: number }>({
   key: "zoomRange",
   gate: canShowZoomRange,
