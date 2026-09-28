@@ -1796,7 +1796,13 @@ class TestLayerControlBrowser:
             )
             assert result["atZero"]["liOpacity"] == 0, result
 
-            # Overlay opacity is unrelated to basemap visibility.
+            # Overlay opacity is unrelated to basemap visibility. Assert the
+            # slider actually rendered (a bare featureGroup would not) so the
+            # assertion is not vacuous.
+            assert result["overlayZero"]["sliderFound"] is True, (
+                f"overlay had no opacity slider — vacuous assertion: {result}"
+            )
+            assert result["overlayZero"]["liOpacity"] == 0, result
             assert result["overlayZero"]["noBaseMap"] is True, (
                 f"overlay opacity must not clear the hatch: {result}"
             )

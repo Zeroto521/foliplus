@@ -55,14 +55,24 @@
 
   // Overlay opacity must NOT touch the class — its opacity is unrelated to
   // whether any basemap is visible, and skipping the call is deliberate on
-  // the drag hot path.
-  api.registerLayer({ id: "__e2e_ov__", name: "E2E Overlay", layer: L.featureGroup() });
+  // the drag hot path. A bare `L.featureGroup()` has no carrier, so its
+  // style panel has no opacity row; the probe needs a real layer to reach
+  // the code path.
+  api.registerLayer({
+    id: "__e2e_ov__",
+    name: "E2E Overlay",
+    layer: L.marker([26.08, 119.3]),
+  });
   r = setSlider("__e2e_ov__");
   if (r) {
     r.value = "0";
     r.dispatchEvent(new Event("input", { bubbles: true }));
   }
-  const overlayZero = { noBaseMap: classAt() };
+  const overlayZero = {
+    noBaseMap: classAt(),
+    sliderFound: !!r,
+    liOpacity: api.layers.find(l => l.id === "__e2e_ov__")?.opacity,
+  };
   ui.closeStylePanel(false);
   api.unregisterLayer("__e2e_ov__");
 
