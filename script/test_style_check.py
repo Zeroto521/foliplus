@@ -627,7 +627,10 @@ class TestCheckCustomPropertyPrefix:
         assert "`--slider-rail-height`" in v[0][1]
 
     def test_prefixed_token_passes(self):
-        lines = ["--foliplus-color-bg: #fff;\n", "color: var(--foliplus-accent-primary);\n"]
+        lines = [
+            "--foliplus-color-bg: #fff;\n",
+            "color: var(--foliplus-accent-primary);\n",
+        ]
         assert mod.check_custom_property_prefix(lines) == []
 
     def test_multiple_bare_tokens_all_reported(self):

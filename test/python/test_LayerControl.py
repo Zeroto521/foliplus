@@ -519,9 +519,13 @@ class TestLayerControlRendering:
         # exactly. A 0 X-offset keeps it vertical (only top/bottom glow, no
         # left/right bleed).
         assert (
-            "0 calc(-1 * var(--foliplus-size-2)) var(--foliplus-size-4) var(--foliplus-accent-primary)" in recipe
+            "0 calc(-1 * var(--foliplus-size-2)) var(--foliplus-size-4) var(--foliplus-accent-primary)"
+            in recipe
         )
-        assert "0 var(--foliplus-size-2) var(--foliplus-size-4) var(--foliplus-accent-primary)" in recipe
+        assert (
+            "0 var(--foliplus-size-2) var(--foliplus-size-4) var(--foliplus-accent-primary)"
+            in recipe
+        )
         assert "color: var(--foliplus-text-primary)" in recipe
         assert "color: var(--foliplus-accent-primary)" in recipe
 
@@ -540,9 +544,9 @@ class TestLayerControlRendering:
         assert any("color: var(--foliplus-text-primary)" in b for b in act_type), (
             "type icon on active row must be black, not accent"
         )
-        assert not any("color: var(--foliplus-accent-primary)" in b for b in act_type), (
-            "type icon must never tint accent"
-        )
+        assert not any(
+            "color: var(--foliplus-accent-primary)" in b for b in act_type
+        ), "type icon must never tint accent"
         # Regression guard: no scale transform may be reintroduced on the icon
         assert "foliplus-layer-item:hover .foliplus-type-icon-col svg" not in html
 
@@ -563,12 +567,12 @@ class TestLayerControlRendering:
             for i in range(len(html))
             if "more-menu li:not([disabled]):hover svg" in html[max(0, i - 60) : i + 60]
         ]
-        assert any("color: var(--foliplus-text-primary)" in b for b in more_icon_hover), (
-            "more-menu icon must wake to black on hover"
-        )
-        assert not any("color: var(--foliplus-accent-primary)" in b for b in more_icon_hover), (
-            "more-menu icon must not tint accent"
-        )
+        assert any(
+            "color: var(--foliplus-text-primary)" in b for b in more_icon_hover
+        ), "more-menu icon must wake to black on hover"
+        assert not any(
+            "color: var(--foliplus-accent-primary)" in b for b in more_icon_hover
+        ), "more-menu icon must not tint accent"
 
         # Count column: stays muted in every state — no hover/active brightening.
         count_hover = [
@@ -5508,9 +5512,9 @@ class TestLayerControlBrowser:
             assert result["currentValueColor"] == self._sample_token(
                 page, "--foliplus-text-primary"
             ), "out of range must not recolor the current level"
-            assert result["markerRing"] == self._sample_token(page, "--foliplus-neutral-500"), (
-                "out of range, the current dot must read as uncovered"
-            )
+            assert result["markerRing"] == self._sample_token(
+                page, "--foliplus-neutral-500"
+            ), "out of range, the current dot must read as uncovered"
             assert not errors, f"JS errors: {errors}"
 
     def test_zoom_range_zoomend_marker_moves(self, browser, tmp_path):
