@@ -17,11 +17,13 @@ import type { LayerManager } from "#foliplus/LayerControl/manager.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { ANNOTATION_DIMENSION } from "#foliplus/LayerControl/ui/style/annotation.js";
 import { BORDER_DIMENSION } from "#foliplus/LayerControl/ui/style/border.js";
+import { DELEGATED_DIM_ORDER } from "#foliplus/LayerControl/ui/style/delegated.js";
 import { FILL_DIMENSION } from "#foliplus/LayerControl/ui/style/fill.js";
 import { OPACITY_DIMENSION } from "#foliplus/LayerControl/ui/style/opacity.js";
 import {
   DIM_ORDER,
   LABEL_DIM_ORDER,
+  gatedRows,
   getDimension,
   listDimensions,
   registerDimension,
@@ -112,6 +114,114 @@ describe("LayerControl style-panel dimension registry", () => {
   it("registerDimension throws on a duplicate key — a second test.dim.registry", () => {
     expect(() => registerDimension(testDim)).toThrow(
       /test\.dim\.registry.*already registered/,
+    );
+  });
+});
+
+describe("LayerControl style-panel dimension registry — gatedRows", () => {
+  let manager: LayerManager;
+  let ui: LayerUI;
+
+  const overlayLayer = {
+    options: {},
+    setZIndex: vi.fn(),
+    eachLayer: vi.fn(),
+    getBounds: vi.fn(() => ({
+      isValid: () => true,
+      getSouthWest: () => ({ lat: 0, lng: 0 }),
+      getNorthEast: () => ({ lat: 1, lng: 1 }),
+    })),
+  };
+
+  beforeEach(() => {
+    installLeafletGlobals();
+    ({ manager, ui } = initFixture({
+      data: [
+        { id: "overlay1", name: "Overlay", group: "overlay", layer: overlayLayer },
+      ],
+    }));
+  });
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+  });
+
+  // fill / stroke declare "native" | "none"; opacity / zoomRange accept
+  // "native" | "pane" | "none". The gates read them accordingly: fill and
+  // border check `=== "native"`, the rest `!== "none"`.
+  const mockSurfaceFor = (capabilities: Record<string, string>) => {
+    vi.spyOn(ui.m, "surfaceFor").mockReturnValue({
+      capabilities,
+      paneNames: [],
+      geometryType: () => "polygon",
+    } as unknown as ReturnType<typeof ui.m.surfaceFor>);
+  };
+
+  it("collects the descriptors whose gate passes, in the caller's declared order", () => {
+    // One gate pass, caller-declared order: the annotation panel passes
+    // DIM_ORDER / LABEL_DIM_ORDER, the delegated drawer its own slice.
+    mockSurfaceFor({
+      fill: "native",
+      stroke: "native",
+      opacity: "pane",
+      zoomRange: "pane",
+      annotation: "none",
+    });
+    const rows = gatedRows(ui, "overlay1", DIM_ORDER);
+    expect(rows.map(d => d.key)).toEqual(["fill", "border", "opacity", "zoomRange"]);
+  });
+
+  it("skips dimensions whose gate declines", () => {
+    mockSurfaceFor({
+      fill: "none",
+      stroke: "none",
+      opacity: "pane",
+      zoomRange: "none",
+      annotation: "none",
+    });
+    const rows = gatedRows(ui, "overlay1", DIM_ORDER);
+    expect(rows.map(d => d.key)).toEqual(["opacity"]);
+  });
+
+  it("returns an empty array when no gate passes", () => {
+    mockSurfaceFor({
+      fill: "none",
+      stroke: "none",
+      opacity: "none",
+      zoomRange: "none",
+      annotation: "none",
+    });
+    expect(gatedRows(ui, "overlay1", DIM_ORDER)).toEqual([]);
+  });
+
+  it("delegated slice equals panel sweep minus the vector-only dims", () => {
+    // Single implementation, two consumers. The delegated drawer's sweep
+    // (DELEGATED_DIM_ORDER) must return exactly the rows the annotation
+    // panel's Layer sweep (DIM_ORDER) renders for the same keys — the old
+    // hand-rolled `if (key === "fill" || key === "border") continue` loop,
+    // expressed as one gate pass. This equivalence is what the sink pins.
+    mockSurfaceFor({
+      fill: "native",
+      stroke: "native",
+      opacity: "pane",
+      zoomRange: "pane",
+      annotation: "none",
+    });
+    const layerRows = gatedRows(ui, "overlay1", DIM_ORDER);
+    const delegatedRows = gatedRows(ui, "overlay1", DELEGATED_DIM_ORDER);
+    const expected = layerRows.filter(d => d.key !== "fill" && d.key !== "border");
+    expect(delegatedRows).toEqual(expected);
+    expect(delegatedRows.map(d => d.key)).toEqual(["opacity", "zoomRange"]);
+  });
+
+  it("DELEGATED_DIM_ORDER is DIM_ORDER minus fill and border", () => {
+    // Pinned so a future edit to the constant cannot silently widen the
+    // delegated sweep past the vector-only rows.
+    expect([...DELEGATED_DIM_ORDER]).toEqual(["opacity", "zoomRange"]);
+    expect([...DELEGATED_DIM_ORDER]).toEqual(
+      [...DIM_ORDER].filter(k => k !== "fill" && k !== "border"),
     );
   });
 });

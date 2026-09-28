@@ -27,19 +27,23 @@ const drawHexagon = (
     map.latLngToContainerPoint(L.latLng(p[1], p[0])),
   );
   const layerAlpha = getLayerAlpha(ctx.canvas);
+  const fillAlpha = CONF.fill_opacity ?? 1;
+  // The border branch only runs when this is > 0, so the draw path can use
+  // the resolved number directly (a second `?? 1` here would be unreachable).
+  const borderAlpha = CONF.border_opacity ?? 0;
   ctx.beginPath();
   ctx.moveTo(pts[0].x, pts[0].y);
   for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
   ctx.closePath();
   ctx.fillStyle = feat.properties.fillColor || CONST.GRAY;
-  ctx.globalAlpha = drawAlpha(CONF.fill_opacity ?? 1, layerAlpha);
+  ctx.globalAlpha = drawAlpha(fillAlpha, layerAlpha);
   ctx.fill();
   ctx.globalAlpha = 1;
 
-  if (borderWeight > 0 && (CONF.border_opacity ?? 0) > 0) {
+  if (borderWeight > 0 && borderAlpha > 0) {
     ctx.strokeStyle = borderColor;
     ctx.lineWidth = borderWeight;
-    ctx.globalAlpha = drawAlpha(CONF.border_opacity ?? 1, layerAlpha);
+    ctx.globalAlpha = drawAlpha(borderAlpha, layerAlpha);
     ctx.stroke();
     ctx.globalAlpha = 1;
   }

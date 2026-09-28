@@ -26,12 +26,13 @@ import { hasFillLeaf, hasSetStyleLeaf } from "./capability.js";
 import { FALLBACK_PANE_PREFIX, PANE_NAME_PATTERN } from "./const.js";
 import type {
   LayerCapabilities,
+  LayerKind,
   LayerSurface as LayerSurfaceContract,
   PaneHandle,
   PaneRole,
   PaneSpec,
 } from "./type.js";
-import { getGeometryType } from "./util.js";
+import { CLUSTER_CAPABILITIES, deriveLayerKind, getGeometryType } from "./util.js";
 import { zFor } from "./z.js";
 
 const log = createLogger("LayerSurface");
@@ -58,6 +59,10 @@ const hasBoundsProvider = (layer: L.Layer | null | undefined): boolean =>
 interface SurfaceFaceOpts {
   id: string;
   layer: L.Layer | null;
+  /** Declared kind; when absent, `deriveLayerKind` probes the layer family. */
+  kind?: LayerKind;
+  /** Third-party carrier payload (`kind: "custom"`). */
+  custom?: unknown;
   /** The pane the caller declared for this layer, if any. */
   paneName?: string | null;
   /** The panes this layer paints into, in draw order. */
@@ -92,6 +97,8 @@ const isContainer = (node: PinnableNode): boolean =>
  *  `matches` when the same id is registered again. */
 interface SurfaceDeclaration {
   layer: L.Layer | null;
+  kind: LayerKind;
+  custom: boolean;
   paneName: string | null;
   canvas: boolean;
   /** Whether the declaration names a color fill. Presence, not value: a color
@@ -167,6 +174,8 @@ class LayerSurface implements LayerSurfaceContract {
     const layer = opts.layer;
     this.spec = {
       layer,
+      kind: deriveLayerKind(opts),
+      custom: opts.custom !== undefined,
       paneName: declared,
       canvas: opts.canvas === true,
       color: opts.color != null,
@@ -422,6 +431,8 @@ class LayerSurface implements LayerSurfaceContract {
     // so the cost is one tree walk per re-registration, not per frame.
     return (
       this.spec.layer === opts.layer &&
+      this.spec.kind === deriveLayerKind(opts) &&
+      this.spec.custom === (opts.custom !== undefined) &&
       this.spec.paneName === declaredPaneName(opts.paneName) &&
       this.spec.canvas === Boolean(opts.canvas) &&
       this.spec.color === (opts.color != null) &&
@@ -492,36 +503,6 @@ class LayerSurface implements LayerSurfaceContract {
     node.options.pane = base.name;
   }
 }
-
-/** The MarkerCluster plugin's group — a shape this tree does not own.
- *
- *  Two tells distinguish it from every other LayerGroup: the plugin attaches
- *  `_topClusterLevel` (its own tree root) and, if the plugin is loaded, is
- *  reachable via `L.MarkerClusterGroup`. `eachLayer` on the group reaches the
- *  individual markers, but the cluster icons themselves live in the shared
- *  `markerPane` and never enter `eachLayer`, so there is no honest carrier for
- *  a per-layer opacity on a MarkerCluster group — the pane write would fade the
- *  individual markers but not the clusters (half the layer).
- *
- *  `L.MarkerClusterGroup` is not in the ambient typings; the plugin is optional
- *  and may not be loaded at all, so the reference is guarded with a runtime
- *  presence check rather than a hard instanceof. */
-const isMarkerCluster = (layer: L.Layer): boolean => {
-  // The plugin's `L.MarkerClusterGroup` is optional — the runtime may not
-  // have it. Read it off the Leaflet global and duck-type the rest.
-  const ctor = (window.L as { MarkerClusterGroup?: unknown })?.MarkerClusterGroup;
-  if (
-    typeof ctor === "function" &&
-    layer instanceof (ctor as new (...args: never[]) => unknown)
-  ) {
-    return true;
-  }
-  // Fallback: the plugin's private `_topClusterLevel` field. If the plugin is
-  // renamed or the instanceof fails (plugin loaded without `L.MarkerClusterGroup`),
-  // this still catches it. The failure mode — duck typing alone — is documented
-  // in the PR body.
-  return !!(layer as L.Layer & { _topClusterLevel?: unknown })._topClusterLevel;
-};
 
 /** Whether the layer paints through a setter of its own (not a pane of ours).
  *
@@ -617,17 +598,11 @@ const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
     };
   }
 
-  if (layer && isMarkerCluster(layer)) {
-    return {
-      fill: "none",
-      stroke: "none",
-      opacity: "none",
-      zoomRange: "none",
-      annotation,
-      relocatable: false,
-      bounds: false,
-      visibility: "native",
-    };
+  // Cluster is a first-class kind: capability dispatch goes through the
+  // discriminant (`CLUSTER_CAPABILITIES`), not a duck-typed side path. An
+  // undeclared MarkerCluster still derives `kind: "cluster"` above.
+  if (deriveLayerKind(opts) === "cluster") {
+    return { ...CLUSTER_CAPABILITIES, annotation };
   }
 
   if (layer && usesNativeSetter(layer)) {

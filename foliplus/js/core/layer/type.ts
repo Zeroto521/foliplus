@@ -4,6 +4,33 @@
 // components (MeasureControl / HeatmapControl / ExportControl) keep the same
 // global names.
 
+/** What a registered layer *is* — the target discriminator, not how it paints.
+ *
+ *  Discrimination source for `tile | vector` is the same capability-family
+ *  probe family as `detectCapabilities` (GridLayer/TileLayer vs Path/Marker),
+ *  never a new duck type. `cluster` is declared (`kind: "cluster"`); an
+ *  undeclared MarkerCluster may still *derive* that kind, but capability
+ *  dispatch always goes through this discriminant. `solid` is the color
+ *  basemap (surface `content.kind === "color"`); `canvas` is createCanvas;
+ *  `custom` is a third-party carrier (`carrier.custom`).
+ *
+ *  Shape first, door later: `registerDimension` / third-party docs stay
+ *  closed. */
+type LayerKind = "tile" | "vector" | "canvas" | "solid" | "cluster" | "custom";
+
+/** Where a layer's paint actually lives. Flat `layer` / `canvas` / `color`
+ *  on `LayerInfo` remain the writable registration fields; this object is the
+ *  typed projection of those (plus `custom`) the target shape names. */
+interface LayerCarrier {
+  layer?: L.Layer | null;
+  canvas?: HTMLCanvasElement | null;
+  /** DOM face for a solid-color basemap (its pane canvas). */
+  element?: HTMLElement | null;
+  /** Third-party carrier payload for `kind: "custom"`. Opaque here — the
+   *  public extension door is deferred. */
+  custom?: unknown;
+}
+
 /** What a layer's surface can actually be asked to do, computed once at
  *  materialization by `LayerSurface` (which alone knows the panes it owns and
  *  the shape of its content — runtime probes pin each value).
@@ -62,8 +89,8 @@ interface LayerCapabilities {
   /** How the layer's visibility is written:
    *    - "native" — the layer is a real `L.Layer`; map membership
    *      (`map.addLayer` / `removeLayer`) is the carrier. MarkerCluster is an
-   *      `L.Layer` too, so it routes here — the `isMarkerCluster` branch in
-   *      `LayerSurface.detectCapabilities` only takes over opacity / zoomRange
+   *      `L.Layer` too, so it routes here — the `kind: "cluster"` branch in
+   *      `CLUSTER_CAPABILITIES` only takes over opacity / zoomRange
    *      / bounds, not visibility.
    *    - "pane"   — the surface paints into a canvas element we own (createCanvas
    *      for heatmap/measure, createColor for the solid-color basemap's face);
@@ -111,18 +138,18 @@ interface RegisterLayerOpts {
   id: string;
   name?: string | null;
   layer?: L.Layer | null;
+  /** Declared layer kind. When absent, `deriveLayerKind` probes the same
+   *  capability-family as `detectCapabilities` (GridLayer/TileLayer vs
+   *  Path/Marker; MarkerCluster may derive `"cluster"`). Declare `"cluster"`
+   *  / `"custom"` rather than relying on derivation. */
+  kind?: LayerKind;
+  /** Third-party carrier payload for `kind: "custom"`. Shape only — the
+   *  public registerDimension door stays closed. */
+  custom?: unknown;
   group?: "base" | "overlay";
   /** New base layer insertion: "top" (default, tile basemaps) or "bottom"
    *  (solid-color basemap — lowest z, tiles cover it). */
   baseInsert?: "top" | "bottom";
-  /** Where this layer's order slot comes from. Defaults to `"user"`.
-   *
-   *  `"runtime"` marks a system surface whose insertion slot is a side effect
-   *  of attach timing (the solid-color basemap). Those slots never enter the
-   *  persisted order — writing one would clobber an arrangement the user
-   *  already set. Do not use the name `provenance`: that word is already the
-   *  attributes-panel data source and `intentProvenance`. */
-  orderOrigin?: "user" | "runtime";
   paneName?: string | null;
   /**
    * The panes this layer paints into, in draw order. Absent means the layer
@@ -195,6 +222,11 @@ interface LayerInfo {
   id: string;
   name: string;
   layer: L.Layer | null;
+  /** What this entry is (tile|vector|canvas|solid|cluster|custom). */
+  kind: LayerKind;
+  /** Typed projection of the paint carrier (layer / canvas / element / custom).
+   *  Flat `layer` / `canvas` / `color` stay the writable registration fields. */
+  carrier: LayerCarrier;
   /** Layer opacity in [0, 1]. Defaults to 1 (fully opaque). */
   opacity?: number;
   /** See {@link RegisterLayerOpts.onOpacity}. */
@@ -233,8 +265,6 @@ interface LayerInfo {
   /** Epoch ms of the layer's first registration. Set by the registry itself —
    *  never by the provider — so a re-registration keeps the original value. */
   registeredAt?: number;
-  /** Order-slot origin. See {@link RegisterLayerOpts.orderOrigin}. */
-  orderOrigin?: "user" | "runtime";
 }
 
 /** Leaflet layer with a custom `isLabel` flag (foliplus adds it).
@@ -518,6 +548,14 @@ type SurfaceContentOpts =
        *  `background` shorthand accepts. */
       kind: "color";
       color: string;
+    }
+  | {
+      /** Third-party carrier. Shape first, door later: no public
+       *  registerDimension / third-party docs in this step. The factory does
+       *  not synthesize panes; capability defaults are the honest `none`. */
+      kind: "custom";
+      custom: unknown;
+      layer?: L.Layer | null;
     };
 
 /** Options for `LayerFactory.createSurface`. */
@@ -535,8 +573,6 @@ interface CreateSurfaceOpts {
   onOpacity?: ((opacity: number) => void) | null;
   /** See {@link RegisterLayerOpts.opacityBake}. */
   opacityBake?: "commit" | "redraw";
-  /** See {@link RegisterLayerOpts.orderOrigin}. */
-  orderOrigin?: "user" | "runtime";
 }
 
 /** Content handle returned by `createSurface` — the discriminated-union branch. */
@@ -570,6 +606,13 @@ type SurfaceContentHandle =
        *  class on `element`; the pane itself stays in the DOM so its z
        *  in the ladder is preserved across toggles. */
       setVisible: (v: boolean) => void;
+    }
+  | {
+      /** Third-party carrier handle. Opaque `custom` payload; no synthesized
+       *  content API — the owner writes its own paint. */
+      kind: "custom";
+      custom: unknown;
+      layer: L.Layer | null;
     };
 
 /** Return type of `LayerFactory.createSurface`. Discriminated union:
@@ -598,6 +641,13 @@ type SurfaceHandle =
       registered: () => boolean;
       bringToFront: () => void;
       destroy: () => void;
+    }
+  | {
+      content: Extract<SurfaceContentHandle, { kind: "custom" }>;
+      register: () => void;
+      unregister: () => void;
+      registered: () => boolean;
+      bringToFront: () => void;
     };
 
 /** LayerControl public API, exposed on `map.foliplus.LayerAPI`.
@@ -722,6 +772,8 @@ export type {
   CreateSurfaceOpts,
   LabelAwareLayer,
   LayerAPI,
+  LayerCarrier,
+  LayerKind,
   LayerCapabilities,
   LayerInfo,
   LayerSurface,

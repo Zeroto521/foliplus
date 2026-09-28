@@ -203,7 +203,9 @@ const applyStateOp = (ui: LayerUI, layerInfo: LayerInfo, op: StateOp): void => {
       // is owned by T222; `"pane"` stays the honest "we own this face"
       // answer and this comment is what stops it from lying.
       const value = op.value ?? 1;
-      const bake = layerInfo.opacityBake ?? "redraw";
+      // Registry fills `opacityBake` (default "redraw"); treat unset as
+      // "redraw" via the else arm so there is no second default to drift.
+      const bake = layerInfo.opacityBake;
       setLayerAlpha(layerInfo.canvas, value);
       if (bake === "commit") {
         layerInfo.canvas.style.opacity = "";
@@ -303,6 +305,8 @@ const applyProjection = (ui: LayerUI, id: string): void => {
     // Canvas-only layers have no Leaflet layer, so the author's default is
     // the ground truth — `hasLayer` would always return false and mask a
     // real visible→hidden transition.
+    // Late-binding fallback via manager.findLayer — the single resolve point
+    // (folium may emit the TileLayer var after this control's IIFE).
     const layer = layerInfo.layer ?? ui.m.findLayer(layerInfo);
     const baselineVisible = layer ? ui.m.map.hasLayer(layer) : intentVisibleOf(ui, id);
     prev = {

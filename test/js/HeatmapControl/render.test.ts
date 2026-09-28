@@ -100,6 +100,9 @@ describe("drawHexagon", () => {
   });
 
   it("skips the stroke when CONF.border_opacity is absent or 0", () => {
+    // 0: the `> 0` guard rejects it. undefined: `?? 0` is the other side of
+    // that default — both must miss the stroke, and both branches of the
+    // `??` have to run.
     Object.assign(window.CONF, { border_opacity: 0 });
     const ctx = makeCtx();
     drawHexagon(
@@ -111,6 +114,18 @@ describe("drawHexagon", () => {
     );
     expect(ctx.fill).toHaveBeenCalled();
     expect(ctx.stroke).not.toHaveBeenCalled();
+
+    Object.assign(window.CONF, { border_opacity: undefined });
+    const ctx2 = makeCtx();
+    drawHexagon(
+      ctx2 as unknown as CanvasRenderingContext2D,
+      makeFeat(),
+      makeMap() as unknown as L.Map,
+      2,
+      "#000000",
+    );
+    expect(ctx2.fill).toHaveBeenCalled();
+    expect(ctx2.stroke).not.toHaveBeenCalled();
   });
 
   it("falls back to GRAY fill when the feature has no fillColor", () => {
