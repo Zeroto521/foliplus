@@ -2,6 +2,7 @@
 // Pure data, no DOM / CONF dependency. The LayerManager orchestrates mutations.
 import { createLogger } from "#common/log.js";
 import { safeSVG } from "#common/sanitize.js";
+import { GROUP } from "./const.js";
 import type { LayerInfo, RegisterLayerOpts } from "./type.js";
 import { findLayer } from "./util.js";
 
@@ -75,7 +76,7 @@ class LayerRegistry {
       name: existingLi ? existingLi.name : (opts.name ?? opts.id),
       id: opts.id,
       opacity: opts.opacity ?? existingLi?.opacity ?? 1,
-      group: opts.group ?? existingLi?.group ?? "overlay",
+      group: opts.group ?? existingLi?.group ?? GROUP.OVERLAY,
       paneName: opts.paneName ?? existingLi?.paneName ?? null,
       paneSpecs: opts.paneSpecs ?? existingLi?.paneSpecs ?? [],
       // The only externally supplied HTML in the layer model: callers of
@@ -117,7 +118,7 @@ class LayerRegistry {
 
   /** Recompute the cached first-base-layer index. */
   refreshFirstBaseIdx() {
-    this._firstBaseIdx = this.items.findIndex(l => Boolean(l.group === "base"));
+    this._firstBaseIdx = this.items.findIndex(l => Boolean(l.group === GROUP.BASE));
   }
 
   /** Index of the first base layer, or -1 if none. */
@@ -262,7 +263,7 @@ class LayerRegistry {
     const overlays = [];
     const bases = [];
     for (const layerInfo of this.items) {
-      if (layerInfo && layerInfo.group === "base") bases.push(layerInfo);
+      if (layerInfo && layerInfo.group === GROUP.BASE) bases.push(layerInfo);
       else overlays.push(layerInfo);
     }
     this.items.splice(0, this.items.length, ...overlays.concat(bases));
@@ -285,7 +286,7 @@ class LayerRegistry {
     const firstBaseIdx = this._firstBaseIdx;
     const hasBase = firstBaseIdx !== -1;
 
-    if (from.group !== "base") {
+    if (from.group !== GROUP.BASE) {
       const overlayEnd = hasBase ? firstBaseIdx - 1 : this.items.length - 1;
       return fromIdx <= overlayEnd && toIdx <= overlayEnd;
     }

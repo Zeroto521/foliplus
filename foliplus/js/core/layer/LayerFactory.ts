@@ -8,6 +8,7 @@ import { PaneManager } from "./PaneManager.js";
 import {
   CANVAS_PANE_PREFIX,
   COLOR_PANE_PREFIX,
+  GROUP,
   HIDDEN,
   PANE_NAME_PATTERN,
 } from "./const.js";
@@ -279,7 +280,7 @@ class LayerFactory {
       layerOpts = {
         ...commonLayerOpts,
         name: opts.name,
-        group: "overlay",
+        group: GROUP.OVERLAY,
         layer: mainLayer,
         paneName: basePaneName,
         paneSpecs,
@@ -419,7 +420,7 @@ class LayerFactory {
 
       layerOpts = {
         ...commonLayerOpts,
-        group: "base",
+        group: GROUP.BASE,
         baseInsert: "bottom",
         persistOrder: opts.persistOrder,
         canvas: face,
