@@ -1865,14 +1865,14 @@ class TestLayerControlBrowser:
             assert not result["paneAfterDestroy"], "destroy drops the pane"
 
     def test_migrate_layers_marker_pane(self, browser, tmp_path):
-        """migrateLayers moves Markers to per-layer panes."""
+        """pinLateContent moves Markers to per-layer panes."""
         with use_page(self._make_page, browser, tmp_path) as (page, _):
             result = page.evaluate(_js("LayerControl/migrate_marker_pane"))
             assert result is not None
             assert result["pane"] == "__test_marker_pane_graph__"
 
     def test_migrate_layers_path_pane(self, browser, tmp_path):
-        """migrateLayers moves Path layers to the target pane."""
+        """pinLateContent moves Path layers to the target pane."""
         with use_page(self._make_page, browser, tmp_path) as (page, _):
             result = page.evaluate(_js("LayerControl/migrate_path_pane"))
             assert result is not None
@@ -3829,7 +3829,7 @@ class TestLayerControlBrowser:
     def test_migrate_container_keeps_clean_options(self, browser, tmp_path):
         """Container layers are not re-migrated to fallback panes.
 
-        migrateLayers must skip container nodes when writing pane options.
+        pinLateContent must skip container nodes when writing pane options.
         The container's own pane stays whatever registerLayer assigned
         (paneName), and must NOT be overwritten with a fallback
         `foliplus-pane-*` name during migration.
@@ -6135,7 +6135,7 @@ class TestLayerPaneProbeBrowser:
 
     def test_probe_marker_cluster_icon_shared(self, browser, tmp_path):
         """#3 (cluster icon): the ``.marker-cluster`` icon is NOT reached by
-        migrateLayers' eachLayer recursion, so it stays in markerPane."""
+        pinLateContent's eachLayer recursion, so it stays in markerPane."""
         from folium.plugins import MarkerCluster
 
         mc = MarkerCluster(name="Probe Cluster")
@@ -6170,7 +6170,7 @@ class TestLayerPaneProbeBrowser:
         assert r["setOptions"] == "function"  # minOpacity settable at runtime
 
     def test_probe_image_overlay_overlay_pane(self, browser, tmp_path):
-        """#5 ImageOverlay: ``<img>`` stays in overlayPane (migrateLayers
+        """#5 ImageOverlay: ``<img>`` stays in overlayPane (pinLateContent
         only moves Path elements + Marker icons); setOpacity is immediate."""
         from folium.raster_layers import ImageOverlay
 
