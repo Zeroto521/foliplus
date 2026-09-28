@@ -35,7 +35,7 @@ describe("LayerUI style panel", () => {
   beforeEach(() => {
     ({ manager, ui, map } = initFixture());
     ui.foldedGroups = new Set();
-    ui.hiddenIds = new Set();
+    ui.hiddenLayerIds = new Set();
     window.localStorage.removeItem(CONST.STORAGE.KEY);
     // Seed the field cache so the panel builds: collectFields walks the
     // layer's leaves, and the fixture's data layer has none. `count` is a
@@ -891,13 +891,13 @@ describe("LayerUI style panel", () => {
 
     range.value = "30";
     range.dispatchEvent(new Event("input", { bubbles: true }));
-    expect(ui.userOverrides.overlay1).toContain("opacity");
+    expect(ui.intentProvenance.overlay1).toContain("opacity");
 
     range.value = "100";
     range.dispatchEvent(new Event("input", { bubbles: true }));
 
     expect(ui.opacityMap.overlay1).toBeUndefined();
-    expect(ui.userOverrides.overlay1 ?? []).not.toContain("opacity");
+    expect(ui.intentProvenance.overlay1 ?? []).not.toContain("opacity");
   });
 
   it("opacity 0 is kept in the map (only 1 is treated as default)", () => {
@@ -1327,7 +1327,7 @@ describe("LayerUI style panel", () => {
     // style. The colour basemap starts unchecked, so its Style entry starts
     // disabled and turns on with the box.
     const item = ui.uiContainer.querySelector(
-      `[${CONST.DATA.LAYER_ID}="${CONST.COLOR.MAP_ID}"]`,
+      `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
     ) as HTMLElement;
     const box = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
     const styleItemOf = () =>
@@ -3324,7 +3324,7 @@ describe("LayerUI style panel — zoom range", () => {
   beforeEach(() => {
     ({ manager, ui, map } = initFixture());
     ui.foldedGroups = new Set();
-    ui.hiddenIds = new Set();
+    ui.hiddenLayerIds = new Set();
     window.localStorage.removeItem(CONST.STORAGE.KEY);
     ui.fieldCache.set("overlay1", [{ name: "count", numeric: true }]);
   });
@@ -3612,7 +3612,7 @@ describe("LayerUI style panel — zoom range", () => {
   it("reset button clears zoom range and restores full map range", () => {
     const item = findItem(ui, "overlay1");
     ui.zoomRangeMap["overlay1"] = [5, 15];
-    ui.userOverrides["overlay1"] = ["zoomRange"];
+    ui.intentProvenance["overlay1"] = ["zoomRange"];
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     const resetBtn = panel.querySelector(
@@ -3621,7 +3621,7 @@ describe("LayerUI style panel — zoom range", () => {
     resetBtn.click();
 
     expect(ui.zoomRangeMap["overlay1"]).toBeUndefined();
-    expect(ui.userOverrides["overlay1"]).toBeUndefined();
+    expect(ui.intentProvenance["overlay1"]).toBeUndefined();
   });
 
   it("zoomToPct returns 0 when map min equals max (degenerate range)", () => {
@@ -4260,18 +4260,18 @@ describe("reset on an id the registry does not know", () => {
     // layer that has already left must not rewrite the record or save.
     const { ui } = initFixture({});
     ui.opacityMap.ghost = 0.4;
-    ui.userOverrides.ghost = ["opacity"];
+    ui.intentProvenance.ghost = ["opacity"];
     expect(() => resetLayerOpacity(ui, "ghost")).not.toThrow();
     expect(ui.opacityMap.ghost).toBe(0.4);
-    expect(ui.userOverrides.ghost).toEqual(["opacity"]);
+    expect(ui.intentProvenance.ghost).toEqual(["opacity"]);
   });
 
   it("resetLayerZoomRange returns before touching state", () => {
     const { ui } = initFixture({});
     ui.zoomRangeMap.ghost = [3, 12];
-    ui.userOverrides.ghost = ["zoomRange"];
+    ui.intentProvenance.ghost = ["zoomRange"];
     expect(() => resetLayerZoomRange(ui, "ghost")).not.toThrow();
     expect(ui.zoomRangeMap.ghost).toEqual([3, 12]);
-    expect(ui.userOverrides.ghost).toEqual(["zoomRange"]);
+    expect(ui.intentProvenance.ghost).toEqual(["zoomRange"]);
   });
 });

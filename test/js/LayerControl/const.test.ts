@@ -30,7 +30,7 @@ describe("STORAGE", () => {
 
 describe("COLOR", () => {
   it("defines color map id and default value", () => {
-    expect(CONST.COLOR.MAP_ID).toBe("foliplus_color_map");
+    expect(CONST.SOLID_BASEMAP_ID).toBe("foliplus_color_map");
     expect(CONST.COLOR.DEFAULT).toBe("#cccccc");
   });
 });
@@ -58,7 +58,7 @@ describe("CLASSES", () => {
     expect(CONST.CLASSES.FOLDED).toBe("foliplus-layer-folded");
     expect(CONST.CLASSES.TOGGLE_ALL).toBe("foliplus-layer-toggle-all");
     expect(CONST.CLASSES.FOLD_BTN_CTR).toBe("foliplus-layer-sep");
-    expect(CONST.CLASSES.SEP_LABEL).toBe("foliplus-layer-sep-label");
+    expect(CONST.CLASSES.SEPARATOR_LABEL).toBe("foliplus-layer-sep-label");
     expect(CONST.CLASSES.GROUP_FOLDED).toBe("foliplus-layer-group-folded");
   });
 

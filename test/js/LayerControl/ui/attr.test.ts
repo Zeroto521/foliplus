@@ -33,7 +33,7 @@ describe("LayerUI attrs", () => {
       });
     }
     ui.foldedGroups = new Set();
-    ui.hiddenIds = new Set();
+    ui.hiddenLayerIds = new Set();
     // Folded-group state is persisted to localStorage, so a fold from one test
     // would be re-read by the next test's LayerUI constructor and present as
     // already-folded.
@@ -359,7 +359,7 @@ describe("LayerUI attrs", () => {
 
     it("color basemap shows type and no provenance rows", () => {
       const item = ui.uiContainer.querySelector(
-        `[${CONST.DATA.LAYER_ID}="${CONST.COLOR.MAP_ID}"]`,
+        `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       )!;
 
       ui.openAttrsPanel(item);
@@ -388,7 +388,7 @@ describe("LayerUI attrs", () => {
 
       ui.closeAttrsPanel(false);
       const colorItem = ui.uiContainer.querySelector(
-        `[${CONST.DATA.LAYER_ID}="${CONST.COLOR.MAP_ID}"]`,
+        `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       )!;
       ui.openAttrsPanel(colorItem);
       expect(

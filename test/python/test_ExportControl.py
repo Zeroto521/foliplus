@@ -1152,7 +1152,7 @@ class TestExportControlBrowser:
 
             # Drive the color input through the real LayerControl UI path so
             # the color pane canvas gets painted with the chosen color,
-            # exactly as `showColorLayer` does. The colour lives on a pane-
+            # exactly as `showSolidBasemap` does. The colour lives on a pane-
             # owned canvas now (not on the container's CSS variable), so the
             # container keeps its default background and the export renderer
             # draws the pane canvas as a layer.

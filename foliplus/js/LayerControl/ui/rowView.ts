@@ -117,7 +117,7 @@ const displayName = (ui: LayerUI, id: string): string => {
   return (
     ui.renamedNames[id] ??
     ui.m.layerRegistry.get(id)?.name ??
-    (id === CONST.COLOR.MAP_ID ? ui.T("color_map_label") : "")
+    (id === CONST.SOLID_BASEMAP_ID ? ui.T("color_map_label") : "")
   );
 };
 
@@ -170,7 +170,7 @@ const rowType = (
   if (layerInfo.group === CONST.GROUP.BASE) {
     layerInfo.type = CONST.GROUP.BASE;
     // The colour basemap uses its own swatch icon, not the globe.
-    if (layerInfo.id === CONST.COLOR.MAP_ID) {
+    if (layerInfo.id === CONST.SOLID_BASEMAP_ID) {
       return { svg: SVGs.COLOR, key: "type_color_map" };
     }
     return { svg: Icons.GLOBE_ICON, key: "type_base" };
@@ -198,8 +198,8 @@ const rowType = (
 const buildRowCell = (ui: LayerUI, layerInfo: LayerInfo): RowCell => {
   const layer = ui.m.findLayer(layerInfo);
   // Inline intent check to avoid function-call overhead on the row-paint path.
-  const overrides = ui.userOverrides?.[layerInfo.id];
-  const hidden = ui.hiddenIds?.has(layerInfo.id) ?? false;
+  const overrides = ui.intentProvenance?.[layerInfo.id];
+  const hidden = ui.hiddenLayerIds?.has(layerInfo.id) ?? false;
   const hasVisible = overrides?.includes("visible") || hidden;
   const authorDefault = ui.authorVisible.get(layerInfo.id) ?? true;
   const checked = hasVisible ? !hidden : authorDefault;
