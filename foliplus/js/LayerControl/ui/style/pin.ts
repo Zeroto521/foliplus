@@ -78,8 +78,7 @@ const pinStyleOnHighlight = (
 /** How many getters are currently pinned on a leaf. Exposed for tests:
  *  repeated commits must hold at one getter per dimension key, never grow
  *  the registry — a fresh closure per commit used to append without bound. */
-const pinnedGetterCount = (leaf: StyleSetter): number =>
-  pins.get(leaf)?.size ?? 0;
+const pinnedGetterCount = (leaf: StyleSetter): number => pins.get(leaf)?.size ?? 0;
 
 export { isStyleSetter, pinnedGetterCount, pinStyleOnHighlight };
 export type { StyleSetter };

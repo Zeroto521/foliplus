@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { hasFillLeaf, hasSetStyleLeaf } from "#core/layer/capability.js";
 import {
   isStyleSetter,
-  pinnedGetterCount,
   pinStyleOnHighlight,
+  pinnedGetterCount,
 } from "#foliplus/LayerControl/ui/style/pin.js";
 
 const makeLeaf = () => {
