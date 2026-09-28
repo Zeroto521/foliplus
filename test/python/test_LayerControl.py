@@ -744,19 +744,20 @@ class TestLayerControlRendering:
         assert "foliplus-section-divider" in css
         assert "opacity: 0" in css
 
-    def test_form_label_left_aligned_no_section_heading(self):
-        """Row labels stay left-aligned; the shared section heading is gone.
+    def test_form_label_right_aligned_no_section_heading(self):
+        """Row labels are right-aligned; the shared section heading is gone.
 
         Both rules lived in form.css — the heading because HeatmapControl and
         the style panel shared it, the label because all three panels share one
         label column. Panels are now a flat row list, so only the label rule
-        survives and it must not drift back to right-aligned.
+        survives, and it must keep the right alignment the attributes panel's
+        flex twin mirrors in attr.css.
         """
         css = read_css("foliplus/css/common/form.css")
         assert ".foliplus-section-heading" not in css
         label = _rule(css, ".foliplus-form-label {")
-        assert "text-align: left" in label
-        assert "padding-right" not in label
+        assert "text-align: right" in label
+        assert "padding-right: var(--space-xs)" in label
 
     def test_slider_component_css(self):
         """One shared slider component carries all the geometry.
