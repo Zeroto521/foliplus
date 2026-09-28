@@ -16,15 +16,7 @@
 // value. This is the shared mechanism both self-managed style dimensions
 // (fill, border) use; it becomes the unified hook when those merge.
 
-/** A leaf whose `setStyle` is there for real. Narrowing through a guard
- *  rather than a `typeof` test keeps call sites plain method calls, which
- *  matters: Leaflet's `Path.setStyle` runs `setOptions(this, style)`, so a
- *  method captured into a local and called detached would see `this` as
- *  undefined and throw instead of writing. */
-type StyleSetter = {
-  setStyle: (style: Record<string, unknown>) => void;
-  on?: (type: string, fn: () => void) => void;
-};
+import type { StyleSetter } from "../../type.js";
 
 const isStyleSetter = (node: unknown): node is StyleSetter =>
   node != null && typeof (node as StyleSetter).setStyle === "function";
@@ -81,4 +73,3 @@ const pinStyleOnHighlight = (
 const pinnedGetterCount = (leaf: StyleSetter): number => pins.get(leaf)?.size ?? 0;
 
 export { isStyleSetter, pinnedGetterCount, pinStyleOnHighlight };
-export type { StyleSetter };

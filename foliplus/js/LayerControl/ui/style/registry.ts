@@ -53,33 +53,8 @@
 // overwrite. This registry is currently an internal surface only — the
 // public extensibility API (a `registerDimension` re-exported from
 // `LayerControl/index.ts`) is deferred.
+import type { LayerDimension } from "../../type.js";
 import type { LayerUI } from "../index.js";
-
-/** One per-layer dimension. `key` is the persistence-identifier and the
- *  registry key (`"opacity"`, later `"zoomRange"`, `"fillColor"`, ...). */
-type LayerDimension<D = unknown> = {
-  key: string;
-  /** Row-honest gate, two layers in order:
-   *  1. **Layer existence** — return `false` when the layer is not in the
-   *     registry (a precondition guard against a programming error).
-   *  2. **Capability** — `capabilities.{dim} !== "none"`, the surface's
-   *     declared capability is the single source of truth for whether this
-   *     row is honest to render.
-   *  Nothing else: no carrier probes, no `isColorBasemap` special-cases,
-   *  no canvas/styleSetters exclusion (a canvas-only surface already
-   *  declares `"none"` for the dimension it can't carry, so the gate
-   *  rejects it naturally). See the file header for the full invariant. */
-  gate: (ui: LayerUI, layerId: string) => boolean;
-  /** Resolved current value — the user's stored override, falling back to
-   *  the author's declared default when the user has never touched the
-   *  dimension. `undefined` when the layer is not in the registry. */
-  value: (ui: LayerUI, layerId: string) => D | undefined;
-  /** Build the style-panel row. The descriptor owns the DOM shape; the
-   *  panel still owns event binding, because binding needs the row's
-   *  parent (the panel root) to install the drag bubble and shared
-   *  number-field commit handler. */
-  row: (ui: LayerUI, layerId: string) => HTMLElement;
-};
 
 const registry: Map<string, LayerDimension<any>> = new Map();
 
@@ -147,7 +122,6 @@ const LABEL_DIM_ORDER = ["annotation"] as const;
 const hasAnyDimension = (ui: LayerUI, layerId: string): boolean =>
   [...registry.values()].some(d => d.gate(ui, layerId));
 
-export type { LayerDimension };
 export {
   DIM_ORDER,
   LABEL_DIM_ORDER,

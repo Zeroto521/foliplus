@@ -33,6 +33,7 @@ import {
   numberInput,
 } from "#common/form.js";
 import * as CONST from "../../const.js";
+import type { BorderRowBindTarget, BorderRowBuildTarget } from "../../type.js";
 import type { LayerUI } from "../index.js";
 import { markOverride, saveState, unmarkOverride } from "../state.js";
 import { pinStyleOnHighlight } from "./pin.js";
@@ -308,51 +309,6 @@ const displayColor = (value: string): string => {
     .join("")}`;
 };
 
-/** Shared border-row shell. Two callers — the vector `buildBorderRow`
- *  (which supplies `setStyle` chrome + hooks) and the delegated drawer's
- *  `buildBorderRow` (which supplies plain chrome + `styleSetters` write
- *  target) — both need a color swatch plus a width number input wired to a
- *  live commit path. The shell owns the row DOM and the bind recipe; the
- *  caller supplies its own chrome and write callbacks.
- *
- *  `buildBorderRowShell` and `bindBorderRowShell` take separate targets:
- *  the build side needs shell/chrome options, the bind side needs write
- *  callbacks. Folding them into one target would force the bind caller to
- *  supply dummy shell fields and vice versa. */
-interface BorderRowBuildTarget {
-  /** Resolved row label text. */
-  label: string;
-  /** Row `class` — `FORM_ROW` plus any caller-specific hook. */
-  rowClass: string;
-  /** Initial color value (already display-ready for the swatch). */
-  color?: string;
-  /** Initial width value. */
-  weight: number;
-  /** Present iff a color input should render. */
-  hasColorInput?: boolean;
-  /** Present iff a width input should render. */
-  hasWeightInput?: boolean;
-  /** Optional color input `class`. */
-  className?: string;
-  /** Optional weight input `class`. */
-  weightClassName?: string;
-  /** Optional aria-label for the color swatch. */
-  colorAria?: string;
-  /** Optional aria-label for the width input. */
-  weightAria?: string;
-}
-
-interface BorderRowBindTarget {
-  /** Write callback for the color input. */
-  onChangeColor?: (value: string) => void;
-  /** Write callback for the width input. */
-  onChangeWeight?: (value: number) => void;
-  /** Same class hook the build side used on the color input. */
-  className?: string;
-  /** Same class hook the build side used on the weight input. */
-  weightClassName?: string;
-}
-
 const colorSelector = (className?: string) =>
   className ? `input.${className}` : "input[type=color]";
 const weightSelector = (className?: string) =>
@@ -482,5 +438,3 @@ export {
   layerCanBorder,
   resetLayerBorder,
 };
-
-export type { BorderRowBindTarget, BorderRowBuildTarget };

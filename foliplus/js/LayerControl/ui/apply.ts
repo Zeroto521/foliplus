@@ -29,21 +29,9 @@
 import { HIDDEN } from "#core/layer/index.js";
 import { resetGridLayerView } from "#core/leafletAdapter.js";
 import * as CONST from "../const.js";
+import type { Projection, StateOp } from "../type.js";
 import type { LayerUI } from "./index.js";
-import {
-  type Projection,
-  intentVisibleOf,
-  projectAll,
-  projectLayer,
-} from "./projection.js";
-
-/** One write the carrier dispatcher accepts. `opacity` and `zoomRange`
- *  being `undefined` mean "no user value" — a Reset back to the author's
- *  default — not "leave the carrier alone". */
-type StateOp =
-  | { type: "visible"; value: boolean }
-  | { type: "opacity"; value: number | undefined }
-  | { type: "zoomRange"; value: [number, number] | null };
+import { intentVisibleOf, projectAll, projectLayer } from "./projection.js";
 
 /** Cache the layer's original `options.opacity` so repeated slider drags
  *  don't compound. The base is captured on first write and never re-read;
@@ -369,4 +357,3 @@ const applyProjectionAll = (ui: LayerUI): void => {
 };
 
 export { applyProjection, applyProjectionAll, applyStateOp, authorZoomBoundsForLayer };
-export type { StateOp };

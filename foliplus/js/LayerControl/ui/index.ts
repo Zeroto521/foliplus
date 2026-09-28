@@ -38,7 +38,7 @@ import {
   updateLayerItem,
 } from "./list.js";
 import { closeMoreMenu, openMoreMenu } from "./menu.js";
-import type { AppliedProjection } from "./projection.js";
+import type { AppliedProjection } from "../type.js";
 import { intentVisibleOf } from "./projection.js";
 import { finishRename, renameLayer } from "./rename.js";
 import { applyRowView, buildRowCell, displayName } from "./rowView.js";
