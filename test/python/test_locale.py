@@ -530,7 +530,7 @@ class TestPartialCustomTable:
         assert table["HeatmapControl.title"] == "こんにちは"
         # Builtin en table carries every key, so the fallback is a real
         # translation, not a bare key.
-        assert table["HeatmapControl.layer"] == "Aggregation Layer"
+        assert table["HeatmapControl.layer"] == "Layer"
 
     def test_custom_table_not_bare_key(self):
         """Every key of the builtin table resolves to a real string."""

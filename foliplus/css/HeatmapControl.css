@@ -32,7 +32,10 @@
      -halo-color / -halo-width from common/token.css — directly, so one override
      styles a hex value and an annotation label alike. */
 
-  /* ── Sections: Data / Style / Labels ── */
+  /* ── Style rows block ──
+     Sits below the data rows with no heading of its own since the panel
+     dropped its Data / Style group titles; padding stays 0 so the rows
+     keep the config-body's own inset. */
   .foliplus-heatmap-section-block {
     padding: 0;
   }

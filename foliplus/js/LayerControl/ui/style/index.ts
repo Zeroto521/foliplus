@@ -9,8 +9,7 @@
 // the event-binding skeleton (openStylePanel) and the teardown
 // (closeStylePanel). Row builders, the field cache and the delegated drawer
 // live in ./label.ts, ./opacity.ts, ./zoomRange.ts, ./delegated.ts;
-// frame-level helpers (section heading, reset footer, rail positioning)
-// live in ./frame.ts.
+// frame-level helpers (reset footer, rail positioning) live in ./frame.ts.
 import { EVENTS } from "#core/event/index.js";
 import { resolveSelectedField } from "#core/labelField.js";
 import { dom } from "#common/dom.js";

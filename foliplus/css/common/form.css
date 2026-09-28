@@ -21,7 +21,8 @@
   /* Fixed width, not min-width: every panel (heatmap / attrs / style) shares
      one control-column edge. Longer labels wrap inside the box instead of
      pushing the control right. Explicit normal weight: the attrs panel uses
-     <dt>, whose UA stylesheet is bold — bold stays on section headings. */
+     <dt>, whose UA stylesheet is bold — without it the three panels' labels
+     would not read alike. */
   width: var(--form-label-width);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-normal);
