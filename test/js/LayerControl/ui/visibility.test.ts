@@ -514,7 +514,7 @@ describe("applyVisibility", () => {
         // Base click (colour row): syncNoBasemap called, so NO_BASE_MAP is
         // toggled.
         toggleMock.mockClear();
-        applyVisibility(u2, CONST.COLOR.MAP_ID, true);
+        applyVisibility(u2, CONST.SOLID_BASEMAP_ID, true);
         const baseCalls = toggleMock.mock.calls.filter(
           c => c[0] === CONST.CLASSES.NO_BASE_MAP,
         );
@@ -996,7 +996,7 @@ describe("unit helpers", () => {
     </div>
     <div
       class="foliplus-layer-item"
-      data-layer-id="${CONST.COLOR.MAP_ID}"
+      data-layer-id="${CONST.SOLID_BASEMAP_ID}"
       data-layer-type="base"
     ></div>
   `;
@@ -1008,7 +1008,7 @@ describe("unit helpers", () => {
     const items = getLayerItems(ui, CONST.GROUP.BASE);
     expect(items.length).toBe(2);
     expect(items[0].getAttribute("data-layer-type")).toBe("base");
-    expect(items[1].getAttribute("data-layer-id")).toBe(CONST.COLOR.MAP_ID);
+    expect(items[1].getAttribute("data-layer-id")).toBe(CONST.SOLID_BASEMAP_ID);
   });
 
   it("getLayerItems returns overlay rows and excludes the color basemap", () => {

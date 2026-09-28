@@ -15,7 +15,7 @@ import type { LayerUI } from "./index.js";
 const getColorSurface = (ui: LayerUI): CreateColorAPI => {
   if (!ui.colorSurface) {
     const surface = ui.m.createColor({
-      id: CONST.COLOR.MAP_ID,
+      id: CONST.SOLID_BASEMAP_ID,
       name: ui.T("color_map_label"),
       color: CONST.COLOR.DEFAULT,
       // Runtime-created surface: its insertion slot follows attach timing, not a

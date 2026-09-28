@@ -30,7 +30,7 @@ describe("STORAGE", () => {
 
 describe("COLOR", () => {
   it("defines color map id and default value", () => {
-    expect(CONST.COLOR.MAP_ID).toBe("foliplus_color_map");
+    expect(CONST.SOLID_BASEMAP_ID).toBe("foliplus_color_map");
     expect(CONST.COLOR.DEFAULT).toBe("#cccccc");
   });
 });

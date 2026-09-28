@@ -647,7 +647,7 @@ describe("LayerUI visibility persistence (hiddenLayerIds)", () => {
       expect(map.removeLayer).toHaveBeenCalledWith(base2);
       // Color-layer fallback must NOT activate when the user intentionally hid every base.
       const colorItem = ui.uiContainer.querySelector(
-        `[${CONST.DATA.LAYER_ID}="${CONST.COLOR.MAP_ID}"]`,
+        `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       ) as HTMLElement | null;
       expect(colorItem?.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
       // The hidden set is preserved after the attach pass.
@@ -669,7 +669,7 @@ describe("LayerUI visibility persistence (hiddenLayerIds)", () => {
       ]);
 
       const colorItem = ui.uiContainer.querySelector(
-        `[${CONST.DATA.LAYER_ID}="${CONST.COLOR.MAP_ID}"]`,
+        `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       ) as HTMLElement | null;
       expect(colorItem?.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
       expect(map.removeLayer).not.toHaveBeenCalled();
@@ -705,7 +705,7 @@ describe("LayerUI visibility persistence (hiddenLayerIds)", () => {
       // must NOT activate —the user might re-show base1 at any time.
       expect(map.removeLayer).toHaveBeenCalledWith(base1);
       const colorItem = ui.uiContainer.querySelector(
-        `[${CONST.DATA.LAYER_ID}="${CONST.COLOR.MAP_ID}"]`,
+        `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       ) as HTMLElement | null;
       expect(colorItem?.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
     });
@@ -1508,12 +1508,12 @@ describe("ui/state intentProvenance and per-layer state persistence", () => {
     // The color basemap has no LayerInfo in the registry —its rename goes
     // straight to the row label. Without the id guard at the top of the
     // sweep the color item would be skipped and the label would stay stale.
-    ui.renamedNames = { [CONST.COLOR.MAP_ID]: "Renamed Color" };
+    ui.renamedNames = { [CONST.SOLID_BASEMAP_ID]: "Renamed Color" };
 
     ui.applyUserState();
 
     const colorItem = ui.uiContainer.querySelector(
-      `[${CONST.DATA.LAYER_ID}="${CONST.COLOR.MAP_ID}"]`,
+      `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
     ) as HTMLElement | null;
     expect(colorItem).not.toBeNull();
     const label = colorItem!.querySelector("label") as HTMLElement | null;

@@ -1323,7 +1323,7 @@ describe("LayerUI style panel", () => {
     // style. The colour basemap starts unchecked, so its Style entry starts
     // disabled and turns on with the box.
     const item = ui.uiContainer.querySelector(
-      `[${CONST.DATA.LAYER_ID}="${CONST.COLOR.MAP_ID}"]`,
+      `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
     ) as HTMLElement;
     const box = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
     const styleItemOf = () =>

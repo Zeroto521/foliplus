@@ -17,7 +17,8 @@ const DRAG = { HINT_COOLDOWN_MS: 800 };
 const STORAGE = { KEY: `foliplus_layer_state_${map.getContainer().id}` };
 
 /** Color map layer. */
-const COLOR = { MAP_ID: "foliplus_color_map", DEFAULT: "#cccccc" };
+const SOLID_BASEMAP_ID = "foliplus_color_map";
+const COLOR = { DEFAULT: "#cccccc" };
 
 /** Focus-on-layer behavior. */
 const FOCUS = {
@@ -266,5 +267,6 @@ export {
   GROUP,
   SAVE_DEBOUNCE_MS,
   SEL,
+  SOLID_BASEMAP_ID,
   STORAGE,
 };

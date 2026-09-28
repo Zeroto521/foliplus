@@ -875,7 +875,7 @@ class LayerManager implements LayerAPI {
         const group = layerInfo.isBase ? CONST.GROUP.BASE : CONST.GROUP.OVERLAY;
         const anchorSel =
           group === CONST.GROUP.BASE
-            ? `${CONST.SEL.LAYER_ITEM}[data-layer-type="${CONST.GROUP.BASE}"]:not([${CONST.DATA.LAYER_ID}="${CONST.COLOR.MAP_ID}"])`
+            ? `${CONST.SEL.LAYER_ITEM}[data-layer-type="${CONST.GROUP.BASE}"]:not([${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"])`
             : `${CONST.SEL.LAYER_ITEM}:not([data-layer-type="${CONST.GROUP.BASE}"])`;
         if (!this.uiContainer.querySelector(anchorSel)) {
           this.uiContainer
@@ -945,7 +945,7 @@ class LayerManager implements LayerAPI {
     // The colour basemap is also component-owned: clearing it unregisters the
     // surface and resets the fill state so the map returns to the grid empty
     // state. The id stays registerable so the colour can be re-picked.
-    if (id === CONST.COLOR.MAP_ID) {
+    if (id === CONST.SOLID_BASEMAP_ID) {
       const removed = this.unregisterLayer(id);
       if (!removed) return false;
       if (this.ui) {

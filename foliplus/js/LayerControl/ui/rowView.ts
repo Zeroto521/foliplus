@@ -117,7 +117,7 @@ const displayName = (ui: LayerUI, id: string): string => {
   return (
     ui.renamedNames[id] ??
     ui.m.layerRegistry.get(id)?.name ??
-    (id === CONST.COLOR.MAP_ID ? ui.T("color_map_label") : "")
+    (id === CONST.SOLID_BASEMAP_ID ? ui.T("color_map_label") : "")
   );
 };
 
@@ -170,7 +170,7 @@ const rowType = (
   if (layerInfo.isBase) {
     layerInfo.type = CONST.GROUP.BASE;
     // The colour basemap uses its own swatch icon, not the globe.
-    if (layerInfo.id === CONST.COLOR.MAP_ID) {
+    if (layerInfo.id === CONST.SOLID_BASEMAP_ID) {
       return { svg: SVGs.COLOR, key: "type_color_map" };
     }
     return { svg: Icons.GLOBE_ICON, key: "type_base" };

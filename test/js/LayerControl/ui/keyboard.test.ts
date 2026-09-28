@@ -816,7 +816,7 @@ describe("LayerUI keyboard", () => {
 
     it("getNavigableItems lists rows by class, so a checkbox-less row is reachable", () => {
       const colorRow = ui.uiContainer.querySelector(
-        `[${CONST.DATA.LAYER_ID}="${CONST.COLOR.MAP_ID}"]`,
+        `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       ) as HTMLElement | null;
 
       const items = ui.getNavigableItems();

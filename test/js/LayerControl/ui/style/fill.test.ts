@@ -669,12 +669,12 @@ describe("LayerUI style panel — fill color", () => {
 
   const registerColorBasemap = () => {
     manager.registerLayer({
-      id: CONST.COLOR.MAP_ID,
+      id: CONST.SOLID_BASEMAP_ID,
       name: "Color",
       isBase: true,
       color: CONST.COLOR.DEFAULT,
     });
-    const li = manager.layerRegistry.get(CONST.COLOR.MAP_ID)!;
+    const li = manager.layerRegistry.get(CONST.SOLID_BASEMAP_ID)!;
     manager.surfaceFor(li).capabilities = {
       opacity: "pane",
       zoomRange: "none",
@@ -683,32 +683,32 @@ describe("LayerUI style panel — fill color", () => {
       fill: "native",
       stroke: "none",
     };
-    ui.fieldCache.set(CONST.COLOR.MAP_ID, []);
+    ui.fieldCache.set(CONST.SOLID_BASEMAP_ID, []);
   };
 
   it("layerCanFill returns true for a color basemap", () => {
     registerColorBasemap();
-    expect(layerCanFill(ui, CONST.COLOR.MAP_ID)).toBe(true);
+    expect(layerCanFill(ui, CONST.SOLID_BASEMAP_ID)).toBe(true);
   });
 
   it("applyFillToLayer routes a color basemap to showSolidBasemap, not leaf walk", () => {
     registerColorBasemap();
-    ui.fillColorMap[CONST.COLOR.MAP_ID] = "#ff0000";
-    applyFillToLayer(ui, CONST.COLOR.MAP_ID);
+    ui.fillColorMap[CONST.SOLID_BASEMAP_ID] = "#ff0000";
+    applyFillToLayer(ui, CONST.SOLID_BASEMAP_ID);
     expect(ui.currentColor).toBe("#ff0000");
   });
 
   it("resetLayerFill restores the color basemap to its default", () => {
     registerColorBasemap();
-    ui.fillColorMap[CONST.COLOR.MAP_ID] = "#ff0000";
-    resetLayerFill(ui, CONST.COLOR.MAP_ID);
+    ui.fillColorMap[CONST.SOLID_BASEMAP_ID] = "#ff0000";
+    resetLayerFill(ui, CONST.SOLID_BASEMAP_ID);
     expect(ui.currentColor).toBe(CONST.COLOR.DEFAULT);
-    expect(ui.fillColorMap[CONST.COLOR.MAP_ID]).toBeUndefined();
+    expect(ui.fillColorMap[CONST.SOLID_BASEMAP_ID]).toBeUndefined();
   });
 
   it("buildFillRow renders only the color swatch for a color basemap", () => {
     registerColorBasemap();
-    const row = buildFillRow(ui, CONST.COLOR.MAP_ID);
+    const row = buildFillRow(ui, CONST.SOLID_BASEMAP_ID);
     expect(
       row.querySelector(`.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`),
     ).not.toBeNull();
@@ -719,8 +719,8 @@ describe("LayerUI style panel — fill color", () => {
     // L252: `color === undefined` branch — opacity-only on a color basemap
     // must not call showSolidBasemap (there is no color to show).
     registerColorBasemap();
-    ui.fillOpacityMap[CONST.COLOR.MAP_ID] = 0.5;
-    applyFillToLayer(ui, CONST.COLOR.MAP_ID);
+    ui.fillOpacityMap[CONST.SOLID_BASEMAP_ID] = 0.5;
+    applyFillToLayer(ui, CONST.SOLID_BASEMAP_ID);
     // currentColor is untouched because only opacity was set
     expect(ui.currentColor).toBe(CONST.COLOR.DEFAULT);
   });
@@ -729,9 +729,9 @@ describe("LayerUI style panel — fill color", () => {
     // A color basemap has no fillOpacity concept — the color routes to
     // showSolidBasemap and the fill-opacity map stays empty.
     registerColorBasemap();
-    commitFillColor(ui, CONST.COLOR.MAP_ID, "#ff0000");
-    expect(ui.fillColorMap[CONST.COLOR.MAP_ID]).toBe("#ff0000");
-    expect(ui.fillOpacityMap[CONST.COLOR.MAP_ID]).toBeUndefined();
+    commitFillColor(ui, CONST.SOLID_BASEMAP_ID, "#ff0000");
+    expect(ui.fillColorMap[CONST.SOLID_BASEMAP_ID]).toBe("#ff0000");
+    expect(ui.fillOpacityMap[CONST.SOLID_BASEMAP_ID]).toBeUndefined();
     expect(ui.currentColor).toBe("#ff0000");
   });
 

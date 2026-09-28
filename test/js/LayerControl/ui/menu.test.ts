@@ -257,7 +257,7 @@ describe("LayerUI menu", () => {
 
     it("color layer has more button (rename entry point)", () => {
       const colorItem = ui.uiContainer.querySelector(
-        `[${CONST.DATA.LAYER_ID}="${CONST.COLOR.MAP_ID}"]`,
+        `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       )!;
       const btn = colorItem.querySelector(`.${CONST.CLASSES.MORE_BTN}`);
       expect(btn).not.toBeNull();
@@ -461,7 +461,7 @@ describe("LayerUI menu", () => {
 
     it("renders a delete entry for the colour basemap, not disabled", () => {
       const colorItem = ui.uiContainer.querySelector(
-        `[${CONST.DATA.LAYER_ID}="${CONST.COLOR.MAP_ID}"]`,
+        `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       )!;
       ui.openMoreMenu(colorItem);
 
@@ -589,7 +589,7 @@ describe("LayerUI menu", () => {
 
     it("arms on the first click and deletes on the second for the colour basemap", () => {
       const item = ui.uiContainer.querySelector(
-        `[${CONST.DATA.LAYER_ID}="${CONST.COLOR.MAP_ID}"]`,
+        `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       )!;
       ui.openMoreMenu(item);
       const deleteLi = deleteEntryOf(item);
@@ -603,7 +603,7 @@ describe("LayerUI menu", () => {
       expect(deleteSpy).not.toHaveBeenCalled();
 
       click(deleteLi);
-      expect(deleteSpy).toHaveBeenCalledWith(CONST.COLOR.MAP_ID);
+      expect(deleteSpy).toHaveBeenCalledWith(CONST.SOLID_BASEMAP_ID);
       expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(0);
     });
 

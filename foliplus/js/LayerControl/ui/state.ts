@@ -246,7 +246,7 @@ const applyUserState = (ui: LayerUI, id?: string) => {
   // so its rename still comes from `renamedNames`.
   applyProjectionAll(ui);
   for (const layerId of Object.keys(ui.renamedNames)) {
-    if (layerId === CONST.COLOR.MAP_ID) {
+    if (layerId === CONST.SOLID_BASEMAP_ID) {
       // The color basemap has no registry entry —only its row label.
       applyNameProjection(
         null,

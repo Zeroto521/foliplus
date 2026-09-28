@@ -2448,7 +2448,7 @@ describe("LayerManager", () => {
     it("clears the colour basemap — unregisters but keeps the id registerable", () => {
       manager.map.hasLayer.mockReturnValue(false);
       manager.registerLayer({
-        id: CONST.COLOR.MAP_ID,
+        id: CONST.SOLID_BASEMAP_ID,
         name: "Colour",
         isBase: true,
         layer: { options: {} },
@@ -2460,7 +2460,7 @@ describe("LayerManager", () => {
       manager.ui = {
         colorSurface: {} as any,
         currentColor: "#ff0000",
-        authorVisible: new Map([[CONST.COLOR.MAP_ID, true]]),
+        authorVisible: new Map([[CONST.SOLID_BASEMAP_ID, true]]),
         saveState: saveStateSpy,
         syncToggleAll,
         syncNoBasemap,
@@ -2468,22 +2468,22 @@ describe("LayerManager", () => {
       } as any;
       const unregisterSpy = vi.spyOn(manager, "unregisterLayer");
 
-      expect(manager.deleteLayer(CONST.COLOR.MAP_ID)).toBe(true);
+      expect(manager.deleteLayer(CONST.SOLID_BASEMAP_ID)).toBe(true);
 
-      expect(unregisterSpy).toHaveBeenCalledWith(CONST.COLOR.MAP_ID);
+      expect(unregisterSpy).toHaveBeenCalledWith(CONST.SOLID_BASEMAP_ID);
       expect(manager.ui.colorSurface).toBeNull();
       expect(manager.ui.currentColor).toBe(CONST.COLOR.DEFAULT);
-      expect(manager.ui.authorVisible.get(CONST.COLOR.MAP_ID)).toBe(false);
+      expect(manager.ui.authorVisible.get(CONST.SOLID_BASEMAP_ID)).toBe(false);
       expect(saveStateSpy).toHaveBeenCalled();
       expect(syncToggleAll).toHaveBeenCalledWith(CONST.GROUP.BASE);
       expect(syncNoBasemap).toHaveBeenCalled();
-      expect((manager as any).removedIds.has(CONST.COLOR.MAP_ID)).toBe(false);
+      expect((manager as any).removedIds.has(CONST.SOLID_BASEMAP_ID)).toBe(false);
     });
 
     it("clears the colour basemap without a panel attached", () => {
       manager.map.hasLayer.mockReturnValue(false);
       manager.registerLayer({
-        id: CONST.COLOR.MAP_ID,
+        id: CONST.SOLID_BASEMAP_ID,
         name: "Colour",
         isBase: true,
         layer: { options: {} },
@@ -2491,24 +2491,24 @@ describe("LayerManager", () => {
       manager.ui = null;
       const unregisterSpy = vi.spyOn(manager, "unregisterLayer");
 
-      expect(manager.deleteLayer(CONST.COLOR.MAP_ID)).toBe(true);
+      expect(manager.deleteLayer(CONST.SOLID_BASEMAP_ID)).toBe(true);
 
-      expect(unregisterSpy).toHaveBeenCalledWith(CONST.COLOR.MAP_ID);
-      expect((manager as any).removedIds.has(CONST.COLOR.MAP_ID)).toBe(false);
+      expect(unregisterSpy).toHaveBeenCalledWith(CONST.SOLID_BASEMAP_ID);
+      expect((manager as any).removedIds.has(CONST.SOLID_BASEMAP_ID)).toBe(false);
     });
 
     it("returns false when the colour basemap cannot be unregistered", () => {
       manager.map.hasLayer.mockReturnValue(false);
       manager.registerLayer({
-        id: CONST.COLOR.MAP_ID,
+        id: CONST.SOLID_BASEMAP_ID,
         name: "Colour",
         isBase: true,
         layer: { options: {} },
       } as any);
       vi.spyOn(manager, "unregisterLayer").mockReturnValue(false);
 
-      expect(manager.deleteLayer(CONST.COLOR.MAP_ID)).toBe(false);
-      expect((manager as any).removedIds.has(CONST.COLOR.MAP_ID)).toBe(false);
+      expect(manager.deleteLayer(CONST.SOLID_BASEMAP_ID)).toBe(false);
+      expect((manager as any).removedIds.has(CONST.SOLID_BASEMAP_ID)).toBe(false);
     });
 
     it("removes the overlay toggle-all row when the last overlay layer is deleted", () => {
@@ -2551,7 +2551,7 @@ describe("LayerManager", () => {
     it("removes the base toggle-all row when the last non-colour base layer is deleted", () => {
       manager.map.hasLayer.mockReturnValue(false);
       manager.registerLayer({
-        id: CONST.COLOR.MAP_ID,
+        id: CONST.SOLID_BASEMAP_ID,
         name: "Colour",
         isBase: true,
         layer: { options: {} },
@@ -2563,12 +2563,12 @@ describe("LayerManager", () => {
           <div class="foliplus-checkbox"><input type="checkbox" data-role="toggle-all" /></div>
         </div>
         <div class="foliplus-layer-item" data-layer-id="base1" data-layer-type="base"></div>
-        <div class="foliplus-layer-item" data-layer-id="${CONST.COLOR.MAP_ID}" data-layer-type="base"></div>
+        <div class="foliplus-layer-item" data-layer-id="${CONST.SOLID_BASEMAP_ID}" data-layer-type="base"></div>
       `;
       manager.ui = {
         colorSurface: {} as any,
         currentColor: "#ff0000",
-        authorVisible: new Map([[CONST.COLOR.MAP_ID, true]]),
+        authorVisible: new Map([[CONST.SOLID_BASEMAP_ID, true]]),
         dropPersistedLayerState: vi.fn(),
         saveState: vi.fn(),
         syncToggleAll: vi.fn(),
@@ -2586,7 +2586,7 @@ describe("LayerManager", () => {
         ),
       ).toBeNull();
       expect(
-        manager.uiContainer.querySelector(`[data-layer-id="${CONST.COLOR.MAP_ID}"]`),
+        manager.uiContainer.querySelector(`[data-layer-id="${CONST.SOLID_BASEMAP_ID}"]`),
       ).not.toBeNull();
     });
   });

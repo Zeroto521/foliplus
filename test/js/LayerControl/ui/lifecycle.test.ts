@@ -114,7 +114,7 @@ describe("LayerUI lifecycle — defensive rails", () => {
         .spyOn(ui, "showSolidBasemap")
         .mockImplementation(() => {});
       const colorRow = ui.uiContainer.querySelector<HTMLElement>(
-        `[${CONST.DATA.LAYER_ID}="${CONST.COLOR.MAP_ID}"]`,
+        `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       );
       expect(colorRow).toBeTruthy();
       // Click the row's label cell — well outside the checkbox, drag handle,

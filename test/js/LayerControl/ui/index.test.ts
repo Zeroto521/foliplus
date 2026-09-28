@@ -225,7 +225,7 @@ describe("LayerUI shell — delegates", () => {
     // as any other layer.
     const enforce = vi.spyOn(manager, "debouncedEnforce");
     const colorItem = ui.uiContainer.querySelector(
-      `[${CONST.DATA.LAYER_ID}="${CONST.COLOR.MAP_ID}"]`,
+      `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
     ) as HTMLElement;
     const checkbox = colorItem.querySelector(
       'input[type="checkbox"]',

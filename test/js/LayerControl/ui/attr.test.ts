@@ -359,7 +359,7 @@ describe("LayerUI attrs", () => {
 
     it("color basemap shows type and no provenance rows", () => {
       const item = ui.uiContainer.querySelector(
-        `[${CONST.DATA.LAYER_ID}="${CONST.COLOR.MAP_ID}"]`,
+        `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       )!;
 
       ui.openAttrsPanel(item);
@@ -388,7 +388,7 @@ describe("LayerUI attrs", () => {
 
       ui.closeAttrsPanel(false);
       const colorItem = ui.uiContainer.querySelector(
-        `[${CONST.DATA.LAYER_ID}="${CONST.COLOR.MAP_ID}"]`,
+        `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       )!;
       ui.openAttrsPanel(colorItem);
       expect(
