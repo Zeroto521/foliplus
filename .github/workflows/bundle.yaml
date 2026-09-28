@@ -22,14 +22,8 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - uses: actions/setup-node@v6
-        with:
-          node-version-file: "package.json"
-          # setup-node auto-detects npm from the packageManager pin and turns on
-          # package-manager caching, which requires a lockfile this repo ignores.
-          package-manager-cache: false
+      - uses: ./.github/actions/setup-deps
 
-      - run: npm install
       - run: npm run build:sonda
 
       # Build the base branch in a detached worktree and capture its sizes, then

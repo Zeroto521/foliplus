@@ -7,6 +7,7 @@ import {
 } from "#foliplus/LayerControl/ui/apply.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { intentVisibleOf, projectLayer } from "#foliplus/LayerControl/ui/projection.js";
+import { getLayerAlpha } from "#common/canvasAlpha.js";
 import { installLeafletGlobals } from "./fixture.js";
 
 // ────────────────────────────────────────────────────────────────────────
@@ -137,7 +138,7 @@ describe("executor: only intent authorises display", () => {
     map.getZoom.mockReturnValue(2);
     applyProjectionAll(ui);
     expect(map.addLayer).not.toHaveBeenCalled();
-    expect(ui.hiddenLayerIds.has("a")).toBe(false);
+    expect(ui.visibleMap["a"]).not.toBe(false);
   });
 });
 
@@ -188,14 +189,14 @@ describe("executor: intent authorises, policy only suppresses", () => {
     expect(map.addLayer).toHaveBeenCalledWith(layer);
 
     // Intent is unchanged throughout: the user's choice is `visible`,
-    // which never went into `hiddenLayerIds`. This is the #329 lock.
-    expect(ui.hiddenLayerIds.has("r")).toBe(false);
+    // which never went into `visibleMap`. This is the #329 lock.
+    expect(ui.visibleMap["r"]).not.toBe(false);
     expect(ui.intentProvenance.r).toEqual(["zoomRange"]);
   });
 
   it("#329 lock — a policy-only zoom crossing never mutates intent", () => {
     // #329's specific assertion: after a zoom crossing out of the stored
-    // range, the checkbox, hiddenLayerIds, and intentProvenance are byte-identical
+    // range, the checkbox, visibleMap, and intentProvenance are byte-identical
     // to before. The layer goes off the map (that is policy working), but
     // the user's own choice is not touched — the derived dimension cannot
     // authorise, and it also cannot record.
@@ -215,7 +216,7 @@ describe("executor: intent authorises, policy only suppresses", () => {
     ui.intentProvenance.s = ["zoomRange"];
 
     // Snapshot the intent state.
-    const hiddenBefore = new Set(ui.hiddenLayerIds);
+    const hiddenBefore = { ...ui.visibleMap };
     const overridesBefore = { ...ui.intentProvenance };
 
     map.getZoom.mockReturnValue(2);
@@ -224,7 +225,7 @@ describe("executor: intent authorises, policy only suppresses", () => {
     // The layer is removed from the map by policy.
     expect(map.removeLayer).toHaveBeenCalledWith(layer);
     // ...but the user's own choice is untouched.
-    expect(ui.hiddenLayerIds).toEqual(hiddenBefore);
+    expect(ui.visibleMap).toEqual(hiddenBefore);
     expect(ui.intentProvenance).toEqual(overridesBefore);
   });
 });
@@ -264,13 +265,17 @@ describe("executor: late-carrier replay", () => {
     ui.opacityMap.h = 0.4;
     ui.intentProvenance.h = ["opacity"];
     applyProjection(ui, "h");
+    // Default "redraw" arm: CSS live + layerAlpha stored for the next paint.
     expect(oldCanvas.style.opacity).toBe("0.4");
+    expect(getLayerAlpha(oldCanvas)).toBeCloseTo(0.4);
 
     // Re-register with a fresh canvas: the stored opacity must snap in.
     manager.registerLayer({ id: "h", name: "Heat", canvas: freshCanvas });
     applyProjection(ui, "h");
     expect(freshCanvas.style.opacity).toBe("0.4");
+    expect(getLayerAlpha(freshCanvas)).toBeCloseTo(0.4);
     expect(oldCanvas.style.opacity).toBe("0.4"); // the old element still holds it
+    expect(getLayerAlpha(oldCanvas)).toBeCloseTo(0.4);
   });
 
   it("the label pane rides the surface's pane set — the first write covers it", () => {
@@ -322,12 +327,16 @@ describe("executor: late-carrier replay", () => {
     const li = manager.layerRegistry.get("a1")!;
     expect(manager.surfaceFor(li).paneNames).toContain("foliplus-annotation-a1");
 
-    // Stored opacity: the first write covers every declared pane, the label
-    // pane included — no replay hook fires, none exists.
+    // Stored opacity: the first write covers every declared non-annotation
+    // pane. The label pane is excluded from CSS (R11 bakes layerAlpha into
+    // AnnotationCanvas draws) so the two carriers never double-compound.
+    const applyAlpha = vi.spyOn(ui.m.annotation, "applyLayerAlpha");
     ui.opacityMap.a1 = 0.3;
     ui.intentProvenance.a1 = ["opacity"];
     applyProjection(ui, "a1");
-    expect(paneFor("foliplus-annotation-a1").style.opacity).toBe("0.3");
+    expect(paneFor("foliplus-annotation-a1").style.opacity).toBe("");
+    // The annotation manager received the bake write for this layer.
+    expect(applyAlpha).toHaveBeenCalledWith("a1", 0.3);
 
     // Settled: value and carrier unchanged, so nothing is written again.
     (map.getPane as ReturnType<typeof vi.fn>).mockClear();
@@ -404,7 +413,8 @@ describe("executor: idempotent writes", () => {
     vi.useRealTimers();
 
     // Only layer "a" has a stored opacity — layer "b" is untouched and
-    // keeps the author's declared default (1, painted as "1" on the canvas).
+    // keeps the author's declared default (1). Default "redraw" arm writes
+    // CSS; layerAlpha is stored for the next bake paint.
     // The registry-position independence is proven by "a" landing its 0.7
     // on the right canvas: if the diff misrouted by position, either
     // canvas would end up with 0.7 and the other with 1.
@@ -414,6 +424,8 @@ describe("executor: idempotent writes", () => {
 
     expect(aCanvas.style.opacity).toBe("0.7");
     expect(bCanvas.style.opacity).toBe("1");
+    expect(getLayerAlpha(aCanvas)).toBeCloseTo(0.7);
+    expect(getLayerAlpha(bCanvas)).toBe(1);
     expect(ui.opacityMap.b).toBeUndefined();
   });
 });
@@ -477,7 +489,7 @@ describe("executor: carrier dispatch", () => {
     applyProjection(ui, "cv2");
     expect(canvas.classList.contains("hidden")).toBe(false);
 
-    ui.hiddenLayerIds.add("cv2"); // the user unchecks
+    ui.visibleMap["cv2"] = false; // the user unchecks
     applyProjection(ui, "cv2");
     expect(canvas.classList.contains("hidden")).toBe(true);
   });
@@ -753,7 +765,7 @@ describe("executor: the branches behind the gates", () => {
 
     map.removeLayer.mockClear();
     map.hasLayer = vi.fn(() => true);
-    ui.hiddenLayerIds.add("on");
+    ui.visibleMap["on"] = false;
     ui.intentProvenance.on = ["visible"];
     applyProjection(ui, "on");
 
@@ -831,12 +843,12 @@ describe("executor: the branches behind the gates", () => {
     expect(manager.layerRegistry.get("gone")?.opacity).toBe(0.4);
   });
 
-  it("a ui with no hiddenLayerIds and no intentProvenance still projects", () => {
+  it("a ui with no visibleMap and no intentProvenance still projects", () => {
     // The `?? false` fallbacks on both choice maps: `applyProjection`,
     // `intentVisibleOf` and `projectLayer` all read them as optional, because a
     // thin stub (and a partially-built shell) may not have them yet.
     const bare = {
-      hiddenLayerIds: undefined,
+      visibleMap: undefined,
       intentProvenance: undefined,
       authorVisible: new Map<string, boolean>(),
       opacityMap: {},
@@ -934,7 +946,7 @@ describe("executor: the branches behind the gates", () => {
     map.addLayer.mockClear();
     map.removeLayer = vi.fn();
     map.hasLayer = vi.fn(() => true);
-    // No `hiddenLayerIds` / override, and the author's default was observed as
+    // No `visibleMap` / override, and the author's default was observed as
     // `true` while the layer sits on the map — so intent and policy both
     // say "shown" and the layer is already shown.
     ui.authorVisible.set("up", true);
@@ -991,7 +1003,7 @@ describe("membership invariants: only intent + author snapshot authorise members
     const ui = manager.ui as LayerUI;
 
     expect(ui.authorVisible.has("unobs")).toBe(false);
-    expect(ui.hiddenLayerIds.has("unobs")).toBe(false);
+    expect(ui.visibleMap["unobs"]).not.toBe(false);
 
     applyProjectionAll(ui);
     expect(map.addLayer).not.toHaveBeenCalled();
@@ -1003,13 +1015,13 @@ describe("membership invariants: only intent + author snapshot authorise members
     // already says "not shown" — the policy dimension cannot flip it back.
     const { map, ui } = bootUnobserved("hidden");
 
-    ui.hiddenLayerIds.add("hidden");
+    ui.visibleMap["hidden"] = false;
     ui.intentProvenance.hidden = ["visible"];
     ui.focusingLayerId = null; // policy permissive
 
     applyProjectionAll(ui);
     expect(map.addLayer).not.toHaveBeenCalled();
-    expect(ui.hiddenLayerIds.has("hidden")).toBe(true);
+    expect(ui.visibleMap["hidden"]).toBe(false);
   });
 
   it("dismissing focus after intent=false does not add the layer back", () => {
@@ -1018,12 +1030,12 @@ describe("membership invariants: only intent + author snapshot authorise members
     // executor's own write path. But intent=false + policy=true must stay
     // false — a policy dimension can only suppress.
     const { map, ui } = bootUnobserved("p");
-    ui.hiddenLayerIds.add("p");
+    ui.visibleMap["p"] = false;
     ui.intentProvenance.p = ["visible"];
     ui.focusingLayerId = null;
 
     applyProjectionAll(ui);
     expect(map.addLayer).not.toHaveBeenCalled();
-    expect(ui.hiddenLayerIds.has("p")).toBe(true);
+    expect(ui.visibleMap["p"]).toBe(false);
   });
 });

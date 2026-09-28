@@ -200,15 +200,15 @@ describe("LayerUI shell — delegates", () => {
   it("dropPersistedLayerState erases every stored dimension for one id", () => {
     // The single routine that erases a stored value, reached only from an
     // explicit delete — and it must not touch a neighbor's state.
-    ui.hiddenLayerIds = new Set(["overlay1", "base1"]);
+    ui.visibleMap = { overlay1: false, base1: false };
     ui.opacityMap = { overlay1: 0.4 };
     ui.zoomRangeMap = { overlay1: [3, 12] };
     ui.intentProvenance = { overlay1: ["visible", "opacity"] };
 
     ui.dropPersistedLayerState("overlay1");
 
-    expect(ui.hiddenLayerIds.has("overlay1")).toBe(false);
-    expect(ui.hiddenLayerIds.has("base1")).toBe(true);
+    expect(ui.visibleMap["overlay1"]).not.toBe(false);
+    expect(ui.visibleMap["base1"]).toBe(false);
     expect(ui.opacityMap.overlay1).toBeUndefined();
     expect(ui.zoomRangeMap.overlay1).toBeUndefined();
     expect(ui.intentProvenance.overlay1).toBeUndefined();

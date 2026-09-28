@@ -19,6 +19,7 @@ import {
   GEOM_TYPE,
   Z_INDEX,
 } from "#foliplus/core/layer/const.js";
+import { getLayerAlpha } from "#common/canvasAlpha.js";
 import * as Storage from "#common/storage.js";
 
 const ENFORCE_ORDER_DEBOUNCE_MS = 50;
@@ -279,7 +280,7 @@ describe("LayerManager", () => {
       invalidateFields: vi.fn(),
       syncToggleAll: vi.fn(),
       intentProvenance: {},
-      hiddenLayerIds: new Set(),
+      visibleMap: {},
       opacityMap: {},
       fillColorMap: {},
       fillOpacityMap: {},
@@ -708,7 +709,7 @@ describe("LayerManager", () => {
     manager.map.addLayer = addLayer;
     manager.map.removeLayer = removeLayer;
     manager.ui = {
-      hiddenLayerIds: new Set(["new1"]),
+      visibleMap: { new1: false },
       saveState: vi.fn(),
     } as any;
     manager.registerLayer({ id: "new1", name: "New", layer } as any);
@@ -726,7 +727,7 @@ describe("LayerManager", () => {
     manager.map.addLayer = addLayer;
     manager.map.removeLayer = removeLayer;
     manager.ui = {
-      hiddenLayerIds: new Set(["canvas1"]),
+      visibleMap: { canvas1: false },
       saveState: vi.fn(),
     } as any;
     manager.registerLayer({
@@ -749,7 +750,7 @@ describe("LayerManager", () => {
     manager.map.addLayer = addLayer;
     manager.map.removeLayer = removeLayer;
     manager.ui = {
-      hiddenLayerIds: new Set(["new1"]),
+      visibleMap: { new1: false },
       saveState: vi.fn(),
     } as any;
     manager.registerLayer({ id: "new1", name: "New", layer } as any);
@@ -766,7 +767,7 @@ describe("LayerManager", () => {
     const removeLayer = vi.fn();
     manager.map.removeLayer = removeLayer;
     manager.ui = {
-      hiddenLayerIds: new Set(["other"]),
+      visibleMap: { other: false },
       saveState: vi.fn(),
     } as any;
     manager.registerLayer({ id: "visible1", name: "V", layer } as any);
@@ -1114,51 +1115,37 @@ describe("LayerManager", () => {
       expect(m.layers.map(l => l.id)).toEqual(["D", "A", "B", "C"]);
     });
 
-    it("keeps a stored position across a flush that lands first", () => {
-      // A flush between the record being loaded and the late registration
-      // writes the live ids only; the stored position of the id that is not
-      // registered yet must survive it — at its slot, not appended to the end,
-      // where the next flush would persist the sink.
-      seedStorage({ order: ["B", "H", "A"] });
+    it("writes no saved order from registration alone (no user action)", () => {
+      // #515's original semantics, now enforced by the mechanism itself: only
+      // explicit user reorders snapshot the live order. A boot that registers
+      // the color basemap and further layers must leave the order slot
+      // untouched — not even a snapshot that happens to match the registration
+      // sequence is a user arrangement.
+      seedStorage({});
       const m = new LayerManager(map, [
-        { id: "A", name: "A", group: "overlay" },
-        { id: "B", name: "B", group: "overlay" },
+        { id: "fg", name: "FG", group: "overlay" },
+        { id: "tile", name: "Tile", group: "base" },
       ]);
-
-      m.saveOrder();
+      m.registerLayer({
+        id: "foliplus_color_map",
+        name: "Color",
+        group: "base",
+      });
+      m.registerLayer({ id: "X", name: "X", group: "overlay" });
       m.persistence.flushAll();
 
       const record = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!) as {
-        order: string[] | null;
+        order?: string[] | null;
       };
-      expect(record.order).toEqual(["B", "H", "A"]);
+      // No order key at all — registration never touched the saved order.
+      expect(record.order).toBeUndefined();
     });
 
-    it("splices each pending id into its own slot", () => {
-      // Two ids stored mid-stack, plus a registered layer the record never
-      // ranked (added this session). Each pending id keeps its slot relative to
-      // the ranked layers; the unranked one keeps its live position.
-      seedStorage({ order: ["H1", "A", "H2"] });
-      const m = new LayerManager(map, [
-        { id: "A", name: "A", group: "overlay" },
-        { id: "X", name: "X", group: "overlay" },
-      ]);
-
-      m.saveOrder();
-      m.persistence.flushAll();
-
-      const record = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!) as {
-        order: string[] | null;
-      };
-      expect(record.order).toEqual(["H1", "A", "X", "H2"]);
-    });
-
-    it("keeps runtime slots out of the write (no user action)", () => {
-      // #515 residual: any later saveOrder used to start from [...live] and
-      // treat the colour basemap's attach-timing slot as a user arrangement.
-      // The colour basemap registers before the tile basemaps, so its live slot
-      // is the head of the base group — a slot the user never chose. A second
-      // overlay registration (or any other saveOrder path) must not persist it.
+    it("snapshots every layer present at the user reorder, color basemap included", () => {
+      // A user reorder writes the full live order. The color basemap is an
+      // ordinary layer with zero privileges, so its slot lands on disk like
+      // any other layer's — a late registration that is not on the map yet
+      // does not: the snapshot is what was on screen.
       seedStorage({ order: ["fg", "tile"] });
       const m = new LayerManager(map, [
         { id: "fg", name: "FG", group: "overlay" },
@@ -1168,51 +1155,23 @@ describe("LayerManager", () => {
         id: "foliplus_color_map",
         name: "Color",
         group: "base",
-        orderOrigin: "runtime",
       });
       expect(m.layers.map(l => l.id)).toEqual(["fg", "foliplus_color_map", "tile"]);
 
-      // Second overlay registration — a saveOrder(true) path with no user action.
-      // registerLayer only reaches saveOrder once a panel exists, so the write
-      // side is driven the same way the attach-time wiring does.
-      m.registerLayer({ id: "X", name: "X", group: "overlay" });
       m.saveOrder();
       m.persistence.flushAll();
 
       const record = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!) as {
         order: string[] | null;
       };
-      expect(record.order).not.toContain("foliplus_color_map");
-      expect(record.order).toEqual(expect.arrayContaining(["fg", "tile", "X"]));
+      expect(record.order).toEqual(["fg", "foliplus_color_map", "tile"]);
     });
 
-    it("drops a legacy runtime id from the record on the next save", () => {
-      // deletion-is-not-migration: an old disk may still carry the colour id.
-      // Load must tolerate it; the write is where it gets cleaned.
-      seedStorage({ order: ["fg", "foliplus_color_map", "tile"] });
-      const m = new LayerManager(map, [
-        { id: "fg", name: "FG", group: "overlay" },
-        { id: "tile", name: "Tile", group: "base" },
-        {
-          id: "foliplus_color_map",
-          name: "Color",
-          group: "base",
-          orderOrigin: "runtime",
-        },
-      ]);
-
-      m.saveOrder();
-      m.persistence.flushAll();
-
-      const record = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!) as {
-        order: string[] | null;
-      };
-      expect(record.order).not.toContain("foliplus_color_map");
-      expect(record.order).toEqual(["fg", "tile"]);
-    });
-
-    it("still persists user-layer slots on the default path", () => {
-      seedStorage({ order: ["fg", "tile"] });
+    it("keeps a dragged solid-color basemap position across a reload (user bug)", () => {
+      // The user drags the color basemap up within the base group and reloads:
+      // the dragged slot must survive. Before the fix, the color layer's slot
+      // was treated as attach timing and dropped from every write, so the
+      // reload fell back to the registration order (bottom of the base group).
       const m = new LayerManager(map, [
         { id: "fg", name: "FG", group: "overlay" },
         { id: "tile", name: "Tile", group: "base" },
@@ -1221,44 +1180,56 @@ describe("LayerManager", () => {
         id: "foliplus_color_map",
         name: "Color",
         group: "base",
-        orderOrigin: "runtime",
+        baseInsert: "bottom",
       });
+      // Registration order: fg, tile, color (color at the bottom, as createColor
+      // mounts it).
+      expect(m.layers.map(l => l.id)).toEqual(["fg", "tile", "foliplus_color_map"]);
 
+      // The drag moves the color basemap above the tile basemap.
+      m.layerRegistry.reorder(2, 1);
       m.saveOrder();
+      m.persistence.flushAll();
 
-      expect(m.savedOrder).toEqual(["fg", "tile"]);
+      const record = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!) as {
+        order: string[] | null;
+      };
+      expect(record.order).toEqual(["fg", "foliplus_color_map", "tile"]);
+
+      // Reload, the way a real page does it: the color basemap is not part of
+      // the author's data — LayerControl re-creates it through registerLayer
+      // (baseInsert bottom), which must replay the dragged slot from the
+      // record instead of sinking to the bottom of the base block.
+      const reloaded = new LayerManager(map, [
+        { id: "fg", name: "FG", group: "overlay" },
+        { id: "tile", name: "Tile", group: "base" },
+      ]);
+      reloaded.registerLayer({
+        id: "foliplus_color_map",
+        name: "Color",
+        group: "base",
+        baseInsert: "bottom",
+      });
+      expect(reloaded.layers.map(l => l.id)).toEqual([
+        "fg",
+        "foliplus_color_map",
+        "tile",
+      ]);
     });
 
-    it("does not read a stored slot for a runtime overlay", () => {
-      // insertOverlayAt reuses the same semantics: a runtime layer's birth
-      // position is attach timing, so a legacy id in the record must not pull
-      // it back into a slot the user never chose.
-      seedStorage({ order: ["A", "R", "B"] });
-      const m = new LayerManager(map, [
-        { id: "A", name: "A", group: "overlay" },
-        { id: "B", name: "B", group: "overlay" },
-      ]);
+    it("replays a dragged base layer into the base block, never the overlay end", () => {
+      // placeBeforeSavedNeighbor's no-registered-neighbor fallback is
+      // group-local: a base layer with no registered saved neighbor below it
+      // lands at the end of the base block (the registry end), not at the end
+      // of the overlay block — the overlay-before-base invariant holds.
+      seedStorage({ order: ["fg", "baseA", "baseB"] });
+      const m = new LayerManager(map, [{ id: "fg", name: "FG", group: "overlay" }]);
+      m.registerLayer({ id: "baseA", name: "A", group: "base" });
 
-      m.registerLayer({ id: "R", name: "R", group: "overlay", orderOrigin: "runtime" });
-
-      // Prepend (default) wins over the stored "between A and B" slot.
-      expect(m.layers.map(l => l.id)).toEqual(["R", "A", "B"]);
-    });
-
-    it("replaySavedOrder leaves a runtime layer where registration put it", () => {
-      seedStorage({ order: ["A", "R", "B"] });
-      const m = new LayerManager(map, [
-        { id: "A", name: "A", group: "overlay" },
-        { id: "R", name: "R", group: "overlay", orderOrigin: "runtime" },
-        { id: "B", name: "B", group: "overlay" },
-      ]);
-
-      m.replaySavedOrder("R");
-      expect(m.layers.map(l => l.id)).toEqual(["A", "R", "B"]);
-
-      m.replaySavedOrder();
-      // Full sweep: a legacy stored rank must not move the runtime layer either.
-      expect(m.layers.map(l => l.id)).toEqual(["A", "R", "B"]);
+      // Neither baseB nor anything else is registered below baseA in the
+      // stored order, so the fallback is the base-block end: below the
+      // overlay, at the bottom of the registry.
+      expect(m.layers.map(l => l.id)).toEqual(["fg", "baseA"]);
     });
   });
 
@@ -1564,7 +1535,7 @@ describe("LayerManager", () => {
           {
             m: manager,
             uiContainer: manager.uiContainer,
-            hiddenLayerIds: new Set(),
+            visibleMap: {},
             renamedNames: {},
             opacityMap: { heat: 0.4 },
             fillColorMap: {},
@@ -1579,7 +1550,7 @@ describe("LayerManager", () => {
       opacityMap: { heat: 0.4 },
       fillColorMap: {},
       fillOpacityMap: {},
-      hiddenLayerIds: new Set(),
+      visibleMap: {},
       zoomRangeMap: {},
       intentProvenance: { heat: ["opacity"] },
       appliedState: new Map(),
@@ -1590,7 +1561,9 @@ describe("LayerManager", () => {
     const fresh = document.createElement("canvas");
     manager.registerLayer({ id: "heat", name: "Heat", canvas: fresh });
 
+    // Default "redraw" arm: CSS live + layerAlpha stored.
     expect(fresh.style.opacity).toBe("0.4");
+    expect(getLayerAlpha(fresh)).toBeCloseTo(0.4);
     expect(manager.layerRegistry.get("heat")?.opacity).toBe(0.4);
   });
 
@@ -1601,7 +1574,7 @@ describe("LayerManager", () => {
     manager.uiContainer = document.createElement("div");
     manager.uiContainer.appendChild(row);
     manager.ui = {
-      hiddenLayerIds: new Set(),
+      visibleMap: {},
       opacityMap: {},
       fillColorMap: {},
       fillOpacityMap: {},
@@ -1621,7 +1594,7 @@ describe("LayerManager", () => {
     manager.map.hasLayer.mockReturnValue(false);
     manager.uiContainer = document.createElement("div");
     manager.ui = {
-      hiddenLayerIds: new Set(),
+      visibleMap: {},
       opacityMap: {},
       fillColorMap: {},
       fillOpacityMap: {},
@@ -1640,7 +1613,7 @@ describe("LayerManager", () => {
     manager.map.hasLayer.mockReturnValue(false);
     const syncToggleAll = vi.fn();
     manager.ui = {
-      hiddenLayerIds: new Set(),
+      visibleMap: {},
       opacityMap: {},
       fillColorMap: {},
       fillOpacityMap: {},
@@ -1674,7 +1647,7 @@ describe("LayerManager", () => {
     manager.map.hasLayer.mockReturnValue(false);
     const saveState = vi.fn();
     manager.ui = {
-      hiddenLayerIds: new Set(["overlay1", "base1"]),
+      visibleMap: { overlay1: false, base1: false },
       opacityMap: { overlay1: 0.4, base1: 1 },
       fillColorMap: {},
       fillOpacityMap: {},
@@ -1690,7 +1663,7 @@ describe("LayerManager", () => {
     } as any;
     manager.unregisterLayer("overlay1");
 
-    expect(manager.ui.hiddenLayerIds).toEqual(new Set(["overlay1", "base1"]));
+    expect(manager.ui.visibleMap).toEqual({ overlay1: false, base1: false });
     expect(manager.ui.opacityMap).toEqual({ overlay1: 0.4, base1: 1 });
     expect(manager.ui.zoomRangeMap).toEqual({ overlay1: [3, 12] });
     expect(manager.ui.intentProvenance).toEqual({
@@ -1708,7 +1681,7 @@ describe("LayerManager", () => {
     const saveState = vi.fn();
     const saveNamesState = vi.fn();
     manager.ui = {
-      hiddenLayerIds: new Set(["overlay1", "base1"]),
+      visibleMap: { overlay1: false, base1: false },
       opacityMap: { overlay1: 0.4, base1: 1 },
       fillColorMap: {},
       fillOpacityMap: {},
@@ -1729,7 +1702,7 @@ describe("LayerManager", () => {
     } as any;
     manager.deleteLayer("overlay1");
 
-    expect(manager.ui.hiddenLayerIds).toEqual(new Set(["base1"]));
+    expect(manager.ui.visibleMap).toEqual({ base1: false });
     expect(manager.ui.opacityMap).toEqual({ base1: 1 });
     expect(manager.ui.zoomRangeMap).toEqual({});
     expect(manager.ui.intentProvenance).toEqual({ base1: ["visible"] });
@@ -1742,7 +1715,7 @@ describe("LayerManager", () => {
     manager.map.hasLayer.mockReturnValue(false);
     const saveState = vi.fn();
     manager.ui = {
-      hiddenLayerIds: new Set(["overlay1"]),
+      visibleMap: { overlay1: false },
       opacityMap: { overlay1: 0.4 },
       fillColorMap: {},
       fillOpacityMap: {},
@@ -1756,7 +1729,7 @@ describe("LayerManager", () => {
     } as any;
 
     expect(manager.deleteLayer("never-registered")).toBe(false);
-    expect(manager.ui.hiddenLayerIds).toEqual(new Set(["overlay1"]));
+    expect(manager.ui.visibleMap).toEqual({ overlay1: false });
     expect(saveState).not.toHaveBeenCalled();
   });
 
@@ -1776,7 +1749,7 @@ describe("LayerManager", () => {
     const saveState = vi.fn();
     const saveNamesState = vi.fn();
     manager.ui = {
-      hiddenLayerIds: new Set(["overlay1", "base1"]),
+      visibleMap: { overlay1: false, base1: false },
       opacityMap: { overlay1: 0.4 },
       fillColorMap: {},
       fillOpacityMap: {},
@@ -1799,7 +1772,7 @@ describe("LayerManager", () => {
 
     expect(saveState).toHaveBeenCalledTimes(1);
     expect(saveNamesState).not.toHaveBeenCalled();
-    expect(manager.ui.hiddenLayerIds).toEqual(new Set(["base1"]));
+    expect(manager.ui.visibleMap).toEqual({ base1: false });
     expect(manager.ui.renamedNames).toEqual({ base1: "Renamed" });
   });
 
@@ -1830,7 +1803,7 @@ describe("LayerManager", () => {
     m.map.hasLayer.mockReturnValue(false);
     m.ui = {
       m,
-      hiddenLayerIds: new Set(),
+      visibleMap: {},
       opacityMap: { overlay1: 0.4 },
       fillColorMap: {},
       fillOpacityMap: {},
@@ -1870,6 +1843,9 @@ describe("LayerManager", () => {
     // that can land on a different tick than the order / names it prunes.
     vi.useFakeTimers();
     const save = vi.spyOn(Storage, "saveRecord").mockImplementation(() => true);
+    // A stored order exists (the user arranged it); the delete prunes the id
+    // from it on the same flush as removed.
+    seedStorage({ order: ["overlay1", "base1"] });
     const m = new LayerManager(map, [
       { id: "overlay1", name: "O", group: "overlay", layer: { options: {} } },
       { id: "base1", name: "B", group: "base", layer: { options: {} } },
@@ -1884,7 +1860,7 @@ describe("LayerManager", () => {
       order: string[] | null;
     };
     expect(written.removed).toEqual(["overlay1"]);
-    expect(written.order).not.toContain("overlay1");
+    expect(written.order).toEqual(["base1"]);
     save.mockRestore();
     vi.useRealTimers();
   });
@@ -2395,7 +2371,7 @@ describe("LayerManager", () => {
       expect(handler).not.toHaveBeenCalled();
     });
 
-    it("invalidates the layer's cached type before emitting, so mixed geometry at runtime is re-detected", () => {
+    it("emits without touching the cached type; invalidation belongs to the content-change path", () => {
       manager.map.hasLayer.mockReturnValue(false);
       const poly = Object.assign(Object.create(window.L.Polygon.prototype), {
         options: {},
@@ -2406,11 +2382,19 @@ describe("LayerManager", () => {
       };
       manager.registerLayer({ id: "rt", name: "RT", layer: polyLayer });
       expect(manager.getLayerType("rt")).toBe(GEOM_TYPE.POLYGON);
-      // refreshCount must clear the cached type so a subsequent runtime geometry
-      // mix is re-detected by getLayerType/getGeometryType
+      // refreshCount is emit-only: LayerFactory invalidates on add/remove/clear,
+      // so a caller that mutates geometry must invalidateType itself. The
+      // snapshot survives a bare count notification.
       manager.refreshCount("rt");
       const layerInfo = manager.layerRegistry.get("rt");
-      expect(layerInfo?.type).toBeNull();
+      expect(layerInfo?.type).toBe(GEOM_TYPE.POLYGON);
+      const bus = map.foliplus!.events;
+      const handler = vi.fn();
+      bus.on(EVENTS.LAYER_ITEM_COUNT_CHANGE, handler);
+      manager.refreshCount("rt");
+      expect(handler).toHaveBeenCalledWith({ id: "rt" });
+      manager.invalidateType("rt");
+      expect(manager.layerRegistry.get("rt")?.type).toBeNull();
     });
 
     it("emits for an unknown layer id (no-op subscriber; defensive)", () => {

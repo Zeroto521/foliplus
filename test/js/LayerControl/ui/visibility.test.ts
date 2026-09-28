@@ -224,7 +224,7 @@ describe("applyVisibility", () => {
     expect(applyVisibility(ui, "overlay1", true)).toBe(true);
 
     // Intent is recorded: the box is checked and the layer is no longer hidden.
-    expect(ui.hiddenLayerIds.has("overlay1")).toBe(false);
+    expect(ui.visibleMap["overlay1"]).not.toBe(false);
     expect(
       ui.uiContainer.querySelector(
         `[${CONST.DATA.LAYER_ID}="overlay1"] input[type="checkbox"]`,
@@ -279,7 +279,7 @@ describe("applyVisibility", () => {
     expect(applyVisibility(ui, "ov", false)).toBe(true);
 
     expect(map.removeLayer).toHaveBeenCalledWith(layer);
-    expect(ui.hiddenLayerIds.has("ov")).toBe(true);
+    expect(ui.visibleMap["ov"]).toBe(false);
   });
 
   it("persists the hidden set so the choice survives a reload", () => {
@@ -953,7 +953,9 @@ describe("toggleAll base group", () => {
 
     expect(() => toggleAll(ui, CONST.GROUP.BASE, true)).not.toThrow();
     expect(bare.querySelector("input")).toBeNull();
-    expect(ui.hiddenLayerIds.size).toBe(0);
+    // Only the two registered rows were swept — the bare row carries no
+    // checkbox and must be absent from the intent map entirely.
+    expect(ui.visibleMap).toEqual({ B1: true, B2: true });
   });
 
   it("runs every branch of the sweep: real layer and canvas-only base", () => {
@@ -1063,7 +1065,7 @@ describe("unit helpers", () => {
     expect(() => syncToggleAll(ui, CONST.GROUP.OVERLAY)).not.toThrow();
   });
 
-  it("syncNoBasemap handles undefined intentProvenance and hiddenLayerIds", () => {
+  it("syncNoBasemap handles undefined intentProvenance and visibleMap", () => {
     // The `?.` and `?? false` fallbacks on the inline intent check: a thin stub
     // may not have populated these maps yet, so the check must degrade to the
     // author default rather than crashing.
@@ -1076,7 +1078,7 @@ describe("unit helpers", () => {
         map: { getContainer: () => document.createElement("div") },
       },
       authorVisible: new Map(),
-      hiddenLayerIds: undefined,
+      visibleMap: undefined,
       intentProvenance: undefined,
       T: (k: string) => k,
     } as unknown as LayerUI;
@@ -1105,7 +1107,7 @@ describe("unit helpers", () => {
         uiContainer,
         m: { layers, map: { getContainer: () => container } },
         authorVisible: new Map(),
-        hiddenLayerIds: new Set<string>(),
+        visibleMap: {},
         intentProvenance: {},
         T: (k: string) => k,
       } as unknown as LayerUI;
@@ -1139,7 +1141,7 @@ describe("unit helpers", () => {
     });
   });
 
-  it("syncToggleAll handles undefined intentProvenance and hiddenLayerIds", () => {
+  it("syncToggleAll handles undefined intentProvenance and visibleMap", () => {
     // Same fallback pattern: the inline intent check in syncToggleAll must
     // degrade gracefully when the choice maps are absent.
     const uiContainer = document.createElement("div");
@@ -1155,7 +1157,7 @@ describe("unit helpers", () => {
       uiContainer,
       m: { layerRegistry: { get: () => ({ id: "x" }) } },
       authorVisible: new Map(),
-      hiddenLayerIds: undefined,
+      visibleMap: undefined,
       intentProvenance: undefined,
       T: (k: string) => k,
     } as unknown as LayerUI;
