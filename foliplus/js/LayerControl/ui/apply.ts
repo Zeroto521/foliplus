@@ -123,7 +123,7 @@ const authorZoomBoundsForLayer = (ui: LayerUI, layerId: string): [number, number
 const carrierOf = (ui: LayerUI, layerInfo: LayerInfo): unknown => {
   if (layerInfo.canvas) return layerInfo.canvas;
   const surface = ui.m.surfaceFor(layerInfo);
-  if (surface.capabilities.opacity === "pane") {
+  if (surface.capabilities.opacity === CONST.CAP_TIER.PANE) {
     // A stable key, not an array: `sameCarrier` compares with `===`, so a
     // freshly built array would never match and every pane layer would
     // rewrite on every call. Sorted, so the order the pane specs happen to
@@ -161,7 +161,7 @@ const sameCarrier = (prev: unknown, curr: unknown): boolean =>
 const applyStateOp = (ui: LayerUI, layerInfo: LayerInfo, op: StateOp): void => {
   if (op.type === "visible") {
     const carrier = ui.m.surfaceFor(layerInfo).capabilities.visibility;
-    if (carrier === "native") {
+    if (carrier === CONST.CAP_TIER.NATIVE) {
       const layer = layerInfo.layer ?? ui.m.findLayer(layerInfo);
       if (layer) {
         // Map membership. Written only when it differs from what is there —
@@ -173,7 +173,7 @@ const applyStateOp = (ui: LayerUI, layerInfo: LayerInfo, op: StateOp): void => {
           else ui.m.map.removeLayer(layer);
         }
       }
-    } else if (carrier === "pane") {
+    } else if (carrier === CONST.CAP_TIER.PANE) {
       // Canvas HIDDEN class — the carrier for canvas-only surfaces that have
       // no Leaflet layer to add/remove.
       const canvas = layerInfo.canvas;
@@ -195,10 +195,10 @@ const applyStateOp = (ui: LayerUI, layerInfo: LayerInfo, op: StateOp): void => {
       return;
     }
     const carrier = ui.m.surfaceFor(layerInfo).capabilities.opacity;
-    if (carrier === "none") return; // no honest write exists
+    if (carrier === CONST.CAP_TIER.NONE) return; // no honest write exists
     const layer = layerInfo.layer;
     if (!layer) return;
-    if (carrier === "native") {
+    if (carrier === CONST.CAP_TIER.NATIVE) {
       // The layer paints through a setter of its own. `setOpacity`
       // (ImageOverlay) is immediate; `options.opacity` (GridLayer /
       // TileLayer) is honoured at the next tile cycle. The slider is a
@@ -319,11 +319,11 @@ const applyProjection = (ui: LayerUI, id: string): void => {
   // converge on `effectiveShown` no matter who moved the layer in between.
   const visibility = ui.m.surfaceFor(layerInfo).capabilities.visibility;
   const currentShown =
-    visibility === "native"
+    visibility === CONST.CAP_TIER.NATIVE
       ? layer
         ? ui.m.map.hasLayer(layer)
         : false
-      : visibility === "pane"
+      : visibility === CONST.CAP_TIER.PANE
         ? layerInfo.canvas
           ? !layerInfo.canvas.classList.contains(HIDDEN)
           : false

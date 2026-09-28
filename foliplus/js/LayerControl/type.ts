@@ -2,6 +2,7 @@
 // annotation config/label contracts. Pure types: everything here is erased at
 // build, so persistence and annotation sub-modules can import without pulling
 // value code.
+import type { LayerDimKey } from "#core/layer/type.js";
 import { type NumberStyle } from "#common/format.js";
 import type { LayerUI } from "./ui/index.js";
 
@@ -219,9 +220,12 @@ interface BorderRowBindTarget {
 }
 
 /** One per-layer dimension. `key` is the persistence-identifier and the
- *  registry key (`"opacity"`, later `"zoomRange"`, `"fillColor"`, ...). */
+ *  registry key — one of `DIM`'s names (`"opacity"`, `"fill"`, `"border"`,
+ *  `"zoomRange"`, `"annotation"`), typed by `LayerDimKey` so the vocabulary
+ *  cannot drift from `DIM`. Persistence provenance is a different face
+ *  (`LayerOverride`: `"fillColor"`, `"visible"`, …). */
 type LayerDimension<D = unknown> = {
-  key: string;
+  key: LayerDimKey;
   /** Row-honest gate, two layers in order:
    *  1. **Layer existence** — return `false` when the layer is not in the
    *     registry (a precondition guard against a programming error).

@@ -405,7 +405,13 @@ class LayerManager implements LayerAPI {
     for (const layerInfo of this.layers) {
       if (layerInfo.layer) continue;
       const kind = layerInfo.kind;
-      if (kind === "canvas" || kind === "solid" || kind === "custom") continue;
+      if (
+        kind === CONST.KIND.CANVAS ||
+        kind === CONST.KIND.SOLID ||
+        kind === CONST.KIND.CUSTOM
+      ) {
+        continue;
+      }
       return true;
     }
     return false;

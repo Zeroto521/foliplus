@@ -43,7 +43,7 @@ import { registerDimension } from "./registry.js";
 const layerCanLabel = (ui: LayerUI, layerId: string): boolean => {
   const li = ui.m.layerRegistry.get(layerId);
   if (!li) return false;
-  return ui.m.surfaceFor(li).capabilities.annotation !== "none";
+  return ui.m.surfaceFor(li).capabilities.annotation !== CONST.CAP_TIER.NONE;
 };
 
 /** Build the Label section's rows: the label toggle, then the body (field
@@ -228,7 +228,7 @@ const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
  *  config (user's stored choice merged over the defaults) — what a future
  *  schema-style consumer reads without re-deriving it. */
 const ANNOTATION_DIMENSION = registerDimension<AnnotationConfig>({
-  key: "annotation",
+  key: CONST.DIM.ANNOTATION,
   gate: layerCanLabel,
   value: (ui, layerId) => ui.m.annotation.getConfig(layerId),
   row: buildLabelSection,

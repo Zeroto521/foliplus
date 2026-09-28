@@ -10,6 +10,7 @@ import {
   COLOR_PANE_PREFIX,
   GROUP,
   HIDDEN,
+  KIND,
   PANE_NAME_PATTERN,
 } from "./const.js";
 import type {
@@ -286,7 +287,7 @@ class LayerFactory {
       layerOpts = {
         ...commonLayerOpts,
         name: opts.name,
-        kind: "vector" as const,
+        kind: KIND.VECTOR,
         group: GROUP.OVERLAY,
         layer: mainLayer,
         paneName: basePaneName,
@@ -427,7 +428,7 @@ class LayerFactory {
 
       layerOpts = {
         ...commonLayerOpts,
-        kind: "solid" as const,
+        kind: KIND.SOLID,
         group: GROUP.BASE,
         baseInsert: "bottom",
         orderOrigin: opts.orderOrigin,
@@ -493,7 +494,7 @@ class LayerFactory {
       const customLayer = opts.content.layer ?? null;
       layerOpts = {
         ...commonLayerOpts,
-        kind: "custom" as const,
+        kind: KIND.CUSTOM,
         custom,
         layer: customLayer,
       };
@@ -554,7 +555,7 @@ class LayerFactory {
 
     layerOpts = {
       ...commonLayerOpts,
-      kind: "canvas" as const,
+      kind: KIND.CANVAS,
       canvas,
       paneName,
       getBounds: getBounds ?? null,

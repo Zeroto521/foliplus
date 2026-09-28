@@ -3,6 +3,7 @@
 // LayerAPI facade all implement these; global.d.ts re-exports them so other
 // components (MeasureControl / HeatmapControl / ExportControl) keep the same
 // global names.
+import { DIM, KIND } from "./const.js";
 
 /** What a registered layer *is* — the target discriminator, not how it paints.
  *
@@ -14,9 +15,18 @@
  *  basemap (surface `content.kind === "color"`); `canvas` is createCanvas;
  *  `custom` is a third-party carrier (`carrier.custom`).
  *
+ *  Derived from `KIND` (const.ts) so the runtime vocabulary and the type are
+ *  one definition — changing a kind name updates both or neither.
+ *
  *  Shape first, door later: `registerDimension` / third-party docs stay
  *  closed. */
-type LayerKind = "tile" | "vector" | "canvas" | "solid" | "cluster" | "custom";
+type LayerKind = (typeof KIND)[keyof typeof KIND];
+
+/** Dimension-key names — the shared word face of `LayerDimension.key`,
+ *  `DIM_ORDER`, and the capability slots. Derived from `DIM` (const.ts) so the
+ *  runtime vocabulary and the type are one definition — same rule as
+ *  `LayerKind`/`KIND`. */
+type LayerDimKey = (typeof DIM)[keyof typeof DIM];
 
 /** Where a layer's paint actually lives. Flat `layer` / `canvas` / `color`
  *  on `LayerInfo` remain the writable registration fields; this object is the
@@ -743,6 +753,7 @@ export type {
   LabelAwareLayer,
   LayerAPI,
   LayerCarrier,
+  LayerDimKey,
   LayerKind,
   LayerCapabilities,
   LayerInfo,

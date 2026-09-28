@@ -23,7 +23,7 @@ import { registerDimension } from "./registry.js";
 const canShowZoomRange = (ui: LayerUI, layerId: string): boolean => {
   const li = ui.m.layerRegistry.get(layerId);
   if (!li) return false;
-  return ui.m.surfaceFor(li).capabilities.zoomRange !== "none";
+  return ui.m.surfaceFor(li).capabilities.zoomRange !== CONST.CAP_TIER.NONE;
 };
 
 /** Clamp a zoom value into the map's current [min, max] range. */
@@ -292,7 +292,7 @@ const resetLayerZoomRange = (ui: LayerUI, layerId: string): void => {
  *  Registered last in `DIM_ORDER` (see `./registry.js`): the annotation
  *  panel's Layer section runs fill → border → opacity → zoomRange. */
 const ZOOM_RANGE_DIMENSION = registerDimension<{ min: number; max: number }>({
-  key: "zoomRange",
+  key: CONST.DIM.ZOOM_RANGE,
   gate: canShowZoomRange,
   value: (ui, layerId) => {
     const li = ui.m.layerRegistry.get(layerId);
