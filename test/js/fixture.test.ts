@@ -23,7 +23,8 @@ describe("makeLayerUIMock — LayerUI field completeness", () => {
     const ui = makeLayerUIMock() as Record<string, unknown>;
     // Sets
     expect(ui.foldedGroups).toBeInstanceOf(Set);
-    expect(ui.hiddenLayerIds).toBeInstanceOf(Set);
+    // Records
+    expect(ui.visibleMap).toEqual({});
     // Maps
     expect(ui.authorVisible).toBeInstanceOf(Map);
     expect(ui.fieldCache).toBeInstanceOf(Map);

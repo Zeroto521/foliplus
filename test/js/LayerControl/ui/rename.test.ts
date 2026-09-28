@@ -32,7 +32,7 @@ describe("LayerUI rename", () => {
       });
     }
     ui.foldedGroups = new Set();
-    ui.hiddenLayerIds = new Set();
+    ui.visibleMap = {};
     // Folded-group state is persisted to localStorage, so a fold from one test
     // would be re-read by the next test's LayerUI constructor and present as
     // already-folded.

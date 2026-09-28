@@ -2326,15 +2326,17 @@ class TestLayerControlBrowser:
         """A layer the author declared ``show=False`` and the user checked ON
         comes back ON after a reload.
 
-        This is the reported regression: ``hiddenLayerIds`` recorded *which layers
-        the user hid* rather than *which layers are hidden*, so an id that
+        This is the reported regression: the old hidden-mirror model recorded
+        ``hiddenLayerIds`` as *which layers the user hid* rather than *which layers
+        are hidden*, so an id that
         folium had rendered off-map was never in the set. Checking it on
         therefore removed nothing from nothing, storage stayed ``[]``, and the
         reload restored the author's defaults.
 
         It is also the inverse of test_hidden_layers_survive_reload: that one
         proves the hide half of the round trip, this one proves the unhide
-        half. A sweep that only walks ``hiddenLayerIds`` can never reach a layer the
+        half. A sweep that only walks the hidden-intent values can never reach a
+        layer the
         user left visible.
         """
         m = folium.Map(location=[26.08, 119.30], zoom_start=12, tiles=None)

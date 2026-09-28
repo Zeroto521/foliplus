@@ -710,7 +710,7 @@ class LayerManager implements LayerAPI {
     // handled by `applyUserState` further below, which re-projects the hidden
     // intent and writes the carrier through the executor's single write path.
     if (
-      !this.ui?.hiddenLayerIds?.has(opts.id) &&
+      this.ui?.visibleMap?.[opts.id] !== false &&
       opts.layer &&
       !this.map.hasLayer(opts.layer)
     ) {

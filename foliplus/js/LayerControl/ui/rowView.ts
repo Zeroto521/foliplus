@@ -198,11 +198,11 @@ const rowType = (
 const buildRowCell = (ui: LayerUI, layerInfo: LayerInfo): RowCell => {
   const layer = ui.m.findLayer(layerInfo);
   // Inline intent check to avoid function-call overhead on the row-paint path.
+  const visible = ui.visibleMap?.[layerInfo.id];
   const overrides = ui.intentProvenance?.[layerInfo.id];
-  const hidden = ui.hiddenLayerIds?.has(layerInfo.id) ?? false;
-  const hasVisible = overrides?.includes("visible") || hidden;
+  const hasVisible = overrides?.includes("visible") || typeof visible === "boolean";
   const authorDefault = ui.authorVisible.get(layerInfo.id) ?? true;
-  const checked = hasVisible ? !hidden : authorDefault;
+  const checked = hasVisible ? (visible ?? true) : authorDefault;
   const type = rowType(ui, layerInfo, layer);
   const count = ui.mgmt.getFeatureCount(layerInfo.id);
   return {

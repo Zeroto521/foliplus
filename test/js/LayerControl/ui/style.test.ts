@@ -35,7 +35,7 @@ describe("LayerUI style panel", () => {
   beforeEach(() => {
     ({ manager, ui, map } = initFixture());
     ui.foldedGroups = new Set();
-    ui.hiddenLayerIds = new Set();
+    ui.visibleMap = {};
     window.localStorage.removeItem(CONST.STORAGE.KEY);
     // Seed the field cache so the panel builds: collectFields walks the
     // layer's leaves, and the fixture's data layer has none. `count` is a
@@ -3324,7 +3324,7 @@ describe("LayerUI style panel — zoom range", () => {
   beforeEach(() => {
     ({ manager, ui, map } = initFixture());
     ui.foldedGroups = new Set();
-    ui.hiddenLayerIds = new Set();
+    ui.visibleMap = {};
     window.localStorage.removeItem(CONST.STORAGE.KEY);
     ui.fieldCache.set("overlay1", [{ name: "count", numeric: true }]);
   });
