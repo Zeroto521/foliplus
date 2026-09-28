@@ -887,6 +887,28 @@ describe("LayerUI style panel", () => {
     expect(li.opacity).toBe(0.4);
   });
 
+  it("commit arm fires onOpacity when the layer registered one (branch cover)", () => {
+    const onOpacity = vi.fn();
+    manager.registerLayer({
+      id: "color2",
+      name: "Color2",
+      canvas: document.createElement("canvas"),
+      opacityBake: "commit",
+      onOpacity,
+    });
+    const item = findItem(ui, "color2");
+    ui.openStylePanel("color2");
+    const panel = panelOf(item)!;
+    const range = panel.querySelector(
+      ".foliplus-style-opacity-range",
+    ) as HTMLInputElement;
+
+    range.value = "50";
+    range.dispatchEvent(new Event("input", { bubbles: true }));
+
+    expect(onOpacity).toHaveBeenCalledWith(0.5);
+  });
+
   it("reset restores opacity to fully opaque and drops the persisted entry", () => {
     const li = manager.layerRegistry.get("overlay1")!;
     const item = findItem(ui, "overlay1");
