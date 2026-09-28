@@ -144,6 +144,7 @@ class LayerFactory {
     const handle = this.createSurface({
       id: opts.id,
       name: opts.name,
+      persistOrder: opts.persistOrder,
       content: { kind: "color", color: opts.color, onToggle: opts.onToggle },
     });
     // register() is called by the caller (LayerControl UI) after setting
@@ -419,6 +420,7 @@ class LayerFactory {
         ...commonLayerOpts,
         isBase: true,
         baseInsert: "bottom",
+        persistOrder: opts.persistOrder,
         canvas: face,
         color,
         paneName,

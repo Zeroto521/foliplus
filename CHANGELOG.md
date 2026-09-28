@@ -111,6 +111,7 @@
 - `LayerControl`: `fillColor` / `borderColor` and the annotation `color` in the persisted record are normalized to `#rrggbb` — `<input type=color>` only takes the long form; reuses `common/form.ts`'s `normalizeHexColor` ([#477](https://github.com/Zeroto521/foliplus/pull/477), [#482](https://github.com/Zeroto521/foliplus/pull/482))
 - `FullscreenControl`: a denied fullscreen entry or exit now reports the honest hint (`unsupported` / `exit_fail`) instead of "Entered fullscreen" ([#486](https://github.com/Zeroto521/foliplus/pull/486))
 - `LayerControl`: rapid visibility toggles stay smooth at 6k layers — the toggle-all tri-state counter updates O(1) per click instead of rescanning the group, and overlay clicks skip the basemap scan ([#504](https://github.com/Zeroto521/foliplus/pull/504))
+- `LayerControl`: reload no longer rewrites the stored layer order — the colour basemap is a runtime-created surface whose slot follows attach timing, and registering it persisted that slot, clobbering an order the user had already set; such a registration now skips the write and `replaySavedOrder` restores its stored slot instead ([#515](https://github.com/Zeroto521/foliplus/pull/515))
 
 ## [v0.3.0] (2026-08-02)
 

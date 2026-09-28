@@ -58,6 +58,12 @@ interface RegisterLayerOpts {
   /** New base layer insertion: "top" (default, tile basemaps) or "bottom"
    *  (solid-color basemap — lowest z, tiles cover it). */
   baseInsert?: "top" | "bottom";
+  /** Persist this registration's slot into the stored order. Defaults to
+   *  true. A runtime-created surface (the solid-color basemap) passes false:
+   *  its insertion slot is a side effect of attach timing, not a user
+   *  arrangement, so writing it would clobber an order the user already
+   *  set. Its slot is recovered from storage by `replaySavedOrder` instead. */
+  persistOrder?: boolean;
   paneName?: string | null;
   /**
    * The panes this layer paints into, in draw order. Absent means the layer
@@ -355,6 +361,8 @@ interface CreateColorOpts {
   name?: string;
   color: string;
   onToggle?: ((visible: boolean) => void) | null;
+  /** See {@link RegisterLayerOpts.persistOrder}. */
+  persistOrder?: boolean;
 }
 
 /** Return type of the color-surface factory — the solid-color basemap's
@@ -436,6 +444,8 @@ interface CreateSurfaceOpts {
   styleSetters?: Record<string, (value: unknown) => void> | null;
   styleDefaults?: (() => Record<string, unknown>) | null;
   metaProvider?: (() => Record<string, string | number>) | null;
+  /** See {@link RegisterLayerOpts.persistOrder}. */
+  persistOrder?: boolean;
 }
 
 /** Content handle returned by `createSurface` — the discriminated-union branch. */
