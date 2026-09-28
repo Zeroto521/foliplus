@@ -31,11 +31,7 @@ export {
   countFeatureGeometry,
 } from "./util.js";
 export { ensureLayerAPI, requireLayerAPI } from "./api.js";
-export {
-  CLUSTER_CAPABILITIES,
-  deriveLayerKind,
-  isMarkerCluster,
-} from "./util.js";
+export { CLUSTER_CAPABILITIES, deriveLayerKind, isMarkerCluster } from "./util.js";
 export type {
   CreateCanvasAPI,
   CreateCanvasOpts,

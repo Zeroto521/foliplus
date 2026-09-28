@@ -1072,7 +1072,7 @@ describe("HeatmapManager — style delegation", () => {
     return createCanvas.mock.calls[0][0] as {
       styleProvider?: () => Record<string, unknown>;
       styleSetters?: Record<string, (v: unknown) => void>;
-      styleDefaults?: () => Record<string, unknown>;
+      styleDefaultsProvider?: () => Record<string, unknown>;
     };
   }
 
@@ -1166,13 +1166,13 @@ describe("HeatmapManager — style delegation", () => {
     });
   });
 
-  it("styleDefaults returns the Python CONF snapshot for the drawer Reset", () => {
+  it("styleDefaultsProvider returns the Python CONF snapshot for the drawer Reset", () => {
     const m = makeManager();
     const opts = getCanvasOpts() as {
-      styleDefaults?: () => Record<string, unknown>;
+      styleDefaultsProvider?: () => Record<string, unknown>;
     };
-    expect(typeof opts.styleDefaults).toBe("function");
-    expect(opts.styleDefaults!()).toEqual({
+    expect(typeof opts.styleDefaultsProvider).toBe("function");
+    expect(opts.styleDefaultsProvider!()).toEqual({
       labelShow: true,
       labelColor: "#ffffff",
       labelSize: 11,
@@ -1186,7 +1186,7 @@ describe("HeatmapManager — style delegation", () => {
     m.currentLabelColor = "#00ff00";
     m.currentLabelSize = 20;
     m.currentLabelFormat = "comma";
-    expect(opts.styleDefaults!()).toEqual({
+    expect(opts.styleDefaultsProvider!()).toEqual({
       labelShow: true,
       labelColor: "#ffffff",
       labelSize: 11,
@@ -1294,11 +1294,11 @@ describe("HeatmapManager — style delegation", () => {
     // silently flip labels off — the same `!== false` rule MeasureControl uses.
     const m = makeManager({ label_show: undefined });
     const opts = getCanvasOpts() as {
-      styleDefaults?: () => Record<string, unknown>;
+      styleDefaultsProvider?: () => Record<string, unknown>;
     };
 
     expect(m.currentLabelShow).toBe(true);
-    expect(opts.styleDefaults!().labelShow).toBe(true);
+    expect(opts.styleDefaultsProvider!().labelShow).toBe(true);
   });
 
   it("borderWeight defaults to BORDER_WEIGHT.DEFAULT when CONF omits border_weight", () => {

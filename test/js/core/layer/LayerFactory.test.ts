@@ -558,7 +558,7 @@ describe("LayerFactory", () => {
       ensureVectorSpy.mockRestore();
     });
 
-    it("forwards styleProvider / styleSetters / styleDefaults to registerLayer", () => {
+    it("forwards styleProvider / styleSetters / styleDefaultsProvider to registerLayer", () => {
       const reg = vi.fn(() => null);
       const f = new LayerFactory({
         map,
@@ -570,18 +570,18 @@ describe("LayerFactory", () => {
       });
       const styleProvider = () => ({ color: "#f00" });
       const styleSetters = { color: () => {} };
-      const styleDefaults = () => ({ weight: 2 });
+      const styleDefaultsProvider = () => ({ weight: 2 });
       const api = f.createLayers({
         id: "test",
         name: "Test",
         panes: [{ name: "g1" }],
         styleProvider,
         styleSetters,
-        styleDefaults,
+        styleDefaultsProvider,
       });
       api.addLayer(new window.L.Path(), "g1");
       expect(reg).toHaveBeenCalledWith(
-        expect.objectContaining({ styleProvider, styleSetters, styleDefaults }),
+        expect.objectContaining({ styleProvider, styleSetters, styleDefaultsProvider }),
       );
     });
 
@@ -1444,10 +1444,20 @@ describe("LayerFactory", () => {
         id: "third2",
         content: { kind: "custom", custom: {}, layer },
       });
+      expect(handle.registered()).toBe(false);
       handle.register();
+      expect(handle.registered()).toBe(true);
       const opts = registerLayer.mock.calls[0][0] as { layer?: L.Layer | null };
       expect(opts.layer).toBe(layer);
     });
-  });
 
+    it("throws on an unhandled surface kind", () => {
+      expect(() =>
+        factory.createSurface({
+          id: "bad",
+          content: { kind: "nope" } as never,
+        }),
+      ).toThrow(/unhandled surface kind/);
+    });
+  });
 });

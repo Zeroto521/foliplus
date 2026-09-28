@@ -1,12 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { LayerSurface } from "#foliplus/core/layer/LayerSurface.js";
-import {
-  CLUSTER_CAPABILITIES,
-  deriveLayerKind,
-} from "#foliplus/core/layer/util.js";
 import { PaneManager } from "#foliplus/core/layer/PaneManager.js";
 import * as CONST from "#foliplus/core/layer/const.js";
 import type { PaneSpec } from "#foliplus/core/layer/type.js";
+import { CLUSTER_CAPABILITIES, deriveLayerKind } from "#foliplus/core/layer/util.js";
 
 // Minimal Leaflet shapes: the surface only reads `options`, `eachLayer`
 // (containers), `getElement` + `_map` (attached DOM) and the `instanceof`
@@ -1151,7 +1148,6 @@ describe("LayerSurface capabilities", () => {
   });
 });
 
-
 describe("kind declaration (cluster / tile|vector)", () => {
   it("declared kind:cluster matches the duck-typed cluster capability tier", () => {
     const { host } = makeMap();
@@ -1193,15 +1189,15 @@ describe("kind declaration (cluster / tile|vector)", () => {
   });
 
   it("deriveLayerKind: GridLayer is tile, Path/Marker is vector", () => {
-    expect(deriveLayerKind({ id: "t", layer: new GridLayer() as unknown as L.Layer })).toBe(
-      "tile",
-    );
+    expect(
+      deriveLayerKind({ id: "t", layer: new GridLayer() as unknown as L.Layer }),
+    ).toBe("tile");
     expect(deriveLayerKind({ id: "v", layer: new Path() as unknown as L.Layer })).toBe(
       "vector",
     );
-    expect(deriveLayerKind({ id: "m", layer: new Marker() as unknown as L.Layer })).toBe(
-      "vector",
-    );
+    expect(
+      deriveLayerKind({ id: "m", layer: new Marker() as unknown as L.Layer }),
+    ).toBe("vector");
     expect(
       deriveLayerKind({ id: "g", layer: new Group([]) as unknown as L.Layer }),
     ).toBe("vector");
@@ -1217,9 +1213,14 @@ describe("kind declaration (cluster / tile|vector)", () => {
     ).toBe("cluster");
     expect(deriveLayerKind({ id: "s", layer: null, color: "#000" })).toBe("solid");
     expect(deriveLayerKind({ id: "c", layer: null, canvas: true })).toBe("canvas");
-    expect(deriveLayerKind({ id: "u", layer: null, custom: {}})).toBe("custom");
+    expect(deriveLayerKind({ id: "u", layer: null, custom: {} })).toBe("custom");
     // Pending Leaflet-layer registration is NOT custom (see hasUnresolvedLayers).
     expect(deriveLayerKind({ id: "p", layer: null })).toBe("vector");
+    // L.LayerGroup is a vector-family container.
+    (window as { L: Record<string, unknown> }).L.LayerGroup = Group;
+    expect(
+      deriveLayerKind({ id: "g2", layer: new Group([]) as unknown as L.Layer }),
+    ).toBe("vector");
   });
 
   it("kind:custom surface reports the honest none tier", () => {

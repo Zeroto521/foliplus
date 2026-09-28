@@ -24,7 +24,6 @@ import { createLogger } from "#common/log.js";
 import type { PaneManager } from "./PaneManager.js";
 import { hasFillLeaf, hasSetStyleLeaf } from "./capability.js";
 import { FALLBACK_PANE_PREFIX, PANE_NAME_PATTERN } from "./const.js";
-import { CLUSTER_CAPABILITIES, deriveLayerKind } from "./util.js";
 import type {
   LayerCapabilities,
   LayerKind,
@@ -33,6 +32,7 @@ import type {
   PaneRole,
   PaneSpec,
 } from "./type.js";
+import { CLUSTER_CAPABILITIES, deriveLayerKind } from "./util.js";
 import { getGeometryType } from "./util.js";
 import { zFor } from "./z.js";
 

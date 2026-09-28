@@ -95,7 +95,7 @@ class LayerFactory {
       featureCountProvider: opts.featureCountProvider,
       styleProvider: opts.styleProvider,
       styleSetters: opts.styleSetters,
-      styleDefaults: opts.styleDefaults,
+      styleDefaultsProvider: opts.styleDefaultsProvider,
       metaProvider: opts.metaProvider,
       content: { kind: "layers", panes: opts.panes },
     });
@@ -119,7 +119,7 @@ class LayerFactory {
       featureCountProvider: opts.featureCountProvider,
       styleProvider: opts.styleProvider,
       styleSetters: opts.styleSetters,
-      styleDefaults: opts.styleDefaults,
+      styleDefaultsProvider: opts.styleDefaultsProvider,
       content: {
         kind: "canvas",
         className: opts.className,
@@ -148,7 +148,10 @@ class LayerFactory {
     const handle = this.createSurface({
       id: opts.id,
       name: opts.name,
-      persistOrder: opts.persistOrder,
+      // Always a runtime surface: the solid-color basemap is foliplus chrome,
+      // and its slot is attach timing among the base group — never a user
+      // arrangement to persist.
+      orderOrigin: "runtime",
       content: { kind: "color", color: opts.color },
     });
     // register() is called by the caller (LayerControl UI) after setting
@@ -196,7 +199,7 @@ class LayerFactory {
       featureCountProvider: opts.featureCountProvider ?? null,
       styleProvider: opts.styleProvider ?? null,
       styleSetters: opts.styleSetters ?? null,
-      styleDefaults: opts.styleDefaults ?? null,
+      styleDefaultsProvider: opts.styleDefaultsProvider ?? null,
       metaProvider: opts.metaProvider ?? null,
     };
 
@@ -427,7 +430,7 @@ class LayerFactory {
         kind: "solid" as const,
         group: GROUP.BASE,
         baseInsert: "bottom",
-        persistOrder: opts.persistOrder,
+        orderOrigin: opts.orderOrigin,
         canvas: face,
         color,
         paneName,
@@ -506,7 +509,11 @@ class LayerFactory {
     }
 
     if (opts.content.kind !== "canvas") {
-      throw new Error(log.msg(`unhandled surface kind: ${String((opts.content as { kind: string }).kind)}`));
+      throw new Error(
+        log.msg(
+          `unhandled surface kind: ${String((opts.content as { kind: string }).kind)}`,
+        ),
+      );
     }
     const { className, getBounds, source, updatedAt, meta } = opts.content;
 
