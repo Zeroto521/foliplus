@@ -220,9 +220,10 @@ describe("LayerUI shell — delegates", () => {
 
   it("checking the color row's checkbox activates the color layer", () => {
     // Row-body clicks used to trigger showColorLayer directly; the checkbox
-    // change is now the only legitimate path (T201). The row still gets the
-    // .active class + the enforceOrder z-order write-through.
-    const enforce = vi.spyOn(manager, "enforceOrder");
+    // change is now the only legitimate path (T201). The row still goes
+    // through the same visibility carrier + debounced z-order write-through
+    // as any other layer.
+    const enforce = vi.spyOn(manager, "debouncedEnforce");
     const colorItem = ui.uiContainer.querySelector(
       `[${CONST.DATA.LAYER_ID}="${CONST.COLOR.MAP_ID}"]`,
     ) as HTMLElement;

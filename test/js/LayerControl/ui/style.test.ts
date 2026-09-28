@@ -3448,13 +3448,12 @@ describe("LayerUI style panel — zoom range", () => {
 
   it("renders the zoom-range row for a canvas layer", () => {
     // A canvas has no Leaflet layer to add/remove, so the range's carrier is
-    // the layer's onToggle callback — the executor's visible op is the carrier
+    // the canvas's `HIDDEN` class — the executor's visible op is the carrier
     // for every surface, so capability alone decides (42.1).
     manager.registerLayer({
       id: "canvas1",
       name: "Canvas",
       canvas: document.createElement("canvas"),
-      onToggle: vi.fn(),
       styleProvider: () => ({ labelShow: true }),
       styleSetters: { labelShow: vi.fn() },
     });
@@ -3463,13 +3462,12 @@ describe("LayerUI style panel — zoom range", () => {
     expect(zoomRowOf(panel!)).not.toBeNull();
   });
 
-  it("hides a canvas layer through onToggle when the range excludes the zoom", () => {
-    const onToggle = vi.fn();
+  it("hides a canvas layer through its HIDDEN class when the range excludes the zoom", () => {
+    const canvas = document.createElement("canvas");
     manager.registerLayer({
       id: "canvas1",
       name: "Canvas",
-      canvas: document.createElement("canvas"),
-      onToggle,
+      canvas,
       styleProvider: () => ({ labelShow: true }),
       styleSetters: { labelShow: vi.fn() },
     });
@@ -3481,22 +3479,22 @@ describe("LayerUI style panel — zoom range", () => {
     ) as HTMLInputElement;
 
     // The current zoom is 5. Pushing the lower bound past it takes the canvas
-    // out of range, and its toggle callback is what hides it.
+    // out of range, and its HIDDEN class is what hides it.
     minInput.value = "6";
     minInput.dispatchEvent(new Event("input", { bubbles: true }));
     expect(ui.zoomRangeMap["canvas1"]).toEqual([6, 18]);
-    expect(onToggle).toHaveBeenLastCalledWith(false);
+    expect(canvas.classList.contains("hidden")).toBe(true);
 
     // Dragging the bound back drops it again — the write is reversible.
     minInput.value = "0";
     minInput.dispatchEvent(new Event("input", { bubbles: true }));
     expect(ui.zoomRangeMap["canvas1"]).toEqual([0, 18]);
-    expect(onToggle).toHaveBeenLastCalledWith(true);
+    expect(canvas.classList.contains("hidden")).toBe(false);
   });
 
   it("gives a delegated layers-kind layer (Measure shape) a zoom row that hides it", () => {
     // Measure's createLayers shape: a real layer, so the range's carrier is map
-    // membership rather than an onToggle callback.
+    // membership rather than a canvas HIDDEN class.
     const measureLayer = { options: {}, eachLayer: vi.fn() } as never;
     manager.registerLayer({
       id: "measure1",

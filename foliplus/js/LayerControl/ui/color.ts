@@ -22,15 +22,12 @@ const getColorSurface = (ui: LayerUI): CreateColorAPI => {
       // user arrangement, so persisting it would clobber an order the user
       // already set. `replaySavedOrder` restores the stored slot instead.
       persistOrder: false,
-      onToggle: v => {
-        if (v) showColorLayer(ui, ui.currentColor);
-        else hideColorLayer(ui);
-      },
     });
     ui.colorSurface = surface;
     // register() inserts the LayerInfo into the registry. Called after
-    // setting ui.colorSurface to avoid a recursive call through
-    // applyProjection → onToggle → showColorLayer → getColorSurface.
+    // setting ui.colorSurface so a subsequent getColorSurface call (from
+    // showColorLayer during the register-triggered applyProjection) finds
+    // the surface instead of creating a second one.
     surface.register();
   }
   return ui.colorSurface;

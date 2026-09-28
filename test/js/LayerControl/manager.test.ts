@@ -613,13 +613,12 @@ describe("LayerManager", () => {
     expect(removeLayer).not.toHaveBeenCalled();
   });
 
-  it("fires onToggle(false) for a callback-only hidden layer on re-registration without adding it to the map", () => {
+  it("does not add a hidden canvas layer (layer=null) to the map before removing it", () => {
     manager.map.hasLayer.mockReturnValue(false);
     const addLayer = vi.fn();
     const removeLayer = vi.fn();
     manager.map.addLayer = addLayer;
     manager.map.removeLayer = removeLayer;
-    const onToggle = vi.fn();
     manager.ui = {
       hiddenIds: new Set(["canvas1"]),
       saveState: vi.fn(),
@@ -628,12 +627,10 @@ describe("LayerManager", () => {
       id: "canvas1",
       name: "Canvas",
       layer: null,
-      onToggle,
     } as any);
 
-    // Callback-only layer has no Leaflet layer to add/remove — the guard
-    // skips addLayer and removeLayer. The callback fires later, through
-    // `applyUserState`'s projection.
+    // Canvas-only layer has no Leaflet layer to add/remove — the guard
+    // skips addLayer and removeLayer.
     expect(addLayer).not.toHaveBeenCalled();
     expect(removeLayer).not.toHaveBeenCalled();
   });
@@ -1207,7 +1204,7 @@ describe("LayerManager", () => {
     const m2 = new LayerManager(map, [{ id: "a", name: "A", isBase: false }]);
     const li = m2.layers[0];
     expect(li).toMatchObject({ id: "a", name: "A", isBase: false });
-    for (const key of ["paneName", "iconSvg", "type", "canvas", "onToggle"]) {
+    for (const key of ["paneName", "iconSvg", "type", "canvas"]) {
       expect(key in li).toBe(true);
     }
   });

@@ -56,6 +56,21 @@ interface LayerCapabilities {
    *      basemap once it is promoted to a real surface; today that layer is not
    *      in the registry at all, so no placeholder is emitted. */
   zoomRange: "native" | "pane" | "none";
+  /** How the layer's visibility is written:
+   *    - "native" — the layer is a real `L.Layer`; map membership
+   *      (`map.addLayer` / `removeLayer`) is the carrier. MarkerCluster is an
+   *      `L.Layer` too, so it routes here — the `isMarkerCluster` branch in
+   *      `LayerSurface.detectCapabilities` only takes over opacity / zoomRange
+   *      / bounds, not visibility.
+   *    - "pane"   — the surface paints into a canvas element we own (createCanvas
+   *      for heatmap/measure, createColor for the solid-color basemap's face);
+   *      the `HIDDEN` class on that element is the carrier. One CSS write, no
+   *      callback.
+   *    - "none"   — no honest carrier exists; the UI hides the checkbox rather
+   *      than offering one that lies. Today no materialized surface reaches
+   *      here; declared so a future shape that cannot carry visibility can say
+   *      so without another union change. */
+  visibility: "native" | "pane" | "none";
   /** Whether the surface can be z-reordered by our own mechanism. Today every
    *  materialized surface can; the field is declared so a later carrier that
    *  cannot (a plugin that owns its own z) can say so without another shape
@@ -109,7 +124,6 @@ interface RegisterLayerOpts {
   /** The fill a solid-color basemap paints into its own pane. The pane element
    *  is the face, so the value — not an element — is what travels here. */
   color?: string | null;
-  onToggle?: ((visible: boolean) => void) | null;
   /** Third-party feature count provider (Canvas layers require this; FeatureGroup
    *  layers use the built-in fallback via forEachLeaf). Null means 'don't render'. */
   featureCountProvider?: (() => number) | null;
@@ -158,8 +172,6 @@ interface LayerInfo {
   /** The fill a solid-color basemap paints into its own pane. */
   color?: string | null;
   isLabel?: boolean;
-  /** Visibility callback fired by LayerControl toggle (e.g. heatmap show/hide). */
-  onToggle?: ((visible: boolean) => void) | null;
   /** Third-party feature count provider. Null means 'don't render count'. */
   featureCountProvider?: (() => number) | null;
   /** Style values exposed to the drawer — pull on demand, never cached. */
@@ -333,7 +345,6 @@ interface CreateCanvasOpts {
   name?: string;
   className?: string;
   iconSvg?: string;
-  onToggle?: ((visible: boolean) => void) | null;
   /** Optional callback returning the number of features in this layer.
    *  When set, LayerControl's count column uses this instead of returning
    *  null (the default for Canvas layers). */
@@ -384,7 +395,6 @@ interface CreateColorOpts {
   id: string;
   name?: string;
   color: string;
-  onToggle?: ((visible: boolean) => void) | null;
   /** See {@link RegisterLayerOpts.persistOrder}. */
   persistOrder?: boolean;
 }
@@ -442,7 +452,6 @@ type SurfaceContentOpts =
   | {
       kind: "canvas";
       className?: string;
-      onToggle?: ((visible: boolean) => void) | null;
       getBounds?: (() => L.LatLngBounds | null) | null;
       source?: string | null;
       updatedAt?: string | number | null;
@@ -454,7 +463,6 @@ type SurfaceContentOpts =
        *  `background` shorthand accepts. */
       kind: "color";
       color: string;
-      onToggle?: ((visible: boolean) => void) | null;
     };
 
 /** Options for `LayerFactory.createSurface`. */
@@ -569,10 +577,11 @@ interface LayerAPI {
   bringLayerToFront: (id: string) => void;
   /**
    * Programmatically set a layer's visibility — the same transition the panel
-   * checkbox performs: the Leaflet layer is added to or removed from the map,
-   * callback-only (canvas) layers get `onToggle`, the panel row's checkbox and
-   * toggle-all control follow, and the persisted hidden set is updated so the
-   * choice survives a reload.
+   * checkbox performs: the Leaflet layer is added to or removed from the map
+   * (`visibility: "native"`), the canvas/face `HIDDEN` class is toggled
+   * (`visibility: "pane"`), the panel row's checkbox and toggle-all control
+   * follow, and the persisted hidden set is updated so the choice survives a
+   * reload.
    *
    * This closes the write side of the visibility contract. The intent
    * (persisted hidden set + `userOverrides`) is the only stored source;
