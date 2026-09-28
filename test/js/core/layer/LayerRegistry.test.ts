@@ -79,6 +79,66 @@ describe("LayerRegistry", () => {
       const info = registry.createLayerInfo({ id: "new1", name: "Fresh" });
       expect(info.name).toBe("Fresh");
     });
+
+    it("populates kind and carrier on every createLayerInfo", () => {
+      // No explicit carrier: pending Leaflet-layer registration (not custom).
+      const info = registry.createLayerInfo({ id: "shape" });
+      expect(info.kind).toBe("vector");
+      expect(info.carrier.layer).toBeNull();
+      expect(info.carrier.canvas).toBeNull();
+    });
+
+    it("derives solid kind and element carrier for a color face", () => {
+      const face = {} as HTMLCanvasElement;
+      const info = registry.createLayerInfo({
+        id: "color1",
+        color: "#112233",
+        canvas: face,
+      });
+      expect(info.kind).toBe("solid");
+      expect(info.carrier.element).toBe(face);
+      expect(info.carrier.layer).toBeNull();
+    });
+
+    it("derives canvas kind for a canvas-only face", () => {
+      const canvas = {} as HTMLCanvasElement;
+      const info = registry.createLayerInfo({ id: "heat", canvas });
+      expect(info.kind).toBe("canvas");
+      expect(info.carrier.canvas).toBe(canvas);
+    });
+
+    it("honors declared kind and custom payload", () => {
+      const custom = { plugin: "x" };
+      const info = registry.createLayerInfo({
+        id: "third",
+        kind: "custom",
+        custom,
+      });
+      expect(info.kind).toBe("custom");
+      expect(info.carrier.custom).toBe(custom);
+    });
+
+    it("resolves layer once at registration into carrier.layer", () => {
+      const layer = { id: "live" } as unknown as L.Layer;
+      const info = registry.createLayerInfo({ id: "mapped", layer });
+      expect(info.layer).toBe(layer);
+      expect(info.carrier.layer).toBe(layer);
+    });
+
+    it("defaults orderOrigin to user", () => {
+      const info = registry.createLayerInfo({ id: "test" });
+      expect(info.orderOrigin).toBe("user");
+    });
+
+    it("takes orderOrigin from opts on a fresh id", () => {
+      const info = registry.createLayerInfo({ id: "rt", orderOrigin: "runtime" });
+      expect(info.orderOrigin).toBe("runtime");
+    });
+
+    it("preserves orderOrigin from existingLi on re-registration", () => {
+      const info = registry.createLayerInfo({ id: "test" }, { orderOrigin: "runtime" });
+      expect(info.orderOrigin).toBe("runtime");
+    });
   });
 
   describe("upsert", () => {

@@ -923,7 +923,7 @@ describe("LayerUI style panel", () => {
       canvas: document.createElement("canvas"),
       styleProvider: () => ({ labelShow: true }),
       styleSetters: { labelShow: labelShowSetter },
-      styleDefaults: () => ({ labelShow: true }),
+      styleDefaultsProvider: () => ({ labelShow: true }),
     });
     const li = manager.layerRegistry.get("heat1")!;
     const item = findItem(ui, "heat1");
@@ -1172,7 +1172,7 @@ describe("LayerUI style panel", () => {
         borderWeight: 2,
       }),
       styleSetters: { borderColor: vi.fn(), borderWeight: vi.fn() },
-      styleDefaults: () => ({
+      styleDefaultsProvider: () => ({
         labelShow: true,
         borderColor: "#000000",
         borderWeight: 2,
@@ -1184,6 +1184,92 @@ describe("LayerUI style panel", () => {
 
     expect(panel.querySelectorAll(".foliplus-style-border-row")).toHaveLength(0);
     expect(borderRows(panel)).toHaveLength(1);
+  });
+
+  it("panel and delegated share one gate sweep — delegated rows match panel Layer rows minus vector-only dims", () => {
+    // Single gatedRows implementation behind both consumers: the rows the
+    // delegated drawer renders through the registry sweep must be exactly
+    // the rows the annotation panel renders for the same keys. Only
+    // styleSetters differ between the two paths; capabilities are made
+    // identical so the gates answer identically.
+    installLeafletGlobals();
+    const caps = {
+      fill: "native",
+      stroke: "native",
+      opacity: "pane",
+      zoomRange: "pane",
+      annotation: "none",
+    };
+    const rowSel = [
+      ".foliplus-style-fill-row",
+      ".foliplus-style-border-row",
+      ".foliplus-style-opacity-range",
+      ".foliplus-style-zoom-range-row",
+    ];
+
+    // Path A — annotation panel (no styleSetters): a vector layer whose
+    // surface admits all four Layer dims.
+    const leaf = {
+      options: {
+        color: "#000000",
+        weight: 2,
+        fillColor: "#aabbcc",
+        fillOpacity: 0.5,
+      },
+      setStyle: vi.fn(),
+      on: vi.fn(),
+    };
+    manager.registerLayer({
+      id: "sweepVector",
+      name: "Vector",
+      group: "overlay",
+      layer: {
+        options: {},
+        eachLayer: vi.fn((fn: (child: unknown) => void) => fn(leaf)),
+        getBounds: vi.fn(() => ({
+          isValid: vi.fn(() => true),
+          getSouthWest: () => ({ lat: 0, lng: 0 }),
+          getNorthEast: () => ({ lat: 1, lng: 1 }),
+        })),
+      } as never,
+    });
+    ui.fieldCache.set("sweepVector", [{ name: "count", numeric: true }]);
+    const surfaceV = manager.surfaceFor(
+      manager.layerRegistry.get("sweepVector")!,
+    ) as unknown as { capabilities: Record<string, unknown> };
+    surfaceV.capabilities = { ...caps };
+
+    const itemV = findItem(ui, "sweepVector");
+    ui.openStylePanel("sweepVector");
+    const panelV = panelOf(itemV)!;
+    const panelRows = rowSel.filter(sel => panelV.querySelector(sel));
+    expect(panelRows).toEqual(rowSel);
+    ui.closeStylePanel(false);
+
+    // Path B — delegated drawer (styleSetters present): the same
+    // capabilities, so the registry gates answer the same way. The sweep
+    // must render exactly the non-vector-only rows.
+    manager.registerLayer({
+      id: "sweepDeleg",
+      name: "Deleg",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: true }),
+      styleSetters: { labelShow: vi.fn() },
+      styleDefaultsProvider: () => ({ labelShow: true }),
+    });
+    const surfaceD = manager.surfaceFor(
+      manager.layerRegistry.get("sweepDeleg")!,
+    ) as unknown as { capabilities: Record<string, unknown> };
+    surfaceD.capabilities = { ...caps };
+
+    const itemD = findItem(ui, "sweepDeleg");
+    ui.openStylePanel("sweepDeleg");
+    const panelD = panelOf(itemD)!;
+    const delegatedRows = rowSel.filter(sel => panelD.querySelector(sel));
+    expect(delegatedRows).toEqual([
+      ".foliplus-style-opacity-range",
+      ".foliplus-style-zoom-range-row",
+    ]);
   });
 
   // Row-rendering matrix for the two basemap faces — T190 pins the zoomRange
@@ -2099,7 +2185,7 @@ describe("LayerUI style panel", () => {
     expect(body.querySelector(".foliplus-style-format-select")).not.toBeNull();
   });
 
-  it("delegated Reset includes labelFormat when published in styleDefaults", () => {
+  it("delegated Reset includes labelFormat when published in styleDefaultsProvider", () => {
     const labelShowSetter = vi.fn();
     const labelFormatSetter = vi.fn();
     manager.registerLayer({
@@ -2108,7 +2194,7 @@ describe("LayerUI style panel", () => {
       canvas: document.createElement("canvas"),
       styleProvider: () => ({ labelShow: true, labelFormat: "comma" }),
       styleSetters: { labelShow: labelShowSetter, labelFormat: labelFormatSetter },
-      styleDefaults: () => ({ labelShow: false, labelFormat: "auto" }),
+      styleDefaultsProvider: () => ({ labelShow: false, labelFormat: "auto" }),
     });
     const item = findItem(ui, "heat1");
     ui.openStylePanel("heat1");
@@ -2511,7 +2597,7 @@ describe("LayerUI style panel", () => {
 
   // ─────────────────── delegated reset (Python CONF defaults) ───────────────────
 
-  it("delegated panel hides Reset when the layer supplies no styleDefaults", () => {
+  it("delegated panel hides Reset when the layer supplies no styleDefaultsProvider", () => {
     manager.registerLayer({
       id: "heat1",
       name: "Heat",
@@ -2526,14 +2612,14 @@ describe("LayerUI style panel", () => {
     expect(panelOf(item)!.querySelector(".foliplus-style-reset-btn")).toBeNull();
   });
 
-  it("delegated panel renders Reset when styleDefaults is present", () => {
+  it("delegated panel renders Reset when styleDefaultsProvider is present", () => {
     manager.registerLayer({
       id: "heat1",
       name: "Heat",
       canvas: document.createElement("canvas"),
       styleProvider: () => ({ labelShow: true }),
       styleSetters: { labelShow: vi.fn() },
-      styleDefaults: () => ({ labelShow: false }),
+      styleDefaultsProvider: () => ({ labelShow: false }),
     });
     const item = findItem(ui, "heat1");
 
@@ -2546,7 +2632,7 @@ describe("LayerUI style panel", () => {
     expect(btn.textContent).toBe("LayerControl.style_reset");
   });
 
-  it("delegated Reset calls each setter with its styleDefaults value and closes", () => {
+  it("delegated Reset calls each setter with its styleDefaultsProvider value and closes", () => {
     const labelShowSetter = vi.fn();
     const labelCollideSetter = vi.fn();
     manager.registerLayer({
@@ -2555,7 +2641,7 @@ describe("LayerUI style panel", () => {
       canvas: document.createElement("canvas"),
       styleProvider: () => ({ labelShow: true, labelCollide: false }),
       styleSetters: { labelShow: labelShowSetter, labelCollide: labelCollideSetter },
-      styleDefaults: () => ({ labelShow: false, labelCollide: true }),
+      styleDefaultsProvider: () => ({ labelShow: false, labelCollide: true }),
     });
     const item = findItem(ui, "heat1");
     const focusSpy = vi.fn();
@@ -2583,7 +2669,7 @@ describe("LayerUI style panel", () => {
       canvas: document.createElement("canvas"),
       styleProvider: () => ({ labelShow: true, labelCollide: true }),
       styleSetters: { labelShow: labelShowSetter, labelCollide: labelCollideSetter },
-      styleDefaults: () => ({ labelShow: false }),
+      styleDefaultsProvider: () => ({ labelShow: false }),
     });
     const item = findItem(ui, "heat1");
     ui.openStylePanel("heat1");
@@ -2637,7 +2723,7 @@ describe("LayerUI style panel", () => {
     ).not.toBeNull();
   });
 
-  it("delegated Reset closes cleanly when styleDefaults returns undefined", () => {
+  it("delegated Reset closes cleanly when styleDefaultsProvider returns undefined", () => {
     const labelShowSetter = vi.fn();
     manager.registerLayer({
       id: "heat1",
@@ -2645,7 +2731,7 @@ describe("LayerUI style panel", () => {
       canvas: document.createElement("canvas"),
       styleProvider: () => ({ labelShow: true }),
       styleSetters: { labelShow: labelShowSetter },
-      styleDefaults: () => undefined as unknown as Record<string, unknown>,
+      styleDefaultsProvider: () => undefined as unknown as Record<string, unknown>,
     });
     const item = findItem(ui, "heat1");
     ui.openStylePanel("heat1");
@@ -2721,7 +2807,7 @@ describe("LayerUI style panel", () => {
       canvas: document.createElement("canvas"),
       styleProvider: () => ({ labelShow: true }),
       styleSetters: { labelShow: labelShowSetter },
-      styleDefaults: () => ({ labelShow: false }),
+      styleDefaultsProvider: () => ({ labelShow: false }),
     });
     const item = findItem(ui, "heat1");
     ui.openStylePanel("heat1");
@@ -2939,7 +3025,7 @@ describe("LayerUI style panel", () => {
     expect(buildBorderRow(ui, "dataOnly")).toBeNull();
   });
 
-  it("delegated Reset restores borderWeight and borderColor from styleDefaults", () => {
+  it("delegated Reset restores borderWeight and borderColor from styleDefaultsProvider", () => {
     const borderColorSetter = vi.fn();
     const borderWeightSetter = vi.fn();
     manager.registerLayer({
@@ -2951,7 +3037,7 @@ describe("LayerUI style panel", () => {
         borderWeight: borderWeightSetter,
         borderColor: borderColorSetter,
       },
-      styleDefaults: () => ({
+      styleDefaultsProvider: () => ({
         borderWeight: 1,
         borderColor: "#333333",
       }),

@@ -13,8 +13,9 @@
 //
 // `getStyle` must return only the dimensions the user set — `null` (or an
 // empty object) means "nothing to restore", so a Reset keeps the author's
-// value. This is the shared mechanism both self-managed style dimensions
-// (fill, border) use; it becomes the unified hook when those merge.
+// value. This is the unified hook both self-managed style dimensions
+// (fill, border) share: one handler per leaf merges every keyed getter
+// into a single `setStyle` on fire.
 import type { StyleSetter } from "../../type.js";
 
 const isStyleSetter = (node: unknown): node is StyleSetter =>

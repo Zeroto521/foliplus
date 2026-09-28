@@ -31,6 +31,7 @@ export {
   countFeatureGeometry,
 } from "./util.js";
 export { ensureLayerAPI, requireLayerAPI } from "./api.js";
+export { CLUSTER_CAPABILITIES, deriveLayerKind } from "./util.js";
 export type {
   CreateCanvasAPI,
   CreateCanvasOpts,
@@ -41,7 +42,9 @@ export type {
   LabelAwareLayer,
   LayerAPI,
   LayerCapabilities,
+  LayerCarrier,
   LayerInfo,
+  LayerKind,
   PaneHandle,
   PaneRole,
   RegisterLayerOpts,

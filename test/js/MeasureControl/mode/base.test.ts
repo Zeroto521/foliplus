@@ -127,12 +127,12 @@ describe("PreviewMode — tracking preview layers", () => {
 });
 
 describe("Mode — TYPE constants", () => {
-  it("DistanceMode TYPE equals MODE.DISTANCE", () => {
-    expect(DistanceMode.TYPE).toBe(CONST.MODE.DISTANCE);
+  it("DistanceMode TYPE equals MEASURE_MODE.DISTANCE", () => {
+    expect(DistanceMode.TYPE).toBe(CONST.MEASURE_MODE.DISTANCE);
   });
 
-  it("PolygonMode TYPE equals MODE.POLYGON", () => {
-    expect(PolygonMode.TYPE).toBe(CONST.MODE.POLYGON);
+  it("PolygonMode TYPE equals MEASURE_MODE.POLYGON", () => {
+    expect(PolygonMode.TYPE).toBe(CONST.MEASURE_MODE.POLYGON);
   });
 });
 

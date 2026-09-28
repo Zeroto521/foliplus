@@ -172,8 +172,8 @@ const onPointerDown = function (this: ExportManager, event: PointerEvent) {
   if (target.classList.contains(CONST.CLASSES.HANDLE)) {
     type = target.dataset.pos ?? null;
   } else if (
-    target.classList.contains(CONST.CLASSES.CENTER) ||
-    target.classList.contains(CONST.CLASSES.BOX)
+    target.classList.contains(CONST.CLASSES.EXPORT_CROP_CENTER) ||
+    target.classList.contains(CONST.CLASSES.EXPORT_BOX)
   ) {
     type = "move";
   } else return;

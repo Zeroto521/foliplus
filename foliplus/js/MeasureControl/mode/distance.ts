@@ -15,7 +15,7 @@ import { PreviewMode } from "./base.js";
 // ==================== Distance Mode ====================
 /** Distance measurement mode. Click to place nodes, double-click/context to finish. */
 class DistanceMode extends PreviewMode {
-  static TYPE = CONST.MODE.DISTANCE;
+  static TYPE = CONST.MEASURE_MODE.DISTANCE;
   static NAME_LABEL = "Distance Measurement";
   static NAME_LABEL_KEY = "name_distance";
 
