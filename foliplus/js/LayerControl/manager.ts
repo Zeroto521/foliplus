@@ -219,6 +219,8 @@ class LayerManager implements LayerAPI {
     this.layerRegistry = new LayerRegistry(
       data.filter(li => {
         if (!this.removedIds.has(li.id)) return true;
+        // Late-binding fallback (folium script-stream order) — same single
+        // point as `findLayer` / ExportControl's `resolveLayer`.
         const layer = li.layer ?? findLayer(this.map, li.id);
         if (layer && this.map.hasLayer(layer)) this.map.removeLayer(layer);
         return false;
@@ -348,12 +350,22 @@ class LayerManager implements LayerAPI {
     return this.factory.createColor(opts);
   }
 
-  /** True while any registered layer is unresolved (layerInfo.layer === null).
+  /** True while any registered layer that *declares a Leaflet carrier* is
+   *  still unresolved (`layer === null`).
+   *
+   *  Explicit no-carrier entries — `kind` canvas / solid / custom — are not
+   *  "unresolved": they never had a layer to find. Narrowing this predicate
+   *  stops those rows from keeping the folium-script-phase enforceOrder loop
+   *  alive forever.
+   *
    *  During the initial folium script phase any layeradd may make a registered
    *  layer resolvable, so unrelated adds must keep triggering enforceOrder. */
   private hasUnresolvedLayers(): boolean {
     for (const layerInfo of this.layers) {
-      if (!layerInfo.layer) return true;
+      if (layerInfo.layer) continue;
+      const kind = layerInfo.kind;
+      if (kind === "canvas" || kind === "solid" || kind === "custom") continue;
+      return true;
     }
     return false;
   }

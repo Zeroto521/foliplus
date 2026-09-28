@@ -3,6 +3,7 @@ import { LayerSurface } from "#foliplus/core/layer/LayerSurface.js";
 import { PaneManager } from "#foliplus/core/layer/PaneManager.js";
 import * as CONST from "#foliplus/core/layer/const.js";
 import type { PaneSpec } from "#foliplus/core/layer/type.js";
+import { CLUSTER_CAPABILITIES, deriveLayerKind } from "#foliplus/core/layer/util.js";
 
 // Minimal Leaflet shapes: the surface only reads `options`, `eachLayer`
 // (containers), `getElement` + `_map` (attached DOM) and the `instanceof`
@@ -1144,5 +1145,94 @@ describe("LayerSurface capabilities", () => {
     // The surface falls back to a synthesized pane.
     expect(surface.synthesizedPaneName).not.toBeNull();
     warnSpy.mockRestore();
+  });
+});
+
+describe("kind declaration (cluster / tile|vector)", () => {
+  it("declared kind:cluster matches the duck-typed cluster capability tier", () => {
+    const { host } = makeMap();
+    const cluster = new MarkerClusterGroup();
+    const ducked = new LayerSurface(host, {
+      id: "duck",
+      layer: cluster as unknown as L.Layer,
+    });
+    const declared = new LayerSurface(host, {
+      id: "declared",
+      layer: cluster as unknown as L.Layer,
+      kind: "cluster",
+    });
+    // Equivalence: declaration and derivation land in the same honest tier.
+    expect(declared.capabilities.opacity).toBe("none");
+    expect(declared.capabilities.zoomRange).toBe("none");
+    expect(declared.capabilities.relocatable).toBe(false);
+    expect(declared.capabilities.bounds).toBe(false);
+    expect(declared.capabilities.visibility).toBe("native");
+    expect(declared.capabilities.opacity).toBe(ducked.capabilities.opacity);
+    expect(declared.capabilities.zoomRange).toBe(ducked.capabilities.zoomRange);
+    expect(declared.capabilities.relocatable).toBe(ducked.capabilities.relocatable);
+    expect(declared.capabilities.bounds).toBe(ducked.capabilities.bounds);
+    expect(declared.capabilities.visibility).toBe(ducked.capabilities.visibility);
+    expect(declared.capabilities.fill).toBe(ducked.capabilities.fill);
+    expect(declared.capabilities.stroke).toBe(ducked.capabilities.stroke);
+  });
+
+  it("CLUSTER_CAPABILITIES is the named honest tier", () => {
+    expect(CLUSTER_CAPABILITIES).toEqual({
+      fill: "none",
+      stroke: "none",
+      opacity: "none",
+      zoomRange: "none",
+      visibility: "native",
+      relocatable: false,
+      bounds: false,
+    });
+  });
+
+  it("deriveLayerKind: GridLayer is tile, Path/Marker is vector", () => {
+    expect(
+      deriveLayerKind({ id: "t", layer: new GridLayer() as unknown as L.Layer }),
+    ).toBe("tile");
+    expect(deriveLayerKind({ id: "v", layer: new Path() as unknown as L.Layer })).toBe(
+      "vector",
+    );
+    expect(
+      deriveLayerKind({ id: "m", layer: new Marker() as unknown as L.Layer }),
+    ).toBe("vector");
+    expect(
+      deriveLayerKind({ id: "g", layer: new Group([]) as unknown as L.Layer }),
+    ).toBe("vector");
+  });
+
+  it("deriveLayerKind: declared kind wins; solid/canvas/custom from declaration shape", () => {
+    expect(
+      deriveLayerKind({
+        id: "x",
+        layer: new Path() as unknown as L.Layer,
+        kind: "cluster",
+      }),
+    ).toBe("cluster");
+    expect(deriveLayerKind({ id: "s", layer: null, color: "#000" })).toBe("solid");
+    expect(deriveLayerKind({ id: "c", layer: null, canvas: true })).toBe("canvas");
+    expect(deriveLayerKind({ id: "u", layer: null, custom: {} })).toBe("custom");
+    // Pending Leaflet-layer registration is NOT custom (see hasUnresolvedLayers).
+    expect(deriveLayerKind({ id: "p", layer: null })).toBe("vector");
+    // L.LayerGroup is a vector-family container.
+    (window as { L: Record<string, unknown> }).L.LayerGroup = Group;
+    expect(
+      deriveLayerKind({ id: "g2", layer: new Group([]) as unknown as L.Layer }),
+    ).toBe("vector");
+  });
+
+  it("kind:custom surface reports the honest none tier", () => {
+    const { host } = makeMap();
+    const surface = new LayerSurface(host, {
+      id: "third",
+      layer: null,
+      kind: "custom",
+      custom: { paint() {} },
+    });
+    expect(surface.capabilities.opacity).toBe("none");
+    expect(surface.capabilities.visibility).toBe("none");
+    expect(surface.capabilities.bounds).toBe(false);
   });
 });
