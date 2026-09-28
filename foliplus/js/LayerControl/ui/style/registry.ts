@@ -111,19 +111,17 @@ const DIM_ORDER = ["fill", "border", "opacity", "zoomRange"] as const;
  *  order is unreachable from the panel. */
 const LABEL_DIM_ORDER = ["annotation"] as const;
 
-/** Whether the layer owns any registered dimension whose `gate` passes.
- *  The single "has-any" question a caller needs before deciding whether a
- *  section or a panel is worth rendering — the delegated drawer asks it to
- *  decide whether to render the Layer heading alongside the delegated
- *  border row. The annotation panel no longer asks it (it collects the
- *  two sections' gated rows directly and checks those), but the question
- *  is unchanged. Every dimension contributes through its own `gate`; no
- *  switch table of keys. */
+/** Whether the layer owns any registered dimension whose `gate` passes —
+ *  the direct boolean form of the sweep, over every registered key. Both
+ *  panel flavors now collect their own gated rows (`gatedRows`) and check
+ *  those, so this is the generic "any gate at all" question rather than a
+ *  panel entry point. Every dimension contributes through its own `gate`;
+ *  no switch table of keys. */
 const hasAnyDimension = (ui: LayerUI, layerId: string): boolean =>
   [...registry.values()].some(d => d.gate(ui, layerId));
 
 /** Collect the descriptors whose `gate` passes, in the caller's declared
- *  order — the one gate pass every panel flavour shares. The annotation
+ *  order — the one gate pass every panel flavor shares. The annotation
  *  panel passes `DIM_ORDER` / `LABEL_DIM_ORDER`; the delegated drawer passes
  *  its own slice (`DELEGATED_DIM_ORDER` in `./delegated.js`). Same single
  *  implementation behind both consumers.

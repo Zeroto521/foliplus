@@ -1186,7 +1186,7 @@ describe("LayerUI style panel", () => {
     expect(borderRows(panel)).toHaveLength(1);
   });
 
-  it("panel and delegated share one gate sweep — delegated rows ≡ panel Layer rows minus vector-only dims", () => {
+  it("panel and delegated share one gate sweep — delegated rows match panel Layer rows minus vector-only dims", () => {
     // Single gatedRows implementation behind both consumers: the rows the
     // delegated drawer renders through the registry sweep must be exactly
     // the rows the annotation panel renders for the same keys. Only
@@ -1237,7 +1237,7 @@ describe("LayerUI style panel", () => {
     const surfaceV = manager.surfaceFor(
       manager.layerRegistry.get("sweepVector")!,
     ) as unknown as { capabilities: Record<string, unknown> };
-    surfaceV.capabilities = caps;
+    surfaceV.capabilities = { ...caps };
 
     const itemV = findItem(ui, "sweepVector");
     ui.openStylePanel("sweepVector");
@@ -1260,7 +1260,7 @@ describe("LayerUI style panel", () => {
     const surfaceD = manager.surfaceFor(
       manager.layerRegistry.get("sweepDeleg")!,
     ) as unknown as { capabilities: Record<string, unknown> };
-    surfaceD.capabilities = caps;
+    surfaceD.capabilities = { ...caps };
 
     const itemD = findItem(ui, "sweepDeleg");
     ui.openStylePanel("sweepDeleg");

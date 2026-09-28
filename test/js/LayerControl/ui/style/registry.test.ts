@@ -196,7 +196,7 @@ describe("LayerControl style-panel dimension registry — gatedRows", () => {
     expect(gatedRows(ui, "overlay1", DIM_ORDER)).toEqual([]);
   });
 
-  it("delegated slice ≡ panel sweep minus the vector-only dims", () => {
+  it("delegated slice equals panel sweep minus the vector-only dims", () => {
     // Single implementation, two consumers. The delegated drawer's sweep
     // (DELEGATED_DIM_ORDER) must return exactly the rows the annotation
     // panel's Layer sweep (DIM_ORDER) renders for the same keys — the old

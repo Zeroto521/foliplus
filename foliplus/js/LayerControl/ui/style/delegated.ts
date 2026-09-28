@@ -11,7 +11,7 @@ import * as SVGs from "../../icon.js";
 import type { LayerUI } from "../index.js";
 import { bindBorderRowShell, buildBorderRowShell } from "./border.js";
 import { appendResetFooter } from "./frame.js";
-import { DIM_ORDER, gatedRows, hasAnyDimension } from "./registry.js";
+import { DIM_ORDER, gatedRows } from "./registry.js";
 
 /** The delegated drawer's Layer-row order: `DIM_ORDER` minus the two
  *  vector-only rows. `fill` and `border` are never delegated — the vector
@@ -151,15 +151,15 @@ const renderDelegatedStylePanel = (
   // (MarkerCluster) would otherwise see a slider that writes nothing but
   // persists the value — a lie that survives reload (6.2).
   // Row iteration follows `DELEGATED_DIM_ORDER` (see the constant above) —
-  // the same gate sweep the annotation panel uses. The delegated-only border
-  // row is prepended before the registry sweep: it is not a registry
-  // dimension (it writes through `styleSetters`, a path the vector border
-  // descriptor does not own).
-  if (borderRow || hasAnyDimension(ui, layerId)) {
+  // the same gate sweep the annotation panel uses. One collection decides
+  // both the heading and the rows, so the two cannot drift. The
+  // delegated-only border row is prepended before the registry sweep: it is
+  // not a registry dimension (it writes through `styleSetters`, a path the
+  // vector border descriptor does not own).
+  const rows = gatedRows(ui, layerId, DELEGATED_DIM_ORDER);
+  if (borderRow || rows.length > 0) {
     if (borderRow) content.appendChild(borderRow);
-    for (const dim of gatedRows(ui, layerId, DELEGATED_DIM_ORDER)) {
-      content.appendChild(dim.row(ui, layerId));
-    }
+    for (const dim of rows) content.appendChild(dim.row(ui, layerId));
   }
   if (root.children.length) {
     content.appendChild(root);
