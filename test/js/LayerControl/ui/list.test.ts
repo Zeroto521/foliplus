@@ -282,7 +282,7 @@ describe("ui/list row placement", () => {
     expect(color!.classList.contains(CONST.CLASSES.GROUP_FOLDED)).toBe(true);
   });
 
-  it("color layer's applyVisibility routes through showColorLayer and hideColorLayer", () => {
+  it("color layer's applyVisibility routes through showSolidBasemap and hideSolidBasemap", () => {
     const { ui } = initFixture({
       data: [{ id: "B1", name: "B1", isBase: true }],
     });

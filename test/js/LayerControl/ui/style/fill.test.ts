@@ -691,7 +691,7 @@ describe("LayerUI style panel — fill color", () => {
     expect(layerCanFill(ui, CONST.COLOR.MAP_ID)).toBe(true);
   });
 
-  it("applyFillToLayer routes a color basemap to showColorLayer, not leaf walk", () => {
+  it("applyFillToLayer routes a color basemap to showSolidBasemap, not leaf walk", () => {
     registerColorBasemap();
     ui.fillColorMap[CONST.COLOR.MAP_ID] = "#ff0000";
     applyFillToLayer(ui, CONST.COLOR.MAP_ID);
@@ -715,9 +715,9 @@ describe("LayerUI style panel — fill color", () => {
     expect(row.querySelector(`.${CONST.CLASSES.STYLE_FILL_OPACITY_NUMBER}`)).toBeNull();
   });
 
-  it("applyFillToLayer on a color basemap with only opacity skips showColorLayer", () => {
+  it("applyFillToLayer on a color basemap with only opacity skips showSolidBasemap", () => {
     // L252: `color === undefined` branch — opacity-only on a color basemap
-    // must not call showColorLayer (there is no color to show).
+    // must not call showSolidBasemap (there is no color to show).
     registerColorBasemap();
     ui.fillOpacityMap[CONST.COLOR.MAP_ID] = 0.5;
     applyFillToLayer(ui, CONST.COLOR.MAP_ID);
@@ -727,7 +727,7 @@ describe("LayerUI style panel — fill color", () => {
 
   it("commitFillColor on a color basemap never writes fillOpacity", () => {
     // A color basemap has no fillOpacity concept — the color routes to
-    // showColorLayer and the fill-opacity map stays empty.
+    // showSolidBasemap and the fill-opacity map stays empty.
     registerColorBasemap();
     commitFillColor(ui, CONST.COLOR.MAP_ID, "#ff0000");
     expect(ui.fillColorMap[CONST.COLOR.MAP_ID]).toBe("#ff0000");

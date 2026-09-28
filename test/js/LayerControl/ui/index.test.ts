@@ -219,7 +219,7 @@ describe("LayerUI shell — delegates", () => {
   });
 
   it("checking the color row's checkbox activates the color layer", () => {
-    // Row-body clicks used to trigger showColorLayer directly; the checkbox
+    // Row-body clicks used to trigger showSolidBasemap directly; the checkbox
     // change is now the only legitimate path (T201). The row still goes
     // through the same visibility carrier + debounced z-order write-through
     // as any other layer.

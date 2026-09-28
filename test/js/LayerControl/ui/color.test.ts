@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/LayerControl/const.js";
-import { hideColorLayer, showColorLayer } from "#foliplus/LayerControl/ui/color.js";
+import { hideSolidBasemap, showSolidBasemap } from "#foliplus/LayerControl/ui/color.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 
 const makeUi = (layers: Array<{ id: string; isBase: boolean }> = []) => {
@@ -82,24 +82,24 @@ const makeUi = (layers: Array<{ id: string; isBase: boolean }> = []) => {
 };
 
 describe("ui/color", () => {
-  it("hideColorLayer clears the surface visibility", () => {
+  it("hideSolidBasemap clears the surface visibility", () => {
     const { ui, setVisible } = makeUi();
-    showColorLayer(ui, "#ff0000");
+    showSolidBasemap(ui, "#ff0000");
 
-    hideColorLayer(ui);
+    hideSolidBasemap(ui);
 
     expect(setVisible).toHaveBeenCalledWith(false);
   });
 
-  it("showColorLayer paints the color and shows the surface", () => {
+  it("showSolidBasemap paints the color and shows the surface", () => {
     const { ui, setColor, setVisible } = makeUi();
-    showColorLayer(ui, "#ff0000");
+    showSolidBasemap(ui, "#ff0000");
     expect(ui.currentColor).toBe("#ff0000");
     expect(setColor).toHaveBeenCalledWith("#ff0000");
     expect(setVisible).toHaveBeenCalledWith(true);
   });
 
-  it("showColorLayer leaves base layers on the map and the shared tilePane untouched", () => {
+  it("showSolidBasemap leaves base layers on the map and the shared tilePane untouched", () => {
     // First-class basemap: colour and tiles coexist. The colour layer owns
     // its own pane — it must not remove any tile layer from the map nor
     // touch Leaflet's shared tilePane.
@@ -115,14 +115,14 @@ describe("ui/color", () => {
     ).removeLayer;
     removeLayer.mockClear();
 
-    showColorLayer(ui, "#ff0000");
+    showSolidBasemap(ui, "#ff0000");
 
     expect(removeLayer).not.toHaveBeenCalled();
     expect(tilePane.classList.add).not.toHaveBeenCalled();
     expect(tilePane.classList.remove).not.toHaveBeenCalled();
   });
 
-  it("showColorLayer does not repaint base rows' checkboxes or active class", () => {
+  it("showSolidBasemap does not repaint base rows' checkboxes or active class", () => {
     // The colour layer is one row like any other; it must not paint
     // neighbouring rows' state. Intent-only invariant: a derived decision
     // (this colour layer became active) never authorises unchecking a
@@ -140,7 +140,7 @@ describe("ui/color", () => {
     }));
     rows[0].classList.add(CONST.CLASSES.ACTIVE);
 
-    showColorLayer(ui, "#ff0000");
+    showSolidBasemap(ui, "#ff0000");
 
     rows.forEach((row, i) => {
       const after = {
@@ -152,34 +152,34 @@ describe("ui/color", () => {
     expect(rows[0].classList.contains(CONST.CLASSES.ACTIVE)).toBe(true);
   });
 
-  it("showColorLayer tolerates a row without a checkbox (partially rendered)", () => {
+  it("showSolidBasemap tolerates a row without a checkbox (partially rendered)", () => {
     const { ui } = makeUi([{ id: "base_nochk", isBase: true }]);
     const row = ui.uiContainer.querySelector<HTMLElement>(
       `[${CONST.DATA.LAYER_ID}="base_nochk"]`,
     );
     row!.innerHTML = "";
-    expect(() => showColorLayer(ui, "#ff0000")).not.toThrow();
+    expect(() => showSolidBasemap(ui, "#ff0000")).not.toThrow();
   });
 
-  it("showColorLayer orders the stack synchronously", () => {
+  it("showSolidBasemap orders the stack synchronously", () => {
     // Checking the box is a single user action: the ladder z must land
     // immediately, not after the debounce. The pane is born inside register()
     // already carrying its slot's z, so there is no 400-default window to
     // close and no provisional step left to rewrite.
     const { ui } = makeUi();
-    showColorLayer(ui, "#ff0000");
+    showSolidBasemap(ui, "#ff0000");
     expect((ui.m as any).enforceOrder).toHaveBeenCalledTimes(1);
   });
 
-  it("showColorLayer reuses the surface on subsequent calls", () => {
+  it("showSolidBasemap reuses the surface on subsequent calls", () => {
     // The surface is created once and reused: a second show must not
     // allocate a new canvas or pane.
     const { ui, setColor } = makeUi();
-    showColorLayer(ui, "#ff0000");
+    showSolidBasemap(ui, "#ff0000");
     const firstSurface = ui.colorSurface;
     expect(firstSurface).not.toBeNull();
 
-    showColorLayer(ui, "#00ff00");
+    showSolidBasemap(ui, "#00ff00");
 
     expect(ui.colorSurface).toBe(firstSurface);
     expect(setColor).toHaveBeenLastCalledWith("#00ff00");

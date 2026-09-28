@@ -298,7 +298,7 @@ class TestLayerControlRendering:
     def test_color_click_deselects_bases(self, base_map: folium.Map):
         """Color layer checkbox change handler present in rendered code."""
         html = render_control(LayerControl())
-        assert "showColorLayer" in html
+        assert "showSolidBasemap" in html
 
     def test_drag_base_map_allowed(self):
         """No drag prevention for base maps in JS code."""

@@ -523,7 +523,7 @@ describe("LayerUI visibility persistence (hiddenLayerIds)", () => {
       ]);
       const u = new LayerUI(m);
       u.hiddenLayerIds = new Set(["overlay1"]);
-      // Simulate a container + rows so showColorLayer can iterate bases.
+      // Simulate a container + rows so showSolidBasemap can iterate bases.
       const container = document.createElement("div");
       document.body.appendChild(container);
       m.uiContainer = container;
@@ -533,11 +533,11 @@ describe("LayerUI visibility persistence (hiddenLayerIds)", () => {
         style: {},
       });
 
-      u.showColorLayer("#000000");
+      u.showSolidBasemap("#000000");
 
       // overlay1 was hidden before the color activation and should stay hidden.
       expect(u.hiddenLayerIds).toContain("overlay1");
-      // No base-layer id was added even though showColorLayer deselects all bases.
+      // No base-layer id was added even though showSolidBasemap deselects all bases.
       expect(u.hiddenLayerIds).toEqual(new Set(["overlay1"]));
     });
   });

@@ -10,7 +10,7 @@ import type { LayerManager } from "../manager.js";
 import type { LayerOverride } from "../type.js";
 import { applyProjection, applyProjectionAll } from "./apply.js";
 import { closeAttrsPanel, openAttrsPanel } from "./attr.js";
-import { hideColorLayer, showColorLayer } from "./color.js";
+import { hideSolidBasemap, showSolidBasemap } from "./color.js";
 import { cancelFocus, focusLayer, isFocusing } from "./focus.js";
 import {
   blurActiveItem,
@@ -456,11 +456,11 @@ class LayerUI {
   }
 
   // ── delegates: color / menu / attrs / rename / focus ──
-  showColorLayer(color: string) {
-    return showColorLayer(this, color);
+  showSolidBasemap(color: string) {
+    return showSolidBasemap(this, color);
   }
-  hideColorLayer() {
-    return hideColorLayer(this);
+  hideSolidBasemap() {
+    return hideSolidBasemap(this);
   }
   openMoreMenu(item: HTMLElement) {
     return openMoreMenu(this, item);
