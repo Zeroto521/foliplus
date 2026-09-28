@@ -10,7 +10,7 @@ import * as CONST from "../../const.js";
 import * as SVGs from "../../icon.js";
 import type { LayerUI } from "../index.js";
 import { bindBorderRowShell, buildBorderRowShell } from "./border.js";
-import { appendResetFooter, sectionHeading } from "./frame.js";
+import { appendResetFooter } from "./frame.js";
 import { DIM_ORDER, getDimension, hasAnyDimension } from "./registry.js";
 
 /** Whether the layer delegates its style to the drawer via styleSetters
@@ -154,17 +154,15 @@ const renderDelegatedStylePanel = (
   // rendering path at all. Only opacity and zoomRange ride the sweep:
   // they are LayerControl-owned and survive a component's redraw.
   if (borderRow || hasAnyDimension(ui, layerId)) {
-    content.append(sectionHeading(ui.T("section_layer")));
-    if (borderRow) content.append(borderRow);
+    if (borderRow) content.appendChild(borderRow);
     for (const key of DIM_ORDER) {
       if (key === "fill" || key === "border") continue;
       const dim = getDimension(key);
-      if (dim?.gate(ui, layerId)) content.append(dim.row(ui, layerId));
+      if (dim?.gate(ui, layerId)) content.appendChild(dim.row(ui, layerId));
     }
   }
   if (root.children.length) {
-    content.append(sectionHeading(ui.T("section_label")));
-    content.append(root);
+    content.appendChild(root);
   }
 
   // Reset only when the component published its Python CONF defaults.

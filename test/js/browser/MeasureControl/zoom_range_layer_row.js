@@ -46,8 +46,5 @@
     onMapBefore,
     onMapOut,
     onMapBack,
-    sections: [...panel.querySelectorAll(".foliplus-section-heading")].map(
-      h => h.textContent,
-    ),
   };
 };

@@ -154,7 +154,7 @@ describe("LayerUI style panel", () => {
     expect(panel!.querySelector(".foliplus-style-toggle-input")).toBeNull();
     expect(panel!.querySelector(".foliplus-style-field-select")).toBeNull();
     expect(panel!.querySelector(".foliplus-style-body")).toBeNull();
-    expect(panel!.querySelectorAll(".foliplus-section-heading")).toHaveLength(1);
+    expect(panel!.querySelectorAll(".foliplus-section-heading")).toHaveLength(0);
     // The Layer dimensions still render — opacity and zoom range own a pane
     // carrier. Border and fill need a setStyle leaf (the fill / border gate),
     // and the
@@ -786,18 +786,22 @@ describe("LayerUI style panel", () => {
     expect(manager.annotation.getConfig("overlay1").collide).toBe(true);
   });
 
-  // ─────────────────── section headings + opacity ───────────────────
+  // ─────────────────── row groups + opacity ───────────────────
 
-  it("renders label and layer section headings", () => {
+  it("renders the layer and label rows with no group headings", () => {
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
-    const headings = [...panel.querySelectorAll(".foliplus-section-heading")];
-    expect(headings.length).toBe(2);
-    expect(headings[0].textContent).toBe("LayerControl.section_layer");
-    expect(headings[1].textContent).toBe("LayerControl.section_label");
+    // Headings are gone; the two groups are told apart by document order.
+    expect(panel.querySelectorAll(".foliplus-section-heading")).toHaveLength(0);
+    const order = [...panel.querySelectorAll("*")];
+    const layer = panel.querySelector(".foliplus-style-opacity-range");
+    const label = panel.querySelector(".foliplus-style-toggle-input");
+    expect(layer).not.toBeNull();
+    expect(label).not.toBeNull();
+    expect(order.indexOf(layer!)).toBeLessThan(order.indexOf(label as Element));
     // The annotation dimension's row is one wrapper (toggle + body) — the
-    // structural hook the section and the tests select the Label content by.
+    // structural hook the Label content is selected by.
     const labelSection = panel.querySelector(`.${CONST.CLASSES.STYLE_LABEL_SECTION}`);
     expect(labelSection).not.toBeNull();
     expect(
@@ -2157,22 +2161,15 @@ describe("LayerUI style panel", () => {
     // Aggregation field is data config on the component's own panel — never
     // delegated into the drawer.
     expect(panel.querySelector(".foliplus-style-field-select")).toBeNull();
-    // The shared renderer emits controls only, so the panel still owns the
-    // section split: LAYER (the rows LayerControl adds) above LABEL (the rows
-    // the component delegated).
-    const headings = [...panel.querySelectorAll(".foliplus-section-heading")];
-    expect(headings.map(h => h.textContent)).toEqual([
-      "LayerControl.section_layer",
-      "LayerControl.section_label",
-    ]);
-    // Document order, not just presence: each heading must precede its section.
+    // The shared renderer emits controls only, so the panel owns its own
+    // ordering: the Layer rows (which LayerControl adds) come before the Label
+    // rows (which the component delegated). No heading carries that split any
+    // more — document order does.
+    expect(panel.querySelectorAll(".foliplus-section-heading")).toHaveLength(0);
     const order = [...panel.querySelectorAll("*")];
-    expect(order.indexOf(headings[0])).toBeLessThan(
+    expect(
       order.indexOf(panel.querySelector(".foliplus-style-opacity-range")!),
-    );
-    expect(order.indexOf(headings[1])).toBeLessThan(
-      order.indexOf(showToggle as unknown as Element),
-    );
+    ).toBeLessThan(order.indexOf(showToggle as unknown as Element));
   });
 
   it("gives the Layer section to a delegated layer that publishes only border setters", () => {
@@ -2202,15 +2199,9 @@ describe("LayerUI style panel", () => {
 
     expect(panel.querySelector(`.${CONST.CLASSES.STYLE_OPACITY_RANGE}`)).toBeNull();
     expect(panel.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`)).toBeNull();
-    const headings = [...panel.querySelectorAll(".foliplus-section-heading")];
-    expect(headings.map(h => h.textContent)).toEqual([
-      "LayerControl.section_layer",
-      "LayerControl.section_label",
-    ]);
-    const order = [...panel.querySelectorAll("*")];
-    expect(order.indexOf(headings[0])).toBeLessThan(
-      order.indexOf(panel.querySelector("input[type=color]") as Element),
-    );
+    // No group headings — the Layer rows still render on their own.
+    expect(panel.querySelectorAll(".foliplus-section-heading")).toHaveLength(0);
+    expect(panel.querySelector("input[type=color]")).not.toBeNull();
   });
 
   it("delegated panel with vector geometry skips fill/border — the component redraws them", () => {
@@ -2257,9 +2248,9 @@ describe("LayerUI style panel", () => {
       panel.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`),
     ).not.toBeNull();
 
-    // The Layer section still renders (opacity/zoomRange give it content).
-    const headings = [...panel.querySelectorAll(".foliplus-section-heading")];
-    expect(headings.map(h => h.textContent)).toContain("LayerControl.section_layer");
+    // The Layer rows still render — opacity and zoomRange above are the proof.
+    // What is gone is the group heading that used to introduce them.
+    expect(panel.querySelectorAll(".foliplus-section-heading")).toHaveLength(0);
   });
 
   it("delegated panel omits the field select even when field setter is present", () => {

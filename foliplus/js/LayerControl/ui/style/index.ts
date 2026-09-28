@@ -9,8 +9,7 @@
 // the event-binding skeleton (openStylePanel) and the teardown
 // (closeStylePanel). Row builders, the field cache and the delegated drawer
 // live in ./label.ts, ./opacity.ts, ./zoomRange.ts, ./delegated.ts;
-// frame-level helpers (section heading, reset footer, rail positioning)
-// live in ./frame.ts.
+// frame-level helpers (reset footer, rail positioning) live in ./frame.ts.
 import { EVENTS } from "#core/event/index.js";
 import { resolveSelectedField } from "#core/labelField.js";
 import { dom } from "#common/dom.js";
@@ -30,7 +29,7 @@ import { finishRename } from "../rename.js";
 import { bindBorderRow, resetLayerBorder } from "./border.js";
 import { layerHasStyleDelegation, renderDelegatedStylePanel } from "./delegated.js";
 import { bindFillRow, replayFillState, resetLayerFill } from "./fill.js";
-import { appendResetFooter, railPos, sectionHeading } from "./frame.js";
+import { appendResetFooter, railPos } from "./frame.js";
 import { applyPatch, layerFields, syncFormatRow } from "./label.js";
 import { clampPct, commitOpacityPct, resetLayerOpacity } from "./opacity.js";
 import {
@@ -98,19 +97,15 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   // operations lead. Row order inside each section is its declared order
   // array, never the registry's insertion order — registration order
   // tracks the ES module import graph (see the `DIM_ORDER` /
-  // `LABEL_DIM_ORDER` comments in `./registry.js`).
-  if (layerRows.length > 0) {
-    content.append(sectionHeading(ui.T("section_layer")));
-    for (const dim of layerRows) content.append(dim.row(ui, layerId));
-  }
+  // `LABEL_DIM_ORDER` comments in `./registry.js`). Neither group carries a
+  // heading any more: the panel reads as one flat row list, and Layer before
+  // Label is what document order alone conveys.
+  for (const dim of layerRows) content.append(dim.row(ui, layerId));
   // The Label section's gate is a pure capability bit (layer exists +
   // `capabilities.annotation !== "none"`) — the labelable-fields probe that
   // keeps the row honest lives at the surface declaration edge, so the panel
   // never re-asks it here.
-  if (labelRows.length > 0) {
-    content.append(sectionHeading(ui.T("section_label")));
-    for (const dim of labelRows) content.append(dim.row(ui, layerId));
-  }
+  for (const dim of labelRows) content.append(dim.row(ui, layerId));
   appendResetFooter(ui, content);
   return panel;
 };
