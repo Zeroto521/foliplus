@@ -408,13 +408,14 @@ interface CreateCanvasOpts {
   /** Third-party label/value pairs appended to the attributes panel
    *  (e.g. HeatmapControl's source layer + aggregation field). */
   meta?: Record<string, string | number> | null;
-  /** See {@link RegisterLayerOpts.onOpacity}. HeatmapControl re-renders
-   *  hexagons here so the layer alpha bake lands without waiting for a
-   *  pan/zoom redraw. */
+  /** See {@link RegisterLayerOpts.onOpacity}. Called after a layer-opacity
+   *  commit so a `"commit"`-arm drawer can re-render immediately. Heatmap
+   *  omits this (it takes the default `"redraw"` arm and repaints on the
+   *  next pan/zoom instead). */
   onOpacity?: ((opacity: number) => void) | null;
-  /** See {@link RegisterLayerOpts.opacityBake}. HeatmapControl uses the
-   *  default `"redraw"` (CSS live, bake on pan/zoom) so a ≥5k slider commit
-   *  does not force a full hexagon redraw. */
+  /** See {@link RegisterLayerOpts.opacityBake}. Heatmap uses the default
+   *  `"redraw"` (CSS live, bake on pan/zoom) so a ≥5k slider commit does
+   *  not force a full hexagon redraw. */
   opacityBake?: "commit" | "redraw";
 }
 

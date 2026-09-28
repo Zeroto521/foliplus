@@ -803,6 +803,50 @@ describe("a layer that gains labelable content gets the stored intent on its new
     expect(canvas().setLayerAlpha).toHaveBeenCalledWith(0.3);
   });
 
+  it("replays a recorded opacity onto a canvas mounted later (R11 bake)", () => {
+    // Labels off → no canvas. applyLayerAlpha must still record the value
+    // so a canvas that mounts later does not paint at 1 against a dimmed
+    // data layer. The pane CSS path used to cover this (the canvas
+    // inherited the pane's opacity); R11 excludes the annotation pane from
+    // CSS and bakes instead, so the replay is load-bearing.
+    const { map } = makeMap();
+    const mgr = new AnnotationManager({
+      map,
+      layerFind: () => null,
+    } as never);
+    mgr.applyLayerAlpha("late", 0.4);
+    // No canvas yet — but the value is held for the next mount.
+    expect(() => mgr.applyLayerAlpha("late", 0.4)).not.toThrow();
+
+    // Mount via renderLabels (no features → still creates nothing). Drive
+    // ensureCanvas through the same entry the toggle uses by painting an
+    // empty plan path: setConfig + renderLabels with a layer that has a
+    // labelable field is the production path; here we only need ensureCanvas.
+    // Directly exercising the private method is not available, so use the
+    // public renderLabels after giving the manager a real layer.
+    const leaf = {
+      feature: { properties: { name: "Depot" } },
+      getLatLng: () => ({ lat: 1, lng: 2 }),
+    } as unknown as L.Layer;
+    const mgr2 = new AnnotationManager({
+      map,
+      layerFind: () => leaf,
+    } as never);
+    mgr2.applyLayerAlpha("late", 0.4);
+    mgr2.setConfig("late", {
+      show: true,
+      field: "name",
+      color: "#fff",
+      size: 11,
+      format: "auto",
+      collide: true,
+    });
+    mgr2.renderLabels("late");
+    // The mock canvas's setLayerAlpha must have been called at mount with
+    // the value recorded while it was unmounted.
+    expect(canvas().setLayerAlpha).toHaveBeenCalledWith(0.4);
+  });
+
   it("applyLayerAlpha is a no-op when the layer has no canvas yet", () => {
     // Labels off → no canvas. The write must not throw; the value is picked
     // up by the next paint once a canvas mounts (setLayerAlpha at that point

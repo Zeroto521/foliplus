@@ -195,7 +195,8 @@ const applyStateOp = (ui: LayerUI, layerInfo: LayerInfo, op: StateOp): void => {
       //               feedback); the next pan/zoom redraw bakes and drops
       //               the CSS. Default. Heatmap ≥5k takes this arm because
       //               a full hexagon redraw per commit is jank (measured
-      //               28.5ms @5k on a stub ctx — over the 16ms budget).
+      //               8ms warm / 30-320ms under load on a stub ctx @5k —
+      //               over a 16ms frame; real rasterization is slower).
       //
       // `capabilities.opacity` still reports `"pane"` — the write target is
       // the canvas face. The bake-vs-CSS mechanism tier ("baked"/"redraw")

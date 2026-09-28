@@ -293,10 +293,10 @@ class HeatmapManager {
       }),
       // R11 dual path (`opacityBake: "redraw"` — the default): the slider
       // commit keeps CSS `opacity` for live feedback and does NOT force a
-      // full hexagon redraw (measured 28.5ms @5k stub-ctx, over the 16ms
-      // jank budget). The bake lands on the next pan/zoom redraw: draws
-      // read `getLayerAlpha`, and `redrawHeatmap` drops the CSS so the two
-      // carriers never compound.
+      // full hexagon redraw (measured 8ms warm / 30-320ms under load on a
+      // stub ctx @5k, over a 16ms frame). The bake lands on the next
+      // pan/zoom redraw: draws read `getLayerAlpha`, and `redrawHeatmap`
+      // drops the CSS so the two carriers never compound.
       opacityBake: "redraw",
     });
     // ExportControl publishes BEFORE/AFTER_EXPORT to request a full-resolution
