@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Literal, Mapping, TypedDict, get_args
+from collections.abc import Mapping
+from typing import Literal, TypedDict, get_args
 
 from ._cdn_loader import load_cdn
 from ._typing import Position, Zoom
