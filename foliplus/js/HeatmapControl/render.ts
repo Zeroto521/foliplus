@@ -1,13 +1,13 @@
 // HeatmapControl canvas rendering — pure draw helpers for hexagon fill/stroke
 // and value labels. No `this` dependency: map and style values are passed
 // in explicitly.
+import { drawAlpha, getLayerAlpha, withCanvasLayerAlpha } from "#common/canvasAlpha.js";
 import {
   type CanvasLabelStyle,
   drawCanvasLabel,
   prepareCanvasLabel,
   resolveCanvasLabelStyle,
 } from "#common/canvasLabel.js";
-import { drawAlpha, getLayerAlpha, withCanvasLayerAlpha } from "#common/canvasAlpha.js";
 import { type NumberStyle, formatLabelNumber } from "#common/format.js";
 import * as CONST from "./const.js";
 import type { HexFeature } from "./type.js";

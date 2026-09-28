@@ -15,12 +15,12 @@ import {
   collectLabelFields,
 } from "#core/labelField.js";
 import { forEachLeaf } from "#core/layer/index.js";
+import { setLayerAlpha } from "#common/canvasAlpha.js";
 import {
   type CanvasLabelStyle,
   resolveCanvasLabelStyle,
   withLabelPaint,
 } from "#common/canvasLabel.js";
-import { setLayerAlpha } from "#common/canvasAlpha.js";
 import { type NumberStyle, formatLabelNumber } from "#common/format.js";
 import { bindMapSync } from "#common/panel.js";
 import * as CONST from "../const.js";

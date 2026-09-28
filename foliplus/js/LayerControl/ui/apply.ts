@@ -26,9 +26,9 @@
 // Naming: "state op" is the shape the carrier dispatcher accepts.
 // "Projection" is what the diff compares — intent + policy together, so
 // a change on either side produces an op.
-import { setLayerAlpha } from "#common/canvasAlpha.js";
 import { HIDDEN } from "#core/layer/index.js";
 import { resetGridLayerView } from "#core/leafletAdapter.js";
+import { setLayerAlpha } from "#common/canvasAlpha.js";
 import * as CONST from "../const.js";
 import type { Projection, StateOp } from "../type.js";
 import type { LayerUI } from "./index.js";

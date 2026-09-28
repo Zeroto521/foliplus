@@ -8,8 +8,7 @@ import {
   withLayerAlpha,
 } from "#common/canvasAlpha.js";
 
-const makeCanvas = (): HTMLCanvasElement =>
-  document.createElement("canvas");
+const makeCanvas = (): HTMLCanvasElement => document.createElement("canvas");
 
 describe("setLayerAlpha / getLayerAlpha", () => {
   it("defaults to 1 when nothing was stored", () => {

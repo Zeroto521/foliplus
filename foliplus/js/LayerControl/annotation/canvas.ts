@@ -6,13 +6,13 @@
 // layers below. Placement stays per layer — the manager plans each layer's
 // labels separately, so collision never crosses layers — and this class only
 // paints the slice it is handed.
+import { setLayerAlpha, withCanvasLayerAlpha } from "#common/canvasAlpha.js";
 import {
   type CanvasLabelStyle,
   drawCanvasLabel,
   prepareCanvasLabel,
   resolveCanvasLabelStyle,
 } from "#common/canvasLabel.js";
-import { setLayerAlpha, withCanvasLayerAlpha } from "#common/canvasAlpha.js";
 import { cancelMapPaneTranslate } from "#common/dom.js";
 import { type PlacedLabel } from "./layout.js";
 

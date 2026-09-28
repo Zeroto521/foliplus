@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { getLayerAlpha } from "#common/canvasAlpha.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { LayerManager } from "#foliplus/LayerControl/manager.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
@@ -18,6 +17,7 @@ import { EVENTS, ensureEvents } from "#foliplus/core/event/index.js";
 import { GEOM_TYPE } from "#foliplus/core/layer/const.js";
 import type { LayerInfo, PaneSpec } from "#foliplus/core/layer/index.js";
 import { ensureModes } from "#foliplus/core/mode.js";
+import { getLayerAlpha } from "#common/canvasAlpha.js";
 import {
   allFolded,
   attachWithGroup,

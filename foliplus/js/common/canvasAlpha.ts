@@ -28,18 +28,15 @@ const setLayerAlpha = (canvas: HTMLCanvasElement, alpha: number): void => {
 /** The layer alpha currently baked for this canvas. `null`/`undefined`
  *  canvas (not yet built) reads as 1 — draw at full strength, the carrier
  *  will pick up the value on the next commit. */
-const getLayerAlpha = (
-  canvas: HTMLCanvasElement | null | undefined,
-): number => (canvas ? (layerAlphas.get(canvas) ?? 1) : 1);
+const getLayerAlpha = (canvas: HTMLCanvasElement | null | undefined): number =>
+  canvas ? (layerAlphas.get(canvas) ?? 1) : 1;
 
 /** Effective stroke/fill alpha: declared body alpha × layer alpha.
  *  Both inputs are clamped to [0, 1]; the product is clamped again so a
  *  floating-point edge cannot push `globalAlpha` out of range. */
 const drawAlpha = (declared: number, layerAlpha: number): number => {
   const d = Number.isFinite(declared) ? Math.max(0, Math.min(1, declared)) : 1;
-  const l = Number.isFinite(layerAlpha)
-    ? Math.max(0, Math.min(1, layerAlpha))
-    : 1;
+  const l = Number.isFinite(layerAlpha) ? Math.max(0, Math.min(1, layerAlpha)) : 1;
   return Math.max(0, Math.min(1, d * l));
 };
 

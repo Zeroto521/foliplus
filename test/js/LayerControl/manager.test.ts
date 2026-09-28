@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getLayerAlpha } from "#common/canvasAlpha.js";
 import { EVENTS } from "#core/event/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { LayerManager } from "#foliplus/LayerControl/manager.js";
@@ -20,6 +19,7 @@ import {
   GEOM_TYPE,
   Z_INDEX,
 } from "#foliplus/core/layer/const.js";
+import { getLayerAlpha } from "#common/canvasAlpha.js";
 import * as Storage from "#common/storage.js";
 
 const ENFORCE_ORDER_DEBOUNCE_MS = 50;
