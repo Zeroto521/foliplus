@@ -44,7 +44,7 @@ import type {
   SavedConfig,
   SelectedPoint,
 } from "./type.js";
-import { type HeatmapControlUI, rebuildLayerDropdown } from "./ui.js";
+import { type HeatmapControlUI, rebuildLayerDropdown, resetPanel } from "./ui.js";
 
 const T = createScopedTranslator(CONF);
 const log = createLogger(CONF.name);
@@ -384,10 +384,23 @@ class HeatmapManager {
     );
     // LayerControl's deleteLayer emits LAYER_DELETED for component-owned layers
     // instead of retiring the id in removedIds, so the heatmap can clear its
-    // data and stay registerable for the next source pick. clearHeatmapCanvas
-    // also unregisters the overlay, which the panel reflects immediately.
+    // data and stay registerable for the next source pick. The clear resets
+    // the panel to its initial state (the panel's Clear button is the same
+    // operation) and drops the persisted record so a reload does not
+    // resurrect the cleared layer — same teardown as MeasureControl's
+    // LAYER_DELETED -> clearAll.
     this.removeLayerDeletedListener = this.events.on(EVENTS.LAYER_DELETED, ({ id }) => {
-      if (id === this.layerId) this.clearHeatmapCanvas();
+      if (id !== this.layerId) return;
+      if (this.ui) {
+        resetPanel(this.ui);
+      } else {
+        // No panel (control removed, or never built): reset state and wipe the
+        // canvas directly so a re-add does not render the stale selection.
+        this.resetState(CONF);
+        this.clearHeatmapCanvas();
+        this.syncSourceMeta();
+      }
+      this.clearSavedConfig();
     });
   }
 
@@ -670,6 +683,19 @@ class HeatmapManager {
     this.ui?.dropdownCleanup?.();
     // Notify LayerControl to refresh the count column (now 0).
     this.events.emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: this.layerId });
+  }
+
+  /** Reset selection + style state to the defaults declared in `conf`. Both
+   *  clear entries (the panel's Clear button and LayerControl's more-menu
+   *  delete) go through here, so the two can never drift apart. */
+  resetState(conf: ComponentConfig) {
+    this.selectedLayerId = null;
+    this.autoFieldKey = null;
+    this.currentAgg = conf.agg ?? CONST.AGG.COUNT;
+    this.currentField = "";
+    this.numClasses = conf.n_classes ?? CONST.CLASS_COUNT.DEFAULT;
+    this.currentMethod = conf.method ?? CLASSIFY_METHOD.JENKS;
+    this.currentScheme = conf.color_scheme ?? "Reds";
   }
 
   /** Load saved configuration from localStorage into this manager's state. */

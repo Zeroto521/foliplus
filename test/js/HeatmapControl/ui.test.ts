@@ -11,6 +11,7 @@ import {
   bindControls,
   initScan,
   rebuildLayerDropdown,
+  resetPanel,
   setupObserver,
 } from "#foliplus/HeatmapControl/ui.js";
 import { makeConf, makeCtrl, makeManager } from "./fixture.js";
@@ -214,7 +215,7 @@ describe("bindControls — clear (reset) button", () => {
     expect(m.numClasses).toBe(conf.n_classes);
     expect(m.currentMethod).toBe(conf.method);
     expect(m.currentScheme).toBe(conf.color_scheme);
-    expect(clearSaved).toHaveBeenCalled();
+    expect(clearSaved).toHaveBeenCalledTimes(1);
 
     expect(ctrl.extraBody.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
     expect(ctrl.ctrl.classList.contains(CONST.CLASSES.COLLAPSED)).toBe(true);
@@ -250,6 +251,65 @@ describe("bindControls — clear (reset) button", () => {
     expect(m.currentMethod).toBe(METHOD.JENKS);
     expect(m.currentField).toBe("");
     expect(ctrl.aggSelect.value).toBe(CONST.AGG.COUNT);
+  });
+});
+
+describe("resetPanel — shared reset (Clear button + more-menu clear)", () => {
+  it("resets state, canvas, and every dropdown back to the declared defaults", () => {
+    const conf = makeConf({ color_scheme: "Blues", n_classes: 4, method: "equal" });
+    const { ctrl, m } = setup(conf);
+    m.selectedLayerId = "p1";
+    m.currentAgg = CONST.AGG.SUM;
+    m.currentField = "price";
+    m.autoFieldKey = "price";
+    m.currentScheme = "Greens";
+    m.numClasses = 8;
+    m.currentMethod = "quantile";
+    m.cachedFeatures = [] as never;
+
+    resetPanel(ctrl);
+
+    expect(m.selectedLayerId).toBeNull();
+    expect(m.autoFieldKey).toBeNull();
+    expect(m.currentAgg).toBe(CONST.AGG.COUNT);
+    expect(m.currentField).toBe("");
+    expect(m.currentMethod).toBe(conf.method);
+    expect(m.currentScheme).toBe(conf.color_scheme);
+    expect(m.numClasses).toBe(conf.n_classes);
+    expect(m.cachedFeatures).toBeNull();
+
+    expect(ctrl.layerSelect.value).toBe("");
+    expect(ctrl.aggSelect.value).toBe(CONST.AGG.COUNT);
+    expect(ctrl.classSelect.value).toBe(String(conf.n_classes));
+    expect(ctrl.methodSelect.value).toBe(conf.method);
+    expect(ctrl.schemeSelectHidden.value).toBe(conf.color_scheme);
+    expect(ctrl.fieldSelect.value).toBe("");
+    expect(ctrl.extraBody.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
+  });
+
+  it("resets the aggregation to the declared default, not count", () => {
+    // The constructor honours conf.agg, so a clear has to land back on the
+    // declared value instead of dropping an agg="sum" map to count.
+    const { ctrl, m } = setup(makeConf({ agg: "sum" }));
+
+    resetPanel(ctrl);
+
+    expect(m.currentAgg).toBe(CONST.AGG.SUM);
+    expect(ctrl.aggSelect.value).toBe(CONST.AGG.SUM);
+  });
+
+  it("leaves the panel open and the persisted record alone", () => {
+    // Only the Clear button's own handler collapses the panel and clears the
+    // record — the more-menu clear keeps the panel open for the next pick.
+    const removeItem = vi.spyOn(window.localStorage, "removeItem");
+    const { ctrl } = setup();
+    ctrl.ctrl.classList.add(CONST.CLASSES.EXPANDED);
+
+    resetPanel(ctrl);
+
+    expect(ctrl.ctrl.classList.contains(CONST.CLASSES.EXPANDED)).toBe(true);
+    expect(ctrl.ctrl.classList.contains(CONST.CLASSES.COLLAPSED)).toBe(false);
+    expect(removeItem).not.toHaveBeenCalled();
   });
 });
 
