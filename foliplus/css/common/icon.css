@@ -18,7 +18,12 @@
    narrow group divider. */
 .foliplus-section-divider {
   height: var(--foliplus-border-thin);
-  background: linear-gradient(to right, transparent, var(--foliplus-divider-color), transparent);
+  background: linear-gradient(
+    to right,
+    transparent,
+    var(--foliplus-divider-color),
+    transparent
+  );
   border: none;
 }
 

@@ -77,7 +77,8 @@
     height: var(--foliplus-ctrl-size);
     flex-shrink: 0;
     box-sizing: border-box;
-    padding: 0 var(--foliplus-panel-header-padding-right) 0 var(--foliplus-panel-header-padding-left);
+    padding: 0 var(--foliplus-panel-header-padding-right) 0
+      var(--foliplus-panel-header-padding-left);
     border-bottom: var(--foliplus-border-thin) solid var(--foliplus-divider-color);
     font-size: var(--foliplus-font-size-md);
     font-weight: var(--foliplus-font-weight-semibold);

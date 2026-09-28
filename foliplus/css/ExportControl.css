@@ -112,22 +112,26 @@
     repeating-linear-gradient(
       to right,
       var(--foliplus-accent-primary) 0 var(--foliplus-size-6),
-      transparent var(--foliplus-size-6) calc(var(--foliplus-size-6) + var(--foliplus-size-4))
+      transparent var(--foliplus-size-6)
+        calc(var(--foliplus-size-6) + var(--foliplus-size-4))
     ),
     repeating-linear-gradient(
       to right,
       var(--foliplus-accent-primary) 0 var(--foliplus-size-6),
-      transparent var(--foliplus-size-6) calc(var(--foliplus-size-6) + var(--foliplus-size-4))
+      transparent var(--foliplus-size-6)
+        calc(var(--foliplus-size-6) + var(--foliplus-size-4))
     ),
     repeating-linear-gradient(
       to bottom,
       var(--foliplus-accent-primary) 0 var(--foliplus-size-6),
-      transparent var(--foliplus-size-6) calc(var(--foliplus-size-6) + var(--foliplus-size-4))
+      transparent var(--foliplus-size-6)
+        calc(var(--foliplus-size-6) + var(--foliplus-size-4))
     ),
     repeating-linear-gradient(
       to bottom,
       var(--foliplus-accent-primary) 0 var(--foliplus-size-6),
-      transparent var(--foliplus-size-6) calc(var(--foliplus-size-6) + var(--foliplus-size-4))
+      transparent var(--foliplus-size-6)
+        calc(var(--foliplus-size-6) + var(--foliplus-size-4))
     );
   background-size:
     100% var(--foliplus-border-thick),
@@ -169,7 +173,8 @@
     transition: none;
 
     &::before {
-      box-shadow: 0 0 0 var(--foliplus-export-dim-extent) var(--foliplus-export-dim-color-locked);
+      box-shadow: 0 0 0 var(--foliplus-export-dim-extent)
+        var(--foliplus-export-dim-color-locked);
     }
   }
 }
@@ -243,7 +248,8 @@
   left: 50%;
   width: var(--foliplus-export-anchor-size);
   height: var(--foliplus-export-anchor-size);
-  margin: calc(var(--foliplus-export-anchor-size) / -2) 0 0 calc(var(--foliplus-export-anchor-size) / -2);
+  margin: calc(var(--foliplus-export-anchor-size) / -2) 0 0
+    calc(var(--foliplus-export-anchor-size) / -2);
   background: var(--foliplus-accent-primary);
   border: var(--foliplus-border-thick) solid var(--foliplus-ctrl-bg);
   border-radius: var(--foliplus-radius-round);

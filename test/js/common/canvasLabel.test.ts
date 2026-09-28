@@ -63,7 +63,10 @@ describe("resolveCanvasLabelStyle", () => {
 
   it("falls back per-token when a numeric token is not numeric", () => {
     const style = resolveCanvasLabelStyle(
-      root({ "--foliplus-label-font-size": "abc", "--foliplus-label-halo-width": "auto" }),
+      root({
+        "--foliplus-label-font-size": "abc",
+        "--foliplus-label-halo-width": "auto",
+      }),
     );
 
     // A junk size must not parse to NaN and poison the font string.

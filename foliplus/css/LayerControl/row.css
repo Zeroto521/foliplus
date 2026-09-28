@@ -5,10 +5,10 @@
   --foliplus-drag-border-width: var(--foliplus-border-thick);
 
   /* Drop-position glow (top/bottom) */
-  --foliplus-drag-top-shadow: 0 calc(-1 * var(--foliplus-size-2)) var(--foliplus-size-6) calc(-1 * var(--foliplus-size-2))
-    var(--foliplus-accent-primary);
-  --foliplus-drag-bottom-shadow: 0 var(--foliplus-size-2) var(--foliplus-size-6) calc(-1 * var(--foliplus-size-2))
-    var(--foliplus-accent-primary);
+  --foliplus-drag-top-shadow: 0 calc(-1 * var(--foliplus-size-2)) var(--foliplus-size-6)
+    calc(-1 * var(--foliplus-size-2)) var(--foliplus-accent-primary);
+  --foliplus-drag-bottom-shadow: 0 var(--foliplus-size-2) var(--foliplus-size-6)
+    calc(-1 * var(--foliplus-size-2)) var(--foliplus-accent-primary);
 
   /* Pulse animation timing */
   --foliplus-drag-pulse-duration: 0.8s;
@@ -18,12 +18,14 @@
   --foliplus-drag-border-from: var(--foliplus-accent-primary);
   --foliplus-drag-border-to: var(--foliplus-accent-hover);
   /* Pulse shadow: start (from, tight) and end (to, diffuse) states */
-  --foliplus-drag-shadow-from: 0 0 var(--foliplus-size-4) calc(-1 * var(--foliplus-border-thin))
-    var(--foliplus-accent-primary);
+  --foliplus-drag-shadow-from: 0 0 var(--foliplus-size-4)
+    calc(-1 * var(--foliplus-border-thin)) var(--foliplus-accent-primary);
   --foliplus-drag-shadow-to: 0 0 var(--foliplus-size-8) 0 var(--foliplus-accent-primary);
 
   /* ── Layout ── */
-  --foliplus-layer-item-pad-x: calc(var(--foliplus-space-md) - var(--foliplus-size-2) + 1px);
+  --foliplus-layer-item-pad-x: calc(
+    var(--foliplus-space-md) - var(--foliplus-size-2) + 1px
+  );
 
   /* ── Shared 6-column track for all layer rows ──
     Each row is an independent grid container that reuses this track.
@@ -39,8 +41,9 @@
   --foliplus-count-track-width: 38px;
   --foliplus-more-btn-width: 7px;
   --foliplus-grid-layer-gap: 3px;
-  --foliplus-grid-layer-cols: var(--foliplus-space-xl) var(--foliplus-space-xl) 1fr var(--foliplus-count-track-width)
-    var(--foliplus-space-xl) var(--foliplus-more-btn-width);
+  --foliplus-grid-layer-cols: var(--foliplus-space-xl) var(--foliplus-space-xl) 1fr
+    var(--foliplus-count-track-width) var(--foliplus-space-xl)
+    var(--foliplus-more-btn-width);
 
   /* ── Row min-height ──
      Data rows are taller than group headers only because a data label spans
@@ -49,7 +52,8 @@
      baseline across every row type. Rows set box-sizing: border-box and this
      value is the TOTAL box height, so it is independent of the outer context. */
   --foliplus-layer-row-min-height: calc(
-    var(--foliplus-space-md) * 2 + var(--foliplus-font-size-md) * var(--foliplus-line-height-hint)
+    var(--foliplus-space-md) * 2 + var(--foliplus-font-size-md) *
+      var(--foliplus-line-height-hint)
   );
 
   /* ── Panel Content Overrides ──
@@ -155,7 +159,8 @@
        --foliplus-layer-row-min-height. A group header without an explicit right padding
        would fall back to the browser default (~8px), making it visibly taller
        and misaligning its left border with the data rows below it. */
-    padding: var(--foliplus-space-md) var(--foliplus-layer-item-pad-x) var(--foliplus-space-md) var(--foliplus-space-sm);
+    padding: var(--foliplus-space-md) var(--foliplus-layer-item-pad-x)
+      var(--foliplus-space-md) var(--foliplus-space-sm);
     box-sizing: border-box;
     min-height: var(--foliplus-layer-row-min-height);
     border-left: var(--foliplus-border-thick) solid transparent;
@@ -339,7 +344,8 @@
       /* Top/bottom red glow hugging the row edges; a 0 X-offset keeps it
          vertical (no left/right bleed). */
       box-shadow:
-        0 calc(-1 * var(--foliplus-size-2)) var(--foliplus-size-4) var(--foliplus-accent-primary),
+        0 calc(-1 * var(--foliplus-size-2)) var(--foliplus-size-4)
+          var(--foliplus-accent-primary),
         0 var(--foliplus-size-2) var(--foliplus-size-4) var(--foliplus-accent-primary);
       background: var(--foliplus-neutral-0);
 
@@ -395,7 +401,8 @@
     grid-template-columns: var(--foliplus-grid-layer-cols);
     grid-template-areas: "drag check label count icon more";
     column-gap: var(--foliplus-grid-layer-gap);
-    padding: var(--foliplus-space-md) var(--foliplus-layer-item-pad-x) var(--foliplus-space-md) var(--foliplus-space-sm);
+    padding: var(--foliplus-space-md) var(--foliplus-layer-item-pad-x)
+      var(--foliplus-space-md) var(--foliplus-space-sm);
     align-items: center;
     box-sizing: border-box;
     min-height: var(--foliplus-layer-row-min-height);
@@ -461,7 +468,8 @@
         var(--foliplus-drag-pulse-count);
     }
     &.foliplus-layer-drag-over-bottom {
-      border-bottom: var(--foliplus-drag-border-width) solid var(--foliplus-accent-primary);
+      border-bottom: var(--foliplus-drag-border-width) solid
+        var(--foliplus-accent-primary);
       background: var(--foliplus-accent-soft-bg);
       box-shadow: var(--foliplus-drag-bottom-shadow);
       animation: foliplus-drag-pulse var(--foliplus-drag-pulse-duration) ease-in-out

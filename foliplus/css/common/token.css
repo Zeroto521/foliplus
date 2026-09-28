@@ -67,7 +67,10 @@
   /* ── Effects ── */
   /* Semi-transparent red glow used in focus rings, breathing animation,
      button active-state inset shadow, and ExportControl crop glow. */
-  --foliplus-accent-soft-shadow: rgba(var(--foliplus-red-rgb), var(--foliplus-alpha-50));
+  --foliplus-accent-soft-shadow: rgba(
+    var(--foliplus-red-rgb),
+    var(--foliplus-alpha-50)
+  );
   /* Unified keyboard focus ring: thin accent hairline + soft red glow.
      Single source of truth for all :focus-visible rules across foliplus. */
   --foliplus-focus-ring:
@@ -75,7 +78,8 @@
     0 0 0 var(--foliplus-size-4) var(--foliplus-accent-soft-shadow);
   --foliplus-accent-soft-bg: rgba(var(--foliplus-red-rgb), var(--foliplus-alpha-05));
   --foliplus-ctrl-bg-translucent: rgba(255, 255, 255, var(--foliplus-alpha-70));
-  --foliplus-panel-shadow: 0 var(--foliplus-size-4) var(--foliplus-size-12) rgba(0, 0, 0, var(--foliplus-alpha-20));
+  --foliplus-panel-shadow: 0 var(--foliplus-size-4) var(--foliplus-size-12)
+    rgba(0, 0, 0, var(--foliplus-alpha-20));
 
   /* ── Typography ── */
   --foliplus-font-size-xs: 10px;
@@ -135,8 +139,12 @@
      thumb's transparent padding is not hit-testable — so the handle is the
      target, and it is flush. */
   --foliplus-slider-thumb-hit: var(--foliplus-slider-thumb-size);
-  --foliplus-slider-thumb-pad: calc((var(--foliplus-slider-thumb-hit) - var(--foliplus-slider-thumb-size)) / 2);
-  --foliplus-slider-thumb-core: calc(var(--foliplus-slider-thumb-size) / 2 - var(--foliplus-size-2));
+  --foliplus-slider-thumb-pad: calc(
+    (var(--foliplus-slider-thumb-hit) - var(--foliplus-slider-thumb-size)) / 2
+  );
+  --foliplus-slider-thumb-core: calc(
+    var(--foliplus-slider-thumb-size) / 2 - var(--foliplus-size-2)
+  );
   --foliplus-slider-thumb-ring: var(--foliplus-accent-primary);
   /* Both engines anchor a thumb's TOP edge to the track's top edge rather than
      centring it, so the taller handle hangs below the rail by half the
@@ -145,7 +153,8 @@
     (var(--foliplus-slider-rail-height) - var(--foliplus-slider-thumb-size)) / 2
   );
   /* Held state of a handle: a soft accent halo, drawn at the hit box's edge. */
-  --foliplus-slider-thumb-glow: 0 0 0 var(--foliplus-size-2) var(--foliplus-accent-soft-shadow);
+  --foliplus-slider-thumb-glow: 0 0 0 var(--foliplus-size-2)
+    var(--foliplus-accent-soft-shadow);
   /* The uncovered span of a rail: a fine gray checkerboard, the "nothing
      rendered here" convention. Two tokens because a rail's uncovered span is
      not always a plain color — set `--foliplus-slider-rail-pattern: none` and
@@ -209,14 +218,18 @@
   --foliplus-radius-card: var(--foliplus-size-8);
 
   /* ── Shadows ── */
-  --foliplus-shadow-md: 0 var(--foliplus-size-4) var(--foliplus-size-12) rgba(0, 0, 0, var(--foliplus-alpha-15));
-  --foliplus-shadow-xs: 0 var(--foliplus-size-2) var(--foliplus-size-4) rgba(0, 0, 0, var(--foliplus-alpha-15));
-  --foliplus-shadow-ctrl-strong: 0 var(--foliplus-size-2) var(--foliplus-size-8) rgba(0, 0, 0, var(--foliplus-alpha-50));
+  --foliplus-shadow-md: 0 var(--foliplus-size-4) var(--foliplus-size-12)
+    rgba(0, 0, 0, var(--foliplus-alpha-15));
+  --foliplus-shadow-xs: 0 var(--foliplus-size-2) var(--foliplus-size-4)
+    rgba(0, 0, 0, var(--foliplus-alpha-15));
+  --foliplus-shadow-ctrl-strong: 0 var(--foliplus-size-2) var(--foliplus-size-8)
+    rgba(0, 0, 0, var(--foliplus-alpha-50));
 
   /* ── Transitions ── */
   --foliplus-transition-fast: 0.15s ease;
   --foliplus-transition-input:
-    border-color var(--foliplus-transition-fast), box-shadow var(--foliplus-transition-fast);
+    border-color var(--foliplus-transition-fast),
+    box-shadow var(--foliplus-transition-fast);
 
   /* ── Z-index ──
   LayerControl JS manages pane z-index dynamically.

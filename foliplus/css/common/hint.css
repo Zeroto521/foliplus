@@ -16,7 +16,8 @@
   gap: var(--foliplus-space-sm);
   backdrop-filter: blur(8px);
   background: rgba(0, 0, 0, var(--foliplus-alpha-70));
-  border: var(--foliplus-border-thin) solid rgba(255, 255, 255, var(--foliplus-alpha-15));
+  border: var(--foliplus-border-thin) solid
+    rgba(255, 255, 255, var(--foliplus-alpha-15));
   border-radius: var(--foliplus-radius-lg);
   padding: var(--foliplus-space-md) var(--foliplus-space-xl);
   box-sizing: border-box;
@@ -26,7 +27,8 @@
   font-size: var(--foliplus-font-size-md);
   font-weight: var(--foliplus-font-weight-medium);
   line-height: var(--foliplus-line-height-hint);
-  box-shadow: 0 var(--foliplus-size-2) var(--foliplus-size-12) rgba(0, 0, 0, var(--foliplus-alpha-30));
+  box-shadow: 0 var(--foliplus-size-2) var(--foliplus-size-12)
+    rgba(0, 0, 0, var(--foliplus-alpha-30));
   animation: foliplus-hint-in 0.2s ease-out;
 }
 

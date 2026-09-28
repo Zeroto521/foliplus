@@ -273,7 +273,8 @@
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   pointer-events: none;
-  box-shadow: 0 var(--foliplus-border-thin) var(--foliplus-size-2) rgba(0, 0, 0, var(--foliplus-alpha-30));
+  box-shadow: 0 var(--foliplus-border-thin) var(--foliplus-size-2)
+    rgba(0, 0, 0, var(--foliplus-alpha-30));
   transform: translateX(-50%);
 }
 .foliplus-slider-bubble::after {

@@ -129,7 +129,8 @@ path.foliplus-measure-node-solid {
   color: var(--foliplus-neutral-0);
   padding: var(--foliplus-space-xs) var(--foliplus-space-sm);
   border-radius: var(--foliplus-radius-sm);
-  border: var(--foliplus-border-thin) solid rgba(255, 255, 255, var(--foliplus-alpha-15));
+  border: var(--foliplus-border-thin) solid
+    rgba(255, 255, 255, var(--foliplus-alpha-15));
   font-size: var(--foliplus-font-size-sm);
   white-space: nowrap;
   text-align: center;
