@@ -113,6 +113,46 @@ describe("HeatmapManager — caching & lifecycle", () => {
     expect(() => m.clearHeatmapCanvas()).not.toThrow();
   });
 
+  it("redrawHeatmap drops slider CSS so the bake never double-compounds (R11)", () => {
+    const m = makeManager();
+    const canvas = document.createElement("canvas");
+    canvas.style.opacity = "0.4"; // live slider arm left this on
+    m.overlay = {
+      canvas,
+      ctx: {
+        setTransform: vi.fn(),
+        clearRect: vi.fn(),
+        beginPath: vi.fn(),
+        moveTo: vi.fn(),
+        lineTo: vi.fn(),
+        closePath: vi.fn(),
+        fill: vi.fn(),
+        stroke: vi.fn(),
+        fillText: vi.fn(),
+        measureText: vi.fn(() => ({ width: 10 })),
+      } as unknown as CanvasRenderingContext2D,
+      register: vi.fn(),
+      unregister: vi.fn(),
+      setVisible: vi.fn(),
+      hooks: { before: [], after: [] },
+    };
+    m.cachedFeatures = [] as never;
+    m.currentLabelShow = false;
+    // resolveLabelStyle runs unconditionally before the feature loop.
+    m.ui = { ...makeCtrl(m), ctrl: document.createElement("div") };
+    m.map.getContainer = vi.fn(() => {
+      const c = document.createElement("div");
+      Object.defineProperty(c, "clientWidth", { value: 100 });
+      Object.defineProperty(c, "clientHeight", { value: 100 });
+      return c;
+    });
+    m.map.getBounds = vi.fn(() => ({ contains: () => true }));
+
+    m.redrawHeatmap();
+    // Bake is now the carrier: CSS must be cleared before the draw.
+    expect(canvas.style.opacity).toBe("");
+  });
+
   it("clearHeatmapCanvas emits LAYER_ITEM_COUNT_CHANGE so LayerControl refreshes count to 0", () => {
     const m = makeManager();
     const bus = ensureEvents(m.map);
