@@ -185,7 +185,10 @@ const showCropBox = (mgr: ExportManager) => {
   });
   mgr.mapContainer.classList.add(CONST.CLASSES.EXPORT_MODE);
   document.body.classList.add(CONST.CLASSES.EXPORT_MODE);
-  const cropBox = dom.el("div", { class: CONST.CLASSES.EXPORT_BOX, parent: mgr.mapContainer });
+  const cropBox = dom.el("div", {
+    class: CONST.CLASSES.EXPORT_BOX,
+    parent: mgr.mapContainer,
+  });
 
   ["tl", "tr", "bl", "br", "t", "b", "l", "r"].forEach(pos => {
     dom.el("div", {
