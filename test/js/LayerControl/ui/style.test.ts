@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { getLayerAlpha } from "#common/canvasAlpha.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerManager } from "#foliplus/LayerControl/manager.js";
 import { applyProjection } from "#foliplus/LayerControl/ui/apply.js";
@@ -837,7 +838,8 @@ describe("LayerUI style panel", () => {
     expect(fillPct(fill)).toBeCloseTo(0.35);
   });
 
-  it("canvas layers apply opacity via canvas.style.opacity", () => {
+  it("canvas layers with opacityBake 'redraw' keep CSS on the slider commit", () => {
+    // Heatmap arm (default): CSS live feedback, bake deferred to redraw.
     manager.registerLayer({
       id: "heat1",
       name: "Heat",
@@ -855,7 +857,33 @@ describe("LayerUI style panel", () => {
     range.value = "40";
     range.dispatchEvent(new Event("input", { bubbles: true }));
 
+    // CSS arm for live feedback; layerAlpha is stored for the next redraw.
     expect(li.canvas!.style.opacity).toBe("0.4");
+    expect(getLayerAlpha(li.canvas)).toBeCloseTo(0.4);
+    expect(li.opacity).toBe(0.4);
+  });
+
+  it("canvas layers with opacityBake 'commit' bake and clear CSS", () => {
+    // Color-face arm: bake on the commit itself, CSS cleared.
+    manager.registerLayer({
+      id: "color1",
+      name: "Color",
+      canvas: document.createElement("canvas"),
+      opacityBake: "commit",
+    });
+    const li = manager.layerRegistry.get("color1")!;
+    const item = findItem(ui, "color1");
+    ui.openStylePanel("color1");
+    const panel = panelOf(item)!;
+    const range = panel.querySelector(
+      ".foliplus-style-opacity-range",
+    ) as HTMLInputElement;
+
+    range.value = "40";
+    range.dispatchEvent(new Event("input", { bubbles: true }));
+
+    expect(getLayerAlpha(li.canvas)).toBeCloseTo(0.4);
+    expect(li.canvas!.style.opacity).toBe("");
     expect(li.opacity).toBe(0.4);
   });
 
@@ -940,6 +968,7 @@ describe("LayerUI style panel", () => {
     btn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
 
     expect(li.opacity).toBe(1);
+    expect(getLayerAlpha(li.canvas)).toBe(1);
     expect(li.canvas!.style.opacity).toBe("1");
     expect(ui.opacityMap.heat1).toBeUndefined();
     expect(labelShowSetter).toHaveBeenCalledWith(true);

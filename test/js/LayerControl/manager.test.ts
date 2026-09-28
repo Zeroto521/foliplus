@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { getLayerAlpha } from "#common/canvasAlpha.js";
 import { EVENTS } from "#core/event/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { LayerManager } from "#foliplus/LayerControl/manager.js";
@@ -1521,7 +1522,9 @@ describe("LayerManager", () => {
     const fresh = document.createElement("canvas");
     manager.registerLayer({ id: "heat", name: "Heat", canvas: fresh });
 
+    // Default "redraw" arm: CSS live + layerAlpha stored.
     expect(fresh.style.opacity).toBe("0.4");
+    expect(getLayerAlpha(fresh)).toBeCloseTo(0.4);
     expect(manager.layerRegistry.get("heat")?.opacity).toBe(0.4);
   });
 

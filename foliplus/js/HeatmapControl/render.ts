@@ -7,11 +7,15 @@ import {
   prepareCanvasLabel,
   resolveCanvasLabelStyle,
 } from "#common/canvasLabel.js";
+import { drawAlpha, getLayerAlpha, withCanvasLayerAlpha } from "#common/canvasAlpha.js";
 import { type NumberStyle, formatLabelNumber } from "#common/format.js";
 import * as CONST from "./const.js";
 import type { HexFeature } from "./type.js";
 
-/** Draw a single hexagon polygon (fill + stroke). */
+/** Draw a single hexagon polygon (fill + stroke).
+ *  Declared fill/border opacity (CONF.fill_opacity / CONF.border_opacity)
+ *  stacks multiplicatively with the layer alpha the opacity slider baked
+ *  onto the canvas — do not write either one as a bare `globalAlpha`. */
 const drawHexagon = (
   ctx: CanvasRenderingContext2D,
   feat: HexFeature,
@@ -22,19 +26,20 @@ const drawHexagon = (
   const pts = feat.geometry.coordinates[0].map(p =>
     map.latLngToContainerPoint(L.latLng(p[1], p[0])),
   );
+  const layerAlpha = getLayerAlpha(ctx.canvas);
   ctx.beginPath();
   ctx.moveTo(pts[0].x, pts[0].y);
   for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
   ctx.closePath();
   ctx.fillStyle = feat.properties.fillColor || CONST.GRAY;
-  ctx.globalAlpha = CONF.fill_opacity ?? 1;
+  ctx.globalAlpha = drawAlpha(CONF.fill_opacity ?? 1, layerAlpha);
   ctx.fill();
   ctx.globalAlpha = 1;
 
   if (borderWeight > 0 && (CONF.border_opacity ?? 0) > 0) {
     ctx.strokeStyle = borderColor;
     ctx.lineWidth = borderWeight;
-    ctx.globalAlpha = CONF.border_opacity ?? 1;
+    ctx.globalAlpha = drawAlpha(CONF.border_opacity ?? 1, layerAlpha);
     ctx.stroke();
     ctx.globalAlpha = 1;
   }
@@ -73,8 +78,10 @@ const drawHexLabel = (
     currentLabelFormat,
     CONF.locale_code,
   );
-  prepareCanvasLabel(ctx, style);
-  drawCanvasLabel(ctx, text, pt.x, pt.y, style);
+  withCanvasLayerAlpha(ctx, () => {
+    prepareCanvasLabel(ctx, style);
+    drawCanvasLabel(ctx, text, pt.x, pt.y, style);
+  });
 };
 
 export { drawHexagon, drawHexLabel, resolveLabelStyle };

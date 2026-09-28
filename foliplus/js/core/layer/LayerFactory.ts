@@ -1,6 +1,7 @@
 // core/layer/LayerFactory — standalone createLayers/createCanvas factories.
 // Pure logic, no CONF / translator dependency. Takes map + PaneManager +
 // register/unregister callbacks via dependency injection.
+import { withCanvasLayerAlpha } from "#common/canvasAlpha.js";
 import { cancelMapPaneTranslate, dom } from "#common/dom.js";
 import { createLogger } from "#common/log.js";
 import { throttleRaf } from "#common/throttle.js";
@@ -120,6 +121,7 @@ class LayerFactory {
       styleProvider: opts.styleProvider,
       styleSetters: opts.styleSetters,
       styleDefaults: opts.styleDefaults,
+      onOpacity: opts.onOpacity,
       content: {
         kind: "canvas",
         className: opts.className,
@@ -149,6 +151,7 @@ class LayerFactory {
       id: opts.id,
       name: opts.name,
       persistOrder: opts.persistOrder,
+      onOpacity: opts.onOpacity,
       content: { kind: "color", color: opts.color },
     });
     // register() is called by the caller (LayerControl UI) after setting
@@ -195,6 +198,8 @@ class LayerFactory {
       styleSetters: opts.styleSetters ?? null,
       styleDefaults: opts.styleDefaults ?? null,
       metaProvider: opts.metaProvider ?? null,
+      onOpacity: opts.onOpacity ?? null,
+      opacityBake: opts.opacityBake,
     };
 
     let registered = false;
@@ -387,11 +392,18 @@ class LayerFactory {
       if (!ctx) throw new Error(log.msg("color surface requires a 2d context"));
 
       let fill = color;
+      // R11: bake the layer opacity into the single fillRect. CSS opacity on
+      // a full-viewport canvas forces a GPU composite buffer; the redraw is
+      // one rect, so baking is free and keeps pixels honest. Callers that
+      // want a redraw-on-commit pass `onOpacity`; when they do not, the
+      // factory supplies `paint` itself so the bake still lands.
       const paint = () => {
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.clearRect(0, 0, face.width, face.height);
-        ctx.fillStyle = fill;
-        ctx.fillRect(0, 0, face.width, face.height);
+        withCanvasLayerAlpha(ctx, () => {
+          ctx.fillStyle = fill;
+          ctx.fillRect(0, 0, face.width, face.height);
+        });
       };
       const setColor = (next: string) => {
         fill = next;
@@ -420,6 +432,12 @@ class LayerFactory {
 
       layerOpts = {
         ...commonLayerOpts,
+        // Default the opacity redraw hook to the face's own paint so a
+        // caller that only wants the fill still gets the bake live. Color
+        // is a single fillRect — `"commit"` (bake + repaint on the slider
+        // itself) is cheaper than keeping a CSS composite layer around.
+        onOpacity: commonLayerOpts.onOpacity ?? paint,
+        opacityBake: opts.opacityBake ?? "commit",
         group: GROUP.BASE,
         baseInsert: "bottom",
         persistOrder: opts.persistOrder,

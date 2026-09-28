@@ -77,6 +77,7 @@
 - `LayerControl`: style panel sections read Layer above Label, and the Layer section rows read fill, border, opacity, zoom range — the two color axes sit adjacent and the two slider axes sit adjacent; rows the layer cannot carry stay hidden ([#458](https://github.com/Zeroto521/foliplus/pull/458), [#502](https://github.com/Zeroto521/foliplus/pull/502))
 - `LayerControl`: style-panel dimensions become registry descriptors (`registerDimension` / `DIM_ORDER`) — the panel discovers rows through the registry, gate = capability check ([#505](https://github.com/Zeroto521/foliplus/pull/505), [#513](https://github.com/Zeroto521/foliplus/pull/513), [#522](https://github.com/Zeroto521/foliplus/pull/522))
 - `LayerControl` / `HeatmapControl`: the style, attributes and heatmap panels drop their group headings and read as one flat row list; row labels are right-aligned, so all three panels share one label edge ([#516](https://github.com/Zeroto521/foliplus/pull/516))
+- `LayerControl` / `HeatmapControl` / color basemap: layer opacity on self-drawn canvases bakes into the draw (`globalAlpha` via a shared helper) instead of relying only on CSS `opacity` — a large heatmap keeps a cheap CSS live path on the slider and bakes on pan/zoom redraws so a ≥5k layer does not force a full hex redraw per commit; color and annotation canvases bake on commit. Fill/border declared opacity multiplies with the layer alpha; export-side baking is unchanged
 
 ### Removed
 

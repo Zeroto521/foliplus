@@ -20,6 +20,7 @@ import {
   resolveCanvasLabelStyle,
   withLabelPaint,
 } from "#common/canvasLabel.js";
+import { setLayerAlpha } from "#common/canvasAlpha.js";
 import { type NumberStyle, formatLabelNumber } from "#common/format.js";
 import { bindMapSync } from "#common/panel.js";
 import * as CONST from "../const.js";
@@ -299,6 +300,18 @@ class AnnotationManager {
     if (!this.labelsByLayer.delete(id)) return;
     this.canvases.get(id)?.paint([]);
     this.refresh();
+  }
+
+  /** Bake the layer's opacity slider value into this layer's label canvas
+   *  (R11) and repaint. The annotation pane no longer takes the CSS opacity
+   *  write — baking is the sole carrier so labels do not double-compound
+   *  with the vector data panes' CSS. No-op when the layer has no canvas
+   *  yet (labels off): the value is stored on the element at mount and the
+   *  next paint picks it up. */
+  applyLayerAlpha(id: string, alpha: number): void {
+    const canvas = this.canvases.get(id);
+    if (!canvas) return;
+    canvas.setLayerAlpha(alpha);
   }
 
   /** Tear down a layer's rendering state — labels, canvas, auto-field

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { getLayerAlpha } from "#common/canvasAlpha.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { LayerManager } from "#foliplus/LayerControl/manager.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
@@ -928,7 +929,9 @@ describe("LayerUI opacity restore / retention", () => {
 
     u.applyUserState("heat");
 
+    // Default "redraw" arm: CSS live + layerAlpha stored for the next paint.
     expect(canvas.style.opacity).toBe("0.25");
+    expect(getLayerAlpha(canvas)).toBeCloseTo(0.25);
     expect(m.layerRegistry.get("heat")?.opacity).toBe(0.25);
   });
 

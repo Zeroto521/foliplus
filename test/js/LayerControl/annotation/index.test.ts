@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => {
     paint: ReturnType<typeof vi.fn>;
     setVisible: ReturnType<typeof vi.fn>;
     destroy: ReturnType<typeof vi.fn>;
+    setLayerAlpha: ReturnType<typeof vi.fn>;
   }
   const instances: MockCanvas[] = [];
 
@@ -21,6 +22,7 @@ const mocks = vi.hoisted(() => {
     paint = vi.fn();
     setVisible = vi.fn();
     destroy = vi.fn();
+    setLayerAlpha = vi.fn();
     constructor(_map: unknown, _pane: unknown) {
       instances.push(this);
     }
@@ -793,6 +795,11 @@ describe("a layer that gains labelable content gets the stored intent on its new
 
     const pane = panes.get(CONST.ANNOTATION_PANE_PREFIX + "overlay1");
     expect(pane, "the annotation pane was created").toBeTruthy();
-    expect(getComputedStyle(pane!).opacity).toBe("0.3");
+    // R11: the annotation pane does NOT take CSS opacity — the label canvas
+    // bakes layerAlpha into its draws. CSS here would double-compound.
+    expect(pane!.style.opacity).toBe("");
+    expect(getComputedStyle(pane!).opacity).toBe("1");
+    // The bake write landed on the mounted label canvas.
+    expect(canvas().setLayerAlpha).toHaveBeenCalledWith(0.3);
   });
 });

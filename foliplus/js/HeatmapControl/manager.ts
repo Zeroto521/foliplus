@@ -291,6 +291,13 @@ class HeatmapManager {
         borderWeight: defaultBorderWeight,
         borderColor: defaultBorderColor,
       }),
+      // R11 dual path (`opacityBake: "redraw"` — the default): the slider
+      // commit keeps CSS `opacity` for live feedback and does NOT force a
+      // full hexagon redraw (measured 28.5ms @5k stub-ctx, over the 16ms
+      // jank budget). The bake lands on the next pan/zoom redraw: draws
+      // read `getLayerAlpha`, and `redrawHeatmap` drops the CSS so the two
+      // carriers never compound.
+      opacityBake: "redraw",
     });
     // ExportControl publishes BEFORE/AFTER_EXPORT to request a full-resolution
     // capture pass: un-clip the render (renderAll) so out-of-bounds hexes
@@ -418,6 +425,10 @@ class HeatmapManager {
   /** Redraw the heatmap canvas from cached features. */
   redrawHeatmap() {
     if (!this.overlay.canvas || !this.cachedFeatures) return;
+    // R11 dual-path handoff: the slider may have left CSS `opacity` on for
+    // live feedback. This paint bakes layerAlpha into the draws, so drop
+    // the CSS first — the two carriers must never compound.
+    this.overlay.canvas.style.opacity = "";
     const ctx = this.overlay.ctx;
     if (!ctx) return;
     const container = this.map.getContainer();

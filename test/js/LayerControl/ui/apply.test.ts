@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { getLayerAlpha } from "#common/canvasAlpha.js";
 import { LayerManager } from "#foliplus/LayerControl/manager.js";
 import {
   applyProjection,
@@ -264,13 +265,17 @@ describe("executor: late-carrier replay", () => {
     ui.opacityMap.h = 0.4;
     ui.intentProvenance.h = ["opacity"];
     applyProjection(ui, "h");
+    // Default "redraw" arm: CSS live + layerAlpha stored for the next paint.
     expect(oldCanvas.style.opacity).toBe("0.4");
+    expect(getLayerAlpha(oldCanvas)).toBeCloseTo(0.4);
 
     // Re-register with a fresh canvas: the stored opacity must snap in.
     manager.registerLayer({ id: "h", name: "Heat", canvas: freshCanvas });
     applyProjection(ui, "h");
     expect(freshCanvas.style.opacity).toBe("0.4");
+    expect(getLayerAlpha(freshCanvas)).toBeCloseTo(0.4);
     expect(oldCanvas.style.opacity).toBe("0.4"); // the old element still holds it
+    expect(getLayerAlpha(oldCanvas)).toBeCloseTo(0.4);
   });
 
   it("the label pane rides the surface's pane set — the first write covers it", () => {
@@ -322,12 +327,16 @@ describe("executor: late-carrier replay", () => {
     const li = manager.layerRegistry.get("a1")!;
     expect(manager.surfaceFor(li).paneNames).toContain("foliplus-annotation-a1");
 
-    // Stored opacity: the first write covers every declared pane, the label
-    // pane included — no replay hook fires, none exists.
+    // Stored opacity: the first write covers every declared non-annotation
+    // pane. The label pane is excluded from CSS (R11 bakes layerAlpha into
+    // AnnotationCanvas draws) so the two carriers never double-compound.
+    const applyAlpha = vi.spyOn(ui.m.annotation, "applyLayerAlpha");
     ui.opacityMap.a1 = 0.3;
     ui.intentProvenance.a1 = ["opacity"];
     applyProjection(ui, "a1");
-    expect(paneFor("foliplus-annotation-a1").style.opacity).toBe("0.3");
+    expect(paneFor("foliplus-annotation-a1").style.opacity).toBe("");
+    // The annotation manager received the bake write for this layer.
+    expect(applyAlpha).toHaveBeenCalledWith("a1", 0.3);
 
     // Settled: value and carrier unchanged, so nothing is written again.
     (map.getPane as ReturnType<typeof vi.fn>).mockClear();
@@ -404,7 +413,8 @@ describe("executor: idempotent writes", () => {
     vi.useRealTimers();
 
     // Only layer "a" has a stored opacity — layer "b" is untouched and
-    // keeps the author's declared default (1, painted as "1" on the canvas).
+    // keeps the author's declared default (1). Default "redraw" arm writes
+    // CSS; layerAlpha is stored for the next bake paint.
     // The registry-position independence is proven by "a" landing its 0.7
     // on the right canvas: if the diff misrouted by position, either
     // canvas would end up with 0.7 and the other with 1.
@@ -414,6 +424,8 @@ describe("executor: idempotent writes", () => {
 
     expect(aCanvas.style.opacity).toBe("0.7");
     expect(bCanvas.style.opacity).toBe("1");
+    expect(getLayerAlpha(aCanvas)).toBeCloseTo(0.7);
+    expect(getLayerAlpha(bCanvas)).toBe(1);
     expect(ui.opacityMap.b).toBeUndefined();
   });
 });

@@ -26,6 +26,7 @@
 // Naming: "state op" is the shape the carrier dispatcher accepts.
 // "Projection" is what the diff compares — intent + policy together, so
 // a change on either side produces an op.
+import { setLayerAlpha } from "#common/canvasAlpha.js";
 import { HIDDEN } from "#core/layer/index.js";
 import { resetGridLayerView } from "#core/leafletAdapter.js";
 import * as CONST from "../const.js";
@@ -185,12 +186,33 @@ const applyStateOp = (ui: LayerUI, layerInfo: LayerInfo, op: StateOp): void => {
   }
   if (op.type === "opacity") {
     if (layerInfo.canvas) {
-      // Canvas element's own CSS opacity — the carrier for
-      // heatmap / measure. Kept separate from the pane write: the pane's
-      // opacity would compound with this one, and a single knob must not
-      // be multiplied twice.
+      // R11: layer alpha for self-drawn canvases. Two arms, one helper
+      // (`#common/canvasAlpha`), switched by `opacityBake`:
+      //
+      //   "commit"  — bake layerAlpha and redraw on the slider commit.
+      //               Cheap for a one-rect color face or a label pass.
+      //   "redraw"  — slider commit keeps CSS `opacity` (O(1), live
+      //               feedback); the next pan/zoom redraw bakes and drops
+      //               the CSS. Default. Heatmap ≥5k takes this arm because
+      //               a full hexagon redraw per commit is jank (measured
+      //               28.5ms @5k on a stub ctx — over the 16ms budget).
+      //
+      // `capabilities.opacity` still reports `"pane"` — the write target is
+      // the canvas face. The bake-vs-CSS mechanism tier ("baked"/"redraw")
+      // is owned by T222; `"pane"` stays the honest "we own this face"
+      // answer and this comment is what stops it from lying.
       const value = op.value ?? 1;
-      layerInfo.canvas.style.opacity = String(value);
+      const bake = layerInfo.opacityBake ?? "redraw";
+      setLayerAlpha(layerInfo.canvas, value);
+      if (bake === "commit") {
+        layerInfo.canvas.style.opacity = "";
+        layerInfo.onOpacity?.(value);
+      } else {
+        // Live CSS arm. The drawer's next paint reads getLayerAlpha and
+        // bakes the same value, then clears this CSS (see HeatmapManager.
+        // redrawHeatmap) so the two never compound.
+        layerInfo.canvas.style.opacity = String(value);
+      }
       layerInfo.opacity = value;
       return;
     }
@@ -214,14 +236,23 @@ const applyStateOp = (ui: LayerUI, layerInfo: LayerInfo, op: StateOp): void => {
       }
       layerInfo.opacity = op.value ?? 1;
     } else {
-      // One CSS write per pane the surface owns — declared, sub,
-      // synthesized, or the `role: "annotation"` label pane. Multiplicative
-      // over each feature's own style, so a hollow polygon keeps its hole.
+      // One CSS write per pane the surface owns — declared, sub, or
+      // synthesized. Multiplicative over each feature's own style, so a
+      // hollow polygon keeps its hole.
+      //
+      // The `role: "annotation"` label pane is deliberately excluded: its
+      // canvas bakes layerAlpha into the label draws (R11). Writing CSS
+      // here as well would double-compound. Mixed layers therefore take
+      // CSS on the vector data panes and bake on the label canvas — both
+      // sides land at the same visual opacity.
       const value = op.value ?? 1;
-      for (const name of ui.m.surfaceFor(layerInfo).paneNames) {
-        const pane = ui.m.map.getPane(name);
-        if (pane) pane.style.opacity = String(value);
+      const surface = ui.m.surfaceFor(layerInfo);
+      for (const pane of surface.panes) {
+        if (pane.role === "annotation") continue;
+        const el = ui.m.map.getPane(pane.name);
+        if (el) el.style.opacity = String(value);
       }
+      ui.m.annotation.applyLayerAlpha(layerInfo.id, value);
       layerInfo.opacity = value;
     }
   }

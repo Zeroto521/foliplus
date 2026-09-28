@@ -12,6 +12,7 @@ import {
   prepareCanvasLabel,
   resolveCanvasLabelStyle,
 } from "#common/canvasLabel.js";
+import { setLayerAlpha, withCanvasLayerAlpha } from "#common/canvasAlpha.js";
 import { cancelMapPaneTranslate } from "#common/dom.js";
 import { type PlacedLabel } from "./layout.js";
 
@@ -23,6 +24,9 @@ class AnnotationCanvas {
   private readonly canvas: HTMLCanvasElement;
   private readonly ctx: CanvasRenderingContext2D;
   private cachedStyle: CanvasLabelStyle | null = null;
+  /** Last plan handed to `paint`, so an opacity commit can repaint without
+   *  going back through the layout. Empty until the first paint. */
+  private lastPlanned: readonly PlacedLabel[] = [];
 
   constructor(map: L.Map, pane: HTMLElement) {
     this.map = map;
@@ -46,6 +50,7 @@ class AnnotationCanvas {
   /** Paint this layer's slice of the plan; replaces the previous frame.
    *  `style` overlays runtime color/size on the shared --label-* tokens. */
   paint(planned: readonly PlacedLabel[], style?: CanvasLabelStyle): void {
+    this.lastPlanned = planned;
     this.resize();
     this.updatePosition();
 
@@ -57,16 +62,21 @@ class AnnotationCanvas {
 
     const paint =
       style ?? (this.cachedStyle ??= resolveCanvasLabelStyle(this.container));
-    prepareCanvasLabel(ctx, paint);
-    for (const label of planned) {
-      drawCanvasLabel(
-        ctx,
-        label.text,
-        label.box.x + label.box.w / 2,
-        label.box.y + label.box.h / 2,
-        paint,
-      );
-    }
+    // Layer alpha is baked into the labels (R11), not applied as pane CSS —
+    // the vector data panes still take the CSS path, so both sides of a mixed
+    // layer must end up at the same visual opacity.
+    withCanvasLayerAlpha(ctx, () => {
+      prepareCanvasLabel(ctx, paint);
+      for (const label of planned) {
+        drawCanvasLabel(
+          ctx,
+          label.text,
+          label.box.x + label.box.w / 2,
+          label.box.y + label.box.h / 2,
+          paint,
+        );
+      }
+    });
   }
 
   /** Hide the canvas while Leaflet's zoom animation runs — the pane's parent
@@ -74,6 +84,16 @@ class AnnotationCanvas {
    *  labels. The manager redraws on zoomend. */
   setVisible(visible: boolean): void {
     this.canvas.style.visibility = visible ? "" : "hidden";
+  }
+
+  /** Store the layer opacity this canvas bakes into `paint`, and repaint the
+   *  last plan so the change is visible without waiting for the next map
+   *  event. R11: labels take the bake path, the pane CSS stays at 1. */
+  setLayerAlpha(alpha: number): void {
+    setLayerAlpha(this.canvas, alpha);
+    // Re-paint the current plan: the manager re-sends `planned` on the next
+    // map event anyway, but an opacity commit must land immediately.
+    this.paint(this.lastPlanned, this.cachedStyle ?? undefined);
   }
 
   destroy(): void {
