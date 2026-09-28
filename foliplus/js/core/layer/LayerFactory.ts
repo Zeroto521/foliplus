@@ -101,6 +101,12 @@ class LayerFactory {
   }
 
   createCanvas(opts: CreateCanvasOpts): CreateCanvasAPI {
+    if ((opts as { onToggle?: unknown }).onToggle) {
+      log.warn(
+        `createCanvas: "onToggle" is deprecated and ignored — visibility ` +
+          `rides the surface's capabilities.visibility carrier`,
+      );
+    }
     const handle = this.createSurface({
       id: opts.id,
       name: opts.name,
@@ -134,6 +140,12 @@ class LayerFactory {
   }
 
   createColor(opts: CreateColorOpts): CreateColorAPI {
+    if ((opts as { onToggle?: unknown }).onToggle) {
+      log.warn(
+        `createColor: "onToggle" is deprecated and ignored — visibility ` +
+          `rides the surface's capabilities.visibility carrier`,
+      );
+    }
     const handle = this.createSurface({
       id: opts.id,
       name: opts.name,

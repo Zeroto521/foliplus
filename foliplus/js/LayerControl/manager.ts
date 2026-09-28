@@ -39,6 +39,11 @@ import { LayerUI } from "./ui/index.js";
 const T = createScopedTranslator(CONF);
 const log = createLogger(CONF.name);
 
+// Once-per-bundle latch for the retired `onToggle` deprecation warning —
+// registerLayer can fire again on every re-registration, and one migration
+// hint per control instance is enough.
+let onToggleWarned = false;
+
 // ==================== BringToFront Guard (monkey-patch) ====================
 // Guard Leaflet's bringToFront against null parentNode during enforceOrder
 // layer migration (enforceOrder briefly removes layers from the map, and a
@@ -619,7 +624,8 @@ class LayerManager implements LayerAPI {
     // Deprecated: onToggle was the canvas visibility callback (T139a). The
     // field is removed from the type; visibility now rides the surface's
     // `capabilities.visibility` carrier. Warn once so JS callers migrate.
-    if ((opts as { onToggle?: unknown }).onToggle) {
+    if (!onToggleWarned && (opts as { onToggle?: unknown }).onToggle) {
+      onToggleWarned = true;
       log.warn(
         `registerLayer: "onToggle" is deprecated and ignored — use the ` +
           `surface's visibility carrier (canvas HIDDEN class) instead`,

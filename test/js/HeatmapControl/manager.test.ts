@@ -222,46 +222,56 @@ describe("HeatmapManager — layer visibility vs zoom", () => {
   const zoomstartHandler = (m: HeatmapManager): (() => void) =>
     m.map.on.mock.calls.filter(([evt]: [string]) => evt === "zoomstart")[0][1];
 
-  it("zoomstart hides the canvas even when the layer is logically visible", () => {
-    const m = makeManager();
-    m.overlay.setVisible.mockClear();
-    zoomstartHandler(m)();
-    expect(m.overlay.setVisible).toHaveBeenCalledWith(false);
-  });
-
-  it("zoomend does not re-show a layer the user hid in LayerControl", () => {
-    // The canvas HIDDEN class is the source of truth for LayerControl's hide
-    // intent — the executor writes it when the checkbox is off. When it's
-    // present on zoomend, neither the immediate nor the debounced handler
-    // should call setVisible(true).
+  it("zoomstart borrows the canvas away through its visibility style", () => {
+    // The anti-flicker temp-hide must not stamp the HIDDEN class: that
+    // class is the LayerControl intent channel, and stamping it would make
+    // "zoom hid it" indistinguishable from "the user hid it" at restore.
     const m = makeManager();
     m.overlay.canvas = document.createElement("canvas");
-    m.overlay.canvas.classList.add("hidden");
-    m.overlay.setVisible.mockClear();
+    zoomstartHandler(m)();
+    expect(m.overlay.canvas.style.visibility).toBe("hidden");
+    expect(m.overlay.canvas.classList.contains("hidden")).toBe(false);
+    expect(m.overlay.setVisible).not.toHaveBeenCalled();
+  });
+
+  it("zoomend hands the visibility style back and never touches the HIDDEN class", () => {
+    const m = makeManager();
+    m.overlay.canvas = document.createElement("canvas");
+    zoomstartHandler(m)();
     zoomendHandlers(m).forEach(fn => fn());
+    expect(m.overlay.canvas.style.visibility).toBe("");
+    expect(m.overlay.canvas.classList.contains("hidden")).toBe(false);
+    expect(m.overlay.setVisible).not.toHaveBeenCalledWith(true);
+    expect(m.overlay.setVisible).not.toHaveBeenCalledWith(false);
+  });
+
+  it("a user-hidden canvas keeps its HIDDEN class through a full zoom cycle", () => {
+    // The class is the executor's channel: the zoom cycle borrows and
+    // returns only the style, so the user's hide survives untouched — no
+    // LayerControl state mirror needed on this side anymore.
+    const m = makeManager();
+    m.overlay.canvas = document.createElement("canvas");
+    m.overlay.canvas.classList.add("hidden"); // LayerControl checkbox off
+    zoomstartHandler(m)();
+    zoomendHandlers(m).forEach(fn => fn());
+    expect(m.overlay.canvas.classList.contains("hidden")).toBe(true);
+    expect(m.overlay.canvas.style.visibility).toBe("");
     expect(m.overlay.setVisible).not.toHaveBeenCalledWith(true);
   });
 
-  it("zoomend re-shows a still-visible layer after the zoomstart hide", () => {
-    const m = makeManager();
-    m.overlay.canvas = document.createElement("canvas");
-    m.overlay.setVisible.mockClear();
-    zoomendHandlers(m).forEach(fn => fn());
-    expect(m.overlay.setVisible).toHaveBeenCalledWith(true);
-  });
-
-  it("onZoomEnd re-renders a hidden layer but does not re-show it", () => {
+  it("onZoomEnd re-renders and still leaves the intent channel alone", () => {
     const m = makeManager();
     m.selectedLayerId = "layer1";
     m.overlay.canvas = document.createElement("canvas");
     m.overlay.canvas.classList.add("hidden");
     const renderSpy = vi.spyOn(m, "renderHexagons").mockImplementation(() => {});
-    m.overlay.setVisible.mockClear();
 
     m.onZoomEnd();
     m.onZoomEnd.flush();
 
     expect(renderSpy).toHaveBeenCalled();
+    expect(m.overlay.canvas.classList.contains("hidden")).toBe(true);
+    expect(m.overlay.canvas.style.visibility).toBe("");
     expect(m.overlay.setVisible).not.toHaveBeenCalledWith(true);
   });
 });

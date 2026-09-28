@@ -123,13 +123,28 @@ const generateRegistry = (srcDirParam = srcDir, buildJsParam = buildJs) => {
   ];
 
   for (const sub of coreSubs) {
-    const names = usedExports["core/" + sub] || [];
-    if (names.length === 0) continue;
+    const names = new Set(usedExports["core/" + sub] || []);
+    // A component import of `#core/<sub>/<file>.js` shims to the same
+    // `foliplus.core.<sub>` namespace in global-namespace-plugin (its rule
+    // keys on the first path segment), but canonicalSpec files it under
+    // `core/<sub>/<file>` — a key this loop would never read, so the name
+    // registered nothing and the shim resolved `undefined` at runtime (the
+    // T139a `#core/layer/const.js` incident). Fold the file keys into the
+    // namespace; the generated import below pulls from the sub's index.js,
+    // so a name the barrel does not re-export fails the build loudly
+    // instead of silently shimming to undefined.
+    for (const key of Object.keys(usedExports)) {
+      if (key.startsWith(`core/${sub}/`)) {
+        for (const n of usedExports[key]) names.add(n);
+      }
+    }
+    const sorted = [...names].sort();
+    if (sorted.length === 0) continue;
     const alias = "core" + sub;
     lines.push(
-      "import { " + names.join(", ") + ' } from "#core/' + sub + '/index.js";',
+      "import { " + sorted.join(", ") + ' } from "#core/' + sub + '/index.js";',
     );
-    lines.push("const " + alias + " = { " + names.join(", ") + " };");
+    lines.push("const " + alias + " = { " + sorted.join(", ") + " };");
     lines.push('window.foliplus.core["' + sub + '"] = ' + alias + ";");
   }
 

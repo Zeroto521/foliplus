@@ -2,7 +2,6 @@
 import { generateId } from "#core/component.js";
 import { EVENTS, type EventBus, ensureEvents } from "#core/event/index.js";
 import { bareFieldName } from "#core/labelField.js";
-import { HIDDEN as CANVAS_HIDDEN } from "#core/layer/index.js";
 import { type CanvasLabelStyle } from "#common/canvasLabel.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import { BORDER_WEIGHT, clampLabelSize, normalizeHexColor } from "#common/form.js";
@@ -325,25 +324,31 @@ class HeatmapManager {
       onMove: () => {
         if (this.overlay.canvas && this.cachedFeatures) this.redrawHeatmap();
       },
+      // Anti-flicker: the painted bitmap is borrowed away for the zoom and
+      // handed back on zoomend. This rides the element's own `visibility`
+      // style, NOT the HIDDEN class: that class is the LayerControl intent
+      // channel (the executor is its single writer), and a temp-hide that
+      // stamped it cannot tell "user hid it" apart from "zoom hid it" at
+      // restore time — pre-T139a that distinction lived in the now-retired
+      // `layerVisible` field.
       onHide: () => {
-        this.overlay.setVisible?.(false);
+        const c = this.overlay.canvas;
+        if (c) c.style.visibility = "hidden";
       },
       onShow: () => {
-        // The canvas HIDDEN class is the source of truth for visibility (the
-        // executor writes it on checkbox toggle). If the user unchecked the
-        // box during the zoom, HIDDEN is present and we must not restore.
-        if (!this.overlay.canvas?.classList.contains(CANVAS_HIDDEN)) {
-          this.overlay.setVisible?.(true);
-        }
+        const c = this.overlay.canvas;
+        if (c) c.style.visibility = "";
       },
     });
 
     this.onZoomEnd = debounce(() => {
       if (this.selectedLayerId) {
         this.renderHexagons();
-        if (!this.overlay.canvas?.classList.contains(CANVAS_HIDDEN)) {
-          this.overlay.setVisible?.(true);
-        }
+        // Safety clear in case a rebuild swapped the canvas between the
+        // immediate handler and this debounced one; the style write is
+        // idempotent and never touches the HIDDEN class.
+        const c = this.overlay.canvas;
+        if (c) c.style.visibility = "";
       }
     }, CONST.TIMING.ZOOM_DEBOUNCE);
     this.map.on("zoomend", this.onZoomEnd);

@@ -35,8 +35,9 @@ interface LayerCapabilities {
   /** How the layer's visibility is written:
    *    - "native" — the layer is a real `L.Layer`; map membership
    *      (`map.addLayer` / `removeLayer`) is the carrier. MarkerCluster is an
-   *      `L.Layer` too, so it routes here — the `isMarkerCluster` special case
-   *      below only covers opacity / zoomRange / bounds, not visibility.
+   *      `L.Layer` too, so it routes here — the `isMarkerCluster` branch in
+   *      `LayerSurface.detectCapabilities` only takes over opacity / zoomRange
+   *      / bounds, not visibility.
    *    - "pane"   — the surface paints into a canvas element we own (createCanvas
    *      for heatmap/measure, createColor for the solid-color basemap's face);
    *      the `HIDDEN` class on that element is the carrier. One CSS write, no

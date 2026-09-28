@@ -467,6 +467,37 @@ describe("executor: carrier dispatch", () => {
     expect(map.addLayer).not.toHaveBeenCalled();
   });
 
+  it("a pane-carrier visible write toggles the canvas HIDDEN class", () => {
+    // The canvas-only branch of the visibility dispatch: no Leaflet layer
+    // exists to add/remove, so the class on the canvas IS the carrier.
+    const canvas = document.createElement("canvas");
+    const { ui } = boot([{ id: "cv", name: "CV", isBase: false, canvas }]);
+    const li = () => ui.m.layerRegistry.get("cv")!;
+
+    applyStateOp(ui, li(), { type: "visible", value: false });
+    expect(canvas.classList.contains("hidden")).toBe(true);
+
+    applyStateOp(ui, li(), { type: "visible", value: true });
+    expect(canvas.classList.contains("hidden")).toBe(false);
+  });
+
+  it("applyProjection reads the canvas class back as the current carrier state", () => {
+    // The executor's `currentShown` comes from the live class, not from
+    // `appliedState`: a canvas somebody hid out-of-band converges back to
+    // intent, and an intent hide lands even though the class started clear.
+    const canvas = document.createElement("canvas");
+    const { ui } = boot([{ id: "cv2", name: "CV2", isBase: false, canvas }]);
+    ui.authorVisible.set("cv2", true);
+
+    canvas.classList.add("hidden"); // out-of-band hide while intent says shown
+    applyProjection(ui, "cv2");
+    expect(canvas.classList.contains("hidden")).toBe(false);
+
+    ui.hiddenIds.add("cv2"); // the user unchecks
+    applyProjection(ui, "cv2");
+    expect(canvas.classList.contains("hidden")).toBe(true);
+  });
+
   it("a 'none' opacity carrier stores nothing and writes nothing", () => {
     // A slider that writes nothing must not pretend it wrote. MarkerCluster
     // icons live in the shared markerPane, which no per-layer CSS write can
