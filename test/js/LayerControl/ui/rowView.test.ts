@@ -77,7 +77,7 @@ describe("intentVisibleOf (the intent seam)", () => {
   ): LayerUI =>
     ({
       intentProvenance: overrides,
-      hiddenLayerIds: new Set(hidden),
+      visibleMap: Object.fromEntries(hidden.map(id => [id, false])),
       authorVisible: new Map(Object.entries(author)),
     }) as unknown as LayerUI;
 
@@ -186,7 +186,7 @@ describe("buildRowCell + applyRowView (one writer per row)", () => {
     const item = findItem(ui, "overlay1");
 
     ui.applyVisibility("overlay1", false);
-    expect(ui.hiddenLayerIds.has("overlay1")).toBe(true);
+    expect(ui.visibleMap["overlay1"]).toBe(false);
     expect(buildRowCell(ui, layerInfo).checked).toBe(false);
     expect(box(item).checked).toBe(false);
     expect(item.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
@@ -196,6 +196,20 @@ describe("buildRowCell + applyRowView (one writer per row)", () => {
     expect(buildRowCell(ui, layerInfo).shown).toBe(true);
     expect(box(item).checked).toBe(true);
     expect(item.classList.contains(CONST.CLASSES.ACTIVE)).toBe(true);
+  });
+
+  it("a provenance marker with no value reads as the user's show choice", () => {
+    // A restored record can carry the marker without the value; the row must
+    // read it as the user's choice (checked), not fall back to the author's
+    // default. Same fallback as `intentVisibleOf` — this pins the inlined
+    // variant in `buildRowCell`.
+    const { ui } = initFixture({});
+    const layerInfo = overlay(ui);
+    ui.authorVisible.set("overlay1", false);
+    ui.intentProvenance.overlay1 = ["visible"];
+    delete ui.visibleMap.overlay1;
+
+    expect(buildRowCell(ui, layerInfo).checked).toBe(true);
   });
 
   it("labels a base row with the base icon instead of probing the layer", () => {
@@ -214,7 +228,9 @@ describe("buildRowCell + applyRowView (one writer per row)", () => {
     layerInfo.iconSvg = '<svg id="custom" />';
     const cellInfo = buildRowCell(ui, layerInfo);
     expect(cellInfo.typeSvg).toBe('<svg id="custom" />');
-    expect(layerInfo.type).toBe(GEOM_TYPE.CUSTOM);
+    // The row is a projection, not a writer: the snapshot stays null until
+    // getLayerType stamps it (single-writer 33.2).
+    expect(layerInfo.type).toBeNull();
   });
 
   it("shows the feature count in the count column and in the tooltip", () => {
@@ -291,7 +307,7 @@ describe("applyRowView (the single DOM write point)", () => {
     expect(el.getAttribute(CONST.DATA.TITLE)).toBe("polygon");
   });
 
-  it("buildRowCell handles undefined intentProvenance and hiddenLayerIds", () => {
+  it("buildRowCell handles undefined intentProvenance and visibleMap", () => {
     // The `?.` and `?? false` fallbacks on the inline intent check: a thin
     // stub may not have populated these maps yet, so the check must degrade to
     // the author default rather than crashing.
@@ -301,7 +317,7 @@ describe("applyRowView (the single DOM write point)", () => {
       mgmt: { getFeatureCount: () => 0 },
       renamedNames: {},
       authorVisible: new Map(),
-      hiddenLayerIds: undefined,
+      visibleMap: undefined,
       intentProvenance: undefined,
       zoomRangeMap: {},
       opacityMap: {},
@@ -383,7 +399,7 @@ describe("snapshotAuthorVisible", () => {
       id: "heat-mixed",
       canvas: document.createElement("canvas"),
     } as unknown as LayerInfo);
-    ui.hiddenLayerIds.add("heat-mixed");
+    ui.visibleMap["heat-mixed"] = false;
     ui.intentProvenance["heat-mixed"] = ["visible"];
     snapshotAuthorVisible(ui, {
       id: "heat-mixed",
@@ -411,15 +427,15 @@ describe("snapshotAuthorVisible", () => {
 });
 
 describe("intentVisibleOf: what counts as the user's choice", () => {
-  it("a bare hiddenLayerIds entry is already a choice — the row reads unchecked", () => {
-    // `syncHiddenId` always marks, but a restored record or a direct write
+  it("a bare visibleMap entry is already a choice — the row reads unchecked", () => {
+    // `setVisible` always marks, but a restored record or a direct write
     // can leave an entry without its provenance marker. Either half is the
     // user's choice; only the author's default is the fallback.
     const { ui } = initFixture({});
     const layerInfo = ui.m.layers.find(li => li.id === "overlay1")!;
     ui.intentProvenance.overlay1 = undefined as never;
     delete ui.intentProvenance.overlay1;
-    ui.hiddenLayerIds.add("overlay1");
+    ui.visibleMap["overlay1"] = false;
     expect(intentVisibleOf(ui, layerInfo.id)).toBe(false);
   });
 
@@ -427,7 +443,7 @@ describe("intentVisibleOf: what counts as the user's choice", () => {
     const { ui } = initFixture({});
     const layerInfo = ui.m.layers.find(li => li.id === "overlay1")!;
     delete ui.intentProvenance.overlay1;
-    ui.hiddenLayerIds.delete("overlay1");
+    delete ui.visibleMap["overlay1"];
     ui.authorVisible.set("overlay1", false);
     expect(intentVisibleOf(ui, layerInfo.id)).toBe(false);
   });
