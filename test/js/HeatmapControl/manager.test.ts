@@ -322,6 +322,18 @@ describe("HeatmapManager — layer visibility vs zoom", () => {
     expect(m.overlay.canvas.style.visibility).toBe("");
     expect(m.overlay.setVisible).not.toHaveBeenCalledWith(true);
   });
+
+  it("the zoom cycle is a no-op before the canvas exists", () => {
+    // The style borrows guard on the element: a zoom that lands between
+    // construction and the first draw (fixture default: canvas null) must
+    // not throw or fall back to the setVisible stub.
+    const m = makeManager();
+    m.selectedLayerId = "layer1";
+    zoomstartHandler(m)();
+    zoomendHandlers(m).forEach(fn => fn());
+
+    expect(m.overlay.setVisible).not.toHaveBeenCalled();
+  });
 });
 
 describe("scanMapLayers", () => {

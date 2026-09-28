@@ -498,6 +498,39 @@ describe("executor: carrier dispatch", () => {
     expect(canvas.classList.contains("hidden")).toBe(true);
   });
 
+  it("a visible op on a 'none' carrier writes nothing", () => {
+    // No Leaflet layer, no canvas — neither branch of the dispatcher has an
+    // honest target, and the read side reports `false` for "shown" rather
+    // than guessing.
+    const { ui, map } = boot([{ id: "nc", name: "NC", isBase: false }]);
+    (map.addLayer as ReturnType<typeof vi.fn>).mockClear();
+
+    applyStateOp(ui, ui.m.layerRegistry.get("nc")!, {
+      type: "visible",
+      value: false,
+    });
+
+    expect(map.addLayer).not.toHaveBeenCalled();
+    expect(map.removeLayer).not.toHaveBeenCalled();
+  });
+
+  it("a pane-carrier visible write whose canvas vanished writes nothing", () => {
+    // The surface resolved `visibility: "pane"` while the canvas existed;
+    // if the element is gone by write time the dispatcher must not throw —
+    // there is simply no element left to stamp.
+    const canvas = document.createElement("canvas");
+    const { ui } = boot([{ id: "pc", name: "PC", isBase: false, canvas }]);
+    ui.m.layerRegistry.get("pc")!.canvas = null;
+
+    expect(() =>
+      applyStateOp(ui, ui.m.layerRegistry.get("pc")!, {
+        type: "visible",
+        value: false,
+      }),
+    ).not.toThrow();
+    expect(canvas.classList.contains("hidden")).toBe(false);
+  });
+
   it("a 'none' opacity carrier stores nothing and writes nothing", () => {
     // A slider that writes nothing must not pretend it wrote. MarkerCluster
     // icons live in the shared markerPane, which no per-layer CSS write can
