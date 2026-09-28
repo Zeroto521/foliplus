@@ -19,9 +19,7 @@ def _load_all() -> dict[str, list[tuple[str, str]]]:
         # cdn.json entry degrades to a string instead of crashing downstream.
         _cache = {
             name: [(str(js_id), str(url)) for js_id, url in deps]
-            for name, deps in json.loads(
-                _CDN_PATH.read_text(encoding="utf-8")
-            ).items()
+            for name, deps in json.loads(_CDN_PATH.read_text(encoding="utf-8")).items()
         }
     return _cache
 
