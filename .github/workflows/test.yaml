@@ -175,8 +175,10 @@ jobs:
       # lockfile needed, and `playwright install` still diffs against its own
       # browsers.json so a stale cache can never hide a required revision.
       - id: pwver
+        name: Resolve Playwright version
         run: |
-          echo "version=$(uv run python -c 'import importlib.metadata as m; print(m.version("playwright"))')" >> "$GITHUB_OUTPUT"
+          version=$(uv run python -c 'import importlib.metadata as m; print(m.version("playwright"))')
+          echo "version=$version" >> "$GITHUB_OUTPUT"
       - uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
