@@ -14,13 +14,13 @@ _cache: dict[str, list[tuple[str, str]]] | None = None
 def _load_all() -> dict[str, list[tuple[str, str]]]:
     global _cache
     if _cache is None:
-        # Narrow the untyped json.loads payload to the declared shape while
-        # building it: name/url entries are normalized to str so a hand-typed
-        # cdn.json entry degrades to a string instead of crashing downstream.
-        _cache = {
-            name: [(str(js_id), str(url)) for js_id, url in deps]
-            for name, deps in json.loads(_CDN_PATH.read_text(encoding="utf-8")).items()
-        }
+        # cdn.json is a controlled source file, not a user-input boundary, so
+        # the explicit annotation narrows json.loads's Any to the declared
+        # shape (same pattern as BaseControl's untyped folium/jinja2 returns).
+        raw: dict[str, list[tuple[str, str]]] = json.loads(
+            _CDN_PATH.read_text(encoding="utf-8")
+        )
+        _cache = raw
     return _cache
 
 
