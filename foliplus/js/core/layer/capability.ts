@@ -38,8 +38,9 @@ const hasSetStyleLeaf = (node: unknown): boolean => {
 };
 
 /** Whether any leaf is an areal carrier — L.Polygon, L.Circle, or
- *  L.CircleMarker (the last two because CircleMarker extends Circle, so
- *  `instanceof L.Circle` catches both) with a `setStyle` leaf.
+ *  L.CircleMarker (the last two because Circle extends CircleMarker in
+ *  Leaflet 1.x, so `instanceof L.Circle` catches Circle and any subclass;
+ *  a bare CircleMarker is not `instanceof L.Circle`) with a `setStyle` leaf.
  *
  *  Line-only leaves (L.Polyline, L.Rectangle which extends Polygon) and
  *  markers fall out; so do native setter surfaces (GridLayer / ImageOverlay)
@@ -55,7 +56,8 @@ const hasFillLeaf = (node: unknown): boolean => {
     return found;
   }
   if (typeof n.setStyle !== "function") return false;
-  // CircleMarker extends Circle, so instanceof L.Circle catches both.
+  // Circle extends CircleMarker (Leaflet 1.x); instanceof L.Circle catches
+  // Circle and subclasses. A bare CircleMarker is not instanceof L.Circle.
   return (
     node instanceof L.Polygon ||
     (typeof L.Circle !== "undefined" && node instanceof L.Circle)
