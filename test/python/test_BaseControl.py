@@ -460,7 +460,10 @@ class TestBaseControlRendering:
         assert "input:checked:active + .foliplus-toggle-slider::before" in css
         assert "scale(var(--foliplus-scale-press))" in css
         # The checked-press leg must keep the on-side offset.
-        assert "translateX(var(--foliplus-size-20)) scale(var(--foliplus-scale-press))" in css
+        assert (
+            "translateX(var(--foliplus-size-20)) scale(var(--foliplus-scale-press))"
+            in css
+        )
 
     def test_menu_item_press_uses_soft_wash(self):
         """Dropdown/list items answer :active with the soft accent wash.
