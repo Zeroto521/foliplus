@@ -777,9 +777,9 @@ describe("refreshSchemeDropdownItems — malformed items", () => {
     ctrl.classSelect.value = "4";
     fire(ctrl.classSelect, "change");
     expect(ctrl.schemeDropdown).not.toBeNull();
-    expect(ctrl.schemeDropdown!.querySelectorAll(CONST.SEL.SCHEME_DROPDOWN_ITEM).length).toBe(
-      4,
-    );
+    expect(
+      ctrl.schemeDropdown!.querySelectorAll(CONST.SEL.SCHEME_DROPDOWN_ITEM).length,
+    ).toBe(4);
   });
 
   it("skips an item with a scheme name but no bar child", () => {

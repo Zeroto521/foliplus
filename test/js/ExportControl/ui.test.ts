@@ -3,12 +3,12 @@ import { HINT_DURATION } from "#core/hint.js";
 import { ensureModes } from "#core/mode.js";
 import * as CONST from "#foliplus/ExportControl/const.js";
 import { ExportManager } from "#foliplus/ExportControl/manager.js";
+import type { CropState } from "#foliplus/ExportControl/type.js";
 import {
   removeCropBox,
   showCropBox,
   showGlobalHint,
 } from "#foliplus/ExportControl/ui.js";
-import type { CropState } from "#foliplus/ExportControl/type.js";
 import { createScopedTranslator } from "#common/locale.js";
 
 // Minimal map mock satisfying ExportManager constructor + ui fn requirements.
@@ -315,7 +315,10 @@ describe("ExportControl ui — crop-state guards and locked map sync", () => {
         handlers.set(event, list);
       }),
       off: vi.fn((event: string, fn: unknown) => {
-        handlers.set(event, (handlers.get(event) ?? []).filter(h => h !== fn));
+        handlers.set(
+          event,
+          (handlers.get(event) ?? []).filter(h => h !== fn),
+        );
       }),
       fire: (event: string) => {
         for (const fn of handlers.get(event) ?? []) fn();
@@ -348,7 +351,9 @@ describe("ExportControl ui — crop-state guards and locked map sync", () => {
     showCropBox(manager);
 
     expect(manager.cropState).toBe(first);
-    expect(manager.mapContainer.querySelectorAll(".foliplus-export-box")).toHaveLength(1);
+    expect(manager.mapContainer.querySelectorAll(".foliplus-export-box")).toHaveLength(
+      1,
+    );
     expect(manager.map.keyboard.disable).toHaveBeenCalledTimes(1);
   });
 
@@ -359,7 +364,9 @@ describe("ExportControl ui — crop-state guards and locked map sync", () => {
     showCropBox(manager);
 
     expect(manager.cropState).toBeNull();
-    expect(manager.mapContainer.querySelectorAll(".foliplus-export-box")).toHaveLength(0);
+    expect(manager.mapContainer.querySelectorAll(".foliplus-export-box")).toHaveLength(
+      0,
+    );
     expect(manager.map.foliplus.showHint).toHaveBeenCalledWith(
       manager.conf.name,
       manager.T("blocked_measure"),
@@ -373,9 +380,20 @@ describe("ExportControl ui — crop-state guards and locked map sync", () => {
 
     showCropBox(manager);
 
-    expect(manager.cropState!.rect).toEqual({ left: 20, top: 10, width: 180, height: 90 });
-    expect(manager.map.latLngToContainerPoint).toHaveBeenCalledWith({ lat: 10, lng: 20 });
-    expect(manager.map.latLngToContainerPoint).toHaveBeenCalledWith({ lat: 100, lng: 200 });
+    expect(manager.cropState!.rect).toEqual({
+      left: 20,
+      top: 10,
+      width: 180,
+      height: 90,
+    });
+    expect(manager.map.latLngToContainerPoint).toHaveBeenCalledWith({
+      lat: 10,
+      lng: 20,
+    });
+    expect(manager.map.latLngToContainerPoint).toHaveBeenCalledWith({
+      lat: 100,
+      lng: 200,
+    });
   });
 
   it("showCropBox clamps a remembered screen rect back inside the map", () => {

@@ -1692,9 +1692,7 @@ describe("onMove handler", () => {
   });
 
   function getMoveHandler(m: HeatmapManager) {
-    const moveCall = m.map.on.mock.calls.find(
-      ([event]: [string]) => event === "move",
-    );
+    const moveCall = m.map.on.mock.calls.find(([event]: [string]) => event === "move");
     return moveCall?.[1] as () => void;
   }
 
@@ -1759,7 +1757,17 @@ describe("redrawHeatmap — edge cases", () => {
   function makeFeature(centroid: [number, number] | null) {
     return {
       properties: { centroid, fillColor: "#fff" },
-      geometry: { coordinates: [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]] },
+      geometry: {
+        coordinates: [
+          [
+            [0, 0],
+            [1, 0],
+            [1, 1],
+            [0, 1],
+            [0, 0],
+          ],
+        ],
+      },
     } as never;
   }
 
@@ -1869,7 +1877,17 @@ describe("computeBounds", () => {
     m.cachedFeatures = [
       {
         properties: { centroid: [0, 0] },
-        geometry: { coordinates: [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]] },
+        geometry: {
+          coordinates: [
+            [
+              [0, 0],
+              [1, 0],
+              [1, 1],
+              [0, 1],
+              [0, 0],
+            ],
+          ],
+        },
       },
     ] as never;
     const bounds = m.computeBounds();
