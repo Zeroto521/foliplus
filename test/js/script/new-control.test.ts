@@ -354,14 +354,14 @@ describe("buildSkeleton", () => {
     const css = skeleton.files.get("foliplus/css/FooControl.css");
     const tokens = [...css.matchAll(/var\((--[a-z0-9-]+)\)/g)].map(m => m[1]);
     const allowed = new Set([
-      "--space-sm",
-      "--space-md",
-      "--ctrl-bg",
-      "--text-primary",
-      "--border-thin",
-      "--divider-color",
-      "--radius-lg",
-      "--font-size-sm",
+      "--foliplus-space-sm",
+      "--foliplus-space-md",
+      "--foliplus-ctrl-bg",
+      "--foliplus-text-primary",
+      "--foliplus-border-thin",
+      "--foliplus-divider-color",
+      "--foliplus-radius-lg",
+      "--foliplus-font-size-sm",
     ]);
     expect(tokens.length).toBeGreaterThan(0);
     for (const t of tokens) expect(allowed.has(t)).toBe(true);

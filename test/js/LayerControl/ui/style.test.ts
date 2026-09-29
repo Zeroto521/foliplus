@@ -18,11 +18,12 @@ import {
 import { resetLayerZoomRange } from "#foliplus/LayerControl/ui/style/zoomRange.js";
 import { AUTO_FIELD } from "#foliplus/core/labelField.js";
 import { ensureModes } from "#foliplus/core/mode.js";
+import { getLayerAlpha } from "#common/canvasAlpha.js";
 import { NUMBER_FORMAT } from "#common/format.js";
 import { GridLayer, findItem, initFixture, installLeafletGlobals } from "./fixture.js";
 
 /** Percentage the opacity fill is drawn at, read off its width expression.
- *  The fill's width is `calc((100% - var(--slider-thumb-hit)) * <fraction>)` —
+ *  The fill's width is `calc((100% - var(--foliplus-slider-thumb-hit)) * <fraction>)` —
  *  measured against the handle's travel range, not the rail's own width. */
 const fillPct = (el: HTMLElement): number =>
   Number(el.style.width.match(/^([\d.]+)%$/)?.[1] ?? NaN) / 100;
@@ -35,7 +36,7 @@ describe("LayerUI style panel", () => {
   beforeEach(() => {
     ({ manager, ui, map } = initFixture());
     ui.foldedGroups = new Set();
-    ui.hiddenLayerIds = new Set();
+    ui.visibleMap = {};
     window.localStorage.removeItem(CONST.STORAGE.KEY);
     // Seed the field cache so the panel builds: collectFields walks the
     // layer's leaves, and the fixture's data layer has none. `count` is a
@@ -837,7 +838,8 @@ describe("LayerUI style panel", () => {
     expect(fillPct(fill)).toBeCloseTo(0.35);
   });
 
-  it("canvas layers apply opacity via canvas.style.opacity", () => {
+  it("canvas layers with opacityBake 'redraw' keep CSS on the slider commit", () => {
+    // Heatmap arm (default): CSS live feedback, bake deferred to redraw.
     manager.registerLayer({
       id: "heat1",
       name: "Heat",
@@ -855,8 +857,56 @@ describe("LayerUI style panel", () => {
     range.value = "40";
     range.dispatchEvent(new Event("input", { bubbles: true }));
 
+    // CSS arm for live feedback; layerAlpha is stored for the next redraw.
     expect(li.canvas!.style.opacity).toBe("0.4");
+    expect(getLayerAlpha(li.canvas)).toBeCloseTo(0.4);
     expect(li.opacity).toBe(0.4);
+  });
+
+  it("canvas layers with opacityBake 'commit' bake and clear CSS", () => {
+    // Color-face arm: bake on the commit itself, CSS cleared.
+    manager.registerLayer({
+      id: "color1",
+      name: "Color",
+      canvas: document.createElement("canvas"),
+      opacityBake: "commit",
+    });
+    const li = manager.layerRegistry.get("color1")!;
+    const item = findItem(ui, "color1");
+    ui.openStylePanel("color1");
+    const panel = panelOf(item)!;
+    const range = panel.querySelector(
+      ".foliplus-style-opacity-range",
+    ) as HTMLInputElement;
+
+    range.value = "40";
+    range.dispatchEvent(new Event("input", { bubbles: true }));
+
+    expect(getLayerAlpha(li.canvas)).toBeCloseTo(0.4);
+    expect(li.canvas!.style.opacity).toBe("");
+    expect(li.opacity).toBe(0.4);
+  });
+
+  it("commit arm fires onOpacity when the layer registered one (branch cover)", () => {
+    const onOpacity = vi.fn();
+    manager.registerLayer({
+      id: "color2",
+      name: "Color2",
+      canvas: document.createElement("canvas"),
+      opacityBake: "commit",
+      onOpacity,
+    });
+    const item = findItem(ui, "color2");
+    ui.openStylePanel("color2");
+    const panel = panelOf(item)!;
+    const range = panel.querySelector(
+      ".foliplus-style-opacity-range",
+    ) as HTMLInputElement;
+
+    range.value = "50";
+    range.dispatchEvent(new Event("input", { bubbles: true }));
+
+    expect(onOpacity).toHaveBeenCalledWith(0.5);
   });
 
   it("reset restores opacity to fully opaque and drops the persisted entry", () => {
@@ -940,6 +990,7 @@ describe("LayerUI style panel", () => {
     btn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
 
     expect(li.opacity).toBe(1);
+    expect(getLayerAlpha(li.canvas)).toBe(1);
     expect(li.canvas!.style.opacity).toBe("1");
     expect(ui.opacityMap.heat1).toBeUndefined();
     expect(labelShowSetter).toHaveBeenCalledWith(true);
@@ -3410,7 +3461,7 @@ describe("LayerUI style panel — zoom range", () => {
   beforeEach(() => {
     ({ manager, ui, map } = initFixture());
     ui.foldedGroups = new Set();
-    ui.hiddenLayerIds = new Set();
+    ui.visibleMap = {};
     window.localStorage.removeItem(CONST.STORAGE.KEY);
     ui.fieldCache.set("overlay1", [{ name: "count", numeric: true }]);
   });

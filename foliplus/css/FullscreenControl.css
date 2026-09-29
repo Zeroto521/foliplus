@@ -4,7 +4,7 @@
   Only loaded when FullscreenControl is used.
 
   Z-index: 99999 is the browser Fullscreen API convention, exposed as the
-  --z-index-fullscreen token. The pseudo-fullscreen container covers the
+  --foliplus-z-index-fullscreen token. The pseudo-fullscreen container covers the
   entire viewport. No internal z-index layering needed — single container. ── */
 
 /* ── Button container ── */
@@ -14,7 +14,7 @@
 
   /* ── Top button gets top radius ── */
   .foliplus-zoom-in {
-    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+    border-radius: var(--foliplus-radius-sm) var(--foliplus-radius-sm) 0 0;
   }
 
   /* ── Middle button no radius ── */
@@ -24,12 +24,12 @@
 
   /* ── Bottom button gets bottom radius ── */
   .foliplus-fullscreen-toggle {
-    border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+    border-radius: 0 0 var(--foliplus-radius-sm) var(--foliplus-radius-sm);
   }
 
   /* ── Divider between buttons ── */
   .foliplus-tool-btn {
-    border-bottom: var(--border-thin) solid var(--divider-color);
+    border-bottom: var(--foliplus-border-thin) solid var(--foliplus-divider-color);
   }
   .foliplus-fullscreen-toggle {
     border-bottom: none;
@@ -47,7 +47,7 @@
 ) {
   width: 100% !important;
   height: 100% !important;
-  z-index: var(--z-index-fullscreen);
+  z-index: var(--foliplus-z-index-fullscreen);
 }
 
 .leaflet-pseudo-fullscreen {

@@ -5,7 +5,7 @@ import { applyProjection, applyProjectionAll } from "./apply.js";
 import type { LayerUI } from "./index.js";
 import { intentVisibleOf } from "./projection.js";
 import { applyRowView, buildRowCell } from "./rowView.js";
-import { saveState, syncHiddenId } from "./state.js";
+import { saveState, setVisible } from "./state.js";
 
 const getLayerItems = (ui: LayerUI, group: string): NodeListOf<Element> => {
   return ui.uiContainer.querySelectorAll(
@@ -22,11 +22,11 @@ const syncNoBasemap = (ui: LayerUI): void => {
   const anyBaseVisible = ui.m.layers.some(li => {
     if (li.group !== CONST.GROUP.BASE) return false;
     // Inline intent check to avoid function-call overhead on the click hot path.
+    const visible = ui.visibleMap?.[li.id];
     const overrides = ui.intentProvenance?.[li.id];
-    const hidden = ui.hiddenLayerIds?.has(li.id) ?? false;
-    const hasVisible = overrides?.includes("visible") || hidden;
+    const hasVisible = overrides?.includes("visible") || typeof visible === "boolean";
     const authorDefault = ui.authorVisible.get(li.id) ?? true;
-    if (!(hasVisible ? !hidden : authorDefault)) return false;
+    if (!(hasVisible ? visible : authorDefault)) return false;
     // Effective visibility: intent alone isn't enough — a basemap with
     // `opacity = 0` is visually empty too, so the hatch should still show.
     // `li.opacity` is written by the executor on every opacity change and
@@ -60,9 +60,9 @@ const toggleAll = (ui: LayerUI, group: string, newState: boolean) => {
 
     // No persist per iteration —schedule a single debounced write after the
     // loop so the debounce timer isn't reset for every layer.
-    syncHiddenId(ui, id, !newState, false);
+    setVisible(ui, id, newState, false);
     // The executor is the only writer of map membership for this layer:
-    // syncHiddenId recorded the intent, so the projection's `visible` field
+    // setVisible recorded the intent, so the projection's `visible` field
     // now matches the intended state and the diff fires whatever op is
     // needed.
     applyProjection(ui, id);
@@ -105,11 +105,11 @@ const syncToggleAll = (ui: LayerUI, group: string) => {
     if (!id) continue;
     const layerInfo = ui.m.layerRegistry.get(id);
     if (!layerInfo) continue;
+    const visible = ui.visibleMap?.[id];
     const overrides = ui.intentProvenance?.[id];
-    const hidden = ui.hiddenLayerIds?.has(id) ?? false;
-    const hasVisible = overrides?.includes("visible") || hidden;
+    const hasVisible = overrides?.includes("visible") || typeof visible === "boolean";
     const authorDefault = ui.authorVisible.get(id) ?? true;
-    if (hasVisible ? !hidden : authorDefault) on++;
+    if (hasVisible ? visible : authorDefault) on++;
   }
   // Tolerate a caller that constructs a thin LayerUI stub without
   // initializing the counter map (tests, late-attached panels).
@@ -179,7 +179,7 @@ const bumpCheckedCount = (ui: LayerUI, group: string, delta: number): void => {
  * takes the same transition on either source (a change event or
  * {@link LayerUI.setVisible}): map membership, the canvas-only callback, the
  * `visible` flag, the row's checkbox + tooltip + active class, the persisted
- * hidden set, the group toggle-all, and the debounced z-order enforcement.
+ * hidden intent, the group toggle-all, and the debounced z-order enforcement.
  *
  * The user's intent is recorded first, then the executor re-projects — the
  * single writer of map membership for this layer. The old code wrote the
@@ -206,7 +206,7 @@ const applyVisibility = (ui: LayerUI, id: string, visible: boolean): boolean => 
   ) as HTMLElement | null;
 
   const oldChecked = intentVisibleOf(ui, id);
-  syncHiddenId(ui, id, !visible);
+  setVisible(ui, id, visible);
   applyProjection(ui, id);
 
   // Paint last: the cell reads the intent this transition just recorded.

@@ -15,8 +15,8 @@
     probe.remove();
     return c;
   };
-  const white = token("--neutral-0");
-  const wash = token("--accent-light");
+  const white = token("--foliplus-neutral-0");
+  const wash = token("--foliplus-accent-light");
 
   const pick = el => {
     const cs = getComputedStyle(el);

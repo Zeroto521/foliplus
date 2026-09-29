@@ -28,43 +28,43 @@
 /* ── Measurement Nodes (circleMarker) ── */
 /* Default nodes are hollow (neutral fill, accent stroke, 2.5px stroke-width). */
 .foliplus-measure-node {
-  fill: var(--neutral-0);
+  fill: var(--foliplus-neutral-0);
   fill-opacity: 1;
-  stroke: var(--accent-primary);
+  stroke: var(--foliplus-accent-primary);
   stroke-width: 2.5px;
 }
 /* Solid nodes (distance start point, circle center, polygon centroid) are
   filled with the accent color and outlined in neutral. */
 path.foliplus-measure-node-solid {
-  fill: var(--accent-primary);
+  fill: var(--foliplus-accent-primary);
   fill-opacity: 1;
-  stroke: var(--neutral-0);
+  stroke: var(--foliplus-neutral-0);
 }
 
 /* ── Measurement Paths (lines / circles / polygons) ──
   Three shared states: solid (final), dashed, preview.
   Area shapes additionally use .foliplus-measure-shape-fill for fill. */
 .foliplus-measure-path {
-  stroke: var(--accent-primary);
+  stroke: var(--foliplus-accent-primary);
 }
 .foliplus-measure-path-solid {
   stroke-width: 2.5px;
 }
 .foliplus-measure-path-dashed {
   stroke-width: 2.5px;
-  stroke-dasharray: var(--dash-rhythm);
+  stroke-dasharray: var(--foliplus-dash-rhythm);
 }
-/* Preview uses the same dash rhythm as the dashed path (--dash-rhythm);
+/* Preview uses the same dash rhythm as the dashed path (--foliplus-dash-rhythm);
    state is distinguished by opacity (0.6) and line weight (2px), not dash
    rate. This keeps "map operation border" a single visual language across
    measure, focus rect, and crop box. */
 .foliplus-measure-path-preview {
-  stroke-width: var(--size-2);
+  stroke-width: var(--foliplus-size-2);
   opacity: 0.6;
-  stroke-dasharray: var(--dash-rhythm);
+  stroke-dasharray: var(--foliplus-dash-rhythm);
 }
 .foliplus-measure-shape-fill {
-  fill: var(--accent-primary);
+  fill: var(--foliplus-accent-primary);
   fill-opacity: 0.25;
 }
 .foliplus-measure-path-preview.foliplus-measure-shape-fill {
@@ -79,12 +79,12 @@ path.foliplus-measure-node-solid {
 /* All animation parameters use CSS custom properties with sensible defaults. */
 .foliplus-measure-path-solid.foliplus-measure-dash-sweep,
 .foliplus-measure-ripple {
-  --sweep-length: 1000;
-  --sweep-duration: 0.5s;
-  --ripple-opacity-start: 0.6;
-  --ripple-stroke-start: 2.5px;
-  --ripple-stroke-end: 30px;
-  --ripple-duration: 0.7s;
+  --foliplus-sweep-length: 1000;
+  --foliplus-sweep-duration: 0.5s;
+  --foliplus-ripple-opacity-start: 0.6;
+  --foliplus-ripple-stroke-start: 2.5px;
+  --foliplus-ripple-stroke-end: 30px;
+  --foliplus-ripple-duration: 0.7s;
 }
 
 /* Dash sweep: stroke-dashoffset → 0, drawing the line from start to end. */
@@ -94,27 +94,27 @@ path.foliplus-measure-node-solid {
   }
 }
 .foliplus-measure-path-solid.foliplus-measure-dash-sweep {
-  stroke-dasharray: var(--sweep-length) var(--sweep-length);
-  stroke-dashoffset: var(--sweep-length);
-  animation: foliplus-measure-dash-sweep var(--sweep-duration) ease-in-out;
-  filter: drop-shadow(0 0 3px var(--accent-primary));
+  stroke-dasharray: var(--foliplus-sweep-length) var(--foliplus-sweep-length);
+  stroke-dashoffset: var(--foliplus-sweep-length);
+  animation: foliplus-measure-dash-sweep var(--foliplus-sweep-duration) ease-in-out;
+  filter: drop-shadow(0 0 3px var(--foliplus-accent-primary));
 }
 
 /* Ripple: stroke swells outward from the circle. */
 @keyframes foliplus-measure-ripple {
   0% {
-    opacity: var(--ripple-opacity-start);
-    stroke-width: var(--ripple-stroke-start);
+    opacity: var(--foliplus-ripple-opacity-start);
+    stroke-width: var(--foliplus-ripple-stroke-start);
   }
   100% {
     opacity: 0;
-    stroke-width: var(--ripple-stroke-end);
+    stroke-width: var(--foliplus-ripple-stroke-end);
   }
 }
 .foliplus-measure-ripple {
   fill: none;
-  stroke: var(--accent-primary);
-  animation: foliplus-measure-ripple var(--ripple-duration) ease-out forwards;
+  stroke: var(--foliplus-accent-primary);
+  animation: foliplus-measure-ripple var(--foliplus-ripple-duration) ease-out forwards;
   pointer-events: none;
 }
 
@@ -125,16 +125,17 @@ path.foliplus-measure-node-solid {
 .foliplus-measure-readout {
   display: inline-block;
   backdrop-filter: blur(8px);
-  background: rgba(0, 0, 0, var(--alpha-50));
-  color: var(--neutral-0);
-  padding: var(--space-xs) var(--space-sm);
-  border-radius: var(--radius-sm);
-  border: var(--border-thin) solid rgba(255, 255, 255, var(--alpha-15));
-  font-size: var(--font-size-sm);
+  background: rgba(0, 0, 0, var(--foliplus-alpha-50));
+  color: var(--foliplus-neutral-0);
+  padding: var(--foliplus-space-xs) var(--foliplus-space-sm);
+  border-radius: var(--foliplus-radius-sm);
+  border: var(--foliplus-border-thin) solid
+    rgba(255, 255, 255, var(--foliplus-alpha-15));
+  font-size: var(--foliplus-font-size-sm);
   white-space: nowrap;
   text-align: center;
   pointer-events: none;
-  box-shadow: var(--shadow-xs);
+  box-shadow: var(--foliplus-shadow-xs);
 }
 
 .foliplus-measure-label {
@@ -155,19 +156,19 @@ path.foliplus-measure-node-solid {
 /* Radius and mid-segment labels: centered on midpoint (both axes). */
 .foliplus-measure-label-radius,
 .foliplus-measure-label-mid {
-  --label-center: translate(-50%, -50%);
-  transform: var(--label-center);
+  --foliplus-label-center: translate(-50%, -50%);
+  transform: var(--foliplus-label-center);
   animation: foliplus-measure-label-in-radius 0.2s ease-out;
 }
 
 @keyframes foliplus-measure-label-in-radius {
   from {
     opacity: 0;
-    transform: var(--label-center) scale(0.9);
+    transform: var(--foliplus-label-center) scale(0.9);
   }
   to {
     opacity: 1;
-    transform: var(--label-center) scale(1);
+    transform: var(--foliplus-label-center) scale(1);
   }
 }
 
@@ -185,7 +186,7 @@ path.foliplus-measure-node-solid {
    flip live here. */
 .foliplus-measure-readout {
   position: absolute;
-  z-index: var(--z-index-floating);
+  z-index: var(--foliplus-z-index-floating);
   font-variant-numeric: tabular-nums;
   transform: translate(-50%, 10px);
   /* No entrance animation: the chip is repositioned on every mousemove, so

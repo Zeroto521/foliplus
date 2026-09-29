@@ -225,11 +225,11 @@ const isLayerInPanes = (panes: readonly string[]): ((leaf: L.Layer) => boolean) 
  *  `markerPane` (opacity/zoomRange/bounds have no honest carrier), but the
  *  group itself is an `L.Layer` so visibility is still map membership. */
 const CLUSTER_CAPABILITIES: Omit<LayerCapabilities, "annotation"> = {
-  fill: "none",
-  stroke: "none",
-  opacity: "none",
-  zoomRange: "none",
-  visibility: "native",
+  fill: CONST.CAP_TIER.NONE,
+  stroke: CONST.CAP_TIER.NONE,
+  opacity: CONST.CAP_TIER.NONE,
+  zoomRange: CONST.CAP_TIER.NONE,
+  visibility: CONST.CAP_TIER.NATIVE,
   relocatable: false,
   bounds: false,
 };
@@ -283,19 +283,19 @@ const deriveLayerKind = (opts: {
   layer?: L.Layer | null;
 }): LayerKind => {
   if (opts.kind) return opts.kind;
-  if (opts.color != null) return "solid";
-  if (opts.custom !== undefined) return "custom";
-  if (opts.canvas && !opts.layer) return "canvas";
+  if (opts.color != null) return CONST.KIND.SOLID;
+  if (opts.custom !== undefined) return CONST.KIND.CUSTOM;
+  if (opts.canvas && !opts.layer) return CONST.KIND.CANVAS;
   const layer = opts.layer;
-  if (layer && isMarkerCluster(layer)) return "cluster";
-  if (layer && isTileFamily(layer)) return "tile";
-  if (layer && isVectorFamily(layer)) return "vector";
-  if (layer) return "vector";
+  if (layer && isMarkerCluster(layer)) return CONST.KIND.CLUSTER;
+  if (layer && isTileFamily(layer)) return CONST.KIND.TILE;
+  if (layer && isVectorFamily(layer)) return CONST.KIND.VECTOR;
+  if (layer) return CONST.KIND.VECTOR;
   // No layer and no explicit non-layer carrier: a pending Leaflet-layer
   // registration (folium script-stream). NOT "custom" — that kind means an
   // explicit no-carrier third-party payload and would hide the entry from
   // `hasUnresolvedLayers`.
-  return "vector";
+  return CONST.KIND.VECTOR;
 };
 
 export {

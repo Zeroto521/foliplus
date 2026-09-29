@@ -1,6 +1,7 @@
 // HeatmapControl canvas rendering — pure draw helpers for hexagon fill/stroke
 // and value labels. No `this` dependency: map and style values are passed
 // in explicitly.
+import { drawAlpha, getLayerAlpha, withCanvasLayerAlpha } from "#common/canvasAlpha.js";
 import {
   type CanvasLabelStyle,
   drawCanvasLabel,
@@ -11,7 +12,10 @@ import { type NumberStyle, formatLabelNumber } from "#common/format.js";
 import * as CONST from "./const.js";
 import type { HexFeature } from "./type.js";
 
-/** Draw a single hexagon polygon (fill + stroke). */
+/** Draw a single hexagon polygon (fill + stroke).
+ *  Declared fill/border opacity (CONF.fill_opacity / CONF.border_opacity)
+ *  stacks multiplicatively with the layer alpha the opacity slider baked
+ *  onto the canvas — do not write either one as a bare `globalAlpha`. */
 const drawHexagon = (
   ctx: CanvasRenderingContext2D,
   feat: HexFeature,
@@ -22,25 +26,30 @@ const drawHexagon = (
   const pts = feat.geometry.coordinates[0].map(p =>
     map.latLngToContainerPoint(L.latLng(p[1], p[0])),
   );
+  const layerAlpha = getLayerAlpha(ctx.canvas);
+  const fillAlpha = CONF.fill_opacity ?? 1;
+  // The border branch only runs when this is > 0, so the draw path can use
+  // the resolved number directly (a second `?? 1` here would be unreachable).
+  const borderAlpha = CONF.border_opacity ?? 0;
   ctx.beginPath();
   ctx.moveTo(pts[0].x, pts[0].y);
   for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
   ctx.closePath();
   ctx.fillStyle = feat.properties.fillColor || CONST.GRAY;
-  ctx.globalAlpha = CONF.fill_opacity ?? 1;
+  ctx.globalAlpha = drawAlpha(fillAlpha, layerAlpha);
   ctx.fill();
   ctx.globalAlpha = 1;
 
-  if (borderWeight > 0 && (CONF.border_opacity ?? 0) > 0) {
+  if (borderWeight > 0 && borderAlpha > 0) {
     ctx.strokeStyle = borderColor;
     ctx.lineWidth = borderWeight;
-    ctx.globalAlpha = CONF.border_opacity ?? 1;
+    ctx.globalAlpha = drawAlpha(borderAlpha, layerAlpha);
     ctx.stroke();
     ctx.globalAlpha = 1;
   }
 };
 
-/** Resolve label styling from the shared --label-* tokens. Runtime
+/** Resolve label styling from the shared --foliplus-label-* tokens. Runtime
  *  size/color override the token defaults so the panel and drawer can
  *  restyle hex labels without a CSS override. */
 const resolveLabelStyle = (
@@ -73,8 +82,10 @@ const drawHexLabel = (
     currentLabelFormat,
     CONF.locale_code,
   );
-  prepareCanvasLabel(ctx, style);
-  drawCanvasLabel(ctx, text, pt.x, pt.y, style);
+  withCanvasLayerAlpha(ctx, () => {
+    prepareCanvasLabel(ctx, style);
+    drawCanvasLabel(ctx, text, pt.x, pt.y, style);
+  });
 };
 
 export { drawHexagon, drawHexLabel, resolveLabelStyle };

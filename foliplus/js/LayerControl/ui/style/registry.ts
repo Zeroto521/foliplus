@@ -53,6 +53,7 @@
 // overwrite. This registry is currently an internal surface only — the
 // public extensibility API (a `registerDimension` re-exported from
 // `LayerControl/index.ts`) is deferred.
+import * as CONST from "../../const.js";
 import type { LayerDimension } from "../../type.js";
 import type { LayerUI } from "../index.js";
 
@@ -99,7 +100,12 @@ const listDimensions = (): readonly LayerDimension<any>[] => [...registry.values
  *  adding a dimension without adding it to its section's order is the bug
  *  that same test catches.
  */
-const DIM_ORDER = ["fill", "border", "opacity", "zoomRange"] as const;
+const DIM_ORDER = [
+  CONST.DIM.FILL,
+  CONST.DIM.BORDER,
+  CONST.DIM.OPACITY,
+  CONST.DIM.ZOOM_RANGE,
+] as const;
 
 /** The Label section's authoritative display order — the second section of
  *  the same panel, iterated exactly like `DIM_ORDER` (heading + gated rows).
@@ -109,7 +115,7 @@ const DIM_ORDER = ["fill", "border", "opacity", "zoomRange"] as const;
  *  every registered built-in key and nothing more, which is the drift this
  *  split would otherwise open: a dimension registered but put in neither
  *  order is unreachable from the panel. */
-const LABEL_DIM_ORDER = ["annotation"] as const;
+const LABEL_DIM_ORDER = [CONST.DIM.ANNOTATION] as const;
 
 /** Collect the descriptors whose `gate` passes, in the caller's declared
  *  order — the one gate pass every panel flavor shares. The annotation

@@ -23,7 +23,7 @@ import { registerDimension } from "./registry.js";
 const canShowZoomRange = (ui: LayerUI, layerId: string): boolean => {
   const li = ui.m.layerRegistry.get(layerId);
   if (!li) return false;
-  return ui.m.surfaceFor(li).capabilities.zoomRange !== "none";
+  return ui.m.surfaceFor(li).capabilities.zoomRange !== CONST.CAP_TIER.NONE;
 };
 
 /** Clamp a zoom value into the map's current [min, max] range. */
@@ -50,7 +50,7 @@ const LABEL_MIN_GAP_PCT = 12;
  *  dot). The draggable range carries no number of its own — it reports through
  *  the bubble while held, and through the rail's geometry the rest of the time.
  *
- *  `--slider-dot-size` dots read coverage through their ring: accent where the
+ *  `--foliplus-slider-dot-size` dots read coverage through their ring: accent where the
  *  layer renders (inside the range), gray where it does not. The current dot
  *  rides the row's existing out-of-range class for the same readout. */
 const syncValues = (
@@ -292,7 +292,7 @@ const resetLayerZoomRange = (ui: LayerUI, layerId: string): void => {
  *  Registered last in `DIM_ORDER` (see `./registry.js`): the annotation
  *  panel's Layer section runs fill → border → opacity → zoomRange. */
 const ZOOM_RANGE_DIMENSION = registerDimension<{ min: number; max: number }>({
-  key: "zoomRange",
+  key: CONST.DIM.ZOOM_RANGE,
   gate: canShowZoomRange,
   value: (ui, layerId) => {
     const li = ui.m.layerRegistry.get(layerId);

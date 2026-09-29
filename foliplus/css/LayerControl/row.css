@@ -2,45 +2,48 @@
 .foliplus-layer-ctrl {
   /* ── Drag & Drop Variables ──
      Used by .foliplus-layer-item.{drag-over-top|drag-over-bottom} rules below. */
-  --drag-border-width: var(--border-thick);
+  --foliplus-drag-border-width: var(--foliplus-border-thick);
 
   /* Drop-position glow (top/bottom) */
-  --drag-top-shadow: 0 calc(-1 * var(--size-2)) var(--size-6) calc(-1 * var(--size-2))
-    var(--accent-primary);
-  --drag-bottom-shadow: 0 var(--size-2) var(--size-6) calc(-1 * var(--size-2))
-    var(--accent-primary);
+  --foliplus-drag-top-shadow: 0 calc(-1 * var(--foliplus-size-2)) var(--foliplus-size-6)
+    calc(-1 * var(--foliplus-size-2)) var(--foliplus-accent-primary);
+  --foliplus-drag-bottom-shadow: 0 var(--foliplus-size-2) var(--foliplus-size-6)
+    calc(-1 * var(--foliplus-size-2)) var(--foliplus-accent-primary);
 
   /* Pulse animation timing */
-  --drag-pulse-duration: 0.8s;
-  --drag-pulse-count: 3;
+  --foliplus-drag-pulse-duration: 0.8s;
+  --foliplus-drag-pulse-count: 3;
 
   /* Pulse border: start (from) and end (to) colors during the pulse */
-  --drag-border-from: var(--accent-primary);
-  --drag-border-to: var(--accent-hover);
+  --foliplus-drag-border-from: var(--foliplus-accent-primary);
+  --foliplus-drag-border-to: var(--foliplus-accent-hover);
   /* Pulse shadow: start (from, tight) and end (to, diffuse) states */
-  --drag-shadow-from: 0 0 var(--size-4) calc(-1 * var(--border-thin))
-    var(--accent-primary);
-  --drag-shadow-to: 0 0 var(--size-8) 0 var(--accent-primary);
+  --foliplus-drag-shadow-from: 0 0 var(--foliplus-size-4)
+    calc(-1 * var(--foliplus-border-thin)) var(--foliplus-accent-primary);
+  --foliplus-drag-shadow-to: 0 0 var(--foliplus-size-8) 0 var(--foliplus-accent-primary);
 
   /* ── Layout ── */
-  --layer-item-pad-x: calc(var(--space-md) - var(--size-2) + 1px);
+  --foliplus-layer-item-pad-x: calc(
+    var(--foliplus-space-md) - var(--foliplus-size-2) + 1px
+  );
 
   /* ── Shared 6-column track for all layer rows ──
     Each row is an independent grid container that reuses this track.
     Using a single CSS variable keeps column widths in sync across
     layer-item / toggle-all / color-item rows without subgrid.
     All track dimensions are named so the count / more columns stay
-    synchronised in --grid-layer-cols and each element's own width.
+    synchronised in --foliplus-grid-layer-cols and each element's own width.
     Track width includes the count column's 4px right padding, so usable
     content is ~34px — about 3 digits at font-size-xs. Counts at or above
     1000 are rendered compact by formatNumber("auto") (12K, 1.2万), so
     overflow/ellipsis below is a last-resort guard for locales whose
     compact unit is wider (de 10.000). */
-  --count-track-width: 38px;
-  --more-btn-width: 7px;
-  --grid-layer-gap: 3px;
-  --grid-layer-cols: var(--space-xl) var(--space-xl) 1fr var(--count-track-width)
-    var(--space-xl) var(--more-btn-width);
+  --foliplus-count-track-width: 38px;
+  --foliplus-more-btn-width: 7px;
+  --foliplus-grid-layer-gap: 3px;
+  --foliplus-grid-layer-cols: var(--foliplus-space-xl) var(--foliplus-space-xl) 1fr
+    var(--foliplus-count-track-width) var(--foliplus-space-xl)
+    var(--foliplus-more-btn-width);
 
   /* ── Row min-height ──
      Data rows are taller than group headers only because a data label spans
@@ -48,35 +51,36 @@
      Pin both to one height so the checkbox/label columns sit on the same
      baseline across every row type. Rows set box-sizing: border-box and this
      value is the TOTAL box height, so it is independent of the outer context. */
-  --layer-row-min-height: calc(
-    var(--space-md) * 2 + var(--font-size-md) * var(--line-height-hint)
+  --foliplus-layer-row-min-height: calc(
+    var(--foliplus-space-md) * 2 + var(--foliplus-font-size-md) *
+      var(--foliplus-line-height-hint)
   );
 
   /* ── Panel Content Overrides ──
-     The top gap under the header comes from panel.css (--space-md, equal to
+     The top gap under the header comes from panel.css (--foliplus-space-md, equal to
      the divider's own top margin) so every panel reads the same at both ends;
      this override only keeps the layer list's small tail below its last row
      and the shared max-height cap. */
   .foliplus-panel-content {
-    padding-bottom: var(--space-sm);
-    max-height: var(--panel-max-height);
+    padding-bottom: var(--foliplus-space-sm);
+    max-height: var(--foliplus-panel-max-height);
   }
   /* ── LAYERS icon: stacked diamond opacity ── */
   .foliplus-toggle-btn svg polygon:nth-child(2),
   .foliplus-header-icon svg polygon:nth-child(2) {
-    opacity: var(--alpha-70);
+    opacity: var(--foliplus-alpha-70);
   }
   .foliplus-toggle-btn svg polygon:nth-child(3),
   .foliplus-header-icon svg polygon:nth-child(3) {
-    opacity: var(--alpha-30);
+    opacity: var(--foliplus-alpha-30);
   }
   .foliplus-type-icon-col {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: var(--space-xl);
-    height: var(--space-xl);
-    color: var(--text-muted);
+    width: var(--foliplus-space-xl);
+    height: var(--foliplus-space-xl);
+    color: var(--foliplus-text-muted);
 
     /* Four-tier role hierarchy: identity icons recede at rest and wake to
        black (primary) on hover/active. Accent stays reserved for status
@@ -92,12 +96,12 @@
       display: block;
 
       /* Shared dashed style for EMPTY / UNKNOWN icons.
-         Matches --stroke-icon (1.8) so the whole type-icon family renders
+         Matches --foliplus-stroke-icon (1.8) so the whole type-icon family renders
          at a single consistent weight. */
       .dashed {
         fill: none;
         stroke: currentColor;
-        stroke-width: var(--stroke-icon);
+        stroke-width: var(--foliplus-stroke-icon);
         stroke-dasharray: 4 3;
       }
     }
@@ -105,10 +109,10 @@
   /* ── Section label (rendered only inside toggle-all rows) ── */
   .foliplus-layer-sep-label {
     grid-area: label;
-    font-size: var(--font-size-xs);
-    color: var(--text-muted);
+    font-size: var(--foliplus-font-size-xs);
+    color: var(--foliplus-text-muted);
     text-transform: uppercase;
-    letter-spacing: var(--letter-spacing-tight);
+    letter-spacing: var(--foliplus-letter-spacing-tight);
     white-space: nowrap;
   }
 
@@ -118,7 +122,7 @@
     grid-area: drag;
     /* Always black. The grip is a static affordance, not a control that joins
        the hover/active color dance, so it never tints accent. */
-    color: var(--text-primary);
+    color: var(--foliplus-text-primary);
   }
   .foliplus-checkbox {
     grid-area: check;
@@ -141,30 +145,31 @@
     items, since toggle-all has no checkbox column. */
   .foliplus-layer-sep.foliplus-layer-toggle-all {
     display: grid;
-    grid-template-columns: var(--grid-layer-cols);
+    grid-template-columns: var(--foliplus-grid-layer-cols);
     /* Drag/check/label are named slots (placed via item-level grid-area
        shared with layer-item rows). Divider is 3 anonymous slots —
        positioned by grid-column: 4 / -1 on the item, not a named area.
        This avoids the dual-declaration coupling (template-areas + item
        grid-area) that only the divider originally had. */
     grid-template-areas: "drag check label . . .";
-    column-gap: var(--grid-layer-gap);
+    column-gap: var(--foliplus-grid-layer-gap);
     align-items: center;
     /* Padding mirrors .foliplus-layer-item's horizontal insets, so a group row
        and a data row measure out to the same total box height: padding +
-       --layer-row-min-height. A group header without an explicit right padding
+       --foliplus-layer-row-min-height. A group header without an explicit right padding
        would fall back to the browser default (~8px), making it visibly taller
        and misaligning its left border with the data rows below it. */
-    padding: var(--space-md) var(--layer-item-pad-x) var(--space-md) var(--space-sm);
+    padding: var(--foliplus-space-md) var(--foliplus-layer-item-pad-x)
+      var(--foliplus-space-md) var(--foliplus-space-sm);
     box-sizing: border-box;
-    min-height: var(--layer-row-min-height);
-    border-left: var(--border-thick) solid transparent;
-    border-radius: var(--radius-sm);
+    min-height: var(--foliplus-layer-row-min-height);
+    border-left: var(--foliplus-border-thick) solid transparent;
+    border-radius: var(--foliplus-radius-sm);
     cursor: pointer;
     transition: none;
     /* border-color and background-color intentionally NOT animated: the
        toggle-all row is destroyed and re-created on every list rebuild, and
-       its folded state (border-left-color: var(--accent-primary)) is re-applied
+       its folded state (border-left-color: var(--foliplus-accent-primary)) is re-applied
        on rebuild, so a transition on either would flash on each rebuild. */
 
     .foliplus-section-divider {
@@ -173,17 +178,17 @@
   }
   /* Section label: primary color + semibold so it reads as a real header */
   .foliplus-layer-toggle-all .foliplus-layer-sep-label {
-    font-size: var(--font-size-xs);
-    font-weight: var(--font-weight-semibold);
-    color: var(--text-primary);
+    font-size: var(--foliplus-font-size-xs);
+    font-weight: var(--foliplus-font-weight-semibold);
+    color: var(--foliplus-text-primary);
   }
   /* Folded: accent left border + accent fold-btn; divider fades out */
   .foliplus-layer-sep.foliplus-layer-toggle-all.foliplus-layer-folded {
-    border-left-color: var(--accent-primary);
+    border-left-color: var(--foliplus-accent-primary);
   }
   .foliplus-layer-toggle-all.foliplus-layer-folded .foliplus-section-divider {
     opacity: 0;
-    transition: opacity var(--transition-fast);
+    transition: opacity var(--foliplus-transition-fast);
   }
 
   /* ── Fold toggle button ── */
@@ -197,30 +202,30 @@
     cursor: pointer;
     padding: 0;
     margin: 0;
-    width: var(--space-xl);
-    height: var(--space-xl);
+    width: var(--foliplus-space-xl);
+    height: var(--foliplus-space-xl);
     flex-shrink: 0;
-    color: var(--text-primary);
+    color: var(--foliplus-text-primary);
     transition:
-      color var(--transition-fast),
-      transform var(--transition-fast);
+      color var(--foliplus-transition-fast),
+      transform var(--foliplus-transition-fast);
 
     svg {
       display: block;
-      width: var(--space-xl);
-      height: var(--space-xl);
+      width: var(--foliplus-space-xl);
+      height: var(--foliplus-space-xl);
       fill: none;
       stroke: currentColor;
-      stroke-width: var(--stroke-icon);
+      stroke-width: var(--foliplus-stroke-icon);
       stroke-linecap: round;
       stroke-linejoin: round;
-      transition: transform var(--transition-fast);
+      transition: transform var(--foliplus-transition-fast);
     }
     &:hover {
-      color: var(--accent-primary);
+      color: var(--foliplus-accent-primary);
 
       svg {
-        transform: scale(var(--scale-hover));
+        transform: scale(var(--foliplus-scale-hover));
       }
     }
     /* Same wake as hover: fold-btn is a 20px icon button inside the row, so it
@@ -229,15 +234,15 @@
        preview rules below), so the soft glow is enough to mark it focused. */
     &:focus-visible {
       outline: none;
-      color: var(--accent-primary);
-      box-shadow: var(--focus-ring);
-      border-radius: var(--radius-sm);
+      color: var(--foliplus-accent-primary);
+      box-shadow: var(--foliplus-focus-ring);
+      border-radius: var(--foliplus-radius-sm);
     }
     &:active {
-      transform: scale(var(--scale-press));
+      transform: scale(var(--foliplus-scale-press));
 
       svg {
-        transform: scale(var(--scale-press));
+        transform: scale(var(--foliplus-scale-press));
       }
     }
   }
@@ -252,18 +257,18 @@
     transform: rotate(180deg);
   }
   .foliplus-layer-toggle-all.foliplus-layer-folded .foliplus-layer-fold-btn {
-    color: var(--accent-primary);
+    color: var(--foliplus-accent-primary);
   }
   .foliplus-layer-toggle-all:not(.foliplus-layer-folded):is(
       :hover,
       .foliplus-is-focused-row
     )
     .foliplus-layer-fold-btn {
-    color: var(--accent-primary);
+    color: var(--foliplus-accent-primary);
   }
   .foliplus-layer-toggle-all.foliplus-layer-folded:is(:hover, .foliplus-is-focused-row)
     .foliplus-layer-fold-btn {
-    color: var(--text-primary);
+    color: var(--foliplus-text-primary);
   }
 
   /* ── Folded layer items (hidden, but DOM preserved for index alignment) ── */
@@ -276,12 +281,12 @@
     Shown on hover for draggable items; hidden for color rows. */
   .drag-handle {
     display: block;
-    width: var(--space-xl);
-    height: var(--space-xl);
+    width: var(--foliplus-space-xl);
+    height: var(--foliplus-space-xl);
   }
   .foliplus-layer-item .drag-handle {
     opacity: 0;
-    transition: opacity var(--transition-fast);
+    transition: opacity var(--foliplus-transition-fast);
   }
   /* The visible state comes from the Row-cursor recipe below; color rows are
      draggable within the base group, so their handle shows like any other row. */
@@ -308,7 +313,7 @@
        resting unchecked row and an interaction target cannot disagree
        (one "white via the container", one "painted white"). Checked rows
        override with the wash below; hover / Tab / arrow paint white on top. */
-    background: var(--neutral-0);
+    background: var(--foliplus-neutral-0);
 
     /* Rows take DOM focus (arrow cursor, Tab, Escape-restore). The browser's
        default dark outline is never the focus signal here — the red glow is —
@@ -321,8 +326,8 @@
     }
 
     &.foliplus-active {
-      border-left-color: var(--accent-primary);
-      background: var(--accent-light);
+      border-left-color: var(--foliplus-accent-primary);
+      background: var(--foliplus-accent-light);
     }
     /* Declared after .foliplus-active so the interaction target wins over the wash
        at equal specificity: a checked row turns white when hover / Tab /
@@ -339,18 +344,19 @@
       /* Top/bottom red glow hugging the row edges; a 0 X-offset keeps it
          vertical (no left/right bleed). */
       box-shadow:
-        0 calc(-1 * var(--size-2)) var(--size-4) var(--accent-primary),
-        0 var(--size-2) var(--size-4) var(--accent-primary);
-      background: var(--neutral-0);
+        0 calc(-1 * var(--foliplus-size-2)) var(--foliplus-size-4)
+          var(--foliplus-accent-primary),
+        0 var(--foliplus-size-2) var(--foliplus-size-4) var(--foliplus-accent-primary);
+      background: var(--foliplus-neutral-0);
 
       .foliplus-drag-cell .drag-handle {
         opacity: 1;
       }
       .foliplus-type-icon-col {
-        color: var(--text-primary);
+        color: var(--foliplus-text-primary);
       }
       .foliplus-layer-more-btn {
-        color: var(--accent-primary);
+        color: var(--foliplus-accent-primary);
       }
     }
   }
@@ -368,7 +374,7 @@
      the open overlay with it and settles every combination. */
   &:has(.foliplus-layer-more-menu.open, .foliplus-row-panel) {
     .foliplus-layer-item:has(.foliplus-layer-more-menu.open, .foliplus-row-panel) {
-      z-index: var(--z-index-floating);
+      z-index: var(--foliplus-z-index-floating);
     }
   }
 
@@ -386,24 +392,25 @@
       :hover,
       .foliplus-is-focused-row
     ) {
-    background: var(--accent-light);
+    background: var(--foliplus-accent-light);
   }
 
   /* ── Layer item ── */
   .foliplus-layer-item {
     display: grid;
-    grid-template-columns: var(--grid-layer-cols);
+    grid-template-columns: var(--foliplus-grid-layer-cols);
     grid-template-areas: "drag check label count icon more";
-    column-gap: var(--grid-layer-gap);
-    padding: var(--space-md) var(--layer-item-pad-x) var(--space-md) var(--space-sm);
+    column-gap: var(--foliplus-grid-layer-gap);
+    padding: var(--foliplus-space-md) var(--foliplus-layer-item-pad-x)
+      var(--foliplus-space-md) var(--foliplus-space-sm);
     align-items: center;
     box-sizing: border-box;
-    min-height: var(--layer-row-min-height);
+    min-height: var(--foliplus-layer-row-min-height);
     cursor: default;
     user-select: none;
-    border-radius: var(--radius-sm);
-    font-size: var(--font-size-md);
-    border-left: var(--border-thick) solid transparent;
+    border-radius: var(--foliplus-radius-sm);
+    font-size: var(--foliplus-font-size-md);
+    border-left: var(--foliplus-border-thick) solid transparent;
     transition: none;
     /* border-color and background-color intentionally NOT animated on this
        row: the item is destroyed and re-created on every list rebuild
@@ -416,7 +423,7 @@
       overflow: hidden;
       text-overflow: ellipsis;
       margin: 0;
-      font-weight: var(--font-weight-normal);
+      font-weight: var(--foliplus-font-weight-normal);
     }
     /* ── Feature count column ──
       Right-aligned. formatNumber("auto") compacts values >= 1000 (12K, 1.2万),
@@ -426,14 +433,14 @@
       so it intentionally does not join the hover/active color dance. */
     .foliplus-layer-count {
       font-variant-numeric: tabular-nums;
-      font-size: var(--font-size-xs);
-      color: var(--text-muted);
+      font-size: var(--foliplus-font-size-xs);
+      color: var(--foliplus-text-muted);
       text-align: right;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      line-height: var(--line-height-hint);
-      padding: 0 0 0 var(--space-xs);
+      line-height: var(--foliplus-line-height-hint);
+      padding: 0 0 0 var(--foliplus-space-xs);
     }
 
     &[draggable="true"] {
@@ -447,25 +454,26 @@
        so the type icon reads as focus, not as a call-to-action. */
     &:hover .foliplus-type-icon-col,
     &.foliplus-active .foliplus-type-icon-col {
-      color: var(--text-primary);
+      color: var(--foliplus-text-primary);
     }
     &.foliplus-layer-dragging {
-      background: var(--accent-light);
-      opacity: var(--alpha-70);
+      background: var(--foliplus-accent-light);
+      opacity: var(--foliplus-alpha-70);
     }
     &.foliplus-layer-drag-over-top {
-      border-top: var(--drag-border-width) solid var(--accent-primary);
-      background: var(--accent-soft-bg);
-      box-shadow: var(--drag-top-shadow);
-      animation: foliplus-drag-pulse var(--drag-pulse-duration) ease-in-out
-        var(--drag-pulse-count);
+      border-top: var(--foliplus-drag-border-width) solid var(--foliplus-accent-primary);
+      background: var(--foliplus-accent-soft-bg);
+      box-shadow: var(--foliplus-drag-top-shadow);
+      animation: foliplus-drag-pulse var(--foliplus-drag-pulse-duration) ease-in-out
+        var(--foliplus-drag-pulse-count);
     }
     &.foliplus-layer-drag-over-bottom {
-      border-bottom: var(--drag-border-width) solid var(--accent-primary);
-      background: var(--accent-soft-bg);
-      box-shadow: var(--drag-bottom-shadow);
-      animation: foliplus-drag-pulse var(--drag-pulse-duration) ease-in-out
-        var(--drag-pulse-count);
+      border-bottom: var(--foliplus-drag-border-width) solid
+        var(--foliplus-accent-primary);
+      background: var(--foliplus-accent-soft-bg);
+      box-shadow: var(--foliplus-drag-bottom-shadow);
+      animation: foliplus-drag-pulse var(--foliplus-drag-pulse-duration) ease-in-out
+        var(--foliplus-drag-pulse-count);
     }
   }
 }

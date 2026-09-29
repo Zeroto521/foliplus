@@ -97,7 +97,7 @@ describe("layerCanBorder", () => {
   beforeEach(() => {
     ({ manager, ui } = initFixture());
     ui.foldedGroups = new Set();
-    ui.hiddenLayerIds = new Set();
+    ui.visibleMap = {};
   });
 
   afterEach(() => {
@@ -254,7 +254,7 @@ describe("authoredBorder", () => {
   beforeEach(() => {
     ({ manager, ui } = initFixture());
     ui.foldedGroups = new Set();
-    ui.hiddenLayerIds = new Set();
+    ui.visibleMap = {};
   });
 
   afterEach(() => {
@@ -327,7 +327,7 @@ describe("commit pipeline", () => {
   beforeEach(() => {
     ({ manager, ui } = initFixture());
     ui.foldedGroups = new Set();
-    ui.hiddenLayerIds = new Set();
+    ui.visibleMap = {};
   });
 
   afterEach(() => {
@@ -474,7 +474,7 @@ describe("bindBorderRow", () => {
   beforeEach(() => {
     ({ manager, ui } = initFixture());
     ui.foldedGroups = new Set();
-    ui.hiddenLayerIds = new Set();
+    ui.visibleMap = {};
   });
 
   afterEach(() => {
@@ -534,7 +534,7 @@ describe("resetLayerBorder", () => {
   beforeEach(() => {
     ({ manager, ui } = initFixture());
     ui.foldedGroups = new Set();
-    ui.hiddenLayerIds = new Set();
+    ui.visibleMap = {};
   });
 
   afterEach(() => {
@@ -686,7 +686,7 @@ describe("highlight restore", () => {
   beforeEach(() => {
     ({ manager, ui } = initFixture());
     ui.foldedGroups = new Set();
-    ui.hiddenLayerIds = new Set();
+    ui.visibleMap = {};
   });
 
   afterEach(() => {
@@ -829,7 +829,7 @@ describe("applyBorderToLayer", () => {
   beforeEach(() => {
     ({ manager, ui } = initFixture());
     ui.foldedGroups = new Set();
-    ui.hiddenLayerIds = new Set();
+    ui.visibleMap = {};
   });
 
   afterEach(() => {
@@ -904,7 +904,7 @@ describe("buildBorderRow", () => {
   beforeEach(() => {
     ({ manager, ui } = initFixture());
     ui.foldedGroups = new Set();
-    ui.hiddenLayerIds = new Set();
+    ui.visibleMap = {};
   });
 
   afterEach(() => {

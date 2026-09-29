@@ -4,7 +4,7 @@
 // `projection.ts`, diffs it against the last projection it wrote to the map
 // (`ui.appliedState`), and calls `applyStateOp` only for the dimensions
 // that actually moved. The old model — a sweep that re-read the whole
-// registry per layer, walked `hiddenLayerIds` / `opacityMap` / `zoomRangeMap`
+// registry per layer, walked `visibleMap` / `opacityMap` / `zoomRangeMap`
 // by id, and picked per-dimension helpers — is what made the three
 // regressions structurally reachable:
 //
@@ -28,6 +28,7 @@
 // a change on either side produces an op.
 import { HIDDEN } from "#core/layer/index.js";
 import { resetGridLayerView } from "#core/leafletAdapter.js";
+import { setLayerAlpha } from "#common/canvasAlpha.js";
 import * as CONST from "../const.js";
 import type { Projection, StateOp } from "../type.js";
 import type { LayerUI } from "./index.js";
@@ -123,7 +124,7 @@ const authorZoomBoundsForLayer = (ui: LayerUI, layerId: string): [number, number
 const carrierOf = (ui: LayerUI, layerInfo: LayerInfo): unknown => {
   if (layerInfo.canvas) return layerInfo.canvas;
   const surface = ui.m.surfaceFor(layerInfo);
-  if (surface.capabilities.opacity === "pane") {
+  if (surface.capabilities.opacity === CONST.CAP_TIER.PANE) {
     // A stable key, not an array: `sameCarrier` compares with `===`, so a
     // freshly built array would never match and every pane layer would
     // rewrite on every call. Sorted, so the order the pane specs happen to
@@ -161,7 +162,7 @@ const sameCarrier = (prev: unknown, curr: unknown): boolean =>
 const applyStateOp = (ui: LayerUI, layerInfo: LayerInfo, op: StateOp): void => {
   if (op.type === "visible") {
     const carrier = ui.m.surfaceFor(layerInfo).capabilities.visibility;
-    if (carrier === "native") {
+    if (carrier === CONST.CAP_TIER.NATIVE) {
       const layer = layerInfo.layer ?? ui.m.findLayer(layerInfo);
       if (layer) {
         // Map membership. Written only when it differs from what is there —
@@ -173,7 +174,7 @@ const applyStateOp = (ui: LayerUI, layerInfo: LayerInfo, op: StateOp): void => {
           else ui.m.map.removeLayer(layer);
         }
       }
-    } else if (carrier === "pane") {
+    } else if (carrier === CONST.CAP_TIER.PANE) {
       // Canvas HIDDEN class — the carrier for canvas-only surfaces that have
       // no Leaflet layer to add/remove.
       const canvas = layerInfo.canvas;
@@ -185,20 +186,44 @@ const applyStateOp = (ui: LayerUI, layerInfo: LayerInfo, op: StateOp): void => {
   }
   if (op.type === "opacity") {
     if (layerInfo.canvas) {
-      // Canvas element's own CSS opacity — the carrier for
-      // heatmap / measure. Kept separate from the pane write: the pane's
-      // opacity would compound with this one, and a single knob must not
-      // be multiplied twice.
+      // R11: layer alpha for self-drawn canvases. Two arms, one helper
+      // (`#common/canvasAlpha`), switched by `opacityBake`:
+      //
+      //   "commit"  — bake layerAlpha and redraw on the slider commit.
+      //               Cheap for a one-rect color face or a label pass.
+      //   "redraw"  — slider commit keeps CSS `opacity` (O(1), live
+      //               feedback); the next pan/zoom redraw bakes and drops
+      //               the CSS. Default. Heatmap ≥5k takes this arm because
+      //               a full hexagon redraw per commit is jank (measured
+      //               8ms warm / 30-320ms under load on a stub ctx @5k —
+      //               over a 16ms frame; real rasterization is slower).
+      //
+      // `capabilities.opacity` still reports `"pane"` — the write target is
+      // the canvas face. The bake-vs-CSS mechanism tier ("baked"/"redraw")
+      // is owned by T222; `"pane"` stays the honest "we own this face"
+      // answer and this comment is what stops it from lying.
       const value = op.value ?? 1;
-      layerInfo.canvas.style.opacity = String(value);
+      // Registry fills `opacityBake` (default "redraw"); treat unset as
+      // "redraw" via the else arm so there is no second default to drift.
+      const bake = layerInfo.opacityBake;
+      setLayerAlpha(layerInfo.canvas, value);
+      if (bake === "commit") {
+        layerInfo.canvas.style.opacity = "";
+        layerInfo.onOpacity?.(value);
+      } else {
+        // Live CSS arm. The drawer's next paint reads getLayerAlpha and
+        // bakes the same value, then clears this CSS (see HeatmapManager.
+        // redrawHeatmap) so the two never compound.
+        layerInfo.canvas.style.opacity = String(value);
+      }
       layerInfo.opacity = value;
       return;
     }
     const carrier = ui.m.surfaceFor(layerInfo).capabilities.opacity;
-    if (carrier === "none") return; // no honest write exists
+    if (carrier === CONST.CAP_TIER.NONE) return; // no honest write exists
     const layer = layerInfo.layer;
     if (!layer) return;
-    if (carrier === "native") {
+    if (carrier === CONST.CAP_TIER.NATIVE) {
       // The layer paints through a setter of its own. `setOpacity`
       // (ImageOverlay) is immediate; `options.opacity` (GridLayer /
       // TileLayer) is honoured at the next tile cycle. The slider is a
@@ -214,14 +239,23 @@ const applyStateOp = (ui: LayerUI, layerInfo: LayerInfo, op: StateOp): void => {
       }
       layerInfo.opacity = op.value ?? 1;
     } else {
-      // One CSS write per pane the surface owns — declared, sub,
-      // synthesized, or the `role: "annotation"` label pane. Multiplicative
-      // over each feature's own style, so a hollow polygon keeps its hole.
+      // One CSS write per pane the surface owns — declared, sub, or
+      // synthesized. Multiplicative over each feature's own style, so a
+      // hollow polygon keeps its hole.
+      //
+      // The `role: "annotation"` label pane is deliberately excluded: its
+      // canvas bakes layerAlpha into the label draws (R11). Writing CSS
+      // here as well would double-compound. Mixed layers therefore take
+      // CSS on the vector data panes and bake on the label canvas — both
+      // sides land at the same visual opacity.
       const value = op.value ?? 1;
-      for (const name of ui.m.surfaceFor(layerInfo).paneNames) {
-        const pane = ui.m.map.getPane(name);
-        if (pane) pane.style.opacity = String(value);
+      const surface = ui.m.surfaceFor(layerInfo);
+      for (const pane of surface.panes) {
+        if (pane.role === "annotation") continue;
+        const el = ui.m.map.getPane(pane.name);
+        if (el) el.style.opacity = String(value);
       }
+      ui.m.annotation.applyLayerAlpha(layerInfo.id, value);
       layerInfo.opacity = value;
     }
   }
@@ -310,7 +344,7 @@ const applyProjection = (ui: LayerUI, id: string): void => {
   // decide — writing `effectiveShown` for it would turn a guess into an add.
   const hasUserIntent =
     (ui.intentProvenance?.[id]?.includes("visible") ?? false) ||
-    (ui.hiddenLayerIds?.has(id) ?? false);
+    typeof ui.visibleMap?.[id] === "boolean";
   const authorised = hasUserIntent || ui.authorVisible.has(id);
   // Current visibility, read from the carrier the write would land on.
   // "native" — the map's own membership flag; "pane" — the canvas's
@@ -319,11 +353,11 @@ const applyProjection = (ui: LayerUI, id: string): void => {
   // converge on `effectiveShown` no matter who moved the layer in between.
   const visibility = ui.m.surfaceFor(layerInfo).capabilities.visibility;
   const currentShown =
-    visibility === "native"
+    visibility === CONST.CAP_TIER.NATIVE
       ? layer
         ? ui.m.map.hasLayer(layer)
         : false
-      : visibility === "pane"
+      : visibility === CONST.CAP_TIER.PANE
         ? layerInfo.canvas
           ? !layerInfo.canvas.classList.contains(HIDDEN)
           : false
