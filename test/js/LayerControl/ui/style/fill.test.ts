@@ -4,6 +4,7 @@ import type { LayerManager } from "#foliplus/LayerControl/manager.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { clearIntent, getIntent, setIntent } from "#foliplus/LayerControl/ui/intent.js";
 import {
+  FILL_DIMENSION,
   applyFillToLayer,
   bindFillRow,
   buildFillRow,
@@ -14,6 +15,7 @@ import {
   replayFillState,
   resetLayerFill,
 } from "#foliplus/LayerControl/ui/style/fill.js";
+import { closeStylePanel } from "#foliplus/LayerControl/ui/style/index.js";
 import { findItem, initFixture, installLeafletGlobals } from "../fixture.js";
 
 /** A layer duck with a real setStyle spy and a set of polygon leaves each
@@ -537,6 +539,98 @@ describe("LayerUI style panel — fill color", () => {
       fillOpacity: 0.4,
       fill: true,
     });
+  });
+
+  it("opacity input change flushes the deferred walk without waiting for rAF", () => {
+    // bindLiveNumber owns onchange (clamp + commit); the flush is chained
+    // after it so the terminal opacity lands on the map immediately.
+    const frames: Array<() => void> = [];
+    vi.stubGlobal("requestAnimationFrame", (cb: () => void) => {
+      frames.push(cb);
+      return frames.length;
+    });
+    vi.stubGlobal("cancelAnimationFrame", () => {});
+
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const row = item.querySelector(`.${CONST.CLASSES.STYLE_FILL_ROW}`) as HTMLElement;
+    bindFillRow(ui, "overlay1", row);
+    const opacity = row.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_OPACITY_NUMBER}`,
+    ) as HTMLInputElement;
+    opacity.value = "40";
+    opacity.dispatchEvent(new Event("change", { bubbles: true }));
+
+    expect(fillLayer.leaves[0].setStyle).toHaveBeenCalledWith({
+      fillOpacity: 0.4,
+      fill: true,
+    });
+  });
+
+  it("color input blur flushes the deferred walk", () => {
+    const frames: Array<() => void> = [];
+    vi.stubGlobal("requestAnimationFrame", (cb: () => void) => {
+      frames.push(cb);
+      return frames.length;
+    });
+    vi.stubGlobal("cancelAnimationFrame", () => {});
+
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const row = item.querySelector(`.${CONST.CLASSES.STYLE_FILL_ROW}`) as HTMLElement;
+    bindFillRow(ui, "overlay1", row);
+    const color = row.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`,
+    ) as HTMLInputElement;
+    color.value = "#222222";
+    color.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(fillLayer.leaves[0].setStyle).not.toHaveBeenCalled();
+    color.dispatchEvent(new Event("blur", { bubbles: true }));
+
+    expect(fillLayer.leaves[0].setStyle).toHaveBeenCalledWith({
+      fillColor: "#222222",
+      fill: true,
+    });
+  });
+
+  it("closing the style panel flushes a pending fill walk", () => {
+    const frames: Array<() => void> = [];
+    vi.stubGlobal("requestAnimationFrame", (cb: () => void) => {
+      frames.push(cb);
+      return frames.length;
+    });
+    vi.stubGlobal("cancelAnimationFrame", () => {});
+
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const row = item.querySelector(`.${CONST.CLASSES.STYLE_FILL_ROW}`) as HTMLElement;
+    bindFillRow(ui, "overlay1", row);
+    const color = row.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`,
+    ) as HTMLInputElement;
+    color.value = "#333333";
+    color.dispatchEvent(new Event("input", { bubbles: true }));
+
+    closeStylePanel(ui, false);
+
+    expect(fillLayer.leaves[0].setStyle).toHaveBeenCalledWith({
+      fillColor: "#333333",
+      fill: true,
+    });
+  });
+
+  it("FILL_DIMENSION.value reports the stored choice over the authored one", () => {
+    expect(FILL_DIMENSION.value!(ui, "overlay1")).toEqual({
+      color: "#aabbcc",
+      opacity: 0.5,
+    });
+    commitNow(ui, "overlay1", "color", "#445566");
+    commitNow(ui, "overlay1", "opacity", 80);
+    expect(FILL_DIMENSION.value!(ui, "overlay1")).toEqual({
+      color: "#445566",
+      opacity: 0.8,
+    });
+    expect(FILL_DIMENSION.value!(ui, "ghost")).toBeUndefined();
   });
 
   it("forces fill on when the user sets a fill color, so a fill:false path becomes visible", () => {
