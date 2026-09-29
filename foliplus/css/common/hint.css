@@ -29,7 +29,7 @@
   line-height: var(--foliplus-line-height-hint);
   box-shadow: 0 var(--foliplus-size-2) var(--foliplus-size-12)
     rgba(0, 0, 0, var(--foliplus-alpha-30));
-  animation: foliplus-hint-in 0.2s ease-out;
+  animation: foliplus-hint-in var(--foliplus-motion-quick) ease-out;
 }
 
 @keyframes foliplus-hint-in {

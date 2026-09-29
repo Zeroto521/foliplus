@@ -280,12 +280,20 @@ class TestBaseControlRendering:
         assert "--foliplus-z-index-top" in css
 
     def test_motion_ladder_tokens(self, base_map: folium.Map):
-        """The motion ladder is tokenized in token.css, with the values the
-        per-component --*-duration tokens had — names moved, values did not."""
+        """The motion ladder is tokenized in token.css. `quick` is the entrance
+        tier; fast/normal/slow carry the per-component --*-duration values over.
+        No value moves."""
         tokens = read_css_dir("foliplus/css/common", "token.css")
+        assert "--foliplus-motion-quick: 0.2s" in tokens
         assert "--foliplus-motion-fast: 0.5s" in tokens
         assert "--foliplus-motion-normal: 0.7s" in tokens
         assert "--foliplus-motion-slow: 0.8s" in tokens
+
+    def test_hint_entrance_reads_motion_quick(self):
+        """The hint entrance reads its duration from the motion ladder instead
+        of carrying a bare 0.2s."""
+        css = read_css_dir("foliplus/css/common", "hint.css")
+        assert "animation: foliplus-hint-in var(--foliplus-motion-quick)" in css
 
     def test_ctrl_fold_classes(self, base_map: folium.Map):
         """ctrl-fold is a common pattern for expand/collapse panels."""

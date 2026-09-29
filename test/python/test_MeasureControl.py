@@ -231,6 +231,17 @@ class TestMeasureControlRendering:
             not in css.split(".foliplus-measure-label-radius")[1].split("/*")[0]
         )
 
+    def test_label_entrances_read_motion_quick(self):
+        """Both label entrances read their duration from the motion ladder."""
+        css = read_css("foliplus/css/MeasureControl.css")
+        assert (
+            "animation: foliplus-measure-label-in var(--foliplus-motion-quick)" in css
+        )
+        assert (
+            "animation: foliplus-measure-label-in-radius var(--foliplus-motion-quick)"
+            in css
+        )
+
 
 class TestMeasureControlBrowser:
     def _make_page(self, browser, tmp_path, show_bearing=True):

@@ -139,7 +139,7 @@ path.foliplus-measure-node-solid {
 
 .foliplus-measure-label {
   transform: translateX(-50%);
-  animation: foliplus-measure-label-in 0.2s ease-out;
+  animation: foliplus-measure-label-in var(--foliplus-motion-quick) ease-out;
 }
 
 @keyframes foliplus-measure-label-in {
@@ -157,7 +157,7 @@ path.foliplus-measure-node-solid {
 .foliplus-measure-label-mid {
   --foliplus-label-center: translate(-50%, -50%);
   transform: var(--foliplus-label-center);
-  animation: foliplus-measure-label-in-radius 0.2s ease-out;
+  animation: foliplus-measure-label-in-radius var(--foliplus-motion-quick) ease-out;
 }
 
 @keyframes foliplus-measure-label-in-radius {

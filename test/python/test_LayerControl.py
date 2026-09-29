@@ -953,6 +953,12 @@ class TestLayerControlRendering:
         assert "--foliplus-drag-pulse-count" in css
         assert "--foliplus-motion-slow" in css
 
+    def test_focus_glow_reads_motion_quick(self):
+        """The focus-pane glow entrance reads its duration from the motion
+        ladder."""
+        css = read_css("foliplus/css/LayerControl/index.css")
+        assert "animation: foliplus-focus-glow-in var(--foliplus-motion-quick)" in css
+
     # ── Indeterminate checkbox (partial selection) styles ──
 
     def test_indeterminate_css_style_present(self):
