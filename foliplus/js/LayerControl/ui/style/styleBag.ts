@@ -214,6 +214,14 @@ const dropStyleDimApplies = (layerId: string): void => {
   dropStyleDimApply("stroke", layerId);
 };
 
+/** Flush every face's pending walk for one layer id — the panel-close
+ *  commit boundary. Both faces must land: a dragged border left on a
+ *  trailing frame would vanish when the panel disappears. */
+const flushStyleDimApplies = (layerId: string): void => {
+  flushStyleDimApply("fill", layerId);
+  flushStyleDimApply("stroke", layerId);
+};
+
 /** Whether a scheduler entry is still held (tests pin the unregister drop). */
 const hasStyleDimApply = (face: StyleFace, layerId: string): boolean =>
   applySchedulers.has(applyKey(face, layerId));
@@ -231,6 +239,7 @@ export {
   dropStyleDimApplies,
   faceSlice,
   flushStyleDimApply,
+  flushStyleDimApplies,
   hasStyleDimApply,
   isStyleSetter,
   restoreStyleDim,

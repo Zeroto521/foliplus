@@ -25,6 +25,7 @@ import {
   commitFillColor,
   flushFillApply,
 } from "#foliplus/LayerControl/ui/style/fill.js";
+import { closeStylePanel } from "#foliplus/LayerControl/ui/style/index.js";
 import { pinnedGetterCount } from "#foliplus/LayerControl/ui/style/pin.js";
 import { initFixture } from "../fixture.js";
 
@@ -1377,6 +1378,33 @@ describe("border apply scheduler (drag coalesce)", () => {
     weight.dispatchEvent(new Event("blur", { bubbles: true }));
 
     expect(leaf.setStyle).toHaveBeenCalledWith({ weight: 8, stroke: true });
+  });
+
+  it("closing the style panel flushes a pending border walk", () => {
+    // Panel close is a commit boundary for BOTH faces: a dragged border
+    // left on a trailing frame must not vanish when the panel disappears.
+    const leaf = makeLeaf();
+    manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
+    const frames: Array<() => void> = [];
+    vi.stubGlobal("requestAnimationFrame", (cb: () => void) => {
+      frames.push(cb);
+      return frames.length;
+    });
+    vi.stubGlobal("cancelAnimationFrame", () => {});
+
+    const item = document.createElement("div");
+    item.setAttribute("data-layer-id", "vec1");
+    // minimal panel chrome so closeStylePanel finds stylePanelLayerId
+    (ui as any).stylePanelLayerId = "vec1";
+    commitBorderColor(ui, "vec1", "#333333");
+    expect(leaf.setStyle).not.toHaveBeenCalled();
+
+    closeStylePanel(ui, false);
+
+    expect(leaf.setStyle).toHaveBeenCalledWith({
+      color: "#333333",
+      stroke: true,
+    });
   });
 
   it("shell weight change runs the live binder commit and then flushes", () => {
