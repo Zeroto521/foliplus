@@ -1,15 +1,15 @@
-// script/import-scan.mjs — the one import scanner for shared modules.
+// script/import-scan.mjs 鈥?the one import scanner for shared modules.
 //
 // Two consumers read the same thing and used to each keep a private copy of
 // this code:
-//   - script/scan-registry.mjs → `_shared-registry.ts`, which decides what the
+//   - script/scan-registry.mjs 鈫?`_shared-registry.ts`, which decides what the
 //     runtime bundle publishes on `window.foliplus`.
-//   - script/global-namespace-plugin.mjs → esbuild shims, which decide what a
+//   - script/global-namespace-plugin.mjs 鈫?esbuild shims, which decide what a
 //     component bundle reads back from that namespace.
 //
 // Publishing and reading are two halves of one contract. If they disagree, a
 // component gets a shim that resolves to `undefined` at runtime while the
-// build still prints a tick — so the scanner must not have two spellings.
+// build still prints a tick 鈥?so the scanner must not have two spellings.
 //
 // This module owns the walk, the import regex, the name parsing, and the
 // star-alias property pass. It returns RAW specifiers (`"#core/geo/index.js"`)
@@ -21,13 +21,13 @@
 // The regex is deliberately the superset of both predecessors, so no source
 // form the old code accepted is lost. Where they disagreed, the engine takes
 // whichever side still produced a working bundle:
-//   - both `'` and `"` — the registry only matched `"`, so a single-quoted
+//   - both `'` and `"` 鈥?the registry only matched `"`, so a single-quoted
 //     import was shimmed by the component but never published, and resolved to
 //     `undefined` at runtime;
-//   - `\s*` around the braces and `from` — the plugin only matched `\s+`, so
+//   - `\s*` around the braces and `from` 鈥?the plugin only matched `\s+`, so
 //     `import{x}from"#core/a.js"` missed the spec entirely and fell back to
 //     shimming every export of the module instead of the one name imported;
-//   - `as` split on `\s+`, not the literal `" as "` — a tab in
+//   - `as` split on `\s+`, not the literal `" as "` 鈥?a tab in
 //     `import { a as\tb }` leaked the whole `a as\tb` into the shim name.
 // The star pass is likewise the superset: `\b`-anchored alias + any
 // identifier, which subsumes the registry's uppercase-only match plus its
@@ -42,9 +42,9 @@
 //     from the files that imported the spec under that alias.
 import { readFileSync, readdirSync } from "fs";
 import { join } from "path";
-import { SHARED_SPEC_PREFIXES } from "./build-paths.mjs";
+import { SHARED_SPEC_PREFIXES } from "./build-path.mjs";
 
-/** `#core/geo/index.js` → `core/geo`, `#common/dom.js` → `common/dom`.
+/** `#core/geo/index.js` 鈫?`core/geo`, `#common/dom.js` 鈫?`common/dom`.
  *  Keys `_shared-registry.ts` is generated against. */
 const canonicalSpec = spec =>
   spec
@@ -52,9 +52,9 @@ const canonicalSpec = spec =>
     .replace(/\.js$/, "")
     .replace(/\/index$/, "");
 
-/** Parse a named-import list: `foo, bar, baz as b, type A` → `["foo","bar","baz"]`.
+/** Parse a named-import list: `foo, bar, baz as b, type A` 鈫?`["foo","bar","baz"]`.
  *  Keeps the module-side name (the `as` alias is the local binding).
- *  `type` is matched as a modifier — `type A` — never as a prefix, so a
+ *  `type` is matched as a modifier 鈥?`type A` 鈥?never as a prefix, so a
  *  legitimate identifier such as `typeFoo` survives. */
 const parseImportNames = list =>
   list
@@ -66,7 +66,7 @@ const parseImportNames = list =>
     .filter(n => n && !/^type\s/.test(n));
 
 // `import { A, B } from "#core/x.js"`  |  `import * as X from "#common/y.js"`
-// Prefix list comes from script/build-paths.mjs — one spelling with the
+// Prefix list comes from script/build-path.mjs 鈥?one spelling with the
 // global-namespace plugin and the esbuild alias table.
 const SHARED_IMPORT_RE = new RegExp(
   `import\\s*(?:\\{([^}]+)\\}|\\*\\s*as\\s*(\\w+))\\s*from\\s*["']#((?:${SHARED_SPEC_PREFIXES.join(
@@ -98,14 +98,14 @@ const collectSources = (dir, out = []) => {
 
 /** Scan a directory for shared-module imports.
  *  Returns `{ named, starUsed }`, both `Map<rawSpec, Set<name>>`:
- *    named    — `import { A } from "#…"` and `import type` members
- *    starUsed — `import * as X from "#…"` props seen as `X.prop`
+ *    named    鈥?`import { A } from "#鈥?` and `import type` members
+ *    starUsed 鈥?`import * as X from "#鈥?` props seen as `X.prop`
  *  `starUsed` only gets an entry when at least one prop was found, so an
  *  unused star alias stays invisible here and lets the plugin fall back to
  *  the full export set.
  *
  *  A prop belongs to the spec that the file which mentions it imported under
- *  that alias — not to every spec that shares the alias elsewhere. Reusing
+ *  that alias 鈥?not to every spec that shares the alias elsewhere. Reusing
  *  one alias for two modules is legal, and attributing both modules' props to
  *  both would publish a name the importer never touched. */
 const scanSharedImports = dir => {
@@ -118,7 +118,7 @@ const scanSharedImports = dir => {
     let m;
     while ((m = SHARED_IMPORT_RE.exec(src))) {
       const spec = "#" + m[3];
-      // m[2] present ⇒ star import, m[1] present ⇒ named import; the regex's
+      // m[2] present 鈬?star import, m[1] present 鈬?named import; the regex's
       // alternation guarantees exactly one, so no undefined-fallback is needed.
       if (m[2]) {
         const byAlias = aliasFiles.get(spec) || new Map();

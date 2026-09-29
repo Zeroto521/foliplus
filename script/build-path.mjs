@@ -1,5 +1,5 @@
 /**
- * script/build-paths.mjs — single source for path-alias resolution.
+ * script/build-path.mjs 鈥?single source for path-alias resolution.
  *
  * Consumers that each used to spell `foliplus/js` (or a full alias table)
  * by hand:
@@ -7,13 +7,13 @@
  *   - vitest.config.mjs         vitest `resolve.alias` (plus `#script`)
  *   - script/build.mjs          `srcDir` for plugins / component discovery
  *   - script/scan-registry.mjs  `srcDir` for the import scan
- *   - package.json `imports`    Node resolution — asserted by test
+ *   - package.json `imports`    Node resolution 鈥?asserted by test
  *
  * #518 was two hand-copied scanners disagreeing; alias tables drift the same
  * way. One module owns the spelling; every consumer imports it.
  *
  * Audit note: no esbuild `target` is set anywhere in this repo today. Do not
- * introduce one here — a target bump would change emitted JS, and the product
+ * introduce one here 鈥?a target bump would change emitted JS, and the product
  * contract for this single-source work is a zero-byte diff on JS artifacts.
  */
 import { resolve } from "path";
@@ -26,7 +26,7 @@ const resolveJsRoot = root => resolve(root, JS_ROOT_REL);
 
 /**
  * Path aliases shared by esbuild (artifact builds) and vitest (tests).
- * Keys match the `#…` import specifiers every consumer resolves.
+ * Keys match the `#鈥 import specifiers every consumer resolves.
  */
 const pathAliases = root => {
   const jsRoot = resolveJsRoot(root);
@@ -39,8 +39,8 @@ const pathAliases = root => {
 
 /**
  * Vitest alias table: the shared paths plus `#script`, which only tests use
- * (`import { … } from "#script/merge-css.mjs"`). esbuild must NOT gain
- * `#script` — no component imports it, and an unused alias is still a second
+ * (`import { 鈥?} from "#script/merge-css.mjs"`). esbuild must NOT gain
+ * `#script` 鈥?no component imports it, and an unused alias is still a second
  * spelling of the truth.
  */
 const testPathAliases = root => ({
@@ -49,7 +49,7 @@ const testPathAliases = root => ({
 });
 
 /**
- * Shared-import specifier prefixes — the `#…/` namespaces the import scanner
+ * Shared-import specifier prefixes 鈥?the `#鈥?` namespaces the import scanner
  * and the global-namespace plugin accept. Single spelling for the regex
  * consumers that used to hard-code `(?:core|common|foliplus)`.
  */

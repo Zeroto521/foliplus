@@ -2,7 +2,7 @@
  * The shared esbuild config for every artifact build.mjs emits.
  *
  * Factored out of build.mjs so a test can import the real thing instead of
- * hand-copying the same flags — a hand-copied copy silently disagrees the
+ * hand-copying the same flags 鈥?a hand-copied copy silently disagrees the
  * first time the build changes (a target bump, a keepNames flip) without
  * the test ever noticing. `script/build.mjs` calls this once with the
  * resolved args; tests call it with the settings they want to inspect.
@@ -11,9 +11,9 @@
  * inline SVG/HTML, globalNamespace for the shared-runtime bundle). A test
  * that only wants the minifier's behavior should read the scalar fields
  * (`minify`, `format`, `keepNames`, `sourcemap`, `allowOverwrite`) and
- * skip `plugins` — they are JS functions and don't serialize to CLI flags.
+ * skip `plugins` 鈥?they are JS functions and don't serialize to CLI flags.
  *
- * Path aliases and `srcDir` come from `script/build-paths.mjs` — the one
+ * Path aliases and `srcDir` come from `script/build-path.mjs` 鈥?the one
  * spelling shared with vitest and the build scripts. No esbuild `target`
  * is set (see that module); adding one would change emitted JS.
  */
@@ -21,8 +21,8 @@ import autoprefixer from "autoprefixer";
 import { readFileSync } from "fs";
 import postcss from "postcss";
 import postcssNesting from "postcss-nesting";
-import { pathAliases, resolveJsRoot } from "./build-paths.mjs";
-import { hoistLeafletOverrides } from "./css-layers.mjs";
+import { pathAliases, resolveJsRoot } from "./build-path.mjs";
+import { hoistLeafletOverrides } from "./css-layer.mjs";
 import { createSourceTransformPlugin } from "./source-transform-plugin.mjs";
 import { resolveVersion } from "./version.mjs";
 
@@ -43,7 +43,7 @@ const esbuildCfgFor = ({ dev, root }) => {
   // keeping specificity identical to hand-written flat CSS.
   //
   // After flatten: hoist Leaflet-targeting rules out of any @layer so they
-  // keep beating Leaflet's unlayered library CSS (see css-layers.mjs).
+  // keep beating Leaflet's unlayered library CSS (see css-layer.mjs).
   const postcssProcessor = postcss([
     postcssNesting({ edition: "2021" }),
     autoprefixer(),
@@ -71,7 +71,7 @@ const esbuildCfgFor = ({ dev, root }) => {
     keepNames: dev,
     alias: pathAliases(root),
     // Same `git describe` value as the artifact banner, inlined for the
-    // runtime console log (`[foliplus] foliplus@…`).
+    // runtime console log (`[foliplus] foliplus@鈥).
     define: {
       __FOLIPLUS_VERSION__: JSON.stringify(version),
     },

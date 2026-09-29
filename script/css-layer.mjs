@@ -1,8 +1,8 @@
 /**
- * script/css-layers.mjs — build-time CSS Cascade Layer wrapping.
+ * script/css-layer.mjs 鈥?build-time CSS Cascade Layer wrapping.
  *
  * Layer design (T251):
- *   foliplus.tokens     token.css — design tokens on :root
+ *   foliplus.tokens     token.css 鈥?design tokens on :root
  *   foliplus.base       remaining css/common/* (reset, chrome, shared utils)
  *   foliplus.components component stylesheets (flat file or split entry)
  *
@@ -12,7 +12,7 @@
  *   @layer foliplus.tokens, foliplus.base, foliplus.components;
  *
  * Intra-package cascade after this change:
- *   tokens < base < components — later layer wins at equal specificity.
+ *   tokens < base < components 鈥?later layer wins at equal specificity.
  *   Within each layer, declaration order is the pre-change merge order
  *   (common: topological via orderCss; components: expandEntry order).
  *
@@ -30,7 +30,7 @@
  *   - Token theming: override `--foliplus-*` on a host rule (unlayered
  *     wins) or place overrides in a later layer than `foliplus.tokens`.
  *
- * Support floor: CSS Cascade Layers — Chrome/Edge 99+, Firefox 97+
+ * Support floor: CSS Cascade Layers 鈥?Chrome/Edge 99+, Firefox 97+
  * (ESR 128 fully supported), Safari 15.4+. No polyfill. Browsers below the
  * floor ignore `@layer` blocks and would drop foliplus chrome entirely.
  */
@@ -82,7 +82,7 @@ const wrapCommonLayers = (orderedFilenames, bodyOf) => {
 /**
  * Wrap component CSS (a flat stylesheet or an expanded split entry) into the
  * components layer. Token/base layers are emitted empty here so the order
- * preamble still lists them — injection order across artifacts cannot invert
+ * preamble still lists them 鈥?injection order across artifacts cannot invert
  * the cascade.
  *
  * @param {string} body component stylesheet body (nesting may remain; postcss
@@ -102,9 +102,9 @@ const wrapComponentLayers = body =>
  *
  * Leaflet's library CSS is unlayered. Before this change, foliplus rules
  * that style/override Leaflet chrome (`.leaflet-container.foliplus-no-base-map`,
- * `.leaflet-control.foliplus-scale-wrap`, `.leaflet-control-attribution`, …)
+ * `.leaflet-control.foliplus-scale-wrap`, `.leaflet-control-attribution`, 鈥?
  * won by specificity + source order. After wrapping every rule in a layer,
- * those overrides would lose to Leaflet at any specificity — browser tests
+ * those overrides would lose to Leaflet at any specificity 鈥?browser tests
  * that pin hatch paint and scale/attribution height equality caught it.
  *
  * Hoisting restores the pre-layer cascade for Leaflet-owned selectors while

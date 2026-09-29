@@ -7,11 +7,11 @@ import {
   pathAliases,
   resolveJsRoot,
   testPathAliases,
-} from "#script/build-paths.mjs";
+} from "#script/build-path.mjs";
 
 const ROOT = resolve(".");
 
-describe("build-paths.mjs", () => {
+describe("build-path.mjs", () => {
   it("resolves foliplus/js under the project root", () => {
     expect(resolveJsRoot(ROOT)).toBe(resolve(ROOT, "foliplus/js"));
   });
@@ -33,7 +33,7 @@ describe("build-paths.mjs", () => {
   });
 
   it("esbuild alias table is exactly the shared three keys (no #script)", () => {
-    // esbuild must not gain #script — no component imports it. The test
+    // esbuild must not gain #script 鈥?no component imports it. The test
     // alias table is the only place #script may appear.
     const cfgKeys = Object.keys(pathAliases(ROOT));
     expect(cfgKeys).not.toContain("#script");

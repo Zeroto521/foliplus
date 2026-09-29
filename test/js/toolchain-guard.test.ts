@@ -7,8 +7,8 @@ import { describe, expect, it } from "vitest";
 // `#script/*` alias is declared, how the lint config claims them, and that
 // test/js/script/ holds one test file per real module. None of these test a
 // module in script/, so none of them live in test/js/script/: that directory
-// stays a strict one-test-file-per-module mapping, and this file — named for
-// what it guards, not for a module — owes no entry to the naming rule it enforces.
+// stays a strict one-test-file-per-module mapping, and this file 鈥?named for
+// what it guards, not for a module 鈥?owes no entry to the naming rule it enforces.
 //
 // Resolved against cwd, the same repo root every build script assumes.
 const ROOT = resolve(".");
@@ -45,11 +45,11 @@ describe("script module surface", () => {
 
       expect(
         decls.length,
-        `${rel}: split export surface — one aggregate block only`,
+        `${rel}: split export surface 鈥?one aggregate block only`,
       ).toBeLessThanOrEqual(1);
       expect(
         src,
-        `${rel}: inline export — use one export { … } block at the bottom`,
+        `${rel}: inline export 鈥?use one export { 鈥?} block at the bottom`,
       ).not.toMatch(/^export\s+(?:const|let|var|function|class|default)\s/m);
     }
   });
@@ -73,7 +73,7 @@ describe("script module surface", () => {
 // hint about which declaration drifted, so the trio is asserted together.
 //
 // Since pack-b (single-source work) the vitest half is no longer a hand-copied
-// `resolve("script")` — it imports `testPathAliases` from script/build-paths.mjs.
+// `resolve("script")` 鈥?it imports `testPathAliases` from script/build-path.mjs.
 // This suite pins that wiring so a future drift fails here instead of at test
 // import time.
 describe("#script/* import alias", () => {
@@ -81,9 +81,9 @@ describe("#script/* import alias", () => {
     expect(pkg.imports["#script/*"]).toBe("./script/*");
   });
 
-  it("vitest resolve.alias maps #script via the build-paths single source", () => {
+  it("vitest resolve.alias maps #script via the build-path single source", () => {
     expect(vitestConfig).toMatch(/testPathAliases\s*\(/);
-    expect(existsSync(resolve(ROOT, "script/build-paths.mjs"))).toBe(true);
+    expect(existsSync(resolve(ROOT, "script/build-path.mjs"))).toBe(true);
   });
 
   it("test/js tsconfig keeps the #script/* mapping live", () => {
@@ -163,14 +163,14 @@ describe("test/js/script naming", () => {
       rel.replace(/^test\/js\/script\//, "").replace(/\.test\.ts$/, "");
 
     const exceptions = Object.entries(NON_MODULE_TEST_SUBJECTS)
-      .map(([k, v]) => `  ${k} — ${v}`)
+      .map(([k, v]) => `  ${k} 鈥?${v}`)
       .join("\n");
 
     for (const rel of tests) {
       const stem = stemOf(rel);
       expect(
         hasSubject(stem),
-        `${rel}: tests no script/${stem}.{mjs,cjs,js} — rename it after the module, ` +
+        `${rel}: tests no script/${stem}.{mjs,cjs,js} 鈥?rename it after the module, ` +
           `or add an entry saying what it tests.\nKnown exceptions:\n${exceptions}`,
       ).toBe(true);
     }
@@ -186,7 +186,7 @@ describe("test/js/script naming", () => {
 
   it("still rejects a name that maps to nothing", () => {
     // Counter-proof. Without it the loop above would keep passing after someone
-    // relaxed hasSubject into a prefix match or a wildcard exception — the guard
+    // relaxed hasSubject into a prefix match or a wildcard exception 鈥?the guard
     // would go decorative and no test would notice. All three names are real:
     // namespace-plugin.test.ts tested a script that never existed; exports.test.ts
     // was the same pattern, testing package.json and eslint.config.js rather than
@@ -202,7 +202,7 @@ describe("test/js/script naming", () => {
 });
 
 // The naming rule above runs one way: every test file must name a real module.
-// The other direction — every module must have a test file — was the blind
+// The other direction 鈥?every module must have a test file 鈥?was the blind
 // spot that left script/glyph.mjs uncovered. A module without a test can never
 // be an accident: it is either tested, or named here with the reason it
 // cannot be. The list is empty today; keeping it is what makes the gap below
@@ -225,14 +225,14 @@ const isCovered = (stem: string) =>
 describe("script module coverage", () => {
   it("every script module is tested, or named as deliberately untested", () => {
     const intentional = Object.entries(INTENTIONAL_NO_TEST)
-      .map(([k, v]) => `  ${k} — ${v}`)
+      .map(([k, v]) => `  ${k} 鈥?${v}`)
       .join("\n");
 
     for (const rel of scriptModules()) {
       const stem = scriptStem(rel);
       expect(
         isCovered(stem),
-        `${rel}: no test/js/script/${stem}.test.ts — add one, or name it as ` +
+        `${rel}: no test/js/script/${stem}.test.ts 鈥?add one, or name it as ` +
           `deliberately untested with the reason.\nKnown intentional gaps:\n${intentional}`,
       ).toBe(true);
     }
@@ -248,12 +248,12 @@ describe("script module coverage", () => {
       ).toBe(true);
       expect(
         scriptTestStems().has(stem),
-        `INTENTIONAL_NO_TEST.${stem} has a test file — drop the entry`,
+        `INTENTIONAL_NO_TEST.${stem} has a test file 鈥?drop the entry`,
       ).toBe(false);
     }
 
     // Counter-proof. Without it the loop above would keep passing after the
-    // escape hatch stopped being a list and started matching everything — the
+    // escape hatch stopped being a list and started matching everything 鈥?the
     // guard would go decorative and no test would notice.
     expect(isCovered("glyph")).toBe(true);
     expect(isCovered("never-a-module")).toBe(false);

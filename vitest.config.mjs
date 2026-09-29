@@ -1,10 +1,10 @@
 import { resolve } from "path";
 import { defineConfig } from "vitest/config";
-import { testPathAliases } from "./script/build-paths.mjs";
+import { testPathAliases } from "./script/build-path.mjs";
 
 export default defineConfig({
   resolve: {
-    // Single source: script/build-paths.mjs (shared with esbuild alias).
+    // Single source: script/build-path.mjs (shared with esbuild alias).
     alias: testPathAliases(resolve(".")),
   },
   test: {
@@ -21,14 +21,14 @@ export default defineConfig({
       provider: "v8",
       include: ["foliplus/js/**/*.ts", "script/**/*.mjs"],
       exclude: [
-        // Build orchestrator — spawns python/git/esbuild subprocesses and needs
+        // Build orchestrator 鈥?spawns python/git/esbuild subprocesses and needs
         // the full build pipeline; not unit-testable in isolation.
         "script/build.mjs",
         "foliplus/js/runtime/**",
-        // Entry modules — require full Leaflet runtime (L.Control, addTo).
+        // Entry modules 鈥?require full Leaflet runtime (L.Control, addTo).
         // Glob so a newly scaffolded control is excluded without editing this list.
         "foliplus/js/*/index.ts",
-        // MeasureControl mode subclasses — need L.polyline/L.polygon/L.circle.
+        // MeasureControl mode subclasses 鈥?need L.polyline/L.polygon/L.circle.
         // Glob so a newly added mode is excluded without editing this list.
         "foliplus/js/MeasureControl/mode/*.ts",
       ],
@@ -37,7 +37,7 @@ export default defineConfig({
     },
   },
   define: {
-    // Jinja IIFE free variables — each test can override as needed.
+    // Jinja IIFE free variables 鈥?each test can override as needed.
     // Use a minimal object so module-level code (createTranslator) doesn't crash.
     // Tests that need specific CONF properties should mock the module at import.
     CONF: "{}",

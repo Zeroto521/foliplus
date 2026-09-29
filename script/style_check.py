@@ -8,8 +8,10 @@
      (`index.ts`) and type-collection files (`type.ts` / `types.ts`) are
      exempt.
 
-  2. Singular file names. Whitelist: pelias, focus, canvas, EventBus, base,
-     index (proper nouns or verbs, not plurals).
+  2. Singular file names. Applies to `foliplus/js/*.ts` and build-tool
+     modules (`script/*.{mjs,cjs,js}`). Whitelist: pelias, focus, canvas,
+     EventBus, base, index, args, css (proper nouns, abbreviations, or
+     verbs — not plurals).
 
   3. American spelling in identifiers and string literals (colour → color,
      normalise → normalize, ...). Comments (English prose) are exempt.
@@ -43,7 +45,7 @@ STAR_EXPORT_RE = re.compile(r"^\s*export\s+\*\s+from\b")
 # Inline `type X` mixed into a value export: `export { a, type B, c }`.
 INLINE_TYPE_IN_EXPORT_RE = re.compile(r"\btype\s+[A-Za-z_$][\w$]*")
 
-# Rule 2: plural detection whitelist (proper nouns / verbs, not plurals).
+# Rule 2: plural detection whitelist (proper nouns / abbreviations / verbs).
 PLURAL_WHITELIST = {
     "pelias",
     "focus",
@@ -53,7 +55,12 @@ PLURAL_WHITELIST = {
     "index",
     "js",
     "ts",
+    "css",
+    "args",
 }
+
+# Extensions whose basenames are checked for plural names (rule 2).
+NAME_CHECK_EXTS = (".ts", ".mjs", ".cjs", ".js")
 
 # Rule 3: American spelling — identifiers and string literals only.
 # Comments are exempt (English prose). Lowercase keys; matching is
@@ -305,12 +312,19 @@ def check_plural_names(filepath: str) -> list[tuple[int, str]]:
     violations: list[tuple[int, str]] = []
     basename = os.path.basename(filepath)
     lower_name = basename.lower()
-    if lower_name.endswith(".ts"):
-        base = basename[: -len(".ts")]
-    else:
-        base = basename
+    base = basename
+    for ext in NAME_CHECK_EXTS:
+        if lower_name.endswith(ext):
+            base = basename[: -len(ext)]
+            break
     lower = base.lower()
     if lower in PLURAL_WHITELIST:
+        return violations
+    # Compound basenames whose last segment is an allowed abbreviation
+    # (`merge-css`, `bundle-size` is not — size is not whitelisted) are
+    # not plurals: the trailing `s` belongs to the abbreviation.
+    last = lower.rsplit("-", 1)[-1]
+    if last in PLURAL_WHITELIST:
         return violations
     is_plural = lower.endswith("s")
     if is_plural:
@@ -352,9 +366,15 @@ def main() -> int:
 
     total = 0
     for filepath in sys.argv[1:]:
-        if not (filepath.endswith(".ts") or filepath.endswith(".css")):
+        if filepath.endswith(".css") or filepath.endswith(".ts"):
+            violations = check_file(filepath)
+        elif filepath.endswith((".mjs", ".cjs", ".js")):
+            # Build-tool modules: singular names only. Export/spelling/custom
+            # property rules stay scoped to foliplus JS/TS and CSS.
+            violations = check_plural_names(filepath)
+        else:
             continue
-        for lineno, msg in check_file(filepath):
+        for lineno, msg in violations:
             loc = f"{filepath}:{lineno}" if lineno else filepath
             print(f"{loc}: {msg}")
             total += 1

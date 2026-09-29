@@ -5,9 +5,9 @@ import {
   hoistLeafletOverrides,
   wrapCommonLayers,
   wrapComponentLayers,
-} from "#script/css-layers.mjs";
+} from "#script/css-layer.mjs";
 
-describe("css-layers.mjs", () => {
+describe("css-layer.mjs", () => {
   it("declares tokens < base < components on every artifact", () => {
     expect(LAYER_ORDER).toBe(
       "@layer foliplus.tokens, foliplus.base, foliplus.components;",
@@ -34,7 +34,7 @@ describe("css-layers.mjs", () => {
     const components = body.indexOf("@layer foliplus.components");
     expect(tokens).toBeGreaterThan(-1);
     expect(base).toBeGreaterThan(tokens);
-    // No component rules in a common merge — that layer block is omitted.
+    // No component rules in a common merge 鈥?that layer block is omitted.
     expect(components).toBe(-1);
     expect(body).toContain("--x: 1");
     expect(body).toContain(".reset { color: red; }");
@@ -49,7 +49,7 @@ describe("css-layers.mjs", () => {
     const body = wrapComponentLayers(".search { color: red; }");
     expect(body.startsWith(LAYER_ORDER)).toBe(true);
     expect(body).toContain("@layer foliplus.components {");
-    // Empty layers get no `{ … }` block — only the order preamble names them.
+    // Empty layers get no `{ 鈥?}` block 鈥?only the order preamble names them.
     expect(body).not.toContain("@layer foliplus.tokens {");
     expect(body).not.toContain("@layer foliplus.base {");
   });
