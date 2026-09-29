@@ -14,13 +14,9 @@ _cache: dict[str, list[tuple[str, str]]] | None = None
 def _load_all() -> dict[str, list[tuple[str, str]]]:
     global _cache
     if _cache is None:
-        # cdn.json is a controlled source file, not a user-input boundary, so
-        # the explicit annotation narrows json.loads's Any to the declared
-        # shape (same pattern as BaseControl's untyped folium/jinja2 returns).
-        raw: dict[str, list[tuple[str, str]]] = json.loads(
-            _CDN_PATH.read_text(encoding="utf-8")
-        )
-        _cache = raw
+        # cdn.json is a controlled source file, not a user-input boundary;
+        # _cache's annotation narrows json.loads's Any to the declared shape.
+        _cache = json.loads(_CDN_PATH.read_text(encoding="utf-8"))
     return _cache
 
 
