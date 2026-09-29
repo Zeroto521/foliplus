@@ -47,10 +47,6 @@ Data processing happens upstream. foliplus handles the map, not the data.
 | 📐 **ScaleControl**      | Scale bar with metric units and optional zoom level display.                           |
 | 🔍 **SearchControl**     | Coordinate and address search via pluggable geocode providers.                        |
 
-## Compatibility
-
-Leaflet `1.0.0`–`1.9.4` smoke-pass (map init, control attach, layer panel, measure panel, zoom, `LayerAPI`). 0.7.x is out — foliplus needs `map.getPane`. CI covers Leaflet 1.9.3, the pin Folium ships; the full suite is not run against older Leaflet.
-
 ## Beyond Plugins
 
 Traditional map component libraries treat each tool as an independent plugin. foliplus
@@ -78,3 +74,7 @@ On top of this shared layer foundation, tools coordinate further:
 - When layers change, the heatmap refreshes automatically
 
 All of this happens without manual wiring—foliplus handles it internally.
+
+## Compatibility
+
+Leaflet `1.0.0`–`1.9.4` smoke-pass (map init, control attach, layer panel, measure panel, zoom, `LayerAPI`). 0.7.x is out — foliplus needs `map.getPane`. CI covers Leaflet 1.9.3, the pin Folium ships; the full suite is not run against older Leaflet.

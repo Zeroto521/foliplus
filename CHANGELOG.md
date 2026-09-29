@@ -78,7 +78,6 @@
 - `LayerControl`: style-panel dimensions become registry descriptors (`registerDimension` / `DIM_ORDER`) — the panel discovers rows through the registry, gate = capability check ([#505](https://github.com/Zeroto521/foliplus/pull/505), [#513](https://github.com/Zeroto521/foliplus/pull/513), [#522](https://github.com/Zeroto521/foliplus/pull/522), [#536](https://github.com/Zeroto521/foliplus/pull/536))
 - `LayerControl` / `HeatmapControl`: the style, attributes and heatmap panels drop their group headings and read as one flat row list; row labels are right-aligned, so all three panels share one label edge ([#516](https://github.com/Zeroto521/foliplus/pull/516))
 - `HeatmapControl` / `LayerControl`: bake layer opacity into canvas draws (`globalAlpha`); heatmap slider stays CSS, bake on redraw ([#533](https://github.com/Zeroto521/foliplus/pull/533))
-- `README`: state Leaflet compatibility from a version sweep — smoke-pass `1.0.0`–`1.9.4`; 0.7.x lacks `map.getPane`; CI covers 1.9.3 only ([#550](https://github.com/Zeroto521/foliplus/pull/550))
 
 ### Removed
 
