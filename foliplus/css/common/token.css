@@ -257,9 +257,10 @@
        600+n·10   layer z        core/layer z.ts zFor (Z_INDEX.BASE)
                                   overlay panes; annotation labels sit +1
                                   in-slot (ANNOTATION_Z_OFFSET)
-       850        export z       --foliplus-export-scale-z (ExportControl.css)
+       9490       export z       --foliplus-export-scale-z (ExportControl.css)
                                   scale/attribution dimmed under the crop
-                                  mask; deliberately under export-base
+                                  mask; above all data layers, under crop UI
+                                  (export-base - 10)
        8990       layer z focus  core/layer z.ts focusLayerZ (FOCUS_Z)
                                   focused layer lift — just below the focus
                                   overlay so stacked-above layers cannot
@@ -272,7 +273,9 @@
                                   export toggle, always clickable
        9990       control z      --foliplus-z-index-floating (this file)
                                   floating controls (measure, search, menus,
-                                  panels; panel expand offsets +1 / +9)
+                                  panels; panel expand offsets +1 / +9).
+                                  JS fallback in panel.ts must match this
+                                  default (9990), not a layer-band value.
        10000      control z      --foliplus-z-index-hint
                                   hint toasts (runtime.js / core/hint.ts)
        99999      control z      --foliplus-z-index-fullscreen

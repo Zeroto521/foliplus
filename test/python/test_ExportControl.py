@@ -210,6 +210,24 @@ class TestExportControlRendering:
         # The rule uses the token; the literal may only appear in a comment.
         assert "z-index: 100000" not in css
 
+    def test_css_scale_z_in_export_ladder(self):
+        """scale/attr z rides the export ladder (export-base - 10), not the layer band.
+
+        T241 conflict: `--foliplus-export-scale-z: 850` sat inside the layer-z
+        band (Z_INDEX.BASE 600 + STEP 10), so a ~25-layer overlay stack climbed
+        past it and covered the scale control. The dim layer belongs above all
+        data layers and under the crop UI — `calc(export-base - 10)` = 9490.
+        """
+        from conftest import read_css
+
+        css = read_css("foliplus/css/ExportControl.css")
+        assert (
+            "--foliplus-export-scale-z: calc(var(--foliplus-z-export-base) - 10);"
+            in css
+        )
+        # The old layer-band value must not survive in the token assignment.
+        assert "--foliplus-export-scale-z: 850" not in css
+
     def test_locale_zh(self):
         html = render_control(ExportControl(locale="zh"))
         assert "导出" in html
@@ -814,8 +832,8 @@ class TestExportControlBrowser:
 
         Regression: when the crop box was attached to map._mapPane (which has
         z-index:400 creating a stacking context), the box's 9501 z-index was
-        trapped inside a 400-level context, so scale/attr (850) rendered above
-        the dim shadow. The box must live in mapContainer (z auto) so it
+        trapped inside a 400-level context, so scale/attr rendered above the
+        dim shadow. The box must live in mapContainer (z auto) so it
         participates in the root stacking context.
         """
 
@@ -848,12 +866,60 @@ class TestExportControlBrowser:
             assert info["parentZ"] == "auto" or info["parentZ"] == "", (
                 f"mapContainer must not create a stacking context, got {info['parentZ']}"
             )
-            # Mask z (9501) must be above scale/attr z (850)
+            # Mask z (9501) must be above scale/attr z
             assert info["boxZ"] > info["scaleZ"], (
                 f"Mask z={info['boxZ']} must be above scale z={info['scaleZ']}"
             )
             assert info["boxZ"] > info["attrZ"], (
                 f"Mask z={info['boxZ']} must be above attr z={info['attrZ']}"
+            )
+
+    def test_scale_visible_under_deep_layer_stack(self, browser, tmp_path):
+        """Deep overlay stack must not cover the export-mode scale control.
+
+        T241 conflict: scale/attr z=850 sat inside the layer band
+        (600 + n*10). ~25 overlay layers climb past 850 and cover the scale
+        entirely — the dim layer is supposed to sit above every data layer
+        and only under the crop UI. After the fix, scale z = export-base - 10
+        (9490): above every data pane, still under the crop mask (9501).
+        """
+        from foliplus import LayerControl, ScaleControl
+
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        ScaleControl().add_to(m)
+        LayerControl().add_to(m)
+        ExportControl().add_to(m)
+        html_path = tmp_path / "export_deep_stack_scale.html"
+        html_path.write_text(m.get_root().render(), encoding="utf-8")
+
+        with use_raw_page(browser.new_page) as page:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-export-ctrl", state="attached", timeout=10000
+            )
+            # 30 canvas layers → top overlay pane z = 600 + 30*10 = 900 > 850.
+            stacked = page.evaluate(_js("ExportControl/setup_deep_layer_stack"))
+            assert stacked["ok"] is True, stacked
+            page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
+            page.wait_for_selector(
+                ".foliplus-export-box", state="attached", timeout=5000
+            )
+
+            info = page.evaluate(_js("ExportControl/read_deep_stack_scale_z"))
+
+            # The stack is deep enough that the old 850 would have been covered.
+            assert info["maxPaneZ"] is not None, f"no layer panes: {info}"
+            assert info["maxPaneZ"] > 850, (
+                f"stack not deep enough to pin the regression: {info}"
+            )
+            # Scale stays above every data layer and under the crop mask.
+            assert info["scaleZ"] is not None, f"scale missing: {info}"
+            assert info["scaleZ"] > info["maxPaneZ"], (
+                f"scale z={info['scaleZ']} covered by deep stack "
+                f"(max pane z={info['maxPaneZ']}): {info}"
+            )
+            assert info["boxZ"] > info["scaleZ"], (
+                f"crop mask must stay above scale: {info}"
             )
 
     def test_saved_bounds_restore(self, browser, tmp_path):
