@@ -70,7 +70,11 @@ def test_sdist_ships_py_typed():
 
 
 def _venv_python(venv_dir: Path) -> Path:
-    return venv_dir / "Scripts" / "python.exe" if os.name == "nt" else venv_dir / "bin" / "python"
+    return (
+        venv_dir / "Scripts" / "python.exe"
+        if os.name == "nt"
+        else venv_dir / "bin" / "python"
+    )
 
 
 def test_wheel_consumer_mypy_catches_a_literal_mismatch(tmp_path):
@@ -106,8 +110,8 @@ def test_wheel_consumer_mypy_catches_a_literal_mismatch(tmp_path):
     consumer = tmp_path / "consumer.py"
     consumer.write_text(
         "from foliplus import HeatmapControl\n"
-        "HeatmapControl(method=\"quantile\")\n"  # valid — must not be flagged
-        "HeatmapControl(method=\"bogus\")\n",  # invalid — mypy must flag it
+        'HeatmapControl(method="quantile")\n'  # valid — must not be flagged
+        'HeatmapControl(method="bogus")\n',  # invalid — mypy must flag it
         encoding="utf-8",
     )
     result = subprocess.run(
