@@ -38,22 +38,30 @@ class Path {
 
 class Polygon {
   options = {};
+  // Areal duck-type: rings of coordinates (hasFillLeaf).
+  getLatLngs = () => [[{ lat: 0, lng: 0 }, { lat: 1, lng: 0 }, { lat: 0, lng: 1 }]];
 }
 
 class Polyline {
   options = {};
+  // Line duck-type: flat coordinate array, not rings.
+  getLatLngs = () => [{ lat: 0, lng: 0 }, { lat: 1, lng: 1 }];
 }
 
-// Real Leaflet: Circle extends Polyline (not Polygon); only Rectangle extends
-// Polygon. Both carry a fill, so the areal gate must recognise them.
+// Real Leaflet: Circle extends CircleMarker (not the reverse). Both carry a
+// fill, so the areal probe must recognise them by `getRadius`, not by class.
 class Circle {
   options = {};
+  getRadius = () => 5;
 }
 
 class Marker {}
 
 class CircleMarker {
   constructor(_latlng: unknown, _opts: unknown) {}
+  options = {};
+  getRadius = () => 5;
+  setStyle = vi.fn();
   addTo(_map: unknown) {
     return this;
   }

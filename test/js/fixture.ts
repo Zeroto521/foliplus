@@ -119,9 +119,13 @@ export function installWindowLExtensions(): void {
     divIcon: divIconMock,
     icon: vi.fn(() => ({})),
     Popup: class extends LeafletBase {},
-    Circle: class extends LeafletBase {},
+    Circle: class extends LeafletBase {
+      getRadius = vi.fn(() => 5) as any;
+    },
     Rectangle: class extends LeafletBase {},
-    CircleMarker: class extends LeafletBase {},
+    CircleMarker: class extends LeafletBase {
+      getRadius = vi.fn(() => 5) as any;
+    },
     GridLayer: class extends LeafletBase {},
     TileLayer: class extends LeafletBase {},
     // `L.LayerGroup` (the class) is deliberately NOT added —

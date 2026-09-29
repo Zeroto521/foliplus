@@ -31,8 +31,8 @@ const makeFillableLayer = () => {
     return leaf;
   };
   const leaves = [
-    makeLeaf({ fillColor: "#aabbcc", fillOpacity: 0.5 }),
-    makeLeaf({ fillColor: "#ddeeff", fillOpacity: 0.7 }),
+    makeLeaf({ fillColor: "#aabbcc", fillOpacity: 0.5, fill: true }),
+    makeLeaf({ fillColor: "#ddeeff", fillOpacity: 0.7, fill: true }),
   ];
   const parent = {
     options: {},
@@ -441,9 +441,39 @@ describe("LayerUI style panel — fill color", () => {
 
     expect(fillLayer.leaves[0].setStyle).toHaveBeenCalledWith({
       fillColor: "#123456",
+      fill: true,
     });
     expect(fillLayer.leaves[1].setStyle).toHaveBeenCalledWith({
       fillColor: "#123456",
+      fill: true,
+    });
+  });
+
+  it("forces fill on when the user sets a fill color, so a fill:false path becomes visible", () => {
+    // Mirror of the border stroke fix: an author `fill: false` (or Leaflet
+    // Path painting none) must not swallow the user's fillColor write.
+    fillLayer.leaves[0].options.fill = false;
+    fillLayer.leaves[1].options.fill = false;
+    setIntent(ui, "overlay1", "fillColor", "#123456");
+    applyFillToLayer(ui, "overlay1");
+
+    expect(fillLayer.leaves[0].setStyle).toHaveBeenCalledWith({
+      fillColor: "#123456",
+      fill: true,
+    });
+    expect(fillLayer.leaves[1].setStyle).toHaveBeenCalledWith({
+      fillColor: "#123456",
+      fill: true,
+    });
+  });
+
+  it("forces fill on when the user sets a fill opacity", () => {
+    setIntent(ui, "overlay1", "fillOpacity", 0.8);
+    applyFillToLayer(ui, "overlay1");
+
+    expect(fillLayer.leaves[0].setStyle).toHaveBeenCalledWith({
+      fillOpacity: 0.8,
+      fill: true,
     });
   });
 
@@ -484,7 +514,7 @@ describe("LayerUI style panel — fill color", () => {
     const fixture = initWithFillLayer();
     let handler: (() => void) | null = null;
     const leaf = {
-      options: { fillColor: "#aabbcc", fillOpacity: 0.5 },
+      options: { fillColor: "#aabbcc", fillOpacity: 0.5, fill: true },
       setStyle: vi.fn(),
       on: vi.fn((_type: string, fn: () => void) => {
         handler = fn;
@@ -498,16 +528,18 @@ describe("LayerUI style panel — fill color", () => {
     expect(leaf.setStyle).toHaveBeenLastCalledWith({
       fillColor: "#123456",
       fillOpacity: 0.4,
+      fill: true,
     });
 
     // folium's mouseout handler sets the original style back…
-    leaf.setStyle({ fillColor: "#aabbcc", fillOpacity: 0.5 });
+    leaf.setStyle({ fillColor: "#aabbcc", fillOpacity: 0.5, fill: true });
     // …and our listener restores the user's fill.
     handler!();
 
     expect(leaf.setStyle).toHaveBeenLastCalledWith({
       fillColor: "#123456",
       fillOpacity: 0.4,
+      fill: true,
     });
   });
 
@@ -515,7 +547,7 @@ describe("LayerUI style panel — fill color", () => {
     const fixture = initWithFillLayer();
     let handler: (() => void) | null = null;
     const leaf = {
-      options: { fillColor: "#aabbcc", fillOpacity: 0.5 },
+      options: { fillColor: "#aabbcc", fillOpacity: 0.5, fill: true },
       setStyle: vi.fn(),
       on: vi.fn((_type: string, fn: () => void) => {
         handler = fn;
@@ -533,7 +565,7 @@ describe("LayerUI style panel — fill color", () => {
     const fixture = initWithFillLayer();
     let handler: (() => void) | null = null;
     const leaf = {
-      options: { fillColor: "#aabbcc", fillOpacity: 0.5 },
+      options: { fillColor: "#aabbcc", fillOpacity: 0.5, fill: true },
       setStyle: vi.fn(),
       on: vi.fn((_type: string, fn: () => void) => {
         handler = fn;
@@ -547,14 +579,14 @@ describe("LayerUI style panel — fill color", () => {
 
     // fillOpacity is absent from the maps, so the reapply omits it — the
     // author's opacity stays in force.
-    expect(leaf.setStyle).toHaveBeenLastCalledWith({ fillColor: "#123456" });
+    expect(leaf.setStyle).toHaveBeenLastCalledWith({ fillColor: "#123456", fill: true });
   });
 
   it("mouseout reapplies only the stored fill opacity", () => {
     const fixture = initWithFillLayer();
     let handler: (() => void) | null = null;
     const leaf = {
-      options: { fillColor: "#aabbcc", fillOpacity: 0.5 },
+      options: { fillColor: "#aabbcc", fillOpacity: 0.5, fill: true },
       setStyle: vi.fn(),
       on: vi.fn((_type: string, fn: () => void) => {
         handler = fn;
@@ -566,14 +598,14 @@ describe("LayerUI style panel — fill color", () => {
     applyFillToLayer(fixture.ui, "overlay1");
     handler!();
 
-    expect(leaf.setStyle).toHaveBeenLastCalledWith({ fillOpacity: 0.4 });
+    expect(leaf.setStyle).toHaveBeenLastCalledWith({ fillOpacity: 0.4, fill: true });
   });
 
   it("mouseout after the fill was reset does not rewrite the style", () => {
     const fixture = initWithFillLayer();
     let handler: (() => void) | null = null;
     const leaf = {
-      options: { fillColor: "#aabbcc", fillOpacity: 0.5 },
+      options: { fillColor: "#aabbcc", fillOpacity: 0.5, fill: true },
       setStyle: vi.fn(),
       on: vi.fn((_type: string, fn: () => void) => {
         handler = fn;
@@ -600,12 +632,12 @@ describe("LayerUI style panel — fill color", () => {
     // group — so a group with both methods must still recurse.
     const leaves = [
       {
-        options: { fillColor: "#aabbcc", fillOpacity: 0.5 },
+        options: { fillColor: "#aabbcc", fillOpacity: 0.5, fill: true },
         setStyle: vi.fn(),
         on: vi.fn(),
       },
       {
-        options: { fillColor: "#ddeeff", fillOpacity: 0.7 },
+        options: { fillColor: "#ddeeff", fillOpacity: 0.7, fill: true },
         setStyle: vi.fn(),
         on: vi.fn(),
       },
@@ -632,8 +664,8 @@ describe("LayerUI style panel — fill color", () => {
 
     applyFillToLayer(ui, "group1");
 
-    expect(leaves[0].setStyle).toHaveBeenCalledWith({ fillColor: "#123456" });
-    expect(leaves[1].setStyle).toHaveBeenCalledWith({ fillColor: "#123456" });
+    expect(leaves[0].setStyle).toHaveBeenCalledWith({ fillColor: "#123456", fill: true });
+    expect(leaves[1].setStyle).toHaveBeenCalledWith({ fillColor: "#123456", fill: true });
     expect(leaves[0].on).toHaveBeenCalledWith("mouseout", expect.any(Function));
     expect(leaves[1].on).toHaveBeenCalledWith("mouseout", expect.any(Function));
     expect(group.setStyle).not.toHaveBeenCalled();
@@ -646,7 +678,7 @@ describe("LayerUI style panel — fill color", () => {
     const fixture = initWithFillLayer();
     let handler: (() => void) | null = null;
     const leaf = {
-      options: { fillColor: "#aabbcc", fillOpacity: 0.5 },
+      options: { fillColor: "#aabbcc", fillOpacity: 0.5, fill: true },
       setStyle: vi.fn(function (
         this: { options: Record<string, unknown> },
         s: Record<string, unknown>,
@@ -779,6 +811,7 @@ describe("LayerUI style panel — fill color", () => {
     expect(fixture.fillLayer.leaves[0].setStyle).toHaveBeenLastCalledWith({
       fillColor: "#3388ff",
       fillOpacity: 0.2,
+      fill: true,
     });
   });
 
@@ -852,10 +885,40 @@ describe("LayerUI style panel — fill color", () => {
     expect(fillLayer.leaves[0].setStyle).toHaveBeenLastCalledWith({
       fillColor: "#aabbcc",
       fillOpacity: 0.5,
+      fill: true,
     });
     expect(fillLayer.leaves[1].setStyle).toHaveBeenLastCalledWith({
       fillColor: "#ddeeff",
       fillOpacity: 0.7,
+      fill: true,
+    });
+  });
+
+  it("resetLayerFill restores the author's fill flag, including fill:false", () => {
+    // Write forces fill:true so the user's color is visible; Reset must put
+    // the author's original fill:false back — leaving fill:true would paint
+    // a fill nobody authored (border fix's fill twin).
+    fillLayer.leaves[0].options.fill = false;
+    fillLayer.leaves[1].options.fill = false;
+    commitFillColor(ui, "overlay1", "#ff0000");
+    expect(fillLayer.leaves[0].setStyle).toHaveBeenLastCalledWith({
+      fillColor: "#ff0000",
+      fill: true,
+    });
+    fillLayer.leaves[0].setStyle.mockClear();
+    fillLayer.leaves[1].setStyle.mockClear();
+
+    resetLayerFill(ui, "overlay1");
+
+    expect(fillLayer.leaves[0].setStyle).toHaveBeenLastCalledWith({
+      fillColor: "#aabbcc",
+      fillOpacity: 0.5,
+      fill: false,
+    });
+    expect(fillLayer.leaves[1].setStyle).toHaveBeenLastCalledWith({
+      fillColor: "#ddeeff",
+      fillOpacity: 0.7,
+      fill: false,
     });
   });
 
@@ -868,6 +931,7 @@ describe("LayerUI style panel — fill color", () => {
     expect(fillLayer.leaves[0].setStyle).toHaveBeenLastCalledWith({
       fillColor: "#3388ff",
       fillOpacity: 0.5,
+      fill: true,
     });
   });
 
@@ -1021,6 +1085,7 @@ describe("buildFillRow", () => {
     expect(fixture.fillLayer.leaves[0].setStyle).toHaveBeenLastCalledWith({
       fillColor: "#3388ff",
       fillOpacity: 0.5,
+      fill: true,
     });
   });
 
@@ -1035,7 +1100,7 @@ describe("buildFillRow", () => {
     const fixture = initWithFillLayer();
     const svgFill = vi.fn();
     const path = {
-      options: { fillColor: "#aabbcc", fillOpacity: 0.5 },
+      options: { fillColor: "#aabbcc", fillOpacity: 0.5, fill: true },
       _path: { setAttribute: svgFill },
       _renderer: true as any,
       setStyle: vi.fn(function (this: any, style: Record<string, unknown>) {
@@ -1062,7 +1127,7 @@ describe("buildFillRow", () => {
     // value is respected rather than silently lifted.
     const fixture = initWithFillLayer();
     const leaf = {
-      options: { fillColor: "#aabbcc", fillOpacity: 0 },
+      options: { fillColor: "#aabbcc", fillOpacity: 0, fill: true },
       setStyle: vi.fn(),
     };
     fixture.fillLayer.leaves[0] = leaf;
@@ -1072,7 +1137,7 @@ describe("buildFillRow", () => {
     expect(getIntent(fixture.ui, "overlay1", "fillColor")).toBe("#ff0000");
     expect(getIntent(fixture.ui, "overlay1", "fillOpacity")).toBeUndefined();
     expect(fixture.ui.intentProvenance["overlay1"]).not.toContain("fillOpacity");
-    expect(leaf.setStyle).toHaveBeenCalledWith({ fillColor: "#ff0000" });
+    expect(leaf.setStyle).toHaveBeenCalledWith({ fillColor: "#ff0000", fill: true });
   });
 
   it("a hollow layer's opacity input still reads 0 after a color change", () => {
@@ -1080,7 +1145,7 @@ describe("buildFillRow", () => {
     // the authored 0 — the panel and the map agree the layer is still hollow.
     const fixture = initWithFillLayer();
     const leaf = {
-      options: { fillColor: "#aabbcc", fillOpacity: 0 },
+      options: { fillColor: "#aabbcc", fillOpacity: 0, fill: true },
       setStyle: vi.fn(),
     };
     fixture.fillLayer.leaves[0] = leaf;
@@ -1099,7 +1164,7 @@ describe("buildFillRow", () => {
     // only reads it when building the setStyle payload, never rewrites it.
     const fixture = initWithFillLayer();
     const leaf = {
-      options: { fillColor: "#aabbcc", fillOpacity: 0 },
+      options: { fillColor: "#aabbcc", fillOpacity: 0, fill: true },
       setStyle: vi.fn(),
     };
     fixture.fillLayer.leaves[0] = leaf;
@@ -1111,6 +1176,7 @@ describe("buildFillRow", () => {
     expect(leaf.setStyle).toHaveBeenCalledWith({
       fillColor: "#ff0000",
       fillOpacity: 0,
+      fill: true,
     });
   });
 
@@ -1147,7 +1213,7 @@ describe("buildFillRow", () => {
     // keeping the user's 0.5.
     const fixture = initWithFillLayer();
     const leaf = {
-      options: { fillColor: "#aabbcc", fillOpacity: 0 },
+      options: { fillColor: "#aabbcc", fillOpacity: 0, fill: true },
       setStyle: vi.fn(),
     };
     fixture.fillLayer.leaves[0] = leaf;
@@ -1163,6 +1229,7 @@ describe("buildFillRow", () => {
     expect(leaf.setStyle).toHaveBeenLastCalledWith({
       fillColor: "#aabbcc",
       fillOpacity: 0,
+      fill: true,
     });
   });
 });
@@ -1194,10 +1261,12 @@ describe("replayFillState", () => {
     expect(fillLayer.leaves[0].setStyle).toHaveBeenCalledWith({
       fillColor: "#123456",
       fillOpacity: 0.4,
+      fill: true,
     });
     expect(fillLayer.leaves[1].setStyle).toHaveBeenCalledWith({
       fillColor: "#123456",
       fillOpacity: 0.4,
+      fill: true,
     });
   });
 
@@ -1210,6 +1279,7 @@ describe("replayFillState", () => {
     // fillOpacity stays in force.
     expect(fillLayer.leaves[0].setStyle).toHaveBeenCalledWith({
       fillColor: "#123456",
+      fill: true,
     });
   });
 
@@ -1247,6 +1317,7 @@ describe("replayFillState", () => {
     expect(getIntent(fixture.manager.ui!, "overlay1", "fillColor")).toBe("#123456");
     expect(fillLayer.leaves[0].setStyle).toHaveBeenCalledWith({
       fillColor: "#123456",
+      fill: true,
     });
   });
 });
