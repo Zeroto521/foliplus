@@ -96,10 +96,10 @@
      reads as "down" rather than a second hover. Disabled entries never
      answer (their :hover override already stays muted). ─── */
 :is(
-  .foliplus-search-result-item,
-  .foliplus-heatmap-scheme-dropdown-item,
-  .foliplus-layer-more-menu li
-):not([disabled]):active {
+    .foliplus-search-result-item,
+    .foliplus-heatmap-scheme-dropdown-item,
+    .foliplus-layer-more-menu li
+  ):not([disabled]):active {
   background: var(--foliplus-accent-soft-bg);
 }
 .foliplus-search-result-item:not([disabled]):active {

@@ -156,7 +156,8 @@
   box-sizing: border-box;
   box-shadow: 0 0 var(--foliplus-size-16) var(--foliplus-accent-soft-shadow);
   border-radius: var(--foliplus-size-2);
-  transition: var(--foliplus-export-move-transition),
+  transition:
+    var(--foliplus-export-move-transition),
     box-shadow var(--foliplus-transition-fast);
 
   /* Hover/press: the soft glow deepens one step so the crop frame reads as
@@ -164,7 +165,8 @@
      dim mask. Locked boxes have pointer-events: none, so they never light. */
   &:not(.foliplus-locked):hover,
   &:not(.foliplus-locked):active {
-    box-shadow: 0 0 var(--foliplus-size-24) var(--foliplus-accent-soft-shadow),
+    box-shadow:
+      0 0 var(--foliplus-size-24) var(--foliplus-accent-soft-shadow),
       0 0 0 var(--foliplus-size-2) var(--foliplus-accent-soft-shadow);
   }
 
