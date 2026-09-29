@@ -549,8 +549,12 @@ class LayerFactory {
 
     // Detached until `preRegister` mounts it: the pane is created at register
     // time so it can be priced at its slot from birth (see `mountFace`).
+    // `foliplus-export-exclude` is ExportControl's component-side export
+    // opt-out marker: registered canvases paint through `li.canvas` (special
+    // path), and the class only stops generic pane walks from copying this
+    // live DOM node into the export.
     const canvas = dom.el("canvas", {
-      class: "foliplus-canvas-layer",
+      class: "foliplus-canvas-layer foliplus-export-exclude",
     }) as HTMLCanvasElement;
     if (className) canvas.classList.add(className);
 

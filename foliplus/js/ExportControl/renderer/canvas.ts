@@ -45,6 +45,13 @@ const renderPaneCanvas = async (
 ): Promise<void> => {
   const { ctx, rect, scale, contRect, cw, ch } = rc;
   for (const ce of pane.querySelectorAll(selector)) {
+    // Component self-declared export opt-out (and the shared SKIP_EXPORT
+    // carriers). Registered canvas layers paint via `li.canvas` and never
+    // reach this pane walk; this blocks third-party / chrome canvases that
+    // self-mark from being double-copied from the live DOM.
+    if (ce.matches(CONST.SEL.SKIP_EXPORT) || ce.closest(CONST.SEL.SKIP_EXPORT)) {
+      continue;
+    }
     try {
       const r = ce.getBoundingClientRect();
       const l = r.left - contRect.left;

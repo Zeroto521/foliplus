@@ -38,7 +38,9 @@ class ExportControl extends BaseControl {
 
   buildDOM() {
     const { container, ctrl, toolBar, toggleBtn } = createFoldControl({
-      cssClass: `foliplus-export-ctrl`,
+      // Self-declare export DOM-copy opt-out; central CONTROL no longer
+      // lists this bar (only leaflet-control-container remains as fallback).
+      cssClass: `foliplus-export-ctrl foliplus-export-exclude`,
       toggleTitle: T("btn_title"),
       toggleSvg: SVGs.CAMERA,
       position: CONF.position,

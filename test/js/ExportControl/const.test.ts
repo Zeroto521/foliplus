@@ -174,13 +174,32 @@ describe("SVG_NS", () => {
 
 describe("SEL", () => {
   it("defines selectors", () => {
-    // Two carriers, one judgement point: the attribute for elements a
-    // component can stamp any time, the class for a Leaflet Path, which only
-    // exposes a construction-time className hook.
+    // Carriers, one judgement point: attribute for elements a component can
+    // stamp any time; class for Leaflet Path (construction-time only); and
+    // foliplus-export-exclude for component chrome that self-declares
+    // (export control bar, registered canvas layers).
     expect(CONST.SEL.SKIP_EXPORT).toBe(
-      '[data-foliplus-export="exclude"], .foliplus-skip-export',
+      '[data-foliplus-export="exclude"], .foliplus-skip-export, .foliplus-export-exclude',
     );
     expect(CONST.SEL.LABEL).toBe("[data-foliplus-export='label']");
+  });
+
+  it("keeps central CONTROL as map-level fallback only", () => {
+    // Component chrome self-marks; the center list must not re-list it.
+    expect(CONST.SEL.CONTROL).toBe(".leaflet-control-container");
+    expect(CONST.SEL.CONTROL).not.toContain("foliplus-export-ctrl");
+  });
+
+  it("hides only the map-level control host during export", () => {
+    // Registered canvas layers self-mark export-exclude for traversal skip.
+    // Hide-pass must not display:none them — the li.canvas special path needs
+    // live geometry (getBoundingClientRect) to paint heatmap pixels.
+    expect(CONST.SEL.HIDE_DURING_EXPORT).toBe(".leaflet-control-container");
+    expect(CONST.SEL.HIDE_DURING_EXPORT).not.toContain("export-exclude");
+  });
+
+  it("exports the component-side marker class name", () => {
+    expect(CONST.CLASSES.EXPORT_EXCLUDE).toBe("foliplus-export-exclude");
   });
 });
 
