@@ -152,7 +152,8 @@ const syncZoomRangeRow = (
  *  The track shows the selected range as an accent fill, and a vertical line
  *  marks the map's current zoom level.
  *
- *  Initial values come from `intents.zoomRange[layerId]` (the persisted choice),
+ *  Initial values come from the layer's zoomRange intent (the persisted
+ *  choice),
  *  clamped to the map's current [min, max]. When no range is stored, the
  *  full map range is used — the "author-undeclared" default. */
 const buildZoomRangeRow = (ui: LayerUI, layerId: string): HTMLElement => {

@@ -8,6 +8,21 @@ import type { LayerUI } from "./index.js";
 
 type IntentKey = keyof LayerIntent;
 
+/** Typed-presence rule per intent key — the one place the value vocabulary
+ *  lives. An intent key's value is "live" when it has the type the record
+ *  promises (0 / empty strings / empty arrays are real choices, not absence). */
+const LIVE: Record<IntentKey, (value: unknown) => boolean> = {
+  visible: value => typeof value === "boolean",
+  fillColor: value => typeof value === "string",
+  fillOpacity: value => typeof value === "number",
+  borderColor: value => typeof value === "string",
+  borderWeight: value => typeof value === "number",
+  opacity: value => typeof value === "number",
+  zoomRange: value => Array.isArray(value),
+  name: value => typeof value === "string",
+  annotation: value => value != null,
+};
+
 /** Write one intent dimension. */
 const setIntent = <K extends IntentKey>(
   ui: LayerUI,
@@ -53,25 +68,9 @@ const getIntent = <K extends IntentKey>(
   return ui.intents?.[id]?.[key];
 };
 
-/** Whether one intent dimension holds a live value. */
+/** Whether one intent key holds a live value (typed presence). */
 const hasIntentValue = (ui: LayerUI, id: string, key: IntentKey): boolean => {
-  const v = getIntent(ui, id, key);
-  switch (key) {
-    case "visible":
-      return typeof v === "boolean";
-    case "fillColor":
-    case "borderColor":
-    case "name":
-      return typeof v === "string";
-    case "fillOpacity":
-    case "borderWeight":
-    case "opacity":
-      return typeof v === "number";
-    case "zoomRange":
-      return Array.isArray(v);
-    case "annotation":
-      return v != null;
-  }
+  return LIVE[key](getIntent(ui, id, key));
 };
 
 /** Seed one dimension from a whole record (tests / bulk restore). */
@@ -85,5 +84,13 @@ const seedIntentMap = <K extends IntentKey>(
   }
 };
 
-export { clearIntent, dropIntent, getIntent, hasIntentValue, seedIntentMap, setIntent };
+export {
+  LIVE,
+  clearIntent,
+  dropIntent,
+  getIntent,
+  hasIntentValue,
+  seedIntentMap,
+  setIntent,
+};
 export type { IntentKey };

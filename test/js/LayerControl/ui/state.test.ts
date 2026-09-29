@@ -1331,7 +1331,8 @@ describe("ui/state intentProvenance and per-layer state persistence", () => {
   it("treats an unknown override key as live (forward-compat default)", () => {
     // LayerOverride is closed today; the default arm of hasLiveValue is the
     // forward-compat path so a future dimension without a typed guard is not
-    // silently dropped by markOverride.
+    // silently dropped by markOverride — and buildLayerStates refuses to write
+    // its value (there is no LIVE rule yet), keeping the disk contract intact.
     const bare = {
       intentProvenance: {},
       intents: {},
@@ -1344,11 +1345,86 @@ describe("ui/state intentProvenance and per-layer state persistence", () => {
     markOverride(bare, "overlay1", "futureDim" as never);
 
     expect(bare.intentProvenance.overlay1).toEqual(["futureDim"]);
+    const states = buildLayerStates(bare);
+    expect(states.overlay1?.overrides).toEqual(["futureDim"]);
+    expect(states.overlay1 && Object.keys(states.overlay1)).toEqual(["overrides"]);
+  });
+
+  it("skips legacy annotation entries that are not objects", () => {
+    // The legacy `annotations` segment passes through unparsed, so a corrupt
+    // entry must not seed an intent.
+    const bare = {
+      intents: {},
+      intentProvenance: {},
+      m: {
+        persistence: {
+          load: () =>
+            ({
+              order: null,
+              foldedGroups: [],
+              renamedNames: {},
+              annotations: {
+                nullish: null,
+                valid: { show: true, field: "name", format: "auto" },
+              },
+              layers: {},
+            }) as never,
+        },
+      },
+    } as unknown as LayerUI;
+    loadPersistedState(bare);
+    expect(getIntent(bare, "nullish", "annotation")).toBeUndefined();
+    expect(getIntent(bare, "valid", "annotation")).toBeDefined();
+  });
+
+  it("ignores an override whose stored value has the wrong type", () => {
+    // Defensive read: persistence normally pairs value + provenance, but a
+    // direct record (or a future writer) can declare a marker with a bad value.
+    const bare = {
+      intents: {},
+      intentProvenance: {},
+      m: {
+        persistence: {
+          load: () =>
+            ({
+              order: null,
+              foldedGroups: [],
+              renamedNames: {},
+              annotations: {},
+              layers: {
+                overlay1: { overrides: ["visible"], visible: "yes" },
+              },
+            }) as never,
+        },
+      },
+    } as unknown as LayerUI;
+    loadPersistedState(bare);
+    expect(getIntent(bare, "overlay1", "visible")).toBeUndefined();
+    expect(bare.intentProvenance.overlay1).toEqual(["visible"]);
+  });
+
+  it("saveNamesState keeps only intents that carry a name", () => {
+    const schedule = vi.fn();
+    const bare = {
+      intents: {
+        a: { opacity: 0.5 },
+        b: { name: "Renamed" },
+      },
+      m: { persistence: { schedule } },
+    } as unknown as LayerUI;
+
+    saveNamesState(bare);
+
+    const fields = schedule.mock.calls[0][0] as {
+      renamedNames: () => Record<string, string>;
+    };
+    expect(fields.renamedNames()).toEqual({ b: "Renamed" });
   });
 
   it("tolerates a shell with no intents / provenance maps", () => {
     // Sparse fixtures and a mid-teardown UI must not throw on the projection
-    // walks — absent maps read as empty.
+    // walks — absent maps read as empty, and an intent without a name simply
+    // contributes nothing to the saved names.
     const schedule = vi.fn();
     const bare = {
       m: {

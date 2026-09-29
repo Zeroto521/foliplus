@@ -209,7 +209,7 @@ const captureBase = (
  *  tree and calls `setStyle({fillColor?, fillOpacity?})` on every leaf that
  *  has a `setStyle`. A node without a setter is skipped silently.
  *
- *  Reads both values from the UI maps (`intents.fillColor` / `intents.fillOpacity`);
+ *  Reads both values from the intent record (`fillColor` / `fillOpacity`);
  *  a dimension not in the map is omitted from the `setStyle` call so the
  *  author's declared default stays in force.
  *
@@ -413,8 +413,9 @@ const replayFillState = (ui: LayerUI, id: string): void => {
   if (
     getIntent(ui, id, "fillColor") === undefined &&
     getIntent(ui, id, "fillOpacity") === undefined
-  )
+  ) {
     return;
+  }
   applyFillToLayer(ui, id);
 };
 

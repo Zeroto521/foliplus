@@ -1699,6 +1699,28 @@ describe("LayerUI style panel", () => {
     expect(renderLabels).not.toHaveBeenCalled();
   });
 
+  it("applyStyleLabelState skips an intent that carries no annotation", () => {
+    // An id present in `ui.intents` for a different dimension (e.g. a rename)
+    // must not be treated as a label seed.
+    seedIntentMap(ui, "name", { overlay1: "Renamed" });
+    const setConfig = vi.spyOn(manager.annotation, "setConfig");
+    const renderLabels = vi.spyOn(manager.annotation, "renderLabels");
+
+    ui.applyStyleLabelState();
+
+    expect(setConfig).not.toHaveBeenCalled();
+    expect(renderLabels).not.toHaveBeenCalled();
+  });
+
+  it("applyStyleLabelState is a no-op when the shell has no intents map", () => {
+    const ui2 = ui as unknown as {
+      intents?: unknown;
+      applyStyleLabelState: () => void;
+    };
+    ui2.intents = undefined;
+    expect(() => ui2.applyStyleLabelState()).not.toThrow();
+  });
+
   // ─────────────────── dismiss / drag edge cases ───────────────────
 
   it("a document-level mousedown (target = document) dismisses the panel", () => {

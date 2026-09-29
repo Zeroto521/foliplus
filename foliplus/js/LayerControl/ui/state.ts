@@ -12,7 +12,7 @@ import type { LayerIntent, LayerOverride, PersistedLayerState } from "../type.js
 import { applyProjection, applyProjectionAll } from "./apply.js";
 import { applyNameProjection } from "./context.js";
 import type { LayerUI } from "./index.js";
-import { dropIntent, getIntent, hasIntentValue, setIntent } from "./intent.js";
+import { LIVE, dropIntent, getIntent, setIntent } from "./intent.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const log = createLogger(CONF.name);
@@ -32,8 +32,9 @@ const loadPersistedState = (ui: LayerUI) => {
   // `layers[id].annotation` key WINS, the legacy top-level `annotations`
   // segment is the fallback underneath (write-new / read-old).
   for (const [id, raw] of Object.entries(state.annotations)) {
-    if (raw != null)
+    if (raw != null) {
       setIntent(ui, id, "annotation", raw as NonNullable<LayerIntent["annotation"]>);
+    }
   }
   // Per-layer intent: the value lives on `ui.intents[id]`, `overrides`
   // records that the user set it. A layer with no entry keeps the author's
@@ -45,35 +46,15 @@ const loadPersistedState = (ui: LayerUI) => {
     // New-key label config overrides the legacy-segment fallback above.
     if (entry.annotation) setIntent(ui, id, "annotation", entry.annotation);
     ui.intentProvenance[id] = [...entry.overrides];
-    if (entry.overrides.includes("visible") && typeof entry.visible === "boolean") {
-      setIntent(ui, id, "visible", entry.visible);
-    }
-    if (entry.overrides.includes("fillColor") && entry.fillColor) {
-      setIntent(ui, id, "fillColor", entry.fillColor);
-    }
-    if (
-      entry.overrides.includes("fillOpacity") &&
-      typeof entry.fillOpacity === "number"
-    ) {
-      setIntent(ui, id, "fillOpacity", entry.fillOpacity);
-    }
-    if (entry.overrides.includes("borderColor") && entry.borderColor) {
-      setIntent(ui, id, "borderColor", entry.borderColor);
-    }
-    if (
-      entry.overrides.includes("borderWeight") &&
-      typeof entry.borderWeight === "number"
-    ) {
-      setIntent(ui, id, "borderWeight", entry.borderWeight);
-    }
-    const opacity = entry.opacity;
-    if (entry.overrides.includes("opacity") && typeof opacity === "number") {
-      setIntent(ui, id, "opacity", opacity);
-    }
-    // Value and provenance are validated together on read, so presence of the
-    // provenance guarantees presence of the value.
-    if (entry.overrides.includes("zoomRange") && entry.zoomRange) {
-      setIntent(ui, id, "zoomRange", entry.zoomRange);
+    // One dimension per override: the persisted key is the provenance key,
+    // the value is typed on read (parseLayerState), and LIVE re-checks the
+    // type so a marker with a missing value is never restored as a choice.
+    for (const override of entry.overrides) {
+      const value = entry[override];
+      const live = LIVE[override];
+      if (live && value !== undefined && live(value)) {
+        setIntent(ui, id, override, value);
+      }
     }
   }
 };
@@ -86,26 +67,11 @@ const saveFoldState = (ui: LayerUI) => {
 
 /** Whether one dimension still holds a live value. An override with none means
  *  the user reset it, so the dimension drops back to the author's declared
- *  default instead of persisting an empty choice. */
+ *  default instead of persisting an empty choice. Unknown overrides (future
+ *  dimensions) are treated as live so markOverride never drops a new marker. */
 const hasLiveValue = (ui: LayerUI, id: string, override: LayerOverride): boolean => {
-  switch (override) {
-    case "visible":
-      return hasIntentValue(ui, id, "visible");
-    case "fillColor":
-      return hasIntentValue(ui, id, "fillColor");
-    case "fillOpacity":
-      return hasIntentValue(ui, id, "fillOpacity");
-    case "borderColor":
-      return hasIntentValue(ui, id, "borderColor");
-    case "borderWeight":
-      return hasIntentValue(ui, id, "borderWeight");
-    case "opacity":
-      return hasIntentValue(ui, id, "opacity");
-    case "zoomRange":
-      return hasIntentValue(ui, id, "zoomRange");
-    default:
-      return true;
-  }
+  const live = LIVE[override];
+  return live ? live(getIntent(ui, id, override)) : true;
 };
 
 /** Build the record's `layers` section from the live state: one entry per
@@ -126,35 +92,20 @@ const buildLayerStates = (ui: LayerUI): Record<string, PersistedLayerState> => {
     ...Object.keys(ui.intents ?? {}),
   ]);
   for (const id of ids) {
-    const declared = (ui.intentProvenance[id] ?? []).filter(override =>
+    const declared = (ui.intentProvenance?.[id] ?? []).filter(override =>
       hasLiveValue(ui, id, override),
     );
     const annotation = annotations[id];
     if (declared.length === 0 && !annotation) continue;
+    // Disk keys equal the override names; the intent record holds the live
+    // value, so each declared override writes its key straight through.
     const state: PersistedLayerState = { overrides: declared };
-    if (declared.includes("visible")) state.visible = getIntent(ui, id, "visible");
-    const fillColor = getIntent(ui, id, "fillColor");
-    if (declared.includes("fillColor") && typeof fillColor === "string") {
-      state.fillColor = fillColor;
-    }
-    const fillOpacity = getIntent(ui, id, "fillOpacity");
-    if (declared.includes("fillOpacity") && typeof fillOpacity === "number") {
-      state.fillOpacity = fillOpacity;
-    }
-    const borderColor = getIntent(ui, id, "borderColor");
-    if (declared.includes("borderColor") && typeof borderColor === "string") {
-      state.borderColor = borderColor;
-    }
-    const borderWeight = getIntent(ui, id, "borderWeight");
-    if (declared.includes("borderWeight") && typeof borderWeight === "number") {
-      state.borderWeight = borderWeight;
-    }
-    const opacity = getIntent(ui, id, "opacity");
-    if (declared.includes("opacity") && typeof opacity === "number") {
-      state.opacity = opacity;
-    }
-    if (declared.includes("zoomRange")) {
-      state.zoomRange = getIntent(ui, id, "zoomRange");
+    for (const override of declared) {
+      const value = getIntent(ui, id, override);
+      const live = LIVE[override];
+      if (live && live(value)) {
+        (state as Record<LayerOverride, unknown>)[override] = value;
+      }
     }
     if (annotation) state.annotation = annotation;
     states[id] = state;
@@ -200,10 +151,10 @@ const unmarkOverride = (ui: LayerUI, id: string, override: LayerOverride) => {
  * Propagate the user's stored state —hidden visibility and renames —
  * into the registry and the rendered rows.
  *
- * `intents.visible` and `renamedNames` are the source of truth; the registry's
- * `LayerInfo.visible` / `LayerInfo.name` and the row checkboxes / labels
- * are their projections, refreshed here whenever a row or the registry is
- * rebuilt from a third-party layer's own metadata. Hidden is a same-axis
+ * `ui.intents` (the visible / name dimensions) is the source of truth; the
+ * registry's `LayerInfo.visible` / `LayerInfo.name` and the row checkboxes /
+ * labels are their projections, refreshed here whenever a row or the registry
+ * is rebuilt from a third-party layer's own metadata. Hidden is a same-axis
  * overwrite of `visible`, so it writes straight through; name is a
  * cross-axis projection that must preserve the author's original name, so
  * it goes through `applyNameProjection`, which writes only where the
@@ -261,12 +212,12 @@ const applyUserState = (ui: LayerUI, id?: string) => {
     return;
   }
 
-  // The registry is the sweep, not `intents.visible`: a layer the user left
-  // visible is absent from `intents.visible` by design, so iterating that map
+  // The registry is the sweep, not `ui.intents`: a layer the user left
+  // visible has no visible entry by design, so iterating the intent records
   // alone can never reach it and the hide half of the round trip has no
   // inverse. Walking the registry asserts every layer's map membership
   // against the persisted intent; the color basemap has no registry entry,
-  // so its rename still comes from `renamedNames`.
+  // so its rename still comes from `ui.intents[id].name`.
   applyProjectionAll(ui);
   for (const layerId of Object.keys(ui.intents ?? {})) {
     const rename = getIntent(ui, layerId, "name");
