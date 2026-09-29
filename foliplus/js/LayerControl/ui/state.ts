@@ -380,6 +380,7 @@ const setVisible = (
  *  rename input is also `tabindex=0` and is not a navigable row. */
 
 export {
+  buildLayerStates,
   loadPersistedState,
   saveFoldState,
   saveState,

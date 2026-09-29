@@ -4,6 +4,7 @@ import { LayerManager } from "#foliplus/LayerControl/manager.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import {
   applyUserState,
+  buildLayerStates,
   dropPersistedLayerState,
   loadPersistedState,
   markOverride,
@@ -1367,6 +1368,65 @@ describe("ui/state intentProvenance and per-layer state persistence", () => {
     expect(ui.intents?.overlay1?.borderColor).toBe("#0000ff");
     expect(ui.intents?.overlay1?.borderWeight).toBe(4.5);
     expect(ui.intentProvenance.overlay1).toEqual(["borderColor", "borderWeight"]);
+  });
+
+  it("disk shape is unchanged: PersistedLayerState keys stay the on-wire names", () => {
+    // T242 collapsed the live parallel maps into `ui.intents`, but the record
+    // written to localStorage keeps its historical keys — `buildLayerStates`
+    // is the only projection to disk. Pin the contract so a future field rename
+    // cannot silently change what older sessions read back.
+    const bare = {
+      intents: {
+        overlay1: {
+          visible: false,
+          fillColor: "#123456",
+          fillOpacity: 0.5,
+          borderColor: "#0000ff",
+          borderWeight: 4,
+          opacity: 0.35,
+          zoomRange: [3, 12] as [number, number],
+          annotation: { show: true, field: "name", format: "auto" },
+          name: "Renamed",
+        },
+      },
+      intentProvenance: {
+        overlay1: [
+          "visible",
+          "fillColor",
+          "fillOpacity",
+          "borderColor",
+          "borderWeight",
+          "opacity",
+          "zoomRange",
+        ],
+      },
+      m: {
+        annotation: {
+          configEntries: () => [
+            ["overlay1", { show: true, field: "name", format: "auto" }],
+          ],
+        },
+      },
+    } as unknown as LayerUI;
+
+    const states = buildLayerStates(bare);
+    const entry = states.overlay1;
+    expect(entry).toBeDefined();
+    expect(Object.keys(entry!).sort()).toEqual(
+      [
+        "annotation",
+        "borderColor",
+        "borderWeight",
+        "fillColor",
+        "fillOpacity",
+        "opacity",
+        "overrides",
+        "visible",
+        "zoomRange",
+      ].sort(),
+    );
+    // `name` is NOT a layers[id] key — it rides the top-level `renamedNames`.
+    expect("name" in entry!).toBe(false);
   });
 
   it("persists an opacity change together with its provenance", () => {
