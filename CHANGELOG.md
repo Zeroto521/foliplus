@@ -79,7 +79,7 @@
 - `LayerControl`: style-panel dimensions become registry descriptors (`registerDimension` / `DIM_ORDER`) — the panel discovers rows through the registry, gate = capability check ([#505](https://github.com/Zeroto521/foliplus/pull/505), [#513](https://github.com/Zeroto521/foliplus/pull/513), [#522](https://github.com/Zeroto521/foliplus/pull/522), [#536](https://github.com/Zeroto521/foliplus/pull/536))
 - `LayerControl` / `HeatmapControl`: the style, attributes and heatmap panels drop their group headings and read as one flat row list; row labels are right-aligned, so all three panels share one label edge ([#516](https://github.com/Zeroto521/foliplus/pull/516))
 - `HeatmapControl` / `LayerControl`: bake layer opacity into canvas draws (`globalAlpha`); heatmap slider stays CSS, bake on redraw ([#533](https://github.com/Zeroto521/foliplus/pull/533))
-- `MeasureControl` / `ExportControl`: unify the measure-node and export-anchor dots under one shared `.foliplus-dot` recipe and a single `--foliplus-dot-size` / `--foliplus-dot-stroke` token pair — one geometry source for every interactive map/crop dot; page authors override the two tokens instead of chasing per-component size literals. `--slider-thumb-size` and `--slider-dot-size` stay separate (deliberate: grab target and readout dots are a different visual role)
+
 
 ### Removed
 

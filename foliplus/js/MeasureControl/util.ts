@@ -111,9 +111,9 @@ const makeMidLabelDivIcon = (html: string): L.DivIcon => {
  *  Cached after the first successful read — `moveCursorNode` rebuilds a
  *  preview marker every mousemove frame, so the two `getComputedStyle` reads
  *  must not run per frame. `resetNodeRadiusCache()` invalidates for tests. */
-let _nodeRadiusCache: number | undefined;
+let nodeRadiusCache: number | undefined;
 const nodeRadius = (): number => {
-  if (_nodeRadiusCache !== undefined) return _nodeRadiusCache;
+  if (nodeRadiusCache !== undefined) return nodeRadiusCache;
   const size = parseFloat(cssVar(document.documentElement, "--foliplus-dot-size", ""));
   const stroke = parseFloat(
     cssVar(document.documentElement, "--foliplus-dot-stroke", ""),
@@ -121,11 +121,11 @@ const nodeRadius = (): number => {
   if (!Number.isFinite(size) || !Number.isFinite(stroke) || size <= stroke) {
     throw new Error("foliplus: --foliplus-dot-size / --foliplus-dot-stroke unreadable");
   }
-  _nodeRadiusCache = (size - stroke) / 2;
-  return _nodeRadiusCache;
+  nodeRadiusCache = (size - stroke) / 2;
+  return nodeRadiusCache;
 };
 const resetNodeRadiusCache = (): void => {
-  _nodeRadiusCache = undefined;
+  nodeRadiusCache = undefined;
 };
 
 /** Create a measure node circle marker. */
