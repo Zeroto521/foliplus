@@ -4,6 +4,11 @@ import type { LayerManager } from "#foliplus/LayerControl/manager.js";
 import { applyProjection } from "#foliplus/LayerControl/ui/apply.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import {
+  getIntent,
+  seedIntentMap,
+  setIntent,
+} from "#foliplus/LayerControl/ui/intent.js";
+import {
   buildBorderRow,
   renderDelegatedStylePanel,
 } from "#foliplus/LayerControl/ui/style/delegated.js";
@@ -21,7 +26,6 @@ import { ensureModes } from "#foliplus/core/mode.js";
 import { getLayerAlpha } from "#common/canvasAlpha.js";
 import { NUMBER_FORMAT } from "#common/format.js";
 import { GridLayer, findItem, initFixture, installLeafletGlobals } from "./fixture.js";
-import { getIntent, seedIntentMap, setIntent } from "#foliplus/LayerControl/ui/intent.js";
 
 /** Percentage the opacity fill is drawn at, read off its width expression.
  *  The fill's width is `calc((100% - var(--foliplus-slider-thumb-hit)) * <fraction>)` —

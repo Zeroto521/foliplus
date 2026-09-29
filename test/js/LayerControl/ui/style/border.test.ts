@@ -1,7 +1,11 @@
-import { getIntent, seedIntentMap, setIntent } from "#foliplus/LayerControl/ui/intent.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { LayerManager } from "#foliplus/LayerControl/manager.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
+import {
+  getIntent,
+  seedIntentMap,
+  setIntent,
+} from "#foliplus/LayerControl/ui/intent.js";
 import {
   applyBorderToLayer,
   authoredBorder,

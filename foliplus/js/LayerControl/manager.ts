@@ -38,8 +38,8 @@ import { createLogger } from "#common/log.js";
 import { AnnotationManager } from "./annotation/index.js";
 import * as CONST from "./const.js";
 import { LayerPersistence } from "./persistence.js";
-import { clearIntent, getIntent } from "./ui/intent.js";
 import { LayerUI } from "./ui/index.js";
+import { clearIntent, getIntent } from "./ui/intent.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const T = createScopedTranslator(CONF);

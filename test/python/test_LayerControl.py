@@ -5639,7 +5639,7 @@ class TestLayerControlBrowser:
         come back on the map after reload.
 
         The load path runs ``applyZoomRangeStateOne`` for every layer with
-        a stored zoomRange. A zoomRangeMap entry alone is not authorisation
+        a stored zoomRange. A stored zoom-range intent alone is not authorisation
         to re-add a layer the author left off the map — only ``applyUserState``'s
         unhide branch (a visible override present) is.
         """

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerManager } from "#foliplus/LayerControl/manager.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
+import { clearIntent, getIntent, setIntent } from "#foliplus/LayerControl/ui/intent.js";
 import {
   applyFillToLayer,
   bindFillRow,
@@ -13,7 +14,6 @@ import {
   resetLayerFill,
 } from "#foliplus/LayerControl/ui/style/fill.js";
 import { findItem, initFixture, installLeafletGlobals } from "../fixture.js";
-import { clearIntent, getIntent, setIntent } from "#foliplus/LayerControl/ui/intent.js";
 
 /** A layer duck with a real setStyle spy and a set of polygon leaves each
  *  with their own setStyle. The leaves are `L.Polygon` instances so the areal

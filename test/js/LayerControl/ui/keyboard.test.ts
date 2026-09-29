@@ -4,6 +4,7 @@ import { GROUP } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerManager } from "#foliplus/LayerControl/manager.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
+import { getIntent, seedIntentMap } from "#foliplus/LayerControl/ui/intent.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 import {
   allFolded,
@@ -13,7 +14,6 @@ import {
   overlayFoldBtn,
   pressKey,
 } from "./fixture.js";
-import { getIntent, seedIntentMap } from "#foliplus/LayerControl/ui/intent.js";
 
 describe("LayerUI keyboard", () => {
   let manager: LayerManager;

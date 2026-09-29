@@ -12,10 +12,10 @@
 // is at file scope below; every test after it can rely on the test dim
 // being present.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setIntent } from "#foliplus/LayerControl/ui/intent.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerManager } from "#foliplus/LayerControl/manager.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
+import { setIntent } from "#foliplus/LayerControl/ui/intent.js";
 import { ANNOTATION_DIMENSION } from "#foliplus/LayerControl/ui/style/annotation.js";
 import { BORDER_DIMENSION } from "#foliplus/LayerControl/ui/style/border.js";
 import { DELEGATED_DIM_ORDER } from "#foliplus/LayerControl/ui/style/delegated.js";

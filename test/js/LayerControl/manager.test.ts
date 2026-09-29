@@ -8,6 +8,7 @@ import {
 } from "#foliplus/LayerControl/manager.js";
 import { LayerPersistence } from "#foliplus/LayerControl/persistence.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
+import { getIntent, setIntent } from "#foliplus/LayerControl/ui/intent.js";
 import {
   applyUserState,
   dropPersistedLayerState,
@@ -23,7 +24,6 @@ import {
 import { ANNOTATION_Z_OFFSET } from "#foliplus/core/layer/index.js";
 import { getLayerAlpha } from "#common/canvasAlpha.js";
 import * as Storage from "#common/storage.js";
-import { getIntent, setIntent } from "#foliplus/LayerControl/ui/intent.js";
 
 const ENFORCE_ORDER_DEBOUNCE_MS = 50;
 

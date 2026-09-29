@@ -1,4 +1,3 @@
-import { seedIntentMap } from "#foliplus/LayerControl/ui/intent.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerManager } from "#foliplus/LayerControl/manager.js";
@@ -15,6 +14,7 @@ import {
   toggleFocusedLayer,
 } from "#foliplus/LayerControl/ui/focus.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
+import { seedIntentMap } from "#foliplus/LayerControl/ui/intent.js";
 import { getActiveLayerItem } from "#foliplus/LayerControl/ui/keyboard.js";
 import type { LayerInfo } from "#foliplus/core/layer/index.js";
 import { GROUP, focusLayerZ } from "#foliplus/core/layer/index.js";

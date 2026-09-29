@@ -6,10 +6,10 @@ import {
   applyStateOp,
 } from "#foliplus/LayerControl/ui/apply.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
+import { clearIntent, getIntent, setIntent } from "#foliplus/LayerControl/ui/intent.js";
 import { intentVisibleOf, projectLayer } from "#foliplus/LayerControl/ui/projection.js";
 import { getLayerAlpha } from "#common/canvasAlpha.js";
 import { installLeafletGlobals } from "./fixture.js";
-import { clearIntent, getIntent, setIntent } from "#foliplus/LayerControl/ui/intent.js";
 
 // ────────────────────────────────────────────────────────────────────────
 // Gate: the executor must not let a derived dimension authorise
@@ -718,6 +718,22 @@ describe("projectAll: the id set is a union, not just the registry", () => {
     // The record is untouched — the id simply has nothing to write to yet.
     expect(getIntent(ui, "late", "opacity")).toBe(0.3);
     expect(ui.intentProvenance.late).toEqual(["opacity"]);
+  });
+
+  it("projectAll treats a missing intents map as empty", () => {
+    const { container, map } = makeOffMapFixture();
+    const manager = new LayerManager(map, [
+      { id: "a", name: "A", group: "overlay", layer: { options: {} } as L.Layer },
+    ]);
+    manager.ui = new LayerUI(manager);
+    const ui = manager.ui as LayerUI;
+    vi.useFakeTimers();
+    manager.attachUI(container);
+    vi.advanceTimersByTime(350);
+    vi.useRealTimers();
+
+    (ui as { intents?: unknown }).intents = undefined;
+    expect(() => applyProjectionAll(ui)).not.toThrow();
   });
 });
 

@@ -7,6 +7,7 @@ import { GROUP } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { LayerManager } from "#foliplus/LayerControl/manager.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
+import { getIntent, seedIntentMap } from "#foliplus/LayerControl/ui/intent.js";
 import {
   TileLayer,
   findItem,
@@ -14,7 +15,6 @@ import {
   installLeafletGlobals,
   makePane,
 } from "./fixture.js";
-import { getIntent, seedIntentMap } from "#foliplus/LayerControl/ui/intent.js";
 
 describe("LayerUI shell — event subscriptions", () => {
   let manager: LayerManager;

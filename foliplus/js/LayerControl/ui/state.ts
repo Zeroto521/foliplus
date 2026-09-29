@@ -32,7 +32,8 @@ const loadPersistedState = (ui: LayerUI) => {
   // `layers[id].annotation` key WINS, the legacy top-level `annotations`
   // segment is the fallback underneath (write-new / read-old).
   for (const [id, raw] of Object.entries(state.annotations)) {
-    if (raw != null) setIntent(ui, id, "annotation", raw as NonNullable<LayerIntent["annotation"]>);
+    if (raw != null)
+      setIntent(ui, id, "annotation", raw as NonNullable<LayerIntent["annotation"]>);
   }
   // Per-layer intent: the value lives on `ui.intents[id]`, `overrides`
   // records that the user set it. A layer with no entry keeps the author's

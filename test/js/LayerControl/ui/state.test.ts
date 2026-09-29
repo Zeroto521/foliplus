@@ -3,6 +3,11 @@ import * as CONST from "#foliplus/LayerControl/const.js";
 import { LayerManager } from "#foliplus/LayerControl/manager.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import {
+  getIntent,
+  seedIntentMap,
+  setIntent,
+} from "#foliplus/LayerControl/ui/intent.js";
+import {
   applyUserState,
   buildLayerStates,
   dropPersistedLayerState,
@@ -28,7 +33,6 @@ import {
   pressKey,
 } from "./fixture.js";
 import { GridLayer, TileLayer, installLeafletGlobals } from "./fixture.js";
-import { getIntent, seedIntentMap, setIntent } from "#foliplus/LayerControl/ui/intent.js";
 
 /** The pane spec list `createLayers` derives from an ordered name list: the
  *  first name is the base pane, everything after it a `sub`. */
@@ -226,7 +230,12 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
         },
       ]);
       const u = new LayerUI(m);
-      seedIntentMap(u, "visible", { overlay1: false, later: false, ghost: false, gone: false });
+      seedIntentMap(u, "visible", {
+        overlay1: false,
+        later: false,
+        ghost: false,
+        gone: false,
+      });
       m.pendingRegistrations.push({
         id: "later",
         name: "Later",
@@ -236,7 +245,12 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
 
       u.applyUserState();
 
-      expect(u.intents ?? {}).toEqual({ overlay1: { visible: false }, later: { visible: false }, ghost: { visible: false }, gone: { visible: false } });
+      expect(u.intents ?? {}).toEqual({
+        overlay1: { visible: false },
+        later: { visible: false },
+        ghost: { visible: false },
+        gone: { visible: false },
+      });
     });
 
     it("schedules no write and drops no stored id", () => {
@@ -272,7 +286,11 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
       u.applyUserState();
 
       expect(schedule).not.toHaveBeenCalled();
-      expect(u.intents ?? {}).toEqual({ overlay1: { visible: false }, ghost: { visible: false }, gone: { visible: false } });
+      expect(u.intents ?? {}).toEqual({
+        overlay1: { visible: false },
+        ghost: { visible: false },
+        gone: { visible: false },
+      });
       const stored = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!);
       expect(Object.keys(stored.layers).sort()).toEqual(["ghost", "gone", "overlay1"]);
     });
@@ -315,7 +333,10 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
 
       u.loadPersistedState();
 
-      expect(u.intents ?? {}).toEqual({ overlay1: { visible: false }, base1: { visible: false } });
+      expect(u.intents ?? {}).toEqual({
+        overlay1: { visible: false },
+        base1: { visible: false },
+      });
     });
 
     it("loads persisted fill color and opacity into their maps", () => {
@@ -659,7 +680,10 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
       ) as HTMLElement | null;
       expect(colorItem?.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
       // The hidden set is preserved after the attach pass.
-      expect(ui.intents ?? {}).toEqual({ base1: { visible: false }, base2: { visible: false } });
+      expect(ui.intents ?? {}).toEqual({
+        base1: { visible: false },
+        base2: { visible: false },
+      });
     });
 
     it("does not activate the colour layer when no base layers are registered", () => {
@@ -770,7 +794,11 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
       expect(u.intentVisible("overlay1")).toBe(false);
       expect(u.intentVisible("base1")).toBe(false);
       expect(u.intentVisible("canvas1")).toBe(false);
-      expect(u.intents ?? {}).toEqual({ overlay1: { visible: false }, base1: { visible: false }, canvas1: { visible: false } });
+      expect(u.intents ?? {}).toEqual({
+        overlay1: { visible: false },
+        base1: { visible: false },
+        canvas1: { visible: false },
+      });
     });
   });
 });
@@ -825,7 +853,10 @@ describe("label config seed — read order (write-new / read-old)", () => {
       field: "l",
       format: "int",
     });
-    expect(getIntent(ui, "withOverride", "annotation")).toEqual({ show: true, field: "p" });
+    expect(getIntent(ui, "withOverride", "annotation")).toEqual({
+      show: true,
+      field: "p",
+    });
   });
 });
 
@@ -948,7 +979,10 @@ describe("LayerUI opacity restore / retention", () => {
 
     u.applyUserState();
 
-    expect(u.intents ?? {}).toEqual({ overlay1: { opacity: 0.4 }, ghost: { opacity: 0.1 } });
+    expect(u.intents ?? {}).toEqual({
+      overlay1: { opacity: 0.4 },
+      ghost: { opacity: 0.1 },
+    });
     // The live entry was written to the pane; the unresolvable one was kept
     // in memory and written nowhere.
     const writtenPanes = [...panes.values()].filter(p => p.style.opacity);
@@ -968,7 +1002,10 @@ describe("LayerUI opacity restore / retention", () => {
 
     u.applyUserState();
 
-    expect(u.intents ?? {}).toEqual({ overlay1: { zoomRange: [4, 10] }, ghost: { zoomRange: [2, 8] } });
+    expect(u.intents ?? {}).toEqual({
+      overlay1: { zoomRange: [4, 10] },
+      ghost: { zoomRange: [2, 8] },
+    });
     expect(u.intentProvenance.ghost).toEqual(["zoomRange"]);
   });
 
@@ -1289,6 +1326,45 @@ describe("ui/state intentProvenance and per-layer state persistence", () => {
     expect(schedule).not.toHaveBeenCalled();
     expect(warn.mock.calls[0][0]).toContain("no stored value for this dimension");
     warn.mockRestore();
+  });
+
+  it("treats an unknown override key as live (forward-compat default)", () => {
+    // LayerOverride is closed today; the default arm of hasLiveValue is the
+    // forward-compat path so a future dimension without a typed guard is not
+    // silently dropped by markOverride.
+    const bare = {
+      intentProvenance: {},
+      intents: {},
+      m: {
+        persistence: { schedule: vi.fn() },
+        annotation: { configEntries: () => [] },
+      },
+    } as unknown as LayerUI;
+
+    markOverride(bare, "overlay1", "futureDim" as never);
+
+    expect(bare.intentProvenance.overlay1).toEqual(["futureDim"]);
+  });
+
+  it("tolerates a shell with no intents / provenance maps", () => {
+    // Sparse fixtures and a mid-teardown UI must not throw on the projection
+    // walks — absent maps read as empty.
+    const schedule = vi.fn();
+    const bare = {
+      m: {
+        persistence: { schedule },
+        annotation: { configEntries: () => [] },
+        layerRegistry: new Map(),
+        layers: [],
+        replaySavedOrder: vi.fn(),
+      },
+      uiContainer: null,
+    } as unknown as LayerUI;
+
+    expect(buildLayerStates(bare)).toEqual({});
+    expect(() => applyUserState(bare)).not.toThrow();
+    expect(() => saveNamesState(bare)).not.toThrow();
+    expect(schedule).toHaveBeenCalled();
   });
 
   it("refuses a border marker for a dimension that holds no stroke", () => {

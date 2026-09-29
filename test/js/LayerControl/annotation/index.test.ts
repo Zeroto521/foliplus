@@ -3,11 +3,11 @@
 // the map is a stub carrying the panes, the container box and the projection
 // the plan needs.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setIntent } from "#foliplus/LayerControl/ui/intent.js";
 import { EVENTS } from "#core/event/index.js";
 import { AnnotationManager } from "#foliplus/LayerControl/annotation/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { applyProjection } from "#foliplus/LayerControl/ui/apply.js";
+import { setIntent } from "#foliplus/LayerControl/ui/intent.js";
 import { initFixture } from "../ui/fixture.js";
 
 const mocks = vi.hoisted(() => {

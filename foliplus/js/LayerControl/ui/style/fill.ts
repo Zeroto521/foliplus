@@ -410,7 +410,11 @@ const bindFillRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
  *  Called from `applyUserState` on attach and late registration so a
  *  persisted value survives a reload. */
 const replayFillState = (ui: LayerUI, id: string): void => {
-  if (getIntent(ui, id, "fillColor") === undefined && getIntent(ui, id, "fillOpacity") === undefined) return;
+  if (
+    getIntent(ui, id, "fillColor") === undefined &&
+    getIntent(ui, id, "fillOpacity") === undefined
+  )
+    return;
   applyFillToLayer(ui, id);
 };
 
@@ -435,7 +439,8 @@ const FILL_DIMENSION = registerDimension<{
     if (!li) return undefined;
     return {
       color: getIntent(ui, layerId, "fillColor") ?? authoredFillColor(ui, layerId),
-      opacity: getIntent(ui, layerId, "fillOpacity") ?? authoredFillOpacity(ui, layerId),
+      opacity:
+        getIntent(ui, layerId, "fillOpacity") ?? authoredFillOpacity(ui, layerId),
     };
   },
   row: buildFillRow,

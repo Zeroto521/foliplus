@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerManager } from "#foliplus/LayerControl/manager.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
+import { getIntent, seedIntentMap } from "#foliplus/LayerControl/ui/intent.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 import {
   allFolded,
@@ -11,7 +12,6 @@ import {
   overlayFoldBtn,
   pressKey,
 } from "./fixture.js";
-import { getIntent, seedIntentMap } from "#foliplus/LayerControl/ui/intent.js";
 
 describe("LayerUI rename", () => {
   let manager: LayerManager;
@@ -512,7 +512,10 @@ describe("LayerUI rename", () => {
 
       ui.loadPersistedState();
 
-      expect(ui.intents ?? {}).toEqual({ overlay1: { name: "Over1" }, base1: { name: "Over2" } });
+      expect(ui.intents ?? {}).toEqual({
+        overlay1: { name: "Over1" },
+        base1: { name: "Over2" },
+      });
     });
 
     it("applyUserState overwrites the registry name and the label text", () => {
