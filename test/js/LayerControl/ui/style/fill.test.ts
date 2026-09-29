@@ -10,7 +10,9 @@ import {
   buildFillRow,
   commitFillColor,
   commitFillOpacity,
+  dropFillScheduler,
   flushFillApply,
+  hasFillScheduler,
   layerCanFill,
   replayFillState,
   resetLayerFill,
@@ -631,6 +633,33 @@ describe("LayerUI style panel — fill color", () => {
       opacity: 0.8,
     });
     expect(FILL_DIMENSION.value!(ui, "ghost")).toBeUndefined();
+  });
+
+  it("unregister drops the fill scheduler entry — no Map residue for dead ids", () => {
+    // The scheduler Map is keyed by layer id and would otherwise outlive
+    // the layer: a churning map (Heatmap empty/reload, user delete) would
+    // accumulate boxes. Unregister must cancel the pending frame and free
+    // the entry.
+    const frames: Array<() => void> = [];
+    vi.stubGlobal("requestAnimationFrame", (cb: () => void) => {
+      frames.push(cb);
+      return frames.length;
+    });
+    vi.stubGlobal("cancelAnimationFrame", () => {});
+
+    commitFillColor(ui, "overlay1", "#333333");
+    expect(hasFillScheduler("overlay1")).toBe(true);
+
+    manager.unregisterLayer("overlay1");
+    expect(hasFillScheduler("overlay1")).toBe(false);
+    // the cancelled frame must not paint into the dead layer
+    for (const cb of frames.splice(0)) cb();
+    expect(fillLayer.leaves[0].setStyle).not.toHaveBeenCalled();
+  });
+
+  it("dropFillScheduler is a no-op for an id with no entry", () => {
+    expect(() => dropFillScheduler("ghost")).not.toThrow();
+    expect(hasFillScheduler("ghost")).toBe(false);
   });
 
   it("forces fill on when the user sets a fill color, so a fill:false path becomes visible", () => {

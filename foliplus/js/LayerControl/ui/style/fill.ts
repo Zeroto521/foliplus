@@ -244,6 +244,18 @@ const flushFillApply = (layerId: string): void => {
   applySchedulers.get(layerId)?.raf.flush();
 };
 
+/** Unregister teardown: cancel any pending frame and free the scheduler
+ *  entry so a churning map cannot accumulate boxes keyed by dead ids. */
+const dropFillScheduler = (layerId: string): void => {
+  const entry = applySchedulers.get(layerId);
+  if (!entry) return;
+  entry.raf.cancel();
+  applySchedulers.delete(layerId);
+};
+
+/** Whether a scheduler entry is still held (tests pin the unregister drop). */
+const hasFillScheduler = (layerId: string): boolean => applySchedulers.has(layerId);
+
 /** Write the color into the map, persist it, and mark the dimension as
  *  user-owned so it survives a reload. Only writes when the value actually
  *  moved — a color-picker drag revisits every step, and each pass is a
@@ -381,11 +393,16 @@ const bindFillRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
     bindLiveColor(colorEl, value => commitFillColor(ui, layerId, value));
     // change / blur close the drag: the trailing rAF frame may never fire
     // if the pointer lifts between frames — flush so the terminal value
-    // lands (same contract as bindLiveNumber's change commit). Property
-    // assignment, not addEventListener — the listener-guard allow-list
-    // treats bare addEventListener as a control-teardown hazard.
+    // lands (same contract as bindLiveNumber's change commit). Chain, never
+    // overwrite: bindLiveColor only owns oninput today, but a future binder
+    // that owns onchange must not be dropped (and the listener-guard
+    // allow-list rejects bare addEventListener).
     const flush = () => flushFillApply(layerId);
-    colorEl.onchange = flush;
+    const prevColorChange = colorEl.onchange;
+    colorEl.onchange = ev => {
+      prevColorChange?.call(colorEl, ev);
+      flush();
+    };
     colorEl.onblur = flush;
   }
 
@@ -459,8 +476,10 @@ export {
   buildFillRow,
   commitFillColor,
   commitFillOpacity,
+  dropFillScheduler,
   FILL_DIMENSION,
   flushFillApply,
+  hasFillScheduler,
   isColorBasemap,
   layerCanFill,
   replayFillState,

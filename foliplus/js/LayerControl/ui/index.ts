@@ -52,6 +52,7 @@ import {
   setVisible,
 } from "./state.js";
 import { applyBorderToLayer } from "./style/border.js";
+import { dropFillScheduler } from "./style/fill.js";
 import {
   applyStyleLabelState,
   closeStylePanel,
@@ -464,6 +465,12 @@ class LayerUI {
    *  instead — see the sibling-import convention from #296. */
   invalidateFields(layerId: string) {
     return invalidateFields(this, layerId);
+  }
+  /** Unregister teardown for the fill apply scheduler: cancel any pending
+   *  rAF walk and free the Map entry so a churning map cannot accumulate
+   *  boxes keyed by dead ids. Manager drives this from `unregisterLayer`. */
+  dropFillScheduler(layerId: string) {
+    return dropFillScheduler(layerId);
   }
   /** Spy-sensitive entry point: the CONTROL_ATTACHED re-entry test asserts this
    *  ran, and `vi.spyOn` needs a method on the instance (an imported function
