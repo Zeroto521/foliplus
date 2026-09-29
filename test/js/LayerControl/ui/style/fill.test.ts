@@ -579,7 +579,10 @@ describe("LayerUI style panel — fill color", () => {
 
     // fillOpacity is absent from the maps, so the reapply omits it — the
     // author's opacity stays in force.
-    expect(leaf.setStyle).toHaveBeenLastCalledWith({ fillColor: "#123456", fill: true });
+    expect(leaf.setStyle).toHaveBeenLastCalledWith({
+      fillColor: "#123456",
+      fill: true,
+    });
   });
 
   it("mouseout reapplies only the stored fill opacity", () => {
@@ -664,8 +667,14 @@ describe("LayerUI style panel — fill color", () => {
 
     applyFillToLayer(ui, "group1");
 
-    expect(leaves[0].setStyle).toHaveBeenCalledWith({ fillColor: "#123456", fill: true });
-    expect(leaves[1].setStyle).toHaveBeenCalledWith({ fillColor: "#123456", fill: true });
+    expect(leaves[0].setStyle).toHaveBeenCalledWith({
+      fillColor: "#123456",
+      fill: true,
+    });
+    expect(leaves[1].setStyle).toHaveBeenCalledWith({
+      fillColor: "#123456",
+      fill: true,
+    });
     expect(leaves[0].on).toHaveBeenCalledWith("mouseout", expect.any(Function));
     expect(leaves[1].on).toHaveBeenCalledWith("mouseout", expect.any(Function));
     expect(group.setStyle).not.toHaveBeenCalled();

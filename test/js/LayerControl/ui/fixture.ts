@@ -39,13 +39,22 @@ class Path {
 class Polygon {
   options = {};
   // Areal duck-type: rings of coordinates (hasFillLeaf).
-  getLatLngs = () => [[{ lat: 0, lng: 0 }, { lat: 1, lng: 0 }, { lat: 0, lng: 1 }]];
+  getLatLngs = () => [
+    [
+      { lat: 0, lng: 0 },
+      { lat: 1, lng: 0 },
+      { lat: 0, lng: 1 },
+    ],
+  ];
 }
 
 class Polyline {
   options = {};
   // Line duck-type: flat coordinate array, not rings.
-  getLatLngs = () => [{ lat: 0, lng: 0 }, { lat: 1, lng: 1 }];
+  getLatLngs = () => [
+    { lat: 0, lng: 0 },
+    { lat: 1, lng: 1 },
+  ];
 }
 
 // Real Leaflet: Circle extends CircleMarker (not the reverse). Both carry a
