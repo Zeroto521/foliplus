@@ -77,4 +77,4 @@ All of this happens without manual wiring—foliplus handles it internally.
 
 ## Compatibility
 
-Leaflet 1.x floor is `1.0.0` — foliplus needs `map.getPane`; 0.7.x is out. CI smoke-tests `1.0.0` (floor) and `1.9.3` (the pin Folium ships). Widen the matrix in `test/python/test_leaflet_compat.py` (e.g. Leaflet 2.x) as those versions are proven.
+CI smoke-tests Leaflet `1.0.0` and `1.9.3` (the pin Folium ships): map init, control attach, panel bring-up. That is a bring-up smoke, not a full compatibility proof — the full suite runs on `1.9.3` only. `0.7.x` is out (`map.getPane` is Leaflet 1.0 API). Other 1.x versions are unverified. Widen the matrix in `test/python/test_leaflet_compat.py` as versions are proven (Leaflet 2.x welcome).

@@ -1,15 +1,18 @@
-"""Leaflet compatibility-floor browser tests.
+"""Leaflet bring-up smoke — one advertised version at a time.
 
-Pins the README's claimed minimum: foliplus must run on the oldest Leaflet
-we advertise (currently 1.0.0). Folium hard-pins a newer Leaflet in its
-template, so the tests rewrite that pin and let the CDN proxy serve the
-target version from the cache.
+Scope is deliberately narrow: prove foliplus *loads and mounts* on a given
+Leaflet (map init, control attach, panel ready, one panel expand, LayerAPI).
+This is **not** a compatibility proof. Export/Heatmap private reaches,
+measure drawing, search, layer drag, and the rest of the browser suite run
+only against Folium's Leaflet pin (1.9.3).
 
-Designed to grow: add a version to ``LEAFLET_COMPAT_VERSIONS`` and its CDN
-cache entries in ``conftest._CDN_CACHE`` when the matrix widens (e.g. Leaflet
-2.x). Keep each case a smoke of the public control surface — map init,
-control attach, layer panel ready, measure expand, ``LayerAPI`` — not a
-full feature matrix.
+Folium hard-pins that Leaflet in its template, so these tests rewrite the
+pin and let the CDN proxy serve the target version from the cache.
+
+To widen (e.g. Leaflet 2.x): append the version to
+``LEAFLET_COMPAT_VERSIONS`` and add matching
+``cdn.jsdelivr.net/npm/leaflet@<ver>/dist/leaflet.{js,css}`` entries to
+``conftest._CDN_CACHE``. Prefer one smoke version per major line first.
 """
 
 from __future__ import annotations
@@ -20,7 +23,14 @@ import folium
 import pytest
 from conftest import make_browser_page, use_page
 
-from foliplus import LayerControl, MeasureControl, ScaleControl, SearchControl
+from foliplus import (
+    FullscreenControl,
+    LayerControl,
+    LocateControl,
+    MeasureControl,
+    ScaleControl,
+    SearchControl,
+)
 
 # Versions CI must keep green. 1.0.0 is the advertised floor (`map.getPane`
 # lands in Leaflet 1.0; 0.7.x is out).
@@ -56,6 +66,8 @@ def _make_page(browser, tmp_path, version: str):
     """Render a multi-control map pinned to *version*; return (page, errors)."""
     m = folium.Map(location=[26.08, 119.30], zoom_start=12)
     ScaleControl().add_to(m)
+    FullscreenControl().add_to(m)
+    LocateControl().add_to(m)
     LayerControl().add_to(m)
     MeasureControl().add_to(m)
     SearchControl().add_to(m)
@@ -67,7 +79,7 @@ def _make_page(browser, tmp_path, version: str):
 
 @pytest.mark.browser
 class TestLeafletCompatBrowser:
-    """Smoke the control surface on every advertised Leaflet version."""
+    """Bring-up smoke only — see module docstring for what this does not prove."""
 
     @pytest.mark.parametrize("version", LEAFLET_COMPAT_VERSIONS)
     def test_controls_run_on_version(self, browser, tmp_path, version):
@@ -85,6 +97,8 @@ class TestLeafletCompatBrowser:
                     measureCtrl: q('.foliplus-measure-ctrl'),
                     scaleCtrl: q('.foliplus-scale-wrap'),
                     searchCtrl: q('[class*="foliplus-search"]'),
+                    fullscreenCtrl: q('[class*="foliplus-fullscreen"]') || q('.leaflet-bar'),
+                    locateCtrl: q('[class*="foliplus-locate"]') || q('.leaflet-bar'),
                     layerAPI: !!(window.map && window.map.foliplus
                                  && window.map.foliplus.LayerAPI),
                 };
@@ -93,6 +107,7 @@ class TestLeafletCompatBrowser:
             assert checks["loaded"] == version, checks
             assert checks["map"] and checks["layerCtrl"] and checks["measureCtrl"]
             assert checks["scaleCtrl"] and checks["searchCtrl"], checks
+            assert checks["fullscreenCtrl"] and checks["locateCtrl"], checks
             assert checks["layerAPI"], checks
 
             page.evaluate(
