@@ -281,12 +281,12 @@ describe("gzipSize", () => {
 describe("metafile field fallbacks", () => {
   it("resolves absolute output keys without re-rooting them", () => {
     tmp = root();
-    const absOut = resolve(tmp, "foliplus/dist/foliplus-A.min.js");
-    writeFileSync(absOut, "js");
+    const artifactFile = resolve(tmp, "foliplus/dist/foliplus-A.min.js");
+    writeFileSync(artifactFile, "js");
     const metafile = {
       inputs: {},
       outputs: {
-        [absOut]: { bytes: 2, entryPoint: "src/a.ts", inputs: {} },
+        [artifactFile]: { bytes: 2, entryPoint: "src/a.ts", inputs: {} },
       },
     };
     const seen: string[] = [];
@@ -301,7 +301,7 @@ describe("metafile field fallbacks", () => {
     expect(payload.assets[0].name).toBe("foliplus-A.min.js");
     // Absolute key is used as-is — never `resolve(root, abs)` which would
     // produce a nested `tmp/tmp/...` path and a missing-file gzip crash.
-    expect(seen[0]).toBe(absOut);
+    expect(seen[0]).toBe(artifactFile);
   });
 
   it("treats a missing `bytes` as 0, not undefined", () => {
