@@ -118,7 +118,7 @@
 - `LayerControl`: `fillColor` / `borderColor` and the annotation `color` in the persisted record are normalized to `#rrggbb` — `<input type=color>` only takes the long form; reuses `common/form.ts`'s `normalizeHexColor` ([#477](https://github.com/Zeroto521/foliplus/pull/477), [#482](https://github.com/Zeroto521/foliplus/pull/482))
 - `FullscreenControl`: a denied fullscreen entry or exit now reports the honest hint (`unsupported` / `exit_fail`) instead of "Entered fullscreen" ([#486](https://github.com/Zeroto521/foliplus/pull/486))
 - `LayerControl`: rapid visibility toggles stay smooth at 6k layers — the toggle-all tri-state counter updates O(1) per click instead of rescanning the group, and overlay clicks skip the basemap scan ([#504](https://github.com/Zeroto521/foliplus/pull/504))
-- `LayerControl`: border color/weight now forces `stroke: true` on write (and the highlight pin), so a `stroke: false` CircleMarker (quickstart Facility Points) shows the user's border; Reset restores the author's `stroke` flag from the captured base
+- `LayerControl`: border color/weight now forces `stroke: true` on write (and the highlight pin), so a `stroke: false` CircleMarker (quickstart Facility Points) shows the user's border; Reset restores the author's `stroke` flag from the captured base ([#556](https://github.com/Zeroto521/foliplus/pull/556))
 
 ## [v0.3.0] (2026-08-02)
 
