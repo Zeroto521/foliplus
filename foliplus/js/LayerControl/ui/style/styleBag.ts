@@ -15,6 +15,7 @@
 //
 // A node with `setStyle` alone is not a carrier (L.GeoJSON owns one too),
 // so walks below descend `eachLayer` first and treat a setter as a leaf.
+import { throttleRaf } from "#common/throttle.js";
 
 /** The author's full vector style bag. Every field is always populated on
  *  capture — nothing downstream can tell "the author declared nothing"
@@ -148,17 +149,92 @@ const restoreStyleDim = (node: StyleSetter, face: StyleFace): void => {
   node.setStyle(faceSlice(bag, face));
 };
 
+// ── Shared apply scheduler (drag coalescing) ─────────────────────────────
+//
+// A style-panel drag fires an input event per step and each apply walk is a
+// sweep over every leaf. Coalesce the walk to at most one per animation
+// frame per (face, layerId); the intent write stays immediate so the frame
+// that runs reads the latest value. `flush` on change / blur / panel close
+// so the terminal value is never lost (throttleRaf is trailing). `cancel`
+// on reset (a scheduled walk must not paint the user's value over the
+// authored restore). `drop` on unregister so a churning map cannot
+// accumulate boxes keyed by dead ids.
+
+type ApplyBox = { run: () => void; raf: ReturnType<typeof throttleRaf> };
+const applySchedulers = new Map<string, ApplyBox>();
+
+const applyKey = (face: StyleFace, layerId: string): string => `${face}:${layerId}`;
+
+/** Queue the apply walk for one face. Later calls in the same frame replace
+ *  `run` and coalesce into the one pending frame — the walk always reads
+ *  the latest intent. */
+const scheduleStyleDimApply = (
+  face: StyleFace,
+  layerId: string,
+  run: () => void,
+): void => {
+  const key = applyKey(face, layerId);
+  let box = applySchedulers.get(key);
+  if (!box) {
+    const created: ApplyBox = { run, raf: undefined as never };
+    created.raf = throttleRaf(() => created.run());
+    box = created;
+    applySchedulers.set(key, box);
+  }
+  box.run = run;
+  box.raf();
+};
+
+/** Force a pending walk to run now. No-op when nothing is queued. */
+const flushStyleDimApply = (face: StyleFace, layerId: string): void => {
+  applySchedulers.get(applyKey(face, layerId))?.raf.flush();
+};
+
+/** Drop a pending walk without running it. Reset must not paint the user's
+ *  value over the authored restore. */
+const cancelStyleDimApply = (face: StyleFace, layerId: string): void => {
+  applySchedulers.get(applyKey(face, layerId))?.raf.cancel();
+};
+
+/** Retire one face's scheduler entry (unregister / delete). Cancels any
+ *  pending frame first so a queued walk cannot fire into a dead layer. */
+const dropStyleDimApply = (face: StyleFace, layerId: string): void => {
+  const key = applyKey(face, layerId);
+  const box = applySchedulers.get(key);
+  if (!box) return;
+  box.raf.cancel();
+  applySchedulers.delete(key);
+};
+
+/** Retire every face's scheduler entry for one layer id — the single
+ *  unregister drop hook. Covers fill and border in one pass so the caller
+ *  never holds two scattered teardowns. */
+const dropStyleDimApplies = (layerId: string): void => {
+  dropStyleDimApply("fill", layerId);
+  dropStyleDimApply("stroke", layerId);
+};
+
+/** Whether a scheduler entry is still held (tests pin the unregister drop). */
+const hasStyleDimApply = (face: StyleFace, layerId: string): boolean =>
+  applySchedulers.has(applyKey(face, layerId));
+
 export {
   type StyleBag,
   type StyleCarrier,
   type StyleFace,
   type StyleSetter,
   STYLE_BAG_DEFAULTS,
+  cancelStyleDimApply,
   captureStyleBag,
   commitStyleDim,
+  dropStyleDimApply,
+  dropStyleDimApplies,
   faceSlice,
+  flushStyleDimApply,
+  hasStyleDimApply,
   isStyleSetter,
   restoreStyleDim,
+  scheduleStyleDimApply,
   styleBagOf,
   styleDimPayload,
   walkStyleLeaves,

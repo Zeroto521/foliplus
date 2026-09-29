@@ -258,6 +258,8 @@ interface BorderRowBindTarget {
   onChangeColor?: (value: string) => void;
   /** Write callback for the width input. */
   onChangeWeight?: (value: number) => void;
+  /** Drag-end hook: change / blur must flush a deferred apply walk. */
+  onFlush?: () => void;
   /** Same class hook the build side used on the color input. */
   className?: string;
   /** Same class hook the build side used on the weight input. */

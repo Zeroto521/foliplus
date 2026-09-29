@@ -883,9 +883,10 @@ class LayerManager implements LayerAPI {
     // not erase `layers[id].annotation` from storage).
     this.annotation.unloadLayer(id);
     this.ui?.invalidateFields(id);
-    // The fill apply scheduler is keyed by layer id; drop the entry here or
-    // a churning map accumulates boxes for dead ids.
-    this.ui?.dropFillScheduler?.(id);
+    // Style-apply schedulers (fill + stroke) are keyed by layer id; one
+    // drop hook frees every face's entry so a churning map cannot
+    // accumulate boxes for dead ids.
+    this.ui?.dropStyleDimApplies?.(id);
     // The row was just removed: rescan the group's count so the toggle-all
     // checkbox reflects the removal in the same frame.
     this.ui?.syncToggleAll?.(layerInfo.group);

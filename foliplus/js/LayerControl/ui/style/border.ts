@@ -43,9 +43,13 @@ import { registerDimension } from "./registry.js";
 import {
   type StyleCarrier,
   type StyleSetter,
+  cancelStyleDimApply,
   commitStyleDim,
+  flushStyleDimApply,
+  hasStyleDimApply,
   isStyleSetter,
   restoreStyleDim,
+  scheduleStyleDimApply,
   styleBagOf,
   styleDimPayload,
 } from "./styleBag.js";
@@ -170,6 +174,21 @@ const applyBorderToLayer = (ui: LayerUI, layerId: string): void => {
   walk(layer);
 };
 
+/** Shared apply scheduler (styleBag, face=`stroke`): one walk per frame per
+ *  `stroke:layerId`. Same drag-coalesce contract as fill. */
+const scheduleBorderApply = (ui: LayerUI, layerId: string): void => {
+  scheduleStyleDimApply("stroke", layerId, () => applyBorderToLayer(ui, layerId));
+};
+
+const flushBorderApply = (layerId: string): void => {
+  flushStyleDimApply("stroke", layerId);
+};
+
+/** Test seam: the unregister hook is styleBag.dropStyleDimApplies (both
+ *  faces in one pass). */
+const hasBorderScheduler = (layerId: string): boolean =>
+  hasStyleDimApply("stroke", layerId);
+
 /** Write the color into the map, persist it, and mark the dimension as
  *  user-owned so it survives a reload. Only writes when the value actually
  *  moved — a color-picker drag revisits every step, and each pass is a
@@ -183,7 +202,7 @@ const commitBorderColor = (ui: LayerUI, layerId: string, rawColor: string): void
   setIntent(ui, layerId, INTENT.BORDER_COLOR, color);
   markOverride(ui, layerId, INTENT.BORDER_COLOR);
   saveState(ui);
-  applyBorderToLayer(ui, layerId);
+  scheduleBorderApply(ui, layerId);
 };
 
 /** Commit the border width to the layer. Called from `bindLiveNumber` on the
@@ -193,7 +212,7 @@ const commitBorderWeight = (ui: LayerUI, layerId: string, weight: number): void 
   setIntent(ui, layerId, INTENT.BORDER_WEIGHT, weight);
   markOverride(ui, layerId, INTENT.BORDER_WEIGHT);
   saveState(ui);
-  applyBorderToLayer(ui, layerId);
+  scheduleBorderApply(ui, layerId);
 };
 
 /** Reset one layer's border to its authored value and drop its persisted
@@ -206,6 +225,9 @@ const commitBorderWeight = (ui: LayerUI, layerId: string, weight: number): void 
  *  re-apply a stroke the layer no longer shows. */
 const resetLayerBorder = (ui: LayerUI, layerId: string): void => {
   if (!ui.m.layerRegistry.has(layerId)) return;
+  // Drop any trailing drag frame: a scheduled apply must not paint the
+  // user's stroke over the authored restore below.
+  cancelStyleDimApply("stroke", layerId);
   clearIntent(ui, layerId, INTENT.BORDER_COLOR);
   clearIntent(ui, layerId, INTENT.BORDER_WEIGHT);
   unmarkOverride(ui, layerId, INTENT.BORDER_COLOR);
@@ -308,6 +330,18 @@ const bindBorderRowShell = (row: HTMLElement, target: BorderRowBindTarget): void
   ) as HTMLInputElement | null;
   if (colorEl && target.onChangeColor) {
     bindLiveColor(colorEl, value => target.onChangeColor?.(value));
+    // Chain, never overwrite: bindLiveColor only owns oninput today, but a
+    // future binder that owns onchange must not be dropped. Same flush
+    // contract as fill — the trailing rAF frame must land at drag end.
+    if (target.onFlush) {
+      const flush = target.onFlush;
+      const prevColorChange = colorEl.onchange;
+      colorEl.onchange = ev => {
+        prevColorChange?.call(colorEl, ev);
+        flush();
+      };
+      colorEl.onblur = () => flush();
+    }
   }
   const weightEl = row.querySelector(
     weightSelector(target.weightClassName),
@@ -319,6 +353,15 @@ const bindBorderRowShell = (row: HTMLElement, target: BorderRowBindTarget): void
       fallback: BORDER_WEIGHT.DEFAULT,
       onCommit: value => target.onChangeWeight?.(value),
     });
+    if (target.onFlush) {
+      const flush = target.onFlush;
+      const prevWeightChange = weightEl.onchange;
+      weightEl.onchange = ev => {
+        prevWeightChange?.call(weightEl, ev);
+        flush();
+      };
+      weightEl.onblur = () => flush();
+    }
   }
 };
 
@@ -355,6 +398,7 @@ const bindBorderRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => 
     weightClassName: CONST.CLASSES.STYLE_BORDER_WEIGHT_INPUT,
     onChangeColor: value => commitBorderColor(ui, layerId, value),
     onChangeWeight: value => commitBorderWeight(ui, layerId, value),
+    onFlush: () => flushBorderApply(layerId),
   });
 };
 
@@ -392,6 +436,8 @@ export {
   buildBorderRowShell,
   commitBorderColor,
   commitBorderWeight,
+  flushBorderApply,
+  hasBorderScheduler,
   layerCanBorder,
   resetLayerBorder,
 };

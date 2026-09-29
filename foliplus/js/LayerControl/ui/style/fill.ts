@@ -30,7 +30,6 @@ import {
   normalizeHexColor,
   numberInput,
 } from "#common/form.js";
-import { throttleRaf } from "#common/throttle.js";
 import * as CONST from "../../const.js";
 import { showSolidBasemap } from "../color.js";
 import type { LayerUI } from "../index.js";
@@ -40,8 +39,13 @@ import { pinStyleOnHighlight } from "./pin.js";
 import { registerDimension } from "./registry.js";
 import {
   type StyleCarrier,
+  cancelStyleDimApply,
   commitStyleDim,
+  dropStyleDimApply,
+  flushStyleDimApply,
+  hasStyleDimApply,
   restoreStyleDim,
+  scheduleStyleDimApply,
   styleBagOf,
   styleDimPayload,
   walkStyleLeaves,
@@ -208,53 +212,27 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
   });
 };
 
-/** Per-layer apply scheduler: a color-picker drag revisits every step, and
- *  each `applyFillToLayer` pass is a sweep over every leaf. Coalesce the
- *  expensive walk to at most once per animation frame; the intent write
- *  (cheap) still lands on every commit, so the frame that runs reads the
- *  latest value. `flush` on change / blur / panel close so the terminal
- *  value is never lost (throttleRaf is trailing).
- *
- *  The box holds the *current* ui: a scheduler is keyed by layer id and can
- *  outlive one UI fixture (tests re-register the same id), so the frame
- *  callback must read the box, not a closed-over ui. */
-const applySchedulers = new Map<
-  string,
-  { ui: LayerUI; raf: ReturnType<typeof throttleRaf> }
->();
-
+/** Shared apply scheduler (styleBag, face=`fill`): one walk per frame per
+ *  `fill:layerId`. Intent writes stay immediate; the deferred walk reads
+ *  the latest value. `flushFillApply` is the commit boundary (change /
+ *  blur / panel close); `dropStyleDimApplies` retires every face's entry
+ *  on unregister (single hook). */
 const scheduleFillApply = (ui: LayerUI, layerId: string): void => {
-  let entry = applySchedulers.get(layerId);
-  if (!entry) {
-    // Two-step init so the raf callback can read `box.ui` (the map entry)
-    // without a double assertion: the box exists before throttleRaf closes
-    // over it.
-    const box = { ui, raf: throttleRaf(() => applyFillToLayer(box.ui, layerId)) };
-    entry = box;
-    applySchedulers.set(layerId, entry);
-  }
-  entry.ui = ui;
-  entry.raf();
+  scheduleStyleDimApply("fill", layerId, () => applyFillToLayer(ui, layerId));
 };
 
-/** Force a pending scheduled apply to run now. No-op when nothing is
- *  queued. Callers: commit's change/blur, panel close, reset — every path
- *  that must leave the map matching the stored intent. */
 const flushFillApply = (layerId: string): void => {
-  applySchedulers.get(layerId)?.raf.flush();
+  flushStyleDimApply("fill", layerId);
 };
 
-/** Unregister teardown: cancel any pending frame and free the scheduler
- *  entry so a churning map cannot accumulate boxes keyed by dead ids. */
+/** Unregister teardown lives in styleBag.dropStyleDimApplies (both faces
+ *  in one pass). These two remain the fill-scoped test seams. */
 const dropFillScheduler = (layerId: string): void => {
-  const entry = applySchedulers.get(layerId);
-  if (!entry) return;
-  entry.raf.cancel();
-  applySchedulers.delete(layerId);
+  dropStyleDimApply("fill", layerId);
 };
 
-/** Whether a scheduler entry is still held (tests pin the unregister drop). */
-const hasFillScheduler = (layerId: string): boolean => applySchedulers.has(layerId);
+const hasFillScheduler = (layerId: string): boolean =>
+  hasStyleDimApply("fill", layerId);
 
 /** Write the color into the map, persist it, and mark the dimension as
  *  user-owned so it survives a reload. Only writes when the value actually
@@ -305,7 +283,7 @@ const resetLayerFill = (ui: LayerUI, layerId: string): void => {
   if (!ui.m.layerRegistry.has(layerId)) return;
   // Drop any trailing drag frame first: a scheduled apply must not paint
   // the user's color over the authored restore below.
-  applySchedulers.get(layerId)?.raf.cancel();
+  cancelStyleDimApply("fill", layerId);
   clearIntent(ui, layerId, INTENT.FILL_COLOR);
   clearIntent(ui, layerId, INTENT.FILL_OPACITY);
   unmarkOverride(ui, layerId, INTENT.FILL_COLOR);
