@@ -1,20 +1,13 @@
 """Leaflet bring-up smoke for pages that swap Folium's Leaflet pin.
 
-Two-layer reality (see README Compatibility): install is `folium>=0.14.0`;
-runtime is the TS controls against whatever Leaflet Folium injects. These
-tests rewrite that pin so a page which loads a different Leaflet is not a
-silent unknown.
+Install is `folium>=0.14.0`; runtime is the TS controls against whatever
+Leaflet Folium injects. This file rewrites that pin so a swapped Leaflet is
+not a silent unknown. Bring-up only — not a compatibility proof. The rest of
+the browser suite runs against Folium's Leaflet (1.9.3).
 
-Scope is deliberately narrow: prove foliplus *loads and mounts* on a given
-Leaflet (map init, control attach, panel ready, one panel expand, LayerAPI).
-This is **not** a compatibility proof. Export/Heatmap private reaches,
-measure drawing, search, layer drag, and the rest of the browser suite run
-only against Folium's Leaflet pin (1.9.3).
-
-To widen (e.g. Leaflet 2.x): append the version to
-``LEAFLET_COMPAT_VERSIONS`` and add matching
-``cdn.jsdelivr.net/npm/leaflet@<ver>/dist/leaflet.{js,css}`` entries to
-``conftest._CDN_CACHE``. Prefer one smoke version per major line first.
+To widen (e.g. Leaflet 2.x): add the version to ``LEAFLET_COMPAT_VERSIONS``
+and matching ``leaflet@<ver>/dist/leaflet.{js,css}`` entries to
+``conftest._CDN_CACHE``. One smoke version per major line is enough.
 """
 
 from __future__ import annotations
@@ -34,25 +27,25 @@ from foliplus import (
     SearchControl,
 )
 
-# Leaflet versions to bring-up smoke. Not a support range — foliplus does
-# not pin Leaflet. 1.0.0 is the API floor (`map.getPane`); Folium's pin is
-# covered by the rest of the browser suite.
-#
-# To widen (e.g. Leaflet 2.x): append the version here and add matching
-# `cdn.jsdelivr.net/npm/leaflet@<ver>/dist/leaflet.{js,css}` entries to
-# `conftest._CDN_CACHE` so the offline proxy can serve them. Prefer one
-# smoke version per major line first; only fill out minors once a line is
-# already green.
+# Not a support range — foliplus does not pin Leaflet. 1.0.0 is the API
+# floor (`map.getPane`); Folium's pin is covered by the rest of the suite.
 LEAFLET_COMPAT_VERSIONS = ("1.0.0",)
+
+# Exact root selectors per control. No class-substring or `.leaflet-bar`
+# fallbacks — those pass even when the control never mounted.
+MOUNTED_SELECTORS = (
+    ".leaflet-container",
+    ".foliplus-scale-wrap",
+    ".foliplus-fullscreen-toggle",
+    ".foliplus-locate-btn",
+    ".foliplus-layer-ctrl",
+    ".foliplus-measure-ctrl",
+    ".foliplus-search",
+)
 
 
 def _rewrite_leaflet(html: str, version: str) -> str:
-    """Point the page at *version* of Leaflet and drop helper CDNs.
-
-    gcoord/turf are unrelated to the Leaflet floor and would otherwise add
-    a network dependency to a compatibility probe — same stub approach the
-    MeasureControl browser tests already use.
-    """
+    """Pin Leaflet to *version* and drop helper CDNs (gcoord/turf)."""
     html = re.sub(r"leaflet@\d+\.\d+\.\d+", f"leaflet@{version}", html)
     html = html.replace(
         '<script src="https://cdn.jsdelivr.net/npm/gcoord@1/dist/gcoord.global.prod.js"></script>',
@@ -66,59 +59,43 @@ def _rewrite_leaflet(html: str, version: str) -> str:
 
 
 def _make_page(browser, tmp_path, version: str):
-    """Render a multi-control map pinned to *version*; return (page, errors)."""
     m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-    ScaleControl().add_to(m)
-    FullscreenControl().add_to(m)
-    LocateControl().add_to(m)
-    LayerControl().add_to(m)
-    MeasureControl().add_to(m)
-    SearchControl().add_to(m)
+    for ctrl in (
+        ScaleControl(),
+        FullscreenControl(),
+        LocateControl(),
+        LayerControl(),
+        MeasureControl(),
+        SearchControl(),
+    ):
+        ctrl.add_to(m)
     html = _rewrite_leaflet(m.get_root().render(), version)
-    page, errors = make_browser_page(browser, tmp_path, html, f"leaflet-{version}")
-    page.wait_for_selector(".foliplus-layer-ctrl", state="attached", timeout=15000)
-    return page, errors
+    return make_browser_page(browser, tmp_path, html, f"leaflet-{version}")
 
 
-@pytest.mark.browser
 class TestLeafletCompatBrowser:
-    """Bring-up smoke only — see module docstring for what this does not prove."""
+    """Bring-up smoke only — see module docstring."""
 
     @pytest.mark.parametrize("version", LEAFLET_COMPAT_VERSIONS)
     def test_controls_run_on_version(self, browser, tmp_path, version):
         with use_page(_make_page, browser, tmp_path, version) as (page, errors):
+            for sel in MOUNTED_SELECTORS:
+                page.wait_for_selector(sel, state="attached", timeout=15000)
             page.wait_for_selector(
                 ".foliplus-panel-content[data-ready]", state="attached", timeout=10000
             )
-            checks = page.evaluate(
-                """() => {
-                const q = (s) => document.querySelector(s) !== null;
-                return {
-                    loaded: (window.L && window.L.version || '').split('+')[0],
-                    map: q('.leaflet-container'),
-                    layerCtrl: q('.foliplus-layer-ctrl'),
-                    measureCtrl: q('.foliplus-measure-ctrl'),
-                    scaleCtrl: q('.foliplus-scale-wrap'),
-                    searchCtrl: q('[class*="foliplus-search"]'),
-                    fullscreenCtrl: q('[class*="foliplus-fullscreen"]') || q('.leaflet-bar'),
-                    locateCtrl: q('[class*="foliplus-locate"]') || q('.leaflet-bar'),
-                    layerAPI: !!(window.map && window.map.foliplus
-                                 && window.map.foliplus.LayerAPI),
-                };
-                }"""
-            )
-            assert checks["loaded"] == version, checks
-            assert checks["map"] and checks["layerCtrl"] and checks["measureCtrl"]
-            assert checks["scaleCtrl"] and checks["searchCtrl"], checks
-            assert checks["fullscreenCtrl"] and checks["locateCtrl"], checks
-            assert checks["layerAPI"], checks
 
-            page.evaluate(
-                "document.querySelector('.foliplus-measure-ctrl .foliplus-toggle-btn')?.click()"
+            loaded, has_api = page.evaluate(
+                """() => [
+                (window.L && window.L.version || '').split('+')[0],
+                !!(window.map && window.map.foliplus && window.map.foliplus.LayerAPI),
+                ]"""
             )
+            assert loaded == version, f"expected Leaflet {version}, got {loaded}"
+            assert has_api, "map.foliplus.LayerAPI missing"
+
+            page.click(".foliplus-measure-ctrl .foliplus-toggle-btn")
             page.wait_for_selector(
-                ".foliplus-measure-ctrl.foliplus-is-expanded",
-                state="attached",
-                timeout=5000,
+                ".foliplus-measure-ctrl.foliplus-is-expanded", timeout=5000
             )
             assert not errors, f"JS errors on Leaflet {version}: {errors}"
