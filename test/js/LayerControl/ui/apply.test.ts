@@ -190,14 +190,14 @@ describe("executor: intent authorises, policy only suppresses", () => {
     expect(map.addLayer).toHaveBeenCalledWith(layer);
 
     // Intent is unchanged throughout: the user's choice is `visible`,
-    // which never went into `visibleMap`. This is the #329 lock.
+    // which never went into `intents.visible`. This is the #329 lock.
     expect(getIntent(ui, "r", "visible")).not.toBe(false);
     expect(ui.intentProvenance.r).toEqual(["zoomRange"]);
   });
 
   it("#329 lock — a policy-only zoom crossing never mutates intent", () => {
     // #329's specific assertion: after a zoom crossing out of the stored
-    // range, the checkbox, visibleMap, and intentProvenance are byte-identical
+    // range, the checkbox, intents.visible, and intentProvenance are byte-identical
     // to before. The layer goes off the map (that is policy working), but
     // the user's own choice is not touched — the derived dimension cannot
     // authorise, and it also cannot record.
@@ -217,7 +217,7 @@ describe("executor: intent authorises, policy only suppresses", () => {
     ui.intentProvenance.s = ["zoomRange"];
 
     // Snapshot the intent state.
-    const hiddenBefore = { ...ui.visibleMap };
+    const hiddenBefore = { ...ui.intents };
     const overridesBefore = { ...ui.intentProvenance };
 
     map.getZoom.mockReturnValue(2);
@@ -226,7 +226,7 @@ describe("executor: intent authorises, policy only suppresses", () => {
     // The layer is removed from the map by policy.
     expect(map.removeLayer).toHaveBeenCalledWith(layer);
     // ...but the user's own choice is untouched.
-    expect(ui.visibleMap).toEqual(hiddenBefore);
+    expect(ui.intents).toEqual(hiddenBefore);
     expect(ui.intentProvenance).toEqual(overridesBefore);
   });
 });
@@ -844,18 +844,13 @@ describe("executor: the branches behind the gates", () => {
     expect(manager.layerRegistry.get("gone")?.opacity).toBe(0.4);
   });
 
-  it("a ui with no visibleMap and no intentProvenance still projects", () => {
+  it("a ui with no intents.visible and no intentProvenance still projects", () => {
     // The `?? false` fallbacks on both choice maps: `applyProjection`,
     // `intentVisibleOf` and `projectLayer` all read them as optional, because a
     // thin stub (and a partially-built shell) may not have them yet.
     const bare = {
-      visibleMap: undefined,
       intentProvenance: undefined,
       authorVisible: new Map<string, boolean>(),
-      opacityMap: {},
-      fillColorMap: {},
-      fillOpacityMap: {},
-      zoomRangeMap: {},
       focusingLayerId: null,
       appliedState: new Map(),
       m: {
@@ -947,7 +942,7 @@ describe("executor: the branches behind the gates", () => {
     map.addLayer.mockClear();
     map.removeLayer = vi.fn();
     map.hasLayer = vi.fn(() => true);
-    // No `visibleMap` / override, and the author's default was observed as
+    // No `intents.visible` / override, and the author's default was observed as
     // `true` while the layer sits on the map — so intent and policy both
     // say "shown" and the layer is already shown.
     ui.authorVisible.set("up", true);

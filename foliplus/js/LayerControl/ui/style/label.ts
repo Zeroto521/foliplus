@@ -80,15 +80,12 @@ const applyPatch = (
 
 /** Load persisted per-layer style (label) config and apply it.
  *
- *  `ui.labelConfigs` is the *load-time snapshot*, so this is a seed, not a
+ *  `ui.intents.annotation` is the *load-time snapshot*, so this is a seed, not a
  *  restore: a layer already carrying a config has the live one (the user may
  *  have switched it on since the page loaded), and re-applying the snapshot over
  *  it would silently revert that. Idempotent. */
 const applyStyleLabelState = (ui: LayerUI): void => {
-  const seedIds = new Set([
-    ...Object.keys(ui.intents ?? {}),
-    ...Object.keys(ui.labelConfigs ?? {}),
-  ]);
+  const seedIds = Object.keys(ui.intents ?? {});
   for (const id of seedIds) {
     const raw = getIntent(ui, id, "annotation");
     if (!raw) continue;

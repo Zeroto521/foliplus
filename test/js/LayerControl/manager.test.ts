@@ -281,13 +281,6 @@ describe("LayerManager", () => {
       invalidateFields: vi.fn(),
       syncToggleAll: vi.fn(),
       intentProvenance: {},
-      visibleMap: {},
-      opacityMap: {},
-      fillColorMap: {},
-      fillOpacityMap: {},
-      borderColorMap: {},
-      borderWeightMap: {},
-      zoomRangeMap: {},
       saveState: () => saveState(m.ui),
     } as unknown as LayerUI;
 
@@ -710,7 +703,9 @@ describe("LayerManager", () => {
     manager.map.addLayer = addLayer;
     manager.map.removeLayer = removeLayer;
     manager.ui = {
-      visibleMap: { new1: false },
+      intents: {
+        new1: { visible: false },
+      },
       saveState: vi.fn(),
     } as any;
     manager.registerLayer({ id: "new1", name: "New", layer } as any);
@@ -728,7 +723,9 @@ describe("LayerManager", () => {
     manager.map.addLayer = addLayer;
     manager.map.removeLayer = removeLayer;
     manager.ui = {
-      visibleMap: { canvas1: false },
+      intents: {
+        canvas1: { visible: false },
+      },
       saveState: vi.fn(),
     } as any;
     manager.registerLayer({
@@ -751,7 +748,9 @@ describe("LayerManager", () => {
     manager.map.addLayer = addLayer;
     manager.map.removeLayer = removeLayer;
     manager.ui = {
-      visibleMap: { new1: false },
+      intents: {
+        new1: { visible: false },
+      },
       saveState: vi.fn(),
     } as any;
     manager.registerLayer({ id: "new1", name: "New", layer } as any);
@@ -768,7 +767,9 @@ describe("LayerManager", () => {
     const removeLayer = vi.fn();
     manager.map.removeLayer = removeLayer;
     manager.ui = {
-      visibleMap: { other: false },
+      intents: {
+        other: { visible: false },
+      },
       saveState: vi.fn(),
     } as any;
     manager.registerLayer({ id: "visible1", name: "V", layer } as any);
@@ -1536,23 +1537,19 @@ describe("LayerManager", () => {
           {
             m: manager,
             uiContainer: manager.uiContainer,
-            visibleMap: {},
             renamedNames: {},
-            opacityMap: { heat: 0.4 },
-            fillColorMap: {},
-            fillOpacityMap: {},
-            zoomRangeMap: {},
+            intents: {
+              heat: { opacity: 0.4 },
+            },
             appliedState: new Map(),
             authorVisible: new Map(),
             intentProvenance: { heat: ["opacity"] },
           } as any,
           id,
         ),
-      opacityMap: { heat: 0.4 },
-      fillColorMap: {},
-      fillOpacityMap: {},
-      visibleMap: {},
-      zoomRangeMap: {},
+      intents: {
+        heat: { opacity: 0.4 },
+      },
       intentProvenance: { heat: ["opacity"] },
       appliedState: new Map(),
       authorVisible: new Map(),
@@ -1575,11 +1572,6 @@ describe("LayerManager", () => {
     manager.uiContainer = document.createElement("div");
     manager.uiContainer.appendChild(row);
     manager.ui = {
-      visibleMap: {},
-      opacityMap: {},
-      fillColorMap: {},
-      fillOpacityMap: {},
-      zoomRangeMap: {},
       intentProvenance: {},
       saveState: vi.fn(),
       invalidateFields: vi.fn(),
@@ -1595,11 +1587,6 @@ describe("LayerManager", () => {
     manager.map.hasLayer.mockReturnValue(false);
     manager.uiContainer = document.createElement("div");
     manager.ui = {
-      visibleMap: {},
-      opacityMap: {},
-      fillColorMap: {},
-      fillOpacityMap: {},
-      zoomRangeMap: {},
       intentProvenance: {},
       saveState: vi.fn(),
       invalidateFields: vi.fn(),
@@ -1614,11 +1601,6 @@ describe("LayerManager", () => {
     manager.map.hasLayer.mockReturnValue(false);
     const syncToggleAll = vi.fn();
     manager.ui = {
-      visibleMap: {},
-      opacityMap: {},
-      fillColorMap: {},
-      fillOpacityMap: {},
-      zoomRangeMap: {},
       intentProvenance: {},
       saveState: vi.fn(),
       invalidateFields: vi.fn(),
@@ -1648,16 +1630,14 @@ describe("LayerManager", () => {
     manager.map.hasLayer.mockReturnValue(false);
     const saveState = vi.fn();
     manager.ui = {
-      visibleMap: { overlay1: false, base1: false },
-      opacityMap: { overlay1: 0.4, base1: 1 },
-      fillColorMap: {},
-      fillOpacityMap: {},
-      zoomRangeMap: { overlay1: [3, 12] },
+      intents: {
+        overlay1: { visible: false, opacity: 0.4, zoomRange: [3, 12], name: "Renamed" },
+        base1: { visible: false, opacity: 1 },
+      },
       intentProvenance: {
         overlay1: ["visible", "opacity", "zoomRange"],
         base1: ["visible"],
       },
-      renamedNames: { overlay1: "Renamed" },
       saveState,
       saveNamesState: vi.fn(),
       invalidateFields: vi.fn(),
@@ -1685,18 +1665,14 @@ describe("LayerManager", () => {
     const saveState = vi.fn();
     const saveNamesState = vi.fn();
     manager.ui = {
-      visibleMap: { overlay1: false, base1: false },
-      opacityMap: { overlay1: 0.4, base1: 1 },
-      fillColorMap: {},
-      fillOpacityMap: {},
-      zoomRangeMap: { overlay1: [3, 12] },
-      borderColorMap: {},
-      borderWeightMap: {},
+      intents: {
+        overlay1: { visible: false, opacity: 0.4, zoomRange: [3, 12], name: "Renamed" },
+        base1: { visible: false, opacity: 1 },
+      },
       intentProvenance: {
         overlay1: ["visible", "opacity", "zoomRange"],
         base1: ["visible"],
       },
-      renamedNames: { overlay1: "Renamed" },
       dropPersistedLayerState: (id: string) => dropPersistedLayerState(manager.ui, id),
       saveState,
       saveNamesState,
@@ -1719,11 +1695,9 @@ describe("LayerManager", () => {
     manager.map.hasLayer.mockReturnValue(false);
     const saveState = vi.fn();
     manager.ui = {
-      visibleMap: { overlay1: false },
-      opacityMap: { overlay1: 0.4 },
-      fillColorMap: {},
-      fillOpacityMap: {},
-      zoomRangeMap: {},
+      intents: {
+        overlay1: { visible: false, opacity: 0.4 },
+      },
       intentProvenance: { overlay1: ["opacity"] },
       renamedNames: {},
       dropPersistedLayerState: vi.fn(),
@@ -1753,17 +1727,11 @@ describe("LayerManager", () => {
     const saveState = vi.fn();
     const saveNamesState = vi.fn();
     manager.ui = {
-      visibleMap: { overlay1: false, base1: false },
-      opacityMap: { overlay1: 0.4 },
-      fillColorMap: {},
-      fillOpacityMap: {},
-      zoomRangeMap: { overlay1: [3, 12] },
-      fillColorMap: {},
-      fillOpacityMap: {},
-      borderColorMap: {},
-      borderWeightMap: {},
+      intents: {
+        overlay1: { visible: false, opacity: 0.4, zoomRange: [3, 12] },
+        base1: { visible: false, name: "Renamed" },
+      },
       intentProvenance: { overlay1: ["visible", "opacity"] },
-      renamedNames: { base1: "Renamed" },
       dropPersistedLayerState: (id: string) => dropPersistedLayerState(manager.ui, id),
       saveState,
       saveNamesState,
@@ -1808,17 +1776,11 @@ describe("LayerManager", () => {
     m.map.hasLayer.mockReturnValue(false);
     m.ui = {
       m,
-      visibleMap: {},
-      opacityMap: { overlay1: 0.4 },
-      fillColorMap: {},
-      fillOpacityMap: {},
-      zoomRangeMap: {},
-      fillColorMap: {},
-      fillOpacityMap: {},
-      borderColorMap: {},
-      borderWeightMap: {},
+      intents: {
+        overlay1: { opacity: 0.4, name: "Renamed" },
+        base1: { name: "Base" },
+      },
       intentProvenance: { overlay1: ["opacity"] },
-      renamedNames: { overlay1: "Renamed", base1: "Base" },
       dropPersistedLayerState: (id: string) => dropPersistedLayerState(m.ui, id),
       saveState: () => saveState(m.ui),
       saveNamesState: () => saveNamesState(m.ui),

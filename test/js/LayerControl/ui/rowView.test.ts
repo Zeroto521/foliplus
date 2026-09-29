@@ -78,8 +78,8 @@ describe("intentVisibleOf (the intent seam)", () => {
   ): LayerUI =>
     ({
       intentProvenance: overrides,
-      visibleMap: Object.fromEntries(hidden.map(id => [id, false])),
       authorVisible: new Map(Object.entries(author)),
+      intents: Object.fromEntries(hidden.map(id => [id, { visible: false }])),
     }) as unknown as LayerUI;
 
   const info = (id: string): LayerInfo => ({ id }) as LayerInfo;
@@ -308,7 +308,7 @@ describe("applyRowView (the single DOM write point)", () => {
     expect(el.getAttribute(CONST.DATA.TITLE)).toBe("polygon");
   });
 
-  it("buildRowCell handles undefined intentProvenance and visibleMap", () => {
+  it("buildRowCell handles undefined intentProvenance and intents.visible", () => {
     // The `?.` and `?? false` fallbacks on the inline intent check: a thin
     // stub may not have populated these maps yet, so the check must degrade to
     // the author default rather than crashing.
@@ -318,12 +318,7 @@ describe("applyRowView (the single DOM write point)", () => {
       mgmt: { getFeatureCount: () => 0 },
       renamedNames: {},
       authorVisible: new Map(),
-      visibleMap: undefined,
       intentProvenance: undefined,
-      zoomRangeMap: {},
-      opacityMap: {},
-      fillColorMap: {},
-      fillOpacityMap: {},
       focusingLayerId: null,
       appliedState: new Map(),
       T: (k: string) => k,
@@ -428,7 +423,7 @@ describe("snapshotAuthorVisible", () => {
 });
 
 describe("intentVisibleOf: what counts as the user's choice", () => {
-  it("a bare visibleMap entry is already a choice — the row reads unchecked", () => {
+  it("a bare intents.visible entry is already a choice — the row reads unchecked", () => {
     // `setVisible` always marks, but a restored record or a direct write
     // can leave an entry without its provenance marker. Either half is the
     // user's choice; only the author's default is the fallback.

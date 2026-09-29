@@ -34,7 +34,7 @@ import { getIntent, seedIntentMap, setIntent } from "#foliplus/LayerControl/ui/i
 const specs = (...names: string[]): PaneSpec[] =>
   names.map((name, i) => ({ role: i === 0 ? "base" : "sub", order: i, name }));
 
-describe("LayerUI visibility persistence (visibleMap)", () => {
+describe("LayerUI visibility persistence (intents.visible)", () => {
   // Reusable layer stubs at module scope so standalone test blocks don't
   // depend on initFixture()'s internal scope.
   const testPolyLayer = {
@@ -125,7 +125,7 @@ describe("LayerUI visibility persistence (visibleMap)", () => {
     it("re-adds a layer the user un-hid, once the visibility key exists", () => {
       // folium renders a show=False layer absent from the map and nothing else
       // puts it back, so the hide half of the round trip had no inverse: a
-      // layer the user left visible was correctly absent from visibleMap, and the
+      // layer the user left visible was correctly absent from intents.visible, and the
       // sweep left it off the map. That is what made a checked Commuting Routes
       // come back unchecked after a reload.
       const { map, removeLayer } = makeTestMap();
@@ -138,11 +138,11 @@ describe("LayerUI visibility persistence (visibleMap)", () => {
         },
       ]);
       const u = new LayerUI(m);
-      // The user checked the layer ON, so it is absent from visibleMap -- but the
+      // The user checked the layer ON, so it is absent from intents.visible -- but the
       // key exists, so every registered layer must be on the map.
       seedIntentMap(u, "visible", { other: false });
       // The user unhid overlay1 (a `show=False` folium layer), so it is absent
-      // from visibleMap -- but a `visible` override says it must come back on.
+      // from intents.visible -- but a `visible` override says it must come back on.
       u.intentProvenance = { overlay1: ["visible"] };
       // Simulate the layer being off the map (folium show=False).
       map.hasLayer = vi.fn(() => false);
@@ -295,7 +295,7 @@ describe("LayerUI visibility persistence (visibleMap)", () => {
       expect(canvas.classList.contains("hidden")).toBe(true);
     });
 
-    it("loads hidden ids from localStorage into visibleMap", () => {
+    it("loads hidden ids from localStorage into intents.visible", () => {
       const { map } = makeTestMap();
       window.localStorage.setItem(
         CONST.STORAGE.KEY,
@@ -517,7 +517,7 @@ describe("LayerUI visibility persistence (visibleMap)", () => {
   // ─────────────────── color-layer is transient ───────────────────
 
   describe("color layer activation is transient", () => {
-    it("does not pollute visibleMap when color layer activates", () => {
+    it("does not pollute intents.visible when color layer activates", () => {
       const { map } = makeTestMap();
       const m = new LayerManager(map, [
         { id: "overlay1", name: "O", group: "overlay", layer: testPolyLayer },
@@ -1085,9 +1085,9 @@ describe("event-driven row refresh", () => {
     const events = ensureEvents(ui.m.map);
     const li = manager.layerRegistry.get("overlay1")!;
     li.paneSpecs = specs("__test_opacity_pane__");
-    // The projection reads `opacityMap[id]` gated by the `intentProvenance`
+    // The projection reads `intents.opacity[id]` gated by the `intentProvenance`
     // provenance marker, so both must be set for the stored value to flow
-    // through —a raw `opacityMap` write is not a user intent.
+    // through —a raw `intents.opacity` write is not a user intent.
     seedIntentMap(ui, "opacity", { overlay1: 0.4 });
     ui.intentProvenance.overlay1 = ["opacity"];
 
@@ -1129,17 +1129,13 @@ describe("ui/state intentProvenance and per-layer state persistence", () => {
     window.localStorage.clear();
   });
 
-  it("a user hide goes into visibleMap and persists visible:false", () => {
+  it("a user hide goes into intents.visible and persists visible:false", () => {
     // The record has to distinguish "user hid it" from "author declared
-    // show=False" -- the same visibleMap value is either. markOverride is what
+    // show=False" -- the same intents.visible value is either. markOverride is what
     // records that distinction: without it, reload would drop the id and the
     // layer would come back visible, undoing the user's last choice.
     const schedule = vi.fn();
     const bare = {
-      visibleMap: {},
-      opacityMap: {},
-      fillColorMap: {},
-      fillOpacityMap: {},
       intentProvenance: {},
       m: {
         persistence: { schedule },
@@ -1165,10 +1161,9 @@ describe("ui/state intentProvenance and per-layer state persistence", () => {
     // unhide would only be visible for the current session.
     const schedule = vi.fn();
     const bare = {
-      visibleMap: { overlay1: false },
-      opacityMap: {},
-      fillColorMap: {},
-      fillOpacityMap: {},
+      intents: {
+        overlay1: { visible: false },
+      },
       intentProvenance: { overlay1: ["visible"] },
       m: {
         persistence: { schedule },
@@ -1194,11 +1189,9 @@ describe("ui/state intentProvenance and per-layer state persistence", () => {
     // a reload.
     const schedule = vi.fn();
     const bare = {
-      visibleMap: {},
-      opacityMap: {},
-      fillColorMap: {},
-      fillOpacityMap: {},
-      zoomRangeMap: { overlay1: [4, 10] },
+      intents: {
+        overlay1: { zoomRange: [4, 10] },
+      },
       intentProvenance: { overlay1: ["zoomRange"] },
       m: {
         persistence: { schedule },
@@ -1222,11 +1215,6 @@ describe("ui/state intentProvenance and per-layer state persistence", () => {
     // say "the user reset this", so absence is what restores the declared value.
     const schedule = vi.fn();
     const bare = {
-      visibleMap: {},
-      opacityMap: {},
-      fillColorMap: {},
-      fillOpacityMap: {},
-      zoomRangeMap: {},
       intentProvenance: { overlay1: ["zoomRange"] },
       m: {
         persistence: { schedule },
@@ -1264,11 +1252,6 @@ describe("ui/state intentProvenance and per-layer state persistence", () => {
     // persisted marker has a value.
     const schedule = vi.fn();
     const bare = {
-      visibleMap: {},
-      opacityMap: {},
-      fillColorMap: {},
-      fillOpacityMap: {},
-      zoomRangeMap: {},
       intentProvenance: { overlay1: ["opacity"] },
       m: {
         persistence: { schedule },
@@ -1292,11 +1275,6 @@ describe("ui/state intentProvenance and per-layer state persistence", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const schedule = vi.fn();
     const bare = {
-      visibleMap: {},
-      opacityMap: {},
-      fillColorMap: {},
-      fillOpacityMap: {},
-      zoomRangeMap: {},
       intentProvenance: {},
       m: {
         persistence: { schedule },
@@ -1318,11 +1296,6 @@ describe("ui/state intentProvenance and per-layer state persistence", () => {
     // out of the next write and the user's action would vanish silently.
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const bare = {
-      visibleMap: {},
-      opacityMap: {},
-      zoomRangeMap: {},
-      borderColorMap: {},
-      borderWeightMap: {},
       intentProvenance: {},
       m: { persistence: { schedule: vi.fn() } },
     } as unknown as LayerUI;
@@ -1399,11 +1372,9 @@ describe("ui/state intentProvenance and per-layer state persistence", () => {
   it("persists an opacity change together with its provenance", () => {
     const schedule = vi.fn();
     const bare = {
-      visibleMap: {},
-      opacityMap: { overlay1: 0.6 },
-      zoomRangeMap: {},
-      fillColorMap: {},
-      fillOpacityMap: {},
+      intents: {
+        overlay1: { opacity: 0.6 },
+      },
       intentProvenance: { overlay1: ["opacity"] },
       m: {
         persistence: { schedule },
@@ -1431,13 +1402,11 @@ describe("ui/state intentProvenance and per-layer state persistence", () => {
     // this layer disagree with applyBorderToLayer's `!== undefined` reads.
     const schedule = vi.fn();
     const bare = {
-      visibleMap: {},
-      opacityMap: {},
-      zoomRangeMap: {},
-      fillColorMap: {},
-      fillOpacityMap: {},
-      borderColorMap: { kept: "#0000ff", blank: "" },
-      borderWeightMap: { zero: 0 },
+      intents: {
+        kept: { borderColor: "#0000ff" },
+        blank: { borderColor: "" },
+        zero: { borderWeight: 0 },
+      },
       intentProvenance: {
         kept: ["borderColor"],
         blank: ["borderColor"],
@@ -1563,7 +1532,9 @@ describe("ui/state intentProvenance and per-layer state persistence", () => {
     // path (applyUserState) is exercised.
     const schedule = vi.fn();
     const bare = {
-      renamedNames: { overlay1: "Renamed" },
+      intents: {
+        overlay1: { name: "Renamed" },
+      },
       m: {
         persistence: { schedule },
         annotation: { configEntries: () => [] },
@@ -1578,11 +1549,11 @@ describe("ui/state intentProvenance and per-layer state persistence", () => {
     expect(fields.renamedNames()).toEqual({ overlay1: "Renamed" });
   });
 
-  // ─────────────────── visibleMap single-source regressions ───────────────────
+  // ─────────────────── intents.visible single-source regressions ───────────────────
 
   it("hide → restore → reload lands on the same visible state each pass", () => {
     // The value and the provenance write in one call; a reload must derive the
-    // same visibleMap back from the stored record so the choice survives the
+    // same intents.visible back from the stored record so the choice survives the
     // round trip in both directions.
     const first = new LayerUI(manager);
     vi.useFakeTimers();
@@ -1659,7 +1630,7 @@ describe("ui/state intentProvenance and per-layer state persistence", () => {
   it("a value written directly (no provenance) still projects as user intent", () => {
     // A restored record or a test fixture can write the value without the
     // marker. The projection reads either half as "the user chose this" — a
-    // bare visibleMap entry must never fall back to the author default.
+    // bare intents.visible entry must never fall back to the author default.
     const u = new LayerUI(manager);
     seedIntentMap(u, "visible", {});
     setIntent(u, "overlay1", "visible", false);

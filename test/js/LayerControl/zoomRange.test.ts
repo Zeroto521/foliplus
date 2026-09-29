@@ -33,16 +33,10 @@ const mockUI: LayerUI = {
   },
   T: (key: string) => key,
   uiContainer: { querySelector: () => null } as any,
-  visibleMap: {},
-  opacityMap: {},
-  fillColorMap: {},
-  fillOpacityMap: {},
-  zoomRangeMap: {},
   intentProvenance: {},
   authorVisible: new Map(),
   foldedGroups: new Set(),
   renamedNames: {},
-  labelConfigs: {},
   fieldCache: new Map(),
   stylePanelLayerId: null,
   styleOutsideHandler: null,
@@ -67,7 +61,7 @@ describe("computeEffectiveShown", () => {
     }) as any;
 
   it("returns false when layer is hidden", () => {
-    // The new projection reads `intent && policy`; a `visibleMap` entry alone
+    // The new projection reads `intent && policy`; a `intents.visible` entry alone
     // is not enough — the user must have overridden `visible` for the hidden
     // state to be authoritative. Without the override the author default
     // wins — a derived dimension may only suppress.

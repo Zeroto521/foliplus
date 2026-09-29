@@ -1,7 +1,7 @@
 // Fill color row — the ⚙︎ drawer's "Layer" section fill swatch.
 //
 // A self-managed LayerControl dimension (like label, not like opacity /
-// zoom range): the value lives in `ui.fillColorMap`, is persisted under
+// zoom range): the value lives in `ui.intents.fillColor`, is persisted under
 // `layerState.fillColor`, and reaches the map by walking `eachLayer` and
 // calling `setStyle` on every leaf that owns one. The dimension is not part
 // of the executor's visible/opacity/zoomRange family; the write goes
@@ -209,7 +209,7 @@ const captureBase = (
  *  tree and calls `setStyle({fillColor?, fillOpacity?})` on every leaf that
  *  has a `setStyle`. A node without a setter is skipped silently.
  *
- *  Reads both values from the UI maps (`fillColorMap` / `fillOpacityMap`);
+ *  Reads both values from the UI maps (`intents.fillColor` / `intents.fillOpacity`);
  *  a dimension not in the map is omitted from the `setStyle` call so the
  *  author's declared default stays in force.
  *
@@ -265,7 +265,7 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
  *  moved — a color-picker drag revisits every step, and each pass is a
  *  sweep over every feature of the layer.
  *
- *  Color-only: this never touches `fillOpacityMap`. A hollow layer (author
+ *  Color-only: this never touches `intents.fillOpacity`. A hollow layer (author
  *  fillOpacity === 0) stays hollow — the `fill` attribute takes the new color
  *  and `fill-opacity="0"` keeps it hidden, which is the honest rendering of
  *  the author's value. The opacity input beside the swatch (0-100) is how

@@ -101,12 +101,8 @@ class LayerUI {
   /** Per-layer intent record — the single source for every user-chosen
    *  dimension (visible / fill / border / opacity / zoomRange / name /
    *  annotation). Absent key = never touched. `intentProvenance` stays a
-   *  separate axis. The parallel maps below are migration mirrors kept in
-   *  lockstep by `ui/intent.ts`. */
+   *  separate axis. */
   intents: Record<string, LayerIntent>;
-  /** Layer id → the user's own visibility choice (true = shown), absent when
-   *  the user never chose; survives page reload. */
-  visibleMap: Record<string, boolean>;
   /** The author's declared default per layer id, snapshotted once per id from
    *  the map membership at first sight.
    *
@@ -128,8 +124,6 @@ class LayerUI {
    *  upserts the LayerInfo so the pane participates in `enforceOrder`.
    *  Null until the color basemap is first displayed. */
   colorSurface: CreateColorAPI | null;
-  /** Map of layer id → user-assigned display name (survives reload). */
-  renamedNames: Record<string, string>;
   /** Layer id whose label is currently an inline rename input, or null. */
   activeRenameId: string | null;
   dragIdx: number | null;
@@ -158,7 +152,7 @@ class LayerUI {
   /** Map zoomend handler — re-evaluates every layer's effective-shown after
    *  a zoom change so a layer whose range excludes the new level is hidden
    *  (and vice versa). Writes through the single pipeline, never touches
-   *  visibleMap / overrides. */
+   *  intents.visible / overrides. */
   onZoomEnd: (() => void) | null;
   /** Unsubscribe function for LAYER_ITEM_COUNT_CHANGE. */
   unsubscribeCountChange: (() => void) | null;
@@ -200,25 +194,6 @@ class LayerUI {
    *  `handleDragStart`: `dragstart` is dispatched on the draggable row, so the
    *  event itself cannot say where the press began. */
   pressInPanel: boolean;
-  /** Persisted per-layer annotation configs, applied once layers resolve. */
-  labelConfigs: Record<string, unknown>;
-  /** Persisted per-layer opacity map (id → 0-1). Applied on load / late register. */
-  opacityMap: Record<string, number>;
-  /** Persisted per-layer zoom range the user moved the handles for
-   *  (id → [minZoom, maxZoom]). Applied on load / late register. */
-  zoomRangeMap: Record<string, [number, number]>;
-  /** Persisted per-layer border color (id → hex). A self-managed dimension —
-   *  not part of the executor's visible/opacity/zoomRange family; the border
-   *  row in ui/style/border.ts writes through setStyle directly. */
-  borderColorMap: Record<string, string>;
-  /** Persisted per-layer border width (id → px), in the shared border bounds. */
-  borderWeightMap: Record<string, number>;
-  /** Persisted per-layer fill color (id → hex). A self-managed dimension —
-   *  not part of the executor's visible/opacity/zoomRange family; the fill
-   *  row in ui/style/fill.ts writes through setStyle directly. */
-  fillColorMap: Record<string, string>;
-  /** Persisted per-layer fill opacity (id → 0-1). Same self-managed dimension. */
-  fillOpacityMap: Record<string, number>;
   /** The executor's last-write map: id → the projection `applyProjection`
    *  last wrote to the map. This is what makes the executor a diff, not a
    *  sweep — a changeless call re-projects, sees no delta, and calls no
@@ -248,12 +223,10 @@ class LayerUI {
     this.foldedGroups = new Set();
     this.checkedCount = {};
     this.intents = {};
-    this.visibleMap = {};
     this.authorVisible = new Map();
     this.intentProvenance = {};
     this.currentColor = CONST.COLOR.DEFAULT;
     this.colorSurface = null;
-    this.renamedNames = {};
     this.activeRenameId = null;
     this.dragIdx = null;
     this.lastDragHintAt = 0;
@@ -276,13 +249,6 @@ class LayerUI {
     this.stylePanelLayerId = null;
     this.fieldCache = new Map();
     this.pressInPanel = false;
-    this.labelConfigs = {};
-    this.opacityMap = {};
-    this.zoomRangeMap = {};
-    this.borderColorMap = {};
-    this.borderWeightMap = {};
-    this.fillColorMap = {};
-    this.fillOpacityMap = {};
     this.appliedState = new Map();
     this.focusRect = null;
     this.focusingLayerId = null;
@@ -362,7 +328,7 @@ class LayerUI {
     // Both dimensions enumerate `intentProvenance` — the single source of truth
     // for which layers the user actually touched. Border's map-union
     // enumeration and fill's intentProvenance loop were asymmetric: a value in
-    // `borderColorMap` that was never recorded as an override would replay
+    // `intents.borderColor` that was never recorded as an override would replay
     // for border but not for fill, and vice versa, so a reload could restore
     // the drawer's swatch for one dimension while leaving the map with the
     // author's for the other.

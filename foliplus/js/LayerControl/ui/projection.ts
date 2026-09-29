@@ -75,10 +75,6 @@ const projectAll = (ui: LayerUI): Map<string, Projection> => {
   const ids = new Set([
     ...ui.m.layers.map(li => li.id),
     ...Object.keys(ui.intents ?? {}),
-    ...Object.keys(ui.visibleMap ?? {}),
-    ...Object.keys(ui.renamedNames ?? {}),
-    ...Object.keys(ui.opacityMap ?? {}),
-    ...Object.keys(ui.zoomRangeMap ?? {}),
   ]);
   const result = new Map<string, Projection>();
   for (const id of ids) {

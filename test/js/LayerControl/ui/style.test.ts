@@ -3361,7 +3361,7 @@ describe("LayerUI style panel", () => {
     }
   });
 
-  it("reopening the panel seeds the opacity slider from opacityMap", () => {
+  it("reopening the panel seeds the opacity slider from intents.opacity", () => {
     const li = manager.layerRegistry.get("overlay1")!;
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
@@ -4013,7 +4013,7 @@ describe("LayerUI style panel — zoom range", () => {
     const reset = panel.querySelector(".foliplus-style-reset-btn")!;
     reset.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 
-    expect("overlay1" in ui.zoomRangeMap).toBe(false);
+    expect(getIntent(ui, "overlay1", "zoomRange")).toBeUndefined();
     expect(panelOf(item)).toBeUndefined();
   });
 

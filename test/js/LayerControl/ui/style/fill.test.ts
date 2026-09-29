@@ -147,7 +147,7 @@ describe("LayerUI style panel — fill color", () => {
     expect(fillInput(item)!.value).toBe("#aabbcc");
   });
 
-  it("reopening the panel seeds the swatch from fillColorMap", () => {
+  it("reopening the panel seeds the swatch from intents.fillColor", () => {
     setIntent(ui, "overlay1", "fillColor", "#ff8800");
 
     const item = findItem(ui, "overlay1");
@@ -1141,7 +1141,7 @@ describe("buildFillRow", () => {
     expect(getIntent(ui, "overlay1", "fillOpacity")).toBe(0);
   });
 
-  it("resetLayerFill clears fillOpacityMap and restores the author's opacity", () => {
+  it("resetLayerFill clears intents.fillOpacity and restores the author's opacity", () => {
     // A fillOpacity the user wrote is dropped by reset: the captured authored
     // base is replayed, so a hollow layer (0) comes back hollow rather than
     // keeping the user's 0.5.
@@ -1244,7 +1244,7 @@ describe("replayFillState", () => {
       ],
     });
 
-    expect(fixture.manager.ui!.fillColorMap["overlay1"]).toBe("#123456");
+    expect(getIntent(fixture.manager.ui!, "overlay1", "fillColor")).toBe("#123456");
     expect(fillLayer.leaves[0].setStyle).toHaveBeenCalledWith({
       fillColor: "#123456",
     });

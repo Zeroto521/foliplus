@@ -1066,7 +1066,7 @@ describe("unit helpers", () => {
     expect(() => syncToggleAll(ui, GROUP.OVERLAY)).not.toThrow();
   });
 
-  it("syncNoBasemap handles undefined intentProvenance and visibleMap", () => {
+  it("syncNoBasemap handles undefined intentProvenance and intents.visible", () => {
     // The `?.` and `?? false` fallbacks on the inline intent check: a thin stub
     // may not have populated these maps yet, so the check must degrade to the
     // author default rather than crashing.
@@ -1079,7 +1079,6 @@ describe("unit helpers", () => {
         map: { getContainer: () => document.createElement("div") },
       },
       authorVisible: new Map(),
-      visibleMap: undefined,
       intentProvenance: undefined,
       T: (k: string) => k,
     } as unknown as LayerUI;
@@ -1108,7 +1107,6 @@ describe("unit helpers", () => {
         uiContainer,
         m: { layers, map: { getContainer: () => container } },
         authorVisible: new Map(),
-        visibleMap: {},
         intentProvenance: {},
         T: (k: string) => k,
       } as unknown as LayerUI;
@@ -1142,7 +1140,7 @@ describe("unit helpers", () => {
     });
   });
 
-  it("syncToggleAll handles undefined intentProvenance and visibleMap", () => {
+  it("syncToggleAll handles undefined intentProvenance and intents.visible", () => {
     // Same fallback pattern: the inline intent check in syncToggleAll must
     // degrade gracefully when the choice maps are absent.
     const uiContainer = document.createElement("div");
@@ -1158,7 +1156,6 @@ describe("unit helpers", () => {
       uiContainer,
       m: { layerRegistry: { get: () => ({ id: "x" }) } },
       authorVisible: new Map(),
-      visibleMap: undefined,
       intentProvenance: undefined,
       T: (k: string) => k,
     } as unknown as LayerUI;

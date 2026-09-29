@@ -24,7 +24,9 @@ const makeUi = () =>
 describe("ui/list displayName", () => {
   it("resolves a registered/renamed id through the registry name", () => {
     const ui = {
-      renamedNames: { a: "Renamed" },
+      intents: {
+        a: { name: "Renamed" },
+      },
       m: { layerRegistry: { get: () => ({ name: "Original" }) } },
       T: (k: string) => k,
     } as unknown as LayerUI;

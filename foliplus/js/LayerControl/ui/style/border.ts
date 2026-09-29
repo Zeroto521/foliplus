@@ -1,8 +1,8 @@
 // Border row — the ⚙︎ drawer's "Layer" section stroke swatch + width.
 //
 // A self-managed LayerControl dimension (like label color, not like opacity
-// or zoom range): the values live in `ui.borderColorMap` /
-// `ui.borderWeightMap`, are persisted under `layerState.borderColor` /
+// or zoom range): the values live in `ui.intents.borderColor` /
+// `ui.intents.borderWeight`, are persisted under `layerState.borderColor` /
 // `layerState.borderWeight`, and reach the map by walking `eachLayer` and
 // calling `setStyle` on every leaf that owns one. The dimension is not part
 // of the executor's visible/opacity/zoomRange family; the write goes straight

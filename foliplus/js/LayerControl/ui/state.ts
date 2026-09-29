@@ -21,40 +21,27 @@ const log = createLogger(CONF.name);
 const loadPersistedState = (ui: LayerUI) => {
   const state = ui.m.persistence.load();
   ui.foldedGroups = new Set(state.foldedGroups);
-  // `ui.intents` is the single source; the parallel maps are dual-written
-  // mirrors kept for the migration. Name rides the same record (`name`).
+  // `ui.intents` is the single per-layer record. Name rides the same record
+  // (`name`); disk shape stays `renamedNames` / `layers[id]`.
   ui.intents = {};
-  ui.renamedNames = {};
   for (const [id, name] of Object.entries(state.renamedNames)) {
     setIntent(ui, id, "name", name);
   }
-  // Style (label) configs are stored on the UI shell and applied by
-  // ui/style.ts once the layers resolve (deferred init passes). Read order
-  // is the compat contract: the current `layers[id].annotation` key WINS,
-  // the legacy top-level `annotations` segment is the fallback underneath
-  // (write-new / read-old — a v2 record reads exactly as it always did,
-  // and neither side is migrated into the other).
-  ui.labelConfigs = {};
+  // Style (label) configs are applied by ui/style.ts once the layers resolve
+  // (deferred init passes). Read order is the compat contract: the current
+  // `layers[id].annotation` key WINS, the legacy top-level `annotations`
+  // segment is the fallback underneath (write-new / read-old).
   for (const [id, raw] of Object.entries(state.annotations)) {
     if (raw != null) setIntent(ui, id, "annotation", raw as NonNullable<LayerIntent["annotation"]>);
   }
   // Per-layer intent: the value lives on `ui.intents[id]`, `overrides`
   // records that the user set it. A layer with no entry keeps the author's
-  // declared default -- there is no map-level "did the user choose at all" flag,
-  // because the distinction is per layer. Absent dimension means "the
-  // user never chose", not "visible": the default visible is decided by
-  // `authorVisible` at the projection sites.
-  ui.visibleMap = {};
-  ui.fillColorMap = {};
-  ui.fillOpacityMap = {};
-  ui.borderColorMap = {};
-  ui.borderWeightMap = {};
-  ui.opacityMap = {};
-  ui.zoomRangeMap = {};
+  // declared default. Absent dimension means "the user never chose", not
+  // "visible": the default visible is decided by `authorVisible` at the
+  // projection sites.
   ui.intentProvenance = {};
   for (const [id, entry] of Object.entries(state.layers)) {
-    // New-key label config overrides the legacy-segment fallback spread
-    // above — same id, current segment wins.
+    // New-key label config overrides the legacy-segment fallback above.
     if (entry.annotation) setIntent(ui, id, "annotation", entry.annotation);
     ui.intentProvenance[id] = [...entry.overrides];
     if (entry.overrides.includes("visible") && typeof entry.visible === "boolean") {
@@ -212,7 +199,7 @@ const unmarkOverride = (ui: LayerUI, id: string, override: LayerOverride) => {
  * Propagate the user's stored state —hidden visibility and renames —
  * into the registry and the rendered rows.
  *
- * `visibleMap` and `renamedNames` are the source of truth; the registry's
+ * `intents.visible` and `renamedNames` are the source of truth; the registry's
  * `LayerInfo.visible` / `LayerInfo.name` and the row checkboxes / labels
  * are their projections, refreshed here whenever a row or the registry is
  * rebuilt from a third-party layer's own metadata. Hidden is a same-axis
@@ -273,18 +260,14 @@ const applyUserState = (ui: LayerUI, id?: string) => {
     return;
   }
 
-  // The registry is the sweep, not `visibleMap`: a layer the user left
-  // visible is absent from `visibleMap` by design, so iterating that map
+  // The registry is the sweep, not `intents.visible`: a layer the user left
+  // visible is absent from `intents.visible` by design, so iterating that map
   // alone can never reach it and the hide half of the round trip has no
   // inverse. Walking the registry asserts every layer's map membership
   // against the persisted intent; the color basemap has no registry entry,
   // so its rename still comes from `renamedNames`.
   applyProjectionAll(ui);
-  const renamedIds = new Set([
-    ...Object.keys(ui.intents ?? {}),
-    ...Object.keys(ui.renamedNames ?? {}),
-  ]);
-  for (const layerId of renamedIds) {
+  for (const layerId of Object.keys(ui.intents ?? {})) {
     const rename = getIntent(ui, layerId, "name");
     if (rename == null) continue;
     if (layerId === CONST.SOLID_BASEMAP_ID) {
@@ -348,9 +331,6 @@ const dropPersistedLayerState = (ui: LayerUI, id: string) => {
 
 const saveNamesState = (ui: LayerUI) => {
   const names: Record<string, string> = {};
-  for (const [id, name] of Object.entries(ui.renamedNames ?? {})) {
-    names[id] = name;
-  }
   for (const [id, intent] of Object.entries(ui.intents ?? {})) {
     if (typeof intent.name === "string") names[id] = intent.name;
   }

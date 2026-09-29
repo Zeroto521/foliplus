@@ -744,7 +744,7 @@ describe("LayerUI keyboard", () => {
     // not flip the row's select-all checkbox.
     //
     // The group needs two overlay layers so overlay1 isn't collapsed into the
-    // single-child "no toggle-all" layout of initFixture(), and visibleMap must
+    // single-child "no toggle-all" layout of initFixture(), and intents.visible must
     // be empty so a visibility collapse can't read as a fold (the outer
     // beforeEach owns both).
 

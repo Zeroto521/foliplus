@@ -4,7 +4,7 @@
 // `projection.ts`, diffs it against the last projection it wrote to the map
 // (`ui.appliedState`), and calls `applyStateOp` only for the dimensions
 // that actually moved. The old model — a sweep that re-read the whole
-// registry per layer, walked `visibleMap` / `opacityMap` / `zoomRangeMap`
+// registry per layer, walked `intents.visible` / `intents.opacity` / `intents.zoomRange`
 // by id, and picked per-dimension helpers — is what made the three
 // regressions structurally reachable:
 //
