@@ -10,9 +10,12 @@
   return {
     focused: document.activeElement === path,
     outlineStyle: cs.outlineStyle,
-    outlineWidth: cs.outlineWidth,
-    outlineColor: cs.outlineColor,
+    // ⑤: accent marching ants on a white casing.
+    stroke: cs.stroke,
+    strokeWidth: cs.strokeWidth,
     strokeDasharray: cs.strokeDasharray,
     animationName: cs.animationName,
+    // Casing is zero-blur white drop-shadows (see --foliplus-focus-casing).
+    filter: cs.filter,
   };
 };

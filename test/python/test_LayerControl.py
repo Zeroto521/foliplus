@@ -5066,9 +5066,14 @@ class TestLayerControlBrowser:
                 f"focused geometry must drop the UA outline, got {result}"
             )
 
+            accent = self._sample_token(page, "--foliplus-accent-primary")
             dash = page.evaluate(
                 "getComputedStyle(document.documentElement)"
                 ".getPropertyValue('--foliplus-dash-rhythm').trim()"
+            )
+            assert result["stroke"] == accent, (
+                f"focused geometry stroke must be accent, "
+                f"got {result['stroke']} vs {accent}"
             )
             got_dash = result["strokeDasharray"].replace(",", " ").split()
             want_dash = dash.replace(",", " ").split()
@@ -5077,6 +5082,9 @@ class TestLayerControlBrowser:
             )
             assert result["animationName"] == "foliplus-focus-march", (
                 f"focused geometry must keep the march animation, got {result}"
+            )
+            assert "drop-shadow" in result["filter"], (
+                f"focused geometry must carry the white casing filter, got {result}"
             )
 
     def test_focus_overlay_pane_keeps_spotlight_visible(self, browser, tmp_path):
