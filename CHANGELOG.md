@@ -118,6 +118,7 @@
 - `LayerControl`: normalize style-panel colors to `#rrggbb`; style writes enable `stroke` / `fill` and Reset restores the author's flags ([#477](https://github.com/Zeroto521/foliplus/pull/477), [#482](https://github.com/Zeroto521/foliplus/pull/482), [#556](https://github.com/Zeroto521/foliplus/pull/556), [#558](https://github.com/Zeroto521/foliplus/pull/558))
 - `FullscreenControl`: a denied fullscreen entry or exit now reports the honest hint (`unsupported` / `exit_fail`) instead of "Entered fullscreen" ([#486](https://github.com/Zeroto521/foliplus/pull/486))
 - `LayerControl`: rapid visibility toggles stay smooth at 6k layers — the toggle-all tri-state counter updates O(1) per click instead of rescanning the group, and overlay clicks skip the basemap scan ([#504](https://github.com/Zeroto521/foliplus/pull/504))
+- `LayerControl`: fill color / opacity drags no longer sweep every leaf per input event — the apply walk coalesces to one per animation frame and flushes on change, blur, and panel close
 
 ## [v0.3.0] (2026-08-02)
 

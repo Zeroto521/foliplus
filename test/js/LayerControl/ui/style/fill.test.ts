@@ -9,6 +9,7 @@ import {
   buildFillRow,
   commitFillColor,
   commitFillOpacity,
+  flushFillApply,
   layerCanFill,
   replayFillState,
   resetLayerFill,
@@ -76,6 +77,19 @@ const initWithFillLayer = () => {
   });
   ui.fieldCache.set("overlay1", [{ name: "count", numeric: true }]);
   return { manager, ui, map, fillLayer };
+};
+
+/** Commit then force the deferred apply to land — the commit channel is
+ *  rAF-coalesced, so a test that asserts the write must flush first. */
+const commitNow = (
+  ui: LayerUI,
+  layerId: string,
+  kind: "color" | "opacity",
+  value: string | number,
+): void => {
+  if (kind === "color") commitFillColor(ui, layerId, value as string);
+  else commitFillOpacity(ui, layerId, value as number);
+  flushFillApply(layerId);
 };
 
 describe("LayerUI style panel — fill color", () => {
@@ -408,7 +422,7 @@ describe("LayerUI style panel — fill color", () => {
   it("commitFillColor writes to the map, persists, and marks the override", () => {
     const setLayer = vi.spyOn(manager.persistence, "schedule");
 
-    commitFillColor(ui, "overlay1", "#ff0000");
+    commitNow(ui, "overlay1", "color", "#ff0000");
 
     expect(getIntent(ui, "overlay1", "fillColor")).toBe("#ff0000");
     expect(ui.intentProvenance["overlay1"]).toContain("fillColor");
@@ -421,7 +435,7 @@ describe("LayerUI style panel — fill color", () => {
   });
 
   it("commitFillColor normalizes #rgb to #rrggbb before persisting", () => {
-    commitFillColor(ui, "overlay1", "#f00");
+    commitNow(ui, "overlay1", "color", "#f00");
 
     expect(getIntent(ui, "overlay1", "fillColor")).toBe("#ff0000");
   });
@@ -430,7 +444,7 @@ describe("LayerUI style panel — fill color", () => {
     setIntent(ui, "overlay1", "fillColor", "#ff0000");
     const setLayer = vi.spyOn(manager.persistence, "schedule");
 
-    commitFillColor(ui, "overlay1", "#ff0000");
+    commitNow(ui, "overlay1", "color", "#ff0000");
 
     expect(setLayer).not.toHaveBeenCalled();
   });
@@ -445,6 +459,82 @@ describe("LayerUI style panel — fill color", () => {
     });
     expect(fillLayer.leaves[1].setStyle).toHaveBeenCalledWith({
       fillColor: "#123456",
+      fill: true,
+    });
+  });
+
+  it("coalesces same-frame commits into one walk", () => {
+    // A color-picker drag revisits every step; each applyFillToLayer pass is
+    // a sweep over every leaf. The commit channel must collapse a burst into
+    // one walk per animation frame.
+    const frames: Array<() => void> = [];
+    vi.stubGlobal("requestAnimationFrame", (cb: () => void) => {
+      frames.push(cb);
+      return frames.length;
+    });
+    vi.stubGlobal("cancelAnimationFrame", () => {});
+
+    commitFillColor(ui, "overlay1", "#111111");
+    commitFillColor(ui, "overlay1", "#222222");
+    commitFillColor(ui, "overlay1", "#333333");
+
+    // trailing rAF: no walk has run yet
+    expect(fillLayer.leaves[0].setStyle).not.toHaveBeenCalled();
+
+    // one frame delivers the latest intent in a single sweep
+    for (const cb of frames.splice(0)) cb();
+    expect(fillLayer.leaves[0].setStyle).toHaveBeenCalledTimes(1);
+    expect(fillLayer.leaves[0].setStyle).toHaveBeenCalledWith({
+      fillColor: "#333333",
+      fill: true,
+    });
+    expect(fillLayer.leaves[1].setStyle).toHaveBeenCalledTimes(1);
+  });
+
+  it("flush delivers the terminal value when the drag ends", () => {
+    // change / blur / panel close must flush the trailing frame: the last
+    // commit is written to intent immediately but the walk is deferred, so
+    // without a flush the map would keep the previous color.
+    const frames: Array<() => void> = [];
+    vi.stubGlobal("requestAnimationFrame", (cb: () => void) => {
+      frames.push(cb);
+      return frames.length;
+    });
+    vi.stubGlobal("cancelAnimationFrame", () => {});
+
+    commitFillColor(ui, "overlay1", "#333333");
+    flushFillApply("overlay1");
+
+    expect(fillLayer.leaves[0].setStyle).toHaveBeenCalledWith({
+      fillColor: "#333333",
+      fill: true,
+    });
+    expect(fillLayer.leaves[0].setStyle).toHaveBeenCalledTimes(1);
+    // a second flush is a no-op — the terminal value already landed
+    flushFillApply("overlay1");
+    expect(fillLayer.leaves[0].setStyle).toHaveBeenCalledTimes(1);
+  });
+
+  it("flush after the terminal commit matches a direct applyFillToLayer write", () => {
+    // Value-identity pin: the deferred path must land the same setStyle
+    // payload a synchronous applyFillToLayer would have written.
+    const leaf = fillLayer.leaves[0];
+    setIntent(ui, "overlay1", "fillColor", "#654321");
+    setIntent(ui, "overlay1", "fillOpacity", 0.4);
+    applyFillToLayer(ui, "overlay1");
+    const syncCall = leaf.setStyle.mock.calls.at(-1);
+
+    leaf.setStyle.mockClear();
+    fillLayer.leaves[1].setStyle.mockClear();
+    commitFillColor(ui, "overlay1", "#111111");
+    commitFillColor(ui, "overlay1", "#654321");
+    commitFillOpacity(ui, "overlay1", 40);
+    flushFillApply("overlay1");
+
+    expect(leaf.setStyle.mock.calls.at(-1)).toEqual(syncCall);
+    expect(leaf.setStyle).toHaveBeenCalledWith({
+      fillColor: "#654321",
+      fillOpacity: 0.4,
       fill: true,
     });
   });
@@ -772,6 +862,7 @@ describe("LayerUI style panel — fill color", () => {
     // showSolidBasemap and the fill-opacity map stays empty.
     registerColorBasemap();
     commitFillColor(ui, CONST.SOLID_BASEMAP_ID, "#ff0000");
+    flushFillApply(CONST.SOLID_BASEMAP_ID);
     expect(getIntent(ui, CONST.SOLID_BASEMAP_ID, "fillColor")).toBe("#ff0000");
     expect(getIntent(ui, CONST.SOLID_BASEMAP_ID, "fillOpacity")).toBeUndefined();
     expect(ui.currentColor).toBe("#ff0000");
@@ -801,7 +892,7 @@ describe("LayerUI style panel — fill color", () => {
   it("resetLayerFill walks past a leaf with no setStyle or eachLayer", () => {
     const fixture = initWithFillLayer();
     fixture.fillLayer.leaves[1] = { options: {} } as never;
-    commitFillColor(fixture.ui, "overlay1", "#ff0000");
+    commitNow(fixture.ui, "overlay1", "color", "#ff0000");
 
     expect(() => resetLayerFill(fixture.ui, "overlay1")).not.toThrow();
   });
@@ -811,7 +902,7 @@ describe("LayerUI style panel — fill color", () => {
     delete fixture.fillLayer.leaves[0].options.fillColor;
     delete fixture.fillLayer.leaves[0].options.fillOpacity;
 
-    commitFillColor(fixture.ui, "overlay1", "#ff0000");
+    commitNow(fixture.ui, "overlay1", "color", "#ff0000");
     resetLayerFill(fixture.ui, "overlay1");
 
     // No authored color or opacity — reset restores the Leaflet color
@@ -888,7 +979,7 @@ describe("LayerUI style panel — fill color", () => {
 
   it("resetLayerFill restores the authored fill color on each leaf", () => {
     // First commit captures each leaf's authored base.
-    commitFillColor(ui, "overlay1", "#ff0000");
+    commitNow(ui, "overlay1", "color", "#ff0000");
     resetLayerFill(ui, "overlay1");
 
     expect(fillLayer.leaves[0].setStyle).toHaveBeenLastCalledWith({
@@ -909,7 +1000,7 @@ describe("LayerUI style panel — fill color", () => {
     // a fill nobody authored (border fix's fill twin).
     fillLayer.leaves[0].options.fill = false;
     fillLayer.leaves[1].options.fill = false;
-    commitFillColor(ui, "overlay1", "#ff0000");
+    commitNow(ui, "overlay1", "color", "#ff0000");
     expect(fillLayer.leaves[0].setStyle).toHaveBeenLastCalledWith({
       fillColor: "#ff0000",
       fill: true,
@@ -933,7 +1024,7 @@ describe("LayerUI style panel — fill color", () => {
 
   it("resetLayerFill restores the Leaflet default when options.fillColor was unset", () => {
     delete fillLayer.leaves[0].options.fillColor;
-    commitFillColor(ui, "overlay1", "#ff0000");
+    commitNow(ui, "overlay1", "color", "#ff0000");
     resetLayerFill(ui, "overlay1");
 
     // No authored color — the fallback is Leaflet's own default.
@@ -1088,7 +1179,7 @@ describe("buildFillRow", () => {
     const fixture = initWithFillLayer();
     delete fixture.fillLayer.leaves[0].options.fillColor;
 
-    commitFillColor(fixture.ui, "overlay1", "#ff0000");
+    commitNow(fixture.ui, "overlay1", "color", "#ff0000");
     resetLayerFill(fixture.ui, "overlay1");
 
     expect(fixture.fillLayer.leaves[0].setStyle).toHaveBeenLastCalledWith({
@@ -1141,7 +1232,7 @@ describe("buildFillRow", () => {
     };
     fixture.fillLayer.leaves[0] = leaf;
 
-    commitFillColor(fixture.ui, "overlay1", "#ff0000");
+    commitNow(fixture.ui, "overlay1", "color", "#ff0000");
 
     expect(getIntent(fixture.ui, "overlay1", "fillColor")).toBe("#ff0000");
     expect(getIntent(fixture.ui, "overlay1", "fillOpacity")).toBeUndefined();
@@ -1159,7 +1250,7 @@ describe("buildFillRow", () => {
     };
     fixture.fillLayer.leaves[0] = leaf;
 
-    commitFillColor(fixture.ui, "overlay1", "#ff0000");
+    commitNow(fixture.ui, "overlay1", "color", "#ff0000");
 
     const row = buildFillRow(fixture.ui, "overlay1");
     const input = row.querySelector(
@@ -1179,7 +1270,7 @@ describe("buildFillRow", () => {
     fixture.fillLayer.leaves[0] = leaf;
     setIntent(fixture.ui, "overlay1", "fillOpacity", 0);
 
-    commitFillColor(fixture.ui, "overlay1", "#ff0000");
+    commitNow(fixture.ui, "overlay1", "color", "#ff0000");
 
     expect(getIntent(fixture.ui, "overlay1", "fillOpacity")).toBe(0);
     expect(leaf.setStyle).toHaveBeenCalledWith({
@@ -1192,7 +1283,7 @@ describe("buildFillRow", () => {
   it("commitFillOpacity writes to the map, persists, and marks the override", () => {
     const setLayer = vi.spyOn(manager.persistence, "schedule");
 
-    commitFillOpacity(ui, "overlay1", 50);
+    commitNow(ui, "overlay1", "opacity", 50);
 
     expect(getIntent(ui, "overlay1", "fillOpacity")).toBe(0.5);
     expect(ui.intentProvenance["overlay1"]).toContain("fillOpacity");
@@ -1203,16 +1294,16 @@ describe("buildFillRow", () => {
     setIntent(ui, "overlay1", "fillOpacity", 0.5);
     const setLayer = vi.spyOn(manager.persistence, "schedule");
 
-    commitFillOpacity(ui, "overlay1", 50);
+    commitNow(ui, "overlay1", "opacity", 50);
 
     expect(setLayer).not.toHaveBeenCalled();
   });
 
   it("commitFillOpacity clamps out-of-range values", () => {
-    commitFillOpacity(ui, "overlay1", 150);
+    commitNow(ui, "overlay1", "opacity", 150);
     expect(getIntent(ui, "overlay1", "fillOpacity")).toBe(1);
 
-    commitFillOpacity(ui, "overlay1", -10);
+    commitNow(ui, "overlay1", "opacity", -10);
     expect(getIntent(ui, "overlay1", "fillOpacity")).toBe(0);
   });
 
@@ -1227,8 +1318,8 @@ describe("buildFillRow", () => {
     };
     fixture.fillLayer.leaves[0] = leaf;
 
-    commitFillColor(fixture.ui, "overlay1", "#ff0000");
-    commitFillOpacity(fixture.ui, "overlay1", 50);
+    commitNow(fixture.ui, "overlay1", "color", "#ff0000");
+    commitNow(fixture.ui, "overlay1", "opacity", 50);
     expect(getIntent(fixture.ui, "overlay1", "fillOpacity")).toBe(0.5);
 
     resetLayerFill(fixture.ui, "overlay1");

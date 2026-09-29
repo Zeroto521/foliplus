@@ -30,6 +30,7 @@ import {
   normalizeHexColor,
   numberInput,
 } from "#common/form.js";
+import { throttleRaf } from "#common/throttle.js";
 import * as CONST from "../../const.js";
 import { showSolidBasemap } from "../color.js";
 import type { LayerUI } from "../index.js";
@@ -207,6 +208,42 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
   });
 };
 
+/** Per-layer apply scheduler: a color-picker drag revisits every step, and
+ *  each `applyFillToLayer` pass is a sweep over every leaf. Coalesce the
+ *  expensive walk to at most once per animation frame; the intent write
+ *  (cheap) still lands on every commit, so the frame that runs reads the
+ *  latest value. `flush` on change / blur / panel close so the terminal
+ *  value is never lost (throttleRaf is trailing).
+ *
+ *  The box holds the *current* ui: a scheduler is keyed by layer id and can
+ *  outlive one UI fixture (tests re-register the same id), so the frame
+ *  callback must read the box, not a closed-over ui. */
+const applySchedulers = new Map<
+  string,
+  { ui: LayerUI; raf: ReturnType<typeof throttleRaf> }
+>();
+
+const scheduleFillApply = (ui: LayerUI, layerId: string): void => {
+  let entry = applySchedulers.get(layerId);
+  if (!entry) {
+    // Two-step init so the raf callback can read `box.ui` (the map entry)
+    // without a double assertion: the box exists before throttleRaf closes
+    // over it.
+    const box = { ui, raf: throttleRaf(() => applyFillToLayer(box.ui, layerId)) };
+    entry = box;
+    applySchedulers.set(layerId, entry);
+  }
+  entry.ui = ui;
+  entry.raf();
+};
+
+/** Force a pending scheduled apply to run now. No-op when nothing is
+ *  queued. Callers: commit's change/blur, panel close, reset — every path
+ *  that must leave the map matching the stored intent. */
+const flushFillApply = (layerId: string): void => {
+  applySchedulers.get(layerId)?.raf.flush();
+};
+
 /** Write the color into the map, persist it, and mark the dimension as
  *  user-owned so it survives a reload. Only writes when the value actually
  *  moved — a color-picker drag revisits every step, and each pass is a
@@ -226,7 +263,7 @@ const commitFillColor = (ui: LayerUI, layerId: string, rawColor: string): void =
   setIntent(ui, layerId, INTENT.FILL_COLOR, color);
   markOverride(ui, layerId, INTENT.FILL_COLOR);
   saveState(ui);
-  applyFillToLayer(ui, layerId);
+  scheduleFillApply(ui, layerId);
 };
 
 /** Commit the fill opacity (0-100 %) to the layer. Converts to 0-1 for
@@ -237,7 +274,7 @@ const commitFillOpacity = (ui: LayerUI, layerId: string, pct: number): void => {
   setIntent(ui, layerId, INTENT.FILL_OPACITY, opacity);
   markOverride(ui, layerId, INTENT.FILL_OPACITY);
   saveState(ui);
-  applyFillToLayer(ui, layerId);
+  scheduleFillApply(ui, layerId);
 };
 
 /** Reset one layer's fill to its authored value and drop its persisted
@@ -254,6 +291,9 @@ const commitFillOpacity = (ui: LayerUI, layerId: string, pct: number): void => {
  *  re-apply a color the layer no longer shows. */
 const resetLayerFill = (ui: LayerUI, layerId: string): void => {
   if (!ui.m.layerRegistry.has(layerId)) return;
+  // Drop any trailing drag frame first: a scheduled apply must not paint
+  // the user's color over the authored restore below.
+  applySchedulers.get(layerId)?.raf.cancel();
   clearIntent(ui, layerId, INTENT.FILL_COLOR);
   clearIntent(ui, layerId, INTENT.FILL_OPACITY);
   unmarkOverride(ui, layerId, INTENT.FILL_COLOR);
@@ -337,7 +377,17 @@ const bindFillRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
   const colorEl = row.querySelector(
     `.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`,
   ) as HTMLInputElement | null;
-  if (colorEl) bindLiveColor(colorEl, value => commitFillColor(ui, layerId, value));
+  if (colorEl) {
+    bindLiveColor(colorEl, value => commitFillColor(ui, layerId, value));
+    // change / blur close the drag: the trailing rAF frame may never fire
+    // if the pointer lifts between frames — flush so the terminal value
+    // lands (same contract as bindLiveNumber's change commit). Property
+    // assignment, not addEventListener — the listener-guard allow-list
+    // treats bare addEventListener as a control-teardown hazard.
+    const flush = () => flushFillApply(layerId);
+    colorEl.onchange = flush;
+    colorEl.onblur = flush;
+  }
 
   const opacityEl = row.querySelector(
     `.${CONST.CLASSES.STYLE_FILL_OPACITY_NUMBER}`,
@@ -349,6 +399,15 @@ const bindFillRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
       fallback: VISIBLE_FILL_OPACITY * 100,
       onCommit: value => commitFillOpacity(ui, layerId, value),
     });
+    // bindLiveNumber already owns onchange (clamp + commit); chain the flush
+    // instead of overwriting it. blur is free.
+    const flush = () => flushFillApply(layerId);
+    const prevChange = opacityEl.onchange;
+    opacityEl.onchange = ev => {
+      prevChange?.call(opacityEl, ev);
+      flush();
+    };
+    opacityEl.onblur = flush;
   }
 };
 
@@ -401,6 +460,7 @@ export {
   commitFillColor,
   commitFillOpacity,
   FILL_DIMENSION,
+  flushFillApply,
   isColorBasemap,
   layerCanFill,
   replayFillState,

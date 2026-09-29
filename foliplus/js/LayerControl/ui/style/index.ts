@@ -28,7 +28,12 @@ import type { LayerUI } from "../index.js";
 import { finishRename } from "../rename.js";
 import { bindBorderRow, resetLayerBorder } from "./border.js";
 import { layerHasStyleDelegation, renderDelegatedStylePanel } from "./delegated.js";
-import { bindFillRow, replayFillState, resetLayerFill } from "./fill.js";
+import {
+  bindFillRow,
+  flushFillApply,
+  replayFillState,
+  resetLayerFill,
+} from "./fill.js";
 import { appendResetFooter, railPos } from "./frame.js";
 import { applyPatch, layerFields, syncFormatRow } from "./label.js";
 import { clampPct, commitOpacityPct, resetLayerOpacity } from "./opacity.js";
@@ -450,6 +455,9 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
 
 /** Close the style panel. setFocus = true returns focus to the layer row. */
 const closeStylePanel = (ui: LayerUI, setFocus: boolean): void => {
+  // A pending fill-apply frame must land before the panel disappears:
+  // closing is a commit boundary, not a cancel (reset cancels explicitly).
+  if (ui.stylePanelLayerId) flushFillApply(ui.stylePanelLayerId);
   if (ui.styleOutsideHandler) {
     document.removeEventListener("mousedown", ui.styleOutsideHandler, true);
     ui.styleOutsideHandler = null;
