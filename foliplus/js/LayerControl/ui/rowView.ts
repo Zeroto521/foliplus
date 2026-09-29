@@ -19,6 +19,7 @@ import * as CONST from "../const.js";
 import * as SVGs from "../icon.js";
 import * as Util from "../util.js";
 import type { LayerUI } from "./index.js";
+import { INTENT, getIntent } from "./intent.js";
 import { intentVisibleOf, projectLayer } from "./projection.js";
 
 /** One layer's inputs to the row visual. Nothing here is written back. */
@@ -70,7 +71,7 @@ interface RowLabels {
  *  range is outside the map and no zoom can land inside it.
  */
 const inZoomRange = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
-  const range = ui.zoomRangeMap?.[layerInfo.id];
+  const range = getIntent(ui, layerInfo.id, INTENT.ZOOM_RANGE);
   if (!range) return true;
   const min = Math.max(range[0], ui.m.map.getMinZoom());
   const max = Math.min(range[1], ui.m.map.getMaxZoom());
@@ -115,7 +116,7 @@ const rowView = (cell: RowCell, labels: RowLabels): RowView => ({
  */
 const displayName = (ui: LayerUI, id: string): string => {
   return (
-    ui.renamedNames[id] ??
+    (getIntent(ui, id, INTENT.NAME) as string | undefined) ??
     ui.m.layerRegistry.get(id)?.name ??
     (id === CONST.SOLID_BASEMAP_ID ? ui.T("color_map_label") : "")
   );
@@ -193,9 +194,10 @@ const rowType = (
 const buildRowCell = (ui: LayerUI, layerInfo: LayerInfo): RowCell => {
   const layer = ui.m.findLayer(layerInfo);
   // Inline intent check to avoid function-call overhead on the row-paint path.
-  const visible = ui.visibleMap?.[layerInfo.id];
+  const visible = getIntent(ui, layerInfo.id, INTENT.VISIBLE);
   const overrides = ui.intentProvenance?.[layerInfo.id];
-  const hasVisible = overrides?.includes("visible") || typeof visible === "boolean";
+  const hasVisible =
+    overrides?.includes(INTENT.VISIBLE) || typeof visible === "boolean";
   const authorDefault = ui.authorVisible.get(layerInfo.id) ?? true;
   const checked = hasVisible ? (visible ?? true) : authorDefault;
   const type = rowType(ui, layerInfo, layer);

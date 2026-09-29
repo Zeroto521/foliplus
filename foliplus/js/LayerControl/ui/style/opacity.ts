@@ -14,6 +14,7 @@ import { dom } from "#common/dom.js";
 import * as CONST from "../../const.js";
 import { applyProjection } from "../apply.js";
 import type { LayerUI } from "../index.js";
+import { INTENT, clearIntent, getIntent, setIntent } from "../intent.js";
 import { markOverride, saveState, unmarkOverride } from "../state.js";
 import { syncNoBasemap } from "../visibility.js";
 import { railPos, round5 } from "./frame.js";
@@ -100,11 +101,11 @@ const commitOpacityPct = (
   if (li.opacity === opacity) return;
   if (opacity === 1) {
     // Fully opaque is the declared default, so there is no override to keep.
-    delete ui.opacityMap[layerId];
-    unmarkOverride(ui, layerId, "opacity");
+    clearIntent(ui, layerId, INTENT.OPACITY);
+    unmarkOverride(ui, layerId, INTENT.OPACITY);
   } else {
-    ui.opacityMap[layerId] = opacity;
-    markOverride(ui, layerId, "opacity");
+    setIntent(ui, layerId, INTENT.OPACITY, opacity);
+    markOverride(ui, layerId, INTENT.OPACITY);
   }
   saveState(ui);
   applyProjection(ui, layerId);
@@ -127,7 +128,7 @@ const commitOpacityPct = (
  *  appears for keyboard input the same as for a drag. */
 const buildOpacityRow = (ui: LayerUI, layerId: string): HTMLElement => {
   const li = ui.m.layerRegistry.get(layerId);
-  const pct = opacityToPct(ui.opacityMap[layerId] ?? li?.opacity);
+  const pct = opacityToPct(getIntent(ui, layerId, INTENT.OPACITY) ?? li?.opacity);
   const fill = dom.el("div", {
     class: `${CONST.CLASSES.SLIDER_FILL} ${CONST.CLASSES.STYLE_OPACITY_FILL}`,
     style: `width:${opacityFillWidth(pct)}`,
@@ -182,8 +183,8 @@ const buildOpacityRow = (ui: LayerUI, layerId: string): HTMLElement => {
 const resetLayerOpacity = (ui: LayerUI, layerId: string): void => {
   const li = ui.m.layerRegistry.get(layerId);
   if (!li) return;
-  delete ui.opacityMap[layerId];
-  unmarkOverride(ui, layerId, "opacity");
+  clearIntent(ui, layerId, INTENT.OPACITY);
+  unmarkOverride(ui, layerId, INTENT.OPACITY);
   saveState(ui);
   applyProjection(ui, layerId);
   // Resetting a base layer from 0 back to 1 un-hides it — flip the hatch.
@@ -210,7 +211,7 @@ const OPACITY_DIMENSION = registerDimension<number>({
   gate: layerCanOpacity,
   value: (ui, layerId) => {
     const li = ui.m.layerRegistry.get(layerId);
-    return ui.opacityMap[layerId] ?? li?.opacity;
+    return getIntent(ui, layerId, INTENT.OPACITY) ?? li?.opacity;
   },
   row: buildOpacityRow,
 });

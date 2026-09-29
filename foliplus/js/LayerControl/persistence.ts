@@ -41,15 +41,9 @@ const asObject = (value: unknown): Record<string, unknown> | null =>
     ? (value as Record<string, unknown>)
     : null;
 
-const OVERRIDE_VALUES: LayerOverride[] = [
-  "visible",
-  "fillColor",
-  "fillOpacity",
-  "borderColor",
-  "borderWeight",
-  "opacity",
-  "zoomRange",
-];
+/** A stored unit-interval opacity (0-1), inclusive — 0 is a real choice. */
+const isUnitInterval = (value: unknown): value is number =>
+  typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1;
 
 /** A stored zoom range: two finite numbers with the low end not above the
  *  high. Bounds are the map's business -- the handles are confined to the map's
@@ -81,6 +75,29 @@ const isBorderWeight = (value: unknown): value is number =>
  *  corrupt entry cannot leak a broken value into <input type=color>. */
 const isHexColor = (value: unknown): value is string =>
   typeof value === "string" && /^#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(value);
+
+/** Disk parser per provenance key: normalises the stored value or returns
+ *  `null` to drop a corrupt one (its marker is dropped with it).
+ *
+ *  `Record<LayerOverride, …>` is the extension pin — a new dimension without
+ *  a parser is a compile error, and {@link OVERRIDE_VALUES} derives from this
+ *  table so the vocabulary cannot drift. */
+const PARSE_OVERRIDE: Record<
+  LayerOverride,
+  (data: Record<string, unknown>) => unknown | null
+> = {
+  visible: data => (typeof data.visible === "boolean" ? data.visible : null),
+  fillColor: data =>
+    isHexColor(data.fillColor) ? normalizeHexColor(data.fillColor) : null,
+  fillOpacity: data => (isUnitInterval(data.fillOpacity) ? data.fillOpacity : null),
+  borderColor: data =>
+    isHexColor(data.borderColor) ? normalizeHexColor(data.borderColor) : null,
+  borderWeight: data => (isBorderWeight(data.borderWeight) ? data.borderWeight : null),
+  opacity: data => (isUnitInterval(data.opacity) ? data.opacity : null),
+  zoomRange: data => parseZoomRange(data.zoomRange),
+};
+
+const OVERRIDE_VALUES = Object.keys(PARSE_OVERRIDE) as LayerOverride[];
 
 /** One stored label (annotation) config: an object, colour-normalised the
  *  same way in the new `layers[id].annotation` key and the legacy
@@ -125,62 +142,11 @@ const parseLayerState = (raw: unknown): PersistedLayerState | null => {
     : [];
   const out: PersistedLayerState = { overrides: [] };
   for (const override of declared) {
-    if (override === "visible") {
-      if (typeof data.visible === "boolean") {
-        out.visible = data.visible;
-        out.overrides.push("visible");
-      }
-      continue;
-    }
-    if (override === "fillColor") {
-      if (isHexColor(data.fillColor)) {
-        out.fillColor = normalizeHexColor(data.fillColor);
-        out.overrides.push("fillColor");
-      }
-      continue;
-    }
-    if (override === "fillOpacity") {
-      if (
-        typeof data.fillOpacity === "number" &&
-        Number.isFinite(data.fillOpacity) &&
-        data.fillOpacity >= 0 &&
-        data.fillOpacity <= 1
-      ) {
-        out.fillOpacity = data.fillOpacity;
-        out.overrides.push("fillOpacity");
-      }
-      continue;
-    }
-    if (override === "borderColor") {
-      if (isHexColor(data.borderColor)) {
-        out.borderColor = normalizeHexColor(data.borderColor);
-        out.overrides.push("borderColor");
-      }
-      continue;
-    }
-    if (override === "borderWeight") {
-      if (isBorderWeight(data.borderWeight)) {
-        out.borderWeight = data.borderWeight;
-        out.overrides.push("borderWeight");
-      }
-      continue;
-    }
-    if (override === "opacity") {
-      if (
-        typeof data.opacity === "number" &&
-        Number.isFinite(data.opacity) &&
-        data.opacity >= 0 &&
-        data.opacity <= 1
-      ) {
-        out.opacity = data.opacity;
-        out.overrides.push("opacity");
-      }
-      continue;
-    }
-    const zoomRange = parseZoomRange(data.zoomRange);
-    if (zoomRange) {
-      out.zoomRange = zoomRange;
-      out.overrides.push("zoomRange");
+    // The disk key is the provenance key; `null` means "drop this marker".
+    const value = PARSE_OVERRIDE[override](data);
+    if (value !== null) {
+      (out as Record<LayerOverride, unknown>)[override] = value;
+      out.overrides.push(override);
     }
   }
   const annotation = parseAnnotationConfig(data.annotation);

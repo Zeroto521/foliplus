@@ -4,6 +4,7 @@ import { GROUP } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerManager } from "#foliplus/LayerControl/manager.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
+import { getIntent, seedIntentMap } from "#foliplus/LayerControl/ui/intent.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 import {
   allFolded,
@@ -34,7 +35,7 @@ describe("LayerUI keyboard", () => {
       });
     }
     ui.foldedGroups = new Set();
-    ui.visibleMap = {};
+    seedIntentMap(ui, "visible", {});
     // Folded-group state is persisted to localStorage, so a fold from one test
     // would be re-read by the next test's LayerUI constructor and present as
     // already-folded.
@@ -129,7 +130,7 @@ describe("LayerUI keyboard", () => {
       cb.checked = false;
       ui.handleChange({ target: cb } as Event);
 
-      expect(ui.visibleMap["overlay1"]).toBe(false);
+      expect(getIntent(ui, "overlay1", "visible")).toBe(false);
       // 3 seeded layers + the colour basemap registered by initTypesAndVisibility.
       expect(ui.m.layers.length).toBe(4);
     });
@@ -743,7 +744,7 @@ describe("LayerUI keyboard", () => {
     // not flip the row's select-all checkbox.
     //
     // The group needs two overlay layers so overlay1 isn't collapsed into the
-    // single-child "no toggle-all" layout of initFixture(), and visibleMap must
+    // single-child "no toggle-all" layout of initFixture(), and intents.visible must
     // be empty so a visibility collapse can't read as a fold (the outer
     // beforeEach owns both).
 

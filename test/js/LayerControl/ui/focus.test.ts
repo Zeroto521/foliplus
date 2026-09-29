@@ -14,6 +14,7 @@ import {
   toggleFocusedLayer,
 } from "#foliplus/LayerControl/ui/focus.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
+import { seedIntentMap } from "#foliplus/LayerControl/ui/intent.js";
 import { getActiveLayerItem } from "#foliplus/LayerControl/ui/keyboard.js";
 import type { LayerInfo } from "#foliplus/core/layer/index.js";
 import { GROUP, focusLayerZ } from "#foliplus/core/layer/index.js";
@@ -250,7 +251,7 @@ describe("LayerUI focus", () => {
       });
     }
     ui.foldedGroups = new Set();
-    ui.visibleMap = {};
+    seedIntentMap(ui, "visible", {});
     // Folded-group state is persisted to localStorage, so a fold from one test
     // would be re-read by the next test's LayerUI constructor and present as
     // already-folded.

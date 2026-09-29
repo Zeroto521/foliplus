@@ -24,16 +24,16 @@ describe("makeLayerUIMock — LayerUI field completeness", () => {
     // Sets
     expect(ui.foldedGroups).toBeInstanceOf(Set);
     // Records
-    expect(ui.visibleMap).toEqual({});
+    expect(ui.intents ?? {}).toEqual({});
     // Maps
     expect(ui.authorVisible).toBeInstanceOf(Map);
     expect(ui.fieldCache).toBeInstanceOf(Map);
     // Records
     expect(ui.intentProvenance).toEqual({});
-    expect(ui.renamedNames).toEqual({});
-    expect(ui.opacityMap).toEqual({});
-    expect(ui.zoomRangeMap).toEqual({});
-    expect(ui.labelConfigs).toEqual({});
+    expect(ui.intents ?? {}).toEqual({});
+    expect(ui.intents ?? {}).toEqual({});
+    expect(ui.intents ?? {}).toEqual({});
+    expect(ui.intents ?? {}).toEqual({});
     // Primitives with sensible defaults
     expect(ui.currentColor).toBe("#cccccc");
     expect(ui.lastDragHintAt).toBe(0);

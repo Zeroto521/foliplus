@@ -305,6 +305,27 @@ describe("LayerPersistence", () => {
         f: { show: true, field: "n", format: "auto" },
       });
     });
+
+    it("passes unknown annotation fields through (future dims, e.g. position)", () => {
+      // The annotation parse is shape-tolerant on purpose: a field the running
+      // code does not know yet (label position, …) rides the same record and
+      // survives a round-trip, so a future reader finds it where the writer
+      // left it. Field rules live in `coerceAnnotationFields`, not here.
+      seedStorage({
+        annotations: {
+          a: { show: true, field: "n", format: "auto", position: "below", anchor: 42 },
+        },
+        layers: {
+          b: {
+            overrides: [],
+            annotation: { show: false, field: "n", position: "center" },
+          },
+        },
+      });
+      const rec = makePersistence().load();
+      expect(rec.annotations.a).toMatchObject({ position: "below", anchor: 42 });
+      expect(rec.layers.b?.annotation).toMatchObject({ position: "center" });
+    });
   });
 
   // ── Version ─────────────────────────────────────────────────────

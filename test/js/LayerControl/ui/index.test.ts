@@ -7,6 +7,7 @@ import { GROUP } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { LayerManager } from "#foliplus/LayerControl/manager.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
+import { getIntent, seedIntentMap } from "#foliplus/LayerControl/ui/intent.js";
 import {
   TileLayer,
   findItem,
@@ -185,7 +186,7 @@ describe("LayerUI shell — delegates", () => {
 
   it("saveNamesState persists the rename map", () => {
     const save = vi.spyOn(manager.persistence, "schedule");
-    ui.renamedNames = { overlay1: "Renamed" };
+    seedIntentMap(ui, "name", { overlay1: "Renamed" });
 
     ui.saveNamesState();
 
@@ -201,17 +202,17 @@ describe("LayerUI shell — delegates", () => {
   it("dropPersistedLayerState erases every stored dimension for one id", () => {
     // The single routine that erases a stored value, reached only from an
     // explicit delete — and it must not touch a neighbor's state.
-    ui.visibleMap = { overlay1: false, base1: false };
-    ui.opacityMap = { overlay1: 0.4 };
-    ui.zoomRangeMap = { overlay1: [3, 12] };
+    seedIntentMap(ui, "visible", { overlay1: false, base1: false });
+    seedIntentMap(ui, "opacity", { overlay1: 0.4 });
+    seedIntentMap(ui, "zoomRange", { overlay1: [3, 12] });
     ui.intentProvenance = { overlay1: ["visible", "opacity"] };
 
     ui.dropPersistedLayerState("overlay1");
 
-    expect(ui.visibleMap["overlay1"]).not.toBe(false);
-    expect(ui.visibleMap["base1"]).toBe(false);
-    expect(ui.opacityMap.overlay1).toBeUndefined();
-    expect(ui.zoomRangeMap.overlay1).toBeUndefined();
+    expect(getIntent(ui, "overlay1", "visible")).not.toBe(false);
+    expect(getIntent(ui, "base1", "visible")).toBe(false);
+    expect(getIntent(ui, "overlay1", "opacity")).toBeUndefined();
+    expect(getIntent(ui, "overlay1", "zoomRange")).toBeUndefined();
     expect(ui.intentProvenance.overlay1).toBeUndefined();
   });
 

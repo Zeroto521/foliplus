@@ -3,6 +3,7 @@ import { GROUP, HIDDEN } from "#core/layer/const.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { LayerManager } from "#foliplus/LayerControl/manager.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
+import { getIntent, setIntent } from "#foliplus/LayerControl/ui/intent.js";
 import {
   applyVisibility,
   getLayerItems,
@@ -217,14 +218,14 @@ describe("applyVisibility", () => {
 
     // The user stores a zoom range that excludes the current zoom (2), then
     // checks the box again.
-    ui.zoomRangeMap.overlay1 = [3, 12];
+    setIntent(ui, "overlay1", "zoomRange", [3, 12]);
     ui.intentProvenance.overlay1 = ["zoomRange"];
     (map.addLayer as ReturnType<typeof vi.fn>).mockClear();
 
     expect(applyVisibility(ui, "overlay1", true)).toBe(true);
 
     // Intent is recorded: the box is checked and the layer is no longer hidden.
-    expect(ui.visibleMap["overlay1"]).not.toBe(false);
+    expect(getIntent(ui, "overlay1", "visible")).not.toBe(false);
     expect(
       ui.uiContainer.querySelector(
         `[${CONST.DATA.LAYER_ID}="overlay1"] input[type="checkbox"]`,
@@ -279,7 +280,7 @@ describe("applyVisibility", () => {
     expect(applyVisibility(ui, "ov", false)).toBe(true);
 
     expect(map.removeLayer).toHaveBeenCalledWith(layer);
-    expect(ui.visibleMap["ov"]).toBe(false);
+    expect(getIntent(ui, "ov", "visible")).toBe(false);
   });
 
   it("persists the hidden set so the choice survives a reload", () => {
@@ -955,7 +956,7 @@ describe("toggleAll base group", () => {
     expect(bare.querySelector("input")).toBeNull();
     // Only the two registered rows were swept — the bare row carries no
     // checkbox and must be absent from the intent map entirely.
-    expect(ui.visibleMap).toEqual({ B1: true, B2: true });
+    expect(ui.intents ?? {}).toEqual({ B1: { visible: true }, B2: { visible: true } });
   });
 
   it("runs every branch of the sweep: real layer and canvas-only base", () => {
@@ -1065,7 +1066,7 @@ describe("unit helpers", () => {
     expect(() => syncToggleAll(ui, GROUP.OVERLAY)).not.toThrow();
   });
 
-  it("syncNoBasemap handles undefined intentProvenance and visibleMap", () => {
+  it("syncNoBasemap handles undefined intentProvenance and intents.visible", () => {
     // The `?.` and `?? false` fallbacks on the inline intent check: a thin stub
     // may not have populated these maps yet, so the check must degrade to the
     // author default rather than crashing.
@@ -1078,7 +1079,6 @@ describe("unit helpers", () => {
         map: { getContainer: () => document.createElement("div") },
       },
       authorVisible: new Map(),
-      visibleMap: undefined,
       intentProvenance: undefined,
       T: (k: string) => k,
     } as unknown as LayerUI;
@@ -1107,7 +1107,6 @@ describe("unit helpers", () => {
         uiContainer,
         m: { layers, map: { getContainer: () => container } },
         authorVisible: new Map(),
-        visibleMap: {},
         intentProvenance: {},
         T: (k: string) => k,
       } as unknown as LayerUI;
@@ -1141,7 +1140,7 @@ describe("unit helpers", () => {
     });
   });
 
-  it("syncToggleAll handles undefined intentProvenance and visibleMap", () => {
+  it("syncToggleAll handles undefined intentProvenance and intents.visible", () => {
     // Same fallback pattern: the inline intent check in syncToggleAll must
     // degrade gracefully when the choice maps are absent.
     const uiContainer = document.createElement("div");
@@ -1157,7 +1156,6 @@ describe("unit helpers", () => {
       uiContainer,
       m: { layerRegistry: { get: () => ({ id: "x" }) } },
       authorVisible: new Map(),
-      visibleMap: undefined,
       intentProvenance: undefined,
       T: (k: string) => k,
     } as unknown as LayerUI;
