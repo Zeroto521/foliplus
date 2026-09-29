@@ -114,7 +114,7 @@ const esbuildCfg = esbuildCfgFor({ dev: CFG.dev, root: CFG.root });
 const artifact = (entryPoints, outfile, name) => {
   const shared = name === SHARED_ENTRY;
   // Identical for JS and CSS, but esbuild requires banner to be an object.
-  const bannerText = `/*! foliplus@${BUILD_VERSION} 路 ${name} */\n`;
+  const bannerText = `/*! foliplus@${BUILD_VERSION} · ${name} */\n`;
   const plugins = shared
     ? [...esbuildCfg.plugins, resolveSharedRegistryPlugin]
     : [...esbuildCfg.plugins, globalNamespacePlugin(srcDir)];
@@ -160,7 +160,7 @@ const findComponents = () => {
 const out = name => resolve(distDir, name);
 
 /** Read every `*.css` module in a stylesheet directory as a sources map
- *  (filename 鈫?source text), sorted by filename for a deterministic merge. */
+ *  (filename → source text), sorted by filename for a deterministic merge. */
 const readCssDir = dir =>
   new Map(
     readdirSync(dir)
@@ -364,7 +364,7 @@ const main = async () => {
   const components = findComponents();
   const sonda = CFG.sonda ? await loadSonda() : null;
   if (sonda) {
-    console.log("  Sonda analysis enabled (combined report 鈫?bundle-treemap.html)");
+    console.log("  Sonda analysis enabled (combined report → bundle-treemap.html)");
   }
   const artifacts = buildEntries(components, CFG.sonda);
   console.log(
