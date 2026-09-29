@@ -10,7 +10,7 @@
     center     = base + 3       (9503)  — anchor dot inside box
     handles    = base + 5       (9505)  — 8 drag handles on box edges
     controls   = base + 10      (9510)  — other leaflet controls above mask
-    scale/attr = 850            — dim below overlay (under export-base on purpose)
+    scale/attr = base - 10      (9490)  — dim under crop mask, above all data layers
     export ctrl= base + 200     (9700)  — toggle button, always clickable
 
   Blocker/preview rides --foliplus-z-index-top (control z), not export z. */
@@ -25,7 +25,7 @@
   --foliplus-export-dim-color-locked: rgba(0, 0, 0, var(--foliplus-alpha-50));
   /* Controls above mask */
   --foliplus-export-controls-z: calc(var(--foliplus-z-export-base) + 10);
-  --foliplus-export-scale-z: 850;
+  --foliplus-export-scale-z: calc(var(--foliplus-z-export-base) - 10);
   /* Fold control z-index */
   --foliplus-export-fold-z: calc(var(--foliplus-z-export-base) + 200);
   /* Handle/center anchor size */
