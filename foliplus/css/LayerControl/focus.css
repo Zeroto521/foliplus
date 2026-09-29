@@ -40,15 +40,15 @@
    needs a top-level selector. Leaflet renders L.rectangle as a <path> with
    className applied directly (no polygon child).
    Shares the "selection border" language with ExportControl's crop box:
-   accent dashed outline, --border-thick (2px). The focus rect is transient
+   accent dashed outline, --foliplus-border-thick (2px). The focus rect is transient
    (marching ants), the crop box is interactive (static), so animation
    differs. No fill — a thin border only, so it never tints the focused
    layer underneath. */
 path.foliplus-focus-rect {
   fill: none;
-  stroke: var(--accent-primary);
-  stroke-dasharray: var(--dash-rhythm);
-  stroke-width: var(--border-thick);
+  stroke: var(--foliplus-accent-primary);
+  stroke-dasharray: var(--foliplus-dash-rhythm);
+  stroke-width: var(--foliplus-border-thick);
   stroke-linejoin: round;
   /* "Marching ants" selection marquee — the dashes flow along the border. */
   animation: foliplus-focus-march 0.8s linear infinite;
@@ -64,14 +64,14 @@ path.foliplus-focus-mask {
    layer (thousands of CircleMarkers) stays cheap. Fades the glow in once. */
 .foliplus-focus-pane.foliplus-focus-glow {
   animation: foliplus-focus-glow-in 0.2s ease-out;
-  filter: drop-shadow(0 0 var(--size-4) var(--accent-primary));
+  filter: drop-shadow(0 0 var(--foliplus-size-4) var(--foliplus-accent-primary));
 }
 @keyframes foliplus-focus-glow-in {
   from {
-    filter: drop-shadow(0 0 0 rgba(var(--red-rgb), 0));
+    filter: drop-shadow(0 0 0 rgba(var(--foliplus-red-rgb), 0));
   }
   to {
-    filter: drop-shadow(0 0 var(--size-4) var(--accent-primary));
+    filter: drop-shadow(0 0 var(--foliplus-size-4) var(--foliplus-accent-primary));
   }
 }
 

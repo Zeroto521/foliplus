@@ -11,6 +11,7 @@ import {
   COLOR_PANE_PREFIX,
   GROUP,
   HIDDEN,
+  KIND,
   PANE_NAME_PATTERN,
 } from "./const.js";
 import type {
@@ -290,7 +291,7 @@ class LayerFactory {
       layerOpts = {
         ...commonLayerOpts,
         name: opts.name,
-        kind: "vector" as const,
+        kind: KIND.VECTOR,
         group: GROUP.OVERLAY,
         layer: mainLayer,
         paneName: basePaneName,
@@ -441,7 +442,7 @@ class LayerFactory {
 
       layerOpts = {
         ...commonLayerOpts,
-        kind: "solid" as const,
+        kind: KIND.SOLID,
         // Default the opacity redraw hook to the face's own paint so a
         // caller that only wants the fill still gets the bake live. Color
         // is a single fillRect — `"commit"` (bake + repaint on the slider
@@ -512,7 +513,7 @@ class LayerFactory {
       const customLayer = opts.content.layer ?? null;
       layerOpts = {
         ...commonLayerOpts,
-        kind: "custom" as const,
+        kind: KIND.CUSTOM,
         custom,
         layer: customLayer,
       };
@@ -573,7 +574,7 @@ class LayerFactory {
 
     layerOpts = {
       ...commonLayerOpts,
-      kind: "canvas" as const,
+      kind: KIND.CANVAS,
       canvas,
       paneName,
       getBounds: getBounds ?? null,

@@ -16,16 +16,16 @@
     width: 100%;
     height: 100%;
   }
-  /* One grid for the whole list, pinned to the shared --form-label-width so
+  /* One grid for the whole list, pinned to the shared --foliplus-form-label-width so
      the attrs panel's control column sits on the same vertical line as the
      heatmap and style panels. Horizontal inset lives here because
      `display: contents` rows have no padding box. */
   .foliplus-layer-attrs-panel dl {
     display: grid;
-    grid-template-columns: var(--form-label-width) 1fr;
-    column-gap: var(--space-md);
+    grid-template-columns: var(--foliplus-form-label-width) 1fr;
+    column-gap: var(--foliplus-space-md);
     align-items: center;
-    padding: 0 var(--space-lg);
+    padding: 0 var(--foliplus-space-lg);
   }
   .foliplus-layer-attrs-panel .foliplus-form-row {
     display: contents;
@@ -36,7 +36,7 @@
      `display: contents` drops; `justify-content` is the flex twin of the
      shared rule's `text-align`, which does not reach a flex line. */
   .foliplus-layer-attrs-panel .foliplus-form-label {
-    min-height: var(--toggle-size);
+    min-height: var(--foliplus-toggle-size);
     display: flex;
     align-items: center;
     justify-content: flex-end;
@@ -47,10 +47,10 @@
        one line inside the fixed label-column layout. `margin: 0` because a
        <dd> carries a UA block margin the heatmap's <div> does not. */
     margin: 0;
-    min-height: var(--toggle-size);
+    min-height: var(--foliplus-toggle-size);
     display: flex;
     align-items: center;
-    font-size: var(--font-size-sm);
+    font-size: var(--foliplus-font-size-sm);
     font-variant-numeric: tabular-nums;
     overflow-wrap: anywhere;
   }

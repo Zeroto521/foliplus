@@ -66,14 +66,53 @@ const GEOM_TYPE = {
  *  LayerControl/const re-exports it as `CONST.GROUP`. */
 const GROUP = { OVERLAY: "overlay", BASE: "base" } as const;
 
+/** Layer kind names — the `LayerKind` vocabulary ("tile" | "vector" | "canvas"
+ *  | "solid" | "cluster" | "custom"). Owned by core so the factory, registry,
+ *  and surface probe stamp and compare against one definition; `LayerKind` in
+ *  type.ts derives from it, so the vocabulary cannot drift. */
+const KIND = {
+  TILE: "tile",
+  VECTOR: "vector",
+  CANVAS: "canvas",
+  SOLID: "solid",
+  CLUSTER: "cluster",
+  CUSTOM: "custom",
+} as const;
+
+/** Dimension-key names — the shared word face of `LayerDimension.key`,
+ *  `DIM_ORDER`, and the capability slots ("opacity" | "fill" | "border" |
+ *  "zoomRange" | "annotation"). Owned by core so the style registry and the
+ *  capability contract read one definition; `LayerDimKey` in type.ts derives
+ *  from it, so the vocabulary cannot drift. */
+const DIM = {
+  OPACITY: "opacity",
+  FILL: "fill",
+  BORDER: "border",
+  ZOOM_RANGE: "zoomRange",
+  ANNOTATION: "annotation",
+} as const;
+
+/** Capability-tier names — how a surface honestly carries a write
+ *  ("native" | "pane" | "none"). The `LayerCapabilities` slots' value face:
+ *  `detectCapabilities` stamps these, the style gates and the executor
+ *  compare against them. Slot *names* stay plain property identifiers. */
+const CAP_TIER = {
+  NATIVE: "native",
+  PANE: "pane",
+  NONE: "none",
+} as const;
+
 export {
   CACHE,
   CANVAS_PANE_PREFIX,
+  CAP_TIER,
   COLOR_PANE_PREFIX,
+  DIM,
   FALLBACK_PANE_PREFIX,
   GEOM_TYPE,
   GROUP,
   HIDDEN,
+  KIND,
   PANE_NAME_PATTERN,
   RECURSION,
   Z_INDEX,

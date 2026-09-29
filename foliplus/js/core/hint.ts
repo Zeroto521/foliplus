@@ -14,7 +14,7 @@ const BASE = { BOTTOM: 20, STACK_GAP: 40 };
 const CLASS = "foliplus-hint";
 const HINT_Z_INDEX_DEFAULT = 10000;
 
-/** Hint z-index base, read once from the --z-index-hint token (fallback 10000). */
+/** Hint z-index base, read once from the --foliplus-z-index-hint token (fallback 10000). */
 let hintZIndex: number | null = null;
 const zIndexBase = (): number => {
   if (hintZIndex === null) {
@@ -22,7 +22,7 @@ const zIndexBase = (): number => {
       Number(
         cssVar(
           document.documentElement,
-          "--z-index-hint",
+          "--foliplus-z-index-hint",
           String(HINT_Z_INDEX_DEFAULT),
         ),
       ) || HINT_Z_INDEX_DEFAULT;

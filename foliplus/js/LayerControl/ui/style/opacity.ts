@@ -25,7 +25,7 @@ import { registerDimension } from "./registry.js";
 const layerCanOpacity = (ui: LayerUI, layerId: string): boolean => {
   const li = ui.m.layerRegistry.get(layerId);
   if (!li) return false;
-  return ui.m.surfaceFor(li).capabilities.opacity !== "none";
+  return ui.m.surfaceFor(li).capabilities.opacity !== CONST.CAP_TIER.NONE;
 };
 
 /** UI percentage (0-100) for a stored opacity (0-1). */
@@ -205,7 +205,7 @@ const resetLayerOpacity = (ui: LayerUI, layerId: string): void => {
  *  moment a new dimension lands with a different shape, the panel's own
  *  honest-degradation rule stops being a rule. */
 const OPACITY_DIMENSION = registerDimension<number>({
-  key: "opacity",
+  key: CONST.DIM.OPACITY,
   gate: layerCanOpacity,
   value: (ui, layerId) => {
     const li = ui.m.layerRegistry.get(layerId);

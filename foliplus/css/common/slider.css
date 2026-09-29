@@ -10,7 +10,7 @@
   here, once.
 
   A consumer keeps its own hook classes for behavior and tests, adds
-  `--slider-thumb-ring` to state its own coverage, and gets the geometry for
+  `--foliplus-slider-thumb-ring` to state its own coverage, and gets the geometry for
   free.
 
   Structure (DOM order is the paint order inside the rail):
@@ -33,8 +33,8 @@
   min-width: 0;
   /* Room for a handle at its held size (1.5x) above the rail — the tallest
      thing in the row, since the 24px hit box is invisible. */
-  padding-top: var(--space-sm);
-  gap: var(--space-xs);
+  padding-top: var(--foliplus-space-sm);
+  gap: var(--foliplus-space-xs);
 }
 
 /* The rail carries the two states of the span it describes: the covered part is
@@ -47,14 +47,14 @@
      box, so this is what makes their travel equal the rail — the handle's center
      reaches the rail's ends, and the rail with its handles stays inside the
      row's cell instead of poking out at both sides. */
-  margin: 0 calc(var(--slider-thumb-size) / 2);
+  margin: 0 calc(var(--foliplus-slider-thumb-size) / 2);
   box-sizing: content-box;
-  height: var(--slider-rail-height);
-  background-color: var(--slider-rail-bg);
-  background-image: var(--slider-rail-pattern);
-  background-size: var(--slider-rail-pattern-size);
-  border: var(--border-thin) solid var(--input-border);
-  border-radius: calc(var(--slider-rail-height) / 2);
+  height: var(--foliplus-slider-rail-height);
+  background-color: var(--foliplus-slider-rail-bg);
+  background-image: var(--foliplus-slider-rail-pattern);
+  background-size: var(--foliplus-slider-rail-pattern-size);
+  border: var(--foliplus-border-thin) solid var(--foliplus-input-border);
+  border-radius: calc(var(--foliplus-slider-rail-height) / 2);
 }
 
 /* The covered span. JS positions it against the handle's travel range, so its
@@ -66,13 +66,13 @@
   /* Flat accent — the same red as the panel's toggle switches, so the two
      hand controls read as one family. A gradient made the bar read as a
      different (darker) red at one end. */
-  background: var(--accent-primary);
-  border-radius: calc(var(--slider-rail-height) / 2);
+  background: var(--foliplus-accent-primary);
+  border-radius: calc(var(--foliplus-slider-rail-height) / 2);
   pointer-events: none;
   transition:
-    left var(--transition-fast),
-    right var(--transition-fast),
-    width var(--transition-fast);
+    left var(--foliplus-transition-fast),
+    right var(--foliplus-transition-fast),
+    width var(--foliplus-transition-fast);
 }
 
 /* Readout dots. They never move unless JS places them: the scale's fixed ends
@@ -83,20 +83,20 @@
 .foliplus-slider-dot {
   position: absolute;
   top: 50%;
-  width: var(--slider-dot-size);
-  height: var(--slider-dot-size);
+  width: var(--foliplus-slider-dot-size);
+  height: var(--foliplus-slider-dot-size);
   box-sizing: border-box;
-  background: var(--neutral-0);
-  border: var(--size-2) solid var(--neutral-500);
+  background: var(--foliplus-neutral-0);
+  border: var(--foliplus-size-2) solid var(--foliplus-neutral-500);
   border-radius: 50%;
   transform: translate(-50%, -50%);
   pointer-events: none;
   /* Coverage is a state the row flips as the range moves; easing it keeps the
      readout from snapping. */
-  transition: border-color var(--transition-fast);
+  transition: border-color var(--foliplus-transition-fast);
 }
 .foliplus-slider-dot-covered {
-  border-color: var(--accent-primary);
+  border-color: var(--foliplus-accent-primary);
 }
 .foliplus-slider-dot-min {
   left: 0;
@@ -136,8 +136,8 @@
      moves the thumb off the center line. */
   top: 0;
   bottom: 0;
-  left: calc(var(--slider-thumb-size) / -2);
-  right: calc(var(--slider-thumb-size) / -2);
+  left: calc(var(--foliplus-slider-thumb-size) / -2);
+  right: calc(var(--foliplus-slider-thumb-size) / -2);
   margin: 0;
   background: transparent;
   pointer-events: none;
@@ -146,27 +146,27 @@
   cursor: pointer;
 }
 .foliplus-slider-handle::-webkit-slider-runnable-track {
-  height: var(--slider-rail-height);
+  height: var(--foliplus-slider-rail-height);
   background: transparent;
   border: 0;
 }
 .foliplus-slider-handle::-moz-range-track {
-  height: var(--slider-rail-height);
+  height: var(--foliplus-slider-rail-height);
   background: transparent;
   border: 0;
 }
 .foliplus-slider-handle::-webkit-slider-thumb {
   appearance: none;
-  margin-top: var(--slider-thumb-offset);
-  width: var(--slider-thumb-size);
-  height: var(--slider-thumb-size);
-  padding: var(--slider-thumb-pad);
+  margin-top: var(--foliplus-slider-thumb-offset);
+  width: var(--foliplus-slider-thumb-size);
+  height: var(--foliplus-slider-thumb-size);
+  padding: var(--foliplus-slider-thumb-pad);
   box-sizing: content-box;
   background-image: radial-gradient(
     circle,
-    var(--neutral-0) 0 var(--slider-thumb-core),
-    var(--slider-thumb-ring) var(--slider-thumb-core)
-      calc(var(--slider-thumb-core) + var(--size-2))
+    var(--foliplus-neutral-0) 0 var(--foliplus-slider-thumb-core),
+    var(--foliplus-slider-thumb-ring) var(--foliplus-slider-thumb-core)
+      calc(var(--foliplus-slider-thumb-core) + var(--foliplus-size-2))
   );
   background-clip: content-box;
   border: 0;
@@ -174,21 +174,21 @@
   pointer-events: auto;
   cursor: grab;
   transition:
-    transform var(--transition-fast),
-    box-shadow var(--transition-fast);
+    transform var(--foliplus-transition-fast),
+    box-shadow var(--foliplus-transition-fast);
 }
 .foliplus-slider-handle::-moz-range-thumb {
   appearance: none;
-  margin-top: var(--slider-thumb-offset);
-  width: var(--slider-thumb-size);
-  height: var(--slider-thumb-size);
-  padding: var(--slider-thumb-pad);
+  margin-top: var(--foliplus-slider-thumb-offset);
+  width: var(--foliplus-slider-thumb-size);
+  height: var(--foliplus-slider-thumb-size);
+  padding: var(--foliplus-slider-thumb-pad);
   box-sizing: content-box;
   background-image: radial-gradient(
     circle,
-    var(--neutral-0) 0 var(--slider-thumb-core),
-    var(--slider-thumb-ring) var(--slider-thumb-core)
-      calc(var(--slider-thumb-core) + var(--size-2))
+    var(--foliplus-neutral-0) 0 var(--foliplus-slider-thumb-core),
+    var(--foliplus-slider-thumb-ring) var(--foliplus-slider-thumb-core)
+      calc(var(--foliplus-slider-thumb-core) + var(--foliplus-size-2))
   );
   background-clip: content-box;
   border: 0;
@@ -196,8 +196,8 @@
   pointer-events: auto;
   cursor: grab;
   transition:
-    transform var(--transition-fast),
-    box-shadow var(--transition-fast);
+    transform var(--foliplus-transition-fast),
+    box-shadow var(--foliplus-transition-fast);
 }
 /* Parked is a small dot; in use it grows. Size carries "held", the ring carries
    coverage, the bubble carries the value. */
@@ -210,24 +210,24 @@
 .foliplus-slider-handle:active::-webkit-slider-thumb {
   cursor: grabbing;
   transform: scale(1.15);
-  box-shadow: var(--slider-thumb-glow);
+  box-shadow: var(--foliplus-slider-thumb-glow);
 }
 .foliplus-slider-handle:active::-moz-range-thumb {
   cursor: grabbing;
   transform: scale(1.15);
-  box-shadow: var(--slider-thumb-glow);
+  box-shadow: var(--foliplus-slider-thumb-glow);
 }
 .foliplus-slider-handle:focus-visible::-webkit-slider-thumb {
   transform: scale(1.15);
   /* The panel's one focus ring, same as every input beside it — and the
      static one: the inputs' breathing pulse is not repeated here. */
-  box-shadow: var(--focus-ring);
+  box-shadow: var(--foliplus-focus-ring);
 }
 .foliplus-slider-handle:focus-visible::-moz-range-thumb {
   transform: scale(1.15);
   /* The panel's one focus ring, same as every input beside it — and the
      static one: the inputs' breathing pulse is not repeated here. */
-  box-shadow: var(--focus-ring);
+  box-shadow: var(--foliplus-focus-ring);
 }
 
 /* The scale's numbers, under the marks they belong to: the fixed ends at the
@@ -236,11 +236,11 @@
   position: relative;
   /* The same inset the rail takes, so a label's 0% / 100% means the rail's end —
      which is where its dot sits — instead of the cell's edge. */
-  margin: 0 calc(var(--slider-thumb-size) / 2);
-  height: var(--font-size-md);
-  line-height: var(--font-size-md);
-  font-size: var(--font-size-sm);
-  color: var(--text-primary);
+  margin: 0 calc(var(--foliplus-slider-thumb-size) / 2);
+  height: var(--foliplus-font-size-md);
+  line-height: var(--foliplus-font-size-md);
+  font-size: var(--foliplus-font-size-sm);
+  color: var(--foliplus-text-primary);
   font-variant-numeric: tabular-nums;
 }
 .foliplus-slider-values > span {
@@ -264,16 +264,17 @@
    room on a rail this short. */
 .foliplus-slider-bubble {
   position: absolute;
-  bottom: calc(100% + var(--space-sm));
-  padding: var(--size-2) var(--size-6);
-  background: var(--text-primary);
-  color: var(--neutral-0);
-  border-radius: var(--radius-sm);
-  font-size: var(--font-size-sm);
+  bottom: calc(100% + var(--foliplus-space-sm));
+  padding: var(--foliplus-size-2) var(--foliplus-size-6);
+  background: var(--foliplus-text-primary);
+  color: var(--foliplus-neutral-0);
+  border-radius: var(--foliplus-radius-sm);
+  font-size: var(--foliplus-font-size-sm);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   pointer-events: none;
-  box-shadow: 0 var(--border-thin) var(--size-2) rgba(0, 0, 0, var(--alpha-30));
+  box-shadow: 0 var(--foliplus-border-thin) var(--foliplus-size-2)
+    rgba(0, 0, 0, var(--foliplus-alpha-30));
   transform: translateX(-50%);
 }
 .foliplus-slider-bubble::after {
@@ -282,8 +283,8 @@
   top: 100%;
   left: 50%;
   transform: translateX(-50%);
-  border: var(--size-4) solid transparent;
-  border-top-color: var(--text-primary);
+  border: var(--foliplus-size-4) solid transparent;
+  border-top-color: var(--foliplus-text-primary);
 }
 
 @media (prefers-reduced-motion: reduce) {

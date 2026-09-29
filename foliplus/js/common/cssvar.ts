@@ -5,7 +5,7 @@
  * Read a CSS custom property value from a container element.
  * Falls back to the provided default if the property is not set or empty.
  * @param el - Element to query computed styles from
- * @param prop - CSS custom property name, e.g. "--heatmap-label-color"
+ * @param prop - CSS custom property name, e.g. "--foliplus-heatmap-label-color"
  * @param fallback - Fallback value if property is not defined
  */
 const cssVar = (el: HTMLElement, prop: string, fallback = ""): string => {

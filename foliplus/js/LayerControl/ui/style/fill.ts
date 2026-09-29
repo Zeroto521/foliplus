@@ -84,7 +84,7 @@ const isColorBasemap = (li: LayerInfo | undefined): boolean => {
 const layerCanFill = (ui: LayerUI, layerId: string): boolean => {
   const li = ui.m.layerRegistry.get(layerId);
   if (!li) return false;
-  return ui.m.surfaceFor(li).capabilities.fill === "native";
+  return ui.m.surfaceFor(li).capabilities.fill === CONST.CAP_TIER.NATIVE;
 };
 
 /** The layer's authored base style, captured on the layer's first fill
@@ -247,7 +247,7 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
     // guarantees a setStyle, so no isStyleSetter guard is needed here.
     // The "fill" key makes each commit replace this dimension's getter
     // instead of stacking a fresh closure.
-    pinStyleOnHighlight(node, "fill", () => {
+    pinStyleOnHighlight(node, CONST.DIM.FILL, () => {
       const c = ui.fillColorMap[layerId];
       const o = ui.fillOpacityMap[layerId];
       if (c === undefined && o === undefined) return null;
@@ -427,7 +427,7 @@ const FILL_DIMENSION = registerDimension<{
   color: string;
   opacity: number | null;
 }>({
-  key: "fill",
+  key: CONST.DIM.FILL,
   gate: layerCanFill,
   value: (ui, layerId) => {
     const li = ui.m.layerRegistry.get(layerId);

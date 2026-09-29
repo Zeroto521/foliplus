@@ -105,28 +105,18 @@ const makeMidLabelDivIcon = (html: string): L.DivIcon => {
   );
 };
 
-/** SVG radius for a `.foliplus-dot` node, read from the same tokens that size
- *  the DOM anchors. The shared outer diameter is `--foliplus-dot-size`; the
- *  centered stroke sits half in / half out of the path, so the circleMarker
- *  radius is `(size - stroke) / 2`. Both renderings keep the same outer edge.
- *
- *  `L.circleMarker` rounds `radius` to an integer CSS pixel when it writes the
- *  SVG path (`Math.round(_radius)` in the SVG renderer's `_updateCircle`), so
- *  the default pair 12.5 / 2.5 is round-safe (radius 5.0, identity round). A
- *  non-round-safe override (e.g. size 11px ⇒ radius 4.25) snaps the measure
- *  nodes to the rounded pixel while the DOM anchors keep the subpixel — the
- *  token comment in token.css documents this; do not paper over it here.
- *  Keeping the read here means a token change sizes every dot at once —
- *  `CONST.MARKER.RADIUS` is only the token-less fallback. */
+/** SVG radius for a `.foliplus-dot` node: `(--foliplus-dot-size - --foliplus-dot-stroke) / 2`.
+ *  The tokens in token.css are the only definition; this just derives the
+ *  circleMarker radius so both renderings share the same outer edge. */
 const nodeRadius = (): number => {
   const size = parseFloat(cssVar(document.documentElement, "--foliplus-dot-size", ""));
   const stroke = parseFloat(
     cssVar(document.documentElement, "--foliplus-dot-stroke", ""),
   );
-  if (Number.isFinite(size) && Number.isFinite(stroke) && size > stroke) {
-    return (size - stroke) / 2;
+  if (!Number.isFinite(size) || !Number.isFinite(stroke) || size <= stroke) {
+    throw new Error("foliplus: --foliplus-dot-size / --foliplus-dot-stroke unreadable");
   }
-  return CONST.MARKER.RADIUS;
+  return (size - stroke) / 2;
 };
 
 /** Create a measure node circle marker. */

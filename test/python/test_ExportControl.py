@@ -196,7 +196,7 @@ class TestExportControlRendering:
         assert "foliplus-hidden" in html
 
     def test_css_z_index_pattern(self):
-        """CSS uses --z-export-base variable with calc()."""
+        """CSS uses --foliplus-z-export-base variable with calc()."""
         html = render_control(ExportControl())
         assert "z-export-base" in html
         assert "calc(" in html
@@ -206,7 +206,7 @@ class TestExportControlRendering:
         from conftest import read_css
 
         css = read_css("foliplus/css/ExportControl.css")
-        assert "var(--z-index-top)" in css
+        assert "var(--foliplus-z-index-top)" in css
         # The rule uses the token; the literal may only appear in a comment.
         assert "z-index: 100000" not in css
 

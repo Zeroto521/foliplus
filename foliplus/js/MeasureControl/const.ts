@@ -7,11 +7,6 @@ const TIMING = {
   FINALIZE_DELAY: 50,
 };
 
-/** Measure node marker. `RADIUS` is only the fallback for when the
- *  `--foliplus-dot-size` / `--foliplus-dot-stroke` tokens cannot be read;
- *  live markers go through `nodeRadius()` in util.ts. */
-const MARKER = { RADIUS: 5 };
-
 /** Label markers. */
 const LABEL = {
   DEFAULT_ANCHOR: [0, -10],
@@ -105,7 +100,7 @@ const CLASSES = {
 };
 
 /** Style property names. */
-const STYLE = { SWEEP_LENGTH: "--sweep-length" };
+const STYLE = { SWEEP_LENGTH: "--foliplus-sweep-length" };
 
 /** DOM selectors. */
 const SEL = {
@@ -152,7 +147,6 @@ const MEASURE_MODE = {
 
 export {
   TIMING,
-  MARKER,
   LABEL,
   READOUT,
   LABEL_PRIORITY,

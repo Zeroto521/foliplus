@@ -133,23 +133,19 @@ describe("makeNode", () => {
 });
 
 describe("nodeRadius", () => {
-  it("falls back to MARKER.RADIUS when tokens are unreadable", () => {
-    // jsdom has no foliplus CSS loaded — both cssVar reads return "".
-    expect(Util.nodeRadius()).toBe(CONST.MARKER.RADIUS);
+  it("derives (size - stroke) / 2 from the shared tokens", () => {
+    // setup.ts installs the default pair (12.5 / 2.5) — radius 5.
+    expect(Util.nodeRadius()).toBe(5);
   });
 
-  it("derives (size - stroke) / 2 from the shared tokens", () => {
+  it("throws when the tokens are unreadable", () => {
     const root = document.documentElement;
     const prevSize = root.style.getPropertyValue("--foliplus-dot-size");
-    const prevStroke = root.style.getPropertyValue("--foliplus-dot-stroke");
-    root.style.setProperty("--foliplus-dot-size", "12.5px");
-    root.style.setProperty("--foliplus-dot-stroke", "2.5px");
+    root.style.removeProperty("--foliplus-dot-size");
     try {
-      // Default pair is Leaflet-round-safe: radius 5.0, identity Math.round.
-      expect(Util.nodeRadius()).toBe(5);
+      expect(() => Util.nodeRadius()).toThrow(/dot-size/);
     } finally {
       root.style.setProperty("--foliplus-dot-size", prevSize);
-      root.style.setProperty("--foliplus-dot-stroke", prevStroke);
     }
   });
 });
@@ -183,7 +179,10 @@ describe("animateDashSweep", () => {
       removeEventListener: vi.fn(),
     };
     Util.animateDashSweep(path as any);
-    expect(path.style.setProperty).toHaveBeenCalledWith("--sweep-length", "120");
+    expect(path.style.setProperty).toHaveBeenCalledWith(
+      "--foliplus-sweep-length",
+      "120",
+    );
     expect(path.classList.add).toHaveBeenCalledWith("foliplus-measure-dash-sweep");
 
     // Fire animationend → cleanup runs

@@ -26,22 +26,22 @@
      selected range fills the rail with the accent color, and a vertical line
      marks the map's current zoom. A dimmed state (.out-of-range) appears when
      the current zoom falls outside the selected range. Geometry comes from the
-     shared --slider-* tokens (token.css), so this rail is the same 8px capsule
+     shared --foliplus-slider-* tokens (token.css), so this rail is the same 8px capsule
      the opacity row uses. */
   .foliplus-style-zoom-range-row {
     /* The rail, the fill, the readout dots, the numbers and the handles are the
        shared slider component (common/slider.css). This row states only what its
        own coverage state looks like. */
     .foliplus-style-zoom-range-current-value {
-      color: var(--text-primary);
-      font-weight: var(--font-weight-medium);
+      color: var(--foliplus-text-primary);
+      font-weight: var(--foliplus-font-weight-medium);
     }
 
     /* Out of range: the rail dims to signal the current zoom is outside the
        selected range. */
     &.foliplus-zoom-range-out-of-range {
       .foliplus-slider-rail {
-        opacity: var(--alpha-50);
+        opacity: var(--foliplus-alpha-50);
       }
     }
   }

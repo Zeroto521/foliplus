@@ -1,6 +1,6 @@
 /* ── Export Control ──
   Z-index scope: 9500–9700 (between map content/controls and hints).
-  base = 9500, all elements use calc(var(--z-export-base) + N).
+  base = 9500, all elements use calc(var(--foliplus-z-export-base) + N).
 
     overlay    = base           (9500)  — transparent placeholder
     box        = base + 1       (9501)  — dashed border, ::before dims outside
@@ -9,33 +9,30 @@
     controls   = base + 10      (9510)  — other leaflet controls above mask
     scale/attr = 850            — dim below overlay (Leaflet default is 800)
     export ctrl= base + 200     (9700)  — toggle button, always clickable
-    blocker/preview = --z-index-top (100000) — above fullscreen (99999)
+    blocker/preview = --foliplus-z-index-top (100000) — above fullscreen (99999)
     hint       = 10000+         — JS-managed by runtime.js, no CSS rule needed */
 
 .foliplus-export-mode {
-  --z-export-base: 9500;
-  /* Dim mask shadow extent & color. --export-dim-color (0.4) must stay in
+  --foliplus-z-export-base: 9500;
+  /* Dim mask shadow extent & color. --foliplus-export-dim-color (0.4) must stay in
      sync with LayerControl's FOCUS.MASK_OPACITY so both selection boxes
      dim alike. */
-  --export-dim-extent: 9999px;
-  --export-dim-color: rgba(0, 0, 0, 0.4);
-  --export-dim-color-locked: rgba(0, 0, 0, var(--alpha-50));
+  --foliplus-export-dim-extent: 9999px;
+  --foliplus-export-dim-color: rgba(0, 0, 0, 0.4);
+  --foliplus-export-dim-color-locked: rgba(0, 0, 0, var(--foliplus-alpha-50));
   /* Controls above mask */
-  --export-controls-z: calc(var(--z-export-base) + 10);
-  --export-scale-z: 850;
+  --foliplus-export-controls-z: calc(var(--foliplus-z-export-base) + 10);
+  --foliplus-export-scale-z: 850;
   /* Fold control z-index */
-  --export-ctrl-z: calc(var(--z-export-base) + 200);
-  /* Handle/center anchor size — shared `--foliplus-dot-size` from
-     common/token.css, so the crop-box anchors measure the same across as the
-     measure nodes. The look itself is `.foliplus-dot-hollow` / `-solid` in
-     common/button.css; this file adds only the box-relative anchoring. */
-  --export-anchor-size: var(--foliplus-dot-size);
+  --foliplus-export-fold-z: calc(var(--foliplus-z-export-base) + 200);
+  /* Handle/center anchor size */
+  --foliplus-export-anchor-size: var(--foliplus-dot-size);
   /* Handle/center offset from box edge (half of 1px border) */
-  --export-handle-offset: -1px;
+  --foliplus-export-handle-offset: -1px;
   /* Smooth box follow during drag */
-  --export-move-transition:
-    left var(--transition-fast), top var(--transition-fast),
-    width var(--transition-fast), height var(--transition-fast);
+  --foliplus-export-move-transition:
+    left var(--foliplus-transition-fast), top var(--foliplus-transition-fast),
+    width var(--foliplus-transition-fast), height var(--foliplus-transition-fast);
 
   /* Reset Leaflet stacking context so controls can sit above the crop mask.
     leaflet-top/leaflet-bottom have z-index:1000 by default, creating a
@@ -48,14 +45,14 @@
 
   /* Keep controls visible above the crop mask */
   .leaflet-control {
-    z-index: var(--export-controls-z) !important;
+    z-index: var(--foliplus-export-controls-z) !important;
   }
 
   /* Scale/attribution stay dim below the mask */
   .leaflet-control-scale,
   .leaflet-control-attribution {
-    z-index: var(--export-scale-z) !important;
-    background: var(--ctrl-bg-translucent);
+    z-index: var(--foliplus-export-scale-z) !important;
+    background: var(--foliplus-ctrl-bg-translucent);
   }
 }
 
@@ -68,11 +65,11 @@
 
 /* Export ctrl container (above overlay, below hints at 10000+) */
 .foliplus-export-ctrl {
-  z-index: var(--export-ctrl-z);
+  z-index: var(--foliplus-export-fold-z);
 
   /* Confirm/download buttons: red accent to distinguish from cancel */
   .foliplus-tool-btn.foliplus-confirm {
-    color: var(--accent-primary);
+    color: var(--foliplus-accent-primary);
   }
 }
 
@@ -82,7 +79,7 @@
   inset: 0;
   background: transparent;
   pointer-events: none;
-  z-index: var(--z-export-base);
+  z-index: var(--foliplus-z-export-base);
   box-sizing: border-box;
 }
 
@@ -93,15 +90,15 @@
 .foliplus-export-blocker {
   position: fixed;
   inset: 0;
-  z-index: var(--z-index-top);
+  z-index: var(--foliplus-z-index-top);
   cursor: wait;
 }
 
-/* Crop box: dashed border using --dash-rhythm (matches measure paths and the
+/* Crop box: dashed border using --foliplus-dash-rhythm (matches measure paths and the
    LayerControl focus rect) + ::before creates 9999px shadow to dim outside.
    Dashes are drawn with background gradients because CSS `border: dashed`
    uses a browser-defined pattern that cannot match the SVG stroke-dasharray
-   used by the focus rect. --dash-rhythm is expanded inline here because the
+   used by the focus rect. --foliplus-dash-rhythm is expanded inline here because the
    gradient syntax needs the dash/gap values as separate stops. */
 .foliplus-export-box {
   position: absolute;
@@ -109,34 +106,38 @@
      the handles keep their edge offsets (they are inset from the padding box,
      which a removed border would shift). The visible dashes come from the
      background gradients below. */
-  border: var(--border-thick) solid transparent;
+  border: var(--foliplus-border-thick) solid transparent;
   background-color: transparent;
   background-image:
     repeating-linear-gradient(
       to right,
-      var(--accent-primary) 0 var(--size-6),
-      transparent var(--size-6) calc(var(--size-6) + var(--size-4))
+      var(--foliplus-accent-primary) 0 var(--foliplus-size-6),
+      transparent var(--foliplus-size-6)
+        calc(var(--foliplus-size-6) + var(--foliplus-size-4))
     ),
     repeating-linear-gradient(
       to right,
-      var(--accent-primary) 0 var(--size-6),
-      transparent var(--size-6) calc(var(--size-6) + var(--size-4))
+      var(--foliplus-accent-primary) 0 var(--foliplus-size-6),
+      transparent var(--foliplus-size-6)
+        calc(var(--foliplus-size-6) + var(--foliplus-size-4))
     ),
     repeating-linear-gradient(
       to bottom,
-      var(--accent-primary) 0 var(--size-6),
-      transparent var(--size-6) calc(var(--size-6) + var(--size-4))
+      var(--foliplus-accent-primary) 0 var(--foliplus-size-6),
+      transparent var(--foliplus-size-6)
+        calc(var(--foliplus-size-6) + var(--foliplus-size-4))
     ),
     repeating-linear-gradient(
       to bottom,
-      var(--accent-primary) 0 var(--size-6),
-      transparent var(--size-6) calc(var(--size-6) + var(--size-4))
+      var(--foliplus-accent-primary) 0 var(--foliplus-size-6),
+      transparent var(--foliplus-size-6)
+        calc(var(--foliplus-size-6) + var(--foliplus-size-4))
     );
   background-size:
-    100% var(--border-thick),
-    100% var(--border-thick),
-    var(--border-thick) 100%,
-    var(--border-thick) 100%;
+    100% var(--foliplus-border-thick),
+    100% var(--foliplus-border-thick),
+    var(--foliplus-border-thick) 100%,
+    var(--foliplus-border-thick) 100%;
   background-position:
     left top,
     left bottom,
@@ -148,31 +149,32 @@
   background-origin: border-box;
   background-repeat: no-repeat;
   cursor: move;
-  z-index: calc(var(--z-export-base) + 1);
+  z-index: calc(var(--foliplus-z-export-base) + 1);
   box-sizing: border-box;
-  box-shadow: 0 0 var(--size-16) var(--accent-soft-shadow);
-  border-radius: var(--size-2);
-  transition: var(--export-move-transition);
+  box-shadow: 0 0 var(--foliplus-size-16) var(--foliplus-accent-soft-shadow);
+  border-radius: var(--foliplus-size-2);
+  transition: var(--foliplus-export-move-transition);
 
   &::before {
     content: "";
     position: absolute;
-    inset: var(--export-handle-offset);
+    inset: var(--foliplus-export-handle-offset);
     pointer-events: none;
-    box-shadow: 0 0 0 var(--export-dim-extent) var(--export-dim-color);
+    box-shadow: 0 0 0 var(--foliplus-export-dim-extent) var(--foliplus-export-dim-color);
     z-index: -1;
   }
   &.foliplus-locked {
     cursor: default;
     /* Same accent color + thickness as the dashed border, only solid. */
-    border: var(--border-thick) solid var(--accent-primary);
+    border: var(--foliplus-border-thick) solid var(--foliplus-accent-primary);
     background-image: none;
     pointer-events: none;
-    box-shadow: 0 0 var(--size-16) var(--accent-soft-shadow);
+    box-shadow: 0 0 var(--foliplus-size-16) var(--foliplus-accent-soft-shadow);
     transition: none;
 
     &::before {
-      box-shadow: 0 0 0 var(--export-dim-extent) var(--export-dim-color-locked);
+      box-shadow: 0 0 0 var(--foliplus-export-dim-extent)
+        var(--foliplus-export-dim-color-locked);
     }
   }
 }
@@ -182,55 +184,55 @@
    measure nodes); only the box-relative anchoring is here. */
 .foliplus-export-handle {
   position: absolute;
-  width: var(--export-anchor-size);
-  height: var(--export-anchor-size);
-  z-index: calc(var(--z-export-base) + 5);
+  width: var(--foliplus-export-anchor-size);
+  height: var(--foliplus-export-anchor-size);
+  z-index: calc(var(--foliplus-z-export-base) + 5);
   pointer-events: auto;
 
   &.tl {
-    top: var(--export-handle-offset);
-    left: var(--export-handle-offset);
+    top: var(--foliplus-export-handle-offset);
+    left: var(--foliplus-export-handle-offset);
     transform: translate(-50%, -50%);
     cursor: nwse-resize;
   }
   &.tr {
-    top: var(--export-handle-offset);
-    right: var(--export-handle-offset);
+    top: var(--foliplus-export-handle-offset);
+    right: var(--foliplus-export-handle-offset);
     transform: translate(50%, -50%);
     cursor: nesw-resize;
   }
   &.bl {
-    bottom: var(--export-handle-offset);
-    left: var(--export-handle-offset);
+    bottom: var(--foliplus-export-handle-offset);
+    left: var(--foliplus-export-handle-offset);
     transform: translate(-50%, 50%);
     cursor: nesw-resize;
   }
   &.br {
-    bottom: var(--export-handle-offset);
-    right: var(--export-handle-offset);
+    bottom: var(--foliplus-export-handle-offset);
+    right: var(--foliplus-export-handle-offset);
     transform: translate(50%, 50%);
     cursor: nwse-resize;
   }
   &.t {
-    top: var(--export-handle-offset);
+    top: var(--foliplus-export-handle-offset);
     left: 50%;
     transform: translate(-50%, -50%);
     cursor: ns-resize;
   }
   &.b {
-    bottom: var(--export-handle-offset);
+    bottom: var(--foliplus-export-handle-offset);
     left: 50%;
     transform: translate(-50%, 50%);
     cursor: ns-resize;
   }
   &.l {
-    left: var(--export-handle-offset);
+    left: var(--foliplus-export-handle-offset);
     top: 50%;
     transform: translate(-50%, -50%);
     cursor: ew-resize;
   }
   &.r {
-    right: var(--export-handle-offset);
+    right: var(--foliplus-export-handle-offset);
     top: 50%;
     transform: translate(50%, -50%);
     cursor: ew-resize;
@@ -245,11 +247,11 @@
   position: absolute;
   top: 50%;
   left: 50%;
-  width: var(--export-anchor-size);
-  height: var(--export-anchor-size);
+  width: var(--foliplus-export-anchor-size);
+  height: var(--foliplus-export-anchor-size);
   transform: translate(-50%, -50%);
-  z-index: calc(var(--z-export-base) + 3);
-  box-shadow: 0 1px var(--size-4) var(--export-dim-color);
+  z-index: calc(var(--foliplus-z-export-base) + 3);
+  box-shadow: 0 1px var(--foliplus-size-4) var(--foliplus-export-dim-color);
   pointer-events: auto;
   cursor: move;
 }
@@ -267,12 +269,12 @@
   position: fixed;
   bottom: 10px;
   right: 10px;
-  z-index: var(--z-index-top);
+  z-index: var(--foliplus-z-index-top);
   max-width: 400px;
   max-height: 300px;
-  border: var(--border-thick) solid var(--input-focus-border);
-  border-radius: var(--radius-sm);
-  background: var(--ctrl-bg);
-  box-shadow: var(--shadow-md);
-  padding: var(--space-xs);
+  border: var(--foliplus-border-thick) solid var(--foliplus-input-focus-border);
+  border-radius: var(--foliplus-radius-sm);
+  background: var(--foliplus-ctrl-bg);
+  box-shadow: var(--foliplus-shadow-md);
+  padding: var(--foliplus-space-xs);
 }

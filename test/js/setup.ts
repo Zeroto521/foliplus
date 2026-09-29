@@ -204,4 +204,9 @@ globalThis.turf = {
 // Deliberately does not touch document.body — a test file that mounts DOM
 // in `beforeAll` would have its container wiped before the first `it` runs.
 // See `mountFixtureRoot()` in fixture.ts for a scoped alternative.
+// jsdom has no foliplus CSS; expose the dot tokens so `nodeRadius()` can read
+// its single source the same way a browser would.
+document.documentElement.style.setProperty("--foliplus-dot-size", "12.5px");
+document.documentElement.style.setProperty("--foliplus-dot-stroke", "2.5px");
+
 beforeEach(resetState);

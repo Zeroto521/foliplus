@@ -2,7 +2,7 @@
 //
 // HeatmapControl's hex values and LayerControl's annotation labels both draw
 // text with a halo on a canvas, and both take their typography from the shared
-// --label-* tokens. One resolver and one drawer, so the two can never drift:
+// --foliplus-label-* tokens. One resolver and one drawer, so the two can never drift:
 // same font, same fill, same halo — an annotation label and a hex value over
 // the same feature read as one language.
 import { cssVar } from "./cssvar.js";
@@ -20,21 +20,21 @@ interface CanvasLabelStyle {
   haloWidth: number;
 }
 
-/** Resolve the canvas label style from the --label-* tokens on `root` — the one
+/** Resolve the canvas label style from the --foliplus-label-* tokens on `root` — the one
  *  place a page restyles map-label typography, for the heatmap's hex values and
  *  LayerControl's annotation labels alike. */
 const resolveCanvasLabelStyle = (root: HTMLElement): CanvasLabelStyle => {
-  const fontFamily = cssVar(root, "--label-font-family", "sans-serif");
-  const fontSize = parseFloat(cssVar(root, "--label-font-size", "12")) || 12;
-  const fontWeight = cssVar(root, "--label-font-weight", "bold");
+  const fontFamily = cssVar(root, "--foliplus-label-font-family", "sans-serif");
+  const fontSize = parseFloat(cssVar(root, "--foliplus-label-font-size", "12")) || 12;
+  const fontWeight = cssVar(root, "--foliplus-label-font-weight", "bold");
   return {
     fontFamily,
     fontSize,
     fontWeight,
     font: `${fontWeight} ${fontSize}px ${fontFamily}`,
-    color: cssVar(root, "--label-color", "#fff"),
-    haloColor: cssVar(root, "--label-halo-color", "rgba(0, 0, 0, 0.75)"),
-    haloWidth: parseFloat(cssVar(root, "--label-halo-width", "3")) || 3,
+    color: cssVar(root, "--foliplus-label-color", "#fff"),
+    haloColor: cssVar(root, "--foliplus-label-halo-color", "rgba(0, 0, 0, 0.75)"),
+    haloWidth: parseFloat(cssVar(root, "--foliplus-label-halo-width", "3")) || 3,
   };
 };
 

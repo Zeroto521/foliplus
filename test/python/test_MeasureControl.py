@@ -174,10 +174,10 @@ class TestMeasureControlRendering:
     # ── Finish animation tests ──
 
     def test_dash_sweep_animation_classes(self):
-        """Distance finishDist adds foliplus-measure-dash-sweep class with --sweep-length."""
+        """Distance finishDist adds foliplus-measure-dash-sweep class with --foliplus-sweep-length."""
         html = render_control(MeasureControl())
         assert "dash-sweep" in html
-        assert "--sweep-length" in html
+        assert "--foliplus-sweep-length" in html
 
     def test_dash_sweep_drop_shadow(self):
         """Dash sweep line has drop-shadow filter for glow effect."""
@@ -196,34 +196,34 @@ class TestMeasureControlRendering:
         """Ripple animation uses CSS custom properties for all parameters."""
 
         css = read_css("foliplus/css/MeasureControl.css")
-        assert "--ripple-duration" in css
-        assert "--ripple-opacity-start" in css
-        assert "--ripple-stroke-start" in css
-        assert "--ripple-stroke-end" in css
+        assert "--foliplus-ripple-duration" in css
+        assert "--foliplus-ripple-opacity-start" in css
+        assert "--foliplus-ripple-stroke-start" in css
+        assert "--foliplus-ripple-stroke-end" in css
         assert "measure-ripple" in css
 
     def test_dash_sweep_css_variables(self):
         """Dash sweep animation uses CSS custom properties for all parameters."""
 
         css = read_css("foliplus/css/MeasureControl.css")
-        assert "--sweep-length" in css
-        assert "--sweep-duration" in css
+        assert "--foliplus-sweep-length" in css
+        assert "--foliplus-sweep-duration" in css
 
     def test_radius_label_has_animation(self):
         """Circle radius label animates in with a decoupled centering transform.
 
         The radius label's centering transform is stored in a CSS variable
-        (--label-center) so the animation keyframes reference it instead of
+        (--foliplus-label-center) so the animation keyframes reference it instead of
         duplicating the translate values. This keeps centering and animation
         decoupled.
         """
         css = read_css("foliplus/css/MeasureControl.css")
         assert "foliplus-measure-label-in-radius" in css
         # Centering transform is defined once as a variable on the class
-        assert "--label-center: translate(-50%, -50%)" in css
+        assert "--foliplus-label-center: translate(-50%, -50%)" in css
         # Keyframes reference the variable, not hardcoded translate values
-        assert "transform: var(--label-center) scale(0.9)" in css
-        assert "transform: var(--label-center) scale(1)" in css
+        assert "transform: var(--foliplus-label-center) scale(0.9)" in css
+        assert "transform: var(--foliplus-label-center) scale(1)" in css
         # The radius label class no longer disables animation
         assert (
             "animation: none"
