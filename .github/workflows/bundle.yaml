@@ -3,20 +3,30 @@ name: bundle
 on:
   pull_request:
     branches: [main]
+  push:
+    branches: [main]
+  # Manual dispatch runs the main-push track (upload-only) from any ref —
+  # used to exercise/verify the baseline path before a merge, and to
+  # re-upload a baseline on demand.
+  workflow_dispatch:
 
 permissions:
   contents: read
-  pull-requests: write # post/update the sticky comment
+  pull-requests: write # post/update the sticky comment (report job)
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  # ── PR track ──
   # Build the PR and the base branch, diff the two, and post the result as a
   # sticky comment. There is no committed baseline — the base branch's own build
-  # is the reference, so nothing is ever written back to main.
+  # is the reference, so nothing is ever written back to main. Codecov Bundle
+  # Analysis still uploads here (PR increment view), fail-soft so an upload
+  # outage cannot block the sticky table, the dual gates, or merge.
   report:
+    if: ${{ github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -113,11 +123,37 @@ jobs:
       # verdict is the one the Report step recorded against the same baseline,
       # so this is a re-read of the same numbers, not a re-measure.
       - name: Enforce threshold
-        # The gate lives on pull_request only, so a branch push does not see a
-        # base-sizes.json from a Capture step that ran against the PR's own
-        # `head_ref`. The if is defensive, not reachable from the workflow's
-        # current triggers: it keeps the step skipped rather than failing on a
-        # missing file if a push trigger is added later.
-        if: ${{ github.event.pull_request }}
         run: |
           node script/bundle-size-check.mjs --baseline=base-sizes.json --enforce
+
+  # ── main-push / manual track ──
+  # Land the Codecov bundle baseline so the next PR's increment view diffs
+  # against real main numbers instead of an empty base (the 100% illusion).
+  # No PR context and no base to capture, so every baseline-dependent step
+  # (Capture / Report / sticky comment / Enforce) stays on the report job —
+  # none of them may run here and exit non-zero over a missing base-sizes.json.
+  # fuse is absolute and still runs. The upload step is hard-fail here: this
+  # job's whole purpose is the upload, so a red job means the baseline did
+  # not land (do not paper over it with continue-on-error).
+  upload:
+    if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup-deps
+
+      - run: npm run build:sonda
+
+      # Absolute cap per artifact — same fuse as the PR track.
+      - run: node script/bundle-fuse.mjs
+
+      - name: Codecov Bundle Analysis
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        run: |
+          node script/codecov-bundle-upload.mjs \
+            --root=. \
+            --metafile=bundle-metafile.json \
+            --bundle-name=foliplus
