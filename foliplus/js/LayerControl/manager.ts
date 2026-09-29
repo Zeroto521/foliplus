@@ -39,7 +39,7 @@ import { AnnotationManager } from "./annotation/index.js";
 import * as CONST from "./const.js";
 import { LayerPersistence } from "./persistence.js";
 import { LayerUI } from "./ui/index.js";
-import { clearIntent, getIntent } from "./ui/intent.js";
+import { INTENT, clearIntent, getIntent } from "./ui/intent.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const T = createScopedTranslator(CONF);
@@ -696,7 +696,7 @@ class LayerManager implements LayerAPI {
     // handled by `applyUserState` further below, which re-projects the hidden
     // intent and writes the carrier through the executor's single write path.
     if (
-      (!this.ui || getIntent(this.ui, opts.id, "visible") !== false) &&
+      (!this.ui || getIntent(this.ui, opts.id, INTENT.VISIBLE) !== false) &&
       opts.layer &&
       !this.map.hasLayer(opts.layer)
     ) {
@@ -981,7 +981,7 @@ class LayerManager implements LayerAPI {
     }
     this.ui.dropPersistedLayerState(id);
     if (this.ui.intents?.[id]?.name != null) {
-      clearIntent(this.ui, id, "name");
+      clearIntent(this.ui, id, INTENT.NAME);
       this.ui.saveNamesState();
     }
     this.ui.saveState();

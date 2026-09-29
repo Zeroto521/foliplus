@@ -7,7 +7,7 @@ import { dom } from "#common/dom.js";
 import * as CONST from "../../const.js";
 import { applyProjection, authorZoomBoundsForLayer } from "../apply.js";
 import type { LayerUI } from "../index.js";
-import { clearIntent, getIntent, setIntent } from "../intent.js";
+import { INTENT, clearIntent, getIntent, setIntent } from "../intent.js";
 import { markOverride, saveState, unmarkOverride } from "../state.js";
 import { railPos, round5 } from "./frame.js";
 import { registerDimension } from "./registry.js";
@@ -111,7 +111,7 @@ const syncZoomRangeRow = (
   liveRange?: [number, number],
 ): void => {
   const [mapMin, mapMax] = authorZoomBoundsForLayer(ui, layerId);
-  const range = liveRange ?? getIntent(ui, layerId, "zoomRange");
+  const range = liveRange ?? getIntent(ui, layerId, INTENT.ZOOM_RANGE);
   const min = range ? Math.max(range[0], mapMin) : mapMin;
   const max = range ? Math.min(range[1], mapMax) : mapMax;
   const current = ui.m.map.getZoom();
@@ -158,7 +158,7 @@ const syncZoomRangeRow = (
  *  full map range is used — the "author-undeclared" default. */
 const buildZoomRangeRow = (ui: LayerUI, layerId: string): HTMLElement => {
   const [mapMin, mapMax] = authorZoomBoundsForLayer(ui, layerId);
-  const stored = getIntent(ui, layerId, "zoomRange");
+  const stored = getIntent(ui, layerId, INTENT.ZOOM_RANGE);
   const min = stored ? Math.max(stored[0], mapMin) : mapMin;
   const max = stored ? Math.min(stored[1], mapMax) : mapMax;
   const current = ui.m.map.getZoom();
@@ -256,7 +256,7 @@ const applyZoomRangeLive = (
 ): void => {
   const li = ui.m.layerRegistry.get(layerId);
   if (!li) return;
-  setIntent(ui, layerId, "zoomRange", [min, max]);
+  setIntent(ui, layerId, INTENT.ZOOM_RANGE, [min, max]);
   syncZoomRangeRow(ui, layerId, row, [min, max]);
   applyProjection(ui, layerId);
 };
@@ -265,15 +265,15 @@ const applyZoomRangeLive = (
  *  map state are already updated by {@link applyZoomRangeLive}; this only
  *  records the override and schedules the storage write. */
 const commitZoomRange = (ui: LayerUI, layerId: string): void => {
-  markOverride(ui, layerId, "zoomRange");
+  markOverride(ui, layerId, INTENT.ZOOM_RANGE);
   saveState(ui);
 };
 
 /** Reset one layer's zoom range to the full map range and drop its override. */
 const resetLayerZoomRange = (ui: LayerUI, layerId: string): void => {
   if (!ui.m.layerRegistry.has(layerId)) return;
-  clearIntent(ui, layerId, "zoomRange");
-  unmarkOverride(ui, layerId, "zoomRange");
+  clearIntent(ui, layerId, INTENT.ZOOM_RANGE);
+  unmarkOverride(ui, layerId, INTENT.ZOOM_RANGE);
   saveState(ui);
   applyProjection(ui, layerId);
   // Refresh the row's visual state (fill, values, out-of-range).
@@ -301,7 +301,7 @@ const ZOOM_RANGE_DIMENSION = registerDimension<{ min: number; max: number }>({
     const li = ui.m.layerRegistry.get(layerId);
     if (!li) return undefined;
     const [mapMin, mapMax] = authorZoomBoundsForLayer(ui, layerId);
-    const stored = getIntent(ui, layerId, "zoomRange");
+    const stored = getIntent(ui, layerId, INTENT.ZOOM_RANGE);
     return {
       min: stored ? Math.max(stored[0], mapMin) : mapMin,
       max: stored ? Math.min(stored[1], mapMax) : mapMax,

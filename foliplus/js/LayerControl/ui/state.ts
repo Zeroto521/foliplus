@@ -12,7 +12,7 @@ import type { LayerIntent, LayerOverride, PersistedLayerState } from "../type.js
 import { applyProjection, applyProjectionAll } from "./apply.js";
 import { applyNameProjection } from "./context.js";
 import type { LayerUI } from "./index.js";
-import { LIVE, dropIntent, getIntent, setIntent } from "./intent.js";
+import { INTENT, LIVE, dropIntent, getIntent, setIntent } from "./intent.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const log = createLogger(CONF.name);
@@ -25,7 +25,7 @@ const loadPersistedState = (ui: LayerUI) => {
   // (`name`); disk shape stays `renamedNames` / `layers[id]`.
   ui.intents = {};
   for (const [id, name] of Object.entries(state.renamedNames)) {
-    setIntent(ui, id, "name", name);
+    setIntent(ui, id, INTENT.NAME, name);
   }
   // Style (label) configs are applied by ui/style.ts once the layers resolve
   // (deferred init passes). Read order is the compat contract: the current
@@ -33,7 +33,12 @@ const loadPersistedState = (ui: LayerUI) => {
   // segment is the fallback underneath (write-new / read-old).
   for (const [id, raw] of Object.entries(state.annotations)) {
     if (raw != null) {
-      setIntent(ui, id, "annotation", raw as NonNullable<LayerIntent["annotation"]>);
+      setIntent(
+        ui,
+        id,
+        INTENT.ANNOTATION,
+        raw as NonNullable<LayerIntent["annotation"]>,
+      );
     }
   }
   // Per-layer intent: the value lives on `ui.intents[id]`, `overrides`
@@ -44,7 +49,7 @@ const loadPersistedState = (ui: LayerUI) => {
   ui.intentProvenance = {};
   for (const [id, entry] of Object.entries(state.layers)) {
     // New-key label config overrides the legacy-segment fallback above.
-    if (entry.annotation) setIntent(ui, id, "annotation", entry.annotation);
+    if (entry.annotation) setIntent(ui, id, INTENT.ANNOTATION, entry.annotation);
     ui.intentProvenance[id] = [...entry.overrides];
     // One dimension per override: the persisted key is the provenance key,
     // the value is typed on read (parseLayerState), and LIVE re-checks the
@@ -201,7 +206,7 @@ const applyUserState = (ui: LayerUI, id?: string) => {
     // dimension on the same pass — visibility, opacity and zoom range — so
     // nothing needs a per-caller replay path: a late arrival replays itself.
     applyProjection(ui, id);
-    const rename = getIntent(ui, id, "name");
+    const rename = getIntent(ui, id, INTENT.NAME);
     if (rename != null) {
       applyNameProjection(layerInfo, null, rename);
     }
@@ -220,7 +225,7 @@ const applyUserState = (ui: LayerUI, id?: string) => {
   // so its rename still comes from `ui.intents[id].name`.
   applyProjectionAll(ui);
   for (const layerId of Object.keys(ui.intents ?? {})) {
-    const rename = getIntent(ui, layerId, "name");
+    const rename = getIntent(ui, layerId, INTENT.NAME);
     if (rename == null) continue;
     if (layerId === CONST.SOLID_BASEMAP_ID) {
       // The color basemap has no registry entry —only its row label.
@@ -308,7 +313,7 @@ const setVisible = (
   visible: boolean,
   persist: boolean = true,
 ) => {
-  setIntent(ui, id, "visible", visible);
+  setIntent(ui, id, INTENT.VISIBLE, visible);
   // The user's explicit action (either direction) supersedes any record the
   // zoom-range mechanism kept for this id: without this line, a layer the
   // sweep had removed would be re-added by the sweep the moment the user
@@ -318,7 +323,7 @@ const setVisible = (
   // state: until it has happened the layer has no entry in `layers` at all, so
   // the unhide half of the sweep must leave it alone or an empty choice would
   // override the author's `show=False` on the next load.
-  markOverride(ui, id, "visible");
+  markOverride(ui, id, INTENT.VISIBLE);
   if (persist) saveState(ui);
 };
 

@@ -22,7 +22,7 @@ import {
 } from "./drag.js";
 import { dismissFocus } from "./focus.js";
 import type { LayerUI } from "./index.js";
-import { getIntent } from "./intent.js";
+import { INTENT, getIntent } from "./intent.js";
 import {
   blurActiveItem,
   clearActiveItem,
@@ -291,7 +291,7 @@ const onLayerItemCountChange = (ui: LayerUI, id: string): void => {
   // carry the value), so the executor's `appliedState` is invalidated for
   // this id before the re-projection: the diff sees the stored opacity as
   // new and re-applies it through the carrier dispatcher.
-  if (getIntent(ui, id, "opacity") !== undefined) {
+  if (getIntent(ui, id, INTENT.OPACITY) !== undefined) {
     ui.appliedState.delete(id);
     applyProjection(ui, id);
   }

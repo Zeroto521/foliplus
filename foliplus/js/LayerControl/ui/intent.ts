@@ -6,21 +6,36 @@
 import type { LayerIntent } from "../type.js";
 import type { LayerUI } from "./index.js";
 
+/** The intent-key vocabulary — the one place each dimension's key is spelled.
+ *  The `satisfies` guard pins every value to an existing `LayerIntent` key, so
+ *  adding a dimension means touching this table and the record type together. */
+const INTENT = {
+  VISIBLE: "visible",
+  FILL_COLOR: "fillColor",
+  FILL_OPACITY: "fillOpacity",
+  BORDER_COLOR: "borderColor",
+  BORDER_WEIGHT: "borderWeight",
+  OPACITY: "opacity",
+  ZOOM_RANGE: "zoomRange",
+  NAME: "name",
+  ANNOTATION: "annotation",
+} as const satisfies Record<string, keyof LayerIntent>;
+
 type IntentKey = keyof LayerIntent;
 
 /** Typed-presence rule per intent key — the one place the value vocabulary
  *  lives. An intent key's value is "live" when it has the type the record
  *  promises (0 / empty strings / empty arrays are real choices, not absence). */
 const LIVE: Record<IntentKey, (value: unknown) => boolean> = {
-  visible: value => typeof value === "boolean",
-  fillColor: value => typeof value === "string",
-  fillOpacity: value => typeof value === "number",
-  borderColor: value => typeof value === "string",
-  borderWeight: value => typeof value === "number",
-  opacity: value => typeof value === "number",
-  zoomRange: value => Array.isArray(value),
-  name: value => typeof value === "string",
-  annotation: value => value != null,
+  [INTENT.VISIBLE]: value => typeof value === "boolean",
+  [INTENT.FILL_COLOR]: value => typeof value === "string",
+  [INTENT.FILL_OPACITY]: value => typeof value === "number",
+  [INTENT.BORDER_COLOR]: value => typeof value === "string",
+  [INTENT.BORDER_WEIGHT]: value => typeof value === "number",
+  [INTENT.OPACITY]: value => typeof value === "number",
+  [INTENT.ZOOM_RANGE]: value => Array.isArray(value),
+  [INTENT.NAME]: value => typeof value === "string",
+  [INTENT.ANNOTATION]: value => value != null,
 };
 
 /** Write one intent dimension. */
@@ -49,13 +64,13 @@ const clearIntent = (ui: LayerUI, id: string, key: IntentKey): void => {
 const dropIntent = (ui: LayerUI, id: string): void => {
   const intent = ui.intents?.[id];
   if (!intent) return;
-  delete intent.visible;
-  delete intent.fillColor;
-  delete intent.fillOpacity;
-  delete intent.borderColor;
-  delete intent.borderWeight;
-  delete intent.opacity;
-  delete intent.zoomRange;
+  delete intent[INTENT.VISIBLE];
+  delete intent[INTENT.FILL_COLOR];
+  delete intent[INTENT.FILL_OPACITY];
+  delete intent[INTENT.BORDER_COLOR];
+  delete intent[INTENT.BORDER_WEIGHT];
+  delete intent[INTENT.OPACITY];
+  delete intent[INTENT.ZOOM_RANGE];
   if (Object.keys(intent).length === 0) delete ui.intents[id];
 };
 
@@ -85,6 +100,7 @@ const seedIntentMap = <K extends IntentKey>(
 };
 
 export {
+  INTENT,
   LIVE,
   clearIntent,
   dropIntent,
