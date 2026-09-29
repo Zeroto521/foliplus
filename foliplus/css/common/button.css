@@ -119,8 +119,13 @@
 
    Both components keep their own class as the hook; the recipe lives here so
    the two cannot drift, and so both inherit the shared focus ring (the style
-   panel's reset had none, leaving keyboard users with no visible focus). */
+   panel's reset had none, leaving keyboard users with no visible focus).
+   Full-width in the footer row (no extra margin — the row's own padding is
+   the only inset); the label text is centered on both axes inside the button. */
 .foliplus-panel-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex: 1;
   height: var(--foliplus-ctrl-size);
   box-sizing: border-box;
