@@ -14,13 +14,18 @@ class TestVersion:
         expected = [
             "BaseControl",
             "ExportControl",
+            "Fraction",
             "FullscreenControl",
             "HeatmapControl",
             "LayerControl",
+            "LocaleConfig",
             "LocateControl",
+            "Position",
+            "PositiveInt",
             "SearchControl",
             "MeasureControl",
             "ScaleControl",
+            "Zoom",
         ]
         for name in expected:
             assert hasattr(foliplus, name), f"Missing export: {name}"
@@ -30,15 +35,28 @@ class TestVersion:
         expected = {
             "BaseControl",
             "ExportControl",
+            "Fraction",
             "FullscreenControl",
             "HeatmapControl",
             "LayerControl",
+            "LocaleConfig",
             "LocateControl",
+            "Position",
+            "PositiveInt",
             "SearchControl",
             "MeasureControl",
             "ScaleControl",
+            "Zoom",
         }
         assert set(foliplus.__all__) == expected
+
+    def test_type_aliases_are_usable_in_annotations(self):
+        """The exported aliases carry the constraints @validate enforces."""
+        from foliplus import Fraction, Position, PositiveInt, Zoom
+
+        assert "topleft" in Position.__args__  # Literal[...] membership
+        for alias in (Zoom, PositiveInt, Fraction):
+            assert hasattr(alias, "__metadata__")  # Annotated[...] alias
 
 
 class TestCDN:

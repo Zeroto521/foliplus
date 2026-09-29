@@ -21,6 +21,7 @@ import json
 from functools import cache
 from pathlib import Path
 from textwrap import dedent
+from typing import Any
 
 from branca.element import Element, Figure
 from folium import MacroElement
@@ -161,22 +162,25 @@ def _build_component_template(name: str) -> Template:
     js = _load_asset(js_artifact)
     css = _load_asset(css_artifact)
 
-    return Template(
+    # jinja2's own stub types ``Template.__init__`` as returning Any, so the
+    # constructor call needs an explicit annotation to satisfy the typed return.
+    template: Template = Template(
         dedent(f"""\
-        {{% macro html(this, kwargs) %}}
-        <style>
-        {css}
-        </style>
-        {{% endmacro %}}
+    {{% macro html(this, kwargs) %}}
+    <style>
+    {css}
+    </style>
+    {{% endmacro %}}
 
-        {{% macro script(this, kwargs) %}}
-        (() => {{
-        const map = {{{{ this._parent.get_name() }}}};
-        const CONF = {{{{ this._config_block | safe }}}};
-        {js}
-        }})();
-        {{% endmacro %}}""")
+    {{% macro script(this, kwargs) %}}
+    (() => {{
+    const map = {{{{ this._parent.get_name() }}}};
+    const CONF = {{{{ this._config_block | safe }}}};
+    {js}
+    }})();
+    {{% endmacro %}}""")
     )
+    return template
 
 
 class MissingAssetsError(RuntimeError):
@@ -251,7 +255,7 @@ class BaseControl(JSCSSMixin, MacroElement):
         self._locale = (
             resolve_locale(locale, self._name) if locale is not None else None
         )
-        self._config: dict = {}
+        self._config: dict[str, object] = {}
 
     @property
     def _locale_code(self) -> str:
@@ -301,7 +305,7 @@ class BaseControl(JSCSSMixin, MacroElement):
         # config always contains at least name/position — never empty.
         return _safe_json(config)
 
-    def _extra_config(self) -> dict:
+    def _extra_config(self) -> dict[str, object]:
         """Return render-time config injected into the JS ``CONF`` object.
 
         Subclasses override this to supply data that is only known at render time
@@ -310,7 +314,7 @@ class BaseControl(JSCSSMixin, MacroElement):
         """
         return {}
 
-    def _build_config(self) -> dict:
+    def _build_config(self) -> dict[str, object]:
         """Assemble the static part of the JS ``CONF`` dict.
 
         The merge order is:
@@ -327,7 +331,7 @@ class BaseControl(JSCSSMixin, MacroElement):
         :attr:`_config_block` copies this dict before adding the locale overlay, so
         the cache is never polluted with render-time keys.
         """
-        config = {"name": self._name, "position": self.position}
+        config: dict[str, object] = {"name": self._name, "position": self.position}
         for f in self._config_fields:
             try:
                 config[f] = getattr(self, f)
@@ -339,7 +343,7 @@ class BaseControl(JSCSSMixin, MacroElement):
         self._config = config
         return config
 
-    def render(self, **kwargs):
+    def render(self, **kwargs: Any) -> str:
         """Inject the shared asset bundle into the figure header exactly once.
 
         The runtime JS, shared CSS, and locale tables are identical for every control,
@@ -356,7 +360,8 @@ class BaseControl(JSCSSMixin, MacroElement):
             figure.header.add_child(
                 Element(_build_shared_header()), name=_SHARED_ASSETS_NAME
             )
-        super().render(**kwargs)
+        html: str = super().render(**kwargs)
+        return html
 
     def _get_template(self) -> Template:
         """Build a Jinja2 template with this control's own CSS/JS.
