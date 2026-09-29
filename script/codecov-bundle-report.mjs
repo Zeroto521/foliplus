@@ -102,7 +102,9 @@ const buildCodecovPayload = ({
 
   outputKeys.forEach((outputKey, index) => {
     const output = metafile.outputs[outputKey];
-    const absOut = isAbsolute(outputKey) ? outputKey : resolve(root, outputKey);
+    const artifactPath = isAbsolute(outputKey)
+      ? outputKey
+      : resolve(root, outputKey);
     const name = assetName(outputKey);
     const id = chunkIdFromOutput(outputKey);
     const uniqueId = `${index}-${id}`;
@@ -112,7 +114,7 @@ const buildCodecovPayload = ({
     const compressible = COMPRESSIBLE_RE.test(name);
     let gzipSize = null;
     if (compressible) {
-      gzipSize = gzipOf(absOut);
+      gzipSize = gzipOf(artifactPath);
     }
 
     assets.push({
