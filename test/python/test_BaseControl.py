@@ -279,6 +279,25 @@ class TestBaseControlRendering:
         assert "--foliplus-z-index-fullscreen" in css
         assert "--foliplus-z-index-top" in css
 
+    def test_z_policy_table_landing(self):
+        """The three-family z policy table has a single landing in token.css."""
+        css = read_css_dir("foliplus/css/common", "token.css")
+        # One section names all three vocabularies and their ownership.
+        assert "layer z" in css
+        assert "control z" in css
+        assert "export z" in css
+        assert "Ownership" in css
+        assert "Ladder" in css
+
+    def test_z_policy_export_header_pointer(self):
+        """ExportControl.css points at the policy table instead of re-laddering."""
+        from conftest import read_css
+
+        css = read_css("foliplus/css/ExportControl.css")
+        assert "token.css" in css
+        # Cross-system hint/fullscreen narration no longer lives here.
+        assert "JS-managed by runtime.js" not in css
+
     def test_motion_ladder_tokens(self, base_map: folium.Map):
         """The motion ladder is tokenized in token.css. `quick` is the entrance
         tier; fast/normal/slow carry the per-component --*-duration values over.
