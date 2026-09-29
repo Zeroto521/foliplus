@@ -78,6 +78,21 @@ jobs:
           name: bundle-treemap
           path: bundle-treemap.html
 
+      # Codecov Bundle Analysis (soft launch). Speaks the bundler-plugin HTTP
+      # protocol over the merged metafile `build:sonda` just wrote. Fail-soft
+      # on purpose: an upload outage must not block the sticky table, the
+      # dual gates, or merge. Token is the same GHA secret the coverage
+      # uploads already use — no new plaintext credentials.
+      - name: Codecov Bundle Analysis
+        continue-on-error: true
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        run: |
+          node script/codecov-bundle-upload.mjs \
+            --root=. \
+            --metafile=bundle-metafile.json \
+            --bundle-name=foliplus
+
       - name: Link treemap report
         run: |
           {
