@@ -37,14 +37,16 @@ const hasSetStyleLeaf = (node: unknown): boolean => {
   return typeof n.setStyle === "function";
 };
 
-/** Whether any leaf is an areal carrier — L.Polygon, L.Circle, or
- *  L.CircleMarker (the last two because Circle extends CircleMarker in
- *  Leaflet 1.x, so `instanceof L.Circle` catches Circle and any subclass;
- *  a bare CircleMarker is not `instanceof L.Circle`) with a `setStyle` leaf.
+/** Whether any leaf is an areal fill carrier — a Path-family leaf with a
+ *  `setStyle` whose geometry carries a fill (Polygon / Rectangle rings, or
+ *  Circle / CircleMarker via `getRadius`). No `instanceof` class checks:
+ *  Leaflet's Circle / CircleMarker hierarchy has inverted before, and
+ *  stubs / third-party paths do not share our class identities. The probe
+ *  reads carrier features the write path actually uses.
  *
- *  Line-only leaves (L.Polyline, L.Rectangle which extends Polygon) and
- *  markers fall out; so do native setter surfaces (GridLayer / ImageOverlay)
- *  and canvas layers, whose write axis is not `setStyle`. */
+ *  Line-only leaves (Polyline) fall out: they have `getLatLngs` but no
+ *  ring nesting and no `getRadius`. Markers, GridLayer / ImageOverlay and
+ *  canvas layers fall out too — their write axis is not `setStyle`. */
 const hasFillLeaf = (node: unknown): boolean => {
   const n = asProbeNode(node);
   if (!n) return false;
@@ -55,13 +57,26 @@ const hasFillLeaf = (node: unknown): boolean => {
     });
     return found;
   }
+  return isArealStyleLeaf(n);
+};
+
+/** A leaf that owns `setStyle` and an areal geometry, detected by carrier
+ *  features rather than class identity. */
+const isArealStyleLeaf = (node: unknown): boolean => {
+  const n = node as {
+    setStyle?: unknown;
+    getRadius?: unknown;
+    getLatLngs?: unknown;
+  };
   if (typeof n.setStyle !== "function") return false;
-  // Circle extends CircleMarker (Leaflet 1.x); instanceof L.Circle catches
-  // Circle and subclasses. A bare CircleMarker is not instanceof L.Circle.
-  return (
-    node instanceof L.Polygon ||
-    (typeof L.Circle !== "undefined" && node instanceof L.Circle)
-  );
+  // Circle / CircleMarker: radius is the geometry.
+  if (typeof n.getRadius === "function") return true;
+  // Polygon / Rectangle: getLatLngs returns rings (array of arrays).
+  if (typeof n.getLatLngs === "function") {
+    const rings = (n.getLatLngs as () => unknown)();
+    return Array.isArray(rings) && rings.length > 0 && Array.isArray(rings[0]);
+  }
+  return false;
 };
 
 export { hasFillLeaf, hasSetStyleLeaf };

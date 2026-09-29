@@ -880,6 +880,7 @@ describe("highlight restore", () => {
     expect(leaf.setStyle).toHaveBeenCalledTimes(2);
     expect(leaf.setStyle).toHaveBeenLastCalledWith({
       fillColor: "#123456",
+      fill: true,
       weight: 9,
       stroke: true,
     });

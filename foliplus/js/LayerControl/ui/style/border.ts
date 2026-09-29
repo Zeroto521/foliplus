@@ -40,28 +40,15 @@ import { INTENT, clearIntent, getIntent, setIntent } from "../intent.js";
 import { markOverride, saveState, unmarkOverride } from "../state.js";
 import { pinStyleOnHighlight } from "./pin.js";
 import { registerDimension } from "./registry.js";
-
-/** A node in the layer tree that a border walk may reach. `setStyle` alone
- *  does not make a node a carrier — L.GeoJSON owns one too (it fans a style
- *  out to its features) — so every walk below checks `eachLayer` first and
- *  treats a setter as a leaf only. */
-type StyleCarrier = L.Layer & {
-  setStyle?: (style: Record<string, unknown>) => void;
-  eachLayer?: (fn: (layer: L.Layer) => void) => void;
-  options?: { color?: string; weight?: number; stroke?: boolean };
-};
-
-/** A carrier whose `setStyle` is there for real. Narrowing through a guard
- *  rather than a `typeof` test keeps the call site a plain method call, which
- *  matters: Leaflet's `Path.setStyle` runs `setOptions(this, style)`, so the
- *  method captured into a local and called detached would see `this` as
- *  undefined and throw instead of writing. */
-type StyleSetter = StyleCarrier & {
-  setStyle: (style: Record<string, unknown>) => void;
-};
-
-const isStyleSetter = (node: StyleCarrier): node is StyleSetter =>
-  typeof node.setStyle === "function";
+import {
+  type StyleCarrier,
+  type StyleSetter,
+  commitStyleDim,
+  isStyleSetter,
+  restoreStyleDim,
+  styleBagOf,
+  styleDimPayload,
+} from "./styleBag.js";
 
 /** Whether the layer's surface can honestly carry a border write.
  *  Pure capability check: `capabilities.stroke === "native"`.
@@ -80,53 +67,10 @@ const layerCanBorder = (ui: LayerUI, layerId: string): boolean => {
   return ui.m.surfaceFor(li).capabilities.stroke === CAP_TIER.NATIVE;
 };
 
-/** The layer's authored border style, captured on the layer's first border
- *  write and never re-read. Same recipe as the opacity base: `setStyle`
- *  mutates `options` in place, so by reset time we cannot re-read the
- *  author's color or width from the layer and must replay the captured
- *  value.
- *
- *  Keyed by `layer` identity, not by layer id, so a re-registration of the
- *  same id keeps its base across the swap. WeakMap so the entry disappears
- *  when the layer leaves the map, no explicit cleanup needed.
- *
- *  Per-leaf, because a GeoJSON layer's features can each declare their own
- *  style — one layer-wide base would erase the author's per-feature choice
- *  on reset.
- *
- *  All three fields are always populated: captureBase fills each one with the
- *  module default, so nothing downstream can tell "the author declared
- *  nothing" apart from "the author's own value". If that distinction ever
- *  matters — a Reset that behaves differently for the two — it is a decision
- *  about captureBase's capture semantics: re-add the null and read undefined
- *  out of options for real. Do not flatten it back with `??`. */
-const authorBorderBase = new WeakMap<
-  StyleCarrier,
-  { color: string; weight: number; stroke: boolean }
->();
-
 /** Leaflet's own default `Path.color` — folium's style function always
  *  populates `options.color`, so this only fires for a bare Leaflet layer
  *  with no style declaration at all. */
 const STYLE_BORDER_DEFAULT = "#3388ff";
-
-/** Leaflet's own default `Path.stroke`. Folium's `path_options` defaults it
- *  to `true`; quickstart Facility Points declare `stroke: False`. */
-const STYLE_BORDER_STROKE_DEFAULT = true;
-
-const captureBase = (
-  node: StyleCarrier,
-): { color: string; weight: number; stroke: boolean } => {
-  const existing = authorBorderBase.get(node);
-  if (existing) return existing;
-  const base = {
-    color: node.options?.color ?? STYLE_BORDER_DEFAULT,
-    weight: node.options?.weight ?? BORDER_WEIGHT.DEFAULT,
-    stroke: node.options?.stroke ?? STYLE_BORDER_STROKE_DEFAULT,
-  };
-  authorBorderBase.set(node, base);
-  return base;
-};
 
 /** The first leaf that carries a style — the row's initial value is read
  *  from it, so a swatch or a number field never shows a value the layer is
@@ -162,10 +106,10 @@ const authoredBorder = (
   // so the registry's own reference stays null until the layer materializes.
   const layer = ui.m.findLayer(layerId) as StyleCarrier | null;
   const carrier = layer ? firstCarrier(layer) : null;
-  const base = carrier ? authorBorderBase.get(carrier) : undefined;
+  const bag = carrier ? styleBagOf(carrier) : undefined;
   return {
-    color: base?.color ?? carrier?.options?.color ?? STYLE_BORDER_DEFAULT,
-    weight: base?.weight ?? carrier?.options?.weight ?? BORDER_WEIGHT.DEFAULT,
+    color: bag?.color ?? carrier?.options?.color ?? STYLE_BORDER_DEFAULT,
+    weight: bag?.weight ?? carrier?.options?.weight ?? BORDER_WEIGHT.DEFAULT,
   };
 };
 
@@ -191,9 +135,9 @@ const applyBorderToLayer = (ui: LayerUI, layerId: string): void => {
   if (color === undefined && weight === undefined) return;
   const layer = ui.m.findLayer(layerId) as StyleCarrier | null;
   if (!layer) return;
-  const style: Record<string, unknown> = { stroke: true };
-  if (color !== undefined) style.color = color;
-  if (weight !== undefined) style.weight = weight;
+  const values: Record<string, unknown> = {};
+  if (color !== undefined) values.color = color;
+  if (weight !== undefined) values.weight = weight;
   const walk = (node: StyleCarrier): void => {
     // Groups are descended, never written: a group with a `setStyle` of its
     // own (L.GeoJSON, L.FeatureGroup) would be written in place of its
@@ -204,8 +148,8 @@ const applyBorderToLayer = (ui: LayerUI, layerId: string): void => {
       return;
     }
     if (!isStyleSetter(node)) return;
-    captureBase(node);
-    node.setStyle(style);
+    // Shared write contract: value keys + visibility bit (`stroke: true`).
+    commitStyleDim(node, values, "stroke");
     // Pin the leaf's stroke against folium's highlight restore via the shared
     // pinStyleOnHighlight hook, keyed "border" so a re-commit
     // replaces this dimension's getter instead of stacking another closure.
@@ -220,10 +164,7 @@ const applyBorderToLayer = (ui: LayerUI, layerId: string): void => {
       // stroke:true rides the replay too — folium's resetStyle would
       // otherwise re-apply the author's stroke:false on mouseout and hide
       // the user's border the moment the pointer leaves.
-      const style: Record<string, unknown> = { stroke: true };
-      if (c !== undefined) style.color = c;
-      if (w !== undefined) style.weight = w;
-      return style;
+      return styleDimPayload({ color: c, weight: w }, "stroke");
     });
   };
   walk(layer);
@@ -279,14 +220,10 @@ const resetLayerBorder = (ui: LayerUI, layerId: string): void => {
       node.eachLayer(child => walk(child as StyleCarrier));
       return;
     }
-    if (typeof node.setStyle !== "function") return;
-    const base = authorBorderBase.get(node);
-    if (!base) return;
-    // All three dimensions are written unconditionally: the captured base
-    // always holds a color, a width and a stroke flag, so there is nothing
-    // to omit here. stroke restores the author's own value — including
-    // stroke:false, which the write path had forced on.
-    node.setStyle({ color: base.color, weight: base.weight, stroke: base.stroke });
+    if (!isStyleSetter(node)) return;
+    // Shared restore contract: one face slice from the captured style bag,
+    // including the author's own `stroke` flag (false stays false).
+    restoreStyleDim(node, "stroke");
   };
   walk(layer);
 };
