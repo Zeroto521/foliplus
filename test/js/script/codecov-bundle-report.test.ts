@@ -274,3 +274,103 @@ describe("gzipSize", () => {
     expect(seen).toHaveLength(2);
   });
 });
+
+// ── Optional-metafile branches (the `??` fallbacks) ──────────────────
+// v8 counts each `??` as a branch; the default side is easy to leave
+// untested because every happy-path fixture fills the field in.
+describe("metafile field fallbacks", () => {
+  it("resolves absolute output keys without re-rooting them", () => {
+    tmp = root();
+    const absOut = resolve(tmp, "foliplus/dist/foliplus-A.min.js");
+    writeFileSync(absOut, "js");
+    const metafile = {
+      inputs: {},
+      outputs: {
+        [absOut]: { bytes: 2, entryPoint: "src/a.ts", inputs: {} },
+      },
+    };
+    const seen: string[] = [];
+    const payload = buildCodecovPayload({
+      metafile,
+      root: tmp,
+      gzipOf: p => {
+        seen.push(p);
+        return 9;
+      },
+    });
+    expect(payload.assets[0].name).toBe("foliplus-A.min.js");
+    // Absolute key is used as-is — never `resolve(root, abs)` which would
+    // produce a nested `tmp/tmp/...` path and a missing-file gzip crash.
+    expect(seen[0]).toBe(absOut);
+  });
+
+  it("treats a missing `bytes` as 0, not undefined", () => {
+    const payload = buildCodecovPayload({
+      metafile: {
+        inputs: {},
+        outputs: {
+          "foliplus/dist/foliplus-A.min.js": { inputs: {} },
+        },
+      },
+      root: "/virtual",
+      gzipOf: () => 1,
+    });
+    expect(payload.assets[0].size).toBe(0);
+  });
+
+  it("treats a missing `inputs` map as empty modules for that artifact", () => {
+    const payload = buildCodecovPayload({
+      metafile: {
+        inputs: {},
+        outputs: {
+          "foliplus/dist/foliplus-A.min.js": { bytes: 10 },
+        },
+      },
+      root: "/virtual",
+      gzipOf: () => 1,
+    });
+    expect(payload.assets).toHaveLength(1);
+    expect(payload.modules).toEqual([]);
+  });
+
+  it("treats a missing `bytesInOutput` as 0", () => {
+    const payload = buildCodecovPayload({
+      metafile: {
+        inputs: {},
+        outputs: {
+          "foliplus/dist/foliplus-A.min.js": {
+            bytes: 10,
+            inputs: { "src/a.ts": {} },
+          },
+        },
+      },
+      root: "/virtual",
+      gzipOf: () => 1,
+    });
+    expect(payload.modules).toHaveLength(1);
+    expect(payload.modules[0].size).toBe(0);
+  });
+
+  it("merges one module that lands in two artifacts (dedup by name)", () => {
+    const payload = buildCodecovPayload({
+      metafile: {
+        inputs: {},
+        outputs: {
+          "foliplus/dist/foliplus-A.min.js": {
+            bytes: 1,
+            inputs: { "src/dup.ts": { bytesInOutput: 1 } },
+          },
+          "foliplus/dist/foliplus-B.min.js": {
+            bytes: 1,
+            inputs: { "src/dup.ts": { bytesInOutput: 2 } },
+          },
+        },
+      },
+      root: "/virtual",
+      gzipOf: () => 1,
+    });
+    expect(payload.modules).toHaveLength(1);
+    expect(payload.modules[0].size).toBe(3);
+    expect(payload.modules[0].chunkUniqueIds).toHaveLength(2);
+  });
+});

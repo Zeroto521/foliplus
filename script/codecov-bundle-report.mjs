@@ -148,13 +148,15 @@ const buildCodecovPayload = ({
     }
   });
 
+  // moduleMap keys are unique. Sort by code unit (not localeCompare) so the
+  // payload is byte-stable across runner locales.
   const modules = [...moduleMap.values()]
     .map(m => ({
       name: m.name,
       size: m.size,
       chunkUniqueIds: [...m.chunkUniqueIds].sort(),
     }))
-    .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+    .sort((a, b) => (a.name > b.name) - (a.name < b.name));
 
   return {
     version: PAYLOAD_VERSION,

@@ -321,3 +321,40 @@ describe("runUpload", () => {
     expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
 });
+
+// ── Remaining branch arms (tokenless presign, PR-number fallback) ────
+describe("branch arms left open by the happy path", () => {
+  it("omits Authorization when getPreSignedUrl has no token (tokenless)", async () => {
+    const fetchImpl = vi.fn(async () => jsonRes(200, { url: "https://signed" }));
+    await getPreSignedUrl({
+      serviceParams: { commit: "c", slug: "a/b" },
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+    const [, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
+    expect((init.headers as Record<string, string>).Authorization).toBeUndefined();
+  });
+
+  it("keeps the GITHUB_REF pr when the event omits pull_request.number", () => {
+    const params = buildServiceParams(
+      {
+        GITHUB_ACTIONS: "true",
+        GITHUB_REF: "refs/pull/7/merge",
+        GITHUB_SHA: "merge-sha",
+      },
+      {
+        pull_request: { head: { sha: "head-sha" }, base: { sha: "base-sha" } },
+      } as never,
+    );
+    expect(params.pr).toBe("7");
+    expect(params.commit).toBe("head-sha");
+    expect(params.compareSha).toBe("base-sha");
+  });
+
+  it("leaves compareSha null when the event has no base.sha", () => {
+    const params = buildServiceParams({ GITHUB_SHA: "x" }, {
+      pull_request: { number: 1, head: { sha: "h" } },
+    } as never);
+    expect(params.compareSha).toBeNull();
+    expect(params.pr).toBe("1");
+  });
+});
