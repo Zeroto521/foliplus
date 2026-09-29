@@ -107,8 +107,13 @@ const makeMidLabelDivIcon = (html: string): L.DivIcon => {
 
 /** SVG radius for a `.foliplus-dot` node: `(--foliplus-dot-size - --foliplus-dot-stroke) / 2`.
  *  The tokens in token.css are the only definition; this just derives the
- *  circleMarker radius so both renderings share the same outer edge. */
+ *  circleMarker radius so both renderings share the same outer edge.
+ *  Cached after the first successful read — `moveCursorNode` rebuilds a
+ *  preview marker every mousemove frame, so the two `getComputedStyle` reads
+ *  must not run per frame. `resetNodeRadiusCache()` invalidates for tests. */
+let _nodeRadiusCache: number | undefined;
 const nodeRadius = (): number => {
+  if (_nodeRadiusCache !== undefined) return _nodeRadiusCache;
   const size = parseFloat(cssVar(document.documentElement, "--foliplus-dot-size", ""));
   const stroke = parseFloat(
     cssVar(document.documentElement, "--foliplus-dot-stroke", ""),
@@ -116,7 +121,11 @@ const nodeRadius = (): number => {
   if (!Number.isFinite(size) || !Number.isFinite(stroke) || size <= stroke) {
     throw new Error("foliplus: --foliplus-dot-size / --foliplus-dot-stroke unreadable");
   }
-  return (size - stroke) / 2;
+  _nodeRadiusCache = (size - stroke) / 2;
+  return _nodeRadiusCache;
+};
+const resetNodeRadiusCache = (): void => {
+  _nodeRadiusCache = undefined;
 };
 
 /** Create a measure node circle marker. */
@@ -261,6 +270,7 @@ export {
   pointsToLatLngs,
   recalculateSegments,
   readLatLng,
+  resetNodeRadiusCache,
   roundCoord,
   setLabelText,
   getEventTarget,

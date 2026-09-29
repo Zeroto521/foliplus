@@ -142,10 +142,26 @@ describe("nodeRadius", () => {
     const root = document.documentElement;
     const prevSize = root.style.getPropertyValue("--foliplus-dot-size");
     root.style.removeProperty("--foliplus-dot-size");
+    Util.resetNodeRadiusCache();
     try {
       expect(() => Util.nodeRadius()).toThrow(/dot-size/);
     } finally {
       root.style.setProperty("--foliplus-dot-size", prevSize);
+      Util.resetNodeRadiusCache();
+    }
+  });
+
+  it("caches the derived radius across calls", () => {
+    expect(Util.nodeRadius()).toBe(5);
+    // Mutating the token does not change the cached value until reset.
+    const root = document.documentElement;
+    const prev = root.style.getPropertyValue("--foliplus-dot-size");
+    root.style.setProperty("--foliplus-dot-size", "16px");
+    try {
+      expect(Util.nodeRadius()).toBe(5);
+    } finally {
+      root.style.setProperty("--foliplus-dot-size", prev);
+      Util.resetNodeRadiusCache();
     }
   });
 });

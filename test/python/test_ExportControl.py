@@ -427,8 +427,9 @@ class TestExportControlBrowser:
             )
             handle, center = info["handle"], info["center"]
             # Outer diameter comes from the shared token (12.5px default).
-            assert abs(handle["w"] - 12.5) < 0.51, handle
-            assert abs(center["w"] - 12.5) < 0.51, center
+            # Tight tolerance: a regression to 12px or 13px must fail.
+            assert abs(handle["w"] - 12.5) < 0.1, handle
+            assert abs(center["w"] - 12.5) < 0.1, center
             # Both are circles, not rectangles.
             assert abs(handle["w"] - handle["h"]) < 0.01, handle
             assert abs(center["w"] - center["h"]) < 0.01, center
