@@ -11,7 +11,6 @@ export {
   GROUP,
   HIDDEN,
   KIND,
-  PANE_NAME_PATTERN,
   PANE_ROLE,
   RECURSION,
   Z_INDEX,

@@ -3,6 +3,7 @@ import { HINT_DURATION } from "#core/hint.js";
 import {
   FOCUS_Z,
   type LayerInfo,
+  PANE_ROLE,
   focusLayerZ,
   forEachLeaf,
   zFor,
@@ -368,7 +369,7 @@ const bringFocusedLayerToFront = (ui: LayerUI, layerInfo: LayerInfo): void => {
       const panes = surface.panes;
       for (const pane of panes) {
         pane.element.classList.add(CONST.CLASSES.FOCUS_PANE);
-        if (pane.role !== CONST.PANE_ROLE.ANNOTATION) {
+        if (pane.role !== PANE_ROLE.ANNOTATION) {
           pane.element.classList.add(CONST.CLASSES.FOCUS_GLOW);
         }
       }

@@ -17,23 +17,11 @@ import {
   markerShadow,
 } from "../leafletAdapter.js";
 import * as CONST from "./const.js";
-import type { PaneRole, PaneSpec } from "./type.js";
+import type { PaneSpec } from "./type.js";
 import { forEachLayer } from "./util.js";
 import { zFor } from "./z.js";
 
 const log = createLogger("PaneManager");
-
-/** The four legal `PaneSpec.role` values — anything else gets dropped at
- *  `registerPaneSpecs` rather than flowing into z arithmetic (where an
- *  unknown value silently prices like "base" and desynchronises a stack).
- *  Derived from `PANE_ROLE`, so the runtime gate cannot drift from the
- *  vocabulary the type carries. */
-const PANE_ROLES: readonly PaneRole[] = [
-  CONST.PANE_ROLE.BASE,
-  CONST.PANE_ROLE.SUB,
-  CONST.PANE_ROLE.ANNOTATION,
-  CONST.PANE_ROLE.PREVIEW,
-];
 
 /** A Leaflet Path layer with the mutable option surface we set on. */
 type PathWithPane = L.Path & { options: L.PathOptions & { pane?: string } };
@@ -317,7 +305,7 @@ class PaneManager {
         log.warn(`PaneSpec.name rejected for injection safety: ${String(spec.name)}`);
         continue;
       }
-      if (!PANE_ROLES.includes(spec.role)) {
+      if (!Object.values(CONST.PANE_ROLE).includes(spec.role)) {
         log.warn(
           `PaneSpec.role rejected (unknown value "${String(spec.role)}"); ` +
             `keeping the spec but falling back to "base"`,

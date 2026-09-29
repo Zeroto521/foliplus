@@ -26,7 +26,7 @@
 // Naming: "state op" is the shape the carrier dispatcher accepts.
 // "Projection" is what the diff compares — intent + policy together, so
 // a change on either side produces an op.
-import { HIDDEN } from "#core/layer/index.js";
+import { HIDDEN, PANE_ROLE } from "#core/layer/index.js";
 import { resetGridLayerView } from "#core/leafletAdapter.js";
 import { setLayerAlpha } from "#common/canvasAlpha.js";
 import * as CONST from "../const.js";
@@ -251,7 +251,7 @@ const applyStateOp = (ui: LayerUI, layerInfo: LayerInfo, op: StateOp): void => {
       const value = op.value ?? 1;
       const surface = ui.m.surfaceFor(layerInfo);
       for (const pane of surface.panes) {
-        if (pane.role === CONST.PANE_ROLE.ANNOTATION) continue;
+        if (pane.role === PANE_ROLE.ANNOTATION) continue;
         const el = ui.m.map.getPane(pane.name);
         if (el) el.style.opacity = String(value);
       }
