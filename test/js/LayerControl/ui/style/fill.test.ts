@@ -633,9 +633,7 @@ describe("LayerUI style panel — fill color", () => {
 
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
-    const row = item.querySelector(
-      `.${CONST.CLASSES.STYLE_FILL_ROW}`,
-    ) as HTMLElement;
+    const row = item.querySelector(`.${CONST.CLASSES.STYLE_FILL_ROW}`) as HTMLElement;
     const color = row.querySelector(
       `.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`,
     ) as HTMLInputElement;
