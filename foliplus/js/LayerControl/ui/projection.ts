@@ -10,6 +10,7 @@
 // Nothing in this file touches the map, the registry, or storage.
 import type { Projection } from "../type.js";
 import type { LayerUI } from "./index.js";
+import { getIntent } from "./intent.js";
 import { inZoomRange } from "./rowView.js";
 
 /** The user's own visibility choice, or the author's declared default
@@ -20,13 +21,13 @@ import { inZoomRange } from "./rowView.js";
  *  the layer record.
  *
  *  The user's choice is signalled by the dimension's `overrides` provenance
- *  marker *or* by the value being present in `visibleMap`. The two travel
+ *  marker *or* by the value being present on the intent record. The two travel
  *  together out of `loadPersistedState` and `setVisible`, so either alone still
  *  means "the user chose this" — a caller that records the value (a restored
  *  record, a test fixture, a re-registration replay) must not have it silently
  *  read back as the author's default. */
 const intentVisibleOf = (ui: LayerUI, id: string): boolean => {
-  const visible = ui.visibleMap?.[id];
+  const visible = getIntent(ui, id, "visible");
   const overrides = ui.intentProvenance?.[id];
   const hasVisible = overrides?.includes("visible") || typeof visible === "boolean";
   const authorDefault = ui.authorVisible.get(id) ?? true;
@@ -44,7 +45,7 @@ const projectLayer = (ui: LayerUI, layerInfo: LayerInfo): Projection => {
   // per layer per zoom, so the JIT benefits from seeing all lookups in
   // one scope.
   const overrides = ui.intentProvenance?.[id];
-  const visible = ui.visibleMap?.[id];
+  const visible = getIntent(ui, id, "visible");
   const hasVisible = overrides?.includes("visible") || typeof visible === "boolean";
   const authorDefault = ui.authorVisible.get(id) ?? true;
   const intent = hasVisible ? (visible ?? true) : authorDefault;
@@ -57,12 +58,8 @@ const projectLayer = (ui: LayerUI, layerInfo: LayerInfo): Projection => {
   // A dimension's value being present is what the sweep has always read as
   // the user's choice (a restored record, a late replay). The provenance
   // marker lives on `intentProvenance`, not on this projection.
-  const opacity =
-    typeof ui.opacityMap?.[id] === "number" ? ui.opacityMap[id] : undefined;
-
-  const zoomRange = ui.zoomRangeMap?.[id]
-    ? (ui.zoomRangeMap[id] as [number, number])
-    : null;
+  const opacity = getIntent(ui, id, "opacity");
+  const zoomRange = getIntent(ui, id, "zoomRange") ?? null;
 
   return { id, intent: { visible: intent }, effectiveShown, opacity, zoomRange };
 };
@@ -77,10 +74,11 @@ const projectLayer = (ui: LayerUI, layerInfo: LayerInfo): Projection => {
 const projectAll = (ui: LayerUI): Map<string, Projection> => {
   const ids = new Set([
     ...ui.m.layers.map(li => li.id),
-    ...Object.keys(ui.visibleMap),
-    ...Object.keys(ui.renamedNames),
-    ...Object.keys(ui.opacityMap),
-    ...Object.keys(ui.zoomRangeMap),
+    ...Object.keys(ui.intents ?? {}),
+    ...Object.keys(ui.visibleMap ?? {}),
+    ...Object.keys(ui.renamedNames ?? {}),
+    ...Object.keys(ui.opacityMap ?? {}),
+    ...Object.keys(ui.zoomRangeMap ?? {}),
   ]);
   const result = new Map<string, Projection>();
   for (const id of ids) {

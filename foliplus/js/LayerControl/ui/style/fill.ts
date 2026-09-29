@@ -33,7 +33,7 @@ import {
 import * as CONST from "../../const.js";
 import { showSolidBasemap } from "../color.js";
 import type { LayerUI } from "../index.js";
-import { clearIntent, setIntent } from "../intent.js";
+import { clearIntent, getIntent, setIntent } from "../intent.js";
 import { markOverride, saveState, unmarkOverride } from "../state.js";
 import { pinStyleOnHighlight } from "./pin.js";
 import { registerDimension } from "./registry.js";
@@ -217,8 +217,8 @@ const captureBase = (
  *  `commitFillOpacity`) so the walk is unit-testable without a storage timer. */
 const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
   const li = ui.m.layerRegistry.get(layerId);
-  const color = ui.fillColorMap[layerId];
-  const opacity = ui.fillOpacityMap[layerId];
+  const color = getIntent(ui, layerId, "fillColor");
+  const opacity = getIntent(ui, layerId, "fillOpacity");
   if (color === undefined && opacity === undefined) return;
 
   // Solid-color basemap: the fill is the pane's paint, not a vector style.
@@ -249,8 +249,8 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
     // The "fill" key makes each commit replace this dimension's getter
     // instead of stacking a fresh closure.
     pinStyleOnHighlight(node, DIM.FILL, () => {
-      const c = ui.fillColorMap[layerId];
-      const o = ui.fillOpacityMap[layerId];
+      const c = getIntent(ui, layerId, "fillColor");
+      const o = getIntent(ui, layerId, "fillOpacity");
       if (c === undefined && o === undefined) return null;
       const s: Record<string, unknown> = {};
       if (c !== undefined) s.fillColor = c;
@@ -275,7 +275,7 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
  *  normalized to 6-digit lowercase hex before landing in storage. */
 const commitFillColor = (ui: LayerUI, layerId: string, rawColor: string): void => {
   const color = normalizeHexColor(rawColor);
-  if (ui.fillColorMap[layerId] === color) return;
+  if (getIntent(ui, layerId, "fillColor") === color) return;
   setIntent(ui, layerId, "fillColor", color);
   markOverride(ui, layerId, "fillColor");
   saveState(ui);
@@ -286,7 +286,7 @@ const commitFillColor = (ui: LayerUI, layerId: string, rawColor: string): void =
  *  storage and setStyle. Called from `bindLiveNumber` on the opacity input. */
 const commitFillOpacity = (ui: LayerUI, layerId: string, pct: number): void => {
   const opacity = Math.max(0, Math.min(1, pct / 100));
-  if (ui.fillOpacityMap[layerId] === opacity) return;
+  if (getIntent(ui, layerId, "fillOpacity") === opacity) return;
   setIntent(ui, layerId, "fillOpacity", opacity);
   markOverride(ui, layerId, "fillOpacity");
   saveState(ui);
@@ -343,7 +343,7 @@ const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
   const li = ui.m.layerRegistry.get(layerId);
   const isBasemap = isColorBasemap(li!);
 
-  const storedColor = ui.fillColorMap[layerId];
+  const storedColor = getIntent(ui, layerId, "fillColor");
   const color = toHexColor(
     storedColor ?? (isBasemap ? CONST.COLOR.DEFAULT : authoredFillColor(ui, layerId)),
   );
@@ -363,7 +363,7 @@ const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
     );
   }
 
-  const storedOpacity = ui.fillOpacityMap[layerId];
+  const storedOpacity = getIntent(ui, layerId, "fillOpacity");
   const authoredOpacity = authoredFillOpacity(ui, layerId);
   const opacityPct = (storedOpacity ?? authoredOpacity ?? VISIBLE_FILL_OPACITY) * 100;
   const opacityInput = numberInput({
@@ -410,7 +410,7 @@ const bindFillRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
  *  Called from `applyUserState` on attach and late registration so a
  *  persisted value survives a reload. */
 const replayFillState = (ui: LayerUI, id: string): void => {
-  if (ui.fillColorMap[id] === undefined && ui.fillOpacityMap[id] === undefined) return;
+  if (getIntent(ui, id, "fillColor") === undefined && getIntent(ui, id, "fillOpacity") === undefined) return;
   applyFillToLayer(ui, id);
 };
 
@@ -434,8 +434,8 @@ const FILL_DIMENSION = registerDimension<{
     const li = ui.m.layerRegistry.get(layerId);
     if (!li) return undefined;
     return {
-      color: ui.fillColorMap[layerId] ?? authoredFillColor(ui, layerId),
-      opacity: ui.fillOpacityMap[layerId] ?? authoredFillOpacity(ui, layerId),
+      color: getIntent(ui, layerId, "fillColor") ?? authoredFillColor(ui, layerId),
+      opacity: getIntent(ui, layerId, "fillOpacity") ?? authoredFillOpacity(ui, layerId),
     };
   },
   row: buildFillRow,

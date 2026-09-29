@@ -4,6 +4,7 @@ import { type Debounced, debounce } from "#common/debounce.js";
 import * as CONST from "../const.js";
 import { applyProjection, applyProjectionAll } from "./apply.js";
 import type { LayerUI } from "./index.js";
+import { getIntent } from "./intent.js";
 import { intentVisibleOf } from "./projection.js";
 import { applyRowView, buildRowCell } from "./rowView.js";
 import { saveState, setVisible } from "./state.js";
@@ -23,7 +24,7 @@ const syncNoBasemap = (ui: LayerUI): void => {
   const anyBaseVisible = ui.m.layers.some(li => {
     if (li.group !== GROUP.BASE) return false;
     // Inline intent check to avoid function-call overhead on the click hot path.
-    const visible = ui.visibleMap?.[li.id];
+    const visible = getIntent(ui, li.id, "visible");
     const overrides = ui.intentProvenance?.[li.id];
     const hasVisible = overrides?.includes("visible") || typeof visible === "boolean";
     const authorDefault = ui.authorVisible.get(li.id) ?? true;
@@ -106,7 +107,7 @@ const syncToggleAll = (ui: LayerUI, group: string) => {
     if (!id) continue;
     const layerInfo = ui.m.layerRegistry.get(id);
     if (!layerInfo) continue;
-    const visible = ui.visibleMap?.[id];
+    const visible = getIntent(ui, id, "visible");
     const overrides = ui.intentProvenance?.[id];
     const hasVisible = overrides?.includes("visible") || typeof visible === "boolean";
     const authorDefault = ui.authorVisible.get(id) ?? true;

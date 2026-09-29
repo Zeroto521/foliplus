@@ -14,7 +14,7 @@ import { dom } from "#common/dom.js";
 import * as CONST from "../../const.js";
 import { applyProjection } from "../apply.js";
 import type { LayerUI } from "../index.js";
-import { clearIntent, setIntent } from "../intent.js";
+import { clearIntent, getIntent, setIntent } from "../intent.js";
 import { markOverride, saveState, unmarkOverride } from "../state.js";
 import { syncNoBasemap } from "../visibility.js";
 import { railPos, round5 } from "./frame.js";
@@ -128,7 +128,7 @@ const commitOpacityPct = (
  *  appears for keyboard input the same as for a drag. */
 const buildOpacityRow = (ui: LayerUI, layerId: string): HTMLElement => {
   const li = ui.m.layerRegistry.get(layerId);
-  const pct = opacityToPct(ui.opacityMap[layerId] ?? li?.opacity);
+  const pct = opacityToPct(getIntent(ui, layerId, "opacity") ?? li?.opacity);
   const fill = dom.el("div", {
     class: `${CONST.CLASSES.SLIDER_FILL} ${CONST.CLASSES.STYLE_OPACITY_FILL}`,
     style: `width:${opacityFillWidth(pct)}`,
@@ -211,7 +211,7 @@ const OPACITY_DIMENSION = registerDimension<number>({
   gate: layerCanOpacity,
   value: (ui, layerId) => {
     const li = ui.m.layerRegistry.get(layerId);
-    return ui.opacityMap[layerId] ?? li?.opacity;
+    return getIntent(ui, layerId, "opacity") ?? li?.opacity;
   },
   row: buildOpacityRow,
 });

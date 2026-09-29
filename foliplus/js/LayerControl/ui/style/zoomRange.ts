@@ -7,7 +7,7 @@ import { dom } from "#common/dom.js";
 import * as CONST from "../../const.js";
 import { applyProjection, authorZoomBoundsForLayer } from "../apply.js";
 import type { LayerUI } from "../index.js";
-import { clearIntent, setIntent } from "../intent.js";
+import { clearIntent, getIntent, setIntent } from "../intent.js";
 import { markOverride, saveState, unmarkOverride } from "../state.js";
 import { railPos, round5 } from "./frame.js";
 import { registerDimension } from "./registry.js";
@@ -111,7 +111,7 @@ const syncZoomRangeRow = (
   liveRange?: [number, number],
 ): void => {
   const [mapMin, mapMax] = authorZoomBoundsForLayer(ui, layerId);
-  const range = liveRange ?? ui.zoomRangeMap[layerId];
+  const range = liveRange ?? getIntent(ui, layerId, "zoomRange");
   const min = range ? Math.max(range[0], mapMin) : mapMin;
   const max = range ? Math.min(range[1], mapMax) : mapMax;
   const current = ui.m.map.getZoom();
@@ -157,7 +157,7 @@ const syncZoomRangeRow = (
  *  full map range is used — the "author-undeclared" default. */
 const buildZoomRangeRow = (ui: LayerUI, layerId: string): HTMLElement => {
   const [mapMin, mapMax] = authorZoomBoundsForLayer(ui, layerId);
-  const stored = ui.zoomRangeMap[layerId];
+  const stored = getIntent(ui, layerId, "zoomRange");
   const min = stored ? Math.max(stored[0], mapMin) : mapMin;
   const max = stored ? Math.min(stored[1], mapMax) : mapMax;
   const current = ui.m.map.getZoom();
@@ -300,7 +300,7 @@ const ZOOM_RANGE_DIMENSION = registerDimension<{ min: number; max: number }>({
     const li = ui.m.layerRegistry.get(layerId);
     if (!li) return undefined;
     const [mapMin, mapMax] = authorZoomBoundsForLayer(ui, layerId);
-    const stored = ui.zoomRangeMap[layerId];
+    const stored = getIntent(ui, layerId, "zoomRange");
     return {
       min: stored ? Math.max(stored[0], mapMin) : mapMin,
       max: stored ? Math.min(stored[1], mapMax) : mapMax,

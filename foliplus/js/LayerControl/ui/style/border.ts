@@ -36,7 +36,7 @@ import {
 import * as CONST from "../../const.js";
 import type { BorderRowBindTarget, BorderRowBuildTarget } from "../../type.js";
 import type { LayerUI } from "../index.js";
-import { clearIntent, setIntent } from "../intent.js";
+import { clearIntent, getIntent, setIntent } from "../intent.js";
 import { markOverride, saveState, unmarkOverride } from "../state.js";
 import { pinStyleOnHighlight } from "./pin.js";
 import { registerDimension } from "./registry.js";
@@ -173,8 +173,8 @@ const authoredBorder = (
  *  the walk is the single writer of a border style — the commits only record
  *  intent. */
 const applyBorderToLayer = (ui: LayerUI, layerId: string): void => {
-  const color = ui.borderColorMap[layerId];
-  const weight = ui.borderWeightMap[layerId];
+  const color = getIntent(ui, layerId, "borderColor");
+  const weight = getIntent(ui, layerId, "borderWeight");
   if (color === undefined && weight === undefined) return;
   const layer = ui.m.findLayer(layerId) as StyleCarrier | null;
   if (!layer) return;
@@ -201,8 +201,8 @@ const applyBorderToLayer = (ui: LayerUI, layerId: string): void => {
     // highlight-restore can neither drop one dimension nor grow a getter
     // list with every commit.
     pinStyleOnHighlight(node, DIM.BORDER, () => {
-      const c = ui.borderColorMap[layerId];
-      const w = ui.borderWeightMap[layerId];
+      const c = getIntent(ui, layerId, "borderColor");
+      const w = getIntent(ui, layerId, "borderWeight");
       if (c === undefined && w === undefined) return null;
       const stroke: Record<string, unknown> = {};
       if (c !== undefined) stroke.color = c;
@@ -222,7 +222,7 @@ const applyBorderToLayer = (ui: LayerUI, layerId: string): void => {
  *  normalised to 6-digit lowercase hex before landing in storage. */
 const commitBorderColor = (ui: LayerUI, layerId: string, rawColor: string): void => {
   const color = normalizeHexColor(rawColor);
-  if (ui.borderColorMap[layerId] === color) return;
+  if (getIntent(ui, layerId, "borderColor") === color) return;
   setIntent(ui, layerId, "borderColor", color);
   markOverride(ui, layerId, "borderColor");
   saveState(ui);
@@ -232,7 +232,7 @@ const commitBorderColor = (ui: LayerUI, layerId: string, rawColor: string): void
 /** Commit the border width to the layer. Called from `bindLiveNumber` on the
  *  width input, which already clamps into the shared bounds. */
 const commitBorderWeight = (ui: LayerUI, layerId: string, weight: number): void => {
-  if (ui.borderWeightMap[layerId] === weight) return;
+  if (getIntent(ui, layerId, "borderWeight") === weight) return;
   setIntent(ui, layerId, "borderWeight", weight);
   markOverride(ui, layerId, "borderWeight");
   saveState(ui);
@@ -381,8 +381,8 @@ const buildBorderRow = (ui: LayerUI, layerId: string): HTMLElement => {
   return buildBorderRowShell({
     rowClass: `${CONST.CLASSES.FORM_ROW} ${CONST.CLASSES.STYLE_BORDER_ROW}`,
     label: ui.T("border"),
-    color: displayColor(ui.borderColorMap[layerId] ?? author.color),
-    weight: ui.borderWeightMap[layerId] ?? author.weight,
+    color: displayColor(getIntent(ui, layerId, "borderColor") ?? author.color),
+    weight: getIntent(ui, layerId, "borderWeight") ?? author.weight,
     hasColorInput: true,
     hasWeightInput: true,
     className: CONST.CLASSES.STYLE_BORDER_COLOR_INPUT,
@@ -420,8 +420,8 @@ const BORDER_DIMENSION = registerDimension<{ color: string; weight: number }>({
     if (!li) return undefined;
     const author = authoredBorder(ui, layerId);
     return {
-      color: ui.borderColorMap[layerId] ?? author.color,
-      weight: ui.borderWeightMap[layerId] ?? author.weight,
+      color: getIntent(ui, layerId, "borderColor") ?? author.color,
+      weight: getIntent(ui, layerId, "borderWeight") ?? author.weight,
     };
   },
   row: buildBorderRow,

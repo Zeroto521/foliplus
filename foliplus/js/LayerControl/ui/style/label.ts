@@ -19,6 +19,7 @@ import { NUMBER_FORMAT } from "#common/format.js";
 import * as CONST from "../../const.js";
 import type { AnnotationConfig } from "../../type.js";
 import type { LayerUI } from "../index.js";
+import { getIntent } from "../intent.js";
 import { saveState } from "../state.js";
 
 /** Field list for a layer (cached on the UI shell). collectFields walks every
@@ -84,7 +85,13 @@ const applyPatch = (
  *  have switched it on since the page loaded), and re-applying the snapshot over
  *  it would silently revert that. Idempotent. */
 const applyStyleLabelState = (ui: LayerUI): void => {
-  for (const [id, raw] of Object.entries(ui.labelConfigs)) {
+  const seedIds = new Set([
+    ...Object.keys(ui.intents ?? {}),
+    ...Object.keys(ui.labelConfigs ?? {}),
+  ]);
+  for (const id of seedIds) {
+    const raw = getIntent(ui, id, "annotation");
+    if (!raw) continue;
     if (!layerHasLabelFields(ui, id)) continue; // stale / no fields
     if (ui.m.annotation.hasConfig(id)) continue; // live state wins
     const cfg = raw as Partial<AnnotationConfig>;

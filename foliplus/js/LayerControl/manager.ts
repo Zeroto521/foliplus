@@ -38,7 +38,7 @@ import { createLogger } from "#common/log.js";
 import { AnnotationManager } from "./annotation/index.js";
 import * as CONST from "./const.js";
 import { LayerPersistence } from "./persistence.js";
-import { clearIntent } from "./ui/intent.js";
+import { clearIntent, getIntent } from "./ui/intent.js";
 import { LayerUI } from "./ui/index.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
@@ -696,7 +696,7 @@ class LayerManager implements LayerAPI {
     // handled by `applyUserState` further below, which re-projects the hidden
     // intent and writes the carrier through the executor's single write path.
     if (
-      this.ui?.visibleMap?.[opts.id] !== false &&
+      (!this.ui || getIntent(this.ui, opts.id, "visible") !== false) &&
       opts.layer &&
       !this.map.hasLayer(opts.layer)
     ) {

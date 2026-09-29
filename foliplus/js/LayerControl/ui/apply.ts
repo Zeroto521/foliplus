@@ -32,6 +32,7 @@ import { setLayerAlpha } from "#common/canvasAlpha.js";
 import * as CONST from "../const.js";
 import type { Projection, StateOp } from "../type.js";
 import type { LayerUI } from "./index.js";
+import { getIntent } from "./intent.js";
 import { intentVisibleOf, projectAll, projectLayer } from "./projection.js";
 
 /** Cache the layer's original `options.opacity` so repeated slider drags
@@ -344,7 +345,7 @@ const applyProjection = (ui: LayerUI, id: string): void => {
   // decide — writing `effectiveShown` for it would turn a guess into an add.
   const hasUserIntent =
     (ui.intentProvenance?.[id]?.includes("visible") ?? false) ||
-    typeof ui.visibleMap?.[id] === "boolean";
+    typeof getIntent(ui, id, "visible") === "boolean";
   const authorised = hasUserIntent || ui.authorVisible.has(id);
   // Current visibility, read from the carrier the write would land on.
   // "native" — the map's own membership flag; "pane" — the canvas's

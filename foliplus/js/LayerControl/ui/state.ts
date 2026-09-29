@@ -262,8 +262,9 @@ const applyUserState = (ui: LayerUI, id?: string) => {
     // dimension on the same pass — visibility, opacity and zoom range — so
     // nothing needs a per-caller replay path: a late arrival replays itself.
     applyProjection(ui, id);
-    if (id in ui.renamedNames) {
-      applyNameProjection(layerInfo, null, ui.renamedNames[id]);
+    const rename = getIntent(ui, id, "name");
+    if (rename != null) {
+      applyNameProjection(layerInfo, null, rename);
     }
     // The order dimension is replayed on the same pass: this path runs once per
     // late registration, so without it the layer would keep the slot it was
@@ -279,7 +280,13 @@ const applyUserState = (ui: LayerUI, id?: string) => {
   // against the persisted intent; the color basemap has no registry entry,
   // so its rename still comes from `renamedNames`.
   applyProjectionAll(ui);
-  for (const layerId of Object.keys(ui.renamedNames)) {
+  const renamedIds = new Set([
+    ...Object.keys(ui.intents ?? {}),
+    ...Object.keys(ui.renamedNames ?? {}),
+  ]);
+  for (const layerId of renamedIds) {
+    const rename = getIntent(ui, layerId, "name");
+    if (rename == null) continue;
     if (layerId === CONST.SOLID_BASEMAP_ID) {
       // The color basemap has no registry entry —only its row label.
       applyNameProjection(
@@ -287,7 +294,7 @@ const applyUserState = (ui: LayerUI, id?: string) => {
         container?.querySelector(
           `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"]`,
         ) as HTMLElement | null,
-        ui.renamedNames[layerId],
+        rename,
       );
       continue;
     }
@@ -298,7 +305,7 @@ const applyUserState = (ui: LayerUI, id?: string) => {
       container?.querySelector(
         `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"]`,
       ) as HTMLElement | null,
-      ui.renamedNames[layerId],
+      rename,
     );
   }
 
@@ -340,7 +347,14 @@ const dropPersistedLayerState = (ui: LayerUI, id: string) => {
 /** Save user-assigned names, coalescing rapid calls. */
 
 const saveNamesState = (ui: LayerUI) => {
-  ui.m.persistence.schedule({ renamedNames: () => ({ ...ui.renamedNames }) });
+  const names: Record<string, string> = {};
+  for (const [id, name] of Object.entries(ui.renamedNames ?? {})) {
+    names[id] = name;
+  }
+  for (const [id, intent] of Object.entries(ui.intents ?? {})) {
+    if (typeof intent.name === "string") names[id] = intent.name;
+  }
+  ui.m.persistence.schedule({ renamedNames: () => names });
 };
 
 /** Full re-scan of every row (used on attach/fold-toggle). Idempotent —
