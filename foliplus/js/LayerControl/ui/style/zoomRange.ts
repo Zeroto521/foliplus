@@ -2,6 +2,7 @@
 // live / commit passes. Moved verbatim from ui/style.ts.
 // Used by both the delegated drawer and the annotation panel — the row is
 // LayerControl-owned, gated by surface capability.
+import { CAP_TIER, DIM } from "#core/layer/index.js";
 import { dom } from "#common/dom.js";
 import * as CONST from "../../const.js";
 import { applyProjection, authorZoomBoundsForLayer } from "../apply.js";
@@ -23,7 +24,7 @@ import { registerDimension } from "./registry.js";
 const canShowZoomRange = (ui: LayerUI, layerId: string): boolean => {
   const li = ui.m.layerRegistry.get(layerId);
   if (!li) return false;
-  return ui.m.surfaceFor(li).capabilities.zoomRange !== CONST.CAP_TIER.NONE;
+  return ui.m.surfaceFor(li).capabilities.zoomRange !== CAP_TIER.NONE;
 };
 
 /** Clamp a zoom value into the map's current [min, max] range. */
@@ -292,7 +293,7 @@ const resetLayerZoomRange = (ui: LayerUI, layerId: string): void => {
  *  Registered last in `DIM_ORDER` (see `./registry.js`): the annotation
  *  panel's Layer section runs fill → border → opacity → zoomRange. */
 const ZOOM_RANGE_DIMENSION = registerDimension<{ min: number; max: number }>({
-  key: CONST.DIM.ZOOM_RANGE,
+  key: DIM.ZOOM_RANGE,
   gate: canShowZoomRange,
   value: (ui, layerId) => {
     const li = ui.m.layerRegistry.get(layerId);

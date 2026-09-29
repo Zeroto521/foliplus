@@ -63,7 +63,7 @@ const GEOM_TYPE = {
 
 /** Layer group names — the `LayerInfo.group` vocabulary ("base" | "overlay").
  *  Owned by core so z / registry / factory compare against one definition;
- *  LayerControl/const re-exports it as `CONST.GROUP`. */
+ *  consumers import it from the `core/layer` barrel. */
 const GROUP = { OVERLAY: "overlay", BASE: "base" } as const;
 
 /** Layer kind names — the `LayerKind` vocabulary ("tile" | "vector" | "canvas"

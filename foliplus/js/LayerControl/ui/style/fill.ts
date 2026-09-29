@@ -19,7 +19,7 @@
 // the HeatmapControl border row and the annotation label row — one
 // <input type=color> inside a FORM_ROW, no reset button on the row itself
 // (the panel-wide Reset handles it, the way label color has it).
-import { type LayerInfo } from "#core/layer/index.js";
+import { CAP_TIER, DIM, GROUP, type LayerInfo } from "#core/layer/index.js";
 import { dom } from "#common/dom.js";
 import {
   bindLiveColor,
@@ -65,7 +65,7 @@ type StyleCarrier = L.Layer & {
  *  leaves. The gate (`layerCanFill`) reads the capability, not this. */
 const isColorBasemap = (li: LayerInfo | undefined): boolean => {
   if (!li || li.styleSetters) return false;
-  return Boolean(li.color) && li.group === CONST.GROUP.BASE;
+  return Boolean(li.color) && li.group === GROUP.BASE;
 };
 
 /** Whether the layer's surface can honestly carry a fill write.
@@ -84,7 +84,7 @@ const isColorBasemap = (li: LayerInfo | undefined): boolean => {
 const layerCanFill = (ui: LayerUI, layerId: string): boolean => {
   const li = ui.m.layerRegistry.get(layerId);
   if (!li) return false;
-  return ui.m.surfaceFor(li).capabilities.fill === CONST.CAP_TIER.NATIVE;
+  return ui.m.surfaceFor(li).capabilities.fill === CAP_TIER.NATIVE;
 };
 
 /** The layer's authored base style, captured on the layer's first fill
@@ -247,7 +247,7 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
     // guarantees a setStyle, so no isStyleSetter guard is needed here.
     // The "fill" key makes each commit replace this dimension's getter
     // instead of stacking a fresh closure.
-    pinStyleOnHighlight(node, CONST.DIM.FILL, () => {
+    pinStyleOnHighlight(node, DIM.FILL, () => {
       const c = ui.fillColorMap[layerId];
       const o = ui.fillOpacityMap[layerId];
       if (c === undefined && o === undefined) return null;
@@ -427,7 +427,7 @@ const FILL_DIMENSION = registerDimension<{
   color: string;
   opacity: number | null;
 }>({
-  key: CONST.DIM.FILL,
+  key: DIM.FILL,
   gate: layerCanFill,
   value: (ui, layerId) => {
     const li = ui.m.layerRegistry.get(layerId);

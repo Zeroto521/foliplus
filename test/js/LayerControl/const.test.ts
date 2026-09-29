@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import * as CONST from "#foliplus/LayerControl/const.js";
-import { GEOM_TYPE, RECURSION, Z_INDEX } from "#foliplus/core/layer/const.js";
+import { GEOM_TYPE, GROUP, RECURSION, Z_INDEX } from "#foliplus/core/layer/const.js";
 
 describe("init ready signal", () => {
   it("no longer exposes the removed INIT_DELAY_MS timer", () => {
@@ -100,8 +100,8 @@ describe("GEOM_TYPE", () => {
 
 describe("GROUP", () => {
   it("defines group names", () => {
-    expect(CONST.GROUP.OVERLAY).toBe("overlay");
-    expect(CONST.GROUP.BASE).toBe("base");
+    expect(GROUP.OVERLAY).toBe("overlay");
+    expect(GROUP.BASE).toBe("base");
   });
 });
 
