@@ -12,6 +12,7 @@ import {
 } from "#foliplus/LayerControl/ui/drag.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import type { LayerInfo } from "#foliplus/core/layer/index.js";
+import { GROUP } from "#foliplus/core/layer/index.js";
 import { initFixture } from "./fixture.js";
 
 const makeUi = (
@@ -67,11 +68,11 @@ const dragEvent = (target: HTMLElement): DragEvent => {
 describe("ui/drag", () => {
   it("toggleFold flips the group and persists fold state", () => {
     const { ui } = initFixture();
-    const before = ui.foldedGroups.has(CONST.GROUP.OVERLAY);
-    toggleFold(ui, CONST.GROUP.OVERLAY);
-    expect(ui.foldedGroups.has(CONST.GROUP.OVERLAY)).toBe(!before);
-    toggleFold(ui, CONST.GROUP.OVERLAY);
-    expect(ui.foldedGroups.has(CONST.GROUP.OVERLAY)).toBe(before);
+    const before = ui.foldedGroups.has(GROUP.OVERLAY);
+    toggleFold(ui, GROUP.OVERLAY);
+    expect(ui.foldedGroups.has(GROUP.OVERLAY)).toBe(!before);
+    toggleFold(ui, GROUP.OVERLAY);
+    expect(ui.foldedGroups.has(GROUP.OVERLAY)).toBe(before);
   });
 
   it("handleDrop is a no-op when no dragIdx is armed", () => {

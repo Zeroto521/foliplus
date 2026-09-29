@@ -1,8 +1,8 @@
 // Border row — the ⚙︎ drawer's "Layer" section stroke swatch + width.
 //
 // A self-managed LayerControl dimension (like label color, not like opacity
-// or zoom range): the values live in `ui.borderColorMap` /
-// `ui.borderWeightMap`, are persisted under `layerState.borderColor` /
+// or zoom range): the values live in `ui.intents.borderColor` /
+// `ui.intents.borderWeight`, are persisted under `layerState.borderColor` /
 // `layerState.borderWeight`, and reach the map by walking `eachLayer` and
 // calling `setStyle` on every leaf that owns one. The dimension is not part
 // of the executor's visible/opacity/zoomRange family; the write goes straight
@@ -22,6 +22,7 @@
 // `inlineControls` — the same recipe as the delegated border row and the
 // annotation label row, so a border row reads identically whether the layer
 // paints through `setStyle` or through a component's own canvas.
+import { CAP_TIER, DIM } from "#core/layer/index.js";
 import { dom } from "#common/dom.js";
 import {
   BORDER_WEIGHT,
@@ -35,31 +36,19 @@ import {
 import * as CONST from "../../const.js";
 import type { BorderRowBindTarget, BorderRowBuildTarget } from "../../type.js";
 import type { LayerUI } from "../index.js";
+import { INTENT, clearIntent, getIntent, setIntent } from "../intent.js";
 import { markOverride, saveState, unmarkOverride } from "../state.js";
 import { pinStyleOnHighlight } from "./pin.js";
 import { registerDimension } from "./registry.js";
-
-/** A node in the layer tree that a border walk may reach. `setStyle` alone
- *  does not make a node a carrier — L.GeoJSON owns one too (it fans a style
- *  out to its features) — so every walk below checks `eachLayer` first and
- *  treats a setter as a leaf only. */
-type StyleCarrier = L.Layer & {
-  setStyle?: (style: Record<string, unknown>) => void;
-  eachLayer?: (fn: (layer: L.Layer) => void) => void;
-  options?: { color?: string; weight?: number };
-};
-
-/** A carrier whose `setStyle` is there for real. Narrowing through a guard
- *  rather than a `typeof` test keeps the call site a plain method call, which
- *  matters: Leaflet's `Path.setStyle` runs `setOptions(this, style)`, so the
- *  method captured into a local and called detached would see `this` as
- *  undefined and throw instead of writing. */
-type StyleSetter = StyleCarrier & {
-  setStyle: (style: Record<string, unknown>) => void;
-};
-
-const isStyleSetter = (node: StyleCarrier): node is StyleSetter =>
-  typeof node.setStyle === "function";
+import {
+  type StyleCarrier,
+  type StyleSetter,
+  commitStyleDim,
+  isStyleSetter,
+  restoreStyleDim,
+  styleBagOf,
+  styleDimPayload,
+} from "./styleBag.js";
 
 /** Whether the layer's surface can honestly carry a border write.
  *  Pure capability check: `capabilities.stroke === "native"`.
@@ -75,46 +64,13 @@ const isStyleSetter = (node: StyleCarrier): node is StyleSetter =>
 const layerCanBorder = (ui: LayerUI, layerId: string): boolean => {
   const li = ui.m.layerRegistry.get(layerId);
   if (!li) return false;
-  return ui.m.surfaceFor(li).capabilities.stroke === "native";
+  return ui.m.surfaceFor(li).capabilities.stroke === CAP_TIER.NATIVE;
 };
-
-/** The layer's authored border style, captured on the layer's first border
- *  write and never re-read. Same recipe as the opacity base: `setStyle`
- *  mutates `options` in place, so by reset time we cannot re-read the
- *  author's color or width from the layer and must replay the captured
- *  value.
- *
- *  Keyed by `layer` identity, not by layer id, so a re-registration of the
- *  same id keeps its base across the swap. WeakMap so the entry disappears
- *  when the layer leaves the map, no explicit cleanup needed.
- *
- *  Per-leaf, because a GeoJSON layer's features can each declare their own
- *  style — one layer-wide base would erase the author's per-feature choice
- *  on reset.
- *
- *  Both fields are always populated: captureBase fills either one with the
- *  module default, so nothing downstream can tell "the author declared
- *  nothing" apart from "the author's own value". If that distinction ever
- *  matters — a Reset that behaves differently for the two — it is a decision
- *  about captureBase's capture semantics: re-add the null and read undefined
- *  out of options for real. Do not flatten it back with `??`. */
-const authorBorderBase = new WeakMap<StyleCarrier, { color: string; weight: number }>();
 
 /** Leaflet's own default `Path.color` — folium's style function always
  *  populates `options.color`, so this only fires for a bare Leaflet layer
  *  with no style declaration at all. */
 const STYLE_BORDER_DEFAULT = "#3388ff";
-
-const captureBase = (node: StyleCarrier): { color: string; weight: number } => {
-  const existing = authorBorderBase.get(node);
-  if (existing) return existing;
-  const base = {
-    color: node.options?.color ?? STYLE_BORDER_DEFAULT,
-    weight: node.options?.weight ?? BORDER_WEIGHT.DEFAULT,
-  };
-  authorBorderBase.set(node, base);
-  return base;
-};
 
 /** The first leaf that carries a style — the row's initial value is read
  *  from it, so a swatch or a number field never shows a value the layer is
@@ -150,35 +106,38 @@ const authoredBorder = (
   // so the registry's own reference stays null until the layer materializes.
   const layer = ui.m.findLayer(layerId) as StyleCarrier | null;
   const carrier = layer ? firstCarrier(layer) : null;
-  const base = carrier ? authorBorderBase.get(carrier) : undefined;
+  const bag = carrier ? styleBagOf(carrier) : undefined;
   return {
-    color: base?.color ?? carrier?.options?.color ?? STYLE_BORDER_DEFAULT,
-    weight: base?.weight ?? carrier?.options?.weight ?? BORDER_WEIGHT.DEFAULT,
+    color: bag?.color ?? carrier?.options?.color ?? STYLE_BORDER_DEFAULT,
+    weight: bag?.weight ?? carrier?.options?.weight ?? BORDER_WEIGHT.DEFAULT,
   };
 };
 
 /** Commit the current border color and width to the layer. Walks the layer
- *  tree and calls `setStyle({color?, weight?})` once per leaf that has a
- *  setter — the two sub-dimensions ride the same call so a color change
- *  and a width change can never disagree about the stroke. A node without a
- *  setter is skipped silently.
+ *  tree and calls `setStyle({color?, weight?, stroke: true})` once per leaf
+ *  that has a setter — the two sub-dimensions ride the same call so a color
+ *  change and a width change can never disagree about the stroke. A node
+ *  without a setter is skipped silently.
  *
  *  Reads both values from the UI maps; a sub-dimension not in the map is
  *  omitted from the `setStyle` call so the author's declared default stays
- *  in force.
+ *  in force. `stroke: true` is always included: the user chose a border, so
+ *  the write must make it visible even when the author declared
+ *  `stroke: false` (quickstart Facility Points). Reset restores the author's
+ *  stroke flag from the captured base.
  *
  *  Called from the two commit paths and from the applyUserState sweep, so
  *  the walk is the single writer of a border style — the commits only record
  *  intent. */
 const applyBorderToLayer = (ui: LayerUI, layerId: string): void => {
-  const color = ui.borderColorMap[layerId];
-  const weight = ui.borderWeightMap[layerId];
+  const color = getIntent(ui, layerId, INTENT.BORDER_COLOR);
+  const weight = getIntent(ui, layerId, INTENT.BORDER_WEIGHT);
   if (color === undefined && weight === undefined) return;
   const layer = ui.m.findLayer(layerId) as StyleCarrier | null;
   if (!layer) return;
-  const style: Record<string, unknown> = {};
-  if (color !== undefined) style.color = color;
-  if (weight !== undefined) style.weight = weight;
+  const values: Record<string, unknown> = {};
+  if (color !== undefined) values.color = color;
+  if (weight !== undefined) values.weight = weight;
   const walk = (node: StyleCarrier): void => {
     // Groups are descended, never written: a group with a `setStyle` of its
     // own (L.GeoJSON, L.FeatureGroup) would be written in place of its
@@ -189,8 +148,8 @@ const applyBorderToLayer = (ui: LayerUI, layerId: string): void => {
       return;
     }
     if (!isStyleSetter(node)) return;
-    captureBase(node);
-    node.setStyle(style);
+    // Shared write contract: value keys + visibility bit (`stroke: true`).
+    commitStyleDim(node, values, "stroke");
     // Pin the leaf's stroke against folium's highlight restore via the shared
     // pinStyleOnHighlight hook, keyed "border" so a re-commit
     // replaces this dimension's getter instead of stacking another closure.
@@ -198,14 +157,14 @@ const applyBorderToLayer = (ui: LayerUI, layerId: string): void => {
     // mouseout handler merges both dimensions into a single setStyle, so a
     // highlight-restore can neither drop one dimension nor grow a getter
     // list with every commit.
-    pinStyleOnHighlight(node, "border", () => {
-      const c = ui.borderColorMap[layerId];
-      const w = ui.borderWeightMap[layerId];
+    pinStyleOnHighlight(node, DIM.BORDER, () => {
+      const c = getIntent(ui, layerId, INTENT.BORDER_COLOR);
+      const w = getIntent(ui, layerId, INTENT.BORDER_WEIGHT);
       if (c === undefined && w === undefined) return null;
-      const stroke: Record<string, unknown> = {};
-      if (c !== undefined) stroke.color = c;
-      if (w !== undefined) stroke.weight = w;
-      return stroke;
+      // stroke:true rides the replay too — folium's resetStyle would
+      // otherwise re-apply the author's stroke:false on mouseout and hide
+      // the user's border the moment the pointer leaves.
+      return styleDimPayload({ color: c, weight: w }, "stroke");
     });
   };
   walk(layer);
@@ -220,9 +179,9 @@ const applyBorderToLayer = (ui: LayerUI, layerId: string): void => {
  *  normalised to 6-digit lowercase hex before landing in storage. */
 const commitBorderColor = (ui: LayerUI, layerId: string, rawColor: string): void => {
   const color = normalizeHexColor(rawColor);
-  if (ui.borderColorMap[layerId] === color) return;
-  ui.borderColorMap[layerId] = color;
-  markOverride(ui, layerId, "borderColor");
+  if (getIntent(ui, layerId, INTENT.BORDER_COLOR) === color) return;
+  setIntent(ui, layerId, INTENT.BORDER_COLOR, color);
+  markOverride(ui, layerId, INTENT.BORDER_COLOR);
   saveState(ui);
   applyBorderToLayer(ui, layerId);
 };
@@ -230,9 +189,9 @@ const commitBorderColor = (ui: LayerUI, layerId: string, rawColor: string): void
 /** Commit the border width to the layer. Called from `bindLiveNumber` on the
  *  width input, which already clamps into the shared bounds. */
 const commitBorderWeight = (ui: LayerUI, layerId: string, weight: number): void => {
-  if (ui.borderWeightMap[layerId] === weight) return;
-  ui.borderWeightMap[layerId] = weight;
-  markOverride(ui, layerId, "borderWeight");
+  if (getIntent(ui, layerId, INTENT.BORDER_WEIGHT) === weight) return;
+  setIntent(ui, layerId, INTENT.BORDER_WEIGHT, weight);
+  markOverride(ui, layerId, INTENT.BORDER_WEIGHT);
   saveState(ui);
   applyBorderToLayer(ui, layerId);
 };
@@ -247,10 +206,10 @@ const commitBorderWeight = (ui: LayerUI, layerId: string, weight: number): void 
  *  re-apply a stroke the layer no longer shows. */
 const resetLayerBorder = (ui: LayerUI, layerId: string): void => {
   if (!ui.m.layerRegistry.has(layerId)) return;
-  delete ui.borderColorMap[layerId];
-  delete ui.borderWeightMap[layerId];
-  unmarkOverride(ui, layerId, "borderColor");
-  unmarkOverride(ui, layerId, "borderWeight");
+  clearIntent(ui, layerId, INTENT.BORDER_COLOR);
+  clearIntent(ui, layerId, INTENT.BORDER_WEIGHT);
+  unmarkOverride(ui, layerId, INTENT.BORDER_COLOR);
+  unmarkOverride(ui, layerId, INTENT.BORDER_WEIGHT);
   saveState(ui);
   const layer = ui.m.findLayer(layerId) as StyleCarrier | null;
   if (!layer) return;
@@ -261,12 +220,10 @@ const resetLayerBorder = (ui: LayerUI, layerId: string): void => {
       node.eachLayer(child => walk(child as StyleCarrier));
       return;
     }
-    if (typeof node.setStyle !== "function") return;
-    const base = authorBorderBase.get(node);
-    if (!base) return;
-    // Both dimensions are written unconditionally: the captured base always
-    // holds a color and a width, so there is nothing to omit here.
-    node.setStyle({ color: base.color, weight: base.weight });
+    if (!isStyleSetter(node)) return;
+    // Shared restore contract: one face slice from the captured style bag,
+    // including the author's own `stroke` flag (false stays false).
+    restoreStyleDim(node, "stroke");
   };
   walk(layer);
 };
@@ -379,8 +336,8 @@ const buildBorderRow = (ui: LayerUI, layerId: string): HTMLElement => {
   return buildBorderRowShell({
     rowClass: `${CONST.CLASSES.FORM_ROW} ${CONST.CLASSES.STYLE_BORDER_ROW}`,
     label: ui.T("border"),
-    color: displayColor(ui.borderColorMap[layerId] ?? author.color),
-    weight: ui.borderWeightMap[layerId] ?? author.weight,
+    color: displayColor(getIntent(ui, layerId, INTENT.BORDER_COLOR) ?? author.color),
+    weight: getIntent(ui, layerId, INTENT.BORDER_WEIGHT) ?? author.weight,
     hasColorInput: true,
     hasWeightInput: true,
     className: CONST.CLASSES.STYLE_BORDER_COLOR_INPUT,
@@ -411,15 +368,15 @@ const bindBorderRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => 
  *  (see `./registry.js`): border comes second in the annotation panel's
  *  Layer section, right after fill. */
 const BORDER_DIMENSION = registerDimension<{ color: string; weight: number }>({
-  key: "border",
+  key: DIM.BORDER,
   gate: layerCanBorder,
   value: (ui, layerId) => {
     const li = ui.m.layerRegistry.get(layerId);
     if (!li) return undefined;
     const author = authoredBorder(ui, layerId);
     return {
-      color: ui.borderColorMap[layerId] ?? author.color,
-      weight: ui.borderWeightMap[layerId] ?? author.weight,
+      color: getIntent(ui, layerId, INTENT.BORDER_COLOR) ?? author.color,
+      weight: getIntent(ui, layerId, INTENT.BORDER_WEIGHT) ?? author.weight,
     };
   },
   row: buildBorderRow,

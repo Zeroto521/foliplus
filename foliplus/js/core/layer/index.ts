@@ -3,11 +3,15 @@
 // LayerAPI facade (map.foliplus.LayerAPI) rather than importing core directly.
 export {
   CANVAS_PANE_PREFIX,
+  CAP_TIER,
   COLOR_PANE_PREFIX,
+  DIM,
   FALLBACK_PANE_PREFIX,
   GEOM_TYPE,
   GROUP,
   HIDDEN,
+  KIND,
+  PANE_ROLE,
   RECURSION,
   Z_INDEX,
 } from "./const.js";
@@ -43,6 +47,7 @@ export type {
   LayerAPI,
   LayerCapabilities,
   LayerCarrier,
+  LayerDimKey,
   LayerInfo,
   LayerKind,
   PaneHandle,

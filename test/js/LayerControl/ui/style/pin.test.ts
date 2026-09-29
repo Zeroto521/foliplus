@@ -247,6 +247,30 @@ describe("hasFillLeaf", () => {
     expect(hasFillLeaf(leaf)).toBe(true);
   });
 
+  it("returns true for a bare CircleMarker leaf with setStyle", () => {
+    // Leaflet 1.x: Circle extends CircleMarker (not the reverse), so
+    // `instanceof L.Circle` does NOT catch a bare CircleMarker. The probe
+    // must admit CircleMarker itself — quickstart Facility Points are
+    // exactly that face.
+    const { CircleMarker } = window.L;
+    const leaf: any = Object.assign(new (CircleMarker as any)([0, 0], {}), {
+      setStyle: vi.fn(),
+    });
+    expect(hasFillLeaf(leaf)).toBe(true);
+  });
+
+  it("returns true when a CircleMarker is nested in a group", () => {
+    const { CircleMarker } = window.L;
+    const leaf: any = Object.assign(new (CircleMarker as any)([0, 0], {}), {
+      setStyle: vi.fn(),
+    });
+    const group: any = {
+      options: {},
+      eachLayer: (fn: (child: unknown) => void) => fn(leaf),
+    };
+    expect(hasFillLeaf(group)).toBe(true);
+  });
+
   it("returns true when a Polygon is nested in a group", () => {
     const leaf: any = Object.assign(new Polygon(), { setStyle: vi.fn() });
     const group: any = {

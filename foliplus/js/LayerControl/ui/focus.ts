@@ -2,7 +2,9 @@
 import { HINT_DURATION } from "#core/hint.js";
 import {
   FOCUS_Z,
+  GROUP,
   type LayerInfo,
+  PANE_ROLE,
   focusLayerZ,
   forEachLeaf,
   zFor,
@@ -49,7 +51,7 @@ const focusDisabledLocaleKey = (reason: FocusDisabled): string =>
 const focusDisabledReason = (ui: LayerUI, item: HTMLElement): FocusDisabledReason => {
   const box = item.querySelector('input[type="checkbox"]') as HTMLInputElement | null;
   if (box !== null && !box.checked) return "hidden";
-  if (item.dataset.layerType === CONST.GROUP.BASE) return "base";
+  if (item.dataset.layerType === GROUP.BASE) return "base";
   const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
   const layerInfo = ui.m.layerRegistry.get(layerId);
   if (layerInfo && ui.m.surfaceFor(layerInfo).capabilities.bounds === false) {
@@ -368,7 +370,7 @@ const bringFocusedLayerToFront = (ui: LayerUI, layerInfo: LayerInfo): void => {
       const panes = surface.panes;
       for (const pane of panes) {
         pane.element.classList.add(CONST.CLASSES.FOCUS_PANE);
-        if (pane.role !== "annotation") {
+        if (pane.role !== PANE_ROLE.ANNOTATION) {
           pane.element.classList.add(CONST.CLASSES.FOCUS_GLOW);
         }
       }

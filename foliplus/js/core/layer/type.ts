@@ -3,6 +3,7 @@
 // LayerAPI facade all implement these; global.d.ts re-exports them so other
 // components (MeasureControl / HeatmapControl / ExportControl) keep the same
 // global names.
+import { DIM, KIND, PANE_ROLE } from "./const.js";
 
 /** What a registered layer *is* — the target discriminator, not how it paints.
  *
@@ -14,9 +15,18 @@
  *  basemap (surface `content.kind === "color"`); `canvas` is createCanvas;
  *  `custom` is a third-party carrier (`carrier.custom`).
  *
+ *  Derived from `KIND` (const.ts) so the runtime vocabulary and the type are
+ *  one definition — changing a kind name updates both or neither.
+ *
  *  Shape first, door later: `registerDimension` / third-party docs stay
  *  closed. */
-type LayerKind = "tile" | "vector" | "canvas" | "solid" | "cluster" | "custom";
+type LayerKind = (typeof KIND)[keyof typeof KIND];
+
+/** Dimension-key names — the shared word face of `LayerDimension.key`,
+ *  `DIM_ORDER`, and the capability slots. Derived from `DIM` (const.ts) so the
+ *  runtime vocabulary and the type are one definition — same rule as
+ *  `LayerKind`/`KIND`. */
+type LayerDimKey = (typeof DIM)[keyof typeof DIM];
 
 /** Where a layer's paint actually lives. Flat `layer` / `canvas` / `color`
  *  on `LayerInfo` remain the writable registration fields; this object is the
@@ -41,8 +51,9 @@ interface LayerCarrier {
  *  degrade) depends on the answer being the surface's, not the caller's. */
 interface LayerCapabilities {
   /** Whether the layer's tree has a write carrier for fill: areal geometry
-   *  (`L.Polygon` / `L.Circle` / `L.CircleMarker` — the last two because
-   *  they extend the polygon-side ancestor) with a `setStyle` leaf.
+   *  (`L.Polygon` / `L.Circle` / `L.CircleMarker` — Circle extends
+   *  CircleMarker in Leaflet 1.x; `hasFillLeaf` accepts Polygon and
+   *  `instanceof L.Circle`) with a `setStyle` leaf.
    *    - "native" — an areal carrier exists; `setStyle({fillColor,
    *      fillOpacity})` writes through the tree. A solid-colour basemap
    *      also declares "native": the pane's paint *is* the fill.
@@ -282,8 +293,11 @@ interface LabelAwareLayer extends L.Layer {
 /** What a surface's pane is for. `annotation` and `preview` have no producer
  *  yet — they arrive with the components that declare them (label pane,
  *  measure preview) — but they are spelled here so the union is the contract
- *  rather than a local invention. */
-type PaneRole = "base" | "sub" | "annotation" | "preview";
+ *  rather than a local invention.
+ *
+ *  Derived from `PANE_ROLE` (const.ts) so the runtime vocabulary and the type
+ *  are one definition — changing a role name updates both or neither. */
+type PaneRole = (typeof PANE_ROLE)[keyof typeof PANE_ROLE];
 
 /** One pane a surface declares: what it is for, where it sits in the layer's
  *  own draw stack, and the pane it paints into.
@@ -773,6 +787,7 @@ export type {
   LabelAwareLayer,
   LayerAPI,
   LayerCarrier,
+  LayerDimKey,
   LayerKind,
   LayerCapabilities,
   LayerInfo,

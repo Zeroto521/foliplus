@@ -9,10 +9,12 @@
 // as the first per-layer dimension: `gate` + `value` + `row` for
 // discovery. The write path (state + projection + DOM sync) stays as
 // `commitOpacityPct` for now — see ./registry.ts for the reason.
+import { CAP_TIER, DIM, GROUP } from "#core/layer/index.js";
 import { dom } from "#common/dom.js";
 import * as CONST from "../../const.js";
 import { applyProjection } from "../apply.js";
 import type { LayerUI } from "../index.js";
+import { INTENT, clearIntent, getIntent, setIntent } from "../intent.js";
 import { markOverride, saveState, unmarkOverride } from "../state.js";
 import { syncNoBasemap } from "../visibility.js";
 import { railPos, round5 } from "./frame.js";
@@ -25,7 +27,7 @@ import { registerDimension } from "./registry.js";
 const layerCanOpacity = (ui: LayerUI, layerId: string): boolean => {
   const li = ui.m.layerRegistry.get(layerId);
   if (!li) return false;
-  return ui.m.surfaceFor(li).capabilities.opacity !== "none";
+  return ui.m.surfaceFor(li).capabilities.opacity !== CAP_TIER.NONE;
 };
 
 /** UI percentage (0-100) for a stored opacity (0-1). */
@@ -99,11 +101,11 @@ const commitOpacityPct = (
   if (li.opacity === opacity) return;
   if (opacity === 1) {
     // Fully opaque is the declared default, so there is no override to keep.
-    delete ui.opacityMap[layerId];
-    unmarkOverride(ui, layerId, "opacity");
+    clearIntent(ui, layerId, INTENT.OPACITY);
+    unmarkOverride(ui, layerId, INTENT.OPACITY);
   } else {
-    ui.opacityMap[layerId] = opacity;
-    markOverride(ui, layerId, "opacity");
+    setIntent(ui, layerId, INTENT.OPACITY, opacity);
+    markOverride(ui, layerId, INTENT.OPACITY);
   }
   saveState(ui);
   applyProjection(ui, layerId);
@@ -112,7 +114,7 @@ const commitOpacityPct = (
   // label must follow — `syncNoBasemap` gates on `li.opacity ?? 1 > 0`.
   // Overlay opacity is unrelated to basemap visibility, so skip it: the
   // call would be a wasted O(n) scan on the drag hot path.
-  if (li.group === CONST.GROUP.BASE) syncNoBasemap(ui);
+  if (li.group === GROUP.BASE) syncNoBasemap(ui);
   syncOpacityInputs(panel, pct);
 };
 
@@ -126,7 +128,7 @@ const commitOpacityPct = (
  *  appears for keyboard input the same as for a drag. */
 const buildOpacityRow = (ui: LayerUI, layerId: string): HTMLElement => {
   const li = ui.m.layerRegistry.get(layerId);
-  const pct = opacityToPct(ui.opacityMap[layerId] ?? li?.opacity);
+  const pct = opacityToPct(getIntent(ui, layerId, INTENT.OPACITY) ?? li?.opacity);
   const fill = dom.el("div", {
     class: `${CONST.CLASSES.SLIDER_FILL} ${CONST.CLASSES.STYLE_OPACITY_FILL}`,
     style: `width:${opacityFillWidth(pct)}`,
@@ -181,12 +183,12 @@ const buildOpacityRow = (ui: LayerUI, layerId: string): HTMLElement => {
 const resetLayerOpacity = (ui: LayerUI, layerId: string): void => {
   const li = ui.m.layerRegistry.get(layerId);
   if (!li) return;
-  delete ui.opacityMap[layerId];
-  unmarkOverride(ui, layerId, "opacity");
+  clearIntent(ui, layerId, INTENT.OPACITY);
+  unmarkOverride(ui, layerId, INTENT.OPACITY);
   saveState(ui);
   applyProjection(ui, layerId);
   // Resetting a base layer from 0 back to 1 un-hides it — flip the hatch.
-  if (li.group === CONST.GROUP.BASE) syncNoBasemap(ui);
+  if (li.group === GROUP.BASE) syncNoBasemap(ui);
 };
 
 /** Register opacity as the first per-layer dimension in the style-panel
@@ -205,11 +207,11 @@ const resetLayerOpacity = (ui: LayerUI, layerId: string): void => {
  *  moment a new dimension lands with a different shape, the panel's own
  *  honest-degradation rule stops being a rule. */
 const OPACITY_DIMENSION = registerDimension<number>({
-  key: "opacity",
+  key: DIM.OPACITY,
   gate: layerCanOpacity,
   value: (ui, layerId) => {
     const li = ui.m.layerRegistry.get(layerId);
-    return ui.opacityMap[layerId] ?? li?.opacity;
+    return getIntent(ui, layerId, INTENT.OPACITY) ?? li?.opacity;
   },
   row: buildOpacityRow,
 });

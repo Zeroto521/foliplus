@@ -1,4 +1,4 @@
-import { ANNOTATION_Z_OFFSET, FOCUS_Z, GROUP } from "#core/layer/index.js";
+import { FOCUS_Z } from "#core/layer/index.js";
 import { LABEL_COLOR_DEFAULT, LABEL_SIZE } from "#common/form.js";
 import { NUMBER_FORMAT } from "#common/format.js";
 
@@ -249,7 +249,6 @@ const DEFAULT_ANNOTATION = {
 export {
   ACTION,
   ANNOTATION_PANE_PREFIX,
-  ANNOTATION_Z_OFFSET,
   AUTHOR_ZOOM_FALLBACK_MAX,
   CLASSES,
   COLOR,
@@ -259,7 +258,6 @@ export {
   ENFORCE_ORDER_DEBOUNCE_MS,
   FOCUS,
   FOCUS_PANE,
-  GROUP,
   SAVE_DEBOUNCE_MS,
   SEL,
   SOLID_BASEMAP_ID,

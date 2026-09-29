@@ -1,7 +1,7 @@
 // Fill color row — the ⚙︎ drawer's "Layer" section fill swatch.
 //
 // A self-managed LayerControl dimension (like label, not like opacity /
-// zoom range): the value lives in `ui.fillColorMap`, is persisted under
+// zoom range): the value lives in `ui.intents.fillColor`, is persisted under
 // `layerState.fillColor`, and reaches the map by walking `eachLayer` and
 // calling `setStyle` on every leaf that owns one. The dimension is not part
 // of the executor's visible/opacity/zoomRange family; the write goes
@@ -19,7 +19,7 @@
 // the HeatmapControl border row and the annotation label row — one
 // <input type=color> inside a FORM_ROW, no reset button on the row itself
 // (the panel-wide Reset handles it, the way label color has it).
-import { type LayerInfo } from "#core/layer/index.js";
+import { CAP_TIER, DIM, GROUP, type LayerInfo } from "#core/layer/index.js";
 import { dom } from "#common/dom.js";
 import {
   bindLiveColor,
@@ -33,23 +33,22 @@ import {
 import * as CONST from "../../const.js";
 import { showSolidBasemap } from "../color.js";
 import type { LayerUI } from "../index.js";
+import { INTENT, clearIntent, getIntent, setIntent } from "../intent.js";
 import { markOverride, saveState, unmarkOverride } from "../state.js";
 import { pinStyleOnHighlight } from "./pin.js";
 import { registerDimension } from "./registry.js";
+import {
+  type StyleCarrier,
+  commitStyleDim,
+  restoreStyleDim,
+  styleBagOf,
+  styleDimPayload,
+  walkStyleLeaves,
+} from "./styleBag.js";
 
 /** The swatch's last resort when even the browser probe cannot resolve the
  *  authored color to a hex — black, matching an empty `<input type=color>`. */
 const FILL_COLOR_DEFAULT = "#000000";
-
-/** A node with a runtime style-setter — the honest fill carrier. Vector
- *  leaves (Path subclasses: Polygon, Polyline, Circle, CircleMarker,
- *  Rectangle) all have one; a LayerGroup does not (it delegates). */
-type StyleCarrier = L.Layer & {
-  setStyle?: (style: Record<string, unknown>) => void;
-  eachLayer?: (fn: (layer: L.Layer) => void) => void;
-  on?: (type: string, fn: () => void) => void;
-  options?: { fillColor?: string; fillOpacity?: number };
-};
 
 /** Whether the layer is a solid-color basemap: a base layer whose fill is the
  *  value on `li.color` rather than a Leaflet layer's geometry.
@@ -65,7 +64,7 @@ type StyleCarrier = L.Layer & {
  *  leaves. The gate (`layerCanFill`) reads the capability, not this. */
 const isColorBasemap = (li: LayerInfo | undefined): boolean => {
   if (!li || li.styleSetters) return false;
-  return Boolean(li.color) && li.group === CONST.GROUP.BASE;
+  return Boolean(li.color) && li.group === GROUP.BASE;
 };
 
 /** Whether the layer's surface can honestly carry a fill write.
@@ -84,7 +83,7 @@ const isColorBasemap = (li: LayerInfo | undefined): boolean => {
 const layerCanFill = (ui: LayerUI, layerId: string): boolean => {
   const li = ui.m.layerRegistry.get(layerId);
   if (!li) return false;
-  return ui.m.surfaceFor(li).capabilities.fill === "native";
+  return ui.m.surfaceFor(li).capabilities.fill === CAP_TIER.NATIVE;
 };
 
 /** The layer's authored base style, captured on the layer's first fill
@@ -92,19 +91,6 @@ const layerCanFill = (ui: LayerUI, layerId: string): boolean => {
  *  ui/apply.ts: the slider is a multiplier over the author's value, so the
  *  base is read once at first write and the value in front of us on the
  *  next write is the *last write*, not the author's.
- *
- *  Keyed by `layer` identity (like `authorOpacityBase`), so the same layer
- *  object re-registered under the same id keeps its base; WeakMap so the
- *  entry disappears when the layer leaves the map, no explicit cleanup.
- *
- *  Per-leaf, because a GeoJSON layer's features can each declare their own
- *  style — one layer-wide base would erase the author's per-feature choice
- *  on reset. */
-const authorFillBase = new WeakMap<
-  StyleCarrier,
-  { fillColor: string; fillOpacity: number }
->();
-
 /** Leaflet's own default `fillColor` for vector paths, and the swatch's last
  *  resort when no leaf exposes an authored color. folium's default style
  *  function always populates `options.fillColor` (it translates
@@ -167,48 +153,11 @@ const authoredFillOpacity = (ui: LayerUI, layerId: string): number | null => {
  *  write path reads this to change a layer's opacity. */
 const VISIBLE_FILL_OPACITY = 0.2;
 
-/** Visit every leaf that exposes a runtime style-setter. Groups (LayerGroup,
- *  folium GeoJson) expose `setStyle` too, but they are walked down instead:
- *  the mouseout events fire on the leaf paths (never on the group), and the
- *  authored base is per leaf — one layer-wide base would erase the author's
- *  per-feature choice. The callback receives a leaf whose `setStyle` is
- *  guaranteed present, so it can call it without a `typeof` dance. */
-const walkStyleLeaves = (
-  node: StyleCarrier,
-  fn: (
-    leaf: StyleCarrier & { setStyle: (style: Record<string, unknown>) => void },
-  ) => void,
-): void => {
-  if (typeof node.eachLayer === "function") {
-    node.eachLayer(child => walkStyleLeaves(child as StyleCarrier, fn));
-    return;
-  }
-  if (typeof node.setStyle === "function") {
-    fn(node as StyleCarrier & { setStyle: (style: Record<string, unknown>) => void });
-  }
-};
-
-const captureBase = (
-  node: StyleCarrier,
-): { fillColor: string; fillOpacity: number } => {
-  const existing = authorFillBase.get(node);
-  if (existing) return existing;
-  const base = {
-    fillColor: node.options?.fillColor ?? LEAFLET_DEFAULT_FILL,
-    // An absent authored fillOpacity means Leaflet's own 0.2 default, so the
-    // base records that value — a Reset must restore it, not leave the user's
-    // written opacity in place (setStyle merges, it does not delete).
-    fillOpacity: node.options?.fillOpacity ?? 0.2,
-  };
-  authorFillBase.set(node, base);
-  return base;
-};
-
 /** Commit the current fill color and opacity to the layer. Walks the layer
  *  tree and calls `setStyle({fillColor?, fillOpacity?})` on every leaf that
  *  has a `setStyle`. A node without a setter is skipped silently.
  *
- *  Reads both values from the UI maps (`fillColorMap` / `fillOpacityMap`);
+ *  Reads both values from the intent record (`fillColor` / `fillOpacity`);
  *  a dimension not in the map is omitted from the `setStyle` call so the
  *  author's declared default stays in force.
  *
@@ -216,8 +165,8 @@ const captureBase = (
  *  `commitFillOpacity`) so the walk is unit-testable without a storage timer. */
 const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
   const li = ui.m.layerRegistry.get(layerId);
-  const color = ui.fillColorMap[layerId];
-  const opacity = ui.fillOpacityMap[layerId];
+  const color = getIntent(ui, layerId, INTENT.FILL_COLOR);
+  const opacity = getIntent(ui, layerId, INTENT.FILL_OPACITY);
   if (color === undefined && opacity === undefined) return;
 
   // Solid-color basemap: the fill is the pane's paint, not a vector style.
@@ -234,12 +183,12 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
 
   const layer = li?.layer as StyleCarrier | null;
   if (!layer) return;
+  const values: Record<string, unknown> = {};
+  if (color !== undefined) values.fillColor = color;
+  if (opacity !== undefined) values.fillOpacity = opacity;
   walkStyleLeaves(layer, node => {
-    captureBase(node);
-    const style: Record<string, unknown> = {};
-    if (color !== undefined) style.fillColor = color;
-    if (opacity !== undefined) style.fillOpacity = opacity;
-    node.setStyle(style);
+    // Shared write contract: value keys + visibility bit (`fill: true`).
+    commitStyleDim(node, values, "fill");
 
     // Folium's highlight_on_hover restores the original style on mouseout;
     // pinStyleOnHighlight reapplies the user's fill after folium's handler
@@ -247,14 +196,13 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
     // guarantees a setStyle, so no isStyleSetter guard is needed here.
     // The "fill" key makes each commit replace this dimension's getter
     // instead of stacking a fresh closure.
-    pinStyleOnHighlight(node, "fill", () => {
-      const c = ui.fillColorMap[layerId];
-      const o = ui.fillOpacityMap[layerId];
+    pinStyleOnHighlight(node, DIM.FILL, () => {
+      const c = getIntent(ui, layerId, INTENT.FILL_COLOR);
+      const o = getIntent(ui, layerId, INTENT.FILL_OPACITY);
       if (c === undefined && o === undefined) return null;
-      const s: Record<string, unknown> = {};
-      if (c !== undefined) s.fillColor = c;
-      if (o !== undefined) s.fillOpacity = o;
-      return s;
+      // fill:true rides the replay too — folium's resetStyle would otherwise
+      // re-apply the author's fill:false on mouseout and hide the fill.
+      return styleDimPayload({ fillColor: c, fillOpacity: o }, "fill");
     });
   });
 };
@@ -264,7 +212,7 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
  *  moved — a color-picker drag revisits every step, and each pass is a
  *  sweep over every feature of the layer.
  *
- *  Color-only: this never touches `fillOpacityMap`. A hollow layer (author
+ *  Color-only: this never touches `intents.fillOpacity`. A hollow layer (author
  *  fillOpacity === 0) stays hollow — the `fill` attribute takes the new color
  *  and `fill-opacity="0"` keeps it hidden, which is the honest rendering of
  *  the author's value. The opacity input beside the swatch (0-100) is how
@@ -274,9 +222,9 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
  *  normalized to 6-digit lowercase hex before landing in storage. */
 const commitFillColor = (ui: LayerUI, layerId: string, rawColor: string): void => {
   const color = normalizeHexColor(rawColor);
-  if (ui.fillColorMap[layerId] === color) return;
-  ui.fillColorMap[layerId] = color;
-  markOverride(ui, layerId, "fillColor");
+  if (getIntent(ui, layerId, INTENT.FILL_COLOR) === color) return;
+  setIntent(ui, layerId, INTENT.FILL_COLOR, color);
+  markOverride(ui, layerId, INTENT.FILL_COLOR);
   saveState(ui);
   applyFillToLayer(ui, layerId);
 };
@@ -285,9 +233,9 @@ const commitFillColor = (ui: LayerUI, layerId: string, rawColor: string): void =
  *  storage and setStyle. Called from `bindLiveNumber` on the opacity input. */
 const commitFillOpacity = (ui: LayerUI, layerId: string, pct: number): void => {
   const opacity = Math.max(0, Math.min(1, pct / 100));
-  if (ui.fillOpacityMap[layerId] === opacity) return;
-  ui.fillOpacityMap[layerId] = opacity;
-  markOverride(ui, layerId, "fillOpacity");
+  if (getIntent(ui, layerId, INTENT.FILL_OPACITY) === opacity) return;
+  setIntent(ui, layerId, INTENT.FILL_OPACITY, opacity);
+  markOverride(ui, layerId, INTENT.FILL_OPACITY);
   saveState(ui);
   applyFillToLayer(ui, layerId);
 };
@@ -306,10 +254,10 @@ const commitFillOpacity = (ui: LayerUI, layerId: string, pct: number): void => {
  *  re-apply a color the layer no longer shows. */
 const resetLayerFill = (ui: LayerUI, layerId: string): void => {
   if (!ui.m.layerRegistry.has(layerId)) return;
-  delete ui.fillColorMap[layerId];
-  delete ui.fillOpacityMap[layerId];
-  unmarkOverride(ui, layerId, "fillColor");
-  unmarkOverride(ui, layerId, "fillOpacity");
+  clearIntent(ui, layerId, INTENT.FILL_COLOR);
+  clearIntent(ui, layerId, INTENT.FILL_OPACITY);
+  unmarkOverride(ui, layerId, INTENT.FILL_COLOR);
+  unmarkOverride(ui, layerId, INTENT.FILL_OPACITY);
   saveState(ui);
   const li = ui.m.layerRegistry.get(layerId);
 
@@ -323,10 +271,9 @@ const resetLayerFill = (ui: LayerUI, layerId: string): void => {
   const layer = li?.layer as StyleCarrier | null;
   if (!layer) return;
   walkStyleLeaves(layer, node => {
-    const base = authorFillBase.get(node);
-    if (base) {
-      node.setStyle({ fillColor: base.fillColor, fillOpacity: base.fillOpacity });
-    }
+    // Shared restore contract: one face slice from the captured style bag,
+    // including the author's own `fill` flag (false stays false).
+    restoreStyleDim(node, "fill");
   });
 };
 
@@ -342,7 +289,7 @@ const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
   const li = ui.m.layerRegistry.get(layerId);
   const isBasemap = isColorBasemap(li!);
 
-  const storedColor = ui.fillColorMap[layerId];
+  const storedColor = getIntent(ui, layerId, INTENT.FILL_COLOR);
   const color = toHexColor(
     storedColor ?? (isBasemap ? CONST.COLOR.DEFAULT : authoredFillColor(ui, layerId)),
   );
@@ -362,7 +309,7 @@ const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
     );
   }
 
-  const storedOpacity = ui.fillOpacityMap[layerId];
+  const storedOpacity = getIntent(ui, layerId, INTENT.FILL_OPACITY);
   const authoredOpacity = authoredFillOpacity(ui, layerId);
   const opacityPct = (storedOpacity ?? authoredOpacity ?? VISIBLE_FILL_OPACITY) * 100;
   const opacityInput = numberInput({
@@ -409,7 +356,12 @@ const bindFillRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
  *  Called from `applyUserState` on attach and late registration so a
  *  persisted value survives a reload. */
 const replayFillState = (ui: LayerUI, id: string): void => {
-  if (ui.fillColorMap[id] === undefined && ui.fillOpacityMap[id] === undefined) return;
+  if (
+    getIntent(ui, id, INTENT.FILL_COLOR) === undefined &&
+    getIntent(ui, id, INTENT.FILL_OPACITY) === undefined
+  ) {
+    return;
+  }
   applyFillToLayer(ui, id);
 };
 
@@ -427,14 +379,16 @@ const FILL_DIMENSION = registerDimension<{
   color: string;
   opacity: number | null;
 }>({
-  key: "fill",
+  key: DIM.FILL,
   gate: layerCanFill,
   value: (ui, layerId) => {
     const li = ui.m.layerRegistry.get(layerId);
     if (!li) return undefined;
     return {
-      color: ui.fillColorMap[layerId] ?? authoredFillColor(ui, layerId),
-      opacity: ui.fillOpacityMap[layerId] ?? authoredFillOpacity(ui, layerId),
+      color:
+        getIntent(ui, layerId, INTENT.FILL_COLOR) ?? authoredFillColor(ui, layerId),
+      opacity:
+        getIntent(ui, layerId, INTENT.FILL_OPACITY) ?? authoredFillOpacity(ui, layerId),
     };
   },
   row: buildFillRow,

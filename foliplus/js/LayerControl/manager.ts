@@ -9,11 +9,14 @@ import {
   type CreateLayersAPI,
   type CreateLayersOpts,
   GEOM_TYPE,
+  GROUP,
+  KIND,
   type LabelAwareLayer,
   type LayerAPI,
   LayerFactory,
   LayerRegistry,
   LayerSurface,
+  PANE_ROLE,
   PaneManager,
   type RegisterLayerOpts,
   countFeatureGeometry,
@@ -36,6 +39,7 @@ import { AnnotationManager } from "./annotation/index.js";
 import * as CONST from "./const.js";
 import { LayerPersistence } from "./persistence.js";
 import { LayerUI } from "./ui/index.js";
+import { INTENT, clearIntent, getIntent } from "./ui/intent.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const T = createScopedTranslator(CONF);
@@ -131,12 +135,12 @@ const withAnnotationSpec = (
   layer: L.Layer | null,
 ): PaneSpec[] => {
   const specs = layerInfo.paneSpecs ?? [];
-  if (specs.some(spec => spec.role === "annotation")) return specs;
+  if (specs.some(spec => spec.role === PANE_ROLE.ANNOTATION)) return specs;
   if (!layer || !hasLabelField(layer)) return specs;
   return [
     ...specs,
     {
-      role: "annotation",
+      role: PANE_ROLE.ANNOTATION,
       order: specs.length,
       name: CONST.ANNOTATION_PANE_PREFIX + layerInfo.id,
     },
@@ -364,7 +368,9 @@ class LayerManager implements LayerAPI {
     for (const layerInfo of this.layers) {
       if (layerInfo.layer) continue;
       const kind = layerInfo.kind;
-      if (kind === "canvas" || kind === "solid" || kind === "custom") continue;
+      if (kind === KIND.CANVAS || kind === KIND.SOLID || kind === KIND.CUSTOM) {
+        continue;
+      }
       return true;
     }
     return false;
@@ -465,7 +471,7 @@ class LayerManager implements LayerAPI {
     // so overlays fall back to the end of the overlay block; a base layer
     // falls back to the end of the base block (the registry end).
     goal =
-      layerInfo.group === CONST.GROUP.BASE
+      layerInfo.group === GROUP.BASE
         ? registry.layers.length - 1
         : registry.firstBaseIdx === -1
           ? registry.layers.length - 1
@@ -510,9 +516,9 @@ class LayerManager implements LayerAPI {
   getLayerType(id: string): string | null {
     const layerInfo = this.layerRegistry.get(id);
     if (!layerInfo) return null;
-    if (layerInfo.group === CONST.GROUP.BASE) {
-      layerInfo.type = CONST.GROUP.BASE;
-      return CONST.GROUP.BASE;
+    if (layerInfo.group === GROUP.BASE) {
+      layerInfo.type = GROUP.BASE;
+      return GROUP.BASE;
     }
     if (layerInfo.iconSvg) {
       layerInfo.type = GEOM_TYPE.CUSTOM;
@@ -560,7 +566,7 @@ class LayerManager implements LayerAPI {
   getFeatureCount(id: string): number | null {
     const layerInfo = this.layerRegistry.get(id);
     if (!layerInfo) return null;
-    if (layerInfo.group === CONST.GROUP.BASE) return null;
+    if (layerInfo.group === GROUP.BASE) return null;
     // 1. Third-party provider (Canvas layers must supply this).
     const provider = layerInfo.featureCountProvider;
     if (typeof provider === "function") {
@@ -599,7 +605,7 @@ class LayerManager implements LayerAPI {
    *  before emitting; the factory path stays single-invalidation.
    *  @param {string} id - Layer id. */
   refreshCount(id: string) {
-    if (this.layerRegistry.get(id)?.group === CONST.GROUP.BASE) return;
+    if (this.layerRegistry.get(id)?.group === GROUP.BASE) return;
     this.events.emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id });
   }
 
@@ -663,7 +669,7 @@ class LayerManager implements LayerAPI {
     const layerInfo = this.layerRegistry.createLayerInfo(opts, existingLi, this.map);
 
     if (existingIdx !== -1) this.layerRegistry.upsert(layerInfo);
-    else if (layerInfo.group === CONST.GROUP.BASE) {
+    else if (layerInfo.group === GROUP.BASE) {
       const firstBaseIdx = this.layerRegistry.firstBaseIdx;
       const atBottom = opts.baseInsert === "bottom";
       if (firstBaseIdx === -1 || atBottom) {
@@ -690,7 +696,7 @@ class LayerManager implements LayerAPI {
     // handled by `applyUserState` further below, which re-projects the hidden
     // intent and writes the carrier through the executor's single write path.
     if (
-      this.ui?.visibleMap?.[opts.id] !== false &&
+      (!this.ui || getIntent(this.ui, opts.id, INTENT.VISIBLE) !== false) &&
       opts.layer &&
       !this.map.hasLayer(opts.layer)
     ) {
@@ -747,7 +753,7 @@ class LayerManager implements LayerAPI {
     if (!item) return;
     const idx = this.layerRegistry.indexOf(item);
     if (idx <= 0) return;
-    if (item?.group === CONST.GROUP.BASE) return;
+    if (item?.group === GROUP.BASE) return;
     this.layerRegistry.moveToFront(id);
     this.enforceOrder();
     this.saveOrder();
@@ -858,9 +864,9 @@ class LayerManager implements LayerAPI {
         // Check if the group is now empty and remove the toggle-all row if so.
         const group = layerInfo.group;
         const anchorSel =
-          group === CONST.GROUP.BASE
-            ? `${CONST.SEL.LAYER_ITEM}[data-layer-type="${CONST.GROUP.BASE}"]:not([${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"])`
-            : `${CONST.SEL.LAYER_ITEM}:not([data-layer-type="${CONST.GROUP.BASE}"])`;
+          group === GROUP.BASE
+            ? `${CONST.SEL.LAYER_ITEM}[data-layer-type="${GROUP.BASE}"]:not([${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"])`
+            : `${CONST.SEL.LAYER_ITEM}:not([data-layer-type="${GROUP.BASE}"])`;
         if (!this.uiContainer.querySelector(anchorSel)) {
           this.uiContainer
             .querySelector(`.${CONST.CLASSES.TOGGLE_ALL}[data-group="${group}"]`)
@@ -937,7 +943,7 @@ class LayerManager implements LayerAPI {
         this.ui.currentColor = CONST.COLOR.DEFAULT;
         this.ui.authorVisible.set(id, false);
         this.ui.saveState();
-        this.ui.syncToggleAll(CONST.GROUP.BASE);
+        this.ui.syncToggleAll(GROUP.BASE);
         this.ui.syncNoBasemap();
       }
       this.persistence.flushAll();
@@ -974,8 +980,8 @@ class LayerManager implements LayerAPI {
       return true;
     }
     this.ui.dropPersistedLayerState(id);
-    if (this.ui.renamedNames[id] != null) {
-      delete this.ui.renamedNames[id];
+    if (this.ui.intents?.[id]?.name != null) {
+      clearIntent(this.ui, id, INTENT.NAME);
       this.ui.saveNamesState();
     }
     this.ui.saveState();
@@ -1188,7 +1194,7 @@ class LayerManager implements LayerAPI {
       i++
     ) {
       const layerInfo = this.layers[i];
-      if (layerInfo.group !== CONST.GROUP.BASE) continue;
+      if (layerInfo.group !== GROUP.BASE) continue;
       const layer = this.findLayer(layerInfo);
       if (!(layer instanceof L.TileLayer) || !layer.options.attribution) continue;
       if (this.map.hasLayer(layer)) {

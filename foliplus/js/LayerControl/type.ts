@@ -2,6 +2,7 @@
 // annotation config/label contracts. Pure types: everything here is erased at
 // build, so persistence and annotation sub-modules can import without pulling
 // value code.
+import type { LayerDimKey } from "#core/layer/type.js";
 import { type NumberStyle } from "#common/format.js";
 import type { LayerUI } from "./ui/index.js";
 
@@ -19,6 +20,43 @@ type LayerOverride =
   | "borderWeight"
   | "opacity"
   | "zoomRange";
+
+/** One layer's live intent values — the in-memory twin of
+ *  {@link PersistedLayerState} (same value shapes) plus `name`.
+ *
+ *  Absent key = the user never chose that dimension (the author's declared
+ *  default stays in force). Provenance is a separate axis
+ *  (`intentProvenance` / `LayerOverride`) and is deliberately not on this
+ *  record. Disk shape is unchanged: `buildLayerStates` / `renamedNames`
+ *  remain the only persistence projections.
+ *
+ *  **Adding a dimension** (e.g. label visibility or label position):
+ *  1. A *user-settable* dim with an author default (like `visible`) gains a
+ *     key here + the same literal in `LayerOverride`, `INTENT` / `LIVE`
+ *     (`ui/intent.ts`) and `PARSE_OVERRIDE` (`persistence.ts`) — the
+ *     `Record<…>` pins fail the build until every one of them exists, and
+ *     the value rides `layers[id]` under that key. Disk-shape growth is a
+ *     separate, explicit task.
+ *  2. A *label-only* field (position, …) belongs on {@link AnnotationConfig}
+ *     instead: it nests under `layers[id].annotation`, needs no provenance
+ *     entry, and flows through the tolerant annotation parse untouched —
+ *     only the field rule in `coerceAnnotationFields` (ui/style/label.ts)
+ *     and the renderer consume it. */
+type LayerIntent = {
+  /** Layer id → the user's visibility choice (true = shown). */
+  visible?: boolean;
+  fillColor?: string;
+  fillOpacity?: number;
+  borderColor?: string;
+  borderWeight?: number;
+  opacity?: number;
+  zoomRange?: [number, number];
+  /** User-assigned display name (replaces the layer's authored name). */
+  name?: string;
+  /** Label (annotation) config seed for this layer. Live label state after
+   *  the seed applies still lives in AnnotationManager (`configEntries`). */
+  annotation?: AnnotationConfig;
+};
 
 /** One layer's persisted intent: the values the user set, plus which dimensions
  *  they set them for. A value with no matching override is dropped on read. */
@@ -51,6 +89,14 @@ type PersistedLayerState = {
   annotation?: AnnotationConfig;
   overrides: LayerOverride[];
 };
+
+/** Compile-time pin: every provenance-tracked dimension is also a disk key —
+ *  `buildLayerStates` writes each override straight through under its own
+ *  name, so a new `LayerOverride` without a `PersistedLayerState` field fails
+ *  here rather than being silently dropped at the persistence boundary. */
+type _AssertOverridesAreDiskKeys = LayerOverride extends keyof PersistedLayerState
+  ? true
+  : ["every LayerOverride must be a PersistedLayerState key"];
 
 /** Everything LayerControl persists, in one record per map. Intent only:
  *  declarations and derived state (what is actually on the map, z-indexes) are
@@ -219,9 +265,12 @@ interface BorderRowBindTarget {
 }
 
 /** One per-layer dimension. `key` is the persistence-identifier and the
- *  registry key (`"opacity"`, later `"zoomRange"`, `"fillColor"`, ...). */
+ *  registry key — one of `DIM`'s names (`"opacity"`, `"fill"`, `"border"`,
+ *  `"zoomRange"`, `"annotation"`), typed by `LayerDimKey` so the vocabulary
+ *  cannot drift from `DIM`. Persistence provenance is a different face
+ *  (`LayerOverride`: `"fillColor"`, `"visible"`, …). */
 type LayerDimension<D = unknown> = {
-  key: string;
+  key: LayerDimKey;
   /** Row-honest gate, two layers in order:
    *  1. **Layer existence** — return `false` when the layer is not in the
    *     registry (a precondition guard against a programming error).
@@ -251,6 +300,7 @@ export type {
   BorderRowBindTarget,
   BorderRowBuildTarget,
   LayerDimension,
+  LayerIntent,
   LayerLabel,
   LayerOverride,
   LiveState,

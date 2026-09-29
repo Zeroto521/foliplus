@@ -59,5 +59,8 @@
 }
 .foliplus-input:focus {
   border-color: var(--foliplus-accent-primary);
+  /* Dangling override hook (by design): --foliplus-input-focus-shadow is never
+     defined. Undefined it makes the declaration invalid at computed-value time,
+     so the focus state is border-only; set it on an ancestor to add a glow. */
   box-shadow: 0 0 0 var(--foliplus-border-thick) var(--foliplus-input-focus-shadow);
 }

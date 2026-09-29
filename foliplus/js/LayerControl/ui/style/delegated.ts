@@ -4,6 +4,7 @@
 // "Label" drawer that layers their own setters alongside LayerControl's
 // opacity / zoom-range rows.
 import { type LabelStyleValues, renderLabelControls } from "#core/labelControl.js";
+import { DIM } from "#core/layer/index.js";
 import { BORDER_WEIGHT } from "#common/form.js";
 import { createRowPanel } from "#common/panel.js";
 import * as CONST from "../../const.js";
@@ -19,7 +20,9 @@ import { DIM_ORDER, gatedRows } from "./registry.js";
  *  its own geometry (e.g. Measure), and fill has no delegated rendering path
  *  at all. Only LayerControl-owned rows (opacity, zoomRange) ride the
  *  delegated sweep; they survive a component's redraw. */
-const DELEGATED_DIM_ORDER = DIM_ORDER.filter(key => key !== "fill" && key !== "border");
+const DELEGATED_DIM_ORDER = DIM_ORDER.filter(
+  key => key !== DIM.FILL && key !== DIM.BORDER,
+);
 
 /** Whether the layer delegates its style to the drawer via styleSetters
  *  (third-party canvas layers: Heatmap, Measure). The ⋮ menu's Style item

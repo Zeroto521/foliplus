@@ -50,7 +50,7 @@
   stroke: var(--foliplus-accent-primary);
   stroke-dasharray: var(--foliplus-dash-rhythm);
   stroke-width: var(--foliplus-border-thick);
-  animation: foliplus-focus-march 0.8s linear infinite;
+  animation: foliplus-focus-march var(--foliplus-motion-slow) linear infinite;
   filter: var(--foliplus-focus-casing);
 }
 @media (prefers-reduced-motion: reduce) {
@@ -76,7 +76,7 @@ path.foliplus-focus-rect {
   stroke-width: var(--foliplus-border-thick);
   stroke-linejoin: round;
   /* "Marching ants" selection marquee — the dashes flow along the border. */
-  animation: foliplus-focus-march 0.8s linear infinite;
+  animation: foliplus-focus-march var(--foliplus-motion-slow) linear infinite;
   filter: var(--foliplus-focus-casing);
   pointer-events: none;
 }
@@ -92,7 +92,7 @@ path.foliplus-focus-mask {
    white under-stroke so the layer stays legible on any stroke color,
    replacing the earlier accent glow (which disappeared on red geometry). */
 .foliplus-focus-pane.foliplus-focus-glow {
-  animation: foliplus-focus-glow-in 0.2s ease-out;
+  animation: foliplus-focus-glow-in var(--foliplus-motion-quick) ease-out;
   filter: var(--foliplus-focus-casing);
 }
 @keyframes foliplus-focus-glow-in {

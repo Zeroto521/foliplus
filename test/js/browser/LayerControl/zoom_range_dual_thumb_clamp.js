@@ -69,6 +69,6 @@
     maxAfterReverse,
     clampForward: minAfterCross <= maxAfterCross,
     clampReverse: minAfterReverse <= maxAfterReverse,
-    stored: ui.zoomRangeMap["zr_clamp"],
+    stored: ui.intents["zr_clamp"] ? ui.intents["zr_clamp"].zoomRange : null,
   };
 };
