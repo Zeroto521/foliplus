@@ -42,6 +42,7 @@
 //     from the files that imported the spec under that alias.
 import { readFileSync, readdirSync } from "fs";
 import { join } from "path";
+import { SHARED_SPEC_PREFIXES } from "./build-paths.mjs";
 
 /** `#core/geo/index.js` → `core/geo`, `#common/dom.js` → `common/dom`.
  *  Keys `_shared-registry.ts` is generated against. */
@@ -65,8 +66,14 @@ const parseImportNames = list =>
     .filter(n => n && !/^type\s/.test(n));
 
 // `import { A, B } from "#core/x.js"`  |  `import * as X from "#common/y.js"`
-const SHARED_IMPORT_RE =
-  /import\s*(?:\{([^}]+)\}|\*\s*as\s*(\w+))\s*from\s*["']#((?:core|common|foliplus)\/[^"']+)["']/g;
+// Prefix list comes from script/build-paths.mjs — one spelling with the
+// global-namespace plugin and the esbuild alias table.
+const SHARED_IMPORT_RE = new RegExp(
+  `import\\s*(?:\\{([^}]+)\\}|\\*\\s*as\\s*(\\w+))\\s*from\\s*["']#((?:${SHARED_SPEC_PREFIXES.join(
+    "|",
+  )})\\/[^"']+)["']`,
+  "g",
+);
 
 /** Recursively collect `.ts`/`.js` sources under a directory, dropping `.d.ts`
  *  and skipping dot-dirs. Unreadable dirs are skipped, not thrown on. */

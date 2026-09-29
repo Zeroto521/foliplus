@@ -1,14 +1,11 @@
 import { resolve } from "path";
 import { defineConfig } from "vitest/config";
+import { testPathAliases } from "./script/build-paths.mjs";
 
 export default defineConfig({
   resolve: {
-    alias: {
-      "#common": resolve("foliplus/js/common"),
-      "#core": resolve("foliplus/js/core"),
-      "#foliplus": resolve("foliplus/js"),
-      "#script": resolve("script"),
-    },
+    // Single source: script/build-paths.mjs (shared with esbuild alias).
+    alias: testPathAliases(resolve(".")),
   },
   test: {
     environment: "jsdom",
