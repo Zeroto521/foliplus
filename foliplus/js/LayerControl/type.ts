@@ -21,6 +21,30 @@ type LayerOverride =
   | "opacity"
   | "zoomRange";
 
+/** One layer's live intent values — the in-memory twin of
+ *  {@link PersistedLayerState} (same value shapes) plus `name`.
+ *
+ *  Absent key = the user never chose that dimension (the author's declared
+ *  default stays in force). Provenance is a separate axis
+ *  (`intentProvenance` / `LayerOverride`) and is deliberately not on this
+ *  record. Disk shape is unchanged: `buildLayerStates` / `renamedNames`
+ *  remain the only persistence projections. */
+type LayerIntent = {
+  /** Layer id → the user's visibility choice (true = shown). */
+  visible?: boolean;
+  fillColor?: string;
+  fillOpacity?: number;
+  borderColor?: string;
+  borderWeight?: number;
+  opacity?: number;
+  zoomRange?: [number, number];
+  /** User-assigned display name (replaces the layer's authored name). */
+  name?: string;
+  /** Label (annotation) config seed for this layer. Live label state after
+   *  the seed applies still lives in AnnotationManager (`configEntries`). */
+  annotation?: AnnotationConfig;
+};
+
 /** One layer's persisted intent: the values the user set, plus which dimensions
  *  they set them for. A value with no matching override is dropped on read. */
 type PersistedLayerState = {
@@ -255,6 +279,7 @@ export type {
   BorderRowBindTarget,
   BorderRowBuildTarget,
   LayerDimension,
+  LayerIntent,
   LayerLabel,
   LayerOverride,
   LiveState,

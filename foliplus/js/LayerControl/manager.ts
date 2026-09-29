@@ -38,6 +38,7 @@ import { createLogger } from "#common/log.js";
 import { AnnotationManager } from "./annotation/index.js";
 import * as CONST from "./const.js";
 import { LayerPersistence } from "./persistence.js";
+import { clearIntent } from "./ui/intent.js";
 import { LayerUI } from "./ui/index.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
@@ -979,8 +980,8 @@ class LayerManager implements LayerAPI {
       return true;
     }
     this.ui.dropPersistedLayerState(id);
-    if (this.ui.renamedNames[id] != null) {
-      delete this.ui.renamedNames[id];
+    if (this.ui.intents?.[id]?.name != null || this.ui.renamedNames?.[id] != null) {
+      clearIntent(this.ui, id, "name");
       this.ui.saveNamesState();
     }
     this.ui.saveState();

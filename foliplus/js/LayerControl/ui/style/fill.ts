@@ -33,6 +33,7 @@ import {
 import * as CONST from "../../const.js";
 import { showSolidBasemap } from "../color.js";
 import type { LayerUI } from "../index.js";
+import { clearIntent, setIntent } from "../intent.js";
 import { markOverride, saveState, unmarkOverride } from "../state.js";
 import { pinStyleOnHighlight } from "./pin.js";
 import { registerDimension } from "./registry.js";
@@ -275,7 +276,7 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
 const commitFillColor = (ui: LayerUI, layerId: string, rawColor: string): void => {
   const color = normalizeHexColor(rawColor);
   if (ui.fillColorMap[layerId] === color) return;
-  ui.fillColorMap[layerId] = color;
+  setIntent(ui, layerId, "fillColor", color);
   markOverride(ui, layerId, "fillColor");
   saveState(ui);
   applyFillToLayer(ui, layerId);
@@ -286,7 +287,7 @@ const commitFillColor = (ui: LayerUI, layerId: string, rawColor: string): void =
 const commitFillOpacity = (ui: LayerUI, layerId: string, pct: number): void => {
   const opacity = Math.max(0, Math.min(1, pct / 100));
   if (ui.fillOpacityMap[layerId] === opacity) return;
-  ui.fillOpacityMap[layerId] = opacity;
+  setIntent(ui, layerId, "fillOpacity", opacity);
   markOverride(ui, layerId, "fillOpacity");
   saveState(ui);
   applyFillToLayer(ui, layerId);
@@ -306,8 +307,8 @@ const commitFillOpacity = (ui: LayerUI, layerId: string, pct: number): void => {
  *  re-apply a color the layer no longer shows. */
 const resetLayerFill = (ui: LayerUI, layerId: string): void => {
   if (!ui.m.layerRegistry.has(layerId)) return;
-  delete ui.fillColorMap[layerId];
-  delete ui.fillOpacityMap[layerId];
+  clearIntent(ui, layerId, "fillColor");
+  clearIntent(ui, layerId, "fillOpacity");
   unmarkOverride(ui, layerId, "fillColor");
   unmarkOverride(ui, layerId, "fillOpacity");
   saveState(ui);

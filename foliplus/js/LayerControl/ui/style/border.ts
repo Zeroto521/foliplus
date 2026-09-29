@@ -36,6 +36,7 @@ import {
 import * as CONST from "../../const.js";
 import type { BorderRowBindTarget, BorderRowBuildTarget } from "../../type.js";
 import type { LayerUI } from "../index.js";
+import { clearIntent, setIntent } from "../intent.js";
 import { markOverride, saveState, unmarkOverride } from "../state.js";
 import { pinStyleOnHighlight } from "./pin.js";
 import { registerDimension } from "./registry.js";
@@ -222,7 +223,7 @@ const applyBorderToLayer = (ui: LayerUI, layerId: string): void => {
 const commitBorderColor = (ui: LayerUI, layerId: string, rawColor: string): void => {
   const color = normalizeHexColor(rawColor);
   if (ui.borderColorMap[layerId] === color) return;
-  ui.borderColorMap[layerId] = color;
+  setIntent(ui, layerId, "borderColor", color);
   markOverride(ui, layerId, "borderColor");
   saveState(ui);
   applyBorderToLayer(ui, layerId);
@@ -232,7 +233,7 @@ const commitBorderColor = (ui: LayerUI, layerId: string, rawColor: string): void
  *  width input, which already clamps into the shared bounds. */
 const commitBorderWeight = (ui: LayerUI, layerId: string, weight: number): void => {
   if (ui.borderWeightMap[layerId] === weight) return;
-  ui.borderWeightMap[layerId] = weight;
+  setIntent(ui, layerId, "borderWeight", weight);
   markOverride(ui, layerId, "borderWeight");
   saveState(ui);
   applyBorderToLayer(ui, layerId);
@@ -248,8 +249,8 @@ const commitBorderWeight = (ui: LayerUI, layerId: string, weight: number): void 
  *  re-apply a stroke the layer no longer shows. */
 const resetLayerBorder = (ui: LayerUI, layerId: string): void => {
   if (!ui.m.layerRegistry.has(layerId)) return;
-  delete ui.borderColorMap[layerId];
-  delete ui.borderWeightMap[layerId];
+  clearIntent(ui, layerId, "borderColor");
+  clearIntent(ui, layerId, "borderWeight");
   unmarkOverride(ui, layerId, "borderColor");
   unmarkOverride(ui, layerId, "borderWeight");
   saveState(ui);

@@ -7,6 +7,7 @@ import { dom } from "#common/dom.js";
 import * as CONST from "../../const.js";
 import { applyProjection, authorZoomBoundsForLayer } from "../apply.js";
 import type { LayerUI } from "../index.js";
+import { clearIntent, setIntent } from "../intent.js";
 import { markOverride, saveState, unmarkOverride } from "../state.js";
 import { railPos, round5 } from "./frame.js";
 import { registerDimension } from "./registry.js";
@@ -254,7 +255,7 @@ const applyZoomRangeLive = (
 ): void => {
   const li = ui.m.layerRegistry.get(layerId);
   if (!li) return;
-  ui.zoomRangeMap[layerId] = [min, max];
+  setIntent(ui, layerId, "zoomRange", [min, max]);
   syncZoomRangeRow(ui, layerId, row, [min, max]);
   applyProjection(ui, layerId);
 };
@@ -270,7 +271,7 @@ const commitZoomRange = (ui: LayerUI, layerId: string): void => {
 /** Reset one layer's zoom range to the full map range and drop its override. */
 const resetLayerZoomRange = (ui: LayerUI, layerId: string): void => {
   if (!ui.m.layerRegistry.has(layerId)) return;
-  delete ui.zoomRangeMap[layerId];
+  clearIntent(ui, layerId, "zoomRange");
   unmarkOverride(ui, layerId, "zoomRange");
   saveState(ui);
   applyProjection(ui, layerId);

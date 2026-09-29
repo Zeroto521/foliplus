@@ -14,6 +14,7 @@ import { dom } from "#common/dom.js";
 import * as CONST from "../../const.js";
 import { applyProjection } from "../apply.js";
 import type { LayerUI } from "../index.js";
+import { clearIntent, setIntent } from "../intent.js";
 import { markOverride, saveState, unmarkOverride } from "../state.js";
 import { syncNoBasemap } from "../visibility.js";
 import { railPos, round5 } from "./frame.js";
@@ -100,10 +101,10 @@ const commitOpacityPct = (
   if (li.opacity === opacity) return;
   if (opacity === 1) {
     // Fully opaque is the declared default, so there is no override to keep.
-    delete ui.opacityMap[layerId];
+    clearIntent(ui, layerId, "opacity");
     unmarkOverride(ui, layerId, "opacity");
   } else {
-    ui.opacityMap[layerId] = opacity;
+    setIntent(ui, layerId, "opacity", opacity);
     markOverride(ui, layerId, "opacity");
   }
   saveState(ui);
@@ -182,7 +183,7 @@ const buildOpacityRow = (ui: LayerUI, layerId: string): HTMLElement => {
 const resetLayerOpacity = (ui: LayerUI, layerId: string): void => {
   const li = ui.m.layerRegistry.get(layerId);
   if (!li) return;
-  delete ui.opacityMap[layerId];
+  clearIntent(ui, layerId, "opacity");
   unmarkOverride(ui, layerId, "opacity");
   saveState(ui);
   applyProjection(ui, layerId);

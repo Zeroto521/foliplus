@@ -7,7 +7,7 @@ import { ListCursor } from "#core/listCursor.js";
 import { createScopedTranslator, createTranslator } from "#common/locale.js";
 import * as CONST from "../const.js";
 import type { LayerManager } from "../manager.js";
-import type { LayerOverride } from "../type.js";
+import type { LayerIntent, LayerOverride } from "../type.js";
 import type { AppliedProjection } from "../type.js";
 import { applyProjection, applyProjectionAll } from "./apply.js";
 import { closeAttrsPanel, openAttrsPanel } from "./attr.js";
@@ -98,6 +98,12 @@ class LayerUI {
    *  `getLayerItems(group).length` returns; `on` is the subset whose intent
    *  is visible. `syncToggleAllFromCount` writes the checkbox off `on`. */
   checkedCount: Record<string, { total: number; on: number }>;
+  /** Per-layer intent record — the single source for every user-chosen
+   *  dimension (visible / fill / border / opacity / zoomRange / name /
+   *  annotation). Absent key = never touched. `intentProvenance` stays a
+   *  separate axis. The parallel maps below are migration mirrors kept in
+   *  lockstep by `ui/intent.ts`. */
+  intents: Record<string, LayerIntent>;
   /** Layer id → the user's own visibility choice (true = shown), absent when
    *  the user never chose; survives page reload. */
   visibleMap: Record<string, boolean>;
@@ -241,6 +247,7 @@ class LayerUI {
     this._ = _;
     this.foldedGroups = new Set();
     this.checkedCount = {};
+    this.intents = {};
     this.visibleMap = {};
     this.authorVisible = new Map();
     this.intentProvenance = {};

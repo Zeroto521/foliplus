@@ -8,10 +8,11 @@
 import { createLogger } from "#common/log.js";
 import * as CONST from "../const.js";
 import type { LayerManager } from "../manager.js";
-import type { LayerOverride, PersistedLayerState } from "../type.js";
+import type { LayerIntent, LayerOverride, PersistedLayerState } from "../type.js";
 import { applyProjection, applyProjectionAll } from "./apply.js";
 import { applyNameProjection } from "./context.js";
 import type { LayerUI } from "./index.js";
+import { dropIntent, getIntent, hasIntentValue, setIntent } from "./intent.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const log = createLogger(CONF.name);
@@ -20,18 +21,27 @@ const log = createLogger(CONF.name);
 const loadPersistedState = (ui: LayerUI) => {
   const state = ui.m.persistence.load();
   ui.foldedGroups = new Set(state.foldedGroups);
-  ui.renamedNames = state.renamedNames;
+  // `ui.intents` is the single source; the parallel maps are dual-written
+  // mirrors kept for the migration. Name rides the same record (`name`).
+  ui.intents = {};
+  ui.renamedNames = {};
+  for (const [id, name] of Object.entries(state.renamedNames)) {
+    setIntent(ui, id, "name", name);
+  }
   // Style (label) configs are stored on the UI shell and applied by
   // ui/style.ts once the layers resolve (deferred init passes). Read order
   // is the compat contract: the current `layers[id].annotation` key WINS,
   // the legacy top-level `annotations` segment is the fallback underneath
   // (write-new / read-old — a v2 record reads exactly as it always did,
   // and neither side is migrated into the other).
-  ui.labelConfigs = { ...state.annotations };
-  // Per-layer intent: the value lives in visibleMap / opacityMap, `overrides`
+  ui.labelConfigs = {};
+  for (const [id, raw] of Object.entries(state.annotations)) {
+    if (raw != null) setIntent(ui, id, "annotation", raw as NonNullable<LayerIntent["annotation"]>);
+  }
+  // Per-layer intent: the value lives on `ui.intents[id]`, `overrides`
   // records that the user set it. A layer with no entry keeps the author's
   // declared default -- there is no map-level "did the user choose at all" flag,
-  // because the distinction is per layer. Absence from visibleMap means "the
+  // because the distinction is per layer. Absent dimension means "the
   // user never chose", not "visible": the default visible is decided by
   // `authorVisible` at the projection sites.
   ui.visibleMap = {};
@@ -45,37 +55,37 @@ const loadPersistedState = (ui: LayerUI) => {
   for (const [id, entry] of Object.entries(state.layers)) {
     // New-key label config overrides the legacy-segment fallback spread
     // above — same id, current segment wins.
-    if (entry.annotation) ui.labelConfigs[id] = entry.annotation;
+    if (entry.annotation) setIntent(ui, id, "annotation", entry.annotation);
     ui.intentProvenance[id] = [...entry.overrides];
     if (entry.overrides.includes("visible") && typeof entry.visible === "boolean") {
-      ui.visibleMap[id] = entry.visible;
+      setIntent(ui, id, "visible", entry.visible);
     }
     if (entry.overrides.includes("fillColor") && entry.fillColor) {
-      ui.fillColorMap[id] = entry.fillColor;
+      setIntent(ui, id, "fillColor", entry.fillColor);
     }
     if (
       entry.overrides.includes("fillOpacity") &&
       typeof entry.fillOpacity === "number"
     ) {
-      ui.fillOpacityMap[id] = entry.fillOpacity;
+      setIntent(ui, id, "fillOpacity", entry.fillOpacity);
     }
     if (entry.overrides.includes("borderColor") && entry.borderColor) {
-      ui.borderColorMap[id] = entry.borderColor;
+      setIntent(ui, id, "borderColor", entry.borderColor);
     }
     if (
       entry.overrides.includes("borderWeight") &&
       typeof entry.borderWeight === "number"
     ) {
-      ui.borderWeightMap[id] = entry.borderWeight;
+      setIntent(ui, id, "borderWeight", entry.borderWeight);
     }
     const opacity = entry.opacity;
     if (entry.overrides.includes("opacity") && typeof opacity === "number") {
-      ui.opacityMap[id] = opacity;
+      setIntent(ui, id, "opacity", opacity);
     }
     // Value and provenance are validated together on read, so presence of the
     // provenance guarantees presence of the value.
     if (entry.overrides.includes("zoomRange") && entry.zoomRange) {
-      ui.zoomRangeMap[id] = entry.zoomRange;
+      setIntent(ui, id, "zoomRange", entry.zoomRange);
     }
   }
 };
@@ -90,14 +100,24 @@ const saveFoldState = (ui: LayerUI) => {
  *  the user reset it, so the dimension drops back to the author's declared
  *  default instead of persisting an empty choice. */
 const hasLiveValue = (ui: LayerUI, id: string, override: LayerOverride): boolean => {
-  if (override === "visible") return typeof ui.visibleMap[id] === "boolean";
-  if (override === "fillColor") return typeof ui.fillColorMap[id] === "string";
-  if (override === "fillOpacity") return typeof ui.fillOpacityMap[id] === "number";
-  if (override === "borderColor") return typeof ui.borderColorMap[id] === "string";
-  if (override === "borderWeight") return typeof ui.borderWeightMap[id] === "number";
-  if (override === "opacity") return typeof ui.opacityMap[id] === "number";
-  if (override === "zoomRange") return Array.isArray(ui.zoomRangeMap[id]);
-  return true;
+  switch (override) {
+    case "visible":
+      return hasIntentValue(ui, id, "visible");
+    case "fillColor":
+      return hasIntentValue(ui, id, "fillColor");
+    case "fillOpacity":
+      return hasIntentValue(ui, id, "fillOpacity");
+    case "borderColor":
+      return hasIntentValue(ui, id, "borderColor");
+    case "borderWeight":
+      return hasIntentValue(ui, id, "borderWeight");
+    case "opacity":
+      return hasIntentValue(ui, id, "opacity");
+    case "zoomRange":
+      return hasIntentValue(ui, id, "zoomRange");
+    default:
+      return true;
+  }
 };
 
 /** Build the record's `layers` section from the live state: one entry per
@@ -113,8 +133,9 @@ const buildLayerStates = (ui: LayerUI): Record<string, PersistedLayerState> => {
   const states: Record<string, PersistedLayerState> = {};
   const annotations = Object.fromEntries(ui.m.annotation.configEntries());
   const ids = new Set([
-    ...Object.keys(ui.intentProvenance),
+    ...Object.keys(ui.intentProvenance ?? {}),
     ...Object.keys(annotations),
+    ...Object.keys(ui.intents ?? {}),
   ]);
   for (const id of ids) {
     const declared = (ui.intentProvenance[id] ?? []).filter(override =>
@@ -123,29 +144,30 @@ const buildLayerStates = (ui: LayerUI): Record<string, PersistedLayerState> => {
     const annotation = annotations[id];
     if (declared.length === 0 && !annotation) continue;
     const state: PersistedLayerState = { overrides: declared };
-    if (declared.includes("visible")) state.visible = ui.visibleMap[id];
-    const fillColor = ui.fillColorMap[id];
+    if (declared.includes("visible")) state.visible = getIntent(ui, id, "visible");
+    const fillColor = getIntent(ui, id, "fillColor");
     if (declared.includes("fillColor") && typeof fillColor === "string") {
       state.fillColor = fillColor;
     }
-    const fillOpacity = ui.fillOpacityMap[id];
+    const fillOpacity = getIntent(ui, id, "fillOpacity");
     if (declared.includes("fillOpacity") && typeof fillOpacity === "number") {
       state.fillOpacity = fillOpacity;
     }
-    if (declared.includes("borderColor") && typeof ui.borderColorMap[id] === "string") {
-      state.borderColor = ui.borderColorMap[id];
+    const borderColor = getIntent(ui, id, "borderColor");
+    if (declared.includes("borderColor") && typeof borderColor === "string") {
+      state.borderColor = borderColor;
     }
-    if (
-      declared.includes("borderWeight") &&
-      typeof ui.borderWeightMap[id] === "number"
-    ) {
-      state.borderWeight = ui.borderWeightMap[id];
+    const borderWeight = getIntent(ui, id, "borderWeight");
+    if (declared.includes("borderWeight") && typeof borderWeight === "number") {
+      state.borderWeight = borderWeight;
     }
-    const opacity = ui.opacityMap[id];
+    const opacity = getIntent(ui, id, "opacity");
     if (declared.includes("opacity") && typeof opacity === "number") {
       state.opacity = opacity;
     }
-    if (declared.includes("zoomRange")) state.zoomRange = ui.zoomRangeMap[id];
+    if (declared.includes("zoomRange")) {
+      state.zoomRange = getIntent(ui, id, "zoomRange");
+    }
     if (annotation) state.annotation = annotation;
     states[id] = state;
   }
@@ -309,13 +331,9 @@ const applyUserState = (ui: LayerUI, id?: string) => {
  * longer holds, and {@link markOverride} refuses that combination.
  */
 const dropPersistedLayerState = (ui: LayerUI, id: string) => {
-  delete ui.visibleMap[id];
-  delete ui.fillColorMap[id];
-  delete ui.fillOpacityMap[id];
-  delete ui.borderColorMap[id];
-  delete ui.borderWeightMap[id];
-  delete ui.opacityMap[id];
-  delete ui.zoomRangeMap[id];
+  // Style dimensions + their provenance. `name` / `annotation` are cleared
+  // by their own callers (manager delete / annotation destroy).
+  dropIntent(ui, id);
   delete ui.intentProvenance[id];
 };
 
@@ -344,7 +362,7 @@ const setVisible = (
   visible: boolean,
   persist: boolean = true,
 ) => {
-  ui.visibleMap[id] = visible;
+  setIntent(ui, id, "visible", visible);
   // The user's explicit action (either direction) supersedes any record the
   // zoom-range mechanism kept for this id: without this line, a layer the
   // sweep had removed would be re-added by the sweep the moment the user
