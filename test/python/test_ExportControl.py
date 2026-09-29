@@ -253,6 +253,42 @@ class TestExportControlRendering:
         assert "foliplus-export-ctrl" in html
         assert "foliplus-export-preview" in html
 
+    def test_crop_handle_hover_active(self):
+        """Handles warm to accent-light and pick up the slider glow on press.
+
+        Gap #8 from the T252 audit. Cursor direction is the existing grab
+        affordance and stays untouched; hover/press only add surface feedback.
+        Transform is reserved for the per-edge translate, so press feedback is
+        background/shadow only.
+        """
+        from conftest import read_css
+
+        css = read_css("foliplus/css/ExportControl.css")
+        assert ".foliplus-export-handle" in css
+        assert "&:hover" in css
+        assert "&:active" in css
+        assert "background: var(--foliplus-accent-light)" in css
+        assert "var(--foliplus-slider-thumb-glow)" in css
+        # Direction cursors are the grab affordance and must survive.
+        assert "cursor: nwse-resize" in css
+        assert "cursor: nesw-resize" in css
+        assert "cursor: ns-resize" in css
+        assert "cursor: ew-resize" in css
+
+    def test_crop_box_and_center_hover_active(self):
+        """Box deepens its glow; center scales like a small control.
+
+        Gap #9 from the T252 audit. Locked boxes hide handles/center and set
+        pointer-events: none, so they never light.
+        """
+        from conftest import read_css
+
+        css = read_css("foliplus/css/ExportControl.css")
+        assert "&:not(.foliplus-locked):hover" in css
+        assert "&:not(.foliplus-locked):active" in css
+        assert "scale(var(--foliplus-scale-hover))" in css
+        assert "scale(var(--foliplus-scale-press))" in css
+
 
 class TestExportControlBrowser:
     """Browser-level tests for ExportControl."""

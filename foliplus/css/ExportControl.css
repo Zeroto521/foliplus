@@ -156,7 +156,17 @@
   box-sizing: border-box;
   box-shadow: 0 0 var(--foliplus-size-16) var(--foliplus-accent-soft-shadow);
   border-radius: var(--foliplus-size-2);
-  transition: var(--foliplus-export-move-transition);
+  transition: var(--foliplus-export-move-transition),
+    box-shadow var(--foliplus-transition-fast);
+
+  /* Hover/press: the soft glow deepens one step so the crop frame reads as
+     "under the cursor / being pressed" without moving the dashes or the
+     dim mask. Locked boxes have pointer-events: none, so they never light. */
+  &:not(.foliplus-locked):hover,
+  &:not(.foliplus-locked):active {
+    box-shadow: 0 0 var(--foliplus-size-24) var(--foliplus-accent-soft-shadow),
+      0 0 0 var(--foliplus-size-2) var(--foliplus-accent-soft-shadow);
+  }
 
   &::before {
     content: "";
@@ -193,6 +203,23 @@
   z-index: calc(var(--foliplus-z-export-base) + 5);
   pointer-events: auto;
   box-sizing: border-box;
+  /* Cursor direction is the grab affordance and stays as-is; hover/press
+     only warm the surface and add the shared slider glow. Transform is
+     reserved for the per-edge translate below, so press feedback is
+     background/shadow only — composing scale() with eight different
+     translate() values would fork every edge rule. */
+  transition:
+    background-color var(--foliplus-transition-fast),
+    box-shadow var(--foliplus-transition-fast);
+
+  &:hover {
+    background: var(--foliplus-accent-light);
+    box-shadow: var(--foliplus-slider-thumb-glow);
+  }
+  &:active {
+    background: var(--foliplus-accent-light);
+    box-shadow: var(--foliplus-slider-thumb-glow);
+  }
 
   &.tl {
     top: var(--foliplus-export-handle-offset);
@@ -260,6 +287,18 @@
   box-shadow: 0 1px var(--foliplus-size-4) var(--foliplus-export-dim-color);
   pointer-events: auto;
   cursor: move;
+  transition:
+    transform var(--foliplus-transition-fast),
+    box-shadow var(--foliplus-transition-fast);
+
+  &:hover {
+    transform: scale(var(--foliplus-scale-hover));
+    box-shadow: var(--foliplus-slider-thumb-glow);
+  }
+  &:active {
+    transform: scale(var(--foliplus-scale-press));
+    box-shadow: var(--foliplus-slider-thumb-glow);
+  }
 }
 
 /* Locked: hide handles and center anchor */

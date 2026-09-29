@@ -80,6 +80,19 @@ class TestLocateControlRendering:
         assert "&.loading" in css
         assert "pointer-events: none" in css
 
+    def test_loading_dims_like_button_disabled(self):
+        """`.loading` carries the button-family disabled opacity.
+
+        Gap #10 from the T252 audit: the busy state already swapped icons and
+        swallowed clicks, but stayed full-strength. `--foliplus-alpha-30`
+        matches the shared `:disabled` look.
+        """
+        css = read_css("foliplus/css/LocateControl.css")
+        idx = css.find("&.loading")
+        assert idx != -1
+        block = css[idx : css.index("}", idx)]
+        assert "opacity: var(--foliplus-alpha-30)" in block
+
     def test_does_not_redefine_transform(self):
         """The hover/active icon scale stays with the shared stylesheet alone.
 

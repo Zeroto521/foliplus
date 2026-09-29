@@ -19,6 +19,8 @@
   /* ── Busy: crosshair out, spinner in; the click is ignored too, so a
      second press can't queue a second geolocation request. ── */
   &.loading {
+    /* Matches the button-family disabled look (--foliplus-alpha-30). */
+    opacity: var(--foliplus-alpha-30);
     pointer-events: none;
 
     .locate-btn-icon {

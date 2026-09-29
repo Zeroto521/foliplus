@@ -90,6 +90,28 @@
   color: var(--foliplus-accent-primary);
 }
 
+/* ─── Press: soft wash, same vocabulary as the Heatmap scheme picker's
+     persistent selection (`--foliplus-accent-soft-bg`). Hover keeps the
+     stronger accent-light; the press settles one notch softer so a click
+     reads as "down" rather than a second hover. Disabled entries never
+     answer (their :hover override already stays muted). ─── */
+:is(
+  .foliplus-search-result-item,
+  .foliplus-heatmap-scheme-dropdown-item,
+  .foliplus-layer-more-menu li
+):not([disabled]):active {
+  background: var(--foliplus-accent-soft-bg);
+}
+.foliplus-search-result-item:not([disabled]):active {
+  /* A search result is a record, not an action: keep the text at its normal
+     ink on press too (same opt-out as :hover). */
+  color: var(--foliplus-text-primary);
+}
+.foliplus-layer-more-menu li[disabled]:active {
+  background: transparent;
+  color: var(--foliplus-text-muted);
+}
+
 /* ── Active: the layer-item "selected" language — accent light background,
      text stays text-primary (the accent left border is added per-component
      where a persistent selection exists, e.g. the Heatmap scheme picker). ── */

@@ -32,6 +32,11 @@
       box-shadow: var(--foliplus-focus-ring);
       border-radius: var(--foliplus-radius-sm);
     }
+    /* Press: same scale language as fold-btn / the button family. Instant
+       (transition stays none) so a rebuild cannot flash a mid-scale frame. */
+    &:active {
+      transform: scale(var(--foliplus-scale-press));
+    }
 
     svg {
       width: 100%;
