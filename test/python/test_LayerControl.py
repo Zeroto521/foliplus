@@ -5327,7 +5327,7 @@ class TestLayerControlBrowser:
             result = page.evaluate(_js("LayerControl/geometry_focus_marching_ants"))
             assert result is not None, "geometry_focus_marching_ants failed"
             assert result["focused"] is True, f"path never took focus, got {result}"
-            # ⑤′: UA ring replaced by a white casing outline (not auto/black).
+            # White casing outline replaces the UA ring (black/blue).
             assert result["outlineStyle"] == "solid", (
                 f"focused geometry must paint the white casing outline, got {result}"
             )
@@ -5337,9 +5337,14 @@ class TestLayerControlBrowser:
                 f"got {result['outlineColor']} vs {casing}"
             )
 
+            accent = self._sample_token(page, "--foliplus-accent-primary")
             dash = page.evaluate(
                 "getComputedStyle(document.documentElement)"
                 ".getPropertyValue('--foliplus-dash-rhythm').trim()"
+            )
+            assert result["stroke"] == accent, (
+                f"focused geometry stroke must be accent, "
+                f"got {result['stroke']} vs {accent}"
             )
             got_dash = result["strokeDasharray"].replace(",", " ").split()
             want_dash = dash.replace(",", " ").split()

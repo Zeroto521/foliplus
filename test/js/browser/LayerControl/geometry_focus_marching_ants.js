@@ -9,8 +9,6 @@
   const cs = getComputedStyle(path);
   return {
     focused: document.activeElement === path,
-    // UA ring must be gone (black on Windows / system blue on macOS).
-    // ⑤′: white casing is an outline, ants ride the author's stroke.
     outlineStyle: cs.outlineStyle,
     outlineWidth: cs.outlineWidth,
     outlineColor: cs.outlineColor,

@@ -253,6 +253,10 @@ const dismissFocus = (ui: LayerUI): void => {
     ui.m.map.removeLayer(ui.focusRect);
     ui.focusRect = null;
   }
+  if (ui.focusRectCasing) {
+    ui.m.map.removeLayer(ui.focusRectCasing);
+    ui.focusRectCasing = null;
+  }
 
   if (ui.focusMask) {
     ui.m.map.removeLayer(ui.focusMask);
@@ -504,15 +508,25 @@ const drawFocusMask = (ui: LayerUI, bounds: L.LatLngBounds): void => {
   map.addLayer(ui.focusMask);
 };
 
-/** Draw the dashed focus rectangle (border only, no fill). */
+/** Draw the selection marquee: white casing under accent marching ants. */
 const drawFocusRect = (ui: LayerUI, bounds: L.LatLngBounds): void => {
   const map = ui.m.map;
+  const renderer = ui.focusRenderer ?? undefined;
+
+  // Casing first (under), then the ants stroke — two paths, one look.
+  ui.focusRectCasing = L.rectangle(bounds, {
+    className: "foliplus-focus-rect-casing",
+    fill: false,
+    interactive: false,
+    renderer,
+  });
+  map.addLayer(ui.focusRectCasing);
 
   ui.focusRect = L.rectangle(bounds, {
     className: "foliplus-focus-rect",
     fill: false,
     interactive: false,
-    renderer: ui.focusRenderer ?? undefined,
+    renderer,
   });
   map.addLayer(ui.focusRect);
 };

@@ -36,18 +36,17 @@
 }
 
 /* ── Geometry focus ring (click / keyboard focus on a map path) ──
-   A focused SVG path paints the UA outline along its geometry:
-   `outline-style: auto` + `outline-color` is black on Windows Chrome
-   (`rgb(16,16,16)`) and the system Highlight blue on macOS Chrome —
-   the "black large border" report. Selection language ⑤′: white casing
-   via `outline` (hugs the stroke, never washes a filled face) + marching
-   ants on the author's own stroke colour. Contrast comes from the casing,
-   so a red-on-red feature stays readable without hijacking its paint. */
+   The UA ring is black on Windows Chrome and system-blue on macOS —
+   the "black large border" report. Selection look: white casing under
+   accent marching ants. Casing is `outline` (cheap, never touches fill);
+   the ants speak the same vocabulary as the focus rect below. */
 .leaflet-interactive:focus,
 .leaflet-interactive:focus-visible {
   outline: var(--foliplus-focus-casing-width) solid
     var(--foliplus-focus-casing-color);
+  stroke: var(--foliplus-accent-primary);
   stroke-dasharray: var(--foliplus-dash-rhythm);
+  stroke-width: var(--foliplus-border-thick);
   animation: foliplus-focus-march var(--foliplus-motion-slow) linear infinite;
 }
 @media (prefers-reduced-motion: reduce) {
@@ -58,22 +57,23 @@
 }
 
 /* ── Focus bounds rectangle (drawn on the map) ──
-   Added via map.addLayer(), so it lives OUTSIDE .foliplus-layer-ctrl and
-   needs a top-level selector. Leaflet renders L.rectangle as a <path> with
-   className applied directly (no polygon child).
-   Selection language = white casing (outline) + accent marching ants.
-   The focus rect is transient (marching ants), the crop box is interactive
-   (static), so animation differs. No fill — a thin border only. */
+   Two paths: casing under, accent marching ants over — one look, no
+   filter (a filter chain washes fills and costs frames). Casing is
+   fill-free so it never tints the focused layer. Transient marquee. */
+path.foliplus-focus-rect-casing {
+  fill: none;
+  stroke: var(--foliplus-focus-casing-color);
+  stroke-width: var(--foliplus-focus-casing-width);
+  stroke-linejoin: round;
+  pointer-events: none;
+}
 path.foliplus-focus-rect {
   fill: none;
   stroke: var(--foliplus-accent-primary);
   stroke-dasharray: var(--foliplus-dash-rhythm);
   stroke-width: var(--foliplus-border-thick);
   stroke-linejoin: round;
-  /* "Marching ants" selection marquee — the dashes flow along the border. */
   animation: foliplus-focus-march var(--foliplus-motion-slow) linear infinite;
-  outline: var(--foliplus-focus-casing-width) solid
-    var(--foliplus-focus-casing-color);
   pointer-events: none;
 }
 /* Inverse mask that dims everything outside the focused bounds (the hole is
@@ -81,10 +81,8 @@ path.foliplus-focus-rect {
 path.foliplus-focus-mask {
   pointer-events: none;
 }
-/* Soft lift on the focused layer pane — one filter on one element
-   (bringFocusedLayerToFront), never per leaf, so a dense layer stays cheap.
-   A single drop-shadow, not a casing chain: the chain followed every
-   alpha edge including fills and cost frames on focus. */
+/* Soft lift on the focused layer pane — one filter on one element, never
+   per leaf. Single drop-shadow: no casing chain (it washes fills). */
 .foliplus-focus-pane.foliplus-focus-glow {
   animation: foliplus-focus-glow-in var(--foliplus-motion-quick) ease-out;
   filter: drop-shadow(
