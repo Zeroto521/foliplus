@@ -51,8 +51,9 @@ interface LayerCarrier {
  *  degrade) depends on the answer being the surface's, not the caller's. */
 interface LayerCapabilities {
   /** Whether the layer's tree has a write carrier for fill: areal geometry
-   *  (`L.Polygon` / `L.Circle` / `L.CircleMarker` — the last two because
-   *  they extend the polygon-side ancestor) with a `setStyle` leaf.
+   *  (`L.Polygon` / `L.Circle` / `L.CircleMarker` — Circle extends
+   *  CircleMarker in Leaflet 1.x; `hasFillLeaf` accepts Polygon and
+   *  `instanceof L.Circle`) with a `setStyle` leaf.
    *    - "native" — an areal carrier exists; `setStyle({fillColor,
    *      fillOpacity})` writes through the tree. A solid-colour basemap
    *      also declares "native": the pane's paint *is* the fill.
