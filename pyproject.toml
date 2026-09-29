@@ -25,6 +25,7 @@ classifiers = [
   "Topic :: Scientific/Engineering :: Visualization",
   "Intended Audience :: Science/Research",
   "Intended Audience :: Developers",
+  "Typing :: Typed",
 ]
 dependencies = ["folium>=0.14.0"]
 
@@ -63,6 +64,7 @@ include = ["foliplus*"]
 # and the Python/JS test suites all read it, so the wheel has to ship it.
 [tool.setuptools.package-data]
 foliplus = [
+  "py.typed",
   "cdn.json",
   "locale/*.json",
   "dist/*.min.js",
@@ -115,3 +117,18 @@ omit = ["*/test/*", "*/site-packages/*"]
 
 [tool.codespell]
 ignore-words-list = "afterAll, vas"
+
+[tool.mypy]
+# Mirrors the pre-commit hook — the package ships py.typed, so the check holds
+# the same bar downstream consumers get from it. Running `mypy foliplus` with
+# no flags (editors, CI) picks this up.
+strict = true
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# BaseControl intentionally calls folium's MacroElement.__init__ / render,
+# which 0.20 still leaves untyped; the override replaces the per-line
+# `type: ignore[no-untyped-call]` comments. Other strict rules still apply
+# (render's return is narrowed via an annotated local).
+module = "foliplus.BaseControl"
+disable_error_code = ["no-untyped-call"]

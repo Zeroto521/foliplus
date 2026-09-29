@@ -10,6 +10,20 @@ coverage:
       default:
         target: 95%
 
+# Soft launch (T243): report and comment only, never block a PR. Tighten
+# targets/thresholds (and drop informational) after the upload path has
+# proven stable across a few PRs.
+bundle_analysis:
+  status:
+    project:
+      default:
+        informational: true
+        target: auto
+        threshold: 5%
+    patch:
+      default:
+        informational: true
+
 comment:
   layout: "header, diff, files"
   behavior: default

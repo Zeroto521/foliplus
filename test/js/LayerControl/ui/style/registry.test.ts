@@ -15,6 +15,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerManager } from "#foliplus/LayerControl/manager.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
+import { setIntent } from "#foliplus/LayerControl/ui/intent.js";
 import { ANNOTATION_DIMENSION } from "#foliplus/LayerControl/ui/style/annotation.js";
 import { BORDER_DIMENSION } from "#foliplus/LayerControl/ui/style/border.js";
 import { DELEGATED_DIM_ORDER } from "#foliplus/LayerControl/ui/style/delegated.js";
@@ -309,7 +310,7 @@ describe("LayerControl style-panel dimension registry — opacity descriptor", (
   });
 
   it("value returns the user's stored override when one exists", () => {
-    ui.opacityMap.overlay1 = 0.3;
+    setIntent(ui, "overlay1", "opacity", 0.3);
     expect(OPACITY_DIMENSION.value(ui, "overlay1")).toBe(0.3);
   });
 });
@@ -349,8 +350,8 @@ describe("LayerControl style-panel dimension registry — fill descriptor", () =
   });
 
   it("value returns the user's stored override when one exists", () => {
-    ui.fillColorMap.overlay1 = "#ff0000";
-    ui.fillOpacityMap.overlay1 = 0.5;
+    setIntent(ui, "overlay1", "fillColor", "#ff0000");
+    setIntent(ui, "overlay1", "fillOpacity", 0.5);
     expect(FILL_DIMENSION.value(ui, "overlay1")).toEqual({
       color: "#ff0000",
       opacity: 0.5,
@@ -400,8 +401,8 @@ describe("LayerControl style-panel dimension registry — border descriptor", ()
   });
 
   it("value returns the user's stored override when one exists", () => {
-    ui.borderColorMap.overlay1 = "#ff0000";
-    ui.borderWeightMap.overlay1 = 3;
+    setIntent(ui, "overlay1", "borderColor", "#ff0000");
+    setIntent(ui, "overlay1", "borderWeight", 3);
     expect(BORDER_DIMENSION.value(ui, "overlay1")).toEqual({
       color: "#ff0000",
       weight: 3,
@@ -451,7 +452,7 @@ describe("LayerControl style-panel dimension registry — zoomRange descriptor",
   });
 
   it("value returns the user's stored override when one exists", () => {
-    ui.zoomRangeMap.overlay1 = [5, 10];
+    setIntent(ui, "overlay1", "zoomRange", [5, 10]);
     const v = ZOOM_RANGE_DIMENSION.value(ui, "overlay1");
     expect(v).toBeDefined();
     expect(v!.min).toBeGreaterThanOrEqual(5);

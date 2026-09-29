@@ -8,6 +8,7 @@ import {
 } from "#common/dom.js";
 import * as CONST from "../const.js";
 import type { LayerUI } from "./index.js";
+import { INTENT, setIntent } from "./intent.js";
 import { displayName } from "./rowView.js";
 import { saveNamesState } from "./state.js";
 
@@ -53,11 +54,11 @@ const renameLayer = (ui: LayerUI, layerId: string): void => {
     onCommit: trimmed => {
       const changed = trimmed !== currentName;
       if (changed) {
-        // renamedNames is the source of truth; the registry entry and the
-        // row labels are projections that applyUserState() pushes out, so
+        // `ui.intents[id].name` is the source of truth; the registry entry and
+        // the row labels are projections that applyUserState() pushes out, so
         // a re-registration that rebuilds the registry from a third-party
         // layer's own metadata cannot resurrect the author's original name.
-        ui.renamedNames[layerId] = trimmed;
+        setIntent(ui, layerId, INTENT.NAME, trimmed);
         saveNamesState(ui);
         ui.applyUserState();
       }

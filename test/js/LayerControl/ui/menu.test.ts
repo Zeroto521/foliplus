@@ -3,6 +3,7 @@ import * as CONST from "#foliplus/LayerControl/const.js";
 import { handleMoreMenuClick } from "#foliplus/LayerControl/interaction.js";
 import type { LayerManager } from "#foliplus/LayerControl/manager.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
+import { seedIntentMap } from "#foliplus/LayerControl/ui/intent.js";
 import { activateDeleteItem } from "#foliplus/LayerControl/ui/menu.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 import {
@@ -34,7 +35,7 @@ describe("LayerUI menu", () => {
       });
     }
     ui.foldedGroups = new Set();
-    ui.visibleMap = {};
+    seedIntentMap(ui, "visible", {});
     // Folded-group state is persisted to localStorage, so a fold from one test
     // would be re-read by the next test's LayerUI constructor and present as
     // already-folded.
