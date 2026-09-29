@@ -246,11 +246,51 @@
     box-shadow var(--foliplus-transition-fast);
 
   /* ── Z-index ──
-  LayerControl JS manages pane z-index dynamically.
-  Hint z-index is managed by runtime.js, reading --foliplus-z-index-hint (fallback 10000).
-  Fullscreen uses the browser Fullscreen API convention (99999).
-  --foliplus-z-index-top sits above everything (export blocker/preview).
-  Order: floating (9990) < hint (10000) < fullscreen (99999) < top (100000). */
+     One policy table for three parallel z vocabularies. Values are frozen —
+     this section names which family a number belongs to and what it is
+     allowed to cover. Nothing here moves a value.
+
+     Ladder (ascending) · vocabulary · owner · intent:
+
+       200+n·10   layer z        core/layer const.ts Z_INDEX.TILE_BASE
+                                  basemap panes, one STEP per basemap slot
+       600+n·10   layer z        core/layer z.ts zFor (Z_INDEX.BASE)
+                                  overlay panes; annotation labels sit +1
+                                  in-slot (ANNOTATION_Z_OFFSET)
+       850        export z       --foliplus-export-scale-z (ExportControl.css)
+                                  scale/attribution dimmed under the crop
+                                  mask; deliberately under export-base
+       8990       layer z focus  core/layer z.ts focusLayerZ (FOCUS_Z)
+                                  focused layer lift — just below the focus
+                                  overlay so stacked-above layers cannot
+                                  cover it
+       9000       layer z focus  core/layer z.ts FOCUS_Z.overlay
+                                  focus dim mask + selection rectangle
+       9500+N     export z       --foliplus-z-export-base + N
+                                  crop stack, scoped to .foliplus-export-mode
+       9700       export z       --foliplus-export-fold-z
+                                  export toggle, always clickable
+       9990       control z      --foliplus-z-index-floating (this file)
+                                  floating controls (measure, search, menus,
+                                  panels; panel expand offsets +1 / +9)
+       10000      control z      --foliplus-z-index-hint
+                                  hint toasts (runtime.js / core/hint.ts)
+       99999      control z      --foliplus-z-index-fullscreen
+                                  pseudo-fullscreen (browser Fullscreen API
+                                  convention)
+       100000     control z      --foliplus-z-index-top
+                                  export blocker/preview — above everything
+
+     Ownership:
+       layer z        — core/layer (const.ts Z_INDEX + z.ts zFor / FOCUS_Z).
+                        Every pane z-index the layer stack writes. LayerControl
+                        decides *when* to lift; core owns *what* the number is.
+       layer z focus  — the same family, focus band at the top of the layer
+                        domain (just under the control band).
+       control z      — the four :root tokens below. CSS-declared chrome above
+                        map content and layer panes.
+       export z       — ExportControl.css only, scoped to .foliplus-export-mode.
+                        Local crop-stack ladder; reuses only --foliplus-z-index-top. */
   --foliplus-z-index-floating: 9990;
   --foliplus-z-index-hint: 10000;
   --foliplus-z-index-fullscreen: 99999;

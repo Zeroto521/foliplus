@@ -1,5 +1,10 @@
 // core/layer/z — the layer z ladder, in one place.
 //
+// Vocabulary: this file is the "layer z" family (plus the focus band at its
+// top). The three-family z policy table (layer / control / export) lives in
+// css/common/token.css → Z-index — read that first when asking which family
+// a number belongs to.
+//
 // Four sites used to each derive a z by hand: the ordering pass priced a
 // layer's slot from its registry index, a surface added its pane's draw
 // offset, PaneManager gave a freshly created pane a provisional one, and
