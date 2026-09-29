@@ -48,7 +48,7 @@ import { registerDimension } from "./registry.js";
 type StyleCarrier = L.Layer & {
   setStyle?: (style: Record<string, unknown>) => void;
   eachLayer?: (fn: (layer: L.Layer) => void) => void;
-  options?: { color?: string; weight?: number };
+  options?: { color?: string; weight?: number; stroke?: boolean };
 };
 
 /** A carrier whose `setStyle` is there for real. Narrowing through a guard
@@ -94,25 +94,35 @@ const layerCanBorder = (ui: LayerUI, layerId: string): boolean => {
  *  style — one layer-wide base would erase the author's per-feature choice
  *  on reset.
  *
- *  Both fields are always populated: captureBase fills either one with the
+ *  All three fields are always populated: captureBase fills each one with the
  *  module default, so nothing downstream can tell "the author declared
  *  nothing" apart from "the author's own value". If that distinction ever
  *  matters — a Reset that behaves differently for the two — it is a decision
  *  about captureBase's capture semantics: re-add the null and read undefined
  *  out of options for real. Do not flatten it back with `??`. */
-const authorBorderBase = new WeakMap<StyleCarrier, { color: string; weight: number }>();
+const authorBorderBase = new WeakMap<
+  StyleCarrier,
+  { color: string; weight: number; stroke: boolean }
+>();
 
 /** Leaflet's own default `Path.color` — folium's style function always
  *  populates `options.color`, so this only fires for a bare Leaflet layer
  *  with no style declaration at all. */
 const STYLE_BORDER_DEFAULT = "#3388ff";
 
-const captureBase = (node: StyleCarrier): { color: string; weight: number } => {
+/** Leaflet's own default `Path.stroke`. Folium's `path_options` defaults it
+ *  to `true`; quickstart Facility Points declare `stroke: False`. */
+const STYLE_BORDER_STROKE_DEFAULT = true;
+
+const captureBase = (
+  node: StyleCarrier,
+): { color: string; weight: number; stroke: boolean } => {
   const existing = authorBorderBase.get(node);
   if (existing) return existing;
   const base = {
     color: node.options?.color ?? STYLE_BORDER_DEFAULT,
     weight: node.options?.weight ?? BORDER_WEIGHT.DEFAULT,
+    stroke: node.options?.stroke ?? STYLE_BORDER_STROKE_DEFAULT,
   };
   authorBorderBase.set(node, base);
   return base;
@@ -160,14 +170,17 @@ const authoredBorder = (
 };
 
 /** Commit the current border color and width to the layer. Walks the layer
- *  tree and calls `setStyle({color?, weight?})` once per leaf that has a
- *  setter — the two sub-dimensions ride the same call so a color change
- *  and a width change can never disagree about the stroke. A node without a
- *  setter is skipped silently.
+ *  tree and calls `setStyle({color?, weight?, stroke: true})` once per leaf
+ *  that has a setter — the two sub-dimensions ride the same call so a color
+ *  change and a width change can never disagree about the stroke. A node
+ *  without a setter is skipped silently.
  *
  *  Reads both values from the UI maps; a sub-dimension not in the map is
  *  omitted from the `setStyle` call so the author's declared default stays
- *  in force.
+ *  in force. `stroke: true` is always included: the user chose a border, so
+ *  the write must make it visible even when the author declared
+ *  `stroke: false` (quickstart Facility Points). Reset restores the author's
+ *  stroke flag from the captured base.
  *
  *  Called from the two commit paths and from the applyUserState sweep, so
  *  the walk is the single writer of a border style — the commits only record
@@ -178,7 +191,7 @@ const applyBorderToLayer = (ui: LayerUI, layerId: string): void => {
   if (color === undefined && weight === undefined) return;
   const layer = ui.m.findLayer(layerId) as StyleCarrier | null;
   if (!layer) return;
-  const style: Record<string, unknown> = {};
+  const style: Record<string, unknown> = { stroke: true };
   if (color !== undefined) style.color = color;
   if (weight !== undefined) style.weight = weight;
   const walk = (node: StyleCarrier): void => {
@@ -204,7 +217,10 @@ const applyBorderToLayer = (ui: LayerUI, layerId: string): void => {
       const c = getIntent(ui, layerId, INTENT.BORDER_COLOR);
       const w = getIntent(ui, layerId, INTENT.BORDER_WEIGHT);
       if (c === undefined && w === undefined) return null;
-      const stroke: Record<string, unknown> = {};
+      // stroke:true rides the replay too — folium's resetStyle would
+      // otherwise re-apply the author's stroke:false on mouseout and hide
+      // the user's border the moment the pointer leaves.
+      const stroke: Record<string, unknown> = { stroke: true };
       if (c !== undefined) stroke.color = c;
       if (w !== undefined) stroke.weight = w;
       return stroke;
@@ -266,9 +282,11 @@ const resetLayerBorder = (ui: LayerUI, layerId: string): void => {
     if (typeof node.setStyle !== "function") return;
     const base = authorBorderBase.get(node);
     if (!base) return;
-    // Both dimensions are written unconditionally: the captured base always
-    // holds a color and a width, so there is nothing to omit here.
-    node.setStyle({ color: base.color, weight: base.weight });
+    // All three dimensions are written unconditionally: the captured base
+    // always holds a color, a width and a stroke flag, so there is nothing
+    // to omit here. stroke restores the author's own value — including
+    // stroke:false, which the write path had forced on.
+    node.setStyle({ color: base.color, weight: base.weight, stroke: base.stroke });
   };
   walk(layer);
 };
