@@ -1439,7 +1439,6 @@ class TestExportControlBrowser:
                 f"Box disappeared after zoom, size={after_zoom}"
             )
 
-
     def test_drag_crop_box_no_jump(self, browser, tmp_path):
         """Dragging the crop box center must move it continuously, without a
         single frame that jumps the box past the natural frame-to-frame delta.

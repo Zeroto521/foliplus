@@ -3940,14 +3940,16 @@ class TestLayerControlBrowser:
             )
             for i in (1, 2):
                 assert result["finalState"][i] is True, (
-                    f"sibling {i} ended unchecked -- the click reached it: "
-                    f"{result}"
+                    f"sibling {i} ended unchecked -- the click reached it: {result}"
                 )
             # The regression: some frame between the click and the settle
             # painted a sibling's checkbox at a value different from its start.
             sibling_flips = []
             for sample in result["samples"]:
-                if sample[1] != result["startState"][1] or sample[2] != result["startState"][2]:
+                if (
+                    sample[1] != result["startState"][1]
+                    or sample[2] != result["startState"][2]
+                ):
                     sibling_flips.append(sample)
             assert not sibling_flips, (
                 f"a sibling's checkbox flipped to an unexpected value during "
