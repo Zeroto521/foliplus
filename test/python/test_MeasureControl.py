@@ -193,21 +193,22 @@ class TestMeasureControlRendering:
         assert "interactive: false" in html
 
     def test_ripple_css_variables(self):
-        """Ripple animation uses CSS custom properties for all parameters."""
+        """Ripple duration comes from the motion ladder; its shape parameters
+        stay custom properties."""
 
         css = read_css("foliplus/css/MeasureControl.css")
-        assert "--foliplus-ripple-duration" in css
+        assert "--foliplus-motion-normal" in css
         assert "--foliplus-ripple-opacity-start" in css
         assert "--foliplus-ripple-stroke-start" in css
         assert "--foliplus-ripple-stroke-end" in css
         assert "measure-ripple" in css
 
     def test_dash_sweep_css_variables(self):
-        """Dash sweep animation uses CSS custom properties for all parameters."""
+        """Dash sweep reads its duration from the motion ladder."""
 
         css = read_css("foliplus/css/MeasureControl.css")
         assert "--foliplus-sweep-length" in css
-        assert "--foliplus-sweep-duration" in css
+        assert "--foliplus-motion-fast" in css
 
     def test_radius_label_has_animation(self):
         """Circle radius label animates in with a decoupled centering transform.
@@ -228,6 +229,17 @@ class TestMeasureControlRendering:
         assert (
             "animation: none"
             not in css.split(".foliplus-measure-label-radius")[1].split("/*")[0]
+        )
+
+    def test_label_entrances_read_motion_quick(self):
+        """Both label entrances read their duration from the motion ladder."""
+        css = read_css("foliplus/css/MeasureControl.css")
+        assert (
+            "animation: foliplus-measure-label-in var(--foliplus-motion-quick)" in css
+        )
+        assert (
+            "animation: foliplus-measure-label-in-radius var(--foliplus-motion-quick)"
+            in css
         )
 
 

@@ -225,6 +225,20 @@
   --foliplus-shadow-ctrl-strong: 0 var(--foliplus-size-2) var(--foliplus-size-8)
     rgba(0, 0, 0, var(--foliplus-alpha-50));
 
+  /* ── Motion ──
+     Animation durations, ascending. `quick` gathers the entrance animations
+     (hint, focus glow, measure labels) that all shared a bare 0.2s; fast /
+     normal / slow are the per-component --*-duration values carried over
+     unchanged. No value moves — the point is a vocabulary a new animation picks
+     a step from. Transitions below are a different family: 0.15s shorthands
+     that carry an easing, and a transition is not an animation. The two 0.15s
+     `foliplus-dropdown-in` entrances sit just under `quick` and are deliberate
+     exceptions rather than steps. */
+  --foliplus-motion-quick: 0.2s;
+  --foliplus-motion-fast: 0.5s;
+  --foliplus-motion-normal: 0.7s;
+  --foliplus-motion-slow: 0.8s;
+
   /* ── Transitions ── */
   --foliplus-transition-fast: 0.15s ease;
   --foliplus-transition-input:
