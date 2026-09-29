@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Literal, get_args
+from collections.abc import Mapping
+from typing import Literal, TypedDict, get_args
 
 from ._cdn_loader import load_cdn
 from ._typing import Position, Zoom
@@ -13,6 +14,41 @@ MODE = Literal["coord", "addr"]
 # checks) and the runtime allowlist below.
 ProviderId = Literal["nominatim", "photon", "pelias"]
 PROVIDER_IDS = get_args(ProviderId)
+
+
+class ProviderEndpoint(TypedDict):
+    """One geocode endpoint template: ``url`` plus query ``params``."""
+
+    url: str
+    params: Mapping[str, object]
+
+
+class ProviderConfig(TypedDict, total=False):
+    """Overrides allowed for a built-in string provider."""
+
+    baseUrl: str
+    throttleMs: int
+    headers: Mapping[str, str]
+
+
+class _CustomProviderRequired(TypedDict):
+    id: str
+
+
+class CustomProvider(_CustomProviderRequired, total=False):
+    """Declarative custom geocode provider (serialized to the JS runtime).
+
+    ``id`` is required at runtime (enforced in ``__init__``); the remaining
+    keys are optional endpoint templates and tuning knobs.
+    """
+
+    baseUrl: str
+    throttleMs: int
+    headers: Mapping[str, str]
+    suggest: ProviderEndpoint
+    search: ProviderEndpoint
+    reverse: ProviderEndpoint
+    normalize: Mapping[str, str]
 
 
 class SearchControl(BaseControl):
@@ -124,8 +160,8 @@ class SearchControl(BaseControl):
         position: Position = "topleft",
         mode: MODE = "coord",
         zoom: Zoom = 15,
-        provider: ProviderId | dict = "nominatim",
-        provider_config: dict | None = None,
+        provider: ProviderId | CustomProvider = "nominatim",
+        provider_config: ProviderConfig | None = None,
         collapse_on_outside: bool = True,
         locale: str | LocaleConfig | None = None,
     ):
