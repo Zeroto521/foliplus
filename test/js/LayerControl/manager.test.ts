@@ -17,8 +17,10 @@ import {
 import {
   FALLBACK_PANE_PREFIX,
   GEOM_TYPE,
+  GROUP,
   Z_INDEX,
 } from "#foliplus/core/layer/const.js";
+import { ANNOTATION_Z_OFFSET } from "#foliplus/core/layer/index.js";
 import { getLayerAlpha } from "#common/canvasAlpha.js";
 import * as Storage from "#common/storage.js";
 
@@ -244,9 +246,7 @@ describe("LayerManager", () => {
       .paneNames.find(name => name.startsWith(CONST.ANNOTATION_PANE_PREFIX));
     expect(annName).toBeDefined();
     const slotZ = manager.computeZIndex(manager.layers.indexOf(li), li.group);
-    expect(panes.get(annName!)!.style.zIndex).toBe(
-      String(slotZ + CONST.ANNOTATION_Z_OFFSET),
-    );
+    expect(panes.get(annName!)!.style.zIndex).toBe(String(slotZ + ANNOTATION_Z_OFFSET));
   });
 
   it("unregisterLayer keeps the label config so a later flush cannot erase it", () => {
@@ -1624,7 +1624,7 @@ describe("LayerManager", () => {
       syncToggleAll,
     } as any;
     expect(manager.unregisterLayer("base1")).toBe(true);
-    expect(syncToggleAll).toHaveBeenCalledWith(CONST.GROUP.BASE);
+    expect(syncToggleAll).toHaveBeenCalledWith(GROUP.BASE);
   });
 
   it("attachUI skips a null entry in pending registrations", () => {
@@ -2501,7 +2501,7 @@ describe("LayerManager", () => {
 
       expect(manager.deleteLayer("base1")).toBe(true);
 
-      expect(syncToggleAll).toHaveBeenCalledWith(CONST.GROUP.BASE);
+      expect(syncToggleAll).toHaveBeenCalledWith(GROUP.BASE);
       expect(syncNoBasemap).toHaveBeenCalled();
     });
 
@@ -2535,7 +2535,7 @@ describe("LayerManager", () => {
       expect(manager.ui.currentColor).toBe(CONST.COLOR.DEFAULT);
       expect(manager.ui.authorVisible.get(CONST.SOLID_BASEMAP_ID)).toBe(false);
       expect(saveStateSpy).toHaveBeenCalled();
-      expect(syncToggleAll).toHaveBeenCalledWith(CONST.GROUP.BASE);
+      expect(syncToggleAll).toHaveBeenCalledWith(GROUP.BASE);
       expect(syncNoBasemap).toHaveBeenCalled();
       expect((manager as any).removedIds.has(CONST.SOLID_BASEMAP_ID)).toBe(false);
     });

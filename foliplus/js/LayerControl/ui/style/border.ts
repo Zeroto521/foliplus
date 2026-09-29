@@ -22,6 +22,7 @@
 // `inlineControls` — the same recipe as the delegated border row and the
 // annotation label row, so a border row reads identically whether the layer
 // paints through `setStyle` or through a component's own canvas.
+import { CAP_TIER, DIM } from "#core/layer/index.js";
 import { dom } from "#common/dom.js";
 import {
   BORDER_WEIGHT,
@@ -75,7 +76,7 @@ const isStyleSetter = (node: StyleCarrier): node is StyleSetter =>
 const layerCanBorder = (ui: LayerUI, layerId: string): boolean => {
   const li = ui.m.layerRegistry.get(layerId);
   if (!li) return false;
-  return ui.m.surfaceFor(li).capabilities.stroke === CONST.CAP_TIER.NATIVE;
+  return ui.m.surfaceFor(li).capabilities.stroke === CAP_TIER.NATIVE;
 };
 
 /** The layer's authored border style, captured on the layer's first border
@@ -198,7 +199,7 @@ const applyBorderToLayer = (ui: LayerUI, layerId: string): void => {
     // mouseout handler merges both dimensions into a single setStyle, so a
     // highlight-restore can neither drop one dimension nor grow a getter
     // list with every commit.
-    pinStyleOnHighlight(node, CONST.DIM.BORDER, () => {
+    pinStyleOnHighlight(node, DIM.BORDER, () => {
       const c = ui.borderColorMap[layerId];
       const w = ui.borderWeightMap[layerId];
       if (c === undefined && w === undefined) return null;
@@ -411,7 +412,7 @@ const bindBorderRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => 
  *  (see `./registry.js`): border comes second in the annotation panel's
  *  Layer section, right after fill. */
 const BORDER_DIMENSION = registerDimension<{ color: string; weight: number }>({
-  key: CONST.DIM.BORDER,
+  key: DIM.BORDER,
   gate: layerCanBorder,
   value: (ui, layerId) => {
     const li = ui.m.layerRegistry.get(layerId);

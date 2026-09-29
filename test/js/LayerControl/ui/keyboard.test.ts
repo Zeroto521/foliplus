@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { HINT_DURATION } from "#core/hint.js";
+import { GROUP } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerManager } from "#foliplus/LayerControl/manager.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
@@ -753,7 +754,7 @@ describe("LayerUI keyboard", () => {
 
       pressKey(foldBtn, "Enter");
 
-      expect(ui.foldedGroups.has(CONST.GROUP.OVERLAY)).toBe(true);
+      expect(ui.foldedGroups.has(GROUP.OVERLAY)).toBe(true);
       expect(allFolded(children())).toBe(true);
     });
 
@@ -770,12 +771,12 @@ describe("LayerUI keyboard", () => {
       const { children } = attachWithGroup(ui);
       // The chevron is a real focusable button, so dispatch the key there.
       pressKey(overlayFoldBtn(ui.uiContainer), " ");
-      expect(ui.foldedGroups.has(CONST.GROUP.OVERLAY)).toBe(true);
+      expect(ui.foldedGroups.has(GROUP.OVERLAY)).toBe(true);
       expect(allFolded(children())).toBe(true);
       // Fold rebuilds the panel, so re-fetch the button on the rebuilt row.
       pressKey(overlayFoldBtn(ui.uiContainer), "Enter");
 
-      expect(ui.foldedGroups.has(CONST.GROUP.OVERLAY)).toBe(false);
+      expect(ui.foldedGroups.has(GROUP.OVERLAY)).toBe(false);
       expect(allFolded(children())).toBe(false);
     });
 
