@@ -4995,7 +4995,9 @@ class TestLayerControlBrowser:
         folium.Polygon(
             locations=[[26.0, 119.2], [26.2, 119.2], [26.2, 119.5], [26.0, 119.5]],
         ).add_to(fg)
-        with use_page(self._make_page, browser, tmp_path, fg, slug="focus_rect_ants") as (
+        with use_page(
+            self._make_page, browser, tmp_path, fg, slug="focus_rect_ants"
+        ) as (
             page,
             _,
         ):
