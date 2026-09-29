@@ -4,7 +4,7 @@
 // `projection.ts`, diffs it against the last projection it wrote to the map
 // (`ui.appliedState`), and calls `applyStateOp` only for the dimensions
 // that actually moved. The old model — a sweep that re-read the whole
-// registry per layer, walked `visibleMap` / `opacityMap` / `zoomRangeMap`
+// registry per layer, walked `intents.visible` / `intents.opacity` / `intents.zoomRange`
 // by id, and picked per-dimension helpers — is what made the three
 // regressions structurally reachable:
 //
@@ -26,12 +26,13 @@
 // Naming: "state op" is the shape the carrier dispatcher accepts.
 // "Projection" is what the diff compares — intent + policy together, so
 // a change on either side produces an op.
-import { HIDDEN } from "#core/layer/index.js";
+import { CAP_TIER, HIDDEN, PANE_ROLE } from "#core/layer/index.js";
 import { resetGridLayerView } from "#core/leafletAdapter.js";
 import { setLayerAlpha } from "#common/canvasAlpha.js";
 import * as CONST from "../const.js";
 import type { Projection, StateOp } from "../type.js";
 import type { LayerUI } from "./index.js";
+import { INTENT, getIntent } from "./intent.js";
 import { intentVisibleOf, projectAll, projectLayer } from "./projection.js";
 
 /** Cache the layer's original `options.opacity` so repeated slider drags
@@ -124,7 +125,7 @@ const authorZoomBoundsForLayer = (ui: LayerUI, layerId: string): [number, number
 const carrierOf = (ui: LayerUI, layerInfo: LayerInfo): unknown => {
   if (layerInfo.canvas) return layerInfo.canvas;
   const surface = ui.m.surfaceFor(layerInfo);
-  if (surface.capabilities.opacity === CONST.CAP_TIER.PANE) {
+  if (surface.capabilities.opacity === CAP_TIER.PANE) {
     // A stable key, not an array: `sameCarrier` compares with `===`, so a
     // freshly built array would never match and every pane layer would
     // rewrite on every call. Sorted, so the order the pane specs happen to
@@ -162,7 +163,7 @@ const sameCarrier = (prev: unknown, curr: unknown): boolean =>
 const applyStateOp = (ui: LayerUI, layerInfo: LayerInfo, op: StateOp): void => {
   if (op.type === "visible") {
     const carrier = ui.m.surfaceFor(layerInfo).capabilities.visibility;
-    if (carrier === CONST.CAP_TIER.NATIVE) {
+    if (carrier === CAP_TIER.NATIVE) {
       const layer = layerInfo.layer ?? ui.m.findLayer(layerInfo);
       if (layer) {
         // Map membership. Written only when it differs from what is there —
@@ -174,7 +175,7 @@ const applyStateOp = (ui: LayerUI, layerInfo: LayerInfo, op: StateOp): void => {
           else ui.m.map.removeLayer(layer);
         }
       }
-    } else if (carrier === CONST.CAP_TIER.PANE) {
+    } else if (carrier === CAP_TIER.PANE) {
       // Canvas HIDDEN class — the carrier for canvas-only surfaces that have
       // no Leaflet layer to add/remove.
       const canvas = layerInfo.canvas;
@@ -220,10 +221,10 @@ const applyStateOp = (ui: LayerUI, layerInfo: LayerInfo, op: StateOp): void => {
       return;
     }
     const carrier = ui.m.surfaceFor(layerInfo).capabilities.opacity;
-    if (carrier === CONST.CAP_TIER.NONE) return; // no honest write exists
+    if (carrier === CAP_TIER.NONE) return; // no honest write exists
     const layer = layerInfo.layer;
     if (!layer) return;
-    if (carrier === CONST.CAP_TIER.NATIVE) {
+    if (carrier === CAP_TIER.NATIVE) {
       // The layer paints through a setter of its own. `setOpacity`
       // (ImageOverlay) is immediate; `options.opacity` (GridLayer /
       // TileLayer) is honoured at the next tile cycle. The slider is a
@@ -251,7 +252,7 @@ const applyStateOp = (ui: LayerUI, layerInfo: LayerInfo, op: StateOp): void => {
       const value = op.value ?? 1;
       const surface = ui.m.surfaceFor(layerInfo);
       for (const pane of surface.panes) {
-        if (pane.role === "annotation") continue;
+        if (pane.role === PANE_ROLE.ANNOTATION) continue;
         const el = ui.m.map.getPane(pane.name);
         if (el) el.style.opacity = String(value);
       }
@@ -343,8 +344,8 @@ const applyProjection = (ui: LayerUI, id: string): void => {
   // linked) and that the user never touched is not this executor's to
   // decide — writing `effectiveShown` for it would turn a guess into an add.
   const hasUserIntent =
-    (ui.intentProvenance?.[id]?.includes("visible") ?? false) ||
-    typeof ui.visibleMap?.[id] === "boolean";
+    (ui.intentProvenance?.[id]?.includes(INTENT.VISIBLE) ?? false) ||
+    typeof getIntent(ui, id, INTENT.VISIBLE) === "boolean";
   const authorised = hasUserIntent || ui.authorVisible.has(id);
   // Current visibility, read from the carrier the write would land on.
   // "native" — the map's own membership flag; "pane" — the canvas's
@@ -353,11 +354,11 @@ const applyProjection = (ui: LayerUI, id: string): void => {
   // converge on `effectiveShown` no matter who moved the layer in between.
   const visibility = ui.m.surfaceFor(layerInfo).capabilities.visibility;
   const currentShown =
-    visibility === CONST.CAP_TIER.NATIVE
+    visibility === CAP_TIER.NATIVE
       ? layer
         ? ui.m.map.hasLayer(layer)
         : false
-      : visibility === CONST.CAP_TIER.PANE
+      : visibility === CAP_TIER.PANE
         ? layerInfo.canvas
           ? !layerInfo.canvas.classList.contains(HIDDEN)
           : false

@@ -950,8 +950,14 @@ class TestLayerControlRendering:
         assert "--foliplus-drag-border-width" in css
         assert "--foliplus-drag-top-shadow" in css
         assert "--foliplus-drag-bottom-shadow" in css
-        assert "--foliplus-drag-pulse-duration" in css
         assert "--foliplus-drag-pulse-count" in css
+        assert "--foliplus-motion-slow" in css
+
+    def test_focus_glow_reads_motion_quick(self):
+        """The focus-pane glow entrance reads its duration from the motion
+        ladder."""
+        css = read_css("foliplus/css/LayerControl/index.css")
+        assert "animation: foliplus-focus-glow-in var(--foliplus-motion-quick)" in css
 
     # ── Indeterminate checkbox (partial selection) styles ──
 
@@ -1900,6 +1906,30 @@ class TestLayerControlBrowser:
             assert result is not None
             assert result["count"] >= 3
 
+    def test_close_btn_aligns_with_header_icon(self, browser, tmp_path):
+        """The panel close button sits on the same vertical axis as the header
+        icon (the panel's logo).
+
+        Regression for "close button drifts off the header icon's axis": a drift of
+        even 1-2 px reads as the × floating off the header's vertical axis. The
+        threshold is 2 px so a subpixel rounding from `getBoundingClientRect`
+        does not flake the test, but anything above that is a real visual bug.
+        """
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            folium.FeatureGroup(name="A", overlay=True, show=True),
+        ) as (page, errors):
+            panel_ready(page)
+            result = page.evaluate(_js("LayerControl/read_close_icon_alignment"))
+            assert not result.get("error"), f"probe error: {result}"
+            assert not errors, f"JS errors: {errors}"
+            assert abs(result["deltaPx"]) <= 2, (
+                f"close button is {result['deltaPx']:.2f}px off the header "
+                f"icon's vertical center -- threshold 2px, got {result}"
+            )
+
     def test_toggle_all_checkbox_toggles_layers(self, browser, tmp_path):
         """Toggle-all checkbox toggles all layers in the group."""
         with use_page(
@@ -2733,6 +2763,120 @@ class TestLayerControlBrowser:
                 f"reload painted the canvas at the author default: {after_reload}"
             )
 
+    def test_third_party_component_rename_survives_reload(self, browser, tmp_path):
+        """A rename on a late-registering component (HeatmapControl) survives reload.
+
+        Third-party components (HeatmapControl, MeasureControl) call
+        ``registerLayer`` in their own constructors, which run after LayerControl
+        has attached its panel. On the first attach the sweep runs before the
+        component registers; on a later attach the component registers while
+        ``applyUserState`` is replaying stored state. Without id-scoped replay the
+        component's own ``name`` clobbers the user's rename on the reload -- the
+        exact symptom of "renaming a third-party component does not stick
+        across reload".
+
+        This test seeds a HeatmapControl row with a user rename, reloads, and
+        asserts the renamed label is the one the row paints (not the author
+        default).
+        """
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        fg = folium.FeatureGroup(name="Points", show=True)
+        folium.GeoJson(
+            json.dumps(
+                {
+                    "type": "FeatureCollection",
+                    "features": [
+                        {
+                            "type": "Feature",
+                            "properties": {"val": 26.08},
+                            "geometry": {
+                                "type": "Point",
+                                "coordinates": [119.30, 26.08],
+                            },
+                        }
+                    ],
+                }
+            )
+        ).add_to(fg)
+        fg.add_to(m)
+        LayerControl().add_to(m)
+        HeatmapControl().add_to(m)
+        _expand_panel(m)
+
+        html = m.get_root().render()
+        match = re.search(r"var (map_[0-9a-f]+) = L\.map", html)
+        assert match, "map variable not found in rendered HTML"
+
+        # The persisted record the previous visit would have written: the heatmap
+        # row is renamed to "My Heat" by the user. Id is the stable component id,
+        # not a per-map suffix.
+        seed = {
+            "order": None,
+            "foldedGroups": [],
+            "renamedNames": {"foliplus_heatmap": "My Heat"},
+            "annotations": {},
+            "layers": {},
+        }
+        html_path = tmp_path / "test_third_party_rename_reload.html"
+        _write_html(m, html_path)
+
+        with use_raw_page(browser.new_page) as page:
+            page.add_init_script(
+                f"localStorage.setItem("
+                f"'foliplus_layer_state_{match.group(1)}', "
+                f"{json.dumps(json.dumps(seed))});"
+            )
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=10000,
+            )
+            heatmap_ready(page, timeout=15000)
+            page.wait_for_timeout(300)
+
+            after_attach = page.evaluate(_js("LayerControl/read_rename_state"))
+            assert after_attach["rowPresent"] is True, (
+                f"heatmap row missing after attach: {after_attach}"
+            )
+            assert after_attach["storedRename"] == "My Heat", (
+                f"attach dropped the stored rename: {after_attach}"
+            )
+            assert after_attach["label"] == "My Heat", (
+                f"attach painted the author default instead of the rename: "
+                f"{after_attach}"
+            )
+
+            # A second reload must land the same way: a late-registered component
+            # that runs its own `registerLayer` on the second attach used to
+            # clobber the rename at the point where the sweep replayed it.
+            page.reload(wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=10000,
+            )
+            heatmap_ready(page, timeout=15000)
+            page.wait_for_timeout(300)
+
+            after_reload = page.evaluate(_js("LayerControl/read_rename_state"))
+            assert after_reload["rowPresent"] is True, (
+                f"heatmap row missing after reload: {after_reload}"
+            )
+            assert after_reload["storedRename"] == "My Heat", (
+                f"reload dropped the stored rename: {after_reload}"
+            )
+            assert after_reload["label"] == "My Heat", (
+                f"reload reverted the third-party component's rename to the "
+                f"author default: {after_reload}"
+            )
+
     def test_vector_border_writes_the_stroke_and_survives_reload(
         self, browser, tmp_path
     ):
@@ -2982,6 +3126,79 @@ class TestLayerControlBrowser:
             assert "#e74c3c" in strokes, (
                 f"the neighbouring line lost its own stroke\n{row['strokes']}"
             )
+
+    def test_circlemarker_stroke_false_border_write_is_visible_and_resettable(
+        self, browser, tmp_path
+    ):
+        """A stroke:false CircleMarker must show a user border, and Reset must hide it again.
+
+        quickstart Facility Points authors ``style_kwds={"stroke": False}``
+        (geopandas explore → folium CircleMarker). Writing color/weight alone
+        leaves Path painting ``stroke=none`` — the panel change would be a
+        silent no-op. The write must turn stroke on; Reset must put the
+        author's ``stroke: False`` back so the border disappears again.
+        """
+        m = folium.Map(location=[30.0, 120.0], zoom_start=6, tiles=None)
+        fg = folium.FeatureGroup(name="Facility Points", overlay=True, show=True)
+        folium.CircleMarker(
+            [30.0, 120.0],
+            radius=5,
+            color="#3388ff",
+            weight=2,
+            fill=True,
+            fill_opacity=0.8,
+            stroke=False,
+        ).add_to(fg)
+        fg.add_to(m)
+        LayerControl().add_to(m)
+        _expand_panel(m)
+
+        html_path = tmp_path / "test_circlemarker_stroke_false_border.html"
+        _write_html(m, html_path)
+
+        with use_raw_page(browser.new_page) as page:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=10000,
+            )
+            panel_ready(page)
+
+            before = page.evaluate(
+                _js("LayerControl/border_set_and_read"), ["Facility Points"]
+            )
+            assert before.get("panel"), f"the style panel did not open: {before}"
+            assert before["borderRows"] == 1, f"expected one border row: {before}"
+            for stroke in before["strokes"]:
+                assert stroke["stroke"] in (None, "none"), (
+                    f"author stroke:false should paint stroke=none: {before}"
+                )
+
+            row = page.evaluate(
+                _js("LayerControl/border_set_and_read"),
+                ["Facility Points", "#ff0000", 6],
+            )
+            assert row.get("panel"), f"the style panel did not open: {row}"
+            assert row["strokes"], f"no path on the map: {row}"
+            for stroke in row["strokes"]:
+                assert stroke["stroke"] == "#ff0000", (
+                    f"border color did not reach the SVG: {row}"
+                )
+                assert stroke["strokeWidth"] == "6", (
+                    f"border width did not reach the SVG: {row}"
+                )
+
+            reset = page.evaluate(
+                _js("LayerControl/border_set_and_read"),
+                ["Facility Points", None, None, True],
+            )
+            assert reset.get("panel"), f"the style panel did not reopen: {reset}"
+            assert reset["strokes"], f"no path after reset: {reset}"
+            for stroke in reset["strokes"]:
+                assert stroke["stroke"] in (None, "none"), (
+                    f"reset must restore the author's stroke:false\n{reset}"
+                )
 
     def test_unregister_keeps_stored_opacity_delete_drops_it(self, browser, tmp_path):
         """unregisterLayer never erases a value; only an explicit delete does.
@@ -3646,6 +3863,54 @@ class TestLayerControlBrowser:
             )
             assert none["indeterminate"] is False, (
                 "Expected toggle-all NOT indeterminate when no layers checked"
+            )
+
+    def test_click_one_overlay_no_sibling_checkbox_flash(self, browser, tmp_path):
+        """Clicking one overlay row's checkbox must not flash its group siblings'
+        checkboxes to an intermediate state.
+
+        Regression for "sibling checkbox flashes when clicking one overlay
+        row": a sibling checkbox
+        briefly showing a state it was not already in means an intermediate
+        sweep rewrote the row's cell between the click and its final paint. The
+        single-writer path records intent for the clicked row and diffs once, so
+        every sibling's checkbox stays at its start value until the browser
+        settles.
+        """
+        overlays = [
+            folium.FeatureGroup(name="Overlay A", overlay=True, show=True),
+            folium.FeatureGroup(name="Overlay B", overlay=True, show=True),
+            folium.FeatureGroup(name="Overlay C", overlay=True, show=True),
+        ]
+        with use_page(self._make_page, browser, tmp_path, *overlays) as (
+            page,
+            errors,
+        ):
+            panel_ready(page)
+            result = page.evaluate(_js("LayerControl/sample_overlay_checkbox_click"))
+            assert not result.get("error"), f"probe error: {result}"
+            assert not errors, f"JS errors: {errors}"
+            # Only the first row flipped; its two siblings kept their start
+            # state throughout the click, no intermediate frame.
+            assert result["finalState"][0] is False, (
+                f"clicked row did not uncheck, got {result}"
+            )
+            for i in (1, 2):
+                assert result["finalState"][i] is True, (
+                    f"sibling {i} ended unchecked -- the click reached it: {result}"
+                )
+            # The regression: some frame between the click and the settle
+            # painted a sibling's checkbox at a value different from its start.
+            sibling_flips = []
+            for sample in result["samples"]:
+                if (
+                    sample[1] != result["startState"][1]
+                    or sample[2] != result["startState"][2]
+                ):
+                    sibling_flips.append(sample)
+            assert not sibling_flips, (
+                f"a sibling's checkbox flipped to an unexpected value during "
+                f"the click -- checkbox flash. Samples: {sibling_flips}"
             )
 
     def test_toggle_all_click_indeterminate_deselects_all(self, browser, tmp_path):
@@ -5633,7 +5898,7 @@ class TestLayerControlBrowser:
         come back on the map after reload.
 
         The load path runs ``applyZoomRangeStateOne`` for every layer with
-        a stored zoomRange. A zoomRangeMap entry alone is not authorisation
+        a stored zoomRange. A stored zoom-range intent alone is not authorisation
         to re-add a layer the author left off the map — only ``applyUserState``'s
         unhide branch (a visible override present) is.
         """

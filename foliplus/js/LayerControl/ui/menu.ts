@@ -1,4 +1,5 @@
 // LayerControl UI — Overflow (⋮) menu.
+import { CAP_TIER } from "#core/layer/index.js";
 import { dom } from "#common/dom.js";
 import * as Icons from "#common/icon.js";
 import * as CONST from "../const.js";
@@ -91,9 +92,7 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   // bit) — the menu and the panel ask one function, so the entry can never
   // enable a panel whose Label section would not render (or vice versa).
   const canConfigure =
-    (caps &&
-      (caps.opacity !== CONST.CAP_TIER.NONE ||
-        caps.zoomRange !== CONST.CAP_TIER.NONE)) ||
+    (caps && (caps.opacity !== CAP_TIER.NONE || caps.zoomRange !== CAP_TIER.NONE)) ||
     layerCanLabel(ui, layerId) ||
     layerHasStyleDelegation(ui, layerId);
   const styleDisabled = focusReason === "hidden" || !canConfigure;

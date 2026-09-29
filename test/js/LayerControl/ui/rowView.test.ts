@@ -3,6 +3,7 @@ import { GEOM_TYPE } from "#core/layer/index.js";
 import type { LayerInfo } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
+import { clearIntent, getIntent, setIntent } from "#foliplus/LayerControl/ui/intent.js";
 import { intentVisibleOf } from "#foliplus/LayerControl/ui/projection.js";
 import {
   applyRowView,
@@ -77,8 +78,8 @@ describe("intentVisibleOf (the intent seam)", () => {
   ): LayerUI =>
     ({
       intentProvenance: overrides,
-      visibleMap: Object.fromEntries(hidden.map(id => [id, false])),
       authorVisible: new Map(Object.entries(author)),
+      intents: Object.fromEntries(hidden.map(id => [id, { visible: false }])),
     }) as unknown as LayerUI;
 
   const info = (id: string): LayerInfo => ({ id }) as LayerInfo;
@@ -186,7 +187,7 @@ describe("buildRowCell + applyRowView (one writer per row)", () => {
     const item = findItem(ui, "overlay1");
 
     ui.applyVisibility("overlay1", false);
-    expect(ui.visibleMap["overlay1"]).toBe(false);
+    expect(getIntent(ui, "overlay1", "visible")).toBe(false);
     expect(buildRowCell(ui, layerInfo).checked).toBe(false);
     expect(box(item).checked).toBe(false);
     expect(item.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
@@ -207,7 +208,7 @@ describe("buildRowCell + applyRowView (one writer per row)", () => {
     const layerInfo = overlay(ui);
     ui.authorVisible.set("overlay1", false);
     ui.intentProvenance.overlay1 = ["visible"];
-    delete ui.visibleMap.overlay1;
+    clearIntent(ui, "overlay1", "visible");
 
     expect(buildRowCell(ui, layerInfo).checked).toBe(true);
   });
@@ -307,7 +308,7 @@ describe("applyRowView (the single DOM write point)", () => {
     expect(el.getAttribute(CONST.DATA.TITLE)).toBe("polygon");
   });
 
-  it("buildRowCell handles undefined intentProvenance and visibleMap", () => {
+  it("buildRowCell handles undefined intentProvenance and intents.visible", () => {
     // The `?.` and `?? false` fallbacks on the inline intent check: a thin
     // stub may not have populated these maps yet, so the check must degrade to
     // the author default rather than crashing.
@@ -317,12 +318,7 @@ describe("applyRowView (the single DOM write point)", () => {
       mgmt: { getFeatureCount: () => 0 },
       renamedNames: {},
       authorVisible: new Map(),
-      visibleMap: undefined,
       intentProvenance: undefined,
-      zoomRangeMap: {},
-      opacityMap: {},
-      fillColorMap: {},
-      fillOpacityMap: {},
       focusingLayerId: null,
       appliedState: new Map(),
       T: (k: string) => k,
@@ -399,7 +395,7 @@ describe("snapshotAuthorVisible", () => {
       id: "heat-mixed",
       canvas: document.createElement("canvas"),
     } as unknown as LayerInfo);
-    ui.visibleMap["heat-mixed"] = false;
+    setIntent(ui, "heat-mixed", "visible", false);
     ui.intentProvenance["heat-mixed"] = ["visible"];
     snapshotAuthorVisible(ui, {
       id: "heat-mixed",
@@ -427,7 +423,7 @@ describe("snapshotAuthorVisible", () => {
 });
 
 describe("intentVisibleOf: what counts as the user's choice", () => {
-  it("a bare visibleMap entry is already a choice — the row reads unchecked", () => {
+  it("a bare intents.visible entry is already a choice — the row reads unchecked", () => {
     // `setVisible` always marks, but a restored record or a direct write
     // can leave an entry without its provenance marker. Either half is the
     // user's choice; only the author's default is the fallback.
@@ -435,7 +431,7 @@ describe("intentVisibleOf: what counts as the user's choice", () => {
     const layerInfo = ui.m.layers.find(li => li.id === "overlay1")!;
     ui.intentProvenance.overlay1 = undefined as never;
     delete ui.intentProvenance.overlay1;
-    ui.visibleMap["overlay1"] = false;
+    setIntent(ui, "overlay1", "visible", false);
     expect(intentVisibleOf(ui, layerInfo.id)).toBe(false);
   });
 
@@ -443,7 +439,7 @@ describe("intentVisibleOf: what counts as the user's choice", () => {
     const { ui } = initFixture({});
     const layerInfo = ui.m.layers.find(li => li.id === "overlay1")!;
     delete ui.intentProvenance.overlay1;
-    delete ui.visibleMap["overlay1"];
+    clearIntent(ui, "overlay1", "visible");
     ui.authorVisible.set("overlay1", false);
     expect(intentVisibleOf(ui, layerInfo.id)).toBe(false);
   });

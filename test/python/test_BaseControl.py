@@ -279,6 +279,41 @@ class TestBaseControlRendering:
         assert "--foliplus-z-index-fullscreen" in css
         assert "--foliplus-z-index-top" in css
 
+    def test_z_policy_table_landing(self):
+        """The three-family z policy table has a single landing in token.css."""
+        css = read_css_dir("foliplus/css/common", "token.css")
+        # One section names all three vocabularies and their ownership.
+        assert "layer z" in css
+        assert "control z" in css
+        assert "export z" in css
+        assert "Ownership" in css
+        assert "Ladder" in css
+
+    def test_z_policy_export_header_pointer(self):
+        """ExportControl.css points at the policy table instead of re-laddering."""
+        from conftest import read_css
+
+        css = read_css("foliplus/css/ExportControl.css")
+        assert "token.css" in css
+        # Cross-system hint/fullscreen narration no longer lives here.
+        assert "JS-managed by runtime.js" not in css
+
+    def test_motion_ladder_tokens(self, base_map: folium.Map):
+        """The motion ladder is tokenized in token.css. `quick` is the entrance
+        tier; fast/normal/slow carry the per-component --*-duration values over.
+        No value moves."""
+        tokens = read_css_dir("foliplus/css/common", "token.css")
+        assert "--foliplus-motion-quick: 0.2s" in tokens
+        assert "--foliplus-motion-fast: 0.5s" in tokens
+        assert "--foliplus-motion-normal: 0.7s" in tokens
+        assert "--foliplus-motion-slow: 0.8s" in tokens
+
+    def test_hint_entrance_reads_motion_quick(self):
+        """The hint entrance reads its duration from the motion ladder instead
+        of carrying a bare 0.2s."""
+        css = read_css_dir("foliplus/css/common", "hint.css")
+        assert "animation: foliplus-hint-in var(--foliplus-motion-quick)" in css
+
     def test_ctrl_fold_classes(self, base_map: folium.Map):
         """ctrl-fold is a common pattern for expand/collapse panels."""
         from foliplus import SearchControl
@@ -327,6 +362,48 @@ class TestBaseControlRendering:
 
         html = render_control(SearchControl())
         assert "border-radius: var(--foliplus-radius-sm)" in html
+
+    def test_panel_btn_full_width_text_centered(self):
+        """`.foliplus-panel-btn` stays full-width; its label is centered on both axes.
+
+        Shared recipe for Reset (LayerControl style) and Clear (Heatmap) —
+        button.css keeps the two from drifting. The button itself still
+        stretches (`flex: 1`) with no extra margin (the footer row's padding is
+        the only inset); the text inside is centered vertically and
+        horizontally. Box model / alignment only; hover, active, focus, and
+        colors live in the same rule and are deliberately not asserted here.
+        """
+        css = read_css_dir("foliplus/css/common", "button.css")
+        idx = css.find(".foliplus-panel-btn {")
+        assert idx != -1, "shared panel-btn recipe missing from button.css"
+        block = css[idx : css.index("}", idx) + 1]
+        # Still stretches across the footer row, no extra offset.
+        assert "flex: 1" in block
+        assert "margin" not in block
+        # Label text centered on both axes inside the button (flex centering).
+        assert "display: flex" in block
+        assert "align-items: center" in block
+        assert "justify-content: center" in block
+        # Rejected: the content-width shrink reading of "centered".
+        assert "align-self: center" not in block
+        assert "flex: 0 0 auto" not in block
+        assert "min-width: 120px" not in block
+
+    def test_panel_btn_shared_by_reset_and_clear(self):
+        """Reset (LayerControl) and Clear (Heatmap) both ride `.foliplus-panel-btn`.
+
+        button.css: the two cannot drift. The shared class is the hook that
+        applies the one centered-text recipe to both.
+        """
+        from foliplus import HeatmapControl
+
+        html = render_control(HeatmapControl())
+        assert "foliplus-panel-btn foliplus-heatmap-btn-clear" in html
+
+        frame = Path("foliplus/js/LayerControl/ui/style/frame.ts").read_text(
+            encoding="utf-8"
+        )
+        assert 'class: "foliplus-panel-btn foliplus-style-reset-btn"' in frame
 
     def test_collapsed_shadow_shared(self, base_map: folium.Map):
         """foliplus-ctrl-fold.foliplus-is-collapsed uses --foliplus-shadow-ctrl-strong (shared shadow for all collapsed controls)."""

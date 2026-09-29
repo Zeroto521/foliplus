@@ -4,6 +4,7 @@
 // the individual handler suites already exercise).
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
+import { GROUP } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { LayerManager } from "#foliplus/LayerControl/manager.js";
 import { toggleFold } from "#foliplus/LayerControl/ui/drag.js";
@@ -43,7 +44,7 @@ describe("LayerUI lifecycle — defensive rails", () => {
       const orphan = document.createElement("input");
       orphan.type = "checkbox";
       orphan.setAttribute("data-role", "toggle-all");
-      orphan.dataset.group = CONST.GROUP.OVERLAY;
+      orphan.dataset.group = GROUP.OVERLAY;
       // Fire a synthetic event directly at the ui.onChange handler, bypassing
       // the container delegation (the container listener would only see it if
       // the checkbox were inside uiContainer, which is the case we already
@@ -58,7 +59,7 @@ describe("LayerUI lifecycle — defensive rails", () => {
       const toggleAllSpy = vi.mocked(toggleAll);
 
       const row = ui.uiContainer.querySelector(
-        `${CONST.SEL.TOGGLE_ALL}[data-group="${CONST.GROUP.OVERLAY}"]`,
+        `${CONST.SEL.TOGGLE_ALL}[data-group="${GROUP.OVERLAY}"]`,
       ) as HTMLElement;
       row.removeAttribute("data-group");
       const checkbox = row.querySelector('input[type="checkbox"]') as HTMLInputElement;
@@ -89,7 +90,7 @@ describe("LayerUI lifecycle — defensive rails", () => {
       const toggleFoldSpy = vi.mocked(toggleFold);
 
       const row = ui.uiContainer.querySelector(
-        `${CONST.SEL.TOGGLE_ALL}[data-group="${CONST.GROUP.OVERLAY}"]`,
+        `${CONST.SEL.TOGGLE_ALL}[data-group="${GROUP.OVERLAY}"]`,
       ) as HTMLElement;
       row.removeAttribute("data-group");
       // Click the row's fold button (a descendant that is not itself a toggle

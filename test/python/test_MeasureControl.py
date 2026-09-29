@@ -193,21 +193,22 @@ class TestMeasureControlRendering:
         assert "interactive: false" in html
 
     def test_ripple_css_variables(self):
-        """Ripple animation uses CSS custom properties for all parameters."""
+        """Ripple duration comes from the motion ladder; its shape parameters
+        stay custom properties."""
 
         css = read_css("foliplus/css/MeasureControl.css")
-        assert "--foliplus-ripple-duration" in css
+        assert "--foliplus-motion-normal" in css
         assert "--foliplus-ripple-opacity-start" in css
         assert "--foliplus-ripple-stroke-start" in css
         assert "--foliplus-ripple-stroke-end" in css
         assert "measure-ripple" in css
 
     def test_dash_sweep_css_variables(self):
-        """Dash sweep animation uses CSS custom properties for all parameters."""
+        """Dash sweep reads its duration from the motion ladder."""
 
         css = read_css("foliplus/css/MeasureControl.css")
         assert "--foliplus-sweep-length" in css
-        assert "--foliplus-sweep-duration" in css
+        assert "--foliplus-motion-fast" in css
 
     def test_radius_label_has_animation(self):
         """Circle radius label animates in with a decoupled centering transform.
@@ -228,6 +229,17 @@ class TestMeasureControlRendering:
         assert (
             "animation: none"
             not in css.split(".foliplus-measure-label-radius")[1].split("/*")[0]
+        )
+
+    def test_label_entrances_read_motion_quick(self):
+        """Both label entrances read their duration from the motion ladder."""
+        css = read_css("foliplus/css/MeasureControl.css")
+        assert (
+            "animation: foliplus-measure-label-in var(--foliplus-motion-quick)" in css
+        )
+        assert (
+            "animation: foliplus-measure-label-in-radius var(--foliplus-motion-quick)"
+            in css
         )
 
 
@@ -1103,6 +1115,29 @@ class TestMeasureControlBrowser:
                 f"post-zoom probe error: {info2.get('error')}"
             )
             assert info2["dotAboveFill"], "after zoom: node pane z below graph pane"
+
+    def test_polygon_centroid_label_above_dot(self, browser, tmp_path):
+        """The centroid area chip must paint above the centroid dot.
+
+        Regression for "centroid dot covers the area chip (z-order)": the label pane paints
+        above the node pane (graph < node < label), so the centroid chip always
+        sits over the centroid dot by pane z-index. Without this guarantee the
+        dot could visually consume the chip, hiding the area readout on top of
+        a filled polygon.
+        """
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            page.evaluate(_js("MeasureControl/draw_polygon_four_points"))
+            page.wait_for_timeout(500)
+
+            info = page.evaluate(_js("MeasureControl/read_centroid_z_order"))
+            assert not info.get("error"), f"probe error: {info}"
+            assert not errors, f"JS errors: {errors}"
+            assert info["labelAboveDot"], (
+                f"centroid label pane must be above the node pane, got {info}"
+            )
+            assert info["dotAboveFill"], (
+                f"centroid dot must still paint above the fill: {info}"
+            )
 
     def test_polygon_node_delete(self, browser, tmp_path):
         """Toggle polygon delete icons without raising JS errors."""
