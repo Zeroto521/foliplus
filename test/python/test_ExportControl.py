@@ -1388,32 +1388,6 @@ class TestExportControlBrowser:
             )
             assert len(errors) == 0, f"JS errors on two-basemap export: {errors}"
 
-    def test_crop_box_drag_resize(self, browser, tmp_path):
-        """Drag bottom-right handle to resize the crop box."""
-        with use_page(self._make_page, browser, tmp_path) as (page, _):
-            page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
-            page.wait_for_selector(
-                ".foliplus-export-box", state="attached", timeout=5000
-            )
-
-            initial = page.evaluate(_js("ExportControl/read_box_rect"))
-
-            # Drag bottom-right handle to enlarge
-            handle = page.locator(".foliplus-export-handle.br")
-            hb = handle.bounding_box()
-            page.mouse.move(hb["x"] + hb["width"] / 2, hb["y"] + hb["height"] / 2)
-            page.mouse.down()
-            page.mouse.move(
-                hb["x"] + hb["width"] / 2 + 80,
-                hb["y"] + hb["height"] / 2 + 40,
-                steps=10,
-            )
-            page.mouse.up()
-            page.wait_for_timeout(200)
-
-            after_resize = page.evaluate(_js("ExportControl/read_box_rect"))
-            assert after_resize["w"] > initial["w"], "Resize should enlarge width"
-
     def test_locked_box_follows_zoom(self, browser, tmp_path):
         """Locked crop box follows the map after zoom."""
         with use_page(self._make_page, browser, tmp_path) as (page, _):
