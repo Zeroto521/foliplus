@@ -2,7 +2,7 @@
   // Reads the pane z-indices under the polygon centroid dot, the shape fill
   // and the area chip. The invariant pinned here is label > node > fill, so
   // the centroid chip always sits above the centroid dot.
-  const dot = document.querySelector("path.foliplus-measure-node-solid");
+  const dot = document.querySelector("path.foliplus-dot-solid");
   if (!dot) return { error: "no centroid dot path found" };
   const fill = document.querySelector(".foliplus-measure-shape-fill");
   if (!fill) return { error: "no fill path found" };

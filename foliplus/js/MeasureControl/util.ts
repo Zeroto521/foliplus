@@ -1,5 +1,6 @@
 // MeasureControl utility functions — standalone, no manager dependency.
 import { area, bearing, centroid, distance, midpoint } from "#core/geo/index.js";
+import { cssVar } from "#common/cssvar.js";
 import { toggleDelIcon } from "#common/delicon.js";
 import { buildPopupEl } from "#common/dom.js";
 import {
@@ -104,12 +105,35 @@ const makeMidLabelDivIcon = (html: string): L.DivIcon => {
   );
 };
 
+/** SVG radius for a `.foliplus-dot` node: `(--foliplus-dot-size - --foliplus-dot-stroke) / 2`.
+ *  The tokens in token.css are the only definition; this just derives the
+ *  circleMarker radius so both renderings share the same outer edge.
+ *  Cached after the first successful read — `moveCursorNode` rebuilds a
+ *  preview marker every mousemove frame, so the two `getComputedStyle` reads
+ *  must not run per frame. `resetNodeRadiusCache()` invalidates for tests. */
+let nodeRadiusCache: number | undefined;
+const nodeRadius = (): number => {
+  if (nodeRadiusCache !== undefined) return nodeRadiusCache;
+  const size = parseFloat(cssVar(document.documentElement, "--foliplus-dot-size", ""));
+  const stroke = parseFloat(
+    cssVar(document.documentElement, "--foliplus-dot-stroke", ""),
+  );
+  if (!Number.isFinite(size) || !Number.isFinite(stroke) || size <= stroke) {
+    throw new Error("foliplus: --foliplus-dot-size / --foliplus-dot-stroke unreadable");
+  }
+  nodeRadiusCache = (size - stroke) / 2;
+  return nodeRadiusCache;
+};
+const resetNodeRadiusCache = (): void => {
+  nodeRadiusCache = undefined;
+};
+
 /** Create a measure node circle marker. */
 const makeNode = (
   latlng: L.LatLng,
   className: string = CONST.CLASSES.NODE_HOLLOW,
 ): L.CircleMarker => {
-  return L.circleMarker(latlng, { radius: CONST.MARKER.RADIUS, className });
+  return L.circleMarker(latlng, { radius: nodeRadius(), className });
 };
 
 /** A non-interactive node used for transient previews (center, centroid and
@@ -119,7 +143,7 @@ const makePreviewNode = (
   className: string = CONST.CLASSES.NODE_HOLLOW,
 ): L.CircleMarker => {
   return L.circleMarker(latlng, {
-    radius: CONST.MARKER.RADIUS,
+    radius: nodeRadius(),
     className,
     interactive: false,
   });
@@ -242,9 +266,11 @@ export {
   formatSegmentLabel,
   labelChipOf,
   midpoint,
+  nodeRadius,
   pointsToLatLngs,
   recalculateSegments,
   readLatLng,
+  resetNodeRadiusCache,
   roundCoord,
   setLabelText,
   getEventTarget,
