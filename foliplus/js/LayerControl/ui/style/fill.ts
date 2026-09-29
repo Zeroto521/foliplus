@@ -42,6 +42,8 @@ import {
   commitStyleDim,
   restoreStyleDim,
   styleBagOf,
+  styleDimPayload,
+  walkStyleLeaves,
 } from "./styleBag.js";
 
 /** The swatch's last resort when even the browser probe cannot resolve the
@@ -151,27 +153,6 @@ const authoredFillOpacity = (ui: LayerUI, layerId: string): number | null => {
  *  write path reads this to change a layer's opacity. */
 const VISIBLE_FILL_OPACITY = 0.2;
 
-/** Visit every leaf that exposes a runtime style-setter. Groups (LayerGroup,
- *  folium GeoJson) expose `setStyle` too, but they are walked down instead:
- *  the mouseout events fire on the leaf paths (never on the group), and the
- *  authored base is per leaf — one layer-wide base would erase the author's
- *  per-feature choice. The callback receives a leaf whose `setStyle` is
- *  guaranteed present, so it can call it without a `typeof` dance. */
-const walkStyleLeaves = (
-  node: StyleCarrier,
-  fn: (
-    leaf: StyleCarrier & { setStyle: (style: Record<string, unknown>) => void },
-  ) => void,
-): void => {
-  if (typeof node.eachLayer === "function") {
-    node.eachLayer(child => walkStyleLeaves(child as StyleCarrier, fn));
-    return;
-  }
-  if (typeof node.setStyle === "function") {
-    fn(node as StyleCarrier & { setStyle: (style: Record<string, unknown>) => void });
-  }
-};
-
 /** Commit the current fill color and opacity to the layer. Walks the layer
  *  tree and calls `setStyle({fillColor?, fillOpacity?})` on every leaf that
  *  has a `setStyle`. A node without a setter is skipped silently.
@@ -221,10 +202,7 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
       if (c === undefined && o === undefined) return null;
       // fill:true rides the replay too — folium's resetStyle would otherwise
       // re-apply the author's fill:false on mouseout and hide the fill.
-      const s: Record<string, unknown> = { fill: true };
-      if (c !== undefined) s.fillColor = c;
-      if (o !== undefined) s.fillOpacity = o;
-      return s;
+      return styleDimPayload({ fillColor: c, fillOpacity: o }, "fill");
     });
   });
 };

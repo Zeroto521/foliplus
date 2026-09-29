@@ -62,9 +62,23 @@ const STYLE_BAG_DEFAULTS: StyleBag = {
  *  layer id keeps its base. WeakMap so the entry disappears with the leaf. */
 const authorStyleBase = new WeakMap<StyleCarrier, StyleBag>();
 
-/** Whether the node owns a real `setStyle`. */
-const isStyleSetter = (node: StyleCarrier): node is StyleSetter =>
-  typeof node.setStyle === "function";
+/** Whether the node owns a real `setStyle`. Accepts `unknown` so probes and
+ *  pin can share one guard without a prior type assertion. */
+const isStyleSetter = (node: unknown): node is StyleSetter =>
+  node != null &&
+  typeof (node as StyleCarrier).setStyle === "function" &&
+  typeof node === "object";
+
+/** Visit every leaf that exposes a runtime `setStyle`. Groups (LayerGroup,
+ *  folium GeoJson) expose `setStyle` too, but they are walked down instead:
+ *  mouseout fires on the leaf paths, and the authored bag is per leaf. */
+const walkStyleLeaves = (node: StyleCarrier, fn: (leaf: StyleSetter) => void): void => {
+  if (typeof node.eachLayer === "function") {
+    node.eachLayer(child => walkStyleLeaves(child as StyleCarrier, fn));
+    return;
+  }
+  if (isStyleSetter(node)) fn(node);
+};
 
 /** Capture the author's full style bag on the leaf's first style write.
  *  `setStyle` mutates `options` in place, so by reset time the bag is the
@@ -115,26 +129,7 @@ const commitStyleDim = (
   node.setStyle(styleDimPayload(values, face));
 };
 
-/** Restore one face from the captured bag. Writes only that face's keys so
- *  a border Reset never clobbers the user's fill (and vice versa). No-op
- *  for a leaf that was never written. */
-const restoreStyleDim = (node: StyleSetter, face: StyleFace): void => {
-  const bag = authorStyleBase.get(node);
-  if (!bag) return;
-  if (face === "stroke") {
-    node.setStyle({ color: bag.color, weight: bag.weight, stroke: bag.stroke });
-    return;
-  }
-  node.setStyle({
-    fillColor: bag.fillColor,
-    fillOpacity: bag.fillOpacity,
-    fill: bag.fill,
-  });
-};
-
-/** Reset payload for one face — the author's own keys, including the
- *  visibility flag. Exposed for pin getters that must replay the user's
- *  face without the forced-on bit after an explicit Reset. */
+/** The author's keys for one face, including that face's visibility flag. */
 const faceSlice = (bag: StyleBag, face: StyleFace): Record<string, unknown> =>
   face === "stroke"
     ? { color: bag.color, weight: bag.weight, stroke: bag.stroke }
@@ -143,6 +138,15 @@ const faceSlice = (bag: StyleBag, face: StyleFace): Record<string, unknown> =>
         fillOpacity: bag.fillOpacity,
         fill: bag.fill,
       };
+
+/** Restore one face from the captured bag. Writes only that face's keys so
+ *  a border Reset never clobbers the user's fill (and vice versa). No-op
+ *  for a leaf that was never written. */
+const restoreStyleDim = (node: StyleSetter, face: StyleFace): void => {
+  const bag = authorStyleBase.get(node);
+  if (!bag) return;
+  node.setStyle(faceSlice(bag, face));
+};
 
 export {
   type StyleBag,
@@ -157,4 +161,5 @@ export {
   restoreStyleDim,
   styleBagOf,
   styleDimPayload,
+  walkStyleLeaves,
 };

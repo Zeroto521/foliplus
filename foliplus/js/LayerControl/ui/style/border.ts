@@ -47,6 +47,7 @@ import {
   isStyleSetter,
   restoreStyleDim,
   styleBagOf,
+  styleDimPayload,
 } from "./styleBag.js";
 
 /** Whether the layer's surface can honestly carry a border write.
@@ -163,10 +164,7 @@ const applyBorderToLayer = (ui: LayerUI, layerId: string): void => {
       // stroke:true rides the replay too — folium's resetStyle would
       // otherwise re-apply the author's stroke:false on mouseout and hide
       // the user's border the moment the pointer leaves.
-      const style: Record<string, unknown> = { stroke: true };
-      if (c !== undefined) style.color = c;
-      if (w !== undefined) style.weight = w;
-      return style;
+      return styleDimPayload({ color: c, weight: w }, "stroke");
     });
   };
   walk(layer);
