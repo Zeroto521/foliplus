@@ -903,10 +903,10 @@ class TestLayerControlRendering:
         wash wins on equal specificity while the button is down.
         """
         css = read_css("foliplus/css/LayerControl/row.css")
-        assert "&:not([data-layer-type=\"base\"]):active" in css
+        assert '&:not([data-layer-type="base"]):active' in css
         assert "background: var(--foliplus-accent-soft-bg)" in css
         # Press must not sneak in a scale or a transition on the large row.
-        idx = css.find("&:not([data-layer-type=\"base\"]):active")
+        idx = css.find('&:not([data-layer-type="base"]):active')
         block = css[idx : css.index("}", idx)]
         assert "scale" not in block
         assert "transition" not in block
