@@ -78,7 +78,7 @@
 - `LayerControl`: style-panel dimensions become registry descriptors (`registerDimension` / `DIM_ORDER`) — the panel discovers rows through the registry, gate = capability check ([#505](https://github.com/Zeroto521/foliplus/pull/505), [#513](https://github.com/Zeroto521/foliplus/pull/513), [#522](https://github.com/Zeroto521/foliplus/pull/522), [#536](https://github.com/Zeroto521/foliplus/pull/536))
 - `LayerControl` / `HeatmapControl`: the style, attributes and heatmap panels drop their group headings and read as one flat row list; row labels are right-aligned, so all three panels share one label edge ([#516](https://github.com/Zeroto521/foliplus/pull/516))
 - `HeatmapControl` / `LayerControl`: bake layer opacity into canvas draws (`globalAlpha`); heatmap slider stays CSS, bake on redraw ([#533](https://github.com/Zeroto521/foliplus/pull/533))
-- `LayerControl`: pin the focus rect's marching-ants look (accent stroke, shared dash rhythm, march animation) against regressions via live browser computed-style assertions ([#548](https://github.com/Zeroto521/foliplus/pull/548))
+- `LayerControl`: pin the focus rect's marching-ants look (accent stroke, shared dash rhythm, march animation) against regressions via live browser computed-style assertions; a focused map path now drops the UA focus ring (black on Windows Chrome / system blue on macOS) and repaints the focus signal with the same marching-ants vocabulary ([#548](https://github.com/Zeroto521/foliplus/pull/548))
 
 ### Removed
 
