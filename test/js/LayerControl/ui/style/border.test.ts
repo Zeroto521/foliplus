@@ -1392,8 +1392,6 @@ describe("border apply scheduler (drag coalesce)", () => {
     });
     vi.stubGlobal("cancelAnimationFrame", () => {});
 
-    const item = document.createElement("div");
-    item.setAttribute("data-layer-id", "vec1");
     // minimal panel chrome so closeStylePanel finds stylePanelLayerId
     (ui as any).stylePanelLayerId = "vec1";
     commitBorderColor(ui, "vec1", "#333333");
