@@ -1454,41 +1454,11 @@ class TestExportControlBrowser:
                 ".foliplus-export-box", state="attached", timeout=5000
             )
 
-            start = page.evaluate(
-                """
-                () => {
-                    const box = document.querySelector(".foliplus-export-box");
-                    const center = document.querySelector(".foliplus-export-center");
-                    if (!box || !center) return { error: "no box/center" };
-                    const br = box.getBoundingClientRect();
-                    const cr = center.getBoundingClientRect();
-                    return {
-                        boxLeft: br.left,
-                        boxTop: br.top,
-                        centerX: cr.left + cr.width / 2,
-                        centerY: cr.top + cr.height / 2,
-                    };
-                }
-                """
-            )
+            start = page.evaluate(_js("ExportControl/read_box_center"))
             assert not start.get("error"), f"setup failed: {start}"
 
             sample_promise = page.evaluate_handle(
-                """
-                () => new Promise(resolve => {
-                    const box = document.querySelector(".foliplus-export-box");
-                    if (!box) return resolve({ error: "no box" });
-                    const samples = [];
-                    let n = 0;
-                    const tick = () => {
-                        const r = box.getBoundingClientRect();
-                        samples.push({ l: r.left, t: r.top, w: r.width, h: r.height });
-                        if (++n < 40) requestAnimationFrame(tick);
-                        else resolve({ samples });
-                    };
-                    requestAnimationFrame(tick);
-                })
-                """
+                _js("ExportControl/sample_box_drag_frames")
             )
 
             cx = start["centerX"]

@@ -1117,29 +1117,7 @@ class TestMeasureControlBrowser:
             page.evaluate(_js("MeasureControl/draw_polygon_four_points"))
             page.wait_for_timeout(500)
 
-            info = page.evaluate(
-                """
-                () => {
-                    const dot = document.querySelector('path.foliplus-measure-node-solid');
-                    if (!dot) return { error: 'no centroid dot path found' };
-                    const fill = document.querySelector('.foliplus-measure-shape-fill');
-                    if (!fill) return { error: 'no fill path found' };
-                    const label = document.querySelector('.foliplus-measure-label');
-                    if (!label) return { error: 'no label found' };
-                    const paneZ = el => {
-                        const pane = el.closest('.leaflet-pane');
-                        return pane ? Number(getComputedStyle(pane).zIndex) : null;
-                    };
-                    return {
-                        dotPaneZ: paneZ(dot),
-                        fillPaneZ: paneZ(fill),
-                        labelPaneZ: paneZ(label),
-                        labelAboveDot: paneZ(label) > paneZ(dot),
-                        dotAboveFill: paneZ(dot) > paneZ(fill),
-                    };
-                }
-                """
-            )
+            info = page.evaluate(_js("MeasureControl/read_centroid_z_order"))
             assert not info.get("error"), f"probe error: {info}"
             assert not errors, f"JS errors: {errors}"
             assert info["labelAboveDot"], (

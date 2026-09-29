@@ -1916,29 +1916,7 @@ class TestLayerControlBrowser:
             folium.FeatureGroup(name="A", overlay=True, show=True),
         ) as (page, errors):
             panel_ready(page)
-            result = page.evaluate(
-                """
-                () => {
-                    const ctrl = document.querySelector(".foliplus-layer-ctrl");
-                    if (!ctrl) return { error: "layer control not found" };
-                    const closeBtn = ctrl.querySelector(".foliplus-close-btn");
-                    const icon = ctrl.querySelector(".foliplus-header-icon");
-                    if (!closeBtn) return { error: "close button not found" };
-                    if (!icon) return { error: "header icon not found" };
-                    const r1 = closeBtn.getBoundingClientRect();
-                    const r2 = icon.getBoundingClientRect();
-                    const closeY = r1.top + r1.height / 2;
-                    const iconY = r2.top + r2.height / 2;
-                    return {
-                        closeY,
-                        iconY,
-                        deltaPx: closeY - iconY,
-                        closeH: r1.height,
-                        iconH: r2.height,
-                    };
-                }
-                """
-            )
+            result = page.evaluate(_js("LayerControl/read_close_icon_alignment"))
             assert not result.get("error"), f"probe error: {result}"
             assert not errors, f"JS errors: {errors}"
             assert abs(result["deltaPx"]) <= 2, (
@@ -2853,36 +2831,7 @@ class TestLayerControlBrowser:
             heatmap_ready(page, timeout=15000)
             page.wait_for_timeout(300)
 
-            after_attach = page.evaluate(
-                """
-                () => {
-                    const id = "foliplus_heatmap";
-                    const row = document.querySelector(
-                        `.foliplus-layer-item[data-layer-id="${id}"]`,
-                    );
-                    const container = document.querySelector(".leaflet-container");
-                    const key = `foliplus_layer_state_${container ? container.id : ""}`;
-                    let storedRename = null;
-                    const raw = localStorage.getItem(key);
-                    if (raw) {
-                        try {
-                            const record = JSON.parse(raw);
-                            storedRename = record?.renamedNames?.[id] ?? null;
-                        } catch {
-                            storedRename = null;
-                        }
-                    }
-                    return {
-                        rowPresent: !!row,
-                        label: row?.querySelector(".foliplus-layer-label")?.textContent ?? "",
-                        ariaLabel: row?.querySelector('input[type="checkbox"]')?.getAttribute("aria-label") ?? null,
-                        storageKey: key,
-                        storedRename,
-                        hasStoredEntry: !!storedRename,
-                    };
-                }
-                """
-            )
+            after_attach = page.evaluate(_js("LayerControl/read_rename_state"))
             assert after_attach["rowPresent"] is True, (
                 f"heatmap row missing after attach: {after_attach}"
             )
@@ -2909,36 +2858,7 @@ class TestLayerControlBrowser:
             heatmap_ready(page, timeout=15000)
             page.wait_for_timeout(300)
 
-            after_reload = page.evaluate(
-                """
-                () => {
-                    const id = "foliplus_heatmap";
-                    const row = document.querySelector(
-                        `.foliplus-layer-item[data-layer-id="${id}"]`,
-                    );
-                    const container = document.querySelector(".leaflet-container");
-                    const key = `foliplus_layer_state_${container ? container.id : ""}`;
-                    let storedRename = null;
-                    const raw = localStorage.getItem(key);
-                    if (raw) {
-                        try {
-                            const record = JSON.parse(raw);
-                            storedRename = record?.renamedNames?.[id] ?? null;
-                        } catch {
-                            storedRename = null;
-                        }
-                    }
-                    return {
-                        rowPresent: !!row,
-                        label: row?.querySelector(".foliplus-layer-label")?.textContent ?? "",
-                        ariaLabel: row?.querySelector('input[type="checkbox"]')?.getAttribute("aria-label") ?? null,
-                        storageKey: key,
-                        storedRename,
-                        hasStoredEntry: !!storedRename,
-                    };
-                }
-                """
-            )
+            after_reload = page.evaluate(_js("LayerControl/read_rename_state"))
             assert after_reload["rowPresent"] is True, (
                 f"heatmap row missing after reload: {after_reload}"
             )
@@ -3886,51 +3806,7 @@ class TestLayerControlBrowser:
             errors,
         ):
             panel_ready(page)
-            result = page.evaluate(
-                """
-                () => new Promise(resolve => {
-                    const rows = Array.from(
-                        document.querySelectorAll(
-                            '.foliplus-layer-item:not([data-layer-type="base"]) input[type="checkbox"]',
-                        ),
-                    );
-                    if (rows.length < 2) return resolve({ error: "need >=2 overlay rows" });
-                    const startState = rows.map(cb => cb.checked);
-                    const targetRow = rows[0];
-
-                    const samples = [];
-                    let flip = false;
-                    const initial = startState.slice();
-                    const tick = () => {
-                        const now = rows.map(cb => cb.checked);
-                        samples.push(now.slice());
-                        if (now.some((v, i) => v !== initial[i])) flip = true;
-                        if (samples.length >= 2) {
-                            const prev = samples[samples.length - 2];
-                            if (prev.every((v, i) => v === now[i])) {
-                                return resolve({
-                                    startState: initial,
-                                    finalState: now,
-                                    samples,
-                                    anyTransientFlip: flip,
-                                });
-                            }
-                        }
-                        if (samples.length > 60) {
-                            return resolve({
-                                startState: initial,
-                                finalState: now,
-                                samples,
-                                anyTransientFlip: flip,
-                            });
-                        }
-                        requestAnimationFrame(tick);
-                    };
-                    requestAnimationFrame(tick);
-                    targetRow.click();
-                })
-                """
-            )
+            result = page.evaluate(_js("LayerControl/sample_overlay_checkbox_click"))
             assert not result.get("error"), f"probe error: {result}"
             assert not errors, f"JS errors: {errors}"
             # Only the first row flipped; its two siblings kept their start
