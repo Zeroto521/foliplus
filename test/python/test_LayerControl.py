@@ -3127,6 +3127,79 @@ class TestLayerControlBrowser:
                 f"the neighbouring line lost its own stroke\n{row['strokes']}"
             )
 
+    def test_circlemarker_stroke_false_border_write_is_visible_and_resettable(
+        self, browser, tmp_path
+    ):
+        """A stroke:false CircleMarker must show a user border, and Reset must hide it again.
+
+        quickstart Facility Points authors ``style_kwds={"stroke": False}``
+        (geopandas explore → folium CircleMarker). Writing color/weight alone
+        leaves Path painting ``stroke=none`` — the panel change would be a
+        silent no-op. The write must turn stroke on; Reset must put the
+        author's ``stroke: False`` back so the border disappears again.
+        """
+        m = folium.Map(location=[30.0, 120.0], zoom_start=6, tiles=None)
+        fg = folium.FeatureGroup(name="Facility Points", overlay=True, show=True)
+        folium.CircleMarker(
+            [30.0, 120.0],
+            radius=5,
+            color="#3388ff",
+            weight=2,
+            fill=True,
+            fill_opacity=0.8,
+            stroke=False,
+        ).add_to(fg)
+        fg.add_to(m)
+        LayerControl().add_to(m)
+        _expand_panel(m)
+
+        html_path = tmp_path / "test_circlemarker_stroke_false_border.html"
+        _write_html(m, html_path)
+
+        with use_raw_page(browser.new_page) as page:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=10000,
+            )
+            panel_ready(page)
+
+            before = page.evaluate(
+                _js("LayerControl/border_set_and_read"), ["Facility Points"]
+            )
+            assert before.get("panel"), f"the style panel did not open: {before}"
+            assert before["borderRows"] == 1, f"expected one border row: {before}"
+            for stroke in before["strokes"]:
+                assert stroke["stroke"] in (None, "none"), (
+                    f"author stroke:false should paint stroke=none: {before}"
+                )
+
+            row = page.evaluate(
+                _js("LayerControl/border_set_and_read"),
+                ["Facility Points", "#ff0000", 6],
+            )
+            assert row.get("panel"), f"the style panel did not open: {row}"
+            assert row["strokes"], f"no path on the map: {row}"
+            for stroke in row["strokes"]:
+                assert stroke["stroke"] == "#ff0000", (
+                    f"border color did not reach the SVG: {row}"
+                )
+                assert stroke["strokeWidth"] == "6", (
+                    f"border width did not reach the SVG: {row}"
+                )
+
+            reset = page.evaluate(
+                _js("LayerControl/border_set_and_read"),
+                ["Facility Points", None, None, True],
+            )
+            assert reset.get("panel"), f"the style panel did not reopen: {reset}"
+            assert reset["strokes"], f"no path after reset: {reset}"
+            for stroke in reset["strokes"]:
+                assert stroke["stroke"] in (None, "none"), (
+                    f"reset must restore the author's stroke:false\n{reset}"
+                )
+
     def test_unregister_keeps_stored_opacity_delete_drops_it(self, browser, tmp_path):
         """unregisterLayer never erases a value; only an explicit delete does.
 
