@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   LAYER_ORDER,
   TOKEN_MODULES,
+  hoistLeafletOverrides,
   wrapCommonLayers,
   wrapComponentLayers,
 } from "#script/css-layers.mjs";
@@ -60,5 +61,35 @@ describe("css-layers.mjs", () => {
     const close = body.lastIndexOf("}");
     expect(open).toBeGreaterThan(-1);
     expect(body.slice(open, close)).toContain(".b { color: blue; }");
+  });
+});
+
+describe("hoistLeafletOverrides", () => {
+  it("moves .leaflet-* rules out of @layer so they beat Leaflet library CSS", () => {
+    const layered = wrapComponentLayers(
+      [
+        ".foliplus-search { color: red; }",
+        ".leaflet-container.foliplus-no-base-map { background-image: repeating-conic-gradient(#000 0% 25%, #fff 0% 50%); }",
+        ".leaflet-control.foliplus-scale-wrap { line-height: 14px; }",
+      ].join("\n"),
+    );
+    const out = hoistLeafletOverrides(layered);
+    // Layer order preamble and non-Leaflet chrome stay layered.
+    expect(out.startsWith(LAYER_ORDER)).toBe(true);
+    expect(out).toContain("@layer foliplus.components");
+    // Leaflet-targeting rules are unlayered (no @layer wrapper).
+    const hatch = out.indexOf(".leaflet-container.foliplus-no-base-map");
+    const scale = out.indexOf(".leaflet-control.foliplus-scale-wrap");
+    const layerEnd = out.lastIndexOf("@layer foliplus.components");
+    expect(hatch).toBeGreaterThan(layerEnd);
+    expect(scale).toBeGreaterThan(layerEnd);
+    expect(out).not.toMatch(
+      /@layer[^{]*\{[^}]*\.leaflet-container\.foliplus-no-base-map/,
+    );
+  });
+
+  it("is a no-op when no rule targets .leaflet", () => {
+    const layered = wrapComponentLayers(".foliplus-x { color: red; }");
+    expect(hoistLeafletOverrides(layered)).toBe(layered);
   });
 });

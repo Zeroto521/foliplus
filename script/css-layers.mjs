@@ -1,7 +1,7 @@
 /**
  * script/css-layers.mjs — build-time CSS Cascade Layer wrapping.
  *
- * Layer design (folio of T251):
+ * Layer design (T251):
  *   foliplus.tokens     token.css — design tokens on :root
  *   foliplus.base       remaining css/common/* (reset, chrome, shared utils)
  *   foliplus.components component stylesheets (flat file or split entry)
@@ -16,8 +16,15 @@
  *   Within each layer, declaration order is the pre-change merge order
  *   (common: topological via orderCss; components: expandEntry order).
  *
+ * Leaflet-library overrides stay unlayered (see `hoistLeafletOverrides`):
+ *   Leaflet ships unlayered CSS; any foliplus rule that targets `.leaflet-*`
+ *   must keep beating it at the same specificity+order as before this change.
+ *   Host-page authors still see layered foliplus chrome win/lose by layer
+ *   order for non-Leaflet selectors.
+ *
  * Host-page semantics (CHANGELOG adjudicates):
- *   - Unlayered host CSS beats foliplus at any specificity (normal decls).
+ *   - Unlayered host CSS beats foliplus layered rules at any specificity
+ *     (normal decls) for non-Leaflet selectors.
  *   - foliplus `!important` inside a layer still beats unlayered host
  *     `!important` (CSS layer inversion for important declarations).
  *   - Token theming: override `--foliplus-*` on a host rule (unlayered
@@ -27,6 +34,7 @@
  * (ESR 128 fully supported), Safari 15.4+. No polyfill. Browsers below the
  * floor ignore `@layer` blocks and would drop foliplus chrome entirely.
  */
+import postcss from "postcss";
 
 /** Modules in css/common/ that belong in the tokens layer. */
 const TOKEN_MODULES = new Set(["token.css"]);
@@ -88,4 +96,44 @@ const wrapComponentLayers = body =>
     ["foliplus.components", [body]],
   ]);
 
-export { LAYER_ORDER, TOKEN_MODULES, assemble, wrapCommonLayers, wrapComponentLayers };
+/**
+ * Pull rules whose selectors target `.leaflet-*` out of `@layer` blocks and
+ * re-append them unlayered.
+ *
+ * Leaflet's library CSS is unlayered. Before this change, foliplus rules
+ * that style/override Leaflet chrome (`.leaflet-container.foliplus-no-base-map`,
+ * `.leaflet-control.foliplus-scale-wrap`, `.leaflet-control-attribution`, …)
+ * won by specificity + source order. After wrapping every rule in a layer,
+ * those overrides would lose to Leaflet at any specificity — browser tests
+ * that pin hatch paint and scale/attribution height equality caught it.
+ *
+ * Hoisting restores the pre-layer cascade for Leaflet-owned selectors while
+ * leaving non-Leaflet foliplus chrome in layers for host-page control.
+ *
+ * @param {string} css flattened stylesheet (may contain @layer blocks)
+ * @returns {string} stylesheet with Leaflet-targeting rules unlayered
+ */
+const hoistLeafletOverrides = css => {
+  const root = postcss.parse(css);
+  const hoisted = [];
+  root.walkRules(rule => {
+    const selectors = rule.selectors || [];
+    if (selectors.some(s => s.includes(".leaflet"))) {
+      hoisted.push(rule.clone());
+      rule.remove();
+    }
+  });
+  if (hoisted.length === 0) return css;
+  // Append after the layer blocks: unlayered normal decls beat layered ones.
+  for (const node of hoisted) root.append(node);
+  return root.toString();
+};
+
+export {
+  LAYER_ORDER,
+  TOKEN_MODULES,
+  assemble,
+  hoistLeafletOverrides,
+  wrapCommonLayers,
+  wrapComponentLayers,
+};
