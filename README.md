@@ -49,7 +49,7 @@ Data processing happens upstream. foliplus handles the map, not the data.
 
 ## Compatibility
 
-foliplus supports Leaflet `>=1.9.0`. CI covers Leaflet 1.9.3; 1.9.x is the commitment.
+CI covers Leaflet 1.9.3 — the pin Folium ships. Other Leaflet versions are untested.
 
 ## Beyond Plugins
 
