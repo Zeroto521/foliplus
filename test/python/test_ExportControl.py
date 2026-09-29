@@ -1443,7 +1443,7 @@ class TestExportControlBrowser:
         """Dragging the crop box center must move it continuously, without a
         single frame that jumps the box past the natural frame-to-frame delta.
 
-        Regression for "导出期间拖拽偶发跳位": a jump is a symptom of
+        Regression for "crop-box jumps mid-drag": a jump is a symptom of
         accumulated movement being applied on release, or a mid-drag re-read
         of the wrong rect (usually a stale closure) that snaps the box
         forward.
@@ -1493,7 +1493,8 @@ class TestExportControlBrowser:
         """Dragging the crop box partially outside the viewport, then pressing
         confirm, must not snap the box back inside.
 
-        Regression for "裁剪框移出屏幕后点确定又回到屏幕": confirm previously
+        Regression for "crop box snaps back on confirm after being dragged
+        out of view": confirm previously
         read the saved viewport bounds instead of the box's own geo bounds, so
         a box that was dragged off the visible edge snapped back onto the map
         the moment it was locked.

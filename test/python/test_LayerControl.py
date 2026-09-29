@@ -1904,7 +1904,7 @@ class TestLayerControlBrowser:
         """The panel close button sits on the same vertical axis as the header
         icon (the panel's logo).
 
-        Regression for "LayerControl × 关闭按钮未与右侧 logo 对齐": a drift of
+        Regression for "close button drifts off the header icon's axis": a drift of
         even 1-2 px reads as the × floating off the header's vertical axis. The
         threshold is 2 px so a subpixel rounding from `getBoundingClientRect`
         does not flake the test, but anything above that is a real visual bug.
@@ -2766,7 +2766,8 @@ class TestLayerControlBrowser:
         component registers; on a later attach the component registers while
         ``applyUserState`` is replaying stored state. Without id-scoped replay the
         component's own ``name`` clobbers the user's rename on the reload -- the
-        exact symptom of "改名对第三方组件不起作用, 刷新恢复默认名".
+        exact symptom of "renaming a third-party component does not stick
+        across reload".
 
         This test seeds a HeatmapControl row with a user rename, reloads, and
         asserts the renamed label is the one the row paints (not the author
@@ -3789,7 +3790,8 @@ class TestLayerControlBrowser:
         """Clicking one overlay row's checkbox must not flash its group siblings'
         checkboxes to an intermediate state.
 
-        Regression for "点击 group 其他图层 checkbox 闪现": a sibling checkbox
+        Regression for "sibling checkbox flashes when clicking one overlay
+        row": a sibling checkbox
         briefly showing a state it was not already in means an intermediate
         sweep rewrote the row's cell between the click and its final paint. The
         single-writer path records intent for the clicked row and diffs once, so

@@ -1107,7 +1107,7 @@ class TestMeasureControlBrowser:
     def test_polygon_centroid_label_above_dot(self, browser, tmp_path):
         """The centroid area chip must paint above the centroid dot.
 
-        Regression for "量算面积质心点覆盖标签(z 序)": the label pane paints
+        Regression for "centroid dot covers the area chip (z-order)": the label pane paints
         above the node pane (graph < node < label), so the centroid chip always
         sits over the centroid dot by pane z-index. Without this guarantee the
         dot could visually consume the chip, hiding the area readout on top of
