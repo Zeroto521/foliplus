@@ -21,7 +21,7 @@ import json
 from functools import cache
 from pathlib import Path
 from textwrap import dedent
-from typing import Any, cast
+from typing import Any
 
 from branca.element import Element, Figure
 from folium import MacroElement
@@ -163,26 +163,24 @@ def _build_component_template(name: str) -> Template:
     css = _load_asset(css_artifact)
 
     # jinja2's own stub types ``Template.__init__`` as returning Any, so the
-    # constructor call needs an explicit cast to satisfy a typed return.
-    return cast(
-        Template,
-        Template(
-            dedent(f"""\
-        {{% macro html(this, kwargs) %}}
-        <style>
-        {css}
-        </style>
-        {{% endmacro %}}
+    # constructor call needs an explicit annotation to satisfy the typed return.
+    template: Template = Template(
+        dedent(f"""\
+    {{% macro html(this, kwargs) %}}
+    <style>
+    {css}
+    </style>
+    {{% endmacro %}}
 
-        {{% macro script(this, kwargs) %}}
-        (() => {{
-        const map = {{{{ this._parent.get_name() }}}};
-        const CONF = {{{{ this._config_block | safe }}}};
-        {js}
-        }})();
-        {{% endmacro %}}""")
-        ),
+    {{% macro script(this, kwargs) %}}
+    (() => {{
+    const map = {{{{ this._parent.get_name() }}}};
+    const CONF = {{{{ this._config_block | safe }}}};
+    {js}
+    }})();
+    {{% endmacro %}}""")
     )
+    return template
 
 
 class MissingAssetsError(RuntimeError):
@@ -251,7 +249,7 @@ class BaseControl(JSCSSMixin, MacroElement):
         position: Position = "topleft",
         locale: str | LocaleConfig | None = None,
     ):
-        super().__init__()  # type: ignore[no-untyped-call]  # folium's MacroElement.__init__ is untyped
+        super().__init__()
         self._name = self.__class__.__name__
         self.position = position
         self._locale = (
@@ -362,7 +360,8 @@ class BaseControl(JSCSSMixin, MacroElement):
             figure.header.add_child(
                 Element(_build_shared_header()), name=_SHARED_ASSETS_NAME
             )
-        return super().render(**kwargs)  # type: ignore[no-untyped-call, no-any-return]  # folium's render is untyped
+        html: str = super().render(**kwargs)
+        return html
 
     def _get_template(self) -> Template:
         """Build a Jinja2 template with this control's own CSS/JS.

@@ -124,3 +124,11 @@ ignore-words-list = "afterAll, vas"
 # no flags (editors, CI) picks this up.
 strict = true
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# BaseControl intentionally calls folium's MacroElement.__init__ / render,
+# which 0.20 still leaves untyped; the override replaces the per-line
+# `type: ignore[no-untyped-call]` comments. Other strict rules still apply
+# (render's return is narrowed via an annotated local).
+module = "foliplus.BaseControl"
+disable_error_code = ["no-untyped-call"]
