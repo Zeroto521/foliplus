@@ -69,6 +69,16 @@ _CDN_CACHE: dict[str, tuple[str, str]] = {
         "leaflet.css",
         "text/css",
     ),
+    # Compatibility floor (README): test_leaflet_compat rewrites the folium
+    # pin to this version so the claimed minimum is exercised in CI.
+    "cdn.jsdelivr.net/npm/leaflet@1.0.0/dist/leaflet.js": (
+        "leaflet-1.0.0.js",
+        "application/javascript",
+    ),
+    "cdn.jsdelivr.net/npm/leaflet@1.0.0/dist/leaflet.css": (
+        "leaflet-1.0.0.css",
+        "text/css",
+    ),
     "code.jquery.com/jquery-1.12.4.min.js": (
         "jquery-1.12.4.min.js",
         "application/javascript",
