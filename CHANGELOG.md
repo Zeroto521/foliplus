@@ -80,7 +80,6 @@
 - `LayerControl` / `HeatmapControl`: the style, attributes and heatmap panels drop their group headings and read as one flat row list; row labels are right-aligned, so all three panels share one label edge ([#516](https://github.com/Zeroto521/foliplus/pull/516))
 - `HeatmapControl` / `LayerControl`: bake layer opacity into canvas draws (`globalAlpha`); heatmap slider stays CSS, bake on redraw ([#533](https://github.com/Zeroto521/foliplus/pull/533))
 
-
 ### Removed
 
 - `hint`: `window.foliplus.showHint` removed — hints are now per-map, with each map getting its own `HintManager` ([#147](https://github.com/Zeroto521/foliplus/pull/147), [#149](https://github.com/Zeroto521/foliplus/pull/149))
