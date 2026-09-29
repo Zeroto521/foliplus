@@ -11,6 +11,7 @@ export {
   GROUP,
   HIDDEN,
   KIND,
+  PANE_ROLE,
   RECURSION,
   Z_INDEX,
 } from "./const.js";

@@ -16,7 +16,7 @@ import {
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { getActiveLayerItem } from "#foliplus/LayerControl/ui/keyboard.js";
 import type { LayerInfo } from "#foliplus/core/layer/index.js";
-import { focusLayerZ } from "#foliplus/core/layer/index.js";
+import { GROUP, focusLayerZ } from "#foliplus/core/layer/index.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 import {
   GridLayer,
@@ -1665,7 +1665,7 @@ describe("LayerUI focus", () => {
       } = {},
     ) => {
       const item = document.createElement("div");
-      if (opts.color) item.dataset.layerType = CONST.GROUP.BASE;
+      if (opts.color) item.dataset.layerType = GROUP.BASE;
       if (opts.type !== undefined) item.dataset.layerType = opts.type;
       if (opts.checked !== undefined) {
         const box = document.createElement("input");
@@ -1684,7 +1684,7 @@ describe("LayerUI focus", () => {
 
     it("returns 'base' for a color-picker or basemap row", () => {
       expect(focusDisabledReason(ui, row({ color: true }))).toBe("base");
-      expect(focusDisabledReason(ui, row({ type: CONST.GROUP.BASE }))).toBe("base");
+      expect(focusDisabledReason(ui, row({ type: GROUP.BASE }))).toBe("base");
     });
 
     it("returns 'hidden' for a hidden row", () => {
@@ -1696,16 +1696,16 @@ describe("LayerUI focus", () => {
       // not the row is on. Consulted first (as they once were) they would let
       // an off basemap keep an enabled Style entry, so the unchecked check has
       // to come ahead of them.
-      expect(
-        focusDisabledReason(ui, row({ type: CONST.GROUP.BASE, checked: false })),
-      ).toBe("hidden");
+      expect(focusDisabledReason(ui, row({ type: GROUP.BASE, checked: false }))).toBe(
+        "hidden",
+      );
       expect(focusDisabledReason(ui, row({ color: true, checked: false }))).toBe(
         "hidden",
       );
       // A checked basemap keeps the basemap verdict: no extent to focus on.
-      expect(
-        focusDisabledReason(ui, row({ type: CONST.GROUP.BASE, checked: true })),
-      ).toBe("base");
+      expect(focusDisabledReason(ui, row({ type: GROUP.BASE, checked: true }))).toBe(
+        "base",
+      );
       expect(focusDisabledReason(ui, row({ color: true, checked: true }))).toBe("base");
     });
 

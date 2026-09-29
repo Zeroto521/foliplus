@@ -9,10 +9,12 @@ import { PaneManager } from "./PaneManager.js";
 import {
   CANVAS_PANE_PREFIX,
   COLOR_PANE_PREFIX,
+  CONTENT_KIND,
   GROUP,
   HIDDEN,
   KIND,
   PANE_NAME_PATTERN,
+  PANE_ROLE,
 } from "./const.js";
 import type {
   CreateCanvasAPI,
@@ -100,7 +102,7 @@ class LayerFactory {
       styleSetters: opts.styleSetters,
       styleDefaultsProvider: opts.styleDefaultsProvider,
       metaProvider: opts.metaProvider,
-      content: { kind: "layers", panes: opts.panes },
+      content: { kind: CONTENT_KIND.LAYERS, panes: opts.panes },
     });
     return {
       mainLayer: handle.content.mainLayer,
@@ -126,7 +128,7 @@ class LayerFactory {
       onOpacity: opts.onOpacity,
       opacityBake: opts.opacityBake,
       content: {
-        kind: "canvas",
+        kind: CONTENT_KIND.CANVAS,
         className: opts.className,
         getBounds: opts.getBounds,
         source: opts.source,
@@ -155,7 +157,7 @@ class LayerFactory {
       name: opts.name,
       onOpacity: opts.onOpacity,
       opacityBake: opts.opacityBake,
-      content: { kind: "color", color: opts.color },
+      content: { kind: CONTENT_KIND.COLOR, color: opts.color },
     });
     // register() is called by the caller (LayerControl UI) after setting
     // ui.colorSurface, to avoid a recursive call through applyProjection.
@@ -186,10 +188,10 @@ class LayerFactory {
   createSurface(opts: CreateSurfaceOpts): SurfaceHandle {
     // Unreachable for typed callers (CreateSurfaceOpts.id is required); kept as a
     // guard for untyped JS callers that skip the overload.
-    if (opts.content.kind === "canvas" && !opts.id) {
+    if (opts.content.kind === CONTENT_KIND.CANVAS && !opts.id) {
       throw new Error(log.msg("createCanvas requires an id"));
     }
-    if (opts.content.kind === "color" && !opts.id) {
+    if (opts.content.kind === CONTENT_KIND.COLOR && !opts.id) {
       throw new Error(log.msg("color surface requires an id"));
     }
 
@@ -257,12 +259,12 @@ class LayerFactory {
       if (slot && facePane) facePane.style.zIndex = String(zFor(slot));
     };
 
-    if (opts.content.kind === "layers") {
+    if (opts.content.kind === CONTENT_KIND.LAYERS) {
       const { invalidateType, onDataChange } = this.deps;
 
       const paneEntries = opts.content.panes ?? [];
       const paneSpecs: PaneSpec[] = paneEntries.map((p, i) => ({
-        role: i === 0 ? "base" : "sub",
+        role: i === 0 ? PANE_ROLE.BASE : PANE_ROLE.SUB,
         order: i,
         name: p.name,
         isLabel: p.isLabel,
@@ -370,7 +372,13 @@ class LayerFactory {
           directCount() > 0 ||
           Array.from(subLayers.values()).some(g => g.getLayers().length > 0)
         );
-      content = { kind: "layers", mainLayer, addLayer, removeLayer, clearLayers };
+      content = {
+        kind: CONTENT_KIND.LAYERS,
+        mainLayer,
+        addLayer,
+        removeLayer,
+        clearLayers,
+      };
 
       return {
         content,
@@ -381,7 +389,7 @@ class LayerFactory {
       };
     }
 
-    if (opts.content.kind === "color") {
+    if (opts.content.kind === CONTENT_KIND.COLOR) {
       const { color } = opts.content;
       const paneName = namedPaneNameFor(opts.id, COLOR_PANE_PREFIX, "color surface");
 
@@ -473,7 +481,7 @@ class LayerFactory {
       preUnregister = () => setVisible(false);
       shouldUnregister = () => true;
       content = {
-        kind: "color",
+        kind: CONTENT_KIND.COLOR,
         element: face,
         get color() {
           return fill;
@@ -508,7 +516,7 @@ class LayerFactory {
     // Third-party carrier: shape first, door later. No synthesized pane;
     // register the opaque payload and an optional layer. Capability defaults
     // are the honest `none` (see deriveLayerKind / detectCapabilities).
-    if (opts.content.kind === "custom") {
+    if (opts.content.kind === CONTENT_KIND.CUSTOM) {
       const custom = opts.content.custom;
       const customLayer = opts.content.layer ?? null;
       layerOpts = {
@@ -518,7 +526,7 @@ class LayerFactory {
         layer: customLayer,
       };
       registerIdempotent = true;
-      content = { kind: "custom", custom, layer: customLayer };
+      content = { kind: CONTENT_KIND.CUSTOM, custom, layer: customLayer };
       return {
         content,
         register,
@@ -528,7 +536,7 @@ class LayerFactory {
       };
     }
 
-    if (opts.content.kind !== "canvas") {
+    if (opts.content.kind !== CONTENT_KIND.CANVAS) {
       throw new Error(
         log.msg(
           `unhandled surface kind: ${String((opts.content as { kind: string }).kind)}`,
@@ -612,7 +620,7 @@ class LayerFactory {
       panes.removePane(paneName);
     };
     content = {
-      kind: "canvas",
+      kind: CONTENT_KIND.CANVAS,
       canvas,
       ctx,
       resize,

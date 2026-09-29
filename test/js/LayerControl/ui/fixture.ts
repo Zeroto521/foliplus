@@ -1,4 +1,5 @@
 import { vi } from "vitest";
+import { GROUP } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { LayerManager } from "#foliplus/LayerControl/manager.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
@@ -252,12 +253,12 @@ const findItem = (ui: LayerUI, id: string): HTMLElement =>
  *  read of its child rows. */
 const attachWithGroup = (ui: LayerUI) => {
   const row = ui.uiContainer.querySelector(
-    `.${CONST.CLASSES.TOGGLE_ALL}[data-group="${CONST.GROUP.OVERLAY}"]`,
+    `.${CONST.CLASSES.TOGGLE_ALL}[data-group="${GROUP.OVERLAY}"]`,
   ) as HTMLElement;
   const children = () =>
     Array.from(
       ui.uiContainer.querySelectorAll<HTMLElement>(
-        `${CONST.SEL.LAYER_ITEM}[data-layer-type="${CONST.GROUP.OVERLAY}"]`,
+        `${CONST.SEL.LAYER_ITEM}[data-layer-type="${GROUP.OVERLAY}"]`,
       ),
     );
 
@@ -282,7 +283,7 @@ const pressKey = (el: HTMLElement, key: string) => {
 
 const overlayFoldBtn = (root: ParentNode) =>
   root
-    .querySelector(`.${CONST.CLASSES.TOGGLE_ALL}[data-group="${CONST.GROUP.OVERLAY}"]`)!
+    .querySelector(`.${CONST.CLASSES.TOGGLE_ALL}[data-group="${GROUP.OVERLAY}"]`)!
     .querySelector(`.${CONST.CLASSES.FOLD_BTN}`) as HTMLElement;
 
 export {

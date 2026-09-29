@@ -3,7 +3,7 @@
 // LayerAPI facade all implement these; global.d.ts re-exports them so other
 // components (MeasureControl / HeatmapControl / ExportControl) keep the same
 // global names.
-import { DIM, KIND } from "./const.js";
+import { DIM, KIND, PANE_ROLE } from "./const.js";
 
 /** What a registered layer *is* — the target discriminator, not how it paints.
  *
@@ -292,8 +292,11 @@ interface LabelAwareLayer extends L.Layer {
 /** What a surface's pane is for. `annotation` and `preview` have no producer
  *  yet — they arrive with the components that declare them (label pane,
  *  measure preview) — but they are spelled here so the union is the contract
- *  rather than a local invention. */
-type PaneRole = "base" | "sub" | "annotation" | "preview";
+ *  rather than a local invention.
+ *
+ *  Derived from `PANE_ROLE` (const.ts) so the runtime vocabulary and the type
+ *  are one definition — changing a role name updates both or neither. */
+type PaneRole = (typeof PANE_ROLE)[keyof typeof PANE_ROLE];
 
 /** One pane a surface declares: what it is for, where it sits in the layer's
  *  own draw stack, and the pane it paints into.
