@@ -379,6 +379,14 @@ const main = async () => {
       .filter(r => r.status === "fulfilled")
       .map(r => r.value?.metafile)
       .filter(Boolean);
+    const merged = mergeMetafiles(metafiles);
+    // Side product for Codecov Bundle Analysis: the same merged metafile
+    // sonda consumes, dumped so the upload adapter never re-runs esbuild.
+    // Additive only — packaging behavior is unchanged.
+    writeFileSync(
+      resolve(CFG.root, "bundle-metafile.json"),
+      `${JSON.stringify(merged, null, 2)}\n`,
+    );
     const reportFile = resolve(CFG.root, "bundle-treemap.html");
     rmSync(reportFile, { force: true });
     const config = new sonda.Config(
@@ -391,7 +399,7 @@ const main = async () => {
       },
       { integration: "esbuild" },
     );
-    await sonda.processEsbuildMetafile(mergeMetafiles(metafiles), config);
+    await sonda.processEsbuildMetafile(merged, config);
   }
 
   writeArtifactManifest(components.map(c => c.name));
