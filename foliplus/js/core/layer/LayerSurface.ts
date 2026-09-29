@@ -23,7 +23,13 @@
 import { createLogger } from "#common/log.js";
 import type { PaneManager } from "./PaneManager.js";
 import { hasFillLeaf, hasSetStyleLeaf } from "./capability.js";
-import { CAP_TIER, FALLBACK_PANE_PREFIX, KIND, PANE_NAME_PATTERN, PANE_ROLE } from "./const.js";
+import {
+  CAP_TIER,
+  FALLBACK_PANE_PREFIX,
+  KIND,
+  PANE_NAME_PATTERN,
+  PANE_ROLE,
+} from "./const.js";
 import type {
   LayerCapabilities,
   LayerKind,
