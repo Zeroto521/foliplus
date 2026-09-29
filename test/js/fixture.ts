@@ -314,7 +314,6 @@ export function makeLayerUIMock(extra: Overrides = {}): LayerUI {
     fieldCache: new Map<string, unknown[]>(),
     pressInPanel: false,
     focusRect: null,
-    focusRectCasing: null,
     focusingLayerId: null,
     onFocusMapMove: null,
     focusMask: null,

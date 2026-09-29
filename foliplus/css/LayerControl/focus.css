@@ -42,8 +42,7 @@
    the ants speak the same vocabulary as the focus rect below. */
 .leaflet-interactive:focus,
 .leaflet-interactive:focus-visible {
-  outline: var(--foliplus-focus-casing-width) solid
-    var(--foliplus-focus-casing-color);
+  outline: var(--foliplus-focus-casing-width) solid var(--foliplus-focus-casing-color);
   stroke: var(--foliplus-accent-primary);
   stroke-dasharray: var(--foliplus-dash-rhythm);
   stroke-width: var(--foliplus-border-thick);
@@ -57,16 +56,9 @@
 }
 
 /* ── Focus bounds rectangle (drawn on the map) ──
-   Two paths: casing under, accent marching ants over — one look, no
-   filter (a filter chain washes fills and costs frames). Casing is
-   fill-free so it never tints the focused layer. Transient marquee. */
-path.foliplus-focus-rect-casing {
-  fill: none;
-  stroke: var(--foliplus-focus-casing-color);
-  stroke-width: var(--foliplus-focus-casing-width);
-  stroke-linejoin: round;
-  pointer-events: none;
-}
+   Accent marching ants on the bounds — the same vocabulary as geometry
+   :focus above. No white casing path here: on a bbox it reads as an extra
+   frame, not as casing under the ants. Transient marquee, fill-free. */
 path.foliplus-focus-rect {
   fill: none;
   stroke: var(--foliplus-accent-primary);
@@ -85,18 +77,14 @@ path.foliplus-focus-mask {
    per leaf. Single drop-shadow: no casing chain (it washes fills). */
 .foliplus-focus-pane.foliplus-focus-glow {
   animation: foliplus-focus-glow-in var(--foliplus-motion-quick) ease-out;
-  filter: drop-shadow(
-    0 0 var(--foliplus-size-2) var(--foliplus-accent-soft-shadow)
-  );
+  filter: drop-shadow(0 0 var(--foliplus-size-2) var(--foliplus-accent-soft-shadow));
 }
 @keyframes foliplus-focus-glow-in {
   from {
     filter: drop-shadow(0 0 0 rgba(var(--foliplus-red-rgb), 0));
   }
   to {
-    filter: drop-shadow(
-      0 0 var(--foliplus-size-2) var(--foliplus-accent-soft-shadow)
-    );
+    filter: drop-shadow(0 0 var(--foliplus-size-2) var(--foliplus-accent-soft-shadow));
   }
 }
 

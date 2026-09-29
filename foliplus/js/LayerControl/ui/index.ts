@@ -202,8 +202,6 @@ class LayerUI {
   appliedState: Map<string, AppliedProjection>;
   /** Temporary Rectangle overlay drawn while a focus is in progress. */
   focusRect: L.Layer | null;
-  /** White casing stroke under the focus rect (selection language ⑤). */
-  focusRectCasing: L.Layer | null;
   /** Layer id currently being focused, or null. */
   focusingLayerId: string | null;
   /** One-shot map move/zoom handler that auto-cancels focus when the user navigates. */
@@ -253,7 +251,6 @@ class LayerUI {
     this.pressInPanel = false;
     this.appliedState = new Map();
     this.focusRect = null;
-    this.focusRectCasing = null;
     this.focusingLayerId = null;
     this.onFocusMapMove = null;
     this.focusMask = null;
