@@ -1900,6 +1900,52 @@ class TestLayerControlBrowser:
             assert result is not None
             assert result["count"] >= 3
 
+    def test_close_btn_aligns_with_header_icon(self, browser, tmp_path):
+        """The panel close button sits on the same vertical axis as the header
+        icon (the panel's logo).
+
+        Regression for "LayerControl × 关闭按钮未与右侧 logo 对齐": a drift of
+        even 1-2 px reads as the × floating off the header's vertical axis. The
+        threshold is 2 px so a subpixel rounding from `getBoundingClientRect`
+        does not flake the test, but anything above that is a real visual bug.
+        """
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            folium.FeatureGroup(name="A", overlay=True, show=True),
+        ) as (page, errors):
+            panel_ready(page)
+            result = page.evaluate(
+                """
+                () => {
+                    const ctrl = document.querySelector(".foliplus-layer-ctrl");
+                    if (!ctrl) return { error: "layer control not found" };
+                    const closeBtn = ctrl.querySelector(".foliplus-close-btn");
+                    const icon = ctrl.querySelector(".foliplus-header-icon");
+                    if (!closeBtn) return { error: "close button not found" };
+                    if (!icon) return { error: "header icon not found" };
+                    const r1 = closeBtn.getBoundingClientRect();
+                    const r2 = icon.getBoundingClientRect();
+                    const closeY = r1.top + r1.height / 2;
+                    const iconY = r2.top + r2.height / 2;
+                    return {
+                        closeY,
+                        iconY,
+                        deltaPx: closeY - iconY,
+                        closeH: r1.height,
+                        iconH: r2.height,
+                    };
+                }
+                """
+            )
+            assert not result.get("error"), f"probe error: {result}"
+            assert not errors, f"JS errors: {errors}"
+            assert abs(result["deltaPx"]) <= 2, (
+                f"close button is {result['deltaPx']:.2f}px off the header "
+                f"icon's vertical center -- threshold 2px, got {result}"
+            )
+
     def test_toggle_all_checkbox_toggles_layers(self, browser, tmp_path):
         """Toggle-all checkbox toggles all layers in the group."""
         with use_page(
@@ -2731,6 +2777,177 @@ class TestLayerControlBrowser:
             )
             assert after_reload["canvasOpacity"] == "0.35", (
                 f"reload painted the canvas at the author default: {after_reload}"
+            )
+
+    def test_third_party_component_rename_survives_reload(self, browser, tmp_path):
+        """A rename on a late-registering component (HeatmapControl) survives reload.
+
+        Third-party components (HeatmapControl, MeasureControl) call
+        ``registerLayer`` in their own constructors, which run after LayerControl
+        has attached its panel. On the first attach the sweep runs before the
+        component registers; on a later attach the component registers while
+        ``applyUserState`` is replaying stored state. Without id-scoped replay the
+        component's own ``name`` clobbers the user's rename on the reload -- the
+        exact symptom of "改名对第三方组件不起作用, 刷新恢复默认名".
+
+        This test seeds a HeatmapControl row with a user rename, reloads, and
+        asserts the renamed label is the one the row paints (not the author
+        default).
+        """
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        fg = folium.FeatureGroup(name="Points", show=True)
+        folium.GeoJson(
+            json.dumps(
+                {
+                    "type": "FeatureCollection",
+                    "features": [
+                        {
+                            "type": "Feature",
+                            "properties": {"val": 26.08},
+                            "geometry": {
+                                "type": "Point",
+                                "coordinates": [119.30, 26.08],
+                            },
+                        }
+                    ],
+                }
+            )
+        ).add_to(fg)
+        fg.add_to(m)
+        LayerControl().add_to(m)
+        HeatmapControl().add_to(m)
+        _expand_panel(m)
+
+        html = m.get_root().render()
+        match = re.search(r"var (map_[0-9a-f]+) = L\.map", html)
+        assert match, "map variable not found in rendered HTML"
+
+        # The persisted record the previous visit would have written: the heatmap
+        # row is renamed to "My Heat" by the user. Id is the stable component id,
+        # not a per-map suffix.
+        seed = {
+            "order": None,
+            "foldedGroups": [],
+            "renamedNames": {"foliplus_heatmap": "My Heat"},
+            "annotations": {},
+            "layers": {},
+        }
+        html_path = tmp_path / "test_third_party_rename_reload.html"
+        _write_html(m, html_path)
+
+        with use_raw_page(browser.new_page) as page:
+            page.add_init_script(
+                f"localStorage.setItem("
+                f"'foliplus_layer_state_{match.group(1)}', "
+                f"{json.dumps(json.dumps(seed))});"
+            )
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=10000,
+            )
+            heatmap_ready(page, timeout=15000)
+            page.wait_for_timeout(300)
+
+            after_attach = page.evaluate(
+                """
+                () => {
+                    const id = "foliplus_heatmap";
+                    const row = document.querySelector(
+                        `.foliplus-layer-item[data-layer-id="${id}"]`,
+                    );
+                    const container = document.querySelector(".leaflet-container");
+                    const key = `foliplus_layer_state_${container ? container.id : ""}`;
+                    let storedRename = null;
+                    const raw = localStorage.getItem(key);
+                    if (raw) {
+                        try {
+                            const record = JSON.parse(raw);
+                            storedRename = record?.renamedNames?.[id] ?? null;
+                        } catch {
+                            storedRename = null;
+                        }
+                    }
+                    return {
+                        rowPresent: !!row,
+                        label: row?.querySelector(".foliplus-layer-label")?.textContent ?? "",
+                        ariaLabel: row?.querySelector('input[type="checkbox"]')?.getAttribute("aria-label") ?? null,
+                        storageKey: key,
+                        storedRename,
+                        hasStoredEntry: !!storedRename,
+                    };
+                }
+                """
+            )
+            assert after_attach["rowPresent"] is True, (
+                f"heatmap row missing after attach: {after_attach}"
+            )
+            assert after_attach["storedRename"] == "My Heat", (
+                f"attach dropped the stored rename: {after_attach}"
+            )
+            assert after_attach["label"] == "My Heat", (
+                f"attach painted the author default instead of the rename: "
+                f"{after_attach}"
+            )
+
+            # A second reload must land the same way: a late-registered component
+            # that runs its own `registerLayer` on the second attach used to
+            # clobber the rename at the point where the sweep replayed it.
+            page.reload(wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=10000,
+            )
+            heatmap_ready(page, timeout=15000)
+            page.wait_for_timeout(300)
+
+            after_reload = page.evaluate(
+                """
+                () => {
+                    const id = "foliplus_heatmap";
+                    const row = document.querySelector(
+                        `.foliplus-layer-item[data-layer-id="${id}"]`,
+                    );
+                    const container = document.querySelector(".leaflet-container");
+                    const key = `foliplus_layer_state_${container ? container.id : ""}`;
+                    let storedRename = null;
+                    const raw = localStorage.getItem(key);
+                    if (raw) {
+                        try {
+                            const record = JSON.parse(raw);
+                            storedRename = record?.renamedNames?.[id] ?? null;
+                        } catch {
+                            storedRename = null;
+                        }
+                    }
+                    return {
+                        rowPresent: !!row,
+                        label: row?.querySelector(".foliplus-layer-label")?.textContent ?? "",
+                        ariaLabel: row?.querySelector('input[type="checkbox"]')?.getAttribute("aria-label") ?? null,
+                        storageKey: key,
+                        storedRename,
+                        hasStoredEntry: !!storedRename,
+                    };
+                }
+                """
+            )
+            assert after_reload["rowPresent"] is True, (
+                f"heatmap row missing after reload: {after_reload}"
+            )
+            assert after_reload["storedRename"] == "My Heat", (
+                f"reload dropped the stored rename: {after_reload}"
+            )
+            assert after_reload["label"] == "My Heat", (
+                f"reload reverted the third-party component's rename to the "
+                f"author default: {after_reload}"
             )
 
     def test_vector_border_writes_the_stroke_and_survives_reload(
@@ -3646,6 +3863,95 @@ class TestLayerControlBrowser:
             )
             assert none["indeterminate"] is False, (
                 "Expected toggle-all NOT indeterminate when no layers checked"
+            )
+
+    def test_click_one_overlay_no_sibling_checkbox_flash(self, browser, tmp_path):
+        """Clicking one overlay row's checkbox must not flash its group siblings'
+        checkboxes to an intermediate state.
+
+        Regression for "点击 group 其他图层 checkbox 闪现": a sibling checkbox
+        briefly showing a state it was not already in means an intermediate
+        sweep rewrote the row's cell between the click and its final paint. The
+        single-writer path records intent for the clicked row and diffs once, so
+        every sibling's checkbox stays at its start value until the browser
+        settles.
+        """
+        overlays = [
+            folium.FeatureGroup(name="Overlay A", overlay=True, show=True),
+            folium.FeatureGroup(name="Overlay B", overlay=True, show=True),
+            folium.FeatureGroup(name="Overlay C", overlay=True, show=True),
+        ]
+        with use_page(self._make_page, browser, tmp_path, *overlays) as (
+            page,
+            errors,
+        ):
+            panel_ready(page)
+            result = page.evaluate(
+                """
+                () => new Promise(resolve => {
+                    const rows = Array.from(
+                        document.querySelectorAll(
+                            '.foliplus-layer-item:not([data-layer-type="base"]) input[type="checkbox"]',
+                        ),
+                    );
+                    if (rows.length < 2) return resolve({ error: "need >=2 overlay rows" });
+                    const startState = rows.map(cb => cb.checked);
+                    const targetRow = rows[0];
+
+                    const samples = [];
+                    let flip = false;
+                    const initial = startState.slice();
+                    const tick = () => {
+                        const now = rows.map(cb => cb.checked);
+                        samples.push(now.slice());
+                        if (now.some((v, i) => v !== initial[i])) flip = true;
+                        if (samples.length >= 2) {
+                            const prev = samples[samples.length - 2];
+                            if (prev.every((v, i) => v === now[i])) {
+                                return resolve({
+                                    startState: initial,
+                                    finalState: now,
+                                    samples,
+                                    anyTransientFlip: flip,
+                                });
+                            }
+                        }
+                        if (samples.length > 60) {
+                            return resolve({
+                                startState: initial,
+                                finalState: now,
+                                samples,
+                                anyTransientFlip: flip,
+                            });
+                        }
+                        requestAnimationFrame(tick);
+                    };
+                    requestAnimationFrame(tick);
+                    targetRow.click();
+                })
+                """
+            )
+            assert not result.get("error"), f"probe error: {result}"
+            assert not errors, f"JS errors: {errors}"
+            # Only the first row flipped; its two siblings kept their start
+            # state throughout the click, no intermediate frame.
+            assert result["finalState"][0] is False, (
+                f"clicked row did not uncheck, got {result}"
+            )
+            for i in (1, 2):
+                assert result["finalState"][i] is True, (
+                    f"sibling {i} ended unchecked -- the click reached it: "
+                    f"{result}"
+                )
+            # The regression: some frame between the click and the settle
+            # painted a sibling's checkbox at a value different from its start.
+            sibling_flips = []
+            for sample in result["samples"]:
+                if sample[1] != result["startState"][1] or sample[2] != result["startState"][2]:
+                    sibling_flips.append(sample)
+            assert not sibling_flips, (
+                f"a sibling's checkbox flipped to an unexpected value during "
+                f"the click -- checkbox flash. Samples: {sibling_flips}"
             )
 
     def test_toggle_all_click_indeterminate_deselects_all(self, browser, tmp_path):

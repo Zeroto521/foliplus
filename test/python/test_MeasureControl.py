@@ -1104,6 +1104,51 @@ class TestMeasureControlBrowser:
             )
             assert info2["dotAboveFill"], "after zoom: node pane z below graph pane"
 
+    def test_polygon_centroid_label_above_dot(self, browser, tmp_path):
+        """The centroid area chip must paint above the centroid dot.
+
+        Regression for "量算面积质心点覆盖标签(z 序)": the label pane paints
+        above the node pane (graph < node < label), so the centroid chip always
+        sits over the centroid dot by pane z-index. Without this guarantee the
+        dot could visually consume the chip, hiding the area readout on top of
+        a filled polygon.
+        """
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            page.evaluate(_js("MeasureControl/draw_polygon_four_points"))
+            page.wait_for_timeout(500)
+
+            info = page.evaluate(
+                """
+                () => {
+                    const dot = document.querySelector('path.foliplus-measure-node-solid');
+                    if (!dot) return { error: 'no centroid dot path found' };
+                    const fill = document.querySelector('.foliplus-measure-shape-fill');
+                    if (!fill) return { error: 'no fill path found' };
+                    const label = document.querySelector('.foliplus-measure-label');
+                    if (!label) return { error: 'no label found' };
+                    const paneZ = el => {
+                        const pane = el.closest('.leaflet-pane');
+                        return pane ? Number(getComputedStyle(pane).zIndex) : null;
+                    };
+                    return {
+                        dotPaneZ: paneZ(dot),
+                        fillPaneZ: paneZ(fill),
+                        labelPaneZ: paneZ(label),
+                        labelAboveDot: paneZ(label) > paneZ(dot),
+                        dotAboveFill: paneZ(dot) > paneZ(fill),
+                    };
+                }
+                """
+            )
+            assert not info.get("error"), f"probe error: {info}"
+            assert not errors, f"JS errors: {errors}"
+            assert info["labelAboveDot"], (
+                f"centroid label pane must be above the node pane, got {info}"
+            )
+            assert info["dotAboveFill"], (
+                f"centroid dot must still paint above the fill: {info}"
+            )
+
     def test_polygon_node_delete(self, browser, tmp_path):
         """Toggle polygon delete icons without raising JS errors."""
         with use_page(self._make_page, browser, tmp_path) as (page, errors):

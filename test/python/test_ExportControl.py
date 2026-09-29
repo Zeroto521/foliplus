@@ -1439,6 +1439,138 @@ class TestExportControlBrowser:
                 f"Box disappeared after zoom, size={after_zoom}"
             )
 
+
+    def test_drag_crop_box_no_jump(self, browser, tmp_path):
+        """Dragging the crop box center must move it continuously, without a
+        single frame that jumps the box past the natural frame-to-frame delta.
+
+        Regression for "导出期间拖拽偶发跳位": a jump is a symptom of
+        accumulated movement being applied on release, or a mid-drag re-read
+        of the wrong rect (usually a stale closure) that snaps the box
+        forward.
+        """
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
+            page.wait_for_selector(
+                ".foliplus-export-box", state="attached", timeout=5000
+            )
+
+            start = page.evaluate(
+                """
+                () => {
+                    const box = document.querySelector(".foliplus-export-box");
+                    const center = document.querySelector(".foliplus-export-center");
+                    if (!box || !center) return { error: "no box/center" };
+                    const br = box.getBoundingClientRect();
+                    const cr = center.getBoundingClientRect();
+                    return {
+                        boxLeft: br.left,
+                        boxTop: br.top,
+                        centerX: cr.left + cr.width / 2,
+                        centerY: cr.top + cr.height / 2,
+                    };
+                }
+                """
+            )
+            assert not start.get("error"), f"setup failed: {start}"
+
+            sample_promise = page.evaluate_handle(
+                """
+                () => new Promise(resolve => {
+                    const box = document.querySelector(".foliplus-export-box");
+                    if (!box) return resolve({ error: "no box" });
+                    const samples = [];
+                    let n = 0;
+                    const tick = () => {
+                        const r = box.getBoundingClientRect();
+                        samples.push({ l: r.left, t: r.top, w: r.width, h: r.height });
+                        if (++n < 40) requestAnimationFrame(tick);
+                        else resolve({ samples });
+                    };
+                    requestAnimationFrame(tick);
+                })
+                """
+            )
+
+            cx = start["centerX"]
+            cy = start["centerY"]
+            page.mouse.move(cx, cy)
+            page.mouse.down()
+            page.mouse.move(cx + 120, cy, steps=20)
+            page.mouse.up()
+            page.wait_for_timeout(200)
+
+            result = sample_promise.json_value()
+            samples = result["samples"]
+            assert not errors, f"JS errors: {errors}"
+            assert samples, "no samples collected"
+
+            # Compute per-frame delta. A single step is 120 / 20 = 6 px, so a
+            # legitimate step-to-step delta should be at most ~2x that (6 px /
+            # frame × 2 = 12 px for jitter). A spike is a frame where the box
+            # moved by 3× the per-step delta in one frame -- the "jump".
+            deltas = []
+            for i in range(1, len(samples)):
+                d = abs(samples[i]["l"] - samples[i - 1]["l"])
+                deltas.append(d)
+            per_step = 120 / 20  # 6 px
+            spikes = [d for d in deltas if d > per_step * 3]
+            assert not spikes, (
+                f"crop box jumped during drag -- a frame moved by {max(spikes):.1f}px "
+                f"when the per-step target was {per_step}px. All deltas: {deltas}"
+            )
+
+    def test_locked_box_drag_out_stays_out_after_confirm(self, browser, tmp_path):
+        """Dragging the crop box partially outside the viewport, then pressing
+        confirm, must not snap the box back inside.
+
+        Regression for "裁剪框移出屏幕后点确定又回到屏幕": confirm previously
+        read the saved viewport bounds instead of the box's own geo bounds, so
+        a box that was dragged off the visible edge snapped back onto the map
+        the moment it was locked.
+        """
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
+            page.wait_for_selector(
+                ".foliplus-export-box", state="attached", timeout=5000
+            )
+            before = page.evaluate(_js("ExportControl/read_box_rect"))
+            assert before["w"] > 0 and before["h"] > 0, f"no box: {before}"
+
+            # Drag the box center 400 px down + 200 px right -- past the
+            # viewport on a normal 1280×800 viewport.
+            center = page.locator(".foliplus-export-center")
+            center_box = center.bounding_box()
+            cx = center_box["x"] + center_box["width"] / 2
+            cy = center_box["y"] + center_box["height"] / 2
+            page.mouse.move(cx, cy)
+            page.mouse.down()
+            page.mouse.move(cx + 200, cy + 400, steps=10)
+            page.mouse.up()
+            page.wait_for_timeout(300)
+            after_drag = page.evaluate(_js("ExportControl/read_box_rect"))
+            # The box moved to where we dragged it.
+            assert after_drag["l"] > before["l"] or after_drag["t"] > before["t"], (
+                f"box did not move on drag: {before} -> {after_drag}"
+            )
+
+            # Confirm. The box's geo bounds must be preserved -- no snap back.
+            page.locator(".foliplus-tool-bar .foliplus-confirm").click()
+            page.wait_for_selector(
+                ".foliplus-export-box.foliplus-locked",
+                state="attached",
+                timeout=5000,
+            )
+            page.wait_for_timeout(300)
+            after_confirm = page.evaluate(_js("ExportControl/read_box_rect"))
+            assert not errors, f"JS errors: {errors}"
+            # The left edge should not have moved back past its dragged position
+            # (allow 1 px of rounding).
+            assert after_confirm["l"] >= after_drag["l"] - 1, (
+                f"confirm snapped the box back toward the viewport: "
+                f"dragged to {after_drag['l']}, after confirm {after_confirm['l']}"
+            )
+
     def test_export_marker_opacity_blend(self, browser, tmp_path):
         """Marker layer opacity is captured in the export via ancestor-chain alpha.
 
