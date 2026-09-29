@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { LayerInfo } from "#core/layer/index.js";
+import { GROUP } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import {
@@ -100,7 +101,7 @@ describe("ui/list row placement", () => {
     // Scramble the DOM to C-A-B.
     const rows = Array.from(
       ui.uiContainer.querySelectorAll<HTMLElement>(
-        `${CONST.SEL.LAYER_ITEM}[data-layer-type="${CONST.GROUP.OVERLAY}"]`,
+        `${CONST.SEL.LAYER_ITEM}[data-layer-type="${GROUP.OVERLAY}"]`,
       ),
     );
     expect(rows.length).toBe(3);
@@ -164,7 +165,7 @@ describe("ui/list row placement", () => {
     });
     expect(
       ui.uiContainer.querySelectorAll(
-        `${CONST.SEL.LAYER_ITEM}[data-layer-type="${CONST.GROUP.OVERLAY}"]`,
+        `${CONST.SEL.LAYER_ITEM}[data-layer-type="${GROUP.OVERLAY}"]`,
       ).length,
     ).toBe(0);
 
@@ -172,10 +173,10 @@ describe("ui/list row placement", () => {
 
     const children = Array.from(ui.uiContainer.children);
     const overlayHeader = children.findIndex(
-      el => el.getAttribute("data-group") === CONST.GROUP.OVERLAY,
+      el => el.getAttribute("data-group") === GROUP.OVERLAY,
     );
     const firstBaseRow = children.findIndex(
-      el => el.getAttribute("data-layer-type") === CONST.GROUP.BASE,
+      el => el.getAttribute("data-layer-type") === GROUP.BASE,
     );
     // Appended to the panel's end instead, the header would land after every
     // base row and control layers it is not adjacent to.
@@ -184,7 +185,7 @@ describe("ui/list row placement", () => {
     expect(
       Array.from(
         ui.uiContainer.querySelectorAll<HTMLElement>(
-          `${CONST.SEL.LAYER_ITEM}[data-layer-type="${CONST.GROUP.OVERLAY}"]`,
+          `${CONST.SEL.LAYER_ITEM}[data-layer-type="${GROUP.OVERLAY}"]`,
         ),
       ).map(el => el.getAttribute(CONST.DATA.LAYER_ID)),
     ).toEqual(["O1"]);
@@ -227,7 +228,7 @@ describe("ui/list row placement", () => {
     const { manager, ui } = initFixture({
       data: [{ id: "O1", name: "O1", group: "overlay" }],
     });
-    ui.foldedGroups.add(CONST.GROUP.BASE);
+    ui.foldedGroups.add(GROUP.BASE);
 
     manager.registerLayer({
       id: "B1",
@@ -238,7 +239,7 @@ describe("ui/list row placement", () => {
 
     const children = Array.from(ui.uiContainer.children);
     const baseHeader = children.findIndex(
-      el => el.getAttribute("data-group") === CONST.GROUP.BASE,
+      el => el.getAttribute("data-group") === GROUP.BASE,
     );
     const colorRow = children.findIndex(
       el => el.getAttribute(CONST.DATA.LAYER_ID) === CONST.SOLID_BASEMAP_ID,
@@ -271,7 +272,7 @@ describe("ui/list row placement", () => {
     const { ui } = initFixture({
       data: [{ id: "B1", name: "B1", group: "base" }],
     });
-    ui.foldedGroups.add(CONST.GROUP.BASE);
+    ui.foldedGroups.add(GROUP.BASE);
 
     renderInitialList(ui);
 
@@ -311,7 +312,7 @@ describe("ui/list row placement", () => {
 
     const baseRows = Array.from(
       ui.uiContainer.querySelectorAll<HTMLElement>(
-        `${CONST.SEL.LAYER_ITEM}[data-layer-type="${CONST.GROUP.BASE}"]`,
+        `${CONST.SEL.LAYER_ITEM}[data-layer-type="${GROUP.BASE}"]`,
       ),
     ).map(el => el.getAttribute(CONST.DATA.LAYER_ID));
 

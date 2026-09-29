@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { HIDDEN } from "#core/layer/const.js";
+import { GROUP, HIDDEN } from "#core/layer/const.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { LayerManager } from "#foliplus/LayerControl/manager.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
@@ -95,7 +95,7 @@ const fixture = () => {
   return { map, manager, ui: manager.ui as LayerUI };
 };
 
-const allToggle = (ui: LayerUI, group = CONST.GROUP.OVERLAY) =>
+const allToggle = (ui: LayerUI, group = GROUP.OVERLAY) =>
   ui.uiContainer.querySelector(
     `${CONST.SEL.TOGGLE_ALL}[data-group="${group}"] [data-role="toggle-all"]`,
   ) as HTMLInputElement;
@@ -419,32 +419,32 @@ describe("applyVisibility", () => {
       // The attach-time initTypesAndVisibility runs in setTimeout(0), so
       // the synchronous test body bootstraps the counter itself before the
       // first click.
-      syncToggleAll(ui, CONST.GROUP.OVERLAY);
-      expect(ui.checkedCount[CONST.GROUP.OVERLAY]).toEqual({
+      syncToggleAll(ui, GROUP.OVERLAY);
+      expect(ui.checkedCount[GROUP.OVERLAY]).toEqual({
         total: 2,
         on: 2,
       });
 
       // Hide overlay1: on 2 → 1. Rescan agrees.
       applyVisibility(ui, "overlay1", false);
-      expect(ui.checkedCount[CONST.GROUP.OVERLAY]).toEqual({
+      expect(ui.checkedCount[GROUP.OVERLAY]).toEqual({
         total: 2,
         on: 1,
       });
-      syncToggleAll(ui, CONST.GROUP.OVERLAY);
-      expect(ui.checkedCount[CONST.GROUP.OVERLAY]).toEqual({
+      syncToggleAll(ui, GROUP.OVERLAY);
+      expect(ui.checkedCount[GROUP.OVERLAY]).toEqual({
         total: 2,
         on: 1,
       });
 
       // Hide overlay2: on 1 → 0. Rescan agrees.
       applyVisibility(ui, "overlay2", false);
-      expect(ui.checkedCount[CONST.GROUP.OVERLAY]).toEqual({
+      expect(ui.checkedCount[GROUP.OVERLAY]).toEqual({
         total: 2,
         on: 0,
       });
-      syncToggleAll(ui, CONST.GROUP.OVERLAY);
-      expect(ui.checkedCount[CONST.GROUP.OVERLAY]).toEqual({
+      syncToggleAll(ui, GROUP.OVERLAY);
+      expect(ui.checkedCount[GROUP.OVERLAY]).toEqual({
         total: 2,
         on: 0,
       });
@@ -452,8 +452,8 @@ describe("applyVisibility", () => {
       // Show both: on 0 → 2. Rescan agrees.
       applyVisibility(ui, "overlay1", true);
       applyVisibility(ui, "overlay2", true);
-      syncToggleAll(ui, CONST.GROUP.OVERLAY);
-      expect(ui.checkedCount[CONST.GROUP.OVERLAY]).toEqual({
+      syncToggleAll(ui, GROUP.OVERLAY);
+      expect(ui.checkedCount[GROUP.OVERLAY]).toEqual({
         total: 2,
         on: 2,
       });
@@ -461,7 +461,7 @@ describe("applyVisibility", () => {
       // Setting a value to the same value it already has is a no-op: the
       // delta is zero and the count is unchanged.
       applyVisibility(ui, "overlay1", true);
-      expect(ui.checkedCount[CONST.GROUP.OVERLAY]).toEqual({
+      expect(ui.checkedCount[GROUP.OVERLAY]).toEqual({
         total: 2,
         on: 2,
       });
@@ -472,13 +472,13 @@ describe("applyVisibility", () => {
       // function; a host page that holds the UI instance calls it through
       // that slot. Pinned so the delegator stays reachable and writes the
       // tri-state checkbox off the cached count.
-      syncToggleAll(ui, CONST.GROUP.OVERLAY);
+      syncToggleAll(ui, GROUP.OVERLAY);
       applyVisibility(ui, "overlay1", false);
-      expect(ui.checkedCount[CONST.GROUP.OVERLAY]).toEqual({
+      expect(ui.checkedCount[GROUP.OVERLAY]).toEqual({
         total: 2,
         on: 1,
       });
-      ui.syncToggleAllFromCount(CONST.GROUP.OVERLAY);
+      ui.syncToggleAllFromCount(GROUP.OVERLAY);
       const all = allToggle(ui);
       expect(all.checked).toBe(false);
       expect(all.indeterminate).toBe(true);
@@ -750,7 +750,7 @@ describe("DOM order diverges from registry order", () => {
   const scrambleDomOrder = (ui: LayerUI) => {
     const rows = Array.from(
       ui.uiContainer.querySelectorAll<HTMLElement>(
-        `${CONST.SEL.LAYER_ITEM}[data-layer-type="${CONST.GROUP.OVERLAY}"]`,
+        `${CONST.SEL.LAYER_ITEM}[data-layer-type="${GROUP.OVERLAY}"]`,
       ),
     );
     expect(rows.length).toBe(3);
@@ -763,7 +763,7 @@ describe("DOM order diverges from registry order", () => {
     // order, not the pre-scramble array order.
     const reordered = Array.from(
       ui.uiContainer.querySelectorAll<HTMLElement>(
-        `${CONST.SEL.LAYER_ITEM}[data-layer-type="${CONST.GROUP.OVERLAY}"]`,
+        `${CONST.SEL.LAYER_ITEM}[data-layer-type="${GROUP.OVERLAY}"]`,
       ),
     );
     reordered.forEach((row, i) => {
@@ -799,7 +799,7 @@ describe("DOM order diverges from registry order", () => {
     // that index and toggle B instead of A.
     const rows = Array.from(
       ui.uiContainer.querySelectorAll<HTMLElement>(
-        `${CONST.SEL.LAYER_ITEM}[data-layer-type="${CONST.GROUP.OVERLAY}"]`,
+        `${CONST.SEL.LAYER_ITEM}[data-layer-type="${GROUP.OVERLAY}"]`,
       ),
     );
     const rowA = rows[1];
@@ -822,7 +822,7 @@ describe("DOM order diverges from registry order", () => {
   it("toggleAll hits every layer by id, not by DOM position", () => {
     scrambleDomOrder(ui);
     // The DOM order is C-A-B but toggleAll must hide all three regardless.
-    ui.toggleAll(CONST.GROUP.OVERLAY, false);
+    ui.toggleAll(GROUP.OVERLAY, false);
 
     expect(ui.intentVisible("A")).toBe(false);
     expect(ui.intentVisible("B")).toBe(false);
@@ -840,7 +840,7 @@ describe("DOM order diverges from registry order", () => {
     orphan.appendChild(box);
     ui.uiContainer.appendChild(orphan);
 
-    ui.toggleAll(CONST.GROUP.OVERLAY, false);
+    ui.toggleAll(GROUP.OVERLAY, false);
 
     expect(box.checked).toBe(true);
     expect(ui.intentVisible("A")).toBe(false);
@@ -862,7 +862,7 @@ describe("DOM order diverges from registry order", () => {
     stale.appendChild(box);
     ui.uiContainer.appendChild(stale);
 
-    ui.toggleAll(CONST.GROUP.OVERLAY, false);
+    ui.toggleAll(GROUP.OVERLAY, false);
 
     expect(box.checked).toBe(true);
     expect(ui.intentVisible("A")).toBe(false);
@@ -874,7 +874,7 @@ describe("DOM order diverges from registry order", () => {
     // First-class basemaps: the colour layer is one row like any other, not a
     // stand-in for the absence of a base. Clearing the base group leaves the
     // colour's own checkbox untouched (intent-only invariant).
-    ui.toggleAll(CONST.GROUP.BASE, false);
+    ui.toggleAll(GROUP.BASE, false);
   });
 });
 
@@ -948,10 +948,10 @@ describe("toggleAll base group", () => {
     // keeps the sweep from typing the whole panel row.
     const bare = document.createElement("div");
     bare.className = CONST.CLASSES.LAYER_ITEM;
-    bare.setAttribute("data-layer-type", CONST.GROUP.BASE);
+    bare.setAttribute("data-layer-type", GROUP.BASE);
     ui.uiContainer.appendChild(bare);
 
-    expect(() => toggleAll(ui, CONST.GROUP.BASE, true)).not.toThrow();
+    expect(() => toggleAll(ui, GROUP.BASE, true)).not.toThrow();
     expect(bare.querySelector("input")).toBeNull();
     // Only the two registered rows were swept — the bare row carries no
     // checkbox and must be absent from the intent map entirely.
@@ -963,12 +963,12 @@ describe("toggleAll base group", () => {
     const b2Canvas = b2.canvas as HTMLCanvasElement;
 
     // Hide both first so the sweep has a visible→shown transition to fire.
-    toggleAll(ui, CONST.GROUP.BASE, false);
+    toggleAll(ui, GROUP.BASE, false);
 
     map.addLayer.mockClear();
     map.removeLayer.mockClear();
 
-    toggleAll(ui, CONST.GROUP.BASE, true);
+    toggleAll(ui, GROUP.BASE, true);
 
     expect(map.addLayer).toHaveBeenCalledWith(manager.layerRegistry.get("B1")!.layer);
     // B2 has no Leaflet layer: its canvas's HIDDEN class is the carrier.
@@ -982,9 +982,9 @@ describe("toggleAll base group", () => {
     // The colour layer coexists with tile basemaps: toggling the base group
     // must not hide or show the colour ?each carries its own checkbox and
     // its own visibility.
-    ui.toggleAll(CONST.GROUP.BASE, false);
+    ui.toggleAll(GROUP.BASE, false);
 
-    ui.toggleAll(CONST.GROUP.BASE, true);
+    ui.toggleAll(GROUP.BASE, true);
   });
 });
 
@@ -1007,7 +1007,7 @@ describe("unit helpers", () => {
 
   it("getLayerItems returns every base row, the colour row included", () => {
     const ui = makeUi();
-    const items = getLayerItems(ui, CONST.GROUP.BASE);
+    const items = getLayerItems(ui, GROUP.BASE);
     expect(items.length).toBe(2);
     expect(items[0].getAttribute("data-layer-type")).toBe("base");
     expect(items[1].getAttribute("data-layer-id")).toBe(CONST.SOLID_BASEMAP_ID);
@@ -1015,7 +1015,7 @@ describe("unit helpers", () => {
 
   it("getLayerItems returns overlay rows and excludes the color basemap", () => {
     const ui = makeUi();
-    const items = getLayerItems(ui, CONST.GROUP.OVERLAY);
+    const items = getLayerItems(ui, GROUP.OVERLAY);
     expect(items.length).toBe(1);
     expect(items[0].getAttribute("data-layer-type")).toBe("overlay");
   });
@@ -1038,15 +1038,15 @@ describe("unit helpers", () => {
     const boxes = () =>
       Array.from(
         ui.uiContainer.querySelectorAll<HTMLInputElement>(
-          `.${CONST.CLASSES.LAYER_ITEM}[data-layer-type="${CONST.GROUP.OVERLAY}"] input[type="checkbox"]`,
+          `.${CONST.CLASSES.LAYER_ITEM}[data-layer-type="${GROUP.OVERLAY}"] input[type="checkbox"]`,
         ),
       );
 
-    ui.toggleAll(CONST.GROUP.OVERLAY, true);
+    ui.toggleAll(GROUP.OVERLAY, true);
     expect(boxes().length).toBeGreaterThan(0);
     boxes().forEach(b => expect(b.title).toContain("deselect_tooltip"));
 
-    ui.toggleAll(CONST.GROUP.OVERLAY, false);
+    ui.toggleAll(GROUP.OVERLAY, false);
     boxes().forEach(b => expect(b.title).toContain("select_tooltip"));
   });
 
@@ -1055,14 +1055,14 @@ describe("unit helpers", () => {
     // there is nothing to paint, so the sync must bail rather than write into a
     // null element.
     const uiContainer = document.createElement("div");
-    uiContainer.innerHTML = `<div class="foliplus-layer-toggle-all" data-group="${CONST.GROUP.OVERLAY}"></div>`;
+    uiContainer.innerHTML = `<div class="foliplus-layer-toggle-all" data-group="${GROUP.OVERLAY}"></div>`;
     const ui = {
       uiContainer,
       m: { layerRegistry: { get: () => undefined } },
       T: (k: string) => k,
     } as unknown as LayerUI;
 
-    expect(() => syncToggleAll(ui, CONST.GROUP.OVERLAY)).not.toThrow();
+    expect(() => syncToggleAll(ui, GROUP.OVERLAY)).not.toThrow();
   });
 
   it("syncNoBasemap handles undefined intentProvenance and visibleMap", () => {
@@ -1070,7 +1070,7 @@ describe("unit helpers", () => {
     // may not have populated these maps yet, so the check must degrade to the
     // author default rather than crashing.
     const uiContainer = document.createElement("div");
-    uiContainer.innerHTML = `<div class="foliplus-layer-toggle-all" data-group="${CONST.GROUP.BASE}"><span></span></div>`;
+    uiContainer.innerHTML = `<div class="foliplus-layer-toggle-all" data-group="${GROUP.BASE}"><span></span></div>`;
     const ui = {
       uiContainer,
       m: {
@@ -1097,7 +1097,7 @@ describe("unit helpers", () => {
       opacity?: number,
     ): { ui: LayerUI; container: HTMLElement } => {
       const uiContainer = document.createElement("div");
-      uiContainer.innerHTML = `<div class="foliplus-layer-toggle-all" data-group="${CONST.GROUP.BASE}"><span></span></div>`;
+      uiContainer.innerHTML = `<div class="foliplus-layer-toggle-all" data-group="${GROUP.BASE}"><span></span></div>`;
       const container = document.createElement("div");
       const layers =
         opacity === undefined
@@ -1146,7 +1146,7 @@ describe("unit helpers", () => {
     // degrade gracefully when the choice maps are absent.
     const uiContainer = document.createElement("div");
     uiContainer.innerHTML = `
-      <div class="foliplus-layer-toggle-all" data-group="${CONST.GROUP.OVERLAY}">
+      <div class="foliplus-layer-toggle-all" data-group="${GROUP.OVERLAY}">
         <input type="checkbox" data-role="toggle-all" />
       </div>
       <div class="foliplus-layer-item" data-layer-type="overlay" data-layer-id="x">
@@ -1162,7 +1162,7 @@ describe("unit helpers", () => {
       T: (k: string) => k,
     } as unknown as LayerUI;
 
-    expect(() => syncToggleAll(ui, CONST.GROUP.OVERLAY)).not.toThrow();
+    expect(() => syncToggleAll(ui, GROUP.OVERLAY)).not.toThrow();
   });
 
   it("syncToggleAllFromCount bails when the group header is absent", () => {
@@ -1177,7 +1177,7 @@ describe("unit helpers", () => {
       T: (k: string) => k,
     } as unknown as LayerUI;
 
-    expect(() => syncToggleAllFromCount(ui, CONST.GROUP.OVERLAY)).not.toThrow();
+    expect(() => syncToggleAllFromCount(ui, GROUP.OVERLAY)).not.toThrow();
   });
 
   it("syncToggleAllFromCount bails when the header has no toggle-all input", () => {
@@ -1185,14 +1185,14 @@ describe("unit helpers", () => {
     // there is nothing to paint, so the sync must bail rather than write into
     // a null element —the same guard the full-rescan path already carries.
     const uiContainer = document.createElement("div");
-    uiContainer.innerHTML = `<div class="foliplus-layer-toggle-all" data-group="${CONST.GROUP.OVERLAY}"></div>`;
+    uiContainer.innerHTML = `<div class="foliplus-layer-toggle-all" data-group="${GROUP.OVERLAY}"></div>`;
     const ui = {
       uiContainer,
       checkedCount: {},
       T: (k: string) => k,
     } as unknown as LayerUI;
 
-    expect(() => syncToggleAllFromCount(ui, CONST.GROUP.OVERLAY)).not.toThrow();
+    expect(() => syncToggleAllFromCount(ui, GROUP.OVERLAY)).not.toThrow();
   });
 
   it("syncToggleAllFromCount treats a missing counter as an empty group", () => {
@@ -1202,14 +1202,14 @@ describe("unit helpers", () => {
     // the empty-group tri-state semantics: `on === 0` means nothing checked,
     // not a partial state.
     const uiContainer = document.createElement("div");
-    uiContainer.innerHTML = `<div class="foliplus-layer-toggle-all" data-group="${CONST.GROUP.OVERLAY}"><input type="checkbox" data-role="toggle-all" /></div>`;
+    uiContainer.innerHTML = `<div class="foliplus-layer-toggle-all" data-group="${GROUP.OVERLAY}"><input type="checkbox" data-role="toggle-all" /></div>`;
     const ui = {
       uiContainer,
       checkedCount: {},
       T: (k: string) => k,
     } as unknown as LayerUI;
 
-    syncToggleAllFromCount(ui, CONST.GROUP.OVERLAY);
+    syncToggleAllFromCount(ui, GROUP.OVERLAY);
 
     const all = uiContainer.querySelector<HTMLInputElement>(
       '[data-role="toggle-all"]',

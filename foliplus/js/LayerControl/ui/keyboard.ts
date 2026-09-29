@@ -1,6 +1,7 @@
 // LayerControl UI —Roving keyboard cursor + key handling.
 import { HINT_DURATION } from "#core/hint.js";
 import { isNativeControl } from "#core/inputOwnership.js";
+import { GROUP } from "#core/layer/index.js";
 import { ListCursor } from "#core/listCursor.js";
 import * as CONST from "../const.js";
 import { closeAttrsPanel } from "./attr.js";
@@ -475,7 +476,7 @@ const handleDblClick = (ui: LayerUI, event: MouseEvent): void => {
   // Base basemap has no meaningful extent to zoom to — explain instead of
   // silently ignoring the double-click. Hidden layers ARE passed through:
   // focusLayer shows the "hidden" hint for them.
-  if (item.dataset.layerType === CONST.GROUP.BASE) {
+  if (item.dataset.layerType === GROUP.BASE) {
     showFocusDisabledHint(ui, "base");
     return;
   }

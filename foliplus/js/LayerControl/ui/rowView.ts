@@ -12,6 +12,7 @@
 // Two pieces:
 //   inZoomRange / rowView — the projection (read-only + pure)
 //   buildRowCell / applyRowView        — gather the cell, then paint the row
+import { GROUP } from "#core/layer/index.js";
 import { formatNumber } from "#common/format.js";
 import * as Icons from "#common/icon.js";
 import * as CONST from "../const.js";
@@ -166,7 +167,7 @@ const rowType = (
   layerInfo: LayerInfo,
   layer: L.Layer | null,
 ): { svg: string; key: string } => {
-  if (layerInfo.group === CONST.GROUP.BASE) {
+  if (layerInfo.group === GROUP.BASE) {
     // The colour basemap uses its own swatch icon, not the globe.
     if (layerInfo.id === CONST.SOLID_BASEMAP_ID) {
       return { svg: SVGs.COLOR, key: "type_color_map" };

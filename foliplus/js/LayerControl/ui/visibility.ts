@@ -1,4 +1,5 @@
 // LayerControl UI —Checkbox / group-toggle visibility.
+import { GROUP } from "#core/layer/index.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import * as CONST from "../const.js";
 import { applyProjection, applyProjectionAll } from "./apply.js";
@@ -9,7 +10,7 @@ import { saveState, setVisible } from "./state.js";
 
 const getLayerItems = (ui: LayerUI, group: string): NodeListOf<Element> => {
   return ui.uiContainer.querySelectorAll(
-    `${CONST.SEL.LAYER_ITEM}${group === CONST.GROUP.BASE ? `[data-layer-type="${CONST.GROUP.BASE}"]` : `:not([data-layer-type="${CONST.GROUP.BASE}"])`}`,
+    `${CONST.SEL.LAYER_ITEM}${group === GROUP.BASE ? `[data-layer-type="${GROUP.BASE}"]` : `:not([data-layer-type="${GROUP.BASE}"])`}`,
   );
 };
 
@@ -20,7 +21,7 @@ const getLayerItems = (ui: LayerUI, group: string): NodeListOf<Element> => {
  *  `backgroundColor`), so an empty state never reaches an export. */
 const syncNoBasemap = (ui: LayerUI): void => {
   const anyBaseVisible = ui.m.layers.some(li => {
-    if (li.group !== CONST.GROUP.BASE) return false;
+    if (li.group !== GROUP.BASE) return false;
     // Inline intent check to avoid function-call overhead on the click hot path.
     const visible = ui.visibleMap?.[li.id];
     const overrides = ui.intentProvenance?.[li.id];
@@ -36,7 +37,7 @@ const syncNoBasemap = (ui: LayerUI): void => {
   });
   ui.m.map.getContainer().classList.toggle(CONST.CLASSES.NO_BASE_MAP, !anyBaseVisible);
   const label = ui.uiContainer.querySelector(
-    `${CONST.SEL.TOGGLE_ALL}[data-group="${CONST.GROUP.BASE}"] ${CONST.SEL.SEPARATOR_LABEL}`,
+    `${CONST.SEL.TOGGLE_ALL}[data-group="${GROUP.BASE}"] ${CONST.SEL.SEPARATOR_LABEL}`,
   );
   if (label) {
     label.textContent = ui.T(anyBaseVisible ? "base_map_label" : "no_base_map_label");
@@ -191,7 +192,7 @@ const bumpCheckedCount = (ui: LayerUI, group: string, delta: number): void => {
  * reload, bulk toggleAll), so a single-row click does not walk every row in
  * the group.
  *
- * `syncNoBasemap` only reads `group === CONST.GROUP.BASE && intent`; an overlay toggle cannot
+ * `syncNoBasemap` only reads `group === GROUP.BASE && intent`; an overlay toggle cannot
  * change the visible-basemap count, so this path skips it for overlays and
  * only calls it for base rows where the hatch and the group label are the
  * user-visible output.
@@ -219,17 +220,17 @@ const applyVisibility = (ui: LayerUI, id: string, visible: boolean): boolean => 
   bumpCheckedCount(ui, group, delta);
 
   // Overlay toggles cannot change the visible-basemap count (syncNoBasemap
-  // only reads `group === CONST.GROUP.BASE`), so skip for overlay: the call was pure O(n) waste
+  // only reads `group === GROUP.BASE`), so skip for overlay: the call was pure O(n) waste
   // on the click hot path. Base toggles still call it synchronously — the
   // hatch and the group label are user-visible, cannot be deferred.
-  if (layerInfo.group === CONST.GROUP.BASE) syncNoBasemap(ui);
+  if (layerInfo.group === GROUP.BASE) syncNoBasemap(ui);
 
   ui.m.debouncedEnforce();
 
   // A basemap switch changes the map's min/max zoom without firing zoomend,
   // so re-evaluate effective shown across every layer and refresh the open
   // panel's row.
-  if (layerInfo.group === CONST.GROUP.BASE) {
+  if (layerInfo.group === GROUP.BASE) {
     applyProjectionAll(ui);
     ui.styleZoomEndHandler?.();
   }
