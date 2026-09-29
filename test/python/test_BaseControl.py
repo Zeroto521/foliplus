@@ -363,30 +363,37 @@ class TestBaseControlRendering:
         html = render_control(SearchControl())
         assert "border-radius: var(--foliplus-radius-sm)" in html
 
-    def test_panel_btn_content_width_centered(self):
-        """`.foliplus-panel-btn` is content-width and centered in the footer row.
+    def test_panel_btn_full_width_text_centered(self):
+        """`.foliplus-panel-btn` stays full-width; its label is centered on both axes.
 
         Shared recipe for Reset (LayerControl style) and Clear (Heatmap) —
-        button.css keeps the two from drifting. Box model / alignment only;
-        hover, active, focus, and colors live in the same rule and are
-        deliberately not asserted here.
+        button.css keeps the two from drifting. The button itself still
+        stretches (`flex: 1`) with no extra margin (the footer row's padding is
+        the only inset); the text inside is centered vertically and
+        horizontally. Box model / alignment only; hover, active, focus, and
+        colors live in the same rule and are deliberately not asserted here.
         """
         css = read_css_dir("foliplus/css/common", "button.css")
         idx = css.find(".foliplus-panel-btn {")
         assert idx != -1, "shared panel-btn recipe missing from button.css"
         block = css[idx : css.index("}", idx) + 1]
-        # Content width, not a full-width stretch across the footer row.
-        assert "flex: 1" not in block
-        assert "flex: 0 0 auto" in block
-        assert "align-self: center" in block
-        assert "min-width: 120px" in block
-        assert "padding: 0 var(--foliplus-space-lg)" in block
+        # Still stretches across the footer row, no extra offset.
+        assert "flex: 1" in block
+        assert "margin" not in block
+        # Label text centered on both axes inside the button (flex centering).
+        assert "display: flex" in block
+        assert "align-items: center" in block
+        assert "justify-content: center" in block
+        # Rejected: the content-width shrink reading of "centered".
+        assert "align-self: center" not in block
+        assert "flex: 0 0 auto" not in block
+        assert "min-width: 120px" not in block
 
     def test_panel_btn_shared_by_reset_and_clear(self):
         """Reset (LayerControl) and Clear (Heatmap) both ride `.foliplus-panel-btn`.
 
         button.css: the two cannot drift. The shared class is the hook that
-        applies the one centered recipe to both.
+        applies the one centered-text recipe to both.
         """
         from foliplus import HeatmapControl
 

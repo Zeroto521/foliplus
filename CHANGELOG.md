@@ -79,7 +79,7 @@
 - `LayerControl`: style-panel dimensions become registry descriptors (`registerDimension` / `DIM_ORDER`) — the panel discovers rows through the registry, gate = capability check ([#505](https://github.com/Zeroto521/foliplus/pull/505), [#513](https://github.com/Zeroto521/foliplus/pull/513), [#522](https://github.com/Zeroto521/foliplus/pull/522), [#536](https://github.com/Zeroto521/foliplus/pull/536))
 - `LayerControl` / `HeatmapControl`: the style, attributes and heatmap panels drop their group headings and read as one flat row list; row labels are right-aligned, so all three panels share one label edge ([#516](https://github.com/Zeroto521/foliplus/pull/516))
 - `HeatmapControl` / `LayerControl`: bake layer opacity into canvas draws (`globalAlpha`); heatmap slider stays CSS, bake on redraw ([#533](https://github.com/Zeroto521/foliplus/pull/533))
-- `LayerControl`/`HeatmapControl`: Reset / Clear panel footer buttons are content-width and centered in the footer row instead of stretching full width (shared `.foliplus-panel-btn` recipe) ([#557](https://github.com/Zeroto521/foliplus/pull/557))
+- `LayerControl`/`HeatmapControl`: Reset / Clear panel footer button text is centered on both axes inside the full-width button (shared `.foliplus-panel-btn` recipe) ([#557](https://github.com/Zeroto521/foliplus/pull/557))
 
 ### Removed
 
