@@ -363,6 +363,41 @@ class TestBaseControlRendering:
         html = render_control(SearchControl())
         assert "border-radius: var(--foliplus-radius-sm)" in html
 
+    def test_panel_btn_content_width_centered(self):
+        """`.foliplus-panel-btn` is content-width and centered in the footer row.
+
+        Shared recipe for Reset (LayerControl style) and Clear (Heatmap) —
+        button.css keeps the two from drifting. Box model / alignment only;
+        hover, active, focus, and colors live in the same rule and are
+        deliberately not asserted here.
+        """
+        css = read_css_dir("foliplus/css/common", "button.css")
+        idx = css.find(".foliplus-panel-btn {")
+        assert idx != -1, "shared panel-btn recipe missing from button.css"
+        block = css[idx : css.index("}", idx) + 1]
+        # Content width, not a full-width stretch across the footer row.
+        assert "flex: 1" not in block
+        assert "flex: 0 0 auto" in block
+        assert "align-self: center" in block
+        assert "min-width: 120px" in block
+        assert "padding: 0 var(--foliplus-space-lg)" in block
+
+    def test_panel_btn_shared_by_reset_and_clear(self):
+        """Reset (LayerControl) and Clear (Heatmap) both ride `.foliplus-panel-btn`.
+
+        button.css: the two cannot drift. The shared class is the hook that
+        applies the one centered recipe to both.
+        """
+        from foliplus import HeatmapControl
+
+        html = render_control(HeatmapControl())
+        assert "foliplus-panel-btn foliplus-heatmap-btn-clear" in html
+
+        frame = Path("foliplus/js/LayerControl/ui/style/frame.ts").read_text(
+            encoding="utf-8"
+        )
+        assert 'class: "foliplus-panel-btn foliplus-style-reset-btn"' in frame
+
     def test_collapsed_shadow_shared(self, base_map: folium.Map):
         """foliplus-ctrl-fold.foliplus-is-collapsed uses --foliplus-shadow-ctrl-strong (shared shadow for all collapsed controls)."""
         from foliplus import SearchControl
