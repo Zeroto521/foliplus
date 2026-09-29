@@ -47,6 +47,10 @@ Data processing happens upstream. foliplus handles the map, not the data.
 | 📐 **ScaleControl**      | Scale bar with metric units and optional zoom level display.                           |
 | 🔍 **SearchControl**     | Coordinate and address search via pluggable geocode providers.                        |
 
+## Compatibility
+
+foliplus supports Leaflet `>=1.9.0`. CI covers Leaflet 1.9.3; 1.9.x is the commitment.
+
 ## Beyond Plugins
 
 Traditional map component libraries treat each tool as an independent plugin. foliplus
