@@ -49,7 +49,7 @@ Data processing happens upstream. foliplus handles the map, not the data.
 
 ## Compatibility
 
-CI covers Leaflet 1.9.3 — the pin Folium ships. Other Leaflet versions are untested.
+Leaflet `1.0.0`–`1.9.4` smoke-pass (map init, control attach, layer panel, measure panel, zoom, `LayerAPI`). 0.7.x is out — foliplus needs `map.getPane`. CI covers Leaflet 1.9.3, the pin Folium ships; the full suite is not run against older Leaflet.
 
 ## Beyond Plugins
 
