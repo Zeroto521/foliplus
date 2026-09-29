@@ -25,7 +25,6 @@
   cursor: pointer;
 }
 
-
 /* ── Measurement Paths (lines / circles / polygons) ──
   Three shared states: solid (final), dashed, preview.
   Area shapes additionally use .foliplus-measure-shape-fill for fill. */
