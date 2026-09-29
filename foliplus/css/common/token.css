@@ -131,7 +131,12 @@
      box, which is 5px clear of a 14px handle — it reads as a gray halo, not a
      lift. */
   --foliplus-slider-rail-height: var(--foliplus-size-6);
+  /* Deliberate: not --foliplus-dot-size. The thumb is a grab control (WCAG hit
+     box + core/ring recipe), not a map/crop anchor dot. */
   --foliplus-slider-thumb-size: 14px;
+  /* Deliberate: not --foliplus-dot-size. Non-interactive readout dots
+     (pointer-events: none) under the rail — smaller than the thumb so the
+     thumb reads as the control. */
   --foliplus-slider-dot-size: 10px;
   /* The thumb's box IS its visible size: the travel is inset by half of it, so a
      box larger than the handle leaves the handle short of the rail's ends. The
@@ -210,6 +215,38 @@
     intentionally a different token context — it's a small-scale SVG
     texture, not an operation border. */
   --foliplus-dash-rhythm: var(--foliplus-size-6) var(--foliplus-size-4);
+
+  /* ── Anchor Dot ──
+    Shared look for every interactive anchor dot drawn on the map: measure
+    nodes (circle/radius/centroid, SVG circleMarker) and the export crop-box
+    center plus its 8 resize handles. Geometry and the hollow/solid palette
+    live in the `.foliplus-dot` rules in button.css; this file owns only the
+    two numbers. Keep the dot's look in one place so a future change reaches
+    every surface at once.
+    --foliplus-dot-size is the *outer* diameter of both renderings. DOM
+    anchors set `width` / `height` in border-box (border inside the box);
+    the SVG node's circleMarker radius is (--foliplus-dot-size - --foliplus-dot-stroke) / 2,
+    which puts the centered stroke half in / half out of the path — the same
+    outer edge as the DOM box. Radius is not CSS-addressable, so
+    `nodeRadius()` in MeasureControl's util.ts reads the token at
+    marker-creation time instead of repeating it.
+    Round-safe defaults: 12.5 / 2.5 ⇒ radius 5.0, and Leaflet's SVG
+    `_updateCircle` does `Math.round(_radius)` when it writes the path, so
+    5.0 is an identity round. Override with a non-round-safe pair (e.g.
+    size 11px ⇒ radius 4.25) and the measure nodes snap to the rounded CSS
+    pixel while the DOM anchors keep the subpixel — document, do not paper
+    over. Keep the default pair round-safe.
+    --foliplus-dot-stroke is the ring weight in both renderings and both
+    color variants — the variants change only the two colors, never
+    geometry. 2.5px is what the measure nodes carried before this shared
+    token; a thinner ring makes the hollow dots read smaller, so the ring
+    weight is what dominates the perceived size, not --foliplus-dot-size.
+    Knob family note (deliberate, do not merge): --foliplus-slider-thumb-size (14px,
+    grab target with WCAG hit box) and --foliplus-slider-dot-size (10px, non-interactive
+    readout dots) are a different visual role from the map/crop anchor dots
+    and keep their own sizes. */
+  --foliplus-dot-size: 12.5px;
+  --foliplus-dot-stroke: 2.5px;
 
   /* ── Border Radius ── */
   --foliplus-radius-sm: var(--foliplus-size-4);

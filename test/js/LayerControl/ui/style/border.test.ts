@@ -16,7 +16,10 @@ import {
   layerCanBorder,
   resetLayerBorder,
 } from "#foliplus/LayerControl/ui/style/border.js";
-import { commitFillColor } from "#foliplus/LayerControl/ui/style/fill.js";
+import {
+  commitFillColor,
+  flushFillApply,
+} from "#foliplus/LayerControl/ui/style/fill.js";
 import { pinnedGetterCount } from "#foliplus/LayerControl/ui/style/pin.js";
 import { initFixture } from "../fixture.js";
 
@@ -866,6 +869,9 @@ describe("highlight restore", () => {
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
 
     commitFillColor(ui, "vec1", "#123456");
+    // fill commit is rAF-coalesced; flush so the fill pin is registered
+    // before the highlight restore runs (same contract as a drag's end).
+    flushFillApply("vec1");
     commitBorderWeight(ui, "vec1", 9);
 
     // One slot per dimension on the shared leaf — fill and border never

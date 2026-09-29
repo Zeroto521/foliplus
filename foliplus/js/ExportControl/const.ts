@@ -46,8 +46,15 @@ const CLASSES = {
   TOOL_BTN: "foliplus-tool-btn",
   EXPORT_MODE: "foliplus-export-mode",
   EXPORT_BOX: "foliplus-export-box",
+  // Single-token identity — crop.ts hit-testing uses `classList.contains`,
+  // which does not split a multi-token lookup. Keep these one token each.
   HANDLE: "foliplus-export-handle",
   EXPORT_CROP_CENTER: "foliplus-export-center",
+  // Full class strings for the DOM builders: `.foliplus-dot` / `-hollow` /
+  // `-solid` (common/button.css) carry the fill, stroke and geometry, shared
+  // with the measure nodes; the second token is the local positioning hook.
+  HANDLE_DOT: "foliplus-dot foliplus-dot-hollow foliplus-export-handle",
+  CENTER_DOT: "foliplus-dot foliplus-dot-solid foliplus-export-center",
   PREVIEW: "foliplus-export-preview",
   CLOSE: "foliplus-close-btn",
   HIDDEN: "foliplus-hidden",
