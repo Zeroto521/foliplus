@@ -1116,6 +1116,29 @@ class TestMeasureControlBrowser:
             )
             assert info2["dotAboveFill"], "after zoom: node pane z below graph pane"
 
+    def test_polygon_centroid_label_above_dot(self, browser, tmp_path):
+        """The centroid area chip must paint above the centroid dot.
+
+        Regression for "centroid dot covers the area chip (z-order)": the label pane paints
+        above the node pane (graph < node < label), so the centroid chip always
+        sits over the centroid dot by pane z-index. Without this guarantee the
+        dot could visually consume the chip, hiding the area readout on top of
+        a filled polygon.
+        """
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            page.evaluate(_js("MeasureControl/draw_polygon_four_points"))
+            page.wait_for_timeout(500)
+
+            info = page.evaluate(_js("MeasureControl/read_centroid_z_order"))
+            assert not info.get("error"), f"probe error: {info}"
+            assert not errors, f"JS errors: {errors}"
+            assert info["labelAboveDot"], (
+                f"centroid label pane must be above the node pane, got {info}"
+            )
+            assert info["dotAboveFill"], (
+                f"centroid dot must still paint above the fill: {info}"
+            )
+
     def test_polygon_node_delete(self, browser, tmp_path):
         """Toggle polygon delete icons without raising JS errors."""
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
