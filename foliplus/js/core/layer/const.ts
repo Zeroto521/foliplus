@@ -1,5 +1,8 @@
 // core constants — shared by LayerRegistry / PaneManager.
 // Pure values, no DOM / CONF dependency. Re-exported by LayerControl/const.
+/** Layer-stack z bases — the "layer z" family. Values are frozen; the
+ *  three-family z policy table (layer / control / export) lives in
+ *  css/common/token.css → Z-index. */
 const Z_INDEX = { BASE: 600, TILE_BASE: 200, STEP: 10 };
 
 const RECURSION = { PANE_DEPTH: 5, LAYER_DEPTH: 10 };
