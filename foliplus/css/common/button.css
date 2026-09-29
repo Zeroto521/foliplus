@@ -25,31 +25,31 @@
    centered stroke half out of the path — the same outer edge as the DOM box.
    Both come out --foliplus-dot-size across. */
 .foliplus-dot {
-  --dot-fill: var(--neutral-0);
-  --dot-stroke-color: var(--accent-primary);
-  fill: var(--dot-fill);
+  --foliplus-dot-fill: var(--foliplus-neutral-0);
+  --foliplus-dot-stroke-color: var(--foliplus-accent-primary);
+  fill: var(--foliplus-dot-fill);
   fill-opacity: 1;
-  stroke: var(--dot-stroke-color);
+  stroke: var(--foliplus-dot-stroke-color);
   stroke-width: var(--foliplus-dot-stroke);
 }
 .foliplus-dot:not(path) {
-  background: var(--dot-fill);
+  background: var(--foliplus-dot-fill);
   /* The `border` shorthand, not the `border-width` longhand: on a non-replaced
      element the longhand is silently ignored in Chromium even with !important,
      so the shorthand is the only form that reliably sets the width. */
-  border: var(--foliplus-dot-stroke) solid var(--dot-stroke-color);
-  border-radius: var(--radius-round);
+  border: var(--foliplus-dot-stroke) solid var(--foliplus-dot-stroke-color);
+  border-radius: var(--foliplus-radius-round);
   box-sizing: border-box;
 }
 /* Hollow: neutral fill, accent ring. */
 .foliplus-dot-hollow {
-  --dot-fill: var(--neutral-0);
-  --dot-stroke-color: var(--accent-primary);
+  --foliplus-dot-fill: var(--foliplus-neutral-0);
+  --foliplus-dot-stroke-color: var(--foliplus-accent-primary);
 }
 /* Solid: accent fill, neutral ring. */
 .foliplus-dot-solid {
-  --dot-fill: var(--accent-primary);
-  --dot-stroke-color: var(--neutral-0);
+  --foliplus-dot-fill: var(--foliplus-accent-primary);
+  --foliplus-dot-stroke-color: var(--foliplus-neutral-0);
 }
 
 /* ── Common Icon Size ──

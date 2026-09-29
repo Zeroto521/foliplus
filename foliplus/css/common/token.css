@@ -241,8 +241,8 @@
     geometry. 2.5px is what the measure nodes carried before this shared
     token; a thinner ring makes the hollow dots read smaller, so the ring
     weight is what dominates the perceived size, not --foliplus-dot-size.
-    Knob family note (deliberate, do not merge): --slider-thumb-size (14px,
-    grab target with WCAG hit box) and --slider-dot-size (10px, non-interactive
+    Knob family note (deliberate, do not merge): --foliplus-slider-thumb-size (14px,
+    grab target with WCAG hit box) and --foliplus-slider-dot-size (10px, non-interactive
     readout dots) are a different visual role from the map/crop anchor dots
     and keep their own sizes. */
   --foliplus-dot-size: 12.5px;
