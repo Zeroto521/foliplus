@@ -119,9 +119,13 @@ export function installWindowLExtensions(): void {
     divIcon: divIconMock,
     icon: vi.fn(() => ({})),
     Popup: class extends LeafletBase {},
-    Circle: class extends LeafletBase {},
+    Circle: class extends LeafletBase {
+      getRadius = vi.fn(() => 5) as any;
+    },
     Rectangle: class extends LeafletBase {},
-    CircleMarker: class extends LeafletBase {},
+    CircleMarker: class extends LeafletBase {
+      getRadius = vi.fn(() => 5) as any;
+    },
     GridLayer: class extends LeafletBase {},
     TileLayer: class extends LeafletBase {},
     // `L.LayerGroup` (the class) is deliberately NOT added —
@@ -268,7 +272,7 @@ export function makeLayerUIMock(extra: Overrides = {}): LayerUI {
     T: (key: string) => key,
     _: (key: string) => key,
     foldedGroups: new Set<string>(),
-    visibleMap: {},
+    intents: {},
     authorVisible: new Map<string, boolean>(),
     intentProvenance: {},
     currentColor: "#cccccc",
@@ -309,9 +313,6 @@ export function makeLayerUIMock(extra: Overrides = {}): LayerUI {
     stylePanelLayerId: null,
     fieldCache: new Map<string, unknown[]>(),
     pressInPanel: false,
-    labelConfigs: {},
-    opacityMap: {},
-    zoomRangeMap: {},
     focusRect: null,
     focusingLayerId: null,
     onFocusMapMove: null,

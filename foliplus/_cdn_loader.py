@@ -8,12 +8,14 @@ import json
 from pathlib import Path
 
 _CDN_PATH = Path(__file__).parent / "cdn.json"
-_cache: dict | None = None
+_cache: dict[str, list[tuple[str, str]]] | None = None
 
 
-def _load_all() -> dict:
+def _load_all() -> dict[str, list[tuple[str, str]]]:
     global _cache
     if _cache is None:
+        # cdn.json is a controlled source file, not a user-input boundary;
+        # _cache's annotation narrows json.loads's Any to the declared shape.
         _cache = json.loads(_CDN_PATH.read_text(encoding="utf-8"))
     return _cache
 
@@ -25,4 +27,4 @@ def load_cdn(control_name: str) -> list[tuple[str, str]]:
     ``[(name, url), ...]``.
     """
     data = _load_all()
-    return data.get(control_name, [])
+    return [(name, url) for name, url in data.get(control_name, [])]

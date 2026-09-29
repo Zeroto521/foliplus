@@ -41,15 +41,16 @@ from typing import (
     Annotated,
     Any,
     Literal,
+    ParamSpec,
     TypeVar,
     Union,
-    cast,
     get_args,
     get_origin,
     get_type_hints,
 )
 
-F = TypeVar("F", bound=Callable[..., Any])
+P = ParamSpec("P")
+R = TypeVar("R")
 
 #: A compiled check: called with the public keyword name and the passed value.
 Rule = Callable[[str, Any], None]
@@ -271,7 +272,7 @@ def _rules_for(fn: Callable[..., Any]) -> tuple[tuple[str, Rule], ...]:
     return tuple(rules)
 
 
-def validate(fn: F) -> F:
+def validate(fn: Callable[P, R]) -> Callable[P, R]:
     """Enforce the annotated choices and bounds of a constructor.
 
     Compiles the rules once, at decoration time, then checks the keyword
@@ -292,10 +293,10 @@ def validate(fn: F) -> F:
     rules = _rules_for(fn)
 
     @wraps(fn)
-    def wrapper(*args: Any, **kwargs: Any) -> Any:
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
         for name, check in rules:
             if name in kwargs:
                 check(name, kwargs[name])
         return fn(*args, **kwargs)
 
-    return cast(F, wrapper)
+    return wrapper

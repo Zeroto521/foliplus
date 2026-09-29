@@ -23,7 +23,13 @@
 import { createLogger } from "#common/log.js";
 import type { PaneManager } from "./PaneManager.js";
 import { hasFillLeaf, hasSetStyleLeaf } from "./capability.js";
-import { CAP_TIER, FALLBACK_PANE_PREFIX, KIND, PANE_NAME_PATTERN } from "./const.js";
+import {
+  CAP_TIER,
+  FALLBACK_PANE_PREFIX,
+  KIND,
+  PANE_NAME_PATTERN,
+  PANE_ROLE,
+} from "./const.js";
 import type {
   LayerCapabilities,
   LayerKind,
@@ -458,7 +464,7 @@ class LayerSurface implements LayerSurfaceContract {
   private addPane(
     name: string,
     needRenderer: boolean,
-    role: PaneRole = "base",
+    role: PaneRole = PANE_ROLE.BASE,
     order = 0,
   ): void {
     const { pane, renderer } = this.host.ensurePane(name, needRenderer);
@@ -573,7 +579,7 @@ const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
   // MarkerCluster whose children carry properties still has an honest
   // label pane (the probe decides the spec, not the branch shape).
   const annotation: LayerCapabilities["annotation"] = opts.paneSpecs?.some(
-    spec => spec.role === "annotation",
+    spec => spec.role === PANE_ROLE.ANNOTATION,
   )
     ? CAP_TIER.PANE
     : CAP_TIER.NONE;

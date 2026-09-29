@@ -1,4 +1,5 @@
 // LayerControl UI —Layer row structure / list layout / insert / reindex.
+import { GROUP } from "#core/layer/index.js";
 import { ListCursor } from "#core/listCursor.js";
 import { dom, updateItemLabel } from "#common/dom.js";
 import * as CONST from "../const.js";
@@ -56,8 +57,8 @@ const initTypesAndVisibility = (ui: LayerUI) => {
     initLayerItem(ui, ui.m.layers[i]);
   }
   ui.m.enforceOrder();
-  syncToggleAll(ui, CONST.GROUP.OVERLAY);
-  syncToggleAll(ui, CONST.GROUP.BASE);
+  syncToggleAll(ui, GROUP.OVERLAY);
+  syncToggleAll(ui, GROUP.BASE);
   syncNoBasemap(ui);
   // enforceOrder may have moved rows; keep roving tabindex aligned.
   syncListCursor(ui);
@@ -79,13 +80,13 @@ const renderInitialList = (ui: LayerUI) => {
   let hasOverlays = false;
 
   for (const layerInfo of ui.m.layers) {
-    if (layerInfo.group !== CONST.GROUP.BASE && !hasOverlays) {
+    if (layerInfo.group !== GROUP.BASE && !hasOverlays) {
       hasOverlays = true;
-      frag.appendChild(renderToggleAllRow(ui, CONST.GROUP.OVERLAY, "data_layer_label"));
+      frag.appendChild(renderToggleAllRow(ui, GROUP.OVERLAY, "data_layer_label"));
     }
-    if (layerInfo.group === CONST.GROUP.BASE && !hasBaseMaps) {
+    if (layerInfo.group === GROUP.BASE && !hasBaseMaps) {
       hasBaseMaps = true;
-      frag.appendChild(renderToggleAllRow(ui, CONST.GROUP.BASE, "base_map_label"));
+      frag.appendChild(renderToggleAllRow(ui, GROUP.BASE, "base_map_label"));
     }
     const group = layerInfo.group;
     const item = renderLayerItem(ui, layerInfo);
@@ -119,9 +120,9 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
   const group = layerInfo.group;
 
   const anchorSel =
-    group === CONST.GROUP.BASE
-      ? `${CONST.SEL.LAYER_ITEM}[data-layer-type="${CONST.GROUP.BASE}"]`
-      : `${CONST.SEL.LAYER_ITEM}:not([data-layer-type="${CONST.GROUP.BASE}"])`;
+    group === GROUP.BASE
+      ? `${CONST.SEL.LAYER_ITEM}[data-layer-type="${GROUP.BASE}"]`
+      : `${CONST.SEL.LAYER_ITEM}:not([data-layer-type="${GROUP.BASE}"])`;
   const firstOfGroup = container.querySelector(anchorSel);
 
   const frag = document.createDocumentFragment();
@@ -130,7 +131,7 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
       renderToggleAllRow(
         ui,
         group,
-        group === CONST.GROUP.BASE ? "base_map_label" : "data_layer_label",
+        group === GROUP.BASE ? "base_map_label" : "data_layer_label",
       ),
     );
   }
@@ -143,7 +144,7 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
     // OVERLAY inserts before the first base row; when none exists, append at
     // the end.
     const nextAnchor = container.querySelector(
-      `${CONST.SEL.LAYER_ITEM}[data-layer-type="${CONST.GROUP.BASE}"]`,
+      `${CONST.SEL.LAYER_ITEM}[data-layer-type="${GROUP.BASE}"]`,
     );
     if (nextAnchor) container.insertBefore(frag, nextAnchor);
     else container.appendChild(frag);
@@ -312,7 +313,7 @@ const initLayerItem = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
   // that runs before this row lands, so the visible mirror here matches
   // what the map actually shows.
 
-  return cell.shown && layerInfo.group === CONST.GROUP.BASE;
+  return cell.shown && layerInfo.group === GROUP.BASE;
 };
 
 /** Reindex all layer items after a move, preserving the active focus position.

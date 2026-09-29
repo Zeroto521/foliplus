@@ -156,7 +156,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
     }
     // Fill is a self-managed dimension (not part of the executor's
     // visible/opacity/zoomRange family): bindLiveColor commits straight to
-    // ui.fillColorMap + setStyle. Same live-recipe as label color.
+    // ui.intents.fillColor + setStyle. Same live-recipe as label color.
     const fillRow = panel.querySelector(
       `.${CONST.CLASSES.STYLE_FILL_ROW}`,
     ) as HTMLElement | null;

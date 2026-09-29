@@ -34,6 +34,7 @@ junit.xml
 junit-*.xml
 coverage/
 bundle-treemap.html
+bundle-metafile.json
 htmlcov/
 html/
 .tox/

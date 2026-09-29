@@ -7,6 +7,7 @@ import { EVENTS } from "#core/event/index.js";
 import { AnnotationManager } from "#foliplus/LayerControl/annotation/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { applyProjection } from "#foliplus/LayerControl/ui/apply.js";
+import { setIntent } from "#foliplus/LayerControl/ui/intent.js";
 import { initFixture } from "../ui/fixture.js";
 
 const mocks = vi.hoisted(() => {
@@ -763,7 +764,7 @@ describe("a layer that gains labelable content gets the stored intent on its new
       getPosition: () => ({ x: 0, y: 0 }),
     };
 
-    ui.opacityMap.overlay1 = 0.3;
+    setIntent(ui, "overlay1", "opacity", 0.3);
     ui.intentProvenance.overlay1 = ["opacity"];
     applyProjection(ui, "overlay1");
     applyProjection(ui, "overlay1");

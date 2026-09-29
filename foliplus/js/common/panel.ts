@@ -37,8 +37,10 @@ const adjustPanelZIndex = (opts: {
     return;
   }
   // Read --foliplus-z-index-floating from :root (defined in CSS), then offset bar and section.
+  // Fallback matches the token default (9990) so a page that omits shared
+  // token.css still stacks the expanded panel in the control band.
   const base = parseInt(
-    cssVar(document.documentElement, "--foliplus-z-index-floating", "500"),
+    cssVar(document.documentElement, "--foliplus-z-index-floating", "9990"),
     10,
   );
   if (bar) bar.style.zIndex = String(base + 1);

@@ -210,6 +210,24 @@ class TestExportControlRendering:
         # The rule uses the token; the literal may only appear in a comment.
         assert "z-index: 100000" not in css
 
+    def test_css_scale_z_in_export_ladder(self):
+        """scale/attr z rides the export ladder (export-base - 10), not the layer band.
+
+        T241 conflict: `--foliplus-export-scale-z: 850` sat inside the layer-z
+        band (Z_INDEX.BASE 600 + STEP 10), so a ~25-layer overlay stack climbed
+        past it and covered the scale control. The dim layer belongs above all
+        data layers and under the crop UI — `calc(export-base - 10)` = 9490.
+        """
+        from conftest import read_css
+
+        css = read_css("foliplus/css/ExportControl.css")
+        assert (
+            "--foliplus-export-scale-z: calc(var(--foliplus-z-export-base) - 10);"
+            in css
+        )
+        # The old layer-band value must not survive in the token assignment.
+        assert "--foliplus-export-scale-z: 850" not in css
+
     def test_locale_zh(self):
         html = render_control(ExportControl(locale="zh"))
         assert "导出" in html
@@ -860,8 +878,8 @@ class TestExportControlBrowser:
 
         Regression: when the crop box was attached to map._mapPane (which has
         z-index:400 creating a stacking context), the box's 9501 z-index was
-        trapped inside a 400-level context, so scale/attr (850) rendered above
-        the dim shadow. The box must live in mapContainer (z auto) so it
+        trapped inside a 400-level context, so scale/attr rendered above the
+        dim shadow. The box must live in mapContainer (z auto) so it
         participates in the root stacking context.
         """
 
@@ -894,12 +912,60 @@ class TestExportControlBrowser:
             assert info["parentZ"] == "auto" or info["parentZ"] == "", (
                 f"mapContainer must not create a stacking context, got {info['parentZ']}"
             )
-            # Mask z (9501) must be above scale/attr z (850)
+            # Mask z (9501) must be above scale/attr z
             assert info["boxZ"] > info["scaleZ"], (
                 f"Mask z={info['boxZ']} must be above scale z={info['scaleZ']}"
             )
             assert info["boxZ"] > info["attrZ"], (
                 f"Mask z={info['boxZ']} must be above attr z={info['attrZ']}"
+            )
+
+    def test_scale_visible_under_deep_layer_stack(self, browser, tmp_path):
+        """Deep overlay stack must not cover the export-mode scale control.
+
+        T241 conflict: scale/attr z=850 sat inside the layer band
+        (600 + n*10). ~25 overlay layers climb past 850 and cover the scale
+        entirely — the dim layer is supposed to sit above every data layer
+        and only under the crop UI. After the fix, scale z = export-base - 10
+        (9490): above every data pane, still under the crop mask (9501).
+        """
+        from foliplus import LayerControl, ScaleControl
+
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        ScaleControl().add_to(m)
+        LayerControl().add_to(m)
+        ExportControl().add_to(m)
+        html_path = tmp_path / "export_deep_stack_scale.html"
+        html_path.write_text(m.get_root().render(), encoding="utf-8")
+
+        with use_raw_page(browser.new_page) as page:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-export-ctrl", state="attached", timeout=10000
+            )
+            # 30 canvas layers → top overlay pane z = 600 + 30*10 = 900 > 850.
+            stacked = page.evaluate(_js("ExportControl/setup_deep_layer_stack"))
+            assert stacked["ok"] is True, stacked
+            page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
+            page.wait_for_selector(
+                ".foliplus-export-box", state="attached", timeout=5000
+            )
+
+            info = page.evaluate(_js("ExportControl/read_deep_stack_scale_z"))
+
+            # The stack is deep enough that the old 850 would have been covered.
+            assert info["maxPaneZ"] is not None, f"no layer panes: {info}"
+            assert info["maxPaneZ"] > 850, (
+                f"stack not deep enough to pin the regression: {info}"
+            )
+            # Scale stays above every data layer and under the crop mask.
+            assert info["scaleZ"] is not None, f"scale missing: {info}"
+            assert info["scaleZ"] > info["maxPaneZ"], (
+                f"scale z={info['scaleZ']} covered by deep stack "
+                f"(max pane z={info['maxPaneZ']}): {info}"
+            )
+            assert info["boxZ"] > info["scaleZ"], (
+                f"crop mask must stay above scale: {info}"
             )
 
     def test_saved_bounds_restore(self, browser, tmp_path):
@@ -1434,32 +1500,6 @@ class TestExportControlBrowser:
             )
             assert len(errors) == 0, f"JS errors on two-basemap export: {errors}"
 
-    def test_crop_box_drag_resize(self, browser, tmp_path):
-        """Drag bottom-right handle to resize the crop box."""
-        with use_page(self._make_page, browser, tmp_path) as (page, _):
-            page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
-            page.wait_for_selector(
-                ".foliplus-export-box", state="attached", timeout=5000
-            )
-
-            initial = page.evaluate(_js("ExportControl/read_box_rect"))
-
-            # Drag bottom-right handle to enlarge
-            handle = page.locator(".foliplus-export-handle.br")
-            hb = handle.bounding_box()
-            page.mouse.move(hb["x"] + hb["width"] / 2, hb["y"] + hb["height"] / 2)
-            page.mouse.down()
-            page.mouse.move(
-                hb["x"] + hb["width"] / 2 + 80,
-                hb["y"] + hb["height"] / 2 + 40,
-                steps=10,
-            )
-            page.mouse.up()
-            page.wait_for_timeout(200)
-
-            after_resize = page.evaluate(_js("ExportControl/read_box_rect"))
-            assert after_resize["w"] > initial["w"], "Resize should enlarge width"
-
     def test_locked_box_follows_zoom(self, browser, tmp_path):
         """Locked crop box follows the map after zoom."""
         with use_page(self._make_page, browser, tmp_path) as (page, _):
@@ -1483,6 +1523,108 @@ class TestExportControlBrowser:
             after_zoom = page.evaluate(_js("ExportControl/read_box_rect"))
             assert after_zoom["w"] > 0 and after_zoom["h"] > 0, (
                 f"Box disappeared after zoom, size={after_zoom}"
+            )
+
+    def test_drag_crop_box_no_jump(self, browser, tmp_path):
+        """Dragging the crop box center must move it continuously, without a
+        single frame that jumps the box past the natural frame-to-frame delta.
+
+        Regression for "crop-box jumps mid-drag": a jump is a symptom of
+        accumulated movement being applied on release, or a mid-drag re-read
+        of the wrong rect (usually a stale closure) that snaps the box
+        forward.
+        """
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
+            page.wait_for_selector(
+                ".foliplus-export-box", state="attached", timeout=5000
+            )
+
+            start = page.evaluate(_js("ExportControl/read_box_center"))
+            assert not start.get("error"), f"setup failed: {start}"
+
+            sample_promise = page.evaluate_handle(
+                _js("ExportControl/sample_box_drag_frames")
+            )
+
+            cx = start["centerX"]
+            cy = start["centerY"]
+            page.mouse.move(cx, cy)
+            page.mouse.down()
+            page.mouse.move(cx + 120, cy, steps=20)
+            page.mouse.up()
+            page.wait_for_timeout(200)
+
+            result = sample_promise.json_value()
+            samples = result["samples"]
+            assert not errors, f"JS errors: {errors}"
+            assert samples, "no samples collected"
+
+            # Compute per-frame delta. A single step is 120 / 20 = 6 px, so a
+            # legitimate step-to-step delta should be at most ~2x that (6 px /
+            # frame × 2 = 12 px for jitter). A spike is a frame where the box
+            # moved by 3× the per-step delta in one frame -- the "jump".
+            deltas = []
+            for i in range(1, len(samples)):
+                d = abs(samples[i]["l"] - samples[i - 1]["l"])
+                deltas.append(d)
+            per_step = 120 / 20  # 6 px
+            spikes = [d for d in deltas if d > per_step * 3]
+            assert not spikes, (
+                f"crop box jumped during drag -- a frame moved by {max(spikes):.1f}px "
+                f"when the per-step target was {per_step}px. All deltas: {deltas}"
+            )
+
+    def test_locked_box_drag_out_stays_out_after_confirm(self, browser, tmp_path):
+        """Dragging the crop box partially outside the viewport, then pressing
+        confirm, must not snap the box back inside.
+
+        Regression for "crop box snaps back on confirm after being dragged
+        out of view": confirm previously
+        read the saved viewport bounds instead of the box's own geo bounds, so
+        a box that was dragged off the visible edge snapped back onto the map
+        the moment it was locked.
+        """
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
+            page.wait_for_selector(
+                ".foliplus-export-box", state="attached", timeout=5000
+            )
+            before = page.evaluate(_js("ExportControl/read_box_rect"))
+            assert before["w"] > 0 and before["h"] > 0, f"no box: {before}"
+
+            # Drag the box center 400 px down + 200 px right -- past the
+            # viewport on a normal 1280×800 viewport.
+            center = page.locator(".foliplus-export-center")
+            center_box = center.bounding_box()
+            cx = center_box["x"] + center_box["width"] / 2
+            cy = center_box["y"] + center_box["height"] / 2
+            page.mouse.move(cx, cy)
+            page.mouse.down()
+            page.mouse.move(cx + 200, cy + 400, steps=10)
+            page.mouse.up()
+            page.wait_for_timeout(300)
+            after_drag = page.evaluate(_js("ExportControl/read_box_rect"))
+            # The box moved to where we dragged it.
+            assert after_drag["l"] > before["l"] or after_drag["t"] > before["t"], (
+                f"box did not move on drag: {before} -> {after_drag}"
+            )
+
+            # Confirm. The box's geo bounds must be preserved -- no snap back.
+            page.locator(".foliplus-tool-bar .foliplus-confirm").click()
+            page.wait_for_selector(
+                ".foliplus-export-box.foliplus-locked",
+                state="attached",
+                timeout=5000,
+            )
+            page.wait_for_timeout(300)
+            after_confirm = page.evaluate(_js("ExportControl/read_box_rect"))
+            assert not errors, f"JS errors: {errors}"
+            # The left edge should not have moved back past its dragged position
+            # (allow 1 px of rounding).
+            assert after_confirm["l"] >= after_drag["l"] - 1, (
+                f"confirm snapped the box back toward the viewport: "
+                f"dragged to {after_drag['l']}, after confirm {after_confirm['l']}"
             )
 
     def test_export_marker_opacity_blend(self, browser, tmp_path):

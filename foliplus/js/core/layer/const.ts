@@ -1,5 +1,8 @@
 // core constants — shared by LayerRegistry / PaneManager.
 // Pure values, no DOM / CONF dependency. Re-exported by LayerControl/const.
+/** Layer-stack z bases — the "layer z" family. Values are frozen; the
+ *  three-family z policy table (layer / control / export) lives in
+ *  css/common/token.css → Z-index. */
 const Z_INDEX = { BASE: 600, TILE_BASE: 200, STEP: 10 };
 
 const RECURSION = { PANE_DEPTH: 5, LAYER_DEPTH: 10 };
@@ -63,7 +66,7 @@ const GEOM_TYPE = {
 
 /** Layer group names — the `LayerInfo.group` vocabulary ("base" | "overlay").
  *  Owned by core so z / registry / factory compare against one definition;
- *  LayerControl/const re-exports it as `CONST.GROUP`. */
+ *  consumers import it from the `core/layer` barrel. */
 const GROUP = { OVERLAY: "overlay", BASE: "base" } as const;
 
 /** Layer kind names — the `LayerKind` vocabulary ("tile" | "vector" | "canvas"
@@ -102,11 +105,37 @@ const CAP_TIER = {
   NONE: "none",
 } as const;
 
+/** Pane-role names — the `PaneSpec.role` vocabulary
+ *  ("base" | "sub" | "annotation" | "preview"). Owned by core so z
+ *  arithmetic, `PaneManager`'s spec gate, and `LayerControl`'s annotation /
+ *  focus rules read one definition; `PaneRole` in type.ts derives from it,
+ *  so the vocabulary cannot drift. */
+const PANE_ROLE = {
+  BASE: "base",
+  SUB: "sub",
+  ANNOTATION: "annotation",
+  PREVIEW: "preview",
+} as const;
+
+/** Surface-content kind names — the discriminator vocabulary of
+ *  `SurfaceContentOpts` and `SurfaceContentHandle`
+ *  ("layers" | "canvas" | "color" | "custom"). Owned by core so
+ *  `LayerFactory`'s branch split and stamps read one definition. The
+ *  discriminated-union type positions stay literal (they are the type-level
+ *  discriminators themselves). */
+const CONTENT_KIND = {
+  LAYERS: "layers",
+  CANVAS: "canvas",
+  COLOR: "color",
+  CUSTOM: "custom",
+} as const;
+
 export {
   CACHE,
   CANVAS_PANE_PREFIX,
   CAP_TIER,
   COLOR_PANE_PREFIX,
+  CONTENT_KIND,
   DIM,
   FALLBACK_PANE_PREFIX,
   GEOM_TYPE,
@@ -114,6 +143,7 @@ export {
   HIDDEN,
   KIND,
   PANE_NAME_PATTERN,
+  PANE_ROLE,
   RECURSION,
   Z_INDEX,
 };
