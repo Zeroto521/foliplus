@@ -29,6 +29,7 @@
 - `MeasureControl`: hint when a localStorage write is rejected (quota exhausted, private mode), so the measurement list does not drop silently on reload ([#281](https://github.com/Zeroto521/foliplus/pull/281))
 - `sanitize`: allowlist gate for the three sinks that accept external markup — layer icons, hint icons, and reverse-geocoded addresses — so they can only reach the DOM as text ([#286](https://github.com/Zeroto521/foliplus/pull/286), [#313](https://github.com/Zeroto521/foliplus/pull/313))
 - `SearchControl`: pluggable geocode providers — built-in Nominatim, Photon and Pelias plus a declarative custom-provider interface for address search, autocomplete and reverse geocoding, with per-provider throttling and provider-scoped cache ([#310](https://github.com/Zeroto521/foliplus/pull/310), [#314](https://github.com/Zeroto521/foliplus/pull/314))
+- Package: ship PEP 561 `py.typed` and re-export the public type aliases ([#319](https://github.com/Zeroto521/foliplus/pull/319))
 - `LayerControl`: `setVisible(id, visible)` on `LayerAPI` for programmatic layer visibility, taking the same transition and persistence as the panel checkbox ([#321](https://github.com/Zeroto521/foliplus/pull/321))
 - `LayerControl`/`HeatmapControl`/`SearchControl`/`MeasureControl`: `collapse_on_outside` — whether a press outside the panel collapses it. Default `false` for `LayerControl`, whose panel is read alongside the map and whose busiest gesture is drag-pan / click-select; `true` for the other three, so their behaviour is unchanged ([#428](https://github.com/Zeroto521/foliplus/pull/428))
 - `LayerControl`: delete a layer from its ⋮ menu — a two-click confirm behind a divider, deletions persisted per map, colour basemap included ([#431](https://github.com/Zeroto521/foliplus/pull/431), [#499](https://github.com/Zeroto521/foliplus/pull/499), [#517](https://github.com/Zeroto521/foliplus/pull/517))
@@ -89,7 +90,6 @@
 - `LayerControl`: rename `isBase` to `group: "base" | "overlay"` — breaking against the v0.3.x API; migrate `isBase: true` → `group: "base"`, `isBase: false` → `group: "overlay"` ([#524](https://github.com/Zeroto521/foliplus/pull/524))
 - `core/layer`: rename `styleDefaults` to `styleDefaultsProvider` — breaking against the v0.3.x API; migrate `styleDefaults: …` → `styleDefaultsProvider: …` ([#530](https://github.com/Zeroto521/foliplus/pull/530))
 - `CSS tokens`: prefix all custom properties with `--foliplus-*` — breaking against the v0.3.x API; migrate every override `--x` → `--foliplus-x` ([#542](https://github.com/Zeroto521/foliplus/pull/542))
-- `CSS tokens`: remove the per-component `--foliplus-drag-pulse-duration`, `--foliplus-ripple-duration` and `--foliplus-sweep-duration` in favour of the motion ladder `--foliplus-motion-fast` / `--foliplus-motion-normal` / `--foliplus-motion-slow` (0.5s / 0.7s / 0.8s, values unchanged) — breaking against any override of the old names; migrate to the matching step ([#546](https://github.com/Zeroto521/foliplus/pull/546))
 
 ### Fixed
 
