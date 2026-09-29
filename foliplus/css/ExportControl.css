@@ -1,17 +1,17 @@
 /* ── Export Control ──
   Z-index vocabulary: "export z", scoped to .foliplus-export-mode only.
   Full three-family policy table (layer / control / export):
-  css/common/token.css →Z-index.
+  css/common/token.css → Z-index.
 
   Local crop stack (base = 9500, all calc(var(--foliplus-z-export-base) + N)):
 
-    overlay    = base           (9500)  —transparent placeholder
-    box        = base + 1       (9501)  —dashed border, ::before dims outside
-    center     = base + 3       (9503)  —anchor dot inside box
-    handles    = base + 5       (9505)  —8 drag handles on box edges
-    controls   = base + 10      (9510)  —other leaflet controls above mask
-    scale/attr = base - 10      (9490)  —dim under crop mask, above all data layers
-    export ctrl= base + 200     (9700)  —toggle button, always clickable
+    overlay    = base           (9500)  — transparent placeholder
+    box        = base + 1       (9501)  — dashed border, ::before dims outside
+    center     = base + 3       (9503)  — anchor dot inside box
+    handles    = base + 5       (9505)  — 8 drag handles on box edges
+    controls   = base + 10      (9510)  — other leaflet controls above mask
+    scale/attr = base - 10      (9490)  — dim under crop mask, above all data layers
+    export ctrl= base + 200     (9700)  — toggle button, always clickable
 
   Blocker/preview rides --foliplus-z-index-top (control z), not export z. */
 
@@ -147,7 +147,7 @@
     left top,
     right top;
   /* Position the dashes against the border box (outer edge), not the default
-     padding box —otherwise the 2px border pushes them inward and leaves a
+     padding box — otherwise the 2px border pushes them inward and leaves a
      gap between the dashes and the ::before dim boundary. */
   background-origin: border-box;
   background-repeat: no-repeat;
@@ -204,7 +204,7 @@
   /* Cursor direction is the grab affordance and stays as-is; hover/press
      only warm the surface and add the shared slider glow. Transform is
      reserved for the per-edge translate below, so press feedback is
-     background/shadow only —composing scale() with eight different
+     background/shadow only — composing scale() with eight different
      translate() values would fork every edge rule. */
   transition:
     background-color var(--foliplus-transition-fast),
@@ -270,7 +270,7 @@
 }
 
 /* ── Center Anchor ──
-   Look comes from common/button.css's `.foliplus-dot-solid` —the same
+   Look comes from common/button.css's `.foliplus-dot-solid` — the same
    recipe as the measure centroid. transform (not negative margin) keeps the
    centering exact at subpixel sizes. */
 .foliplus-export-center {
