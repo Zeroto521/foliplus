@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { projectLayer } from "#foliplus/LayerControl/ui/projection.js";
+import { clearIntent, setIntent } from "#foliplus/LayerControl/ui/intent.js";
 
 const mockMap = {
   getMinZoom: () => 0,
@@ -70,20 +71,20 @@ describe("computeEffectiveShown", () => {
     // is not enough — the user must have overridden `visible` for the hidden
     // state to be authoritative. Without the override the author default
     // wins — a derived dimension may only suppress.
-    mockUI.visibleMap["layer1"] = false;
+    setIntent(mockUI, "layer1", "visible", false);
     mockUI.intentProvenance.layer1 = ["visible"];
     expect(projectLayer(mockUI, makeLayerInfo("layer1")).effectiveShown).toBe(false);
-    delete mockUI.visibleMap["layer1"];
+    clearIntent(mockUI, "layer1", "visible");
     delete mockUI.intentProvenance.layer1;
   });
 
   it("returns true when focus is active, even out of range", () => {
-    mockUI.zoomRangeMap["layer1"] = [0, 5];
+    setIntent(mockUI, "layer1", "zoomRange", [0, 5]);
     mockUI.focusingLayerId = "focus";
     const result = projectLayer(mockUI, makeLayerInfo("layer1")).effectiveShown;
     expect(result).toBe(true);
     mockUI.focusingLayerId = null;
-    delete mockUI.zoomRangeMap["layer1"];
+    clearIntent(mockUI, "layer1", "zoomRange");
   });
 
   it("returns true when no range is set", () => {
@@ -92,37 +93,37 @@ describe("computeEffectiveShown", () => {
   });
 
   it("returns true when zoom is within range", () => {
-    mockUI.zoomRangeMap["layer1"] = [5, 15];
+    setIntent(mockUI, "layer1", "zoomRange", [5, 15]);
     const result = projectLayer(mockUI, makeLayerInfo("layer1")).effectiveShown;
     expect(result).toBe(true);
-    delete mockUI.zoomRangeMap["layer1"];
+    clearIntent(mockUI, "layer1", "zoomRange");
   });
 
   it("returns false when zoom is below range", () => {
-    mockUI.zoomRangeMap["layer1"] = [11, 15];
+    setIntent(mockUI, "layer1", "zoomRange", [11, 15]);
     const result = projectLayer(mockUI, makeLayerInfo("layer1")).effectiveShown;
     expect(result).toBe(false);
-    delete mockUI.zoomRangeMap["layer1"];
+    clearIntent(mockUI, "layer1", "zoomRange");
   });
 
   it("returns false when zoom is above range", () => {
-    mockUI.zoomRangeMap["layer1"] = [5, 9];
+    setIntent(mockUI, "layer1", "zoomRange", [5, 9]);
     const result = projectLayer(mockUI, makeLayerInfo("layer1")).effectiveShown;
     expect(result).toBe(false);
-    delete mockUI.zoomRangeMap["layer1"];
+    clearIntent(mockUI, "layer1", "zoomRange");
   });
 
   it("returns false when range is inverted (min > max after clamp)", () => {
-    mockUI.zoomRangeMap["layer1"] = [15, 5];
+    setIntent(mockUI, "layer1", "zoomRange", [15, 5]);
     const result = projectLayer(mockUI, makeLayerInfo("layer1")).effectiveShown;
     expect(result).toBe(false);
-    delete mockUI.zoomRangeMap["layer1"];
+    clearIntent(mockUI, "layer1", "zoomRange");
   });
 
   it("clamps range to map bounds", () => {
-    mockUI.zoomRangeMap["layer1"] = [-5, 25];
+    setIntent(mockUI, "layer1", "zoomRange", [-5, 25]);
     const result = projectLayer(mockUI, makeLayerInfo("layer1")).effectiveShown;
     expect(result).toBe(true);
-    delete mockUI.zoomRangeMap["layer1"];
+    clearIntent(mockUI, "layer1", "zoomRange");
   });
 });

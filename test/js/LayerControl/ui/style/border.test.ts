@@ -1,3 +1,4 @@
+import { getIntent, seedIntentMap, setIntent } from "#foliplus/LayerControl/ui/intent.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { LayerManager } from "#foliplus/LayerControl/manager.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
@@ -97,7 +98,7 @@ describe("layerCanBorder", () => {
   beforeEach(() => {
     ({ manager, ui } = initFixture());
     ui.foldedGroups = new Set();
-    ui.visibleMap = {};
+    seedIntentMap(ui, "visible", {});
   });
 
   afterEach(() => {
@@ -254,7 +255,7 @@ describe("authoredBorder", () => {
   beforeEach(() => {
     ({ manager, ui } = initFixture());
     ui.foldedGroups = new Set();
-    ui.visibleMap = {};
+    seedIntentMap(ui, "visible", {});
   });
 
   afterEach(() => {
@@ -265,8 +266,8 @@ describe("authoredBorder", () => {
 
   it("reads the first carrier's options — a stored value never feeds the author", () => {
     const leaf = makeLeaf("#00ff00", 4);
-    ui.borderColorMap.vec1 = "#ff0000";
-    ui.borderWeightMap.vec1 = 7;
+    setIntent(ui, "vec1", "borderColor", "#ff0000");
+    setIntent(ui, "vec1", "borderWeight", 7);
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
 
     expect(authoredBorder(ui, "vec1")).toEqual({ color: "#00ff00", weight: 4 });
@@ -327,7 +328,7 @@ describe("commit pipeline", () => {
   beforeEach(() => {
     ({ manager, ui } = initFixture());
     ui.foldedGroups = new Set();
-    ui.visibleMap = {};
+    seedIntentMap(ui, "visible", {});
   });
 
   afterEach(() => {
@@ -342,7 +343,7 @@ describe("commit pipeline", () => {
 
     commitBorderColor(ui, "vec1", "#f00");
 
-    expect(ui.borderColorMap.vec1).toBe("#ff0000");
+    expect(getIntent(ui, "vec1", "borderColor")).toBe("#ff0000");
     expect(ui.intentProvenance.vec1).toContain("borderColor");
     expect(leaf.setStyle).toHaveBeenCalledTimes(1);
     expect(leaf.setStyle).toHaveBeenCalledWith({ color: "#ff0000" });
@@ -388,7 +389,7 @@ describe("commit pipeline", () => {
 
     commitBorderWeight(ui, "vec1", 3.5);
 
-    expect(ui.borderWeightMap.vec1).toBe(3.5);
+    expect(getIntent(ui, "vec1", "borderWeight")).toBe(3.5);
     expect(ui.intentProvenance.vec1).toContain("borderWeight");
     expect(leaf.setStyle).toHaveBeenCalledWith({ weight: 3.5 });
   });
@@ -449,7 +450,7 @@ describe("commit pipeline", () => {
     });
 
     expect(() => commitBorderColor(ui, "can1", "#ff0000")).not.toThrow();
-    expect(ui.borderColorMap.can1).toBe("#ff0000");
+    expect(getIntent(ui, "can1", "borderColor")).toBe("#ff0000");
   });
 
   it("skips a width write that revisits the same value", () => {
@@ -474,7 +475,7 @@ describe("bindBorderRow", () => {
   beforeEach(() => {
     ({ manager, ui } = initFixture());
     ui.foldedGroups = new Set();
-    ui.visibleMap = {};
+    seedIntentMap(ui, "visible", {});
   });
 
   afterEach(() => {
@@ -498,7 +499,7 @@ describe("bindBorderRow", () => {
     width.value = "5";
     width.dispatchEvent(new Event("change", { bubbles: true }));
 
-    expect(ui.borderWeightMap.vec1).toBe(5);
+    expect(getIntent(ui, "vec1", "borderWeight")).toBe(5);
     expect(ui.intentProvenance.vec1).toContain("borderWeight");
     expect(leaf.setStyle).toHaveBeenCalledWith({ weight: 5 });
   });
@@ -515,7 +516,7 @@ describe("bindBorderRow", () => {
     swatch.value = "#abcdef";
     swatch.dispatchEvent(new Event("input", { bubbles: true }));
 
-    expect(ui.borderColorMap.vec1).toBe("#abcdef");
+    expect(getIntent(ui, "vec1", "borderColor")).toBe("#abcdef");
     expect(ui.intentProvenance.vec1).toContain("borderColor");
     expect(leaf.setStyle).toHaveBeenCalledWith({ color: "#abcdef" });
   });
@@ -534,7 +535,7 @@ describe("resetLayerBorder", () => {
   beforeEach(() => {
     ({ manager, ui } = initFixture());
     ui.foldedGroups = new Set();
-    ui.visibleMap = {};
+    seedIntentMap(ui, "visible", {});
   });
 
   afterEach(() => {
@@ -555,8 +556,8 @@ describe("resetLayerBorder", () => {
 
     resetLayerBorder(ui, "grp1");
 
-    expect(ui.borderColorMap.grp1).toBeUndefined();
-    expect(ui.borderWeightMap.grp1).toBeUndefined();
+    expect(getIntent(ui, "grp1", "borderColor")).toBeUndefined();
+    expect(getIntent(ui, "grp1", "borderWeight")).toBeUndefined();
     // unmarkOverride drops the entry once both dimensions are cleared.
     const overrides = ui.intentProvenance.grp1 ?? [];
     expect(overrides).not.toContain("borderColor");
@@ -605,13 +606,13 @@ describe("resetLayerBorder", () => {
     // cannot find a carrier for, but the persisted choice is still dropped,
     // so a reload does not try to apply a stroke to a layer that has none.
     manager.registerLayer({ id: "ghost", name: "G", layer: null } as any);
-    ui.borderColorMap.ghost = "#ff0000";
-    ui.borderWeightMap.ghost = 4;
+    setIntent(ui, "ghost", "borderColor", "#ff0000");
+    setIntent(ui, "ghost", "borderWeight", 4);
     ui.intentProvenance.ghost = ["borderColor", "borderWeight"];
 
     expect(() => resetLayerBorder(ui, "ghost")).not.toThrow();
-    expect(ui.borderColorMap.ghost).toBeUndefined();
-    expect(ui.borderWeightMap.ghost).toBeUndefined();
+    expect(getIntent(ui, "ghost", "borderColor")).toBeUndefined();
+    expect(getIntent(ui, "ghost", "borderWeight")).toBeUndefined();
     const overrides = ui.intentProvenance.ghost ?? [];
     expect(overrides).not.toContain("borderColor");
     expect(overrides).not.toContain("borderWeight");
@@ -686,7 +687,7 @@ describe("highlight restore", () => {
   beforeEach(() => {
     ({ manager, ui } = initFixture());
     ui.foldedGroups = new Set();
-    ui.visibleMap = {};
+    seedIntentMap(ui, "visible", {});
   });
 
   afterEach(() => {
@@ -829,7 +830,7 @@ describe("applyBorderToLayer", () => {
   beforeEach(() => {
     ({ manager, ui } = initFixture());
     ui.foldedGroups = new Set();
-    ui.visibleMap = {};
+    seedIntentMap(ui, "visible", {});
   });
 
   afterEach(() => {
@@ -841,8 +842,8 @@ describe("applyBorderToLayer", () => {
   it("writes the stored stroke onto the layer's leaves", () => {
     const leaf = makeLeaf();
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
-    ui.borderColorMap.vec1 = "#0000ff";
-    ui.borderWeightMap.vec1 = 6;
+    setIntent(ui, "vec1", "borderColor", "#0000ff");
+    setIntent(ui, "vec1", "borderWeight", 6);
 
     applyBorderToLayer(ui, "vec1");
 
@@ -854,8 +855,8 @@ describe("applyBorderToLayer", () => {
     const b = makeLeaf();
     manager.registerLayer({ id: "vecA", name: "A", layer: a });
     manager.registerLayer({ id: "vecB", name: "B", layer: b });
-    ui.borderColorMap.vecA = "#0000ff";
-    ui.borderColorMap.vecB = "#00ff00";
+    setIntent(ui, "vecA", "borderColor", "#0000ff");
+    setIntent(ui, "vecB", "borderColor", "#00ff00");
 
     applyBorderToLayer(ui, "vecA");
 
@@ -873,7 +874,7 @@ describe("applyBorderToLayer", () => {
   });
 
   it("is a no-op for an id with no registry entry", () => {
-    ui.borderColorMap.ghost = "#0000ff";
+    setIntent(ui, "ghost", "borderColor", "#0000ff");
 
     expect(() => applyBorderToLayer(ui, "ghost")).not.toThrow();
   });
@@ -883,8 +884,8 @@ describe("applyBorderToLayer", () => {
     const orphan = makeLeaf();
     manager.registerLayer({ id: "vec1", name: "V", layer: recorded });
     manager.registerLayer({ id: "vec2", name: "W", layer: orphan });
-    ui.borderColorMap.vec1 = "#0000ff";
-    ui.borderColorMap.vec2 = "#00ff00";
+    setIntent(ui, "vec1", "borderColor", "#0000ff");
+    setIntent(ui, "vec2", "borderColor", "#00ff00");
     ui.intentProvenance.vec1 = ["borderColor"];
     // vec2 holds a stored value that never went through markOverride — the
     // drift the single enumeration source exists to ignore. Enumerating the
@@ -904,7 +905,7 @@ describe("buildBorderRow", () => {
   beforeEach(() => {
     ({ manager, ui } = initFixture());
     ui.foldedGroups = new Set();
-    ui.visibleMap = {};
+    seedIntentMap(ui, "visible", {});
   });
 
   afterEach(() => {
@@ -944,8 +945,8 @@ describe("buildBorderRow", () => {
   it("shows the stored choice over the authored value", () => {
     const leaf = makeLeaf("#00ff00", 3);
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
-    ui.borderColorMap.vec1 = "#ff0000";
-    ui.borderWeightMap.vec1 = 5.5;
+    setIntent(ui, "vec1", "borderColor", "#ff0000");
+    setIntent(ui, "vec1", "borderWeight", 5.5);
 
     const row = buildBorderRow(ui, "vec1");
 

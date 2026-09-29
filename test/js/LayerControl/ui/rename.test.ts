@@ -11,6 +11,7 @@ import {
   overlayFoldBtn,
   pressKey,
 } from "./fixture.js";
+import { getIntent, seedIntentMap } from "#foliplus/LayerControl/ui/intent.js";
 
 describe("LayerUI rename", () => {
   let manager: LayerManager;
@@ -32,7 +33,7 @@ describe("LayerUI rename", () => {
       });
     }
     ui.foldedGroups = new Set();
-    ui.visibleMap = {};
+    seedIntentMap(ui, "visible", {});
     // Folded-group state is persisted to localStorage, so a fold from one test
     // would be re-read by the next test's LayerUI constructor and present as
     // already-folded.
@@ -135,7 +136,7 @@ describe("LayerUI rename", () => {
 
       expect(ui.activeRenameId).toBeNull();
       expect(label.textContent).toBe("New Name");
-      expect(ui.renamedNames.overlay1).toBe("New Name");
+      expect(getIntent(ui, "overlay1", "name")).toBe("New Name");
       expect(item.classList.contains(CONST.CLASSES.RENAMING)).toBe(false);
     });
 
@@ -150,7 +151,7 @@ describe("LayerUI rename", () => {
       input.dispatchEvent(new Event("blur"));
 
       expect(label.textContent).toBe("Via Blur");
-      expect(ui.renamedNames.overlay1).toBe("Via Blur");
+      expect(getIntent(ui, "overlay1", "name")).toBe("Via Blur");
     });
 
     it("Escape cancels and restores the original label text", () => {
@@ -221,7 +222,7 @@ describe("LayerUI rename", () => {
       input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
 
       expect(label.textContent).toBe("Trimmed");
-      expect(ui.renamedNames.overlay1).toBe("Trimmed");
+      expect(getIntent(ui, "overlay1", "name")).toBe("Trimmed");
     });
 
     it("committing an unchanged name does not write to renamedNames", () => {
@@ -234,7 +235,7 @@ describe("LayerUI rename", () => {
       input.value = "Polygons"; // unchanged
       input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
 
-      expect(ui.renamedNames["overlay1"]).toBeUndefined();
+      expect(getIntent(ui, "overlay1", "name")).toBeUndefined();
     });
 
     it("committing a changed name records it in renamedNames", () => {
@@ -247,7 +248,7 @@ describe("LayerUI rename", () => {
       input.value = "Changed";
       input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
 
-      expect(ui.renamedNames["overlay1"]).toBe("Changed");
+      expect(getIntent(ui, "overlay1", "name")).toBe("Changed");
     });
 
     it("committing a rename updates the checkbox aria-label, not its tooltip", () => {
@@ -383,7 +384,7 @@ describe("LayerUI rename", () => {
         }),
       );
 
-      expect(ui.renamedNames["overlay1"]).toBe("New Name");
+      expect(getIntent(ui, "overlay1", "name")).toBe("New Name");
       expect(toggleSpy).not.toHaveBeenCalled();
       expect(checkbox.checked).toBe(true);
     });
@@ -439,7 +440,7 @@ describe("LayerUI rename", () => {
 
       expect(ui.activeRenameId).toBeNull();
       expect(label.textContent).toBe("My Base");
-      expect(ui.renamedNames[CONST.SOLID_BASEMAP_ID]).toBe("My Base");
+      expect(getIntent(ui, CONST.SOLID_BASEMAP_ID, "name")).toBe("My Base");
       // The colour basemap is now in the registry (for the executor) — rename
       // still persists to renamedNames, not the registry entry's name field.
       expect(manager.layerRegistry.get(CONST.SOLID_BASEMAP_ID)?.name).not.toBe(
@@ -511,7 +512,7 @@ describe("LayerUI rename", () => {
 
       ui.loadPersistedState();
 
-      expect(ui.renamedNames).toEqual({ overlay1: "Over1", base1: "Over2" });
+      expect(ui.intents ?? {}).toEqual({ overlay1: { name: "Over1" }, base1: { name: "Over2" } });
     });
 
     it("applyUserState overwrites the registry name and the label text", () => {
@@ -524,7 +525,7 @@ describe("LayerUI rename", () => {
       ui.applyUserState();
 
       const item = findItem(ui, "overlay1");
-      expect(ui.renamedNames.overlay1).toBe("Persisted Name");
+      expect(getIntent(ui, "overlay1", "name")).toBe("Persisted Name");
       // The sweep pushes the rename into the registry projection as well.
       expect(manager.layerRegistry.get("overlay1")?.name).toBe("Persisted Name");
       expect(item.querySelector("label")!.textContent).toBe("Persisted Name");
@@ -587,7 +588,7 @@ describe("LayerUI rename", () => {
       // insertLayerItem calls applyUserState(id) for every late registration,
       // including layers the user never renamed. A missing rename must be a
       // no-op, not a write of undefined over the registry's own name.
-      ui.renamedNames = {};
+      seedIntentMap(ui, "name", {});
 
       const before = manager.layerRegistry.get("base1")!.name;
       const label = findItem(ui, "base1")!.querySelector("label")!;
@@ -613,19 +614,19 @@ describe("LayerUI rename", () => {
       label.textContent = "Polygons";
       checkbox.setAttribute("aria-label", "Polygons");
       checkbox.title = "Polygons";
-      ui.renamedNames = {};
+      seedIntentMap(ui, "name", {});
 
       window.localStorage.setItem(CONST.STORAGE.KEY, "not-json");
       ui.loadPersistedState();
-      expect(ui.renamedNames).toEqual({});
+      expect(ui.intents ?? {}).toEqual({});
 
       window.localStorage.setItem(CONST.STORAGE.KEY, "[]");
       ui.loadPersistedState();
-      expect(ui.renamedNames).toEqual({});
+      expect(ui.intents ?? {}).toEqual({});
 
       window.localStorage.setItem(CONST.STORAGE.KEY, "null");
       ui.loadPersistedState();
-      expect(ui.renamedNames).toEqual({});
+      expect(ui.intents ?? {}).toEqual({});
 
       // The label must stay at the pristine name — no crash, no empty text.
       expect(label.textContent).toBe("Polygons");

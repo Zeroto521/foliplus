@@ -13,6 +13,7 @@ import {
   overlayFoldBtn,
   pressKey,
 } from "./fixture.js";
+import { getIntent, seedIntentMap } from "#foliplus/LayerControl/ui/intent.js";
 
 describe("LayerUI keyboard", () => {
   let manager: LayerManager;
@@ -34,7 +35,7 @@ describe("LayerUI keyboard", () => {
       });
     }
     ui.foldedGroups = new Set();
-    ui.visibleMap = {};
+    seedIntentMap(ui, "visible", {});
     // Folded-group state is persisted to localStorage, so a fold from one test
     // would be re-read by the next test's LayerUI constructor and present as
     // already-folded.
@@ -129,7 +130,7 @@ describe("LayerUI keyboard", () => {
       cb.checked = false;
       ui.handleChange({ target: cb } as Event);
 
-      expect(ui.visibleMap["overlay1"]).toBe(false);
+      expect(getIntent(ui, "overlay1", "visible")).toBe(false);
       // 3 seeded layers + the colour basemap registered by initTypesAndVisibility.
       expect(ui.m.layers.length).toBe(4);
     });

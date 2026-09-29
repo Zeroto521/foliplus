@@ -1,3 +1,4 @@
+import { seedIntentMap } from "#foliplus/LayerControl/ui/intent.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerManager } from "#foliplus/LayerControl/manager.js";
@@ -33,7 +34,7 @@ describe("LayerUI attrs", () => {
       });
     }
     ui.foldedGroups = new Set();
-    ui.visibleMap = {};
+    seedIntentMap(ui, "visible", {});
     // Folded-group state is persisted to localStorage, so a fold from one test
     // would be re-read by the next test's LayerUI constructor and present as
     // already-folded.

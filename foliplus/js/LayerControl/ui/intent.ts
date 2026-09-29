@@ -172,5 +172,16 @@ const hasIntentValue = (ui: LayerUI, id: string, key: IntentKey): boolean => {
   }
 };
 
-export { clearIntent, dropIntent, getIntent, hasIntentValue, setIntent };
+/** Seed one dimension from a whole record (tests / bulk restore). */
+const seedIntentMap = <K extends IntentKey>(
+  ui: LayerUI,
+  key: K,
+  record: Record<string, NonNullable<LayerIntent[K]>>,
+): void => {
+  for (const [id, value] of Object.entries(record)) {
+    setIntent(ui, id, key, value);
+  }
+};
+
+export { clearIntent, dropIntent, getIntent, hasIntentValue, seedIntentMap, setIntent };
 export type { IntentKey };

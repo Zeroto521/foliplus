@@ -9,6 +9,7 @@ import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { intentVisibleOf, projectLayer } from "#foliplus/LayerControl/ui/projection.js";
 import { getLayerAlpha } from "#common/canvasAlpha.js";
 import { installLeafletGlobals } from "./fixture.js";
+import { clearIntent, getIntent, setIntent } from "#foliplus/LayerControl/ui/intent.js";
 
 // ────────────────────────────────────────────────────────────────────────
 // Gate: the executor must not let a derived dimension authorise
@@ -138,7 +139,7 @@ describe("executor: only intent authorises display", () => {
     map.getZoom.mockReturnValue(2);
     applyProjectionAll(ui);
     expect(map.addLayer).not.toHaveBeenCalled();
-    expect(ui.visibleMap["a"]).not.toBe(false);
+    expect(getIntent(ui, "a", "visible")).not.toBe(false);
   });
 });
 
@@ -174,7 +175,7 @@ describe("executor: intent authorises, policy only suppresses", () => {
     // Baseline: map.hasLayer → true, so the layer is on the map at the
     // current zoom (5). Add a stored range [3, 12] and move zoom to 2
     // (out of range).
-    ui.zoomRangeMap.r = [3, 12];
+    setIntent(ui, "r", "zoomRange", [3, 12]);
     ui.intentProvenance.r = ["zoomRange"];
     expect(map.hasLayer(layer)).toBe(true);
 
@@ -190,7 +191,7 @@ describe("executor: intent authorises, policy only suppresses", () => {
 
     // Intent is unchanged throughout: the user's choice is `visible`,
     // which never went into `visibleMap`. This is the #329 lock.
-    expect(ui.visibleMap["r"]).not.toBe(false);
+    expect(getIntent(ui, "r", "visible")).not.toBe(false);
     expect(ui.intentProvenance.r).toEqual(["zoomRange"]);
   });
 
@@ -212,7 +213,7 @@ describe("executor: intent authorises, policy only suppresses", () => {
     vi.advanceTimersByTime(350);
     vi.useRealTimers();
 
-    ui.zoomRangeMap.s = [3, 12];
+    setIntent(ui, "s", "zoomRange", [3, 12]);
     ui.intentProvenance.s = ["zoomRange"];
 
     // Snapshot the intent state.
@@ -262,7 +263,7 @@ describe("executor: late-carrier replay", () => {
     vi.advanceTimersByTime(350);
     vi.useRealTimers();
 
-    ui.opacityMap.h = 0.4;
+    setIntent(ui, "h", "opacity", 0.4);
     ui.intentProvenance.h = ["opacity"];
     applyProjection(ui, "h");
     // Default "redraw" arm: CSS live + layerAlpha stored for the next paint.
@@ -331,7 +332,7 @@ describe("executor: late-carrier replay", () => {
     // pane. The label pane is excluded from CSS (R11 bakes layerAlpha into
     // AnnotationCanvas draws) so the two carriers never double-compound.
     const applyAlpha = vi.spyOn(ui.m.annotation, "applyLayerAlpha");
-    ui.opacityMap.a1 = 0.3;
+    setIntent(ui, "a1", "opacity", 0.3);
     ui.intentProvenance.a1 = ["opacity"];
     applyProjection(ui, "a1");
     expect(paneFor("foliplus-annotation-a1").style.opacity).toBe("");
@@ -374,7 +375,7 @@ describe("executor: idempotent writes", () => {
     vi.useRealTimers();
 
     // A single change: store opacity, apply.
-    ui.opacityMap.p = 0.5;
+    setIntent(ui, "p", "opacity", 0.5);
     ui.intentProvenance.p = ["opacity"];
     applyProjection(ui, "p");
     const callsAfterOne =
@@ -418,7 +419,7 @@ describe("executor: idempotent writes", () => {
     // The registry-position independence is proven by "a" landing its 0.7
     // on the right canvas: if the diff misrouted by position, either
     // canvas would end up with 0.7 and the other with 1.
-    ui.opacityMap.a = 0.7;
+    setIntent(ui, "a", "opacity", 0.7);
     ui.intentProvenance.a = ["opacity"];
     applyProjectionAll(ui);
 
@@ -426,7 +427,7 @@ describe("executor: idempotent writes", () => {
     expect(bCanvas.style.opacity).toBe("1");
     expect(getLayerAlpha(aCanvas)).toBeCloseTo(0.7);
     expect(getLayerAlpha(bCanvas)).toBe(1);
-    expect(ui.opacityMap.b).toBeUndefined();
+    expect(getIntent(ui, "b", "opacity")).toBeUndefined();
   });
 });
 
@@ -489,7 +490,7 @@ describe("executor: carrier dispatch", () => {
     applyProjection(ui, "cv2");
     expect(canvas.classList.contains("hidden")).toBe(false);
 
-    ui.visibleMap["cv2"] = false; // the user unchecks
+    setIntent(ui, "cv2", "visible", false); // the user unchecks
     applyProjection(ui, "cv2");
     expect(canvas.classList.contains("hidden")).toBe(true);
   });
@@ -588,7 +589,7 @@ describe("executor: carrier dispatch", () => {
       geometryType: () => "point",
     } as unknown as ReturnType<typeof manager.surfaceFor>);
 
-    ui.opacityMap.n = 0.2;
+    setIntent(ui, "n", "opacity", 0.2);
     ui.intentProvenance.n = ["opacity"];
     applyProjection(ui, "n");
 
@@ -608,7 +609,7 @@ describe("executor: carrier dispatch", () => {
       geometryType: () => "polygon",
     } as unknown as ReturnType<typeof manager.surfaceFor>);
 
-    ui.opacityMap.img = 0.5;
+    setIntent(ui, "img", "opacity", 0.5);
     ui.intentProvenance.img = ["opacity"];
     applyProjection(ui, "img");
     applyProjection(ui, "img");
@@ -629,7 +630,7 @@ describe("executor: carrier dispatch", () => {
       geometryType: () => "polygon",
     } as unknown as ReturnType<typeof manager.surfaceFor>);
 
-    ui.opacityMap.tile = 0.5;
+    setIntent(ui, "tile", "opacity", 0.5);
     ui.intentProvenance.tile = ["opacity"];
     applyProjection(ui, "tile");
 
@@ -653,7 +654,7 @@ describe("executor: carrier dispatch", () => {
     ui.intentProvenance.z = ["visible"]; // authorise map writes
 
     // A range that includes the current zoom: layer is added.
-    ui.zoomRangeMap.z = [4, 10];
+    setIntent(ui, "z", "zoomRange", [4, 10]);
     applyProjection(ui, "z");
     const opts = layer.options as { minZoom?: number; maxZoom?: number };
     expect("minZoom" in opts).toBe(false);
@@ -673,7 +674,7 @@ describe("executor: carrier dispatch", () => {
     const { ui, map, manager } = boot([
       { id: "d", name: "D", group: "overlay", layer: { options: {} } as L.Layer },
     ]);
-    ui.opacityMap.d = 0.6;
+    setIntent(ui, "d", "opacity", 0.6);
     ui.intentProvenance.d = ["opacity"];
     (map.addLayer as ReturnType<typeof vi.fn>).mockClear();
 
@@ -711,11 +712,11 @@ describe("projectAll: the id set is a union, not just the registry", () => {
     vi.advanceTimersByTime(350);
     vi.useRealTimers();
 
-    ui.opacityMap.late = 0.3;
+    setIntent(ui, "late", "opacity", 0.3);
     ui.intentProvenance.late = ["opacity"];
     expect(() => applyProjectionAll(ui)).not.toThrow();
     // The record is untouched — the id simply has nothing to write to yet.
-    expect(ui.opacityMap.late).toBe(0.3);
+    expect(getIntent(ui, "late", "opacity")).toBe(0.3);
     expect(ui.intentProvenance.late).toEqual(["opacity"]);
   });
 });
@@ -765,7 +766,7 @@ describe("executor: the branches behind the gates", () => {
 
     map.removeLayer.mockClear();
     map.hasLayer = vi.fn(() => true);
-    ui.visibleMap["on"] = false;
+    setIntent(ui, "on", "visible", false);
     ui.intentProvenance.on = ["visible"];
     applyProjection(ui, "on");
 
@@ -785,14 +786,14 @@ describe("executor: the branches behind the gates", () => {
       geometryType: () => "polygon",
     } as unknown as ReturnType<typeof manager.surfaceFor>);
 
-    ui.opacityMap.b = 0.5;
+    setIntent(ui, "b", "opacity", 0.5);
     ui.intentProvenance.b = ["opacity"];
     applyProjection(ui, "b");
     expect((layer.options as { opacity?: number }).opacity).toBe(0.5);
 
     // Reset: the stored value leaves, so the write returns to the author's
     // base rather than to zero, and the mirror reads fully opaque.
-    delete ui.opacityMap.b;
+    clearIntent(ui, "b", "opacity");
     delete ui.intentProvenance.b;
     applyProjection(ui, "b");
     expect((layer.options as { opacity?: number }).opacity).toBe(1);
@@ -811,7 +812,7 @@ describe("executor: the branches behind the gates", () => {
       geometryType: () => "point",
     } as unknown as ReturnType<typeof manager.surfaceFor>);
 
-    ui.opacityMap.stale = 0.3;
+    setIntent(ui, "stale", "opacity", 0.3);
     ui.intentProvenance.stale = ["opacity"];
     expect(() => applyProjection(ui, "stale")).not.toThrow();
     expect(manager.layerRegistry.get("stale")?.opacity).toBe(1);
@@ -837,7 +838,7 @@ describe("executor: the branches behind the gates", () => {
     vi.advanceTimersByTime(350);
     vi.useRealTimers();
 
-    ui.opacityMap.gone = 0.4;
+    setIntent(ui, "gone", "opacity", 0.4);
     ui.intentProvenance.gone = ["opacity"];
     expect(() => applyProjection(ui, "gone")).not.toThrow();
     expect(manager.layerRegistry.get("gone")?.opacity).toBe(0.4);
@@ -1003,7 +1004,7 @@ describe("membership invariants: only intent + author snapshot authorise members
     const ui = manager.ui as LayerUI;
 
     expect(ui.authorVisible.has("unobs")).toBe(false);
-    expect(ui.visibleMap["unobs"]).not.toBe(false);
+    expect(getIntent(ui, "unobs", "visible")).not.toBe(false);
 
     applyProjectionAll(ui);
     expect(map.addLayer).not.toHaveBeenCalled();
@@ -1015,13 +1016,13 @@ describe("membership invariants: only intent + author snapshot authorise members
     // already says "not shown" — the policy dimension cannot flip it back.
     const { map, ui } = bootUnobserved("hidden");
 
-    ui.visibleMap["hidden"] = false;
+    setIntent(ui, "hidden", "visible", false);
     ui.intentProvenance.hidden = ["visible"];
     ui.focusingLayerId = null; // policy permissive
 
     applyProjectionAll(ui);
     expect(map.addLayer).not.toHaveBeenCalled();
-    expect(ui.visibleMap["hidden"]).toBe(false);
+    expect(getIntent(ui, "hidden", "visible")).toBe(false);
   });
 
   it("dismissing focus after intent=false does not add the layer back", () => {
@@ -1030,12 +1031,12 @@ describe("membership invariants: only intent + author snapshot authorise members
     // executor's own write path. But intent=false + policy=true must stay
     // false — a policy dimension can only suppress.
     const { map, ui } = bootUnobserved("p");
-    ui.visibleMap["p"] = false;
+    setIntent(ui, "p", "visible", false);
     ui.intentProvenance.p = ["visible"];
     ui.focusingLayerId = null;
 
     applyProjectionAll(ui);
     expect(map.addLayer).not.toHaveBeenCalled();
-    expect(ui.visibleMap["p"]).toBe(false);
+    expect(getIntent(ui, "p", "visible")).toBe(false);
   });
 });

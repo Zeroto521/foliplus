@@ -23,6 +23,7 @@ import {
 import { ANNOTATION_Z_OFFSET } from "#foliplus/core/layer/index.js";
 import { getLayerAlpha } from "#common/canvasAlpha.js";
 import * as Storage from "#common/storage.js";
+import { getIntent, setIntent } from "#foliplus/LayerControl/ui/intent.js";
 
 const ENFORCE_ORDER_DEBOUNCE_MS = 50;
 
@@ -1663,14 +1664,17 @@ describe("LayerManager", () => {
     } as any;
     manager.unregisterLayer("overlay1");
 
-    expect(manager.ui.visibleMap).toEqual({ overlay1: false, base1: false });
-    expect(manager.ui.opacityMap).toEqual({ overlay1: 0.4, base1: 1 });
-    expect(manager.ui.zoomRangeMap).toEqual({ overlay1: [3, 12] });
+    // Unregister keeps every stored dimension (maps + intents stay in step).
+    expect(getIntent(manager.ui, "overlay1", "visible")).toBe(false);
+    expect(getIntent(manager.ui, "overlay1", "opacity")).toBe(0.4);
+    expect(getIntent(manager.ui, "overlay1", "zoomRange")).toEqual([3, 12]);
+    expect(getIntent(manager.ui, "base1", "visible")).toBe(false);
+    expect(getIntent(manager.ui, "base1", "opacity")).toBe(1);
     expect(manager.ui.intentProvenance).toEqual({
       overlay1: ["visible", "opacity", "zoomRange"],
       base1: ["visible"],
     });
-    expect(manager.ui.renamedNames.overlay1).toBe("Renamed");
+    expect(getIntent(manager.ui, "overlay1", "name")).toBe("Renamed");
     expect(saveState).not.toHaveBeenCalled();
   });
 
@@ -1702,11 +1706,11 @@ describe("LayerManager", () => {
     } as any;
     manager.deleteLayer("overlay1");
 
-    expect(manager.ui.visibleMap).toEqual({ base1: false });
-    expect(manager.ui.opacityMap).toEqual({ base1: 1 });
-    expect(manager.ui.zoomRangeMap).toEqual({});
+    expect(getIntent(manager.ui, "overlay1", "visible")).toBeUndefined();
+    expect(getIntent(manager.ui, "base1", "visible")).toBe(false);
+    expect(getIntent(manager.ui, "base1", "opacity")).toBe(1);
     expect(manager.ui.intentProvenance).toEqual({ base1: ["visible"] });
-    expect(manager.ui.renamedNames.overlay1).toBeUndefined();
+    expect(getIntent(manager.ui, "overlay1", "name")).toBeUndefined();
     expect(saveState).toHaveBeenCalledTimes(1);
     expect(saveNamesState).toHaveBeenCalledTimes(1);
   });
@@ -1729,7 +1733,7 @@ describe("LayerManager", () => {
     } as any;
 
     expect(manager.deleteLayer("never-registered")).toBe(false);
-    expect(manager.ui.visibleMap).toEqual({ overlay1: false });
+    expect(getIntent(manager.ui, "overlay1", "visible")).toBe(false);
     expect(saveState).not.toHaveBeenCalled();
   });
 
@@ -1772,8 +1776,9 @@ describe("LayerManager", () => {
 
     expect(saveState).toHaveBeenCalledTimes(1);
     expect(saveNamesState).not.toHaveBeenCalled();
-    expect(manager.ui.visibleMap).toEqual({ base1: false });
-    expect(manager.ui.renamedNames).toEqual({ base1: "Renamed" });
+    expect(getIntent(manager.ui, "base1", "visible")).toBe(false);
+    expect(getIntent(manager.ui, "base1", "name")).toBe("Renamed");
+    expect(getIntent(manager.ui, "overlay1", "visible")).toBeUndefined();
   });
 
   it("deleteLayer prunes every persisted section that keys by layer id", () => {
@@ -3231,7 +3236,7 @@ describe("LayerManager user-assigned names", () => {
     manager.ui.applyUserState();
     warn.mockRestore();
 
-    expect(manager.ui.renamedNames["no-such-id"]).toBe("Ghost");
+    expect(getIntent(manager.ui, "no-such-id", "name")).toBe("Ghost");
     expect(warn).not.toHaveBeenCalledWith(expect.stringContaining("stale rename ids"));
   });
 
@@ -3240,18 +3245,18 @@ describe("LayerManager user-assigned names", () => {
     // its data goes empty — so a rename pruned there would vanish along with
     // a temporary data gap and resurface as the registry's own name. Only
     // deleteLayer prunes a rename.
-    manager.ui.renamedNames["ext"] = "My Layer";
+    setIntent(manager.ui, "ext", "name", "My Layer");
     const save = vi.fn();
     manager.ui.saveNamesState = save;
 
     expect(manager.unregisterLayer("ext")).toBe(true);
 
-    expect(manager.ui.renamedNames["ext"]).toBe("My Layer");
+    expect(getIntent(manager.ui, "ext", "name")).toBe("My Layer");
     expect(save).not.toHaveBeenCalled();
   });
 
   it("deleteLayer prunes the rename for a deleted layer", () => {
-    manager.ui.renamedNames["ext"] = "My Layer";
+    setIntent(manager.ui, "ext", "name", "My Layer");
     const save = vi.fn();
     manager.ui.saveNamesState = save;
     manager.ui.dropPersistedLayerState = (id: string) =>
@@ -3259,7 +3264,7 @@ describe("LayerManager user-assigned names", () => {
 
     expect(manager.deleteLayer("ext")).toBe(true);
 
-    expect(manager.ui.renamedNames["ext"]).toBeUndefined();
+    expect(getIntent(manager.ui, "ext", "name")).toBeUndefined();
     expect(save).toHaveBeenCalled();
   });
 

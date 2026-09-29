@@ -3,6 +3,7 @@
 // the map is a stub carrying the panes, the container box and the projection
 // the plan needs.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { setIntent } from "#foliplus/LayerControl/ui/intent.js";
 import { EVENTS } from "#core/event/index.js";
 import { AnnotationManager } from "#foliplus/LayerControl/annotation/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
@@ -763,7 +764,7 @@ describe("a layer that gains labelable content gets the stored intent on its new
       getPosition: () => ({ x: 0, y: 0 }),
     };
 
-    ui.opacityMap.overlay1 = 0.3;
+    setIntent(ui, "overlay1", "opacity", 0.3);
     ui.intentProvenance.overlay1 = ["opacity"];
     applyProjection(ui, "overlay1");
     applyProjection(ui, "overlay1");

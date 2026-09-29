@@ -21,6 +21,7 @@ import { ensureModes } from "#foliplus/core/mode.js";
 import { getLayerAlpha } from "#common/canvasAlpha.js";
 import { NUMBER_FORMAT } from "#common/format.js";
 import { GridLayer, findItem, initFixture, installLeafletGlobals } from "./fixture.js";
+import { getIntent, seedIntentMap, setIntent } from "#foliplus/LayerControl/ui/intent.js";
 
 /** Percentage the opacity fill is drawn at, read off its width expression.
  *  The fill's width is `calc((100% - var(--foliplus-slider-thumb-hit)) * <fraction>)` —
@@ -36,7 +37,7 @@ describe("LayerUI style panel", () => {
   beforeEach(() => {
     ({ manager, ui, map } = initFixture());
     ui.foldedGroups = new Set();
-    ui.visibleMap = {};
+    seedIntentMap(ui, "visible", {});
     window.localStorage.removeItem(CONST.STORAGE.KEY);
     // Seed the field cache so the panel builds: collectFields walks the
     // layer's leaves, and the fixture's data layer has none. `count` is a
@@ -488,7 +489,7 @@ describe("LayerUI style panel", () => {
   it("normalizes non-string persisted values instead of trusting storage", () => {
     // localStorage is writable by anything on the page, so a field or format of
     // the wrong shape must not reach the config as-is.
-    ui.labelConfigs = { overlay1: { show: true, field: 42, format: 7 } };
+    seedIntentMap(ui, "annotation", { overlay1: { show: true, field: 42, format: 7 } });
 
     ui.applyStyleLabelState();
 
@@ -924,7 +925,7 @@ describe("LayerUI style panel", () => {
     btn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
 
     expect(li.opacity).toBe(1);
-    expect(ui.opacityMap.overlay1).toBeUndefined();
+    expect(getIntent(ui, "overlay1", "opacity")).toBeUndefined();
   });
 
   it("dragging back to fully opaque drops the provenance as well as the value", () => {
@@ -946,7 +947,7 @@ describe("LayerUI style panel", () => {
     range.value = "100";
     range.dispatchEvent(new Event("input", { bubbles: true }));
 
-    expect(ui.opacityMap.overlay1).toBeUndefined();
+    expect(getIntent(ui, "overlay1", "opacity")).toBeUndefined();
     expect(ui.intentProvenance.overlay1 ?? []).not.toContain("opacity");
   });
 
@@ -961,7 +962,7 @@ describe("LayerUI style panel", () => {
     range.value = "0";
     range.dispatchEvent(new Event("input", { bubbles: true }));
 
-    expect(ui.opacityMap.overlay1).toBe(0);
+    expect(getIntent(ui, "overlay1", "opacity")).toBe(0);
     expect(li.opacity).toBe(0);
   });
 
@@ -992,7 +993,7 @@ describe("LayerUI style panel", () => {
     expect(li.opacity).toBe(1);
     expect(getLayerAlpha(li.canvas)).toBe(1);
     expect(li.canvas!.style.opacity).toBe("1");
-    expect(ui.opacityMap.heat1).toBeUndefined();
+    expect(getIntent(ui, "heat1", "opacity")).toBeUndefined();
     expect(labelShowSetter).toHaveBeenCalledWith(true);
   });
 
@@ -1012,7 +1013,7 @@ describe("LayerUI style panel", () => {
       range.dispatchEvent(new Event("input", { bubbles: true }));
     }).not.toThrow();
 
-    expect(ui.opacityMap.overlay1).toBeUndefined();
+    expect(getIntent(ui, "overlay1", "opacity")).toBeUndefined();
   });
 
   it("delegated panel renders the appearance row for labelSize alone", () => {
@@ -1567,9 +1568,9 @@ describe("LayerUI style panel", () => {
   // ─────────────────── persisted state ───────────────────
 
   it("applyStyleLabelState seeds a stored config for a layer that has none", () => {
-    ui.labelConfigs = {
+    seedIntentMap(ui, "annotation", {
       overlay1: { show: true, field: "count", format: NUMBER_FORMAT.AUTO },
-    };
+    });
     const setConfig = vi.spyOn(manager.annotation, "setConfig");
     const renderLabels = vi.spyOn(manager.annotation, "renderLabels");
 
@@ -1587,7 +1588,7 @@ describe("LayerUI style panel", () => {
   });
 
   it("applyStyleLabelState falls back for non-typed stored color/size", () => {
-    ui.labelConfigs = {
+    seedIntentMap(ui, "annotation", {
       overlay1: {
         show: true,
         field: "count",
@@ -1595,7 +1596,7 @@ describe("LayerUI style panel", () => {
         size: "big" as unknown as number,
         format: NUMBER_FORMAT.AUTO,
       },
-    };
+    });
     const setConfig = vi.spyOn(manager.annotation, "setConfig");
 
     ui.applyStyleLabelState();
@@ -1610,7 +1611,7 @@ describe("LayerUI style panel", () => {
   });
 
   it("applyStyleLabelState normalizes a stored short hex color and clamps size", () => {
-    ui.labelConfigs = {
+    seedIntentMap(ui, "annotation", {
       overlay1: {
         show: true,
         field: "count",
@@ -1618,7 +1619,7 @@ describe("LayerUI style panel", () => {
         size: 99,
         format: NUMBER_FORMAT.AUTO,
       },
-    };
+    });
     const setConfig = vi.spyOn(manager.annotation, "setConfig");
 
     ui.applyStyleLabelState();
@@ -1642,9 +1643,9 @@ describe("LayerUI style panel", () => {
       field: "",
       format: NUMBER_FORMAT.AUTO,
     });
-    ui.labelConfigs = {
+    seedIntentMap(ui, "annotation", {
       overlay1: { show: true, field: "count", format: NUMBER_FORMAT.AUTO },
-    };
+    });
     const setConfig = vi.spyOn(manager.annotation, "setConfig");
     const renderLabels = vi.spyOn(manager.annotation, "renderLabels");
 
@@ -1658,7 +1659,7 @@ describe("LayerUI style panel", () => {
   it("applyStyleLabelState renders a shown config whose field is still auto", () => {
     // `field: ""` is the Auto sentinel, not "no field" — a shown config with it
     // must still render (renderLabels resolves the auto pick).
-    ui.labelConfigs = { overlay1: { show: true, field: "" } };
+    seedIntentMap(ui, "annotation", { overlay1: { show: true, field: "" } });
     const renderLabels = vi.spyOn(manager.annotation, "renderLabels");
 
     ui.applyStyleLabelState();
@@ -1667,7 +1668,7 @@ describe("LayerUI style panel", () => {
   });
 
   it("applyStyleLabelState skips configs that are switched off", () => {
-    ui.labelConfigs = { overlay1: { show: false, field: "count" } };
+    seedIntentMap(ui, "annotation", { overlay1: { show: false, field: "count" } });
     const renderLabels = vi.spyOn(manager.annotation, "renderLabels");
     const clearLabels = vi.spyOn(manager.annotation, "clearLabels");
 
@@ -1680,9 +1681,9 @@ describe("LayerUI style panel", () => {
   });
 
   it("applyStyleLabelState skips stale ids whose layers are gone", () => {
-    ui.labelConfigs = {
+    seedIntentMap(ui, "annotation", {
       ghost: { show: true, field: "count", format: NUMBER_FORMAT.AUTO },
-    };
+    });
     const setConfig = vi.spyOn(manager.annotation, "setConfig");
     const renderLabels = vi.spyOn(manager.annotation, "renderLabels");
 
@@ -3269,7 +3270,7 @@ describe("LayerUI style panel", () => {
     range.dispatchEvent(new Event("input", { bubbles: true }));
 
     expect(li.opacity).toBe(0.6);
-    expect(ui.opacityMap.overlay1).toBe(0.6);
+    expect(getIntent(ui, "overlay1", "opacity")).toBe(0.6);
   });
 
   it("commitOpacityPct re-syncs the no-basemap hatch for base layers", () => {
@@ -3329,7 +3330,7 @@ describe("LayerUI style panel", () => {
     );
     try {
       const li = manager.layerRegistry.get("base1")!;
-      ui.opacityMap.base1 = 0;
+      setIntent(ui, "base1", "opacity", 0);
       li.opacity = 0;
       resetLayerOpacity(ui, "base1");
       const calls = toggleSpy.mock.calls.filter(
@@ -3348,7 +3349,7 @@ describe("LayerUI style panel", () => {
     );
     try {
       const li = manager.layerRegistry.get("overlay1")!;
-      ui.opacityMap.overlay1 = 0;
+      setIntent(ui, "overlay1", "opacity", 0);
       li.opacity = 0;
       resetLayerOpacity(ui, "overlay1");
       const calls = toggleSpy.mock.calls.filter(
@@ -3461,7 +3462,7 @@ describe("LayerUI style panel — zoom range", () => {
   beforeEach(() => {
     ({ manager, ui, map } = initFixture());
     ui.foldedGroups = new Set();
-    ui.visibleMap = {};
+    seedIntentMap(ui, "visible", {});
     window.localStorage.removeItem(CONST.STORAGE.KEY);
     ui.fieldCache.set("overlay1", [{ name: "count", numeric: true }]);
   });
@@ -3507,7 +3508,7 @@ describe("LayerUI style panel — zoom range", () => {
 
   it("shows out-of-range class when current zoom is outside the range", () => {
     const item = findItem(ui, "overlay1");
-    ui.zoomRangeMap["overlay1"] = [0, 3];
+    setIntent(ui, "overlay1", "zoomRange", [0, 3]);
     ui.openStylePanel("overlay1");
     const row = zoomRowOf(panelOf(item)!)!;
     expect(row.classList.contains(CONST.CLASSES.STYLE_ZOOM_RANGE_OUT_OF_RANGE)).toBe(
@@ -3517,7 +3518,7 @@ describe("LayerUI style panel — zoom range", () => {
 
   it("does not show out-of-range class when current zoom is inside the range", () => {
     const item = findItem(ui, "overlay1");
-    ui.zoomRangeMap["overlay1"] = [0, 18];
+    setIntent(ui, "overlay1", "zoomRange", [0, 18]);
     ui.openStylePanel("overlay1");
     const row = zoomRowOf(panelOf(item)!)!;
     expect(row.classList.contains(CONST.CLASSES.STYLE_ZOOM_RANGE_OUT_OF_RANGE)).toBe(
@@ -3537,7 +3538,7 @@ describe("LayerUI style panel — zoom range", () => {
     minInput.value = "5";
     minInput.dispatchEvent(new Event("input", { bubbles: true }));
 
-    expect(ui.zoomRangeMap["overlay1"]).toEqual([5, 18]);
+    expect(getIntent(ui, "overlay1", "zoomRange")).toEqual([5, 18]);
   });
 
   it("change event persists the range to localStorage", () => {
@@ -3577,7 +3578,7 @@ describe("LayerUI style panel — zoom range", () => {
     maxInput.value = "10";
     minInput.dispatchEvent(new Event("input", { bubbles: true }));
 
-    expect(ui.zoomRangeMap["overlay1"]).toEqual([10, 10]);
+    expect(getIntent(ui, "overlay1", "zoomRange")).toEqual([10, 10]);
   });
 
   it("clamps max to min when max falls below min", () => {
@@ -3596,7 +3597,7 @@ describe("LayerUI style panel — zoom range", () => {
     maxInput.value = "5";
     maxInput.dispatchEvent(new Event("input", { bubbles: true }));
 
-    expect(ui.zoomRangeMap["overlay1"]).toEqual([10, 10]);
+    expect(getIntent(ui, "overlay1", "zoomRange")).toEqual([10, 10]);
   });
 
   it("clamps zoom values to map bounds", () => {
@@ -3611,7 +3612,7 @@ describe("LayerUI style panel — zoom range", () => {
     minInput.value = "-5";
     minInput.dispatchEvent(new Event("input", { bubbles: true }));
 
-    const range = ui.zoomRangeMap["overlay1"];
+    const range = getIntent(ui, "overlay1", "zoomRange");
     expect(range![0]).toBeGreaterThanOrEqual(0);
   });
 
@@ -3641,7 +3642,7 @@ describe("LayerUI style panel — zoom range", () => {
 
   it("updates values row on zoomend", () => {
     const item = findItem(ui, "overlay1");
-    ui.zoomRangeMap["overlay1"] = [0, 18];
+    setIntent(ui, "overlay1", "zoomRange", [0, 18]);
     let zoomEndHandler: (() => void) | null = null;
     const origOn = map.on;
     map.on = (evt: string, fn: () => void) => {
@@ -3699,13 +3700,13 @@ describe("LayerUI style panel — zoom range", () => {
     // out of range, and its HIDDEN class is what hides it.
     minInput.value = "6";
     minInput.dispatchEvent(new Event("input", { bubbles: true }));
-    expect(ui.zoomRangeMap["canvas1"]).toEqual([6, 18]);
+    expect(getIntent(ui, "canvas1", "zoomRange")).toEqual([6, 18]);
     expect(canvas.classList.contains("hidden")).toBe(true);
 
     // Dragging the bound back drops it again — the write is reversible.
     minInput.value = "0";
     minInput.dispatchEvent(new Event("input", { bubbles: true }));
-    expect(ui.zoomRangeMap["canvas1"]).toEqual([0, 18]);
+    expect(getIntent(ui, "canvas1", "zoomRange")).toEqual([0, 18]);
     expect(canvas.classList.contains("hidden")).toBe(false);
   });
 
@@ -3730,7 +3731,7 @@ describe("LayerUI style panel — zoom range", () => {
     minInput.value = "6";
     minInput.dispatchEvent(new Event("input", { bubbles: true }));
 
-    expect(ui.zoomRangeMap["measure1"]).toEqual([6, 18]);
+    expect(getIntent(ui, "measure1", "zoomRange")).toEqual([6, 18]);
     expect(map.removeLayer).toHaveBeenCalledWith(measureLayer);
   });
 
@@ -3748,7 +3749,7 @@ describe("LayerUI style panel — zoom range", () => {
 
   it("reset button clears zoom range and restores full map range", () => {
     const item = findItem(ui, "overlay1");
-    ui.zoomRangeMap["overlay1"] = [5, 15];
+    setIntent(ui, "overlay1", "zoomRange", [5, 15]);
     ui.intentProvenance["overlay1"] = ["zoomRange"];
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
@@ -3757,7 +3758,7 @@ describe("LayerUI style panel — zoom range", () => {
     ) as HTMLButtonElement;
     resetBtn.click();
 
-    expect(ui.zoomRangeMap["overlay1"]).toBeUndefined();
+    expect(getIntent(ui, "overlay1", "zoomRange")).toBeUndefined();
     expect(ui.intentProvenance["overlay1"]).toBeUndefined();
   });
 
@@ -3891,7 +3892,7 @@ describe("LayerUI style panel — zoom range", () => {
       minInput.value = "4";
       minInput.dispatchEvent(new Event("change", { bubbles: true }));
     }).not.toThrow();
-    expect(ui.zoomRangeMap["overlay1"]).toEqual([4, map.getMaxZoom()]);
+    expect(getIntent(ui, "overlay1", "zoomRange")).toEqual([4, map.getMaxZoom()]);
   });
 
   it("the zoom-range live pass updates the map and the bubble", () => {
@@ -3908,7 +3909,7 @@ describe("LayerUI style panel — zoom range", () => {
     maxInput.value = "10";
     maxInput.dispatchEvent(new Event("input", { bubbles: true }));
 
-    expect(ui.zoomRangeMap["overlay1"]).toEqual([0, 10]);
+    expect(getIntent(ui, "overlay1", "zoomRange")).toEqual([0, 10]);
     const bubble = rail.querySelector(
       `.${CONST.CLASSES.SLIDER_BUBBLE}`,
     ) as HTMLElement | null;
@@ -3921,7 +3922,7 @@ describe("LayerUI style panel — zoom range", () => {
 
   it("OOR state marks the row when current zoom is outside range", () => {
     const item = findItem(ui, "overlay1");
-    ui.zoomRangeMap["overlay1"] = [7, 10];
+    setIntent(ui, "overlay1", "zoomRange", [7, 10]);
     ui.openStylePanel("overlay1");
     const row = zoomRowOf(panelOf(item)!)!;
 
@@ -3934,7 +3935,7 @@ describe("LayerUI style panel — zoom range", () => {
 
   it("out-of-range sync clears the class when zoom returns inside range", () => {
     const item = findItem(ui, "overlay1");
-    ui.zoomRangeMap["overlay1"] = [7, 10];
+    setIntent(ui, "overlay1", "zoomRange", [7, 10]);
     ui.openStylePanel("overlay1");
     const row = zoomRowOf(panelOf(item)!)!;
     expect(row.classList.contains(CONST.CLASSES.STYLE_ZOOM_RANGE_OUT_OF_RANGE)).toBe(
@@ -4003,7 +4004,7 @@ describe("LayerUI style panel — zoom range", () => {
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     const row = zoomRowOf(panel)!;
-    ui.zoomRangeMap["overlay1"] = [4, 9];
+    setIntent(ui, "overlay1", "zoomRange", [4, 9]);
     row.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_MAX}`)?.remove();
 
     // The reset pass syncs the row's remaining marks, so a missing handle has to
@@ -4027,7 +4028,7 @@ describe("LayerUI style panel — zoom range", () => {
 
     minInput.value = "4";
     minInput.dispatchEvent(new Event("change", { bubbles: true }));
-    expect(ui.zoomRangeMap["overlay1"]).toEqual([4, 18]);
+    expect(getIntent(ui, "overlay1", "zoomRange")).toEqual([4, 18]);
 
     // The row outlives its layer: nothing is left to write the range into, so
     // the live pass has to bail instead of writing a range for a ghost.
@@ -4035,7 +4036,7 @@ describe("LayerUI style panel — zoom range", () => {
     minInput.value = "6";
     minInput.dispatchEvent(new Event("change", { bubbles: true }));
 
-    expect(ui.zoomRangeMap["overlay1"]).toEqual([4, 18]);
+    expect(getIntent(ui, "overlay1", "zoomRange")).toEqual([4, 18]);
   });
 
   it("gives a delegated layer a zoom row when only opacity is unavailable", () => {
@@ -4090,7 +4091,7 @@ describe("LayerUI style panel — zoom range", () => {
 
     minInput.value = "4";
     minInput.dispatchEvent(new Event("change", { bubbles: true }));
-    expect(ui.zoomRangeMap["overlay1"]).toEqual([4, 18]);
+    expect(getIntent(ui, "overlay1", "zoomRange")).toEqual([4, 18]);
 
     // A handle whose row is gone still bubbles to the panel it was built in;
     // with no row to read there is nothing to write.
@@ -4099,7 +4100,7 @@ describe("LayerUI style panel — zoom range", () => {
     minInput.value = "6";
     minInput.dispatchEvent(new Event("change", { bubbles: true }));
 
-    expect(ui.zoomRangeMap["overlay1"]).toEqual([4, 18]);
+    expect(getIntent(ui, "overlay1", "zoomRange")).toEqual([4, 18]);
   });
 
   it("reuses the range bubble and keeps the range when the rail is gone", () => {
@@ -4135,7 +4136,7 @@ describe("LayerUI style panel — zoom range", () => {
     minInput.value = "3";
     minInput.dispatchEvent(new Event("input", { bubbles: true }));
 
-    expect(ui.zoomRangeMap["overlay1"]).toEqual([3, 9]);
+    expect(getIntent(ui, "overlay1", "zoomRange")).toEqual([3, 9]);
   });
 
   // The two slider ends read the layer's author-declared bounds from the
@@ -4260,7 +4261,7 @@ describe("LayerUI style panel — zoom range", () => {
       layer: gridLayer,
     });
     // Author declared no maxZoom: the fallback is the map's declared max.
-    ui.zoomRangeMap["grid1"] = [0, 10];
+    setIntent(ui, "grid1", "zoomRange", [0, 10]);
     applyProjection(ui, "grid1");
     // The layer's options are untouched — the zoomRange did not write.
     expect((gridLayer.options as { maxZoom?: number }).maxZoom).toBeUndefined();
@@ -4396,19 +4397,19 @@ describe("reset on an id the registry does not know", () => {
     // `if (!ui.m.layerRegistry.has(layerId)) return` — a Reset aimed at a
     // layer that has already left must not rewrite the record or save.
     const { ui } = initFixture({});
-    ui.opacityMap.ghost = 0.4;
+    setIntent(ui, "ghost", "opacity", 0.4);
     ui.intentProvenance.ghost = ["opacity"];
     expect(() => resetLayerOpacity(ui, "ghost")).not.toThrow();
-    expect(ui.opacityMap.ghost).toBe(0.4);
+    expect(getIntent(ui, "ghost", "opacity")).toBe(0.4);
     expect(ui.intentProvenance.ghost).toEqual(["opacity"]);
   });
 
   it("resetLayerZoomRange returns before touching state", () => {
     const { ui } = initFixture({});
-    ui.zoomRangeMap.ghost = [3, 12];
+    setIntent(ui, "ghost", "zoomRange", [3, 12]);
     ui.intentProvenance.ghost = ["zoomRange"];
     expect(() => resetLayerZoomRange(ui, "ghost")).not.toThrow();
-    expect(ui.zoomRangeMap.ghost).toEqual([3, 12]);
+    expect(getIntent(ui, "ghost", "zoomRange")).toEqual([3, 12]);
     expect(ui.intentProvenance.ghost).toEqual(["zoomRange"]);
   });
 });

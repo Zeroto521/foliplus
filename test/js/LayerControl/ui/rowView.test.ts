@@ -13,6 +13,7 @@ import {
 import type { RowCell } from "#foliplus/LayerControl/ui/rowView.js";
 import * as Icons from "#common/icon.js";
 import { findItem, initFixture } from "./fixture.js";
+import { clearIntent, getIntent, setIntent } from "#foliplus/LayerControl/ui/intent.js";
 
 const LABELS = { select: "Select", deselect: "Deselect" };
 
@@ -186,7 +187,7 @@ describe("buildRowCell + applyRowView (one writer per row)", () => {
     const item = findItem(ui, "overlay1");
 
     ui.applyVisibility("overlay1", false);
-    expect(ui.visibleMap["overlay1"]).toBe(false);
+    expect(getIntent(ui, "overlay1", "visible")).toBe(false);
     expect(buildRowCell(ui, layerInfo).checked).toBe(false);
     expect(box(item).checked).toBe(false);
     expect(item.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
@@ -207,7 +208,7 @@ describe("buildRowCell + applyRowView (one writer per row)", () => {
     const layerInfo = overlay(ui);
     ui.authorVisible.set("overlay1", false);
     ui.intentProvenance.overlay1 = ["visible"];
-    delete ui.visibleMap.overlay1;
+    clearIntent(ui, "overlay1", "visible");
 
     expect(buildRowCell(ui, layerInfo).checked).toBe(true);
   });
@@ -399,7 +400,7 @@ describe("snapshotAuthorVisible", () => {
       id: "heat-mixed",
       canvas: document.createElement("canvas"),
     } as unknown as LayerInfo);
-    ui.visibleMap["heat-mixed"] = false;
+    setIntent(ui, "heat-mixed", "visible", false);
     ui.intentProvenance["heat-mixed"] = ["visible"];
     snapshotAuthorVisible(ui, {
       id: "heat-mixed",
@@ -435,7 +436,7 @@ describe("intentVisibleOf: what counts as the user's choice", () => {
     const layerInfo = ui.m.layers.find(li => li.id === "overlay1")!;
     ui.intentProvenance.overlay1 = undefined as never;
     delete ui.intentProvenance.overlay1;
-    ui.visibleMap["overlay1"] = false;
+    setIntent(ui, "overlay1", "visible", false);
     expect(intentVisibleOf(ui, layerInfo.id)).toBe(false);
   });
 
@@ -443,7 +444,7 @@ describe("intentVisibleOf: what counts as the user's choice", () => {
     const { ui } = initFixture({});
     const layerInfo = ui.m.layers.find(li => li.id === "overlay1")!;
     delete ui.intentProvenance.overlay1;
-    delete ui.visibleMap["overlay1"];
+    clearIntent(ui, "overlay1", "visible");
     ui.authorVisible.set("overlay1", false);
     expect(intentVisibleOf(ui, layerInfo.id)).toBe(false);
   });

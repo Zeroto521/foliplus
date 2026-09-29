@@ -14,6 +14,7 @@ import {
   toggleAll,
 } from "#foliplus/LayerControl/ui/visibility.js";
 import { initFixture, installLeafletGlobals } from "./fixture.js";
+import { getIntent, setIntent } from "#foliplus/LayerControl/ui/intent.js";
 
 // ===========================================================================
 // ui/visibility.ts ?checkbox, group toggle, and the shared visibility
@@ -217,14 +218,14 @@ describe("applyVisibility", () => {
 
     // The user stores a zoom range that excludes the current zoom (2), then
     // checks the box again.
-    ui.zoomRangeMap.overlay1 = [3, 12];
+    setIntent(ui, "overlay1", "zoomRange", [3, 12]);
     ui.intentProvenance.overlay1 = ["zoomRange"];
     (map.addLayer as ReturnType<typeof vi.fn>).mockClear();
 
     expect(applyVisibility(ui, "overlay1", true)).toBe(true);
 
     // Intent is recorded: the box is checked and the layer is no longer hidden.
-    expect(ui.visibleMap["overlay1"]).not.toBe(false);
+    expect(getIntent(ui, "overlay1", "visible")).not.toBe(false);
     expect(
       ui.uiContainer.querySelector(
         `[${CONST.DATA.LAYER_ID}="overlay1"] input[type="checkbox"]`,
@@ -279,7 +280,7 @@ describe("applyVisibility", () => {
     expect(applyVisibility(ui, "ov", false)).toBe(true);
 
     expect(map.removeLayer).toHaveBeenCalledWith(layer);
-    expect(ui.visibleMap["ov"]).toBe(false);
+    expect(getIntent(ui, "ov", "visible")).toBe(false);
   });
 
   it("persists the hidden set so the choice survives a reload", () => {
@@ -955,7 +956,7 @@ describe("toggleAll base group", () => {
     expect(bare.querySelector("input")).toBeNull();
     // Only the two registered rows were swept — the bare row carries no
     // checkbox and must be absent from the intent map entirely.
-    expect(ui.visibleMap).toEqual({ B1: true, B2: true });
+    expect(ui.intents ?? {}).toEqual({ B1: { visible: true }, B2: { visible: true } });
   });
 
   it("runs every branch of the sweep: real layer and canvas-only base", () => {
