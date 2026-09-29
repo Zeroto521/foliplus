@@ -534,7 +534,12 @@ class TestCheckPluralNames:
             assert mod.check_plural_names(name) == []
 
     def test_abbreviation_suffixes_are_whitelisted(self):
-        for name in ["merge-css.mjs", "args.mjs", "bundle-size.ts"]:
+        for name in [
+            "merge-css.mjs",
+            "args.mjs",
+            "bundle-size.ts",
+            "compress.mjs",  # verb, not a plural noun
+        ]:
             assert mod.check_plural_names(name) == []
 
     def test_mjs_plural_module_names_are_reported(self):

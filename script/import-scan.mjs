@@ -2,9 +2,9 @@
 //
 // Two consumers read the same thing and used to each keep a private copy of
 // this code:
-//   - script/scan-registry.mjs 鈫?`_shared-registry.ts`, which decides what the
+//   - script/scan-registry.mjs → `_shared-registry.ts`, which decides what the
 //     runtime bundle publishes on `window.foliplus`.
-//   - script/global-namespace-plugin.mjs 鈫?esbuild shims, which decide what a
+//   - script/global-namespace-plugin.mjs → esbuild shims, which decide what a
 //     component bundle reads back from that namespace.
 //
 // Publishing and reading are two halves of one contract. If they disagree, a
@@ -44,7 +44,7 @@ import { readFileSync, readdirSync } from "fs";
 import { join } from "path";
 import { SHARED_SPEC_PREFIXES } from "./build-path.mjs";
 
-/** `#core/geo/index.js` 鈫?`core/geo`, `#common/dom.js` 鈫?`common/dom`.
+/** `#core/geo/index.js` → `core/geo`, `#common/dom.js` → `common/dom`.
  *  Keys `_shared-registry.ts` is generated against. */
 const canonicalSpec = spec =>
   spec
@@ -52,7 +52,7 @@ const canonicalSpec = spec =>
     .replace(/\.js$/, "")
     .replace(/\/index$/, "");
 
-/** Parse a named-import list: `foo, bar, baz as b, type A` 鈫?`["foo","bar","baz"]`.
+/** Parse a named-import list: `foo, bar, baz as b, type A` → `["foo","bar","baz"]`.
  *  Keeps the module-side name (the `as` alias is the local binding).
  *  `type` is matched as a modifier 鈥?`type A` 鈥?never as a prefix, so a
  *  legitimate identifier such as `typeFoo` survives. */

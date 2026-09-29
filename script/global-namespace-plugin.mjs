@@ -86,7 +86,7 @@ const collectExports = (filePath, seen = new Set(), depth = 0) => {
 const sharedGlobalNamespace = spec => {
   if (spec === "#foliplus/BaseControl.js") return "foliplus.BaseControl";
   if (spec === "#core/hint.js") return "foliplus.hint";
-  // core subdomain barrel: #core/<sub>/* 鈫?foliplus.core.<sub> (layer today,
+  // core subdomain barrel: #core/<sub>/* → foliplus.core.<sub> (layer today,
   // future events/modes). Core-root single files are handled below.
   const coreSub = spec.match(/^#core\/([^/]+)\//);
   if (coreSub) return "foliplus.core." + coreSub[1];

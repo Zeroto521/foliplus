@@ -53,10 +53,11 @@ PLURAL_WHITELIST = {
     "eventbus",
     "base",
     "index",
+    "args",
+    "css",
     "js",
     "ts",
-    "css",
-    "args",
+    "compress",  # verb (script/compress.mjs), not a plural noun
 }
 
 # Extensions whose basenames are checked for plural names (rule 2).
