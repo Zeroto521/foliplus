@@ -621,6 +621,38 @@ describe("LayerUI style panel — fill color", () => {
     });
   });
 
+  it("color input change chains the previous handler and flushes", () => {
+    // The color binder must never overwrite a future onchange: the new
+    // handler runs the previous one first, then flushes the deferred walk.
+    const frames: Array<() => void> = [];
+    vi.stubGlobal("requestAnimationFrame", (cb: () => void) => {
+      frames.push(cb);
+      return frames.length;
+    });
+    vi.stubGlobal("cancelAnimationFrame", () => {});
+
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const row = item.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_ROW}`,
+    ) as HTMLElement;
+    const color = row.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`,
+    ) as HTMLInputElement;
+    const prior = vi.fn();
+    color.onchange = prior;
+    bindFillRow(ui, "overlay1", row);
+    color.value = "#445544";
+    color.dispatchEvent(new Event("input", { bubbles: true }));
+    color.dispatchEvent(new Event("change", { bubbles: true }));
+
+    expect(prior).toHaveBeenCalledTimes(1);
+    expect(fillLayer.leaves[0].setStyle).toHaveBeenCalledWith({
+      fillColor: "#445544",
+      fill: true,
+    });
+  });
+
   it("FILL_DIMENSION.value reports the stored choice over the authored one", () => {
     expect(FILL_DIMENSION.value!(ui, "overlay1")).toEqual({
       color: "#aabbcc",
