@@ -211,20 +211,13 @@
     texture, not an operation border. */
   --foliplus-dash-rhythm: var(--foliplus-size-6) var(--foliplus-size-4);
 
-  /* White casing under a focus stroke (selection language ⑤).
-     Zero-blur drop-shadows in 8 directions paint a solid under-outline on a
-     single SVG path, so the accent marching-ants dashes stay legible on any
-     geometry stroke color (red-on-red included) without a second path.
-     Shared by geometry :focus, the focus rect, and the focused-pane glow. */
-  --foliplus-focus-casing:
-    drop-shadow(1px 0 0 var(--foliplus-neutral-0))
-    drop-shadow(-1px 0 0 var(--foliplus-neutral-0))
-    drop-shadow(0 1px 0 var(--foliplus-neutral-0))
-    drop-shadow(0 -1px 0 var(--foliplus-neutral-0))
-    drop-shadow(1px 1px 0 var(--foliplus-neutral-0))
-    drop-shadow(-1px -1px 0 var(--foliplus-neutral-0))
-    drop-shadow(1px -1px 0 var(--foliplus-neutral-0))
-    drop-shadow(-1px 1px 0 var(--foliplus-neutral-0));
+  /* White casing around a focused path (selection language ⑤).
+     Painted as `outline` so it hugs the stroke silhouette and never
+     washes a filled face (a `filter: drop-shadow` chain follows the whole
+     alpha, fill included, and stacked layers cost frames). Shared by
+     geometry :focus and the focus rect. */
+  --foliplus-focus-casing-color: var(--foliplus-neutral-0);
+  --foliplus-focus-casing-width: var(--foliplus-size-2);
 
   /* ── Border Radius ── */
   --foliplus-radius-sm: var(--foliplus-size-4);

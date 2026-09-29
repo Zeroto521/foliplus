@@ -39,19 +39,16 @@
    A focused SVG path paints the UA outline along its geometry:
    `outline-style: auto` + `outline-color` is black on Windows Chrome
    (`rgb(16,16,16)`) and the system Highlight blue on macOS Chrome —
-   the "black large border" report. Suppress the UA ring and repaint the
-   focus signal as selection language ⑤: white casing
-   (--foliplus-focus-casing) under accent marching-ants dashes. The casing
-   keeps the signal legible on any stroke color; the dashes speak the same
-   focus vocabulary as the focus rect below. */
+   the "black large border" report. Selection language ⑤′: white casing
+   via `outline` (hugs the stroke, never washes a filled face) + marching
+   ants on the author's own stroke colour. Contrast comes from the casing,
+   so a red-on-red feature stays readable without hijacking its paint. */
 .leaflet-interactive:focus,
 .leaflet-interactive:focus-visible {
-  outline: none;
-  stroke: var(--foliplus-accent-primary);
+  outline: var(--foliplus-focus-casing-width) solid
+    var(--foliplus-focus-casing-color);
   stroke-dasharray: var(--foliplus-dash-rhythm);
-  stroke-width: var(--foliplus-border-thick);
   animation: foliplus-focus-march var(--foliplus-motion-slow) linear infinite;
-  filter: var(--foliplus-focus-casing);
 }
 @media (prefers-reduced-motion: reduce) {
   .leaflet-interactive:focus,
@@ -64,11 +61,9 @@
    Added via map.addLayer(), so it lives OUTSIDE .foliplus-layer-ctrl and
    needs a top-level selector. Leaflet renders L.rectangle as a <path> with
    className applied directly (no polygon child).
-   Selection language = accent marching ants on a white casing
-   (--foliplus-focus-casing), shared with geometry :focus and the
-   focused-pane glow. The focus rect is transient (marching ants), the
-   crop box is interactive (static), so animation differs. No fill —
-   a thin border only, so it never tints the focused layer underneath. */
+   Selection language = white casing (outline) + accent marching ants.
+   The focus rect is transient (marching ants), the crop box is interactive
+   (static), so animation differs. No fill — a thin border only. */
 path.foliplus-focus-rect {
   fill: none;
   stroke: var(--foliplus-accent-primary);
@@ -77,7 +72,8 @@ path.foliplus-focus-rect {
   stroke-linejoin: round;
   /* "Marching ants" selection marquee — the dashes flow along the border. */
   animation: foliplus-focus-march var(--foliplus-motion-slow) linear infinite;
-  filter: var(--foliplus-focus-casing);
+  outline: var(--foliplus-focus-casing-width) solid
+    var(--foliplus-focus-casing-color);
   pointer-events: none;
 }
 /* Inverse mask that dims everything outside the focused bounds (the hole is
@@ -85,22 +81,24 @@ path.foliplus-focus-rect {
 path.foliplus-focus-mask {
   pointer-events: none;
 }
-/* White casing on the focused layer. Applied to the focused pane (one
-   element) by bringFocusedLayerToFront, NOT per leaf element — so focusing
-   a dense layer (thousands of CircleMarkers) stays cheap. The casing is the
-   same --foliplus-focus-casing as geometry :focus and the focus rect: a
-   white under-stroke so the layer stays legible on any stroke color,
-   replacing the earlier accent glow (which disappeared on red geometry). */
+/* Soft lift on the focused layer pane — one filter on one element
+   (bringFocusedLayerToFront), never per leaf, so a dense layer stays cheap.
+   A single drop-shadow, not a casing chain: the chain followed every
+   alpha edge including fills and cost frames on focus. */
 .foliplus-focus-pane.foliplus-focus-glow {
   animation: foliplus-focus-glow-in var(--foliplus-motion-quick) ease-out;
-  filter: var(--foliplus-focus-casing);
+  filter: drop-shadow(
+    0 0 var(--foliplus-size-2) var(--foliplus-accent-soft-shadow)
+  );
 }
 @keyframes foliplus-focus-glow-in {
   from {
     filter: drop-shadow(0 0 0 rgba(var(--foliplus-red-rgb), 0));
   }
   to {
-    filter: var(--foliplus-focus-casing);
+    filter: drop-shadow(
+      0 0 var(--foliplus-size-2) var(--foliplus-accent-soft-shadow)
+    );
   }
 }
 
