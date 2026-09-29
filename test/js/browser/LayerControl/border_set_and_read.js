@@ -12,9 +12,12 @@
 // by id first, then by the name a folium layer was declared with — folium names
 // its ids independently of the label the panel shows.
 //
-// Page.evaluate takes one argument, so the three arrive as a list. An omitted
+// A truthy `reset` clicks the panel's own Reset after any write, so one
+// round trip can cover "set border → reset → read stroke".
+//
+// Page.evaluate takes one argument, so the four arrive as a list. An omitted
 // tail stays undefined, which is what the read-only calls rely on.
-([layerName, color, weight] = []) => {
+([layerName, color, weight, reset] = []) => {
   const api = window.map.foliplus && window.map.foliplus.LayerAPI;
   const byName =
     api && Array.isArray(api.layers)
@@ -58,6 +61,10 @@
     setWeight.dispatchEvent(new Event("input", { bubbles: true }));
     setWeight.dispatchEvent(new Event("change", { bubbles: true }));
   }
+  if (reset) {
+    const resetBtn = panel.querySelector(".foliplus-style-reset-btn");
+    if (resetBtn) resetBtn.click();
+  }
 
   // The storage key carries the map's own suffix, so the test never has to
   // know it.
@@ -79,7 +86,9 @@
     ),
     storage,
     strokes: Array.from(
-      document.querySelectorAll(".leaflet-container path[stroke]"),
+      // Map panes only — control chrome (icons) also ships path[stroke]
+      // with currentColor and is not a layer stroke.
+      document.querySelectorAll(".leaflet-map-pane path[stroke]"),
     ).map(el => ({
       stroke: el.getAttribute("stroke"),
       strokeWidth: el.getAttribute("stroke-width"),

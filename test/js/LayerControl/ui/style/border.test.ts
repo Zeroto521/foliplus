@@ -22,9 +22,11 @@ import { initFixture } from "../fixture.js";
 
 /** A Leaflet vector leaf: an `options` bag plus the `setStyle` writer the
  *  border walk looks for. `on` is part of the leaf surface too — the
- *  highlight replay binds through it. */
-const makeLeaf = (color = "#ff0000", weight = 2): any => ({
-  options: { color, weight },
+ *  highlight replay binds through it. `stroke` defaults to Leaflet's Path
+ *  default (`true`); pass `false` for the quickstart CircleMarker face
+ *  (`style_kwds={"stroke": False}`). */
+const makeLeaf = (color = "#ff0000", weight = 2, stroke = true): any => ({
+  options: { color, weight, stroke },
   setStyle: vi.fn(),
   on: vi.fn(),
 });
@@ -350,7 +352,10 @@ describe("commit pipeline", () => {
     expect(getIntent(ui, "vec1", "borderColor")).toBe("#ff0000");
     expect(ui.intentProvenance.vec1).toContain("borderColor");
     expect(leaf.setStyle).toHaveBeenCalledTimes(1);
-    expect(leaf.setStyle).toHaveBeenCalledWith({ color: "#ff0000" });
+    expect(leaf.setStyle).toHaveBeenCalledWith({
+      color: "#ff0000",
+      stroke: true,
+    });
   });
 
   it("keeps the receiver when it calls setStyle, as Leaflet needs it", () => {
@@ -395,7 +400,7 @@ describe("commit pipeline", () => {
 
     expect(getIntent(ui, "vec1", "borderWeight")).toBe(3.5);
     expect(ui.intentProvenance.vec1).toContain("borderWeight");
-    expect(leaf.setStyle).toHaveBeenCalledWith({ weight: 3.5 });
+    expect(leaf.setStyle).toHaveBeenCalledWith({ weight: 3.5, stroke: true });
   });
 
   it("rides one setStyle call per leaf when both sub-dimensions are set", () => {
@@ -409,7 +414,11 @@ describe("commit pipeline", () => {
     // The width commit re-sends the color already stored: the leaf sees one
     // call carrying both, so color and width can never disagree on the stroke.
     expect(leaf.setStyle).toHaveBeenCalledTimes(1);
-    expect(leaf.setStyle).toHaveBeenCalledWith({ color: "#00ff00", weight: 5 });
+    expect(leaf.setStyle).toHaveBeenCalledWith({
+      color: "#00ff00",
+      weight: 5,
+      stroke: true,
+    });
   });
 
   it("omits an unset sub-dimension so the author's default stays in force", () => {
@@ -418,7 +427,32 @@ describe("commit pipeline", () => {
 
     commitBorderWeight(ui, "vec1", 6);
 
-    expect(leaf.setStyle).toHaveBeenCalledWith({ weight: 6 });
+    expect(leaf.setStyle).toHaveBeenCalledWith({ weight: 6, stroke: true });
+  });
+
+  it("forces stroke on when the user sets a border color, so a stroke:false path becomes visible", () => {
+    // quickstart Facility Points (geopandas explore) authors
+    // `style_kwds={"stroke": False}`. Writing color/weight alone leaves
+    // Path._updateStyle painting stroke=none — the panel change would be a
+    // silent no-op. The user chose a border; the write must turn it on.
+    const leaf = makeLeaf("#3388ff", 3, false);
+    manager.registerLayer({ id: "cm1", name: "CM", layer: leaf });
+
+    commitBorderColor(ui, "cm1", "#ff0000");
+
+    expect(leaf.setStyle).toHaveBeenCalledWith({
+      color: "#ff0000",
+      stroke: true,
+    });
+  });
+
+  it("forces stroke on when the user sets a border width", () => {
+    const leaf = makeLeaf("#3388ff", 3, false);
+    manager.registerLayer({ id: "cm1", name: "CM", layer: leaf });
+
+    commitBorderWeight(ui, "cm1", 6);
+
+    expect(leaf.setStyle).toHaveBeenCalledWith({ weight: 6, stroke: true });
   });
 
   it("walks every leaf of a group and captures each one's authored style", () => {
@@ -429,8 +463,8 @@ describe("commit pipeline", () => {
 
     commitBorderColor(ui, "grp1", "#0000ff");
 
-    expect(first.setStyle).toHaveBeenCalledWith({ color: "#0000ff" });
-    expect(second.setStyle).toHaveBeenCalledWith({ color: "#0000ff" });
+    expect(first.setStyle).toHaveBeenCalledWith({ color: "#0000ff", stroke: true });
+    expect(second.setStyle).toHaveBeenCalledWith({ color: "#0000ff", stroke: true });
     expect(group.setStyle).toBeUndefined();
   });
 
@@ -505,7 +539,7 @@ describe("bindBorderRow", () => {
 
     expect(getIntent(ui, "vec1", "borderWeight")).toBe(5);
     expect(ui.intentProvenance.vec1).toContain("borderWeight");
-    expect(leaf.setStyle).toHaveBeenCalledWith({ weight: 5 });
+    expect(leaf.setStyle).toHaveBeenCalledWith({ weight: 5, stroke: true });
   });
 
   it("commits the color on every swatch movement", () => {
@@ -522,7 +556,7 @@ describe("bindBorderRow", () => {
 
     expect(getIntent(ui, "vec1", "borderColor")).toBe("#abcdef");
     expect(ui.intentProvenance.vec1).toContain("borderColor");
-    expect(leaf.setStyle).toHaveBeenCalledWith({ color: "#abcdef" });
+    expect(leaf.setStyle).toHaveBeenCalledWith({ color: "#abcdef", stroke: true });
   });
 
   it("leaves a row alone that has neither control to bind", () => {
@@ -566,8 +600,16 @@ describe("resetLayerBorder", () => {
     const overrides = ui.intentProvenance.grp1 ?? [];
     expect(overrides).not.toContain("borderColor");
     expect(overrides).not.toContain("borderWeight");
-    expect(first.setStyle).toHaveBeenCalledWith({ color: "#ff0000", weight: 2 });
-    expect(second.setStyle).toHaveBeenCalledWith({ color: "#00ff00", weight: 4 });
+    expect(first.setStyle).toHaveBeenCalledWith({
+      color: "#ff0000",
+      weight: 2,
+      stroke: true,
+    });
+    expect(second.setStyle).toHaveBeenCalledWith({
+      color: "#00ff00",
+      weight: 4,
+      stroke: true,
+    });
   });
 
   it("restores each feature's authored stroke for an L.GeoJSON layer", () => {
@@ -589,8 +631,16 @@ describe("resetLayerBorder", () => {
 
     resetLayerBorder(ui, "geo1");
 
-    expect(face.setStyle).toHaveBeenCalledWith({ color: "gray", weight: 1.5 });
-    expect(line.setStyle).toHaveBeenCalledWith({ color: "#e74c3c", weight: 6 });
+    expect(face.setStyle).toHaveBeenCalledWith({
+      color: "gray",
+      weight: 1.5,
+      stroke: true,
+    });
+    expect(line.setStyle).toHaveBeenCalledWith({
+      color: "#e74c3c",
+      weight: 6,
+      stroke: true,
+    });
   });
 
   it("does not touch a layer the registry no longer knows", () => {
@@ -651,13 +701,21 @@ describe("resetLayerBorder", () => {
     commitBorderWeight(ui, "grp1", 5);
 
     expect(inert.setStyle).toBeUndefined();
-    expect(live.setStyle).toHaveBeenCalledWith({ color: "#0000ff", weight: 5 });
+    expect(live.setStyle).toHaveBeenCalledWith({
+      color: "#0000ff",
+      weight: 5,
+      stroke: true,
+    });
 
     live.setStyle.mockClear();
     resetLayerBorder(ui, "grp1");
 
     expect(inert.setStyle).toBeUndefined();
-    expect(live.setStyle).toHaveBeenCalledWith({ color: "#ff0000", weight: 2 });
+    expect(live.setStyle).toHaveBeenCalledWith({
+      color: "#ff0000",
+      weight: 2,
+      stroke: true,
+    });
   });
 
   it("restores the module defaults for a carrier that declared no style", () => {
@@ -680,7 +738,37 @@ describe("resetLayerBorder", () => {
 
     resetLayerBorder(ui, "vec1");
 
-    expect(bare.setStyle).toHaveBeenCalledWith({ color: "#3388ff", weight: 1 });
+    expect(bare.setStyle).toHaveBeenCalledWith({
+      color: "#3388ff",
+      weight: 1,
+      stroke: true,
+    });
+  });
+
+  it("restores the author's stroke flag on reset, including stroke:false", () => {
+    // The write path forces stroke:true so a stroke:false CircleMarker
+    // (quickstart Facility Points) shows the user's border. Reset must put
+    // the author's original stroke:false back — leaving stroke:true on would
+    // paint a border nobody authored.
+    const leaf = makeLeaf("#3388ff", 3, false);
+    leaf.setStyle = vi.fn((style: Record<string, unknown>) =>
+      Object.assign(leaf.options, style),
+    );
+    manager.registerLayer({ id: "cm1", name: "CM", layer: leaf });
+
+    commitBorderColor(ui, "cm1", "#ff0000");
+    commitBorderWeight(ui, "cm1", 6);
+    expect(leaf.options.stroke).toBe(true);
+    leaf.setStyle.mockClear();
+
+    resetLayerBorder(ui, "cm1");
+
+    expect(leaf.setStyle).toHaveBeenCalledWith({
+      color: "#3388ff",
+      weight: 3,
+      stroke: false,
+    });
+    expect(leaf.options.stroke).toBe(false);
   });
 });
 
@@ -714,8 +802,32 @@ describe("highlight restore", () => {
 
     leaf.fireMouseout();
 
-    expect(leaf.setStyle).toHaveBeenLastCalledWith({ color: "#abcdef" });
+    expect(leaf.setStyle).toHaveBeenLastCalledWith({
+      color: "#abcdef",
+      stroke: true,
+    });
     expect(leaf.options.color).toBe("#abcdef");
+  });
+
+  it("replays stroke:true through the pin so a stroke:false author cannot hide the border", () => {
+    // The write forces stroke:true; the pin getter must carry the same flag,
+    // or folium's resetStyle re-applies the author's stroke:false on mouseout
+    // and the user's border vanishes the moment the pointer leaves.
+    const leaf = makeHighlightLeaf("#00ff00", 3);
+    leaf.authored.stroke = false;
+    leaf.options.stroke = false;
+    manager.registerLayer({ id: "cm1", name: "CM", layer: leaf });
+
+    commitBorderColor(ui, "cm1", "#abcdef");
+    leaf.setStyle.mockClear();
+
+    leaf.fireMouseout();
+
+    expect(leaf.setStyle).toHaveBeenLastCalledWith({
+      color: "#abcdef",
+      stroke: true,
+    });
+    expect(leaf.options.stroke).toBe(true);
   });
 
   it("pins the user's width through the same restore", () => {
@@ -727,7 +839,7 @@ describe("highlight restore", () => {
 
     leaf.fireMouseout();
 
-    expect(leaf.setStyle).toHaveBeenLastCalledWith({ weight: 9 });
+    expect(leaf.setStyle).toHaveBeenLastCalledWith({ weight: 9, stroke: true });
     expect(leaf.options.weight).toBe(9);
   });
 
@@ -768,7 +880,9 @@ describe("highlight restore", () => {
     expect(leaf.setStyle).toHaveBeenCalledTimes(2);
     expect(leaf.setStyle).toHaveBeenLastCalledWith({
       fillColor: "#123456",
+      fill: true,
       weight: 9,
+      stroke: true,
     });
   });
 
@@ -796,6 +910,7 @@ describe("highlight restore", () => {
     expect(leaf.setStyle).toHaveBeenLastCalledWith({
       color: "#333333",
       weight: 9,
+      stroke: true,
     });
   });
 
@@ -851,7 +966,11 @@ describe("applyBorderToLayer", () => {
 
     applyBorderToLayer(ui, "vec1");
 
-    expect(leaf.setStyle).toHaveBeenCalledWith({ color: "#0000ff", weight: 6 });
+    expect(leaf.setStyle).toHaveBeenCalledWith({
+      color: "#0000ff",
+      weight: 6,
+      stroke: true,
+    });
   });
 
   it("writes only the named layer, never a neighbor's stored stroke", () => {
@@ -897,7 +1016,10 @@ describe("applyBorderToLayer", () => {
 
     ui.applyUserState();
 
-    expect(recorded.setStyle).toHaveBeenCalledWith({ color: "#0000ff" });
+    expect(recorded.setStyle).toHaveBeenCalledWith({
+      color: "#0000ff",
+      stroke: true,
+    });
     expect(orphan.setStyle).not.toHaveBeenCalled();
   });
 });
