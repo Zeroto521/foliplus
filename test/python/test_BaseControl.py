@@ -289,6 +289,18 @@ class TestBaseControlRendering:
         assert "Ownership" in css
         assert "Ladder" in css
 
+    def test_z_policy_export_scale_row_is_in_export_ladder(self):
+        """The policy table's export-scale row is 9490 (export-base - 10), not 850.
+
+        T241 reported 850 colliding with the layer-z band; the row moves with
+        the value so the table stays the single source of stacking intent.
+        """
+        css = read_css_dir("foliplus/css/common", "token.css")
+        assert "--foliplus-export-scale-z" in css
+        assert "9490" in css
+        # The old layer-band value must not survive as the documented row.
+        assert "850        export z" not in css
+
     def test_z_policy_export_header_pointer(self):
         """ExportControl.css points at the policy table instead of re-laddering."""
         from conftest import read_css
