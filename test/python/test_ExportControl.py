@@ -1120,9 +1120,10 @@ class TestExportControlBrowser:
         - a purple marker self-marked ``foliplus-export-exclude`` in a foliplus
           pane does not leak into the export canvas (whole-canvas pixel gate).
         """
-        with use_page(
-            self._make_page, browser, tmp_path, slug="export_exclude"
-        ) as (page, _):
+        with use_page(self._make_page, browser, tmp_path, slug="export_exclude") as (
+            page,
+            _,
+        ):
             errors = []
             page.on("pageerror", lambda e: errors.append(str(e)))
 
