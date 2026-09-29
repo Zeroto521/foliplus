@@ -17,9 +17,7 @@
 // (fill, border) share: one handler per leaf merges every keyed getter
 // into a single `setStyle` on fire.
 import type { StyleSetter } from "../../type.js";
-
-const isStyleSetter = (node: unknown): node is StyleSetter =>
-  node != null && typeof (node as StyleSetter).setStyle === "function";
+import { isStyleSetter } from "./styleBag.js";
 
 type StyleGetter = () => Record<string, unknown> | null;
 

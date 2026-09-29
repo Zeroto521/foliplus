@@ -3,6 +3,12 @@ name: bundle
 on:
   pull_request:
     branches: [main]
+  push:
+    branches: [main]
+  # Manual dispatch runs the main-push track (upload-only) from any ref —
+  # used to exercise/verify the baseline path before a merge, and to
+  # re-upload a baseline on demand.
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -13,10 +19,17 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Build the PR and the base branch, diff the two, and post the result as a
-  # sticky comment. There is no committed baseline — the base branch's own build
-  # is the reference, so nothing is ever written back to main.
-  report:
+  # One job, two tracks. PR events run the full path: build the PR and the
+  # base branch, diff the two, and post the result as a sticky comment. main
+  # pushes / manual dispatches run upload-only: land the Codecov bundle
+  # baseline so the next PR's increment view diffs against real main numbers
+  # instead of an empty base (the 100% illusion).
+  #
+  # Every baseline-dependent step (Capture / Report / sticky comment /
+  # Enforce) is gated on `pull_request` — a push has no base to capture and
+  # those steps would exit non-zero over a missing base-sizes.json. fuse is
+  # absolute and runs on both tracks.
+  bundle:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -26,8 +39,8 @@ jobs:
 
       - run: npm run build:sonda
 
-      # Build the base branch in a detached worktree and capture its sizes, then
-      # diff the PR build against them.
+      # PR-only. Build the base branch in a detached worktree and capture its
+      # sizes, then diff the PR build against them.
       #
       # The two builds share the PR checkout's node_modules: the base checkout is
       # a clean tree with no lockfile, so its own `npm install` would resolve
@@ -36,6 +49,7 @@ jobs:
       # `-a` (not `-R`): it preserves symlinks and modes across the handoff —
       # node_modules trees are full of both on Linux runners.
       - name: Capture base sizes
+        if: ${{ github.event.pull_request }}
         run: |
           git fetch --no-tags origin "${{ github.base_ref }}"
           git worktree add --detach /tmp/base "origin/${{ github.base_ref }}"
@@ -48,17 +62,18 @@ jobs:
           git worktree remove --force /tmp/base
 
       # Absolute cap per artifact — the fuse that fires only on tens-of-KB
-      # incidents. Runs on the PR build produced by `build:sonda` above; the
+      # incidents. Runs on the build produced by `build:sonda` above; the
       # report step below is what publishes the verdict, so the fuse must
       # land before it.
       - run: node script/bundle-fuse.mjs
 
-      # The report must land on the PR no matter what the verdict is, so it is
-      # always published before the gate is evaluated. `check` exits 0 on a
-      # threshold breach by design — the table has to reach the PR first — so
-      # this step cannot abort the job; `--enforce` in the gate step is what
-      # decides.
+      # PR-only. The report must land on the PR no matter what the verdict
+      # is, so it is always published before the gate is evaluated. `check`
+      # exits 0 on a threshold breach by design — the table has to reach the
+      # PR first — so this step cannot abort the job; `--enforce` in the gate
+      # step is what decides.
       - name: Report
+        if: ${{ github.event.pull_request }}
         run: |
           # Neither `github.base_sha` nor `HEAD` is the SHA to show. The checkout
           # is detached at the merge commit `merge(main, PR)`, so `HEAD` is a SHA
@@ -73,12 +88,32 @@ jobs:
             --report=bundle-report.md
 
       - uses: actions/upload-artifact@v7
+        if: ${{ github.event.pull_request }}
         id: upload
         with:
           name: bundle-treemap
           path: bundle-treemap.html
 
+      # Both tracks. Speaks the bundler-plugin HTTP protocol over the merged
+      # metafile `build:sonda` just wrote. On a PR this supplies the increment
+      # view; a main push lands the baseline that PRs diff against. PR uploads
+      # stay fail-soft (an outage must not block the sticky table, the dual
+      # gates, or merge); a main-push upload is hard-fail — the whole point of
+      # that track is landing the baseline, so a red job means it did not land
+      # (do not paper it over). Token is the same GHA secret the coverage
+      # uploads already use — no new plaintext credentials.
+      - name: Codecov Bundle Analysis
+        continue-on-error: ${{ github.event_name == 'pull_request' }}
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        run: |
+          node script/codecov-bundle-upload.mjs \
+            --root=. \
+            --metafile=bundle-metafile.json \
+            --bundle-name=foliplus
+
       - name: Link treemap report
+        if: ${{ github.event.pull_request }}
         run: |
           {
             echo ""
@@ -88,21 +123,18 @@ jobs:
           } >> bundle-report.md
 
       - uses: marocchino/sticky-pull-request-comment@v2
+        if: ${{ github.event.pull_request }}
         continue-on-error: true # fork PRs lack comment permission
         with:
           header: bundle-report
           path: bundle-report.md
 
-      # Gate last: the table above already names the offenders, so the failure
-      # here adds nothing to the PR and must never keep it from appearing. The
-      # verdict is the one the Report step recorded against the same baseline,
-      # so this is a re-read of the same numbers, not a re-measure.
+      # PR-only. Gate last: the table above already names the offenders, so the
+      # failure here adds nothing to the PR and must never keep it from
+      # appearing. The verdict is the one the Report step recorded against the
+      # same baseline, so this is a re-read of the same numbers, not a
+      # re-measure. A push has no base to enforce against, hence the gate.
       - name: Enforce threshold
-        # The gate lives on pull_request only, so a branch push does not see a
-        # base-sizes.json from a Capture step that ran against the PR's own
-        # `head_ref`. The if is defensive, not reachable from the workflow's
-        # current triggers: it keeps the step skipped rather than failing on a
-        # missing file if a push trigger is added later.
         if: ${{ github.event.pull_request }}
         run: |
           node script/bundle-size-check.mjs --baseline=base-sizes.json --enforce

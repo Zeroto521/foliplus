@@ -10,8 +10,7 @@
   --foliplus-drag-bottom-shadow: 0 var(--foliplus-size-2) var(--foliplus-size-6)
     calc(-1 * var(--foliplus-size-2)) var(--foliplus-accent-primary);
 
-  /* Pulse animation timing */
-  --foliplus-drag-pulse-duration: 0.8s;
+  /* Pulse animation repeat count */
   --foliplus-drag-pulse-count: 3;
 
   /* Pulse border: start (from) and end (to) colors during the pulse */
@@ -464,7 +463,7 @@
       border-top: var(--foliplus-drag-border-width) solid var(--foliplus-accent-primary);
       background: var(--foliplus-accent-soft-bg);
       box-shadow: var(--foliplus-drag-top-shadow);
-      animation: foliplus-drag-pulse var(--foliplus-drag-pulse-duration) ease-in-out
+      animation: foliplus-drag-pulse var(--foliplus-motion-slow) ease-in-out
         var(--foliplus-drag-pulse-count);
     }
     &.foliplus-layer-drag-over-bottom {
@@ -472,7 +471,7 @@
         var(--foliplus-accent-primary);
       background: var(--foliplus-accent-soft-bg);
       box-shadow: var(--foliplus-drag-bottom-shadow);
-      animation: foliplus-drag-pulse var(--foliplus-drag-pulse-duration) ease-in-out
+      animation: foliplus-drag-pulse var(--foliplus-motion-slow) ease-in-out
         var(--foliplus-drag-pulse-count);
     }
   }

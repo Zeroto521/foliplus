@@ -1,6 +1,6 @@
 // LayerControl UI —Layer attributes panel.
 import { EVENTS } from "#core/event/index.js";
-import { GEOM_TYPE } from "#core/layer/index.js";
+import { GEOM_TYPE, GROUP } from "#core/layer/index.js";
 import { dom } from "#common/dom.js";
 import { formatNumber, formatTimestamp } from "#common/format.js";
 import { createRowPanel } from "#common/panel.js";
@@ -68,8 +68,8 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
   // a geometry type it never had; a custom layer ships its own logo instead
   // of a geometry glyph —same rowView decision tree, same labels.
   const isBaseLayer = layerInfo
-    ? layerInfo.group === CONST.GROUP.BASE
-    : item.dataset.layerType === CONST.GROUP.BASE;
+    ? layerInfo.group === GROUP.BASE
+    : item.dataset.layerType === GROUP.BASE;
   const typeKey = isColor
     ? "type_color_map"
     : isBaseLayer

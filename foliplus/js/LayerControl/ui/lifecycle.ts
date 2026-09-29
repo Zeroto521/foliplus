@@ -3,6 +3,7 @@
 // in index.ts keeps one-line delegates; this module owns the actual wiring
 // so index.ts stays a state + delegates shell.
 import { EVENTS, ensureEvents } from "#core/event/index.js";
+import { GROUP } from "#core/layer/index.js";
 import * as CONST from "../const.js";
 import {
   handleMoreClick,
@@ -21,6 +22,7 @@ import {
 } from "./drag.js";
 import { dismissFocus } from "./focus.js";
 import type { LayerUI } from "./index.js";
+import { INTENT, getIntent } from "./intent.js";
 import {
   blurActiveItem,
   clearActiveItem,
@@ -246,7 +248,7 @@ const bindEvents = (ui: LayerUI): void => {
   // stored range excludes the new level is hidden, and one whose range
   // includes it is brought back. This is the "inRange" half of
   // effectiveShown = intent && inRange, and it writes through the single
-  // pipeline so the checkbox / visibleMap / overrides stay untouched (#329).
+  // pipeline so the checkbox / intents.visible / overrides stay untouched (#329).
   ui.onZoomEnd = () => applyProjectionAll(ui);
   ui.m.map.on("zoomend", ui.onZoomEnd);
   // Keyboard dispatch for the "more" button (Enter/Space/Escape) is handled
@@ -275,7 +277,7 @@ const onLayerItemCountChange = (ui: LayerUI, id: string): void => {
   ) as HTMLElement | null;
   if (!item) return;
   const layerInfo = ui.m.layerRegistry.get(id);
-  if (!layerInfo || layerInfo.group === CONST.GROUP.BASE) return;
+  if (!layerInfo || layerInfo.group === GROUP.BASE) return;
   invalidateFields(ui, id);
 
   applyRowView(ui, item, buildRowCell(ui, layerInfo));
@@ -289,7 +291,7 @@ const onLayerItemCountChange = (ui: LayerUI, id: string): void => {
   // carry the value), so the executor's `appliedState` is invalidated for
   // this id before the re-projection: the diff sees the stored opacity as
   // new and re-applies it through the carrier dispatcher.
-  if (ui.opacityMap[id] !== undefined) {
+  if (getIntent(ui, id, INTENT.OPACITY) !== undefined) {
     ui.appliedState.delete(id);
     applyProjection(ui, id);
   }

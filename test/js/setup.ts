@@ -123,9 +123,32 @@ window.L = {
   })),
   divIcon: vi.fn(() => ({})),
   Path: class {},
-  Polygon: class {},
-  Polyline: class {},
-  CircleMarker: class {},
+  // Areal / line duck-types for hasFillLeaf (carrier features, not instanceof):
+  // Polygon/Rectangle expose ring coords; Circle/CircleMarker expose getRadius;
+  // Polyline exposes a flat coord list (not rings).
+  Polygon: class {
+    getLatLngs = () => [
+      [
+        { lat: 0, lng: 0 },
+        { lat: 1, lng: 0 },
+        { lat: 0, lng: 1 },
+      ],
+    ];
+  },
+  Polyline: class {
+    getLatLngs = () => [
+      { lat: 0, lng: 0 },
+      { lat: 1, lng: 1 },
+    ];
+  },
+  Circle: class {
+    getRadius = () => 5;
+  },
+  CircleMarker: class {
+    constructor(_latlng?: unknown, _opts?: unknown) {}
+    getRadius = () => 5;
+    setStyle = vi.fn();
+  },
 };
 
 // L.Path.prototype.bringToFront is captured at module import time by
