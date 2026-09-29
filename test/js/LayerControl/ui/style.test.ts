@@ -16,6 +16,7 @@ import {
   layerHasLabelFields,
   layerHasStyleDelegation,
 } from "#foliplus/LayerControl/ui/style/index.js";
+import { coerceAnnotationFields } from "#foliplus/LayerControl/ui/style/label.js";
 import {
   clampPct,
   resetLayerOpacity,
@@ -500,6 +501,23 @@ describe("LayerUI style panel", () => {
     const cfg = manager.annotation.getConfig("overlay1");
     expect(cfg.field).toBe("");
     expect(cfg.format).toBe(NUMBER_FORMAT.AUTO);
+  });
+
+  it("coerceAnnotationFields is the single home of the field rules", () => {
+    // Every future label field (e.g. position) extends this one function —
+    // the tolerant parse passes unknown keys through untouched.
+    expect(coerceAnnotationFields(null)).toEqual({
+      show: false,
+      field: "",
+      color: CONST.DEFAULT_ANNOTATION.color,
+      size: CONST.DEFAULT_ANNOTATION.size,
+      format: NUMBER_FORMAT.AUTO,
+      collide: true,
+    });
+    expect(coerceAnnotationFields({ collide: false })).toMatchObject({
+      collide: false,
+    });
+    expect(coerceAnnotationFields({ size: 99 }).size).not.toBe(99); // clamped
   });
 
   it("shows auto for a persisted config with no format", () => {

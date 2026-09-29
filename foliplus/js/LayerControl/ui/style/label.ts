@@ -78,6 +78,31 @@ const applyPatch = (
   persistStyleLabel(ui);
 };
 
+/** Coerce one stored label config into a complete {@link AnnotationConfig}.
+ *
+ *  The single home of the per-field rules: persistence's tolerant parse only
+ *  checks the object shape (and normalises colour), so every coercion — and
+ *  the default of every future field, e.g. `position` — belongs here. The
+ *  renderer consumes the result; nothing in between re-derives defaults. */
+const coerceAnnotationFields = (raw: unknown): AnnotationConfig => {
+  const cfg = (raw && typeof raw === "object" ? raw : {}) as Partial<AnnotationConfig>;
+  return {
+    show: !!cfg.show,
+    field: typeof cfg.field === "string" ? cfg.field : "",
+    color:
+      typeof cfg.color === "string"
+        ? normalizeHexColor(cfg.color)
+        : CONST.DEFAULT_ANNOTATION.color,
+    size:
+      typeof cfg.size === "number"
+        ? clampLabelSize(cfg.size)
+        : CONST.DEFAULT_ANNOTATION.size,
+    format: typeof cfg.format === "string" ? cfg.format : NUMBER_FORMAT.AUTO,
+    // Absent in configs stored before the switch existed: default to on.
+    collide: cfg.collide !== false,
+  };
+};
+
 /** Load persisted per-layer style (label) config and apply it.
  *
  *  `ui.intents.annotation` is the *load-time snapshot*, so this is a seed, not a
@@ -91,22 +116,8 @@ const applyStyleLabelState = (ui: LayerUI): void => {
     if (!raw) continue;
     if (!layerHasLabelFields(ui, id)) continue; // stale / no fields
     if (ui.m.annotation.hasConfig(id)) continue; // live state wins
-    const cfg = raw as Partial<AnnotationConfig>;
-    ui.m.annotation.setConfig(id, {
-      show: !!cfg.show,
-      field: typeof cfg.field === "string" ? cfg.field : "",
-      color:
-        typeof cfg.color === "string"
-          ? normalizeHexColor(cfg.color)
-          : CONST.DEFAULT_ANNOTATION.color,
-      size:
-        typeof cfg.size === "number"
-          ? clampLabelSize(cfg.size)
-          : CONST.DEFAULT_ANNOTATION.size,
-      format: typeof cfg.format === "string" ? cfg.format : NUMBER_FORMAT.AUTO,
-      // Absent in configs stored before the switch existed: default to on.
-      collide: cfg.collide !== false,
-    });
+    const cfg = coerceAnnotationFields(raw);
+    ui.m.annotation.setConfig(id, cfg);
     // A stored `show: false` still has to act: labels left over from an earlier
     // pass would otherwise stay on the map with the toggle reading off.
     if (cfg.show) ui.m.annotation.renderLabels(id);
@@ -130,6 +141,7 @@ const syncFormatRow = (fields: LabelField[], row: HTMLElement, field: string): v
 export {
   applyPatch,
   applyStyleLabelState,
+  coerceAnnotationFields,
   invalidateFields,
   layerFields,
   layerHasLabelFields,

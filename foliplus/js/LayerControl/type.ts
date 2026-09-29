@@ -28,7 +28,20 @@ type LayerOverride =
  *  default stays in force). Provenance is a separate axis
  *  (`intentProvenance` / `LayerOverride`) and is deliberately not on this
  *  record. Disk shape is unchanged: `buildLayerStates` / `renamedNames`
- *  remain the only persistence projections. */
+ *  remain the only persistence projections.
+ *
+ *  **Adding a dimension** (e.g. label visibility or label position):
+ *  1. A *user-settable* dim with an author default (like `visible`) gains a
+ *     key here + the same literal in `LayerOverride`, `INTENT` / `LIVE`
+ *     (`ui/intent.ts`) and `PARSE_OVERRIDE` (`persistence.ts`) — the
+ *     `Record<…>` pins fail the build until every one of them exists, and
+ *     the value rides `layers[id]` under that key. Disk-shape growth is a
+ *     separate, explicit task.
+ *  2. A *label-only* field (position, …) belongs on {@link AnnotationConfig}
+ *     instead: it nests under `layers[id].annotation`, needs no provenance
+ *     entry, and flows through the tolerant annotation parse untouched —
+ *     only the field rule in `coerceAnnotationFields` (ui/style/label.ts)
+ *     and the renderer consume it. */
 type LayerIntent = {
   /** Layer id → the user's visibility choice (true = shown). */
   visible?: boolean;
@@ -76,6 +89,14 @@ type PersistedLayerState = {
   annotation?: AnnotationConfig;
   overrides: LayerOverride[];
 };
+
+/** Compile-time pin: every provenance-tracked dimension is also a disk key —
+ *  `buildLayerStates` writes each override straight through under its own
+ *  name, so a new `LayerOverride` without a `PersistedLayerState` field fails
+ *  here rather than being silently dropped at the persistence boundary. */
+type _AssertOverridesAreDiskKeys = LayerOverride extends keyof PersistedLayerState
+  ? true
+  : ["every LayerOverride must be a PersistedLayerState key"];
 
 /** Everything LayerControl persists, in one record per map. Intent only:
  *  declarations and derived state (what is actually on the map, z-indexes) are

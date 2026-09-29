@@ -3,7 +3,7 @@
 // `ui.intents` is the one record per layer: every user-chosen dimension
 // lives here. Absent key = never touched. Provenance is a separate axis
 // (`intentProvenance`).
-import type { LayerIntent } from "../type.js";
+import type { LayerIntent, LayerOverride } from "../type.js";
 import type { LayerUI } from "./index.js";
 
 /** The intent-key vocabulary — the one place each dimension's key is spelled.
@@ -58,19 +58,28 @@ const clearIntent = (ui: LayerUI, id: string, key: IntentKey): void => {
   if (Object.keys(intent).length === 0) delete ui.intents[id];
 };
 
-/** Drop the style dimensions for one layer (user deleted the layer).
- *  `name` / `annotation` are cleared by their own callers (manager delete /
- *  annotation destroy) because their live sources sit outside the style set. */
+/** The provenance-tracked style dims {@link dropIntent} clears with the
+ *  layer — an identity map onto `INTENT`, so a new `LayerOverride` must pick
+ *  its intent key here (a compile error until it does). `name` / `annotation`
+ *  are riders outside this set, cleared by their own callers (manager delete /
+ *  annotation destroy). */
+const STYLE_KEYS = {
+  visible: INTENT.VISIBLE,
+  fillColor: INTENT.FILL_COLOR,
+  fillOpacity: INTENT.FILL_OPACITY,
+  borderColor: INTENT.BORDER_COLOR,
+  borderWeight: INTENT.BORDER_WEIGHT,
+  opacity: INTENT.OPACITY,
+  zoomRange: INTENT.ZOOM_RANGE,
+} as const satisfies Record<LayerOverride, IntentKey>;
+
+/** Drop the style dimensions for one layer (user deleted the layer). */
 const dropIntent = (ui: LayerUI, id: string): void => {
   const intent = ui.intents?.[id];
   if (!intent) return;
-  delete intent[INTENT.VISIBLE];
-  delete intent[INTENT.FILL_COLOR];
-  delete intent[INTENT.FILL_OPACITY];
-  delete intent[INTENT.BORDER_COLOR];
-  delete intent[INTENT.BORDER_WEIGHT];
-  delete intent[INTENT.OPACITY];
-  delete intent[INTENT.ZOOM_RANGE];
+  for (const key of Object.values(STYLE_KEYS)) {
+    delete intent[key];
+  }
   if (Object.keys(intent).length === 0) delete ui.intents[id];
 };
 
