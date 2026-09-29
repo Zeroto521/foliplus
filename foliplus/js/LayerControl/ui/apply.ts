@@ -251,7 +251,7 @@ const applyStateOp = (ui: LayerUI, layerInfo: LayerInfo, op: StateOp): void => {
       const value = op.value ?? 1;
       const surface = ui.m.surfaceFor(layerInfo);
       for (const pane of surface.panes) {
-        if (pane.role === "annotation") continue;
+        if (pane.role === CONST.PANE_ROLE.ANNOTATION) continue;
         const el = ui.m.map.getPane(pane.name);
         if (el) el.style.opacity = String(value);
       }

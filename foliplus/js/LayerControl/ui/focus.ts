@@ -368,7 +368,7 @@ const bringFocusedLayerToFront = (ui: LayerUI, layerInfo: LayerInfo): void => {
       const panes = surface.panes;
       for (const pane of panes) {
         pane.element.classList.add(CONST.CLASSES.FOCUS_PANE);
-        if (pane.role !== "annotation") {
+        if (pane.role !== CONST.PANE_ROLE.ANNOTATION) {
           pane.element.classList.add(CONST.CLASSES.FOCUS_GLOW);
         }
       }

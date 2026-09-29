@@ -26,7 +26,7 @@
 // recreate the "two places must stay in sync" problem this file exists to end.
 //
 // Pure: no DOM, no CONF, no Leaflet.
-import { GROUP, Z_INDEX } from "./const.js";
+import { GROUP, PANE_ROLE, Z_INDEX } from "./const.js";
 import type { ZArgs } from "./type.js";
 
 /** A layer's label pane rides one step above its own panes: the labels cover
@@ -62,7 +62,7 @@ const zFor = ({
   index = 0,
   count = index,
   group = GROUP.OVERLAY,
-  role = "base",
+  role = PANE_ROLE.BASE,
   order = 0,
   base,
 }: ZArgs): number => {
@@ -70,7 +70,7 @@ const zFor = ({
     base ??
     (group === GROUP.BASE ? Z_INDEX.TILE_BASE : Z_INDEX.BASE) +
       (count - index) * Z_INDEX.STEP;
-  return role === "annotation" ? slot + ANNOTATION_Z_OFFSET : slot + order;
+  return role === PANE_ROLE.ANNOTATION ? slot + ANNOTATION_Z_OFFSET : slot + order;
 };
 
 /** The z one step above the topmost layer's slot — the base for the three

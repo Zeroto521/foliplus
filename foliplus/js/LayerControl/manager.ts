@@ -131,12 +131,12 @@ const withAnnotationSpec = (
   layer: L.Layer | null,
 ): PaneSpec[] => {
   const specs = layerInfo.paneSpecs ?? [];
-  if (specs.some(spec => spec.role === "annotation")) return specs;
+  if (specs.some(spec => spec.role === CONST.PANE_ROLE.ANNOTATION)) return specs;
   if (!layer || !hasLabelField(layer)) return specs;
   return [
     ...specs,
     {
-      role: "annotation",
+      role: CONST.PANE_ROLE.ANNOTATION,
       order: specs.length,
       name: CONST.ANNOTATION_PANE_PREFIX + layerInfo.id,
     },

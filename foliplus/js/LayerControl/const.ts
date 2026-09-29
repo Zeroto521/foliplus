@@ -5,6 +5,7 @@ import {
   FOCUS_Z,
   GROUP,
   KIND,
+  PANE_ROLE,
 } from "#core/layer/index.js";
 import { LABEL_COLOR_DEFAULT, LABEL_SIZE } from "#common/form.js";
 import { NUMBER_FORMAT } from "#common/format.js";
@@ -270,6 +271,7 @@ export {
   FOCUS_PANE,
   GROUP,
   KIND,
+  PANE_ROLE,
   SAVE_DEBOUNCE_MS,
   SEL,
   SOLID_BASEMAP_ID,
