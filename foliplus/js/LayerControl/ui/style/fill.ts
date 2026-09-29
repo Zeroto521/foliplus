@@ -41,9 +41,7 @@ import {
   type StyleCarrier,
   cancelStyleDimApply,
   commitStyleDim,
-  dropStyleDimApply,
   flushStyleDimApply,
-  hasStyleDimApply,
   restoreStyleDim,
   scheduleStyleDimApply,
   styleBagOf,
@@ -212,27 +210,12 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
   });
 };
 
-/** Shared apply scheduler (styleBag, face=`fill`): one walk per frame per
- *  `fill:layerId`. Intent writes stay immediate; the deferred walk reads
- *  the latest value. `flushFillApply` is the commit boundary (change /
- *  blur / panel close); `dropStyleDimApplies` retires every face's entry
- *  on unregister (single hook). */
+/** Shared apply scheduler (styleBag, face=`fill`): one walk per frame.
+ *  The wrapper exists only to bind this face's apply fn — flush / drop /
+ *  has go straight to styleBag at the call site. */
 const scheduleFillApply = (ui: LayerUI, layerId: string): void => {
   scheduleStyleDimApply("fill", layerId, () => applyFillToLayer(ui, layerId));
 };
-
-const flushFillApply = (layerId: string): void => {
-  flushStyleDimApply("fill", layerId);
-};
-
-/** Unregister teardown lives in styleBag.dropStyleDimApplies (both faces
- *  in one pass). These two remain the fill-scoped test seams. */
-const dropFillScheduler = (layerId: string): void => {
-  dropStyleDimApply("fill", layerId);
-};
-
-const hasFillScheduler = (layerId: string): boolean =>
-  hasStyleDimApply("fill", layerId);
 
 /** Write the color into the map, persist it, and mark the dimension as
  *  user-owned so it survives a reload. Only writes when the value actually
@@ -375,7 +358,7 @@ const bindFillRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
     // overwrite: bindLiveColor only owns oninput today, but a future binder
     // that owns onchange must not be dropped (and the listener-guard
     // allow-list rejects bare addEventListener).
-    const flush = () => flushFillApply(layerId);
+    const flush = () => flushStyleDimApply("fill", layerId);
     const prevColorChange = colorEl.onchange;
     colorEl.onchange = ev => {
       prevColorChange?.call(colorEl, ev);
@@ -396,7 +379,7 @@ const bindFillRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
     });
     // bindLiveNumber already owns onchange (clamp + commit); chain the flush
     // instead of overwriting it. blur is free.
-    const flush = () => flushFillApply(layerId);
+    const flush = () => flushStyleDimApply("fill", layerId);
     const prevChange = opacityEl.onchange;
     opacityEl.onchange = ev => {
       prevChange?.call(opacityEl, ev);
@@ -454,10 +437,7 @@ export {
   buildFillRow,
   commitFillColor,
   commitFillOpacity,
-  dropFillScheduler,
   FILL_DIMENSION,
-  flushFillApply,
-  hasFillScheduler,
   isColorBasemap,
   layerCanFill,
   replayFillState,

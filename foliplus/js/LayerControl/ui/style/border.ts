@@ -46,7 +46,6 @@ import {
   cancelStyleDimApply,
   commitStyleDim,
   flushStyleDimApply,
-  hasStyleDimApply,
   isStyleSetter,
   restoreStyleDim,
   scheduleStyleDimApply,
@@ -174,20 +173,12 @@ const applyBorderToLayer = (ui: LayerUI, layerId: string): void => {
   walk(layer);
 };
 
-/** Shared apply scheduler (styleBag, face=`stroke`): one walk per frame per
- *  `stroke:layerId`. Same drag-coalesce contract as fill. */
+/** Shared apply scheduler (styleBag, face=`stroke`): one walk per frame.
+ *  The wrapper exists only to bind this face's apply fn — flush / drop /
+ *  has go straight to styleBag at the call site. */
 const scheduleBorderApply = (ui: LayerUI, layerId: string): void => {
   scheduleStyleDimApply("stroke", layerId, () => applyBorderToLayer(ui, layerId));
 };
-
-const flushBorderApply = (layerId: string): void => {
-  flushStyleDimApply("stroke", layerId);
-};
-
-/** Test seam: the unregister hook is styleBag.dropStyleDimApplies (both
- *  faces in one pass). */
-const hasBorderScheduler = (layerId: string): boolean =>
-  hasStyleDimApply("stroke", layerId);
 
 /** Write the color into the map, persist it, and mark the dimension as
  *  user-owned so it survives a reload. Only writes when the value actually
@@ -398,7 +389,7 @@ const bindBorderRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => 
     weightClassName: CONST.CLASSES.STYLE_BORDER_WEIGHT_INPUT,
     onChangeColor: value => commitBorderColor(ui, layerId, value),
     onChangeWeight: value => commitBorderWeight(ui, layerId, value),
-    onFlush: () => flushBorderApply(layerId),
+    onFlush: () => flushStyleDimApply("stroke", layerId),
   });
 };
 
@@ -436,8 +427,6 @@ export {
   buildBorderRowShell,
   commitBorderColor,
   commitBorderWeight,
-  flushBorderApply,
-  hasBorderScheduler,
   layerCanBorder,
   resetLayerBorder,
 };

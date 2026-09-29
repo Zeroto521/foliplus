@@ -176,8 +176,10 @@ const scheduleStyleDimApply = (
   const key = applyKey(face, layerId);
   let box = applySchedulers.get(key);
   if (!box) {
-    const created: ApplyBox = { run, raf: undefined as never };
-    created.raf = throttleRaf(() => created.run());
+    // Two-step init so the raf callback can read `created.run` (the box
+    // entry) without a double assertion: the box exists before throttleRaf
+    // closes over it.
+    const created = { run, raf: throttleRaf(() => created.run()) };
     box = created;
     applySchedulers.set(key, box);
   }

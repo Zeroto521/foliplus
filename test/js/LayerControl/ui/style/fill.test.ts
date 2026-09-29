@@ -10,14 +10,16 @@ import {
   buildFillRow,
   commitFillColor,
   commitFillOpacity,
-  dropFillScheduler,
-  flushFillApply,
-  hasFillScheduler,
   layerCanFill,
   replayFillState,
   resetLayerFill,
 } from "#foliplus/LayerControl/ui/style/fill.js";
 import { closeStylePanel } from "#foliplus/LayerControl/ui/style/index.js";
+import {
+  dropStyleDimApplies,
+  flushStyleDimApply,
+  hasStyleDimApply,
+} from "#foliplus/LayerControl/ui/style/styleBag.js";
 import { findItem, initFixture, installLeafletGlobals } from "../fixture.js";
 
 /** A layer duck with a real setStyle spy and a set of polygon leaves each
@@ -93,7 +95,7 @@ const commitNow = (
 ): void => {
   if (kind === "color") commitFillColor(ui, layerId, value as string);
   else commitFillOpacity(ui, layerId, value as number);
-  flushFillApply(layerId);
+  flushStyleDimApply("fill", layerId);
 };
 
 describe("LayerUI style panel — fill color", () => {
@@ -507,7 +509,7 @@ describe("LayerUI style panel — fill color", () => {
     vi.stubGlobal("cancelAnimationFrame", () => {});
 
     commitFillColor(ui, "overlay1", "#333333");
-    flushFillApply("overlay1");
+    flushStyleDimApply("fill", "overlay1");
 
     expect(fillLayer.leaves[0].setStyle).toHaveBeenCalledWith({
       fillColor: "#333333",
@@ -515,7 +517,7 @@ describe("LayerUI style panel — fill color", () => {
     });
     expect(fillLayer.leaves[0].setStyle).toHaveBeenCalledTimes(1);
     // a second flush is a no-op — the terminal value already landed
-    flushFillApply("overlay1");
+    flushStyleDimApply("fill", "overlay1");
     expect(fillLayer.leaves[0].setStyle).toHaveBeenCalledTimes(1);
   });
 
@@ -533,7 +535,7 @@ describe("LayerUI style panel — fill color", () => {
     commitFillColor(ui, "overlay1", "#111111");
     commitFillColor(ui, "overlay1", "#654321");
     commitFillOpacity(ui, "overlay1", 40);
-    flushFillApply("overlay1");
+    flushStyleDimApply("fill", "overlay1");
 
     expect(leaf.setStyle.mock.calls.at(-1)).toEqual(syncCall);
     expect(leaf.setStyle).toHaveBeenCalledWith({
@@ -678,18 +680,18 @@ describe("LayerUI style panel — fill color", () => {
     vi.stubGlobal("cancelAnimationFrame", () => {});
 
     commitFillColor(ui, "overlay1", "#333333");
-    expect(hasFillScheduler("overlay1")).toBe(true);
+    expect(hasStyleDimApply("fill", "overlay1")).toBe(true);
 
     manager.unregisterLayer("overlay1");
-    expect(hasFillScheduler("overlay1")).toBe(false);
+    expect(hasStyleDimApply("fill", "overlay1")).toBe(false);
     // the cancelled frame must not paint into the dead layer
     for (const cb of frames.splice(0)) cb();
     expect(fillLayer.leaves[0].setStyle).not.toHaveBeenCalled();
   });
 
-  it("dropFillScheduler is a no-op for an id with no entry", () => {
-    expect(() => dropFillScheduler("ghost")).not.toThrow();
-    expect(hasFillScheduler("ghost")).toBe(false);
+  it("dropStyleDimApplies is a no-op for an id with no entry", () => {
+    expect(() => dropStyleDimApplies("ghost")).not.toThrow();
+    expect(hasStyleDimApply("fill", "ghost")).toBe(false);
   });
 
   it("forces fill on when the user sets a fill color, so a fill:false path becomes visible", () => {
@@ -1015,7 +1017,7 @@ describe("LayerUI style panel — fill color", () => {
     // showSolidBasemap and the fill-opacity map stays empty.
     registerColorBasemap();
     commitFillColor(ui, CONST.SOLID_BASEMAP_ID, "#ff0000");
-    flushFillApply(CONST.SOLID_BASEMAP_ID);
+    flushStyleDimApply("fill", CONST.SOLID_BASEMAP_ID);
     expect(getIntent(ui, CONST.SOLID_BASEMAP_ID, "fillColor")).toBe("#ff0000");
     expect(getIntent(ui, CONST.SOLID_BASEMAP_ID, "fillOpacity")).toBeUndefined();
     expect(ui.currentColor).toBe("#ff0000");
