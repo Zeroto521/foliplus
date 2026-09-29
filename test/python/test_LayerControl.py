@@ -5036,6 +5036,49 @@ class TestLayerControlBrowser:
                 f"focus rect must keep the march animation, got {result}"
             )
 
+    def test_geometry_focus_drops_ua_ring_for_marching_ants(self, browser, tmp_path):
+        """A focused map path must not paint the UA outline.
+
+        The UA ring is black on Windows Chrome and system-blue on macOS Chrome
+        (``outline-style: auto`` + Highlight) — the "black large border" report.
+        The focus signal is repainted with the shared marching-ants vocabulary
+        instead: dash rhythm + ``foliplus-focus-march``.
+        """
+        fg = folium.FeatureGroup(name="Zone", overlay=True, show=True)
+        folium.Polygon(
+            locations=[[26.0, 119.2], [26.2, 119.2], [26.2, 119.5], [26.0, 119.5]],
+        ).add_to(fg)
+        with use_page(
+            self._make_page, browser, tmp_path, fg, slug="geom_focus_ants"
+        ) as (page, _):
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            result = page.evaluate(_js("LayerControl/geometry_focus_marching_ants"))
+            assert result is not None, "geometry_focus_marching_ants failed"
+            assert result["focused"] is True, f"path never took focus, got {result}"
+            assert result["outlineStyle"] == "none", (
+                f"focused geometry must drop the UA outline, got {result}"
+            )
+
+            dash = page.evaluate(
+                "getComputedStyle(document.documentElement)"
+                ".getPropertyValue('--foliplus-dash-rhythm').trim()"
+            )
+            got_dash = result["strokeDasharray"].replace(",", " ").split()
+            want_dash = dash.replace(",", " ").split()
+            assert got_dash == want_dash, (
+                f"focused geometry dash rhythm must be {want_dash}, got {got_dash}"
+            )
+            assert result["animationName"] == "foliplus-focus-march", (
+                f"focused geometry must keep the march animation, got {result}"
+            )
+
     def test_focus_overlay_pane_keeps_spotlight_visible(self, browser, tmp_path):
         """The focus overlay pane carries both the base and exclusion classes.
 

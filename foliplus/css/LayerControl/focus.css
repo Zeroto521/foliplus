@@ -35,6 +35,27 @@
   pointer-events: auto;
 }
 
+/* ── Geometry focus ring (click / keyboard focus on a map path) ──
+   A focused SVG path paints the UA outline along its geometry:
+   `outline-style: auto` + `outline-color` is black on Windows Chrome
+   (`rgb(16,16,16)`) and the system Highlight blue on macOS Chrome —
+   the "black large border" report. Suppress the UA ring and repaint the
+   focus signal with the same marching-ants vocabulary as the focus rect
+   below (shared --foliplus-dash-rhythm + foliplus-focus-march), so a
+   focused geometry reads as one focus language, not a third visual. */
+.leaflet-interactive:focus,
+.leaflet-interactive:focus-visible {
+  outline: none;
+  stroke-dasharray: var(--foliplus-dash-rhythm);
+  animation: foliplus-focus-march 0.8s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .leaflet-interactive:focus,
+  .leaflet-interactive:focus-visible {
+    animation: none;
+  }
+}
+
 /* ── Focus bounds rectangle (drawn on the map) ──
    Added via map.addLayer(), so it lives OUTSIDE .foliplus-layer-ctrl and
    needs a top-level selector. Leaflet renders L.rectangle as a <path> with
