@@ -102,9 +102,7 @@ const buildCodecovPayload = ({
 
   outputKeys.forEach((outputKey, index) => {
     const output = metafile.outputs[outputKey];
-    const artifactPath = isAbsolute(outputKey)
-      ? outputKey
-      : resolve(root, outputKey);
+    const artifactPath = isAbsolute(outputKey) ? outputKey : resolve(root, outputKey);
     const name = assetName(outputKey);
     const id = chunkIdFromOutput(outputKey);
     const uniqueId = `${index}-${id}`;
