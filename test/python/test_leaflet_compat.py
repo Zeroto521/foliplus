@@ -1,8 +1,9 @@
 """Leaflet bring-up smoke for pages that swap Folium's Leaflet pin.
 
-foliplus depends on Folium; Leaflet is Folium's browser-side pin, not a
-direct dependency of this package. These tests still rewrite that pin so
-a page which loads a different Leaflet is not a silent unknown.
+Two-layer reality (see README Compatibility): install is `folium>=0.14.0`;
+runtime is the TS controls against whatever Leaflet Folium injects. These
+tests rewrite that pin so a page which loads a different Leaflet is not a
+silent unknown.
 
 Scope is deliberately narrow: prove foliplus *loads and mounts* on a given
 Leaflet (map init, control attach, panel ready, one panel expand, LayerAPI).

@@ -77,4 +77,4 @@ All of this happens without manual wiring—foliplus handles it internally.
 
 ## Compatibility
 
-foliplus depends on Folium (`folium>=0.14.0`); Leaflet is supplied by Folium and is not a direct dependency of this package. CI smoke-tests the Leaflet Folium ships (1.9.3) and Leaflet 1.0.0 (bring-up only, for pages that swap the pin). The full suite runs on Folium's Leaflet.
+Install surface: `folium>=0.14.0` — Leaflet is not a Python dependency. Runtime surface: the TypeScript controls run against the Leaflet Folium injects into the page. CI runs the full suite on Folium's Leaflet (1.9.3) and a bring-up smoke on Leaflet 1.0.0 for pages that swap the pin.
