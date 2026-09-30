@@ -49,9 +49,25 @@ describe("css-layer.mjs", () => {
     const body = wrapComponentLayers(".search { color: red; }");
     expect(body.startsWith(LAYER_ORDER)).toBe(true);
     expect(body).toContain("@layer foliplus.components {");
-    // Empty layers get no `{ —}` block —only the order preamble names them.
+    // Empty layers get no `{ … }` block — only the order preamble names them.
     expect(body).not.toContain("@layer foliplus.tokens {");
     expect(body).not.toContain("@layer foliplus.base {");
+  });
+
+  it("wrapCommonLayers skips the base layer when only tokens are present", () => {
+    const body = wrapCommonLayers(["token.css"], () => ":root { --x: 1; }");
+    expect(body).toContain("@layer foliplus.tokens {");
+    expect(body).not.toContain("@layer foliplus.base {");
+    expect(body).not.toContain("@layer foliplus.components {");
+  });
+
+  it("wrapCommonLayers skips the tokens layer when no token module is present", () => {
+    const body = wrapCommonLayers(
+      ["form.css", "button.css"],
+      file => `.${file.replace(/\.css$/, "")} { color: red; }`,
+    );
+    expect(body).not.toContain("@layer foliplus.tokens {");
+    expect(body).toContain("@layer foliplus.base {");
   });
 
   it("keeps component bodies intact inside the components layer", () => {

@@ -113,7 +113,9 @@ const hoistLeafletOverrides = css => {
   const root = postcss.parse(css);
   const hoisted = [];
   root.walkRules(rule => {
-    const selectors = rule.selectors || [];
+    // postcss exposes `selectors` as an array on every Rule node (also for
+    // @media / @keyframes child rules), so no fallback is needed here.
+    const selectors = rule.selectors;
     if (selectors.some(s => s.includes(".leaflet"))) {
       hoisted.push(rule.clone());
       rule.remove();
