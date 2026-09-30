@@ -158,6 +158,28 @@ const writeIntentKeys = (
   return true;
 };
 
+/** Cohesive IntentStore clears for a descriptor `reset`. `keys` are intent
+ *  keys to clear (values + provenance via IntentStore.clear). Always
+ *  schedules storage when at least one key is supplied — matching the
+ *  pre-helper resets, which cleared then saved unconditionally. Returns
+ *  whether any key was cleared. Callers still own projection / styleBag
+ *  restore after this returns.
+ *
+ *  Pair of {@link writeIntentKeys}: that function is the user-write side,
+ *  this is the user-reset side. */
+const resetIntentKeys = (
+  ui: LayerUI,
+  layerId: string,
+  keys: readonly IntentKey[],
+): boolean => {
+  if (keys.length === 0) return false;
+  for (const key of keys) {
+    ui.intentStore.clear(layerId, key);
+  }
+  saveState(ui);
+  return true;
+};
+
 export {
   DIM_ORDER,
   LABEL_DIM_ORDER,
@@ -165,5 +187,6 @@ export {
   getDimension,
   listDimensions,
   registerDimension,
+  resetIntentKeys,
   writeIntentKeys,
 };

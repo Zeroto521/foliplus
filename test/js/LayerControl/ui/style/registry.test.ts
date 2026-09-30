@@ -28,6 +28,7 @@ import {
   getDimension,
   listDimensions,
   registerDimension,
+  resetIntentKeys,
   writeIntentKeys,
 } from "#foliplus/LayerControl/ui/style/registry.js";
 import { ZOOM_RANGE_DIMENSION } from "#foliplus/LayerControl/ui/style/zoomRange.js";
@@ -169,6 +170,53 @@ describe("LayerControl style-panel dimension registry — writeIntentKeys", () =
   it("returns false when the writes array is empty", () => {
     expect(writeIntentKeys(ui, "overlay1", [])).toBe(false);
     expect(schedule).not.toHaveBeenCalled();
+  });
+});
+
+describe("LayerControl style-panel dimension registry — resetIntentKeys", () => {
+  let ui: LayerUI;
+  let schedule: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    installLeafletGlobals();
+    const fixture = initFixture({
+      data: [
+        {
+          id: "overlay1",
+          name: "Overlay",
+          group: "overlay",
+          layer: { options: {}, setZIndex: vi.fn(), getBounds: vi.fn() },
+        },
+      ],
+    });
+    ui = fixture.ui;
+    schedule = vi.fn();
+    ui.m.persistence = { schedule } as never;
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+  });
+
+  it("clears listed keys, saves, and returns true", () => {
+    ui.intentStore.set("overlay1", "fillColor", "#ff0000");
+    ui.intentStore.set("overlay1", "fillOpacity", 0.5);
+    expect(resetIntentKeys(ui, "overlay1", ["fillColor", "fillOpacity"])).toBe(true);
+    expect(ui.intentStore.get("overlay1", "fillColor")).toBeUndefined();
+    expect(ui.intentStore.get("overlay1", "fillOpacity")).toBeUndefined();
+    expect(ui.intentStore.isUserSet("overlay1", "fillColor")).toBe(false);
+    expect(schedule).toHaveBeenCalled();
+  });
+
+  it("returns false and does not save when keys is empty", () => {
+    expect(resetIntentKeys(ui, "overlay1", [])).toBe(false);
+    expect(schedule).not.toHaveBeenCalled();
+  });
+
+  it("clears a missing key without throwing", () => {
+    expect(resetIntentKeys(ui, "overlay1", ["opacity"])).toBe(true);
+    expect(ui.intentStore.get("overlay1", "opacity")).toBeUndefined();
   });
 });
 
