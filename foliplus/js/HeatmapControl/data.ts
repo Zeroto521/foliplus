@@ -3,7 +3,7 @@
 // stateful value is passed in explicitly.
 import { computeBreaks } from "#core/classify.js";
 import { autoLabelField, bareFieldName } from "#core/labelField.js";
-import { createLogger } from "#common/log.js";
+import { type Logger } from "#common/log.js";
 import * as CONST from "./const.js";
 import type {
   AggregatedData,
@@ -12,8 +12,6 @@ import type {
   HexFeature,
   SelectedPoint,
 } from "./type.js";
-
-const log = createLogger(CONF.name);
 
 /** Resolve the H3 resolution for a map zoom level. */
 const getH3Res = (zoom: number): number => {
@@ -65,6 +63,7 @@ const aggregateData = (
   currentMethod: string,
   currentScheme: string,
   onEmpty: () => void,
+  log: Logger,
 ): AggregatedData | null => {
   const hexCells: Record<string, HexCell> = {};
   pts.forEach(pt => {
@@ -118,12 +117,10 @@ const aggregateData = (
 };
 
 /** Build GeoJSON features from aggregated hex cells. */
-const buildFeatures = ({
-  hexCells,
-  getAggValue,
-  valueToClassIdx,
-  classColors,
-}: AggregatedData): HexFeature[] => {
+const buildFeatures = (
+  { hexCells, getAggValue, valueToClassIdx, classColors }: AggregatedData,
+  log: Logger,
+): HexFeature[] => {
   const features: HexFeature[] = [];
   for (const [h3Idx, cell] of Object.entries(hexCells)) {
     const val = getAggValue(cell);

@@ -10,8 +10,7 @@ import { type CanvasLabelStyle } from "#common/canvasLabel.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import { BORDER_WEIGHT, clampLabelSize, normalizeHexColor } from "#common/form.js";
 import { NUMBER_FORMAT, type NumberStyle } from "#common/format.js";
-import { createScopedTranslator } from "#common/locale.js";
-import { createLogger } from "#common/log.js";
+import { type Logger, createLogger } from "#common/log.js";
 import { bindMapSync } from "#common/panel.js";
 import { type Persisted, makePersisted } from "#common/storage.js";
 import * as Storage from "#common/storage.js";
@@ -46,8 +45,15 @@ import type {
 } from "./type.js";
 import { type HeatmapControlUI, rebuildLayerDropdown, resetPanel } from "./ui.js";
 
-const T = createScopedTranslator(CONF);
-const log = createLogger(CONF.name);
+type HeatmapManagerEnv = {
+  readonly T: (key: string) => string;
+  readonly log: Logger;
+};
+
+const NO_OP_ENV: HeatmapManagerEnv = {
+  T: key => `HeatmapControl.${key}`,
+  log: createLogger("HeatmapControl"),
+};
 
 // ==================== Core: Data Aggregation & Rendering ====================
 class HeatmapManager {
@@ -55,6 +61,7 @@ class HeatmapManager {
   /** Translator bound to the module-level CONF, assigned once in the
    *  constructor — same shape as MeasureControl / ExportControl managers. */
   T: (key: string) => string;
+  private readonly log: Logger;
   /** Per-map event bus — bound once in the constructor (ensure-style getters
    *  return the cached instance, so hold it like the logger does). */
   events: EventBus;
@@ -140,9 +147,14 @@ class HeatmapManager {
    * @param opts.id - Optional namespace for the layer ID. When provided,
    *   the canvas is registered as "{ID}_{id}" to support multi-instance maps.
    */
-  constructor(mapInstance: L.Map, opts?: { id?: string }) {
+  constructor(
+    mapInstance: L.Map,
+    env: HeatmapManagerEnv = NO_OP_ENV,
+    opts?: { id?: string },
+  ) {
     this.map = mapInstance;
-    this.T = T;
+    this.T = env.T;
+    this.log = env.log;
     this.layerId = generateId(CONST.ID, opts?.id);
 
     // State management
@@ -272,7 +284,7 @@ class HeatmapManager {
     };
     this.overlay = map.foliplus!.LayerAPI!.createCanvas({
       id: this.layerId,
-      name: T("title"),
+      name: this.T("title"),
       iconSvg: SVGs.HEXAGON,
       featureCountProvider: () => this.cachedFeatures?.length ?? 0,
       getBounds: () => this.computeBounds(),
@@ -586,7 +598,7 @@ class HeatmapManager {
     if (val === undefined || isNaN(val)) {
       if (!this.valueFallbackWarned) {
         this.valueFallbackWarned = true;
-        log.warn("value fallback to 1", this.currentField);
+        this.log.warn("value fallback to 1", this.currentField);
       }
       return 1;
     }
@@ -660,11 +672,12 @@ class HeatmapManager {
       this.currentMethod,
       this.currentScheme,
       () => this.clearHeatmapCanvas(),
+      this.log,
     );
   }
 
   buildFeatures(agg: AggregatedData): HexFeature[] {
-    return buildFeaturesFn(agg);
+    return buildFeaturesFn(agg, this.log);
   }
 
   renderFeatures(features: HexFeature[]) {
@@ -749,8 +762,8 @@ class HeatmapManager {
       if (key) fieldLabel = bareFieldName(key);
     }
 
-    const sourceKey = T("meta_source_layer");
-    const fieldKey = T("meta_agg_field");
+    const sourceKey = this.T("meta_source_layer");
+    const fieldKey = this.T("meta_agg_field");
     const changed =
       this.sourceMeta[sourceKey] !== layerName ||
       this.sourceMeta[fieldKey] !== fieldLabel;
