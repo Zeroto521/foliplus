@@ -11,7 +11,7 @@ import {
   PolygonMode,
   PreviewMode,
 } from "#foliplus/MeasureControl/mode/index.js";
-import { initMocks, makeManagerMock } from "./setup.js";
+import { initMocks, makeEnv, makeManagerMock } from "./setup.js";
 
 beforeEach(initMocks);
 
@@ -47,7 +47,7 @@ describe("MeasureMode — base class", () => {
   });
 
   it("toGeoFeature throws on base class", () => {
-    expect(() => MeasureMode.toGeoFeature({ type: "unknown" })).toThrow();
+    expect(() => MeasureMode.toGeoFeature(makeEnv(), { type: "unknown" })).toThrow();
   });
 });
 

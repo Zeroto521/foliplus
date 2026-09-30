@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import * as CONST from "#foliplus/MeasureControl/const.js";
 import { MeasureManager } from "#foliplus/MeasureControl/manager.js";
+import { makeControlEnv } from "../fixture.js";
 
 // Label-collision lifecycle tests mock the collision module. It must be
 // hoisted + mocked before MeasureManager is imported, because manager.ts
@@ -49,6 +50,8 @@ function makeManager(opts?: { id?: string }) {
     locale_code: "en",
   };
 
+  const env = makeControlEnv();
+
   const layers = mockLayerAPI();
 
   // Mock L marker / circleMarker / divIcon for mode.ts side effects
@@ -94,7 +97,7 @@ function makeManager(opts?: { id?: string }) {
     },
   };
 
-  const manager = new MeasureManager(map, opts);
+  const manager = new MeasureManager(map, env, opts);
   return { manager, map, container, layers };
 }
 
@@ -697,6 +700,13 @@ describe("MeasureManager — lifecycle", () => {
     manager.destroy();
     expect(map.off.mock.calls.length).toBeGreaterThanOrEqual(calls);
   });
+
+  it("skips the coord readout when show_live_coords is false", () => {
+    window.CONF.show_live_coords = false;
+    const { manager } = makeManager();
+    expect((manager as any).coordReadoutEl).toBeNull();
+    delete window.CONF.show_live_coords;
+  });
 });
 
 describe("MeasureManager — persistence edge cases", () => {
@@ -849,13 +859,13 @@ describe("MeasureManager — export auto-clear", () => {
     manager.setMode("distance");
     expect(manager.currentMode).toBe("distance");
     const events = ensureEvents(manager.map);
-    window.map.foliplus.showHint.mockClear();
+    manager.map.foliplus!.showHint.mockClear();
     events.emit("foliplus:mode:change", {
       component: "ExportControl",
       mode: "selecting",
     });
     expect(manager.currentMode).toBeNull();
-    expect(window.map.foliplus.showHint).toHaveBeenCalledWith(
+    expect(manager.map.foliplus!.showHint).toHaveBeenCalledWith(
       "MeasureControl",
       expect.stringContaining("export_paused"),
       expect.any(Number),
@@ -1246,6 +1256,7 @@ function flushRaf() {
 
 function makeLabelManager(conf: Partial<typeof window.CONF> = {}) {
   window.CONF = { name: "MeasureControl", locale_code: "en", ...conf };
+  const env = makeControlEnv();
 
   const layers = mockLayerAPI();
   const container = document.createElement("div");
@@ -1262,7 +1273,7 @@ function makeLabelManager(conf: Partial<typeof window.CONF> = {}) {
     },
   };
 
-  return { manager: new MeasureManager(map), map, container, layers };
+  return { manager: new MeasureManager(map, env), map, container, layers };
 }
 
 beforeEach(() => {

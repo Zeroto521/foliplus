@@ -22,20 +22,17 @@ import { dom } from "#common/dom.js";
 import { fetchWithTimeout } from "#common/fetch.js";
 import { formatLatLng } from "#common/format.js";
 import * as Icons from "#common/icon.js";
-import { createLogger } from "#common/log.js";
 import { AUTOCOMPLETE, CLASSES, MODE, SOURCE, ZOOM } from "../const.js";
-import type { AddressResult, ResultItem, SearchControlState } from "../type.js";
+import type { AddressResult, ResultItem } from "../type.js";
 import { recordHistorySearch, renderHistory, saveHistory } from "./history.js";
-import { T, _, parseCoord } from "./util.js";
-
-const log = createLogger(CONF.name);
+import { type SearchControlCtx, parseCoord } from "./util.js";
 
 /** Resolve the configured geocode provider (falls back to Nominatim). */
-const getProvider = (): GeocodeProvider => {
+const getProvider = (conf: ComponentConfig): GeocodeProvider => {
   try {
     return resolveProvider(
-      CONF.provider as string | ProviderConfig | undefined,
-      CONF.provider_config,
+      conf.provider as string | ProviderConfig | undefined,
+      conf.provider_config,
     );
   } catch {
     return resolveProvider();
@@ -44,10 +41,12 @@ const getProvider = (): GeocodeProvider => {
 
 /** Raw provider spec from CONF, forwarded to the shared runtime geocoder so
  *  custom providers resolve identically there (cache keys stay consistent). */
-const providerArgs = (): [
+const providerArgs = (
+  conf: ComponentConfig,
+): [
   string | ProviderConfig | undefined,
   Record<string, unknown> | null | undefined,
-] => [CONF.provider, CONF.provider_config];
+] => [conf.provider, conf.provider_config];
 
 // ── Marker ───────────────────────────────────────────────────────
 
@@ -56,7 +55,7 @@ const providerArgs = (): [
  * The ✕ shows while the popup is open; clicking it removes the pin and
  * clears the search input, mirroring MeasureControl / LocateControl UX.
  */
-const attachSearchDelIcon = (ctrl: SearchControlState, latlng: L.LatLngExpression) => {
+const attachSearchDelIcon = (ctrl: SearchControlCtx, latlng: L.LatLngExpression) => {
   if (ctrl.delIcon) {
     map.removeLayer(ctrl.delIcon);
     ctrl.delIcon = null;
@@ -77,7 +76,7 @@ const attachSearchDelIcon = (ctrl: SearchControlState, latlng: L.LatLngExpressio
   // matching MeasureControl / LocateControl marker UX.
   ctrl.delIcon = mountDelIcon(
     latlng,
-    { title: _("foliplus.close_label"), iconAnchor: DEL_ICON_MARKER_ANCHOR },
+    { title: ctrl._("foliplus.close_label"), iconAnchor: DEL_ICON_MARKER_ANCHOR },
     m => map.addLayer(m),
     clearSearch,
     ctrl.marker,
@@ -91,11 +90,11 @@ const attachSearchDelIcon = (ctrl: SearchControlState, latlng: L.LatLngExpressio
  * @param {Object} ctrl - SearchControl instance
  * @param {string} raw - User input (e.g. "121.47,31.23")
  */
-const searchCoord = (ctrl: SearchControlState, raw: string) => {
-  if (guardBlocked(map, CONF.name, T("blocked"))) return;
+const searchCoord = (ctrl: SearchControlCtx, raw: string) => {
+  if (guardBlocked(map, ctrl.conf.name, ctrl.T("blocked"))) return;
   const parsed = parseCoord(raw);
   if (!parsed) {
-    map.foliplus!.showHint(CONF.name, T("coord_error"), HINT_DURATION.LONG);
+    map.foliplus!.showHint(ctrl.conf.name, ctrl.T("coord_error"), HINT_DURATION.LONG);
     ctrl.inp.value = "";
     return;
   }
@@ -103,19 +102,19 @@ const searchCoord = (ctrl: SearchControlState, raw: string) => {
   // Canonical key, not the raw input: otherwise "120,32" and "120, 32"
   // would be stored as two entries that display identically.
   const key = `${lng},${lat}`;
-  map.foliplus!.hideHint(CONF.name);
-  map.flyTo([lat, lng], CONF.zoom ?? ZOOM.MAX);
+  map.foliplus!.hideHint(ctrl.conf.name);
+  map.flyTo([lat, lng], ctrl.conf.zoom ?? ZOOM.MAX);
   ctrl.marker = createLocationMarker(
     map,
     lng,
     lat,
     null,
-    T("popup_title_coord"),
-    T("popup_loading"),
-    T("popup_loc_label"),
-    T("popup_addr_label"),
-    _("foliplus.close_label"),
-    CONF.locale_code,
+    ctrl.T("popup_title_coord"),
+    ctrl.T("popup_loading"),
+    ctrl.T("popup_loc_label"),
+    ctrl.T("popup_addr_label"),
+    ctrl._("foliplus.close_label"),
+    ctrl.conf.locale_code,
     ctrl.marker,
   );
   attachSearchDelIcon(ctrl, [lat, lng]);
@@ -127,13 +126,13 @@ const searchCoord = (ctrl: SearchControlState, raw: string) => {
   // key would treat it as a repeat).
   recordHistorySearch(ctrl, key, MODE.COORD, coordDisplay, "", lng, lat);
   window.foliplus
-    .reverseGeocode(map, lng, lat, CONF.locale_code, ...providerArgs())
+    .reverseGeocode(map, lng, lat, ctrl.conf.locale_code, ...providerArgs(ctrl.conf))
     .then(addr => {
       if (addr) {
         const entry = ctrl.searchHistory.find(e => e.query === key);
         if (entry) {
           entry.addrDisplay = addr;
-          saveHistory(ctrl.searchHistory);
+          saveHistory(ctrl, ctrl.searchHistory);
         }
       }
     })
@@ -147,12 +146,12 @@ const searchCoord = (ctrl: SearchControlState, raw: string) => {
  * @param {Object} ctrl - SearchControl instance
  * @param {string} query - Address query string
  */
-const searchAddress = (ctrl: SearchControlState, query: string) => {
-  if (guardBlocked(map, CONF.name, T("blocked"))) return;
+const searchAddress = (ctrl: SearchControlCtx, query: string) => {
+  if (guardBlocked(map, ctrl.conf.name, ctrl.T("blocked"))) return;
   // foliplus.geocode handles caching (CRS-aware), timeout, and CRS conversion internally.
   map.foliplus!.showHint(
-    CONF.name,
-    T("popup_loading"),
+    ctrl.conf.name,
+    ctrl.T("popup_loading"),
     HINT_DURATION.PERSIST,
     undefined,
     undefined,
@@ -160,11 +159,15 @@ const searchAddress = (ctrl: SearchControlState, query: string) => {
   );
 
   window.foliplus
-    .geocode(map, query, CONF.locale_code, ...providerArgs())
+    .geocode(map, query, ctrl.conf.locale_code, ...providerArgs(ctrl.conf))
     .then(result => {
-      map.foliplus!.hideHint(CONF.name);
+      map.foliplus!.hideHint(ctrl.conf.name);
       if (!result) {
-        map.foliplus!.showHint(CONF.name, T("addr_not_found"), HINT_DURATION.LONG);
+        map.foliplus!.showHint(
+          ctrl.conf.name,
+          ctrl.T("addr_not_found"),
+          HINT_DURATION.LONG,
+        );
         ctrl.inp.value = "";
         return;
       }
@@ -177,7 +180,7 @@ const searchAddress = (ctrl: SearchControlState, query: string) => {
       const wgs = toWgs84(map, result.lng, result.lat);
       const coordDisplay = formatLatLng(wgs[0], wgs[1]);
       const addrDisplay =
-        formatAddress(result.display_name, map, CONF.locale_code) || query;
+        formatAddress(result.display_name, map, ctrl.conf.locale_code) || query;
       recordHistorySearch(
         ctrl,
         query,
@@ -189,20 +192,20 @@ const searchAddress = (ctrl: SearchControlState, query: string) => {
       );
     })
     .catch(() => {
-      map.foliplus!.hideHint(CONF.name);
-      map.foliplus!.showHint(CONF.name, T("addr_error"), HINT_DURATION.LONG);
+      map.foliplus!.hideHint(ctrl.conf.name);
+      map.foliplus!.showHint(ctrl.conf.name, ctrl.T("addr_error"), HINT_DURATION.LONG);
     });
 };
 
 const renderAddressResult = (
-  ctrl: SearchControlState,
+  ctrl: SearchControlCtx,
   result: AddressResult | { lat: number; lng: number; display_name: string },
 ): boolean => {
   // The panel can stay open while another control holds a mode, so a picked
   // suggestion must not fly the map. Suggestion picks, history entry clicks,
   // and the Enter fallback all converge here; returning false lets the caller
   // skip recording history and keep the panel open with the "blocked" hint.
-  if (guardBlocked(map, CONF.name, T("blocked"))) return false;
+  if (guardBlocked(map, ctrl.conf.name, ctrl.T("blocked"))) return false;
   let displayName: string;
   let lng: number;
   let lat: number;
@@ -229,12 +232,12 @@ const renderAddressResult = (
     lng,
     lat,
     displayName,
-    T("popup_title_addr"),
-    T("popup_loading"),
-    T("popup_loc_label"),
-    T("popup_addr_label"),
-    _("foliplus.close_label"),
-    CONF.locale_code,
+    ctrl.T("popup_title_addr"),
+    ctrl.T("popup_loading"),
+    ctrl.T("popup_loc_label"),
+    ctrl.T("popup_addr_label"),
+    ctrl._("foliplus.close_label"),
+    ctrl.conf.locale_code,
     ctrl.marker,
   );
   attachSearchDelIcon(ctrl, [lat, lng]);
@@ -243,7 +246,7 @@ const renderAddressResult = (
 
 // ── Suggestions / History Panel ──────────────────────────────────
 
-const removePanel = (ctrl: SearchControlState) => {
+const removePanel = (ctrl: SearchControlCtx) => {
   if (ctrl.throttleTimer) {
     clearTimeout(ctrl.throttleTimer);
     ctrl.throttleTimer = null;
@@ -259,7 +262,7 @@ const removePanel = (ctrl: SearchControlState) => {
   withCursor.listCursor = null;
 };
 
-const positionPanel = (ctrl: SearchControlState) => {
+const positionPanel = (ctrl: SearchControlCtx) => {
   if (!ctrl.panelWrap) return;
   const rect = ctrl.ctrl.getBoundingClientRect();
   let left = rect.left + window.scrollX;
@@ -270,7 +273,7 @@ const positionPanel = (ctrl: SearchControlState) => {
   ctrl.panelWrap.style.top = `${rect.bottom + window.scrollY}px`;
 };
 
-const renderResults = (ctrl: SearchControlState, results: ResultItem[]) => {
+const renderResults = (ctrl: SearchControlCtx, results: ResultItem[]) => {
   if (!results || results.length === 0) {
     removePanel(ctrl);
     return;
@@ -330,7 +333,7 @@ const renderResults = (ctrl: SearchControlState, results: ResultItem[]) => {
   const domCount = ctrl.panelWrap.querySelectorAll(`.${CLASSES.RESULT_ITEM}`).length;
   if (domCount !== results.length) {
     throw new Error(
-      log.msg(
+      ctrl.log.msg(
         `result panel drift: DOM has ${domCount} items but retained ${results.length}`,
       ),
     );
@@ -341,7 +344,7 @@ const renderResults = (ctrl: SearchControlState, results: ResultItem[]) => {
 };
 
 const renderSuggestions = (
-  ctrl: SearchControlState,
+  ctrl: SearchControlCtx,
   results: SuggestItem[],
   query: string,
 ) => {
@@ -354,7 +357,7 @@ const renderSuggestions = (
 
   const items: ResultItem[] = results.map((item: SuggestItem) => {
     const displayName =
-      formatAddress(item.display_name, map, CONF.locale_code) || item.name || "";
+      formatAddress(item.display_name, map, ctrl.conf.locale_code) || item.name || "";
     const coordDisplay = formatLatLng(parseFloat(item.lng), parseFloat(item.lat));
     return {
       icon: Icons.LOCATE_ICON,
@@ -386,11 +389,11 @@ const renderSuggestions = (
  * live input. Shared by the cache-hit path and the render-time drop so the two
  * cannot drift; trimming keeps both in sync with the input listener.
  */
-const compareWithInput = (ctrl: SearchControlState, query: string): boolean =>
+const compareWithInput = (ctrl: SearchControlCtx, query: string): boolean =>
   query === ctrl.inp.value.trim();
 
-const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
-  if (guardBlocked(map, CONF.name, T("blocked"))) return;
+const fetchSuggestions = (ctrl: SearchControlCtx, query: string) => {
+  if (guardBlocked(map, ctrl.conf.name, ctrl.T("blocked"))) return;
 
   if (query.length === 0) {
     if (ctrl.searchHistory.length > 0) renderHistory(ctrl, ctrl.mode);
@@ -418,7 +421,7 @@ const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
     return;
   }
 
-  const provider = getProvider();
+  const provider = getProvider(ctrl.conf);
   const now = Date.now();
   // The window shares the provider-wide last-request time (also updated by the
   // runtime geocoder's queue), so suggestions never race past the rate limit.
@@ -474,8 +477,8 @@ const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
           query,
           parseFloat(first.lng),
           parseFloat(first.lat),
-          formatAddress(first.display_name, map, CONF.locale_code) || query,
-          ...providerArgs(),
+          formatAddress(first.display_name, map, ctrl.conf.locale_code) || query,
+          ...providerArgs(ctrl.conf),
         );
       }
       renderSuggestions(ctrl, results, query);
@@ -483,7 +486,7 @@ const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
     .catch(err => {
       if (err.name === "AbortError") return;
       try {
-        log.warn("suggestion fetch failed:", err);
+        ctrl.log.warn("suggestion fetch failed:", err);
       } finally {
         removePanel(ctrl);
       }
@@ -495,18 +498,23 @@ const fetchSuggestions = (ctrl: SearchControlState, query: string) => {
   void suggestRequest.catch(() => undefined);
 };
 
-const initDebouncedFetch = (ctrl: SearchControlState) => {
+const initDebouncedFetch = (ctrl: SearchControlCtx) => {
   ctrl.debouncedFetch = debounce(
     () => fetchSuggestions(ctrl, ctrl.inp.value.trim()),
     AUTOCOMPLETE.DEBOUNCE_MS,
   );
 };
 
-const buildSearchUrl = (ctrl: SearchControlState, q: string, limit: number) => {
+const buildSearchUrl = (ctrl: SearchControlCtx, q: string, limit: number) => {
   const center = map.getCenter();
   // Providers expect WGS84 bias coordinates — convert from the map CRS.
   const wgs = toWgs84(map, center.lng, center.lat);
-  return getProvider().suggest(q, limit, [wgs[0], wgs[1]], CONF.locale_code ?? "en");
+  return getProvider(ctrl.conf).suggest(
+    q,
+    limit,
+    [wgs[0], wgs[1]],
+    ctrl.conf.locale_code ?? "en",
+  );
 };
 
 export {

@@ -5,16 +5,12 @@
 // through this store instead of poking manager.measurements + saveMeasurements
 // directly, mirroring LayerControl's persistence.ts convention: one store
 // class, keys in const.ts STORAGE, no direct Storage access outside.
+import type { ControlEnv } from "#core/defineControl.js";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
-import { createScopedTranslator } from "#common/locale.js";
 import { type Persisted, makePersisted } from "#common/storage.js";
 import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
-
-// CONF is a free variable from the IIFE template wrapper (see global.d.ts);
-// bind the translator once, not per call site.
-const T = createScopedTranslator(CONF);
 
 /** Central store for all measurements. Owns the array, the id counter, the
  * persist-failure notification, and LAYER_ITEM_COUNT_CHANGE emission. Manager
@@ -25,12 +21,16 @@ class MeasureStore {
   private list: MeasureData[] = [];
   private counter = 0;
   private readonly map: L.Map;
+  private readonly conf: ComponentConfig;
+  private readonly T: (key: string) => string;
   private readonly layerId: string;
   private warned = false;
   private readonly persistBinding: Persisted;
 
-  constructor(map: L.Map, layerId: string) {
+  constructor(map: L.Map, env: ControlEnv, layerId: string) {
     this.map = map;
+    this.conf = env.conf;
+    this.T = env.T;
     this.layerId = layerId;
     // Write-through binding: the array is durable the moment a mutation lands,
     // so teardown flush is a no-op safety net. Failure surfaces through the
@@ -40,15 +40,15 @@ class MeasureStore {
         Storage.saveVersioned(CONST.STORAGE.KEY, {
           data: this.list,
           version: CONST.RECORD_VERSION,
-          name: CONF.name,
+          name: this.conf.name,
           dataField: "items",
         }),
       onFlushError: () => {
         if (!this.warned) {
           this.warned = true;
           this.map.foliplus?.showHint?.(
-            CONF.name,
-            T("err_not_saved"),
+            this.conf.name,
+            this.T("err_not_saved"),
             HINT_DURATION.PERSIST,
           );
         }
@@ -74,7 +74,7 @@ class MeasureStore {
   load(): MeasureData[] {
     return (
       Storage.loadVersioned<MeasureData>(CONST.STORAGE.KEY, {
-        name: CONF.name,
+        name: this.conf.name,
         dataField: "items",
       }) ?? []
     );

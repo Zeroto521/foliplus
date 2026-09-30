@@ -1,3 +1,4 @@
+import type { ControlEnv } from "#core/defineControl.js";
 import { stopEvent } from "#common/dom.js";
 import {
   type MapEventHandlers,
@@ -9,8 +10,6 @@ import type { MeasureManager } from "../manager.js";
 import { attachPolygonUI } from "../ui/index.js";
 import * as Util from "../util.js";
 import { PreviewMode } from "./base.js";
-
-// CONF is a free variable from the IIFE template wrapper.
 
 // ==================== Polygon Area Mode ====================
 /** Polygon area measurement mode. Click to place nodes, closes on first/last node click. */
@@ -351,7 +350,7 @@ class PolygonMode extends PreviewMode {
 
   /** GeoJSON feature for a polygon — properties carry id, area, segments and
    *   the persisted centroid (center). */
-  static toGeoFeature(data: MeasureData): GeoJSON.Feature {
+  static toGeoFeature(env: ControlEnv, data: MeasureData): GeoJSON.Feature {
     const coords = data.points?.map(p => [p.lng, p.lat]) || [];
     if (coords.length > 1) coords.push(coords[0]);
     return {
@@ -359,7 +358,7 @@ class PolygonMode extends PreviewMode {
       properties: {
         id: data.id,
         type: this.TYPE,
-        name: this.getNameLabel(),
+        name: this.getNameLabel(env),
         area: data.area || 0,
         segments: data.segments || [],
         // Centroid persisted on finish; absent only for data created before

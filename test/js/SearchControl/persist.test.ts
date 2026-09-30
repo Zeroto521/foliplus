@@ -7,6 +7,20 @@ import {
 } from "#foliplus/SearchControl/logic/history.js";
 import type { SearchHistoryEntry } from "#foliplus/SearchControl/type.js";
 
+// Control context for logic functions that now receive ctrl.
+const ctx = () => ({
+  conf: { name: "SearchControl", locale_code: "en", zoom: 16 },
+  T: (k: string) => `SearchControl.${k}`,
+  _: (k: string) => k,
+  log: {
+    msg: (m: string) => m,
+    warn: (...args: unknown[]) =>
+      console.warn(`[SearchControl] ${args[0]}`, ...args.slice(1)),
+    error: vi.fn(),
+  },
+  _map: window.map,
+});
+
 describe("SearchControl history — versioned envelope", () => {
   describe("saveHistory — writes { version, entries }", () => {
     it("wraps the entries in a versioned record", () => {
@@ -22,14 +36,14 @@ describe("SearchControl history — versioned envelope", () => {
           count: 1,
         },
       ];
-      saveHistory(entries);
+      saveHistory(ctx(), entries);
       const stored = JSON.parse(window.localStorage.getItem(HISTORY.STORAGE_KEY)!);
       expect(stored.version).toBe(RECORD_VERSION);
       expect(stored.entries).toEqual(entries);
     });
 
     it("writes an empty envelope for an empty history (still carries version)", () => {
-      saveHistory([]);
+      saveHistory(ctx(), []);
       const stored = JSON.parse(window.localStorage.getItem(HISTORY.STORAGE_KEY)!);
       expect(stored.version).toBe(RECORD_VERSION);
       expect(stored.entries).toEqual([]);
@@ -54,7 +68,7 @@ describe("SearchControl history — versioned envelope", () => {
         HISTORY.STORAGE_KEY,
         JSON.stringify({ version: RECORD_VERSION, entries }),
       );
-      expect(loadHistory()).toEqual(entries);
+      expect(loadHistory(ctx())).toEqual(entries);
     });
 
     it("accepts an older/unknown version value without migrating", () => {
@@ -74,7 +88,7 @@ describe("SearchControl history — versioned envelope", () => {
         HISTORY.STORAGE_KEY,
         JSON.stringify({ version: 999, entries }),
       );
-      expect(loadHistory()).toEqual(entries);
+      expect(loadHistory(ctx())).toEqual(entries);
     });
 
     it("reads the legacy bare-array shape and still runs the row migration", () => {
@@ -87,7 +101,7 @@ describe("SearchControl history — versioned envelope", () => {
           { type: MODE.ADDR, addrDisplay: "Paris", lng: 0, lat: 0, ts: 1000 },
         ]),
       );
-      const [entry] = loadHistory();
+      const [entry] = loadHistory(ctx());
       expect(entry.query).toBe("");
       expect(entry.type).toBe(MODE.ADDR);
       expect(entry.addrDisplay).toBe("Paris");
@@ -103,7 +117,7 @@ describe("SearchControl history — versioned envelope", () => {
         HISTORY.STORAGE_KEY,
         JSON.stringify({ version: RECORD_VERSION }),
       );
-      expect(loadHistory()).toEqual([]);
+      expect(loadHistory(ctx())).toEqual([]);
     });
 
     it("returns [] for an envelope whose entries is not an array", () => {
@@ -111,21 +125,21 @@ describe("SearchControl history — versioned envelope", () => {
         HISTORY.STORAGE_KEY,
         JSON.stringify({ version: RECORD_VERSION, entries: { not: "array" } }),
       );
-      expect(loadHistory()).toEqual([]);
+      expect(loadHistory(ctx())).toEqual([]);
     });
 
     it("returns [] for a plain non-array value", () => {
       window.localStorage.setItem(HISTORY.STORAGE_KEY, JSON.stringify("string"));
-      expect(loadHistory()).toEqual([]);
+      expect(loadHistory(ctx())).toEqual([]);
     });
 
     it("returns [] for malformed JSON (falls through to empty history)", () => {
       window.localStorage.setItem(HISTORY.STORAGE_KEY, "not-json");
-      expect(loadHistory()).toEqual([]);
+      expect(loadHistory(ctx())).toEqual([]);
     });
 
     it("returns [] when storage is empty", () => {
-      expect(loadHistory()).toEqual([]);
+      expect(loadHistory(ctx())).toEqual([]);
     });
   });
 
@@ -143,8 +157,8 @@ describe("SearchControl history — versioned envelope", () => {
           count: 1,
         },
       ];
-      saveHistory(entries);
-      expect(loadHistory()).toEqual(entries);
+      saveHistory(ctx(), entries);
+      expect(loadHistory(ctx())).toEqual(entries);
     });
 
     it("an old bare-array record is transparently re-wrapped on the next save", () => {
@@ -155,8 +169,8 @@ describe("SearchControl history — versioned envelope", () => {
         ]),
       );
       // Read: legacy shape is unwrapped, then re-persisted as the new envelope.
-      const loaded = loadHistory();
-      saveHistory(loaded);
+      const loaded = loadHistory(ctx());
+      saveHistory(ctx(), loaded);
       const stored = JSON.parse(window.localStorage.getItem(HISTORY.STORAGE_KEY)!);
       expect(stored.version).toBe(RECORD_VERSION);
       expect(Array.isArray(stored.entries)).toBe(true);
@@ -166,7 +180,7 @@ describe("SearchControl history — versioned envelope", () => {
 
   describe("flushHistory — teardown safety", () => {
     it("entries survive the destroy() flush→reset sequence", () => {
-      // Mirrors SearchControl.destroy(): flushHistory() writes the current
+      // Mirrors SearchControl.destroy(): flushHistory(ctx()) writes the current
       // history before the in-memory array is reset. With debounceMs=0 the
       // write is already durable at saveHistory time, so flushHistory is a
       // no-op safety net — but the flush-before-reset order is the convention
@@ -184,8 +198,8 @@ describe("SearchControl history — versioned envelope", () => {
         },
       ];
 
-      saveHistory(entries);
-      flushHistory();
+      saveHistory(ctx(), entries);
+      flushHistory(ctx());
 
       const stored = JSON.parse(window.localStorage.getItem(HISTORY.STORAGE_KEY)!);
       expect(stored.version).toBe(RECORD_VERSION);
@@ -210,10 +224,10 @@ describe("SearchControl history — versioned envelope", () => {
           count: 1,
         },
       ];
-      saveHistory(entries);
-      flushHistory();
+      saveHistory(ctx(), entries);
+      flushHistory(ctx());
       const afterFirst = window.localStorage.getItem(HISTORY.STORAGE_KEY);
-      flushHistory();
+      flushHistory(ctx());
       expect(window.localStorage.getItem(HISTORY.STORAGE_KEY)).toBe(afterFirst);
     });
   });
@@ -232,7 +246,7 @@ describe("SearchControl history — versioned envelope", () => {
       vi.useFakeTimers();
       vi.setSystemTime(1234567);
       store([{ type: MODE.ADDR, addrDisplay: "Paris", lng: 0, lat: 0 }]);
-      const [entry] = loadHistory();
+      const [entry] = loadHistory(ctx());
       expect(entry).toEqual({
         query: "",
         type: MODE.ADDR,
@@ -247,7 +261,7 @@ describe("SearchControl history — versioned envelope", () => {
 
     it("leaves the display fields empty when a coord entry has no label", () => {
       store([{ query: "120, 32", type: MODE.COORD, ts: 1000 }]);
-      const [entry] = loadHistory();
+      const [entry] = loadHistory(ctx());
       expect(entry.query).toBe("120,32");
       expect(entry.coordDisplay).toBe("");
       expect(entry.addrDisplay).toBe("");
@@ -263,14 +277,14 @@ describe("SearchControl history — versioned envelope", () => {
         },
         { query: "120,32", type: MODE.COORD, coordDisplay: "", ts: 900 },
       ]);
-      const [entry] = loadHistory();
+      const [entry] = loadHistory(ctx());
       expect(entry.coordDisplay).toBe("120.000000, 32.000000");
       expect(entry.count).toBe(2);
     });
 
     it("drops null and non-object rows instead of crashing", () => {
       store([null, "text", 42, { type: MODE.ADDR, ts: 1000 }] as unknown as object[]);
-      const [entry] = loadHistory();
+      const [entry] = loadHistory(ctx());
       expect(entry).toEqual({
         query: "",
         type: MODE.ADDR,
@@ -285,7 +299,7 @@ describe("SearchControl history — versioned envelope", () => {
 
     it("downgrades a row with no usable fields to a defaulted addr entry", () => {
       store([{}]);
-      const [entry] = loadHistory();
+      const [entry] = loadHistory(ctx());
       expect(entry).toEqual({
         query: "",
         type: MODE.ADDR,
@@ -299,7 +313,7 @@ describe("SearchControl history — versioned envelope", () => {
     });
 
     it("loads empty array when nothing is stored", () => {
-      const entries = loadHistory();
+      const entries = loadHistory(ctx());
       expect(entries).toEqual([]);
     });
 
@@ -326,20 +340,20 @@ describe("SearchControl history — versioned envelope", () => {
           count: 1,
         },
       ];
-      saveHistory(entries);
-      expect(loadHistory()).toEqual(entries);
+      saveHistory(ctx(), entries);
+      expect(loadHistory(ctx())).toEqual(entries);
     });
 
     it("returns empty array for corrupt data", () => {
       localStorage.setItem(HISTORY.STORAGE_KEY, "not json");
-      expect(loadHistory()).toEqual([]);
+      expect(loadHistory(ctx())).toEqual([]);
     });
 
     it("reads history from the scoped key only", () => {
       store(scopedRows);
       const otherRows = [{ type: MODE.ADDR, addrDisplay: "Other", lng: 9, lat: 9 }];
       localStorage.setItem("foliplus_search_map-other", JSON.stringify(otherRows));
-      expect(loadHistory().map(e => e.addrDisplay)).toEqual(
+      expect(loadHistory(ctx()).map(e => e.addrDisplay)).toEqual(
         scopedRows.map(r => r.addrDisplay),
       );
     });
@@ -352,10 +366,10 @@ describe("SearchControl history — versioned envelope", () => {
       // The container id feeds the scoped key directly; a second map must not
       // inherit the first map's row.
       Object.defineProperty(HISTORY, "STORAGE_KEY", { value: "foliplus_search_map-a" });
-      const mapA = loadHistory();
+      const mapA = loadHistory(ctx());
       expect(mapA.map(e => e.addrDisplay)).toEqual(["Scoped"]);
       Object.defineProperty(HISTORY, "STORAGE_KEY", { value: "foliplus_search_map-b" });
-      const mapB = loadHistory();
+      const mapB = loadHistory(ctx());
       expect(mapB.map(e => e.addrDisplay)).toEqual(["Tokyo"]);
       // map-a's store survives map-b's read.
       expect(JSON.parse(localStorage.getItem("foliplus_search_map-a")!).length).toBe(1);
@@ -363,7 +377,7 @@ describe("SearchControl history — versioned envelope", () => {
 
     it("returns empty array for non-array data", () => {
       localStorage.setItem(HISTORY.STORAGE_KEY, '"string"');
-      expect(loadHistory()).toEqual([]);
+      expect(loadHistory(ctx())).toEqual([]);
     });
 
     it("migrates old entries with label field to new format", () => {
@@ -388,7 +402,7 @@ describe("SearchControl history — versioned envelope", () => {
           },
         ]),
       );
-      const loaded = loadHistory();
+      const loaded = loadHistory(ctx());
       expect(loaded).toHaveLength(2);
       expect(loaded[0].query).toBe("Paris");
       expect(loaded[0].addrDisplay).toBe("Paris, France");
@@ -413,10 +427,10 @@ describe("SearchControl history — versioned envelope", () => {
           count: 1,
         },
       ];
-      saveHistory(entries);
-      expect(loadHistory()).toHaveLength(1);
-      saveHistory([]);
-      expect(loadHistory()).toEqual([]);
+      saveHistory(ctx(), entries);
+      expect(loadHistory(ctx())).toHaveLength(1);
+      saveHistory(ctx(), []);
+      expect(loadHistory(ctx())).toEqual([]);
     });
 
     it("collapses legacy coord duplicates that a raw-input key created", () => {
@@ -457,7 +471,7 @@ describe("SearchControl history — versioned envelope", () => {
           },
         ]),
       );
-      const loaded = loadHistory();
+      const loaded = loadHistory(ctx());
       expect(loaded).toHaveLength(1);
       expect(loaded[0].query).toBe("120,32");
       expect(loaded[0].count).toBe(4);
@@ -492,7 +506,7 @@ describe("SearchControl history — versioned envelope", () => {
           },
         ]),
       );
-      const loaded = loadHistory();
+      const loaded = loadHistory(ctx());
       expect(loaded).toHaveLength(2);
       expect(loaded[0].query).toBe("121.47,31.23");
       // Address queries are never rewritten
@@ -527,7 +541,7 @@ describe("SearchControl history — versioned envelope", () => {
           },
         ]),
       );
-      const loaded = loadHistory();
+      const loaded = loadHistory(ctx());
       expect(loaded).toHaveLength(2);
       // Stored in insertion order, as loadHistory preserves it
       expect(loaded.map(e => e.lng)).toEqual([1, 2]);
@@ -561,7 +575,7 @@ describe("SearchControl history — versioned envelope", () => {
           },
         ]),
       );
-      const loaded = loadHistory();
+      const loaded = loadHistory(ctx());
       expect(loaded).toHaveLength(2);
       expect(loaded.filter(e => e.type === "coord")).toHaveLength(1);
       expect(loaded.filter(e => e.type === "addr")).toHaveLength(1);
@@ -590,8 +604,8 @@ describe("SearchControl history — versioned envelope", () => {
           count: 1,
         },
       ];
-      saveHistory(entries);
-      expect(loadHistory()).toEqual(entries);
+      saveHistory(ctx(), entries);
+      expect(loadHistory(ctx())).toEqual(entries);
     });
   });
 });

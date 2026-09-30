@@ -1,13 +1,11 @@
-import { createControlEnv } from "#core/controlEnv.js";
+import { defineControl } from "#core/defineControl.js";
 import type { SuggestItem } from "#core/geocode/index.js";
 import { ensureHint } from "#core/hint.js";
 import { ensureMapFoliplus } from "#core/mapApi.js";
-import { BaseControl } from "#foliplus/BaseControl.js";
 import { Cache } from "#common/cache.js";
 import type { Debounced } from "#common/debounce.js";
 import { createIconButton, dom } from "#common/dom.js";
 import * as Icons from "#common/icon.js";
-import { createScopedTranslator } from "#common/locale.js";
 import { bindOutsideCollapse, createFoldControl } from "#common/panel.js";
 import { AUTOCOMPLETE, CLASSES, MODE, type SearchType } from "./const.js";
 import * as SVGs from "./icon.js";
@@ -20,12 +18,11 @@ import {
 } from "./logic/index.js";
 import type { AddressResult, ResultItem, SearchHistoryEntry } from "./type.js";
 
-createControlEnv(CONF, SVGs.SEARCH);
-const T = createScopedTranslator(CONF);
-ensureHint(map);
-
-// ==================== Control Definition ====================
-class SearchControl extends BaseControl {
+class SearchControl extends defineControl({
+  conf: CONF,
+  icon: SVGs.SEARCH,
+  setup: () => ensureHint(map),
+}) {
   declare container: HTMLElement;
   declare ctrl: HTMLElement;
   declare toggleBtn: HTMLElement;
@@ -59,7 +56,7 @@ class SearchControl extends BaseControl {
     this.effect(() =>
       bindOutsideCollapse({
         container: this.ctrl,
-        skipCheck: CONF.collapse_on_outside === false ? () => true : undefined,
+        skipCheck: this.conf.collapse_on_outside === false ? () => true : undefined,
       }),
     );
     return this.container;
@@ -73,22 +70,21 @@ class SearchControl extends BaseControl {
     this.cachedSuggestions.clear();
     // Flush any pending history write before the in-memory array is dropped,
     // so a last search that raced teardown is durable.
-    flushHistory();
+    flushHistory(this);
     this.searchHistory = [];
     if (this.throttleTimer) clearTimeout(this.throttleTimer);
     this.modeBtn.onclick = null;
     this.clearBtn.onclick = null;
   }
 
-  // ── DOM Creation ──
   createDOM() {
     const { container, ctrl, toolBar, toggleBtn } = createFoldControl({
       cssClass: CLASSES.MAP_SEARCH,
-      toggleTitle: T("btn_title"),
+      toggleTitle: this.T("btn_title"),
       toggleSvg: SVGs.SEARCH,
-      position: CONF.position,
+      position: this.conf.position,
     });
-    ctrl.id = `${CONF.name}_${CONF.position}_ctrl`;
+    ctrl.id = `${this.conf.name}_${this.conf.position}_ctrl`;
     this.container = container;
     this.ctrl = ctrl;
     this.toggleBtn = toggleBtn;
@@ -96,18 +92,18 @@ class SearchControl extends BaseControl {
 
     const modeBtn = createIconButton({
       class: CLASSES.SEARCH_MODE_BTN,
-      title: T("mode_coord"),
+      title: this.T("mode_coord"),
       svg: Icons.GLOBE_ICON,
       parent: toolBar,
     });
     const inp = dom.el("input", {
       type: "text",
       class: "foliplus-input",
-      placeholder: T("coord_placeholder"),
+      placeholder: this.T("coord_placeholder"),
     }) as HTMLInputElement;
     const clearBtn = createIconButton({
       class: "foliplus-ctrl-btn foliplus-close-btn",
-      title: T("clear_title"),
+      title: this.T("clear_title"),
       svg: Icons.CLOSE_ICON,
     });
     this.modeBtn = modeBtn;
@@ -117,7 +113,6 @@ class SearchControl extends BaseControl {
     dom.el("div", { class: CLASSES.CLEAR, parent: toolBar }, inp, clearBtn);
   }
 
-  // ── State Initialization ──
   initState() {
     this.marker = null;
     this.delIcon = null;
@@ -125,10 +120,12 @@ class SearchControl extends BaseControl {
     // geocoding (foliplus.geocode / reverseGeocode without an explicit spec)
     // follows the same provider — cache keys and rate limits stay consistent.
     // Route through the shared seed so the namespace's typing stays sound.
-    const api = ensureMapFoliplus(map);
-    api.geocodeProvider = CONF.provider ?? "nominatim";
+    const api = ensureMapFoliplus(this._map);
+    api.geocodeProvider = this.conf.provider ?? "nominatim";
     this.mode =
-      CONF.mode === MODE.COORD || CONF.mode === MODE.ADDR ? CONF.mode : MODE.COORD;
+      this.conf.mode === MODE.COORD || this.conf.mode === MODE.ADDR
+        ? this.conf.mode
+        : MODE.COORD;
     this.panelWrap = null;
     this.selectedIdx = -1;
     this.lastSuggestFetch = 0;
@@ -137,7 +134,7 @@ class SearchControl extends BaseControl {
       AUTOCOMPLETE.CACHE_MAX,
       AUTOCOMPLETE.CACHE_TTL_MS,
     );
-    this.searchHistory = loadHistory();
+    this.searchHistory = loadHistory(this);
     this.suggestAbortController = null;
     this.suggestSeq = 0;
     this.currentItems = [];
@@ -149,29 +146,28 @@ class SearchControl extends BaseControl {
     };
   }
 
-  // ── Mode Switching ──
   setMode(newMode: SearchType) {
     this.mode = newMode;
     if (this.mode === MODE.COORD) {
       this.modeBtn.innerHTML = Icons.GLOBE_ICON;
-      this.modeBtn.title = T("mode_coord");
-      this.inp.placeholder = T("coord_placeholder");
+      this.modeBtn.title = this.T("mode_coord");
+      this.inp.placeholder = this.T("coord_placeholder");
     } else {
       this.modeBtn.innerHTML = Icons.LOCATE_ICON;
-      this.modeBtn.title = T("mode_addr");
-      this.inp.placeholder = T("addr_placeholder");
+      this.modeBtn.title = this.T("mode_addr");
+      this.inp.placeholder = this.T("addr_placeholder");
     }
     this.inp.value = "";
     if (this.marker) {
-      map.removeLayer(this.marker);
+      this._map.removeLayer(this.marker);
       this.marker = null;
     }
     if (this.delIcon) {
-      map.removeLayer(this.delIcon);
+      this._map.removeLayer(this.delIcon);
       this.delIcon = null;
     }
     if (this.suggestAbortController) this.suggestAbortController.abort();
-    map.foliplus!.hideHint(CONF.name);
+    this._map.foliplus!.hideHint(this.conf.name);
     removePanel(this);
     this.inp.focus();
   }
