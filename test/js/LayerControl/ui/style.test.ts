@@ -964,13 +964,13 @@ describe("LayerUI style panel", () => {
 
     range.value = "30";
     range.dispatchEvent(new Event("input", { bubbles: true }));
-    expect(ui.intentProvenance.overlay1).toContain("opacity");
+    expect(ui.intentStore.isUserSet("overlay1", "opacity")).toBe(true);
 
     range.value = "100";
     range.dispatchEvent(new Event("input", { bubbles: true }));
 
     expect(getIntent(ui, "overlay1", "opacity")).toBeUndefined();
-    expect(ui.intentProvenance.overlay1 ?? []).not.toContain("opacity");
+    expect(ui.intentStore.isUserSet("overlay1", "opacity")).toBe(false);
   });
 
   it("opacity 0 is kept in the map (only 1 is treated as default)", () => {
@@ -1718,7 +1718,7 @@ describe("LayerUI style panel", () => {
   });
 
   it("applyStyleLabelState skips an intent that carries no annotation", () => {
-    // An id present in `ui.intents` for a different dimension (e.g. a rename)
+    // An id present in `ui.intentStore` for a different dimension (e.g. a rename)
     // must not be treated as a label seed.
     seedIntentMap(ui, "name", { overlay1: "Renamed" });
     const setConfig = vi.spyOn(manager.annotation, "setConfig");
@@ -1730,13 +1730,9 @@ describe("LayerUI style panel", () => {
     expect(renderLabels).not.toHaveBeenCalled();
   });
 
-  it("applyStyleLabelState is a no-op when the shell has no intents map", () => {
-    const ui2 = ui as unknown as {
-      intents?: unknown;
-      applyStyleLabelState: () => void;
-    };
-    ui2.intents = undefined;
-    expect(() => ui2.applyStyleLabelState()).not.toThrow();
+  it("applyStyleLabelState is a no-op when the IntentStore is empty", () => {
+    ui.intentStore.clearAll();
+    expect(() => ui.applyStyleLabelState()).not.toThrow();
   });
 
   // ─────────────────── dismiss / drag edge cases ───────────────────
@@ -3794,7 +3790,7 @@ describe("LayerUI style panel — zoom range", () => {
   it("reset button clears zoom range and restores full map range", () => {
     const item = findItem(ui, "overlay1");
     setIntent(ui, "overlay1", "zoomRange", [5, 15]);
-    ui.intentProvenance["overlay1"] = ["zoomRange"];
+    ui.intentStore.seedProvenance("overlay1", ["zoomRange"]);
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     const resetBtn = panel.querySelector(
@@ -3803,7 +3799,7 @@ describe("LayerUI style panel — zoom range", () => {
     resetBtn.click();
 
     expect(getIntent(ui, "overlay1", "zoomRange")).toBeUndefined();
-    expect(ui.intentProvenance["overlay1"]).toBeUndefined();
+    expect(ui.intentStore.dumpProvenance()["overlay1"]).toBeUndefined();
   });
 
   it("zoomToPct returns 0 when map min equals max (degenerate range)", () => {
@@ -4442,18 +4438,18 @@ describe("reset on an id the registry does not know", () => {
     // layer that has already left must not rewrite the record or save.
     const { ui } = initFixture({});
     setIntent(ui, "ghost", "opacity", 0.4);
-    ui.intentProvenance.ghost = ["opacity"];
+    ui.intentStore.seedProvenance("ghost", ["opacity"]);
     expect(() => resetLayerOpacity(ui, "ghost")).not.toThrow();
     expect(getIntent(ui, "ghost", "opacity")).toBe(0.4);
-    expect(ui.intentProvenance.ghost).toEqual(["opacity"]);
+    expect(ui.intentStore.dumpProvenance().ghost).toEqual(["opacity"]);
   });
 
   it("resetLayerZoomRange returns before touching state", () => {
     const { ui } = initFixture({});
     setIntent(ui, "ghost", "zoomRange", [3, 12]);
-    ui.intentProvenance.ghost = ["zoomRange"];
+    ui.intentStore.seedProvenance("ghost", ["zoomRange"]);
     expect(() => resetLayerZoomRange(ui, "ghost")).not.toThrow();
     expect(getIntent(ui, "ghost", "zoomRange")).toEqual([3, 12]);
-    expect(ui.intentProvenance.ghost).toEqual(["zoomRange"]);
+    expect(ui.intentStore.dumpProvenance().ghost).toEqual(["zoomRange"]);
   });
 });

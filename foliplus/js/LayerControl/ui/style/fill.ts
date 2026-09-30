@@ -1,7 +1,7 @@
-// Fill color row — the ⚙︎ drawer's "Layer" section fill swatch.
+// Fill color row — the ⚙️ drawer's "Layer" section fill swatch.
 //
 // A self-managed LayerControl dimension (like label, not like opacity /
-// zoom range): the value lives in `ui.intents.fillColor`, is persisted under
+// zoom range): the value lives in `ui.intentStore` fillColor, is persisted under
 // `layerState.fillColor`, and reaches the map by walking `eachLayer` and
 // calling `setStyle` on every leaf that owns one. The dimension is not part
 // of the executor's visible/opacity/zoomRange family; the write goes
@@ -33,10 +33,10 @@ import {
 import * as CONST from "../../const.js";
 import { showSolidBasemap } from "../color.js";
 import type { LayerUI } from "../index.js";
-import { INTENT, clearIntent, getIntent, setIntent } from "../intent.js";
-import { markOverride, saveState, unmarkOverride } from "../state.js";
+import { INTENT, type IntentKey, getIntent } from "../intent.js";
+import { saveState } from "../state.js";
 import { pinStyleOnHighlight } from "./pin.js";
-import { registerDimension } from "./registry.js";
+import { getDimension, registerDimension, writeIntentKeys } from "./registry.js";
 import {
   FACE,
   type StyleCarrier,
@@ -234,10 +234,7 @@ const scheduleFillApply = (ui: LayerUI, layerId: string): void => {
 const commitFillColor = (ui: LayerUI, layerId: string, rawColor: string): void => {
   const color = normalizeHexColor(rawColor);
   if (getIntent(ui, layerId, INTENT.FILL_COLOR) === color) return;
-  setIntent(ui, layerId, INTENT.FILL_COLOR, color);
-  markOverride(ui, layerId, INTENT.FILL_COLOR);
-  saveState(ui);
-  scheduleFillApply(ui, layerId);
+  getDimension(DIM.FILL)!.write!(ui, layerId, { color });
 };
 
 /** Commit the fill opacity (0-100 %) to the layer. Converts to 0-1 for
@@ -245,10 +242,7 @@ const commitFillColor = (ui: LayerUI, layerId: string, rawColor: string): void =
 const commitFillOpacity = (ui: LayerUI, layerId: string, pct: number): void => {
   const opacity = Math.max(0, Math.min(1, pct / 100));
   if (getIntent(ui, layerId, INTENT.FILL_OPACITY) === opacity) return;
-  setIntent(ui, layerId, INTENT.FILL_OPACITY, opacity);
-  markOverride(ui, layerId, INTENT.FILL_OPACITY);
-  saveState(ui);
-  scheduleFillApply(ui, layerId);
+  getDimension(DIM.FILL)!.write!(ui, layerId, { opacity });
 };
 
 /** Reset one layer's fill to its authored value and drop its persisted
@@ -265,30 +259,20 @@ const commitFillOpacity = (ui: LayerUI, layerId: string, pct: number): void => {
  *  re-apply a color the layer no longer shows. */
 const resetLayerFill = (ui: LayerUI, layerId: string): void => {
   if (!ui.m.layerRegistry.has(layerId)) return;
-  // Drop any trailing drag frame first: a scheduled apply must not paint
-  // the user's color over the authored restore below.
-  cancelStyleDimApply(FACE.FILL, layerId);
-  clearIntent(ui, layerId, INTENT.FILL_COLOR);
-  clearIntent(ui, layerId, INTENT.FILL_OPACITY);
-  unmarkOverride(ui, layerId, INTENT.FILL_COLOR);
-  unmarkOverride(ui, layerId, INTENT.FILL_OPACITY);
-  saveState(ui);
-  const li = ui.m.layerRegistry.get(layerId);
-
-  // Solid-color basemap: restore the authored default colour.
-  if (isColorBasemap(li)) {
+  // Solid-color basemap: restore the authored default colour. No style-bag
+  // face to replay — the pane's fill IS the basemap colour.
+  if (isColorBasemap(ui.m.layerRegistry.get(layerId))) {
+    cancelStyleDimApply(FACE.FILL, layerId);
+    ui.intentStore.clear(layerId, INTENT.FILL_COLOR);
+    ui.intentStore.clear(layerId, INTENT.FILL_OPACITY);
+    saveState(ui);
     ui.currentColor = CONST.COLOR.DEFAULT;
     showSolidBasemap(ui, CONST.COLOR.DEFAULT);
     return;
   }
-
-  const layer = li?.layer as StyleCarrier | null;
-  if (!layer) return;
-  walkStyleLeaves(layer, node => {
-    // Shared restore contract: one face slice from the captured style bag,
-    // including the author's own `fill` flag (false stays false).
-    restoreStyleDim(node, FACE.FILL);
-  });
+  // Vector / other fillable carriers: descriptor reset owns intent+persist
+  // and the styleBag restore walk.
+  getDimension(DIM.FILL)!.reset!(ui, layerId);
 };
 
 /** Build the fill form row: color swatch + fill-opacity number input.
@@ -330,7 +314,7 @@ const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
     value: opacityPct,
     min: 0,
     max: 100,
-    // Any integer 0–100 is a legal opacity; the number field is the precise
+    // Any integer 0—100 is a legal opacity; the number field is the precise
     // companion to the live commit, so the spinner must not restrict the
     // input to multiples of a coarser step (the opacity row uses step 1 too).
     step: 1,
@@ -403,12 +387,11 @@ const replayFillState = (ui: LayerUI, id: string): void => {
   applyFillToLayer(ui, id);
 };
 
-/** Register fill as a per-layer dimension. The descriptor wires up the
- *  existing helpers (gate + row + a two-slot value for the color /
- *  opacity pair) — nothing moves. The write path is intentionally not
- *  on the descriptor: `commitFillColor` / `commitFillOpacity` are the
- *  authoritative implementations and the panel keeps them separate from
- *  the discovery shape.
+/** Register fill as a per-layer dimension. The descriptor wires the existing
+ *  helpers plus the intent+persist slots: `write` / `reset` own store +
+ *  styleBag orchestration (cohesive `IntentStore.set` / `.clear`); the named
+ *  `commitFillColor` / `commitFillOpacity` / `resetLayerFill` stay as thin
+ *  delegates so panel call sites and tests keep their shape.
  *
  *  Registered ahead of `border` and `opacity` in `DIM_ORDER`
  *  (see `./registry.js`): fill comes first in the annotation panel's
@@ -430,6 +413,37 @@ const FILL_DIMENSION = registerDimension<{
     };
   },
   row: buildFillRow,
+  /** Intent+persist + schedule the fill face landing. `patch` is already
+   *  normalized (hex / 0-1). Omitted keys leave that sub-dimension alone. */
+  write: (ui, layerId, patch) => {
+    const { color, opacity } = patch;
+    const writes: Array<readonly [IntentKey, unknown]> = [];
+    if (color !== undefined) writes.push([INTENT.FILL_COLOR, color]);
+    if (typeof opacity === "number") writes.push([INTENT.FILL_OPACITY, opacity]);
+    if (!writeIntentKeys(ui, layerId, writes)) return;
+    scheduleFillApply(ui, layerId);
+  },
+  /** Cohesive reset: cancel trailing apply, clear both fill overrides,
+   *  save, restore the author's fill face from the style bag. */
+  reset: (ui, layerId) => {
+    cancelStyleDimApply(FACE.FILL, layerId);
+    ui.intentStore.clear(layerId, INTENT.FILL_COLOR);
+    ui.intentStore.clear(layerId, INTENT.FILL_OPACITY);
+    saveState(ui);
+    const layer = ui.m.findLayer(layerId) as StyleCarrier | null;
+    if (!layer) return;
+    walkStyleLeaves(layer, node => restoreStyleDim(node, FACE.FILL));
+  },
+  valueSource: (ui, layerId) => {
+    if (!layerCanFill(ui, layerId)) return "none";
+    if (
+      ui.intentStore.isUserSet(layerId, INTENT.FILL_COLOR) ||
+      ui.intentStore.isUserSet(layerId, INTENT.FILL_OPACITY)
+    ) {
+      return "user";
+    }
+    return "author";
+  },
 });
 
 export {
