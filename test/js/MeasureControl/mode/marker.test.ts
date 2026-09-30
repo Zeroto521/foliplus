@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { reverseGeocode } from "#core/geocode/index.js";
 import * as CONST from "#foliplus/MeasureControl/const.js";
 import { markDragSyntheticClick } from "#foliplus/MeasureControl/edit.js";
 import { MarkerMode } from "#foliplus/MeasureControl/mode/index.js";
 import { initMocks, makeManagerMock } from "./setup.js";
-import { reverseGeocode } from "#core/geocode/index.js";
 
 vi.mock("#core/geocode/index.js", () => ({
   reverseGeocode: vi.fn().mockResolvedValue(null),

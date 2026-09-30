@@ -1,7 +1,7 @@
 import type { Map as LeafletMap } from "leaflet";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createLocationMarker } from "#core/locationMarker.js";
 import { reverseGeocode } from "#core/geocode/index.js";
+import { createLocationMarker } from "#core/locationMarker.js";
 
 vi.mock("#core/geocode/index.js", () => ({
   reverseGeocode: vi.fn(),

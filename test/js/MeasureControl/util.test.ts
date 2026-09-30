@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { reverseGeocode } from "#core/geocode/index.js";
 import * as CONST from "#foliplus/MeasureControl/const.js";
 import {
   bindNodeDrag,
@@ -8,7 +9,6 @@ import {
 } from "#foliplus/MeasureControl/edit.js";
 import * as Util from "#foliplus/MeasureControl/util.js";
 import { stopEvent } from "#common/dom.js";
-import { reverseGeocode } from "#core/geocode/index.js";
 
 vi.mock("#core/geocode/index.js", () => ({
   reverseGeocode: vi.fn(),
