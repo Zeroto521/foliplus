@@ -729,9 +729,11 @@ class TestLayerControlRendering:
             "the owner row (the row containing the open overlay) is raised"
         )
         assert "z-index: var(--foliplus-z-index-floating)" in css
-        # The ⋮ dropdown anchors flush to its row (the shared shell adds a 2px
-        # margin-top that would open a sliver of list under the cursor path).
-        assert "margin-top: 0" in css
+        # The ⋮ dropdown anchors flush to its row — the shared shell adds a 2px
+        # margin-top that would open a sliver of list under the cursor path;
+        # T266 declares the whole margin (not just margin-top) so a host
+        # framework's bare `ol,ul` margin reset cannot leak a bottom gap.
+        assert "margin: 0" in css
 
     def test_folded_fold_btn_turns_accent(self):
         """Fold button color becomes accent-primary when row is folded."""
@@ -1183,6 +1185,48 @@ class TestLayerControlBrowser:
             " && !c.classList.contains('foliplus-is-collapsed'); }",
             selector,
         )
+
+    def test_menu_shell_keeps_design_padding_under_bootstrap(self, browser, tmp_path):
+        """T266: the layer more-menu shell keeps its design padding on a host
+        Bootstrap page.
+
+        Bootstrap ships an unlayered `ol,ul{padding-left:2rem}` reset. After
+        #568 wrapped foliplus CSS in @layer, that reset outranked the shell at
+        any specificity and pushed the icon column inward. T266 reverted the
+        @layer wrap, restoring the specificity order: the shell selector
+        (0,2,0) beats `ul` (0,0,1), so the icon column stays flush with the
+        shell's left padding. This pins the computed padding-left in the real
+        folium page (Bootstrap included), which the plain unit tests cannot
+        see.
+        """
+        layer = folium.FeatureGroup(name="Menu shell", overlay=True, show=True)
+        with use_page(
+            self._make_page, browser, tmp_path, layer, slug="menu_shell_padding"
+        ) as (page, errors):
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            page.wait_for_timeout(400)
+            page.evaluate(
+                "() => document.querySelectorAll("
+                "'.foliplus-layer-item .foliplus-layer-more-btn')[0].click()"
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-more-menu.open", state="attached", timeout=5000
+            )
+            padding_left = page.evaluate(
+                "() => getComputedStyle("
+                "  document.querySelector('.foliplus-layer-more-menu.open')).paddingLeft"
+            )
+            assert padding_left == "0px", (
+                f"menu shell padding-left drifted under Bootstrap: {padding_left!r}"
+            )
+            assert not errors, f"JS errors: {errors}"
 
     def test_cross_group_drag_shows_hint(self, browser, tmp_path):
         """Dragging overlay toward base group should show blocked hint."""
