@@ -9,7 +9,7 @@ import type { LayerPersistence } from "./persistence.js";
  *  forwards (`loadSavedOrder` / `saveOrder` / `replaySavedOrder` /
  *  `forgetSavedOrder`) and the ownership call-sites (`removedIds` gate and
  *  mark). Value and behaviour are unchanged: method bodies moved as-is. */
-export class SavedOrder {
+class SavedOrder {
   /** The order the user arranged: a snapshot of the live registry taken by the
    *  last user reorder (drag, moveLayerUp/Down, bringLayerToFront). Registration
    *  never writes it — a slot the author's code picked is not intent. `null`
@@ -200,3 +200,5 @@ export class SavedOrder {
     return true;
   }
 }
+
+export { SavedOrder };
