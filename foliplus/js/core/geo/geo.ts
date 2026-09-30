@@ -6,6 +6,32 @@ interface LatLngPoint {
   lat: number;
 }
 
+/** Geo bounds with northwest and southeast corners. */
+interface GeoBounds {
+  nw: LatLngPoint;
+  se: LatLngPoint;
+}
+
+/** Screen-space rectangle. */
+interface Rect {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+/** Convert geo bounds (nw/se) to a screen-space rect using the map's projection. */
+const boundsToRect = (map: L.Map, bounds: GeoBounds): Rect => {
+  const nw = map.latLngToContainerPoint(L.latLng(bounds.nw.lat, bounds.nw.lng));
+  const se = map.latLngToContainerPoint(L.latLng(bounds.se.lat, bounds.se.lng));
+  return {
+    left: Math.min(nw.x, se.x),
+    top: Math.min(nw.y, se.y),
+    width: Math.abs(se.x - nw.x),
+    height: Math.abs(se.y - nw.y),
+  };
+};
+
 /** Distance between two points in meters (turf.js geodesic). */
 const distance = (a: LatLngPoint, b: LatLngPoint): number => {
   return turf.distance(turf.point([a.lng, a.lat]), turf.point([b.lng, b.lat]), {
@@ -41,5 +67,5 @@ const area = (points: LatLngPoint[]): number => {
   return turf.area(turf.polygon([coords]));
 };
 
-export { area, bearing, centroid, distance, midpoint };
-export type { LatLngPoint };
+export { area, bearing, boundsToRect, centroid, distance, midpoint };
+export type { GeoBounds, LatLngPoint, Rect };

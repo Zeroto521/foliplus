@@ -1,7 +1,7 @@
 // ExportControl bounds persistence + map lock — storage restore/save and pan/zoom freeze.
 // Function expressions are installed on ExportManager.prototype so `this` is
 // the manager and instance spies stay interceptable.
-import { COORD_BOUNDS } from "#core/geo/index.js";
+import { boundsToRect, COORD_BOUNDS } from "#core/geo/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { createScopedTranslator } from "#common/locale.js";
 import * as Storage from "#common/storage.js";
@@ -67,16 +67,7 @@ const restoreFromSavedBounds = function (this: ExportManager) {
 
 const onMapChange = function (this: ExportManager, skipHint?: boolean) {
   if (!this.cropState || !this.cropState.locked) return;
-  const nw = this.cropState.geoBounds!.nw;
-  const se = this.cropState.geoBounds!.se;
-  const tl = this.map.latLngToContainerPoint(L.latLng(nw.lat, nw.lng));
-  const br = this.map.latLngToContainerPoint(L.latLng(se.lat, se.lng));
-  const newRect = {
-    left: tl.x,
-    top: tl.y,
-    width: Math.abs(br.x - tl.x),
-    height: Math.abs(br.y - tl.y),
-  };
+  const newRect = boundsToRect(this.map, this.cropState.geoBounds!);
   this.cropState.rect = newRect;
   this.updateBoxStyle(this.cropState.box, newRect);
   // Always check pixel limit regardless of hint visibility.
