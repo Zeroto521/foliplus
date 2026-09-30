@@ -7,9 +7,6 @@ const TIMING = {
   FINALIZE_DELAY: 50,
 };
 
-/** Measure node marker. */
-const MARKER = { RADIUS: 5 };
-
 /** Label markers. */
 const LABEL = {
   DEFAULT_ANCHOR: [0, -10],
@@ -84,12 +81,15 @@ const CLASSES = {
   PATH_PREVIEW: "foliplus-measure-path foliplus-measure-path-preview",
   // Fill modifier for area shapes (circle/polygon).
   SHAPE_FILL: "foliplus-measure-shape-fill",
-  NODE_HOLLOW: "foliplus-measure-node",
+  // `.foliplus-dot-hollow` / `-solid` (common/button.css) carry the fill, stroke
+  // and geometry, shared with the export crop-box anchors. `foliplus-measure-node`
+  // stays as the semantic hook (node pane styling, test selectors).
+  NODE_HOLLOW: "foliplus-dot foliplus-dot-hollow foliplus-measure-node",
   // ExportControl's SKIP_EXPORT selector drops anything carrying this class from
   // the exported image.  Stamped on preview layers only — the preview is a
   // drawing aid, not content.
   SKIP_EXPORT: "foliplus-skip-export",
-  NODE_SOLID: "foliplus-measure-node foliplus-measure-node-solid",
+  NODE_SOLID: "foliplus-dot foliplus-dot-solid foliplus-measure-node",
   RIPPLE: "foliplus-measure-ripple",
   DASH_SWEEP: "foliplus-measure-dash-sweep",
   ACTIVE: "foliplus-is-active",
@@ -147,7 +147,6 @@ const MEASURE_MODE = {
 
 export {
   TIMING,
-  MARKER,
   LABEL,
   READOUT,
   LABEL_PRIORITY,

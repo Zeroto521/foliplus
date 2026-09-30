@@ -1,7 +1,7 @@
-// Fill color row — the ⚙︎ drawer's "Layer" section fill swatch.
+// Fill color row — the ⚙️ drawer's "Layer" section fill swatch.
 //
 // A self-managed LayerControl dimension (like label, not like opacity /
-// zoom range): the value lives in `ui.intents.fillColor`, is persisted under
+// zoom range): the value lives in `ui.intentStore` fillColor, is persisted under
 // `layerState.fillColor`, and reaches the map by walking `eachLayer` and
 // calling `setStyle` on every leaf that owns one. The dimension is not part
 // of the executor's visible/opacity/zoomRange family; the write goes
@@ -33,14 +33,22 @@ import {
 import * as CONST from "../../const.js";
 import { showSolidBasemap } from "../color.js";
 import type { LayerUI } from "../index.js";
-import { INTENT, clearIntent, getIntent, setIntent } from "../intent.js";
-import { markOverride, saveState, unmarkOverride } from "../state.js";
+import { INTENT, type IntentKey, getIntent } from "../intent.js";
 import { pinStyleOnHighlight } from "./pin.js";
-import { registerDimension } from "./registry.js";
 import {
+  getDimension,
+  registerDimension,
+  resetIntentKeys,
+  writeIntentKeys,
+} from "./registry.js";
+import {
+  FACE,
   type StyleCarrier,
+  cancelStyleDimApply,
   commitStyleDim,
+  flushStyleDimApply,
   restoreStyleDim,
+  scheduleStyleDimApply,
   styleBagOf,
   styleDimPayload,
   walkStyleLeaves,
@@ -188,7 +196,7 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
   if (opacity !== undefined) values.fillOpacity = opacity;
   walkStyleLeaves(layer, node => {
     // Shared write contract: value keys + visibility bit (`fill: true`).
-    commitStyleDim(node, values, "fill");
+    commitStyleDim(node, values, FACE.FILL);
 
     // Folium's highlight_on_hover restores the original style on mouseout;
     // pinStyleOnHighlight reapplies the user's fill after folium's handler
@@ -202,9 +210,16 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
       if (c === undefined && o === undefined) return null;
       // fill:true rides the replay too — folium's resetStyle would otherwise
       // re-apply the author's fill:false on mouseout and hide the fill.
-      return styleDimPayload({ fillColor: c, fillOpacity: o }, "fill");
+      return styleDimPayload({ fillColor: c, fillOpacity: o }, FACE.FILL);
     });
   });
+};
+
+/** Shared apply scheduler (styleBag, face=`fill`): one walk per frame.
+ *  The wrapper exists only to bind this face's apply fn — flush / drop /
+ *  has go straight to styleBag at the call site. */
+const scheduleFillApply = (ui: LayerUI, layerId: string): void => {
+  scheduleStyleDimApply(FACE.FILL, layerId, () => applyFillToLayer(ui, layerId));
 };
 
 /** Write the color into the map, persist it, and mark the dimension as
@@ -223,10 +238,7 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
 const commitFillColor = (ui: LayerUI, layerId: string, rawColor: string): void => {
   const color = normalizeHexColor(rawColor);
   if (getIntent(ui, layerId, INTENT.FILL_COLOR) === color) return;
-  setIntent(ui, layerId, INTENT.FILL_COLOR, color);
-  markOverride(ui, layerId, INTENT.FILL_COLOR);
-  saveState(ui);
-  applyFillToLayer(ui, layerId);
+  getDimension(DIM.FILL)!.write!(ui, layerId, { color });
 };
 
 /** Commit the fill opacity (0-100 %) to the layer. Converts to 0-1 for
@@ -234,10 +246,7 @@ const commitFillColor = (ui: LayerUI, layerId: string, rawColor: string): void =
 const commitFillOpacity = (ui: LayerUI, layerId: string, pct: number): void => {
   const opacity = Math.max(0, Math.min(1, pct / 100));
   if (getIntent(ui, layerId, INTENT.FILL_OPACITY) === opacity) return;
-  setIntent(ui, layerId, INTENT.FILL_OPACITY, opacity);
-  markOverride(ui, layerId, INTENT.FILL_OPACITY);
-  saveState(ui);
-  applyFillToLayer(ui, layerId);
+  getDimension(DIM.FILL)!.write!(ui, layerId, { opacity });
 };
 
 /** Reset one layer's fill to its authored value and drop its persisted
@@ -254,27 +263,18 @@ const commitFillOpacity = (ui: LayerUI, layerId: string, pct: number): void => {
  *  re-apply a color the layer no longer shows. */
 const resetLayerFill = (ui: LayerUI, layerId: string): void => {
   if (!ui.m.layerRegistry.has(layerId)) return;
-  clearIntent(ui, layerId, INTENT.FILL_COLOR);
-  clearIntent(ui, layerId, INTENT.FILL_OPACITY);
-  unmarkOverride(ui, layerId, INTENT.FILL_COLOR);
-  unmarkOverride(ui, layerId, INTENT.FILL_OPACITY);
-  saveState(ui);
-  const li = ui.m.layerRegistry.get(layerId);
-
-  // Solid-color basemap: restore the authored default colour.
-  if (isColorBasemap(li)) {
+  // Solid-color basemap: restore the authored default colour. No style-bag
+  // face to replay — the pane's fill IS the basemap colour.
+  if (isColorBasemap(ui.m.layerRegistry.get(layerId))) {
+    cancelStyleDimApply(FACE.FILL, layerId);
+    resetIntentKeys(ui, layerId, [INTENT.FILL_COLOR, INTENT.FILL_OPACITY]);
     ui.currentColor = CONST.COLOR.DEFAULT;
     showSolidBasemap(ui, CONST.COLOR.DEFAULT);
     return;
   }
-
-  const layer = li?.layer as StyleCarrier | null;
-  if (!layer) return;
-  walkStyleLeaves(layer, node => {
-    // Shared restore contract: one face slice from the captured style bag,
-    // including the author's own `fill` flag (false stays false).
-    restoreStyleDim(node, "fill");
-  });
+  // Vector / other fillable carriers: descriptor reset owns intent+persist
+  // and the styleBag restore walk.
+  getDimension(DIM.FILL)!.reset!(ui, layerId);
 };
 
 /** Build the fill form row: color swatch + fill-opacity number input.
@@ -316,7 +316,7 @@ const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
     value: opacityPct,
     min: 0,
     max: 100,
-    // Any integer 0–100 is a legal opacity; the number field is the precise
+    // Any integer 0—100 is a legal opacity; the number field is the precise
     // companion to the live commit, so the spinner must not restrict the
     // input to multiples of a coarser step (the opacity row uses step 1 too).
     step: 1,
@@ -337,7 +337,22 @@ const bindFillRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
   const colorEl = row.querySelector(
     `.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`,
   ) as HTMLInputElement | null;
-  if (colorEl) bindLiveColor(colorEl, value => commitFillColor(ui, layerId, value));
+  if (colorEl) {
+    bindLiveColor(colorEl, value => commitFillColor(ui, layerId, value));
+    // change / blur close the drag: the trailing rAF frame may never fire
+    // if the pointer lifts between frames — flush so the terminal value
+    // lands (same contract as bindLiveNumber's change commit). Chain, never
+    // overwrite: bindLiveColor only owns oninput today, but a future binder
+    // that owns onchange must not be dropped (and the listener-guard
+    // allow-list rejects bare addEventListener).
+    const flush = () => flushStyleDimApply(FACE.FILL, layerId);
+    const prevColorChange = colorEl.onchange;
+    colorEl.onchange = ev => {
+      prevColorChange?.call(colorEl, ev);
+      flush();
+    };
+    colorEl.onblur = flush;
+  }
 
   const opacityEl = row.querySelector(
     `.${CONST.CLASSES.STYLE_FILL_OPACITY_NUMBER}`,
@@ -349,6 +364,15 @@ const bindFillRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
       fallback: VISIBLE_FILL_OPACITY * 100,
       onCommit: value => commitFillOpacity(ui, layerId, value),
     });
+    // bindLiveNumber already owns onchange (clamp + commit); chain the flush
+    // instead of overwriting it. blur is free.
+    const flush = () => flushStyleDimApply(FACE.FILL, layerId);
+    const prevChange = opacityEl.onchange;
+    opacityEl.onchange = ev => {
+      prevChange?.call(opacityEl, ev);
+      flush();
+    };
+    opacityEl.onblur = flush;
   }
 };
 
@@ -365,12 +389,11 @@ const replayFillState = (ui: LayerUI, id: string): void => {
   applyFillToLayer(ui, id);
 };
 
-/** Register fill as a per-layer dimension. The descriptor wires up the
- *  existing helpers (gate + row + a two-slot value for the color /
- *  opacity pair) — nothing moves. The write path is intentionally not
- *  on the descriptor: `commitFillColor` / `commitFillOpacity` are the
- *  authoritative implementations and the panel keeps them separate from
- *  the discovery shape.
+/** Register fill as a per-layer dimension. The descriptor wires the existing
+ *  helpers plus the intent+persist slots: `write` / `reset` own store +
+ *  styleBag orchestration (cohesive `IntentStore.set` / `.clear`); the named
+ *  `commitFillColor` / `commitFillOpacity` / `resetLayerFill` stay as thin
+ *  delegates so panel call sites and tests keep their shape.
  *
  *  Registered ahead of `border` and `opacity` in `DIM_ORDER`
  *  (see `./registry.js`): fill comes first in the annotation panel's
@@ -392,6 +415,35 @@ const FILL_DIMENSION = registerDimension<{
     };
   },
   row: buildFillRow,
+  /** Intent+persist + schedule the fill face landing. `patch` is already
+   *  normalized (hex / 0-1). Omitted keys leave that sub-dimension alone. */
+  write: (ui, layerId, patch) => {
+    const { color, opacity } = patch;
+    const writes: Array<readonly [IntentKey, unknown]> = [];
+    if (color !== undefined) writes.push([INTENT.FILL_COLOR, color]);
+    if (typeof opacity === "number") writes.push([INTENT.FILL_OPACITY, opacity]);
+    if (!writeIntentKeys(ui, layerId, writes)) return;
+    scheduleFillApply(ui, layerId);
+  },
+  /** Cohesive reset: cancel trailing apply, clear both fill overrides,
+   *  save, restore the author's fill face from the style bag. */
+  reset: (ui, layerId) => {
+    cancelStyleDimApply(FACE.FILL, layerId);
+    resetIntentKeys(ui, layerId, [INTENT.FILL_COLOR, INTENT.FILL_OPACITY]);
+    const layer = ui.m.findLayer(layerId) as StyleCarrier | null;
+    if (!layer) return;
+    walkStyleLeaves(layer, node => restoreStyleDim(node, FACE.FILL));
+  },
+  valueSource: (ui, layerId) => {
+    if (!layerCanFill(ui, layerId)) return "none";
+    if (
+      ui.intentStore.isUserSet(layerId, INTENT.FILL_COLOR) ||
+      ui.intentStore.isUserSet(layerId, INTENT.FILL_OPACITY)
+    ) {
+      return "user";
+    }
+    return "author";
+  },
 });
 
 export {

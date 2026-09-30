@@ -6,6 +6,7 @@
 // that common/ never imports from #core/, and adapter is the one module
 // allowed to hold private-field reaches. Callers in LocateControl,
 // MeasureControl and SearchControl import this from #core/locationMarker.js.
+import { reverseGeocode } from "#core/geocode/index.js";
 import { setPopupCloseTitle } from "#core/leafletAdapter.js";
 import { buildPopupEl } from "#common/dom.js";
 import * as SVGs from "#common/icon.js";
@@ -66,29 +67,25 @@ const createLocationMarker = (
   // not yet built) is a no-op inside the adapter.
   setPopupCloseTitle(marker.getPopup(), closeLabelText || "");
   if (!addr) {
-    // Lazy access to the runtime singleton geocoder (kept out of this bundle).
-    const foliplus = window.foliplus;
-    if (foliplus?.reverseGeocode) {
-      void foliplus
-        .reverseGeocode(map, lng, lat, code)
-        .then((resolved: string) => {
-          if (onAddress) onAddress(resolved);
-          if (marker && marker.getPopup && marker.getPopup()?.isOpen()) {
-            marker.setPopupContent(
-              buildPopupEl(
-                lng,
-                lat,
-                resolved,
-                titleText,
-                loadingText,
-                locLabelText,
-                addrLabelText,
-              ),
-            );
-          }
-        })
-        .catch(() => undefined);
-    }
+    // Reverse-geocode the location to resolve an address label.
+    void reverseGeocode(map, lng, lat, code)
+      .then((resolved: string) => {
+        if (onAddress) onAddress(resolved);
+        if (marker && marker.getPopup && marker.getPopup()?.isOpen()) {
+          marker.setPopupContent(
+            buildPopupEl(
+              lng,
+              lat,
+              resolved,
+              titleText,
+              loadingText,
+              locLabelText,
+              addrLabelText,
+            ),
+          );
+        }
+      })
+      .catch(() => undefined);
   }
   return marker;
 };

@@ -28,6 +28,8 @@ import {
   getDimension,
   listDimensions,
   registerDimension,
+  resetIntentKeys,
+  writeIntentKeys,
 } from "#foliplus/LayerControl/ui/style/registry.js";
 import { ZOOM_RANGE_DIMENSION } from "#foliplus/LayerControl/ui/style/zoomRange.js";
 import { initFixture, installLeafletGlobals } from "../fixture.js";
@@ -116,6 +118,105 @@ describe("LayerControl style-panel dimension registry", () => {
     expect(() => registerDimension(testDim)).toThrow(
       /test\.dim\.registry.*already registered/,
     );
+  });
+});
+
+describe("LayerControl style-panel dimension registry — writeIntentKeys", () => {
+  let ui: LayerUI;
+  let schedule: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    installLeafletGlobals();
+    const fixture = initFixture({
+      data: [
+        {
+          id: "overlay1",
+          name: "Overlay",
+          group: "overlay",
+          layer: { options: {}, setZIndex: vi.fn(), getBounds: vi.fn() },
+        },
+      ],
+    });
+    ui = fixture.ui;
+    schedule = vi.fn();
+    ui.m.persistence = { schedule } as never;
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+  });
+
+  it("skips undefined values and saves only when something was written", () => {
+    expect(
+      writeIntentKeys(ui, "overlay1", [
+        ["opacity", undefined],
+        ["visible", undefined],
+      ]),
+    ).toBe(false);
+    expect(schedule).not.toHaveBeenCalled();
+
+    expect(
+      writeIntentKeys(ui, "overlay1", [
+        ["opacity", undefined],
+        ["opacity", 0.4],
+      ]),
+    ).toBe(true);
+    expect(ui.intentStore.get("overlay1", "opacity")).toBe(0.4);
+    expect(ui.intentStore.isUserSet("overlay1", "opacity")).toBe(true);
+    expect(schedule).toHaveBeenCalled();
+  });
+
+  it("returns false when the writes array is empty", () => {
+    expect(writeIntentKeys(ui, "overlay1", [])).toBe(false);
+    expect(schedule).not.toHaveBeenCalled();
+  });
+});
+
+describe("LayerControl style-panel dimension registry — resetIntentKeys", () => {
+  let ui: LayerUI;
+  let schedule: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    installLeafletGlobals();
+    const fixture = initFixture({
+      data: [
+        {
+          id: "overlay1",
+          name: "Overlay",
+          group: "overlay",
+          layer: { options: {}, setZIndex: vi.fn(), getBounds: vi.fn() },
+        },
+      ],
+    });
+    ui = fixture.ui;
+    schedule = vi.fn();
+    ui.m.persistence = { schedule } as never;
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+  });
+
+  it("clears listed keys, saves, and returns true", () => {
+    ui.intentStore.set("overlay1", "fillColor", "#ff0000");
+    ui.intentStore.set("overlay1", "fillOpacity", 0.5);
+    expect(resetIntentKeys(ui, "overlay1", ["fillColor", "fillOpacity"])).toBe(true);
+    expect(ui.intentStore.get("overlay1", "fillColor")).toBeUndefined();
+    expect(ui.intentStore.get("overlay1", "fillOpacity")).toBeUndefined();
+    expect(ui.intentStore.isUserSet("overlay1", "fillColor")).toBe(false);
+    expect(schedule).toHaveBeenCalled();
+  });
+
+  it("returns false and does not save when keys is empty", () => {
+    expect(resetIntentKeys(ui, "overlay1", [])).toBe(false);
+    expect(schedule).not.toHaveBeenCalled();
+  });
+
+  it("clears a missing key without throwing", () => {
+    expect(resetIntentKeys(ui, "overlay1", ["opacity"])).toBe(true);
+    expect(ui.intentStore.get("overlay1", "opacity")).toBeUndefined();
   });
 });
 
@@ -313,6 +414,70 @@ describe("LayerControl style-panel dimension registry — opacity descriptor", (
     setIntent(ui, "overlay1", "opacity", 0.3);
     expect(OPACITY_DIMENSION.value(ui, "overlay1")).toBe(0.3);
   });
+
+  it("write marks provenance for opacity < 1", () => {
+    const schedule = vi.fn();
+    ui.m.persistence = { schedule } as never;
+    vi.spyOn(ui.m, "surfaceFor").mockReturnValue({
+      capabilities: { opacity: "pane" },
+      paneNames: [],
+      panes: [],
+    } as never);
+    OPACITY_DIMENSION.write!(ui, "overlay1", 0.45);
+    expect(ui.intentStore.get("overlay1", "opacity")).toBe(0.45);
+    expect(ui.intentStore.isUserSet("overlay1", "opacity")).toBe(true);
+  });
+
+  it("write with opacity === 1 clears the override (does not mark)", () => {
+    const schedule = vi.fn();
+    ui.m.persistence = { schedule } as never;
+    vi.spyOn(ui.m, "surfaceFor").mockReturnValue({
+      capabilities: { opacity: "pane" },
+      paneNames: [],
+      panes: [],
+    } as never);
+    OPACITY_DIMENSION.write!(ui, "overlay1", 0.45);
+    OPACITY_DIMENSION.write!(ui, "overlay1", 1);
+    expect(ui.intentStore.get("overlay1", "opacity")).toBeUndefined();
+    expect(ui.intentStore.isUserSet("overlay1", "opacity")).toBe(false);
+  });
+
+  it("write ignores a non-number patch", () => {
+    const schedule = vi.fn();
+    ui.m.persistence = { schedule } as never;
+    OPACITY_DIMENSION.write!(ui, "overlay1", { opacity: 0.4 } as never);
+    OPACITY_DIMENSION.write!(ui, "overlay1", "0.5" as never);
+    OPACITY_DIMENSION.write!(ui, "overlay1", null as never);
+    OPACITY_DIMENSION.write!(ui, "overlay1", undefined as never);
+    expect(ui.intentStore.get("overlay1", "opacity")).toBeUndefined();
+    expect(ui.intentStore.isUserSet("overlay1", "opacity")).toBe(false);
+    expect(schedule).not.toHaveBeenCalled();
+  });
+
+  it("reset clears opacity override", () => {
+    const schedule = vi.fn();
+    ui.m.persistence = { schedule } as never;
+    vi.spyOn(ui.m, "surfaceFor").mockReturnValue({
+      capabilities: { opacity: "pane" },
+      paneNames: [],
+      panes: [],
+    } as never);
+    OPACITY_DIMENSION.write!(ui, "overlay1", 0.2);
+    OPACITY_DIMENSION.reset!(ui, "overlay1");
+    expect(ui.intentStore.get("overlay1", "opacity")).toBeUndefined();
+  });
+
+  it("valueSource is none/author/user across the three states", () => {
+    vi.spyOn(ui.m, "surfaceFor").mockReturnValue({
+      capabilities: { opacity: "pane" },
+      paneNames: [],
+      panes: [],
+    } as never);
+    expect(OPACITY_DIMENSION.valueSource!(ui, "not-registered")).toBe("none");
+    expect(OPACITY_DIMENSION.valueSource!(ui, "overlay1")).toBe("author");
+    OPACITY_DIMENSION.write!(ui, "overlay1", 0.3);
+    expect(OPACITY_DIMENSION.valueSource!(ui, "overlay1")).toBe("user");
+  });
 });
 
 describe("LayerControl style-panel dimension registry — fill descriptor", () => {
@@ -363,6 +528,62 @@ describe("LayerControl style-panel dimension registry — fill descriptor", () =
       color: "#3388ff",
       opacity: null,
     });
+  });
+
+  it("valueSource is none when the gate rejects the layer", () => {
+    expect(FILL_DIMENSION.valueSource!(ui, "not-registered")).toBe("none");
+  });
+
+  it("valueSource is author when the user has not set either slot", () => {
+    vi.spyOn(ui.m, "surfaceFor").mockReturnValue({
+      capabilities: { fill: "native" },
+    } as never);
+    expect(FILL_DIMENSION.valueSource!(ui, "overlay1")).toBe("author");
+  });
+
+  it("valueSource is user once provenance marks a fill slot", () => {
+    vi.spyOn(ui.m, "surfaceFor").mockReturnValue({
+      capabilities: { fill: "native" },
+    } as never);
+    ui.intentStore.set("overlay1", "fillColor", "#ff0000");
+    expect(FILL_DIMENSION.valueSource!(ui, "overlay1")).toBe("user");
+  });
+
+  it("write persists the patch through IntentStore and marks provenance", () => {
+    const schedule = vi.fn();
+    ui.m.persistence = { schedule } as never;
+    FILL_DIMENSION.write!(ui, "overlay1", { color: "#00ff00", opacity: 0.4 });
+    expect(ui.intentStore.get("overlay1", "fillColor")).toBe("#00ff00");
+    expect(ui.intentStore.get("overlay1", "fillOpacity")).toBe(0.4);
+    expect(ui.intentStore.isUserSet("overlay1", "fillColor")).toBe(true);
+    expect(ui.intentStore.isUserSet("overlay1", "fillOpacity")).toBe(true);
+    expect(schedule).toHaveBeenCalled();
+  });
+
+  it("write with a partial patch leaves the other slot untouched", () => {
+    ui.intentStore.set("overlay1", "fillColor", "#ff0000");
+    FILL_DIMENSION.write!(ui, "overlay1", { opacity: 0.2 });
+    expect(ui.intentStore.get("overlay1", "fillColor")).toBe("#ff0000");
+    expect(ui.intentStore.get("overlay1", "fillOpacity")).toBe(0.2);
+  });
+
+  it("write with an empty patch is a no-op", () => {
+    const schedule = vi.fn();
+    ui.m.persistence = { schedule } as never;
+    FILL_DIMENSION.write!(ui, "overlay1", {});
+    expect(ui.intentStore.dumpProvenance()).toEqual({});
+    expect(schedule).not.toHaveBeenCalled();
+  });
+
+  it("reset clears both fill slots and their provenance", () => {
+    const schedule = vi.fn();
+    ui.m.persistence = { schedule } as never;
+    FILL_DIMENSION.write!(ui, "overlay1", { color: "#ff0000", opacity: 0.5 });
+    FILL_DIMENSION.reset!(ui, "overlay1");
+    expect(ui.intentStore.get("overlay1", "fillColor")).toBeUndefined();
+    expect(ui.intentStore.get("overlay1", "fillOpacity")).toBeUndefined();
+    expect(ui.intentStore.isUserSet("overlay1", "fillColor")).toBe(false);
+    expect(ui.intentStore.isUserSet("overlay1", "fillOpacity")).toBe(false);
   });
 });
 
@@ -415,6 +636,54 @@ describe("LayerControl style-panel dimension registry — border descriptor", ()
       weight: 1,
     });
   });
+
+  it("valueSource is none when the gate rejects the layer", () => {
+    expect(BORDER_DIMENSION.valueSource!(ui, "not-registered")).toBe("none");
+  });
+
+  it("valueSource is author when the user has not set either slot", () => {
+    vi.spyOn(ui.m, "surfaceFor").mockReturnValue({
+      capabilities: { stroke: "native" },
+    } as never);
+    expect(BORDER_DIMENSION.valueSource!(ui, "overlay1")).toBe("author");
+  });
+
+  it("valueSource is user once provenance marks a border slot", () => {
+    vi.spyOn(ui.m, "surfaceFor").mockReturnValue({
+      capabilities: { stroke: "native" },
+    } as never);
+    ui.intentStore.set("overlay1", "borderWeight", 2);
+    expect(BORDER_DIMENSION.valueSource!(ui, "overlay1")).toBe("user");
+  });
+
+  it("write persists the patch through IntentStore and marks provenance", () => {
+    const schedule = vi.fn();
+    ui.m.persistence = { schedule } as never;
+    BORDER_DIMENSION.write!(ui, "overlay1", { color: "#00ff00", weight: 4 });
+    expect(ui.intentStore.get("overlay1", "borderColor")).toBe("#00ff00");
+    expect(ui.intentStore.get("overlay1", "borderWeight")).toBe(4);
+    expect(ui.intentStore.isUserSet("overlay1", "borderColor")).toBe(true);
+    expect(ui.intentStore.isUserSet("overlay1", "borderWeight")).toBe(true);
+    expect(schedule).toHaveBeenCalled();
+  });
+
+  it("write with an empty patch is a no-op", () => {
+    const schedule = vi.fn();
+    ui.m.persistence = { schedule } as never;
+    BORDER_DIMENSION.write!(ui, "overlay1", {});
+    expect(ui.intentStore.dumpProvenance()).toEqual({});
+    expect(schedule).not.toHaveBeenCalled();
+  });
+
+  it("reset clears both border slots and their provenance", () => {
+    const schedule = vi.fn();
+    ui.m.persistence = { schedule } as never;
+    BORDER_DIMENSION.write!(ui, "overlay1", { color: "#ff0000", weight: 3 });
+    BORDER_DIMENSION.reset!(ui, "overlay1");
+    expect(ui.intentStore.get("overlay1", "borderColor")).toBeUndefined();
+    expect(ui.intentStore.get("overlay1", "borderWeight")).toBeUndefined();
+    expect(ui.intentStore.isUserSet("overlay1", "borderColor")).toBe(false);
+  });
 });
 
 describe("LayerControl style-panel dimension registry — zoomRange descriptor", () => {
@@ -465,5 +734,65 @@ describe("LayerControl style-panel dimension registry — zoomRange descriptor",
     expect(v).toHaveProperty("min");
     expect(v).toHaveProperty("max");
     expect(v!.min).toBeLessThanOrEqual(v!.max);
+  });
+
+  it("write with {min,max} persists the range and marks provenance", () => {
+    const schedule = vi.fn();
+    ui.m.persistence = { schedule } as never;
+    vi.spyOn(ui.m, "surfaceFor").mockReturnValue({
+      capabilities: { zoomRange: "pane" },
+      paneNames: [],
+      panes: [],
+    } as never);
+    ZOOM_RANGE_DIMENSION.write!(ui, "overlay1", { min: 2, max: 8 });
+    expect(ui.intentStore.get("overlay1", "zoomRange")).toEqual([2, 8]);
+    expect(ui.intentStore.isUserSet("overlay1", "zoomRange")).toBe(true);
+  });
+
+  it("write with empty patch commits an already-written live preview", () => {
+    const schedule = vi.fn();
+    ui.m.persistence = { schedule } as never;
+    vi.spyOn(ui.m, "surfaceFor").mockReturnValue({
+      capabilities: { zoomRange: "pane" },
+      paneNames: [],
+      panes: [],
+    } as never);
+    ui.intentStore.setValue("overlay1", "zoomRange", [4, 9]);
+    ZOOM_RANGE_DIMENSION.write!(ui, "overlay1", {});
+    expect(ui.intentStore.get("overlay1", "zoomRange")).toEqual([4, 9]);
+    expect(ui.intentStore.isUserSet("overlay1", "zoomRange")).toBe(true);
+  });
+
+  it("write with empty patch and no stored value is a no-op", () => {
+    const schedule = vi.fn();
+    ui.m.persistence = { schedule } as never;
+    ZOOM_RANGE_DIMENSION.write!(ui, "overlay1", {});
+    expect(schedule).not.toHaveBeenCalled();
+    expect(ui.intentStore.isUserSet("overlay1", "zoomRange")).toBe(false);
+  });
+
+  it("reset clears the zoomRange override", () => {
+    const schedule = vi.fn();
+    ui.m.persistence = { schedule } as never;
+    vi.spyOn(ui.m, "surfaceFor").mockReturnValue({
+      capabilities: { zoomRange: "pane" },
+      paneNames: [],
+      panes: [],
+    } as never);
+    ZOOM_RANGE_DIMENSION.write!(ui, "overlay1", { min: 1, max: 5 });
+    ZOOM_RANGE_DIMENSION.reset!(ui, "overlay1");
+    expect(ui.intentStore.get("overlay1", "zoomRange")).toBeUndefined();
+  });
+
+  it("valueSource is none/author/user across the three states", () => {
+    vi.spyOn(ui.m, "surfaceFor").mockReturnValue({
+      capabilities: { zoomRange: "pane" },
+      paneNames: [],
+      panes: [],
+    } as never);
+    expect(ZOOM_RANGE_DIMENSION.valueSource!(ui, "not-registered")).toBe("none");
+    expect(ZOOM_RANGE_DIMENSION.valueSource!(ui, "overlay1")).toBe("author");
+    ZOOM_RANGE_DIMENSION.write!(ui, "overlay1", { min: 3, max: 6 });
+    expect(ZOOM_RANGE_DIMENSION.valueSource!(ui, "overlay1")).toBe("user");
   });
 });

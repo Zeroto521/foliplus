@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { ControlEnv } from "#core/defineControl.js";
+import { reverseGeocode } from "#core/geocode/index.js";
 import * as CONST from "#foliplus/MeasureControl/const.js";
 import {
   bindNodeDrag,
@@ -8,13 +10,25 @@ import {
 } from "#foliplus/MeasureControl/edit.js";
 import * as Util from "#foliplus/MeasureControl/util.js";
 import { stopEvent } from "#common/dom.js";
+import { createLogger } from "#common/log.js";
+import { makeControlEnv } from "../fixture.js";
+
+vi.mock("#core/geocode/index.js", () => ({
+  reverseGeocode: vi.fn(),
+}));
 
 const fakeEv = (): any => ({ preventDefault: vi.fn(), stopPropagation: vi.fn() });
+
+const makeEnv = (): ControlEnv => {
+  window.CONF = { ...window.CONF, name: "MeasureControl", locale_code: "en" };
+  return makeControlEnv();
+};
 
 beforeEach(() => {
   // Consume any pending drag-synthetic-click flag so a prior test's drag end
   // doesn't leak into this test's click handler.
   isDragSyntheticClick();
+  vi.mocked(reverseGeocode).mockReset();
   globalThis.turf = {
     point: coords => ({ coords }),
     polygon: vi.fn(rings => ({ type: "Polygon", coordinates: rings })),
@@ -117,13 +131,52 @@ describe("makeNode", () => {
     Util.makeNode({ lat: 1, lng: 2 });
     expect(window.L.circleMarker).toHaveBeenCalledWith(
       { lat: 1, lng: 2 },
-      { radius: 5, className: "foliplus-measure-node" },
+      { radius: 5, className: CONST.CLASSES.NODE_HOLLOW },
     );
+    // The shared dot look is on every node; the hook class stays for selectors.
+    expect(CONST.CLASSES.NODE_HOLLOW).toContain("foliplus-dot");
+    expect(CONST.CLASSES.NODE_HOLLOW).toContain("foliplus-dot-hollow");
+    expect(CONST.CLASSES.NODE_HOLLOW).toContain("foliplus-measure-node");
+    expect(CONST.CLASSES.NODE_SOLID).toContain("foliplus-dot-solid");
   });
 
   it("accepts a custom className", () => {
     Util.makeNode({ lat: 1, lng: 2 }, "custom");
     expect(window.L.circleMarker.mock.calls[0][1].className).toBe("custom");
+  });
+});
+
+describe("nodeRadius", () => {
+  it("derives (size - stroke) / 2 from the shared tokens", () => {
+    // setup.ts installs the default pair (12.5 / 2.5) — radius 5.
+    expect(Util.nodeRadius()).toBe(5);
+  });
+
+  it("throws when the tokens are unreadable", () => {
+    const root = document.documentElement;
+    const prevSize = root.style.getPropertyValue("--foliplus-dot-size");
+    root.style.removeProperty("--foliplus-dot-size");
+    Util.resetNodeRadiusCache();
+    try {
+      expect(() => Util.nodeRadius()).toThrow(/dot-size/);
+    } finally {
+      root.style.setProperty("--foliplus-dot-size", prevSize);
+      Util.resetNodeRadiusCache();
+    }
+  });
+
+  it("caches the derived radius across calls", () => {
+    expect(Util.nodeRadius()).toBe(5);
+    // Mutating the token does not change the cached value until reset.
+    const root = document.documentElement;
+    const prev = root.style.getPropertyValue("--foliplus-dot-size");
+    root.style.setProperty("--foliplus-dot-size", "16px");
+    try {
+      expect(Util.nodeRadius()).toBe(5);
+    } finally {
+      root.style.setProperty("--foliplus-dot-size", prev);
+      Util.resetNodeRadiusCache();
+    }
   });
 });
 
@@ -191,23 +244,26 @@ describe("recalculateSegments", () => {
 
 describe("formatSegmentLabel", () => {
   it("returns only distance when show_bearing is off", () => {
-    window.CONF = { ...window.CONF, show_bearing: false };
-    expect(Util.formatSegmentLabel({} as any, {} as any, 500)).toBe("500 m");
+    const env = makeEnv();
+    env.conf.show_bearing = false;
+    expect(Util.formatSegmentLabel(env, {} as any, {} as any, 500)).toBe("500 m");
   });
 
   it("includes bearing when show_bearing is on", () => {
-    window.CONF = { ...window.CONF, show_bearing: true };
+    const env = makeEnv();
+    env.conf.show_bearing = true;
     globalThis.turf.bearing = vi.fn(() => 45);
     const a = { lng: 0, lat: 0 };
     const b = { lng: 0, lat: 1 };
-    const label = Util.formatSegmentLabel(a, b, 500);
+    const label = Util.formatSegmentLabel(env, a, b, 500);
     expect(label).toBe("45° | 500 m");
   });
 });
 
 describe("buildPopup", () => {
   it("returns an element whose address text is a TextNode, not parsed markup", () => {
-    const result = Util.buildPopup(1, 2, "<img src=x onerror=alert(1)>addr");
+    const env = makeEnv();
+    const result = Util.buildPopup(env, 1, 2, "<img src=x onerror=alert(1)>addr");
     expect(result).toBeInstanceOf(HTMLElement);
     expect(result.querySelectorAll("img")).toHaveLength(0);
     expect(result.textContent).toContain("<img src=x onerror=alert(1)>addr");
@@ -691,43 +747,47 @@ describe("bindNodeDrag", () => {
 });
 
 describe("readLatLng", () => {
+  const logger = createLogger("MeasureControl");
+
   it("reads the lng/lat pair with longitude leading", () => {
-    expect(Util.readLatLng({ lat: 31.2, lng: 121.5 })).toEqual([121.5, 31.2]);
+    expect(Util.readLatLng({ lat: 31.2, lng: 121.5 }, logger)).toEqual([121.5, 31.2]);
   });
 
   it("reads the latitude/longitude alias", () => {
-    expect(Util.readLatLng({ latitude: 31.2, longitude: 121.5 })).toEqual([
+    expect(Util.readLatLng({ latitude: 31.2, longitude: 121.5 }, logger)).toEqual([
       121.5, 31.2,
     ]);
   });
 
   it("throws when the point has no coordinate", () => {
-    expect(() => Util.readLatLng({} as any)).toThrow(TypeError);
+    expect(() => Util.readLatLng({} as any, logger)).toThrow(TypeError);
   });
 
   it("throws when only one coordinate is present", () => {
-    expect(() => Util.readLatLng({ lat: 31.2 } as any)).toThrow(TypeError);
+    expect(() => Util.readLatLng({ lat: 31.2 } as any, logger)).toThrow(TypeError);
   });
 });
 
 describe("coordText", () => {
+  const logger = createLogger("MeasureControl");
+
   it("reports the pointer's coordinate as the map holds it", () => {
     const map = {} as L.Map;
-    expect(Util.coordText(map, { lng: 121.5, lat: 31.2 })).toBe(
+    expect(Util.coordText(map, { lng: 121.5, lat: 31.2 }, logger)).toBe(
       "121.500000, 31.200000",
     );
   });
 
   it("reads the latitude/longitude alias", () => {
     const map = {} as L.Map;
-    expect(Util.coordText(map, { latitude: 30.0, longitude: 120.0 })).toBe(
+    expect(Util.coordText(map, { latitude: 30.0, longitude: 120.0 }, logger)).toBe(
       "120.000000, 30.000000",
     );
   });
 
   it("rounds to the persisted precision", () => {
     const map = {} as L.Map;
-    expect(Util.coordText(map, { lng: 121.987654321, lat: 31.123456789 })).toBe(
+    expect(Util.coordText(map, { lng: 121.987654321, lat: 31.123456789 }, logger)).toBe(
       "121.987654, 31.123457",
     );
   });
@@ -737,7 +797,7 @@ describe("coordText", () => {
     // The readout must echo it unchanged — a WGS84 round trip would move the
     // number the operator is looking at.
     const map = {} as L.Map;
-    expect(Util.coordText(map, { lng: 121.51, lat: 31.21 })).toBe(
+    expect(Util.coordText(map, { lng: 121.51, lat: 31.21 }, logger)).toBe(
       "121.510000, 31.210000",
     );
   });
@@ -746,19 +806,15 @@ describe("coordText", () => {
 describe("geocodeAddress", () => {
   it("calls reverseGeocode and returns the resolved address", async () => {
     const resolvedAddr = "123 Main St";
-    window.foliplus = {
-      reverseGeocode: vi.fn(() => Promise.resolve(resolvedAddr)),
-    } as any;
+    vi.mocked(reverseGeocode).mockReturnValue(Promise.resolve(resolvedAddr));
     const mgr = { map: {} };
     const result = await Util.geocodeAddress(mgr as any, 121, 31, "en", null);
-    expect(window.foliplus.reverseGeocode).toHaveBeenCalledWith({}, 121, 31, "en");
+    expect(reverseGeocode).toHaveBeenCalledWith({}, 121, 31, "en");
     expect(result).toBe(resolvedAddr);
   });
 
   it("falls back to the previous address on geocode failure", async () => {
-    window.foliplus = {
-      reverseGeocode: vi.fn(() => Promise.reject(new Error("offline"))),
-    } as any;
+    vi.mocked(reverseGeocode).mockReturnValue(Promise.reject(new Error("offline")));
     const mgr = { map: {} };
     const prev = "fallback address";
     const result = await Util.geocodeAddress(mgr as any, 121, 31, "en", prev);
@@ -766,9 +822,7 @@ describe("geocodeAddress", () => {
   });
 
   it("returns previous address when reverseGeocode returns null", async () => {
-    window.foliplus = {
-      reverseGeocode: vi.fn(() => Promise.resolve(null)),
-    } as any;
+    vi.mocked(reverseGeocode).mockReturnValue(Promise.resolve(null));
     const mgr = { map: {} };
     const prev = "fallback address";
     const result = await Util.geocodeAddress(mgr as any, 121, 31, "en", prev);
@@ -776,7 +830,7 @@ describe("geocodeAddress", () => {
   });
 
   it("returns previous when foliplus.reverseGeocode is unavailable", async () => {
-    window.foliplus = undefined as any;
+    vi.mocked(reverseGeocode).mockReturnValue(Promise.reject(new Error("offline")));
     const mgr = { map: {} };
     const prev = "fallback address";
     const result = await Util.geocodeAddress(mgr as any, 121, 31, "en", prev);

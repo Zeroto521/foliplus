@@ -123,9 +123,11 @@ describe("vitest.config.mjs", () => {
     // A literal path dies silently the moment a control grows its first module
     // subdir (LayerControl/ui.ts -> LayerControl/ui/*): the entry still looks
     // right, but it no longer excludes anything.
-    // script/build.mjs is the intentional exception: one file, one role.
+    // script/build.mjs and script/scan-locale-key.mjs are intentional
+    // exceptions: one file, one role each.
+    const LITERALS = new Set(["script/build.mjs", "script/scan-locale-key.mjs"]);
     const offenders = EXCLUDES.filter(
-      glob => !glob.includes("*") && glob !== "script/build.mjs",
+      glob => !glob.includes("*") && !LITERALS.has(glob),
     );
     expect(
       offenders,

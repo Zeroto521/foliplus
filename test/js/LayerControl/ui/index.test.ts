@@ -205,7 +205,7 @@ describe("LayerUI shell — delegates", () => {
     seedIntentMap(ui, "visible", { overlay1: false, base1: false });
     seedIntentMap(ui, "opacity", { overlay1: 0.4 });
     seedIntentMap(ui, "zoomRange", { overlay1: [3, 12] });
-    ui.intentProvenance = { overlay1: ["visible", "opacity"] };
+    ui.intentStore.replaceProvenance({ overlay1: ["visible", "opacity"] });
 
     ui.dropPersistedLayerState("overlay1");
 
@@ -213,7 +213,7 @@ describe("LayerUI shell — delegates", () => {
     expect(getIntent(ui, "base1", "visible")).toBe(false);
     expect(getIntent(ui, "overlay1", "opacity")).toBeUndefined();
     expect(getIntent(ui, "overlay1", "zoomRange")).toBeUndefined();
-    expect(ui.intentProvenance.overlay1).toBeUndefined();
+    expect(ui.intentStore.dumpProvenance().overlay1).toBeUndefined();
   });
 
   it("colorLayerName resolves the color row's display name", () => {

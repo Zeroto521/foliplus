@@ -54,7 +54,7 @@ const renameLayer = (ui: LayerUI, layerId: string): void => {
     onCommit: trimmed => {
       const changed = trimmed !== currentName;
       if (changed) {
-        // `ui.intents[id].name` is the source of truth; the registry entry and
+        // `ui.intentStore` name is the source of truth; the registry entry and
         // the row labels are projections that applyUserState() pushes out, so
         // a re-registration that rebuilds the registry from a third-party
         // layer's own metadata cannot resurrect the author's original name.

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/MeasureControl/const.js";
 import { MeasureStore } from "#foliplus/MeasureControl/store.js";
+import { makeControlEnv } from "../fixture.js";
 
 // Mock Storage + ensureEvents so persistence shapes are tested in isolation —
 // the store's array/id/persist contract is covered in store.test.ts; this file
@@ -37,7 +38,7 @@ window.CONF.name = "MeasureControl";
 
 const makeStore = () => {
   const map = { foliplus: { showHint: vi.fn() } } as unknown as L.Map;
-  return new MeasureStore(map, "layer-1");
+  return new MeasureStore(map, makeControlEnv(), "layer-1");
 };
 
 beforeEach(() => {

@@ -4,7 +4,6 @@ import { type Debounced, debounce } from "#common/debounce.js";
 import * as CONST from "../const.js";
 import { applyProjection, applyProjectionAll } from "./apply.js";
 import type { LayerUI } from "./index.js";
-import { INTENT, getIntent } from "./intent.js";
 import { intentVisibleOf } from "./projection.js";
 import { applyRowView, buildRowCell } from "./rowView.js";
 import { saveState, setVisible } from "./state.js";
@@ -23,13 +22,7 @@ const getLayerItems = (ui: LayerUI, group: string): NodeListOf<Element> => {
 const syncNoBasemap = (ui: LayerUI): void => {
   const anyBaseVisible = ui.m.layers.some(li => {
     if (li.group !== GROUP.BASE) return false;
-    // Inline intent check to avoid function-call overhead on the click hot path.
-    const visible = getIntent(ui, li.id, INTENT.VISIBLE);
-    const overrides = ui.intentProvenance?.[li.id];
-    const hasVisible =
-      overrides?.includes(INTENT.VISIBLE) || typeof visible === "boolean";
-    const authorDefault = ui.authorVisible.get(li.id) ?? true;
-    if (!(hasVisible ? visible : authorDefault)) return false;
+    if (!intentVisibleOf(ui, li.id)) return false;
     // Effective visibility: intent alone isn't enough — a basemap with
     // `opacity = 0` is visually empty too, so the hatch should still show.
     // `li.opacity` is written by the executor on every opacity change and
@@ -108,12 +101,7 @@ const syncToggleAll = (ui: LayerUI, group: string) => {
     if (!id) continue;
     const layerInfo = ui.m.layerRegistry.get(id);
     if (!layerInfo) continue;
-    const visible = getIntent(ui, id, INTENT.VISIBLE);
-    const overrides = ui.intentProvenance?.[id];
-    const hasVisible =
-      overrides?.includes(INTENT.VISIBLE) || typeof visible === "boolean";
-    const authorDefault = ui.authorVisible.get(id) ?? true;
-    if (hasVisible ? visible : authorDefault) on++;
+    if (intentVisibleOf(ui, id)) on++;
   }
   // Tolerate a caller that constructs a thin LayerUI stub without
   // initializing the counter map (tests, late-attached panels).

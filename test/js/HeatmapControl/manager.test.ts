@@ -1647,3 +1647,354 @@ describe("HeatmapManager — EVENTS.LAYER_DELETED auto-clear", () => {
     expect(m.numClasses).toBe(6);
   });
 });
+
+describe("constructor — CONF fallbacks", () => {
+  it("uses library defaults when CONF omits optional style fields", () => {
+    const m = makeManager({
+      agg: undefined,
+      color_scheme: undefined,
+      method: undefined,
+      n_classes: undefined,
+      border_color: undefined,
+      label_color: undefined,
+      label_size: undefined,
+    });
+    expect(m.currentAgg).toBe(CONST.AGG.COUNT);
+    expect(m.currentScheme).toBe("Reds");
+    expect(m.currentMethod).toBe("jenks");
+    expect(m.numClasses).toBe(CONST.CLASS_COUNT.DEFAULT);
+    expect(m.borderColor).toBe(CONST.GRAY);
+  });
+});
+
+describe("featureCountProvider", () => {
+  it("returns 0 when cachedFeatures is null", () => {
+    const m = makeManager();
+    const opts = window.map.foliplus.LayerAPI.createCanvas.mock.calls[0][0];
+    expect(opts.featureCountProvider()).toBe(0);
+  });
+
+  it("returns the feature count when cachedFeatures is set", () => {
+    const m = makeManager();
+    m.cachedFeatures = [{}, {}, {}];
+    const opts = window.map.foliplus.LayerAPI.createCanvas.mock.calls[0][0];
+    expect(opts.featureCountProvider()).toBe(3);
+  });
+});
+
+describe("onMove handler", () => {
+  beforeEach(() => {
+    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
+      cb(0);
+      return 0;
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function getMoveHandler(m: HeatmapManager) {
+    const moveCall = m.map.on.mock.calls.find(([event]: [string]) => event === "move");
+    return moveCall?.[1] as () => void;
+  }
+
+  it("calls redrawHeatmap when canvas and features are both set", () => {
+    const m = makeManager();
+    const handler = getMoveHandler(m);
+    m.overlay.canvas = { style: {} };
+    m.cachedFeatures = [{}] as never;
+    const redrawSpy = vi.spyOn(m, "redrawHeatmap");
+    handler();
+    expect(redrawSpy).toHaveBeenCalled();
+  });
+
+  it("does not call redrawHeatmap when canvas is null", () => {
+    const m = makeManager();
+    const handler = getMoveHandler(m);
+    m.overlay.canvas = null;
+    m.cachedFeatures = [{}] as never;
+    const redrawSpy = vi.spyOn(m, "redrawHeatmap");
+    handler();
+    expect(redrawSpy).not.toHaveBeenCalled();
+  });
+
+  it("does not call redrawHeatmap when cachedFeatures is null", () => {
+    const m = makeManager();
+    const handler = getMoveHandler(m);
+    m.overlay.canvas = { style: {} };
+    m.cachedFeatures = null;
+    const redrawSpy = vi.spyOn(m, "redrawHeatmap");
+    handler();
+    expect(redrawSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe("redrawHeatmap — edge cases", () => {
+  function setupCanvas(m: HeatmapManager) {
+    m.overlay.canvas = { style: {} };
+    m.overlay.ctx = {
+      setTransform: vi.fn(),
+      clearRect: vi.fn(),
+      beginPath: vi.fn(),
+      moveTo: vi.fn(),
+      lineTo: vi.fn(),
+      closePath: vi.fn(),
+      fill: vi.fn(),
+      stroke: vi.fn(),
+      fillText: vi.fn(),
+      strokeText: vi.fn(),
+      measureText: vi.fn(() => ({ width: 10 })),
+    } as unknown as CanvasRenderingContext2D;
+    m.map.getContainer = vi.fn(() => {
+      const c = document.createElement("div");
+      Object.defineProperty(c, "clientWidth", { value: 100 });
+      Object.defineProperty(c, "clientHeight", { value: 100 });
+      return c;
+    });
+    m.map.getBounds = vi.fn(() => ({ contains: () => true }));
+    m.map.latLngToContainerPoint = vi.fn(() => ({ x: 0, y: 0 }));
+    m.ui = { ...makeCtrl(m), ctrl: document.createElement("div") };
+  }
+
+  function makeFeature(centroid: [number, number] | null) {
+    return {
+      properties: { centroid, fillColor: "#fff" },
+      geometry: {
+        coordinates: [
+          [
+            [0, 0],
+            [1, 0],
+            [1, 1],
+            [0, 1],
+            [0, 0],
+          ],
+        ],
+      },
+    } as never;
+  }
+
+  it("returns early when ctx is null", () => {
+    const m = makeManager();
+    m.overlay.canvas = { style: {} };
+    m.overlay.ctx = null;
+    m.cachedFeatures = [makeFeature([0, 0])] as never;
+    expect(() => m.redrawHeatmap()).not.toThrow();
+  });
+
+  it("uses devicePixelRatio of 1 when window.devicePixelRatio is 0", () => {
+    const m = makeManager();
+    setupCanvas(m);
+    m.cachedFeatures = [makeFeature([0, 0])] as never;
+    const dpr = window.devicePixelRatio;
+    (window as any).devicePixelRatio = 0;
+    try {
+      m.redrawHeatmap();
+    } finally {
+      (window as any).devicePixelRatio = dpr;
+    }
+  });
+
+  it("uses null bounds when renderAll is true", () => {
+    const m = makeManager();
+    setupCanvas(m);
+    m.cachedFeatures = [makeFeature([0, 0])] as never;
+    m.renderAll = true;
+    m.currentLabelShow = false;
+    m.redrawHeatmap();
+  });
+
+  it("draws labels when currentLabelShow is true", () => {
+    const m = makeManager();
+    setupCanvas(m);
+    m.cachedFeatures = [makeFeature([0, 0])] as never;
+    m.renderAll = false;
+    m.currentLabelShow = true;
+    m.redrawHeatmap();
+  });
+
+  it("skips labels when currentLabelShow is false", () => {
+    const m = makeManager();
+    setupCanvas(m);
+    m.cachedFeatures = [makeFeature([0, 0])] as never;
+    m.renderAll = false;
+    m.currentLabelShow = false;
+    m.redrawHeatmap();
+  });
+
+  it("skips a feature whose centroid is null", () => {
+    const m = makeManager();
+    setupCanvas(m);
+    m.cachedFeatures = [makeFeature(null)] as never;
+    m.renderAll = false;
+    m.currentLabelShow = false;
+    m.redrawHeatmap();
+  });
+
+  it("skips a feature that is outside the bounds", () => {
+    const m = makeManager();
+    setupCanvas(m);
+    m.cachedFeatures = [makeFeature([100, 100])] as never;
+    m.map.getBounds = vi.fn(() => ({ contains: () => false }));
+    m.renderAll = false;
+    m.currentLabelShow = false;
+    m.redrawHeatmap();
+  });
+});
+
+describe("computeBounds", () => {
+  beforeEach(() => {
+    window.L.latLngBounds = vi.fn(() => ({
+      getNorth: () => 0,
+      getSouth: () => 0,
+      getEast: () => 0,
+      getWest: () => 0,
+      isValid: () => true,
+      contains: () => true,
+      getCenter: () => ({ lat: 0, lng: 0 }),
+      extend: vi.fn(),
+    }));
+  });
+  it("uses the pointLayers bounds when cachedFeatures is null", () => {
+    const m = makeManager();
+    m.cachedFeatures = null;
+    m.pointLayers = [
+      {
+        id: "p1",
+        name: "P1",
+        layer: {
+          getBounds: vi.fn(() => ({
+            isValid: () => true,
+            extend: vi.fn(),
+          })),
+        } as never,
+        count: 1,
+      },
+    ];
+    const bounds = m.computeBounds();
+    expect(bounds).not.toBeNull();
+  });
+
+  it("uses the ring coordinates when a feature has a ring", () => {
+    const m = makeManager();
+    m.cachedFeatures = [
+      {
+        properties: { centroid: [0, 0] },
+        geometry: {
+          coordinates: [
+            [
+              [0, 0],
+              [1, 0],
+              [1, 1],
+              [0, 1],
+              [0, 0],
+            ],
+          ],
+        },
+      },
+    ] as never;
+    const bounds = m.computeBounds();
+    expect(bounds).not.toBeNull();
+  });
+
+  it("falls back to centroid when a feature has no ring", () => {
+    const m = makeManager();
+    m.cachedFeatures = [
+      {
+        properties: { centroid: [0, 0] },
+        geometry: { coordinates: [] },
+      },
+    ] as never;
+    const bounds = m.computeBounds();
+    expect(bounds).not.toBeNull();
+  });
+
+  it("skips a feature with no centroid and no ring", () => {
+    const m = makeManager();
+    m.cachedFeatures = [
+      {
+        properties: { centroid: null },
+        geometry: { coordinates: [] },
+      },
+    ] as never;
+    m.computeBounds();
+  });
+
+  it("skips a pointLayer without getBounds", () => {
+    const m = makeManager();
+    m.cachedFeatures = null;
+    m.pointLayers = [
+      {
+        id: "p1",
+        name: "P1",
+        layer: {} as never,
+        count: 1,
+      },
+    ];
+    m.computeBounds();
+  });
+
+  it("skips a pointLayer whose bounds are invalid", () => {
+    const m = makeManager();
+    m.cachedFeatures = null;
+    m.pointLayers = [
+      {
+        id: "p1",
+        name: "P1",
+        layer: {
+          getBounds: vi.fn(() => ({
+            isValid: () => false,
+            extend: vi.fn(),
+          })),
+        } as never,
+        count: 1,
+      },
+    ];
+    m.computeBounds();
+  });
+
+  it("returns null when the accumulated bounds are invalid", () => {
+    const m = makeManager();
+    window.L.latLngBounds = vi.fn(() => ({
+      getNorth: () => 0,
+      getSouth: () => 0,
+      getEast: () => 0,
+      getWest: () => 0,
+      isValid: () => false,
+      contains: () => true,
+      getCenter: () => ({ lat: 0, lng: 0 }),
+      extend: vi.fn(),
+    }));
+    m.cachedFeatures = null;
+    m.pointLayers = [];
+    expect(m.computeBounds()).toBeNull();
+  });
+});
+
+describe("clearHeatmapCanvas — null overlay", () => {
+  it("tolerates a null overlay", () => {
+    const m = makeManager();
+    m.overlay = null as never;
+    expect(() => m.clearHeatmapCanvas()).not.toThrow();
+  });
+});
+
+describe("resetState — CONF fallbacks", () => {
+  it("uses library defaults when conf omits optional fields", () => {
+    const m = makeManager();
+    m.currentAgg = CONST.AGG.SUM;
+    m.currentMethod = "quantile";
+    m.currentScheme = "Greens";
+    m.numClasses = 9;
+    m.resetState({
+      agg: undefined,
+      n_classes: undefined,
+      method: undefined,
+      color_scheme: undefined,
+    });
+    expect(m.currentAgg).toBe(CONST.AGG.COUNT);
+    expect(m.numClasses).toBe(CONST.CLASS_COUNT.DEFAULT);
+    expect(m.currentMethod).toBe("jenks");
+    expect(m.currentScheme).toBe("Reds");
+  });
+});
