@@ -7,8 +7,7 @@
     '<button class="foliplus-toggle-btn" id="tb">T</button>' +
     '<button class="foliplus-tool-btn" id="tool">M</button>' +
     '<button class="foliplus-panel-btn" id="panel">P</button>';
-  host.style.cssText =
-    "position:absolute;left:120px;top:120px;display:flex;gap:20px";
+  host.style.cssText = "position:absolute;left:120px;top:120px;display:flex;gap:20px";
   document.body.appendChild(host);
   return ["tb", "tool", "panel"];
-}
+};
