@@ -66,7 +66,9 @@ type ControlClass = new (options?: L.ControlOptions) => BaseControl & {
 };
 
 /** Build the shared control shell and return it as a constructable class. */
-function defineControl<M = unknown>(spec: DefineControlSpec<M>): ControlClass {
+const defineControl = <M = unknown>(
+  spec: DefineControlSpec<M>,
+): ControlClass => {
   const { conf, icon, setup, createManager, buildDOM, destroy, methods } = spec;
 
   createControlEnv(conf, icon);
@@ -102,7 +104,7 @@ function defineControl<M = unknown>(spec: DefineControlSpec<M>): ControlClass {
   if (methods) Object.assign(Control.prototype, methods);
   if (buildDOM) {
     Object.assign(Control.prototype, {
-      buildDOM: function (this: any) {
+      buildDOM(this: any) {
         return buildDOM.call(this);
       },
     });
@@ -110,7 +112,7 @@ function defineControl<M = unknown>(spec: DefineControlSpec<M>): ControlClass {
   if (destroy) {
     const hasManager = !!createManager;
     Object.assign(Control.prototype, {
-      destroy: function (this: any) {
+      destroy(this: any) {
         destroy.call(this);
         if (hasManager) this.manager = null;
       },
@@ -120,7 +122,7 @@ function defineControl<M = unknown>(spec: DefineControlSpec<M>): ControlClass {
   Object.defineProperty(Control, "name", { value: conf.name });
 
   return Control;
-}
+};
 
 export { defineControl };
 export type { ControlEnv, DefineControlSpec };

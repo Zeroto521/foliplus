@@ -8,7 +8,7 @@ import type { SearchControlState } from "../type.js";
 /** Control context — the subset of the control instance the logic layer reads.
  *  Carried on the control object (via defineControl + initState) instead of
  *  module-level free variables, so every logic function is unit-testable. */
-export type ControlCtx = {
+type ControlCtx = {
   conf: ComponentConfig;
   T: (key: string) => string;
   _: (key: string) => string;
@@ -16,7 +16,7 @@ export type ControlCtx = {
 };
 
 /** Full context for logic functions — state + control ctx. */
-export type SearchControlCtx = SearchControlState & ControlCtx;
+type SearchControlCtx = SearchControlState & ControlCtx;
 
 /**
  * Parse raw coordinate input into a validated longitude/latitude pair.
@@ -55,3 +55,4 @@ const canonicalQuery = (query: string, type: SearchType): string => {
 };
 
 export { canonicalQuery, parseCoord };
+export type { ControlCtx, SearchControlCtx };

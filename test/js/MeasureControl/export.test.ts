@@ -219,7 +219,7 @@ describe("Export.toGeoJSON", () => {
     ]);
   });
 
-  it("omits crs member (RFC 7946 �?coordinates are always WGS 84)", () => {
+  it("omits crs member (RFC 7946 —coordinates are always WGS 84)", () => {
     const json = Export.toGeoJSON(env, [markerData]);
     const data = JSON.parse(json);
     expect(data.crs).toBeUndefined();
@@ -318,7 +318,7 @@ describe("Export.toCSV", () => {
 
 // ── Download stub ──
 
-// `download()` is the module that actually triggers the anchor click �?spied on
+// `download()` is the module that actually triggers the anchor click —spied on
 // the namespace object so `exportMeasurements` picks the mock up. Shared by the
 // two suites below.
 const stubDownload = () => {
@@ -334,7 +334,7 @@ const stubDownload = () => {
   };
 };
 
-describe("Export.currentExportFormat �?serialize hooks", () => {
+describe("Export.currentExportFormat —serialize hooks", () => {
   it("geojson serialize emits a FeatureCollection", () => {
     const prev = window.CONF.export_format;
     window.CONF.export_format = "geojson";
@@ -361,7 +361,7 @@ describe("Export.currentExportFormat �?serialize hooks", () => {
     expect(csv.slice(1)).toBe(Export.toCSV(env, [markerData]));
   });
 
-  it("serializers are pure �?same input yields the same output", () => {
+  it("serializers are pure —same input yields the same output", () => {
     const prev = window.CONF.export_format;
     const geo = Export.currentExportFormat;
     window.CONF.export_format = "geojson";
@@ -570,7 +570,7 @@ describe("Export.csvEscape edge cases", () => {
   });
 });
 
-describe("Export.currentExportFormat �?CONF edge cases", () => {
+describe("Export.currentExportFormat —CONF edge cases", () => {
   it("falls back to geojson for null and undefined CONF.export_format", () => {
     const prev = window.CONF.export_format;
     window.CONF.export_format = null as any;
@@ -638,7 +638,7 @@ describe("Export.handleExportClick", () => {
     const [component, text, duration] = mgr.map.foliplus.showHint.mock.calls[0];
     expect(component).toBe("MeasureControl");
     expect(duration).toBe(HINT_DURATION.LONG);
-    // The success text is two key concatenations �?T() is the identity
+    // The success text is two key concatenations —T() is the identity
     // function under the locale mock, so the keys are adjacent.
     expect(text).toBe("export_successexport_file");
     // No success is claimed without a file being written.
@@ -647,7 +647,7 @@ describe("Export.handleExportClick", () => {
 
   it("shows a failure hint when serialization throws", () => {
     // JSON.stringify is the narrowest seam that puts a throw inside the
-    // handler's try block �?download() is called there too, but making it
+    // handler's try block —download() is called there too, but making it
     // throw is a real DOM failure rather than a controlled condition.
     const stringify = vi.spyOn(JSON, "stringify").mockImplementation(() => {
       throw new Error("boom");
@@ -689,7 +689,7 @@ describe("Export.handleExportClick", () => {
   });
 });
 
-describe("Export.toWKT �?unknown type", () => {
+describe("Export.toWKT —unknown type", () => {
   it("wkt column is empty when the type has no mode", () => {
     const csv = Export.toCSV(env, [{ id: "x", type: "unknown" } as MeasureData]);
     const row = csv.split("\n")[1].split(",");
