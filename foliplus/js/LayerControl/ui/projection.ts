@@ -64,10 +64,7 @@ const projectLayer = (ui: LayerUI, layerInfo: LayerInfo): Projection => {
  *  is bounded by the layers an author ever declares, so the record cannot
  *  grow away ("not in the registry" never means "gone"). */
 const projectAll = (ui: LayerUI): Map<string, Projection> => {
-  const ids = new Set([
-    ...ui.m.layers.map(li => li.id),
-    ...ui.intentStore.ids(),
-  ]);
+  const ids = new Set([...ui.m.layers.map(li => li.id), ...ui.intentStore.ids()]);
   const result = new Map<string, Projection>();
   for (const id of ids) {
     const layerInfo = ui.m.layerRegistry.get(id);

@@ -3,6 +3,7 @@ import type { LayerInfo } from "#core/layer/index.js";
 import { GROUP } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
+import { IntentStore } from "#foliplus/LayerControl/ui/intentStore.js";
 import {
   initLayerItem,
   initTypesAndVisibility,
@@ -10,7 +11,6 @@ import {
   renderInitialList,
   updateLayerItem,
 } from "#foliplus/LayerControl/ui/list.js";
-import { IntentStore } from "#foliplus/LayerControl/ui/intentStore.js";
 import { displayName } from "#foliplus/LayerControl/ui/rowView.js";
 import { applyVisibility } from "#foliplus/LayerControl/ui/visibility.js";
 import { TileLayer, initFixture } from "./fixture.js";

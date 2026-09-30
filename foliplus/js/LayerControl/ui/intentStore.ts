@@ -14,7 +14,7 @@ import type {
   LayerOverride,
   PersistedLayerState,
 } from "../type.js";
-import { LIVE, STYLE_KEYS, type IntentKey } from "./intent.js";
+import { type IntentKey, LIVE, STYLE_KEYS } from "./intent.js";
 
 /** One layer's live intent row. `intent` holds chosen values; absent key
  *  means the user never chose that dimension. `provenance` records which
@@ -279,8 +279,7 @@ class IntentStore {
         const live = LIVE[override];
         if (live && value !== undefined && live(value)) {
           // Disk key == provenance key == intent key (identity map).
-          (this.ensure(id).intent as Record<LayerOverride, unknown>)[override] =
-            value;
+          (this.ensure(id).intent as Record<LayerOverride, unknown>)[override] = value;
         }
       }
     }

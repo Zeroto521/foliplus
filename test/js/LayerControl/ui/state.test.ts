@@ -40,7 +40,6 @@ import { GridLayer, TileLayer, installLeafletGlobals } from "./fixture.js";
 const specs = (...names: string[]): PaneSpec[] =>
   names.map((name, i) => ({ role: i === 0 ? "base" : "sub", order: i, name }));
 
-
 /** Build an IntentStore from the old two-map fixture shape. */
 const makeStore = (
   intents: Record<string, Record<string, unknown>> = {},
@@ -51,7 +50,6 @@ const makeStore = (
   store.replaceProvenance(provenance as never);
   return store;
 };
-
 
 describe("LayerUI visibility persistence (intents.visible)", () => {
   // Reusable layer stubs at module scope so standalone test blocks don't
@@ -376,7 +374,10 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
 
       expect(getIntent(u, "overlay1", "fillColor")).toBe("#ff8800");
       expect(getIntent(u, "overlay1", "fillOpacity")).toBe(0.35);
-      expect(u.intentStore.dumpProvenance()["overlay1"]).toEqual(["fillColor", "fillOpacity"]);
+      expect(u.intentStore.dumpProvenance()["overlay1"]).toEqual([
+        "fillColor",
+        "fillOpacity",
+      ]);
     });
 
     it("ignores a fill override whose value is missing or invalid", () => {
@@ -794,9 +795,11 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
       ]);
       const u = new LayerUI(m);
       seedIntentMap(u, "visible", { overlay1: false, base1: false, canvas1: false });
-      u.intentStore.replaceProvenance({ overlay1: ["visible"],
+      u.intentStore.replaceProvenance({
+        overlay1: ["visible"],
         base1: ["visible"],
-        canvas1: ["visible"], });
+        canvas1: ["visible"],
+      });
 
       u.applyUserState();
 
@@ -1530,7 +1533,10 @@ describe("ui/state intentStore and per-layer state persistence", () => {
 
     expect(ui.intentStore.get("overlay1", "borderColor")).toBe("#0000ff");
     expect(ui.intentStore.get("overlay1", "borderWeight")).toBe(4.5);
-    expect(ui.intentStore.dumpProvenance().overlay1).toEqual(["borderColor", "borderWeight"]);
+    expect(ui.intentStore.dumpProvenance().overlay1).toEqual([
+      "borderColor",
+      "borderWeight",
+    ]);
   });
 
   it("disk shape is unchanged: PersistedLayerState keys stay the on-wire names", () => {
@@ -1597,10 +1603,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
   it("persists an opacity change together with its provenance", () => {
     const schedule = vi.fn();
     const bare = {
-      intentStore: makeStore(
-        { overlay1: { opacity: 0.6 } },
-        { overlay1: ["opacity"] },
-      ),
+      intentStore: makeStore({ overlay1: { opacity: 0.6 } }, { overlay1: ["opacity"] }),
       m: {
         persistence: { schedule },
         annotation: { configEntries: () => [] },

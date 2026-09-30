@@ -1624,7 +1624,12 @@ describe("LayerManager", () => {
     manager.ui = {
       intentStore: makeStore(
         {
-          overlay1: { visible: false, opacity: 0.4, zoomRange: [3, 12], name: "Renamed" },
+          overlay1: {
+            visible: false,
+            opacity: 0.4,
+            zoomRange: [3, 12],
+            name: "Renamed",
+          },
           base1: { visible: false, opacity: 1 },
         },
         {
@@ -1661,7 +1666,12 @@ describe("LayerManager", () => {
     manager.ui = {
       intentStore: makeStore(
         {
-          overlay1: { visible: false, opacity: 0.4, zoomRange: [3, 12], name: "Renamed" },
+          overlay1: {
+            visible: false,
+            opacity: 0.4,
+            zoomRange: [3, 12],
+            name: "Renamed",
+          },
           base1: { visible: false, opacity: 1 },
         },
         {

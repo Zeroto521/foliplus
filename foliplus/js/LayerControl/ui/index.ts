@@ -8,11 +8,11 @@ import { createScopedTranslator, createTranslator } from "#common/locale.js";
 import * as CONST from "../const.js";
 import type { LayerManager } from "../manager.js";
 import type { AppliedProjection } from "../type.js";
-import { IntentStore } from "./intentStore.js";
 import { applyProjection, applyProjectionAll } from "./apply.js";
 import { closeAttrsPanel, openAttrsPanel } from "./attr.js";
 import { hideSolidBasemap, showSolidBasemap } from "./color.js";
 import { cancelFocus, focusLayer, isFocusing } from "./focus.js";
+import { IntentStore } from "./intentStore.js";
 import {
   blurActiveItem,
   clearActiveItem,
@@ -327,8 +327,7 @@ class LayerUI {
     // for border but not for fill, and vice versa, so a reload could restore
     // the drawer's swatch for one dimension while leaving the map with the
     // author's for the other.
-    const layerIds =
-      id !== undefined ? [id] : this.intentStore.userSetIds();
+    const layerIds = id !== undefined ? [id] : this.intentStore.userSetIds();
     for (const layerId of layerIds) {
       applyBorderToLayer(this, layerId);
       replayFillState(this, layerId);

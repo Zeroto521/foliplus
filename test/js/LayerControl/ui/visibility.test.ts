@@ -957,7 +957,10 @@ describe("toggleAll base group", () => {
     expect(bare.querySelector("input")).toBeNull();
     // Only the two registered rows were swept — the bare row carries no
     // checkbox and must be absent from the intent map entirely.
-    expect(ui.intentStore.dumpIntents()).toEqual({ B1: { visible: true }, B2: { visible: true } });
+    expect(ui.intentStore.dumpIntents()).toEqual({
+      B1: { visible: true },
+      B2: { visible: true },
+    });
   });
 
   it("runs every branch of the sweep: real layer and canvas-only base", () => {
