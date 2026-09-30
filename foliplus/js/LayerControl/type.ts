@@ -330,7 +330,7 @@ type LayerDimension<D = unknown> = {
   /** Cohesive user write: persist the patch through IntentStore (`set`
    *  marks provenance) then schedule the styleBag landing. Partial patch —
    *  omitted keys leave that sub-dimension untouched. */
-  write?: (ui: LayerUI, layerId: string, patch: Partial<D>) => void;
+  write?: (ui: LayerUI, layerId: string, patch: Partial<D> | D) => void;
   /** Cohesive reset: drop the dimension's IntentStore rows (values +
    *  provenance) and restore the author's styleBag face. */
   reset?: (ui: LayerUI, layerId: string) => void;

@@ -56,6 +56,8 @@ import { DIM } from "#core/layer/index.js";
 import * as CONST from "../../const.js";
 import type { LayerDimension } from "../../type.js";
 import type { LayerUI } from "../index.js";
+import type { IntentKey } from "../intent.js";
+import { saveState } from "../state.js";
 
 const registry: Map<string, LayerDimension<any>> = new Map();
 
@@ -135,6 +137,27 @@ const gatedRows = (
   return rows;
 };
 
+/** Cohesive IntentStore writes for a descriptor `write` patch. `writes` are
+ *  `[intentKey, value]` pairs already narrowed by the caller (omit a pair
+ *  when the patch did not supply that key). Returns whether any key was
+ *  written; schedules storage on success. Callers still own the styleBag /
+ *  projection landing after this returns true. */
+const writeIntentKeys = (
+  ui: LayerUI,
+  layerId: string,
+  writes: ReadonlyArray<readonly [key: IntentKey, value: unknown]>,
+): boolean => {
+  let wrote = false;
+  for (const [key, value] of writes) {
+    if (value === undefined) continue;
+    ui.intentStore.setRaw(layerId, key, value);
+    wrote = true;
+  }
+  if (!wrote) return false;
+  saveState(ui);
+  return true;
+};
+
 export {
   DIM_ORDER,
   LABEL_DIM_ORDER,
@@ -142,4 +165,5 @@ export {
   getDimension,
   listDimensions,
   registerDimension,
+  writeIntentKeys,
 };

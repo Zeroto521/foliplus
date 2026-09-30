@@ -6,19 +6,19 @@
 // not annotation-owned.
 //
 // Also registered in the style-panel dimension registry (./registry.ts)
-// as the first per-layer dimension: `gate` + `value` + `row` for
-// discovery. The write path (state + projection + DOM sync) stays as
-// `commitOpacityPct` for now — see ./registry.ts for the reason.
+// as the first per-layer dimension. The descriptor owns intent+persist
+// (`write` / `reset` / `valueSource`); `commitOpacityPct` stays a thin
+// delegate that also syncs the panel rail (UI chrome outside the descriptor).
 import { CAP_TIER, DIM, GROUP } from "#core/layer/index.js";
 import { dom } from "#common/dom.js";
 import * as CONST from "../../const.js";
 import { applyProjection } from "../apply.js";
 import type { LayerUI } from "../index.js";
-import { INTENT, clearIntent, getIntent, setIntent } from "../intent.js";
-import { markOverride, saveState, unmarkOverride } from "../state.js";
+import { INTENT, getIntent } from "../intent.js";
+import { saveState } from "../state.js";
 import { syncNoBasemap } from "../visibility.js";
 import { railPos, round5 } from "./frame.js";
-import { registerDimension } from "./registry.js";
+import { getDimension, registerDimension, writeIntentKeys } from "./registry.js";
 
 /** Whether the layer's surface can honestly carry an opacity write. Layers with
  *  `opacity: "none"` (e.g. MarkerCluster, whose cluster icons live in a shared
@@ -83,7 +83,10 @@ const syncOpacityInputs = (panel: HTMLElement, pct: number): void => {
   syncOpacityDots(panel, pct);
 };
 
-/** Apply a UI percentage to the layer, persist it, and sync the rail. */
+/** Apply a UI percentage to the layer, persist it, and sync the rail.
+ *  Thin delegate over the opacity descriptor's `write`: the panel rail
+ *  sync stays here because the panel root is a UI argument that does not
+ *  belong on the descriptor contract. */
 const commitOpacityPct = (
   ui: LayerUI,
   layerId: string,
@@ -99,22 +102,7 @@ const commitOpacityPct = (
   // (and the commit re-sends the live value), and for a plain layer each pass
   // is a sweep over every feature.
   if (li.opacity === opacity) return;
-  if (opacity === 1) {
-    // Fully opaque is the declared default, so there is no override to keep.
-    clearIntent(ui, layerId, INTENT.OPACITY);
-    unmarkOverride(ui, layerId, INTENT.OPACITY);
-  } else {
-    setIntent(ui, layerId, INTENT.OPACITY, opacity);
-    markOverride(ui, layerId, INTENT.OPACITY);
-  }
-  saveState(ui);
-  applyProjection(ui, layerId);
-  // Base-layer opacity can move the visible-basemap count across the zero
-  // boundary (0 hides, >0 shows), so the no-basemap hatch and the group
-  // label must follow — `syncNoBasemap` gates on `li.opacity ?? 1 > 0`.
-  // Overlay opacity is unrelated to basemap visibility, so skip it: the
-  // call would be a wasted O(n) scan on the drag hot path.
-  if (li.group === GROUP.BASE) syncNoBasemap(ui);
+  getDimension(DIM.OPACITY)!.write!(ui, layerId, opacity);
   syncOpacityInputs(panel, pct);
 };
 
@@ -179,33 +167,23 @@ const buildOpacityRow = (ui: LayerUI, layerId: string): HTMLElement => {
   );
 };
 
-/** Reset one layer's opacity to fully opaque and drop its persisted entry. */
+/** Reset one layer's opacity to fully opaque and drop its persisted entry.
+ *  Thin delegate over the opacity descriptor's `reset`. */
 const resetLayerOpacity = (ui: LayerUI, layerId: string): void => {
   const li = ui.m.layerRegistry.get(layerId);
   if (!li) return;
-  clearIntent(ui, layerId, INTENT.OPACITY);
-  unmarkOverride(ui, layerId, INTENT.OPACITY);
-  saveState(ui);
-  applyProjection(ui, layerId);
-  // Resetting a base layer from 0 back to 1 un-hides it — flip the hatch.
-  if (li.group === GROUP.BASE) syncNoBasemap(ui);
+  getDimension(DIM.OPACITY)!.reset!(ui, layerId);
 };
 
-/** Register opacity as the first per-layer dimension in the style-panel
- *  registry. The descriptor wires up the existing helpers — nothing moves,
- *  nothing duplicates. The write path is intentionally not part of the
- *  descriptor yet: `commitOpacityPct` needs the panel root to sync the
- *  slider, which is a UI argument that does not belong on the descriptor.
+/** Register opacity as a per-layer dimension. The descriptor owns the
+ *  intent+persist slots; `commitOpacityPct` / `resetLayerOpacity` stay as
+ *  thin delegates (panel rail sync remains in the commit helper).
  *
- *  Gate invariant (first-class from day one): `gate` is two layers —
- *  layer existence (`!li` returns `false` as a precondition guard) and
- *  then the pure capability check `capabilities.opacity !== "none"`. No
- *  carrier probes, no `isColorBasemap` special-cases, no canvas exclusion.
- *  Canvas-only layers (heatmap, measure, …) already declare `"none"` for
- *  opacity because they don't own a leaf to walk, so the gate rejects them
- *  naturally. Any extra check here would drift from the invariant and the
- *  moment a new dimension lands with a different shape, the panel's own
- *  honest-degradation rule stops being a rule. */
+ *  **opacity === 1 clears the override** — fully opaque is the declared
+ *  default, so there is no user choice to persist. That rule lives in
+ *  `write` so every writer agrees.
+ *
+ *  Gate invariant: existence then `capabilities.opacity !== "none"`. */
 const OPACITY_DIMENSION = registerDimension<number>({
   key: DIM.OPACITY,
   gate: layerCanOpacity,
@@ -214,6 +192,33 @@ const OPACITY_DIMENSION = registerDimension<number>({
     return getIntent(ui, layerId, INTENT.OPACITY) ?? li?.opacity;
   },
   row: buildOpacityRow,
+  /** Intent+persist + projection. `opacity === 1` clears (no override);
+   *  any other number marks via IntentStore.set. */
+  write: (ui, layerId, patch) => {
+    const opacity = typeof patch === "number" ? patch : undefined;
+    if (opacity === undefined) return;
+    if (opacity === 1) {
+      ui.intentStore.clear(layerId, INTENT.OPACITY);
+      saveState(ui);
+    } else if (!writeIntentKeys(ui, layerId, [[INTENT.OPACITY, opacity]])) {
+      return;
+    }
+    applyProjection(ui, layerId);
+    const li = ui.m.layerRegistry.get(layerId);
+    if (li?.group === GROUP.BASE) syncNoBasemap(ui);
+  },
+  /** Cohesive reset: clear the override, save, re-project, hatch sync. */
+  reset: (ui, layerId) => {
+    ui.intentStore.clear(layerId, INTENT.OPACITY);
+    saveState(ui);
+    applyProjection(ui, layerId);
+    const li = ui.m.layerRegistry.get(layerId);
+    if (li?.group === GROUP.BASE) syncNoBasemap(ui);
+  },
+  valueSource: (ui, layerId) => {
+    if (!layerCanOpacity(ui, layerId)) return "none";
+    return ui.intentStore.isUserSet(layerId, INTENT.OPACITY) ? "user" : "author";
+  },
 });
 
 export {
