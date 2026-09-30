@@ -139,9 +139,6 @@
      gap between the dashes and the ::before dim boundary. */
   background-origin: border-box;
   background-repeat: no-repeat;
-  /* Marching ants: same language as the LayerControl focus rect — dashes
-     flow along the box. Shift by the dash period (size-6 + size-4). */
-  animation: foliplus-export-march var(--foliplus-motion-slow) linear infinite;
   cursor: move;
   z-index: calc(var(--foliplus-z-export-base) + 1);
   box-sizing: border-box;
@@ -162,7 +159,6 @@
     /* Same accent color + thickness as the dashed border, only solid. */
     border: var(--foliplus-border-thick) solid var(--foliplus-accent-primary);
     background-image: none;
-    animation: none;
     pointer-events: none;
     box-shadow: 0 0 var(--foliplus-marquee-glow-size) var(--foliplus-marquee-glow-color);
     transition: none;
@@ -171,23 +167,6 @@
       box-shadow: 0 0 0 var(--foliplus-export-dim-extent)
         var(--foliplus-export-dim-color-locked);
     }
-  }
-}
-
-/* March the crop-box dashes along each edge (same rhythm as focus-march). */
-@keyframes foliplus-export-march {
-  to {
-    background-position:
-      calc(var(--foliplus-size-6) + var(--foliplus-size-4)) top,
-      calc(-1 * (var(--foliplus-size-6) + var(--foliplus-size-4))) bottom,
-      left calc(var(--foliplus-size-6) + var(--foliplus-size-4)),
-      right calc(-1 * (var(--foliplus-size-6) + var(--foliplus-size-4)));
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .foliplus-export-box {
-    animation: none;
   }
 }
 

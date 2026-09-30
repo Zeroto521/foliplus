@@ -222,7 +222,7 @@
      Glow is split so both box-shadow and drop-shadow can read it. */
   --foliplus-marquee-glow-size: var(--foliplus-size-4);
   --foliplus-marquee-glow-color: var(--foliplus-accent-soft-shadow);
-  --foliplus-marquee-radius: var(--foliplus-size-4);
+  --foliplus-marquee-radius: var(--foliplus-size-6);
 
   /* White casing around a focused path (selection language ⑤).
      Painted as `outline` so it hugs the stroke silhouette and never

@@ -37,7 +37,7 @@ describe("bindGeometryFocusMarquee", () => {
     path.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
     const rect = path.ownerSVGElement!.querySelector("rect.foliplus-focus-rect");
     expect(rect).not.toBeNull();
-    expect(rect!.getAttribute("rx")).toBe("4");
+    expect(rect!.getAttribute("rx")).toBe("6");
 
     path.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
     expect(path.ownerSVGElement!.querySelector("rect.foliplus-focus-rect")).toBeNull();
