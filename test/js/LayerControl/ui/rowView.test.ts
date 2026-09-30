@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { GEOM_TYPE } from "#core/layer/index.js";
+import { GEOM_TYPE, GROUP } from "#core/layer/index.js";
 import type { LayerInfo } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { clearIntent, getIntent, setIntent } from "#foliplus/LayerControl/ui/intent.js";
 import { IntentStore } from "#foliplus/LayerControl/ui/intentStore.js";
-import { intentVisibleOf } from "#foliplus/LayerControl/ui/projection.js";
+import { intentVisibleOf, projectLayer } from "#foliplus/LayerControl/ui/projection.js";
 import {
   applyRowView,
   buildRowCell,
@@ -13,6 +13,7 @@ import {
   snapshotAuthorVisible,
 } from "#foliplus/LayerControl/ui/rowView.js";
 import type { RowCell } from "#foliplus/LayerControl/ui/rowView.js";
+import { syncNoBasemap, syncToggleAll } from "#foliplus/LayerControl/ui/visibility.js";
 import * as Icons from "#common/icon.js";
 import { findItem, initFixture } from "./fixture.js";
 
@@ -447,5 +448,41 @@ describe("intentVisibleOf: what counts as the user's choice", () => {
     clearIntent(ui, "overlay1", "visible");
     ui.authorVisible.set("overlay1", false);
     expect(intentVisibleOf(ui, layerInfo.id)).toBe(false);
+  });
+});
+
+describe("the four readers agree on a half-broken record (T260)", () => {
+  it("a VISIBLE marker without a value reads as show everywhere", () => {
+    // `loadPersistedState` restores `overrides` markers wholesale but writes a
+    // dimension's value only when it passes the LIVE type check, so "marker,
+    // no value" is real state. The canonical readers read it as the user's
+    // show choice (`?? true`); the sync counters used to inline a copy that
+    // dropped the fallback and counted the row as hidden while its checkbox
+    // read checked. All four must agree.
+    const { ui } = initFixture({});
+    const li = ui.m.layers.find(l => l.id === "overlay1")!;
+    const base = ui.m.layers.find(l => l.id === "base1")!;
+    ui.authorVisible.set("overlay1", false);
+    ui.authorVisible.set("base1", false);
+    ui.intentStore.seedProvenance("overlay1", ["visible"]);
+    ui.intentStore.seedProvenance("base1", ["visible"]);
+    clearIntent(ui, "overlay1", "visible");
+    clearIntent(ui, "base1", "visible");
+
+    expect(intentVisibleOf(ui, "overlay1")).toBe(true);
+    expect(projectLayer(ui, li).intent.visible).toBe(true);
+    expect(buildRowCell(ui, li).checked).toBe(true);
+    expect(intentVisibleOf(ui, "base1")).toBe(true);
+    expect(projectLayer(ui, base).intent.visible).toBe(true);
+    expect(buildRowCell(ui, base).checked).toBe(true);
+
+    // The sync counters agree: the overlay row counts as on, the base row
+    // keeps the no-basemap hatch off.
+    syncToggleAll(ui, GROUP.OVERLAY);
+    expect(ui.checkedCount[GROUP.OVERLAY]).toEqual({ total: 1, on: 1 });
+    syncNoBasemap(ui);
+    expect(ui.m.map.getContainer().classList.contains(CONST.CLASSES.NO_BASE_MAP)).toBe(
+      false,
+    );
   });
 });

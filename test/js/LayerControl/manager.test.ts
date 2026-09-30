@@ -1253,7 +1253,7 @@ describe("LayerManager", () => {
       m.unregisterLayer("H");
 
       expect(m.forgetSavedOrder("H")).toBe(true);
-      expect((m as any).savedOrder).toEqual(["A", "B", "C"]);
+      expect((m as any).order.savedOrder).toEqual(["A", "B", "C"]);
     });
 
     it("persists the pruned order so a reload does not resurrect the old slot", () => {
@@ -1284,7 +1284,7 @@ describe("LayerManager", () => {
 
     it("returns false when savedOrder is null (fresh page)", () => {
       const m = new LayerManager(map, [{ id: "A", name: "A", group: "overlay" }]);
-      expect((m as any).savedOrder).toBeNull();
+      expect((m as any).order.savedOrder).toBeNull();
       expect(m.forgetSavedOrder("A")).toBe(false);
     });
 
@@ -1298,7 +1298,7 @@ describe("LayerManager", () => {
       m.unregisterLayer("H");
       m.forgetSavedOrder("H");
 
-      expect((m as any).removedIds.has("H")).toBe(false);
+      expect((m as any).order.removedIds.has("H")).toBe(false);
       // And a subsequent registration actually works:
       m.registerLayer({ id: "H", name: "H", group: "overlay" });
       expect(m.layerRegistry.has("H")).toBe(true);
@@ -2431,7 +2431,7 @@ describe("LayerManager", () => {
       expect(handler).toHaveBeenCalledWith({ id: "measure1" });
       expect(unregisterSpy).not.toHaveBeenCalled();
       expect(manager.layerRegistry.has("measure1")).toBe(true);
-      expect((manager as any).removedIds.has("measure1")).toBe(false);
+      expect((manager as any).order.removedIds.has("measure1")).toBe(false);
     });
 
     it("still retires a user layer through unregisterLayer and removedIds", () => {
@@ -2441,7 +2441,7 @@ describe("LayerManager", () => {
       expect(manager.deleteLayer("overlay1")).toBe(true);
 
       expect(unregisterSpy).toHaveBeenCalledWith("overlay1");
-      expect((manager as any).removedIds.has("overlay1")).toBe(true);
+      expect((manager as any).order.removedIds.has("overlay1")).toBe(true);
     });
 
     it("returns false when unregisterLayer fails for a user layer", () => {
@@ -2449,7 +2449,7 @@ describe("LayerManager", () => {
       vi.spyOn(manager, "unregisterLayer").mockReturnValue(false);
 
       expect(manager.deleteLayer("overlay1")).toBe(false);
-      expect((manager as any).removedIds.has("overlay1")).toBe(false);
+      expect((manager as any).order.removedIds.has("overlay1")).toBe(false);
     });
 
     it("syncs toggle-all and no-basemap state after deleting a base layer", () => {
@@ -2506,7 +2506,7 @@ describe("LayerManager", () => {
       expect(saveStateSpy).toHaveBeenCalled();
       expect(syncToggleAll).toHaveBeenCalledWith(GROUP.BASE);
       expect(syncNoBasemap).toHaveBeenCalled();
-      expect((manager as any).removedIds.has(CONST.SOLID_BASEMAP_ID)).toBe(false);
+      expect((manager as any).order.removedIds.has(CONST.SOLID_BASEMAP_ID)).toBe(false);
     });
 
     it("clears the colour basemap without a panel attached", () => {
@@ -2523,7 +2523,7 @@ describe("LayerManager", () => {
       expect(manager.deleteLayer(CONST.SOLID_BASEMAP_ID)).toBe(true);
 
       expect(unregisterSpy).toHaveBeenCalledWith(CONST.SOLID_BASEMAP_ID);
-      expect((manager as any).removedIds.has(CONST.SOLID_BASEMAP_ID)).toBe(false);
+      expect((manager as any).order.removedIds.has(CONST.SOLID_BASEMAP_ID)).toBe(false);
     });
 
     it("returns false when the colour basemap cannot be unregistered", () => {
@@ -2537,7 +2537,7 @@ describe("LayerManager", () => {
       vi.spyOn(manager, "unregisterLayer").mockReturnValue(false);
 
       expect(manager.deleteLayer(CONST.SOLID_BASEMAP_ID)).toBe(false);
-      expect((manager as any).removedIds.has(CONST.SOLID_BASEMAP_ID)).toBe(false);
+      expect((manager as any).order.removedIds.has(CONST.SOLID_BASEMAP_ID)).toBe(false);
     });
 
     it("removes the overlay toggle-all row when the last overlay layer is deleted", () => {

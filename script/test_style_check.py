@@ -533,6 +533,28 @@ class TestCheckPluralNames:
         for name in ["pelias.ts", "focus.ts", "canvas.ts", "index.ts"]:
             assert mod.check_plural_names(name) == []
 
+    def test_abbreviation_suffixes_are_whitelisted(self):
+        for name in [
+            "merge-css.mjs",
+            "args.mjs",
+            "bundle-size.ts",
+            "compress.mjs",  # verb, not a plural noun
+        ]:
+            assert mod.check_plural_names(name) == []
+
+    def test_mjs_plural_module_names_are_reported(self):
+        assert mod.check_plural_names("script/build-paths.mjs") != []
+        assert mod.check_plural_names("script/css-layers.mjs") != []
+
+    def test_mjs_singular_module_names_are_allowed(self):
+        for name in [
+            "script/build-path.mjs",
+            "script/css-layer.mjs",
+            "script/esbuild-config.mjs",
+            "script/merge-css.mjs",
+        ]:
+            assert mod.check_plural_names(name) == []
+
     def test_non_ts_extension_is_allowed(self):
         assert mod.check_plural_names("files.md") == []
 
@@ -691,6 +713,26 @@ class TestMain:
         captured = capsys.readouterr()
         assert captured.out == ""
         assert captured.err == ""
+
+    def test_clean_mjs_returns_zero(self, tmp_path, capsys, monkeypatch):
+        # Script modules get rule 2 only; a singular name passes.
+        f = tmp_path / "build-path.mjs"
+        f.write_text("export {};\n", encoding="utf-8")
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 0
+        captured = capsys.readouterr()
+        assert captured.out == ""
+
+    def test_plural_mjs_via_cli_reports_and_exits_one(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        # The CLI's script-module branch (rule 2 on script/*.mjs) must report
+        # and fail the build — a plural module name otherwise ships unchecked.
+        f = tmp_path / "css-layers.mjs"
+        f.write_text("export {};\n", encoding="utf-8")
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 1
+        captured = capsys.readouterr()
+        assert "name `css-layers` looks plural" in captured.out
+        assert "code-style violation(s)" in captured.err
 
     def test_violation_reports_location_and_exit_one(
         self, tmp_path, capsys, monkeypatch
