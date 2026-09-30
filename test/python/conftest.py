@@ -87,6 +87,13 @@ _CDN_CACHE: dict[str, tuple[str, str]] = {
         "bootstrap.bundle.min.js",
         "application/javascript",
     ),
+    # Bootstrap CSS: folium's default host framework ships it; the menu-shell
+    # guard (T266) pins foliplus shells against its `ol,ul` resets, so the
+    # browser tests need the stylesheet to actually apply (cached like the JS).
+    "cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css": (
+        "bootstrap.min.css",
+        "text/css",
+    ),
     "cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.js": (
         "leaflet.awesome-markers.js",
         "application/javascript",

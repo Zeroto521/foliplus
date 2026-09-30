@@ -7,6 +7,7 @@ import {
 } from "#foliplus/LayerControl/ui/apply.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { clearIntent, getIntent, setIntent } from "#foliplus/LayerControl/ui/intent.js";
+import { IntentStore } from "#foliplus/LayerControl/ui/intentStore.js";
 import { intentVisibleOf, projectLayer } from "#foliplus/LayerControl/ui/projection.js";
 import { getLayerAlpha } from "#common/canvasAlpha.js";
 import { installLeafletGlobals } from "./fixture.js";
@@ -176,7 +177,7 @@ describe("executor: intent authorises, policy only suppresses", () => {
     // current zoom (5). Add a stored range [3, 12] and move zoom to 2
     // (out of range).
     setIntent(ui, "r", "zoomRange", [3, 12]);
-    ui.intentProvenance.r = ["zoomRange"];
+    ui.intentStore.seedProvenance("r", ["zoomRange"]);
     expect(map.hasLayer(layer)).toBe(true);
 
     map.getZoom.mockReturnValue(2);
@@ -192,12 +193,12 @@ describe("executor: intent authorises, policy only suppresses", () => {
     // Intent is unchanged throughout: the user's choice is `visible`,
     // which never went into `intents.visible`. This is the #329 lock.
     expect(getIntent(ui, "r", "visible")).not.toBe(false);
-    expect(ui.intentProvenance.r).toEqual(["zoomRange"]);
+    expect(ui.intentStore.dumpProvenance().r).toEqual(["zoomRange"]);
   });
 
   it("#329 lock — a policy-only zoom crossing never mutates intent", () => {
     // #329's specific assertion: after a zoom crossing out of the stored
-    // range, the checkbox, intents.visible, and intentProvenance are byte-identical
+    // range, the checkbox, intent values, and provenance are byte-identical
     // to before. The layer goes off the map (that is policy working), but
     // the user's own choice is not touched — the derived dimension cannot
     // authorise, and it also cannot record.
@@ -214,11 +215,11 @@ describe("executor: intent authorises, policy only suppresses", () => {
     vi.useRealTimers();
 
     setIntent(ui, "s", "zoomRange", [3, 12]);
-    ui.intentProvenance.s = ["zoomRange"];
+    ui.intentStore.seedProvenance("s", ["zoomRange"]);
 
     // Snapshot the intent state.
-    const hiddenBefore = { ...ui.intents };
-    const overridesBefore = { ...ui.intentProvenance };
+    const hiddenBefore = ui.intentStore.dumpIntents();
+    const overridesBefore = ui.intentStore.dumpProvenance();
 
     map.getZoom.mockReturnValue(2);
     applyProjectionAll(ui);
@@ -226,8 +227,8 @@ describe("executor: intent authorises, policy only suppresses", () => {
     // The layer is removed from the map by policy.
     expect(map.removeLayer).toHaveBeenCalledWith(layer);
     // ...but the user's own choice is untouched.
-    expect(ui.intents).toEqual(hiddenBefore);
-    expect(ui.intentProvenance).toEqual(overridesBefore);
+    expect(ui.intentStore.dumpIntents()).toEqual(hiddenBefore);
+    expect(ui.intentStore.dumpProvenance()).toEqual(overridesBefore);
   });
 });
 
@@ -264,7 +265,7 @@ describe("executor: late-carrier replay", () => {
     vi.useRealTimers();
 
     setIntent(ui, "h", "opacity", 0.4);
-    ui.intentProvenance.h = ["opacity"];
+    ui.intentStore.seedProvenance("h", ["opacity"]);
     applyProjection(ui, "h");
     // Default "redraw" arm: CSS live + layerAlpha stored for the next paint.
     expect(oldCanvas.style.opacity).toBe("0.4");
@@ -333,7 +334,7 @@ describe("executor: late-carrier replay", () => {
     // AnnotationCanvas draws) so the two carriers never double-compound.
     const applyAlpha = vi.spyOn(ui.m.annotation, "applyLayerAlpha");
     setIntent(ui, "a1", "opacity", 0.3);
-    ui.intentProvenance.a1 = ["opacity"];
+    ui.intentStore.seedProvenance("a1", ["opacity"]);
     applyProjection(ui, "a1");
     expect(paneFor("foliplus-annotation-a1").style.opacity).toBe("");
     // The annotation manager received the bake write for this layer.
@@ -376,7 +377,7 @@ describe("executor: idempotent writes", () => {
 
     // A single change: store opacity, apply.
     setIntent(ui, "p", "opacity", 0.5);
-    ui.intentProvenance.p = ["opacity"];
+    ui.intentStore.seedProvenance("p", ["opacity"]);
     applyProjection(ui, "p");
     const callsAfterOne =
       map.addLayer.mock.calls.length + map.removeLayer.mock.calls.length;
@@ -420,7 +421,7 @@ describe("executor: idempotent writes", () => {
     // on the right canvas: if the diff misrouted by position, either
     // canvas would end up with 0.7 and the other with 1.
     setIntent(ui, "a", "opacity", 0.7);
-    ui.intentProvenance.a = ["opacity"];
+    ui.intentStore.seedProvenance("a", ["opacity"]);
     applyProjectionAll(ui);
 
     expect(aCanvas.style.opacity).toBe("0.7");
@@ -590,7 +591,7 @@ describe("executor: carrier dispatch", () => {
     } as unknown as ReturnType<typeof manager.surfaceFor>);
 
     setIntent(ui, "n", "opacity", 0.2);
-    ui.intentProvenance.n = ["opacity"];
+    ui.intentStore.seedProvenance("n", ["opacity"]);
     applyProjection(ui, "n");
 
     expect((layer.options as { opacity?: number }).opacity).toBeUndefined();
@@ -610,7 +611,7 @@ describe("executor: carrier dispatch", () => {
     } as unknown as ReturnType<typeof manager.surfaceFor>);
 
     setIntent(ui, "img", "opacity", 0.5);
-    ui.intentProvenance.img = ["opacity"];
+    ui.intentStore.seedProvenance("img", ["opacity"]);
     applyProjection(ui, "img");
     applyProjection(ui, "img");
 
@@ -631,7 +632,7 @@ describe("executor: carrier dispatch", () => {
     } as unknown as ReturnType<typeof manager.surfaceFor>);
 
     setIntent(ui, "tile", "opacity", 0.5);
-    ui.intentProvenance.tile = ["opacity"];
+    ui.intentStore.seedProvenance("tile", ["opacity"]);
     applyProjection(ui, "tile");
 
     expect((layer.options as { opacity?: number }).opacity).toBe(0.4);
@@ -651,7 +652,7 @@ describe("executor: carrier dispatch", () => {
     map.removeLayer.mockImplementation(() => {
       onMap = false;
     });
-    ui.intentProvenance.z = ["visible"]; // authorise map writes
+    ui.intentStore.seedProvenance("z", ["visible"]); // authorise map writes
 
     // A range that includes the current zoom: layer is added.
     setIntent(ui, "z", "zoomRange", [4, 10]);
@@ -675,7 +676,7 @@ describe("executor: carrier dispatch", () => {
       { id: "d", name: "D", group: "overlay", layer: { options: {} } as L.Layer },
     ]);
     setIntent(ui, "d", "opacity", 0.6);
-    ui.intentProvenance.d = ["opacity"];
+    ui.intentStore.seedProvenance("d", ["opacity"]);
     (map.addLayer as ReturnType<typeof vi.fn>).mockClear();
 
     ui.applyProjection("d");
@@ -713,14 +714,14 @@ describe("projectAll: the id set is a union, not just the registry", () => {
     vi.useRealTimers();
 
     setIntent(ui, "late", "opacity", 0.3);
-    ui.intentProvenance.late = ["opacity"];
+    ui.intentStore.seedProvenance("late", ["opacity"]);
     expect(() => applyProjectionAll(ui)).not.toThrow();
     // The record is untouched — the id simply has nothing to write to yet.
     expect(getIntent(ui, "late", "opacity")).toBe(0.3);
-    expect(ui.intentProvenance.late).toEqual(["opacity"]);
+    expect(ui.intentStore.dumpProvenance().late).toEqual(["opacity"]);
   });
 
-  it("projectAll treats a missing intents map as empty", () => {
+  it("projectAll treats an empty IntentStore as empty", () => {
     const { container, map } = makeOffMapFixture();
     const manager = new LayerManager(map, [
       { id: "a", name: "A", group: "overlay", layer: { options: {} } as L.Layer },
@@ -732,7 +733,7 @@ describe("projectAll: the id set is a union, not just the registry", () => {
     vi.advanceTimersByTime(350);
     vi.useRealTimers();
 
-    (ui as { intents?: unknown }).intents = undefined;
+    ui.intentStore.clearAll();
     expect(() => applyProjectionAll(ui)).not.toThrow();
   });
 });
@@ -783,7 +784,7 @@ describe("executor: the branches behind the gates", () => {
     map.removeLayer.mockClear();
     map.hasLayer = vi.fn(() => true);
     setIntent(ui, "on", "visible", false);
-    ui.intentProvenance.on = ["visible"];
+    ui.intentStore.seedProvenance("on", ["visible"]);
     applyProjection(ui, "on");
 
     expect(map.removeLayer).toHaveBeenCalledWith(layer);
@@ -803,14 +804,14 @@ describe("executor: the branches behind the gates", () => {
     } as unknown as ReturnType<typeof manager.surfaceFor>);
 
     setIntent(ui, "b", "opacity", 0.5);
-    ui.intentProvenance.b = ["opacity"];
+    ui.intentStore.seedProvenance("b", ["opacity"]);
     applyProjection(ui, "b");
     expect((layer.options as { opacity?: number }).opacity).toBe(0.5);
 
     // Reset: the stored value leaves, so the write returns to the author's
     // base rather than to zero, and the mirror reads fully opaque.
     clearIntent(ui, "b", "opacity");
-    delete ui.intentProvenance.b;
+    ui.intentStore.seedProvenance("b", []);
     applyProjection(ui, "b");
     expect((layer.options as { opacity?: number }).opacity).toBe(1);
     expect(manager.layerRegistry.get("b")?.opacity).toBe(1);
@@ -829,7 +830,7 @@ describe("executor: the branches behind the gates", () => {
     } as unknown as ReturnType<typeof manager.surfaceFor>);
 
     setIntent(ui, "stale", "opacity", 0.3);
-    ui.intentProvenance.stale = ["opacity"];
+    ui.intentStore.seedProvenance("stale", ["opacity"]);
     expect(() => applyProjection(ui, "stale")).not.toThrow();
     expect(manager.layerRegistry.get("stale")?.opacity).toBe(1);
   });
@@ -855,17 +856,17 @@ describe("executor: the branches behind the gates", () => {
     vi.useRealTimers();
 
     setIntent(ui, "gone", "opacity", 0.4);
-    ui.intentProvenance.gone = ["opacity"];
+    ui.intentStore.seedProvenance("gone", ["opacity"]);
     expect(() => applyProjection(ui, "gone")).not.toThrow();
     expect(manager.layerRegistry.get("gone")?.opacity).toBe(0.4);
   });
 
-  it("a ui with no intents.visible and no intentProvenance still projects", () => {
-    // The `?? false` fallbacks on both choice maps: `applyProjection`,
-    // `intentVisibleOf` and `projectLayer` all read them as optional, because a
-    // thin stub (and a partially-built shell) may not have them yet.
+  it("a ui with an empty IntentStore still projects", () => {
+    // The `?? false` fallbacks on both choice axes: `applyProjection`,
+    // `intentVisibleOf` and `projectLayer` treat an empty store as "no user
+    // choice", so a thin stub degrades to the author default.
     const bare = {
-      intentProvenance: undefined,
+      intentStore: new IntentStore(),
       authorVisible: new Map<string, boolean>(),
       focusingLayerId: null,
       appliedState: new Map(),
@@ -1028,7 +1029,7 @@ describe("membership invariants: only intent + author snapshot authorise members
     const { map, ui } = bootUnobserved("hidden");
 
     setIntent(ui, "hidden", "visible", false);
-    ui.intentProvenance.hidden = ["visible"];
+    ui.intentStore.seedProvenance("hidden", ["visible"]);
     ui.focusingLayerId = null; // policy permissive
 
     applyProjectionAll(ui);
@@ -1043,7 +1044,7 @@ describe("membership invariants: only intent + author snapshot authorise members
     // false — a policy dimension can only suppress.
     const { map, ui } = bootUnobserved("p");
     setIntent(ui, "p", "visible", false);
-    ui.intentProvenance.p = ["visible"];
+    ui.intentStore.seedProvenance("p", ["visible"]);
     ui.focusingLayerId = null;
 
     applyProjectionAll(ui);

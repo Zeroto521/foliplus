@@ -249,19 +249,19 @@ const buildEntries = (components, withSonda) => {
     const outName = name === SHARED_ENTRY ? "common" : name;
     artifacts.push(enable(artifact([js], out(`foliplus-${outName}.min.js`), name)));
     // A split component stylesheet (`css/{Name}/index.css`) is merged below
-    // from its modules; only flat `css/{Name}.css` entries feed esbuild
-    // directly here.
+    // from its modules; flat `css/{Name}.css` entries feed esbuild directly.
     if (css && !css.endsWith("index.css")) {
       artifacts.push(enable(artifact([css], out(`foliplus-${outName}.min.css`), name)));
     }
   }
 
-  // A merged stylesheet has to be a real file on disk. esbuild's css loader
-  // runs the postcss onLoad (which flattens the nested selectors) before
-  // minifying, and a merged stylesheet is a concatenation of modules, so the
-  // nested rules have to survive that pass. Feeding the merged source through
-  // a plugin's onLoad instead produced uncompiled nesting straight into dist
-  // -- the .collapsed / .expanded rules silently vanished.
+  // The merged common stylesheet still has to be a real file on disk.
+  // esbuild's css loader runs the postcss onLoad (which flattens the nested
+  // selectors) before minifying, and a merged stylesheet is a concatenation
+  // of modules, so the nested rules have to survive that pass. Feeding the
+  // merged source through a plugin's onLoad instead produced uncompiled
+  // nesting straight into dist -- the .collapsed / .expanded rules silently
+  // vanished.
   const merged = [
     // Shared stylesheet: dependency-ordered modules under css/common/.
     ["common.css", mergeCommonCss()],

@@ -5,14 +5,18 @@
 // override markers keep provenance in step. Storage I/O and the record
 // schema live in ../persistence.ts — this file only routes through
 // LayerPersistence and never touches localStorage itself.
+//
+// Intent load/build/mark/unmark/drop sink into `ui.intentStore`; the
+// exported names stay as thin delegates so callers and test spies are
+// unchanged.
 import { createLogger } from "#common/log.js";
 import * as CONST from "../const.js";
 import type { LayerManager } from "../manager.js";
-import type { LayerIntent, LayerOverride, PersistedLayerState } from "../type.js";
+import type { LayerOverride } from "../type.js";
 import { applyProjection, applyProjectionAll } from "./apply.js";
 import { applyNameProjection } from "./context.js";
 import type { LayerUI } from "./index.js";
-import { INTENT, LIVE, dropIntent, getIntent, setIntent } from "./intent.js";
+import { INTENT, LIVE, getIntent } from "./intent.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const log = createLogger(CONF.name);
@@ -21,47 +25,15 @@ const log = createLogger(CONF.name);
 const loadPersistedState = (ui: LayerUI) => {
   const state = ui.m.persistence.load();
   ui.foldedGroups = new Set(state.foldedGroups);
-  // `ui.intents` is the single per-layer record. Name rides the same record
-  // (`name`); disk shape stays `renamedNames` / `layers[id]`.
-  ui.intents = {};
-  for (const [id, name] of Object.entries(state.renamedNames)) {
-    setIntent(ui, id, INTENT.NAME, name);
-  }
-  // Style (label) configs are applied by ui/style.ts once the layers resolve
-  // (deferred init passes). Read order is the compat contract: the current
-  // `layers[id].annotation` key WINS, the legacy top-level `annotations`
-  // segment is the fallback underneath (write-new / read-old).
-  for (const [id, raw] of Object.entries(state.annotations)) {
-    if (raw != null) {
-      setIntent(
-        ui,
-        id,
-        INTENT.ANNOTATION,
-        raw as NonNullable<LayerIntent["annotation"]>,
-      );
-    }
-  }
-  // Per-layer intent: the value lives on `ui.intents[id]`, `overrides`
-  // records that the user set it. A layer with no entry keeps the author's
-  // declared default. Absent dimension means "the user never chose", not
-  // "visible": the default visible is decided by `authorVisible` at the
-  // projection sites.
-  ui.intentProvenance = {};
-  for (const [id, entry] of Object.entries(state.layers)) {
-    // New-key label config overrides the legacy-segment fallback above.
-    if (entry.annotation) setIntent(ui, id, INTENT.ANNOTATION, entry.annotation);
-    ui.intentProvenance[id] = [...entry.overrides];
-    // One dimension per override: the persisted key is the provenance key,
-    // the value is typed on read (parseLayerState), and LIVE re-checks the
-    // type so a marker with a missing value is never restored as a choice.
-    for (const override of entry.overrides) {
-      const value = entry[override];
-      const live = LIVE[override];
-      if (live && value !== undefined && live(value)) {
-        setIntent(ui, id, override, value);
-      }
-    }
-  }
+  // Intent values + provenance sink into the store. Read order is the compat
+  // contract: the current `layers[id].annotation` key WINS, the legacy
+  // top-level `annotations` segment is the fallback underneath (write-new /
+  // read-old).
+  ui.intentStore.loadFromPersisted({
+    renamedNames: state.renamedNames,
+    annotations: state.annotations,
+    layers: state.layers,
+  });
 };
 
 /** Save fold state to localStorage. */
@@ -88,34 +60,9 @@ const hasLiveValue = (ui: LayerUI, id: string, override: LayerOverride): boolean
  *  every id the annotation manager holds a config for joins the walk — a
  *  layer configured *only* for labels still gets an entry (with an empty
  *  `overrides` array, which `parseLayerState` keeps for exactly this). */
-const buildLayerStates = (ui: LayerUI): Record<string, PersistedLayerState> => {
-  const states: Record<string, PersistedLayerState> = {};
+const buildLayerStates = (ui: LayerUI) => {
   const annotations = Object.fromEntries(ui.m.annotation.configEntries());
-  const ids = new Set([
-    ...Object.keys(ui.intentProvenance ?? {}),
-    ...Object.keys(annotations),
-    ...Object.keys(ui.intents ?? {}),
-  ]);
-  for (const id of ids) {
-    const declared = (ui.intentProvenance?.[id] ?? []).filter(override =>
-      hasLiveValue(ui, id, override),
-    );
-    const annotation = annotations[id];
-    if (declared.length === 0 && !annotation) continue;
-    // Disk keys equal the override names; the intent record holds the live
-    // value, so each declared override writes its key straight through.
-    const state: PersistedLayerState = { overrides: declared };
-    for (const override of declared) {
-      const value = getIntent(ui, id, override);
-      const live = LIVE[override];
-      if (live && live(value)) {
-        (state as Record<LayerOverride, unknown>)[override] = value;
-      }
-    }
-    if (annotation) state.annotation = annotation;
-    states[id] = state;
-  }
-  return states;
+  return ui.intentStore.toPersisted(annotations);
 };
 
 /** Save the per-layer intent -- visibility, opacity, zoom range and the
@@ -131,6 +78,10 @@ const saveState = (ui: LayerUI) => {
  *  filters such a marker out of the next write, so recording it here would mean the
  *  user's action is lost with nothing in the console. Failing loud at the one gate
  *  every caller passes through keeps that from being a silent failure. */
+/**
+ * @internal Production write paths use IntentStore.set (cohesive mark). Kept
+ * as a thin delegate for test spies and the mark-without-set gate.
+ */
 const markOverride = (ui: LayerUI, id: string, override: LayerOverride) => {
   if (!hasLiveValue(ui, id, override)) {
     log.warn(
@@ -139,24 +90,23 @@ const markOverride = (ui: LayerUI, id: string, override: LayerOverride) => {
     );
     return;
   }
-  const overrides = ui.intentProvenance[id] ?? [];
-  if (!overrides.includes(override)) overrides.push(override);
-  ui.intentProvenance[id] = overrides;
+  ui.intentStore.mark(id, override);
 };
 
 /** Drop one dimension's provenance -- the single rule a Reset button reduces to,
  *  sending the value back to the author's declared default. */
+/**
+ * @internal Production resets use IntentStore.clear (cohesive unmark).
+ */
 const unmarkOverride = (ui: LayerUI, id: string, override: LayerOverride) => {
-  const overrides = (ui.intentProvenance[id] ?? []).filter(entry => entry !== override);
-  if (overrides.length > 0) ui.intentProvenance[id] = overrides;
-  else delete ui.intentProvenance[id];
+  ui.intentStore.unmark(id, override);
 };
 
 /**
  * Propagate the user's stored state —hidden visibility and renames —
  * into the registry and the rendered rows.
  *
- * `ui.intents` (the visible / name dimensions) is the source of truth; the
+ * `ui.intentStore` (the visible / name dimensions) is the source of truth; the
  * registry's `LayerInfo.visible` / `LayerInfo.name` and the row checkboxes /
  * labels are their projections, refreshed here whenever a row or the registry
  * is rebuilt from a third-party layer's own metadata. Hidden is a same-axis
@@ -217,14 +167,14 @@ const applyUserState = (ui: LayerUI, id?: string) => {
     return;
   }
 
-  // The registry is the sweep, not `ui.intents`: a layer the user left
+  // The registry is the sweep, not the intent store: a layer the user left
   // visible has no visible entry by design, so iterating the intent records
   // alone can never reach it and the hide half of the round trip has no
   // inverse. Walking the registry asserts every layer's map membership
   // against the persisted intent; the color basemap has no registry entry,
-  // so its rename still comes from `ui.intents[id].name`.
+  // so its rename still comes from the store's name dimension.
   applyProjectionAll(ui);
-  for (const layerId of Object.keys(ui.intents ?? {})) {
+  for (const layerId of ui.intentStore.ids()) {
     const rename = getIntent(ui, layerId, INTENT.NAME);
     if (rename == null) continue;
     if (layerId === CONST.SOLID_BASEMAP_ID) {
@@ -280,16 +230,15 @@ const applyUserState = (ui: LayerUI, id?: string) => {
 const dropPersistedLayerState = (ui: LayerUI, id: string) => {
   // Style dimensions + their provenance. `name` / `annotation` are cleared
   // by their own callers (manager delete / annotation destroy).
-  dropIntent(ui, id);
-  delete ui.intentProvenance[id];
+  ui.intentStore.dropRow(id);
 };
 
 /** Save user-assigned names, coalescing rapid calls. */
 
 const saveNamesState = (ui: LayerUI) => {
   const names: Record<string, string> = {};
-  for (const [id, intent] of Object.entries(ui.intents ?? {})) {
-    if (typeof intent.name === "string") names[id] = intent.name;
+  for (const [id, name] of ui.intentStore.nameEntries()) {
+    names[id] = name;
   }
   ui.m.persistence.schedule({ renamedNames: () => names });
 };
@@ -313,17 +262,14 @@ const setVisible = (
   visible: boolean,
   persist: boolean = true,
 ) => {
-  setIntent(ui, id, INTENT.VISIBLE, visible);
-  // The user's explicit action (either direction) supersedes any record the
-  // zoom-range mechanism kept for this id: without this line, a layer the
-  // sweep had removed would be re-added by the sweep the moment the user
-  // checked it back on, because the sweep's own record says "I removed
-  // this, so I'm allowed to put it back".
-  // The first change is what turns the author's default into the user's own
-  // state: until it has happened the layer has no entry in `layers` at all, so
-  // the unhide half of the sweep must leave it alone or an empty choice would
-  // override the author's `show=False` on the next load.
-  markOverride(ui, id, INTENT.VISIBLE);
+  // Cohesive write: value + provenance in one step. The user's explicit
+  // action (either direction) supersedes any record the zoom-range mechanism
+  // kept for this id: without the mark, a layer the sweep had removed would
+  // be re-added by the sweep the moment the user checked it back on, because
+  // the sweep's own record says "I removed this, so I'm allowed to put it
+  // back". The first change is what turns the author's default into the
+  // user's own state.
+  ui.intentStore.set(id, INTENT.VISIBLE, visible);
   if (persist) saveState(ui);
 };
 

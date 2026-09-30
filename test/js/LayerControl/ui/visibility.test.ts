@@ -4,6 +4,7 @@ import * as CONST from "#foliplus/LayerControl/const.js";
 import { LayerManager } from "#foliplus/LayerControl/manager.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { getIntent, setIntent } from "#foliplus/LayerControl/ui/intent.js";
+import { IntentStore } from "#foliplus/LayerControl/ui/intentStore.js";
 import {
   applyVisibility,
   getLayerItems,
@@ -219,7 +220,7 @@ describe("applyVisibility", () => {
     // The user stores a zoom range that excludes the current zoom (2), then
     // checks the box again.
     setIntent(ui, "overlay1", "zoomRange", [3, 12]);
-    ui.intentProvenance.overlay1 = ["zoomRange"];
+    ui.intentStore.seedProvenance("overlay1", ["zoomRange"]);
     (map.addLayer as ReturnType<typeof vi.fn>).mockClear();
 
     expect(applyVisibility(ui, "overlay1", true)).toBe(true);
@@ -956,7 +957,10 @@ describe("toggleAll base group", () => {
     expect(bare.querySelector("input")).toBeNull();
     // Only the two registered rows were swept — the bare row carries no
     // checkbox and must be absent from the intent map entirely.
-    expect(ui.intents ?? {}).toEqual({ B1: { visible: true }, B2: { visible: true } });
+    expect(ui.intentStore.dumpIntents()).toEqual({
+      B1: { visible: true },
+      B2: { visible: true },
+    });
   });
 
   it("runs every branch of the sweep: real layer and canvas-only base", () => {
@@ -1066,9 +1070,8 @@ describe("unit helpers", () => {
     expect(() => syncToggleAll(ui, GROUP.OVERLAY)).not.toThrow();
   });
 
-  it("syncNoBasemap handles undefined intentProvenance and intents.visible", () => {
-    // The `?.` and `?? false` fallbacks on the inline intent check: a thin stub
-    // may not have populated these maps yet, so the check must degrade to the
+  it("syncNoBasemap handles a thin stub with an empty IntentStore", () => {
+    // A thin stub carries an empty IntentStore: the check must degrade to the
     // author default rather than crashing.
     const uiContainer = document.createElement("div");
     uiContainer.innerHTML = `<div class="foliplus-layer-toggle-all" data-group="${GROUP.BASE}"><span></span></div>`;
@@ -1079,7 +1082,7 @@ describe("unit helpers", () => {
         map: { getContainer: () => document.createElement("div") },
       },
       authorVisible: new Map(),
-      intentProvenance: undefined,
+      intentStore: new IntentStore(),
       T: (k: string) => k,
     } as unknown as LayerUI;
 
@@ -1107,7 +1110,7 @@ describe("unit helpers", () => {
         uiContainer,
         m: { layers, map: { getContainer: () => container } },
         authorVisible: new Map(),
-        intentProvenance: {},
+        intentStore: new IntentStore(),
         T: (k: string) => k,
       } as unknown as LayerUI;
       return { ui, container };
@@ -1140,9 +1143,9 @@ describe("unit helpers", () => {
     });
   });
 
-  it("syncToggleAll handles undefined intentProvenance and intents.visible", () => {
+  it("syncToggleAll handles a thin stub with an empty IntentStore", () => {
     // Same fallback pattern: the inline intent check in syncToggleAll must
-    // degrade gracefully when the choice maps are absent.
+    // degrade gracefully when the store holds no rows.
     const uiContainer = document.createElement("div");
     uiContainer.innerHTML = `
       <div class="foliplus-layer-toggle-all" data-group="${GROUP.OVERLAY}">
@@ -1156,7 +1159,7 @@ describe("unit helpers", () => {
       uiContainer,
       m: { layerRegistry: { get: () => ({ id: "x" }) } },
       authorVisible: new Map(),
-      intentProvenance: undefined,
+      intentStore: new IntentStore(),
       T: (k: string) => k,
     } as unknown as LayerUI;
 

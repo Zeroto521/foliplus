@@ -344,7 +344,7 @@ const applyProjection = (ui: LayerUI, id: string): void => {
   // linked) and that the user never touched is not this executor's to
   // decide — writing `effectiveShown` for it would turn a guess into an add.
   const hasUserIntent =
-    (ui.intentProvenance?.[id]?.includes(INTENT.VISIBLE) ?? false) ||
+    ui.intentStore.isUserSet(id, INTENT.VISIBLE) ||
     typeof getIntent(ui, id, INTENT.VISIBLE) === "boolean";
   const authorised = hasUserIntent || ui.authorVisible.has(id);
   // Current visibility, read from the carrier the write would land on.
