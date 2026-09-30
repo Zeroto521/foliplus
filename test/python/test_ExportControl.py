@@ -301,7 +301,8 @@ class TestExportControlRendering:
                     end = i
                     break
         assert end is not None
-        block = css[idx : end + 1]
+        # Strip comments first: the rationale prose names "scale()" on purpose.
+        block = re.sub(r"/\*.*?\*/", "", css[idx : end + 1], flags=re.S)
         assert "scale(" not in block, block
         assert "var(--foliplus-slider-thumb-glow)" in block
         assert "box-shadow var(--foliplus-transition-fast)" in block
@@ -327,7 +328,8 @@ class TestExportControlRendering:
                 if depth == 0:
                     end = i
                     break
-        block = css[idx : end + 1]
+        # Strip comments first: the rationale prose names "scale()" on purpose.
+        block = re.sub(r"/\*.*?\*/", "", css[idx : end + 1], flags=re.S)
         assert "&:focus-visible" in block
         assert "var(--foliplus-focus-ring)" in block
         assert "scale(" not in block
