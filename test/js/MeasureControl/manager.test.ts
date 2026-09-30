@@ -707,6 +707,13 @@ describe("MeasureManager — lifecycle", () => {
     manager.destroy();
     expect(map.off.mock.calls.length).toBeGreaterThanOrEqual(calls);
   });
+
+  it("skips the coord readout when show_live_coords is false", () => {
+    window.CONF.show_live_coords = false;
+    const { manager } = makeManager();
+    expect((manager as any).coordReadoutEl).toBeNull();
+    delete window.CONF.show_live_coords;
+  });
 });
 
 describe("MeasureManager — persistence edge cases", () => {

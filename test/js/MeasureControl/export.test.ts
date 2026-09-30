@@ -675,6 +675,12 @@ describe("Export.handleExportClick", () => {
     delete window.CONF.export_format;
   });
 
+  it("falls back to the default filename when CONF.filename is missing", () => {
+    delete window.CONF.filename;
+    Export.handleExportClick(makeMgr() as any)({ stopPropagation: vi.fn() } as any);
+    expect(dl.anchors[0].filename).toBe("measurements.geojson");
+  });
+
   it("warns instead of throwing when the export fails", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     vi.spyOn(downloadMod, "download").mockImplementation(() => {

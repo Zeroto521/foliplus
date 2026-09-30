@@ -234,6 +234,36 @@ describe("renderResults", () => {
     // The dev-mode assertion in renderResults would throw on any mismatch; a
     // successful render with equal counts is the positive proof it holds.
   });
+
+  it("throws when the DOM item count drifts from the retained results", () => {
+    const el = document.createElement("div");
+    document.body.appendChild(el);
+    const ctrl: any = {
+      ...ctx(),
+      panelWrap: el,
+      throttleTimer: null,
+      selectedIdx: 0,
+      ctrl: {
+        getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
+      },
+    };
+    // Force the post-render sanity check to misfire: a DOM count that does
+    // not match the retained array would desync keyboard nav from Enter.
+    el.querySelectorAll = vi.fn(() => ({ length: 7 })) as any;
+    expect(() =>
+      renderResults(ctrl, [
+        {
+          source: "history",
+          icon: "",
+          primaryText: "Shanghai, China",
+          query: "121.4700, 31.2300",
+          coordDisplay: "121.4700, 31.2300",
+          onClick: () => false,
+        },
+      ]),
+    ).toThrow(/result panel drift/);
+    el.remove();
+  });
 });
 
 describe("initDebouncedFetch", () => {
