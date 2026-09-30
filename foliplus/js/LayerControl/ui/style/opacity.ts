@@ -193,15 +193,16 @@ const OPACITY_DIMENSION = registerDimension<number>({
   },
   row: buildOpacityRow,
   /** Intent+persist + projection. `opacity === 1` clears (no override);
-   *  any other number marks via IntentStore.set. */
+   *  any other number marks via IntentStore.set. A non-number patch is a
+   *  no-op (descriptor callers always pass a finite 0-1 value). */
   write: (ui, layerId, patch) => {
     const opacity = typeof patch === "number" ? patch : undefined;
     if (opacity === undefined) return;
     if (opacity === 1) {
       ui.intentStore.clear(layerId, INTENT.OPACITY);
       saveState(ui);
-    } else if (!writeIntentKeys(ui, layerId, [[INTENT.OPACITY, opacity]])) {
-      return;
+    } else {
+      writeIntentKeys(ui, layerId, [[INTENT.OPACITY, opacity]]);
     }
     applyProjection(ui, layerId);
     const li = ui.m.layerRegistry.get(layerId);

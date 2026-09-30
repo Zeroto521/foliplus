@@ -1,9 +1,10 @@
-﻿import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { clearIntent, setIntent } from "#foliplus/LayerControl/ui/intent.js";
 import { IntentStore } from "#foliplus/LayerControl/ui/intentStore.js";
 import { projectLayer } from "#foliplus/LayerControl/ui/projection.js";
 import {
+  ZOOM_RANGE_DIMENSION,
   applyZoomRangeLive,
   commitZoomRange,
   resetLayerZoomRange,
@@ -173,6 +174,31 @@ describe("zoomRange descriptor write/live/commit/reset", () => {
     expect(ui.intentStore.isUserSet("overlay1", "zoomRange")).toBe(false);
   });
 
+  it("live preview on a missing layer is a no-op", () => {
+    const schedule = vi.fn();
+    ui.m.persistence = { schedule } as never;
+    applyZoomRangeLive(ui, "ghost", row, 1, 5);
+    expect(ui.intentStore.get("ghost", "zoomRange")).toBeUndefined();
+  });
+
+  it("write with only min takes the else branch (no stored value)", () => {
+    const schedule = vi.fn();
+    ui.m.persistence = { schedule } as never;
+    ZOOM_RANGE_DIMENSION.write!(ui, "overlay1", { min: 2 } as never);
+    expect(ui.intentStore.isUserSet("overlay1", "zoomRange")).toBe(false);
+    expect(schedule).not.toHaveBeenCalled();
+  });
+
+  it("write with only min after a live preview commits the stored range", () => {
+    const schedule = vi.fn();
+    ui.m.persistence = { schedule } as never;
+    ui.intentStore.setValue("overlay1", "zoomRange", [4, 9]);
+    ZOOM_RANGE_DIMENSION.write!(ui, "overlay1", { min: 4 } as never);
+    expect(ui.intentStore.get("overlay1", "zoomRange")).toEqual([4, 9]);
+    expect(ui.intentStore.isUserSet("overlay1", "zoomRange")).toBe(true);
+    expect(schedule).toHaveBeenCalled();
+  });
+
   it("commit marks the live value and persists", () => {
     const schedule = vi.fn();
     ui.m.persistence = { schedule } as never;
@@ -199,5 +225,9 @@ describe("zoomRange descriptor write/live/commit/reset", () => {
     resetLayerZoomRange(ui, "overlay1");
     expect(ui.intentStore.get("overlay1", "zoomRange")).toBeUndefined();
     expect(ui.intentStore.isUserSet("overlay1", "zoomRange")).toBe(false);
+  });
+
+  it("reset on a missing layer returns before touching state", () => {
+    expect(() => resetLayerZoomRange(ui, "ghost")).not.toThrow();
   });
 });

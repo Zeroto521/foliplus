@@ -306,15 +306,11 @@ const ZOOM_RANGE_DIMENSION = registerDimension<{ min: number; max: number }>({
     const min = patch?.min;
     const max = patch?.max;
     if (min !== undefined && max !== undefined) {
-      if (!writeIntentKeys(ui, layerId, [[INTENT.ZOOM_RANGE, [min, max]]])) {
-        return;
-      }
+      writeIntentKeys(ui, layerId, [[INTENT.ZOOM_RANGE, [min, max]]]);
     } else {
       const stored = ui.intentStore.get(layerId, INTENT.ZOOM_RANGE);
       if (!stored) return;
-      if (!writeIntentKeys(ui, layerId, [[INTENT.ZOOM_RANGE, stored]])) {
-        return;
-      }
+      writeIntentKeys(ui, layerId, [[INTENT.ZOOM_RANGE, stored]]);
     }
     applyProjection(ui, layerId);
   },

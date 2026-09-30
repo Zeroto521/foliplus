@@ -398,7 +398,11 @@ describe("LayerControl style-panel dimension registry — opacity descriptor", (
     const schedule = vi.fn();
     ui.m.persistence = { schedule } as never;
     OPACITY_DIMENSION.write!(ui, "overlay1", { opacity: 0.4 } as never);
+    OPACITY_DIMENSION.write!(ui, "overlay1", "0.5" as never);
+    OPACITY_DIMENSION.write!(ui, "overlay1", null as never);
+    OPACITY_DIMENSION.write!(ui, "overlay1", undefined as never);
     expect(ui.intentStore.get("overlay1", "opacity")).toBeUndefined();
+    expect(ui.intentStore.isUserSet("overlay1", "opacity")).toBe(false);
     expect(schedule).not.toHaveBeenCalled();
   });
 
