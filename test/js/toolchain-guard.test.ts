@@ -207,7 +207,7 @@ describe("test/js/script naming", () => {
 // cannot be. The list is empty today; keeping it is what makes the gap below
 // deliberate instead of silent.
 const INTENTIONAL_NO_TEST: Record<string, string> = {
-  "scan-locale-keys": "CLI scanner — validated by locale test suite, not unit-tested",
+  "scan-locale-key": "CLI scanner — validated by locale test suite, not unit-tested",
 };
 
 const scriptStem = (rel: string) =>

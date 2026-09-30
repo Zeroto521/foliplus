@@ -84,13 +84,6 @@
   animation: var(--foliplus-input-breathe-anim);
 }
 
-/* Respect reduced motion: disable breathing animation by clearing the value */
-@media (prefers-reduced-motion: reduce) {
-  :root {
-    --foliplus-input-breathe-anim: none;
-  }
-}
-
 /* ── Leaflet attribution & foliplus scale wrapper styling ──
   Shared rounded, translucent look for the bottom-corner controls. */
 .leaflet-control.foliplus-scale-wrap,

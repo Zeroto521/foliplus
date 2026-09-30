@@ -407,6 +407,13 @@
   --foliplus-dot-stroke-color: var(--foliplus-accent-primary);
 
   /* ── Common (input animation) ──
-     Breathing animation for text inputs. Reduced-motion override in reset.css. */
+     Breathing animation for text inputs. */
   --foliplus-input-breathe-anim: foliplus-input-breathe 2s ease-in-out infinite;
+}
+
+/* Respect reduced motion: disable breathing animation by clearing the value */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --foliplus-input-breathe-anim: none;
+  }
 }

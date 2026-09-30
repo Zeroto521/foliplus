@@ -23,7 +23,7 @@
  *      small _SHARED_LAYER_KEYS supplement in the test expands across all
  *      callers that actually need the key — see test_locale.py.)
  *
- * Usage: `node script/scan-locale-keys.mjs [dir]` → JSON array on stdout.
+ * Usage: `node script/scan-locale-key.mjs [dir]` → JSON array on stdout.
  *
  * Known gaps:
  *   - Dynamic key construction via ternary branches (`` cond ? "a" : "b" ``)
