@@ -20,7 +20,7 @@
 // <input type=color> inside a FORM_ROW, no reset button on the row itself
 // (the panel-wide Reset handles it, the way label color has it).
 import { METHOD } from "#core/classify.js";
-import { numericPropertiesKeys } from "#core/fields.js";
+import { numericPropertiesKeys } from "#core/field.js";
 import { CAP_TIER, DIM, GROUP, type LayerInfo } from "#core/layer/index.js";
 import { DEFAULT_SCHEMES } from "#core/palette.js";
 import { dom } from "#common/dom.js";

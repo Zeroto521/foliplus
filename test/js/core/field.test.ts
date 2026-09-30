@@ -1,7 +1,7 @@
-// Unit tests for core/fields — the numeric field enumeration used by the
+// Unit tests for core/field — the numeric field enumeration used by the
 // value-based fill dimension.
 import { describe, expect, it } from "vitest";
-import { isNumericValue, numericPropertiesKeys } from "#core/fields.js";
+import { isNumericValue, numericPropertiesKeys } from "#core/field.js";
 
 /** Build a fake Leaflet layer tree for the walker. */
 const makeLeaf = (props: Record<string, unknown> | undefined) =>
