@@ -30,7 +30,7 @@
 - `sanitize`: allowlist gate for the three sinks that accept external markup — layer icons, hint icons, and reverse-geocoded addresses — so they can only reach the DOM as text ([#286](https://github.com/Zeroto521/foliplus/pull/286), [#313](https://github.com/Zeroto521/foliplus/pull/313))
 - `SearchControl`: pluggable geocode providers — built-in Nominatim, Photon and Pelias plus a declarative custom-provider interface for address search, autocomplete and reverse geocoding, with per-provider throttling and provider-scoped cache ([#310](https://github.com/Zeroto521/foliplus/pull/310), [#314](https://github.com/Zeroto521/foliplus/pull/314))
 - Package: ship PEP 561 `py.typed` and re-export the public type aliases ([#319](https://github.com/Zeroto521/foliplus/pull/319))
-- `LayerControl`: `setVisible(id, visible)` on `LayerAPI` for programmatic layer visibility, taking the same transition and persistence as the panel checkbox ([#321](https://github.com/Zeroto521/foliplus/pull/321))
+- `LayerControl`: `setVisible(id, visible)` on `LayerAPI` for programmatic layer visibility, taking the same transition and persistence as the panel checkbox ([#321](https://github.com/Zeroto521/foliplus/pull/321), [#570](https://github.com/Zeroto521/foliplus/pull/570))
 - `LayerControl`/`HeatmapControl`/`SearchControl`/`MeasureControl`: `collapse_on_outside` — whether a press outside the panel collapses it. Default `false` for `LayerControl`, whose panel is read alongside the map and whose busiest gesture is drag-pan / click-select; `true` for the other three, so their behaviour is unchanged ([#428](https://github.com/Zeroto521/foliplus/pull/428))
 - `LayerControl`: delete a layer from its ⋮ menu — a two-click confirm behind a divider, deletions persisted per map, colour basemap included ([#431](https://github.com/Zeroto521/foliplus/pull/431), [#499](https://github.com/Zeroto521/foliplus/pull/499), [#517](https://github.com/Zeroto521/foliplus/pull/517))
 
@@ -118,7 +118,6 @@
 - `LayerControl`: normalize style-panel colors to `#rrggbb`; style writes enable `stroke` / `fill` and Reset restores the author's flags; fill and border drag applies coalesce to one walk per frame with flush on change, blur, and panel close ([#477](https://github.com/Zeroto521/foliplus/pull/477), [#482](https://github.com/Zeroto521/foliplus/pull/482), [#556](https://github.com/Zeroto521/foliplus/pull/556), [#558](https://github.com/Zeroto521/foliplus/pull/558), [#560](https://github.com/Zeroto521/foliplus/pull/560), [#565](https://github.com/Zeroto521/foliplus/pull/565))
 - `FullscreenControl`: a denied fullscreen entry or exit now reports the honest hint (`unsupported` / `exit_fail`) instead of "Entered fullscreen" ([#486](https://github.com/Zeroto521/foliplus/pull/486))
 - `LayerControl`: rapid visibility toggles stay smooth at 6k layers — the toggle-all tri-state counter updates O(1) per click instead of rescanning the group, and overlay clicks skip the basemap scan ([#504](https://github.com/Zeroto521/foliplus/pull/504))
-- `LayerControl`: `syncToggleAll`/`syncNoBasemap` share `intentVisibleOf` with the row checkbox — a provenance `visible` marker without a value no longer counts as hidden ([#570](https://github.com/Zeroto521/foliplus/pull/570))
 
 ## [v0.3.0] (2026-08-02)
 
