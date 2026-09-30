@@ -40,6 +40,12 @@ _DYNAMIC_SUPPLEMENT: set[str] = {
     "LayerControl.type_color_map",
     "LayerControl.type_custom",
     "LayerControl.type_unknown",
+    # type_${gtype} dynamic construction (attr.ts, rowView.ts) —
+    # gtype from GEOM_TYPE: point | line | polygon | empty.
+    "LayerControl.type_point",
+    "LayerControl.type_line",
+    "LayerControl.type_polygon",
+    "LayerControl.type_empty",
     # labelKey / titleKey passed as function parameters.
     "LayerControl.data_layer_label",
     "LocateControl.popup_title_geo",
