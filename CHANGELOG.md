@@ -81,6 +81,7 @@
 - `HeatmapControl` / `LayerControl`: bake layer opacity into canvas draws (`globalAlpha`); heatmap slider stays CSS, bake on redraw ([#533](https://github.com/Zeroto521/foliplus/pull/533))
 - `LayerControl`: extract the saved-order domain (`savedOrder` / `removedIds` plus load, snapshot, replay, prune) into a `SavedOrder` class in `savedOrder.ts` — `LayerManager` keeps the LayerAPI forwards and the ownership call-sites; behaviour and the persisted record shape are unchanged ([#569](https://github.com/Zeroto521/foliplus/pull/569))
 
+- `CSS build`: remove the CSS Cascade Layers wrap introduced in #568 — the sheets ship unlayered again (merge order preserved: shared tokens/base first, component rules last), so a host page's unlayered resets no longer outrank foliplus rules merely by being unlayered; specificity order governs (e.g. `.foliplus-layer-ctrl .foliplus-layer-more-menu` (0,2,0) beats `ul` (0,0,1))
 ### Removed
 
 - `hint`: `window.foliplus.showHint` removed — hints are now per-map, with each map getting its own `HintManager` ([#147](https://github.com/Zeroto521/foliplus/pull/147), [#149](https://github.com/Zeroto521/foliplus/pull/149))
@@ -122,6 +123,7 @@
 
 ## [v0.3.0] (2026-08-02)
 
+- `HeatmapControl`/`LayerControl`: dropdown/menu shells declare the full box model (list-style, margin) so a host framework's bare `ol,ul` defaults cannot leak list markers or stray margins into the menus
 ### Added
 
 - `LayerControl`: `createLayers`/`createCanvas` managed layer APIs for programmatic use ([#25](https://github.com/Zeroto521/foliplus/pull/25), [#39](https://github.com/Zeroto521/foliplus/pull/39), [#53](https://github.com/Zeroto521/foliplus/pull/53), [#91](https://github.com/Zeroto521/foliplus/pull/91), [#92](https://github.com/Zeroto521/foliplus/pull/92), [#104](https://github.com/Zeroto521/foliplus/pull/104))
