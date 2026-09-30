@@ -1,8 +1,8 @@
 /**
- * script/css-layer.mjs 鈥?build-time CSS Cascade Layer wrapping.
+ * script/css-layer.mjs — build-time CSS Cascade Layer wrapping.
  *
- * Layer design (T251):
- *   foliplus.tokens     token.css 鈥?design tokens on :root
+ * Layer design:
+ *   foliplus.tokens     token.css — design tokens on :root
  *   foliplus.base       remaining css/common/* (reset, chrome, shared utils)
  *   foliplus.components component stylesheets (flat file or split entry)
  *
@@ -12,7 +12,7 @@
  *   @layer foliplus.tokens, foliplus.base, foliplus.components;
  *
  * Intra-package cascade after this change:
- *   tokens < base < components 鈥?later layer wins at equal specificity.
+ *   tokens < base < components — later layer wins at equal specificity.
  *   Within each layer, declaration order is the pre-change merge order
  *   (common: topological via orderCss; components: expandEntry order).
  *
@@ -30,7 +30,7 @@
  *   - Token theming: override `--foliplus-*` on a host rule (unlayered
  *     wins) or place overrides in a later layer than `foliplus.tokens`.
  *
- * Support floor: CSS Cascade Layers 鈥?Chrome/Edge 99+, Firefox 97+
+ * Support floor: CSS Cascade Layers — Chrome/Edge 99+, Firefox 97+
  * (ESR 128 fully supported), Safari 15.4+. No polyfill. Browsers below the
  * floor ignore `@layer` blocks and would drop foliplus chrome entirely.
  */
@@ -42,7 +42,8 @@ const TOKEN_MODULES = new Set(["token.css"]);
 /** Canonical layer order statement. Identical on every CSS artifact. */
 const LAYER_ORDER = "@layer foliplus.tokens, foliplus.base, foliplus.components;";
 
-/** Assemble the order preamble plus any non-empty layer blocks. */
+/** Assemble the order preamble plus every non-empty layer block. Empty
+ *  layers are skipped — their order is already fixed by the preamble. */
 const assemble = layers => {
   const parts = [LAYER_ORDER];
   for (const [name, bodies] of layers) {
@@ -58,7 +59,8 @@ const assemble = layers => {
 };
 
 /**
- * Wrap a dependency-ordered common merge.
+ * Wrap a dependency-ordered common merge: `token.css` into the tokens layer,
+ * every other module into base.
  *
  * @param {string[]} orderedFilenames topological order from `orderCss`
  * @param {(file: string) => string} bodyOf imports-stripped module body
@@ -75,26 +77,20 @@ const wrapCommonLayers = (orderedFilenames, bodyOf) => {
   return assemble([
     ["foliplus.tokens", tokens],
     ["foliplus.base", base],
-    ["foliplus.components", []],
   ]);
 };
 
 /**
  * Wrap component CSS (a flat stylesheet or an expanded split entry) into the
- * components layer. Token/base layers are emitted empty here so the order
- * preamble still lists them 鈥?injection order across artifacts cannot invert
- * the cascade.
+ * components layer. Token/base layers stay empty here — the preamble still
+ * fixes their order, so injection order across artifacts cannot invert the
+ * cascade.
  *
  * @param {string} body component stylesheet body (nesting may remain; postcss
  *   runs after this wrap at esbuild onLoad)
  * @returns {string} layered stylesheet
  */
-const wrapComponentLayers = body =>
-  assemble([
-    ["foliplus.tokens", []],
-    ["foliplus.base", []],
-    ["foliplus.components", [body]],
-  ]);
+const wrapComponentLayers = body => assemble([["foliplus.components", [body]]]);
 
 /**
  * Pull rules whose selectors target `.leaflet-*` out of `@layer` blocks and
@@ -102,9 +98,9 @@ const wrapComponentLayers = body =>
  *
  * Leaflet's library CSS is unlayered. Before this change, foliplus rules
  * that style/override Leaflet chrome (`.leaflet-container.foliplus-no-base-map`,
- * `.leaflet-control.foliplus-scale-wrap`, `.leaflet-control-attribution`, 鈥?
+ * `.leaflet-control.foliplus-scale-wrap`, `.leaflet-control-attribution`, …)
  * won by specificity + source order. After wrapping every rule in a layer,
- * those overrides would lose to Leaflet at any specificity 鈥?browser tests
+ * those overrides would lose to Leaflet at any specificity — browser tests
  * that pin hatch paint and scale/attribution height equality caught it.
  *
  * Hoisting restores the pre-layer cascade for Leaflet-owned selectors while
@@ -132,7 +128,6 @@ const hoistLeafletOverrides = css => {
 export {
   LAYER_ORDER,
   TOKEN_MODULES,
-  assemble,
   hoistLeafletOverrides,
   wrapCommonLayers,
   wrapComponentLayers,
