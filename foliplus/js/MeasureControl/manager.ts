@@ -1,5 +1,6 @@
 // MeasureControl core manager — persistence, mode switching, layer management.
 import { COMPONENTS, generateId } from "#core/component.js";
+import type { ControlEnv } from "#core/defineControl.js";
 import {
   EVENTS,
   type EventBus,
@@ -10,7 +11,7 @@ import { HINT_DURATION } from "#core/hint.js";
 import { isLayerInPanes } from "#core/layer/index.js";
 import { type ModeManager, ensureModes, guardBlocked } from "#core/mode.js";
 import { hideDelIcons } from "#common/delicon.js";
-import { createScopedTranslator } from "#common/locale.js";
+import type { Logger } from "#common/log.js";
 import { bindMapEvents, unbindMapEvents } from "#common/mapEvent.js";
 import { adjustPanelZIndex } from "#common/panel.js";
 import { throttleRaf } from "#common/throttle.js";
@@ -28,9 +29,8 @@ import { MeasureStore } from "./store.js";
 import type { CollidableLabel } from "./type.js";
 import * as Util from "./util.js";
 
-// CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
+// foliplus namespace is read from window (set by the shared runtime).
 const foliplus = window.foliplus;
-const T = createScopedTranslator(CONF);
 
 /** In edit mode, suspend every layer except the measurement panes so nodes stay
  *  draggable and shapes clickable to reveal their ✕ handles. */
@@ -75,8 +75,14 @@ class MeasureManager {
   /** Component config — carried on the manager instead of a module-level
    *  free variable, so the UI functions are unit-testable with their own CONF. */
   conf: ComponentConfig;
-  /** Translator bound to `conf`, created once by the manager. */
+  /** Scoped translator (prepending conf.name) bound to `conf`, created once
+   *  by the manager. */
   T: (key: string) => string;
+  /** Plain translator (no prefix) — label keys that are compared by identity
+   *  must get the bare key back. */
+  _: (key: string) => string;
+  /** Logger bound to `conf.name`, created once by the manager. */
+  log: Logger;
   private interactionCleanup?: () => void;
   private measureEscapeCleanup?: () => void;
   private exportClickCleanup?: () => void;
@@ -134,19 +140,23 @@ class MeasureManager {
    * @param opts.id - Optional namespace for the layer ID. When provided,
    *   the layer is registered as "{ID}_{id}" to support multi-instance maps.
    */
-  constructor(mapInstance: L.Map, opts?: { id?: string }) {
+  constructor(mapInstance: L.Map, env: ControlEnv, opts?: { id?: string }) {
     this.map = mapInstance;
-    this.conf = CONF;
-    this.T = T;
+    this.conf = env.conf;
+    this.T = env.T;
+    this._ = env._;
+    this.log = env.log;
     this.layerId = generateId(CONST.ID, opts?.id);
-    this.store = new MeasureStore(this.map, this.layerId);
-    // Class fields already hold the Python CONF defaults at this point —
-    // snapshot them before any runtime toggle so Reset cannot drift.
+    this.labelCollide = env.conf.label_collide !== false;
+    this.labelShow = env.conf.label_show !== false;
+    this.store = new MeasureStore(this.map, env, this.layerId);
+    // The conf defaults were read above — snapshot them before any runtime
+    // toggle so Reset cannot drift.
     const defaultLabelShow = this.labelShow;
     const defaultLabelCollide = this.labelCollide;
     this.layers = this.map.foliplus!.LayerAPI!.createLayers({
       id: this.layerId,
-      name: T("tool_toggle"),
+      name: this.T("tool_toggle"),
       panes: [
         { name: CONST.PANES.GRAPH },
         { name: CONST.PANES.NODE },
@@ -176,10 +186,10 @@ class MeasureManager {
           counts[m.type] = (counts[m.type] ?? 0) + 1;
         }
         return {
-          [T("tool_marker")]: counts[CONST.MEASURE_MODE.MARKER] ?? 0,
-          [T("tool_distance")]: counts[CONST.MEASURE_MODE.DISTANCE] ?? 0,
-          [T("tool_polygon")]: counts[CONST.MEASURE_MODE.POLYGON] ?? 0,
-          [T("tool_circle")]: counts[CONST.MEASURE_MODE.CIRCLE] ?? 0,
+          [this.T("tool_marker")]: counts[CONST.MEASURE_MODE.MARKER] ?? 0,
+          [this.T("tool_distance")]: counts[CONST.MEASURE_MODE.DISTANCE] ?? 0,
+          [this.T("tool_polygon")]: counts[CONST.MEASURE_MODE.POLYGON] ?? 0,
+          [this.T("tool_circle")]: counts[CONST.MEASURE_MODE.CIRCLE] ?? 0,
         };
       },
     });
@@ -192,7 +202,11 @@ class MeasureManager {
     this.offModeChange = this.events.on(EVENTS.MODE_CHANGE, ({ component, mode }) => {
       if (component === COMPONENTS.ExportControl && mode !== null && this.currentMode) {
         this.clearActiveMode();
-        map.foliplus?.showHint?.(CONF.name, T("export_paused"), HINT_DURATION.SHORT);
+        this.map.foliplus?.showHint?.(
+          this.conf.name,
+          this.T("export_paused"),
+          HINT_DURATION.SHORT,
+        );
       }
     });
     this.toolBtns = [];
@@ -200,7 +214,7 @@ class MeasureManager {
     this.isEditMode = false;
 
     this.coordReadoutEl =
-      CONF.show_live_coords !== false ? this.buildCoordReadout() : null;
+      this.conf.show_live_coords !== false ? this.buildCoordReadout() : null;
 
     this.bindGlobalEvents();
     this.restoreMeasurements();
@@ -309,8 +323,8 @@ class MeasureManager {
       // entering a dead state with no clickable measurements.
       if (this.store.count() === 0) {
         this.map.foliplus!.showHint(
-          CONF.name,
-          T("hint_edit_empty"),
+          this.conf.name,
+          this.T("hint_edit_empty"),
           HINT_DURATION.SHORT,
         );
         return;
@@ -330,11 +344,11 @@ class MeasureManager {
 
     // Symmetric lock with the other interactive components (focus / export).
     if (
-      guardBlocked(this.map, CONF.name, T("blocked"), [
-        { blockedBy: COMPONENTS.ExportControl, text: T("blocked_export") },
-        { blockedBy: COMPONENTS.LayerControl, text: T("blocked_layer") },
-        { blockedBy: COMPONENTS.SearchControl, text: T("blocked_search") },
-        { blockedBy: COMPONENTS.LocateControl, text: T("blocked_locate") },
+      guardBlocked(this.map, this.conf.name, this.T("blocked"), [
+        { blockedBy: COMPONENTS.ExportControl, text: this.T("blocked_export") },
+        { blockedBy: COMPONENTS.LayerControl, text: this.T("blocked_layer") },
+        { blockedBy: COMPONENTS.SearchControl, text: this.T("blocked_search") },
+        { blockedBy: COMPONENTS.LocateControl, text: this.T("blocked_locate") },
       ])
     ) {
       return;
@@ -347,7 +361,7 @@ class MeasureManager {
     // Registering a mode in the ModeManager also suspends map-layer interaction
     // while measuring (see core/mode syncInteractionLock), so clicks fall
     // through to the map for node placement instead of firing layer handlers.
-    this.modes.setMode(CONF.name, mode);
+    this.modes.setMode(this.conf.name, mode);
 
     this.toolBtns.forEach(btn =>
       btn.classList.toggle(CONST.CLASSES.ACTIVE, btn.dataset.mode === mode),
@@ -365,14 +379,14 @@ class MeasureManager {
     this.measureEscapeCleanup = registerActiveEscape(this);
 
     const hintKey = {
-      [CONST.MEASURE_MODE.MARKER]: T("hint_marker"),
-      [CONST.MEASURE_MODE.DISTANCE]: T("hint_dist_start"),
-      [CONST.MEASURE_MODE.POLYGON]: T("hint_polygon"),
-      [CONST.MEASURE_MODE.CIRCLE]: T("hint_circle_start"),
+      [CONST.MEASURE_MODE.MARKER]: this.T("hint_marker"),
+      [CONST.MEASURE_MODE.DISTANCE]: this.T("hint_dist_start"),
+      [CONST.MEASURE_MODE.POLYGON]: this.T("hint_polygon"),
+      [CONST.MEASURE_MODE.CIRCLE]: this.T("hint_circle_start"),
     }[mode];
 
     if (hintKey) {
-      this.map.foliplus!.showHint(CONF.name, hintKey, HINT_DURATION.PERSIST);
+      this.map.foliplus!.showHint(this.conf.name, hintKey, HINT_DURATION.PERSIST);
     }
 
     const ModeClass = MODE_MAP[mode as keyof typeof MODE_MAP];
@@ -455,7 +469,7 @@ class MeasureManager {
         CONST.READOUT.CLASS_FLIP,
         y + h + gap > size.y && y >= h,
       );
-      container.textContent = Util.coordText(this.map, event.latlng);
+      container.textContent = Util.coordText(this.map, event.latlng, this.log);
       // Reveal only once it has a real position. Showing it before the first
       // mousemove would leave it at the container's default spot (by the hint)
       // with no inline left/top.
@@ -514,10 +528,10 @@ class MeasureManager {
 
   /** True unless collision detection was switched off (Python default, overridable
    *  from the layer style drawer at runtime). */
-  private labelCollide = CONF.label_collide !== false;
+  private labelCollide = true;
   /** True unless the labels were switched off (Python default, overridable
    *  from the layer style drawer at runtime). */
-  private labelShow = CONF.label_show !== false;
+  private labelShow = true;
 
   get labelsCollide(): boolean {
     return this.labelCollide;
@@ -618,7 +632,7 @@ class MeasureManager {
     // layers themselves — register it with a skip predicate so data layers are
     // suspended while the measure panes stay interactive.
     this.modes.setMode(
-      CONF.name,
+      this.conf.name,
       on ? CONST.MEASURE_MODE.EDIT : null,
       on ? skipMeasureLayers : undefined,
     );
@@ -632,13 +646,17 @@ class MeasureManager {
     // nodes directly draggable, leaving disables them.
     this.editHandles.forEach(h => h.toggleDrag(on));
     if (on) {
-      this.map.foliplus!.showHint(CONF.name, T("hint_edit"), HINT_DURATION.PERSIST);
+      this.map.foliplus!.showHint(
+        this.conf.name,
+        this.T("hint_edit"),
+        HINT_DURATION.PERSIST,
+      );
       // The readout is live in edit mode too: the operator drags nodes to
       // reshape a measurement and wants to see the coordinate under the cursor
       // while doing it.
       this.showCoordReadout();
     } else {
-      this.map.foliplus!.hideHint(CONF.name);
+      this.map.foliplus!.hideHint(this.conf.name);
       this.hideCoordReadout();
       // Close any open overlays so ✕ handles don't linger after leaving edit
       // mode. Keep the handles registered so a later edit session can close
@@ -652,9 +670,9 @@ class MeasureManager {
     if (this.isEditMode) this.setEditMode(false);
     this.currentMode = null;
     // Clearing the mode restores map-layer interaction (core/mode lock).
-    this.modes.setMode(CONF.name, null);
+    this.modes.setMode(this.conf.name, null);
     this.toolBtns.forEach(btn => btn.classList.remove(CONST.CLASSES.ACTIVE));
-    this.map.foliplus!.hideHint(CONF.name);
+    this.map.foliplus!.hideHint(this.conf.name);
     this.map.getContainer().classList.remove(CONST.CLASSES.MEASURING);
     this.cleanMapEvents();
     // Unregister the high-priority Escape so container-bound shortcuts
@@ -766,7 +784,7 @@ class MeasureManager {
       this.modeInstance.cleanup();
       this.modeInstance = null;
     }
-    this.map.foliplus!.hideHint(CONF.name);
+    this.map.foliplus!.hideHint(this.conf.name);
   }
 }
 

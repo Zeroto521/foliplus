@@ -1,8 +1,8 @@
-// SearchControl event binding — standalone functions called with `this` as ctrl.
+// SearchControl event binding �?standalone functions called with `this` as ctrl.
 import { ensureInteraction } from "#core/interaction.js";
 import { ListCursor } from "#core/listCursor.js";
 import { guardBlocked } from "#core/mode.js";
-import { createScopedTranslator } from "#common/locale.js";
+import type { Logger } from "#common/log.js";
 import { adjustPanelZIndex, bindFoldToggle } from "#common/panel.js";
 import { CLASSES, MODE, PARAM } from "./const.js";
 import {
@@ -12,9 +12,11 @@ import {
   searchAddress,
   searchCoord,
 } from "./logic/index.js";
+import type { ControlCtx } from "./logic/util.js";
 import type { SearchControl } from "./type.js";
 
-const T = createScopedTranslator(CONF);
+/** Full ctrl type for interaction �?SearchControl instance + control ctx. */
+type InteractionCtrl = SearchControl & ControlCtx;
 
 /**
  * The value a keyboard-navigated result item puts into the input. History
@@ -31,7 +33,7 @@ const resultItemValue = (item: Element): string =>
  * selectedIdx stays the integer API for existing callers/tests; onMove keeps
  * it in lockstep and echoes the landed item into the input.
  */
-const ensureListCursor = (ctrl: SearchControl): ListCursor | null => {
+const ensureListCursor = (ctrl: InteractionCtrl): ListCursor | null => {
   if (!ctrl.panelWrap) return null;
   if (!ctrl.listCursor) {
     ctrl.listCursor = new ListCursor({
@@ -58,7 +60,7 @@ const ensureListCursor = (ctrl: SearchControl): ListCursor | null => {
  *   ctrl.currentItems.length === DOM RESULT_ITEM count
  *   ctrl.selectedIdx in [-1, currentItems.length - 1]
  */
-const moveSelection = (ctrl: SearchControl, dir: number) => {
+const moveSelection = (ctrl: InteractionCtrl, dir: number) => {
   if (!ctrl.panelWrap) return;
   if (ctrl.panelWrap.querySelectorAll(`.${CLASSES.RESULT_ITEM}`).length === 0) {
     return;
@@ -67,7 +69,7 @@ const moveSelection = (ctrl: SearchControl, dir: number) => {
   if (ctrl.selectedIdx === -1 && dir < 0) return;
   const cursor = ensureListCursor(ctrl);
   if (!cursor) return;
-  // Tests / Enter may have written selectedIdx directly — adopt before move.
+  // Tests / Enter may have written selectedIdx directly �?adopt before move.
   if (cursor.index !== ctrl.selectedIdx) cursor.set(ctrl.selectedIdx);
   // ArrowUp from the first item clears the selection (combobox leave-list).
   if (cursor.index === 0 && dir < 0) {
@@ -82,17 +84,17 @@ const moveSelection = (ctrl: SearchControl, dir: number) => {
  * Bind all DOM events for the SearchControl.
  *
  * Returns a cleanup closure for non-`on`-tracked resources (MutationObserver
- * + `interaction.register`). DOM listeners — including input / focus /
- * scroll / resize — go through `ctrl.on(...)` so the shared lifecycle
+ * + `interaction.register`). DOM listeners �?including input / focus /
+ * scroll / resize �?go through `ctrl.on(...)` so the shared lifecycle
  * signal owns their teardown.
  */
-const bindEvents = (ctrl: SearchControl): (() => void) | void => {
+const bindEvents = (ctrl: InteractionCtrl): (() => void) | void => {
   bindFoldToggle({
     container: ctrl.ctrl,
     toggleBtn: ctrl.toggleBtn,
     onExpand: () => ctrl.inp.focus(),
     onCollapse: () => {
-      map.foliplus!.hideHint(CONF.name);
+      map.foliplus!.hideHint(ctrl.conf.name);
       removePanel(ctrl);
     },
   });
@@ -112,10 +114,12 @@ const bindEvents = (ctrl: SearchControl): (() => void) | void => {
 
   ctrl.on(ctrl.inp, "input", () => {
     ctrl.inp.placeholder =
-      ctrl.mode === MODE.COORD ? T("coord_placeholder") : T("addr_placeholder");
+      ctrl.mode === MODE.COORD
+        ? ctrl.T("coord_placeholder")
+        : ctrl.T("addr_placeholder");
 
     if (ctrl.inp.value.trim().length === 0) {
-      // Input cleared — show history immediately
+      // Input cleared �?show history immediately
       ctrl.debouncedFetch.cancel();
       fetchSuggestions(ctrl, "");
     } else if (ctrl.mode === MODE.ADDR) {
@@ -127,7 +131,7 @@ const bindEvents = (ctrl: SearchControl): (() => void) | void => {
   });
 
   const interaction = ensureInteraction(map);
-  interaction.register(CONF.name, [
+  interaction.register(ctrl.conf.name, [
     {
       key: "Escape",
       element: ctrl.inp,
@@ -139,7 +143,7 @@ const bindEvents = (ctrl: SearchControl): (() => void) | void => {
         ctrl.ctrl.classList.remove(CLASSES.EXPANDED);
         ctrl.ctrl.classList.add(CLASSES.COLLAPSED);
         adjustPanelZIndex({ container: ctrl.ctrl, expanded: false });
-        map.foliplus!.hideHint(CONF.name);
+        map.foliplus!.hideHint(ctrl.conf.name);
       },
     },
     {
@@ -166,14 +170,14 @@ const bindEvents = (ctrl: SearchControl): (() => void) | void => {
           return;
         }
         if (selected) {
-          // Guarded in renderAddressResult — refuses to fly while another
+          // Guarded in renderAddressResult �?refuses to fly while another
           // control holds a mode (showing the "blocked" hint). Only close
           // the panel on success so a mode-lock refusal keeps it open with
           // the hint visible, matching the mouse-click path.
           if (selected.onClick()) removePanel(ctrl);
           return;
         }
-        if (guardBlocked(map, CONF.name, T("blocked"))) return;
+        if (guardBlocked(map, ctrl.conf.name, ctrl.T("blocked"))) return;
         removePanel(ctrl);
         ctrl.mode === MODE.COORD ? searchCoord(ctrl, raw) : searchAddress(ctrl, raw);
       },
@@ -182,8 +186,8 @@ const bindEvents = (ctrl: SearchControl): (() => void) | void => {
 
   ctrl.on(ctrl.inp, "focus", () => {
     const val = ctrl.inp.value.trim();
-    // Empty input — show search history for current mode;
-    // non-empty — fetch suggestions (addr mode only)
+    // Empty input �?show search history for current mode;
+    // non-empty �?fetch suggestions (addr mode only)
     if (val.length === 0) fetchSuggestions(ctrl, "");
     else if (ctrl.mode === MODE.ADDR) fetchSuggestions(ctrl, val);
   });
@@ -206,14 +210,14 @@ const bindEvents = (ctrl: SearchControl): (() => void) | void => {
   return () => {
     collapseObserver.disconnect();
     const interaction = ensureInteraction(map);
-    interaction.unregister(CONF.name);
+    interaction.unregister(ctrl.conf.name);
   };
 };
 
 /**
  * Parse URL parameters to initialize search state.
  */
-const initFromUrl = (ctrl: SearchControl): void => {
+const initFromUrl = (ctrl: InteractionCtrl): void => {
   try {
     const params = new URLSearchParams(window.location.search);
     const q = params.get(PARAM.Q);

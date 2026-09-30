@@ -1,3 +1,4 @@
+import type { ControlEnv } from "#core/defineControl.js";
 import { stopEvent } from "#common/dom.js";
 import {
   type MapEventHandlers,
@@ -9,8 +10,6 @@ import type { MeasureManager } from "../manager.js";
 import { attachDistanceUI } from "../ui/index.js";
 import * as Util from "../util.js";
 import { PreviewMode } from "./base.js";
-
-// CONF is a free variable from the IIFE template wrapper.
 
 // ==================== Distance Mode ====================
 /** Distance measurement mode. Click to place nodes, double-click/context to finish. */
@@ -47,7 +46,7 @@ class DistanceMode extends PreviewMode {
         const label = manager.layers.addLayer(
           L.marker([mid.lat, mid.lng], {
             icon: Util.makeMidLabelDivIcon(
-              Util.formatSegmentLabel(prev, cur, accTotal),
+              Util.formatSegmentLabel(manager, prev, cur, accTotal),
             ),
           }),
           CONST.PANES.LABEL,
@@ -145,7 +144,9 @@ class DistanceMode extends PreviewMode {
         const mid = Util.midpoint(prevPt, lastPt);
         segLabels[segLabels.length - 1].setLatLng([mid.lat, mid.lng]);
         segLabels[segLabels.length - 1].setIcon(
-          Util.makeMidLabelDivIcon(Util.formatSegmentLabel(prevPt, lastPt, total)),
+          Util.makeMidLabelDivIcon(
+            Util.formatSegmentLabel(this.m, prevPt, lastPt, total),
+          ),
         );
       }
 
@@ -193,7 +194,7 @@ class DistanceMode extends PreviewMode {
       const showDist = total + seg;
       const lastPt = points[points.length - 1];
       const mid = Util.midpoint(lastPt, event.latlng);
-      const labelText = Util.formatSegmentLabel(lastPt, event.latlng, showDist);
+      const labelText = Util.formatSegmentLabel(this.m, lastPt, event.latlng, showDist);
       previewDistLabel = this.updateOrCreateLabel(
         previewDistLabel,
         mid,
@@ -250,6 +251,7 @@ class DistanceMode extends PreviewMode {
           prevLabel.setIcon(
             Util.makeMidLabelDivIcon(
               Util.formatSegmentLabel(
+                this.m,
                 points[points.length - 3],
                 points[points.length - 2],
                 prevSeg,
@@ -262,6 +264,7 @@ class DistanceMode extends PreviewMode {
           L.marker([mid.lat, mid.lng], {
             icon: Util.makeMidLabelDivIcon(
               Util.formatSegmentLabel(
+                this.m,
                 points[points.length - 2],
                 points[points.length - 1],
                 total,
@@ -294,13 +297,13 @@ class DistanceMode extends PreviewMode {
   }
 
   /** GeoJSON feature for a distance polyline — properties carry id, totalDistance and segments. */
-  static toGeoFeature(data: MeasureData): GeoJSON.Feature {
+  static toGeoFeature(env: ControlEnv, data: MeasureData): GeoJSON.Feature {
     return {
       type: CONST.GEOJSON.FEATURE,
       properties: {
         id: data.id,
         type: this.TYPE,
-        name: this.getNameLabel(),
+        name: this.getNameLabel(env),
         totalDistance: data.totalDistance || 0,
         segments: data.segments || [],
       },

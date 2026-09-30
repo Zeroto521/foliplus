@@ -22,6 +22,16 @@ function makeCtrl(): any {
     originalAdd(event, fn, options);
   });
   return {
+    conf: { name: "SearchControl", locale_code: "en", zoom: 16 },
+    T: (k: string) => `SearchControl.${k}`,
+    _: (k: string) => k,
+    log: {
+      msg: (m: string) => m,
+      warn: (...args: unknown[]) =>
+        console.warn(`[SearchControl] ${args[0]}`, ...args.slice(1)),
+      error: vi.fn(),
+    },
+    _map: window.map,
     ctrl: ctrlDiv,
     toggleBtn,
     clearBtn,
@@ -40,6 +50,7 @@ function makeCtrl(): any {
     cachedAddress: {},
     cachedSuggestions: new Cache<string, object>(50),
     searchHistory: [],
+    setMode: vi.fn(),
     get signal() {
       return ac.signal;
     },

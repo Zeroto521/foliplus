@@ -47,10 +47,25 @@ const createDeferredFetch = () => {
 
 const tick = () => new Promise(r => setTimeout(r, 0));
 
+// Control context properties that logic functions read via ctrl.conf/ctrl.T/etc.
+const ctx = () => ({
+  conf: { name: "SearchControl", locale_code: "en", zoom: 16 },
+  T: (k: string) => `SearchControl.${k}`,
+  _: (k: string) => k,
+  log: {
+    msg: (m: string) => m,
+    warn: (...args: unknown[]) =>
+      console.warn(`[SearchControl] ${args[0]}`, ...args.slice(1)),
+    error: vi.fn(),
+  },
+  _map: window.map,
+});
+
 // The shape fetchSuggestions needs. Fields the tests do not exercise stay at
 // the same defaults as the other fixtures in this file.
 const makeFixture = (extra: Record<string, unknown> = {}) =>
   ({
+    ...ctx(),
     mode: MODE.ADDR,
     cachedSuggestions: new Cache<string, object>(50),
     panelWrap: null,
@@ -78,6 +93,7 @@ describe("removePanel", () => {
     const el = document.createElement("div");
     document.body.appendChild(el);
     const ctrl: any = {
+      ...ctx(),
       panelWrap: el,
       throttleTimer: setTimeout(() => {}, 1000),
       selectedIdx: 2,
@@ -93,6 +109,7 @@ describe("removePanel", () => {
 
   it("handles null panelWrap without error", () => {
     const ctrl: any = {
+      ...ctx(),
       panelWrap: null,
       throttleTimer: null,
       selectedIdx: -1,
@@ -105,11 +122,7 @@ describe("renderResults", () => {
   it("removes panel when results are empty", () => {
     const el = document.createElement("div");
     document.body.appendChild(el);
-    const ctrl: any = {
-      panelWrap: el,
-      throttleTimer: null,
-      selectedIdx: 0,
-    };
+    const ctrl: any = { ...ctx(), panelWrap: el, throttleTimer: null, selectedIdx: 0 };
     renderResults(ctrl, []);
     expect(ctrl.panelWrap).toBeNull();
     expect(ctrl.selectedIdx).toBe(-1);
@@ -117,6 +130,7 @@ describe("renderResults", () => {
 
   it("writes data-query only for items that carry a query", () => {
     const ctrl: any = {
+      ...ctx(),
       panelWrap: null,
       throttleTimer: null,
       selectedIdx: -1,
@@ -154,6 +168,7 @@ describe("renderResults", () => {
     // A history entry saved from "121.47" stores 121.47, so the panel used to show
     // "121.47, 31.23" where the measure chip shows 121.470000, 31.230000.
     const ctrl: any = {
+      ...ctx(),
       panelWrap: null,
       throttleTimer: null,
       selectedIdx: -1,
@@ -181,6 +196,7 @@ describe("renderResults", () => {
     // Enter handler indexes currentItems by selectedIdx; any drift here would make
     // it adopt a different entry than the one the arrow keys highlighted.
     const ctrl: any = {
+      ...ctx(),
       panelWrap: null,
       throttleTimer: null,
       selectedIdx: -1,
@@ -222,7 +238,7 @@ describe("renderResults", () => {
 
 describe("initDebouncedFetch", () => {
   it("creates a debounced function on ctrl.debouncedFetch", () => {
-    const ctrl: any = { inp: { value: "test" }, debouncedFetch: null };
+    const ctrl: any = { ...ctx(), inp: { value: "test" }, debouncedFetch: null };
     initDebouncedFetch(ctrl);
     expect(ctrl.debouncedFetch).toBeDefined();
     expect(typeof ctrl.debouncedFetch).toBe("function");
@@ -239,6 +255,7 @@ describe("initDebouncedFetch", () => {
         }),
       ) as unknown as typeof fetch;
       const ctrl: any = {
+        ...ctx(),
         mode: "addr",
         inp: { value: "search" },
         debouncedFetch: null,
@@ -267,7 +284,7 @@ describe("initDebouncedFetch", () => {
 
 describe("buildSearchUrl", () => {
   it("includes query, limit, and center coordinates", () => {
-    const ctrl: any = {};
+    const ctrl: any = { ...ctx() };
     const url = buildSearchUrl(ctrl, "test query", 5);
     expect(url).toContain("q=test+query");
     expect(url).toContain("limit=5");
@@ -277,31 +294,21 @@ describe("buildSearchUrl", () => {
   });
 
   it("sends the active locale as accept-language so results match the UI language", () => {
-    const original = window.CONF.locale_code;
-    try {
-      window.CONF = { ...window.CONF, locale_code: "zh" };
-      const url = buildSearchUrl({} as any, "test", 5);
-      expect(url).toContain("accept-language=zh");
-    } finally {
-      window.CONF = { ...window.CONF, locale_code: original };
-    }
+    const ctrl: any = { ...ctx(), conf: { ...ctx().conf, locale_code: "zh" } };
+    const url = buildSearchUrl(ctrl, "test", 5);
+    expect(url).toContain("accept-language=zh");
   });
 
   it("falls back to en when no locale is configured", () => {
-    const original = window.CONF.locale_code;
-    try {
-      window.CONF = { ...window.CONF, locale_code: undefined };
-      const url = buildSearchUrl({} as any, "test", 5);
-      expect(url).toContain("accept-language=en");
-    } finally {
-      window.CONF = { ...window.CONF, locale_code: original };
-    }
+    const ctrl: any = { ...ctx(), conf: { ...ctx().conf, locale_code: undefined } };
+    const url = buildSearchUrl(ctrl, "test", 5);
+    expect(url).toContain("accept-language=en");
   });
 });
 
 describe("searchCoord", () => {
   it("shows hint and clears input for invalid coordinates", () => {
-    const ctrl: any = { inp: { value: "" }, marker: null, searchHistory: [] };
+    const ctrl: any = { ...ctx(), inp: { value: "" }, marker: null, searchHistory: [] };
     searchCoord(ctrl, "abc");
     expect(window.map.foliplus.showHint).toHaveBeenCalledWith(
       "SearchControl",
@@ -312,7 +319,7 @@ describe("searchCoord", () => {
   });
 
   it("shows hint for out-of-range values", () => {
-    const ctrl: any = { inp: { value: "" }, marker: null, searchHistory: [] };
+    const ctrl: any = { ...ctx(), inp: { value: "" }, marker: null, searchHistory: [] };
     searchCoord(ctrl, "200,100");
     expect(window.map.foliplus.showHint).toHaveBeenCalled();
     expect(ctrl.inp.value).toBe("");
@@ -320,6 +327,7 @@ describe("searchCoord", () => {
 
   it("flies to valid coordinates", async () => {
     const ctrl: any = {
+      ...ctx(),
       inp: { value: "121.47,31.23" },
       marker: null,
       searchHistory: [],
@@ -350,6 +358,7 @@ describe("searchAddress", () => {
     };
     (window.foliplus.geocode as any).mockResolvedValue(mockResult);
     const ctrl: any = {
+      ...ctx(),
       cachedAddress: {},
       addrAbortController: null,
       inp: { value: "X" },
@@ -368,47 +377,39 @@ describe("searchAddress", () => {
   });
 
   it("forwards a custom provider spec to foliplus.geocode", async () => {
-    const original = window.CONF.provider;
-    const originalCfg = window.CONF.provider_config;
-    try {
-      window.CONF = {
-        ...window.CONF,
+    (window.foliplus.geocode as any).mockResolvedValue({
+      lat: 1,
+      lng: 2,
+      display_name: "A",
+    });
+    const ctrl: any = {
+      ...ctx(),
+      conf: {
+        ...ctx().conf,
         provider: { id: "myapi", baseUrl: "https://x.example.com" },
         provider_config: null,
-      };
-      (window.foliplus.geocode as any).mockResolvedValue({
-        lat: 1,
-        lng: 2,
-        display_name: "A",
-      });
-      const ctrl: any = {
-        cachedAddress: {},
-        addrAbortController: null,
-        inp: { value: "X" },
-        marker: null,
-      };
-      searchAddress(ctrl, "X");
-      await new Promise(r => setTimeout(r, 0));
-      await new Promise(r => setTimeout(r, 0));
-      expect(window.foliplus.geocode).toHaveBeenCalledWith(
-        map,
-        "X",
-        "en",
-        { id: "myapi", baseUrl: "https://x.example.com" },
-        null,
-      );
-    } finally {
-      window.CONF = {
-        ...window.CONF,
-        provider: original,
-        provider_config: originalCfg,
-      };
-    }
+      },
+      cachedAddress: {},
+      addrAbortController: null,
+      inp: { value: "X" },
+      marker: null,
+    };
+    searchAddress(ctrl, "X");
+    await new Promise(r => setTimeout(r, 0));
+    await new Promise(r => setTimeout(r, 0));
+    expect(window.foliplus.geocode).toHaveBeenCalledWith(
+      map,
+      "X",
+      "en",
+      { id: "myapi", baseUrl: "https://x.example.com" },
+      null,
+    );
   });
 
   it("shows hint and clears input when geocode returns null", async () => {
     (window.foliplus.geocode as any).mockResolvedValue(null);
     const ctrl: any = {
+      ...ctx(),
       cachedAddress: {},
       addrAbortController: null,
       inp: { value: "abc" },
@@ -432,6 +433,7 @@ describe("searchAddress", () => {
     };
     (window.foliplus.geocode as any).mockResolvedValue(mockResult);
     const ctrl: any = {
+      ...ctx(),
       cachedAddress: {},
       addrAbortController: null,
       inp: { value: "X" },
@@ -449,6 +451,7 @@ describe("searchAddress", () => {
   it("loading hint is plain text, not an inline SVG string", async () => {
     (window.foliplus.geocode as any).mockResolvedValue(null);
     const ctrl: any = {
+      ...ctx(),
       cachedAddress: {},
       addrAbortController: null,
       inp: { value: "nowhere" },
@@ -473,6 +476,7 @@ describe("searchAddress", () => {
 describe("positionPanel", () => {
   it("places wrap below the control", () => {
     const ctrl: any = {
+      ...ctx(),
       panelWrap: { style: {} },
       ctrl: {
         getBoundingClientRect: () => ({
@@ -497,6 +501,7 @@ describe("positionPanel", () => {
         configurable: true,
       });
       const ctrl: any = {
+        ...ctx(),
         panelWrap: { style: {} },
         ctrl: {
           getBoundingClientRect: () => ({
@@ -523,6 +528,7 @@ describe("positionPanel", () => {
 describe("fetchSuggestions", () => {
   it("removes suggestions when not in ADDR mode", () => {
     const ctrl: any = {
+      ...ctx(),
       mode: "coord",
       panelWrap: null,
       throttleTimer: null,
@@ -534,6 +540,7 @@ describe("fetchSuggestions", () => {
 
   it("ignores queries below min chars", () => {
     const ctrl: any = {
+      ...ctx(),
       mode: "addr",
       panelWrap: null,
       throttleTimer: null,
@@ -548,6 +555,7 @@ describe("fetchSuggestions", () => {
     const cache = new Cache<string, object>(50);
     cache.set("abc", [{ display_name: "Cached" }]);
     const ctrl: any = {
+      ...ctx(),
       mode: "addr",
       cachedSuggestions: cache,
       panelWrap: null,
@@ -568,6 +576,7 @@ describe("fetchSuggestions", () => {
     // Simulate MeasureControl being in active mode
     ensureModes(window.map).setMode("MeasureControl", "distance");
     const ctrl: any = {
+      ...ctx(),
       mode: "addr",
       cachedSuggestions: new Cache<string, object>(50),
       panelWrap: null,
@@ -586,30 +595,26 @@ describe("fetchSuggestions", () => {
 
   it("formats suggestion display names with the active locale", () => {
     globalThis.fetch = vi.fn();
-    const original = window.CONF.locale_code;
-    try {
-      window.CONF = { ...window.CONF, locale_code: "zh" };
-      const ctrl: any = {
-        mode: "addr",
-        cachedSuggestions: (() => {
-          const c = new Cache<string, object>(50);
-          c.set("abc", [{ display_name: "Rue de Rivoli, 75001, Paris, France" }]);
-          return c;
-        })(),
-        panelWrap: null,
-        throttleTimer: null,
-        selectedIdx: -1,
-        ctrl: {
-          getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
-        },
-        inp: { value: "abc" },
-      };
-      fetchSuggestions(ctrl, "abc");
-      // zh: reverse order (large → small), postal code filtered
-      expect(ctrl.panelWrap.textContent).toContain("France,Paris,Rue de Rivoli");
-    } finally {
-      window.CONF = { ...window.CONF, locale_code: original };
-    }
+    const ctrl: any = {
+      ...ctx(),
+      conf: { ...ctx().conf, locale_code: "zh" },
+      mode: "addr",
+      cachedSuggestions: (() => {
+        const c = new Cache<string, object>(50);
+        c.set("abc", [{ display_name: "Rue de Rivoli, 75001, Paris, France" }]);
+        return c;
+      })(),
+      panelWrap: null,
+      throttleTimer: null,
+      selectedIdx: -1,
+      ctrl: {
+        getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
+      },
+      inp: { value: "abc" },
+    };
+    fetchSuggestions(ctrl, "abc");
+    // zh: reverse order (large → small), postal code filtered
+    expect(ctrl.panelWrap.textContent).toContain("France,Paris,Rue de Rivoli");
   });
 
   it("fetches and renders results", async () => {
@@ -620,6 +625,7 @@ describe("fetchSuggestions", () => {
       }),
     ) as unknown as typeof fetch;
     const ctrl: any = {
+      ...ctx(),
       mode: "addr",
       cachedSuggestions: new Cache<string, object>(50),
       panelWrap: null,
@@ -652,14 +658,9 @@ describe("fetchSuggestions", () => {
   });
 
   it("falls back to Nominatim when the configured provider id is unknown", () => {
-    const original = window.CONF.provider;
-    try {
-      window.CONF = { ...window.CONF, provider: "bogus" };
-      const url = buildSearchUrl({} as any, "Paris", 5);
-      expect(url).toContain("nominatim.openstreetmap.org/search");
-    } finally {
-      window.CONF = { ...window.CONF, provider: original };
-    }
+    const ctrl: any = { ...ctx(), conf: { ...ctx().conf, provider: "bogus" } };
+    const url = buildSearchUrl(ctrl, "Paris", 5);
+    expect(url).toContain("nominatim.openstreetmap.org/search");
   });
 
   it("discards a suggestion response when the query changed meanwhile", async () => {
@@ -680,6 +681,7 @@ describe("fetchSuggestions", () => {
     ) as unknown as typeof fetch;
     const cache = new Cache<string, object>(50);
     const ctrl: any = {
+      ...ctx(),
       mode: "addr",
       cachedSuggestions: cache,
       panelWrap: null,
@@ -704,6 +706,7 @@ describe("fetchSuggestions", () => {
     globalThis.fetch = vi.fn();
     markRequest("nominatim", Date.now()); // a geocoder request just landed
     const ctrl: any = {
+      ...ctx(),
       mode: "addr",
       cachedSuggestions: new Cache<string, object>(50),
       panelWrap: null,
@@ -746,6 +749,7 @@ describe("attachSearchDelIcon", () => {
   it("shows the ✕ while the popup is open, hides on close", () => {
     const { marker, span } = makeMarkerWithEl();
     const ctrl: any = {
+      ...ctx(),
       marker,
       delIcon: null,
       inp: { value: "abc", focus: vi.fn() },
@@ -771,6 +775,7 @@ describe("attachSearchDelIcon", () => {
     // opens the popup again, matching MeasureControl / LocateControl.
     const { marker, span } = makeMarkerWithEl();
     const ctrl: any = {
+      ...ctx(),
       marker,
       delIcon: null,
       inp: { value: "abc", focus: vi.fn() },
@@ -786,6 +791,7 @@ describe("attachSearchDelIcon", () => {
   it("clicking the ✕ removes the pin and clears the search input", () => {
     const { marker } = makeMarkerWithEl();
     const ctrl: any = {
+      ...ctx(),
       marker,
       delIcon: null,
       inp: { value: "abc", focus: vi.fn() },
@@ -812,6 +818,7 @@ describe("attachSearchDelIcon", () => {
   it("replaces any previous del icon when called again", () => {
     const { marker } = makeMarkerWithEl();
     const ctrl: any = {
+      ...ctx(),
       marker,
       delIcon: null,
       inp: { value: "abc", focus: vi.fn() },
@@ -826,46 +833,39 @@ describe("attachSearchDelIcon", () => {
 
 describe("searchCoord edge cases", () => {
   it("converts fullwidth comma to halfwidth", () => {
-    const ctrl: any = { inp: { value: "" }, marker: null, searchHistory: [] };
+    const ctrl: any = { ...ctx(), inp: { value: "" }, marker: null, searchHistory: [] };
     searchCoord(ctrl, "121，31");
     expect(map.flyTo).toHaveBeenCalledWith([31, 121], 16);
   });
 
   it("uses CONF.zoom when set", () => {
-    const original = window.CONF.zoom;
-    try {
-      window.CONF = { ...window.CONF, zoom: 14 };
-      const ctrl: any = {
-        inp: { value: "121.47,31.23" },
-        marker: null,
-        searchHistory: [],
-      };
-      searchCoord(ctrl, "121.47,31.23");
-      expect(map.flyTo).toHaveBeenCalledWith([31.23, 121.47], 14);
-    } finally {
-      window.CONF = { ...window.CONF, zoom: original };
-    }
+    const ctrl: any = {
+      ...ctx(),
+      conf: { ...ctx().conf, zoom: 14 },
+      inp: { value: "121.47,31.23" },
+      marker: null,
+      searchHistory: [],
+    };
+    searchCoord(ctrl, "121.47,31.23");
+    expect(map.flyTo).toHaveBeenCalledWith([31.23, 121.47], 14);
   });
 
   it("falls back to ZOOM.MAX when CONF.zoom is unset", () => {
-    const original = window.CONF.zoom;
-    try {
-      window.CONF = { ...window.CONF, zoom: undefined };
-      const ctrl: any = {
-        inp: { value: "121.47,31.23" },
-        marker: null,
-        searchHistory: [],
-      };
-      searchCoord(ctrl, "121.47,31.23");
-      expect(map.flyTo).toHaveBeenCalledWith([31.23, 121.47], ZOOM.MAX);
-    } finally {
-      window.CONF = { ...window.CONF, zoom: original };
-    }
+    const ctrl: any = {
+      ...ctx(),
+      conf: { ...ctx().conf, zoom: undefined },
+      inp: { value: "121.47,31.23" },
+      marker: null,
+      searchHistory: [],
+    };
+    searchCoord(ctrl, "121.47,31.23");
+    expect(map.flyTo).toHaveBeenCalledWith([31.23, 121.47], ZOOM.MAX);
   });
 
   it("is blocked when MeasureControl is active", () => {
     ensureModes(window.map).setMode("MeasureControl", "distance");
     const ctrl: any = {
+      ...ctx(),
       inp: { value: "121.47,31.23" },
       marker: null,
       searchHistory: [],
@@ -893,6 +893,7 @@ describe("searchAddress error paths", () => {
   it("shows addr_error hint on geocode rejection", async () => {
     (window.foliplus.geocode as any).mockRejectedValue(new Error("fail"));
     const ctrl: any = {
+      ...ctx(),
       cachedAddress: {},
       addrAbortController: null,
       inp: { value: "X" },
@@ -916,6 +917,7 @@ describe("searchAddress error paths", () => {
       display_name: "X",
     });
     const ctrl: any = {
+      ...ctx(),
       cachedAddress: {},
       addrAbortController: null,
       inp: { value: "X" },
@@ -945,6 +947,7 @@ describe("fetchSuggestions: throttle and abort", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2024-01-01T00:00:00.000Z"));
     const ctrl: any = {
+      ...ctx(),
       mode: "addr",
       cachedSuggestions: new Cache<string, object>(50),
       panelWrap: null,
@@ -977,6 +980,7 @@ describe("fetchSuggestions: throttle and abort", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2024-01-01T00:00:00.000Z"));
     const ctrl: any = {
+      ...ctx(),
       mode: "addr",
       cachedSuggestions: new Cache<string, object>(50),
       panelWrap: null,
@@ -1004,6 +1008,7 @@ describe("fetchSuggestions: throttle and abort", () => {
 
   it("aborts previous request when new query arrives", () => {
     const ctrl: any = {
+      ...ctx(),
       mode: "addr",
       cachedSuggestions: new Cache<string, object>(50),
       panelWrap: null,
@@ -1030,6 +1035,7 @@ describe("fetchSuggestions: throttle and abort", () => {
 
   it("ignores stale response when query changed", () => {
     const ctrl: any = {
+      ...ctx(),
       mode: "addr",
       cachedSuggestions: new Cache<string, object>(50),
       panelWrap: null,
@@ -1150,6 +1156,7 @@ describe("fetchSuggestions: throttle and abort", () => {
 describe("fetchSuggestions: empty query shows history", () => {
   it("renders history panel when query is empty and history exists", () => {
     const ctrl: any = {
+      ...ctx(),
       mode: "coord",
       panelWrap: null,
       throttleTimer: null,
@@ -1180,6 +1187,7 @@ describe("fetchSuggestions: empty query shows history", () => {
     const el = document.createElement("div");
     document.body.appendChild(el);
     const ctrl: any = {
+      ...ctx(),
       mode: "coord",
       panelWrap: el,
       throttleTimer: null,
@@ -1196,6 +1204,7 @@ describe("fetchSuggestions: empty query shows history", () => {
 
   it("filters history by mode when query is empty", () => {
     const ctrl: any = {
+      ...ctx(),
       mode: "addr",
       panelWrap: null,
       throttleTimer: null,
@@ -1235,6 +1244,7 @@ describe("fetchSuggestions: render behavior", () => {
       }),
     ) as unknown as typeof fetch;
     const ctrl: any = {
+      ...ctx(),
       mode: "addr",
       cachedSuggestions: new Cache<string, object>(50),
       panelWrap: null,
@@ -1261,6 +1271,7 @@ describe("fetchSuggestions: render behavior", () => {
     const el = document.createElement("div");
     document.body.appendChild(el);
     const ctrl: any = {
+      ...ctx(),
       mode: "addr",
       cachedSuggestions: new Cache<string, object>(50),
       panelWrap: el,
@@ -1289,6 +1300,7 @@ describe("fetchSuggestions: render behavior", () => {
       }),
     ) as unknown as typeof fetch;
     const ctrl: any = {
+      ...ctx(),
       mode: "addr",
       cachedSuggestions: new Cache<string, object>(50),
       panelWrap: null,
@@ -1330,6 +1342,7 @@ describe("fetchSuggestions: render behavior", () => {
     ) as unknown as typeof fetch;
     const cacheSuggestionSpy = vi.spyOn(window.foliplus, "cacheSuggestion");
     const ctrl: any = {
+      ...ctx(),
       mode: "addr",
       cachedSuggestions: new Cache<string, object>(50),
       panelWrap: null,
@@ -1372,6 +1385,7 @@ describe("fetchSuggestions: render behavior", () => {
     ) as unknown as typeof fetch;
     vi.spyOn(console, "warn").mockImplementation(() => {});
     const ctrl: any = {
+      ...ctx(),
       mode: "addr",
       cachedSuggestions: new Cache<string, object>(50),
       panelWrap: null,
@@ -1507,6 +1521,7 @@ describe("fetchSuggestions: render behavior", () => {
     const el = document.createElement("div");
     document.body.appendChild(el);
     const ctrl: any = {
+      ...ctx(),
       mode: "addr",
       cachedSuggestions: new Cache<string, object>(50),
       panelWrap: el,
@@ -1539,6 +1554,7 @@ describe("fetchSuggestions: render behavior", () => {
       }),
     ) as unknown as typeof fetch;
     const ctrl: any = {
+      ...ctx(),
       mode: "addr",
       cachedSuggestions: new Cache<string, object>(50),
       panelWrap: null,
@@ -1578,6 +1594,7 @@ describe("mode-lock guard: suggestion click when a mode is held", () => {
     ) as unknown as typeof fetch;
     vi.spyOn(console, "warn").mockImplementation(() => {});
     const ctrl: any = {
+      ...ctx(),
       mode: "addr",
       cachedSuggestions: new Cache<string, object>(50),
       panelWrap: null,
@@ -1621,6 +1638,7 @@ describe("mode-lock guard: suggestion click when a mode is held", () => {
 describe("fetchSuggestions — empty input renders history", () => {
   it("renders search history when input is empty and history exists", () => {
     const ctrl: any = {
+      ...ctx(),
       mode: "addr",
       panelWrap: null,
       throttleTimer: null,
@@ -1651,6 +1669,7 @@ describe("fetchSuggestions — empty input renders history", () => {
 
   it("removes suggestions when input is empty and history is empty", () => {
     const ctrl: any = {
+      ...ctx(),
       mode: "addr",
       panelWrap: null,
       throttleTimer: null,
@@ -1663,6 +1682,7 @@ describe("fetchSuggestions — empty input renders history", () => {
 
   it("removes history panel when switching to coord mode", () => {
     const ctrl: any = {
+      ...ctx(),
       mode: "addr",
       panelWrap: null,
       throttleTimer: null,
@@ -1697,6 +1717,7 @@ describe("fetchSuggestions — history does not interfere with suggestions", () 
     const cache = new Cache<string, object>(50);
     cache.set("abc", [{ display_name: "Result" }]);
     const ctrl: any = {
+      ...ctx(),
       mode: "addr",
       cachedSuggestions: cache,
       panelWrap: null,
