@@ -52,7 +52,6 @@ import {
   setVisible,
 } from "./state.js";
 import { applyBorderToLayer } from "./style/border.js";
-import { dropFillScheduler } from "./style/fill.js";
 import {
   applyStyleLabelState,
   closeStylePanel,
@@ -60,6 +59,7 @@ import {
   openStylePanel,
   replayFillState,
 } from "./style/index.js";
+import { dropStyleDimApplies } from "./style/styleBag.js";
 import {
   applyVisibility,
   getLayerItems,
@@ -466,11 +466,12 @@ class LayerUI {
   invalidateFields(layerId: string) {
     return invalidateFields(this, layerId);
   }
-  /** Unregister teardown for the fill apply scheduler: cancel any pending
-   *  rAF walk and free the Map entry so a churning map cannot accumulate
-   *  boxes keyed by dead ids. Manager drives this from `unregisterLayer`. */
-  dropFillScheduler(layerId: string) {
-    return dropFillScheduler(layerId);
+  /** Unregister teardown for the style-apply schedulers: cancel any pending
+   *  rAF walk and free the Map entries (both faces in one pass) so a
+   *  churning map cannot accumulate boxes keyed by dead ids. Manager drives
+   *  this from `unregisterLayer` — the single drop hook. */
+  dropStyleDimApplies(layerId: string) {
+    return dropStyleDimApplies(layerId);
   }
   /** Spy-sensitive entry point: the CONTROL_ATTACHED re-entry test asserts this
    *  ran, and `vi.spyOn` needs a method on the instance (an imported function

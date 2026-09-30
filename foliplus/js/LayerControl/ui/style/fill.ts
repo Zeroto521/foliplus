@@ -30,7 +30,6 @@ import {
   normalizeHexColor,
   numberInput,
 } from "#common/form.js";
-import { throttleRaf } from "#common/throttle.js";
 import * as CONST from "../../const.js";
 import { showSolidBasemap } from "../color.js";
 import type { LayerUI } from "../index.js";
@@ -39,9 +38,13 @@ import { markOverride, saveState, unmarkOverride } from "../state.js";
 import { pinStyleOnHighlight } from "./pin.js";
 import { registerDimension } from "./registry.js";
 import {
+  FACE,
   type StyleCarrier,
+  cancelStyleDimApply,
   commitStyleDim,
+  flushStyleDimApply,
   restoreStyleDim,
+  scheduleStyleDimApply,
   styleBagOf,
   styleDimPayload,
   walkStyleLeaves,
@@ -189,7 +192,7 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
   if (opacity !== undefined) values.fillOpacity = opacity;
   walkStyleLeaves(layer, node => {
     // Shared write contract: value keys + visibility bit (`fill: true`).
-    commitStyleDim(node, values, "fill");
+    commitStyleDim(node, values, FACE.FILL);
 
     // Folium's highlight_on_hover restores the original style on mouseout;
     // pinStyleOnHighlight reapplies the user's fill after folium's handler
@@ -203,58 +206,17 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
       if (c === undefined && o === undefined) return null;
       // fill:true rides the replay too — folium's resetStyle would otherwise
       // re-apply the author's fill:false on mouseout and hide the fill.
-      return styleDimPayload({ fillColor: c, fillOpacity: o }, "fill");
+      return styleDimPayload({ fillColor: c, fillOpacity: o }, FACE.FILL);
     });
   });
 };
 
-/** Per-layer apply scheduler: a color-picker drag revisits every step, and
- *  each `applyFillToLayer` pass is a sweep over every leaf. Coalesce the
- *  expensive walk to at most once per animation frame; the intent write
- *  (cheap) still lands on every commit, so the frame that runs reads the
- *  latest value. `flush` on change / blur / panel close so the terminal
- *  value is never lost (throttleRaf is trailing).
- *
- *  The box holds the *current* ui: a scheduler is keyed by layer id and can
- *  outlive one UI fixture (tests re-register the same id), so the frame
- *  callback must read the box, not a closed-over ui. */
-const applySchedulers = new Map<
-  string,
-  { ui: LayerUI; raf: ReturnType<typeof throttleRaf> }
->();
-
+/** Shared apply scheduler (styleBag, face=`fill`): one walk per frame.
+ *  The wrapper exists only to bind this face's apply fn — flush / drop /
+ *  has go straight to styleBag at the call site. */
 const scheduleFillApply = (ui: LayerUI, layerId: string): void => {
-  let entry = applySchedulers.get(layerId);
-  if (!entry) {
-    // Two-step init so the raf callback can read `box.ui` (the map entry)
-    // without a double assertion: the box exists before throttleRaf closes
-    // over it.
-    const box = { ui, raf: throttleRaf(() => applyFillToLayer(box.ui, layerId)) };
-    entry = box;
-    applySchedulers.set(layerId, entry);
-  }
-  entry.ui = ui;
-  entry.raf();
+  scheduleStyleDimApply(FACE.FILL, layerId, () => applyFillToLayer(ui, layerId));
 };
-
-/** Force a pending scheduled apply to run now. No-op when nothing is
- *  queued. Callers: commit's change/blur, panel close, reset — every path
- *  that must leave the map matching the stored intent. */
-const flushFillApply = (layerId: string): void => {
-  applySchedulers.get(layerId)?.raf.flush();
-};
-
-/** Unregister teardown: cancel any pending frame and free the scheduler
- *  entry so a churning map cannot accumulate boxes keyed by dead ids. */
-const dropFillScheduler = (layerId: string): void => {
-  const entry = applySchedulers.get(layerId);
-  if (!entry) return;
-  entry.raf.cancel();
-  applySchedulers.delete(layerId);
-};
-
-/** Whether a scheduler entry is still held (tests pin the unregister drop). */
-const hasFillScheduler = (layerId: string): boolean => applySchedulers.has(layerId);
 
 /** Write the color into the map, persist it, and mark the dimension as
  *  user-owned so it survives a reload. Only writes when the value actually
@@ -305,7 +267,7 @@ const resetLayerFill = (ui: LayerUI, layerId: string): void => {
   if (!ui.m.layerRegistry.has(layerId)) return;
   // Drop any trailing drag frame first: a scheduled apply must not paint
   // the user's color over the authored restore below.
-  applySchedulers.get(layerId)?.raf.cancel();
+  cancelStyleDimApply(FACE.FILL, layerId);
   clearIntent(ui, layerId, INTENT.FILL_COLOR);
   clearIntent(ui, layerId, INTENT.FILL_OPACITY);
   unmarkOverride(ui, layerId, INTENT.FILL_COLOR);
@@ -325,7 +287,7 @@ const resetLayerFill = (ui: LayerUI, layerId: string): void => {
   walkStyleLeaves(layer, node => {
     // Shared restore contract: one face slice from the captured style bag,
     // including the author's own `fill` flag (false stays false).
-    restoreStyleDim(node, "fill");
+    restoreStyleDim(node, FACE.FILL);
   });
 };
 
@@ -397,7 +359,7 @@ const bindFillRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
     // overwrite: bindLiveColor only owns oninput today, but a future binder
     // that owns onchange must not be dropped (and the listener-guard
     // allow-list rejects bare addEventListener).
-    const flush = () => flushFillApply(layerId);
+    const flush = () => flushStyleDimApply(FACE.FILL, layerId);
     const prevColorChange = colorEl.onchange;
     colorEl.onchange = ev => {
       prevColorChange?.call(colorEl, ev);
@@ -418,7 +380,7 @@ const bindFillRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
     });
     // bindLiveNumber already owns onchange (clamp + commit); chain the flush
     // instead of overwriting it. blur is free.
-    const flush = () => flushFillApply(layerId);
+    const flush = () => flushStyleDimApply(FACE.FILL, layerId);
     const prevChange = opacityEl.onchange;
     opacityEl.onchange = ev => {
       prevChange?.call(opacityEl, ev);
@@ -476,10 +438,7 @@ export {
   buildFillRow,
   commitFillColor,
   commitFillOpacity,
-  dropFillScheduler,
   FILL_DIMENSION,
-  flushFillApply,
-  hasFillScheduler,
   isColorBasemap,
   layerCanFill,
   replayFillState,

@@ -41,11 +41,15 @@ import { markOverride, saveState, unmarkOverride } from "../state.js";
 import { pinStyleOnHighlight } from "./pin.js";
 import { registerDimension } from "./registry.js";
 import {
+  FACE,
   type StyleCarrier,
   type StyleSetter,
+  cancelStyleDimApply,
   commitStyleDim,
+  flushStyleDimApply,
   isStyleSetter,
   restoreStyleDim,
+  scheduleStyleDimApply,
   styleBagOf,
   styleDimPayload,
 } from "./styleBag.js";
@@ -149,7 +153,7 @@ const applyBorderToLayer = (ui: LayerUI, layerId: string): void => {
     }
     if (!isStyleSetter(node)) return;
     // Shared write contract: value keys + visibility bit (`stroke: true`).
-    commitStyleDim(node, values, "stroke");
+    commitStyleDim(node, values, FACE.STROKE);
     // Pin the leaf's stroke against folium's highlight restore via the shared
     // pinStyleOnHighlight hook, keyed "border" so a re-commit
     // replaces this dimension's getter instead of stacking another closure.
@@ -164,10 +168,17 @@ const applyBorderToLayer = (ui: LayerUI, layerId: string): void => {
       // stroke:true rides the replay too — folium's resetStyle would
       // otherwise re-apply the author's stroke:false on mouseout and hide
       // the user's border the moment the pointer leaves.
-      return styleDimPayload({ color: c, weight: w }, "stroke");
+      return styleDimPayload({ color: c, weight: w }, FACE.STROKE);
     });
   };
   walk(layer);
+};
+
+/** Shared apply scheduler (styleBag, face=`stroke`): one walk per frame.
+ *  The wrapper exists only to bind this face's apply fn — flush / drop /
+ *  has go straight to styleBag at the call site. */
+const scheduleBorderApply = (ui: LayerUI, layerId: string): void => {
+  scheduleStyleDimApply(FACE.STROKE, layerId, () => applyBorderToLayer(ui, layerId));
 };
 
 /** Write the color into the map, persist it, and mark the dimension as
@@ -183,7 +194,7 @@ const commitBorderColor = (ui: LayerUI, layerId: string, rawColor: string): void
   setIntent(ui, layerId, INTENT.BORDER_COLOR, color);
   markOverride(ui, layerId, INTENT.BORDER_COLOR);
   saveState(ui);
-  applyBorderToLayer(ui, layerId);
+  scheduleBorderApply(ui, layerId);
 };
 
 /** Commit the border width to the layer. Called from `bindLiveNumber` on the
@@ -193,7 +204,7 @@ const commitBorderWeight = (ui: LayerUI, layerId: string, weight: number): void 
   setIntent(ui, layerId, INTENT.BORDER_WEIGHT, weight);
   markOverride(ui, layerId, INTENT.BORDER_WEIGHT);
   saveState(ui);
-  applyBorderToLayer(ui, layerId);
+  scheduleBorderApply(ui, layerId);
 };
 
 /** Reset one layer's border to its authored value and drop its persisted
@@ -206,6 +217,9 @@ const commitBorderWeight = (ui: LayerUI, layerId: string, weight: number): void 
  *  re-apply a stroke the layer no longer shows. */
 const resetLayerBorder = (ui: LayerUI, layerId: string): void => {
   if (!ui.m.layerRegistry.has(layerId)) return;
+  // Drop any trailing drag frame: a scheduled apply must not paint the
+  // user's stroke over the authored restore below.
+  cancelStyleDimApply(FACE.STROKE, layerId);
   clearIntent(ui, layerId, INTENT.BORDER_COLOR);
   clearIntent(ui, layerId, INTENT.BORDER_WEIGHT);
   unmarkOverride(ui, layerId, INTENT.BORDER_COLOR);
@@ -223,7 +237,7 @@ const resetLayerBorder = (ui: LayerUI, layerId: string): void => {
     if (!isStyleSetter(node)) return;
     // Shared restore contract: one face slice from the captured style bag,
     // including the author's own `stroke` flag (false stays false).
-    restoreStyleDim(node, "stroke");
+    restoreStyleDim(node, FACE.STROKE);
   };
   walk(layer);
 };
@@ -308,6 +322,18 @@ const bindBorderRowShell = (row: HTMLElement, target: BorderRowBindTarget): void
   ) as HTMLInputElement | null;
   if (colorEl && target.onChangeColor) {
     bindLiveColor(colorEl, value => target.onChangeColor?.(value));
+    // Chain, never overwrite: bindLiveColor only owns oninput today, but a
+    // future binder that owns onchange must not be dropped. Same flush
+    // contract as fill — the trailing rAF frame must land at drag end.
+    if (target.onFlush) {
+      const flush = target.onFlush;
+      const prevColorChange = colorEl.onchange;
+      colorEl.onchange = ev => {
+        prevColorChange?.call(colorEl, ev);
+        flush();
+      };
+      colorEl.onblur = () => flush();
+    }
   }
   const weightEl = row.querySelector(
     weightSelector(target.weightClassName),
@@ -319,6 +345,15 @@ const bindBorderRowShell = (row: HTMLElement, target: BorderRowBindTarget): void
       fallback: BORDER_WEIGHT.DEFAULT,
       onCommit: value => target.onChangeWeight?.(value),
     });
+    if (target.onFlush) {
+      const flush = target.onFlush;
+      const prevWeightChange = weightEl.onchange;
+      weightEl.onchange = ev => {
+        prevWeightChange?.call(weightEl, ev);
+        flush();
+      };
+      weightEl.onblur = () => flush();
+    }
   }
 };
 
@@ -355,6 +390,7 @@ const bindBorderRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => 
     weightClassName: CONST.CLASSES.STYLE_BORDER_WEIGHT_INPUT,
     onChangeColor: value => commitBorderColor(ui, layerId, value),
     onChangeWeight: value => commitBorderWeight(ui, layerId, value),
+    onFlush: () => flushStyleDimApply(FACE.STROKE, layerId),
   });
 };
 
