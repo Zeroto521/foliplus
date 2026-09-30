@@ -287,11 +287,23 @@ interface BorderRowBindTarget {
   weightClassName?: string;
 }
 
+/** Who currently owns this dimension's effective value. `"user"` — the
+ *  store holds a provenance marker; `"author"` — declared default still in
+ *  force; `"none"` — the gate rejects the layer for this dimension (an
+ *  unfilled dimension is not "user" and not "author"). */
+type DimensionValueSource = "user" | "author" | "none";
+
 /** One per-layer dimension. `key` is the persistence-identifier and the
  *  registry key — one of `DIM`'s names (`"opacity"`, `"fill"`, `"border"`,
  *  `"zoomRange"`, `"annotation"`), typed by `LayerDimKey` so the vocabulary
  *  cannot drift from `DIM`. Persistence provenance is a different face
- *  (`LayerOverride`: `"fillColor"`, `"visible"`, …). */
+ *  (`LayerOverride`: `"fillColor"`, `"visible"`, …).
+ *
+ *  `write` / `reset` / `valueSource` are optional slots. Migrated
+ *  dimensions (fill, border) own the intent+persist orchestration here;
+ *  styleBag still owns the setStyle landing (commitStyleDim /
+ *  restoreStyleDim / scheduleStyleDimApply) and is called from write/reset.
+ *  Unmigrated dimensions keep their named helpers until a later PR. */
 type LayerDimension<D = unknown> = {
   key: LayerDimKey;
   /** Row-honest gate, two layers in order:
@@ -315,6 +327,16 @@ type LayerDimension<D = unknown> = {
    *  parent (the panel root) to install the drag bubble and shared
    *  number-field commit handler. */
   row: (ui: LayerUI, layerId: string) => HTMLElement;
+  /** Cohesive user write: persist the patch through IntentStore (`set`
+   *  marks provenance) then schedule the styleBag landing. Partial patch —
+   *  omitted keys leave that sub-dimension untouched. */
+  write?: (ui: LayerUI, layerId: string, patch: Partial<D> | D) => void;
+  /** Cohesive reset: drop the dimension's IntentStore rows (values +
+   *  provenance) and restore the author's styleBag face. */
+  reset?: (ui: LayerUI, layerId: string) => void;
+  /** Three-state source of the effective value. Gate rejects → `"none"`;
+   *  store provenance → `"user"`; otherwise `"author"`. */
+  valueSource?: (ui: LayerUI, layerId: string) => DimensionValueSource;
 };
 
 export type {
@@ -322,6 +344,7 @@ export type {
   AppliedProjection,
   BorderRowBindTarget,
   BorderRowBuildTarget,
+  DimensionValueSource,
   IntentRow,
   LayerDimension,
   LayerIntent,
