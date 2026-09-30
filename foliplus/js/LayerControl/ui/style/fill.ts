@@ -34,9 +34,13 @@ import * as CONST from "../../const.js";
 import { showSolidBasemap } from "../color.js";
 import type { LayerUI } from "../index.js";
 import { INTENT, type IntentKey, getIntent } from "../intent.js";
-import { saveState } from "../state.js";
 import { pinStyleOnHighlight } from "./pin.js";
-import { getDimension, registerDimension, writeIntentKeys } from "./registry.js";
+import {
+  getDimension,
+  registerDimension,
+  resetIntentKeys,
+  writeIntentKeys,
+} from "./registry.js";
 import {
   FACE,
   type StyleCarrier,
@@ -263,9 +267,7 @@ const resetLayerFill = (ui: LayerUI, layerId: string): void => {
   // face to replay — the pane's fill IS the basemap colour.
   if (isColorBasemap(ui.m.layerRegistry.get(layerId))) {
     cancelStyleDimApply(FACE.FILL, layerId);
-    ui.intentStore.clear(layerId, INTENT.FILL_COLOR);
-    ui.intentStore.clear(layerId, INTENT.FILL_OPACITY);
-    saveState(ui);
+    resetIntentKeys(ui, layerId, [INTENT.FILL_COLOR, INTENT.FILL_OPACITY]);
     ui.currentColor = CONST.COLOR.DEFAULT;
     showSolidBasemap(ui, CONST.COLOR.DEFAULT);
     return;
@@ -427,9 +429,7 @@ const FILL_DIMENSION = registerDimension<{
    *  save, restore the author's fill face from the style bag. */
   reset: (ui, layerId) => {
     cancelStyleDimApply(FACE.FILL, layerId);
-    ui.intentStore.clear(layerId, INTENT.FILL_COLOR);
-    ui.intentStore.clear(layerId, INTENT.FILL_OPACITY);
-    saveState(ui);
+    resetIntentKeys(ui, layerId, [INTENT.FILL_COLOR, INTENT.FILL_OPACITY]);
     const layer = ui.m.findLayer(layerId) as StyleCarrier | null;
     if (!layer) return;
     walkStyleLeaves(layer, node => restoreStyleDim(node, FACE.FILL));

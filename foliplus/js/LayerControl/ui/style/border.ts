@@ -37,9 +37,13 @@ import * as CONST from "../../const.js";
 import type { BorderRowBindTarget, BorderRowBuildTarget } from "../../type.js";
 import type { LayerUI } from "../index.js";
 import { INTENT, type IntentKey, getIntent } from "../intent.js";
-import { saveState } from "../state.js";
 import { pinStyleOnHighlight } from "./pin.js";
-import { getDimension, registerDimension, writeIntentKeys } from "./registry.js";
+import {
+  getDimension,
+  registerDimension,
+  resetIntentKeys,
+  writeIntentKeys,
+} from "./registry.js";
 import {
   FACE,
   type StyleCarrier,
@@ -404,9 +408,7 @@ const BORDER_DIMENSION = registerDimension<{ color: string; weight: number }>({
    *  save, restore the author's stroke face from the style bag. */
   reset: (ui, layerId) => {
     cancelStyleDimApply(FACE.STROKE, layerId);
-    ui.intentStore.clear(layerId, INTENT.BORDER_COLOR);
-    ui.intentStore.clear(layerId, INTENT.BORDER_WEIGHT);
-    saveState(ui);
+    resetIntentKeys(ui, layerId, [INTENT.BORDER_COLOR, INTENT.BORDER_WEIGHT]);
     const layer = ui.m.findLayer(layerId) as StyleCarrier | null;
     if (!layer) return;
     // Same restore walk as fill — one styleBag contract, not two copies.

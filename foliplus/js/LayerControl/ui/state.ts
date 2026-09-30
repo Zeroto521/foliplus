@@ -78,6 +78,10 @@ const saveState = (ui: LayerUI) => {
  *  filters such a marker out of the next write, so recording it here would mean the
  *  user's action is lost with nothing in the console. Failing loud at the one gate
  *  every caller passes through keeps that from being a silent failure. */
+/**
+ * @internal Production write paths use IntentStore.set (cohesive mark). Kept
+ * as a thin delegate for test spies and the mark-without-set gate.
+ */
 const markOverride = (ui: LayerUI, id: string, override: LayerOverride) => {
   if (!hasLiveValue(ui, id, override)) {
     log.warn(
@@ -91,6 +95,9 @@ const markOverride = (ui: LayerUI, id: string, override: LayerOverride) => {
 
 /** Drop one dimension's provenance -- the single rule a Reset button reduces to,
  *  sending the value back to the author's declared default. */
+/**
+ * @internal Production resets use IntentStore.clear (cohesive unmark).
+ */
 const unmarkOverride = (ui: LayerUI, id: string, override: LayerOverride) => {
   ui.intentStore.unmark(id, override);
 };
