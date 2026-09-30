@@ -389,21 +389,22 @@ class TestLayerControlRendering:
         """More grid column and button both use --foliplus-more-btn-width (7px),
         and the count column uses --foliplus-count-track-width; both keep the track and
         each element's own width synchronised without magic numbers."""
-        css = read_css("foliplus/css/LayerControl/index.css")
-        # Named dimension vars are defined once
-        assert "--foliplus-count-track-width: 38px" in css
-        assert "--foliplus-more-btn-width: 7px" in css
+        token_css = read_css("foliplus/css/common/token.css")
+        layer_css = read_css("foliplus/css/LayerControl/index.css")
+        # Named dimension vars are defined once in token.css
+        assert "--foliplus-count-track-width: 38px" in token_css
+        assert "--foliplus-more-btn-width: 7px" in token_css
         # grid track references the named vars (not literals)
-        idx = css.find("--foliplus-grid-layer-cols:")
+        idx = token_css.find("--foliplus-grid-layer-cols:")
         assert idx != -1
-        track = css[idx : css.index(";", idx)]
+        track = token_css[idx : token_css.index(";", idx)]
         assert "var(--foliplus-more-btn-width)" in track
         assert "var(--foliplus-count-track-width)" in track
         # more-btn width uses the named var, not icon-size-xs
         blks = [
-            css[i : css.index("}", i) + 1]
-            for i in range(len(css))
-            if css.startswith(".foliplus-layer-more-btn {", i)
+            layer_css[i : layer_css.index("}", i) + 1]
+            for i in range(len(layer_css))
+            if layer_css.startswith(".foliplus-layer-more-btn {", i)
         ]
         assert blks, "no .foliplus-layer-more-btn { rule found"
         assert "var(--foliplus-more-btn-width)" in "\n".join(blks)
@@ -652,12 +653,13 @@ class TestLayerControlRendering:
         start (4) = label slot + 1; end (-1) = last column. So the range
         never overflows past the last track, which would push the divider
         to a new row."""
-        css = read_css("foliplus/css/LayerControl/index.css")
+        token_css = read_css("foliplus/css/common/token.css")
+        layer_css = read_css("foliplus/css/LayerControl/index.css")
         # The shared track defines exactly 6 columns:
         #   drag(16) check(16) label(1fr) count(38) icon(16) more(7)
-        idx = css.find("--foliplus-grid-layer-cols:")
+        idx = token_css.find("--foliplus-grid-layer-cols:")
         assert idx != -1
-        track = css[idx : css.index(";", idx)]
+        track = token_css[idx : token_css.index(";", idx)]
         # Count the track's space tokens — each column is one term separated
         # by whitespace; the track is built from 6 named/space tokens.
         col_terms = [
@@ -670,13 +672,15 @@ class TestLayerControlRendering:
         )
         # Divider rule must sit in the toggle-all container (so 4 / -1 is
         # evaluated against the same 6-col track).
-        ta_idx = css.find(".foliplus-layer-sep.foliplus-layer-toggle-all {")
+        ta_idx = layer_css.find(".foliplus-layer-sep.foliplus-layer-toggle-all {")
         assert ta_idx != -1
-        ta_block = css[ta_idx : css.index("}", ta_idx) + 1]
+        ta_block = layer_css[ta_idx : layer_css.index("}", ta_idx) + 1]
         assert "var(--foliplus-grid-layer-cols)" in ta_block
-        div_idx = css[ta_idx:].find(".foliplus-section-divider {")
+        div_idx = layer_css[ta_idx:].find(".foliplus-section-divider {")
         assert div_idx != -1, "divider rule not inside toggle-all container"
-        div_block = css[ta_idx : ta_idx + css[ta_idx:].index("}", div_idx) + 1]
+        div_block = layer_css[
+            ta_idx : ta_idx + layer_css[ta_idx:].index("}", div_idx) + 1
+        ]
         assert "grid-column: 4 / -1" in div_block, (
             "divider must start at col 4 (after label slot 3) and end at -1 (col 6)"
         )

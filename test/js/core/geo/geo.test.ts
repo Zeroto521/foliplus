@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { area, bearing, centroid, distance, midpoint } from "#core/geo/index.js";
+import {
+  area,
+  bearing,
+  boundsToRect,
+  centroid,
+  distance,
+  midpoint,
+} from "#core/geo/index.js";
 
 beforeEach(() => {
   globalThis.turf = {
@@ -25,6 +32,39 @@ describe("geo.distance", () => {
       { coords: [11, 21] },
       { units: "meters" },
     );
+  });
+});
+
+describe("geo.boundsToRect", () => {
+  const makeMap = (points: Record<string, { x: number; y: number }>) => ({
+    latLngToContainerPoint: vi.fn(
+      (ll: { lat: number; lng: number }) =>
+        points[`${ll.lat},${ll.lng}`] ?? { x: 0, y: 0 },
+    ),
+  });
+
+  it("computes min-corner origin and abs dimensions", () => {
+    const map = makeMap({
+      "10,20": { x: 300, y: 200 },
+      "11,21": { x: 100, y: 350 },
+    });
+    const rect = boundsToRect(map, {
+      nw: { lat: 10, lng: 20 },
+      se: { lat: 11, lng: 21 },
+    });
+    expect(rect).toEqual({ left: 100, top: 200, width: 200, height: 150 });
+  });
+
+  it("handles swapped corners (se is upper-left of nw)", () => {
+    const map = makeMap({
+      "40,120": { x: 50, y: 60 },
+      "30,110": { x: 200, y: 150 },
+    });
+    const rect = boundsToRect(map, {
+      nw: { lat: 40, lng: 120 },
+      se: { lat: 30, lng: 110 },
+    });
+    expect(rect).toEqual({ left: 50, top: 60, width: 150, height: 90 });
   });
 });
 

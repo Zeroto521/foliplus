@@ -2,29 +2,15 @@
 .foliplus-layer-ctrl {
   /* ── Drag & Drop Variables ──
      Used by .foliplus-layer-item.{drag-over-top|drag-over-bottom} rules below. */
-  --foliplus-drag-border-width: var(--foliplus-border-thick);
 
   /* Drop-position glow (top/bottom) */
-  --foliplus-drag-top-shadow: 0 calc(-1 * var(--foliplus-size-2)) var(--foliplus-size-6)
-    calc(-1 * var(--foliplus-size-2)) var(--foliplus-accent-primary);
-  --foliplus-drag-bottom-shadow: 0 var(--foliplus-size-2) var(--foliplus-size-6)
-    calc(-1 * var(--foliplus-size-2)) var(--foliplus-accent-primary);
 
   /* Pulse animation repeat count */
-  --foliplus-drag-pulse-count: 3;
 
   /* Pulse border: start (from) and end (to) colors during the pulse */
-  --foliplus-drag-border-from: var(--foliplus-accent-primary);
-  --foliplus-drag-border-to: var(--foliplus-accent-hover);
   /* Pulse shadow: start (from, tight) and end (to, diffuse) states */
-  --foliplus-drag-shadow-from: 0 0 var(--foliplus-size-4)
-    calc(-1 * var(--foliplus-border-thin)) var(--foliplus-accent-primary);
-  --foliplus-drag-shadow-to: 0 0 var(--foliplus-size-8) 0 var(--foliplus-accent-primary);
 
   /* ── Layout ── */
-  --foliplus-layer-item-pad-x: calc(
-    var(--foliplus-space-md) - var(--foliplus-size-2) + 1px
-  );
 
   /* ── Shared 6-column track for all layer rows ──
     Each row is an independent grid container that reuses this track.
@@ -37,12 +23,6 @@
     1000 are rendered compact by formatNumber("auto") (12K, 1.2万), so
     overflow/ellipsis below is a last-resort guard for locales whose
     compact unit is wider (de 10.000). */
-  --foliplus-count-track-width: 38px;
-  --foliplus-more-btn-width: 7px;
-  --foliplus-grid-layer-gap: 3px;
-  --foliplus-grid-layer-cols: var(--foliplus-space-xl) var(--foliplus-space-xl) 1fr
-    var(--foliplus-count-track-width) var(--foliplus-space-xl)
-    var(--foliplus-more-btn-width);
 
   /* ── Row min-height ──
      Data rows are taller than group headers only because a data label spans
@@ -50,10 +30,6 @@
      Pin both to one height so the checkbox/label columns sit on the same
      baseline across every row type. Rows set box-sizing: border-box and this
      value is the TOTAL box height, so it is independent of the outer context. */
-  --foliplus-layer-row-min-height: calc(
-    var(--foliplus-space-md) * 2 + var(--foliplus-font-size-md) *
-      var(--foliplus-line-height-hint)
-  );
 
   /* ── Panel Content Overrides ──
      The top gap under the header comes from panel.css (--foliplus-space-md, equal to

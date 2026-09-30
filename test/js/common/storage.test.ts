@@ -3,6 +3,7 @@ import {
   loadRecord,
   loadVersioned,
   makePersisted,
+  removeRecord,
   saveRecord,
   saveVersioned,
 } from "#common/storage.js";
@@ -102,6 +103,43 @@ describe("storage", () => {
         expect(console.warn).not.toHaveBeenCalled();
       },
     );
+  });
+
+  describe("removeRecord", () => {
+    it("returns true when the key existed and was deleted", () => {
+      window.localStorage.setItem("del_key", JSON.stringify({ a: 1 }));
+      expect(removeRecord("del_key")).toBe(true);
+      expect(window.localStorage.getItem("del_key")).toBeNull();
+    });
+
+    it("returns false when the key did not exist", () => {
+      expect(removeRecord("missing_key")).toBe(false);
+    });
+
+    it("returns false and warns when getItem throws", () => {
+      const descriptor = Object.getOwnPropertyDescriptor(
+        Storage.prototype,
+        "getItem",
+      ) as PropertyDescriptor;
+      Object.defineProperty(Storage.prototype, "getItem", {
+        configurable: true,
+        value: () => {
+          throw new DOMException("blocked", "SecurityError");
+        },
+      });
+      try {
+        expect(removeRecord("blocked_key")).toBe(false);
+        expect(console.warn).toHaveBeenCalled();
+      } finally {
+        Object.defineProperty(Storage.prototype, "getItem", descriptor);
+      }
+    });
+
+    it("passes a custom caller name to the warning", () => {
+      window.localStorage.setItem("named", "x");
+      expect(removeRecord("named", "MyControl")).toBe(true);
+      expect(console.warn).not.toHaveBeenCalled();
+    });
   });
 
   describe("saveVersioned", () => {
