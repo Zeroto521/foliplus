@@ -314,7 +314,7 @@ const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
     value: opacityPct,
     min: 0,
     max: 100,
-    // Any integer 0— 00 is a legal opacity; the number field is the precise
+    // Any integer 0—100 is a legal opacity; the number field is the precise
     // companion to the live commit, so the spinner must not restrict the
     // input to multiples of a coarser step (the opacity row uses step 1 too).
     step: 1,
