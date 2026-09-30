@@ -5,10 +5,25 @@
 // from the scheme via `getColorScale`, and writes the per-leaf `fillColor`
 // through styleBag FACE.FILL (the same landing as solid-mode fill).
 //
-// One frame = one `applyFillToLayer` call = two internal walks (collect
-// values, then apply colours). The styleBag scheduler
-// (`scheduleStyleDimApply`) coalesces the whole apply to at most one per
-// frame, so a colour-scheme drag does not trigger a walk per input step.
+// Two-pass walk design with a collect-pass cache:
+//
+//   Pass 1 (collect): walks leaves, reads `feature.properties[field]`.
+//     Cached by (layerId, field) — method/classes/scheme don't change
+//     the source values, so re-applying the same field skips Pass 1
+//     entirely. Cache is a single slot: a different layerId drops the
+//     previous entry. Invalidation on field switch is automatic.
+//
+//   Pass 2 (apply): walks leaves again, writes per-leaf fillColor via
+//     styleBag. Always runs — even a scheme drag writes new colours
+//     to every leaf.
+//
+// Net: steady-state (dragging scheme / classes / method on the same
+// layer+field) = 1 walk per frame (Pass 2 only). Field switch or
+// first apply = 2 walks (Pass 1 + Pass 2), then steady-state resumes.
+//
+// The styleBag scheduler (`scheduleStyleDimApply`) coalesces the whole
+// apply to at most one per frame, so a colour-scheme drag does not
+// trigger a walk per input step.
 //
 // Highlight pin: each leaf gets a `pinStyleOnHighlight` getter that reads
 // the live fillRamp intent and the cached breaks. If the config changed
@@ -54,12 +69,65 @@ const valueToClassIdx = (val: number, breaks: number[]): number => {
   return breaks.length - 2;
 };
 
-/** Apply a value-based fill to one layer. Two-pass walk:
+/** Result of the collect pass — what applyRampToLayer needs from Pass 1. */
+type CollectedValues = {
+  layer: StyleCarrier;
+  layerId: string;
+  field: string;
+  values: number[];
+  leafValues: Map<StyleSetter, number>;
+};
+
+/** Single-slot cache for the collect pass. Keyed by (layer, layerId, field):
+ *  method / classes / scheme don't change the source values, so a
+ *  re-apply with the same layer+field reuses the cached array. A
+ *  different layer reference, layerId, or field drops the entry and
+ *  rebuilds.
  *
- *  1. Collect every leaf's `feature.properties[field]` value (finite
- *     numbers only — NaN / Infinity / non-numeric are skipped).
- *  2. Compute breaks, build the colour scale, and write each leaf's
- *     `fillColor` via `commitStyleDim` (which also lights `fill: true`).
+ *  Lifetime: module-level, survives across apply calls. The cache is
+ *  tied to the LayerControl instance's lifetime indirectly — the
+ *  `layer` reference in the key ensures a stale cache entry (from a
+ *  previous layer with the same ID) is never reused.
+ *
+ *  Multi-instance on one page: the single slot means two controls on
+ *  the same page would thrash each other. Acceptable for v1 — each
+ *  control's apply calls are per-frame and per-layer, so thrashing
+ *  only costs one extra collect walk per frame. */
+let cachedCollected: CollectedValues | null = null;
+
+/** Return the collected values for (layer, layerId, field) — cached if
+ *  the previous collect was for the same layer+layerId+field, else rebuild. */
+const collectOrCachedValues = (
+  layer: StyleCarrier,
+  layerId: string,
+  field: string,
+): CollectedValues => {
+  if (
+    cachedCollected &&
+    cachedCollected.layer === layer &&
+    cachedCollected.layerId === layerId &&
+    cachedCollected.field === field
+  ) {
+    return cachedCollected;
+  }
+  const values: number[] = [];
+  const leafValues = new Map<StyleSetter, number>();
+  walkStyleLeaves(layer, leaf => {
+    const val = leafPropertyValue(leaf, field);
+    if (isFiniteNumber(val)) {
+      values.push(val);
+      leafValues.set(leaf, val);
+    }
+  });
+  cachedCollected = { layer, layerId, field, values, leafValues };
+  return cachedCollected;
+};
+
+/** Apply a value-based fill to one layer.
+ *
+ *  Collect pass is cached by (layerId, field): a re-apply with the
+ *  same layer+field reuses the cached values and only runs Pass 2
+ *  (the per-leaf apply). Field switch or first apply = 2 walks.
  *
  *  A layer with no finite values is a no-op. Leaves whose value is
  *  non-finite keep the author's fill face (the previous commit, or the
@@ -76,18 +144,11 @@ const applyRampToLayer = (ui: LayerUI, layerId: string, ramp: FillRampConfig): v
   const layer = li?.layer as StyleCarrier | null;
   if (!layer) return;
 
-  // ── Pass 1: collect values ──
-  const values: number[] = [];
-  const leafValues = new Map<StyleSetter, number>();
-  walkStyleLeaves(layer, leaf => {
-    const val = leafPropertyValue(leaf, ramp.field);
-    if (isFiniteNumber(val)) {
-      values.push(val);
-      leafValues.set(leaf, val);
-    }
-  });
-
-  if (values.length === 0) return;
+  // ── Collect (cached if same layer+field) ──
+  const collected = collectOrCachedValues(layer, layerId, ramp.field);
+  if (collected.values.length === 0) return;
+  const values = collected.values;
+  const leafValues = collected.leafValues;
 
   // ── Compute breaks + colour scale ──
   const nClasses = Math.min(ramp.classes, values.length);
