@@ -1118,7 +1118,8 @@ class TestExportControlBrowser:
         Component-side self-declaration (data attribute) + central map-level
         fallback:
         - export control bar carries ``data-foliplus-export="exclude"``;
-        - registered createCanvas canvases carry the same attribute;
+        - createCanvas factory stays neutral (core/layer has no export vocab);
+        - HeatmapControl stamps its own canvas (unit-tested in manager.test.ts);
         - a registered canvas still paints via the ``li.canvas`` special path
           (positive control — rendering semantics unchanged);
         - a purple marker self-marked ``data-foliplus-export="exclude"`` in a
@@ -1134,7 +1135,7 @@ class TestExportControlBrowser:
             markers = page.evaluate(_js("ExportControl/export_exclude_markers"))
             assert markers is not None, "export_exclude_markers returned null"
             assert markers["exportCtrlMarked"] is True, markers
-            assert markers["canvasMarked"] is True, markers
+            assert markers["createCanvasUnmarked"] is True, markers
 
             state = page.evaluate(_js("ExportControl/export_exclude_setup"))
             assert state is not None and "error" not in state, state

@@ -299,6 +299,10 @@ class HeatmapManager {
       // drops the CSS so the two carriers never compound.
       opacityBake: "redraw",
     });
+    // Component self-declaration: heatmap canvas is content painted via the
+    // li.canvas special path; this attribute only tells generic export DOM
+    // walks not to copy the live node (same carrier as delicon).
+    this.overlay.canvas?.setAttribute("data-foliplus-export", "exclude");
     // ExportControl publishes BEFORE/AFTER_EXPORT to request a full-resolution
     // capture pass: un-clip the render (renderAll) so out-of-bounds hexes
     // recompute, then clip again afterwards.  Named methods rather than

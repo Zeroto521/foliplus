@@ -949,12 +949,11 @@ describe("LayerFactory", () => {
       expect(api.canvas.classList.contains("foliplus-heatmap-canvas")).toBe(false);
     });
 
-    it("self-declares data-foliplus-export=exclude on registered canvases", () => {
-      // Component-side export opt-out: the special path still paints via
-      // li.canvas; the data attribute only blocks generic DOM copies of this
-      // node (same carrier as delicon / general HTML).
+    it("does not stamp export opt-out — components self-declare", () => {
+      // Export vocabulary (data-foliplus-export) stays out of core/layer.
+      // HeatmapControl stamps its own canvas after createCanvas.
       const api = factory.createCanvas({ id: "canvas_test" });
-      expect(api.canvas.getAttribute("data-foliplus-export")).toBe("exclude");
+      expect(api.canvas.getAttribute("data-foliplus-export")).toBeNull();
     });
 
     it("keeps no SVG renderer on the canvas pane", () => {

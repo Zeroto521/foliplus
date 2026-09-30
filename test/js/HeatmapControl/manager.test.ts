@@ -752,15 +752,29 @@ describe("initScan — single-layer auto-select on first scan only", () => {
       ...window.map.foliplus.LayerAPI,
       getLayersByType: vi.fn(() => []),
       extractPoints: vi.fn(() => []),
-      createCanvas: vi.fn(() => ({
-        register: vi.fn(),
-        unregister: vi.fn(),
-        setVisible: vi.fn(),
-        hooks: { before: [], after: [] },
-        canvas: null,
-        ctx: null,
-      })),
+      createCanvas: vi.fn(() => {
+        const canvas = document.createElement("canvas");
+        return {
+          register: vi.fn(),
+          unregister: vi.fn(),
+          setVisible: vi.fn(),
+          hooks: { before: [], after: [] },
+          canvas,
+          ctx: canvas.getContext("2d"),
+        };
+      }),
     };
+  });
+
+  it("stamps data-foliplus-export=exclude on its createCanvas canvas", () => {
+    // Component self-declaration (T253 option B): core/layer stays free of
+    // ExportControl's export vocabulary; HeatmapControl stamps its own node.
+    const m = makeManager();
+    const stamped = (
+      window.map.foliplus.LayerAPI.createCanvas as ReturnType<typeof vi.fn>
+    ).mock.results[0].value.canvas as HTMLCanvasElement;
+    expect(stamped.getAttribute("data-foliplus-export")).toBe("exclude");
+    expect(m.overlay).toBeTruthy();
   });
 
   it("auto-selects and renders a single layer on first initScan", async () => {
