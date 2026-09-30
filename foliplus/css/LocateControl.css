@@ -17,10 +17,11 @@
   }
 
   /* ── Busy: crosshair out, spinner in; the click is ignored too, so a
-     second press can't queue a second geolocation request. ── */
+     second press can't queue a second geolocation request. ──
+     Opacity is reserved for the disabled recipe (--foliplus-alpha-30).
+     Loading must not steal that language — the shared spinner alone is the
+     busy affordance, and the button stays full-strength. */
   &.loading {
-    /* Matches the button-family disabled look (--foliplus-alpha-30). */
-    opacity: var(--foliplus-alpha-30);
     pointer-events: none;
 
     .locate-btn-icon {
