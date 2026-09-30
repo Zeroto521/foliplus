@@ -6,16 +6,17 @@ import { guardBlocked } from "#core/mode.js";
 import { DEL_ICON_MARKER_ANCHOR } from "#common/delicon.js";
 import { mountDelIcon } from "#common/deliconMount.js";
 import { formatCoord } from "#common/format.js";
-import { createScopedTranslator, createTranslator } from "#common/locale.js";
 
-const _ = createTranslator(CONF);
-const T = createScopedTranslator(CONF);
-
-/** Minimal ctrl interface for locate logic. */
+/** Minimal ctrl interface for locate logic. `T`, `_` and `conf` come from
+ *  the control instance (defineControl hands them off via ControlEnv) so
+ *  this module has no module-level locale state. */
 interface LocateCtrl {
   btn: HTMLButtonElement;
   marker: L.Marker | null;
   delIcon: L.Marker | null;
+  T: (key: string) => string;
+  _: (key: string) => string;
+  conf: ComponentConfig;
 }
 
 /** Toggle the button's loading state — spinner while geolocation resolves. */
@@ -37,8 +38,11 @@ const removeMarker = (ctrl: LocateCtrl) => {
 
 /** Fly to a coordinate and place a reverse-geocoded location marker. */
 const placeMarker = (ctrl: LocateCtrl, lng: number, lat: number, titleKey: string) => {
-  map.foliplus!.hideHint(CONF.name);
-  map.flyTo([lat, lng], CONF.zoom || 15);
+  const conf = ctrl.conf;
+  const T = ctrl.T;
+  const _ = ctrl._;
+  map.foliplus!.hideHint(conf.name);
+  map.flyTo([lat, lng], conf.zoom || 15);
   removeMarker(ctrl);
   ctrl.marker = createLocationMarker(
     map,
@@ -50,7 +54,7 @@ const placeMarker = (ctrl: LocateCtrl, lng: number, lat: number, titleKey: strin
     T("popup_loc_label"),
     T("popup_addr_label"),
     _("foliplus.close_label"),
-    CONF.locale_code,
+    conf.locale_code,
     null,
     undefined,
     undefined,
@@ -72,15 +76,17 @@ const placeMarker = (ctrl: LocateCtrl, lng: number, lat: number, titleKey: strin
 
 /** Locate me via the browser geolocation API. */
 const locateMe = (ctrl: LocateCtrl) => {
-  if (guardBlocked(map, CONF.name, T("blocked"))) return;
+  const conf = ctrl.conf;
+  const T = ctrl.T;
+  if (guardBlocked(map, conf.name, T("blocked"))) return;
   const geo = navigator.geolocation;
   if (!geo) {
-    map.foliplus!.showHint(CONF.name, T("geo_error"), HINT_DURATION.LONG);
+    map.foliplus!.showHint(conf.name, T("geo_error"), HINT_DURATION.LONG);
     return;
   }
   setLocating(ctrl, true);
   map.foliplus!.showHint(
-    CONF.name,
+    conf.name,
     T("locating"),
     HINT_DURATION.PERSIST,
     undefined,
@@ -90,18 +96,18 @@ const locateMe = (ctrl: LocateCtrl) => {
   geo.getCurrentPosition(
     pos => {
       setLocating(ctrl, false);
-      map.foliplus!.hideHint(CONF.name);
+      map.foliplus!.hideHint(conf.name);
       let lng = pos.coords.longitude;
       let lat = pos.coords.latitude;
       const converted = fromWgs84(map, lng, lat);
       lng = Number(formatCoord(converted[0]));
       lat = Number(formatCoord(converted[1]));
-      placeMarker(ctrl, lng, lat, `${CONF.name}.popup_title_geo`);
+      placeMarker(ctrl, lng, lat, `${conf.name}.popup_title_geo`);
     },
     () => {
       setLocating(ctrl, false);
-      map.foliplus!.hideHint(CONF.name);
-      map.foliplus!.showHint(CONF.name, T("geo_error"), HINT_DURATION.LONG);
+      map.foliplus!.hideHint(conf.name);
+      map.foliplus!.showHint(conf.name, T("geo_error"), HINT_DURATION.LONG);
     },
   );
 };

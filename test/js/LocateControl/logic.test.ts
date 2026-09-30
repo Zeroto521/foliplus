@@ -7,13 +7,22 @@ vi.mock("#common/locale.js", () => ({
   createScopedTranslator: () => (k: string) => k,
 }));
 
-/** Fake control — a real button so classList behaves like the DOM. */
+/** Fake control — a real button so classList behaves like the DOM. `T`, `_`
+ *  and `conf` mirror what defineControl hands off to the control instance. */
 const makeCtrl = () => {
   const btn = document.createElement("button");
+  const T = (k: string) => k;
+  const conf = {
+    name: "LocateControl",
+    zoom: 16,
+  } as ComponentConfig;
   return {
     btn,
     marker: null,
     delIcon: null,
+    T,
+    _: T,
+    conf,
     hasLoading: () => btn.classList.contains("loading"),
   };
 };
