@@ -28,9 +28,8 @@ import { inZoomRange } from "./rowView.js";
  *  read back as the author's default. */
 const intentVisibleOf = (ui: LayerUI, id: string): boolean => {
   const visible = getIntent(ui, id, INTENT.VISIBLE);
-  const overrides = ui.intentProvenance?.[id];
   const hasVisible =
-    overrides?.includes(INTENT.VISIBLE) || typeof visible === "boolean";
+    ui.intentStore.isUserSet(id, INTENT.VISIBLE) || typeof visible === "boolean";
   const authorDefault = ui.authorVisible.get(id) ?? true;
   return hasVisible ? (visible ?? true) : authorDefault;
 };
@@ -45,10 +44,9 @@ const projectLayer = (ui: LayerUI, layerInfo: LayerInfo): Projection => {
   // to avoid function-call overhead on the zoomend hot path — this runs
   // per layer per zoom, so the JIT benefits from seeing all lookups in
   // one scope.
-  const overrides = ui.intentProvenance?.[id];
   const visible = getIntent(ui, id, INTENT.VISIBLE);
   const hasVisible =
-    overrides?.includes(INTENT.VISIBLE) || typeof visible === "boolean";
+    ui.intentStore.isUserSet(id, INTENT.VISIBLE) || typeof visible === "boolean";
   const authorDefault = ui.authorVisible.get(id) ?? true;
   const intent = hasVisible ? (visible ?? true) : authorDefault;
 
@@ -59,7 +57,7 @@ const projectLayer = (ui: LayerUI, layerInfo: LayerInfo): Projection => {
 
   // A dimension's value being present is what the sweep has always read as
   // the user's choice (a restored record, a late replay). The provenance
-  // marker lives on `intentProvenance`, not on this projection.
+  // marker lives on `IntentRow.provenance`, not on this projection.
   const opacity = getIntent(ui, id, INTENT.OPACITY);
   const zoomRange = getIntent(ui, id, INTENT.ZOOM_RANGE) ?? null;
 
@@ -76,7 +74,7 @@ const projectLayer = (ui: LayerUI, layerInfo: LayerInfo): Projection => {
 const projectAll = (ui: LayerUI): Map<string, Projection> => {
   const ids = new Set([
     ...ui.m.layers.map(li => li.id),
-    ...Object.keys(ui.intents ?? {}),
+    ...ui.intentStore.ids(),
   ]);
   const result = new Map<string, Projection>();
   for (const id of ids) {

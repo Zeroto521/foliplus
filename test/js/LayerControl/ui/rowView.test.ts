@@ -4,6 +4,7 @@ import type { LayerInfo } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { clearIntent, getIntent, setIntent } from "#foliplus/LayerControl/ui/intent.js";
+import { IntentStore } from "#foliplus/LayerControl/ui/intentStore.js";
 import { intentVisibleOf } from "#foliplus/LayerControl/ui/projection.js";
 import {
   applyRowView,
@@ -75,12 +76,17 @@ describe("intentVisibleOf (the intent seam)", () => {
     overrides: Record<string, string[]> = {},
     hidden: string[] = [],
     author: Record<string, boolean> = {},
-  ): LayerUI =>
-    ({
-      intentProvenance: overrides,
+  ): LayerUI => {
+    const intentStore = new IntentStore();
+    for (const id of hidden) intentStore.setValue(id, "visible", false);
+    for (const [id, keys] of Object.entries(overrides)) {
+      intentStore.seedProvenance(id, keys as never);
+    }
+    return {
+      intentStore,
       authorVisible: new Map(Object.entries(author)),
-      intents: Object.fromEntries(hidden.map(id => [id, { visible: false }])),
-    }) as unknown as LayerUI;
+    } as unknown as LayerUI;
+  };
 
   const info = (id: string): LayerInfo => ({ id }) as LayerInfo;
 
@@ -207,7 +213,7 @@ describe("buildRowCell + applyRowView (one writer per row)", () => {
     const { ui } = initFixture({});
     const layerInfo = overlay(ui);
     ui.authorVisible.set("overlay1", false);
-    ui.intentProvenance.overlay1 = ["visible"];
+    ui.intentStore.seedProvenance("overlay1", ["visible"]);
     clearIntent(ui, "overlay1", "visible");
 
     expect(buildRowCell(ui, layerInfo).checked).toBe(true);
@@ -308,17 +314,17 @@ describe("applyRowView (the single DOM write point)", () => {
     expect(el.getAttribute(CONST.DATA.TITLE)).toBe("polygon");
   });
 
-  it("buildRowCell handles undefined intentProvenance and intents.visible", () => {
-    // The `?.` and `?? false` fallbacks on the inline intent check: a thin
-    // stub may not have populated these maps yet, so the check must degrade to
-    // the author default rather than crashing.
+  it("buildRowCell handles a thin stub with an empty IntentStore", () => {
+    // The `?? false` fallbacks on the inline intent check: a thin stub may
+    // carry an empty IntentStore, so the check must degrade to the author
+    // default rather than crashing.
     const layerRegistry = new Map([["x", { id: "x", layer: { options: {} } }]]);
     const bare = {
       m: { findLayer: () => null, layerRegistry },
       mgmt: { getFeatureCount: () => 0 },
       renamedNames: {},
       authorVisible: new Map(),
-      intentProvenance: undefined,
+      intentStore: new IntentStore(),
       focusingLayerId: null,
       appliedState: new Map(),
       T: (k: string) => k,
@@ -396,7 +402,7 @@ describe("snapshotAuthorVisible", () => {
       canvas: document.createElement("canvas"),
     } as unknown as LayerInfo);
     setIntent(ui, "heat-mixed", "visible", false);
-    ui.intentProvenance["heat-mixed"] = ["visible"];
+    ui.intentStore.seedProvenance("heat-mixed", ["visible"]);
     snapshotAuthorVisible(ui, {
       id: "heat-mixed",
       canvas: document.createElement("canvas"),
@@ -429,8 +435,7 @@ describe("intentVisibleOf: what counts as the user's choice", () => {
     // user's choice; only the author's default is the fallback.
     const { ui } = initFixture({});
     const layerInfo = ui.m.layers.find(li => li.id === "overlay1")!;
-    ui.intentProvenance.overlay1 = undefined as never;
-    delete ui.intentProvenance.overlay1;
+    ui.intentStore.seedProvenance("overlay1", []);
     setIntent(ui, "overlay1", "visible", false);
     expect(intentVisibleOf(ui, layerInfo.id)).toBe(false);
   });
@@ -438,7 +443,7 @@ describe("intentVisibleOf: what counts as the user's choice", () => {
   it("neither half present falls back to the author's declared default", () => {
     const { ui } = initFixture({});
     const layerInfo = ui.m.layers.find(li => li.id === "overlay1")!;
-    delete ui.intentProvenance.overlay1;
+    ui.intentStore.seedProvenance("overlay1", []);
     clearIntent(ui, "overlay1", "visible");
     ui.authorVisible.set("overlay1", false);
     expect(intentVisibleOf(ui, layerInfo.id)).toBe(false);

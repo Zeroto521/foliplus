@@ -432,7 +432,7 @@ describe("LayerUI style panel — fill color", () => {
     commitNow(ui, "overlay1", "color", "#ff0000");
 
     expect(getIntent(ui, "overlay1", "fillColor")).toBe("#ff0000");
-    expect(ui.intentProvenance["overlay1"]).toContain("fillColor");
+    expect(ui.intentStore.isUserSet("overlay1", "fillColor")).toBe(true);
     expect(setLayer).toHaveBeenCalled();
     const fields = setLayer.mock.calls.at(-1)![0] as {
       layers: () => Record<string, { fillColor?: string; overrides?: string[] }>;
@@ -1027,7 +1027,7 @@ describe("LayerUI style panel — fill color", () => {
   it("commitFillColor handles a layer id that is not registered yet", () => {
     expect(() => commitFillColor(ui, "late-layer", "#ff0000")).not.toThrow();
     expect(getIntent(ui, "late-layer", "fillColor")).toBe("#ff0000");
-    expect(ui.intentProvenance["late-layer"]).toContain("fillColor");
+    expect(ui.intentStore.isUserSet("late-layer", "fillColor")).toBe(true);
   });
 
   it("resetLayerFill is a no-op for a registered layer with no Leaflet object", () => {
@@ -1037,12 +1037,12 @@ describe("LayerUI style panel — fill color", () => {
       canvas: document.createElement("canvas"),
     });
     setIntent(ui, "canvas1", "fillColor", "#ff0000");
-    ui.intentProvenance["canvas1"] = ["fillColor"];
+    ui.intentStore.seedProvenance("canvas1", ["fillColor"]);
 
     resetLayerFill(ui, "canvas1");
 
     expect(getIntent(ui, "canvas1", "fillColor")).toBeUndefined();
-    expect(ui.intentProvenance["canvas1"]).toBeUndefined();
+    expect(ui.intentStore.dumpProvenance()["canvas1"]).toBeUndefined();
   });
 
   it("resetLayerFill walks past a leaf with no setStyle or eachLayer", () => {
@@ -1089,7 +1089,7 @@ describe("LayerUI style panel — fill color", () => {
     input.dispatchEvent(new Event("input", { bubbles: true }));
 
     expect(getIntent(ui, "overlay1", "fillColor")).toBe("#3366cc");
-    expect(ui.intentProvenance["overlay1"]).toContain("fillColor");
+    expect(ui.intentStore.isUserSet("overlay1", "fillColor")).toBe(true);
   });
 
   it("the fill opacity input commits through the live binder", () => {
@@ -1103,7 +1103,7 @@ describe("LayerUI style panel — fill color", () => {
     input.dispatchEvent(new Event("input", { bubbles: true }));
 
     expect(getIntent(ui, "overlay1", "fillOpacity")).toBe(0.5);
-    expect(ui.intentProvenance["overlay1"]).toContain("fillOpacity");
+    expect(ui.intentStore.isUserSet("overlay1", "fillOpacity")).toBe(true);
   });
 
   it("the swatch keeps the value it was committed (no forced re-read)", () => {
@@ -1123,13 +1123,13 @@ describe("LayerUI style panel — fill color", () => {
 
   it("resetLayerFill drops the persisted entry and the override marker", () => {
     setIntent(ui, "overlay1", "fillColor", "#ff0000");
-    ui.intentProvenance["overlay1"] = ["fillColor"];
+    ui.intentStore.seedProvenance("overlay1", ["fillColor"]);
     const setLayer = vi.spyOn(manager.persistence, "schedule");
 
     resetLayerFill(ui, "overlay1");
 
     expect(getIntent(ui, "overlay1", "fillColor")).toBeUndefined();
-    expect(ui.intentProvenance["overlay1"] ?? []).not.toContain("fillColor");
+    expect(ui.intentStore.isUserSet("overlay1", "fillColor")).toBe(false);
     expect(setLayer).toHaveBeenCalled();
   });
 
@@ -1206,7 +1206,7 @@ describe("LayerUI style panel — fill color", () => {
     reset.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 
     expect(getIntent(ui, "overlay1", "fillColor")).toBeUndefined();
-    expect(ui.intentProvenance["overlay1"] ?? []).not.toContain("fillColor");
+    expect(ui.intentStore.isUserSet("overlay1", "fillColor")).toBe(false);
   });
 });
 
@@ -1392,7 +1392,7 @@ describe("buildFillRow", () => {
 
     expect(getIntent(fixture.ui, "overlay1", "fillColor")).toBe("#ff0000");
     expect(getIntent(fixture.ui, "overlay1", "fillOpacity")).toBeUndefined();
-    expect(fixture.ui.intentProvenance["overlay1"]).not.toContain("fillOpacity");
+    expect(fixture.ui.intentStore.isUserSet("overlay1", "fillOpacity")).toBe(false);
     expect(leaf.setStyle).toHaveBeenCalledWith({ fillColor: "#ff0000", fill: true });
   });
 
@@ -1442,7 +1442,7 @@ describe("buildFillRow", () => {
     commitNow(ui, "overlay1", "opacity", 50);
 
     expect(getIntent(ui, "overlay1", "fillOpacity")).toBe(0.5);
-    expect(ui.intentProvenance["overlay1"]).toContain("fillOpacity");
+    expect(ui.intentStore.isUserSet("overlay1", "fillOpacity")).toBe(true);
     expect(setLayer).toHaveBeenCalled();
   });
 
@@ -1481,7 +1481,7 @@ describe("buildFillRow", () => {
     resetLayerFill(fixture.ui, "overlay1");
 
     expect(getIntent(fixture.ui, "overlay1", "fillOpacity")).toBeUndefined();
-    expect(fixture.ui.intentProvenance["overlay1"] ?? []).not.toContain("fillOpacity");
+    expect(fixture.ui.intentStore.isUserSet("overlay1", "fillOpacity")).toBe(false);
     expect(leaf.setStyle).toHaveBeenLastCalledWith({
       fillColor: "#aabbcc",
       fillOpacity: 0,

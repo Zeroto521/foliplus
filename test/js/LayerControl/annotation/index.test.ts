@@ -765,7 +765,7 @@ describe("a layer that gains labelable content gets the stored intent on its new
     };
 
     setIntent(ui, "overlay1", "opacity", 0.3);
-    ui.intentProvenance.overlay1 = ["opacity"];
+    ui.intentStore.seedProvenance("overlay1", ["opacity"]);
     applyProjection(ui, "overlay1");
     applyProjection(ui, "overlay1");
 

@@ -512,7 +512,7 @@ describe("LayerUI rename", () => {
 
       ui.loadPersistedState();
 
-      expect(ui.intents ?? {}).toEqual({
+      expect(ui.intentStore.dumpIntents()).toEqual({
         overlay1: { name: "Over1" },
         base1: { name: "Over2" },
       });
@@ -621,15 +621,15 @@ describe("LayerUI rename", () => {
 
       window.localStorage.setItem(CONST.STORAGE.KEY, "not-json");
       ui.loadPersistedState();
-      expect(ui.intents ?? {}).toEqual({});
+      expect(ui.intentStore.dumpIntents()).toEqual({});
 
       window.localStorage.setItem(CONST.STORAGE.KEY, "[]");
       ui.loadPersistedState();
-      expect(ui.intents ?? {}).toEqual({});
+      expect(ui.intentStore.dumpIntents()).toEqual({});
 
       window.localStorage.setItem(CONST.STORAGE.KEY, "null");
       ui.loadPersistedState();
-      expect(ui.intents ?? {}).toEqual({});
+      expect(ui.intentStore.dumpIntents()).toEqual({});
 
       // The label must stay at the pristine name — no crash, no empty text.
       expect(label.textContent).toBe("Polygons");

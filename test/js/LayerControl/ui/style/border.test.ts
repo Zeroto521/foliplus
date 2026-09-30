@@ -373,7 +373,7 @@ describe("commit pipeline", () => {
     commitBorderNow(ui, "vec1", "color", "#f00");
 
     expect(getIntent(ui, "vec1", "borderColor")).toBe("#ff0000");
-    expect(ui.intentProvenance.vec1).toContain("borderColor");
+    expect(ui.intentStore.isUserSet("vec1", "borderColor")).toBe(true);
     expect(leaf.setStyle).toHaveBeenCalledTimes(1);
     expect(leaf.setStyle).toHaveBeenCalledWith({
       color: "#ff0000",
@@ -424,7 +424,7 @@ describe("commit pipeline", () => {
     commitBorderNow(ui, "vec1", "weight", 3.5);
 
     expect(getIntent(ui, "vec1", "borderWeight")).toBe(3.5);
-    expect(ui.intentProvenance.vec1).toContain("borderWeight");
+    expect(ui.intentStore.isUserSet("vec1", "borderWeight")).toBe(true);
     expect(leaf.setStyle).toHaveBeenCalledWith({ weight: 3.5, stroke: true });
   });
 
@@ -563,7 +563,7 @@ describe("bindBorderRow", () => {
     width.dispatchEvent(new Event("change", { bubbles: true }));
 
     expect(getIntent(ui, "vec1", "borderWeight")).toBe(5);
-    expect(ui.intentProvenance.vec1).toContain("borderWeight");
+    expect(ui.intentStore.isUserSet("vec1", "borderWeight")).toBe(true);
     expect(leaf.setStyle).toHaveBeenCalledWith({ weight: 5, stroke: true });
   });
 
@@ -581,7 +581,7 @@ describe("bindBorderRow", () => {
     flushStyleDimApply(FACE.STROKE, "vec1");
 
     expect(getIntent(ui, "vec1", "borderColor")).toBe("#abcdef");
-    expect(ui.intentProvenance.vec1).toContain("borderColor");
+    expect(ui.intentStore.isUserSet("vec1", "borderColor")).toBe(true);
     expect(leaf.setStyle).toHaveBeenCalledWith({ color: "#abcdef", stroke: true });
   });
 
@@ -623,9 +623,8 @@ describe("resetLayerBorder", () => {
     expect(getIntent(ui, "grp1", "borderColor")).toBeUndefined();
     expect(getIntent(ui, "grp1", "borderWeight")).toBeUndefined();
     // unmarkOverride drops the entry once both dimensions are cleared.
-    const overrides = ui.intentProvenance.grp1 ?? [];
-    expect(overrides).not.toContain("borderColor");
-    expect(overrides).not.toContain("borderWeight");
+    expect(ui.intentStore.isUserSet("grp1", "borderColor")).toBe(false);
+    expect(ui.intentStore.isUserSet("grp1", "borderWeight")).toBe(false);
     expect(first.setStyle).toHaveBeenCalledWith({
       color: "#ff0000",
       weight: 2,
@@ -688,14 +687,13 @@ describe("resetLayerBorder", () => {
     manager.registerLayer({ id: "ghost", name: "G", layer: null } as any);
     setIntent(ui, "ghost", "borderColor", "#ff0000");
     setIntent(ui, "ghost", "borderWeight", 4);
-    ui.intentProvenance.ghost = ["borderColor", "borderWeight"];
+    ui.intentStore.seedProvenance("ghost", ["borderColor", "borderWeight"]);
 
     expect(() => resetLayerBorder(ui, "ghost")).not.toThrow();
     expect(getIntent(ui, "ghost", "borderColor")).toBeUndefined();
     expect(getIntent(ui, "ghost", "borderWeight")).toBeUndefined();
-    const overrides = ui.intentProvenance.ghost ?? [];
-    expect(overrides).not.toContain("borderColor");
-    expect(overrides).not.toContain("borderWeight");
+    expect(ui.intentStore.isUserSet("ghost", "borderColor")).toBe(false);
+    expect(ui.intentStore.isUserSet("ghost", "borderWeight")).toBe(false);
   });
 
   it("skips a leaf that was never written, rather than inventing its stroke", () => {
@@ -1031,17 +1029,17 @@ describe("applyBorderToLayer", () => {
     expect(() => applyBorderToLayer(ui, "ghost")).not.toThrow();
   });
 
-  it("the applyUserState sweep writes only intentProvenance keys, so a stored value with no record is not replayed", () => {
+  it("the applyUserState sweep writes only user-set provenance keys, so a stored value with no record is not replayed", () => {
     const recorded = makeLeaf();
     const orphan = makeLeaf();
     manager.registerLayer({ id: "vec1", name: "V", layer: recorded });
     manager.registerLayer({ id: "vec2", name: "W", layer: orphan });
     setIntent(ui, "vec1", "borderColor", "#0000ff");
     setIntent(ui, "vec2", "borderColor", "#00ff00");
-    ui.intentProvenance.vec1 = ["borderColor"];
+    ui.intentStore.seedProvenance("vec1", ["borderColor"]);
     // vec2 holds a stored value that never went through markOverride — the
     // drift the single enumeration source exists to ignore. Enumerating the
-    // maps instead of intentProvenance would replay it while fill stayed put.
+    // maps instead of the provenance axis would replay it while fill stayed put.
 
     ui.applyUserState();
 

@@ -10,12 +10,14 @@ import {
   renderInitialList,
   updateLayerItem,
 } from "#foliplus/LayerControl/ui/list.js";
+import { IntentStore } from "#foliplus/LayerControl/ui/intentStore.js";
 import { displayName } from "#foliplus/LayerControl/ui/rowView.js";
 import { applyVisibility } from "#foliplus/LayerControl/ui/visibility.js";
 import { TileLayer, initFixture } from "./fixture.js";
 
 const makeUi = () =>
   ({
+    intentStore: new IntentStore(),
     renamedNames: {},
     m: { layerRegistry: { get: () => undefined } },
     T: (k: string) => k,
@@ -23,10 +25,10 @@ const makeUi = () =>
 
 describe("ui/list displayName", () => {
   it("resolves a registered/renamed id through the registry name", () => {
+    const intentStore = new IntentStore();
+    intentStore.setValue("a", "name", "Renamed");
     const ui = {
-      intents: {
-        a: { name: "Renamed" },
-      },
+      intentStore,
       m: { layerRegistry: { get: () => ({ name: "Original" }) } },
       T: (k: string) => k,
     } as unknown as LayerUI;

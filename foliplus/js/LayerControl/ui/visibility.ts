@@ -25,9 +25,9 @@ const syncNoBasemap = (ui: LayerUI): void => {
     if (li.group !== GROUP.BASE) return false;
     // Inline intent check to avoid function-call overhead on the click hot path.
     const visible = getIntent(ui, li.id, INTENT.VISIBLE);
-    const overrides = ui.intentProvenance?.[li.id];
     const hasVisible =
-      overrides?.includes(INTENT.VISIBLE) || typeof visible === "boolean";
+      ui.intentStore.isUserSet(li.id, INTENT.VISIBLE) ||
+      typeof visible === "boolean";
     const authorDefault = ui.authorVisible.get(li.id) ?? true;
     if (!(hasVisible ? visible : authorDefault)) return false;
     // Effective visibility: intent alone isn't enough — a basemap with
@@ -109,9 +109,8 @@ const syncToggleAll = (ui: LayerUI, group: string) => {
     const layerInfo = ui.m.layerRegistry.get(id);
     if (!layerInfo) continue;
     const visible = getIntent(ui, id, INTENT.VISIBLE);
-    const overrides = ui.intentProvenance?.[id];
     const hasVisible =
-      overrides?.includes(INTENT.VISIBLE) || typeof visible === "boolean";
+      ui.intentStore.isUserSet(id, INTENT.VISIBLE) || typeof visible === "boolean";
     const authorDefault = ui.authorVisible.get(id) ?? true;
     if (hasVisible ? visible : authorDefault) on++;
   }
