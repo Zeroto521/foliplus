@@ -163,6 +163,17 @@ describe("CLASSES", () => {
     expect(CONST.CLASSES.COLLAPSED).toBe("foliplus-is-collapsed");
     expect(CONST.CLASSES.LOCKED).toBe("foliplus-locked");
     expect(CONST.CLASSES.DRAGGING).toBe("foliplus-is-dragging");
+    // Hit-testing identity stays a single token — `classList.contains` does
+    // not split a multi-token lookup.
+    expect(CONST.CLASSES.HANDLE).toBe("foliplus-export-handle");
+    expect(CONST.CLASSES.EXPORT_CROP_CENTER).toBe("foliplus-export-center");
+    // DOM builders carry the shared dot look plus the local positioning hook.
+    expect(CONST.CLASSES.HANDLE_DOT).toBe(
+      "foliplus-dot foliplus-dot-hollow foliplus-export-handle",
+    );
+    expect(CONST.CLASSES.CENTER_DOT).toBe(
+      "foliplus-dot foliplus-dot-solid foliplus-export-center",
+    );
   });
 });
 

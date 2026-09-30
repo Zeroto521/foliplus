@@ -67,7 +67,7 @@ describe("HeatmapManager — versioned persisted config", () => {
         expect(() => m.clearSavedConfig()).not.toThrow();
         expect(removeItem).toHaveBeenCalledWith(KEY);
         expect(warn).toHaveBeenCalledWith(
-          expect.stringContaining("failed to clear saved data"),
+          expect.stringContaining("failed to remove data"),
           expect.any(Error),
         );
       } finally {

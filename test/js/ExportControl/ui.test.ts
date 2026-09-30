@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { HINT_DURATION } from "#core/hint.js";
+import { ensureModes } from "#core/mode.js";
 import * as CONST from "#foliplus/ExportControl/const.js";
 import { ExportManager } from "#foliplus/ExportControl/manager.js";
+import type { CropState } from "#foliplus/ExportControl/type.js";
 import {
   removeCropBox,
   showCropBox,
@@ -274,5 +276,227 @@ describe("ExportControl ui — hints and toolbar via the injected conf", () => {
       undefined,
       false,
     );
+  });
+});
+
+describe("ExportControl ui — crop-state guards and locked map sync", () => {
+  // bindMapSync routes the map move handler through throttleRaf, so a fired
+  // "move" only lands on the next animation frame.  Queue the frames and flush
+  // them explicitly instead of fighting the jsdom rAF loop.
+  const rafQueue: Array<(t: number) => void> = [];
+  const realRaf = globalThis.requestAnimationFrame;
+
+  beforeEach(() => {
+    rafQueue.length = 0;
+    globalThis.requestAnimationFrame = (cb: FrameRequestCallback) => {
+      rafQueue.push(cb as (t: number) => void);
+      return rafQueue.length;
+    };
+    globalThis.cancelAnimationFrame = () => undefined;
+  });
+
+  afterEach(() => {
+    globalThis.requestAnimationFrame = realRaf;
+    document.body.innerHTML = "";
+  });
+
+  const flushRaf = () => {
+    for (const cb of rafQueue.splice(0)) cb(0);
+  };
+
+  /** A map mock that records bound handlers so events can be fired on demand. */
+  const eventsMap = () => {
+    const handlers = new Map<string, Array<() => void>>();
+    return {
+      ...makeMapMock(),
+      on: vi.fn((event: string, fn: unknown) => {
+        const list = handlers.get(event) ?? [];
+        list.push(fn as () => void);
+        handlers.set(event, list);
+      }),
+      off: vi.fn((event: string, fn: unknown) => {
+        handlers.set(
+          event,
+          (handlers.get(event) ?? []).filter(h => h !== fn),
+        );
+      }),
+      fire: (event: string) => {
+        for (const fn of handlers.get(event) ?? []) fn();
+      },
+    };
+  };
+
+  const makeEventManager = () => {
+    window.CONF = {
+      ...window.CONF,
+      name: "ExportControl",
+      timeout: 7500,
+      max_pixels: null,
+      scale: 2,
+      format: "png",
+      filename: "map",
+      quality: 0.9,
+    };
+    const map = eventsMap();
+    const manager = new ExportManager(map);
+    manager.attachUI(null, document.createElement("div"));
+    return { manager, map };
+  };
+
+  it("showCropBox is a no-op while a crop box is already open", () => {
+    const manager = makeManager();
+    showCropBox(manager);
+    const first = manager.cropState;
+
+    showCropBox(manager);
+
+    expect(manager.cropState).toBe(first);
+    expect(manager.mapContainer.querySelectorAll(".foliplus-export-box")).toHaveLength(
+      1,
+    );
+    expect(manager.map.keyboard.disable).toHaveBeenCalledTimes(1);
+  });
+
+  it("showCropBox refuses to open while another component holds the map", () => {
+    const manager = makeManager();
+    ensureModes(manager.map).setMode("MeasureControl", "distance");
+
+    showCropBox(manager);
+
+    expect(manager.cropState).toBeNull();
+    expect(manager.mapContainer.querySelectorAll(".foliplus-export-box")).toHaveLength(
+      0,
+    );
+    expect(manager.map.foliplus.showHint).toHaveBeenCalledWith(
+      manager.conf.name,
+      manager.T("blocked_measure"),
+      HINT_DURATION.SHORT,
+    );
+  });
+
+  it("showCropBox re-opens the previous geo bounds from savedBounds", () => {
+    const manager = makeManager();
+    manager.savedBounds = { nw: { lat: 10, lng: 20 }, se: { lat: 100, lng: 200 } };
+
+    showCropBox(manager);
+
+    expect(manager.cropState!.rect).toEqual({
+      left: 20,
+      top: 10,
+      width: 180,
+      height: 90,
+    });
+    expect(manager.map.latLngToContainerPoint).toHaveBeenCalledWith({
+      lat: 10,
+      lng: 20,
+    });
+    expect(manager.map.latLngToContainerPoint).toHaveBeenCalledWith({
+      lat: 100,
+      lng: 200,
+    });
+  });
+
+  it("showCropBox clamps a remembered screen rect back inside the map", () => {
+    // Container is 500x400, so a rect remembered near the far corner has to be
+    // pulled back to CROP.MIN_SIZE from the edge.
+    const manager = makeManager();
+    manager.lastScreenRect = { left: 480, top: 380, width: 300, height: 300 };
+
+    showCropBox(manager);
+
+    expect(manager.cropState!.rect).toEqual({
+      left: 500 - CONST.CROP.MIN_SIZE,
+      top: 400 - CONST.CROP.MIN_SIZE,
+      width: CONST.CROP.MIN_SIZE,
+      height: CONST.CROP.MIN_SIZE,
+    });
+  });
+
+  it("showCropBox still opens when the control never got a toolbar", () => {
+    const manager = new ExportManager(makeMapMock());
+
+    showCropBox(manager);
+
+    expect(manager.cropState).not.toBeNull();
+    expect(manager.cropState!.actions).toBeNull();
+    expect(manager.map.keyboard.disable).toHaveBeenCalledTimes(1);
+  });
+
+  it("lockCropBox no-ops without a crop box and when it is already locked", () => {
+    const manager = makeManager();
+    manager.lockCropBox();
+    expect(manager.cropState).toBeNull();
+
+    showCropBox(manager);
+    manager.lockCropBox();
+    expect(manager.map.keyboard.enable).toHaveBeenCalledTimes(1);
+    const first = manager.cropState;
+
+    manager.lockCropBox();
+
+    expect(manager.cropState).toBe(first);
+    expect(manager.map.keyboard.enable).toHaveBeenCalledTimes(1);
+  });
+
+  it("unlockCropBox no-ops while the box is still unlocked", () => {
+    const manager = makeManager();
+    showCropBox(manager);
+    const first = manager.cropState;
+
+    manager.unlockCropBox();
+
+    expect(manager.cropState).toBe(first);
+    expect(manager.cropState!.locked).toBe(false);
+    expect(manager.map.keyboard.disable).toHaveBeenCalledTimes(1);
+  });
+
+  it("map move and zoom only re-anchor a locked crop box", () => {
+    const { manager, map } = makeEventManager();
+    manager.onMapChange = vi.fn();
+    showCropBox(manager);
+    manager.lockCropBox();
+    manager.onMapChange.mockClear();
+
+    // Locked (geo-anchored): a map move re-projects the box, zoomend refreshes it.
+    map.fire("move");
+    flushRaf();
+    expect(manager.onMapChange).toHaveBeenCalledWith(true);
+    map.fire("zoomend");
+    expect(manager.onMapChange).toHaveBeenLastCalledWith();
+
+    // Unlocked: a stray map event must not move the box the user is still editing.
+    manager.cropState!.locked = false;
+    manager.onMapChange.mockClear();
+    map.fire("move");
+    flushRaf();
+    map.fire("zoomend");
+    expect(manager.onMapChange).not.toHaveBeenCalled();
+
+    // unlockCropBox drops the bindings, so late events stay inert.
+    manager.unlockCropBox();
+    map.fire("move");
+    flushRaf();
+    expect(manager.onMapChange).not.toHaveBeenCalled();
+  });
+
+  it("removeCropBox is idempotent and tolerates a partially torn-down state", () => {
+    const manager = makeManager();
+    removeCropBox(manager);
+    expect(manager.cropState).toBeNull();
+
+    manager.cropState = {
+      overlay: document.createElement("div"),
+      box: null as unknown as HTMLElement,
+      rect: { left: 1, top: 2, width: 3, height: 4 },
+      locked: false,
+      actions: null as unknown as HTMLElement,
+    } as CropState;
+    manager.cropMousedownCleanup = vi.fn();
+
+    expect(() => removeCropBox(manager)).not.toThrow();
+
+    expect(manager.cropState).toBeNull();
+    expect(manager.cropMousedownCleanup).not.toHaveBeenCalled();
+    expect(manager.lastScreenRect).toEqual({ left: 1, top: 2, width: 3, height: 4 });
   });
 });

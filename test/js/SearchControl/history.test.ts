@@ -25,9 +25,24 @@ beforeEach(() => {
 
 const tick = () => new Promise(r => setTimeout(r, 0));
 
+// Control context for logic functions that now receive ctrl.
+const ctx = () => ({
+  conf: { name: "SearchControl", locale_code: "en", zoom: 16 },
+  T: (k: string) => `SearchControl.${k}`,
+  _: (k: string) => k,
+  log: {
+    msg: (m: string) => m,
+    warn: (...args: unknown[]) =>
+      console.warn(`[SearchControl] ${args[0]}`, ...args.slice(1)),
+    error: vi.fn(),
+  },
+  _map: window.map,
+});
+
 describe("searchCoord — history recording", () => {
   it("records a coord search entry after successful search", async () => {
     const ctrl: any = {
+      ...ctx(),
       inp: { value: "121.47,31.23" },
       marker: null,
       searchHistory: [],
@@ -48,7 +63,7 @@ describe("searchCoord — history recording", () => {
     const tick = () => new Promise(r => setTimeout(r, 0));
     // "120,32" and its whitespace / full-width-comma variants resolve to the
     // same lng/lat, so they must collapse into one entry instead of two.
-    const ctrl: any = { inp: { value: "" }, marker: null, searchHistory: [] };
+    const ctrl: any = { ...ctx(), inp: { value: "" }, marker: null, searchHistory: [] };
     searchCoord(ctrl, "120,32");
     await tick();
     await tick();
@@ -67,7 +82,7 @@ describe("searchCoord — history recording", () => {
 
   it("stores a canonical coord key, not the raw input", async () => {
     const tick = () => new Promise(r => setTimeout(r, 0));
-    const ctrl: any = { inp: { value: "" }, marker: null, searchHistory: [] };
+    const ctrl: any = { ...ctx(), inp: { value: "" }, marker: null, searchHistory: [] };
     searchCoord(ctrl, " 120 , 32 ");
     await tick();
     await tick();
@@ -77,7 +92,7 @@ describe("searchCoord — history recording", () => {
   });
 
   it("does not record history for invalid coordinates", () => {
-    const ctrl: any = { inp: { value: "" }, marker: null, searchHistory: [] };
+    const ctrl: any = { ...ctx(), inp: { value: "" }, marker: null, searchHistory: [] };
     searchCoord(ctrl, "abc");
     expect(ctrl.searchHistory).toEqual([]);
   });
@@ -86,6 +101,7 @@ describe("searchCoord — history recording", () => {
     // Mock reverse geocode to return an address after the initial save
     (window.foliplus.reverseGeocode as any).mockResolvedValue("Shanghai, China");
     const ctrl: any = {
+      ...ctx(),
       inp: { value: "121.47,31.23" },
       marker: null,
       searchHistory: [],
@@ -117,6 +133,7 @@ describe("searchCoord — history recording", () => {
         : Promise.reject(new Error("network timeout")),
     );
     const ctrl: any = {
+      ...ctx(),
       inp: { value: "121.47,31.23" },
       marker: null,
       searchHistory: [],
@@ -133,6 +150,7 @@ describe("searchCoord — history recording", () => {
   it("reverse geocode resolves null: keeps coord-only entry", async () => {
     (window.foliplus.reverseGeocode as any).mockResolvedValue(null);
     const ctrl: any = {
+      ...ctx(),
       inp: { value: "121.47,31.23" },
       marker: null,
       searchHistory: [],
@@ -149,6 +167,7 @@ describe("searchCoord — history recording", () => {
   it("history entry missing: reverse geocode does not crash", async () => {
     (window.foliplus.reverseGeocode as any).mockResolvedValue("Some Addr");
     const ctrl: any = {
+      ...ctx(),
       inp: { value: "121.47,31.23" },
       marker: null,
       searchHistory: [],
@@ -182,6 +201,7 @@ describe("searchAddress — history recording", () => {
       display_name: "Paris, France",
     });
     const ctrl: any = {
+      ...ctx(),
       cachedAddress: {},
       addrAbortController: null,
       inp: { value: "Paris" },
@@ -201,6 +221,7 @@ describe("searchAddress — history recording", () => {
   it("does not record history when no results are found", async () => {
     (window.foliplus.geocode as any).mockResolvedValue(null);
     const ctrl: any = {
+      ...ctx(),
       cachedAddress: {},
       addrAbortController: null,
       inp: { value: "abc" },
@@ -215,7 +236,7 @@ describe("searchAddress — history recording", () => {
 
 describe("addHistoryEntry", () => {
   it("prepends a new entry and persists", () => {
-    const ctrl: any = { searchHistory: [] };
+    const ctrl: any = { ...ctx(), searchHistory: [] };
     addHistoryEntry(ctrl, {
       query: "Paris",
       type: "addr",
@@ -234,6 +255,7 @@ describe("addHistoryEntry", () => {
 
   it("increments count on duplicate query and updates displays", () => {
     const ctrl: any = {
+      ...ctx(),
       searchHistory: [
         {
           query: "A",
@@ -290,6 +312,7 @@ describe("addHistoryEntry", () => {
 
   it("persists after deduplication", () => {
     const ctrl: any = {
+      ...ctx(),
       searchHistory: [
         {
           query: "Paris",
@@ -322,6 +345,7 @@ describe("addHistoryEntry", () => {
 
   it("respects MAX_ENTRIES limit", () => {
     const ctrl: any = {
+      ...ctx(),
       searchHistory: Array.from({ length: HISTORY.MAX_ENTRIES }, (_, i) => ({
         query: `q${i}`,
         type: "addr" as const,
@@ -355,6 +379,7 @@ describe("addHistoryEntry", () => {
 
   it("persists after hitting MAX_ENTRIES cap", () => {
     const ctrl: any = {
+      ...ctx(),
       searchHistory: Array.from({ length: HISTORY.MAX_ENTRIES }, (_, i) => ({
         query: `q${i}`,
         type: "addr" as const,
@@ -385,6 +410,7 @@ describe("addHistoryEntry", () => {
 describe("deleteHistoryEntry", () => {
   it("removes a matching entry and persists", () => {
     const ctrl: any = {
+      ...ctx(),
       searchHistory: [
         {
           query: "A",
@@ -418,6 +444,7 @@ describe("deleteHistoryEntry", () => {
 
   it("does nothing for unknown query", () => {
     const ctrl: any = {
+      ...ctx(),
       searchHistory: [
         {
           query: "A",
@@ -437,6 +464,7 @@ describe("deleteHistoryEntry", () => {
 
   it("empties history when last entry is deleted", () => {
     const ctrl: any = {
+      ...ctx(),
       searchHistory: [
         {
           query: "Only",
@@ -460,6 +488,7 @@ describe("deleteHistoryEntry", () => {
 describe("clearHistory", () => {
   it("empties the history array and persists", () => {
     const ctrl: any = {
+      ...ctx(),
       searchHistory: [
         {
           query: "A",
@@ -485,12 +514,12 @@ describe("clearHistory", () => {
     };
     clearHistory(ctrl);
     expect(ctrl.searchHistory).toEqual([]);
-    const loaded = loadHistory();
+    const loaded = loadHistory(ctx());
     expect(loaded).toEqual([]);
   });
 
   it("is a no-op when history is already empty", () => {
-    const ctrl: any = { searchHistory: [] };
+    const ctrl: any = { ...ctx(), searchHistory: [] };
     clearHistory(ctrl);
     expect(ctrl.searchHistory).toEqual([]);
   });
@@ -498,7 +527,7 @@ describe("clearHistory", () => {
 
 describe("recordHistorySearch", () => {
   it("records a completed coord search", () => {
-    const ctrl: any = { searchHistory: [] };
+    const ctrl: any = { ...ctx(), searchHistory: [] };
     recordHistorySearch(
       ctrl,
       "121.47,31.23",
@@ -518,7 +547,7 @@ describe("recordHistorySearch", () => {
   });
 
   it("records a completed addr search", () => {
-    const ctrl: any = { searchHistory: [] };
+    const ctrl: any = { ...ctx(), searchHistory: [] };
     recordHistorySearch(ctrl, "Paris", "addr", "2.3, 48.8", "Paris, France", 2.3, 48.8);
     expect(ctrl.searchHistory).toHaveLength(1);
     expect(ctrl.searchHistory[0].type).toBe("addr");
@@ -527,7 +556,7 @@ describe("recordHistorySearch", () => {
   });
 
   it("records the current timestamp", () => {
-    const ctrl: any = { searchHistory: [] };
+    const ctrl: any = { ...ctx(), searchHistory: [] };
     const before = Date.now();
     recordHistorySearch(ctrl, "A", "addr", "", "A", 0, 0);
     const after = Date.now();
@@ -536,7 +565,7 @@ describe("recordHistorySearch", () => {
   });
 
   it("stores raw query as key for deduplication", () => {
-    const ctrl: any = { searchHistory: [] };
+    const ctrl: any = { ...ctx(), searchHistory: [] };
     recordHistorySearch(ctrl, "Paris", "addr", "2.3, 48.8", "Paris, France", 2.3, 48.8);
     expect(ctrl.searchHistory[0].query).toBe("Paris");
     // Re-record with same query — dedup should apply and increment count
@@ -549,6 +578,7 @@ describe("recordHistorySearch", () => {
 describe("renderHistory", () => {
   const makeHistoryCtrl = (searchHistory: SearchHistoryEntry[]): any => {
     return {
+      ...ctx(),
       searchHistory,
       panelWrap: null,
       throttleTimer: null,
@@ -680,36 +710,31 @@ describe("renderHistory", () => {
   });
 
   it("clicking a history entry navigates to the saved coordinates", () => {
-    // CONF.zoom is unset so the flyTo target exercises the ZOOM.MAX fallback.
-    const original = window.CONF.zoom;
-    try {
-      window.CONF = { ...window.CONF, zoom: undefined };
-      const ctrl = makeHistoryCtrl([
-        {
-          query: "Paris",
-          type: "addr",
-          coordDisplay: "2.3, 48.8",
-          addrDisplay: "Paris, France",
-          lng: 2.3,
-          lat: 48.8,
-          ts: 1000,
-          count: 1,
-        },
-      ]);
-      renderHistory(ctrl, "addr");
-      const item = ctrl.panelWrap.querySelector(".foliplus-search-result-item")!;
-      item.dispatchEvent(
-        new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
-      );
-      expect(map.flyTo).toHaveBeenCalledWith([48.8, 2.3], ZOOM.MAX);
-      // The input gets the panel's display so the input matches the entry
-      // the user clicked (addrDisplay), not the original keyword.
-      expect(ctrl.inp.value).toBe("Paris, France");
-      // The addr entry carries its display for keyboard nav too.
-      expect(item.getAttribute("data-query")).toBe("Paris, France");
-    } finally {
-      window.CONF = { ...window.CONF, zoom: original };
-    }
+    // conf.zoom is unset so the flyTo target exercises the ZOOM.MAX fallback.
+    const ctrl = makeHistoryCtrl([
+      {
+        query: "Paris",
+        type: "addr",
+        coordDisplay: "2.3, 48.8",
+        addrDisplay: "Paris, France",
+        lng: 2.3,
+        lat: 48.8,
+        ts: 1000,
+        count: 1,
+      },
+    ]);
+    ctrl.conf = { ...ctrl.conf, zoom: undefined };
+    renderHistory(ctrl, "addr");
+    const item = ctrl.panelWrap.querySelector(".foliplus-search-result-item")!;
+    item.dispatchEvent(
+      new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
+    );
+    expect(map.flyTo).toHaveBeenCalledWith([48.8, 2.3], ZOOM.MAX);
+    // The input gets the panel's display so the input matches the entry
+    // the user clicked (addrDisplay), not the original keyword.
+    expect(ctrl.inp.value).toBe("Paris, France");
+    // The addr entry carries its display for keyboard nav too.
+    expect(item.getAttribute("data-query")).toBe("Paris, France");
   });
 
   it("clicking a coord entry with an address restores the coord display, not the address", () => {
@@ -887,6 +912,7 @@ describe("renderHistory", () => {
 describe("mode-lock guard: history entry click when a mode is held", () => {
   it("history entry click is blocked and panel stays open when a mode is held", () => {
     const ctrl: any = {
+      ...ctx(),
       mode: "coord",
       panelWrap: null,
       throttleTimer: null,

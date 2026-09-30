@@ -883,6 +883,68 @@ describe("LayerUI keyboard", () => {
     });
   });
 
+  describe("onItemKeydown guard branches", () => {
+    const keyEvent = (
+      key: string,
+      opts: { ctrlKey?: boolean; shiftKey?: boolean; metaKey?: boolean } = {},
+    ) =>
+      new KeyboardEvent("keydown", {
+        key,
+        bubbles: true,
+        cancelable: true,
+        ...opts,
+      }) as KeyboardEvent;
+
+    it("Escape lifts the cursor marker but preserves the index for arrow resume", () => {
+      const item = findItem(ui, "overlay1");
+      ui.setActiveItem(ui.getNavigableItems().indexOf(item));
+      const idx = ui.activeIdx;
+      expect(item.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
+
+      ui.handleKeyDown(keyEvent("Escape"));
+
+      expect(ui.activeIdx).toBe(idx);
+      expect(item.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
+    });
+
+    it("Enter on a checkbox inside an active row toggles visibility and keeps the cursor", () => {
+      const item = findItem(ui, "overlay1");
+      ui.setActiveItem(ui.getNavigableItems().indexOf(item));
+      const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
+      const before = checkbox.checked;
+
+      checkbox.focus();
+      ui.handleKeyDown(keyEvent("Enter"));
+
+      expect(checkbox.checked).toBe(!before);
+      expect(ui.activeIdx).toBe(ui.getNavigableItems().indexOf(item));
+    });
+
+    it("Enter on a focused layer row toggles visibility through the row branch", () => {
+      const item = findItem(ui, "overlay1");
+      const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
+      const before = checkbox.checked;
+
+      item.focus();
+      ui.handleKeyDown(keyEvent("Enter"));
+
+      expect(checkbox.checked).toBe(!before);
+    });
+
+    it("Enter/Escape on the more button open and close the menu instead of the row path", () => {
+      const item = findItem(ui, "overlay1");
+      const more = item.querySelector(`.${CONST.CLASSES.MORE_BTN}`)!;
+
+      more.focus();
+      ui.handleKeyDown(keyEvent("Enter"));
+      expect(ui.activeMenu).not.toBeNull();
+      expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(1);
+
+      ui.handleKeyDown(keyEvent("Escape"));
+      expect(ui.activeMenu).toBeNull();
+    });
+  });
+
   describe("form controls inside floating panels", () => {
     // Arrow keys on a range slider inside the style panel must not move the
     // row keyboard cursor. The native slider behavior is more useful than
@@ -984,6 +1046,60 @@ describe("LayerUI keyboard", () => {
       );
 
       expect(ui.stylePanelLayerId).toBeNull();
+    });
+
+    it("Escape on a checkbox inside a focused row lifts the cursor marker", () => {
+      const item = findItem(ui, "overlay1");
+      ui.setActiveItem(ui.getNavigableItems().indexOf(item));
+      const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
+      const idx = ui.activeIdx;
+
+      checkbox.focus();
+      const event = new KeyboardEvent("keydown", {
+        key: "Escape",
+        bubbles: true,
+        cancelable: true,
+      });
+      ui.handleKeyDown(event as unknown as KeyboardEvent);
+
+      expect(ui.activeIdx).toBe(idx);
+      expect(item.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
+    });
+
+    it("Enter on a checkbox inside a focused row toggles visibility instead of toggling", () => {
+      const item = findItem(ui, "overlay1");
+      ui.setActiveItem(ui.getNavigableItems().indexOf(item));
+      const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
+      const before = checkbox.checked;
+
+      checkbox.focus();
+      checkbox.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "Enter",
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+
+      expect(checkbox.checked).toBe(!before);
+      expect(ui.activeIdx).toBe(ui.getNavigableItems().indexOf(item));
+    });
+
+    it("Enter on a focused layer row toggles visibility", () => {
+      const item = findItem(ui, "overlay1");
+      const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
+      const before = checkbox.checked;
+
+      item.focus();
+      item.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "Enter",
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+
+      expect(checkbox.checked).toBe(!before);
     });
   });
 

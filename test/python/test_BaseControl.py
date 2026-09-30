@@ -8,18 +8,23 @@ function presence and internal logic are covered by test/js/ unit tests.
 
 from __future__ import annotations
 
+import io
 import json
 from pathlib import Path
 
 import folium
 import pytest
 from conftest import (
+    _js,
     assert_config_block,
+    make_browser_page,
     read_css_dir,
     render,
     render_control,
     resolve_js_unicode,
+    use_page,
 )
+from PIL import Image
 
 
 class TestBaseControlPython:
@@ -434,6 +439,61 @@ class TestBaseControlRendering:
         assert "panel-shadow" in html
         assert "ctrl-fold.foliplus-is-expanded" in html
 
+    def test_form_select_joins_input_hover_list(self):
+        """`.foliplus-form-select` rides the shared input hover/focus recipe.
+
+        The shared `:is(...)` list in input.css covers `.foliplus-heatmap-ctrl
+        select` and the bare form-select class used by LayerControl annotation
+        / label panels. Same hover language as color/number.
+        """
+        css = read_css_dir("foliplus/css/common", "input.css")
+        idx = css.find(":is(")
+        assert idx != -1
+        # The hover/focus list must name the bare shared class.
+        block = css[idx : css.index(":is(:hover", idx)]
+        assert ".foliplus-form-select" in block
+
+    def test_toggle_switch_press_scales_knob(self):
+        """Toggle knob drops to the button-family press scale on :active.
+
+        Checked keeps its translateX so the knob stays on the "on" side while
+        it shrinks.
+        """
+        css = read_css_dir("foliplus/css/common", "form.css")
+        assert "input:active + .foliplus-toggle-slider::before" in css
+        assert "input:checked:active + .foliplus-toggle-slider::before" in css
+        assert "scale(var(--foliplus-scale-press))" in css
+        # The checked-press leg must keep the on-side offset.
+        assert (
+            "translateX(var(--foliplus-size-20)) scale(var(--foliplus-scale-press))"
+            in css
+        )
+
+    def test_menu_item_press_uses_soft_wash(self):
+        """Dropdown/list items answer :active with the soft accent wash.
+
+        Same vocabulary as the Heatmap scheme picker's persistent selection
+        (`--foliplus-accent-soft-bg`). Disabled entries never answer; search
+        results keep record ink on press.
+        """
+        css = read_css_dir("foliplus/css/common", "menu.css")
+        assert "):not([disabled]):active" in css
+        assert "background: var(--foliplus-accent-soft-bg)" in css
+        # Search result is a record: text stays text-primary on press too.
+        assert ".foliplus-search-result-item:not([disabled]):active" in css
+        assert "color: var(--foliplus-text-primary)" in css
+        # Disabled menu entries keep their muted non-answer.
+        assert ".foliplus-layer-more-menu li[disabled]:active" in css
+
+    def test_layer_more_menu_focus_ring_uses_shared_tokens(self):
+        """Layer overflow menu items take the shared focus-ring + fast transition."""
+        css = read_css_dir("foliplus/css/LayerControl", "menu.css")
+        idx = css.find(".foliplus-layer-more-menu li:focus-visible")
+        assert idx != -1
+        block = css[idx : css.index("}", idx)]
+        assert "var(--foliplus-focus-ring)" in block
+        assert "box-shadow var(--foliplus-transition-fast)" in block
+
 
 # ---------------------------------------------------------------------------
 # Inline script escaping: both script emission sites (the per-control CONF line
@@ -750,3 +810,103 @@ class TestFoliumBaseline:
         assert ESCAPED in html
         assert PAYLOAD not in html
         assert PAYLOAD in resolve_js_unicode(html)
+
+
+class TestButtonRadiusBrowser:
+    """T251 guard: foliplus button :hover keeps its radius under Bootstrap.
+
+    Bootstrap ships an unlayered `button{border-radius:0}` reset. During the
+    @layer era (#568) that outranked the layered foliplus rule at any
+    specificity — the unified button hover turned square (user report).
+    After #579 removed the layer wrap, `.foliplus-*:hover` (0,4,0) beats
+    `button` (0,0,1) again. This pins the radius for the whole button family
+    on a real folium page with Bootstrap injected.
+    """
+
+    # --foliplus-radius-sm resolves through --foliplus-size-4 (4px).
+    RADIUS_SM = "4px"
+
+    @staticmethod
+    def _make_page(browser, tmp_path):
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        # Any foliplus control injects the shared stylesheet into the page;
+        # without one the foliplus CSS never ships and the buttons would
+        # render with Bootstrap's reset alone.
+        from foliplus import LayerControl
+
+        LayerControl().add_to(m)
+        html = m.get_root().render()
+        page, errors = make_browser_page(browser, tmp_path, html, "btn_radius")
+        # Inject the three button kinds the guard covers (shared snippet).
+        assert page.evaluate(_js("BaseControl/button_probe")) == [
+            "tb",
+            "tool",
+            "panel",
+        ]
+        return page, errors
+
+    def _radius(self, page, selector: str) -> str:
+        return page.evaluate(
+            "sel => getComputedStyle(document.querySelector(sel)).borderRadius",
+            selector,
+        )
+
+    def _corner_pink_counts(self, page, selector: str) -> list[int]:
+        """Per-corner pink-pixel counts (6x6 block) of the hovered button.
+
+        A square corner (radius 0) is fully pink under :hover (accent-light
+        fills the whole box); a rounded corner leaves the corner pixels
+        unpainted. 'pink' = --foliplus-accent-light (#fde8e8), tolerance 24.
+        Uses the element screenshot so the `:hover` transform scale is
+        included in the sampled box (a layout-bounding-box clip would shift
+        the corners off the rendered glyph).
+        """
+        shot = page.locator(selector).screenshot()
+        img = Image.open(io.BytesIO(shot)).convert("RGB")
+        w, h = img.size
+        size = 6
+        corners = [(0, 0), (w - size, 0), (0, h - size), (w - size, h - size)]
+        counts = []
+        for cx, cy in corners:
+            n = 0
+            for dx in range(size):
+                for dy in range(size):
+                    r, g, b = img.getpixel((cx + dx, cy + dy))
+                    if (
+                        abs(r - 0xFD) <= 24
+                        and abs(g - 0xE8) <= 24
+                        and abs(b - 0xE8) <= 24
+                    ):
+                        n += 1
+            counts.append(n)
+        return counts
+
+    def test_radius_under_bootstrap(self, browser, tmp_path):
+        """Toggle keeps 4px radius on hover; tool flips 0 -> 4; panel stays 4."""
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            # toggle: rounded at rest, rounded on hover (Bootstrap reset must not win)
+            assert self._radius(page, "#tb") == self.RADIUS_SM
+            page.hover("#tb")
+            assert self._radius(page, "#tb") == self.RADIUS_SM
+            # tool: square at rest, rounded on hover
+            assert self._radius(page, "#tool") == "0px"
+            page.hover("#tool")
+            assert self._radius(page, "#tool") == self.RADIUS_SM
+            # panel: rounded at rest
+            assert self._radius(page, "#panel") == self.RADIUS_SM
+            assert not errors, f"JS errors: {errors}"
+
+    def test_hover_corners_paint_rounded_under_bootstrap(self, browser, tmp_path):
+        """Visual pin: hovered corners are not fully pink (radius not zero)."""
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            for sel in ("#tb", "#tool", "#panel"):
+                page.hover(sel)
+                # Let the hover background/transform transition settle.
+                page.wait_for_timeout(300)
+                counts = self._corner_pink_counts(page, sel)
+                # A square corner would be all 36 pink; rounded corners leave gaps.
+                assert all(c < 36 for c in counts), (
+                    f"{sel}: corner fully pink under Bootstrap ({counts}) — "
+                    "border-radius lost to the host button reset"
+                )
+            assert not errors, f"JS errors: {errors}"

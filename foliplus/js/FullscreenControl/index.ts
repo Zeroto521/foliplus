@@ -1,19 +1,16 @@
-import { createControlEnv } from "#core/controlEnv.js";
+import { defineControl } from "#core/defineControl.js";
 import { ensureHint } from "#core/hint.js";
-import { BaseControl } from "#foliplus/BaseControl.js";
 import { createIconButton, dom } from "#common/dom.js";
-import { createScopedTranslator } from "#common/locale.js";
 import { FULLSCREEN_CHANGE, isEnabled } from "./api.js";
 import { CLASSES, containerId } from "./const.js";
 import * as SVGs from "./icon.js";
 import { makeFullscreenChangeHandler, toggleFullscreen } from "./logic.js";
 
-createControlEnv(CONF, SVGs.MAXIMIZE);
-const T = createScopedTranslator(CONF);
-ensureHint(map);
-
-class FullscreenControl extends BaseControl {
-  buildDOM() {
+const FullscreenControl = defineControl({
+  conf: CONF,
+  icon: SVGs.MAXIMIZE,
+  setup: () => ensureHint(map),
+  buildDOM(this: any) {
     if (map.zoomControl) map.removeControl(map.zoomControl);
     else {
       const zoomEl = map.getContainer().querySelector(".leaflet-control-zoom");
@@ -22,7 +19,7 @@ class FullscreenControl extends BaseControl {
 
     const outer = dom.el("div", {
       class: "leaflet-bar leaflet-control",
-      id: containerId(CONF.name, CONF.position as string),
+      id: containerId(this.conf.name, this.conf.position as string),
     });
     const container = dom.el("div", {
       class: "foliplus-ctrl-fold foliplus-fullscreen-bar",
@@ -31,8 +28,8 @@ class FullscreenControl extends BaseControl {
 
     createIconButton({
       class: `${CLASSES.TOOL_BTN} ${CLASSES.ZOOM_IN}`,
-      title: T("zoom_in"),
-      ariaLabel: T("zoom_in"),
+      title: this.T("zoom_in"),
+      ariaLabel: this.T("zoom_in"),
       svg: SVGs.ZOOM_IN,
       parent: container,
       onclick: event => {
@@ -43,8 +40,8 @@ class FullscreenControl extends BaseControl {
 
     createIconButton({
       class: `${CLASSES.TOOL_BTN} ${CLASSES.ZOOM_OUT}`,
-      title: T("zoom_out"),
-      ariaLabel: T("zoom_out"),
+      title: this.T("zoom_out"),
+      ariaLabel: this.T("zoom_out"),
       svg: SVGs.ZOOM_OUT,
       parent: container,
       onclick: event => {
@@ -55,8 +52,8 @@ class FullscreenControl extends BaseControl {
 
     const fsBtn = createIconButton({
       class: `${CLASSES.TOOL_BTN} ${CLASSES.TOGGLE}`,
-      title: T("title"),
-      ariaLabel: T("title"),
+      title: this.T("title"),
+      ariaLabel: this.T("title"),
       svg: SVGs.MAXIMIZE,
       parent: container,
       onclick: event => {
@@ -80,7 +77,7 @@ class FullscreenControl extends BaseControl {
     }
 
     return outer;
-  }
-}
+  },
+});
 
 new FullscreenControl({ position: CONF.position }).addTo(map);

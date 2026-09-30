@@ -25,22 +25,6 @@
   cursor: pointer;
 }
 
-/* ── Measurement Nodes (circleMarker) ── */
-/* Default nodes are hollow (neutral fill, accent stroke, 2.5px stroke-width). */
-.foliplus-measure-node {
-  fill: var(--foliplus-neutral-0);
-  fill-opacity: 1;
-  stroke: var(--foliplus-accent-primary);
-  stroke-width: 2.5px;
-}
-/* Solid nodes (distance start point, circle center, polygon centroid) are
-  filled with the accent color and outlined in neutral. */
-path.foliplus-measure-node-solid {
-  fill: var(--foliplus-accent-primary);
-  fill-opacity: 1;
-  stroke: var(--foliplus-neutral-0);
-}
-
 /* ── Measurement Paths (lines / circles / polygons) ──
   Three shared states: solid (final), dashed, preview.
   Area shapes additionally use .foliplus-measure-shape-fill for fill. */
@@ -80,10 +64,6 @@ path.foliplus-measure-node-solid {
    duration comes from the shared motion ladder in token.css. */
 .foliplus-measure-path-solid.foliplus-measure-dash-sweep,
 .foliplus-measure-ripple {
-  --foliplus-sweep-length: 1000;
-  --foliplus-ripple-opacity-start: 0.6;
-  --foliplus-ripple-stroke-start: 2.5px;
-  --foliplus-ripple-stroke-end: 30px;
 }
 
 /* Dash sweep: stroke-dashoffset → 0, drawing the line from start to end. */
@@ -155,7 +135,6 @@ path.foliplus-measure-node-solid {
 /* Radius and mid-segment labels: centered on midpoint (both axes). */
 .foliplus-measure-label-radius,
 .foliplus-measure-label-mid {
-  --foliplus-label-center: translate(-50%, -50%);
   transform: var(--foliplus-label-center);
   animation: foliplus-measure-label-in-radius var(--foliplus-motion-quick) ease-out;
 }

@@ -1,14 +1,11 @@
 import { resolve } from "path";
 import { defineConfig } from "vitest/config";
+import { testPathAliases } from "./script/build-path.mjs";
 
 export default defineConfig({
   resolve: {
-    alias: {
-      "#common": resolve("foliplus/js/common"),
-      "#core": resolve("foliplus/js/core"),
-      "#foliplus": resolve("foliplus/js"),
-      "#script": resolve("script"),
-    },
+    // Single source: script/build-path.mjs (shared with esbuild alias).
+    alias: testPathAliases(resolve(".")),
   },
   test: {
     environment: "jsdom",
@@ -27,6 +24,9 @@ export default defineConfig({
         // Build orchestrator — spawns python/git/esbuild subprocesses and needs
         // the full build pipeline; not unit-testable in isolation.
         "script/build.mjs",
+        // Locale key scanner — CLI validated by the Python locale test suite,
+        // not unit-tested.
+        "script/scan-locale-key.mjs",
         "foliplus/js/runtime/**",
         // Entry modules — require full Leaflet runtime (L.Control, addTo).
         // Glob so a newly scaffolded control is excluded without editing this list.

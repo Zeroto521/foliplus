@@ -5,7 +5,7 @@
   // The cursor dot is the only .foliplus-measure-node WITHOUT the -solid
   // modifier (the placed anchor is NODE_SOLID).
   const node = () =>
-    document.querySelector(".foliplus-measure-node:not(.foliplus-measure-node-solid)");
+    document.querySelector(".foliplus-measure-node:not(.foliplus-dot-solid)");
   // Nothing to cursor at yet: entering the mode must not float a dot.
   const idle = node() === null;
 

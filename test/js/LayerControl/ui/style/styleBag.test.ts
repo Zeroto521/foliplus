@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  FACE,
   STYLE_BAG_DEFAULTS,
   captureStyleBag,
   commitStyleDim,
@@ -21,20 +22,22 @@ const makeLeaf = (options: Record<string, unknown> = {}) => {
 
 describe("styleDimPayload", () => {
   it("always lights the face visibility bit", () => {
-    expect(styleDimPayload({}, "stroke")).toEqual({ stroke: true });
-    expect(styleDimPayload({}, "fill")).toEqual({ fill: true });
+    expect(styleDimPayload({}, FACE.STROKE)).toEqual({ stroke: true });
+    expect(styleDimPayload({}, FACE.FILL)).toEqual({ fill: true });
   });
 
   it("rides value keys alongside the bit and drops undefined ones", () => {
-    expect(styleDimPayload({ color: "#f00", weight: undefined }, "stroke")).toEqual({
+    expect(styleDimPayload({ color: "#f00", weight: undefined }, FACE.STROKE)).toEqual({
       stroke: true,
       color: "#f00",
     });
-    expect(styleDimPayload({ fillColor: "#0f0", fillOpacity: 0.5 }, "fill")).toEqual({
-      fill: true,
-      fillColor: "#0f0",
-      fillOpacity: 0.5,
-    });
+    expect(styleDimPayload({ fillColor: "#0f0", fillOpacity: 0.5 }, FACE.FILL)).toEqual(
+      {
+        fill: true,
+        fillColor: "#0f0",
+        fillOpacity: 0.5,
+      },
+    );
   });
 });
 
@@ -78,14 +81,14 @@ describe("captureStyleBag / styleBagOf", () => {
 describe("commitStyleDim", () => {
   it("writes value keys and forces the face bit on", () => {
     const leaf = makeLeaf({ stroke: false, fill: false });
-    commitStyleDim(leaf, { color: "#f00", weight: 4 }, "stroke");
+    commitStyleDim(leaf, { color: "#f00", weight: 4 }, FACE.STROKE);
     expect(leaf.options).toMatchObject({
       color: "#f00",
       weight: 4,
       stroke: true,
       fill: false,
     });
-    commitStyleDim(leaf, { fillColor: "#0f0" }, "fill");
+    commitStyleDim(leaf, { fillColor: "#0f0" }, FACE.FILL);
     expect(leaf.options).toMatchObject({ fillColor: "#0f0", fill: true });
   });
 });
@@ -103,7 +106,7 @@ describe("restoreStyleDim", () => {
     commitStyleDim(leaf, { color: "#f00", weight: 9 }, "stroke");
     commitStyleDim(leaf, { fillColor: "#0f0", fillOpacity: 1 }, "fill");
 
-    restoreStyleDim(leaf, "stroke");
+    restoreStyleDim(leaf, FACE.STROKE);
     expect(leaf.options.stroke).toBe(false);
     expect(leaf.options.color).toBe("#111111");
     expect(leaf.options.weight).toBe(2);
@@ -111,7 +114,7 @@ describe("restoreStyleDim", () => {
     expect(leaf.options.fillColor).toBe("#0f0");
     expect(leaf.options.fill).toBe(true);
 
-    restoreStyleDim(leaf, "fill");
+    restoreStyleDim(leaf, FACE.FILL);
     expect(leaf.options.fill).toBe(false);
     expect(leaf.options.fillColor).toBe("#222222");
     expect(leaf.options.fillOpacity).toBe(0.3);
@@ -120,7 +123,7 @@ describe("restoreStyleDim", () => {
   it("is a no-op for a leaf that was never written", () => {
     const leaf = makeLeaf({ stroke: true });
     const setStyle = vi.spyOn(leaf, "setStyle");
-    restoreStyleDim(leaf, "stroke");
+    restoreStyleDim(leaf, FACE.STROKE);
     expect(setStyle).not.toHaveBeenCalled();
   });
 });
@@ -135,12 +138,12 @@ describe("faceSlice", () => {
       fillOpacity: 0.3,
       fill: true,
     };
-    expect(faceSlice(bag, "stroke")).toEqual({
+    expect(faceSlice(bag, FACE.STROKE)).toEqual({
       color: "#111111",
       weight: 2,
       stroke: false,
     });
-    expect(faceSlice(bag, "fill")).toEqual({
+    expect(faceSlice(bag, FACE.FILL)).toEqual({
       fillColor: "#222222",
       fillOpacity: 0.3,
       fill: true,

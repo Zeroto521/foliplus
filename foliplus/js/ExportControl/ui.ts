@@ -192,12 +192,12 @@ const showCropBox = (mgr: ExportManager) => {
 
   ["tl", "tr", "bl", "br", "t", "b", "l", "r"].forEach(pos => {
     dom.el("div", {
-      class: `${CONST.CLASSES.HANDLE} ${pos}`,
+      class: `${CONST.CLASSES.HANDLE_DOT} ${pos}`,
       parent: cropBox,
       "data-pos": pos,
     });
   });
-  dom.el("div", { class: CONST.CLASSES.EXPORT_CROP_CENTER, parent: cropBox });
+  dom.el("div", { class: CONST.CLASSES.CENTER_DOT, parent: cropBox });
 
   renderToolbarActions(mgr, {
     confirm: {

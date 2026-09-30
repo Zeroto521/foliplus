@@ -3,6 +3,7 @@
 // the manager and instance spies stay interceptable.
 import { COMPONENTS } from "#core/component.js";
 import { EVENTS } from "#core/event/index.js";
+import { boundsToRect } from "#core/geo/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { guardBlocked } from "#core/mode.js";
 import { dom } from "#common/dom.js";
@@ -149,16 +150,11 @@ const doRender = function (
   void this.mapContainer.offsetHeight;
 
   if (geoBounds && geoBounds.nw) {
-    const nw = this.map.latLngToContainerPoint(
-      L.latLng(geoBounds.nw.lat, geoBounds.nw.lng),
-    );
-    const se = this.map.latLngToContainerPoint(
-      L.latLng(geoBounds.se.lat, geoBounds.se.lng),
-    );
-    r.left = Math.min(nw.x, se.x);
-    r.top = Math.min(nw.y, se.y);
-    r.width = Math.abs(se.x - nw.x);
-    r.height = Math.abs(se.y - nw.y);
+    const rect = boundsToRect(this.map, geoBounds);
+    r.left = rect.left;
+    r.top = rect.top;
+    r.width = rect.width;
+    r.height = rect.height;
   }
 
   const renderer = new ExportRenderer(this.map);

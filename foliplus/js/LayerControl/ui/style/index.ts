@@ -33,6 +33,7 @@ import { appendResetFooter, railPos } from "./frame.js";
 import { applyPatch, layerFields, syncFormatRow } from "./label.js";
 import { clampPct, commitOpacityPct, resetLayerOpacity } from "./opacity.js";
 import { DIM_ORDER, LABEL_DIM_ORDER, gatedRows } from "./registry.js";
+import { flushStyleDimApplies } from "./styleBag.js";
 import {
   applyZoomRangeLive,
   clampZoom,
@@ -156,7 +157,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
     }
     // Fill is a self-managed dimension (not part of the executor's
     // visible/opacity/zoomRange family): bindLiveColor commits straight to
-    // ui.intents.fillColor + setStyle. Same live-recipe as label color.
+    // ui.intentStore fillColor + setStyle. Same live-recipe as label color.
     const fillRow = panel.querySelector(
       `.${CONST.CLASSES.STYLE_FILL_ROW}`,
     ) as HTMLElement | null;
@@ -450,6 +451,10 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
 
 /** Close the style panel. setFocus = true returns focus to the layer row. */
 const closeStylePanel = (ui: LayerUI, setFocus: boolean): void => {
+  // A pending apply frame (fill and/or border) must land before the panel
+  // disappears: closing is a commit boundary, not a cancel (reset cancels
+  // explicitly). One hook covers both faces.
+  if (ui.stylePanelLayerId) flushStyleDimApplies(ui.stylePanelLayerId);
   if (ui.styleOutsideHandler) {
     document.removeEventListener("mousedown", ui.styleOutsideHandler, true);
     ui.styleOutsideHandler = null;

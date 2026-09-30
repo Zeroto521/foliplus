@@ -76,7 +76,6 @@ describe("heatmap redraw benchmark @5k", () => {
     // wall time a lot (measured 7ms warm alone vs 320ms under the full
     // suite). The assertion is a pathological ceiling, not a 16ms gate —
     // the decision rule and the quoted numbers live in the PR body.
-    // eslint-disable-next-line no-console
     console.log(`[R11 bench] drawHexagon × 5000 (stub ctx): ${ms.toFixed(1)}ms`);
     expect(ms).toBeLessThan(2000); // pathological ceiling only
   });
@@ -104,7 +103,6 @@ describe("heatmap redraw benchmark @5k", () => {
     for (const f of feats) drawHexagon(ctx, f, map, 2, "#000");
     const bakeMs = performance.now() - bakeT0;
 
-    // eslint-disable-next-line no-console
     console.log(
       `[R11 bench] CSS commit avg: ${cssMs.toFixed(3)}ms; ` +
         `bake redraw of 5000: ${bakeMs.toFixed(1)}ms`,

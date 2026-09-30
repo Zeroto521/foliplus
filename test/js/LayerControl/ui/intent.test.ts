@@ -8,8 +8,9 @@ import {
   seedIntentMap,
   setIntent,
 } from "#foliplus/LayerControl/ui/intent.js";
+import { IntentStore } from "#foliplus/LayerControl/ui/intentStore.js";
 
-const ui = (): LayerUI => ({ intents: {} }) as unknown as LayerUI;
+const ui = (): LayerUI => ({ intentStore: new IntentStore() }) as unknown as LayerUI;
 
 describe("LayerIntent helpers", () => {
   it("setIntent writes one dimension and getIntent reads it back", () => {
@@ -24,8 +25,8 @@ describe("LayerIntent helpers", () => {
     expect(getIntent(u, "a", "name")).toBe("Renamed");
   });
 
-  it("setIntent bootstraps ui.intents when the shell omitted it", () => {
-    const u = {} as unknown as LayerUI;
+  it("setIntent writes through an always-present IntentStore", () => {
+    const u = ui();
     setIntent(u, "a", "fillColor", "#ff0000");
     expect(getIntent(u, "a", "fillColor")).toBe("#ff0000");
   });
@@ -38,13 +39,13 @@ describe("LayerIntent helpers", () => {
     expect(getIntent(u, "a", "fillColor")).toBeUndefined();
     expect(getIntent(u, "a", "fillOpacity")).toBe(0.25);
     clearIntent(u, "a", "fillOpacity");
-    expect(u.intents.a).toBeUndefined();
+    expect(u.intentStore.dumpIntents().a).toBeUndefined();
   });
 
   it("clearIntent is a no-op when the id has no record", () => {
     const u = ui();
     clearIntent(u, "ghost", "opacity");
-    expect(u.intents).toEqual({});
+    expect(u.intentStore.dumpIntents()).toEqual({});
   });
 
   it("dropIntent clears style dims but keeps name and annotation", () => {
@@ -70,7 +71,7 @@ describe("LayerIntent helpers", () => {
     const u = ui();
     setIntent(u, "a", "opacity", 1);
     dropIntent(u, "a");
-    expect(u.intents.a).toBeUndefined();
+    expect(u.intentStore.dumpIntents().a).toBeUndefined();
   });
 
   it("hasIntentValue distinguishes typed presence from absence", () => {
@@ -103,7 +104,7 @@ describe("LayerIntent helpers", () => {
   it("dropIntent is a no-op when the id has no record", () => {
     const u = ui();
     dropIntent(u, "ghost");
-    expect(u.intents).toEqual({});
+    expect(u.intentStore.dumpIntents()).toEqual({});
   });
 
   it("seedIntentMap fills a whole dimension from a record", () => {

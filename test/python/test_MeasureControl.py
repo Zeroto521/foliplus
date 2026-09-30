@@ -218,10 +218,11 @@ class TestMeasureControlRendering:
         duplicating the translate values. This keeps centering and animation
         decoupled.
         """
+        token_css = read_css("foliplus/css/common/token.css")
         css = read_css("foliplus/css/MeasureControl.css")
         assert "foliplus-measure-label-in-radius" in css
-        # Centering transform is defined once as a variable on the class
-        assert "--foliplus-label-center: translate(-50%, -50%)" in css
+        # Centering transform is defined once in token.css
+        assert "--foliplus-label-center: translate(-50%, -50%)" in token_css
         # Keyframes reference the variable, not hardcoded translate values
         assert "transform: var(--foliplus-label-center) scale(0.9)" in css
         assert "transform: var(--foliplus-label-center) scale(1)" in css
@@ -1061,7 +1062,7 @@ class TestMeasureControlBrowser:
             page.wait_for_timeout(500)
 
             info = page.evaluate("""() => {
-                const dot = document.querySelector('path.foliplus-measure-node-solid');
+                const dot = document.querySelector('path.foliplus-dot-solid');
                 if (!dot) return { error: 'no centroid dot path found' };
                 const fill = document.querySelector('.foliplus-measure-shape-fill');
                 if (!fill) return { error: 'no fill path found' };
@@ -1101,7 +1102,7 @@ class TestMeasureControlBrowser:
             page.wait_for_timeout(500)
 
             info2 = page.evaluate("""() => {
-                const dot = document.querySelector('path.foliplus-measure-node-solid');
+                const dot = document.querySelector('path.foliplus-dot-solid');
                 if (!dot) return { error: 'no centroid dot path found' };
                 const fill = document.querySelector('.foliplus-measure-shape-fill');
                 if (!fill) return { error: 'no fill path found' };

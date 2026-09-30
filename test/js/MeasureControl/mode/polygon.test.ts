@@ -2,7 +2,7 @@ import { type Mock, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/MeasureControl/const.js";
 import type { MeasureManager } from "#foliplus/MeasureControl/manager.js";
 import { PolygonMode } from "#foliplus/MeasureControl/mode/index.js";
-import { initMocks, makeManagerMock } from "./setup.js";
+import { initMocks, makeEnv, makeManagerMock } from "./setup.js";
 
 // Capture attachPolygonUI's opts so the start-path onDelete/onUpdate
 // callbacks (store.update/remove by polyId) can be exercised directly.
@@ -204,7 +204,7 @@ describe("PolygonMode — finish saves centroid", () => {
 
 describe("PolygonMode — toGeoFeature", () => {
   it("returns a Polygon with area in properties", () => {
-    const feature = PolygonMode.toGeoFeature({
+    const feature = PolygonMode.toGeoFeature(makeEnv(), {
       id: "p1",
       type: "polygon",
       points: [
@@ -232,7 +232,7 @@ describe("PolygonMode — toGeoFeature", () => {
   });
 
   it("includes persisted center in properties", () => {
-    const feature = PolygonMode.toGeoFeature({
+    const feature = PolygonMode.toGeoFeature(makeEnv(), {
       id: "p2",
       type: "polygon",
       points: [
@@ -245,7 +245,7 @@ describe("PolygonMode — toGeoFeature", () => {
   });
 
   it("leaves center undefined for legacy data without it", () => {
-    const feature = PolygonMode.toGeoFeature({
+    const feature = PolygonMode.toGeoFeature(makeEnv(), {
       id: "p3",
       type: "polygon",
       points: [

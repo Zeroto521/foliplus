@@ -7,17 +7,27 @@ import {
   setIntent,
 } from "#foliplus/LayerControl/ui/intent.js";
 import {
+  BORDER_DIMENSION,
   applyBorderToLayer,
   authoredBorder,
   bindBorderRow,
+  bindBorderRowShell,
   buildBorderRow,
+  buildBorderRowShell,
   commitBorderColor,
   commitBorderWeight,
   layerCanBorder,
   resetLayerBorder,
 } from "#foliplus/LayerControl/ui/style/border.js";
 import { commitFillColor } from "#foliplus/LayerControl/ui/style/fill.js";
+import { closeStylePanel } from "#foliplus/LayerControl/ui/style/index.js";
 import { pinnedGetterCount } from "#foliplus/LayerControl/ui/style/pin.js";
+import {
+  FACE,
+  dropStyleDimApplies,
+  flushStyleDimApply,
+  hasStyleDimApply,
+} from "#foliplus/LayerControl/ui/style/styleBag.js";
 import { initFixture } from "../fixture.js";
 
 /** A Leaflet vector leaf: an `options` bag plus the `setStyle` writer the
@@ -95,6 +105,19 @@ const makeHighlightLeaf = (color = "#ff0000", weight = 2): any => {
       for (const fn of mouseout) fn();
     },
   };
+};
+
+/** Commit then force the deferred apply to land — the commit channel is
+ *  rAF-coalesced, so a test that asserts the write must flush first. */
+const commitBorderNow = (
+  ui: LayerUI,
+  layerId: string,
+  kind: "color" | "weight",
+  value: string | number,
+): void => {
+  if (kind === "color") commitBorderColor(ui, layerId, value as string);
+  else commitBorderWeight(ui, layerId, value as number);
+  flushStyleDimApply(FACE.STROKE, layerId);
 };
 
 describe("layerCanBorder", () => {
@@ -347,10 +370,10 @@ describe("commit pipeline", () => {
     const leaf = makeLeaf();
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
 
-    commitBorderColor(ui, "vec1", "#f00");
+    commitBorderNow(ui, "vec1", "color", "#f00");
 
     expect(getIntent(ui, "vec1", "borderColor")).toBe("#ff0000");
-    expect(ui.intentProvenance.vec1).toContain("borderColor");
+    expect(ui.intentStore.isUserSet("vec1", "borderColor")).toBe(true);
     expect(leaf.setStyle).toHaveBeenCalledTimes(1);
     expect(leaf.setStyle).toHaveBeenCalledWith({
       color: "#ff0000",
@@ -366,6 +389,7 @@ describe("commit pipeline", () => {
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
 
     expect(() => commitBorderColor(ui, "vec1", "#abcdef")).not.toThrow();
+    flushStyleDimApply(FACE.STROKE, "vec1");
     expect(leaf.options.color).toBe("#abcdef");
   });
 
@@ -377,6 +401,7 @@ describe("commit pipeline", () => {
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
 
     expect(() => commitBorderColor(ui, "vec1", "#abcdef")).not.toThrow();
+    flushStyleDimApply(FACE.STROKE, "vec1");
     expect(() => leaf.fireMouseout()).not.toThrow();
     expect(leaf.options.color).toBe("#abcdef");
   });
@@ -384,10 +409,10 @@ describe("commit pipeline", () => {
   it("skips a write that revisits the same value", () => {
     const leaf = makeLeaf();
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
-    commitBorderColor(ui, "vec1", "#f00");
+    commitBorderNow(ui, "vec1", "color", "#f00");
     leaf.setStyle.mockClear();
 
-    commitBorderColor(ui, "vec1", "#ff0000");
+    commitBorderNow(ui, "vec1", "color", "#ff0000");
 
     expect(leaf.setStyle).not.toHaveBeenCalled();
   });
@@ -396,10 +421,10 @@ describe("commit pipeline", () => {
     const leaf = makeLeaf();
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
 
-    commitBorderWeight(ui, "vec1", 3.5);
+    commitBorderNow(ui, "vec1", "weight", 3.5);
 
     expect(getIntent(ui, "vec1", "borderWeight")).toBe(3.5);
-    expect(ui.intentProvenance.vec1).toContain("borderWeight");
+    expect(ui.intentStore.isUserSet("vec1", "borderWeight")).toBe(true);
     expect(leaf.setStyle).toHaveBeenCalledWith({ weight: 3.5, stroke: true });
   });
 
@@ -407,9 +432,9 @@ describe("commit pipeline", () => {
     const leaf = makeLeaf();
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
 
-    commitBorderColor(ui, "vec1", "#00ff00");
+    commitBorderNow(ui, "vec1", "color", "#00ff00");
     leaf.setStyle.mockClear();
-    commitBorderWeight(ui, "vec1", 5);
+    commitBorderNow(ui, "vec1", "weight", 5);
 
     // The width commit re-sends the color already stored: the leaf sees one
     // call carrying both, so color and width can never disagree on the stroke.
@@ -425,7 +450,7 @@ describe("commit pipeline", () => {
     const leaf = makeLeaf("#00ff00", 4);
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
 
-    commitBorderWeight(ui, "vec1", 6);
+    commitBorderNow(ui, "vec1", "weight", 6);
 
     expect(leaf.setStyle).toHaveBeenCalledWith({ weight: 6, stroke: true });
   });
@@ -438,7 +463,7 @@ describe("commit pipeline", () => {
     const leaf = makeLeaf("#3388ff", 3, false);
     manager.registerLayer({ id: "cm1", name: "CM", layer: leaf });
 
-    commitBorderColor(ui, "cm1", "#ff0000");
+    commitBorderNow(ui, "cm1", "color", "#ff0000");
 
     expect(leaf.setStyle).toHaveBeenCalledWith({
       color: "#ff0000",
@@ -450,7 +475,7 @@ describe("commit pipeline", () => {
     const leaf = makeLeaf("#3388ff", 3, false);
     manager.registerLayer({ id: "cm1", name: "CM", layer: leaf });
 
-    commitBorderWeight(ui, "cm1", 6);
+    commitBorderNow(ui, "cm1", "weight", 6);
 
     expect(leaf.setStyle).toHaveBeenCalledWith({ weight: 6, stroke: true });
   });
@@ -461,7 +486,7 @@ describe("commit pipeline", () => {
     const group = makeGroup(first, second);
     manager.registerLayer({ id: "grp1", name: "G", layer: group });
 
-    commitBorderColor(ui, "grp1", "#0000ff");
+    commitBorderNow(ui, "grp1", "color", "#0000ff");
 
     expect(first.setStyle).toHaveBeenCalledWith({ color: "#0000ff", stroke: true });
     expect(second.setStyle).toHaveBeenCalledWith({ color: "#0000ff", stroke: true });
@@ -475,7 +500,7 @@ describe("commit pipeline", () => {
     });
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
 
-    commitBorderColor(ui, "vec1", "#00ff00");
+    commitBorderNow(ui, "vec1", "color", "#00ff00");
     expect(leaf.options.color).toBe("#00ff00");
     expect(authoredBorder(ui, "vec1").color).toBe("#ff0000");
   });
@@ -497,10 +522,10 @@ describe("commit pipeline", () => {
     // the sweep over every feature of the layer for no visual change.
     const leaf = makeLeaf();
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
-    commitBorderWeight(ui, "vec1", 4);
+    commitBorderNow(ui, "vec1", "weight", 4);
     leaf.setStyle.mockClear();
 
-    commitBorderWeight(ui, "vec1", 4);
+    commitBorderNow(ui, "vec1", "weight", 4);
 
     expect(leaf.setStyle).not.toHaveBeenCalled();
   });
@@ -538,7 +563,7 @@ describe("bindBorderRow", () => {
     width.dispatchEvent(new Event("change", { bubbles: true }));
 
     expect(getIntent(ui, "vec1", "borderWeight")).toBe(5);
-    expect(ui.intentProvenance.vec1).toContain("borderWeight");
+    expect(ui.intentStore.isUserSet("vec1", "borderWeight")).toBe(true);
     expect(leaf.setStyle).toHaveBeenCalledWith({ weight: 5, stroke: true });
   });
 
@@ -553,9 +578,10 @@ describe("bindBorderRow", () => {
     ) as HTMLInputElement;
     swatch.value = "#abcdef";
     swatch.dispatchEvent(new Event("input", { bubbles: true }));
+    flushStyleDimApply(FACE.STROKE, "vec1");
 
     expect(getIntent(ui, "vec1", "borderColor")).toBe("#abcdef");
-    expect(ui.intentProvenance.vec1).toContain("borderColor");
+    expect(ui.intentStore.isUserSet("vec1", "borderColor")).toBe(true);
     expect(leaf.setStyle).toHaveBeenCalledWith({ color: "#abcdef", stroke: true });
   });
 
@@ -587,8 +613,8 @@ describe("resetLayerBorder", () => {
     const second = makeLeaf("#00ff00", 4);
     const group = makeGroup(first, second);
     manager.registerLayer({ id: "grp1", name: "G", layer: group });
-    commitBorderColor(ui, "grp1", "#0000ff");
-    commitBorderWeight(ui, "grp1", 9);
+    commitBorderNow(ui, "grp1", "color", "#0000ff");
+    commitBorderNow(ui, "grp1", "weight", 9);
     first.setStyle.mockClear();
     second.setStyle.mockClear();
 
@@ -597,9 +623,8 @@ describe("resetLayerBorder", () => {
     expect(getIntent(ui, "grp1", "borderColor")).toBeUndefined();
     expect(getIntent(ui, "grp1", "borderWeight")).toBeUndefined();
     // unmarkOverride drops the entry once both dimensions are cleared.
-    const overrides = ui.intentProvenance.grp1 ?? [];
-    expect(overrides).not.toContain("borderColor");
-    expect(overrides).not.toContain("borderWeight");
+    expect(ui.intentStore.isUserSet("grp1", "borderColor")).toBe(false);
+    expect(ui.intentStore.isUserSet("grp1", "borderWeight")).toBe(false);
     expect(first.setStyle).toHaveBeenCalledWith({
       color: "#ff0000",
       weight: 2,
@@ -624,8 +649,8 @@ describe("resetLayerBorder", () => {
       layer: makeGeoJsonGroup(face, line),
     });
 
-    commitBorderColor(ui, "geo1", "#0000ff");
-    commitBorderWeight(ui, "geo1", 9);
+    commitBorderNow(ui, "geo1", "color", "#0000ff");
+    commitBorderNow(ui, "geo1", "weight", 9);
     face.setStyle.mockClear();
     line.setStyle.mockClear();
 
@@ -646,7 +671,7 @@ describe("resetLayerBorder", () => {
   it("does not touch a layer the registry no longer knows", () => {
     const leaf = makeLeaf();
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
-    commitBorderColor(ui, "vec1", "#00ff00");
+    commitBorderNow(ui, "vec1", "color", "#00ff00");
     leaf.setStyle.mockClear();
     manager.unregisterLayer("vec1");
 
@@ -662,14 +687,13 @@ describe("resetLayerBorder", () => {
     manager.registerLayer({ id: "ghost", name: "G", layer: null } as any);
     setIntent(ui, "ghost", "borderColor", "#ff0000");
     setIntent(ui, "ghost", "borderWeight", 4);
-    ui.intentProvenance.ghost = ["borderColor", "borderWeight"];
+    ui.intentStore.seedProvenance("ghost", ["borderColor", "borderWeight"]);
 
     expect(() => resetLayerBorder(ui, "ghost")).not.toThrow();
     expect(getIntent(ui, "ghost", "borderColor")).toBeUndefined();
     expect(getIntent(ui, "ghost", "borderWeight")).toBeUndefined();
-    const overrides = ui.intentProvenance.ghost ?? [];
-    expect(overrides).not.toContain("borderColor");
-    expect(overrides).not.toContain("borderWeight");
+    expect(ui.intentStore.isUserSet("ghost", "borderColor")).toBe(false);
+    expect(ui.intentStore.isUserSet("ghost", "borderWeight")).toBe(false);
   });
 
   it("skips a leaf that was never written, rather than inventing its stroke", () => {
@@ -697,8 +721,8 @@ describe("resetLayerBorder", () => {
       layer: makeGroup(inert, live),
     });
 
-    commitBorderColor(ui, "grp1", "#0000ff");
-    commitBorderWeight(ui, "grp1", 5);
+    commitBorderNow(ui, "grp1", "color", "#0000ff");
+    commitBorderNow(ui, "grp1", "weight", 5);
 
     expect(inert.setStyle).toBeUndefined();
     expect(live.setStyle).toHaveBeenCalledWith({
@@ -732,8 +756,8 @@ describe("resetLayerBorder", () => {
     };
     manager.registerLayer({ id: "vec1", name: "V", layer: bare });
 
-    commitBorderColor(ui, "vec1", "#0000ff");
-    commitBorderWeight(ui, "vec1", 4);
+    commitBorderNow(ui, "vec1", "color", "#0000ff");
+    commitBorderNow(ui, "vec1", "weight", 4);
     bare.setStyle.mockClear();
 
     resetLayerBorder(ui, "vec1");
@@ -756,8 +780,8 @@ describe("resetLayerBorder", () => {
     );
     manager.registerLayer({ id: "cm1", name: "CM", layer: leaf });
 
-    commitBorderColor(ui, "cm1", "#ff0000");
-    commitBorderWeight(ui, "cm1", 6);
+    commitBorderNow(ui, "cm1", "color", "#ff0000");
+    commitBorderNow(ui, "cm1", "weight", 6);
     expect(leaf.options.stroke).toBe(true);
     leaf.setStyle.mockClear();
 
@@ -797,7 +821,7 @@ describe("highlight restore", () => {
     const leaf = makeHighlightLeaf("#00ff00", 3);
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
 
-    commitBorderColor(ui, "vec1", "#abcdef");
+    commitBorderNow(ui, "vec1", "color", "#abcdef");
     leaf.setStyle.mockClear();
 
     leaf.fireMouseout();
@@ -818,7 +842,7 @@ describe("highlight restore", () => {
     leaf.options.stroke = false;
     manager.registerLayer({ id: "cm1", name: "CM", layer: leaf });
 
-    commitBorderColor(ui, "cm1", "#abcdef");
+    commitBorderNow(ui, "cm1", "color", "#abcdef");
     leaf.setStyle.mockClear();
 
     leaf.fireMouseout();
@@ -834,7 +858,7 @@ describe("highlight restore", () => {
     const leaf = makeHighlightLeaf("#00ff00", 3);
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
 
-    commitBorderWeight(ui, "vec1", 9);
+    commitBorderNow(ui, "vec1", "weight", 9);
     leaf.setStyle.mockClear();
 
     leaf.fireMouseout();
@@ -850,8 +874,8 @@ describe("highlight restore", () => {
     const leaf = makeHighlightLeaf("#00ff00", 3);
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
 
-    commitBorderColor(ui, "vec1", "#abcdef");
-    commitBorderWeight(ui, "vec1", 9);
+    commitBorderNow(ui, "vec1", "color", "#abcdef");
+    commitBorderNow(ui, "vec1", "weight", 9);
 
     // 2 = folium's own handler plus our replay, not one per commit.
     expect(leaf.mouseoutCount()).toBe(2);
@@ -866,7 +890,10 @@ describe("highlight restore", () => {
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
 
     commitFillColor(ui, "vec1", "#123456");
-    commitBorderWeight(ui, "vec1", 9);
+    // fill commit is rAF-coalesced; flush so the fill pin is registered
+    // before the highlight restore runs (same contract as a drag's end).
+    flushStyleDimApply(FACE.FILL, "vec1");
+    commitBorderNow(ui, "vec1", "weight", 9);
 
     // One slot per dimension on the shared leaf — fill and border never
     // share a slot, and neither one doubles up.
@@ -893,11 +920,11 @@ describe("highlight restore", () => {
     const leaf = makeHighlightLeaf("#00ff00", 3);
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
 
-    commitBorderColor(ui, "vec1", "#111111");
-    commitBorderColor(ui, "vec1", "#222222");
-    commitBorderColor(ui, "vec1", "#333333");
-    commitBorderWeight(ui, "vec1", 5);
-    commitBorderWeight(ui, "vec1", 9);
+    commitBorderNow(ui, "vec1", "color", "#111111");
+    commitBorderNow(ui, "vec1", "color", "#222222");
+    commitBorderNow(ui, "vec1", "color", "#333333");
+    commitBorderNow(ui, "vec1", "weight", 5);
+    commitBorderNow(ui, "vec1", "weight", 9);
 
     // One getter slot per dimension, however many commits passed through it.
     expect(pinnedGetterCount(leaf)).toBe(1);
@@ -919,7 +946,7 @@ describe("highlight restore", () => {
     // folium's restore stands and the layer keeps the author's stroke.
     const leaf = makeHighlightLeaf("#00ff00", 3);
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
-    commitBorderColor(ui, "vec1", "#abcdef");
+    commitBorderNow(ui, "vec1", "color", "#abcdef");
     resetLayerBorder(ui, "vec1");
     leaf.setStyle.mockClear();
 
@@ -1002,17 +1029,17 @@ describe("applyBorderToLayer", () => {
     expect(() => applyBorderToLayer(ui, "ghost")).not.toThrow();
   });
 
-  it("the applyUserState sweep writes only intentProvenance keys, so a stored value with no record is not replayed", () => {
+  it("the applyUserState sweep writes only user-set provenance keys, so a stored value with no record is not replayed", () => {
     const recorded = makeLeaf();
     const orphan = makeLeaf();
     manager.registerLayer({ id: "vec1", name: "V", layer: recorded });
     manager.registerLayer({ id: "vec2", name: "W", layer: orphan });
     setIntent(ui, "vec1", "borderColor", "#0000ff");
     setIntent(ui, "vec2", "borderColor", "#00ff00");
-    ui.intentProvenance.vec1 = ["borderColor"];
+    ui.intentStore.seedProvenance("vec1", ["borderColor"]);
     // vec2 holds a stored value that never went through markOverride — the
     // drift the single enumeration source exists to ignore. Enumerating the
-    // maps instead of intentProvenance would replay it while fill stayed put.
+    // maps instead of the provenance axis would replay it while fill stayed put.
 
     ui.applyUserState();
 
@@ -1196,5 +1223,307 @@ describe("buildBorderRow", () => {
       (row.querySelector(".foliplus-style-border-weight-input") as HTMLInputElement)
         .value,
     ).toBe("6");
+  });
+});
+
+describe("border apply scheduler (drag coalesce)", () => {
+  let manager: LayerManager;
+  let ui: LayerUI;
+
+  beforeEach(() => {
+    ({ manager, ui } = initFixture());
+    ui.foldedGroups = new Set();
+    seedIntentMap(ui, "visible", {});
+  });
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  it("coalesces same-frame commits into one walk", () => {
+    const leaf = makeLeaf();
+    manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
+    const frames: Array<() => void> = [];
+    vi.stubGlobal("requestAnimationFrame", (cb: () => void) => {
+      frames.push(cb);
+      return frames.length;
+    });
+    vi.stubGlobal("cancelAnimationFrame", () => {});
+
+    commitBorderColor(ui, "vec1", "#111111");
+    commitBorderColor(ui, "vec1", "#222222");
+    commitBorderWeight(ui, "vec1", 5);
+    expect(leaf.setStyle).not.toHaveBeenCalled();
+
+    for (const cb of frames.splice(0)) cb();
+    expect(leaf.setStyle).toHaveBeenCalledTimes(1);
+    expect(leaf.setStyle).toHaveBeenCalledWith({
+      color: "#222222",
+      weight: 5,
+      stroke: true,
+    });
+  });
+
+  it("BORDER_DIMENSION.value reports the stored choice over the authored one", () => {
+    const leaf = makeLeaf("#aabbcc", 3);
+    manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
+    expect(BORDER_DIMENSION.value!(ui, "vec1")).toEqual({
+      color: "#aabbcc",
+      weight: 3,
+    });
+    commitBorderNow(ui, "vec1", "color", "#445566");
+    commitBorderNow(ui, "vec1", "weight", 7);
+    expect(BORDER_DIMENSION.value!(ui, "vec1")).toEqual({
+      color: "#445566",
+      weight: 7,
+    });
+    expect(BORDER_DIMENSION.value!(ui, "ghost")).toBeUndefined();
+  });
+
+  it("shell builds color-only / weight-only rows and default selectors", () => {
+    // The delegated drawer owns its own write path and does not pass
+    // onFlush: the shell must not install a flush chain there. Also pins
+    // the two shape branches (one input) and the default-selector fallback.
+    const colorOnly = buildBorderRowShell({
+      rowClass: "x",
+      label: "Border",
+      color: "#010203",
+      weight: 2,
+      hasColorInput: true,
+      hasWeightInput: false,
+      colorAria: "c",
+      weightAria: "w",
+    });
+    expect(colorOnly.querySelector("input[type=color]")).toBeTruthy();
+    expect(colorOnly.querySelector("input[type=number]")).toBeNull();
+
+    const weightOnly = buildBorderRowShell({
+      rowClass: "x",
+      label: "Border",
+      color: "#010203",
+      weight: 2,
+      hasColorInput: false,
+      hasWeightInput: true,
+      colorAria: "c",
+      weightAria: "w",
+    });
+    expect(weightOnly.querySelector("input[type=color]")).toBeNull();
+    expect(weightOnly.querySelector("input[type=number]")).toBeTruthy();
+
+    // default selectors (no className) still resolve the two inputs
+    bindBorderRowShell(colorOnly, {
+      onChangeColor: vi.fn(),
+    });
+    bindBorderRowShell(weightOnly, {
+      onChangeWeight: vi.fn(),
+    });
+  });
+
+  it("shell without onFlush keeps the binders untouched (delegated drawer)", () => {
+    // The delegated drawer owns its own write path and does not pass
+    // onFlush: the shell must not install a flush chain there.
+    const row = buildBorderRowShell({
+      rowClass: "x",
+      label: "Border",
+      color: "#010203",
+      weight: 2,
+      hasColorInput: true,
+      hasWeightInput: true,
+      className: "c-in",
+      weightClassName: "w-in",
+      colorAria: "c",
+      weightAria: "w",
+    });
+    const color = row.querySelector("input.c-in") as HTMLInputElement;
+    const weight = row.querySelector("input.w-in") as HTMLInputElement;
+    const colorChange = vi.fn();
+    const weightChange = vi.fn();
+    bindBorderRowShell(row, {
+      className: "c-in",
+      weightClassName: "w-in",
+      onChangeColor: colorChange,
+      onChangeWeight: weightChange,
+    });
+    const priorColorChange = color.onchange;
+    const priorWeightChange = weight.onchange;
+    color.dispatchEvent(new Event("change"));
+    weight.dispatchEvent(new Event("change"));
+    // no flush chain installed — the raw binder's handlers stay as-is
+    expect(priorColorChange).toBe(color.onchange);
+    expect(priorWeightChange).toBe(weight.onchange);
+  });
+
+  it("shell weight blur flushes the deferred walk", () => {
+    const leaf = makeLeaf();
+    manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
+    const frames: Array<() => void> = [];
+    vi.stubGlobal("requestAnimationFrame", (cb: () => void) => {
+      frames.push(cb);
+      return frames.length;
+    });
+    vi.stubGlobal("cancelAnimationFrame", () => {});
+
+    const row = buildBorderRow(ui, "vec1");
+    bindBorderRow(ui, "vec1", row);
+    const weight = row.querySelector(
+      ".foliplus-style-border-weight-input",
+    ) as HTMLInputElement;
+    weight.value = "8";
+    weight.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(leaf.setStyle).not.toHaveBeenCalled();
+    weight.dispatchEvent(new Event("blur", { bubbles: true }));
+
+    expect(leaf.setStyle).toHaveBeenCalledWith({ weight: 8, stroke: true });
+  });
+
+  it("closing the style panel flushes a pending border walk", () => {
+    // Panel close is a commit boundary for BOTH faces: a dragged border
+    // left on a trailing frame must not vanish when the panel disappears.
+    const leaf = makeLeaf();
+    manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
+    const frames: Array<() => void> = [];
+    vi.stubGlobal("requestAnimationFrame", (cb: () => void) => {
+      frames.push(cb);
+      return frames.length;
+    });
+    vi.stubGlobal("cancelAnimationFrame", () => {});
+
+    // minimal panel chrome so closeStylePanel finds stylePanelLayerId
+    (ui as any).stylePanelLayerId = "vec1";
+    commitBorderColor(ui, "vec1", "#333333");
+    expect(leaf.setStyle).not.toHaveBeenCalled();
+
+    closeStylePanel(ui, false);
+
+    expect(leaf.setStyle).toHaveBeenCalledWith({
+      color: "#333333",
+      stroke: true,
+    });
+  });
+
+  it("shell weight change runs the live binder commit and then flushes", () => {
+    // bindLiveNumber owns onchange (clamp + commit); the flush is chained
+    // AFTER it, so one change event both commits the value and lands the
+    // deferred walk. (Unlike color, a prior onchange is replaced by the
+    // binder itself — the chain protects that binder, not an outsider.)
+    const leaf = makeLeaf();
+    manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
+    const frames: Array<() => void> = [];
+    vi.stubGlobal("requestAnimationFrame", (cb: () => void) => {
+      frames.push(cb);
+      return frames.length;
+    });
+    vi.stubGlobal("cancelAnimationFrame", () => {});
+
+    const row = buildBorderRow(ui, "vec1");
+    bindBorderRow(ui, "vec1", row);
+    const weight = row.querySelector(
+      ".foliplus-style-border-weight-input",
+    ) as HTMLInputElement;
+    weight.value = "4";
+    weight.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(leaf.setStyle).not.toHaveBeenCalled();
+    weight.dispatchEvent(new Event("change", { bubbles: true }));
+
+    expect(getIntent(ui, "vec1", "borderWeight")).toBe(4);
+    expect(leaf.setStyle).toHaveBeenCalledWith({ weight: 4, stroke: true });
+  });
+
+  it("flush delivers the terminal value and is idempotent", () => {
+    const leaf = makeLeaf();
+    manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
+    const frames: Array<() => void> = [];
+    vi.stubGlobal("requestAnimationFrame", (cb: () => void) => {
+      frames.push(cb);
+      return frames.length;
+    });
+    vi.stubGlobal("cancelAnimationFrame", () => {});
+
+    commitBorderColor(ui, "vec1", "#333333");
+    flushStyleDimApply(FACE.STROKE, "vec1");
+    expect(leaf.setStyle).toHaveBeenCalledWith({
+      color: "#333333",
+      stroke: true,
+    });
+    expect(leaf.setStyle).toHaveBeenCalledTimes(1);
+    flushStyleDimApply(FACE.STROKE, "vec1");
+    expect(leaf.setStyle).toHaveBeenCalledTimes(1);
+    expect(hasStyleDimApply(FACE.STROKE, "vec1")).toBe(true);
+  });
+
+  it("reset cancels a pending walk so it cannot paint over the restore", () => {
+    const leaf = makeLeaf("#aabbcc", 3);
+    leaf.setStyle = vi.fn((style: Record<string, unknown>) =>
+      Object.assign(leaf.options, style),
+    );
+    manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
+    const frames: Array<() => void> = [];
+    vi.stubGlobal("requestAnimationFrame", (cb: () => void) => {
+      frames.push(cb);
+      return frames.length;
+    });
+    vi.stubGlobal("cancelAnimationFrame", () => {});
+
+    commitBorderColor(ui, "vec1", "#ff0000");
+    leaf.setStyle.mockClear();
+    resetLayerBorder(ui, "vec1");
+    expect(leaf.options.color).toBe("#aabbcc");
+    for (const cb of frames.splice(0)) cb();
+    // the cancelled drag walk must not repaint the user's color
+    expect(leaf.options.color).toBe("#aabbcc");
+  });
+
+  it("unregister drops the scheduler entry — no Map residue for dead ids", () => {
+    const leaf = makeLeaf();
+    manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
+    const frames: Array<() => void> = [];
+    vi.stubGlobal("requestAnimationFrame", (cb: () => void) => {
+      frames.push(cb);
+      return frames.length;
+    });
+    vi.stubGlobal("cancelAnimationFrame", () => {});
+
+    commitBorderColor(ui, "vec1", "#333333");
+    expect(hasStyleDimApply(FACE.STROKE, "vec1")).toBe(true);
+
+    manager.unregisterLayer("vec1");
+    expect(hasStyleDimApply(FACE.STROKE, "vec1")).toBe(false);
+    for (const cb of frames.splice(0)) cb();
+    expect(leaf.setStyle).not.toHaveBeenCalled();
+  });
+
+  it("bind chain: change runs the prior handler and flushes", () => {
+    const leaf = makeLeaf();
+    manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
+    const frames: Array<() => void> = [];
+    vi.stubGlobal("requestAnimationFrame", (cb: () => void) => {
+      frames.push(cb);
+      return frames.length;
+    });
+    vi.stubGlobal("cancelAnimationFrame", () => {});
+
+    const row = buildBorderRow(ui, "vec1");
+    bindBorderRow(ui, "vec1", row);
+    const color = row.querySelector(
+      ".foliplus-style-border-color-input",
+    ) as HTMLInputElement;
+    const prior = vi.fn();
+    const chained = color.onchange;
+    color.onchange = ev => {
+      prior(ev);
+      chained?.call(color, ev);
+    };
+    color.value = "#445544";
+    color.dispatchEvent(new Event("input", { bubbles: true }));
+    color.dispatchEvent(new Event("change", { bubbles: true }));
+
+    expect(prior).toHaveBeenCalledTimes(1);
+    expect(leaf.setStyle).toHaveBeenCalledWith({
+      color: "#445544",
+      stroke: true,
+    });
   });
 });

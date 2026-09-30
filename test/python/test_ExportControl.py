@@ -220,7 +220,7 @@ class TestExportControlRendering:
         """
         from conftest import read_css
 
-        css = read_css("foliplus/css/ExportControl.css")
+        css = read_css("foliplus/css/common/token.css")
         assert (
             "--foliplus-export-scale-z: calc(var(--foliplus-z-export-base) - 10);"
             in css
@@ -272,6 +272,129 @@ class TestExportControlRendering:
         html = render_control(ExportControl())
         assert "foliplus-export-ctrl" in html
         assert "foliplus-export-preview" in html
+
+    def test_crop_handle_hover_active(self):
+        """Handles warm to accent-light and pick up the slider glow on press.
+
+        Cursor direction is the existing grab affordance and stays untouched;
+        hover/press only add surface feedback. Transform is reserved for the
+        per-edge translate, so press feedback is background/shadow only.
+        Component CSS stays in ExportControl.css.
+        """
+        from conftest import read_css
+
+        css = read_css("foliplus/css/ExportControl.css")
+        # Nested source form: .foliplus-export-handle { &:is(:hover, :active) }
+        assert ".foliplus-export-handle" in css
+        assert "&:is(:hover, :active)" in css
+        assert "background: var(--foliplus-accent-light)" in css
+        assert "var(--foliplus-slider-thumb-glow)" in css
+        # Direction cursors are the grab affordance and must survive.
+        assert "cursor: nwse-resize" in css
+        assert "cursor: nesw-resize" in css
+        assert "cursor: ns-resize" in css
+        assert "cursor: ew-resize" in css
+        # Geometry + interaction — no live scale().
+        live = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+        assert "scale(" not in live
+        # Round radius so hover wash / glow do not paint square corners.
+        assert "border-radius: var(--foliplus-radius-round)" in css
+        # Explicit transition list — a bare token shorthand would also
+        # animate the per-edge translate (top/left/transform).
+        assert "transition: var(--foliplus-transition-fast)" not in live
+        assert (
+            "background-color var(--foliplus-transition-fast)" in live
+            and "box-shadow var(--foliplus-transition-fast)" in live
+        )
+
+    def test_crop_box_and_center_hover_active(self):
+        """Box deepens its glow; center answers with glow only — no scale.
+
+        Locked boxes hide handles/center and set pointer-events: none, so they
+        never light. Center must not scale: scale() composed with
+        translate(-50%, -50%) shifts the dot on hover.
+        """
+        from conftest import read_css
+
+        css = read_css("foliplus/css/ExportControl.css")
+        assert "&:not(.foliplus-locked):is(:hover, :active)" in css
+        # Box press deepens the soft shadow only — no transform.
+        idx = css.find("&:not(.foliplus-locked):is(:hover, :active)")
+        assert idx != -1
+        block = css[idx : css.index("}", idx) + 1]
+        assert "scale(" not in block, block
+        assert "var(--foliplus-accent-soft-shadow)" in block
+        assert "var(--foliplus-transition-fast)" in css
+
+        assert ".foliplus-export-center" in css
+        assert "var(--foliplus-slider-thumb-glow)" in css
+
+        idx = css.find(".foliplus-export-center")
+        assert idx != -1, "center anchor rule missing"
+        start = css.index("{", idx)
+        depth = 0
+        end = None
+        for i in range(start, len(css)):
+            if css[i] == "{":
+                depth += 1
+            elif css[i] == "}":
+                depth -= 1
+                if depth == 0:
+                    end = i
+                    break
+        assert end is not None
+        # Strip comments first: the rationale prose names "scale()" on purpose.
+        block = re.sub(r"/\*.*?\*/", "", css[idx : end + 1], flags=re.S)
+        assert "scale(" not in block, block
+        assert "transform: translate(-50%, -50%)" in block
+        # Round radius so glow/focus-ring project as a circle.
+        assert "border-radius: var(--foliplus-radius-round)" in block
+        # Center only animates box-shadow — not the pinned translate.
+        assert "box-shadow var(--foliplus-transition-fast)" in block
+        assert "transform var(" not in block
+        assert "transition: var(--foliplus-transition-fast)" not in block
+
+    def test_export_anchors_use_component_focus_ring(self):
+        """Export handle/center share one focus-ring rule in ExportControl.css.
+
+        Component-only CSS stays in ExportControl.css (does not sink into
+        common). Press stays shadow-only (no scale).
+        """
+        from conftest import read_css, read_css_dir
+
+        # Shared ring token still lives in token.css.
+        tokens = read_css_dir("foliplus/css/common", "token.css")
+        assert "--foliplus-focus-ring:" in tokens
+
+        css = read_css("foliplus/css/ExportControl.css")
+        # One combined selector for both crop anchors.
+        assert ".foliplus-export-handle:focus-visible" in css
+        assert ".foliplus-export-center:focus-visible" in css
+        assert "var(--foliplus-focus-ring)" in css
+        # Export-specific selectors must NOT live in common/button.css.
+        button = read_css_dir("foliplus/css/common", "button.css")
+        assert ".foliplus-export-handle" not in button
+        assert ".foliplus-export-center" not in button
+        for selector in (".foliplus-export-handle {", ".foliplus-export-center {"):
+            idx = css.find(selector)
+            assert idx != -1, selector
+            start = css.index("{", idx)
+            depth = 0
+            end = None
+            for i in range(start, len(css)):
+                if css[i] == "{":
+                    depth += 1
+                elif css[i] == "}":
+                    depth -= 1
+                    if depth == 0:
+                        end = i
+                        break
+            block = re.sub(r"/\*.*?\*/", "", css[idx : end + 1], flags=re.S)
+            assert "scale(" not in block, (selector, block)
+            assert "border-radius: var(--foliplus-radius-round)" in block, (
+                selector,
+                block,
+            )
 
 
 class TestExportControlBrowser:
@@ -411,6 +534,163 @@ class TestExportControlBrowser:
             assert page.locator(".foliplus-export-box").is_visible()
             assert page.locator(".foliplus-export-overlay").is_visible()
             assert page.locator(".foliplus-export-handle").count() == 8
+
+    def test_anchor_dots_share_the_dot_token_geometry(self, browser, tmp_path):
+        """Handle and center anchors match the shared --foliplus-dot-size.
+
+        Pins the visual equivalence that the dot-token unification promises:
+        every interactive anchor dot is a circle of the same outer diameter,
+        sized by the single token, with border-box so the ring sits inside.
+        Chromium snaps border-width to whole device pixels (2.5px -> 2px at
+        dpr 1); the outer diameter is what must stay equal.
+        """
+
+        with use_page(self._make_page, browser, tmp_path) as (page, _):
+            page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
+            page.wait_for_selector(
+                ".foliplus-export-box",
+                state="attached",
+                timeout=5000,
+            )
+            info = page.evaluate(
+                """() => {
+                const handle = document.querySelector('.foliplus-export-handle');
+                const center = document.querySelector('.foliplus-export-center');
+                const measure = (el) => {
+                    const cs = getComputedStyle(el);
+                    const r = el.getBoundingClientRect();
+                    return {
+                        boxSizing: cs.boxSizing,
+                        w: r.width, h: r.height,
+                        border: parseFloat(cs.borderTopWidth),
+                    };
+                };
+                return { handle: measure(handle), center: measure(center) };
+            }"""
+            )
+            handle, center = info["handle"], info["center"]
+            # Outer diameter comes from the shared token (12.5px default).
+            # Tight tolerance: a regression to 12px or 13px must fail.
+            assert abs(handle["w"] - 12.5) < 0.1, handle
+            assert abs(center["w"] - 12.5) < 0.1, center
+            # Both are circles, not rectangles.
+            assert abs(handle["w"] - handle["h"]) < 0.01, handle
+            assert abs(center["w"] - center["h"]) < 0.01, center
+            # Ring sits inside the box (border-box from .foliplus-dot).
+            assert handle["boxSizing"] == "border-box", handle
+            assert center["boxSizing"] == "border-box", center
+            # Handle and center agree — one token, one geometry.
+            assert abs(handle["w"] - center["w"]) < 0.01, (handle, center)
+
+    def test_export_center_hover_does_not_move(self, browser, tmp_path):
+        """Hovering the crop center must not shift its position.
+
+        scale() composed with the permanent translate(-50%, -50%) used to
+        nudge the dot on hover. Rest and hover boxes must agree; only the
+        glow/shadow may change.
+        """
+
+        def _box(locator):
+            return locator.bounding_box()
+
+        with use_page(self._make_page, browser, tmp_path) as (page, _):
+            page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
+            page.wait_for_selector(
+                ".foliplus-export-box",
+                state="attached",
+                timeout=5000,
+            )
+            center = page.locator(".foliplus-export-center")
+            rest = _box(center)
+            assert rest and rest["width"] > 0, rest
+            center.hover()
+            page.wait_for_timeout(200)  # let any shadow transition settle
+            hover = _box(center)
+            assert hover, "center disappeared while hovered"
+            # Position and size must be identical — a scale() would change
+            # width/height and usually left/top as well.
+            assert abs(hover["x"] - rest["x"]) < 0.05, (rest, hover)
+            assert abs(hover["y"] - rest["y"]) < 0.05, (rest, hover)
+            assert abs(hover["width"] - rest["width"]) < 0.05, (rest, hover)
+            assert abs(hover["height"] - rest["height"]) < 0.05, (rest, hover)
+
+    def test_export_anchor_border_radius_is_round(self, browser, tmp_path):
+        """Crop handle/center computed border-radius is the round token (50%).
+
+        A square 12×12 box with accent-light hover wash and glow/focus-ring
+        projects hard corners; both anchors must compute as circles.
+        """
+
+        with use_page(self._make_page, browser, tmp_path) as (page, _):
+            page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
+            page.wait_for_selector(
+                ".foliplus-export-box",
+                state="attached",
+                timeout=5000,
+            )
+            radii = page.evaluate(
+                """() => {
+                const h = document.querySelector('.foliplus-export-handle');
+                const c = document.querySelector('.foliplus-export-center');
+                return {
+                  handle: getComputedStyle(h).borderRadius,
+                  center: getComputedStyle(c).borderRadius,
+                };
+            }"""
+            )
+            # --foliplus-radius-round is 50%; both square boxes must resolve to it.
+            assert radii["handle"] == "50%", radii
+            assert radii["center"] == "50%", radii
+
+    def test_export_handle_hover_corners_are_not_square(self, browser, tmp_path):
+        """Hovering a handle paints a circle: corner pink density < center.
+
+        accent-light is a soft red (#fde8e8). On a round button the four
+        bounding-box corners sit outside the fill; a square box would fill
+        them solid pink.
+        """
+        import io as _io
+
+        from PIL import Image
+
+        def _corner_pink(shot: bytes, inset: int = 0):
+            img = Image.open(_io.BytesIO(shot)).convert("RGBA")
+            w, h = img.size
+            pts = [
+                (inset, inset),
+                (w - 1 - inset, inset),
+                (inset, h - 1 - inset),
+                (w - 1 - inset, h - 1 - inset),
+            ]
+            pink = 0
+            for x, y in pts:
+                r, g, b, a = img.getpixel((x, y))
+                # accent-light ≈ #fde8e8 → high R, pink G/B, opaque fill.
+                if a > 200 and r > 240 and 200 <= g <= 240 and 200 <= b <= 240:
+                    pink += 1
+            cx, cy = w // 2, h // 2
+            r, g, b, a = img.getpixel((cx, cy))
+            center_pink = a > 200 and r > 240 and 200 <= g <= 240 and 200 <= b <= 240
+            return pink, center_pink, (w, h)
+
+        with use_page(self._make_page, browser, tmp_path) as (page, _):
+            page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
+            page.wait_for_selector(
+                ".foliplus-export-box",
+                state="attached",
+                timeout=5000,
+            )
+            handle = page.locator(".foliplus-export-handle.br")
+            handle.hover()
+            page.wait_for_timeout(200)
+            shot = handle.screenshot()
+            corner_pink, center_pink, size = _corner_pink(shot)
+            assert center_pink, f"handle center should be accent-light: size={size}"
+            # Round clip: corners outside the circle must not be solid pink.
+            assert corner_pink < 4, (
+                f"handle hover painted square corners: corner_pink={corner_pink} "
+                f"center_pink={center_pink} size={size}"
+            )
 
     def test_escape_closes_crop_box(self, browser, tmp_path):
         """Pressing Escape with unlocked crop box removes it."""

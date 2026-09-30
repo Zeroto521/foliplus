@@ -66,12 +66,12 @@ describe("build artifacts", () => {
     expect(content).toContain("foliplus.version");
   });
 
-  it("component JS externalizes BaseControl", () => {
+  it("component JS externalizes the shared control factory", () => {
     const content = readFileSync(
       resolve(distDir, "foliplus-ScaleControl.min.js"),
       "utf-8",
     );
-    expect(content).toContain("foliplus.BaseControl");
+    expect(content).toContain("foliplus.core.defineControl");
   });
 
   it("component JS externalizes common modules", () => {

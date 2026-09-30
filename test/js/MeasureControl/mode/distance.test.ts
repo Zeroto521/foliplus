@@ -2,7 +2,7 @@ import { type Mock, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/MeasureControl/const.js";
 import type { MeasureManager } from "#foliplus/MeasureControl/manager.js";
 import { DistanceMode } from "#foliplus/MeasureControl/mode/index.js";
-import { initMocks, makeManagerMock } from "./setup.js";
+import { initMocks, makeEnv, makeManagerMock } from "./setup.js";
 
 // Capture attachDistanceUI's opts so restore's onDelete/onUpdate callbacks can
 // be exercised directly (these are the lines codecov flags as missing).
@@ -86,7 +86,7 @@ describe("DistanceMode — first node uses NODE_SOLID", () => {
 
     // No cursor moves, so these are the confirmed nodes only.
     const calls = window.L.circleMarker.mock.calls;
-    expect(calls[0][1].className).toContain("foliplus-measure-node-solid");
+    expect(calls[0][1].className).toContain("foliplus-dot-solid");
     expect(calls[1][1].className).toBe(CONST.CLASSES.NODE_HOLLOW);
   });
 });
@@ -178,7 +178,7 @@ describe("DistanceMode — restore first node uses NODE_SOLID", () => {
     });
 
     const firstCall = window.L.circleMarker.mock.calls[0];
-    expect(firstCall[1].className).toContain("foliplus-measure-node-solid");
+    expect(firstCall[1].className).toContain("foliplus-dot-solid");
 
     const secondCall = window.L.circleMarker.mock.calls[1];
     expect(secondCall[1].className).toBe(CONST.CLASSES.NODE_HOLLOW);
@@ -261,7 +261,7 @@ describe("DistanceMode — label count equals n-1", () => {
 
 describe("DistanceMode — toGeoFeature", () => {
   it("returns a LineString with totalDistance in properties", () => {
-    const feature = DistanceMode.toGeoFeature({
+    const feature = DistanceMode.toGeoFeature(makeEnv(), {
       id: "d1",
       type: "distance",
       points: [

@@ -90,6 +90,16 @@ type PersistedLayerState = {
   overrides: LayerOverride[];
 };
 
+/** One layer's live intent row — the IntentStore carrier shape. Value axis
+ *  plus provenance axis in one record, so a half-write cannot desync them
+ *  through the store's cohesive `set` / `clear`. Absent intent key = the user
+ *  never chose that dimension; provenance only ever holds {@link LayerOverride}
+ *  keys (`name` / `annotation` are riders without markers). */
+type IntentRow = {
+  intent: LayerIntent;
+  provenance: Set<LayerOverride>;
+};
+
 /** Compile-time pin: every provenance-tracked dimension is also a disk key —
  *  `buildLayerStates` writes each override straight through under its own
  *  name, so a new `LayerOverride` without a `PersistedLayerState` field fails
@@ -145,6 +155,17 @@ type LiveState = {
   foldedGroups?: () => string[];
   renamedNames?: () => Record<string, string>;
   layers?: () => Record<string, PersistedLayerState>;
+};
+
+/** The intent half of a parsed persistence record — what
+ *  `IntentStore.loadFromPersisted` accepts. A subset of
+ *  {@link PersistedRecord} (order / removed / foldedGroups stay outside the
+ *  store); annotation config rides both the legacy top-level segment and
+ *  `layers[id].annotation`. */
+type LoadSource = {
+  renamedNames?: Record<string, string>;
+  annotations?: Record<string, unknown>;
+  layers?: Record<string, PersistedLayerState>;
 };
 
 /** A label a layer asked for, described by its feature rather than by pixels —
@@ -258,17 +279,31 @@ interface BorderRowBindTarget {
   onChangeColor?: (value: string) => void;
   /** Write callback for the width input. */
   onChangeWeight?: (value: number) => void;
+  /** Drag-end hook: change / blur must flush a deferred apply walk. */
+  onFlush?: () => void;
   /** Same class hook the build side used on the color input. */
   className?: string;
   /** Same class hook the build side used on the weight input. */
   weightClassName?: string;
 }
 
+/** Who currently owns this dimension's effective value. `"user"` — the
+ *  store holds a provenance marker; `"author"` — declared default still in
+ *  force; `"none"` — the gate rejects the layer for this dimension (an
+ *  unfilled dimension is not "user" and not "author"). */
+type DimensionValueSource = "user" | "author" | "none";
+
 /** One per-layer dimension. `key` is the persistence-identifier and the
  *  registry key — one of `DIM`'s names (`"opacity"`, `"fill"`, `"border"`,
  *  `"zoomRange"`, `"annotation"`), typed by `LayerDimKey` so the vocabulary
  *  cannot drift from `DIM`. Persistence provenance is a different face
- *  (`LayerOverride`: `"fillColor"`, `"visible"`, …). */
+ *  (`LayerOverride`: `"fillColor"`, `"visible"`, …).
+ *
+ *  `write` / `reset` / `valueSource` are optional slots. Migrated
+ *  dimensions (fill, border) own the intent+persist orchestration here;
+ *  styleBag still owns the setStyle landing (commitStyleDim /
+ *  restoreStyleDim / scheduleStyleDimApply) and is called from write/reset.
+ *  Unmigrated dimensions keep their named helpers until a later PR. */
 type LayerDimension<D = unknown> = {
   key: LayerDimKey;
   /** Row-honest gate, two layers in order:
@@ -292,6 +327,16 @@ type LayerDimension<D = unknown> = {
    *  parent (the panel root) to install the drag bubble and shared
    *  number-field commit handler. */
   row: (ui: LayerUI, layerId: string) => HTMLElement;
+  /** Cohesive user write: persist the patch through IntentStore (`set`
+   *  marks provenance) then schedule the styleBag landing. Partial patch —
+   *  omitted keys leave that sub-dimension untouched. */
+  write?: (ui: LayerUI, layerId: string, patch: Partial<D> | D) => void;
+  /** Cohesive reset: drop the dimension's IntentStore rows (values +
+   *  provenance) and restore the author's styleBag face. */
+  reset?: (ui: LayerUI, layerId: string) => void;
+  /** Three-state source of the effective value. Gate rejects → `"none"`;
+   *  store provenance → `"user"`; otherwise `"author"`. */
+  valueSource?: (ui: LayerUI, layerId: string) => DimensionValueSource;
 };
 
 export type {
@@ -299,11 +344,14 @@ export type {
   AppliedProjection,
   BorderRowBindTarget,
   BorderRowBuildTarget,
+  DimensionValueSource,
+  IntentRow,
   LayerDimension,
   LayerIntent,
   LayerLabel,
   LayerOverride,
   LiveState,
+  LoadSource,
   PersistedLayerState,
   PersistedRecord,
   Projection,
