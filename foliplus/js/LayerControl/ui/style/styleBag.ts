@@ -198,22 +198,18 @@ const cancelStyleDimApply = (face: StyleFace, layerId: string): void => {
   applySchedulers.get(applyKey(face, layerId))?.raf.cancel();
 };
 
-/** Retire one face's scheduler entry (unregister / delete). Cancels any
- *  pending frame first so a queued walk cannot fire into a dead layer. */
-const dropStyleDimApply = (face: StyleFace, layerId: string): void => {
-  const key = applyKey(face, layerId);
-  const box = applySchedulers.get(key);
-  if (!box) return;
-  box.raf.cancel();
-  applySchedulers.delete(key);
-};
-
 /** Retire every face's scheduler entry for one layer id — the single
  *  unregister drop hook. Covers fill and border in one pass so the caller
  *  never holds two scattered teardowns. */
 const dropStyleDimApplies = (layerId: string): void => {
-  dropStyleDimApply("fill", layerId);
-  dropStyleDimApply("stroke", layerId);
+  const keyFill = applyKey("fill", layerId);
+  const keyStroke = applyKey("stroke", layerId);
+  for (const key of [keyFill, keyStroke]) {
+    const box = applySchedulers.get(key);
+    if (!box) continue;
+    box.raf.cancel();
+    applySchedulers.delete(key);
+  }
 };
 
 /** Flush every face's pending walk for one layer id — the panel-close
@@ -237,7 +233,6 @@ export {
   cancelStyleDimApply,
   captureStyleBag,
   commitStyleDim,
-  dropStyleDimApply,
   dropStyleDimApplies,
   faceSlice,
   flushStyleDimApply,
