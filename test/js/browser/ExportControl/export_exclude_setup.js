@@ -3,8 +3,9 @@
   //
   // Positive control: create_red_canvas paints via the li.canvas special path
   // (must still appear — rendering semantics unchanged).
-  // Negative control: a purple marker self-marked foliplus-export-exclude in a
-  // foliplus pane must not leak into the export canvas (whole-canvas probe).
+  // Negative control: a purple marker self-marked
+  // data-foliplus-export="exclude" in a foliplus pane must not leak into the
+  // export canvas (whole-canvas probe).
   //
   // Hide tiles first so opaque basemap pixels cannot mask the positive control
   // (same approach as export_opacity_blend.js).
@@ -39,7 +40,7 @@
   });
   const purple = L.marker([26.08, 119.22], {
     icon: L.divIcon({
-      className: "foliplus-export-exclude",
+      className: "",
       html: "",
       iconSize: [24, 24],
     }),
@@ -47,6 +48,7 @@
   purple.on("add", () => {
     const el = purple.getElement();
     if (el) {
+      el.setAttribute("data-foliplus-export", "exclude");
       el.style.background = "rgb(128,0,128)";
       el.style.width = "24px";
       el.style.height = "24px";

@@ -78,15 +78,15 @@ describe("collectLayerMarkers", () => {
     }
   });
 
-  it("skips a root self-marked with foliplus-export-exclude", () => {
+  it("skips a root self-marked with data-foliplus-export=exclude", () => {
     // Component chrome self-declaration — same SKIP_EXPORT judgement point as
     // the attribute/class carriers above.
     const keep = document.createElement("div");
     const marked = document.createElement("div");
-    marked.classList.add("foliplus-export-exclude");
+    marked.setAttribute("data-foliplus-export", "exclude");
     const nesting = document.createElement("div");
     const inner = document.createElement("div");
-    inner.classList.add("foliplus-export-exclude");
+    inner.setAttribute("data-foliplus-export", "exclude");
     nesting.appendChild(inner);
     const roots = document.createElement("div");
     roots.append(keep, marked, nesting);

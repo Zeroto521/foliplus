@@ -142,8 +142,9 @@ const doRender = function (
 ) {
   // Map-level only (leaflet-control-container). Export chrome is a Leaflet
   // control inside that host, so layout still clears. Registered canvas
-  // layers self-mark foliplus-export-exclude for traversal skip — they must
-  // NOT be display:none'd here or the li.canvas special path loses geometry.
+  // layers self-declare data-foliplus-export="exclude" for traversal skip —
+  // they must NOT be display:none'd here or the li.canvas special path
+  // loses geometry.
   const hideEls = this.mapContainer.querySelectorAll(CONST.SEL.HIDE_DURING_EXPORT);
   hideEls.forEach(el => el.classList.add(CONST.CLASSES.HIDDEN));
   // Force a synchronous layout so getBoundingClientRect() in the

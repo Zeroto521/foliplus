@@ -239,10 +239,10 @@ class TestExportControlRendering:
         assert 'data-foliplus-export="exclude"' in html
 
     def test_export_control_self_declares_export_exclude_in_bundle(self):
-        """Component self-declaration class is present in the JS bundle.
+        """Component self-declaration data attribute is present in the JS bundle.
 
         Central CONTROL no longer lists ``.foliplus-export-ctrl``; the bar
-        self-marks with ``foliplus-export-exclude`` instead.
+        self-declares ``data-foliplus-export="exclude"`` instead.
         """
         from pathlib import Path
 
@@ -253,7 +253,10 @@ class TestExportControlRendering:
         js = next((p for p in candidates if p.exists()), None)
         assert js is not None, f"ExportControl bundle not found: {candidates}"
         text = js.read_text(encoding="utf-8")
-        assert "foliplus-export-exclude" in text
+        assert "data-foliplus-export" in text
+        assert 'setAttribute("data-foliplus-export"' in text or (
+            "data-foliplus-export" in text and "exclude" in text
+        )
 
     def test_export_control_py_file(self):
         """ExportControl.py has expected exports."""
@@ -1110,19 +1113,21 @@ class TestExportControlBrowser:
             assert len(errors) == 0, f"JS errors on canvas export: {errors}"
 
     def test_export_excludes_self_declared_marked_elements(self, browser, tmp_path):
-        """T253: foliplus-export-exclude chrome stays out of the export DOM/pixels.
+        """T253: data-foliplus-export=exclude chrome stays out of the export.
 
-        Component-side self-declaration + central map-level fallback:
-        - export control bar carries ``foliplus-export-exclude`` (self-mark);
-        - registered createCanvas canvases carry the same class;
+        Component-side self-declaration (data attribute) + central map-level
+        fallback:
+        - export control bar carries ``data-foliplus-export="exclude"``;
+        - registered createCanvas canvases carry the same attribute;
         - a registered canvas still paints via the ``li.canvas`` special path
           (positive control — rendering semantics unchanged);
-        - a purple marker self-marked ``foliplus-export-exclude`` in a foliplus
-          pane does not leak into the export canvas (whole-canvas pixel gate).
+        - a purple marker self-marked ``data-foliplus-export="exclude"`` in a
+          foliplus pane does not leak into the export canvas.
         """
-        with use_page(
-            self._make_page, browser, tmp_path, slug="export_exclude"
-        ) as (page, _):
+        with use_page(self._make_page, browser, tmp_path, slug="export_exclude") as (
+            page,
+            _,
+        ):
             errors = []
             page.on("pageerror", lambda e: errors.append(str(e)))
 

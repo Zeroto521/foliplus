@@ -38,13 +38,15 @@ class ExportControl extends BaseControl {
 
   buildDOM() {
     const { container, ctrl, toolBar, toggleBtn } = createFoldControl({
-      // Self-declare export DOM-copy opt-out; central CONTROL no longer
-      // lists this bar (only leaflet-control-container remains as fallback).
-      cssClass: `foliplus-export-ctrl foliplus-export-exclude`,
+      cssClass: `foliplus-export-ctrl`,
       toggleTitle: T("btn_title"),
       toggleSvg: SVGs.CAMERA,
       position: CONF.position,
     });
+    // Self-declare export DOM-copy opt-out via the data attribute (primary
+    // carrier). Central CONTROL no longer lists this bar — only
+    // leaflet-control-container remains as the map-level fallback.
+    ctrl.setAttribute("data-foliplus-export", "exclude");
     this.m.attachUI(ctrl, toolBar);
     toggleBtn.onclick = () => {
       if (this.m.cropState) this.m.removeCropBox();

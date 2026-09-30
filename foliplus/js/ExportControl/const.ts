@@ -56,13 +56,6 @@ const CLASSES = {
   CONFIRM: "foliplus-confirm",
   CANCEL: "foliplus-cancel",
   DRAGGING: "foliplus-is-dragging",
-  /**
-   * Component self-declaration for export DOM-copy opt-out. HeatmapControl
-   * canvases (via createCanvas) and this control's own bar carry it so a
-   * generic pane walk never copies chrome; registered canvases still paint
-   * through the dedicated `li.canvas` path, which ignores this marker.
-   */
-  EXPORT_EXCLUDE: "foliplus-export-exclude",
 };
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -96,22 +89,15 @@ const SEL = {
   /**
    * Central map-level fallback: Leaflet's own control host. Third-party
    * controls cannot self-declare, so this stays in the center list. Component
-   * chrome (this control's bar, heatmap canvases) self-marks via
-   * {@link CLASSES.EXPORT_EXCLUDE} instead of living here.
+   * chrome (this control's bar, registered canvases) self-declares via
+   * `data-foliplus-export="exclude"` instead of living here.
    *
    * Hide-pass uses only this map-level host. Export chrome sits inside it
    * (Leaflet control bar), so layout still clears. Registered canvas layers
    * are content — they must stay measurable for the `li.canvas` special path
-   * and must never be display:none'd by the marker class.
+   * and must never be display:none'd by an export marker.
    */
   CONTROL: ".leaflet-control-container",
-  /**
-   * Component self-declaration marker (class). Paired with
-   * {@link CLASSES.EXPORT_EXCLUDE}. Traversal skips it so generic DOM copies
-   * never pick chrome up. Hide-pass deliberately does NOT use it — see
-   * {@link SEL.CONTROL}.
-   */
-  EXPORT_EXCLUDE: ".foliplus-export-exclude",
   LABEL: "[data-foliplus-export='label']",
   /**
    * Opt-out for export.  Elements matching this selector are dropped from the
@@ -119,19 +105,20 @@ const SEL = {
    * internal UI to a layer pane (delete buttons, resize handles, an
    * in-progress preview) opts out here and needs no change to ExportControl.
    *
-   * Carriers:
+   * Two carriers, because a Leaflet Path only exposes a construction-time
+   * `className` hook and has no attribute hook to stamp later:
    *
    *   Usage:  `<div data-foliplus-export="exclude">...</div>`
    *   Usage:  `<path class="foliplus-skip-export" />`
-   *   Usage:  `<canvas class="foliplus-export-exclude" />` (component chrome)
    *
-   * Only an element's own marker counts.  Pane-level hiding (focus) is a
-   * transient view state and the export ignores it — see renderPaneSVG.
-   * Registered canvas layers still paint via `li.canvas`; the class only
-   * blocks generic pane walks from copying the live DOM node.
+   * The data attribute is the primary / extensible carrier (future exclusion
+   * semantics extend the attribute value, not the class list). Only an
+   * element's own marker counts.  Pane-level hiding (focus) is a transient
+   * view state and the export ignores it — see renderPaneSVG.  Registered
+   * canvas layers still paint via `li.canvas`; the marker only blocks generic
+   * pane walks from copying the live DOM node.
    */
-  SKIP_EXPORT:
-    '[data-foliplus-export="exclude"], .foliplus-skip-export, .foliplus-export-exclude',
+  SKIP_EXPORT: '[data-foliplus-export="exclude"], .foliplus-skip-export',
   /**
    * Temporarily hidden during export so control chrome does not affect
    * getBoundingClientRect / paint. Map-level only — component chrome is

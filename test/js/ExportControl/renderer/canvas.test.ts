@@ -148,11 +148,11 @@ describe("renderPaneCanvas", () => {
     expect(ctx.drawImage).not.toHaveBeenCalled();
   });
 
-  it("skips a canvas self-marked with foliplus-export-exclude", async () => {
+  it("skips a canvas self-marked with data-foliplus-export=exclude", async () => {
     const ctx = makeMockCtx();
     const p = pane();
     const marked = canvasEl(10, 10, 200, 200);
-    marked.classList.add("foliplus-export-exclude");
+    marked.setAttribute("data-foliplus-export", "exclude");
     p.appendChild(marked);
     const load = stubLoad();
 
@@ -162,11 +162,11 @@ describe("renderPaneCanvas", () => {
     expect(ctx.drawImage).not.toHaveBeenCalled();
   });
 
-  it("skips a canvas nested under a foliplus-export-exclude ancestor", async () => {
+  it("skips a canvas nested under a data-foliplus-export=exclude ancestor", async () => {
     const ctx = makeMockCtx();
     const p = pane();
     const host = document.createElement("div");
-    host.classList.add("foliplus-export-exclude");
+    host.setAttribute("data-foliplus-export", "exclude");
     host.appendChild(canvasEl(10, 10, 200, 200));
     p.appendChild(host);
     const load = stubLoad();
