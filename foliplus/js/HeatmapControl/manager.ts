@@ -397,7 +397,12 @@ class HeatmapManager {
     // basemap, a solid colour face, and a self-drawn canvas all come back
     // "base"/null from getLayerType, so scanMapLayers would have filtered them
     // out and the source list would come out identical.
-    this.removeLayerChangeListener = this.events.on(EVENTS.LAYER_CHANGE, ({ kind }) => {
+    this.removeLayerChangeListener = this.events.on(EVENTS.LAYER_CHANGE, payload => {
+      if (!payload) {
+        this.onLayerChange();
+        return;
+      }
+      const { kind } = payload;
       if (NO_POINT_SOURCE_KINDS.has(kind)) return;
       this.onLayerChange();
     });

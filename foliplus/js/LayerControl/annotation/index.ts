@@ -136,7 +136,17 @@ class AnnotationManager {
     // used to fire for (markers and overlays the other controls add), which is
     // why HeatmapControl switched the same way.
     this.unsubscribe.push(
-      events.on(EVENTS.LAYER_CHANGE, ({ id, kind }) => {
+      events.on(EVENTS.LAYER_CHANGE, payload => {
+        // Defend against a bare emit (no payload): an un-destructured
+        // LAYER_CHANGE would throw on `{id, kind}` and silently kill the
+        // repaint. A full refresh is the correct fallback — it repaints
+        // every label-bearing layer, which is what the old raw
+        // layeradd/layerremove handler did.
+        if (!payload) {
+          this.refresh();
+          return;
+        }
+        const { id, kind } = payload;
         // A tile basemap, a solid colour face, and a self-drawn canvas never
         // get an annotation pane — the registration edge declares it only for
         // a labelable feature tree — so they can never own a canvas to repaint.
