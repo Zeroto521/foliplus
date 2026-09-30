@@ -877,26 +877,14 @@ class LayerManager implements LayerAPI {
   }
 
   /**
-   * Drop one id from the stored order without retiring the layer.
-   *
-   * The counterpart to {@link deleteLayer}'s saved-order prune, minus the
-   * `removedIds` recording: after this call the id leaves `savedOrder` but
-   * stays registerable. Component clear paths use it because a cleared layer
-   * is not the same as a deleted one — the user still owns the layer and the
-   * next draw should land at the top of the stack, not back in the slot they
-   * had arranged. Skipping this prune is what makes the next `registerLayer`
-   * hit `insertOverlayAt`'s prepend branch rather than
-   * `placeBeforeSavedNeighbor`'s return-to-slot path.
-   *
-   * `saveOrder` is NOT delegated: it is a full live snapshot reserved for
-   * user reorders, while this is a prune. The filtered record is scheduled
-   * directly so neighbors keep their rank and no snapshot is born from a
-   * registration sequence.
+   * Drop one id from the stored order without retiring the layer (LayerAPI
+   * contract; body on {@link SavedOrder}). Component clear paths use it so a
+   * redraw lands at the top of the stack; `deleteLayer` reuses the same prune
+   * and is the only caller that also records `removedIds`.
    *
    * @param id - The layer ID whose stored position is being dropped.
    * @returns true if the id was in the stored order and got removed, false
-   *   otherwise (nothing to forget). Callers treat false as a no-op, not an
-   *   error — an id that was never registered has nothing to forget.
+   *   otherwise (nothing to forget).
    */
   forgetSavedOrder(id: string): boolean {
     return this.order.forgetSavedOrder(id);

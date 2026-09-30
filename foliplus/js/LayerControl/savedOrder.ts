@@ -21,7 +21,8 @@ class SavedOrder {
    *  Consulted at construction, where it evicts the layer from the map, and at
    *  the registration entry point, where it keeps the id out of the registry
    *  — so nothing downstream ever has to check for it. Both run before the
-   *  panel attaches, which is why this lives on the manager rather than the UI.
+   *  panel attaches, which is why this rides the manager's `order` instance
+   *  rather than the UI.
    */
   removedIds: Set<string>;
   private registry: LayerRegistry;
@@ -173,13 +174,13 @@ class SavedOrder {
   /**
    * Drop one id from the stored order without retiring the layer.
    *
-   * The counterpart to {@link SavedOrder}'s delete prune used by
-   * `deleteLayer`, minus the `removedIds` recording: after this call the id
-   * leaves `savedOrder` but stays registerable. Component clear paths use it
-   * because a cleared layer is not the same as a deleted one —the user still
-   * owns the layer and the next draw should land at the top of the stack, not
-   * back in the slot they had arranged. Skipping this prune is what makes the
-   * next `registerLayer` hit `insertOverlayAt`'s prepend branch rather than
+   * The order half of `deleteLayer`, and the whole of a component clear:
+   * after this call the id leaves `savedOrder` but stays registerable.
+   * `deleteLayer` is the only caller that also records the id in
+   * `removedIds` (a clear is not a delete — the user still owns the layer and
+   * the next draw should land at the top of the stack, not back in the slot
+   * they had arranged). Skipping this prune is what makes the next
+   * `registerLayer` hit `insertOverlayAt`'s prepend branch rather than
    * `placeBeforeSavedNeighbor`'s return-to-slot path.
    *
    * `saveOrder` is NOT delegated: it is a full live snapshot reserved for
