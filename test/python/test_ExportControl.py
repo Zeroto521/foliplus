@@ -220,7 +220,7 @@ class TestExportControlRendering:
         """
         from conftest import read_css
 
-        css = read_css("foliplus/css/ExportControl.css")
+        css = read_css("foliplus/css/common/token.css")
         assert (
             "--foliplus-export-scale-z: calc(var(--foliplus-z-export-base) - 10);"
             in css

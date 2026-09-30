@@ -1,10 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { reverseGeocode } from "#core/geocode/index.js";
 import * as CONST from "#foliplus/MeasureControl/const.js";
 import { markDragSyntheticClick } from "#foliplus/MeasureControl/edit.js";
 import { MarkerMode } from "#foliplus/MeasureControl/mode/index.js";
 import { initMocks, makeEnv, makeManagerMock } from "./setup.js";
 
+vi.mock("#core/geocode/index.js", () => ({
+  reverseGeocode: vi.fn().mockResolvedValue(null),
+}));
+
 beforeEach(initMocks);
+
+beforeEach(() => {
+  vi.mocked(reverseGeocode).mockReset();
+  vi.mocked(reverseGeocode).mockResolvedValue(null);
+});
 
 /** Flush all pending microtasks (the onEnd → geocodeAddress await chain spans
  *  several microtask hops, so a single `await Promise.resolve()` is not enough). */
@@ -155,9 +165,7 @@ describe("MarkerMode — start + click", () => {
     );
     vi.stubGlobal("cancelAnimationFrame", vi.fn());
 
-    const geocode = vi.fn(() => Promise.resolve("New Address"));
-    const prevFoliplus = (window as any).foliplus;
-    (window as any).foliplus = { ...prevFoliplus, reverseGeocode: geocode };
+    vi.mocked(reverseGeocode).mockReturnValue(Promise.resolve("New Address"));
 
     try {
       const manager = makeManagerMock() as any;
@@ -216,12 +224,11 @@ describe("MarkerMode — start + click", () => {
         latlng: { lat: 32, lng: 122 },
       });
       await flushAsync(); // flush the geocode await chain
-      expect(geocode).toHaveBeenCalled();
+      expect(reverseGeocode).toHaveBeenCalled();
       expect(data.address).toBe("New Address");
       expect(manager.map.dragging.enable).toHaveBeenCalled();
     } finally {
       vi.unstubAllGlobals();
-      (window as any).foliplus = prevFoliplus;
     }
   });
 
@@ -235,9 +242,7 @@ describe("MarkerMode — start + click", () => {
       }),
     );
     vi.stubGlobal("cancelAnimationFrame", vi.fn());
-    const geocode = vi.fn(() => Promise.resolve("New Address"));
-    const prevFoliplus = (window as any).foliplus;
-    (window as any).foliplus = { ...prevFoliplus, reverseGeocode: geocode };
+    vi.mocked(reverseGeocode).mockReturnValue(Promise.resolve("New Address"));
 
     try {
       const manager = makeManagerMock() as any;
@@ -281,7 +286,6 @@ describe("MarkerMode — start + click", () => {
       expect(data.lat).toBe(31.123457);
     } finally {
       vi.unstubAllGlobals();
-      (window as any).foliplus = prevFoliplus;
     }
   });
 
@@ -321,12 +325,9 @@ describe("MarkerMode — start + click", () => {
     // Two deferred geocodes: the first resolves late, the second resolves first.
     let resolveFirst!: (v: string) => void;
     const first = new Promise<string>(r => (resolveFirst = r));
-    const geocode = vi
-      .fn()
+    vi.mocked(reverseGeocode)
       .mockReturnValueOnce(first)
       .mockReturnValueOnce(Promise.resolve("Second Address"));
-    const prevFoliplus = (window as any).foliplus;
-    (window as any).foliplus = { ...prevFoliplus, reverseGeocode: geocode };
 
     try {
       const manager = makeManagerMock() as any;
@@ -383,7 +384,6 @@ describe("MarkerMode — start + click", () => {
       expect(data.address).toBe("Second Address");
     } finally {
       vi.unstubAllGlobals();
-      (window as any).foliplus = prevFoliplus;
     }
   });
 
@@ -433,9 +433,7 @@ describe("MarkerMode — start + click", () => {
       vi.fn(() => 1),
     );
     vi.stubGlobal("cancelAnimationFrame", vi.fn());
-    const geocode = vi.fn(() => Promise.resolve("New Address"));
-    const prevFoliplus = (window as any).foliplus;
-    (window as any).foliplus = { ...prevFoliplus, reverseGeocode: geocode };
+    vi.mocked(reverseGeocode).mockReturnValue(Promise.resolve("New Address"));
     try {
       const manager = makeManagerMock() as any;
       manager.isEditMode = true;
@@ -473,7 +471,6 @@ describe("MarkerMode — start + click", () => {
       expect(pin.setPopupContent).toHaveBeenCalled();
     } finally {
       vi.unstubAllGlobals();
-      (window as any).foliplus = prevFoliplus;
     }
   });
 

@@ -11,6 +11,7 @@
 import type { ControlEnv } from "#core/defineControl.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { download } from "#common/download.js";
+import { formatCoord } from "#common/format.js";
 import * as CONST from "./const.js";
 import type { MeasureManager } from "./manager.js";
 import { MODE_MAP, MeasureMode } from "./mode/index.js";
@@ -85,7 +86,7 @@ const toCSV = (env: ControlEnv, measurements: MeasureData[]): string => {
       type: data.type,
       name: getNameForType(env, data),
       center: data.center
-        ? `${data.center.lng.toFixed(6)},${data.center.lat.toFixed(6)}`
+        ? `${formatCoord(data.center.lng)},${formatCoord(data.center.lat)}`
         : "",
       totalDistance: data.totalDistance !== undefined ? String(data.totalDistance) : "",
       area: data.area !== undefined ? String(data.area) : "",

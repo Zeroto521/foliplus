@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ControlEnv } from "#core/defineControl.js";
+import { reverseGeocode } from "#core/geocode/index.js";
 import * as CONST from "#foliplus/MeasureControl/const.js";
 import {
   bindNodeDrag,
@@ -12,6 +13,10 @@ import { stopEvent } from "#common/dom.js";
 import { createLogger } from "#common/log.js";
 import { makeControlEnv } from "../fixture.js";
 
+vi.mock("#core/geocode/index.js", () => ({
+  reverseGeocode: vi.fn(),
+}));
+
 const fakeEv = (): any => ({ preventDefault: vi.fn(), stopPropagation: vi.fn() });
 
 const makeEnv = (): ControlEnv => {
@@ -23,6 +28,7 @@ beforeEach(() => {
   // Consume any pending drag-synthetic-click flag so a prior test's drag end
   // doesn't leak into this test's click handler.
   isDragSyntheticClick();
+  vi.mocked(reverseGeocode).mockReset();
   globalThis.turf = {
     point: coords => ({ coords }),
     polygon: vi.fn(rings => ({ type: "Polygon", coordinates: rings })),
@@ -800,19 +806,15 @@ describe("coordText", () => {
 describe("geocodeAddress", () => {
   it("calls reverseGeocode and returns the resolved address", async () => {
     const resolvedAddr = "123 Main St";
-    window.foliplus = {
-      reverseGeocode: vi.fn(() => Promise.resolve(resolvedAddr)),
-    } as any;
+    vi.mocked(reverseGeocode).mockReturnValue(Promise.resolve(resolvedAddr));
     const mgr = { map: {} };
     const result = await Util.geocodeAddress(mgr as any, 121, 31, "en", null);
-    expect(window.foliplus.reverseGeocode).toHaveBeenCalledWith({}, 121, 31, "en");
+    expect(reverseGeocode).toHaveBeenCalledWith({}, 121, 31, "en");
     expect(result).toBe(resolvedAddr);
   });
 
   it("falls back to the previous address on geocode failure", async () => {
-    window.foliplus = {
-      reverseGeocode: vi.fn(() => Promise.reject(new Error("offline"))),
-    } as any;
+    vi.mocked(reverseGeocode).mockReturnValue(Promise.reject(new Error("offline")));
     const mgr = { map: {} };
     const prev = "fallback address";
     const result = await Util.geocodeAddress(mgr as any, 121, 31, "en", prev);
@@ -820,9 +822,7 @@ describe("geocodeAddress", () => {
   });
 
   it("returns previous address when reverseGeocode returns null", async () => {
-    window.foliplus = {
-      reverseGeocode: vi.fn(() => Promise.resolve(null)),
-    } as any;
+    vi.mocked(reverseGeocode).mockReturnValue(Promise.resolve(null));
     const mgr = { map: {} };
     const prev = "fallback address";
     const result = await Util.geocodeAddress(mgr as any, 121, 31, "en", prev);
@@ -830,7 +830,7 @@ describe("geocodeAddress", () => {
   });
 
   it("returns previous when foliplus.reverseGeocode is unavailable", async () => {
-    window.foliplus = undefined as any;
+    vi.mocked(reverseGeocode).mockReturnValue(Promise.reject(new Error("offline")));
     const mgr = { map: {} };
     const prev = "fallback address";
     const result = await Util.geocodeAddress(mgr as any, 121, 31, "en", prev);

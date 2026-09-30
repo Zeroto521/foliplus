@@ -79,6 +79,7 @@
 - `LayerControl`: style-panel dimensions become registry descriptors (`registerDimension` / `DIM_ORDER`) — the panel discovers rows through the registry, gate = capability check ([#505](https://github.com/Zeroto521/foliplus/pull/505), [#513](https://github.com/Zeroto521/foliplus/pull/513), [#522](https://github.com/Zeroto521/foliplus/pull/522), [#536](https://github.com/Zeroto521/foliplus/pull/536))
 - `LayerControl` / `HeatmapControl`: the style, attributes and heatmap panels drop their group headings and read as one flat row list; row labels are right-aligned, so all three panels share one label edge ([#516](https://github.com/Zeroto521/foliplus/pull/516))
 - `HeatmapControl` / `LayerControl`: bake layer opacity into canvas draws (`globalAlpha`); heatmap slider stays CSS, bake on redraw ([#533](https://github.com/Zeroto521/foliplus/pull/533))
+- `CSS tokens`: consolidate all `--foliplus-*` definitions into `css/common/token.css` as single source of truth (breaking: bare `--x` → `--foliplus-x`); `style_check` rule 4 enforces definitions only in `token.css` ([#542](https://github.com/Zeroto521/foliplus/pull/542), [#573](https://github.com/Zeroto521/foliplus/pull/573))
 - `LayerControl`: extract the saved-order domain (`savedOrder` / `removedIds` plus load, snapshot, replay, prune) into a `SavedOrder` class in `savedOrder.ts` — `LayerManager` keeps the LayerAPI forwards and the ownership call-sites; behaviour and the persisted record shape are unchanged ([#569](https://github.com/Zeroto521/foliplus/pull/569))
 
 ### Removed
@@ -90,7 +91,6 @@
 - `LayerControl`: remove the `onToggle` callback from `registerLayer` / `createCanvas` / `createColor` — breaking against the v0.3.x API; visibility rides the surface's `capabilities.visibility` carrier (canvas HIDDEN class / map membership), `LayerAPI.setVisible` for programmatic control ([#518](https://github.com/Zeroto521/foliplus/pull/518))
 - `LayerControl`: rename `isBase` to `group: "base" | "overlay"` — breaking against the v0.3.x API; migrate `isBase: true` → `group: "base"`, `isBase: false` → `group: "overlay"` ([#524](https://github.com/Zeroto521/foliplus/pull/524))
 - `core/layer`: rename `styleDefaults` to `styleDefaultsProvider` — breaking against the v0.3.x API; migrate `styleDefaults: …` → `styleDefaultsProvider: …` ([#530](https://github.com/Zeroto521/foliplus/pull/530))
-- `CSS tokens`: prefix all custom properties with `--foliplus-*` — breaking against the v0.3.x API; migrate every override `--x` → `--foliplus-x` ([#542](https://github.com/Zeroto521/foliplus/pull/542))
 
 ### Fixed
 
