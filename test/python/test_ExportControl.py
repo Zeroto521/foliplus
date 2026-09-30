@@ -264,7 +264,9 @@ class TestExportControlRendering:
         from conftest import read_css
 
         css = read_css("foliplus/css/ExportControl.css")
-        assert ".foliplus-export-handle:is(:hover, :active)" in css
+        # Nested source form: .foliplus-export-handle { &:is(:hover, :active) }
+        assert ".foliplus-export-handle" in css
+        assert "&:is(:hover, :active)" in css
         assert "background: var(--foliplus-accent-light)" in css
         assert "var(--foliplus-slider-thumb-glow)" in css
         # Direction cursors are the grab affordance and must survive.
@@ -295,7 +297,7 @@ class TestExportControlRendering:
         assert "var(--foliplus-accent-soft-shadow)" in block
         assert "var(--foliplus-transition-fast)" in css
 
-        assert ".foliplus-export-center:is(:hover, :active)" in css
+        assert ".foliplus-export-center" in css
         assert "var(--foliplus-slider-thumb-glow)" in css
 
         idx = css.find(".foliplus-export-center")
@@ -330,8 +332,7 @@ class TestExportControlRendering:
         assert "--foliplus-focus-ring:" in tokens
 
         css = read_css("foliplus/css/ExportControl.css")
-        assert ".foliplus-export-handle:focus-visible" in css
-        assert ".foliplus-export-center:focus-visible" in css
+        assert "&:focus-visible" in css
         assert "var(--foliplus-focus-ring)" in css
         # Export-specific selectors must NOT live in common/button.css.
         button = read_css_dir("foliplus/css/common", "button.css")
@@ -353,6 +354,8 @@ class TestExportControlRendering:
                         break
             block = re.sub(r"/\*.*?\*/", "", css[idx : end + 1], flags=re.S)
             assert "scale(" not in block, (selector, block)
+            assert "&:focus-visible" in block, (selector, block)
+            assert "var(--foliplus-focus-ring)" in block, (selector, block)
 
 
 class TestExportControlBrowser:
