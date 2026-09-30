@@ -1,6 +1,11 @@
 import type { Map as LeafletMap } from "leaflet";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createLocationMarker } from "#core/locationMarker.js";
+import { reverseGeocode } from "#core/geocode/index.js";
+
+vi.mock("#core/geocode/index.js", () => ({
+  reverseGeocode: vi.fn(),
+}));
 
 describe("createLocationMarker", () => {
   let map: LeafletMap;
@@ -18,7 +23,7 @@ describe("createLocationMarker", () => {
 
   beforeEach(() => {
     vi.restoreAllMocks();
-    delete window.foliplus.reverseGeocode;
+    vi.mocked(reverseGeocode).mockReset();
     map = {
       removeLayer: vi.fn(),
       addLayer: vi.fn(),
@@ -183,7 +188,7 @@ describe("createLocationMarker", () => {
       }),
     };
     window.L.marker = vi.fn(() => marker);
-    window.foliplus.reverseGeocode = vi.fn(() => Promise.resolve("Resolved Address"));
+    vi.mocked(reverseGeocode).mockReturnValue(Promise.resolve("Resolved Address"));
     const onAddress = vi.fn();
 
     createLocationMarker(
@@ -209,7 +214,7 @@ describe("createLocationMarker", () => {
   });
 
   it("does nothing when reverseGeocode is unavailable", () => {
-    delete window.foliplus.reverseGeocode;
+    vi.mocked(reverseGeocode).mockReturnValue(Promise.reject(new Error("offline")));
     expect(() =>
       createLocationMarker(
         map,
@@ -246,7 +251,7 @@ describe("createLocationMarker", () => {
       open = false;
       setTimeout(() => resolve("Resolved Address"), 0);
     });
-    window.foliplus.reverseGeocode = vi.fn(() => deferred);
+    vi.mocked(reverseGeocode).mockReturnValue(deferred);
 
     createLocationMarker(
       map,
@@ -276,8 +281,7 @@ describe("createLocationMarker", () => {
       }),
     };
     window.L.marker = vi.fn(() => marker);
-    const reject = vi.fn(() => Promise.reject(new Error("network")));
-    window.foliplus.reverseGeocode = reject;
+    vi.mocked(reverseGeocode).mockReturnValue(Promise.reject(new Error("network")));
 
     const result = createLocationMarker(
       map,
@@ -294,7 +298,7 @@ describe("createLocationMarker", () => {
 
     await Promise.resolve();
     await Promise.resolve();
-    expect(reject).toHaveBeenCalled();
+    expect(reverseGeocode).toHaveBeenCalled();
     expect(marker.setPopupContent).not.toHaveBeenCalled();
   });
 });
