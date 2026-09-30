@@ -15,6 +15,7 @@
 //
 // A node with `setStyle` alone is not a carrier (L.GeoJSON owns one too),
 // so walks below descend `eachLayer` first and treat a setter as a leaf.
+import { walkLeaves } from "#core/layer/walkLeaves.js";
 import { throttleRaf } from "#common/throttle.js";
 
 /** The author's full vector style bag. Every field is always populated on
@@ -83,13 +84,12 @@ const isStyleSetter = (node: unknown): node is StyleSetter =>
 
 /** Visit every leaf that exposes a runtime `setStyle`. Groups (LayerGroup,
  *  folium GeoJson) expose `setStyle` too, but they are walked down instead:
- *  mouseout fires on the leaf paths, and the authored bag is per leaf. */
+ *  mouseout fires on the leaf paths, and the authored bag is per leaf.
+ *  Recursion lives in `walkLeaves`; this helper is just the setStyle filter. */
 const walkStyleLeaves = (node: StyleCarrier, fn: (leaf: StyleSetter) => void): void => {
-  if (typeof node.eachLayer === "function") {
-    node.eachLayer(child => walkStyleLeaves(child as StyleCarrier, fn));
-    return;
-  }
-  if (isStyleSetter(node)) fn(node);
+  walkLeaves(node, leaf => {
+    if (isStyleSetter(leaf)) fn(leaf);
+  });
 };
 
 /** Capture the author's full style bag on the leaf's first style write.

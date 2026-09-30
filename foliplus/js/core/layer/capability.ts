@@ -14,28 +14,15 @@
 // to fan the style out to, so it returns false like an empty LayerGroup or
 // a Marker with no children — the `setStyle` of its own is not a real
 // carrier when the walk finds nothing to write to.
-import type { StyleProbeNode } from "./type.js";
-
-/** Coerce any layer to the probe node shape. The walk is duck-typed: it
- *  checks for `eachLayer` and `setStyle` at runtime, so the cast is safe
- *  even for layers whose TypeScript type does not declare those methods. */
-const asProbeNode = (node: unknown): StyleProbeNode | null =>
-  node != null ? (node as StyleProbeNode) : null;
+import { someLeaf } from "./walkLeaves.js";
 
 /** Whether any leaf in the tree exposes a runtime `setStyle` — the honest
  *  carrier check for the vector stroke axis (border). */
-const hasSetStyleLeaf = (node: unknown): boolean => {
-  const n = asProbeNode(node);
-  if (!n) return false;
-  if (typeof n.eachLayer === "function") {
-    let found = false;
-    n.eachLayer(child => {
-      if (!found) found = hasSetStyleLeaf(child);
-    });
-    return found;
-  }
-  return typeof n.setStyle === "function";
-};
+const hasSetStyleLeaf = (node: unknown): boolean =>
+  someLeaf(
+    node,
+    leaf => typeof (leaf as { setStyle?: unknown }).setStyle === "function",
+  );
 
 /** Whether any leaf is an areal fill carrier — a Path-family leaf with a
  *  `setStyle` whose geometry carries a fill (Polygon / Rectangle rings, or
@@ -47,18 +34,7 @@ const hasSetStyleLeaf = (node: unknown): boolean => {
  *  Line-only leaves (Polyline) fall out: they have `getLatLngs` but no
  *  ring nesting and no `getRadius`. Markers, GridLayer / ImageOverlay and
  *  canvas layers fall out too — their write axis is not `setStyle`. */
-const hasFillLeaf = (node: unknown): boolean => {
-  const n = asProbeNode(node);
-  if (!n) return false;
-  if (typeof n.eachLayer === "function") {
-    let found = false;
-    n.eachLayer(child => {
-      if (!found) found = hasFillLeaf(child);
-    });
-    return found;
-  }
-  return isArealStyleLeaf(n);
-};
+const hasFillLeaf = (node: unknown): boolean => someLeaf(node, isArealStyleLeaf);
 
 /** A leaf that owns `setStyle` and an areal geometry, detected by carrier
  *  features rather than class identity. */

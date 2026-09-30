@@ -8,6 +8,10 @@ import {
 } from "../leafletAdapter.js";
 import * as CONST from "./const.js";
 import type { LabelAwareLayer, LayerCapabilities, LayerKind } from "./type.js";
+import {
+  walkLeaves as walkLeavesImpl,
+  walkTree as walkTreeImpl,
+} from "./walkLeaves.js";
 
 /** Resolve a layer from the map's internal registry or a window global.
  *  @param {L.Map} map - Leaflet map.
@@ -20,43 +24,14 @@ const findLayer = (map: L.Map, id: string): L.Layer | null => {
     null) as L.Layer | null;
 };
 
-/** Depth-limited walk over a layer tree, invoking fn per visited node.
- *  Prefer eachLayer (Leaflet's own recursion) over the child registry — that
- *  keeps nested groups like mainLayer → [graph, label] traversed correctly.
- *  The registry branch is a fallback for non-Leaflet containers (window
- *  globals and ad-hoc registry wrappers) that don't implement eachLayer.
- */
-const traverse = (
-  layer: L.Layer,
-  fn: (layer: L.Layer) => void,
-  depth = 0,
-  leafOnly = false,
-) => {
-  if (!layer || depth > CONST.RECURSION.LAYER_DEPTH) return;
-  const container = layer as L.LayerGroup;
-  const isContainer = typeof container.eachLayer === "function";
-  if (!leafOnly) fn(layer);
-  if (isContainer) container.eachLayer(c => traverse(c, fn, depth + 1, leafOnly));
-  else {
-    const children = internalLayers(layer);
-    if (children) {
-      // Object.keys, not for..in: a registry that inherits from a prototype
-      // would otherwise walk entries this layer tree does not own.
-      for (const k of Object.keys(children)) {
-        traverse(children[k], fn, depth + 1, leafOnly);
-      }
-    } else if (leafOnly) fn(layer);
-  }
-};
-
 /** Iterate every leaf node (no intermediate containers) of a layer tree. */
 const forEachLeaf = (layer: L.Layer, fn: (layer: L.Layer) => void, depth = 0) => {
-  traverse(layer, fn, depth, true);
+  walkLeavesImpl(layer, fn, depth);
 };
 
 /** Iterate every node (containers + leaves) of a layer tree. */
 const forEachLayer = (layer: L.Layer, fn: (layer: L.Layer) => void, depth = 0) => {
-  traverse(layer, fn, depth, false);
+  walkTreeImpl(layer, fn, depth);
 };
 
 /**

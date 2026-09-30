@@ -19,6 +19,7 @@ import {
 import * as CONST from "./const.js";
 import type { PaneSpec } from "./type.js";
 import { forEachLayer } from "./util.js";
+import { isContainerNode, walkTree } from "./walkLeaves.js";
 import { zFor } from "./z.js";
 
 const log = createLogger("PaneManager");
@@ -373,17 +374,15 @@ class PaneManager {
    *     "mainLayer.addLayer falls through to origAddLayer …").
    */
   pinTree(node: L.Layer, paneName: string): void {
-    const walk = (n: PinnableNode): void => {
+    walkTree(node as PinnableNode, n => {
       n.options.pane = paneName;
-      if (!n.eachLayer) {
-        // A Path needs its renderer pinned; every other leaf just carries the
-        // pane name written above.
-        if (n instanceof L.Path) this.ensureVector(n as PathWithPane, paneName);
-        return;
+      // A Path needs its renderer pinned; every other leaf just carries the
+      // pane name written above. Containers never reach here — the walk
+      // descends past them.
+      if (!isContainerNode(n) && n instanceof L.Path) {
+        this.ensureVector(n as PathWithPane, paneName);
       }
-      n.eachLayer(c => walk(c as PinnableNode));
-    };
-    walk(node as PinnableNode);
+    });
     // Bumping the generation marks every previously memoised entry stale, so
     // any later `discoverChildPanes` sees the pin rather than the pre-pin name.
     // Precise per-node delete would only have served the ones we touched;
