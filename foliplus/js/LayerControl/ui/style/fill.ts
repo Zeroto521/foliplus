@@ -1,7 +1,7 @@
 // Fill color row — the ⚙︎ drawer's "Layer" section fill swatch.
 //
 // A self-managed LayerControl dimension (like label, not like opacity /
-// zoom range): the value lives in `ui.intents.fillColor`, is persisted under
+// zoom range): the value lives in `ui.intentStore` fillColor, is persisted under
 // `layerState.fillColor`, and reaches the map by walking `eachLayer` and
 // calling `setStyle` on every leaf that owns one. The dimension is not part
 // of the executor's visible/opacity/zoomRange family; the write goes

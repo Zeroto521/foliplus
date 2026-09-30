@@ -865,7 +865,7 @@ class LayerManager implements LayerAPI {
       return true;
     }
     this.ui.dropPersistedLayerState(id);
-    if (this.ui.intents?.[id]?.name != null) {
+    if (getIntent(this.ui, id, INTENT.NAME) != null) {
       clearIntent(this.ui, id, INTENT.NAME);
       this.ui.saveNamesState();
     }

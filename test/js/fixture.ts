@@ -21,6 +21,7 @@
 //   gate in `test/js/fixture.test.ts` fails loudly if the two drift apart.
 import { vi } from "vitest";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
+import { IntentStore } from "#foliplus/LayerControl/ui/intentStore.js";
 
 type Overrides = Record<string, unknown>;
 
@@ -272,9 +273,8 @@ export function makeLayerUIMock(extra: Overrides = {}): LayerUI {
     T: (key: string) => key,
     _: (key: string) => key,
     foldedGroups: new Set<string>(),
-    intents: {},
+    intentStore: new IntentStore(),
     authorVisible: new Map<string, boolean>(),
-    intentProvenance: {},
     currentColor: "#cccccc",
     renamedNames: {},
     activeRenameId: null,

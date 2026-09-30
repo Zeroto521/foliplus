@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { clearIntent, setIntent } from "#foliplus/LayerControl/ui/intent.js";
+import { IntentStore } from "#foliplus/LayerControl/ui/intentStore.js";
 import { projectLayer } from "#foliplus/LayerControl/ui/projection.js";
 
 const mockMap = {
@@ -33,7 +34,7 @@ const mockUI: LayerUI = {
   },
   T: (key: string) => key,
   uiContainer: { querySelector: () => null } as any,
-  intentProvenance: {},
+  intentStore: new IntentStore(),
   authorVisible: new Map(),
   foldedGroups: new Set(),
   renamedNames: {},
@@ -66,10 +67,10 @@ describe("computeEffectiveShown", () => {
     // state to be authoritative. Without the override the author default
     // wins — a derived dimension may only suppress.
     setIntent(mockUI, "layer1", "visible", false);
-    mockUI.intentProvenance.layer1 = ["visible"];
+    mockUI.intentStore.seedProvenance("layer1", ["visible"]);
     expect(projectLayer(mockUI, makeLayerInfo("layer1")).effectiveShown).toBe(false);
     clearIntent(mockUI, "layer1", "visible");
-    delete mockUI.intentProvenance.layer1;
+    mockUI.intentStore.seedProvenance("layer1", []);
   });
 
   it("returns true when focus is active, even out of range", () => {
