@@ -276,18 +276,35 @@ class TestExportControlRendering:
         assert "cursor: ew-resize" in css
 
     def test_crop_box_and_center_hover_active(self):
-        """Box deepens its glow; center scales like a small control.
+        """Box deepens its glow; center answers with glow only — no scale.
 
         Gap #9 from the T252 audit. Locked boxes hide handles/center and set
-        pointer-events: none, so they never light.
+        pointer-events: none, so they never light. Center must not scale:
+        scale() composed with translate(-50%, -50%) shifts the dot on hover.
         """
         from conftest import read_css
 
         css = read_css("foliplus/css/ExportControl.css")
         assert "&:not(.foliplus-locked):hover" in css
         assert "&:not(.foliplus-locked):active" in css
-        assert "scale(var(--foliplus-scale-hover))" in css
-        assert "scale(var(--foliplus-scale-press))" in css
+        idx = css.find(".foliplus-export-center")
+        assert idx != -1, "center anchor rule missing"
+        start = css.index("{", idx)
+        depth = 0
+        end = None
+        for i in range(start, len(css)):
+            if css[i] == "{":
+                depth += 1
+            elif css[i] == "}":
+                depth -= 1
+                if depth == 0:
+                    end = i
+                    break
+        assert end is not None
+        block = css[idx : end + 1]
+        assert "scale(" not in block, block
+        assert "var(--foliplus-slider-thumb-glow)" in block
+        assert "box-shadow var(--foliplus-transition-fast)" in block
 
 
 class TestExportControlBrowser:
@@ -474,6 +491,38 @@ class TestExportControlBrowser:
             assert center["boxSizing"] == "border-box", center
             # Handle and center agree — one token, one geometry.
             assert abs(handle["w"] - center["w"]) < 0.01, (handle, center)
+
+    def test_export_center_hover_does_not_move(self, browser, tmp_path):
+        """Hovering the crop center must not shift its position.
+
+        scale() composed with the permanent translate(-50%, -50%) used to
+        nudge the dot on hover. Rest and hover boxes must agree; only the
+        glow/shadow may change.
+        """
+
+        def _box(locator):
+            return locator.bounding_box()
+
+        with use_page(self._make_page, browser, tmp_path) as (page, _):
+            page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
+            page.wait_for_selector(
+                ".foliplus-export-box",
+                state="attached",
+                timeout=5000,
+            )
+            center = page.locator(".foliplus-export-center")
+            rest = _box(center)
+            assert rest and rest["width"] > 0, rest
+            center.hover()
+            page.wait_for_timeout(200)  # let any shadow transition settle
+            hover = _box(center)
+            assert hover, "center disappeared while hovered"
+            # Position and size must be identical — a scale() would change
+            # width/height and usually left/top as well.
+            assert abs(hover["x"] - rest["x"]) < 0.05, (rest, hover)
+            assert abs(hover["y"] - rest["y"]) < 0.05, (rest, hover)
+            assert abs(hover["width"] - rest["width"]) < 0.05, (rest, hover)
+            assert abs(hover["height"] - rest["height"]) < 0.05, (rest, hover)
 
     def test_escape_closes_crop_box(self, browser, tmp_path):
         """Pressing Escape with unlocked crop box removes it."""

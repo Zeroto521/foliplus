@@ -274,7 +274,10 @@
 /* ── Center Anchor ──
    Look comes from common/button.css's `.foliplus-dot-solid` — the same
    recipe as the measure centroid. transform (not negative margin) keeps the
-   centering exact at subpixel sizes. */
+   centering exact at subpixel sizes.
+   Hover/press must NOT compose scale() with that translate — it shifts the
+   dot on hover. Feedback is the handle recipe: shadow/glow only, position
+   pinned. */
 .foliplus-export-center {
   position: absolute;
   top: 50%;
@@ -286,16 +289,12 @@
   box-shadow: 0 1px var(--foliplus-size-4) var(--foliplus-export-dim-color);
   pointer-events: auto;
   cursor: move;
-  transition:
-    transform var(--foliplus-transition-fast),
-    box-shadow var(--foliplus-transition-fast);
+  transition: box-shadow var(--foliplus-transition-fast);
 
   &:hover {
-    transform: scale(var(--foliplus-scale-hover));
     box-shadow: var(--foliplus-slider-thumb-glow);
   }
   &:active {
-    transform: scale(var(--foliplus-scale-press));
     box-shadow: var(--foliplus-slider-thumb-glow);
   }
 }
