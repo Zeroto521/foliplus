@@ -439,6 +439,61 @@ class TestBaseControlRendering:
         assert "panel-shadow" in html
         assert "ctrl-fold.foliplus-is-expanded" in html
 
+    def test_form_select_joins_input_hover_list(self):
+        """`.foliplus-form-select` rides the shared input hover/focus recipe.
+
+        The shared `:is(...)` list in input.css covers `.foliplus-heatmap-ctrl
+        select` and the bare form-select class used by LayerControl annotation
+        / label panels. Same hover language as color/number.
+        """
+        css = read_css_dir("foliplus/css/common", "input.css")
+        idx = css.find(":is(")
+        assert idx != -1
+        # The hover/focus list must name the bare shared class.
+        block = css[idx : css.index(":is(:hover", idx)]
+        assert ".foliplus-form-select" in block
+
+    def test_toggle_switch_press_scales_knob(self):
+        """Toggle knob drops to the button-family press scale on :active.
+
+        Checked keeps its translateX so the knob stays on the "on" side while
+        it shrinks.
+        """
+        css = read_css_dir("foliplus/css/common", "form.css")
+        assert "input:active + .foliplus-toggle-slider::before" in css
+        assert "input:checked:active + .foliplus-toggle-slider::before" in css
+        assert "scale(var(--foliplus-scale-press))" in css
+        # The checked-press leg must keep the on-side offset.
+        assert (
+            "translateX(var(--foliplus-size-20)) scale(var(--foliplus-scale-press))"
+            in css
+        )
+
+    def test_menu_item_press_uses_soft_wash(self):
+        """Dropdown/list items answer :active with the soft accent wash.
+
+        Same vocabulary as the Heatmap scheme picker's persistent selection
+        (`--foliplus-accent-soft-bg`). Disabled entries never answer; search
+        results keep record ink on press.
+        """
+        css = read_css_dir("foliplus/css/common", "menu.css")
+        assert "):not([disabled]):active" in css
+        assert "background: var(--foliplus-accent-soft-bg)" in css
+        # Search result is a record: text stays text-primary on press too.
+        assert ".foliplus-search-result-item:not([disabled]):active" in css
+        assert "color: var(--foliplus-text-primary)" in css
+        # Disabled menu entries keep their muted non-answer.
+        assert ".foliplus-layer-more-menu li[disabled]:active" in css
+
+    def test_layer_more_menu_focus_ring_uses_shared_tokens(self):
+        """Layer overflow menu items take the shared focus-ring + fast transition."""
+        css = read_css_dir("foliplus/css/LayerControl", "menu.css")
+        idx = css.find(".foliplus-layer-more-menu li:focus-visible")
+        assert idx != -1
+        block = css[idx : css.index("}", idx)]
+        assert "var(--foliplus-focus-ring)" in block
+        assert "box-shadow var(--foliplus-transition-fast)" in block
+
 
 # ---------------------------------------------------------------------------
 # Inline script escaping: both script emission sites (the per-control CONF line

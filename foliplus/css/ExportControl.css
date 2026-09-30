@@ -144,7 +144,17 @@
   box-sizing: border-box;
   box-shadow: 0 0 var(--foliplus-size-16) var(--foliplus-accent-soft-shadow);
   border-radius: var(--foliplus-size-2);
-  transition: var(--foliplus-export-move-transition);
+  transition:
+    var(--foliplus-export-move-transition),
+    box-shadow var(--foliplus-transition-fast);
+
+  /* Hover/press: the soft glow deepens one step so the crop frame reads as
+     "under the cursor / being pressed" without moving the dashes or the
+     dim mask. Locked boxes have pointer-events: none, so they never light.
+     Handle/center hover/press + focus ring live below — component-only. */
+  &:not(.foliplus-locked):is(:hover, :active) {
+    box-shadow: 0 0 var(--foliplus-size-24) var(--foliplus-accent-soft-shadow);
+  }
 
   &::before {
     content: "";
@@ -172,13 +182,30 @@
 
 /* ── Corner/Edge Handles ──
    Look comes from common/button.css's `.foliplus-dot-hollow` (shared with the
-   measure nodes); only the box-relative anchoring is here. */
+   measure nodes); only the box-relative anchoring + interaction live here.
+   Component-only CSS must not sink into common — ExportControl owns it. */
 .foliplus-export-handle {
   position: absolute;
   width: var(--foliplus-export-anchor-size);
   height: var(--foliplus-export-anchor-size);
   z-index: calc(var(--foliplus-z-export-base) + 5);
   pointer-events: auto;
+  /* Anchor div is a square box; without a round radius the accent-light
+     hover/active wash and the glow/focus ring paint as hard corners. */
+  border-radius: var(--foliplus-radius-round);
+  /* Cursor direction is the grab affordance and stays as-is; hover/press
+     only warm the surface and add the shared slider glow. Transform is
+     reserved for the per-edge translate below, so press feedback is
+     background/shadow only. Explicit transition list — a bare
+     --foliplus-transition-fast shorthand would also animate top/left/transform. */
+  transition:
+    background-color var(--foliplus-transition-fast),
+    box-shadow var(--foliplus-transition-fast);
+
+  &:is(:hover, :active) {
+    background: var(--foliplus-accent-light);
+    box-shadow: var(--foliplus-slider-thumb-glow);
+  }
 
   &.tl {
     top: var(--foliplus-export-handle-offset);
@@ -233,7 +260,9 @@
 /* ── Center Anchor ──
    Look comes from common/button.css's `.foliplus-dot-solid` — the same
    recipe as the measure centroid. transform (not negative margin) keeps the
-   centering exact at subpixel sizes. */
+   centering exact at subpixel sizes.
+   Hover/press must NOT compose scale() with that translate — it shifts the
+   dot on hover. Feedback is glow only. */
 .foliplus-export-center {
   position: absolute;
   top: 50%;
@@ -245,6 +274,22 @@
   box-shadow: 0 1px var(--foliplus-size-4) var(--foliplus-export-dim-color);
   pointer-events: auto;
   cursor: move;
+  /* Same square-box → circle rule as the handle: glow/focus-ring must
+     project as a circle, not a box. */
+  border-radius: var(--foliplus-radius-round);
+  transition: box-shadow var(--foliplus-transition-fast);
+
+  &:is(:hover, :active) {
+    box-shadow: var(--foliplus-slider-thumb-glow);
+  }
+}
+
+/* One keyboard focus ring for both crop anchors. Shared token; no
+   transform — the dots stay pinned by their translate. */
+.foliplus-export-handle:focus-visible,
+.foliplus-export-center:focus-visible {
+  outline: none;
+  box-shadow: var(--foliplus-focus-ring);
 }
 
 /* Locked: hide handles and center anchor */

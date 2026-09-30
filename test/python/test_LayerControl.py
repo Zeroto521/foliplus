@@ -885,6 +885,37 @@ class TestLayerControlRendering:
         assert "&:hover" in css
         assert "color: var(--foliplus-accent-primary)" in css
 
+    def test_more_btn_press_scales(self):
+        """Row more-button answers :active with the button-family press scale.
+
+        Instant (transition stays none) so a list rebuild cannot flash a
+        mid-scale frame.
+        """
+        css = read_css("foliplus/css/LayerControl/menu.css")
+        idx = css.find(".foliplus-layer-more-btn")
+        assert idx != -1
+        block = css[idx : css.index(".foliplus-layer-item:hover", idx)]
+        assert "&:active" in block
+        assert "scale(var(--foliplus-scale-press))" in block
+
+    def test_layer_row_press_uses_soft_wash(self):
+        """Layer rows answer :active with the soft accent wash, no scale.
+
+        Same vocabulary as the Heatmap scheme picker's persistent selection.
+        Large rows do not scale; deliberately no transition (rows rebuild on
+        every list render). Base basemap rows stay quiet. Declared after the
+        hover recipe so the press wash wins on equal specificity while the
+        button is down.
+        """
+        css = read_css("foliplus/css/LayerControl/row.css")
+        assert '&:not([data-layer-type="base"]):active' in css
+        assert "background: var(--foliplus-accent-soft-bg)" in css
+        # Press must not sneak in a scale or a transition on the large row.
+        idx = css.find('&:not([data-layer-type="base"]):active')
+        block = css[idx : css.index("}", idx)]
+        assert "scale" not in block
+        assert "transition" not in block
+
     def test_fold_btn_hover_bidirectional_preview(self):
         """Fold button shows bidirectional preview across hover and the arrow/Tab cursor.
 
