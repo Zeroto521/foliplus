@@ -1,4 +1,4 @@
-// SearchControl history logic —persistence, CRUD and history rendering. Moved
+// SearchControl history logic — persistence, CRUD and history rendering. Moved
 // from logic.ts; search/suggestions live in ./search.ts.
 import { fromWgs84 } from "#core/geo/index.js";
 import { createLocationMarker } from "#core/locationMarker.js";
@@ -56,7 +56,7 @@ type StoredHistoryEntry = Partial<SearchHistoryEntry> & { label?: string };
 
 // Module-level write-through binding over the search history record. The save
 // closure reads `pendingHistory` (set by saveHistory before scheduling), so the
-// binding is stateless from the caller's point of view —saveHistory is still
+// binding is stateless from the caller's point of view — saveHistory is still
 // the public entry point. Load is explicit via loadHistory() below.
 // `persistName` is set by saveHistory/flushHistory before schedule/flush so the
 // closure reads the correct component name without a module-level CONF free variable.
@@ -103,7 +103,7 @@ const loadHistoryRows = (data: StoredHistoryEntry[] | null): SearchHistoryEntry[
     };
   });
   // Collapse entries a raw-input key created before this fix (e.g. "120,32" +
-  // "120, 32"). No trimming here —the cap applies when an entry is added, so
+  // "120, 32"). No trimming here — the cap applies when an entry is added, so
   // stale rows from an older version are shown rather than dropped on load.
   return mergeHistoryEntries(migrated);
 };
@@ -188,7 +188,7 @@ const renderHistory = (ctrl: SearchControlCtx, mode: SearchType) => {
     // Re-entry value written into the input on click / keyboard select.
     // Type-aware: addr entries use addrDisplay, coord entries use coordDisplay,
     // so the input always gets the parseable value matching the entry's type.
-    // Both are parseable —coordDisplay is the formatted coordinate string,
+    // Both are parseable — coordDisplay is the formatted coordinate string,
     // addrDisplay goes through geocode again and resolves to the same point.
     // Fall back to the stored query only if the entry's own display is missing.
     const reEntry = (isAddr ? entry.addrDisplay : entry.coordDisplay) || entry.query;

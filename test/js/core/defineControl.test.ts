@@ -99,4 +99,19 @@ describe("defineControl — optional spec arms", () => {
     ctrl.destroy();
     expect(destroy).toHaveBeenCalledTimes(1);
   });
+
+  it("nulls the manager on destroy even when the spec omits a destroy hook", () => {
+    // The factory's manager contract: createManager-only specs must still get
+    // a destroy that nulls manager, so re-add rebuilds a fresh manager.
+    const createManager = vi.fn(() => ({ id: "mgr" }));
+    const Ctrl = defineControl({ conf: makeConf(), createManager });
+    const ctrl = new Ctrl() as any;
+    const m1 = ctrl.m;
+    expect(m1).toEqual({ id: "mgr" });
+    ctrl.destroy();
+    expect(ctrl.manager).toBeNull();
+    // Re-access rebuilds — the factory's nulling is what makes re-add fresh.
+    expect(ctrl.m).toEqual({ id: "mgr" });
+    expect(createManager).toHaveBeenCalledTimes(2);
+  });
 });

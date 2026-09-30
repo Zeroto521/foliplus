@@ -107,11 +107,16 @@ const defineControl = <M = unknown>(spec: DefineControlSpec<M>): ControlClass =>
       },
     });
   }
-  if (destroy) {
+  // The factory owns the manager-nulling contract documented above: whenever a
+  // manager exists, the generated destroy nulls it unconditionally — after the
+  // component's own destroy hook, if the spec supplies one. Keying the nulling
+  // on `destroy` alone would trap a createManager-only spec into retaining a
+  // stale manager across removeControl + addControl.
+  if (destroy || createManager) {
     const hasManager = !!createManager;
     Object.assign(Control.prototype, {
       destroy(this: any) {
-        destroy.call(this);
+        destroy?.call(this);
         if (hasManager) this.manager = null;
       },
     });

@@ -866,13 +866,13 @@ describe("MeasureManager — export auto-clear", () => {
     manager.setMode("distance");
     expect(manager.currentMode).toBe("distance");
     const events = ensureEvents(manager.map);
-    (manager.map.foliplus as any).showHint.mockClear();
+    manager.map.foliplus!.showHint.mockClear();
     events.emit("foliplus:mode:change", {
       component: "ExportControl",
       mode: "selecting",
     });
     expect(manager.currentMode).toBeNull();
-    expect((manager.map.foliplus as any).showHint).toHaveBeenCalledWith(
+    expect(manager.map.foliplus!.showHint).toHaveBeenCalledWith(
       "MeasureControl",
       expect.stringContaining("export_paused"),
       expect.any(Number),
