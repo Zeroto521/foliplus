@@ -1004,6 +1004,25 @@ describe("event-bus bindings", () => {
     expect(m.cachedPoints).toBeNull();
   });
 
+  it("a bare LAYER_CHANGE (no payload) still triggers onLayerChange", async () => {
+    // Defense arm for the handler's `!payload` fallback: third-party or
+    // legacy code may emit LAYER_CHANGE with no payload (the pre-refactor
+    // shape). The handler can't gate on kind — it falls through to the
+    // full onLayerChange sweep. Pins the fallback so a future refactor
+    // can't accidentally drop it.
+    const m = makeManager();
+    m.cachedAgg = { key: "k", data: null! } as HeatmapManager["cachedAgg"];
+    m.cachedPoints = { key: "p", pts: [] } as HeatmapManager["cachedPoints"];
+
+    vi.useFakeTimers();
+    ensureEvents(m.map).emit(EVENTS.LAYER_CHANGE);
+    await vi.runOnlyPendingTimersAsync();
+    vi.useRealTimers();
+
+    expect(m.cachedAgg).toBeNull();
+    expect(m.cachedPoints).toBeNull();
+  });
+
   it("deleting the selected source layer clears the heatmap immediately", async () => {
     // The heatmap draws another layer's points, so deleting that layer has to
     // drop the selection and wipe the canvas in the same LAYER_CHANGE pass.
