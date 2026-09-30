@@ -238,26 +238,6 @@ class TestExportControlRendering:
         html = render_control(ExportControl())
         assert 'data-foliplus-export="exclude"' in html
 
-    def test_export_control_self_declares_export_exclude_in_bundle(self):
-        """Component self-declaration data attribute is present in the JS bundle.
-
-        Central CONTROL no longer lists ``.foliplus-export-ctrl``; the bar
-        self-declares ``data-foliplus-export="exclude"`` instead.
-        """
-        from pathlib import Path
-
-        candidates = [
-            Path("foliplus/dist/foliplus-ExportControl.min.js"),
-            Path("foliplus/dist/foliplus-ExportControl.js"),
-        ]
-        js = next((p for p in candidates if p.exists()), None)
-        assert js is not None, f"ExportControl bundle not found: {candidates}"
-        text = js.read_text(encoding="utf-8")
-        assert "data-foliplus-export" in text
-        assert 'setAttribute("data-foliplus-export"' in text or (
-            "data-foliplus-export" in text and "exclude" in text
-        )
-
     def test_export_control_py_file(self):
         """ExportControl.py has expected exports."""
         ctrl = ExportControl()
@@ -1115,11 +1095,12 @@ class TestExportControlBrowser:
     def test_export_excludes_self_declared_marked_elements(self, browser, tmp_path):
         """T253: data-foliplus-export=exclude chrome stays out of the export.
 
-        Component-side self-declaration (data attribute) + central map-level
-        fallback:
-        - export control bar carries ``data-foliplus-export="exclude"`` (chrome);
-        - heatmap / createCanvas canvases are content and must NOT carry exclude
-          (they paint via the ``li.canvas`` special path — heatmap must export);
+        Traversal-skip contract (data attribute) + hide list (CONTROL, same
+        as main) + content must stay exportable:
+        - export control bar carries ``data-foliplus-export="exclude"``
+          (runtime DOM assert in export_exclude_markers);
+        - heatmap / createCanvas canvases are content and must NOT carry
+          exclude (``li.canvas`` special path — heatmap must export);
         - a purple marker self-marked ``data-foliplus-export="exclude"`` in a
           foliplus pane does not leak into the export canvas.
         """

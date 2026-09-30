@@ -44,8 +44,8 @@ class ExportControl extends BaseControl {
       position: CONF.position,
     });
     // Self-declare export DOM-copy opt-out via the data attribute (primary
-    // carrier). Central CONTROL no longer lists this bar — only
-    // leaflet-control-container remains as the map-level fallback.
+    // carrier). Hide-pass still lists this bar in SEL.CONTROL (layout);
+    // the attribute is for traversal skip (SKIP_EXPORT), same as delicon.
     ctrl.setAttribute("data-foliplus-export", "exclude");
     this.m.attachUI(ctrl, toolBar);
     toggleBtn.onclick = () => {

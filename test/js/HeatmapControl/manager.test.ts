@@ -766,17 +766,6 @@ describe("initScan — single-layer auto-select on first scan only", () => {
     };
   });
 
-  it("does not stamp export opt-out on its canvas (heatmap must export)", () => {
-    // Heatmap content is painted via the li.canvas special path. Exclude is
-    // chrome opt-out only — heatmap canvas must stay exportable content.
-    const m = makeManager();
-    const canvas = (
-      window.map.foliplus.LayerAPI.createCanvas as ReturnType<typeof vi.fn>
-    ).mock.results[0].value.canvas as HTMLCanvasElement;
-    expect(canvas.getAttribute("data-foliplus-export")).toBeNull();
-    expect(m.overlay).toBeTruthy();
-  });
-
   it("auto-selects and renders a single layer on first initScan", async () => {
     const { initScan } = await import("#foliplus/HeatmapControl/ui.js");
     const m = makeManager();

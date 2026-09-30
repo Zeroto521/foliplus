@@ -107,11 +107,18 @@ const SEL = {
    *   Usage:  `<path class="foliplus-skip-export" />`
    *
    * The data attribute is the primary / extensible carrier (future exclusion
-   * semantics extend the attribute value, not the class list). Only an
-   * element's own marker counts.  Pane-level hiding (focus) is a transient
-   * view state and the export ignores it — see renderPaneSVG.  Content
-   * canvases (Heatmap via `li.canvas`) are painted by the special path and
-   * must NOT carry this marker — exclude is chrome opt-out, not "drop layer".
+   * semantics extend the attribute value, not the class list).
+   *
+   * Match rules by pass (not one universal nesting rule):
+   *   - `collectLayerMarkers`: root matches, or a root that *contains* a
+   *     marked descendant (marker pass draws whole roots).
+   *   - `renderPaneCanvas`: canvas matches, or sits under a marked ancestor
+   *     (chrome host trees are excluded wholesale).
+   *   - `renderPaneSVG`: marked nodes are pruned from the clone only.
+   * Pane-level hiding (focus) is a transient view state and the export
+   * ignores it — see renderPaneSVG.  Content canvases (Heatmap via
+   * `li.canvas`) are painted by the special path and must NOT carry this
+   * marker — exclude is chrome opt-out, not "drop layer".
    */
   SKIP_EXPORT: '[data-foliplus-export="exclude"], .foliplus-skip-export',
 };
