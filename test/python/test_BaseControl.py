@@ -15,6 +15,7 @@ from pathlib import Path
 import folium
 import pytest
 from conftest import (
+    _js,
     assert_config_block,
     make_browser_page,
     read_css_dir,
@@ -781,18 +782,12 @@ class TestButtonRadiusBrowser:
         LayerControl().add_to(m)
         html = m.get_root().render()
         page, errors = make_browser_page(browser, tmp_path, html, "btn_radius")
-        # Inject the three button kinds the guard covers.
-        page.evaluate(
-            """() => {
-              const host = document.createElement("div");
-              host.innerHTML =
-                '<button class="foliplus-toggle-btn" id="tb">T</button>' +
-                '<button class="foliplus-tool-btn" id="tool">M</button>' +
-                '<button class="foliplus-panel-btn" id="panel">P</button>';
-              host.style.cssText = "position:absolute;left:40px;top:40px";
-              document.body.appendChild(host);
-            }"""
-        )
+        # Inject the three button kinds the guard covers (shared snippet).
+        assert page.evaluate(_js("BaseControl/button_probe")) == [
+            "tb",
+            "tool",
+            "panel",
+        ]
         return page, errors
 
     def _radius(self, page, selector: str) -> str:
