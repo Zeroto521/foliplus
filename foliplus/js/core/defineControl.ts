@@ -66,9 +66,7 @@ type ControlClass = new (options?: L.ControlOptions) => BaseControl & {
 };
 
 /** Build the shared control shell and return it as a constructable class. */
-const defineControl = <M = unknown>(
-  spec: DefineControlSpec<M>,
-): ControlClass => {
+const defineControl = <M = unknown>(spec: DefineControlSpec<M>): ControlClass => {
   const { conf, icon, setup, createManager, buildDOM, destroy, methods } = spec;
 
   createControlEnv(conf, icon);
