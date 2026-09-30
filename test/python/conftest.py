@@ -87,6 +87,13 @@ _CDN_CACHE: dict[str, tuple[str, str]] = {
         "bootstrap.bundle.min.js",
         "application/javascript",
     ),
+    # Bootstrap CSS: the host-framework reset (`ol,ul{padding-left:2rem}`)
+    # that T264 pins foliplus shells against — browser tests need it to
+    # actually apply, so it is cached like the JS half.
+    "cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css": (
+        "bootstrap.min.css",
+        "text/css",
+    ),
     "cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.js": (
         "leaflet.awesome-markers.js",
         "application/javascript",

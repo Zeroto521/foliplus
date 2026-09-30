@@ -1184,6 +1184,47 @@ class TestLayerControlBrowser:
             selector,
         )
 
+    def test_menu_shell_keeps_design_padding_under_bootstrap(self, browser, tmp_path):
+        """T264: the layer more-menu shell keeps its design padding on a host
+        Bootstrap page.
+
+        Bootstrap's unlayered `ol,ul{padding-left:2rem}` outranks any
+        layered foliplus rule (unlayered normal declarations beat layered
+        ones at any specificity). The dropdown/menu shells are kept out of
+        @layer by the unlayered-compat hoist, so the icon column stays flush
+        with the shell's left padding instead of gaining the framework
+        reset. This pins the computed padding-left in the real folium page
+        (Bootstrap included), which the plain unit tests cannot see.
+        """
+        layer = folium.FeatureGroup(name="Menu shell", overlay=True, show=True)
+        with use_page(
+            self._make_page, browser, tmp_path, layer, slug="menu_shell_padding"
+        ) as (page, errors):
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            page.wait_for_timeout(400)
+            page.evaluate(
+                "() => document.querySelectorAll("
+                "'.foliplus-layer-item .foliplus-layer-more-btn')[0].click()"
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-more-menu.open", state="attached", timeout=5000
+            )
+            padding_left = page.evaluate(
+                "() => getComputedStyle("
+                "  document.querySelector('.foliplus-layer-more-menu.open')).paddingLeft"
+            )
+            assert padding_left == "0px", (
+                f"menu shell padding-left drifted under Bootstrap: {padding_left!r}"
+            )
+            assert not errors, f"JS errors: {errors}"
+
     def test_cross_group_drag_shows_hint(self, browser, tmp_path):
         """Dragging overlay toward base group should show blocked hint."""
         overlay = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
