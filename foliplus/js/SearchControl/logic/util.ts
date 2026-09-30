@@ -1,12 +1,14 @@
 // Shared SearchControl logic scaffolding — coordinate parsing, called by
 // ./search.ts and ./history.ts. Moved from logic.ts.
+import type { ControlEnv } from "#core/defineControl.js";
 import { COORD_BOUNDS } from "#core/geo/index.js";
-import { createScopedTranslator, createTranslator } from "#common/locale.js";
 import { MODE, type SearchType } from "../const.js";
+import type { SearchControlState } from "../type.js";
 
-const _ = createTranslator(CONF);
-
-const T = createScopedTranslator(CONF);
+/** Full context for logic functions — the control's runtime state plus the
+ *  ControlEnv the factory carries (conf / T / _ / log). Reuses the canonical
+ *  ControlEnv rather than redefining the same shape. */
+type SearchControlCtx = SearchControlState & ControlEnv;
 
 /**
  * Parse raw coordinate input into a validated longitude/latitude pair.
@@ -44,4 +46,5 @@ const canonicalQuery = (query: string, type: SearchType): string => {
   return parsed ? `${parsed.lng},${parsed.lat}` : query;
 };
 
-export { T, _, canonicalQuery, parseCoord };
+export { canonicalQuery, parseCoord };
+export type { SearchControlCtx };

@@ -22,6 +22,16 @@ function makeCtrl(): any {
     originalAdd(event, fn, options);
   });
   return {
+    conf: { name: "SearchControl", locale_code: "en", zoom: 16 },
+    T: (k: string) => `SearchControl.${k}`,
+    _: (k: string) => k,
+    log: {
+      msg: (m: string) => m,
+      warn: (...args: unknown[]) =>
+        console.warn(`[SearchControl] ${args[0]}`, ...args.slice(1)),
+      error: vi.fn(),
+    },
+    _map: window.map,
     ctrl: ctrlDiv,
     toggleBtn,
     clearBtn,
@@ -40,6 +50,7 @@ function makeCtrl(): any {
     cachedAddress: {},
     cachedSuggestions: new Cache<string, object>(50),
     searchHistory: [],
+    setMode: vi.fn(),
     get signal() {
       return ac.signal;
     },
@@ -396,6 +407,27 @@ describe("bindEvents", () => {
     );
     expect(window.foliplus.geocode).toHaveBeenCalled();
     expect(click).not.toHaveBeenCalled();
+  });
+
+  it("Enter with no selection returns early when another control holds a mode", () => {
+    // The no-selection fallback: guardBlocked must fire before removePanel /
+    // search, so a measuring control keeps the panel open for the user.
+    ensureModes(map).setMode("MeasureControl", "distance");
+    const ctrl = makeCtrl();
+    ctrl.mode = "addr";
+    ctrl.currentItems = [];
+    ctrl.selectedIdx = -1;
+    ctrl.panelWrap = dom.el("div");
+    ctrl.inp.value = "Paris";
+    window.foliplus.geocode.mockResolvedValue(null);
+    bindEvents(ctrl);
+    ctrl.inp.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+    );
+    expect(window.foliplus.geocode).not.toHaveBeenCalled();
+    expect(map.flyTo).not.toHaveBeenCalled();
+    // Panel stays open — removePanel was never reached.
+    expect(ctrl.panelWrap).not.toBeNull();
   });
 
   it("does nothing on Enter when the input is empty", () => {

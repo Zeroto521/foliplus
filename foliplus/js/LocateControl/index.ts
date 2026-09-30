@@ -1,12 +1,9 @@
-import { createControlEnv } from "#core/controlEnv.js";
+import { defineControl } from "#core/defineControl.js";
 import { ensureHint } from "#core/hint.js";
-import { BaseControl } from "#foliplus/BaseControl.js";
 import { createIconButton, dom } from "#common/dom.js";
 import * as Icons from "#common/icon.js";
-import { createScopedTranslator } from "#common/locale.js";
 import { locateMe, removeMarker } from "./logic.js";
 
-// ── SVG Icons ──
 // AMap-style crosshair locate icon (stroke-rendered, inherits common button SVG styles).
 const LOCATE_ICON = `
   <svg viewBox="0 0 24 24">
@@ -23,24 +20,17 @@ const BTN_HTML = `
   <span class="locate-btn-icon">${LOCATE_ICON}</span>
   <span class="locate-btn-loading">${Icons.LOADING_ICON}</span>`;
 
-createControlEnv(CONF, LOCATE_ICON);
-const T = createScopedTranslator(CONF);
-ensureHint(map);
-
-// ==================== Control Definition ====================
-class LocateControl extends BaseControl {
-  declare container: HTMLElement;
-  declare btn: HTMLButtonElement;
-  declare marker: L.Marker | null;
-  declare delIcon: L.Marker | null;
-
-  buildDOM() {
+const LocateControl = defineControl({
+  conf: CONF,
+  icon: LOCATE_ICON,
+  setup: () => ensureHint(map),
+  buildDOM(this: any) {
     const outer = dom.el("div", { class: "leaflet-bar leaflet-control" });
     const container = dom.el("div", { class: "foliplus-ctrl-fold", parent: outer });
     this.btn = createIconButton({
       class: "foliplus-tool-btn foliplus-locate-btn",
-      title: T("title"),
-      ariaLabel: T("title"),
+      title: this.T("title"),
+      ariaLabel: this.T("title"),
       svg: BTN_HTML,
       parent: container,
       onclick: event => {
@@ -52,11 +42,10 @@ class LocateControl extends BaseControl {
     L.DomEvent.disableScrollPropagation(outer);
     this.container = outer;
     return outer;
-  }
-
-  destroy() {
+  },
+  destroy(this: any) {
     removeMarker(this);
-  }
-}
+  },
+});
 
 new LocateControl({ position: CONF.position }).addTo(map);

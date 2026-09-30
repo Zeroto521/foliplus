@@ -1,8 +1,8 @@
 // SearchControl event binding — standalone functions called with `this` as ctrl.
+import type { ControlEnv } from "#core/defineControl.js";
 import { ensureInteraction } from "#core/interaction.js";
 import { ListCursor } from "#core/listCursor.js";
 import { guardBlocked } from "#core/mode.js";
-import { createScopedTranslator } from "#common/locale.js";
 import { adjustPanelZIndex, bindFoldToggle } from "#common/panel.js";
 import { CLASSES, MODE, PARAM } from "./const.js";
 import {
@@ -14,7 +14,8 @@ import {
 } from "./logic/index.js";
 import type { SearchControl } from "./type.js";
 
-const T = createScopedTranslator(CONF);
+/** Full ctrl type for interaction — SearchControl instance + control ctx. */
+type InteractionCtrl = SearchControl & ControlEnv;
 
 /**
  * The value a keyboard-navigated result item puts into the input. History
@@ -31,7 +32,7 @@ const resultItemValue = (item: Element): string =>
  * selectedIdx stays the integer API for existing callers/tests; onMove keeps
  * it in lockstep and echoes the landed item into the input.
  */
-const ensureListCursor = (ctrl: SearchControl): ListCursor | null => {
+const ensureListCursor = (ctrl: InteractionCtrl): ListCursor | null => {
   if (!ctrl.panelWrap) return null;
   if (!ctrl.listCursor) {
     ctrl.listCursor = new ListCursor({
@@ -58,7 +59,7 @@ const ensureListCursor = (ctrl: SearchControl): ListCursor | null => {
  *   ctrl.currentItems.length === DOM RESULT_ITEM count
  *   ctrl.selectedIdx in [-1, currentItems.length - 1]
  */
-const moveSelection = (ctrl: SearchControl, dir: number) => {
+const moveSelection = (ctrl: InteractionCtrl, dir: number) => {
   if (!ctrl.panelWrap) return;
   if (ctrl.panelWrap.querySelectorAll(`.${CLASSES.RESULT_ITEM}`).length === 0) {
     return;
@@ -86,13 +87,13 @@ const moveSelection = (ctrl: SearchControl, dir: number) => {
  * scroll / resize — go through `ctrl.on(...)` so the shared lifecycle
  * signal owns their teardown.
  */
-const bindEvents = (ctrl: SearchControl): (() => void) | void => {
+const bindEvents = (ctrl: InteractionCtrl): (() => void) | void => {
   bindFoldToggle({
     container: ctrl.ctrl,
     toggleBtn: ctrl.toggleBtn,
     onExpand: () => ctrl.inp.focus(),
     onCollapse: () => {
-      map.foliplus!.hideHint(CONF.name);
+      map.foliplus!.hideHint(ctrl.conf.name);
       removePanel(ctrl);
     },
   });
@@ -112,7 +113,9 @@ const bindEvents = (ctrl: SearchControl): (() => void) | void => {
 
   ctrl.on(ctrl.inp, "input", () => {
     ctrl.inp.placeholder =
-      ctrl.mode === MODE.COORD ? T("coord_placeholder") : T("addr_placeholder");
+      ctrl.mode === MODE.COORD
+        ? ctrl.T("coord_placeholder")
+        : ctrl.T("addr_placeholder");
 
     if (ctrl.inp.value.trim().length === 0) {
       // Input cleared — show history immediately
@@ -127,7 +130,7 @@ const bindEvents = (ctrl: SearchControl): (() => void) | void => {
   });
 
   const interaction = ensureInteraction(map);
-  interaction.register(CONF.name, [
+  interaction.register(ctrl.conf.name, [
     {
       key: "Escape",
       element: ctrl.inp,
@@ -139,7 +142,7 @@ const bindEvents = (ctrl: SearchControl): (() => void) | void => {
         ctrl.ctrl.classList.remove(CLASSES.EXPANDED);
         ctrl.ctrl.classList.add(CLASSES.COLLAPSED);
         adjustPanelZIndex({ container: ctrl.ctrl, expanded: false });
-        map.foliplus!.hideHint(CONF.name);
+        map.foliplus!.hideHint(ctrl.conf.name);
       },
     },
     {
@@ -173,7 +176,7 @@ const bindEvents = (ctrl: SearchControl): (() => void) | void => {
           if (selected.onClick()) removePanel(ctrl);
           return;
         }
-        if (guardBlocked(map, CONF.name, T("blocked"))) return;
+        if (guardBlocked(map, ctrl.conf.name, ctrl.T("blocked"))) return;
         removePanel(ctrl);
         ctrl.mode === MODE.COORD ? searchCoord(ctrl, raw) : searchAddress(ctrl, raw);
       },
@@ -206,14 +209,14 @@ const bindEvents = (ctrl: SearchControl): (() => void) | void => {
   return () => {
     collapseObserver.disconnect();
     const interaction = ensureInteraction(map);
-    interaction.unregister(CONF.name);
+    interaction.unregister(ctrl.conf.name);
   };
 };
 
 /**
  * Parse URL parameters to initialize search state.
  */
-const initFromUrl = (ctrl: SearchControl): void => {
+const initFromUrl = (ctrl: InteractionCtrl): void => {
   try {
     const params = new URLSearchParams(window.location.search);
     const q = params.get(PARAM.Q);
