@@ -5316,6 +5316,7 @@ class TestLayerControlBrowser:
         with use_page(
             self._make_page, browser, tmp_path, fg, slug="geom_focus_ants"
         ) as (page, _):
+            page.emulate_media(reduced_motion="no-preference")
             page.evaluate(
                 'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
             )
@@ -5327,14 +5328,9 @@ class TestLayerControlBrowser:
             result = page.evaluate(_js("LayerControl/geometry_focus_marching_ants"))
             assert result is not None, "geometry_focus_marching_ants failed"
             assert result["focused"] is True, f"path never took focus, got {result}"
-            # White casing outline replaces the UA ring (black/blue).
-            assert result["outlineStyle"] == "solid", (
-                f"focused geometry must paint the white casing outline, got {result}"
-            )
-            casing = self._sample_token(page, "--foliplus-focus-casing-color")
-            assert result["outlineColor"] == casing, (
-                f"casing outline must be the casing token, "
-                f"got {result['outlineColor']} vs {casing}"
+            # No UA ring and no casing box — the marquee is the stroke itself.
+            assert result["outlineStyle"] == "none", (
+                f"focused geometry must not paint an outline box, got {result}"
             )
 
             accent = self._sample_token(page, "--foliplus-accent-primary")

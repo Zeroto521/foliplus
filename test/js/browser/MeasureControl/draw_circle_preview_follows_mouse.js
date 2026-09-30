@@ -5,8 +5,8 @@
   map.fire("click", { latlng: L.latLng(26.08, 119.3) }); // center → state 1
   map.invalidateSize();
   const node = () =>
-    document.querySelector(".foliplus-measure-node:not(.foliplus-measure-node-solid)");
-  const center = () => document.querySelector(".foliplus-measure-node-solid");
+    document.querySelector(".foliplus-measure-node:not(.foliplus-dot-solid)");
+  const center = () => document.querySelector(".foliplus-dot-solid");
 
   // With the 3-pane layout, paint order is guaranteed by pane z-index
   // (graph < node < label), not by SVG sibling order. Check that each

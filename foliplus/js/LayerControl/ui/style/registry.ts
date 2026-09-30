@@ -32,14 +32,13 @@
 // The pilot (`opacity`) is already in this form; `fill` / `border` /
 // `zoomRange` gates are now pure capability checks too (#513).
 //
-// First pilot: `opacity`. Its existing helpers (`layerCanOpacity`,
-// `buildOpacityRow`, `commitOpacityPct`, `resetLayerOpacity`) stay as the
-// authoritative implementation; the descriptor wires them up. The write
-// path (state + DOM sync) is deliberately not moved into the descriptor
-// yet: the panel's commit pass knows which row element to refresh, and
-// that argument does not belong in the descriptor contract. Follow-up
-// migration work can move `write` / `reset` in once that coupling is
-// broken.
+// Dimension write/reset migration: `fill` / `border` own the intent+persist
+// slots (`write` / `reset` / `valueSource` on the descriptor). The named
+// helpers (`commitFillColor` / `resetLayerBorder` / …) stay as thin delegates.
+// `opacity` / `zoomRange` / `annotation` still keep their helpers as the
+// authoritative implementation until a later PR. styleBag remains the
+// setStyle landing (commitStyleDim / restoreStyleDim / scheduleStyleDimApply);
+// descriptor write/reset call it.
 //
 // The registry is a module-level Map. BaseControl renders each control
 // instance as a fresh IIFE around the bundled JS, so every map eval gets
@@ -57,6 +56,8 @@ import { DIM } from "#core/layer/index.js";
 import * as CONST from "../../const.js";
 import type { LayerDimension } from "../../type.js";
 import type { LayerUI } from "../index.js";
+import type { IntentKey } from "../intent.js";
+import { saveState } from "../state.js";
 
 const registry: Map<string, LayerDimension<any>> = new Map();
 
@@ -136,6 +137,49 @@ const gatedRows = (
   return rows;
 };
 
+/** Cohesive IntentStore writes for a descriptor `write` patch. `writes` are
+ *  `[intentKey, value]` pairs already narrowed by the caller (omit a pair
+ *  when the patch did not supply that key). Returns whether any key was
+ *  written; schedules storage on success. Callers still own the styleBag /
+ *  projection landing after this returns true. */
+const writeIntentKeys = (
+  ui: LayerUI,
+  layerId: string,
+  writes: ReadonlyArray<readonly [key: IntentKey, value: unknown]>,
+): boolean => {
+  let wrote = false;
+  for (const [key, value] of writes) {
+    if (value === undefined) continue;
+    ui.intentStore.setRaw(layerId, key, value);
+    wrote = true;
+  }
+  if (!wrote) return false;
+  saveState(ui);
+  return true;
+};
+
+/** Cohesive IntentStore clears for a descriptor `reset`. `keys` are intent
+ *  keys to clear (values + provenance via IntentStore.clear). Always
+ *  schedules storage when at least one key is supplied — matching the
+ *  pre-helper resets, which cleared then saved unconditionally. Returns
+ *  whether any key was cleared. Callers still own projection / styleBag
+ *  restore after this returns.
+ *
+ *  Pair of {@link writeIntentKeys}: that function is the user-write side,
+ *  this is the user-reset side. */
+const resetIntentKeys = (
+  ui: LayerUI,
+  layerId: string,
+  keys: readonly IntentKey[],
+): boolean => {
+  if (keys.length === 0) return false;
+  for (const key of keys) {
+    ui.intentStore.clear(layerId, key);
+  }
+  saveState(ui);
+  return true;
+};
+
 export {
   DIM_ORDER,
   LABEL_DIM_ORDER,
@@ -143,4 +187,6 @@ export {
   getDimension,
   listDimensions,
   registerDimension,
+  resetIntentKeys,
+  writeIntentKeys,
 };

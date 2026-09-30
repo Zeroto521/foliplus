@@ -9,6 +9,7 @@ import {
 import { LayerPersistence } from "#foliplus/LayerControl/persistence.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { getIntent, setIntent } from "#foliplus/LayerControl/ui/intent.js";
+import { IntentStore } from "#foliplus/LayerControl/ui/intentStore.js";
 import {
   applyUserState,
   dropPersistedLayerState,
@@ -26,6 +27,17 @@ import { getLayerAlpha } from "#common/canvasAlpha.js";
 import * as Storage from "#common/storage.js";
 
 const ENFORCE_ORDER_DEBOUNCE_MS = 50;
+
+/** Build an IntentStore from the old two-map fixture shape. */
+const makeStore = (
+  intents: Record<string, Record<string, unknown>> = {},
+  provenance: Record<string, string[]> = {},
+): IntentStore => {
+  const store = new IntentStore();
+  store.replaceIntents(intents as never);
+  store.replaceProvenance(provenance as never);
+  return store;
+};
 
 /** Seed the persisted record so a constructor or a replay reads it. */
 const seedStorage = (record: Record<string, unknown>) => {
@@ -280,7 +292,7 @@ describe("LayerManager", () => {
       m,
       invalidateFields: vi.fn(),
       syncToggleAll: vi.fn(),
-      intentProvenance: {},
+      intentStore: makeStore(),
       saveState: () => saveState(m.ui),
     } as unknown as LayerUI;
 
@@ -590,14 +602,6 @@ describe("LayerManager", () => {
     expect(manager.getLayerType("icon")).toBe(GEOM_TYPE.CUSTOM);
   });
 
-  it("invalidateType clears the cached type; refreshType re-infers", () => {
-    // overlay1 has no layer — getLayerType returns null without caching a type.
-    manager.layerRegistry.get("overlay1")!.type = GEOM_TYPE.POINT;
-    manager.invalidateType("overlay1");
-    expect(manager.layerRegistry.get("overlay1")!.type).toBeNull();
-    expect(manager.refreshType("overlay1")).toBeNull(); // no layer resolvable
-  });
-
   it("invalidateType also drops the surface cache, forcing a re-probe", () => {
     // The surface owns the authoritative cache. Clearing the manager's
     // snapshot without also invalidating the surface would leave a stale
@@ -678,6 +682,7 @@ describe("LayerManager", () => {
     manager.map.hasLayer.mockReturnValue(true);
     manager.uiContainer = document.createElement("div");
     manager.ui = {
+      intentStore: makeStore(),
       insertLayerItem: vi.fn(),
       updateLayerItem: vi.fn(),
       initTypesAndVisibility: vi.fn(),
@@ -703,9 +708,7 @@ describe("LayerManager", () => {
     manager.map.addLayer = addLayer;
     manager.map.removeLayer = removeLayer;
     manager.ui = {
-      intents: {
-        new1: { visible: false },
-      },
+      intentStore: makeStore({ new1: { visible: false } }),
       saveState: vi.fn(),
     } as any;
     manager.registerLayer({ id: "new1", name: "New", layer } as any);
@@ -723,9 +726,7 @@ describe("LayerManager", () => {
     manager.map.addLayer = addLayer;
     manager.map.removeLayer = removeLayer;
     manager.ui = {
-      intents: {
-        canvas1: { visible: false },
-      },
+      intentStore: makeStore({ canvas1: { visible: false } }),
       saveState: vi.fn(),
     } as any;
     manager.registerLayer({
@@ -748,9 +749,7 @@ describe("LayerManager", () => {
     manager.map.addLayer = addLayer;
     manager.map.removeLayer = removeLayer;
     manager.ui = {
-      intents: {
-        new1: { visible: false },
-      },
+      intentStore: makeStore({ new1: { visible: false } }),
       saveState: vi.fn(),
     } as any;
     manager.registerLayer({ id: "new1", name: "New", layer } as any);
@@ -767,9 +766,7 @@ describe("LayerManager", () => {
     const removeLayer = vi.fn();
     manager.map.removeLayer = removeLayer;
     manager.ui = {
-      intents: {
-        other: { visible: false },
-      },
+      intentStore: makeStore({ other: { visible: false } }),
       saveState: vi.fn(),
     } as any;
     manager.registerLayer({ id: "visible1", name: "V", layer } as any);
@@ -1256,7 +1253,7 @@ describe("LayerManager", () => {
       m.unregisterLayer("H");
 
       expect(m.forgetSavedOrder("H")).toBe(true);
-      expect((m as any).savedOrder).toEqual(["A", "B", "C"]);
+      expect((m as any).order.savedOrder).toEqual(["A", "B", "C"]);
     });
 
     it("persists the pruned order so a reload does not resurrect the old slot", () => {
@@ -1287,7 +1284,7 @@ describe("LayerManager", () => {
 
     it("returns false when savedOrder is null (fresh page)", () => {
       const m = new LayerManager(map, [{ id: "A", name: "A", group: "overlay" }]);
-      expect((m as any).savedOrder).toBeNull();
+      expect((m as any).order.savedOrder).toBeNull();
       expect(m.forgetSavedOrder("A")).toBe(false);
     });
 
@@ -1301,7 +1298,7 @@ describe("LayerManager", () => {
       m.unregisterLayer("H");
       m.forgetSavedOrder("H");
 
-      expect((m as any).removedIds.has("H")).toBe(false);
+      expect((m as any).order.removedIds.has("H")).toBe(false);
       // And a subsequent registration actually works:
       m.registerLayer({ id: "H", name: "H", group: "overlay" });
       expect(m.layerRegistry.has("H")).toBe(true);
@@ -1504,6 +1501,7 @@ describe("LayerManager", () => {
     manager.map.hasLayer.mockReturnValue(false);
     manager.uiContainer = document.createElement("div");
     manager.ui = {
+      intentStore: makeStore(),
       updateLayerItem: vi.fn(),
       initLayerItem: vi.fn(),
       syncToggleAll: vi.fn(),
@@ -1538,19 +1536,13 @@ describe("LayerManager", () => {
             m: manager,
             uiContainer: manager.uiContainer,
             renamedNames: {},
-            intents: {
-              heat: { opacity: 0.4 },
-            },
+            intentStore: makeStore({ heat: { opacity: 0.4 } }, { heat: ["opacity"] }),
             appliedState: new Map(),
             authorVisible: new Map(),
-            intentProvenance: { heat: ["opacity"] },
           } as any,
           id,
         ),
-      intents: {
-        heat: { opacity: 0.4 },
-      },
-      intentProvenance: { heat: ["opacity"] },
+      intentStore: makeStore({ heat: { opacity: 0.4 } }, { heat: ["opacity"] }),
       appliedState: new Map(),
       authorVisible: new Map(),
     } as any;
@@ -1572,7 +1564,7 @@ describe("LayerManager", () => {
     manager.uiContainer = document.createElement("div");
     manager.uiContainer.appendChild(row);
     manager.ui = {
-      intentProvenance: {},
+      intentStore: makeStore(),
       saveState: vi.fn(),
       invalidateFields: vi.fn(),
     } as any;
@@ -1587,7 +1579,7 @@ describe("LayerManager", () => {
     manager.map.hasLayer.mockReturnValue(false);
     manager.uiContainer = document.createElement("div");
     manager.ui = {
-      intentProvenance: {},
+      intentStore: makeStore(),
       saveState: vi.fn(),
       invalidateFields: vi.fn(),
     } as any;
@@ -1601,7 +1593,7 @@ describe("LayerManager", () => {
     manager.map.hasLayer.mockReturnValue(false);
     const syncToggleAll = vi.fn();
     manager.ui = {
-      intentProvenance: {},
+      intentStore: makeStore(),
       saveState: vi.fn(),
       invalidateFields: vi.fn(),
       syncToggleAll,
@@ -1630,14 +1622,21 @@ describe("LayerManager", () => {
     manager.map.hasLayer.mockReturnValue(false);
     const saveState = vi.fn();
     manager.ui = {
-      intents: {
-        overlay1: { visible: false, opacity: 0.4, zoomRange: [3, 12], name: "Renamed" },
-        base1: { visible: false, opacity: 1 },
-      },
-      intentProvenance: {
-        overlay1: ["visible", "opacity", "zoomRange"],
-        base1: ["visible"],
-      },
+      intentStore: makeStore(
+        {
+          overlay1: {
+            visible: false,
+            opacity: 0.4,
+            zoomRange: [3, 12],
+            name: "Renamed",
+          },
+          base1: { visible: false, opacity: 1 },
+        },
+        {
+          overlay1: ["visible", "opacity", "zoomRange"],
+          base1: ["visible"],
+        },
+      ),
       saveState,
       saveNamesState: vi.fn(),
       invalidateFields: vi.fn(),
@@ -1650,7 +1649,7 @@ describe("LayerManager", () => {
     expect(getIntent(manager.ui, "overlay1", "zoomRange")).toEqual([3, 12]);
     expect(getIntent(manager.ui, "base1", "visible")).toBe(false);
     expect(getIntent(manager.ui, "base1", "opacity")).toBe(1);
-    expect(manager.ui.intentProvenance).toEqual({
+    expect(manager.ui.intentStore.dumpProvenance()).toEqual({
       overlay1: ["visible", "opacity", "zoomRange"],
       base1: ["visible"],
     });
@@ -1665,14 +1664,21 @@ describe("LayerManager", () => {
     const saveState = vi.fn();
     const saveNamesState = vi.fn();
     manager.ui = {
-      intents: {
-        overlay1: { visible: false, opacity: 0.4, zoomRange: [3, 12], name: "Renamed" },
-        base1: { visible: false, opacity: 1 },
-      },
-      intentProvenance: {
-        overlay1: ["visible", "opacity", "zoomRange"],
-        base1: ["visible"],
-      },
+      intentStore: makeStore(
+        {
+          overlay1: {
+            visible: false,
+            opacity: 0.4,
+            zoomRange: [3, 12],
+            name: "Renamed",
+          },
+          base1: { visible: false, opacity: 1 },
+        },
+        {
+          overlay1: ["visible", "opacity", "zoomRange"],
+          base1: ["visible"],
+        },
+      ),
       dropPersistedLayerState: (id: string) => dropPersistedLayerState(manager.ui, id),
       saveState,
       saveNamesState,
@@ -1685,7 +1691,7 @@ describe("LayerManager", () => {
     expect(getIntent(manager.ui, "overlay1", "visible")).toBeUndefined();
     expect(getIntent(manager.ui, "base1", "visible")).toBe(false);
     expect(getIntent(manager.ui, "base1", "opacity")).toBe(1);
-    expect(manager.ui.intentProvenance).toEqual({ base1: ["visible"] });
+    expect(manager.ui.intentStore.dumpProvenance()).toEqual({ base1: ["visible"] });
     expect(getIntent(manager.ui, "overlay1", "name")).toBeUndefined();
     expect(saveState).toHaveBeenCalledTimes(1);
     expect(saveNamesState).toHaveBeenCalledTimes(1);
@@ -1695,10 +1701,10 @@ describe("LayerManager", () => {
     manager.map.hasLayer.mockReturnValue(false);
     const saveState = vi.fn();
     manager.ui = {
-      intents: {
-        overlay1: { visible: false, opacity: 0.4 },
-      },
-      intentProvenance: { overlay1: ["opacity"] },
+      intentStore: makeStore(
+        { overlay1: { visible: false, opacity: 0.4 } },
+        { overlay1: ["opacity"] },
+      ),
       renamedNames: {},
       dropPersistedLayerState: vi.fn(),
       saveState,
@@ -1727,11 +1733,13 @@ describe("LayerManager", () => {
     const saveState = vi.fn();
     const saveNamesState = vi.fn();
     manager.ui = {
-      intents: {
-        overlay1: { visible: false, opacity: 0.4, zoomRange: [3, 12] },
-        base1: { visible: false, name: "Renamed" },
-      },
-      intentProvenance: { overlay1: ["visible", "opacity"] },
+      intentStore: makeStore(
+        {
+          overlay1: { visible: false, opacity: 0.4, zoomRange: [3, 12] },
+          base1: { visible: false, name: "Renamed" },
+        },
+        { overlay1: ["visible", "opacity"] },
+      ),
       dropPersistedLayerState: (id: string) => dropPersistedLayerState(manager.ui, id),
       saveState,
       saveNamesState,
@@ -1776,11 +1784,13 @@ describe("LayerManager", () => {
     m.map.hasLayer.mockReturnValue(false);
     m.ui = {
       m,
-      intents: {
-        overlay1: { opacity: 0.4, name: "Renamed" },
-        base1: { name: "Base" },
-      },
-      intentProvenance: { overlay1: ["opacity"] },
+      intentStore: makeStore(
+        {
+          overlay1: { opacity: 0.4, name: "Renamed" },
+          base1: { name: "Base" },
+        },
+        { overlay1: ["opacity"] },
+      ),
       dropPersistedLayerState: (id: string) => dropPersistedLayerState(m.ui, id),
       saveState: () => saveState(m.ui),
       saveNamesState: () => saveNamesState(m.ui),
@@ -2431,7 +2441,7 @@ describe("LayerManager", () => {
       expect(handler).toHaveBeenCalledWith({ id: "measure1" });
       expect(unregisterSpy).not.toHaveBeenCalled();
       expect(manager.layerRegistry.has("measure1")).toBe(true);
-      expect((manager as any).removedIds.has("measure1")).toBe(false);
+      expect((manager as any).order.removedIds.has("measure1")).toBe(false);
     });
 
     it("still retires a user layer through unregisterLayer and removedIds", () => {
@@ -2441,7 +2451,7 @@ describe("LayerManager", () => {
       expect(manager.deleteLayer("overlay1")).toBe(true);
 
       expect(unregisterSpy).toHaveBeenCalledWith("overlay1");
-      expect((manager as any).removedIds.has("overlay1")).toBe(true);
+      expect((manager as any).order.removedIds.has("overlay1")).toBe(true);
     });
 
     it("returns false when unregisterLayer fails for a user layer", () => {
@@ -2449,7 +2459,7 @@ describe("LayerManager", () => {
       vi.spyOn(manager, "unregisterLayer").mockReturnValue(false);
 
       expect(manager.deleteLayer("overlay1")).toBe(false);
-      expect((manager as any).removedIds.has("overlay1")).toBe(false);
+      expect((manager as any).order.removedIds.has("overlay1")).toBe(false);
     });
 
     it("syncs toggle-all and no-basemap state after deleting a base layer", () => {
@@ -2457,6 +2467,7 @@ describe("LayerManager", () => {
       const syncToggleAll = vi.fn();
       const syncNoBasemap = vi.fn();
       manager.ui = {
+        intentStore: makeStore(),
         syncToggleAll,
         syncNoBasemap,
         dropPersistedLayerState: vi.fn(),
@@ -2485,6 +2496,7 @@ describe("LayerManager", () => {
       const syncToggleAll = vi.fn();
       const syncNoBasemap = vi.fn();
       manager.ui = {
+        intentStore: makeStore(),
         colorSurface: {} as any,
         currentColor: "#ff0000",
         authorVisible: new Map([[CONST.SOLID_BASEMAP_ID, true]]),
@@ -2504,7 +2516,7 @@ describe("LayerManager", () => {
       expect(saveStateSpy).toHaveBeenCalled();
       expect(syncToggleAll).toHaveBeenCalledWith(GROUP.BASE);
       expect(syncNoBasemap).toHaveBeenCalled();
-      expect((manager as any).removedIds.has(CONST.SOLID_BASEMAP_ID)).toBe(false);
+      expect((manager as any).order.removedIds.has(CONST.SOLID_BASEMAP_ID)).toBe(false);
     });
 
     it("clears the colour basemap without a panel attached", () => {
@@ -2521,7 +2533,7 @@ describe("LayerManager", () => {
       expect(manager.deleteLayer(CONST.SOLID_BASEMAP_ID)).toBe(true);
 
       expect(unregisterSpy).toHaveBeenCalledWith(CONST.SOLID_BASEMAP_ID);
-      expect((manager as any).removedIds.has(CONST.SOLID_BASEMAP_ID)).toBe(false);
+      expect((manager as any).order.removedIds.has(CONST.SOLID_BASEMAP_ID)).toBe(false);
     });
 
     it("returns false when the colour basemap cannot be unregistered", () => {
@@ -2535,7 +2547,7 @@ describe("LayerManager", () => {
       vi.spyOn(manager, "unregisterLayer").mockReturnValue(false);
 
       expect(manager.deleteLayer(CONST.SOLID_BASEMAP_ID)).toBe(false);
-      expect((manager as any).removedIds.has(CONST.SOLID_BASEMAP_ID)).toBe(false);
+      expect((manager as any).order.removedIds.has(CONST.SOLID_BASEMAP_ID)).toBe(false);
     });
 
     it("removes the overlay toggle-all row when the last overlay layer is deleted", () => {
@@ -2552,6 +2564,7 @@ describe("LayerManager", () => {
         <div class="foliplus-layer-item" data-layer-id="base1" data-layer-type="base"></div>
       `;
       manager.ui = {
+        intentStore: makeStore(),
         dropPersistedLayerState: vi.fn(),
         saveState: vi.fn(),
         syncToggleAll: vi.fn(),
@@ -2593,6 +2606,7 @@ describe("LayerManager", () => {
         <div class="foliplus-layer-item" data-layer-id="${CONST.SOLID_BASEMAP_ID}" data-layer-type="base"></div>
       `;
       manager.ui = {
+        intentStore: makeStore(),
         colorSurface: {} as any,
         currentColor: "#ff0000",
         authorVisible: new Map([[CONST.SOLID_BASEMAP_ID, true]]),

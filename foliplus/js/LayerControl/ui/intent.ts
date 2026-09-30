@@ -1,8 +1,8 @@
 // LayerControl UI — single-source per-layer intent (LayerIntent) helpers.
 //
-// `ui.intents` is the one record per layer: every user-chosen dimension
-// lives here. Absent key = never touched. Provenance is a separate axis
-// (`intentProvenance`).
+// Thin delegates over `ui.intentStore` (`Map<id, IntentRow>`): every user-chosen
+// dimension lives there. Absent key = never touched. Provenance is a separate
+// axis (`IntentRow.provenance`).
 import type { LayerIntent, LayerOverride } from "../type.js";
 import type { LayerUI } from "./index.js";
 
@@ -38,24 +38,19 @@ const LIVE: Record<IntentKey, (value: unknown) => boolean> = {
   [INTENT.ANNOTATION]: value => value != null,
 };
 
-/** Write one intent dimension. */
+/** Write one intent dimension (value only — no provenance mark). */
 const setIntent = <K extends IntentKey>(
   ui: LayerUI,
   id: string,
   key: K,
   value: NonNullable<LayerIntent[K]>,
 ): void => {
-  if (!ui.intents) ui.intents = {};
-  const intent = (ui.intents[id] ??= {});
-  intent[key] = value;
+  ui.intentStore.setValue(id, key, value);
 };
 
 /** Drop one intent dimension (back to the author's default). */
 const clearIntent = (ui: LayerUI, id: string, key: IntentKey): void => {
-  const intent = ui.intents?.[id];
-  if (!intent) return;
-  delete intent[key];
-  if (Object.keys(intent).length === 0) delete ui.intents[id];
+  ui.intentStore.clearValue(id, key);
 };
 
 /** The provenance-tracked style dims {@link dropIntent} clears with the
@@ -75,12 +70,9 @@ const STYLE_KEYS = {
 
 /** Drop the style dimensions for one layer (user deleted the layer). */
 const dropIntent = (ui: LayerUI, id: string): void => {
-  const intent = ui.intents?.[id];
-  if (!intent) return;
   for (const key of Object.values(STYLE_KEYS)) {
-    delete intent[key];
+    ui.intentStore.clearValue(id, key);
   }
-  if (Object.keys(intent).length === 0) delete ui.intents[id];
 };
 
 /** Read one intent dimension. */
@@ -89,7 +81,7 @@ const getIntent = <K extends IntentKey>(
   id: string,
   key: K,
 ): LayerIntent[K] | undefined => {
-  return ui.intents?.[id]?.[key];
+  return ui.intentStore.get(id, key);
 };
 
 /** Whether one intent key holds a live value (typed presence). */
@@ -103,14 +95,13 @@ const seedIntentMap = <K extends IntentKey>(
   key: K,
   record: Record<string, NonNullable<LayerIntent[K]>>,
 ): void => {
-  for (const [id, value] of Object.entries(record)) {
-    setIntent(ui, id, key, value);
-  }
+  ui.intentStore.seedValues(key, record);
 };
 
 export {
   INTENT,
   LIVE,
+  STYLE_KEYS,
   clearIntent,
   dropIntent,
   getIntent,

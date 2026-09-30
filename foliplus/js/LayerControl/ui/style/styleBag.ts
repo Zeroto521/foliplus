@@ -15,6 +15,7 @@
 //
 // A node with `setStyle` alone is not a carrier (L.GeoJSON owns one too),
 // so walks below descend `eachLayer` first and treat a setter as a leaf.
+import { throttleRaf } from "#common/throttle.js";
 
 /** The author's full vector style bag. Every field is always populated on
  *  capture — nothing downstream can tell "the author declared nothing"
@@ -44,8 +45,19 @@ type StyleSetter = StyleCarrier & {
   setStyle: (style: Record<string, unknown>) => void;
 };
 
-/** Which visibility bit a style face owns. */
-type StyleFace = "stroke" | "fill";
+/** Which visibility bit a style face owns. `"fill"` and `"stroke"` are the
+ *  Leaflet Path write faces — the option keys `setStyle` lights. Not the
+ *  same vocabulary as `DIM` (that is dimension registry keys, where border
+ *  is `"border"`): keep the two apart, one definition per vocabulary. */
+type StyleFace = "fill" | "stroke";
+
+/** The two Leaflet Path write faces, as a named vocabulary. Same convention
+ *  as `INTENT` / `DIM`: callers pass `FACE.FILL` / `FACE.STROKE`, never a
+ *  bare literal, so the string cannot drift from the type. */
+const FACE = {
+  FILL: "fill",
+  STROKE: "stroke",
+} as const;
 
 /** Leaflet Path defaults — folium's path_options fills most of these in,
  *  so the fallbacks only fire for a bare Leaflet layer. */
@@ -131,7 +143,7 @@ const commitStyleDim = (
 
 /** The author's keys for one face, including that face's visibility flag. */
 const faceSlice = (bag: StyleBag, face: StyleFace): Record<string, unknown> =>
-  face === "stroke"
+  face === FACE.STROKE
     ? { color: bag.color, weight: bag.weight, stroke: bag.stroke }
     : {
         fillColor: bag.fillColor,
@@ -148,17 +160,99 @@ const restoreStyleDim = (node: StyleSetter, face: StyleFace): void => {
   node.setStyle(faceSlice(bag, face));
 };
 
+// ── Shared apply scheduler (drag coalescing) ─────────────────────────────
+//
+// A style-panel drag fires an input event per step and each apply walk is a
+// sweep over every leaf. Coalesce the walk to at most one per animation
+// frame per (face, layerId); the intent write stays immediate so the frame
+// that runs reads the latest value. `flush` on change / blur / panel close
+// so the terminal value is never lost (throttleRaf is trailing). `cancel`
+// on reset (a scheduled walk must not paint the user's value over the
+// authored restore). `drop` on unregister so a churning map cannot
+// accumulate boxes keyed by dead ids.
+
+type ApplyBox = { run: () => void; raf: ReturnType<typeof throttleRaf> };
+const applySchedulers = new Map<string, ApplyBox>();
+
+const applyKey = (face: StyleFace, layerId: string): string => `${face}:${layerId}`;
+
+/** Queue the apply walk for one face. Later calls in the same frame replace
+ *  `run` and coalesce into the one pending frame — the walk always reads
+ *  the latest intent. */
+const scheduleStyleDimApply = (
+  face: StyleFace,
+  layerId: string,
+  run: () => void,
+): void => {
+  const key = applyKey(face, layerId);
+  let box = applySchedulers.get(key);
+  if (!box) {
+    // Two-step init so the raf callback can read `created.run` (the box
+    // entry) without a double assertion: the box exists before throttleRaf
+    // closes over it.
+    const created = { run, raf: throttleRaf(() => created.run()) };
+    box = created;
+    applySchedulers.set(key, box);
+  }
+  box.run = run;
+  box.raf();
+};
+
+/** Force a pending walk to run now. No-op when nothing is queued. */
+const flushStyleDimApply = (face: StyleFace, layerId: string): void => {
+  applySchedulers.get(applyKey(face, layerId))?.raf.flush();
+};
+
+/** Drop a pending walk without running it. Reset must not paint the user's
+ *  value over the authored restore. */
+const cancelStyleDimApply = (face: StyleFace, layerId: string): void => {
+  applySchedulers.get(applyKey(face, layerId))?.raf.cancel();
+};
+
+/** Retire every face's scheduler entry for one layer id — the single
+ *  unregister drop hook. Covers fill and border in one pass so the caller
+ *  never holds two scattered teardowns. */
+const dropStyleDimApplies = (layerId: string): void => {
+  const keyFill = applyKey(FACE.FILL, layerId);
+  const keyStroke = applyKey(FACE.STROKE, layerId);
+  for (const key of [keyFill, keyStroke]) {
+    const box = applySchedulers.get(key);
+    if (!box) continue;
+    box.raf.cancel();
+    applySchedulers.delete(key);
+  }
+};
+
+/** Flush every face's pending walk for one layer id — the panel-close
+ *  commit boundary. Both faces must land: a dragged border left on a
+ *  trailing frame would vanish when the panel disappears. */
+const flushStyleDimApplies = (layerId: string): void => {
+  flushStyleDimApply(FACE.FILL, layerId);
+  flushStyleDimApply(FACE.STROKE, layerId);
+};
+
+/** Whether a scheduler entry is still held (tests pin the unregister drop). */
+const hasStyleDimApply = (face: StyleFace, layerId: string): boolean =>
+  applySchedulers.has(applyKey(face, layerId));
+
 export {
   type StyleBag,
   type StyleCarrier,
+  FACE,
   type StyleFace,
   type StyleSetter,
   STYLE_BAG_DEFAULTS,
+  cancelStyleDimApply,
   captureStyleBag,
   commitStyleDim,
+  dropStyleDimApplies,
   faceSlice,
+  flushStyleDimApply,
+  flushStyleDimApplies,
+  hasStyleDimApply,
   isStyleSetter,
   restoreStyleDim,
+  scheduleStyleDimApply,
   styleBagOf,
   styleDimPayload,
   walkStyleLeaves,

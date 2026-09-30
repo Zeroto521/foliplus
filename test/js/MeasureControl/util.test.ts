@@ -117,13 +117,52 @@ describe("makeNode", () => {
     Util.makeNode({ lat: 1, lng: 2 });
     expect(window.L.circleMarker).toHaveBeenCalledWith(
       { lat: 1, lng: 2 },
-      { radius: 5, className: "foliplus-measure-node" },
+      { radius: 5, className: CONST.CLASSES.NODE_HOLLOW },
     );
+    // The shared dot look is on every node; the hook class stays for selectors.
+    expect(CONST.CLASSES.NODE_HOLLOW).toContain("foliplus-dot");
+    expect(CONST.CLASSES.NODE_HOLLOW).toContain("foliplus-dot-hollow");
+    expect(CONST.CLASSES.NODE_HOLLOW).toContain("foliplus-measure-node");
+    expect(CONST.CLASSES.NODE_SOLID).toContain("foliplus-dot-solid");
   });
 
   it("accepts a custom className", () => {
     Util.makeNode({ lat: 1, lng: 2 }, "custom");
     expect(window.L.circleMarker.mock.calls[0][1].className).toBe("custom");
+  });
+});
+
+describe("nodeRadius", () => {
+  it("derives (size - stroke) / 2 from the shared tokens", () => {
+    // setup.ts installs the default pair (12.5 / 2.5) — radius 5.
+    expect(Util.nodeRadius()).toBe(5);
+  });
+
+  it("throws when the tokens are unreadable", () => {
+    const root = document.documentElement;
+    const prevSize = root.style.getPropertyValue("--foliplus-dot-size");
+    root.style.removeProperty("--foliplus-dot-size");
+    Util.resetNodeRadiusCache();
+    try {
+      expect(() => Util.nodeRadius()).toThrow(/dot-size/);
+    } finally {
+      root.style.setProperty("--foliplus-dot-size", prevSize);
+      Util.resetNodeRadiusCache();
+    }
+  });
+
+  it("caches the derived radius across calls", () => {
+    expect(Util.nodeRadius()).toBe(5);
+    // Mutating the token does not change the cached value until reset.
+    const root = document.documentElement;
+    const prev = root.style.getPropertyValue("--foliplus-dot-size");
+    root.style.setProperty("--foliplus-dot-size", "16px");
+    try {
+      expect(Util.nodeRadius()).toBe(5);
+    } finally {
+      root.style.setProperty("--foliplus-dot-size", prev);
+      Util.resetNodeRadiusCache();
+    }
   });
 });
 
