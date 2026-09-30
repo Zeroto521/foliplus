@@ -36,7 +36,9 @@
   animation-duration: var(--foliplus-motion-slow);
   animation-timing-function: linear;
   animation-iteration-count: infinite;
-  filter: drop-shadow(0 0 var(--foliplus-size-2) var(--foliplus-accent-soft-shadow));
+  filter: drop-shadow(
+    0 0 var(--foliplus-marquee-glow-size) var(--foliplus-marquee-glow-color)
+  );
   pointer-events: none;
 }
 

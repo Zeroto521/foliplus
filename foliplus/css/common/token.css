@@ -216,6 +216,14 @@
     texture, not an operation border. */
   --foliplus-dash-rhythm: var(--foliplus-size-6) var(--foliplus-size-4);
 
+  /* Marching-ants marquee (focus rect, geometry selection, export crop).
+     One glow + one radius so the three boxes read as one language; the
+     paint model stays per-surface (SVG stroke-dasharray vs HTML gradients).
+     Glow is split so both box-shadow and drop-shadow can read it. */
+  --foliplus-marquee-glow-size: var(--foliplus-size-4);
+  --foliplus-marquee-glow-color: var(--foliplus-accent-soft-shadow);
+  --foliplus-marquee-radius: var(--foliplus-size-4);
+
   /* White casing around a focused path (selection language ⑤).
      Painted as `outline` so it hugs the stroke silhouette and never
      washes a filled face (a `filter: drop-shadow` chain follows the whole
