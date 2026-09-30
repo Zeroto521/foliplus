@@ -94,7 +94,6 @@
 
 ### Fixed
 
-- `LayerControl`: keep the more-menu shell padding under a host Bootstrap page — the dropdown/menu/row-panel shells stay out of `@layer` (unlayered-compat hoist) so the framework's unlayered `ol,ul{padding-left:2rem}` reset cannot push the icon column inward (CSS Cascade Layers compatibility) ([#578](https://github.com/Zeroto521/foliplus/pull/578))
 - `LayerControl`: fix layer order reset after hide/show — `paneSet` flag is now reset on re-add so `enforceOrder` correctly re-moves paths to the target fallback pane ([#106](https://github.com/Zeroto521/foliplus/pull/106))
 - `MeasureControl`: markers are saved immediately on placement, so they survive a page refresh even while the address lookup is still running ([#112](https://github.com/Zeroto521/foliplus/pull/112))
 - `FullscreenControl`: `hide_self` now hides the zoom +/- buttons together with the fullscreen button while in fullscreen ([#115](https://github.com/Zeroto521/foliplus/pull/115), [#116](https://github.com/Zeroto521/foliplus/pull/116))
@@ -122,6 +121,7 @@
 - `LayerControl`: rapid visibility toggles stay smooth at 6k layers — the toggle-all tri-state counter updates O(1) per click instead of rescanning the group, and overlay clicks skip the basemap scan ([#504](https://github.com/Zeroto521/foliplus/pull/504))
 
 ## [v0.3.0] (2026-08-02)
+- `LayerControl`: keep the more-menu shell padding under a host Bootstrap page — the dropdown/menu/row-panel shells stay out of `@layer` (unlayered-compat hoist) so the framework's unlayered `ol,ul{padding-left:2rem}` reset cannot push the icon column inward (CSS Cascade Layers compatibility) ([#578](https://github.com/Zeroto521/foliplus/pull/578))
 
 ### Added
 
