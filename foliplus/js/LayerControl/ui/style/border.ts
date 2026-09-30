@@ -36,10 +36,10 @@ import {
 import * as CONST from "../../const.js";
 import type { BorderRowBindTarget, BorderRowBuildTarget } from "../../type.js";
 import type { LayerUI } from "../index.js";
-import { INTENT, getIntent } from "../intent.js";
+import { INTENT, type IntentKey, getIntent } from "../intent.js";
 import { saveState } from "../state.js";
 import { pinStyleOnHighlight } from "./pin.js";
-import { getDimension, registerDimension } from "./registry.js";
+import { getDimension, registerDimension, writeIntentKeys } from "./registry.js";
 import {
   FACE,
   type StyleCarrier,
@@ -394,16 +394,10 @@ const BORDER_DIMENSION = registerDimension<{ color: string; weight: number }>({
    *  normalized. Omitted keys leave that sub-dimension alone. */
   write: (ui, layerId, patch) => {
     const { color, weight } = patch;
-    const wroteColor = color !== undefined;
-    const wroteWeight = weight !== undefined;
-    if (!wroteColor && !wroteWeight) return;
-    if (color !== undefined) {
-      ui.intentStore.set(layerId, INTENT.BORDER_COLOR, color);
-    }
-    if (weight !== undefined) {
-      ui.intentStore.set(layerId, INTENT.BORDER_WEIGHT, weight);
-    }
-    saveState(ui);
+    const writes: Array<readonly [IntentKey, unknown]> = [];
+    if (color !== undefined) writes.push([INTENT.BORDER_COLOR, color]);
+    if (weight !== undefined) writes.push([INTENT.BORDER_WEIGHT, weight]);
+    if (!writeIntentKeys(ui, layerId, writes)) return;
     scheduleBorderApply(ui, layerId);
   },
   /** Cohesive reset: cancel trailing apply, clear both border overrides,

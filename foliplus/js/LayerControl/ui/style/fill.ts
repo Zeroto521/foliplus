@@ -33,10 +33,10 @@ import {
 import * as CONST from "../../const.js";
 import { showSolidBasemap } from "../color.js";
 import type { LayerUI } from "../index.js";
-import { INTENT, getIntent } from "../intent.js";
+import { INTENT, type IntentKey, getIntent } from "../intent.js";
 import { saveState } from "../state.js";
 import { pinStyleOnHighlight } from "./pin.js";
-import { getDimension, registerDimension } from "./registry.js";
+import { getDimension, registerDimension, writeIntentKeys } from "./registry.js";
 import {
   FACE,
   type StyleCarrier,
@@ -417,16 +417,10 @@ const FILL_DIMENSION = registerDimension<{
    *  normalized (hex / 0-1). Omitted keys leave that sub-dimension alone. */
   write: (ui, layerId, patch) => {
     const { color, opacity } = patch;
-    const wroteColor = color !== undefined;
-    const wroteOpacity = typeof opacity === "number";
-    if (!wroteColor && !wroteOpacity) return;
-    if (color !== undefined) {
-      ui.intentStore.set(layerId, INTENT.FILL_COLOR, color);
-    }
-    if (typeof opacity === "number") {
-      ui.intentStore.set(layerId, INTENT.FILL_OPACITY, opacity);
-    }
-    saveState(ui);
+    const writes: Array<readonly [IntentKey, unknown]> = [];
+    if (color !== undefined) writes.push([INTENT.FILL_COLOR, color]);
+    if (typeof opacity === "number") writes.push([INTENT.FILL_OPACITY, opacity]);
+    if (!writeIntentKeys(ui, layerId, writes)) return;
     scheduleFillApply(ui, layerId);
   },
   /** Cohesive reset: cancel trailing apply, clear both fill overrides,

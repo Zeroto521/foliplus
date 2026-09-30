@@ -120,6 +120,14 @@ class IntentStore {
     if (isOverrideKey(key)) this.mark(id, key);
   }
 
+  /** Cohesive write with an untyped value — descriptor patch orchestration
+   *  (registry.writeIntentKeys). Same mark rule as {@link set}. */
+  setRaw(id: string, key: IntentKey, value: unknown): void {
+    if (value === undefined) return;
+    (this.ensure(id).intent as Record<string, unknown>)[key] = value;
+    if (isOverrideKey(key)) this.mark(id, key);
+  }
+
   /** Cohesive user clear: drop the value and its provenance marker. */
   clear(id: string, key: IntentKey): void {
     this.clearValue(id, key);
@@ -172,7 +180,10 @@ class IntentStore {
     this.prune(id);
   }
 
-  /** Seed bulk values without provenance (tests / bulk restore). */
+  /**
+   * Seed bulk values without provenance (tests / bulk restore).
+   * @internal Test and bulk-restore surface — not part of the production write API.
+   */
   seedValues<K extends IntentKey>(
     key: K,
     record: Record<string, NonNullable<LayerIntent[K]>>,
@@ -182,7 +193,10 @@ class IntentStore {
     }
   }
 
-  /** Seed provenance arrays (tests / load). Inserts in array order. */
+  /**
+   * Seed provenance arrays (tests / load). Inserts in array order.
+   * @internal Test and load-orchestration surface.
+   */
   seedProvenance(id: string, overrides: readonly LayerOverride[]): void {
     const row = this.ensure(id);
     row.provenance.clear();
@@ -191,7 +205,10 @@ class IntentStore {
     }
   }
 
-  /** Replace the whole provenance axis (tests / whole-object setup). */
+  /**
+   * Replace the whole provenance axis (tests / whole-object setup).
+   * @internal Test fixture surface.
+   */
   replaceProvenance(map: Record<string, LayerOverride[]>): void {
     for (const row of this.rows.values()) row.provenance.clear();
     for (const [id, overrides] of Object.entries(map)) {
@@ -200,7 +217,10 @@ class IntentStore {
     for (const id of [...this.rows.keys()]) this.prune(id);
   }
 
-  /** Replace the whole intent value axis (tests / whole-object setup). */
+  /**
+   * Replace the whole intent value axis (tests / whole-object setup).
+   * @internal Test fixture surface.
+   */
   replaceIntents(map: Record<string, LayerIntent>): void {
     this.clearAll();
     for (const [id, intent] of Object.entries(map)) {
@@ -212,6 +232,10 @@ class IntentStore {
     }
   }
 
+  /**
+   * Wipe every row. Used by loadFromPersisted and test fixtures.
+   * @internal Test fixture surface.
+   */
   clearAll(): void {
     this.rows.clear();
   }
