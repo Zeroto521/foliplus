@@ -8,9 +8,13 @@ import * as CONST from "../../const.js";
 import { applyProjection, authorZoomBoundsForLayer } from "../apply.js";
 import type { LayerUI } from "../index.js";
 import { INTENT, getIntent } from "../intent.js";
-import { saveState } from "../state.js";
 import { railPos, round5 } from "./frame.js";
-import { getDimension, registerDimension, writeIntentKeys } from "./registry.js";
+import {
+  getDimension,
+  registerDimension,
+  resetIntentKeys,
+  writeIntentKeys,
+} from "./registry.js";
 
 /** Whether the layer's surface can honestly carry a zoom-range write.
  *  Pure capability check: `capabilities.zoomRange !== "none"`.
@@ -306,18 +310,17 @@ const ZOOM_RANGE_DIMENSION = registerDimension<{ min: number; max: number }>({
     const min = patch?.min;
     const max = patch?.max;
     if (min !== undefined && max !== undefined) {
-      writeIntentKeys(ui, layerId, [[INTENT.ZOOM_RANGE, [min, max]]]);
+      void writeIntentKeys(ui, layerId, [[INTENT.ZOOM_RANGE, [min, max]]]);
     } else {
       const stored = ui.intentStore.get(layerId, INTENT.ZOOM_RANGE);
       if (!stored) return;
-      writeIntentKeys(ui, layerId, [[INTENT.ZOOM_RANGE, stored]]);
+      void writeIntentKeys(ui, layerId, [[INTENT.ZOOM_RANGE, stored]]);
     }
     applyProjection(ui, layerId);
   },
   /** Cohesive reset: clear the override, save, re-project. */
   reset: (ui, layerId) => {
-    ui.intentStore.clear(layerId, INTENT.ZOOM_RANGE);
-    saveState(ui);
+    resetIntentKeys(ui, layerId, [INTENT.ZOOM_RANGE]);
     applyProjection(ui, layerId);
   },
   valueSource: (ui, layerId) => {
