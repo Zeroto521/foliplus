@@ -29,6 +29,7 @@ import {
 import { basename, dirname, resolve } from "path";
 import { fileURLToPath, pathToFileURL } from "url";
 import { help, parseArgs } from "./args.mjs";
+import { resolveJsRoot } from "./build-path.mjs";
 import { wrapCommonLayers, wrapComponentLayers } from "./css-layer.mjs";
 import { esbuildCfgFor } from "./esbuild-config.mjs";
 import { globalNamespacePlugin } from "./global-namespace-plugin.mjs";
@@ -74,7 +75,7 @@ if (_raw.errors.length) {
 const CFG = _raw;
 CFG.root = resolve(CFG.root);
 
-const srcDir = resolve(CFG.root, "foliplus/js");
+const srcDir = resolveJsRoot(CFG.root);
 const cssDir = resolve(CFG.root, "foliplus/css");
 const distDir = resolve(CFG.root, "foliplus/dist");
 // Two scratch dirs, both gitignored: .build/js holds the generated shared
