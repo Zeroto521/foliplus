@@ -3,12 +3,9 @@
 // state surface.
 import { bareFieldName } from "#core/labelField.js";
 import { clampLabelSize } from "#common/form.js";
-import { createLogger } from "#common/log.js";
 import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
 import type { ManagerLike, SavedConfig } from "./type.js";
-
-const log = createLogger(CONF.name);
 
 /** Load saved configuration from localStorage. */
 const loadSavedConfig = (): SavedConfig | null => {
@@ -17,11 +14,7 @@ const loadSavedConfig = (): SavedConfig | null => {
 
 /** Remove persisted configuration from localStorage. */
 const clearSavedConfig = (): void => {
-  try {
-    window.localStorage.removeItem(CONST.STORAGE.KEY);
-  } catch (e) {
-    log.warn(`failed to clear saved data (key=${CONST.STORAGE.KEY})`, e);
-  }
+  Storage.removeRecord(CONST.STORAGE.KEY, CONF.name);
 };
 
 /** Apply a loaded config object to the manager's state. */

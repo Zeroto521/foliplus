@@ -29,6 +29,23 @@ const loadRecord = <T>(key: string, name = "foliplus"): T | null => {
 };
 
 /**
+ * Delete a key from localStorage.
+ * @param key - localStorage key.
+ * @param name - Caller component name, used as the log prefix.
+ * @returns Whether the key was deleted (false when the key didn't exist).
+ */
+const removeRecord = (key: string, name = "foliplus"): boolean => {
+  try {
+    const existed = window.localStorage.getItem(key) !== null;
+    window.localStorage.removeItem(key);
+    return existed;
+  } catch (e) {
+    logWarn(name, `failed to remove data (key=${key})`, e);
+    return false;
+  }
+};
+
+/**
  * Serialize and write a value to localStorage.
  * @param key - localStorage key.
  * @param data - Value to persist (must be JSON-serializable).
@@ -198,5 +215,5 @@ const makePersisted = ({
   };
 };
 
-export { loadRecord, loadVersioned, makePersisted, saveRecord, saveVersioned };
+export { loadRecord, loadVersioned, makePersisted, removeRecord, saveRecord, saveVersioned };
 export type { Persisted, PersistedOpts };
