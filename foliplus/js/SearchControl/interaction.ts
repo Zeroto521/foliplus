@@ -1,8 +1,8 @@
 // SearchControl event binding — standalone functions called with `this` as ctrl.
+import type { ControlEnv } from "#core/defineControl.js";
 import { ensureInteraction } from "#core/interaction.js";
 import { ListCursor } from "#core/listCursor.js";
 import { guardBlocked } from "#core/mode.js";
-import type { Logger } from "#common/log.js";
 import { adjustPanelZIndex, bindFoldToggle } from "#common/panel.js";
 import { CLASSES, MODE, PARAM } from "./const.js";
 import {
@@ -12,11 +12,10 @@ import {
   searchAddress,
   searchCoord,
 } from "./logic/index.js";
-import type { ControlCtx } from "./logic/util.js";
 import type { SearchControl } from "./type.js";
 
 /** Full ctrl type for interaction — SearchControl instance + control ctx. */
-type InteractionCtrl = SearchControl & ControlCtx;
+type InteractionCtrl = SearchControl & ControlEnv;
 
 /**
  * The value a keyboard-navigated result item puts into the input. History

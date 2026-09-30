@@ -1,7 +1,7 @@
-// Shared test infrastructure: window.L extension, per-test reset, and a
-// LayerUI mock factory.
+// Shared test infrastructure: window.L extension, per-test reset, a LayerUI
+// mock factory, and a ControlEnv builder.
 //
-// Three pieces, all exported:
+// Four pieces, all exported:
 //
 // - `installWindowLExtensions()` — called once from `setup.ts`. Extends the
 //   base `window.L` stub with the constructors/factories that individual test
@@ -19,10 +19,32 @@
 //   `foliplus/js/LayerControl/ui/index.ts` constructor + declared fields).
 //   Adding a new field to LayerUI means adding it here too; the completeness
 //   gate in `test/js/fixture.test.ts` fails loudly if the two drift apart.
+// - `makeControlEnv(conf?, translators?)` — the ControlEnv shape the factory
+//   hands to logic layers. Default conf is `window.CONF` (set by setup.ts);
+//   pass a translator pair to pin identity translators (export tests assert
+//   on bare key strings, so they deliberately do not use scoped lookups).
 import { vi } from "vitest";
+import type { ControlEnv } from "#core/defineControl.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
+import { createScopedTranslator, createTranslator } from "#common/locale.js";
+import { createLogger } from "#common/log.js";
 
 type Overrides = Record<string, unknown>;
+
+/** Build a ControlEnv for unit tests. `conf` defaults to the live
+ *  `window.CONF`; `translators` overrides the T/_ pair (identity for tests
+ *  that assert on bare locale keys). */
+export function makeControlEnv(
+  conf: ComponentConfig = window.CONF,
+  translators?: { T: (k: string) => string; _: (k: string) => string },
+): ControlEnv {
+  return {
+    conf,
+    T: translators?.T ?? createScopedTranslator(conf),
+    _: translators?._ ?? createTranslator(conf),
+    log: createLogger(conf.name),
+  };
+}
 
 // A base Layer-like class every L.<Shape> constructor inherits. Production
 // code touches these methods on the returned instance (addTo, remove, on,

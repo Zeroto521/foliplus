@@ -1,10 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
-import type { ControlEnv } from "#core/defineControl.js";
 import { HINT_DURATION } from "#core/hint.js";
 import * as CONST from "#foliplus/MeasureControl/const.js";
 import * as Export from "#foliplus/MeasureControl/export.js";
 import * as downloadMod from "#common/download.js";
-import { createLogger } from "#common/log.js";
+import { makeControlEnv } from "../fixture.js";
+
+// This file asserts on bare locale-key strings (identity T/_): the export
+// hint text is built by key concatenation, so scoped lookups would wrap the
+// keys and break the expectations. Pin translators explicitly.
+const identity = { T: (k: string) => k, _: (k: string) => k };
 
 vi.mock("#common/locale.js", () => ({
   createTranslator: () => (k: string) => k,
@@ -13,12 +17,7 @@ vi.mock("#common/locale.js", () => ({
 
 window.CONF = { ...window.CONF, name: "MeasureControl", locale_code: "en" };
 
-const env: ControlEnv = {
-  conf: window.CONF,
-  T: (k: string) => k,
-  _: (k: string) => k,
-  log: createLogger(window.CONF.name),
-};
+const env = makeControlEnv(window.CONF, identity);
 
 // ── Test data fixtures ──
 
@@ -585,16 +584,17 @@ describe("Export.handleExportClick", () => {
   let dl: ReturnType<typeof stubDownload>;
 
   const makeMgr = (measurements: MeasureData[] = [markerData]) => {
-    // handleExportClick receives the manager and passes it where export.ts
-    // expects a ControlEnv — the manager exposes conf/T/_/log, so the mock
-    // mirrors that shape (no separate env object on the real manager).
+    // handleExportClick reads mgr.env for the env-typed export functions and
+    // mgr.conf/T/log for the hint path — the mock mirrors the real manager.
+    const env = makeControlEnv(window.CONF, identity);
     return {
       store: { all: () => measurements },
       map: { foliplus: { showHint: vi.fn() } },
       conf: window.CONF,
-      T: (k: string) => k,
-      _: (k: string) => k,
-      log: createLogger("MeasureControl"),
+      T: env.T,
+      _: env._,
+      log: env.log,
+      env,
     };
   };
 

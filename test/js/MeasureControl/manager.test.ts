@@ -1,10 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ControlEnv } from "#core/defineControl.js";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import * as CONST from "#foliplus/MeasureControl/const.js";
 import { MeasureManager } from "#foliplus/MeasureControl/manager.js";
-import { createScopedTranslator, createTranslator } from "#common/locale.js";
-import { createLogger } from "#common/log.js";
+import { makeControlEnv } from "../fixture.js";
 
 // Label-collision lifecycle tests mock the collision module. It must be
 // hoisted + mocked before MeasureManager is imported, because manager.ts
@@ -52,12 +50,7 @@ function makeManager(opts?: { id?: string }) {
     locale_code: "en",
   };
 
-  const env: ControlEnv = {
-    conf: window.CONF,
-    T: createScopedTranslator(window.CONF),
-    _: createTranslator(window.CONF),
-    log: createLogger(window.CONF.name),
-  };
+  const env = makeControlEnv();
 
   const layers = mockLayerAPI();
 
@@ -1263,12 +1256,7 @@ function flushRaf() {
 
 function makeLabelManager(conf: Partial<typeof window.CONF> = {}) {
   window.CONF = { name: "MeasureControl", locale_code: "en", ...conf };
-  const env: ControlEnv = {
-    conf: window.CONF,
-    T: createScopedTranslator(window.CONF),
-    _: createTranslator(window.CONF),
-    log: createLogger(window.CONF.name),
-  };
+  const env = makeControlEnv();
 
   const layers = mockLayerAPI();
   const container = document.createElement("div");

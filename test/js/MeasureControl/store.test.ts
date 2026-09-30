@@ -1,9 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { ControlEnv } from "#core/defineControl.js";
 import * as CONST from "#foliplus/MeasureControl/const.js";
 import { MeasureStore } from "#foliplus/MeasureControl/store.js";
-import { createScopedTranslator, createTranslator } from "#common/locale.js";
-import { createLogger } from "#common/log.js";
+import { makeControlEnv } from "../fixture.js";
 
 // Mock Storage + ensureEvents so the store is tested in isolation — the store's
 // own contract is array + id + persist/emit, not the localStorage I/O (covered
@@ -46,13 +44,7 @@ window.CONF.name = "MeasureControl";
 const makeStore = () => {
   const showHint = vi.fn();
   const map = { foliplus: { showHint } } as unknown as L.Map;
-  const env: ControlEnv = {
-    conf: window.CONF,
-    T: createScopedTranslator(window.CONF),
-    _: createTranslator(window.CONF),
-    log: createLogger(window.CONF.name),
-  };
-  return { store: new MeasureStore(map, env, "layer-1"), showHint };
+  return { store: new MeasureStore(map, makeControlEnv(), "layer-1"), showHint };
 };
 
 beforeEach(() => {
@@ -326,13 +318,7 @@ describe("MeasureStore — persist failure", () => {
 
   it("does not throw when the map has no hint surface", () => {
     storage.saveVersioned.mockReturnValue(false);
-    const env: ControlEnv = {
-      conf: window.CONF,
-      T: createScopedTranslator(window.CONF),
-      _: createTranslator(window.CONF),
-      log: createLogger(window.CONF.name),
-    };
-    const store = new MeasureStore({} as unknown as L.Map, env, "layer-1");
+    const store = new MeasureStore({} as unknown as L.Map, makeControlEnv(), "layer-1");
     expect(() => store.add({ id: "a", type: "marker" })).not.toThrow();
     expect(events.emit).toHaveBeenCalledTimes(1);
   });

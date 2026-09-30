@@ -83,6 +83,10 @@ class MeasureManager {
   _: (key: string) => string;
   /** Logger bound to `conf.name`, created once by the manager. */
   log: Logger;
+  /** The factory-built environment this manager was constructed with. Modules
+   *  that need the full env (export serialization) read it here rather than
+   *  duck-typing the manager as a ControlEnv. */
+  readonly env: ControlEnv;
   private interactionCleanup?: () => void;
   private measureEscapeCleanup?: () => void;
   private exportClickCleanup?: () => void;
@@ -142,6 +146,7 @@ class MeasureManager {
    */
   constructor(mapInstance: L.Map, env: ControlEnv, opts?: { id?: string }) {
     this.map = mapInstance;
+    this.env = env;
     this.conf = env.conf;
     this.T = env.T;
     this._ = env._;

@@ -16,6 +16,16 @@
 // every component; `conf` is therefore a spec field, not a free-variable read
 // — the IIFE scope only exists in the component bundle that calls the factory.
 //
+// Free-variable boundary: the IIFE free variables (`CONF`, `map`) that the
+// Python Jinja template injects are legitimate ENTRY-LAYER input — the
+// component index.ts reads them to build the spec and the runtime bootstrap.
+// Logic modules must not read them as module-level free variables; they
+// receive them via `env` / explicit parameters / the control instance
+// (`ctrl.map`-style access where a module needs the map). A public `map`
+// accessor on the factory's class is the phase-2 direction for the ctrl path;
+// until then the entry-layer `map` usage in index.ts and the logic layer's
+// ctrl-mediated reads are the two sanctioned shapes.
+//
 // keepNames: the generated class name is `conf.name`, so `constructor.name`
 // used by BaseControl's CONTROL_ATTACHED payload and the Python browser-test
 // `window.__xxxCtrl` probes keep the declared identity.
@@ -128,4 +138,4 @@ const defineControl = <M = unknown>(spec: DefineControlSpec<M>): ControlClass =>
 };
 
 export { defineControl };
-export type { ControlEnv, DefineControlSpec };
+export type { ControlClass, ControlEnv, DefineControlSpec };

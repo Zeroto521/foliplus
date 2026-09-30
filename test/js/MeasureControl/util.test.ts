@@ -9,19 +9,14 @@ import {
 } from "#foliplus/MeasureControl/edit.js";
 import * as Util from "#foliplus/MeasureControl/util.js";
 import { stopEvent } from "#common/dom.js";
-import { createScopedTranslator, createTranslator } from "#common/locale.js";
 import { createLogger } from "#common/log.js";
+import { makeControlEnv } from "../fixture.js";
 
 const fakeEv = (): any => ({ preventDefault: vi.fn(), stopPropagation: vi.fn() });
 
 const makeEnv = (): ControlEnv => {
   window.CONF = { ...window.CONF, name: "MeasureControl", locale_code: "en" };
-  return {
-    conf: window.CONF,
-    T: createScopedTranslator(window.CONF),
-    _: createTranslator(window.CONF),
-    log: createLogger(window.CONF.name),
-  };
+  return makeControlEnv();
 };
 
 beforeEach(() => {

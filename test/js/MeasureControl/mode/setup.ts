@@ -4,19 +4,13 @@ import { vi } from "vitest";
 import type { ControlEnv } from "#core/defineControl.js";
 import { isDragSyntheticClick } from "#foliplus/MeasureControl/edit.js";
 import type { MeasureManager } from "#foliplus/MeasureControl/manager.js";
-import { createScopedTranslator, createTranslator } from "#common/locale.js";
-import { createLogger } from "#common/log.js";
+import { makeControlEnv } from "../../fixture.js";
 
 /** Standalone env for tests that hit static mode methods (toGeoFeature,
  * getNameLabel) or call Util helpers that read env directly. */
 export function makeEnv(): ControlEnv {
   window.CONF = { ...window.CONF, name: "MeasureControl", locale_code: "en" };
-  return {
-    conf: window.CONF,
-    T: createScopedTranslator(window.CONF),
-    _: createTranslator(window.CONF),
-    log: createLogger(window.CONF.name),
-  };
+  return makeControlEnv();
 }
 
 export function initMocks() {

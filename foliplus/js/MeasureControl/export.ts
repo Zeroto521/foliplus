@@ -253,7 +253,7 @@ const handleExportClick = (mgr: MeasureManager) => (event: Event) => {
   // still reported to the user, since the file was not saved.
   const format = resolveExportFormat(mgr.conf.export_format);
   try {
-    exportMeasurements(mgr, measurements, format);
+    exportMeasurements(mgr.env, measurements, format);
   } catch (err) {
     mgr.log.warn("export failed:", err);
     mgr.map.foliplus?.showHint?.(
@@ -271,7 +271,7 @@ const handleExportClick = (mgr: MeasureManager) => (event: Event) => {
       mgr
         .T("export_file")
         .replace("{n}", String(measurements.length))
-        .replace("{f}", exportFilename(mgr, format)),
+        .replace("{f}", exportFilename(mgr.env, format)),
     HINT_DURATION.LONG,
   );
 };
