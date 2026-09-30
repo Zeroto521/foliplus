@@ -653,7 +653,7 @@ class TestCheckCustomPropertyPrefix:
             "--foliplus-color-bg: #fff;\n",
             "color: var(--foliplus-accent-primary);\n",
         ]
-        assert mod.check_custom_property_prefix(lines) == []
+        assert mod.check_custom_property_prefix(lines, "token.css") == []
 
     def test_multiple_bare_tokens_all_reported(self):
         v = mod.check_custom_property_prefix(
@@ -667,7 +667,7 @@ class TestCheckCustomPropertyPrefix:
         assert len(v) == 1
 
     def test_clean_css_file_returns_no_violations(self, tmp_path):
-        f = tmp_path / "clean.css"
+        f = tmp_path / "token.css"
         f.write_text(
             ":root { --foliplus-size-2: 2px; }\n.a { color: var(--foliplus-size-2); }\n",
             encoding="utf-8",
