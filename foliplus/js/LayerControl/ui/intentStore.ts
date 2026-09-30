@@ -275,4 +275,3 @@ class IntentStore {
 }
 
 export { IntentStore };
-export type { IntentRow, LoadSource };
