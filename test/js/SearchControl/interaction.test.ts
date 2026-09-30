@@ -409,6 +409,27 @@ describe("bindEvents", () => {
     expect(click).not.toHaveBeenCalled();
   });
 
+  it("Enter with no selection returns early when another control holds a mode", () => {
+    // The no-selection fallback: guardBlocked must fire before removePanel /
+    // search, so a measuring control keeps the panel open for the user.
+    ensureModes(map).setMode("MeasureControl", "distance");
+    const ctrl = makeCtrl();
+    ctrl.mode = "addr";
+    ctrl.currentItems = [];
+    ctrl.selectedIdx = -1;
+    ctrl.panelWrap = dom.el("div");
+    ctrl.inp.value = "Paris";
+    window.foliplus.geocode.mockResolvedValue(null);
+    bindEvents(ctrl);
+    ctrl.inp.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+    );
+    expect(window.foliplus.geocode).not.toHaveBeenCalled();
+    expect(map.flyTo).not.toHaveBeenCalled();
+    // Panel stays open — removePanel was never reached.
+    expect(ctrl.panelWrap).not.toBeNull();
+  });
+
   it("does nothing on Enter when the input is empty", () => {
     const ctrl = makeCtrl();
     ctrl.mode = "addr";

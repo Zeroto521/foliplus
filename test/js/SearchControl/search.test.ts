@@ -478,6 +478,31 @@ describe("searchAddress", () => {
     expect(ctrl.marker).not.toBeNull();
   });
 
+  it("falls back to the raw query for history when formatAddress is empty", async () => {
+    // formatAddress returns "" for an empty display_name; the history entry
+    // must keep the raw query so the panel can re-run the same search later.
+    (window.foliplus.geocode as any).mockResolvedValue({
+      lat: 30.2,
+      lng: 120.5,
+      display_name: "",
+    });
+    const ctrl: any = {
+      ...ctx(),
+      cachedAddress: {},
+      addrAbortController: null,
+      inp: { value: "fallback-query" },
+      marker: null,
+      delIcon: null,
+      searchHistory: [],
+    };
+    searchAddress(ctrl, "fallback-query");
+    await new Promise(r => setTimeout(r, 0));
+    await new Promise(r => setTimeout(r, 0));
+    expect(ctrl.searchHistory).toHaveLength(1);
+    expect(ctrl.searchHistory[0].addrDisplay).toBe("fallback-query");
+    expect(ctrl.searchHistory[0].query).toBe("fallback-query");
+  });
+
   it("loading hint is plain text, not an inline SVG string", async () => {
     (window.foliplus.geocode as any).mockResolvedValue(null);
     const ctrl: any = {
