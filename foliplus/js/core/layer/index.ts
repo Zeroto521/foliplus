@@ -34,6 +34,13 @@ export {
   getGeometryType,
   countFeatureGeometry,
 } from "./util.js";
+export {
+  isContainerNode,
+  someLeaf,
+  walkLeaves,
+  walkTree,
+  findLeaf,
+} from "./walkLeaves.js";
 export { ensureLayerAPI, requireLayerAPI } from "./api.js";
 export { CLUSTER_CAPABILITIES, deriveLayerKind } from "./util.js";
 export type {

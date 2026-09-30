@@ -33,6 +33,7 @@ import { resolveJsRoot } from "./build-path.mjs";
 import { esbuildCfgFor } from "./esbuild-config.mjs";
 import { globalNamespacePlugin } from "./global-namespace-plugin.mjs";
 import { FAIL, OK } from "./glyph.mjs";
+import { canonicalSpec, scanSharedImports } from "./import-scan.mjs";
 import { expandEntry, mergeCss } from "./merge-css.mjs";
 import { resolveVersion } from "./version.mjs";
 
@@ -105,14 +106,67 @@ const resolveSharedRegistryPlugin = {
 // instead of re-typing the flags. See that module for what each field is.
 const esbuildCfg = esbuildCfgFor({ dev: CFG.dev, root: CFG.root });
 
+/** Canonical spec → dotted runtime target. Both sides (build-time dep list
+ *  and runtime check) share this mapping so a component's declared deps
+ *  always resolve to the same `window.foliplus.*` slot the global namespace
+ *  plugin exposes. `core/layer/util` and `core/layer/index` both target
+ *  `core.layer` — the plugin keys on the first path segment. */
+const dottedTarget = spec => {
+  if (spec.startsWith("common/")) return "common." + spec.split("/")[1];
+  if (spec.startsWith("core/")) return "core." + spec.split("/")[1];
+  if (spec.startsWith("foliplus/")) return spec.split("/")[1];
+  return spec;
+};
+
+/** Component's declared shared deps, deduped + dotted. `common/log` and
+ *  `common/log/index` both land as `common.log`. Only the runtime-visible
+ *  names are checked — internal file paths collapse into their namespace.
+ *  Uses the same scanner the runtime registry does (import-scan.mjs), so
+ *  what the build declares here is exactly what the runtime publishes. */
+const componentDeps = componentName => {
+  const dir = resolve(srcDir, componentName);
+  if (!existsSync(dir)) return [];
+  const { named, starUsed } = scanSharedImports(dir);
+  const targets = new Set();
+  for (const spec of new Set([...named.keys(), ...starUsed.keys()])) {
+    targets.add(dottedTarget(canonicalSpec(spec)));
+  }
+  return [...targets].sort();
+};
+
+/** JS banner that verifies every shared module this bundle reads is present
+ *  on `window.foliplus`. Runs before the bundle's own code, so a missing
+ *  runtime module surfaces as a clear error at attach time instead of a
+ *  `undefined is not a function` mid-operation. Only emitted for component
+ *  bundles — the shared entry bundles them. `name` is inlined into the
+ *  error string (not a runtime variable): the banner runs as a top-level
+ *  script, so any name it references must be a literal. */
+const depsBanner = (deps, name) => {
+  if (!deps || deps.length === 0) return "";
+  const json = JSON.stringify(deps);
+  const nameJson = JSON.stringify(name);
+  return (
+    `const __FP_DEPS=${json};` +
+    `const __FP_NAME=${nameJson};` +
+    `for(const __p of __FP_DEPS){` +
+    `let __h=window.foliplus;` +
+    `for(const __seg of __p.split(".")){__h=__h&&__h[__seg];}` +
+    `if(!__h)throw new Error("foliplus: "+__FP_NAME+" needs "+__p+
+      " -- load foliplus-common.min.js first");}` +
+    `;\n`
+  );
+};
+
 /** esbuild options for one artifact. Two things vary per artifact: tree
  *  shaking and the plugin list, both keyed on whether this is the shared
  *  entry. Component bundles read shared modules from the global namespace
  *  (so they tree-shake unused exports); the shared entry bundles them,
  *  which makes tree shaking meaningless and adds the registry plugin. */
-const artifact = (entryPoints, outfile, name) => {
+const artifact = (entryPoints, outfile, name, deps) => {
   const shared = name === SHARED_ENTRY;
   // Identical for JS and CSS, but esbuild requires banner to be an object.
+  // The JS banner carries the version + shared-deps assertion; CSS just
+  // carries the version.
   const bannerText = `/*! foliplus@${BUILD_VERSION} · ${name} */\n`;
   const plugins = shared
     ? [...esbuildCfg.plugins, resolveSharedRegistryPlugin]
@@ -123,7 +177,10 @@ const artifact = (entryPoints, outfile, name) => {
     ...esbuildCfg,
     treeShaking: !shared,
     plugins,
-    banner: { js: bannerText, css: bannerText },
+    banner: {
+      js: bannerText + depsBanner(deps, name),
+      css: bannerText,
+    },
   };
 };
 
@@ -247,11 +304,16 @@ const buildEntries = (components, withSonda) => {
     // The shared entry is exposed as "common" so the filename
     // foliplus-common.min.js pairs with the CSS.
     const outName = name === SHARED_ENTRY ? "common" : name;
-    artifacts.push(enable(artifact([js], out(`foliplus-${outName}.min.js`), name)));
+    const deps = name === SHARED_ENTRY ? [] : componentDeps(name);
+    artifacts.push(
+      enable(artifact([js], out(`foliplus-${outName}.min.js`), name, deps)),
+    );
     // A split component stylesheet (`css/{Name}/index.css`) is merged below
     // from its modules; flat `css/{Name}.css` entries feed esbuild directly.
     if (css && !css.endsWith("index.css")) {
-      artifacts.push(enable(artifact([css], out(`foliplus-${outName}.min.css`), name)));
+      artifacts.push(
+        enable(artifact([css], out(`foliplus-${outName}.min.css`), name, deps)),
+      );
     }
   }
 
@@ -276,8 +338,9 @@ const buildEntries = (components, withSonda) => {
     const tmpCss = resolve(buildCss, file);
     writeFileSync(tmpCss, body, "utf-8");
     const outName = file === "common.css" ? "common" : file.replace(/\.css$/, "");
+    const deps = outName === "common" ? [] : componentDeps(outName);
     artifacts.push(
-      enable(artifact([tmpCss], out(`foliplus-${outName}.min.css`), outName)),
+      enable(artifact([tmpCss], out(`foliplus-${outName}.min.css`), outName, deps)),
     );
   }
   return artifacts;
@@ -295,11 +358,17 @@ Deriving each from `findComponents` in prose gave three drifting copies;
 this is the one they read. Written only on a real build — `--verify` runs
 on a checkout that may not have `dist/` at all, and it must not touch it.
 */
-const writeArtifactManifest = filenames => {
+const writeArtifactManifest = (filenames, components) => {
   const names = filenames.map(name => (name === SHARED_ENTRY ? "common" : name));
+  const sharedDeps = {};
+  for (const { name } of components) {
+    if (name === SHARED_ENTRY) continue;
+    const deps = componentDeps(name);
+    if (deps.length > 0) sharedDeps[name] = deps;
+  }
   writeFileSync(
     resolve(distDir, "artifacts.json"),
-    `${JSON.stringify({ artifacts: names }, null, 2)}\n`,
+    `${JSON.stringify({ artifacts: names, sharedDeps }, null, 2)}\n`,
   );
 };
 
@@ -403,7 +472,10 @@ const main = async () => {
     await sonda.processEsbuildMetafile(merged, config);
   }
 
-  writeArtifactManifest(components.map(c => c.name));
+  writeArtifactManifest(
+    components.map(c => c.name),
+    components,
+  );
 
   if (failed) process.exit(1);
   console.timeEnd("build");
