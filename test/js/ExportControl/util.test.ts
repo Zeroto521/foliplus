@@ -48,6 +48,37 @@ describe("ensureFont", () => {
     expect(fonts.load).toHaveBeenCalledWith("16px sans-serif");
     expect(fonts.check).toHaveBeenCalledWith("16px sans-serif");
   });
+
+  it("defers on document.fonts.ready when the check reports the font missing", async () => {
+    let releaseReady: (() => void) | null = null;
+    const fonts = {
+      load: vi.fn(() => Promise.resolve()),
+      check: vi.fn(() => false),
+      ready: new Promise<void>(resolve => {
+        releaseReady = resolve;
+      }),
+    };
+    Object.defineProperty(document, "fonts", { value: fonts, configurable: true });
+    try {
+      const pending = ensureFont("16px sans-serif");
+      // Still pending while `ready` is held — proves the await is actually taken
+      // rather than skipped by an empty catch.
+      const stillPending = await Promise.race([
+        pending.then(() => false),
+        Promise.resolve(true),
+      ]);
+      expect(stillPending).toBe(true);
+
+      releaseReady!();
+      await pending;
+      expect(fonts.check).toHaveBeenCalledWith("16px sans-serif");
+    } finally {
+      Object.defineProperty(document, "fonts", {
+        value: document.fonts,
+        configurable: true,
+      });
+    }
+  });
 });
 
 describe("loadImageBitmap", () => {
@@ -244,5 +275,63 @@ describe("loadImage", () => {
 
     globalThis.Image = origImage;
     revokeSpy.mockRestore();
+  });
+
+  for (const [crossOrigin, wanted] of [
+    ["anonymous", "anonymous"],
+    [undefined, undefined],
+  ] as const) {
+    it(`sets crossOrigin="${String(crossOrigin)}" on the image element`, async () => {
+      const { loadImage } = await import("#foliplus/ExportControl/util.js");
+      const origImage = globalThis.Image;
+      const instances: Array<{ crossOrigin?: string }> = [];
+      let onloadHandler: (() => void) | null = null;
+      globalThis.Image = class {
+        crossOrigin?: string;
+        constructor() {
+          instances.push(this);
+        }
+        set onload(fn: (() => void) | null) {
+          onloadHandler = fn;
+        }
+        set onerror(_fn: (() => void) | null) {}
+        set src(_v: string) {
+          queueMicrotask(() => onloadHandler?.());
+        }
+      } as unknown as typeof Image;
+
+      try {
+        const loaded = await loadImage("data:image/png;base64,AAAA", crossOrigin);
+        expect(loaded).toBe(instances[0]);
+        expect(instances[0].crossOrigin).toBe(wanted);
+      } finally {
+        globalThis.Image = origImage;
+      }
+    });
+  }
+
+  it("rejects without revoking a non-blob URL", async () => {
+    const { loadImage } = await import("#foliplus/ExportControl/util.js");
+    const origImage = globalThis.Image;
+    const revokeSpy = vi.spyOn(URL, "revokeObjectURL");
+    let onerrorHandler: (() => void) | null = null;
+    globalThis.Image = class {
+      crossOrigin?: string;
+      set onload(_fn: (() => void) | null) {}
+      set onerror(fn: (() => void) | null) {
+        onerrorHandler = fn;
+      }
+      set src(_v: string) {
+        queueMicrotask(() => onerrorHandler?.());
+      }
+    } as unknown as typeof Image;
+
+    try {
+      await expect(loadImage("data:image/png;base64,broken")).rejects.toThrow();
+      expect(revokeSpy).not.toHaveBeenCalled();
+    } finally {
+      globalThis.Image = origImage;
+      revokeSpy.mockRestore();
+    }
   });
 });
