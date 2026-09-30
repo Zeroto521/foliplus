@@ -1,4 +1,5 @@
 // MeasureControl utility functions — standalone, no manager dependency.
+import { reverseGeocode } from "#core/geocode/index.js";
 import { area, bearing, centroid, distance, midpoint } from "#core/geo/index.js";
 import { cssVar } from "#common/cssvar.js";
 import { toggleDelIcon } from "#common/delicon.js";
@@ -175,10 +176,8 @@ const geocodeAddress = async (
   code: string,
   previous: string | null,
 ): Promise<string | null> => {
-  const foliplus = window.foliplus;
-  if (!foliplus?.reverseGeocode) return previous;
   try {
-    return (await foliplus.reverseGeocode(manager.map, lng, lat, code)) ?? previous;
+    return (await reverseGeocode(manager.map, lng, lat, code)) ?? previous;
   } catch {
     return previous;
   }
