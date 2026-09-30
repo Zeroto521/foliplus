@@ -1,6 +1,6 @@
+import type { ControlEnv } from "#core/defineControl.js";
 import { createLocationMarker } from "#core/locationMarker.js";
 import { DEL_ICON_MARKER_ANCHOR, toggleDelIcon } from "#common/delicon.js";
-import { createScopedTranslator, createTranslator } from "#common/locale.js";
 import { throttleRaf } from "#common/throttle.js";
 import * as CONST from "../const.js";
 import {
@@ -17,10 +17,6 @@ import {
   mountDelIcon,
   wireFinalized,
 } from "./base.js";
-
-// CONF is a free variable from the IIFE template wrapper.
-const _ = createTranslator(CONF);
-const T = createScopedTranslator(CONF);
 
 // ==================== Marker Mode ====================
 /** Marker placement mode. Places a geocoded marker on click. */
@@ -66,7 +62,7 @@ class MarkerMode extends MeasureMode {
           m.lng = Util.roundCoord(latlng.lng);
           m.lat = Util.roundCoord(latlng.lat);
         });
-        const code = window.CONF?.locale_code ?? "en";
+        const code = manager.conf.locale_code ?? "en";
         // onEnd is a sync callback (bindNodeDrag doesn't await it), so the
         // geocode runs as a detached fire-and-forget chain. Swallow rejections
         // to keep a failed lookup from surfacing as an unhandled rejection.
@@ -82,7 +78,7 @@ class MarkerMode extends MeasureMode {
             manager.store.update(id, { address: addr });
             if (marker.getPopup()?.isOpen()) {
               marker.setPopupContent(
-                Util.buildPopup(measurement.lng!, measurement.lat!, addr),
+                Util.buildPopup(manager, measurement.lng!, measurement.lat!, addr),
               );
             }
           })
@@ -152,7 +148,7 @@ class MarkerMode extends MeasureMode {
     const delMarker = mountDelIcon(
       manager.layers,
       at,
-      { title: T("del_tooltip"), iconAnchor: DEL_ICON_MARKER_ANCHOR },
+      { title: manager.T("del_tooltip"), iconAnchor: DEL_ICON_MARKER_ANCHOR },
       onDelete,
     );
 
@@ -190,12 +186,12 @@ class MarkerMode extends MeasureMode {
       data.lng!,
       data.lat!,
       data.address ?? null,
-      T("popup_title"),
-      T("popup_loading"),
-      T("popup_loc_label"),
-      T("popup_addr_label"),
-      _("foliplus.close_label"),
-      CONF.locale_code,
+      manager.T("popup_title"),
+      manager.T("popup_loading"),
+      manager.T("popup_loc_label"),
+      manager.T("popup_addr_label"),
+      manager._("foliplus.close_label"),
+      manager.conf.locale_code,
       null,
       manager.layers.mainLayer,
       addr => {
@@ -209,7 +205,9 @@ class MarkerMode extends MeasureMode {
 
     MarkerMode.finalize(manager, marker, data, L.latLng(data.lat!, data.lng!), () => {
       if (data.address !== null) {
-        marker.setPopupContent(Util.buildPopup(data.lng!, data.lat!, data.address));
+        marker.setPopupContent(
+          Util.buildPopup(manager, data.lng!, data.lat!, data.address),
+        );
       }
     });
   }
@@ -251,12 +249,12 @@ class MarkerMode extends MeasureMode {
       lngNum,
       latNum,
       null,
-      T("popup_title"),
-      T("popup_loading"),
-      T("popup_loc_label"),
-      T("popup_addr_label"),
-      _("foliplus.close_label"),
-      CONF.locale_code,
+      this.T("popup_title"),
+      this.T("popup_loading"),
+      this.T("popup_loc_label"),
+      this.T("popup_addr_label"),
+      this._("foliplus.close_label"),
+      this.conf.locale_code,
       null,
       this.layers.mainLayer,
       addr => {
@@ -268,19 +266,21 @@ class MarkerMode extends MeasureMode {
     // while the address lookup is still in flight.
     MarkerMode.finalize(this.m, marker, measurement, event.latlng, () => {
       if (measurement.address !== null) {
-        marker.setPopupContent(Util.buildPopup(lngNum, latNum, measurement.address));
+        marker.setPopupContent(
+          Util.buildPopup(this.m, lngNum, latNum, measurement.address),
+        );
       }
     });
   }
 
   /** GeoJSON feature for a marker — properties carry id and address. */
-  static toGeoFeature(data: MeasureData): GeoJSON.Feature {
+  static toGeoFeature(env: ControlEnv, data: MeasureData): GeoJSON.Feature {
     return {
       type: CONST.GEOJSON.FEATURE,
       properties: {
         id: data.id,
         type: this.TYPE,
-        name: this.getNameLabel(),
+        name: this.getNameLabel(env),
         address: data.address,
       },
       geometry: {

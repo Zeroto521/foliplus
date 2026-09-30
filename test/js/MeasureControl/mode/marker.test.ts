@@ -3,7 +3,7 @@ import { reverseGeocode } from "#core/geocode/index.js";
 import * as CONST from "#foliplus/MeasureControl/const.js";
 import { markDragSyntheticClick } from "#foliplus/MeasureControl/edit.js";
 import { MarkerMode } from "#foliplus/MeasureControl/mode/index.js";
-import { initMocks, makeManagerMock } from "./setup.js";
+import { initMocks, makeEnv, makeManagerMock } from "./setup.js";
 
 vi.mock("#core/geocode/index.js", () => ({
   reverseGeocode: vi.fn().mockResolvedValue(null),
@@ -35,7 +35,7 @@ describe("MarkerMode — TYPE", () => {
 
 describe("MarkerMode — toGeoFeature", () => {
   it("returns a Point feature with address as name", () => {
-    const feature = MarkerMode.toGeoFeature({
+    const feature = MarkerMode.toGeoFeature(makeEnv(), {
       id: "m1",
       type: "marker",
       lng: 121.5,
@@ -50,7 +50,7 @@ describe("MarkerMode — toGeoFeature", () => {
   });
 
   it("uses fallback name when address is missing", () => {
-    const feature = MarkerMode.toGeoFeature({
+    const feature = MarkerMode.toGeoFeature(makeEnv(), {
       id: "m2",
       type: "marker",
       lng: 0,
@@ -60,7 +60,7 @@ describe("MarkerMode — toGeoFeature", () => {
   });
 
   it("includes id in properties", () => {
-    const feature = MarkerMode.toGeoFeature({
+    const feature = MarkerMode.toGeoFeature(makeEnv(), {
       id: "m3",
       type: "marker",
       lng: 0,
