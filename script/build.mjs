@@ -30,11 +30,10 @@ import { basename, dirname, resolve } from "path";
 import { fileURLToPath, pathToFileURL } from "url";
 import { help, parseArgs } from "./args.mjs";
 import { resolveJsRoot } from "./build-path.mjs";
-import { wrapCommonLayers, wrapComponentLayers } from "./css-layer.mjs";
 import { esbuildCfgFor } from "./esbuild-config.mjs";
 import { globalNamespacePlugin } from "./global-namespace-plugin.mjs";
 import { FAIL, OK } from "./glyph.mjs";
-import { expandEntry, orderCss, stripImports } from "./merge-css.mjs";
+import { expandEntry, mergeCss } from "./merge-css.mjs";
 import { resolveVersion } from "./version.mjs";
 
 // Sonda is only loaded when --sonda is passed (lazy dynamic import).
@@ -170,7 +169,7 @@ const readCssDir = dir =>
   );
 
 /** The shared stylesheet modules, concatenated in @import-declared
- *  dependency order, then wrapped in `@layer foliplus.*` (css-layer.mjs).
+ *  dependency order.
 
 Every module in `css/common/` is picked up automatically — no maintained
 manifest. Order and drift guards live in `script/merge-css.mjs` (pure,
@@ -181,22 +180,18 @@ cannot resolve (or a cycle) fails the build loudly.
 const mergeCommonCss = () => {
   const dir = resolve(cssDir, "common");
   if (!existsSync(dir)) return null;
-  const sources = readCssDir(dir);
-  return wrapCommonLayers(orderCss(sources, "common"), file =>
-    stripImports(sources.get(file)),
-  );
+  return mergeCss(readCssDir(dir), "common");
 };
 
 /** A component's split stylesheet (`css/{Name}/index.css`), concatenated in
  *  the entry's declared @import order — the cascade order, not a dependency
- *  graph — then wrapped into `@layer foliplus.components`. Falls back to
- *  null for a flat `css/{Name}.css` (no entry to expand), in which case the
- *  caller wraps the single file in the same layer. */
+ *  graph. Falls back to null for a flat `css/{Name}.css` (no entry to expand),
+ *  in which case the caller feeds the single file straight to esbuild. */
 const mergeComponentCss = name => {
   const dir = resolve(cssDir, name);
   const entryFile = resolve(dir, "index.css");
   if (!existsSync(entryFile)) return null;
-  return wrapComponentLayers(expandEntry(readCssDir(dir), "index.css", name));
+  return expandEntry(readCssDir(dir), "index.css", name);
 };
 
 /** Every artifact `BaseControl._build_component_template` reads for a control.
@@ -254,24 +249,19 @@ const buildEntries = (components, withSonda) => {
     const outName = name === SHARED_ENTRY ? "common" : name;
     artifacts.push(enable(artifact([js], out(`foliplus-${outName}.min.js`), name)));
     // A split component stylesheet (`css/{Name}/index.css`) is merged below
-    // from its modules; flat `css/{Name}.css` entries are wrapped into the
-    // components layer and written under .build/css so every CSS artifact
-    // shares the same layer preamble.
+    // from its modules; flat `css/{Name}.css` entries feed esbuild directly.
     if (css && !css.endsWith("index.css")) {
-      const tmpCss = resolve(buildCss, `${name}.css`);
-      writeFileSync(tmpCss, wrapComponentLayers(readFileSync(css, "utf-8")), "utf-8");
-      artifacts.push(
-        enable(artifact([tmpCss], out(`foliplus-${outName}.min.css`), name)),
-      );
+      artifacts.push(enable(artifact([css], out(`foliplus-${outName}.min.css`), name)));
     }
   }
 
-  // A merged stylesheet has to be a real file on disk. esbuild's css loader
-  // runs the postcss onLoad (which flattens the nested selectors) before
-  // minifying, and a merged stylesheet is a concatenation of modules, so the
-  // nested rules have to survive that pass. Feeding the merged source through
-  // a plugin's onLoad instead produced uncompiled nesting straight into dist
-  // -- the .collapsed / .expanded rules silently vanished.
+  // The merged common stylesheet still has to be a real file on disk.
+  // esbuild's css loader runs the postcss onLoad (which flattens the nested
+  // selectors) before minifying, and a merged stylesheet is a concatenation
+  // of modules, so the nested rules have to survive that pass. Feeding the
+  // merged source through a plugin's onLoad instead produced uncompiled
+  // nesting straight into dist -- the .collapsed / .expanded rules silently
+  // vanished.
   const merged = [
     // Shared stylesheet: dependency-ordered modules under css/common/.
     ["common.css", mergeCommonCss()],
