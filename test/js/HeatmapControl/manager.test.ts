@@ -30,7 +30,7 @@ describe("getPointValue", () => {
   });
 });
 
-describe("getPointValue �?additional gaps", () => {
+describe("getPointValue — additional gaps", () => {
   it("uses autoFieldKey when currentField is empty", () => {
     const m = makeManager();
     m.currentAgg = CONST.AGG.SUM;
@@ -59,7 +59,7 @@ describe("getPointValue �?additional gaps", () => {
   });
 });
 
-describe("HeatmapManager �?caching & lifecycle", () => {
+describe("HeatmapManager — caching & lifecycle", () => {
   it("clearHeatmapCanvas resets autoFieldKey and all caches", () => {
     const m = makeManager();
     m.autoFieldKey = "price";
@@ -72,7 +72,7 @@ describe("HeatmapManager �?caching & lifecycle", () => {
     expect(m.overlay.unregister).toHaveBeenCalled();
   });
 
-  it("stays a pure canvas clear �?the render empty states keep the user's selection", () => {
+  it("stays a pure canvas clear — the render empty states keep the user's selection", () => {
     const m = makeManager();
     m.selectedLayerId = "pts";
     m.currentAgg = CONST.AGG.SUM;
@@ -82,7 +82,7 @@ describe("HeatmapManager �?caching & lifecycle", () => {
     m.autoFieldKey = "price";
 
     // A zoom that lands on no features runs clearHeatmapCanvas through the
-    // render empty path �?the selection is a user choice, not a render artifact.
+    // render empty path — the selection is a user choice, not a render artifact.
     m.renderFeatures([]);
 
     expect(m.selectedLayerId).toBe("pts");
@@ -301,7 +301,7 @@ describe("HeatmapManager �?caching & lifecycle", () => {
   });
 });
 
-describe("HeatmapManager �?layer visibility vs zoom", () => {
+describe("HeatmapManager — layer visibility vs zoom", () => {
   const zoomendHandlers = (m: HeatmapManager): Array<() => void> =>
     m.map.on.mock.calls
       .filter(([evt]: [string]) => evt === "zoomend")
@@ -335,7 +335,7 @@ describe("HeatmapManager �?layer visibility vs zoom", () => {
 
   it("a user-hidden canvas keeps its HIDDEN class through a full zoom cycle", () => {
     // The class is the executor's channel: the zoom cycle borrows and
-    // returns only the style, so the user's hide survives untouched �?no
+    // returns only the style, so the user's hide survives untouched — no
     // LayerControl state mirror needed on this side anymore.
     const m = makeManager();
     m.overlay.canvas = document.createElement("canvas");
@@ -510,10 +510,10 @@ describe("renderHexagons", () => {
   });
 });
 
-describe("HeatmapManager �?export event subscriptions", () => {
+describe("HeatmapManager — export event subscriptions", () => {
   // The two export handlers are named methods, so the tests below assert on
-  // them.  A bus that stopped delivering �?or a subscription that went
-  // unbound �?flips toHaveBeenCalled to toHaveBeenCalledTimes(0), which is the
+  // them.  A bus that stopped delivering — or a subscription that went
+  // unbound — flips toHaveBeenCalled to toHaveBeenCalledTimes(0), which is the
   // regression this block is guarding.  (Spying on redrawHeatmap alone would
   // still pass with an empty bus, because vi.fn().mockClear() clears the spy
   // but not any subscription-level bookkeeping.)
@@ -539,7 +539,7 @@ describe("HeatmapManager �?export event subscriptions", () => {
     const bus = ensureEvents(m.map);
     const beforeSpy = vi.spyOn(m, "onBeforeExport");
     const afterSpy = vi.spyOn(m, "onAfterExport");
-    // Independent listener proves the bus is alive on both events �?the
+    // Independent listener proves the bus is alive on both events — the
     // negative assertion cannot pass merely because the bus is dead.
     const probeBefore = vi.fn();
     const probeAfter = vi.fn();
@@ -558,7 +558,7 @@ describe("HeatmapManager �?export event subscriptions", () => {
     bus.off(EVENTS.AFTER_EXPORT, probeAfter);
   });
 
-  it("removeExportListener is idempotent �?a second call does not throw", () => {
+  it("removeExportListener is idempotent — a second call does not throw", () => {
     const m = makeManager();
     m.removeExportListener();
     expect(() => m.removeExportListener()).not.toThrow();
@@ -659,7 +659,7 @@ describe("HeatmapManager �?export event subscriptions", () => {
   });
 });
 
-describe("rebuildLayerDropdown �?single-layer auto-select gating", () => {
+describe("rebuildLayerDropdown — single-layer auto-select gating", () => {
   // buildLayerListItems calls scanMapLayers internally; stub it so the
   // pre-seeded pointLayers state used by these tests survives the rebuild.
   beforeEach(() => {
@@ -746,7 +746,7 @@ describe("rebuildLayerDropdown �?single-layer auto-select gating", () => {
   });
 });
 
-describe("initScan �?single-layer auto-select on first scan only", () => {
+describe("initScan — single-layer auto-select on first scan only", () => {
   beforeEach(() => {
     window.map.foliplus.LayerAPI = {
       ...window.map.foliplus.LayerAPI,
@@ -821,7 +821,7 @@ describe("initScan �?single-layer auto-select on first scan only", () => {
 
     vi.useFakeTimers();
     initScan(ctrl);
-    // The final pass fires one macrotask later �?after the synchronous
+    // The final pass fires one macrotask later — after the synchronous
     // attach sequence, when the layer set is final.
     await vi.runOnlyPendingTimersAsync();
     vi.useRealTimers();
@@ -851,7 +851,7 @@ describe("initScan �?single-layer auto-select on first scan only", () => {
     ensureEvents(m.map).emit(EVENTS.CONTROL_ATTACHED, {
       component: "LayerControl",
     });
-    // Unsubscribed �?no further scan ran, and no late settle.
+    // Unsubscribed — no further scan ran, and no late settle.
     expect(calls).toBe(1);
     expect(m.hasScanned).toBe(false);
 
@@ -888,7 +888,7 @@ describe("initScan �?single-layer auto-select on first scan only", () => {
   });
 
   // Gates below drive the reload path as it happens in production:
-  // a new manager against the same localStorage �?same instance would
+  // a new manager against the same localStorage — same instance would
   // not surface the bug this round is fixing, since the guard state
   // never leaves the object. makeManager replaces window.map.foliplus
   // wholesale, so LayerAPI mocks must be re-applied after each call.
@@ -910,7 +910,7 @@ describe("initScan �?single-layer auto-select on first scan only", () => {
 
     // Session 1: user opens the heatmap (single-layer auto-select fires),
     // then clears the dropdown.  The clear is user-initiated so it
-    // persists �?the record carries layerId: null on disk.
+    // persists — the record carries layerId: null on disk.
     const m1 = makeManager();
     seedLonely();
     const c1 = makeCtrl(m1);
@@ -920,7 +920,7 @@ describe("initScan �?single-layer auto-select on first scan only", () => {
     m1.saveConfig();
     m1.flush();
 
-    // Session 2: fresh manager on the same localStorage �?the recorded
+    // Session 2: fresh manager on the same localStorage — the recorded
     // clear must survive the reload, not be overridden by auto-select.
     const m2 = makeManager();
     seedLonely();
@@ -940,7 +940,7 @@ describe("initScan �?single-layer auto-select on first scan only", () => {
     const { initScan } = await import("#foliplus/HeatmapControl/ui.js");
     window.localStorage.clear();
 
-    // No persisted record here �?the guard is open on first open, so
+    // No persisted record here — the guard is open on first open, so
     // this case is the pure test of the length rule itself.  If the
     // length === 1 check regresses, the first layer would be picked.
     const m = makeManager();
@@ -961,7 +961,7 @@ describe("initScan �?single-layer auto-select on first scan only", () => {
   });
 
   it("allows auto-select again after Reset deleted the record", async () => {
-    // Reset (clearSavedConfig) deletes the record entirely �?this is the
+    // Reset (clearSavedConfig) deletes the record entirely — this is the
     // deliberate back-to-declared-state path. Gate 3 proves the fix does
     // not conflate explicit-clear with Reset.
     const { initScan } = await import("#foliplus/HeatmapControl/ui.js");
@@ -975,8 +975,8 @@ describe("initScan �?single-layer auto-select on first scan only", () => {
     m1.clearSavedConfig();
     expect(window.localStorage.getItem(CONST.STORAGE.KEY)).toBeNull();
 
-    // Fresh manager, no record �?applySavedConfig never runs �?guard stays
-    // open �?the first open's single-layer auto-select fires.
+    // Fresh manager, no record → applySavedConfig never runs → guard stays
+    // open → the first open's single-layer auto-select fires.
     const m2 = makeManager();
     seedLonely();
     expect(m2.loadSavedConfig()).toBeNull();
@@ -1085,7 +1085,7 @@ describe("event-bus bindings", () => {
   });
 
   it("leaves the selection alone when nothing is selected", async () => {
-    // No selection means no derived view to clear �?the empty-input clear
+    // No selection means no derived view to clear — the empty-input clear
     // belongs to `aggregateData`, not to the layer-change reconcile.
     const m = makeManager();
     m.ui = makeCtrl(m);
@@ -1102,7 +1102,7 @@ describe("event-bus bindings", () => {
   });
 });
 
-describe("HeatmapManager �?style delegation", () => {
+describe("HeatmapManager — style delegation", () => {
   function getCanvasOpts() {
     const createCanvas = (
       window.map.foliplus!.LayerAPI as unknown as {
@@ -1124,7 +1124,7 @@ describe("HeatmapManager �?style delegation", () => {
     expect(typeof opts.styleSetters?.labelColor).toBe("function");
     expect(typeof opts.styleSetters?.labelSize).toBe("function");
     expect(typeof opts.styleSetters?.labelFormat).toBe("function");
-    // Aggregation field is data config �?not delegated into the style drawer.
+    // Aggregation field is data config — not delegated into the style drawer.
     expect(opts.styleSetters?.field).toBeUndefined();
     expect(opts.fieldOptions).toBeUndefined();
   });
@@ -1287,7 +1287,7 @@ describe("HeatmapManager �?style delegation", () => {
 
   it("labelColor and labelSize setters work without a bound panel", () => {
     const m = makeManager();
-    // ui is null �?the setters own state only; panels refresh via
+    // ui is null — the setters own state only; panels refresh via
     // LAYER_STYLE_CHANGE, so no panel sync happens here.
     expect(() => {
       getCanvasOpts().styleSetters!.labelColor!("#00ff00");
@@ -1331,7 +1331,7 @@ describe("HeatmapManager �?style delegation", () => {
 
   it("labelShow defaults to true when CONF omits label_show", () => {
     // Python serializes label_show=True by default; a missing key must not
-    // silently flip labels off �?the same `!== false` rule MeasureControl uses.
+    // silently flip labels off — the same `!== false` rule MeasureControl uses.
     const m = makeManager({ label_show: undefined });
     const opts = getCanvasOpts() as {
       styleDefaultsProvider?: () => Record<string, unknown>;
@@ -1436,7 +1436,7 @@ describe("HeatmapManager �?style delegation", () => {
   });
 });
 
-describe("HeatmapManager �?source meta for the attrs panel", () => {
+describe("HeatmapManager — source meta for the attrs panel", () => {
   const metaOf = (m: HeatmapManager) =>
     window.map.foliplus.LayerAPI.createCanvas.mock.calls.find(
       ([opts]: [{ id?: string }]) => opts.id === m.layerId,
@@ -1539,7 +1539,7 @@ describe("HeatmapManager �?source meta for the attrs panel", () => {
   });
 });
 
-describe("HeatmapManager �?EVENTS.LAYER_DELETED auto-clear", () => {
+describe("HeatmapManager — EVENTS.LAYER_DELETED auto-clear", () => {
   it("clears the heatmap canvas when own layer is deleted via LAYER_DELETED", () => {
     const m = makeManager();
     const clearSpy = vi.spyOn(m, "clearHeatmapCanvas");
@@ -1575,7 +1575,7 @@ describe("HeatmapManager �?EVENTS.LAYER_DELETED auto-clear", () => {
     addOptions(ctrl.methodSelect, ["equal", "jenks"]);
     addOptions(ctrl.classSelect, ["4", "6"]);
     addOptions(ctrl.schemeSelectHidden, ["Blues", "Reds"]);
-    // The panel still shows the deleted layer's id when the clear lands �?
+    // The panel still shows the deleted layer's id when the clear lands —
     // that is the stale state this reset has to undo.
     addOptions(ctrl.layerSelect, ["", "pts"]);
     ctrl.layerSelect.value = "pts";
@@ -1601,7 +1601,7 @@ describe("HeatmapManager �?EVENTS.LAYER_DELETED auto-clear", () => {
     expect(m.currentScheme).toBe(conf.color_scheme);
     expect(m.numClasses).toBe(conf.n_classes);
     expect(m.cachedFeatures).toBeNull();
-    // Every dropdown reflects the reset �?the reported bug was the panel
+    // Every dropdown reflects the reset — the reported bug was the panel
     // still showing the cleared layer and field.
     expect(ctrl.layerSelect.value).toBe("");
     expect(ctrl.aggSelect.value).toBe(CONST.AGG.COUNT);
@@ -1612,10 +1612,10 @@ describe("HeatmapManager �?EVENTS.LAYER_DELETED auto-clear", () => {
     // The record is dropped so a reload does not resurrect the cleared layer,
     // the same teardown as MeasureControl's LAYER_DELETED -> clearAll.
     expect(clearSaved).toHaveBeenCalledTimes(1);
-    // resetPanel owns the single canvas wipe �?the event handler must not add
+    // resetPanel owns the single canvas wipe — the event handler must not add
     // another one on top of it.
     expect(clearSpy).toHaveBeenCalledTimes(1);
-    // Only the contents reset �?the panel stays open for the next pick.
+    // Only the contents reset — the panel stays open for the next pick.
     expect(ctrl.ctrl.classList.contains(CONST.CLASSES.COLLAPSED)).toBe(false);
   });
 
@@ -1645,7 +1645,7 @@ describe("HeatmapManager �?EVENTS.LAYER_DELETED auto-clear", () => {
   });
 });
 
-describe("constructor �?CONF fallbacks", () => {
+describe("constructor — CONF fallbacks", () => {
   it("uses library defaults when CONF omits optional style fields", () => {
     const m = makeManager({
       agg: undefined,
@@ -1727,7 +1727,7 @@ describe("onMove handler", () => {
   });
 });
 
-describe("redrawHeatmap �?edge cases", () => {
+describe("redrawHeatmap — edge cases", () => {
   function setupCanvas(m: HeatmapManager) {
     m.overlay.canvas = { style: {} };
     m.overlay.ctx = {
@@ -1968,7 +1968,7 @@ describe("computeBounds", () => {
   });
 });
 
-describe("clearHeatmapCanvas �?null overlay", () => {
+describe("clearHeatmapCanvas — null overlay", () => {
   it("tolerates a null overlay", () => {
     const m = makeManager();
     m.overlay = null as never;
@@ -1976,7 +1976,7 @@ describe("clearHeatmapCanvas �?null overlay", () => {
   });
 });
 
-describe("resetState �?CONF fallbacks", () => {
+describe("resetState — CONF fallbacks", () => {
   it("uses library defaults when conf omits optional fields", () => {
     const m = makeManager();
     m.currentAgg = CONST.AGG.SUM;
