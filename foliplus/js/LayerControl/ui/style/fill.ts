@@ -416,11 +416,15 @@ const FILL_DIMENSION = registerDimension<{
   /** Intent+persist + schedule the fill face landing. `patch` is already
    *  normalized (hex / 0-1). Omitted keys leave that sub-dimension alone. */
   write: (ui, layerId, patch) => {
-    if (patch.color !== undefined) {
-      ui.intentStore.set(layerId, INTENT.FILL_COLOR, patch.color);
+    const { color, opacity } = patch;
+    const wroteColor = color !== undefined;
+    const wroteOpacity = typeof opacity === "number";
+    if (!wroteColor && !wroteOpacity) return;
+    if (color !== undefined) {
+      ui.intentStore.set(layerId, INTENT.FILL_COLOR, color);
     }
-    if (typeof patch.opacity === "number") {
-      ui.intentStore.set(layerId, INTENT.FILL_OPACITY, patch.opacity);
+    if (typeof opacity === "number") {
+      ui.intentStore.set(layerId, INTENT.FILL_OPACITY, opacity);
     }
     saveState(ui);
     scheduleFillApply(ui, layerId);
@@ -432,7 +436,7 @@ const FILL_DIMENSION = registerDimension<{
     ui.intentStore.clear(layerId, INTENT.FILL_COLOR);
     ui.intentStore.clear(layerId, INTENT.FILL_OPACITY);
     saveState(ui);
-    const layer = ui.m.layerRegistry.get(layerId)?.layer as StyleCarrier | null;
+    const layer = ui.m.findLayer(layerId) as StyleCarrier | null;
     if (!layer) return;
     walkStyleLeaves(layer, node => restoreStyleDim(node, FACE.FILL));
   },

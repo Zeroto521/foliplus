@@ -52,6 +52,7 @@ import {
   scheduleStyleDimApply,
   styleBagOf,
   styleDimPayload,
+  walkStyleLeaves,
 } from "./styleBag.js";
 
 /** Whether the layer's surface can honestly carry a border write.
@@ -392,11 +393,15 @@ const BORDER_DIMENSION = registerDimension<{ color: string; weight: number }>({
   /** Intent+persist + schedule the stroke face landing. `patch` is already
    *  normalized. Omitted keys leave that sub-dimension alone. */
   write: (ui, layerId, patch) => {
-    if (patch.color !== undefined) {
-      ui.intentStore.set(layerId, INTENT.BORDER_COLOR, patch.color);
+    const { color, weight } = patch;
+    const wroteColor = color !== undefined;
+    const wroteWeight = weight !== undefined;
+    if (!wroteColor && !wroteWeight) return;
+    if (color !== undefined) {
+      ui.intentStore.set(layerId, INTENT.BORDER_COLOR, color);
     }
-    if (patch.weight !== undefined) {
-      ui.intentStore.set(layerId, INTENT.BORDER_WEIGHT, patch.weight);
+    if (weight !== undefined) {
+      ui.intentStore.set(layerId, INTENT.BORDER_WEIGHT, weight);
     }
     saveState(ui);
     scheduleBorderApply(ui, layerId);
@@ -410,15 +415,8 @@ const BORDER_DIMENSION = registerDimension<{ color: string; weight: number }>({
     saveState(ui);
     const layer = ui.m.findLayer(layerId) as StyleCarrier | null;
     if (!layer) return;
-    const walk = (node: StyleCarrier): void => {
-      if (typeof node.eachLayer === "function") {
-        node.eachLayer(child => walk(child as StyleCarrier));
-        return;
-      }
-      if (!isStyleSetter(node)) return;
-      restoreStyleDim(node, FACE.STROKE);
-    };
-    walk(layer);
+    // Same restore walk as fill — one styleBag contract, not two copies.
+    walkStyleLeaves(layer, node => restoreStyleDim(node, FACE.STROKE));
   },
   valueSource: (ui, layerId) => {
     if (!layerCanBorder(ui, layerId)) return "none";
