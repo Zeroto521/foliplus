@@ -259,21 +259,27 @@ class TestExportControlRendering:
         Gap #8 from the T252 audit. Cursor direction is the existing grab
         affordance and stays untouched; hover/press only add surface feedback.
         Transform is reserved for the per-edge translate, so press feedback is
-        background/shadow only.
+        background/shadow only. The shared recipe lives in common/button.css
+        (dot family) so the ExportControl bundle stays lean.
         """
-        from conftest import read_css
+        from conftest import read_css, read_css_dir
+
+        button = read_css_dir("foliplus/css/common", "button.css")
+        assert ".foliplus-export-handle:is(:hover, :active)" in button
+        assert "background: var(--foliplus-accent-light)" in button
+        assert "var(--foliplus-slider-thumb-glow)" in button
 
         css = read_css("foliplus/css/ExportControl.css")
         assert ".foliplus-export-handle" in css
-        assert "&:hover" in css
-        assert "&:active" in css
-        assert "background: var(--foliplus-accent-light)" in css
-        assert "var(--foliplus-slider-thumb-glow)" in css
         # Direction cursors are the grab affordance and must survive.
         assert "cursor: nwse-resize" in css
         assert "cursor: nesw-resize" in css
         assert "cursor: ns-resize" in css
         assert "cursor: ew-resize" in css
+        # Geometry only — no live scale(), no per-component hover restatement.
+        # Strip comments first: the rationale prose names "scale()" on purpose.
+        live = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+        assert "scale(" not in live
 
     def test_crop_box_and_center_hover_active(self):
         """Box deepens its glow; center answers with glow only — no scale.
@@ -281,12 +287,24 @@ class TestExportControlRendering:
         Gap #9 from the T252 audit. Locked boxes hide handles/center and set
         pointer-events: none, so they never light. Center must not scale:
         scale() composed with translate(-50%, -50%) shifts the dot on hover.
+        Center hover/press is the shared button.css glow recipe.
         """
-        from conftest import read_css
+        from conftest import read_css, read_css_dir
 
         css = read_css("foliplus/css/ExportControl.css")
-        assert "&:not(.foliplus-locked):hover" in css
-        assert "&:not(.foliplus-locked):active" in css
+        assert "&:not(.foliplus-locked):is(:hover, :active)" in css
+        # Box press deepens the soft shadow only — no transform.
+        idx = css.find("&:not(.foliplus-locked):is(:hover, :active)")
+        assert idx != -1
+        block = css[idx : css.index("}", idx) + 1]
+        assert "scale(" not in block, block
+        assert "var(--foliplus-accent-soft-shadow)" in block
+        assert "var(--foliplus-transition-fast)" in css
+
+        center = read_css_dir("foliplus/css/common", "button.css")
+        assert ".foliplus-export-center:is(:hover, :active)" in center
+        assert "var(--foliplus-slider-thumb-glow)" in center
+
         idx = css.find(".foliplus-export-center")
         assert idx != -1, "center anchor rule missing"
         start = css.index("{", idx)
@@ -304,37 +322,42 @@ class TestExportControlRendering:
         # Strip comments first: the rationale prose names "scale()" on purpose.
         block = re.sub(r"/\*.*?\*/", "", css[idx : end + 1], flags=re.S)
         assert "scale(" not in block, block
-        assert "var(--foliplus-slider-thumb-glow)" in block
-        assert "box-shadow var(--foliplus-transition-fast)" in block
-        # Focus ring: shared token, no transform.
-        assert "&:focus-visible" in block
-        assert "var(--foliplus-focus-ring)" in block
+        assert "transform: translate(-50%, -50%)" in block
 
-    def test_export_handles_use_focus_ring_without_scale(self):
-        """Crop handles take the shared focus ring; press stays shadow-only."""
-        from conftest import read_css
+    def test_export_anchors_use_shared_dot_focus_ring(self):
+        """Export handle/center take the shared `.foliplus-dot:focus-visible` ring.
+
+        Correction③: crop anchors must not restate the focus recipe — they
+        carry `.foliplus-dot` / `.foliplus-dot-hollow|solid`, and the ring
+        lives once in common/button.css. Press stays shadow-only (no scale).
+        """
+        from conftest import read_css, read_css_dir
+
+        button = read_css_dir("foliplus/css/common", "button.css")
+        assert ".foliplus-dot:not(path):focus-visible" in button
+        assert "var(--foliplus-focus-ring)" in button
 
         css = read_css("foliplus/css/ExportControl.css")
-        idx = css.find(".foliplus-export-handle")
-        assert idx != -1
-        start = css.index("{", idx)
-        depth = 0
-        end = None
-        for i in range(start, len(css)):
-            if css[i] == "{":
-                depth += 1
-            elif css[i] == "}":
-                depth -= 1
-                if depth == 0:
-                    end = i
-                    break
-        # Strip comments first: the rationale prose names "scale()" on purpose.
-        block = re.sub(r"/\*.*?\*/", "", css[idx : end + 1], flags=re.S)
-        assert "&:focus-visible" in block
-        assert "var(--foliplus-focus-ring)" in block
-        assert "scale(" not in block
-        assert "background-color var(--foliplus-transition-fast)" in block
-        assert "box-shadow var(--foliplus-transition-fast)" in block
+        for selector in (".foliplus-export-handle", ".foliplus-export-center"):
+            idx = css.find(selector)
+            assert idx != -1, selector
+            start = css.index("{", idx)
+            depth = 0
+            end = None
+            for i in range(start, len(css)):
+                if css[i] == "{":
+                    depth += 1
+                elif css[i] == "}":
+                    depth -= 1
+                    if depth == 0:
+                        end = i
+                        break
+            block = re.sub(r"/\*.*?\*/", "", css[idx : end + 1], flags=re.S)
+            assert "scale(" not in block, (selector, block)
+            assert "&:focus-visible" not in block, (selector, block)
+
+        # Transition + hover/press live on the shared button.css recipe.
+        assert "transition: var(--foliplus-transition-fast)" in button
 
 
 class TestExportControlBrowser:
