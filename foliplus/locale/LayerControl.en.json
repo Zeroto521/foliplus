@@ -69,5 +69,9 @@
   "LayerControl.style_border_weight": "Border width",
   "LayerControl.style_fill": "Fill Color",
   "LayerControl.style_fill_opacity": "Fill Opacity",
+  "LayerControl.style_fill_field": "Field",
+  "LayerControl.style_fill_method": "Method",
+  "LayerControl.style_fill_classes": "Classes",
+  "LayerControl.style_fill_scheme": "Scheme",
   "LayerControl.border": "Border"
 }

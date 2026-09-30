@@ -69,5 +69,9 @@
   "LayerControl.style_border_weight": "边框宽度",
   "LayerControl.style_fill": "填充颜色",
   "LayerControl.style_fill_opacity": "填充透明度",
+  "LayerControl.style_fill_field": "字段",
+  "LayerControl.style_fill_method": "分级方法",
+  "LayerControl.style_fill_classes": "分级数",
+  "LayerControl.style_fill_scheme": "色带",
   "LayerControl.border": "边框"
 }

@@ -3,6 +3,7 @@
 // stateful value is passed in explicitly.
 import { computeBreaks } from "#core/classify.js";
 import { autoLabelField, bareFieldName } from "#core/labelField.js";
+import { getColorScale } from "#core/palette.js";
 import { createLogger } from "#common/log.js";
 import * as CONST from "./const.js";
 import type {
@@ -45,15 +46,6 @@ const readMarkerField = (
   if (field === "options.value") return extended.options?.value;
   const key = bareFieldName(field);
   return marker.feature?.properties?.[key];
-};
-
-/** Build a chroma color scale with `n` colors. Falls back to GRAY array
- *  when chroma is unavailable. */
-const getColorScale = (name: string, n: number): string[] => {
-  if (typeof chroma !== "undefined") {
-    return chroma.scale(name).mode("lab").colors(n) as string[];
-  }
-  return Array(n).fill(CONST.GRAY);
 };
 
 /** Aggregate selected points into H3 hex cells with sum/count/min/max. */
