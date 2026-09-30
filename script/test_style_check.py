@@ -655,6 +655,18 @@ class TestCheckCustomPropertyPrefix:
         ]
         assert mod.check_custom_property_prefix(lines, "token.css") == []
 
+    def test_prefixed_definition_outside_token_css_reported(self):
+        lines = ["--foliplus-sweep-length: 1000;\n"]
+        v = mod.check_custom_property_prefix(lines, "MeasureControl.css")
+        assert len(v) == 1
+        assert "must live in" in v[0][1]
+        assert "MeasureControl.css" not in v[0][1]  # message references token.css
+
+    def test_prefixed_reference_outside_token_css_passes(self):
+        """var() reference is not a definition — it passes anywhere."""
+        lines = ["animation: sweep var(--foliplus-sweep-length);\n"]
+        assert mod.check_custom_property_prefix(lines, "MeasureControl.css") == []
+
     def test_multiple_bare_tokens_all_reported(self):
         v = mod.check_custom_property_prefix(
             ["--a: 1;\n", "--b: 2;\n", "ok: var(--foliplus-c);\n"]
