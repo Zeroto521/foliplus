@@ -1,25 +1,19 @@
-// Marching-ants bbox on geometry focus (selection language B).
+// Marching-ants bbox on geometry focus.
 // A focused map path must not restyle its own stroke (lines would go dashed);
-// instead draw a bounds marquee with the same look as the LayerControl focus
-// rect: class `foliplus-focus-rect` on an SVG rect sized to the path's bbox.
+// draw a bounds marquee with the same look as the LayerControl focus rect
+// instead: class `foliplus-focus-rect` on an SVG rect sized to the path bbox.
 
 const MARQUEE_PAD = 4;
+const MARQUEE_RX = 4;
 const NS = "http://www.w3.org/2000/svg";
+const SEL = "rect.foliplus-focus-rect";
 
-const marqueeFor = new WeakMap<Element, SVGElement>();
-
-const clearMarquee = (path: Element): void => {
-  const node = marqueeFor.get(path);
-  if (node) {
-    node.remove();
-    marqueeFor.delete(path);
-  }
+const clearMarquees = (root: ParentNode = document): void => {
+  root.querySelectorAll(SEL).forEach(n => n.remove());
 };
 
 const drawMarquee = (path: SVGGraphicsElement): void => {
-  // Single-selection: drop any other marquee first.
-  document.querySelectorAll("rect.foliplus-focus-rect").forEach(n => n.remove());
-  marqueeFor.delete(path);
+  clearMarquees();
   const svg = path.ownerSVGElement;
   if (!svg) return;
   const box = path.getBBox();
@@ -29,11 +23,10 @@ const drawMarquee = (path: SVGGraphicsElement): void => {
   rect.setAttribute("y", String(box.y - MARQUEE_PAD));
   rect.setAttribute("width", String(box.width + MARQUEE_PAD * 2));
   rect.setAttribute("height", String(box.height + MARQUEE_PAD * 2));
-  rect.setAttribute("rx", "4");
-  rect.setAttribute("ry", "4");
+  rect.setAttribute("rx", String(MARQUEE_RX));
+  rect.setAttribute("ry", String(MARQUEE_RX));
   // Sit above the path so the marquee reads as a selection frame.
   svg.appendChild(rect);
-  marqueeFor.set(path, rect);
 };
 
 const isMapPath = (el: EventTarget | null): el is SVGGraphicsElement =>
@@ -41,24 +34,22 @@ const isMapPath = (el: EventTarget | null): el is SVGGraphicsElement =>
   el.tagName === "path" &&
   el.classList.contains("leaflet-interactive");
 
-/** Bind focusin/focusout marquee on every foliplus map pane under `root`. */
+/** Bind focusin/focusout marquee on map paths under `root`. Returns unbind. */
 const bindGeometryFocusMarquee = (root: HTMLElement): (() => void) => {
   const onFocusIn = (ev: FocusEvent) => {
     const t = ev.target;
-    if (!isMapPath(t)) return;
-    drawMarquee(t);
+    if (isMapPath(t)) drawMarquee(t);
   };
   const onFocusOut = (ev: FocusEvent) => {
     const t = ev.target;
-    if (!isMapPath(t)) return;
-    clearMarquee(t);
+    if (isMapPath(t)) clearMarquees(root);
   };
   root.addEventListener("focusin", onFocusIn);
   root.addEventListener("focusout", onFocusOut);
   return () => {
     root.removeEventListener("focusin", onFocusIn);
     root.removeEventListener("focusout", onFocusOut);
-    root.querySelectorAll("rect.foliplus-focus-rect").forEach(n => n.remove());
+    clearMarquees(root);
   };
 };
 
