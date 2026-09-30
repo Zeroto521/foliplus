@@ -14,9 +14,9 @@ import {
   type SearchType,
   ZOOM,
 } from "../const.js";
-import type { ResultItem, SearchControlState, SearchHistoryEntry } from "../type.js";
+import type { ResultItem, SearchHistoryEntry } from "../type.js";
 import { attachSearchDelIcon, removePanel, renderResults } from "./search.js";
-import { T, _, canonicalQuery } from "./util.js";
+import { type SearchControlCtx, canonicalQuery } from "./util.js";
 
 /** Dedup key. Type is part of it: typing "120,32" in addr mode yields a
  * geocode result whose key string can collide with a coord entry's, and those
@@ -58,22 +58,25 @@ type StoredHistoryEntry = Partial<SearchHistoryEntry> & { label?: string };
 // closure reads `pendingHistory` (set by saveHistory before scheduling), so the
 // binding is stateless from the caller's point of view — saveHistory is still
 // the public entry point. Load is explicit via loadHistory() below.
+// `persistName` is set by saveHistory/flushHistory before schedule/flush so the
+// closure reads the correct component name without a module-level CONF free variable.
+let persistName = "";
 const historyPersist = makePersisted({
   save: () =>
     Storage.saveVersioned(HISTORY.STORAGE_KEY, {
       data: pendingHistory,
       version: RECORD_VERSION,
-      name: CONF.name,
+      name: persistName,
       dataField: "entries",
     }),
 });
 
 let pendingHistory: SearchHistoryEntry[] = [];
 
-const loadHistory = (): SearchHistoryEntry[] =>
+const loadHistory = (ctrl: SearchControlCtx): SearchHistoryEntry[] =>
   loadHistoryRows(
     Storage.loadVersioned<StoredHistoryEntry>(HISTORY.STORAGE_KEY, {
-      name: CONF.name,
+      name: ctrl.conf.name,
       dataField: "entries",
     }),
   );
@@ -105,40 +108,44 @@ const loadHistoryRows = (data: StoredHistoryEntry[] | null): SearchHistoryEntry[
   return mergeHistoryEntries(migrated);
 };
 
-const saveHistory = (entries: SearchHistoryEntry[]): void => {
+const saveHistory = (ctrl: SearchControlCtx, entries: SearchHistoryEntry[]): void => {
   pendingHistory = entries;
+  persistName = ctrl.conf.name;
   historyPersist.schedule();
 };
 
 /** Write the current history through the binding. Idempotent no-op when
  *  nothing is pending (write-through). Called by destroy before the in-memory
  *  array is cleared, so a last search before unmount is durable. */
-const flushHistory = (): void => historyPersist.flush();
+const flushHistory = (ctrl: SearchControlCtx): void => {
+  persistName = ctrl.conf.name;
+  historyPersist.flush();
+};
 
 // ── Search History CRUD ──────────────────────────────────────────
 
-const addHistoryEntry = (ctrl: SearchControlState, entry: SearchHistoryEntry): void => {
+const addHistoryEntry = (ctrl: SearchControlCtx, entry: SearchHistoryEntry): void => {
   const updated = mergeHistoryEntries([entry, ...ctrl.searchHistory]).slice(
     0,
     HISTORY.MAX_ENTRIES,
   );
   ctrl.searchHistory = updated;
-  saveHistory(updated);
+  saveHistory(ctrl, updated);
 };
 
-const deleteHistoryEntry = (ctrl: SearchControlState, query: string): void => {
+const deleteHistoryEntry = (ctrl: SearchControlCtx, query: string): void => {
   const updated = ctrl.searchHistory.filter(e => e.query !== query);
   ctrl.searchHistory = updated;
-  saveHistory(updated);
+  saveHistory(ctrl, updated);
 };
 
-const clearHistory = (ctrl: SearchControlState): void => {
+const clearHistory = (ctrl: SearchControlCtx): void => {
   ctrl.searchHistory = [];
-  saveHistory([]);
+  saveHistory(ctrl, []);
 };
 
 const recordHistorySearch = (
-  ctrl: SearchControlState,
+  ctrl: SearchControlCtx,
   query: string,
   type: SearchType,
   coordDisplay: string,
@@ -160,7 +167,7 @@ const recordHistorySearch = (
 
 // ── Suggestions / History Panel ──────────────────────────────────
 
-const renderHistory = (ctrl: SearchControlState, mode: SearchType) => {
+const renderHistory = (ctrl: SearchControlCtx, mode: SearchType) => {
   const entries = ctrl.searchHistory;
   const targetType = mode === MODE.ADDR ? MODE.ADDR : MODE.COORD;
   if (entries.length === 0 || !entries.some(e => e.type === targetType)) {
@@ -192,23 +199,23 @@ const renderHistory = (ctrl: SearchControlState, mode: SearchType) => {
       query: reEntry,
       coordDisplay: entry.coordDisplay || null,
       onClick: () => {
-        if (guardBlocked(map, CONF.name, T("blocked"))) return false;
+        if (guardBlocked(map, ctrl.conf.name, ctrl.T("blocked"))) return false;
         ctrl.inp.value = reEntry;
         const converted = fromWgs84(map, entry.lng, entry.lat);
         const lng = converted[0];
         const lat = converted[1];
-        map.flyTo([lat, lng], CONF.zoom ?? ZOOM.MAX);
+        map.flyTo([lat, lng], ctrl.conf.zoom ?? ZOOM.MAX);
         ctrl.marker = createLocationMarker(
           map,
           lng,
           lat,
           display,
-          isAddr ? T("popup_title_addr") : T("popup_title_coord"),
-          T("popup_loading"),
-          T("popup_loc_label"),
-          T("popup_addr_label"),
-          _("foliplus.close_label"),
-          CONF.locale_code,
+          isAddr ? ctrl.T("popup_title_addr") : ctrl.T("popup_title_coord"),
+          ctrl.T("popup_loading"),
+          ctrl.T("popup_loc_label"),
+          ctrl.T("popup_addr_label"),
+          ctrl._("foliplus.close_label"),
+          ctrl.conf.locale_code,
           ctrl.marker,
         );
         attachSearchDelIcon(ctrl, [lat, lng]);

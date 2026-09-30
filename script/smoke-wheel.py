@@ -130,12 +130,13 @@ def render_control(folium: ModuleType, cls: type, bundle_path: Path) -> None:
 
     # The bundle is inlined, so its filename never appears in the document —
     # but the esbuild banner is the bundle's first line and survives the
-    # copy, so it is the cheapest content fingerprint. `foliplus.` is what a
-    # component bundle externalises to the shared runtime; without it the
-    # bundle is empty of anything that could drive the control.
+    # copy, so it is the cheapest content fingerprint. `foliplus.core.` is
+    # what a component bundle externalises to the shared runtime (the control
+    # factory lives there); without it the bundle is empty of anything that
+    # could drive the control.
     js = bundle_path.read_text(encoding="utf-8")
     assert "foliplus@" in html, f"{name}: shared bundle banner absent from <head>"
-    for marker in (f"· {name}", "foliplus.BaseControl"):
+    for marker in (f"· {name}", "foliplus.core.defineControl"):
         assert marker in js, f"{name}: bundle holds no {marker!r}"
         assert marker in html, f"{name}: {marker!r} missing from the rendered page"
 

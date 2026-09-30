@@ -2,7 +2,7 @@ import { type Mock, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/MeasureControl/const.js";
 import type { MeasureManager } from "#foliplus/MeasureControl/manager.js";
 import { DistanceMode } from "#foliplus/MeasureControl/mode/index.js";
-import { initMocks, makeManagerMock } from "./setup.js";
+import { initMocks, makeEnv, makeManagerMock } from "./setup.js";
 
 // Capture attachDistanceUI's opts so restore's onDelete/onUpdate callbacks can
 // be exercised directly (these are the lines codecov flags as missing).
@@ -261,7 +261,7 @@ describe("DistanceMode — label count equals n-1", () => {
 
 describe("DistanceMode — toGeoFeature", () => {
   it("returns a LineString with totalDistance in properties", () => {
-    const feature = DistanceMode.toGeoFeature({
+    const feature = DistanceMode.toGeoFeature(makeEnv(), {
       id: "d1",
       type: "distance",
       points: [

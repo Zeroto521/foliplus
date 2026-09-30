@@ -1,22 +1,17 @@
-import { createControlEnv } from "#core/controlEnv.js";
+import { defineControl } from "#core/defineControl.js";
 import { ensureLayerAPI } from "#core/layer/index.js";
-import { BaseControl } from "#foliplus/BaseControl.js";
-import { createScopedTranslator } from "#common/locale.js";
 import { createPanelControl } from "#common/panel.js";
 import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
 import { HeatmapManager } from "./manager.js";
 import { bindControls, initScan, setupObserver } from "./ui.js";
 
-createControlEnv(CONF, SVGs.HEXAGON);
-const T = createScopedTranslator(CONF);
-ensureLayerAPI(map);
-
-// ==================== View & Control: HeatmapControl ====================
-class HeatmapControl extends BaseControl {
+class HeatmapControl extends defineControl({
+  conf: CONF,
+  icon: SVGs.HEXAGON,
+  setup: () => ensureLayerAPI(map),
+}) {
   manager: HeatmapManager | null = null;
-  declare conf: ComponentConfig;
-  declare T: (key: string) => string;
   schemeDropdown: HTMLElement | null;
   expandHookDone: boolean;
   declare ctrl: HTMLElement;
@@ -42,8 +37,6 @@ class HeatmapControl extends BaseControl {
 
   constructor(options?: L.ControlOptions) {
     super(options);
-    this.conf = CONF;
-    this.T = T;
     this.schemeDropdown = null;
     this.expandHookDone = false;
     this.schemeBarCleanup = null;
@@ -52,7 +45,6 @@ class HeatmapControl extends BaseControl {
     this.selectScheme = null;
   }
 
-  /** Alias for convenience (creates the manager on first access). */
   get m(): HeatmapManager {
     return (this.manager ??= new HeatmapManager(map));
   }
@@ -60,11 +52,11 @@ class HeatmapControl extends BaseControl {
   buildDOM() {
     const { container, ctrl, panelContent, destroy } = createPanelControl({
       cssClass: CONST.CLASSES.HEATMAP_CTRL,
-      toggleTitle: T("title"),
+      toggleTitle: this.T("title"),
       toggleSvg: SVGs.HEXAGON,
-      panelTitle: T("title"),
-      closeTitle: T("close_title"),
-      collapseOnOutside: CONF.collapse_on_outside,
+      panelTitle: this.T("title"),
+      closeTitle: this.T("close_title"),
+      collapseOnOutside: this.conf.collapse_on_outside,
     });
     // See LayerControl.buildDOM: keeps the factory's document-level listeners
     // from outliving a control that is removed but not garbage-collected.
@@ -86,7 +78,6 @@ class HeatmapControl extends BaseControl {
     this.initScanCleanup = initScan(this);
   }
 
-  /** Never touch `this.m` here: destroy() must not re-create the manager. */
   destroy() {
     // Clean up map event listeners
     this.initScanCleanup?.();
@@ -131,7 +122,6 @@ class HeatmapControl extends BaseControl {
   }
 }
 
-// ==================== Instantiation ====================
 // Instantiate control, then add to map. The initial layer scan runs inside
 // buildDOM (startScan), so a destroy + re-add re-scans instead of stalling.
 const heatmapCtrl = new HeatmapControl({ position: CONF.position });

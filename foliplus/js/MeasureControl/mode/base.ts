@@ -1,20 +1,11 @@
+import type { ControlEnv } from "#core/defineControl.js";
 import { toggleDelIcon } from "#common/delicon.js";
 import { mountDelIcon as mountDelIconShared } from "#common/deliconMount.js";
-import { createTranslator } from "#common/locale.js";
-import { createLogger } from "#common/log.js";
+import type { Logger } from "#common/log.js";
 import * as CONST from "../const.js";
 import { buildEditOverlay } from "../edit.js";
 import type { MeasureManager } from "../manager.js";
 import * as Util from "../util.js";
-
-// CONF is a free variable from the IIFE template wrapper (see global.d.ts).
-// `getNameLabel` relies on identity comparison: when no locale table exists,
-// `_(this.NAME_LABEL_KEY)` must return the exact same short key so the
-// fallback to NAME_LABEL kicks in. createScopedTranslator prepends conf.name,
-// breaking that comparison — so base.ts deliberately uses createTranslator.
-const _ = createTranslator(CONF);
-
-const log = createLogger(CONF.name);
 
 class MeasureMode {
   static TYPE: string = "";
@@ -28,8 +19,8 @@ class MeasureMode {
    * locale table has it, otherwise the English NAME_LABEL fallback.
    * Shared by CSV export (getNameForType) and GeoJSON properties.name.
    */
-  static getNameLabel(): string {
-    const label = _(this.NAME_LABEL_KEY);
+  static getNameLabel(env: ControlEnv): string {
+    const label = env._(this.NAME_LABEL_KEY);
     return label === this.NAME_LABEL_KEY ? this.NAME_LABEL : label;
   }
 
@@ -37,12 +28,25 @@ class MeasureMode {
   map: L.Map;
   layers: CreateLayersAPI;
   _cleanup: (() => void) | null;
+  /** Config, translators and logger are the manager's — one translation table
+   *  per control instance, not per mode. */
+  conf: ComponentConfig;
+  /** Scoped translator (prepending conf.name). */
+  T: (key: string) => string;
+  /** Plain translator (no prefix) — NAME_LABEL_KEY identity comparison
+   *  requires the exact short key when no locale table exists. */
+  _: (key: string) => string;
+  log: Logger;
 
   constructor(manager: MeasureManager) {
     this.manager = manager;
     this.map = manager.map;
     this.layers = manager.layers;
     this._cleanup = null;
+    this.conf = manager.conf;
+    this.T = manager.T;
+    this._ = manager._;
+    this.log = manager.log;
   }
 
   /** Shorthand for manager */
@@ -57,7 +61,7 @@ class MeasureMode {
 
   /** Start the mode — bind events, create UI. Subclasses must override. */
   start(): void {
-    throw new Error(log.msg(`start not implemented for ${this.type}`));
+    throw new Error(this.log.msg(`start not implemented for ${this.type}`));
   }
 
   /** Cleanup — unbind events, remove temporary elements. */
@@ -78,13 +82,13 @@ class MeasureMode {
    *  @param manager - MeasureManager instance.
    *  @param data - Persisted measurement data. */
   static restore(manager: MeasureManager, data: MeasureData): void {
-    throw new Error(log.msg(`restore not implemented for ${this.TYPE}`));
+    throw new Error(manager.log.msg(`restore not implemented for ${this.TYPE}`));
   }
 
   /** Convert a persisted measurement to a GeoJSON Feature.
    *  Subclasses override this to return their specific geometry type. */
-  static toGeoFeature(_data: MeasureData): GeoJSON.Feature {
-    throw new Error(log.msg(`toGeoFeature not implemented for ${this.TYPE}`));
+  static toGeoFeature(env: ControlEnv, _data: MeasureData): GeoJSON.Feature {
+    throw new Error(env.log.msg(`toGeoFeature not implemented for ${this.TYPE}`));
   }
 }
 

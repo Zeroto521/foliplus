@@ -82,6 +82,7 @@
 - `CSS tokens`: consolidate all `--foliplus-*` definitions into `css/common/token.css` as single source of truth (breaking: bare `--x` → `--foliplus-x`); `style_check` rule 4 enforces definitions only in `token.css` ([#542](https://github.com/Zeroto521/foliplus/pull/542), [#573](https://github.com/Zeroto521/foliplus/pull/573))
 - `LayerControl` / `ExportControl`: geometry focus paints a marching-ants bbox (drop the UA ring); crop box shares the same marquee language ([#548](https://github.com/Zeroto521/foliplus/pull/548))
 - `LayerControl`: extract the saved-order domain (`savedOrder` / `removedIds` plus load, snapshot, replay, prune) into a `SavedOrder` class in `savedOrder.ts` — `LayerManager` keeps the LayerAPI forwards and the ownership call-sites; behaviour and the persisted record shape are unchanged ([#569](https://github.com/Zeroto521/foliplus/pull/569))
+- `core/defineControl`: shared entry factory — collapses the index.ts IIFE skeleton across controls; Measure/Search logic receive `ControlEnv` instead of module-level free variables ([#575](https://github.com/Zeroto521/foliplus/pull/575))
 
 ### Removed
 

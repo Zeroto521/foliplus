@@ -1,4 +1,6 @@
-// MeasureControl utility functions — standalone, no manager dependency.
+// MeasureControl utility functions — no manager instance, only the control's
+// conf/translator where a label or popup string is i18n-driven.
+import type { ControlEnv } from "#core/defineControl.js";
 import { area, bearing, centroid, distance, midpoint } from "#core/geo/index.js";
 import { reverseGeocode } from "#core/geocode/index.js";
 import { cssVar } from "#common/cssvar.js";
@@ -10,16 +12,11 @@ import {
   formatLatLng,
   formatNumber,
 } from "#common/format.js";
-import { createScopedTranslator } from "#common/locale.js";
-import { createLogger } from "#common/log.js";
+import type { Logger } from "#common/log.js";
 import * as CONST from "./const.js";
 
 // Edit-specific helpers (buildEditOverlay, bindNodeDrag, drag-synthetic click
 // flag) live in edit.ts. Callers import them directly from there.
-
-// CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
-const T = createScopedTranslator(CONF);
-const log = createLogger(CONF.name);
 
 /** Format meters to human-readable string: "999 m" under the km threshold,
  *  then "1.0 km", "1,234.5 km" — km values keep one decimal with grouping. */
@@ -30,12 +27,13 @@ const formatDistance = (meters: number): string =>
 
 /** Format a segment label: "45° | 1.2 km", or just "1.2 km" when show_bearing is off. */
 const formatSegmentLabel = (
+  ctx: ControlEnv,
   a: { lng: number; lat: number },
   b: { lng: number; lat: number },
   meters: number,
 ): string => {
   const dist = formatDistance(meters);
-  if (!CONF.show_bearing) return dist;
+  if (!ctx.conf.show_bearing) return dist;
   const bVal = Math.round(bearing(a, b));
   return `${bVal}° | ${dist}`;
 };
@@ -66,6 +64,7 @@ const setLabelText = (marker: L.Layer, text: string) => {
 /** Build the popup body for a marker location. Returns an element, so a
  *  reverse-geocoded address can only ever reach the DOM as a TextNode. */
 const buildPopup = (
+  ctx: ControlEnv,
   lng: number,
   lat: number,
   addr: string | null = null,
@@ -74,10 +73,10 @@ const buildPopup = (
     lng,
     lat,
     addr,
-    T("popup_title"),
-    T("popup_loading"),
-    T("popup_loc_label"),
-    T("popup_addr_label"),
+    ctx.T("popup_title"),
+    ctx.T("popup_loading"),
+    ctx.T("popup_loc_label"),
+    ctx.T("popup_addr_label"),
   );
 };
 
@@ -224,7 +223,7 @@ type DisplayLatLng =
 /** Collapse the two Leaflet coordinate shapes into a plain lng/lat pair.
  *  Longitude leads, matching `formatLatLng` and every other
  *  location display in the project. */
-const readLatLng = (pt: DisplayLatLng): [number, number] => {
+const readLatLng = (pt: DisplayLatLng, logger: Logger): [number, number] => {
   const raw = pt as {
     lng?: number;
     lat?: number;
@@ -234,7 +233,7 @@ const readLatLng = (pt: DisplayLatLng): [number, number] => {
   const lng = raw.lng ?? raw.longitude;
   const lat = raw.lat ?? raw.latitude;
   if (lng === undefined || lat === undefined) {
-    throw new TypeError(log.msg("point has no lng/lat"));
+    throw new TypeError(logger.msg("point has no lng/lat"));
   }
   return [lng, lat];
 };
@@ -243,8 +242,8 @@ const readLatLng = (pt: DisplayLatLng): [number, number] => {
  *  map is already in whatever CRS its tiles serve, so what the operator is looking
  *  at is what the readout reports — pointing the chip at the same spot on a
  *  GCJ02 or BD09 map must not show a shifted number. */
-const coordText = (map: L.Map, pt: DisplayLatLng): string => {
-  const [lng, lat] = readLatLng(pt);
+const coordText = (map: L.Map, pt: DisplayLatLng, logger: Logger): string => {
+  const [lng, lat] = readLatLng(pt, logger);
   return formatLatLng(lng, lat);
 };
 
