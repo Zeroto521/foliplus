@@ -1,6 +1,6 @@
+import type { ControlEnv } from "#core/defineControl.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { stopEvent } from "#common/dom.js";
-import { createScopedTranslator } from "#common/locale.js";
 import {
   type MapEventHandlers,
   bindMapEvents,
@@ -11,9 +11,6 @@ import type { MeasureManager } from "../manager.js";
 import { attachCircleUI } from "../ui/index.js";
 import * as Util from "../util.js";
 import { PreviewMode, mountDelIcon } from "./base.js";
-
-// CONF is a free variable from the IIFE template wrapper.
-const T = createScopedTranslator(CONF);
 
 interface CirclePreviews {
   center: L.CircleMarker | null;
@@ -63,7 +60,7 @@ class CircleMode extends PreviewMode {
     // to the old makeDelIcon + addLayer. The ✕ delete click is wired in
     // attachCircleUI, which owns the deleteMeasurement from attachDelLifecycle.
     const delMarker = mountDelIcon(manager.layers, centerLatLng, {
-      title: T("del_tooltip"),
+      title: manager.T("del_tooltip"),
     }) as L.Marker;
 
     const mid = Util.midpoint(centerLatLng, targetLatLng);
@@ -146,9 +143,9 @@ class CircleMode extends PreviewMode {
           CONST.PANES.NODE,
         );
         phase = 1;
-        map.foliplus!.showHint(
-          CONF.name,
-          T("hint_circle_radius"),
+        this.map.foliplus!.showHint(
+          this.conf.name,
+          this.T("hint_circle_radius"),
           HINT_DURATION.PERSIST,
         );
       } else if (phase === 1) {
@@ -265,7 +262,7 @@ class CircleMode extends PreviewMode {
       );
       // See restore(): pure create + mount; click wired in attachCircleUI.
       const delMarker = mountDelIcon(this.layers, centerLatLng, {
-        title: T("del_tooltip"),
+        title: this.T("del_tooltip"),
       });
 
       const mid = Util.midpoint(centerLatLng, finalTargetLatLng);
@@ -331,12 +328,12 @@ class CircleMode extends PreviewMode {
       unbindMapEvents(this.map, circleEvents);
       this.clearCursorNode();
       resetPreviews();
-      map.foliplus!.hideHint(CONF.name);
+      this.map.foliplus!.hideHint(this.conf.name);
     };
   }
 
   /** GeoJSON feature for a circle — properties carry id, radius and center. */
-  static toGeoFeature(data: MeasureData): GeoJSON.Feature {
+  static toGeoFeature(env: ControlEnv, data: MeasureData): GeoJSON.Feature {
     const center = data.center;
     const r = data.radius || 0;
     if (!center || r <= 0) {
@@ -358,7 +355,7 @@ class CircleMode extends PreviewMode {
       properties: {
         id: data.id,
         type: this.TYPE,
-        name: this.getNameLabel(),
+        name: this.getNameLabel(env),
         radius: r,
         center,
         area: data.area,
