@@ -27,6 +27,8 @@ const drawMarquee = (path: SVGGraphicsElement): void => {
   rect.setAttribute("y", String(box.y - MARQUEE_PAD));
   rect.setAttribute("width", String(box.width + MARQUEE_PAD * 2));
   rect.setAttribute("height", String(box.height + MARQUEE_PAD * 2));
+  rect.setAttribute("rx", "4");
+  rect.setAttribute("ry", "4");
   // Sit above the path so the marquee reads as a selection frame.
   svg.appendChild(rect);
   marqueeFor.set(path, rect);

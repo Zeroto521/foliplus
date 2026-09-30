@@ -24,7 +24,7 @@
   outline: none;
 }
 
-/* Focus bounds marquee: accent marching ants. Used by LayerControl's
+/* Focus bounds marquee: accent marching ants + soft glow. Used by LayerControl's
    focusLayer rect and by the geometry-focus bbox (rect element). */
 .foliplus-focus-rect {
   fill: none;
@@ -36,24 +36,34 @@
   animation-duration: var(--foliplus-motion-slow);
   animation-timing-function: linear;
   animation-iteration-count: infinite;
+  filter: drop-shadow(0 0 var(--foliplus-size-2) var(--foliplus-accent-soft-shadow));
   pointer-events: none;
 }
 
 path.foliplus-focus-mask {
   pointer-events: none;
+  animation: foliplus-focus-mask-in var(--foliplus-motion-quick) ease-out;
+}
+@keyframes foliplus-focus-mask-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 /* Soft lift on the focused layer pane — one filter on one element. */
 .foliplus-focus-pane.foliplus-focus-glow {
   animation: foliplus-focus-glow-in var(--foliplus-motion-quick) ease-out;
-  filter: drop-shadow(0 0 var(--foliplus-size-2) var(--foliplus-accent-soft-shadow));
+  filter: drop-shadow(0 0 var(--foliplus-size-4) var(--foliplus-accent-soft-shadow));
 }
 @keyframes foliplus-focus-glow-in {
   from {
     filter: drop-shadow(0 0 0 rgba(var(--foliplus-red-rgb), 0));
   }
   to {
-    filter: drop-shadow(0 0 var(--foliplus-size-2) var(--foliplus-accent-soft-shadow));
+    filter: drop-shadow(0 0 var(--foliplus-size-4) var(--foliplus-accent-soft-shadow));
   }
 }
 
@@ -77,6 +87,9 @@ path.foliplus-focus-mask {
 
 @media (prefers-reduced-motion: reduce) {
   .foliplus-focus-rect {
+    animation: none;
+  }
+  path.foliplus-focus-mask {
     animation: none;
   }
 }
