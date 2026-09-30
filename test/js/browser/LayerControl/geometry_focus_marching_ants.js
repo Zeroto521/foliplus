@@ -1,20 +1,22 @@
 () => {
   const path = document.querySelector("path.leaflet-interactive");
   if (!path) return null;
-  // Make the path focusable the way a keyboard user / script would, then
-  // focus it so the :focus recipe is live. tabindex=-1 keeps it out of the
-  // tab order — we only need the focus state.
   path.setAttribute("tabindex", "-1");
   path.focus();
   const cs = getComputedStyle(path);
+  const marquee = document.querySelector("rect.foliplus-focus-rect");
+  const mcs = marquee ? getComputedStyle(marquee) : null;
   return {
     focused: document.activeElement === path,
+    // UA ring must be gone (black on Windows / system blue on macOS).
     outlineStyle: cs.outlineStyle,
-    outlineWidth: cs.outlineWidth,
-    outlineColor: cs.outlineColor,
+    // The geometry stroke itself is untouched (lines must stay solid).
     stroke: cs.stroke,
     strokeDasharray: cs.strokeDasharray,
-    animationName: cs.animationName,
-    filter: cs.filter,
+    // Selection signal: marching-ants bbox.
+    marqueePresent: marquee !== null,
+    marqueeStroke: mcs ? mcs.stroke : null,
+    marqueeDasharray: mcs ? mcs.strokeDasharray : null,
+    marqueeAnimation: mcs ? mcs.animationName : null,
   };
 };

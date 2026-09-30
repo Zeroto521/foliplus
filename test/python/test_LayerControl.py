@@ -5346,12 +5346,11 @@ class TestLayerControlBrowser:
             )
 
     def test_geometry_focus_drops_ua_ring_for_marching_ants(self, browser, tmp_path):
-        """A focused map path must not paint the UA outline.
+        """A focused map path paints a marching-ants bbox, not a stroke restyle.
 
         The UA ring is black on Windows Chrome and system-blue on macOS Chrome
-        (``outline-style: auto`` + Highlight) — the "black large border" report.
-        The focus signal is repainted with the shared marching-ants vocabulary
-        instead: dash rhythm + ``foliplus-focus-march``.
+        (outline-style: auto + Highlight). The selection signal is the same
+        marquee as the LayerControl focus rect, so line data keeps its stroke.
         """
         fg = folium.FeatureGroup(name="Zone", overlay=True, show=True)
         folium.Polygon(
@@ -5372,9 +5371,11 @@ class TestLayerControlBrowser:
             result = page.evaluate(_js("LayerControl/geometry_focus_marching_ants"))
             assert result is not None, "geometry_focus_marching_ants failed"
             assert result["focused"] is True, f"path never took focus, got {result}"
-            # No UA ring and no casing box — the marquee is the stroke itself.
             assert result["outlineStyle"] == "none", (
-                f"focused geometry must not paint an outline box, got {result}"
+                f"focused geometry must not paint the UA outline, got {result}"
+            )
+            assert result["marqueePresent"] is True, (
+                f"focused geometry must draw the marching-ants bbox, got {result}"
             )
 
             accent = self._sample_token(page, "--foliplus-accent-primary")
@@ -5382,21 +5383,17 @@ class TestLayerControlBrowser:
                 "getComputedStyle(document.documentElement)"
                 ".getPropertyValue('--foliplus-dash-rhythm').trim()"
             )
-            assert result["stroke"] == accent, (
-                f"focused geometry stroke must be accent, "
-                f"got {result['stroke']} vs {accent}"
+            assert result["marqueeStroke"] == accent, (
+                f"marquee stroke must be accent, "
+                f"got {result['marqueeStroke']} vs {accent}"
             )
-            got_dash = result["strokeDasharray"].replace(",", " ").split()
+            got_dash = result["marqueeDasharray"].replace(",", " ").split()
             want_dash = dash.replace(",", " ").split()
             assert got_dash == want_dash, (
-                f"focused geometry dash rhythm must be {want_dash}, got {got_dash}"
+                f"marquee dash rhythm must be {want_dash}, got {got_dash}"
             )
-            assert result["animationName"] == "foliplus-focus-march", (
-                f"focused geometry must keep the march animation, got {result}"
-            )
-            # No filter casing — it follows fill alpha and washes faces.
-            assert result["filter"] in ("none", ""), (
-                f"focused geometry must not use a filter casing, got {result}"
+            assert result["marqueeAnimation"] == "foliplus-focus-march", (
+                f"marquee must keep the march animation, got {result}"
             )
 
     def test_focus_overlay_pane_keeps_spotlight_visible(self, browser, tmp_path):

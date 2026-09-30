@@ -16,23 +16,17 @@
   pointer-events: auto;
 }
 
-/* Geometry focus: the UA ring is black on Windows Chrome and system-blue on
-   macOS — the "black large border" report. Same selection language as the
-   focus rect: accent marching ants on the geometry itself. No outline box. */
+/* Geometry focus: kill the UA ring (black on Windows / system blue on macOS).
+   The selection signal is the marching-ants bbox (see .foliplus-focus-rect),
+   not a restyle of the geometry stroke — a dashed stroke would fight line data. */
 .leaflet-interactive:focus,
 .leaflet-interactive:focus-visible {
   outline: none;
-  stroke: var(--foliplus-accent-primary);
-  stroke-dasharray: var(--foliplus-dash-rhythm);
-  stroke-width: var(--foliplus-border-thick);
-  animation-name: foliplus-focus-march;
-  animation-duration: var(--foliplus-motion-slow);
-  animation-timing-function: linear;
-  animation-iteration-count: infinite;
 }
 
-/* Focus bounds rectangle: accent marching ants on the bounds. */
-path.foliplus-focus-rect {
+/* Focus bounds marquee: accent marching ants. Used by LayerControl's
+   focusLayer rect and by the geometry-focus bbox (rect element). */
+.foliplus-focus-rect {
   fill: none;
   stroke: var(--foliplus-accent-primary);
   stroke-dasharray: var(--foliplus-dash-rhythm);
@@ -82,7 +76,7 @@ path.foliplus-focus-mask {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  path.foliplus-focus-rect {
+  .foliplus-focus-rect {
     animation: none;
   }
 }
