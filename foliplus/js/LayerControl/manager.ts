@@ -113,7 +113,7 @@ const uninstallBringToFrontPatch = () => {
 //             hasUnresolvedLayers, onLayerAdd, loadSavedOrder, saveOrder,
 //             replaySavedOrder, insertOverlayAt, placeBeforeSavedNeighbor,
 //             syncAttribution, attachUI, destroy, canReorderBetween,
-//             findLayer, refreshType, refreshCount, forEachLeaf,
+//             findLayer, refreshCount, forEachLeaf,
 //             clearAllLayers
 //   Private   installBringToFrontPatch, uninstallBringToFrontPatch
 
@@ -234,17 +234,26 @@ class LayerManager implements LayerAPI {
     this.pendingRegistrations = [];
     this.uiContainer = null;
 
-    // Bind method context
-    this.registerLayer = this.registerLayer.bind(this);
-    this.unregisterLayer = this.unregisterLayer.bind(this);
-    this.bringLayerToFront = this.bringLayerToFront.bind(this);
-    this.touchLayer = this.touchLayer.bind(this);
-    this.setVisible = this.setVisible.bind(this);
-    this.getLayerType = this.getLayerType.bind(this);
-    this.getLayersByType = this.getLayersByType.bind(this);
-    this.findLayer = this.findLayer.bind(this);
-    this.forEachLeaf = this.forEachLeaf.bind(this);
-    this.extractPoints = this.extractPoints.bind(this);
+    // Bind method context: every layer-scoped method a component or the
+    // factory may call detached. Collapse the repeated .bind(this) lines
+    // into one loop (same effect); getLayerPanes = resolveLayerPanes.bind
+    // below is a renamed binding, not part of this list.
+    const boundMethods = [
+      "registerLayer",
+      "unregisterLayer",
+      "bringLayerToFront",
+      "touchLayer",
+      "setVisible",
+      "getLayerType",
+      "getLayersByType",
+      "findLayer",
+      "forEachLeaf",
+      "extractPoints",
+    ] as const;
+    for (const name of boundMethods) {
+      const method = this[name];
+      Object.assign(this, { [name]: method.bind(this) });
+    }
     this.isEnforcing = false;
     this.isDestroyed = false;
 
@@ -319,7 +328,7 @@ class LayerManager implements LayerAPI {
     // already landed on it.
     this.annotation = new AnnotationManager({
       map: this.map,
-      layerFind: id => this.findLayer(id),
+      layerFind: this.findLayer,
     });
     this.loadSavedOrder();
     this.layerRegistry.normalizeGroups();
@@ -538,12 +547,6 @@ class LayerManager implements LayerAPI {
     this.surfaces.get(id)?.invalidate();
     const layerInfo = this.layerRegistry.get(id);
     if (layerInfo) layerInfo.type = null;
-  }
-
-  /** Re-infer and return a layer's geometry type. */
-  refreshType(id: string): string | null {
-    this.invalidateType(id);
-    return this.getLayerType(id);
   }
 
   /**

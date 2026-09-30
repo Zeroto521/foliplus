@@ -590,14 +590,6 @@ describe("LayerManager", () => {
     expect(manager.getLayerType("icon")).toBe(GEOM_TYPE.CUSTOM);
   });
 
-  it("invalidateType clears the cached type; refreshType re-infers", () => {
-    // overlay1 has no layer — getLayerType returns null without caching a type.
-    manager.layerRegistry.get("overlay1")!.type = GEOM_TYPE.POINT;
-    manager.invalidateType("overlay1");
-    expect(manager.layerRegistry.get("overlay1")!.type).toBeNull();
-    expect(manager.refreshType("overlay1")).toBeNull(); // no layer resolvable
-  });
-
   it("invalidateType also drops the surface cache, forcing a re-probe", () => {
     // The surface owns the authoritative cache. Clearing the manager's
     // snapshot without also invalidating the surface would leave a stale
