@@ -507,16 +507,20 @@ const drawFocusMask = (ui: LayerUI, bounds: L.LatLngBounds): void => {
 /** Draw the focus rectangle as accent marching ants (no extra casing box). */
 const drawFocusRect = (ui: LayerUI, bounds: L.LatLngBounds): void => {
   const map = ui.m.map;
-  // Pad in pixels so the marquee breathes off the geometry edge.
-  const pad = 4;
-  const nw = map.latLngToContainerPoint(bounds.getNorthWest());
-  const se = map.latLngToContainerPoint(bounds.getSouthEast());
-  const padded = L.latLngBounds(
-    map.containerPointToLatLng(L.point(nw.x - pad, nw.y - pad)),
-    map.containerPointToLatLng(L.point(se.x + pad, se.y + pad)),
-  );
+  // Pad in pixels so the marquee breathes off the geometry edge. Test
+  // doubles and degenerate maps may not project — fall back to raw bounds.
+  let rectBounds = bounds;
+  if (typeof bounds.getNorthWest === "function" && map.latLngToContainerPoint) {
+    const pad = 4;
+    const nw = map.latLngToContainerPoint(bounds.getNorthWest());
+    const se = map.latLngToContainerPoint(bounds.getSouthEast());
+    rectBounds = L.latLngBounds(
+      map.containerPointToLatLng(L.point(nw.x - pad, nw.y - pad)),
+      map.containerPointToLatLng(L.point(se.x + pad, se.y + pad)),
+    );
+  }
 
-  ui.focusRect = L.rectangle(padded, {
+  ui.focusRect = L.rectangle(rectBounds, {
     className: "foliplus-focus-rect",
     fill: false,
     interactive: false,
