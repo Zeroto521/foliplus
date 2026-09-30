@@ -151,10 +151,14 @@ class TestPythonTests:
         new controls look registered while their strings are dead."""
         from test_locale import _JS_USED_KEYS
 
-        missing = [n for n in sorted(controls) if not any(k.startswith(f"{n}.") for k in _JS_USED_KEYS)]
+        missing = [
+            n
+            for n in sorted(controls)
+            if not any(k.startswith(f"{n}.") for k in _JS_USED_KEYS)
+        ]
         assert not missing, (
             f"no <Name>.* keys in _JS_USED_KEYS for: {missing}\n"
-            f"Add the keys the JS actually uses (T(\"...\") under CONST.name). {_SCAFFOLD}"
+            f'Add the keys the JS actually uses (T("...") under CONST.name). {_SCAFFOLD}'
         )
 
 

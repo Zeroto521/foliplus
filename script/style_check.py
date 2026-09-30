@@ -115,7 +115,9 @@ FOLIPLUS_PREFIX = "--foliplus-"
 TOKEN_CSS = "foliplus/css/common/token.css"
 
 
-def check_custom_property_prefix(lines: list[str], filename: str = "") -> list[tuple[int, str]]:
+def check_custom_property_prefix(
+    lines: list[str], filename: str = ""
+) -> list[tuple[int, str]]:
     """Rule 4: report bare (non-`--foliplus-`) custom property names, and
     definitions outside token.css."""
     violations: list[tuple[int, str]] = []

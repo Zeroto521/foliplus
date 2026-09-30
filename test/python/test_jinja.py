@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from textwrap import dedent
 
 import folium
 import pytest
@@ -20,7 +21,6 @@ from foliplus import (
     SearchControl,
 )
 from foliplus.BaseControl import _load_asset, control_assets
-from textwrap import dedent
 
 # All controls with their CONST.name value
 _CONTROLS = {
