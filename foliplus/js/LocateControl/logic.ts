@@ -5,6 +5,7 @@ import { createLocationMarker } from "#core/locationMarker.js";
 import { guardBlocked } from "#core/mode.js";
 import { DEL_ICON_MARKER_ANCHOR } from "#common/delicon.js";
 import { mountDelIcon } from "#common/deliconMount.js";
+import { formatCoord } from "#common/format.js";
 import { createScopedTranslator, createTranslator } from "#common/locale.js";
 
 const _ = createTranslator(CONF);
@@ -93,8 +94,8 @@ const locateMe = (ctrl: LocateCtrl) => {
       let lng = pos.coords.longitude;
       let lat = pos.coords.latitude;
       const converted = fromWgs84(map, lng, lat);
-      lng = Number(converted[0].toFixed(6));
-      lat = Number(converted[1].toFixed(6));
+      lng = Number(formatCoord(converted[0]));
+      lat = Number(formatCoord(converted[1]));
       placeMarker(ctrl, lng, lat, `${CONF.name}.popup_title_geo`);
     },
     () => {

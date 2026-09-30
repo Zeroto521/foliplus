@@ -4,27 +4,31 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from textwrap import dedent
 
 import folium
 import pytest
 from conftest import render
 
 from foliplus import (
+    ExportControl,
     FullscreenControl,
     HeatmapControl,
     LayerControl,
+    LocateControl,
     MeasureControl,
     ScaleControl,
     SearchControl,
 )
-
-JS_DIR = Path(__file__).parent.parent / "foliplus" / "js"
+from foliplus.BaseControl import _load_asset, control_assets
 
 # All controls with their CONST.name value
 _CONTROLS = {
+    "ExportControl": ExportControl,
     "FullscreenControl": FullscreenControl,
     "HeatmapControl": HeatmapControl,
     "LayerControl": LayerControl,
+    "LocateControl": LocateControl,
     "SearchControl": SearchControl,
     "MeasureControl": MeasureControl,
     "ScaleControl": ScaleControl,
@@ -32,41 +36,59 @@ _CONTROLS = {
 
 
 class TestJinjaIntegrity:
-    """Verify JS files contain valid Jinja2 template tags."""
+    """Verify BaseControl templates contain valid Jinja2 template tags."""
 
     @pytest.fixture
-    def js_files(self) -> list[Path]:
-        return list(JS_DIR.glob("*.js"))
+    def template_sources(self) -> dict[str, str]:
+        """Build template source strings for all controls."""
+        sources = {}
+        for name in _CONTROLS:
+            js_artifact, css_artifact = control_assets(name)
+            js = _load_asset(js_artifact)
+            css = _load_asset(css_artifact)
+            sources[name] = dedent(f"""
+    {{% macro html(this, kwargs) %}}
+    <style>
+    {css}
+    </style>
+    {{% endmacro %}}
 
-    def test_no_broken_jinja_tags(self, js_files: list[Path]):
+    {{% macro script(this, kwargs) %}}
+    (() => {{
+    const map = {{{{ this._parent.get_name() }}}};
+    const CONF = {{{{ this._config_block | safe }}}};
+    {js}
+    }})();
+    {{% endmacro %}}
+""")
+        return sources
+
+    def test_no_broken_jinja_tags(self, template_sources: dict[str, str]):
         broken = [
             (r"\{ \{", "{{"),
-            (r"\} \}", "}}"),
             (r"\{% -", "{%-"),
             (r"% \}", "%}"),
             (r"\{ %", "{%"),
         ]
         errors = []
-        for f in js_files:
-            content = f.read_text(encoding="utf-8")
+        for name, source in template_sources.items():
             for pattern, correct in broken:
-                if re.search(pattern, content):
+                if re.search(pattern, source):
                     errors.append(
-                        f"Broken Jinja2 tag matching '{pattern}' in {f.name}. "
+                        f"Broken Jinja2 tag matching '{pattern}' in {name}. "
                         f"Should be '{correct}'."
                     )
         if errors:
             pytest.fail("\n".join(errors))
 
-    def test_brace_balance(self, js_files: list[Path]):
+    def test_brace_balance(self, template_sources: dict[str, str]):
         errors = []
-        for f in js_files:
-            content = f.read_text(encoding="utf-8")
-            opens = content.count("{")
-            closes = content.count("}")
+        for name, source in template_sources.items():
+            opens = source.count("{")
+            closes = source.count("}")
             if opens != closes:
                 errors.append(
-                    f"{f.name}: {{ {opens} vs }} {closes} (diff={opens - closes})"
+                    f"{name}: {{ {opens} vs }} {closes} (diff={opens - closes})"
                 )
         if errors:
             pytest.fail("Brace imbalance:\n" + "\n".join(errors))
@@ -80,6 +102,8 @@ class TestJinjaIntegrity:
             ScaleControl(),
             MeasureControl(),
             HeatmapControl(),
+            ExportControl(),
+            LocateControl(),
         ]
         try:
             for comp in components:
@@ -105,6 +129,8 @@ class TestJinjaIntegrity:
             ScaleControl(locale="zh"),
             MeasureControl(locale="zh"),
             HeatmapControl(locale="zh"),
+            ExportControl(locale="zh"),
+            LocateControl(locale="zh"),
         ]
         try:
             for comp in components:

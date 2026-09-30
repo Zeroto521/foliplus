@@ -4,14 +4,6 @@
 import { debounce } from "./debounce.js";
 import { createLogger } from "./log.js";
 
-// `name` is a caller-supplied parameter here (no module-level CONF), so the
-// logger is created per call — bound to a local first so the call reads as an
-// ordinary statement instead of a chain.
-const logWarn = (name: string, message: string, err: unknown): void => {
-  const log = createLogger(name);
-  log.warn(message, err);
-};
-
 /**
  * Read and parse a value from localStorage.
  * @param key - localStorage key.
@@ -23,8 +15,25 @@ const loadRecord = <T>(key: string, name = "foliplus"): T | null => {
     const data = window.localStorage.getItem(key);
     return data ? (JSON.parse(data) as T) : null;
   } catch (e) {
-    logWarn(name, `failed to load saved data (key=${key})`, e);
+    createLogger(name).warn(`failed to load saved data (key=${key})`, e);
     return null;
+  }
+};
+
+/**
+ * Delete a key from localStorage.
+ * @param key - localStorage key.
+ * @param name - Caller component name, used as the log prefix.
+ * @returns Whether the key was deleted (false when the key didn't exist).
+ */
+const removeRecord = (key: string, name = "foliplus"): boolean => {
+  try {
+    const existed = window.localStorage.getItem(key) !== null;
+    window.localStorage.removeItem(key);
+    return existed;
+  } catch (e) {
+    createLogger(name).warn(`failed to remove data (key=${key})`, e);
+    return false;
   }
 };
 
@@ -42,7 +51,7 @@ const saveRecord = (key: string, data: unknown, name = "foliplus"): boolean => {
     window.localStorage.setItem(key, JSON.stringify(data));
     return true;
   } catch (e) {
-    logWarn(name, `failed to save data (key=${key})`, e);
+    createLogger(name).warn(`failed to save data (key=${key})`, e);
     return false;
   }
 };
@@ -198,5 +207,12 @@ const makePersisted = ({
   };
 };
 
-export { loadRecord, loadVersioned, makePersisted, saveRecord, saveVersioned };
+export {
+  loadRecord,
+  loadVersioned,
+  makePersisted,
+  removeRecord,
+  saveRecord,
+  saveVersioned,
+};
 export type { Persisted, PersistedOpts };
