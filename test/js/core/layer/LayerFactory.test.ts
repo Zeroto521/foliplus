@@ -949,13 +949,6 @@ describe("LayerFactory", () => {
       expect(api.canvas.classList.contains("foliplus-heatmap-canvas")).toBe(false);
     });
 
-    it("does not stamp export opt-out — components self-declare", () => {
-      // Export vocabulary (data-foliplus-export) stays out of core/layer.
-      // HeatmapControl stamps its own canvas after createCanvas.
-      const api = factory.createCanvas({ id: "canvas_test" });
-      expect(api.canvas.getAttribute("data-foliplus-export")).toBeNull();
-    });
-
     it("keeps no SVG renderer on the canvas pane", () => {
       factory.createCanvas({ id: "canvas_test" }).register();
       expect(window.L.svg).not.toHaveBeenCalled();

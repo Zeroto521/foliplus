@@ -549,9 +549,6 @@ class LayerFactory {
 
     // Detached until `preRegister` mounts it: the pane is created at register
     // time so it can be priced at its slot from birth (see `mountFace`).
-    // Export opt-out is a component self-declaration (e.g. HeatmapControl
-    // stamps data-foliplus-export="exclude" after createCanvas) — this
-    // factory stays free of ExportControl's export vocabulary.
     const canvas = dom.el("canvas", {
       class: "foliplus-canvas-layer",
     }) as HTMLCanvasElement;

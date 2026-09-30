@@ -766,14 +766,14 @@ describe("initScan — single-layer auto-select on first scan only", () => {
     };
   });
 
-  it("stamps data-foliplus-export=exclude on its createCanvas canvas", () => {
-    // Component self-declaration (T253 option B): core/layer stays free of
-    // ExportControl's export vocabulary; HeatmapControl stamps its own node.
+  it("does not stamp export opt-out on its canvas (heatmap must export)", () => {
+    // Heatmap content is painted via the li.canvas special path. Exclude is
+    // chrome opt-out only — heatmap canvas must stay exportable content.
     const m = makeManager();
-    const stamped = (
+    const canvas = (
       window.map.foliplus.LayerAPI.createCanvas as ReturnType<typeof vi.fn>
     ).mock.results[0].value.canvas as HTMLCanvasElement;
-    expect(stamped.getAttribute("data-foliplus-export")).toBe("exclude");
+    expect(canvas.getAttribute("data-foliplus-export")).toBeNull();
     expect(m.overlay).toBeTruthy();
   });
 

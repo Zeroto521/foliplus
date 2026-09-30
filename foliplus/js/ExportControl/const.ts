@@ -86,6 +86,13 @@ const SEL = {
    * per-layer walk never reaches it and it needs its own pass.
    */
   ANNOTATION_CANVAS: ".leaflet-map-pane canvas.foliplus-annotation-canvas",
+  /**
+   * Hide-pass only (not traversal skip): Leaflet control host + this
+   * control's own bar. Same list as main — layout hide during export.
+   * Content canvases are NOT listed: they paint via `li.canvas` and must
+   * stay measurable. Traversal exclusion is SKIP_EXPORT, not this list.
+   */
+  CONTROL: ".leaflet-control-container, .foliplus-export-ctrl",
   LABEL: "[data-foliplus-export='label']",
   /**
    * Opt-out for export.  Elements matching this selector are dropped from the
@@ -102,24 +109,11 @@ const SEL = {
    * The data attribute is the primary / extensible carrier (future exclusion
    * semantics extend the attribute value, not the class list). Only an
    * element's own marker counts.  Pane-level hiding (focus) is a transient
-   * view state and the export ignores it — see renderPaneSVG.  Registered
-   * canvas layers still paint via `li.canvas`; the marker only blocks generic
-   * pane walks from copying the live DOM node.
+   * view state and the export ignores it — see renderPaneSVG.  Content
+   * canvases (Heatmap via `li.canvas`) are painted by the special path and
+   * must NOT carry this marker — exclude is chrome opt-out, not "drop layer".
    */
   SKIP_EXPORT: '[data-foliplus-export="exclude"], .foliplus-skip-export',
-  /**
-   * Map-level hide fallback for the export hide-pass only (not traversal
-   * skip). Leaflet's own control host — third-party controls cannot
-   * self-declare, so this stays here. Component chrome (this control's bar,
-   * registered canvases) self-declares via `data-foliplus-export="exclude"`
-   * instead.
-   *
-   * Hide-pass uses only this host. Export chrome sits inside it (Leaflet
-   * control bar), so layout still clears. Registered canvas layers are
-   * content — they must stay measurable for the `li.canvas` special path and
-   * must never be display:none'd by an export marker.
-   */
-  HIDE_DURING_EXPORT: ".leaflet-control-container",
 };
 
 // ============================================================================

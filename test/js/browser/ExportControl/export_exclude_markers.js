@@ -1,10 +1,9 @@
 () => {
   // T253: component self-declared export DOM-copy opt-out (data attribute).
   //
-  // - export control bar carries data-foliplus-export="exclude" (self-mark);
-  // - createCanvas factory stays neutral (no export vocabulary in core/layer);
-  // - HeatmapControl stamps its own canvas after createCanvas (unit-tested
-  //   in HeatmapControl/manager.test.ts).
+  // - export control bar carries data-foliplus-export="exclude" (chrome);
+  // - heatmap / createCanvas canvases are content — must NOT carry exclude
+  //   (they paint via the li.canvas special path and must stay in the export).
   const exportCtrl = document.querySelector(".foliplus-export-ctrl");
   let createCanvasUnmarked = false;
   const api = window.map.foliplus && window.map.foliplus.LayerAPI;

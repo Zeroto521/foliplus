@@ -1117,11 +1117,9 @@ class TestExportControlBrowser:
 
         Component-side self-declaration (data attribute) + central map-level
         fallback:
-        - export control bar carries ``data-foliplus-export="exclude"``;
-        - createCanvas factory stays neutral (core/layer has no export vocab);
-        - HeatmapControl stamps its own canvas (unit-tested in manager.test.ts);
-        - a registered canvas still paints via the ``li.canvas`` special path
-          (positive control — rendering semantics unchanged);
+        - export control bar carries ``data-foliplus-export="exclude"`` (chrome);
+        - heatmap / createCanvas canvases are content and must NOT carry exclude
+          (they paint via the ``li.canvas`` special path — heatmap must export);
         - a purple marker self-marked ``data-foliplus-export="exclude"`` in a
           foliplus pane does not leak into the export canvas.
         """
