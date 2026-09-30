@@ -17,7 +17,9 @@ const clearMarquee = (path: Element): void => {
 };
 
 const drawMarquee = (path: SVGGraphicsElement): void => {
-  clearMarquee(path);
+  // Single-selection: drop any other marquee first.
+  document.querySelectorAll("rect.foliplus-focus-rect").forEach(n => n.remove());
+  marqueeFor.delete(path);
   const svg = path.ownerSVGElement;
   if (!svg) return;
   const box = path.getBBox();
