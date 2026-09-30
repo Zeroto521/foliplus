@@ -60,6 +60,20 @@ describe("IntentStore — get/set/clear/mark/unmark", () => {
     expect(store.isUserSet("a", "opacity")).toBe(false);
   });
 
+  it("setRaw writes value + mark for override keys; undefined is a no-op", () => {
+    const store = new IntentStore();
+    store.setRaw("a", "opacity", 0.4);
+    expect(store.get("a", "opacity")).toBe(0.4);
+    expect(store.isUserSet("a", "opacity")).toBe(true);
+
+    store.setRaw("a", "opacity", undefined);
+    expect(store.get("a", "opacity")).toBe(0.4);
+
+    store.setRaw("b", "name", "N");
+    expect(store.get("b", "name")).toBe("N");
+    expect(store.isUserSet("b", "name")).toBe(false);
+  });
+
   it("mark is idempotent and keeps insertion order", () => {
     const store = new IntentStore();
     store.setValue("a", "fillColor", "#f00");

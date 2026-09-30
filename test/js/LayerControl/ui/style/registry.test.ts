@@ -28,6 +28,7 @@ import {
   getDimension,
   listDimensions,
   registerDimension,
+  writeIntentKeys,
 } from "#foliplus/LayerControl/ui/style/registry.js";
 import { ZOOM_RANGE_DIMENSION } from "#foliplus/LayerControl/ui/style/zoomRange.js";
 import { initFixture, installLeafletGlobals } from "../fixture.js";
@@ -116,6 +117,58 @@ describe("LayerControl style-panel dimension registry", () => {
     expect(() => registerDimension(testDim)).toThrow(
       /test\.dim\.registry.*already registered/,
     );
+  });
+});
+
+describe("LayerControl style-panel dimension registry — writeIntentKeys", () => {
+  let ui: LayerUI;
+  let schedule: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    installLeafletGlobals();
+    const fixture = initFixture({
+      data: [
+        {
+          id: "overlay1",
+          name: "Overlay",
+          group: "overlay",
+          layer: { options: {}, setZIndex: vi.fn(), getBounds: vi.fn() },
+        },
+      ],
+    });
+    ui = fixture.ui;
+    schedule = vi.fn();
+    ui.m.persistence = { schedule } as never;
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+  });
+
+  it("skips undefined values and saves only when something was written", () => {
+    expect(
+      writeIntentKeys(ui, "overlay1", [
+        ["opacity", undefined],
+        ["visible", undefined],
+      ]),
+    ).toBe(false);
+    expect(schedule).not.toHaveBeenCalled();
+
+    expect(
+      writeIntentKeys(ui, "overlay1", [
+        ["opacity", undefined],
+        ["opacity", 0.4],
+      ]),
+    ).toBe(true);
+    expect(ui.intentStore.get("overlay1", "opacity")).toBe(0.4);
+    expect(ui.intentStore.isUserSet("overlay1", "opacity")).toBe(true);
+    expect(schedule).toHaveBeenCalled();
+  });
+
+  it("returns false when the writes array is empty", () => {
+    expect(writeIntentKeys(ui, "overlay1", [])).toBe(false);
+    expect(schedule).not.toHaveBeenCalled();
   });
 });
 
@@ -339,6 +392,14 @@ describe("LayerControl style-panel dimension registry — opacity descriptor", (
     OPACITY_DIMENSION.write!(ui, "overlay1", 1);
     expect(ui.intentStore.get("overlay1", "opacity")).toBeUndefined();
     expect(ui.intentStore.isUserSet("overlay1", "opacity")).toBe(false);
+  });
+
+  it("write ignores a non-number patch", () => {
+    const schedule = vi.fn();
+    ui.m.persistence = { schedule } as never;
+    OPACITY_DIMENSION.write!(ui, "overlay1", { opacity: 0.4 } as never);
+    expect(ui.intentStore.get("overlay1", "opacity")).toBeUndefined();
+    expect(schedule).not.toHaveBeenCalled();
   });
 
   it("reset clears opacity override", () => {
@@ -648,6 +709,14 @@ describe("LayerControl style-panel dimension registry — zoomRange descriptor",
     ZOOM_RANGE_DIMENSION.write!(ui, "overlay1", {});
     expect(ui.intentStore.get("overlay1", "zoomRange")).toEqual([4, 9]);
     expect(ui.intentStore.isUserSet("overlay1", "zoomRange")).toBe(true);
+  });
+
+  it("write with empty patch and no stored value is a no-op", () => {
+    const schedule = vi.fn();
+    ui.m.persistence = { schedule } as never;
+    ZOOM_RANGE_DIMENSION.write!(ui, "overlay1", {});
+    expect(schedule).not.toHaveBeenCalled();
+    expect(ui.intentStore.isUserSet("overlay1", "zoomRange")).toBe(false);
   });
 
   it("reset clears the zoomRange override", () => {
