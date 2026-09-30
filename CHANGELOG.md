@@ -118,6 +118,7 @@
 - `LayerControl`: normalize style-panel colors to `#rrggbb`; style writes enable `stroke` / `fill` and Reset restores the author's flags; fill and border drag applies coalesce to one walk per frame with flush on change, blur, and panel close ([#477](https://github.com/Zeroto521/foliplus/pull/477), [#482](https://github.com/Zeroto521/foliplus/pull/482), [#556](https://github.com/Zeroto521/foliplus/pull/556), [#558](https://github.com/Zeroto521/foliplus/pull/558), [#560](https://github.com/Zeroto521/foliplus/pull/560), [#565](https://github.com/Zeroto521/foliplus/pull/565))
 - `FullscreenControl`: a denied fullscreen entry or exit now reports the honest hint (`unsupported` / `exit_fail`) instead of "Entered fullscreen" ([#486](https://github.com/Zeroto521/foliplus/pull/486))
 - `LayerControl`: rapid visibility toggles stay smooth at 6k layers — the toggle-all tri-state counter updates O(1) per click instead of rescanning the group, and overlay clicks skip the basemap scan ([#504](https://github.com/Zeroto521/foliplus/pull/504))
+- `LayerControl`: a provenance `visible` marker without a value now reads as the user's show choice everywhere — `syncToggleAll` and `syncNoBasemap` use the same `intentVisibleOf` formula as the row checkbox, so a half-broken persisted record no longer hides the row from the group count or the no-basemap hatch ([#570](https://github.com/Zeroto521/foliplus/pull/570))
 
 ## [v0.3.0] (2026-08-02)
 
