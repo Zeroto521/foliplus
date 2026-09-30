@@ -2,13 +2,8 @@
 // the canvases living inside a pane.
 // Moved from renderer.ts — renderCanvasElement, renderPaneCanvas.
 import * as CONST from "../const.js";
-import { isVisible, loadImage } from "../util.js";
+import { isExportExcluded, isVisible, loadImage } from "../util.js";
 import { type RenderCtx, effectiveOpacity, withAlpha } from "./util.js";
-
-/** True when the node itself is export-excluded, or sits under a marked
- *  ancestor (chrome host trees). Pane-canvas pass — see SEL.SKIP_EXPORT. */
-const isExportExcluded = (el: Element): boolean =>
-  el.matches(CONST.SEL.SKIP_EXPORT) || el.closest(CONST.SEL.SKIP_EXPORT) != null;
 
 /** Render a standalone canvas element (e.g. HeatmapControl). */
 const renderCanvasElement = async (

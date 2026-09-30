@@ -1,5 +1,5 @@
 () => {
-  // T253: component self-declared export DOM-copy opt-out (data attribute).
+  // Component self-declared export DOM-copy opt-out (data attribute).
   //
   // - export control bar carries data-foliplus-export="exclude" (chrome);
   // - heatmap / createCanvas canvases are content — must NOT carry exclude

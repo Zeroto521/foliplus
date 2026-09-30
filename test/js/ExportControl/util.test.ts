@@ -1,9 +1,41 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   ensureFont,
+  isExportExcluded,
   isVisible,
   resolveExportBackground,
 } from "#foliplus/ExportControl/util.js";
+
+describe("isExportExcluded", () => {
+  it("is true when the element matches SKIP_EXPORT", () => {
+    const el = document.createElement("div");
+    el.setAttribute("data-foliplus-export", "exclude");
+    expect(isExportExcluded(el)).toBe(true);
+  });
+
+  it("is true when an ancestor matches SKIP_EXPORT", () => {
+    const host = document.createElement("div");
+    host.setAttribute("data-foliplus-export", "exclude");
+    const child = document.createElement("canvas");
+    host.appendChild(child);
+    document.body.appendChild(host);
+    try {
+      expect(isExportExcluded(child)).toBe(true);
+    } finally {
+      host.remove();
+    }
+  });
+
+  it("is false for an unmarked element with no marked ancestor", () => {
+    const el = document.createElement("div");
+    document.body.appendChild(el);
+    try {
+      expect(isExportExcluded(el)).toBe(false);
+    } finally {
+      el.remove();
+    }
+  });
+});
 
 describe("isVisible", () => {
   it("returns true for a rectangle fully inside the viewport", () => {

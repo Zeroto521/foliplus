@@ -117,10 +117,9 @@ const SEL = {
    * semantics extend the attribute value, not the class list).
    *
    * Match rules by pass (not one universal nesting rule):
-   *   - `collectLayerMarkers`: root matches, or a root that *contains* a
-   *     marked descendant (marker pass draws whole roots).
-   *   - `renderPaneCanvas`: canvas matches, or sits under a marked ancestor
-   *     (chrome host trees are excluded wholesale).
+   *   - `collectLayerMarkers` / `renderPaneCanvas`: `isExportExcluded` —
+   *     self or ancestor; markers also drop roots that contain a marked
+   *     descendant (pass draws whole roots).
    *   - `renderPaneSVG`: marked nodes are pruned from the clone only.
    * Pane-level hiding (focus) is a transient view state and the export
    * ignores it — see renderPaneSVG.  Content canvases (Heatmap via

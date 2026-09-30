@@ -1,5 +1,5 @@
 () => {
-  // T253 pixel + DOM gate for component self-declared export opt-out.
+  // Pixel + DOM gate for component self-declared export opt-out.
   //
   // Positive control: create_red_canvas paints via the li.canvas special path
   // (must still appear — rendering semantics unchanged).

@@ -1373,7 +1373,7 @@ class TestExportControlBrowser:
             assert len(errors) == 0, f"JS errors on canvas export: {errors}"
 
     def test_export_excludes_self_declared_marked_elements(self, browser, tmp_path):
-        """T253: data-foliplus-export=exclude chrome stays out of the export.
+        """data-foliplus-export=exclude chrome stays out of the export.
 
         Traversal-skip contract (data attribute) + hide list (CONTROL, same
         as main) + content must stay exportable:
