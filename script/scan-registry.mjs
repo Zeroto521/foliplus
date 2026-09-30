@@ -26,6 +26,7 @@ import { mkdirSync, readdirSync, writeFileSync } from "fs";
 import { dirname, resolve } from "path";
 import { fileURLToPath, pathToFileURL } from "url";
 import { help, parseArgs } from "./args.mjs";
+import { resolveJsRoot } from "./build-path.mjs";
 import { canonicalSpec, scanSharedImports } from "./import-scan.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -53,7 +54,7 @@ if (_raw.errors.length) {
 const opts = _raw;
 
 const ROOT = resolve(opts.root);
-const srcDir = resolve(ROOT, "foliplus/js");
+const srcDir = resolveJsRoot(ROOT);
 const buildJs = resolve(ROOT, "foliplus/.build/js");
 mkdirSync(buildJs, { recursive: true });
 
