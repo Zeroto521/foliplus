@@ -224,13 +224,6 @@
   --foliplus-marquee-glow-color: var(--foliplus-accent-soft-shadow);
   --foliplus-marquee-radius: var(--foliplus-size-6);
 
-  /* White casing around a focused path (selection language ⑤).
-     Painted as `outline` so it hugs the stroke silhouette and never
-     washes a filled face (a `filter: drop-shadow` chain follows the whole
-     alpha, fill included, and stacked layers cost frames). Shared by
-     geometry :focus and the focus rect. */
-  --foliplus-focus-casing-color: var(--foliplus-neutral-0);
-  --foliplus-focus-casing-width: var(--foliplus-size-2);
   /* ── Anchor Dot ──
     Shared look for every interactive anchor dot drawn on the map: measure
     nodes (circle/radius/centroid, SVG circleMarker) and the export crop-box
