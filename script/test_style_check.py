@@ -714,6 +714,26 @@ class TestMain:
         assert captured.out == ""
         assert captured.err == ""
 
+    def test_clean_mjs_returns_zero(self, tmp_path, capsys, monkeypatch):
+        # Script modules get rule 2 only; a singular name passes.
+        f = tmp_path / "build-path.mjs"
+        f.write_text("export {};\n", encoding="utf-8")
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 0
+        captured = capsys.readouterr()
+        assert captured.out == ""
+
+    def test_plural_mjs_via_cli_reports_and_exits_one(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        # The CLI's script-module branch (rule 2 on script/*.mjs) must report
+        # and fail the build — a plural module name otherwise ships unchecked.
+        f = tmp_path / "css-layers.mjs"
+        f.write_text("export {};\n", encoding="utf-8")
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 1
+        captured = capsys.readouterr()
+        assert "name `css-layers` looks plural" in captured.out
+        assert "code-style violation(s)" in captured.err
+
     def test_violation_reports_location_and_exit_one(
         self, tmp_path, capsys, monkeypatch
     ):
