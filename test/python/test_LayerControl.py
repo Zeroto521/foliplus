@@ -678,7 +678,9 @@ class TestLayerControlRendering:
         assert "var(--foliplus-grid-layer-cols)" in ta_block
         div_idx = layer_css[ta_idx:].find(".foliplus-section-divider {")
         assert div_idx != -1, "divider rule not inside toggle-all container"
-        div_block = layer_css[ta_idx : ta_idx + layer_css[ta_idx:].index("}", div_idx) + 1]
+        div_block = layer_css[
+            ta_idx : ta_idx + layer_css[ta_idx:].index("}", div_idx) + 1
+        ]
         assert "grid-column: 4 / -1" in div_block, (
             "divider must start at col 4 (after label slot 3) and end at -1 (col 6)"
         )
