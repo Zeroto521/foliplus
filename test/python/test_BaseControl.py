@@ -480,6 +480,18 @@ class TestBaseControlRendering:
         assert "color: var(--foliplus-text-primary)" in css
         # Disabled menu entries keep their muted non-answer.
         assert ".foliplus-layer-more-menu li[disabled]:active" in css
+        # New interactive surfaces ride the shared focus-ring token.
+        assert "var(--foliplus-focus-ring)" in css
+        assert ":focus-visible" in css
+
+    def test_layer_more_menu_focus_ring_uses_shared_tokens(self):
+        """Layer overflow menu items take the shared focus-ring + fast transition."""
+        css = read_css_dir("foliplus/css/LayerControl", "menu.css")
+        idx = css.find(".foliplus-layer-more-menu li:focus-visible")
+        assert idx != -1
+        block = css[idx : css.index("}", idx)]
+        assert "var(--foliplus-focus-ring)" in block
+        assert "box-shadow var(--foliplus-transition-fast)" in block
 
 
 # ---------------------------------------------------------------------------

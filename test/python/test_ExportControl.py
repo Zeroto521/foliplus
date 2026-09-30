@@ -305,6 +305,34 @@ class TestExportControlRendering:
         assert "scale(" not in block, block
         assert "var(--foliplus-slider-thumb-glow)" in block
         assert "box-shadow var(--foliplus-transition-fast)" in block
+        # Focus ring: shared token, no transform.
+        assert "&:focus-visible" in block
+        assert "var(--foliplus-focus-ring)" in block
+
+    def test_export_handles_use_focus_ring_without_scale(self):
+        """Crop handles take the shared focus ring; press stays shadow-only."""
+        from conftest import read_css
+
+        css = read_css("foliplus/css/ExportControl.css")
+        idx = css.find(".foliplus-export-handle")
+        assert idx != -1
+        start = css.index("{", idx)
+        depth = 0
+        end = None
+        for i in range(start, len(css)):
+            if css[i] == "{":
+                depth += 1
+            elif css[i] == "}":
+                depth -= 1
+                if depth == 0:
+                    end = i
+                    break
+        block = css[idx : end + 1]
+        assert "&:focus-visible" in block
+        assert "var(--foliplus-focus-ring)" in block
+        assert "scale(" not in block
+        assert "background-color var(--foliplus-transition-fast)" in block
+        assert "box-shadow var(--foliplus-transition-fast)" in block
 
 
 class TestExportControlBrowser:

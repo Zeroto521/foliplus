@@ -88,6 +88,7 @@
     outline: none;
     box-shadow: var(--foliplus-focus-ring);
     border-radius: var(--foliplus-radius-sm);
+    transition: box-shadow var(--foliplus-transition-fast);
   }
   .foliplus-layer-more-menu li svg {
     flex-shrink: 0;

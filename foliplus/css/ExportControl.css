@@ -220,6 +220,14 @@
     background: var(--foliplus-accent-light);
     box-shadow: var(--foliplus-slider-thumb-glow);
   }
+  /* Keyboard focus: same shared ring as every other foliplus control.
+     Transform stays reserved for the per-edge translate — focus must not
+     move the handle either. */
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--foliplus-focus-ring);
+    border-radius: var(--foliplus-radius-round);
+  }
 
   &.tl {
     top: var(--foliplus-export-handle-offset);
@@ -296,6 +304,13 @@
   }
   &:active {
     box-shadow: var(--foliplus-slider-thumb-glow);
+  }
+  /* Keyboard focus: shared focus-ring token. No transform — the center
+     stays pinned at translate(-50%, -50%). */
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--foliplus-focus-ring);
+    border-radius: var(--foliplus-radius-round);
   }
 }
 
