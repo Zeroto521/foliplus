@@ -190,12 +190,17 @@
   height: var(--foliplus-export-anchor-size);
   z-index: calc(var(--foliplus-z-export-base) + 5);
   pointer-events: auto;
+  /* Anchor div is a square box; without a round radius the accent-light
+     hover/active wash and the glow/focus ring paint as hard corners. */
+  border-radius: var(--foliplus-radius-round);
   /* Cursor direction is the grab affordance and stays as-is; hover/press
      only warm the surface and add the shared slider glow. Transform is
      reserved for the per-edge translate below, so press feedback is
-     background/shadow only. Keyboard focus uses the shared ring rule
-     after both anchor blocks. */
-  transition: var(--foliplus-transition-fast);
+     background/shadow only. Explicit transition list — a bare
+     --foliplus-transition-fast shorthand would also animate top/left/transform. */
+  transition:
+    background-color var(--foliplus-transition-fast),
+    box-shadow var(--foliplus-transition-fast);
 
   &:is(:hover, :active) {
     background: var(--foliplus-accent-light);
@@ -269,7 +274,10 @@
   box-shadow: 0 1px var(--foliplus-size-4) var(--foliplus-export-dim-color);
   pointer-events: auto;
   cursor: move;
-  transition: var(--foliplus-transition-fast);
+  /* Same square-box → circle rule as the handle: glow/focus-ring must
+     project as a circle, not a box. */
+  border-radius: var(--foliplus-radius-round);
+  transition: box-shadow var(--foliplus-transition-fast);
 
   &:is(:hover, :active) {
     box-shadow: var(--foliplus-slider-thumb-glow);

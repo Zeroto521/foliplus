@@ -277,6 +277,15 @@ class TestExportControlRendering:
         # Geometry + interaction — no live scale().
         live = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
         assert "scale(" not in live
+        # Round radius so hover wash / glow do not paint square corners.
+        assert "border-radius: var(--foliplus-radius-round)" in css
+        # Explicit transition list — a bare token shorthand would also
+        # animate the per-edge translate (top/left/transform).
+        assert "transition: var(--foliplus-transition-fast)" not in live
+        assert (
+            "background-color var(--foliplus-transition-fast)" in live
+            and "box-shadow var(--foliplus-transition-fast)" in live
+        )
 
     def test_crop_box_and_center_hover_active(self):
         """Box deepens its glow; center answers with glow only — no scale.
@@ -318,6 +327,12 @@ class TestExportControlRendering:
         block = re.sub(r"/\*.*?\*/", "", css[idx : end + 1], flags=re.S)
         assert "scale(" not in block, block
         assert "transform: translate(-50%, -50%)" in block
+        # Round radius so glow/focus-ring project as a circle.
+        assert "border-radius: var(--foliplus-radius-round)" in block
+        # Center only animates box-shadow — not the pinned translate.
+        assert "box-shadow var(--foliplus-transition-fast)" in block
+        assert "transform var(" not in block
+        assert "transition: var(--foliplus-transition-fast)" not in block
 
     def test_export_anchors_use_component_focus_ring(self):
         """Export handle/center share one focus-ring rule in ExportControl.css.
@@ -356,6 +371,10 @@ class TestExportControlRendering:
                         break
             block = re.sub(r"/\*.*?\*/", "", css[idx : end + 1], flags=re.S)
             assert "scale(" not in block, (selector, block)
+            assert "border-radius: var(--foliplus-radius-round)" in block, (
+                selector,
+                block,
+            )
 
 
 class TestExportControlBrowser:
@@ -574,6 +593,84 @@ class TestExportControlBrowser:
             assert abs(hover["y"] - rest["y"]) < 0.05, (rest, hover)
             assert abs(hover["width"] - rest["width"]) < 0.05, (rest, hover)
             assert abs(hover["height"] - rest["height"]) < 0.05, (rest, hover)
+
+    def test_export_anchor_border_radius_is_round(self, browser, tmp_path):
+        """Crop handle/center computed border-radius is the round token (50%).
+
+        A square 12×12 box with accent-light hover wash and glow/focus-ring
+        projects hard corners; both anchors must compute as circles.
+        """
+
+        with use_page(self._make_page, browser, tmp_path) as (page, _):
+            page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
+            page.wait_for_selector(
+                ".foliplus-export-box",
+                state="attached",
+                timeout=5000,
+            )
+            radii = page.evaluate(
+                """() => {
+                const h = document.querySelector('.foliplus-export-handle');
+                const c = document.querySelector('.foliplus-export-center');
+                return {
+                  handle: getComputedStyle(h).borderRadius,
+                  center: getComputedStyle(c).borderRadius,
+                };
+            }"""
+            )
+            # --foliplus-radius-round is 50%; both square boxes must resolve to it.
+            assert radii["handle"] == "50%", radii
+            assert radii["center"] == "50%", radii
+
+    def test_export_handle_hover_corners_are_not_square(self, browser, tmp_path):
+        """Hovering a handle paints a circle: corner pink density < center.
+
+        accent-light is a soft red (#fde8e8). On a round button the four
+        bounding-box corners sit outside the fill; a square box would fill
+        them solid pink.
+        """
+        import io as _io
+
+        from PIL import Image
+
+        def _corner_pink(shot: bytes, inset: int = 0):
+            img = Image.open(_io.BytesIO(shot)).convert("RGBA")
+            w, h = img.size
+            pts = [
+                (inset, inset),
+                (w - 1 - inset, inset),
+                (inset, h - 1 - inset),
+                (w - 1 - inset, h - 1 - inset),
+            ]
+            pink = 0
+            for x, y in pts:
+                r, g, b, a = img.getpixel((x, y))
+                # accent-light ≈ #fde8e8 → high R, pink G/B, opaque fill.
+                if a > 200 and r > 240 and 200 <= g <= 240 and 200 <= b <= 240:
+                    pink += 1
+            cx, cy = w // 2, h // 2
+            r, g, b, a = img.getpixel((cx, cy))
+            center_pink = a > 200 and r > 240 and 200 <= g <= 240 and 200 <= b <= 240
+            return pink, center_pink, (w, h)
+
+        with use_page(self._make_page, browser, tmp_path) as (page, _):
+            page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
+            page.wait_for_selector(
+                ".foliplus-export-box",
+                state="attached",
+                timeout=5000,
+            )
+            handle = page.locator(".foliplus-export-handle.br")
+            handle.hover()
+            page.wait_for_timeout(200)
+            shot = handle.screenshot()
+            corner_pink, center_pink, size = _corner_pink(shot)
+            assert center_pink, f"handle center should be accent-light: size={size}"
+            # Round clip: corners outside the circle must not be solid pink.
+            assert corner_pink < 4, (
+                f"handle hover painted square corners: corner_pink={corner_pink} "
+                f"center_pink={center_pink} size={size}"
+            )
 
     def test_escape_closes_crop_box(self, browser, tmp_path):
         """Pressing Escape with unlocked crop box removes it."""
