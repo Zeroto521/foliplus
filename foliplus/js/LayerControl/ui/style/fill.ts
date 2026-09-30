@@ -38,6 +38,7 @@ import { markOverride, saveState, unmarkOverride } from "../state.js";
 import { pinStyleOnHighlight } from "./pin.js";
 import { registerDimension } from "./registry.js";
 import {
+  FACE,
   type StyleCarrier,
   cancelStyleDimApply,
   commitStyleDim,
@@ -191,7 +192,7 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
   if (opacity !== undefined) values.fillOpacity = opacity;
   walkStyleLeaves(layer, node => {
     // Shared write contract: value keys + visibility bit (`fill: true`).
-    commitStyleDim(node, values, "fill");
+    commitStyleDim(node, values, FACE.FILL);
 
     // Folium's highlight_on_hover restores the original style on mouseout;
     // pinStyleOnHighlight reapplies the user's fill after folium's handler
@@ -205,7 +206,7 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
       if (c === undefined && o === undefined) return null;
       // fill:true rides the replay too — folium's resetStyle would otherwise
       // re-apply the author's fill:false on mouseout and hide the fill.
-      return styleDimPayload({ fillColor: c, fillOpacity: o }, "fill");
+      return styleDimPayload({ fillColor: c, fillOpacity: o }, FACE.FILL);
     });
   });
 };
@@ -214,7 +215,7 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
  *  The wrapper exists only to bind this face's apply fn — flush / drop /
  *  has go straight to styleBag at the call site. */
 const scheduleFillApply = (ui: LayerUI, layerId: string): void => {
-  scheduleStyleDimApply("fill", layerId, () => applyFillToLayer(ui, layerId));
+  scheduleStyleDimApply(FACE.FILL, layerId, () => applyFillToLayer(ui, layerId));
 };
 
 /** Write the color into the map, persist it, and mark the dimension as
@@ -266,7 +267,7 @@ const resetLayerFill = (ui: LayerUI, layerId: string): void => {
   if (!ui.m.layerRegistry.has(layerId)) return;
   // Drop any trailing drag frame first: a scheduled apply must not paint
   // the user's color over the authored restore below.
-  cancelStyleDimApply("fill", layerId);
+  cancelStyleDimApply(FACE.FILL, layerId);
   clearIntent(ui, layerId, INTENT.FILL_COLOR);
   clearIntent(ui, layerId, INTENT.FILL_OPACITY);
   unmarkOverride(ui, layerId, INTENT.FILL_COLOR);
@@ -286,7 +287,7 @@ const resetLayerFill = (ui: LayerUI, layerId: string): void => {
   walkStyleLeaves(layer, node => {
     // Shared restore contract: one face slice from the captured style bag,
     // including the author's own `fill` flag (false stays false).
-    restoreStyleDim(node, "fill");
+    restoreStyleDim(node, FACE.FILL);
   });
 };
 
@@ -358,7 +359,7 @@ const bindFillRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
     // overwrite: bindLiveColor only owns oninput today, but a future binder
     // that owns onchange must not be dropped (and the listener-guard
     // allow-list rejects bare addEventListener).
-    const flush = () => flushStyleDimApply("fill", layerId);
+    const flush = () => flushStyleDimApply(FACE.FILL, layerId);
     const prevColorChange = colorEl.onchange;
     colorEl.onchange = ev => {
       prevColorChange?.call(colorEl, ev);
@@ -379,7 +380,7 @@ const bindFillRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
     });
     // bindLiveNumber already owns onchange (clamp + commit); chain the flush
     // instead of overwriting it. blur is free.
-    const flush = () => flushStyleDimApply("fill", layerId);
+    const flush = () => flushStyleDimApply(FACE.FILL, layerId);
     const prevChange = opacityEl.onchange;
     opacityEl.onchange = ev => {
       prevChange?.call(opacityEl, ev);

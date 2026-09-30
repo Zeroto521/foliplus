@@ -23,6 +23,7 @@ import { commitFillColor } from "#foliplus/LayerControl/ui/style/fill.js";
 import { closeStylePanel } from "#foliplus/LayerControl/ui/style/index.js";
 import { pinnedGetterCount } from "#foliplus/LayerControl/ui/style/pin.js";
 import {
+  FACE,
   dropStyleDimApplies,
   flushStyleDimApply,
   hasStyleDimApply,
@@ -116,7 +117,7 @@ const commitBorderNow = (
 ): void => {
   if (kind === "color") commitBorderColor(ui, layerId, value as string);
   else commitBorderWeight(ui, layerId, value as number);
-  flushStyleDimApply("stroke", layerId);
+  flushStyleDimApply(FACE.STROKE, layerId);
 };
 
 describe("layerCanBorder", () => {
@@ -388,7 +389,7 @@ describe("commit pipeline", () => {
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
 
     expect(() => commitBorderColor(ui, "vec1", "#abcdef")).not.toThrow();
-    flushStyleDimApply("stroke", "vec1");
+    flushStyleDimApply(FACE.STROKE, "vec1");
     expect(leaf.options.color).toBe("#abcdef");
   });
 
@@ -400,7 +401,7 @@ describe("commit pipeline", () => {
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
 
     expect(() => commitBorderColor(ui, "vec1", "#abcdef")).not.toThrow();
-    flushStyleDimApply("stroke", "vec1");
+    flushStyleDimApply(FACE.STROKE, "vec1");
     expect(() => leaf.fireMouseout()).not.toThrow();
     expect(leaf.options.color).toBe("#abcdef");
   });
@@ -577,7 +578,7 @@ describe("bindBorderRow", () => {
     ) as HTMLInputElement;
     swatch.value = "#abcdef";
     swatch.dispatchEvent(new Event("input", { bubbles: true }));
-    flushStyleDimApply("stroke", "vec1");
+    flushStyleDimApply(FACE.STROKE, "vec1");
 
     expect(getIntent(ui, "vec1", "borderColor")).toBe("#abcdef");
     expect(ui.intentProvenance.vec1).toContain("borderColor");
@@ -893,7 +894,7 @@ describe("highlight restore", () => {
     commitFillColor(ui, "vec1", "#123456");
     // fill commit is rAF-coalesced; flush so the fill pin is registered
     // before the highlight restore runs (same contract as a drag's end).
-    flushStyleDimApply("fill", "vec1");
+    flushStyleDimApply(FACE.FILL, "vec1");
     commitBorderNow(ui, "vec1", "weight", 9);
 
     // One slot per dimension on the shared leaf — fill and border never
@@ -1444,15 +1445,15 @@ describe("border apply scheduler (drag coalesce)", () => {
     vi.stubGlobal("cancelAnimationFrame", () => {});
 
     commitBorderColor(ui, "vec1", "#333333");
-    flushStyleDimApply("stroke", "vec1");
+    flushStyleDimApply(FACE.STROKE, "vec1");
     expect(leaf.setStyle).toHaveBeenCalledWith({
       color: "#333333",
       stroke: true,
     });
     expect(leaf.setStyle).toHaveBeenCalledTimes(1);
-    flushStyleDimApply("stroke", "vec1");
+    flushStyleDimApply(FACE.STROKE, "vec1");
     expect(leaf.setStyle).toHaveBeenCalledTimes(1);
-    expect(hasStyleDimApply("stroke", "vec1")).toBe(true);
+    expect(hasStyleDimApply(FACE.STROKE, "vec1")).toBe(true);
   });
 
   it("reset cancels a pending walk so it cannot paint over the restore", () => {
@@ -1488,10 +1489,10 @@ describe("border apply scheduler (drag coalesce)", () => {
     vi.stubGlobal("cancelAnimationFrame", () => {});
 
     commitBorderColor(ui, "vec1", "#333333");
-    expect(hasStyleDimApply("stroke", "vec1")).toBe(true);
+    expect(hasStyleDimApply(FACE.STROKE, "vec1")).toBe(true);
 
     manager.unregisterLayer("vec1");
-    expect(hasStyleDimApply("stroke", "vec1")).toBe(false);
+    expect(hasStyleDimApply(FACE.STROKE, "vec1")).toBe(false);
     for (const cb of frames.splice(0)) cb();
     expect(leaf.setStyle).not.toHaveBeenCalled();
   });

@@ -45,8 +45,19 @@ type StyleSetter = StyleCarrier & {
   setStyle: (style: Record<string, unknown>) => void;
 };
 
-/** Which visibility bit a style face owns. */
-type StyleFace = "stroke" | "fill";
+/** Which visibility bit a style face owns. `"fill"` and `"stroke"` are the
+ *  Leaflet Path write faces — the option keys `setStyle` lights. Not the
+ *  same vocabulary as `DIM` (that is dimension registry keys, where border
+ *  is `"border"`): keep the two apart, one definition per vocabulary. */
+type StyleFace = "fill" | "stroke";
+
+/** The two Leaflet Path write faces, as a named vocabulary. Same convention
+ *  as `INTENT` / `DIM`: callers pass `FACE.FILL` / `FACE.STROKE`, never a
+ *  bare literal, so the string cannot drift from the type. */
+const FACE = {
+  FILL: "fill",
+  STROKE: "stroke",
+} as const;
 
 /** Leaflet Path defaults — folium's path_options fills most of these in,
  *  so the fallbacks only fire for a bare Leaflet layer. */
@@ -132,7 +143,7 @@ const commitStyleDim = (
 
 /** The author's keys for one face, including that face's visibility flag. */
 const faceSlice = (bag: StyleBag, face: StyleFace): Record<string, unknown> =>
-  face === "stroke"
+  face === FACE.STROKE
     ? { color: bag.color, weight: bag.weight, stroke: bag.stroke }
     : {
         fillColor: bag.fillColor,
@@ -202,8 +213,8 @@ const cancelStyleDimApply = (face: StyleFace, layerId: string): void => {
  *  unregister drop hook. Covers fill and border in one pass so the caller
  *  never holds two scattered teardowns. */
 const dropStyleDimApplies = (layerId: string): void => {
-  const keyFill = applyKey("fill", layerId);
-  const keyStroke = applyKey("stroke", layerId);
+  const keyFill = applyKey(FACE.FILL, layerId);
+  const keyStroke = applyKey(FACE.STROKE, layerId);
   for (const key of [keyFill, keyStroke]) {
     const box = applySchedulers.get(key);
     if (!box) continue;
@@ -216,8 +227,8 @@ const dropStyleDimApplies = (layerId: string): void => {
  *  commit boundary. Both faces must land: a dragged border left on a
  *  trailing frame would vanish when the panel disappears. */
 const flushStyleDimApplies = (layerId: string): void => {
-  flushStyleDimApply("fill", layerId);
-  flushStyleDimApply("stroke", layerId);
+  flushStyleDimApply(FACE.FILL, layerId);
+  flushStyleDimApply(FACE.STROKE, layerId);
 };
 
 /** Whether a scheduler entry is still held (tests pin the unregister drop). */
@@ -227,6 +238,7 @@ const hasStyleDimApply = (face: StyleFace, layerId: string): boolean =>
 export {
   type StyleBag,
   type StyleCarrier,
+  FACE,
   type StyleFace,
   type StyleSetter,
   STYLE_BAG_DEFAULTS,
