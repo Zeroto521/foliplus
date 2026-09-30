@@ -135,7 +135,7 @@ const syncZoomRangeRow = (
   row.classList.toggle(CONST.CLASSES.STYLE_ZOOM_RANGE_OUT_OF_RANGE, outOfRange);
   row.title = outOfRange
     ? ui.T("style_zoom_range_out_of_range").replace("{zoom}", String(current))
-    : "";
+    : ui.T("style_zoom_range_current").replace("{zoom}", String(current));
 
   // The handles' tooltips carry the range the rail draws but the row no longer
   // prints.

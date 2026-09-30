@@ -10,6 +10,7 @@
 // translated via each mode's getNameLabel(), falling back to English.
 import { HINT_DURATION } from "#core/hint.js";
 import { download } from "#common/download.js";
+import { formatCoord } from "#common/format.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { createLogger } from "#common/log.js";
 import * as CONST from "./const.js";
@@ -90,7 +91,7 @@ const toCSV = (measurements: MeasureData[]): string => {
       type: data.type,
       name: getNameForType(data),
       center: data.center
-        ? `${data.center.lng.toFixed(6)},${data.center.lat.toFixed(6)}`
+        ? `${formatCoord(data.center.lng)},${formatCoord(data.center.lat)}`
         : "",
       totalDistance: data.totalDistance !== undefined ? String(data.totalDistance) : "",
       area: data.area !== undefined ? String(data.area) : "",

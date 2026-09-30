@@ -2,6 +2,8 @@
   "locale.name": "English",
   "locale.code": "en",
   "foliplus.close_label": "Close",
+  "foliplus.border_color": "Border Color",
+  "foliplus.border_weight": "Border Width",
   "foliplus.addr_not_found": "Address not found — try different keywords",
   "foliplus.geo_fail": "Lookup failed",
   "foliplus.label": "Labels",

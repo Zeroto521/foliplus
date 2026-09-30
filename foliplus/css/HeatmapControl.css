@@ -22,9 +22,6 @@
 .foliplus-heatmap-ctrl {
   font-size: var(--foliplus-font-size-sm);
   color: var(--foliplus-text-primary);
-  --foliplus-heatmap-inline-height: var(--foliplus-icon-size-md);
-  --foliplus-heatmap-inline-width: 52px;
-  --foliplus-heatmap-accent-arrow-offset: var(--foliplus-size-6);
 
   /* Label typography is not redeclared here: the canvas renderer
      (common/canvasLabel, shared with LayerControl's annotation labels) reads the

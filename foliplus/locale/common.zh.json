@@ -2,6 +2,8 @@
   "locale.name": "中文",
   "locale.code": "zh",
   "foliplus.close_label": "关闭",
+  "foliplus.border_color": "边框颜色",
+  "foliplus.border_weight": "边框宽度",
   "foliplus.addr_not_found": "未找到该地址，请更换关键词重试",
   "foliplus.geo_fail": "查询失败",
   "foliplus.label": "标注",
