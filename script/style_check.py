@@ -104,21 +104,40 @@ BRITISH_RE = re.compile(
 BARREL_RE = re.compile(r"(^|/)index\.ts$")
 TYPE_FILE_RE = re.compile(r"(^|/)types?\.ts$")
 
-# Rule 4: CSS custom properties must be namespaced as --foliplus-*.
-# Matches any `--name` custom property in declarations, `var()` calls, and JS
-# string literals. The guard on foliplus/* source keeps the host-page override
-# surface namespaced; test files are out of scope.
+# Rule 4: CSS custom properties must be namespaced as --foliplus-* AND
+# definitions must live in token.css. Matches any `--name` custom property in
+# declarations, `var()` calls, and JS string literals. The guard on foliplus/*
+# source keeps the host-page override surface namespaced; test files are out
+# of scope. Definitions outside token.css are rejected — the single source of
+# truth for tokens is token.css, organized by tier with section comments.
 BARE_CUSTOM_PROPERTY_RE = re.compile(r"--[a-zA-Z][\w-]*")
 FOLIPLUS_PREFIX = "--foliplus-"
+TOKEN_CSS = "foliplus/css/common/token.css"
 
 
-def check_custom_property_prefix(lines: list[str]) -> list[tuple[int, str]]:
-    """Rule 4: report bare (non-`--foliplus-`) custom property names."""
+def check_custom_property_prefix(lines: list[str], filename: str = "") -> list[tuple[int, str]]:
+    """Rule 4: report bare (non-`--foliplus-`) custom property names, and
+    definitions outside token.css."""
     violations: list[tuple[int, str]] = []
+    is_token = filename.endswith("token.css")
     for lineno, raw in enumerate(lines, 1):
         for m in BARE_CUSTOM_PROPERTY_RE.finditer(raw):
             name = m.group(0)
             if name.startswith(FOLIPLUS_PREFIX):
+                # Check if this is a definition (property followed by a colon).
+                # A definition is allowed only in token.css.
+                end = m.end()
+                # Skip whitespace to check for a colon.
+                while end < len(raw) and raw[end] in " \t":
+                    end += 1
+                if end < len(raw) and raw[end] == ":":
+                    if not is_token:
+                        violations.append(
+                            (
+                                lineno,
+                                f"CSS custom property definition `{name}` must live in {TOKEN_CSS} — move it there with its tier section.",
+                            )
+                        )
                 continue
             violations.append(
                 (
@@ -330,7 +349,7 @@ def check_file(filepath: str) -> list[tuple[int, str]]:
     if filepath.endswith(".css"):
         # CSS: the whole line is scanned — declarations, `var()` references,
         # and comments alike, since a bare token anywhere is a namespace break.
-        return check_custom_property_prefix(lines)
+        return check_custom_property_prefix(lines, filepath)
 
     # TS: check custom properties only in code (string literals), not comment
     # prose, so an em-dash or a descriptive "the --x token" note is exempt.
@@ -344,7 +363,7 @@ def check_file(filepath: str) -> list[tuple[int, str]]:
         check_export_blocks(lines, filepath)
         + check_plural_names(filepath)
         + check_spelling(lines)
-        + check_custom_property_prefix(code_lines)
+        + check_custom_property_prefix(code_lines, filepath)
     )
 
 
