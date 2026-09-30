@@ -33,6 +33,8 @@ Usage (called by pre-commit, filenames as arguments):
     python script/style_check.py file1 file2 ...
 """
 
+from __future__ import annotations
+
 import os
 import re
 import sys
@@ -46,18 +48,19 @@ STAR_EXPORT_RE = re.compile(r"^\s*export\s+\*\s+from\b")
 INLINE_TYPE_IN_EXPORT_RE = re.compile(r"\btype\s+[A-Za-z_$][\w$]*")
 
 # Rule 2: plural detection whitelist (proper nouns / abbreviations / verbs).
+# Sorted; add new entries alphabetically.
 PLURAL_WHITELIST = {
-    "pelias",
-    "focus",
-    "canvas",
-    "eventbus",
+    "args",
     "base",
+    "canvas",
+    "compress",  # verb (script/compress.mjs), not a plural noun
+    "css",
+    "eventbus",
+    "focus",
     "index",
     "js",
+    "pelias",
     "ts",
-    "css",
-    "args",
-    "compress",  # verb (script/compress.mjs), not a plural noun
 }
 
 # Extensions whose basenames are checked for plural names (rule 2).
@@ -127,38 +130,63 @@ def check_custom_property_prefix(lines: list[str]) -> list[tuple[int, str]]:
     return violations
 
 
-def strip_comments_and_strings(line: str) -> str:
-    """Blank out comments and string literals so brace counting and export
-    matching aren't confused by `// export { }` or `"{"`.
+def _scan_line(line: str, in_block: bool, blank_strings: bool) -> tuple[str, bool]:
+    """Scan one line for comments and strings, returning (code, in_block).
 
-    Handles `//` line comments and simple `"..."` / `'...'` / `` `...` ``
-    strings. Block comments (`/* */`) are not supported — they don't appear
-    in this codebase.
+    Both callers share this single pass:
+      - ``strip_comments_and_strings`` blanks string contents and truncates
+        at a ``//`` line comment — used to keep export matching honest.
+      - ``strip_comments_line`` keeps string literals verbatim (their content
+        is checked for spelling) and tracks ``/* */`` block comments across
+        lines.
+    ``in_block`` is True when the previous line opened a block comment that
+    this line continues; its value is carried through and returned.
     """
     out: list[str] = []
     i = 0
     n = len(line)
     while i < n:
         c = line[i]
-        if c == "/" and i + 1 < n and line[i + 1] == "/":
-            break
-        if c in "\"'`":
-            quote = c
-            out.append(" ")
-            i += 1
-            while i < n and line[i] != quote:
-                if line[i] == "\\":
-                    i += 2
-                    continue
-                out.append(" ")
-                i += 1
-            if i < n:
-                out.append(" ")
+        if in_block:
+            if c == "*" and i + 1 < n and line[i + 1] == "/":
+                i += 2
+                in_block = False
+            else:
                 i += 1
             continue
+        if c in "\"'`":
+            quote = c
+            out.append(" " if blank_strings else c)
+            i += 1
+            while i < n and line[i] != quote:
+                if line[i] == "\\" and i + 1 < n:
+                    if not blank_strings:
+                        out.append(line[i : i + 2])
+                    i += 2
+                    continue
+                out.append(" " if blank_strings else line[i])
+                i += 1
+            if i < n:
+                out.append(" " if blank_strings else line[i])
+                i += 1
+            continue
+        if c == "/" and i + 1 < n:
+            if line[i + 1] == "/":
+                break
+            if line[i + 1] == "*":
+                i += 2
+                in_block = True
+                continue
         out.append(c)
         i += 1
-    return "".join(out)
+    return "".join(out), in_block
+
+
+def strip_comments_and_strings(line: str) -> str:
+    """Blank out comments and string literals so brace counting and export
+    matching aren't confused by `// export { }` or `"{"`."""
+    code, _ = _scan_line(line, False, True)
+    return code
 
 
 def strip_comments_line(line: str, in_block: bool) -> tuple[str, bool]:
@@ -168,46 +196,7 @@ def strip_comments_line(line: str, in_block: bool) -> tuple[str, bool]:
     strings. Returns (code, in_block_after_line) — `in_block` tells the
     caller whether the previous line opened a `/*` that this line continues.
     """
-    out: list[str] = []
-    i = 0
-    n = len(line)
-    while i < n:
-        c = line[i]
-        if in_block:
-            # Inside a block comment — look for the closing `*/`.
-            if c == "*" and i + 1 < n and line[i + 1] == "/":
-                i += 2
-                in_block = False
-                continue
-            i += 1
-            continue
-        # String literal — copy verbatim so its content is still checked.
-        if c in "\"'`":
-            quote = c
-            out.append(c)
-            i += 1
-            while i < n and line[i] != quote:
-                if line[i] == "\\" and i + 1 < n:
-                    out.append(line[i : i + 2])
-                    i += 2
-                    continue
-                out.append(line[i])
-                i += 1
-            if i < n:
-                out.append(line[i])
-                i += 1
-            continue
-        # Line comment — rest of the line is prose.
-        if c == "/" and i + 1 < n and line[i + 1] == "/":
-            break
-        # Block comment — enters multi-line mode until a closing `*/`.
-        if c == "/" and i + 1 < n and line[i + 1] == "*":
-            i += 2
-            in_block = True
-            continue
-        out.append(c)
-        i += 1
-    return "".join(out), in_block
+    return _scan_line(line, in_block, False)
 
 
 def check_spelling(lines: list[str]) -> list[tuple[int, str]]:
@@ -312,10 +301,9 @@ def check_plural_names(filepath: str) -> list[tuple[int, str]]:
     """Rule 2: report plural-looking file names (basename only)."""
     violations: list[tuple[int, str]] = []
     basename = os.path.basename(filepath)
-    lower_name = basename.lower()
     base = basename
     for ext in NAME_CHECK_EXTS:
-        if lower_name.endswith(ext):
+        if basename.lower().endswith(ext):
             base = basename[: -len(ext)]
             break
     lower = base.lower()
@@ -327,8 +315,7 @@ def check_plural_names(filepath: str) -> list[tuple[int, str]]:
     last = lower.rsplit("-", 1)[-1]
     if last in PLURAL_WHITELIST:
         return violations
-    is_plural = lower.endswith("s")
-    if is_plural:
+    if lower.endswith("s"):
         violations.append((0, f"name `{base}` looks plural — use singular"))
     return violations
 

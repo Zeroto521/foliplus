@@ -33,7 +33,7 @@ describe("build-path.mjs", () => {
   });
 
   it("esbuild alias table is exactly the shared three keys (no #script)", () => {
-    // esbuild must not gain #script 鈥?no component imports it. The test
+    // esbuild must not gain #script — no component imports it. The test
     // alias table is the only place #script may appear.
     const cfgKeys = Object.keys(pathAliases(ROOT));
     expect(cfgKeys).not.toContain("#script");
@@ -45,6 +45,10 @@ describe("build-path.mjs", () => {
     // class): a hand-edit to either side fails here instead of at build time.
     const pkg = JSON.parse(readFileSync(resolve(ROOT, "package.json"), "utf-8"));
     expect(pkg.imports).toMatchObject(PACKAGE_IMPORTS);
+    // The glob table derives from the same mapping the aliases do, so every
+    // specifier appears in both shapes with the same target directory.
+    expect(PACKAGE_IMPORTS["#common/*"]).toBe("./foliplus/js/common/*");
+    expect(PACKAGE_IMPORTS["#script/*"]).toBe("./script/*");
   });
 
   it("SHARED_SPEC_PREFIXES covers every # prefix consumers resolve", () => {
