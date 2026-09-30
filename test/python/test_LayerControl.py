@@ -888,7 +888,6 @@ class TestLayerControlRendering:
     def test_more_btn_press_scales(self):
         """Row more-button answers :active with the button-family press scale.
 
-        Gap #7 from the T252 audit: fold-btn already had it, more-btn did not.
         Instant (transition stays none) so a list rebuild cannot flash a
         mid-scale frame.
         """
@@ -902,11 +901,11 @@ class TestLayerControlRendering:
     def test_layer_row_press_uses_soft_wash(self):
         """Layer rows answer :active with the soft accent wash, no scale.
 
-        Gap #6 from the T252 audit (Phase B). Same vocabulary as the Heatmap
-        scheme picker's persistent selection. Large rows do not scale;
-        deliberately no transition (rows rebuild on every list render). Base
-        basemap rows stay quiet. Declared after the hover recipe so the press
-        wash wins on equal specificity while the button is down.
+        Same vocabulary as the Heatmap scheme picker's persistent selection.
+        Large rows do not scale; deliberately no transition (rows rebuild on
+        every list render). Base basemap rows stay quiet. Declared after the
+        hover recipe so the press wash wins on equal specificity while the
+        button is down.
         """
         css = read_css("foliplus/css/LayerControl/row.css")
         assert '&:not([data-layer-type="base"]):active' in css

@@ -193,16 +193,13 @@
   /* Cursor direction is the grab affordance and stays as-is; hover/press
      only warm the surface and add the shared slider glow. Transform is
      reserved for the per-edge translate below, so press feedback is
-     background/shadow only. Keyboard focus rides the shared ring token. */
+     background/shadow only. Keyboard focus uses the shared ring rule
+     after both anchor blocks. */
   transition: var(--foliplus-transition-fast);
 
   &:is(:hover, :active) {
     background: var(--foliplus-accent-light);
     box-shadow: var(--foliplus-slider-thumb-glow);
-  }
-  &:focus-visible {
-    outline: none;
-    box-shadow: var(--foliplus-focus-ring);
   }
 
   &.tl {
@@ -260,7 +257,7 @@
    recipe as the measure centroid. transform (not negative margin) keeps the
    centering exact at subpixel sizes.
    Hover/press must NOT compose scale() with that translate — it shifts the
-   dot on hover. Feedback is glow only; focus rides the shared ring token. */
+   dot on hover. Feedback is glow only. */
 .foliplus-export-center {
   position: absolute;
   top: 50%;
@@ -277,10 +274,14 @@
   &:is(:hover, :active) {
     box-shadow: var(--foliplus-slider-thumb-glow);
   }
-  &:focus-visible {
-    outline: none;
-    box-shadow: var(--foliplus-focus-ring);
-  }
+}
+
+/* One keyboard focus ring for both crop anchors. Shared token; no
+   transform — the dots stay pinned by their translate. */
+.foliplus-export-handle:focus-visible,
+.foliplus-export-center:focus-visible {
+  outline: none;
+  box-shadow: var(--foliplus-focus-ring);
 }
 
 /* Locked: hide handles and center anchor */

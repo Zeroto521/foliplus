@@ -437,10 +437,9 @@ class TestBaseControlRendering:
     def test_form_select_joins_input_hover_list(self):
         """`.foliplus-form-select` rides the shared input hover/focus recipe.
 
-        Gap #1 from the T252 interaction audit: the shared `:is(...)` list in
-        input.css covered `.foliplus-heatmap-ctrl select` (so heatmap selects
-        had hover) but not the bare form-select class used by LayerControl
-        annotation / label panels. Same hover language as color/number.
+        The shared `:is(...)` list in input.css covers `.foliplus-heatmap-ctrl
+        select` and the bare form-select class used by LayerControl annotation
+        / label panels. Same hover language as color/number.
         """
         css = read_css_dir("foliplus/css/common", "input.css")
         idx = css.find(":is(")
@@ -452,8 +451,8 @@ class TestBaseControlRendering:
     def test_toggle_switch_press_scales_knob(self):
         """Toggle knob drops to the button-family press scale on :active.
 
-        Gap #2 from the T252 audit. Checked keeps its translateX so the knob
-        stays on the "on" side while it shrinks.
+        Checked keeps its translateX so the knob stays on the "on" side while
+        it shrinks.
         """
         css = read_css_dir("foliplus/css/common", "form.css")
         assert "input:active + .foliplus-toggle-slider::before" in css
@@ -468,9 +467,9 @@ class TestBaseControlRendering:
     def test_menu_item_press_uses_soft_wash(self):
         """Dropdown/list items answer :active with the soft accent wash.
 
-        Gap #5 from the T252 audit. Same vocabulary as the Heatmap scheme
-        picker's persistent selection (`--foliplus-accent-soft-bg`). Disabled
-        entries never answer; search results keep record ink on press.
+        Same vocabulary as the Heatmap scheme picker's persistent selection
+        (`--foliplus-accent-soft-bg`). Disabled entries never answer; search
+        results keep record ink on press.
         """
         css = read_css_dir("foliplus/css/common", "menu.css")
         assert "):not([disabled]):active" in css
@@ -480,9 +479,6 @@ class TestBaseControlRendering:
         assert "color: var(--foliplus-text-primary)" in css
         # Disabled menu entries keep their muted non-answer.
         assert ".foliplus-layer-more-menu li[disabled]:active" in css
-        # New interactive surfaces ride the shared focus-ring token.
-        assert "var(--foliplus-focus-ring)" in css
-        assert ":focus-visible" in css
 
     def test_layer_more_menu_focus_ring_uses_shared_tokens(self):
         """Layer overflow menu items take the shared focus-ring + fast transition."""

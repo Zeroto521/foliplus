@@ -256,10 +256,10 @@ class TestExportControlRendering:
     def test_crop_handle_hover_active(self):
         """Handles warm to accent-light and pick up the slider glow on press.
 
-        Gap #8 from the T252 audit. Cursor direction is the existing grab
-        affordance and stays untouched; hover/press only add surface feedback.
-        Transform is reserved for the per-edge translate, so press feedback is
-        background/shadow only. Component CSS stays in ExportControl.css.
+        Cursor direction is the existing grab affordance and stays untouched;
+        hover/press only add surface feedback. Transform is reserved for the
+        per-edge translate, so press feedback is background/shadow only.
+        Component CSS stays in ExportControl.css.
         """
         from conftest import read_css
 
@@ -281,9 +281,9 @@ class TestExportControlRendering:
     def test_crop_box_and_center_hover_active(self):
         """Box deepens its glow; center answers with glow only — no scale.
 
-        Gap #9 from the T252 audit. Locked boxes hide handles/center and set
-        pointer-events: none, so they never light. Center must not scale:
-        scale() composed with translate(-50%, -50%) shifts the dot on hover.
+        Locked boxes hide handles/center and set pointer-events: none, so they
+        never light. Center must not scale: scale() composed with
+        translate(-50%, -50%) shifts the dot on hover.
         """
         from conftest import read_css
 
@@ -320,10 +320,10 @@ class TestExportControlRendering:
         assert "transform: translate(-50%, -50%)" in block
 
     def test_export_anchors_use_component_focus_ring(self):
-        """Export handle/center take the shared focus-ring token in-component.
+        """Export handle/center share one focus-ring rule in ExportControl.css.
 
-        Correction③: component-only CSS stays in ExportControl.css (does not
-        sink into common). Press stays shadow-only (no scale).
+        Component-only CSS stays in ExportControl.css (does not sink into
+        common). Press stays shadow-only (no scale).
         """
         from conftest import read_css, read_css_dir
 
@@ -332,13 +332,15 @@ class TestExportControlRendering:
         assert "--foliplus-focus-ring:" in tokens
 
         css = read_css("foliplus/css/ExportControl.css")
-        assert "&:focus-visible" in css
+        # One combined selector for both crop anchors.
+        assert ".foliplus-export-handle:focus-visible" in css
+        assert ".foliplus-export-center:focus-visible" in css
         assert "var(--foliplus-focus-ring)" in css
         # Export-specific selectors must NOT live in common/button.css.
         button = read_css_dir("foliplus/css/common", "button.css")
         assert ".foliplus-export-handle" not in button
         assert ".foliplus-export-center" not in button
-        for selector in (".foliplus-export-handle", ".foliplus-export-center"):
+        for selector in (".foliplus-export-handle {", ".foliplus-export-center {"):
             idx = css.find(selector)
             assert idx != -1, selector
             start = css.index("{", idx)
@@ -354,8 +356,6 @@ class TestExportControlRendering:
                         break
             block = re.sub(r"/\*.*?\*/", "", css[idx : end + 1], flags=re.S)
             assert "scale(" not in block, (selector, block)
-            assert "&:focus-visible" in block, (selector, block)
-            assert "var(--foliplus-focus-ring)" in block, (selector, block)
 
 
 class TestExportControlBrowser:
