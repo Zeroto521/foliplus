@@ -22,6 +22,7 @@ import { readFileSync } from "fs";
 import postcss from "postcss";
 import postcssNesting from "postcss-nesting";
 import { pathAliases, resolveJsRoot } from "./build-path.mjs";
+import { hoistLeafletOverrides } from "./css-layer.mjs";
 import { createSourceTransformPlugin } from "./source-transform-plugin.mjs";
 import { resolveVersion } from "./version.mjs";
 
@@ -40,6 +41,9 @@ const esbuildCfgFor = ({ dev, root }) => {
   // via Autoprefixer (driven by the `browserslist` key in package.json).
   // `edition: '2021'` emits fully-flattened selectors (no `:is()` wrapper),
   // keeping specificity identical to hand-written flat CSS.
+  //
+  // After flatten: hoist Leaflet-targeting rules out of any @layer so they
+  // keep beating Leaflet's unlayered library CSS (see css-layer.mjs).
   const postcssProcessor = postcss([
     postcssNesting({ edition: "2021" }),
     autoprefixer(),
@@ -50,7 +54,7 @@ const esbuildCfgFor = ({ dev, root }) => {
       build.onLoad({ filter: /\.css$/ }, async args => {
         const source = readFileSync(args.path, "utf-8");
         const result = await postcssProcessor.process(source, { from: args.path });
-        return { contents: result.css, loader: "css" };
+        return { contents: hoistLeafletOverrides(result.css), loader: "css" };
       });
     },
   };
