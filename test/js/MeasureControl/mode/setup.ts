@@ -1,8 +1,17 @@
 // Shared Leaflet + turf mock setup for MeasureControl mode tests.
 // Each test file imports initMocks and calls it inside beforeEach.
 import { vi } from "vitest";
+import type { ControlEnv } from "#core/defineControl.js";
 import { isDragSyntheticClick } from "#foliplus/MeasureControl/edit.js";
 import type { MeasureManager } from "#foliplus/MeasureControl/manager.js";
+import { makeControlEnv } from "../../fixture.js";
+
+/** Standalone env for tests that hit static mode methods (toGeoFeature,
+ * getNameLabel) or call Util helpers that read env directly. */
+export function makeEnv(): ControlEnv {
+  window.CONF = { ...window.CONF, name: "MeasureControl", locale_code: "en" };
+  return makeControlEnv();
+}
 
 export function initMocks() {
   // Consume any pending drag-synthetic-click flag so a prior test's drag end
@@ -104,7 +113,12 @@ export function makeManagerMock(): MeasureManager {
   // Backing array so add/remove/update mutate the same live list the tests
   // assert against via manager.measurements (compatibility getter path).
   const measurements: any[] = [];
+  const env = makeEnv();
   return {
+    conf: env.conf,
+    T: env.T,
+    _: env._,
+    log: env.log,
     map: {
       on: vi.fn(),
       off: vi.fn(),
@@ -117,6 +131,7 @@ export function makeManagerMock(): MeasureManager {
         }),
       ),
       dragging: { disable: vi.fn(), enable: vi.fn() },
+      foliplus: { showHint: vi.fn(), hideHint: vi.fn() },
     },
     layers: {
       addLayer: vi.fn(l => l),

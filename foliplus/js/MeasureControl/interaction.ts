@@ -4,7 +4,7 @@ import type { MeasureManager } from "./manager.js";
 
 const registerInteractions = (mgr: MeasureManager): (() => void) => {
   const interaction = ensureInteraction(mgr.map);
-  return interaction.register(CONF.name, [
+  return interaction.register(mgr.conf.name, [
     { key: "Escape", handler: e => mgr.onKeyDown(e as KeyboardEvent) },
   ]);
 };
@@ -17,7 +17,7 @@ const registerInteractions = (mgr: MeasureManager): (() => void) => {
  */
 const registerActiveEscape = (mgr: MeasureManager): (() => void) => {
   const interaction = ensureInteraction(mgr.map);
-  return interaction.register(`${CONF.name}-escape-active`, [
+  return interaction.register(`${mgr.conf.name}-escape-active`, [
     {
       key: "Escape",
       priority: 1,
@@ -32,7 +32,7 @@ const registerExportClick = (
   element: HTMLElement,
 ): (() => void) => {
   const interaction = ensureInteraction(mgr.map);
-  return interaction.register(`${CONF.name}-export`, [
+  return interaction.register(`${mgr.conf.name}-export`, [
     { event: "click", element, handler: e => mgr.onExportClick(e) },
   ]);
 };

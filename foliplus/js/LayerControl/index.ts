@@ -1,6 +1,4 @@
-import { createControlEnv } from "#core/controlEnv.js";
-import { BaseControl } from "#foliplus/BaseControl.js";
-import { createScopedTranslator } from "#common/locale.js";
+import { defineControl } from "#core/defineControl.js";
 import { createPanelControl } from "#common/panel.js";
 import * as SVGs from "./icon.js";
 import {
@@ -10,42 +8,24 @@ import {
 } from "./manager.js";
 import { LayerUI } from "./ui/index.js";
 
-createControlEnv(CONF, SVGs.LAYERS);
-const T = createScopedTranslator(CONF);
-
-// ==================== Manager Factory ====================
-// The manager is created lazily on first use and re-created after destroy(),
-// so `map.removeControl()` + `map.addControl()` on the same control object
-// is re-entrant. Each rendered IIFE gets its own factory (see BaseControl.py).
-const createLayerManager = (): LayerManager => {
-  const manager = new LayerManager(map, CONF.data as LayerInfo[]);
-  manager.ui = new LayerUI(manager);
-  return manager;
-};
-
-// ==================== Leaflet Control Definition ====================
-class LayerControl extends BaseControl {
-  manager: LayerManager | null = null;
-
-  constructor(options?: L.ControlOptions) {
-    super(options);
-  }
-
-  /** Shorthand for manager (creates it on first access). */
-  get m(): LayerManager {
-    return (this.manager ??= createLayerManager());
-  }
-
-  buildDOM() {
+const LayerControl = defineControl<LayerManager>({
+  conf: CONF,
+  icon: SVGs.LAYERS,
+  createManager: env => {
+    const manager = new LayerManager(map, env.conf.data as LayerInfo[]);
+    manager.ui = new LayerUI(manager);
+    return manager;
+  },
+  buildDOM(this: any) {
     installBringToFrontPatch();
     const { container, panelContent, destroy } = createPanelControl({
       cssClass: "foliplus-layer-ctrl",
-      ctrlId: `${CONF.name}_ctrl`,
-      toggleTitle: T("toggle_title"),
+      ctrlId: `${this.conf.name}_ctrl`,
+      toggleTitle: this.T("toggle_title"),
       toggleSvg: SVGs.LAYERS,
-      panelTitle: T("panel_title"),
-      closeTitle: T("close_title"),
-      collapseOnOutside: CONF.collapse_on_outside,
+      panelTitle: this.T("panel_title"),
+      closeTitle: this.T("close_title"),
+      collapseOnOutside: this.conf.collapse_on_outside,
     });
 
     // The factory's document listeners outlive the MutationObserver when the
@@ -56,14 +36,11 @@ class LayerControl extends BaseControl {
     this.m.attachUI(panelContent);
 
     return container;
-  }
-
-  /** Never touch `this.m` here: destroy() must not re-create the manager. */
-  destroy() {
+  },
+  destroy(this: any) {
     this.manager?.destroy();
-    this.manager = null;
     uninstallBringToFrontPatch();
-  }
-}
+  },
+});
 
 new LayerControl({ position: CONF.position }).addTo(map);

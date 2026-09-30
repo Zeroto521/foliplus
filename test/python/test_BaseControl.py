@@ -817,7 +817,11 @@ class TestButtonRadiusBrowser:
             for dx in range(size):
                 for dy in range(size):
                     r, g, b = img.getpixel((cx + dx, cy + dy))
-                    if abs(r - 0xFD) <= 24 and abs(g - 0xE8) <= 24 and abs(b - 0xE8) <= 24:
+                    if (
+                        abs(r - 0xFD) <= 24
+                        and abs(g - 0xE8) <= 24
+                        and abs(b - 0xE8) <= 24
+                    ):
                         n += 1
             counts.append(n)
         return counts
