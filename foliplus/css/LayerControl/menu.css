@@ -62,7 +62,7 @@
        would blink out of :hover in the gap). With zero gap the cursor leaves
        the owner row straight into its menu, so the owner stays lit the whole
        way: the menu is its descendant. */
-    margin-top: 0;
+    margin: 0;
     /* Fits the widest item (4-char CJK ≈90px, EN long word ≈104px) with a
        little slack, without the dead gap the verb-only labels left at 128px.
        Min-width — not fixed — so a future longer label widens it instead of

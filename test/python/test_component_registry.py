@@ -149,10 +149,15 @@ class TestPythonTests:
         """Every control with locale tables must contribute at least one key
         to _JS_USED_KEYS, otherwise the unused-key test will fire oddly and
         new controls look registered while their strings are dead."""
-        text = _read(ROOT / "test" / "python" / "test_locale.py")
-        missing = [n for n in sorted(controls) if f'"{n}.' not in text]
+        from test_locale import _JS_USED_KEYS
+
+        missing = [
+            n
+            for n in sorted(controls)
+            if not any(k.startswith(f"{n}.") for k in _JS_USED_KEYS)
+        ]
         assert not missing, (
-            f"no <Name>.* keys in test_locale.py::_JS_USED_KEYS for: {missing}\n"
+            f"no <Name>.* keys in _JS_USED_KEYS for: {missing}\n"
             f'Add the keys the JS actually uses (T("...") under CONST.name). {_SCAFFOLD}'
         )
 

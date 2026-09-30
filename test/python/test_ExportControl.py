@@ -220,7 +220,7 @@ class TestExportControlRendering:
         """
         from conftest import read_css
 
-        css = read_css("foliplus/css/ExportControl.css")
+        css = read_css("foliplus/css/common/token.css")
         assert (
             "--foliplus-export-scale-z: calc(var(--foliplus-z-export-base) - 10);"
             in css
@@ -259,25 +259,20 @@ class TestExportControlRendering:
         Gap #8 from the T252 audit. Cursor direction is the existing grab
         affordance and stays untouched; hover/press only add surface feedback.
         Transform is reserved for the per-edge translate, so press feedback is
-        background/shadow only. The shared recipe lives in common/button.css
-        (dot family) so the ExportControl bundle stays lean.
+        background/shadow only. Component CSS stays in ExportControl.css.
         """
-        from conftest import read_css, read_css_dir
-
-        button = read_css_dir("foliplus/css/common", "button.css")
-        assert ".foliplus-export-handle:is(:hover, :active)" in button
-        assert "background: var(--foliplus-accent-light)" in button
-        assert "var(--foliplus-slider-thumb-glow)" in button
+        from conftest import read_css
 
         css = read_css("foliplus/css/ExportControl.css")
-        assert ".foliplus-export-handle" in css
+        assert ".foliplus-export-handle:is(:hover, :active)" in css
+        assert "background: var(--foliplus-accent-light)" in css
+        assert "var(--foliplus-slider-thumb-glow)" in css
         # Direction cursors are the grab affordance and must survive.
         assert "cursor: nwse-resize" in css
         assert "cursor: nesw-resize" in css
         assert "cursor: ns-resize" in css
         assert "cursor: ew-resize" in css
-        # Geometry only — no live scale(), no per-component hover restatement.
-        # Strip comments first: the rationale prose names "scale()" on purpose.
+        # Geometry + interaction — no live scale().
         live = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
         assert "scale(" not in live
 
@@ -287,9 +282,8 @@ class TestExportControlRendering:
         Gap #9 from the T252 audit. Locked boxes hide handles/center and set
         pointer-events: none, so they never light. Center must not scale:
         scale() composed with translate(-50%, -50%) shifts the dot on hover.
-        Center hover/press is the shared button.css glow recipe.
         """
-        from conftest import read_css, read_css_dir
+        from conftest import read_css
 
         css = read_css("foliplus/css/ExportControl.css")
         assert "&:not(.foliplus-locked):is(:hover, :active)" in css
@@ -301,9 +295,8 @@ class TestExportControlRendering:
         assert "var(--foliplus-accent-soft-shadow)" in block
         assert "var(--foliplus-transition-fast)" in css
 
-        center = read_css_dir("foliplus/css/common", "button.css")
-        assert ".foliplus-export-center:is(:hover, :active)" in center
-        assert "var(--foliplus-slider-thumb-glow)" in center
+        assert ".foliplus-export-center:is(:hover, :active)" in css
+        assert "var(--foliplus-slider-thumb-glow)" in css
 
         idx = css.find(".foliplus-export-center")
         assert idx != -1, "center anchor rule missing"
@@ -324,20 +317,26 @@ class TestExportControlRendering:
         assert "scale(" not in block, block
         assert "transform: translate(-50%, -50%)" in block
 
-    def test_export_anchors_use_shared_dot_focus_ring(self):
-        """Export handle/center take the shared `.foliplus-dot:focus-visible` ring.
+    def test_export_anchors_use_component_focus_ring(self):
+        """Export handle/center take the shared focus-ring token in-component.
 
-        Correction③: crop anchors must not restate the focus recipe — they
-        carry `.foliplus-dot` / `.foliplus-dot-hollow|solid`, and the ring
-        lives once in common/button.css. Press stays shadow-only (no scale).
+        Correction③: component-only CSS stays in ExportControl.css (does not
+        sink into common). Press stays shadow-only (no scale).
         """
         from conftest import read_css, read_css_dir
 
-        button = read_css_dir("foliplus/css/common", "button.css")
-        assert ".foliplus-dot:not(path):focus-visible" in button
-        assert "var(--foliplus-focus-ring)" in button
+        # Shared ring token still lives in token.css.
+        tokens = read_css_dir("foliplus/css/common", "token.css")
+        assert "--foliplus-focus-ring:" in tokens
 
         css = read_css("foliplus/css/ExportControl.css")
+        assert ".foliplus-export-handle:focus-visible" in css
+        assert ".foliplus-export-center:focus-visible" in css
+        assert "var(--foliplus-focus-ring)" in css
+        # Export-specific selectors must NOT live in common/button.css.
+        button = read_css_dir("foliplus/css/common", "button.css")
+        assert ".foliplus-export-handle" not in button
+        assert ".foliplus-export-center" not in button
         for selector in (".foliplus-export-handle", ".foliplus-export-center"):
             idx = css.find(selector)
             assert idx != -1, selector
@@ -354,10 +353,6 @@ class TestExportControlRendering:
                         break
             block = re.sub(r"/\*.*?\*/", "", css[idx : end + 1], flags=re.S)
             assert "scale(" not in block, (selector, block)
-            assert "&:focus-visible" not in block, (selector, block)
-
-        # Transition + hover/press live on the shared button.css recipe.
-        assert "transition: var(--foliplus-transition-fast)" in button
 
 
 class TestExportControlBrowser:

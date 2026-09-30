@@ -16,26 +16,14 @@
   Blocker/preview rides --foliplus-z-index-top (control z), not export z. */
 
 .foliplus-export-mode {
-  --foliplus-z-export-base: 9500;
   /* Dim mask shadow extent & color. --foliplus-export-dim-color (0.4) must stay in
      sync with LayerControl's FOCUS.MASK_OPACITY so both selection boxes
      dim alike. */
-  --foliplus-export-dim-extent: 9999px;
-  --foliplus-export-dim-color: rgba(0, 0, 0, 0.4);
-  --foliplus-export-dim-color-locked: rgba(0, 0, 0, var(--foliplus-alpha-50));
   /* Controls above mask */
-  --foliplus-export-controls-z: calc(var(--foliplus-z-export-base) + 10);
-  --foliplus-export-scale-z: calc(var(--foliplus-z-export-base) - 10);
   /* Fold control z-index */
-  --foliplus-export-fold-z: calc(var(--foliplus-z-export-base) + 200);
   /* Handle/center anchor size */
-  --foliplus-export-anchor-size: var(--foliplus-dot-size);
   /* Handle/center offset from box edge (half of 1px border) */
-  --foliplus-export-handle-offset: -1px;
   /* Smooth box follow during drag */
-  --foliplus-export-move-transition:
-    left var(--foliplus-transition-fast), top var(--foliplus-transition-fast),
-    width var(--foliplus-transition-fast), height var(--foliplus-transition-fast);
 
   /* Reset Leaflet stacking context so controls can sit above the crop mask.
     leaflet-top/leaflet-bottom have z-index:1000 by default, creating a
@@ -163,7 +151,7 @@
   /* Hover/press: the soft glow deepens one step so the crop frame reads as
      "under the cursor / being pressed" without moving the dashes or the
      dim mask. Locked boxes have pointer-events: none, so they never light.
-     Handle/center hover/press lives in common/button.css (dot recipe). */
+     Handle/center hover/press + focus ring live below — component-only. */
   &:not(.foliplus-locked):is(:hover, :active) {
     box-shadow: 0 0 var(--foliplus-size-24) var(--foliplus-accent-soft-shadow);
   }
@@ -194,14 +182,28 @@
 
 /* ── Corner/Edge Handles ──
    Look comes from common/button.css's `.foliplus-dot-hollow` (shared with the
-   measure nodes); only the box-relative anchoring is here.
-   Hover/press + focus ring live in common/button.css (shared dot recipe). */
+   measure nodes); only the box-relative anchoring + interaction live here.
+   Component-only CSS must not sink into common — ExportControl owns it. */
 .foliplus-export-handle {
   position: absolute;
   width: var(--foliplus-export-anchor-size);
   height: var(--foliplus-export-anchor-size);
   z-index: calc(var(--foliplus-z-export-base) + 5);
   pointer-events: auto;
+  /* Cursor direction is the grab affordance and stays as-is; hover/press
+     only warm the surface and add the shared slider glow. Transform is
+     reserved for the per-edge translate below, so press feedback is
+     background/shadow only. Keyboard focus rides the shared ring token. */
+  transition: var(--foliplus-transition-fast);
+
+  &:is(:hover, :active) {
+    background: var(--foliplus-accent-light);
+    box-shadow: var(--foliplus-slider-thumb-glow);
+  }
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--foliplus-focus-ring);
+  }
 
   &.tl {
     top: var(--foliplus-export-handle-offset);
@@ -257,8 +259,8 @@
    Look comes from common/button.css's `.foliplus-dot-solid` — the same
    recipe as the measure centroid. transform (not negative margin) keeps the
    centering exact at subpixel sizes.
-   Hover/press + focus ring live in common/button.css; they must never
-   compose scale() with that translate. */
+   Hover/press must NOT compose scale() with that translate — it shifts the
+   dot on hover. Feedback is glow only; focus rides the shared ring token. */
 .foliplus-export-center {
   position: absolute;
   top: 50%;
@@ -270,6 +272,15 @@
   box-shadow: 0 1px var(--foliplus-size-4) var(--foliplus-export-dim-color);
   pointer-events: auto;
   cursor: move;
+  transition: var(--foliplus-transition-fast);
+
+  &:is(:hover, :active) {
+    box-shadow: var(--foliplus-slider-thumb-glow);
+  }
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--foliplus-focus-ring);
+  }
 }
 
 /* Locked: hide handles and center anchor */

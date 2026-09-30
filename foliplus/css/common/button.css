@@ -25,8 +25,6 @@
    centered stroke half out of the path — the same outer edge as the DOM box.
    Both come out --foliplus-dot-size across. */
 .foliplus-dot {
-  --foliplus-dot-fill: var(--foliplus-neutral-0);
-  --foliplus-dot-stroke-color: var(--foliplus-accent-primary);
   fill: var(--foliplus-dot-fill);
   fill-opacity: 1;
   stroke: var(--foliplus-dot-stroke-color);
@@ -41,37 +39,15 @@
   border-radius: var(--foliplus-radius-round);
   box-sizing: border-box;
 }
-/* Keyboard focus for DOM anchor dots (export crop handles/center, measure
-   nodes that take DOM focus). Shared ring token — one rule instead of a
-   per-component copy on every new surface. */
-.foliplus-dot:not(path):focus-visible {
-  outline: none;
-  box-shadow: var(--foliplus-focus-ring);
-}
-/* Export crop anchors (hollow handles / solid center) answer hover/press
-   with the shared slider glow. Transform is reserved for per-edge
-   translate / centering — never scale() — so the dot cannot shift.
-   Lives here (not ExportControl.css) so the component bundle stays lean. */
-.foliplus-export-handle,
-.foliplus-export-center {
-  transition: var(--foliplus-transition-fast);
-}
-.foliplus-export-handle:is(:hover, :active) {
-  background: var(--foliplus-accent-light);
-  box-shadow: var(--foliplus-slider-thumb-glow);
-}
-.foliplus-export-center:is(:hover, :active) {
-  box-shadow: var(--foliplus-slider-thumb-glow);
-}
 /* Hollow: neutral fill, accent ring. */
 .foliplus-dot-hollow {
-  --foliplus-dot-fill: var(--foliplus-neutral-0);
-  --foliplus-dot-stroke-color: var(--foliplus-accent-primary);
+  fill: var(--foliplus-neutral-0);
+  stroke: var(--foliplus-accent-primary);
 }
 /* Solid: accent fill, neutral ring. */
 .foliplus-dot-solid {
-  --foliplus-dot-fill: var(--foliplus-accent-primary);
-  --foliplus-dot-stroke-color: var(--foliplus-neutral-0);
+  fill: var(--foliplus-accent-primary);
+  stroke: var(--foliplus-neutral-0);
 }
 
 /* ── Common Icon Size ──
