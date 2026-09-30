@@ -38,6 +38,7 @@ import { createLogger } from "#common/log.js";
 import { AnnotationManager } from "./annotation/index.js";
 import * as CONST from "./const.js";
 import { LayerPersistence } from "./persistence.js";
+import { SavedOrder } from "./savedOrder.js";
 import { LayerUI } from "./ui/index.js";
 import { INTENT, clearIntent, getIntent } from "./ui/intent.js";
 
@@ -111,9 +112,9 @@ const uninstallBringToFrontPatch = () => {
 //   extra     computeZIndex, moveLayerUp, moveLayerDown
 //   Internal  surfaceFor, surfaceForLayer, enforceOrder, debouncedEnforce,
 //             hasUnresolvedLayers, onLayerAdd, loadSavedOrder, saveOrder,
-//             replaySavedOrder, insertOverlayAt, placeBeforeSavedNeighbor,
+//             replaySavedOrder (order domain on `this.order` / savedOrder.ts),
 //             syncAttribution, attachUI, destroy, canReorderBetween,
-//             findLayer, refreshType, refreshCount, forEachLeaf,
+//             findLayer, refreshCount, forEachLeaf,
 //             clearAllLayers
 //   Private   installBringToFrontPatch, uninstallBringToFrontPatch
 
@@ -177,20 +178,11 @@ class LayerManager implements LayerAPI {
   ui: LayerUI | null;
   debouncedEnforce: Debounced;
   persistence: LayerPersistence;
-  /** The order the user arranged: a snapshot of the live registry taken by the
-   *  last user reorder (drag, moveLayerUp/Down, bringLayerToFront). Registration
-   *  never writes it — a slot the author's code picked is not intent. `null`
-   *  means the user never arranged an order, and replay falls back to the
-   *  registration sequence. */
-  private savedOrder: string[] | null;
-  /** Layer ids the user deleted, one-way: nothing removes an entry.
-   *
-   *  Consulted at construction, where it evicts the layer from the map, and at
-   *  the registration entry point, where it keeps the id out of the registry
-   *  — so nothing downstream ever has to check for it. Both run before the
-   *  panel attaches, which is why this lives on the manager rather than the UI.
-   */
-  private removedIds: Set<string>;
+  /** User-arranged order + one-way deleted-id set. Owns `savedOrder` /
+   *  `removedIds` and the load / snapshot / replay / prune methods; the
+   *  manager forwards the public face and keeps the ownership call-sites
+   *  (register gate, delete mark). */
+  order: SavedOrder;
   /** Whether the author set a finite `map.options.maxZoom`.
 
    *  Captured in the constructor, before the first enforceOrder can write its
@@ -215,14 +207,13 @@ class LayerManager implements LayerAPI {
     // attach time would let a layer the user deleted back into the panel on the
     // next reload.
     const saved = this.persistence.load();
-    this.removedIds = new Set(saved.removed);
-    this.savedOrder = saved.order;
+    const removedIds = new Set(saved.removed);
     // A deleted id must leave the panel *and* the map: folium emits `addTo(map)`
     // for every layer at page load, so gating the registry alone would drop the
     // row while the map kept painting it across a reload. One pass does both.
     this.layerRegistry = new LayerRegistry(
       data.filter(li => {
-        if (!this.removedIds.has(li.id)) return true;
+        if (!removedIds.has(li.id)) return true;
         // Late-binding fallback (folium script-stream order) — same single
         // point as `findLayer` / ExportControl's `resolveLayer`.
         const layer = li.layer ?? findLayer(this.map, li.id);
@@ -231,20 +222,35 @@ class LayerManager implements LayerAPI {
       }),
       this.map,
     );
+    this.order = new SavedOrder({
+      registry: this.layerRegistry,
+      getPersistence: () => this.persistence,
+      savedOrder: saved.order,
+      removedIds,
+    });
     this.pendingRegistrations = [];
     this.uiContainer = null;
 
-    // Bind method context
-    this.registerLayer = this.registerLayer.bind(this);
-    this.unregisterLayer = this.unregisterLayer.bind(this);
-    this.bringLayerToFront = this.bringLayerToFront.bind(this);
-    this.touchLayer = this.touchLayer.bind(this);
-    this.setVisible = this.setVisible.bind(this);
-    this.getLayerType = this.getLayerType.bind(this);
-    this.getLayersByType = this.getLayersByType.bind(this);
-    this.findLayer = this.findLayer.bind(this);
-    this.forEachLeaf = this.forEachLeaf.bind(this);
-    this.extractPoints = this.extractPoints.bind(this);
+    // Bind method context: every layer-scoped method a component or the
+    // factory may call detached. Collapse the repeated .bind(this) lines
+    // into one loop (same effect); getLayerPanes = resolveLayerPanes.bind
+    // below is a renamed binding, not part of this list.
+    const boundMethods = [
+      "registerLayer",
+      "unregisterLayer",
+      "bringLayerToFront",
+      "touchLayer",
+      "setVisible",
+      "getLayerType",
+      "getLayersByType",
+      "findLayer",
+      "forEachLeaf",
+      "extractPoints",
+    ] as const;
+    for (const name of boundMethods) {
+      const method = this[name];
+      Object.assign(this, { [name]: method.bind(this) });
+    }
     this.isEnforcing = false;
     this.isDestroyed = false;
 
@@ -319,7 +325,7 @@ class LayerManager implements LayerAPI {
     // already landed on it.
     this.annotation = new AnnotationManager({
       map: this.map,
-      layerFind: id => this.findLayer(id),
+      layerFind: this.findLayer,
     });
     this.loadSavedOrder();
     this.layerRegistry.normalizeGroups();
@@ -376,132 +382,17 @@ class LayerManager implements LayerAPI {
     return false;
   }
 
+  // Order-domain forwards (bodies live on `this.order` — see savedOrder.ts).
   loadSavedOrder() {
-    const data = this.savedOrder;
-    if (!data) return;
-    const items = [...this.layers];
-    this.layerRegistry.replace(this.sortByStored(items, data));
+    this.order.loadSavedOrder();
   }
 
-  /** Reorder `items` by `stored` rank; ids the record never ranked keep their
-   *  live relative order at the bottom. */
-  private sortByStored(items: LayerInfo[], stored: string[]): LayerInfo[] {
-    const rank = new Map(stored.map((id, i) => [id, i]));
-    const sorted = [...items];
-    sorted.sort((a, b) => {
-      const ra = rank.get(a.id);
-      const rb = rank.get(b.id);
-      if (ra === undefined) return rb === undefined ? 0 : 1;
-      if (rb === undefined) return -1;
-      return ra - rb;
-    });
-    return sorted;
-  }
-
-  /** Persist the current live order as a full snapshot — the user just
-   *  reordered, so every layer present participates equally, the solid-color
-   *  basemap included. Registration never reaches here: a slot picked by attach
-   *  timing is not a user arrangement (see {@link registerLayer}).
-   *
-   *  Prune paths (deleteLayer / forgetSavedOrder) filter `savedOrder` and
-   *  schedule the record directly instead of calling this, so a prune never
-   *  turns a registration sequence into a snapshot.
-   */
   saveOrder() {
-    const order = this.layers.map(l => l.id);
-    this.savedOrder = order;
-    this.persistence.schedule({ order: () => order });
+    this.order.saveOrder();
   }
 
-  /** Re-apply the stored order now that a layer exists.
-   *
-   *  Neither appearance point is the constructor: a component may register after
-   *  the record was loaded, and the attach-time sweep drains registrations made
-   *  before the UI existed. Without a replay the layer keeps the slot it was
-   *  inserted into, which is not the position the user chose.
-   *
-   *  Ids with no stored position are left where they are -- appending them here
-   *  would move a layer the user never arranged.
-   */
   replaySavedOrder(id?: string) {
-    const saved = this.savedOrder;
-    if (!saved) return;
-    const registry = this.layerRegistry;
-
-    if (id !== undefined) {
-      const layerInfo = registry.get(id);
-      if (!layerInfo) return;
-      const target = saved.indexOf(id);
-      if (target === -1) return;
-      this.placeBeforeSavedNeighbor(layerInfo, saved, target);
-      return;
-    }
-
-    const items = [...this.layers];
-    // Ids with no stored rank stay at the bottom in live order.
-    registry.replace(this.sortByStored(items, saved));
-  }
-
-  /** Move `layerInfo` just before the first saved-order neighbor that is
-   *  registered. Neighbors that are not registered yet cannot be located, so
-   *  this places it at the best spot the live registry can honour and a later
-   *  replay refines it as the neighbors arrive. */
-  private placeBeforeSavedNeighbor(
-    layerInfo: LayerInfo,
-    saved: string[],
-    target: number,
-  ): void {
-    const registry = this.layerRegistry;
-    const from = registry.indexOf(layerInfo);
-    // `reorder`'s second argument is the index in the *final* order, so the
-    // goal is expressed directly and no shift adjustment is applied.
-    let goal: number;
-    for (let i = target + 1; i < saved.length; i++) {
-      const neighbor = registry.get(saved[i]);
-      if (!neighbor) continue;
-      const to = registry.indexOf(neighbor);
-      // Removing `layerInfo` first shifts every later index down by one.
-      goal = to - (from < to ? 1 : 0);
-      if (from !== goal) registry.reorder(from, goal);
-      return;
-    }
-    // Nothing below it in the saved order is registered yet, so it is the
-    // rightmost of the layers that exist. That end is group-local: an overlay
-    // that lands under a base layer breaks the overlay-before-base invariant,
-    // so overlays fall back to the end of the overlay block; a base layer
-    // falls back to the end of the base block (the registry end).
-    goal =
-      layerInfo.group === GROUP.BASE
-        ? registry.layers.length - 1
-        : registry.firstBaseIdx === -1
-          ? registry.layers.length - 1
-          : registry.firstBaseIdx - 1;
-    if (from !== goal) registry.reorder(from, goal);
-  }
-
-  /** Where a new overlay enters the stack.
-   *
-   *  A layer without a stored position goes on top — a fresh layer has no user
-   *  arrangement to honour, and top is what every other caller of `prepend`
-   *  promises. With a stored position it takes the slot the user already chose.
-   *  The placement is done here rather than left to a later sweep, because a
-   *  registration that lands before the UI attaches never gets that sweep.
-   */
-  private insertOverlayAt(layerInfo: LayerInfo): void {
-    this.layerRegistry.prepend(layerInfo);
-    this.placeAtSavedSlot(layerInfo);
-  }
-
-  /** Move a fresh layer to its stored slot when the record ranks it — prepend
-   *  (overlay) and `baseInsert` (base) stay the defaults for a layer the user
-   *  never arranged. Shared so base registrations replay a dragged slot the
-   *  same way overlay registrations do. */
-  private placeAtSavedSlot(layerInfo: LayerInfo): void {
-    const saved = this.savedOrder;
-    if (!saved) return;
-    const target = saved.indexOf(layerInfo.id);
-    if (target === -1) return; // no stored position — keep the default insert
-    this.placeBeforeSavedNeighbor(layerInfo, saved, target);
+    this.order.replaySavedOrder(id);
   }
 
   // ==================== Public API Methods ====================
@@ -538,12 +429,6 @@ class LayerManager implements LayerAPI {
     this.surfaces.get(id)?.invalidate();
     const layerInfo = this.layerRegistry.get(id);
     if (layerInfo) layerInfo.type = null;
-  }
-
-  /** Re-infer and return a layer's geometry type. */
-  refreshType(id: string): string | null {
-    this.invalidateType(id);
-    return this.getLayerType(id);
   }
 
   /**
@@ -656,7 +541,7 @@ class LayerManager implements LayerAPI {
     // would take down whatever was registering. Interim behavior: the
     // reason is logged rather than returned, until registerLayer grows a
     // RegisterResult union that names "removed".
-    if (this.removedIds.has(opts.id)) {
+    if (this.order.removedIds.has(opts.id)) {
       log.warn(
         `registerLayer: refusing "${opts.id}" — the layer was deleted by the ` +
           `user and the deletion is persisted for this map`,
@@ -677,8 +562,8 @@ class LayerManager implements LayerAPI {
       } else {
         this.layerRegistry.insertAt(layerInfo, firstBaseIdx);
       }
-      this.placeAtSavedSlot(layerInfo);
-    } else this.insertOverlayAt(layerInfo);
+      this.order.placeAtSavedSlot(layerInfo);
+    } else this.order.insertOverlayAt(layerInfo);
 
     // I1: give the layer its rendering face and materialize it *before* it
     // joins the map. `options.pane` is read by `map.addLayer` and ignored
@@ -883,9 +768,10 @@ class LayerManager implements LayerAPI {
     // not erase `layers[id].annotation` from storage).
     this.annotation.unloadLayer(id);
     this.ui?.invalidateFields(id);
-    // The fill apply scheduler is keyed by layer id; drop the entry here or
-    // a churning map accumulates boxes for dead ids.
-    this.ui?.dropFillScheduler?.(id);
+    // Style-apply schedulers (fill + stroke) are keyed by layer id; one
+    // drop hook frees every face's entry so a churning map cannot
+    // accumulate boxes for dead ids.
+    this.ui?.dropStyleDimApplies?.(id);
     // The row was just removed: rescan the group's count so the toggle-all
     // checkbox reflects the removal in the same frame.
     this.ui?.syncToggleAll?.(layerInfo.group);
@@ -956,21 +842,17 @@ class LayerManager implements LayerAPI {
     const removed = this.unregisterLayer(id);
     if (!removed) return false;
 
-    this.removedIds.add(id);
-    this.persistence.schedule({ removed: () => [...this.removedIds] });
+    this.order.removedIds.add(id);
+    this.persistence.schedule({ removed: () => [...this.order.removedIds] });
     // unregisterLayer keeps the label config (a teardown is not a delete);
     // this is the delete, so forget it here — `configEntries` must stop
     // answering for a removed id.
     this.annotation.destroyLayer(id);
 
-    // Prune the id from the stored order directly — `saveOrder` is a full live
-    // snapshot reserved for user reorders, and a delete is not a reorder. No
-    // record (the user never arranged an order) means nothing to prune.
-    const saved = this.savedOrder;
-    if (saved) {
-      this.savedOrder = saved.filter(other => other !== id);
-      this.persistence.schedule({ order: () => this.savedOrder! });
-    }
+    // Prune the id from the stored order (same prune as forgetSavedOrder —
+    // `saveOrder` is a full live snapshot reserved for user reorders, and a
+    // delete is not a reorder). No record means nothing to prune.
+    this.order.forgetSavedOrder(id);
 
     // The label config needs no schedule here: it rides `layers[id]`
     // (re-saved through `ui.saveState` below — the live config is gone via
@@ -983,7 +865,7 @@ class LayerManager implements LayerAPI {
       return true;
     }
     this.ui.dropPersistedLayerState(id);
-    if (this.ui.intents?.[id]?.name != null) {
+    if (getIntent(this.ui, id, INTENT.NAME) != null) {
       clearIntent(this.ui, id, INTENT.NAME);
       this.ui.saveNamesState();
     }
@@ -995,33 +877,17 @@ class LayerManager implements LayerAPI {
   }
 
   /**
-   * Drop one id from the stored order without retiring the layer.
-   *
-   * The counterpart to {@link deleteLayer}'s saved-order prune, minus the
-   * `removedIds` recording: after this call the id leaves `savedOrder` but
-   * stays registerable. Component clear paths use it because a cleared layer
-   * is not the same as a deleted one — the user still owns the layer and the
-   * next draw should land at the top of the stack, not back in the slot they
-   * had arranged. Skipping this prune is what makes the next `registerLayer`
-   * hit `insertOverlayAt`'s prepend branch rather than
-   * `placeBeforeSavedNeighbor`'s return-to-slot path.
-   *
-   * `saveOrder` is NOT delegated: it is a full live snapshot reserved for
-   * user reorders, while this is a prune. The filtered record is scheduled
-   * directly so neighbors keep their rank and no snapshot is born from a
-   * registration sequence.
+   * Drop one id from the stored order without retiring the layer (LayerAPI
+   * contract; body on {@link SavedOrder}). Component clear paths use it so a
+   * redraw lands at the top of the stack; `deleteLayer` reuses the same prune
+   * and is the only caller that also records `removedIds`.
    *
    * @param id - The layer ID whose stored position is being dropped.
    * @returns true if the id was in the stored order and got removed, false
-   *   otherwise (nothing to forget). Callers treat false as a no-op, not an
-   *   error — an id that was never registered has nothing to forget.
+   *   otherwise (nothing to forget).
    */
   forgetSavedOrder(id: string): boolean {
-    const saved = this.savedOrder;
-    if (!saved || !saved.includes(id)) return false;
-    this.savedOrder = saved.filter(other => other !== id);
-    this.persistence.schedule({ order: () => this.savedOrder! });
-    return true;
+    return this.order.forgetSavedOrder(id);
   }
 
   clearAllLayers(layer: L.Layer | null) {

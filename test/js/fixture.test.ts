@@ -6,6 +6,7 @@
 // a new field landing in production code produces a loud test failure instead
 // of a silent crash a dozen tests downstream.
 import { beforeEach, describe, expect, it } from "vitest";
+import { IntentStore } from "#foliplus/LayerControl/ui/intentStore.js";
 import { makeLayerUIMock } from "./fixture.js";
 
 describe("window.L marker mock", () => {
@@ -23,17 +24,15 @@ describe("makeLayerUIMock — LayerUI field completeness", () => {
     const ui = makeLayerUIMock() as Record<string, unknown>;
     // Sets
     expect(ui.foldedGroups).toBeInstanceOf(Set);
-    // Records
-    expect(ui.intents ?? {}).toEqual({});
+    // Intent store (values + provenance axes)
+    expect(ui.intentStore).toBeInstanceOf(IntentStore);
+    expect((ui.intentStore as IntentStore).dumpIntents()).toEqual({});
+    expect((ui.intentStore as IntentStore).dumpProvenance()).toEqual({});
     // Maps
     expect(ui.authorVisible).toBeInstanceOf(Map);
     expect(ui.fieldCache).toBeInstanceOf(Map);
     // Records
-    expect(ui.intentProvenance).toEqual({});
-    expect(ui.intents ?? {}).toEqual({});
-    expect(ui.intents ?? {}).toEqual({});
-    expect(ui.intents ?? {}).toEqual({});
-    expect(ui.intents ?? {}).toEqual({});
+    expect(ui.renamedNames).toEqual({});
     // Primitives with sensible defaults
     expect(ui.currentColor).toBe("#cccccc");
     expect(ui.lastDragHintAt).toBe(0);

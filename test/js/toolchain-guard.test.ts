@@ -71,13 +71,18 @@ describe("script module surface", () => {
 // The `#script/*` import alias is declared in three independent places.
 // Dropping one of them breaks with a bare ERR_PACKAGE_IMPORT_NOT_DEFINED and no
 // hint about which declaration drifted, so the trio is asserted together.
+//
+// The vitest half is not a hand-copied `resolve("script")` — it imports
+// `testPathAliases` from script/build-path.mjs. This suite pins that wiring so
+// a future drift fails here instead of at test import time.
 describe("#script/* import alias", () => {
   it("package.json imports points #script/* at ./script/*", () => {
     expect(pkg.imports["#script/*"]).toBe("./script/*");
   });
 
-  it("vitest resolve.alias maps #script to the same directory", () => {
-    expect(vitestConfig).toMatch(/"#script":\s*resolve\("script"\)/);
+  it("vitest resolve.alias maps #script via the build-path single source", () => {
+    expect(vitestConfig).toMatch(/testPathAliases\s*\(/);
+    expect(existsSync(resolve(ROOT, "script/build-path.mjs"))).toBe(true);
   });
 
   it("test/js tsconfig keeps the #script/* mapping live", () => {

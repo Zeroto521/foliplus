@@ -628,3 +628,177 @@ describe("initScan — hints keyed by the injected conf", () => {
     );
   });
 });
+
+describe("bindControls — saved-config restore", () => {
+  it("applies a persisted config on first bind", () => {
+    // Seed a saved record so the first bindControls run rehydrates state.
+    window.localStorage.setItem(
+      CONST.STORAGE.KEY,
+      JSON.stringify({ scheme: "Blues", numClasses: 4, agg: "sum" }),
+    );
+    const m = makeManager();
+    const ctrl = makeCtrl(m, makeConf());
+    const panel = document.createElement("div");
+    bindControls(ctrl, panel);
+    expect(m.currentScheme).toBe("Blues");
+    expect(m.numClasses).toBe(4);
+    expect(m.currentAgg).toBe(CONST.AGG.SUM);
+  });
+});
+
+describe("bindControls — class count clamping", () => {
+  it("class-count change falls back to DEFAULT when the value is not a number", () => {
+    const { ctrl, m } = setup();
+    ctrl.classSelect.value = "not-a-number";
+    fire(ctrl.classSelect, "change");
+    expect(m.numClasses).toBe(CONST.CLASS_COUNT.DEFAULT);
+  });
+
+  it("class-count change falls back to DEFAULT for zero", () => {
+    const { ctrl, m } = setup();
+    ctrl.classSelect.value = "0";
+    fire(ctrl.classSelect, "change");
+    expect(m.numClasses).toBe(CONST.CLASS_COUNT.DEFAULT);
+  });
+});
+
+describe("selectScheme — CONF.schemes edge cases", () => {
+  it("selectScheme with an out-of-range index when schemes is missing is a no-op", () => {
+    const { ctrl, m } = setup(makeConf({ schemes: undefined }));
+    const save = vi.spyOn(m, "saveConfig");
+    ctrl.selectScheme?.(0);
+    expect(m.currentScheme).toBe("Reds");
+    expect(save).not.toHaveBeenCalled();
+  });
+});
+
+describe("closeSchemeDropdown — inside-dropdown click", () => {
+  it("does not close when the click target is inside the open dropdown", () => {
+    const { ctrl } = setup();
+    ctrl.toggleSchemeDropdown();
+    const dropdown = ctrl.schemeDropdown!;
+    // Construct an event whose target is the dropdown itself. Because
+    // dropdown.contains(dropdown) is true, the third clause of the outer
+    // condition is false and the dropdown stays open.
+    const event = new MouseEvent("click", { bubbles: true });
+    Object.defineProperty(event, "target", { value: dropdown });
+    ctrl.closeSchemeDropdown(event);
+    expect(ctrl.schemeDropdown).toBe(dropdown);
+    expect(ctrl.schemeDropdown).not.toBeNull();
+  });
+});
+
+describe("toggleSchemeDropdown — close path", () => {
+  it("does not re-bind a document click listener when it closes an open dropdown", () => {
+    const { ctrl } = setup();
+    ctrl.toggleSchemeDropdown();
+    expect(ctrl.schemeDropdown).not.toBeNull();
+    const onSpy = vi.fn();
+    ctrl.on = onSpy;
+    ctrl.toggleSchemeDropdown();
+    expect(ctrl.schemeDropdown).toBeNull();
+    expect(onSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe("buildLayerListItems — null extraBody tolerance", () => {
+  beforeEach(() => {
+    vi.spyOn(HeatmapManager.prototype, "scanMapLayers").mockImplementation(function () {
+      // no-op: keep the seeded pointLayers stable across rebuilds
+    });
+  });
+  it("auto-select path tolerates a null extraBody", () => {
+    const m = makeManager();
+    m.pointLayers = [{ id: "p1", name: "P1", layer: {}, count: 1 }];
+    m.hasScanned = false;
+    m.selectedLayerId = null;
+    const ctrl = makeCtrl(m, makeConf());
+    ctrl.extraBody = null;
+    expect(() => rebuildLayerDropdown(ctrl)).not.toThrow();
+    expect(m.selectedLayerId).toBe("p1");
+  });
+
+  it("layer-select change tolerates a null extraBody", () => {
+    const m = makeManager();
+    m.pointLayers = [{ id: "p1", name: "P1", layer: {}, count: 1 }];
+    const ctrl = makeCtrl(m, makeConf());
+    rebuildLayerDropdown(ctrl);
+    ctrl.extraBody = null;
+    ctrl.layerSelect.value = "p1";
+    fire(ctrl.layerSelect, "change");
+    expect(m.selectedLayerId).toBe("p1");
+  });
+
+  it("buildLayerListItems tail tolerates a null extraBody", () => {
+    const m = makeManager();
+    m.pointLayers = [{ id: "p1", name: "P1", layer: {}, count: 1 }];
+    const ctrl = makeCtrl(m, makeConf());
+    ctrl.extraBody = null;
+    rebuildLayerDropdown(ctrl);
+    expect(ctrl.layerSelect.value).toBe("p1");
+  });
+});
+
+describe("rebuildLayerDropdown — null layerSelect", () => {
+  it("no-ops when layerSelect is null", () => {
+    const m = makeManager();
+    const ctrl = makeCtrl(m, makeConf());
+    ctrl.layerSelect = null;
+    expect(() => rebuildLayerDropdown(ctrl)).not.toThrow();
+  });
+});
+
+describe("updateFieldSelector — null field controls", () => {
+  it("agg change tolerates a null fieldWrap", () => {
+    const { ctrl, m } = setup();
+    ctrl.fieldWrap = null;
+    ctrl.aggSelect.value = CONST.AGG.SUM;
+    fire(ctrl.aggSelect, "change");
+    expect(m.currentAgg).toBe(CONST.AGG.SUM);
+  });
+
+  it("agg change tolerates a null fieldSelect", () => {
+    const { ctrl, m } = setup();
+    ctrl.fieldSelect = null;
+    ctrl.aggSelect.value = CONST.AGG.SUM;
+    fire(ctrl.aggSelect, "change");
+    expect(m.currentAgg).toBe(CONST.AGG.SUM);
+  });
+});
+
+describe("refreshSchemeDropdownItems — malformed items", () => {
+  it("skips an item without a scheme name", () => {
+    const { ctrl } = setup();
+    ctrl.schemeBar.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    const fakeItem = document.createElement("div");
+    fakeItem.classList.add(CONST.CLASSES.SCHEME_DROPDOWN_ITEM);
+    // No data-scheme-name attribute — the refresh loop must skip it.
+    ctrl.schemeDropdown!.appendChild(fakeItem);
+    ctrl.classSelect.value = "4";
+    fire(ctrl.classSelect, "change");
+    expect(ctrl.schemeDropdown).not.toBeNull();
+    expect(
+      ctrl.schemeDropdown!.querySelectorAll(CONST.SEL.SCHEME_DROPDOWN_ITEM).length,
+    ).toBe(4);
+  });
+
+  it("skips an item with a scheme name but no bar child", () => {
+    const { ctrl } = setup();
+    ctrl.schemeBar.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    const fakeItem = document.createElement("div");
+    fakeItem.classList.add(CONST.CLASSES.SCHEME_DROPDOWN_ITEM);
+    fakeItem.setAttribute("data-scheme-name", "Reds");
+    // No bar child — renderColorBar would throw on null.innerHTML.
+    ctrl.schemeDropdown!.appendChild(fakeItem);
+    const getColorScaleSpy = vi.spyOn(ctrl.m, "getColorScale");
+    ctrl.classSelect.value = "4";
+    fire(ctrl.classSelect, "change");
+    expect(ctrl.schemeDropdown).not.toBeNull();
+    // getColorScale was called for the real items but not for the malformed one.
+    const fakeCall = getColorScaleSpy.mock.calls.find(
+      ([name]) => name === "Reds" && !ctrl.schemeDropdown!.querySelector("div[style]"),
+    );
+    expect(fakeCall).toBeUndefined();
+    getColorScaleSpy.mockRestore();
+  });
+});

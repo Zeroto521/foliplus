@@ -43,6 +43,25 @@ describe("HeatmapControl interaction", () => {
     cleanup();
   });
 
+  it("falls back to an empty scheme list when CONF.schemes is missing", () => {
+    // The Python CONF omits schemes in the minimal build — the handler must
+    // still register without throwing, and ArrowUp/Down become no-ops.
+    delete (window as any).CONF.schemes;
+    const ctrl = makeCtrl();
+    ctrl.m.currentScheme = "any";
+    const cleanup = registerSchemeBarEvents(ctrl.map, ctrl);
+    document.body.appendChild(ctrl.schemeBar);
+    ctrl.schemeBar.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }),
+    );
+    ctrl.schemeBar.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
+    );
+    expect(ctrl.updateScheme).not.toHaveBeenCalled();
+    expect(ctrl.m.currentScheme).toBe("any");
+    cleanup();
+  });
+
   it("ArrowUp from middle goes to prev", () => {
     const ctrl = makeCtrl();
     ctrl.m.currentScheme = "rainbow";
@@ -78,6 +97,35 @@ describe("HeatmapControl interaction", () => {
     );
     expect(ctrl.updateScheme).toHaveBeenCalled();
     expect(ctrl.m.currentScheme).toBe("grayscale");
+    cleanup();
+  });
+
+  it("ArrowDown at last does nothing", () => {
+    const ctrl = makeCtrl();
+    ctrl.m.currentScheme = "grayscale";
+    const cleanup = registerSchemeBarEvents(ctrl.map, ctrl);
+    document.body.appendChild(ctrl.schemeBar);
+    ctrl.schemeBar.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
+    );
+    expect(ctrl.updateScheme).not.toHaveBeenCalled();
+    expect(ctrl.m.currentScheme).toBe("grayscale");
+    cleanup();
+  });
+
+  it("schemeSelectHidden is optional on ArrowUp", () => {
+    // ArrowUp sets currentScheme and then tries to mirror the value onto the
+    // hidden <select>; a bare ctrl without schemeSelectHidden must not throw.
+    const ctrl = makeCtrl();
+    ctrl.schemeSelectHidden = null;
+    ctrl.m.currentScheme = "rainbow";
+    const cleanup = registerSchemeBarEvents(ctrl.map, ctrl);
+    document.body.appendChild(ctrl.schemeBar);
+    ctrl.schemeBar.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }),
+    );
+    expect(ctrl.m.currentScheme).toBe("thermal");
+    expect(ctrl.updateScheme).toHaveBeenCalled();
     cleanup();
   });
 
@@ -148,6 +196,26 @@ describe("HeatmapControl interaction", () => {
       new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
     );
     expect(ctrl.selectScheme).toHaveBeenCalled();
+    cleanup();
+  });
+
+  it("Enter with an unrelated focused element does not select", () => {
+    // The Enter handler only fires when the active element is a dropdown item —
+    // a stray Enter (e.g. on a plain div outside the items) must not call selectScheme.
+    const ctrl = makeCtrl();
+    ctrl.schemeDropdown = document.createElement("div");
+    const items = [document.createElement("div")];
+    items[0].classList.add("foliplus-heatmap-scheme-dropdown-item");
+    items[0].setAttribute("tabindex", "-1");
+    const unrelated = document.createElement("div");
+    unrelated.setAttribute("tabindex", "-1");
+    document.body.append(ctrl.schemeDropdown, items[0], unrelated);
+    const cleanup = registerDropdownEvents(ctrl.map, ctrl, items);
+    unrelated.focus();
+    ctrl.schemeDropdown.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+    );
+    expect(ctrl.selectScheme).not.toHaveBeenCalled();
     cleanup();
   });
 

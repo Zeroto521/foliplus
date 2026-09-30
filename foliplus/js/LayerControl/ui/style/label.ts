@@ -105,12 +105,12 @@ const coerceAnnotationFields = (raw: unknown): AnnotationConfig => {
 
 /** Load persisted per-layer style (label) config and apply it.
  *
- *  `ui.intents.annotation` is the *load-time snapshot*, so this is a seed, not a
+ *  `ui.intentStore` annotation is the *load-time snapshot*, so this is a seed, not a
  *  restore: a layer already carrying a config has the live one (the user may
  *  have switched it on since the page loaded), and re-applying the snapshot over
  *  it would silently revert that. Idempotent. */
 const applyStyleLabelState = (ui: LayerUI): void => {
-  const seedIds = Object.keys(ui.intents ?? {});
+  const seedIds = ui.intentStore.ids();
   for (const id of seedIds) {
     const raw = getIntent(ui, id, INTENT.ANNOTATION);
     if (!raw) continue;

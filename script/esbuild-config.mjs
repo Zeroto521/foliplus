@@ -12,12 +12,17 @@
  * that only wants the minifier's behavior should read the scalar fields
  * (`minify`, `format`, `keepNames`, `sourcemap`, `allowOverwrite`) and
  * skip `plugins` — they are JS functions and don't serialize to CLI flags.
+ *
+ * Path aliases and `srcDir` come from `script/build-path.mjs` — the one
+ * spelling shared with vitest and the build scripts. No esbuild `target`
+ * is set (see that module); adding one would change emitted JS.
  */
 import autoprefixer from "autoprefixer";
 import { readFileSync } from "fs";
-import { resolve } from "path";
 import postcss from "postcss";
 import postcssNesting from "postcss-nesting";
+import { pathAliases, resolveJsRoot } from "./build-path.mjs";
+import { hoistLeafletOverrides } from "./css-layer.mjs";
 import { createSourceTransformPlugin } from "./source-transform-plugin.mjs";
 import { resolveVersion } from "./version.mjs";
 
@@ -28,7 +33,7 @@ import { resolveVersion } from "./version.mjs";
  * project root the source tree lives under.
  */
 const esbuildCfgFor = ({ dev, root }) => {
-  const srcDir = resolve(root, "foliplus/js");
+  const srcDir = resolveJsRoot(root);
   const version = resolveVersion();
 
   // CSS sources are authored in nested syntax (CSS Nesting) and compiled to
@@ -36,6 +41,9 @@ const esbuildCfgFor = ({ dev, root }) => {
   // via Autoprefixer (driven by the `browserslist` key in package.json).
   // `edition: '2021'` emits fully-flattened selectors (no `:is()` wrapper),
   // keeping specificity identical to hand-written flat CSS.
+  //
+  // After flatten: hoist Leaflet-targeting rules out of any @layer so they
+  // keep beating Leaflet's unlayered library CSS (see css-layer.mjs).
   const postcssProcessor = postcss([
     postcssNesting({ edition: "2021" }),
     autoprefixer(),
@@ -46,7 +54,7 @@ const esbuildCfgFor = ({ dev, root }) => {
       build.onLoad({ filter: /\.css$/ }, async args => {
         const source = readFileSync(args.path, "utf-8");
         const result = await postcssProcessor.process(source, { from: args.path });
-        return { contents: result.css, loader: "css" };
+        return { contents: hoistLeafletOverrides(result.css), loader: "css" };
       });
     },
   };
@@ -61,11 +69,7 @@ const esbuildCfgFor = ({ dev, root }) => {
     sourcemap: false,
     allowOverwrite: true,
     keepNames: dev,
-    alias: {
-      "#common": resolve(srcDir, "common"),
-      "#core": resolve(srcDir, "core"),
-      "#foliplus": srcDir,
-    },
+    alias: pathAliases(root),
     // Same `git describe` value as the artifact banner, inlined for the
     // runtime console log (`[foliplus] foliplus@…`).
     define: {

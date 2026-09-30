@@ -7,12 +7,12 @@ import { ListCursor } from "#core/listCursor.js";
 import { createScopedTranslator, createTranslator } from "#common/locale.js";
 import * as CONST from "../const.js";
 import type { LayerManager } from "../manager.js";
-import type { LayerIntent, LayerOverride } from "../type.js";
 import type { AppliedProjection } from "../type.js";
 import { applyProjection, applyProjectionAll } from "./apply.js";
 import { closeAttrsPanel, openAttrsPanel } from "./attr.js";
 import { hideSolidBasemap, showSolidBasemap } from "./color.js";
 import { cancelFocus, focusLayer, isFocusing } from "./focus.js";
+import { IntentStore } from "./intentStore.js";
 import {
   blurActiveItem,
   clearActiveItem,
@@ -52,7 +52,6 @@ import {
   setVisible,
 } from "./state.js";
 import { applyBorderToLayer } from "./style/border.js";
-import { dropFillScheduler } from "./style/fill.js";
 import {
   applyStyleLabelState,
   closeStylePanel,
@@ -60,6 +59,7 @@ import {
   openStylePanel,
   replayFillState,
 } from "./style/index.js";
+import { dropStyleDimApplies } from "./style/styleBag.js";
 import {
   applyVisibility,
   getLayerItems,
@@ -99,11 +99,11 @@ class LayerUI {
    *  `getLayerItems(group).length` returns; `on` is the subset whose intent
    *  is visible. `syncToggleAllFromCount` writes the checkbox off `on`. */
   checkedCount: Record<string, { total: number; on: number }>;
-  /** Per-layer intent record — the single source for every user-chosen
+  /** Per-layer intent store — the single source for every user-chosen
    *  dimension (visible / fill / border / opacity / zoomRange / name /
-   *  annotation). Absent key = never touched. `intentProvenance` stays a
-   *  separate axis. */
-  intents: Record<string, LayerIntent>;
+   *  annotation). Absent key = never touched. Provenance rides the same
+   *  `IntentRow` beside the values (`IntentRow.provenance`). */
+  intentStore: IntentStore;
   /** The author's declared default per layer id, snapshotted once per id from
    *  the map membership at first sight.
    *
@@ -114,11 +114,6 @@ class LayerUI {
    *  moved the layer off the map, and reading the map back would record that
    *  policy decision as the author's. See `intentVisibleOf`. */
   authorVisible: Map<string, boolean>;
-  /** Which dimensions the user has actually set, per layer id. A layer absent
-   *  here keeps the author's `show=` / opacity default -- that is what replaces
-   *  a map-level "did the user choose at all" flag, which could not tell one
-   *  layer's choice from another's. */
-  intentProvenance: Record<string, LayerOverride[]>;
   currentColor: string;
   /** Lazy-created color basemap surface — the pane-owned canvas that carries
    *  the fill. Built on first show (via `factory.createColor`), which also
@@ -223,9 +218,8 @@ class LayerUI {
     this._ = _;
     this.foldedGroups = new Set();
     this.checkedCount = {};
-    this.intents = {};
+    this.intentStore = new IntentStore();
     this.authorVisible = new Map();
-    this.intentProvenance = {};
     this.currentColor = CONST.COLOR.DEFAULT;
     this.colorSurface = null;
     this.activeRenameId = null;
@@ -326,14 +320,14 @@ class LayerUI {
     // style-row imports (border.js and fill.js import state.js for
     // markOverride/saveState).
     //
-    // Both dimensions enumerate `intentProvenance` — the single source of truth
+    // Both dimensions enumerate provenance — the single source of truth
     // for which layers the user actually touched. Border's map-union
-    // enumeration and fill's intentProvenance loop were asymmetric: a value in
-    // `intents.borderColor` that was never recorded as an override would replay
+    // enumeration and fill's provenance loop were asymmetric: a value in
+    // `intent.borderColor` that was never recorded as an override would replay
     // for border but not for fill, and vice versa, so a reload could restore
     // the drawer's swatch for one dimension while leaving the map with the
     // author's for the other.
-    const layerIds = id !== undefined ? [id] : Object.keys(this.intentProvenance);
+    const layerIds = id !== undefined ? [id] : this.intentStore.userSetIds();
     for (const layerId of layerIds) {
       applyBorderToLayer(this, layerId);
       replayFillState(this, layerId);
@@ -466,11 +460,12 @@ class LayerUI {
   invalidateFields(layerId: string) {
     return invalidateFields(this, layerId);
   }
-  /** Unregister teardown for the fill apply scheduler: cancel any pending
-   *  rAF walk and free the Map entry so a churning map cannot accumulate
-   *  boxes keyed by dead ids. Manager drives this from `unregisterLayer`. */
-  dropFillScheduler(layerId: string) {
-    return dropFillScheduler(layerId);
+  /** Unregister teardown for the style-apply schedulers: cancel any pending
+   *  rAF walk and free the Map entries (both faces in one pass) so a
+   *  churning map cannot accumulate boxes keyed by dead ids. Manager drives
+   *  this from `unregisterLayer` — the single drop hook. */
+  dropStyleDimApplies(layerId: string) {
+    return dropStyleDimApplies(layerId);
   }
   /** Spy-sensitive entry point: the CONTROL_ATTACHED re-entry test asserts this
    *  ran, and `vi.spyOn` needs a method on the instance (an imported function
