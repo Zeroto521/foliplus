@@ -6,6 +6,7 @@ import {
 import { generateId } from "#core/component.js";
 import { EVENTS, type EventBus, ensureEvents } from "#core/event/index.js";
 import { bareFieldName } from "#core/labelField.js";
+import { KIND, type LayerKind } from "#core/layer/index.js";
 import { type CanvasLabelStyle } from "#common/canvasLabel.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import { BORDER_WEIGHT, clampLabelSize, normalizeHexColor } from "#common/form.js";
@@ -48,6 +49,12 @@ import { type HeatmapControlUI, rebuildLayerDropdown, resetPanel } from "./ui.js
 
 const T = createScopedTranslator(CONF);
 const log = createLogger(CONF.name);
+
+/** Kinds that can never be a heatmap source. `getLayerType` answers "base" for
+ *  a tile or solid basemap (both sit in the base group) and nothing for a
+ *  self-drawn canvas, so `getLayersByType("point")` never returns them — their
+ *  churn cannot change `pointLayers` and the scan can stand. */
+const NO_POINT_SOURCE_KINDS = new Set<LayerKind>([KIND.TILE, KIND.SOLID, KIND.CANVAS]);
 
 // ==================== Core: Data Aggregation & Rendering ====================
 class HeatmapManager {
@@ -383,11 +390,17 @@ class HeatmapManager {
     }, CONST.TIMING.LAYER_SCAN_DEBOUNCE);
     // Subscribe to the semantic registry-change event instead of raw Leaflet
     // layeradd/layerremove — LayerManager emits EVENTS.LAYER_CHANGE on
-    // register/unregister/reorder, so unrelated map activity is filtered out
-    // and callback-only registrations (no map.addLayer) are covered too.
-    this.removeLayerChangeListener = this.events.on(EVENTS.LAYER_CHANGE, () =>
-      this.onLayerChange(),
-    );
+    // register/unregister/reorder/membership, so unrelated map activity is
+    // filtered out and callback-only registrations (no map.addLayer) are
+    // covered too. The payload carries the changed layer's kind, so a layer
+    // that cannot hold point markers is dropped without a map walk: a tile
+    // basemap, a solid colour face, and a self-drawn canvas all come back
+    // "base"/null from getLayerType, so scanMapLayers would have filtered them
+    // out and the source list would come out identical.
+    this.removeLayerChangeListener = this.events.on(EVENTS.LAYER_CHANGE, ({ kind }) => {
+      if (NO_POINT_SOURCE_KINDS.has(kind)) return;
+      this.onLayerChange();
+    });
     // LayerControl's deleteLayer emits LAYER_DELETED for component-owned layers
     // instead of retiring the id in removedIds, so the heatmap can clear its
     // data and stay registerable for the next source pick. The clear resets

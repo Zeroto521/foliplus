@@ -487,12 +487,11 @@ describe("AnnotationManager — render & plan", () => {
     canvasA!.paint.mockClear();
     canvasB!.paint.mockClear();
 
-    const removeHandler = (
-      map.on as unknown as ReturnType<typeof vi.fn>
-    ).mock.calls.find(call => call[0] === "layerremove")![1] as (e: {
-      layer?: unknown;
-    }) => void;
-    removeHandler({ layer: layerA });
+    (
+      map as unknown as {
+        foliplus: { events: { emit: (e: string, p: unknown) => void } };
+      }
+    ).foliplus.events.emit(EVENTS.LAYER_CHANGE, { id: "a", kind: "vector" });
 
     // Only the layer that left the map is re-planned; the other keeps its
     // boxes and its collision decision.

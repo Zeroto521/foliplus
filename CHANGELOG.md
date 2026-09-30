@@ -80,6 +80,7 @@
 - `LayerControl` / `HeatmapControl`: the style, attributes and heatmap panels drop their group headings and read as one flat row list; row labels are right-aligned, so all three panels share one label edge ([#516](https://github.com/Zeroto521/foliplus/pull/516))
 - `HeatmapControl` / `LayerControl`: bake layer opacity into canvas draws (`globalAlpha`); heatmap slider stays CSS, bake on redraw ([#533](https://github.com/Zeroto521/foliplus/pull/533))
 - `LayerControl`: extract the saved-order domain (`savedOrder` / `removedIds` plus load, snapshot, replay, prune) into a `SavedOrder` class in `savedOrder.ts` — `LayerManager` keeps the LayerAPI forwards and the ownership call-sites; behaviour and the persisted record shape are unchanged ([#569](https://github.com/Zeroto521/foliplus/pull/569))
+- `LayerControl` / `HeatmapControl` / annotation: `LAYER_CHANGE` now carries `{ id, kind }` so subscribers filter on the payload instead of re-walking the registry; Heatmap's `pointLayers` scan skips tile/solid/canvas sources on the `kind`, and the annotation repaints the changed layer directly on the semantic event instead of the raw `layeradd`/`layerremove` pair ([#XXX](https://github.com/Zeroto521/foliplus/pull/XXX))
 
 ### Removed
 
@@ -119,6 +120,7 @@
 - `LayerControl`: normalize style-panel colors to `#rrggbb`; style writes enable `stroke` / `fill` and Reset restores the author's flags; fill and border drag applies coalesce to one walk per frame with flush on change, blur, and panel close ([#477](https://github.com/Zeroto521/foliplus/pull/477), [#482](https://github.com/Zeroto521/foliplus/pull/482), [#556](https://github.com/Zeroto521/foliplus/pull/556), [#558](https://github.com/Zeroto521/foliplus/pull/558), [#560](https://github.com/Zeroto521/foliplus/pull/560), [#565](https://github.com/Zeroto521/foliplus/pull/565))
 - `FullscreenControl`: a denied fullscreen entry or exit now reports the honest hint (`unsupported` / `exit_fail`) instead of "Entered fullscreen" ([#486](https://github.com/Zeroto521/foliplus/pull/486))
 - `LayerControl`: rapid visibility toggles stay smooth at 6k layers — the toggle-all tri-state counter updates O(1) per click instead of rescanning the group, and overlay clicks skip the basemap scan ([#504](https://github.com/Zeroto521/foliplus/pull/504))
+- `LayerControl`: a layer's declared `kind` (and a `custom` carrier payload) is honoured — `surfaceFor` used to build its `LayerSurface` spec without the kind, so the surface re-derived the tree as `vector`/`tile`; the registry is now the single derive point and `LayerSurface` reads the value it is handed ([#XXX](https://github.com/Zeroto521/foliplus/pull/XXX))
 
 ## [v0.3.0] (2026-08-02)
 

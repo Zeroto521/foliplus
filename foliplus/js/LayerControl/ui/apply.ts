@@ -26,6 +26,7 @@
 // Naming: "state op" is the shape the carrier dispatcher accepts.
 // "Projection" is what the diff compares — intent + policy together, so
 // a change on either side produces an op.
+import { EVENTS } from "#core/event/index.js";
 import { CAP_TIER, HIDDEN, PANE_ROLE } from "#core/layer/index.js";
 import { resetGridLayerView } from "#core/leafletAdapter.js";
 import { setLayerAlpha } from "#common/canvasAlpha.js";
@@ -173,6 +174,14 @@ const applyStateOp = (ui: LayerUI, layerInfo: LayerInfo, op: StateOp): void => {
         if (op.value !== has) {
           if (op.value) ui.m.map.addLayer(layer);
           else ui.m.map.removeLayer(layer);
+          // Map membership is not registry state: this executor is the only
+          // writer of the add/remove, so it is what puts the change on the bus.
+          // The annotation manager repaints per id on this event, which is
+          // where the native `layeradd`/`layerremove` used to reach it.
+          ui.events.emit(EVENTS.LAYER_CHANGE, {
+            id: layerInfo.id,
+            kind: layerInfo.kind,
+          });
         }
       }
     } else if (carrier === CAP_TIER.PANE) {
