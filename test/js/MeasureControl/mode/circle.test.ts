@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/MeasureControl/const.js";
 import { CircleMode } from "#foliplus/MeasureControl/mode/index.js";
-import { initMocks, makeManagerMock } from "./setup.js";
+import { initMocks, makeEnv, makeManagerMock } from "./setup.js";
 
 // Capture attachCircleUI's opts so the start/restore callbacks
 // (onDelete, onUpdate, onEnd) can be exercised directly.
@@ -74,7 +74,7 @@ describe("CircleMode — toGeoFeature", () => {
     };
     globalThis.turf.circle = vi.fn(() => mockCircle);
 
-    const feature = CircleMode.toGeoFeature({
+    const feature = CircleMode.toGeoFeature(makeEnv(), {
       id: "c1",
       type: "circle",
       center: { lng: 121, lat: 31 },
@@ -96,7 +96,7 @@ describe("CircleMode — toGeoFeature", () => {
   });
 
   it("returns a Point when center or radius is missing", () => {
-    const feature = CircleMode.toGeoFeature({
+    const feature = CircleMode.toGeoFeature(makeEnv(), {
       id: "c2",
       type: "circle",
       radius: 0,

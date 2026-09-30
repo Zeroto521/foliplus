@@ -398,6 +398,10 @@ class HeatmapManager {
     // "base"/null from getLayerType, so scanMapLayers would have filtered them
     // out and the source list would come out identical.
     this.removeLayerChangeListener = this.events.on(EVENTS.LAYER_CHANGE, payload => {
+      // Guard: third-party or historical bare emit (no payload).
+      // All product emit sites carry {id, kind} — a missing payload here
+      // means an external caller fired the event without the contract.
+      // Fallback: treat as a full layer change and rescan.
       if (!payload) {
         this.onLayerChange();
         return;

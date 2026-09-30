@@ -63,9 +63,6 @@
 
 /* Breathing animation value, single-sourced so the reduced-motion override
    below only flips the variable instead of repeating the selector list. */
-:root {
-  --foliplus-input-breathe-anim: foliplus-input-breathe 2s ease-in-out infinite;
-}
 
 /* ── Focus: breathing glow ──
   Only non-checkbox inputs get the breathing animation, using :focus so it
@@ -85,13 +82,6 @@
 ):focus,
 .foliplus-heatmap-ctrl .foliplus-heatmap-scheme-bar-open {
   animation: var(--foliplus-input-breathe-anim);
-}
-
-/* Respect reduced motion: disable breathing animation by clearing the value */
-@media (prefers-reduced-motion: reduce) {
-  :root {
-    --foliplus-input-breathe-anim: none;
-  }
 }
 
 /* ── Leaflet attribution & foliplus scale wrapper styling ──

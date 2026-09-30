@@ -8,27 +8,23 @@
 //   - coordinates ([lng, lat])             -> longitude/latitude in degrees
 // The measurement type label (properties.name / CSV name column) is i18n-
 // translated via each mode's getNameLabel(), falling back to English.
+import type { ControlEnv } from "#core/defineControl.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { download } from "#common/download.js";
-import { createScopedTranslator } from "#common/locale.js";
-import { createLogger } from "#common/log.js";
+import { formatCoord } from "#common/format.js";
 import * as CONST from "./const.js";
 import type { MeasureManager } from "./manager.js";
 import { MODE_MAP, MeasureMode } from "./mode/index.js";
 import type { ExportFormat } from "./type.js";
-
-// CONF is a free variable from the IIFE template wrapper (see global.d.ts).
-const T = createScopedTranslator(CONF);
-const log = createLogger(CONF.name);
 
 /**
  * Serialize measurements as a GeoJSON FeatureCollection string.
  * Each feature carries the measurement id and type-specific fields in
  * properties (see each mode's toGeoFeature).
  */
-const toGeoJSON = (measurements: MeasureData[]): string => {
+const toGeoJSON = (env: ControlEnv, measurements: MeasureData[]): string => {
   const features = measurements
-    .map(m => MODE_MAP[m.type as keyof typeof MODE_MAP]?.toGeoFeature(m))
+    .map(m => MODE_MAP[m.type as keyof typeof MODE_MAP]?.toGeoFeature(env, m))
     .filter((f): f is GeoJSON.Feature => Boolean(f));
 
   const collection: {
@@ -68,7 +64,7 @@ const csvEscape = (value: string | number): string => {
 /**
  * Convert measurements array to CSV string.
  */
-const toCSV = (measurements: MeasureData[]): string => {
+const toCSV = (env: ControlEnv, measurements: MeasureData[]): string => {
   const headers = [
     "id",
     "type",
@@ -88,15 +84,15 @@ const toCSV = (measurements: MeasureData[]): string => {
     const row: CsvRow = {
       id: data.id || "",
       type: data.type,
-      name: getNameForType(data),
+      name: getNameForType(env, data),
       center: data.center
-        ? `${data.center.lng.toFixed(6)},${data.center.lat.toFixed(6)}`
+        ? `${formatCoord(data.center.lng)},${formatCoord(data.center.lat)}`
         : "",
       totalDistance: data.totalDistance !== undefined ? String(data.totalDistance) : "",
       area: data.area !== undefined ? String(data.area) : "",
       radius: data.radius !== undefined ? String(data.radius) : "",
       address: data.address || "",
-      wkt: toWKT(data),
+      wkt: toWKT(env, data),
     };
 
     rows.push(headers.map(h => csvEscape(row[h as keyof CsvRow] || "")).join(","));
@@ -110,17 +106,17 @@ const toCSV = (measurements: MeasureData[]): string => {
  * mode's getNameLabel (i18n translation with English fallback), matching
  * GeoJSON properties.name.
  */
-const getNameForType = (data: MeasureData): string => {
+const getNameForType = (env: ControlEnv, data: MeasureData): string => {
   const ModeClass = MODE_MAP[data.type as keyof typeof MODE_MAP];
   if (!ModeClass) return data.type;
-  return ModeClass.getNameLabel();
+  return ModeClass.getNameLabel(env);
 };
 
 /** Convert a single measurement to a WKT string (empty when unknown type). */
-const toWKT = (data: MeasureData): string => {
+const toWKT = (env: ControlEnv, data: MeasureData): string => {
   const ModeClass = MODE_MAP[data.type as keyof typeof MODE_MAP];
   if (!ModeClass) return "";
-  return featureToWKT(ModeClass.toGeoFeature(data));
+  return featureToWKT(ModeClass.toGeoFeature(env, data));
 };
 
 /**
@@ -176,7 +172,7 @@ interface ExportFormatSpec {
   mime: string;
   /** Serialize measurements to the wire format. The caller wraps the result in
    *  a Blob with `mime`, so no encoding happens here. */
-  serialize: (measurements: MeasureData[]) => string;
+  serialize: (env: ControlEnv, measurements: MeasureData[]) => string;
 }
 
 /** UTF-8 BOM — Excel needs it to detect UTF-8, or the i18n type labels come
@@ -193,7 +189,7 @@ const EXPORT_FORMAT_META: Record<ExportFormat, ExportFormatSpec> = {
     ext: "csv",
     mime: "text/csv",
     // BOM so Excel detects UTF-8; the serialized body itself is unchanged.
-    serialize: measurements => CSV_BOM + toCSV(measurements),
+    serialize: (env, measurements) => CSV_BOM + toCSV(env, measurements),
   },
 };
 
@@ -207,13 +203,13 @@ const resolveExportFormat = (raw: unknown): ExportFormat =>
     : CONST.DEFAULT_EXPORT_FORMAT;
 
 /** The record for `CONF.export_format` — no cast, no fallback lookup. */
-const currentExportFormat = (): ExportFormatSpec =>
-  EXPORT_FORMAT_META[resolveExportFormat(CONF.export_format)];
+const currentExportFormat = (env: ControlEnv): ExportFormatSpec =>
+  EXPORT_FORMAT_META[resolveExportFormat(env.conf.export_format)];
 
 /** Filename the export writes to — shared with the success hint so
  * the two cannot drift. */
-const exportFilename = (format: ExportFormat): string =>
-  `${CONF?.filename || "measurements"}.${EXPORT_FORMAT_META[format].ext}`;
+const exportFilename = (env: ControlEnv, format: ExportFormat): string =>
+  `${env.conf.filename || "measurements"}.${EXPORT_FORMAT_META[format].ext}`;
 
 /**
  * Convert measurements to a Blob and trigger a file download.
@@ -221,16 +217,17 @@ const exportFilename = (format: ExportFormat): string =>
  * `resolveExportFormat` / `currentExportFormat`.
  */
 const exportMeasurements = (
+  env: ControlEnv,
   measurements: MeasureData[],
   format: ExportFormat,
 ): void => {
   if (!measurements || measurements.length === 0) return;
 
   const meta = EXPORT_FORMAT_META[format];
-  const base = CONF?.filename || "measurements";
+  const base = env.conf.filename || "measurements";
 
   download(
-    new Blob([meta.serialize(measurements)], { type: meta.mime }),
+    new Blob([meta.serialize(env, measurements)], { type: meta.mime }),
     `${base}.${meta.ext}`,
   );
 };
@@ -245,20 +242,24 @@ const handleExportClick = (mgr: MeasureManager) => (event: Event) => {
   const measurements = mgr.store.all();
   if (!measurements || measurements.length === 0) {
     // foliplus is per-map — hint via the manager's map instance.
-    mgr.map.foliplus?.showHint?.(CONF.name, T("export_no_data"), HINT_DURATION.LONG);
+    mgr.map.foliplus?.showHint?.(
+      mgr.conf.name,
+      mgr.T("export_no_data"),
+      HINT_DURATION.LONG,
+    );
     return;
   }
   // Serialization and the download anchor are pure local operations, so a
   // failure is a developer error rather than a user error — but it is
   // still reported to the user, since the file was not saved.
-  const format = resolveExportFormat(CONF.export_format);
+  const format = resolveExportFormat(mgr.conf.export_format);
   try {
-    exportMeasurements(measurements, format);
+    exportMeasurements(mgr.env, measurements, format);
   } catch (err) {
-    log.warn("export failed:", err);
+    mgr.log.warn("export failed:", err);
     mgr.map.foliplus?.showHint?.(
-      CONF.name,
-      T("export_fail") + T("err_export"),
+      mgr.conf.name,
+      mgr.T("export_fail") + mgr.T("err_export"),
       HINT_DURATION.LONG,
     );
     return;
@@ -266,11 +267,12 @@ const handleExportClick = (mgr: MeasureManager) => (event: Event) => {
   // Reported only after the download call returns: a throwing export never
   // wrote the file, so success is not claimed on that path.
   mgr.map.foliplus?.showHint?.(
-    CONF.name,
-    T("export_success") +
-      T("export_file")
+    mgr.conf.name,
+    mgr.T("export_success") +
+      mgr
+        .T("export_file")
         .replace("{n}", String(measurements.length))
-        .replace("{f}", exportFilename(format)),
+        .replace("{f}", exportFilename(mgr.env, format)),
     HINT_DURATION.LONG,
   );
 };

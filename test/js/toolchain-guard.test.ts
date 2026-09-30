@@ -206,7 +206,9 @@ describe("test/js/script naming", () => {
 // be an accident: it is either tested, or named here with the reason it
 // cannot be. The list is empty today; keeping it is what makes the gap below
 // deliberate instead of silent.
-const INTENTIONAL_NO_TEST: Record<string, string> = {};
+const INTENTIONAL_NO_TEST: Record<string, string> = {
+  "scan-locale-key": "CLI scanner — validated by locale test suite, not unit-tested",
+};
 
 const scriptStem = (rel: string) =>
   rel.replace(/^script\//, "").replace(/\.(mjs|cjs|js)$/, "");

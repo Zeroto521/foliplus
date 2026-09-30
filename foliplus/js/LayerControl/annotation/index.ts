@@ -137,11 +137,11 @@ class AnnotationManager {
     // why HeatmapControl switched the same way.
     this.unsubscribe.push(
       events.on(EVENTS.LAYER_CHANGE, payload => {
-        // Defend against a bare emit (no payload): an un-destructured
-        // LAYER_CHANGE would throw on `{id, kind}` and silently kill the
-        // repaint. A full refresh is the correct fallback — it repaints
-        // every label-bearing layer, which is what the old raw
-        // layeradd/layerremove handler did.
+        // Guard: third-party or historical bare emit (no payload).
+        // All product emit sites carry {id, kind} — a missing payload here
+        // means an external caller fired the event without the contract.
+        // Fallback to full refresh (repaint every label-bearing layer), which
+        // is the old raw layeradd/layerremove behaviour.
         if (!payload) {
           this.refresh();
           return;

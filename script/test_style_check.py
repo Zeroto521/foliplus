@@ -653,7 +653,19 @@ class TestCheckCustomPropertyPrefix:
             "--foliplus-color-bg: #fff;\n",
             "color: var(--foliplus-accent-primary);\n",
         ]
-        assert mod.check_custom_property_prefix(lines) == []
+        assert mod.check_custom_property_prefix(lines, "token.css") == []
+
+    def test_prefixed_definition_outside_token_css_reported(self):
+        lines = ["--foliplus-sweep-length: 1000;\n"]
+        v = mod.check_custom_property_prefix(lines, "MeasureControl.css")
+        assert len(v) == 1
+        assert "must live in" in v[0][1]
+        assert "MeasureControl.css" not in v[0][1]  # message references token.css
+
+    def test_prefixed_reference_outside_token_css_passes(self):
+        """var() reference is not a definition — it passes anywhere."""
+        lines = ["animation: sweep var(--foliplus-sweep-length);\n"]
+        assert mod.check_custom_property_prefix(lines, "MeasureControl.css") == []
 
     def test_multiple_bare_tokens_all_reported(self):
         v = mod.check_custom_property_prefix(
@@ -667,7 +679,7 @@ class TestCheckCustomPropertyPrefix:
         assert len(v) == 1
 
     def test_clean_css_file_returns_no_violations(self, tmp_path):
-        f = tmp_path / "clean.css"
+        f = tmp_path / "token.css"
         f.write_text(
             ":root { --foliplus-size-2: 2px; }\n.a { color: var(--foliplus-size-2); }\n",
             encoding="utf-8",

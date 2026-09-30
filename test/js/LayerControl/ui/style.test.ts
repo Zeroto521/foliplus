@@ -3992,7 +3992,7 @@ describe("LayerUI style panel — zoom range", () => {
     expect(row.classList.contains(CONST.CLASSES.STYLE_ZOOM_RANGE_OUT_OF_RANGE)).toBe(
       false,
     );
-    expect(row.title).toBe("");
+    expect(row.title).toContain("style_zoom_range_current");
   });
 
   it("renders no Layer rows for a delegated layer that carries neither", () => {

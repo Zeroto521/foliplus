@@ -335,4 +335,85 @@
   --foliplus-z-index-hint: 10000;
   --foliplus-z-index-fullscreen: 99999;
   --foliplus-z-index-top: 100000;
+
+  /* ══════════════════════════════════════════════════════════════════════
+    Component-Specific Tokens
+    Organized by consumer component. Each section is owned by its component;
+    definitions live here (single source of truth), overrides in component CSS.
+    ══════════════════════════════════════════════════════════════════════ */
+
+  /* ── MeasureControl ──
+     Dash sweep animation and ripple effect parameters. */
+  --foliplus-sweep-length: 1000;
+  --foliplus-ripple-opacity-start: 0.6;
+  --foliplus-ripple-stroke-start: 2.5px;
+  --foliplus-ripple-stroke-end: 30px;
+  /* Label centering transform for measurement labels. */
+  --foliplus-label-center: translate(-50%, -50%);
+
+  /* ── ExportControl ──
+     Crop box geometry, z-index ladder, and dim mask parameters. */
+  --foliplus-z-export-base: 9500;
+  --foliplus-export-dim-extent: 9999px;
+  --foliplus-export-dim-color: rgba(0, 0, 0, 0.4);
+  --foliplus-export-dim-color-locked: rgba(0, 0, 0, var(--foliplus-alpha-50));
+  --foliplus-export-controls-z: calc(var(--foliplus-z-export-base) + 10);
+  --foliplus-export-scale-z: calc(var(--foliplus-z-export-base) - 10);
+  --foliplus-export-fold-z: calc(var(--foliplus-z-export-base) + 200);
+  --foliplus-export-anchor-size: var(--foliplus-dot-size);
+  --foliplus-export-handle-offset: -1px;
+  --foliplus-export-move-transition:
+    left var(--foliplus-transition-fast), top var(--foliplus-transition-fast),
+    width var(--foliplus-transition-fast), height var(--foliplus-transition-fast);
+
+  /* ── HeatmapControl ──
+     Inline control geometry. */
+  --foliplus-heatmap-inline-height: var(--foliplus-icon-size-md);
+  --foliplus-heatmap-inline-width: 52px;
+  --foliplus-heatmap-accent-arrow-offset: var(--foliplus-size-6);
+
+  /* ── LayerControl (row layout) ──
+     Drag & drop variables and grid layout metrics. */
+  --foliplus-drag-border-width: var(--foliplus-border-thick);
+  --foliplus-drag-top-shadow: 0 calc(-1 * var(--foliplus-size-2)) var(--foliplus-size-6)
+    calc(-1 * var(--foliplus-size-2)) var(--foliplus-accent-primary);
+  --foliplus-drag-bottom-shadow: 0 var(--foliplus-size-2) var(--foliplus-size-6)
+    calc(-1 * var(--foliplus-size-2)) var(--foliplus-accent-primary);
+  --foliplus-drag-pulse-count: 3;
+  --foliplus-drag-border-from: var(--foliplus-accent-primary);
+  --foliplus-drag-border-to: var(--foliplus-accent-hover);
+  --foliplus-drag-shadow-from: 0 0 var(--foliplus-size-4)
+    calc(-1 * var(--foliplus-border-thin)) var(--foliplus-accent-primary);
+  --foliplus-drag-shadow-to: 0 0 var(--foliplus-size-8) 0 var(--foliplus-accent-primary);
+  --foliplus-layer-item-pad-x: calc(
+    var(--foliplus-space-md) - var(--foliplus-size-2) + 1px
+  );
+  --foliplus-count-track-width: 38px;
+  --foliplus-more-btn-width: 7px;
+  --foliplus-grid-layer-gap: 3px;
+  --foliplus-grid-layer-cols: var(--foliplus-space-xl) var(--foliplus-space-xl) 1fr
+    var(--foliplus-count-track-width) var(--foliplus-space-xl)
+    var(--foliplus-more-btn-width);
+  --foliplus-layer-row-min-height: calc(
+    var(--foliplus-space-md) * 2 + var(--foliplus-font-size-md) *
+      var(--foliplus-line-height-hint)
+  );
+
+  /* ── Common (dot anchors) ──
+     Fill and stroke colors for map/crop anchor dots. Geometry tokens
+     (--foliplus-dot-size, --foliplus-dot-stroke) live above. Color variants
+     are local overrides in button.css; these are the defaults. */
+  --foliplus-dot-fill: var(--foliplus-neutral-0);
+  --foliplus-dot-stroke-color: var(--foliplus-accent-primary);
+
+  /* ── Common (input animation) ──
+     Breathing animation for text inputs. */
+  --foliplus-input-breathe-anim: foliplus-input-breathe 2s ease-in-out infinite;
+}
+
+/* Respect reduced motion: disable breathing animation by clearing the value */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --foliplus-input-breathe-anim: none;
+  }
 }

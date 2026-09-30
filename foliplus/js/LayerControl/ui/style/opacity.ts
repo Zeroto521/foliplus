@@ -15,10 +15,14 @@ import * as CONST from "../../const.js";
 import { applyProjection } from "../apply.js";
 import type { LayerUI } from "../index.js";
 import { INTENT, getIntent } from "../intent.js";
-import { saveState } from "../state.js";
 import { syncNoBasemap } from "../visibility.js";
 import { railPos, round5 } from "./frame.js";
-import { getDimension, registerDimension, writeIntentKeys } from "./registry.js";
+import {
+  getDimension,
+  registerDimension,
+  resetIntentKeys,
+  writeIntentKeys,
+} from "./registry.js";
 
 /** Whether the layer's surface can honestly carry an opacity write. Layers with
  *  `opacity: "none"` (e.g. MarkerCluster, whose cluster icons live in a shared
@@ -199,10 +203,10 @@ const OPACITY_DIMENSION = registerDimension<number>({
     const opacity = typeof patch === "number" ? patch : undefined;
     if (opacity === undefined) return;
     if (opacity === 1) {
-      ui.intentStore.clear(layerId, INTENT.OPACITY);
-      saveState(ui);
+      // Fully opaque is the declared default — clear, same as resetIntentKeys.
+      resetIntentKeys(ui, layerId, [INTENT.OPACITY]);
     } else {
-      writeIntentKeys(ui, layerId, [[INTENT.OPACITY, opacity]]);
+      void writeIntentKeys(ui, layerId, [[INTENT.OPACITY, opacity]]);
     }
     applyProjection(ui, layerId);
     const li = ui.m.layerRegistry.get(layerId);
@@ -210,8 +214,7 @@ const OPACITY_DIMENSION = registerDimension<number>({
   },
   /** Cohesive reset: clear the override, save, re-project, hatch sync. */
   reset: (ui, layerId) => {
-    ui.intentStore.clear(layerId, INTENT.OPACITY);
-    saveState(ui);
+    resetIntentKeys(ui, layerId, [INTENT.OPACITY]);
     applyProjection(ui, layerId);
     const li = ui.m.layerRegistry.get(layerId);
     if (li?.group === GROUP.BASE) syncNoBasemap(ui);

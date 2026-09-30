@@ -56,3 +56,21 @@ class TestBuildArtifacts:
         assert js.lstrip().startswith("/*! foliplus@"), "version banner missing"
         css = (dist / "foliplus-common.min.css").read_text(encoding="utf-8")
         assert "foliplus@" in css, "CSS artifact missing version banner"
+
+    def test_dist_css_has_no_layer_syntax(self):
+        """T266: the shipped stylesheets carry no `@layer`.
+
+        The layer wrap was reverted because in an embedded widget the host
+        page's unlayered resets (Bootstrap `ol,ul`, …) outrank a layered rule
+        at any specificity. The build keeps the merge order (tokens first,
+        then base, then components) without the layer syntax, so specificity
+        order governs: foliplus shell selectors like
+        `.foliplus-layer-ctrl .foliplus-layer-more-menu` (0,2,0) naturally
+        beat `ul` (0,0,1).
+        """
+        dist = _dist()
+        if not dist.exists():
+            pytest.skip("dist/ not built")
+        for css_path in dist.glob("*.min.css"):
+            css = css_path.read_text(encoding="utf-8")
+            assert "@layer" not in css, f"{css_path.name}: @layer survived"
