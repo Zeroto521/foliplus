@@ -86,18 +86,6 @@ const SEL = {
    * per-layer walk never reaches it and it needs its own pass.
    */
   ANNOTATION_CANVAS: ".leaflet-map-pane canvas.foliplus-annotation-canvas",
-  /**
-   * Central map-level fallback: Leaflet's own control host. Third-party
-   * controls cannot self-declare, so this stays in the center list. Component
-   * chrome (this control's bar, registered canvases) self-declares via
-   * `data-foliplus-export="exclude"` instead of living here.
-   *
-   * Hide-pass uses only this map-level host. Export chrome sits inside it
-   * (Leaflet control bar), so layout still clears. Registered canvas layers
-   * are content — they must stay measurable for the `li.canvas` special path
-   * and must never be display:none'd by an export marker.
-   */
-  CONTROL: ".leaflet-control-container",
   LABEL: "[data-foliplus-export='label']",
   /**
    * Opt-out for export.  Elements matching this selector are dropped from the
@@ -120,9 +108,16 @@ const SEL = {
    */
   SKIP_EXPORT: '[data-foliplus-export="exclude"], .foliplus-skip-export',
   /**
-   * Temporarily hidden during export so control chrome does not affect
-   * getBoundingClientRect / paint. Map-level only — component chrome is
-   * already inside this host when it is a Leaflet control.
+   * Map-level hide fallback for the export hide-pass only (not traversal
+   * skip). Leaflet's own control host — third-party controls cannot
+   * self-declare, so this stays here. Component chrome (this control's bar,
+   * registered canvases) self-declares via `data-foliplus-export="exclude"`
+   * instead.
+   *
+   * Hide-pass uses only this host. Export chrome sits inside it (Leaflet
+   * control bar), so layout still clears. Registered canvas layers are
+   * content — they must stay measurable for the `li.canvas` special path and
+   * must never be display:none'd by an export marker.
    */
   HIDE_DURING_EXPORT: ".leaflet-control-container",
 };

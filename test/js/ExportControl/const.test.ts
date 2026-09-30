@@ -184,18 +184,11 @@ describe("SEL", () => {
     expect(CONST.SEL.LABEL).toBe("[data-foliplus-export='label']");
   });
 
-  it("keeps central CONTROL as map-level fallback only", () => {
-    // Component chrome self-declares via the data attribute; the center list
-    // must not re-list it.
-    expect(CONST.SEL.CONTROL).toBe(".leaflet-control-container");
-    expect(CONST.SEL.CONTROL).not.toContain("foliplus-export-ctrl");
-  });
-
   it("hides only the map-level control host during export", () => {
-    // Registered canvas layers self-declare data-foliplus-export="exclude"
-    // for traversal skip. Hide-pass must not display:none them — the
-    // li.canvas special path needs live geometry (getBoundingClientRect)
-    // to paint heatmap pixels.
+    // Hide-pass is display:none for layout only — not the traversal-skip
+    // judgement point (SKIP_EXPORT). Registered canvas layers self-declare
+    // data-foliplus-export="exclude"; hide must not touch them or the
+    // li.canvas special path loses geometry.
     expect(CONST.SEL.HIDE_DURING_EXPORT).toBe(".leaflet-control-container");
     expect(CONST.SEL.HIDE_DURING_EXPORT).not.toContain("export");
   });
