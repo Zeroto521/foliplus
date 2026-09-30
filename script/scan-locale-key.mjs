@@ -11,27 +11,16 @@
  *   - Template literals with `${CONF.name}` (e.g., `${CONF.name}.popup_title_geo`)
  *
  * Keying rules:
- *   - `T("key")` (scoped translator) in a control dir  →  `<ControlName>.<key>`
- *   - `T("full.key")` (full key even via scoped T)     →  `full.key`
- *   - `_("key")` (unscoped translator)                 →  `key` as-is
- *   - `NAME_LABEL_KEY = "short"` static prop            →  `<ControlName>.<short>`
- *     (base.ts deliberately uses unscoped `_(short)` for identity fallback,
- *      but the locale tables still key these as `<Control>.<short>`; recording
- *      them here keeps the tables in sync with how they are keyed today.)
- *   - `core/layer/` files                              →  treated as `LayerControl`
- *     (some shared-core T() calls are forwarded from caller components, so a
- *      small _SHARED_LAYER_KEYS supplement in the test expands across all
- *      callers that actually need the key — see test_locale.py.)
+ *   - `T("key")` (scoped)  →  `<ControlName>.<key>` (full keys pass through)
+ *   - `_("key")` (unscoped) →  `key` as-is
+ *   - `NAME_LABEL_KEY = "short"` static prop → `<ControlName>.<short>`
+ *   - `core/layer/` files → treated as `LayerControl`
  *
  * Usage: `node script/scan-locale-key.mjs [dir]` → JSON array on stdout.
  *
- * Known gaps:
- *   - Dynamic key construction via ternary branches (`` cond ? "a" : "b" ``)
- *     where the result is passed to T() as a variable — the scanner can't
- *     statically determine the value. Those keys are documented at the call
- *     site instead.
- *   - Object property values that are keys (e.g., `` key: "type_base" ``)
- *     — same limitation as ternary branches.
+ * Known gaps (see _DYNAMIC_SUPPLEMENT in test_locale.py):
+ *   - Dynamic key construction (template literals, ternaries, map lookups)
+ *   - Object property values that are keys
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -39,7 +28,6 @@ import path from "node:path";
 const ROOT =
   process.argv[2] ?? path.resolve(import.meta.dirname, "..", "foliplus", "js");
 
-// Control names — the top-level dirs under `foliplus/js/` that own a locale table.
 const CONTROLS = [
   "ExportControl",
   "FullscreenControl",
@@ -53,76 +41,65 @@ const CONTROLS = [
 
 /** Map a file path under `ROOT` to its control prefix, or null for shared/core. */
 const prefixFor = rel => {
-  const segs = rel.split(/[\\/]/);
-  const top = segs[0];
-  if (CONTROLS.includes(top)) return top;
-  return null; // core/, common/, runtime/, type/ — full-key-only files
+  const top = rel.split(/[\\/]/)[0];
+  return CONTROLS.includes(top) ? top : null;
 };
 
-/** Naive comment stripper. Locale keys never contain `//` or `/*`. */
+/** Strip block and line comments. Locale keys never contain `//` or `/*`. */
 const stripComments = src =>
   src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
 
-/** Extract all string literals (single or double quoted) from a string. */
+/** Extract all quoted string literals from a string. */
 const extractLiterals = text => {
   const out = [];
-  const re = /(['"])((?:(?!\1).)+)\1/g;
-  let m;
-  while ((m = re.exec(text)) !== null) out.push(m[2]);
+  for (const m of text.matchAll(/(['"])((?:(?!\1).)+)\1/g)) out.push(m[2]);
   return out;
 };
 
-// Match T(...) or _(...) calls. `[^()]*` inside keeps us from crossing nested
-// parens; callers like `T(foo("a"))` will be truncated at the first `)`.
-const T_CALL_RE = /\bT\s*\(([^()]*)\)/g;
-const _CALL_RE = /\b_\s*\(([^()]*)\)/g;
+// Combined T(...)/_(...) matcher — one pass instead of two. `[^()]*` keeps
+// us from crossing nested parens; `T(foo("a"))` truncates at the first `)`.
+const CALL_RE = /\b([T_])\s*\(([^()]*)\)/g;
 
-// Match localeFallback(code, "key", "fallback") — extract the second arg.
+// localeFallback(code, "key", "fallback") — second arg is the key.
 const LOCALE_FALLBACK_RE = /\blocaleFallback\s*\(\s*[^,]+,\s*(['"])((?:(?!\1).)+)\1/g;
 
-// Match NAME_LABEL_KEY = "short" static props.
+// NAME_LABEL_KEY = "short" static props.
 const STATIC_KEY_RE = /\bNAME_LABEL_KEY\s*=\s*(['"])((?:(?!\1).)+)\1/g;
 
-// Match template literals containing `${CONF.name}` — extract the suffix.
+// Template literals containing `${CONF.name}` — capture the full template,
+// then extract the suffix after `}`.
 const TEMPLATE_KEY_RE = /`([^`]*\$\{[^}]*CONF\.name[^}]*\}[^`]*)`/g;
 
-const isFullKey = k => typeof k === "string" && k.length > 0 && k.includes(".");
+const isFullKey = k => k.includes(".");
 
 const collect = (rel, src) => {
   const prefix = prefixFor(rel);
   const text = stripComments(src);
   const keys = new Set();
 
-  // T() calls: scoped translator.
-  for (const m of text.matchAll(T_CALL_RE)) {
-    for (const lit of extractLiterals(m[1])) {
+  // T(...) / _(....) — scoped vs unscoped.
+  for (const m of text.matchAll(CALL_RE)) {
+    const scoped = m[1] === "T";
+    for (const lit of extractLiterals(m[2])) {
       if (isFullKey(lit)) keys.add(lit);
-      else if (prefix) keys.add(`${prefix}.${lit}`);
+      else if (scoped && prefix) keys.add(`${prefix}.${lit}`);
+      else if (!scoped) keys.add(lit);
     }
   }
 
-  // _() calls: unscoped translator.
-  for (const m of text.matchAll(_CALL_RE)) {
-    for (const lit of extractLiterals(m[1])) keys.add(lit);
-  }
+  // localeFallback(code, "key", "fallback")
+  for (const m of text.matchAll(LOCALE_FALLBACK_RE)) keys.add(m[2]);
 
-  // localeFallback(code, "key", "fallback") — second arg is the key.
-  for (const m of text.matchAll(LOCALE_FALLBACK_RE)) {
-    keys.add(m[2]);
-  }
-
-  // NAME_LABEL_KEY = "short" static props.
+  // NAME_LABEL_KEY = "short"
   for (const m of text.matchAll(STATIC_KEY_RE)) {
     const lit = m[2];
-    if (prefix) keys.add(`${prefix}.${lit}`);
-    else keys.add(lit);
+    keys.add(prefix ? `${prefix}.${lit}` : lit);
   }
 
-  // Template literals with ${CONF.name} — extract the suffix after `}`.
+  // Template literals with ${CONF.name} — suffix after `}`.
   for (const m of text.matchAll(TEMPLATE_KEY_RE)) {
-    const template = m[1];
-    const match = template.match(/\}\.(\w+)/);
-    if (match && prefix) keys.add(`${prefix}.${match[1]}`);
+    const suffix = m[1].match(/\}\.(\w+)/);
+    if (suffix && prefix) keys.add(`${prefix}.${suffix[1]}`);
   }
 
   return keys;
@@ -134,7 +111,7 @@ const walk = (dir, out = []) => {
     if (ent.isDirectory()) {
       if (ent.name === "node_modules" || ent.name === "dist") continue;
       walk(p, out);
-    } else if (ent.name.endsWith(".ts") || ent.name.endsWith(".tsx")) {
+    } else if (/\.(ts|tsx)$/.test(ent.name)) {
       out.push(p);
     }
   }

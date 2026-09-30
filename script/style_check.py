@@ -16,11 +16,11 @@
   3. American spelling in identifiers and string literals (colour → color,
      normalise → normalize, ...). Comments (English prose) are exempt.
 
-  4. CSS custom properties must carry the `--foliplus-` namespace prefix.
-     A bare `--token` breaks the namespace contract and can collide with the
-     host page, so it is rejected in declarations, `var()` references, and
-     JS string literals alike. Test files are out of scope (they use
-     throwaway names like `--test-color`).
+  4. CSS custom properties must carry the `--foliplus-` namespace prefix
+     AND definitions must live in `token.css`. A bare `--token` breaks the
+     namespace contract; a `--foliplus-x: value` outside `token.css`
+     fragments the single source of truth. Both are rejected in
+     declarations, `var()` references, and JS string literals alike.
 
 Note: `function` declarations and inline exports (`export const x`) are
 covered by eslint's `func-style` and `no-restricted-syntax` rules — see
@@ -62,9 +62,6 @@ PLURAL_WHITELIST = {
     "pelias",
     "ts",
 }
-
-# Extensions whose basenames are checked for plural names (rule 2).
-NAME_CHECK_EXTS = (".ts", ".mjs", ".cjs", ".js")
 
 # Rule 3: American spelling — identifiers and string literals only.
 # Comments are exempt (English prose). Lowercase keys; matching is
@@ -113,6 +110,8 @@ TYPE_FILE_RE = re.compile(r"(^|/)types?\.ts$")
 BARE_CUSTOM_PROPERTY_RE = re.compile(r"--[a-zA-Z][\w-]*")
 FOLIPLUS_PREFIX = "--foliplus-"
 TOKEN_CSS = "foliplus/css/common/token.css"
+# After a --foliplus-* name, optional whitespace then a colon = a definition.
+DEFINITION_RE = re.compile(r"\s*:")
 
 
 def check_custom_property_prefix(
@@ -126,20 +125,14 @@ def check_custom_property_prefix(
         for m in BARE_CUSTOM_PROPERTY_RE.finditer(raw):
             name = m.group(0)
             if name.startswith(FOLIPLUS_PREFIX):
-                # Check if this is a definition (property followed by a colon).
-                # A definition is allowed only in token.css.
-                end = m.end()
-                # Skip whitespace to check for a colon.
-                while end < len(raw) and raw[end] in " \t":
-                    end += 1
-                if end < len(raw) and raw[end] == ":":
-                    if not is_token:
-                        violations.append(
-                            (
-                                lineno,
-                                f"CSS custom property definition `{name}` must live in {TOKEN_CSS} — move it there with its tier section.",
-                            )
+                # Definition = property name followed by optional whitespace + colon.
+                if not is_token and DEFINITION_RE.match(raw, m.end()):
+                    violations.append(
+                        (
+                            lineno,
+                            f"CSS custom property definition `{name}` must live in {TOKEN_CSS} — move it there with its tier section.",
                         )
+                    )
                 continue
             violations.append(
                 (
@@ -318,6 +311,10 @@ def check_export_blocks(lines: list[str], filepath: str) -> list[tuple[int, str]
     return violations
 
 
+# Extensions whose basenames are checked for plural names (rule 2).
+NAME_CHECK_EXTS = (".ts", ".mjs", ".cjs", ".js")
+
+
 def check_plural_names(filepath: str) -> list[tuple[int, str]]:
     """Rule 2: report plural-looking file names (basename only)."""
     violations: list[tuple[int, str]] = []
@@ -393,7 +390,8 @@ def main() -> int:
             f"\n{total} code-style violation(s). Rules: (1) one value export "
             "block at file end + optional `export type { ... }`, "
             "(2) singular file names, (3) American spelling in code/strings, "
-            "(4) CSS custom properties namespaced as `--foliplus-*`. "
+            "(4) CSS custom properties namespaced as `--foliplus-*` with "
+            "definitions in `token.css`. "
             "Function declarations and inline exports are covered by eslint "
             "(func-style, no-restricted-syntax).",
             file=sys.stderr,
