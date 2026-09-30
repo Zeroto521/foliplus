@@ -215,5 +215,12 @@ const makePersisted = ({
   };
 };
 
-export { loadRecord, loadVersioned, makePersisted, removeRecord, saveRecord, saveVersioned };
+export {
+  loadRecord,
+  loadVersioned,
+  makePersisted,
+  removeRecord,
+  saveRecord,
+  saveVersioned,
+};
 export type { Persisted, PersistedOpts };

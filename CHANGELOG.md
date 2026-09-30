@@ -80,6 +80,7 @@
 - `LayerControl` / `HeatmapControl`: the style, attributes and heatmap panels drop their group headings and read as one flat row list; row labels are right-aligned, so all three panels share one label edge ([#516](https://github.com/Zeroto521/foliplus/pull/516))
 - `HeatmapControl` / `LayerControl`: bake layer opacity into canvas draws (`globalAlpha`); heatmap slider stays CSS, bake on redraw ([#533](https://github.com/Zeroto521/foliplus/pull/533))
 - `LayerControl`: extract the saved-order domain (`savedOrder` / `removedIds` plus load, snapshot, replay, prune) into a `SavedOrder` class in `savedOrder.ts` — `LayerManager` keeps the LayerAPI forwards and the ownership call-sites; behaviour and the persisted record shape are unchanged ([#569](https://github.com/Zeroto521/foliplus/pull/569))
+- `CSS tokens`: consolidate all `--foliplus-*` custom property definitions into `css/common/token.css` as the single source of truth, organised by tier and component sections; `style_check` rule 4 tightened to enforce that definitions live only in `token.css`, with component CSS retaining only `var()` references ([#542](https://github.com/Zeroto521/foliplus/pull/542))
 
 ### Removed
 

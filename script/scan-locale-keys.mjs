@@ -33,11 +33,11 @@
  *   - Object property values that are keys (e.g., `` key: "type_base" ``)
  *     — same limitation as ternary branches.
  */
-
 import fs from "node:fs";
 import path from "node:path";
 
-const ROOT = process.argv[2] ?? path.resolve(import.meta.dirname, "..", "foliplus", "js");
+const ROOT =
+  process.argv[2] ?? path.resolve(import.meta.dirname, "..", "foliplus", "js");
 
 // Control names — the top-level dirs under `foliplus/js/` that own a locale table.
 const CONTROLS = [
@@ -52,7 +52,7 @@ const CONTROLS = [
 ];
 
 /** Map a file path under `ROOT` to its control prefix, or null for shared/core. */
-const prefixFor = (rel) => {
+const prefixFor = rel => {
   const segs = rel.split(/[\\/]/);
   const top = segs[0];
   if (CONTROLS.includes(top)) return top;
@@ -60,11 +60,11 @@ const prefixFor = (rel) => {
 };
 
 /** Naive comment stripper. Locale keys never contain `//` or `/*`. */
-const stripComments = (src) =>
+const stripComments = src =>
   src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
 
 /** Extract all string literals (single or double quoted) from a string. */
-const extractLiterals = (text) => {
+const extractLiterals = text => {
   const out = [];
   const re = /(['"])((?:(?!\1).)+)\1/g;
   let m;
@@ -86,7 +86,7 @@ const STATIC_KEY_RE = /\bNAME_LABEL_KEY\s*=\s*(['"])((?:(?!\1).)+)\1/g;
 // Match template literals containing `${CONF.name}` — extract the suffix.
 const TEMPLATE_KEY_RE = /`([^`]*\$\{[^}]*CONF\.name[^}]*\}[^`]*)`/g;
 
-const isFullKey = (k) => typeof k === "string" && k.length > 0 && k.includes(".");
+const isFullKey = k => typeof k === "string" && k.length > 0 && k.includes(".");
 
 const collect = (rel, src) => {
   const prefix = prefixFor(rel);

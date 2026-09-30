@@ -16,26 +16,14 @@
   Blocker/preview rides --foliplus-z-index-top (control z), not export z. */
 
 .foliplus-export-mode {
-  --foliplus-z-export-base: 9500;
   /* Dim mask shadow extent & color. --foliplus-export-dim-color (0.4) must stay in
      sync with LayerControl's FOCUS.MASK_OPACITY so both selection boxes
      dim alike. */
-  --foliplus-export-dim-extent: 9999px;
-  --foliplus-export-dim-color: rgba(0, 0, 0, 0.4);
-  --foliplus-export-dim-color-locked: rgba(0, 0, 0, var(--foliplus-alpha-50));
   /* Controls above mask */
-  --foliplus-export-controls-z: calc(var(--foliplus-z-export-base) + 10);
-  --foliplus-export-scale-z: calc(var(--foliplus-z-export-base) - 10);
   /* Fold control z-index */
-  --foliplus-export-fold-z: calc(var(--foliplus-z-export-base) + 200);
   /* Handle/center anchor size */
-  --foliplus-export-anchor-size: var(--foliplus-dot-size);
   /* Handle/center offset from box edge (half of 1px border) */
-  --foliplus-export-handle-offset: -1px;
   /* Smooth box follow during drag */
-  --foliplus-export-move-transition:
-    left var(--foliplus-transition-fast), top var(--foliplus-transition-fast),
-    width var(--foliplus-transition-fast), height var(--foliplus-transition-fast);
 
   /* Reset Leaflet stacking context so controls can sit above the crop mask.
     leaflet-top/leaflet-bottom have z-index:1000 by default, creating a

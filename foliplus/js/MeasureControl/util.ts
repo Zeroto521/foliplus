@@ -1,6 +1,6 @@
 // MeasureControl utility functions — standalone, no manager dependency.
-import { reverseGeocode } from "#core/geocode/index.js";
 import { area, bearing, centroid, distance, midpoint } from "#core/geo/index.js";
+import { reverseGeocode } from "#core/geocode/index.js";
 import { cssVar } from "#common/cssvar.js";
 import { toggleDelIcon } from "#common/delicon.js";
 import { buildPopupEl } from "#common/dom.js";
