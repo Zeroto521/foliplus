@@ -4,11 +4,67 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import tempfile
+from pathlib import Path
 
 import pytest
 
 from foliplus.locale import _LOCALE_DIR, LocaleConfig, _load_tables, resolve_locale
+
+# ---------------------------------------------------------------------------
+# JS-key scanning — replaces the hand-maintained list below.
+#
+#   script/scan-locale-keys.mjs walks foliplus/js/**/*.ts and extracts
+#   every T("key"), .T("key"), T(c?"a":"b"), _("key"), and NAME_LABEL_KEY
+#   assignment, prefixing bare keys with the component derived from the
+#   file path.  Dynamic calls (T(variable), template literals, map lookups,
+#   caller-provided translators in core/) are NOT caught; those keys are
+#   listed in _DYNAMIC_SUPPLEMENT below.
+# ---------------------------------------------------------------------------
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+_SCANNER = _REPO_ROOT / "script" / "scan-locale-keys.mjs"
+
+_DYNAMIC_SUPPLEMENT: set[str] = {
+    # core/layer/api.ts — T() is caller-provided; the scanner cannot derive
+    # the component prefix for shared modules.
+    "ExportControl.no_layercontrol",
+    "MeasureControl.no_layercontrol",
+    # focusDisabledLocaleKey map (focus.ts) — reason → key lookup.
+    "LayerControl.focus_layer_base",
+    "LayerControl.focus_layer_hidden",
+    "LayerControl.focus_layer_no_bounds",
+    # typeKey / type.key template literals (attr.ts, rowView.ts).
+    "LayerControl.type_base",
+    "LayerControl.type_color_map",
+    "LayerControl.type_custom",
+    "LayerControl.type_unknown",
+    # labelKey / titleKey passed as function parameters.
+    "LayerControl.data_layer_label",
+    "LocateControl.popup_title_geo",
+    # localeFallback() in core/geocode/geocoder.ts — dynamic key lookup.
+    "MeasureControl.geo_fail",
+    "foliplus.addr_not_found",
+    "foliplus.geo_fail",
+    # Shared label vocabulary (common table) — resolved via dynamic lookup.
+    "foliplus.label_format_auto",
+    "foliplus.label_format_comma",
+    "foliplus.label_format_int",
+    "foliplus.label_format_percent",
+}
+
+
+def _scan_js_keys() -> set[str]:
+    """Run the locale-key scanner and return the set of keys it finds."""
+    result = subprocess.run(
+        ["node", str(_SCANNER)],
+        cwd=str(_REPO_ROOT),
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return set(json.loads(result.stdout))
 
 
 def _load_merged_tables() -> dict[str, dict[str, str]]:
@@ -26,243 +82,7 @@ def _load_merged_tables() -> dict[str, dict[str, str]]:
 
 
 _TABLES = _load_merged_tables()
-
-# Locale keys used across all JS files (resolved from CONST.name patterns).
-# Keep this list in sync with foliplus/js/*.js to catch missing translations.
-_JS_USED_KEYS = {
-    "foliplus.addr_not_found",
-    "foliplus.geo_fail",
-    "foliplus.close_label",
-    # Shared label-control vocabulary (core/labelControl.ts), rendered by
-    # both the heatmap panel and LayerControl's style drawer — one definition in
-    # the common table instead of a per-component copy.
-    "foliplus.label",
-    "foliplus.label_color",
-    "foliplus.label_collide",
-    "foliplus.label_collide_tooltip",
-    "foliplus.label_format",
-    "foliplus.label_format_auto",
-    "foliplus.label_format_comma",
-    "foliplus.label_format_int",
-    "foliplus.label_format_percent",
-    "foliplus.label_size",
-    "foliplus.label_style",
-    "foliplus.label_tooltip",
-    # FullscreenControl
-    "FullscreenControl.title",
-    "SearchControl.blocked",
-    "LocateControl.blocked",
-    "FullscreenControl.title_cancel",
-    "FullscreenControl.enter",
-    "FullscreenControl.exit",
-    "FullscreenControl.unsupported",
-    "FullscreenControl.exit_fail",
-    "FullscreenControl.zoom_in",
-    "FullscreenControl.zoom_out",
-    # ExportControl
-    "ExportControl.btn_title",
-    "ExportControl.btn_confirm",
-    "ExportControl.btn_export",
-    "ExportControl.btn_cancel",
-    "ExportControl.hint_unlocked",
-    "ExportControl.hint_locked",
-    "ExportControl.hint_restore",
-    "ExportControl.status_exporting",
-    "ExportControl.status_progress",
-    "ExportControl.status_success",
-    "ExportControl.status_fail",
-    "ExportControl.err_crop_too_small",
-    "ExportControl.err_too_large",
-    "ExportControl.err_svg_load",
-    "ExportControl.err_canvas_load",
-    "ExportControl.err_image_load",
-    "ExportControl.err_load_bounds",
-    "ExportControl.err_save_bounds",
-    "ExportControl.err_render",
-    "ExportControl.err_gen_fail",
-    "ExportControl.err_render_fail",
-    "ExportControl.err_geotiff_geo",
-    "ExportControl.err_geotiff_canvas",
-    "ExportControl.status_partial",
-    "ExportControl.label_size_prefix",
-    "ExportControl.label_size_suffix",
-    "ExportControl.no_layercontrol",
-    "ExportControl.blocked",
-    "ExportControl.blocked_measure",
-    "ExportControl.blocked_layer",
-    "ExportControl.blocked_search",
-    "ExportControl.blocked_locate",
-    # HeatmapControl
-    "HeatmapControl.title",
-    "HeatmapControl.close_title",
-    "HeatmapControl.layer",
-    "HeatmapControl.layer_placeholder",
-    "HeatmapControl.agg_method",
-    "HeatmapControl.agg_count",
-    "HeatmapControl.agg_sum",
-    "HeatmapControl.agg_avg",
-    "HeatmapControl.agg_min",
-    "HeatmapControl.agg_max",
-    "HeatmapControl.field",
-    "HeatmapControl.field_auto",
-    "HeatmapControl.class_method",
-    "HeatmapControl.jenks",
-    "HeatmapControl.quantile",
-    "HeatmapControl.equal",
-    "HeatmapControl.heads",
-    "HeatmapControl.scheme",
-    "HeatmapControl.clear",
-    "HeatmapControl.no_layer",
-    "HeatmapControl.no_layercontrol",
-    "HeatmapControl.meta_source_layer",
-    "HeatmapControl.meta_agg_field",
-    "HeatmapControl.meta_source_layer",
-    "HeatmapControl.meta_agg_field",
-    # LayerControl
-    "LayerControl.toggle_title",
-    "LayerControl.panel_title",
-    "LayerControl.close_title",
-    "LayerControl.base_map_label",
-    "LayerControl.no_base_map_label",
-    "LayerControl.color_map_label",
-    "LayerControl.reorder_group_only",
-    "LayerControl.reorder_top",
-    "LayerControl.reorder_bottom",
-    "LayerControl.type_base",
-    "LayerControl.type_custom",
-    "LayerControl.type_polygon",
-    "LayerControl.type_line",
-    "LayerControl.type_point",
-    "LayerControl.type_empty",
-    "LayerControl.type_unknown",
-    "LayerControl.type_color_map",
-    "LayerControl.id_required",
-    "LayerControl.invalid_id",
-    "LayerControl.require_canvas_id",
-    "LayerControl.mapPane_not_available",
-    "LayerControl.data_layer_label",
-    "LayerControl.fold_tooltip",
-    "LayerControl.unfold_tooltip",
-    "LayerControl.toggle_all_select_tooltip",
-    "LayerControl.toggle_all_deselect_tooltip",
-    "LayerControl.select_tooltip",
-    "LayerControl.deselect_tooltip",
-    "LayerControl.drag_tooltip",
-    "LayerControl.more_tooltip",
-    "LayerControl.focus_layer",
-    "LayerControl.focus_layer_tooltip",
-    "LayerControl.focus_layer_hidden",
-    "LayerControl.focus_layer_base",
-    "LayerControl.focus_layer_no_bounds",
-    "LayerControl.focus_cancelled",
-    "LayerControl.rename_layer",
-    "LayerControl.rename_layer_tooltip",
-    "LayerControl.rename_hint",
-    "LayerControl.rename_empty",
-    "LayerControl.readonly_error",
-    "LayerControl.readonly_del_error",
-    "LayerControl.readonly_method_error",
-    "LayerControl.blocked",
-    # Style panel (interpolated format keys now resolve from the shared
-    # foliplus.label_format_* entries in the common table).
-    "LayerControl.style_layer",
-    "LayerControl.style_layer_tooltip",
-    "LayerControl.style_label_field",
-    "LayerControl.style_label_field_auto",
-    "LayerControl.style_reset",
-    "LayerControl.style_label_no_data",
-    "LayerControl.style_opacity",
-    "LayerControl.attributes_layer",
-    "LayerControl.attributes_layer_tooltip",
-    "LayerControl.attr_source",
-    "LayerControl.attr_type",
-    "LayerControl.attr_feature_count",
-    "LayerControl.attr_empty",
-    "LayerControl.attr_created_at",
-    "LayerControl.attr_updated_at",
-    "LayerControl.style_zoom_range",
-    "LayerControl.style_zoom_range_min",
-    "LayerControl.style_zoom_range_max",
-    "LayerControl.style_zoom_range_current",
-    "LayerControl.style_zoom_range_out_of_range",
-    "LayerControl.style_fill",
-    "LayerControl.style_fill_opacity",
-    "LayerControl.border",
-    "LayerControl.style_border_color",
-    "LayerControl.style_border_weight",
-    "LayerControl.delete_layer",
-    "LayerControl.delete_layer_confirm",
-    "LayerControl.delete_layer_tooltip",
-    "LayerControl.clear_data",
-    "LayerControl.clear_data_confirm",
-    "LayerControl.clear_data_tooltip",
-    "MeasureControl.tool_edit",
-    "MeasureControl.hint_edit",
-    "MeasureControl.hint_edit_empty",
-    "MeasureControl.blocked",
-    "MeasureControl.blocked_export",
-    "MeasureControl.blocked_layer",
-    "MeasureControl.blocked_search",
-    "MeasureControl.blocked_locate",
-    # LocateControl
-    "LocateControl.title",
-    "LocateControl.locating",
-    "LocateControl.geo_error",
-    "LocateControl.popup_title_geo",
-    "LocateControl.popup_loc_label",
-    "LocateControl.popup_addr_label",
-    "LocateControl.popup_loading",
-    # SearchControl
-    "SearchControl.btn_title",
-    "SearchControl.mode_coord",
-    "SearchControl.coord_placeholder",
-    "SearchControl.clear_title",
-    "SearchControl.mode_addr",
-    "SearchControl.addr_placeholder",
-    "SearchControl.coord_error",
-    "SearchControl.popup_title_coord",
-    "SearchControl.popup_title_addr",
-    "SearchControl.popup_loading",
-    "SearchControl.popup_loc_label",
-    "SearchControl.popup_addr_label",
-    "SearchControl.addr_not_found",
-    "SearchControl.addr_error",
-    # MeasureControl
-    "MeasureControl.tool_toggle",
-    "MeasureControl.tool_marker",
-    "MeasureControl.tool_distance",
-    "MeasureControl.tool_polygon",
-    "MeasureControl.tool_circle",
-    "MeasureControl.tool_clear",
-    "MeasureControl.hint_marker",
-    "MeasureControl.hint_dist_start",
-    "MeasureControl.hint_polygon",
-    "MeasureControl.hint_circle_start",
-    "MeasureControl.hint_circle_radius",
-    "MeasureControl.popup_title",
-    "MeasureControl.popup_loading",
-    "MeasureControl.popup_loc_label",
-    "MeasureControl.popup_addr_label",
-    "MeasureControl.geo_fail",
-    "MeasureControl.no_layercontrol",
-    "MeasureControl.del_tooltip",
-    "MeasureControl.del_node",
-    "MeasureControl.del_all",
-    "MeasureControl.tool_export",
-    "MeasureControl.err_not_saved",
-    "MeasureControl.name_marker",
-    "MeasureControl.name_distance",
-    "MeasureControl.name_polygon",
-    "MeasureControl.name_circle",
-    "MeasureControl.export_no_data",
-    "MeasureControl.export_success",
-    "MeasureControl.export_file",
-    "MeasureControl.export_fail",
-    "MeasureControl.err_export",
-    "MeasureControl.export_paused",
-    # ScaleControl
-    "ScaleControl.zoom_label",
-}
+_JS_USED_KEYS = _scan_js_keys() | _DYNAMIC_SUPPLEMENT
 
 
 class TestLocaleConfig:
