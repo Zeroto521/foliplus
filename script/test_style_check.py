@@ -533,6 +533,28 @@ class TestCheckPluralNames:
         for name in ["pelias.ts", "focus.ts", "canvas.ts", "index.ts"]:
             assert mod.check_plural_names(name) == []
 
+    def test_abbreviation_suffixes_are_whitelisted(self):
+        for name in [
+            "merge-css.mjs",
+            "args.mjs",
+            "bundle-size.ts",
+            "compress.mjs",  # verb, not a plural noun
+        ]:
+            assert mod.check_plural_names(name) == []
+
+    def test_mjs_plural_module_names_are_reported(self):
+        assert mod.check_plural_names("script/build-paths.mjs") != []
+        assert mod.check_plural_names("script/css-layers.mjs") != []
+
+    def test_mjs_singular_module_names_are_allowed(self):
+        for name in [
+            "script/build-path.mjs",
+            "script/css-layer.mjs",
+            "script/esbuild-config.mjs",
+            "script/merge-css.mjs",
+        ]:
+            assert mod.check_plural_names(name) == []
+
     def test_non_ts_extension_is_allowed(self):
         assert mod.check_plural_names("files.md") == []
 
