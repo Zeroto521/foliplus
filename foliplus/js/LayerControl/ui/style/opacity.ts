@@ -15,7 +15,6 @@ import * as CONST from "../../const.js";
 import { applyProjection } from "../apply.js";
 import type { LayerUI } from "../index.js";
 import { INTENT, getIntent } from "../intent.js";
-import { saveState } from "../state.js";
 import { syncNoBasemap } from "../visibility.js";
 import { railPos, round5 } from "./frame.js";
 import {
@@ -204,8 +203,8 @@ const OPACITY_DIMENSION = registerDimension<number>({
     const opacity = typeof patch === "number" ? patch : undefined;
     if (opacity === undefined) return;
     if (opacity === 1) {
-      ui.intentStore.clear(layerId, INTENT.OPACITY);
-      saveState(ui);
+      // Fully opaque is the declared default — clear, same as resetIntentKeys.
+      resetIntentKeys(ui, layerId, [INTENT.OPACITY]);
     } else {
       void writeIntentKeys(ui, layerId, [[INTENT.OPACITY, opacity]]);
     }
