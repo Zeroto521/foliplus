@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   LAYER_ORDER,
   TOKEN_MODULES,
-  hoistLeafletOverrides,
+  UNLAYERED_PATTERNS,
+  hoistCompatOverrides,
   wrapCommonLayers,
   wrapComponentLayers,
 } from "#script/css-layer.mjs";
@@ -80,7 +81,7 @@ describe("css-layer.mjs", () => {
   });
 });
 
-describe("hoistLeafletOverrides", () => {
+describe("hoistCompatOverrides", () => {
   it("moves .leaflet-* rules out of @layer so they beat Leaflet library CSS", () => {
     const layered = wrapComponentLayers(
       [
@@ -89,8 +90,8 @@ describe("hoistLeafletOverrides", () => {
         ".leaflet-control.foliplus-scale-wrap { line-height: 14px; }",
       ].join("\n"),
     );
-    const out = hoistLeafletOverrides(layered);
-    // Layer order preamble and non-Leaflet chrome stay layered.
+    const out = hoistCompatOverrides(layered);
+    // Layer order preamble and non-hoisted chrome stay layered.
     expect(out.startsWith(LAYER_ORDER)).toBe(true);
     expect(out).toContain("@layer foliplus.components");
     // Leaflet-targeting rules are unlayered (no @layer wrapper).
@@ -104,8 +105,66 @@ describe("hoistLeafletOverrides", () => {
     );
   });
 
-  it("is a no-op when no rule targets .leaflet", () => {
+  it("hoists dropdown/menu/row-panel shell rules so they beat host resets", () => {
+    const layered = wrapComponentLayers(
+      [
+        ".foliplus-layer-ctrl .foliplus-layer-more-menu { padding: var(--foliplus-space-xs) 0; }",
+        ":is(.foliplus-search-result-panel, .foliplus-heatmap-scheme-dropdown, .foliplus-layer-more-menu) { box-sizing: border-box; }",
+        ".foliplus-panel.foliplus-row-panel { position: absolute; }",
+        ".foliplus-layer-ctrl .foliplus-layer-item { display: flex; }",
+        ".foliplus-heatmap-scheme-dropdown li { cursor: pointer; }",
+      ].join("\n"),
+    );
+    const out = hoistCompatOverrides(layered);
+    // Locate the components layer block by brace depth; hoisted rules land
+    // after its closing brace, layered rules sit inside it.
+    const open = out.indexOf("@layer foliplus.components {");
+    let depth = 0;
+    let close = -1;
+    for (let i = open; i < out.length; i++) {
+      if (out[i] === "{") depth++;
+      else if (out[i] === "}") {
+        depth--;
+        if (depth === 0) {
+          close = i;
+          break;
+        }
+      }
+    }
+    expect(close).toBeGreaterThan(open);
+    for (const sel of [
+      ".foliplus-layer-ctrl .foliplus-layer-more-menu {",
+      ".foliplus-search-result-panel",
+      ".foliplus-row-panel {",
+    ]) {
+      expect(out.indexOf(sel)).toBeGreaterThan(close);
+    }
+    // Non-shell component rules stay layered.
+    const item = out.indexOf(".foliplus-layer-ctrl .foliplus-layer-item {");
+    expect(item).toBeGreaterThan(-1);
+    expect(item).toBeGreaterThan(open);
+    expect(item).toBeLessThan(close);
+    // A descendant selector that still names the shell class (…shell li) is
+    // hoisted with its shell — the pattern matches the whole selector, and
+    // item layout is part of the shell's anti-reset surface.
+    const schemeLi = out.indexOf(".foliplus-heatmap-scheme-dropdown li {");
+    expect(schemeLi).toBeGreaterThan(close);
+  });
+
+  it("is a no-op when no rule matches an unlayered pattern", () => {
     const layered = wrapComponentLayers(".foliplus-x { color: red; }");
-    expect(hoistLeafletOverrides(layered)).toBe(layered);
+    expect(hoistCompatOverrides(layered)).toBe(layered);
+  });
+
+  it("UNLAYERED_PATTERNS pins the two compat families", () => {
+    expect(UNLAYERED_PATTERNS.map(re => re.source)).toContain("\\.leaflet");
+    for (const cls of [
+      ".foliplus-layer-more-menu",
+      ".foliplus-search-result-panel",
+      ".foliplus-heatmap-scheme-dropdown",
+      ".foliplus-row-panel",
+    ]) {
+      expect(UNLAYERED_PATTERNS.some(re => re.test(cls))).toBe(true);
+    }
   });
 });

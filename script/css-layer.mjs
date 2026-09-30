@@ -16,7 +16,8 @@
  *   Within each layer, declaration order is the pre-change merge order
  *   (common: topological via orderCss; components: expandEntry order).
  *
- * Leaflet-library overrides stay unlayered (see `hoistLeafletOverrides`):
+ * Leaflet-library overrides and dropdown/menu shells stay unlayered (see
+ * {@link hoistCompatOverrides}):
  *   Leaflet ships unlayered CSS; any foliplus rule that targets `.leaflet-*`
  *   must keep beating it at the same specificity+order as before this change.
  *   Host-page authors still see layered foliplus chrome win/lose by layer
@@ -93,30 +94,53 @@ const wrapCommonLayers = (orderedFilenames, bodyOf) => {
 const wrapComponentLayers = body => assemble([["foliplus.components", [body]]]);
 
 /**
- * Pull rules whose selectors target `.leaflet-*` out of `@layer` blocks and
- * re-append them unlayered.
+ * Unlayered-compat selector patterns.
  *
- * Leaflet's library CSS is unlayered. Before this change, foliplus rules
- * that style/override Leaflet chrome (`.leaflet-container.foliplus-no-base-map`,
- * `.leaflet-control.foliplus-scale-wrap`, `.leaflet-control-attribution`, …)
- * won by specificity + source order. After wrapping every rule in a layer,
- * those overrides would lose to Leaflet at any specificity — browser tests
- * that pin hatch paint and scale/attribution height equality caught it.
+ * foliplus rules that must outrank a HOST framework's unlayered resets stay
+ * out of `@layer`: the cascade spec gives unlayered normal declarations
+ * priority over layered ones at ANY specificity, so a layered foliplus rule
+ * loses to e.g. Bootstrap's `ol,ul{padding-left:2rem}` even at (0,2,0) vs
+ * (0,0,1). Two families need this:
+ *   - Leaflet chrome overrides (`.leaflet-*` selectors) — pre-existing;
+ *   - dropdown / menu / row-panel shells whose `padding` / `margin` /
+ *     `list-style` answers a framework's bare-element resets (Bootstrap,
+ *     Tailwind, …). T264: the layer more-menu gained a 2rem left padding
+ *     under Bootstrap before this hoist existed.
+ * The list is explicit — no magic "any element selector" hoisting.
+ */
+const UNLAYERED_PATTERNS = [
+  /\.leaflet/,
+  /\.foliplus-layer-more-menu/,
+  /\.foliplus-search-result-panel/,
+  /\.foliplus-heatmap-scheme-dropdown/,
+  /\.foliplus-row-panel/,
+];
+
+/**
+ * Pull rules matching an {@link UNLAYERED_PATTERNS} selector out of `@layer`
+ * blocks and re-append them unlayered.
  *
- * Hoisting restores the pre-layer cascade for Leaflet-owned selectors while
- * leaving non-Leaflet foliplus chrome in layers for host-page control.
+ * Before this change, foliplus rules that style/override Leaflet chrome or a
+ * dropdown shell (`.foliplus-layer-more-menu`, `.foliplus-row-panel`, …) won
+ * by specificity + source order. After wrapping every rule in a layer, those
+ * overrides lose to the host's unlayered CSS at any specificity — browser
+ * tests that pin hatch paint and scale/attribution height equality caught the
+ * Leaflet half; T264's menu-shell padding caught the shell half.
+ *
+ * Hoisting restores the pre-layer cascade for these families while leaving
+ * the rest of foliplus chrome in layers for host-page control.
  *
  * @param {string} css flattened stylesheet (may contain @layer blocks)
- * @returns {string} stylesheet with Leaflet-targeting rules unlayered
+ * @returns {string} stylesheet with matching rules unlayered
  */
-const hoistLeafletOverrides = css => {
+const hoistCompatOverrides = css => {
   const root = postcss.parse(css);
   const hoisted = [];
   root.walkRules(rule => {
     // postcss exposes `selectors` as an array on every Rule node (also for
     // @media / @keyframes child rules), so no fallback is needed here.
     const selectors = rule.selectors;
-    if (selectors.some(s => s.includes(".leaflet"))) {
+    if (selectors.some(s => UNLAYERED_PATTERNS.some(re => re.test(s)))) {
       hoisted.push(rule.clone());
       rule.remove();
     }
@@ -130,7 +154,8 @@ const hoistLeafletOverrides = css => {
 export {
   LAYER_ORDER,
   TOKEN_MODULES,
-  hoistLeafletOverrides,
+  UNLAYERED_PATTERNS,
+  hoistCompatOverrides,
   wrapCommonLayers,
   wrapComponentLayers,
 };
