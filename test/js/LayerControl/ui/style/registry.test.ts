@@ -364,6 +364,54 @@ describe("LayerControl style-panel dimension registry — fill descriptor", () =
       opacity: null,
     });
   });
+
+  it("valueSource is none when the gate rejects the layer", () => {
+    expect(FILL_DIMENSION.valueSource!(ui, "not-registered")).toBe("none");
+  });
+
+  it("valueSource is author when the user has not set either slot", () => {
+    vi.spyOn(ui.m, "surfaceFor").mockReturnValue({
+      capabilities: { fill: "native" },
+    } as never);
+    expect(FILL_DIMENSION.valueSource!(ui, "overlay1")).toBe("author");
+  });
+
+  it("valueSource is user once provenance marks a fill slot", () => {
+    vi.spyOn(ui.m, "surfaceFor").mockReturnValue({
+      capabilities: { fill: "native" },
+    } as never);
+    ui.intentStore.set("overlay1", "fillColor", "#ff0000");
+    expect(FILL_DIMENSION.valueSource!(ui, "overlay1")).toBe("user");
+  });
+
+  it("write persists the patch through IntentStore and marks provenance", () => {
+    const schedule = vi.fn();
+    ui.m.persistence = { schedule } as never;
+    FILL_DIMENSION.write!(ui, "overlay1", { color: "#00ff00", opacity: 0.4 });
+    expect(ui.intentStore.get("overlay1", "fillColor")).toBe("#00ff00");
+    expect(ui.intentStore.get("overlay1", "fillOpacity")).toBe(0.4);
+    expect(ui.intentStore.isUserSet("overlay1", "fillColor")).toBe(true);
+    expect(ui.intentStore.isUserSet("overlay1", "fillOpacity")).toBe(true);
+    expect(schedule).toHaveBeenCalled();
+  });
+
+  it("write with a partial patch leaves the other slot untouched", () => {
+    ui.intentStore.set("overlay1", "fillColor", "#ff0000");
+    FILL_DIMENSION.write!(ui, "overlay1", { opacity: 0.2 });
+    expect(ui.intentStore.get("overlay1", "fillColor")).toBe("#ff0000");
+    expect(ui.intentStore.get("overlay1", "fillOpacity")).toBe(0.2);
+  });
+
+  it("reset clears both fill slots and their provenance", () => {
+    const schedule = vi.fn();
+    ui.m.persistence = { schedule } as never;
+    FILL_DIMENSION.write!(ui, "overlay1", { color: "#ff0000", opacity: 0.5 });
+    FILL_DIMENSION.reset!(ui, "overlay1");
+    expect(ui.intentStore.get("overlay1", "fillColor")).toBeUndefined();
+    expect(ui.intentStore.get("overlay1", "fillOpacity")).toBeUndefined();
+    expect(ui.intentStore.isUserSet("overlay1", "fillColor")).toBe(false);
+    expect(ui.intentStore.isUserSet("overlay1", "fillOpacity")).toBe(false);
+  });
 });
 
 describe("LayerControl style-panel dimension registry — border descriptor", () => {
@@ -414,6 +462,46 @@ describe("LayerControl style-panel dimension registry — border descriptor", ()
       color: "#3388ff",
       weight: 1,
     });
+  });
+
+  it("valueSource is none when the gate rejects the layer", () => {
+    expect(BORDER_DIMENSION.valueSource!(ui, "not-registered")).toBe("none");
+  });
+
+  it("valueSource is author when the user has not set either slot", () => {
+    vi.spyOn(ui.m, "surfaceFor").mockReturnValue({
+      capabilities: { stroke: "native" },
+    } as never);
+    expect(BORDER_DIMENSION.valueSource!(ui, "overlay1")).toBe("author");
+  });
+
+  it("valueSource is user once provenance marks a border slot", () => {
+    vi.spyOn(ui.m, "surfaceFor").mockReturnValue({
+      capabilities: { stroke: "native" },
+    } as never);
+    ui.intentStore.set("overlay1", "borderWeight", 2);
+    expect(BORDER_DIMENSION.valueSource!(ui, "overlay1")).toBe("user");
+  });
+
+  it("write persists the patch through IntentStore and marks provenance", () => {
+    const schedule = vi.fn();
+    ui.m.persistence = { schedule } as never;
+    BORDER_DIMENSION.write!(ui, "overlay1", { color: "#00ff00", weight: 4 });
+    expect(ui.intentStore.get("overlay1", "borderColor")).toBe("#00ff00");
+    expect(ui.intentStore.get("overlay1", "borderWeight")).toBe(4);
+    expect(ui.intentStore.isUserSet("overlay1", "borderColor")).toBe(true);
+    expect(ui.intentStore.isUserSet("overlay1", "borderWeight")).toBe(true);
+    expect(schedule).toHaveBeenCalled();
+  });
+
+  it("reset clears both border slots and their provenance", () => {
+    const schedule = vi.fn();
+    ui.m.persistence = { schedule } as never;
+    BORDER_DIMENSION.write!(ui, "overlay1", { color: "#ff0000", weight: 3 });
+    BORDER_DIMENSION.reset!(ui, "overlay1");
+    expect(ui.intentStore.get("overlay1", "borderColor")).toBeUndefined();
+    expect(ui.intentStore.get("overlay1", "borderWeight")).toBeUndefined();
+    expect(ui.intentStore.isUserSet("overlay1", "borderColor")).toBe(false);
   });
 });
 

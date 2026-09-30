@@ -32,14 +32,13 @@
 // The pilot (`opacity`) is already in this form; `fill` / `border` /
 // `zoomRange` gates are now pure capability checks too (#513).
 //
-// First pilot: `opacity`. Its existing helpers (`layerCanOpacity`,
-// `buildOpacityRow`, `commitOpacityPct`, `resetLayerOpacity`) stay as the
-// authoritative implementation; the descriptor wires them up. The write
-// path (state + DOM sync) is deliberately not moved into the descriptor
-// yet: the panel's commit pass knows which row element to refresh, and
-// that argument does not belong in the descriptor contract. Follow-up
-// migration work can move `write` / `reset` in once that coupling is
-// broken.
+// Dimension write/reset migration: `fill` / `border` own the intent+persist
+// slots (`write` / `reset` / `valueSource` on the descriptor). The named
+// helpers (`commitFillColor` / `resetLayerBorder` / …) stay as thin delegates.
+// `opacity` / `zoomRange` / `annotation` still keep their helpers as the
+// authoritative implementation until a later PR. styleBag remains the
+// setStyle landing (commitStyleDim / restoreStyleDim / scheduleStyleDimApply);
+// descriptor write/reset call it.
 //
 // The registry is a module-level Map. BaseControl renders each control
 // instance as a fresh IIFE around the bundled JS, so every map eval gets
