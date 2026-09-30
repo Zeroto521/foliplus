@@ -90,6 +90,16 @@ type PersistedLayerState = {
   overrides: LayerOverride[];
 };
 
+/** One layer's live intent row — the IntentStore carrier shape. Value axis
+ *  plus provenance axis in one record, so a half-write cannot desync them
+ *  through the store's cohesive `set` / `clear`. Absent intent key = the user
+ *  never chose that dimension; provenance only ever holds {@link LayerOverride}
+ *  keys (`name` / `annotation` are riders without markers). */
+type IntentRow = {
+  intent: LayerIntent;
+  provenance: Set<LayerOverride>;
+};
+
 /** Compile-time pin: every provenance-tracked dimension is also a disk key —
  *  `buildLayerStates` writes each override straight through under its own
  *  name, so a new `LayerOverride` without a `PersistedLayerState` field fails
@@ -145,6 +155,17 @@ type LiveState = {
   foldedGroups?: () => string[];
   renamedNames?: () => Record<string, string>;
   layers?: () => Record<string, PersistedLayerState>;
+};
+
+/** The intent half of a parsed persistence record — what
+ *  `IntentStore.loadFromPersisted` accepts. A subset of
+ *  {@link PersistedRecord} (order / removed / foldedGroups stay outside the
+ *  store); annotation config rides both the legacy top-level segment and
+ *  `layers[id].annotation`. */
+type LoadSource = {
+  renamedNames?: Record<string, string>;
+  annotations?: Record<string, unknown>;
+  layers?: Record<string, PersistedLayerState>;
 };
 
 /** A label a layer asked for, described by its feature rather than by pixels —
@@ -301,11 +322,13 @@ export type {
   AppliedProjection,
   BorderRowBindTarget,
   BorderRowBuildTarget,
+  IntentRow,
   LayerDimension,
   LayerIntent,
   LayerLabel,
   LayerOverride,
   LiveState,
+  LoadSource,
   PersistedLayerState,
   PersistedRecord,
   Projection,

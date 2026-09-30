@@ -10,25 +10,13 @@
 // disk-shape bridge; `persistence.ts` still owns parse/serialize.
 import type {
   AnnotationConfig,
+  IntentRow,
   LayerIntent,
   LayerOverride,
+  LoadSource,
   PersistedLayerState,
 } from "../type.js";
 import { type IntentKey, LIVE, STYLE_KEYS } from "./intent.js";
-
-/** One layer's live intent row. `intent` holds chosen values; absent key
- *  means the user never chose that dimension. `provenance` records which
- *  override dimensions the user actually set — never `name` / `annotation`. */
-type IntentRow = {
-  intent: LayerIntent;
-  provenance: Set<LayerOverride>;
-};
-
-type LoadSource = {
-  renamedNames?: Record<string, string>;
-  annotations?: Record<string, unknown>;
-  layers?: Record<string, PersistedLayerState>;
-};
 
 const isOverrideKey = (key: IntentKey): key is LayerOverride =>
   Object.prototype.hasOwnProperty.call(STYLE_KEYS, key);

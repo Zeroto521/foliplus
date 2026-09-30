@@ -104,6 +104,101 @@ describe("IntentStore — get/set/clear/mark/unmark", () => {
     expect(store.hasLive("a", "fillColor")).toBe(true);
     expect(store.hasLive("a", "opacity")).toBe(false);
   });
+
+  it("clear on name/annotation skips the provenance half (non-override)", () => {
+    const store = new IntentStore();
+    store.set("a", "name", "Renamed");
+    store.set("a", "fillColor", "#f00");
+    store.clear("a", "name");
+    expect(store.get("a", "name")).toBeUndefined();
+    // style dim untouched
+    expect(store.get("a", "fillColor")).toBe("#f00");
+    expect(store.isUserSet("a", "fillColor")).toBe(true);
+    expect(store.ids()).toEqual(["a"]);
+
+    store.clear("a", "annotation");
+    store.clear("a", "fillColor");
+    expect(store.ids()).toEqual([]);
+  });
+
+  it("clearValue / unmark / dropRow on a missing id are no-ops", () => {
+    const store = new IntentStore();
+    store.clearValue("ghost", "opacity");
+    store.unmark("ghost", "opacity");
+    store.dropRow("ghost");
+    expect(store.ids()).toEqual([]);
+  });
+});
+
+describe("IntentStore — seed / replace helpers", () => {
+  it("seedValues writes bulk values without provenance", () => {
+    const store = new IntentStore();
+    store.seedValues("visible", { a: false, b: true });
+    expect(store.get("a", "visible")).toBe(false);
+    expect(store.get("b", "visible")).toBe(true);
+    expect(store.dumpProvenance()).toEqual({});
+  });
+
+  it("seedProvenance replaces one id's markers and keeps insertion order", () => {
+    const store = new IntentStore();
+    store.seedProvenance("x", ["opacity", "visible"]);
+    store.seedProvenance("x", ["fillColor"]);
+    expect(store.dumpProvenance().x).toEqual(["fillColor"]);
+  });
+
+  it("replaceProvenance swaps the whole provenance axis and prunes empty rows", () => {
+    const store = new IntentStore();
+    store.set("a", "visible", true);
+    store.set("b", "opacity", 0.5);
+    store.replaceProvenance({ b: ["opacity"] });
+    expect(store.isUserSet("a", "visible")).toBe(false);
+    expect(store.isUserSet("b", "opacity")).toBe(true);
+    // a's value remains (replaceProvenance only touches provenance)
+    expect(store.get("a", "visible")).toBe(true);
+    // empty provenance on a prunes the row when intent is also empty — here
+    // intent still holds `visible`, so the row stays until clearValue.
+    expect(store.ids()).toEqual(expect.arrayContaining(["a", "b"]));
+
+    store.replaceProvenance({});
+    expect(store.dumpProvenance()).toEqual({});
+  });
+
+  it("replaceIntents resets values; undefined keys are skipped", () => {
+    const store = new IntentStore();
+    store.set("a", "visible", true);
+    store.set("a", "opacity", 0.2);
+    store.replaceIntents({
+      a: { visible: false, name: "N" },
+      b: { fillColor: undefined as never },
+    });
+    expect(store.get("a", "visible")).toBe(false);
+    expect(store.get("a", "opacity")).toBeUndefined();
+    expect(store.get("a", "name")).toBe("N");
+    expect(store.get("b", "fillColor")).toBeUndefined();
+    expect(store.ids()).toEqual(["a"]);
+  });
+
+  it("clearAll empties every row", () => {
+    const store = new IntentStore();
+    store.set("a", "visible", true);
+    store.set("b", "name", "B");
+    store.clearAll();
+    expect(store.ids()).toEqual([]);
+    expect(store.dumpIntents()).toEqual({});
+    expect(store.dumpProvenance()).toEqual({});
+  });
+
+  it("ids / userSetIds / nameEntries reflect the live axes", () => {
+    const store = new IntentStore();
+    store.setValue("a", "name", "A");
+    store.set("b", "visible", true);
+    store.setValue("c", "fillColor", "#0f0"); // value, not marked
+    expect(store.ids().sort()).toEqual(["a", "b", "c"]);
+    expect(store.userSetIds()).toEqual(["b"]);
+    expect(store.nameEntries()).toEqual([["a", "A"]]);
+    expect(store.get("missing", "name")).toBeUndefined();
+    expect(store.isUserSet("missing", "visible")).toBe(false);
+  });
 });
 
 describe("IntentStore — overrides array ↔ Set round-trip", () => {
