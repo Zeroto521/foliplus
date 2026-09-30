@@ -21,8 +21,8 @@ import autoprefixer from "autoprefixer";
 import { readFileSync } from "fs";
 import postcss from "postcss";
 import postcssNesting from "postcss-nesting";
-import { hoistLeafletOverrides } from "./css-layer.mjs";
 import { pathAliases, resolveJsRoot } from "./build-path.mjs";
+import { hoistLeafletOverrides } from "./css-layer.mjs";
 import { createSourceTransformPlugin } from "./source-transform-plugin.mjs";
 import { resolveVersion } from "./version.mjs";
 
