@@ -6,11 +6,16 @@ import { findItem, initFixture } from "./fixture.js";
 
 // focusLayer() reaches guardBlocked() through a free import rather than a
 // `map.foliplus` reference, so it has to be mocked to flip the block on.
-const modeMocks = vi.hoisted(() => ({
-  guardBlocked: vi.fn(() => false),
-  ensureModes: vi.fn(() => ({ setMode: vi.fn() })),
-  ModeManager: vi.fn(),
-}));
+// ensureModes returns a stable object so `setMode` can be asserted against.
+const modeMocks = vi.hoisted(() => {
+  const setMode = vi.fn();
+  return {
+    guardBlocked: vi.fn(() => false),
+    setMode,
+    ensureModes: vi.fn(() => ({ setMode })),
+    ModeManager: vi.fn(),
+  };
+});
 
 vi.mock("#core/mode.js", () => ({
   ensureModes: modeMocks.ensureModes,
@@ -120,6 +125,16 @@ describe("LayerUI overlay mutual exclusion", () => {
 
     expect(ui.isFocusing()).toBe(false);
     expect(hintSpy).not.toHaveBeenCalled();
+  });
+
+  it("an opener with nothing focused skips the focus teardown", () => {
+    // dismissFocus ends in applyProjectionAll, an O(layers) sweep. It belongs to
+    // the paths that had a focus to tear down, not to every open. setMode only
+    // runs inside dismissFocus's isFocusing block, so its absence proves the
+    // sweep was skipped rather than the mode being left dirty.
+    ui.openAttrsPanel(findItem(ui, "overlay1"));
+
+    expect(modeMocks.setMode).not.toHaveBeenCalled();
   });
 
   it("Escape still announces the focus it cancels", () => {

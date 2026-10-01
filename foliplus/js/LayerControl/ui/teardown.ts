@@ -40,7 +40,11 @@ const closeOverlays = (ui: LayerUI): void => {
   closeMoreMenu(ui, true);
   closeAttrsPanel(ui, false);
   closeStylePanel(ui, false);
-  dismissFocus(ui);
+  // Only when a focus is actually live: dismissFocus ends in applyProjectionAll,
+  // an O(layers) sweep that belongs to the paths that had a focus to tear down,
+  // not to every open. Guarded here rather than inside dismissFocus so the
+  // Escape and unbindEvents callers keep clearing unconditionally.
+  if (ui.isFocusing()) dismissFocus(ui);
 };
 
 export { closeOverlays };
