@@ -504,12 +504,59 @@ const drawFocusMask = (ui: LayerUI, bounds: L.LatLngBounds): void => {
   map.addLayer(ui.focusMask);
 };
 
-/** Draw the focus rectangle as accent marching ants (no extra casing box).
- *  Same bounds as the mask hole — the marquee must hug the shadow edge. */
+/** Rounded-corner rectangle outline (latlng). Fillet is a fraction of each
+ *  edge, so the corner stays proportional to the bounds at every zoom. */
+const roundedRectPoints = (bounds: L.LatLngBounds, f = 0.03): L.LatLng[] => {
+  const sw = bounds.getSouthWest();
+  const ne = bounds.getNorthEast();
+  const corners = [
+    L.latLng(ne.lat, sw.lng),
+    ne,
+    L.latLng(sw.lat, ne.lng),
+    sw,
+  ];
+  const pts: L.LatLng[] = [];
+  for (let i = 0; i < 4; i++) {
+    const c = corners[i];
+    const prev = corners[(i + 3) % 4];
+    const next = corners[(i + 1) % 4];
+    const inV = {
+      lat: (prev.lat - c.lat) * f,
+      lng: (prev.lng - c.lng) * f,
+    };
+    const outV = {
+      lat: (next.lat - c.lat) * f,
+      lng: (next.lng - c.lng) * f,
+    };
+    const p0 = L.latLng(c.lat + inV.lat, c.lng + inV.lng);
+    const p2 = L.latLng(c.lat + outV.lat, c.lng + outV.lng);
+    const ctrl = L.latLng(
+      c.lat + inV.lat + outV.lat,
+      c.lng + inV.lng + outV.lng,
+    );
+    pts.push(p0);
+    // Quadratic-bezier fillet between the two tangents (2 mid points).
+    for (let k = 1; k <= 2; k++) {
+      const t = k / 3;
+      const mt = 1 - t;
+      pts.push(
+        L.latLng(
+          mt * mt * p0.lat + 2 * mt * t * ctrl.lat + t * t * p2.lat,
+          mt * mt * p0.lng + 2 * mt * t * ctrl.lng + t * t * p2.lng,
+        ),
+      );
+    }
+    pts.push(p2);
+  }
+  return pts;
+};
+
+/** Draw the focus rectangle as accent marching ants, rounded like the other
+ *  marquees. Same bounds as the mask hole — the marquee hugs the shadow edge. */
 const drawFocusRect = (ui: LayerUI, bounds: L.LatLngBounds): void => {
   const map = ui.m.map;
 
-  ui.focusRect = L.rectangle(bounds, {
+  ui.focusRect = L.polygon(roundedRectPoints(bounds), {
     className: "foliplus-focus-rect",
     fill: false,
     interactive: false,
