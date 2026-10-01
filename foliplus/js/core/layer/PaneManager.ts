@@ -256,13 +256,13 @@ class PaneManager {
   }
 
   /** Invalidate the child-pane discovery cache — structure-wide, either way.
-   *  @param {number} [_id] - Retained for the stamp-only callers. It is
+   *  @param {number} [id] - Retained for the stamp-only callers. It is
    *    ignored: a repinned subtree can invalidate entries for layers the
    *    caller holds no reference to, so a single-key policy can leave a wrong
    *    answer in the cache. Over-invalidating is always safe here — a stale
    *    entry costs one extra `forEachLayer` walk, never a wrong result.
    *    `pinTree` uses the same primitive. */
-  reset(_id?: number): void {
+  reset(id?: number): void {
     this.generation++;
   }
 
