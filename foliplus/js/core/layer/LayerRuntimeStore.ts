@@ -54,8 +54,6 @@ interface LayerRuntime {
    *  the map state folium left behind when the panel boots — captured before
    *  the policy starts moving layers (see `intentVisibleOf`). */
   authorVisible?: boolean;
-  /** Reserved: breaks cache for the fill ramp (T270). */
-  breaks?: unknown;
 }
 
 /** Row store for {@link LayerRuntime} — the derived/transient twin of
@@ -130,6 +128,13 @@ class LayerRuntimeStore {
 
   hasAuthorVisible(id: string): boolean {
     return this.rows.get(id)?.authorVisible !== undefined;
+  }
+
+  deleteAuthorVisible(id: string): void {
+    const row = this.rows.get(id);
+    if (!row) return;
+    delete row.authorVisible;
+    this.prune(id);
   }
 
   // ── lifecycle ──────────────────────────────────────────────────────

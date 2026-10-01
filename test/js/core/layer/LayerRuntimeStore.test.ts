@@ -107,6 +107,21 @@ describe("LayerRuntimeStore — authorVisible axis (author-declared default)", (
     expect(store.hasAuthorVisible("l1")).toBe(true);
     expect(store.getAuthorVisible("l1")).toBe(false);
   });
+
+  it("deleteAuthorVisible invalidates the snapshot; an empty row leaves the map", () => {
+    const store = new LayerRuntimeStore();
+    store.setAuthorVisible("l1", true);
+    store.deleteAuthorVisible("l1");
+    expect(store.hasAuthorVisible("l1")).toBe(false);
+    expect(store.getAuthorVisible("l1")).toBeUndefined();
+    expect(store.get("l1")).toBeUndefined();
+    expect(store.ids()).toEqual([]);
+  });
+
+  it("deleteAuthorVisible on an absent id is a no-op", () => {
+    const store = new LayerRuntimeStore();
+    expect(() => store.deleteAuthorVisible("ghost")).not.toThrow();
+  });
 });
 
 describe("LayerRuntimeStore — lifecycle", () => {
