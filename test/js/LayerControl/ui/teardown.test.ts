@@ -21,7 +21,7 @@ vi.mock("#core/mode.js", () => ({
 /**
  * The five surfaces that compete for the same spot — the two floating panels,
  * the overflow menu, the inline rename input, and the map-wide focus
- * spotlight. `ui/overlays.ts` makes them mutually exclusive; every entry must
+ * spotlight. `ui/teardown.ts` makes them mutually exclusive; every entry must
  * clear every other one. Focus counts as an overlay even though it is a map
  * state rather than a floating panel: that asymmetry is what let the
  * attributes panel survive a focus in the first place.
@@ -138,6 +138,25 @@ describe("LayerUI overlay mutual exclusion", () => {
       expect.stringContaining("focus_cancelled"),
       expect.any(Number),
     );
+  });
+
+  describe("the map's own popup", () => {
+    // A feature-bound popup (folium's GeoJsonPopup) belongs to Leaflet, not to
+    // foliplus, so no panel opener ever saw it — it outlived a focus and sat on
+    // top of the spotlight. Clearing closes it because the map is where the
+    // float lives, not because any foliplus surface owns it.
+    it("an opener closes the popup the map left open", () => {
+      ui.openMoreMenu(findItem(ui, "overlay1"));
+
+      expect(map.closePopup).toHaveBeenCalledTimes(1);
+    });
+
+    it("focusLayer closes it along with the panels it replaces", () => {
+      ui.focusLayer("overlay1");
+
+      expect(ui.isFocusing()).toBe(true);
+      expect(map.closePopup).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe("the clear point sits behind the entry's guards", () => {

@@ -9,7 +9,7 @@ import * as SVGs from "../icon.js";
 import * as Util from "../util.js";
 import { ATTRS_ROW_WRAP_CHARS } from "./context.js";
 import type { LayerUI } from "./index.js";
-import { closeOverlays } from "./overlays.js";
+import { closeOverlays } from "./teardown.js";
 import { displayName } from "./rowView.js";
 
 /**

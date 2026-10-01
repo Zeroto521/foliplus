@@ -16,7 +16,7 @@ import * as CONST from "../const.js";
 import { applyProjectionAll } from "./apply.js";
 import type { LayerUI } from "./index.js";
 import { getActiveLayerItem } from "./keyboard.js";
-import { closeOverlays } from "./overlays.js";
+import { closeOverlays } from "./teardown.js";
 
 /** Why a row's focus action is off. Carried as the menu item's title and as
  *  the hint text when a keyboard/double-click path tries to focus a row the

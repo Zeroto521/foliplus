@@ -6,7 +6,7 @@ import * as CONST from "../const.js";
 import * as SVGs from "../icon.js";
 import { focusDisabledLocaleKey, focusDisabledReason } from "./focus.js";
 import type { LayerUI } from "./index.js";
-import { closeOverlays } from "./overlays.js";
+import { closeOverlays } from "./teardown.js";
 import { layerCanLabel, layerHasStyleDelegation } from "./style/index.js";
 
 /**
