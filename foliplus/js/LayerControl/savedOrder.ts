@@ -1,4 +1,4 @@
-import { GROUP, type LayerInfo, type LayerRegistry } from "#core/layer/index.js";
+import { GROUP, type LayerInfo, type LayerInfoRegistry } from "#core/layer/index.js";
 import type { LayerPersistence } from "./persistence.js";
 
 /** The order domain of LayerManager: the user-arranged id list and the
@@ -25,14 +25,14 @@ class SavedOrder {
    *  rather than the UI.
    */
   removedIds: Set<string>;
-  private registry: LayerRegistry;
+  private registry: LayerInfoRegistry;
   /** Late-bound: the manager's `persistence` is a public field callers may
    *  replace (tests swap in a fresh debounce window), so every write goes
    *  through the getter rather than a captured instance. */
   private getPersistence: () => LayerPersistence;
 
   constructor(deps: {
-    registry: LayerRegistry;
+    registry: LayerInfoRegistry;
     getPersistence: () => LayerPersistence;
     savedOrder: string[] | null;
     removedIds: Set<string>;

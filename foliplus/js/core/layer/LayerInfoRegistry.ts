@@ -1,4 +1,4 @@
-// core/LayerRegistry — ordered layer data model (list + id index + read-only view).
+// core/LayerInfoRegistry — ordered layer data model (list + id index + read-only view).
 // Pure data, no DOM / CONF dependency. The LayerManager orchestrates mutations.
 import { createLogger } from "#common/log.js";
 import { safeSVG } from "#common/sanitize.js";
@@ -7,7 +7,7 @@ import type { LayerInfo, LayerKind, RegisterLayerOpts } from "./type.js";
 import { deriveLayerKind, findLayer } from "./util.js";
 
 // Mutating methods blocked on the read-only view.
-const log = createLogger("LayerRegistry");
+const log = createLogger("LayerInfoRegistry");
 
 // Mutating methods blocked on the read-only view.
 const MUTATING_METHODS = new Set([
@@ -65,7 +65,7 @@ const carrierFor = (
  *   `api.unregisterLayer(id)`    — remove
  *   `api.bringLayerToFront(id)`  — reorder
  */
-class LayerRegistry {
+class LayerInfoRegistry {
   items: LayerInfo[];
   byId: Map<string, LayerInfo>;
   _firstBaseIdx: number;
@@ -332,4 +332,4 @@ class LayerRegistry {
   }
 }
 
-export { LayerRegistry };
+export { LayerInfoRegistry };

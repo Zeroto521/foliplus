@@ -94,7 +94,7 @@ class ExportRenderer {
   /** Orchestrate all rendering passes in painter's-algorithm order.
    *  Passes: tiles → SVG → canvas → markers → FA → text → remaining.
    *  Overlay layers iterate via `api.layers` (read-only view of
-   *  LayerRegistry's ordered array) bottom-to-top so cross-technology
+   *  LayerInfoRegistry's ordered array) bottom-to-top so cross-technology
    *  z-ordering is preserved per layer.
    *
    *  onProgress reports 0..90 over those passes, monotonically.  It never
@@ -157,7 +157,7 @@ class ExportRenderer {
     // 2. All layers — iterate in LayerControl API order bottom-to-top.
     // Each layer may contain Tile, SVG, Canvas, and/or Marker elements, so we
     // render all passes per-layer to preserve cross-technology z-order.
-    // Uses api.layers (read-only view of LayerRegistry's ordered array).
+    // Uses api.layers (read-only view of LayerInfoRegistry's ordered array).
     const api = map.foliplus!.LayerAPI;
     const layers = api?.layers;
     if (layers) {

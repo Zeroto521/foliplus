@@ -14,7 +14,7 @@ import {
   type LabelAwareLayer,
   type LayerAPI,
   LayerFactory,
-  LayerRegistry,
+  LayerInfoRegistry,
   LayerSurface,
   PANE_ROLE,
   PaneManager,
@@ -83,7 +83,7 @@ const uninstallBringToFrontPatch = () => {
 //      `refreshCount`, `findLayer`, `forEachLeaf`, `extractPoints`,
 //      `computeZIndex`, `group`, and the `isLayerControl` flag. Anything
 //      outside the component reads through these.
-//   2. **Internal coordination** — the plumbing between LayerRegistry,
+//   2. **Internal coordination** — the plumbing between LayerInfoRegistry,
 //      PaneManager, LayerSurface, LayerFactory, AnnotationManager and
 //      LayerPersistence. Methods here (`surfaceFor`, `enforceOrder`,
 //      `resolveLayerPanes`, `saveOrder`, `refreshOrder`, `normalizeGroup`,
@@ -159,7 +159,7 @@ class LayerManager implements LayerAPI {
   /** Per-map event bus — bound once in the constructor (ensure-style getters
    *  return the cached instance, so hold it like the logger does). */
   events: EventBus;
-  layerRegistry: LayerRegistry;
+  layerRegistry: LayerInfoRegistry;
   pendingRegistrations: LayerInfo[];
   uiContainer: HTMLElement | null;
   isEnforcing: boolean;
@@ -211,7 +211,7 @@ class LayerManager implements LayerAPI {
     // A deleted id must leave the panel *and* the map: folium emits `addTo(map)`
     // for every layer at page load, so gating the registry alone would drop the
     // row while the map kept painting it across a reload. One pass does both.
-    this.layerRegistry = new LayerRegistry(
+    this.layerRegistry = new LayerInfoRegistry(
       data.filter(li => {
         if (!removedIds.has(li.id)) return true;
         // Late-binding fallback (folium script-stream order) — same single
