@@ -1,12 +1,20 @@
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
-import { join } from "path";
+import { join, resolve } from "path";
+import { pathToFileURL } from "url";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PrettierOptions, buildConfSchema, main } from "#script/gen-conf-schema.mjs";
 
 const SHORT_NOTE = "short";
 const LONG_NOTE =
   "This field is set by JavaScript at runtime and never emitted by Python.";
+
+// buildConfSchema hands its output to prettier with the repo config, so a single
+// call can take several seconds. Under the full suite's parallel load the first
+// one in a file exceeded the default 5 s budget and failed at the `it(` line,
+// which said nothing about the schema — the same situation
+// bundle-size-check.test.ts handles with SLOW. Assertions are unchanged.
+const SLOW = 30000;
 
 // A minimal but representative schema dump (shape matches foliplus/_schema.py).
 const schema = {
@@ -49,6 +57,16 @@ const schema = {
       dynamic: false,
       note: LONG_NOTE,
     },
+    // Short but multi-line: the trailing-comment test also needs a line break,
+    // so the JSDoc block branch fires on either trigger independently.
+    multi_line_note: {
+      ts: "string",
+      optional: true,
+      nullable: false,
+      runtime_only: false,
+      dynamic: false,
+      note: "first line\nsecond line",
+    },
   },
   runtime_only: {
     field: {
@@ -59,6 +77,15 @@ const schema = {
       dynamic: false,
     },
     background: {
+      ts: "string",
+      optional: true,
+      nullable: false,
+      runtime_only: true,
+      dynamic: false,
+    },
+    // Repeats a shared field: the third merge pass must skip it, so the flat
+    // type keeps ConfShared's declaration.
+    position: {
       ts: "string",
       optional: true,
       nullable: false,
@@ -114,6 +141,17 @@ const schema = {
         default: null,
       },
     },
+    // Shares `position` with `schema.shared` — the first merge pass wins, so the
+    // control's spelling must not leak into the flat ComponentConfig.
+    CollisionControl: {
+      position: {
+        ts: "string",
+        optional: true,
+        nullable: false,
+        runtime_only: false,
+        dynamic: false,
+      },
+    },
   },
 };
 
@@ -134,63 +172,118 @@ describe("PrettierOptions", () => {
 });
 
 describe("buildConfSchema", () => {
-  it("per-control interfaces extend ConfShared", async () => {
-    const text = await buildConfSchema(schema);
-    expect(text).toContain("interface ConfFullscreen extends ConfShared {");
-    expect(text).toContain("interface ConfScale extends ConfShared {");
-    expect(text).toContain("interface ConfSearch extends ConfShared {");
-  });
+  it(
+    "per-control interfaces extend ConfShared",
+    async () => {
+      const text = await buildConfSchema(schema);
+      expect(text).toContain("interface ConfFullscreen extends ConfShared {");
+      expect(text).toContain("interface ConfScale extends ConfShared {");
+      expect(text).toContain("interface ConfSearch extends ConfShared {");
+    },
+    SLOW,
+  );
 
-  it("keeps ConfShared and ConfRuntimeOnly standalone", async () => {
-    const text = await buildConfSchema(schema);
-    expect(text).toMatch(/interface ConfShared \{\n  name: string;/);
-    // No `extends` on either standalone interface.
-    expect(text).not.toContain("interface ConfShared extends");
-    expect(text).not.toContain("interface ConfRuntimeOnly extends");
-  });
+  it(
+    "keeps ConfShared and ConfRuntimeOnly standalone",
+    async () => {
+      const text = await buildConfSchema(schema);
+      expect(text).toMatch(/interface ConfShared \{\n  name: string;/);
+      // No `extends` on either standalone interface.
+      expect(text).not.toContain("interface ConfShared extends");
+      expect(text).not.toContain("interface ConfRuntimeOnly extends");
+    },
+    SLOW,
+  );
 
-  it("flat ComponentConfig: all fields optional except name, plus escape hatch", async () => {
-    const text = await buildConfSchema(schema);
-    expect(text).toMatch(/interface ComponentConfig \{\n  name: string;/);
-    expect(text).toContain("hide_self?: boolean;");
-    expect(text).toContain("position?: ControlPosition;");
-    expect(text).toContain("  [key: string]: unknown;");
-  });
+  it(
+    "flat ComponentConfig: all fields optional except name, plus escape hatch",
+    async () => {
+      const text = await buildConfSchema(schema);
+      expect(text).toMatch(/interface ComponentConfig \{\n  name: string;/);
+      expect(text).toContain("hide_self?: boolean;");
+      expect(text).toContain("position?: ControlPosition;");
+      expect(text).toContain("  [key: string]: unknown;");
+    },
+    SLOW,
+  );
 
-  it("renders union and nullable types", async () => {
-    const text = await buildConfSchema(schema);
-    expect(text).toContain('mode: "coord" | "addr";');
-    expect(text).toContain("provider_config?: Record<string, unknown> | null;");
-  });
+  it(
+    "flat ComponentConfig keeps the first declaration on a name collision",
+    async () => {
+      // shared merges before controls and runtime_only, so ConfShared's type wins
+      // and the duplicate declarations never reach the flat type. Scoped to the
+      // flat block: ConfCollision legitimately carries its own `position` spelling.
+      const text = await buildConfSchema(schema);
+      const flat = text.slice(text.indexOf("interface ComponentConfig"));
+      expect(flat).toContain("position?: ControlPosition;");
+      expect(flat).not.toContain("position?: string;");
+    },
+    SLOW,
+  );
 
-  it("emits a single bottom export type block", async () => {
-    const text = await buildConfSchema(schema);
-    const tail = text.slice(text.indexOf("export type"));
-    expect(tail).toContain("ConfShared");
-    expect(tail).toContain("ConfFullscreen");
-    expect(tail).toContain("ConfScale");
-    expect(tail).toContain("ConfSearch");
-    expect(tail).toContain("ConfRuntimeOnly");
-    expect(tail).toContain("ComponentConfig");
-    // No inline exports anywhere else.
-    expect(text.indexOf("export type")).toBe(text.lastIndexOf("export type"));
-  });
+  it(
+    "renders union and nullable types",
+    async () => {
+      const text = await buildConfSchema(schema);
+      expect(text).toContain('mode: "coord" | "addr";');
+      expect(text).toContain("provider_config?: Record<string, unknown> | null;");
+    },
+    SLOW,
+  );
 
-  it("renders a short single-line note as a trailing comment", async () => {
-    const text = await buildConfSchema(schema);
-    expect(text).toContain("short_note?: string; // short");
-  });
+  it(
+    "emits a single bottom export type block",
+    async () => {
+      const text = await buildConfSchema(schema);
+      const tail = text.slice(text.indexOf("export type"));
+      expect(tail).toContain("ConfShared");
+      expect(tail).toContain("ConfFullscreen");
+      expect(tail).toContain("ConfScale");
+      expect(tail).toContain("ConfSearch");
+      expect(tail).toContain("ConfRuntimeOnly");
+      expect(tail).toContain("ComponentConfig");
+      // No inline exports anywhere else.
+      expect(text.indexOf("export type")).toBe(text.lastIndexOf("export type"));
+    },
+    SLOW,
+  );
 
-  it("renders a long note as a JSDoc block above the field", async () => {
-    // Dropping the note was the failure mode this guards against: a note that
-    // would wrap badly in a trailing comment becomes a block instead.
-    const text = await buildConfSchema(schema);
-    const block = text
-      .split("\n")
-      .find(l => l.includes(LONG_NOTE) && l.trim().startsWith("/**"));
-    expect(block).toBeDefined();
-    expect(text).not.toContain("long_note?: string; //");
-  });
+  it(
+    "renders a short single-line note as a trailing comment",
+    async () => {
+      const text = await buildConfSchema(schema);
+      expect(text).toContain("short_note?: string; // short");
+    },
+    SLOW,
+  );
+
+  it(
+    "renders a long note as a JSDoc block above the field",
+    async () => {
+      // Dropping the note was the failure mode this guards against: a note that
+      // would wrap badly in a trailing comment becomes a block instead.
+      const text = await buildConfSchema(schema);
+      const block = text
+        .split("\n")
+        .find(l => l.includes(LONG_NOTE) && l.trim().startsWith("/**"));
+      expect(block).toBeDefined();
+      expect(text).not.toContain("long_note?: string; //");
+    },
+    SLOW,
+  );
+
+  it(
+    "renders a short multi-line note as a JSDoc block",
+    async () => {
+      // A line break forces the block form even when the note is short: a wrapped
+      // trailing comment would silently keep only the first line.
+      const text = await buildConfSchema(schema);
+      expect(text).toContain("/** first line");
+      expect(text).toContain("second line */");
+      expect(text).not.toContain("multi_line_note?: string; //");
+    },
+    SLOW,
+  );
 
   it("throws on a union without values", async () => {
     const bad = { ...schema, shared: { mode: { ts: "union", values: [] } } };
@@ -202,11 +295,15 @@ describe("buildConfSchema", () => {
     await expect(buildConfSchema(bad)).rejects.toThrow("Unknown FieldSpec.ts tag");
   });
 
-  it("is deterministic across calls", async () => {
-    const a = await buildConfSchema(schema);
-    const b = await buildConfSchema(schema);
-    expect(a).toBe(b);
-  });
+  it(
+    "is deterministic across calls",
+    async () => {
+      const a = await buildConfSchema(schema);
+      const b = await buildConfSchema(schema);
+      expect(a).toBe(b);
+    },
+    SLOW,
+  );
 });
 
 describe("main", () => {
@@ -225,48 +322,133 @@ describe("main", () => {
     if (dir) rmSync(dir, { recursive: true, force: true });
   });
 
-  it("writes the generated file in write mode", async () => {
-    withTmp();
-    await main({ json: jsonPath, out: outPath });
-    const text = readFileSync(outPath, "utf-8");
-    expect(text).toContain("AUTO-GENERATED by script/gen-conf-schema.mjs");
-    expect(text).toContain("interface ConfSearch extends ConfShared {");
-    expect(text).toContain("export type {");
-  });
+  it(
+    "writes the generated file in write mode",
+    async () => {
+      withTmp();
+      await main({ json: jsonPath, out: outPath });
+      const text = readFileSync(outPath, "utf-8");
+      expect(text).toContain("AUTO-GENERATED by script/gen-conf-schema.mjs");
+      expect(text).toContain("interface ConfSearch extends ConfShared {");
+      expect(text).toContain("export type {");
+    },
+    SLOW,
+  );
 
-  it("verify accepts a CRLF checkout copy of the generated file", async () => {
-    // git autocrlf re-emits CRLF on Windows checkouts while prettier emits LF,
-    // so a raw byte compare failed locally and passed in CI.
-    withTmp();
-    await main({ json: jsonPath, out: outPath });
-    writeFileSync(
-      outPath,
-      readFileSync(outPath, "utf-8").replace(/\n/g, "\r\n"),
-      "utf-8",
-    );
-    await expect(main({ json: jsonPath, out: outPath, verify: true })).resolves.toBe(
-      undefined,
-    );
-  });
-
-  it("verify reports a stale file and exits 1", async () => {
-    withTmp();
-    writeFileSync(outPath, "stale\n", "utf-8");
-    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    const exitSpy = vi.spyOn(process, "exit").mockImplementation(() => {
-      throw new Error("exit:1");
-    });
-    try {
-      await expect(
-        main({ json: jsonPath, out: outPath, verify: true }),
-      ).rejects.toThrow("exit:1");
-      expect(exitSpy).toHaveBeenCalledWith(1);
-      expect(errorSpy.mock.calls.join("\n")).toContain(
-        "foliplus/js/conf-schema.ts is out of date",
+  it(
+    "verify accepts a CRLF checkout copy of the generated file",
+    async () => {
+      // git autocrlf re-emits CRLF on Windows checkouts while prettier emits LF,
+      // so a raw byte compare failed locally and passed in CI.
+      withTmp();
+      await main({ json: jsonPath, out: outPath });
+      writeFileSync(
+        outPath,
+        readFileSync(outPath, "utf-8").replace(/\n/g, "\r\n"),
+        "utf-8",
       );
+      await expect(main({ json: jsonPath, out: outPath, verify: true })).resolves.toBe(
+        undefined,
+      );
+    },
+    SLOW,
+  );
+
+  it(
+    "verify reports a stale file and exits 1",
+    async () => {
+      withTmp();
+      writeFileSync(outPath, "stale\n", "utf-8");
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const exitSpy = vi.spyOn(process, "exit").mockImplementation(() => {
+        throw new Error("exit:1");
+      });
+      try {
+        await expect(
+          main({ json: jsonPath, out: outPath, verify: true }),
+        ).rejects.toThrow("exit:1");
+        expect(exitSpy).toHaveBeenCalledWith(1);
+        expect(errorSpy.mock.calls.join("\n")).toContain(
+          "foliplus/js/conf-schema.ts is out of date",
+        );
+      } finally {
+        errorSpy.mockRestore();
+        exitSpy.mockRestore();
+      }
+    },
+    SLOW,
+  );
+});
+
+describe("CLI entry", () => {
+  // `parseArgs(process.argv.slice(2))` and the self-detection guard both run at
+  // import time, so they are only reachable by re-importing the module with
+  // argv replaced. vi.resetModules() re-runs the module body; trapping
+  // process.exit turns the exit into a rejection instead of killing the worker.
+  const SCRIPT = resolve(process.cwd(), "script", "gen-conf-schema.mjs");
+
+  const trapExit = () =>
+    vi
+      .spyOn(process, "exit")
+      .mockImplementation((code?: string | number | null | undefined) => {
+        throw new Error(`exit:${code}`);
+      });
+
+  const runCli = async (argv: string[]) => {
+    const original = process.argv;
+    try {
+      Object.defineProperty(process, "argv", {
+        value: argv,
+        writable: true,
+        configurable: true,
+      });
+      vi.resetModules();
+      return await import("#script/gen-conf-schema.mjs");
     } finally {
-      errorSpy.mockRestore();
-      exitSpy.mockRestore();
+      Object.defineProperty(process, "argv", {
+        value: original,
+        writable: true,
+        configurable: true,
+      });
     }
+  };
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
+
+  it("--help prints the usage and exits 0", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const exit = trapExit();
+    await expect(runCli(["node", SCRIPT, "--help"])).rejects.toThrow("exit:0");
+    expect(exit).toHaveBeenCalledWith(0);
+    expect(log.mock.calls.join("\n")).toContain("Usage:");
+  });
+
+  it("prints the error and exits 1 on an unknown flag", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const exit = trapExit();
+    await expect(runCli(["node", SCRIPT, "--bogus"])).rejects.toThrow("exit:1");
+    expect(exit).toHaveBeenCalledWith(1);
+    expect(error.mock.calls.join("\n")).toContain("Unknown flag: --bogus");
+  });
+
+  it(
+    "runs main() only when launched directly as a script",
+    async () => {
+      const tmp = mkdtempSync(join(tmpdir(), "gen-conf-schema-cli-"));
+      const jsonPath = join(tmp, "conf-schema.json");
+      const outPath = join(tmp, "conf-schema.ts");
+      writeFileSync(jsonPath, JSON.stringify(schema), "utf-8");
+      try {
+        await runCli(["node", SCRIPT, "--json", jsonPath, "--out", outPath]);
+        const text = readFileSync(outPath, "utf-8");
+        expect(text).toContain("AUTO-GENERATED by script/gen-conf-schema.mjs");
+        expect(text).toContain("interface ConfShared {");
+      } finally {
+        rmSync(tmp, { recursive: true, force: true });
+      }
+    },
+    SLOW,
+  );
 });

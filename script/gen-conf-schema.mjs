@@ -71,7 +71,6 @@ const SPEC = {
 };
 
 const _raw = parseArgs(process.argv.slice(2), SPEC);
-/* v8 ignore start -- CLI-only help/error handling */
 if (_raw.help) {
   console.log(help(SPEC));
   process.exit(0);
@@ -81,7 +80,6 @@ if (_raw.errors.length) {
   console.error(help(SPEC));
   process.exit(1);
 }
-/* v8 ignore stop */
 const opts = _raw;
 
 // ── Type tag → TS type mapping ────────────────────────────────────────────
@@ -236,7 +234,10 @@ const buildConfSchema = async schema => {
   const seen = new Set();
   const mergedFields = [];
 
+  // `seen` is empty on first entry, and a schema object cannot repeat a key,
+  // so the guard below can never be false here.
   for (const [name, field] of Object.entries(schema.shared)) {
+    /* v8 ignore next -- unreachable: `seen` is empty here and keys are unique */
     if (!seen.has(name)) {
       seen.add(name);
       mergedFields.push([name, field]);
@@ -328,8 +329,6 @@ const main = async (o = opts) => {
 
 export { PrettierOptions, buildConfSchema, main };
 
-/* v8 ignore start -- CLI-only entry point, not exercised by unit tests */
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
   await main();
 }
-/* v8 ignore stop */

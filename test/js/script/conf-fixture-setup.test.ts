@@ -1,6 +1,6 @@
 import { readFileSync } from "fs";
 import { resolve } from "path";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import setupFixture from "#script/conf-fixture-setup.mjs";
 
 // The fixture is generated from foliplus/_schema.py, so a stale committed copy
@@ -31,5 +31,53 @@ describe("conf-fixture-setup", () => {
     // generator reproduces exactly what is committed.
     setupFixture();
     expect(readFileSync(FIXTURE, "utf8")).toBe(committed);
+  });
+});
+
+describe("conf-fixture-setup failure paths", () => {
+  // child_process is a CJS module — provide both the named export and `default`
+  // so the mock satisfies ESM interop (the setup does `import { spawnSync }`).
+  const mockSpawn = (impl: () => unknown) => {
+    const spawnSync = vi.fn(impl);
+    vi.doMock("child_process", () => ({
+      default: { spawnSync },
+      spawnSync,
+    }));
+  };
+
+  const importFresh = () => {
+    vi.resetModules();
+    return import("#script/conf-fixture-setup.mjs");
+  };
+
+  afterEach(() => {
+    vi.doUnmock("child_process");
+    vi.restoreAllMocks();
+  });
+
+  it("rethrows the spawn error so vitest aborts the run", async () => {
+    // A broken interpreter is not recoverable: a swallowed error would let the
+    // suite read a stale fixture and report green on the wrong contract.
+    mockSpawn(() => ({ error: new Error("spawn ENOENT") }));
+    const setup = (await importFresh()).default;
+    expect(() => setup()).toThrow("spawn ENOENT");
+  });
+
+  it("surfaces the generator's stderr", async () => {
+    mockSpawn(() => ({ status: 0, stderr: "generator failed" }));
+    const stderr = vi.spyOn(process.stderr, "write").mockReturnValue(true);
+    const setup = (await importFresh()).default;
+    setup();
+    expect(stderr).toHaveBeenCalledWith("generator failed");
+  });
+
+  it("exits with the generator's status when it is non-zero", async () => {
+    mockSpawn(() => ({ status: 3 }));
+    const exit = vi.spyOn(process, "exit").mockImplementation(() => {
+      throw new Error("exit:3");
+    });
+    const setup = (await importFresh()).default;
+    expect(() => setup()).toThrow("exit:3");
+    expect(exit).toHaveBeenCalledWith(3);
   });
 });

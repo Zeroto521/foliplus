@@ -57,7 +57,6 @@ const SPEC = {
 };
 
 const _raw = parseArgs(process.argv.slice(2), SPEC);
-/* v8 ignore start -- CLI-only help/error handling */
 if (_raw.help) {
   console.log(help(SPEC));
   process.exit(0);
@@ -67,7 +66,6 @@ if (_raw.errors.length) {
   console.error(help(SPEC));
   process.exit(1);
 }
-/* v8 ignore stop */
 const opts = _raw;
 
 /** One default map per control: fields whose default is declared in schema. */
@@ -83,10 +81,12 @@ const buildControlDefaults = schema => {
   return defaults;
 };
 
-/** Format a JS value literal for the generated code. */
+/** Format a JS value literal for the generated code. Only JSON values ever
+ *  reach here — buildControlDefaults reads them straight from the schema dump —
+ *  so anything else is a caller bug. Fail loudly rather than silently emit an
+ *  `undefined` or `{}` literal into the fixture. */
 const formatValue = val => {
   if (val === null) return "null";
-  if (val === undefined) return "undefined";
   if (typeof val === "string") return JSON.stringify(val);
   if (typeof val === "number" || typeof val === "boolean") return String(val);
   if (Array.isArray(val)) {
@@ -99,8 +99,7 @@ const formatValue = val => {
     );
     return `{ ${entries.join(", ")} }`;
   }
-  /* v8 ignore next -- unreachable: JSON values are covered by the branches above */
-  return JSON.stringify(val);
+  throw new Error(`formatValue: unsupported value of type ${typeof val}`);
 };
 
 // ── Core (exported for unit tests) ─────────────────────────────────────────
@@ -192,10 +191,8 @@ const main = async (o = opts) => {
   writeFileSync(o.out, text, "utf-8");
 };
 
-export { PrettierOptions, buildConfFixture, main, resolveSchemaJson };
+export { PrettierOptions, buildConfFixture, formatValue, main, resolveSchemaJson };
 
-/* v8 ignore start -- CLI-only entry point, not exercised by unit tests */
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
   await main();
 }
-/* v8 ignore stop */
