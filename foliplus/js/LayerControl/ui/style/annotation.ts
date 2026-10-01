@@ -60,7 +60,7 @@ const layerCanLabel = (ui: LayerUI, layerId: string): boolean => {
 const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
   const fields = layerFields(ui, layerId);
   const cfg = ui.m.annotation.getConfig(layerId);
-  const fmtLabel = (f: string) => ui.bare(`foliplus.label_format_${f}`) || f;
+  const fmtLabel = (f: string) => ui._(`foliplus.label_format_${f}`) || f;
   // Labels are off by default — the user opens the panel, sees the field and
   // format chooser idle, and flips the switch to begin. `cfg.show ? "" : null`
   // follows the persisted state when this is a reopen, but the *first* open
@@ -109,7 +109,7 @@ const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
   const colorInput = formColorInput({
     value: normalizeHexColor(cfg.color || LABEL_COLOR_DEFAULT),
     className: CONST.CLASSES.STYLE_LABEL_COLOR_INPUT,
-    ariaLabel: ui.bare("foliplus.label_color"),
+    ariaLabel: ui._("foliplus.label_color"),
   }) as HTMLInputElement;
   const sizeInput = formNumberInput({
     value: clampLabelSize(cfg.size || LABEL_SIZE.SIZE_DEFAULT),
@@ -117,7 +117,7 @@ const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
     max: LABEL_SIZE.SIZE_MAX,
     step: LABEL_SIZE.SIZE_STEP,
     className: CONST.CLASSES.STYLE_LABEL_SIZE_INPUT,
-    ariaLabel: ui.bare("foliplus.label_size"),
+    ariaLabel: ui._("foliplus.label_size"),
   }) as HTMLInputElement;
 
   const formatOpts = numberFormatOptions(fmtLabel);
@@ -129,7 +129,7 @@ const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
     type: "checkbox",
     class: CONST.CLASSES.STYLE_TOGGLE_INPUT,
     checked: showChecked ? "" : null,
-    "aria-label": ui.bare("foliplus.label_tooltip"),
+    "aria-label": ui._("foliplus.label_tooltip"),
   });
   // "Avoid overlap": thins this layer's own labels where they collide. Labels
   // from *different* layers never avoid each other — the layers are stacked, so
@@ -138,13 +138,13 @@ const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
     type: "checkbox",
     class: CONST.CLASSES.STYLE_COLLIDE_INPUT,
     checked: cfg.collide ? "" : null,
-    "aria-label": ui.bare("foliplus.label_collide_tooltip"),
+    "aria-label": ui._("foliplus.label_collide_tooltip"),
   });
   const formatSelect = dom.el(
     "select",
     {
       class: `foliplus-form-select ${CONST.CLASSES.STYLE_FORMAT_SELECT}`,
-      "aria-label": ui.bare("foliplus.label_format"),
+      "aria-label": ui._("foliplus.label_format"),
     },
     ...formatOpts,
   );
@@ -155,7 +155,7 @@ const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
   const formatRow = dom.el(
     "div",
     { class: `${CONST.CLASSES.FORM_ROW} ${CONST.CLASSES.STYLE_FORMAT_ROW}` },
-    dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.bare("foliplus.label_format")),
+    dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui._("foliplus.label_format")),
     dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, formatSelect),
   );
   syncFormatRow(
@@ -177,7 +177,7 @@ const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
       dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("style_label_field")),
       dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, fieldSelect),
     ),
-    formRow(ui.bare("foliplus.label_style"), inlineControls(colorInput, sizeInput)),
+    formRow(ui._("foliplus.label_style"), inlineControls(colorInput, sizeInput)),
     formatRow,
     dom.el(
       "div",
@@ -185,7 +185,7 @@ const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
       dom.el(
         "label",
         { class: CONST.CLASSES.FORM_LABEL },
-        ui.bare("foliplus.label_collide"),
+        ui._("foliplus.label_collide"),
       ),
       dom.el(
         "div",
@@ -207,7 +207,7 @@ const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
     dom.el(
       "div",
       { class: CONST.CLASSES.FORM_ROW },
-      dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.bare("foliplus.label")),
+      dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui._("foliplus.label")),
       dom.el(
         "div",
         { class: CONST.CLASSES.FORM_CONTROL },

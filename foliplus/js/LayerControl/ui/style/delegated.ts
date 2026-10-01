@@ -62,8 +62,8 @@ const buildBorderRow = (ui: LayerUI, layerId: string): HTMLElement | null => {
         : BORDER_WEIGHT.DEFAULT,
     hasColorInput: hasColor,
     hasWeightInput: hasWeight,
-    colorAria: ui.bare("foliplus.border_color"),
-    weightAria: ui.bare("foliplus.border_weight"),
+    colorAria: ui._("foliplus.border_color"),
+    weightAria: ui._("foliplus.border_weight"),
   });
   bindBorderRowShell(row, {
     onChangeColor: hasColor
@@ -97,7 +97,7 @@ const renderDelegatedStylePanel = (
   const { root, refresh: baseRefresh } = renderLabelControls({
     styleProvider: () => entry()?.styleProvider?.() as LabelStyleValues | undefined,
     getSetters: () => entry()?.styleSetters ?? {},
-    T: ui.bare,
+    T: ui._,
   });
 
   // Border row (HeatmapControl only today) — the component's own styling, so

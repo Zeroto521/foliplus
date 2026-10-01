@@ -33,16 +33,16 @@ import { createLogger } from "#common/log.js";
 type Overrides = Record<string, unknown>;
 
 /** Build a ControlEnv for unit tests. `conf` defaults to the live
- *  `window.CONF`; `translators` overrides the T/bare pair (identity for tests
+ *  `window.CONF`; `translators` overrides the T/_ pair (identity for tests
  *  that assert on bare locale keys). */
 export function makeControlEnv(
   conf: ComponentConfig = window.CONF,
-  translators?: { T: (k: string) => string; bare: (k: string) => string },
+  translators?: { T: (k: string) => string; _: (k: string) => string },
 ): ControlEnv {
   return {
     conf,
     T: translators?.T ?? createScopedTranslator(conf),
-    bare: translators?.bare ?? createTranslator(conf),
+    _: translators?._ ?? createTranslator(conf),
     log: createLogger(conf.name),
   };
 }
@@ -293,7 +293,7 @@ export function makeLayerUIMock(extra: Overrides = {}): LayerUI {
     },
     conf: {} as any,
     T: (key: string) => key,
-    bare: (key: string) => key,
+    _: (key: string) => key,
     foldedGroups: new Set<string>(),
     intentStore: new LayerIntentStore(),
     runtimeStore: new LayerRuntimeStore(),

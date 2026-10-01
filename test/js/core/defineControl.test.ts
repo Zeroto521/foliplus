@@ -21,7 +21,7 @@ describe("defineControl — bare shell", () => {
     expect(ctrl.constructor.name).toBe("TestControl");
     expect(ctrl.conf.name).toBe("TestControl");
     expect(typeof ctrl.T).toBe("function");
-    expect(typeof ctrl.bare).toBe("function");
+    expect(typeof ctrl._).toBe("function");
     expect(typeof ctrl.log.msg).toBe("function");
     expect(typeof ctrl.log.warn).toBe("function");
   });

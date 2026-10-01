@@ -11,7 +11,7 @@ import type { SearchHistoryEntry } from "#foliplus/SearchControl/type.js";
 const ctx = () => ({
   conf: { name: "SearchControl", locale_code: "en", zoom: 16 },
   T: (k: string) => `SearchControl.${k}`,
-  bare: (k: string) => k,
+  _: (k: string) => k,
   log: {
     msg: (m: string) => m,
     warn: (...args: unknown[]) =>

@@ -76,7 +76,7 @@ const attachSearchDelIcon = (ctrl: SearchControlCtx, latlng: L.LatLngExpression)
   // matching MeasureControl / LocateControl marker UX.
   ctrl.delIcon = mountDelIcon(
     latlng,
-    { title: ctrl.bare("foliplus.close_label"), iconAnchor: DEL_ICON_MARKER_ANCHOR },
+    { title: ctrl._("foliplus.close_label"), iconAnchor: DEL_ICON_MARKER_ANCHOR },
     m => map.addLayer(m),
     clearSearch,
     ctrl.marker,
@@ -113,7 +113,7 @@ const searchCoord = (ctrl: SearchControlCtx, raw: string) => {
     ctrl.T("popup_loading"),
     ctrl.T("popup_loc_label"),
     ctrl.T("popup_addr_label"),
-    ctrl.bare("foliplus.close_label"),
+    ctrl._("foliplus.close_label"),
     ctrl.conf.locale_code,
     ctrl.marker,
   );
@@ -236,7 +236,7 @@ const renderAddressResult = (
     ctrl.T("popup_loading"),
     ctrl.T("popup_loc_label"),
     ctrl.T("popup_addr_label"),
-    ctrl.bare("foliplus.close_label"),
+    ctrl._("foliplus.close_label"),
     ctrl.conf.locale_code,
     ctrl.marker,
   );

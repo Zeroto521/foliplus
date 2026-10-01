@@ -20,7 +20,7 @@ class MeasureMode {
    * Shared by CSV export (getNameForType) and GeoJSON properties.name.
    */
   static getNameLabel(env: ControlEnv): string {
-    const label = env.bare(this.NAME_LABEL_KEY);
+    const label = env._(this.NAME_LABEL_KEY);
     return label === this.NAME_LABEL_KEY ? this.NAME_LABEL : label;
   }
 
@@ -35,7 +35,7 @@ class MeasureMode {
   T: (key: string) => string;
   /** Plain translator (no prefix) — NAME_LABEL_KEY identity comparison
    *  requires the exact short key when no locale table exists. */
-  bare: (key: string) => string;
+  _: (key: string) => string;
   log: Logger;
 
   constructor(manager: MeasureManager) {
@@ -45,7 +45,7 @@ class MeasureMode {
     this._cleanup = null;
     this.conf = manager.conf;
     this.T = manager.T;
-    this.bare = manager.bare;
+    this._ = manager._;
     this.log = manager.log;
   }
 

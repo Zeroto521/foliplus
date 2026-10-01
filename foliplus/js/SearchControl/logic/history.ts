@@ -214,7 +214,7 @@ const renderHistory = (ctrl: SearchControlCtx, mode: SearchType) => {
           ctrl.T("popup_loading"),
           ctrl.T("popup_loc_label"),
           ctrl.T("popup_addr_label"),
-          ctrl.bare("foliplus.close_label"),
+          ctrl._("foliplus.close_label"),
           ctrl.conf.locale_code,
           ctrl.marker,
         );

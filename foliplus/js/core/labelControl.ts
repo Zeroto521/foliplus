@@ -6,7 +6,7 @@
 //
 // Its wording is shared too: every string resolves from the common table
 // (`foliplus.label*`), which is why `T` here must be an *unscoped* translator
-// (createTranslator) — both callers pass their own `bare` rather than their
+// (createTranslator) — both callers pass their own `_` rather than their
 // component-scoped `T`, so no component carries a private copy of the keys.
 import { dom } from "#common/dom.js";
 import {

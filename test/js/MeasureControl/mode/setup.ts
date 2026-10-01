@@ -117,7 +117,7 @@ export function makeManagerMock(): MeasureManager {
   return {
     conf: env.conf,
     T: env.T,
-    bare: env.bare,
+    _: env._,
     log: env.log,
     map: {
       on: vi.fn(),

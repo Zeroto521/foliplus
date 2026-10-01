@@ -39,13 +39,13 @@ import { type Logger, createLogger } from "#common/log.js";
 import { createControlEnv } from "./controlEnv.js";
 
 /** Environment handed to `setup` / `createManager` and carried on the
- *  generated control instance (`ctrl.conf` / `ctrl.T` / `ctrl.bare` / `ctrl.log`).
- *  `T` scopes keys by the component name; `bare` is the bare lookup that
+ *  generated control instance (`ctrl.conf` / `ctrl.T` / `ctrl._` / `ctrl.log`).
+ *  `T` scopes keys by the component name; `_` is the bare lookup that
  *  identity-comparison sites (NAME_LABEL_KEY) need. */
 type ControlEnv = {
   conf: ComponentConfig;
   T: (key: string) => string;
-  bare: (key: string) => string;
+  _: (key: string) => string;
   log: Logger;
 };
 
@@ -71,7 +71,7 @@ type DefineControlSpec<M = unknown> = {
 type ControlClass = new (options?: L.ControlOptions) => BaseControl & {
   conf: ComponentConfig;
   T: (key: string) => string;
-  bare: (key: string) => string;
+  _: (key: string) => string;
   log: Logger;
 };
 
@@ -81,15 +81,15 @@ const defineControl = <M = unknown>(spec: DefineControlSpec<M>): ControlClass =>
 
   createControlEnv(conf, icon);
   const T = createScopedTranslator(conf);
-  const bare = createTranslator(conf);
+  const _ = createTranslator(conf);
   const log = createLogger(conf.name);
-  const env: ControlEnv = { conf, T, bare, log };
+  const env: ControlEnv = { conf, T, _, log };
   setup?.(env);
 
   class Control extends BaseControl {
     readonly conf: ComponentConfig = conf;
     readonly T: (key: string) => string = T;
-    readonly bare: (key: string) => string = bare;
+    readonly _: (key: string) => string = _;
     readonly log: Logger = log;
   }
 

@@ -80,7 +80,7 @@ class MeasureManager {
   T: (key: string) => string;
   /** Plain translator (no prefix) — label keys that are compared by identity
    *  must get the bare key back. */
-  bare: (key: string) => string;
+  _: (key: string) => string;
   /** Logger bound to `conf.name`, created once by the manager. */
   log: Logger;
   /** The factory-built environment this manager was constructed with. Modules
@@ -149,7 +149,7 @@ class MeasureManager {
     this.env = env;
     this.conf = env.conf;
     this.T = env.T;
-    this.bare = env.bare;
+    this._ = env._;
     this.log = env.log;
     this.layerId = generateId(CONST.ID, opts?.id);
     this.labelCollide = env.conf.label_collide !== false;
