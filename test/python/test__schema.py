@@ -36,10 +36,10 @@ from foliplus import (
     SearchControl,
 )
 from foliplus._schema import (
+    _UNSET,
     RUNTIME_ONLY,
     SCHEMAS,
     SHARED,
-    _UNSET,
     FieldSpec,
     config_fields,
     render_ts_type,
