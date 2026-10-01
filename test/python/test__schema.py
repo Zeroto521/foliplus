@@ -364,8 +364,8 @@ class TestRuntimeZeroChange:
         # it on import (lines 57-59). runpy.run_path executes the module body
         # in-process so coverage.py can instrument line 59.
         import runpy
-        from io import StringIO
         from contextlib import redirect_stdout
+        from io import StringIO
 
         repo_root = Path(__file__).resolve().parents[2]
         src = repo_root / "foliplus" / "_schema.py"
