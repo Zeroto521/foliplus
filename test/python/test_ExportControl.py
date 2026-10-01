@@ -1373,6 +1373,73 @@ class TestExportControlBrowser:
             assert result["total"] > 0, f"No pixels drawn in export: {result}"
             assert len(errors) == 0, f"JS errors on canvas export: {errors}"
 
+    def test_export_excludes_self_declared_marked_elements(self, browser, tmp_path):
+        """data-foliplus-export=exclude chrome stays out of the export.
+
+        Traversal-skip contract (data attribute) + hide list (CONTROL, same
+        as main) + content must stay exportable:
+        - export control bar carries ``data-foliplus-export="exclude"``
+          (runtime DOM assert in export_exclude_markers);
+        - heatmap / createCanvas canvases are content and must NOT carry
+          exclude (``li.canvas`` special path — heatmap must export);
+        - a purple marker self-marked ``data-foliplus-export="exclude"`` in a
+          foliplus pane does not leak into the export canvas.
+        """
+        with use_page(self._make_page, browser, tmp_path, slug="export_exclude") as (
+            page,
+            _,
+        ):
+            errors = []
+            page.on("pageerror", lambda e: errors.append(str(e)))
+
+            markers = page.evaluate(_js("ExportControl/export_exclude_markers"))
+            assert markers is not None, "export_exclude_markers returned null"
+            assert markers["exportCtrlMarked"] is True, markers
+            assert markers["createCanvasUnmarked"] is True, markers
+
+            state = page.evaluate(_js("ExportControl/export_exclude_setup"))
+            assert state is not None and "error" not in state, state
+
+            self._install_canvas_hook(page)
+
+            page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
+            page.wait_for_selector(
+                ".foliplus-export-box", state="attached", timeout=5000
+            )
+            page.locator(".foliplus-tool-bar .foliplus-confirm").click()
+            page.wait_for_selector(
+                ".foliplus-export-box.foliplus-locked", state="attached", timeout=5000
+            )
+            page.locator(".foliplus-tool-bar .foliplus-confirm").click()
+            page.wait_for_function(
+                """() => {
+                    const ctrl = document.querySelector('.foliplus-export-ctrl');
+                    return ctrl && ctrl.classList.contains('foliplus-is-collapsed');
+                }""",
+                timeout=30000,
+            )
+            page.wait_for_timeout(2000)
+
+            page.evaluate(
+                f"""() => {{
+                    window._probes = {json.dumps([state["wholeCanvasRed"], state["wholeCanvasPurple"]])};
+                    window._sampleTol = 40;
+                    window._sampleAlphaMin = 100;
+                }}"""
+            )
+            result = page.evaluate(_js("ExportControl/sample_export_window_color"))
+            assert result is not None, "Export canvas not captured"
+
+            # Positive control: special-path canvas pixels still appear.
+            assert result["pos_canvas_red"]["hit"] > 0, (
+                f"Special-path canvas pixels missing from export: {result}"
+            )
+            # Negative control: marked chrome does not appear anywhere.
+            assert result["marked_purple_all"]["hit"] == 0, (
+                f"Marked export-exclude element leaked into export: {result}"
+            )
+            assert len(errors) == 0, f"JS errors on export-exclude export: {errors}"
+
     def test_export_with_annotation_labels(self, browser, tmp_path):
         """Export captures the annotation label pixels at their positions.
 

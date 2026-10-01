@@ -93,6 +93,12 @@ const SEL = {
    * per-layer walk never reaches it and it needs its own pass.
    */
   ANNOTATION_CANVAS: ".leaflet-map-pane canvas.foliplus-annotation-canvas",
+  /**
+   * Hide-pass only (not traversal skip): Leaflet control host + this
+   * control's own bar. Same list as main — layout hide during export.
+   * Content canvases are NOT listed: they paint via `li.canvas` and must
+   * stay measurable. Traversal exclusion is SKIP_EXPORT, not this list.
+   */
   CONTROL: ".leaflet-control-container, .foliplus-export-ctrl",
   LABEL: "[data-foliplus-export='label']",
   /**
@@ -107,8 +113,18 @@ const SEL = {
    *   Usage:  `<div data-foliplus-export="exclude">...</div>`
    *   Usage:  `<path class="foliplus-skip-export" />`
    *
-   * Only an element's own marker counts.  Pane-level hiding (focus) is a
-   * transient view state and the export ignores it — see renderPaneSVG.
+   * The data attribute is the primary / extensible carrier (future exclusion
+   * semantics extend the attribute value, not the class list).
+   *
+   * Match rules by pass (not one universal nesting rule):
+   *   - `collectLayerMarkers` / `renderPaneCanvas`: `isExportExcluded` —
+   *     self or ancestor; markers also drop roots that contain a marked
+   *     descendant (pass draws whole roots).
+   *   - `renderPaneSVG`: marked nodes are pruned from the clone only.
+   * Pane-level hiding (focus) is a transient view state and the export
+   * ignores it — see renderPaneSVG.  Content canvases (Heatmap via
+   * `li.canvas`) are painted by the special path and must NOT carry this
+   * marker — exclude is chrome opt-out, not "drop layer".
    */
   SKIP_EXPORT: '[data-foliplus-export="exclude"], .foliplus-skip-export',
 };
