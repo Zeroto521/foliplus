@@ -31,7 +31,7 @@ import { fileURLToPath, pathToFileURL } from "url";
 import { help, parseArgs } from "./args.mjs";
 import { resolveJsRoot } from "./build-path.mjs";
 import { esbuildCfgFor } from "./esbuild-config.mjs";
-import { globalNamespacePlugin } from "./global-namespace-plugin.mjs";
+import { globalNamespacePlugin, runtimeTarget } from "./global-namespace-plugin.mjs";
 import { FAIL, OK } from "./glyph.mjs";
 import { canonicalSpec, scanSharedImports } from "./import-scan.mjs";
 import { expandEntry, mergeCss } from "./merge-css.mjs";
@@ -106,20 +106,13 @@ const resolveSharedRegistryPlugin = {
 // instead of re-typing the flags. See that module for what each field is.
 const esbuildCfg = esbuildCfgFor({ dev: CFG.dev, root: CFG.root });
 
-/** Canonical spec → dotted runtime target. Both sides (build-time dep list
- *  and runtime check) share this mapping so a component's declared deps
- *  always resolve to the same `window.foliplus.*` slot the global namespace
- *  plugin exposes. `core/layer/util` and `core/layer/index` both target
- *  `core.layer` — the plugin keys on the first path segment. */
-const dottedTarget = spec => {
-  if (spec.startsWith("common/")) return "common." + spec.split("/")[1];
-  // runtime/index.ts registers hint at the top level (foliplus.hint), not in
-  // foliplus.core — match global-namespace-plugin's special case for #core/hint.js.
-  if (spec === "core/hint") return "hint";
-  if (spec.startsWith("core/")) return "core." + spec.split("/")[1];
-  if (spec.startsWith("foliplus/")) return spec.split("/")[1];
-  return spec;
-};
+/** Canonical spec → dotted runtime target. Same function the shim generator
+ *  reads — `runtimeTarget` from `global-namespace-plugin.mjs` — so a new
+ *  shared module can only be misrouted in one place (the `core/hint` special
+ *  case, for instance, used to live in both this file and the plugin and
+ *  drift). `core/layer/util` and `core/layer/index` both collapse to
+ *  `core.layer`: the plugin keys on the first path segment. */
+const dottedTarget = spec => runtimeTarget(spec);
 
 /** Component's declared shared deps, deduped + dotted. `common/log` and
  *  `common/log/index` both land as `common.log`. Only the runtime-visible

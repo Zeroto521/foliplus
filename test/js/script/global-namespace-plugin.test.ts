@@ -6,14 +6,18 @@ import {
   collectExports,
   collectSources,
   globalNamespacePlugin,
+  runtimeTarget,
   scanSharedImports,
   sharedGlobalNamespace,
 } from "#script/global-namespace-plugin.mjs";
 
 // Tests for script/global-namespace-plugin.mjs — every exported symbol plus the
 // plugin object itself:
-//   sharedGlobalNamespace  — specifier → global namespace: the unit table, then
-//                            three assertions that read the real source tree
+//   runtimeTarget          — canonical spec → dotted runtime target (the unit
+//                            mapping; sharedGlobalNamespace is a thin wrapper
+//                            around this + `foliplus.` prefix)
+//   sharedGlobalNamespace  — the wrapper's public surface, exercised against
+//                            the real source tree
 //   collectExports         — unit
 //   collectSources         — unit
 //   scanSharedImports      — unit
@@ -62,6 +66,29 @@ const aliasedSpecifiers = (): Map<string, string[]> => {
   }
   return seen;
 };
+
+describe("runtimeTarget", () => {
+  it("keeps BaseControl at the top level", () => {
+    expect(runtimeTarget("BaseControl")).toBe("BaseControl");
+  });
+
+  it("keeps core/hint at the top level", () => {
+    expect(runtimeTarget("core/hint")).toBe("hint");
+  });
+
+  it("maps core subdirectories to core.<sub>", () => {
+    expect(runtimeTarget("core/layer")).toBe("core.layer");
+    expect(runtimeTarget("core/layer/index")).toBe("core.layer");
+    expect(runtimeTarget("core/layer/LayerFactory")).toBe("core.layer");
+    expect(runtimeTarget("core/component")).toBe("core.component");
+    expect(runtimeTarget("core/event")).toBe("core.event");
+  });
+
+  it("maps common subdirectories to common.<sub>", () => {
+    expect(runtimeTarget("common/dom")).toBe("common.dom");
+    expect(runtimeTarget("common/log")).toBe("common.log");
+  });
+});
 
 describe("sharedGlobalNamespace", () => {
   it("maps BaseControl to foliplus.BaseControl", () => {
