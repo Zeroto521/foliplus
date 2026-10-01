@@ -36,6 +36,23 @@ export {
 } from "./util.js";
 export { ensureLayerAPI, requireLayerAPI } from "./api.js";
 export { CLUSTER_CAPABILITIES, deriveLayerKind } from "./util.js";
+export { LayerIntentStore } from "./LayerIntentStore.js";
+export { LayerRuntimeStore } from "./LayerRuntimeStore.js";
+export { INTENT, LIVE, STYLE_KEYS } from "./intent.js";
+export type {
+  AppliedProjection,
+  LayerRuntime,
+  Projection,
+} from "./LayerRuntimeStore.js";
+export type {
+  AnnotationConfig,
+  IntentKey,
+  IntentRow,
+  LayerIntent,
+  LayerOverride,
+  LoadSource,
+  PersistedLayerState,
+} from "./intent.js";
 export type {
   CreateCanvasAPI,
   CreateCanvasOpts,

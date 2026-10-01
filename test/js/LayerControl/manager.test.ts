@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
+import { LayerIntentStore } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { LayerManager } from "#foliplus/LayerControl/manager.js";
 import {
@@ -9,7 +10,6 @@ import {
 import { LayerPersistence } from "#foliplus/LayerControl/persistence.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { getIntent, setIntent } from "#foliplus/LayerControl/ui/intent.js";
-import { IntentStore } from "#foliplus/LayerControl/ui/intentStore.js";
 import {
   applyUserState,
   dropPersistedLayerState,
@@ -28,12 +28,12 @@ import * as Storage from "#common/storage.js";
 
 const ENFORCE_ORDER_DEBOUNCE_MS = 50;
 
-/** Build an IntentStore from the old two-map fixture shape. */
+/** Build an LayerIntentStore from the old two-map fixture shape. */
 const makeStore = (
   intents: Record<string, Record<string, unknown>> = {},
   provenance: Record<string, string[]> = {},
-): IntentStore => {
-  const store = new IntentStore();
+): LayerIntentStore => {
+  const store = new LayerIntentStore();
   store.replaceIntents(intents as never);
   store.replaceProvenance(provenance as never);
   return store;

@@ -2,7 +2,11 @@
 // Heavy lifting lives in `ui/*` modules; this class owns state and delegates.
 import { type EventBus, ensureEvents } from "#core/event/index.js";
 import type { LabelField } from "#core/labelField.js";
-import { type CreateColorAPI, type LayerInfo } from "#core/layer/index.js";
+import {
+  type CreateColorAPI,
+  type LayerInfo,
+  LayerIntentStore,
+} from "#core/layer/index.js";
 import { ListCursor } from "#core/listCursor.js";
 import { createScopedTranslator, createTranslator } from "#common/locale.js";
 import * as CONST from "../const.js";
@@ -12,7 +16,6 @@ import { applyProjection, applyProjectionAll } from "./apply.js";
 import { closeAttrsPanel, openAttrsPanel } from "./attr.js";
 import { hideSolidBasemap, showSolidBasemap } from "./color.js";
 import { cancelFocus, focusLayer, isFocusing } from "./focus.js";
-import { IntentStore } from "./intentStore.js";
 import {
   blurActiveItem,
   clearActiveItem,
@@ -103,7 +106,7 @@ class LayerUI {
    *  dimension (visible / fill / border / opacity / zoomRange / name /
    *  annotation). Absent key = never touched. Provenance rides the same
    *  `IntentRow` beside the values (`IntentRow.provenance`). */
-  intentStore: IntentStore;
+  intentStore: LayerIntentStore;
   /** The author's declared default per layer id, snapshotted once per id from
    *  the map membership at first sight.
    *
@@ -218,7 +221,7 @@ class LayerUI {
     this._ = _;
     this.foldedGroups = new Set();
     this.checkedCount = {};
-    this.intentStore = new IntentStore();
+    this.intentStore = new LayerIntentStore();
     this.authorVisible = new Map();
     this.currentColor = CONST.COLOR.DEFAULT;
     this.colorSurface = null;

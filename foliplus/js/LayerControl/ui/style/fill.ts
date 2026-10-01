@@ -391,7 +391,7 @@ const replayFillState = (ui: LayerUI, id: string): void => {
 
 /** Register fill as a per-layer dimension. The descriptor wires the existing
  *  helpers plus the intent+persist slots: `write` / `reset` own store +
- *  styleBag orchestration (cohesive `IntentStore.set` / `.clear`); the named
+ *  styleBag orchestration (cohesive `LayerIntentStore.set` / `.clear`); the named
  *  `commitFillColor` / `commitFillOpacity` / `resetLayerFill` stay as thin
  *  delegates so panel call sites and tests keep their shape.
  *

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { LayerIntentStore } from "#core/layer/index.js";
 import { LayerManager } from "#foliplus/LayerControl/manager.js";
 import {
   applyProjection,
@@ -7,7 +8,6 @@ import {
 } from "#foliplus/LayerControl/ui/apply.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { clearIntent, getIntent, setIntent } from "#foliplus/LayerControl/ui/intent.js";
-import { IntentStore } from "#foliplus/LayerControl/ui/intentStore.js";
 import { intentVisibleOf, projectLayer } from "#foliplus/LayerControl/ui/projection.js";
 import { getLayerAlpha } from "#common/canvasAlpha.js";
 import { installLeafletGlobals } from "./fixture.js";
@@ -721,7 +721,7 @@ describe("projectAll: the id set is a union, not just the registry", () => {
     expect(ui.intentStore.dumpProvenance().late).toEqual(["opacity"]);
   });
 
-  it("projectAll treats an empty IntentStore as empty", () => {
+  it("projectAll treats an empty LayerIntentStore as empty", () => {
     const { container, map } = makeOffMapFixture();
     const manager = new LayerManager(map, [
       { id: "a", name: "A", group: "overlay", layer: { options: {} } as L.Layer },
@@ -861,12 +861,12 @@ describe("executor: the branches behind the gates", () => {
     expect(manager.layerRegistry.get("gone")?.opacity).toBe(0.4);
   });
 
-  it("a ui with an empty IntentStore still projects", () => {
+  it("a ui with an empty LayerIntentStore still projects", () => {
     // The `?? false` fallbacks on both choice axes: `applyProjection`,
     // `intentVisibleOf` and `projectLayer` treat an empty store as "no user
     // choice", so a thin stub degrades to the author default.
     const bare = {
-      intentStore: new IntentStore(),
+      intentStore: new LayerIntentStore(),
       authorVisible: new Map<string, boolean>(),
       focusingLayerId: null,
       appliedState: new Map(),

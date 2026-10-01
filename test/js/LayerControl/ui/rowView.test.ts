@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GEOM_TYPE, GROUP } from "#core/layer/index.js";
 import type { LayerInfo } from "#core/layer/index.js";
+import { LayerIntentStore } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { clearIntent, getIntent, setIntent } from "#foliplus/LayerControl/ui/intent.js";
-import { IntentStore } from "#foliplus/LayerControl/ui/intentStore.js";
 import { intentVisibleOf, projectLayer } from "#foliplus/LayerControl/ui/projection.js";
 import {
   applyRowView,
@@ -78,7 +78,7 @@ describe("intentVisibleOf (the intent seam)", () => {
     hidden: string[] = [],
     author: Record<string, boolean> = {},
   ): LayerUI => {
-    const intentStore = new IntentStore();
+    const intentStore = new LayerIntentStore();
     for (const id of hidden) intentStore.setValue(id, "visible", false);
     for (const [id, keys] of Object.entries(overrides)) {
       intentStore.seedProvenance(id, keys as never);
@@ -315,9 +315,9 @@ describe("applyRowView (the single DOM write point)", () => {
     expect(el.getAttribute(CONST.DATA.TITLE)).toBe("polygon");
   });
 
-  it("buildRowCell handles a thin stub with an empty IntentStore", () => {
+  it("buildRowCell handles a thin stub with an empty LayerIntentStore", () => {
     // The `?? false` fallbacks on the inline intent check: a thin stub may
-    // carry an empty IntentStore, so the check must degrade to the author
+    // carry an empty LayerIntentStore, so the check must degrade to the author
     // default rather than crashing.
     const layerRegistry = new Map([["x", { id: "x", layer: { options: {} } }]]);
     const bare = {
@@ -325,7 +325,7 @@ describe("applyRowView (the single DOM write point)", () => {
       mgmt: { getFeatureCount: () => 0 },
       renamedNames: {},
       authorVisible: new Map(),
-      intentStore: new IntentStore(),
+      intentStore: new LayerIntentStore(),
       focusingLayerId: null,
       appliedState: new Map(),
       T: (k: string) => k,

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { LayerIntentStore } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { LayerManager } from "#foliplus/LayerControl/manager.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
@@ -7,7 +8,6 @@ import {
   seedIntentMap,
   setIntent,
 } from "#foliplus/LayerControl/ui/intent.js";
-import { IntentStore } from "#foliplus/LayerControl/ui/intentStore.js";
 import {
   applyUserState,
   buildLayerStates,
@@ -40,12 +40,12 @@ import { GridLayer, TileLayer, installLeafletGlobals } from "./fixture.js";
 const specs = (...names: string[]): PaneSpec[] =>
   names.map((name, i) => ({ role: i === 0 ? "base" : "sub", order: i, name }));
 
-/** Build an IntentStore from the old two-map fixture shape. */
+/** Build an LayerIntentStore from the old two-map fixture shape. */
 const makeStore = (
   intents: Record<string, Record<string, unknown>> = {},
   provenance: Record<string, string[]> = {},
-): IntentStore => {
-  const store = new IntentStore();
+): LayerIntentStore => {
+  const store = new LayerIntentStore();
   store.replaceIntents(intents as never);
   store.replaceProvenance(provenance as never);
   return store;
@@ -1345,7 +1345,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
 
   it("treats an unknown override key as live (forward-compat default)", () => {
     // LayerOverride is closed today; the default arm of hasLiveValue /
-    // IntentStore.hasLive is the forward-compat path so a future dimension
+    // LayerIntentStore.hasLive is the forward-compat path so a future dimension
     // without a typed guard is not silently dropped by markOverride — and
     // toPersisted writes only the marker (no LIVE rule yet), keeping the
     // disk contract intact.
@@ -1434,7 +1434,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
     expect(fields.renamedNames()).toEqual({ b: "Renamed" });
   });
 
-  it("tolerates a shell with an empty IntentStore", () => {
+  it("tolerates a shell with an empty LayerIntentStore", () => {
     // Sparse fixtures and a mid-teardown UI must not throw on the projection
     // walks — an empty store reads as no user choice, and an intent without a
     // name simply contributes nothing to the saved names.

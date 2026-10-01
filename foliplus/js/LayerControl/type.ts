@@ -2,111 +2,35 @@
 // annotation config/label contracts. Pure types: everything here is erased at
 // build, so persistence and annotation sub-modules can import without pulling
 // value code.
+//
+// Intent-domain types (LayerOverride / LayerIntent / PersistedLayerState /
+// IntentRow / LoadSource / AnnotationConfig) and the projection types
+// (Projection / AppliedProjection) were sunk to core/layer with T270 — the
+// barrel below re-exports them so every existing `LayerControl/type` import
+// keeps working unchanged.
+import type {
+  AnnotationConfig,
+  AppliedProjection,
+  IntentRow,
+  LayerIntent,
+  LayerOverride,
+  LoadSource,
+  PersistedLayerState,
+  Projection,
+} from "#core/layer/index.js";
 import type { LayerDimKey } from "#core/layer/type.js";
-import { type NumberStyle } from "#common/format.js";
 import type { LayerUI } from "./ui/index.js";
 
-/** A dimension the user has actually set. `overrides` is the provenance half of
- *  the record: a dimension absent from it means the user never chose it, so the
- *  author's declared default stays in force. Only user actions add entries here,
- *  so a policy can never write through a user's choice -- which is what makes
- *  "the map overrides what I set" structurally impossible rather than a matter
- *  of remembering not to do it. */
-type LayerOverride =
-  | "visible"
-  | "fillColor"
-  | "fillOpacity"
-  | "borderColor"
-  | "borderWeight"
-  | "opacity"
-  | "zoomRange";
-
-/** One layer's live intent values — the in-memory twin of
- *  {@link PersistedLayerState} (same value shapes) plus `name`.
- *
- *  Absent key = the user never chose that dimension (the author's declared
- *  default stays in force). Provenance is a separate axis
- *  (`intentProvenance` / `LayerOverride`) and is deliberately not on this
- *  record. Disk shape is unchanged: `buildLayerStates` / `renamedNames`
- *  remain the only persistence projections.
- *
- *  **Adding a dimension** (e.g. label visibility or label position):
- *  1. A *user-settable* dim with an author default (like `visible`) gains a
- *     key here + the same literal in `LayerOverride`, `INTENT` / `LIVE`
- *     (`ui/intent.ts`) and `PARSE_OVERRIDE` (`persistence.ts`) — the
- *     `Record<…>` pins fail the build until every one of them exists, and
- *     the value rides `layers[id]` under that key. Disk-shape growth is a
- *     separate, explicit task.
- *  2. A *label-only* field (position, …) belongs on {@link AnnotationConfig}
- *     instead: it nests under `layers[id].annotation`, needs no provenance
- *     entry, and flows through the tolerant annotation parse untouched —
- *     only the field rule in `coerceAnnotationFields` (ui/style/label.ts)
- *     and the renderer consume it. */
-type LayerIntent = {
-  /** Layer id → the user's visibility choice (true = shown). */
-  visible?: boolean;
-  fillColor?: string;
-  fillOpacity?: number;
-  borderColor?: string;
-  borderWeight?: number;
-  opacity?: number;
-  zoomRange?: [number, number];
-  /** User-assigned display name (replaces the layer's authored name). */
-  name?: string;
-  /** Label (annotation) config seed for this layer. Live label state after
-   *  the seed applies still lives in AnnotationManager (`configEntries`). */
-  annotation?: AnnotationConfig;
-};
-
-/** One layer's persisted intent: the values the user set, plus which dimensions
- *  they set them for. A value with no matching override is dropped on read. */
-type PersistedLayerState = {
-  visible?: boolean;
-  /** The hex fill color the user picked in the style panel. LayerControl
-   *  owns the write (a self-managed dimension — see ui/style/fill.ts), so
-   *  it lives in this record rather than on the annotation config. */
-  fillColor?: string;
-  /** Fill opacity (0-1) the user set in the style panel. */
-  fillOpacity?: number;
-  /** The hex stroke color the user picked in the style panel. LayerControl
-   *  owns the write (a self-managed dimension — see ui/style/border.ts), so
-   *  it lives in this record rather than on the annotation config. */
-  borderColor?: string;
-  /** The stroke width the user set, in the shared border bounds. */
-  borderWeight?: number;
-  opacity?: number;
-  /** The handle positions the user moved, [minZoom, maxZoom]. The author's
-   *  min_zoom / max_zoom is only the starting value, so it reaches this field
-   *  only once the user has dragged the handles. */
-  zoomRange?: [number, number];
-  /** The layer's label (annotation) config — a style dimension of this layer,
-   *  not an override: it carries no provenance marker and survives alongside
-   *  an empty `overrides` array (a layer the user configured *only* labels
-   *  for is still an entry here). Readers fall back to the legacy
-   *  top-level `annotations[id]` segment when this key is absent
-   *  (write-new / read-old tolerance; the old segment is passed through
-   *  untouched, never migrated). */
-  annotation?: AnnotationConfig;
-  overrides: LayerOverride[];
-};
-
-/** One layer's live intent row — the IntentStore carrier shape. Value axis
- *  plus provenance axis in one record, so a half-write cannot desync them
- *  through the store's cohesive `set` / `clear`. Absent intent key = the user
- *  never chose that dimension; provenance only ever holds {@link LayerOverride}
- *  keys (`name` / `annotation` are riders without markers). */
-type IntentRow = {
-  intent: LayerIntent;
-  provenance: Set<LayerOverride>;
-};
-
-/** Compile-time pin: every provenance-tracked dimension is also a disk key —
- *  `buildLayerStates` writes each override straight through under its own
- *  name, so a new `LayerOverride` without a `PersistedLayerState` field fails
- *  here rather than being silently dropped at the persistence boundary. */
-type _AssertOverridesAreDiskKeys = LayerOverride extends keyof PersistedLayerState
-  ? true
-  : ["every LayerOverride must be a PersistedLayerState key"];
+export type {
+  AnnotationConfig,
+  AppliedProjection,
+  IntentRow,
+  LayerIntent,
+  LayerOverride,
+  LoadSource,
+  PersistedLayerState,
+  Projection,
+} from "#core/layer/index.js";
 
 /** Everything LayerControl persists, in one record per map. Intent only:
  *  declarations and derived state (what is actually on the map, z-indexes) are
@@ -157,17 +81,6 @@ type LiveState = {
   layers?: () => Record<string, PersistedLayerState>;
 };
 
-/** The intent half of a parsed persistence record — what
- *  `IntentStore.loadFromPersisted` accepts. A subset of
- *  {@link PersistedRecord} (order / removed / foldedGroups stay outside the
- *  store); annotation config rides both the legacy top-level segment and
- *  `layers[id].annotation`. */
-type LoadSource = {
-  renamedNames?: Record<string, string>;
-  annotations?: Record<string, unknown>;
-  layers?: Record<string, PersistedLayerState>;
-};
-
 /** A label a layer asked for, described by its feature rather than by pixels —
  *  the plan converts the latlng on every frame, so a pan leaves no stale
  *  coordinates behind. */
@@ -179,18 +92,6 @@ interface LayerLabel {
   priority: number;
 }
 
-/** Per-layer annotation config (matches what persistence stores). */
-interface AnnotationConfig {
-  show: boolean;
-  field: string;
-  /** Runtime paint overrides — fall back to the shared --foliplus-label-* tokens. */
-  color: string;
-  size: number;
-  format: NumberStyle;
-  /** Whether this layer's own labels thin themselves out where they overlap. */
-  collide: boolean;
-}
-
 /** One write the carrier dispatcher accepts. `opacity` and `zoomRange`
  *  being `undefined` mean "no user value" — a Reset back to the author's
  *  default — not "leave the carrier alone". */
@@ -198,37 +99,6 @@ type StateOp =
   | { type: "visible"; value: boolean }
   | { type: "opacity"; value: number | undefined }
   | { type: "zoomRange"; value: [number, number] | null };
-
-/** One layer's projection: intent (persisted) and the derived policy state
- *  together, so a diff sees both in one comparison.
- *
- *  `intent.visible` is what the checkbox shows — the user's choice when they
- *  made one, otherwise the author's declared default.
- *  `effectiveShown` is the composite `intent && policy` and is what the
- *  executor writes to map membership. Only `intent` may authorise display;
- *  `policy` (focus, zoom range) may only suppress it. That is the invariant
- *  that keeps a derived dimension from ever adding a layer back onto the
- *  map — the class of bug the quickstart regression records, and the structural root of the
- *  one-way gate that used to live in state.ts.
- */
-interface Projection {
-  id: string;
-  intent: { visible: boolean };
-  effectiveShown: boolean;
-  opacity: number | undefined;
-  zoomRange: [number, number] | null;
-}
-
-/** The executor's projection snapshot: the pure projection plus the carrier
- *  identity the last write landed on. Recording carrier is what closes
- *  value-only diff misses writes when a carrier element is replaced (a
- *  re-registered canvas, a lazily-created annotation pane), because the
- *  stored numeric opacity matches but the DOM in front of it is new.
- *  The token is opaque: a canvas element, a pane-names array, or an
- *  `options` object reference. */
-interface AppliedProjection extends Projection {
-  carrier: unknown;
-}
 
 /** A leaf whose `setStyle` is there for real. Narrowing through a guard
  *  rather than a `typeof` test keeps call sites plain method calls, which
@@ -327,11 +197,11 @@ type LayerDimension<D = unknown> = {
    *  parent (the panel root) to install the drag bubble and shared
    *  number-field commit handler. */
   row: (ui: LayerUI, layerId: string) => HTMLElement;
-  /** Cohesive user write: persist the patch through IntentStore (`set`
+  /** Cohesive user write: persist the patch through LayerIntentStore (`set`
    *  marks provenance) then schedule the styleBag landing. Partial patch —
    *  omitted keys leave that sub-dimension untouched. */
   write?: (ui: LayerUI, layerId: string, patch: Partial<D> | D) => void;
-  /** Cohesive reset: drop the dimension's IntentStore rows (values +
+  /** Cohesive reset: drop the dimension's LayerIntentStore rows (values +
    *  provenance) and restore the author's styleBag face. */
   reset?: (ui: LayerUI, layerId: string) => void;
   /** Three-state source of the effective value. Gate rejects → `"none"`;
@@ -340,21 +210,13 @@ type LayerDimension<D = unknown> = {
 };
 
 export type {
-  AnnotationConfig,
-  AppliedProjection,
   BorderRowBindTarget,
   BorderRowBuildTarget,
   DimensionValueSource,
-  IntentRow,
   LayerDimension,
-  LayerIntent,
   LayerLabel,
-  LayerOverride,
   LiveState,
-  LoadSource,
-  PersistedLayerState,
   PersistedRecord,
-  Projection,
   StateOp,
   StyleSetter,
 };

@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GROUP, HIDDEN } from "#core/layer/const.js";
+import { LayerIntentStore } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { LayerManager } from "#foliplus/LayerControl/manager.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { getIntent, setIntent } from "#foliplus/LayerControl/ui/intent.js";
-import { IntentStore } from "#foliplus/LayerControl/ui/intentStore.js";
 import {
   applyVisibility,
   getLayerItems,
@@ -1070,8 +1070,8 @@ describe("unit helpers", () => {
     expect(() => syncToggleAll(ui, GROUP.OVERLAY)).not.toThrow();
   });
 
-  it("syncNoBasemap handles a thin stub with an empty IntentStore", () => {
-    // A thin stub carries an empty IntentStore: the check must degrade to the
+  it("syncNoBasemap handles a thin stub with an empty LayerIntentStore", () => {
+    // A thin stub carries an empty LayerIntentStore: the check must degrade to the
     // author default rather than crashing.
     const uiContainer = document.createElement("div");
     uiContainer.innerHTML = `<div class="foliplus-layer-toggle-all" data-group="${GROUP.BASE}"><span></span></div>`;
@@ -1082,7 +1082,7 @@ describe("unit helpers", () => {
         map: { getContainer: () => document.createElement("div") },
       },
       authorVisible: new Map(),
-      intentStore: new IntentStore(),
+      intentStore: new LayerIntentStore(),
       T: (k: string) => k,
     } as unknown as LayerUI;
 
@@ -1110,7 +1110,7 @@ describe("unit helpers", () => {
         uiContainer,
         m: { layers, map: { getContainer: () => container } },
         authorVisible: new Map(),
-        intentStore: new IntentStore(),
+        intentStore: new LayerIntentStore(),
         T: (k: string) => k,
       } as unknown as LayerUI;
       return { ui, container };
@@ -1143,7 +1143,7 @@ describe("unit helpers", () => {
     });
   });
 
-  it("syncToggleAll handles a thin stub with an empty IntentStore", () => {
+  it("syncToggleAll handles a thin stub with an empty LayerIntentStore", () => {
     // Same fallback pattern: the inline intent check in syncToggleAll must
     // degrade gracefully when the store holds no rows.
     const uiContainer = document.createElement("div");
@@ -1159,7 +1159,7 @@ describe("unit helpers", () => {
       uiContainer,
       m: { layerRegistry: { get: () => ({ id: "x" }) } },
       authorVisible: new Map(),
-      intentStore: new IntentStore(),
+      intentStore: new LayerIntentStore(),
       T: (k: string) => k,
     } as unknown as LayerUI;
 
