@@ -333,34 +333,13 @@ const generateSharedRegistry = () => {
   if (genResult.status !== 0) process.exit(genResult.status);
 };
 
-/** Generate test/js/conf-fixture.ts from the schema JSON.
- *  Provides a `makeConf` factory for vitest tests with all schema defaults. */
-const generateVitestFixture = () => {
-  const schemaJson = resolve(buildJs, "conf-schema.json");
-  const fixtureTs = resolve(CFG.root, "test/js/conf-fixture.ts");
-  const genResult = spawnSync(
-    process.execPath,
-    [
-      resolve(__dirname, "gen-vitest-fixture.mjs"),
-      "--json",
-      schemaJson,
-      "--out",
-      fixtureTs,
-    ],
-    { stdio: "pipe", encoding: "utf-8" },
-  );
-  if (genResult.error) throw genResult.error;
-  if (genResult.stderr) console.error(genResult.stderr);
-  if (genResult.status !== 0) process.exit(genResult.status);
-};
-
-/** Generate foliplus/js/conf-schema.ts from the Python schema table.
+/** Verify foliplus/js/conf-schema.ts matches the Python schema table.
  *
  *  Two-step: `python foliplus/_schema.py --out <json>` dumps the schema as
- *  JSON, then `node script/gen-conf-schema.mjs --json <json>` generates the
- *  TS module. The output is a committed source file that must be up to date
- *  with the Python schema — the Python drift test (test__schema.py) and the
- *  TS typecheck together catch any mismatch.
+ *  JSON, then `node script/gen-conf-schema.mjs --verify --json <json>` checks
+ *  the committed TS file reproduces exactly from the dump. The build never
+ *  writes the committed source file — it fails loudly instead, so the working
+ *  tree stays clean and the committed artifact is reproducible.
  *
  *  The Python invocation uses `-W ignore` to suppress a harmless RuntimeWarning.
  *  Uses `python <path>` instead of `python -m` to avoid triggering the package
@@ -389,6 +368,7 @@ const generateConfSchema = () => {
       schemaJson,
       "--out",
       confSchemaTs,
+      "--verify",
     ],
     { stdio: "pipe", encoding: "utf-8" },
   );
@@ -410,11 +390,11 @@ const main = async () => {
   rmSync(buildCss, { recursive: true, force: true });
   mkdirSync(buildCss, { recursive: true });
 
-  // ── Step 2.4: Generate CONF schema TS types + vitest fixture ──
-  // Derives foliplus/js/conf-schema.ts and test/js/conf-fixture.ts
-  // from foliplus/_schema.py.
+  // ── Step 2.4: Generate CONF schema TS types ──────────────────
+  // Derives foliplus/js/conf-schema.ts from foliplus/_schema.py. The vitest
+  // fixture (test/js/conf-fixture.ts) is generated separately by the test
+  // pipeline (vitest globalSetup) — the JS build must not write test files.
   generateConfSchema();
-  generateVitestFixture();
 
   // ── Step 2.5: Generate shared registry ────────────────────────
   // Auto-registers every common/core module on window.foliplus (P5).

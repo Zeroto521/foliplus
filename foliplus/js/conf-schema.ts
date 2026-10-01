@@ -2,14 +2,16 @@
 // Do not edit by hand — regenerate with:
 //   python foliplus/_schema.py --out schema.json
 //   node script/gen-conf-schema.mjs --json schema.json
+
 // Per-control CONF interfaces plus a flat ComponentConfig for backward
 // compatibility with the existing global.d.ts shape. All fields are
 // optional in ComponentConfig (any control may omit any field); per-
 // control interfaces are stricter and use the schema's optional flag.
+
 import type { ControlPosition } from "leaflet";
-import type { ProviderConfig } from "#core/geocode/type.js";
-import type { NumberStyle } from "#common/format.js";
 import type { LocaleTables } from "#common/locale.js";
+import type { NumberStyle } from "#common/format.js";
+import type { ProviderConfig } from "#core/geocode/type.js";
 
 interface ConfShared {
   name: string; // Control class name (Python self._name).
@@ -18,7 +20,7 @@ interface ConfShared {
   locale_code?: string; // Resolved locale code (empty when unset).
 }
 
-interface ConfExport {
+interface ConfExport extends ConfShared {
   filename: string;
   format: "png" | "jpeg" | "webp" | "geotiff";
   quality: number;
@@ -27,12 +29,12 @@ interface ConfExport {
   timeout: number;
 }
 
-interface ConfFullscreen {
+interface ConfFullscreen extends ConfShared {
   hide_self: boolean;
   hide_others: boolean;
 }
 
-interface ConfHeatmap {
+interface ConfHeatmap extends ConfShared {
   color_scheme: string;
   method: "jenks" | "quantile" | "equal" | "heads";
   n_classes: number;
@@ -49,17 +51,17 @@ interface ConfHeatmap {
   collapse_on_outside: boolean;
 }
 
-interface ConfLayer {
+interface ConfLayer extends ConfShared {
   label_collide: boolean;
   collapse_on_outside: boolean;
   data?: Array<{ name: string; id: string; group: "base" | "overlay" }>;
 }
 
-interface ConfLocate {
+interface ConfLocate extends ConfShared {
   zoom: number;
 }
 
-interface ConfMeasure {
+interface ConfMeasure extends ConfShared {
   show_bearing: boolean;
   label_show: boolean;
   label_collide: boolean;
@@ -69,11 +71,11 @@ interface ConfMeasure {
   collapse_on_outside: boolean;
 }
 
-interface ConfScale {
+interface ConfScale extends ConfShared {
   show_zoom: boolean;
 }
 
-interface ConfSearch {
+interface ConfSearch extends ConfShared {
   mode: "coord" | "addr"; // Default search mode on first open.
   zoom: number;
   provider: string | ProviderConfig; // Built-in provider id or a custom ProviderConfig dict.

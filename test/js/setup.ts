@@ -162,11 +162,8 @@ window.L.Path.prototype.bringToFront = vi.fn();
 installWindowLExtensions();
 
 // Mock Jinja IIFE free variables — defaults from schema + test overrides
-window.CONF = makeConf({
-  name: "SearchControl",
+window.CONF = makeConf("SearchControl", {
   zoom: 16,
-  locale_code: "en",
-  position: "topleft",
   mode: "coord",
 });
 window.map = {

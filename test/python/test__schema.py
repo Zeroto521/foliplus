@@ -17,8 +17,10 @@ schema is a declaration-only mirror and cannot affect serialization.
 
 from __future__ import annotations
 
-import importlib
 import json
+import subprocess
+import sys
+from pathlib import Path
 
 import pytest
 
@@ -37,6 +39,7 @@ from foliplus._schema import (
     RUNTIME_ONLY,
     SCHEMAS,
     SHARED,
+    _UNSET,
     FieldSpec,
     config_fields,
     render_ts_type,
@@ -71,11 +74,15 @@ class TestSchemaCoverage:
         )
 
     def test_every_basecontrol_subclass_is_registered(self) -> None:
-        # Discover every BaseControl subclass reachable from foliplus.* and
+        # Discover every BaseControl subclass reachable from foliplus and
         # require it to be in SCHEMAS (or BaseControl itself). This is what
         # catches a NEW control added without a schema entry — the drift guard
         # runs over declared schemas only, so a fresh module with a new
         # _config_fields tuple would silently pass without this check.
+        #
+        # The control classes live in submodules (`foliplus.FullscreenControl`),
+        # so the module check must be a prefix match — the earlier `== "foliplus"`
+        # excluded every control and made this test a no-op.
         import foliplus
 
         for attr in dir(foliplus):
@@ -84,7 +91,7 @@ class TestSchemaCoverage:
                 isinstance(obj, type)
                 and issubclass(obj, BaseControl)
                 and obj is not BaseControl
-                and obj.__module__ == "foliplus"
+                and obj.__module__.startswith("foliplus.")
             ):
                 assert obj.__name__ in SCHEMAS, (
                     f"foliplus.{obj.__name__} is a BaseControl subclass without "
@@ -117,6 +124,47 @@ class TestSchemaMatchesConfigFields:
         # pins the exact position where ordering diverges.
         for i, (a, b) in enumerate(zip(declared, expected)):
             assert a == b, f"{name}._config_fields[{i}] = {a!r}, schema[{i}] = {b!r}"
+
+
+class TestSchemaDefaultsMatchPython:
+    """Every schema `default` must equal the value a default-constructed
+    control instance exposes, including explicit null defaults.
+
+    Without this, changing a Python default (e.g. `zoom=15` → `zoom=16`)
+    leaves the schema's default stale and the vitest fixture wrong, while
+    every name/order test stays green. Runtime-only and dynamic fields are
+    skipped — Python has no such attribute. Fields without a declared schema
+    default (``_UNSET``) are skipped.
+    """
+
+    @pytest.mark.parametrize("name", sorted(CONTROL_CLASSES))
+    def test_default_constructed_instance_matches_schema(self, name: str) -> None:
+        cls = CONTROL_CLASSES[name]
+        instance = cls()  # default constructor args only
+        for field_name, spec in SCHEMAS[name].items():
+            if spec.runtime_only or spec.dynamic:
+                continue
+            if spec.default is _UNSET:
+                continue
+            assert getattr(instance, field_name) == spec.default, (
+                f"{name} default {field_name}={getattr(instance, field_name)!r} "
+                f"does not match schema default {spec.default!r} — update the "
+                f"schema entry in foliplus/_schema.py."
+            )
+
+    @pytest.mark.parametrize("name", sorted(CONTROL_CLASSES))
+    def test_explicit_null_defaults_are_serialized(self, name: str) -> None:
+        # Regression for the sentinel fix: a field whose real default is None
+        # (e.g. SearchControl.provider_config) must carry `default: null` in
+        # the dump, not be treated as "no default declared".
+        data = json.loads(schema_to_json())
+        for field_name, spec in SCHEMAS[name].items():
+            if spec.default is None:
+                entry = data["controls"][name][field_name]
+                assert "default" in entry and entry["default"] is None, (
+                    f"{name}.{field_name} default=None must be serialized as "
+                    f"JSON null (got entry without a default key)."
+                )
 
 
 class TestRuntimeOnlyFields:
@@ -231,10 +279,27 @@ class TestRuntimeZeroChange:
 
     def test_schema_module_does_not_touch_basecontrol(self) -> None:
         # _schema.py imports nothing from foliplus.*; importing it must not
-        # alter BaseControl's behaviour. Re-importing BaseControl after
-        # importing _schema still yields the same _config_fields.
-        importlib.reload(importlib.import_module("foliplus.BaseControl"))
-        assert FullscreenControl._config_fields == ("hide_self", "hide_others")
+        # alter BaseControl's behaviour. Verified in a subprocess so this test
+        # cannot mutate the test-runner's module state (importlib.reload would
+        # redefine BaseControl in place and split class identity).
+        repo_root = Path(__file__).resolve().parents[2]
+        probe = (
+            "import foliplus\n"
+            "from foliplus.FullscreenControl import FullscreenControl\n"
+            "assert FullscreenControl._config_fields == ('hide_self', 'hide_others'), \\\n"
+            "    FullscreenControl._config_fields\n"
+        )
+        result = subprocess.run(
+            [sys.executable, "-c", probe],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert result.returncode == 0, (
+            f"fresh interpreter failed to import foliplus cleanly:\n"
+            f"stdout: {result.stdout}\nstderr: {result.stderr}"
+        )
 
 
 def _walk_specs() -> list[tuple[str, FieldSpec]]:

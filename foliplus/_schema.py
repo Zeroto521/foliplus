@@ -96,6 +96,14 @@ _TS_OBJECTS: dict[str, str] = {
 _SUPPORTED_TAGS = set(_TS_PRIMITIVES) | set(_TS_OBJECTS)
 
 
+# Sentinel distinguishing "no default declared" from an explicit null/None
+# default. `default: Any = None` cannot carry that distinction — a field whose
+# real default is None (e.g. SearchControl.provider_config) would be treated
+# as "no default" and dropped from the dump. Anything JSON-serializable is a
+# legal default, including None.
+_UNSET = object()
+
+
 @dataclass(frozen=True)
 class FieldSpec:
     """Declarative spec for one CONF field.
@@ -127,8 +135,10 @@ class FieldSpec:
     default
         JSON-serializable default used by the vitest fixture. Must be a
         value a Python dict can hold (str, int, float, bool, list, dict,
-        or None). ``None`` means "omit from fixture" (used for fields whose
-        default is a runtime decision, e.g. ``locale_tables``).
+        or None). ``None`` is a *real* default and is serialized as JSON
+        ``null``; :data:`_UNSET` (the dataclass default) means "no default
+        declared — omit from fixture" (used for fields whose default is a
+        runtime decision, e.g. ``locale_tables``).
     note
         Human-readable note; appears as a JSDoc comment in the generated
         TS. Empty means no comment.
@@ -141,7 +151,7 @@ class FieldSpec:
     item: str | None = None
     runtime_only: bool = False
     dynamic: bool = False
-    default: Any = None
+    default: Any = _UNSET
     note: str = ""
 
     def __post_init__(self) -> None:
@@ -417,7 +427,7 @@ def _field_dict_list(schema: ControlSchema) -> dict[str, dict[str, Any]]:
             entry["values"] = list(spec.values)
         if spec.note:
             entry["note"] = spec.note
-        if spec.default is not None:
+        if spec.default is not _UNSET:
             entry["default"] = spec.default
         out[name] = entry
     return out
