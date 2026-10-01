@@ -36,11 +36,14 @@
   return (async () => {
     await frame();
     const before = count();
-    // LayerControl hides a layer with map.removeLayer (state.ts) — same call.
-    window.map.removeLayer(g.mainLayer);
+    // Hide through the intent API (setVisible -> applyStateOp -> map.removeLayer
+    // + LAYER_CHANGE) rather than raw map.removeLayer: the annotation manager
+    // reads LAYER_CHANGE, not the native `layerremove`, so a direct map call
+    // would not reach it. The panel checkbox goes through the same path.
+    api.setVisible("__vis__", false);
     await frame();
     const hidden = count();
-    window.map.addLayer(g.mainLayer);
+    api.setVisible("__vis__", true);
     await frame();
     return { before, hidden, shown: count() };
   })();

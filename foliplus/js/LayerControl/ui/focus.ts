@@ -1,4 +1,5 @@
 // LayerControl UI —Focus-layer overlay (mask / rect / fly-to).
+import { EVENTS } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import {
   FOCUS_Z,
@@ -132,8 +133,17 @@ const focusLayer = (ui: LayerUI, layerId: string) => {
   // from a canvas layer's getBounds provider (heatmap has no Leaflet layer).
   let bounds: L.LatLngBounds | null = null;
   if (layer) {
-    // Ensure the layer is on the map so the rectangle highlight is visible.
-    if (!ui.m.map.hasLayer(layer)) ui.m.map.addLayer(layer);
+    // Ensure the layer is on the map so the rectangle highlight is visible. A
+    // layer the policy pulled off (a zoom sweep, an unchecked row) rejoins
+    // here for the bounds read — that add is a real membership change, so it
+    // rides LAYER_CHANGE the way the executor's own writes do.
+    if (!ui.m.map.hasLayer(layer)) {
+      ui.m.map.addLayer(layer);
+      ui.events.emit(EVENTS.LAYER_CHANGE, {
+        id: layerInfo.id,
+        kind: layerInfo.kind,
+      });
+    }
     bounds = computeLayerBounds(ui, layer);
   } else if (typeof layerInfo.getBounds === "function") {
     bounds = layerInfo.getBounds();

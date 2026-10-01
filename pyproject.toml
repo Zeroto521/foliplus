@@ -73,7 +73,7 @@ foliplus = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["test/python", "script"]
+testpaths = ["test/python"]
 python_files = ["test_*.py"]
 addopts = "-v --tb=short --cov=foliplus --cov-report=term-missing"
 markers = [

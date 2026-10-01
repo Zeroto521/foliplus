@@ -39,19 +39,19 @@ const SCAN_SPEC = {
   },
   silent: { type: "bool", desc: "Suppress output messages" },
 };
-const _raw = parseArgs(process.argv.slice(2), SCAN_SPEC);
+const raw = parseArgs(process.argv.slice(2), SCAN_SPEC);
 /* v8 ignore start -- help/error handling only runs when invoked as a CLI */
-if (_raw.help) {
+if (raw.help) {
   console.log(help(SCAN_SPEC));
   process.exit(0);
 }
-if (_raw.errors.length) {
-  console.error(_raw.errors.join("\n"));
+if (raw.errors.length) {
+  console.error(raw.errors.join("\n"));
   console.error(help(SCAN_SPEC));
   process.exit(1);
 }
 /* v8 ignore stop */
-const opts = _raw;
+const opts = raw;
 
 const ROOT = resolve(opts.root);
 const srcDir = resolveJsRoot(ROOT);
