@@ -17,6 +17,8 @@
 // drowning the log.
 import { createLogger } from "#common/log.js";
 
+const log = createLogger("runtime");
+
 let versionChecked = false;
 
 /** Read the per-map foliplus namespace. Throws when the runtime hasn't
@@ -26,8 +28,10 @@ const requireFoliplus = (map: L.Map): MapFoliplus => {
   const ns = map.foliplus;
   if (!ns) {
     throw new Error(
-      "foliplus: no per-map namespace on this L.Map — did the runtime fail to " +
-        "initialize? Component entry should call an ensure* factory first.",
+      log.msg(
+        "no per-map namespace on this L.Map — did the runtime fail to " +
+          "initialize? Component entry should call an ensure* factory first.",
+      ),
     );
   }
   if (!versionChecked) {
@@ -36,7 +40,7 @@ const requireFoliplus = (map: L.Map): MapFoliplus => {
       typeof __FOLIPLUS_VERSION__ !== "undefined" ? __FOLIPLUS_VERSION__ : "";
     const actual = window.foliplus?.version;
     if (expected && actual && expected !== actual) {
-      createLogger("runtime").warn(
+      log.warn(
         `foliplus version mismatch: bundle=${expected} runtime=${actual} — ` +
           `rebuild the common bundle to match`,
       );

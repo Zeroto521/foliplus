@@ -6,9 +6,9 @@ describe("requireFoliplus", () => {
     vi.unstubAllGlobals();
   });
 
-  it("throws when map.foliplus is undefined", () => {
+  it("throws with a [runtime]-prefixed message when map.foliplus is undefined", () => {
     const map = { foliplus: undefined } as unknown as L.Map;
-    expect(() => requireFoliplus(map)).toThrow(/no per-map namespace/);
+    expect(() => requireFoliplus(map)).toThrow(/\[runtime\] no per-map namespace/);
   });
 
   it("returns the namespace when it is present", () => {
