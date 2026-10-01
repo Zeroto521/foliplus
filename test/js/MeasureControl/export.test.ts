@@ -5,10 +5,10 @@ import * as Export from "#foliplus/MeasureControl/export.js";
 import * as downloadMod from "#common/download.js";
 import { makeControlEnv } from "../fixture.js";
 
-// This file asserts on bare locale-key strings (identity T/_): the export
+// This file asserts on bare locale-key strings (identity T/bare): the export
 // hint text is built by key concatenation, so scoped lookups would wrap the
 // keys and break the expectations. Pin translators explicitly.
-const identity = { T: (k: string) => k, _: (k: string) => k };
+const identity = { T: (k: string) => k, bare: (k: string) => k };
 
 vi.mock("#common/locale.js", () => ({
   createTranslator: () => (k: string) => k,
@@ -592,7 +592,7 @@ describe("Export.handleExportClick", () => {
       map: { foliplus: { showHint: vi.fn() } },
       conf: window.CONF,
       T: env.T,
-      _: env._,
+      bare: env.bare,
       log: env.log,
       env,
     };

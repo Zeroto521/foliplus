@@ -51,7 +51,7 @@ const tick = () => new Promise(r => setTimeout(r, 0));
 const ctx = () => ({
   conf: { name: "SearchControl", locale_code: "en", zoom: 16 },
   T: (k: string) => `SearchControl.${k}`,
-  _: (k: string) => k,
+  bare: (k: string) => k,
   log: {
     msg: (m: string) => m,
     warn: (...args: unknown[]) =>

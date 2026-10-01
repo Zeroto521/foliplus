@@ -1856,9 +1856,9 @@ describe("LayerUI style panel", () => {
 
   it("annotation format labels fall back to the raw key when the translator returns empty", () => {
     const item = findItem(ui, "overlay1");
-    const realUnderscore = ui._;
-    ui._ = (key: string) =>
-      key.startsWith("foliplus.label_format_") ? "" : realUnderscore(key);
+    const realBare = ui.bare;
+    ui.bare = (key: string) =>
+      key.startsWith("foliplus.label_format_") ? "" : realBare(key);
 
     ui.openStylePanel("overlay1");
 
@@ -1872,7 +1872,7 @@ describe("LayerUI style panel", () => {
       "percent",
     ]);
 
-    ui._ = realUnderscore;
+    ui.bare = realBare;
   });
 
   // ─────────────────── delegated style panel (third-party) ───────────────────
@@ -1904,9 +1904,9 @@ describe("LayerUI style panel", () => {
       styleSetters: { labelShow: vi.fn(), labelFormat: vi.fn() },
     });
     const item = findItem(ui, "heat1");
-    const realUnderscore = ui._;
-    ui._ = (key: string) =>
-      key.startsWith("foliplus.label_format_") ? "" : realUnderscore(key);
+    const realBare = ui.bare;
+    ui.bare = (key: string) =>
+      key.startsWith("foliplus.label_format_") ? "" : realBare(key);
 
     ui.openStylePanel("heat1");
 
@@ -1921,7 +1921,7 @@ describe("LayerUI style panel", () => {
       "percent",
     ]);
 
-    ui._ = realUnderscore;
+    ui.bare = realBare;
   });
 
   it("delegated panel renders a format select when labelFormat setter is present", () => {
