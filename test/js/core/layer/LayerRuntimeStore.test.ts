@@ -73,6 +73,13 @@ describe("LayerRuntimeStore — applied axis (projection last-write)", () => {
     const store = new LayerRuntimeStore();
     expect(() => store.deleteApplied("ghost")).not.toThrow();
   });
+
+  it("every delete* guards an absent id symmetrically", () => {
+    const store = new LayerRuntimeStore();
+    expect(() => store.deleteApplied("ghost")).not.toThrow();
+    expect(() => store.deleteFields("ghost")).not.toThrow();
+    expect(() => store.deleteAuthorVisible("ghost")).not.toThrow();
+  });
 });
 
 describe("LayerRuntimeStore — fields axis (label-field cache)", () => {
