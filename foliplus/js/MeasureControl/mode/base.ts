@@ -20,7 +20,7 @@ class MeasureMode {
    * Shared by CSV export (getNameForType) and GeoJSON properties.name.
    */
   static getNameLabel(env: ControlEnv): string {
-    const label = env._(this.NAME_LABEL_KEY);
+    const label = env.bare(this.NAME_LABEL_KEY);
     return label === this.NAME_LABEL_KEY ? this.NAME_LABEL : label;
   }
 
@@ -35,7 +35,7 @@ class MeasureMode {
   T: (key: string) => string;
   /** Plain translator (no prefix) — NAME_LABEL_KEY identity comparison
    *  requires the exact short key when no locale table exists. */
-  _: (key: string) => string;
+  bare: (key: string) => string;
   log: Logger;
 
   constructor(manager: MeasureManager) {
@@ -45,7 +45,7 @@ class MeasureMode {
     this._cleanup = null;
     this.conf = manager.conf;
     this.T = manager.T;
-    this._ = manager._;
+    this.bare = manager.bare;
     this.log = manager.log;
   }
 
@@ -87,7 +87,7 @@ class MeasureMode {
 
   /** Convert a persisted measurement to a GeoJSON Feature.
    *  Subclasses override this to return their specific geometry type. */
-  static toGeoFeature(env: ControlEnv, _data: MeasureData): GeoJSON.Feature {
+  static toGeoFeature(env: ControlEnv, data: MeasureData): GeoJSON.Feature {
     throw new Error(env.log.msg(`toGeoFeature not implemented for ${this.TYPE}`));
   }
 }

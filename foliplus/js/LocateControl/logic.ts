@@ -8,7 +8,7 @@ import { mountDelIcon } from "#common/deliconMount.js";
 import { formatCoord } from "#common/format.js";
 import { createScopedTranslator, createTranslator } from "#common/locale.js";
 
-const _ = createTranslator(CONF);
+const bare = createTranslator(CONF);
 const T = createScopedTranslator(CONF);
 
 /** Minimal ctrl interface for locate logic. */
@@ -45,11 +45,11 @@ const placeMarker = (ctrl: LocateCtrl, lng: number, lat: number, titleKey: strin
     lng,
     lat,
     null,
-    _(titleKey),
+    bare(titleKey),
     T("popup_loading"),
     T("popup_loc_label"),
     T("popup_addr_label"),
-    _("foliplus.close_label"),
+    bare("foliplus.close_label"),
     CONF.locale_code,
     null,
     undefined,
@@ -61,7 +61,7 @@ const placeMarker = (ctrl: LocateCtrl, lng: number, lat: number, titleKey: strin
   ctrl.delIcon = mountDelIcon(
     [lat, lng],
     {
-      title: _("foliplus.close_label"),
+      title: bare("foliplus.close_label"),
       iconAnchor: DEL_ICON_MARKER_ANCHOR, // at the pin's bottom tip
     },
     m => map.addLayer(m),

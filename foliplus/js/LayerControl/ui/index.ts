@@ -76,7 +76,7 @@ import {
 // One creation per rendered IIFE; instances only forward (`this.T = T`),
 // keeping the per-instance injection seam the UI tests rely on.
 const T = createScopedTranslator(CONF);
-const _ = createTranslator(CONF);
+const bare = createTranslator(CONF);
 
 /** UI Controller for LayerControl. */
 class LayerUI {
@@ -92,7 +92,7 @@ class LayerUI {
   /** Unscoped translator for the shared `foliplus.*` vocabulary (the label
    *  controls the style panel shares with HeatmapControl). Kept beside `T` so
    *  a test can inject either independently. */
-  _: (key: string) => string;
+  bare: (key: string) => string;
   foldedGroups: Set<string>;
   /** Per-group tri-state counts maintained incrementally so a single-row
    *  click is O(1). Populated by the full-scan `syncToggleAll` at reconcile
@@ -206,7 +206,7 @@ class LayerUI {
     this.events = ensureEvents(this.m.map);
     this.conf = CONF;
     this.T = T;
-    this._ = _;
+    this.bare = bare;
     this.foldedGroups = new Set();
     this.checkedCount = {};
     this.intentStore = new LayerIntentStore();
