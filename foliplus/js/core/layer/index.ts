@@ -26,8 +26,6 @@ export { LayerSurface } from "./LayerSurface.js";
 export { PaneManager } from "./PaneManager.js";
 export {
   findLayer,
-  forEachLayer,
-  forEachLeaf,
   isLayerInPanes,
   setInteractive,
   suspendMapInteractions,

@@ -22,7 +22,7 @@ import {
   type RegisterLayerOpts,
   countFeatureGeometry,
   findLayer,
-  forEachLeaf,
+  walkLeaf,
   topSlotZ,
   zFor,
 } from "#core/layer/index.js";
@@ -452,7 +452,7 @@ class LayerManager implements LayerAPI {
   }
 
   /** Return the number of geometric features in a registered layer.
-   *  Third-party provider wins (Canvas layers need this). Fallback uses forEachLeaf.
+   *  Third-party provider wins (Canvas layers need this). Fallback uses walkLeaf.
    *  Returns null when the layer cannot be meaningfully counted (Canvas without
    *  provider, base tile layers, or unknown non-container layers).
    *  @param {string} id - Layer id.
@@ -470,12 +470,12 @@ class LayerManager implements LayerAPI {
       } catch (err) {
         // Provider threw (e.g. canvas in a failing state). Log so the failure
         // is visible rather than silently returning a stale 0-count. For
-        // Canvas/unknown layers the forEachLeaf fallback is a no-op anyway
+        // Canvas/unknown layers the walkLeaf fallback is a no-op anyway
         // (returns null), so this is a defensive fallback, not a real path.
         this.log.error(`featureCountProvider threw for "${id}":`, err);
       }
     }
-    // 2. Fallback via forEachLeaf — only valid for feature containers.
+    // 2. Fallback via walkLeaf — only valid for feature containers.
     const layer = this.findLayer(layerInfo);
     if (!layer) return null;
     if (isGroupLike(layer)) return countFeatureGeometry(layer);
@@ -515,7 +515,7 @@ class LayerManager implements LayerAPI {
 
   forEachLeaf(id: string, fn: (layer: L.Layer) => void) {
     const layer = this.findLayer(id);
-    if (layer) forEachLeaf(layer, fn);
+    if (layer) walkLeaf(layer, fn);
   }
 
   /**

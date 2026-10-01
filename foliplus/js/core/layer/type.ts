@@ -200,7 +200,7 @@ interface RegisterLayerOpts {
    *  is the face, so the value — not an element — is what travels here. */
   color?: string | null;
   /** Third-party feature count provider (Canvas layers require this; FeatureGroup
-   *  layers use the built-in fallback via forEachLeaf). Null means 'don't render'. */
+   *  layers use the built-in fallback via walkLeaf). Null means 'don't render'. */
   featureCountProvider?: (() => number) | null;
   /** Style values this layer exposes to the style drawer — pulled on demand,
    *  never cached on the registry (same contract as featureCountProvider). */

@@ -1,6 +1,5 @@
 // LayerControl UI —Inline layer rename.
 import { HINT_DURATION } from "#core/hint.js";
-import { forEachLeaf } from "#core/layer/index.js";
 import {
   createInlineEditInput,
   removeInlineEditInput,
@@ -121,7 +120,7 @@ const finishRename = (ui: LayerUI, restoreText = true): void => {
  * Focus the map on a registered layer's bounding box.
  *
  * Best-effort approach:
- * 1. Compute bounds from the layer (fallback: forEachLeaf for containers
+ * 1. Compute bounds from the layer (fallback: walkLeaf for containers
  *    whose getBounds delegates to children).
  * 2. If the layer is not on the map, bring it on temporarily so the bounds
  *    and the visual highlight are consistent with the user's action.

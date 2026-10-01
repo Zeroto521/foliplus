@@ -8,7 +8,7 @@ import {
 } from "../leafletAdapter.js";
 import * as CONST from "./const.js";
 import type { LabelAwareLayer, LayerCapabilities, LayerKind } from "./type.js";
-import { walkLeaf as walkLeafImpl, walkTree as walkTreeImpl } from "./walkLeaf.js";
+import { walkLeaf, walkTree } from "./walkLeaf.js";
 
 /** Resolve a layer from the map's internal registry or a window global.
  *  @param {L.Map} map - Leaflet map.
@@ -19,16 +19,6 @@ const findLayer = (map: L.Map, id: string): L.Layer | null => {
   return (internalLayers(map)?.[id] ||
     Reflect.get(window, id) ||
     null) as L.Layer | null;
-};
-
-/** Iterate every leaf node (no intermediate containers) of a layer tree. */
-const forEachLeaf = (layer: L.Layer, fn: (layer: L.Layer) => void, depth = 0) => {
-  walkLeafImpl(layer, fn, depth);
-};
-
-/** Iterate every node (containers + leaves) of a layer tree. */
-const forEachLayer = (layer: L.Layer, fn: (layer: L.Layer) => void, depth = 0) => {
-  walkTreeImpl(layer, fn, depth);
 };
 
 /**
@@ -55,7 +45,7 @@ const forEachLayer = (layer: L.Layer, fn: (layer: L.Layer) => void, depth = 0) =
  * enough; it is applied the next time the layer is added.
  *
  * Container layers (LayerGroup) carry no interactivity of their own — walk a
- * tree with forEachLeaf and apply this per leaf.
+ * tree with walkLeaf and apply this per leaf.
  *
  * @param {L.Layer} layer - Leaflet layer.
  * @param {boolean} interactive - Desired interactivity.
@@ -111,7 +101,7 @@ const suspendMapInteractions = (
 ): (() => void) => {
   const disabled: L.Layer[] = [];
   map.eachLayer(top => {
-    forEachLeaf(top, leaf => {
+    walkLeaf(top, leaf => {
       if (skip?.(leaf)) return;
       const opts = leaf.options as L.LayerOptions & { interactive?: boolean };
       if (opts?.interactive) disabled.push(leaf);
@@ -127,7 +117,7 @@ const suspendMapInteractions = (
  *  @returns {string} Geometry type constant from GEOM_TYPE. */
 const getGeometryType = (layer: L.Layer): string => {
   const leaves: L.Layer[] = [];
-  forEachLeaf(layer, l => leaves.push(l));
+  walkLeaf(layer, l => leaves.push(l));
 
   let hasData = false; // any non-label leaf — labels are not data geometry
   let hasPoly = false;
@@ -168,7 +158,7 @@ const getGeometryType = (layer: L.Layer): string => {
  *  @returns {number} Number of geometric features. */
 const countFeatureGeometry = (layer: L.Layer): number => {
   let count = 0;
-  forEachLeaf(layer, (leaf: L.Layer) => {
+  walkLeaf(layer, (leaf: L.Layer) => {
     if ((leaf as LabelAwareLayer).isLabel) return;
     if (leaf instanceof L.Polygon) count++;
     else if (leaf instanceof L.Polyline) count++;
@@ -274,8 +264,6 @@ export {
   CLUSTER_CAPABILITIES,
   deriveLayerKind,
   findLayer,
-  forEachLayer,
-  forEachLeaf,
   isLayerInPanes,
   setInteractive,
   suspendMapInteractions,
