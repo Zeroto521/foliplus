@@ -3,7 +3,13 @@
 // Moved from renderer.ts — collectLayerMarkers, renderMarkers, renderFontAwesome,
 // renderTextLabels, renderRemaining.
 import * as CONST from "../const.js";
-import { ensureFont, isVisible, loadImage, loadImageBitmap } from "../util.js";
+import {
+  ensureFont,
+  isExportExcluded,
+  isVisible,
+  loadImage,
+  loadImageBitmap,
+} from "../util.js";
 import { type RenderCtx, effectiveOpacity, pooledEach, withAlpha } from "./util.js";
 
 /** Collect markers belonging to a specific layer's panes. */
@@ -16,11 +22,13 @@ const collectLayerMarkers = (layer: L.Layer): HTMLElement[] => {
     if (!pane) continue;
     for (let i = 0; i < pane.children.length; i++) {
       const el = pane.children[i] as HTMLElement;
-      // Skip canvas and SVG — handled by dedicated render passes
+      // Skip canvas and SVG — handled by dedicated render passes.
+      // isExportExcluded: self or ancestor. Plus a root that *contains* a
+      // marked descendant (marker pass draws whole roots, not subtrees).
       if (
         el.tagName === "CANVAS" ||
         el.tagName === "SVG" ||
-        el.matches(CONST.SEL.SKIP_EXPORT) ||
+        isExportExcluded(el) ||
         el.querySelector(CONST.SEL.SKIP_EXPORT) ||
         window.getComputedStyle(el).display === "none"
       ) {

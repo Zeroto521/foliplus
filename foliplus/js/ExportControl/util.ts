@@ -98,4 +98,20 @@ const resolveExportBackground = (container: HTMLElement): string | undefined => 
   return color;
 };
 
-export { isVisible, loadImageBitmap, loadImage, ensureFont, resolveExportBackground };
+/**
+ * True when the node itself is export-excluded, or sits under a marked
+ * ancestor (chrome host trees). Shared by pane-canvas and marker passes
+ * for the "self or ancestor" rule. SVG clone pruning stays on
+ * `querySelectorAll(SKIP_EXPORT)` — it removes marked nodes, not subtrees.
+ */
+const isExportExcluded = (el: Element): boolean =>
+  el.matches(CONST.SEL.SKIP_EXPORT) || el.closest(CONST.SEL.SKIP_EXPORT) != null;
+
+export {
+  isVisible,
+  loadImageBitmap,
+  loadImage,
+  ensureFont,
+  resolveExportBackground,
+  isExportExcluded,
+};

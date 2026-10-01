@@ -141,6 +141,8 @@ const doRender = function (
   geoBounds: GeoBounds | undefined,
   onProgress?: (percent: number) => void,
 ) {
+  // Hide-pass only (CONTROL list, same as main): control host + this bar.
+  // Not traversal skip — content canvases stay measurable for li.canvas.
   const hideEls = this.mapContainer.querySelectorAll(CONST.SEL.CONTROL);
   hideEls.forEach(el => el.classList.add(CONST.CLASSES.HIDDEN));
   // Force a synchronous layout so getBoundingClientRect() in the
