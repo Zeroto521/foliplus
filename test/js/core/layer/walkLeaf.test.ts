@@ -40,6 +40,17 @@ describe("walkLeaf", () => {
     walkLeaf(undefined, fn);
     expect(fn).not.toHaveBeenCalled();
   });
+
+  it("registry fallback: enumerates children via _layers when eachLayer is absent", () => {
+    const a = leaf("a");
+    const b = leaf("b");
+    // A node with _layers but no eachLayer — childrenOf falls through to
+    // internalLayers and reads Object.values(reg).
+    const node = { _layers: { 0: a, 1: b } };
+    const visited: string[] = [];
+    walkLeaf(node, l => visited.push((l as { __tag: string }).__tag));
+    expect(visited).toEqual(["a", "b"]);
+  });
 });
 
 describe("walkTree", () => {
