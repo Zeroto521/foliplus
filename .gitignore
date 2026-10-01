@@ -67,7 +67,6 @@ tmp/
 .pytest_cache/
 .playwright-mcp
 .playwright-cli/
-main-full.log
 
 # Node / npm
 .npmrc
