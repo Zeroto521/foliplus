@@ -146,10 +146,10 @@ const displayName = (ui: LayerUI, id: string): string => {
  *  at any point, so its declared `visible` is the ground truth.
  */
 const snapshotAuthorVisible = (ui: LayerUI, layerInfo: LayerInfo): void => {
-  if (ui.authorVisible.has(layerInfo.id)) return;
+  if (ui.runtimeStore.hasAuthorVisible(layerInfo.id)) return;
   const layer = ui.m.findLayer(layerInfo);
   if (!layer && !layerInfo.canvas) return; // not linked yet — leave unknown
-  ui.authorVisible.set(
+  ui.runtimeStore.setAuthorVisible(
     layerInfo.id,
     layer ? ui.m.map.hasLayer(layer) : intentVisibleOf(ui, layerInfo.id),
   );

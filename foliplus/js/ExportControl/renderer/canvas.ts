@@ -2,7 +2,7 @@
 // the canvases living inside a pane.
 // Moved from renderer.ts — renderCanvasElement, renderPaneCanvas.
 import * as CONST from "../const.js";
-import { isVisible, loadImage } from "../util.js";
+import { isExportExcluded, isVisible, loadImage } from "../util.js";
 import { type RenderCtx, effectiveOpacity, withAlpha } from "./util.js";
 
 /** Render a standalone canvas element (e.g. HeatmapControl). */
@@ -45,6 +45,9 @@ const renderPaneCanvas = async (
 ): Promise<void> => {
   const { ctx, rect, scale, contRect, cw, ch } = rc;
   for (const ce of pane.querySelectorAll(selector)) {
+    // SKIP_EXPORT: self or ancestor (chrome host). Registered canvas layers
+    // paint via `li.canvas` and never reach this pane walk.
+    if (isExportExcluded(ce)) continue;
     try {
       const r = ce.getBoundingClientRect();
       const l = r.left - contRect.left;

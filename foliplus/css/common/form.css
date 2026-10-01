@@ -168,6 +168,14 @@
 .foliplus-toggle-switch:hover input:checked + .foliplus-toggle-slider {
   background-color: var(--foliplus-accent-hover);
 }
+/* Press: knob drops to the button-family press scale. The checked leg keeps
+   its translateX so the knob stays on the "on" side while it shrinks. */
+.foliplus-toggle-switch input:active + .foliplus-toggle-slider::before {
+  transform: scale(var(--foliplus-scale-press));
+}
+.foliplus-toggle-switch input:checked:active + .foliplus-toggle-slider::before {
+  transform: translateX(var(--foliplus-size-20)) scale(var(--foliplus-scale-press));
+}
 .foliplus-toggle-switch input:disabled + .foliplus-toggle-slider {
   opacity: var(--foliplus-alpha-50);
   cursor: default;

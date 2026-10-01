@@ -885,6 +885,37 @@ class TestLayerControlRendering:
         assert "&:hover" in css
         assert "color: var(--foliplus-accent-primary)" in css
 
+    def test_more_btn_press_scales(self):
+        """Row more-button answers :active with the button-family press scale.
+
+        Instant (transition stays none) so a list rebuild cannot flash a
+        mid-scale frame.
+        """
+        css = read_css("foliplus/css/LayerControl/menu.css")
+        idx = css.find(".foliplus-layer-more-btn")
+        assert idx != -1
+        block = css[idx : css.index(".foliplus-layer-item:hover", idx)]
+        assert "&:active" in block
+        assert "scale(var(--foliplus-scale-press))" in block
+
+    def test_layer_row_press_uses_soft_wash(self):
+        """Layer rows answer :active with the soft accent wash, no scale.
+
+        Same vocabulary as the Heatmap scheme picker's persistent selection.
+        Large rows do not scale; deliberately no transition (rows rebuild on
+        every list render). Base basemap rows stay quiet. Declared after the
+        hover recipe so the press wash wins on equal specificity while the
+        button is down.
+        """
+        css = read_css("foliplus/css/LayerControl/row.css")
+        assert '&:not([data-layer-type="base"]):active' in css
+        assert "background: var(--foliplus-accent-soft-bg)" in css
+        # Press must not sneak in a scale or a transition on the large row.
+        idx = css.find('&:not([data-layer-type="base"]):active')
+        block = css[idx : css.index("}", idx)]
+        assert "scale" not in block
+        assert "transition" not in block
+
     def test_fold_btn_hover_bidirectional_preview(self):
         """Fold button shows bidirectional preview across hover and the arrow/Tab cursor.
 
@@ -5293,6 +5324,111 @@ class TestLayerControlBrowser:
             assert result["maskDrawn"] is True, f"focus mask missing, got {result}"
             assert result["rowHighlighted"] is True, (
                 f"row not highlighted, got {result}"
+            )
+
+    def test_focus_rect_is_marching_ants(self, browser, tmp_path):
+        """The focus rect paints the shared marching-ants look, live.
+
+        Pins the three cascade facts a regression can silently drop: accent
+        stroke (not Leaflet's default, not a black fallback), the shared
+        ``--foliplus-dash-rhythm``, and the march animation. Tokens are
+        sampled from the live page — never hardcoded — so a broken custom
+        property fails here instead of only in a human eye.
+        """
+        fg = folium.FeatureGroup(name="Zone", overlay=True, show=True)
+        folium.Polygon(
+            locations=[[26.0, 119.2], [26.2, 119.2], [26.2, 119.5], [26.0, 119.5]],
+        ).add_to(fg)
+        with use_page(
+            self._make_page, browser, tmp_path, fg, slug="focus_rect_ants"
+        ) as (
+            page,
+            _,
+        ):
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            result = page.evaluate(_js("LayerControl/focus_rect_marching_ants"))
+            assert result is not None, "focus_rect_marching_ants failed"
+            assert result["rectDrawn"] is True, f"focus rect missing, got {result}"
+
+            accent = self._sample_token(page, "--foliplus-accent-primary")
+            dash = page.evaluate(
+                "getComputedStyle(document.documentElement)"
+                ".getPropertyValue('--foliplus-dash-rhythm').trim()"
+            )
+            assert result["stroke"] == accent, (
+                f"focus rect stroke must be the accent token, "
+                f"got {result['stroke']} vs {accent}"
+            )
+            assert result["fill"] in ("none", "rgba(0, 0, 0, 0)"), (
+                f"focus rect must stay unfilled, got {result['fill']}"
+            )
+            # strokeDasharray is normalized ("6px, 4px"); the token is
+            # space-separated ("6px 4px"). Compare as token lists.
+            got_dash = result["strokeDasharray"].replace(",", " ").split()
+            want_dash = dash.replace(",", " ").split()
+            assert got_dash == want_dash, (
+                f"focus rect dash rhythm must be {want_dash}, got {got_dash}"
+            )
+            assert result["animationName"] == "foliplus-focus-march", (
+                f"focus rect must keep the march animation, got {result}"
+            )
+
+    def test_geometry_focus_drops_ua_ring_for_marching_ants(self, browser, tmp_path):
+        """A focused map path paints a marching-ants bbox, not a stroke restyle.
+
+        The UA ring is black on Windows Chrome and system-blue on macOS Chrome
+        (outline-style: auto + Highlight). The selection signal is the same
+        marquee as the LayerControl focus rect, so line data keeps its stroke.
+        """
+        fg = folium.FeatureGroup(name="Zone", overlay=True, show=True)
+        folium.Polygon(
+            locations=[[26.0, 119.2], [26.2, 119.2], [26.2, 119.5], [26.0, 119.5]],
+        ).add_to(fg)
+        with use_page(
+            self._make_page, browser, tmp_path, fg, slug="geom_focus_ants"
+        ) as (page, _):
+            page.emulate_media(reduced_motion="no-preference")
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            result = page.evaluate(_js("LayerControl/geometry_focus_marching_ants"))
+            assert result is not None, "geometry_focus_marching_ants failed"
+            assert result["focused"] is True, f"path never took focus, got {result}"
+            assert result["outlineStyle"] == "none", (
+                f"focused geometry must not paint the UA outline, got {result}"
+            )
+            assert result["marqueePresent"] is True, (
+                f"focused geometry must draw the marching-ants bbox, got {result}"
+            )
+
+            accent = self._sample_token(page, "--foliplus-accent-primary")
+            dash = page.evaluate(
+                "getComputedStyle(document.documentElement)"
+                ".getPropertyValue('--foliplus-dash-rhythm').trim()"
+            )
+            assert result["marqueeStroke"] == accent, (
+                f"marquee stroke must be accent, "
+                f"got {result['marqueeStroke']} vs {accent}"
+            )
+            got_dash = result["marqueeDasharray"].replace(",", " ").split()
+            want_dash = dash.replace(",", " ").split()
+            assert got_dash == want_dash, (
+                f"marquee dash rhythm must be {want_dash}, got {got_dash}"
+            )
+            assert result["marqueeAnimation"] == "foliplus-focus-march", (
+                f"marquee must keep the march animation, got {result}"
             )
 
     def test_focus_overlay_pane_keeps_spotlight_visible(self, browser, tmp_path):

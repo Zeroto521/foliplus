@@ -137,7 +137,7 @@ const gatedRows = (
   return rows;
 };
 
-/** Cohesive IntentStore writes for a descriptor `write` patch. `writes` are
+/** Cohesive LayerIntentStore writes for a descriptor `write` patch. `writes` are
  *  `[intentKey, value]` pairs already narrowed by the caller (omit a pair
  *  when the patch did not supply that key). Returns whether any key was
  *  written; schedules storage on success. Callers still own the styleBag /
@@ -158,8 +158,8 @@ const writeIntentKeys = (
   return true;
 };
 
-/** Cohesive IntentStore clears for a descriptor `reset`. `keys` are intent
- *  keys to clear (values + provenance via IntentStore.clear). Always
+/** Cohesive LayerIntentStore clears for a descriptor `reset`. `keys` are intent
+ *  keys to clear (values + provenance via LayerIntentStore.clear). Always
  *  schedules storage when at least one key is supplied — matching the
  *  pre-helper resets, which cleared then saved unconditionally. Returns
  *  whether any key was cleared. Callers still own projection / styleBag

@@ -1,17 +1,19 @@
 // LayerControl UI — class shell: state, lifecycle, event wiring, delegates.
 // Heavy lifting lives in `ui/*` modules; this class owns state and delegates.
 import { type EventBus, ensureEvents } from "#core/event/index.js";
-import type { LabelField } from "#core/labelField.js";
-import { type CreateColorAPI, type LayerInfo } from "#core/layer/index.js";
+import {
+  type CreateColorAPI,
+  type LayerInfo,
+  LayerIntentStore,
+  LayerRuntimeStore,
+} from "#core/layer/index.js";
 import { ListCursor } from "#core/listCursor.js";
 import * as CONST from "../const.js";
 import type { LayerManager } from "../manager.js";
-import type { AppliedProjection } from "../type.js";
 import { applyProjection, applyProjectionAll } from "./apply.js";
 import { closeAttrsPanel, openAttrsPanel } from "./attr.js";
 import { hideSolidBasemap, showSolidBasemap } from "./color.js";
 import { cancelFocus, focusLayer, isFocusing } from "./focus.js";
-import { IntentStore } from "./intentStore.js";
 import {
   blurActiveItem,
   clearActiveItem,
@@ -105,17 +107,12 @@ class LayerUI {
    *  dimension (visible / fill / border / opacity / zoomRange / name /
    *  annotation). Absent key = never touched. Provenance rides the same
    *  `IntentRow` beside the values (`IntentRow.provenance`). */
-  intentStore: IntentStore;
-  /** The author's declared default per layer id, snapshotted once per id from
-   *  the map membership at first sight.
-   *
-   *  Folium ships the layer list without a visibility field, so the author's
-   *  `show=` default reaches the UI only as the map state folium left behind
-   *  when the panel boots. It must be captured before the policy starts moving
-   *  layers: by the time a row first paints a policy sweep may already have
-   *  moved the layer off the map, and reading the map back would record that
-   *  policy decision as the author's. See `intentVisibleOf`. */
-  authorVisible: Map<string, boolean>;
+  intentStore: LayerIntentStore;
+  /** Per-layer derived/transient state — the runtime half of the base:
+   *  projection last-write, field cache, author-visible snapshot. Mirrors the
+   *  intent store row shape (Map by id, O(1)); dropped symmetrically with the
+   *  intent row on unregister (see `LayerRuntimeStore`). */
+  runtimeStore: LayerRuntimeStore;
   currentColor: string;
   /** Lazy-created color basemap surface — the pane-owned canvas that carries
    *  the fill. Built on first show (via `factory.createColor`), which also
@@ -131,6 +128,8 @@ class LayerUI {
   /** Shared list cursor — ARIA roles + roving tabindex on navigable rows. */
   listCursor: ListCursor | null;
   interactionCleanup?: () => void;
+  /** Cleanup for the geometry-focus marquee (focusin/focusout). */
+  geometryMarqueeCleanup?: (() => void) | null;
   declare onChange: ((event: Event) => void) | null;
   declare onInput: ((event: Event) => void) | null;
   declare onClick: ((event: Event) => void) | null;
@@ -185,19 +184,11 @@ class LayerUI {
   styleZoomEndHandler: (() => void) | null;
   /** Layer id whose annotation style panel is open, or null. */
   stylePanelLayerId: string | null;
-  /** Per-layer label-field cache (collectFields walks every feature). */
-  fieldCache: Map<string, LabelField[]>;
   /** Whether the current press began inside a floating row panel. Written on
    *  the press (the panel's document-level capture handler) and read by
    *  `handleDragStart`: `dragstart` is dispatched on the draggable row, so the
    *  event itself cannot say where the press began. */
   pressInPanel: boolean;
-  /** The executor's last-write map: id → the projection `applyProjection`
-   *  last wrote to the map. This is what makes the executor a diff, not a
-   *  sweep — a changeless call re-projects, sees no delta, and calls no
-   *  carrier. Keyed by id (not by `layerInfo` identity) so a re-register
-   *  of the same id keeps its projection across the swap. */
-  appliedState: Map<string, AppliedProjection>;
   /** Temporary Rectangle overlay drawn while a focus is in progress. */
   focusRect: L.Layer | null;
   /** Layer id currently being focused, or null. */
@@ -223,8 +214,8 @@ class LayerUI {
     this._ = env._;
     this.foldedGroups = new Set();
     this.checkedCount = {};
-    this.intentStore = new IntentStore();
-    this.authorVisible = new Map();
+    this.intentStore = new LayerIntentStore();
+    this.runtimeStore = new LayerRuntimeStore();
     this.currentColor = CONST.COLOR.DEFAULT;
     this.colorSurface = null;
     this.activeRenameId = null;
@@ -247,9 +238,7 @@ class LayerUI {
     this.styleRefresh = null;
     this.styleZoomEndHandler = null;
     this.stylePanelLayerId = null;
-    this.fieldCache = new Map();
     this.pressInPanel = false;
-    this.appliedState = new Map();
     this.focusRect = null;
     this.focusingLayerId = null;
     this.onFocusMapMove = null;

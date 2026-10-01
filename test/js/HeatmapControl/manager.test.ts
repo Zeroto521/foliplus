@@ -752,14 +752,17 @@ describe("initScan — single-layer auto-select on first scan only", () => {
       ...window.map.foliplus.LayerAPI,
       getLayersByType: vi.fn(() => []),
       extractPoints: vi.fn(() => []),
-      createCanvas: vi.fn(() => ({
-        register: vi.fn(),
-        unregister: vi.fn(),
-        setVisible: vi.fn(),
-        hooks: { before: [], after: [] },
-        canvas: null,
-        ctx: null,
-      })),
+      createCanvas: vi.fn(() => {
+        const canvas = document.createElement("canvas");
+        return {
+          register: vi.fn(),
+          unregister: vi.fn(),
+          setVisible: vi.fn(),
+          hooks: { before: [], after: [] },
+          canvas,
+          ctx: canvas.getContext("2d"),
+        };
+      }),
     };
   });
 
