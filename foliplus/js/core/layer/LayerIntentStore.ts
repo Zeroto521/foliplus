@@ -1,4 +1,9 @@
-// LayerControl UI — IntentStore: the single per-layer intent carrier.
+// core — LayerIntentStore: the single per-layer intent carrier.
+//
+// Sunk from `LayerControl/ui/intentStore.ts` (T270): intent is a base-layer
+// concept — third-party layers carry user intent too — so the row store lives
+// beside the registry. Renamed `IntentStore` → `LayerIntentStore`; T261
+// semantics unchanged.
 //
 // One `Map<id, IntentRow>` row store replaces the old parallel mirrors
 // (`ui.intents` + `ui.intentProvenance`). The row keeps the value axis
@@ -7,7 +12,7 @@
 // through the cohesive `set` / `clear` surface.
 //
 // Persistence projections (`toPersisted` / `loadFromPersisted`) own the
-// disk-shape bridge; `persistence.ts` still owns parse/serialize.
+// disk-shape bridge; `LayerControl/persistence.ts` still owns parse/serialize.
 import type {
   AnnotationConfig,
   IntentRow,
@@ -15,7 +20,7 @@ import type {
   LayerOverride,
   LoadSource,
   PersistedLayerState,
-} from "../type.js";
+} from "./intent.js";
 import { type IntentKey, LIVE, STYLE_KEYS } from "./intent.js";
 
 const isOverrideKey = (key: IntentKey): key is LayerOverride =>
@@ -23,7 +28,7 @@ const isOverrideKey = (key: IntentKey): key is LayerOverride =>
 
 const overrideKeys = Object.keys(STYLE_KEYS) as LayerOverride[];
 
-class IntentStore {
+class LayerIntentStore {
   private rows = new Map<string, IntentRow>();
 
   private ensure(id: string): IntentRow {
@@ -298,4 +303,4 @@ class IntentStore {
   }
 }
 
-export { IntentStore };
+export { LayerIntentStore };

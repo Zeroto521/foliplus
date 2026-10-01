@@ -30,7 +30,7 @@ const intentVisibleOf = (ui: LayerUI, id: string): boolean => {
   const visible = getIntent(ui, id, INTENT.VISIBLE);
   const hasVisible =
     ui.intentStore.isUserSet(id, INTENT.VISIBLE) || typeof visible === "boolean";
-  const authorDefault = ui.authorVisible.get(id) ?? true;
+  const authorDefault = ui.runtimeStore.getAuthorVisible(id) ?? true;
   return hasVisible ? (visible ?? true) : authorDefault;
 };
 

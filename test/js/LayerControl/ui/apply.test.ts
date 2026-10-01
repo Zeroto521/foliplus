@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { LayerIntentStore, LayerRuntimeStore } from "#core/layer/index.js";
 import { LayerManager } from "#foliplus/LayerControl/manager.js";
 import {
   applyProjection,
@@ -7,7 +8,6 @@ import {
 } from "#foliplus/LayerControl/ui/apply.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { clearIntent, getIntent, setIntent } from "#foliplus/LayerControl/ui/intent.js";
-import { IntentStore } from "#foliplus/LayerControl/ui/intentStore.js";
 import { intentVisibleOf, projectLayer } from "#foliplus/LayerControl/ui/projection.js";
 import { getLayerAlpha } from "#common/canvasAlpha.js";
 import { installLeafletGlobals } from "./fixture.js";
@@ -247,7 +247,7 @@ describe("executor: late-carrier replay", () => {
     // The core case: `prev.opacity` matches `next.opacity` on a re-registered
     // canvas, so a value-only diff misses the write. The executor records
     // which DOM element the last write hit; a fresh canvas is a different
-    // element, so the rewrite fires. This is why `appliedState` carries
+    // element, so the rewrite fires. This is why the runtime `applied` row carries
     // the carrier token, not just the projection.
     const { container, map } = makeOffMapFixture();
 
@@ -392,7 +392,7 @@ describe("executor: idempotent writes", () => {
   });
 
   it("row lookup is by id, not by registry position", () => {
-    // Structural lock: the executor keys `appliedState` by id
+    // Structural lock: the executor keys the runtime `applied` row by id
     // (`projectAll` walks the same union), so DOM order or registration
     // order shifting never misroutes a write. Two canvas layers — one with
     // an opacity intent and one without; each gets its own write regardless
@@ -481,11 +481,11 @@ describe("executor: carrier dispatch", () => {
 
   it("applyProjection reads the canvas class back as the current carrier state", () => {
     // The executor's `currentShown` comes from the live class, not from
-    // `appliedState`: a canvas somebody hid out-of-band converges back to
+    // runtime `applied` row: a canvas somebody hid out-of-band converges back to
     // intent, and an intent hide lands even though the class started clear.
     const canvas = document.createElement("canvas");
     const { ui } = boot([{ id: "cv2", name: "CV2", group: "overlay", canvas }]);
-    ui.authorVisible.set("cv2", true);
+    ui.runtimeStore.setAuthorVisible("cv2", true);
 
     canvas.classList.add("hidden"); // out-of-band hide while intent says shown
     applyProjection(ui, "cv2");
@@ -568,7 +568,7 @@ describe("executor: carrier dispatch", () => {
     ui.m.surfaceFor = (() => ({
       capabilities: { visibility: "native", opacity: "none", zoomRange: "none" },
     })) as unknown as typeof ui.m.surfaceFor;
-    ui.authorVisible.set("nv", true);
+    ui.runtimeStore.setAuthorVisible("nv", true);
     (map.addLayer as ReturnType<typeof vi.fn>).mockClear();
     (map.hasLayer as ReturnType<typeof vi.fn>).mockReturnValue(false);
 
@@ -721,7 +721,7 @@ describe("projectAll: the id set is a union, not just the registry", () => {
     expect(ui.intentStore.dumpProvenance().late).toEqual(["opacity"]);
   });
 
-  it("projectAll treats an empty IntentStore as empty", () => {
+  it("projectAll treats an empty LayerIntentStore as empty", () => {
     const { container, map } = makeOffMapFixture();
     const manager = new LayerManager(map, [
       { id: "a", name: "A", group: "overlay", layer: { options: {} } as L.Layer },
@@ -861,15 +861,14 @@ describe("executor: the branches behind the gates", () => {
     expect(manager.layerRegistry.get("gone")?.opacity).toBe(0.4);
   });
 
-  it("a ui with an empty IntentStore still projects", () => {
+  it("a ui with an empty LayerIntentStore still projects", () => {
     // The `?? false` fallbacks on both choice axes: `applyProjection`,
     // `intentVisibleOf` and `projectLayer` treat an empty store as "no user
     // choice", so a thin stub degrades to the author default.
     const bare = {
-      intentStore: new IntentStore(),
-      authorVisible: new Map<string, boolean>(),
+      intentStore: new LayerIntentStore(),
+      runtimeStore: new LayerRuntimeStore(),
       focusingLayerId: null,
-      appliedState: new Map(),
       m: {
         layerRegistry: {
           get: vi.fn(() => ({ id: "n", layer: { options: {} } })),
@@ -906,7 +905,7 @@ describe("executor: the branches behind the gates", () => {
     // and the map has never been told.
     const layer = { options: {} } as L.Layer;
     const { ui, map } = boot([{ id: "a2", name: "A2", group: "overlay", layer }]);
-    ui.authorVisible.set("a2", true);
+    ui.runtimeStore.setAuthorVisible("a2", true);
     (map.addLayer as ReturnType<typeof vi.fn>).mockClear();
 
     applyProjection(ui, "a2");
@@ -962,7 +961,7 @@ describe("executor: the branches behind the gates", () => {
     // No `intents.visible` / override, and the author's default was observed as
     // `true` while the layer sits on the map — so intent and policy both
     // say "shown" and the layer is already shown.
-    ui.authorVisible.set("up", true);
+    ui.runtimeStore.setAuthorVisible("up", true);
     applyProjection(ui, "up");
 
     expect(map.addLayer).not.toHaveBeenCalled();
@@ -1015,7 +1014,7 @@ describe("membership invariants: only intent + author snapshot authorise members
     manager.ui = new LayerUI(manager);
     const ui = manager.ui as LayerUI;
 
-    expect(ui.authorVisible.has("unobs")).toBe(false);
+    expect(ui.runtimeStore.hasAuthorVisible("unobs")).toBe(false);
     expect(getIntent(ui, "unobs", "visible")).not.toBe(false);
 
     applyProjectionAll(ui);

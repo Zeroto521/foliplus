@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { LayerInfo } from "#core/layer/index.js";
 import { GROUP } from "#core/layer/index.js";
+import { LayerIntentStore } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
-import { IntentStore } from "#foliplus/LayerControl/ui/intentStore.js";
 import {
   initLayerItem,
   initTypesAndVisibility,
@@ -17,7 +17,7 @@ import { TileLayer, initFixture } from "./fixture.js";
 
 const makeUi = () =>
   ({
-    intentStore: new IntentStore(),
+    intentStore: new LayerIntentStore(),
     renamedNames: {},
     m: { layerRegistry: { get: () => undefined } },
     T: (k: string) => k,
@@ -25,7 +25,7 @@ const makeUi = () =>
 
 describe("ui/list displayName", () => {
   it("resolves a registered/renamed id through the registry name", () => {
-    const intentStore = new IntentStore();
+    const intentStore = new LayerIntentStore();
     intentStore.setValue("a", "name", "Renamed");
     const ui = {
       intentStore,

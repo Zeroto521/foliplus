@@ -1,4 +1,4 @@
-// core constants — shared by LayerRegistry / PaneManager.
+// core constants — shared by LayerInfoRegistry / PaneManager.
 // Pure values, no DOM / CONF dependency. Re-exported by LayerControl/const.
 /** Layer-stack z bases — the "layer z" family. Values are frozen; the
  *  three-family z policy table (layer / control / export) lives in

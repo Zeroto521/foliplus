@@ -56,7 +56,7 @@ const attachUI = (ui: LayerUI, containerDiv: HTMLElement): void => {
     if (layerInfo) insertLayerItem(ui, layerInfo);
   }
   // Snapshot the author's declared default before the first projection.
-  // `projectLayer` reads `authorVisible.get(id) ?? true` — an absent entry
+  // `projectLayer` reads `runtimeStore.getAuthorVisible(id) ?? true` — an absent entry
   // is read as "author declared visible" — which is exactly the class of
   // bug the quickstart hit: a folium `show=False` layer would come up on the map
   // on the first projection because the author's snapshot hasn't landed
@@ -290,11 +290,11 @@ const onLayerItemCountChange = (ui: LayerUI, id: string): void => {
   // geometry lands — so this is when the opacity "snaps in". A canvas layer
   // may have been replaced since the previous projection wrote (its
   // `layerInfo.canvas` now points at a fresh element whose style does not
-  // carry the value), so the executor's `appliedState` is invalidated for
+  // carry the value), so the executor's runtime `applied` row is invalidated for
   // this id before the re-projection: the diff sees the stored opacity as
   // new and re-applies it through the carrier dispatcher.
   if (getIntent(ui, id, INTENT.OPACITY) !== undefined) {
-    ui.appliedState.delete(id);
+    ui.runtimeStore.deleteApplied(id);
     applyProjection(ui, id);
   }
 };

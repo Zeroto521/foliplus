@@ -82,7 +82,7 @@ const initWithFillLayer = () => {
       },
     ],
   });
-  ui.fieldCache.set("overlay1", [{ name: "count", numeric: true }]);
+  ui.runtimeStore.setFields("overlay1", [{ name: "count", numeric: true }]);
   return { manager, ui, map, fillLayer };
 };
 
@@ -251,7 +251,7 @@ describe("LayerUI style panel — fill color", () => {
       name: "Line",
       layer: line as never,
     });
-    ui.fieldCache.set("line1", [{ name: "count", numeric: true }]);
+    ui.runtimeStore.setFields("line1", [{ name: "count", numeric: true }]);
     expect(layerCanFill(ui, "line1")).toBe(false);
 
     const item = findItem(ui, "line1");
@@ -285,7 +285,7 @@ describe("LayerUI style panel — fill color", () => {
       name: "Mixed",
       layer: mixed as never,
     });
-    ui.fieldCache.set("mixed1", [{ name: "count", numeric: true }]);
+    ui.runtimeStore.setFields("mixed1", [{ name: "count", numeric: true }]);
     expect(layerCanFill(ui, "mixed1")).toBe(true);
 
     const item = findItem(ui, "mixed1");
@@ -354,7 +354,7 @@ describe("LayerUI style panel — fill color", () => {
       name: "Circles",
       layer: layer as never,
     });
-    ui.fieldCache.set("circle1", [{ name: "count", numeric: true }]);
+    ui.runtimeStore.setFields("circle1", [{ name: "count", numeric: true }]);
 
     expect(layerCanFill(ui, "circle1")).toBe(true);
     const item = findItem(ui, "circle1");
@@ -418,7 +418,7 @@ describe("LayerUI style panel — fill color", () => {
       name: "Cluster2",
       layer: { options: {}, eachLayer: vi.fn(), _topClusterLevel: {} } as never,
     });
-    ui.fieldCache.set("cluster2", [{ name: "count", numeric: true }]);
+    ui.runtimeStore.setFields("cluster2", [{ name: "count", numeric: true }]);
     const item = findItem(ui, "cluster2");
     ui.openStylePanel("cluster2");
     expect(fillRow(item)).toBeNull();
@@ -908,7 +908,7 @@ describe("LayerUI style panel — fill color", () => {
       name: "Group",
       layer: group as never,
     });
-    ui.fieldCache.set("group1", [{ name: "count", numeric: true }]);
+    ui.runtimeStore.setFields("group1", [{ name: "count", numeric: true }]);
     setIntent(ui, "group1", "fillColor", "#123456");
 
     applyFillToLayer(ui, "group1");
@@ -971,7 +971,7 @@ describe("LayerUI style panel — fill color", () => {
       fill: "native",
       stroke: "none",
     };
-    ui.fieldCache.set(CONST.SOLID_BASEMAP_ID, []);
+    ui.runtimeStore.setFields(CONST.SOLID_BASEMAP_ID, []);
   };
 
   it("layerCanFill returns true for a color basemap", () => {

@@ -17,7 +17,7 @@ export {
 } from "./const.js";
 export { ANNOTATION_Z_OFFSET, FOCUS_Z, focusLayerZ, topSlotZ, zFor } from "./z.js";
 export { LayerFactory } from "./LayerFactory.js";
-export { LayerRegistry } from "./LayerRegistry.js";
+export { LayerInfoRegistry } from "./LayerInfoRegistry.js";
 // The class, not `type.ts`'s interface of the same name: it is what the manager
 // constructs, and its type already carries the surface contract (the interface
 // is the `implements` target those members are checked against). Exporting both
@@ -36,6 +36,25 @@ export {
 } from "./util.js";
 export { ensureLayerAPI, requireLayerAPI } from "./api.js";
 export { CLUSTER_CAPABILITIES, deriveLayerKind } from "./util.js";
+export { LayerIntentStore } from "./LayerIntentStore.js";
+export { LayerRuntimeStore } from "./LayerRuntimeStore.js";
+export { LayerOrder } from "./LayerOrder.js";
+export type { OrderPersistence } from "./LayerOrder.js";
+export { INTENT, LIVE, STYLE_KEYS } from "./intent.js";
+export type {
+  AppliedProjection,
+  LayerRuntime,
+  Projection,
+} from "./LayerRuntimeStore.js";
+export type {
+  AnnotationConfig,
+  IntentKey,
+  IntentRow,
+  LayerIntent,
+  LayerOverride,
+  LoadSource,
+  PersistedLayerState,
+} from "./intent.js";
 export type {
   CreateCanvasAPI,
   CreateCanvasOpts,

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { LayerIntentStore, LayerRuntimeStore } from "#core/layer/index.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { clearIntent, setIntent } from "#foliplus/LayerControl/ui/intent.js";
-import { IntentStore } from "#foliplus/LayerControl/ui/intentStore.js";
 import { projectLayer } from "#foliplus/LayerControl/ui/projection.js";
 import {
   ZOOM_RANGE_DIMENSION,
@@ -42,12 +42,10 @@ const mockUI: LayerUI = {
   },
   T: (key: string) => key,
   uiContainer: { querySelector: () => null } as any,
-  intentStore: new IntentStore(),
-  appliedState: new Map(),
-  authorVisible: new Map(),
+  intentStore: new LayerIntentStore(),
+  runtimeStore: new LayerRuntimeStore(),
   foldedGroups: new Set(),
   renamedNames: {},
-  fieldCache: new Map(),
   stylePanelLayerId: null,
   styleOutsideHandler: null,
   pressInPanel: false,

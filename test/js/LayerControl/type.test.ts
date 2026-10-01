@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { LayerRegistry } from "#core/layer/index.js";
+import { LayerInfoRegistry } from "#core/layer/index.js";
 import type { LayerInfo, RegisterLayerOpts } from "#core/layer/index.js";
 
 // Compile-time contract for the layer type model.
@@ -25,7 +25,7 @@ import type { LayerInfo, RegisterLayerOpts } from "#core/layer/index.js";
 // produce a plausible-looking result. The compile-time barrier is the only
 // thing standing between a caller and those values.
 describe("RegisterLayerOpts", () => {
-  const make = () => new LayerRegistry([], null);
+  const make = () => new LayerInfoRegistry([], null);
 
   it("rejects a misspelled key", () => {
     // @ts-expect-error iconSVG is a typo of iconSvg and must not compile
@@ -72,7 +72,7 @@ describe("RegisterLayerOpts", () => {
     // The closure is verified at compile time by the two directives above; a
     // runtime assertion would have to construct a `LayerInfo` with the removed
     // field, which is exactly what the closure exists to prevent.
-    const li = new LayerRegistry([{ id: "l1", name: "L1" }], null).at(0)!;
+    const li = new LayerInfoRegistry([{ id: "l1", name: "L1" }], null).at(0)!;
     expect(Object.keys(li)).not.toContain("visible");
     expect(Object.keys(li)).not.toContain("onToggle");
   });
@@ -136,7 +136,7 @@ describe("RegisterLayerOpts", () => {
 // `undefined` without a diagnostic.
 describe("LayerInfo", () => {
   it("exposes only fields the registry populates", () => {
-    const li = new LayerRegistry([{ id: "l1", name: "L1" }], null).at(0);
+    const li = new LayerInfoRegistry([{ id: "l1", name: "L1" }], null).at(0);
 
     // @ts-expect-error unknown properties are not part of LayerInfo
     const unknown = li.anythingGoes;
@@ -148,7 +148,7 @@ describe("LayerInfo", () => {
   });
 
   it("cannot be widened with an unknown key", () => {
-    const li = new LayerRegistry([{ id: "l1", name: "L1" }], null).at(0);
+    const li = new LayerInfoRegistry([{ id: "l1", name: "L1" }], null).at(0);
 
     const widened: LayerInfo = {
       ...li,

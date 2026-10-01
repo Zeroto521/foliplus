@@ -25,8 +25,8 @@
 //   on bare key strings, so they deliberately do not use scoped lookups).
 import { vi } from "vitest";
 import type { ControlEnv } from "#core/defineControl.js";
+import { LayerIntentStore, LayerRuntimeStore } from "#core/layer/index.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
-import { IntentStore } from "#foliplus/LayerControl/ui/intentStore.js";
 import { createScopedTranslator, createTranslator } from "#common/locale.js";
 import { createLogger } from "#common/log.js";
 
@@ -295,8 +295,8 @@ export function makeLayerUIMock(extra: Overrides = {}): LayerUI {
     T: (key: string) => key,
     _: (key: string) => key,
     foldedGroups: new Set<string>(),
-    intentStore: new IntentStore(),
-    authorVisible: new Map<string, boolean>(),
+    intentStore: new LayerIntentStore(),
+    runtimeStore: new LayerRuntimeStore(),
     currentColor: "#cccccc",
     renamedNames: {},
     activeRenameId: null,
@@ -333,7 +333,6 @@ export function makeLayerUIMock(extra: Overrides = {}): LayerUI {
     styleRefresh: null,
     styleZoomEndHandler: null,
     stylePanelLayerId: null,
-    fieldCache: new Map<string, unknown[]>(),
     pressInPanel: false,
     focusRect: null,
     focusingLayerId: null,

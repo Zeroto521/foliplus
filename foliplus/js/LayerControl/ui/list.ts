@@ -30,7 +30,7 @@ const initTypesAndVisibility = (ui: LayerUI) => {
   const colorLi = ui.m.layerRegistry.get(CONST.SOLID_BASEMAP_ID);
   if (colorLi) {
     // The colour basemap starts unchecked (hidden) by default.
-    ui.authorVisible.set(CONST.SOLID_BASEMAP_ID, false);
+    ui.runtimeStore.setAuthorVisible(CONST.SOLID_BASEMAP_ID, false);
   }
 
   // Snapshot the author default before the sweep below moves any layer: it

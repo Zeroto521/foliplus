@@ -47,7 +47,7 @@ describe("LayerUI style panel", () => {
     // Seed the field cache so the panel builds: collectFields walks the
     // layer's leaves, and the fixture's data layer has none. `count` is a
     // number, which is what makes the number-format row reachable.
-    ui.fieldCache.set("overlay1", [{ name: "count", numeric: true }]);
+    ui.runtimeStore.setFields("overlay1", [{ name: "count", numeric: true }]);
     // The Label section's gate is the surface's annotation capability — a
     // probe over real feature data, which this fixture layer has none of.
     // The field cache supplies the picker's options; this bit supplies the
@@ -145,7 +145,7 @@ describe("LayerUI style panel", () => {
     // Field-less now means capability "none" (the probe over real features,
     // which the fixture layer has none of) — the field cache only feeds the
     // picker's options and cannot veto the section.
-    ui.fieldCache.delete("overlay1");
+    ui.runtimeStore.deleteFields("overlay1");
     const li = manager.layerRegistry.get("overlay1")!;
     const surface = manager.surfaceFor(li) as unknown as {
       capabilities: Record<string, unknown>;
@@ -173,7 +173,7 @@ describe("LayerUI style panel", () => {
   });
 
   it("opens no panel for a layer with neither a labelable field nor a capable dimension", () => {
-    ui.fieldCache.delete("overlay1");
+    ui.runtimeStore.deleteFields("overlay1");
     const item = findItem(ui, "overlay1");
     // Strip every dimension: the surface can carry no honest write. The
     // label bit included — `annotation: "none"` is what says "no labelable
@@ -219,7 +219,7 @@ describe("LayerUI style panel", () => {
     // Gains labelable content: the next open re-probes through surfaceFor
     // (the same read every gate performs) and the section is there.
     li.layer = labelableLeaf();
-    ui.fieldCache.set("growing", [{ name: "count", numeric: true }]);
+    ui.runtimeStore.setFields("growing", [{ name: "count", numeric: true }]);
     ui.openStylePanel("growing");
     expect(panelOf(item)!.querySelector(".foliplus-style-toggle-input")).not.toBeNull();
     ui.closeStylePanel(false);
@@ -227,7 +227,7 @@ describe("LayerUI style panel", () => {
     // Loses it again: the section leaves with the capability.
     li = manager.layerRegistry.get("growing")!;
     li.layer = bareLeaf();
-    ui.fieldCache.delete("growing");
+    ui.runtimeStore.deleteFields("growing");
     ui.openStylePanel("growing");
     expect(panelOf(item)!.querySelector(".foliplus-style-toggle-input")).toBeNull();
     ui.closeStylePanel(false);
@@ -235,7 +235,7 @@ describe("LayerUI style panel", () => {
 
   it("closes the previous panel before opening a new one", () => {
     const a = findItem(ui, "overlay1");
-    ui.fieldCache.set("base1", [{ name: "name", numeric: false }]);
+    ui.runtimeStore.setFields("base1", [{ name: "name", numeric: false }]);
     const b = findItem(ui, "base1");
 
     ui.openStylePanel("overlay1");
@@ -521,7 +521,7 @@ describe("LayerUI style panel", () => {
   });
 
   it("shows auto for a persisted config with no format", () => {
-    ui.fieldCache.set("overlay1", [{ name: "count", numeric: true }]);
+    ui.runtimeStore.setFields("overlay1", [{ name: "count", numeric: true }]);
     manager.annotation.setConfig("overlay1", {
       show: true,
       field: "count",
@@ -589,7 +589,7 @@ describe("LayerUI style panel", () => {
     // leaves the field unresolved on purpose, so the layer keeps labeling
     // itself if its columns change. The auto rule itself (first numeric, else
     // first) is asserted in core/labelField.test.ts and below for the format row.
-    ui.fieldCache.set("overlay1", [
+    ui.runtimeStore.setFields("overlay1", [
       { name: "name", numeric: false },
       { name: "count", numeric: true },
     ]);
@@ -606,7 +606,7 @@ describe("LayerUI style panel", () => {
   });
 
   it("shows the number-format row for the field Auto resolves to", () => {
-    ui.fieldCache.set("overlay1", [
+    ui.runtimeStore.setFields("overlay1", [
       { name: "name", numeric: false },
       { name: "count", numeric: true },
     ]);
@@ -620,7 +620,7 @@ describe("LayerUI style panel", () => {
   });
 
   it("offers the auto entry first, then one option per field", () => {
-    ui.fieldCache.set("overlay1", [
+    ui.runtimeStore.setFields("overlay1", [
       { name: "name", numeric: false },
       { name: "count", numeric: true },
     ]);
@@ -657,7 +657,7 @@ describe("LayerUI style panel", () => {
     // Regression: the initial sync searched the row for a descendant row and
     // matched nothing, so the format dropdown shipped visible for string
     // fields — where comma / percent / int render exactly like auto.
-    ui.fieldCache.set("overlay1", [
+    ui.runtimeStore.setFields("overlay1", [
       { name: "count", numeric: true },
       { name: "name", numeric: false },
     ]);
@@ -674,7 +674,7 @@ describe("LayerUI style panel", () => {
   });
 
   it("shows the number-format row for a numeric field and flips it on switch", () => {
-    ui.fieldCache.set("overlay1", [
+    ui.runtimeStore.setFields("overlay1", [
       { name: "count", numeric: true },
       { name: "name", numeric: false },
     ]);
@@ -1105,7 +1105,7 @@ describe("LayerUI style panel", () => {
     // The `capabilities.opacity !== "none"` half of the guard. A layer whose
     // icons live in a shared pane we do not own (MarkerCluster) has no honest
     // opacity write — showing a slider would persist a value nothing applies.
-    ui.fieldCache.set("overlay1", [{ name: "count", numeric: true }]);
+    ui.runtimeStore.setFields("overlay1", [{ name: "count", numeric: true }]);
     vi.spyOn(manager, "surfaceFor").mockReturnValue({
       capabilities: { opacity: "none", zoomRange: "none" },
       paneNames: [],
@@ -1152,7 +1152,7 @@ describe("LayerUI style panel", () => {
         })),
       } as never,
     });
-    ui.fieldCache.set("border1", [{ name: "count", numeric: true }]);
+    ui.runtimeStore.setFields("border1", [{ name: "count", numeric: true }]);
     const item = findItem(ui, "border1");
     ui.openStylePanel("border1");
     const panel = panelOf(item)!;
@@ -1210,7 +1210,7 @@ describe("LayerUI style panel", () => {
         })),
       },
     });
-    ui.fieldCache.set("poly1", [{ name: "count", numeric: true }]);
+    ui.runtimeStore.setFields("poly1", [{ name: "count", numeric: true }]);
 
     const item = findItem(ui, "poly1");
     ui.openStylePanel("poly1");
@@ -1307,7 +1307,7 @@ describe("LayerUI style panel", () => {
         })),
       } as never,
     });
-    ui.fieldCache.set("sweepVector", [{ name: "count", numeric: true }]);
+    ui.runtimeStore.setFields("sweepVector", [{ name: "count", numeric: true }]);
     const surfaceV = manager.surfaceFor(
       manager.layerRegistry.get("sweepVector")!,
     ) as unknown as { capabilities: Record<string, unknown> };
@@ -1372,7 +1372,7 @@ describe("LayerUI style panel", () => {
       group: "base",
       layer: new GridLayer() as never,
     });
-    ui.fieldCache.set("tileBase1", [{ name: "count", numeric: true }]);
+    ui.runtimeStore.setFields("tileBase1", [{ name: "count", numeric: true }]);
 
     const item = findItem(ui, "tileBase1");
     ui.openStylePanel("tileBase1");
@@ -1395,7 +1395,7 @@ describe("LayerUI style panel", () => {
       group: "base",
       color: "#3366cc",
     });
-    ui.fieldCache.set("colormap", [{ name: "count", numeric: true }]);
+    ui.runtimeStore.setFields("colormap", [{ name: "count", numeric: true }]);
 
     const item = findItem(ui, "colormap");
     ui.openStylePanel("colormap");
@@ -1420,7 +1420,7 @@ describe("LayerUI style panel", () => {
     });
     const li = manager.layerRegistry.get("norange1")!;
     manager.surfaceFor(li).capabilities.zoomRange = "none";
-    ui.fieldCache.set("norange1", [{ name: "count", numeric: true }]);
+    ui.runtimeStore.setFields("norange1", [{ name: "count", numeric: true }]);
 
     const item = findItem(ui, "norange1");
     ui.openStylePanel("norange1");
@@ -1433,7 +1433,7 @@ describe("LayerUI style panel", () => {
   it("layerCanOpacity returns false when the layer is not in the registry", () => {
     // Covers the `!li` guard in layerCanOpacity: a layer with cached fields but
     // no registry entry cannot have its surface queried.
-    ui.fieldCache.set("overlay1", [{ name: "count", numeric: true }]);
+    ui.runtimeStore.setFields("overlay1", [{ name: "count", numeric: true }]);
     const li = manager.layerRegistry.get("overlay1");
     manager.layerRegistry.remove("overlay1");
 
@@ -1456,7 +1456,7 @@ describe("LayerUI style panel", () => {
     // R5: capability-driven gate. A layer whose surface reports opacity/zoomRange
     // capability gets the panel enabled — the opacity and zoomRange sliders are
     // useful even without label fields.
-    ui.fieldCache.delete("overlay1");
+    ui.runtimeStore.deleteFields("overlay1");
     const item = findItem(ui, "overlay1");
 
     ui.openMoreMenu(item);
@@ -1507,22 +1507,22 @@ describe("LayerUI style panel", () => {
   // ─────────────────── field cache ───────────────────
 
   it("caches collectFields per layer id", () => {
-    ui.fieldCache.delete("overlay1");
+    ui.runtimeStore.deleteFields("overlay1");
     const collect = vi.spyOn(manager.annotation, "collectFields");
 
     expect(layerHasLabelFields(ui, "overlay1")).toBe(false);
     expect(layerHasLabelFields(ui, "overlay1")).toBe(false);
     expect(collect).toHaveBeenCalledTimes(1);
-    expect(ui.fieldCache.get("overlay1")).toEqual([]);
+    expect(ui.runtimeStore.getFields("overlay1")).toEqual([]);
   });
 
   it("drops a stale cached empty field list on LAYER_ITEM_COUNT_CHANGE", () => {
     // A layer registered with no labelable fields caches an empty list; a
     // runtime createLayers may later add features carrying properties, which
     // must un-stick the ⋮ menu's Style item.
-    ui.fieldCache.delete("overlay1");
+    ui.runtimeStore.deleteFields("overlay1");
     expect(layerHasLabelFields(ui, "overlay1")).toBe(false);
-    expect(ui.fieldCache.get("overlay1")).toEqual([]);
+    expect(ui.runtimeStore.getFields("overlay1")).toEqual([]);
 
     const fields = [
       { name: "count", numeric: true },
@@ -1532,7 +1532,7 @@ describe("LayerUI style panel", () => {
 
     ui.onLayerItemCountChange("overlay1");
 
-    expect(ui.fieldCache.has("overlay1")).toBe(false);
+    expect(ui.runtimeStore.getFields("overlay1")).toBeUndefined();
     expect(layerHasLabelFields(ui, "overlay1")).toBe(true);
   });
 
@@ -1567,11 +1567,11 @@ describe("LayerUI style panel", () => {
 
   it("invalidateFields drops a layer's cached list", () => {
     layerHasLabelFields(ui, "overlay1");
-    expect(ui.fieldCache.has("overlay1")).toBe(true);
+    expect(ui.runtimeStore.getFields("overlay1")).toBeDefined();
 
     // The delegate is the surface `manager.unregisterLayer` drives.
     ui.invalidateFields("overlay1");
-    expect(ui.fieldCache.has("overlay1")).toBe(false);
+    expect(ui.runtimeStore.getFields("overlay1")).toBeUndefined();
   });
 
   it("keeps the field cache across close/reopen (count changes invalidate)", () => {
@@ -1584,7 +1584,9 @@ describe("LayerUI style panel", () => {
     ui.closeStylePanel(true);
 
     expect(panelOf(item)).toBeUndefined();
-    expect(ui.fieldCache.get("overlay1")).toEqual([{ name: "count", numeric: true }]);
+    expect(ui.runtimeStore.getFields("overlay1")).toEqual([
+      { name: "count", numeric: true },
+    ]);
   });
 
   // ─────────────────── persisted state ───────────────────
@@ -2411,7 +2413,7 @@ describe("LayerUI style panel", () => {
       styleProvider: () => ({ labelShow: true, labelCollide: false }),
       styleSetters: { labelShow: vi.fn(), labelCollide: vi.fn() },
     });
-    ui.fieldCache.set("measure1", [{ name: "count", numeric: true }]);
+    ui.runtimeStore.setFields("measure1", [{ name: "count", numeric: true }]);
     const item = findItem(ui, "measure1");
     ui.openStylePanel("measure1");
     const panel = panelOf(item)!;
@@ -3470,7 +3472,7 @@ describe("LayerUI style panel", () => {
       name: "Cluster2",
       layer: { options: {}, eachLayer: vi.fn(), _topClusterLevel: {} } as never,
     });
-    ui.fieldCache.set("cluster2", [{ name: "count", numeric: true }]);
+    ui.runtimeStore.setFields("cluster2", [{ name: "count", numeric: true }]);
     // The cluster's own probe finds no labelable leaves (empty eachLayer),
     // but this test pins the OPACITY carrier — the Label section stands in
     // for "a panel exists at all", so declare the label bit by hand.
@@ -3504,7 +3506,7 @@ describe("LayerUI style panel — zoom range", () => {
     ui.foldedGroups = new Set();
     seedIntentMap(ui, "visible", {});
     window.localStorage.removeItem(CONST.STORAGE.KEY);
-    ui.fieldCache.set("overlay1", [{ name: "count", numeric: true }]);
+    ui.runtimeStore.setFields("overlay1", [{ name: "count", numeric: true }]);
   });
 
   afterEach(() => {
@@ -4108,7 +4110,7 @@ describe("LayerUI style panel — zoom range", () => {
       name: "AnnotOnly",
       layer: { options: {}, eachLayer: vi.fn() },
     });
-    ui.fieldCache.set("annotOnly", [{ name: "count", numeric: true }]);
+    ui.runtimeStore.setFields("annotOnly", [{ name: "count", numeric: true }]);
     const li = manager.layerRegistry.get("annotOnly")!;
     manager.surfaceFor(li).capabilities.opacity = "none";
 
@@ -4369,7 +4371,7 @@ describe("style utility guards", () => {
     // `if (body)`, `fieldSel?.value ?? cfg.field`, and `if (fmtRow)`.
     // Removing the elements from the panel DOM exercises the false sides.
     const { ui } = initFixture();
-    ui.fieldCache.set("overlay1", [{ name: "count", numeric: true }]);
+    ui.runtimeStore.setFields("overlay1", [{ name: "count", numeric: true }]);
     // The Label section needs the annotation capability (the gate no longer
     // reads the field cache).
     const li = ui.m.layerRegistry.get("overlay1")!;
@@ -4405,7 +4407,7 @@ describe("style utility guards", () => {
     // We mock querySelector to return null for the color/size selectors so the
     // setup code skips the live-binding step.
     const { ui } = initFixture();
-    ui.fieldCache.set("overlay1", [{ name: "count", numeric: true }]);
+    ui.runtimeStore.setFields("overlay1", [{ name: "count", numeric: true }]);
     const panelOf = (item: HTMLElement) =>
       item.querySelector(`.${CONST.CLASSES.STYLE_PANEL}`) as HTMLElement | null;
     const item = findItem(ui, "overlay1");
