@@ -21,6 +21,7 @@ import {
   toggleFold,
 } from "./drag.js";
 import { dismissFocus } from "./focus.js";
+import { bindGeometryFocusMarquee } from "./focusMarquee.js";
 import type { LayerUI } from "./index.js";
 import { INTENT, getIntent } from "./intent.js";
 import {
@@ -55,7 +56,7 @@ const attachUI = (ui: LayerUI, containerDiv: HTMLElement): void => {
     if (layerInfo) insertLayerItem(ui, layerInfo);
   }
   // Snapshot the author's declared default before the first projection.
-  // `projectLayer` reads `authorVisible.get(id) ?? true` — an absent entry
+  // `projectLayer` reads `runtimeStore.getAuthorVisible(id) ?? true` — an absent entry
   // is read as "author declared visible" — which is exactly the class of
   // bug the quickstart hit: a folium `show=False` layer would come up on the map
   // on the first projection because the author's snapshot hasn't landed
@@ -218,6 +219,7 @@ const bindEvents = (ui: LayerUI): void => {
     row.classList.remove(CONST.CLASSES.FOCUSED);
   };
   ui.interactionCleanup = registerInteractions(ui);
+  ui.geometryMarqueeCleanup = bindGeometryFocusMarquee(ui.m.map.getContainer());
 
   container.addEventListener("change", ui.onChange);
   container.addEventListener("input", ui.onInput);
@@ -288,11 +290,11 @@ const onLayerItemCountChange = (ui: LayerUI, id: string): void => {
   // geometry lands — so this is when the opacity "snaps in". A canvas layer
   // may have been replaced since the previous projection wrote (its
   // `layerInfo.canvas` now points at a fresh element whose style does not
-  // carry the value), so the executor's `appliedState` is invalidated for
+  // carry the value), so the executor's runtime `applied` row is invalidated for
   // this id before the re-projection: the diff sees the stored opacity as
   // new and re-applies it through the carrier dispatcher.
   if (getIntent(ui, id, INTENT.OPACITY) !== undefined) {
-    ui.appliedState.delete(id);
+    ui.runtimeStore.deleteApplied(id);
     applyProjection(ui, id);
   }
 };
@@ -339,6 +341,8 @@ const unbindEvents = (ui: LayerUI): void => {
   ui.listCursor?.destroy();
   ui.listCursor = null;
   ui.interactionCleanup?.();
+  ui.geometryMarqueeCleanup?.();
+  ui.geometryMarqueeCleanup = null;
   // Flush the last pending write before the timer is cleared.
   ui.m.persistence.flushAll();
   ui.onChange = ui.onInput = ui.onClick = null;

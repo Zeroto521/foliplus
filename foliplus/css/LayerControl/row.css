@@ -334,6 +334,15 @@
         color: var(--foliplus-accent-primary);
       }
     }
+
+    /* Press: soft wash, same vocabulary as the Heatmap scheme picker's
+       persistent selection. Large rows do not scale; deliberately no
+       transition (rows rebuild on every list render — a background
+       transition would flash checked rows). Declared after the hover recipe
+       so the press wash wins on equal specificity while the button is down. */
+    &:not([data-layer-type="base"]):active {
+      background: var(--foliplus-accent-soft-bg);
+    }
   }
 
   /* ── Open overlay: the owner row lifts above its siblings ──

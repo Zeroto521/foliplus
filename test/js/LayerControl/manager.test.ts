@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
+import { LayerIntentStore, LayerRuntimeStore } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { LayerManager } from "#foliplus/LayerControl/manager.js";
 import {
@@ -9,7 +10,6 @@ import {
 import { LayerPersistence } from "#foliplus/LayerControl/persistence.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { getIntent, setIntent } from "#foliplus/LayerControl/ui/intent.js";
-import { IntentStore } from "#foliplus/LayerControl/ui/intentStore.js";
 import {
   applyUserState,
   dropPersistedLayerState,
@@ -28,12 +28,12 @@ import * as Storage from "#common/storage.js";
 
 const ENFORCE_ORDER_DEBOUNCE_MS = 50;
 
-/** Build an IntentStore from the old two-map fixture shape. */
+/** Build a LayerIntentStore from the old two-map fixture shape. */
 const makeStore = (
   intents: Record<string, Record<string, unknown>> = {},
   provenance: Record<string, string[]> = {},
-): IntentStore => {
-  const store = new IntentStore();
+): LayerIntentStore => {
+  const store = new LayerIntentStore();
   store.replaceIntents(intents as never);
   store.replaceProvenance(provenance as never);
   return store;
@@ -1584,14 +1584,12 @@ describe("LayerManager", () => {
             uiContainer: manager.uiContainer,
             renamedNames: {},
             intentStore: makeStore({ heat: { opacity: 0.4 } }, { heat: ["opacity"] }),
-            appliedState: new Map(),
-            authorVisible: new Map(),
+            runtimeStore: new LayerRuntimeStore(),
           } as any,
           id,
         ),
       intentStore: makeStore({ heat: { opacity: 0.4 } }, { heat: ["opacity"] }),
-      appliedState: new Map(),
-      authorVisible: new Map(),
+      runtimeStore: new LayerRuntimeStore(),
     } as any;
 
     // Swap the canvas on re-registration — the new element starts opaque.
@@ -2544,9 +2542,13 @@ describe("LayerManager", () => {
       const syncNoBasemap = vi.fn();
       manager.ui = {
         intentStore: makeStore(),
+        runtimeStore: (() => {
+          const s = new LayerRuntimeStore();
+          s.setAuthorVisible(CONST.SOLID_BASEMAP_ID, true);
+          return s;
+        })(),
         colorSurface: {} as any,
         currentColor: "#ff0000",
-        authorVisible: new Map([[CONST.SOLID_BASEMAP_ID, true]]),
         saveState: saveStateSpy,
         syncToggleAll,
         syncNoBasemap,
@@ -2559,7 +2561,9 @@ describe("LayerManager", () => {
       expect(unregisterSpy).toHaveBeenCalledWith(CONST.SOLID_BASEMAP_ID);
       expect(manager.ui.colorSurface).toBeNull();
       expect(manager.ui.currentColor).toBe(CONST.COLOR.DEFAULT);
-      expect(manager.ui.authorVisible.get(CONST.SOLID_BASEMAP_ID)).toBe(false);
+      expect(manager.ui.runtimeStore.getAuthorVisible(CONST.SOLID_BASEMAP_ID)).toBe(
+        false,
+      );
       expect(saveStateSpy).toHaveBeenCalled();
       expect(syncToggleAll).toHaveBeenCalledWith(GROUP.BASE);
       expect(syncNoBasemap).toHaveBeenCalled();
@@ -2654,9 +2658,13 @@ describe("LayerManager", () => {
       `;
       manager.ui = {
         intentStore: makeStore(),
+        runtimeStore: (() => {
+          const s = new LayerRuntimeStore();
+          s.setAuthorVisible(CONST.SOLID_BASEMAP_ID, true);
+          return s;
+        })(),
         colorSurface: {} as any,
         currentColor: "#ff0000",
-        authorVisible: new Map([[CONST.SOLID_BASEMAP_ID, true]]),
         dropPersistedLayerState: vi.fn(),
         saveState: vi.fn(),
         syncToggleAll: vi.fn(),

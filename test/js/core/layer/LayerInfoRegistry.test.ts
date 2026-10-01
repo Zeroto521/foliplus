@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { LayerRegistry } from "#foliplus/core/layer/LayerRegistry.js";
+import { LayerInfoRegistry } from "#foliplus/core/layer/LayerInfoRegistry.js";
 
-describe("LayerRegistry", () => {
+describe("LayerInfoRegistry", () => {
   let registry;
 
   beforeEach(() => {
-    registry = new LayerRegistry([
+    registry = new LayerInfoRegistry([
       { id: "overlay1", name: "Points", group: "overlay" },
       { id: "overlay2", name: "Lines", group: "overlay" },
       { id: "base1", name: "OpenStreetMap", group: "base" },
@@ -24,7 +24,7 @@ describe("LayerRegistry", () => {
     });
 
     it("returns -1 firstBaseIdx when no bases", () => {
-      const r = new LayerRegistry([
+      const r = new LayerInfoRegistry([
         { id: "a", group: "overlay" },
         { id: "b", group: "overlay" },
       ]);
@@ -197,7 +197,7 @@ describe("LayerRegistry", () => {
 
   describe("normalizeGroups", () => {
     it("reorders so overlays come before bases", () => {
-      const r = new LayerRegistry([
+      const r = new LayerInfoRegistry([
         { id: "base1", name: "B1", group: "base" },
         { id: "overlay1", name: "O1", group: "overlay" },
         { id: "base2", name: "B2", group: "base" },

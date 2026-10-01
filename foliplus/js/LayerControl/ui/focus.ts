@@ -11,6 +11,8 @@ import {
   zFor,
 } from "#core/layer/index.js";
 import { ensureModes, guardBlocked } from "#core/mode.js";
+import type { RectCorners } from "#common/marqueeShape.js";
+import { roundedRectOutline } from "#common/marqueeShape.js";
 import * as CONST from "../const.js";
 import { applyProjectionAll } from "./apply.js";
 import type { LayerUI } from "./index.js";
@@ -514,11 +516,27 @@ const drawFocusMask = (ui: LayerUI, bounds: L.LatLngBounds): void => {
   map.addLayer(ui.focusMask);
 };
 
-/** Draw the dashed focus rectangle (border only, no fill). */
+/** Rounded-corner rectangle outline (latlng). Shared fillet math — corners
+ *  map to axis-generic {u=lng, v=lat} and back, so focus and the geometry
+ *  bbox read one marquee language. */
+const roundedRectPoints = (bounds: L.LatLngBounds, f = 0.03): L.LatLng[] => {
+  const sw = bounds.getSouthWest();
+  const ne = bounds.getNorthEast();
+  const corners: RectCorners = [
+    { u: sw.lng, v: ne.lat },
+    { u: ne.lng, v: ne.lat },
+    { u: ne.lng, v: sw.lat },
+    { u: sw.lng, v: sw.lat },
+  ];
+  return roundedRectOutline(corners, f).map(p => L.latLng(p.v, p.u));
+};
+
+/** Draw the focus rectangle as accent marching ants, rounded like the other
+ *  marquees. Same bounds as the mask hole — the marquee hugs the shadow edge. */
 const drawFocusRect = (ui: LayerUI, bounds: L.LatLngBounds): void => {
   const map = ui.m.map;
 
-  ui.focusRect = L.rectangle(bounds, {
+  ui.focusRect = L.polygon(roundedRectPoints(bounds), {
     className: "foliplus-focus-rect",
     fill: false,
     interactive: false,

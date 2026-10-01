@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { LayerIntentStore } from "#core/layer/index.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import {
   clearIntent,
@@ -8,9 +9,9 @@ import {
   seedIntentMap,
   setIntent,
 } from "#foliplus/LayerControl/ui/intent.js";
-import { IntentStore } from "#foliplus/LayerControl/ui/intentStore.js";
 
-const ui = (): LayerUI => ({ intentStore: new IntentStore() }) as unknown as LayerUI;
+const ui = (): LayerUI =>
+  ({ intentStore: new LayerIntentStore() }) as unknown as LayerUI;
 
 describe("LayerIntent helpers", () => {
   it("setIntent writes one dimension and getIntent reads it back", () => {
@@ -25,7 +26,7 @@ describe("LayerIntent helpers", () => {
     expect(getIntent(u, "a", "name")).toBe("Renamed");
   });
 
-  it("setIntent writes through an always-present IntentStore", () => {
+  it("setIntent writes through an always-present LayerIntentStore", () => {
     const u = ui();
     setIntent(u, "a", "fillColor", "#ff0000");
     expect(getIntent(u, "a", "fillColor")).toBe("#ff0000");

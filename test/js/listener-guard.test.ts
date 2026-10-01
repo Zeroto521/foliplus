@@ -120,6 +120,13 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
     reason: "attribute panel event bindings — pending migration to `this.on`",
   },
   {
+    f: "LayerControl/ui/focusMarquee.ts",
+    n: 2,
+    pairedOff: 0,
+    reason:
+      "geometry-focus marquee focusin/focusout on the map container; returns its own unbind",
+  },
+  {
     f: "LayerControl/ui/lifecycle.ts",
     n: 13,
     pairedOff: 0,

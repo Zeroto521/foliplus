@@ -952,7 +952,7 @@ describe("LayerUI keyboard", () => {
 
     beforeEach(() => {
       // Seed the field cache so the style panel builds (same recipe as style.test.ts).
-      ui.fieldCache.set("overlay1", [{ name: "count", numeric: true }]);
+      ui.runtimeStore.setFields("overlay1", [{ name: "count", numeric: true }]);
     });
 
     it("ArrowDown on a range slider does not move the cursor or preventDefault", () => {

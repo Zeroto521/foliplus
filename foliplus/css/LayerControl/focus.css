@@ -1,67 +1,61 @@
-/* ── Custom Pane Interaction Rules ── */
-/* `foliplus-layer-pane` is the base class every foliplus-owned pane carries —
-   LayerSurface materialises a layer's pane before the layer joins the map,
-   LayerFactory.createCanvas makes one for an overlay canvas, and the
-   annotation manager makes one per labeled layer, all through
-   PaneManager.ensurePane (the single entry point). LayerControl only z-orders
-   them afterwards. The pane takes no pointer, and neither does the SVG
-   renderer container inside it: an inline <svg> carrying pointer-events is
-   hit over its WHOLE box, not only where it paints, and every foliplus pane
-   holds one. Left at `auto`, the topmost would swallow clicks for every layer
-   painted below it and leave the cursor at the `grab` inherited from the
-   container. Leaflet never sets pointer-events on the svg for the same reason;
-   its paths are reached through the `.leaflet-interactive` rule below. */
+/* LayerControl — map pane interaction + focus overlay */
+
+/* `foliplus-layer-pane` is the base class every foliplus-owned pane carries.
+   The pane takes no pointer, and neither does the SVG renderer container
+   inside it: an inline <svg> carrying pointer-events is hit over its WHOLE
+   box. Leaflet never sets pointer-events on the svg for the same reason. */
 .foliplus-layer-pane,
 .foliplus-layer-pane > svg {
   pointer-events: none;
 }
-/* `pointer-events` inherits, so everything inside the `none` pane starts off
-   unable to take a hit. The split is about receiving hits, not about whether
-   the painted pixels are content: `.foliplus-canvas-layer` marks a canvas
-   that does not want a hit-test surface, and that class is stamped on
-   LayerFactory's canvas whose only user today is HeatmapControl — content, not
-   decoration. Annotation label canvases carry the same class for the same
-   reason. Turning `auto` is reserved for Leaflet's own canvas renderer, the one
-   canvas without the class, which is how the pane-level hit-test surface is
-   expressed. */
 .foliplus-layer-pane > canvas:not(.foliplus-canvas-layer) {
   pointer-events: auto;
 }
-/* Paths and markers re-enable themselves, in any pane. This is the route by
-   which a label inside a pane keeps its own click handler — MeasureControl's
-   segment labels depend on it. */
 .foliplus-layer-pane .leaflet-interactive,
 .foliplus-layer-pane .leaflet-marker-icon {
   pointer-events: auto;
 }
 
-/* ── Focus bounds rectangle (drawn on the map) ──
-   Added via map.addLayer(), so it lives OUTSIDE .foliplus-layer-ctrl and
-   needs a top-level selector. Leaflet renders L.rectangle as a <path> with
-   className applied directly (no polygon child).
-   Shares the "selection border" language with ExportControl's crop box:
-   accent dashed outline, --foliplus-border-thick (2px). The focus rect is transient
-   (marching ants), the crop box is interactive (static), so animation
-   differs. No fill — a thin border only, so it never tints the focused
-   layer underneath. */
-path.foliplus-focus-rect {
+/* Geometry focus: kill the UA ring (black on Windows / system blue on macOS).
+   The selection signal is the marching-ants bbox (see .foliplus-focus-rect),
+   not a restyle of the geometry stroke — a dashed stroke would fight line data. */
+.leaflet-interactive:focus,
+.leaflet-interactive:focus-visible {
+  outline: none;
+}
+
+/* Focus bounds marquee: accent marching ants + soft glow. Used by LayerControl's
+   focusLayer rect and by the geometry-focus bbox (rect element). */
+.foliplus-focus-rect {
   fill: none;
   stroke: var(--foliplus-accent-primary);
   stroke-dasharray: var(--foliplus-dash-rhythm);
   stroke-width: var(--foliplus-border-thick);
   stroke-linejoin: round;
-  /* "Marching ants" selection marquee — the dashes flow along the border. */
-  animation: foliplus-focus-march 0.8s linear infinite;
+  animation-name: foliplus-focus-march;
+  animation-duration: var(--foliplus-motion-slow);
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  filter: drop-shadow(
+    0 0 var(--foliplus-marquee-glow-size) var(--foliplus-marquee-glow-color)
+  );
   pointer-events: none;
 }
-/* Inverse mask that dims everything outside the focused bounds (the hole is
-   carved by the polygon's fill-rule; the mask must never capture input). */
+
 path.foliplus-focus-mask {
   pointer-events: none;
+  animation: foliplus-focus-mask-in var(--foliplus-motion-quick) ease-out;
 }
-/* Accent glow on the focused layer. Applied to the focused pane (one element)
-   by bringFocusedLayerToFront, NOT per leaf element — so focusing a dense
-   layer (thousands of CircleMarkers) stays cheap. Fades the glow in once. */
+@keyframes foliplus-focus-mask-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Soft lift on the focused layer pane — one filter on one element. */
 .foliplus-focus-pane.foliplus-focus-glow {
   animation: foliplus-focus-glow-in var(--foliplus-motion-quick) ease-out;
   filter: drop-shadow(0 0 var(--foliplus-size-4) var(--foliplus-accent-primary));
@@ -75,24 +69,29 @@ path.foliplus-focus-mask {
   }
 }
 
-/* ── Focus: hide every non-focused layer, declaratively ──
-   While focusing, the map container gets `.foliplus-is-focus-mode` and every
-   layer pane except the focused one (marked `.foliplus-focus-pane`) is hidden
-   with a single CSS rule — no per-pane JS visibility loop. The basemap lives
-   in tilePane which has no `.foliplus-layer-pane` class, so it stays visible
-   and keeps the spatial context. Canvas layers (heatmap) live in their own
-   `.foliplus-layer-pane`, and so do the annotation panes — every owned pane
-   is covered by the one base class, so the selector lists it once. */
+/* While focusing, hide every layer pane except the focused one. */
 .foliplus-is-focus-mode .foliplus-layer-pane:not(.foliplus-focus-pane) {
   visibility: hidden;
 }
+
 @keyframes foliplus-focus-march {
   to {
     stroke-dashoffset: -10;
   }
 }
+
 @media (prefers-reduced-motion: reduce) {
-  path.foliplus-focus-rect {
+  .leaflet-interactive:focus,
+  .leaflet-interactive:focus-visible {
+    animation: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .foliplus-focus-rect {
+    animation: none;
+  }
+  path.foliplus-focus-mask {
     animation: none;
   }
 }

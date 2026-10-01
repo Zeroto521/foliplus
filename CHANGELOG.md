@@ -80,7 +80,8 @@
 - `LayerControl` / `HeatmapControl`: the style, attributes and heatmap panels drop their group headings and read as one flat row list; row labels are right-aligned, so all three panels share one label edge ([#516](https://github.com/Zeroto521/foliplus/pull/516))
 - `HeatmapControl` / `LayerControl`: bake layer opacity into canvas draws (`globalAlpha`); heatmap slider stays CSS, bake on redraw ([#533](https://github.com/Zeroto521/foliplus/pull/533))
 - `CSS tokens`: consolidate all `--foliplus-*` definitions into `css/common/token.css` as single source of truth (breaking: bare `--x` → `--foliplus-x`); `style_check` rule 4 enforces definitions only in `token.css` ([#542](https://github.com/Zeroto521/foliplus/pull/542), [#573](https://github.com/Zeroto521/foliplus/pull/573))
-- `LayerControl`: extract the saved-order domain (`savedOrder` / `removedIds` plus load, snapshot, replay, prune) into a `SavedOrder` class in `savedOrder.ts` — `LayerManager` keeps the LayerAPI forwards and the ownership call-sites; behaviour and the persisted record shape are unchanged ([#569](https://github.com/Zeroto521/foliplus/pull/569))
+- `LayerControl` / `ExportControl`: geometry focus paints a marching-ants bbox (drop the UA ring); crop box shares the same marquee language ([#548](https://github.com/Zeroto521/foliplus/pull/548))
+- `LayerControl`: user order + removed ids extracted into a `LayerOrder` class — persisted shape unchanged ([#569](https://github.com/Zeroto521/foliplus/pull/569), [#584](https://github.com/Zeroto521/foliplus/pull/584))
 - `core/defineControl`: shared entry factory — collapses the index.ts IIFE skeleton across controls; Measure/Search logic receive `ControlEnv` instead of module-level free variables ([#575](https://github.com/Zeroto521/foliplus/pull/575))
 
 ### Removed
