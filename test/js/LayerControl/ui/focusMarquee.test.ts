@@ -37,7 +37,7 @@ describe("bindGeometryFocusMarquee", () => {
     path.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
     const rect = path.ownerSVGElement!.querySelector("rect.foliplus-focus-rect");
     expect(rect).not.toBeNull();
-    expect(rect!.getAttribute("rx")).toBe("6");
+    expect(rect!.getAttribute("rx")).toBe("8");
 
     path.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
     expect(path.ownerSVGElement!.querySelector("rect.foliplus-focus-rect")).toBeNull();
@@ -68,6 +68,25 @@ describe("bindGeometryFocusMarquee", () => {
     // B's marquee is the only one left (A's was cleared on the new draw).
     const rects = document.querySelectorAll("rect.foliplus-focus-rect");
     expect(rects.length).toBe(1);
+    unbind();
+  });
+
+  it("focusout on a non-path target does not throw", () => {
+    const unbind = bindGeometryFocusMarquee(root);
+    root.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+    unbind();
+  });
+
+  it("focusing a path without an owner SVG is a safe no-op", () => {
+    const path = document.createElementNS(NS, "path");
+    path.setAttribute("class", "leaflet-interactive");
+    (path as unknown as { getBBox: () => DOMRect }).getBBox = () =>
+      ({ x: 0, y: 0, width: 10, height: 10 }) as DOMRect;
+    // In the DOM under root, but not inside any <svg> → ownerSVGElement null.
+    root.appendChild(path);
+    const unbind = bindGeometryFocusMarquee(root);
+    path.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+    expect(document.querySelectorAll("rect.foliplus-focus-rect")).toHaveLength(0);
     unbind();
   });
 

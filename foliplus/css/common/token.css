@@ -222,7 +222,7 @@
      Glow is split so both box-shadow and drop-shadow can read it. */
   --foliplus-marquee-glow-size: var(--foliplus-size-4);
   --foliplus-marquee-glow-color: var(--foliplus-accent-soft-shadow);
-  --foliplus-marquee-radius: var(--foliplus-size-6);
+  --foliplus-marquee-radius: var(--foliplus-size-8);
 
   /* ── Anchor Dot ──
     Shared look for every interactive anchor dot drawn on the map: measure

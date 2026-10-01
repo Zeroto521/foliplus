@@ -4,7 +4,7 @@
 // instead: class `foliplus-focus-rect` on an SVG rect sized to the path bbox.
 
 const MARQUEE_PAD = 4;
-const MARQUEE_RX = 6;
+const MARQUEE_RX = 8;
 const NS = "http://www.w3.org/2000/svg";
 const SEL = "rect.foliplus-focus-rect";
 
