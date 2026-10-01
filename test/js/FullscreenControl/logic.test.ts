@@ -101,6 +101,34 @@ describe("updateUI", () => {
       expect(btn.classList.contains(CLASSES.HIDDEN)).toBe(false);
     }
   });
+
+  it("hide_others: hides sibling controls but skips its own container", () => {
+    const selfCtrl = document.createElement("div");
+    selfCtrl.className = "leaflet-control";
+    selfCtrl.appendChild(container); // c.contains(container) → skip
+    const otherCtrl = document.createElement("div");
+    otherCtrl.className = "leaflet-control"; // neither → gets hidden
+    const mapContainer = document.createElement("div");
+    mapContainer.append(selfCtrl, otherCtrl);
+    mapMock.getContainer = () => mapContainer;
+    mapMock.isFullscreen = true;
+
+    updateUI(mapMock, fsBtn, container, makeEnv({ hide_others: true }));
+
+    expect(otherCtrl.classList.contains(CLASSES.HIDDEN)).toBe(true);
+    expect(selfCtrl.classList.contains(CLASSES.HIDDEN)).toBe(false);
+  });
+
+  it("hide_self: toggles HIDDEN on the toggle / zoom-in / zoom-out buttons", () => {
+    mapMock.isFullscreen = true;
+    updateUI(mapMock, fsBtn, container, makeEnv({ hide_self: true }));
+    const selfBtns = container.querySelectorAll(
+      ".foliplus-fullscreen-toggle, .foliplus-zoom-in, .foliplus-zoom-out",
+    );
+    for (const btn of selfBtns) {
+      expect(btn.classList.contains(CLASSES.HIDDEN)).toBe(true);
+    }
+  });
 });
 
 describe("toggleFullscreen — pseudo path", () => {

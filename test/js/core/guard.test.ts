@@ -17,12 +17,19 @@ describe("requireFoliplus", () => {
     expect(requireFoliplus(map)).toBe(ns);
   });
 
-  it("warns once on a version mismatch between bundle and runtime", () => {
+  it("warns exactly once on a version mismatch between bundle and runtime", async () => {
+    // versionChecked is module-level; reset so this test starts clean.
+    vi.resetModules();
+    vi.stubGlobal("__FOLIPLUS_VERSION__", "v9.9.9");
     vi.stubGlobal("foliplus", { version: "v1.0.0" });
-    const ns = {};
+    const warnSpy = vi.spyOn(console, "warn");
+    const { requireFoliplus: rf } = await import("#core/guard.js");
+    const ns = { showHint: () => {} };
     const map = { foliplus: ns } as unknown as L.Map;
-    // The bundle's __FOLIPLUS_VERSION__ is undefined outside the build, so the
-    // check is a no-op here; the warning path is exercised by a real build.
-    expect(() => requireFoliplus(map)).not.toThrow();
+    expect(rf(map)).toBe(ns);
+    expect(rf(map)).toBe(ns);
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    expect(warnSpy.mock.calls[0][0]).toMatch(/version mismatch/);
+    warnSpy.mockRestore();
   });
 });

@@ -91,6 +91,19 @@ describe("locateMe", () => {
     expect(ctrl.marker).not.toBeNull();
   });
 
+  it("falls back to the default zoom of 15 when conf.zoom is not set", () => {
+    const getCurrentPosition = geoStub();
+    const ctrl = makeCtrl();
+    ctrl.conf = { ...ctrl.conf, zoom: undefined } as ComponentConfig;
+
+    locateMe(ctrl);
+    getCurrentPosition.mock.calls[0][0]({
+      coords: { longitude: 119.3, latitude: 26.08 },
+    });
+
+    expect(map.flyTo).toHaveBeenCalledWith([26.08, 119.3], 15);
+  });
+
   it("clicking the ✕ removes the pin and its delete icon", () => {
     const getCurrentPosition = geoStub();
     const ctrl: any = makeCtrl();
