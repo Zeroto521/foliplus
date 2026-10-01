@@ -28,7 +28,7 @@ type LayerKind = (typeof KIND)[keyof typeof KIND];
  *  `LayerKind`/`KIND`. */
 type LayerDimKey = (typeof DIM)[keyof typeof DIM];
 
-/** Where a layer's paint actually lives. `LayerRegistry.carrierFor` builds it
+/** Where a layer's paint actually lives. `LayerInfoRegistry.carrierFor` builds it
  *  once at the registration edge from the flat registration fields, and it is
  *  never written again — the flat `layer` / `canvas` / `color` on `LayerInfo`
  *  are read-only snapshots of this projection, kept for the many existing read
@@ -236,7 +236,7 @@ interface LayerInfo {
   name: string;
   layer: L.Layer | null;
   /** What this entry is (tile|vector|canvas|solid|cluster|custom). Derived
-   *  once by `LayerRegistry.kindFor` at the registration edge — the single
+   *  once by `LayerInfoRegistry.kindFor` at the registration edge — the single
    *  place a kind is derived; the surface forwards this value rather than
    *  re-deriving it. */
   kind: LayerKind;

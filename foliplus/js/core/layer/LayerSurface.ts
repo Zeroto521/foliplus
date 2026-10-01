@@ -77,7 +77,7 @@ const kindOf = (opts: SurfaceFaceOpts): LayerKind => opts.kind ?? deriveLayerKin
 interface SurfaceFaceOpts {
   id: string;
   layer: L.Layer | null;
-  /** Declared kind — the registry's authority (`LayerRegistry.kindFor` is
+  /** Declared kind — the registry's authority (`LayerInfoRegistry.kindFor` is
    * the single place a registered layer's kind is derived), which
    * `LayerManager.surfaceFor` forwards down here. When a direct caller
    * declares nothing, `kindOf` probes the layer family. */
