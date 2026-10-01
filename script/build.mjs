@@ -354,10 +354,10 @@ const generateVitestFixture = () => {
   if (genResult.status !== 0) process.exit(genResult.status);
 };
 
-/** Generate foliplus/js/conf-types.ts from the Python schema table.
+/** Generate foliplus/js/conf-schema.ts from the Python schema table.
  *
  *  Two-step: `python foliplus/_schema.py --out <json>` dumps the schema as
- *  JSON, then `node script/gen-conf-types.mjs --json <json>` generates the
+ *  JSON, then `node script/gen-conf-schema.mjs --json <json>` generates the
  *  TS module. The output is a committed source file that must be up to date
  *  with the Python schema — the Python drift test (test__schema.py) and the
  *  TS typecheck together catch any mismatch.
@@ -370,7 +370,7 @@ const generateVitestFixture = () => {
 const generateConfSchema = () => {
   const pythonExe = process.env.PYTHON ?? "python";
   const schemaJson = resolve(buildJs, "conf-schema.json");
-  const confSchemaTs = resolve(CFG.root, "foliplus/js/conf-types.ts");
+  const confSchemaTs = resolve(CFG.root, "foliplus/js/conf-schema.ts");
 
   const dumpResult = spawnSync(
     pythonExe,
@@ -384,7 +384,7 @@ const generateConfSchema = () => {
   const genResult = spawnSync(
     process.execPath,
     [
-      resolve(__dirname, "gen-conf-types.mjs"),
+      resolve(__dirname, "gen-conf-schema.mjs"),
       "--json",
       schemaJson,
       "--out",

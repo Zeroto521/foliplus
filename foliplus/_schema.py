@@ -151,7 +151,7 @@ class FieldSpec:
         elif self.ts not in _SUPPORTED_TAGS:
             raise ValueError(
                 f"FieldSpec ts={self.ts!r} is not a supported tag; "
-                f"valid: {sorted(_SUPPORTED_TAGS) | {'union'}}"
+                f"valid: {sorted(set(_SUPPORTED_TAGS) | {'union'})}"
             )
         if self.runtime_only and not self.optional:
             # A field Python never emits can only be present at runtime;
@@ -177,6 +177,8 @@ def render_ts_type(spec: FieldSpec) -> str:
     emitting a bogus type into the TS surface.
     """
     if spec.ts == "union":
+        # __post_init__ guarantees values for union; assert so mypy narrows.
+        assert spec.values is not None
         base = " | ".join(f'"{v}"' for v in spec.values)
     elif spec.ts in _TS_PRIMITIVES:
         base = _TS_PRIMITIVES[spec.ts]

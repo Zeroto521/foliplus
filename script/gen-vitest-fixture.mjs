@@ -90,7 +90,7 @@ const lines = [
   "//   python foliplus/_schema.py --out .foliplus/conf-schema.json",
   "//   node script/gen-vitest-fixture.mjs",
   "",
-  'import type { ComponentConfig } from "#foliplus/conf-types.js";',
+  'import type { ComponentConfig } from "#foliplus/conf-schema.js";',
   "",
   "/**",
   " * Create a test CONF object pre-populated with every default value from",

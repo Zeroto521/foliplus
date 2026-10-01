@@ -137,4 +137,5 @@ const createScopedTranslator = (conf: ComponentConfig): ((key: string) => string
   return (k: string): string => _(`${conf.name}.${k}`);
 };
 
-export { createTranslator, createScopedTranslator, intlLocale, type LocaleTables };
+export { createTranslator, createScopedTranslator, intlLocale };
+export type { LocaleTables };
