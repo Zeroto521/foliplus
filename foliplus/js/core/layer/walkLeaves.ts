@@ -111,8 +111,9 @@ const someLeaf = (
 ): boolean => {
   if (!layer || depth > maxDepth) return false;
   if (hasChildRegistry(layer)) {
-    for (const kid of childrenOf(layer))
+    for (const kid of childrenOf(layer)) {
       if (someLeaf(kid, pred, depth + 1, maxDepth)) return true;
+    }
     return false;
   }
   return pred(layer as L.Layer);
