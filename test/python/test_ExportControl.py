@@ -303,7 +303,8 @@ class TestExportControlRendering:
         assert idx != -1
         block = css[idx : css.index("}", idx) + 1]
         assert "scale(" not in block, block
-        assert "var(--foliplus-accent-soft-shadow)" in block
+        # Shared marquee glow color (resolves to accent-soft-shadow).
+        assert "var(--foliplus-marquee-glow-color)" in block
         assert "var(--foliplus-transition-fast)" in css
 
         assert ".foliplus-export-center" in css
