@@ -203,6 +203,7 @@ const initFixture = (
     removeLayer: vi.fn(),
     fitBounds: vi.fn(),
     flyTo: vi.fn(),
+    closePopup: vi.fn(),
     getZoom: vi.fn(() => options.initialZoom ?? 5),
     getMaxZoom: vi.fn(() => options.maxZoom ?? 18),
     getMinZoom: vi.fn(() => 0),
