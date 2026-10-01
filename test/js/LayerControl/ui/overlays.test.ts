@@ -73,7 +73,7 @@ describe("LayerUI overlay mutual exclusion", () => {
     // The fixture's data layer carries no real leaves, so the style panel
     // would build empty: seed the field cache and the annotation capability
     // the way the panel's own tests do, so `openStylePanel` renders.
-    ui.fieldCache.set("overlay1", [{ name: "count", numeric: true }]);
+    ui.runtimeStore.setFields("overlay1", [{ name: "count", numeric: true }]);
     const surface = manager.surfaceFor(
       manager.layerRegistry.get("overlay1")!,
     ) as unknown as { capabilities: Record<string, unknown> };
