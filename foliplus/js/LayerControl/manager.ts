@@ -899,6 +899,13 @@ class LayerManager implements LayerAPI {
     return this.order.forgetSavedOrder(id);
   }
 
+  /** Recursively clear every child of a layer. Kept as a hand-written recursion
+   *  (not `walkLeaf` + per-leaf teardown) because `LayerGroup.clearLayers()`
+   *  is Leaflet's atomic teardown — it unregisters map targets, detaches event
+   *  listeners, and fires `remove` events — while `walkLeaf` is a pure
+   *  enumeration that has no teardown semantics. Delegating the fast path to
+   *  `clearLayers()` and only recursing through `eachLayer` for exotic
+   *  containers keeps the two semantics distinct. */
   clearAllLayers(layer: L.Layer | null) {
     if (!layer) return;
     if (
