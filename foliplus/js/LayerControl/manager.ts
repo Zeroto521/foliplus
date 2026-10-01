@@ -553,10 +553,10 @@ class LayerManager implements LayerAPI {
   }
 
   /** Broadcast a layer's registry / map-membership change with the id and kind
-   *  stamped from the registry entry — the single emit site, so every
-   *  subscriber can filter on the payload instead of re-walking the registry.
-   *  Covers register / unregister / reorder / visibility toggle / late
-   *  re-attachment: those are all "the map now shows a different set of
+   *  stamped from the registry entry — LayerManager's single emit site, so
+   *  every subscriber can filter on the payload instead of re-walking the
+   *  registry. Covers register / unregister / reorder / visibility toggle /
+   *  late re-attachment: those are all "the map now shows a different set of
    *  layers", which is what the annotation manager repaints on. */
   private emitLayerChange(id: string, kind: LayerKind): void {
     this.events.emit(EVENTS.LAYER_CHANGE, { id, kind });
