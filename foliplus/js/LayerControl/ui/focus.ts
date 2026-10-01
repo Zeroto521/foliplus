@@ -111,6 +111,13 @@ const focusLayer = (ui: LayerUI, layerId: string) => {
   // (double-click, overflow menu, Alt+Enter, Enter) so none of them leak.
   if (guardBlocked(ui.m.map, ui.conf.name, ui.T("blocked"))) return;
 
+  // Focus is a clean-slate action: collapse any floating panel (attributes,
+  // style, more menu) the user left open before drawing the marquee. Panels
+  // are NOT locked during focus — reopening is a new action.
+  ui.closeMoreMenu(false);
+  ui.closeAttrsPanel(false);
+  ui.closeStylePanel(false);
+
   const layerInfo = ui.m.layerRegistry.get(layerId);
   if (!layerInfo) return;
   const layer = ui.m.findLayer(layerInfo);

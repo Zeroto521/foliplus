@@ -323,6 +323,18 @@ describe("LayerUI focus", () => {
       expect(map.addLayer).toHaveBeenCalled();
     });
 
+    it("collapses floating panels before drawing the focus marquee", () => {
+      // A left-open attrs panel must not survive the focus clean-slate.
+      const item = findItem(ui, "overlay1");
+      ui.openAttrsPanel(item);
+      expect(item.querySelector(".foliplus-layer-attrs-panel")).not.toBeNull();
+
+      ui.focusLayer("overlay1");
+
+      expect(item.querySelector(".foliplus-layer-attrs-panel")).toBeNull();
+      expect(ui.focusRect).not.toBeNull();
+    });
+
     it("caps maxZoom at current zoom + FOCUS.MAX_ZOOM_STEP", () => {
       ui.focusLayer("overlay1");
 
