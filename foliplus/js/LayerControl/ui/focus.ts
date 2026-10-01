@@ -7,7 +7,7 @@ import {
   type LayerInfo,
   PANE_ROLE,
   focusLayerZ,
-  forEachLeaf,
+  walkLeaf,
   zFor,
 } from "#core/layer/index.js";
 import { ensureModes, guardBlocked } from "#core/mode.js";
@@ -91,7 +91,7 @@ const toggleFocusedLayer = (ui: LayerUI): void => {
  * Focus the map on a registered layer's bounding box.
  *
  * Best-effort approach:
- * 1. Compute bounds from the layer (fallback: forEachLeaf for containers
+ * 1. Compute bounds from the layer (fallback: walkLeaf for containers
  *    whose getBounds delegates to children).
  * 2. If the layer is not on the map, bring it on temporarily so the bounds
  *    and the visual highlight are consistent with the user's action.
@@ -129,7 +129,7 @@ const focusLayer = (ui: LayerUI, layerId: string) => {
     return;
   }
 
-  // Bounds come from the Leaflet layer (with a forEachLeaf fallback), or
+  // Bounds come from the Leaflet layer (with a walkLeaf fallback), or
   // from a canvas layer's getBounds provider (heatmap has no Leaflet layer).
   let bounds: L.LatLngBounds | null = null;
   if (layer) {
@@ -447,7 +447,7 @@ const computeLayerBounds = (ui: LayerUI, layer: L.Layer): L.LatLngBounds | null 
   }
   const acc = L.latLngBounds([]);
   let hasLeaf = false;
-  forEachLeaf(layer, leaf => {
+  walkLeaf(layer, leaf => {
     const lb = (leaf as L.Layer & { getBounds?: () => L.LatLngBounds }).getBounds?.();
     if (lb && lb.isValid()) {
       acc.extend(lb);

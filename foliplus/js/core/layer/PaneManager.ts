@@ -18,7 +18,7 @@ import {
 } from "../leafletAdapter.js";
 import * as CONST from "./const.js";
 import type { PaneSpec } from "./type.js";
-import { forEachLayer } from "./util.js";
+import { isContainerNode, walkTree } from "./walkLeaf.js";
 import { zFor } from "./z.js";
 
 const log = createLogger("PaneManager");
@@ -42,7 +42,7 @@ type PinnableNode = L.Layer & {
  *    walk already pays for each node it touches, so the entries we would have
  *    kept cost nothing to drop, and the entries we did not touch are the ones
  *    a single-key policy would have kept wrong. Over-invalidation is always
- *    safe here — a stale entry costs one extra `forEachLayer` walk, never a
+ *    safe here — a stale entry costs one extra `walkTree` walk, never a
  *    wrong answer.
  *
  *  `removePane` deliberately touches neither: destroying a pane div does not
@@ -260,7 +260,7 @@ class PaneManager {
    *    ignored: a repinned subtree can invalidate entries for layers the
    *    caller holds no reference to, so a single-key policy can leave a wrong
    *    answer in the cache. Over-invalidating is always safe here — a stale
-   *    entry costs one extra `forEachLayer` walk, never a wrong result.
+   *    entry costs one extra `walkTree` walk, never a wrong result.
    *    `pinTree` uses the same primitive. */
   reset(id?: number): void {
     this.generation++;
@@ -373,17 +373,15 @@ class PaneManager {
    *     "mainLayer.addLayer falls through to origAddLayer …").
    */
   pinTree(node: L.Layer, paneName: string): void {
-    const walk = (n: PinnableNode): void => {
+    walkTree(node as PinnableNode, n => {
       n.options.pane = paneName;
-      if (!n.eachLayer) {
-        // A Path needs its renderer pinned; every other leaf just carries the
-        // pane name written above.
-        if (n instanceof L.Path) this.ensureVector(n as PathWithPane, paneName);
-        return;
+      // A Path needs its renderer pinned; every other leaf just carries the
+      // pane name written above. Containers never reach here — the walk
+      // descends past them.
+      if (!isContainerNode(n) && n instanceof L.Path) {
+        this.ensureVector(n as PathWithPane, paneName);
       }
-      n.eachLayer(c => walk(c as PinnableNode));
-    };
-    walk(node as PinnableNode);
+    });
     // Bumping the generation marks every previously memoised entry stale, so
     // any later `discoverChildPanes` sees the pin rather than the pre-pin name.
     // Precise per-node delete would only have served the ones we touched;
@@ -405,7 +403,7 @@ class PaneManager {
     const hit = this.discoveryCache.get(key);
     if (hit && hit.gen === this.generation) return hit.panes;
     const panes = new Set<string>();
-    forEachLayer(
+    walkTree(
       layer,
       (l: L.Layer) => {
         const p = l.options.pane;
@@ -415,7 +413,7 @@ class PaneManager {
     );
     const result = Array.from(panes);
     // Map insertion order is FIFO here, so the first key is the oldest. Dropping
-    // it costs one extra `forEachLayer` walk the next time that layer is asked
+    // it costs one extra `walkTree` walk the next time that layer is asked
     // about — never a wrong answer. The `size` guard already guarantees the
     // iterator has a value, so the `!` is for the type system only.
     if (this.discoveryCache.size >= CONST.CACHE.PANE_DISCOVERY_ENTRIES) {
