@@ -43,6 +43,17 @@ const closeOverlays = (ui: LayerUI): void => {
   // GeoJson template), not onto map._popup — closePopup above only reaches
   // map-level popups. Sweep the layers so feature-bound popups close too.
   ui.m.map.eachLayer(layer => layer.closePopup?.());
+  // Belt-and-braces: some popups survive both calls — Leaflet's closePopup
+  // only tracks map._popup, and eachLayer stops at top-level layers. Clear
+  // the reference and drop any surviving DOM so a stale float never sits
+  // over the focus spotlight.
+  const map = ui.m.map as any;
+  map._popup?.close();
+  map._popup = undefined;
+  ui.m.map
+    .getContainer()
+    .querySelectorAll(".leaflet-popup")
+    .forEach(el => el.remove());
   finishRename(ui);
   closeMoreMenu(ui, true);
   closeAttrsPanel(ui, false);
