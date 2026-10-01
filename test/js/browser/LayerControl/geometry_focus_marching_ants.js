@@ -4,7 +4,7 @@
   path.setAttribute("tabindex", "-1");
   path.focus();
   const cs = getComputedStyle(path);
-  const marquee = document.querySelector("rect.foliplus-focus-rect");
+  const marquee = document.querySelector("path.foliplus-focus-rect");
   const mcs = marquee ? getComputedStyle(marquee) : null;
   return {
     focused: document.activeElement === path,
