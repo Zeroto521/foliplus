@@ -9,7 +9,7 @@ import {
   setInteractive,
   suspendMapInteractions,
 } from "#foliplus/core/layer/util.js";
-import { walkTree, walkLeaf } from "#foliplus/core/layer/walkLeaf.js";
+import { walkLeaf, walkTree } from "#foliplus/core/layer/walkLeaf.js";
 
 // What is worth pinning here is the other half: nothing in
 // util.ts touches a private field any more.

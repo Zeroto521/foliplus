@@ -23,8 +23,8 @@ import {
   type RegisterLayerOpts,
   countFeatureGeometry,
   findLayer,
-  walkLeaf,
   topSlotZ,
+  walkLeaf,
   zFor,
 } from "#core/layer/index.js";
 import type { PaneSpec } from "#core/layer/type.js";
