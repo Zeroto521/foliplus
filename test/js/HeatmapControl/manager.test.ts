@@ -510,6 +510,20 @@ describe("renderHexagons", () => {
   });
 });
 
+describe("wrapper delegation & the registration snapshot", () => {
+  it("computeBreaks forwards the caller's args to the shared classifier", async () => {
+    const m = makeManager();
+    const mod = await import("#core/classify.js");
+    const spy = vi.spyOn(mod, "computeBreaks").mockImplementation(() => [1, 5]);
+    try {
+      m.computeBreaks([3, 1, 4], 4, "fisher-jenks");
+      expect(spy).toHaveBeenCalledWith([3, 1, 4], 4, "fisher-jenks");
+    } finally {
+      spy.mockRestore();
+    }
+  });
+});
+
 describe("HeatmapManager — export event subscriptions", () => {
   // The two export handlers are named methods, so the tests below assert on
   // them.  A bus that stopped delivering — or a subscription that went
