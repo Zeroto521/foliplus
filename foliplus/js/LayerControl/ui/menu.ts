@@ -6,8 +6,8 @@ import * as CONST from "../const.js";
 import * as SVGs from "../icon.js";
 import { focusDisabledLocaleKey, focusDisabledReason } from "./focus.js";
 import type { LayerUI } from "./index.js";
-import { finishRename } from "./rename.js";
 import { layerCanLabel, layerHasStyleDelegation } from "./style/index.js";
+import { closeOverlays } from "./teardown.js";
 
 /**
  * Open the "more" overflow dropdown for a given layer row.
@@ -41,10 +41,9 @@ import { layerCanLabel, layerHasStyleDelegation } from "./style/index.js";
  * A new dimensions entry belongs with Style, not at the tail.
  */
 const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
-  // Close any previously open menu first, and commit/cancel a rename so
-  // the label text is fresh before we read the row.
-  finishRename(ui);
-  closeMoreMenu(ui, true);
+  // Tear down the competing overlays first. The rename teardown in
+  // particular keeps the row's label text fresh before we read it below.
+  closeOverlays(ui);
 
   const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
   const menu = dom.el("ul", { class: "foliplus-layer-more-menu open", role: "menu" });

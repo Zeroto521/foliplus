@@ -3322,7 +3322,10 @@ describe("LayerUI style panel", () => {
     // toggle must be observable.
     const toggleSpy = vi.fn();
     vi.spyOn(ui.m.map, "getContainer").mockImplementation(
-      () => ({ classList: { toggle: toggleSpy } }) as unknown as HTMLElement,
+      () =>
+        ({
+          classList: { toggle: toggleSpy, remove: vi.fn() },
+        }) as unknown as HTMLElement,
     );
     try {
       const item = findItem(ui, "base1");
@@ -3344,7 +3347,10 @@ describe("LayerUI style panel", () => {
   it("commitOpacityPct skips the hatch sync for overlays", () => {
     const toggleSpy = vi.fn();
     vi.spyOn(ui.m.map, "getContainer").mockImplementation(
-      () => ({ classList: { toggle: toggleSpy } }) as unknown as HTMLElement,
+      () =>
+        ({
+          classList: { toggle: toggleSpy, remove: vi.fn() },
+        }) as unknown as HTMLElement,
     );
     try {
       const item = findItem(ui, "overlay1");
@@ -3368,7 +3374,10 @@ describe("LayerUI style panel", () => {
     // Same invariant as commitOpacityPct: base → sync, overlay → skip.
     const toggleSpy = vi.fn();
     vi.spyOn(ui.m.map, "getContainer").mockImplementation(
-      () => ({ classList: { toggle: toggleSpy } }) as unknown as HTMLElement,
+      () =>
+        ({
+          classList: { toggle: toggleSpy, remove: vi.fn() },
+        }) as unknown as HTMLElement,
     );
     try {
       const li = manager.layerRegistry.get("base1")!;
@@ -3387,7 +3396,10 @@ describe("LayerUI style panel", () => {
   it("resetLayerOpacity skips the hatch sync for overlays", () => {
     const toggleSpy = vi.fn();
     vi.spyOn(ui.m.map, "getContainer").mockImplementation(
-      () => ({ classList: { toggle: toggleSpy } }) as unknown as HTMLElement,
+      () =>
+        ({
+          classList: { toggle: toggleSpy, remove: vi.fn() },
+        }) as unknown as HTMLElement,
     );
     try {
       const li = manager.layerRegistry.get("overlay1")!;

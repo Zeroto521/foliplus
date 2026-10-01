@@ -17,6 +17,7 @@ import * as CONST from "../const.js";
 import { applyProjectionAll } from "./apply.js";
 import type { LayerUI } from "./index.js";
 import { getActiveLayerItem } from "./keyboard.js";
+import { closeOverlays } from "./teardown.js";
 
 /** Why a row's focus action is off. Carried as the menu item's title and as
  *  the hint text when a keyboard/double-click path tries to focus a row the
@@ -156,8 +157,11 @@ const focusLayer = (ui: LayerUI, layerId: string) => {
     return;
   }
 
-  // Cancel any in-flight focus first.
-  dismissFocus(ui);
+  // Clear the competing overlays now that every guard above has passed — a
+  // rejected focus (blocked map, unknown id, hidden row, no bounds) must not
+  // clear what the user left open. It tears focus down silently, where
+  // cancelFocus would flash "Focus cancelled" before every focus.
+  closeOverlays(ui);
 
   // Hide every other visible layer so the focused one stands out —including
   // layers that overlap the focused bounds (the mask only dims outside).
@@ -174,8 +178,7 @@ const focusLayer = (ui: LayerUI, layerId: string) => {
   // register the same auto-cancel, so both must hold the mode —a missing
   // setMode on the flyTo path would let export/measure render through a
   // live focus overlay. Cleared on dismissFocus —called by the auto-timeout,
-  // the manual cancel, and a subsequent focus (dismissFocus runs at the top
-  // of focusLayer).
+  // the manual cancel, and a subsequent focus (closeOverlays runs first).
   const modes = ensureModes(ui.m.map);
   modes.setMode(ui.conf.name, "focusing");
 

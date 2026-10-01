@@ -87,7 +87,7 @@ class MeasureMode {
 
   /** Convert a persisted measurement to a GeoJSON Feature.
    *  Subclasses override this to return their specific geometry type. */
-  static toGeoFeature(env: ControlEnv, _data: MeasureData): GeoJSON.Feature {
+  static toGeoFeature(env: ControlEnv, data: MeasureData): GeoJSON.Feature {
     throw new Error(env.log.msg(`toGeoFeature not implemented for ${this.TYPE}`));
   }
 }
