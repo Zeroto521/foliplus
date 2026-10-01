@@ -226,6 +226,19 @@ describe("LayerUI overlay mutual exclusion", () => {
       expect(ui.stylePanelLayerId).toBeNull();
       expect(IS_UP.attrs(ui)).toBe(true);
     });
+
+    it("openStylePanel with an unknown id leaves an open panel alone", () => {
+      // The row-lookup guard runs before closeOverlays: an id with no row
+      // would otherwise clear whatever the user had open and then fail to
+      // open anything.
+      ui.openAttrsPanel(findItem(ui, "overlay1"));
+      expect(IS_UP.attrs(ui)).toBe(true);
+
+      ui.openStylePanel("no-such-layer");
+
+      expect(ui.stylePanelLayerId).toBeNull();
+      expect(IS_UP.attrs(ui)).toBe(true);
+    });
   });
 
   it("renameLayer leaves the cursor in the inline input", () => {
