@@ -354,26 +354,27 @@ const generateVitestFixture = () => {
   if (genResult.status !== 0) process.exit(genResult.status);
 };
 
-/** Generate foliplus/js/conf-schema.ts from the Python schema table.
+/** Generate foliplus/js/conf-types.ts from the Python schema table.
  *
- *  Two-step: `python -m foliplus._schema --out <json>` dumps the schema as
- *  JSON, then `node script/gen-conf-schema.mjs --json <json>` generates the
+ *  Two-step: `python foliplus/_schema.py --out <json>` dumps the schema as
+ *  JSON, then `node script/gen-conf-types.mjs --json <json>` generates the
  *  TS module. The output is a committed source file that must be up to date
  *  with the Python schema — the Python drift test (test__schema.py) and the
  *  TS typecheck together catch any mismatch.
  *
- *  The Python invocation uses `-W ignore` to suppress a harmless RuntimeWarning
- *  from runpy (the schema module is already in sys.modules after the package
- *  init runs). PYTHON env var overrides the Python executable.
+ *  The Python invocation uses `-W ignore` to suppress a harmless RuntimeWarning.
+ *  Uses `python <path>` instead of `python -m` to avoid triggering the package
+ *  init (which imports branca/folium — not needed for schema dumping).
+ *  PYTHON env var overrides the Python executable.
  */
 const generateConfSchema = () => {
   const pythonExe = process.env.PYTHON ?? "python";
   const schemaJson = resolve(buildJs, "conf-schema.json");
-  const confSchemaTs = resolve(CFG.root, "foliplus/js/conf-schema.ts");
+  const confSchemaTs = resolve(CFG.root, "foliplus/js/conf-types.ts");
 
   const dumpResult = spawnSync(
     pythonExe,
-    ["-W", "ignore", "-m", "foliplus._schema", "--out", schemaJson],
+    ["-W", "ignore", resolve(CFG.root, "foliplus/_schema.py"), "--out", schemaJson],
     { stdio: "pipe", encoding: "utf-8" },
   );
   if (dumpResult.error) throw dumpResult.error;
@@ -383,7 +384,7 @@ const generateConfSchema = () => {
   const genResult = spawnSync(
     process.execPath,
     [
-      resolve(__dirname, "gen-conf-schema.mjs"),
+      resolve(__dirname, "gen-conf-types.mjs"),
       "--json",
       schemaJson,
       "--out",

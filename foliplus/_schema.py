@@ -26,8 +26,11 @@ enforced by the existing Python tests that snapshot the emitted JSON.
 
 Usage (build tooling):
 
-    python -m foliplus._schema --dump            # JSON to stdout
-    python -m foliplus._schema --out schema.json # JSON to file
+    python foliplus/_schema.py --dump            # JSON to stdout
+    python foliplus/_schema.py --out schema.json # JSON to file
+
+    # Or via python -m (requires branca/folium installed):
+    python -m foliplus._schema --dump
 
 Schema format:
 
@@ -45,6 +48,15 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+
+# When run as `python foliplus/_schema.py`, the script's directory is prepended
+# to sys.path. This shadows stdlib `locale` with `foliplus/locale` (which has
+# no `normalize()`), breaking argparse's gettext import. Strip the script dir
+# so stdlib modules resolve correctly. Safe: `_schema.py` imports no foliplus
+# siblings, so it does not need the package on sys.path.
+_script_dir = str(Path(__file__).resolve().parent)
+if _script_dir in sys.path:
+    sys.path.remove(_script_dir)
 
 # TS type tags supported. Kept small — fields are flat, no nested object
 # shapes beyond `Record<string, unknown>` and array-of-string. Add a new tag
