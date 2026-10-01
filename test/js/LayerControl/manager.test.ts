@@ -414,11 +414,44 @@ describe("LayerManager", () => {
       expect(fresh.intentVisible("x")).toBe(true);
     });
 
+    it("returns true for a known layer when no UI is attached yet", () => {
+      // Pre-attach the registry already knows the id, but there is no row and
+      // no intent store to read — the author default still stands.
+      manager.ui = null;
+      expect(manager.intentVisible("overlay1")).toBe(true);
+    });
+
     it("returns the UI's intent for a known layer", () => {
       const ui = vi.fn().mockReturnValue(false);
       manager.ui = { intentVisible: ui } as any;
       expect(manager.intentVisible("overlay1")).toBe(false);
       expect(ui).toHaveBeenCalledWith("overlay1");
+    });
+  });
+
+  describe("setVisible", () => {
+    it("refuses an unknown id rather than reporting a hide that never happened", () => {
+      expect(manager.setVisible("ghost", false)).toBe(false);
+    });
+
+    it("refuses before the panel is attached — there is no row to sync", () => {
+      // The hidden set lives on LayerUI, and destroy() clears the registry too,
+      // so a "success" with no panel would be a state change nothing can show.
+      manager.ui = null;
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      try {
+        expect(manager.setVisible("overlay1", false)).toBe(false);
+        expect(warn).toHaveBeenCalled();
+      } finally {
+        warn.mockRestore();
+      }
+    });
+
+    it("delegates to the panel's applyVisibility for a known layer", () => {
+      const apply = vi.fn(() => true);
+      manager.ui = { applyVisibility: apply } as any;
+      expect(manager.setVisible("overlay1", false)).toBe(true);
+      expect(apply).toHaveBeenCalledWith("overlay1", false);
     });
   });
 
@@ -804,6 +837,13 @@ describe("LayerManager", () => {
     expect(update.mock.calls.length).toBe(afterFirst);
   });
 
+  it("syncAttribution is a silent no-op when the map has no attribution control", () => {
+    // A stripped map (Leaflet built without the control) must not throw — the
+    // ordering pass calls this on every reorder.
+    (manager.map as any).attributionControl = null;
+    expect(() => manager.syncAttribution()).not.toThrow();
+  });
+
   // ── batch registration coalescing ──
 
   it("registerLayer does not run enforceOrder synchronously", () => {
@@ -865,6 +905,53 @@ describe("LayerManager", () => {
     expect(items[2].classList.contains("foliplus-layer-toggle-all")).toBe(true);
     // The base row that carries the color control is navigable too.
     expect(items[3].classList.contains("foliplus-layer-item")).toBe(true);
+  });
+
+  it("onLayerAdd emits LAYER_CHANGE when a pending layer's global finally joins the map", () => {
+    // Late binding: folium streams a layer's JS global *after* this control's
+    // own script, so the registration lands with `layer: null` and the real
+    // object reaches the map through `layeradd` later. No registry write
+    // covers that arrival, so without this emit a bus-only consumer (the
+    // annotation manager repainting labels) would watch a layer appear and
+    // never hear about it.
+    const realStamp = window.L.stamp;
+    window.L.stamp = stableStamp;
+    try {
+      manager.registerLayer({ id: "late", name: "Late", group: "overlay" });
+      const arrived = new window.L.Path();
+      map._layers["late"] = arrived;
+      const onChange = vi.fn();
+      manager.events.on(EVENTS.LAYER_CHANGE, onChange);
+
+      manager.onLayerAdd({ layer: arrived });
+
+      // kind comes from the registry entry ("vector" for a pending Leaflet
+      // registration), not from re-probing `arrived`.
+      expect(onChange).toHaveBeenCalledWith({ id: "late", kind: "vector" });
+    } finally {
+      window.L.stamp = realStamp;
+    }
+  });
+
+  it("onLayerAdd stays silent when no pending entry can claim the arriving layer", () => {
+    // The other arm: a registration that already carries its layer is not
+    // "late", so an unrelated add must not manufacture a change — and a
+    // pending entry whose resolved object is a *different* layer must not
+    // claim it either.
+    const realStamp = window.L.stamp;
+    window.L.stamp = stableStamp;
+    try {
+      manager.registerLayer({ id: "pending", name: "Pending", group: "overlay" });
+      map._layers["pending"] = new window.L.Path();
+      const onChange = vi.fn();
+      manager.events.on(EVENTS.LAYER_CHANGE, onChange);
+
+      manager.onLayerAdd({ layer: new window.L.Path() });
+
+      expect(onChange).not.toHaveBeenCalled();
+    } finally {
+      window.L.stamp = realStamp;
+    }
   });
 
   it("onLayerAdd responds to container layers (GeoJSON/FeatureGroup) too", () => {
@@ -1449,6 +1536,40 @@ describe("LayerManager", () => {
     } finally {
       map.getPane = realGetPane;
     }
+  });
+
+  it("createColor delegates to the factory", () => {
+    window.L.DomUtil = { getPosition: vi.fn(() => ({ x: 0, y: 0 })) };
+    map.getPanes = vi.fn(() => ({ mapPane: document.createElement("div") }));
+    const spy = vi.spyOn(manager.factory, "createColor");
+    const api = manager.createColor({ id: "solid1" });
+    expect(spy).toHaveBeenCalledWith({ id: "solid1" });
+    expect(api).toBeDefined();
+  });
+
+  it("BEFORE_EXPORT flushes the pending order before the exporter captures", () => {
+    // A debounced reorder would otherwise land after the capture, exporting the
+    // stale z-order the panel already showed.
+    const spy = vi.spyOn(manager, "enforceOrder").mockImplementation(() => {});
+    manager.events.emit(EVENTS.BEFORE_EXPORT);
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it("a runtime content change routes through invalidateType and the live count", () => {
+    // clearLayers is how a group empties itself; the factory must invalidate the
+    // cached type and refresh the count column, not just drop the layers.
+    const invalidate = vi.spyOn(manager, "invalidateType").mockImplementation(() => {});
+    const refresh = vi.spyOn(manager, "refreshCount").mockImplementation(() => {});
+    const api = manager.createLayers({
+      id: "g3",
+      name: "Group",
+      panes: [{ name: "g3_sub" }],
+    });
+    api.register();
+    api.addLayer({ options: {} } as any, "g3_sub");
+    api.clearLayers();
+    expect(invalidate).toHaveBeenCalledWith("g3");
+    expect(refresh).toHaveBeenCalledWith("g3");
   });
 
   it("does not price a pane for a canvas whose id was deleted", () => {
@@ -2167,6 +2288,25 @@ describe("LayerManager", () => {
     expect(pts[0].marker).toBe(consumed);
   });
 
+  it("extractPoints skips leaves that are not point markers", () => {
+    // A line leaf is a legitimate child of a registered group, but it has no
+    // latlng — the guard drops it instead of calling getLatLng on it.
+    const line = new (window.L.Polyline as any)();
+    line.options = {};
+    manager.map.hasLayer.mockReturnValue(false);
+    manager.registerLayer({
+      id: "lines",
+      name: "Lines",
+      layer: {
+        eachLayer: (cb: (l: unknown) => void) => {
+          cb(line);
+        },
+        options: {},
+      } as any,
+    });
+    expect(manager.extractPoints("lines")).toEqual([]);
+  });
+
   it("bringLayerToFront re-renders the list when a UI is attached", () => {
     manager.map.hasLayer.mockReturnValue(false);
     // register bottom first so top lands at index 0; bottom is then movable
@@ -2194,6 +2334,15 @@ describe("LayerManager", () => {
     const orderBefore = manager.layers.map(l => l.id);
     manager.bringLayerToFront("b");
     expect(manager.layers.map(l => l.id)).toEqual(orderBefore);
+  });
+
+  it("bringLayerToFront is a no-op when the layer already sits at the front", () => {
+    // Nothing to move: no reorder, no reprice, no persistence write.
+    const save = vi.spyOn(manager, "saveOrder");
+    const before = manager.layers.map(l => l.id);
+    manager.bringLayerToFront("overlay1");
+    expect(manager.layers.map(l => l.id)).toEqual(before);
+    expect(save).not.toHaveBeenCalled();
   });
 
   it("applyLayerZIndex lands ordinary layers in a fallback pane", () => {

@@ -94,6 +94,7 @@ describe("LayerUI shell — event subscriptions", () => {
       id: "late1",
       name: "Late",
       group: "overlay",
+      kind: "vector",
       layer: {
         options: {},
         eachLayer: vi.fn(),
@@ -103,6 +104,7 @@ describe("LayerUI shell — event subscriptions", () => {
           getNorthEast: () => ne,
         })),
       },
+      carrier: { layer: null, canvas: null, element: null, custom: null },
     };
     const m: any = {
       on: vi.fn(),
