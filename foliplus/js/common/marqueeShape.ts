@@ -4,13 +4,13 @@
 // fillet math serves every box. Control point is the corner itself, which
 // makes the bezier bulge OUTWARD — a true rounded corner, never concave.
 
-export interface Vec2 {
+interface Vec2 {
   u: number;
   v: number;
 }
 
 /** Four corners in order (NW, NE, SE, SW). */
-export type RectCorners = [Vec2, Vec2, Vec2, Vec2];
+type RectCorners = [Vec2, Vec2, Vec2, Vec2];
 
 /**
  * Outline of a rounded rectangle: per corner, the two edge tangents plus
@@ -46,4 +46,4 @@ const roundedRectOutline = (corners: RectCorners, f = 0.03): Vec2[] => {
   return pts;
 };
 
-export { roundedRectOutline };
+export { type RectCorners, roundedRectOutline, type Vec2 };
