@@ -90,6 +90,19 @@ describe("build artifacts", () => {
     expect(content).not.toContain("class BaseControl");
   });
 
+  it("component JS asserts the runtime root, not each dep", () => {
+    // The deps banner checks window.foliplus existence only — walking each
+    // declared module cost ~140 B per bundle and tripped the size gate on the
+    // smallest controls. The common/core registries are the union of all
+    // components' imports, so a loaded common bundle covers every dep.
+    const content = readFileSync(
+      resolve(distDir, "foliplus-FullscreenControl.min.js"),
+      "utf-8",
+    );
+    expect(content).toContain("needs foliplus-common.min.js");
+    expect(content).not.toContain("__FP_DEPS");
+  });
+
   it("common JS is non-empty", () => {
     const size = readFileSync(resolve(distDir, "foliplus-common.min.js")).length;
     expect(size).toBeGreaterThan(0);

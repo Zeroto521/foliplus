@@ -22,8 +22,8 @@ from pathlib import Path
 import pytest
 
 HERE = Path(__file__).resolve().parent
-REPO_ROOT = HERE.parent.parent
-SCRIPT = REPO_ROOT / "script" / "mojibake_check.py"
+REPO_ROOT = HERE.parent
+SCRIPT = HERE / "mojibake_check.py"
 FFFD = b"\xef\xbf\xbd"
 
 

@@ -7,13 +7,22 @@ vi.mock("#common/locale.js", () => ({
   createScopedTranslator: () => (k: string) => k,
 }));
 
-/** Fake control — a real button so classList behaves like the DOM. */
+/** Fake control — a real button so classList behaves like the DOM. `T`, `_`
+ *  and `conf` mirror what defineControl hands off to the control instance. */
 const makeCtrl = () => {
   const btn = document.createElement("button");
+  const T = (k: string) => k;
+  const conf = {
+    name: "LocateControl",
+    zoom: 16,
+  } as ComponentConfig;
   return {
     btn,
     marker: null,
     delIcon: null,
+    T,
+    _: T,
+    conf,
     hasLoading: () => btn.classList.contains("loading"),
   };
 };
@@ -80,6 +89,19 @@ describe("locateMe", () => {
     expect(window.map.foliplus.hideHint).toHaveBeenCalledWith("LocateControl");
     expect(map.flyTo).toHaveBeenCalledWith([26.08, 119.3], 16);
     expect(ctrl.marker).not.toBeNull();
+  });
+
+  it("falls back to the default zoom of 15 when conf.zoom is not set", () => {
+    const getCurrentPosition = geoStub();
+    const ctrl = makeCtrl();
+    ctrl.conf = { ...ctrl.conf, zoom: undefined } as ComponentConfig;
+
+    locateMe(ctrl);
+    getCurrentPosition.mock.calls[0][0]({
+      coords: { longitude: 119.3, latitude: 26.08 },
+    });
+
+    expect(map.flyTo).toHaveBeenCalledWith([26.08, 119.3], 15);
   });
 
   it("clicking the ✕ removes the pin and its delete icon", () => {

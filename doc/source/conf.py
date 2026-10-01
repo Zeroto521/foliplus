@@ -232,7 +232,7 @@ def setup(app):
 
 # ── MyST-NB (Jupyter Notebook) ───────────────────────────────────────
 nb_execution_mode = "cache"
-nb_execution_timeout = 300
+nb_execution_timeout = 60
 nb_mime_priority_overrides = [
     ("html", "text/html", 10),
     ("html", "image/png", 20),
