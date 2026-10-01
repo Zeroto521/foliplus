@@ -38,8 +38,19 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 // `format()` does not load the repo config on its own, so bare defaults would
 // produce a file that `format:check` (printWidth 88 + the import-sort plugin)
 // rejects. Resolved once at import; empty when no config is found.
+//
+// The argument must be a *file* path, not a directory: resolveConfig() looks
+// up from the directory *containing* the path, so a directory argument skips
+// that directory. That made this accidentally resolve the parent checkout's
+// config locally (a worktree's parent is another checkout of this repo) while
+// resolving nothing in CI, where format() ran on bare prettier defaults and
+// emitted output the import-sort plugin had not produced. The build's
+// byte-exact verify then failed with a misleading "out of date" message that
+// pointed at _schema.py. Anchoring on package.json puts a file in the repo
+// root, next to .prettierrc.cjs, so discovery reaches the config format:check
+// uses.
 const PrettierOptions =
-  (await resolveConfig(process.cwd(), {
+  (await resolveConfig(resolve(__dirname, "..", "package.json"), {
     editorconfig: false,
   })) ?? {};
 
@@ -315,7 +326,7 @@ const main = async (o = opts) => {
   }
 };
 
-export { buildConfSchema, main };
+export { PrettierOptions, buildConfSchema, main };
 
 /* v8 ignore start -- CLI-only entry point, not exercised by unit tests */
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {

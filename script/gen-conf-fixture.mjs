@@ -33,8 +33,14 @@ const ROOT = resolve(__dirname, "..");
 // `format()` does not load the repo config on its own, so bare defaults would
 // produce a file that `format:check` (printWidth 88 + the import-sort plugin)
 // rejects. Resolved once at import; empty when no config is found.
+//
+// The argument must be a *file* path, not a directory: resolveConfig() looks
+// up from the directory *containing* the path, so a directory argument skips
+// that directory -- which resolved a sibling checkout's config locally and
+// nothing at all in CI, leaving format() on bare prettier defaults.
+// See gen-conf-schema.mjs for the incident this caused.
 const PrettierOptions =
-  (await resolveConfig(process.cwd(), {
+  (await resolveConfig(resolve(ROOT, "package.json"), {
     editorconfig: false,
   })) ?? {};
 
@@ -186,7 +192,7 @@ const main = async (o = opts) => {
   writeFileSync(o.out, text, "utf-8");
 };
 
-export { buildConfFixture, main, resolveSchemaJson };
+export { PrettierOptions, buildConfFixture, main, resolveSchemaJson };
 
 /* v8 ignore start -- CLI-only entry point, not exercised by unit tests */
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {

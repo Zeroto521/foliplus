@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { buildConfSchema, main } from "#script/gen-conf-schema.mjs";
+import { PrettierOptions, buildConfSchema, main } from "#script/gen-conf-schema.mjs";
 
 const SHORT_NOTE = "short";
 const LONG_NOTE =
@@ -116,6 +116,22 @@ const schema = {
     },
   },
 };
+
+describe("PrettierOptions", () => {
+  it("resolves the repo config so format() agrees with format:check", () => {
+    // resolveConfig() needs a *file* path: for a directory it searches from
+    // that directory's parent, which found a sibling checkout's config
+    // locally and nothing in CI, leaving format() on bare prettier defaults.
+    // The build's byte-exact verify then rejected that output with a
+    // misleading "conf-schema.ts is out of date" message pointing at
+    // _schema.py.
+    const config = PrettierOptions as unknown as Record<string, unknown>;
+    expect(Object.keys(config).length).toBeGreaterThan(0);
+    expect(Array.isArray(config.plugins)).toBe(true);
+    expect((config.plugins as unknown[]).length).toBeGreaterThan(0);
+    expect(Array.isArray(config.importOrder)).toBe(true);
+  });
+});
 
 describe("buildConfSchema", () => {
   it("per-control interfaces extend ConfShared", async () => {

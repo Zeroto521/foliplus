@@ -3,6 +3,7 @@ import { tmpdir } from "os";
 import { join, resolve } from "path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  PrettierOptions,
   buildConfFixture,
   main,
   resolveSchemaJson,
@@ -77,6 +78,19 @@ const schema = {
     },
   },
 };
+
+describe("PrettierOptions", () => {
+  it("resolves the repo config so format() agrees with format:check", () => {
+    // Same failure mode as the schema generator: a directory argument made
+    // resolveConfig() search the parent directory and left format() on bare
+    // prettier defaults in CI.
+    const config = PrettierOptions as unknown as Record<string, unknown>;
+    expect(Object.keys(config).length).toBeGreaterThan(0);
+    expect(Array.isArray(config.plugins)).toBe(true);
+    expect((config.plugins as unknown[]).length).toBeGreaterThan(0);
+    expect(Array.isArray(config.importOrder)).toBe(true);
+  });
+});
 
 describe("buildConfFixture", () => {
   it("groups defaults per control — no cross-control collision", async () => {
