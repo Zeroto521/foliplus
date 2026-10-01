@@ -6,7 +6,7 @@ import {
 import { generateId } from "#core/component.js";
 import { EVENTS, type EventBus, ensureEvents } from "#core/event/index.js";
 import { bareFieldName } from "#core/labelField.js";
-import { KIND, type LayerKind } from "#core/layer/index.js";
+import { NO_FEATURE_TREE_KINDS } from "#core/layer/index.js";
 import { type CanvasLabelStyle } from "#common/canvasLabel.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import { BORDER_WEIGHT, clampLabelSize, normalizeHexColor } from "#common/form.js";
@@ -49,12 +49,6 @@ import { type HeatmapControlUI, rebuildLayerDropdown, resetPanel } from "./ui.js
 
 const T = createScopedTranslator(CONF);
 const log = createLogger(CONF.name);
-
-/** Kinds that can never be a heatmap source. `getLayerType` answers "base" for
- *  a tile or solid basemap (both sit in the base group) and nothing for a
- *  self-drawn canvas, so `getLayersByType("point")` never returns them — their
- *  churn cannot change `pointLayers` and the scan can stand. */
-const NO_POINT_SOURCE_KINDS = new Set<LayerKind>([KIND.TILE, KIND.SOLID, KIND.CANVAS]);
 
 // ==================== Core: Data Aggregation & Rendering ====================
 class HeatmapManager {
@@ -407,7 +401,7 @@ class HeatmapManager {
         return;
       }
       const { kind } = payload;
-      if (NO_POINT_SOURCE_KINDS.has(kind)) return;
+      if (NO_FEATURE_TREE_KINDS.has(kind)) return;
       this.onLayerChange();
     });
     // LayerControl's deleteLayer emits LAYER_DELETED for component-owned layers

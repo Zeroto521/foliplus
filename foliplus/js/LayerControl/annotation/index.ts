@@ -14,7 +14,7 @@ import {
   autoLabelField,
   collectLabelFields,
 } from "#core/labelField.js";
-import { KIND, type LayerKind, forEachLeaf } from "#core/layer/index.js";
+import { NO_FEATURE_TREE_KINDS, forEachLeaf } from "#core/layer/index.js";
 import {
   type CanvasLabelStyle,
   resolveCanvasLabelStyle,
@@ -47,13 +47,6 @@ const ANCHOR_CULL_MARGIN = 300;
  *  overlapping labels in the same layer survives. The field itself stays — it
  *  is part of the shared planner's candidate contract. */
 const LABEL_PRIORITY = 50;
-
-/** Kinds that can never carry a label canvas. The registration edge declares
- *  an annotation pane only for a tree with labelable `feature.properties`,
- *  which a tile basemap, a solid colour face, and a self-drawn canvas never
- *  expose — so their membership churn has no canvas to repaint and the whole
- *  paint path is skipped on the kind. */
-const NO_LABEL_KINDS = new Set<LayerKind>([KIND.TILE, KIND.SOLID, KIND.CANVAS]);
 
 /**
  * AnnotationManager owns per-layer label state, the per-layer plans and the
@@ -150,7 +143,7 @@ class AnnotationManager {
         // A tile basemap, a solid colour face, and a self-drawn canvas never
         // get an annotation pane — the registration edge declares it only for
         // a labelable feature tree — so they can never own a canvas to repaint.
-        if (NO_LABEL_KINDS.has(kind)) return;
+        if (NO_FEATURE_TREE_KINDS.has(kind)) return;
         this.onLayerMembership(id);
       }),
       // Export safety: the exporter's locked path grows the container and shifts
