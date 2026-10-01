@@ -28,9 +28,11 @@ type LayerKind = (typeof KIND)[keyof typeof KIND];
  *  `LayerKind`/`KIND`. */
 type LayerDimKey = (typeof DIM)[keyof typeof DIM];
 
-/** Where a layer's paint actually lives. Flat `layer` / `canvas` / `color`
- *  on `LayerInfo` remain the writable registration fields; this object is the
- *  typed projection of those (plus `custom`) the target shape names. */
+/** Where a layer's paint actually lives. `LayerInfoRegistry.carrierFor` builds it
+ *  once at the registration edge from the flat registration fields, and it is
+ *  never written again — the flat `layer` / `canvas` / `color` on `LayerInfo`
+ *  are read-only snapshots of this projection, kept for the many existing read
+ *  sites rather than a second, driftable source of truth. */
 interface LayerCarrier {
   layer?: L.Layer | null;
   canvas?: HTMLCanvasElement | null;
@@ -233,10 +235,15 @@ interface LayerInfo {
   id: string;
   name: string;
   layer: L.Layer | null;
-  /** What this entry is (tile|vector|canvas|solid|cluster|custom). */
+  /** What this entry is (tile|vector|canvas|solid|cluster|custom). Derived
+   *  once by `LayerInfoRegistry.kindFor` at the registration edge — the single
+   *  place a kind is derived; the surface forwards this value rather than
+   *  re-deriving it. */
   kind: LayerKind;
-  /** Typed projection of the paint carrier (layer / canvas / element / custom).
-   *  Flat `layer` / `canvas` / `color` stay the writable registration fields. */
+  /** Typed projection of the paint carrier (layer / canvas / element / custom),
+   *  built once by `carrierFor` alongside the flat `layer` / `canvas` / `color`
+   *  fields and never rewritten. The flat fields are read-only snapshots of
+   *  this projection, not a second source to keep in step. */
   carrier: LayerCarrier;
   /** Layer opacity in [0, 1]. Defaults to 1 (fully opaque). */
   opacity?: number;

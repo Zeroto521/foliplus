@@ -14,7 +14,7 @@ import {
   autoLabelField,
   collectLabelFields,
 } from "#core/labelField.js";
-import { forEachLeaf } from "#core/layer/index.js";
+import { NO_FEATURE_TREE_KINDS, forEachLeaf } from "#core/layer/index.js";
 import {
   type CanvasLabelStyle,
   resolveCanvasLabelStyle,
@@ -114,18 +114,42 @@ class AnnotationManager {
       onUpdate: () => this.refresh(),
       onMove: () => this.refreshPan(),
     });
+
+    const events = ensureEvents(this.map);
     // Membership changes repaint only the layer that moved — every other
     // layer's plan still stands (same boxes, same collision). Toggling a
     // 6k-point layer's checkbox must not re-plan the whole map.
-    this.map.on("layeradd", this.onLayerMembership);
-    this.map.on("layerremove", this.onLayerMembership);
-
-    // Export safety: the exporter's locked path grows the container and shifts
-    // the view, then captures on the very next frame — so the redraw here is
-    // synchronous. A throttled one would land a frame late and the capture
-    // would read the pre-export canvas.
-    const events = ensureEvents(this.map);
+    //
+    // LAYER_CHANGE is the semantic replacement for the raw
+    // `layeradd`/`layerremove` pair this used to read, and it covers the same
+    // writes: LayerControl emits it for every map-membership change it owns —
+    // register, unregister, the visibility executor's add/remove, the focus
+    // re-add, and a late folium binding that resolves after this control's own
+    // script. The bus also filters out the unrelated activity the raw pair
+    // used to fire for (markers and overlays the other controls add), which is
+    // why HeatmapControl switched the same way.
     this.unsubscribe.push(
+      events.on(EVENTS.LAYER_CHANGE, payload => {
+        // Guard: third-party or historical bare emit (no payload).
+        // All product emit sites carry {id, kind} — a missing payload here
+        // means an external caller fired the event without the contract.
+        // Fallback to full refresh (repaint every label-bearing layer), which
+        // is the old raw layeradd/layerremove behaviour.
+        if (!payload) {
+          this.refresh();
+          return;
+        }
+        const { id, kind } = payload;
+        // A tile basemap, a solid colour face, and a self-drawn canvas never
+        // get an annotation pane — the registration edge declares it only for
+        // a labelable feature tree — so they can never own a canvas to repaint.
+        if (NO_FEATURE_TREE_KINDS.has(kind)) return;
+        this.onLayerMembership(id);
+      }),
+      // Export safety: the exporter's locked path grows the container and shifts
+      // the view, then captures on the very next frame — so the redraw here is
+      // synchronous. A throttled one would land a frame late and the capture
+      // would read the pre-export canvas.
       events.on(EVENTS.BEFORE_EXPORT, () => this.refresh()),
       events.on(EVENTS.AFTER_EXPORT, () => this.refresh()),
     );
@@ -343,8 +367,6 @@ class AnnotationManager {
 
   destroy(): void {
     this.mapCleanup();
-    this.map.off("layeradd", this.onLayerMembership);
-    this.map.off("layerremove", this.onLayerMembership);
     this.unsubscribe.forEach(off => off());
     this.unsubscribe.length = 0;
     for (const id of [...this.canvases.keys()]) this.dropCanvas(id);
@@ -381,24 +403,22 @@ class AnnotationManager {
    *  hide/show goes through map.removeLayer/addLayer). Only that layer's plan
    *  changes — every other layer keeps its boxes and its collision decision.
    *  A dense layer stays cheap here because plannedFor pre-culls off-screen
-   *  anchors before laying out any text. */
-  private readonly onLayerMembership = (event: { layer?: L.Layer }): void => {
-    const target = event.layer;
-    if (!target) return;
-    for (const [id, canvas] of this.canvases) {
-      if (this.layerFind(id) !== target) continue;
-      const container = this.map.getContainer();
-      const viewport = {
-        x: 0,
-        y: 0,
-        w: container.clientWidth,
-        h: container.clientHeight,
-      };
-      const planned = this.plannedFor(id, this.layerSpec(container, id), viewport);
-      this.lastPlanned.set(id, planned);
-      canvas.paint(planned, this.paintStyle(container, id));
-      return;
-    }
+   *  anchors before laying out any text. Keyed by the id the event carries
+   *  instead of matching layer objects, so a repaint is one map lookup rather
+   *  than a walk of every canvas comparing stamps. */
+  private readonly onLayerMembership = (id: string): void => {
+    const canvas = this.canvases.get(id);
+    if (!canvas) return;
+    const container = this.map.getContainer();
+    const viewport = {
+      x: 0,
+      y: 0,
+      w: container.clientWidth,
+      h: container.clientHeight,
+    };
+    const planned = this.plannedFor(id, this.layerSpec(container, id), viewport);
+    this.lastPlanned.set(id, planned);
+    canvas.paint(planned, this.paintStyle(container, id));
   };
 
   /** Plan each visible layer's labels independently, then hand every canvas its
