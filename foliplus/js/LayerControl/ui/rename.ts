@@ -9,6 +9,7 @@ import {
 import * as CONST from "../const.js";
 import type { LayerUI } from "./index.js";
 import { INTENT, setIntent } from "./intent.js";
+import { closeOverlays } from "./overlays.js";
 import { displayName } from "./rowView.js";
 import { saveNamesState } from "./state.js";
 
@@ -23,7 +24,7 @@ import { saveNamesState } from "./state.js";
  */
 const renameLayer = (ui: LayerUI, layerId: string): void => {
   if (!layerId || !ui.uiContainer) return;
-  finishRename(ui);
+  closeOverlays(ui);
 
   const layerInfo = ui.m.layerRegistry.get(layerId);
   if (!layerInfo) return;

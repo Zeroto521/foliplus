@@ -25,7 +25,7 @@ import * as CONST from "../../const.js";
 import * as SVGs from "../../icon.js";
 import { authorZoomBoundsForLayer } from "../apply.js";
 import type { LayerUI } from "../index.js";
-import { finishRename } from "../rename.js";
+import { closeOverlays } from "../overlays.js";
 import { bindBorderRow, resetLayerBorder } from "./border.js";
 import { layerHasStyleDelegation, renderDelegatedStylePanel } from "./delegated.js";
 import { bindFillRow, replayFillState, resetLayerFill } from "./fill.js";
@@ -98,22 +98,13 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
  *  layer's own row — the same "drop below the trigger" rule the attributes
  *  panel uses — so it needs no positioning code at all. */
 const openStylePanel = (ui: LayerUI, layerId: string): void => {
-  closeStylePanel(ui, false);
   if (!layerId) return;
-  // The style panel and the attributes panel float from the same ⋮ menu;
-  // never show both.
-  ui.closeAttrsPanel(false);
+  closeOverlays(ui);
   const item = ui.uiContainer.querySelector(
     `${CONST.SEL.LAYER_ITEM}[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"]`,
   ) as HTMLElement | null;
   const panel = renderStylePanel(ui, layerId);
   if (!item || !panel) return;
-
-  finishRename(ui);
-  // true returns focus to the row: the menu <li> that held focus is about to
-  // be removed, and a cursor parked on <body> would make Escape unreachable
-  // (handleKeyDown's container guard).
-  ui.closeMoreMenu(true);
 
   // The panel sits inside a draggable layer row: a press on the panel must
   // neither start a row drag nor inherit `user-select: none` (attrs recipe).
