@@ -1023,6 +1023,28 @@ describe("event-bus bindings", () => {
     expect(m.cachedPoints).toBeNull();
   });
 
+  it.each(["tile", "solid", "canvas"])(
+    "ignores a LAYER_CHANGE whose kind (%s) can never hold point markers",
+    async kind => {
+      // A tile basemap, a solid colour face and a self-drawn canvas all answer
+      // "base"/null from getLayerType, so getLayersByType("point") never
+      // returned them — their churn cannot change the source list. The payload
+      // lets the handler skip the scan outright; without the skip every
+      // basemap toggle would walk the map for an identical answer.
+      const m = makeManager();
+      m.cachedAgg = { key: "k", data: null! } as HeatmapManager["cachedAgg"];
+      m.cachedPoints = { key: "p", pts: [] } as HeatmapManager["cachedPoints"];
+
+      vi.useFakeTimers();
+      ensureEvents(m.map).emit(EVENTS.LAYER_CHANGE, { id: "basemap", kind });
+      await vi.runOnlyPendingTimersAsync();
+      vi.useRealTimers();
+
+      expect(m.cachedAgg).not.toBeNull();
+      expect(m.cachedPoints).not.toBeNull();
+    },
+  );
+
   it("deleting the selected source layer clears the heatmap immediately", async () => {
     // The heatmap draws another layer's points, so deleting that layer has to
     // drop the selection and wipe the canvas in the same LAYER_CHANGE pass.

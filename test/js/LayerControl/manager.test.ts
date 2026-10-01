@@ -867,6 +867,53 @@ describe("LayerManager", () => {
     expect(items[3].classList.contains("foliplus-layer-item")).toBe(true);
   });
 
+  it("onLayerAdd emits LAYER_CHANGE when a pending layer's global finally joins the map", () => {
+    // Late binding: folium streams a layer's JS global *after* this control's
+    // own script, so the registration lands with `layer: null` and the real
+    // object reaches the map through `layeradd` later. No registry write
+    // covers that arrival, so without this emit a bus-only consumer (the
+    // annotation manager repainting labels) would watch a layer appear and
+    // never hear about it.
+    const realStamp = window.L.stamp;
+    window.L.stamp = stableStamp;
+    try {
+      manager.registerLayer({ id: "late", name: "Late", group: "overlay" });
+      const arrived = new window.L.Path();
+      map._layers["late"] = arrived;
+      const onChange = vi.fn();
+      manager.events.on(EVENTS.LAYER_CHANGE, onChange);
+
+      manager.onLayerAdd({ layer: arrived });
+
+      // kind comes from the registry entry ("vector" for a pending Leaflet
+      // registration), not from re-probing `arrived`.
+      expect(onChange).toHaveBeenCalledWith({ id: "late", kind: "vector" });
+    } finally {
+      window.L.stamp = realStamp;
+    }
+  });
+
+  it("onLayerAdd stays silent when no pending entry can claim the arriving layer", () => {
+    // The other arm: a registration that already carries its layer is not
+    // "late", so an unrelated add must not manufacture a change — and a
+    // pending entry whose resolved object is a *different* layer must not
+    // claim it either.
+    const realStamp = window.L.stamp;
+    window.L.stamp = stableStamp;
+    try {
+      manager.registerLayer({ id: "pending", name: "Pending", group: "overlay" });
+      map._layers["pending"] = new window.L.Path();
+      const onChange = vi.fn();
+      manager.events.on(EVENTS.LAYER_CHANGE, onChange);
+
+      manager.onLayerAdd({ layer: new window.L.Path() });
+
+      expect(onChange).not.toHaveBeenCalled();
+    } finally {
+      window.L.stamp = realStamp;
+    }
+  });
+
   it("onLayerAdd responds to container layers (GeoJSON/FeatureGroup) too", () => {
     // Container layers (L.GeoJSON / FeatureGroup) previously fell through the
     // Path/Marker filter, so their addTo never re-ran enforceOrder. Any
