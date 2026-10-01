@@ -1,7 +1,7 @@
 // core/events/const — semantic event names.
 // Components subscribe/emit via `map.foliplus.events` instead of raw Leaflet
 // map events, so unrelated map activity does not trigger work.
-import type { LayerKind } from "#core/layer/index.js";
+// The payload shapes these names carry live in ./type.ts.
 
 // ── Event name dictionary (unified <namespace>:<component>:<action> naming) ──
 const EVENTS = {
@@ -40,28 +40,4 @@ const EVENTS = {
   CONTROL_ATTACHED: "foliplus:control:attached",
 } as const;
 
-// ── Type-safe payload map ──
-
-/** One layer's registry/membership change: who (`id`) and what it is (`kind`).
- *  Both fields are stamped by the emitter from the registry entry, so a
- *  subscriber that only cares about point sources, or about one id, filters
- *  on the payload instead of walking the registry. */
-interface LayerChangePayload {
-  id: string;
-  kind: LayerKind;
-}
-
-interface EventPayloadMap {
-  [EVENTS.LAYER_CHANGE]: LayerChangePayload;
-  [EVENTS.LAYER_REMOVED]: { id: string };
-  [EVENTS.LAYER_DELETED]: { id: string };
-  [EVENTS.MODE_CHANGE]: { component: string; mode: string | null };
-  [EVENTS.BEFORE_EXPORT]: { component: string };
-  [EVENTS.AFTER_EXPORT]: { component: string };
-  [EVENTS.LAYER_ITEM_COUNT_CHANGE]: { id: string };
-  [EVENTS.LAYER_STYLE_CHANGE]: { id: string };
-  [EVENTS.CONTROL_ATTACHED]: { component: string };
-}
-
 export { EVENTS };
-export type { EventPayloadMap, LayerChangePayload };

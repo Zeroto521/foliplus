@@ -2,7 +2,7 @@
 // Per-map (attached via ensureEvents underneath map.foliplus). Components
 // subscribe to semantic events (LAYER_CHANGE, MODE_CHANGE, ...) instead of
 // wiring to raw Leaflet map events — decoupled, auto-unbindable, and testable.
-import type { EventPayloadMap } from "./const.js";
+import type { EventPayloadMap } from "./type.js";
 
 type EventHandler = (...args: unknown[]) => void;
 

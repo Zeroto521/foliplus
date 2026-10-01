@@ -19,6 +19,6 @@ const ensureEvents = (map: L.Map): EventBus => {
 
 export { ensureEvents };
 export { EVENTS } from "./const.js";
-export type { EventPayloadMap } from "./const.js";
+export type { EventPayloadMap, LayerChangePayload } from "./type.js";
 export { EventBus } from "./EventBus.js";
 export type { EventHandler } from "./EventBus.js";
