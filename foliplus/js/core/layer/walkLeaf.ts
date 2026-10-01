@@ -16,7 +16,7 @@
 // or hostile layer graph cannot recurse to the stack. Children come from
 // `eachLayer` when present (Leaflet containers); the layer registry is a
 // fallback for window globals and ad-hoc wrappers.
-import { internalLayers, isGroupLike } from "../leafletAdapter.js";
+import { internalLayers, isGroupLike } from "#core/leafletAdapter.js";
 import * as CONST from "./const.js";
 
 type UnknownLayer = L.Layer | unknown;

@@ -51,6 +51,26 @@ describe("walkLeaf", () => {
     walkLeaf(node, l => visited.push((l as { __tag: string }).__tag));
     expect(visited).toEqual(["a", "b"]);
   });
+
+  it("childrenOf: returns [] when internalLayers is falsy (defensive fallback)", async () => {
+    // The adapter is mocked via `vi.doMock` + `vi.resetModules` + a fresh
+    // dynamic import so walkLeaf's own `import … from "#core/leafletAdapter.js"`
+    // resolves to the mock — a top-level `vi.mock` only intercepts imports
+    // from the test file itself. The mock lets `isGroupLike` and
+    // `internalLayers` disagree (the one case the real adapter cannot produce),
+    // which is the branch `: []` on line 41 exists to handle.
+    vi.doMock("#core/leafletAdapter.js", () => ({
+      isGroupLike: (node: unknown) =>
+        Boolean((node as { __forceGroup?: unknown }).__forceGroup),
+      internalLayers: () => undefined,
+    }));
+    vi.resetModules();
+    const { walkLeaf: walkLeafMocked } = await import("#core/layer/walkLeaf.js");
+    const node = { __forceGroup: true };
+    const visited: unknown[] = [];
+    walkLeafMocked(node, l => visited.push(l));
+    expect(visited).toEqual([]);
+  });
 });
 
 describe("walkTree", () => {
