@@ -16,7 +16,9 @@
 // Only the control-side persistence write is narrowed away: the class depends
 // on {@link OrderPersistence} (the `schedule` slice it needs) instead of
 // `LayerPersistence`, so core/layer never imports from a control module.
-import { GROUP, type LayerInfo, type LayerInfoRegistry } from "./index.js";
+import { LayerInfoRegistry } from "./LayerInfoRegistry.js";
+import { GROUP } from "./const.js";
+import type { LayerInfo } from "./type.js";
 
 /** The order-persistence write target — the narrow `schedule` slice
  *  LayerOrder needs. `LayerPersistence.schedule` satisfies it structurally. */
