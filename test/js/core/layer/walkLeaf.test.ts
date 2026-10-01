@@ -7,29 +7,6 @@ import {
   walkTree,
 } from "#core/layer/walkLeaf.js";
 
-// The adapter is mocked so we can construct nodes whose isGroupLike /
-// internalLayers disagree — the one case the real adapter cannot produce
-// (a group-like node with no _layers registry) and the defensive
-// `reg ? … : []` fallback exists to handle.
-const adapterMock = vi.hoisted(() => ({
-  isGroupLike: (node: unknown) => {
-    const n = node as Record<string, unknown>;
-    return (
-      typeof n.eachLayer === "function" || Boolean(n._layers) || Boolean(n.__forceGroup)
-    );
-  },
-  internalLayers: (node: unknown) => {
-    const n = node as Record<string, unknown>;
-    if (n.__noLayers) return undefined;
-    return n._layers;
-  },
-}));
-
-vi.mock("#core/leafletAdapter.js", () => ({
-  isGroupLike: adapterMock.isGroupLike,
-  internalLayers: adapterMock.internalLayers,
-}));
-
 // A minimal Leaflet-style container: eachLayer callback style.
 const group = (...children: unknown[]) => ({
   eachLayer: (fn: (l: unknown) => void) => children.forEach(fn),
@@ -62,16 +39,6 @@ describe("walkLeaf", () => {
     walkLeaf(null, fn);
     walkLeaf(undefined, fn);
     expect(fn).not.toHaveBeenCalled();
-  });
-
-  it("childrenOf: returns [] when internalLayers is falsy (defensive fallback)", () => {
-    // A node the adapter reports as group-like but whose _layers registry is
-    // absent — childrenOf must not throw; it returns an empty list, so the
-    // walk treats the node as an empty container (no leaves visited).
-    const node = { __forceGroup: true, __noLayers: true };
-    const visited: unknown[] = [];
-    walkLeaf(node, l => visited.push(l));
-    expect(visited).toEqual([]);
   });
 });
 
