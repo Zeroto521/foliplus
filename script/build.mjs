@@ -113,6 +113,9 @@ const esbuildCfg = esbuildCfgFor({ dev: CFG.dev, root: CFG.root });
  *  `core.layer` — the plugin keys on the first path segment. */
 const dottedTarget = spec => {
   if (spec.startsWith("common/")) return "common." + spec.split("/")[1];
+  // runtime/index.ts registers hint at the top level (foliplus.hint), not in
+  // foliplus.core — match global-namespace-plugin's special case for #core/hint.js.
+  if (spec === "core/hint") return "hint";
   if (spec.startsWith("core/")) return "core." + spec.split("/")[1];
   if (spec.startsWith("foliplus/")) return spec.split("/")[1];
   return spec;
@@ -134,26 +137,28 @@ const componentDeps = componentName => {
   return [...targets].sort();
 };
 
-/** JS banner that verifies every shared module this bundle reads is present
- *  on `window.foliplus`. Runs before the bundle's own code, so a missing
- *  runtime module surfaces as a clear error at attach time instead of a
- *  `undefined is not a function` mid-operation. Only emitted for component
- *  bundles — the shared entry bundles them. `name` is inlined into the
- *  error string (not a runtime variable): the banner runs as a top-level
- *  script, so any name it references must be a literal. */
+/** JS banner that asserts the shared runtime is present on `window.foliplus`.
+ *  Runs before the bundle's own code, so a missing foliplus-common.min.js
+ *  surfaces as a clear error at attach time instead of a `undefined is not a
+ *  function` mid-operation. Only emitted for component bundles — the shared
+ *  entry bundles them. `name` is inlined into the error string (not a runtime
+ *  variable): the banner runs as a top-level script, so any name it references
+ *  must be a literal.
+ *
+ *  Deliberately checks only the runtime root, not each dependency: the
+ *  foliplus.core / foliplus.common registries are the union of every
+ *  component's imports, so a loaded common bundle contains everything this
+ *  component reads. Walking each dep would only name *which* module is missing
+ *  — a state that should not exist, and one the runtime version guard already
+ *  covers. The per-dep walk also cost ~140 B per bundle, which tripped the
+ *  size gate on the smallest controls. */
 const depsBanner = (deps, name) => {
   if (!deps || deps.length === 0) return "";
-  const json = JSON.stringify(deps);
   const nameJson = JSON.stringify(name);
   return (
-    `const __FP_DEPS=${json};` +
     `const __FP_NAME=${nameJson};` +
-    `for(const __p of __FP_DEPS){` +
-    `let __h=window.foliplus;` +
-    `for(const __seg of __p.split(".")){__h=__h&&__h[__seg];}` +
-    `if(!__h)throw new Error("foliplus: "+__FP_NAME+" needs "+__p+
-      " -- load foliplus-common.min.js first");}` +
-    `;\n`
+    `if(!window.foliplus)throw new Error("foliplus: "+__FP_NAME+` +
+    `" needs foliplus-common.min.js loaded first");\n`
   );
 };
 
