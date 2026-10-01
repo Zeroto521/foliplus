@@ -332,6 +332,69 @@ const generateSharedRegistry = () => {
   if (genResult.stderr) console.error(genResult.stderr);
   if (genResult.status !== 0) process.exit(genResult.status);
 };
+
+/** Generate test/js/conf-fixture.ts from the schema JSON.
+ *  Provides a `makeConf` factory for vitest tests with all schema defaults. */
+const generateVitestFixture = () => {
+  const schemaJson = resolve(buildJs, "conf-schema.json");
+  const fixtureTs = resolve(CFG.root, "test/js/conf-fixture.ts");
+  const genResult = spawnSync(
+    process.execPath,
+    [
+      resolve(__dirname, "gen-vitest-fixture.mjs"),
+      "--json",
+      schemaJson,
+      "--out",
+      fixtureTs,
+    ],
+    { stdio: "pipe", encoding: "utf-8" },
+  );
+  if (genResult.error) throw genResult.error;
+  if (genResult.stderr) console.error(genResult.stderr);
+  if (genResult.status !== 0) process.exit(genResult.status);
+};
+
+/** Generate foliplus/js/conf-schema.ts from the Python schema table.
+ *
+ *  Two-step: `python -m foliplus._schema --out <json>` dumps the schema as
+ *  JSON, then `node script/gen-conf-schema.mjs --json <json>` generates the
+ *  TS module. The output is a committed source file that must be up to date
+ *  with the Python schema — the Python drift test (test__schema.py) and the
+ *  TS typecheck together catch any mismatch.
+ *
+ *  The Python invocation uses `-W ignore` to suppress a harmless RuntimeWarning
+ *  from runpy (the schema module is already in sys.modules after the package
+ *  init runs). PYTHON env var overrides the Python executable.
+ */
+const generateConfSchema = () => {
+  const pythonExe = process.env.PYTHON ?? "python";
+  const schemaJson = resolve(buildJs, "conf-schema.json");
+  const confSchemaTs = resolve(CFG.root, "foliplus/js/conf-schema.ts");
+
+  const dumpResult = spawnSync(
+    pythonExe,
+    ["-W", "ignore", "-m", "foliplus._schema", "--out", schemaJson],
+    { stdio: "pipe", encoding: "utf-8" },
+  );
+  if (dumpResult.error) throw dumpResult.error;
+  if (dumpResult.stderr) console.error(dumpResult.stderr);
+  if (dumpResult.status !== 0) process.exit(dumpResult.status);
+
+  const genResult = spawnSync(
+    process.execPath,
+    [
+      resolve(__dirname, "gen-conf-schema.mjs"),
+      "--json",
+      schemaJson,
+      "--out",
+      confSchemaTs,
+    ],
+    { stdio: "pipe", encoding: "utf-8" },
+  );
+  if (genResult.error) throw genResult.error;
+  if (genResult.stderr) console.error(genResult.stderr);
+  if (genResult.status !== 0) process.exit(genResult.status);
+};
 const main = async () => {
   if (CFG.verify) {
     verifyDist();
@@ -345,6 +408,12 @@ const main = async () => {
   // a prior run can never be the one esbuild reads.
   rmSync(buildCss, { recursive: true, force: true });
   mkdirSync(buildCss, { recursive: true });
+
+  // ── Step 2.4: Generate CONF schema TS types + vitest fixture ──
+  // Derives foliplus/js/conf-schema.ts and test/js/conf-fixture.ts
+  // from foliplus/_schema.py.
+  generateConfSchema();
+  generateVitestFixture();
 
   // ── Step 2.5: Generate shared registry ────────────────────────
   // Auto-registers every common/core module on window.foliplus (P5).

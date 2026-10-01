@@ -2,6 +2,7 @@
 // Sets up global mocks needed by module-level code (e.g. `const foliplus = window.foliplus`).
 // Use vi.fn() so tests can spy on calls even when module captures at import time.
 import { beforeEach, vi } from "vitest";
+import { makeConf } from "./conf-fixture.js";
 import { installWindowLExtensions, resetState } from "./fixture.js";
 
 // Spec-compliant in-memory Web Storage fallback.
@@ -160,14 +161,14 @@ window.L.Path.prototype.bringToFront = vi.fn();
 // production code both see the same reference). See fixture.ts.
 installWindowLExtensions();
 
-// Mock Jinja IIFE free variables
-window.CONF = {
+// Mock Jinja IIFE free variables — defaults from schema + test overrides
+window.CONF = makeConf({
   name: "SearchControl",
   zoom: 16,
   locale_code: "en",
   position: "topleft",
   mode: "coord",
-};
+});
 window.map = {
   foliplus: {
     showHint: vi.fn(),
