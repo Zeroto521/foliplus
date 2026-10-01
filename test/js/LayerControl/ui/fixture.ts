@@ -1,8 +1,10 @@
 import { vi } from "vitest";
-import { GROUP } from "#core/layer/index.js";
+import { GROUP, LayerIntentStore, LayerRuntimeStore } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { LayerManager } from "#foliplus/LayerControl/manager.js";
+import { FocusStore } from "#foliplus/LayerControl/ui/focusStore.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
+import { PanelStore } from "#foliplus/LayerControl/ui/panelStore.js";
 
 class TileLayer {
   options = { attribution: "© OpenStreetMap" };
@@ -303,13 +305,46 @@ const overlayFoldBtn = (root: ParentNode) =>
     .querySelector(`.${CONST.CLASSES.TOGGLE_ALL}[data-group="${GROUP.OVERLAY}"]`)!
     .querySelector(`.${CONST.CLASSES.FOLD_BTN}`) as HTMLElement;
 
+// ── Phase-2 injection faces (T270) ───────────────────────────────────
+
+const makePanelStore = () => new PanelStore();
+
+const makeFocusStore = () => new FocusStore();
+
+/** A stub LayerAccess with empty stores and inert manager members; tests that
+ *  need a real manager pass it (or a shaped stub) through `extra`. */
+const makeAccess = (extra: Record<string, unknown> = {}) => ({
+  layerRegistry: { get: () => undefined, layers: [] } as any,
+  intentStore: new LayerIntentStore(),
+  runtimeStore: new LayerRuntimeStore(),
+  annotation: null as any,
+  events: {
+    on: vi.fn(() => vi.fn()),
+    emit: vi.fn(),
+    off: vi.fn(),
+  },
+  map: {} as any,
+  findLayer: () => null,
+  surfaceFor: () =>
+    ({
+      capabilities: { opacity: "none", zoomRange: "none" },
+      paneNames: [],
+      panes: [],
+    }) as any,
+  getFeatureCount: () => null,
+  ...extra,
+});
+
 export {
   allFolded,
   attachWithGroup,
   findItem,
   initFixture,
   installLeafletGlobals,
+  makeAccess,
+  makeFocusStore,
   makePane,
+  makePanelStore,
   overlayFoldBtn,
   pressKey,
   GridLayer,
