@@ -25,7 +25,7 @@ import * as CONST from "../../const.js";
 import * as SVGs from "../../icon.js";
 import { authorZoomBoundsForLayer } from "../apply.js";
 import type { LayerUI } from "../index.js";
-import { closeOverlays } from "../overlays.js";
+import { closeOverlays } from "../teardown.js";
 import { bindBorderRow, resetLayerBorder } from "./border.js";
 import { layerHasStyleDelegation, renderDelegatedStylePanel } from "./delegated.js";
 import { bindFillRow, replayFillState, resetLayerFill } from "./fill.js";
@@ -99,12 +99,19 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
  *  panel uses — so it needs no positioning code at all. */
 const openStylePanel = (ui: LayerUI, layerId: string): void => {
   if (!layerId) return;
-  closeOverlays(ui);
+
+  // The row-lookup guard runs before teardown: an unknown id would clear
+  // whatever the user had open and then fail to open anything. The panel
+  // render stays after closeOverlays — `renderDelegatedStylePanel` sets
+  // `ui.styleRefresh` on this call, which `closeStylePanel` would wipe.
   const item = ui.uiContainer.querySelector(
     `${CONST.SEL.LAYER_ITEM}[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"]`,
   ) as HTMLElement | null;
+  if (!item) return;
+
+  closeOverlays(ui);
   const panel = renderStylePanel(ui, layerId);
-  if (!item || !panel) return;
+  if (!panel) return;
 
   // The panel sits inside a draggable layer row: a press on the panel must
   // neither start a row drag nor inherit `user-select: none` (attrs recipe).

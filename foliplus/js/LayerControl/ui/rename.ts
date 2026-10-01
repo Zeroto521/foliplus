@@ -9,9 +9,9 @@ import {
 import * as CONST from "../const.js";
 import type { LayerUI } from "./index.js";
 import { INTENT, setIntent } from "./intent.js";
-import { closeOverlays } from "./overlays.js";
 import { displayName } from "./rowView.js";
 import { saveNamesState } from "./state.js";
+import { closeOverlays } from "./teardown.js";
 
 /**
  * Turn the layer's label into an inline editable input so the user can
@@ -24,8 +24,9 @@ import { saveNamesState } from "./state.js";
  */
 const renameLayer = (ui: LayerUI, layerId: string): void => {
   if (!layerId || !ui.uiContainer) return;
-  closeOverlays(ui);
 
+  // Validate before tearing down: an unknown id or a row without a label would
+  // otherwise clear whatever the user had open and then fail to open anything.
   const layerInfo = ui.m.layerRegistry.get(layerId);
   if (!layerInfo) return;
 
@@ -34,6 +35,8 @@ const renameLayer = (ui: LayerUI, layerId: string): void => {
   ) as HTMLElement | null;
   const label = item?.querySelector("label") as HTMLLabelElement | null;
   if (!label) return;
+
+  closeOverlays(ui);
 
   // displayName resolves rename →registry →the color layer's locale label,
   // so the input opens with the name the UI already shows.
