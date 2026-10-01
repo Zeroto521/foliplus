@@ -169,6 +169,21 @@ describe("PrettierOptions", () => {
     expect((config.plugins as unknown[]).length).toBeGreaterThan(0);
     expect(Array.isArray(config.importOrder)).toBe(true);
   });
+
+  it("falls back to {} when resolveConfig returns null", async () => {
+    vi.doMock("prettier", () => ({
+      resolveConfig: vi.fn().mockResolvedValue(null),
+      format: vi.fn().mockResolvedValue("formatted"),
+    }));
+    vi.resetModules();
+    try {
+      const mod = await import("#script/gen-conf-schema.mjs");
+      expect(mod.PrettierOptions).toEqual({});
+    } finally {
+      vi.doUnmock("prettier");
+      vi.resetModules();
+    }
+  });
 });
 
 describe("buildConfSchema", () => {
@@ -378,6 +393,38 @@ describe("main", () => {
     },
     SLOW,
   );
+
+  it("reads from stdin when --json is omitted", async () => {
+    const tmp = mkdtempSync(join(tmpdir(), "gen-conf-schema-stdin-"));
+    const outPath = join(tmp, "conf-schema.ts");
+    const readFileSyncMock = vi.fn((p: number | string) => {
+      if (p === 0) return JSON.stringify(schema);
+      return "";
+    });
+    const writeFileSyncMock = vi.fn();
+
+    vi.doMock("fs", () => ({
+      default: { readFileSync: readFileSyncMock, writeFileSync: writeFileSyncMock },
+      readFileSync: readFileSyncMock,
+      writeFileSync: writeFileSyncMock,
+    }));
+    vi.doMock("prettier", () => ({
+      resolveConfig: vi.fn().mockResolvedValue(null),
+      format: vi.fn().mockResolvedValue("formatted"),
+    }));
+    vi.resetModules();
+    try {
+      const mod = await import("#script/gen-conf-schema.mjs");
+      await mod.main({ out: outPath });
+      expect(readFileSyncMock).toHaveBeenCalledWith(0, "utf-8");
+      expect(writeFileSyncMock).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.doUnmock("fs");
+      vi.doUnmock("prettier");
+      vi.resetModules();
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  }, SLOW);
 });
 
 describe("CLI entry", () => {

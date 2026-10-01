@@ -105,6 +105,21 @@ describe("PrettierOptions", () => {
     expect((config.plugins as unknown[]).length).toBeGreaterThan(0);
     expect(Array.isArray(config.importOrder)).toBe(true);
   });
+
+  it("falls back to {} when resolveConfig returns null", async () => {
+    vi.doMock("prettier", () => ({
+      resolveConfig: vi.fn().mockResolvedValue(null),
+      format: vi.fn().mockResolvedValue("formatted"),
+    }));
+    vi.resetModules();
+    try {
+      const mod = await import("#script/gen-conf-fixture.mjs");
+      expect(mod.PrettierOptions).toEqual({});
+    } finally {
+      vi.doUnmock("prettier");
+      vi.resetModules();
+    }
+  });
 });
 
 describe("buildConfFixture", () => {
@@ -235,6 +250,45 @@ describe("resolveSchemaJson", () => {
     expect(resolveSchemaJson({})).toBe(
       resolve(process.cwd(), "foliplus", ".build", "js", "conf-schema.json"),
     );
+  });
+
+  it("falls back to Python self-dump when the build's scratch copy is absent", async () => {
+    const SCHEMA_JSON = resolve(
+      process.cwd(),
+      "foliplus",
+      ".build",
+      "js",
+      "conf-schema.json",
+    );
+    const existsSync = vi.fn((p: string) => p !== SCHEMA_JSON);
+    const spawnSync = vi.fn(() => ({ status: 0, stdout: "", stderr: "" }));
+
+    vi.doMock("fs", () => ({
+      default: { existsSync, readFileSync: vi.fn(), writeFileSync: vi.fn() },
+      existsSync,
+      readFileSync: vi.fn(),
+      writeFileSync: vi.fn(),
+    }));
+    vi.doMock("child_process", () => ({
+      default: { spawnSync },
+      spawnSync,
+    }));
+    vi.doMock("prettier", () => ({
+      resolveConfig: vi.fn().mockResolvedValue(null),
+      format: vi.fn().mockResolvedValue("formatted"),
+    }));
+    vi.resetModules();
+    try {
+      const mod = await import("#script/gen-conf-fixture.mjs");
+      expect(mod.resolveSchemaJson({})).toBe(SCHEMA_JSON);
+      expect(existsSync).toHaveBeenCalledWith(SCHEMA_JSON);
+      expect(spawnSync).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.doUnmock("fs");
+      vi.doUnmock("child_process");
+      vi.doUnmock("prettier");
+      vi.resetModules();
+    }
   });
 });
 

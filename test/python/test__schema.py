@@ -358,6 +358,35 @@ class TestRuntimeZeroChange:
             f"stdout: {result.stdout}\nstderr: {result.stderr}"
         )
 
+    def test_script_dir_stripped_when_run_as_script(self) -> None:
+        # When run as `python foliplus/_schema.py`, the script's directory is
+        # prepended to sys.path, shadowing stdlib `locale`. The module strips
+        # it on import (lines 57-59). runpy.run_path executes the module body
+        # in-process so coverage.py can instrument line 59.
+        import runpy
+        from io import StringIO
+        from contextlib import redirect_stdout
+
+        repo_root = Path(__file__).resolve().parents[2]
+        src = repo_root / "foliplus" / "_schema.py"
+        script_dir = str(src.parent)
+
+        original_path = list(sys.path)
+        original_argv = sys.argv[:]
+        try:
+            sys.path.insert(0, script_dir)
+            sys.argv = [str(src), "--dump"]
+            buf = StringIO()
+            with redirect_stdout(buf):
+                try:
+                    runpy.run_path(str(src), run_name="__main__")
+                except SystemExit as e:
+                    assert e.code == 0, f"unexpected exit code: {e.code}"
+            assert script_dir not in sys.path
+        finally:
+            sys.path[:] = original_path
+            sys.argv[:] = original_argv
+
 
 def _walk_specs() -> list[tuple[str, FieldSpec]]:
     """Iterate every FieldSpec in the schema table (for parametrize helpers)."""
