@@ -38,6 +38,8 @@ export { ensureLayerAPI, requireLayerAPI } from "./api.js";
 export { CLUSTER_CAPABILITIES, deriveLayerKind } from "./util.js";
 export { LayerIntentStore } from "./LayerIntentStore.js";
 export { LayerRuntimeStore } from "./LayerRuntimeStore.js";
+export { LayerOrder } from "./LayerOrder.js";
+export type { OrderPersistence } from "./LayerOrder.js";
 export { INTENT, LIVE, STYLE_KEYS } from "./intent.js";
 export type {
   AppliedProjection,

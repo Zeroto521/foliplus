@@ -1,15 +1,30 @@
-import { GROUP, type LayerInfo, type LayerInfoRegistry } from "#core/layer/index.js";
-import type { LayerPersistence } from "./persistence.js";
+// core — LayerOrder: the collection-level ordering intent (user-arranged id
+// list + one-way deleted-id set).
+//
+// Sunk from `LayerControl/savedOrder.ts` (T270): `LayerAPI.forgetSavedOrder`
+// is a real consumer (third-party components reset the order through the API),
+// so the dependency direction was inverted — the order domain belongs beside
+// the registry. Renamed `SavedOrder` → `LayerOrder`; behaviour unchanged.
+//
+// The order domain of LayerManager: the user-arranged id list and the
+// one-way deleted-id set, plus the methods that load / snapshot / replay /
+// prune them against the live registry. The manager keeps only the public
+// forwards (`loadSavedOrder` / `saveOrder` / `replaySavedOrder` /
+// `forgetSavedOrder`) and the ownership call-sites (`removedIds` gate and
+// mark). Value and behaviour are unchanged: method bodies moved as-is.
+//
+// Only the control-side persistence write is narrowed away: the class depends
+// on {@link OrderPersistence} (the `schedule` slice it needs) instead of
+// `LayerPersistence`, so core/layer never imports from a control module.
+import { GROUP, type LayerInfo, type LayerInfoRegistry } from "./index.js";
 
-/** The order domain of LayerManager: the user-arranged id list and the
- *  one-way deleted-id set, plus the methods that load / snapshot / replay /
- *  prune them against the live registry.
- *
- *  Extracted wholesale from `manager.ts` so the manager keeps only the public
- *  forwards (`loadSavedOrder` / `saveOrder` / `replaySavedOrder` /
- *  `forgetSavedOrder`) and the ownership call-sites (`removedIds` gate and
- *  mark). Value and behaviour are unchanged: method bodies moved as-is. */
-class SavedOrder {
+/** The order-persistence write target — the narrow `schedule` slice
+ *  LayerOrder needs. `LayerPersistence.schedule` satisfies it structurally. */
+interface OrderPersistence {
+  schedule(fields: { order: () => string[] }): void;
+}
+
+class LayerOrder {
   /** The order the user arranged: a snapshot of the live registry taken by the
    *  last user reorder (drag, moveLayerUp/Down, bringLayerToFront). Registration
    *  never writes it — a slot the author's code picked is not intent. `null`
@@ -29,11 +44,11 @@ class SavedOrder {
   /** Late-bound: the manager's `persistence` is a public field callers may
    *  replace (tests swap in a fresh debounce window), so every write goes
    *  through the getter rather than a captured instance. */
-  private getPersistence: () => LayerPersistence;
+  private getPersistence: () => OrderPersistence;
 
   constructor(deps: {
     registry: LayerInfoRegistry;
-    getPersistence: () => LayerPersistence;
+    getPersistence: () => OrderPersistence;
     savedOrder: string[] | null;
     removedIds: Set<string>;
   }) {
@@ -68,7 +83,7 @@ class SavedOrder {
   /** Persist the current live order as a full snapshot — the user just
    *  reordered, so every layer present participates equally, the solid-color
    *  basemap included. Registration never reaches here: a slot picked by attach
-   *  timing is not a user arrangement (see {@link SavedOrder.insertOverlayAt}).
+   *  timing is not a user arrangement (see {@link LayerOrder.insertOverlayAt}).
    *
    *  Prune paths (deleteLayer / forgetSavedOrder) filter `savedOrder` and
    *  schedule the record directly instead of calling this, so a prune never
@@ -202,4 +217,5 @@ class SavedOrder {
   }
 }
 
-export { SavedOrder };
+export { LayerOrder };
+export type { OrderPersistence };

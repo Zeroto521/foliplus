@@ -15,6 +15,7 @@ import {
   type LayerAPI,
   LayerFactory,
   LayerInfoRegistry,
+  LayerOrder,
   LayerSurface,
   PANE_ROLE,
   PaneManager,
@@ -38,7 +39,6 @@ import { createLogger } from "#common/log.js";
 import { AnnotationManager } from "./annotation/index.js";
 import * as CONST from "./const.js";
 import { LayerPersistence } from "./persistence.js";
-import { SavedOrder } from "./savedOrder.js";
 import { LayerUI } from "./ui/index.js";
 import { INTENT, clearIntent, getIntent } from "./ui/intent.js";
 
@@ -112,7 +112,7 @@ const uninstallBringToFrontPatch = () => {
 //   extra     computeZIndex, moveLayerUp, moveLayerDown
 //   Internal  surfaceFor, surfaceForLayer, enforceOrder, debouncedEnforce,
 //             hasUnresolvedLayers, onLayerAdd, loadSavedOrder, saveOrder,
-//             replaySavedOrder (order domain on `this.order` / savedOrder.ts),
+//             replaySavedOrder (order domain on `this.order` / LayerOrder.ts),
 //             syncAttribution, attachUI, destroy, canReorderBetween,
 //             findLayer, refreshCount, forEachLeaf,
 //             clearAllLayers
@@ -182,7 +182,7 @@ class LayerManager implements LayerAPI {
    *  `removedIds` and the load / snapshot / replay / prune methods; the
    *  manager forwards the public face and keeps the ownership call-sites
    *  (register gate, delete mark). */
-  order: SavedOrder;
+  order: LayerOrder;
   /** Whether the author set a finite `map.options.maxZoom`.
 
    *  Captured in the constructor, before the first enforceOrder can write its
@@ -222,7 +222,7 @@ class LayerManager implements LayerAPI {
       }),
       this.map,
     );
-    this.order = new SavedOrder({
+    this.order = new LayerOrder({
       registry: this.layerRegistry,
       getPersistence: () => this.persistence,
       savedOrder: saved.order,
@@ -878,7 +878,7 @@ class LayerManager implements LayerAPI {
 
   /**
    * Drop one id from the stored order without retiring the layer (LayerAPI
-   * contract; body on {@link SavedOrder}). Component clear paths use it so a
+   * contract; body on {@link LayerOrder}). Component clear paths use it so a
    * redraw lands at the top of the stack; `deleteLayer` reuses the same prune
    * and is the only caller that also records `removedIds`.
    *
