@@ -1328,7 +1328,7 @@ describe("LayerUI focus", () => {
       // the slider span, which is not an `input`/`button` — two quick flips
       // used to bubble a dblclick that fell through to focusLayer.
       stubLabelPanelSurface();
-      ui.fieldCache.set("overlay1", [{ name: "count", numeric: true }]);
+      ui.runtimeStore.setFields("overlay1", [{ name: "count", numeric: true }]);
       ui.openStylePanel("overlay1");
       const focusSpy = vi.spyOn(ui, "focusLayer");
       const slider = findItem(ui, "overlay1").querySelector(
@@ -1346,7 +1346,7 @@ describe("LayerUI focus", () => {
       // `input` nor `button` in the denylist, so only the floating-panel
       // early return keeps a double-click on it from focusing the layer.
       stubLabelPanelSurface();
-      ui.fieldCache.set("overlay1", [{ name: "count", numeric: true }]);
+      ui.runtimeStore.setFields("overlay1", [{ name: "count", numeric: true }]);
       ui.openStylePanel("overlay1");
       const focusSpy = vi.spyOn(ui, "focusLayer");
       const select = findItem(ui, "overlay1").querySelector(
@@ -1363,7 +1363,7 @@ describe("LayerUI focus", () => {
       // The "avoid overlap" switch uses the same <label><input><span.slider>
       // chrome as the show toggle — same double-flip hazard.
       stubLabelPanelSurface();
-      ui.fieldCache.set("overlay1", [{ name: "count", numeric: true }]);
+      ui.runtimeStore.setFields("overlay1", [{ name: "count", numeric: true }]);
       ui.openStylePanel("overlay1");
       const focusSpy = vi.spyOn(ui, "focusLayer");
       const collide = findItem(ui, "overlay1").querySelector(

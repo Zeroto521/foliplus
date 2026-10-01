@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GROUP, HIDDEN } from "#core/layer/const.js";
-import { LayerIntentStore } from "#core/layer/index.js";
+import { LayerIntentStore, LayerRuntimeStore } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { LayerManager } from "#foliplus/LayerControl/manager.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
@@ -1081,8 +1081,8 @@ describe("unit helpers", () => {
         layers: [{ id: "b1", group: "base" }],
         map: { getContainer: () => document.createElement("div") },
       },
-      authorVisible: new Map(),
       intentStore: new LayerIntentStore(),
+      runtimeStore: new LayerRuntimeStore(),
       T: (k: string) => k,
     } as unknown as LayerUI;
 
@@ -1109,8 +1109,8 @@ describe("unit helpers", () => {
       const ui = {
         uiContainer,
         m: { layers, map: { getContainer: () => container } },
-        authorVisible: new Map(),
         intentStore: new LayerIntentStore(),
+        runtimeStore: new LayerRuntimeStore(),
         T: (k: string) => k,
       } as unknown as LayerUI;
       return { ui, container };
@@ -1158,8 +1158,8 @@ describe("unit helpers", () => {
     const ui = {
       uiContainer,
       m: { layerRegistry: { get: () => ({ id: "x" }) } },
-      authorVisible: new Map(),
       intentStore: new LayerIntentStore(),
+      runtimeStore: new LayerRuntimeStore(),
       T: (k: string) => k,
     } as unknown as LayerUI;
 

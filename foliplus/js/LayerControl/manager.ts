@@ -830,7 +830,7 @@ class LayerManager implements LayerAPI {
       if (this.ui) {
         this.ui.colorSurface = null;
         this.ui.currentColor = CONST.COLOR.DEFAULT;
-        this.ui.authorVisible.set(id, false);
+        this.ui.runtimeStore.setAuthorVisible(id, false);
         this.ui.saveState();
         this.ui.syncToggleAll(GROUP.BASE);
         this.ui.syncNoBasemap();

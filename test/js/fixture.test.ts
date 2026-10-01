@@ -6,7 +6,7 @@
 // a new field landing in production code produces a loud test failure instead
 // of a silent crash a dozen tests downstream.
 import { beforeEach, describe, expect, it } from "vitest";
-import { LayerIntentStore } from "#core/layer/index.js";
+import { LayerIntentStore, LayerRuntimeStore } from "#core/layer/index.js";
 import { makeLayerUIMock } from "./fixture.js";
 
 describe("window.L marker mock", () => {
@@ -29,8 +29,8 @@ describe("makeLayerUIMock — LayerUI field completeness", () => {
     expect((ui.intentStore as LayerIntentStore).dumpIntents()).toEqual({});
     expect((ui.intentStore as LayerIntentStore).dumpProvenance()).toEqual({});
     // Maps
-    expect(ui.authorVisible).toBeInstanceOf(Map);
-    expect(ui.fieldCache).toBeInstanceOf(Map);
+    expect(ui.runtimeStore).toBeInstanceOf(LayerRuntimeStore);
+    expect(ui.runtimeStore.ids()).toEqual([]);
     // Records
     expect(ui.renamedNames).toEqual({});
     // Primitives with sensible defaults

@@ -1681,7 +1681,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
     // layer's options are never written.
     manager.registerLayer({ id: "grid1", name: "Grid", layer: new GridLayer() });
     const li = manager.layerRegistry.get("grid1")!;
-    ui.authorVisible.set("grid1", true); // author default: visible
+    ui.runtimeStore.setAuthorVisible("grid1", true); // author default: visible
     seedIntentMap(ui, "zoomRange", { grid1: [4, 9] });
     ui.intentStore.seedProvenance("grid1", ["zoomRange"]);
 

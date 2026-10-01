@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { LayerIntentStore } from "#core/layer/index.js";
+import { LayerIntentStore, LayerRuntimeStore } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { hideSolidBasemap, showSolidBasemap } from "#foliplus/LayerControl/ui/color.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
@@ -43,7 +43,7 @@ const makeUi = (layers: Array<{ id: string; group: "base" | "overlay" }> = []) =
     currentColor: CONST.COLOR.DEFAULT,
     syncToggleAll: vi.fn(),
     intentStore: new LayerIntentStore(),
-    authorVisible: new Map<string, boolean>(),
+    runtimeStore: new LayerRuntimeStore(),
     renamedNames: {},
     focusingLayerId: null,
     mgmt: { getFeatureCount: () => null },

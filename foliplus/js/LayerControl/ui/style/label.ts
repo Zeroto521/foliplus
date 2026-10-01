@@ -22,14 +22,14 @@ import type { LayerUI } from "../index.js";
 import { INTENT, getIntent } from "../intent.js";
 import { saveState } from "../state.js";
 
-/** Field list for a layer (cached on the UI shell). collectFields walks every
- *  feature, so the answer is cached per layer id; invalidateFields drops a
- *  layer's entry whenever its features can change at runtime. */
+/** Field list for a layer (cached on the runtime store). collectFields walks
+ *  every feature, so the answer is cached per layer id; invalidateFields drops
+ *  a layer's entry whenever its features can change at runtime. */
 const layerFields = (ui: LayerUI, layerId: string): LabelField[] => {
-  const cached = ui.fieldCache.get(layerId);
+  const cached = ui.runtimeStore.getFields(layerId);
   if (cached) return cached;
   const fields = ui.m.annotation.collectFields(layerId);
-  ui.fieldCache.set(layerId, fields);
+  ui.runtimeStore.setFields(layerId, fields);
   return fields;
 };
 
@@ -47,7 +47,7 @@ const layerHasLabelFields = (ui: LayerUI, layerId: string): boolean =>
  *  fields, and the picker would now resolve a different auto field, so without
  *  it the map and the panel disagree until the user touches a control. */
 const invalidateFields = (ui: LayerUI, layerId: string): void => {
-  ui.fieldCache.delete(layerId);
+  ui.runtimeStore.deleteFields(layerId);
   ui.m.annotation.invalidateAutoField(layerId);
   if (ui.m.annotation.getConfig(layerId).show) {
     ui.m.annotation.renderLabels(layerId);
