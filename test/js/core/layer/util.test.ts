@@ -4,13 +4,12 @@ import * as CONST from "#foliplus/core/layer/const.js";
 import {
   countFeatureGeometry,
   findLayer,
-  forEachLayer,
-  forEachLeaf,
   getGeometryType,
   isLayerInPanes,
   setInteractive,
   suspendMapInteractions,
 } from "#foliplus/core/layer/util.js";
+import { walkTree, walkLeaf } from "#foliplus/core/layer/walkLeaf.js";
 
 // What is worth pinning here is the other half: nothing in
 // util.ts touches a private field any more.
@@ -55,7 +54,7 @@ describe("core/layer util", () => {
     });
   });
 
-  describe("forEachLayer / forEachLeaf", () => {
+  describe("walkTree / walkLeaf", () => {
     const group = () => {
       const a = {};
       const b = {};
@@ -74,21 +73,21 @@ describe("core/layer util", () => {
     it("walks containers and leaves", () => {
       const { a, b, layer } = group();
       const visited: L.Layer[] = [];
-      forEachLayer(layer as never, l => visited.push(l));
+      walkTree(layer as never, l => visited.push(l));
       expect(visited).toEqual([layer, a, b]);
     });
 
-    it("forEachLeaf visits only leaves", () => {
+    it("walkLeaf visits only leaves", () => {
       const { a, b, layer } = group();
       const visited: L.Layer[] = [];
-      forEachLeaf(layer as never, l => visited.push(l));
+      walkLeaf(layer as never, l => visited.push(l));
       expect(visited).toEqual([a, b]);
     });
 
     it("handles a plain layer with no children", () => {
       const plain = {};
       const visited: L.Layer[] = [];
-      forEachLayer(plain as never, l => visited.push(l));
+      walkTree(plain as never, l => visited.push(l));
       expect(visited).toEqual([plain]);
     });
 
@@ -96,7 +95,7 @@ describe("core/layer util", () => {
       const a = {};
       const layer = { _layers: { a } };
       const visited: L.Layer[] = [];
-      forEachLeaf(layer as never, l => visited.push(l));
+      walkLeaf(layer as never, l => visited.push(l));
       expect(visited).toEqual([a]);
     });
 
@@ -107,7 +106,7 @@ describe("core/layer util", () => {
       const own = { own: true };
       const registry = Object.assign(Object.create({ inherited: {} }), { own });
       const visited: L.Layer[] = [];
-      forEachLeaf({ _layers: registry } as never, l => visited.push(l));
+      walkLeaf({ _layers: registry } as never, l => visited.push(l));
       expect(visited).toEqual([own]);
     });
 
@@ -119,7 +118,7 @@ describe("core/layer util", () => {
       const leaf = { leaf: true };
       const outer = { _layers: { inner: { _layers: { leaf } } } };
       const visited: L.Layer[] = [];
-      forEachLeaf(outer as never, l => visited.push(l));
+      walkLeaf(outer as never, l => visited.push(l));
       expect(visited).toEqual([leaf]);
     });
 
@@ -134,7 +133,7 @@ describe("core/layer util", () => {
         tail = { eachLayer: (fn: (l: L.Layer) => void) => fn(next as L.Layer) };
       }
       const visited: L.Layer[] = [];
-      forEachLayer(tail as never, l => visited.push(l));
+      walkTree(tail as never, l => visited.push(l));
       // traverse() stops once depth exceeds LAYER_DEPTH, so a correct limit
       // visits exactly LAYER_DEPTH + 1 nodes (depths 0..LAYER_DEPTH). An
       // absent limit visits depth + 1; one level early visits LAYER_DEPTH.
@@ -143,7 +142,7 @@ describe("core/layer util", () => {
 
     it("skips a null layer", () => {
       const visited: L.Layer[] = [];
-      forEachLayer(null as never, l => visited.push(l));
+      walkTree(null as never, l => visited.push(l));
       expect(visited).toEqual([]);
     });
   });
