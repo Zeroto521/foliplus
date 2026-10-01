@@ -6452,13 +6452,9 @@ class TestLayerControlBrowser:
                 f"popup did not open on feature click: {result}"
             )
             # After focus, the popup must be gone.
-            assert result["popupStillOpen"] is False, (
-                f"popup survived focus: {result}"
-            )
+            assert result["popupStillOpen"] is False, f"popup survived focus: {result}"
             # Focus must be active — proves closeOverlays ran, not a no-op.
-            assert result["focusing"] is True, (
-                f"focus did not activate: {result}"
-            )
+            assert result["focusing"] is True, f"focus did not activate: {result}"
             assert not errors, f"JS errors: {errors}"
 
 
