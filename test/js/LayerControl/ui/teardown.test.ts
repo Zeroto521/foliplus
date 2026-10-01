@@ -75,6 +75,10 @@ describe("LayerUI overlay mutual exclusion", () => {
 
   beforeEach(() => {
     ({ manager, ui, map } = initFixture());
+    // clearAllMocks clears call history but keeps implementations, so a
+    // blocked-focus case would bleed its mockReturnValue into the next test
+    // and mask the guard that test is meant to reach. Restore the default.
+    modeMocks.guardBlocked.mockReturnValue(false);
     // The fixture's data layer carries no real leaves, so the style panel
     // would build empty: seed the field cache and the annotation capability
     // the way the panel's own tests do, so `openStylePanel` renders.
