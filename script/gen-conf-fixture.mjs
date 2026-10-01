@@ -23,12 +23,20 @@
 import { spawnSync } from "child_process";
 import { existsSync, readFileSync, writeFileSync } from "fs";
 import { dirname, resolve } from "path";
-import { format } from "prettier";
+import { format, resolveConfig } from "prettier";
 import { fileURLToPath, pathToFileURL } from "url";
-import { parseArgs } from "./args.mjs";
+import { help, parseArgs } from "./args.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
+
+// `format()` does not load the repo config on its own, so bare defaults would
+// produce a file that `format:check` (printWidth 88 + the import-sort plugin)
+// rejects. Resolved once at import; empty when no config is found.
+const PrettierOptions =
+  (await resolveConfig(process.cwd(), {
+    editorconfig: false,
+  })) ?? {};
 
 const SPEC = {
   json: {
@@ -45,11 +53,12 @@ const SPEC = {
 const _raw = parseArgs(process.argv.slice(2), SPEC);
 /* v8 ignore start -- CLI-only help/error handling */
 if (_raw.help) {
-  console.log("Usage: node script/gen-conf-fixture.mjs [--json <path>] [--out <path>]");
+  console.log(help(SPEC));
   process.exit(0);
 }
 if (_raw.errors.length) {
   console.error(_raw.errors.join("\n"));
+  console.error(help(SPEC));
   process.exit(1);
 }
 /* v8 ignore stop */
@@ -84,6 +93,7 @@ const formatValue = val => {
     );
     return `{ ${entries.join(", ")} }`;
   }
+  /* v8 ignore next -- unreachable: JSON values are covered by the branches above */
   return JSON.stringify(val);
 };
 
@@ -139,34 +149,47 @@ const buildConfFixture = async schema => {
     "",
   );
 
-  return format(lines.join("\n"), { parser: "typescript" });
+  return format(lines.join("\n"), { ...PrettierOptions, parser: "typescript" });
 };
-
-export { buildConfFixture };
 
 // ── CLI entry ──────────────────────────────────────────────────────────────
 
-/** Resolve the schema JSON path, self-dumping via Python when absent. */
-const resolveSchemaJson = () => {
-  if (opts.json) return resolve(opts.json);
-  const built = resolve(ROOT, "foliplus/.build/js/conf-schema.json");
-  if (existsSync(built)) return built;
+/** The JS build's scratch copy of the schema dump (gitignored). */
+const SCHEMA_JSON = resolve(ROOT, "foliplus/.build/js/conf-schema.json");
+
+/** Resolve the schema JSON path: --json wins, then the built copy, then a
+ *  self-dump via Python so a checkout that never ran the JS build still works. */
+const resolveSchemaJson = o => {
+  if (o.json) return resolve(o.json);
+  if (existsSync(SCHEMA_JSON)) return SCHEMA_JSON;
+  /* v8 ignore start -- Python self-dump fallback. It spawns an interpreter, so
+     it is exercised by the real CLI runs (build-js-dev, the vitest globalSetup)
+     rather than by unit tests, which cannot reach it without python on PATH. */
   const pythonExe = process.env.PYTHON ?? "python";
   const dump = spawnSync(
     pythonExe,
-    ["-W", "ignore", resolve(ROOT, "foliplus/_schema.py"), "--out", built],
+    ["-W", "ignore", resolve(ROOT, "foliplus/_schema.py"), "--out", SCHEMA_JSON],
     { stdio: "pipe", encoding: "utf-8" },
   );
   if (dump.error) throw dump.error;
   if (dump.stderr) console.error(dump.stderr);
   if (dump.status !== 0) process.exit(dump.status);
-  return built;
+  return SCHEMA_JSON;
+  /* v8 ignore stop */
 };
+
+/** Read the schema, render the fixture, write `out`. `o` is injectable so
+ *  tests can drive every branch against temp paths. */
+const main = async (o = opts) => {
+  const schema = JSON.parse(readFileSync(resolveSchemaJson(o), "utf-8"));
+  const text = await buildConfFixture(schema);
+  writeFileSync(o.out, text, "utf-8");
+};
+
+export { buildConfFixture, main, resolveSchemaJson };
 
 /* v8 ignore start -- CLI-only entry point, not exercised by unit tests */
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
-  const schema = JSON.parse(readFileSync(resolveSchemaJson(), "utf-8"));
-  const text = await buildConfFixture(schema);
-  writeFileSync(opts.out, text, "utf-8");
+  await main();
 }
 /* v8 ignore stop */

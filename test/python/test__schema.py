@@ -41,6 +41,7 @@ from foliplus._schema import (
     SCHEMAS,
     SHARED,
     FieldSpec,
+    _main,
     config_fields,
     render_ts_type,
     schema_to_json,
@@ -229,6 +230,44 @@ class TestSchemaTypes:
                 assert spec.optional, f"{where} is runtime_only but not optional"
 
 
+class TestFieldSpecValidation:
+    """FieldSpec rejects contradictory declarations at construction time.
+
+    These guards are what keep the schema table honest: a typo'd tag or a
+    flag pair that cannot both be true would otherwise render into the
+    generated TS and only fail (if at all) in the browser.
+    """
+
+    def test_union_requires_values(self) -> None:
+        with pytest.raises(ValueError, match="requires values"):
+            FieldSpec("union")
+
+    def test_union_rejects_empty_values(self) -> None:
+        with pytest.raises(ValueError, match="requires values"):
+            FieldSpec("union", values=())
+
+    def test_unknown_tag_is_rejected(self) -> None:
+        with pytest.raises(ValueError, match="not a supported tag"):
+            FieldSpec("bogus")
+
+    def test_runtime_only_must_be_optional(self) -> None:
+        with pytest.raises(ValueError, match="must be optional"):
+            FieldSpec("string", runtime_only=True)
+
+    def test_dynamic_and_runtime_only_are_mutually_exclusive(self) -> None:
+        with pytest.raises(ValueError, match="mutually exclusive"):
+            FieldSpec("string", optional=True, dynamic=True, runtime_only=True)
+
+    def test_render_ts_type_rejects_unknown_tag(self) -> None:
+        # __post_init__ covers typos at construction time; the render-time
+        # guard catches specs that bypass the constructor (setattr on a
+        # frozen dataclass, unpickling, third-party builders).
+        spec = FieldSpec("string")
+        object.__setattr__(spec, "ts", "bogus")
+        with pytest.raises(ValueError, match="unknown FieldSpec.ts"):
+            render_ts_type(spec)
+
+
 class TestSchemaDump:
     """The JSON dump must be deterministic and valid JSON."""
 
@@ -250,6 +289,24 @@ class TestSchemaDump:
     def test_dump_lists_all_controls(self) -> None:
         data = json.loads(schema_to_json())
         assert set(data["controls"]) == set(SCHEMAS)
+
+    def test_main_writes_out_file(self, tmp_path: Path) -> None:
+        # ``--out`` is how the JS generators consume the schema; exercise the
+        # file branch so a regression there is caught in-process.
+        out = tmp_path / "conf-schema.json"
+        assert _main(["--out", str(out)]) == 0
+        data = json.loads(out.read_text(encoding="utf-8"))
+        assert data["version"] == 1
+        assert set(data["controls"]) == set(SCHEMAS)
+
+    def test_main_dump_prints_to_stdout(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        # Without ``--out`` the payload goes to stdout (manual `python -m
+        # foliplus._schema` usage); ``--dump`` is the explicit form of it.
+        assert _main(["--dump"]) == 0
+        printed = capsys.readouterr().out
+        assert printed == schema_to_json()
 
 
 class TestRuntimeZeroChange:

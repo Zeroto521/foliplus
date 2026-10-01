@@ -25,7 +25,6 @@
     "build:sonda": "node script/build.mjs --sonda",
     "new-control": "node script/new-control.mjs",
     "test": "vitest run --coverage",
-    "pretest": "node script/gen-conf-fixture.mjs",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit && eslint -c eslint.config.js -c eslint.config.type.js \"foliplus/js/**/*.ts\"",
     "typecheck:tests": "vitest run --config vitest.config.mjs test/js/tsconfig.test.ts",
