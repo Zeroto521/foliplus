@@ -309,9 +309,9 @@ const buildEntries = (components, withSonda) => {
     // A split component stylesheet (`css/{Name}/index.css`) is merged below
     // from its modules; flat `css/{Name}.css` entries feed esbuild directly.
     if (css && !css.endsWith("index.css")) {
-      artifacts.push(
-        enable(artifact([css], out(`foliplus-${outName}.min.css`), name, deps)),
-      );
+      // CSS carries no runtime deps — `banner.js` is a JS-only concern
+      // (the shared-runtime assertion runs in the browser, not on stylesheets).
+      artifacts.push(enable(artifact([css], out(`foliplus-${outName}.min.css`), name)));
     }
   }
 
@@ -336,9 +336,9 @@ const buildEntries = (components, withSonda) => {
     const tmpCss = resolve(buildCss, file);
     writeFileSync(tmpCss, body, "utf-8");
     const outName = file === "common.css" ? "common" : file.replace(/\.css$/, "");
-    const deps = outName === "common" ? [] : componentDeps(outName);
+    // CSS carries no runtime deps — see the earlier split-stylesheet call.
     artifacts.push(
-      enable(artifact([tmpCss], out(`foliplus-${outName}.min.css`), outName, deps)),
+      enable(artifact([tmpCss], out(`foliplus-${outName}.min.css`), outName)),
     );
   }
   return artifacts;
