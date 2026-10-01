@@ -1,17 +1,16 @@
 """CDN dependency loader — reads cdn.json and provides per-control script lists.
 
-This is the single source of truth for CDN dependencies.  Both Python
-(controls) and Node.js (esbuild) can read the same cdn.json file.
+This is the single source of truth for CDN dependencies.
 """
 
 import json
 from pathlib import Path
 
 _CDN_PATH = Path(__file__).parent / "cdn.json"
-_cache: dict[str, list[tuple[str, str]]] | None = None
+_cache: dict[str, dict[str, str]] | None = None
 
 
-def _load_all() -> dict[str, list[tuple[str, str]]]:
+def _load_all() -> dict[str, dict[str, str]]:
     global _cache
     if _cache is None:
         # cdn.json is a controlled source file, not a user-input boundary;
@@ -27,4 +26,4 @@ def load_cdn(control_name: str) -> list[tuple[str, str]]:
     ``[(name, url), ...]``.
     """
     data = _load_all()
-    return [(name, url) for name, url in data.get(control_name, [])]
+    return list(data.get(control_name, {}).items())
