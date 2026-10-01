@@ -19,7 +19,10 @@
 // the HeatmapControl border row and the annotation label row — one
 // <input type=color> inside a FORM_ROW, no reset button on the row itself
 // (the panel-wide Reset handles it, the way label color has it).
+import { METHOD } from "#core/classify.js";
+import { numericPropertiesKeys } from "#core/field.js";
 import { CAP_TIER, DIM, GROUP, type LayerInfo } from "#core/layer/index.js";
+import { DEFAULT_SCHEMES } from "#core/palette.js";
 import { dom } from "#common/dom.js";
 import {
   bindLiveColor,
@@ -31,9 +34,11 @@ import {
   numberInput,
 } from "#common/form.js";
 import * as CONST from "../../const.js";
+import type { FillRampConfig } from "../../type.js";
 import { showSolidBasemap } from "../color.js";
 import type { LayerUI } from "../index.js";
 import { INTENT, type IntentKey, getIntent } from "../intent.js";
+import { applyRampToLayer } from "./fillRamp.js";
 import { pinStyleOnHighlight } from "./pin.js";
 import {
   getDimension,
@@ -173,6 +178,15 @@ const VISIBLE_FILL_OPACITY = 0.2;
  *  `commitFillOpacity`) so the walk is unit-testable without a storage timer. */
 const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
   const li = ui.m.layerRegistry.get(layerId);
+
+  // By-value mode: delegate to the ramp renderer (two-pass walk + breaks).
+  const ramp = getIntent(ui, layerId, INTENT.FILL_RAMP);
+  if (ramp) {
+    if (isColorBasemap(li)) return;
+    applyRampToLayer(ui, layerId, ramp);
+    return;
+  }
+
   const color = getIntent(ui, layerId, INTENT.FILL_COLOR);
   const opacity = getIntent(ui, layerId, INTENT.FILL_OPACITY);
   if (color === undefined && opacity === undefined) return;
@@ -277,18 +291,60 @@ const resetLayerFill = (ui: LayerUI, layerId: string): void => {
   getDimension(DIM.FILL)!.reset!(ui, layerId);
 };
 
-/** Build the fill form row: color swatch + fill-opacity number input.
- *  Both controls live inside one FORM_CONTROL via `inlineControls`, so the
- *  row's width matches the border-weight row (color + number).
- *
- *  Both inputs show the stored choice, falling back to the layer's authored
- *  value (the first style leaf's options) — never a constant — so the row
- *  reflects what the layer is actually painting on first open, and named
- *  authored colors are resolved to the hex the picker can display. */
-const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
-  const li = ui.m.layerRegistry.get(layerId);
-  const isBasemap = isColorBasemap(li!);
+/** Build a select element with the given options and current value. */
+const buildSelect = (opts: {
+  value: string;
+  options: string[];
+  className: string;
+  ariaLabel: string;
+}): HTMLSelectElement => {
+  const sel = dom.el("select", {
+    class: `foliplus-form-select ${opts.className}`,
+    "aria-label": opts.ariaLabel,
+    value: opts.value,
+  }) as HTMLSelectElement;
+  for (const opt of opts.options) {
+    sel.appendChild(dom.el("option", { value: opt }, opt));
+  }
+  return sel;
+};
 
+/** Build the mode radio row (Solid | By value). Hidden for basemaps. */
+const buildModeRadioRow = (
+  ui: LayerUI,
+  layerId: string,
+  mode: "solid" | "ramp",
+): HTMLElement => {
+  const solidRadio = dom.el("input", {
+    type: "radio",
+    name: `fill-mode-${layerId}`,
+    value: "solid",
+    class: CONST.CLASSES.STYLE_FILL_MODE_RADIO,
+    checked: mode === "solid" ? true : undefined,
+  });
+  const rampRadio = dom.el("input", {
+    type: "radio",
+    name: `fill-mode-${layerId}`,
+    value: "ramp",
+    class: CONST.CLASSES.STYLE_FILL_MODE_RADIO,
+    checked: mode === "ramp" ? true : undefined,
+  });
+  return formRow(
+    ui.T("style_fill"),
+    inlineControls(
+      dom.el("label", { class: "foliplus-form-label" }, solidRadio, "Solid"),
+      dom.el("label", { class: "foliplus-form-label" }, rampRadio, "By value"),
+    ),
+    `${CONST.CLASSES.STYLE_FILL_ROW} ${CONST.CLASSES.STYLE_FILL_MODE_ROW}`,
+  );
+};
+
+/** Build the solid-mode controls (color + opacity). */
+const buildSolidControls = (
+  ui: LayerUI,
+  layerId: string,
+  isBasemap: boolean,
+): HTMLElement => {
   const storedColor = getIntent(ui, layerId, INTENT.FILL_COLOR);
   const color = toHexColor(
     storedColor ?? (isBasemap ? CONST.COLOR.DEFAULT : authoredFillColor(ui, layerId)),
@@ -299,13 +355,15 @@ const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
     ariaLabel: ui.T("style_fill"),
   }) as HTMLInputElement;
 
-  // Solid-color basemaps have no fill opacity (their transparency is the pane's
-  // CSS opacity, a different axis). Render only the color swatch.
   if (isBasemap) {
-    return formRow(
-      ui.T("style_fill"),
-      dom.el("div", { class: "foliplus-form-inline" }, colorInput),
-      CONST.CLASSES.STYLE_FILL_ROW,
+    return dom.el(
+      "div",
+      { class: CONST.CLASSES.STYLE_FILL_SOLID_CONTROLS },
+      formRow(
+        ui.T("style_fill"),
+        dom.el("div", { class: "foliplus-form-inline" }, colorInput),
+        CONST.CLASSES.STYLE_FILL_ROW,
+      ),
     );
   }
 
@@ -316,35 +374,103 @@ const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
     value: opacityPct,
     min: 0,
     max: 100,
-    // Any integer 0—100 is a legal opacity; the number field is the precise
-    // companion to the live commit, so the spinner must not restrict the
-    // input to multiples of a coarser step (the opacity row uses step 1 too).
     step: 1,
     className: CONST.CLASSES.STYLE_FILL_OPACITY_NUMBER,
     ariaLabel: ui.T("style_fill_opacity"),
   }) as HTMLInputElement;
 
-  return formRow(
-    ui.T("style_fill"),
-    inlineControls(colorInput, opacityInput),
-    CONST.CLASSES.STYLE_FILL_ROW,
+  return dom.el(
+    "div",
+    { class: CONST.CLASSES.STYLE_FILL_SOLID_CONTROLS },
+    formRow(
+      ui.T("style_fill"),
+      inlineControls(colorInput, opacityInput),
+      CONST.CLASSES.STYLE_FILL_ROW,
+    ),
   );
 };
 
-/** Wire the shared live-color and live-number binders to this row's
- *  commit paths. Called from `openStylePanel` in index.ts. */
+/** Build the ramp-mode controls (field, method, classes, scheme). */
+const buildRampControls = (
+  ui: LayerUI,
+  layerId: string,
+  ramp: FillRampConfig,
+): HTMLElement => {
+  const li = ui.m.layerRegistry.get(layerId);
+  const layer = li?.layer as L.Layer | null;
+  const fields = layer ? numericPropertiesKeys(layer) : [];
+
+  const fieldSelect = buildSelect({
+    value: ramp.field,
+    options: fields,
+    className: CONST.CLASSES.STYLE_FILL_RAMP_FIELD,
+    ariaLabel: ui.T("style_fill_field"),
+  });
+
+  const methodSelect = buildSelect({
+    value: ramp.method,
+    options: Object.values(METHOD),
+    className: CONST.CLASSES.STYLE_FILL_RAMP_METHOD,
+    ariaLabel: ui.T("style_fill_method"),
+  });
+
+  const classOptions = Array.from({ length: 8 }, (_, i) => String(i + 2));
+  const classesSelect = buildSelect({
+    value: String(ramp.classes),
+    options: classOptions,
+    className: CONST.CLASSES.STYLE_FILL_RAMP_CLASSES,
+    ariaLabel: ui.T("style_fill_classes"),
+  });
+
+  const schemeSelect = buildSelect({
+    value: ramp.scheme,
+    options: [...DEFAULT_SCHEMES],
+    className: CONST.CLASSES.STYLE_FILL_RAMP_SCHEME,
+    ariaLabel: ui.T("style_fill_scheme"),
+  });
+
+  return dom.el(
+    "div",
+    { class: CONST.CLASSES.STYLE_FILL_RAMP_CONTROLS },
+    formRow(ui.T("style_fill_field"), fieldSelect, CONST.CLASSES.STYLE_FILL_ROW),
+    formRow(ui.T("style_fill_method"), methodSelect, CONST.CLASSES.STYLE_FILL_ROW),
+    formRow(ui.T("style_fill_classes"), classesSelect, CONST.CLASSES.STYLE_FILL_ROW),
+    formRow(ui.T("style_fill_scheme"), schemeSelect, CONST.CLASSES.STYLE_FILL_ROW),
+  );
+};
+
+/** Build the fill form row: mode radio + solid controls + ramp controls. */
+const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
+  const li = ui.m.layerRegistry.get(layerId);
+  const isBasemap = isColorBasemap(li!);
+
+  const ramp = getIntent(ui, layerId, INTENT.FILL_RAMP);
+  const mode: "solid" | "ramp" = ramp ? "ramp" : "solid";
+
+  const container = dom.el("div", {
+    class: `${CONST.CLASSES.FORM_ROW} ${CONST.CLASSES.STYLE_FILL_ROW}`,
+  });
+
+  if (!isBasemap) {
+    container.appendChild(buildModeRadioRow(ui, layerId, mode));
+  }
+
+  container.appendChild(buildSolidControls(ui, layerId, isBasemap));
+
+  if (!isBasemap && mode === "ramp" && ramp) {
+    container.appendChild(buildRampControls(ui, layerId, ramp));
+  }
+
+  return container;
+};
+
+/** Wire the fill row's mode radio + solid/ramp controls to commit paths. */
 const bindFillRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
   const colorEl = row.querySelector(
     `.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`,
   ) as HTMLInputElement | null;
   if (colorEl) {
     bindLiveColor(colorEl, value => commitFillColor(ui, layerId, value));
-    // change / blur close the drag: the trailing rAF frame may never fire
-    // if the pointer lifts between frames — flush so the terminal value
-    // lands (same contract as bindLiveNumber's change commit). Chain, never
-    // overwrite: bindLiveColor only owns oninput today, but a future binder
-    // that owns onchange must not be dropped (and the listener-guard
-    // allow-list rejects bare addEventListener).
     const flush = () => flushStyleDimApply(FACE.FILL, layerId);
     const prevColorChange = colorEl.onchange;
     colorEl.onchange = ev => {
@@ -364,8 +490,6 @@ const bindFillRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
       fallback: VISIBLE_FILL_OPACITY * 100,
       onCommit: value => commitFillOpacity(ui, layerId, value),
     });
-    // bindLiveNumber already owns onchange (clamp + commit); chain the flush
-    // instead of overwriting it. blur is free.
     const flush = () => flushStyleDimApply(FACE.FILL, layerId);
     const prevChange = opacityEl.onchange;
     opacityEl.onchange = ev => {
@@ -373,6 +497,80 @@ const bindFillRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
       flush();
     };
     opacityEl.onblur = flush;
+  }
+
+  // Mode radio: switch between solid and ramp modes
+  const modeRadios = row.querySelectorAll(
+    `.${CONST.CLASSES.STYLE_FILL_MODE_RADIO}`,
+  ) as NodeListOf<HTMLInputElement>;
+  modeRadios.forEach(radio => {
+    radio.onchange = () => {
+      if (!radio.checked) return;
+      const newMode = radio.value === "ramp" ? "ramp" : "solid";
+      if (newMode === "ramp") {
+        const ramp: FillRampConfig = {
+          field: "",
+          method: METHOD.EQUAL,
+          classes: 6,
+          scheme: DEFAULT_SCHEMES[0],
+        };
+        getDimension(DIM.FILL)!.write!(ui, layerId, { mode: "ramp", ramp });
+      } else {
+        getDimension(DIM.FILL)!.write!(ui, layerId, { mode: "solid" });
+      }
+      row.innerHTML = "";
+      row.appendChild(buildFillRow(ui, layerId));
+      bindFillRow(ui, layerId, row);
+    };
+  });
+
+  // Ramp controls: field, method, classes, scheme
+  const rampField = row.querySelector(
+    `.${CONST.CLASSES.STYLE_FILL_RAMP_FIELD}`,
+  ) as HTMLSelectElement | null;
+  if (rampField) {
+    rampField.onchange = () => {
+      const currentRamp = getIntent(ui, layerId, INTENT.FILL_RAMP);
+      if (!currentRamp) return;
+      const newRamp = { ...currentRamp, field: rampField.value };
+      getDimension(DIM.FILL)!.write!(ui, layerId, { ramp: newRamp });
+    };
+  }
+
+  const rampMethod = row.querySelector(
+    `.${CONST.CLASSES.STYLE_FILL_RAMP_METHOD}`,
+  ) as HTMLSelectElement | null;
+  if (rampMethod) {
+    rampMethod.onchange = () => {
+      const currentRamp = getIntent(ui, layerId, INTENT.FILL_RAMP);
+      if (!currentRamp) return;
+      const newRamp = { ...currentRamp, method: rampMethod.value };
+      getDimension(DIM.FILL)!.write!(ui, layerId, { ramp: newRamp });
+    };
+  }
+
+  const rampClasses = row.querySelector(
+    `.${CONST.CLASSES.STYLE_FILL_RAMP_CLASSES}`,
+  ) as HTMLSelectElement | null;
+  if (rampClasses) {
+    rampClasses.onchange = () => {
+      const currentRamp = getIntent(ui, layerId, INTENT.FILL_RAMP);
+      if (!currentRamp) return;
+      const newRamp = { ...currentRamp, classes: Number(rampClasses.value) };
+      getDimension(DIM.FILL)!.write!(ui, layerId, { ramp: newRamp });
+    };
+  }
+
+  const rampScheme = row.querySelector(
+    `.${CONST.CLASSES.STYLE_FILL_RAMP_SCHEME}`,
+  ) as HTMLSelectElement | null;
+  if (rampScheme) {
+    rampScheme.onchange = () => {
+      const currentRamp = getIntent(ui, layerId, INTENT.FILL_RAMP);
+      if (!currentRamp) return;
+      const newRamp = { ...currentRamp, scheme: rampScheme.value };
+      getDimension(DIM.FILL)!.write!(ui, layerId, { ramp: newRamp });
+    };
   }
 };
 
@@ -382,11 +580,23 @@ const bindFillRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
 const replayFillState = (ui: LayerUI, id: string): void => {
   if (
     getIntent(ui, id, INTENT.FILL_COLOR) === undefined &&
-    getIntent(ui, id, INTENT.FILL_OPACITY) === undefined
+    getIntent(ui, id, INTENT.FILL_OPACITY) === undefined &&
+    getIntent(ui, id, INTENT.FILL_RAMP) === undefined
   ) {
     return;
   }
   applyFillToLayer(ui, id);
+};
+
+/** The fill dimension's resolved state. `mode` is derived from which
+ *  intent is set: "ramp" when a fillRamp override exists, "solid" otherwise.
+ *  The patch is `Partial<FillDimState>` — omitted keys leave that
+ *  sub-dimension alone. */
+type FillDimState = {
+  mode: "solid" | "ramp";
+  color: string;
+  opacity: number | null;
+  ramp: FillRampConfig | null;
 };
 
 /** Register fill as a per-layer dimension. The descriptor wires the existing
@@ -397,7 +607,12 @@ const replayFillState = (ui: LayerUI, id: string): void => {
  *
  *  Registered ahead of `border` and `opacity` in `DIM_ORDER`
  *  (see `./registry.js`): fill comes first in the annotation panel's
- *  Layer section. */
+ *  Layer section.
+ *
+ *  Dual mode (Solid | By value): `write` switches mode and clears the
+ *  other side's intent + provenance (先清后写, T261 原子化纪律). The
+ *  `reset` clears all three fill overrides (fillColor, fillOpacity,
+ *  fillRamp) and restores the author's fill face. */
 const FILL_DIMENSION = registerDimension<{
   color: string;
   opacity: number | null;
@@ -415,21 +630,43 @@ const FILL_DIMENSION = registerDimension<{
     };
   },
   row: buildFillRow,
-  /** Intent+persist + schedule the fill face landing. `patch` is already
-   *  normalized (hex / 0-1). Omitted keys leave that sub-dimension alone. */
+  /** Intent+persist + schedule the fill face landing. Handles mode
+   *  switching (先清后写) and sub-dimension writes. */
   write: (ui, layerId, patch) => {
-    const { color, opacity } = patch;
+    const { mode: patchMode, color, opacity, ramp } = patch as Partial<FillDimState>;
+    const currentMode: "solid" | "ramp" = getIntent(ui, layerId, INTENT.FILL_RAMP)
+      ? "ramp"
+      : "solid";
+    const targetMode: "solid" | "ramp" =
+      ramp !== undefined ? "ramp" : (patchMode ?? "solid");
+
+    // Mutual exclusion: clear the other side before writing the new one.
+    // Two-step (clear → write) within one synchronous call — saveState is
+    // debounced, so the final state is persisted atomically.
+    if (targetMode === "ramp" && currentMode === "solid") {
+      cancelStyleDimApply(FACE.FILL, layerId);
+      resetIntentKeys(ui, layerId, [INTENT.FILL_COLOR, INTENT.FILL_OPACITY]);
+    } else if (targetMode === "solid" && currentMode === "ramp") {
+      cancelStyleDimApply(FACE.FILL, layerId);
+      resetIntentKeys(ui, layerId, [INTENT.FILL_RAMP]);
+    }
+
     const writes: Array<readonly [IntentKey, unknown]> = [];
     if (color !== undefined) writes.push([INTENT.FILL_COLOR, color]);
     if (typeof opacity === "number") writes.push([INTENT.FILL_OPACITY, opacity]);
+    if (ramp !== undefined) writes.push([INTENT.FILL_RAMP, ramp]);
     if (!writeIntentKeys(ui, layerId, writes)) return;
     scheduleFillApply(ui, layerId);
   },
-  /** Cohesive reset: cancel trailing apply, clear both fill overrides,
+  /** Cohesive reset: cancel trailing apply, clear all three fill overrides,
    *  save, restore the author's fill face from the style bag. */
   reset: (ui, layerId) => {
     cancelStyleDimApply(FACE.FILL, layerId);
-    resetIntentKeys(ui, layerId, [INTENT.FILL_COLOR, INTENT.FILL_OPACITY]);
+    resetIntentKeys(ui, layerId, [
+      INTENT.FILL_COLOR,
+      INTENT.FILL_OPACITY,
+      INTENT.FILL_RAMP,
+    ]);
     const layer = ui.m.findLayer(layerId) as StyleCarrier | null;
     if (!layer) return;
     walkStyleLeaves(layer, node => restoreStyleDim(node, FACE.FILL));
@@ -438,7 +675,8 @@ const FILL_DIMENSION = registerDimension<{
     if (!layerCanFill(ui, layerId)) return "none";
     if (
       ui.intentStore.isUserSet(layerId, INTENT.FILL_COLOR) ||
-      ui.intentStore.isUserSet(layerId, INTENT.FILL_OPACITY)
+      ui.intentStore.isUserSet(layerId, INTENT.FILL_OPACITY) ||
+      ui.intentStore.isUserSet(layerId, INTENT.FILL_RAMP)
     ) {
       return "user";
     }

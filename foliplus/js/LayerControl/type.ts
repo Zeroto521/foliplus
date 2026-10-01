@@ -16,10 +16,24 @@ type LayerOverride =
   | "visible"
   | "fillColor"
   | "fillOpacity"
+  | "fillRamp"
   | "borderColor"
   | "borderWeight"
   | "opacity"
   | "zoomRange";
+
+/** Value-based fill config (the "By value" mode of the fill dimension).
+ *  Classifies `feature.properties[field]` by `method` into `classes`
+ *  ordered classes, then maps each class to a colour from `scheme`
+ *  (a chroma / ColorBrewer palette name). Persisted under
+ *  `layerState.fillRamp`; mutually exclusive with the solid `fillColor` /
+ *  `fillOpacity` overrides. */
+type FillRampConfig = {
+  field: string;
+  method: string;
+  classes: number;
+  scheme: string;
+};
 
 /** One layer's live intent values — the in-memory twin of
  *  {@link PersistedLayerState} (same value shapes) plus `name`.
@@ -47,6 +61,9 @@ type LayerIntent = {
   visible?: boolean;
   fillColor?: string;
   fillOpacity?: number;
+  /** Value-based fill config ("By value" mode). Mutually exclusive with
+   *  `fillColor` / `fillOpacity` — switching mode clears the other side. */
+  fillRamp?: FillRampConfig;
   borderColor?: string;
   borderWeight?: number;
   opacity?: number;
@@ -68,6 +85,10 @@ type PersistedLayerState = {
   fillColor?: string;
   /** Fill opacity (0-1) the user set in the style panel. */
   fillOpacity?: number;
+  /** Value-based fill config (the "By value" mode) — mutually exclusive
+   *  with `fillColor` / `fillOpacity`; switching mode clears the other side.
+   *  See {@link FillRampConfig}. */
+  fillRamp?: FillRampConfig;
   /** The hex stroke color the user picked in the style panel. LayerControl
    *  owns the write (a self-managed dimension — see ui/style/border.ts), so
    *  it lives in this record rather than on the annotation config. */
@@ -345,6 +366,7 @@ export type {
   BorderRowBindTarget,
   BorderRowBuildTarget,
   DimensionValueSource,
+  FillRampConfig,
   IntentRow,
   LayerDimension,
   LayerIntent,

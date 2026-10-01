@@ -52,6 +52,7 @@ import {
   setVisible,
 } from "./state.js";
 import { applyBorderToLayer } from "./style/border.js";
+import { applyFillToLayer } from "./style/fill.js";
 import {
   applyStyleLabelState,
   closeStylePanel,
@@ -488,6 +489,12 @@ class LayerUI {
   }
   cancelFocus() {
     return cancelFocus(this);
+  }
+  /** Part of the surface the style panel drives — and a test/bench hook
+   *  that lets the 6k benchmark call applyFillToLayer directly (it dispatches
+   *  to solid or ramp mode based on the fillRamp intent). */
+  applyFillToLayer(layerId: string) {
+    return applyFillToLayer(this, layerId);
   }
   // ── focus helpers (also used internally by focus.ts) ──
 }

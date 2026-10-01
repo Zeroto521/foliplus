@@ -4,6 +4,7 @@ import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
 import type {
   AnnotationConfig,
+  FillRampConfig,
   LayerOverride,
   LiveState,
   PersistedLayerState,
@@ -76,6 +77,29 @@ const isBorderWeight = (value: unknown): value is number =>
 const isHexColor = (value: unknown): value is string =>
   typeof value === "string" && /^#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(value);
 
+/** A value-based fill config: field/method/scheme are non-empty strings
+ *  (the classify algorithm handles unknown methods gracefully by falling
+ *  back to "equal"), and classes is an integer in [2, 9] — the same bounds
+ *  the HeatmapControl class-count select is confined to. Returns `null` to
+ *  drop a corrupt entry. */
+const parseFillRamp = (raw: unknown): FillRampConfig | null => {
+  const data = asObject(raw);
+  if (!data) return null;
+  const { field, method, classes, scheme } = data;
+  if (typeof field !== "string" || field.length === 0) return null;
+  if (typeof method !== "string" || method.length === 0) return null;
+  if (
+    typeof classes !== "number" ||
+    !Number.isInteger(classes) ||
+    classes < 2 ||
+    classes > 9
+  ) {
+    return null;
+  }
+  if (typeof scheme !== "string" || scheme.length === 0) return null;
+  return { field, method, classes, scheme };
+};
+
 /** Disk parser per provenance key: normalises the stored value or returns
  *  `null` to drop a corrupt one (its marker is dropped with it).
  *
@@ -90,6 +114,7 @@ const PARSE_OVERRIDE: Record<
   fillColor: data =>
     isHexColor(data.fillColor) ? normalizeHexColor(data.fillColor) : null,
   fillOpacity: data => (isUnitInterval(data.fillOpacity) ? data.fillOpacity : null),
+  fillRamp: data => parseFillRamp(data.fillRamp),
   borderColor: data =>
     isHexColor(data.borderColor) ? normalizeHexColor(data.borderColor) : null,
   borderWeight: data => (isBorderWeight(data.borderWeight) ? data.borderWeight : null),
