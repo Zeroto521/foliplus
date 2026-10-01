@@ -23,7 +23,7 @@
 // annotation label row, so a border row reads identically whether the layer
 // paints through `setStyle` or through a component's own canvas.
 import { CAP_TIER, DIM } from "#core/layer/index.js";
-import { findLeaf } from "#core/layer/walkLeaves.js";
+import { findLeaf } from "#core/layer/walkLeaf.js";
 import { dom } from "#common/dom.js";
 import {
   BORDER_WEIGHT,

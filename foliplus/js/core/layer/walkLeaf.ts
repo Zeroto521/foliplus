@@ -1,4 +1,4 @@
-// core/layer/walkLeaves — the single source of truth for layer-tree recursion.
+// core/layer/walkLeaf — the single source of truth for layer-tree recursion.
 //
 // Every walk in the codebase (PaneManager.pinTree, capability probes, style
 // bag walks, focus/annotation bounds collection, suspendMapInteractions, ...)
@@ -6,7 +6,7 @@
 // the layer registry. This file owns that pattern so no module reimplements
 // it. The public surface is four small functions:
 //
-//   walkLeaves(layer, fn)   — visit every leaf, no short-circuit
+//   walkLeaf(layer, fn)   — visit every leaf, no short-circuit
 //   walkTree(layer, fn)     — visit every node (containers + leaves)
 //   findLeaf(layer, pred)   — short-circuit, first leaf for which pred
 //                             returns a value
@@ -28,7 +28,7 @@ const isContainerNode = (node: UnknownLayer): boolean =>
 
 /** A node is a container when it declares either `eachLayer` (Leaflet) or
  *  `_layers` (a window-global / wrapper registry) — even when empty. An
- *  empty container is still a container, so `walkLeaves` never visits it as
+ *  empty container is still a container, so `walkLeaf` never visits it as
  *  a leaf. */
 const hasChildRegistry = (node: UnknownLayer): boolean => {
   if (node == null) return false;
@@ -51,7 +51,7 @@ const childrenOf = (node: UnknownLayer): L.Layer[] => {
 
 /** Exhaustive walk over every leaf. A node that declares a child registry
  *  (even when empty) is never visited as a leaf. */
-const walkLeaves = (
+const walkLeaf = (
   layer: UnknownLayer,
   fn: (leaf: L.Layer) => void,
   depth = 0,
@@ -59,7 +59,7 @@ const walkLeaves = (
 ): void => {
   if (!layer || depth > maxDepth) return;
   if (hasChildRegistry(layer)) {
-    for (const kid of childrenOf(layer)) walkLeaves(kid, fn, depth + 1, maxDepth);
+    for (const kid of childrenOf(layer)) walkLeaf(kid, fn, depth + 1, maxDepth);
     return;
   }
   fn(layer as L.Layer);
@@ -119,4 +119,4 @@ const someLeaf = (
   return pred(layer as L.Layer);
 };
 
-export { isContainerNode, someLeaf, walkLeaves, walkTree, findLeaf };
+export { isContainerNode, someLeaf, walkLeaf, walkTree, findLeaf };

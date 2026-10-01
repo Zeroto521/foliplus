@@ -19,7 +19,7 @@ import {
 import * as CONST from "./const.js";
 import type { PaneSpec } from "./type.js";
 import { forEachLayer } from "./util.js";
-import { isContainerNode, walkTree } from "./walkLeaves.js";
+import { isContainerNode, walkTree } from "./walkLeaf.js";
 import { zFor } from "./z.js";
 
 const log = createLogger("PaneManager");

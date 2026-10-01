@@ -8,10 +8,7 @@ import {
 } from "../leafletAdapter.js";
 import * as CONST from "./const.js";
 import type { LabelAwareLayer, LayerCapabilities, LayerKind } from "./type.js";
-import {
-  walkLeaves as walkLeavesImpl,
-  walkTree as walkTreeImpl,
-} from "./walkLeaves.js";
+import { walkLeaf as walkLeafImpl, walkTree as walkTreeImpl } from "./walkLeaf.js";
 
 /** Resolve a layer from the map's internal registry or a window global.
  *  @param {L.Map} map - Leaflet map.
@@ -26,7 +23,7 @@ const findLayer = (map: L.Map, id: string): L.Layer | null => {
 
 /** Iterate every leaf node (no intermediate containers) of a layer tree. */
 const forEachLeaf = (layer: L.Layer, fn: (layer: L.Layer) => void, depth = 0) => {
-  walkLeavesImpl(layer, fn, depth);
+  walkLeafImpl(layer, fn, depth);
 };
 
 /** Iterate every node (containers + leaves) of a layer tree. */
