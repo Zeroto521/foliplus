@@ -7,6 +7,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { METHOD } from "#core/classify.js";
 import { DEFAULT_SCHEMES } from "#core/palette.js";
 import type { FillRampConfig } from "#foliplus/LayerControl/type.js";
+import { applyRampToLayer } from "#foliplus/LayerControl/ui/style/fillRamp.js";
+import { pinStyleOnHighlight } from "#foliplus/LayerControl/ui/style/pin.js";
 
 // Mock pinStyleOnHighlight and getIntent so we can capture and invoke the
 // pin getter callback in isolation.
@@ -18,9 +20,6 @@ vi.mock("#foliplus/LayerControl/ui/intent.js", () => ({
 vi.mock("#foliplus/LayerControl/ui/style/pin.js", () => ({
   pinStyleOnHighlight: vi.fn(),
 }));
-
-import { applyRampToLayer } from "#foliplus/LayerControl/ui/style/fillRamp.js";
-import { pinStyleOnHighlight } from "#foliplus/LayerControl/ui/style/pin.js";
 
 afterEach(() => {
   delete globalThis.chroma;
