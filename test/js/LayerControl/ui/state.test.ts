@@ -40,7 +40,7 @@ import { GridLayer, TileLayer, installLeafletGlobals } from "./fixture.js";
 const specs = (...names: string[]): PaneSpec[] =>
   names.map((name, i) => ({ role: i === 0 ? "base" : "sub", order: i, name }));
 
-/** Build an LayerIntentStore from the old two-map fixture shape. */
+/** Build a LayerIntentStore from the old two-map fixture shape. */
 const makeStore = (
   intents: Record<string, Record<string, unknown>> = {},
   provenance: Record<string, string[]> = {},

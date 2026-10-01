@@ -134,8 +134,13 @@ class LayerRuntimeStore {
 
   // ── lifecycle ──────────────────────────────────────────────────────
 
-  /** Drop a layer's whole runtime row (unregister). Symmetric with
-   *  `LayerIntentStore.dropRow` — the same unregister hook drops both. */
+  /** Drop a layer's whole runtime row — the delete-path hook, symmetric with
+   *  `LayerIntentStore.dropRow`. Unregister deliberately keeps the row (a
+   *  teardown is not a delete: a temporary component may re-register the same
+   *  id and wants its projection / snapshot back), so only the delete path
+   *  drops it. The intent side of that delete already runs via
+   *  `dropPersistedLayerState`; the runtime-side wiring lands with the T270
+   *  recycling work (contract point 4). */
   drop(id: string): void {
     this.rows.delete(id);
   }

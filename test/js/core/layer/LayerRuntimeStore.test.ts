@@ -37,6 +37,18 @@ describe("LayerRuntimeStore — row shape", () => {
     expect(store.getFields("l1")).toBeUndefined();
     expect(store.getAuthorVisible("l1")).toBeUndefined();
   });
+
+  it("re-writing the same id reuses the live row (ensure hit path)", () => {
+    const store = new LayerRuntimeStore();
+    store.setAuthorVisible("l1", true);
+    store.setAuthorVisible("l1", false);
+    expect(store.getAuthorVisible("l1")).toBe(false);
+    store.setApplied("l1", applied("l1", 0.4));
+    store.setApplied("l1", applied("l1", 0.8));
+    expect(store.getApplied("l1")?.opacity).toBe(0.8);
+    // One row entry holds every axis.
+    expect(store.ids()).toEqual(["l1"]);
+  });
 });
 
 describe("LayerRuntimeStore — applied axis (projection last-write)", () => {

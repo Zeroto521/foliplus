@@ -28,7 +28,7 @@ import * as Storage from "#common/storage.js";
 
 const ENFORCE_ORDER_DEBOUNCE_MS = 50;
 
-/** Build an LayerIntentStore from the old two-map fixture shape. */
+/** Build a LayerIntentStore from the old two-map fixture shape. */
 const makeStore = (
   intents: Record<string, Record<string, unknown>> = {},
   provenance: Record<string, string[]> = {},

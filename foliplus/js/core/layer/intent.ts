@@ -118,7 +118,7 @@ type IntentRow = {
  *  `buildLayerStates` writes each override straight through under its own
  *  name, so a new `LayerOverride` without a `PersistedLayerState` field fails
  *  here rather than being silently dropped at the persistence boundary. */
-type _AssertOverridesAreDiskKeys = LayerOverride extends keyof PersistedLayerState
+type AssertOverridesAreDiskKeys = LayerOverride extends keyof PersistedLayerState
   ? true
   : ["every LayerOverride must be a PersistedLayerState key"];
 
