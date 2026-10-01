@@ -14,7 +14,7 @@ import {
   autoLabelField,
   collectLabelFields,
 } from "#core/labelField.js";
-import { NO_FEATURE_TREE_KINDS, forEachLeaf } from "#core/layer/index.js";
+import { NO_FEATURE_TREE_KINDS, walkLeaf } from "#core/layer/index.js";
 import {
   type CanvasLabelStyle,
   resolveCanvasLabelStyle,
@@ -207,7 +207,7 @@ class AnnotationManager {
     const layer = this.layerFind(id);
     if (!layer) return [];
     const leaves: L.Layer[] = [];
-    forEachLeaf(layer, (leaf: L.Layer) => leaves.push(leaf));
+    walkLeaf(layer, (leaf: L.Layer) => leaves.push(leaf));
     return collectLabelFields(leaves);
   }
 
@@ -298,7 +298,7 @@ class AnnotationManager {
     const locale = CONF.locale_code ?? "en";
     const labels: LayerLabel[] = [];
 
-    forEachLeaf(layer, (leaf: L.Layer) => {
+    walkLeaf(layer, (leaf: L.Layer) => {
       const raw = this.readFieldValue(leaf, field);
       const anchor = this.resolveAnchor(leaf);
       if (raw === null || anchor === null) return;

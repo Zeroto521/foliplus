@@ -12,7 +12,7 @@ const RECURSION = { PANE_DEPTH: 5, LAYER_DEPTH: 10 };
 /** Upper bound on memoised child-pane discovery results. Entries are keyed by
  *  `L.stamp`, which Leaflet never reuses, so layer churn would otherwise
  *  accumulate them until teardown. Eviction is FIFO by first insertion, and
- *  evicting costs one extra `forEachLayer` walk — far under what the entry
+ *  evicting costs one extra `walkTree` walk — far under what the entry
  *  saves on its next hit. */
 const CACHE = { PANE_DISCOVERY_ENTRIES: 4096 };
 
