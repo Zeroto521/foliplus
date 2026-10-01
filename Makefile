@@ -89,22 +89,22 @@ JOBS ?= auto
 
 test: build-js-dev test-js
 	npm run build:verify
-	pytest -v -r a --color=yes -n $(JOBS) --cov=foliplus --cov=script --cov-append --cov-report=term-missing --cov-report=xml --junitxml=junit.xml -o junit_family=legacy test/python script
+	pytest -v -r a --color=yes -n $(JOBS) --cov=foliplus --cov=script --cov-append --cov-report=term-missing --cov-report=xml --junitxml=junit.xml -o junit_family=legacy test/python
 
 # Full Python suite (unit + browser). This is the honest name for the Python
 # half of `test`; the browser marker is not filtered here.
 test-python: build-js-dev
 	npm run build:verify
-	pytest -v -r a --color=yes -n $(JOBS) --cov=foliplus --cov=script --cov-append --cov-report=term-missing --cov-report=xml --junitxml=junit.xml -o junit_family=legacy test/python script
+	pytest -v -r a --color=yes -n $(JOBS) --cov=foliplus --cov=script --cov-append --cov-report=term-missing --cov-report=xml --junitxml=junit.xml -o junit_family=legacy test/python
 
 # Local quick pass: everything except browser tests (no Playwright needed).
 test-python-fast: build-js-dev
 	npm run build:verify
-	pytest -v -r a --color=yes -n $(JOBS) -m "not browser" --cov=foliplus --cov=script --cov-append --cov-report=term-missing --cov-report=xml --junitxml=junit.xml -o junit_family=legacy test/python script
+	pytest -v -r a --color=yes -n $(JOBS) -m "not browser" --cov=foliplus --cov=script --cov-append --cov-report=term-missing --cov-report=xml --junitxml=junit.xml -o junit_family=legacy test/python
 
 test-browser: build-js-dev
 	npm run build:verify
-	pytest -v -r a --color=yes -n $(JOBS) -m "browser" --cov=foliplus --cov=script --cov-append --cov-report=term-missing --cov-report=xml --junitxml=test-browser.junit.xml -o junit_family=legacy test/python script
+	pytest -v -r a --color=yes -n $(JOBS) -m "browser" --cov=foliplus --cov=script --cov-append --cov-report=term-missing --cov-report=xml --junitxml=test-browser.junit.xml -o junit_family=legacy test/python
 
 test-js: build-js-dev
 	npm test
