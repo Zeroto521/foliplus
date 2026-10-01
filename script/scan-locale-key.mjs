@@ -5,14 +5,14 @@
  * from the scanner rather than maintaining a hand-written list.
  *
  * Approach: extract string literals from specific key-producing contexts:
- *   - T("key") / _("key") calls (scoped/unscoped translators)
+ *   - T("key") / bare("key") calls (scoped/unscoped translators)
  *   - localeFallback(code, "key", "fallback") calls
  *   - NAME_LABEL_KEY = "short" static props
  *   - Template literals with `${CONF.name}` (e.g., `${CONF.name}.popup_title_geo`)
  *
  * Keying rules:
  *   - `T("key")` (scoped)  →  `<ControlName>.<key>` (full keys pass through)
- *   - `_("key")` (unscoped) →  `key` as-is
+ *   - `bare("key")` (unscoped) →  `key` as-is
  *   - `NAME_LABEL_KEY = "short"` static prop → `<ControlName>.<short>`
  *   - `core/layer/` files → treated as `LayerControl`
  *
@@ -56,9 +56,9 @@ const extractLiterals = text => {
   return out;
 };
 
-// Combined T(...)/_(...) matcher — one pass instead of two. `[^()]*` keeps
+// Combined T(...)/bare(...) matcher — one pass instead of two. `[^()]*` keeps
 // us from crossing nested parens; `T(foo("a"))` truncates at the first `)`.
-const CALL_RE = /\b([T_])\s*\(([^()]*)\)/g;
+const CALL_RE = /\b([T_]|bare)\s*\(([^()]*)\)/g;
 
 // localeFallback(code, "key", "fallback") — second arg is the key.
 const LOCALE_FALLBACK_RE = /\blocaleFallback\s*\(\s*[^,]+,\s*(['"])((?:(?!\1).)+)\1/g;
@@ -77,7 +77,7 @@ const collect = (rel, src) => {
   const text = stripComments(src);
   const keys = new Set();
 
-  // T(...) / _(....) — scoped vs unscoped.
+  // T(...) / bare(...) — scoped vs unscoped.
   for (const m of text.matchAll(CALL_RE)) {
     const scoped = m[1] === "T";
     for (const lit of extractLiterals(m[2])) {
