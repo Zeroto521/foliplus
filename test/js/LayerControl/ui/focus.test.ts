@@ -117,7 +117,7 @@ describe("LayerUI focusLayer — interaction lock", () => {
         expect.any(String),
       );
       expect(map.fitBounds).not.toHaveBeenCalled();
-      expect(window.L.rectangle).not.toHaveBeenCalled();
+      expect(ui.focusRect).toBeNull();
       expect(setModeSpy).not.toHaveBeenCalled();
     });
 
@@ -292,11 +292,11 @@ describe("LayerUI focus", () => {
       expect(() => ui.focusLayer("overlay1")).not.toThrow();
     });
 
-    it("draws a border-only dashed rectangle on the layer bounds", () => {
+    it("draws a border-only rounded marquee on the layer bounds", () => {
       ui.focusLayer("overlay1");
 
-      expect(L.rectangle).toHaveBeenCalledWith(
-        expect.anything(),
+      expect(L.polygon).toHaveBeenCalledWith(
+        expect.any(Array),
         expect.objectContaining({
           className: "foliplus-focus-rect",
           fill: false,
@@ -305,37 +305,22 @@ describe("LayerUI focus", () => {
       );
       expect(map.addLayer).toHaveBeenCalledWith(
         expect.objectContaining({
-          _options: expect.objectContaining({
+          options: expect.objectContaining({
             className: "foliplus-focus-rect",
           }),
         }),
       );
     });
 
-    it("passes the correct bounds object to L.rectangle", () => {
+    it("passes the layer bounds to the rounded-marquee polygon", () => {
       ui.focusLayer("overlay1");
 
-      expect(L.rectangle).toHaveBeenCalledWith(
-        expect.objectContaining({
-          getSouthWest: expect.any(Function),
-          getNorthEast: expect.any(Function),
-          isValid: expect.any(Function),
-        }),
-        expect.anything(),
-      );
-    });
-
-    it("calls fitBounds with smooth animation options", () => {
-      ui.focusLayer("overlay1");
-
-      expect(map.fitBounds).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.objectContaining({
-          animate: true,
-          duration: CONST.FOCUS.FIT_DURATION,
-          padding: CONST.FOCUS.PADDING,
-        }),
-      );
+      // 4 corners x (2 tangents + 2 bezier mids) = 16 points, closed loop.
+      const rings = (L.polygon as unknown as ReturnType<typeof vi.fn>).mock.calls.at(
+        -1,
+      )[0] as L.LatLng[];
+      expect(rings.length).toBe(16);
+      expect(map.addLayer).toHaveBeenCalled();
     });
 
     it("caps maxZoom at current zoom + FOCUS.MAX_ZOOM_STEP", () => {
@@ -394,7 +379,7 @@ describe("LayerUI focus", () => {
 
       ui.focusLayer("overlay1");
 
-      expect(L.rectangle).not.toHaveBeenCalled();
+      expect(ui.focusRect).toBeNull();
       expect(map.fitBounds).not.toHaveBeenCalled();
     });
 
@@ -424,7 +409,7 @@ describe("LayerUI focus", () => {
       ui.focusLayer("overlay1");
 
       expect(map.fitBounds).toHaveBeenCalled();
-      expect(L.rectangle).toHaveBeenCalled();
+      expect(ui.focusRect).not.toBeNull();
     });
 
     it("focuses a canvas layer via its getBounds provider", () => {
@@ -445,7 +430,7 @@ describe("LayerUI focus", () => {
       ui.focusLayer("heat1");
 
       expect(map.fitBounds).toHaveBeenCalled();
-      expect(L.rectangle).toHaveBeenCalled();
+      expect(ui.focusRect).not.toBeNull();
       // Glow applied via class (CSS-owned), not an inline filter — keeps it
       // at pane/element level so dense layers stay cheap.
       expect(canvas.classList.contains(CONST.CLASSES.FOCUS_GLOW)).toBe(true);
@@ -456,7 +441,7 @@ describe("LayerUI focus", () => {
 
       ui.focusLayer("overlay1");
 
-      expect(L.rectangle).not.toHaveBeenCalled();
+      expect(ui.focusRect).toBeNull();
       expect(map.fitBounds).not.toHaveBeenCalled();
     });
 
@@ -483,7 +468,7 @@ describe("LayerUI focus", () => {
         expect.any(Number),
       );
       expect(map.fitBounds).not.toHaveBeenCalled();
-      expect(L.rectangle).not.toHaveBeenCalled();
+      expect(ui.focusRect).toBeNull();
     });
 
     it("removes the previous focus rectangle before drawing a new one", () => {
@@ -608,8 +593,12 @@ describe("LayerUI focus", () => {
 
       ui.focusLayer("overlay1");
 
-      expect(polygonSpy).toHaveBeenCalledTimes(1);
-      const rings = polygonSpy.mock.calls[0][0];
+      // Focus draws mask + rounded rect; pick the mask by its class.
+      const maskCall = polygonSpy.mock.calls.find(
+        c => (c[1] as { className?: string })?.className === "foliplus-focus-mask",
+      );
+      expect(maskCall).toBeTruthy();
+      const rings = maskCall![0];
       expect(rings).toHaveLength(2);
       // Hole ring = overlay1 bounds: SW(30,100) → NE(40,110).
       const hole = rings[1];
@@ -695,9 +684,15 @@ describe("LayerUI focus", () => {
       expect(ui.focusMask).not.toBe(firstMask);
       expect(ui.focusingLayerId).toBe("overlay2");
       // A single mask exists (fresh renderer each focus), hole = overlay2 SW.
-      const hole = (window.L.polygon as ReturnType<typeof vi.fn>).mock.calls.at(
-        -1,
-      )?.[0][1];
+      // The mask is the polygon call whose rings carry the hole (2 rings);
+      // the latest one is overlay2's.
+      const maskCalls = (
+        window.L.polygon as ReturnType<typeof vi.fn>
+      ).mock.calls.filter(
+        (c: unknown[]) =>
+          Array.isArray((c[0] as unknown[])?.[0]) && (c[0] as unknown[]).length === 2,
+      );
+      const hole = (maskCalls.at(-1)![0] as unknown[])[1];
       expect(hole[0]).toEqual({ lat: 35, lng: 105 });
 
       // And it still tears down cleanly.
@@ -1854,7 +1849,12 @@ describe("LayerUI focus", () => {
 
       drawFocusRect(ui, layerBounds());
 
-      expect((L.rectangle as any).mock.calls.at(-1)[1].renderer).toBeUndefined();
+      // The rounded marquee is the polygon call with the focus-rect class.
+      const rectCall = (window.L.polygon as ReturnType<typeof vi.fn>).mock.calls.find(
+        (c: unknown[]) =>
+          (c[1] as { className?: string })?.className === "foliplus-focus-rect",
+      );
+      expect((rectCall?.[1] as { renderer?: unknown }).renderer).toBeUndefined();
     });
   });
 

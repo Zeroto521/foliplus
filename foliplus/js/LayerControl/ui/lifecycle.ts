@@ -21,6 +21,7 @@ import {
   toggleFold,
 } from "./drag.js";
 import { dismissFocus } from "./focus.js";
+import { bindGeometryFocusMarquee } from "./focusMarquee.js";
 import type { LayerUI } from "./index.js";
 import { INTENT, getIntent } from "./intent.js";
 import {
@@ -218,6 +219,7 @@ const bindEvents = (ui: LayerUI): void => {
     row.classList.remove(CONST.CLASSES.FOCUSED);
   };
   ui.interactionCleanup = registerInteractions(ui);
+  ui.geometryMarqueeCleanup = bindGeometryFocusMarquee(ui.m.map.getContainer());
 
   container.addEventListener("change", ui.onChange);
   container.addEventListener("input", ui.onInput);
@@ -339,6 +341,8 @@ const unbindEvents = (ui: LayerUI): void => {
   ui.listCursor?.destroy();
   ui.listCursor = null;
   ui.interactionCleanup?.();
+  ui.geometryMarqueeCleanup?.();
+  ui.geometryMarqueeCleanup = null;
   // Flush the last pending write before the timer is cleared.
   ui.m.persistence.flushAll();
   ui.onChange = ui.onInput = ui.onClick = null;

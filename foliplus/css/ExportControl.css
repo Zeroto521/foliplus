@@ -142,18 +142,17 @@
   cursor: move;
   z-index: calc(var(--foliplus-z-export-base) + 1);
   box-sizing: border-box;
-  box-shadow: 0 0 var(--foliplus-size-16) var(--foliplus-accent-soft-shadow);
-  border-radius: var(--foliplus-size-2);
+  box-shadow: 0 0 var(--foliplus-marquee-glow-size) var(--foliplus-marquee-glow-color);
+  border-radius: var(--foliplus-marquee-radius);
   transition:
     var(--foliplus-export-move-transition),
     box-shadow var(--foliplus-transition-fast);
 
   /* Hover/press: the soft glow deepens one step so the crop frame reads as
-     "under the cursor / being pressed" without moving the dashes or the
-     dim mask. Locked boxes have pointer-events: none, so they never light.
-     Handle/center hover/press + focus ring live below — component-only. */
+     under the cursor / being pressed without moving the dashes or the dim
+     mask. Locked boxes have pointer-events: none, so they never light. */
   &:not(.foliplus-locked):is(:hover, :active) {
-    box-shadow: 0 0 var(--foliplus-size-24) var(--foliplus-accent-soft-shadow);
+    box-shadow: 0 0 var(--foliplus-size-24) var(--foliplus-marquee-glow-color);
   }
 
   &::before {
@@ -170,7 +169,7 @@
     border: var(--foliplus-border-thick) solid var(--foliplus-accent-primary);
     background-image: none;
     pointer-events: none;
-    box-shadow: 0 0 var(--foliplus-size-16) var(--foliplus-accent-soft-shadow);
+    box-shadow: 0 0 var(--foliplus-marquee-glow-size) var(--foliplus-marquee-glow-color);
     transition: none;
 
     &::before {

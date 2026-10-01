@@ -126,6 +126,8 @@ class LayerUI {
   /** Shared list cursor — ARIA roles + roving tabindex on navigable rows. */
   listCursor: ListCursor | null;
   interactionCleanup?: () => void;
+  /** Cleanup for the geometry-focus marquee (focusin/focusout). */
+  geometryMarqueeCleanup?: (() => void) | null;
   declare onChange: ((event: Event) => void) | null;
   declare onInput: ((event: Event) => void) | null;
   declare onClick: ((event: Event) => void) | null;
