@@ -510,6 +510,20 @@ describe("renderHexagons", () => {
   });
 });
 
+describe("wrapper delegation & the registration snapshot", () => {
+  it("computeBreaks forwards the caller's args to the shared classifier", async () => {
+    const m = makeManager();
+    const mod = await import("#core/classify.js");
+    const spy = vi.spyOn(mod, "computeBreaks").mockImplementation(() => [1, 5]);
+    try {
+      m.computeBreaks([3, 1, 4], 4, "fisher-jenks");
+      expect(spy).toHaveBeenCalledWith([3, 1, 4], 4, "fisher-jenks");
+    } finally {
+      spy.mockRestore();
+    }
+  });
+});
+
 describe("HeatmapManager — export event subscriptions", () => {
   // The two export handlers are named methods, so the tests below assert on
   // them.  A bus that stopped delivering — or a subscription that went
@@ -603,7 +617,7 @@ describe("HeatmapManager — export event subscriptions", () => {
     const probe = vi.fn();
     bus.on(EVENTS.LAYER_CHANGE, probe);
 
-    bus.emit(EVENTS.LAYER_CHANGE);
+    bus.emit(EVENTS.LAYER_CHANGE, { id: "pts", kind: "vector" });
 
     expect(scanSpy).not.toHaveBeenCalled();
     expect(probe).toHaveBeenCalledTimes(1);
@@ -647,7 +661,7 @@ describe("HeatmapManager — export event subscriptions", () => {
 
     bus.emit(EVENTS.BEFORE_EXPORT, { component: "ExportControl" });
     bus.emit(EVENTS.AFTER_EXPORT, { component: "ExportControl" });
-    bus.emit(EVENTS.LAYER_CHANGE);
+    bus.emit(EVENTS.LAYER_CHANGE, { id: "pts", kind: "vector" });
     expect(m.renderAll).toBe(false);
     // The manager's own handlers are gone; only the probe listeners remain.
     expect(beforeProbe).toHaveBeenCalledTimes(1);
@@ -752,14 +766,17 @@ describe("initScan — single-layer auto-select on first scan only", () => {
       ...window.map.foliplus.LayerAPI,
       getLayersByType: vi.fn(() => []),
       extractPoints: vi.fn(() => []),
-      createCanvas: vi.fn(() => ({
-        register: vi.fn(),
-        unregister: vi.fn(),
-        setVisible: vi.fn(),
-        hooks: { before: [], after: [] },
-        canvas: null,
-        ctx: null,
-      })),
+      createCanvas: vi.fn(() => {
+        const canvas = document.createElement("canvas");
+        return {
+          register: vi.fn(),
+          unregister: vi.fn(),
+          setVisible: vi.fn(),
+          hooks: { before: [], after: [] },
+          canvas,
+          ctx: canvas.getContext("2d"),
+        };
+      }),
     };
   });
 
@@ -996,13 +1013,56 @@ describe("event-bus bindings", () => {
     m.cachedPoints = { key: "p", pts: [] } as HeatmapManager["cachedPoints"];
 
     vi.useFakeTimers();
-    ensureEvents(m.map).emit(EVENTS.LAYER_CHANGE);
+    ensureEvents(m.map).emit(EVENTS.LAYER_CHANGE, { id: "pts", kind: "vector" });
     await vi.runOnlyPendingTimersAsync();
     vi.useRealTimers();
 
     expect(m.cachedAgg).toBeNull();
     expect(m.cachedPoints).toBeNull();
   });
+
+  it("a bare LAYER_CHANGE (no payload) still triggers onLayerChange", async () => {
+    // Defense arm for the handler's `!payload` fallback: third-party or
+    // legacy code may emit LAYER_CHANGE with no payload (the pre-refactor
+    // shape). The handler can't gate on kind — it falls through to the
+    // full onLayerChange sweep. Pins the fallback so a future refactor
+    // can't accidentally drop it. `as never` marks the deliberate breach
+    // of the typed emit contract — the same way an untyped third-party
+    // caller would fire it.
+    const m = makeManager();
+    m.cachedAgg = { key: "k", data: null! } as HeatmapManager["cachedAgg"];
+    m.cachedPoints = { key: "p", pts: [] } as HeatmapManager["cachedPoints"];
+
+    vi.useFakeTimers();
+    ensureEvents(m.map).emit(EVENTS.LAYER_CHANGE as never);
+    await vi.runOnlyPendingTimersAsync();
+    vi.useRealTimers();
+
+    expect(m.cachedAgg).toBeNull();
+    expect(m.cachedPoints).toBeNull();
+  });
+
+  it.each(["tile", "solid", "canvas"])(
+    "ignores a LAYER_CHANGE whose kind (%s) can never hold point markers",
+    async kind => {
+      // A tile basemap, a solid colour face and a self-drawn canvas all answer
+      // "base"/null from getLayerType, so getLayersByType("point") never
+      // returned them — their churn cannot change the source list. The payload
+      // lets the handler skip the scan outright; without the skip every
+      // basemap toggle would walk the map for an identical answer.
+      const m = makeManager();
+      m.cachedAgg = { key: "k", data: null! } as HeatmapManager["cachedAgg"];
+      m.cachedPoints = { key: "p", pts: [] } as HeatmapManager["cachedPoints"];
+
+      vi.useFakeTimers();
+      ensureEvents(m.map).emit(EVENTS.LAYER_CHANGE, { id: "basemap", kind });
+      await vi.runOnlyPendingTimersAsync();
+      vi.useRealTimers();
+
+      expect(m.cachedAgg).not.toBeNull();
+      expect(m.cachedPoints).not.toBeNull();
+    },
+  );
 
   it("deleting the selected source layer clears the heatmap immediately", async () => {
     // The heatmap draws another layer's points, so deleting that layer has to
@@ -1026,7 +1086,7 @@ describe("event-bus bindings", () => {
     // The source leaves the registry; LayerControl then emits LAYER_CHANGE.
     window.map.foliplus.LayerAPI.getLayersByType = vi.fn(() => []);
     vi.useFakeTimers();
-    ensureEvents(m.map).emit(EVENTS.LAYER_CHANGE);
+    ensureEvents(m.map).emit(EVENTS.LAYER_CHANGE, { id: "pts", kind: "vector" });
     await vi.runOnlyPendingTimersAsync();
     vi.useRealTimers();
 
@@ -1050,7 +1110,7 @@ describe("event-bus bindings", () => {
 
     window.map.foliplus.LayerAPI.getLayersByType = vi.fn(() => []);
     vi.useFakeTimers();
-    ensureEvents(m.map).emit(EVENTS.LAYER_CHANGE);
+    ensureEvents(m.map).emit(EVENTS.LAYER_CHANGE, { id: "pts", kind: "vector" });
     await vi.runOnlyPendingTimersAsync();
     vi.useRealTimers();
 
@@ -1076,7 +1136,7 @@ describe("event-bus bindings", () => {
     const clearSpy = vi.spyOn(m, "clearHeatmapCanvas");
 
     vi.useFakeTimers();
-    ensureEvents(m.map).emit(EVENTS.LAYER_CHANGE);
+    ensureEvents(m.map).emit(EVENTS.LAYER_CHANGE, { id: "pts", kind: "vector" });
     await vi.runOnlyPendingTimersAsync();
     vi.useRealTimers();
 
@@ -1093,7 +1153,7 @@ describe("event-bus bindings", () => {
     const clearSpy = vi.spyOn(m, "clearHeatmapCanvas");
 
     vi.useFakeTimers();
-    ensureEvents(m.map).emit(EVENTS.LAYER_CHANGE);
+    ensureEvents(m.map).emit(EVENTS.LAYER_CHANGE, { id: "pts", kind: "vector" });
     await vi.runOnlyPendingTimersAsync();
     vi.useRealTimers();
 

@@ -2,7 +2,7 @@
 //
 // `applyProjection(ui, id)` reads the layer's projection from
 // `projection.ts`, diffs it against the last projection it wrote to the map
-// (`ui.appliedState`), and calls `applyStateOp` only for the dimensions
+// `runtimeStore.getApplied(id)`), and calls `applyStateOp` only for the dimensions
 // that actually moved. The old model — a sweep that re-read the whole
 // registry per layer, walked `intents.visible` / `intents.opacity` / `intents.zoomRange`
 // by id, and picked per-dimension helpers — is what made the three
@@ -26,6 +26,7 @@
 // Naming: "state op" is the shape the carrier dispatcher accepts.
 // "Projection" is what the diff compares — intent + policy together, so
 // a change on either side produces an op.
+import { EVENTS } from "#core/event/index.js";
 import { CAP_TIER, HIDDEN, PANE_ROLE } from "#core/layer/index.js";
 import { resetGridLayerView } from "#core/leafletAdapter.js";
 import { setLayerAlpha } from "#common/canvasAlpha.js";
@@ -173,6 +174,14 @@ const applyStateOp = (ui: LayerUI, layerInfo: LayerInfo, op: StateOp): void => {
         if (op.value !== has) {
           if (op.value) ui.m.map.addLayer(layer);
           else ui.m.map.removeLayer(layer);
+          // Map membership is not registry state: this executor is the only
+          // writer of the add/remove, so it is what puts the change on the bus.
+          // The annotation manager repaints per id on this event, which is
+          // where the native `layeradd`/`layerremove` used to reach it.
+          ui.events.emit(EVENTS.LAYER_CHANGE, {
+            id: layerInfo.id,
+            kind: layerInfo.kind,
+          });
         }
       }
     } else if (carrier === CAP_TIER.PANE) {
@@ -275,7 +284,7 @@ const applyStateOp = (ui: LayerUI, layerInfo: LayerInfo, op: StateOp): void => {
  *  `zoomRange`, not from the executor's current state (the projection
  *  has already seen the new range).
  *
- *  `ui.appliedState` records what was written so the next call is a
+ *  `ui.runtimeStore.setApplied` records what was written so the next call is a
  *  diff, not a full write. The map is keyed by id (not by `layerInfo`
  *  identity) so a re-registration of the same id keeps its projection
  *  across the swap.
@@ -293,7 +302,7 @@ const applyProjection = (ui: LayerUI, id: string): void => {
   const layerInfo = ui.m.layerRegistry.get(id);
   if (!layerInfo) return;
   const next = projectLayer(ui, layerInfo);
-  let prev = ui.appliedState.get(id);
+  let prev = ui.runtimeStore.getApplied(id);
 
   if (!prev) {
     // First pass — the baseline is what the map currently shows, not the
@@ -346,7 +355,7 @@ const applyProjection = (ui: LayerUI, id: string): void => {
   const hasUserIntent =
     ui.intentStore.isUserSet(id, INTENT.VISIBLE) ||
     typeof getIntent(ui, id, INTENT.VISIBLE) === "boolean";
-  const authorised = hasUserIntent || ui.authorVisible.has(id);
+  const authorised = hasUserIntent || ui.runtimeStore.hasAuthorVisible(id);
   // Current visibility, read from the carrier the write would land on.
   // "native" — the map's own membership flag; "pane" — the canvas's
   // HIDDEN class; "none" — no carrier at all, so no meaningful "shown".
@@ -378,7 +387,7 @@ const applyProjection = (ui: LayerUI, id: string): void => {
     applyStateOp(ui, layerInfo, { type: "zoomRange", value: next.zoomRange });
   }
 
-  ui.appliedState.set(id, {
+  ui.runtimeStore.setApplied(id, {
     ...next,
     effectiveShown: next.effectiveShown,
     carrier: carrierToken,

@@ -27,6 +27,10 @@ const ExportControl = defineControl<ExportManager>({
       toggleSvg: SVGs.CAMERA,
       position: this.conf.position,
     });
+    // Self-declare export DOM-copy opt-out via the data attribute (primary
+    // carrier). Hide-pass still lists this bar in SEL.CONTROL (layout);
+    // the attribute is for traversal skip (SKIP_EXPORT), same as delicon.
+    ctrl.setAttribute("data-foliplus-export", "exclude");
     this.m.attachUI(ctrl, toolBar);
     toggleBtn.onclick = () => {
       if (this.m.cropState) this.m.removeCropBox();

@@ -52,7 +52,7 @@ describe("LayerUI shell — event subscriptions", () => {
   });
 
   it("LAYER_ITEM_COUNT_CHANGE updates the row count and drops the field cache", () => {
-    ui.fieldCache.set("overlay1", [{ name: "stale", numeric: false }]);
+    ui.runtimeStore.setFields("overlay1", [{ name: "stale", numeric: false }]);
     const getFeatureCount = vi.spyOn(manager, "getFeatureCount").mockReturnValue(5);
     const item = findItem(ui, "overlay1");
     const countCol = item.querySelector("[data-role='count']") as HTMLElement | null;
@@ -60,7 +60,7 @@ describe("LayerUI shell — event subscriptions", () => {
     ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "overlay1" });
 
     expect(getFeatureCount).toHaveBeenCalledWith("overlay1");
-    expect(ui.fieldCache.has("overlay1")).toBe(false);
+    expect(ui.runtimeStore.getFields("overlay1")).toBeUndefined();
     if (countCol) expect(countCol.textContent).toBe("5");
   });
 
@@ -94,6 +94,7 @@ describe("LayerUI shell — event subscriptions", () => {
       id: "late1",
       name: "Late",
       group: "overlay",
+      kind: "vector",
       layer: {
         options: {},
         eachLayer: vi.fn(),
@@ -103,6 +104,7 @@ describe("LayerUI shell — event subscriptions", () => {
           getNorthEast: () => ne,
         })),
       },
+      carrier: { layer: null, canvas: null, element: null, custom: null },
     };
     const m: any = {
       on: vi.fn(),

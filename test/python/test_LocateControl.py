@@ -80,6 +80,20 @@ class TestLocateControlRendering:
         assert "&.loading" in css
         assert "pointer-events: none" in css
 
+    def test_loading_keeps_full_strength(self):
+        """`.loading` swaps the crosshair for a spinner without dimming.
+
+        Busy is the shared spinner alone. Opacity 30% is the disabled
+        recipe — loading must not steal that language. Clicks stay
+        swallowed via pointer-events.
+        """
+        css = read_css("foliplus/css/LocateControl.css")
+        idx = css.find("&.loading")
+        assert idx != -1
+        block = css[idx : css.index("}", idx)]
+        assert "opacity" not in block
+        assert "pointer-events: none" in block
+
     def test_does_not_redefine_transform(self):
         """The hover/active icon scale stays with the shared stylesheet alone.
 

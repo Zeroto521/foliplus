@@ -61,13 +61,30 @@ const hasBoundsProvider = (layer: L.Layer | null | undefined): boolean =>
   typeof (layer as L.Layer & { getBounds?: () => L.LatLngBounds }).getBounds ===
     "function";
 
+/** Resolve a face's kind: the declaration wins, otherwise probe the layer
+ *  family — the same precedence as the registry's `kindFor`, so the two
+ *  resolve points cannot disagree when both are handed the same facts.
+ *
+ *  The registry is the authority for a registered layer: it always hands its
+ *  own `LayerInfo.kind` down, and the probe below then only ever serves a
+ *  direct `LayerSurface` caller that declared nothing. Reading the declaration
+ *  is what keeps an explicitly typed layer honest — a caller that declares
+ *  `kind: "custom"` or `kind: "vector"` on a layer whose tree looks like
+ *  something else used to be re-derived away from its own declaration here. */
+const kindOf = (opts: SurfaceFaceOpts): LayerKind => opts.kind ?? deriveLayerKind(opts);
+
 /** Options a surface is resolved from — the register-time declaration only. */
 interface SurfaceFaceOpts {
   id: string;
   layer: L.Layer | null;
-  /** Declared kind; when absent, `deriveLayerKind` probes the layer family. */
+  /** Declared kind — the registry's authority (`LayerInfoRegistry.kindFor` is
+   * the single place a registered layer's kind is derived), which
+   * `LayerManager.surfaceFor` forwards down here. When a direct caller
+   * declares nothing, `kindOf` probes the layer family. */
   kind?: LayerKind;
-  /** Third-party carrier payload (`kind: "custom"`). */
+  /** Third-party carrier payload (`kind: "custom"`). The registry forwards
+   * `carrier.custom`; without it a caller that only supplies a payload would
+   * be probed into whatever its `layer` happens to look like. */
   custom?: unknown;
   /** The pane the caller declared for this layer, if any. */
   paneName?: string | null;
@@ -180,7 +197,7 @@ class LayerSurface implements LayerSurfaceContract {
     const layer = opts.layer;
     this.spec = {
       layer,
-      kind: deriveLayerKind(opts),
+      kind: kindOf(opts),
       custom: opts.custom !== undefined,
       paneName: declared,
       canvas: opts.canvas === true,
@@ -437,7 +454,7 @@ class LayerSurface implements LayerSurfaceContract {
     // so the cost is one tree walk per re-registration, not per frame.
     return (
       this.spec.layer === opts.layer &&
-      this.spec.kind === deriveLayerKind(opts) &&
+      this.spec.kind === kindOf(opts) &&
       this.spec.custom === (opts.custom !== undefined) &&
       this.spec.paneName === declaredPaneName(opts.paneName) &&
       this.spec.canvas === Boolean(opts.canvas) &&
@@ -606,8 +623,10 @@ const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
 
   // Cluster is a first-class kind: capability dispatch goes through the
   // discriminant (`CLUSTER_CAPABILITIES`), not a duck-typed side path. An
-  // undeclared MarkerCluster still derives `kind: "cluster"` above.
-  if (deriveLayerKind(opts) === KIND.CLUSTER) {
+  // undeclared MarkerCluster still resolves to `kind: "cluster"` through
+  // `kindOf`, and a declared `kind: "cluster"` reaches this branch without
+  // needing the plugin's group to still look like a MarkerCluster.
+  if (kindOf(opts) === KIND.CLUSTER) {
     return { ...CLUSTER_CAPABILITIES, annotation };
   }
 

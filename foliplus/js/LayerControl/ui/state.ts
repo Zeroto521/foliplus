@@ -79,7 +79,7 @@ const saveState = (ui: LayerUI) => {
  *  user's action is lost with nothing in the console. Failing loud at the one gate
  *  every caller passes through keeps that from being a silent failure. */
 /**
- * @internal Production write paths use IntentStore.set (cohesive mark). Kept
+ * @internal Production write paths use LayerIntentStore.set (cohesive mark). Kept
  * as a thin delegate for test spies and the mark-without-set gate.
  */
 const markOverride = (ui: LayerUI, id: string, override: LayerOverride) => {
@@ -96,7 +96,7 @@ const markOverride = (ui: LayerUI, id: string, override: LayerOverride) => {
 /** Drop one dimension's provenance -- the single rule a Reset button reduces to,
  *  sending the value back to the author's declared default. */
 /**
- * @internal Production resets use IntentStore.clear (cohesive unmark).
+ * @internal Production resets use LayerIntentStore.clear (cohesive unmark).
  */
 const unmarkOverride = (ui: LayerUI, id: string, override: LayerOverride) => {
   ui.intentStore.unmark(id, override);

@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GEOM_TYPE, GROUP } from "#core/layer/index.js";
 import type { LayerInfo } from "#core/layer/index.js";
+import { LayerIntentStore, LayerRuntimeStore } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { clearIntent, getIntent, setIntent } from "#foliplus/LayerControl/ui/intent.js";
-import { IntentStore } from "#foliplus/LayerControl/ui/intentStore.js";
 import { intentVisibleOf, projectLayer } from "#foliplus/LayerControl/ui/projection.js";
 import {
   applyRowView,
@@ -78,14 +78,18 @@ describe("intentVisibleOf (the intent seam)", () => {
     hidden: string[] = [],
     author: Record<string, boolean> = {},
   ): LayerUI => {
-    const intentStore = new IntentStore();
+    const intentStore = new LayerIntentStore();
     for (const id of hidden) intentStore.setValue(id, "visible", false);
     for (const [id, keys] of Object.entries(overrides)) {
       intentStore.seedProvenance(id, keys as never);
     }
+    const runtimeStore = new LayerRuntimeStore();
+    for (const [id, visible] of Object.entries(author)) {
+      runtimeStore.setAuthorVisible(id, visible);
+    }
     return {
       intentStore,
-      authorVisible: new Map(Object.entries(author)),
+      runtimeStore,
     } as unknown as LayerUI;
   };
 
@@ -161,7 +165,7 @@ describe("buildRowCell + applyRowView (one writer per row)", () => {
     expect(item.classList.contains(CONST.CLASSES.ACTIVE)).toBe(true);
 
     // The snapshot recorded the author's default, not the policy's decision.
-    expect(ui.authorVisible.get("overlay1")).toBe(true);
+    expect(ui.runtimeStore.getAuthorVisible("overlay1")).toBe(true);
   });
 
   it("focus overrides the range: the row is shown again", () => {
@@ -213,7 +217,7 @@ describe("buildRowCell + applyRowView (one writer per row)", () => {
     // variant in `buildRowCell`.
     const { ui } = initFixture({});
     const layerInfo = overlay(ui);
-    ui.authorVisible.set("overlay1", false);
+    ui.runtimeStore.setAuthorVisible("overlay1", false);
     ui.intentStore.seedProvenance("overlay1", ["visible"]);
     clearIntent(ui, "overlay1", "visible");
 
@@ -315,19 +319,18 @@ describe("applyRowView (the single DOM write point)", () => {
     expect(el.getAttribute(CONST.DATA.TITLE)).toBe("polygon");
   });
 
-  it("buildRowCell handles a thin stub with an empty IntentStore", () => {
+  it("buildRowCell handles a thin stub with an empty LayerIntentStore", () => {
     // The `?? false` fallbacks on the inline intent check: a thin stub may
-    // carry an empty IntentStore, so the check must degrade to the author
+    // carry an empty LayerIntentStore, so the check must degrade to the author
     // default rather than crashing.
     const layerRegistry = new Map([["x", { id: "x", layer: { options: {} } }]]);
     const bare = {
       m: { findLayer: () => null, layerRegistry },
       mgmt: { getFeatureCount: () => 0 },
       renamedNames: {},
-      authorVisible: new Map(),
-      intentStore: new IntentStore(),
+      intentStore: new LayerIntentStore(),
+      runtimeStore: new LayerRuntimeStore(),
       focusingLayerId: null,
-      appliedState: new Map(),
       T: (k: string) => k,
       conf: { locale_code: "en" },
     } as unknown as LayerUI;
@@ -354,11 +357,11 @@ describe("snapshotAuthorVisible", () => {
   it("reads the author's default from the map at boot, once per id", () => {
     const { ui, map } = initFixture({});
     const layerInfo = ui.m.layers.find(li => li.id === "overlay1")!;
-    expect(ui.authorVisible.get("overlay1")).toBe(true);
+    expect(ui.runtimeStore.getAuthorVisible("overlay1")).toBe(true);
 
     (map.hasLayer as ReturnType<typeof vi.fn>).mockReturnValue(false);
     snapshotAuthorVisible(ui, layerInfo);
-    expect(ui.authorVisible.get("overlay1")).toBe(true);
+    expect(ui.runtimeStore.getAuthorVisible("overlay1")).toBe(true);
   });
 
   it("leaves the snapshot unknown while the layer's object is not linked yet", () => {
@@ -372,8 +375,8 @@ describe("snapshotAuthorVisible", () => {
     vi.spyOn(ui.m, "findLayer").mockReturnValue(null);
     snapshotAuthorVisible(ui, { id: "ghost", visible: true } as LayerInfo);
     snapshotAuthorVisible(ui, { id: "ghost-hidden", visible: false } as LayerInfo);
-    expect(ui.authorVisible.has("ghost")).toBe(false);
-    expect(ui.authorVisible.has("ghost-hidden")).toBe(false);
+    expect(ui.runtimeStore.hasAuthorVisible("ghost")).toBe(false);
+    expect(ui.runtimeStore.hasAuthorVisible("ghost-hidden")).toBe(false);
   });
 
   it("records the intent value for a canvas-only layer with no map to observe", () => {
@@ -393,8 +396,8 @@ describe("snapshotAuthorVisible", () => {
       id: "heat-hidden",
       canvas: document.createElement("canvas"),
     } as unknown as LayerInfo);
-    expect(ui.authorVisible.get("heat")).toBe(true);
-    expect(ui.authorVisible.get("heat-hidden")).toBe(true);
+    expect(ui.runtimeStore.getAuthorVisible("heat")).toBe(true);
+    expect(ui.runtimeStore.getAuthorVisible("heat-hidden")).toBe(true);
 
     // A persisted hidden choice for a canvas layer still latches false —
     // the intent record is the observation, not the layer's on-map state.
@@ -409,7 +412,7 @@ describe("snapshotAuthorVisible", () => {
       canvas: document.createElement("canvas"),
     } as unknown as LayerInfo);
     // The snapshot is idempotent — the first read wins.
-    expect(ui.authorVisible.get("heat-mixed")).toBe(true);
+    expect(ui.runtimeStore.getAuthorVisible("heat-mixed")).toBe(true);
   });
 
   it("lets a later pass latch the truth once the layer is linked", () => {
@@ -419,13 +422,13 @@ describe("snapshotAuthorVisible", () => {
     const { ui } = initFixture({});
     const find = vi.spyOn(ui.m, "findLayer").mockReturnValue(null);
     snapshotAuthorVisible(ui, { id: "late" } as LayerInfo);
-    expect(ui.authorVisible.has("late")).toBe(false);
+    expect(ui.runtimeStore.hasAuthorVisible("late")).toBe(false);
 
     const layer = { options: {} } as L.Layer;
     find.mockReturnValue(layer);
     (ui.m.map.hasLayer as ReturnType<typeof vi.fn>).mockReturnValue(false);
     snapshotAuthorVisible(ui, { id: "late" } as LayerInfo);
-    expect(ui.authorVisible.get("late")).toBe(false);
+    expect(ui.runtimeStore.getAuthorVisible("late")).toBe(false);
   });
 });
 
@@ -446,7 +449,7 @@ describe("intentVisibleOf: what counts as the user's choice", () => {
     const layerInfo = ui.m.layers.find(li => li.id === "overlay1")!;
     ui.intentStore.seedProvenance("overlay1", []);
     clearIntent(ui, "overlay1", "visible");
-    ui.authorVisible.set("overlay1", false);
+    ui.runtimeStore.setAuthorVisible("overlay1", false);
     expect(intentVisibleOf(ui, layerInfo.id)).toBe(false);
   });
 });
@@ -462,8 +465,8 @@ describe("the four readers agree on a half-broken record (T260)", () => {
     const { ui } = initFixture({});
     const li = ui.m.layers.find(l => l.id === "overlay1")!;
     const base = ui.m.layers.find(l => l.id === "base1")!;
-    ui.authorVisible.set("overlay1", false);
-    ui.authorVisible.set("base1", false);
+    ui.runtimeStore.setAuthorVisible("overlay1", false);
+    ui.runtimeStore.setAuthorVisible("base1", false);
     ui.intentStore.seedProvenance("overlay1", ["visible"]);
     ui.intentStore.seedProvenance("base1", ["visible"]);
     clearIntent(ui, "overlay1", "visible");

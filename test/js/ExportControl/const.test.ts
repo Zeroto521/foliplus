@@ -186,12 +186,20 @@ describe("SVG_NS", () => {
 describe("SEL", () => {
   it("defines selectors", () => {
     // Two carriers, one judgement point: the attribute for elements a
-    // component can stamp any time, the class for a Leaflet Path, which only
-    // exposes a construction-time className hook.
+    // component can stamp any time (primary / extensible path); the class
+    // only for Leaflet Path, which has a construction-time className hook
+    // and no attribute hook.
     expect(CONST.SEL.SKIP_EXPORT).toBe(
       '[data-foliplus-export="exclude"], .foliplus-skip-export',
     );
     expect(CONST.SEL.LABEL).toBe("[data-foliplus-export='label']");
+  });
+
+  it("keeps CONTROL as the hide list, same as main", () => {
+    // Hide is layout, not exclusion. Same two hosts as main: Leaflet control
+    // container + this control's bar. Content canvases are not listed — they
+    // paint via li.canvas and must stay measurable.
+    expect(CONST.SEL.CONTROL).toBe(".leaflet-control-container, .foliplus-export-ctrl");
   });
 });
 

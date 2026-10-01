@@ -148,6 +148,35 @@ describe("renderPaneCanvas", () => {
     expect(ctx.drawImage).not.toHaveBeenCalled();
   });
 
+  it("skips a canvas self-marked with data-foliplus-export=exclude", async () => {
+    const ctx = makeMockCtx();
+    const p = pane();
+    const marked = canvasEl(10, 10, 200, 200);
+    marked.setAttribute("data-foliplus-export", "exclude");
+    p.appendChild(marked);
+    const load = stubLoad();
+
+    await renderPaneCanvas(makeRenderer().container, positionedRC(1000, 1000, ctx), p);
+
+    expect(load).not.toHaveBeenCalled();
+    expect(ctx.drawImage).not.toHaveBeenCalled();
+  });
+
+  it("skips a canvas nested under a data-foliplus-export=exclude ancestor", async () => {
+    const ctx = makeMockCtx();
+    const p = pane();
+    const host = document.createElement("div");
+    host.setAttribute("data-foliplus-export", "exclude");
+    host.appendChild(canvasEl(10, 10, 200, 200));
+    p.appendChild(host);
+    const load = stubLoad();
+
+    await renderPaneCanvas(makeRenderer().container, positionedRC(1000, 1000, ctx), p);
+
+    expect(load).not.toHaveBeenCalled();
+    expect(ctx.drawImage).not.toHaveBeenCalled();
+  });
+
   it("applies canvas opacity via ctx.globalAlpha when less than 1", async () => {
     const ctx = makeMockCtx();
     ctx.globalAlpha = 1;

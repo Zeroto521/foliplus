@@ -1,4 +1,4 @@
-// core/LayerRegistry — ordered layer data model (list + id index + read-only view).
+// core/LayerInfoRegistry — ordered layer data model (list + id index + read-only view).
 // Pure data, no DOM / CONF dependency. The LayerManager orchestrates mutations.
 import { createLogger } from "#common/log.js";
 import { safeSVG } from "#common/sanitize.js";
@@ -7,7 +7,7 @@ import type { LayerInfo, LayerKind, RegisterLayerOpts } from "./type.js";
 import { deriveLayerKind, findLayer } from "./util.js";
 
 // Mutating methods blocked on the read-only view.
-const log = createLogger("LayerRegistry");
+const log = createLogger("LayerInfoRegistry");
 
 // Mutating methods blocked on the read-only view.
 const MUTATING_METHODS = new Set([
@@ -22,8 +22,10 @@ const MUTATING_METHODS = new Set([
   "copyWithin",
 ]);
 
-/** Derive `kind` at the registration edge (once). Same probe family as the
- *  surface's `deriveLayerKind` so `LayerInfo.kind` is always populated. */
+/** Derive `kind` at the registration edge — the single place in the codebase
+ *  where a layer's kind is derived. `LayerManager.surfaceFor` forwards the
+ *  result to `LayerSurface`, which never re-derives it, so the registry and
+ *  the surface cannot disagree about what a layer is. */
 const kindFor = (opts: RegisterLayerOpts, layer: L.Layer | null): LayerKind =>
   deriveLayerKind({
     kind: opts.kind,
@@ -33,9 +35,12 @@ const kindFor = (opts: RegisterLayerOpts, layer: L.Layer | null): LayerKind =>
     layer,
   });
 
-/** Carrier projection — the target `carrier` shape, derived from the flat
- *  registration fields. Explicit no-carrier (canvas-only / color / custom)
- *  fills the matching slot; `layer` stays null when there is no Leaflet layer. */
+/** Build the carrier projection — the single write entry for where a layer's
+ *  paint lives. `carrier` and the flat `layer` / `canvas` / `color` fields are
+ *  stamped together here and never touched again, so the flat fields are read-only
+ *  snapshots of this projection rather than a second, driftable source. Explicit
+ *  no-carrier shapes (canvas-only / color / custom) fill the matching slot;
+ *  `layer` stays null when there is no Leaflet layer. */
 const carrierFor = (
   layer: L.Layer | null,
   canvas: HTMLCanvasElement | null,
@@ -65,7 +70,7 @@ const carrierFor = (
  *   `api.unregisterLayer(id)`    — remove
  *   `api.bringLayerToFront(id)`  — reorder
  */
-class LayerRegistry {
+class LayerInfoRegistry {
   items: LayerInfo[];
   byId: Map<string, LayerInfo>;
   _firstBaseIdx: number;
@@ -332,4 +337,4 @@ class LayerRegistry {
   }
 }
 
-export { LayerRegistry };
+export { LayerInfoRegistry };
