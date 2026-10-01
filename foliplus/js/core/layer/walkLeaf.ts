@@ -16,25 +16,17 @@
 // or hostile layer graph cannot recurse to the stack. Children come from
 // `eachLayer` when present (Leaflet containers); the layer registry is a
 // fallback for window globals and ad-hoc wrappers.
-import { internalLayers } from "../leafletAdapter.js";
+import { internalLayers, isGroupLike } from "../leafletAdapter.js";
 import * as CONST from "./const.js";
 
 type UnknownLayer = L.Layer | unknown;
+
+type TreeNode = Parameters<typeof isGroupLike>[0];
 
 const DEFAULT_MAX_DEPTH = CONST.RECURSION.LAYER_DEPTH;
 
 const isContainerNode = (node: UnknownLayer): boolean =>
   node != null && typeof (node as { eachLayer?: unknown }).eachLayer === "function";
-
-/** A node is a container when it declares either `eachLayer` (Leaflet) or
- *  `_layers` (a window-global / wrapper registry) — even when empty. An
- *  empty container is still a container, so `walkLeaf` never visits it as
- *  a leaf. */
-const hasChildRegistry = (node: UnknownLayer): boolean => {
-  if (node == null) return false;
-  const n = node as { eachLayer?: unknown; _layers?: unknown };
-  return typeof n.eachLayer === "function" || typeof n._layers !== "undefined";
-};
 
 /** Enumerate a node's children. `eachLayer` wins (Leaflet containers); the
  *  layer registry is a fallback for window globals and ad-hoc wrappers that
@@ -58,7 +50,7 @@ const walkLeaf = (
   maxDepth = DEFAULT_MAX_DEPTH,
 ): void => {
   if (!layer || depth > maxDepth) return;
-  if (hasChildRegistry(layer)) {
+  if (isGroupLike(layer as TreeNode)) {
     for (const kid of childrenOf(layer)) walkLeaf(kid, fn, depth + 1, maxDepth);
     return;
   }
@@ -77,7 +69,7 @@ const walkTree = (
 ): void => {
   if (!layer || depth > maxDepth) return;
   fn(layer as L.Layer);
-  if (hasChildRegistry(layer)) {
+  if (isGroupLike(layer as TreeNode)) {
     for (const kid of childrenOf(layer)) walkTree(kid, fn, depth + 1, maxDepth);
   }
 };
@@ -92,7 +84,7 @@ const findLeaf = <T>(
   maxDepth = DEFAULT_MAX_DEPTH,
 ): T | undefined => {
   if (!layer || depth > maxDepth) return undefined;
-  if (hasChildRegistry(layer)) {
+  if (isGroupLike(layer as TreeNode)) {
     for (const kid of childrenOf(layer)) {
       const r = findLeaf<T>(kid, pred, depth + 1, maxDepth);
       if (r !== undefined) return r;
@@ -110,7 +102,7 @@ const someLeaf = (
   maxDepth = DEFAULT_MAX_DEPTH,
 ): boolean => {
   if (!layer || depth > maxDepth) return false;
-  if (hasChildRegistry(layer)) {
+  if (isGroupLike(layer as TreeNode)) {
     for (const kid of childrenOf(layer)) {
       if (someLeaf(kid, pred, depth + 1, maxDepth)) return true;
     }
