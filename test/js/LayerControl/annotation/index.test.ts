@@ -504,7 +504,9 @@ describe("AnnotationManager — render & plan", () => {
     // with no payload (legacy / third-party code, or a pre-refactor emit), the
     // handler can't know which layer moved — it falls back to a full repaint
     // rather than guessing wrong. Pins the fallback so a future refactor can't
-    // accidentally narrow it to only the payload path.
+    // accidentally narrow it to only the payload path. The mock bus below is
+    // typed with an optional payload on purpose — the same permissive surface
+    // an untyped third-party caller sees.
     const { map } = makeMap();
     const layerA = oneLabel();
     const layerB = mkGroup([
@@ -526,7 +528,7 @@ describe("AnnotationManager — render & plan", () => {
       map as unknown as {
         foliplus: { events: { emit: (e: string, p?: unknown) => void } };
       }
-    ).foliplus.events.emit(EVENTS.LAYER_CHANGE);
+    ).foliplus.events.emit(EVENTS.LAYER_CHANGE as never);
 
     expect(canvasA!.paint).toHaveBeenCalled();
     expect(canvasB!.paint).toHaveBeenCalled();

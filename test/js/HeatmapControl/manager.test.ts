@@ -1009,13 +1009,15 @@ describe("event-bus bindings", () => {
     // legacy code may emit LAYER_CHANGE with no payload (the pre-refactor
     // shape). The handler can't gate on kind — it falls through to the
     // full onLayerChange sweep. Pins the fallback so a future refactor
-    // can't accidentally drop it.
+    // can't accidentally drop it. `as never` marks the deliberate breach
+    // of the typed emit contract — the same way an untyped third-party
+    // caller would fire it.
     const m = makeManager();
     m.cachedAgg = { key: "k", data: null! } as HeatmapManager["cachedAgg"];
     m.cachedPoints = { key: "p", pts: [] } as HeatmapManager["cachedPoints"];
 
     vi.useFakeTimers();
-    ensureEvents(m.map).emit(EVENTS.LAYER_CHANGE);
+    ensureEvents(m.map).emit(EVENTS.LAYER_CHANGE as never);
     await vi.runOnlyPendingTimersAsync();
     vi.useRealTimers();
 
