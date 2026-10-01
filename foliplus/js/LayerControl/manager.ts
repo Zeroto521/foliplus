@@ -15,6 +15,7 @@ import {
   type LayerAPI,
   LayerFactory,
   LayerInfoRegistry,
+  type LayerKind,
   LayerOrder,
   LayerSurface,
   PANE_ROLE,
@@ -323,6 +324,25 @@ class LayerManager implements LayerAPI {
       if ((this.hasUnresolvedLayers() || this.surfaces.size > 0) && !this.isEnforcing) {
         this.debouncedEnforce();
       }
+      // Late binding: folium emits a layer's JS global after this control's own
+      // script, so the registry entry still reads `layer: null` when the real
+      // object joins the map. That arrival is a map-membership change no
+      // registry write emitted, so it gets its own LAYER_CHANGE here — without
+      // it a consumer that only reads the bus (annotation repaints its labels)
+      // would see a registered layer appear and never learn about it. Only
+      // entries that had not resolved yet qualify, which also keeps a
+      // registration-driven add to one emit: registerLayer's own `map.addLayer`
+      // resolves through `opts.layer`, so its entry already carries the layer
+      // by the time this handler runs.
+      const stamp = L.stamp(event.layer);
+      for (const li of this.layers) {
+        if (li.layer) continue;
+        const resolved = findLayer(this.map, li.id);
+        if (resolved && L.stamp(resolved) === stamp) {
+          this.emitLayerChange(li.id, li.kind);
+          break;
+        }
+      }
     };
     this.map.on("layeradd", this.onLayerAdd);
     // The annotation manager plans each layer's labels on that layer's own
@@ -541,6 +561,16 @@ class LayerManager implements LayerAPI {
     return pts;
   }
 
+  /** Broadcast a layer's registry / map-membership change with the id and kind
+   *  stamped from the registry entry — LayerManager's single emit site, so
+   *  every subscriber can filter on the payload instead of re-walking the
+   *  registry. Covers register / unregister / reorder / visibility toggle /
+   *  late re-attachment: those are all "the map now shows a different set of
+   *  layers", which is what the annotation manager repaints on. */
+  private emitLayerChange(id: string, kind: LayerKind): void {
+    this.events.emit(EVENTS.LAYER_CHANGE, { id, kind });
+  }
+
   registerLayer(opts: RegisterLayerOpts): HTMLElement | null {
     if (!opts?.id) throw new Error(this.log.msg(this.T("id_required")));
 
@@ -632,7 +662,7 @@ class LayerManager implements LayerAPI {
     // user reorder (drag, moveLayerUp/Down, bringLayerToFront) snapshots the
     // live order. A layer the user *did* arrange still replays here through
     // insertOverlayAt / applyUserState above.
-    this.events.emit(EVENTS.LAYER_CHANGE);
+    this.emitLayerChange(opts.id, layerInfo.kind);
     return this.uiContainer.querySelector(
       `[${CONST.DATA.LAYER_ID}="${CSS.escape(opts.id)}"]`,
     );
@@ -651,7 +681,7 @@ class LayerManager implements LayerAPI {
     this.layerRegistry.moveToFront(id);
     this.enforceOrder();
     this.saveOrder();
-    this.events.emit(EVENTS.LAYER_CHANGE);
+    this.emitLayerChange(id, item.kind);
     if (this.uiContainer && this.ui) {
       this.ui.renderInitialList();
       this.ui.initTypesAndVisibility();
@@ -789,9 +819,14 @@ class LayerManager implements LayerAPI {
     // lists this id —that dimension reads the registry live, so the removal is
     // recorded without the teardown touching a persisted map.
     this.persistence.flushAll();
-    this.events.emit(EVENTS.LAYER_CHANGE);
-    // Emit EVENTS.LAYER_REMOVED so consumers (e.g. MeasureControl) can detect when
-    // their layer is deleted from the panel and sync their internal state.
+    this.emitLayerChange(id, layerInfo.kind);
+    // The registry change lands first, so a subscriber that drops the layer off
+    // its own list and then clears state observes the removal on the same
+    // channel it saw the registration. LAYER_REMOVED is the teardown
+    // notification itself — "the id left the registry" (Measure drops its
+    // active mode), not "the user deleted this". A user delete routes through
+    // deleteLayer, which emits LAYER_REMOVED for user-owned layers and
+    // LAYER_DELETED for component-owned ones.
     this.events.emit(EVENTS.LAYER_REMOVED, { id });
     return true;
   }
@@ -941,9 +976,15 @@ class LayerManager implements LayerAPI {
     const spec = {
       id: layerInfo.id,
       layer,
+      // The registry is the only place a kind is derived, so forward its answer
+      // instead of letting the surface re-probe the tree: without this a
+      // declared `kind` (and a `custom` carrier) would be re-derived away from
+      // its own declaration on the surface side.
+      kind: layerInfo.kind,
+      custom: layerInfo.carrier.custom,
       paneName: layerInfo.paneName,
       paneSpecs: withAnnotationSpec(layerInfo, layer),
-      canvas: Boolean(layerInfo.canvas),
+      canvas: Boolean(layerInfo.carrier.canvas),
       getBounds: layerInfo.getBounds,
       color: layerInfo.color,
     };
@@ -1129,7 +1170,7 @@ class LayerManager implements LayerAPI {
     this.layerRegistry.reorder(idx, idx - 1);
     this.enforceOrder();
     this.saveOrder();
-    this.events.emit(EVENTS.LAYER_CHANGE);
+    this.emitLayerChange(id, item.kind);
     this.uiContainer && this.ui?.reindexAfterMove();
     return true;
   }
@@ -1151,7 +1192,7 @@ class LayerManager implements LayerAPI {
     this.layerRegistry.reorder(idx, idx + 1);
     this.enforceOrder();
     this.saveOrder();
-    this.events.emit(EVENTS.LAYER_CHANGE);
+    this.emitLayerChange(id, item.kind);
     this.uiContainer && this.ui?.reindexAfterMove();
     return true;
   }
