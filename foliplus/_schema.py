@@ -46,7 +46,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-
 # TS type tags supported. Kept small — fields are flat, no nested object
 # shapes beyond `Record<string, unknown>` and array-of-string. Add a new tag
 # only when a real control needs it; the generator refuses unknown tags so a
@@ -136,9 +135,7 @@ class FieldSpec:
     def __post_init__(self) -> None:
         if self.ts == "union":
             if not self.values:
-                raise ValueError(
-                    f"FieldSpec(ts='union') requires values, got None"
-                )
+                raise ValueError(f"FieldSpec(ts='union') requires values, got None")
         elif self.ts not in _SUPPORTED_TAGS:
             raise ValueError(
                 f"FieldSpec ts={self.ts!r} is not a supported tag; "
@@ -187,7 +184,9 @@ def render_ts_type(spec: FieldSpec) -> str:
 
 SHARED: ControlSchema = {
     "name": FieldSpec("string", note="Control class name (Python self._name)."),
-    "position": FieldSpec("control_position", optional=True, note="Leaflet control position."),
+    "position": FieldSpec(
+        "control_position", optional=True, note="Leaflet control position."
+    ),
     "locale_tables": FieldSpec(
         "locale_tables",
         optional=True,
@@ -364,11 +363,7 @@ def config_fields(schema: ControlSchema) -> tuple[str, ...]:
     runtime-only fields are intentionally excluded — dynamic fields are emitted
     via ``_extra_config`` and runtime-only fields are JS-set.
     """
-    return tuple(
-        k
-        for k, f in schema.items()
-        if not f.runtime_only and not f.dynamic
-    )
+    return tuple(k for k, f in schema.items() if not f.runtime_only and not f.dynamic)
 
 
 def schema_to_json() -> str:

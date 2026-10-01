@@ -22,9 +22,17 @@ import json
 
 import pytest
 
-from foliplus import BaseControl, ExportControl, FullscreenControl
-from foliplus import HeatmapControl, LayerControl, LocateControl
-from foliplus import MeasureControl, ScaleControl, SearchControl
+from foliplus import (
+    BaseControl,
+    ExportControl,
+    FullscreenControl,
+    HeatmapControl,
+    LayerControl,
+    LocateControl,
+    MeasureControl,
+    ScaleControl,
+    SearchControl,
+)
 from foliplus._schema import (
     RUNTIME_ONLY,
     SCHEMAS,
@@ -58,7 +66,9 @@ class TestSchemaCoverage:
 
     def test_no_orphan_schemas(self) -> None:
         orphans = set(SCHEMAS) - set(CONTROL_CLASSES)
-        assert not orphans, f"SCHEMAS has entries for unknown controls: {sorted(orphans)}"
+        assert not orphans, (
+            f"SCHEMAS has entries for unknown controls: {sorted(orphans)}"
+        )
 
     def test_every_basecontrol_subclass_is_registered(self) -> None:
         # Discover every BaseControl subclass reachable from foliplus.* and
@@ -127,9 +137,7 @@ class TestRuntimeOnlyFields:
 
     def test_dynamic_fields_are_not_in_config_fields(self) -> None:
         for name in CONTROL_CLASSES:
-            dynamic_in_schema = [
-                k for k, f in SCHEMAS[name].items() if f.dynamic
-            ]
+            dynamic_in_schema = [k for k, f in SCHEMAS[name].items() if f.dynamic]
             declared = set(CONTROL_CLASSES[name]._config_fields)
             overlap = set(dynamic_in_schema) & declared
             assert not overlap, (
