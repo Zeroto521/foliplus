@@ -6394,6 +6394,73 @@ class TestLayerControlBrowser:
             assert state["labels"]["gamma"] == "C"
             assert not errors, f"JS errors: {errors}"
 
+    def test_focus_closes_map_popup(self, browser, tmp_path):
+        """A feature-bound Leaflet popup (folium GeoJsonPopup) closes when
+        focusLayer runs — closeOverlays sweeps eachLayer so the popup
+        survives on a sublayer-bound surface (not just map._popup) is still
+        dropped.
+
+        This is the end-to-end repro of the original bug: click a GeoJson
+        feature to open its popup, then focus the layer, and the popup must
+        disappear. jsdom/vitest cannot verify this because map is a mock;
+        only a real Leaflet map proves the sweep closes the popup.
+        """
+        fg = folium.FeatureGroup(name="Features", overlay=True, show=True)
+        folium.GeoJson(
+            json.dumps(
+                {
+                    "type": "FeatureCollection",
+                    "features": [
+                        {
+                            "type": "Feature",
+                            "properties": {"name": "Zone A", "value": 42},
+                            "geometry": {
+                                "type": "Polygon",
+                                "coordinates": [
+                                    [
+                                        [119.29, 26.07],
+                                        [119.31, 26.07],
+                                        [119.31, 26.09],
+                                        [119.29, 26.09],
+                                        [119.29, 26.07],
+                                    ]
+                                ],
+                            },
+                        }
+                    ],
+                }
+            ),
+            name="GeoJson",
+            layer_name="GeoJson",
+            popup=folium.GeoJsonPopup(
+                fields=["name", "value"],
+                aliases=["Name", "Value"],
+            ),
+        ).add_to(fg)
+
+        with use_page(self._make_page, browser, tmp_path, fg, slug="popup_focus") as (
+            page,
+            errors,
+        ):
+            panel_ready(page)
+            result = page.evaluate(_js("LayerControl/popup_closes_on_focus"))
+            assert result is not None and "error" not in result, (
+                f"popup_closes_on_focus snippet failed: {result}"
+            )
+            # The popup must have opened on feature click.
+            assert result["popupOpenBefore"] is True, (
+                f"popup did not open on feature click: {result}"
+            )
+            # After focus, the popup must be gone.
+            assert result["popupStillOpen"] is False, (
+                f"popup survived focus: {result}"
+            )
+            # Focus must be active — proves closeOverlays ran, not a no-op.
+            assert result["focusing"] is True, (
+                f"focus did not activate: {result}"
+            )
+            assert not errors, f"JS errors: {errors}"
+
 
 # ── pane-surface probe ─────────────────────────────────────────────────
 #
