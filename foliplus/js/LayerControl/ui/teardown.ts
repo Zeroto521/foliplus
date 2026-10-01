@@ -13,10 +13,13 @@ import { closeStylePanel } from "./style/index.js";
  * full-screen map state, so opening a panel must release it, and focusing a
  * layer must drop the panels.
  *
- * The popup is Leaflet's, not foliplus's. A feature-bound popup (folium's
- * GeoJsonPopup) is invisible to every panel opener, so it outlived a focus and
- * sat on top of the spotlight. Closing it here lifts the clearing from
- * "foliplus surfaces are mutually exclusive" to "one map overlay at a time".
+ * The popup is Leaflet's, not foliplus's, and it has two shapes: `map._popup`
+ * (a map-level popup, closed by `map.closePopup()`) and layer-bound popups —
+ * folium's GeoJsonPopup binds onto each sublayer via `parent.bindPopup`, so
+ * `closePopup()` alone misses them. A feature-bound popup sat on top of the
+ * focus spotlight because no panel opener ever saw it; clearing both shapes
+ * here lifts the contract from "foliplus surfaces are mutually exclusive" to
+ * "one map overlay at a time".
  *
  * Called by every entry that opens one of these surfaces, after its own guards
  * have passed — a rejected call must not clear what the user left open — so the
@@ -36,6 +39,10 @@ const closeOverlays = (ui: LayerUI): void => {
   // The map's own popup, cleared with the foliplus surfaces: it is Leaflet's,
   // so no panel opener ever saw it. No-op when nothing is open.
   ui.m.map.closePopup();
+  // A folium GeoJsonPopup binds onto each sublayer (parent.bindPopup in the
+  // GeoJson template), not onto map._popup — closePopup above only reaches
+  // map-level popups. Sweep the layers so feature-bound popups close too.
+  ui.m.map.eachLayer(layer => layer.closePopup?.());
   finishRename(ui);
   closeMoreMenu(ui, true);
   closeAttrsPanel(ui, false);

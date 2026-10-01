@@ -160,21 +160,48 @@ describe("LayerUI overlay mutual exclusion", () => {
   });
 
   describe("the map's own popup", () => {
-    // A feature-bound popup (folium's GeoJsonPopup) belongs to Leaflet, not to
-    // foliplus, so no panel opener ever saw it — it outlived a focus and sat on
-    // top of the spotlight. Clearing closes it because the map is where the
-    // float lives, not because any foliplus surface owns it.
+    // A popup has two shapes: `map._popup` (a map-level popup, closed by
+    // `closePopup()`) and layer-bound popups — folium's GeoJsonPopup binds onto
+    // each sublayer via `parent.bindPopup`, so `closePopup()` alone misses them.
+    // A feature-bound popup sat on top of the focus spotlight because no panel
+    // opener ever saw it. Both shapes are cleared.
     it("an opener closes the popup the map left open", () => {
+      const layerPopup = vi.fn();
+      map.eachLayer.mockImplementation(fn =>
+        fn({ closePopup: layerPopup }, "layer"),
+      );
+
       ui.openMoreMenu(findItem(ui, "overlay1"));
 
       expect(map.closePopup).toHaveBeenCalledTimes(1);
+      expect(layerPopup).toHaveBeenCalledTimes(1);
     });
 
     it("focusLayer closes it along with the panels it replaces", () => {
+      const layerPopup = vi.fn();
+      map.eachLayer.mockImplementation(fn =>
+        fn({ closePopup: layerPopup }, "layer"),
+      );
+
       ui.focusLayer("overlay1");
 
       expect(ui.isFocusing()).toBe(true);
       expect(map.closePopup).toHaveBeenCalledTimes(1);
+      expect(layerPopup).toHaveBeenCalledTimes(1);
+    });
+
+    it("layers without a popup are skipped", () => {
+      // Tile layers and similar carry no popup; the optional call keeps the
+      // sweep from throwing on them.
+      const layerPopup = vi.fn();
+      map.eachLayer.mockImplementation(fn => {
+        fn({}, "tile");
+        fn({ closePopup: layerPopup }, "geojson");
+      });
+
+      ui.openMoreMenu(findItem(ui, "overlay1"));
+
+      expect(layerPopup).toHaveBeenCalledTimes(1);
     });
   });
 
