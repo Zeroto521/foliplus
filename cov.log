@@ -25,7 +25,7 @@ n a bundle exceeds the threshold
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : NotSpecified: ([90mstderr[2m...s the threshold:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError
- 
+
 [22m[39m
 ✗ 1 bundle(s) exceeded threshold:
   a.min.js: 2.63 KB → 3.29 KB (25.0%)
@@ -46,7 +46,7 @@ Bundle Size Check
 
 ✓ All bundles within threshold.
 
-[90mstderr[2m | test/js/script/bundle-size-check.test.ts[2m > [22m[2mcheck[2m > [22m[2mreturns non-zero when a 
+[90mstderr[2m | test/js/script/bundle-size-check.test.ts[2m > [22m[2mcheck[2m > [22m[2mreturns non-zero when a
 bundle exceeds the threshold with --enforce
 [22m[39m
 ✗ 1 bundle(s) exceeded threshold:
@@ -308,7 +308,7 @@ Bundle Size Check
 
 ✓ All bundles within threshold.
 
-[90mstderr[2m | test/js/core/geocode/geocoder.test.ts[2m > [22m[2mreverseGeocode[2m > [22m[2mfalls back to the 
+[90mstderr[2m | test/js/core/geocode/geocoder.test.ts[2m > [22m[2mreverseGeocode[2m > [22m[2mfalls back to the
 locale 'not found' text for empty results
 [22m[39m[foliplus] gcoord library failed to load, coordinate transformation unavailable
 
@@ -378,7 +378,7 @@ ress to coordinates and caches it
 [31m     [31m×[31m comments are stripped when minify is on[39m[32m 295[2mms[22m[39m
 [31m     [31m×[31m reverse proof: @preserve comments survive, so stripping is real[39m[32m 35[2mms[22m[39m
 [31m     [31m×[31m the noise really is comment-only — whitespace padding behaves the same[39m[32m 99[2mms[22m[39m
-[90mstderr[2m | test/js/core/geocode/geocoder.test.ts[2m > [22m[2mgeocode (forward)[2m > [22m[2mconverts WGS84 
+[90mstderr[2m | test/js/core/geocode/geocoder.test.ts[2m > [22m[2mgeocode (forward)[2m > [22m[2mconverts WGS84
 result to map CRS for domestic maps (GCJ02)
 [22m[39m[foliplus] gcoord library failed to load, coordinate transformation unavailable
 
@@ -424,7 +424,7 @@ ache by provider id (same address, different providers)
  with providerId uses the provider URL
 [22m[39m[foliplus] gcoord library failed to load, coordinate transformation unavailable
 
-[90mstderr[2m | test/js/core/geocode/geocoder.test.ts[2m > [22m[2mprovider selection[2m > [22m[2mfalls back to 
+[90mstderr[2m | test/js/core/geocode/geocoder.test.ts[2m > [22m[2mprovider selection[2m > [22m[2mfalls back to
 Nominatim for an unknown provider id instead of throwing
 [22m[39m[foliplus] gcoord library failed to load, coordinate transformation unavailable
 
@@ -484,7 +484,7 @@ de without a spec uses the map-default provider
      [33m[2m✓[22m[39m lets a later pass latch the truth once the layer is linked [33m 318[2mms[22m[39m
      [33m[2m✓[22m[39m neither half present falls back to the author's declared default [33m 313[2mms[22m[39m
      [33m[2m✓[22m[39m a VISIBLE marker without a value reads as show everywhere [33m 424[2mms[22m[39m
-[90mstderr[2m | test/js/core/geocode/geocoder.test.ts[2m > [22m[2mmap-default provider[2m > [22m[2man explicit 
+[90mstderr[2m | test/js/core/geocode/geocoder.test.ts[2m > [22m[2mmap-default provider[2m > [22m[2man explicit
 provider spec wins over the map default
 [22m[39m[foliplus] gcoord library failed to load, coordinate transformation unavailable
 
@@ -1500,7 +1500,7 @@ Bundle Size Check
      [33m[2m✓[22m[39m bind chain: change runs the prior handler and flushes [33m 457[2mms[22m[39m
 [90mstderr[2m | test/js/HeatmapControl/manager.test.ts[2m > [22m[2minitScan — single-layer auto-select on first sc
 an only[2m > [22m[2mrestores a previously saved layer selection on reload
-[22m[39m[SearchControl] value fallback to 1 
+[22m[39m[SearchControl] value fallback to 1
 
  [32m✓[39m test/js/tsconfig.test.ts [2m([22m[2m13 tests[22m[2m)[22m[33m 4277[2mms[22m[39m
      [33m[2m✓[22m[39m every CONF field JS reads is exported by Python [33m 3164[2mms[22m[39m
@@ -1767,7 +1767,7 @@ llwidth comma to halfwidth
 oom when set
 [22m[39m[foliplus] gcoord library failed to load, coordinate transformation unavailable
 
-[90mstderr[2m | test/js/SearchControl/search.test.ts[2m > [22m[2msearchCoord edge cases[2m > [22m[2mfalls back 
+[90mstderr[2m | test/js/SearchControl/search.test.ts[2m > [22m[2msearchCoord edge cases[2m > [22m[2mfalls back
 to ZOOM.MAX when CONF.zoom is unset
 [22m[39m[foliplus] gcoord library failed to load, coordinate transformation unavailable
 
@@ -2273,7 +2273,7 @@ everse geocode resolves null: keeps coord-only entry
 istory entry missing: reverse geocode does not crash
 [22m[39m[foliplus] gcoord library failed to load, coordinate transformation unavailable
 
-[90mstderr[2m | test/js/SearchControl/history.test.ts[2m > [22m[2mrenderHistory[2m > [22m[2mclicking a history 
+[90mstderr[2m | test/js/SearchControl/history.test.ts[2m > [22m[2mrenderHistory[2m > [22m[2mclicking a history
 entry navigates to the saved coordinates
 [22m[39m[foliplus] gcoord library failed to load, coordinate transformation unavailable
 
@@ -2359,7 +2359,7 @@ ion on success and clears loading
  [32m✓[39m test/js/LocateControl/logic.test.ts [2m([22m[2m8 tests[22m[2m)[22m[33m 695[2mms[22m[39m
      [33m[2m✓[22m[39m flies to the browser position on success and clears loading [33m 313[2mms[22m[39m
  [32m✓[39m test/js/common/format.test.ts [2m([22m[2m35 tests[22m[2m)[22m[33m 588[2mms[22m[39m
-[90mstderr[2m | test/js/MeasureControl/export.test.ts[2m > [22m[2mExport.handleExportClick[2m > [22m[2mshows a 
+[90mstderr[2m | test/js/MeasureControl/export.test.ts[2m > [22m[2mExport.handleExportClick[2m > [22m[2mshows a
 failure hint when serialization throws
 [22m[39m[MeasureControl] export failed: Error: boom
     at JSON.<anonymous> (C:/Users/Zero/Documents/GitHub/foliplus/.claude/worktrees/ui-state/test/js/MeasureControl/expo
@@ -4674,7 +4674,7 @@ m
 
 [31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/7]⎯[22m[39m
 
-[41m[1m FAIL [22m[49m test/js/script/build.test.ts[2m > [22mminify invariant[2m > [22mreverse proof: @preserve 
+[41m[1m FAIL [22m[49m test/js/script/build.test.ts[2m > [22mminify invariant[2m > [22mreverse proof: @preserve
 comments survive, so stripping is real
 [31m[1mError[22m: spawnSync C:\Users\Zero\Documents\GitHub\foliplus\.claude\worktrees\ui-state\node_modules\@esbuild
 \win32-x64\esbuild.exe ENOENT[39m
@@ -4759,7 +4759,7 @@ hen the baseline records the same tool versions
 \ui-state\node_modules\esbuild\package.json'[39m
 [36m [2m❯[22m liveVersion test/js/script/bundle-size-check.test.ts:[2m900:23[22m[39m
     [90m898|[39m   [35mconst[39m liveVersion [33m=[39m (pkg[33m:[39m string) [33m=>[39m {
-    [90m899|[39m     [35mconst[39m v [33m=[39m [34mjoin[39m([32m"node_modules"[39m[33m,[39m pkg[33m,[39m 
+    [90m899|[39m     [35mconst[39m v [33m=[39m [34mjoin[39m([32m"node_modules"[39m[33m,[39m pkg[33m,[39m
 [32m"package.json"[39m)[33m;[39m
     [90m900|[39m     [35mreturn[39m [33mJSON[39m[33m.[39m[34mparse[39m([34mreadFileSync[39m(v[33m,[39m [
 32m"utf-8"[39m))[33m.[39mversion[33m;[39m
@@ -4776,7 +4776,7 @@ ersion the baseline captured differently
 \ui-state\node_modules\postcss\package.json'[39m
 [36m [2m❯[22m liveVersion test/js/script/bundle-size-check.test.ts:[2m900:23[22m[39m
     [90m898|[39m   [35mconst[39m liveVersion [33m=[39m (pkg[33m:[39m string) [33m=>[39m {
-    [90m899|[39m     [35mconst[39m v [33m=[39m [34mjoin[39m([32m"node_modules"[39m[33m,[39m pkg[33m,[39m 
+    [90m899|[39m     [35mconst[39m v [33m=[39m [34mjoin[39m([32m"node_modules"[39m[33m,[39m pkg[33m,[39m
 [32m"package.json"[39m)[33m;[39m
     [90m900|[39m     [35mreturn[39m [33mJSON[39m[33m.[39m[34mparse[39m([34mreadFileSync[39m(v[33m,[39m [
 32m"utf-8"[39m))[33m.[39mversion[33m;[39m
