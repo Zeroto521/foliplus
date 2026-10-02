@@ -33,6 +33,7 @@
 - `LayerControl`: `setVisible(id, visible)` on `LayerAPI` for programmatic layer visibility, taking the same transition and persistence as the panel checkbox ([#321](https://github.com/Zeroto521/foliplus/pull/321), [#570](https://github.com/Zeroto521/foliplus/pull/570))
 - `LayerControl`/`HeatmapControl`/`SearchControl`/`MeasureControl`: `collapse_on_outside` — whether a press outside the panel collapses it. Default `false` for `LayerControl`, whose panel is read alongside the map and whose busiest gesture is drag-pan / click-select; `true` for the other three, so their behaviour is unchanged ([#428](https://github.com/Zeroto521/foliplus/pull/428))
 - `LayerControl`: delete a layer from its ⋮ menu — a two-click confirm behind a divider, deletions persisted per map, colour basemap included ([#431](https://github.com/Zeroto521/foliplus/pull/431), [#499](https://github.com/Zeroto521/foliplus/pull/499), [#517](https://github.com/Zeroto521/foliplus/pull/517))
+- CONF contract: `_config_schema.py` is the single source — TS types and the vitest fixture are generated from it, and drift fails loudly ([#583](https://github.com/Zeroto521/foliplus/pull/583))
 
 ### Changed
 

@@ -134,20 +134,24 @@ describe("eslint.config.js rule scoping", () => {
   });
 });
 
-// `test/js/script/X.test.ts` tests `script/X.{js,cjs,mjs}`. These two stems have
-// no such module: they point at repo-root files that are not in script/. One
-// entry per exception, each naming what the file really tests.
+// `test/js/script/X.test.ts` tests `script/X.{js,cjs,mjs}` — or, now that
+// fixture-generation utilities live there too, a module co-located in
+// `test/js/script/`. These two stems have no such module: they point at
+// repo-root files that are not in script/. One entry per exception, each
+// naming what the file really tests.
 const NON_MODULE_TEST_SUBJECTS: Record<string, string> = {
   Makefile: "the root Makefile",
   "vitest.config": "vitest.config.mjs",
 };
 
-// `X.test.ts` has a subject when `X` is a real script module, or a stem that is
-// on the list above. Anything else is a fossil: a test file named for something
-// that does not exist.
+// `X.test.ts` has a subject when `X` is a real script module, or `X` is a
+// co-located module in test/js/script/, or a stem on the list above. Anything
+// else is a fossil: a test file named for something that does not exist.
 const hasSubject = (stem: string) =>
-  ["mjs", "cjs", "js"].some(ext =>
-    existsSync(resolve(ROOT, "script", `${stem}.${ext}`)),
+  ["mjs", "cjs", "js"].some(
+    ext =>
+      existsSync(resolve(ROOT, "script", `${stem}.${ext}`)) ||
+      existsSync(resolve(ROOT, "test", "js", "script", `${stem}.${ext}`)),
   ) || stem in NON_MODULE_TEST_SUBJECTS;
 
 describe("test/js/script naming", () => {

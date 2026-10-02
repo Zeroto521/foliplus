@@ -138,3 +138,4 @@ const createScopedTranslator = (conf: ComponentConfig): ((key: string) => string
 };
 
 export { createTranslator, createScopedTranslator, intlLocale };
+export type { LocaleTables };

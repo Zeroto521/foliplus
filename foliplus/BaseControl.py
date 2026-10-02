@@ -29,6 +29,7 @@ from folium.elements import JSCSSMixin
 from jinja2 import Template
 from jinja2.utils import htmlsafe_json_dumps
 
+from ._config_schema import SCHEMAS, config_fields
 from ._typing import Position
 from ._validate import validate
 from .locale import LocaleConfig, _load_tables, resolve_locale
@@ -241,6 +242,34 @@ class BaseControl(JSCSSMixin, MacroElement):
     #: not resolve raises ``ValueError`` from :meth:`_build_config` (fail-fast) rather
     #: than failing later as a bare ``AttributeError``.
     _config_fields: tuple[str, ...] = ()
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        """Verify a subclass's ``_config_fields`` against the schema on definition.
+
+        ``foliplus._config_schema.SCHEMAS`` is the single source of truth for the CONF
+        contract: a control that declares a schema entry must have its
+        ``_config_fields`` tuple match the schema's non-runtime-only keys. This
+        fires at import time (``cls`` is being defined), so a schema drift is a
+        hard error rather than a runtime surprise or a test-only failure.
+
+        Controls without a schema entry are skipped here — the test suite's
+        ``test_every_basecontrol_subclass_is_registered`` catches those at test
+        time. The two together mean: adding a new control requires both a schema
+        entry (import-time check) and it must match ``_config_fields`` exactly.
+        """
+        super().__init_subclass__(**kwargs)
+        schema = SCHEMAS.get(cls.__name__)
+        if schema is None:
+            return
+        declared = tuple(cls._config_fields)
+        expected = config_fields(schema)
+        if declared != expected:
+            raise AssertionError(
+                f"{cls.__name__}._config_fields = {declared!r} but "
+                f"foliplus._config_schema.SCHEMAS declares {expected!r}. "
+                "Update either the schema (foliplus/_config_schema.py) or the "
+                "control's _config_fields — they must agree exactly."
+            )
 
     @validate
     def __init__(
