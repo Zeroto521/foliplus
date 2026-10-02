@@ -368,7 +368,7 @@ class TestHeatmapControlBrowser:
             html = html.replace(
                 f'<script src="https://cdn.jsdelivr.net/npm/{cdn}"></script>', ""
             )
-        marker = 'CONF = {"name": "HeatmapControl"'
+        marker = 'CONFIG = {"name": "HeatmapControl"'
         idx = html.find(marker)
         if idx > 0:
             semi = html.find(";", idx)

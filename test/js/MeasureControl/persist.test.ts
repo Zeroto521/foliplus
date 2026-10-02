@@ -34,7 +34,7 @@ vi.mock("#core/hint.js", () => ({
   HINT_DURATION: { SHORT: 1200, MEDIUM: 2500, LONG: 4000, PERSIST: 0 },
 }));
 
-window.CONF.name = "MeasureControl";
+window.CONFIG.name = "MeasureControl";
 
 const makeStore = () => {
   const map = { foliplus: { showHint: vi.fn() } } as unknown as L.Map;

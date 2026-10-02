@@ -58,7 +58,7 @@ const makeFeat = (overrides: Partial<HexFeature> = {}): HexFeature => ({
 
 describe("drawHexagon", () => {
   beforeEach(() => {
-    Object.assign(window.CONF, {
+    Object.assign(window.CONFIG, {
       fill_opacity: 0.7,
       border_opacity: 0.9,
     });
@@ -79,7 +79,7 @@ describe("drawHexagon", () => {
     expect(ctx.closePath).toHaveBeenCalled();
     expect(ctx.fillStyle).toBe("#ff0000");
     expect(ctx.fill).toHaveBeenCalled();
-    // Fill opacity comes from CONF, then resets after the draw.
+    // Fill opacity comes from CONFIG, then resets after the draw.
     expect(ctx.strokeStyle).toBe("#000000");
     expect(ctx.lineWidth).toBe(2);
     expect(ctx.stroke).toHaveBeenCalled();
@@ -99,11 +99,11 @@ describe("drawHexagon", () => {
     expect(ctx.stroke).not.toHaveBeenCalled();
   });
 
-  it("skips the stroke when CONF.border_opacity is absent or 0", () => {
+  it("skips the stroke when CONFIG.border_opacity is absent or 0", () => {
     // 0: the `> 0` guard rejects it. undefined: `?? 0` is the other side of
     // that default — both must miss the stroke, and both branches of the
     // `??` have to run.
-    Object.assign(window.CONF, { border_opacity: 0 });
+    Object.assign(window.CONFIG, { border_opacity: 0 });
     const ctx = makeCtx();
     drawHexagon(
       ctx as unknown as CanvasRenderingContext2D,
@@ -115,7 +115,7 @@ describe("drawHexagon", () => {
     expect(ctx.fill).toHaveBeenCalled();
     expect(ctx.stroke).not.toHaveBeenCalled();
 
-    Object.assign(window.CONF, { border_opacity: undefined });
+    Object.assign(window.CONFIG, { border_opacity: undefined });
     const ctx2 = makeCtx();
     drawHexagon(
       ctx2 as unknown as CanvasRenderingContext2D,
@@ -185,8 +185,8 @@ describe("drawHexagon", () => {
     expect(ctx.globalAlpha).toBe(1);
   });
 
-  it("falls back to 1 when CONF.fill_opacity is absent (branch cover)", () => {
-    Object.assign(window.CONF, { fill_opacity: undefined, border_opacity: 0 });
+  it("falls back to 1 when CONFIG.fill_opacity is absent (branch cover)", () => {
+    Object.assign(window.CONFIG, { fill_opacity: undefined, border_opacity: 0 });
     const ctx = makeCtx();
     const alphasDuring: number[] = [];
     ctx.fill = vi.fn(() => {
@@ -218,7 +218,7 @@ describe("resolveLabelStyle", () => {
 
 describe("drawHexLabel", () => {
   beforeEach(() => {
-    Object.assign(window.CONF, { locale_code: "en" });
+    Object.assign(window.CONFIG, { locale_code: "en" });
   });
 
   it("strokes the halo then fills the value at the centroid", () => {

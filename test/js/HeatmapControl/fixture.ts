@@ -1,14 +1,14 @@
 // Shared fixtures for HeatmapControl unit tests.
 // makeManager mirrors the heatmap runtime globals (h3/chroma/ss/LayerAPI);
-// makeCtrl builds the HeatmapControlUI state object carrying its own CONF so
+// makeCtrl builds the HeatmapControlUI state object carrying its own CONFIG so
 // the UI functions can be exercised with per-instance configuration.
 import { vi } from "vitest";
 import { HeatmapManager } from "#foliplus/HeatmapControl/manager.js";
 import type { HeatmapControlUI } from "#foliplus/HeatmapControl/ui.js";
 import { createScopedTranslator } from "#common/locale.js";
 
-/** A CONF with the heatmap fields the UI functions read, in English. */
-const makeConf = (overrides: Partial<ComponentConfig> = {}): ComponentConfig => ({
+/** A CONFIG with the heatmap fields the UI functions read, in English. */
+const makeConfig = (overrides: Partial<ComponentConfig> = {}): ComponentConfig => ({
   name: "HeatmapControl",
   locale_code: "en",
   schemes: ["Reds", "Blues", "Greens"],
@@ -19,7 +19,7 @@ const makeConf = (overrides: Partial<ComponentConfig> = {}): ComponentConfig => 
   border_weight: 1.5,
   border_color: "#333333",
   field: null,
-  // Locale tables normally arrive inside CONF from the Python bridge; provide
+  // Locale tables normally arrive inside CONFIG from the Python bridge; provide
   // the keys the hint assertions rely on so the scoped translator resolves.
   locale_tables: {
     en: {
@@ -32,13 +32,13 @@ const makeConf = (overrides: Partial<ComponentConfig> = {}): ComponentConfig => 
 
 /** Build a real HeatmapManager with all external deps stubbed out. */
 function makeManager(confOverrides: Partial<ComponentConfig> = {}) {
-  // Mutate in place — module-level `T = createScopedTranslator(CONF)` captured
-  // the setup-time object; replacing window.CONF would strand that reference
+  // Mutate in place — module-level `T = createScopedTranslator(CONFIG)` captured
+  // the setup-time object; replacing window.CONFIG would strand that reference
   // on SearchControl and meta keys would resolve to the wrong prefix.
   // `confOverrides` wins last so a test can omit/replace a key (including
-  // setting it to undefined to simulate a CONF that never sent it).
+  // setting it to undefined to simulate a CONFIG that never sent it).
   Object.assign(
-    window.CONF,
+    window.CONFIG,
     {
       name: "HeatmapControl",
       color_scheme: "Reds",
@@ -119,10 +119,10 @@ function makeManager(confOverrides: Partial<ComponentConfig> = {}) {
   return manager;
 }
 
-/** HeatmapControlUI-shaped fixture carrying its own CONF + translator. */
+/** HeatmapControlUI-shaped fixture carrying its own CONFIG + translator. */
 function makeCtrl(
   m: HeatmapManager,
-  conf: ComponentConfig = makeConf(),
+  config: ComponentConfig = makeConfig(),
 ): HeatmapControlUI {
   // initScan reaches the map via ctrl.m.map — mirror the window.map foliplus
   // stub (LayerAPI + showHint) onto the manager's map so the API and hint
@@ -138,8 +138,8 @@ function makeCtrl(
       target.addEventListener(type, fn);
       return () => target.removeEventListener(type, fn);
     },
-    conf,
-    T: createScopedTranslator(conf),
+    config,
+    T: createScopedTranslator(config),
     ctrl: document.createElement("div"),
     schemeDropdown: null,
     expandHookDone: false,
@@ -164,4 +164,4 @@ function makeCtrl(
   };
 }
 
-export { makeConf, makeCtrl, makeManager };
+export { makeConfig, makeCtrl, makeManager };

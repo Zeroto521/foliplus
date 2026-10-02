@@ -3,7 +3,7 @@ import { panelContentHTML } from "#foliplus/HeatmapControl/template.js";
 
 describe("panelContentHTML", () => {
   beforeEach(() => {
-    vi.stubGlobal("CONF", { name: "HeatmapControl" });
+    vi.stubGlobal("CONFIG", { name: "HeatmapControl" });
   });
 
   const T = (key: string) => {

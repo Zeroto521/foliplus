@@ -15,9 +15,9 @@ vi.mock("#common/locale.js", () => ({
   createScopedTranslator: () => (k: string) => k,
 }));
 
-window.CONF = { ...window.CONF, name: "MeasureControl", locale_code: "en" };
+window.CONFIG = { ...window.CONFIG, name: "MeasureControl", locale_code: "en" };
 
-const env = makeControlEnv(window.CONF, identity);
+const env = makeControlEnv(window.CONFIG, identity);
 
 // ── Test data fixtures ──
 
@@ -103,30 +103,30 @@ describe("Export.resolveExportFormat", () => {
 });
 
 describe("Export.currentExportFormat", () => {
-  it("returns the geojson record when CONF.export_format is missing", () => {
-    const prev = window.CONF.export_format;
-    delete window.CONF.export_format;
+  it("returns the geojson record when CONFIG.export_format is missing", () => {
+    const prev = window.CONFIG.export_format;
+    delete window.CONFIG.export_format;
     const meta = Export.currentExportFormat(env);
     expect(meta.ext).toBe("geojson");
     expect(meta.mime).toBe("application/geo+json");
     expect(typeof meta.serialize).toBe("function");
-    if (prev !== undefined) window.CONF.export_format = prev;
+    if (prev !== undefined) window.CONFIG.export_format = prev;
   });
 
   it("returns the csv record for export_format: csv", () => {
-    const prev = window.CONF.export_format;
-    window.CONF.export_format = "csv";
+    const prev = window.CONFIG.export_format;
+    window.CONFIG.export_format = "csv";
     const meta = Export.currentExportFormat(env);
     expect(meta.ext).toBe("csv");
     expect(meta.mime).toBe("text/csv");
-    if (prev !== undefined) window.CONF.export_format = prev;
+    if (prev !== undefined) window.CONFIG.export_format = prev;
   });
 
-  it("falls back to geojson for an unknown CONF.export_format", () => {
-    const prev = window.CONF.export_format;
-    window.CONF.export_format = "unknown";
+  it("falls back to geojson for an unknown CONFIG.export_format", () => {
+    const prev = window.CONFIG.export_format;
+    window.CONFIG.export_format = "unknown";
     expect(Export.currentExportFormat(env).ext).toBe("geojson");
-    if (prev !== undefined) window.CONF.export_format = prev;
+    if (prev !== undefined) window.CONFIG.export_format = prev;
   });
 });
 
@@ -335,43 +335,43 @@ const stubDownload = () => {
 
 describe("Export.currentExportFormat — serialize hooks", () => {
   it("geojson serialize emits a FeatureCollection", () => {
-    const prev = window.CONF.export_format;
-    window.CONF.export_format = "geojson";
+    const prev = window.CONFIG.export_format;
+    window.CONFIG.export_format = "geojson";
     const json = Export.currentExportFormat(env).serialize(env, [markerData]);
-    if (prev !== undefined) window.CONF.export_format = prev;
+    if (prev !== undefined) window.CONFIG.export_format = prev;
     expect(JSON.parse(json).type).toBe("FeatureCollection");
   });
 
   it("csv serialize prefixes a BOM", () => {
-    const prev = window.CONF.export_format;
-    window.CONF.export_format = "csv";
+    const prev = window.CONFIG.export_format;
+    window.CONFIG.export_format = "csv";
     const csv = Export.currentExportFormat(env).serialize(env, [markerData]);
-    if (prev !== undefined) window.CONF.export_format = prev;
+    if (prev !== undefined) window.CONFIG.export_format = prev;
     expect(csv.charCodeAt(0)).toBe(0xfeff);
     // The BOM must not land inside the header row.
     expect(csv.slice(1).split("\n")[0]).toContain("id,type,name");
   });
 
   it("csv serialize output matches toCSV apart from the BOM", () => {
-    const prev = window.CONF.export_format;
-    window.CONF.export_format = "csv";
+    const prev = window.CONFIG.export_format;
+    window.CONFIG.export_format = "csv";
     const csv = Export.currentExportFormat(env).serialize(env, [markerData]);
-    if (prev !== undefined) window.CONF.export_format = prev;
+    if (prev !== undefined) window.CONFIG.export_format = prev;
     expect(csv.slice(1)).toBe(Export.toCSV(env, [markerData]));
   });
 
   it("serializers are pure — same input yields the same output", () => {
-    const prev = window.CONF.export_format;
+    const prev = window.CONFIG.export_format;
     const geo = Export.currentExportFormat;
-    window.CONF.export_format = "geojson";
+    window.CONFIG.export_format = "geojson";
     expect(geo(env).serialize(env, [markerData])).toBe(
       geo(env).serialize(env, [markerData]),
     );
-    window.CONF.export_format = "csv";
+    window.CONFIG.export_format = "csv";
     expect(geo(env).serialize(env, [markerData])).toBe(
       geo(env).serialize(env, [markerData]),
     );
-    if (prev !== undefined) window.CONF.export_format = prev;
+    if (prev !== undefined) window.CONFIG.export_format = prev;
   });
 });
 
@@ -380,13 +380,13 @@ describe("Export.exportMeasurements", () => {
 
   beforeEach(() => {
     dl = stubDownload();
-    delete window.CONF.filename;
-    window.CONF.filename = "test_data";
+    delete window.CONFIG.filename;
+    window.CONFIG.filename = "test_data";
   });
 
   afterEach(() => {
     dl.restore();
-    delete window.CONF.filename;
+    delete window.CONFIG.filename;
   });
 
   it("creates a download with geojson format and correct filename", () => {
@@ -429,8 +429,8 @@ describe("Export.exportMeasurements", () => {
     expect(dl.anchors[0].blob.type).toBe("text/csv");
   });
 
-  it("uses the default filename prefix when CONF.filename is missing", () => {
-    delete window.CONF.filename;
+  it("uses the default filename prefix when CONFIG.filename is missing", () => {
+    delete window.CONFIG.filename;
     Export.exportMeasurements(env, [markerData], "geojson");
     expect(dl.anchors[0].filename).toBe("measurements.geojson");
   });
@@ -569,14 +569,14 @@ describe("Export.csvEscape edge cases", () => {
   });
 });
 
-describe("Export.currentExportFormat — CONF edge cases", () => {
-  it("falls back to geojson for null and undefined CONF.export_format", () => {
-    const prev = window.CONF.export_format;
-    window.CONF.export_format = null as any;
+describe("Export.currentExportFormat — CONFIG edge cases", () => {
+  it("falls back to geojson for null and undefined CONFIG.export_format", () => {
+    const prev = window.CONFIG.export_format;
+    window.CONFIG.export_format = null as any;
     expect(Export.currentExportFormat(env).ext).toBe("geojson");
-    window.CONF.export_format = undefined;
+    window.CONFIG.export_format = undefined;
     expect(Export.currentExportFormat(env).ext).toBe("geojson");
-    if (prev !== undefined) window.CONF.export_format = prev;
+    if (prev !== undefined) window.CONFIG.export_format = prev;
   });
 });
 
@@ -585,12 +585,12 @@ describe("Export.handleExportClick", () => {
 
   const makeMgr = (measurements: MeasureData[] = [markerData]) => {
     // handleExportClick reads mgr.env for the env-typed export functions and
-    // mgr.conf/T/log for the hint path — the mock mirrors the real manager.
-    const env = makeControlEnv(window.CONF, identity);
+    // mgr.config/T/log for the hint path — the mock mirrors the real manager.
+    const env = makeControlEnv(window.CONFIG, identity);
     return {
       store: { all: () => measurements },
       map: { foliplus: { showHint: vi.fn() } },
-      conf: window.CONF,
+      config: window.CONFIG,
       T: env.T,
       _: env._,
       log: env.log,
@@ -600,14 +600,14 @@ describe("Export.handleExportClick", () => {
 
   beforeEach(() => {
     dl = stubDownload();
-    delete window.CONF.filename;
-    window.CONF.filename = "meas";
-    delete window.CONF.export_format;
+    delete window.CONFIG.filename;
+    window.CONFIG.filename = "meas";
+    delete window.CONFIG.export_format;
   });
 
   afterEach(() => {
     dl.restore();
-    delete window.CONF.filename;
+    delete window.CONFIG.filename;
   });
 
   it("stops propagation", () => {
@@ -660,18 +660,18 @@ describe("Export.handleExportClick", () => {
     }
   });
 
-  it("resolves the format from CONF, defaulting to geojson", () => {
+  it("resolves the format from CONFIG, defaulting to geojson", () => {
     Export.handleExportClick(makeMgr() as any)({ stopPropagation: vi.fn() } as any);
     expect(dl.anchors[0].filename).toBe("meas.geojson");
 
-    window.CONF.export_format = "csv";
+    window.CONFIG.export_format = "csv";
     Export.handleExportClick(makeMgr() as any)({ stopPropagation: vi.fn() } as any);
     expect(dl.anchors[1].filename).toBe("meas.csv");
-    delete window.CONF.export_format;
+    delete window.CONFIG.export_format;
   });
 
-  it("falls back to the default filename when CONF.filename is missing", () => {
-    delete window.CONF.filename;
+  it("falls back to the default filename when CONFIG.filename is missing", () => {
+    delete window.CONFIG.filename;
     Export.handleExportClick(makeMgr() as any)({ stopPropagation: vi.fn() } as any);
     expect(dl.anchors[0].filename).toBe("measurements.geojson");
   });

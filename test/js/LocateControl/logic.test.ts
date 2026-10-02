@@ -19,7 +19,7 @@ const makeCtrl = () => {
 };
 
 beforeEach(() => {
-  window.CONF = { ...window.CONF, name: "LocateControl", zoom: 16 };
+  window.CONFIG = { ...window.CONFIG, name: "LocateControl", zoom: 16 };
 });
 
 describe("locateMe", () => {

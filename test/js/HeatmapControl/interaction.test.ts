@@ -28,12 +28,12 @@ function makeCtrl(): any {
 describe("HeatmapControl interaction", () => {
   beforeEach(() => {
     // Set up scheme list for the interaction handlers
-    (window as any).CONF.schemes = ["thermal", "rainbow", "grayscale"];
+    (window as any).CONFIG.schemes = ["thermal", "rainbow", "grayscale"];
   });
 
   afterEach(() => {
     document.body.innerHTML = "";
-    delete (window as any).CONF.schemes;
+    delete (window as any).CONFIG.schemes;
   });
 
   it("registerSchemeBarEvents returns cleanup", () => {
@@ -43,10 +43,10 @@ describe("HeatmapControl interaction", () => {
     cleanup();
   });
 
-  it("falls back to an empty scheme list when CONF.schemes is missing", () => {
-    // The Python CONF omits schemes in the minimal build — the handler must
+  it("falls back to an empty scheme list when CONFIG.schemes is missing", () => {
+    // The Python CONFIG omits schemes in the minimal build — the handler must
     // still register without throwing, and ArrowUp/Down become no-ops.
-    delete (window as any).CONF.schemes;
+    delete (window as any).CONFIG.schemes;
     const ctrl = makeCtrl();
     ctrl.m.currentScheme = "any";
     const cleanup = registerSchemeBarEvents(ctrl.map, ctrl);

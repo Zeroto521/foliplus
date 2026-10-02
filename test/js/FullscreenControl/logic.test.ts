@@ -79,13 +79,13 @@ describe("updateUI", () => {
     expect(mapMock.foliplus.showHint).toHaveBeenCalled();
   });
 
-  it("skips hide_others when CONF.hide_others is not set", () => {
+  it("skips hide_others when CONFIG.hide_others is not set", () => {
     updateUI(mapMock, fsBtn, container);
-    // No class toggling on other controls since CONF.hide_others is falsy
+    // No class toggling on other controls since CONFIG.hide_others is falsy
     expect(fsBtn.innerHTML).toContain("M8 3H5");
   });
 
-  it("skips hide_self when CONF.hide_self is not set", () => {
+  it("skips hide_self when CONFIG.hide_self is not set", () => {
     updateUI(mapMock, fsBtn, container);
     const selfBtns = container.querySelectorAll(
       ".foliplus-fullscreen-toggle, .foliplus-zoom-in, .foliplus-zoom-out",

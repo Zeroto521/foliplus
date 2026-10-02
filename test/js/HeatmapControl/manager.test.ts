@@ -4,7 +4,7 @@ import * as CONST from "#foliplus/HeatmapControl/const.js";
 import { HeatmapManager } from "#foliplus/HeatmapControl/manager.js";
 import { rebuildLayerDropdown } from "#foliplus/HeatmapControl/ui.js";
 import { BORDER_WEIGHT } from "#foliplus/common/form.js";
-import { makeConf, makeCtrl, makeManager } from "./fixture.js";
+import { makeConfig, makeCtrl, makeManager } from "./fixture.js";
 
 afterEach(() => {
   delete globalThis.h3;
@@ -98,7 +98,7 @@ describe("HeatmapManager — caching & lifecycle", () => {
     const schemeBarCleanup = vi.fn();
     const dropdownCleanup = vi.fn();
     m.ui = {
-      ...makeCtrl(m, makeConf()),
+      ...makeCtrl(m, makeConfig()),
       schemeBarCleanup,
       dropdownCleanup,
     };
@@ -1215,8 +1215,8 @@ describe("HeatmapManager — style delegation", () => {
     });
   });
 
-  it("constructs with empty field when CONF.field is absent", () => {
-    delete (window.CONF as Record<string, unknown>).field;
+  it("constructs with empty field when CONFIG.field is absent", () => {
+    delete (window.CONFIG as Record<string, unknown>).field;
     const m = makeManager();
     expect(m.currentField).toBe("");
   });
@@ -1266,7 +1266,7 @@ describe("HeatmapManager — style delegation", () => {
     });
   });
 
-  it("styleDefaultsProvider returns the Python CONF snapshot for the drawer Reset", () => {
+  it("styleDefaultsProvider returns the Python CONFIG snapshot for the drawer Reset", () => {
     const m = makeManager();
     const opts = getCanvasOpts() as {
       styleDefaultsProvider?: () => Record<string, unknown>;
@@ -1379,17 +1379,17 @@ describe("HeatmapManager — style delegation", () => {
     expect(m.currentLabelFormat).toBe("auto");
   });
 
-  it("currentLabelFormat seeds from CONF.label_format", () => {
+  it("currentLabelFormat seeds from CONFIG.label_format", () => {
     const m = makeManager({ label_format: "percent" });
     expect(m.currentLabelFormat).toBe("percent");
   });
 
-  it("labelFormat defaults to auto when CONF omits label_format", () => {
+  it("labelFormat defaults to auto when CONFIG omits label_format", () => {
     const m = makeManager({ label_format: undefined });
     expect(m.currentLabelFormat).toBe("auto");
   });
 
-  it("labelShow defaults to true when CONF omits label_show", () => {
+  it("labelShow defaults to true when CONFIG omits label_show", () => {
     // Python serializes label_show=True by default; a missing key must not
     // silently flip labels off — the same `!== false` rule MeasureControl uses.
     const m = makeManager({ label_show: undefined });
@@ -1401,7 +1401,7 @@ describe("HeatmapManager — style delegation", () => {
     expect(opts.styleDefaultsProvider!().labelShow).toBe(true);
   });
 
-  it("borderWeight defaults to BORDER_WEIGHT.DEFAULT when CONF omits border_weight", () => {
+  it("borderWeight defaults to BORDER_WEIGHT.DEFAULT when CONFIG omits border_weight", () => {
     const m = makeManager({ border_weight: undefined });
     expect(m.borderWeight).toBe(BORDER_WEIGHT.DEFAULT);
   });
@@ -1619,9 +1619,9 @@ describe("HeatmapManager — EVENTS.LAYER_DELETED auto-clear", () => {
   });
 
   it("resets the panel to its initial state when own layer is deleted", () => {
-    const conf = makeConf({ color_scheme: "Blues", n_classes: 4, method: "equal" });
+    const config = makeConfig({ color_scheme: "Blues", n_classes: 4, method: "equal" });
     const m = makeManager();
-    const ctrl = makeCtrl(m, conf);
+    const ctrl = makeCtrl(m, config);
     // The fixture's selects are bare elements: without options, `el.value`
     // falls back to "" regardless of what was assigned.
     const addOptions = (el: HTMLSelectElement, values: string[]) => {
@@ -1657,17 +1657,17 @@ describe("HeatmapManager — EVENTS.LAYER_DELETED auto-clear", () => {
     expect(m.autoFieldKey).toBeNull();
     expect(m.currentAgg).toBe(CONST.AGG.COUNT);
     expect(m.currentField).toBe("");
-    expect(m.currentMethod).toBe(conf.method);
-    expect(m.currentScheme).toBe(conf.color_scheme);
-    expect(m.numClasses).toBe(conf.n_classes);
+    expect(m.currentMethod).toBe(config.method);
+    expect(m.currentScheme).toBe(config.color_scheme);
+    expect(m.numClasses).toBe(config.n_classes);
     expect(m.cachedFeatures).toBeNull();
     // Every dropdown reflects the reset — the reported bug was the panel
     // still showing the cleared layer and field.
     expect(ctrl.layerSelect.value).toBe("");
     expect(ctrl.aggSelect.value).toBe(CONST.AGG.COUNT);
-    expect(ctrl.methodSelect.value).toBe(conf.method);
-    expect(ctrl.classSelect.value).toBe(String(conf.n_classes));
-    expect(ctrl.schemeSelectHidden.value).toBe(conf.color_scheme);
+    expect(ctrl.methodSelect.value).toBe(config.method);
+    expect(ctrl.classSelect.value).toBe(String(config.n_classes));
+    expect(ctrl.schemeSelectHidden.value).toBe(config.color_scheme);
     expect(ctrl.extraBody.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
     // The record is dropped so a reload does not resurrect the cleared layer,
     // the same teardown as MeasureControl's LAYER_DELETED -> clearAll.
@@ -1705,8 +1705,8 @@ describe("HeatmapManager — EVENTS.LAYER_DELETED auto-clear", () => {
   });
 });
 
-describe("constructor — CONF fallbacks", () => {
-  it("uses library defaults when CONF omits optional style fields", () => {
+describe("constructor — CONFIG fallbacks", () => {
+  it("uses library defaults when CONFIG omits optional style fields", () => {
     const m = makeManager({
       agg: undefined,
       color_scheme: undefined,
@@ -2036,8 +2036,8 @@ describe("clearHeatmapCanvas — null overlay", () => {
   });
 });
 
-describe("resetState — CONF fallbacks", () => {
-  it("uses library defaults when conf omits optional fields", () => {
+describe("resetState — CONFIG fallbacks", () => {
+  it("uses library defaults when config omits optional fields", () => {
     const m = makeManager();
     m.currentAgg = CONST.AGG.SUM;
     m.currentMethod = "quantile";

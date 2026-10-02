@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/MeasureControl/const.js";
 import * as UI from "#foliplus/MeasureControl/ui/index.js";
-import { installStubs, makeConf, makeMgr } from "./fixture.js";
+import { installStubs, makeConfig, makeMgr } from "./fixture.js";
 
 const { attachDelClick, makeDelIcon, toggleDelIcon, realMakeDelIcon, dragHandlers } =
   vi.hoisted(() => ({
@@ -92,18 +92,18 @@ describe("attachDistanceUI", () => {
     expect(makeDelIcon).toHaveBeenCalled();
   });
 
-  it("reads the delete-icon titles through the manager-bound translator (injected conf), not window.CONF", () => {
-    const savedConf = window.CONF;
-    window.CONF = {
+  it("reads the delete-icon titles through the manager-bound translator (injected config), not window.CONFIG", () => {
+    const savedConf = window.CONFIG;
+    window.CONFIG = {
       ...savedConf,
       name: "MeasureControl",
       locale_tables: { en: { "MeasureControl.del_all": "AMBIENT del_all" } },
     };
     try {
-      const conf = makeConf({
+      const config = makeConfig({
         locale_tables: { en: { "MeasureControl.del_all": "INJECTED del_all" } },
       });
-      const mgr = makeMgr(conf);
+      const mgr = makeMgr(config);
       UI.attachDistanceUI(mgr as any, makeOpts() as any);
 
       const titles = (makeDelIcon as any).mock.calls.map(c => c[1]?.title);
@@ -111,7 +111,7 @@ describe("attachDistanceUI", () => {
       expect(mgr.T).toHaveBeenCalledWith("del_all");
       expect(mgr.T).not.toHaveBeenCalledWith("del_node");
     } finally {
-      window.CONF = savedConf;
+      window.CONFIG = savedConf;
     }
   });
 

@@ -48,8 +48,8 @@ function makeMapMock() {
 
 // Build an ExportManager with a real toolbar, ready for showCropBox/removeCropBox.
 function makeManager() {
-  window.CONF = {
-    ...window.CONF,
+  window.CONFIG = {
+    ...window.CONFIG,
     name: "ExportControl",
     timeout: 7500,
     max_pixels: null,
@@ -166,10 +166,10 @@ describe("ExportControl ui — crop mode via ModeManager", () => {
   });
 });
 
-describe("ExportControl ui — hints and toolbar via the injected conf", () => {
-  /** Swap the manager's conf/T so hint text provably comes from the injection. */
+describe("ExportControl ui — hints and toolbar via the injected config", () => {
+  /** Swap the manager's config/T so hint text provably comes from the injection. */
   const inject = (manager: ExportManager, overrides: Partial<ComponentConfig> = {}) => {
-    manager.conf = {
+    manager.config = {
       name: "ExportControl",
       locale_code: "en",
       max_pixels: 100,
@@ -184,11 +184,11 @@ describe("ExportControl ui — hints and toolbar via the injected conf", () => {
       },
       ...overrides,
     } as ComponentConfig;
-    manager.T = createScopedTranslator(manager.conf);
+    manager.T = createScopedTranslator(manager.config);
     return manager;
   };
 
-  it("showGlobalHint uses the injected conf name", () => {
+  it("showGlobalHint uses the injected config name", () => {
     const manager = inject(makeManager());
     manager.showGlobalHint("working");
     expect(manager.map.foliplus.showHint).toHaveBeenCalledWith(
@@ -201,7 +201,7 @@ describe("ExportControl ui — hints and toolbar via the injected conf", () => {
     );
   });
 
-  it("size hint text comes from the injected conf, not from window.CONF", () => {
+  it("size hint text comes from the injected config, not from window.CONFIG", () => {
     const manager = inject(makeManager());
     showCropBox(manager);
     const size = manager.map.foliplus.showHint.mock.calls.find(
@@ -213,11 +213,11 @@ describe("ExportControl ui — hints and toolbar via the injected conf", () => {
     expect(size![1]).toContain("px");
   });
 
-  it("pixel-limit hint formats the conf max_pixels when the crop overflows", () => {
+  it("pixel-limit hint formats the config max_pixels when the crop overflows", () => {
     const manager = inject(makeManager());
-    // checkPixelLimit reads the ambient manager CONF — the hint text itself
+    // checkPixelLimit reads the ambient manager CONFIG — the hint text itself
     // still comes from the injected table above.
-    window.CONF = { ...window.CONF, max_pixels: 100 };
+    window.CONFIG = { ...window.CONFIG, max_pixels: 100 };
     showCropBox(manager);
     manager.cropState!.rect = { left: 0, top: 0, width: 50, height: 50 };
     manager.showHintWithInfo(manager.cropState!.rect);
@@ -327,8 +327,8 @@ describe("ExportControl ui — crop-state guards and locked map sync", () => {
   };
 
   const makeEventManager = () => {
-    window.CONF = {
-      ...window.CONF,
+    window.CONFIG = {
+      ...window.CONFIG,
       name: "ExportControl",
       timeout: 7500,
       max_pixels: null,
@@ -368,7 +368,7 @@ describe("ExportControl ui — crop-state guards and locked map sync", () => {
       0,
     );
     expect(manager.map.foliplus.showHint).toHaveBeenCalledWith(
-      manager.conf.name,
+      manager.config.name,
       manager.T("blocked_measure"),
       HINT_DURATION.SHORT,
     );
