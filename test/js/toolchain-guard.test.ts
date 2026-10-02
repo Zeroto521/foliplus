@@ -5,10 +5,11 @@ import { describe, expect, it } from "vitest";
 
 // Guards on the build toolchain: how the scripts expose themselves, how the
 // `#script/*` alias is declared, how the lint config claims them, and that
-// test/js/script/ holds one test file per real module. None of these test a
-// module in script/, so none of them live in test/js/script/: that directory
-// stays a strict one-test-file-per-module mapping, and this file — named for
-// what it guards, not for a module — owes no entry to the naming rule it enforces.
+// test/js/script/ mirrors script/ — one test file per real module, subdirectories
+// included. None of these test a module in script/, so none of them live in
+// test/js/script/: that directory stays a strict one-test-file-per-module
+// mapping, and this file — named for what it guards, not for a module — owes
+// no entry to the naming rule it enforces.
 //
 // Resolved against cwd, the same repo root every build script assumes.
 const ROOT = resolve(".");
@@ -134,9 +135,9 @@ describe("eslint.config.js rule scoping", () => {
   });
 });
 
-// `test/js/script/X.test.ts` tests `script/X.{js,cjs,mjs}` — or, now that
-// fixture-generation utilities live there too, a module co-located in
-// `test/js/script/`. These two stems have no such module: they point at
+// `test/js/script/<dir>/X.test.ts` tests `script/<dir>/X.{js,cjs,mjs}` — or,
+// now that fixture-generation utilities live there too, a module co-located
+// in `test/js/script/`. These two stems have no such module: they point at
 // repo-root files that are not in script/. One entry per exception, each
 // naming what the file really tests.
 const NON_MODULE_TEST_SUBJECTS: Record<string, string> = {
@@ -146,8 +147,9 @@ const NON_MODULE_TEST_SUBJECTS: Record<string, string> = {
 
 // `X.test.ts` has a subject when `X` is a real script module (recursively,
 // under script/ or its build|check|tool subdirs), or `X` is a co-located
-// module in test/js/script/, or a stem on the list above. Anything else is a
-// fossil: a test file named for something that does not exist.
+// module under test/js/script/ (recursively, mirroring the script/ layout),
+// or a stem on the list above. Anything else is a fossil: a test file named
+// for something that does not exist.
 const hasSubject = (stem: string) =>
   ["mjs", "cjs", "js"].some(
     ext =>
@@ -155,19 +157,22 @@ const hasSubject = (stem: string) =>
         cwd: ROOT,
         patterns: [`script/**/${stem}.${ext}`],
       }).length > 0 ||
-      existsSync(resolve(ROOT, "test", "js", "script", `${stem}.${ext}`)),
+      globSync({
+        cwd: ROOT,
+        patterns: [`test/js/script/**/${stem}.${ext}`],
+      }).length > 0,
   ) || stem in NON_MODULE_TEST_SUBJECTS;
 
 describe("test/js/script naming", () => {
   it("every test file names the module it tests", () => {
     const tests = globSync({
       cwd: ROOT,
-      patterns: ["test/js/script/*.test.ts"],
+      patterns: ["test/js/script/**/*.test.ts"],
     }).sort();
     expect(tests.length).toBeGreaterThan(0);
 
     const stemOf = (rel: string) =>
-      rel.replace(/^test\/js\/script\//, "").replace(/\.test\.ts$/, "");
+      (rel.split("/").pop() ?? rel).replace(/\.test\.ts$/, "");
 
     const exceptions = Object.entries(NON_MODULE_TEST_SUBJECTS)
       .map(([k, v]) => `  ${k} — ${v}`)
@@ -227,9 +232,9 @@ const scriptStem = (rel: string) =>
 
 const scriptTestStems = (): Set<string> =>
   new Set(
-    globSync({ cwd: ROOT, patterns: ["test/js/script/*.test.ts"] })
+    globSync({ cwd: ROOT, patterns: ["test/js/script/**/*.test.ts"] })
       .sort()
-      .map(rel => rel.replace(/^test\/js\/script\//, "").replace(/\.test\.ts$/, "")),
+      .map(rel => (rel.split("/").pop() ?? rel).replace(/\.test\.ts$/, "")),
   );
 
 const isCovered = (stem: string) =>
@@ -245,7 +250,7 @@ describe("script module coverage", () => {
       const stem = scriptStem(rel);
       expect(
         isCovered(stem),
-        `${rel}: no test/js/script/${stem}.test.ts — add one, or name it as ` +
+        `${rel}: no test/js/script/**/${stem}.test.ts — add one, or name it as ` +
           `deliberately untested with the reason.\nKnown intentional gaps:\n${intentional}`,
       ).toBe(true);
     }
