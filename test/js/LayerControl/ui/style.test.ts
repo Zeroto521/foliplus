@@ -2689,7 +2689,7 @@ describe("LayerUI style panel", () => {
     expect(fieldSetter).not.toHaveBeenCalled();
   });
 
-  // ─────────────────── delegated reset (Python CONF defaults) ───────────────────
+  // ─────────────────── delegated reset (Python CONFIG defaults) ───────────────────
 
   it("delegated panel hides Reset when the layer supplies no styleDefaultsProvider", () => {
     manager.registerLayer({
@@ -2747,7 +2747,7 @@ describe("LayerUI style panel", () => {
     ) as HTMLButtonElement;
     btn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
 
-    // Python CONF defaults — never the live / persisted values.
+    // Python CONFIG defaults — never the live / persisted values.
     expect(labelShowSetter).toHaveBeenCalledWith(false);
     expect(labelCollideSetter).toHaveBeenCalledWith(true);
     expect(panelOf(item)).toBeUndefined();

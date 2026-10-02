@@ -1,4 +1,4 @@
-// core layer-traversal utilities — pure functions, no DOM / CONF.
+// core layer-traversal utilities — pure functions, no DOM / CONFIG.
 import {
   internalLayers,
   layerElements,

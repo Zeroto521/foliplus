@@ -6,7 +6,7 @@ import { MODE, type SearchType } from "../const.js";
 import type { SearchControlState } from "../type.js";
 
 /** Full context for logic functions — the control's runtime state plus the
- *  ControlEnv the factory carries (conf / T / _ / log). Reuses the canonical
+ *  ControlEnv the factory carries (config / T / _ / log). Reuses the canonical
  *  ControlEnv rather than redefining the same shape. */
 type SearchControlCtx = SearchControlState & ControlEnv;
 

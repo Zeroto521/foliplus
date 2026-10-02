@@ -118,7 +118,7 @@ describe("production type-system bypasses", () => {
     expect(problems).toEqual([]);
   });
 
-  // ── CONF field parity ─────────────────────────────────────────
+  // ── CONFIG field parity ─────────────────────────────────────────
   //
   // `ComponentConfig` ends in `[key: string]: unknown`, so a field Python
   // stops exporting still typechecks — JS just reads `undefined`. This is the
@@ -129,7 +129,7 @@ describe("production type-system bypasses", () => {
   // The reverse half (Python exports something JS never reads) is not checked
   // here — that is Python's business to keep tidy, and the JS side is the one
   // that silently misbehaves.
-  const JS_FIELD_RE = /(?<![_A-Za-z0-9])CONF\.([A-Za-z_][A-Za-z0-9_]*)/g;
+  const JS_FIELD_RE = /(?<![_A-Za-z0-9])CONFIG\.([A-Za-z_][A-Za-z0-9_]*)/g;
   // Set on `BaseControl` for every control, not declared in a subclass.
   const CONF_COMMON = new Set(["name", "position", "locale_code", "locale_tables"]);
 
@@ -148,7 +148,7 @@ describe("production type-system bypasses", () => {
   //
   // `_extra_config` is not a literal tuple but a dict literal, so the scan
   // collects dict-key constants instead. `data` (LayerControl's layer list)
-  // reaches CONF only this way.
+  // reaches CONFIG only this way.
   const PY_SCAN = `import ast, sys
 def fields(n):
     out = []
@@ -212,7 +212,7 @@ for p in sys.argv[1:]:
     return found;
   };
 
-  it("every CONF field JS reads is exported by Python", () => {
+  it("every CONFIG field JS reads is exported by Python", () => {
     const js = jsConfFields();
     const py = pyExportedFields();
     const missing = [...js].filter(f => !CONF_COMMON.has(f) && !py.has(f)).sort();
@@ -239,7 +239,7 @@ for p in sys.argv[1:]:
     ["test/js/tsconfig.json", testTsconfig],
   ] as const) {
     it(`${label} pins the ambient declaration instead of globbing *.d.ts`, () => {
-      // Every global in foliplus/js/type/global.d.ts (`map`, `CONF`, `L`,
+      // Every global in foliplus/js/type/global.d.ts (`map`, `CONFIG`, `L`,
       // `MapFoliplus`) is reachable only because the file is listed in `include`.
       // Nothing imports it, so a glob that stops matching silently drops every
       // global at once. Listing it explicitly is a review gate: adding a new

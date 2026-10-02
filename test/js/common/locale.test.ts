@@ -30,30 +30,30 @@ describe("createTranslator", () => {
     };
   });
 
-  it("uses explicit locale code from conf", () => {
-    const conf = {
+  it("uses explicit locale code from config", () => {
+    const config = {
       locale_code: "zh",
       locale_tables: { zh: { ok: "确定" } },
     };
-    const t = createTranslator(conf);
-    expect(conf.locale_code).toBe("zh");
+    const t = createTranslator(config);
+    expect(config.locale_code).toBe("zh");
     expect(t("ok")).toBe("确定");
     expect(t("greeting")).toBe("你好");
   });
 
   it("merges component tables over common tables", () => {
-    const conf = {
+    const config = {
       locale_code: "en",
       locale_tables: { en: { ok: "YES" } },
     };
-    const t = createTranslator(conf);
+    const t = createTranslator(config);
     expect(t("ok")).toBe("YES"); // component overrides common
     expect(t("greeting")).toBe("Hello"); // common still available
   });
 
   it("returns the key when missing from the table", () => {
-    const conf = { locale_code: "en", locale_tables: {} };
-    const t = createTranslator(conf);
+    const config = { locale_code: "en", locale_tables: {} };
+    const t = createTranslator(config);
     expect(t("missing.key")).toBe("missing.key");
   });
 
@@ -64,12 +64,12 @@ describe("createTranslator", () => {
       get: () => "zh-CN",
     });
     try {
-      const conf = {
+      const config = {
         locale_code: "",
         locale_tables: { zh: { ok: "确定", "locale.code": "zh" } },
       };
-      const t = createTranslator(conf);
-      expect(conf.locale_code).toBe("zh");
+      const t = createTranslator(config);
+      expect(config.locale_code).toBe("zh");
       expect(t("ok")).toBe("确定");
     } finally {
       Object.defineProperty(navigator, "language", {
@@ -86,12 +86,12 @@ describe("createTranslator", () => {
       get: () => "fr-FR",
     });
     try {
-      const conf = {
+      const config = {
         locale_code: "",
         locale_tables: { en: { ok: "OK", "locale.code": "en" } },
       };
-      const t = createTranslator(conf);
-      expect(conf.locale_code).toBe("en");
+      const t = createTranslator(config);
+      expect(config.locale_code).toBe("en");
       expect(t("ok")).toBe("OK");
     } finally {
       Object.defineProperty(navigator, "language", {
@@ -103,17 +103,17 @@ describe("createTranslator", () => {
 
   it("handles missing common tables", () => {
     delete window.foliplus._TABLES;
-    const conf = { locale_code: "en", locale_tables: { en: { ok: "OK" } } };
-    const t = createTranslator(conf);
+    const config = { locale_code: "en", locale_tables: { en: { ok: "OK" } } };
+    const t = createTranslator(config);
     expect(t("ok")).toBe("OK");
   });
 
-  it("handles a conf with no locale_tables of its own", () => {
-    // locale_tables is optional in ComponentConfig -- a CONF written before
+  it("handles a config with no locale_tables of its own", () => {
+    // locale_tables is optional in ComponentConfig -- a CONFIG written before
     // BaseControl learned to inject it, or by a hand-authored page, omits the
     // key entirely. The translator must fall back to the common tables.
-    const conf = { locale_code: "en" };
-    const t = createTranslator(conf);
+    const config = { locale_code: "en" };
+    const t = createTranslator(config);
     expect(t("ok")).toBe("OK");
     expect(t("greeting")).toBe("Hello");
   });
@@ -127,9 +127,9 @@ describe("createTranslator", () => {
     try {
       // No locale_code and no tables at all -- the auto-detect chain finds no
       // table for the browser language, so the code settles on en.
-      const conf = {};
-      const t = createTranslator(conf);
-      expect(conf.locale_code).toBe("en");
+      const config = {};
+      const t = createTranslator(config);
+      expect(config.locale_code).toBe("en");
       expect(t("locale.code")).toBe("en");
     } finally {
       Object.defineProperty(navigator, "language", {
@@ -146,9 +146,9 @@ describe("createTranslator", () => {
       get: () => "zh-CN",
     });
     try {
-      const conf = { locale_code: "en", locale_tables: { en: { ok: "OK" } } };
-      const t = createTranslator(conf);
-      expect(conf.locale_code).toBe("en");
+      const config = { locale_code: "en", locale_tables: { en: { ok: "OK" } } };
+      const t = createTranslator(config);
+      expect(config.locale_code).toBe("en");
       expect(t("ok")).toBe("OK");
     } finally {
       Object.defineProperty(navigator, "language", {
@@ -167,12 +167,12 @@ describe("createTranslator", () => {
       },
     });
     try {
-      const conf = {
+      const config = {
         locale_code: "",
         locale_tables: { zh: { ok: "确定", "locale.code": "zh" } },
       };
-      const t = createTranslator(conf);
-      expect(conf.locale_code).toBe("zh");
+      const t = createTranslator(config);
+      expect(config.locale_code).toBe("zh");
       expect(t("ok")).toBe("确定");
     } finally {
       delete window.parent;
@@ -188,12 +188,12 @@ describe("createTranslator", () => {
       },
     });
     try {
-      const conf = {
+      const config = {
         locale_code: "",
         locale_tables: { zh: { ok: "确定", "locale.code": "zh" } },
       };
-      const t = createTranslator(conf);
-      expect(conf.locale_code).toBe("zh");
+      const t = createTranslator(config);
+      expect(config.locale_code).toBe("zh");
     } finally {
       delete window.parent;
     }
@@ -205,12 +205,12 @@ describe("createTranslator", () => {
       get: () => window, // accessing location may throw in some envs
     });
     try {
-      const conf = {
+      const config = {
         locale_code: "",
         locale_tables: { en: { ok: "OK", "locale.code": "en" } },
       };
-      const t = createTranslator(conf);
-      expect(conf.locale_code).toBe("en");
+      const t = createTranslator(config);
+      expect(config.locale_code).toBe("en");
     } finally {
       delete window.parent;
     }
@@ -223,12 +223,12 @@ describe("createTranslator", () => {
       value: { pathname: "/zh/map" },
     });
     try {
-      const conf = {
+      const config = {
         locale_code: "",
         locale_tables: { zh: { ok: "确定", "locale.code": "zh" } },
       };
-      const t = createTranslator(conf);
-      expect(conf.locale_code).toBe("zh");
+      const t = createTranslator(config);
+      expect(config.locale_code).toBe("zh");
     } finally {
       Object.defineProperty(window, "location", {
         configurable: true,
@@ -244,12 +244,12 @@ describe("createTranslator", () => {
       get: () => "https://example.com/zh/page",
     });
     try {
-      const conf = {
+      const config = {
         locale_code: "",
         locale_tables: { zh: { ok: "确定", "locale.code": "zh" } },
       };
-      const t = createTranslator(conf);
-      expect(conf.locale_code).toBe("zh");
+      const t = createTranslator(config);
+      expect(config.locale_code).toBe("zh");
     } finally {
       Object.defineProperty(document, "referrer", {
         configurable: true,
@@ -262,12 +262,12 @@ describe("createTranslator", () => {
     const original = document.documentElement.lang;
     document.documentElement.lang = "zh-CN";
     try {
-      const conf = {
+      const config = {
         locale_code: "",
         locale_tables: { zh: { ok: "确定", "locale.code": "zh" } },
       };
-      const t = createTranslator(conf);
-      expect(conf.locale_code).toBe("zh");
+      const t = createTranslator(config);
+      expect(config.locale_code).toBe("zh");
     } finally {
       document.documentElement.lang = original;
     }
@@ -281,24 +281,24 @@ describe("createScopedTranslator", () => {
     };
   });
 
-  it("prepends conf.name to the key", () => {
-    const conf = {
+  it("prepends config.name to the key", () => {
+    const config = {
       name: "LayerControl",
       locale_code: "en",
       locale_tables: { en: { "LayerControl.focus": "Focus layer" } },
     };
-    const T = createScopedTranslator(conf);
+    const T = createScopedTranslator(config);
     expect(T("focus")).toBe("Focus layer");
     expect(T("missing")).toBe("LayerControl.missing");
   });
 
   it("falls back to the prefixed key when translation is absent", () => {
-    const conf = {
+    const config = {
       name: "SearchControl",
       locale_code: "en",
       locale_tables: { en: {} },
     };
-    const T = createScopedTranslator(conf);
+    const T = createScopedTranslator(config);
     expect(T("bar")).toBe("SearchControl.bar");
   });
 
@@ -309,12 +309,12 @@ describe("createScopedTranslator", () => {
         "LayerControl.ok": "Layer OK",
       },
     };
-    const conf = {
+    const config = {
       name: "LayerControl",
       locale_code: "en",
       locale_tables: { en: {} },
     };
-    const T = createScopedTranslator(conf);
+    const T = createScopedTranslator(config);
     expect(T("ok")).toBe("Layer OK");
   });
 
@@ -322,12 +322,12 @@ describe("createScopedTranslator", () => {
     window.foliplus._TABLES = {
       en: { "LayerControl.ok": "Layer OK" },
     };
-    const conf = {
+    const config = {
       name: "LayerControl",
       locale_code: "en",
       locale_tables: { en: { "LayerControl.ok": "Layer Override" } },
     };
-    const T = createScopedTranslator(conf);
+    const T = createScopedTranslator(config);
     expect(T("ok")).toBe("Layer Override");
   });
 });

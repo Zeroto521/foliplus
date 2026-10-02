@@ -9,10 +9,10 @@ import {
 import { LayerUI } from "./ui/index.js";
 
 const LayerControl = defineControl<LayerManager>({
-  conf: CONF,
+  config: CONFIG,
   icon: SVGs.LAYERS,
   createManager: env => {
-    const manager = new LayerManager(map, env.conf.data as LayerInfo[], {
+    const manager = new LayerManager(map, env.config.data as LayerInfo[], {
       T: env.T,
       log: env.log,
     });
@@ -23,12 +23,12 @@ const LayerControl = defineControl<LayerManager>({
     installBringToFrontPatch();
     const { container, panelContent, destroy } = createPanelControl({
       cssClass: "foliplus-layer-ctrl",
-      ctrlId: `${this.conf.name}_ctrl`,
+      ctrlId: `${this.config.name}_ctrl`,
       toggleTitle: this.T("toggle_title"),
       toggleSvg: SVGs.LAYERS,
       panelTitle: this.T("panel_title"),
       closeTitle: this.T("close_title"),
-      collapseOnOutside: this.conf.collapse_on_outside,
+      collapseOnOutside: this.config.collapse_on_outside,
     });
 
     // The factory's document listeners outlive the MutationObserver when the
@@ -46,4 +46,4 @@ const LayerControl = defineControl<LayerManager>({
   },
 });
 
-new LayerControl({ position: CONF.position }).addTo(map);
+new LayerControl({ position: CONFIG.position }).addTo(map);

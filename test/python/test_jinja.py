@@ -56,7 +56,7 @@ class TestJinjaIntegrity:
     {{% macro script(this, kwargs) %}}
     (() => {{
     const map = {{{{ this._parent.get_name() }}}};
-    const CONF = {{{{ this._config_block | safe }}}};
+    const CONFIG = {{{{ this._config_block | safe }}}};
     {js}
     }})();
     {{% endmacro %}}

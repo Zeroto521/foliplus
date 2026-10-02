@@ -496,7 +496,7 @@ class TestBaseControlRendering:
 
 
 # ---------------------------------------------------------------------------
-# Inline script escaping: both script emission sites (the per-control CONF line
+# Inline script escaping: both script emission sites (the per-control CONFIG line
 # and the once-per-map _TABLES line) funnel through _safe_json, which is pinned
 # directly here rather than re-derived through a full map render.
 # Escaped forms are spelled with chr() so they survive shell heredoc mangling,
@@ -595,7 +595,7 @@ class TestSafeJson:
 
 
 class TestConfBlockEscaping:
-    """Model data must never be able to break out of the inline CONF script."""
+    """Model data must never be able to break out of the inline CONFIG script."""
 
     def test_config_block_escapes_script_closing_tag(self):
         """A layer name containing </script> is escaped, not emitted raw."""
@@ -636,7 +636,7 @@ class TestConfBlockEscaping:
         assert PAYLOAD in resolve_js_unicode(html)
 
     def test_conf_line_round_trips_through_rendered_html(self):
-        """The escaped CONF line parses back to the original config value."""
+        """The escaped CONFIG line parses back to the original config value."""
         from foliplus import LayerControl
 
         m = folium.Map()
@@ -649,7 +649,7 @@ class TestConfBlockEscaping:
         html = resolve_js_unicode(_render_layer_map(PAYLOAD))
         # The payload itself contains ';', so the statement is bounded by the '}'
         # that closes the outermost JSON object, not the first ';' overall.
-        marker = "const CONF = "
+        marker = "const CONFIG = "
         start = html.index(marker)
         end = html.index("};", start) + 1
         got = json.loads(html[start + len(marker) : end])
@@ -684,7 +684,7 @@ class TestConfBlockEscaping:
         assert json.loads(block)["filename"] == PAYLOAD
 
     def test_export_filename_round_trips_through_html(self):
-        """The escaped filename recovers once the browser decodes the CONF line."""
+        """The escaped filename recovers once the browser decodes the CONFIG line."""
         from foliplus import ExportControl
 
         m = folium.Map()
@@ -693,7 +693,7 @@ class TestConfBlockEscaping:
         html = m.get_root().render()
 
         assert PAYLOAD not in html
-        marker = "const CONF = "
+        marker = "const CONFIG = "
         start = html.index(marker)
         end = html.index("};", start) + 1
         got = json.loads(html[start + len(marker) : end])
@@ -765,7 +765,7 @@ class TestSharedHeaderEscaping:
         assert json.loads(blob)["en"]["locale.name"] == PAYLOAD
 
     def test_tables_terminators_escaped(self):
-        """The _TABLES line takes the U+2028 pass too — same choke point as CONF."""
+        """The _TABLES line takes the U+2028 pass too — same choke point as CONFIG."""
         import tempfile
 
         from foliplus import locale

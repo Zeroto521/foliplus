@@ -28,25 +28,25 @@ import { recordHistorySearch, renderHistory, saveHistory } from "./history.js";
 import { type SearchControlCtx, parseCoord } from "./util.js";
 
 /** Resolve the configured geocode provider (falls back to Nominatim). */
-const getProvider = (conf: ComponentConfig): GeocodeProvider => {
+const getProvider = (config: ComponentConfig): GeocodeProvider => {
   try {
     return resolveProvider(
-      conf.provider as string | ProviderConfig | undefined,
-      conf.provider_config,
+      config.provider as string | ProviderConfig | undefined,
+      config.provider_config,
     );
   } catch {
     return resolveProvider();
   }
 };
 
-/** Raw provider spec from CONF, forwarded to the shared runtime geocoder so
+/** Raw provider spec from CONFIG, forwarded to the shared runtime geocoder so
  *  custom providers resolve identically there (cache keys stay consistent). */
 const providerArgs = (
-  conf: ComponentConfig,
+  config: ComponentConfig,
 ): [
   string | ProviderConfig | undefined,
   Record<string, unknown> | null | undefined,
-] => [conf.provider, conf.provider_config];
+] => [config.provider, config.provider_config];
 
 // ── Marker ───────────────────────────────────────────────────────
 
@@ -91,10 +91,10 @@ const attachSearchDelIcon = (ctrl: SearchControlCtx, latlng: L.LatLngExpression)
  * @param {string} raw - User input (e.g. "121.47,31.23")
  */
 const searchCoord = (ctrl: SearchControlCtx, raw: string) => {
-  if (guardBlocked(map, ctrl.conf.name, ctrl.T("blocked"))) return;
+  if (guardBlocked(map, ctrl.config.name, ctrl.T("blocked"))) return;
   const parsed = parseCoord(raw);
   if (!parsed) {
-    map.foliplus!.showHint(ctrl.conf.name, ctrl.T("coord_error"), HINT_DURATION.LONG);
+    map.foliplus!.showHint(ctrl.config.name, ctrl.T("coord_error"), HINT_DURATION.LONG);
     ctrl.inp.value = "";
     return;
   }
@@ -102,8 +102,8 @@ const searchCoord = (ctrl: SearchControlCtx, raw: string) => {
   // Canonical key, not the raw input: otherwise "120,32" and "120, 32"
   // would be stored as two entries that display identically.
   const key = `${lng},${lat}`;
-  map.foliplus!.hideHint(ctrl.conf.name);
-  map.flyTo([lat, lng], ctrl.conf.zoom ?? ZOOM.MAX);
+  map.foliplus!.hideHint(ctrl.config.name);
+  map.flyTo([lat, lng], ctrl.config.zoom ?? ZOOM.MAX);
   ctrl.marker = createLocationMarker(
     map,
     lng,
@@ -114,7 +114,7 @@ const searchCoord = (ctrl: SearchControlCtx, raw: string) => {
     ctrl.T("popup_loc_label"),
     ctrl.T("popup_addr_label"),
     ctrl._("foliplus.close_label"),
-    ctrl.conf.locale_code,
+    ctrl.config.locale_code,
     ctrl.marker,
   );
   attachSearchDelIcon(ctrl, [lat, lng]);
@@ -126,7 +126,13 @@ const searchCoord = (ctrl: SearchControlCtx, raw: string) => {
   // key would treat it as a repeat).
   recordHistorySearch(ctrl, key, MODE.COORD, coordDisplay, "", lng, lat);
   window.foliplus
-    .reverseGeocode(map, lng, lat, ctrl.conf.locale_code, ...providerArgs(ctrl.conf))
+    .reverseGeocode(
+      map,
+      lng,
+      lat,
+      ctrl.config.locale_code,
+      ...providerArgs(ctrl.config),
+    )
     .then(addr => {
       if (addr) {
         const entry = ctrl.searchHistory.find(e => e.query === key);
@@ -147,10 +153,10 @@ const searchCoord = (ctrl: SearchControlCtx, raw: string) => {
  * @param {string} query - Address query string
  */
 const searchAddress = (ctrl: SearchControlCtx, query: string) => {
-  if (guardBlocked(map, ctrl.conf.name, ctrl.T("blocked"))) return;
+  if (guardBlocked(map, ctrl.config.name, ctrl.T("blocked"))) return;
   // foliplus.geocode handles caching (CRS-aware), timeout, and CRS conversion internally.
   map.foliplus!.showHint(
-    ctrl.conf.name,
+    ctrl.config.name,
     ctrl.T("popup_loading"),
     HINT_DURATION.PERSIST,
     undefined,
@@ -159,12 +165,12 @@ const searchAddress = (ctrl: SearchControlCtx, query: string) => {
   );
 
   window.foliplus
-    .geocode(map, query, ctrl.conf.locale_code, ...providerArgs(ctrl.conf))
+    .geocode(map, query, ctrl.config.locale_code, ...providerArgs(ctrl.config))
     .then(result => {
-      map.foliplus!.hideHint(ctrl.conf.name);
+      map.foliplus!.hideHint(ctrl.config.name);
       if (!result) {
         map.foliplus!.showHint(
-          ctrl.conf.name,
+          ctrl.config.name,
           ctrl.T("addr_not_found"),
           HINT_DURATION.LONG,
         );
@@ -180,7 +186,7 @@ const searchAddress = (ctrl: SearchControlCtx, query: string) => {
       const wgs = toWgs84(map, result.lng, result.lat);
       const coordDisplay = formatLatLng(wgs[0], wgs[1]);
       const addrDisplay =
-        formatAddress(result.display_name, map, ctrl.conf.locale_code) || query;
+        formatAddress(result.display_name, map, ctrl.config.locale_code) || query;
       recordHistorySearch(
         ctrl,
         query,
@@ -192,8 +198,12 @@ const searchAddress = (ctrl: SearchControlCtx, query: string) => {
       );
     })
     .catch(() => {
-      map.foliplus!.hideHint(ctrl.conf.name);
-      map.foliplus!.showHint(ctrl.conf.name, ctrl.T("addr_error"), HINT_DURATION.LONG);
+      map.foliplus!.hideHint(ctrl.config.name);
+      map.foliplus!.showHint(
+        ctrl.config.name,
+        ctrl.T("addr_error"),
+        HINT_DURATION.LONG,
+      );
     });
 };
 
@@ -205,7 +215,7 @@ const renderAddressResult = (
   // suggestion must not fly the map. Suggestion picks, history entry clicks,
   // and the Enter fallback all converge here; returning false lets the caller
   // skip recording history and keep the panel open with the "blocked" hint.
-  if (guardBlocked(map, ctrl.conf.name, ctrl.T("blocked"))) return false;
+  if (guardBlocked(map, ctrl.config.name, ctrl.T("blocked"))) return false;
   let displayName: string;
   let lng: number;
   let lat: number;
@@ -237,7 +247,7 @@ const renderAddressResult = (
     ctrl.T("popup_loc_label"),
     ctrl.T("popup_addr_label"),
     ctrl._("foliplus.close_label"),
-    ctrl.conf.locale_code,
+    ctrl.config.locale_code,
     ctrl.marker,
   );
   attachSearchDelIcon(ctrl, [lat, lng]);
@@ -357,7 +367,7 @@ const renderSuggestions = (
 
   const items: ResultItem[] = results.map((item: SuggestItem) => {
     const displayName =
-      formatAddress(item.display_name, map, ctrl.conf.locale_code) || item.name || "";
+      formatAddress(item.display_name, map, ctrl.config.locale_code) || item.name || "";
     const coordDisplay = formatLatLng(parseFloat(item.lng), parseFloat(item.lat));
     return {
       icon: Icons.LOCATE_ICON,
@@ -393,7 +403,7 @@ const compareWithInput = (ctrl: SearchControlCtx, query: string): boolean =>
   query === ctrl.inp.value.trim();
 
 const fetchSuggestions = (ctrl: SearchControlCtx, query: string) => {
-  if (guardBlocked(map, ctrl.conf.name, ctrl.T("blocked"))) return;
+  if (guardBlocked(map, ctrl.config.name, ctrl.T("blocked"))) return;
 
   if (query.length === 0) {
     if (ctrl.searchHistory.length > 0) renderHistory(ctrl, ctrl.mode);
@@ -421,7 +431,7 @@ const fetchSuggestions = (ctrl: SearchControlCtx, query: string) => {
     return;
   }
 
-  const provider = getProvider(ctrl.conf);
+  const provider = getProvider(ctrl.config);
   const now = Date.now();
   // The window shares the provider-wide last-request time (also updated by the
   // runtime geocoder's queue), so suggestions never race past the rate limit.
@@ -477,8 +487,8 @@ const fetchSuggestions = (ctrl: SearchControlCtx, query: string) => {
           query,
           parseFloat(first.lng),
           parseFloat(first.lat),
-          formatAddress(first.display_name, map, ctrl.conf.locale_code) || query,
-          ...providerArgs(ctrl.conf),
+          formatAddress(first.display_name, map, ctrl.config.locale_code) || query,
+          ...providerArgs(ctrl.config),
         );
       }
       renderSuggestions(ctrl, results, query);
@@ -509,11 +519,11 @@ const buildSearchUrl = (ctrl: SearchControlCtx, q: string, limit: number) => {
   const center = map.getCenter();
   // Providers expect WGS84 bias coordinates — convert from the map CRS.
   const wgs = toWgs84(map, center.lng, center.lat);
-  return getProvider(ctrl.conf).suggest(
+  return getProvider(ctrl.config).suggest(
     q,
     limit,
     [wgs[0], wgs[1]],
-    ctrl.conf.locale_code ?? "en",
+    ctrl.config.locale_code ?? "en",
   );
 };
 

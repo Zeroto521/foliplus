@@ -46,7 +46,7 @@ const compressSvgStrings = code => {
 
 // ── HTML minifier: compress innerHTML template literals ──────────
 // Uses a character-level scanner to correctly handle nested backtick
-// template literals (e.g. ``${CONF.name}`` inside the HTML template).
+// template literals (e.g. ``${CONFIG.name}`` inside the HTML template).
 // Only processes templates that look like HTML (contain ``<tag``).
 
 const HTML_RE = /<[a-z][a-z0-9]*[\s>]/i;

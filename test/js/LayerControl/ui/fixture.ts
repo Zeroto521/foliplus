@@ -168,8 +168,8 @@ const initFixture = (
     seed?: Record<string, unknown>;
   } = {},
 ): { manager: LayerManager; ui: LayerUI; map: any } => {
-  window.CONF.name = "LayerControl";
-  window.CONF.locale_code = "en";
+  window.CONFIG.name = "LayerControl";
+  window.CONFIG.locale_code = "en";
   if (options.seed) {
     window.localStorage.setItem(CONST.STORAGE.KEY, JSON.stringify(options.seed));
   }

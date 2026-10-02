@@ -152,9 +152,9 @@ class TestExportControlPython:
         cfg = LocaleConfig(language="zh")
         ctrl = ExportControl(locale=cfg)
         assert ctrl._locale_code == "zh"
-        conf = json.loads(ctrl._config_block)
-        assert conf["locale_code"] == "zh"
-        table = conf["locale_tables"]["zh"]
+        config = json.loads(ctrl._config_block)
+        assert config["locale_code"] == "zh"
+        table = config["locale_tables"]["zh"]
         # Built-in table is present, unmodified — no custom override layered on.
         builtin = _load_tables("ExportControl.*.json")["zh"]
         assert table == builtin
@@ -393,7 +393,7 @@ class TestExportControlBrowser:
             html = html.replace(
                 f'<script src="https://cdn.jsdelivr.net/npm/{cdn}"></script>', ""
             )
-        marker = 'CONF = {"name": "ExportControl"'
+        marker = 'CONFIG = {"name": "ExportControl"'
         idx = html.find(marker)
         if idx > 0:
             semi = html.find(";", idx)
@@ -421,14 +421,14 @@ class TestExportControlBrowser:
         # LayerControl instance is exposed too, so export tests can drive
         # annotation labels.
         html, n = re.subn(
-            r"(new ExportControl\(\{ position: CONF\.position \}\)\.addTo\(map\);)",
+            r"(new ExportControl\(\{ position: CONFIG\.position \}\)\.addTo\(map\);)",
             r"window.__foliplusExportScheduler = function(fn){return 0;}; window.__exportCtrl = \1 window.__exportManager = window.__exportCtrl.m; window.__map = map;",
             html,
             count=1,
         )
         assert n == 1, "ExportControl instantiation not found in rendered HTML"
         html, n = re.subn(
-            r"(new LayerControl\(\{ position: CONF\.position \}\)\.addTo\(map\);)",
+            r"(new LayerControl\(\{ position: CONFIG\.position \}\)\.addTo\(map\);)",
             r"window.__layerCtrl = \1",
             html,
             count=1,
@@ -436,7 +436,7 @@ class TestExportControlBrowser:
         assert n == 1, "LayerControl instantiation not found in rendered HTML"
         # Inject MeasureControl hooks if present.
         html, n = re.subn(
-            r"(new MeasureControl\(\{ position: CONF\.position \}\)\.addTo\(map\);)",
+            r"(new MeasureControl\(\{ position: CONFIG\.position \}\)\.addTo\(map\);)",
             r"window.__measureCtrl = \1 window.__measureManager = window.__measureCtrl.m;",
             html,
             count=1,
@@ -1552,7 +1552,7 @@ class TestExportControlBrowser:
     def test_export_uses_solid_color_basemap_as_background(self, browser, tmp_path):
         """Picking a solid-color basemap → the export canvas is filled with it.
 
-        Before this fix the export background came from ``CONF.background`` (a
+        Before this fix the export background came from ``CONFIG.background`` (a
         Python-static config), so the color the user just picked on screen was
         missing from the image. The export now reads the map container's computed
         ``backgroundColor`` — the same value the user sees — and fills the canvas
@@ -1602,7 +1602,7 @@ class TestExportControlBrowser:
             assert result["hit"] > 0, f"basemap color missing from export: {result}"
             # The fillRect paints the whole canvas, so nearly every non-
             # transparent pixel should match — a regression (e.g. falling back
-            # to CONF.background, which was None/transparent) would leave hit ≈ 0.
+            # to CONFIG.background, which was None/transparent) would leave hit ≈ 0.
             assert result["hit"] > result["total"] * 0.5, (
                 f"basemap color not dominant in export: {result}"
             )
@@ -1617,7 +1617,7 @@ class TestExportControlBrowser:
         The container's computed ``backgroundColor`` is always opaque (Leaflet's
         own CSS sets ``#ddd``), so the export matches what the user sees: a
         plain gray base, not a transparent one. This replaces the old
-        ``CONF.background`` (default ``None`` → transparent canvas), which
+        ``CONFIG.background`` (default ``None`` → transparent canvas), which
         disagreed with the screen.
         """
         with use_page(self._make_page, browser, tmp_path, slug="export_default_bg") as (

@@ -20,7 +20,7 @@ vi.mock("#core/geocode/index.js", () => ({
 const fakeEv = (): any => ({ preventDefault: vi.fn(), stopPropagation: vi.fn() });
 
 const makeEnv = (): ControlEnv => {
-  window.CONF = { ...window.CONF, name: "MeasureControl", locale_code: "en" };
+  window.CONFIG = { ...window.CONFIG, name: "MeasureControl", locale_code: "en" };
   return makeControlEnv();
 };
 
@@ -245,13 +245,13 @@ describe("recalculateSegments", () => {
 describe("formatSegmentLabel", () => {
   it("returns only distance when show_bearing is off", () => {
     const env = makeEnv();
-    env.conf.show_bearing = false;
+    env.config.show_bearing = false;
     expect(Util.formatSegmentLabel(env, {} as any, {} as any, 500)).toBe("500 m");
   });
 
   it("includes bearing when show_bearing is on", () => {
     const env = makeEnv();
-    env.conf.show_bearing = true;
+    env.config.show_bearing = true;
     globalThis.turf.bearing = vi.fn(() => 45);
     const a = { lng: 0, lat: 0 };
     const b = { lng: 0, lat: 1 };

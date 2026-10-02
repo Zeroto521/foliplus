@@ -17,9 +17,9 @@ import { ExportRenderer, isCorsBlocked } from "./renderer/index.js";
 import type { CropRect, GeoBounds } from "./type.js";
 import { resolveExportBackground } from "./util.js";
 
-// CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
-const T = createScopedTranslator(CONF);
-const log = createLogger(CONF.name);
+// CONFIG is a free variable from the IIFE template wrapper (see BaseControl._get_template).
+const T = createScopedTranslator(CONFIG);
+const log = createLogger(CONFIG.name);
 
 /** Format a progress percentage with the locale text, for the persistent hint. */
 const formatProgress = (percent: number) => {
@@ -46,7 +46,7 @@ const doExport = function (this: ExportManager) {
   if (this.isExporting || !this.cropState) return;
   // Symmetric lock with the other interactive components (measure / focus).
   if (
-    guardBlocked(this.map, CONF.name, T("blocked"), [
+    guardBlocked(this.map, CONFIG.name, T("blocked"), [
       { blockedBy: COMPONENTS.MeasureControl, text: T("blocked_measure") },
       { blockedBy: COMPONENTS.LayerControl, text: T("blocked_layer") },
       { blockedBy: COMPONENTS.SearchControl, text: T("blocked_search") },
@@ -57,8 +57,8 @@ const doExport = function (this: ExportManager) {
   }
   this.isExporting = true;
   this.lastTileFailures = null;
-  this.modes.setMode(CONF.name, "exporting");
-  this.events.emit(EVENTS.BEFORE_EXPORT, { component: CONF.name });
+  this.modes.setMode(CONFIG.name, "exporting");
+  this.events.emit(EVENTS.BEFORE_EXPORT, { component: CONFIG.name });
   const r = Object.assign({}, this.cropState.rect);
   const geoBounds = this.cropState.geoBounds;
   if (geoBounds) {
@@ -80,7 +80,7 @@ const doExport = function (this: ExportManager) {
   // Lock map interactions (pan/zoom) so layer positions stay stable.
   this.lockMap();
 
-  let scaleValue = CONF.scale;
+  let scaleValue = CONFIG.scale;
   if (typeof scaleValue !== "number" || isNaN(scaleValue)) {
     scaleValue = window.devicePixelRatio || 1;
   }
@@ -91,7 +91,7 @@ const doExport = function (this: ExportManager) {
     // Clear all of this component's hints first. The crop-box size/limit
     // hints are PERSIST (duration 0 sets no timer), so they would otherwise
     // outlive the export and sit on top of whatever status appears next.
-    this.map.foliplus!.hideHint(CONF.name);
+    this.map.foliplus!.hideHint(CONFIG.name);
     this.unlockMap();
     this.endExport();
     return;
@@ -102,8 +102,8 @@ const doExport = function (this: ExportManager) {
   // PERSIST (duration 0 sets no timer), so nothing else removes them once
   // the box is gone — they'd outlive the export entirely, the same registry
   // leak as the object-URL one.
-  this.map.foliplus!.hideHint(CONF.name, "size");
-  this.map.foliplus!.hideHint(CONF.name, "limit");
+  this.map.foliplus!.hideHint(CONFIG.name, "size");
+  this.map.foliplus!.hideHint(CONFIG.name, "limit");
 
   this.showGlobalHint(T("status_exporting"), HINT_DURATION.PERSIST, true);
 
@@ -247,7 +247,7 @@ const onRenderSuccess = function (
 };
 
 const finishExport = async function (this: ExportManager, canvas: HTMLCanvasElement) {
-  const name = CONF.filename || "map";
+  const name = CONFIG.filename || "map";
   try {
     // Encode once into a Blob shared by the preview and the download. The
     // old canvas.toDataURL() encoded the full raster into a base64 string
@@ -255,7 +255,7 @@ const finishExport = async function (this: ExportManager, canvas: HTMLCanvasElem
     // time — on an HD export that base64 round-trip is a multi-tens-of-MB
     // string copy and was the dominant chunk of the click-to-download delay.
     const format = CONST.currentFormat();
-    const blob = await canvasToBlob(canvas, format.mime, CONF.quality);
+    const blob = await canvasToBlob(canvas, format.mime, CONFIG.quality);
     if (!blob) {
       this.showGlobalHint(T("status_fail") + T("err_gen_fail"), HINT_DURATION.LONG);
       return;
@@ -320,8 +320,8 @@ const showPreview = function (this: ExportManager, blob: Blob) {
  *  disabled and the overlay still on screen. */
 const endExport = function (this: ExportManager) {
   this.isExporting = false;
-  this.modes.setMode(CONF.name, null);
-  this.events.emit(EVENTS.AFTER_EXPORT, { component: CONF.name });
+  this.modes.setMode(CONFIG.name, null);
+  this.events.emit(EVENTS.AFTER_EXPORT, { component: CONFIG.name });
   this.removeExportOverlay();
 };
 
@@ -411,8 +411,8 @@ const onRenderError = function (
   hideEls: NodeListOf<Element>,
 ) {
   hideEls.forEach(el => el.classList.remove(CONST.CLASSES.HIDDEN));
-  this.modes.setMode(CONF.name, null);
-  this.events.emit(EVENTS.AFTER_EXPORT, { component: CONF.name });
+  this.modes.setMode(CONFIG.name, null);
+  this.events.emit(EVENTS.AFTER_EXPORT, { component: CONFIG.name });
   this.removeExportOverlay();
   this.unlockMap();
   log.error(`${T("err_render")}:`, err);

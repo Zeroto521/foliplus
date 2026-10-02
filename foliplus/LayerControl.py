@@ -118,7 +118,7 @@ class LayerControl(BaseControl):
         -------
         dict
             ``{"data": [{"name", "id", "group"}, ...]}`` — the ``data`` key is merged
-            into the JS ``CONF`` object by :meth:`BaseControl._build_config`.
+            into the JS ``CONFIG`` object by :meth:`BaseControl._build_config`.
         """
         data: list[dict[str, object]] = []
         seen: set[str] = set()

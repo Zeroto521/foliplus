@@ -1,7 +1,7 @@
 // core/mode — cross-component active-mode registry (per-map).
 // Tracks the active mode of each participating component and emits
 // EVENTS.MODE_CHANGE on the per-map EventBus whenever a mode changes.
-// No DOM / CONF dependency.
+// No DOM / CONFIG dependency.
 import { COMPONENTS, assertComponentName } from "#core/component.js";
 import { EVENTS, type EventBus, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";

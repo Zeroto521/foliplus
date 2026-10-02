@@ -251,8 +251,8 @@ import { BaseControl } from "#foliplus/BaseControl.js";
 import { createScopedTranslator } from "#common/locale.js";
 
 // ==================== Runtime Guard ====================
-createControlEnv(CONF);
-const T = createScopedTranslator(CONF);
+createControlEnv(CONFIG);
+const T = createScopedTranslator(CONFIG);
 
 // ==================== Control Definition ====================
 class ${name} extends BaseControl {
@@ -263,7 +263,7 @@ class ${name} extends BaseControl {
   }
 }
 
-new ${name}({ position: CONF.position }).addTo(map);
+new ${name}({ position: CONFIG.position }).addTo(map);
 `,
   );
 
@@ -413,7 +413,7 @@ Manual next steps:
      and keep test/python/test_locale.py::_JS_USED_KEYS in sync
   3. If the control participates in mode locking or EventBus, register it in
      foliplus/js/core/mode.ts and foliplus/js/core/event/const.ts
-  4. If the control exposes a typed CONF shape, extend foliplus/js/type/global.d.ts
+  4. If the control exposes a typed CONFIG shape, extend foliplus/js/type/global.d.ts
   5. Run: make build-js-dev && make test-python && npm test
 `);
 };

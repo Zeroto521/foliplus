@@ -21,7 +21,7 @@ const BTN_HTML = `
   <span class="locate-btn-loading">${Icons.LOADING_ICON}</span>`;
 
 const LocateControl = defineControl({
-  conf: CONF,
+  config: CONFIG,
   icon: LOCATE_ICON,
   setup: () => ensureHint(map),
   buildDOM(this: any) {
@@ -48,4 +48,4 @@ const LocateControl = defineControl({
   },
 });
 
-new LocateControl({ position: CONF.position }).addTo(map);
+new LocateControl({ position: CONFIG.position }).addTo(map);

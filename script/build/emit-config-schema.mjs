@@ -15,7 +15,7 @@
  *     compatibility with the existing `global.d.ts` shape. All fields are
  *     optional except `name`, plus a `[key: string]: unknown` escape hatch.
  *
- * The generated file is the single TS-side declaration surface for the CONF
+ * The generated file is the single TS-side declaration surface for the CONFIG
  * contract. `global.d.ts` imports `ComponentConfig` from here instead of
  * defining it inline, so drift between Python and TS is a typecheck error
  * rather than a silent `unknown`.
@@ -168,7 +168,7 @@ const formatField = (name, field, indent = "  ") => {
 };
 
 /** Emit a TS interface from a schema dict. Per-control interfaces extend
- *  ConfigCommon so a CONF literal carrying shared fields type-checks; shared
+ *  ConfigCommon so a CONFIG literal carrying shared fields type-checks; shared
  *  and runtime-only interfaces are standalone. */
 const emitInterface = (name, schema, { extendsShared = false, indent = "" } = {}) => {
   const head = extendsShared ? `${name} extends ConfigCommon` : name;
@@ -192,7 +192,7 @@ const buildConfigSchema = async schema => {
     "//   python foliplus/_config_schema.py --out foliplus/.build/js/config-schema.json",
     "//   node script/build/emit-config-schema.mjs --json foliplus/.build/js/config-schema.json",
     "",
-    "// Per-control CONF interfaces plus a flat ComponentConfig for backward",
+    "// Per-control CONFIG interfaces plus a flat ComponentConfig for backward",
     "// compatibility with the existing global.d.ts shape. All fields are",
     "// optional in ComponentConfig (any control may omit any field); per-",
     "// control interfaces are stricter and use the schema's optional flag.",
@@ -225,7 +225,7 @@ const buildConfigSchema = async schema => {
   // compile. Per-control interfaces above are stricter and available for new
   // code that wants to type-check against a specific control's schema.
   lines.push(
-    "/** Flat CONF type for all controls. All fields optional except `name`. */",
+    "/** Flat CONFIG type for all controls. All fields optional except `name`. */",
     "interface ComponentConfig {",
   );
 

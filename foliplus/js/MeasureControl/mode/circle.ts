@@ -144,7 +144,7 @@ class CircleMode extends PreviewMode {
         );
         phase = 1;
         this.map.foliplus!.showHint(
-          this.conf.name,
+          this.config.name,
           this.T("hint_circle_radius"),
           HINT_DURATION.PERSIST,
         );
@@ -328,7 +328,7 @@ class CircleMode extends PreviewMode {
       unbindMapEvents(this.map, circleEvents);
       this.clearCursorNode();
       resetPreviews();
-      this.map.foliplus!.hideHint(this.conf.name);
+      this.map.foliplus!.hideHint(this.config.name);
     };
   }
 

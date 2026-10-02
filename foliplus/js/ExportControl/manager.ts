@@ -21,17 +21,17 @@ import {
   updateBoxStyle,
 } from "./ui.js";
 
-// CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
-const T = createScopedTranslator(CONF);
+// CONFIG is a free variable from the IIFE template wrapper (see BaseControl._get_template).
+const T = createScopedTranslator(CONFIG);
 
 // ==================== ExportManager ====================
 
 class ExportManager {
   map: L.Map;
   /** Component config — carried on the instance so the UI modules read it
-   *  from `mgr.conf` instead of a module-level free variable. */
-  conf: ComponentConfig;
-  /** Translator bound to `conf`, created once in the constructor. */
+   *  from `mgr.config` instead of a module-level free variable. */
+  config: ComponentConfig;
+  /** Translator bound to `config`, created once in the constructor. */
   T: (key: string) => string;
   /** Per-map mode manager / event bus — bound once in the constructor
    *  (ensure-style getters return the cached instance). */
@@ -143,7 +143,7 @@ class ExportManager {
     this.map = mapInstance;
     this.mapContainer = this.map.getContainer();
     this.scheduler = scheduler;
-    this.conf = CONF;
+    this.config = CONFIG;
     this.T = T;
     this.modes = ensureModes(this.map);
     this.events = ensureEvents(this.map);

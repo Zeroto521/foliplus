@@ -1,4 +1,4 @@
-"""Tests for the CONF schema drift guard (``foliplus._config_schema``).
+"""Tests for the CONFIG schema drift guard (``foliplus._config_schema``).
 
 The schema table in ``foliplus/_config_schema.py`` is a mirror of every control's
 ``BaseControl._config_fields`` tuple. These tests fail if:
@@ -312,7 +312,7 @@ class TestSchemaDump:
 
 
 class TestRuntimeZeroChange:
-    """Rendering CONF must not consult the schema at runtime.
+    """Rendering CONFIG must not consult the schema at runtime.
 
     The schema is a declaration-only mirror: ``BaseControl._build_config``
     reads ``self._config_fields`` directly and never touches ``SCHEMAS``.

@@ -44,8 +44,8 @@ function mockLayerAPI() {
 }
 
 function makeManager(opts?: { id?: string }) {
-  window.CONF = {
-    ...window.CONF,
+  window.CONFIG = {
+    ...window.CONFIG,
     name: "MeasureControl",
     locale_code: "en",
   };
@@ -702,10 +702,10 @@ describe("MeasureManager — lifecycle", () => {
   });
 
   it("skips the coord readout when show_live_coords is false", () => {
-    window.CONF.show_live_coords = false;
+    window.CONFIG.show_live_coords = false;
     const { manager } = makeManager();
     expect((manager as any).coordReadoutEl).toBeNull();
-    delete window.CONF.show_live_coords;
+    delete window.CONFIG.show_live_coords;
   });
 });
 
@@ -1254,8 +1254,8 @@ function flushRaf() {
   }
 }
 
-function makeLabelManager(conf: Partial<typeof window.CONF> = {}) {
-  window.CONF = { name: "MeasureControl", locale_code: "en", ...conf };
+function makeLabelManager(config: Partial<typeof window.CONFIG> = {}) {
+  window.CONFIG = { name: "MeasureControl", locale_code: "en", ...config };
   const env = makeControlEnv();
 
   const layers = mockLayerAPI();
@@ -1285,7 +1285,7 @@ beforeEach(() => {
     getElement: vi.fn(() => null),
     setLatLng: vi.fn(),
   }));
-  window.CONF.label_collide = undefined;
+  window.CONFIG.label_collide = undefined;
   labelRafQueue = [];
   vi.stubGlobal("requestAnimationFrame", (cb: () => void) => {
     labelRafQueue.push(cb);
@@ -1449,7 +1449,7 @@ describe("MeasureManager — registerLabel lifecycle", () => {
     expect(opts.styleProvider().labelCollide).toBe(true);
   });
 
-  it("styleDefaultsProvider returns the Python CONF snapshot, not live toggles", () => {
+  it("styleDefaultsProvider returns the Python CONFIG snapshot, not live toggles", () => {
     const { manager, map } = makeLabelManager({
       label_show: true,
       label_collide: false,

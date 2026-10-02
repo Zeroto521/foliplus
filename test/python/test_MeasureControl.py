@@ -161,7 +161,7 @@ class TestMeasureControlRendering:
         assert_config_value(html, "export_format", "geojson")
 
     def test_export_format_csv(self):
-        """export_format='csv' renders the correct value in CONF."""
+        """export_format='csv' renders the correct value in CONFIG."""
         html = render_control(MeasureControl(export_format="csv"))
         assert_config_value(html, "export_format", "csv")
 
@@ -258,7 +258,7 @@ class TestMeasureControlBrowser:
         # lazily by the control's getter during addTo, so expose the control
         # first and read back its manager via `m` (dev build keeps these names).
         html, n = re.subn(
-            r"(new MeasureControl\(\{ position: CONF\.position \}\)\.addTo\(map\);)",
+            r"(new MeasureControl\(\{ position: CONFIG\.position \}\)\.addTo\(map\);)",
             r"window.__measureCtrl = \1 window.__measureManager = window.__measureCtrl.m; window.__map = map; window.__measureStorageKey = STORAGE.KEY;",
             html,
             count=1,

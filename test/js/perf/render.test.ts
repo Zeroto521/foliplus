@@ -56,7 +56,7 @@ const makeMap = () => ({
 
 describe("heatmap redraw benchmark @5k", () => {
   it("drawHexagon × 5000 stays under the 16ms jank budget (stub ctx)", () => {
-    Object.assign(window.CONF, {
+    Object.assign(window.CONFIG, {
       fill_opacity: 0.7,
       border_opacity: 0.9,
     });
@@ -81,7 +81,7 @@ describe("heatmap redraw benchmark @5k", () => {
   });
 
   it("CSS slider commit is O(1) vs bake redraw of 5000 hexes", () => {
-    Object.assign(window.CONF, {
+    Object.assign(window.CONFIG, {
       fill_opacity: 0.7,
       border_opacity: 0.9,
     });

@@ -3,8 +3,8 @@
 //   node test/js/script/emit-config-fixture.mjs
 import type { ComponentConfig } from "#foliplus/config-schema.js";
 
-/** Default CONF values per control, from the Python schema. */
-const CONF_DEFAULTS: Record<string, Partial<ComponentConfig>> = {
+/** Default CONFIG values per control, from the Python schema. */
+const CONFIG_DEFAULTS: Record<string, Partial<ComponentConfig>> = {
   ExportControl: {
     filename: "map",
     format: "png",
@@ -63,10 +63,10 @@ const CONF_DEFAULTS: Record<string, Partial<ComponentConfig>> = {
 };
 
 /**
- * Create a test CONF object for one control: shared test baseline (name,
+ * Create a test CONFIG object for one control: shared test baseline (name,
  * position, locale_code) + that control's schema defaults + overrides.
  */
-function makeConf(
+function makeConfig(
   controlName: string,
   overrides?: Partial<ComponentConfig>,
 ): ComponentConfig {
@@ -74,9 +74,9 @@ function makeConf(
     name: controlName,
     position: "topleft",
     locale_code: "en",
-    ...CONF_DEFAULTS[controlName],
+    ...CONFIG_DEFAULTS[controlName],
     ...overrides,
   };
 }
 
-export { makeConf };
+export { makeConfig };

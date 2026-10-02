@@ -1,5 +1,5 @@
 // core/layer/LayerFactory — standalone createLayers/createCanvas factories.
-// Pure logic, no CONF / translator dependency. Takes map + PaneManager +
+// Pure logic, no CONFIG / translator dependency. Takes map + PaneManager +
 // register/unregister callbacks via dependency injection.
 import { withCanvasLayerAlpha } from "#common/canvasAlpha.js";
 import { cancelMapPaneTranslate, dom } from "#common/dom.js";
@@ -65,7 +65,7 @@ interface LayerFactoryDeps {
   ) => { index: number; count: number; group: "base" | "overlay" } | null;
 }
 
-// core/layer is not a component dir, so CONF is unavailable here — the module
+// core/layer is not a component dir, so CONFIG is unavailable here — the module
 // prefixes with its own class name.
 const log = createLogger("LayerFactory");
 

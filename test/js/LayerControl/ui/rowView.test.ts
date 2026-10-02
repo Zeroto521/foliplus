@@ -332,7 +332,7 @@ describe("applyRowView (the single DOM write point)", () => {
       runtimeStore: new LayerRuntimeStore(),
       focusingLayerId: null,
       T: (k: string) => k,
-      conf: { locale_code: "en" },
+      config: { locale_code: "en" },
     } as unknown as LayerUI;
 
     const info = { id: "x", layer: { options: {} } } as LayerInfo;

@@ -1,7 +1,7 @@
 // core/PaneManager — physical pane hosting.
 // Responsibility: "who orders and who owns which pane" is LayerSurface /
 // LayerInfoRegistry; "make the pane div exist and hand back its renderer" is
-// PaneManager. No CONF dependency.
+// PaneManager. No CONFIG dependency.
 //
 // Method layering (tests follow the boundary):
 //   ── Pure computation (JS unit tests, no Leaflet) ──

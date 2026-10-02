@@ -3,7 +3,7 @@
 // Test files are mock-heavy (see the root tsconfig comment) and deliberately
 // skip strict type checking. This file provides a LOOSE counterpart to the
 // globals in `foliplus/js/type/global.d.ts`: every runtime-injected / CDN
-// global (L/map/CONF/foliplus/turf, etc.) is `any` in value position, and
+// global (L/map/CONFIG/foliplus/turf, etc.) is `any` in value position, and
 // types such as `L.Map` / `LayerInfo` are `any` in type position — mocks are
 // injected at runtime by `setup.ts`. Source modules pulled into this program
 // via test imports also see these loose globals, so mocks are naturally
@@ -93,7 +93,7 @@ declare namespace GeoJSON {
 }
 
 declare var map: any;
-declare var CONF: any;
+declare var CONFIG: any;
 declare var CONFIG: any;
 declare var foliplus: any;
 declare var turf: any;
@@ -105,7 +105,7 @@ declare var h3: any;
 interface Window {
   foliplus: any;
   L: any;
-  CONF: any;
+  CONFIG: any;
   CONFIG?: any;
   map: any;
 }

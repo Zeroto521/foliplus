@@ -129,24 +129,24 @@ describe("resolveFormat", () => {
 });
 
 describe("currentFormat", () => {
-  it("returns the record for CONF.format", () => {
-    window.CONF = { ...window.CONF, format: "jpeg" };
+  it("returns the record for CONFIG.format", () => {
+    window.CONFIG = { ...window.CONFIG, format: "jpeg" };
     expect(CONST.currentFormat()).toBe(CONST.FORMAT.jpeg);
   });
 
   it("resolves geotiff through the table, not a hardcoded branch", () => {
-    window.CONF = { ...window.CONF, format: "geotiff" };
+    window.CONFIG = { ...window.CONFIG, format: "geotiff" };
     expect(CONST.currentFormat().geotiff).toBe(true);
     expect(CONST.currentFormat().ext).toBe("tif");
   });
 
-  it("falls back to png when CONF.format is absent", () => {
-    const saved = window.CONF;
-    delete (window.CONF as Record<string, unknown>).format;
+  it("falls back to png when CONFIG.format is absent", () => {
+    const saved = window.CONFIG;
+    delete (window.CONFIG as Record<string, unknown>).format;
     try {
       expect(CONST.currentFormat()).toBe(CONST.FORMAT.png);
     } finally {
-      window.CONF = saved;
+      window.CONFIG = saved;
     }
   });
 });
@@ -326,7 +326,7 @@ describe("detectConcurrency", () => {
 });
 
 // ===========================================================================
-// TILE_CONCURRENCY — evaluated once at module load.  In vitest CONF is {}
+// TILE_CONCURRENCY — evaluated once at module load.  In vitest CONFIG is {}
 // so TILE_CONCURRENCY = detectConcurrency() with no network API → 6.
 // ===========================================================================
 describe("TILE_CONCURRENCY", () => {

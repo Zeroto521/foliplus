@@ -27,7 +27,7 @@ const tick = () => new Promise(r => setTimeout(r, 0));
 
 // Control context for logic functions that now receive ctrl.
 const ctx = () => ({
-  conf: { name: "SearchControl", locale_code: "en", zoom: 16 },
+  config: { name: "SearchControl", locale_code: "en", zoom: 16 },
   T: (k: string) => `SearchControl.${k}`,
   _: (k: string) => k,
   log: {
@@ -710,7 +710,7 @@ describe("renderHistory", () => {
   });
 
   it("clicking a history entry navigates to the saved coordinates", () => {
-    // conf.zoom is unset so the flyTo target exercises the ZOOM.MAX fallback.
+    // config.zoom is unset so the flyTo target exercises the ZOOM.MAX fallback.
     const ctrl = makeHistoryCtrl([
       {
         query: "Paris",
@@ -723,7 +723,7 @@ describe("renderHistory", () => {
         count: 1,
       },
     ]);
-    ctrl.conf = { ...ctrl.conf, zoom: undefined };
+    ctrl.config = { ...ctrl.config, zoom: undefined };
     renderHistory(ctrl, "addr");
     const item = ctrl.panelWrap.querySelector(".foliplus-search-result-item")!;
     item.dispatchEvent(

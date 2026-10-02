@@ -1,6 +1,6 @@
 // core/component — canonical component name constants.
 // Single source of truth for every foliplus component identity.
-// Components use CONF.name (runtime, from Python) for self-reference;
+// Components use CONFIG.name (runtime, from Python) for self-reference;
 // cross-component references use COMPONENTS.xxx (compile-time constant).
 import { createLogger } from "#common/log.js";
 
@@ -25,7 +25,7 @@ type ComponentName = (typeof COMPONENTS)[keyof typeof COMPONENTS];
 const generateId = (prefix: string, namespace?: string): string =>
   namespace ? `${prefix}_${namespace}` : prefix;
 
-/** Runtime assertion that a CONF.name matches a known component.
+/** Runtime assertion that a CONFIG.name matches a known component.
  *  Call early in component initialisation (constructor / onAdd). */
 const assertComponentName = (name: string): void => {
   if (!(Object.values(COMPONENTS) as string[]).includes(name)) {

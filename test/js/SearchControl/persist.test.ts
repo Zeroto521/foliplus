@@ -9,7 +9,7 @@ import type { SearchHistoryEntry } from "#foliplus/SearchControl/type.js";
 
 // Control context for logic functions that now receive ctrl.
 const ctx = () => ({
-  conf: { name: "SearchControl", locale_code: "en", zoom: 16 },
+  config: { name: "SearchControl", locale_code: "en", zoom: 16 },
   T: (k: string) => `SearchControl.${k}`,
   _: (k: string) => k,
   log: {

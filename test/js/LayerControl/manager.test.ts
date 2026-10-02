@@ -115,7 +115,7 @@ describe("LayerManager", () => {
     // constructor reads it: without this clear, an order written by one test
     // decides where the next test's layers land.
     window.localStorage.clear();
-    window.CONF = { ...window.CONF, name: "LayerControl", locale_code: "en" };
+    window.CONFIG = { ...window.CONFIG, name: "LayerControl", locale_code: "en" };
 
     class Renderer {}
 
@@ -2806,7 +2806,7 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
     // constructor reads it: without this clear, an order written by one test
     // decides where the next test's layers land.
     window.localStorage.clear();
-    window.CONF = { ...window.CONF, name: "LayerControl", locale_code: "en" };
+    window.CONFIG = { ...window.CONFIG, name: "LayerControl", locale_code: "en" };
 
     class Renderer {}
 
@@ -3195,7 +3195,7 @@ describe("LayerManager user-assigned names", () => {
 
   beforeEach(() => {
     window.localStorage.clear();
-    window.CONF = { ...window.CONF, name: "LayerControl", locale_code: "en" };
+    window.CONFIG = { ...window.CONFIG, name: "LayerControl", locale_code: "en" };
 
     class Renderer {}
 

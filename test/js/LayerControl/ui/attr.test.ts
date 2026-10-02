@@ -71,9 +71,9 @@ describe("LayerUI attrs", () => {
           ] as [string, string],
       );
 
-    it("panel title and row labels come from the injected conf, not window.CONF", () => {
-      // The LayerUI was built under window.CONF (name "LayerControl"); swap in
-      // a per-test conf with its own locale table — every UI read must key off
+    it("panel title and row labels come from the injected config, not window.CONFIG", () => {
+      // The LayerUI was built under window.CONFIG (name "LayerControl"); swap in
+      // a per-test config with its own locale table — every UI read must key off
       // it: the panel aria-label from T("attributes_layer") and the row label
       // from T("attr_type").
       ui.T = createScopedTranslator({
@@ -149,7 +149,7 @@ describe("LayerUI attrs", () => {
       expect(rendered.find(([k]) => k === "LayerControl.attr_updated_at")?.[1]).toBe(
         // Expectation built with the same formatTimestamp options, so the
         // assertion holds regardless of the runner's timezone / ICU data.
-        new Date("2026-09-01T08:00:00Z").toLocaleString(CONF.locale_code, {
+        new Date("2026-09-01T08:00:00Z").toLocaleString(CONFIG.locale_code, {
           dateStyle: "medium",
           timeStyle: "short",
         }),
@@ -332,7 +332,7 @@ describe("LayerUI attrs", () => {
         // Derived from the same Date + options the implementation formats, so
         // this passes under any runner timezone or ICU build.
       ).toBe(
-        new Date(Date.UTC(2026, 8, 1, 8, 0, 0)).toLocaleString(CONF.locale_code, {
+        new Date(Date.UTC(2026, 8, 1, 8, 0, 0)).toLocaleString(CONFIG.locale_code, {
           dateStyle: "medium",
           timeStyle: "short",
         }),

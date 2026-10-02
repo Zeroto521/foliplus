@@ -30,7 +30,7 @@
 // `FOCUS_Z` lives here rather than in the component dir: a second home would
 // recreate the "two places must stay in sync" problem this file exists to end.
 //
-// Pure: no DOM, no CONF, no Leaflet.
+// Pure: no DOM, no CONFIG, no Leaflet.
 import { GROUP, PANE_ROLE, Z_INDEX } from "./const.js";
 import type { ZArgs } from "./type.js";
 

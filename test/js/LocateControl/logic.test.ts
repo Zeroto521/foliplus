@@ -8,11 +8,11 @@ vi.mock("#common/locale.js", () => ({
 }));
 
 /** Fake control — a real button so classList behaves like the DOM. `T`, `_`
- *  and `conf` mirror what defineControl hands off to the control instance. */
+ *  and `config` mirror what defineControl hands off to the control instance. */
 const makeCtrl = () => {
   const btn = document.createElement("button");
   const T = (k: string) => k;
-  const conf = {
+  const config = {
     name: "LocateControl",
     zoom: 16,
   } as ComponentConfig;
@@ -22,13 +22,13 @@ const makeCtrl = () => {
     delIcon: null,
     T,
     _: T,
-    conf,
+    config,
     hasLoading: () => btn.classList.contains("loading"),
   };
 };
 
 beforeEach(() => {
-  window.CONF = { ...window.CONF, name: "LocateControl", zoom: 16 };
+  window.CONFIG = { ...window.CONFIG, name: "LocateControl", zoom: 16 };
 });
 
 describe("locateMe", () => {
@@ -91,10 +91,10 @@ describe("locateMe", () => {
     expect(ctrl.marker).not.toBeNull();
   });
 
-  it("falls back to the default zoom of 15 when conf.zoom is not set", () => {
+  it("falls back to the default zoom of 15 when config.zoom is not set", () => {
     const getCurrentPosition = geoStub();
     const ctrl = makeCtrl();
-    ctrl.conf = { ...ctrl.conf, zoom: undefined } as ComponentConfig;
+    ctrl.config = { ...ctrl.config, zoom: undefined } as ComponentConfig;
 
     locateMe(ctrl);
     getCurrentPosition.mock.calls[0][0]({

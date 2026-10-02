@@ -81,7 +81,7 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
       ui.T("attr_feature_count"),
       count == null
         ? ui.T("attr_empty")
-        : formatNumber(count, "comma", ui.conf.locale_code, 0),
+        : formatNumber(count, "comma", ui.config.locale_code, 0),
     );
   }
   addRow(
@@ -138,7 +138,7 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
           ? formatNumber(
               value,
               "comma",
-              ui.conf.locale_code,
+              ui.config.locale_code,
               Number.isInteger(value) ? 0 : 1,
             )
           : String(value),

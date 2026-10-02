@@ -83,7 +83,7 @@ const showGlobalHint = (
   withLoadingIcon = false,
 ) => {
   mgr.map.foliplus!.showHint(
-    mgr.conf.name,
+    mgr.config.name,
     text,
     duration || HINT_DURATION.PERSIST,
     undefined,
@@ -96,7 +96,7 @@ const showGlobalHint = (
 const showHintWithInfo = (mgr: ExportManager, r: CropRect, instruction?: string) => {
   mgr.checkPixelLimit(r);
   mgr.map.foliplus!.showHint(
-    mgr.conf.name,
+    mgr.config.name,
     `${mgr.T("label_size_prefix")}${Math.round(r.width)} × ${Math.round(r.height)} ` +
       `${mgr.T("label_size_suffix")}${instruction ? ` — ${instruction}` : ""}`,
     HINT_DURATION.PERSIST,
@@ -105,18 +105,18 @@ const showHintWithInfo = (mgr: ExportManager, r: CropRect, instruction?: string)
   );
   if (mgr.pixelOverLimit) {
     mgr.map.foliplus!.showHint(
-      mgr.conf.name,
+      mgr.config.name,
       mgr
         .T("err_too_large")
         .replace(
           "{limit}",
-          formatNumber(mgr.conf.max_pixels!, "auto", mgr.conf.locale_code),
+          formatNumber(mgr.config.max_pixels!, "auto", mgr.config.locale_code),
         ),
       HINT_DURATION.PERSIST,
       undefined,
       "limit",
     );
-  } else mgr.map.foliplus!.hideHint(mgr.conf.name, "limit");
+  } else mgr.map.foliplus!.hideHint(mgr.config.name, "limit");
 };
 
 /** Build the crop box DOM and attach events. */
@@ -124,7 +124,7 @@ const showCropBox = (mgr: ExportManager) => {
   if (mgr.cropState) return;
   // Symmetric lock with the other interactive components (measure / focus).
   if (
-    guardBlocked(mgr.map, mgr.conf.name, mgr.T("blocked"), [
+    guardBlocked(mgr.map, mgr.config.name, mgr.T("blocked"), [
       { blockedBy: COMPONENTS.MeasureControl, text: mgr.T("blocked_measure") },
       { blockedBy: COMPONENTS.LayerControl, text: mgr.T("blocked_layer") },
       { blockedBy: COMPONENTS.SearchControl, text: mgr.T("blocked_search") },
@@ -136,7 +136,7 @@ const showCropBox = (mgr: ExportManager) => {
   // Enter crop interaction: block measurement immediately (not just at
   // download), so map interaction is not interrupted by measure clicks.
   const modes = ensureModes(mgr.map);
-  modes.setMode(mgr.conf.name, "selecting");
+  modes.setMode(mgr.config.name, "selecting");
   const mapRect = mgr.mapContainer.getBoundingClientRect();
   let box;
 
@@ -321,8 +321,8 @@ const removeCropBox = (mgr: ExportManager) => {
   // Box removed → restore Leaflet's keyboard handler (normal map interaction).
   syncCropKeyboard(mgr);
   const modes = ensureModes(mgr.map);
-  modes.setMode(mgr.conf.name, null);
-  mgr.map.foliplus!.hideHint(mgr.conf.name);
+  modes.setMode(mgr.config.name, null);
+  mgr.map.foliplus!.hideHint(mgr.config.name);
 };
 
 export {

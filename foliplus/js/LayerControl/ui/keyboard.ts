@@ -301,7 +301,7 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
       const moved = ui.m.moveLayerUp(id);
       if (!moved) {
         ui.m.map.foliplus!.showHint(
-          ui.conf.name,
+          ui.config.name,
           ui.T("reorder_top"),
           HINT_DURATION.SHORT,
         );
@@ -311,7 +311,7 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
       const moved = ui.m.moveLayerDown(id);
       if (!moved) {
         ui.m.map.foliplus!.showHint(
-          ui.conf.name,
+          ui.config.name,
           ui.T("reorder_bottom"),
           HINT_DURATION.SHORT,
         );
@@ -397,7 +397,7 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
           // an entry without one has nothing to say.
           const reason = menuLi.getAttribute("title");
           if (reason) {
-            ui.m.map.foliplus!.showHint(ui.conf.name, reason, HINT_DURATION.SHORT);
+            ui.m.map.foliplus!.showHint(ui.config.name, reason, HINT_DURATION.SHORT);
           }
           break;
         }

@@ -1,5 +1,5 @@
 // FullscreenControl core logic — toggleFullscreen, updateUI, event handling.
-// CONF / T are no longer module-level: defineControl hands them off to the
+// CONFIG / T are no longer module-level: defineControl hands them off to the
 // control instance, and the entry passes an env slice into these functions.
 import { HINT_DURATION } from "#core/hint.js";
 import { getFullscreenEl, isEnabled } from "./api.js";
@@ -7,31 +7,31 @@ import { CLASSES, containerId } from "./const.js";
 import * as SVGs from "./icon.js";
 
 /** Per-call env slice the entry passes in. Same vocabulary as ControlEnv but
- *  narrowed to what this module reads — `name` and `hide_*` from CONF, plus
+ *  narrowed to what this module reads — `name` and `hide_*` from CONFIG, plus
  *  the scoped translator. */
-type Env = { conf: ComponentConfig; T: (key: string) => string };
+type Env = { config: ComponentConfig; T: (key: string) => string };
 
 // ══════════════════════════════════════════════════════════════════════════════
 // updateUI (internal)  —  refresh icon, title, sibling/self visibility, hint
 // ══════════════════════════════════════════════════════════════════════════════
 const updateUI = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement, env: Env) => {
-  const { conf, T } = env;
+  const { config, T } = env;
   const isFull = Boolean(getFullscreenEl()) || map.isFullscreen;
   fsBtn.innerHTML = isFull ? SVGs.MINIMIZE : SVGs.MAXIMIZE;
   fsBtn.title = isFull ? T("title_cancel") : T("title");
 
-  if (conf.hide_others) {
+  if (config.hide_others) {
     const controls = map
       .getContainer()
       .querySelectorAll(".leaflet-control, .foliplus-scale-wrap");
-    const cid = containerId(conf.name, conf.position as string);
+    const cid = containerId(config.name, config.position as string);
     for (const c of controls) {
       if (c.contains(container) || c.closest?.(`#${cid}`)) continue;
       c.classList.toggle(CLASSES.HIDDEN, isFull);
     }
   }
 
-  if (conf.hide_self) {
+  if (config.hide_self) {
     const selfBtns = container.querySelectorAll(
       `.${CLASSES.TOGGLE}, .${CLASSES.ZOOM_IN}, .${CLASSES.ZOOM_OUT}`,
     );
@@ -39,7 +39,7 @@ const updateUI = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement, env: E
   }
 
   map.foliplus!.showHint?.(
-    conf.name,
+    config.name,
     isFull ? T("enter") : T("exit"),
     HINT_DURATION.MEDIUM,
   );
@@ -48,11 +48,11 @@ const updateUI = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement, env: E
 // A rejected request must not report the transition that just failed — each
 // branch announces what actually happened to the user instead.
 const showUnsupportedHint = (map: L.Map, env: Env) => {
-  map.foliplus!.showHint?.(env.conf.name, env.T("unsupported"), HINT_DURATION.MEDIUM);
+  map.foliplus!.showHint?.(env.config.name, env.T("unsupported"), HINT_DURATION.MEDIUM);
 };
 
 const showExitFailHint = (map: L.Map, env: Env) => {
-  map.foliplus!.showHint?.(env.conf.name, env.T("exit_fail"), HINT_DURATION.MEDIUM);
+  map.foliplus!.showHint?.(env.config.name, env.T("exit_fail"), HINT_DURATION.MEDIUM);
 };
 
 // ══════════════════════════════════════════════════════════════════════════════

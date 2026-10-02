@@ -14,7 +14,7 @@ const registerInteractions = (mgr: ExportManager): (() => void) => {
 
   // All shortcuts registered under a single component name so the returned
   // cleanup function unregisters them all at once when the crop box is removed.
-  return im.register(CONF.name, [
+  return im.register(CONFIG.name, [
     // Escape: global — dismiss crop box from anywhere.
     { key: "Escape", handler: e => mgr.onKeyDown(e as KeyboardEvent) },
     // Enter / R / arrows: container-bound, routed through onKeyDown.
@@ -43,7 +43,7 @@ const registerInteractions = (mgr: ExportManager): (() => void) => {
 // likely — a touch pinch cancels the pointer and never delivers a mouseup,
 // which is what leaves the drag listeners registered and the box stuck.
 const registerDrag = (mgr: ExportManager): (() => void) => {
-  return ensureInteraction(mgr.map).register(`${CONF.name}-drag`, [
+  return ensureInteraction(mgr.map).register(`${CONFIG.name}-drag`, [
     {
       event: "pointermove",
       handler: (e: Event) => mgr.onPointerMove(e as PointerEvent),
@@ -67,7 +67,7 @@ const registerCropMouseDown = (
   mgr: ExportManager,
   element: HTMLElement,
 ): (() => void) => {
-  return ensureInteraction(mgr.map).register(`${CONF.name}-crop`, [
+  return ensureInteraction(mgr.map).register(`${CONFIG.name}-crop`, [
     {
       event: "pointerdown",
       element,

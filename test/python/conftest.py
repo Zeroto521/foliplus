@@ -562,23 +562,23 @@ def render_control(ctrl, *, map: folium.Map | None = None) -> str:
 
 
 def assert_config_value(html: str, key: str, value: object) -> None:
-    """Assert that ``key: value`` appears in the CONF JSON within *html*.
+    """Assert that ``key: value`` appears in the CONFIG JSON within *html*.
 
     Handles both ``"key": value`` and ``"key": "value"`` patterns.
     """
     if isinstance(value, str):
         assert f'"{key}": "{value}"' in html, (
-            f'Expected CONF["{key}"] = "{value}" not found'
+            f'Expected CONFIG["{key}"] = "{value}" not found'
         )
     elif value is True:
-        assert f'"{key}": true' in html, f'Expected CONF["{key}"] = true not found'
+        assert f'"{key}": true' in html, f'Expected CONFIG["{key}"] = true not found'
     elif value is False:
-        assert f'"{key}": false' in html, f'Expected CONF["{key}"] = false not found'
+        assert f'"{key}": false' in html, f'Expected CONFIG["{key}"] = false not found'
     elif value is None:
-        assert f'"{key}": null' in html, f'Expected CONF["{key}"] = null not found'
+        assert f'"{key}": null' in html, f'Expected CONFIG["{key}"] = null not found'
     else:
         assert f'"{key}": {value}' in html, (
-            f'Expected CONF["{key}"] = {value} not found'
+            f'Expected CONFIG["{key}"] = {value} not found'
         )
 
 

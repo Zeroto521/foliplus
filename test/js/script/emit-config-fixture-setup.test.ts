@@ -27,7 +27,7 @@ describe("emit-config-fixture-setup", () => {
 
   it("runs the generator and leaves the committed fixture unchanged", () => {
     const committed = readFileSync(FIXTURE, "utf8");
-    expect(committed).toContain("function makeConf(");
+    expect(committed).toContain("function makeConfig(");
 
     // No throw, and the committed file is byte-identical afterwards: the
     // generator reproduces exactly what is committed.

@@ -1,5 +1,5 @@
 // MeasureControl utility functions — no manager instance, only the control's
-// conf/translator where a label or popup string is i18n-driven.
+// config/translator where a label or popup string is i18n-driven.
 import type { ControlEnv } from "#core/defineControl.js";
 import { area, bearing, centroid, distance, midpoint } from "#core/geo/index.js";
 import { reverseGeocode } from "#core/geocode/index.js";
@@ -33,7 +33,7 @@ const formatSegmentLabel = (
   meters: number,
 ): string => {
   const dist = formatDistance(meters);
-  if (!ctx.conf.show_bearing) return dist;
+  if (!ctx.config.show_bearing) return dist;
   const bVal = Math.round(bearing(a, b));
   return `${bVal}° | ${dist}`;
 };

@@ -606,8 +606,8 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
         layer?: any;
       }>,
     ) => {
-      window.CONF.name = "LayerControl";
-      window.CONF.locale_code = "en";
+      window.CONFIG.name = "LayerControl";
+      window.CONFIG.locale_code = "en";
       const removeLayer = vi.fn();
       const container = document.createElement("div");
       document.body.appendChild(container);

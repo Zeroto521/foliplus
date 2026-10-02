@@ -8,7 +8,7 @@
  *   - T("key") / _("key") calls (scoped/unscoped translators)
  *   - localeFallback(code, "key", "fallback") calls
  *   - NAME_LABEL_KEY = "short" static props
- *   - Template literals with `${CONF.name}` (e.g., `${CONF.name}.popup_title_geo`)
+ *   - Template literals with `${CONFIG.name}` (e.g., `${CONFIG.name}.popup_title_geo`)
  *
  * Keying rules:
  *   - `T("key")` (scoped)  →  `<ControlName>.<key>` (full keys pass through)
@@ -66,9 +66,9 @@ const LOCALE_FALLBACK_RE = /\blocaleFallback\s*\(\s*[^,]+,\s*(['"])((?:(?!\1).)+
 // NAME_LABEL_KEY = "short" static props.
 const STATIC_KEY_RE = /\bNAME_LABEL_KEY\s*=\s*(['"])((?:(?!\1).)+)\1/g;
 
-// Template literals containing `${CONF.name}` — capture the full template,
+// Template literals containing `${CONFIG.name}` — capture the full template,
 // then extract the suffix after `}`.
-const TEMPLATE_KEY_RE = /`([^`]*\$\{[^}]*CONF\.name[^}]*\}[^`]*)`/g;
+const TEMPLATE_KEY_RE = /`([^`]*\$\{[^}]*CONFIG\.name[^}]*\}[^`]*)`/g;
 
 const isFullKey = k => k.includes(".");
 
@@ -96,7 +96,7 @@ const collect = (rel, src) => {
     keys.add(prefix ? `${prefix}.${lit}` : lit);
   }
 
-  // Template literals with ${CONF.name} — suffix after `}`.
+  // Template literals with ${CONFIG.name} — suffix after `}`.
   for (const m of text.matchAll(TEMPLATE_KEY_RE)) {
     const suffix = m[1].match(/\}\.(\w+)/);
     if (suffix && prefix) keys.add(`${prefix}.${suffix[1]}`);

@@ -71,15 +71,15 @@ class MeasureManager {
   modes: ModeManager;
   events: EventBus;
   /** Component config — carried on the manager instead of a module-level
-   *  free variable, so the UI functions are unit-testable with their own CONF. */
-  conf: ComponentConfig;
-  /** Scoped translator (prepending conf.name) bound to `conf`, created once
+   *  free variable, so the UI functions are unit-testable with their own CONFIG. */
+  config: ComponentConfig;
+  /** Scoped translator (prepending config.name) bound to `config`, created once
    *  by the manager. */
   T: (key: string) => string;
   /** Plain translator (no prefix) — label keys that are compared by identity
    *  must get the bare key back. */
   _: (key: string) => string;
-  /** Logger bound to `conf.name`, created once by the manager. */
+  /** Logger bound to `config.name`, created once by the manager. */
   log: Logger;
   /** The factory-built environment this manager was constructed with. Modules
    *  that need the full env (export serialization) read it here rather than
@@ -145,15 +145,15 @@ class MeasureManager {
   constructor(mapInstance: L.Map, env: ControlEnv, opts?: { id?: string }) {
     this.map = mapInstance;
     this.env = env;
-    this.conf = env.conf;
+    this.config = env.config;
     this.T = env.T;
     this._ = env._;
     this.log = env.log;
     this.layerId = generateId(CONST.ID, opts?.id);
-    this.labelCollide = env.conf.label_collide !== false;
-    this.labelShow = env.conf.label_show !== false;
+    this.labelCollide = env.config.label_collide !== false;
+    this.labelShow = env.config.label_show !== false;
     this.store = new MeasureStore(this.map, env, this.layerId);
-    // The conf defaults were read above — snapshot them before any runtime
+    // The config defaults were read above — snapshot them before any runtime
     // toggle so Reset cannot drift.
     const defaultLabelShow = this.labelShow;
     const defaultLabelCollide = this.labelCollide;
@@ -206,7 +206,7 @@ class MeasureManager {
       if (component === COMPONENTS.ExportControl && mode !== null && this.currentMode) {
         this.clearActiveMode();
         this.map.foliplus?.showHint?.(
-          this.conf.name,
+          this.config.name,
           this.T("export_paused"),
           HINT_DURATION.SHORT,
         );
@@ -217,7 +217,7 @@ class MeasureManager {
     this.isEditMode = false;
 
     this.coordReadoutEl =
-      this.conf.show_live_coords !== false ? this.buildCoordReadout() : null;
+      this.config.show_live_coords !== false ? this.buildCoordReadout() : null;
 
     this.bindGlobalEvents();
     this.restoreMeasurements();
@@ -326,7 +326,7 @@ class MeasureManager {
       // entering a dead state with no clickable measurements.
       if (this.store.count() === 0) {
         this.map.foliplus!.showHint(
-          this.conf.name,
+          this.config.name,
           this.T("hint_edit_empty"),
           HINT_DURATION.SHORT,
         );
@@ -347,7 +347,7 @@ class MeasureManager {
 
     // Symmetric lock with the other interactive components (focus / export).
     if (
-      guardBlocked(this.map, this.conf.name, this.T("blocked"), [
+      guardBlocked(this.map, this.config.name, this.T("blocked"), [
         { blockedBy: COMPONENTS.ExportControl, text: this.T("blocked_export") },
         { blockedBy: COMPONENTS.LayerControl, text: this.T("blocked_layer") },
         { blockedBy: COMPONENTS.SearchControl, text: this.T("blocked_search") },
@@ -364,7 +364,7 @@ class MeasureManager {
     // Registering a mode in the ModeManager also suspends map-layer interaction
     // while measuring (see core/mode syncInteractionLock), so clicks fall
     // through to the map for node placement instead of firing layer handlers.
-    this.modes.setMode(this.conf.name, mode);
+    this.modes.setMode(this.config.name, mode);
 
     this.toolBtns.forEach(btn =>
       btn.classList.toggle(CONST.CLASSES.ACTIVE, btn.dataset.mode === mode),
@@ -389,7 +389,7 @@ class MeasureManager {
     }[mode];
 
     if (hintKey) {
-      this.map.foliplus!.showHint(this.conf.name, hintKey, HINT_DURATION.PERSIST);
+      this.map.foliplus!.showHint(this.config.name, hintKey, HINT_DURATION.PERSIST);
     }
 
     const ModeClass = MODE_MAP[mode as keyof typeof MODE_MAP];
@@ -635,7 +635,7 @@ class MeasureManager {
     // layers themselves — register it with a skip predicate so data layers are
     // suspended while the measure panes stay interactive.
     this.modes.setMode(
-      this.conf.name,
+      this.config.name,
       on ? CONST.MEASURE_MODE.EDIT : null,
       on ? skipMeasureLayers : undefined,
     );
@@ -650,7 +650,7 @@ class MeasureManager {
     this.editHandles.forEach(h => h.toggleDrag(on));
     if (on) {
       this.map.foliplus!.showHint(
-        this.conf.name,
+        this.config.name,
         this.T("hint_edit"),
         HINT_DURATION.PERSIST,
       );
@@ -659,7 +659,7 @@ class MeasureManager {
       // while doing it.
       this.showCoordReadout();
     } else {
-      this.map.foliplus!.hideHint(this.conf.name);
+      this.map.foliplus!.hideHint(this.config.name);
       this.hideCoordReadout();
       // Close any open overlays so ✕ handles don't linger after leaving edit
       // mode. Keep the handles registered so a later edit session can close
@@ -673,9 +673,9 @@ class MeasureManager {
     if (this.isEditMode) this.setEditMode(false);
     this.currentMode = null;
     // Clearing the mode restores map-layer interaction (core/mode lock).
-    this.modes.setMode(this.conf.name, null);
+    this.modes.setMode(this.config.name, null);
     this.toolBtns.forEach(btn => btn.classList.remove(CONST.CLASSES.ACTIVE));
-    this.map.foliplus!.hideHint(this.conf.name);
+    this.map.foliplus!.hideHint(this.config.name);
     this.map.getContainer().classList.remove(CONST.CLASSES.MEASURING);
     this.cleanMapEvents();
     // Unregister the high-priority Escape so container-bound shortcuts
@@ -787,7 +787,7 @@ class MeasureManager {
       this.modeInstance.cleanup();
       this.modeInstance = null;
     }
-    this.map.foliplus!.hideHint(this.conf.name);
+    this.map.foliplus!.hideHint(this.config.name);
   }
 }
 
