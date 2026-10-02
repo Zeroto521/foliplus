@@ -38,8 +38,8 @@ from pathlib import Path
 import pytest
 
 HERE = Path(__file__).resolve().parent
-REPO_ROOT = HERE.parent
-SCRIPT = HERE / "style_check.py"
+REPO_ROOT = HERE.parent.parent
+SCRIPT = REPO_ROOT / "script" / "style_check.py"
 
 
 class _ModuleView:

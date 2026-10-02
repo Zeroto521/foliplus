@@ -3,7 +3,7 @@
 // labels (canvas). Both answer the same two questions — which fields a layer
 // offers, and which one to fall back to when the user has not chosen — so the
 // answers live here rather than drifting apart per component.
-import { forEachLeaf } from "./layer/util.js";
+import { walkLeaf } from "./layer/walkLeaf.js";
 
 /**
  * One labelable field found on a layer's features.
@@ -92,7 +92,7 @@ const collectLabelFields = (leaves: Iterable<L.Layer>): LabelField[] => {
  */
 const hasLabelField = (layer: L.Layer): boolean => {
   let found = false;
-  forEachLeaf(layer, leaf => {
+  walkLeaf(layer, leaf => {
     if (found) return;
     const props = leafProperties(leaf);
     if (!props) return;

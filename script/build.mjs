@@ -61,17 +61,17 @@ const BUILD_SPEC = {
   verify: { type: "bool", desc: "Don't build; assert the existing dist/ is complete" },
   sonda: { type: "bool", desc: "Generate sonda bundle report (HTML treemap)" },
 };
-const _raw = parseArgs(process.argv.slice(2), BUILD_SPEC);
-if (_raw.help) {
+const raw = parseArgs(process.argv.slice(2), BUILD_SPEC);
+if (raw.help) {
   console.log(help(BUILD_SPEC));
   process.exit(0);
 }
-if (_raw.errors.length) {
-  console.error(_raw.errors.join("\n"));
+if (raw.errors.length) {
+  console.error(raw.errors.join("\n"));
   console.error(help(BUILD_SPEC));
   process.exit(1);
 }
-const CFG = _raw;
+const CFG = raw;
 CFG.root = resolve(CFG.root);
 
 const srcDir = resolveJsRoot(CFG.root);

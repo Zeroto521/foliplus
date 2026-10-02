@@ -1,6 +1,5 @@
 // LayerControl UI —Inline layer rename.
 import { HINT_DURATION } from "#core/hint.js";
-import { forEachLeaf } from "#core/layer/index.js";
 import {
   createInlineEditInput,
   removeInlineEditInput,
@@ -11,6 +10,7 @@ import type { LayerUI } from "./index.js";
 import { INTENT, setIntent } from "./intent.js";
 import { displayName } from "./rowView.js";
 import { saveNamesState } from "./state.js";
+import { closeOverlays } from "./teardown.js";
 
 /**
  * Turn the layer's label into an inline editable input so the user can
@@ -23,8 +23,9 @@ import { saveNamesState } from "./state.js";
  */
 const renameLayer = (ui: LayerUI, layerId: string): void => {
   if (!layerId || !ui.uiContainer) return;
-  finishRename(ui);
 
+  // Validate before tearing down: an unknown id or a row without a label would
+  // otherwise clear whatever the user had open and then fail to open anything.
   const layerInfo = ui.m.layerRegistry.get(layerId);
   if (!layerInfo) return;
 
@@ -33,6 +34,8 @@ const renameLayer = (ui: LayerUI, layerId: string): void => {
   ) as HTMLElement | null;
   const label = item?.querySelector("label") as HTMLLabelElement | null;
   if (!label) return;
+
+  closeOverlays(ui);
 
   // displayName resolves rename →registry →the color layer's locale label,
   // so the input opens with the name the UI already shows.
@@ -121,7 +124,7 @@ const finishRename = (ui: LayerUI, restoreText = true): void => {
  * Focus the map on a registered layer's bounding box.
  *
  * Best-effort approach:
- * 1. Compute bounds from the layer (fallback: forEachLeaf for containers
+ * 1. Compute bounds from the layer (fallback: walkLeaf for containers
  *    whose getBounds delegates to children).
  * 2. If the layer is not on the map, bring it on temporarily so the bounds
  *    and the visual highlight are consistent with the user's action.

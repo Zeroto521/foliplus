@@ -594,12 +594,14 @@ describe("LayerUI attrs", () => {
     it("Escape prefers the overflow menu over an open attributes panel", () => {
       const item = findItem(ui, "overlay1");
 
-      // openAttrsPanel dismisses the menu it came from, so open both and
-      // rebuild the "menu sits on top" state to exercise the precedence.
-      ui.openAttrsPanel(item);
-      const panel = item.querySelector(".foliplus-layer-attrs-panel")!;
-      ui.activeAttrsPanel = { item, panel, layerId: "overlay1" };
+      // The surfaces are mutually exclusive, so the menu opens first and the
+      // panel is re-attached by hand to rebuild the "menu sits on top" state
+      // the Escape precedence chain is written for.
       ui.openMoreMenu(item);
+      const panel = document.createElement("div");
+      panel.className = CONST.CLASSES.ATTRS_PANEL;
+      item.appendChild(panel);
+      ui.activeAttrsPanel = { item, panel, layerId: "overlay1" };
 
       const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
       checkbox.focus();
