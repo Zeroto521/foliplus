@@ -63,7 +63,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
-      - run: python script/changelog_check.py --path CHANGELOG.md
+      - run: python script/check/changelog_check.py --path CHANGELOG.md
         env:
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"

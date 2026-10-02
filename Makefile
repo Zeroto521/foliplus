@@ -68,9 +68,9 @@ bundle-size-check: build-js
 	npm run bundle-size:check
 
 bundle-gates: build-js
-	node script/bundle-fuse.mjs
+	node script/build/bundle-fuse.mjs
 	@if [ -f base-sizes.json ]; then \
-		node script/bundle-size-check.mjs --baseline=base-sizes.json --enforce; \
+		node script/build/bundle-size-check.mjs --baseline=base-sizes.json --enforce; \
 	else \
 		@echo "No baseline — skipping delta check."; \
 	fi

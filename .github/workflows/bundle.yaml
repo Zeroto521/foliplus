@@ -58,14 +58,14 @@ jobs:
             cd /tmp/base
             make build-js
           )
-          node script/bundle-size-check.mjs --root=/tmp/base --emit=base-sizes.json
+          node script/build/bundle-size-check.mjs --root=/tmp/base --emit=base-sizes.json
           git worktree remove --force /tmp/base
 
       # Absolute cap per artifact — the fuse that fires only on tens-of-KB
       # incidents. Runs on the build produced by `build:sonda` above; the
       # report step below is what publishes the verdict, so the fuse must
       # land before it.
-      - run: node script/bundle-fuse.mjs
+      - run: node script/build/bundle-fuse.mjs
 
       # PR-only. The report must land on the PR no matter what the verdict
       # is, so it is always published before the gate is evaluated. `check`
@@ -81,7 +81,7 @@ jobs:
           # Both sides resolve to their remote branch refs, which `checkout`
           # fetched with `+refs/heads/*:refs/remotes/origin/*`: `origin/<base_ref>`
           # is the tree sampled above, `origin/<head_ref>` is the PR branch tip.
-          node script/bundle-size-check.mjs \
+          node script/build/bundle-size-check.mjs \
             --baseline=base-sizes.json \
             --base="$(git rev-parse "origin/${{ github.base_ref }}")" \
             --head="$(git rev-parse "origin/${{ github.head_ref }}")" \
@@ -107,7 +107,7 @@ jobs:
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         run: |
-          node script/codecov-bundle-upload.mjs \
+          node script/build/codecov-bundle-upload.mjs \
             --root=. \
             --metafile=bundle-metafile.json \
             --bundle-name=foliplus
@@ -137,4 +137,4 @@ jobs:
       - name: Enforce threshold
         if: ${{ github.event.pull_request }}
         run: |
-          node script/bundle-size-check.mjs --baseline=base-sizes.json --enforce
+          node script/build/bundle-size-check.mjs --baseline=base-sizes.json --enforce

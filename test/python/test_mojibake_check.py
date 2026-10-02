@@ -1,4 +1,4 @@
-"""Tests for ``script/mojibake_check.py`` — UTF-8 replacement-character gate.
+"""Tests for ``script/check/mojibake_check.py`` — UTF-8 replacement-character gate.
 
 The hook reads each staged file as raw bytes and fails when it contains
 ``EF BF BD`` (the UTF-8 encoding of U+FFFD). That sequence is a
@@ -23,7 +23,7 @@ import pytest
 
 HERE = Path(__file__).resolve().parent
 REPO_ROOT = HERE.parent.parent
-SCRIPT = REPO_ROOT / "script" / "mojibake_check.py"
+SCRIPT = REPO_ROOT / "script" / "check" / "mojibake_check.py"
 FFFD = b"\xef\xbf\xbd"
 
 
@@ -310,14 +310,18 @@ class TestLossyByteAfterPunctuation:
 
 
 class TestGbkMisread:
-    """UTF-8 decoded as GBK/CP936 — U+951F / U+94A5 / U+922B family."""
+    """UTF-8 decoded as GBK/CP936 — U+951F / U+9225 / U+922B family."""
 
     def test_gbk_replacement_run_is_flagged(self, tmp_path, capsys, monkeypatch):
         f = tmp_path / "gbk.txt"
         f.write_bytes("\u951f\u65a4\u62f7\n".encode("utf-8"))
         assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 1
 
-    def test_gbk_citation_shape_is_flagged(self, tmp_path, capsys, monkeypatch):
+    def test_gbk_em_dash_misread_is_flagged(self, tmp_path, capsys, monkeypatch):
+        """The em-dash ``—`` (UTF-8 ``E2 80 94``) misread as GBK yields
+        U+9225 plus a lossy ``?`` for the truncated trailing byte — the
+        exact shape a non-UTF-8 round-trip leaves behind. The fixture is
+        spelled as an escape so the checker's own test file stays clean."""
         f = tmp_path / "gbk2.txt"
-        f.write_bytes("\u94a5\u00eb\u2019".encode("utf-8"))
+        f.write_bytes("\u9225?\n".encode("utf-8"))
         assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 1

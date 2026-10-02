@@ -16,7 +16,7 @@
  *   - `NAME_LABEL_KEY = "short"` static prop → `<ControlName>.<short>`
  *   - `core/layer/` files → treated as `LayerControl`
  *
- * Usage: `node script/scan-locale-key.mjs [dir]` → JSON array on stdout.
+ * Usage: `node script/check/scan-locale-key.mjs [dir]` → JSON array on stdout.
  *
  * Known gaps (see _DYNAMIC_SUPPLEMENT in test_locale.py):
  *   - Dynamic key construction (template literals, ternaries, map lookups)
@@ -26,7 +26,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 const ROOT =
-  process.argv[2] ?? path.resolve(import.meta.dirname, "..", "foliplus", "js");
+  process.argv[2] ?? path.resolve(import.meta.dirname, "..", "..", "foliplus", "js");
 
 const CONTROLS = [
   "ExportControl",

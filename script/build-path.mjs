@@ -3,10 +3,10 @@
  *
  * Consumers that each used to spell `foliplus/js` (or a full alias table)
  * by hand:
- *   - script/esbuild-config.mjs  esbuild `alias`
+ *   - script/build/esbuild-config.mjs  esbuild `alias`
  *   - vitest.config.mjs         vitest `resolve.alias` (plus `#script`)
- *   - script/build.mjs          `srcDir` for plugins / component discovery
- *   - script/scan-registry.mjs  `srcDir` for the import scan
+ *   - script/build/build.mjs          `srcDir` for plugins / component discovery
+ *   - script/build/scan-registry.mjs  `srcDir` for the import scan
  *   - package.json `imports`    Node resolution — asserted by test
  *
  * #518 was two hand-copied scanners disagreeing; alias tables drift the same
@@ -47,7 +47,7 @@ const pathAliases = root =>
 
 /**
  * Vitest alias table: the shared paths plus `#script`, which only tests use
- * (`import { … } from "#script/merge-css.mjs"`).
+ * (`import { … } from "#script/build/merge-css.mjs"`).
  */
 const testPathAliases = root => ({
   ...pathAliases(root),

@@ -37,7 +37,7 @@ from .locale import LocaleConfig, _load_tables, resolve_locale
 src_dir = Path(__file__).parent
 dist_dir = src_dir / "dist"
 
-# `script/build.mjs` writes this on every real build, listing what actually
+# `script/build/build.mjs` writes this on every real build, listing what actually
 # landed in `dist/`. Both test suites read it instead of re-deriving the
 # artifact names from prose, so a new component can't be forgotten on one
 # side and pass on the other.

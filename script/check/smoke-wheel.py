@@ -20,7 +20,7 @@ broken wheel, because the manifest check reads the install while the
 render reads the checkout. `assert_not_source_checkout()` refuses to run
 in that case rather than silently passing.
 
-Usage: python script/smoke-wheel.py
+Usage: python script/check/smoke-wheel.py
 Raises on the first failure (`SmokeFailure` for a bad artifact set,
 `AssertionError` for a render gap); exits non-zero only through that
 exception, so a traceback in CI means a broken wheel.
@@ -60,7 +60,7 @@ def check_manifest(dist_path: Path) -> list[str]:
     `_load_asset` raises `MissingAssetsError` if a bundle is absent, but only
     for a control that actually gets rendered — a component that lost its
     stylesheet in the wheel would go unnoticed here without this. The
-    manifest is what `script/build.mjs` wrote, so comparing both sides
+    manifest is what `script/build/build.mjs` wrote, so comparing both sides
     catches a component dropped on either end.
     """
     manifest = json.loads((dist_path / "manifest.json").read_text(encoding="utf-8"))
@@ -82,7 +82,7 @@ def artifact_name(name: str, ext: str) -> str:
     """One `dist/` filename for a component name and extension.
 
     The naming scheme is shared with `BaseControl.control_assets()` and
-    `script/build.mjs`; keeping it to one function per file means a rename
+    `script/build/build.mjs`; keeping it to one function per file means a rename
     cannot land on one consumer and miss the other.
     """
 

@@ -5,7 +5,7 @@ import {
   orderCss,
   parseImports,
   stripImports,
-} from "#script/merge-css.mjs";
+} from "#script/build/merge-css.mjs";
 
 /** Build a source from a list of imports plus an optional body. */
 const src = (imports: string[], body = ".x { color: red; }") =>

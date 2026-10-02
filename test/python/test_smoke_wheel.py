@@ -1,4 +1,4 @@
-"""Tests for `script/smoke-wheel.py`, the release CI's wheel verifier.
+"""Tests for `script/check/smoke-wheel.py`, the release CI's wheel verifier.
 
 The script only runs against an installed wheel in the `release` job, but its
 manifest check is pure enough to exercise here — and it is the one assertion
@@ -26,7 +26,7 @@ import pytest
 
 HERE = Path(__file__).resolve().parent
 REPO_ROOT = HERE.parent.parent
-SCRIPT = REPO_ROOT / "script" / "smoke-wheel.py"
+SCRIPT = REPO_ROOT / "script" / "check" / "smoke-wheel.py"
 
 # `locate_controls()` inspects `dir(foliplus)`, so the stub must look like a
 # real package surface. Sorted to match `sorted(dir(...))` inside the script.
@@ -49,7 +49,7 @@ def _make_stub(package_dir: Path | None = None) -> types.ModuleType:
 
 @pytest.fixture
 def smoke():
-    """`script/smoke-wheel.py`, loaded without importing folium or foliplus."""
+    """`script/check/smoke-wheel.py`, loaded without importing folium or foliplus."""
     spec = importlib.util.spec_from_file_location("smoke_wheel", SCRIPT)
     module = importlib.util.module_from_spec(spec)
     assert spec.loader is not None

@@ -144,13 +144,17 @@ const NON_MODULE_TEST_SUBJECTS: Record<string, string> = {
   "vitest.config": "vitest.config.mjs",
 };
 
-// `X.test.ts` has a subject when `X` is a real script module, or `X` is a
-// co-located module in test/js/script/, or a stem on the list above. Anything
-// else is a fossil: a test file named for something that does not exist.
+// `X.test.ts` has a subject when `X` is a real script module (recursively,
+// under script/ or its build|check|tool subdirs), or `X` is a co-located
+// module in test/js/script/, or a stem on the list above. Anything else is a
+// fossil: a test file named for something that does not exist.
 const hasSubject = (stem: string) =>
   ["mjs", "cjs", "js"].some(
     ext =>
-      existsSync(resolve(ROOT, "script", `${stem}.${ext}`)) ||
+      globSync({
+        cwd: ROOT,
+        patterns: [`script/**/${stem}.${ext}`],
+      }).length > 0 ||
       existsSync(resolve(ROOT, "test", "js", "script", `${stem}.${ext}`)),
   ) || stem in NON_MODULE_TEST_SUBJECTS;
 
@@ -215,7 +219,11 @@ const INTENTIONAL_NO_TEST: Record<string, string> = {
 };
 
 const scriptStem = (rel: string) =>
-  rel.replace(/^script\//, "").replace(/\.(mjs|cjs|js)$/, "");
+  rel
+    .replace(/^script\//, "")
+    .replace(/\.(mjs|cjs|js)$/, "")
+    .split("/")
+    .pop() ?? "";
 
 const scriptTestStems = (): Set<string> =>
   new Set(

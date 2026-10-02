@@ -10,14 +10,14 @@ import {
 import { tmpdir } from "os";
 import { join, resolve } from "path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { esbuildCfgFor } from "#script/esbuild-config.mjs";
+import { esbuildCfgFor } from "#script/build/esbuild-config.mjs";
 
 // Vitest runs with the repo root as cwd, same convention bundle-size-check
 // relies on —so dist/ resolves without a parent-directory walk.
 const ROOT = resolve(process.cwd());
 const distDir = resolve(ROOT, "foliplus/dist");
 
-// Artifact names come from dist/manifest.json, which `script/build.mjs`
+// Artifact names come from dist/manifest.json, which `script/build/build.mjs`
 // writes on every real build —the same list `test/python/test_asset.py`
 // asserts wheel membership against. A new component therefore shows up in
 // both stacks without either test hardcoding its name.
@@ -143,8 +143,8 @@ describe("build artifacts", () => {
 // invariant the bundle-size gates rely on: they measure the minified output, so
 // comment noise must never count.
 //
-// The config we inspect comes from script/esbuild-config.mjs —the same factory
-// script/build.mjs calls. Asserting `minify === true` here is what ties the
+// The config we inspect comes from script/build/esbuild-config.mjs —the same factory
+// script/build/build.mjs calls. Asserting `minify === true` here is what ties the
 // "size gates measure compressed bytes" claim to the actual build; without it,
 // someone could set `minify: false` in the real config and every gate would
 // keep passing.

@@ -5,14 +5,14 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   exportNames,
   scanSharedImports as pluginScan,
-} from "#script/global-namespace-plugin.mjs";
+} from "#script/build/global-namespace-plugin.mjs";
 import {
   canonicalSpec,
   collectSources,
   parseImportNames,
   scanSharedImports,
-} from "#script/import-scan.mjs";
-import { registryUsedExports } from "#script/scan-registry.mjs";
+} from "#script/build/import-scan.mjs";
+import { registryUsedExports } from "#script/build/scan-registry.mjs";
 
 /** Write `{ relative path: content }` under `base`. */
 const writeTree = (base: string, files: Record<string, string>) => {
@@ -69,8 +69,8 @@ const canonJson = (map: Record<string, string[]>) =>
 // EQUIVALENCE GATE
 //
 // These expected values are what the two now-merged implementations produced
-// at the branch point 1851af79 (script/scan-registry.mjs:53-119 and
-// script/global-namespace-plugin.mjs:106-161). Captured by running both of
+// at the branch point 1851af79 (script/build/scan-registry.mjs:53-119 and
+// script/build/global-namespace-plugin.mjs:106-161). Captured by running both of
 // them — verbatim copies at .foliplus/old-scan-registry.mjs and
 // .foliplus/old-global-namespace-plugin.mjs — over this corpus with
 // .foliplus/verify-equivalence.mjs. They are frozen as hand-written constants,
