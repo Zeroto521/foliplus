@@ -18,7 +18,7 @@ import {
   report,
   scaffoldControl,
   splitArgv,
-} from "#script/new-control.mjs";
+} from "#script/tool/new-control.mjs";
 
 type NewControlArgs = {
   help: boolean;

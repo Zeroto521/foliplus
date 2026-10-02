@@ -8,7 +8,7 @@
  * has no side effects.
  *
  * Usage:
- *   node script/new-control.mjs FooControl --description="..." --position=topleft --icon=⚙
+ *   node script/tool/new-control.mjs FooControl --description="..." --position=topleft --icon=⚙
  *   npm run new-control -- FooControl
  *
  * Registration points (auto-patched):
@@ -19,11 +19,11 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { dirname, relative, resolve } from "path";
 import { fileURLToPath, pathToFileURL } from "url";
-import { help, parseArgs as parseArgsCore } from "./args.mjs";
-import { FAIL, OK } from "./glyph.mjs";
+import { help, parseArgs as parseArgsCore } from "../args.mjs";
+import { FAIL, OK } from "../glyph.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const ROOT = resolve(__dirname, "..");
+const ROOT = resolve(__dirname, "..", "..");
 
 const SPEC = {
   help: { type: "bool", short: "h", desc: "Show this help" },
@@ -436,7 +436,7 @@ export {
   splitArgv,
 };
 
-// CLI entry point: `node script/new-control.mjs <NameControl> [options]`.
+// CLI entry point: `node script/tool/new-control.mjs <NameControl> [options]`.
 // Guarded so importing this module (for tests) has no side effects.
 /* v8 ignore start -- CLI-only entry point, not exercised by unit tests */
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
@@ -445,12 +445,12 @@ if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) 
     console.log(help(SPEC));
     console.log(`
 Example:
-  node script/new-control.mjs FooControl --description="Foo the map" --icon=🧪`);
+  node script/tool/new-control.mjs FooControl --description="Foo the map" --icon=🧪`);
     process.exit(0);
   }
   if (!opts.name || opts.errors.length) {
     if (opts.errors.length) console.error(opts.errors.join("\n"));
-    console.error("Usage: node script/new-control.mjs <NameControl> [options]");
+    console.error("Usage: node script/tool/new-control.mjs <NameControl> [options]");
     console.error(help(SPEC));
     process.exit(1);
   }
