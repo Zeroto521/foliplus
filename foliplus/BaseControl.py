@@ -40,7 +40,7 @@ dist_dir = src_dir / "dist"
 # landed in `dist/`. Both test suites read it instead of re-deriving the
 # artifact names from prose, so a new component can't be forgotten on one
 # side and pass on the other.
-ARTIFACTS_MANIFEST = dist_dir / "artifacts.json"
+ARTIFACTS_MANIFEST = dist_dir / "manifest.json"
 
 # JS line terminators. Legal JSON, but emitted literally they would end the
 # containing ``<script>`` statement early — folium's ``|tojson`` drops them,

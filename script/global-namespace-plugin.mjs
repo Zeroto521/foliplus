@@ -66,7 +66,7 @@ const collectExports = (filePath, seen = new Set(), depth = 0) => {
  *  runtime-relative dotted form — the string the shared runtime registers
  *  under on `window.foliplus`. Shared between the shim generator (which
  *  prefixes `foliplus.` for the global lookup) and the build script (which
- *  records declared deps in `artifacts.json`) so the two stay in sync.
+ *  records declared deps in `manifest.json`) so the two stay in sync.
  *
  *  `core/hint` is the one exception to the "first path segment" rule: the
  *  runtime publishes it at the top level (`foliplus.hint`, not

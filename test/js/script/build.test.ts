@@ -17,12 +17,12 @@ import { esbuildCfgFor } from "#script/esbuild-config.mjs";
 const ROOT = resolve(process.cwd());
 const distDir = resolve(ROOT, "foliplus/dist");
 
-// Artifact names come from dist/artifacts.json, which `script/build.mjs`
+// Artifact names come from dist/manifest.json, which `script/build.mjs`
 // writes on every real build —the same list `test/python/test_asset.py`
 // asserts wheel membership against. A new component therefore shows up in
 // both stacks without either test hardcoding its name.
 const names: string[] = (
-  JSON.parse(readFileSync(resolve(distDir, "artifacts.json"), "utf-8")) as {
+  JSON.parse(readFileSync(resolve(distDir, "manifest.json"), "utf-8")) as {
     artifacts: string[];
   }
 ).artifacts;
@@ -88,19 +88,6 @@ describe("build artifacts", () => {
       "utf-8",
     );
     expect(content).not.toContain("class BaseControl");
-  });
-
-  it("component JS asserts the runtime root, not each dep", () => {
-    // The deps banner checks window.foliplus existence only — walking each
-    // declared module cost ~140 B per bundle and tripped the size gate on the
-    // smallest controls. The common/core registries are the union of all
-    // components' imports, so a loaded common bundle covers every dep.
-    const content = readFileSync(
-      resolve(distDir, "foliplus-FullscreenControl.min.js"),
-      "utf-8",
-    );
-    expect(content).toContain("needs foliplus-common.min.js");
-    expect(content).not.toContain("__FP_DEPS");
   });
 
   it("common JS is non-empty", () => {

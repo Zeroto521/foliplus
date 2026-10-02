@@ -166,7 +166,7 @@ describe("readSizes", () => {
     const root = mkTmp();
     mkDist(root, {
       "not-min.js": "const x = 1;",
-      "artifacts.json": "{}",
+      "manifest.json": "{}",
       "foliplus-common.min.js": payload(512),
     });
     const sizes = rSizes(root);
