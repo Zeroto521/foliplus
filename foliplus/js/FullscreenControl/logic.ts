@@ -1,13 +1,13 @@
 // FullscreenControl core logic — toggleFullscreen, updateUI, event handling.
-// CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
+// CONFIG is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 import { HINT_DURATION } from "#core/hint.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { getFullscreenEl, isEnabled } from "./api.js";
 import { CLASSES, containerId } from "./const.js";
 import * as SVGs from "./icon.js";
 
-// CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
-const T = createScopedTranslator(CONF);
+// CONFIG is a free variable from the IIFE template wrapper (see BaseControl._get_template).
+const T = createScopedTranslator(CONFIG);
 
 // ══════════════════════════════════════════════════════════════════════════════
 // updateUI (internal)  —  refresh icon, title, sibling/self visibility, hint
@@ -17,18 +17,18 @@ const updateUI = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement) => {
   fsBtn.innerHTML = isFull ? SVGs.MINIMIZE : SVGs.MAXIMIZE;
   fsBtn.title = isFull ? T("title_cancel") : T("title");
 
-  if (CONF.hide_others) {
+  if (CONFIG.hide_others) {
     const controls = map
       .getContainer()
       .querySelectorAll(".leaflet-control, .foliplus-scale-wrap");
-    const cid = containerId(CONF.name, CONF.position as string);
+    const cid = containerId(CONFIG.name, CONFIG.position as string);
     for (const c of controls) {
       if (c.contains(container) || c.closest?.(`#${cid}`)) continue;
       c.classList.toggle(CLASSES.HIDDEN, isFull);
     }
   }
 
-  if (CONF.hide_self) {
+  if (CONFIG.hide_self) {
     const selfBtns = container.querySelectorAll(
       `.${CLASSES.TOGGLE}, .${CLASSES.ZOOM_IN}, .${CLASSES.ZOOM_OUT}`,
     );
@@ -36,7 +36,7 @@ const updateUI = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement) => {
   }
 
   map.foliplus!.showHint?.(
-    CONF.name,
+    CONFIG.name,
     isFull ? T("enter") : T("exit"),
     HINT_DURATION.MEDIUM,
   );
@@ -45,11 +45,11 @@ const updateUI = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement) => {
 // A rejected request must not report the transition that just failed — each
 // branch announces what actually happened to the user instead.
 const showUnsupportedHint = (map: L.Map) => {
-  map.foliplus!.showHint?.(CONF.name, T("unsupported"), HINT_DURATION.MEDIUM);
+  map.foliplus!.showHint?.(CONFIG.name, T("unsupported"), HINT_DURATION.MEDIUM);
 };
 
 const showExitFailHint = (map: L.Map) => {
-  map.foliplus!.showHint?.(CONF.name, T("exit_fail"), HINT_DURATION.MEDIUM);
+  map.foliplus!.showHint?.(CONFIG.name, T("exit_fail"), HINT_DURATION.MEDIUM);
 };
 
 // ══════════════════════════════════════════════════════════════════════════════

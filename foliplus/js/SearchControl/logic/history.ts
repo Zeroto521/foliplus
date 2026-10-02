@@ -59,7 +59,7 @@ type StoredHistoryEntry = Partial<SearchHistoryEntry> & { label?: string };
 // binding is stateless from the caller's point of view — saveHistory is still
 // the public entry point. Load is explicit via loadHistory() below.
 // `persistName` is set by saveHistory/flushHistory before schedule/flush so the
-// closure reads the correct component name without a module-level CONF free variable.
+// closure reads the correct component name without a module-level CONFIG free variable.
 let persistName = "";
 const historyPersist = makePersisted({
   save: () =>
@@ -76,7 +76,7 @@ let pendingHistory: SearchHistoryEntry[] = [];
 const loadHistory = (ctrl: SearchControlCtx): SearchHistoryEntry[] =>
   loadHistoryRows(
     Storage.loadVersioned<StoredHistoryEntry>(HISTORY.STORAGE_KEY, {
-      name: ctrl.conf.name,
+      name: ctrl.config.name,
       dataField: "entries",
     }),
   );
@@ -110,7 +110,7 @@ const loadHistoryRows = (data: StoredHistoryEntry[] | null): SearchHistoryEntry[
 
 const saveHistory = (ctrl: SearchControlCtx, entries: SearchHistoryEntry[]): void => {
   pendingHistory = entries;
-  persistName = ctrl.conf.name;
+  persistName = ctrl.config.name;
   historyPersist.schedule();
 };
 
@@ -118,7 +118,7 @@ const saveHistory = (ctrl: SearchControlCtx, entries: SearchHistoryEntry[]): voi
  *  nothing is pending (write-through). Called by destroy before the in-memory
  *  array is cleared, so a last search before unmount is durable. */
 const flushHistory = (ctrl: SearchControlCtx): void => {
-  persistName = ctrl.conf.name;
+  persistName = ctrl.config.name;
   historyPersist.flush();
 };
 
@@ -199,12 +199,12 @@ const renderHistory = (ctrl: SearchControlCtx, mode: SearchType) => {
       query: reEntry,
       coordDisplay: entry.coordDisplay || null,
       onClick: () => {
-        if (guardBlocked(map, ctrl.conf.name, ctrl.T("blocked"))) return false;
+        if (guardBlocked(map, ctrl.config.name, ctrl.T("blocked"))) return false;
         ctrl.inp.value = reEntry;
         const converted = fromWgs84(map, entry.lng, entry.lat);
         const lng = converted[0];
         const lat = converted[1];
-        map.flyTo([lat, lng], ctrl.conf.zoom ?? ZOOM.MAX);
+        map.flyTo([lat, lng], ctrl.config.zoom ?? ZOOM.MAX);
         ctrl.marker = createLocationMarker(
           map,
           lng,
@@ -215,7 +215,7 @@ const renderHistory = (ctrl: SearchControlCtx, mode: SearchType) => {
           ctrl.T("popup_loc_label"),
           ctrl.T("popup_addr_label"),
           ctrl._("foliplus.close_label"),
-          ctrl.conf.locale_code,
+          ctrl.config.locale_code,
           ctrl.marker,
         );
         attachSearchDelIcon(ctrl, [lat, lng]);

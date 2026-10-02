@@ -368,7 +368,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       // Zoom range is LayerControl-owned: reset to the full map range.
       resetLayerZoomRange(ui, layerId);
       if (delegated) {
-        // Call each setter with its Python CONF default. The components own
+        // Call each setter with its Python CONFIG default. The components own
         // the values — never write localStorage or annotation config here.
         const li = ui.m.layerRegistry.get(layerId);
         const setters = li?.styleSetters;

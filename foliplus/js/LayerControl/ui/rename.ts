@@ -72,7 +72,7 @@ const renameLayer = (ui: LayerUI, layerId: string): void => {
       // Escape is an intentional abandon —stay silent.
       if (reason === "empty") {
         ui.m.map.foliplus!.showHint(
-          ui.conf.name,
+          ui.config.name,
           ui.T("rename_empty"),
           HINT_DURATION.SHORT,
         );

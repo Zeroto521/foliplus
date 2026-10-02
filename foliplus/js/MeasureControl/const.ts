@@ -121,7 +121,7 @@ const EXPORT_FORMAT = {
   CSV: "csv",
 } as const;
 
-/** Default format for `CONF.export_format` — used when the value is missing
+/** Default format for `CONFIG.export_format` — used when the value is missing
  * or unknown. Python's `MeasureControl` rejects anything outside
  * `EXPORT_FORMAT`, so this only guards misconfiguration. */
 const DEFAULT_EXPORT_FORMAT: ExportFormat = EXPORT_FORMAT.GEOJSON;

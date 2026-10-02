@@ -75,8 +75,8 @@ import {
 
 // One creation per rendered IIFE; instances only forward (`this.T = T`),
 // keeping the per-instance injection seam the UI tests rely on.
-const T = createScopedTranslator(CONF);
-const _ = createTranslator(CONF);
+const T = createScopedTranslator(CONFIG);
+const _ = createTranslator(CONFIG);
 
 /** UI Controller for LayerControl. */
 class LayerUI {
@@ -85,9 +85,9 @@ class LayerUI {
    *  return the cached instance, so hold it like the logger does). */
   events: EventBus;
   /** Component config — carried on the instance so the ui/* modules read it
-   *  from `ui.conf` instead of a module-level free variable. */
-  conf: ComponentConfig;
-  /** Translator bound to `conf`, forwarded from the module const. */
+   *  from `ui.config` instead of a module-level free variable. */
+  config: ComponentConfig;
+  /** Translator bound to `config`, forwarded from the module const. */
   T: (key: string) => string;
   /** Unscoped translator for the shared `foliplus.*` vocabulary (the label
    *  controls the style panel shares with HeatmapControl). Kept beside `T` so
@@ -204,7 +204,7 @@ class LayerUI {
   constructor(manager: LayerManager) {
     this.manager = manager;
     this.events = ensureEvents(this.m.map);
-    this.conf = CONF;
+    this.config = CONFIG;
     this.T = T;
     this._ = _;
     this.foldedGroups = new Set();

@@ -13,7 +13,7 @@ import type {
   SelectedPoint,
 } from "./type.js";
 
-const log = createLogger(CONF.name);
+const log = createLogger(CONFIG.name);
 
 /** Resolve the H3 resolution for a map zoom level. */
 const getH3Res = (zoom: number): number => {

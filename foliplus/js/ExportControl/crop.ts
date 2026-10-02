@@ -161,7 +161,7 @@ const checkPixelLimit = function (this: ExportManager, r: CropRect) {
   // DPI). The override of r.width/r.height happens in doRender, so the
   // check here matches the actual exported dimensions.
   const totalPixels = Math.round(r.width) * Math.round(r.height);
-  this.pixelOverLimit = CONF.max_pixels != null && totalPixels > CONF.max_pixels;
+  this.pixelOverLimit = CONFIG.max_pixels != null && totalPixels > CONFIG.max_pixels;
 };
 
 const onPointerDown = function (this: ExportManager, event: PointerEvent) {

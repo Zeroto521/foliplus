@@ -21,9 +21,9 @@ interface HeatmapControlUI {
     options?: AddEventListenerOptions,
   ) => () => void;
   /** Component config — carried on the state object instead of a module-level
-   *  free variable, so every UI function is unit-testable with its own CONF. */
-  conf: ComponentConfig;
-  /** Translator bound to `conf`, created once by the control / test fixture. */
+   *  free variable, so every UI function is unit-testable with its own CONFIG. */
+  config: ComponentConfig;
+  /** Translator bound to `config`, created once by the control / test fixture. */
   T: (key: string) => string;
   ctrl: HTMLElement;
   schemeDropdown: HTMLElement | null;
@@ -108,7 +108,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   ctrl.aggSelect.value = ctrl.m.currentAgg;
 
   // Populate scheme options and set current value
-  (ctrl.conf.schemes ?? []).forEach(name => {
+  (ctrl.config.schemes ?? []).forEach(name => {
     dom.el("option", { value: name, parent: ctrl.schemeSelectHidden }, name);
   });
   ctrl.schemeSelectHidden.value = ctrl.m.currentScheme;
@@ -155,7 +155,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   ctrl.schemeBarCleanup = registerSchemeBarEvents(ctrl.m.map, ctrl);
   ctrl.toggleDropdown = () => toggleSchemeDropdown(ctrl);
   ctrl.selectScheme = (idx: number) => {
-    const name = (ctrl.conf.schemes ?? [])[idx];
+    const name = (ctrl.config.schemes ?? [])[idx];
     if (name) selectScheme(ctrl, name);
   };
 
@@ -372,7 +372,7 @@ const toggleSchemeDropdown = (ctrl: HeatmapControlUI) => {
   });
 
   let focusIdx = -1;
-  (ctrl.conf.schemes ?? []).forEach((name: string, idx: number) => {
+  (ctrl.config.schemes ?? []).forEach((name: string, idx: number) => {
     const item = dom.el("div", {
       class: CONST.CLASSES.SCHEME_DROPDOWN_ITEM,
       role: "option",
@@ -468,7 +468,7 @@ const initScan = (ctrl: HeatmapControlUI): (() => void) => {
       // added), whereas true means LayerControl is present but has no data.
       const missingLayerControl = !ctrl.m.map.foliplus?.LayerAPI?.isLayerControl;
       ctrl.m.map.foliplus!.showHint(
-        ctrl.conf.name,
+        ctrl.config.name,
         ctrl.T(missingLayerControl ? "no_layercontrol" : "no_layer"),
         HINT_DURATION.LONG,
       );
@@ -502,7 +502,7 @@ const initScan = (ctrl: HeatmapControlUI): (() => void) => {
  *  panel's Clear button and the LAYER_DELETED path (LayerControl's more-menu
  *  clear) so clearing the heatmap reads the same way from either entry. */
 const resetPanel = (ctrl: HeatmapControlUI) => {
-  ctrl.m.resetState(ctrl.conf);
+  ctrl.m.resetState(ctrl.config);
   ctrl.m.clearHeatmapCanvas();
   // Read the reset values off the manager instead of recomputing the defaults —
   // resetState is the single source, and bindControls' initial clamp (see above)
