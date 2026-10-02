@@ -1,4 +1,4 @@
-// SearchControl search/suggestion logic — geocoding, suggestions, result panel
+// SearchControl search/suggestion logic �?geocoding, suggestions, result panel
 // and the result marker. Moved from logic.ts; history lives in ./history.ts.
 import { fromWgs84, toWgs84 } from "#core/geo/index.js";
 import {
@@ -13,11 +13,11 @@ import type {
   SuggestItem,
 } from "#core/geocode/index.js";
 import { HINT_DURATION } from "#core/hint.js";
+import { DEL_ICON_MARKER_ANCHOR } from "#core/leaflet/delicon.js";
+import { mountDelIcon } from "#core/leaflet/deliconMount.js";
 import { createLocationMarker } from "#core/locationMarker.js";
 import { guardBlocked } from "#core/mode.js";
 import { debounce } from "#common/debounce.js";
-import { DEL_ICON_MARKER_ANCHOR } from "#common/delicon.js";
-import { mountDelIcon } from "#common/deliconMount.js";
 import { dom } from "#common/dom.js";
 import { fetchWithTimeout } from "#common/fetch.js";
 import { formatLatLng } from "#common/format.js";
@@ -51,8 +51,8 @@ const providerArgs = (
 // ── Marker ───────────────────────────────────────────────────────
 
 /**
- * Attach a floating ✕ delete icon to the search marker.
- * The ✕ shows while the popup is open; clicking it removes the pin and
+ * Attach a floating �?delete icon to the search marker.
+ * The �?shows while the popup is open; clicking it removes the pin and
  * clears the search input, mirroring MeasureControl / LocateControl UX.
  */
 const attachSearchDelIcon = (ctrl: SearchControlCtx, latlng: L.LatLngExpression) => {
@@ -72,7 +72,7 @@ const attachSearchDelIcon = (ctrl: SearchControlCtx, latlng: L.LatLngExpression)
     ctrl.inp.value = "";
     ctrl.inp.focus();
   };
-  // The ✕ is hidden by default and only appears while the popup is open,
+  // The �?is hidden by default and only appears while the popup is open,
   // matching MeasureControl / LocateControl marker UX.
   ctrl.delIcon = mountDelIcon(
     latlng,
@@ -143,7 +143,7 @@ const searchCoord = (ctrl: SearchControlCtx, raw: string) => {
       }
     })
     .catch(() => {
-      // Reverse geocode failed — coord-only entry already saved above
+      // Reverse geocode failed �?coord-only entry already saved above
     });
 };
 
@@ -177,7 +177,7 @@ const searchAddress = (ctrl: SearchControlCtx, query: string) => {
         ctrl.inp.value = "";
         return;
       }
-      // result is already in map CRS — render directly; convert back to
+      // result is already in map CRS �?render directly; convert back to
       // WGS84 for history storage (history entries are stored in WGS84).
       // renderAddressResult refuses (returns false) if another control now
       // holds a mode while the geocode request was in flight; gate the
@@ -425,7 +425,7 @@ const fetchSuggestions = (ctrl: SearchControlCtx, query: string) => {
   // it can outlive the request that produced it. A hit only renders when the
   // input still reads the query: a stale caller must neither paint the panel
   // nor fall through to a refetch of a string nobody is looking at. Only a
-  // request may retire an entry — renderSuggestions overwrites on a hit.
+  // request may retire an entry �?renderSuggestions overwrites on a hit.
   if (cached) {
     if (compareWithInput(ctrl, query)) renderSuggestions(ctrl, cached, query);
     return;
@@ -502,7 +502,7 @@ const fetchSuggestions = (ctrl: SearchControlCtx, query: string) => {
       }
     });
   // Fire-and-forget: a rejection raised while settling the handlers above
-  // (removePanel or the log) would otherwise go unobserved. Swallow it — the
+  // (removePanel or the log) would otherwise go unobserved. Swallow it �?the
   // fetch outcome is already handled, and swallowing keeps a late reject from
   // escaping as an unhandled rejection after the control has unloaded.
   void suggestRequest.catch(() => undefined);
@@ -517,7 +517,7 @@ const initDebouncedFetch = (ctrl: SearchControlCtx) => {
 
 const buildSearchUrl = (ctrl: SearchControlCtx, q: string, limit: number) => {
   const center = map.getCenter();
-  // Providers expect WGS84 bias coordinates — convert from the map CRS.
+  // Providers expect WGS84 bias coordinates �?convert from the map CRS.
   const wgs = toWgs84(map, center.lng, center.lat);
   return getProvider(ctrl.config).suggest(
     q,

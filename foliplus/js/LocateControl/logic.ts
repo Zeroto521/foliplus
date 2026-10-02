@@ -1,10 +1,10 @@
-// LocateControl locate logic — locate me via the browser geolocation API.
+// LocateControl locate logic �?locate me via the browser geolocation API.
 import { fromWgs84 } from "#core/geo/index.js";
 import { HINT_DURATION } from "#core/hint.js";
+import { DEL_ICON_MARKER_ANCHOR } from "#core/leaflet/delicon.js";
+import { mountDelIcon } from "#core/leaflet/deliconMount.js";
 import { createLocationMarker } from "#core/locationMarker.js";
 import { guardBlocked } from "#core/mode.js";
-import { DEL_ICON_MARKER_ANCHOR } from "#common/delicon.js";
-import { mountDelIcon } from "#common/deliconMount.js";
 import { formatCoord } from "#common/format.js";
 
 /** Minimal ctrl interface for locate logic. `T`, `_` and `config` come from
@@ -19,7 +19,7 @@ interface LocateCtrl {
   config: ComponentConfig;
 }
 
-/** Toggle the button's loading state — spinner while geolocation resolves. */
+/** Toggle the button's loading state �?spinner while geolocation resolves. */
 const setLocating = (ctrl: LocateCtrl, locating: boolean): void => {
   ctrl.btn.classList.toggle("loading", locating);
 };
@@ -60,7 +60,7 @@ const placeMarker = (ctrl: LocateCtrl, lng: number, lat: number, titleKey: strin
     undefined,
   );
 
-  // Floating ✕ next to the pin: shown while the popup is open (popupopen),
+  // Floating �?next to the pin: shown while the popup is open (popupopen),
   // hidden otherwise (popupclose), matching MeasureControl's marker UX.
   ctrl.delIcon = mountDelIcon(
     [lat, lng],

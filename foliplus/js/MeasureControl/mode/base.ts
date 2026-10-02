@@ -1,6 +1,6 @@
 import type { ControlEnv } from "#core/defineControl.js";
-import { toggleDelIcon } from "#common/delicon.js";
-import { mountDelIcon as mountDelIconShared } from "#common/deliconMount.js";
+import { toggleDelIcon } from "#core/leaflet/delicon.js";
+import { mountDelIcon as mountDelIconShared } from "#core/leaflet/deliconMount.js";
 import type { Logger } from "#common/log.js";
 import * as CONST from "../const.js";
 import { buildEditOverlay } from "../edit.js";
@@ -9,7 +9,7 @@ import * as Util from "../util.js";
 
 class MeasureMode {
   static TYPE: string = "";
-  /** English display name — used in exported GeoJSON properties.name (data stays
+  /** English display name �?used in exported GeoJSON properties.name (data stays
    *  portable for external GIS tools). Subclasses override. */
   static NAME_LABEL: string = "";
   /** Locale key for the CSV display name (human-readable). Subclasses override. */
@@ -28,12 +28,12 @@ class MeasureMode {
   map: L.Map;
   layers: CreateLayersAPI;
   _cleanup: (() => void) | null;
-  /** Config, translators and logger are the manager's — one translation table
+  /** Config, translators and logger are the manager's �?one translation table
    *  per control instance, not per mode. */
   config: ComponentConfig;
   /** Scoped translator (prepending config.name). */
   T: (key: string) => string;
-  /** Plain translator (no prefix) — NAME_LABEL_KEY identity comparison
+  /** Plain translator (no prefix) �?NAME_LABEL_KEY identity comparison
    *  requires the exact short key when no locale table exists. */
   _: (key: string) => string;
   log: Logger;
@@ -59,12 +59,12 @@ class MeasureMode {
     return (this.constructor as typeof MeasureMode).TYPE;
   }
 
-  /** Start the mode — bind events, create UI. Subclasses must override. */
+  /** Start the mode �?bind events, create UI. Subclasses must override. */
   start(): void {
     throw new Error(this.log.msg(`start not implemented for ${this.type}`));
   }
 
-  /** Cleanup — unbind events, remove temporary elements. */
+  /** Cleanup �?unbind events, remove temporary elements. */
   cleanup(): void {
     if (this._cleanup) {
       this._cleanup();
@@ -113,7 +113,7 @@ class PreviewMode extends MeasureMode {
    * Track a preview layer (adds to layer group + tracks for cleanup).
    *
    * `paneName` is forwarded to `addLayer`; omit it for geometry, which lands
-   * in the base pane. Labels must pass `CONST.PANES.LABEL` explicitly — an
+   * in the base pane. Labels must pass `CONST.PANES.LABEL` explicitly �?an
    * omitted name silently defaults to the base pane, where a label competes
    * for SVG paint order with the geometry instead of sitting above it by pane
    * ordering.
@@ -122,9 +122,9 @@ class PreviewMode extends MeasureMode {
     this.previewLayers.push(layer);
     this.layers.addLayer(layer, paneName);
     // The preview is a drawing aid, not content: an export started mid-drawing
-    // must not freeze it in the picture.  Every preview funnels through here —
+    // must not freeze it in the picture.  Every preview funnels through here �?
     // pinToTop and moveCursorNode rebuild by remove + re-add, which is the same
-    // call — so one stamp covers the rebuilds too.  Duck-checked rather than
+    // call �?so one stamp covers the rebuilds too.  Duck-checked rather than
     // instanceof: a non-element layer simply has no getElement and is skipped.
     const el = (layer as { getElement?: () => HTMLElement | null }).getElement?.();
     el?.classList.add(CONST.CLASSES.SKIP_EXPORT);
@@ -145,18 +145,18 @@ class PreviewMode extends MeasureMode {
   }
 
   /**
-   * Re-attach a preview layer so it becomes the newest sibling in its pane —
+   * Re-attach a preview layer so it becomes the newest sibling in its pane �?
    * i.e. it paints above earlier siblings within that pane.
    *
    * Preview shapes update their coordinates with `setLatLngs`, which triggers
-   * Leaflet's `_updatePath` → `setPane` and pushes that `<path>` to the tail
+   * Leaflet's `_updatePath` �?`setPane` and pushes that `<path>` to the tail
    * of `_rootGroup` every frame. Markers moved with `setLatLng` do not
    * participate in that re-sort, so within the label pane the preview label
    * would drop under previously-confirmed labels after a few mousemoves.
    * Remove + re-add keeps the moving label the newest sibling.
    *
    * Pane-level z-order (graph < node < label) already keeps nodes above
-   * shapes and labels above nodes — this only orders siblings *within* a pane.
+   * shapes and labels above nodes �?this only orders siblings *within* a pane.
    *
    * Remove + re-add is used rather than `bringToFront()` because the latter
    * reaches into Leaflet's private `_rootGroup`, while re-adding only relies
@@ -169,7 +169,7 @@ class PreviewMode extends MeasureMode {
 
   /**
    * The transient hollow cursor dot shown while a preview shape is being
-   * drawn — distance's trailing endpoint, polygon's next vertex, circle's
+   * drawn �?distance's trailing endpoint, polygon's next vertex, circle's
    * radius endpoint.
    *
    * Lives in the node pane (above the graph pane's shapes by z-order, below
@@ -226,18 +226,18 @@ class PreviewMode extends MeasureMode {
  * MeasureControl's delete-icon mount: the shared `mountDelIcon` pinned to the
  * node pane. Kept as a thin wrapper because its six call sites (distance,
  * polygon ×2, marker, circle ×2) pass the layers API first, while the shared
- * helper takes a mounter — that is the only difference between Measure and
+ * helper takes a mounter �?that is the only difference between Measure and
  * Locate/Search.
- * `toggleDelIcon` and `layers.removeLayer` stay generic — callers use them
+ * `toggleDelIcon` and `layers.removeLayer` stay generic �?callers use them
  * directly when toggling visibility or tearing down.
  */
 const mountDelIcon = (
   layers: CreateLayersAPI,
   latlng: L.LatLngExpression,
   opts: { title?: string; iconAnchor?: [number, number] },
-  /** Omit for pure create+mount (no click handler) — circle wires delete in
+  /** Omit for pure create+mount (no click handler) �?circle wires delete in
    *  attachCircleUI. Pass a thunk (or a createDeferredDelete onDelete) when
-   *  the mount should own the ✕ click. */
+   *  the mount should own the �?click. */
   onDelete?: () => void,
 ): L.Marker =>
   mountDelIconShared(latlng, opts, m => layers.addLayer(m, CONST.PANES.NODE), onDelete);
@@ -263,7 +263,7 @@ const createDeferredDelete = (): {
 
 /**
  * Register a finalized cleanup and build the shared delete-then-teardown
- * path: unregister → teardown → removeLayers → business delete →
+ * path: unregister �?teardown �?removeLayers �?business delete �?
  * `layers.unregister`. Callers own what `teardown` / `removeLayers` /
  * `onDelete` do; this hook owns only the registerFinalized bookkeeping so
  * `attachDelLifecycle` and `MarkerMode.finalize` don't each re-implement it.
@@ -302,11 +302,11 @@ const wireFinalized = (
  * owns the overlay and the registerFinalized handle so the three attachXUI
  * builders don't each re-implement the same 5-line skeleton.
  *
- * `delMarkers` is the ✕ handle set the default onOpen/onEmpty toggle —
+ * `delMarkers` is the �?handle set the default onOpen/onEmpty toggle �?
  * distance passes its nodeDelMarkers, circle passes a single-element array.
- * Callers needing side effects (e.g. polygon's centroid ✕, marker's popup
+ * Callers needing side effects (e.g. polygon's centroid �? marker's popup
  * close) supply their own onOpen/onEmpty. DOM construction stays in the
- * caller — this hook only wires lifecycle.
+ * caller �?this hook only wires lifecycle.
  */
 const attachDelLifecycle = (
   mgr: MeasureManager,

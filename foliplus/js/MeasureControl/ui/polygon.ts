@@ -1,5 +1,5 @@
-// MeasureControl polygon UI — finalized polygon edit bindings: nodes, segment labels, centroid, drag, overlay, delete.
-import { toggleDelIcon } from "#common/delicon.js";
+// MeasureControl polygon UI �?finalized polygon edit bindings: nodes, segment labels, centroid, drag, overlay, delete.
+import { toggleDelIcon } from "#core/leaflet/delicon.js";
 import { stopEvent } from "#common/dom.js";
 import * as CONST from "../const.js";
 import { bindNodeDrag, markDragSyntheticClick } from "../edit.js";
@@ -24,7 +24,7 @@ interface PolygonAttachOpts {
   onUpdate: () => void;
   points: L.LatLng[];
   area: number;
-  /** Measurement id — groups this measurement's edit registrations. */
+  /** Measurement id �?groups this measurement's edit registrations. */
   id: string;
 }
 
@@ -111,7 +111,7 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
   const rebuildCentroid = (currentArea?: number) => {
     const area = currentArea !== undefined ? currentArea : initArea;
     const centroid = Util.centroid(points);
-    // The centroid dot is a CircleMarker (SVG path) in the node pane —
+    // The centroid dot is a CircleMarker (SVG path) in the node pane �?
     // same approach as the circle center. The node pane paints above the
     // graph pane by pane z-index, so the dot always covers the fill.
     // The centroid label lives in the label pane (z = graph + 2), which
@@ -146,7 +146,7 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
   };
 
   // Drag is gated by edit mode (not the overlay), so nodes are draggable as
-  // soon as edit mode is on — no click-first required.
+  // soon as edit mode is on �?no click-first required.
   unregisterDragToggle = mgr.registerEditDragToggle(
     enabled => dragBinds.forEach(db => db.setEnabled(enabled)),
     id,
@@ -230,7 +230,7 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
 
   // Dragging the centroid translates the whole polygon (mirrors the circle
   // center drag). Pushed AFTER the node binds so dragBinds[i] lines up with
-  // nodeMarkers[i] — the node-delete handler splices by node index.
+  // nodeMarkers[i] �?the node-delete handler splices by node index.
   dragBinds.push(
     bindNodeDrag(centroidDot!, centroidDelMarker, mgr.map, {
       onDrag: (latlng: L.LatLng) => {

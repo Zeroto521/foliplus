@@ -1,12 +1,12 @@
 import { defineControl } from "#core/defineControl.js";
 import { requireLayerAPI } from "#core/layer/index.js";
-import { createFoldControl } from "#common/panel.js";
+import { createFoldControl } from "#core/leaflet/panel.js";
 import * as SVGs from "./icon.js";
 import { ExportManager } from "./manager.js";
 
 // Browser tests inject a synchronous rafLoop scheduler on window before
 // instantiation to make rafLoop deterministic (see
-// TestExportControlBrowser._make_page) â€” typed locally, not as a runtime
+// TestExportControlBrowser._make_page) â€?typed locally, not as a runtime
 // global, because this hook is test-only.
 type ExportScheduler = (fn: () => void, ms: number) => ReturnType<typeof setTimeout>;
 

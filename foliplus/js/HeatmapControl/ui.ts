@@ -1,9 +1,9 @@
-// HeatmapControl UI building — standalone functions.
+// HeatmapControl UI building �?standalone functions.
 // All internal refs use direct function calls instead of `this.`.
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
+import { adjustPanelZIndex } from "#core/leaflet/panel.js";
 import { dom } from "#common/dom.js";
-import { adjustPanelZIndex } from "#common/panel.js";
 import * as CONST from "./const.js";
 import { registerDropdownEvents, registerSchemeBarEvents } from "./interaction.js";
 import { HeatmapManager } from "./manager.js";
@@ -12,7 +12,7 @@ import { panelContentHTML } from "./template.js";
 /** Shape of the HeatmapControl instance as consumed by UI functions. */
 interface HeatmapControlUI {
   m: HeatmapManager;
-  /** BaseControl.on — DOM listeners bound through the control's mounting
+  /** BaseControl.on �?DOM listeners bound through the control's mounting
    *  signal, so a removed control tears them down with everything else. */
   on: (
     target: EventTarget,
@@ -20,7 +20,7 @@ interface HeatmapControlUI {
     fn: EventListenerOrEventListenerObject,
     options?: AddEventListenerOptions,
   ) => () => void;
-  /** Component config — carried on the state object instead of a module-level
+  /** Component config �?carried on the state object instead of a module-level
    *  free variable, so every UI function is unit-testable with its own CONFIG. */
   config: ComponentConfig;
   /** Translator bound to `config`, created once by the control / test fixture. */
@@ -45,7 +45,7 @@ interface HeatmapControlUI {
   schemeBarInner: HTMLElement;
   schemeSelectHidden: HTMLSelectElement;
   /** Takes `Event`, not `MouseEvent`, because it is handed to `on()` as an
-   *  `EventListener` — only `.target` is read. */
+   *  `EventListener` �?only `.target` is read. */
   closeSchemeDropdown: (event: Event) => void;
   toggleSchemeDropdown: () => void;
 }
@@ -53,7 +53,7 @@ interface HeatmapControlUI {
 /** Save the current config after any user-initiated change. */
 const persist = (ctrl: HeatmapControlUI) => {
   ctrl.m.saveConfig();
-  // Field/layer changes rewrite the canvas — mirror source layer + field into
+  // Field/layer changes rewrite the canvas �?mirror source layer + field into
   // the attrs panel and stamp Updated so the panel tracks the latest render.
   ctrl.m.syncSourceMeta();
 };
@@ -237,7 +237,7 @@ const buildLayerListItems = (ctrl: HeatmapControlUI, sel: HTMLSelectElement) => 
   // Auto-select a single point layer only on the very first scan, so the
   // initial map load shows its heatmap without user input.  Rebuilds
   // triggered later (zoomend, layeradd/layerremove, map reload) must not
-  // re-fire this — otherwise a user's manual clear keeps being overridden.
+  // re-fire this �?otherwise a user's manual clear keeps being overridden.
   if (
     !ctrl.m.hasScanned &&
     ctrl.m.pointLayers.length === 1 &&
@@ -250,11 +250,11 @@ const buildLayerListItems = (ctrl: HeatmapControlUI, sel: HTMLSelectElement) => 
     ctrl.m.renderHexagons();
   } else if (ctrl.m.selectedLayerId) {
     // Restored selection (localStorage / rebuild): resolve the field list
-    // first so autoFieldKey is fresh — syncSourceMeta reads it under currentField.
+    // first so autoFieldKey is fresh �?syncSourceMeta reads it under currentField.
     updateFieldSelector(ctrl);
   }
 
-  // Selection (auto, restored, or user) and field resolution are settled here —
+  // Selection (auto, restored, or user) and field resolution are settled here �?
   // publish source-layer / agg-field so the attrs panel is current without a
   // further user edit.
   ctrl.m.syncSourceMeta();
@@ -426,8 +426,8 @@ const selectScheme = (ctrl: HeatmapControlUI, name: string) => {
 /**
  * Scan the map for point layers. Driven by the ready signal instead of a
  * retry loop: an immediate first pass, a re-scan on every CONTROL_ATTACHED
- * (a control — usually LayerControl — finishing attach), and a final pass
- * one macrotask later to settle the "no point layers" hint — every control
+ * (a control �?usually LayerControl �?finishing attach), and a final pass
+ * one macrotask later to settle the "no point layers" hint �?every control
  * attaches in the same synchronous script stack, so by then the layer set is
  * final (dynamic layer changes after that flow through LAYER_CHANGE in the
  * manager). Returns a cleanup that unsubscribes.
@@ -442,7 +442,7 @@ const initScan = (ctrl: HeatmapControlUI): (() => void) => {
     } catch {
       // scanMapLayers may throw when LayerControl is missing (e.g.
       // map.foliplus.LayerAPI is the lightweight stub that lacks the
-      // full registry methods). The error is harmless — we just
+      // full registry methods). The error is harmless �?we just
       // treat it as "no layers found" and continue to the hint logic.
     }
     if (ctrl.m.pointLayers.length > 0) {
@@ -451,7 +451,7 @@ const initScan = (ctrl: HeatmapControlUI): (() => void) => {
       // one-shot single-layer auto-select inside buildLayerListItems can
       // still fire for the initial map load but never again afterwards.
       ctrl.m.hasScanned = true;
-      // Restore path: rebuild only syncs the dropdown value — refresh the
+      // Restore path: rebuild only syncs the dropdown value �?refresh the
       // field selector and draw the saved layer so a reload shows the saved
       // configuration without waiting for user input.
       if (ctrl.m.selectedLayerId) {
@@ -485,7 +485,7 @@ const initScan = (ctrl: HeatmapControlUI): (() => void) => {
   // Settle after the synchronous attach sequence: a control that attached
   // before this subscription (e.g. LayerControl added before Heatmap) is
   // covered by the immediate pass below; the final pass here ends the
-  // initial scan. No fixed delay — the attach stack is synchronous.
+  // initial scan. No fixed delay �?the attach stack is synchronous.
   setTimeout(() => scan(true), 0);
 
   scan(false);
@@ -497,14 +497,14 @@ const initScan = (ctrl: HeatmapControlUI): (() => void) => {
   };
 };
 
-/** Reset the panel to its initial state — manager state back to the declared
+/** Reset the panel to its initial state �?manager state back to the declared
  *  defaults, canvas wiped, every dropdown on its placeholder. Shared by the
  *  panel's Clear button and the LAYER_DELETED path (LayerControl's more-menu
  *  clear) so clearing the heatmap reads the same way from either entry. */
 const resetPanel = (ctrl: HeatmapControlUI) => {
   ctrl.m.resetState(ctrl.config);
   ctrl.m.clearHeatmapCanvas();
-  // Read the reset values off the manager instead of recomputing the defaults —
+  // Read the reset values off the manager instead of recomputing the defaults �?
   // resetState is the single source, and bindControls' initial clamp (see above)
   // is the one the class select needs.
   syncSelect(ctrl, ctrl.layerSelect, "");
@@ -523,7 +523,7 @@ const resetPanel = (ctrl: HeatmapControlUI) => {
   ctrl.schemeSelectHidden.value = ctrl.m.currentScheme;
   updateSchemeBar(ctrl);
   updateFieldSelector(ctrl);
-  // Drop the published source rows — the canvas unregisters on clear, but the
+  // Drop the published source rows �?the canvas unregisters on clear, but the
   // shared meta object outlives it and would repopulate stale values on re-register.
   ctrl.m.syncSourceMeta();
   ctrl.extraBody.classList.add(CONST.CLASSES.HIDDEN);

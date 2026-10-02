@@ -1,12 +1,12 @@
 import { defineControl } from "#core/defineControl.js";
 import { ensureLayerAPI } from "#core/layer/index.js";
-import { createIconButton } from "#common/dom.js";
-import * as Icons from "#common/icon.js";
 import {
   bindFoldToggle,
   bindOutsideCollapse,
   createFoldControl,
-} from "#common/panel.js";
+} from "#core/leaflet/panel.js";
+import { createIconButton } from "#common/dom.js";
+import * as Icons from "#common/icon.js";
 import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
 import { MeasureManager } from "./manager.js";
@@ -44,7 +44,7 @@ const MeasureControl = defineControl<MeasureManager>({
         title: this.T("tool_circle"),
         svg: SVGs.CIRCLE,
       },
-      // Export — no mode, so it stays out of toolBtns (no data-mode);
+      // Export �?no mode, so it stays out of toolBtns (no data-mode);
       // its click is bound via the interaction manager (see manager.ts).
       { title: this.T("tool_export"), svg: Icons.DOWNLOAD_ICON },
       {

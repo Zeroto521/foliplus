@@ -1,5 +1,5 @@
-// MeasureControl distance UI â€” finalized distance edit bindings: node âœ• handles, segment labels, drag, overlay, delete.
-import { attachDelClick } from "#common/delicon.js";
+// MeasureControl distance UI â€?finalized distance edit bindings: node âœ?handles, segment labels, drag, overlay, delete.
+import { attachDelClick } from "#core/leaflet/delicon.js";
 import * as CONST from "../const.js";
 import { bindNodeDrag, markDragSyntheticClick } from "../edit.js";
 import type { MeasureManager } from "../manager.js";
@@ -22,7 +22,7 @@ interface AttachOpts {
   onDelete: () => void;
   onUpdate: (points: L.LatLng[]) => void;
   points: L.LatLng[];
-  /** Measurement id â€” groups this measurement's edit registrations. */
+  /** Measurement id â€?groups this measurement's edit registrations. */
   id: string;
 }
 
@@ -30,7 +30,7 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): void => {
   const { layers, finalPoly, nodeMarkers, segLabels, onDelete, onUpdate, points, id } =
     opts;
   // The last label ends with the cumulative total, so it wins a collision
-  // against any per-segment label â€” losing it would drop the line's length.
+  // against any per-segment label â€?losing it would drop the line's length.
   const totalPriority = (i: number): number =>
     i === segLabels.length - 1
       ? CONST.LABEL_PRIORITY.TOTAL
@@ -54,7 +54,7 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): void => {
     });
     // Unregister the previous registrations before re-binding, otherwise the
     // old entries leak into collidableLabels and the planner hides the
-    // duplicates â€” labels vanish after the first node drag.
+    // duplicates â€?labels vanish after the first node drag.
     unregisterSegLabels();
     unregisterSegLabels = bindSegmentLabels(mgr, segLabels, totalPriority);
   };
@@ -74,7 +74,7 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): void => {
   const deleteMeasurement = lifecycle.delete;
   const openOverlay = lifecycle.open;
   // Drag is gated by edit mode (not the overlay), so nodes are draggable as
-  // soon as edit mode is on â€” no click-first required.
+  // soon as edit mode is on â€?no click-first required.
   unregisterDragToggle = mgr.registerEditDragToggle(
     enabled => dragBinds.forEach(db => db.setEnabled(enabled)),
     id,

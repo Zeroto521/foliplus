@@ -1,5 +1,5 @@
 import { defineControl } from "#core/defineControl.js";
-import { createPanelControl } from "#common/panel.js";
+import { createPanelControl } from "#core/leaflet/panel.js";
 import * as SVGs from "./icon.js";
 import {
   LayerManager,

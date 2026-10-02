@@ -1,12 +1,12 @@
-// ExportControl UI — DOM construction and event binding.
+// ExportControl UI �?DOM construction and event binding.
 // Standalone functions called with `mgr` (ExportManager instance) as first param.
 import { COMPONENTS } from "#core/component.js";
 import { HINT_DURATION } from "#core/hint.js";
+import { bindMapSync } from "#core/leaflet/panel.js";
 import { ensureModes, guardBlocked } from "#core/mode.js";
 import { createIconButton, dom } from "#common/dom.js";
 import { formatNumber } from "#common/format.js";
 import * as Icons from "#common/icon.js";
-import { bindMapSync } from "#common/panel.js";
 import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
 import { registerCropMouseDown } from "./interaction.js";
@@ -64,7 +64,7 @@ const updateBoxStyle = (mgr: ExportManager, el: HTMLElement, r: CropRect) => {
 /**
  * Sync Leaflet's built-in keyboard handler with the crop box state.
  * It pans on arrow keys and zooms on +/- when the map container is focused,
- * which would fight arrow-key nudging — so it stays disabled while the box
+ * which would fight arrow-key nudging �?so it stays disabled while the box
  * is being edited (unlocked). It is re-enabled when locked (where the
  * documented "+/- zoom" hint applies) or when the box is removed.
  */
@@ -98,7 +98,7 @@ const showHintWithInfo = (mgr: ExportManager, r: CropRect, instruction?: string)
   mgr.map.foliplus!.showHint(
     mgr.config.name,
     `${mgr.T("label_size_prefix")}${Math.round(r.width)} × ${Math.round(r.height)} ` +
-      `${mgr.T("label_size_suffix")}${instruction ? ` — ${instruction}` : ""}`,
+      `${mgr.T("label_size_suffix")}${instruction ? ` �?${instruction}` : ""}`,
     HINT_DURATION.PERSIST,
     undefined,
     "size",
@@ -175,7 +175,7 @@ const showCropBox = (mgr: ExportManager) => {
       Math.min(box.height, mapRect.height - box.top),
     );
   } else {
-    // Default centered box — shared with manager.resetCropBox (R shortcut).
+    // Default centered box �?shared with manager.resetCropBox (R shortcut).
     box = mgr.defaultRect();
   }
 
@@ -225,7 +225,7 @@ const showCropBox = (mgr: ExportManager) => {
   showHintWithInfo(mgr, box, mgr.T("hint_unlocked"));
   mgr.cropMousedownCleanup = registerCropMouseDown(mgr, cropBox);
   mgr.registerShortcuts();
-  // Unlocked editing → disable Leaflet's keyboard so arrows nudge, not pan.
+  // Unlocked editing �?disable Leaflet's keyboard so arrows nudge, not pan.
   syncCropKeyboard(mgr);
 };
 
@@ -234,7 +234,7 @@ const lockCropBox = (mgr: ExportManager, skipHint = false) => {
   if (!mgr.cropState || mgr.cropState.locked) return;
   mgr.cropState.locked = true;
   mgr.cropState.box.classList.add(CONST.CLASSES.LOCKED);
-  // Drop the editing class if an arrow-key nudge is still in flight — nudging
+  // Drop the editing class if an arrow-key nudge is still in flight �?nudging
   // suppresses the box transition, which a locked box should not keep.
   mgr.cropState.box.classList.remove(CONST.CLASSES.DRAGGING);
   const r = mgr.cropState.rect;
@@ -266,7 +266,7 @@ const lockCropBox = (mgr: ExportManager, skipHint = false) => {
     },
   });
   mgr.onMapChange(skipHint);
-  // Locked (geo-anchored) → re-enable Leaflet's keyboard for the +/- zoom hint.
+  // Locked (geo-anchored) �?re-enable Leaflet's keyboard for the +/- zoom hint.
   syncCropKeyboard(mgr);
   if (!skipHint) showHintWithInfo(mgr, r, mgr.T("hint_locked"));
 };
@@ -290,7 +290,7 @@ const unlockCropBox = (mgr: ExportManager) => {
     },
   });
   updateBoxStyle(mgr, mgr.cropState.box, mgr.cropState.rect);
-  // Back to editing → disable Leaflet's keyboard so arrows nudge, not pan.
+  // Back to editing �?disable Leaflet's keyboard so arrows nudge, not pan.
   syncCropKeyboard(mgr);
   showHintWithInfo(mgr, mgr.cropState.rect, mgr.T("hint_unlocked"));
 };
@@ -318,7 +318,7 @@ const removeCropBox = (mgr: ExportManager) => {
     mgr.exportCtrl.classList.add(CONST.CLASSES.COLLAPSED);
   }
   mgr.cropState = null;
-  // Box removed → restore Leaflet's keyboard handler (normal map interaction).
+  // Box removed �?restore Leaflet's keyboard handler (normal map interaction).
   syncCropKeyboard(mgr);
   const modes = ensureModes(mgr.map);
   modes.setMode(mgr.config.name, null);

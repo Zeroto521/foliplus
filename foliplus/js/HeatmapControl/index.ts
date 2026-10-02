@@ -1,6 +1,6 @@
 import { defineControl } from "#core/defineControl.js";
 import { ensureLayerAPI } from "#core/layer/index.js";
-import { createPanelControl } from "#common/panel.js";
+import { createPanelControl } from "#core/leaflet/panel.js";
 import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
 import { HeatmapManager } from "./manager.js";
@@ -86,7 +86,7 @@ class HeatmapControl extends defineControl({
     this.schemeBarCleanup = null;
     // dropdownCleanup is optional: only the dropdown open/close cycle writes
     // it, and clearHeatmapCanvas already runs it. Null it here so a handler
-    // can't survive the control â€” it re-registers on the next dropdown open.
+    // can't survive the control â€?it re-registers on the next dropdown open.
     this.dropdownCleanup?.();
     this.dropdownCleanup = null;
 

@@ -7,12 +7,12 @@ import { generateId } from "#core/component.js";
 import { EVENTS, type EventBus, ensureEvents } from "#core/event/index.js";
 import { bareFieldName } from "#core/labelField.js";
 import { NO_FEATURE_TREE_KINDS } from "#core/layer/index.js";
+import { bindMapSync } from "#core/leaflet/panel.js";
 import { type CanvasLabelStyle } from "#common/canvasLabel.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import { BORDER_WEIGHT, clampLabelSize, normalizeHexColor } from "#common/form.js";
 import { NUMBER_FORMAT, type NumberStyle } from "#common/format.js";
 import { type Logger, createLogger } from "#common/log.js";
-import { bindMapSync } from "#common/panel.js";
 import { type Persisted, makePersisted } from "#common/storage.js";
 import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
@@ -59,17 +59,17 @@ const NO_OP_ENV: HeatmapManagerEnv = {
 // ==================== Core: Data Aggregation & Rendering ====================
 class HeatmapManager {
   map: L.Map;
-  /** Translator handed in via env, assigned once in the constructor — same
+  /** Translator handed in via env, assigned once in the constructor �?same
    *  shape as MeasureControl / ExportControl managers. */
   T: (key: string) => string;
   private readonly log: Logger;
-  /** Per-map event bus — bound once in the constructor (ensure-style getters
+  /** Per-map event bus �?bound once in the constructor (ensure-style getters
    *  return the cached instance, so hold it like the logger does). */
   events: EventBus;
   selectedLayerId: string | null;
   pointLayers: PointLayerInfo[];
   currentAgg: string;
-  /** Selected aggregation field — starts empty (no Python-side declaration),
+  /** Selected aggregation field �?starts empty (no Python-side declaration),
    *  becomes the first numeric property name in auto mode, or whatever the
    *  user picked from the field dropdown. */
   currentField: string;
@@ -80,17 +80,17 @@ class HeatmapManager {
   borderWeight: number;
   borderColor: string;
   currentLabelShow: boolean;
-  /** Runtime label color/size — heatmap panel and layer drawer both write these. */
+  /** Runtime label color/size �?heatmap panel and layer drawer both write these. */
   currentLabelColor: string;
   currentLabelSize: number;
-  /** Runtime label number format — heatmap panel and layer drawer both write
+  /** Runtime label number format �?heatmap panel and layer drawer both write
    *  this; Python CONFIG only seeds the initial value. */
   currentLabelFormat: NumberStyle;
-  /** Style provider — shared by the layer drawer and the heatmap panel's
+  /** Style provider �?shared by the layer drawer and the heatmap panel's
    *  label controls (core/labelControl). Reads live state; the drawer refreshes on
    *  LAYER_STYLE_CHANGE. */
   styleProvider: () => Record<string, unknown>;
-  /** Style setters — shared by the layer drawer and the heatmap panel's
+  /** Style setters �?shared by the layer drawer and the heatmap panel's
    *  label controls. Each setter updates state, renders, persists, and emits
    *  LAYER_STYLE_CHANGE so the other panel's refresh fires. */
   styleSetters: Record<string, (v: unknown) => void>;
@@ -118,7 +118,7 @@ class HeatmapManager {
    * One-shot guard for the single-layer auto-select in buildLayerListItems.
    * Set to true in initScan after the first successful rebuild (or the
    * terminal no-layer hint), and also true in applySavedConfig when a
-   * persisted record is loaded — a record means the user already spoke in a
+   * persisted record is loaded �?a record means the user already spoke in a
    * previous session (picked a layer, or explicitly cleared it), and neither
    * that choice nor the clear should be overridden by auto-select on reload.
    * Only the absence of any record keeps the guard open, so a genuinely first
@@ -137,7 +137,7 @@ class HeatmapManager {
   /** The layer id used to register this manager's heatmap canvas. */
   layerId: string;
 
-  /** Persisted-config binding — write-through (no debounce window). Owns the
+  /** Persisted-config binding �?write-through (no debounce window). Owns the
    *  save entry point so teardown flush is idempotent. The flat inline-version
    *  record stays as-is (no envelope), matching the pre-existing shape. */
   private persist: Persisted;
@@ -171,10 +171,10 @@ class HeatmapManager {
     this.numClasses = CONFIG.n_classes ?? CONST.CLASS_COUNT.DEFAULT;
     this.borderWeight = CONFIG.border_weight ?? BORDER_WEIGHT.DEFAULT;
     this.borderColor = CONFIG.border_color ?? CONST.GRAY;
-    // Python default is True; only an explicit false turns labels off — same
+    // Python default is True; only an explicit false turns labels off �?same
     // `!== false` rule MeasureControl uses for label_show / label_collide.
     this.currentLabelShow = CONFIG.label_show !== false;
-    // Color inputs require #rrggbb — normalize the short #fff Python default.
+    // Color inputs require #rrggbb �?normalize the short #fff Python default.
     this.currentLabelColor = normalizeHexColor(
       CONFIG.label_color ?? CONST.LABEL.COLOR_DEFAULT,
     );
@@ -238,7 +238,7 @@ class HeatmapManager {
         this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
         this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
       },
-      // Size/color only rewrite label paint — drop the cached style and
+      // Size/color only rewrite label paint �?drop the cached style and
       // redraw from the feature cache.
       labelColor: v => {
         this.currentLabelColor =
@@ -258,7 +258,7 @@ class HeatmapManager {
         this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
         this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
       },
-      // Format only rewrites the label text — redraw from cache, skip the
+      // Format only rewrites the label text �?redraw from cache, skip the
       // H3 re-aggregation that labelShow triggers.
       labelFormat: v => {
         this.currentLabelFormat = (
@@ -269,7 +269,7 @@ class HeatmapManager {
         this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
         this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
       },
-      // Border weight only redraws the hexagon strokes — the H3 aggregation
+      // Border weight only redraws the hexagon strokes �?the H3 aggregation
       // result is unaffected.
       borderWeight: v => {
         const n = typeof v === "number" && !Number.isNaN(v) ? v : this.borderWeight;
@@ -294,12 +294,12 @@ class HeatmapManager {
       iconSvg: SVGs.HEXAGON,
       featureCountProvider: () => this.cachedFeatures?.length ?? 0,
       getBounds: () => this.computeBounds(),
-      // Shared with the registry — syncSourceMeta mutates it in place so the
+      // Shared with the registry �?syncSourceMeta mutates it in place so the
       // attrs panel always reads the latest source layer / field.
       meta: this.sourceMeta,
       styleProvider: this.styleProvider,
       styleSetters: this.styleSetters,
-      // Snapshot taken at construction — Reset restores this, never the
+      // Snapshot taken at construction �?Reset restores this, never the
       // live toggle or the localStorage-persisted config.
       styleDefaultsProvider: () => ({
         labelShow: defaultLabelShow,
@@ -309,7 +309,7 @@ class HeatmapManager {
         borderWeight: defaultBorderWeight,
         borderColor: defaultBorderColor,
       }),
-      // R11 dual path (`opacityBake: "redraw"` — the default): the slider
+      // R11 dual path (`opacityBake: "redraw"` �?the default): the slider
       // commit keeps CSS `opacity` for live feedback and does NOT force a
       // full hexagon redraw (measured 8ms warm / 30-320ms under load on a
       // stub ctx @5k, over a 16ms frame). The bake lands on the next
@@ -386,7 +386,7 @@ class HeatmapManager {
       this.scanMapLayers();
       // A deleted source has to take its derived view with it. The heatmap
       // draws another layer's points, so unregistering that layer must drop
-      // the selection and wipe the canvas in this pass — a clear deferred to
+      // the selection and wipe the canvas in this pass �?a clear deferred to
       // the next zoom leaves the old render painted until something
       // re-aggregates. Deliberately outside `if (this.ui)`: the canvas is map
       // state, and a map can lose a source layer before (or without) a panel.
@@ -400,7 +400,7 @@ class HeatmapManager {
       if (this.ui) rebuildLayerDropdown(this.ui);
     }, CONST.TIMING.LAYER_SCAN_DEBOUNCE);
     // Subscribe to the semantic registry-change event instead of raw Leaflet
-    // layeradd/layerremove — LayerManager emits EVENTS.LAYER_CHANGE on
+    // layeradd/layerremove �?LayerManager emits EVENTS.LAYER_CHANGE on
     // register/unregister/reorder/membership, so unrelated map activity is
     // filtered out and callback-only registrations (no map.addLayer) are
     // covered too. The payload carries the changed layer's kind, so a layer
@@ -410,7 +410,7 @@ class HeatmapManager {
     // out and the source list would come out identical.
     this.removeLayerChangeListener = this.events.on(EVENTS.LAYER_CHANGE, payload => {
       // Guard: third-party or historical bare emit (no payload).
-      // All product emit sites carry {id, kind} — a missing payload here
+      // All product emit sites carry {id, kind} �?a missing payload here
       // means an external caller fired the event without the contract.
       // Fallback: treat as a full layer change and rescan.
       if (!payload) {
@@ -426,7 +426,7 @@ class HeatmapManager {
     // data and stay registerable for the next source pick. The clear resets
     // the panel to its initial state (the panel's Clear button is the same
     // operation) and drops the persisted record so a reload does not
-    // resurrect the cleared layer — same teardown as MeasureControl's
+    // resurrect the cleared layer �?same teardown as MeasureControl's
     // LAYER_DELETED -> clearAll.
     this.removeLayerDeletedListener = this.events.on(EVENTS.LAYER_DELETED, ({ id }) => {
       if (id !== this.layerId) return;
@@ -460,7 +460,7 @@ class HeatmapManager {
     if (!this.overlay.canvas || !this.cachedFeatures) return;
     // R11 dual-path handoff: the slider may have left CSS `opacity` on for
     // live feedback. This paint bakes layerAlpha into the draws, so drop
-    // the CSS first — the two carriers must never compound.
+    // the CSS first �?the two carriers must never compound.
     this.overlay.canvas.style.opacity = "";
     const ctx = this.overlay.ctx;
     if (!ctx) return;
@@ -490,8 +490,8 @@ class HeatmapManager {
   }
 
   /** Resolve label styling from the shared --foliplus-label-* tokens (cached once). The
-   *  values are the same the annotation canvas reads — both go through
-   *  common/canvasLabel — so a hex value and an annotation label render as one
+   *  values are the same the annotation canvas reads �?both go through
+   *  common/canvasLabel �?so a hex value and an annotation label render as one
    *  language. */
   resolveLabelStyle(): CanvasLabelStyle {
     if (this.cachedLabelStyle) return this.cachedLabelStyle;
@@ -562,7 +562,7 @@ class HeatmapManager {
     }
   }
 
-  /** Numeric property keys on the source points — bare `feature.properties`
+  /** Numeric property keys on the source points �?bare `feature.properties`
    *  keys plus the two foliplus data-contract shapes (`value`, `options.value`).
    *  Same contract as LayerControl's annotation field picker for the bare keys. */
   collectFields(layers: Array<{ id: string }>): string[] {
@@ -755,7 +755,7 @@ class HeatmapManager {
     this.persist.schedule();
   }
 
-  /** Flush any pending write through the binding — idempotent and teardown-safe. */
+  /** Flush any pending write through the binding �?idempotent and teardown-safe. */
   flush() {
     this.persist.flush();
   }
@@ -769,7 +769,7 @@ class HeatmapManager {
    * Publish the current source layer name + aggregation field into
    * `sourceMeta` (the object createCanvas registered), so LayerControl's
    * attributes panel can answer "where did this heatmap come from?".
-   * Empty values are written too — the attrs panel drops blank rows.
+   * Empty values are written too �?the attrs panel drops blank rows.
    * `touchLayer` fires only when a published value actually changed, so a
    * no-op dropdown rebuild does not bump the panel's Updated stamp.
    */
@@ -793,7 +793,7 @@ class HeatmapManager {
 
     if (!changed) return;
     // Stamp updatedAt so the panel's "Updated" row tracks the latest binding.
-    // Free `map` (window.map) — same channel createCanvas / scanMapLayers use;
+    // Free `map` (window.map) �?same channel createCanvas / scanMapLayers use;
     // `this.map` is the Leaflet instance and may not carry the foliplus namespace.
     map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
   }
