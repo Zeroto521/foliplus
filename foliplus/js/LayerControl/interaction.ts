@@ -8,7 +8,7 @@ import { activateDeleteItem } from "./ui/menu.js";
 const registerInteractions = (ui: LayerUI): (() => void) => {
   const container = ui.uiContainer;
   const interaction = ensureInteraction(ui.m.map);
-  return interaction.register(CONF.name, [
+  return interaction.register(CONFIG.name, [
     { key: "ArrowUp", container, handler: e => ui.handleKeyDown(e as KeyboardEvent) },
     { key: "ArrowDown", container, handler: e => ui.handleKeyDown(e as KeyboardEvent) },
     { key: "ArrowLeft", container, handler: e => ui.handleKeyDown(e as KeyboardEvent) },

@@ -15,7 +15,7 @@ vi.mock("#common/locale.js", async () => {
   };
   return {
     ...real,
-    createScopedTranslator: (_conf: { name: string }) => (key: string) =>
+    createScopedTranslator: (_config: { name: string }) => (key: string) =>
       TABLES[key] ?? key,
   };
 });
@@ -78,7 +78,7 @@ function makeMapMock() {
 }
 
 function makeManager() {
-  window.CONF = { ...window.CONF, name: "ExportControl", timeout: 7500 };
+  window.CONFIG = { ...window.CONFIG, name: "ExportControl", timeout: 7500 };
   const manager = new ExportManager(makeMapMock());
   // Stub UI delegation so tests can drive cropState.savedGeoBounds directly
   // without depending on the DOM crop-box renderers.

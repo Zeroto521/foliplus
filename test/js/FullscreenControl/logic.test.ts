@@ -52,7 +52,7 @@ const makeNativeMapMock = container => {
 // Mirrors what defineControl hands off via ControlEnv — T is the identity
 // translator so tests can still compare on the raw key.
 const makeEnv = (overrides: Partial<ComponentConfig> = {}) => ({
-  conf: { name: "FullscreenControl", ...overrides } as ComponentConfig,
+  config: { name: "FullscreenControl", ...overrides } as ComponentConfig,
   T: (k: string) => k,
 });
 
@@ -86,13 +86,13 @@ describe("updateUI", () => {
     expect(mapMock.foliplus.showHint).toHaveBeenCalled();
   });
 
-  it("skips hide_others when CONF.hide_others is not set", () => {
+  it("skips hide_others when CONFIG.hide_others is not set", () => {
     updateUI(mapMock, fsBtn, container, makeEnv());
-    // No class toggling on other controls since CONF.hide_others is falsy
+    // No class toggling on other controls since CONFIG.hide_others is falsy
     expect(fsBtn.innerHTML).toContain("M8 3H5");
   });
 
-  it("skips hide_self when CONF.hide_self is not set", () => {
+  it("skips hide_self when CONFIG.hide_self is not set", () => {
     updateUI(mapMock, fsBtn, container, makeEnv());
     const selfBtns = container.querySelectorAll(
       ".foliplus-fullscreen-toggle, .foliplus-zoom-in, .foliplus-zoom-out",

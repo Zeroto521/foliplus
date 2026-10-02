@@ -238,8 +238,8 @@ describe("AnnotationManager — config", () => {
   });
 
   it("defaults collision off when the page sets label_collide false", () => {
-    const saved = (window as { CONF?: Record<string, unknown> }).CONF;
-    (window as { CONF?: Record<string, unknown> }).CONF = {
+    const saved = (window as { CONFIG?: Record<string, unknown> }).CONFIG;
+    (window as { CONFIG?: Record<string, unknown> }).CONFIG = {
       ...saved,
       label_collide: false,
     };
@@ -251,7 +251,7 @@ describe("AnnotationManager — config", () => {
       });
       expect(mgr.getConfig("none").collide).toBe(false);
     } finally {
-      (window as { CONF?: Record<string, unknown> }).CONF = saved;
+      (window as { CONFIG?: Record<string, unknown> }).CONFIG = saved;
     }
   });
 

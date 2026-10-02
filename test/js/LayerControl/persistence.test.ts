@@ -36,7 +36,7 @@ describe("LayerPersistence", () => {
   beforeEach(() => {
     window.localStorage.clear();
     vi.useRealTimers();
-    window.CONF = { ...window.CONF, name: "LayerControl" };
+    window.CONFIG = { ...window.CONFIG, name: "LayerControl" };
   });
 
   afterEach(() => {

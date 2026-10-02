@@ -67,7 +67,7 @@ const focusDisabledReason = (ui: LayerUI, item: HTMLElement): FocusDisabledReaso
 /** Show the hint that matches a `focusDisabledReason` value. */
 const showFocusDisabledHint = (ui: LayerUI, reason: FocusDisabled): void => {
   ui.m.map.foliplus!.showHint(
-    ui.conf.name,
+    ui.config.name,
     ui.T(focusDisabledLocaleKey(reason)),
     HINT_DURATION.SHORT,
   );
@@ -111,7 +111,7 @@ const focusLayer = (ui: LayerUI, layerId: string) => {
   // Guard: any component holding the map (measuring, exporting, searching,
   // locating) blocks focus. One guard at the entry covers all call sites
   // (double-click, overflow menu, Alt+Enter, Enter) so none of them leak.
-  if (guardBlocked(ui.m.map, ui.conf.name, ui.T("blocked"))) return;
+  if (guardBlocked(ui.m.map, ui.config.name, ui.T("blocked"))) return;
 
   const layerInfo = ui.m.layerRegistry.get(layerId);
   if (!layerInfo) return;
@@ -180,7 +180,7 @@ const focusLayer = (ui: LayerUI, layerId: string) => {
   // live focus overlay. Cleared on dismissFocus —called by the auto-timeout,
   // the manual cancel, and a subsequent focus (closeOverlays runs first).
   const modes = ensureModes(ui.m.map);
-  modes.setMode(ui.conf.name, "focusing");
+  modes.setMode(ui.config.name, "focusing");
 
   // Single-point / tiny bounds →flyTo the center.
   const southWest = bounds.getSouthWest();
@@ -237,7 +237,7 @@ const isFocusing = (ui: LayerUI): boolean => {
 const cancelFocus = (ui: LayerUI): void => {
   dismissFocus(ui);
   ui.m.map.foliplus!.showHint(
-    ui.conf.name,
+    ui.config.name,
     ui.T("focus_cancelled"),
     HINT_DURATION.SHORT,
   );
@@ -255,7 +255,7 @@ const dismissFocus = (ui: LayerUI): void => {
   // when `focusLayer` actually registered the mode.
   if (isFocusing(ui)) {
     const modes = ensureModes(ui.m.map);
-    modes.setMode(ui.conf.name, null);
+    modes.setMode(ui.config.name, null);
   }
   clearAutoCancel(ui);
   clearFocusedRowHighlight(ui);

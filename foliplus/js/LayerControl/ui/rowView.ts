@@ -206,7 +206,7 @@ const buildRowCell = (ui: LayerUI, layerInfo: LayerInfo): RowCell => {
     // on screen regardless of its range. The policy write side reads the
     // same projection, so the formula has one home.
     shown: projectLayer(ui, layerInfo).effectiveShown,
-    countText: count != null ? formatNumber(count, "auto", ui.conf.locale_code) : "",
+    countText: count != null ? formatNumber(count, "auto", ui.config.locale_code) : "",
     typeSvg: type.svg,
     typeLabel: ui.T(type.key),
   };

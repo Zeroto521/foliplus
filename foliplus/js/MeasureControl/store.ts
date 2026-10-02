@@ -21,7 +21,7 @@ class MeasureStore {
   private list: MeasureData[] = [];
   private counter = 0;
   private readonly map: L.Map;
-  private readonly conf: ComponentConfig;
+  private readonly config: ComponentConfig;
   private readonly T: (key: string) => string;
   private readonly layerId: string;
   private warned = false;
@@ -29,7 +29,7 @@ class MeasureStore {
 
   constructor(map: L.Map, env: ControlEnv, layerId: string) {
     this.map = map;
-    this.conf = env.conf;
+    this.config = env.config;
     this.T = env.T;
     this.layerId = layerId;
     // Write-through binding: the array is durable the moment a mutation lands,
@@ -40,14 +40,14 @@ class MeasureStore {
         Storage.saveVersioned(CONST.STORAGE.KEY, {
           data: this.list,
           version: CONST.RECORD_VERSION,
-          name: this.conf.name,
+          name: this.config.name,
           dataField: "items",
         }),
       onFlushError: () => {
         if (!this.warned) {
           this.warned = true;
           this.map.foliplus?.showHint?.(
-            this.conf.name,
+            this.config.name,
             this.T("err_not_saved"),
             HINT_DURATION.PERSIST,
           );
@@ -74,7 +74,7 @@ class MeasureStore {
   load(): MeasureData[] {
     return (
       Storage.loadVersioned<MeasureData>(CONST.STORAGE.KEY, {
-        name: this.conf.name,
+        name: this.config.name,
         dataField: "items",
       }) ?? []
     );

@@ -4,7 +4,7 @@
 // (createControlEnv lives in #core/controlEnv.js — it also registers hint icons.)
 import { createLogger } from "#common/log.js";
 
-// The prefix is a parameter here (no module-level CONF), so the logger is
+// The prefix is a parameter here (no module-level CONFIG), so the logger is
 // bound inside the function — file-top binding is only possible where the
 // name is known at module level.
 const requireRuntime = (componentName: string): void => {

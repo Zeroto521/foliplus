@@ -17,7 +17,7 @@ vi.mock("#common/locale.js", async () => {
   };
   return {
     ...real,
-    createScopedTranslator: (_conf: { name: string }) => (key: string) =>
+    createScopedTranslator: (_config: { name: string }) => (key: string) =>
       TABLES[key] ?? key,
   };
 });
@@ -62,7 +62,7 @@ function makeMapMock() {
 function makeManager(
   scheduler?: (fn: () => void, ms: number) => ReturnType<typeof setTimeout>,
 ) {
-  window.CONF = { ...window.CONF, name: "ExportControl", timeout: 7500 };
+  window.CONFIG = { ...window.CONFIG, name: "ExportControl", timeout: 7500 };
   const manager = scheduler
     ? new ExportManager(makeMapMock(), scheduler)
     : new ExportManager(makeMapMock());
@@ -156,8 +156,8 @@ describe("sessionMethods — download paths", () => {
   beforeEach(() => {
     manager = makeManager();
     setCropState(manager);
-    window.CONF = {
-      ...window.CONF,
+    window.CONFIG = {
+      ...window.CONFIG,
       name: "ExportControl",
       filename: "test-map",
       format: "png",
@@ -188,7 +188,7 @@ describe("sessionMethods — download paths", () => {
   });
 
   it("onRenderSuccess with format=geotiff calls downloadGeoTiff", async () => {
-    window.CONF = { ...window.CONF, format: "geotiff" };
+    window.CONFIG = { ...window.CONFIG, format: "geotiff" };
     manager.cropState!.geoBounds = {
       nw: { lat: 41.0, lng: -75.0 },
       se: { lat: 40.0, lng: -74.0 },
@@ -215,7 +215,7 @@ describe("sessionMethods — download paths", () => {
   ])(
     "onRenderSuccess with format=%s encodes and names the file from the FORMAT table",
     async (format, mime, filename) => {
-      window.CONF = { ...window.CONF, format };
+      window.CONFIG = { ...window.CONFIG, format };
       const toBlobCalls: unknown[][] = [];
       const origToBlob = HTMLCanvasElement.prototype.toBlob;
       HTMLCanvasElement.prototype.toBlob = function (

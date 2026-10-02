@@ -3,7 +3,7 @@ Localization support for foliplus UI components.
 
 Provides language-specific string tables for all frontend UI text. Controls select a
 table by passing ``locale=`` to their constructor — the resolved config is serialised
-into the JS ``CONF`` by :class:`foliplus.BaseControl`.
+into the JS ``CONFIG`` by :class:`foliplus.BaseControl`.
 
 Usage
 -----

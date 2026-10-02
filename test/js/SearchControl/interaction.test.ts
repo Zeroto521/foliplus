@@ -22,7 +22,7 @@ function makeCtrl(): any {
     originalAdd(event, fn, options);
   });
   return {
-    conf: { name: "SearchControl", locale_code: "en", zoom: 16 },
+    config: { name: "SearchControl", locale_code: "en", zoom: 16 },
     T: (k: string) => `SearchControl.${k}`,
     _: (k: string) => k,
     log: {
@@ -255,7 +255,7 @@ describe("bindEvents", () => {
     expect(window.foliplus.geocode).toHaveBeenCalledWith(
       map,
       "Paris",
-      CONF.locale_code,
+      CONFIG.locale_code,
       undefined,
       undefined,
     );

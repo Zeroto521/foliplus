@@ -19,7 +19,7 @@
 //       re-pins it on the next reconcile (see `contentDirty`), but no consumer
 //       has to handle a "not yet sorted" window.
 //
-// No CONF / translator dependency: core/layer, not a component dir.
+// No CONFIG / translator dependency: core/layer, not a component dir.
 import { createLogger } from "#common/log.js";
 import type { PaneManager } from "./PaneManager.js";
 import { hasFillLeaf, hasSetStyleLeaf } from "./capability.js";

@@ -2,9 +2,9 @@
 /**
  * Generate test/js/config-fixture.ts from the schema dump JSON.
  *
- * Produces a `makeConf(controlName, overrides)` factory for vitest tests:
- * `CONF_DEFAULTS` holds one default-value map per control (from the Python
- * schema), `makeConf` merges the shared test baseline (name/position/
+ * Produces a `makeConfig(controlName, overrides)` factory for vitest tests:
+ * `CONFIG_DEFAULTS` holds one default-value map per control (from the Python
+ * schema), `makeConfig` merges the shared test baseline (name/position/
  * locale_code) with that control's defaults and the caller's overrides.
  *
  * The schema JSON is read from `foliplus/.build/js/config-schema.json` (written
@@ -117,8 +117,8 @@ const buildConfigFixture = async schema => {
     "",
     'import type { ComponentConfig } from "#foliplus/config-schema.js";',
     "",
-    "/** Default CONF values per control, from the Python schema. */",
-    "const CONF_DEFAULTS: Record<string, Partial<ComponentConfig>> = {",
+    "/** Default CONFIG values per control, from the Python schema. */",
+    "const CONFIG_DEFAULTS: Record<string, Partial<ComponentConfig>> = {",
   ];
 
   for (const controlName of Object.keys(controlDefaults).sort()) {
@@ -134,10 +134,10 @@ const buildConfigFixture = async schema => {
     "};",
     "",
     "/**",
-    " * Create a test CONF object for one control: shared test baseline (name,",
+    " * Create a test CONFIG object for one control: shared test baseline (name,",
     " * position, locale_code) + that control's schema defaults + overrides.",
     " */",
-    "function makeConf(",
+    "function makeConfig(",
     "  controlName: string,",
     "  overrides?: Partial<ComponentConfig>,",
     "): ComponentConfig {",
@@ -145,12 +145,12 @@ const buildConfigFixture = async schema => {
     "    name: controlName,",
     '    position: "topleft",',
     '    locale_code: "en",',
-    "    ...CONF_DEFAULTS[controlName],",
+    "    ...CONFIG_DEFAULTS[controlName],",
     "    ...overrides,",
     "  };",
     "}",
     "",
-    "export { makeConf };",
+    "export { makeConfig };",
     "",
   );
 

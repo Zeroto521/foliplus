@@ -4,9 +4,9 @@
 import { vi } from "vitest";
 import { createScopedTranslator } from "#common/locale.js";
 
-/** A CONF for the measure UI with the delete-icon locale the UI renders
+/** A CONFIG for the measure UI with the delete-icon locale the UI renders
  *  (ComponentName-prefixed keys, like the Python bridge emits). */
-const makeConf = (overrides: Partial<ComponentConfig> = {}): ComponentConfig => ({
+const makeConfig = (overrides: Partial<ComponentConfig> = {}): ComponentConfig => ({
   name: "MeasureControl",
   locale_code: "en",
   locale_tables: {
@@ -18,12 +18,12 @@ const makeConf = (overrides: Partial<ComponentConfig> = {}): ComponentConfig => 
   ...overrides,
 });
 
-/** MeasureManager-shaped fake carrying its own `conf` and a translator bound
+/** MeasureManager-shaped fake carrying its own `config` and a translator bound
  *  to it — mirroring the real manager (which binds `this.T = T` in its
  *  constructor) so the UI reads delete-icon titles through the per-instance
  *  translator, never an ambient module-level one. */
-const makeMgr = (conf: ComponentConfig = makeConf()) => {
-  const translator = createScopedTranslator(conf);
+const makeMgr = (config: ComponentConfig = makeConfig()) => {
+  const translator = createScopedTranslator(config);
   const T = vi.fn((key: string) => translator(key));
   return {
     map: {
@@ -33,7 +33,7 @@ const makeMgr = (conf: ComponentConfig = makeConf()) => {
       dragging: { enable: vi.fn(), disable: vi.fn() },
     },
     isEditMode: true,
-    conf,
+    config,
     T,
     registerEditOverlayCloser: vi.fn(() => () => {}),
     registerEditDragToggle: vi.fn(() => () => {}),
@@ -83,4 +83,4 @@ const installStubs = () => {
   };
 };
 
-export { installStubs, makeConf, makeMgr };
+export { installStubs, makeConfig, makeMgr };

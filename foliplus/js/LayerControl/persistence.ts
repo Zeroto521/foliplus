@@ -10,7 +10,7 @@ import type {
   PersistedRecord,
 } from "./type.js";
 
-// CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
+// CONFIG is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 
 /** Shape version of the persisted record: a positive integer, incremented only
  *  when the record's shape changes. `parseRecord` is per-segment tolerant, so a
@@ -255,7 +255,7 @@ class LayerPersistence {
   private fields: LiveState = {};
 
   constructor() {
-    this.persistName = CONF.name;
+    this.persistName = CONFIG.name;
   }
 
   // ── Read ───────────────────────────────────────────────────────────

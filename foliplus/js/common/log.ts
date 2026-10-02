@@ -1,7 +1,7 @@
 // common/log — namespaced foliplus diagnostics.
 // Every foliplus console message and thrown error message carries a `[<name>]`
 // prefix so output is greppable and attributable at a glance. Components pass
-// CONF.name; shared modules that take a caller name (e.g. storage) keep their
+// CONFIG.name; shared modules that take a caller name (e.g. storage) keep their
 // parameterised one.
 //
 // One separator everywhere — a space after `]`. A log line and a thrown

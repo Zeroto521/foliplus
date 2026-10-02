@@ -1184,7 +1184,7 @@ class TestLayerControlBrowser:
         html = m.get_root().render()
         # Expose the control instance for re-entry tests (dev build keeps names).
         html, n = re.subn(
-            r"(new LayerControl\(\{ position: CONF\.position \}\)\.addTo\(map\);)",
+            r"(new LayerControl\(\{ position: CONFIG\.position \}\)\.addTo\(map\);)",
             r"window.__layerCtrl = \1",
             html,
             count=1,
@@ -1865,7 +1865,7 @@ class TestLayerControlBrowser:
         _expand_panel(m)
         # Expose the control instance for the probe (dev build keeps names).
         html, n = re.subn(
-            r"(new LayerControl\(\{ position: CONF\.position \}\)\.addTo\(map\);)",
+            r"(new LayerControl\(\{ position: CONFIG\.position \}\)\.addTo\(map\);)",
             r"window.__layerCtrl = \1",
             m.get_root().render(),
             count=1,
@@ -2292,7 +2292,7 @@ class TestLayerControlBrowser:
     def test_registry_matches_map_after_reload(self, browser, tmp_path):
         """The registry holds one entry per rendered row, and its ids are stable.
 
-        Confirms the reload page's CONF data lands with one id per feature group
+        Confirms the reload page's CONFIG data lands with one id per feature group
         and that the registry view and the map's own layer set agree, before any
         hiding happens. Anything the persistence funnel drops would show here.
 
@@ -5707,7 +5707,7 @@ class TestLayerControlBrowser:
     def test_panel_collapses_on_outside_press_when_enabled(self, browser, tmp_path):
         """``collapse_on_outside=True`` re-enables the implicit trigger.
 
-        Proves the parameter is wired end to end — Python constructor -> CONF ->
+        Proves the parameter is wired end to end — Python constructor -> CONFIG ->
         shell -> ``bindOutsideCollapse`` — rather than accepted and ignored.
         """
         layer = folium.FeatureGroup(name="Outside click on")
@@ -6531,7 +6531,7 @@ class TestLayerPaneProbeBrowser:
             layer.add_to(m)
         html = m.get_root().render()
         html, n = re.subn(
-            r"(new LayerControl\(\{ position: CONF\.position \}\)\.addTo\(map\);)",
+            r"(new LayerControl\(\{ position: CONFIG\.position \}\)\.addTo\(map\);)",
             r"window.__layerCtrl = \1",
             html,
             count=1,

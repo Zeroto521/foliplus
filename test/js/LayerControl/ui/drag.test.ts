@@ -118,7 +118,7 @@ describe("ui/drag", () => {
         layers,
         ui: {
           uiContainer,
-          conf: { name: "LayerControl" },
+          config: { name: "LayerControl" },
           T: (key: string) => key,
           foldedGroups: new Set<string>(),
           saveFoldState: vi.fn(),
@@ -253,7 +253,7 @@ describe("ui/drag", () => {
       }
       const ui = {
         uiContainer,
-        conf: { name: "LayerControl" },
+        config: { name: "LayerControl" },
         T: (k: string) => k,
         dragIdx: 0, // dragging the overlay row above
         lastDragOverItem: null,
@@ -357,7 +357,7 @@ describe("ui/drag", () => {
       const reorder = vi.fn();
       const ui = {
         uiContainer,
-        conf: { name: "LayerControl" },
+        config: { name: "LayerControl" },
         T: (key: string) => key,
         dragIdx: 0,
         lastDragOverItem: null,
@@ -406,7 +406,7 @@ describe("ui/drag", () => {
       const reorder = vi.fn();
       const ui = {
         uiContainer,
-        conf: { name: "LayerControl" },
+        config: { name: "LayerControl" },
         T: (key: string) => key,
         dragIdx: 1,
         lastDragOverItem: null,
@@ -600,7 +600,7 @@ describe("showReorderBlockedHint", () => {
     const showHint = vi.fn();
     const ui = {
       lastDragHintAt: 0,
-      conf: { name: "LayerControl" },
+      config: { name: "LayerControl" },
       T: (k: string) => k,
       m: {
         map: { foliplus: { showHint } },

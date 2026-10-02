@@ -12,7 +12,7 @@ function makeMgr(): any {
   };
   return {
     map,
-    conf: { name: "MeasureControl" },
+    config: { name: "MeasureControl" },
     currentMode: null,
     onKeyDown: vi.fn(),
     clearActiveMode: vi.fn(),

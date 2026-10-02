@@ -74,7 +74,7 @@ import {
 
 // Per-instance injection seam — LayerControl passes the env it owns; tests
 // construct LayerUI without one and fall back to identity translators so the
-// module stays free of any CONF reference at load time.
+// module stays free of any CONFIG reference at load time.
 const NO_OP_ENV: { T: (key: string) => string; _: (key: string) => string } = {
   T: key => `LayerControl.${key}`,
   _: key => key,
@@ -87,9 +87,9 @@ class LayerUI {
    *  return the cached instance, so hold it like the logger does). */
   events: EventBus;
   /** Component config — carried on the instance so the ui/* modules read it
-   *  from `ui.conf` instead of a module-level free variable. */
-  conf: ComponentConfig;
-  /** Translator bound to `conf`, forwarded from the module const. */
+   *  from `ui.config` instead of a module-level free variable. */
+  config: ComponentConfig;
+  /** Translator bound to `config`, forwarded from the module const. */
   T: (key: string) => string;
   /** Unscoped translator for the shared `foliplus.*` vocabulary (the label
    *  controls the style panel shares with HeatmapControl). Kept beside `T` so
@@ -209,7 +209,7 @@ class LayerUI {
   ) {
     this.manager = manager;
     this.events = ensureEvents(this.m.map);
-    this.conf = CONF;
+    this.config = CONFIG;
     this.T = env.T;
     this._ = env._;
     this.foldedGroups = new Set();

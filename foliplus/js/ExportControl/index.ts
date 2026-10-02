@@ -11,9 +11,9 @@ import { ExportManager } from "./manager.js";
 type ExportScheduler = (fn: () => void, ms: number) => ReturnType<typeof setTimeout>;
 
 const ExportControl = defineControl<ExportManager>({
-  conf: CONF,
+  config: CONFIG,
   icon: SVGs.CAMERA,
-  setup: env => requireLayerAPI(env.conf.name, env.T, map),
+  setup: env => requireLayerAPI(env.config.name, env.T, map),
   createManager: () =>
     new ExportManager(
       map,
@@ -25,7 +25,7 @@ const ExportControl = defineControl<ExportManager>({
       cssClass: `foliplus-export-ctrl`,
       toggleTitle: this.T("btn_title"),
       toggleSvg: SVGs.CAMERA,
-      position: this.conf.position,
+      position: this.config.position,
     });
     // Self-declare export DOM-copy opt-out via the data attribute (primary
     // carrier). Hide-pass still lists this bar in SEL.CONTROL (layout);
@@ -45,4 +45,4 @@ const ExportControl = defineControl<ExportManager>({
   },
 });
 
-new ExportControl({ position: CONF.position }).addTo(map);
+new ExportControl({ position: CONFIG.position }).addTo(map);

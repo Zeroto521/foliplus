@@ -5,10 +5,10 @@ import { vi } from "vitest";
 import { ExportRenderer } from "#foliplus/ExportControl/renderer/index.js";
 import * as UTIL from "#foliplus/ExportControl/util.js";
 
-// renderer binds its logger to CONF.name at module-import time, so the
+// renderer binds its logger to CONFIG.name at module-import time, so the
 // component name has to be set before the import resolves — setup.ts leaves it
 // at "SearchControl".  Must run before the import, not in beforeEach.
-(window as any).CONF = { ...(window as any).CONF, name: "ExportControl" };
+(window as any).CONFIG = { ...(window as any).CONFIG, name: "ExportControl" };
 
 export function makeEPSG3857Mock() {
   const worldSize = (z: number) => 256 * Math.pow(2, z);

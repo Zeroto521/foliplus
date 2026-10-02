@@ -33,7 +33,7 @@ import {
   planLabelLayout,
 } from "./layout.js";
 
-// CONF is a free variable from the IIFE template wrapper.
+// CONFIG is a free variable from the IIFE template wrapper.
 
 /** How far outside the viewport an anchor may sit and still get laid out.
  *  A label is centered on its anchor and at most a few hundred px wide, so
@@ -155,13 +155,13 @@ class AnnotationManager {
     );
   }
 
-  /** The Python CONF default annotation config (labels off, auto field, auto
+  /** The Python CONFIG default annotation config (labels off, auto field, auto
    *  format, page-level collide). Reset restores this — never the persisted
    *  user choice. */
   defaultConfig(): AnnotationConfig {
     return {
       ...CONST.DEFAULT_ANNOTATION,
-      collide: CONF.label_collide ?? true,
+      collide: CONFIG.label_collide ?? true,
     };
   }
 
@@ -295,7 +295,7 @@ class AnnotationManager {
     if (!field) return [];
     const layer = this.layerFind(id);
     if (!layer) return [];
-    const locale = CONF.locale_code ?? "en";
+    const locale = CONFIG.locale_code ?? "en";
     const labels: LayerLabel[] = [];
 
     walkLeaf(layer, (leaf: L.Layer) => {

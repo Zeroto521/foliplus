@@ -14,7 +14,7 @@ vi.mock("#common/locale.js", async () => {
   };
   return {
     ...real,
-    createScopedTranslator: (_conf: { name: string }) => (key: string) =>
+    createScopedTranslator: (_config: { name: string }) => (key: string) =>
       TABLES[key] ?? key,
   };
 });
@@ -67,7 +67,7 @@ function makeMapMock() {
 function makeManager(
   scheduler?: (fn: () => void, ms: number) => ReturnType<typeof setTimeout>,
 ) {
-  window.CONF = { ...window.CONF, name: "ExportControl", timeout: 7500 };
+  window.CONFIG = { ...window.CONFIG, name: "ExportControl", timeout: 7500 };
   const manager = scheduler
     ? new ExportManager(makeMapMock(), scheduler)
     : new ExportManager(makeMapMock());
@@ -239,19 +239,19 @@ describe("cropMethods — checkPixelLimit", () => {
   });
 
   it("checkPixelLimit sets pixelOverLimit when over max_pixels", () => {
-    window.CONF.max_pixels = 10000; // 100x100
+    window.CONFIG.max_pixels = 10000; // 100x100
     manager.checkPixelLimit({ left: 0, top: 0, width: 200, height: 200 });
     expect(manager.pixelOverLimit).toBe(true);
   });
 
   it("checkPixelLimit does not flag when under max_pixels", () => {
-    window.CONF.max_pixels = 10000;
+    window.CONFIG.max_pixels = 10000;
     manager.checkPixelLimit({ left: 0, top: 0, width: 50, height: 50 });
     expect(manager.pixelOverLimit).toBe(false);
   });
 
   it("checkPixelLimit does not flag when max_pixels is null", () => {
-    window.CONF.max_pixels = null;
+    window.CONFIG.max_pixels = null;
     manager.checkPixelLimit({ left: 0, top: 0, width: 9999, height: 9999 });
     expect(manager.pixelOverLimit).toBe(false);
   });

@@ -7,7 +7,7 @@ import * as SVGs from "./icon.js";
 import { makeFullscreenChangeHandler, toggleFullscreen } from "./logic.js";
 
 const FullscreenControl = defineControl({
-  conf: CONF,
+  config: CONFIG,
   icon: SVGs.MAXIMIZE,
   setup: () => ensureHint(map),
   buildDOM(this: any) {
@@ -19,7 +19,7 @@ const FullscreenControl = defineControl({
 
     const outer = dom.el("div", {
       class: "leaflet-bar leaflet-control",
-      id: containerId(this.conf.name, this.conf.position as string),
+      id: containerId(this.config.name, this.config.position as string),
     });
     const container = dom.el("div", {
       class: "foliplus-ctrl-fold foliplus-fullscreen-bar",
@@ -58,7 +58,7 @@ const FullscreenControl = defineControl({
       parent: container,
       onclick: event => {
         L.DomEvent.stopPropagation(event);
-        toggleFullscreen(map, fsBtn, container, { conf: this.conf, T: this.T });
+        toggleFullscreen(map, fsBtn, container, { config: this.config, T: this.T });
       },
     });
 
@@ -73,7 +73,7 @@ const FullscreenControl = defineControl({
         document,
         FULLSCREEN_CHANGE,
         makeFullscreenChangeHandler(map, fsBtn, container, {
-          conf: this.conf,
+          config: this.config,
           T: this.T,
         }),
       );
@@ -83,4 +83,4 @@ const FullscreenControl = defineControl({
   },
 });
 
-new FullscreenControl({ position: CONF.position }).addTo(map);
+new FullscreenControl({ position: CONFIG.position }).addTo(map);

@@ -9,7 +9,7 @@ import { makeControlEnv } from "../../fixture.js";
 /** Standalone env for tests that hit static mode methods (toGeoFeature,
  * getNameLabel) or call Util helpers that read env directly. */
 export function makeEnv(): ControlEnv {
-  window.CONF = { ...window.CONF, name: "MeasureControl", locale_code: "en" };
+  window.CONFIG = { ...window.CONFIG, name: "MeasureControl", locale_code: "en" };
   return makeControlEnv();
 }
 
@@ -115,7 +115,7 @@ export function makeManagerMock(): MeasureManager {
   const measurements: any[] = [];
   const env = makeEnv();
   return {
-    conf: env.conf,
+    config: env.config,
     T: env.T,
     _: env._,
     log: env.log,

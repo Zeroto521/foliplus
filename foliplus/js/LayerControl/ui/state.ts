@@ -18,8 +18,8 @@ import { applyNameProjection } from "./context.js";
 import type { LayerUI } from "./index.js";
 import { INTENT, LIVE, getIntent } from "./intent.js";
 
-// CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
-const log = createLogger(CONF.name);
+// CONFIG is a free variable from the IIFE template wrapper (see BaseControl._get_template).
+const log = createLogger(CONFIG.name);
 
 /** Load every persisted dimension in one call. */
 const loadPersistedState = (ui: LayerUI) => {

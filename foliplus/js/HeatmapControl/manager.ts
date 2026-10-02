@@ -59,8 +59,8 @@ const NO_OP_ENV: HeatmapManagerEnv = {
 // ==================== Core: Data Aggregation & Rendering ====================
 class HeatmapManager {
   map: L.Map;
-  /** Translator bound to the module-level CONF, assigned once in the
-   *  constructor — same shape as MeasureControl / ExportControl managers. */
+  /** Translator handed in via env, assigned once in the constructor — same
+   *  shape as MeasureControl / ExportControl managers. */
   T: (key: string) => string;
   private readonly log: Logger;
   /** Per-map event bus — bound once in the constructor (ensure-style getters
@@ -84,7 +84,7 @@ class HeatmapManager {
   currentLabelColor: string;
   currentLabelSize: number;
   /** Runtime label number format — heatmap panel and layer drawer both write
-   *  this; Python CONF only seeds the initial value. */
+   *  this; Python CONFIG only seeds the initial value. */
   currentLabelFormat: NumberStyle;
   /** Style provider — shared by the layer drawer and the heatmap panel's
    *  label controls (core/labelControl). Reads live state; the drawer refreshes on
@@ -163,23 +163,26 @@ class HeatmapManager {
     // State management
     this.selectedLayerId = null;
     this.pointLayers = [];
-    this.currentAgg = CONF.agg ?? CONST.AGG.COUNT;
+    this.currentAgg = CONFIG.agg ?? CONST.AGG.COUNT;
     this.currentField = "";
-    this.currentScheme = CONF.color_scheme ?? "Reds";
-    this.currentMethod = CONF.method ?? CLASSIFY_METHOD.JENKS;
+    this.currentScheme = CONFIG.color_scheme ?? "Reds";
+    this.currentMethod = CONFIG.method ?? CLASSIFY_METHOD.JENKS;
     this.autoFieldKey = null;
-    this.numClasses = CONF.n_classes ?? CONST.CLASS_COUNT.DEFAULT;
-    this.borderWeight = CONF.border_weight ?? BORDER_WEIGHT.DEFAULT;
-    this.borderColor = CONF.border_color ?? CONST.GRAY;
+    this.numClasses = CONFIG.n_classes ?? CONST.CLASS_COUNT.DEFAULT;
+    this.borderWeight = CONFIG.border_weight ?? BORDER_WEIGHT.DEFAULT;
+    this.borderColor = CONFIG.border_color ?? CONST.GRAY;
     // Python default is True; only an explicit false turns labels off — same
     // `!== false` rule MeasureControl uses for label_show / label_collide.
-    this.currentLabelShow = CONF.label_show !== false;
+    this.currentLabelShow = CONFIG.label_show !== false;
     // Color inputs require #rrggbb — normalize the short #fff Python default.
     this.currentLabelColor = normalizeHexColor(
-      CONF.label_color ?? CONST.LABEL.COLOR_DEFAULT,
+      CONFIG.label_color ?? CONST.LABEL.COLOR_DEFAULT,
     );
-    this.currentLabelSize = clampLabelSize(CONF.label_size ?? CONST.LABEL.SIZE_DEFAULT);
-    this.currentLabelFormat = (CONF.label_format ?? NUMBER_FORMAT.AUTO) as NumberStyle;
+    this.currentLabelSize = clampLabelSize(
+      CONFIG.label_size ?? CONST.LABEL.SIZE_DEFAULT,
+    );
+    this.currentLabelFormat = (CONFIG.label_format ??
+      NUMBER_FORMAT.AUTO) as NumberStyle;
     this.valueFallbackWarned = false;
     this.sourceMeta = {};
     // Write-through binding: config is durable the moment a UI change lands,
@@ -203,10 +206,10 @@ class HeatmapManager {
             labelFormat: this.currentLabelFormat,
             field: this.currentField,
           } satisfies SavedConfig,
-          CONF.name,
+          CONFIG.name,
         ),
     });
-    // Snapshot the Python CONF style defaults before any runtime toggle so
+    // Snapshot the Python CONFIG style defaults before any runtime toggle so
     // Reset restores exactly what construction started from (never localStorage).
     const defaultLabelShow = this.currentLabelShow;
     const defaultLabelColor = this.currentLabelColor;
@@ -432,7 +435,7 @@ class HeatmapManager {
       } else {
         // No panel (control removed, or never built): reset state and wipe the
         // canvas directly so a re-add does not render the stale selection.
-        this.resetState(CONF);
+        this.resetState(CONFIG);
         this.clearHeatmapCanvas();
         this.syncSourceMeta();
       }
@@ -726,17 +729,17 @@ class HeatmapManager {
     this.events.emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: this.layerId });
   }
 
-  /** Reset selection + style state to the defaults declared in `conf`. Both
+  /** Reset selection + style state to the defaults declared in `config`. Both
    *  clear entries (the panel's Clear button and LayerControl's more-menu
    *  delete) go through here, so the two can never drift apart. */
-  resetState(conf: ComponentConfig) {
+  resetState(config: ComponentConfig) {
     this.selectedLayerId = null;
     this.autoFieldKey = null;
-    this.currentAgg = conf.agg ?? CONST.AGG.COUNT;
+    this.currentAgg = config.agg ?? CONST.AGG.COUNT;
     this.currentField = "";
-    this.numClasses = conf.n_classes ?? CONST.CLASS_COUNT.DEFAULT;
-    this.currentMethod = conf.method ?? CLASSIFY_METHOD.JENKS;
-    this.currentScheme = conf.color_scheme ?? "Reds";
+    this.numClasses = config.n_classes ?? CONST.CLASS_COUNT.DEFAULT;
+    this.currentMethod = config.method ?? CLASSIFY_METHOD.JENKS;
+    this.currentScheme = config.color_scheme ?? "Reds";
   }
 
   /** Load saved configuration from localStorage into this manager's state. */

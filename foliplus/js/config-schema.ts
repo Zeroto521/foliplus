@@ -2,7 +2,7 @@
 // Do not edit by hand — regenerate with:
 //   python foliplus/_config_schema.py --out foliplus/.build/js/config-schema.json
 //   node script/emit-config-schema.mjs --json foliplus/.build/js/config-schema.json
-// Per-control CONF interfaces plus a flat ComponentConfig for backward
+// Per-control CONFIG interfaces plus a flat ComponentConfig for backward
 // compatibility with the existing global.d.ts shape. All fields are
 // optional in ComponentConfig (any control may omit any field); per-
 // control interfaces are stricter and use the schema's optional flag.
@@ -84,11 +84,12 @@ interface ConfigSearch extends ConfigCommon {
 }
 
 interface ConfigRuntimeOnly {
-  field?: string; // Annotation field name (JS reads per-layer config, not CONF).
+  /** Annotation field name (JS reads per-layer config, not CONFIG). */
+  field?: string;
   background?: string; // Export background color (currently declared but unread).
 }
 
-/** Flat CONF type for all controls. All fields optional except `name`. */
+/** Flat CONFIG type for all controls. All fields optional except `name`. */
 interface ComponentConfig {
   name: string; // Control class name (Python self._name).
   position?: ControlPosition; // Leaflet control position.
@@ -128,7 +129,8 @@ interface ComponentConfig {
   provider?: string | ProviderConfig; // Built-in provider id or a custom ProviderConfig dict.
   /** Overrides for a built-in provider; only valid with a string provider. */
   provider_config?: Record<string, unknown> | null;
-  field?: string; // Annotation field name (JS reads per-layer config, not CONF).
+  /** Annotation field name (JS reads per-layer config, not CONFIG). */
+  field?: string;
   background?: string; // Export background color (currently declared but unread).
   /** Escape hatch for truly dynamic keys not in the schema. */
   [key: string]: unknown;

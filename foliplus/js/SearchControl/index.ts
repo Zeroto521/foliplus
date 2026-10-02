@@ -19,7 +19,7 @@ import {
 import type { AddressResult, ResultItem, SearchHistoryEntry } from "./type.js";
 
 class SearchControl extends defineControl({
-  conf: CONF,
+  config: CONFIG,
   icon: SVGs.SEARCH,
   setup: () => ensureHint(map),
 }) {
@@ -56,7 +56,7 @@ class SearchControl extends defineControl({
     this.effect(() =>
       bindOutsideCollapse({
         container: this.ctrl,
-        skipCheck: this.conf.collapse_on_outside === false ? () => true : undefined,
+        skipCheck: this.config.collapse_on_outside === false ? () => true : undefined,
       }),
     );
     return this.container;
@@ -82,9 +82,9 @@ class SearchControl extends defineControl({
       cssClass: CLASSES.MAP_SEARCH,
       toggleTitle: this.T("btn_title"),
       toggleSvg: SVGs.SEARCH,
-      position: this.conf.position,
+      position: this.config.position,
     });
-    ctrl.id = `${this.conf.name}_${this.conf.position}_ctrl`;
+    ctrl.id = `${this.config.name}_${this.config.position}_ctrl`;
     this.container = container;
     this.ctrl = ctrl;
     this.toggleBtn = toggleBtn;
@@ -121,10 +121,10 @@ class SearchControl extends defineControl({
     // follows the same provider — cache keys and rate limits stay consistent.
     // Route through the shared seed so the namespace's typing stays sound.
     const api = ensureMapFoliplus(this._map);
-    api.geocodeProvider = this.conf.provider ?? "nominatim";
+    api.geocodeProvider = this.config.provider ?? "nominatim";
     this.mode =
-      this.conf.mode === MODE.COORD || this.conf.mode === MODE.ADDR
-        ? this.conf.mode
+      this.config.mode === MODE.COORD || this.config.mode === MODE.ADDR
+        ? this.config.mode
         : MODE.COORD;
     this.panelWrap = null;
     this.selectedIdx = -1;
@@ -167,10 +167,10 @@ class SearchControl extends defineControl({
       this.delIcon = null;
     }
     if (this.suggestAbortController) this.suggestAbortController.abort();
-    this._map.foliplus!.hideHint(this.conf.name);
+    this._map.foliplus!.hideHint(this.config.name);
     removePanel(this);
     this.inp.focus();
   }
 }
 
-new SearchControl({ position: CONF.position }).addTo(map);
+new SearchControl({ position: CONFIG.position }).addTo(map);

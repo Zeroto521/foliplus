@@ -1,4 +1,4 @@
-// core — shared layer-management primitives (pure logic, no CONF/DOM).
+// core — shared layer-management primitives (pure logic, no CONFIG/DOM).
 // LayerControl composes these via LayerManager; other controls consume the
 // LayerAPI facade (map.foliplus.LayerAPI) rather than importing core directly.
 export {
