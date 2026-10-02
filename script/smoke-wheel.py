@@ -63,17 +63,17 @@ def check_manifest(dist_path: Path) -> list[str]:
     manifest is what `script/build.mjs` wrote, so comparing both sides
     catches a component dropped on either end.
     """
-    manifest = json.loads((dist_path / "artifacts.json").read_text(encoding="utf-8"))
+    manifest = json.loads((dist_path / "manifest.json").read_text(encoding="utf-8"))
     listed = manifest["artifacts"]
     expected = {artifact_name(name, ext) for name in listed for ext in ("js", "css")}
     on_disk = {p.name for p in dist_path.iterdir() if p.is_file()}
     if expected - on_disk:
         raise SmokeFailure(f"missing from dist/: {sorted(expected - on_disk)}")
-    # artifacts.json is written by the build alongside the bundles, not part
+    # manifest.json is written by the build alongside the bundles, not part
     # of the expected set — allow it, reject anything else.
-    if on_disk - expected - {"artifacts.json"}:
+    if on_disk - expected - {"manifest.json"}:
         raise SmokeFailure(
-            f"unexpected files in dist/: {sorted(on_disk - expected - {'artifacts.json'})}"
+            f"unexpected files in dist/: {sorted(on_disk - expected - {'manifest.json'})}"
         )
     return listed
 

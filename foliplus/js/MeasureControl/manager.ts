@@ -7,6 +7,7 @@ import {
   type EventHandler,
   ensureEvents,
 } from "#core/event/index.js";
+import { requireFoliplus } from "#core/guard.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { isLayerInPanes } from "#core/layer/index.js";
 import { type ModeManager, ensureModes, guardBlocked } from "#core/mode.js";
@@ -28,9 +29,6 @@ import { MODE_MAP, MeasureMode } from "./mode/index.js";
 import { MeasureStore } from "./store.js";
 import type { CollidableLabel } from "./type.js";
 import * as Util from "./util.js";
-
-// foliplus namespace is read from window (set by the shared runtime).
-const foliplus = window.foliplus;
 
 /** In edit mode, suspend every layer except the measurement panes so nodes stay
  *  draggable and shapes clickable to reveal their ✕ handles. */
@@ -159,7 +157,7 @@ class MeasureManager {
     // toggle so Reset cannot drift.
     const defaultLabelShow = this.labelShow;
     const defaultLabelCollide = this.labelCollide;
-    this.layers = this.map.foliplus!.LayerAPI!.createLayers({
+    this.layers = requireFoliplus(this.map).LayerAPI.createLayers({
       id: this.layerId,
       name: this.T("tool_toggle"),
       panes: [

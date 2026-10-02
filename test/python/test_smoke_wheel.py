@@ -67,7 +67,7 @@ def _write_dist(tmp_path: Path, artifacts: list[str], files: list[str]) -> Path:
     """A fake installed ``foliplus/dist/``: manifest plus the named files."""
     dist = tmp_path / "dist"
     dist.mkdir()
-    (dist / "artifacts.json").write_text(
+    (dist / "manifest.json").write_text(
         json.dumps({"artifacts": artifacts}), encoding="utf-8"
     )
     for name in files:
@@ -143,7 +143,7 @@ def test_check_manifest_rejects_unexpected_file(tmp_path, controls, smoke):
         smoke.check_manifest(dist)
 
 
-def test_check_manifest_allows_artifacts_json(tmp_path, controls, smoke):
+def test_check_manifest_allows_manifest_json(tmp_path, controls, smoke):
     """The manifest itself lives in dist/ and is not an unexpected file."""
     dist = _write_dist(tmp_path, controls, _pairs(controls))
     assert smoke.check_manifest(dist) == controls

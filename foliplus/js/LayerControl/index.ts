@@ -12,8 +12,11 @@ const LayerControl = defineControl<LayerManager>({
   config: CONFIG,
   icon: SVGs.LAYERS,
   createManager: env => {
-    const manager = new LayerManager(map, env.config.data as LayerInfo[]);
-    manager.ui = new LayerUI(manager);
+    const manager = new LayerManager(map, env.config.data as LayerInfo[], {
+      T: env.T,
+      log: env.log,
+    });
+    manager.ui = new LayerUI(manager, { T: env.T, _: env._ });
     return manager;
   },
   buildDOM(this: any) {

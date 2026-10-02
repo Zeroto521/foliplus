@@ -2055,3 +2055,38 @@ describe("resetState — CONFIG fallbacks", () => {
     expect(m.currentScheme).toBe("Reds");
   });
 });
+
+describe("computeBreaks", () => {
+  it("delegates to computeBreaksFn", () => {
+    const m = makeManager();
+    const result = m.computeBreaks([1, 2, 3, 4, 5], 3, "jenks");
+    expect(Array.isArray(result)).toBe(true);
+    expect(result.length).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe("getBounds callback", () => {
+  it("returns computeBounds result via createCanvas options", () => {
+    const m = makeManager();
+    const opts = window.map.foliplus.LayerAPI.createCanvas.mock.calls[0][0] as {
+      getBounds: () => unknown;
+    };
+    const result = opts.getBounds();
+    expect(result).toBeNull();
+  });
+});
+
+describe("NO_OP_ENV T fallback", () => {
+  it("returns prefixed key when env is not provided", () => {
+    const map = {
+      getContainer: vi.fn(),
+      getBounds: vi.fn(),
+      getZoom: vi.fn(),
+      on: vi.fn(),
+      off: vi.fn(),
+      foliplus: window.map.foliplus,
+    };
+    const m = new HeatmapManager(map);
+    expect(m.T("title")).toBe("HeatmapControl.title");
+  });
+});

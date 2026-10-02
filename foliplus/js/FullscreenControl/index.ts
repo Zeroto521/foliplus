@@ -58,7 +58,7 @@ const FullscreenControl = defineControl({
       parent: container,
       onclick: event => {
         L.DomEvent.stopPropagation(event);
-        toggleFullscreen(map, fsBtn, container);
+        toggleFullscreen(map, fsBtn, container, { config: this.config, T: this.T });
       },
     });
 
@@ -72,7 +72,10 @@ const FullscreenControl = defineControl({
       this.on(
         document,
         FULLSCREEN_CHANGE,
-        makeFullscreenChangeHandler(map, fsBtn, container),
+        makeFullscreenChangeHandler(map, fsBtn, container, {
+          config: this.config,
+          T: this.T,
+        }),
       );
     }
 
