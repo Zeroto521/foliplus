@@ -59,7 +59,7 @@ jobs:
       - name: Smoke-test the built sdist
         # The sdist is the artifact a user installs from pip when the tag
         # ships. A wheel smoke passes while the sdist breaks the build for
-        # a real consumer 鈥?a pyproject drift or a missing MANIFEST entry
+        # a real consumer — a pyproject drift or a missing MANIFEST entry
         # that setuptools_scm doesn't fail on at wheel-build time. Installing
         # from the tar.gz builds it from source, so the packaging path is
         # exercised end-to-end.
