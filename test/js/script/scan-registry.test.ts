@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join, resolve } from "path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { generateRegistry, registryUsedExports } from "#script/scan-registry.mjs";
 
 const FS = require("fs");
@@ -313,6 +313,21 @@ describe("generateRegistry", () => {
     expect(output).toContain("#foliplus/BaseControl.js");
   });
 
+  it("skips BaseControl when the import names nothing", () => {
+    // An empty named import `import { } from "#foliplus/BaseControl.js"`
+    // records an empty names array for the spec, so `baseNames` is `[]`
+    // rather than falling back to `["BaseControl"]` — the `if` false branch.
+    const [jsDir, buildDir] = buildFakeTree({
+      "common/dom.ts": `export const dom = {};`,
+      "core/empty.ts": ``,
+      "runtime/index.ts": ``,
+      "MyComponent/index.ts": `import { } from "#foliplus/BaseControl.js";`,
+    });
+    generateRegistry(jsDir, buildDir);
+    const output = readRegistry(buildDir);
+    expect(output).not.toContain("BaseControlNS");
+  });
+
   it("writes valid output for empty component set", () => {
     const [jsDir, buildDir] = buildFakeTree({
       "common/dom.ts": `export const dom = {};`,
@@ -335,5 +350,76 @@ describe("generateRegistry", () => {
     for (const sub of ["geo", "geocode", "layer", "event"]) {
       expect(existsSync(join(coreDir, sub, "index.ts"))).toBe(true);
     }
+  });
+});
+
+describe("CLI entry", () => {
+  // `parseArgs(process.argv.slice(2))` and the help/error exits run at import
+  // time, so they are only reachable by re-importing the module with argv
+  // replaced. vi.resetModules() re-runs the module body; trapping process.exit
+  // turns the exit into a rejection instead of killing the worker.
+  const SCRIPT = resolve(process.cwd(), "script", "scan-registry.mjs");
+
+  const trapExit = () =>
+    vi
+      .spyOn(process, "exit")
+      .mockImplementation((code?: string | number | null | undefined) => {
+        throw new Error(`exit:${code}`);
+      });
+
+  const runCli = async (argv: string[]) => {
+    const original = process.argv;
+    try {
+      Object.defineProperty(process, "argv", {
+        value: argv,
+        writable: true,
+        configurable: true,
+      });
+      vi.resetModules();
+      return await import("#script/scan-registry.mjs");
+    } finally {
+      Object.defineProperty(process, "argv", {
+        value: original,
+        writable: true,
+        configurable: true,
+      });
+    }
+  };
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("--help prints the usage and exits 0", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const exit = trapExit();
+    await expect(runCli(["node", SCRIPT, "--help"])).rejects.toThrow("exit:0");
+    expect(exit).toHaveBeenCalledWith(0);
+    expect(log.mock.calls.join("\n")).toContain("Usage:");
+  });
+
+  it("prints the error and exits 1 on an unknown flag", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const exit = trapExit();
+    await expect(runCli(["node", SCRIPT, "--bogus"])).rejects.toThrow("exit:1");
+    expect(exit).toHaveBeenCalledWith(1);
+    expect(error.mock.calls.join("\n")).toContain("Unknown flag: --bogus");
+  });
+
+  it("runs the scan when launched directly as a script", async () => {
+    // `process.argv[1]` matching this module's own URL is the guard's true
+    // branch (`main()`), only reachable by re-importing with argv replaced.
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    await runCli(["node", SCRIPT]);
+    const out = log.mock.calls.join("\n");
+    expect(out).toContain("_shared-registry.ts written");
+  });
+
+  it("stays silent under --silent", async () => {
+    // The `!opts.silent` guard's false branch: a silent run writes the registry
+    // without printing the summary line.
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    await runCli(["node", SCRIPT, "--silent"]);
+    expect(log).not.toHaveBeenCalled();
   });
 });
