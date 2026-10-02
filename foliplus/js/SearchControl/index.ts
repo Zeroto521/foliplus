@@ -118,7 +118,7 @@ class SearchControl extends defineControl({
     this.delIcon = null;
     // Register this control's provider as the map default so indirect
     // geocoding (foliplus.geocode / reverseGeocode without an explicit spec)
-    // follows the same provider �?cache keys and rate limits stay consistent.
+    // follows the same provider — cache keys and rate limits stay consistent.
     // Route through the shared seed so the namespace's typing stays sound.
     const api = ensureMapFoliplus(this._map);
     api.geocodeProvider = this.config.provider ?? "nominatim";

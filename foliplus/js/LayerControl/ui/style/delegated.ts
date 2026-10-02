@@ -1,6 +1,6 @@
-// Delegated style panel �?for layers that own their style via styleSetters
+// Delegated style panel — for layers that own their style via styleSetters
 // (third-party canvas layers: heatmap, measure). Moved verbatim from
-// ui/style.ts. Owns the delegation probe used by the �?menu, and the
+// ui/style.ts. Owns the delegation probe used by the ⋮ menu, and the
 // "Label" drawer that layers their own setters alongside LayerControl's
 // opacity / zoom-range rows.
 import { type LabelStyleValues, renderLabelControls } from "#core/labelControl.js";
@@ -15,7 +15,7 @@ import { appendResetFooter } from "./frame.js";
 import { DIM_ORDER, gatedRows } from "./registry.js";
 
 /** The delegated drawer's Layer-row order: `DIM_ORDER` minus the two
- *  vector-only rows. `fill` and `border` are never delegated �?the vector
+ *  vector-only rows. `fill` and `border` are never delegated — the vector
  *  write path (`setStyle`) is unreliable for layers whose component redraws
  *  its own geometry (e.g. Measure), and fill has no delegated rendering path
  *  at all. Only LayerControl-owned rows (opacity, zoomRange) ride the
@@ -25,7 +25,7 @@ const DELEGATED_DIM_ORDER = DIM_ORDER.filter(
 );
 
 /** Whether the layer delegates its style to the drawer via styleSetters
- *  (third-party canvas layers: Heatmap, Measure). The �?menu's Style item
+ *  (third-party canvas layers: Heatmap, Measure). The ⋮ menu's Style item
  *  also enables for these. */
 const layerHasStyleDelegation = (ui: LayerUI, layerId: string): boolean => {
   const li = ui.m.layerRegistry.get(layerId);
@@ -34,8 +34,8 @@ const layerHasStyleDelegation = (ui: LayerUI, layerId: string): boolean => {
 
 /** Build the border-style row for a delegated layer (only HeatmapControl
  *  publishes borderWeight / borderColor today). Delegates to the shared
- *  builder in `./border.js` �?same shell as the vector border row, so
- *  the two read identically �?with the `styleSetters` write target.
+ *  builder in `./border.js` — same shell as the vector border row, so
+ *  the two read identically — with the `styleSetters` write target.
  *  Returns null when the layer publishes no border setters. */
 const buildBorderRow = (ui: LayerUI, layerId: string): HTMLElement | null => {
   const li = ui.m.layerRegistry.get(layerId);
@@ -91,7 +91,7 @@ const renderDelegatedStylePanel = (
 
   // Both hooks re-read the registry instead of closing over the entry fetched
   // above: re-registering a layer swaps in a fresh LayerInfo object, so a
-  // drawer left open across that swap must follow the new entry �?and no-op
+  // drawer left open across that swap must follow the new entry — and no-op
   // once its setters are gone.
   const entry = () => ui.m.layerRegistry.get(layerId);
   const { root, refresh: baseRefresh } = renderLabelControls({
@@ -100,7 +100,7 @@ const renderDelegatedStylePanel = (
     T: ui._,
   });
 
-  // Border row (HeatmapControl only today) �?the component's own styling, so
+  // Border row (HeatmapControl only today) — the component's own styling, so
   // it groups with the LayerControl-owned rows rather than as its own section.
   let borderRow: HTMLElement | null = null;
   if (setters.borderWeight || setters.borderColor) {
@@ -142,18 +142,18 @@ const renderDelegatedStylePanel = (
     iconClass: "foliplus-layer-style-icon foliplus-header-icon",
   });
 
-  // The shared renderer emits controls only, no headings �?the panel owns the
+  // The shared renderer emits controls only, no headings — the panel owns the
   // section split and reads it as the annotation panel does: Layer on top,
   // Label below. The Layer rows run opacity, zoom range (border comes from
   // the dedicated styleSetters path when the component publishes it, and
   // fill is never delegated). This is the annotation panel's
-  // fill �?border �?opacity �?zoom range with the fill and vector-border
+  // fill → border → opacity → zoom range with the fill and vector-border
   // slots absent.
   // Row-level capability gate (5.4): the opacity row only renders when the
   // surface can honestly carry the write. A layer with `opacity: "none"`
   // (MarkerCluster) would otherwise see a slider that writes nothing but
-  // persists the value �?a lie that survives reload (6.2).
-  // Row iteration follows `DELEGATED_DIM_ORDER` (see the constant above) �?
+  // persists the value — a lie that survives reload (6.2).
+  // Row iteration follows `DELEGATED_DIM_ORDER` (see the constant above) —
   // the same gate sweep the annotation panel uses. One collection decides
   // both the heading and the rows, so the two cannot drift. The
   // delegated-only border row is prepended before the registry sweep: it is

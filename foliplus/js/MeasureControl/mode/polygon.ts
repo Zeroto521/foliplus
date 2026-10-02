@@ -101,7 +101,7 @@ class PolygonMode extends PreviewMode {
       }),
     );
     // The cursor dot is the same hollow node as the circle mode's radius
-    // endpoint �?it has no meaning before the first point. Created via
+    // endpoint — it has no meaning before the first point. Created via
     // `moveCursorNode`, which recreates it every frame so attach order keeps
     // the node newest (see PreviewMode.moveCursorNode).
     const nodeMarkers: L.CircleMarker[] = [];
@@ -263,7 +263,7 @@ class PolygonMode extends PreviewMode {
 
     const onPolyClick = (event: L.LeafletMouseEvent) => {
       if (this.m.currentMode !== this.type) return;
-      // Skip if click is on an existing node marker �?the marker's own click
+      // Skip if click is on an existing node marker — the marker's own click
       // handler (registered below) will handle finishing. Without this guard,
       // the map click fires before the marker handler and pushes a duplicate point,
       // creating an extra label at the node position with distance 0.
@@ -297,7 +297,7 @@ class PolygonMode extends PreviewMode {
         // the closing segment label).
         L.DomEvent.stopPropagation(event);
         if (points.length < 3) return;
-        // Click first or last point �?finish
+        // Click first or last point → finish
         if (
           marker === nodeMarkers[0] ||
           marker === nodeMarkers[nodeMarkers.length - 1]
@@ -348,7 +348,7 @@ class PolygonMode extends PreviewMode {
     bindMapEvents(this.map, polyEvents);
   }
 
-  /** GeoJSON feature for a polygon �?properties carry id, area, segments and
+  /** GeoJSON feature for a polygon — properties carry id, area, segments and
    *   the persisted centroid (center). */
   static toGeoFeature(env: ControlEnv, data: MeasureData): GeoJSON.Feature {
     const coords = data.points?.map(p => [p.lng, p.lat]) || [];
@@ -362,7 +362,7 @@ class PolygonMode extends PreviewMode {
         area: data.area || 0,
         segments: data.segments || [],
         // Centroid persisted on finish; absent only for data created before
-        // center was introduced �?intentionally not recomputed here.
+        // center was introduced — intentionally not recomputed here.
         center: data.center,
       },
       geometry: { type: CONST.GEOJSON.POLYGON, coordinates: [coords] },

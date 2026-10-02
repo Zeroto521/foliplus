@@ -44,7 +44,7 @@ const MeasureControl = defineControl<MeasureManager>({
         title: this.T("tool_circle"),
         svg: SVGs.CIRCLE,
       },
-      // Export �?no mode, so it stays out of toolBtns (no data-mode);
+      // Export — no mode, so it stays out of toolBtns (no data-mode);
       // its click is bound via the interaction manager (see manager.ts).
       { title: this.T("tool_export"), svg: Icons.DOWNLOAD_ICON },
       {
