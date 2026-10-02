@@ -28,7 +28,7 @@ import type {
   LayerInfo as CoreLayerInfo,
 } from "#core/layer/type.js";
 import type { ModeManager as CoreModeManager } from "#core/mode.js";
-import type { ComponentConfig } from "#foliplus/conf-schema.js";
+import type { ComponentConfig } from "#foliplus/config-schema.js";
 import type { LocaleTables } from "#common/locale.js";
 
 // ── Inline CDN typings (no usable @types) ───────────────────────
@@ -123,8 +123,8 @@ declare module "leaflet" {
 
 declare global {
   /** Per-component config injected by the Jinja2 IIFE. Generated from
-   *  `foliplus/_schema.py` — see `foliplus/js/conf-schema.ts`. */
-  type ComponentConfig = import("#foliplus/conf-schema.js").ComponentConfig;
+   *  `foliplus/_config_schema.py` — see `foliplus/js/config-schema.ts`. */
+  type ComponentConfig = import("#foliplus/config-schema.js").ComponentConfig;
 
   /** Runtime helpers injected by the foliplus Python wrapper.
    * `runtime/index.ts` is the single builder of this object — members added

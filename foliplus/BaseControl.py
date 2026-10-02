@@ -29,7 +29,7 @@ from folium.elements import JSCSSMixin
 from jinja2 import Template
 from jinja2.utils import htmlsafe_json_dumps
 
-from ._schema import SCHEMAS, config_fields
+from ._config_schema import SCHEMAS, config_fields
 from ._typing import Position
 from ._validate import validate
 from .locale import LocaleConfig, _load_tables, resolve_locale
@@ -246,7 +246,7 @@ class BaseControl(JSCSSMixin, MacroElement):
     def __init_subclass__(cls, **kwargs: Any) -> None:
         """Verify a subclass's ``_config_fields`` against the schema on definition.
 
-        ``foliplus._schema.SCHEMAS`` is the single source of truth for the CONF
+        ``foliplus._config_schema.SCHEMAS`` is the single source of truth for the CONF
         contract: a control that declares a schema entry must have its
         ``_config_fields`` tuple match the schema's non-runtime-only keys. This
         fires at import time (``cls`` is being defined), so a schema drift is a
@@ -266,8 +266,8 @@ class BaseControl(JSCSSMixin, MacroElement):
         if declared != expected:
             raise AssertionError(
                 f"{cls.__name__}._config_fields = {declared!r} but "
-                f"foliplus._schema.SCHEMAS declares {expected!r}. "
-                "Update either the schema (foliplus/_schema.py) or the "
+                f"foliplus._config_schema.SCHEMAS declares {expected!r}. "
+                "Update either the schema (foliplus/_config_schema.py) or the "
                 "control's _config_fields — they must agree exactly."
             )
 

@@ -1,6 +1,6 @@
-"""Tests for the CONF schema drift guard (``foliplus._schema``).
+"""Tests for the CONF schema drift guard (``foliplus._config_schema``).
 
-The schema table in ``foliplus/_schema.py`` is a mirror of every control's
+The schema table in ``foliplus/_config_schema.py`` is a mirror of every control's
 ``BaseControl._config_fields`` tuple. These tests fail if:
 
 * A control declares a field in ``_config_fields`` that the schema does not
@@ -35,7 +35,7 @@ from foliplus import (
     ScaleControl,
     SearchControl,
 )
-from foliplus._schema import (
+from foliplus._config_schema import (
     _UNSET,
     RUNTIME_ONLY,
     SCHEMAS,
@@ -66,7 +66,7 @@ class TestSchemaCoverage:
 
     def test_every_control_has_schema(self) -> None:
         for name in CONTROL_CLASSES:
-            assert name in SCHEMAS, f"{name} has no entry in foliplus._schema.SCHEMAS"
+            assert name in SCHEMAS, f"{name} has no entry in foliplus._config_schema.SCHEMAS"
 
     def test_no_orphan_schemas(self) -> None:
         orphans = set(SCHEMAS) - set(CONTROL_CLASSES)
@@ -96,7 +96,7 @@ class TestSchemaCoverage:
             ):
                 assert obj.__name__ in SCHEMAS, (
                     f"foliplus.{obj.__name__} is a BaseControl subclass without "
-                    f"a schema entry in foliplus._schema.SCHEMAS — add one "
+                    f"a schema entry in foliplus._config_schema.SCHEMAS — add one "
                     f"before shipping."
                 )
 
@@ -150,7 +150,7 @@ class TestSchemaDefaultsMatchPython:
             assert getattr(instance, field_name) == spec.default, (
                 f"{name} default {field_name}={getattr(instance, field_name)!r} "
                 f"does not match schema default {spec.default!r} — update the "
-                f"schema entry in foliplus/_schema.py."
+                f"schema entry in foliplus/_config_schema.py."
             )
 
     @pytest.mark.parametrize("name", sorted(CONTROL_CLASSES))
@@ -293,7 +293,7 @@ class TestSchemaDump:
     def test_main_writes_out_file(self, tmp_path: Path) -> None:
         # ``--out`` is how the JS generators consume the schema; exercise the
         # file branch so a regression there is caught in-process.
-        out = tmp_path / "conf-schema.json"
+        out = tmp_path / "config-schema.json"
         assert _main(["--out", str(out)]) == 0
         data = json.loads(out.read_text(encoding="utf-8"))
         assert data["version"] == 1
@@ -303,7 +303,7 @@ class TestSchemaDump:
         self, capsys: pytest.CaptureFixture[str]
     ) -> None:
         # Without ``--out`` the payload goes to stdout (manual `python -m
-        # foliplus._schema` usage); ``--dump`` is the explicit form of it.
+        # foliplus._config_schema` usage); ``--dump`` is the explicit form of it.
         assert _main(["--dump"]) == 0
         printed = capsys.readouterr().out
         assert printed == schema_to_json()
@@ -335,7 +335,7 @@ class TestRuntimeZeroChange:
         assert "export_format" in MeasureControl._config_fields
 
     def test_schema_module_does_not_touch_basecontrol(self) -> None:
-        # _schema.py imports nothing from foliplus.*; importing it must not
+        # _config_schema.py imports nothing from foliplus.*; importing it must not
         # alter BaseControl's behaviour. Verified in a subprocess so this test
         # cannot mutate the test-runner's module state (importlib.reload would
         # redefine BaseControl in place and split class identity).
@@ -359,7 +359,7 @@ class TestRuntimeZeroChange:
         )
 
     def test_script_dir_stripped_when_run_as_script(self) -> None:
-        # When run as `python foliplus/_schema.py`, the script's directory is
+        # When run as `python foliplus/_config_schema.py`, the script's directory is
         # prepended to sys.path, shadowing stdlib `locale`. The module strips
         # it on import (lines 57-59). runpy.run_path executes the module body
         # in-process so coverage.py can instrument line 59.
@@ -368,7 +368,7 @@ class TestRuntimeZeroChange:
         from io import StringIO
 
         repo_root = Path(__file__).resolve().parents[2]
-        src = repo_root / "foliplus" / "_schema.py"
+        src = repo_root / "foliplus" / "_config_schema.py"
         script_dir = str(src.parent)
 
         original_path = list(sys.path)

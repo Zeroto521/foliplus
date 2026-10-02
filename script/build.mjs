@@ -333,10 +333,10 @@ const generateSharedRegistry = () => {
   if (genResult.status !== 0) process.exit(genResult.status);
 };
 
-/** Verify foliplus/js/conf-schema.ts matches the Python schema table.
+/** Verify foliplus/js/config-schema.ts matches the Python schema table.
  *
- *  Two-step: `python foliplus/_schema.py --out <json>` dumps the schema as
- *  JSON, then `node script/gen-conf-schema.mjs --verify --json <json>` checks
+ *  Two-step: `python foliplus/_config_schema.py --out <json>` dumps the schema as
+ *  JSON, then `node script/emit-config-schema.mjs --verify --json <json>` checks
  *  the committed TS file reproduces exactly from the dump. The build never
  *  writes the committed source file — it fails loudly instead, so the working
  *  tree stays clean and the committed artifact is reproducible.
@@ -346,14 +346,20 @@ const generateSharedRegistry = () => {
  *  init (which imports branca/folium — not needed for schema dumping).
  *  PYTHON env var overrides the Python executable.
  */
-const generateConfSchema = () => {
+const generateConfigSchema = () => {
   const pythonExe = process.env.PYTHON ?? "python";
-  const schemaJson = resolve(buildJs, "conf-schema.json");
-  const confSchemaTs = resolve(CFG.root, "foliplus/js/conf-schema.ts");
+  const schemaJson = resolve(buildJs, "config-schema.json");
+  const configSchemaTs = resolve(CFG.root, "foliplus/js/config-schema.ts");
 
   const dumpResult = spawnSync(
     pythonExe,
-    ["-W", "ignore", resolve(CFG.root, "foliplus/_schema.py"), "--out", schemaJson],
+    [
+      "-W",
+      "ignore",
+      resolve(CFG.root, "foliplus/_config_schema.py"),
+      "--out",
+      schemaJson,
+    ],
     { stdio: "pipe", encoding: "utf-8" },
   );
   if (dumpResult.error) throw dumpResult.error;
@@ -363,11 +369,11 @@ const generateConfSchema = () => {
   const genResult = spawnSync(
     process.execPath,
     [
-      resolve(__dirname, "gen-conf-schema.mjs"),
+      resolve(__dirname, "emit-config-schema.mjs"),
       "--json",
       schemaJson,
       "--out",
-      confSchemaTs,
+      configSchemaTs,
       "--verify",
     ],
     { stdio: "pipe", encoding: "utf-8" },
@@ -391,10 +397,10 @@ const main = async () => {
   mkdirSync(buildCss, { recursive: true });
 
   // ── Step 2.4: Generate CONF schema TS types ──────────────────
-  // Derives foliplus/js/conf-schema.ts from foliplus/_schema.py. The vitest
-  // fixture (test/js/conf-fixture.ts) is generated separately by the test
+  // Derives foliplus/js/config-schema.ts from foliplus/_config_schema.py. The vitest
+  // fixture (test/js/config-fixture.ts) is generated separately by the test
   // pipeline (vitest globalSetup) — the JS build must not write test files.
-  generateConfSchema();
+  generateConfigSchema();
 
   // ── Step 2.5: Generate shared registry ────────────────────────
   // Auto-registers every common/core module on window.foliplus (P5).

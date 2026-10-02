@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * Vitest globalSetup: regenerate test/js/conf-fixture.ts before any test runs.
+ * Vitest globalSetup: regenerate test/js/config-fixture.ts before any test runs.
  *
- * The fixture's default CONF values are generated from foliplus/_schema.py, so
+ * The fixture's default CONF values are generated from foliplus/_config_schema.py, so
  * a stale fixture silently mismatches the schema on any vitest entry point that
  * does not go through `npm test` — `npx vitest run <file>`, an IDE test runner,
  * or `vitest` invoked directly. An npm `pretest` hook only covers `npm test`,
@@ -19,7 +19,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const setupFixture = () => {
   const result = spawnSync(
     process.execPath,
-    [resolve(__dirname, "gen-conf-fixture.mjs")],
+    [resolve(__dirname, "emit-config-fixture.mjs")],
     { stdio: "pipe", encoding: "utf-8" },
   );
   if (result.error) throw result.error;

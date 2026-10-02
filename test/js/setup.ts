@@ -2,7 +2,7 @@
 // Sets up global mocks needed by module-level code (e.g. `const foliplus = window.foliplus`).
 // Use vi.fn() so tests can spy on calls even when module captures at import time.
 import { beforeEach, vi } from "vitest";
-import { makeConf } from "./conf-fixture.js";
+import { makeConf } from "./config-fixture.js";
 import { installWindowLExtensions, resetState } from "./fixture.js";
 
 // Spec-compliant in-memory Web Storage fallback.

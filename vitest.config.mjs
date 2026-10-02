@@ -11,10 +11,10 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     include: ["test/js/**/*.test.ts"],
-    // Regenerate the generated fixture (from foliplus/_schema.py) once per run,
+    // Regenerate the generated fixture (from foliplus/_config_schema.py) once per run,
     // so every vitest entry point — not just `npm test` — starts from a fixture
     // that matches the schema.
-    globalSetup: ["script/conf-fixture-setup.mjs"],
+    globalSetup: ["test/js/script/emit-config-fixture-setup.mjs"],
     setupFiles: ["test/js/setup.ts"],
     // JUnit XML output for Codecov Test Analytics.
     reporters: [
