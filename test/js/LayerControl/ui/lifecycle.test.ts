@@ -7,10 +7,12 @@ import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { GROUP } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { LayerManager } from "#foliplus/LayerControl/manager.js";
+import * as Color from "#foliplus/LayerControl/ui/color.js";
+import * as Drag from "#foliplus/LayerControl/ui/drag.js";
 import { toggleFold } from "#foliplus/LayerControl/ui/drag.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { toggleAll } from "#foliplus/LayerControl/ui/visibility.js";
-import { findItem, initFixture } from "./fixture.js";
+import { attachFaces, findItem, initFixture } from "./fixture.js";
 
 vi.mock("#foliplus/LayerControl/ui/drag.js", async importOriginal => ({
   ...(await importOriginal<typeof import("#foliplus/LayerControl/ui/drag.js")>()),
@@ -45,11 +47,11 @@ describe("LayerUI lifecycle — defensive rails", () => {
       orphan.type = "checkbox";
       orphan.setAttribute("data-role", "toggle-all");
       orphan.dataset.group = GROUP.OVERLAY;
-      // Fire a synthetic event directly at the ui.onChange handler, bypassing
+      // Fire a synthetic event directly at the ui.panelStore.onChange handler, bypassing
       // the container delegation (the container listener would only see it if
       // the checkbox were inside uiContainer, which is the case we already
       // cover elsewhere).
-      ui.onChange?.({ target: orphan, preventDefault: () => {} } as any);
+      ui.panelStore.onChange?.({ target: orphan, preventDefault: () => {} } as any);
       expect(orphan.checked).toBe(false);
     });
 
@@ -58,7 +60,7 @@ describe("LayerUI lifecycle — defensive rails", () => {
       // called with the empty string, not undefined, when the row is misconfigured.
       const toggleAllSpy = vi.mocked(toggleAll);
 
-      const row = ui.uiContainer.querySelector(
+      const row = ui.panelStore.uiContainer.querySelector(
         `${CONST.SEL.TOGGLE_ALL}[data-group="${GROUP.OVERLAY}"]`,
       ) as HTMLElement;
       row.removeAttribute("data-group");
@@ -66,7 +68,13 @@ describe("LayerUI lifecycle — defensive rails", () => {
       checkbox.checked = true;
       checkbox.dispatchEvent(new Event("change", { bubbles: true }));
 
-      expect(toggleAllSpy).toHaveBeenCalledWith(ui, "", expect.any(Boolean));
+      expect(toggleAllSpy).toHaveBeenCalledWith(
+        ui.la,
+        ui.panelStore,
+        ui.focusStore,
+        "",
+        expect.any(Boolean),
+      );
     });
   });
 
@@ -76,30 +84,30 @@ describe("LayerUI lifecycle — defensive rails", () => {
       // layer row and neither is any panel chrome. The handler must no-op
       // rather than call getNavigableItems / setIndex.
       const setIndexSpy = vi.fn();
-      vi.spyOn(ui.listCursor!, "setIndex").mockImplementation(setIndexSpy);
+      vi.spyOn(ui.panelStore.listCursor!, "setIndex").mockImplementation(setIndexSpy);
 
       const orphan = document.createElement("div");
-      ui.uiContainer.appendChild(orphan);
+      ui.panelStore.uiContainer.appendChild(orphan);
       orphan.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 
-      expect(ui.activeIdx).toBeNull();
+      expect(ui.panelStore.activeIdx).toBeNull();
       expect(setIndexSpy).not.toHaveBeenCalled();
     });
 
     it("onClick: a toggle-all row without data-group toggles the empty group", () => {
-      const toggleFoldSpy = vi.mocked(toggleFold);
-
-      const row = ui.uiContainer.querySelector(
+      const row = ui.panelStore.uiContainer.querySelector(
         `${CONST.SEL.TOGGLE_ALL}[data-group="${GROUP.OVERLAY}"]`,
       ) as HTMLElement;
       row.removeAttribute("data-group");
       // Click the row's fold button (a descendant that is not itself a toggle
       // control), so the second guard `el.closest('[data-role="toggle-all"]')`
-      // is false and we reach the toggleFold call.
+      // is false and we reach the toggleFold call. The fold lands on the
+      // empty-group key (the row lost its data-group), which is the
+      // misconfiguration this rail guards.
       const foldBtn = row.querySelector(`.${CONST.CLASSES.FOLD_BTN}`) as HTMLElement;
       foldBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 
-      expect(toggleFoldSpy).toHaveBeenCalledWith(ui, "");
+      expect(ui.panelStore.foldedGroups.has("")).toBe(true);
     });
 
     it("onClick: the color row's body no longer triggers showSolidBasemap", () => {
@@ -112,9 +120,9 @@ describe("LayerUI lifecycle — defensive rails", () => {
       // test_color_basemap_checkbox_toggles_visibility, so this unit test
       // pins only the negative half of the contract.
       const showSolidBasemapSpy = vi
-        .spyOn(ui, "showSolidBasemap")
+        .spyOn(Color, "showSolidBasemap")
         .mockImplementation(() => {});
-      const colorRow = ui.uiContainer.querySelector<HTMLElement>(
+      const colorRow = ui.panelStore.uiContainer.querySelector<HTMLElement>(
         `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       );
       expect(colorRow).toBeTruthy();
@@ -129,7 +137,7 @@ describe("LayerUI lifecycle — defensive rails", () => {
 
   describe("onLayerItemCountChange — the refresh rails", () => {
     it("no-ops when the UI container is detached", () => {
-      ui.m.uiContainer = null as any;
+      ui.panelStore.uiContainer = null;
       const getFeatureCount = vi.spyOn(manager, "getFeatureCount");
 
       ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "overlay1" });
@@ -139,7 +147,7 @@ describe("LayerUI lifecycle — defensive rails", () => {
 
     it("no-ops for a base basemap layer", () => {
       const getFeatureCount = vi.spyOn(manager, "getFeatureCount");
-      const item = findItem(ui, "base1");
+      const item = findItem(ui.la, ui.panelStore, ui.focusStore, "base1");
 
       ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "base1" });
 
@@ -153,7 +161,7 @@ describe("LayerUI lifecycle — defensive rails", () => {
       // scratch may briefly not have data-title.
       const info = manager.layerRegistry.get("overlay1")!;
       info.featureCountProvider = () => 7;
-      const item = findItem(ui, "overlay1");
+      const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
       item.removeAttribute(CONST.DATA.TITLE);
 
       ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "overlay1" });
@@ -166,7 +174,7 @@ describe("LayerUI lifecycle — defensive rails", () => {
       // the empty-text path when the column is present but the count is not.
       const info = manager.layerRegistry.get("overlay1")!;
       vi.spyOn(manager, "getFeatureCount").mockReturnValue(null);
-      const item = findItem(ui, "overlay1");
+      const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
       const countCol = item.querySelector(CONST.SEL.COUNT_COL) as HTMLElement;
       countCol.textContent = "stale";
 
@@ -178,7 +186,7 @@ describe("LayerUI lifecycle — defensive rails", () => {
 
   describe("refreshAllCounts — the loop rails", () => {
     it("no-ops when the UI container is detached", () => {
-      ui.m.uiContainer = null as any;
+      ui.panelStore.uiContainer = null;
       const getFeatureCount = vi.spyOn(manager, "getFeatureCount");
 
       ui.refreshAllCounts();
@@ -191,7 +199,7 @@ describe("LayerUI lifecycle — defensive rails", () => {
       // loop must continue past it rather than calling getFeatureCount(undefined).
       const orphan = document.createElement("div");
       orphan.className = CONST.CLASSES.LAYER_ITEM;
-      ui.uiContainer.appendChild(orphan);
+      ui.panelStore.uiContainer.appendChild(orphan);
       const getFeatureCount = vi.spyOn(manager, "getFeatureCount");
 
       ui.refreshAllCounts();
@@ -202,7 +210,7 @@ describe("LayerUI lifecycle — defensive rails", () => {
     it("clears the count column for every overlay row when no count is available", () => {
       // Exercises the else-if arm across the full sweep.
       vi.spyOn(manager, "getFeatureCount").mockReturnValue(null);
-      const item = findItem(ui, "overlay1");
+      const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
       const countCol = item.querySelector(CONST.SEL.COUNT_COL) as HTMLElement;
       countCol.textContent = "stale";
 
@@ -218,22 +226,22 @@ describe("LayerUI lifecycle — defensive rails", () => {
       // handlers are null and the guards must not throw. This exercises every
       // `if (ui.onX)` false branch at once.
       ui.onKeyDown = null;
-      ui.unsubscribeCountChange = null;
-      ui.unsubscribeControlAttached = null;
-      ui.onMoreClick = null;
-      ui.onMoreMenuClick = null;
-      ui.onMoreMapClick = null;
-      ui.onZoomEnd = null;
-      ui.onChange = null;
-      ui.onInput = null;
-      ui.onClick = null;
-      ui.onFocusIn = null;
-      ui.onFocusOut = null;
-      ui.onDragStart = null;
-      ui.onDragOver = null;
-      ui.onDragLeave = null;
-      ui.onDrop = null;
-      ui.onDragEnd = null;
+      ui.panelStore.unsubscribeCountChange = null;
+      ui.panelStore.unsubscribeControlAttached = null;
+      ui.panelStore.onMoreClick = null;
+      ui.panelStore.onMoreMenuClick = null;
+      ui.panelStore.onMoreMapClick = null;
+      ui.panelStore.onZoomEnd = null;
+      ui.panelStore.onChange = null;
+      ui.panelStore.onInput = null;
+      ui.panelStore.onClick = null;
+      ui.panelStore.onFocusIn = null;
+      ui.panelStore.onFocusOut = null;
+      ui.panelStore.onDragStart = null;
+      ui.panelStore.onDragOver = null;
+      ui.panelStore.onDragLeave = null;
+      ui.panelStore.onDrop = null;
+      ui.panelStore.onDragEnd = null;
       expect(() => ui.unbindEvents()).not.toThrow();
     });
 
@@ -275,7 +283,7 @@ describe("LayerUI lifecycle — defensive rails", () => {
       // Covers the `else if (countCol)` false side: when the count column was
       // removed from the row (e.g. a defensive edge for a custom layout), the
       // else-if body is skipped entirely.
-      const item = findItem(ui, "overlay1");
+      const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
       item.querySelector(CONST.SEL.COUNT_COL)?.remove();
       vi.spyOn(manager, "getFeatureCount").mockReturnValue(null);
 
@@ -290,7 +298,7 @@ describe("LayerUI lifecycle — defensive rails", () => {
     it("skips the count-column write for rows without a count column", () => {
       // Covers the `else if (countCol) countCol.textContent = ""` false side:
       // a row whose count column was removed is silently skipped.
-      const item = findItem(ui, "overlay1");
+      const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
       item.querySelector(CONST.SEL.COUNT_COL)?.remove();
       vi.spyOn(manager, "getFeatureCount").mockReturnValue(null);
 

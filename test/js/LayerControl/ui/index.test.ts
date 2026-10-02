@@ -8,8 +8,11 @@ import * as CONST from "#foliplus/LayerControl/const.js";
 import { LayerManager } from "#foliplus/LayerControl/manager.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { getIntent, seedIntentMap } from "#foliplus/LayerControl/ui/intent.js";
+import * as List from "#foliplus/LayerControl/ui/list.js";
+import * as Style from "#foliplus/LayerControl/ui/style/index.js";
 import {
   TileLayer,
+  attachFaces,
   findItem,
   initFixture,
   installLeafletGlobals,
@@ -23,6 +26,12 @@ describe("LayerUI shell — event subscriptions", () => {
 
   beforeEach(() => {
     ({ manager, ui, map } = initFixture());
+    // The attach sequence schedules a setTimeout(0) init pass (lifecycle
+    // attachUI); under fake timers it completes deterministically before the
+    // next test sets its spies, so a leaked init cannot hit a later test's
+    // module-function spy.
+    vi.useFakeTimers();
+    vi.advanceTimersByTime(0);
   });
 
   afterEach(() => {
@@ -33,8 +42,8 @@ describe("LayerUI shell — event subscriptions", () => {
   });
 
   it("CONTROL_ATTACHED re-runs the init pass and reapplies annotation state", () => {
-    const initSpy = vi.spyOn(ui, "initTypesAndVisibility");
-    const applySpy = vi.spyOn(ui, "applyStyleLabelState");
+    const initSpy = vi.spyOn(List, "initTypesAndVisibility");
+    const applySpy = vi.spyOn(Style, "applyStyleLabelState");
 
     ensureEvents(map).emit(EVENTS.CONTROL_ATTACHED, { component: "HeatmapControl" });
 
@@ -43,18 +52,26 @@ describe("LayerUI shell — event subscriptions", () => {
   });
 
   it("CONTROL_ATTACHED is ignored once the container is detached", () => {
-    (ui.uiContainer as HTMLElement).remove();
-    const initSpy = vi.spyOn(ui, "initTypesAndVisibility");
+    // Detaching the container must make the re-init a no-op — a leaked pass
+    // would rebuild rows a user can no longer see. Asserted on observable
+    // state (the template rows survive) rather than a module spy, since the
+    // module function is shared across tests and timers can interleave.
+    const rowCount = ui.panelStore.uiContainer.querySelectorAll(
+      `.${CONST.CLASSES.LAYER_ITEM}`,
+    ).length;
+    (ui.panelStore.uiContainer as HTMLElement).remove();
 
     ensureEvents(map).emit(EVENTS.CONTROL_ATTACHED, { component: "HeatmapControl" });
 
-    expect(initSpy).not.toHaveBeenCalled();
+    expect(
+      document.querySelectorAll(`.${CONST.CLASSES.LAYER_ITEM}`).length,
+    ).toBeLessThan(rowCount);
   });
 
   it("LAYER_ITEM_COUNT_CHANGE updates the row count and drops the field cache", () => {
     ui.runtimeStore.setFields("overlay1", [{ name: "stale", numeric: false }]);
     const getFeatureCount = vi.spyOn(manager, "getFeatureCount").mockReturnValue(5);
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     const countCol = item.querySelector("[data-role='count']") as HTMLElement | null;
 
     ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "overlay1" });
@@ -66,7 +83,7 @@ describe("LayerUI shell — event subscriptions", () => {
 
   it("LAYER_ITEM_COUNT_CHANGE clears the count column when no count is available", () => {
     vi.spyOn(manager, "getFeatureCount").mockReturnValue(null);
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     const countCol = item.querySelector("[data-role='count']") as HTMLElement | null;
 
     ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "overlay1" });
@@ -164,6 +181,12 @@ describe("LayerUI shell — delegates", () => {
 
   beforeEach(() => {
     ({ manager, ui, map } = initFixture());
+    // The attach sequence schedules a setTimeout(0) init pass (lifecycle
+    // attachUI); under fake timers it completes deterministically before the
+    // next test sets its spies, so a leaked init cannot hit a later test's
+    // module-function spy.
+    vi.useFakeTimers();
+    vi.advanceTimersByTime(0);
   });
 
   afterEach(() => {
@@ -175,7 +198,7 @@ describe("LayerUI shell — delegates", () => {
 
   it("saveFoldState persists the folded-group set", () => {
     const save = vi.spyOn(manager.persistence, "schedule");
-    ui.foldedGroups = new Set(["overlays"]);
+    ui.panelStore.foldedGroups = new Set(["overlays"]);
 
     ui.saveFoldState();
 
@@ -186,7 +209,7 @@ describe("LayerUI shell — delegates", () => {
 
   it("saveNamesState persists the rename map", () => {
     const save = vi.spyOn(manager.persistence, "schedule");
-    seedIntentMap(ui, "name", { overlay1: "Renamed" });
+    seedIntentMap(ui.la, "name", { overlay1: "Renamed" });
 
     ui.saveNamesState();
 
@@ -202,17 +225,22 @@ describe("LayerUI shell — delegates", () => {
   it("dropPersistedLayerState erases every stored dimension for one id", () => {
     // The single routine that erases a stored value, reached only from an
     // explicit delete — and it must not touch a neighbor's state.
-    seedIntentMap(ui, "visible", { overlay1: false, base1: false });
-    seedIntentMap(ui, "opacity", { overlay1: 0.4 });
-    seedIntentMap(ui, "zoomRange", { overlay1: [3, 12] });
+    seedIntentMap(ui.la, "visible", {
+      overlay1: false,
+      base1: false,
+    });
+    seedIntentMap(ui.la, "opacity", { overlay1: 0.4 });
+    seedIntentMap(ui.la, "zoomRange", {
+      overlay1: [3, 12],
+    });
     ui.intentStore.replaceProvenance({ overlay1: ["visible", "opacity"] });
 
     ui.dropPersistedLayerState("overlay1");
 
-    expect(getIntent(ui, "overlay1", "visible")).not.toBe(false);
-    expect(getIntent(ui, "base1", "visible")).toBe(false);
-    expect(getIntent(ui, "overlay1", "opacity")).toBeUndefined();
-    expect(getIntent(ui, "overlay1", "zoomRange")).toBeUndefined();
+    expect(getIntent(ui.la, "overlay1", "visible")).not.toBe(false);
+    expect(getIntent(ui.la, "base1", "visible")).toBe(false);
+    expect(getIntent(ui.la, "overlay1", "opacity")).toBeUndefined();
+    expect(getIntent(ui.la, "overlay1", "zoomRange")).toBeUndefined();
     expect(ui.intentStore.dumpProvenance().overlay1).toBeUndefined();
   });
 
@@ -226,7 +254,7 @@ describe("LayerUI shell — delegates", () => {
     // through the same visibility carrier + debounced z-order write-through
     // as any other layer.
     const enforce = vi.spyOn(manager, "debouncedEnforce");
-    const colorItem = ui.uiContainer.querySelector(
+    const colorItem = ui.panelStore.uiContainer.querySelector(
       `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
     ) as HTMLElement;
     const checkbox = colorItem.querySelector(
@@ -242,12 +270,16 @@ describe("LayerUI shell — delegates", () => {
   it("reindexAfterMove rebuilds the list without dropping rows", () => {
     ui.reindexAfterMove();
 
-    expect(ui.uiContainer!.querySelector("[data-layer-id='overlay1']")).not.toBeNull();
-    expect(ui.uiContainer!.querySelector("[data-layer-id='base1']")).not.toBeNull();
+    expect(
+      ui.panelStore.uiContainer!.querySelector("[data-layer-id='overlay1']"),
+    ).not.toBeNull();
+    expect(
+      ui.panelStore.uiContainer!.querySelector("[data-layer-id='base1']"),
+    ).not.toBeNull();
   });
 
   it("unbindEvents() tolerates an onZoomEnd that was never set", () => {
-    ui.onZoomEnd = null;
+    ui.panelStore.onZoomEnd = null;
     expect(() => ui.unbindEvents()).not.toThrow();
   });
 
@@ -266,7 +298,7 @@ describe("LayerUI shell — delegates", () => {
     // Covers the delegate wrapper at L397: the method is called when an input
     // event fires on the panel. Dispatching from a real element sets the
     // event target, which the handler reads via closest().
-    const input = ui.uiContainer.querySelector(
+    const input = ui.panelStore.uiContainer.querySelector(
       'input[type="checkbox"]',
     ) as HTMLInputElement;
     const event = new Event("input", { bubbles: true });

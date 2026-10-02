@@ -7,6 +7,7 @@ import { ensureModes } from "#foliplus/core/mode.js";
 import { createScopedTranslator } from "#common/locale.js";
 import {
   allFolded,
+  attachFaces,
   attachWithGroup,
   findItem,
   initFixture,
@@ -33,8 +34,8 @@ describe("LayerUI attrs", () => {
         layer: { options: {}, eachLayer: vi.fn() },
       });
     }
-    ui.foldedGroups = new Set();
-    seedIntentMap(ui, "visible", {});
+    ui.panelStore.foldedGroups = new Set();
+    seedIntentMap(ui.la, "visible", {});
     // Folded-group state is persisted to localStorage, so a fold from one test
     // would be re-read by the next test's LayerUI constructor and present as
     // already-folded.
@@ -87,7 +88,7 @@ describe("LayerUI attrs", () => {
         },
       } as ComponentConfig);
 
-      const item = findItem(ui, "overlay1");
+      const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
       ui.openAttrsPanel(item);
 
       const panel = item.querySelector(".foliplus-layer-attrs-panel")!;
@@ -96,7 +97,7 @@ describe("LayerUI attrs", () => {
     });
 
     it("renders the built-in rows only (nothing registered → no — padding)", () => {
-      const item = findItem(ui, "overlay1");
+      const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
 
       ui.openAttrsPanel(item);
 
@@ -133,7 +134,7 @@ describe("LayerUI attrs", () => {
         meta: { area_km2: 12.5 },
       });
 
-      const item = findItem(ui, "attr-prov1");
+      const item = findItem(ui.la, ui.panelStore, ui.focusStore, "attr-prov1");
       ui.openAttrsPanel(item);
       const panel = item.querySelector(".foliplus-layer-attrs-panel")!;
       const rendered = rows(panel);
@@ -164,7 +165,7 @@ describe("LayerUI attrs", () => {
     it("omits the custom-attributes block when meta is empty", () => {
       manager.registerLayer({ id: "overlay1", meta: { empty: "" } });
 
-      const item = findItem(ui, "overlay1");
+      const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
       ui.openAttrsPanel(item);
 
       expect(item.querySelectorAll(".foliplus-layer-attrs-sep").length).toBe(0);
@@ -180,7 +181,7 @@ describe("LayerUI attrs", () => {
         meta: { features: 3 },
       });
 
-      const item = findItem(ui, "attr-int");
+      const item = findItem(ui.la, ui.panelStore, ui.focusStore, "attr-int");
       ui.openAttrsPanel(item);
 
       const rendered = rows(item.querySelector(".foliplus-layer-attrs-panel")!);
@@ -191,7 +192,7 @@ describe("LayerUI attrs", () => {
       const ghost = document.createElement("div");
       ghost.className = CONST.CLASSES.LAYER_ITEM;
       ghost.setAttribute(CONST.DATA.LAYER_ID, "ghost");
-      ui.uiContainer.appendChild(ghost);
+      ui.panelStore.uiContainer.appendChild(ghost);
 
       ui.openAttrsPanel(ghost);
 
@@ -205,7 +206,7 @@ describe("LayerUI attrs", () => {
     it("continues meta rows in the same list, after the built-in rows", () => {
       manager.registerLayer({ id: "attr-meta1", meta: { area_km2: 12.5 } });
 
-      const item = findItem(ui, "attr-meta1");
+      const item = findItem(ui.la, ui.panelStore, ui.focusStore, "attr-meta1");
       ui.openAttrsPanel(item);
 
       // One flat list: no separator, no second block heading.
@@ -226,7 +227,7 @@ describe("LayerUI attrs", () => {
         metaProvider: () => ({ features: count, extra: "dynamic" }),
       });
 
-      const item = findItem(ui, "attr-meta1");
+      const item = findItem(ui.la, ui.panelStore, ui.focusStore, "attr-meta1");
       ui.openAttrsPanel(item);
 
       const rendered = rows(item.querySelector(".foliplus-layer-attrs-panel")!);
@@ -244,7 +245,7 @@ describe("LayerUI attrs", () => {
         metaProvider: () => ({ features: count }),
       });
 
-      const item = findItem(ui, "attr-live1");
+      const item = findItem(ui.la, ui.panelStore, ui.focusStore, "attr-live1");
       ui.openAttrsPanel(item);
 
       // Change the count and emit the event; the panel row should refresh.
@@ -263,7 +264,7 @@ describe("LayerUI attrs", () => {
         metaProvider: () => ({ features: count }),
       });
 
-      const item = findItem(ui, "attr-live2");
+      const item = findItem(ui.la, ui.panelStore, ui.focusStore, "attr-live2");
       ui.openAttrsPanel(item);
 
       count = 5;
@@ -285,13 +286,13 @@ describe("LayerUI attrs", () => {
         metaProvider: () => ({ features: 0 }),
       });
 
-      const item = findItem(ui, "attr-live3");
+      const item = findItem(ui.la, ui.panelStore, ui.focusStore, "attr-live3");
       ui.openAttrsPanel(item);
-      expect(ui.attrsUnsubscribe).toBe(unsubSpy);
+      expect(ui.panelStore.attrsUnsubscribe).toBe(unsubSpy);
 
       ui.closeAttrsPanel(item, false);
       expect(unsubSpy).toHaveBeenCalled();
-      expect(ui.attrsUnsubscribe).toBeNull();
+      expect(ui.panelStore.attrsUnsubscribe).toBeNull();
 
       vi.restoreAllMocks();
     });
@@ -303,7 +304,7 @@ describe("LayerUI attrs", () => {
         source: "https://example.com/parks.geojson",
       });
 
-      const item = findItem(ui, "attr-hero1");
+      const item = findItem(ui.la, ui.panelStore, ui.focusStore, "attr-hero1");
       ui.openAttrsPanel(item);
 
       const header = item.querySelector(".foliplus-panel-header")!;
@@ -322,7 +323,7 @@ describe("LayerUI attrs", () => {
         updatedAt: new Date(Date.UTC(2026, 8, 1, 8, 0, 0)).getTime(),
       });
 
-      const item = findItem(ui, "attr-time1");
+      const item = findItem(ui.la, ui.panelStore, ui.focusStore, "attr-time1");
       ui.openAttrsPanel(item);
 
       expect(
@@ -340,7 +341,7 @@ describe("LayerUI attrs", () => {
     });
 
     it("reflects the hidden state in the type row's neighbor set", () => {
-      const item = findItem(ui, "overlay1");
+      const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
       (item.querySelector('input[type="checkbox"]') as HTMLInputElement).checked =
         false;
 
@@ -359,7 +360,7 @@ describe("LayerUI attrs", () => {
     });
 
     it("color basemap shows type and no provenance rows", () => {
-      const item = ui.uiContainer.querySelector(
+      const item = ui.panelStore.uiContainer.querySelector(
         `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       )!;
 
@@ -381,14 +382,14 @@ describe("LayerUI attrs", () => {
 
     it("names the type row by what the layer is, not by a missing geometry", () => {
       manager.registerLayer({ id: "attr-base1", group: "base" });
-      const baseItem = findItem(ui, "attr-base1");
+      const baseItem = findItem(ui.la, ui.panelStore, ui.focusStore, "attr-base1");
       ui.openAttrsPanel(baseItem);
       expect(
         rows(baseItem.querySelector(".foliplus-layer-attrs-panel")!),
       ).toContainEqual(["LayerControl.attr_type", "LayerControl.type_base"]);
 
       ui.closeAttrsPanel(false);
-      const colorItem = ui.uiContainer.querySelector(
+      const colorItem = ui.panelStore.uiContainer.querySelector(
         `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       )!;
       ui.openAttrsPanel(colorItem);
@@ -405,7 +406,7 @@ describe("LayerUI attrs", () => {
         id: "attr-surface1",
         layer: new window.L.Polygon(),
       });
-      const item = findItem(ui, "attr-surface1");
+      const item = findItem(ui.la, ui.panelStore, ui.focusStore, "attr-surface1");
       manager.invalidateType("attr-surface1");
       expect(manager.layerRegistry.get("attr-surface1")!.type).toBeNull();
 
@@ -430,7 +431,7 @@ describe("LayerUI attrs", () => {
         layer: new window.L.Polygon(),
       });
 
-      const item = findItem(ui, "attr-custom1");
+      const item = findItem(ui.la, ui.panelStore, ui.focusStore, "attr-custom1");
       ui.openAttrsPanel(item);
       expect(rows(item.querySelector(".foliplus-layer-attrs-panel")!)).toContainEqual([
         "LayerControl.attr_type",
@@ -441,7 +442,7 @@ describe("LayerUI attrs", () => {
     it("shows the feature count grouped, without a stray fraction digit", () => {
       vi.spyOn(ui.m, "getFeatureCount").mockReturnValue(1234);
 
-      const item = findItem(ui, "overlay1");
+      const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
       ui.openAttrsPanel(item);
 
       const count = rows(item.querySelector(".foliplus-layer-attrs-panel")!).find(
@@ -453,7 +454,7 @@ describe("LayerUI attrs", () => {
     });
 
     it("builds on the shared panel vocabulary (header, content, form rows)", () => {
-      const item = findItem(ui, "overlay1");
+      const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
       ui.openAttrsPanel(item);
       const panel = item.querySelector(".foliplus-layer-attrs-panel")!;
 
@@ -477,7 +478,7 @@ describe("LayerUI attrs", () => {
         '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" class="logo"/></svg>';
       manager.registerLayer({ id: "attr-logo1", name: "Logo Layer", iconSvg: logo });
 
-      const item = findItem(ui, "attr-logo1");
+      const item = findItem(ui.la, ui.panelStore, ui.focusStore, "attr-logo1");
       ui.openAttrsPanel(item);
 
       const icon = item.querySelector(".foliplus-layer-attrs-icon")!.innerHTML;
@@ -488,7 +489,7 @@ describe("LayerUI attrs", () => {
     });
 
     it("closeAttrsPanel(setFocus=true) returns focus to the layer row", () => {
-      const item = findItem(ui, "overlay1");
+      const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
       const focusSpy = vi.fn();
       item.focus = focusSpy;
 
@@ -500,7 +501,7 @@ describe("LayerUI attrs", () => {
     });
 
     it("closeAttrsPanel(setFocus=false) does not focus the layer row", () => {
-      const item = findItem(ui, "overlay1");
+      const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
       const focusSpy = vi.fn();
       item.focus = focusSpy;
 
@@ -515,7 +516,7 @@ describe("LayerUI attrs", () => {
     });
 
     it("document capture mousedown outside the panel dismisses it", () => {
-      const item = findItem(ui, "overlay1");
+      const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
       ui.openAttrsPanel(item);
       expect(item.querySelector(".foliplus-layer-attrs-panel")).not.toBeNull();
 
@@ -539,7 +540,7 @@ describe("LayerUI attrs", () => {
     });
 
     it("mousedown inside the panel does not dismiss it", () => {
-      const item = findItem(ui, "overlay1");
+      const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
       ui.openAttrsPanel(item);
       const panel = item.querySelector(".foliplus-layer-attrs-panel")!;
       panel.dispatchEvent(
@@ -552,14 +553,14 @@ describe("LayerUI attrs", () => {
       // The row is the drag source for any press in the row, panel included, and
       // `dragstart` cannot say where the press began — so the verdict is recorded
       // here, on the press, and read by handleDragStart.
-      const item = findItem(ui, "overlay1");
+      const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
       ui.openAttrsPanel(item);
       const panel = item.querySelector(".foliplus-layer-attrs-panel")!;
 
       panel.dispatchEvent(
         new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
       );
-      expect(ui.pressInPanel).toBe(true);
+      expect(ui.panelStore.pressInPanel).toBe(true);
 
       // A press outside closes the panel and clears the verdict, so a stale
       // `true` cannot cancel the next legitimate drag.
@@ -567,11 +568,11 @@ describe("LayerUI attrs", () => {
         new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
       );
       expect(item.querySelector(".foliplus-layer-attrs-panel")).toBeNull();
-      expect(ui.pressInPanel).toBe(false);
+      expect(ui.panelStore.pressInPanel).toBe(false);
     });
 
     it("Escape closes an open attributes panel and returns focus to its row", () => {
-      const item = findItem(ui, "overlay1");
+      const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
       const focusSpy = vi.fn();
       item.focus = focusSpy;
 
@@ -592,13 +593,13 @@ describe("LayerUI attrs", () => {
     });
 
     it("Escape prefers the overflow menu over an open attributes panel", () => {
-      const item = findItem(ui, "overlay1");
+      const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
 
       // openAttrsPanel dismisses the menu it came from, so open both and
       // rebuild the "menu sits on top" state to exercise the precedence.
       ui.openAttrsPanel(item);
       const panel = item.querySelector(".foliplus-layer-attrs-panel")!;
-      ui.activeAttrsPanel = { item, panel, layerId: "overlay1" };
+      ui.panelStore.activeAttrsPanel = { item, panel, layerId: "overlay1" };
       ui.openMoreMenu(item);
 
       const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
@@ -612,14 +613,14 @@ describe("LayerUI attrs", () => {
         }) as unknown as KeyboardEvent,
       );
 
-      expect(ui.activeMenu).toBeNull();
+      expect(ui.panelStore.activeMenu).toBeNull();
       // One surface per keypress — the panel survives this Escape.
       expect(item.querySelector(".foliplus-layer-attrs-panel")).toBe(panel);
     });
 
     it("closes the previously open panel before opening a new one", () => {
-      const a = findItem(ui, "overlay1");
-      const b = findItem(ui, "base1");
+      const a = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
+      const b = findItem(ui.la, ui.panelStore, ui.focusStore, "base1");
 
       ui.openAttrsPanel(a);
       ui.openAttrsPanel(b);
@@ -629,7 +630,7 @@ describe("LayerUI attrs", () => {
     });
 
     it("dismisses the panel on a press outside it, keeps it on a press inside", () => {
-      const item = findItem(ui, "overlay1");
+      const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
       ui.openAttrsPanel(item);
       const panel = item.querySelector(".foliplus-layer-attrs-panel")!;
 
@@ -655,7 +656,7 @@ describe("LayerUI attrs", () => {
         metaProvider: () => ({ marker: 0, distance: 2, circle: 1 }),
       });
 
-      const item = findItem(ui, "attr-prov0");
+      const item = findItem(ui.la, ui.panelStore, ui.focusStore, "attr-prov0");
       ui.openAttrsPanel(item);
       const rendered = rows(item.querySelector(".foliplus-layer-attrs-panel")!);
 
@@ -671,7 +672,7 @@ describe("LayerUI attrs", () => {
         metaProvider: () => ({ marker: 3 }),
       });
 
-      const item = findItem(ui, "attr-prov1");
+      const item = findItem(ui.la, ui.panelStore, ui.focusStore, "attr-prov1");
       ui.openAttrsPanel(item);
       const rendered = rows(item.querySelector(".foliplus-layer-attrs-panel")!);
 
@@ -686,7 +687,7 @@ describe("LayerUI attrs", () => {
         metaProvider: () => ({ marker: count }),
       });
 
-      const item = findItem(ui, "attr-prov2");
+      const item = findItem(ui.la, ui.panelStore, ui.focusStore, "attr-prov2");
       ui.openAttrsPanel(item);
 
       const panel = item.querySelector(".foliplus-layer-attrs-panel")!;
@@ -704,7 +705,7 @@ describe("LayerUI attrs", () => {
         metaProvider: () => ({ marker: 1 }),
       });
 
-      const item = findItem(ui, "attr-prov3");
+      const item = findItem(ui.la, ui.panelStore, ui.focusStore, "attr-prov3");
       ui.openAttrsPanel(item);
 
       const panel = item.querySelector(".foliplus-layer-attrs-panel")!;

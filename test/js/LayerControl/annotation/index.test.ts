@@ -8,7 +8,7 @@ import { AnnotationManager } from "#foliplus/LayerControl/annotation/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { applyProjection } from "#foliplus/LayerControl/ui/apply.js";
 import { setIntent } from "#foliplus/LayerControl/ui/intent.js";
-import { initFixture } from "../ui/fixture.js";
+import { attachFaces, initFixture } from "../ui/fixture.js";
 
 const mocks = vi.hoisted(() => {
   interface MockCanvas {
@@ -764,10 +764,10 @@ describe("a layer that gains labelable content gets the stored intent on its new
       getPosition: () => ({ x: 0, y: 0 }),
     };
 
-    setIntent(ui, "overlay1", "opacity", 0.3);
+    setIntent(ui.la, "overlay1", "opacity", 0.3);
     ui.intentStore.seedProvenance("overlay1", ["opacity"]);
-    applyProjection(ui, "overlay1");
-    applyProjection(ui, "overlay1");
+    applyProjection(ui.la, ui.panelStore, ui.focusStore, "overlay1");
+    applyProjection(ui.la, ui.panelStore, ui.focusStore, "overlay1");
 
     manager.annotation.setConfig("overlay1", {
       show: true,
@@ -791,8 +791,8 @@ describe("a layer that gains labelable content gets the stored intent on its new
     // Re-apply: the carrier set grew (the pane name joined it), so the
     // stored value is rewritten onto every declared pane, the new one
     // included.
-    applyProjection(ui, "overlay1");
-    applyProjection(ui, "overlay1");
+    applyProjection(ui.la, ui.panelStore, ui.focusStore, "overlay1");
+    applyProjection(ui.la, ui.panelStore, ui.focusStore, "overlay1");
 
     const pane = panes.get(CONST.ANNOTATION_PANE_PREFIX + "overlay1");
     expect(pane, "the annotation pane was created").toBeTruthy();

@@ -5,7 +5,15 @@
 // fields, so the coordinator keeps only the composition root. Handler slots
 // (DOM/map event closures) live here as a transition — phase 3 retires them
 // into per-module dispose handles.
+//
+// The translators live here too, exposed as `ps.T` / `ps._` for the ui/*
+// modules that render text (attr / style rows) — the same seam the old
+// `ui.T` / `ui._` instance fields provided. The coordinator forwards its own
+// translators through accessor properties, so a test injection into
+// `ui.T` / `ui._` is visible to every module immediately.
+import type { CreateColorAPI } from "#core/layer/index.js";
 import type { ListCursor } from "#core/listCursor.js";
+import { createScopedTranslator, createTranslator } from "#common/locale.js";
 
 interface OpenMenu {
   item: HTMLElement;
@@ -44,8 +52,13 @@ class PanelStore {
   activeIdx: number | null = null;
   listCursor: ListCursor | null = null;
   interactionCleanup: (() => void) | undefined = undefined;
-  /** Current color-basemap colour. */
-  currentColor = "";
+  /** Current color-basemap colour (the control's declared default). */
+  currentColor = "#cccccc";
+  /** The attached panel container (set by the coordinator's attachUI). */
+  uiContainer: HTMLElement | null = null;
+  /** Lazy-created color basemap surface (see the LayerUI field comment —
+   *  now store-owned). */
+  colorSurface: CreateColorAPI | null = null;
   // ── handler slots (retired in phase 3 → dispose handles) ───────────
   onChange: ((event: Event) => void) | null = null;
   onInput: ((event: Event) => void) | null = null;
@@ -71,6 +84,15 @@ class PanelStore {
   styleZoomEndHandler: (() => void) | null = null;
   /** #548: cleanup handle for the geometry marquee's marching-ants loop. */
   geometryMarqueeCleanup: (() => void) | null = null;
+  /** Component-scoped translator (auto-prepends the component name).
+   *  Forwarded from the coordinator; a ui/* module reads text through this
+   *  so a per-instance conf injection is honored (T270 kept the seam). */
+  T: (key: string) => string = createScopedTranslator(CONF);
+  /** Unscoped translator for the shared `foliplus.*` vocabulary. */
+  _: (key: string) => string = createTranslator(CONF);
+  /** The resolved locale code for Intl formatting (number/date), forwarded
+   *  like T/_ so a per-instance conf injection wins. */
+  localeCode: string = CONF.locale_code ?? "en";
 }
 
 export { PanelStore };

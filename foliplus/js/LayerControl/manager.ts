@@ -581,7 +581,7 @@ class LayerManager implements LayerAPI {
     // handled by `applyUserState` further below, which re-projects the hidden
     // intent and writes the carrier through the executor's single write path.
     if (
-      (!this.ui || getIntent(this.ui, opts.id, INTENT.VISIBLE) !== false) &&
+      (!this.ui || getIntent(this.ui.la, opts.id, INTENT.VISIBLE) !== false) &&
       opts.layer &&
       !this.map.hasLayer(opts.layer)
     ) {
@@ -828,8 +828,8 @@ class LayerManager implements LayerAPI {
       const removed = this.unregisterLayer(id);
       if (!removed) return false;
       if (this.ui) {
-        this.ui.colorSurface = null;
-        this.ui.currentColor = CONST.COLOR.DEFAULT;
+        this.ui.panelStore.colorSurface = null;
+        this.ui.panelStore.currentColor = CONST.COLOR.DEFAULT;
         this.ui.runtimeStore.setAuthorVisible(id, false);
         this.ui.saveState();
         this.ui.syncToggleAll(GROUP.BASE);
@@ -865,8 +865,8 @@ class LayerManager implements LayerAPI {
       return true;
     }
     this.ui.dropPersistedLayerState(id);
-    if (getIntent(this.ui, id, INTENT.NAME) != null) {
-      clearIntent(this.ui, id, INTENT.NAME);
+    if (getIntent(this.ui.la, id, INTENT.NAME) != null) {
+      clearIntent(this.ui.la, id, INTENT.NAME);
       this.ui.saveNamesState();
     }
     this.ui.saveState();

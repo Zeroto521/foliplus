@@ -3,8 +3,11 @@ import { GROUP, HIDDEN } from "#core/layer/const.js";
 import { LayerIntentStore, LayerRuntimeStore } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { LayerManager } from "#foliplus/LayerControl/manager.js";
+import type { LayerAccess } from "#foliplus/LayerControl/ui/access.js";
+import type { FocusStore } from "#foliplus/LayerControl/ui/focusStore.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { getIntent, setIntent } from "#foliplus/LayerControl/ui/intent.js";
+import type { PanelStore } from "#foliplus/LayerControl/ui/panelStore.js";
 import {
   applyVisibility,
   getLayerItems,
@@ -15,7 +18,7 @@ import {
   syncToggleAllFromCount,
   toggleAll,
 } from "#foliplus/LayerControl/ui/visibility.js";
-import { initFixture, installLeafletGlobals } from "./fixture.js";
+import { attachFaces, initFixture, installLeafletGlobals } from "./fixture.js";
 
 // ===========================================================================
 // ui/visibility.ts ?checkbox, group toggle, and the shared visibility
@@ -97,8 +100,13 @@ const fixture = () => {
   return { map, manager, ui: manager.ui as LayerUI };
 };
 
-const allToggle = (ui: LayerUI, group = GROUP.OVERLAY) =>
-  ui.uiContainer.querySelector(
+const allToggle = (
+  la: LayerAccess,
+  ps: PanelStore,
+  fs: FocusStore,
+  group = GROUP.OVERLAY,
+) =>
+  ps.uiContainer!.querySelector(
     `${CONST.SEL.TOGGLE_ALL}[data-group="${group}"] [data-role="toggle-all"]`,
   ) as HTMLInputElement;
 
@@ -143,14 +151,16 @@ describe("applyVisibility", () => {
       layer,
     });
 
-    expect(applyVisibility(ui, "ov", false)).toBe(true);
+    expect(applyVisibility(ui.la, ui.panelStore, ui.focusStore, "ov", false)).toBe(
+      true,
+    );
 
     expect(map.removeLayer).toHaveBeenCalledWith(layer);
     expect(map.hasLayer(layer)).toBe(false);
 
     // The panel row must not disagree with the map: a programmatic hide that
     // leaves the checkbox checked is a UI that lies about state.
-    const item = ui.uiContainer.querySelector(
+    const item = ui.panelStore.uiContainer.querySelector(
       `[${CONST.DATA.LAYER_ID}="ov"]`,
     ) as HTMLElement;
     const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
@@ -169,10 +179,14 @@ describe("applyVisibility", () => {
       options: Record<string, unknown>;
     };
     const paneBefore = layer.options.pane;
-    expect(applyVisibility(ui, "overlay1", false)).toBe(true);
+    expect(
+      applyVisibility(ui.la, ui.panelStore, ui.focusStore, "overlay1", false),
+    ).toBe(true);
     expect(layer.options.pane).toBe(paneBefore);
 
-    expect(applyVisibility(ui, "overlay1", true)).toBe(true);
+    expect(applyVisibility(ui.la, ui.panelStore, ui.focusStore, "overlay1", true)).toBe(
+      true,
+    );
     expect(map.addLayer).toHaveBeenCalledWith(layer);
     expect(layer.options.pane).toBe(paneBefore);
     expect(map.hasLayer(layer)).toBe(true);
@@ -191,10 +205,18 @@ describe("applyVisibility", () => {
       { id: "overlay1", name: "Points", group: "overlay", layer: layerFixture() },
     ]);
     expect(seeded.ui.intentVisible("overlay1")).toBe(false);
-    expect(applyVisibility(seeded.ui as LayerUI, "overlay1", true)).toBe(true);
+    expect(
+      applyVisibility(
+        seeded.ui.la,
+        seeded.ui.panelStore,
+        seeded.ui.focusStore,
+        "overlay1",
+        true,
+      ),
+    ).toBe(true);
     expect(seeded.ui.intentVisible("overlay1")).toBe(true);
     expect(
-      seeded.ui.uiContainer.querySelector(
+      seeded.ui.panelStore.uiContainer.querySelector(
         `[${CONST.DATA.LAYER_ID}="overlay1"] input[type="checkbox"]`,
       )?.checked,
     ).toBe(true);
@@ -214,21 +236,25 @@ describe("applyVisibility", () => {
     const layer = manager.layerRegistry.get("overlay1")!.layer as L.Layer;
 
     // The user hides the layer: it leaves the map and the intent is recorded.
-    expect(applyVisibility(ui, "overlay1", false)).toBe(true);
+    expect(
+      applyVisibility(ui.la, ui.panelStore, ui.focusStore, "overlay1", false),
+    ).toBe(true);
     expect(map.hasLayer(layer)).toBe(false);
 
     // The user stores a zoom range that excludes the current zoom (2), then
     // checks the box again.
-    setIntent(ui, "overlay1", "zoomRange", [3, 12]);
+    setIntent(ui.la, "overlay1", "zoomRange", [3, 12]);
     ui.intentStore.seedProvenance("overlay1", ["zoomRange"]);
     (map.addLayer as ReturnType<typeof vi.fn>).mockClear();
 
-    expect(applyVisibility(ui, "overlay1", true)).toBe(true);
+    expect(applyVisibility(ui.la, ui.panelStore, ui.focusStore, "overlay1", true)).toBe(
+      true,
+    );
 
     // Intent is recorded: the box is checked and the layer is no longer hidden.
-    expect(getIntent(ui, "overlay1", "visible")).not.toBe(false);
+    expect(getIntent(ui.la, "overlay1", "visible")).not.toBe(false);
     expect(
-      ui.uiContainer.querySelector(
+      ui.panelStore.uiContainer.querySelector(
         `[${CONST.DATA.LAYER_ID}="overlay1"] input[type="checkbox"]`,
       )?.checked,
     ).toBe(true);
@@ -249,7 +275,9 @@ describe("applyVisibility", () => {
       canvas,
     });
 
-    expect(applyVisibility(ui, "canvas1", false)).toBe(true);
+    expect(applyVisibility(ui.la, ui.panelStore, ui.focusStore, "canvas1", false)).toBe(
+      true,
+    );
     expect(map.removeLayer).not.toHaveBeenCalled();
     expect(map.addLayer).not.toHaveBeenCalled();
     expect(canvas.classList.contains("hidden")).toBe(true);
@@ -259,7 +287,9 @@ describe("applyVisibility", () => {
   it("returns false for an unknown id and reports it the same either way", () => {
     // The id is resolved before the panel check, so a typo does not read as a
     // missing-panel no-op.
-    expect(applyVisibility(ui, "nope", false)).toBe(false);
+    expect(applyVisibility(ui.la, ui.panelStore, ui.focusStore, "nope", false)).toBe(
+      false,
+    );
     const bare = new LayerManager(map, []);
     expect(bare.setVisible("nope", false)).toBe(false);
     expect(map.addLayer).not.toHaveBeenCalled();
@@ -272,20 +302,24 @@ describe("applyVisibility", () => {
     // persisted choice must not depend on the row being there.
     const layer = layerFixture();
     manager.registerLayer({ id: "ov", name: "Overlay", group: "overlay", layer });
-    const row = ui.uiContainer.querySelector<HTMLElement>(
+    const row = ui.panelStore.uiContainer.querySelector<HTMLElement>(
       `[${CONST.DATA.LAYER_ID}="ov"]`,
     );
     expect(row).not.toBeNull();
     row!.remove();
 
-    expect(applyVisibility(ui, "ov", false)).toBe(true);
+    expect(applyVisibility(ui.la, ui.panelStore, ui.focusStore, "ov", false)).toBe(
+      true,
+    );
 
     expect(map.removeLayer).toHaveBeenCalledWith(layer);
-    expect(getIntent(ui, "ov", "visible")).toBe(false);
+    expect(getIntent(ui.la, "ov", "visible")).toBe(false);
   });
 
   it("persists the hidden set so the choice survives a reload", () => {
-    expect(applyVisibility(ui, "overlay1", false)).toBe(true);
+    expect(
+      applyVisibility(ui.la, ui.panelStore, ui.focusStore, "overlay1", false),
+    ).toBe(true);
     // The write is debounced; flush the funnel and read the key back.
     manager.persistence.flushAll();
     const stored = window.localStorage.getItem(CONST.STORAGE.KEY);
@@ -306,8 +340,8 @@ describe("applyVisibility", () => {
   });
 
   it("keeps the entry when a layer is shown again, but records visible:true", () => {
-    applyVisibility(ui, "overlay1", false);
-    applyVisibility(ui, "overlay1", true);
+    applyVisibility(ui.la, ui.panelStore, ui.focusStore, "overlay1", false);
+    applyVisibility(ui.la, ui.panelStore, ui.focusStore, "overlay1", true);
     manager.persistence.flushAll();
 
     // Old assertion: the persisted hidden set was `[]` ?"hidden" was an
@@ -345,16 +379,20 @@ describe("applyVisibility", () => {
       paneName: "tilePane",
     });
 
-    expect(applyVisibility(ui2, "base1", false)).toBe(true);
+    expect(
+      applyVisibility(ui2.la, ui2.panelStore, ui2.focusStore, "base1", false),
+    ).toBe(true);
     expect(map.removeLayer).toHaveBeenCalledWith(layer);
     expect(map.hasLayer(layer)).toBe(false);
     expect(
-      fresh.ui.uiContainer.querySelector(
+      fresh.ui.panelStore.uiContainer.querySelector(
         `[${CONST.DATA.LAYER_ID}="base1"] input[type="checkbox"]`,
       )?.checked,
     ).toBe(false);
 
-    expect(applyVisibility(ui2, "base1", true)).toBe(true);
+    expect(applyVisibility(ui2.la, ui2.panelStore, ui2.focusStore, "base1", true)).toBe(
+      true,
+    );
     expect(map.hasLayer(layer)).toBe(true);
     fresh.ui = null;
     fresh.destroy();
@@ -373,22 +411,26 @@ describe("applyVisibility", () => {
       layer,
     });
 
-    expect(applyVisibility(ui, "repeat", false)).toBe(true);
-    expect(applyVisibility(ui, "repeat", false)).toBe(true);
+    expect(applyVisibility(ui.la, ui.panelStore, ui.focusStore, "repeat", false)).toBe(
+      true,
+    );
+    expect(applyVisibility(ui.la, ui.panelStore, ui.focusStore, "repeat", false)).toBe(
+      true,
+    );
     expect(map.removeLayer).toHaveBeenCalledTimes(1);
     expect(map.removeLayer).toHaveBeenCalledWith(layer);
   });
 
   describe("toggle-all tri-state", () => {
     it("is false while the group is fully visible", () => {
-      const all = allToggle(ui);
+      const all = allToggle(ui.la, ui.panelStore, ui.focusStore);
       expect(all.checked).toBe(true);
       expect(all.indeterminate).toBe(false);
     });
 
     it("is true when a group is partially hidden", () => {
-      applyVisibility(ui, "overlay1", false);
-      const all = allToggle(ui);
+      applyVisibility(ui.la, ui.panelStore, ui.focusStore, "overlay1", false);
+      const all = allToggle(ui.la, ui.panelStore, ui.focusStore);
       expect(all.checked).toBe(false);
       expect(all.indeterminate).toBe(true);
       expect(all.title).toContain("toggle_all_deselect_tooltip");
@@ -398,11 +440,17 @@ describe("applyVisibility", () => {
       const only = makeUi(map, [
         { id: "only", name: "Only", group: "overlay", layer: layerFixture() },
       ]);
-      const all = allToggle(only.ui as LayerUI);
+      const all = allToggle(only.ui.la, only.ui.panelStore, only.ui.focusStore);
       expect(all.checked).toBe(true);
       expect(all.indeterminate).toBe(false);
 
-      applyVisibility(only.ui as LayerUI, "only", false);
+      applyVisibility(
+        only.ui.la,
+        only.ui.panelStore,
+        only.ui.focusStore,
+        "only",
+        false,
+      );
       expect(all.checked).toBe(false);
       // `checkedCount === 0` makes `noneChecked` true, so `!allChecked &&
       // !noneChecked` is false. Nothing checked is not a partial state. Pinned
@@ -421,49 +469,49 @@ describe("applyVisibility", () => {
       // The attach-time initTypesAndVisibility runs in setTimeout(0), so
       // the synchronous test body bootstraps the counter itself before the
       // first click.
-      syncToggleAll(ui, GROUP.OVERLAY);
-      expect(ui.checkedCount[GROUP.OVERLAY]).toEqual({
+      syncToggleAll(ui.la, ui.panelStore, ui.focusStore, GROUP.OVERLAY);
+      expect(ui.panelStore.checkedCount[GROUP.OVERLAY]).toEqual({
         total: 2,
         on: 2,
       });
 
       // Hide overlay1: on 2 → 1. Rescan agrees.
-      applyVisibility(ui, "overlay1", false);
-      expect(ui.checkedCount[GROUP.OVERLAY]).toEqual({
+      applyVisibility(ui.la, ui.panelStore, ui.focusStore, "overlay1", false);
+      expect(ui.panelStore.checkedCount[GROUP.OVERLAY]).toEqual({
         total: 2,
         on: 1,
       });
-      syncToggleAll(ui, GROUP.OVERLAY);
-      expect(ui.checkedCount[GROUP.OVERLAY]).toEqual({
+      syncToggleAll(ui.la, ui.panelStore, ui.focusStore, GROUP.OVERLAY);
+      expect(ui.panelStore.checkedCount[GROUP.OVERLAY]).toEqual({
         total: 2,
         on: 1,
       });
 
       // Hide overlay2: on 1 → 0. Rescan agrees.
-      applyVisibility(ui, "overlay2", false);
-      expect(ui.checkedCount[GROUP.OVERLAY]).toEqual({
+      applyVisibility(ui.la, ui.panelStore, ui.focusStore, "overlay2", false);
+      expect(ui.panelStore.checkedCount[GROUP.OVERLAY]).toEqual({
         total: 2,
         on: 0,
       });
-      syncToggleAll(ui, GROUP.OVERLAY);
-      expect(ui.checkedCount[GROUP.OVERLAY]).toEqual({
+      syncToggleAll(ui.la, ui.panelStore, ui.focusStore, GROUP.OVERLAY);
+      expect(ui.panelStore.checkedCount[GROUP.OVERLAY]).toEqual({
         total: 2,
         on: 0,
       });
 
       // Show both: on 0 → 2. Rescan agrees.
-      applyVisibility(ui, "overlay1", true);
-      applyVisibility(ui, "overlay2", true);
-      syncToggleAll(ui, GROUP.OVERLAY);
-      expect(ui.checkedCount[GROUP.OVERLAY]).toEqual({
+      applyVisibility(ui.la, ui.panelStore, ui.focusStore, "overlay1", true);
+      applyVisibility(ui.la, ui.panelStore, ui.focusStore, "overlay2", true);
+      syncToggleAll(ui.la, ui.panelStore, ui.focusStore, GROUP.OVERLAY);
+      expect(ui.panelStore.checkedCount[GROUP.OVERLAY]).toEqual({
         total: 2,
         on: 2,
       });
 
       // Setting a value to the same value it already has is a no-op: the
       // delta is zero and the count is unchanged.
-      applyVisibility(ui, "overlay1", true);
-      expect(ui.checkedCount[GROUP.OVERLAY]).toEqual({
+      applyVisibility(ui.la, ui.panelStore, ui.focusStore, "overlay1", true);
+      expect(ui.panelStore.checkedCount[GROUP.OVERLAY]).toEqual({
         total: 2,
         on: 2,
       });
@@ -474,14 +522,14 @@ describe("applyVisibility", () => {
       // function; a host page that holds the UI instance calls it through
       // that slot. Pinned so the delegator stays reachable and writes the
       // tri-state checkbox off the cached count.
-      syncToggleAll(ui, GROUP.OVERLAY);
-      applyVisibility(ui, "overlay1", false);
-      expect(ui.checkedCount[GROUP.OVERLAY]).toEqual({
+      syncToggleAll(ui.la, ui.panelStore, ui.focusStore, GROUP.OVERLAY);
+      applyVisibility(ui.la, ui.panelStore, ui.focusStore, "overlay1", false);
+      expect(ui.panelStore.checkedCount[GROUP.OVERLAY]).toEqual({
         total: 2,
         on: 1,
       });
       ui.syncToggleAllFromCount(GROUP.OVERLAY);
-      const all = allToggle(ui);
+      const all = allToggle(ui.la, ui.panelStore, ui.focusStore);
       expect(all.checked).toBe(false);
       expect(all.indeterminate).toBe(true);
     });
@@ -507,7 +555,7 @@ describe("applyVisibility", () => {
         map2.getContainer = vi.fn(() => fakeContainer);
 
         // Overlay click: syncNoBasemap NOT called, so no NO_BASE_MAP toggle.
-        applyVisibility(u2, "overlay1", false);
+        applyVisibility(u2.la, u2.panelStore, u2.focusStore, "overlay1", false);
         const overlayCalls = toggleMock.mock.calls.filter(
           c => c[0] === CONST.CLASSES.NO_BASE_MAP,
         );
@@ -516,7 +564,13 @@ describe("applyVisibility", () => {
         // Base click (colour row): syncNoBasemap called, so NO_BASE_MAP is
         // toggled.
         toggleMock.mockClear();
-        applyVisibility(u2, CONST.SOLID_BASEMAP_ID, true);
+        applyVisibility(
+          u2.la,
+          u2.panelStore,
+          u2.focusStore,
+          CONST.SOLID_BASEMAP_ID,
+          true,
+        );
         const baseCalls = toggleMock.mock.calls.filter(
           c => c[0] === CONST.CLASSES.NO_BASE_MAP,
         );
@@ -571,7 +625,7 @@ describe("LayerManager.setVisible", () => {
     expect(map.removeLayer).toHaveBeenCalledWith(layer);
     expect(map.hasLayer(layer)).toBe(false);
     expect(
-      ui.uiContainer.querySelector(
+      ui.panelStore.uiContainer.querySelector(
         `[${CONST.DATA.LAYER_ID}="ov"] input[type="checkbox"]`,
       )?.checked,
     ).toBe(false);
@@ -612,13 +666,19 @@ describe("LayerManager.setVisible", () => {
 // ---------------------------------------------------------------------------
 
 describe("LayerUI.handleChange", () => {
-  const change = (ui: LayerUI, id: string, checked: boolean) => {
-    const cb = ui.uiContainer.querySelector(
+  const change = (
+    la: LayerAccess,
+    ps: PanelStore,
+    fs: FocusStore,
+    id: string,
+    checked: boolean,
+  ) => {
+    const cb = ps.uiContainer!.querySelector(
       `[${CONST.DATA.LAYER_ID}="${id}"] input[type="checkbox"]`,
     ) as HTMLInputElement | null;
     if (!cb) throw new Error(`no checkbox for ${id}`);
     cb.checked = checked;
-    ui.handleChange({ target: cb } as Event);
+    handleChange(la, ps, fs, { target: cb } as Event);
   };
 
   let map: FixtureMap;
@@ -642,7 +702,7 @@ describe("LayerUI.handleChange", () => {
 
   it("hides the layer the checkbox is off, through the map and the flag", () => {
     const layer = manager.layerRegistry.get("overlay1")!.layer as { options: object };
-    change(ui, "overlay1", false);
+    change(ui.la, ui.panelStore, ui.focusStore, "overlay1", false);
 
     expect(map.removeLayer).toHaveBeenCalledWith(layer);
     expect(map.hasLayer(layer)).toBe(false);
@@ -653,10 +713,10 @@ describe("LayerUI.handleChange", () => {
       options: Record<string, unknown>;
     };
     const paneBefore = layer.options.pane;
-    change(ui, "overlay1", false);
+    change(ui.la, ui.panelStore, ui.focusStore, "overlay1", false);
     expect(layer.options.pane).toBe(paneBefore);
 
-    change(ui, "overlay1", true);
+    change(ui.la, ui.panelStore, ui.focusStore, "overlay1", true);
     expect(map.addLayer).toHaveBeenCalledWith(layer);
     expect(layer.options.pane).toBe(paneBefore);
     expect(map.hasLayer(layer)).toBe(true);
@@ -681,7 +741,7 @@ describe("LayerUI.handleChange", () => {
       group: "overlay",
       canvas,
     });
-    change(ui, "canvas1", false);
+    change(ui.la, ui.panelStore, ui.focusStore, "canvas1", false);
 
     expect(canvas.classList.contains("hidden")).toBe(true);
     expect(map.addLayer).not.toHaveBeenCalled();
@@ -751,7 +811,7 @@ describe("DOM order diverges from registry order", () => {
    *  positional lookup would have read. */
   const scrambleDomOrder = (ui: LayerUI) => {
     const rows = Array.from(
-      ui.uiContainer.querySelectorAll<HTMLElement>(
+      ui.panelStore.uiContainer.querySelectorAll<HTMLElement>(
         `${CONST.SEL.LAYER_ITEM}[data-layer-type="${GROUP.OVERLAY}"]`,
       ),
     );
@@ -764,7 +824,7 @@ describe("DOM order diverges from registry order", () => {
     // (now wrong) position". Re-query after the move so the loop sees DOM
     // order, not the pre-scramble array order.
     const reordered = Array.from(
-      ui.uiContainer.querySelectorAll<HTMLElement>(
+      ui.panelStore.uiContainer.querySelectorAll<HTMLElement>(
         `${CONST.SEL.LAYER_ITEM}[data-layer-type="${GROUP.OVERLAY}"]`,
       ),
     );
@@ -800,7 +860,7 @@ describe("DOM order diverges from registry order", () => {
     // but its dataset.index is "1" (DOM position). The old handler would read
     // that index and toggle B instead of A.
     const rows = Array.from(
-      ui.uiContainer.querySelectorAll<HTMLElement>(
+      ui.panelStore.uiContainer.querySelectorAll<HTMLElement>(
         `${CONST.SEL.LAYER_ITEM}[data-layer-type="${GROUP.OVERLAY}"]`,
       ),
     );
@@ -840,7 +900,7 @@ describe("DOM order diverges from registry order", () => {
     box.type = "checkbox";
     box.checked = true;
     orphan.appendChild(box);
-    ui.uiContainer.appendChild(orphan);
+    ui.panelStore.uiContainer.appendChild(orphan);
 
     ui.toggleAll(GROUP.OVERLAY, false);
 
@@ -862,7 +922,7 @@ describe("DOM order diverges from registry order", () => {
     box.type = "checkbox";
     box.checked = true;
     stale.appendChild(box);
-    ui.uiContainer.appendChild(stale);
+    ui.panelStore.uiContainer.appendChild(stale);
 
     ui.toggleAll(GROUP.OVERLAY, false);
 
@@ -951,9 +1011,11 @@ describe("toggleAll base group", () => {
     const bare = document.createElement("div");
     bare.className = CONST.CLASSES.LAYER_ITEM;
     bare.setAttribute("data-layer-type", GROUP.BASE);
-    ui.uiContainer.appendChild(bare);
+    ui.panelStore.uiContainer.appendChild(bare);
 
-    expect(() => toggleAll(ui, GROUP.BASE, true)).not.toThrow();
+    expect(() =>
+      toggleAll(ui.la, ui.panelStore, ui.focusStore, GROUP.BASE, true),
+    ).not.toThrow();
     expect(bare.querySelector("input")).toBeNull();
     // Only the two registered rows were swept — the bare row carries no
     // checkbox and must be absent from the intent map entirely.
@@ -968,12 +1030,12 @@ describe("toggleAll base group", () => {
     const b2Canvas = b2.canvas as HTMLCanvasElement;
 
     // Hide both first so the sweep has a visible→shown transition to fire.
-    toggleAll(ui, GROUP.BASE, false);
+    toggleAll(ui.la, ui.panelStore, ui.focusStore, GROUP.BASE, false);
 
     map.addLayer.mockClear();
     map.removeLayer.mockClear();
 
-    toggleAll(ui, GROUP.BASE, true);
+    toggleAll(ui.la, ui.panelStore, ui.focusStore, GROUP.BASE, true);
 
     expect(map.addLayer).toHaveBeenCalledWith(manager.layerRegistry.get("B1")!.layer);
     // B2 has no Leaflet layer: its canvas's HIDDEN class is the carrier.
@@ -1007,12 +1069,12 @@ describe("unit helpers", () => {
       data-layer-type="base"
     ></div>
   `;
-    return { uiContainer } as unknown as LayerUI;
+    return attachFaces({ uiContainer } as unknown as LayerUI);
   };
 
   it("getLayerItems returns every base row, the colour row included", () => {
     const ui = makeUi();
-    const items = getLayerItems(ui, GROUP.BASE);
+    const items = getLayerItems(ui.la, ui.panelStore, ui.focusStore, GROUP.BASE);
     expect(items.length).toBe(2);
     expect(items[0].getAttribute("data-layer-type")).toBe("base");
     expect(items[1].getAttribute("data-layer-id")).toBe(CONST.SOLID_BASEMAP_ID);
@@ -1020,7 +1082,7 @@ describe("unit helpers", () => {
 
   it("getLayerItems returns overlay rows and excludes the color basemap", () => {
     const ui = makeUi();
-    const items = getLayerItems(ui, GROUP.OVERLAY);
+    const items = getLayerItems(ui.la, ui.panelStore, ui.focusStore, GROUP.OVERLAY);
     expect(items.length).toBe(1);
     expect(items[0].getAttribute("data-layer-type")).toBe("overlay");
   });
@@ -1030,10 +1092,14 @@ describe("unit helpers", () => {
 
   it("handleInput is a no-op for non-color inputs", () => {
     const ui = makeUi();
-    const input = ui.uiContainer.querySelector(
+    const input = ui.panelStore.uiContainer.querySelector(
       'input[type="checkbox"]',
     ) as HTMLInputElement;
-    expect(() => handleInput(ui, { target: input } as unknown as Event)).not.toThrow();
+    expect(() =>
+      handleInput(ui.la, ui.panelStore, ui.focusStore, {
+        target: input,
+      } as unknown as Event),
+    ).not.toThrow();
   });
 
   it("toggleAll sets the row tooltips for both states", () => {
@@ -1042,7 +1108,7 @@ describe("unit helpers", () => {
     // toggled by overlay group operations.
     const boxes = () =>
       Array.from(
-        ui.uiContainer.querySelectorAll<HTMLInputElement>(
+        ui.panelStore.uiContainer.querySelectorAll<HTMLInputElement>(
           `.${CONST.CLASSES.LAYER_ITEM}[data-layer-type="${GROUP.OVERLAY}"] input[type="checkbox"]`,
         ),
       );
@@ -1061,13 +1127,15 @@ describe("unit helpers", () => {
     // null element.
     const uiContainer = document.createElement("div");
     uiContainer.innerHTML = `<div class="foliplus-layer-toggle-all" data-group="${GROUP.OVERLAY}"></div>`;
-    const ui = {
+    const ui = attachFaces({
       uiContainer,
       m: { layerRegistry: { get: () => undefined } },
       T: (k: string) => k,
-    } as unknown as LayerUI;
+    } as unknown as LayerUI);
 
-    expect(() => syncToggleAll(ui, GROUP.OVERLAY)).not.toThrow();
+    expect(() =>
+      syncToggleAll(ui.la, ui.panelStore, ui.focusStore, GROUP.OVERLAY),
+    ).not.toThrow();
   });
 
   it("syncNoBasemap handles a thin stub with an empty LayerIntentStore", () => {
@@ -1075,7 +1143,7 @@ describe("unit helpers", () => {
     // author default rather than crashing.
     const uiContainer = document.createElement("div");
     uiContainer.innerHTML = `<div class="foliplus-layer-toggle-all" data-group="${GROUP.BASE}"><span></span></div>`;
-    const ui = {
+    const ui = attachFaces({
       uiContainer,
       m: {
         layers: [{ id: "b1", group: "base" }],
@@ -1084,9 +1152,9 @@ describe("unit helpers", () => {
       intentStore: new LayerIntentStore(),
       runtimeStore: new LayerRuntimeStore(),
       T: (k: string) => k,
-    } as unknown as LayerUI;
+    } as unknown as LayerUI);
 
-    expect(() => syncNoBasemap(ui)).not.toThrow();
+    expect(() => syncNoBasemap(ui.la, ui.panelStore, ui.focusStore)).not.toThrow();
   });
 
   describe("syncNoBasemap opacity gate", () => {
@@ -1106,13 +1174,13 @@ describe("unit helpers", () => {
         opacity === undefined
           ? [{ id: "b1", group: "base" }]
           : [{ id: "b1", group: "base", opacity }];
-      const ui = {
+      const ui = attachFaces({
         uiContainer,
         m: { layers, map: { getContainer: () => container } },
         intentStore: new LayerIntentStore(),
         runtimeStore: new LayerRuntimeStore(),
         T: (k: string) => k,
-      } as unknown as LayerUI;
+      } as unknown as LayerUI);
       return { ui, container };
     };
 
@@ -1120,7 +1188,7 @@ describe("unit helpers", () => {
       // The bug T207: intent says visible, so the pre-fix check kept the
       // basemap class off — the user's slider at 0 was silently ignored.
       const { ui, container } = makeUiWithBase(0);
-      syncNoBasemap(ui);
+      syncNoBasemap(ui.la, ui.panelStore, ui.focusStore);
       expect(container.classList.contains(CONST.CLASSES.NO_BASE_MAP)).toBe(true);
     });
 
@@ -1128,7 +1196,7 @@ describe("unit helpers", () => {
       // Any strictly positive value (down to the slider's smallest step) is
       // still visible — the gate is a strict `> 0`, no epsilon tolerance.
       const { ui, container } = makeUiWithBase(0.5);
-      syncNoBasemap(ui);
+      syncNoBasemap(ui.la, ui.panelStore, ui.focusStore);
       expect(container.classList.contains(CONST.CLASSES.NO_BASE_MAP)).toBe(false);
     });
 
@@ -1138,7 +1206,7 @@ describe("unit helpers", () => {
       // the author's default (opaque) rather than as invisible — the reverse
       // would paint the hatch on every pristine page.
       const { ui, container } = makeUiWithBase();
-      syncNoBasemap(ui);
+      syncNoBasemap(ui.la, ui.panelStore, ui.focusStore);
       expect(container.classList.contains(CONST.CLASSES.NO_BASE_MAP)).toBe(false);
     });
   });
@@ -1155,15 +1223,17 @@ describe("unit helpers", () => {
         <input type="checkbox" />
       </div>
     `;
-    const ui = {
+    const ui = attachFaces({
       uiContainer,
       m: { layerRegistry: { get: () => ({ id: "x" }) } },
       intentStore: new LayerIntentStore(),
       runtimeStore: new LayerRuntimeStore(),
       T: (k: string) => k,
-    } as unknown as LayerUI;
+    } as unknown as LayerUI);
 
-    expect(() => syncToggleAll(ui, GROUP.OVERLAY)).not.toThrow();
+    expect(() =>
+      syncToggleAll(ui.la, ui.panelStore, ui.focusStore, GROUP.OVERLAY),
+    ).not.toThrow();
   });
 
   it("syncToggleAllFromCount bails when the group header is absent", () => {
@@ -1172,13 +1242,15 @@ describe("unit helpers", () => {
     // deref. Pinned so the O(1) path fails open like the full-rescan path
     // does.
     const uiContainer = document.createElement("div");
-    const ui = {
+    const ui = attachFaces({
       uiContainer,
       checkedCount: {},
       T: (k: string) => k,
-    } as unknown as LayerUI;
+    } as unknown as LayerUI);
 
-    expect(() => syncToggleAllFromCount(ui, GROUP.OVERLAY)).not.toThrow();
+    expect(() =>
+      syncToggleAllFromCount(ui.la, ui.panelStore, ui.focusStore, GROUP.OVERLAY),
+    ).not.toThrow();
   });
 
   it("syncToggleAllFromCount bails when the header has no toggle-all input", () => {
@@ -1187,13 +1259,15 @@ describe("unit helpers", () => {
     // a null element —the same guard the full-rescan path already carries.
     const uiContainer = document.createElement("div");
     uiContainer.innerHTML = `<div class="foliplus-layer-toggle-all" data-group="${GROUP.OVERLAY}"></div>`;
-    const ui = {
+    const ui = attachFaces({
       uiContainer,
       checkedCount: {},
       T: (k: string) => k,
-    } as unknown as LayerUI;
+    } as unknown as LayerUI);
 
-    expect(() => syncToggleAllFromCount(ui, GROUP.OVERLAY)).not.toThrow();
+    expect(() =>
+      syncToggleAllFromCount(ui.la, ui.panelStore, ui.focusStore, GROUP.OVERLAY),
+    ).not.toThrow();
   });
 
   it("syncToggleAllFromCount treats a missing counter as an empty group", () => {
@@ -1204,13 +1278,13 @@ describe("unit helpers", () => {
     // not a partial state.
     const uiContainer = document.createElement("div");
     uiContainer.innerHTML = `<div class="foliplus-layer-toggle-all" data-group="${GROUP.OVERLAY}"><input type="checkbox" data-role="toggle-all" /></div>`;
-    const ui = {
+    const ui = attachFaces({
       uiContainer,
       checkedCount: {},
       T: (k: string) => k,
-    } as unknown as LayerUI;
+    } as unknown as LayerUI);
 
-    syncToggleAllFromCount(ui, GROUP.OVERLAY);
+    syncToggleAllFromCount(ui.la, ui.panelStore, ui.focusStore, GROUP.OVERLAY);
 
     const all = uiContainer.querySelector<HTMLInputElement>(
       '[data-role="toggle-all"]',

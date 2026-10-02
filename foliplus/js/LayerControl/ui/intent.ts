@@ -1,6 +1,6 @@
 // LayerControl UI — per-layer intent (LayerIntent) helpers.
 //
-// Thin delegates over `ui.intentStore` (`Map<id, IntentRow>`): every user-chosen
+// Thin delegates over `la.intentStore` (`Map<id, IntentRow>`): every user-chosen
 // dimension lives there. Absent key = never touched. Provenance is a separate
 // axis (`IntentRow.provenance`).
 //
@@ -9,53 +9,53 @@
 // here so every `ui/intent.js` import keeps working unchanged.
 import type { LayerIntent } from "#core/layer/index.js";
 import { INTENT, LIVE, STYLE_KEYS } from "#core/layer/index.js";
-import type { LayerUI } from "./index.js";
+import type { LayerAccess } from "./access.js";
 
 type IntentKey = keyof LayerIntent;
 
 /** Write one intent dimension (value only — no provenance mark). */
 const setIntent = <K extends IntentKey>(
-  ui: LayerUI,
+  la: LayerAccess,
   id: string,
   key: K,
   value: NonNullable<LayerIntent[K]>,
 ): void => {
-  ui.intentStore.setValue(id, key, value);
+  la.intentStore.setValue(id, key, value);
 };
 
 /** Drop one intent dimension (back to the author's default). */
-const clearIntent = (ui: LayerUI, id: string, key: IntentKey): void => {
-  ui.intentStore.clearValue(id, key);
+const clearIntent = (la: LayerAccess, id: string, key: IntentKey): void => {
+  la.intentStore.clearValue(id, key);
 };
 
 /** Drop the style dimensions for one layer (user deleted the layer). */
-const dropIntent = (ui: LayerUI, id: string): void => {
+const dropIntent = (la: LayerAccess, id: string): void => {
   for (const key of Object.values(STYLE_KEYS)) {
-    ui.intentStore.clearValue(id, key);
+    la.intentStore.clearValue(id, key);
   }
 };
 
 /** Read one intent dimension. */
 const getIntent = <K extends IntentKey>(
-  ui: LayerUI,
+  la: LayerAccess,
   id: string,
   key: K,
 ): LayerIntent[K] | undefined => {
-  return ui.intentStore.get(id, key);
+  return la.intentStore.get(id, key);
 };
 
 /** Whether one intent key holds a live value (typed presence). */
-const hasIntentValue = (ui: LayerUI, id: string, key: IntentKey): boolean => {
-  return LIVE[key](getIntent(ui, id, key));
+const hasIntentValue = (la: LayerAccess, id: string, key: IntentKey): boolean => {
+  return LIVE[key](getIntent(la, id, key));
 };
 
 /** Seed one dimension from a whole record (tests / bulk restore). */
 const seedIntentMap = <K extends IntentKey>(
-  ui: LayerUI,
+  la: LayerAccess,
   key: K,
   record: Record<string, NonNullable<LayerIntent[K]>>,
 ): void => {
-  ui.intentStore.seedValues(key, record);
+  la.intentStore.seedValues(key, record);
 };
 
 export {

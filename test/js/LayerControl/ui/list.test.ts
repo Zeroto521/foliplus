@@ -13,10 +13,10 @@ import {
 } from "#foliplus/LayerControl/ui/list.js";
 import { displayName } from "#foliplus/LayerControl/ui/rowView.js";
 import { applyVisibility } from "#foliplus/LayerControl/ui/visibility.js";
-import { TileLayer, initFixture } from "./fixture.js";
+import { TileLayer, attachFaces, initFixture } from "./fixture.js";
 
 const makeUi = () =>
-  ({
+  attachFaces({
     intentStore: new LayerIntentStore(),
     renamedNames: {},
     m: { layerRegistry: { get: () => undefined } },
@@ -27,19 +27,21 @@ describe("ui/list displayName", () => {
   it("resolves a registered/renamed id through the registry name", () => {
     const intentStore = new LayerIntentStore();
     intentStore.setValue("a", "name", "Renamed");
-    const ui = {
+    const ui = attachFaces({
       intentStore,
       m: { layerRegistry: { get: () => ({ name: "Original" }) } },
       T: (k: string) => k,
-    } as unknown as LayerUI;
-    expect(displayName(ui, "a")).toBe("Renamed");
-    expect(displayName(ui, "b")).toBe("Original");
+    } as unknown as LayerUI);
+    expect(displayName(ui.la, ui.panelStore, ui.focusStore, "a")).toBe("Renamed");
+    expect(displayName(ui.la, ui.panelStore, ui.focusStore, "b")).toBe("Original");
   });
 
   it("labels the color basemap and falls back to empty for unknown ids", () => {
     const ui = makeUi();
-    expect(displayName(ui, CONST.SOLID_BASEMAP_ID)).toContain("color_map_label");
-    expect(displayName(ui, "ghost")).toBe("");
+    expect(
+      displayName(ui.la, ui.panelStore, ui.focusStore, CONST.SOLID_BASEMAP_ID),
+    ).toContain("color_map_label");
+    expect(displayName(ui.la, ui.panelStore, ui.focusStore, "ghost")).toBe("");
   });
 });
 
@@ -70,7 +72,7 @@ describe("ui/list row placement", () => {
 
     const registryIds = manager.layers.map(l => l.id);
     const rowIds = Array.from(
-      ui.uiContainer.querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM),
+      ui.panelStore.uiContainer.querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM),
     ).map(el => el.dataset.layerId ?? "");
 
     expect(rowIds).toEqual(registryIds);
@@ -104,7 +106,7 @@ describe("ui/list row placement", () => {
 
     // Scramble the DOM to C-A-B.
     const rows = Array.from(
-      ui.uiContainer.querySelectorAll<HTMLElement>(
+      ui.panelStore.uiContainer.querySelectorAll<HTMLElement>(
         `${CONST.SEL.LAYER_ITEM}[data-layer-type="${GROUP.OVERLAY}"]`,
       ),
     );
@@ -116,7 +118,7 @@ describe("ui/list row placement", () => {
     // inputs[0] which is C's checkbox (first in DOM). The new code resolves
     // by data-layer-id, so it updates A's row.
     const layerA = manager.layerRegistry.get("A")!;
-    initLayerItem(ui, layerA);
+    initLayerItem(ui.la, ui.panelStore, ui.focusStore, layerA);
 
     // A's checkbox should be updated (aria-label set), not C's.
     const rowA = container.querySelector<HTMLElement>(`[${CONST.DATA.LAYER_ID}="A"]`)!;
@@ -136,7 +138,9 @@ describe("ui/list row placement", () => {
 
     // A late callback for a torn-down layer must not write into a row: the id
     // is not registered, so there is nothing to initialize.
-    expect(initLayerItem(ui, { id: "ghost" } as LayerInfo)).toBe(false);
+    expect(
+      initLayerItem(ui.la, ui.panelStore, ui.focusStore, { id: "ghost" } as LayerInfo),
+    ).toBe(false);
   });
 
   it("initLayerItem declines an id whose row is no longer on the panel", () => {
@@ -146,14 +150,14 @@ describe("ui/list row placement", () => {
     const { manager, ui } = initFixture({
       data: [{ id: "A", name: "A", group: "overlay" }],
     });
-    const row = ui.uiContainer.querySelector<HTMLElement>(
+    const row = ui.panelStore.uiContainer.querySelector<HTMLElement>(
       `[${CONST.DATA.LAYER_ID}="A"]`,
     );
     expect(row).not.toBeNull();
     const layer = manager.layerRegistry.get("A")!;
     row!.remove();
 
-    expect(initLayerItem(ui, layer)).toBe(false);
+    expect(initLayerItem(ui.la, ui.panelStore, ui.focusStore, layer)).toBe(false);
     // No row means no buildRowCell: nothing is derived from the (now missing)
     // row, and the registry entry itself is untouched.
     expect(manager.layerRegistry.get("A")).toBe(layer);
@@ -168,14 +172,14 @@ describe("ui/list row placement", () => {
       data: [{ id: "B1", name: "B1", group: "base" }],
     });
     expect(
-      ui.uiContainer.querySelectorAll(
+      ui.panelStore.uiContainer.querySelectorAll(
         `${CONST.SEL.LAYER_ITEM}[data-layer-type="${GROUP.OVERLAY}"]`,
       ).length,
     ).toBe(0);
 
     manager.registerLayer({ id: "O1", name: "O1", group: "overlay" });
 
-    const children = Array.from(ui.uiContainer.children);
+    const children = Array.from(ui.panelStore.uiContainer.children);
     const overlayHeader = children.findIndex(
       el => el.getAttribute("data-group") === GROUP.OVERLAY,
     );
@@ -188,7 +192,7 @@ describe("ui/list row placement", () => {
     expect(overlayHeader).toBeLessThan(firstBaseRow);
     expect(
       Array.from(
-        ui.uiContainer.querySelectorAll<HTMLElement>(
+        ui.panelStore.uiContainer.querySelectorAll<HTMLElement>(
           `${CONST.SEL.LAYER_ITEM}[data-layer-type="${GROUP.OVERLAY}"]`,
         ),
       ).map(el => el.getAttribute(CONST.DATA.LAYER_ID)),
@@ -203,7 +207,7 @@ describe("ui/list row placement", () => {
     manager.registerLayer({ id: "O1", name: "O1", group: "overlay" });
 
     const ids = Array.from(
-      ui.uiContainer.querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM),
+      ui.panelStore.uiContainer.querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM),
     ).map(el => el.getAttribute(CONST.DATA.LAYER_ID));
     expect(ids).toContain("O1");
     expect(ids).toContain(CONST.SOLID_BASEMAP_ID);
@@ -216,12 +220,16 @@ describe("ui/list row placement", () => {
     const { ui } = initFixture({
       data: [{ id: "A", name: "A", group: "overlay" }],
     });
-    const rowsBefore = ui.uiContainer.querySelectorAll(CONST.SEL.LAYER_ITEM);
+    const rowsBefore = ui.panelStore.uiContainer.querySelectorAll(CONST.SEL.LAYER_ITEM);
 
-    expect(() => insertLayerItem(ui, { id: "ghost" } as LayerInfo)).not.toThrow();
-    expect(ui.uiContainer.querySelectorAll(CONST.SEL.LAYER_ITEM)).toHaveLength(
-      rowsBefore.length,
-    );
+    expect(() =>
+      insertLayerItem(ui.la, ui.panelStore, ui.focusStore, {
+        id: "ghost",
+      } as LayerInfo),
+    ).not.toThrow();
+    expect(
+      ui.panelStore.uiContainer.querySelectorAll(CONST.SEL.LAYER_ITEM),
+    ).toHaveLength(rowsBefore.length);
   });
 
   it("brings its own base header when the first base arrives late, folded or not", () => {
@@ -232,7 +240,7 @@ describe("ui/list row placement", () => {
     const { manager, ui } = initFixture({
       data: [{ id: "O1", name: "O1", group: "overlay" }],
     });
-    ui.foldedGroups.add(GROUP.BASE);
+    ui.panelStore.foldedGroups.add(GROUP.BASE);
 
     manager.registerLayer({
       id: "B1",
@@ -241,7 +249,7 @@ describe("ui/list row placement", () => {
       layer: new TileLayer(),
     });
 
-    const children = Array.from(ui.uiContainer.children);
+    const children = Array.from(ui.panelStore.uiContainer.children);
     const baseHeader = children.findIndex(
       el => el.getAttribute("data-group") === GROUP.BASE,
     );
@@ -253,7 +261,7 @@ describe("ui/list row placement", () => {
     expect(children[baseHeader].textContent).toContain("base_map_label");
     // The group was folded when the row arrived, so the late row inherits the
     // fold instead of showing up above the collapsed group's divider.
-    const baseRow = ui.uiContainer.querySelector<HTMLElement>(
+    const baseRow = ui.panelStore.uiContainer.querySelector<HTMLElement>(
       `[${CONST.DATA.LAYER_ID}="B1"]`,
     );
     expect(baseRow).not.toBeNull();
@@ -266,21 +274,27 @@ describe("ui/list row placement", () => {
     const { ui } = initFixture({
       data: [{ id: "A", name: "A", group: "overlay" }],
     });
-    ui.uiContainer.querySelector<HTMLElement>(`[${CONST.DATA.LAYER_ID}="A"]`)!.remove();
+    ui.panelStore.uiContainer
+      .querySelector<HTMLElement>(`[${CONST.DATA.LAYER_ID}="A"]`)!
+      .remove();
 
-    expect(() => updateLayerItem(ui, { id: "A" } as LayerInfo)).not.toThrow();
-    expect(ui.uiContainer.querySelector(`[${CONST.DATA.LAYER_ID}="A"]`)).toBeNull();
+    expect(() =>
+      updateLayerItem(ui.la, ui.panelStore, ui.focusStore, { id: "A" } as LayerInfo),
+    ).not.toThrow();
+    expect(
+      ui.panelStore.uiContainer.querySelector(`[${CONST.DATA.LAYER_ID}="A"]`),
+    ).toBeNull();
   });
 
   it("renders the color row folded when the base group is folded", () => {
     const { ui } = initFixture({
       data: [{ id: "B1", name: "B1", group: "base" }],
     });
-    ui.foldedGroups.add(GROUP.BASE);
+    ui.panelStore.foldedGroups.add(GROUP.BASE);
 
-    renderInitialList(ui);
+    renderInitialList(ui.la, ui.panelStore, ui.focusStore);
 
-    const color = ui.uiContainer.querySelector<HTMLElement>(
+    const color = ui.panelStore.uiContainer.querySelector<HTMLElement>(
       `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
     );
     expect(color).not.toBeNull();
@@ -292,13 +306,29 @@ describe("ui/list row placement", () => {
       data: [{ id: "B1", name: "B1", group: "base" }],
     });
 
-    initTypesAndVisibility(ui);
+    initTypesAndVisibility(ui.la, ui.panelStore, ui.focusStore);
 
     const colorLi = ui.m.layerRegistry.get(CONST.SOLID_BASEMAP_ID) as LayerInfo;
     expect(colorLi).toBeDefined();
 
-    expect(() => applyVisibility(ui, CONST.SOLID_BASEMAP_ID, true)).not.toThrow();
-    expect(() => applyVisibility(ui, CONST.SOLID_BASEMAP_ID, false)).not.toThrow();
+    expect(() =>
+      applyVisibility(
+        ui.la,
+        ui.panelStore,
+        ui.focusStore,
+        CONST.SOLID_BASEMAP_ID,
+        true,
+      ),
+    ).not.toThrow();
+    expect(() =>
+      applyVisibility(
+        ui.la,
+        ui.panelStore,
+        ui.focusStore,
+        CONST.SOLID_BASEMAP_ID,
+        false,
+      ),
+    ).not.toThrow();
   });
 
   it("color basemap lands at the base group end when a tile basemap is already registered", () => {
@@ -312,10 +342,10 @@ describe("ui/list row placement", () => {
       ],
     });
 
-    initTypesAndVisibility(ui);
+    initTypesAndVisibility(ui.la, ui.panelStore, ui.focusStore);
 
     const baseRows = Array.from(
-      ui.uiContainer.querySelectorAll<HTMLElement>(
+      ui.panelStore.uiContainer.querySelectorAll<HTMLElement>(
         `${CONST.SEL.LAYER_ITEM}[data-layer-type="${GROUP.BASE}"]`,
       ),
     ).map(el => el.getAttribute(CONST.DATA.LAYER_ID));
@@ -341,6 +371,8 @@ describe("ui/list row placement", () => {
       return originalGet(id);
     });
 
-    expect(() => initTypesAndVisibility(ui)).not.toThrow();
+    expect(() =>
+      initTypesAndVisibility(ui.la, ui.panelStore, ui.focusStore),
+    ).not.toThrow();
   });
 });

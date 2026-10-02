@@ -9,7 +9,7 @@ import {
   commitZoomRange,
   resetLayerZoomRange,
 } from "#foliplus/LayerControl/ui/style/zoomRange.js";
-import { initFixture, installLeafletGlobals } from "./ui/fixture.js";
+import { attachFaces, initFixture, installLeafletGlobals } from "./ui/fixture.js";
 
 const mockMap = {
   getMinZoom: () => 0,
@@ -20,7 +20,7 @@ const mockMap = {
   hasLayer: vi.fn(() => false),
 };
 
-const mockUI: LayerUI = {
+const mockUI: LayerUI = attachFaces({
   m: {
     map: mockMap as any,
     layers: [] as any[],
@@ -54,7 +54,7 @@ const mockUI: LayerUI = {
   styleRefresh: null,
   styleZoomEndHandler: null,
   activeMenu: null,
-} as any;
+} as any);
 
 describe("computeEffectiveShown", () => {
   const makeLayerInfo = (id: string, overrides: Partial<any> = {}) =>
@@ -75,56 +75,98 @@ describe("computeEffectiveShown", () => {
     // wins 閳?a derived dimension may only suppress.
     setIntent(mockUI, "layer1", "visible", false);
     mockUI.intentStore.seedProvenance("layer1", ["visible"]);
-    expect(projectLayer(mockUI, makeLayerInfo("layer1")).effectiveShown).toBe(false);
+    expect(
+      projectLayer(
+        mockUI.la,
+        mockUI.panelStore,
+        mockUI.focusStore,
+        makeLayerInfo("layer1"),
+      ).effectiveShown,
+    ).toBe(false);
     clearIntent(mockUI, "layer1", "visible");
     mockUI.intentStore.seedProvenance("layer1", []);
   });
 
   it("returns true when focus is active, even out of range", () => {
     setIntent(mockUI, "layer1", "zoomRange", [0, 5]);
-    mockUI.focusingLayerId = "focus";
-    const result = projectLayer(mockUI, makeLayerInfo("layer1")).effectiveShown;
+    mockUI.focusStore.focusingLayerId = "focus";
+    const result = projectLayer(
+      mockUI.la,
+      mockUI.panelStore,
+      mockUI.focusStore,
+      makeLayerInfo("layer1"),
+    ).effectiveShown;
     expect(result).toBe(true);
-    mockUI.focusingLayerId = null;
+    mockUI.focusStore.focusingLayerId = null;
     clearIntent(mockUI, "layer1", "zoomRange");
   });
 
   it("returns true when no range is set", () => {
-    const result = projectLayer(mockUI, makeLayerInfo("layer1")).effectiveShown;
+    const result = projectLayer(
+      mockUI.la,
+      mockUI.panelStore,
+      mockUI.focusStore,
+      makeLayerInfo("layer1"),
+    ).effectiveShown;
     expect(result).toBe(true);
   });
 
   it("returns true when zoom is within range", () => {
     setIntent(mockUI, "layer1", "zoomRange", [5, 15]);
-    const result = projectLayer(mockUI, makeLayerInfo("layer1")).effectiveShown;
+    const result = projectLayer(
+      mockUI.la,
+      mockUI.panelStore,
+      mockUI.focusStore,
+      makeLayerInfo("layer1"),
+    ).effectiveShown;
     expect(result).toBe(true);
     clearIntent(mockUI, "layer1", "zoomRange");
   });
 
   it("returns false when zoom is below range", () => {
     setIntent(mockUI, "layer1", "zoomRange", [11, 15]);
-    const result = projectLayer(mockUI, makeLayerInfo("layer1")).effectiveShown;
+    const result = projectLayer(
+      mockUI.la,
+      mockUI.panelStore,
+      mockUI.focusStore,
+      makeLayerInfo("layer1"),
+    ).effectiveShown;
     expect(result).toBe(false);
     clearIntent(mockUI, "layer1", "zoomRange");
   });
 
   it("returns false when zoom is above range", () => {
     setIntent(mockUI, "layer1", "zoomRange", [5, 9]);
-    const result = projectLayer(mockUI, makeLayerInfo("layer1")).effectiveShown;
+    const result = projectLayer(
+      mockUI.la,
+      mockUI.panelStore,
+      mockUI.focusStore,
+      makeLayerInfo("layer1"),
+    ).effectiveShown;
     expect(result).toBe(false);
     clearIntent(mockUI, "layer1", "zoomRange");
   });
 
   it("returns false when range is inverted (min > max after clamp)", () => {
     setIntent(mockUI, "layer1", "zoomRange", [15, 5]);
-    const result = projectLayer(mockUI, makeLayerInfo("layer1")).effectiveShown;
+    const result = projectLayer(
+      mockUI.la,
+      mockUI.panelStore,
+      mockUI.focusStore,
+      makeLayerInfo("layer1"),
+    ).effectiveShown;
     expect(result).toBe(false);
     clearIntent(mockUI, "layer1", "zoomRange");
   });
 
   it("clamps range to map bounds", () => {
     setIntent(mockUI, "layer1", "zoomRange", [-5, 25]);
-    const result = projectLayer(mockUI, makeLayerInfo("layer1")).effectiveShown;
+    const result = projectLayer(
+      mockUI.la,
+      mockUI.panelStore,
+      mockUI.focusStore,
+      makeLayerInfo("layer1"),
+    ).effectiveShown;
     expect(result).toBe(true);
     clearIntent(mockUI, "layer1", "zoomRange");
   });
@@ -167,7 +209,7 @@ describe("zoomRange descriptor write/live/commit/reset", () => {
   const row = document.createElement("div");
 
   it("live preview writes the value without marking provenance", () => {
-    applyZoomRangeLive(ui, "overlay1", row, 2, 8);
+    applyZoomRangeLive(ui.la, ui.panelStore, ui.focusStore, "overlay1", row, 2, 8);
     expect(ui.intentStore.get("overlay1", "zoomRange")).toEqual([2, 8]);
     expect(ui.intentStore.isUserSet("overlay1", "zoomRange")).toBe(false);
   });
@@ -175,14 +217,16 @@ describe("zoomRange descriptor write/live/commit/reset", () => {
   it("live preview on a missing layer is a no-op", () => {
     const schedule = vi.fn();
     ui.m.persistence = { schedule } as never;
-    applyZoomRangeLive(ui, "ghost", row, 1, 5);
+    applyZoomRangeLive(ui.la, ui.panelStore, ui.focusStore, "ghost", row, 1, 5);
     expect(ui.intentStore.get("ghost", "zoomRange")).toBeUndefined();
   });
 
   it("write with only min takes the else branch (no stored value)", () => {
     const schedule = vi.fn();
     ui.m.persistence = { schedule } as never;
-    ZOOM_RANGE_DIMENSION.write!(ui, "overlay1", { min: 2 } as never);
+    ZOOM_RANGE_DIMENSION.write!(ui.la, ui.panelStore, ui.focusStore, "overlay1", {
+      min: 2,
+    } as never);
     expect(ui.intentStore.isUserSet("overlay1", "zoomRange")).toBe(false);
     expect(schedule).not.toHaveBeenCalled();
   });
@@ -191,7 +235,9 @@ describe("zoomRange descriptor write/live/commit/reset", () => {
     const schedule = vi.fn();
     ui.m.persistence = { schedule } as never;
     ui.intentStore.setValue("overlay1", "zoomRange", [4, 9]);
-    ZOOM_RANGE_DIMENSION.write!(ui, "overlay1", { min: 4 } as never);
+    ZOOM_RANGE_DIMENSION.write!(ui.la, ui.panelStore, ui.focusStore, "overlay1", {
+      min: 4,
+    } as never);
     expect(ui.intentStore.get("overlay1", "zoomRange")).toEqual([4, 9]);
     expect(ui.intentStore.isUserSet("overlay1", "zoomRange")).toBe(true);
     expect(schedule).toHaveBeenCalled();
@@ -200,8 +246,8 @@ describe("zoomRange descriptor write/live/commit/reset", () => {
   it("commit marks the live value and persists", () => {
     const schedule = vi.fn();
     ui.m.persistence = { schedule } as never;
-    applyZoomRangeLive(ui, "overlay1", row, 3, 7);
-    commitZoomRange(ui, "overlay1");
+    applyZoomRangeLive(ui.la, ui.panelStore, ui.focusStore, "overlay1", row, 3, 7);
+    commitZoomRange(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     expect(ui.intentStore.get("overlay1", "zoomRange")).toEqual([3, 7]);
     expect(ui.intentStore.isUserSet("overlay1", "zoomRange")).toBe(true);
     expect(schedule).toHaveBeenCalled();
@@ -210,7 +256,7 @@ describe("zoomRange descriptor write/live/commit/reset", () => {
   it("commit with no stored range is a no-op", () => {
     const schedule = vi.fn();
     ui.m.persistence = { schedule } as never;
-    commitZoomRange(ui, "overlay1");
+    commitZoomRange(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     expect(ui.intentStore.isUserSet("overlay1", "zoomRange")).toBe(false);
     expect(schedule).not.toHaveBeenCalled();
   });
@@ -218,14 +264,16 @@ describe("zoomRange descriptor write/live/commit/reset", () => {
   it("reset clears the override", () => {
     const schedule = vi.fn();
     ui.m.persistence = { schedule } as never;
-    applyZoomRangeLive(ui, "overlay1", row, 1, 5);
-    commitZoomRange(ui, "overlay1");
-    resetLayerZoomRange(ui, "overlay1");
+    applyZoomRangeLive(ui.la, ui.panelStore, ui.focusStore, "overlay1", row, 1, 5);
+    commitZoomRange(ui.la, ui.panelStore, ui.focusStore, "overlay1");
+    resetLayerZoomRange(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     expect(ui.intentStore.get("overlay1", "zoomRange")).toBeUndefined();
     expect(ui.intentStore.isUserSet("overlay1", "zoomRange")).toBe(false);
   });
 
   it("reset on a missing layer returns before touching state", () => {
-    expect(() => resetLayerZoomRange(ui, "ghost")).not.toThrow();
+    expect(() =>
+      resetLayerZoomRange(ui.la, ui.panelStore, ui.focusStore, "ghost"),
+    ).not.toThrow();
   });
 });

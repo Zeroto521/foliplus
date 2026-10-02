@@ -11,10 +11,12 @@ import { ListCursor } from "#core/listCursor.js";
 import { createScopedTranslator, createTranslator } from "#common/locale.js";
 import * as CONST from "../const.js";
 import type { LayerManager } from "../manager.js";
+import type { LayerAccess } from "./access.js";
 import { applyProjection, applyProjectionAll } from "./apply.js";
 import { closeAttrsPanel, openAttrsPanel } from "./attr.js";
 import { hideSolidBasemap, showSolidBasemap } from "./color.js";
 import { cancelFocus, focusLayer, isFocusing } from "./focus.js";
+import { FocusStore } from "./focusStore.js";
 import {
   blurActiveItem,
   clearActiveItem,
@@ -41,6 +43,7 @@ import {
   updateLayerItem,
 } from "./list.js";
 import { closeMoreMenu, openMoreMenu } from "./menu.js";
+import { PanelStore } from "./panelStore.js";
 import { intentVisibleOf } from "./projection.js";
 import { finishRename, renameLayer } from "./rename.js";
 import { applyRowView, buildRowCell, displayName } from "./rowView.js";
@@ -111,7 +114,12 @@ class LayerUI {
    *  intent store row shape (Map by id, O(1)); dropped symmetrically with the
    *  intent row on unregister (see `LayerRuntimeStore`). */
   runtimeStore: LayerRuntimeStore;
-  currentColor: string;
+  /** Control-side UI transient state (fold/drag/keyboard/menu/panel). */
+  panelStore: PanelStore;
+  /** Cross-layer focus transient state (mask/rect/restores). */
+  focusStore: FocusStore;
+  /** The base-layer access face injected into ui/* modules. */
+  la: LayerAccess;
   /** Lazy-created color basemap surface — the pane-owned canvas that carries
    *  the fill. Built on first show (via `factory.createColor`), which also
    *  upserts the LayerInfo so the pane participates in `enforceOrder`.
@@ -211,7 +219,56 @@ class LayerUI {
     this.checkedCount = {};
     this.intentStore = new LayerIntentStore();
     this.runtimeStore = new LayerRuntimeStore();
-    this.currentColor = CONST.COLOR.DEFAULT;
+    this.panelStore = new PanelStore();
+    // The ui/* modules read text through ps.T / ps._ (the phase-2 injection
+    // seam), so the store's translators are live forwards of the instance
+    // fields — a test swapping ui.T / ui._ sees the new functions in every
+    // module on the next render.
+    Object.defineProperties(this.panelStore, {
+      T: { get: () => this.T, enumerable: true },
+      _: { get: () => this._, enumerable: true },
+      localeCode: { get: () => this.conf.locale_code ?? "en", enumerable: true },
+    });
+    this.focusStore = new FocusStore();
+    this.la = {
+      layerRegistry: this.m.layerRegistry,
+      intentStore: this.intentStore,
+      runtimeStore: this.runtimeStore,
+      annotation: this.m.annotation,
+      events: this.events,
+      map: this.m.map,
+      layers: this.m.layers,
+      panes: this.m.panes,
+      pendingRegistrations: this.m.pendingRegistrations,
+      persistence: this.m.persistence,
+      debouncedEnforce: this.m.debouncedEnforce,
+      uiContainer: this.m.uiContainer,
+      findLayer: info => this.m.findLayer(info),
+      surfaceFor: info => this.m.surfaceFor(info),
+      getFeatureCount: id => this.m.getFeatureCount(id),
+      getLayerPanes: layer => this.m.getLayerPanes(layer),
+      canReorderBetween: (fromIdx, toIdx) => this.m.canReorderBetween(fromIdx, toIdx),
+      enforceOrder: () => this.m.enforceOrder(),
+      saveOrder: () => this.m.saveOrder(),
+      deleteLayer: id => this.m.deleteLayer(id),
+      moveLayerUp: id => this.m.moveLayerUp(id),
+      moveLayerDown: id => this.m.moveLayerDown(id),
+      replaySavedOrder: id => this.m.replaySavedOrder(id),
+      createColor: opts => this.m.createColor(opts),
+    };
+    // Live references — the manager's persistence / debouncedEnforce /
+    // uiContainer are public fields callers (and tests) may swap, so the face
+    // must read them at call time, not snapshot them at construction
+    // (SavedOrder precedent).
+    for (const key of ["persistence", "debouncedEnforce", "uiContainer"] as const) {
+      Object.defineProperty(this.la, key, {
+        get: () => this.m[key],
+        set: v => {
+          (this.m as LayerManager & Record<string, unknown>)[key] = v;
+        },
+        enumerable: true,
+      });
+    }
     this.colorSurface = null;
     this.activeRenameId = null;
     this.dragIdx = null;
@@ -262,12 +319,12 @@ class LayerUI {
    * @param {HTMLElement} containerDiv - The panel-content div.
    */
   attachUI(containerDiv: HTMLElement) {
-    return attachUI(this, containerDiv);
+    return attachUI(this.la, this.panelStore, this.focusStore, containerDiv);
   }
 
   /** Load every persisted dimension in one call. */
   bindEvents() {
-    return bindEvents(this);
+    return bindEvents(this.la, this.panelStore, this.focusStore);
   }
 
   /** Called when a layer's content changes (count or type may shift at runtime).
@@ -275,33 +332,33 @@ class LayerUI {
    *  createLayers API (Point + LineString, etc.) shows the correct icon,
    *  not the one cached at initial attach. */
   onLayerItemCountChange(id: string) {
-    return onLayerItemCountChange(this, id);
+    return onLayerItemCountChange(this.la, this.panelStore, this.focusStore, id);
   }
 
   /** Refresh count column for every overlay item (no title change). */
   refreshAllCounts() {
-    return refreshAllCounts(this);
+    return refreshAllCounts(this.la, this.panelStore, this.focusStore);
   }
 
   unbindEvents() {
-    return unbindEvents(this);
+    return unbindEvents(this.la, this.panelStore, this.focusStore);
   }
 
   // ── delegates: state ──
   loadPersistedState() {
-    return loadPersistedState(this);
+    return loadPersistedState(this.la, this.panelStore, this.focusStore);
   }
   saveFoldState() {
-    return saveFoldState(this);
+    return saveFoldState(this.la, this.panelStore, this.focusStore);
   }
   setVisible(id: string, visible: boolean, persist: boolean = true) {
-    return setVisible(this, id, visible, persist);
+    return setVisible(this.la, this.panelStore, this.focusStore, id, visible, persist);
   }
   saveState() {
-    return saveState(this);
+    return saveState(this.la, this.panelStore, this.focusStore);
   }
   applyUserState(id?: string) {
-    applyUserState(this, id);
+    applyUserState(this.la, this.panelStore, this.focusStore, id);
     // The executor carries visible / opacity / zoomRange only. Border and
     // fill are direct setStyle writes, so without their own replay a reload
     // would restore the drawer's swatch while the map kept the author's
@@ -316,62 +373,62 @@ class LayerUI {
     // for border but not for fill, and vice versa, so a reload could restore
     // the drawer's swatch for one dimension while leaving the map with the
     // author's for the other.
-    const layerIds = id !== undefined ? [id] : this.intentStore.userSetIds();
+    const layerIds = id !== undefined ? [id] : this.la.intentStore.userSetIds();
     for (const layerId of layerIds) {
-      applyBorderToLayer(this, layerId);
-      replayFillState(this, layerId);
+      applyBorderToLayer(this.la, this.panelStore, this.focusStore, layerId);
+      replayFillState(this.la, this.panelStore, this.focusStore, layerId);
     }
   }
   dropPersistedLayerState(layerId: string) {
-    return dropPersistedLayerState(this, layerId);
+    return dropPersistedLayerState(this.la, this.panelStore, this.focusStore, layerId);
   }
   saveNamesState() {
-    return saveNamesState(this);
+    return saveNamesState(this.la, this.panelStore, this.focusStore);
   }
   // ── delegates: list ──
   initTypesAndVisibility() {
-    return initTypesAndVisibility(this);
+    return initTypesAndVisibility(this.la, this.panelStore, this.focusStore);
   }
   renderInitialList() {
-    return renderInitialList(this);
+    return renderInitialList(this.la, this.panelStore, this.focusStore);
   }
   insertLayerItem(layerInfo: LayerInfo) {
-    return insertLayerItem(this, layerInfo);
+    return insertLayerItem(this.la, this.panelStore, this.focusStore, layerInfo);
   }
   updateLayerItem(layerInfo: LayerInfo) {
-    return updateLayerItem(this, layerInfo);
+    return updateLayerItem(this.la, this.panelStore, this.focusStore, layerInfo);
   }
   displayName(layerId: string) {
-    return displayName(this, layerId);
+    return displayName(this.la, this.panelStore, this.focusStore, layerId);
   }
   colorLayerName() {
-    return colorLayerName(this);
+    return colorLayerName(this.la, this.panelStore, this.focusStore);
   }
   initLayerItem(layerInfo: LayerInfo) {
-    return initLayerItem(this, layerInfo);
+    return initLayerItem(this.la, this.panelStore, this.focusStore, layerInfo);
   }
   reindexAfterMove() {
-    return reindexAfterMove(this);
+    return reindexAfterMove(this.la, this.panelStore, this.focusStore);
   }
 
   // ── delegates: visibility ──
   getLayerItems(group: string) {
-    return getLayerItems(this, group);
+    return getLayerItems(this.la, this.panelStore, this.focusStore, group);
   }
   toggleAll(group: string, newState: boolean) {
-    return toggleAll(this, group, newState);
+    return toggleAll(this.la, this.panelStore, this.focusStore, group, newState);
   }
   syncToggleAll(group: string) {
-    return syncToggleAll(this, group);
+    return syncToggleAll(this.la, this.panelStore, this.focusStore, group);
   }
   syncToggleAllFromCount(group: string) {
-    return syncToggleAllFromCount(this, group);
+    return syncToggleAllFromCount(this.la, this.panelStore, this.focusStore, group);
   }
   syncNoBasemap() {
-    return syncNoBasemap(this);
+    return syncNoBasemap(this.la, this.panelStore, this.focusStore);
   }
   applyVisibility(id: string, visible: boolean) {
-    return applyVisibility(this, id, visible);
+    return applyVisibility(this.la, this.panelStore, this.focusStore, id, visible);
   }
   /** The user's stored visibility choice for a layer id (persisted intent
    *  or the author's declared default). This is the panel checkbox's fact,
@@ -380,74 +437,74 @@ class LayerUI {
    *  (via the `intentVisible` API slot) and tests reach this through LayerUI;
    *  everything internal calls the module function directly. */
   intentVisible(id: string) {
-    return intentVisibleOf(this, id);
+    return intentVisibleOf(this.la, this.panelStore, this.focusStore, id);
   }
   applyProjection(layerId: string) {
-    return applyProjection(this, layerId);
+    return applyProjection(this.la, this.panelStore, this.focusStore, layerId);
   }
   applyProjectionAll() {
-    return applyProjectionAll(this);
+    return applyProjectionAll(this.la, this.panelStore, this.focusStore);
   }
   handleChange(event: Event) {
-    return handleChange(this, event);
+    return handleChange(this.la, this.panelStore, this.focusStore, event);
   }
   handleInput(event: Event) {
-    return handleInput(this, event);
+    return handleInput(this.la, this.panelStore, this.focusStore, event);
   }
 
   // ── delegates: keyboard ──
   getNavigableItems() {
-    return getNavigableItems(this);
+    return getNavigableItems(this.la, this.panelStore, this.focusStore);
   }
   setActiveItem(index: number) {
-    return setActiveItem(this, index);
+    return setActiveItem(this.la, this.panelStore, this.focusStore, index);
   }
   blurActiveItem() {
-    return blurActiveItem(this);
+    return blurActiveItem(this.la, this.panelStore, this.focusStore);
   }
   clearActiveItem() {
-    return clearActiveItem(this);
+    return clearActiveItem(this.la, this.panelStore, this.focusStore);
   }
   handleOutsideMousedown(event: MouseEvent) {
-    return handleOutsideMousedown(this, event);
+    return handleOutsideMousedown(this.la, this.panelStore, this.focusStore, event);
   }
   handleKeyDown(event: KeyboardEvent) {
-    return handleKeyDown(this, event);
+    return handleKeyDown(this.la, this.panelStore, this.focusStore, event);
   }
   handleDblClick(event: MouseEvent) {
-    return handleDblClick(this, event);
+    return handleDblClick(this.la, this.panelStore, this.focusStore, event);
   }
 
   // ── delegates: color / menu / attrs / rename / focus ──
   showSolidBasemap(color: string) {
-    return showSolidBasemap(this, color);
+    return showSolidBasemap(this.la, this.panelStore, this.focusStore, color);
   }
   hideSolidBasemap() {
-    return hideSolidBasemap(this);
+    return hideSolidBasemap(this.la, this.panelStore, this.focusStore);
   }
   openMoreMenu(item: HTMLElement) {
-    return openMoreMenu(this, item);
+    return openMoreMenu(this.la, this.panelStore, this.focusStore, item);
   }
   closeMoreMenu(setFocus: boolean) {
-    return closeMoreMenu(this, setFocus);
+    return closeMoreMenu(this.la, this.panelStore, this.focusStore, setFocus);
   }
   openAttrsPanel(item: HTMLElement) {
-    return openAttrsPanel(this, item);
+    return openAttrsPanel(this.la, this.panelStore, this.focusStore, item);
   }
   closeAttrsPanel(setFocus: boolean) {
-    return closeAttrsPanel(this, setFocus);
+    return closeAttrsPanel(this.la, this.panelStore, this.focusStore, setFocus);
   }
   openStylePanel(layerId: string) {
-    return openStylePanel(this, layerId);
+    return openStylePanel(this.la, this.panelStore, this.focusStore, layerId);
   }
   closeStylePanel(setFocus: boolean) {
-    return closeStylePanel(this, setFocus);
+    return closeStylePanel(this.la, this.panelStore, this.focusStore, setFocus);
   }
   /** Part of the surface `manager` drives (`unregisterLayer` drops a layer's
    *  cached field list). Peer ui/ modules call the module function directly
    *  instead — see the sibling-import convention from #296. */
   invalidateFields(layerId: string) {
-    return invalidateFields(this, layerId);
+    return invalidateFields(this.la, this.panelStore, this.focusStore, layerId);
   }
   /** Unregister teardown for the style-apply schedulers: cancel any pending
    *  rAF walk and free the Map entries (both faces in one pass) so a
@@ -461,22 +518,22 @@ class LayerUI {
    *  is captured at load time). Kept for the same reason #296 kept the menu
    *  and rename hubs. */
   applyStyleLabelState() {
-    return applyStyleLabelState(this);
+    return applyStyleLabelState(this.la, this.panelStore, this.focusStore);
   }
   renameLayer(layerId: string) {
-    return renameLayer(this, layerId);
+    return renameLayer(this.la, this.panelStore, this.focusStore, layerId);
   }
   finishRename(cancel?: boolean) {
-    return finishRename(this, cancel);
+    return finishRename(this.la, this.panelStore, this.focusStore, cancel);
   }
   focusLayer(layerId: string) {
-    return focusLayer(this, layerId);
+    return focusLayer(this.la, this.panelStore, this.focusStore, layerId);
   }
   isFocusing() {
-    return isFocusing(this);
+    return isFocusing(this.la, this.panelStore, this.focusStore);
   }
   cancelFocus() {
-    return cancelFocus(this);
+    return cancelFocus(this.la, this.panelStore, this.focusStore);
   }
   // ── focus helpers (also used internally by focus.ts) ──
 }

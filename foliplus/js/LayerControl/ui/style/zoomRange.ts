@@ -4,10 +4,13 @@
 // LayerControl-owned, gated by surface capability.
 import { CAP_TIER, DIM } from "#core/layer/index.js";
 import { dom } from "#common/dom.js";
+import { createScopedTranslator } from "#common/locale.js";
 import * as CONST from "../../const.js";
+import type { LayerAccess } from "../access.js";
 import { applyProjection, authorZoomBoundsForLayer } from "../apply.js";
-import type { LayerUI } from "../index.js";
+import type { FocusStore } from "../focusStore.js";
 import { INTENT, getIntent } from "../intent.js";
+import type { PanelStore } from "../panelStore.js";
 import { railPos, round5 } from "./frame.js";
 import {
   getDimension,
@@ -15,6 +18,8 @@ import {
   resetIntentKeys,
   writeIntentKeys,
 } from "./registry.js";
+
+const T = createScopedTranslator(CONF);
 
 /** Whether the layer's surface can honestly carry a zoom-range write.
  *  Pure capability check: `capabilities.zoomRange !== "none"`.
@@ -26,10 +31,15 @@ import {
  *  basemap declares `"pane"` (the executor's `visible` op is the
  *  carrier, same as every other surface). No `isColorBasemap`
  *  special-case, no `group` exemption: capability alone decides. */
-const canShowZoomRange = (ui: LayerUI, layerId: string): boolean => {
-  const li = ui.m.layerRegistry.get(layerId);
+const canShowZoomRange = (
+  la: LayerAccess,
+  ps: PanelStore,
+  fs: FocusStore,
+  layerId: string,
+): boolean => {
+  const li = la.layerRegistry.get(layerId);
   if (!li) return false;
-  return ui.m.surfaceFor(li).capabilities.zoomRange !== CAP_TIER.NONE;
+  return la.surfaceFor(li).capabilities.zoomRange !== CAP_TIER.NONE;
 };
 
 /** Clamp a zoom value into the map's current [min, max] range. */
@@ -109,16 +119,18 @@ const syncValues = (
  *  that is the commit pass's job. Pass the live thumb values so the row can
  *  update before the change is committed. */
 const syncZoomRangeRow = (
-  ui: LayerUI,
+  la: LayerAccess,
+  ps: PanelStore,
+  fs: FocusStore,
   layerId: string,
   row: HTMLElement,
   liveRange?: [number, number],
 ): void => {
-  const [mapMin, mapMax] = authorZoomBoundsForLayer(ui, layerId);
-  const range = liveRange ?? getIntent(ui, layerId, INTENT.ZOOM_RANGE);
+  const [mapMin, mapMax] = authorZoomBoundsForLayer(la, ps, fs, layerId);
+  const range = liveRange ?? getIntent(la, layerId, INTENT.ZOOM_RANGE);
   const min = range ? Math.max(range[0], mapMin) : mapMin;
   const max = range ? Math.min(range[1], mapMax) : mapMax;
-  const current = ui.m.map.getZoom();
+  const current = la.map.getZoom();
 
   const fill = row.querySelector(
     `.${CONST.CLASSES.STYLE_ZOOM_RANGE_FILL}`,
@@ -134,8 +146,8 @@ const syncZoomRangeRow = (
   const outOfRange = current < min || current > max;
   row.classList.toggle(CONST.CLASSES.STYLE_ZOOM_RANGE_OUT_OF_RANGE, outOfRange);
   row.title = outOfRange
-    ? ui.T("style_zoom_range_out_of_range").replace("{zoom}", String(current))
-    : ui.T("style_zoom_range_current").replace("{zoom}", String(current));
+    ? T("style_zoom_range_out_of_range").replace("{zoom}", String(current))
+    : T("style_zoom_range_current").replace("{zoom}", String(current));
 
   // The handles' tooltips carry the range the rail draws but the row no longer
   // prints.
@@ -144,7 +156,7 @@ const syncZoomRangeRow = (
     [CONST.CLASSES.STYLE_ZOOM_RANGE_MAX, max],
   ] as const) {
     const input = row.querySelector(`.${tail}`) as HTMLInputElement | null;
-    if (input) input.title = `${ui.T("style_zoom_range")} ${value}`;
+    if (input) input.title = `${T("style_zoom_range")} ${value}`;
   }
 };
 
@@ -160,12 +172,17 @@ const syncZoomRangeRow = (
  *  choice),
  *  clamped to the map's current [min, max]. When no range is stored, the
  *  full map range is used — the "author-undeclared" default. */
-const buildZoomRangeRow = (ui: LayerUI, layerId: string): HTMLElement => {
-  const [mapMin, mapMax] = authorZoomBoundsForLayer(ui, layerId);
-  const stored = getIntent(ui, layerId, INTENT.ZOOM_RANGE);
+const buildZoomRangeRow = (
+  la: LayerAccess,
+  ps: PanelStore,
+  fs: FocusStore,
+  layerId: string,
+): HTMLElement => {
+  const [mapMin, mapMax] = authorZoomBoundsForLayer(la, ps, fs, layerId);
+  const stored = getIntent(la, layerId, INTENT.ZOOM_RANGE);
   const min = stored ? Math.max(stored[0], mapMin) : mapMin;
   const max = stored ? Math.min(stored[1], mapMax) : mapMax;
-  const current = ui.m.map.getZoom();
+  const current = la.map.getZoom();
 
   const fill = dom.el("div", {
     class: `${CONST.CLASSES.SLIDER_FILL} ${CONST.CLASSES.STYLE_ZOOM_RANGE_FILL}`,
@@ -190,7 +207,7 @@ const buildZoomRangeRow = (ui: LayerUI, layerId: string): HTMLElement => {
     max: String(mapMax),
     step: "1",
     value: String(min),
-    "aria-label": ui.T("style_zoom_range_min"),
+    "aria-label": T("style_zoom_range_min"),
   });
   const maxInput = dom.el("input", {
     type: "range",
@@ -199,7 +216,7 @@ const buildZoomRangeRow = (ui: LayerUI, layerId: string): HTMLElement => {
     max: String(mapMax),
     step: "1",
     value: String(max),
-    "aria-label": ui.T("style_zoom_range_max"),
+    "aria-label": T("style_zoom_range_max"),
   });
 
   // DOM order is the paint order for these positioned siblings; the two
@@ -239,11 +256,11 @@ const buildZoomRangeRow = (ui: LayerUI, layerId: string): HTMLElement => {
     {
       class: `${CONST.CLASSES.FORM_ROW} ${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`,
     },
-    dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("style_zoom_range")),
+    dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, T("style_zoom_range")),
     dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, control),
   );
   syncValues(row, min, max, current, mapMin, mapMax);
-  syncZoomRangeRow(ui, layerId, row);
+  syncZoomRangeRow(la, ps, fs, layerId, row);
 
   return row;
 };
@@ -253,39 +270,51 @@ const buildZoomRangeRow = (ui: LayerUI, layerId: string): HTMLElement => {
  *  drags a thumb — the slider is a live preview, not a deferred commit.
  *  Value-only write (`setValue`) — provenance marks on the commit pass. */
 const applyZoomRangeLive = (
-  ui: LayerUI,
+  la: LayerAccess,
+  ps: PanelStore,
+  fs: FocusStore,
   layerId: string,
   row: HTMLElement,
   min: number,
   max: number,
 ): void => {
-  const li = ui.m.layerRegistry.get(layerId);
+  const li = la.layerRegistry.get(layerId);
   if (!li) return;
-  ui.intentStore.setValue(layerId, INTENT.ZOOM_RANGE, [min, max]);
-  syncZoomRangeRow(ui, layerId, row, [min, max]);
-  applyProjection(ui, layerId);
+  la.intentStore.setValue(layerId, INTENT.ZOOM_RANGE, [min, max]);
+  syncZoomRangeRow(la, ps, fs, layerId, row, [min, max]);
+  applyProjection(la, ps, fs, layerId);
 };
 
 /** Commit pass: persist the zoom range to localStorage. The value and the
  *  map state are already updated by {@link applyZoomRangeLive}; this records
  *  the override through the descriptor `write` (cohesive set + save). */
-const commitZoomRange = (ui: LayerUI, layerId: string): void => {
-  getDimension(DIM.ZOOM_RANGE)!.write!(ui, layerId, {});
+const commitZoomRange = (
+  la: LayerAccess,
+  ps: PanelStore,
+  fs: FocusStore,
+  layerId: string,
+): void => {
+  getDimension(DIM.ZOOM_RANGE)!.write!(la, ps, fs, layerId, {});
 };
 
 /** Reset one layer's zoom range to the full map range and drop its override.
  *  Thin delegate over the zoom-range descriptor's `reset` plus row chrome. */
-const resetLayerZoomRange = (ui: LayerUI, layerId: string): void => {
-  if (!ui.m.layerRegistry.has(layerId)) return;
-  getDimension(DIM.ZOOM_RANGE)!.reset!(ui, layerId);
+const resetLayerZoomRange = (
+  la: LayerAccess,
+  ps: PanelStore,
+  fs: FocusStore,
+  layerId: string,
+): void => {
+  if (!la.layerRegistry.has(layerId)) return;
+  getDimension(DIM.ZOOM_RANGE)!.reset!(la, ps, fs, layerId);
   // Refresh the row's visual state (fill, values, out-of-range).
-  const panel = ui.uiContainer.querySelector(
+  const panel = ps.uiContainer!.querySelector(
     `.${CONST.CLASSES.STYLE_PANEL}`,
   ) as HTMLElement | null;
   const row = panel?.querySelector(
     `.${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`,
   ) as HTMLElement | null;
-  if (row) syncZoomRangeRow(ui, layerId, row);
+  if (row) syncZoomRangeRow(la, ps, fs, layerId, row);
 };
 
 /** Register zoom range as a per-layer dimension. The descriptor owns the
@@ -293,11 +322,11 @@ const resetLayerZoomRange = (ui: LayerUI, layerId: string): void => {
 const ZOOM_RANGE_DIMENSION = registerDimension<{ min: number; max: number }>({
   key: DIM.ZOOM_RANGE,
   gate: canShowZoomRange,
-  value: (ui, layerId) => {
-    const li = ui.m.layerRegistry.get(layerId);
+  value: (la, ps, fs, layerId) => {
+    const li = la.layerRegistry.get(layerId);
     if (!li) return undefined;
-    const [mapMin, mapMax] = authorZoomBoundsForLayer(ui, layerId);
-    const stored = getIntent(ui, layerId, INTENT.ZOOM_RANGE);
+    const [mapMin, mapMax] = authorZoomBoundsForLayer(la, ps, fs, layerId);
+    const stored = getIntent(la, layerId, INTENT.ZOOM_RANGE);
     return {
       min: stored ? Math.max(stored[0], mapMin) : mapMin,
       max: stored ? Math.min(stored[1], mapMax) : mapMax,
@@ -306,26 +335,26 @@ const ZOOM_RANGE_DIMENSION = registerDimension<{ min: number; max: number }>({
   row: buildZoomRangeRow,
   /** Intent+persist + projection. Empty patch commits an already-written
    *  live preview (mark current intent); `{min,max}` writes then marks. */
-  write: (ui, layerId, patch) => {
+  write: (la, ps, fs, layerId, patch) => {
     const min = patch?.min;
     const max = patch?.max;
     if (min !== undefined && max !== undefined) {
-      void writeIntentKeys(ui, layerId, [[INTENT.ZOOM_RANGE, [min, max]]]);
+      void writeIntentKeys(la, ps, fs, layerId, [[INTENT.ZOOM_RANGE, [min, max]]]);
     } else {
-      const stored = ui.intentStore.get(layerId, INTENT.ZOOM_RANGE);
+      const stored = la.intentStore.get(layerId, INTENT.ZOOM_RANGE);
       if (!stored) return;
-      void writeIntentKeys(ui, layerId, [[INTENT.ZOOM_RANGE, stored]]);
+      void writeIntentKeys(la, ps, fs, layerId, [[INTENT.ZOOM_RANGE, stored]]);
     }
-    applyProjection(ui, layerId);
+    applyProjection(la, ps, fs, layerId);
   },
   /** Cohesive reset: clear the override, save, re-project. */
-  reset: (ui, layerId) => {
-    resetIntentKeys(ui, layerId, [INTENT.ZOOM_RANGE]);
-    applyProjection(ui, layerId);
+  reset: (la, ps, fs, layerId) => {
+    resetIntentKeys(la, ps, fs, layerId, [INTENT.ZOOM_RANGE]);
+    applyProjection(la, ps, fs, layerId);
   },
-  valueSource: (ui, layerId) => {
-    if (!canShowZoomRange(ui, layerId)) return "none";
-    return ui.intentStore.isUserSet(layerId, INTENT.ZOOM_RANGE) ? "user" : "author";
+  valueSource: (la, ps, fs, layerId) => {
+    if (!canShowZoomRange(la, ps, fs, layerId)) return "none";
+    return la.intentStore.isUserSet(layerId, INTENT.ZOOM_RANGE) ? "user" : "author";
   },
 });
 

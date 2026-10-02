@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+﻿import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LayerIntentStore } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { LayerManager } from "#foliplus/LayerControl/manager.js";
@@ -27,6 +27,7 @@ import { ensureModes } from "#foliplus/core/mode.js";
 import { getLayerAlpha } from "#common/canvasAlpha.js";
 import {
   allFolded,
+  attachFaces,
   attachWithGroup,
   findItem,
   initFixture,
@@ -115,7 +116,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
     window.localStorage.clear();
   });
 
-  // ─────────────────── load / apply on attach ───────────────────
+  // 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ load / apply on attach 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
   describe("loadPersistedState / applyUserState", () => {
     it("restores a hidden overlay on attach and removes it from the map", () => {
@@ -186,7 +187,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
       ]);
       const u = new LayerUI(m);
       seedIntentMap(u, "visible", {});
-      // No user override —overlay1 keeps its author's declared state, which
+      // No user override 鈥攐verlay1 keeps its author's declared state, which
       // is `show=False` (absent from the map). Nothing must force it on.
       u.intentStore.replaceProvenance({});
       map.hasLayer = vi.fn(() => false);
@@ -195,7 +196,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
 
       expect(map.addLayer).not.toHaveBeenCalled();
       // The author's `show=False` default is not a user choice, so the
-      // intent record stays untouched — the layer's membership on the map
+      // intent record stays untouched 鈥?the layer's membership on the map
       // reflects that author default, not this load's decision.
       expect(m.intentVisible("overlay1")).toBe(true);
     });
@@ -231,7 +232,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
       // go: HeatmapControl and MeasureControl register in their own
       // constructor, after this UI has attached, so their ids are unresolvable
       // on the first sweep. A queued registration and an id never seen are
-      // indistinguishable here, and either may still arrive —both are kept.
+      // indistinguishable here, and either may still arrive 鈥攂oth are kept.
       const { map } = makeTestMap();
       const m = new LayerManager(map, [
         {
@@ -428,8 +429,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
         "fillOpacity",
       ]);
 
-      dropPersistedLayerState(u, "overlay1");
-
+      dropPersistedLayerState(u.la, u.panelStore, u.focusStore, "overlay1");
       expect(getIntent(u, "overlay1", "visible")).not.toBe(false);
       expect(getIntent(u, "overlay1", "opacity")).toBeUndefined();
       expect(getIntent(u, "overlay1", "zoomRange")).toBeUndefined();
@@ -452,7 +452,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
     });
   });
 
-  // ─────────────────── save on toggle ───────────────────
+  // 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ save on toggle 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
   describe("saveState on toggle", () => {
     it("persists a hidden overlay when the user unchecks it", () => {
@@ -551,7 +551,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
     });
   });
 
-  // ─────────────────── color-layer is transient ───────────────────
+  // 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ color-layer is transient 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
   describe("color layer activation is transient", () => {
     it("does not pollute intents.visible when color layer activates", () => {
@@ -581,7 +581,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
     });
   });
 
-  // ─────────────────── initTypesAndVisibility color-fallback semantics ──
+  // 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ initTypesAndVisibility color-fallback semantics 鈹€鈹€
 
   describe("color-layer fallback respects hidden state", () => {
     beforeEach(() => {
@@ -690,7 +690,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
       expect(map.removeLayer).toHaveBeenCalledWith(base1);
       expect(map.removeLayer).toHaveBeenCalledWith(base2);
       // Color-layer fallback must NOT activate when the user intentionally hid every base.
-      const colorItem = ui.uiContainer.querySelector(
+      const colorItem = ui.panelStore.uiContainer.querySelector(
         `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       ) as HTMLElement | null;
       expect(colorItem?.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
@@ -703,8 +703,8 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
 
     it("does not activate the colour layer when no base layers are registered", () => {
       // Intent-only invariant: no code fallback when there are no basemaps.
-      // First-load visibility is the author's `show=` —if the author wrote
-      // no basemap, the map is empty (A—hatch) rather than the colour being
+      // First-load visibility is the author's `show=` 鈥攊f the author wrote
+      // no basemap, the map is empty (A鈥攈atch) rather than the colour being
       // silently drawn to fill the blank.
       const poly = {
         options: {},
@@ -715,7 +715,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
         { id: "overlay1", name: "O", group: "overlay", layer: poly },
       ]);
 
-      const colorItem = ui.uiContainer.querySelector(
+      const colorItem = ui.panelStore.uiContainer.querySelector(
         `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       ) as HTMLElement | null;
       expect(colorItem?.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
@@ -749,16 +749,16 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
 
       // base1 was hidden, but overlay1 is visible and there are no visible bases.
       // However, only base1 is hidden (not "all bases"), so the color fallback
-      // must NOT activate —the user might re-show base1 at any time.
+      // must NOT activate 鈥攖he user might re-show base1 at any time.
       expect(map.removeLayer).toHaveBeenCalledWith(base1);
-      const colorItem = ui.uiContainer.querySelector(
+      const colorItem = ui.panelStore.uiContainer.querySelector(
         `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       ) as HTMLElement | null;
       expect(colorItem?.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
     });
   });
 
-  // ─────────────────── applyUserState with multiple layers ───────────────────
+  // 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ applyUserState with multiple layers 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
   describe("applyUserState with multiple hidden layers", () => {
     it("handles overlay, base, and canvas layers in one pass", () => {
@@ -818,7 +818,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
   });
 });
 
-describe("label config seed — read order (write-new / read-old)", () => {
+describe("label config seed 鈥?read order (write-new / read-old)", () => {
   beforeEach(() => {
     window.localStorage.clear();
   });
@@ -856,19 +856,19 @@ describe("label config seed — read order (write-new / read-old)", () => {
       }),
     );
     const { ui } = initFixture();
-    loadPersistedState(ui);
+    loadPersistedState(ui.la, ui.panelStore, ui.focusStore);
 
-    expect(getIntent(ui, "both", "annotation")).toEqual({
+    expect(getIntent(ui.la, "both", "annotation")).toEqual({
       show: true,
       field: "new",
       format: "comma",
     });
-    expect(getIntent(ui, "legacyOnly", "annotation")).toEqual({
+    expect(getIntent(ui.la, "legacyOnly", "annotation")).toEqual({
       show: true,
       field: "l",
       format: "int",
     });
-    expect(getIntent(ui, "withOverride", "annotation")).toEqual({
+    expect(getIntent(ui.la, "withOverride", "annotation")).toEqual({
       show: true,
       field: "p",
     });
@@ -878,14 +878,14 @@ describe("label config seed — read order (write-new / read-old)", () => {
 describe("ui/state saveFoldState", () => {
   it("schedules the folded set through persistence", () => {
     const schedule = vi.fn();
-    const ui = {
+    const ui = attachFaces({
       foldedGroups: new Set(["overlay"]),
       m: {
         persistence: { schedule },
         annotation: { configEntries: () => [] },
       },
-    } as unknown as LayerUI;
-    saveFoldState(ui);
+    } as unknown as LayerUI);
+    saveFoldState(ui.la, ui.panelStore, ui.focusStore);
     // schedule takes a getter map so a later write can read the live state
     // instead of a snapshot at schedule time.
     expect(schedule).toHaveBeenCalledTimes(1);
@@ -894,7 +894,7 @@ describe("ui/state saveFoldState", () => {
   });
 });
 
-// ─────────────────── opacity apply / restore / retention ─────────────────
+// 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ opacity apply / restore / retention 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
 describe("LayerUI opacity restore / retention", () => {
   const makeMap = () => {
@@ -984,7 +984,7 @@ describe("LayerUI opacity restore / retention", () => {
   });
 
   it("keeps opacity entries whose layers are gone", () => {
-    // An unresolvable id is not a leak to clean up —it may belong to a
+    // An unresolvable id is not a leak to clean up 鈥攊t may belong to a
     // component that registers later, and the user's stored opacity must not
     // revert to the author default while it waits.
     const { map, layer, panes } = makeMap();
@@ -1061,7 +1061,7 @@ describe("event-driven row refresh", () => {
     // fixture's default layers have none).
     info.featureCountProvider = () => 42;
 
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     events.emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "overlay1" });
 
     expect(item.title).toContain("42");
@@ -1072,7 +1072,7 @@ describe("event-driven row refresh", () => {
 
   it("onLayerItemCountChange renders the type from the surface without stamping the snapshot", () => {
     // 33.2 authority: the surface owns the geometry probe; the manager never
-    // calls getGeometryType directly, and the row only reads the surface — it
+    // calls getGeometryType directly, and the row only reads the surface 鈥?it
     // does not write layerInfo.type (single-writer snapshot via getLayerType).
     // The fixture's plain object is not an L.Polygon, so the surface resolves
     // it to EMPTY, which the row renders verbatim.
@@ -1086,7 +1086,9 @@ describe("event-driven row refresh", () => {
     expect(geomSpy).toHaveBeenCalledTimes(1);
     expect(info.type).toBeNull();
     expect(
-      findItem(ui, "overlay1").querySelector(`.${CONST.CLASSES.TYPE_ICON_COL}`),
+      findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1").querySelector(
+        `.${CONST.CLASSES.TYPE_ICON_COL}`,
+      ),
     ).not.toBeNull();
   });
 
@@ -1100,8 +1102,9 @@ describe("event-driven row refresh", () => {
 
     expect(info.type).toBeNull();
     expect(
-      findItem(ui, "overlay1").querySelector(`.${CONST.CLASSES.TYPE_ICON_COL}`)
-        ?.innerHTML,
+      findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1").querySelector(
+        `.${CONST.CLASSES.TYPE_ICON_COL}`,
+      )?.innerHTML,
     ).toContain("svg");
   });
 
@@ -1117,7 +1120,7 @@ describe("event-driven row refresh", () => {
       iconSvg,
     });
     const info = manager.layerRegistry.get("custom1")!;
-    const item = findItem(ui, "custom1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "custom1");
     expect(info.type).toBeNull();
     expect(item.querySelector(`.${CONST.CLASSES.TYPE_ICON_COL}`)?.innerHTML).toContain(
       "rect",
@@ -1140,8 +1143,8 @@ describe("event-driven row refresh", () => {
     li.paneSpecs = specs("__test_opacity_pane__");
     // The projection reads the opacity value gated by the provenance
     // provenance marker, so both must be set for the stored value to flow
-    // through —a raw `intents.opacity` write is not a user intent.
-    seedIntentMap(ui, "opacity", { overlay1: 0.4 });
+    // through 鈥攁 raw `intents.opacity` write is not a user intent.
+    seedIntentMap(ui.la, "opacity", { overlay1: 0.4 });
     ui.intentStore.seedProvenance("overlay1", ["opacity"]);
 
     const paneEl = document.createElement("div");
@@ -1158,12 +1161,12 @@ describe("event-driven row refresh", () => {
     events.emit(EVENTS.CONTROL_ATTACHED, { component: "ScaleControl" });
     // The callback keeps the rendered rows intact (init re-syncs, no error).
     expect(
-      ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.LAYER_ITEM}`).length,
+      ui.panelStore.uiContainer.querySelectorAll(`.${CONST.CLASSES.LAYER_ITEM}`).length,
     ).toBeGreaterThan(0);
   });
 });
 
-// ─────────────────── intentStore + per-layer persistence ───────────────────
+// 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ intentStore + per-layer persistence 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
 describe("ui/state intentStore and per-layer state persistence", () => {
   let manager: LayerManager;
@@ -1188,15 +1191,15 @@ describe("ui/state intentStore and per-layer state persistence", () => {
     // records that distinction: without it, reload would drop the id and the
     // layer would come back visible, undoing the user's last choice.
     const schedule = vi.fn();
-    const bare = {
+    const bare = attachFaces({
       intentStore: makeStore(),
       m: {
         persistence: { schedule },
         annotation: { configEntries: () => [] },
       },
-    } as unknown as LayerUI;
+    } as unknown as LayerUI);
 
-    setVisible(bare, "overlay1", false);
+    setVisible(bare.la, bare.panelStore, bare.focusStore, "overlay1", false);
 
     expect(bare.intentStore.isUserSet("overlay1", "visible")).toBe(true);
     const fields = schedule.mock.calls[0][0] as {
@@ -1213,7 +1216,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
     // dropping it would fall back to the author's show=False default, so the
     // unhide would only be visible for the current session.
     const schedule = vi.fn();
-    const bare = {
+    const bare = attachFaces({
       intentStore: makeStore(
         { overlay1: { visible: false } },
         { overlay1: ["visible"] },
@@ -1222,11 +1225,11 @@ describe("ui/state intentStore and per-layer state persistence", () => {
         persistence: { schedule },
         annotation: { configEntries: () => [] },
       },
-    } as unknown as LayerUI;
+    } as unknown as LayerUI);
 
-    setVisible(bare, "overlay1", true);
+    setVisible(bare.la, bare.panelStore, bare.focusStore, "overlay1", true);
 
-    expect(getIntent(bare, "overlay1", "visible")).not.toBe(false);
+    expect(getIntent(bare.la, "overlay1", "visible")).not.toBe(false);
     const fields = schedule.mock.calls[0][0] as {
       layers: () => Record<string, { visible?: boolean; overrides: string[] }>;
     };
@@ -1241,7 +1244,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
     // back as a declaration and dropped, and the user's drag would not survive
     // a reload.
     const schedule = vi.fn();
-    const bare = {
+    const bare = attachFaces({
       intentStore: makeStore(
         { overlay1: { zoomRange: [4, 10] } },
         { overlay1: ["zoomRange"] },
@@ -1250,9 +1253,9 @@ describe("ui/state intentStore and per-layer state persistence", () => {
         persistence: { schedule },
         annotation: { configEntries: () => [] },
       },
-    } as unknown as LayerUI;
+    } as unknown as LayerUI);
 
-    saveState(bare);
+    saveState(bare.la, bare.panelStore, bare.focusStore);
 
     const fields = schedule.mock.calls[0][0] as {
       layers: () => Record<string, { zoomRange?: number[]; overrides: string[] }>;
@@ -1267,16 +1270,16 @@ describe("ui/state intentStore and per-layer state persistence", () => {
     // provenance with no live value must never be persisted -- the record cannot
     // say "the user reset this", so absence is what restores the declared value.
     const schedule = vi.fn();
-    const bare = {
+    const bare = attachFaces({
       intentStore: makeStore({}, { overlay1: ["zoomRange"] }),
       m: {
         persistence: { schedule },
         annotation: { configEntries: () => [] },
       },
-    } as unknown as LayerUI;
+    } as unknown as LayerUI);
 
-    unmarkOverride(bare, "overlay1", "zoomRange");
-    saveState(bare);
+    unmarkOverride(bare.la, bare.panelStore, bare.focusStore, "overlay1", "zoomRange");
+    saveState(bare.la, bare.panelStore, bare.focusStore);
 
     expect(bare.intentStore.dumpProvenance().overlay1).toBeUndefined();
     const fields = schedule.mock.calls[0][0] as {
@@ -1289,11 +1292,11 @@ describe("ui/state intentStore and per-layer state persistence", () => {
     // Reset is per dimension, so unmarking zoomRange must not drop the layer's
     // other choices -- wiping the whole entry here would make one Reset button
     // forget the opacity the user set moments earlier.
-    const bare = {
+    const bare = attachFaces({
       intentStore: makeStore({}, { overlay1: ["visible", "zoomRange"] }),
-    } as unknown as LayerUI;
+    } as unknown as LayerUI);
 
-    unmarkOverride(bare, "overlay1", "zoomRange");
+    unmarkOverride(bare.la, bare.panelStore, bare.focusStore, "overlay1", "zoomRange");
 
     expect(bare.intentStore.dumpProvenance().overlay1).toEqual(["visible"]);
   });
@@ -1304,15 +1307,15 @@ describe("ui/state intentStore and per-layer state persistence", () => {
     // would discard anyway. Failing closed here keeps the invariant that every
     // persisted marker has a value.
     const schedule = vi.fn();
-    const bare = {
+    const bare = attachFaces({
       intentStore: makeStore({}, { overlay1: ["opacity"] }),
       m: {
         persistence: { schedule },
         annotation: { configEntries: () => [] },
       },
-    } as unknown as LayerUI;
+    } as unknown as LayerUI);
 
-    saveState(bare);
+    saveState(bare.la, bare.panelStore, bare.focusStore);
 
     const fields = schedule.mock.calls[0][0] as {
       layers: () => Record<string, unknown>;
@@ -1327,15 +1330,15 @@ describe("ui/state intentStore and per-layer state persistence", () => {
     // accepting a marker that cannot survive a flush.
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const schedule = vi.fn();
-    const bare = {
+    const bare = attachFaces({
       intentStore: makeStore(),
       m: {
         persistence: { schedule },
         annotation: { configEntries: () => [] },
       },
-    } as unknown as LayerUI;
+    } as unknown as LayerUI);
 
-    markOverride(bare, "overlay1", "zoomRange");
+    markOverride(bare.la, bare.panelStore, bare.focusStore, "overlay1", "zoomRange");
 
     expect(bare.intentStore.dumpProvenance().overlay1).toBeUndefined();
     expect(schedule).not.toHaveBeenCalled();
@@ -1346,21 +1349,27 @@ describe("ui/state intentStore and per-layer state persistence", () => {
   it("treats an unknown override key as live (forward-compat default)", () => {
     // LayerOverride is closed today; the default arm of hasLiveValue /
     // LayerIntentStore.hasLive is the forward-compat path so a future dimension
-    // without a typed guard is not silently dropped by markOverride — and
+    // without a typed guard is not silently dropped by markOverride 鈥?and
     // toPersisted writes only the marker (no LIVE rule yet), keeping the
     // disk contract intact.
-    const bare = {
+    const bare = attachFaces({
       intentStore: makeStore(),
       m: {
         persistence: { schedule: vi.fn() },
         annotation: { configEntries: () => [] },
       },
-    } as unknown as LayerUI;
+    } as unknown as LayerUI);
 
-    markOverride(bare, "overlay1", "futureDim" as never);
+    markOverride(
+      bare.la,
+      bare.panelStore,
+      bare.focusStore,
+      "overlay1",
+      "futureDim" as never,
+    );
 
     expect(bare.intentStore.dumpProvenance().overlay1).toEqual(["futureDim"]);
-    const states = buildLayerStates(bare);
+    const states = buildLayerStates(bare.la, bare.panelStore, bare.focusStore);
     expect(states.overlay1?.overrides).toEqual(["futureDim"]);
     expect(states.overlay1 && Object.keys(states.overlay1)).toEqual(["overrides"]);
   });
@@ -1368,7 +1377,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
   it("skips legacy annotation entries that are not objects", () => {
     // The legacy `annotations` segment passes through unparsed, so a corrupt
     // entry must not seed an intent.
-    const bare = {
+    const bare = attachFaces({
       intentStore: makeStore(),
       m: {
         persistence: {
@@ -1385,16 +1394,16 @@ describe("ui/state intentStore and per-layer state persistence", () => {
             }) as never,
         },
       },
-    } as unknown as LayerUI;
-    loadPersistedState(bare);
-    expect(getIntent(bare, "nullish", "annotation")).toBeUndefined();
-    expect(getIntent(bare, "valid", "annotation")).toBeDefined();
+    } as unknown as LayerUI);
+    loadPersistedState(bare.la, bare.panelStore, bare.focusStore);
+    expect(getIntent(bare.la, "nullish", "annotation")).toBeUndefined();
+    expect(getIntent(bare.la, "valid", "annotation")).toBeDefined();
   });
 
   it("ignores an override whose stored value has the wrong type", () => {
     // Defensive read: persistence normally pairs value + provenance, but a
     // direct record (or a future writer) can declare a marker with a bad value.
-    const bare = {
+    const bare = attachFaces({
       intentStore: makeStore(),
       m: {
         persistence: {
@@ -1410,23 +1419,23 @@ describe("ui/state intentStore and per-layer state persistence", () => {
             }) as never,
         },
       },
-    } as unknown as LayerUI;
-    loadPersistedState(bare);
-    expect(getIntent(bare, "overlay1", "visible")).toBeUndefined();
+    } as unknown as LayerUI);
+    loadPersistedState(bare.la, bare.panelStore, bare.focusStore);
+    expect(getIntent(bare.la, "overlay1", "visible")).toBeUndefined();
     expect(bare.intentStore.dumpProvenance().overlay1).toEqual(["visible"]);
   });
 
   it("saveNamesState keeps only intents that carry a name", () => {
     const schedule = vi.fn();
-    const bare = {
+    const bare = attachFaces({
       intentStore: makeStore({
         a: { opacity: 0.5 },
         b: { name: "Renamed" },
       }),
       m: { persistence: { schedule } },
-    } as unknown as LayerUI;
+    } as unknown as LayerUI);
 
-    saveNamesState(bare);
+    saveNamesState(bare.la, bare.panelStore, bare.focusStore);
 
     const fields = schedule.mock.calls[0][0] as {
       renamedNames: () => Record<string, string>;
@@ -1436,10 +1445,10 @@ describe("ui/state intentStore and per-layer state persistence", () => {
 
   it("tolerates a shell with an empty LayerIntentStore", () => {
     // Sparse fixtures and a mid-teardown UI must not throw on the projection
-    // walks — an empty store reads as no user choice, and an intent without a
+    // walks 鈥?an empty store reads as no user choice, and an intent without a
     // name simply contributes nothing to the saved names.
     const schedule = vi.fn();
-    const bare = {
+    const bare = attachFaces({
       intentStore: makeStore(),
       m: {
         persistence: { schedule },
@@ -1449,11 +1458,15 @@ describe("ui/state intentStore and per-layer state persistence", () => {
         replaySavedOrder: vi.fn(),
       },
       uiContainer: null,
-    } as unknown as LayerUI;
+    } as unknown as LayerUI);
 
-    expect(buildLayerStates(bare)).toEqual({});
-    expect(() => applyUserState(bare)).not.toThrow();
-    expect(() => saveNamesState(bare)).not.toThrow();
+    expect(buildLayerStates(bare.la, bare.panelStore, bare.focusStore)).toEqual({});
+    expect(() =>
+      applyUserState(bare.la, bare.panelStore, bare.focusStore),
+    ).not.toThrow();
+    expect(() =>
+      saveNamesState(bare.la, bare.panelStore, bare.focusStore),
+    ).not.toThrow();
     expect(schedule).toHaveBeenCalled();
   });
 
@@ -1462,13 +1475,13 @@ describe("ui/state intentStore and per-layer state persistence", () => {
     // refusal as zoom range: marking a border with no value would be filtered
     // out of the next write and the user's action would vanish silently.
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const bare = {
+    const bare = attachFaces({
       intentStore: makeStore(),
       m: { persistence: { schedule: vi.fn() } },
-    } as unknown as LayerUI;
+    } as unknown as LayerUI);
 
-    markOverride(bare, "overlay1", "borderColor");
-    markOverride(bare, "overlay1", "borderWeight");
+    markOverride(bare.la, bare.panelStore, bare.focusStore, "overlay1", "borderColor");
+    markOverride(bare.la, bare.panelStore, bare.focusStore, "overlay1", "borderWeight");
 
     expect(bare.intentStore.dumpProvenance().overlay1).toBeUndefined();
     expect(warn).toHaveBeenCalledTimes(2);
@@ -1499,9 +1512,9 @@ describe("ui/state intentStore and per-layer state persistence", () => {
       }),
     );
 
-    loadPersistedState(ui);
+    loadPersistedState(ui.la, ui.panelStore, ui.focusStore);
 
-    expect(ui.foldedGroups).toEqual(new Set(["Overlay"]));
+    expect(ui.panelStore.foldedGroups).toEqual(new Set(["Overlay"]));
     expect(ui.intentStore.get("overlay1", "opacity")).toBe(0.35);
     expect(ui.intentStore.get("overlay1", "zoomRange")).toEqual([3, 12]);
     expect(ui.intentStore.dumpProvenance().overlay1).toEqual(["opacity", "zoomRange"]);
@@ -1529,7 +1542,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
       }),
     );
 
-    loadPersistedState(ui);
+    loadPersistedState(ui.la, ui.panelStore, ui.focusStore);
 
     expect(ui.intentStore.get("overlay1", "borderColor")).toBe("#0000ff");
     expect(ui.intentStore.get("overlay1", "borderWeight")).toBe(4.5);
@@ -1541,10 +1554,10 @@ describe("ui/state intentStore and per-layer state persistence", () => {
 
   it("disk shape is unchanged: PersistedLayerState keys stay the on-wire names", () => {
     // T242 collapsed the live parallel maps into `ui.intentStore`, but the record
-    // written to localStorage keeps its historical keys — `buildLayerStates`
+    // written to localStorage keeps its historical keys 鈥?`buildLayerStates`
     // is the only projection to disk. Pin the contract so a future field rename
     // cannot silently change what older sessions read back.
-    const bare = {
+    const bare = attachFaces({
       intentStore: makeStore(
         {
           overlay1: {
@@ -1578,9 +1591,9 @@ describe("ui/state intentStore and per-layer state persistence", () => {
           ],
         },
       },
-    } as unknown as LayerUI;
+    } as unknown as LayerUI);
 
-    const states = buildLayerStates(bare);
+    const states = buildLayerStates(bare.la, bare.panelStore, bare.focusStore);
     const entry = states.overlay1;
     expect(entry).toBeDefined();
     expect(Object.keys(entry!).sort()).toEqual(
@@ -1596,21 +1609,21 @@ describe("ui/state intentStore and per-layer state persistence", () => {
         "zoomRange",
       ].sort(),
     );
-    // `name` is NOT a layers[id] key — it rides the top-level `renamedNames`.
+    // `name` is NOT a layers[id] key 鈥?it rides the top-level `renamedNames`.
     expect("name" in entry!).toBe(false);
   });
 
   it("persists an opacity change together with its provenance", () => {
     const schedule = vi.fn();
-    const bare = {
+    const bare = attachFaces({
       intentStore: makeStore({ overlay1: { opacity: 0.6 } }, { overlay1: ["opacity"] }),
       m: {
         persistence: { schedule },
         annotation: { configEntries: () => [] },
       },
-    } as unknown as LayerUI;
+    } as unknown as LayerUI);
 
-    saveState(bare);
+    saveState(bare.la, bare.panelStore, bare.focusStore);
 
     const fields = schedule.mock.calls[0][0] as {
       layers: () => Record<string, { opacity?: number; overrides: string[] }>;
@@ -1624,12 +1637,12 @@ describe("ui/state intentStore and per-layer state persistence", () => {
     // The gate (hasLiveValue) and the writer both speak typeof, so undefined
     // is the only absence: a weight of 0 survives while a marker whose value
     // went missing drops its whole entry. An empty string still reads as a
-    // string here — no writer can produce one (hydration is truthy and the
+    // string here 鈥?no writer can produce one (hydration is truthy and the
     // color input only ever yields hex), and the read side discards it via
     // isHexColor, so a truthy carve-out in buildLayerStates would only make
     // this layer disagree with applyBorderToLayer's `!== undefined` reads.
     const schedule = vi.fn();
-    const bare = {
+    const bare = attachFaces({
       intentStore: makeStore(
         {
           kept: { borderColor: "#0000ff" },
@@ -1647,9 +1660,9 @@ describe("ui/state intentStore and per-layer state persistence", () => {
         persistence: { schedule },
         annotation: { configEntries: () => [] },
       },
-    } as unknown as LayerUI;
+    } as unknown as LayerUI);
 
-    saveState(bare);
+    saveState(bare.la, bare.panelStore, bare.focusStore);
 
     const fields = schedule.mock.calls[0][0] as {
       layers: () => Record<string, unknown>;
@@ -1666,7 +1679,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
   });
 
   it("applyUserState(id) projects a hidden flag onto a single late layer", () => {
-    seedIntentMap(ui, "visible", { overlay1: false });
+    seedIntentMap(ui.la, "visible", { overlay1: false });
 
     ui.applyUserState("overlay1");
 
@@ -1677,17 +1690,17 @@ describe("ui/state intentStore and per-layer state persistence", () => {
     // A stored range has to come back with its layer: without this pass a layer
     // that was out of range on the previous load would join the map at its
     // author default instead of staying inside the range the user chose.
-    // With Option A, the zoomRange resolves through the visible op — the
+    // With Option A, the zoomRange resolves through the visible op 鈥?the
     // layer's options are never written.
     manager.registerLayer({ id: "grid1", name: "Grid", layer: new GridLayer() });
     const li = manager.layerRegistry.get("grid1")!;
     ui.runtimeStore.setAuthorVisible("grid1", true); // author default: visible
-    seedIntentMap(ui, "zoomRange", { grid1: [4, 9] });
+    seedIntentMap(ui.la, "zoomRange", { grid1: [4, 9] });
     ui.intentStore.seedProvenance("grid1", ["zoomRange"]);
 
     ui.applyUserState("grid1");
 
-    // The layer's options are untouched — zoomRange does not write them.
+    // The layer's options are untouched 鈥?zoomRange does not write them.
     const opts = (li.layer as { options: Record<string, unknown> }).options;
     expect("minZoom" in opts).toBe(false);
     expect("maxZoom" in opts).toBe(false);
@@ -1700,7 +1713,9 @@ describe("ui/state intentStore and per-layer state persistence", () => {
     manager.registerLayer({ id: "ghostLayer", name: "Ghost" });
     const li = manager.layerRegistry.get("ghostLayer")!;
     manager.surfaceFor(li).capabilities.zoomRange = "native";
-    seedIntentMap(ui, "zoomRange", { ghostLayer: [4, 9] });
+    seedIntentMap(ui.la, "zoomRange", {
+      ghostLayer: [4, 9],
+    });
     const mapWrites =
       map.addLayer.mock.calls.length + map.removeLayer.mock.calls.length;
 
@@ -1713,14 +1728,16 @@ describe("ui/state intentStore and per-layer state persistence", () => {
   });
 
   it("applyUserState renames the color basemap row without a registry entry", () => {
-    // The color basemap has no LayerInfo in the registry —its rename goes
+    // The color basemap has no LayerInfo in the registry 鈥攊ts rename goes
     // straight to the row label. Without the id guard at the top of the
     // sweep the color item would be skipped and the label would stay stale.
-    seedIntentMap(ui, "name", { [CONST.SOLID_BASEMAP_ID]: "Renamed Color" });
+    seedIntentMap(ui.la, "name", {
+      [CONST.SOLID_BASEMAP_ID]: "Renamed Color",
+    });
 
     ui.applyUserState();
 
-    const colorItem = ui.uiContainer.querySelector(
+    const colorItem = ui.panelStore.uiContainer.querySelector(
       `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
     ) as HTMLElement | null;
     expect(colorItem).not.toBeNull();
@@ -1732,11 +1749,13 @@ describe("ui/state intentStore and per-layer state persistence", () => {
   it("applyUserState renames a layer that is in the registry", () => {
     // Covers the regular layer path in the sweep (lines 196-203): a layer ID
     // that IS in the registry gets its name projected through the layerInfo.
-    seedIntentMap(ui, "name", { overlay1: "Renamed Overlay" });
+    seedIntentMap(ui.la, "name", {
+      overlay1: "Renamed Overlay",
+    });
 
     ui.applyUserState();
 
-    const item = ui.uiContainer.querySelector(
+    const item = ui.panelStore.uiContainer.querySelector(
       `[${CONST.DATA.LAYER_ID}="overlay1"]`,
     ) as HTMLElement | null;
     expect(item).not.toBeNull();
@@ -1748,7 +1767,9 @@ describe("ui/state intentStore and per-layer state persistence", () => {
   it("applyUserState(id) renames a layer through the id path", () => {
     // Covers line 165: applyNameProjection in the `if (id)` branch.
     // The item is null in this path, so only layerInfo.name is updated.
-    seedIntentMap(ui, "name", { overlay1: "Renamed via id" });
+    seedIntentMap(ui.la, "name", {
+      overlay1: "Renamed via id",
+    });
 
     ui.applyUserState("overlay1");
 
@@ -1761,15 +1782,15 @@ describe("ui/state intentStore and per-layer state persistence", () => {
     // that reaches it, the function stays uncovered even though the read
     // path (applyUserState) is exercised.
     const schedule = vi.fn();
-    const bare = {
+    const bare = attachFaces({
       intentStore: makeStore({ overlay1: { name: "Renamed" } }),
       m: {
         persistence: { schedule },
         annotation: { configEntries: () => [] },
       },
-    } as unknown as LayerUI;
+    } as unknown as LayerUI);
 
-    saveNamesState(bare);
+    saveNamesState(bare.la, bare.panelStore, bare.focusStore);
 
     const fields = schedule.mock.calls[0][0] as {
       renamedNames: () => Record<string, string>;
@@ -1777,9 +1798,9 @@ describe("ui/state intentStore and per-layer state persistence", () => {
     expect(fields.renamedNames()).toEqual({ overlay1: "Renamed" });
   });
 
-  // ─────────────────── intents.visible single-source regressions ───────────────────
+  // 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ intents.visible single-source regressions 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
-  it("hide → restore → reload lands on the same visible state each pass", () => {
+  it("hide 鈫?restore 鈫?reload lands on the same visible state each pass", () => {
     // The value and the provenance write in one call; a reload must derive the
     // same intents.visible back from the stored record so the choice survives the
     // round trip in both directions.
@@ -1811,7 +1832,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
 
   it("toggle back and forth never leaves the value and provenance out of step", () => {
     // A toggle is a value write + a provenance marker in the same call. Rapid
-    // toggles must end with the *last* choice in both halves — the record must
+    // toggles must end with the *last* choice in both halves 鈥?the record must
     // not drift to an intermediate state or drop the marker.
     vi.useFakeTimers();
     ui.setVisible("overlay1", false);
@@ -1842,10 +1863,10 @@ describe("ui/state intentStore and per-layer state persistence", () => {
   it("a layer deleted then re-registered starts from a clean intent", () => {
     // dropPersistedLayerState erases the value and the provenance together; a
     // later re-registration must not see a stale hidden flag.
-    seedIntentMap(ui, "visible", { overlay1: false });
+    seedIntentMap(ui.la, "visible", { overlay1: false });
     ui.intentStore.replaceProvenance({ overlay1: ["visible"] });
 
-    dropPersistedLayerState(ui, "overlay1");
+    dropPersistedLayerState(ui.la, ui.panelStore, ui.focusStore, "overlay1");
 
     expect(ui.intentStore.dumpIntents()).toEqual({});
     expect(ui.intentStore.dumpProvenance()).toEqual({});
@@ -1857,7 +1878,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
 
   it("a value written directly (no provenance) still projects as user intent", () => {
     // A restored record or a test fixture can write the value without the
-    // marker. The projection reads either half as "the user chose this" — a
+    // marker. The projection reads either half as "the user chose this" 鈥?a
     // bare intents.visible entry must never fall back to the author default.
     const u = new LayerUI(manager);
     seedIntentMap(u, "visible", {});

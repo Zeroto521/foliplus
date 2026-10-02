@@ -6,11 +6,16 @@ import {
   removeInlineEditInput,
   updateItemLabel,
 } from "#common/dom.js";
+import { createScopedTranslator } from "#common/locale.js";
 import * as CONST from "../const.js";
-import type { LayerUI } from "./index.js";
+import type { LayerAccess } from "./access.js";
+import type { FocusStore } from "./focusStore.js";
 import { INTENT, setIntent } from "./intent.js";
+import type { PanelStore } from "./panelStore.js";
 import { displayName } from "./rowView.js";
-import { saveNamesState } from "./state.js";
+import { applyUserState, saveNamesState } from "./state.js";
+
+const T = createScopedTranslator(CONF);
 
 /**
  * Turn the layer's label into an inline editable input so the user can
@@ -21,14 +26,19 @@ import { saveNamesState } from "./state.js";
  * trailing space in the committed name would otherwise render as a zero-width
  * gap, so the value is trimmed on commit.
  */
-const renameLayer = (ui: LayerUI, layerId: string): void => {
-  if (!layerId || !ui.uiContainer) return;
-  finishRename(ui);
+const renameLayer = (
+  la: LayerAccess,
+  ps: PanelStore,
+  fs: FocusStore,
+  layerId: string,
+): void => {
+  if (!layerId || !ps.uiContainer) return;
+  finishRename(la, ps, fs);
 
-  const layerInfo = ui.m.layerRegistry.get(layerId);
+  const layerInfo = la.layerRegistry.get(layerId);
   if (!layerInfo) return;
 
-  const item = ui.uiContainer.querySelector(
+  const item = ps.uiContainer!.querySelector(
     `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"]`,
   ) as HTMLElement | null;
   const label = item?.querySelector("label") as HTMLLabelElement | null;
@@ -36,9 +46,9 @@ const renameLayer = (ui: LayerUI, layerId: string): void => {
 
   // displayName resolves rename →registry →the color layer's locale label,
   // so the input opens with the name the UI already shows.
-  const currentName = displayName(ui, layerId);
+  const currentName = displayName(la, ps, fs, layerId);
 
-  ui.activeRenameId = layerId;
+  ps.activeRenameId = layerId;
   // Flag the row so CSS can stretch the input across the label+count area
   // (matching the SearchControl field's full extent) while editing.
   item?.classList.add(CONST.CLASSES.RENAMING);
@@ -46,33 +56,29 @@ const renameLayer = (ui: LayerUI, layerId: string): void => {
     label,
     initialValue: currentName,
     className: `${CONST.CLASSES.RENAME_INPUT} foliplus-input`,
-    ariaLabel: ui.T("rename_hint"),
+    ariaLabel: T("rename_hint"),
     // Only commit on blur while this is still the active rename. Enter/Escape
     // call finishRename() which sets activeRenameId=null and removes the
     // focused input →that removal fires a blur that must not re-commit.
-    isActive: () => ui.activeRenameId === layerId,
+    isActive: () => ps.activeRenameId === layerId,
     onCommit: trimmed => {
       const changed = trimmed !== currentName;
       if (changed) {
-        // `ui.intentStore` name is the source of truth; the registry entry and
+        // `la.intentStore` name is the source of truth; the registry entry and
         // the row labels are projections that applyUserState() pushes out, so
         // a re-registration that rebuilds the registry from a third-party
         // layer's own metadata cannot resurrect the author's original name.
-        setIntent(ui, layerId, INTENT.NAME, trimmed);
-        saveNamesState(ui);
-        ui.applyUserState();
+        setIntent(la, layerId, INTENT.NAME, trimmed);
+        saveNamesState(la, ps, fs);
+        applyUserState(la, ps, fs);
       }
-      finishRename(ui, true);
+      finishRename(la, ps, fs, true);
     },
     onCancel: reason => {
       // Only an empty-name commit is a user mistake worth flagging;
       // Escape is an intentional abandon —stay silent.
       if (reason === "empty") {
-        ui.m.map.foliplus!.showHint(
-          ui.conf.name,
-          ui.T("rename_empty"),
-          HINT_DURATION.SHORT,
-        );
+        la.map.foliplus!.showHint(CONF.name, T("rename_empty"), HINT_DURATION.SHORT);
       }
       // Escape defers the teardown: tearing the input down now would blur
       // it to `<body>`, and `document.activeElement` is what handleKeyDown's
@@ -84,9 +90,9 @@ const renameLayer = (ui: LayerUI, layerId: string): void => {
       // blur from re-committing. Enter and blur have no document-level
       // handler to reach, so they tear down immediately.
       if (reason === "escape") {
-        setTimeout(() => finishRename(ui, true), 0);
+        setTimeout(() => finishRename(la, ps, fs, true), 0);
       } else {
-        finishRename(ui, true);
+        finishRename(la, ps, fs, true);
       }
     },
   });
@@ -99,22 +105,27 @@ const renameLayer = (ui: LayerUI, layerId: string): void => {
  *   after (used internally to avoid a double write).
  */
 
-const finishRename = (ui: LayerUI, restoreText = true): void => {
-  if (!ui.activeRenameId) return;
-  const layerId = ui.activeRenameId;
-  ui.activeRenameId = null;
-  if (!ui.uiContainer) return;
+const finishRename = (
+  la: LayerAccess,
+  ps: PanelStore,
+  fs: FocusStore,
+  restoreText = true,
+): void => {
+  if (!ps.activeRenameId) return;
+  const layerId = ps.activeRenameId;
+  ps.activeRenameId = null;
+  if (!ps.uiContainer) return;
 
-  const layerInfo = ui.m.layerRegistry.get(layerId);
+  const layerInfo = la.layerRegistry.get(layerId);
   if (!layerInfo) return;
 
-  const item = ui.uiContainer.querySelector(
+  const item = ps.uiContainer!.querySelector(
     `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"]`,
   ) as HTMLElement | null;
   const label = item?.querySelector("label") as HTMLLabelElement | null;
   item?.classList.remove(CONST.CLASSES.RENAMING);
   removeInlineEditInput(label);
-  if (restoreText) updateItemLabel(item, displayName(ui, layerId));
+  if (restoreText) updateItemLabel(item, displayName(la, ps, fs, layerId));
 };
 
 /**

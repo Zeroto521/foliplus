@@ -1,6 +1,6 @@
 // LayerControl UI — diff-driven projection executor.
 //
-// `applyProjection(ui, id)` reads the layer's projection from
+// `applyProjection(la, ps, fs, id)` reads the layer's projection from
 // `projection.ts`, diffs it against the last projection it wrote to the map
 // `runtimeStore.getApplied(id)`), and calls `applyStateOp` only for the dimensions
 // that actually moved. The old model — a sweep that re-read the whole
@@ -31,8 +31,10 @@ import { resetGridLayerView } from "#core/leafletAdapter.js";
 import { setLayerAlpha } from "#common/canvasAlpha.js";
 import * as CONST from "../const.js";
 import type { Projection, StateOp } from "../type.js";
-import type { LayerUI } from "./index.js";
+import type { LayerAccess } from "./access.js";
+import type { FocusStore } from "./focusStore.js";
 import { INTENT, getIntent } from "./intent.js";
+import type { PanelStore } from "./panelStore.js";
 import { intentVisibleOf, projectAll, projectLayer } from "./projection.js";
 
 /** Cache the layer's original `options.opacity` so repeated slider drags
@@ -82,7 +84,9 @@ const finiteOr = (v: number | undefined, fallback: number): number =>
  *  call this before any write to `options.minZoom/maxZoom`, so the value
  *  is the author's declaration and not our own previous write. */
 const authorZoomBoundsOf = (
-  ui: LayerUI,
+  la: LayerAccess,
+  ps: PanelStore,
+  fs: FocusStore,
   layer: L.Layer | null | undefined,
 ): [number, number] => {
   const stored = layer ? authorZoomBounds.get(layer) : undefined;
@@ -91,8 +95,8 @@ const authorZoomBoundsOf = (
     minZoom?: number;
     maxZoom?: number;
   };
-  const mapMin = finiteOr(ui.m.map.getMinZoom(), 0);
-  const mapMax = finiteOr(ui.m.map.getMaxZoom(), CONST.AUTHOR_ZOOM_FALLBACK_MAX);
+  const mapMin = finiteOr(la.map.getMinZoom(), 0);
+  const mapMax = finiteOr(la.map.getMaxZoom(), CONST.AUTHOR_ZOOM_FALLBACK_MAX);
   const bounds: [number, number] = [
     finiteOr(opts.minZoom, mapMin),
     finiteOr(opts.maxZoom, mapMax),
@@ -102,8 +106,13 @@ const authorZoomBoundsOf = (
 };
 
 /** Same lookup keyed by layer id — the panel code has only the id in hand. */
-const authorZoomBoundsForLayer = (ui: LayerUI, layerId: string): [number, number] =>
-  authorZoomBoundsOf(ui, ui.m.layerRegistry.get(layerId)?.layer);
+const authorZoomBoundsForLayer = (
+  la: LayerAccess,
+  ps: PanelStore,
+  fs: FocusStore,
+  layerId: string,
+): [number, number] =>
+  authorZoomBoundsOf(la, ps, fs, la.layerRegistry.get(layerId)?.layer);
 
 /** Carrier identity the executor's last write landed on.
  *
@@ -122,9 +131,14 @@ const authorZoomBoundsForLayer = (ui: LayerUI, layerId: string): [number, number
  *  splice in). Anything else (native `options.opacity`) is keyed by the
  *  layer's own `options` object, which is the actual write target.
  */
-const carrierOf = (ui: LayerUI, layerInfo: LayerInfo): unknown => {
+const carrierOf = (
+  la: LayerAccess,
+  ps: PanelStore,
+  fs: FocusStore,
+  layerInfo: LayerInfo,
+): unknown => {
   if (layerInfo.canvas) return layerInfo.canvas;
-  const surface = ui.m.surfaceFor(layerInfo);
+  const surface = la.surfaceFor(layerInfo);
   if (surface.capabilities.opacity === CAP_TIER.PANE) {
     // A stable key, not an array: `sameCarrier` compares with `===`, so a
     // freshly built array would never match and every pane layer would
@@ -160,19 +174,25 @@ const sameCarrier = (prev: unknown, curr: unknown): boolean =>
  *  nothing must not persist — when the surface declares "none" we skip
  *  the write instead of faking one on a shared carrier.
  */
-const applyStateOp = (ui: LayerUI, layerInfo: LayerInfo, op: StateOp): void => {
+const applyStateOp = (
+  la: LayerAccess,
+  ps: PanelStore,
+  fs: FocusStore,
+  layerInfo: LayerInfo,
+  op: StateOp,
+): void => {
   if (op.type === "visible") {
-    const carrier = ui.m.surfaceFor(layerInfo).capabilities.visibility;
+    const carrier = la.surfaceFor(layerInfo).capabilities.visibility;
     if (carrier === CAP_TIER.NATIVE) {
-      const layer = layerInfo.layer ?? ui.m.findLayer(layerInfo);
+      const layer = layerInfo.layer ?? la.findLayer(layerInfo);
       if (layer) {
         // Map membership. Written only when it differs from what is there —
         // `addLayer` on a live layer is a no-op at best and re-orders the
         // stacking at worst, so both halves collapse to one condition.
-        const has = ui.m.map.hasLayer(layer);
+        const has = la.map.hasLayer(layer);
         if (op.value !== has) {
-          if (op.value) ui.m.map.addLayer(layer);
-          else ui.m.map.removeLayer(layer);
+          if (op.value) la.map.addLayer(layer);
+          else la.map.removeLayer(layer);
         }
       }
     } else if (carrier === CAP_TIER.PANE) {
@@ -220,7 +240,7 @@ const applyStateOp = (ui: LayerUI, layerInfo: LayerInfo, op: StateOp): void => {
       layerInfo.opacity = value;
       return;
     }
-    const carrier = ui.m.surfaceFor(layerInfo).capabilities.opacity;
+    const carrier = la.surfaceFor(layerInfo).capabilities.opacity;
     if (carrier === CAP_TIER.NONE) return; // no honest write exists
     const layer = layerInfo.layer;
     if (!layer) return;
@@ -250,13 +270,13 @@ const applyStateOp = (ui: LayerUI, layerInfo: LayerInfo, op: StateOp): void => {
       // CSS on the vector data panes and bake on the label canvas — both
       // sides land at the same visual opacity.
       const value = op.value ?? 1;
-      const surface = ui.m.surfaceFor(layerInfo);
+      const surface = la.surfaceFor(layerInfo);
       for (const pane of surface.panes) {
         if (pane.role === PANE_ROLE.ANNOTATION) continue;
-        const el = ui.m.map.getPane(pane.name);
+        const el = la.map.getPane(pane.name);
         if (el) el.style.opacity = String(value);
       }
-      ui.m.annotation.applyLayerAlpha(layerInfo.id, value);
+      la.annotation.applyLayerAlpha(layerInfo.id, value);
       layerInfo.opacity = value;
     }
   }
@@ -275,7 +295,7 @@ const applyStateOp = (ui: LayerUI, layerInfo: LayerInfo, op: StateOp): void => {
  *  `zoomRange`, not from the executor's current state (the projection
  *  has already seen the new range).
  *
- *  `ui.runtimeStore.setApplied` records what was written so the next call is a
+ *  `la.runtimeStore.setApplied` records what was written so the next call is a
  *  diff, not a full write. The map is keyed by id (not by `layerInfo`
  *  identity) so a re-registration of the same id keeps its projection
  *  across the swap.
@@ -289,11 +309,16 @@ const applyStateOp = (ui: LayerUI, layerInfo: LayerInfo, op: StateOp): void => {
  *  through `intent`, so the effective value already reflects the user's
  *  authorisation. The one-way gate is now the shape of this diff.
  */
-const applyProjection = (ui: LayerUI, id: string): void => {
-  const layerInfo = ui.m.layerRegistry.get(id);
+const applyProjection = (
+  la: LayerAccess,
+  ps: PanelStore,
+  fs: FocusStore,
+  id: string,
+): void => {
+  const layerInfo = la.layerRegistry.get(id);
   if (!layerInfo) return;
-  const next = projectLayer(ui, layerInfo);
-  let prev = ui.runtimeStore.getApplied(id);
+  const next = projectLayer(la, ps, fs, layerInfo);
+  let prev = la.runtimeStore.getApplied(id);
 
   if (!prev) {
     // First pass — the baseline is what the map currently shows, not the
@@ -308,8 +333,10 @@ const applyProjection = (ui: LayerUI, id: string): void => {
     // real visible→hidden transition.
     // Late-binding fallback via manager.findLayer — the single resolve point
     // (folium may emit the TileLayer var after this control's IIFE).
-    const layer = layerInfo.layer ?? ui.m.findLayer(layerInfo);
-    const baselineVisible = layer ? ui.m.map.hasLayer(layer) : intentVisibleOf(ui, id);
+    const layer = layerInfo.layer ?? la.findLayer(layerInfo);
+    const baselineVisible = layer
+      ? la.map.hasLayer(layer)
+      : intentVisibleOf(la, ps, fs, id);
     prev = {
       id,
       intent: { visible: baselineVisible },
@@ -324,7 +351,7 @@ const applyProjection = (ui: LayerUI, id: string): void => {
   // even when the numeric value is unchanged — a re-registered canvas
   // element or a lazily-appearing annotation pane needs the stored
   // opacity applied to the new DOM, not to whatever the last write hit.
-  const carrierToken = carrierOf(ui, layerInfo);
+  const carrierToken = carrierOf(la, ps, fs, layerInfo);
 
   // 1. Effective-shown — the composite `intent && policy`. Diffed against
   //    what the map actually holds, not against the last value we remember
@@ -337,26 +364,26 @@ const applyProjection = (ui: LayerUI, id: string): void => {
   //    object yet) from being recorded as done. The invariant lives
   //    here: nothing authorises an add unless `intent` does, so a derived
   //    dimension can only remove, never restore on its own.
-  const layer = layerInfo.layer ?? ui.m.findLayer(layerInfo);
+  const layer = layerInfo.layer ?? la.findLayer(layerInfo);
   // Whether anything authorises a map write at all. Only the user's
   // own choice or an *observed* author snapshot decides membership. A layer
   // whose author default has not been observed yet (its JS global is not
   // linked) and that the user never touched is not this executor's to
   // decide — writing `effectiveShown` for it would turn a guess into an add.
   const hasUserIntent =
-    ui.intentStore.isUserSet(id, INTENT.VISIBLE) ||
-    typeof getIntent(ui, id, INTENT.VISIBLE) === "boolean";
-  const authorised = hasUserIntent || ui.runtimeStore.hasAuthorVisible(id);
+    la.intentStore.isUserSet(id, INTENT.VISIBLE) ||
+    typeof getIntent(la, id, INTENT.VISIBLE) === "boolean";
+  const authorised = hasUserIntent || la.runtimeStore.hasAuthorVisible(id);
   // Current visibility, read from the carrier the write would land on.
   // "native" — the map's own membership flag; "pane" — the canvas's
   // HIDDEN class; "none" — no carrier at all, so no meaningful "shown".
   // Reading the carrier (not the last value we wrote) makes the executor
   // converge on `effectiveShown` no matter who moved the layer in between.
-  const visibility = ui.m.surfaceFor(layerInfo).capabilities.visibility;
+  const visibility = la.surfaceFor(layerInfo).capabilities.visibility;
   const currentShown =
     visibility === CAP_TIER.NATIVE
       ? layer
-        ? ui.m.map.hasLayer(layer)
+        ? la.map.hasLayer(layer)
         : false
       : visibility === CAP_TIER.PANE
         ? layerInfo.canvas
@@ -364,21 +391,24 @@ const applyProjection = (ui: LayerUI, id: string): void => {
           : false
         : false;
   if (authorised && currentShown !== next.effectiveShown) {
-    applyStateOp(ui, layerInfo, { type: "visible", value: next.effectiveShown });
+    applyStateOp(la, ps, fs, layerInfo, {
+      type: "visible",
+      value: next.effectiveShown,
+    });
   }
   // 2. Opacity — independent of zoom/focus. Rewritten whenever the carrier
   //    has moved, not just when the value has.
   if (prev.opacity !== next.opacity || !sameCarrier(prev.carrier, carrierToken)) {
-    applyStateOp(ui, layerInfo, { type: "opacity", value: next.opacity });
+    applyStateOp(la, ps, fs, layerInfo, { type: "opacity", value: next.opacity });
   }
   // 3. Zoom range — last, because the pane carrier's effective-shown
   //    recalculation in step 1 reads the range as of the projection
   //    (the new one), not the executor's previous write.
   if (prev.zoomRange !== next.zoomRange) {
-    applyStateOp(ui, layerInfo, { type: "zoomRange", value: next.zoomRange });
+    applyStateOp(la, ps, fs, layerInfo, { type: "zoomRange", value: next.zoomRange });
   }
 
-  ui.runtimeStore.setApplied(id, {
+  la.runtimeStore.setApplied(id, {
     ...next,
     effectiveShown: next.effectiveShown,
     carrier: carrierToken,
@@ -388,8 +418,8 @@ const applyProjection = (ui: LayerUI, id: string): void => {
 /** Diff every layer's projection. Called on attach, on late
  *  registration (`applyUserState`), and on zoom-end / focus dismiss.
  *  Idempotent — a changeless call is a no-op because every diff misses. */
-const applyProjectionAll = (ui: LayerUI): void => {
-  for (const [id] of projectAll(ui)) applyProjection(ui, id);
+const applyProjectionAll = (la: LayerAccess, ps: PanelStore, fs: FocusStore): void => {
+  for (const [id] of projectAll(la, ps, fs)) applyProjection(la, ps, fs, id);
 };
 
 export { applyProjection, applyProjectionAll, applyStateOp, authorZoomBoundsForLayer };

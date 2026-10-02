@@ -15,7 +15,7 @@ import {
 import type { RowCell } from "#foliplus/LayerControl/ui/rowView.js";
 import { syncNoBasemap, syncToggleAll } from "#foliplus/LayerControl/ui/visibility.js";
 import * as Icons from "#common/icon.js";
-import { findItem, initFixture } from "./fixture.js";
+import { attachFaces, findItem, initFixture } from "./fixture.js";
 
 const LABELS = { select: "Select", deselect: "Deselect" };
 
@@ -87,10 +87,10 @@ describe("intentVisibleOf (the intent seam)", () => {
     for (const [id, visible] of Object.entries(author)) {
       runtimeStore.setAuthorVisible(id, visible);
     }
-    return {
+    return attachFaces({
       intentStore,
       runtimeStore,
-    } as unknown as LayerUI;
+    } as unknown as LayerUI);
   };
 
   const info = (id: string): LayerInfo => ({ id }) as LayerInfo;
@@ -121,7 +121,8 @@ describe("intentVisibleOf (the intent seam)", () => {
       false,
     ],
   ])("%s -> %s", (_label, overrides, hidden, author, want) => {
-    expect(intentVisibleOf(intentUi(overrides, hidden, author), "a")).toBe(want);
+    const ui = intentUi(overrides, hidden, author);
+    expect(intentVisibleOf(ui.la, ui.panelStore, ui.focusStore, "a")).toBe(want);
   });
 });
 
@@ -137,8 +138,8 @@ describe("buildRowCell + applyRowView (one writer per row)", () => {
     vi.restoreAllMocks();
   });
 
-  const overlay = (ui: LayerUI): LayerInfo =>
-    ui.m.layers.find(li => li.id === "overlay1")!;
+  const overlay = (la: LayerAccess, ps: PanelStore, fs: FocusStore): LayerInfo =>
+    la.layers.find(li => li.id === "overlay1")!;
 
   const box = (item: HTMLElement): HTMLInputElement =>
     item.querySelector<HTMLInputElement>('input[type="checkbox"]')!;
@@ -148,8 +149,8 @@ describe("buildRowCell + applyRowView (one writer per row)", () => {
       initialZoom: 5,
       seed: { layers: { overlay1: { overrides: ["zoomRange"], zoomRange: [10, 18] } } },
     });
-    const layerInfo = overlay(ui);
-    const cellInfo = buildRowCell(ui, layerInfo);
+    const layerInfo = overlay(ui.la, ui.panelStore, ui.focusStore);
+    const cellInfo = buildRowCell(ui.la, ui.panelStore, ui.focusStore, layerInfo);
 
     // The policy removed the layer from the map, but the row still reads as
     // checked: the highlight is the checkbox's own decoration, so a layer the
@@ -160,7 +161,7 @@ describe("buildRowCell + applyRowView (one writer per row)", () => {
     expect(cellInfo.shown).toBe(false);
     expect(map.removeLayer).toHaveBeenCalledWith(layerInfo.layer);
 
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     expect(box(item).checked).toBe(true);
     expect(item.classList.contains(CONST.CLASSES.ACTIVE)).toBe(true);
 
@@ -173,8 +174,13 @@ describe("buildRowCell + applyRowView (one writer per row)", () => {
       initialZoom: 5,
       seed: { layers: { overlay1: { overrides: ["zoomRange"], zoomRange: [10, 18] } } },
     });
-    ui.focusingLayerId = "overlay1";
-    const cellInfo = buildRowCell(ui, overlay(ui));
+    ui.focusStore.focusingLayerId = "overlay1";
+    const cellInfo = buildRowCell(
+      ui.la,
+      ui.panelStore,
+      ui.focusStore,
+      overlay(ui.la, ui.panelStore, ui.focusStore),
+    );
     expect(cellInfo.checked).toBe(true);
     expect(cellInfo.shown).toBe(true);
   });
@@ -184,28 +190,39 @@ describe("buildRowCell + applyRowView (one writer per row)", () => {
       initialZoom: 5,
       seed: { layers: { overlay1: { overrides: ["zoomRange"], zoomRange: [3, 7] } } },
     });
-    const cellInfo = buildRowCell(ui, overlay(ui));
+    const cellInfo = buildRowCell(
+      ui.la,
+      ui.panelStore,
+      ui.focusStore,
+      overlay(ui.la, ui.panelStore, ui.focusStore),
+    );
     expect(cellInfo.checked).toBe(true);
     expect(cellInfo.shown).toBe(true);
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     expect(box(item).checked).toBe(true);
     expect(item.classList.contains(CONST.CLASSES.ACTIVE)).toBe(true);
   });
 
   it("a user hide unchecks the row; the re-check puts it back", () => {
     const { ui } = initFixture({});
-    const layerInfo = overlay(ui);
-    const item = findItem(ui, "overlay1");
+    const layerInfo = overlay(ui.la, ui.panelStore, ui.focusStore);
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
 
     ui.applyVisibility("overlay1", false);
-    expect(getIntent(ui, "overlay1", "visible")).toBe(false);
-    expect(buildRowCell(ui, layerInfo).checked).toBe(false);
+    expect(getIntent(ui.la, "overlay1", "visible")).toBe(false);
+    expect(buildRowCell(ui.la, ui.panelStore, ui.focusStore, layerInfo).checked).toBe(
+      false,
+    );
     expect(box(item).checked).toBe(false);
     expect(item.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
 
     ui.applyVisibility("overlay1", true);
-    expect(buildRowCell(ui, layerInfo).checked).toBe(true);
-    expect(buildRowCell(ui, layerInfo).shown).toBe(true);
+    expect(buildRowCell(ui.la, ui.panelStore, ui.focusStore, layerInfo).checked).toBe(
+      true,
+    );
+    expect(buildRowCell(ui.la, ui.panelStore, ui.focusStore, layerInfo).shown).toBe(
+      true,
+    );
     expect(box(item).checked).toBe(true);
     expect(item.classList.contains(CONST.CLASSES.ACTIVE)).toBe(true);
   });
@@ -216,18 +233,20 @@ describe("buildRowCell + applyRowView (one writer per row)", () => {
     // default. Same fallback as `intentVisibleOf` — this pins the inlined
     // variant in `buildRowCell`.
     const { ui } = initFixture({});
-    const layerInfo = overlay(ui);
+    const layerInfo = overlay(ui.la, ui.panelStore, ui.focusStore);
     ui.runtimeStore.setAuthorVisible("overlay1", false);
     ui.intentStore.seedProvenance("overlay1", ["visible"]);
-    clearIntent(ui, "overlay1", "visible");
+    clearIntent(ui.la, "overlay1", "visible");
 
-    expect(buildRowCell(ui, layerInfo).checked).toBe(true);
+    expect(buildRowCell(ui.la, ui.panelStore, ui.focusStore, layerInfo).checked).toBe(
+      true,
+    );
   });
 
   it("labels a base row with the base icon instead of probing the layer", () => {
     const { ui } = initFixture({});
     const base = ui.m.layers.find(li => li.id === "base1")!;
-    const cellInfo = buildRowCell(ui, base);
+    const cellInfo = buildRowCell(ui.la, ui.panelStore, ui.focusStore, base);
     expect(cellInfo.typeSvg).toBe(Icons.GLOBE_ICON);
     expect(cellInfo.typeLabel).toContain("type_base");
   });
@@ -238,7 +257,7 @@ describe("buildRowCell + applyRowView (one writer per row)", () => {
     });
     const layerInfo = ui.m.layers.find(li => li.id === "custom1")!;
     layerInfo.iconSvg = '<svg id="custom" />';
-    const cellInfo = buildRowCell(ui, layerInfo);
+    const cellInfo = buildRowCell(ui.la, ui.panelStore, ui.focusStore, layerInfo);
     expect(cellInfo.typeSvg).toBe('<svg id="custom" />');
     // The row is a projection, not a writer: the snapshot stays null until
     // getLayerType stamps it (single-writer 33.2).
@@ -248,8 +267,8 @@ describe("buildRowCell + applyRowView (one writer per row)", () => {
   it("shows the feature count in the count column and in the tooltip", () => {
     const { ui } = initFixture({});
     vi.spyOn(ui.mgmt, "getFeatureCount").mockReturnValue(12);
-    const layerInfo = overlay(ui);
-    const cellInfo = buildRowCell(ui, layerInfo);
+    const layerInfo = overlay(ui.la, ui.panelStore, ui.focusStore);
+    const cellInfo = buildRowCell(ui.la, ui.panelStore, ui.focusStore, layerInfo);
     expect(cellInfo.countText).toBe("12");
     expect(rowView(cellInfo, LABELS).title).toBe(
       `${cellInfo.countText} ${cellInfo.typeLabel}`,
@@ -257,7 +276,7 @@ describe("buildRowCell + applyRowView (one writer per row)", () => {
 
     const item = document.createElement("div");
     item.innerHTML = `<span class="${CONST.CLASSES.COUNT_COL}"></span>`;
-    applyRowView(ui, item, cellInfo);
+    applyRowView(ui.la, ui.panelStore, ui.focusStore, item, cellInfo);
     expect(item.querySelector<HTMLElement>(CONST.SEL.COUNT_COL)!.textContent).toBe(
       "12",
     );
@@ -265,11 +284,14 @@ describe("buildRowCell + applyRowView (one writer per row)", () => {
 
   it("leaves the type icon column alone when there is nothing to paint", () => {
     const { ui } = initFixture({});
-    const layerInfo = overlay(ui);
-    const cellInfo = buildRowCell(ui, layerInfo);
+    const layerInfo = overlay(ui.la, ui.panelStore, ui.focusStore);
+    const cellInfo = buildRowCell(ui.la, ui.panelStore, ui.focusStore, layerInfo);
     const item = document.createElement("div");
     item.innerHTML = `<div class="${CONST.CLASSES.TYPE_ICON_COL}">old</div>`;
-    applyRowView(ui, item, { ...cellInfo, typeSvg: "" });
+    applyRowView(ui.la, ui.panelStore, ui.focusStore, item, {
+      ...cellInfo,
+      typeSvg: "",
+    });
     expect(
       item.querySelector<HTMLElement>(`.${CONST.CLASSES.TYPE_ICON_COL}`)!.innerHTML,
     ).toBe("old");
@@ -295,11 +317,17 @@ describe("applyRowView (the single DOM write point)", () => {
 
   it("writes the box, the highlight, the count, the icon, and both tooltips", () => {
     const el = item();
-    applyRowView(ui, el, cell({ name: "Alpha", countText: "4", typeSvg: "<b/>" }));
+    applyRowView(
+      ui.la,
+      ui.panelStore,
+      ui.focusStore,
+      el,
+      cell({ name: "Alpha", countText: "4", typeSvg: "<b/>" }),
+    );
 
     const input = el.querySelector<HTMLInputElement>('input[type="checkbox"]')!;
     expect(input.checked).toBe(true);
-    expect(input.title).toBe("deselect_tooltip");
+    expect(input.title).toBe("LayerControl.deselect_tooltip");
     expect(input.getAttribute("aria-label")).toBe("Alpha");
     expect(el.classList.contains(CONST.CLASSES.ACTIVE)).toBe(true);
     expect(el.querySelector<HTMLElement>(CONST.SEL.COUNT_COL)!.textContent).toBe("4");
@@ -313,7 +341,13 @@ describe("applyRowView (the single DOM write point)", () => {
   it("updates the other fields when the row is missing one decoration", () => {
     const el = document.createElement("div");
     el.innerHTML = `<span class="${CONST.CLASSES.COUNT_COL}"></span>`;
-    applyRowView(ui, el, cell({ countText: "9", checked: false, shown: true }));
+    applyRowView(
+      ui.la,
+      ui.panelStore,
+      ui.focusStore,
+      el,
+      cell({ countText: "9", checked: false, shown: true }),
+    );
     expect(el.querySelector<HTMLElement>(CONST.SEL.COUNT_COL)!.textContent).toBe("9");
     expect(el.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
     expect(el.getAttribute(CONST.DATA.TITLE)).toBe("polygon");
@@ -324,7 +358,7 @@ describe("applyRowView (the single DOM write point)", () => {
     // carry an empty LayerIntentStore, so the check must degrade to the author
     // default rather than crashing.
     const layerRegistry = new Map([["x", { id: "x", layer: { options: {} } }]]);
-    const bare = {
+    const bare = attachFaces({
       m: { findLayer: () => null, layerRegistry },
       mgmt: { getFeatureCount: () => 0 },
       renamedNames: {},
@@ -333,10 +367,10 @@ describe("applyRowView (the single DOM write point)", () => {
       focusingLayerId: null,
       T: (k: string) => k,
       conf: { locale_code: "en" },
-    } as unknown as LayerUI;
+    } as unknown as LayerUI);
 
     const info = { id: "x", layer: { options: {} } } as LayerInfo;
-    const result = buildRowCell(bare, info);
+    const result = buildRowCell(bare.la, bare.panelStore, bare.focusStore, info);
     expect(result.checked).toBe(true);
     expect(result.shown).toBe(true);
   });
@@ -360,7 +394,7 @@ describe("snapshotAuthorVisible", () => {
     expect(ui.runtimeStore.getAuthorVisible("overlay1")).toBe(true);
 
     (map.hasLayer as ReturnType<typeof vi.fn>).mockReturnValue(false);
-    snapshotAuthorVisible(ui, layerInfo);
+    snapshotAuthorVisible(ui.la, ui.panelStore, ui.focusStore, layerInfo);
     expect(ui.runtimeStore.getAuthorVisible("overlay1")).toBe(true);
   });
 
@@ -373,8 +407,14 @@ describe("snapshotAuthorVisible", () => {
     // exact path the show=False zoom-sweep gate covers.
     const { ui } = initFixture({});
     vi.spyOn(ui.m, "findLayer").mockReturnValue(null);
-    snapshotAuthorVisible(ui, { id: "ghost", visible: true } as LayerInfo);
-    snapshotAuthorVisible(ui, { id: "ghost-hidden", visible: false } as LayerInfo);
+    snapshotAuthorVisible(ui.la, ui.panelStore, ui.focusStore, {
+      id: "ghost",
+      visible: true,
+    } as LayerInfo);
+    snapshotAuthorVisible(ui.la, ui.panelStore, ui.focusStore, {
+      id: "ghost-hidden",
+      visible: false,
+    } as LayerInfo);
     expect(ui.runtimeStore.hasAuthorVisible("ghost")).toBe(false);
     expect(ui.runtimeStore.hasAuthorVisible("ghost-hidden")).toBe(false);
   });
@@ -388,11 +428,11 @@ describe("snapshotAuthorVisible", () => {
     // wants to distinguish must seed a hidden intent first.
     const { ui } = initFixture({});
     vi.spyOn(ui.m, "findLayer").mockReturnValue(null);
-    snapshotAuthorVisible(ui, {
+    snapshotAuthorVisible(ui.la, ui.panelStore, ui.focusStore, {
       id: "heat",
       canvas: document.createElement("canvas"),
     } as unknown as LayerInfo);
-    snapshotAuthorVisible(ui, {
+    snapshotAuthorVisible(ui.la, ui.panelStore, ui.focusStore, {
       id: "heat-hidden",
       canvas: document.createElement("canvas"),
     } as unknown as LayerInfo);
@@ -401,13 +441,13 @@ describe("snapshotAuthorVisible", () => {
 
     // A persisted hidden choice for a canvas layer still latches false —
     // the intent record is the observation, not the layer's on-map state.
-    snapshotAuthorVisible(ui, {
+    snapshotAuthorVisible(ui.la, ui.panelStore, ui.focusStore, {
       id: "heat-mixed",
       canvas: document.createElement("canvas"),
     } as unknown as LayerInfo);
-    setIntent(ui, "heat-mixed", "visible", false);
+    setIntent(ui.la, "heat-mixed", "visible", false);
     ui.intentStore.seedProvenance("heat-mixed", ["visible"]);
-    snapshotAuthorVisible(ui, {
+    snapshotAuthorVisible(ui.la, ui.panelStore, ui.focusStore, {
       id: "heat-mixed",
       canvas: document.createElement("canvas"),
     } as unknown as LayerInfo);
@@ -421,13 +461,17 @@ describe("snapshotAuthorVisible", () => {
     // membership. A `show=False` layer reads as `false` there.
     const { ui } = initFixture({});
     const find = vi.spyOn(ui.m, "findLayer").mockReturnValue(null);
-    snapshotAuthorVisible(ui, { id: "late" } as LayerInfo);
+    snapshotAuthorVisible(ui.la, ui.panelStore, ui.focusStore, {
+      id: "late",
+    } as LayerInfo);
     expect(ui.runtimeStore.hasAuthorVisible("late")).toBe(false);
 
     const layer = { options: {} } as L.Layer;
     find.mockReturnValue(layer);
     (ui.m.map.hasLayer as ReturnType<typeof vi.fn>).mockReturnValue(false);
-    snapshotAuthorVisible(ui, { id: "late" } as LayerInfo);
+    snapshotAuthorVisible(ui.la, ui.panelStore, ui.focusStore, {
+      id: "late",
+    } as LayerInfo);
     expect(ui.runtimeStore.getAuthorVisible("late")).toBe(false);
   });
 });
@@ -440,17 +484,21 @@ describe("intentVisibleOf: what counts as the user's choice", () => {
     const { ui } = initFixture({});
     const layerInfo = ui.m.layers.find(li => li.id === "overlay1")!;
     ui.intentStore.seedProvenance("overlay1", []);
-    setIntent(ui, "overlay1", "visible", false);
-    expect(intentVisibleOf(ui, layerInfo.id)).toBe(false);
+    setIntent(ui.la, "overlay1", "visible", false);
+    expect(intentVisibleOf(ui.la, ui.panelStore, ui.focusStore, layerInfo.id)).toBe(
+      false,
+    );
   });
 
   it("neither half present falls back to the author's declared default", () => {
     const { ui } = initFixture({});
     const layerInfo = ui.m.layers.find(li => li.id === "overlay1")!;
     ui.intentStore.seedProvenance("overlay1", []);
-    clearIntent(ui, "overlay1", "visible");
+    clearIntent(ui.la, "overlay1", "visible");
     ui.runtimeStore.setAuthorVisible("overlay1", false);
-    expect(intentVisibleOf(ui, layerInfo.id)).toBe(false);
+    expect(intentVisibleOf(ui.la, ui.panelStore, ui.focusStore, layerInfo.id)).toBe(
+      false,
+    );
   });
 });
 
@@ -469,21 +517,25 @@ describe("the four readers agree on a half-broken record (T260)", () => {
     ui.runtimeStore.setAuthorVisible("base1", false);
     ui.intentStore.seedProvenance("overlay1", ["visible"]);
     ui.intentStore.seedProvenance("base1", ["visible"]);
-    clearIntent(ui, "overlay1", "visible");
-    clearIntent(ui, "base1", "visible");
+    clearIntent(ui.la, "overlay1", "visible");
+    clearIntent(ui.la, "base1", "visible");
 
-    expect(intentVisibleOf(ui, "overlay1")).toBe(true);
-    expect(projectLayer(ui, li).intent.visible).toBe(true);
-    expect(buildRowCell(ui, li).checked).toBe(true);
-    expect(intentVisibleOf(ui, "base1")).toBe(true);
-    expect(projectLayer(ui, base).intent.visible).toBe(true);
-    expect(buildRowCell(ui, base).checked).toBe(true);
+    expect(intentVisibleOf(ui.la, ui.panelStore, ui.focusStore, "overlay1")).toBe(true);
+    expect(projectLayer(ui.la, ui.panelStore, ui.focusStore, li).intent.visible).toBe(
+      true,
+    );
+    expect(buildRowCell(ui.la, ui.panelStore, ui.focusStore, li).checked).toBe(true);
+    expect(intentVisibleOf(ui.la, ui.panelStore, ui.focusStore, "base1")).toBe(true);
+    expect(projectLayer(ui.la, ui.panelStore, ui.focusStore, base).intent.visible).toBe(
+      true,
+    );
+    expect(buildRowCell(ui.la, ui.panelStore, ui.focusStore, base).checked).toBe(true);
 
     // The sync counters agree: the overlay row counts as on, the base row
     // keeps the no-basemap hatch off.
-    syncToggleAll(ui, GROUP.OVERLAY);
-    expect(ui.checkedCount[GROUP.OVERLAY]).toEqual({ total: 1, on: 1 });
-    syncNoBasemap(ui);
+    syncToggleAll(ui.la, ui.panelStore, ui.focusStore, GROUP.OVERLAY);
+    expect(ui.panelStore.checkedCount[GROUP.OVERLAY]).toEqual({ total: 1, on: 1 });
+    syncNoBasemap(ui.la, ui.panelStore, ui.focusStore);
     expect(ui.m.map.getContainer().classList.contains(CONST.CLASSES.NO_BASE_MAP)).toBe(
       false,
     );

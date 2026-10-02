@@ -1,11 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { LayerManager } from "#foliplus/LayerControl/manager.js";
+import type { LayerAccess } from "#foliplus/LayerControl/ui/access.js";
+import type { FocusStore } from "#foliplus/LayerControl/ui/focusStore.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import {
   getIntent,
   seedIntentMap,
   setIntent,
 } from "#foliplus/LayerControl/ui/intent.js";
+import type { PanelStore } from "#foliplus/LayerControl/ui/panelStore.js";
 import {
   BORDER_DIMENSION,
   applyBorderToLayer,
@@ -28,7 +31,7 @@ import {
   flushStyleDimApply,
   hasStyleDimApply,
 } from "#foliplus/LayerControl/ui/style/styleBag.js";
-import { initFixture } from "../fixture.js";
+import { attachFaces, initFixture } from "../fixture.js";
 
 /** A Leaflet vector leaf: an `options` bag plus the `setStyle` writer the
  *  border walk looks for. `on` is part of the leaf surface too — the
@@ -110,13 +113,15 @@ const makeHighlightLeaf = (color = "#ff0000", weight = 2): any => {
 /** Commit then force the deferred apply to land — the commit channel is
  *  rAF-coalesced, so a test that asserts the write must flush first. */
 const commitBorderNow = (
-  ui: LayerUI,
+  la: LayerAccess,
+  ps: PanelStore,
+  fs: FocusStore,
   layerId: string,
   kind: "color" | "weight",
   value: string | number,
 ): void => {
-  if (kind === "color") commitBorderColor(ui, layerId, value as string);
-  else commitBorderWeight(ui, layerId, value as number);
+  if (kind === "color") commitBorderColor(la, ps, fs, layerId, value as string);
+  else commitBorderWeight(la, ps, fs, layerId, value as number);
   flushStyleDimApply(FACE.STROKE, layerId);
 };
 
@@ -126,8 +131,8 @@ describe("layerCanBorder", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.foldedGroups = new Set();
-    seedIntentMap(ui, "visible", {});
+    ui.panelStore.foldedGroups = new Set();
+    seedIntentMap(ui.la, "visible", {});
   });
 
   afterEach(() => {
@@ -142,11 +147,11 @@ describe("layerCanBorder", () => {
       name: "V",
       layer: makeLeaf(),
     });
-    expect(layerCanBorder(ui, "vec1")).toBe(true);
+    expect(layerCanBorder(ui.la, ui.panelStore, ui.focusStore, "vec1")).toBe(true);
   });
 
   it("declines a layer not in the registry", () => {
-    expect(layerCanBorder(ui, "nope")).toBe(false);
+    expect(layerCanBorder(ui.la, ui.panelStore, ui.focusStore, "nope")).toBe(false);
   });
 
   it("declines a callback-only canvas layer — no eachLayer to walk", () => {
@@ -155,7 +160,7 @@ describe("layerCanBorder", () => {
       name: "C",
       canvas: document.createElement("canvas"),
     });
-    expect(layerCanBorder(ui, "can1")).toBe(false);
+    expect(layerCanBorder(ui.la, ui.panelStore, ui.focusStore, "can1")).toBe(false);
   });
 
   it("declines a delegated layer — its own drawer owns the stroke", () => {
@@ -165,7 +170,7 @@ describe("layerCanBorder", () => {
       canvas: document.createElement("canvas"),
       styleSetters: { borderColor: vi.fn(), borderWeight: vi.fn() },
     });
-    expect(layerCanBorder(ui, "del1")).toBe(false);
+    expect(layerCanBorder(ui.la, ui.panelStore, ui.focusStore, "del1")).toBe(false);
   });
 
   it("declines a delegated layer through the styleSetters axis alone", () => {
@@ -178,7 +183,7 @@ describe("layerCanBorder", () => {
       name: "D",
       styleSetters: { borderColor: vi.fn(), borderWeight: vi.fn() },
     });
-    expect(layerCanBorder(ui, "del2")).toBe(false);
+    expect(layerCanBorder(ui.la, ui.panelStore, ui.focusStore, "del2")).toBe(false);
   });
 
   it("declines a native-opacity surface — GridLayer / ImageOverlay paint through options", () => {
@@ -189,7 +194,7 @@ describe("layerCanBorder", () => {
     });
     const li = manager.layerRegistry.get("nat1")!;
     manager.surfaceFor(li).capabilities.stroke = "none";
-    expect(layerCanBorder(ui, "nat1")).toBe(false);
+    expect(layerCanBorder(ui.la, ui.panelStore, ui.focusStore, "nat1")).toBe(false);
   });
 
   it("declines a none-opacity surface — no honest write target", () => {
@@ -200,7 +205,7 @@ describe("layerCanBorder", () => {
     });
     const li = manager.layerRegistry.get("non1")!;
     manager.surfaceFor(li).capabilities.stroke = "none";
-    expect(layerCanBorder(ui, "non1")).toBe(false);
+    expect(layerCanBorder(ui.la, ui.panelStore, ui.focusStore, "non1")).toBe(false);
   });
 
   it("declines a basemap-like surface — pane opacity but no zoom range", () => {
@@ -213,7 +218,7 @@ describe("layerCanBorder", () => {
     });
     const li = manager.layerRegistry.get("bas1")!;
     manager.surfaceFor(li).capabilities.stroke = "none";
-    expect(layerCanBorder(ui, "bas1")).toBe(false);
+    expect(layerCanBorder(ui.la, ui.panelStore, ui.focusStore, "bas1")).toBe(false);
   });
 
   // Gate unification: the third condition requires a real setStyle
@@ -237,7 +242,7 @@ describe("layerCanBorder", () => {
         })),
       } as never,
     });
-    expect(layerCanBorder(ui, "point1")).toBe(false);
+    expect(layerCanBorder(ui.la, ui.panelStore, ui.focusStore, "point1")).toBe(false);
   });
 
   it("declines an empty group — eachLayer walks nothing", () => {
@@ -259,7 +264,7 @@ describe("layerCanBorder", () => {
         })),
       } as never,
     });
-    expect(layerCanBorder(ui, "empty1")).toBe(false);
+    expect(layerCanBorder(ui.la, ui.panelStore, ui.focusStore, "empty1")).toBe(false);
   });
 
   it("declines an empty L.GeoJSON — its own setStyle is not a carrier when there is nothing to fan to", () => {
@@ -273,7 +278,9 @@ describe("layerCanBorder", () => {
       name: "G",
       layer: makeGeoJsonGroup(),
     });
-    expect(layerCanBorder(ui, "emptyGeo1")).toBe(false);
+    expect(layerCanBorder(ui.la, ui.panelStore, ui.focusStore, "emptyGeo1")).toBe(
+      false,
+    );
   });
 });
 
@@ -283,8 +290,8 @@ describe("authoredBorder", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.foldedGroups = new Set();
-    seedIntentMap(ui, "visible", {});
+    ui.panelStore.foldedGroups = new Set();
+    seedIntentMap(ui.la, "visible", {});
   });
 
   afterEach(() => {
@@ -295,11 +302,14 @@ describe("authoredBorder", () => {
 
   it("reads the first carrier's options — a stored value never feeds the author", () => {
     const leaf = makeLeaf("#00ff00", 4);
-    setIntent(ui, "vec1", "borderColor", "#ff0000");
-    setIntent(ui, "vec1", "borderWeight", 7);
+    setIntent(ui.la, "vec1", "borderColor", "#ff0000");
+    setIntent(ui.la, "vec1", "borderWeight", 7);
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
 
-    expect(authoredBorder(ui, "vec1")).toEqual({ color: "#00ff00", weight: 4 });
+    expect(authoredBorder(ui.la, ui.panelStore, ui.focusStore, "vec1")).toEqual({
+      color: "#00ff00",
+      weight: 4,
+    });
   });
 
   it("descends through a group to find the first carrier", () => {
@@ -310,7 +320,10 @@ describe("authoredBorder", () => {
       layer: makeGroup(leaf, makeLeaf("#ff0000", 9)),
     });
 
-    expect(authoredBorder(ui, "grp1")).toEqual({ color: "#0000ff", weight: 1.5 });
+    expect(authoredBorder(ui.la, ui.panelStore, ui.focusStore, "grp1")).toEqual({
+      color: "#0000ff",
+      weight: 1.5,
+    });
   });
 
   it("reads the first feature's style from an L.GeoJSON layer, not the layer itself", () => {
@@ -324,13 +337,16 @@ describe("authoredBorder", () => {
       layer: makeGeoJsonGroup(makeLeaf("gray", 1.5), makeLeaf("#e74c3c", 6)),
     });
 
-    expect(authoredBorder(ui, "geo1")).toEqual({ color: "gray", weight: 1.5 });
+    expect(authoredBorder(ui.la, ui.panelStore, ui.focusStore, "geo1")).toEqual({
+      color: "gray",
+      weight: 1.5,
+    });
   });
 
   it("falls back to Leaflet's defaults when the layer declares no style", () => {
     manager.registerLayer({ id: "none1", name: "N", layer: { options: {} } });
 
-    expect(authoredBorder(ui, "none1")).toEqual({
+    expect(authoredBorder(ui.la, ui.panelStore, ui.focusStore, "none1")).toEqual({
       color: "#3388ff",
       weight: 1,
     });
@@ -343,7 +359,7 @@ describe("authoredBorder", () => {
     // unresolved folium layer from breaking the panel on first open.
     manager.registerLayer({ id: "ghost1", name: "G" });
 
-    expect(authoredBorder(ui, "ghost1")).toEqual({
+    expect(authoredBorder(ui.la, ui.panelStore, ui.focusStore, "ghost1")).toEqual({
       color: "#3388ff",
       weight: 1,
     });
@@ -356,8 +372,8 @@ describe("commit pipeline", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.foldedGroups = new Set();
-    seedIntentMap(ui, "visible", {});
+    ui.panelStore.foldedGroups = new Set();
+    seedIntentMap(ui.la, "visible", {});
   });
 
   afterEach(() => {
@@ -370,9 +386,9 @@ describe("commit pipeline", () => {
     const leaf = makeLeaf();
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
 
-    commitBorderNow(ui, "vec1", "color", "#f00");
+    commitBorderNow(ui.la, ui.panelStore, ui.focusStore, "vec1", "color", "#f00");
 
-    expect(getIntent(ui, "vec1", "borderColor")).toBe("#ff0000");
+    expect(getIntent(ui.la, "vec1", "borderColor")).toBe("#ff0000");
     expect(ui.intentStore.isUserSet("vec1", "borderColor")).toBe(true);
     expect(leaf.setStyle).toHaveBeenCalledTimes(1);
     expect(leaf.setStyle).toHaveBeenCalledWith({
@@ -388,7 +404,9 @@ describe("commit pipeline", () => {
     const leaf = makeReceiverLeaf("#00ff00", 3);
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
 
-    expect(() => commitBorderColor(ui, "vec1", "#abcdef")).not.toThrow();
+    expect(() =>
+      commitBorderColor(ui.la, ui.panelStore, ui.focusStore, "vec1", "#abcdef"),
+    ).not.toThrow();
     flushStyleDimApply(FACE.STROKE, "vec1");
     expect(leaf.options.color).toBe("#abcdef");
   });
@@ -400,7 +418,9 @@ describe("commit pipeline", () => {
     });
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
 
-    expect(() => commitBorderColor(ui, "vec1", "#abcdef")).not.toThrow();
+    expect(() =>
+      commitBorderColor(ui.la, ui.panelStore, ui.focusStore, "vec1", "#abcdef"),
+    ).not.toThrow();
     flushStyleDimApply(FACE.STROKE, "vec1");
     expect(() => leaf.fireMouseout()).not.toThrow();
     expect(leaf.options.color).toBe("#abcdef");
@@ -409,10 +429,10 @@ describe("commit pipeline", () => {
   it("skips a write that revisits the same value", () => {
     const leaf = makeLeaf();
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
-    commitBorderNow(ui, "vec1", "color", "#f00");
+    commitBorderNow(ui.la, ui.panelStore, ui.focusStore, "vec1", "color", "#f00");
     leaf.setStyle.mockClear();
 
-    commitBorderNow(ui, "vec1", "color", "#ff0000");
+    commitBorderNow(ui.la, ui.panelStore, ui.focusStore, "vec1", "color", "#ff0000");
 
     expect(leaf.setStyle).not.toHaveBeenCalled();
   });
@@ -421,9 +441,9 @@ describe("commit pipeline", () => {
     const leaf = makeLeaf();
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
 
-    commitBorderNow(ui, "vec1", "weight", 3.5);
+    commitBorderNow(ui.la, ui.panelStore, ui.focusStore, "vec1", "weight", 3.5);
 
-    expect(getIntent(ui, "vec1", "borderWeight")).toBe(3.5);
+    expect(getIntent(ui.la, "vec1", "borderWeight")).toBe(3.5);
     expect(ui.intentStore.isUserSet("vec1", "borderWeight")).toBe(true);
     expect(leaf.setStyle).toHaveBeenCalledWith({ weight: 3.5, stroke: true });
   });
@@ -432,9 +452,9 @@ describe("commit pipeline", () => {
     const leaf = makeLeaf();
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
 
-    commitBorderNow(ui, "vec1", "color", "#00ff00");
+    commitBorderNow(ui.la, ui.panelStore, ui.focusStore, "vec1", "color", "#00ff00");
     leaf.setStyle.mockClear();
-    commitBorderNow(ui, "vec1", "weight", 5);
+    commitBorderNow(ui.la, ui.panelStore, ui.focusStore, "vec1", "weight", 5);
 
     // The width commit re-sends the color already stored: the leaf sees one
     // call carrying both, so color and width can never disagree on the stroke.
@@ -450,7 +470,7 @@ describe("commit pipeline", () => {
     const leaf = makeLeaf("#00ff00", 4);
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
 
-    commitBorderNow(ui, "vec1", "weight", 6);
+    commitBorderNow(ui.la, ui.panelStore, ui.focusStore, "vec1", "weight", 6);
 
     expect(leaf.setStyle).toHaveBeenCalledWith({ weight: 6, stroke: true });
   });
@@ -463,7 +483,7 @@ describe("commit pipeline", () => {
     const leaf = makeLeaf("#3388ff", 3, false);
     manager.registerLayer({ id: "cm1", name: "CM", layer: leaf });
 
-    commitBorderNow(ui, "cm1", "color", "#ff0000");
+    commitBorderNow(ui.la, ui.panelStore, ui.focusStore, "cm1", "color", "#ff0000");
 
     expect(leaf.setStyle).toHaveBeenCalledWith({
       color: "#ff0000",
@@ -475,7 +495,7 @@ describe("commit pipeline", () => {
     const leaf = makeLeaf("#3388ff", 3, false);
     manager.registerLayer({ id: "cm1", name: "CM", layer: leaf });
 
-    commitBorderNow(ui, "cm1", "weight", 6);
+    commitBorderNow(ui.la, ui.panelStore, ui.focusStore, "cm1", "weight", 6);
 
     expect(leaf.setStyle).toHaveBeenCalledWith({ weight: 6, stroke: true });
   });
@@ -486,7 +506,7 @@ describe("commit pipeline", () => {
     const group = makeGroup(first, second);
     manager.registerLayer({ id: "grp1", name: "G", layer: group });
 
-    commitBorderNow(ui, "grp1", "color", "#0000ff");
+    commitBorderNow(ui.la, ui.panelStore, ui.focusStore, "grp1", "color", "#0000ff");
 
     expect(first.setStyle).toHaveBeenCalledWith({ color: "#0000ff", stroke: true });
     expect(second.setStyle).toHaveBeenCalledWith({ color: "#0000ff", stroke: true });
@@ -500,9 +520,11 @@ describe("commit pipeline", () => {
     });
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
 
-    commitBorderNow(ui, "vec1", "color", "#00ff00");
+    commitBorderNow(ui.la, ui.panelStore, ui.focusStore, "vec1", "color", "#00ff00");
     expect(leaf.options.color).toBe("#00ff00");
-    expect(authoredBorder(ui, "vec1").color).toBe("#ff0000");
+    expect(authoredBorder(ui.la, ui.panelStore, ui.focusStore, "vec1").color).toBe(
+      "#ff0000",
+    );
   });
 
   it("no-ops a commit for a layer with no carrier", () => {
@@ -512,8 +534,10 @@ describe("commit pipeline", () => {
       canvas: document.createElement("canvas"),
     });
 
-    expect(() => commitBorderColor(ui, "can1", "#ff0000")).not.toThrow();
-    expect(getIntent(ui, "can1", "borderColor")).toBe("#ff0000");
+    expect(() =>
+      commitBorderColor(ui.la, ui.panelStore, ui.focusStore, "can1", "#ff0000"),
+    ).not.toThrow();
+    expect(getIntent(ui.la, "can1", "borderColor")).toBe("#ff0000");
   });
 
   it("skips a width write that revisits the same value", () => {
@@ -522,10 +546,10 @@ describe("commit pipeline", () => {
     // the sweep over every feature of the layer for no visual change.
     const leaf = makeLeaf();
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
-    commitBorderNow(ui, "vec1", "weight", 4);
+    commitBorderNow(ui.la, ui.panelStore, ui.focusStore, "vec1", "weight", 4);
     leaf.setStyle.mockClear();
 
-    commitBorderNow(ui, "vec1", "weight", 4);
+    commitBorderNow(ui.la, ui.panelStore, ui.focusStore, "vec1", "weight", 4);
 
     expect(leaf.setStyle).not.toHaveBeenCalled();
   });
@@ -537,8 +561,8 @@ describe("bindBorderRow", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.foldedGroups = new Set();
-    seedIntentMap(ui, "visible", {});
+    ui.panelStore.foldedGroups = new Set();
+    seedIntentMap(ui.la, "visible", {});
   });
 
   afterEach(() => {
@@ -553,8 +577,8 @@ describe("bindBorderRow", () => {
     // show for it.
     const leaf = makeLeaf("#00ff00", 3);
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
-    const row = buildBorderRow(ui, "vec1");
-    bindBorderRow(ui, "vec1", row);
+    const row = buildBorderRow(ui.la, ui.panelStore, ui.focusStore, "vec1");
+    bindBorderRow(ui.la, ui.panelStore, ui.focusStore, "vec1", row);
 
     const width = row.querySelector(
       ".foliplus-style-border-weight-input",
@@ -562,7 +586,7 @@ describe("bindBorderRow", () => {
     width.value = "5";
     width.dispatchEvent(new Event("change", { bubbles: true }));
 
-    expect(getIntent(ui, "vec1", "borderWeight")).toBe(5);
+    expect(getIntent(ui.la, "vec1", "borderWeight")).toBe(5);
     expect(ui.intentStore.isUserSet("vec1", "borderWeight")).toBe(true);
     expect(leaf.setStyle).toHaveBeenCalledWith({ weight: 5, stroke: true });
   });
@@ -570,8 +594,8 @@ describe("bindBorderRow", () => {
   it("commits the color on every swatch movement", () => {
     const leaf = makeLeaf("#00ff00", 3);
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
-    const row = buildBorderRow(ui, "vec1");
-    bindBorderRow(ui, "vec1", row);
+    const row = buildBorderRow(ui.la, ui.panelStore, ui.focusStore, "vec1");
+    bindBorderRow(ui.la, ui.panelStore, ui.focusStore, "vec1", row);
 
     const swatch = row.querySelector(
       ".foliplus-style-border-color-input",
@@ -580,7 +604,7 @@ describe("bindBorderRow", () => {
     swatch.dispatchEvent(new Event("input", { bubbles: true }));
     flushStyleDimApply(FACE.STROKE, "vec1");
 
-    expect(getIntent(ui, "vec1", "borderColor")).toBe("#abcdef");
+    expect(getIntent(ui.la, "vec1", "borderColor")).toBe("#abcdef");
     expect(ui.intentStore.isUserSet("vec1", "borderColor")).toBe(true);
     expect(leaf.setStyle).toHaveBeenCalledWith({ color: "#abcdef", stroke: true });
   });
@@ -588,7 +612,9 @@ describe("bindBorderRow", () => {
   it("leaves a row alone that has neither control to bind", () => {
     const row = document.createElement("div");
 
-    expect(() => bindBorderRow(ui, "vec1", row)).not.toThrow();
+    expect(() =>
+      bindBorderRow(ui.la, ui.panelStore, ui.focusStore, "vec1", row),
+    ).not.toThrow();
   });
 });
 
@@ -598,8 +624,8 @@ describe("resetLayerBorder", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.foldedGroups = new Set();
-    seedIntentMap(ui, "visible", {});
+    ui.panelStore.foldedGroups = new Set();
+    seedIntentMap(ui.la, "visible", {});
   });
 
   afterEach(() => {
@@ -613,15 +639,15 @@ describe("resetLayerBorder", () => {
     const second = makeLeaf("#00ff00", 4);
     const group = makeGroup(first, second);
     manager.registerLayer({ id: "grp1", name: "G", layer: group });
-    commitBorderNow(ui, "grp1", "color", "#0000ff");
-    commitBorderNow(ui, "grp1", "weight", 9);
+    commitBorderNow(ui.la, ui.panelStore, ui.focusStore, "grp1", "color", "#0000ff");
+    commitBorderNow(ui.la, ui.panelStore, ui.focusStore, "grp1", "weight", 9);
     first.setStyle.mockClear();
     second.setStyle.mockClear();
 
-    resetLayerBorder(ui, "grp1");
+    resetLayerBorder(ui.la, ui.panelStore, ui.focusStore, "grp1");
 
-    expect(getIntent(ui, "grp1", "borderColor")).toBeUndefined();
-    expect(getIntent(ui, "grp1", "borderWeight")).toBeUndefined();
+    expect(getIntent(ui.la, "grp1", "borderColor")).toBeUndefined();
+    expect(getIntent(ui.la, "grp1", "borderWeight")).toBeUndefined();
     // unmarkOverride drops the entry once both dimensions are cleared.
     expect(ui.intentStore.isUserSet("grp1", "borderColor")).toBe(false);
     expect(ui.intentStore.isUserSet("grp1", "borderWeight")).toBe(false);
@@ -649,12 +675,12 @@ describe("resetLayerBorder", () => {
       layer: makeGeoJsonGroup(face, line),
     });
 
-    commitBorderNow(ui, "geo1", "color", "#0000ff");
-    commitBorderNow(ui, "geo1", "weight", 9);
+    commitBorderNow(ui.la, ui.panelStore, ui.focusStore, "geo1", "color", "#0000ff");
+    commitBorderNow(ui.la, ui.panelStore, ui.focusStore, "geo1", "weight", 9);
     face.setStyle.mockClear();
     line.setStyle.mockClear();
 
-    resetLayerBorder(ui, "geo1");
+    resetLayerBorder(ui.la, ui.panelStore, ui.focusStore, "geo1");
 
     expect(face.setStyle).toHaveBeenCalledWith({
       color: "gray",
@@ -671,11 +697,13 @@ describe("resetLayerBorder", () => {
   it("does not touch a layer the registry no longer knows", () => {
     const leaf = makeLeaf();
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
-    commitBorderNow(ui, "vec1", "color", "#00ff00");
+    commitBorderNow(ui.la, ui.panelStore, ui.focusStore, "vec1", "color", "#00ff00");
     leaf.setStyle.mockClear();
     manager.unregisterLayer("vec1");
 
-    expect(() => resetLayerBorder(ui, "vec1")).not.toThrow();
+    expect(() =>
+      resetLayerBorder(ui.la, ui.panelStore, ui.focusStore, "vec1"),
+    ).not.toThrow();
     expect(leaf.setStyle).not.toHaveBeenCalled();
   });
 
@@ -685,13 +713,15 @@ describe("resetLayerBorder", () => {
     // cannot find a carrier for, but the persisted choice is still dropped,
     // so a reload does not try to apply a stroke to a layer that has none.
     manager.registerLayer({ id: "ghost", name: "G", layer: null } as any);
-    setIntent(ui, "ghost", "borderColor", "#ff0000");
-    setIntent(ui, "ghost", "borderWeight", 4);
+    setIntent(ui.la, "ghost", "borderColor", "#ff0000");
+    setIntent(ui.la, "ghost", "borderWeight", 4);
     ui.intentStore.seedProvenance("ghost", ["borderColor", "borderWeight"]);
 
-    expect(() => resetLayerBorder(ui, "ghost")).not.toThrow();
-    expect(getIntent(ui, "ghost", "borderColor")).toBeUndefined();
-    expect(getIntent(ui, "ghost", "borderWeight")).toBeUndefined();
+    expect(() =>
+      resetLayerBorder(ui.la, ui.panelStore, ui.focusStore, "ghost"),
+    ).not.toThrow();
+    expect(getIntent(ui.la, "ghost", "borderColor")).toBeUndefined();
+    expect(getIntent(ui.la, "ghost", "borderWeight")).toBeUndefined();
     expect(ui.intentStore.isUserSet("ghost", "borderColor")).toBe(false);
     expect(ui.intentStore.isUserSet("ghost", "borderWeight")).toBe(false);
   });
@@ -703,7 +733,7 @@ describe("resetLayerBorder", () => {
     const leaf = makeLeaf("#00ff00", 4);
     manager.registerLayer({ id: "grp1", name: "G", layer: makeGroup(leaf) });
 
-    resetLayerBorder(ui, "grp1");
+    resetLayerBorder(ui.la, ui.panelStore, ui.focusStore, "grp1");
 
     expect(leaf.setStyle).not.toHaveBeenCalled();
   });
@@ -721,8 +751,8 @@ describe("resetLayerBorder", () => {
       layer: makeGroup(inert, live),
     });
 
-    commitBorderNow(ui, "grp1", "color", "#0000ff");
-    commitBorderNow(ui, "grp1", "weight", 5);
+    commitBorderNow(ui.la, ui.panelStore, ui.focusStore, "grp1", "color", "#0000ff");
+    commitBorderNow(ui.la, ui.panelStore, ui.focusStore, "grp1", "weight", 5);
 
     expect(inert.setStyle).toBeUndefined();
     expect(live.setStyle).toHaveBeenCalledWith({
@@ -732,7 +762,7 @@ describe("resetLayerBorder", () => {
     });
 
     live.setStyle.mockClear();
-    resetLayerBorder(ui, "grp1");
+    resetLayerBorder(ui.la, ui.panelStore, ui.focusStore, "grp1");
 
     expect(inert.setStyle).toBeUndefined();
     expect(live.setStyle).toHaveBeenCalledWith({
@@ -756,11 +786,11 @@ describe("resetLayerBorder", () => {
     };
     manager.registerLayer({ id: "vec1", name: "V", layer: bare });
 
-    commitBorderNow(ui, "vec1", "color", "#0000ff");
-    commitBorderNow(ui, "vec1", "weight", 4);
+    commitBorderNow(ui.la, ui.panelStore, ui.focusStore, "vec1", "color", "#0000ff");
+    commitBorderNow(ui.la, ui.panelStore, ui.focusStore, "vec1", "weight", 4);
     bare.setStyle.mockClear();
 
-    resetLayerBorder(ui, "vec1");
+    resetLayerBorder(ui.la, ui.panelStore, ui.focusStore, "vec1");
 
     expect(bare.setStyle).toHaveBeenCalledWith({
       color: "#3388ff",
@@ -780,12 +810,12 @@ describe("resetLayerBorder", () => {
     );
     manager.registerLayer({ id: "cm1", name: "CM", layer: leaf });
 
-    commitBorderNow(ui, "cm1", "color", "#ff0000");
-    commitBorderNow(ui, "cm1", "weight", 6);
+    commitBorderNow(ui.la, ui.panelStore, ui.focusStore, "cm1", "color", "#ff0000");
+    commitBorderNow(ui.la, ui.panelStore, ui.focusStore, "cm1", "weight", 6);
     expect(leaf.options.stroke).toBe(true);
     leaf.setStyle.mockClear();
 
-    resetLayerBorder(ui, "cm1");
+    resetLayerBorder(ui.la, ui.panelStore, ui.focusStore, "cm1");
 
     expect(leaf.setStyle).toHaveBeenCalledWith({
       color: "#3388ff",
@@ -802,8 +832,8 @@ describe("highlight restore", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.foldedGroups = new Set();
-    seedIntentMap(ui, "visible", {});
+    ui.panelStore.foldedGroups = new Set();
+    seedIntentMap(ui.la, "visible", {});
   });
 
   afterEach(() => {
@@ -821,7 +851,7 @@ describe("highlight restore", () => {
     const leaf = makeHighlightLeaf("#00ff00", 3);
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
 
-    commitBorderNow(ui, "vec1", "color", "#abcdef");
+    commitBorderNow(ui.la, ui.panelStore, ui.focusStore, "vec1", "color", "#abcdef");
     leaf.setStyle.mockClear();
 
     leaf.fireMouseout();
@@ -842,7 +872,7 @@ describe("highlight restore", () => {
     leaf.options.stroke = false;
     manager.registerLayer({ id: "cm1", name: "CM", layer: leaf });
 
-    commitBorderNow(ui, "cm1", "color", "#abcdef");
+    commitBorderNow(ui.la, ui.panelStore, ui.focusStore, "cm1", "color", "#abcdef");
     leaf.setStyle.mockClear();
 
     leaf.fireMouseout();
@@ -858,7 +888,7 @@ describe("highlight restore", () => {
     const leaf = makeHighlightLeaf("#00ff00", 3);
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
 
-    commitBorderNow(ui, "vec1", "weight", 9);
+    commitBorderNow(ui.la, ui.panelStore, ui.focusStore, "vec1", "weight", 9);
     leaf.setStyle.mockClear();
 
     leaf.fireMouseout();
@@ -874,8 +904,8 @@ describe("highlight restore", () => {
     const leaf = makeHighlightLeaf("#00ff00", 3);
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
 
-    commitBorderNow(ui, "vec1", "color", "#abcdef");
-    commitBorderNow(ui, "vec1", "weight", 9);
+    commitBorderNow(ui.la, ui.panelStore, ui.focusStore, "vec1", "color", "#abcdef");
+    commitBorderNow(ui.la, ui.panelStore, ui.focusStore, "vec1", "weight", 9);
 
     // 2 = folium's own handler plus our replay, not one per commit.
     expect(leaf.mouseoutCount()).toBe(2);
@@ -889,11 +919,11 @@ describe("highlight restore", () => {
     const leaf = makeHighlightLeaf("#00ff00", 3);
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
 
-    commitFillColor(ui, "vec1", "#123456");
+    commitFillColor(ui.la, ui.panelStore, ui.focusStore, "vec1", "#123456");
     // fill commit is rAF-coalesced; flush so the fill pin is registered
     // before the highlight restore runs (same contract as a drag's end).
     flushStyleDimApply(FACE.FILL, "vec1");
-    commitBorderNow(ui, "vec1", "weight", 9);
+    commitBorderNow(ui.la, ui.panelStore, ui.focusStore, "vec1", "weight", 9);
 
     // One slot per dimension on the shared leaf — fill and border never
     // share a slot, and neither one doubles up.
@@ -920,11 +950,11 @@ describe("highlight restore", () => {
     const leaf = makeHighlightLeaf("#00ff00", 3);
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
 
-    commitBorderNow(ui, "vec1", "color", "#111111");
-    commitBorderNow(ui, "vec1", "color", "#222222");
-    commitBorderNow(ui, "vec1", "color", "#333333");
-    commitBorderNow(ui, "vec1", "weight", 5);
-    commitBorderNow(ui, "vec1", "weight", 9);
+    commitBorderNow(ui.la, ui.panelStore, ui.focusStore, "vec1", "color", "#111111");
+    commitBorderNow(ui.la, ui.panelStore, ui.focusStore, "vec1", "color", "#222222");
+    commitBorderNow(ui.la, ui.panelStore, ui.focusStore, "vec1", "color", "#333333");
+    commitBorderNow(ui.la, ui.panelStore, ui.focusStore, "vec1", "weight", 5);
+    commitBorderNow(ui.la, ui.panelStore, ui.focusStore, "vec1", "weight", 9);
 
     // One getter slot per dimension, however many commits passed through it.
     expect(pinnedGetterCount(leaf)).toBe(1);
@@ -946,8 +976,8 @@ describe("highlight restore", () => {
     // folium's restore stands and the layer keeps the author's stroke.
     const leaf = makeHighlightLeaf("#00ff00", 3);
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
-    commitBorderNow(ui, "vec1", "color", "#abcdef");
-    resetLayerBorder(ui, "vec1");
+    commitBorderNow(ui.la, ui.panelStore, ui.focusStore, "vec1", "color", "#abcdef");
+    resetLayerBorder(ui.la, ui.panelStore, ui.focusStore, "vec1");
     leaf.setStyle.mockClear();
 
     leaf.fireMouseout();
@@ -975,8 +1005,8 @@ describe("applyBorderToLayer", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.foldedGroups = new Set();
-    seedIntentMap(ui, "visible", {});
+    ui.panelStore.foldedGroups = new Set();
+    seedIntentMap(ui.la, "visible", {});
   });
 
   afterEach(() => {
@@ -988,10 +1018,10 @@ describe("applyBorderToLayer", () => {
   it("writes the stored stroke onto the layer's leaves", () => {
     const leaf = makeLeaf();
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
-    setIntent(ui, "vec1", "borderColor", "#0000ff");
-    setIntent(ui, "vec1", "borderWeight", 6);
+    setIntent(ui.la, "vec1", "borderColor", "#0000ff");
+    setIntent(ui.la, "vec1", "borderWeight", 6);
 
-    applyBorderToLayer(ui, "vec1");
+    applyBorderToLayer(ui.la, ui.panelStore, ui.focusStore, "vec1");
 
     expect(leaf.setStyle).toHaveBeenCalledWith({
       color: "#0000ff",
@@ -1005,10 +1035,10 @@ describe("applyBorderToLayer", () => {
     const b = makeLeaf();
     manager.registerLayer({ id: "vecA", name: "A", layer: a });
     manager.registerLayer({ id: "vecB", name: "B", layer: b });
-    setIntent(ui, "vecA", "borderColor", "#0000ff");
-    setIntent(ui, "vecB", "borderColor", "#00ff00");
+    setIntent(ui.la, "vecA", "borderColor", "#0000ff");
+    setIntent(ui.la, "vecB", "borderColor", "#00ff00");
 
-    applyBorderToLayer(ui, "vecA");
+    applyBorderToLayer(ui.la, ui.panelStore, ui.focusStore, "vecA");
 
     expect(a.setStyle).toHaveBeenCalledTimes(1);
     expect(b.setStyle).not.toHaveBeenCalled();
@@ -1018,15 +1048,17 @@ describe("applyBorderToLayer", () => {
     const leaf = makeLeaf();
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
 
-    applyBorderToLayer(ui, "vec1");
+    applyBorderToLayer(ui.la, ui.panelStore, ui.focusStore, "vec1");
 
     expect(leaf.setStyle).not.toHaveBeenCalled();
   });
 
   it("is a no-op for an id with no registry entry", () => {
-    setIntent(ui, "ghost", "borderColor", "#0000ff");
+    setIntent(ui.la, "ghost", "borderColor", "#0000ff");
 
-    expect(() => applyBorderToLayer(ui, "ghost")).not.toThrow();
+    expect(() =>
+      applyBorderToLayer(ui.la, ui.panelStore, ui.focusStore, "ghost"),
+    ).not.toThrow();
   });
 
   it("the applyUserState sweep writes only user-set provenance keys, so a stored value with no record is not replayed", () => {
@@ -1034,8 +1066,8 @@ describe("applyBorderToLayer", () => {
     const orphan = makeLeaf();
     manager.registerLayer({ id: "vec1", name: "V", layer: recorded });
     manager.registerLayer({ id: "vec2", name: "W", layer: orphan });
-    setIntent(ui, "vec1", "borderColor", "#0000ff");
-    setIntent(ui, "vec2", "borderColor", "#00ff00");
+    setIntent(ui.la, "vec1", "borderColor", "#0000ff");
+    setIntent(ui.la, "vec2", "borderColor", "#00ff00");
     ui.intentStore.seedProvenance("vec1", ["borderColor"]);
     // vec2 holds a stored value that never went through markOverride — the
     // drift the single enumeration source exists to ignore. Enumerating the
@@ -1057,8 +1089,8 @@ describe("buildBorderRow", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.foldedGroups = new Set();
-    seedIntentMap(ui, "visible", {});
+    ui.panelStore.foldedGroups = new Set();
+    seedIntentMap(ui.la, "visible", {});
   });
 
   afterEach(() => {
@@ -1071,7 +1103,7 @@ describe("buildBorderRow", () => {
     const leaf = makeLeaf("#00ff00", 3);
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
 
-    const row = buildBorderRow(ui, "vec1");
+    const row = buildBorderRow(ui.la, ui.panelStore, ui.focusStore, "vec1");
 
     expect(row.classList.contains("foliplus-form-row")).toBe(true);
     expect(row.classList.contains("foliplus-style-border-row")).toBe(true);
@@ -1098,10 +1130,10 @@ describe("buildBorderRow", () => {
   it("shows the stored choice over the authored value", () => {
     const leaf = makeLeaf("#00ff00", 3);
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
-    setIntent(ui, "vec1", "borderColor", "#ff0000");
-    setIntent(ui, "vec1", "borderWeight", 5.5);
+    setIntent(ui.la, "vec1", "borderColor", "#ff0000");
+    setIntent(ui.la, "vec1", "borderWeight", 5.5);
 
-    const row = buildBorderRow(ui, "vec1");
+    const row = buildBorderRow(ui.la, ui.panelStore, ui.focusStore, "vec1");
 
     expect(
       (row.querySelector(".foliplus-style-border-color-input") as HTMLInputElement)
@@ -1116,7 +1148,7 @@ describe("buildBorderRow", () => {
   it("shows normalised 6-digit hex when the author declared a short form", () => {
     manager.registerLayer({ id: "vec1", name: "V", layer: makeLeaf("#f00", 2) });
 
-    const row = buildBorderRow(ui, "vec1");
+    const row = buildBorderRow(ui.la, ui.panelStore, ui.focusStore, "vec1");
 
     expect(
       (row.querySelector(".foliplus-style-border-color-input") as HTMLInputElement)
@@ -1136,7 +1168,7 @@ describe("buildBorderRow", () => {
       layer: makeGeoJsonGroup(makeLeaf("gray", 1.5), makeLeaf("#e74c3c", 6)),
     });
 
-    const row = buildBorderRow(ui, "geo1");
+    const row = buildBorderRow(ui.la, ui.panelStore, ui.focusStore, "geo1");
 
     expect(
       (row.querySelector(".foliplus-style-border-color-input") as HTMLInputElement)
@@ -1154,7 +1186,7 @@ describe("buildBorderRow", () => {
       layer: makeLeaf("hsl(120, 100%, 50%)", 2),
     });
 
-    const row = buildBorderRow(ui, "vec1");
+    const row = buildBorderRow(ui.la, ui.panelStore, ui.focusStore, "vec1");
 
     expect(
       (row.querySelector(".foliplus-style-border-color-input") as HTMLInputElement)
@@ -1173,9 +1205,11 @@ describe("buildBorderRow", () => {
       layer: makeLeaf("notacolor", 2),
     });
 
-    const row = buildBorderRow(ui, "vec1");
+    const row = buildBorderRow(ui.la, ui.panelStore, ui.focusStore, "vec1");
 
-    expect(authoredBorder(ui, "vec1").color).toBe("notacolor");
+    expect(authoredBorder(ui.la, ui.panelStore, ui.focusStore, "vec1").color).toBe(
+      "notacolor",
+    );
     expect(
       (row.querySelector(".foliplus-style-border-color-input") as HTMLInputElement)
         .value,
@@ -1194,9 +1228,11 @@ describe("buildBorderRow", () => {
       layer: makeLeaf("oklch(0.5 0.1 100)", 2),
     });
 
-    const row = buildBorderRow(ui, "vec1");
+    const row = buildBorderRow(ui.la, ui.panelStore, ui.focusStore, "vec1");
 
-    expect(authoredBorder(ui, "vec1").color).toBe("oklch(0.5 0.1 100)");
+    expect(authoredBorder(ui.la, ui.panelStore, ui.focusStore, "vec1").color).toBe(
+      "oklch(0.5 0.1 100)",
+    );
     expect(
       (row.querySelector(".foliplus-style-border-color-input") as HTMLInputElement)
         .value,
@@ -1213,7 +1249,7 @@ describe("buildBorderRow", () => {
       layer: makeGeoJsonGroup(makeLeaf("#e74c3c", 6), makeLeaf("gray", 1.5)),
     });
 
-    const row = buildBorderRow(ui, "geo1");
+    const row = buildBorderRow(ui.la, ui.panelStore, ui.focusStore, "geo1");
 
     expect(
       (row.querySelector(".foliplus-style-border-color-input") as HTMLInputElement)
@@ -1232,8 +1268,8 @@ describe("border apply scheduler (drag coalesce)", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.foldedGroups = new Set();
-    seedIntentMap(ui, "visible", {});
+    ui.panelStore.foldedGroups = new Set();
+    seedIntentMap(ui.la, "visible", {});
   });
 
   afterEach(() => {
@@ -1253,9 +1289,9 @@ describe("border apply scheduler (drag coalesce)", () => {
     });
     vi.stubGlobal("cancelAnimationFrame", () => {});
 
-    commitBorderColor(ui, "vec1", "#111111");
-    commitBorderColor(ui, "vec1", "#222222");
-    commitBorderWeight(ui, "vec1", 5);
+    commitBorderColor(ui.la, ui.panelStore, ui.focusStore, "vec1", "#111111");
+    commitBorderColor(ui.la, ui.panelStore, ui.focusStore, "vec1", "#222222");
+    commitBorderWeight(ui.la, ui.panelStore, ui.focusStore, "vec1", 5);
     expect(leaf.setStyle).not.toHaveBeenCalled();
 
     for (const cb of frames.splice(0)) cb();
@@ -1270,17 +1306,23 @@ describe("border apply scheduler (drag coalesce)", () => {
   it("BORDER_DIMENSION.value reports the stored choice over the authored one", () => {
     const leaf = makeLeaf("#aabbcc", 3);
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
-    expect(BORDER_DIMENSION.value!(ui, "vec1")).toEqual({
+    expect(
+      BORDER_DIMENSION.value!(ui.la, ui.panelStore, ui.focusStore, "vec1"),
+    ).toEqual({
       color: "#aabbcc",
       weight: 3,
     });
-    commitBorderNow(ui, "vec1", "color", "#445566");
-    commitBorderNow(ui, "vec1", "weight", 7);
-    expect(BORDER_DIMENSION.value!(ui, "vec1")).toEqual({
+    commitBorderNow(ui.la, ui.panelStore, ui.focusStore, "vec1", "color", "#445566");
+    commitBorderNow(ui.la, ui.panelStore, ui.focusStore, "vec1", "weight", 7);
+    expect(
+      BORDER_DIMENSION.value!(ui.la, ui.panelStore, ui.focusStore, "vec1"),
+    ).toEqual({
       color: "#445566",
       weight: 7,
     });
-    expect(BORDER_DIMENSION.value!(ui, "ghost")).toBeUndefined();
+    expect(
+      BORDER_DIMENSION.value!(ui.la, ui.panelStore, ui.focusStore, "ghost"),
+    ).toBeUndefined();
   });
 
   it("shell builds color-only / weight-only rows and default selectors", () => {
@@ -1366,8 +1408,8 @@ describe("border apply scheduler (drag coalesce)", () => {
     });
     vi.stubGlobal("cancelAnimationFrame", () => {});
 
-    const row = buildBorderRow(ui, "vec1");
-    bindBorderRow(ui, "vec1", row);
+    const row = buildBorderRow(ui.la, ui.panelStore, ui.focusStore, "vec1");
+    bindBorderRow(ui.la, ui.panelStore, ui.focusStore, "vec1", row);
     const weight = row.querySelector(
       ".foliplus-style-border-weight-input",
     ) as HTMLInputElement;
@@ -1392,11 +1434,11 @@ describe("border apply scheduler (drag coalesce)", () => {
     vi.stubGlobal("cancelAnimationFrame", () => {});
 
     // minimal panel chrome so closeStylePanel finds stylePanelLayerId
-    (ui as any).stylePanelLayerId = "vec1";
-    commitBorderColor(ui, "vec1", "#333333");
+    ui.panelStore.stylePanelLayerId = "vec1";
+    commitBorderColor(ui.la, ui.panelStore, ui.focusStore, "vec1", "#333333");
     expect(leaf.setStyle).not.toHaveBeenCalled();
 
-    closeStylePanel(ui, false);
+    closeStylePanel(ui.la, ui.panelStore, ui.focusStore, false);
 
     expect(leaf.setStyle).toHaveBeenCalledWith({
       color: "#333333",
@@ -1418,8 +1460,8 @@ describe("border apply scheduler (drag coalesce)", () => {
     });
     vi.stubGlobal("cancelAnimationFrame", () => {});
 
-    const row = buildBorderRow(ui, "vec1");
-    bindBorderRow(ui, "vec1", row);
+    const row = buildBorderRow(ui.la, ui.panelStore, ui.focusStore, "vec1");
+    bindBorderRow(ui.la, ui.panelStore, ui.focusStore, "vec1", row);
     const weight = row.querySelector(
       ".foliplus-style-border-weight-input",
     ) as HTMLInputElement;
@@ -1428,7 +1470,7 @@ describe("border apply scheduler (drag coalesce)", () => {
     expect(leaf.setStyle).not.toHaveBeenCalled();
     weight.dispatchEvent(new Event("change", { bubbles: true }));
 
-    expect(getIntent(ui, "vec1", "borderWeight")).toBe(4);
+    expect(getIntent(ui.la, "vec1", "borderWeight")).toBe(4);
     expect(leaf.setStyle).toHaveBeenCalledWith({ weight: 4, stroke: true });
   });
 
@@ -1442,7 +1484,7 @@ describe("border apply scheduler (drag coalesce)", () => {
     });
     vi.stubGlobal("cancelAnimationFrame", () => {});
 
-    commitBorderColor(ui, "vec1", "#333333");
+    commitBorderColor(ui.la, ui.panelStore, ui.focusStore, "vec1", "#333333");
     flushStyleDimApply(FACE.STROKE, "vec1");
     expect(leaf.setStyle).toHaveBeenCalledWith({
       color: "#333333",
@@ -1467,9 +1509,9 @@ describe("border apply scheduler (drag coalesce)", () => {
     });
     vi.stubGlobal("cancelAnimationFrame", () => {});
 
-    commitBorderColor(ui, "vec1", "#ff0000");
+    commitBorderColor(ui.la, ui.panelStore, ui.focusStore, "vec1", "#ff0000");
     leaf.setStyle.mockClear();
-    resetLayerBorder(ui, "vec1");
+    resetLayerBorder(ui.la, ui.panelStore, ui.focusStore, "vec1");
     expect(leaf.options.color).toBe("#aabbcc");
     for (const cb of frames.splice(0)) cb();
     // the cancelled drag walk must not repaint the user's color
@@ -1486,7 +1528,7 @@ describe("border apply scheduler (drag coalesce)", () => {
     });
     vi.stubGlobal("cancelAnimationFrame", () => {});
 
-    commitBorderColor(ui, "vec1", "#333333");
+    commitBorderColor(ui.la, ui.panelStore, ui.focusStore, "vec1", "#333333");
     expect(hasStyleDimApply(FACE.STROKE, "vec1")).toBe(true);
 
     manager.unregisterLayer("vec1");
@@ -1505,8 +1547,8 @@ describe("border apply scheduler (drag coalesce)", () => {
     });
     vi.stubGlobal("cancelAnimationFrame", () => {});
 
-    const row = buildBorderRow(ui, "vec1");
-    bindBorderRow(ui, "vec1", row);
+    const row = buildBorderRow(ui.la, ui.panelStore, ui.focusStore, "vec1");
+    bindBorderRow(ui.la, ui.panelStore, ui.focusStore, "vec1", row);
     const color = row.querySelector(
       ".foliplus-style-border-color-input",
     ) as HTMLInputElement;

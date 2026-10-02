@@ -2,12 +2,17 @@
 import { CAP_TIER } from "#core/layer/index.js";
 import { dom } from "#common/dom.js";
 import * as Icons from "#common/icon.js";
+import { createScopedTranslator } from "#common/locale.js";
 import * as CONST from "../const.js";
 import * as SVGs from "../icon.js";
+import type { LayerAccess } from "./access.js";
 import { focusDisabledLocaleKey, focusDisabledReason } from "./focus.js";
-import type { LayerUI } from "./index.js";
+import type { FocusStore } from "./focusStore.js";
+import type { PanelStore } from "./panelStore.js";
 import { finishRename } from "./rename.js";
 import { layerCanLabel, layerHasStyleDelegation } from "./style/index.js";
+
+const T = createScopedTranslator(CONF);
 
 /**
  * Open the "more" overflow dropdown for a given layer row.
@@ -40,33 +45,38 @@ import { layerCanLabel, layerHasStyleDelegation } from "./style/index.js";
  *
  * A new dimensions entry belongs with Style, not at the tail.
  */
-const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
+const openMoreMenu = (
+  la: LayerAccess,
+  ps: PanelStore,
+  fs: FocusStore,
+  item: HTMLElement,
+) => {
   // Close any previously open menu first, and commit/cancel a rename so
   // the label text is fresh before we read the row.
-  finishRename(ui);
-  closeMoreMenu(ui, true);
+  finishRename(la, ps, fs);
+  closeMoreMenu(la, ps, fs, true);
 
   const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
   const menu = dom.el("ul", { class: "foliplus-layer-more-menu open", role: "menu" });
   // Focus-layer is disabled for basemaps (no useful extent), hidden rows, and
   // layers whose surface reports no bounds carrier. The disabled li carries
   // cursor: not-allowed (common menu CSS) and the reason as its tooltip.
-  const focusReason = focusDisabledReason(ui, item);
+  const focusReason = focusDisabledReason(la, ps, fs, item);
   const focusDisabled = focusReason !== undefined;
   const focusDisabledTitle =
     focusReason !== undefined
-      ? ui.T(focusDisabledLocaleKey(focusReason))
-      : ui.T("focus_layer_tooltip");
+      ? T(focusDisabledLocaleKey(focusReason))
+      : T("focus_layer_tooltip");
 
   const itemAttrs = {
     "data-action": "focus-layer",
     role: "menuitem",
     tabindex: "0",
-    title: focusDisabled ? focusDisabledTitle : ui.T("focus_layer_tooltip"),
+    title: focusDisabled ? focusDisabledTitle : T("focus_layer_tooltip"),
     "aria-disabled": focusDisabled ? "true" : "false",
   };
 
-  menu.appendChild(dom.el("li", itemAttrs, { html: SVGs.FOCUS }, ui.T("focus_layer")));
+  menu.appendChild(dom.el("li", itemAttrs, { html: SVGs.FOCUS }, T("focus_layer")));
 
   if (focusDisabled) menu.lastElementChild!.setAttribute("disabled", "disabled");
 
@@ -86,15 +96,15 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   // geographic extent to focus on — so it keeps its style entry enabled.
   // Basemaps are configurable too: the solid-color basemap has a fill row
   // in its style panel, and tile basemaps can still tune opacity.
-  const layerInfo = ui.m.layerRegistry.get(layerId);
-  const caps = layerInfo ? ui.m.surfaceFor(layerInfo).capabilities : null;
+  const layerInfo = la.layerRegistry.get(layerId);
+  const caps = layerInfo ? la.surfaceFor(layerInfo).capabilities : null;
   // `layerCanLabel` is the Label section's gate itself (pure capability
   // bit) — the menu and the panel ask one function, so the entry can never
   // enable a panel whose Label section would not render (or vice versa).
   const canConfigure =
     (caps && (caps.opacity !== CAP_TIER.NONE || caps.zoomRange !== CAP_TIER.NONE)) ||
-    layerCanLabel(ui, layerId) ||
-    layerHasStyleDelegation(ui, layerId);
+    layerCanLabel(la, ps, fs, layerId) ||
+    layerHasStyleDelegation(la, ps, fs, layerId);
   const styleDisabled = focusReason === "hidden" || !canConfigure;
 
   menu.appendChild(
@@ -104,13 +114,11 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
         "data-action": CONST.ACTION.STYLE_LAYER,
         role: "menuitem",
         tabindex: "0",
-        title: styleDisabled
-          ? ui.T("style_label_no_data")
-          : ui.T("style_layer_tooltip"),
+        title: styleDisabled ? T("style_label_no_data") : T("style_layer_tooltip"),
         "aria-disabled": styleDisabled ? "true" : "false",
       },
       { html: SVGs.STYLE },
-      ui.T("style_layer"),
+      T("style_layer"),
     ),
   );
   if (styleDisabled) menu.lastElementChild!.setAttribute("disabled", "disabled");
@@ -124,10 +132,10 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
         "data-action": CONST.ACTION.RENAME_LAYER,
         role: "menuitem",
         tabindex: "0",
-        title: ui.T("rename_layer_tooltip"),
+        title: T("rename_layer_tooltip"),
       },
       { html: Icons.EDIT_ICON },
-      ui.T("rename_layer"),
+      T("rename_layer"),
     ),
   );
 
@@ -140,10 +148,10 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
         "data-action": CONST.ACTION.ATTRS_LAYER,
         role: "menuitem",
         tabindex: "0",
-        title: ui.T("attributes_layer_tooltip"),
+        title: T("attributes_layer_tooltip"),
       },
       { html: Icons.INFO_ICON },
-      ui.T("attributes_layer"),
+      T("attributes_layer"),
     ),
   );
 
@@ -156,7 +164,7 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   // the fill and return to the grid empty state). The label and tooltip vary
   // by mode — "Delete Layer" for real deletion, "Clear Data" for component
   // clear — so the action name matches the effect.
-  const deleteMode = deleteModeFor(ui, layerId);
+  const deleteMode = deleteModeFor(la, ps, fs, layerId);
   if (deleteMode !== "absent") {
     menu.appendChild(
       dom.el("li", {
@@ -165,7 +173,7 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
         "aria-hidden": "true",
       }),
     );
-    menu.appendChild(buildDeleteItem(ui, deleteMode));
+    menu.appendChild(buildDeleteItem(la, ps, fs, deleteMode));
   }
 
   item.style.position = "relative";
@@ -181,10 +189,10 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   menu.addEventListener("focusout", event => {
     const next = (event as FocusEvent).relatedTarget as Node | null;
     if (next && (next === item || item.contains(next))) return;
-    if (!next || !menu.contains(next)) closeMoreMenu(ui, false);
+    if (!next || !menu.contains(next)) closeMoreMenu(la, ps, fs, false);
   });
 
-  ui.activeMenu = { item, menu, layerId };
+  ps.activeMenu = { item, menu, layerId };
 
   // Focus the first menu item so Enter/Space activate it and Escape closes.
   // The focus-layer entry is always appended first, so this is a straight cast.
@@ -206,7 +214,7 @@ const DELETE_ARMED_TIMEOUT_MS = 3000;
 /** The one armed delete entry, if any: only one menu is open at a time, so a
  *  module-level pointer cannot refer to two rows at once. */
 let armedDelete: {
-  ui: LayerUI;
+  T: (key: string) => string;
   label: HTMLElement;
   li: HTMLElement;
   isClear: boolean;
@@ -214,41 +222,53 @@ let armedDelete: {
 } | null = null;
 let armedDeleteTimer: ReturnType<typeof setTimeout> | undefined;
 
-const deleteModeFor = (ui: LayerUI, layerId: string): DeleteMode => {
+const deleteModeFor = (
+  la: LayerAccess,
+  ps: PanelStore,
+  fs: FocusStore,
+  layerId: string,
+): DeleteMode => {
   if (!layerId) return "absent";
   // The solid colour basemap uses delete semantics (row disappears, id stays
   // registerable so the colour can be re-picked) — same as a user data layer.
   if (layerId === CONST.SOLID_BASEMAP_ID) return "delete";
   // Component-owned layers (Measure, Heatmap) clear their data instead of being
   // retired. The id stays registerable so the component can re-draw.
-  if (isComponentLayer(ui, layerId)) return "clear";
+  if (isComponentLayer(la, ps, fs, layerId)) return "clear";
   // `findLayer`, not `registry.get(id).layer`: folium registers its own layers
   // by id only, so the entry's `layer` stays null until something resolves it.
   // Testing the field would read every layer on a real folium map as a component
   // layer and render no delete entry at all. `findLayer` walks the map's own
   // layer registry to find the object.
-  return ui.m.findLayer(layerId) ? "delete" : "absent";
+  return la.findLayer(layerId) ? "delete" : "absent";
 };
 
 /** True when the layer is owned by a foliplus component — Measure, Heatmap
  *  (styleSetters). Matches the discriminator in `LayerManager.deleteLayer`, so
  *  the two stay in lockstep. The solid colour basemap is handled separately in
  *  `deleteModeFor` and returns "delete" instead of "clear". */
-const isComponentLayer = (ui: LayerUI, layerId: string): boolean => {
-  return Boolean(ui.m.layerRegistry.get(layerId)?.styleSetters);
+const isComponentLayer = (
+  la: LayerAccess,
+  ps: PanelStore,
+  fs: FocusStore,
+  layerId: string,
+): boolean => {
+  return Boolean(la.layerRegistry.get(layerId)?.styleSetters);
 };
 
 const buildDeleteItem = (
-  ui: LayerUI,
+  la: LayerAccess,
+  ps: PanelStore,
+  fs: FocusStore,
   mode: Exclude<DeleteMode, "absent">,
 ): HTMLElement => {
   const isClear = mode === "clear";
   const label = dom.el(
     "span",
     { class: CONST.CLASSES.MENU_DELETE_LABEL },
-    ui.T(isClear ? "clear_data" : "delete_layer"),
+    T(isClear ? "clear_data" : "delete_layer"),
   );
-  const tooltip = ui.T(isClear ? "clear_data_tooltip" : "delete_layer_tooltip");
+  const tooltip = T(isClear ? "clear_data_tooltip" : "delete_layer_tooltip");
   const item = dom.el(
     "li",
     {
@@ -267,7 +287,12 @@ const buildDeleteItem = (
 /** Turn the delete entry into its confirming state: the label swaps to the
  *  confirmation text and the entry fills, so the second click is unambiguous
  *  without borrowing the accent color (which already means hover and focus). */
-const armDelete = (ui: LayerUI, li: HTMLElement): void => {
+const armDelete = (
+  la: LayerAccess,
+  ps: PanelStore,
+  fs: FocusStore,
+  li: HTMLElement,
+): void => {
   const label = li.querySelector<HTMLElement>(`.${CONST.CLASSES.MENU_DELETE_LABEL}`);
   if (!label) return;
   disarmDelete();
@@ -275,13 +300,10 @@ const armDelete = (ui: LayerUI, li: HTMLElement): void => {
   // The title attribute is set by buildDeleteItem at entry construction, so
   // there is no null to fall back to.
   const originalTitle = li.getAttribute("title")!;
-  armedDelete = { ui, label, li, isClear, originalTitle };
-  label.textContent = ui.T(isClear ? "clear_data_confirm" : "delete_layer_confirm");
+  armedDelete = { T, label, li, isClear, originalTitle };
+  label.textContent = T(isClear ? "clear_data_confirm" : "delete_layer_confirm");
   li.classList.add(CONST.CLASSES.MENU_DELETE_ARMED);
-  li.setAttribute(
-    "title",
-    ui.T(isClear ? "clear_data_confirm" : "delete_layer_confirm"),
-  );
+  li.setAttribute("title", T(isClear ? "clear_data_confirm" : "delete_layer_confirm"));
   armedDeleteTimer = setTimeout(disarmDelete, DELETE_ARMED_TIMEOUT_MS);
 };
 
@@ -292,7 +314,7 @@ const disarmDelete = (): void => {
   armedDeleteTimer = undefined;
   const armed = armedDelete;
   if (!armed) return;
-  armed.label.textContent = armed.ui.T(armed.isClear ? "clear_data" : "delete_layer");
+  armed.label.textContent = armed.T(armed.isClear ? "clear_data" : "delete_layer");
   armed.li.setAttribute("title", armed.originalTitle);
   armed.li.classList.remove(CONST.CLASSES.MENU_DELETE_ARMED);
   armedDelete = null;
@@ -302,27 +324,37 @@ const disarmDelete = (): void => {
  *  true when the delete fired and the menu should close; false means the entry
  *  was only armed, so the menu stays open and the user sees what they are about
  *  to confirm. */
-const activateDeleteItem = (ui: LayerUI, li: HTMLElement): boolean => {
+const activateDeleteItem = (
+  la: LayerAccess,
+  ps: PanelStore,
+  fs: FocusStore,
+  li: HTMLElement,
+): boolean => {
   if (!li.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)) {
-    armDelete(ui, li);
+    armDelete(la, ps, fs, li);
     return false;
   }
-  const layerId = ui.activeMenu?.layerId ?? "";
+  const layerId = ps.activeMenu?.layerId ?? "";
   disarmDelete();
-  ui.m.deleteLayer(layerId);
+  la.deleteLayer(layerId);
   return true;
 };
 
 /** Close the overflow menu. setFocus = true returns focus to the layer row. */
 
-const closeMoreMenu = (ui: LayerUI, setFocus: boolean) => {
-  if (!ui.activeMenu) return;
-  const item = ui.activeMenu.item;
-  const menu = ui.activeMenu.menu;
+const closeMoreMenu = (
+  la: LayerAccess,
+  ps: PanelStore,
+  fs: FocusStore,
+  setFocus: boolean,
+) => {
+  if (!ps.activeMenu) return;
+  const item = ps.activeMenu.item;
+  const menu = ps.activeMenu.menu;
   // Clear the pointer before removing: the removal can trigger the menu's own
   // focusout, which calls closeMoreMenu again — that re-entrant pass must see
   // null, not call remove() on a detached menu (NotFoundError).
-  ui.activeMenu = null;
+  ps.activeMenu = null;
   disarmDelete();
   menu.remove();
   if (setFocus) item.focus();

@@ -3,6 +3,7 @@ import { LayerIntentStore, LayerRuntimeStore } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { hideSolidBasemap, showSolidBasemap } from "#foliplus/LayerControl/ui/color.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
+import { attachFaces } from "./fixture.js";
 
 const makeUi = (layers: Array<{ id: string; group: "base" | "overlay" }> = []) => {
   const uiContainer = document.createElement("div");
@@ -28,7 +29,7 @@ const makeUi = (layers: Array<{ id: string; group: "base" | "overlay" }> = []) =
   // tests assert on the surface handle rather than on the map container.
   const setColor = vi.fn();
   const setVisible = vi.fn();
-  const ui = {
+  const ui = attachFaces({
     uiContainer,
     colorSurface: null as null | {
       element: HTMLCanvasElement;
@@ -76,24 +77,24 @@ const makeUi = (layers: Array<{ id: string; group: "base" | "overlay" }> = []) =
         removeLayer: vi.fn(),
       },
     },
-  } as unknown as LayerUI;
+  } as unknown as LayerUI);
   return { ui, setColor, setVisible };
 };
 
 describe("ui/color", () => {
   it("hideSolidBasemap clears the surface visibility", () => {
     const { ui, setVisible } = makeUi();
-    showSolidBasemap(ui, "#ff0000");
+    showSolidBasemap(ui.la, ui.panelStore, ui.focusStore, "#ff0000");
 
-    hideSolidBasemap(ui);
+    hideSolidBasemap(ui.la, ui.panelStore, ui.focusStore);
 
     expect(setVisible).toHaveBeenCalledWith(false);
   });
 
   it("showSolidBasemap paints the color and shows the surface", () => {
     const { ui, setColor, setVisible } = makeUi();
-    showSolidBasemap(ui, "#ff0000");
-    expect(ui.currentColor).toBe("#ff0000");
+    showSolidBasemap(ui.la, ui.panelStore, ui.focusStore, "#ff0000");
+    expect(ui.panelStore.currentColor).toBe("#ff0000");
     expect(setColor).toHaveBeenCalledWith("#ff0000");
     expect(setVisible).toHaveBeenCalledWith(true);
   });
@@ -114,7 +115,7 @@ describe("ui/color", () => {
     ).removeLayer;
     removeLayer.mockClear();
 
-    showSolidBasemap(ui, "#ff0000");
+    showSolidBasemap(ui.la, ui.panelStore, ui.focusStore, "#ff0000");
 
     expect(removeLayer).not.toHaveBeenCalled();
     expect(tilePane.classList.add).not.toHaveBeenCalled();
@@ -131,7 +132,7 @@ describe("ui/color", () => {
       { id: "overlay_1", group: "overlay" },
     ]);
     const rows = [
-      ...ui.uiContainer.querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM),
+      ...ui.panelStore.uiContainer.querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM),
     ];
     const before = rows.map(row => ({
       checked: row.querySelector<HTMLInputElement>("input[type=checkbox]")?.checked,
@@ -139,7 +140,7 @@ describe("ui/color", () => {
     }));
     rows[0].classList.add(CONST.CLASSES.ACTIVE);
 
-    showSolidBasemap(ui, "#ff0000");
+    showSolidBasemap(ui.la, ui.panelStore, ui.focusStore, "#ff0000");
 
     rows.forEach((row, i) => {
       const after = {
@@ -153,11 +154,13 @@ describe("ui/color", () => {
 
   it("showSolidBasemap tolerates a row without a checkbox (partially rendered)", () => {
     const { ui } = makeUi([{ id: "base_nochk", group: "base" }]);
-    const row = ui.uiContainer.querySelector<HTMLElement>(
+    const row = ui.panelStore.uiContainer.querySelector<HTMLElement>(
       `[${CONST.DATA.LAYER_ID}="base_nochk"]`,
     );
     row!.innerHTML = "";
-    expect(() => showSolidBasemap(ui, "#ff0000")).not.toThrow();
+    expect(() =>
+      showSolidBasemap(ui.la, ui.panelStore, ui.focusStore, "#ff0000"),
+    ).not.toThrow();
   });
 
   it("showSolidBasemap orders the stack synchronously", () => {
@@ -166,7 +169,7 @@ describe("ui/color", () => {
     // already carrying its slot's z, so there is no 400-default window to
     // close and no provisional step left to rewrite.
     const { ui } = makeUi();
-    showSolidBasemap(ui, "#ff0000");
+    showSolidBasemap(ui.la, ui.panelStore, ui.focusStore, "#ff0000");
     expect((ui.m as any).enforceOrder).toHaveBeenCalledTimes(1);
   });
 
@@ -174,13 +177,13 @@ describe("ui/color", () => {
     // The surface is created once and reused: a second show must not
     // allocate a new canvas or pane.
     const { ui, setColor } = makeUi();
-    showSolidBasemap(ui, "#ff0000");
-    const firstSurface = ui.colorSurface;
+    showSolidBasemap(ui.la, ui.panelStore, ui.focusStore, "#ff0000");
+    const firstSurface = ui.panelStore.colorSurface;
     expect(firstSurface).not.toBeNull();
 
-    showSolidBasemap(ui, "#00ff00");
+    showSolidBasemap(ui.la, ui.panelStore, ui.focusStore, "#00ff00");
 
-    expect(ui.colorSurface).toBe(firstSurface);
+    expect(ui.panelStore.colorSurface).toBe(firstSurface);
     expect(setColor).toHaveBeenLastCalledWith("#00ff00");
   });
 });

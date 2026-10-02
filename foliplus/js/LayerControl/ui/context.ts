@@ -1,6 +1,6 @@
 // Shared pure helpers for LayerControl UI modules.
-// CONF / map are no longer read here — each module reads them off the
-// `LayerUI` state it receives (ui.conf / ui.T / ui.m.map).
+// CONF / map are no longer read here — modules receive them via the
+// (la, ps, fs) injection faces (la.map / ps / module-local translators).
 import { type LayerInfo } from "#core/layer/index.js";
 import { updateItemLabel } from "#common/dom.js";
 import * as CONST from "../const.js";

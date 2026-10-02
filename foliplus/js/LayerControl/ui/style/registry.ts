@@ -55,8 +55,10 @@
 import { DIM } from "#core/layer/index.js";
 import * as CONST from "../../const.js";
 import type { LayerDimension } from "../../type.js";
-import type { LayerUI } from "../index.js";
+import type { LayerAccess } from "../access.js";
+import type { FocusStore } from "../focusStore.js";
 import type { IntentKey } from "../intent.js";
+import type { PanelStore } from "../panelStore.js";
 import { saveState } from "../state.js";
 
 const registry: Map<string, LayerDimension<any>> = new Map();
@@ -125,14 +127,16 @@ const LABEL_DIM_ORDER = [DIM.ANNOTATION] as const;
  *  miss; the cast states that contract instead of branching on a null arm no
  *  test can reach. */
 const gatedRows = (
-  ui: LayerUI,
+  la: LayerAccess,
+  ps: PanelStore,
+  fs: FocusStore,
   layerId: string,
   keys: readonly string[],
 ): LayerDimension[] => {
   const rows: LayerDimension[] = [];
   for (const key of keys) {
     const dim = getDimension(key) as LayerDimension;
-    if (dim.gate(ui, layerId)) rows.push(dim);
+    if (dim.gate(la, ps, fs, layerId)) rows.push(dim);
   }
   return rows;
 };
@@ -143,18 +147,20 @@ const gatedRows = (
  *  written; schedules storage on success. Callers still own the styleBag /
  *  projection landing after this returns true. */
 const writeIntentKeys = (
-  ui: LayerUI,
+  la: LayerAccess,
+  ps: PanelStore,
+  fs: FocusStore,
   layerId: string,
   writes: ReadonlyArray<readonly [key: IntentKey, value: unknown]>,
 ): boolean => {
   let wrote = false;
   for (const [key, value] of writes) {
     if (value === undefined) continue;
-    ui.intentStore.setRaw(layerId, key, value);
+    la.intentStore.setRaw(layerId, key, value);
     wrote = true;
   }
   if (!wrote) return false;
-  saveState(ui);
+  saveState(la, ps, fs);
   return true;
 };
 
@@ -168,15 +174,17 @@ const writeIntentKeys = (
  *  Pair of {@link writeIntentKeys}: that function is the user-write side,
  *  this is the user-reset side. */
 const resetIntentKeys = (
-  ui: LayerUI,
+  la: LayerAccess,
+  ps: PanelStore,
+  fs: FocusStore,
   layerId: string,
   keys: readonly IntentKey[],
 ): boolean => {
   if (keys.length === 0) return false;
   for (const key of keys) {
-    ui.intentStore.clear(layerId, key);
+    la.intentStore.clear(layerId, key);
   }
-  saveState(ui);
+  saveState(la, ps, fs);
   return true;
 };
 

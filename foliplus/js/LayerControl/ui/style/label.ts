@@ -18,26 +18,37 @@ import {
 import { NUMBER_FORMAT } from "#common/format.js";
 import * as CONST from "../../const.js";
 import type { AnnotationConfig } from "../../type.js";
-import type { LayerUI } from "../index.js";
+import type { LayerAccess } from "../access.js";
+import type { FocusStore } from "../focusStore.js";
 import { INTENT, getIntent } from "../intent.js";
+import type { PanelStore } from "../panelStore.js";
 import { saveState } from "../state.js";
 
 /** Field list for a layer (cached on the runtime store). collectFields walks
  *  every feature, so the answer is cached per layer id; invalidateFields drops
  *  a layer's entry whenever its features can change at runtime. */
-const layerFields = (ui: LayerUI, layerId: string): LabelField[] => {
-  const cached = ui.runtimeStore.getFields(layerId);
+const layerFields = (
+  la: LayerAccess,
+  ps: PanelStore,
+  fs: FocusStore,
+  layerId: string,
+): LabelField[] => {
+  const cached = la.runtimeStore.getFields(layerId);
   if (cached) return cached;
-  const fields = ui.m.annotation.collectFields(layerId);
-  ui.runtimeStore.setFields(layerId, fields);
+  const fields = la.annotation.collectFields(layerId);
+  la.runtimeStore.setFields(layerId, fields);
   return fields;
 };
 
 /** Whether the layer has any labelable fields. False for base maps, the color
  *  basemap, and canvas layers (no feature.properties) — the ⋮ menu's Style
  *  item keys off this. */
-const layerHasLabelFields = (ui: LayerUI, layerId: string): boolean =>
-  layerFields(ui, layerId).length > 0;
+const layerHasLabelFields = (
+  la: LayerAccess,
+  ps: PanelStore,
+  fs: FocusStore,
+  layerId: string,
+): boolean => layerFields(la, ps, fs, layerId).length > 0;
 
 /** Drop a layer's cached field list and re-render if it is currently labeling.
  *  Called when a layer's features can change (runtime createLayers) or when the
@@ -46,11 +57,16 @@ const layerHasLabelFields = (ui: LayerUI, layerId: string): boolean =>
  *  The re-render matters: the drawn labels carry text baked from the *old*
  *  fields, and the picker would now resolve a different auto field, so without
  *  it the map and the panel disagree until the user touches a control. */
-const invalidateFields = (ui: LayerUI, layerId: string): void => {
-  ui.runtimeStore.deleteFields(layerId);
-  ui.m.annotation.invalidateAutoField(layerId);
-  if (ui.m.annotation.getConfig(layerId).show) {
-    ui.m.annotation.renderLabels(layerId);
+const invalidateFields = (
+  la: LayerAccess,
+  ps: PanelStore,
+  fs: FocusStore,
+  layerId: string,
+): void => {
+  la.runtimeStore.deleteFields(layerId);
+  la.annotation.invalidateAutoField(layerId);
+  if (la.annotation.getConfig(layerId).show) {
+    la.annotation.renderLabels(layerId);
   }
 };
 
@@ -59,23 +75,25 @@ const invalidateFields = (ui: LayerUI, layerId: string): void => {
  *  visibility / opacity / zoom range now saves it. The legacy top-level
  *  `annotations` segment has no live source anymore: it passes through on
  *  every write, read only as the fallback when the new key is absent. */
-const persistStyleLabel = (ui: LayerUI): void => {
-  saveState(ui);
+const persistStyleLabel = (la: LayerAccess, ps: PanelStore, fs: FocusStore): void => {
+  saveState(la, ps, fs);
 };
 
 /** Apply one control change to the layer's config, re-render its labels and
  *  persist. Shared by the toggle and both selects so the update order
  *  (config → labels → storage) lives in exactly one place. */
 const applyPatch = (
-  ui: LayerUI,
+  la: LayerAccess,
+  ps: PanelStore,
+  fs: FocusStore,
   layerId: string,
   patch: Partial<AnnotationConfig>,
 ): void => {
-  const cfg = ui.m.annotation.getConfig(layerId);
+  const cfg = la.annotation.getConfig(layerId);
   Object.assign(cfg, patch);
-  ui.m.annotation.setConfig(layerId, cfg);
-  ui.m.annotation.renderLabels(layerId);
-  persistStyleLabel(ui);
+  la.annotation.setConfig(layerId, cfg);
+  la.annotation.renderLabels(layerId);
+  persistStyleLabel(la, ps, fs);
 };
 
 /** Coerce one stored label config into a complete {@link AnnotationConfig}.
@@ -105,23 +123,27 @@ const coerceAnnotationFields = (raw: unknown): AnnotationConfig => {
 
 /** Load persisted per-layer style (label) config and apply it.
  *
- *  `ui.intentStore` annotation is the *load-time snapshot*, so this is a seed, not a
+ *  `la.intentStore` annotation is the *load-time snapshot*, so this is a seed, not a
  *  restore: a layer already carrying a config has the live one (the user may
  *  have switched it on since the page loaded), and re-applying the snapshot over
  *  it would silently revert that. Idempotent. */
-const applyStyleLabelState = (ui: LayerUI): void => {
-  const seedIds = ui.intentStore.ids();
+const applyStyleLabelState = (
+  la: LayerAccess,
+  ps: PanelStore,
+  fs: FocusStore,
+): void => {
+  const seedIds = la.intentStore.ids();
   for (const id of seedIds) {
-    const raw = getIntent(ui, id, INTENT.ANNOTATION);
+    const raw = getIntent(la, id, INTENT.ANNOTATION);
     if (!raw) continue;
-    if (!layerHasLabelFields(ui, id)) continue; // stale / no fields
-    if (ui.m.annotation.hasConfig(id)) continue; // live state wins
+    if (!layerHasLabelFields(la, ps, fs, id)) continue; // stale / no fields
+    if (la.annotation.hasConfig(id)) continue; // live state wins
     const cfg = coerceAnnotationFields(raw);
-    ui.m.annotation.setConfig(id, cfg);
+    la.annotation.setConfig(id, cfg);
     // A stored `show: false` still has to act: labels left over from an earlier
     // pass would otherwise stay on the map with the toggle reading off.
-    if (cfg.show) ui.m.annotation.renderLabels(id);
-    else ui.m.annotation.clearLabels(id);
+    if (cfg.show) la.annotation.renderLabels(id);
+    else la.annotation.clearLabels(id);
   }
 };
 

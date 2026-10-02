@@ -19,7 +19,9 @@ import type {
   Projection,
 } from "#core/layer/index.js";
 import type { LayerDimKey } from "#core/layer/type.js";
-import type { LayerUI } from "./ui/index.js";
+import type { LayerAccess } from "./ui/access.js";
+import type { FocusStore } from "./ui/focusStore.js";
+import type { PanelStore } from "./ui/panelStore.js";
 
 export type {
   AnnotationConfig,
@@ -187,26 +189,47 @@ type LayerDimension<D = unknown> = {
    *     declares `"none"` for the dimension it can't carry, so the gate
    *  rejects it naturally). See the registry file header for the full
    *  invariant. */
-  gate: (ui: LayerUI, layerId: string) => boolean;
+  gate: (la: LayerAccess, ps: PanelStore, fs: FocusStore, layerId: string) => boolean;
   /** Resolved current value — the user's stored override, falling back to
    *  the author's declared default when the user has never touched the
    *  dimension. `undefined` when the layer is not in the registry. */
-  value: (ui: LayerUI, layerId: string) => D | undefined;
+  value: (
+    la: LayerAccess,
+    ps: PanelStore,
+    fs: FocusStore,
+    layerId: string,
+  ) => D | undefined;
   /** Build the style-panel row. The descriptor owns the DOM shape; the
    *  panel still owns event binding, because binding needs the row's
    *  parent (the panel root) to install the drag bubble and shared
    *  number-field commit handler. */
-  row: (ui: LayerUI, layerId: string) => HTMLElement;
+  row: (
+    la: LayerAccess,
+    ps: PanelStore,
+    fs: FocusStore,
+    layerId: string,
+  ) => HTMLElement;
   /** Cohesive user write: persist the patch through LayerIntentStore (`set`
    *  marks provenance) then schedule the styleBag landing. Partial patch —
    *  omitted keys leave that sub-dimension untouched. */
-  write?: (ui: LayerUI, layerId: string, patch: Partial<D> | D) => void;
+  write?: (
+    la: LayerAccess,
+    ps: PanelStore,
+    fs: FocusStore,
+    layerId: string,
+    patch: Partial<D> | D,
+  ) => void;
   /** Cohesive reset: drop the dimension's LayerIntentStore rows (values +
    *  provenance) and restore the author's styleBag face. */
-  reset?: (ui: LayerUI, layerId: string) => void;
+  reset?: (la: LayerAccess, ps: PanelStore, fs: FocusStore, layerId: string) => void;
   /** Three-state source of the effective value. Gate rejects → `"none"`;
    *  store provenance → `"user"`; otherwise `"author"`. */
-  valueSource?: (ui: LayerUI, layerId: string) => DimensionValueSource;
+  valueSource?: (
+    la: LayerAccess,
+    ps: PanelStore,
+    fs: FocusStore,
+    layerId: string,
+  ) => DimensionValueSource;
 };
 
 export type {

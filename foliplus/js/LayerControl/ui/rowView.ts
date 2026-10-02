@@ -15,12 +15,17 @@
 import { GROUP } from "#core/layer/index.js";
 import { formatNumber } from "#common/format.js";
 import * as Icons from "#common/icon.js";
+import { createScopedTranslator } from "#common/locale.js";
 import * as CONST from "../const.js";
 import * as SVGs from "../icon.js";
 import * as Util from "../util.js";
-import type { LayerUI } from "./index.js";
+import type { LayerAccess } from "./access.js";
+import type { FocusStore } from "./focusStore.js";
 import { INTENT, getIntent } from "./intent.js";
+import type { PanelStore } from "./panelStore.js";
 import { intentVisibleOf, projectLayer } from "./projection.js";
+
+const T = createScopedTranslator(CONF);
 
 /** One layer's inputs to the row visual. Nothing here is written back. */
 interface RowCell {
@@ -70,13 +75,18 @@ interface RowLabels {
  *  original choice. If both endpoints clamp past each other the whole
  *  range is outside the map and no zoom can land inside it.
  */
-const inZoomRange = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
-  const range = getIntent(ui, layerInfo.id, INTENT.ZOOM_RANGE);
+const inZoomRange = (
+  la: LayerAccess,
+  ps: PanelStore,
+  fs: FocusStore,
+  layerInfo: LayerInfo,
+): boolean => {
+  const range = getIntent(la, layerInfo.id, INTENT.ZOOM_RANGE);
   if (!range) return true;
-  const min = Math.max(range[0], ui.m.map.getMinZoom());
-  const max = Math.min(range[1], ui.m.map.getMaxZoom());
+  const min = Math.max(range[0], la.map.getMinZoom());
+  const max = Math.min(range[1], la.map.getMaxZoom());
   if (min > max) return false;
-  const zoom = ui.m.map.getZoom();
+  const zoom = la.map.getZoom();
   return zoom >= min && zoom <= max;
 };
 
@@ -114,11 +124,16 @@ const rowView = (cell: RowCell, labels: RowLabels): RowView => ({
  *  (re-registration, type refresh) can no longer resurrect the original
  *  third-party name over a rename.
  */
-const displayName = (ui: LayerUI, id: string): string => {
+const displayName = (
+  la: LayerAccess,
+  ps: PanelStore,
+  fs: FocusStore,
+  id: string,
+): string => {
   return (
-    (getIntent(ui, id, INTENT.NAME) as string | undefined) ??
-    ui.m.layerRegistry.get(id)?.name ??
-    (id === CONST.SOLID_BASEMAP_ID ? ui.T("color_map_label") : "")
+    (getIntent(la, id, INTENT.NAME) as string | undefined) ??
+    la.layerRegistry.get(id)?.name ??
+    (id === CONST.SOLID_BASEMAP_ID ? T("color_map_label") : "")
   );
 };
 
@@ -145,13 +160,18 @@ const displayName = (ui: LayerUI, id: string): string => {
  *  A canvas-only layer is the exception: it has no Leaflet layer to observe
  *  at any point, so its declared `visible` is the ground truth.
  */
-const snapshotAuthorVisible = (ui: LayerUI, layerInfo: LayerInfo): void => {
-  if (ui.runtimeStore.hasAuthorVisible(layerInfo.id)) return;
-  const layer = ui.m.findLayer(layerInfo);
+const snapshotAuthorVisible = (
+  la: LayerAccess,
+  ps: PanelStore,
+  fs: FocusStore,
+  layerInfo: LayerInfo,
+): void => {
+  if (la.runtimeStore.hasAuthorVisible(layerInfo.id)) return;
+  const layer = la.findLayer(layerInfo);
   if (!layer && !layerInfo.canvas) return; // not linked yet — leave unknown
-  ui.runtimeStore.setAuthorVisible(
+  la.runtimeStore.setAuthorVisible(
     layerInfo.id,
-    layer ? ui.m.map.hasLayer(layer) : intentVisibleOf(ui, layerInfo.id),
+    layer ? la.map.hasLayer(layer) : intentVisibleOf(la, ps, fs, layerInfo.id),
   );
 };
 
@@ -164,7 +184,9 @@ const snapshotAuthorVisible = (ui: LayerUI, layerInfo: LayerInfo): void => {
  *  stamp the snapshot — the row is a projection, not a writer.
  */
 const rowType = (
-  ui: LayerUI,
+  la: LayerAccess,
+  ps: PanelStore,
+  fs: FocusStore,
   layerInfo: LayerInfo,
   layer: L.Layer | null,
 ): { svg: string; key: string } => {
@@ -179,7 +201,7 @@ const rowType = (
     return { svg: layerInfo.iconSvg, key: "type_custom" };
   }
   if (layer) {
-    const gtype = ui.m.surfaceFor(layerInfo).geometryType();
+    const gtype = la.surfaceFor(layerInfo).geometryType();
     return { svg: Util.getTypeSVG(gtype), key: `type_${gtype}` };
   }
   return { svg: SVGs.UNKNOWN, key: "type_unknown" };
@@ -191,24 +213,29 @@ const rowType = (
  *  Everything the row shows is read here and nothing is written, so the row
  *  cannot read a stale decoration and looking at a layer cannot move the map.
  */
-const buildRowCell = (ui: LayerUI, layerInfo: LayerInfo): RowCell => {
-  const layer = ui.m.findLayer(layerInfo);
-  const checked = intentVisibleOf(ui, layerInfo.id);
-  const type = rowType(ui, layerInfo, layer);
-  const count = ui.mgmt.getFeatureCount(layerInfo.id);
+const buildRowCell = (
+  la: LayerAccess,
+  ps: PanelStore,
+  fs: FocusStore,
+  layerInfo: LayerInfo,
+): RowCell => {
+  const layer = la.findLayer(layerInfo);
+  const checked = intentVisibleOf(la, ps, fs, layerInfo.id);
+  const type = rowType(la, ps, fs, layerInfo, layer);
+  const count = la.getFeatureCount(layerInfo.id);
   return {
     id: layerInfo.id,
-    name: displayName(ui, layerInfo.id),
+    name: displayName(la, ps, fs, layerInfo.id),
     checked,
     // Read the projection: focus overrides the range, the range never
     // overrides the intent. Focus dims the other rows visually without
     // removing them from the map, so while it holds every checked layer is
     // on screen regardless of its range. The policy write side reads the
     // same projection, so the formula has one home.
-    shown: projectLayer(ui, layerInfo).effectiveShown,
-    countText: count != null ? formatNumber(count, "auto", ui.conf.locale_code) : "",
+    shown: projectLayer(la, ps, fs, layerInfo).effectiveShown,
+    countText: count != null ? formatNumber(count, "auto", CONF.locale_code) : "",
     typeSvg: type.svg,
-    typeLabel: ui.T(type.key),
+    typeLabel: T(type.key),
   };
 };
 
@@ -221,10 +248,16 @@ const buildRowCell = (ui: LayerUI, layerInfo: LayerInfo): RowCell => {
  *  updates the rest rather than being skipped. An empty `typeSvg` leaves the
  *  icon column as it is — nothing to paint is not the same as a blank.
  */
-const applyRowView = (ui: LayerUI, item: HTMLElement, cell: RowCell): void => {
+const applyRowView = (
+  la: LayerAccess,
+  ps: PanelStore,
+  fs: FocusStore,
+  item: HTMLElement,
+  cell: RowCell,
+): void => {
   const view = rowView(cell, {
-    select: ui.T("select_tooltip"),
-    deselect: ui.T("deselect_tooltip"),
+    select: T("select_tooltip"),
+    deselect: T("deselect_tooltip"),
   });
 
   const input = item.querySelector<HTMLInputElement>('input[type="checkbox"]');

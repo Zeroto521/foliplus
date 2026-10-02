@@ -9,42 +9,56 @@
 // The pane is created lazily on first show so a color that never gets
 // checked does not allocate a canvas or a pane in the DOM.
 import type { CreateColorAPI } from "#core/layer/index.js";
+import { createScopedTranslator } from "#common/locale.js";
 import * as CONST from "../const.js";
-import type { LayerUI } from "./index.js";
+import type { LayerAccess } from "./access.js";
+import type { FocusStore } from "./focusStore.js";
+import type { PanelStore } from "./panelStore.js";
 
-const getColorSurface = (ui: LayerUI): CreateColorAPI => {
-  if (!ui.colorSurface) {
-    const surface = ui.m.createColor({
+const T = createScopedTranslator(CONF);
+
+const getColorSurface = (
+  la: LayerAccess,
+  ps: PanelStore,
+  fs: FocusStore,
+): CreateColorAPI => {
+  if (!ps.colorSurface) {
+    const surface = la.createColor({
       id: CONST.SOLID_BASEMAP_ID,
-      name: ui.T("color_map_label"),
+      name: T("color_map_label"),
       color: CONST.COLOR.DEFAULT,
     });
-    ui.colorSurface = surface;
+    ps.colorSurface = surface;
     // register() inserts the LayerInfo into the registry. Called after
-    // setting ui.colorSurface so a subsequent getColorSurface call (from
+    // setting ps.colorSurface so a subsequent getColorSurface call (from
     // showSolidBasemap during the register-triggered applyProjection) finds
     // the surface instead of creating a second one.
     surface.register();
   }
-  return ui.colorSurface;
+  return ps.colorSurface;
 };
 
-const showSolidBasemap = (ui: LayerUI, color: string) => {
-  ui.currentColor = color;
-  const surface = getColorSurface(ui);
+const showSolidBasemap = (
+  la: LayerAccess,
+  ps: PanelStore,
+  fs: FocusStore,
+  color: string,
+) => {
+  ps.currentColor = color;
+  const surface = getColorSurface(la, ps, fs);
   surface.setColor(color);
   surface.setVisible(true);
   // Checking the box is a single user action — order the stack now, so the
   // pane's z lands immediately instead of after the debounce.
-  ui.m.enforceOrder();
+  la.enforceOrder();
 };
 
-const hideSolidBasemap = (ui: LayerUI) => {
+const hideSolidBasemap = (la: LayerAccess, ps: PanelStore, fs: FocusStore) => {
   // The surface is created lazily on first show. An init-time hide
   // (the author default is unchecked) runs before any show, so the
   // surface does not exist yet — nothing to hide, and the pane is not
   // allocated.
-  ui.colorSurface?.setVisible(false);
+  ps.colorSurface?.setVisible(false);
 };
 
 export { getColorSurface, showSolidBasemap, hideSolidBasemap };

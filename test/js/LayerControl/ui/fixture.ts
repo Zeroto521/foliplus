@@ -2,6 +2,7 @@ import { vi } from "vitest";
 import { GROUP, LayerIntentStore, LayerRuntimeStore } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { LayerManager } from "#foliplus/LayerControl/manager.js";
+import type { LayerAccess } from "#foliplus/LayerControl/ui/access.js";
 import { FocusStore } from "#foliplus/LayerControl/ui/focusStore.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { PanelStore } from "#foliplus/LayerControl/ui/panelStore.js";
@@ -265,24 +266,29 @@ const initFixture = (
   return { manager, ui, map };
 };
 
-const findItem = (ui: LayerUI, id: string): HTMLElement =>
-  ui.uiContainer.querySelector(`[${CONST.DATA.LAYER_ID}="${id}"]`) as HTMLElement;
+const findItem = (
+  la: LayerAccess,
+  ps: PanelStore,
+  fs: FocusStore,
+  id: string,
+): HTMLElement =>
+  ps.uiContainer!.querySelector(`[${CONST.DATA.LAYER_ID}="${id}"]`) as HTMLElement;
 
 /** Resolve the overlay group's toggle-all row and its chevron, plus a live
  *  read of its child rows. */
-const attachWithGroup = (ui: LayerUI) => {
-  const row = ui.uiContainer.querySelector(
+const attachWithGroup = (la: LayerAccess, ps: PanelStore, fs: FocusStore) => {
+  const row = ps.uiContainer!.querySelector(
     `.${CONST.CLASSES.TOGGLE_ALL}[data-group="${GROUP.OVERLAY}"]`,
   ) as HTMLElement;
   const children = () =>
     Array.from(
-      ui.uiContainer.querySelectorAll<HTMLElement>(
+      ps.uiContainer!.querySelectorAll<HTMLElement>(
         `${CONST.SEL.LAYER_ITEM}[data-layer-type="${GROUP.OVERLAY}"]`,
       ),
     );
 
   return {
-    ui,
+    ui: { la, panelStore: ps, focusStore: fs },
     row,
     foldBtn: row.querySelector(`.${CONST.CLASSES.FOLD_BTN}`) as HTMLElement,
     children,
@@ -335,9 +341,172 @@ const makeAccess = (extra: Record<string, unknown> = {}) => ({
   ...extra,
 });
 
+/** Split a hand-written ui stub into the (la, ps, fs) faces the phase-2
+ *  modules receive. Fields the stub did not shape fall back to inert
+ *  defaults, so a thin stub keeps compiling and running. */
+const facesOf = (ui: Record<string, any>) => {
+  const m = ui.m ?? {};
+  const ps = makePanelStore();
+  const fs = makeFocusStore();
+  for (const key of [
+    "foldedGroups",
+    "checkedCount",
+    "activeMenu",
+    "activeAttrsPanel",
+    "stylePanelLayerId",
+    "activeRenameId",
+    "dragIdx",
+    "lastDragHintAt",
+    "lastDragOverItem",
+    "pressInPanel",
+    "activeIdx",
+    "listCursor",
+    "interactionCleanup",
+    "currentColor",
+    "uiContainer",
+    "colorSurface",
+    "onChange",
+    "onInput",
+    "onClick",
+    "onFocusIn",
+    "onFocusOut",
+    "onDragStart",
+    "onDragOver",
+    "onDragLeave",
+    "onDragEnd",
+    "onDrop",
+    "onMoreClick",
+    "onMoreMenuClick",
+    "onMoreMapClick",
+    "onZoomEnd",
+    "unsubscribeCountChange",
+    "unsubscribeControlAttached",
+    "attrsOutsideHandler",
+    "styleOutsideHandler",
+    "attrsUnsubscribe",
+    "styleUnsubscribe",
+    "styleRefresh",
+    "styleZoomEndHandler",
+    "geometryMarqueeCleanup",
+  ]) {
+    if (ui[key] !== undefined) (ps as Record<string, unknown>)[key] = ui[key];
+  }
+  // The color basemap's default fill color — a stub that never set it must
+  // still read the control's DEFAULT, not PanelStore's empty string.
+  if ((ps as Record<string, unknown>).currentColor === "") {
+    (ps as Record<string, unknown>).currentColor = "#cccccc";
+  }
+  for (const key of [
+    "focusRect",
+    "focusingLayerId",
+    "onFocusMapMove",
+    "focusMask",
+    "focusRenderer",
+    "focusedPaneRestores",
+  ]) {
+    if (ui[key] !== undefined) (fs as Record<string, unknown>)[key] = ui[key];
+  }
+  const la: Record<string, unknown> = {
+    // A plain Map stub has no `.layers` — wrap it so projection walks get
+    // the array shape without losing Map lookup.
+    layerRegistry: (() => {
+      const raw = m.layerRegistry ?? ui.layerRegistry;
+      if (raw && raw.layers) return raw;
+      // Spread keeps stub methods (indexOf / reorder / …) while Map get/has
+      // still reach through to the original.
+      return {
+        ...(raw ?? {}),
+        get: (id: string) => raw?.get?.(id),
+        has: (id: string) => raw?.has?.(id) ?? (raw ? id in raw : false),
+        layers: [],
+      };
+    })(),
+    intentStore: ui.intentStore ?? new LayerIntentStore(),
+    runtimeStore: ui.runtimeStore ?? new LayerRuntimeStore(),
+    annotation: m.annotation ??
+      ui.annotation ?? {
+        configEntries: () => [],
+        getConfig: () => ({ show: false }),
+        hasConfig: () => false,
+        collectFields: () => [],
+      },
+    events: ui.events ?? { on: vi.fn(() => vi.fn()), emit: vi.fn(), off: vi.fn() },
+    map: m.map ??
+      ui.map ?? {
+        on: vi.fn(),
+        off: vi.fn(),
+        hasLayer: vi.fn(() => false),
+        addLayer: vi.fn(),
+        removeLayer: vi.fn(),
+        getZoom: vi.fn(() => 5),
+        getMaxZoom: vi.fn(() => 18),
+        getMinZoom: vi.fn(() => 0),
+        flyTo: vi.fn(),
+        fitBounds: vi.fn(),
+        getContainer: vi.fn(() => document.createElement("div")),
+        foliplus: { showHint: vi.fn(), hideHint: vi.fn() },
+      },
+    layers: m.layers ?? [],
+    panes: m.panes ?? ui.panes ?? {},
+    pendingRegistrations: m.pendingRegistrations ?? [],
+    persistence: m.persistence ??
+      ui.persistence ?? {
+        schedule: vi.fn(),
+        load: () => ({}),
+        flushAll: vi.fn(),
+      },
+    debouncedEnforce: m.debouncedEnforce ?? (() => {}),
+    findLayer: m.findLayer
+      ? (x: any) => m.findLayer(x)
+      : (ui.findLayer ?? (() => null)),
+    surfaceFor: m.surfaceFor
+      ? (x: any) => m.surfaceFor(x)
+      : (ui.surfaceFor ??
+        (() => ({
+          capabilities: { opacity: "none", zoomRange: "none" },
+          paneNames: [],
+          panes: [],
+        }))),
+    getFeatureCount: m.getFeatureCount ?? ui.mgmt?.getFeatureCount ?? (() => null),
+    getLayerPanes: m.getLayerPanes ?? ui.getLayerPanes ?? (() => []),
+    canReorderBetween: m.canReorderBetween
+      ? (a: any, b: any) => m.canReorderBetween(a, b)
+      : (ui.canReorderBetween ?? (() => true)),
+    enforceOrder: m.enforceOrder
+      ? () => m.enforceOrder()
+      : (ui.enforceOrder ?? (() => {})),
+    saveOrder: m.saveOrder ? () => m.saveOrder() : (ui.saveOrder ?? (() => {})),
+    deleteLayer: m.deleteLayer
+      ? (id: string) => m.deleteLayer(id)
+      : (ui.deleteLayer ?? (() => false)),
+    moveLayerUp: m.moveLayerUp
+      ? (id: string) => m.moveLayerUp(id)
+      : (ui.moveLayerUp ?? (() => false)),
+    moveLayerDown: m.moveLayerDown
+      ? (id: string) => m.moveLayerDown(id)
+      : (ui.moveLayerDown ?? (() => false)),
+    replaySavedOrder: m.replaySavedOrder
+      ? (id?: string) => m.replaySavedOrder(id)
+      : (ui.replaySavedOrder ?? (() => {})),
+    createColor: m.createColor ?? ui.createColor ?? (() => ({})),
+  };
+  return { la, ps, fs } as { la: any; ps: any; fs: any };
+};
+
+/** Attach the (la, ps, fs) faces to a hand-written ui stub in place. */
+const attachFaces = (ui: Record<string, any>) => {
+  const faces = facesOf(ui);
+  (ui as Record<string, unknown>).la = faces.la;
+  (ui as Record<string, unknown>).panelStore = faces.ps;
+  (ui as Record<string, unknown>).focusStore = faces.fs;
+  return ui;
+};
+
 export {
   allFolded,
+  attachFaces,
   attachWithGroup,
+  facesOf,
   findItem,
   initFixture,
   installLeafletGlobals,

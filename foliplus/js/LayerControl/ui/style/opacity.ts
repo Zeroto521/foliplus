@@ -11,10 +11,13 @@
 // delegate that also syncs the panel rail (UI chrome outside the descriptor).
 import { CAP_TIER, DIM, GROUP } from "#core/layer/index.js";
 import { dom } from "#common/dom.js";
+import { createScopedTranslator } from "#common/locale.js";
 import * as CONST from "../../const.js";
+import type { LayerAccess } from "../access.js";
 import { applyProjection } from "../apply.js";
-import type { LayerUI } from "../index.js";
+import type { FocusStore } from "../focusStore.js";
 import { INTENT, getIntent } from "../intent.js";
+import type { PanelStore } from "../panelStore.js";
 import { syncNoBasemap } from "../visibility.js";
 import { railPos, round5 } from "./frame.js";
 import {
@@ -24,14 +27,21 @@ import {
   writeIntentKeys,
 } from "./registry.js";
 
+const T = createScopedTranslator(CONF);
+
 /** Whether the layer's surface can honestly carry an opacity write. Layers with
  *  `opacity: "none"` (e.g. MarkerCluster, whose cluster icons live in a shared
  *  pane we do not own) get no opacity row — a slider that writes nothing but
  *  persists the value would fail silently. */
-const layerCanOpacity = (ui: LayerUI, layerId: string): boolean => {
-  const li = ui.m.layerRegistry.get(layerId);
+const layerCanOpacity = (
+  la: LayerAccess,
+  ps: PanelStore,
+  fs: FocusStore,
+  layerId: string,
+): boolean => {
+  const li = la.layerRegistry.get(layerId);
   if (!li) return false;
-  return ui.m.surfaceFor(li).capabilities.opacity !== CAP_TIER.NONE;
+  return la.surfaceFor(li).capabilities.opacity !== CAP_TIER.NONE;
 };
 
 /** UI percentage (0-100) for a stored opacity (0-1). */
@@ -92,7 +102,9 @@ const syncOpacityInputs = (panel: HTMLElement, pct: number): void => {
  *  sync stays here because the panel root is a UI argument that does not
  *  belong on the descriptor contract. */
 const commitOpacityPct = (
-  ui: LayerUI,
+  la: LayerAccess,
+  ps: PanelStore,
+  fs: FocusStore,
   layerId: string,
   panel: HTMLElement,
   rawPct: number,
@@ -100,13 +112,13 @@ const commitOpacityPct = (
 ): void => {
   const pct = clampPct(rawPct);
   const opacity = pct / 100;
-  const li = ui.m.layerRegistry.get(layerId);
+  const li = la.layerRegistry.get(layerId);
   if (!li) return;
   // Only touch the layer when the value actually moved: a drag revisits steps
   // (and the commit re-sends the live value), and for a plain layer each pass
   // is a sweep over every feature.
   if (li.opacity === opacity) return;
-  getDimension(DIM.OPACITY)!.write!(ui, layerId, opacity);
+  getDimension(DIM.OPACITY)!.write!(la, ps, fs, layerId, opacity);
   syncOpacityInputs(panel, pct);
 };
 
@@ -118,9 +130,14 @@ const commitOpacityPct = (
  *  than this one. The range input keeps the value reachable: it carries the
  *  accessible name and value, arrow / Home / End drive it, and the bubble
  *  appears for keyboard input the same as for a drag. */
-const buildOpacityRow = (ui: LayerUI, layerId: string): HTMLElement => {
-  const li = ui.m.layerRegistry.get(layerId);
-  const pct = opacityToPct(getIntent(ui, layerId, INTENT.OPACITY) ?? li?.opacity);
+const buildOpacityRow = (
+  la: LayerAccess,
+  ps: PanelStore,
+  fs: FocusStore,
+  layerId: string,
+): HTMLElement => {
+  const li = la.layerRegistry.get(layerId);
+  const pct = opacityToPct(getIntent(la, layerId, INTENT.OPACITY) ?? li?.opacity);
   const fill = dom.el("div", {
     class: `${CONST.CLASSES.SLIDER_FILL} ${CONST.CLASSES.STYLE_OPACITY_FILL}`,
     style: `width:${opacityFillWidth(pct)}`,
@@ -138,7 +155,7 @@ const buildOpacityRow = (ui: LayerUI, layerId: string): HTMLElement => {
     max: "100",
     step: "1",
     value: String(pct),
-    "aria-label": ui.T("style_opacity"),
+    "aria-label": T("style_opacity"),
   });
   const rail = dom.el(
     "div",
@@ -166,17 +183,22 @@ const buildOpacityRow = (ui: LayerUI, layerId: string): HTMLElement => {
   return dom.el(
     "div",
     { class: CONST.CLASSES.FORM_ROW },
-    dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("style_opacity")),
+    dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, T("style_opacity")),
     dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, track),
   );
 };
 
 /** Reset one layer's opacity to fully opaque and drop its persisted entry.
  *  Thin delegate over the opacity descriptor's `reset`. */
-const resetLayerOpacity = (ui: LayerUI, layerId: string): void => {
-  const li = ui.m.layerRegistry.get(layerId);
+const resetLayerOpacity = (
+  la: LayerAccess,
+  ps: PanelStore,
+  fs: FocusStore,
+  layerId: string,
+): void => {
+  const li = la.layerRegistry.get(layerId);
   if (!li) return;
-  getDimension(DIM.OPACITY)!.reset!(ui, layerId);
+  getDimension(DIM.OPACITY)!.reset!(la, ps, fs, layerId);
 };
 
 /** Register opacity as a per-layer dimension. The descriptor owns the
@@ -191,37 +213,37 @@ const resetLayerOpacity = (ui: LayerUI, layerId: string): void => {
 const OPACITY_DIMENSION = registerDimension<number>({
   key: DIM.OPACITY,
   gate: layerCanOpacity,
-  value: (ui, layerId) => {
-    const li = ui.m.layerRegistry.get(layerId);
-    return getIntent(ui, layerId, INTENT.OPACITY) ?? li?.opacity;
+  value: (la, ps, fs, layerId) => {
+    const li = la.layerRegistry.get(layerId);
+    return getIntent(la, layerId, INTENT.OPACITY) ?? li?.opacity;
   },
   row: buildOpacityRow,
   /** Intent+persist + projection. `opacity === 1` clears (no override);
    *  any other number marks via LayerIntentStore.set. A non-number patch is a
    *  no-op (descriptor callers always pass a finite 0-1 value). */
-  write: (ui, layerId, patch) => {
+  write: (la, ps, fs, layerId, patch) => {
     const opacity = typeof patch === "number" ? patch : undefined;
     if (opacity === undefined) return;
     if (opacity === 1) {
       // Fully opaque is the declared default — clear, same as resetIntentKeys.
-      resetIntentKeys(ui, layerId, [INTENT.OPACITY]);
+      resetIntentKeys(la, ps, fs, layerId, [INTENT.OPACITY]);
     } else {
-      void writeIntentKeys(ui, layerId, [[INTENT.OPACITY, opacity]]);
+      void writeIntentKeys(la, ps, fs, layerId, [[INTENT.OPACITY, opacity]]);
     }
-    applyProjection(ui, layerId);
-    const li = ui.m.layerRegistry.get(layerId);
-    if (li?.group === GROUP.BASE) syncNoBasemap(ui);
+    applyProjection(la, ps, fs, layerId);
+    const li = la.layerRegistry.get(layerId);
+    if (li?.group === GROUP.BASE) syncNoBasemap(la, ps, fs);
   },
   /** Cohesive reset: clear the override, save, re-project, hatch sync. */
-  reset: (ui, layerId) => {
-    resetIntentKeys(ui, layerId, [INTENT.OPACITY]);
-    applyProjection(ui, layerId);
-    const li = ui.m.layerRegistry.get(layerId);
-    if (li?.group === GROUP.BASE) syncNoBasemap(ui);
+  reset: (la, ps, fs, layerId) => {
+    resetIntentKeys(la, ps, fs, layerId, [INTENT.OPACITY]);
+    applyProjection(la, ps, fs, layerId);
+    const li = la.layerRegistry.get(layerId);
+    if (li?.group === GROUP.BASE) syncNoBasemap(la, ps, fs);
   },
-  valueSource: (ui, layerId) => {
-    if (!layerCanOpacity(ui, layerId)) return "none";
-    return ui.intentStore.isUserSet(layerId, INTENT.OPACITY) ? "user" : "author";
+  valueSource: (la, ps, fs, layerId) => {
+    if (!layerCanOpacity(la, ps, fs, layerId)) return "none";
+    return la.intentStore.isUserSet(layerId, INTENT.OPACITY) ? "user" : "author";
   },
 });
 

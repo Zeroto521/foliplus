@@ -1,4 +1,4 @@
-// LayerControl UI —Layer attributes panel.
+// LayerControl UI 鈥擫ayer attributes panel.
 import { EVENTS } from "#core/event/index.js";
 import { GEOM_TYPE, GROUP } from "#core/layer/index.js";
 import { dom } from "#common/dom.js";
@@ -7,9 +7,11 @@ import { createRowPanel } from "#common/panel.js";
 import * as CONST from "../const.js";
 import * as SVGs from "../icon.js";
 import * as Util from "../util.js";
+import type { LayerAccess } from "./access.js";
 import { ATTRS_ROW_WRAP_CHARS } from "./context.js";
-import type { LayerUI } from "./index.js";
+import type { FocusStore } from "./focusStore.js";
 import { closeMoreMenu } from "./menu.js";
+import type { PanelStore } from "./panelStore.js";
 import { finishRename } from "./rename.js";
 import { displayName } from "./rowView.js";
 import { closeStylePanel } from "./style/index.js";
@@ -19,20 +21,25 @@ import { closeStylePanel } from "./style/index.js";
  * (name, provenance, feature count, last update, visibility) plus any
  * third-party `meta` entries passed to registerLayer.
  *
- * Rows are omitted when they carry no value —a panel is not padded with
- * "—. The color basemap is included (it carries no provider data, but the
+ * Rows are omitted when they carry no value 鈥攁 panel is not padded with
+ * "鈥? The color basemap is included (it carries no provider data, but the
  * fixed rows still read).
  */
-const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
-  finishRename(ui);
-  closeMoreMenu(ui, true);
-  closeAttrsPanel(ui, false);
-  // The style panel floats from the same ⋮ menu; never show both.
-  closeStylePanel(ui, false);
+const openAttrsPanel = (
+  la: LayerAccess,
+  ps: PanelStore,
+  fs: FocusStore,
+  item: HTMLElement,
+) => {
+  finishRename(la, ps, fs);
+  closeMoreMenu(la, ps, fs, true);
+  closeAttrsPanel(la, ps, fs, false);
+  // The style panel floats from the same 鈰?menu; never show both.
+  closeStylePanel(la, ps, fs, false);
 
   const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
   const isColor = layerId === CONST.SOLID_BASEMAP_ID;
-  const layerInfo = ui.manager.layerRegistry.get(layerId);
+  const layerInfo = la.layerRegistry.get(layerId);
 
   // Row kind: a value that runs long (a URL source) drops below its label
   // and takes the full panel width instead of squeezing the label column.
@@ -46,7 +53,7 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
 
   // Every row is built as label + resolved value; a row whose value is an
   // empty string is dropped. That covers both "no data registered" and
-  // "updatedAt parses to nothing" —formatTimestamp returns "" for invalid
+  // "updatedAt parses to nothing" 鈥攆ormatTimestamp returns "" for invalid
   // input, so an unparsable timestamp vanishes instead of leaving an
   // empty-value row.
   const addRow = (label: string, value: string, kind: AttrRow[2] = ""): void => {
@@ -62,11 +69,11 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
   // The surface is the authority for the geometry probe; reading it here is
   // the snapshot sync, not a second source of truth. EMPTY means a container
   // with no data geometry; UNKNOWN means mixed/unrecognisable data.
-  const rawGtype = layerInfo ? ui.manager.surfaceFor(layerInfo).geometryType() : null;
+  const rawGtype = layerInfo ? la.surfaceFor(layerInfo).geometryType() : null;
   const gtype = !rawGtype ? "unknown" : rawGtype;
   // A basemap has no data geometry, so name it by what it is rather than by
   // a geometry type it never had; a custom layer ships its own logo instead
-  // of a geometry glyph —same rowView decision tree, same labels.
+  // of a geometry glyph 鈥攕ame rowView decision tree, same labels.
   const isBaseLayer = layerInfo
     ? layerInfo.group === GROUP.BASE
     : item.dataset.layerType === GROUP.BASE;
@@ -77,28 +84,28 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
       : layerInfo?.iconSvg
         ? "type_custom"
         : `type_${gtype}`;
-  addRow(ui.T("attr_type"), ui.T(typeKey));
+  addRow(ps.T("attr_type"), ps.T(typeKey));
   if (!isColor) {
-    const count = layerInfo ? ui.manager.getFeatureCount(layerId) : null;
+    const count = layerInfo ? la.getFeatureCount(layerId) : null;
     // The panel is the detail view, so the count is grouped (1,234) rather
-    // than compacted —and `comma` defaults to one fraction digit, which
+    // than compacted 鈥攁nd `comma` defaults to one fraction digit, which
     // would render a whole number as "1,234.0", so pass 0 explicitly.
     addRow(
-      ui.T("attr_feature_count"),
+      ps.T("attr_feature_count"),
       count == null
-        ? ui.T("attr_empty")
-        : formatNumber(count, "comma", ui.conf.locale_code, 0),
+        ? ps.T("attr_empty")
+        : formatNumber(count, "comma", ps.localeCode, 0),
     );
   }
   addRow(
-    ui.T("attr_source"),
+    ps.T("attr_source"),
     layerInfo?.source ?? "",
     isLong(layerInfo?.source ?? "") ? "wide" : "",
   );
   if (!isColor) {
     // First-registration time, recorded by the registry itself.
-    addRow(ui.T("attr_created_at"), formatTimestamp(layerInfo?.registeredAt ?? ""));
-    addRow(ui.T("attr_updated_at"), formatTimestamp(layerInfo?.updatedAt ?? ""));
+    addRow(ps.T("attr_created_at"), formatTimestamp(layerInfo?.registeredAt ?? ""));
+    addRow(ps.T("attr_updated_at"), formatTimestamp(layerInfo?.updatedAt ?? ""));
   }
 
   const renderList = (listRows: AttrRow[]): HTMLElement =>
@@ -127,7 +134,7 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
       ),
     );
 
-  // Third-party meta rows continue the same list —no heading, no separator:
+  // Third-party meta rows continue the same list 鈥攏o heading, no separator:
   // the panel is one flat column of facts, in the same order every time.
   // Dynamic `metaProvider` entries override static `meta` for the same key
   // (dynamic wins, static is fallback).
@@ -141,19 +148,14 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
       .map(([key, value]) => [
         key,
         typeof value === "number"
-          ? formatNumber(
-              value,
-              "comma",
-              ui.conf.locale_code,
-              Number.isInteger(value) ? 0 : 1,
-            )
+          ? formatNumber(value, "comma", ps.localeCode, Number.isInteger(value) ? 0 : 1)
           : String(value),
         "",
       ]);
   };
   const metaRows = buildMetaRows();
 
-  const label = displayName(ui, layerId) || layerId;
+  const label = displayName(la, ps, fs, layerId) || layerId;
   // iconSvg is the layer's own logo (basemaps and custom layers ship one);
   // otherwise fall back to the geometry glyph the layer row shows.
   const typeSvg =
@@ -169,13 +171,13 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
     title: label,
     // The header names the layer; the dialog itself is named by what the
     // surface is, so a screen reader announces the panel, not the layer twice.
-    ariaLabel: ui.T("attributes_layer"),
+    ariaLabel: ps.T("attributes_layer"),
     iconSvg: typeSvg,
-    closeTitle: ui.T("close_title"),
+    closeTitle: ps.T("close_title"),
     iconClass: `${CONST.CLASSES.ATTRS_ICON} foliplus-header-icon`,
   });
   // One flat list: third-party meta rows continue the same rhythm instead
-  // of opening a second group, so the panel reads as one column of facts —
+  // of opening a second group, so the panel reads as one column of facts 鈥?
   // the same unheaded row flow the style panel uses.
   const dlEl = renderList([...rows, ...metaRows]);
   content.appendChild(dlEl);
@@ -183,20 +185,20 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
   // Live update: subscribe to LAYER_ITEM_COUNT_CHANGE (filtered by layerId)
   // so meta rows refresh in place when the store mutates.
   if (!isColor && layerId && layerInfo?.metaProvider) {
-    ui.attrsUnsubscribe = ui.events.on(EVENTS.LAYER_ITEM_COUNT_CHANGE, ({ id }) => {
+    ps.attrsUnsubscribe = la.events.on(EVENTS.LAYER_ITEM_COUNT_CHANGE, ({ id }) => {
       if (id !== layerId) return;
       dlEl.replaceWith(renderList([...rows, ...buildMetaRows()]));
     });
   }
 
   // Header click dismisses, matching bindPanelToggle on the main panels.
-  // The × sits inside the header, so one listener covers both.
-  header.addEventListener("click", () => closeAttrsPanel(ui, true));
+  // The 脳 sits inside the header, so one listener covers both.
+  header.addEventListener("click", () => closeAttrsPanel(la, ps, fs, true));
 
   // The panel sits inside a draggable layer row: a press on the panel must
   // neither start a row drag nor inherit `user-select: none`. The mousedown is
   // stopped here (the row's own handlers live on the container), and which side
-  // of the panel the press landed on is recorded by the outside handler below —
+  // of the panel the press landed on is recorded by the outside handler below 鈥?
   // `dragstart` is dispatched on the draggable row, so it cannot answer that.
   panel.addEventListener("mousedown", e => e.stopPropagation());
 
@@ -208,42 +210,47 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
   // press on the map or another foliplus control would never close the
   // panel otherwise. Capture also gives this handler the first look at every
   // press, which is what makes it the right place to record the drag verdict.
-  ui.attrsOutsideHandler = (event: MouseEvent) => {
+  ps.attrsOutsideHandler = (event: MouseEvent) => {
     const t = event.target as HTMLElement | null;
-    // Document-level dispatch can name `document` itself —no closest().
+    // Document-level dispatch can name `document` itself 鈥攏o closest().
     if (!t || typeof t.closest !== "function") {
-      closeAttrsPanel(ui, false);
+      closeAttrsPanel(la, ps, fs, false);
       return;
     }
     if (t.closest(`.${CONST.CLASSES.ATTRS_PANEL}`)) {
-      ui.pressInPanel = true;
+      ps.pressInPanel = true;
       return;
     }
-    ui.pressInPanel = false;
-    closeAttrsPanel(ui, false);
+    ps.pressInPanel = false;
+    closeAttrsPanel(la, ps, fs, false);
   };
-  document.addEventListener("mousedown", ui.attrsOutsideHandler, true);
+  document.addEventListener("mousedown", ps.attrsOutsideHandler, true);
 
-  ui.activeAttrsPanel = { item, panel, layerId };
+  ps.activeAttrsPanel = { item, panel, layerId };
 };
 
 /** Close the attributes panel. setFocus = true returns focus to the row. */
 
-const closeAttrsPanel = (ui: LayerUI, setFocus: boolean) => {
-  if (ui.attrsOutsideHandler) {
-    document.removeEventListener("mousedown", ui.attrsOutsideHandler, true);
-    ui.attrsOutsideHandler = null;
+const closeAttrsPanel = (
+  la: LayerAccess,
+  ps: PanelStore,
+  fs: FocusStore,
+  setFocus: boolean,
+) => {
+  if (ps.attrsOutsideHandler) {
+    document.removeEventListener("mousedown", ps.attrsOutsideHandler, true);
+    ps.attrsOutsideHandler = null;
   }
-  if (ui.attrsUnsubscribe) {
-    ui.attrsUnsubscribe();
-    ui.attrsUnsubscribe = null;
+  if (ps.attrsUnsubscribe) {
+    ps.attrsUnsubscribe();
+    ps.attrsUnsubscribe = null;
   }
   // No panel, no panel press: a stale verdict would block the next real drag.
-  ui.pressInPanel = false;
-  if (!ui.activeAttrsPanel) return;
-  const item = ui.activeAttrsPanel.item;
-  ui.activeAttrsPanel.panel.remove();
-  ui.activeAttrsPanel = null;
+  ps.pressInPanel = false;
+  if (!ps.activeAttrsPanel) return;
+  const item = ps.activeAttrsPanel.item;
+  ps.activeAttrsPanel.panel.remove();
+  ps.activeAttrsPanel = null;
   if (setFocus) item.focus();
 };
 

@@ -9,8 +9,10 @@
 //
 // Nothing in this file touches the map, the registry, or storage.
 import type { Projection } from "../type.js";
-import type { LayerUI } from "./index.js";
+import type { LayerAccess } from "./access.js";
+import type { FocusStore } from "./focusStore.js";
 import { INTENT, getIntent } from "./intent.js";
+import type { PanelStore } from "./panelStore.js";
 import { inZoomRange } from "./rowView.js";
 
 /** The user's own visibility choice, or the author's declared default
@@ -26,32 +28,42 @@ import { inZoomRange } from "./rowView.js";
  *  means "the user chose this" — a caller that records the value (a restored
  *  record, a test fixture, a re-registration replay) must not have it silently
  *  read back as the author's default. */
-const intentVisibleOf = (ui: LayerUI, id: string): boolean => {
-  const visible = getIntent(ui, id, INTENT.VISIBLE);
+const intentVisibleOf = (
+  la: LayerAccess,
+  ps: PanelStore,
+  fs: FocusStore,
+  id: string,
+): boolean => {
+  const visible = getIntent(la, id, INTENT.VISIBLE);
   const hasVisible =
-    ui.intentStore.isUserSet(id, INTENT.VISIBLE) || typeof visible === "boolean";
-  const authorDefault = ui.runtimeStore.getAuthorVisible(id) ?? true;
+    la.intentStore.isUserSet(id, INTENT.VISIBLE) || typeof visible === "boolean";
+  const authorDefault = la.runtimeStore.getAuthorVisible(id) ?? true;
   return hasVisible ? (visible ?? true) : authorDefault;
 };
 
 /** Build one layer's projection from the persisted intent and the current
  *  policy inputs (focus, map zoom). Read-only. */
-const projectLayer = (ui: LayerUI, layerInfo: LayerInfo): Projection => {
+const projectLayer = (
+  la: LayerAccess,
+  ps: PanelStore,
+  fs: FocusStore,
+  layerInfo: LayerInfo,
+): Projection => {
   const id = layerInfo.id;
   // The author's default is the map state folium left at boot (see
   // `snapshotAuthorVisible`), captured before any policy moved layers.
-  const intent = intentVisibleOf(ui, id);
+  const intent = intentVisibleOf(la, ps, fs, id);
 
   // Policy is independent of intent: focus overrides range, range may
   // exclude, but neither touches the user's stored choice.
-  const policy = ui.focusingLayerId != null ? true : inZoomRange(ui, layerInfo);
+  const policy = fs.focusingLayerId != null ? true : inZoomRange(la, ps, fs, layerInfo);
   const effectiveShown = intent && policy;
 
   // A dimension's value being present is what the sweep has always read as
   // the user's choice (a restored record, a late replay). The provenance
   // marker lives on `IntentRow.provenance`, not on this projection.
-  const opacity = getIntent(ui, id, INTENT.OPACITY);
-  const zoomRange = getIntent(ui, id, INTENT.ZOOM_RANGE) ?? null;
+  const opacity = getIntent(la, id, INTENT.OPACITY);
+  const zoomRange = getIntent(la, id, INTENT.ZOOM_RANGE) ?? null;
 
   return { id, intent: { visible: intent }, effectiveShown, opacity, zoomRange };
 };
@@ -63,13 +75,20 @@ const projectLayer = (ui: LayerUI, layerInfo: LayerInfo): Projection => {
  *  skipped: they may be a component that registers later, and the id space
  *  is bounded by the layers an author ever declares, so the record cannot
  *  grow away ("not in the registry" never means "gone"). */
-const projectAll = (ui: LayerUI): Map<string, Projection> => {
-  const ids = new Set([...ui.m.layers.map(li => li.id), ...ui.intentStore.ids()]);
+const projectAll = (
+  la: LayerAccess,
+  ps: PanelStore,
+  fs: FocusStore,
+): Map<string, Projection> => {
+  const ids = new Set([
+    ...la.layerRegistry.layers.map(li => li.id),
+    ...la.intentStore.ids(),
+  ]);
   const result = new Map<string, Projection>();
   for (const id of ids) {
-    const layerInfo = ui.m.layerRegistry.get(id);
+    const layerInfo = la.layerRegistry.get(id);
     if (!layerInfo) continue;
-    result.set(id, projectLayer(ui, layerInfo));
+    result.set(id, projectLayer(la, ps, fs, layerInfo));
   }
   return result;
 };

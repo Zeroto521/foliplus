@@ -6,30 +6,32 @@
 // schema live in ../persistence.ts — this file only routes through
 // LayerPersistence and never touches localStorage itself.
 //
-// Intent load/build/mark/unmark/drop sink into `ui.intentStore`; the
+// Intent load/build/mark/unmark/drop sink into `la.intentStore`; the
 // exported names stay as thin delegates so callers and test spies are
 // unchanged.
 import { createLogger } from "#common/log.js";
 import * as CONST from "../const.js";
 import type { LayerManager } from "../manager.js";
 import type { LayerOverride } from "../type.js";
+import type { LayerAccess } from "./access.js";
 import { applyProjection, applyProjectionAll } from "./apply.js";
 import { applyNameProjection } from "./context.js";
-import type { LayerUI } from "./index.js";
+import type { FocusStore } from "./focusStore.js";
 import { INTENT, LIVE, getIntent } from "./intent.js";
+import type { PanelStore } from "./panelStore.js";
 
 // CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
 const log = createLogger(CONF.name);
 
 /** Load every persisted dimension in one call. */
-const loadPersistedState = (ui: LayerUI) => {
-  const state = ui.m.persistence.load();
-  ui.foldedGroups = new Set(state.foldedGroups);
+const loadPersistedState = (la: LayerAccess, ps: PanelStore, fs: FocusStore) => {
+  const state = la.persistence.load();
+  ps.foldedGroups = new Set(state.foldedGroups);
   // Intent values + provenance sink into the store. Read order is the compat
   // contract: the current `layers[id].annotation` key WINS, the legacy
   // top-level `annotations` segment is the fallback underneath (write-new /
   // read-old).
-  ui.intentStore.loadFromPersisted({
+  la.intentStore.loadFromPersisted({
     renamedNames: state.renamedNames,
     annotations: state.annotations,
     layers: state.layers,
@@ -38,17 +40,23 @@ const loadPersistedState = (ui: LayerUI) => {
 
 /** Save fold state to localStorage. */
 
-const saveFoldState = (ui: LayerUI) => {
-  ui.m.persistence.schedule({ foldedGroups: () => [...ui.foldedGroups] });
+const saveFoldState = (la: LayerAccess, ps: PanelStore, fs: FocusStore) => {
+  la.persistence.schedule({ foldedGroups: () => [...ps.foldedGroups] });
 };
 
 /** Whether one dimension still holds a live value. An override with none means
  *  the user reset it, so the dimension drops back to the author's declared
  *  default instead of persisting an empty choice. Unknown overrides (future
  *  dimensions) are treated as live so markOverride never drops a new marker. */
-const hasLiveValue = (ui: LayerUI, id: string, override: LayerOverride): boolean => {
+const hasLiveValue = (
+  la: LayerAccess,
+  ps: PanelStore,
+  fs: FocusStore,
+  id: string,
+  override: LayerOverride,
+): boolean => {
   const live = LIVE[override];
-  return live ? live(getIntent(ui, id, override)) : true;
+  return live ? live(getIntent(la, id, override)) : true;
 };
 
 /** Build the record's `layers` section from the live state: one entry per
@@ -60,15 +68,15 @@ const hasLiveValue = (ui: LayerUI, id: string, override: LayerOverride): boolean
  *  every id the annotation manager holds a config for joins the walk — a
  *  layer configured *only* for labels still gets an entry (with an empty
  *  `overrides` array, which `parseLayerState` keeps for exactly this). */
-const buildLayerStates = (ui: LayerUI) => {
-  const annotations = Object.fromEntries(ui.m.annotation.configEntries());
-  return ui.intentStore.toPersisted(annotations);
+const buildLayerStates = (la: LayerAccess, ps: PanelStore, fs: FocusStore) => {
+  const annotations = Object.fromEntries(la.annotation.configEntries());
+  return la.intentStore.toPersisted(annotations);
 };
 
 /** Save the per-layer intent -- visibility, opacity, zoom range and the
  *  label config -- coalescing rapid calls. */
-const saveState = (ui: LayerUI) => {
-  ui.m.persistence.schedule({ layers: () => buildLayerStates(ui) });
+const saveState = (la: LayerAccess, ps: PanelStore, fs: FocusStore) => {
+  la.persistence.schedule({ layers: () => buildLayerStates(la, ps, fs) });
 };
 
 /** Record that the user has set a dimension for one layer. The first action is
@@ -82,15 +90,21 @@ const saveState = (ui: LayerUI) => {
  * @internal Production write paths use LayerIntentStore.set (cohesive mark). Kept
  * as a thin delegate for test spies and the mark-without-set gate.
  */
-const markOverride = (ui: LayerUI, id: string, override: LayerOverride) => {
-  if (!hasLiveValue(ui, id, override)) {
+const markOverride = (
+  la: LayerAccess,
+  ps: PanelStore,
+  fs: FocusStore,
+  id: string,
+  override: LayerOverride,
+) => {
+  if (!hasLiveValue(la, ps, fs, id, override)) {
     log.warn(
       `markOverride("${override}", "${id}"): no stored value for this dimension, ` +
         `marker not recorded — set the value before marking`,
     );
     return;
   }
-  ui.intentStore.mark(id, override);
+  la.intentStore.mark(id, override);
 };
 
 /** Drop one dimension's provenance -- the single rule a Reset button reduces to,
@@ -98,15 +112,21 @@ const markOverride = (ui: LayerUI, id: string, override: LayerOverride) => {
 /**
  * @internal Production resets use LayerIntentStore.clear (cohesive unmark).
  */
-const unmarkOverride = (ui: LayerUI, id: string, override: LayerOverride) => {
-  ui.intentStore.unmark(id, override);
+const unmarkOverride = (
+  la: LayerAccess,
+  ps: PanelStore,
+  fs: FocusStore,
+  id: string,
+  override: LayerOverride,
+) => {
+  la.intentStore.unmark(id, override);
 };
 
 /**
  * Propagate the user's stored state —hidden visibility and renames —
  * into the registry and the rendered rows.
  *
- * `ui.intentStore` (the visible / name dimensions) is the source of truth; the
+ * `la.intentStore` (the visible / name dimensions) is the source of truth; the
  * registry's `LayerInfo.visible` / `LayerInfo.name` and the row checkboxes /
  * labels are their projections, refreshed here whenever a row or the registry
  * is rebuilt from a third-party layer's own metadata. Hidden is a same-axis
@@ -137,9 +157,14 @@ const unmarkOverride = (ui: LayerUI, id: string, override: LayerOverride) => {
  *   hidden and a missing rename must not write undefined.
  */
 
-const applyUserState = (ui: LayerUI, id?: string) => {
-  const registry = ui.m.layerRegistry;
-  const container = ui.uiContainer;
+const applyUserState = (
+  la: LayerAccess,
+  ps: PanelStore,
+  fs: FocusStore,
+  id?: string,
+) => {
+  const registry = la.layerRegistry;
+  const container = ps.uiContainer!;
 
   // visible / opacity / zoomRange belong to the diff executor: one write per
   // dimension, diffed against the executor's own last write. Routing them
@@ -155,15 +180,15 @@ const applyUserState = (ui: LayerUI, id?: string) => {
     // One id, one projection: a late registration replays every stored
     // dimension on the same pass — visibility, opacity and zoom range — so
     // nothing needs a per-caller replay path: a late arrival replays itself.
-    applyProjection(ui, id);
-    const rename = getIntent(ui, id, INTENT.NAME);
+    applyProjection(la, ps, fs, id);
+    const rename = getIntent(la, id, INTENT.NAME);
     if (rename != null) {
       applyNameProjection(layerInfo, null, rename);
     }
     // The order dimension is replayed on the same pass: this path runs once per
     // late registration, so without it the layer would keep the slot it was
     // inserted into rather than the position the user already arranged.
-    ui.m.replaySavedOrder(id);
+    la.replaySavedOrder(id);
     return;
   }
 
@@ -173,9 +198,9 @@ const applyUserState = (ui: LayerUI, id?: string) => {
   // inverse. Walking the registry asserts every layer's map membership
   // against the persisted intent; the color basemap has no registry entry,
   // so its rename still comes from the store's name dimension.
-  applyProjectionAll(ui);
-  for (const layerId of ui.intentStore.ids()) {
-    const rename = getIntent(ui, layerId, INTENT.NAME);
+  applyProjectionAll(la, ps, fs);
+  for (const layerId of la.intentStore.ids()) {
+    const rename = getIntent(la, layerId, INTENT.NAME);
     if (rename == null) continue;
     if (layerId === CONST.SOLID_BASEMAP_ID) {
       // The color basemap has no registry entry —only its row label.
@@ -210,7 +235,7 @@ const applyUserState = (ui: LayerUI, id?: string) => {
   // The order comes from the same read as the dimensions above, which lands
   // before late registrations -- so it is replayed across the registry that
   // exists now, and each later registration refines its own slot.
-  ui.m.replaySavedOrder();
+  la.replaySavedOrder();
 };
 
 /**
@@ -227,20 +252,25 @@ const applyUserState = (ui: LayerUI, id?: string) => {
  * value would be a record claiming the user chose something the record no
  * longer holds, and {@link markOverride} refuses that combination.
  */
-const dropPersistedLayerState = (ui: LayerUI, id: string) => {
+const dropPersistedLayerState = (
+  la: LayerAccess,
+  ps: PanelStore,
+  fs: FocusStore,
+  id: string,
+) => {
   // Style dimensions + their provenance. `name` / `annotation` are cleared
   // by their own callers (manager delete / annotation destroy).
-  ui.intentStore.dropRow(id);
+  la.intentStore.dropRow(id);
 };
 
 /** Save user-assigned names, coalescing rapid calls. */
 
-const saveNamesState = (ui: LayerUI) => {
+const saveNamesState = (la: LayerAccess, ps: PanelStore, fs: FocusStore) => {
   const names: Record<string, string> = {};
-  for (const [id, name] of ui.intentStore.nameEntries()) {
+  for (const [id, name] of la.intentStore.nameEntries()) {
     names[id] = name;
   }
-  ui.m.persistence.schedule({ renamedNames: () => names });
+  la.persistence.schedule({ renamedNames: () => names });
 };
 
 /** Full re-scan of every row (used on attach/fold-toggle). Idempotent —
@@ -257,7 +287,9 @@ const saveNamesState = (ui: LayerUI) => {
  *   debounce timer for every layer.
  */
 const setVisible = (
-  ui: LayerUI,
+  la: LayerAccess,
+  ps: PanelStore,
+  fs: FocusStore,
   id: string,
   visible: boolean,
   persist: boolean = true,
@@ -269,8 +301,8 @@ const setVisible = (
   // the sweep's own record says "I removed this, so I'm allowed to put it
   // back". The first change is what turns the author's default into the
   // user's own state.
-  ui.intentStore.set(id, INTENT.VISIBLE, visible);
-  if (persist) saveState(ui);
+  la.intentStore.set(id, INTENT.VISIBLE, visible);
+  if (persist) saveState(la, ps, fs);
 };
 
 /** Get all keyboard-navigable rows: layer items and toggle-all rows, in DOM

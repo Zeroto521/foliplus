@@ -50,6 +50,7 @@ INLINE_TYPE_IN_EXPORT_RE = re.compile(r"\btype\s+[A-Za-z_$][\w$]*")
 # Rule 2: plural detection whitelist (proper nouns / abbreviations / verbs).
 # Sorted; add new entries alphabetically.
 PLURAL_WHITELIST = {
+    "access",
     "args",
     "base",
     "canvas",
@@ -363,7 +364,41 @@ def check_file(filepath: str) -> list[tuple[int, str]]:
         + check_plural_names(filepath)
         + check_spelling(lines)
         + check_custom_property_prefix(code_lines, filepath)
+        + check_layerui_injection(code_lines, filepath)
     )
+
+
+# Rule 5: ui/* modules must not reference LayerUI outside the coordinator.
+# The phase-2 injection split (T270) gives modules the (la, ps, fs) faces;
+# the coordinator (index.ts) and the store/face definitions are exempt.
+INJECTION_EXEMPT = {
+    "access.ts",
+    "focusStore.ts",
+    "index.ts",
+    "panelStore.ts",
+}
+LAYERUI_RE = re.compile(r"\bLayerUI\b")
+
+
+def check_layerui_injection(code_lines: list[str], filepath: str) -> list[tuple[int, str]]:
+    """Rule 5: report `LayerUI` in ui/* module signatures or bodies (code only,
+    comments exempt) — the fence that keeps modules from drifting back to the
+    whole-package argument."""
+    if not filepath.replace("\\", "/").startswith("foliplus/js/LayerControl/ui/"):
+        return []
+    if os.path.basename(filepath) in INJECTION_EXEMPT:
+        return []
+    violations: list[tuple[int, str]] = []
+    for lineno, code in enumerate(code_lines, 1):
+        if LAYERUI_RE.search(code):
+            violations.append(
+                (
+                    lineno,
+                    "ui/* modules must not reference `LayerUI` — inject "
+                    "(la, ps, fs) instead",
+                )
+            )
+    return violations
 
 
 def main() -> int:
@@ -391,7 +426,8 @@ def main() -> int:
             "block at file end + optional `export type { ... }`, "
             "(2) singular file names, (3) American spelling in code/strings, "
             "(4) CSS custom properties namespaced as `--foliplus-*` with "
-            "definitions in `token.css`. "
+            "definitions in `token.css`, "
+            "(5) ui/* modules must not reference `LayerUI` (inject la/ps/fs). "
             "Function declarations and inline exports are covered by eslint "
             "(func-style, no-restricted-syntax).",
             file=sys.stderr,

@@ -26,7 +26,13 @@ import { AUTO_FIELD } from "#foliplus/core/labelField.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 import { getLayerAlpha } from "#common/canvasAlpha.js";
 import { NUMBER_FORMAT } from "#common/format.js";
-import { GridLayer, findItem, initFixture, installLeafletGlobals } from "./fixture.js";
+import {
+  GridLayer,
+  attachFaces,
+  findItem,
+  initFixture,
+  installLeafletGlobals,
+} from "./fixture.js";
 
 /** Percentage the opacity fill is drawn at, read off its width expression.
  *  The fill's width is `calc((100% - var(--foliplus-slider-thumb-hit)) * <fraction>)` —
@@ -41,8 +47,8 @@ describe("LayerUI style panel", () => {
 
   beforeEach(() => {
     ({ manager, ui, map } = initFixture());
-    ui.foldedGroups = new Set();
-    seedIntentMap(ui, "visible", {});
+    ui.panelStore.foldedGroups = new Set();
+    seedIntentMap(ui.la, "visible", {});
     window.localStorage.removeItem(CONST.STORAGE.KEY);
     // Seed the field cache so the panel builds: collectFields walks the
     // layer's leaves, and the fixture's data layer has none. `count` is a
@@ -95,18 +101,18 @@ describe("LayerUI style panel", () => {
   // ─────────────────── open / close lifecycle ───────────────────
 
   it("mounts the panel inside the layer row (attrs panel recipe)", () => {
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
 
     ui.openStylePanel("overlay1");
 
-    expect(ui.stylePanelLayerId).toBe("overlay1");
+    expect(ui.panelStore.stylePanelLayerId).toBe("overlay1");
     const panel = panelOf(item);
     expect(panel).not.toBeNull();
     expect(panel.getAttribute("role")).toBe("dialog");
   });
 
   it("builds on the shared panel vocabulary (header, content, close)", () => {
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item);
 
@@ -121,7 +127,7 @@ describe("LayerUI style panel", () => {
   });
 
   it("renders the toggle and both selects from the layer's config", () => {
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item);
 
@@ -151,10 +157,10 @@ describe("LayerUI style panel", () => {
       capabilities: Record<string, unknown>;
     };
     surface.capabilities = { ...surface.capabilities, annotation: "none" };
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
 
-    expect(ui.stylePanelLayerId).toBe("overlay1");
+    expect(ui.panelStore.stylePanelLayerId).toBe("overlay1");
     const panel = panelOf(item);
     expect(panel).toBeDefined();
     // No labelable field -> the whole Label section is absent, not just empty.
@@ -174,7 +180,7 @@ describe("LayerUI style panel", () => {
 
   it("opens no panel for a layer with neither a labelable field nor a capable dimension", () => {
     ui.runtimeStore.deleteFields("overlay1");
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     // Strip every dimension: the surface can carry no honest write. The
     // label bit included — `annotation: "none"` is what says "no labelable
     // content" (a missing key would read as capable).
@@ -188,7 +194,7 @@ describe("LayerUI style panel", () => {
     };
     ui.openStylePanel("overlay1");
 
-    expect(ui.stylePanelLayerId).toBeNull();
+    expect(ui.panelStore.stylePanelLayerId).toBeNull();
     expect(panelOf(item)).toBeUndefined();
   });
 
@@ -211,7 +217,7 @@ describe("LayerUI style panel", () => {
 
     manager.registerLayer({ id: "growing", name: "Growing", layer: bareLeaf() });
     let li = manager.layerRegistry.get("growing")!;
-    const item = findItem(ui, "growing");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "growing");
     ui.openStylePanel("growing");
     expect(panelOf(item)!.querySelector(".foliplus-style-toggle-input")).toBeNull();
     ui.closeStylePanel(false);
@@ -234,20 +240,20 @@ describe("LayerUI style panel", () => {
   });
 
   it("closes the previous panel before opening a new one", () => {
-    const a = findItem(ui, "overlay1");
+    const a = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.runtimeStore.setFields("base1", [{ name: "name", numeric: false }]);
-    const b = findItem(ui, "base1");
+    const b = findItem(ui.la, ui.panelStore, ui.focusStore, "base1");
 
     ui.openStylePanel("overlay1");
     ui.openStylePanel("base1");
 
     expect(panelOf(a)).toBeUndefined();
     expect(panelOf(b)).not.toBeNull();
-    expect(ui.stylePanelLayerId).toBe("base1");
+    expect(ui.panelStore.stylePanelLayerId).toBe("base1");
   });
 
   it("dismisses the attributes panel when the style panel opens", () => {
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openAttrsPanel(item);
     expect(item.querySelector(".foliplus-layer-attrs-panel")).not.toBeNull();
 
@@ -258,7 +264,7 @@ describe("LayerUI style panel", () => {
   });
 
   it("closeStylePanel(setFocus=true) returns focus to the layer row", () => {
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     const focusSpy = vi.fn();
     item.focus = focusSpy;
 
@@ -267,11 +273,11 @@ describe("LayerUI style panel", () => {
 
     expect(focusSpy).toHaveBeenCalled();
     expect(panelOf(item)).toBeUndefined();
-    expect(ui.stylePanelLayerId).toBeNull();
+    expect(ui.panelStore.stylePanelLayerId).toBeNull();
   });
 
   it("closeStylePanel(setFocus=false) does not focus the layer row", () => {
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     const focusSpy = vi.fn();
     item.focus = focusSpy;
 
@@ -288,7 +294,7 @@ describe("LayerUI style panel", () => {
   // ─────────────────── outside dismissal ───────────────────
 
   it("document capture mousedown outside the panel dismisses it", () => {
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
     expect(panelOf(item)).not.toBeNull();
 
@@ -310,12 +316,12 @@ describe("LayerUI style panel", () => {
     );
 
     expect(panelOf(item)).toBeUndefined();
-    expect(ui.stylePanelLayerId).toBeNull();
+    expect(ui.panelStore.stylePanelLayerId).toBeNull();
     wrapper.remove();
   });
 
   it("mousedown inside the panel does not dismiss it", () => {
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item);
 
@@ -326,7 +332,7 @@ describe("LayerUI style panel", () => {
   });
 
   it("a press outside the panel dismisses it via the outside-mousedown hook", () => {
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item);
 
@@ -347,7 +353,7 @@ describe("LayerUI style panel", () => {
   // ─────────────────── control interactions ───────────────────
 
   it("flipping the toggle updates the config, labels and persistence", () => {
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
     const setConfig = vi.spyOn(manager.annotation, "setConfig");
     const renderLabels = vi.spyOn(manager.annotation, "renderLabels");
@@ -376,11 +382,11 @@ describe("LayerUI style panel", () => {
   it("opens no panel for an empty layer id", () => {
     ui.openStylePanel("");
 
-    expect(ui.stylePanelLayerId).toBeNull();
+    expect(ui.panelStore.stylePanelLayerId).toBeNull();
   });
 
   it("renders the avoid-overlap switch, defaulting on from the page", () => {
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
 
     const collide = panelOf(item).querySelector(
@@ -392,7 +398,7 @@ describe("LayerUI style panel", () => {
   });
 
   it("flipping the avoid-overlap switch patches the layer's collide flag", () => {
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
     const setConfig = vi.spyOn(manager.annotation, "setConfig");
 
@@ -407,7 +413,7 @@ describe("LayerUI style panel", () => {
   });
 
   it("annotation body order is field → color/size → format → collide", () => {
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
 
     const rows = [
@@ -427,7 +433,7 @@ describe("LayerUI style panel", () => {
   });
 
   it("annotation color and size inputs are live and clamp on commit", () => {
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
     const renderLabels = vi.spyOn(manager.annotation, "renderLabels");
 
@@ -460,7 +466,7 @@ describe("LayerUI style panel", () => {
       color: "",
       size: 0,
     });
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
 
     const color = panelOf(item).querySelector(
@@ -481,7 +487,7 @@ describe("LayerUI style panel", () => {
       collide: false,
     });
     ui.applyStyleLabelState();
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
 
     ui.openStylePanel("overlay1");
 
@@ -494,7 +500,9 @@ describe("LayerUI style panel", () => {
   it("normalizes non-string persisted values instead of trusting storage", () => {
     // localStorage is writable by anything on the page, so a field or format of
     // the wrong shape must not reach the config as-is.
-    seedIntentMap(ui, "annotation", { overlay1: { show: true, field: 42, format: 7 } });
+    seedIntentMap(ui.la, "annotation", {
+      overlay1: { show: true, field: 42, format: 7 },
+    });
 
     ui.applyStyleLabelState();
 
@@ -527,7 +535,7 @@ describe("LayerUI style panel", () => {
       field: "count",
       format: "" as never,
     });
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
 
     ui.openStylePanel("overlay1");
 
@@ -535,7 +543,7 @@ describe("LayerUI style panel", () => {
   });
 
   it("choosing a field updates the config", () => {
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
     const setConfig = vi.spyOn(manager.annotation, "setConfig");
 
@@ -550,7 +558,7 @@ describe("LayerUI style panel", () => {
   });
 
   it("skips syncFormatRow when the format row is absent from the DOM", () => {
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
     panelOf(item).querySelector(".foliplus-style-format-row")?.remove();
     const field = panelOf(item).querySelector(
@@ -562,7 +570,7 @@ describe("LayerUI style panel", () => {
   });
 
   it("omits the format key when the format select is absent from the DOM", () => {
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
     panelOf(item).querySelector(".foliplus-style-format-select")?.remove();
     const field = panelOf(item).querySelector(
@@ -576,7 +584,7 @@ describe("LayerUI style panel", () => {
   // ─────────────────── labels toggle (default off) ───────────────────
 
   it("defaults the labels toggle off, with the body collapsed", () => {
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
 
     ui.openStylePanel("overlay1");
 
@@ -593,7 +601,7 @@ describe("LayerUI style panel", () => {
       { name: "name", numeric: false },
       { name: "count", numeric: true },
     ]);
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
 
     const toggle = toggleOf(item);
@@ -610,7 +618,7 @@ describe("LayerUI style panel", () => {
       { name: "name", numeric: false },
       { name: "count", numeric: true },
     ]);
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
 
     // Auto resolves to the numeric `count`, so the row is live even though the
@@ -624,7 +632,7 @@ describe("LayerUI style panel", () => {
       { name: "name", numeric: false },
       { name: "count", numeric: true },
     ]);
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
 
     ui.openStylePanel("overlay1");
 
@@ -639,7 +647,7 @@ describe("LayerUI style panel", () => {
   });
 
   it("collapses the body again when the toggle goes back off", () => {
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
     const toggle = toggleOf(item);
 
@@ -661,7 +669,7 @@ describe("LayerUI style panel", () => {
       { name: "count", numeric: true },
       { name: "name", numeric: false },
     ]);
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     manager.annotation.setConfig("overlay1", {
       show: true,
       field: "name",
@@ -678,7 +686,7 @@ describe("LayerUI style panel", () => {
       { name: "count", numeric: true },
       { name: "name", numeric: false },
     ]);
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     manager.annotation.setConfig("overlay1", {
       show: true,
       field: "count",
@@ -705,7 +713,7 @@ describe("LayerUI style panel", () => {
     // included, and `dragstart` is dispatched on the row — a listener on the
     // panel can never see it (the panel is a descendant, never on the event's
     // path). So the verdict is recorded from the press and read here.
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
 
     panelOf(item)!.dispatchEvent(
@@ -716,11 +724,11 @@ describe("LayerUI style panel", () => {
 
     expect(dragstart.defaultPrevented).toBe(true);
     expect(item.classList.contains(CONST.CLASSES.DRAGGING)).toBe(false);
-    expect(ui.dragIdx).toBeNull();
+    expect(ui.panelStore.dragIdx).toBeNull();
   });
 
   it("a press outside the panel still starts the drag", () => {
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
 
     document.body.dispatchEvent(
@@ -739,7 +747,7 @@ describe("LayerUI style panel", () => {
     // A press on a panel control belongs to the panel. The row-cursor takeover
     // calls row.focus(), and a native <select> popup is dismissed the moment it
     // loses focus — so the dropdown appeared to retract as it opened.
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
     item.classList.remove(CONST.CLASSES.FOCUSED);
     const focusSpy = vi.spyOn(item, "focus");
@@ -751,7 +759,7 @@ describe("LayerUI style panel", () => {
   });
 
   it("choosing a format updates the config", () => {
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
     const setConfig = vi.spyOn(manager.annotation, "setConfig");
 
@@ -766,7 +774,7 @@ describe("LayerUI style panel", () => {
   });
 
   it("reset restores the default config and closes the panel", () => {
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     const focusSpy = vi.fn();
     item.focus = focusSpy;
     ui.openStylePanel("overlay1");
@@ -793,7 +801,7 @@ describe("LayerUI style panel", () => {
   it("reset also restores collide (not just show/field/format)", () => {
     // Regression: DEFAULT_ANNOTATION alone omits collide, so a user-toggled
     // avoid-overlap switch used to survive Reset. defaultConfig() carries it.
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
     manager.annotation.setConfig("overlay1", {
       show: true,
@@ -813,7 +821,7 @@ describe("LayerUI style panel", () => {
   // ─────────────────── row groups + opacity ───────────────────
 
   it("renders the layer and label rows with no group headings", () => {
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     // Headings are gone; the two groups are told apart by document order.
@@ -837,7 +845,7 @@ describe("LayerUI style panel", () => {
     // The panel is anchored inside the layer row, which carries a hover title
     // ("6 point layer"). An empty title on the panel container suppresses the
     // inherited tooltip so hovering the panel does not echo the row's text.
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     expect(panel.getAttribute("title")).toBe("");
@@ -845,7 +853,7 @@ describe("LayerUI style panel", () => {
 
   it("paints the slider accent fill to the current value", () => {
     const li = manager.layerRegistry.get("overlay1")!;
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     const range = panel.querySelector(
@@ -870,7 +878,7 @@ describe("LayerUI style panel", () => {
       styleSetters: { labelShow: vi.fn() },
     });
     const li = manager.layerRegistry.get("heat1")!;
-    const item = findItem(ui, "heat1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "heat1");
     ui.openStylePanel("heat1");
     const panel = panelOf(item)!;
     const range = panel.querySelector(
@@ -895,7 +903,7 @@ describe("LayerUI style panel", () => {
       opacityBake: "commit",
     });
     const li = manager.layerRegistry.get("color1")!;
-    const item = findItem(ui, "color1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "color1");
     ui.openStylePanel("color1");
     const panel = panelOf(item)!;
     const range = panel.querySelector(
@@ -919,7 +927,7 @@ describe("LayerUI style panel", () => {
       opacityBake: "commit",
       onOpacity,
     });
-    const item = findItem(ui, "color2");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "color2");
     ui.openStylePanel("color2");
     const panel = panelOf(item)!;
     const range = panel.querySelector(
@@ -934,7 +942,7 @@ describe("LayerUI style panel", () => {
 
   it("reset restores opacity to fully opaque and drops the persisted entry", () => {
     const li = manager.layerRegistry.get("overlay1")!;
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     const range = panel.querySelector(
@@ -947,7 +955,7 @@ describe("LayerUI style panel", () => {
     btn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
 
     expect(li.opacity).toBe(1);
-    expect(getIntent(ui, "overlay1", "opacity")).toBeUndefined();
+    expect(getIntent(ui.la, "overlay1", "opacity")).toBeUndefined();
   });
 
   it("dragging back to fully opaque drops the provenance as well as the value", () => {
@@ -955,7 +963,7 @@ describe("LayerUI style panel", () => {
     // route and must leave no override behind -- otherwise the record keeps a
     // marker with no value for it.
     const li = manager.layerRegistry.get("overlay1")!;
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     const range = panel.querySelector(
@@ -969,13 +977,13 @@ describe("LayerUI style panel", () => {
     range.value = "100";
     range.dispatchEvent(new Event("input", { bubbles: true }));
 
-    expect(getIntent(ui, "overlay1", "opacity")).toBeUndefined();
+    expect(getIntent(ui.la, "overlay1", "opacity")).toBeUndefined();
     expect(ui.intentStore.isUserSet("overlay1", "opacity")).toBe(false);
   });
 
   it("opacity 0 is kept in the map (only 1 is treated as default)", () => {
     const li = manager.layerRegistry.get("overlay1")!;
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
     const range = panelOf(item)!.querySelector(
       ".foliplus-style-opacity-range",
@@ -984,7 +992,7 @@ describe("LayerUI style panel", () => {
     range.value = "0";
     range.dispatchEvent(new Event("input", { bubbles: true }));
 
-    expect(getIntent(ui, "overlay1", "opacity")).toBe(0);
+    expect(getIntent(ui.la, "overlay1", "opacity")).toBe(0);
     expect(li.opacity).toBe(0);
   });
 
@@ -999,7 +1007,7 @@ describe("LayerUI style panel", () => {
       styleDefaultsProvider: () => ({ labelShow: true }),
     });
     const li = manager.layerRegistry.get("heat1")!;
-    const item = findItem(ui, "heat1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "heat1");
     ui.openStylePanel("heat1");
     const panel = panelOf(item)!;
     const range = panel.querySelector(
@@ -1015,13 +1023,13 @@ describe("LayerUI style panel", () => {
     expect(li.opacity).toBe(1);
     expect(getLayerAlpha(li.canvas)).toBe(1);
     expect(li.canvas!.style.opacity).toBe("1");
-    expect(getIntent(ui, "heat1", "opacity")).toBeUndefined();
+    expect(getIntent(ui.la, "heat1", "opacity")).toBeUndefined();
     expect(labelShowSetter).toHaveBeenCalledWith(true);
   });
 
   it("no-ops when the layer disappears between open and edit", () => {
     const li = manager.layerRegistry.get("overlay1")!;
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     const range = panel.querySelector(
@@ -1035,7 +1043,7 @@ describe("LayerUI style panel", () => {
       range.dispatchEvent(new Event("input", { bubbles: true }));
     }).not.toThrow();
 
-    expect(getIntent(ui, "overlay1", "opacity")).toBeUndefined();
+    expect(getIntent(ui.la, "overlay1", "opacity")).toBeUndefined();
   });
 
   it("delegated panel renders the appearance row for labelSize alone", () => {
@@ -1048,7 +1056,7 @@ describe("LayerUI style panel", () => {
       styleProvider: () => ({ labelShow: true, labelSize: 14 }),
       styleSetters: { labelShow: vi.fn(), labelSize: vi.fn() },
     });
-    const item = findItem(ui, "heat1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "heat1");
     ui.openStylePanel("heat1");
     const panel = panelOf(item)!;
 
@@ -1057,7 +1065,7 @@ describe("LayerUI style panel", () => {
   });
 
   it("Reset survives a layer that vanished while the panel was open", () => {
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     vi.spyOn(manager.layerRegistry, "get").mockReturnValue(undefined);
@@ -1069,7 +1077,7 @@ describe("LayerUI style panel", () => {
   });
 
   it("header click closes the panel", () => {
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item);
 
@@ -1081,7 +1089,7 @@ describe("LayerUI style panel", () => {
   });
 
   it("Escape closes an open style panel and returns focus to its row", () => {
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     const focusSpy = vi.fn();
     item.focus = focusSpy;
 
@@ -1112,7 +1120,7 @@ describe("LayerUI style panel", () => {
       geometryType: () => "point",
     } as unknown as ReturnType<typeof manager.surfaceFor>);
 
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item);
     expect(panel, "the style panel rendered").toBeTruthy();
@@ -1153,7 +1161,7 @@ describe("LayerUI style panel", () => {
       } as never,
     });
     ui.runtimeStore.setFields("border1", [{ name: "count", numeric: true }]);
-    const item = findItem(ui, "border1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "border1");
     ui.openStylePanel("border1");
     const panel = panelOf(item)!;
 
@@ -1212,7 +1220,7 @@ describe("LayerUI style panel", () => {
     });
     ui.runtimeStore.setFields("poly1", [{ name: "count", numeric: true }]);
 
-    const item = findItem(ui, "poly1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "poly1");
     ui.openStylePanel("poly1");
     const panel = panelOf(item)!;
 
@@ -1252,7 +1260,7 @@ describe("LayerUI style panel", () => {
         borderWeight: 2,
       }),
     });
-    const item = findItem(ui, "heat1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "heat1");
     ui.openStylePanel("heat1");
     const panel = panelOf(item)!;
 
@@ -1313,7 +1321,7 @@ describe("LayerUI style panel", () => {
     ) as unknown as { capabilities: Record<string, unknown> };
     surfaceV.capabilities = { ...caps };
 
-    const itemV = findItem(ui, "sweepVector");
+    const itemV = findItem(ui.la, ui.panelStore, ui.focusStore, "sweepVector");
     ui.openStylePanel("sweepVector");
     const panelV = panelOf(itemV)!;
     const panelRows = rowSel.filter(sel => panelV.querySelector(sel));
@@ -1336,7 +1344,7 @@ describe("LayerUI style panel", () => {
     ) as unknown as { capabilities: Record<string, unknown> };
     surfaceD.capabilities = { ...caps };
 
-    const itemD = findItem(ui, "sweepDeleg");
+    const itemD = findItem(ui.la, ui.panelStore, ui.focusStore, "sweepDeleg");
     ui.openStylePanel("sweepDeleg");
     const panelD = panelOf(itemD)!;
     const delegatedRows = rowSel.filter(sel => panelD.querySelector(sel));
@@ -1374,7 +1382,7 @@ describe("LayerUI style panel", () => {
     });
     ui.runtimeStore.setFields("tileBase1", [{ name: "count", numeric: true }]);
 
-    const item = findItem(ui, "tileBase1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "tileBase1");
     ui.openStylePanel("tileBase1");
     const panel = panelOf(item);
     expect(panel, "the style panel rendered").toBeTruthy();
@@ -1397,7 +1405,7 @@ describe("LayerUI style panel", () => {
     });
     ui.runtimeStore.setFields("colormap", [{ name: "count", numeric: true }]);
 
-    const item = findItem(ui, "colormap");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "colormap");
     ui.openStylePanel("colormap");
     const panel = panelOf(item);
     expect(panel, "the style panel rendered").toBeTruthy();
@@ -1422,7 +1430,7 @@ describe("LayerUI style panel", () => {
     manager.surfaceFor(li).capabilities.zoomRange = "none";
     ui.runtimeStore.setFields("norange1", [{ name: "count", numeric: true }]);
 
-    const item = findItem(ui, "norange1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "norange1");
     ui.openStylePanel("norange1");
     const panel = panelOf(item);
     expect(panel, "the style panel rendered").toBeTruthy();
@@ -1437,7 +1445,7 @@ describe("LayerUI style panel", () => {
     const li = manager.layerRegistry.get("overlay1");
     manager.layerRegistry.remove("overlay1");
 
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item);
 
@@ -1457,7 +1465,7 @@ describe("LayerUI style panel", () => {
     // capability gets the panel enabled — the opacity and zoomRange sliders are
     // useful even without label fields.
     ui.runtimeStore.deleteFields("overlay1");
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
 
     ui.openMoreMenu(item);
 
@@ -1469,7 +1477,7 @@ describe("LayerUI style panel", () => {
   });
 
   it("the ⋮ menu's Style item is enabled once the layer has fields", () => {
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
 
     ui.openMoreMenu(item);
 
@@ -1486,7 +1494,7 @@ describe("LayerUI style panel", () => {
     // "no extent" verdict, an off row is simply hidden and has nothing to
     // style. The colour basemap starts unchecked, so its Style entry starts
     // disabled and turns on with the box.
-    const item = ui.uiContainer.querySelector(
+    const item = ui.panelStore.uiContainer.querySelector(
       `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
     ) as HTMLElement;
     const box = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
@@ -1510,8 +1518,12 @@ describe("LayerUI style panel", () => {
     ui.runtimeStore.deleteFields("overlay1");
     const collect = vi.spyOn(manager.annotation, "collectFields");
 
-    expect(layerHasLabelFields(ui, "overlay1")).toBe(false);
-    expect(layerHasLabelFields(ui, "overlay1")).toBe(false);
+    expect(layerHasLabelFields(ui.la, ui.panelStore, ui.focusStore, "overlay1")).toBe(
+      false,
+    );
+    expect(layerHasLabelFields(ui.la, ui.panelStore, ui.focusStore, "overlay1")).toBe(
+      false,
+    );
     expect(collect).toHaveBeenCalledTimes(1);
     expect(ui.runtimeStore.getFields("overlay1")).toEqual([]);
   });
@@ -1521,7 +1533,9 @@ describe("LayerUI style panel", () => {
     // runtime createLayers may later add features carrying properties, which
     // must un-stick the ⋮ menu's Style item.
     ui.runtimeStore.deleteFields("overlay1");
-    expect(layerHasLabelFields(ui, "overlay1")).toBe(false);
+    expect(layerHasLabelFields(ui.la, ui.panelStore, ui.focusStore, "overlay1")).toBe(
+      false,
+    );
     expect(ui.runtimeStore.getFields("overlay1")).toEqual([]);
 
     const fields = [
@@ -1533,7 +1547,9 @@ describe("LayerUI style panel", () => {
     ui.onLayerItemCountChange("overlay1");
 
     expect(ui.runtimeStore.getFields("overlay1")).toBeUndefined();
-    expect(layerHasLabelFields(ui, "overlay1")).toBe(true);
+    expect(layerHasLabelFields(ui.la, ui.panelStore, ui.focusStore, "overlay1")).toBe(
+      true,
+    );
   });
 
   it("re-renders a shown layer when its fields are invalidated", () => {
@@ -1566,7 +1582,7 @@ describe("LayerUI style panel", () => {
   });
 
   it("invalidateFields drops a layer's cached list", () => {
-    layerHasLabelFields(ui, "overlay1");
+    layerHasLabelFields(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     expect(ui.runtimeStore.getFields("overlay1")).toBeDefined();
 
     // The delegate is the surface `manager.unregisterLayer` drives.
@@ -1578,7 +1594,7 @@ describe("LayerUI style panel", () => {
     // Closing the panel must not defeat the cache: re-collection on every
     // reopen walks every feature for nothing. The cache is dropped by
     // onLayerItemCountChange instead, when features actually change.
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
 
     ui.openStylePanel("overlay1");
     ui.closeStylePanel(true);
@@ -1592,7 +1608,7 @@ describe("LayerUI style panel", () => {
   // ─────────────────── persisted state ───────────────────
 
   it("applyStyleLabelState seeds a stored config for a layer that has none", () => {
-    seedIntentMap(ui, "annotation", {
+    seedIntentMap(ui.la, "annotation", {
       overlay1: { show: true, field: "count", format: NUMBER_FORMAT.AUTO },
     });
     const setConfig = vi.spyOn(manager.annotation, "setConfig");
@@ -1612,7 +1628,7 @@ describe("LayerUI style panel", () => {
   });
 
   it("applyStyleLabelState falls back for non-typed stored color/size", () => {
-    seedIntentMap(ui, "annotation", {
+    seedIntentMap(ui.la, "annotation", {
       overlay1: {
         show: true,
         field: "count",
@@ -1635,7 +1651,7 @@ describe("LayerUI style panel", () => {
   });
 
   it("applyStyleLabelState normalizes a stored short hex color and clamps size", () => {
-    seedIntentMap(ui, "annotation", {
+    seedIntentMap(ui.la, "annotation", {
       overlay1: {
         show: true,
         field: "count",
@@ -1667,7 +1683,7 @@ describe("LayerUI style panel", () => {
       field: "",
       format: NUMBER_FORMAT.AUTO,
     });
-    seedIntentMap(ui, "annotation", {
+    seedIntentMap(ui.la, "annotation", {
       overlay1: { show: true, field: "count", format: NUMBER_FORMAT.AUTO },
     });
     const setConfig = vi.spyOn(manager.annotation, "setConfig");
@@ -1683,7 +1699,9 @@ describe("LayerUI style panel", () => {
   it("applyStyleLabelState renders a shown config whose field is still auto", () => {
     // `field: ""` is the Auto sentinel, not "no field" — a shown config with it
     // must still render (renderLabels resolves the auto pick).
-    seedIntentMap(ui, "annotation", { overlay1: { show: true, field: "" } });
+    seedIntentMap(ui.la, "annotation", {
+      overlay1: { show: true, field: "" },
+    });
     const renderLabels = vi.spyOn(manager.annotation, "renderLabels");
 
     ui.applyStyleLabelState();
@@ -1692,7 +1710,9 @@ describe("LayerUI style panel", () => {
   });
 
   it("applyStyleLabelState skips configs that are switched off", () => {
-    seedIntentMap(ui, "annotation", { overlay1: { show: false, field: "count" } });
+    seedIntentMap(ui.la, "annotation", {
+      overlay1: { show: false, field: "count" },
+    });
     const renderLabels = vi.spyOn(manager.annotation, "renderLabels");
     const clearLabels = vi.spyOn(manager.annotation, "clearLabels");
 
@@ -1705,7 +1725,7 @@ describe("LayerUI style panel", () => {
   });
 
   it("applyStyleLabelState skips stale ids whose layers are gone", () => {
-    seedIntentMap(ui, "annotation", {
+    seedIntentMap(ui.la, "annotation", {
       ghost: { show: true, field: "count", format: NUMBER_FORMAT.AUTO },
     });
     const setConfig = vi.spyOn(manager.annotation, "setConfig");
@@ -1722,7 +1742,7 @@ describe("LayerUI style panel", () => {
   it("applyStyleLabelState skips an intent that carries no annotation", () => {
     // An id present in `ui.intentStore` for a different dimension (e.g. a rename)
     // must not be treated as a label seed.
-    seedIntentMap(ui, "name", { overlay1: "Renamed" });
+    seedIntentMap(ui.la, "name", { overlay1: "Renamed" });
     const setConfig = vi.spyOn(manager.annotation, "setConfig");
     const renderLabels = vi.spyOn(manager.annotation, "renderLabels");
 
@@ -1740,7 +1760,7 @@ describe("LayerUI style panel", () => {
   // ─────────────────── dismiss / drag edge cases ───────────────────
 
   it("a document-level mousedown (target = document) dismisses the panel", () => {
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
     expect(panelOf(item)).not.toBeNull();
 
@@ -1749,7 +1769,7 @@ describe("LayerUI style panel", () => {
     document.dispatchEvent(new MouseEvent("mousedown"));
 
     expect(panelOf(item)).toBeUndefined();
-    expect(ui.stylePanelLayerId).toBeNull();
+    expect(ui.panelStore.stylePanelLayerId).toBeNull();
   });
 
   it("does not observe dragstart at all (the browser targets the row)", () => {
@@ -1759,7 +1779,7 @@ describe("LayerUI style panel", () => {
     // the row's ancestors — the panel, a descendant, is never on it. That test
     // passed while the real bug (a press on the panel dragged the row) shipped.
     // The guard now lives on the press; see the two drag tests above.
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     let seen = false;
@@ -1775,7 +1795,7 @@ describe("LayerUI style panel", () => {
   });
 
   it("a change from an unrelated target is ignored and not stopped", () => {
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     const content = panel.querySelector(".foliplus-panel-content") as HTMLElement;
@@ -1795,7 +1815,7 @@ describe("LayerUI style panel", () => {
       field: "count",
       format: NUMBER_FORMAT.AUTO,
     });
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
 
     ui.openStylePanel("overlay1");
 
@@ -1809,7 +1829,7 @@ describe("LayerUI style panel", () => {
     vi.useFakeTimers();
     try {
       const saveAnnotations = vi.spyOn(manager.persistence, "schedule");
-      const item = findItem(ui, "overlay1");
+      const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
       ui.openStylePanel("overlay1");
       const panel = panelOf(item)!;
       const toggle = panel.querySelector(
@@ -1855,7 +1875,7 @@ describe("LayerUI style panel", () => {
   });
 
   it("annotation format labels fall back to the raw key when the translator returns empty", () => {
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     const realUnderscore = ui._;
     ui._ = (key: string) =>
       key.startsWith("foliplus.label_format_") ? "" : realUnderscore(key);
@@ -1885,7 +1905,7 @@ describe("LayerUI style panel", () => {
       styleProvider: () => ({ labelShow: true, labelFormat: "auto" }),
       styleSetters: { labelShow: vi.fn(), labelFormat: vi.fn() },
     });
-    const item = findItem(ui, "heat1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "heat1");
 
     ui.openStylePanel("heat1");
 
@@ -1903,7 +1923,7 @@ describe("LayerUI style panel", () => {
       styleProvider: () => ({ labelShow: true, labelFormat: "auto" }),
       styleSetters: { labelShow: vi.fn(), labelFormat: vi.fn() },
     });
-    const item = findItem(ui, "heat1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "heat1");
     const realUnderscore = ui._;
     ui._ = (key: string) =>
       key.startsWith("foliplus.label_format_") ? "" : realUnderscore(key);
@@ -1933,7 +1953,7 @@ describe("LayerUI style panel", () => {
       styleProvider: () => ({ labelShow: true, labelFormat: "comma" }),
       styleSetters: { labelShow: vi.fn(), labelFormat: labelFormatSetter },
     });
-    const item = findItem(ui, "heat1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "heat1");
 
     ui.openStylePanel("heat1");
 
@@ -1967,7 +1987,7 @@ describe("LayerUI style panel", () => {
         labelFormat: vi.fn(),
       },
     });
-    const item = findItem(ui, "heat1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "heat1");
 
     ui.openStylePanel("heat1");
 
@@ -1999,7 +2019,7 @@ describe("LayerUI style panel", () => {
       styleProvider: () => ({ labelShow: true, labelSize: 11 }),
       styleSetters: { labelShow: vi.fn(), labelSize: labelSizeSetter },
     });
-    const item = findItem(ui, "heat1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "heat1");
     ui.openStylePanel("heat1");
 
     const size = panelOf(item)!.querySelector(
@@ -2023,7 +2043,7 @@ describe("LayerUI style panel", () => {
       styleProvider: () => ({ labelShow: true, labelColor: 42, labelSize: "big" }),
       styleSetters: { labelShow: vi.fn(), labelColor: vi.fn(), labelSize: vi.fn() },
     });
-    const item = findItem(ui, "heat1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "heat1");
 
     ui.openStylePanel("heat1");
 
@@ -2046,7 +2066,7 @@ describe("LayerUI style panel", () => {
       styleProvider: () => ({ field: "count" }),
       styleSetters: { field: vi.fn() },
     });
-    const item = findItem(ui, "heat1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "heat1");
 
     ui.openStylePanel("heat1");
 
@@ -2067,7 +2087,7 @@ describe("LayerUI style panel", () => {
       }),
       styleSetters: { labelShow: vi.fn(), labelColor: vi.fn(), labelSize: vi.fn() },
     });
-    const item = findItem(ui, "heat1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "heat1");
     ui.openStylePanel("heat1");
 
     const panel = panelOf(item)!;
@@ -2104,7 +2124,7 @@ describe("LayerUI style panel", () => {
       }),
       styleSetters: { labelShow: vi.fn(), labelColor: vi.fn(), labelSize: vi.fn() },
     });
-    const item = findItem(ui, "heat1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "heat1");
     ui.openStylePanel("heat1");
 
     const panel = panelOf(item)!;
@@ -2135,7 +2155,7 @@ describe("LayerUI style panel", () => {
       styleProvider: () => ({ labelShow: true, labelColor: "#ff0000" }),
       styleSetters: { labelShow: vi.fn(), labelColor: vi.fn() },
     });
-    const item = findItem(ui, "heat1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "heat1");
 
     ui.openStylePanel("heat1");
 
@@ -2152,7 +2172,7 @@ describe("LayerUI style panel", () => {
       styleProvider: () => ({ labelShow: true, labelSize: 14 }),
       styleSetters: { labelShow: vi.fn(), labelSize: vi.fn() },
     });
-    const item = findItem(ui, "heat1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "heat1");
 
     ui.openStylePanel("heat1");
 
@@ -2175,7 +2195,7 @@ describe("LayerUI style panel", () => {
       }),
       styleSetters: { labelShow: vi.fn(), labelColor: vi.fn(), labelSize: vi.fn() },
     });
-    const item = findItem(ui, "heat1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "heat1");
     ui.openStylePanel("heat1");
 
     const panel = panelOf(item)!;
@@ -2207,7 +2227,7 @@ describe("LayerUI style panel", () => {
       styleProvider: () => ({ labelShow: true }),
       styleSetters: { labelShow: vi.fn() },
     });
-    const item = findItem(ui, "heat1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "heat1");
 
     ui.openStylePanel("heat1");
 
@@ -2223,7 +2243,7 @@ describe("LayerUI style panel", () => {
       styleProvider: () => ({ labelShow: true, labelFormat: "auto" }),
       styleSetters: { labelShow: vi.fn(), labelFormat: labelFormatSetter },
     });
-    const item = findItem(ui, "heat1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "heat1");
     ui.openStylePanel("heat1");
 
     const formatSelect = panelOf(item)!.querySelector(
@@ -2244,7 +2264,7 @@ describe("LayerUI style panel", () => {
       styleProvider: () => ({ labelShow: true, labelFormat: currentFormat }),
       styleSetters: { labelShow: vi.fn(), labelFormat: vi.fn() },
     });
-    const item = findItem(ui, "heat1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "heat1");
     ui.openStylePanel("heat1");
 
     const formatSelect = panelOf(item)!.querySelector(
@@ -2269,7 +2289,7 @@ describe("LayerUI style panel", () => {
       styleProvider: () => ({ labelShow: false, labelFormat: "auto" }),
       styleSetters: { labelShow: vi.fn(), labelFormat: vi.fn() },
     });
-    const item = findItem(ui, "heat1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "heat1");
 
     ui.openStylePanel("heat1");
 
@@ -2290,7 +2310,7 @@ describe("LayerUI style panel", () => {
       styleSetters: { labelShow: labelShowSetter, labelFormat: labelFormatSetter },
       styleDefaultsProvider: () => ({ labelShow: false, labelFormat: "auto" }),
     });
-    const item = findItem(ui, "heat1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "heat1");
     ui.openStylePanel("heat1");
 
     const btn = panelOf(item)!.querySelector(
@@ -2302,7 +2322,9 @@ describe("LayerUI style panel", () => {
   });
 
   it("layerHasStyleDelegation is true only for layers with styleSetters", () => {
-    expect(layerHasStyleDelegation(ui, "overlay1")).toBe(false);
+    expect(
+      layerHasStyleDelegation(ui.la, ui.panelStore, ui.focusStore, "overlay1"),
+    ).toBe(false);
 
     manager.registerLayer({
       id: "heat1",
@@ -2311,7 +2333,9 @@ describe("LayerUI style panel", () => {
       styleProvider: () => ({ labelShow: true }),
       styleSetters: { labelShow: vi.fn() },
     });
-    expect(layerHasStyleDelegation(ui, "heat1")).toBe(true);
+    expect(layerHasStyleDelegation(ui.la, ui.panelStore, ui.focusStore, "heat1")).toBe(
+      true,
+    );
   });
 
   it("delegated panel renders only the controls the component declared", () => {
@@ -2324,7 +2348,7 @@ describe("LayerUI style panel", () => {
       styleProvider: () => ({ labelShow: true, labelCollide: false }),
       styleSetters: { labelShow: labelShowSetter, labelCollide: labelCollideSetter },
     });
-    const item = findItem(ui, "heat1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "heat1");
 
     ui.openStylePanel("heat1");
 
@@ -2373,7 +2397,7 @@ describe("LayerUI style panel", () => {
     manager.surfaceFor(li).capabilities.opacity = "none";
     manager.surfaceFor(li).capabilities.zoomRange = "none";
 
-    const item = findItem(ui, "borderOnly");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "borderOnly");
     ui.openStylePanel("borderOnly");
     const panel = panelOf(item)!;
 
@@ -2414,7 +2438,7 @@ describe("LayerUI style panel", () => {
       styleSetters: { labelShow: vi.fn(), labelCollide: vi.fn() },
     });
     ui.runtimeStore.setFields("measure1", [{ name: "count", numeric: true }]);
-    const item = findItem(ui, "measure1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "measure1");
     ui.openStylePanel("measure1");
     const panel = panelOf(item)!;
 
@@ -2441,7 +2465,7 @@ describe("LayerUI style panel", () => {
       styleProvider: () => ({ labelShow: true, field: "count" }),
       styleSetters: { labelShow: vi.fn(), field: vi.fn() },
     });
-    const item = findItem(ui, "heat1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "heat1");
 
     ui.openStylePanel("heat1");
 
@@ -2457,7 +2481,7 @@ describe("LayerUI style panel", () => {
       styleProvider: () => ({ labelShow: true }),
       styleSetters: { labelShow: labelShowSetter },
     });
-    const item = findItem(ui, "heat1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "heat1");
     ui.openStylePanel("heat1");
 
     const toggle = panelOf(item)!.querySelector(
@@ -2479,7 +2503,7 @@ describe("LayerUI style panel", () => {
       styleProvider: () => ({ labelShow: currentLabelShow }),
       styleSetters: { labelShow: labelShowSetter },
     });
-    const item = findItem(ui, "heat1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "heat1");
     ui.openStylePanel("heat1");
 
     const toggle = panelOf(item)!.querySelector(
@@ -2506,7 +2530,7 @@ describe("LayerUI style panel", () => {
       styleProvider: () => ({ labelShow: currentLabelShow }),
       styleSetters: { labelShow: vi.fn() },
     });
-    const item = findItem(ui, "heat1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "heat1");
     ui.openStylePanel("heat1");
 
     const toggle = panelOf(item)!.querySelector(
@@ -2534,18 +2558,18 @@ describe("LayerUI style panel", () => {
       styleSetters: { labelShow: vi.fn() },
     });
     ui.openStylePanel("heat1");
-    expect(ui.styleUnsubscribe).not.toBeNull();
+    expect(ui.panelStore.styleUnsubscribe).not.toBeNull();
 
     // Capture the unsubscribe and verify it is called on close.
-    const unsub = ui.styleUnsubscribe!;
-    ui.styleUnsubscribe = () => {
+    const unsub = ui.panelStore.styleUnsubscribe!;
+    ui.panelStore.styleUnsubscribe = () => {
       offSpy();
       unsub();
     };
     ui.closeStylePanel(false);
 
     expect(offSpy).toHaveBeenCalled();
-    expect(ui.styleUnsubscribe).toBeNull();
+    expect(ui.panelStore.styleUnsubscribe).toBeNull();
   });
 
   it("empty styleSetters does not enable the delegated panel", () => {
@@ -2556,7 +2580,9 @@ describe("LayerUI style panel", () => {
       styleProvider: () => ({}),
       styleSetters: {},
     });
-    expect(layerHasStyleDelegation(ui, "heat1")).toBe(false);
+    expect(layerHasStyleDelegation(ui.la, ui.panelStore, ui.focusStore, "heat1")).toBe(
+      false,
+    );
   });
 
   it("delegated panel collapses body when label toggle is off", () => {
@@ -2567,7 +2593,7 @@ describe("LayerUI style panel", () => {
       styleProvider: () => ({ labelShow: false, labelCollide: true }),
       styleSetters: { labelShow: vi.fn(), labelCollide: vi.fn() },
     });
-    const item = findItem(ui, "heat1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "heat1");
     ui.openStylePanel("heat1");
 
     const body = panelOf(item)!.querySelector(".foliplus-style-body") as HTMLElement;
@@ -2583,7 +2609,7 @@ describe("LayerUI style panel", () => {
       styleProvider: () => ({ labelShow: false, labelCollide: true }),
       styleSetters: { labelShow: labelShowSetter, labelCollide: vi.fn() },
     });
-    const item = findItem(ui, "heat1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "heat1");
     ui.openStylePanel("heat1");
 
     const toggle = panelOf(item)!.querySelector(
@@ -2606,7 +2632,7 @@ describe("LayerUI style panel", () => {
       styleProvider: () => ({ labelShow: true, labelCollide: true }),
       styleSetters: { labelShow: vi.fn(), labelCollide: labelCollideSetter },
     });
-    const item = findItem(ui, "heat1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "heat1");
     ui.openStylePanel("heat1");
 
     const collideToggle = panelOf(item)!.querySelector(
@@ -2627,7 +2653,7 @@ describe("LayerUI style panel", () => {
       styleProvider: () => ({ labelShow: true, labelCollide: currentCollide }),
       styleSetters: { labelShow: vi.fn(), labelCollide: vi.fn() },
     });
-    const item = findItem(ui, "heat1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "heat1");
     ui.openStylePanel("heat1");
 
     const collideToggle = panelOf(item)!.querySelector(
@@ -2653,7 +2679,7 @@ describe("LayerUI style panel", () => {
       styleProvider: () => ({ labelShow: true }),
       styleSetters: { labelShow: labelShowSetter },
     });
-    const item = findItem(ui, "heat1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "heat1");
     ui.openStylePanel("heat1");
 
     // Dispatch a change on a plain div inside the panel — no known control
@@ -2675,7 +2701,7 @@ describe("LayerUI style panel", () => {
       styleProvider: () => ({ labelShow: true, field: "count" }),
       styleSetters: { labelShow: labelShowSetter, field: fieldSetter },
     });
-    const item = findItem(ui, "heat1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "heat1");
     ui.openStylePanel("heat1");
 
     // The drawer no longer renders a field select, but a third-party layer
@@ -2699,7 +2725,7 @@ describe("LayerUI style panel", () => {
       styleProvider: () => ({ labelShow: true }),
       styleSetters: { labelShow: vi.fn() },
     });
-    const item = findItem(ui, "heat1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "heat1");
 
     ui.openStylePanel("heat1");
 
@@ -2715,7 +2741,7 @@ describe("LayerUI style panel", () => {
       styleSetters: { labelShow: vi.fn() },
       styleDefaultsProvider: () => ({ labelShow: false }),
     });
-    const item = findItem(ui, "heat1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "heat1");
 
     ui.openStylePanel("heat1");
 
@@ -2737,7 +2763,7 @@ describe("LayerUI style panel", () => {
       styleSetters: { labelShow: labelShowSetter, labelCollide: labelCollideSetter },
       styleDefaultsProvider: () => ({ labelShow: false, labelCollide: true }),
     });
-    const item = findItem(ui, "heat1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "heat1");
     const focusSpy = vi.fn();
     item.focus = focusSpy;
     ui.openStylePanel("heat1");
@@ -2765,7 +2791,7 @@ describe("LayerUI style panel", () => {
       styleSetters: { labelShow: labelShowSetter, labelCollide: labelCollideSetter },
       styleDefaultsProvider: () => ({ labelShow: false }),
     });
-    const item = findItem(ui, "heat1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "heat1");
     ui.openStylePanel("heat1");
 
     const btn = panelOf(item)!.querySelector(
@@ -2784,7 +2810,7 @@ describe("LayerUI style panel", () => {
       canvas: document.createElement("canvas"),
       styleSetters: { labelShow: vi.fn(), labelCollide: vi.fn() },
     });
-    const item = findItem(ui, "heat1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "heat1");
 
     ui.openStylePanel("heat1");
 
@@ -2807,7 +2833,7 @@ describe("LayerUI style panel", () => {
       styleProvider: () => ({ labelCollide: true }),
       styleSetters: { labelCollide: vi.fn() },
     });
-    const item = findItem(ui, "heat1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "heat1");
 
     ui.openStylePanel("heat1");
 
@@ -2827,7 +2853,7 @@ describe("LayerUI style panel", () => {
       styleSetters: { labelShow: labelShowSetter },
       styleDefaultsProvider: () => undefined as unknown as Record<string, unknown>,
     });
-    const item = findItem(ui, "heat1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "heat1");
     ui.openStylePanel("heat1");
 
     const btn = panelOf(item)!.querySelector(
@@ -2849,7 +2875,7 @@ describe("LayerUI style panel", () => {
       styleProvider: () => ({ labelShow: currentLabelShow }),
       styleSetters: { labelShow: vi.fn() },
     });
-    const item = findItem(ui, "heat1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "heat1");
     ui.openStylePanel("heat1");
 
     const toggle = panelOf(item)!.querySelector(
@@ -2877,7 +2903,7 @@ describe("LayerUI style panel", () => {
       styleProvider: () => provide(),
       styleSetters: { labelShow: vi.fn() },
     });
-    const item = findItem(ui, "heat1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "heat1");
     ui.openStylePanel("heat1");
     const toggle = panelOf(item)!.querySelector(
       ".foliplus-style-toggle-input",
@@ -2903,7 +2929,7 @@ describe("LayerUI style panel", () => {
       styleSetters: { labelShow: labelShowSetter },
       styleDefaultsProvider: () => ({ labelShow: false }),
     });
-    const item = findItem(ui, "heat1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "heat1");
     ui.openStylePanel("heat1");
 
     // Simulate the layer being torn down between open and Reset.
@@ -2928,7 +2954,7 @@ describe("LayerUI style panel", () => {
       styleProvider: () => ({ labelShow: true }),
       styleSetters: { labelShow: labelShowSetter },
     });
-    const item = findItem(ui, "heat1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "heat1");
     ui.openStylePanel("heat1");
 
     const li = manager.layerRegistry.get("heat1")!;
@@ -2952,7 +2978,7 @@ describe("LayerUI style panel", () => {
       styleProvider: () => ({ labelShow: true }),
       styleSetters: { labelShow: firstSetter },
     });
-    const item = findItem(ui, "heat1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "heat1");
     ui.openStylePanel("heat1");
 
     // Re-registering upserts a fresh LayerInfo object in place of the old one.
@@ -2984,7 +3010,7 @@ describe("LayerUI style panel", () => {
       styleProvider: () => ({ labelShow: true, labelFormat: 42 }),
       styleSetters: { labelShow: vi.fn(), labelFormat: vi.fn() },
     });
-    const item = findItem(ui, "heat1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "heat1");
 
     ui.openStylePanel("heat1");
 
@@ -3003,7 +3029,7 @@ describe("LayerUI style panel", () => {
       styleProvider: () => ({ labelShow: true, labelFormat: currentFormat }),
       styleSetters: { labelShow: vi.fn(), labelFormat: vi.fn() },
     });
-    const item = findItem(ui, "heat1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "heat1");
     ui.openStylePanel("heat1");
 
     const formatSelect = panelOf(item)!.querySelector(
@@ -3040,7 +3066,7 @@ describe("LayerUI style panel", () => {
         borderColor: borderColorSetter,
       },
     });
-    const item = findItem(ui, "heat1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "heat1");
     ui.openStylePanel("heat1");
 
     const panel = panelOf(item)!;
@@ -3064,7 +3090,7 @@ describe("LayerUI style panel", () => {
       styleProvider: () => ({ borderColor: "#000000" }),
       styleSetters: { borderColor: borderColorSetter },
     });
-    const item = findItem(ui, "heat1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "heat1");
     ui.openStylePanel("heat1");
 
     const colorInput = panelOf(item)!.querySelector(
@@ -3085,7 +3111,7 @@ describe("LayerUI style panel", () => {
       styleProvider: () => ({ borderWeight: 1 }),
       styleSetters: { borderWeight: borderWeightSetter },
     });
-    const item = findItem(ui, "heat1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "heat1");
     ui.openStylePanel("heat1");
 
     const weightInput = panelOf(item)!.querySelector(
@@ -3105,7 +3131,9 @@ describe("LayerUI style panel", () => {
       styleProvider: () => ({}),
       styleSetters: { field: vi.fn() },
     });
-    expect(renderDelegatedStylePanel(ui, "dataOnly")).toBeNull();
+    expect(
+      renderDelegatedStylePanel(ui.la, ui.panelStore, ui.focusStore, "dataOnly"),
+    ).toBeNull();
   });
 
   it("buildBorderRow returns null when the layer has no border setters", () => {
@@ -3116,7 +3144,7 @@ describe("LayerUI style panel", () => {
       styleProvider: () => ({}),
       styleSetters: { field: vi.fn() },
     });
-    expect(buildBorderRow(ui, "dataOnly")).toBeNull();
+    expect(buildBorderRow(ui.la, ui.panelStore, ui.focusStore, "dataOnly")).toBeNull();
   });
 
   it("delegated Reset restores borderWeight and borderColor from styleDefaultsProvider", () => {
@@ -3136,7 +3164,7 @@ describe("LayerUI style panel", () => {
         borderColor: "#333333",
       }),
     });
-    const item = findItem(ui, "heat1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "heat1");
     ui.openStylePanel("heat1");
 
     const resetBtn = panelOf(item)!.querySelector(
@@ -3165,7 +3193,7 @@ describe("LayerUI style panel", () => {
         borderWeight: vi.fn(),
       },
     });
-    const item = findItem(ui, "heat1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "heat1");
     ui.openStylePanel("heat1");
 
     const colorInput = panelOf(item)!.querySelector(
@@ -3197,7 +3225,7 @@ describe("LayerUI style panel", () => {
       styleProvider: () => ({ borderColor: currentBorderColor }),
       styleSetters: { borderColor: vi.fn() },
     });
-    const item = findItem(ui, "heat1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "heat1");
     ui.openStylePanel("heat1");
 
     const colorInput = panelOf(item)!.querySelector(
@@ -3228,7 +3256,7 @@ describe("LayerUI style panel", () => {
         borderWeight: vi.fn(),
       },
     });
-    const item = findItem(ui, "heat1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "heat1");
     ui.openStylePanel("heat1");
 
     const colorInput = panelOf(item)!.querySelector(
@@ -3257,7 +3285,7 @@ describe("LayerUI style panel", () => {
       styleProvider: () => undefined as unknown as { borderColor?: string },
       styleSetters: { borderColor: vi.fn() },
     });
-    const item = findItem(ui, "heat1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "heat1");
     ui.openStylePanel("heat1");
 
     const colorInput = panelOf(item)!.querySelector(
@@ -3281,11 +3309,13 @@ describe("LayerUI style panel", () => {
       styleProvider: () => ({}),
       styleSetters: { field: vi.fn() },
     });
-    expect(renderDelegatedStylePanel(ui, "dataOnly")).toBeNull();
+    expect(
+      renderDelegatedStylePanel(ui.la, ui.panelStore, ui.focusStore, "dataOnly"),
+    ).toBeNull();
   });
 
   it("renders the opacity slider defaulting to 100", () => {
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     const range = panel.querySelector(
@@ -3301,7 +3331,7 @@ describe("LayerUI style panel", () => {
 
   it("an opacity change applies to the layer and persists", () => {
     const li = manager.layerRegistry.get("overlay1")!;
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     const range = panel.querySelector(
@@ -3312,7 +3342,7 @@ describe("LayerUI style panel", () => {
     range.dispatchEvent(new Event("input", { bubbles: true }));
 
     expect(li.opacity).toBe(0.6);
-    expect(getIntent(ui, "overlay1", "opacity")).toBe(0.6);
+    expect(getIntent(ui.la, "overlay1", "opacity")).toBe(0.6);
   });
 
   it("commitOpacityPct re-syncs the no-basemap hatch for base layers", () => {
@@ -3325,7 +3355,7 @@ describe("LayerUI style panel", () => {
       () => ({ classList: { toggle: toggleSpy } }) as unknown as HTMLElement,
     );
     try {
-      const item = findItem(ui, "base1");
+      const item = findItem(ui.la, ui.panelStore, ui.focusStore, "base1");
       ui.openStylePanel("base1");
       const range = panelOf(item)!.querySelector(
         ".foliplus-style-opacity-range",
@@ -3347,7 +3377,7 @@ describe("LayerUI style panel", () => {
       () => ({ classList: { toggle: toggleSpy } }) as unknown as HTMLElement,
     );
     try {
-      const item = findItem(ui, "overlay1");
+      const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
       ui.openStylePanel("overlay1");
       const range = panelOf(item)!.querySelector(
         ".foliplus-style-opacity-range",
@@ -3372,9 +3402,9 @@ describe("LayerUI style panel", () => {
     );
     try {
       const li = manager.layerRegistry.get("base1")!;
-      setIntent(ui, "base1", "opacity", 0);
+      setIntent(ui.la, "base1", "opacity", 0);
       li.opacity = 0;
-      resetLayerOpacity(ui, "base1");
+      resetLayerOpacity(ui.la, ui.panelStore, ui.focusStore, "base1");
       const calls = toggleSpy.mock.calls.filter(
         c => c[0] === CONST.CLASSES.NO_BASE_MAP,
       );
@@ -3391,9 +3421,9 @@ describe("LayerUI style panel", () => {
     );
     try {
       const li = manager.layerRegistry.get("overlay1")!;
-      setIntent(ui, "overlay1", "opacity", 0);
+      setIntent(ui.la, "overlay1", "opacity", 0);
       li.opacity = 0;
-      resetLayerOpacity(ui, "overlay1");
+      resetLayerOpacity(ui.la, ui.panelStore, ui.focusStore, "overlay1");
       const calls = toggleSpy.mock.calls.filter(
         c => c[0] === CONST.CLASSES.NO_BASE_MAP,
       );
@@ -3405,7 +3435,7 @@ describe("LayerUI style panel", () => {
 
   it("reopening the panel seeds the opacity slider from intents.opacity", () => {
     const li = manager.layerRegistry.get("overlay1")!;
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
     const range = panelOf(item)!.querySelector(
       ".foliplus-style-opacity-range",
@@ -3430,7 +3460,7 @@ describe("LayerUI style panel", () => {
     // fresh-open path must still paint a full slider rather than NaN/empty.
     const li = manager.layerRegistry.get("overlay1")!;
     delete (li as { opacity?: number }).opacity;
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
 
@@ -3452,7 +3482,7 @@ describe("LayerUI style panel", () => {
       styleProvider: () => ({ labelShow: true, labelSize: 14, labelColor: "#ff0000" }),
       styleSetters: { labelShow: vi.fn(), labelSize: vi.fn(), labelColor: vi.fn() },
     });
-    const item = findItem(ui, "cluster1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "cluster1");
     ui.openStylePanel("cluster1");
     const panel = panelOf(item)!;
 
@@ -3484,7 +3514,7 @@ describe("LayerUI style panel", () => {
       ...clusterSurface.capabilities,
       annotation: "pane",
     };
-    const item = findItem(ui, "cluster2");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "cluster2");
     ui.openStylePanel("cluster2");
     const panel = panelOf(item)!;
 
@@ -3503,8 +3533,8 @@ describe("LayerUI style panel — zoom range", () => {
 
   beforeEach(() => {
     ({ manager, ui, map } = initFixture());
-    ui.foldedGroups = new Set();
-    seedIntentMap(ui, "visible", {});
+    ui.panelStore.foldedGroups = new Set();
+    seedIntentMap(ui.la, "visible", {});
     window.localStorage.removeItem(CONST.STORAGE.KEY);
     ui.runtimeStore.setFields("overlay1", [{ name: "count", numeric: true }]);
   });
@@ -3524,7 +3554,7 @@ describe("LayerUI style panel — zoom range", () => {
     panel.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`);
 
   it("renders the zoom-range row for a pane-capable layer", () => {
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     const row = zoomRowOf(panel);
@@ -3532,7 +3562,7 @@ describe("LayerUI style panel — zoom range", () => {
   });
 
   it("renders the fill, three dots, two handles and the values row", () => {
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
     const row = zoomRowOf(panelOf(item)!)!;
     expect(row.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_FILL}`)).not.toBeNull();
@@ -3549,8 +3579,8 @@ describe("LayerUI style panel — zoom range", () => {
   });
 
   it("shows out-of-range class when current zoom is outside the range", () => {
-    const item = findItem(ui, "overlay1");
-    setIntent(ui, "overlay1", "zoomRange", [0, 3]);
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
+    setIntent(ui.la, "overlay1", "zoomRange", [0, 3]);
     ui.openStylePanel("overlay1");
     const row = zoomRowOf(panelOf(item)!)!;
     expect(row.classList.contains(CONST.CLASSES.STYLE_ZOOM_RANGE_OUT_OF_RANGE)).toBe(
@@ -3559,8 +3589,8 @@ describe("LayerUI style panel — zoom range", () => {
   });
 
   it("does not show out-of-range class when current zoom is inside the range", () => {
-    const item = findItem(ui, "overlay1");
-    setIntent(ui, "overlay1", "zoomRange", [0, 18]);
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
+    setIntent(ui.la, "overlay1", "zoomRange", [0, 18]);
     ui.openStylePanel("overlay1");
     const row = zoomRowOf(panelOf(item)!)!;
     expect(row.classList.contains(CONST.CLASSES.STYLE_ZOOM_RANGE_OUT_OF_RANGE)).toBe(
@@ -3569,7 +3599,7 @@ describe("LayerUI style panel — zoom range", () => {
   });
 
   it("input event updates map state and visual row (live pass)", () => {
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     const row = zoomRowOf(panel)!;
@@ -3580,12 +3610,12 @@ describe("LayerUI style panel — zoom range", () => {
     minInput.value = "5";
     minInput.dispatchEvent(new Event("input", { bubbles: true }));
 
-    expect(getIntent(ui, "overlay1", "zoomRange")).toEqual([5, 18]);
+    expect(getIntent(ui.la, "overlay1", "zoomRange")).toEqual([5, 18]);
   });
 
   it("change event persists the range to localStorage", () => {
     vi.useFakeTimers();
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     const row = zoomRowOf(panel)!;
@@ -3605,7 +3635,7 @@ describe("LayerUI style panel — zoom range", () => {
   });
 
   it("clamps min to max when min exceeds max", () => {
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     const row = zoomRowOf(panel)!;
@@ -3620,11 +3650,11 @@ describe("LayerUI style panel — zoom range", () => {
     maxInput.value = "10";
     minInput.dispatchEvent(new Event("input", { bubbles: true }));
 
-    expect(getIntent(ui, "overlay1", "zoomRange")).toEqual([10, 10]);
+    expect(getIntent(ui.la, "overlay1", "zoomRange")).toEqual([10, 10]);
   });
 
   it("clamps max to min when max falls below min", () => {
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     const row = zoomRowOf(panel)!;
@@ -3639,11 +3669,11 @@ describe("LayerUI style panel — zoom range", () => {
     maxInput.value = "5";
     maxInput.dispatchEvent(new Event("input", { bubbles: true }));
 
-    expect(getIntent(ui, "overlay1", "zoomRange")).toEqual([10, 10]);
+    expect(getIntent(ui.la, "overlay1", "zoomRange")).toEqual([10, 10]);
   });
 
   it("clamps zoom values to map bounds", () => {
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     const row = zoomRowOf(panel)!;
@@ -3654,12 +3684,12 @@ describe("LayerUI style panel — zoom range", () => {
     minInput.value = "-5";
     minInput.dispatchEvent(new Event("input", { bubbles: true }));
 
-    const range = getIntent(ui, "overlay1", "zoomRange");
+    const range = getIntent(ui.la, "overlay1", "zoomRange");
     expect(range![0]).toBeGreaterThanOrEqual(0);
   });
 
   it("moves the current dot on zoomend", () => {
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     let zoomEndHandler: (() => void) | null = null;
     const origOn = map.on;
     map.on = (evt: string, fn: () => void) => {
@@ -3683,8 +3713,8 @@ describe("LayerUI style panel — zoom range", () => {
   });
 
   it("updates values row on zoomend", () => {
-    const item = findItem(ui, "overlay1");
-    setIntent(ui, "overlay1", "zoomRange", [0, 18]);
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
+    setIntent(ui.la, "overlay1", "zoomRange", [0, 18]);
     let zoomEndHandler: (() => void) | null = null;
     const origOn = map.on;
     map.on = (evt: string, fn: () => void) => {
@@ -3717,7 +3747,12 @@ describe("LayerUI style panel — zoom range", () => {
       styleProvider: () => ({ labelShow: true }),
       styleSetters: { labelShow: vi.fn() },
     });
-    const panel = renderDelegatedStylePanel(ui, "canvas1");
+    const panel = renderDelegatedStylePanel(
+      ui.la,
+      ui.panelStore,
+      ui.focusStore,
+      "canvas1",
+    );
     expect(panel).not.toBeNull();
     expect(zoomRowOf(panel!)).not.toBeNull();
   });
@@ -3731,7 +3766,7 @@ describe("LayerUI style panel — zoom range", () => {
       styleProvider: () => ({ labelShow: true }),
       styleSetters: { labelShow: vi.fn() },
     });
-    const item = findItem(ui, "canvas1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "canvas1");
     ui.openStylePanel("canvas1");
     const row = zoomRowOf(panelOf(item)!)!;
     const minInput = row.querySelector(
@@ -3742,13 +3777,13 @@ describe("LayerUI style panel — zoom range", () => {
     // out of range, and its HIDDEN class is what hides it.
     minInput.value = "6";
     minInput.dispatchEvent(new Event("input", { bubbles: true }));
-    expect(getIntent(ui, "canvas1", "zoomRange")).toEqual([6, 18]);
+    expect(getIntent(ui.la, "canvas1", "zoomRange")).toEqual([6, 18]);
     expect(canvas.classList.contains("hidden")).toBe(true);
 
     // Dragging the bound back drops it again — the write is reversible.
     minInput.value = "0";
     minInput.dispatchEvent(new Event("input", { bubbles: true }));
-    expect(getIntent(ui, "canvas1", "zoomRange")).toEqual([0, 18]);
+    expect(getIntent(ui.la, "canvas1", "zoomRange")).toEqual([0, 18]);
     expect(canvas.classList.contains("hidden")).toBe(false);
   });
 
@@ -3763,7 +3798,7 @@ describe("LayerUI style panel — zoom range", () => {
       styleProvider: () => ({ labelShow: true }),
       styleSetters: { labelShow: vi.fn() },
     });
-    const item = findItem(ui, "measure1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "measure1");
     ui.openStylePanel("measure1");
     const row = zoomRowOf(panelOf(item)!)!;
     const minInput = row.querySelector(
@@ -3773,7 +3808,7 @@ describe("LayerUI style panel — zoom range", () => {
     minInput.value = "6";
     minInput.dispatchEvent(new Event("input", { bubbles: true }));
 
-    expect(getIntent(ui, "measure1", "zoomRange")).toEqual([6, 18]);
+    expect(getIntent(ui.la, "measure1", "zoomRange")).toEqual([6, 18]);
     expect(map.removeLayer).toHaveBeenCalledWith(measureLayer);
   });
 
@@ -3781,7 +3816,7 @@ describe("LayerUI style panel — zoom range", () => {
     // T190 — the old `li.group !== "base"` blanket was dropped; the fixture's base1 is
     // a TileLayer (GridLayer subclass) whose options.minZoom/maxZoom are the
     // honest carrier, so the row now renders for it just like any overlay.
-    const item = findItem(ui, "base1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "base1");
     ui.openStylePanel("base1");
     const panel = panelOf(item);
     if (!panel) return;
@@ -3790,8 +3825,8 @@ describe("LayerUI style panel — zoom range", () => {
   });
 
   it("reset button clears zoom range and restores full map range", () => {
-    const item = findItem(ui, "overlay1");
-    setIntent(ui, "overlay1", "zoomRange", [5, 15]);
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
+    setIntent(ui.la, "overlay1", "zoomRange", [5, 15]);
     ui.intentStore.seedProvenance("overlay1", ["zoomRange"]);
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
@@ -3800,14 +3835,14 @@ describe("LayerUI style panel — zoom range", () => {
     ) as HTMLButtonElement;
     resetBtn.click();
 
-    expect(getIntent(ui, "overlay1", "zoomRange")).toBeUndefined();
+    expect(getIntent(ui.la, "overlay1", "zoomRange")).toBeUndefined();
     expect(ui.intentStore.dumpProvenance()["overlay1"]).toBeUndefined();
   });
 
   it("zoomToPct returns 0 when map min equals max (degenerate range)", () => {
     map.getMinZoom.mockReturnValue(7);
     map.getMaxZoom.mockReturnValue(7);
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
     const row = zoomRowOf(panelOf(item)!)!;
     expect(row).not.toBeNull();
@@ -3816,7 +3851,7 @@ describe("LayerUI style panel — zoom range", () => {
   it("renders zoom-range row when map has a single zoom level", () => {
     map.getMinZoom.mockReturnValue(3);
     map.getMaxZoom.mockReturnValue(3);
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
     const row = zoomRowOf(panelOf(item)!)!;
     expect(row).not.toBeNull();
@@ -3831,7 +3866,7 @@ describe("LayerUI style panel — zoom range", () => {
   });
 
   it("delegated panel includes zoom-range row when capability is present", () => {
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     const hasRow = panel.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`);
@@ -3839,7 +3874,7 @@ describe("LayerUI style panel — zoom range", () => {
   });
 
   it("the live pass (input) drives the opacity row and floats the value", () => {
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     const range = panel.querySelector(
@@ -3876,7 +3911,7 @@ describe("LayerUI style panel — zoom range", () => {
 
   it("ignores a live value that does not parse", () => {
     const li = manager.layerRegistry.get("overlay1")!;
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     const range = panel.querySelector(
@@ -3902,7 +3937,7 @@ describe("LayerUI style panel — zoom range", () => {
   it("a single-level map yields a zero percentage rather than NaN", () => {
     map.getMinZoom.mockReturnValue(7);
     map.getMaxZoom.mockReturnValue(7);
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
     const row = zoomRowOf(panelOf(item)!)!;
     const minInput = row.querySelector(
@@ -3917,7 +3952,7 @@ describe("LayerUI style panel — zoom range", () => {
   });
 
   it("keeps working when the row has lost its painted parts", () => {
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
     const row = zoomRowOf(panelOf(item)!)!;
 
@@ -3934,11 +3969,11 @@ describe("LayerUI style panel — zoom range", () => {
       minInput.value = "4";
       minInput.dispatchEvent(new Event("change", { bubbles: true }));
     }).not.toThrow();
-    expect(getIntent(ui, "overlay1", "zoomRange")).toEqual([4, map.getMaxZoom()]);
+    expect(getIntent(ui.la, "overlay1", "zoomRange")).toEqual([4, map.getMaxZoom()]);
   });
 
   it("the zoom-range live pass updates the map and the bubble", () => {
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
     const row = zoomRowOf(panelOf(item)!)!;
     const rail = row.querySelector(
@@ -3951,7 +3986,7 @@ describe("LayerUI style panel — zoom range", () => {
     maxInput.value = "10";
     maxInput.dispatchEvent(new Event("input", { bubbles: true }));
 
-    expect(getIntent(ui, "overlay1", "zoomRange")).toEqual([0, 10]);
+    expect(getIntent(ui.la, "overlay1", "zoomRange")).toEqual([0, 10]);
     const bubble = rail.querySelector(
       `.${CONST.CLASSES.SLIDER_BUBBLE}`,
     ) as HTMLElement | null;
@@ -3963,8 +3998,8 @@ describe("LayerUI style panel — zoom range", () => {
   });
 
   it("OOR state marks the row when current zoom is outside range", () => {
-    const item = findItem(ui, "overlay1");
-    setIntent(ui, "overlay1", "zoomRange", [7, 10]);
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
+    setIntent(ui.la, "overlay1", "zoomRange", [7, 10]);
     ui.openStylePanel("overlay1");
     const row = zoomRowOf(panelOf(item)!)!;
 
@@ -3976,8 +4011,8 @@ describe("LayerUI style panel — zoom range", () => {
   });
 
   it("out-of-range sync clears the class when zoom returns inside range", () => {
-    const item = findItem(ui, "overlay1");
-    setIntent(ui, "overlay1", "zoomRange", [7, 10]);
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
+    setIntent(ui.la, "overlay1", "zoomRange", [7, 10]);
     ui.openStylePanel("overlay1");
     const row = zoomRowOf(panelOf(item)!)!;
     expect(row.classList.contains(CONST.CLASSES.STYLE_ZOOM_RANGE_OUT_OF_RANGE)).toBe(
@@ -4008,7 +4043,7 @@ describe("LayerUI style panel — zoom range", () => {
       styleProvider: () => ({ labelShow: true, labelSize: 14, labelColor: "#ff0000" }),
       styleSetters: { labelShow: vi.fn(), labelSize: vi.fn(), labelColor: vi.fn() },
     });
-    const item = findItem(ui, "cluster3");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "cluster3");
     ui.openStylePanel("cluster3");
     const panel = panelOf(item)!;
 
@@ -4021,7 +4056,7 @@ describe("LayerUI style panel — zoom range", () => {
 
   it("still commits when the opacity row has lost its rail and fill", () => {
     const li = manager.layerRegistry.get("overlay1")!;
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     const range = panel.querySelector(
@@ -4042,11 +4077,11 @@ describe("LayerUI style panel — zoom range", () => {
   });
 
   it("resets the range when the row has lost a handle", () => {
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     const row = zoomRowOf(panel)!;
-    setIntent(ui, "overlay1", "zoomRange", [4, 9]);
+    setIntent(ui.la, "overlay1", "zoomRange", [4, 9]);
     row.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_MAX}`)?.remove();
 
     // The reset pass syncs the row's remaining marks, so a missing handle has to
@@ -4055,12 +4090,12 @@ describe("LayerUI style panel — zoom range", () => {
     const reset = panel.querySelector(".foliplus-style-reset-btn")!;
     reset.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 
-    expect(getIntent(ui, "overlay1", "zoomRange")).toBeUndefined();
+    expect(getIntent(ui.la, "overlay1", "zoomRange")).toBeUndefined();
     expect(panelOf(item)).toBeUndefined();
   });
 
   it("skips a layer that was unregistered mid-drag", () => {
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     const row = zoomRowOf(panel)!;
@@ -4070,7 +4105,7 @@ describe("LayerUI style panel — zoom range", () => {
 
     minInput.value = "4";
     minInput.dispatchEvent(new Event("change", { bubbles: true }));
-    expect(getIntent(ui, "overlay1", "zoomRange")).toEqual([4, 18]);
+    expect(getIntent(ui.la, "overlay1", "zoomRange")).toEqual([4, 18]);
 
     // The row outlives its layer: nothing is left to write the range into, so
     // the live pass has to bail instead of writing a range for a ghost.
@@ -4078,7 +4113,7 @@ describe("LayerUI style panel — zoom range", () => {
     minInput.value = "6";
     minInput.dispatchEvent(new Event("change", { bubbles: true }));
 
-    expect(getIntent(ui, "overlay1", "zoomRange")).toEqual([4, 18]);
+    expect(getIntent(ui.la, "overlay1", "zoomRange")).toEqual([4, 18]);
   });
 
   it("gives a delegated layer a zoom row when only opacity is unavailable", () => {
@@ -4095,7 +4130,7 @@ describe("LayerUI style panel — zoom range", () => {
     const li = manager.layerRegistry.get("rangeOnly")!;
     manager.surfaceFor(li).capabilities.opacity = "none";
 
-    const item = findItem(ui, "rangeOnly");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "rangeOnly");
     ui.openStylePanel("rangeOnly");
     const panel = panelOf(item)!;
 
@@ -4114,7 +4149,7 @@ describe("LayerUI style panel — zoom range", () => {
     const li = manager.layerRegistry.get("annotOnly")!;
     manager.surfaceFor(li).capabilities.opacity = "none";
 
-    const item = findItem(ui, "annotOnly");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "annotOnly");
     ui.openStylePanel("annotOnly");
     const panel = panelOf(item)!;
 
@@ -4123,7 +4158,7 @@ describe("LayerUI style panel — zoom range", () => {
   });
 
   it("ignores a range change once the row is out of the panel", () => {
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     const row = zoomRowOf(panel)!;
@@ -4133,7 +4168,7 @@ describe("LayerUI style panel — zoom range", () => {
 
     minInput.value = "4";
     minInput.dispatchEvent(new Event("change", { bubbles: true }));
-    expect(getIntent(ui, "overlay1", "zoomRange")).toEqual([4, 18]);
+    expect(getIntent(ui.la, "overlay1", "zoomRange")).toEqual([4, 18]);
 
     // A handle whose row is gone still bubbles to the panel it was built in;
     // with no row to read there is nothing to write.
@@ -4142,11 +4177,11 @@ describe("LayerUI style panel — zoom range", () => {
     minInput.value = "6";
     minInput.dispatchEvent(new Event("change", { bubbles: true }));
 
-    expect(getIntent(ui, "overlay1", "zoomRange")).toEqual([4, 18]);
+    expect(getIntent(ui.la, "overlay1", "zoomRange")).toEqual([4, 18]);
   });
 
   it("reuses the range bubble and keeps the range when the rail is gone", () => {
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     const row = zoomRowOf(panel)!;
@@ -4178,7 +4213,7 @@ describe("LayerUI style panel — zoom range", () => {
     minInput.value = "3";
     minInput.dispatchEvent(new Event("input", { bubbles: true }));
 
-    expect(getIntent(ui, "overlay1", "zoomRange")).toEqual([3, 9]);
+    expect(getIntent(ui.la, "overlay1", "zoomRange")).toEqual([3, 9]);
   });
 
   // The two slider ends read the layer's author-declared bounds from the
@@ -4192,7 +4227,7 @@ describe("LayerUI style panel — zoom range", () => {
     const li = manager.layerRegistry.get("base1")!;
     (li.layer!.options as { maxZoom?: number }).maxZoom = 15;
     map.getMaxZoom.mockReturnValue(18);
-    const item = findItem(ui, "base1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "base1");
     ui.openStylePanel("base1");
     const row = zoomRowOf(panelOf(item)!)!;
     const maxInput = row.querySelector(
@@ -4209,7 +4244,7 @@ describe("LayerUI style panel — zoom range", () => {
     const li = manager.layerRegistry.get("base1")!;
     (li.layer!.options as { maxZoom?: number }).maxZoom = 15;
     map.getMaxZoom.mockReturnValue(18);
-    const item = findItem(ui, "base1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "base1");
     ui.openStylePanel("base1");
     const row = zoomRowOf(panelOf(item)!)!;
     const maxInput = row.querySelector(
@@ -4240,7 +4275,7 @@ describe("LayerUI style panel — zoom range", () => {
     const li = manager.layerRegistry.get("base1")!;
     delete (li.layer!.options as { maxZoom?: number }).maxZoom;
     map.getMaxZoom.mockReturnValue(Infinity);
-    const item = findItem(ui, "base1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "base1");
     ui.openStylePanel("base1");
     const row = zoomRowOf(panelOf(item)!)!;
     const maxInput = row.querySelector(
@@ -4256,7 +4291,7 @@ describe("LayerUI style panel — zoom range", () => {
     const li = manager.layerRegistry.get("base1")!;
     (li.layer!.options as { minZoom?: number }).minZoom = 2;
     map.getMinZoom.mockReturnValue(0);
-    const item = findItem(ui, "base1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "base1");
     ui.openStylePanel("base1");
     const row = zoomRowOf(panelOf(item)!)!;
     const minInput = row.querySelector(
@@ -4269,7 +4304,7 @@ describe("LayerUI style panel — zoom range", () => {
     const li = manager.layerRegistry.get("base1")!;
     (li.layer!.options as { minZoom?: number }).minZoom = 3;
     map.getMinZoom.mockReturnValue(0);
-    const item = findItem(ui, "base1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "base1");
     ui.openStylePanel("base1");
     const row = zoomRowOf(panelOf(item)!)!;
     const minInput = row.querySelector(
@@ -4303,11 +4338,11 @@ describe("LayerUI style panel — zoom range", () => {
       layer: gridLayer,
     });
     // Author declared no maxZoom: the fallback is the map's declared max.
-    setIntent(ui, "grid1", "zoomRange", [0, 10]);
-    applyProjection(ui, "grid1");
+    setIntent(ui.la, "grid1", "zoomRange", [0, 10]);
+    applyProjection(ui.la, ui.panelStore, ui.focusStore, "grid1");
     // The layer's options are untouched — the zoomRange did not write.
     expect((gridLayer.options as { maxZoom?: number }).maxZoom).toBeUndefined();
-    const item = findItem(ui, "grid1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "grid1");
     ui.openStylePanel("grid1");
     const row = zoomRowOf(panelOf(item)!)!;
     const maxInput = row.querySelector(
@@ -4342,7 +4377,9 @@ describe("style utility guards", () => {
     // declared a setter has no delegation, so the drawer is not built.
     const { ui } = initFixture();
     // A plain overlay1 in the fixture has no styleSetters.
-    expect(renderDelegatedStylePanel(ui, "overlay1")).toBeNull();
+    expect(
+      renderDelegatedStylePanel(ui.la, ui.panelStore, ui.focusStore, "overlay1"),
+    ).toBeNull();
   });
 
   it("renderDelegatedStylePanel returns null when styleSetters is empty", () => {
@@ -4357,13 +4394,22 @@ describe("style utility guards", () => {
       styleProvider: () => ({}),
       styleSetters: {},
     });
-    expect(renderDelegatedStylePanel(ui, "emptySetters")).toBeNull();
+    expect(
+      renderDelegatedStylePanel(ui.la, ui.panelStore, ui.focusStore, "emptySetters"),
+    ).toBeNull();
   });
 
   it("renderDelegatedStylePanel returns null when the layer is not registered", () => {
     // Covers the `li?.styleSetters` undefined access on a missing layer.
     const { ui } = initFixture();
-    expect(renderDelegatedStylePanel(ui, "not-a-real-layer")).toBeNull();
+    expect(
+      renderDelegatedStylePanel(
+        ui.la,
+        ui.panelStore,
+        ui.focusStore,
+        "not-a-real-layer",
+      ),
+    ).toBeNull();
   });
 
   it("toggle handler tolerates a panel with no body, field select, or format row", () => {
@@ -4381,7 +4427,7 @@ describe("style utility guards", () => {
     surface.capabilities = { ...surface.capabilities, annotation: "pane" };
     const panelOf = (item: HTMLElement) =>
       item.querySelector(`.${CONST.CLASSES.STYLE_PANEL}`) as HTMLElement | null;
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item);
     expect(panel).not.toBeNull();
@@ -4410,7 +4456,7 @@ describe("style utility guards", () => {
     ui.runtimeStore.setFields("overlay1", [{ name: "count", numeric: true }]);
     const panelOf = (item: HTMLElement) =>
       item.querySelector(`.${CONST.CLASSES.STYLE_PANEL}`) as HTMLElement | null;
-    const item = findItem(ui, "overlay1");
+    const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
     // Mock querySelector to return null for the color/size selectors.
     const origQS = HTMLElement.prototype.querySelector;
     const colorSel = `.${CONST.CLASSES.STYLE_LABEL_COLOR_INPUT}`;
@@ -4439,19 +4485,23 @@ describe("reset on an id the registry does not know", () => {
     // `if (!ui.m.layerRegistry.has(layerId)) return` — a Reset aimed at a
     // layer that has already left must not rewrite the record or save.
     const { ui } = initFixture({});
-    setIntent(ui, "ghost", "opacity", 0.4);
+    setIntent(ui.la, "ghost", "opacity", 0.4);
     ui.intentStore.seedProvenance("ghost", ["opacity"]);
-    expect(() => resetLayerOpacity(ui, "ghost")).not.toThrow();
-    expect(getIntent(ui, "ghost", "opacity")).toBe(0.4);
+    expect(() =>
+      resetLayerOpacity(ui.la, ui.panelStore, ui.focusStore, "ghost"),
+    ).not.toThrow();
+    expect(getIntent(ui.la, "ghost", "opacity")).toBe(0.4);
     expect(ui.intentStore.dumpProvenance().ghost).toEqual(["opacity"]);
   });
 
   it("resetLayerZoomRange returns before touching state", () => {
     const { ui } = initFixture({});
-    setIntent(ui, "ghost", "zoomRange", [3, 12]);
+    setIntent(ui.la, "ghost", "zoomRange", [3, 12]);
     ui.intentStore.seedProvenance("ghost", ["zoomRange"]);
-    expect(() => resetLayerZoomRange(ui, "ghost")).not.toThrow();
-    expect(getIntent(ui, "ghost", "zoomRange")).toEqual([3, 12]);
+    expect(() =>
+      resetLayerZoomRange(ui.la, ui.panelStore, ui.focusStore, "ghost"),
+    ).not.toThrow();
+    expect(getIntent(ui.la, "ghost", "zoomRange")).toEqual([3, 12]);
     expect(ui.intentStore.dumpProvenance().ghost).toEqual(["zoomRange"]);
   });
 });

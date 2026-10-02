@@ -2,12 +2,16 @@
 import { GROUP } from "#core/layer/index.js";
 import { ListCursor } from "#core/listCursor.js";
 import { dom, updateItemLabel } from "#common/dom.js";
+import { createScopedTranslator } from "#common/locale.js";
 import * as CONST from "../const.js";
 import * as SVGs from "../icon.js";
+import type { LayerAccess } from "./access.js";
 import { getColorSurface } from "./color.js";
-import type { LayerUI } from "./index.js";
+import type { FocusStore } from "./focusStore.js";
 import { cursorRef, restoreCursor } from "./keyboard.js";
 import { syncListCursor } from "./keyboard.js";
+import { refreshAllCounts } from "./lifecycle.js";
+import type { PanelStore } from "./panelStore.js";
 import {
   applyRowView,
   buildRowCell,
@@ -17,27 +21,29 @@ import {
 import { applyUserState } from "./state.js";
 import { syncNoBasemap, syncToggleAll } from "./visibility.js";
 
+const T = createScopedTranslator(CONF);
+
 /** Full re-scan of every row (used on attach/fold-toggle). Idempotent —
  *  re-run on each CONTROL_ATTACHED so late-registering components are
  *  folded in. Marks the panel ready for tests/consumers. */
-const initTypesAndVisibility = (ui: LayerUI) => {
+const initTypesAndVisibility = (la: LayerAccess, ps: PanelStore, fs: FocusStore) => {
   // The colour basemap is a first-class base-group layer: `getColorSurface`
   // runs `surface.register()`, which inserts its LayerInfo through the
   // standard registerLayer path. All visibility / zoom / order machinery
   // then treats it identically to a tile basemap. `surface.register()` is
   // idempotent, so a re-run of this pass is a no-op on the registry side.
-  getColorSurface(ui);
-  const colorLi = ui.m.layerRegistry.get(CONST.SOLID_BASEMAP_ID);
+  getColorSurface(la, ps, fs);
+  const colorLi = la.layerRegistry.get(CONST.SOLID_BASEMAP_ID);
   if (colorLi) {
     // The colour basemap starts unchecked (hidden) by default.
-    ui.runtimeStore.setAuthorVisible(CONST.SOLID_BASEMAP_ID, false);
+    la.runtimeStore.setAuthorVisible(CONST.SOLID_BASEMAP_ID, false);
   }
 
   // Snapshot the author default before the sweep below moves any layer: it
   // re-adds a stored-shown layer and removes a stored-hidden one, so a
   // snapshot taken afterwards would record a policy decision as the author's.
-  for (let i = 0; i < ui.m.layers.length; i++) {
-    snapshotAuthorVisible(ui, ui.m.layers[i]);
+  for (let i = 0; i < la.layers.length; i++) {
+    snapshotAuthorVisible(la, ps, fs, la.layers[i]);
   }
 
   // Apply persisted hidden state first so initLayerItem reads the corrected
@@ -46,77 +52,84 @@ const initTypesAndVisibility = (ui: LayerUI) => {
   // registry is skipped by the sweep, not dropped from the record —
   // stored
   // state is erased only by an explicit delete.
-  ui.applyUserState();
+  applyUserState(la, ps, fs);
 
   // First-load visibility is the author's `show=`: no code fallback for
   // "no basemap visible" — the A′ hatch (see paintNoBasemapHatch) is the
   // honest empty state. Adding a colour layer here would violate the
   // intent-only invariant: derived state may suppress display but never
   // authorise it.
-  for (let i = 0; i < ui.m.layers.length; i++) {
-    initLayerItem(ui, ui.m.layers[i]);
+  for (let i = 0; i < la.layers.length; i++) {
+    initLayerItem(la, ps, fs, la.layers[i]);
   }
-  ui.m.enforceOrder();
-  syncToggleAll(ui, GROUP.OVERLAY);
-  syncToggleAll(ui, GROUP.BASE);
-  syncNoBasemap(ui);
+  la.enforceOrder();
+  syncToggleAll(la, ps, fs, GROUP.OVERLAY);
+  syncToggleAll(la, ps, fs, GROUP.BASE);
+  syncNoBasemap(la, ps, fs);
   // enforceOrder may have moved rows; keep roving tabindex aligned.
-  syncListCursor(ui);
+  syncListCursor(la, ps, fs);
   // Ready signal for tests: checkbox titles / .foliplus-active / counts are final
   // for the current layer set (late components re-trigger this pass and
   // re-set the attribute, so "ready" always reflects the latest pass).
-  ui.uiContainer?.setAttribute("data-ready", "true");
+  ps.uiContainer?.setAttribute("data-ready", "true");
 };
 
-const renderInitialList = (ui: LayerUI) => {
+const renderInitialList = (la: LayerAccess, ps: PanelStore, fs: FocusStore) => {
   // Remember the cursor by identity —the item elements are rebuilt below,
   // so an element reference would dangle. Layer rows key on data-layer-id,
   // toggle-all rows on data-group (they have no layer id). The identity also
   // tracks the row through a reorder. Null means the cursor was never
   // established or Escape cleared it, and either way it should stay cleared.
-  const ref = cursorRef(ui);
+  const ref = cursorRef(la, ps, fs);
   const frag = document.createDocumentFragment();
   let hasBaseMaps = false;
   let hasOverlays = false;
 
-  for (const layerInfo of ui.m.layers) {
+  for (const layerInfo of la.layers) {
     if (layerInfo.group !== GROUP.BASE && !hasOverlays) {
       hasOverlays = true;
-      frag.appendChild(renderToggleAllRow(ui, GROUP.OVERLAY, "data_layer_label"));
+      frag.appendChild(
+        renderToggleAllRow(la, ps, fs, GROUP.OVERLAY, "data_layer_label"),
+      );
     }
     if (layerInfo.group === GROUP.BASE && !hasBaseMaps) {
       hasBaseMaps = true;
-      frag.appendChild(renderToggleAllRow(ui, GROUP.BASE, "base_map_label"));
+      frag.appendChild(renderToggleAllRow(la, ps, fs, GROUP.BASE, "base_map_label"));
     }
     const group = layerInfo.group;
-    const item = renderLayerItem(ui, layerInfo);
-    if (ui.foldedGroups.has(group)) item.classList.add(CONST.CLASSES.GROUP_FOLDED);
+    const item = renderLayerItem(la, ps, fs, layerInfo);
+    if (ps.foldedGroups.has(group)) item.classList.add(CONST.CLASSES.GROUP_FOLDED);
     frag.appendChild(item);
   }
 
-  ui.uiContainer.innerHTML = "";
-  ui.uiContainer.appendChild(frag);
+  ps.uiContainer!.innerHTML = "";
+  ps.uiContainer!.appendChild(frag);
 
   // ARIA + roving tabindex on the rebuilt rows. setIndex follows activeIdx
   // without painting the cursor class —restoreCursor() owns that visual.
-  syncListCursor(ui);
+  syncListCursor(la, ps, fs);
 
   // Re-home the cursor on the rebuilt element and restore DOM focus. The
   // rebuild destroys the previously focused node, dropping focus to <body>;
   // the keyboard shortcuts are dispatched by a document-level listener whose
   // container guard requires focus inside the panel, so without this the
   // cursor dies the moment the list is rebuilt (e.g. after a fold click).
-  restoreCursor(ui, ref);
+  restoreCursor(la, ps, fs, ref);
 };
 
 /** Ensure the shared ListCursor and re-apply ARIA / roving tabindex.
  *  setIndex, not adopt: callers that already painted FOCUSED (keyboard /
  *  restoreCursor) must keep it; only the pointer path adopts (strips). */
 
-const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
-  const idx = ui.m.layerRegistry.indexOf(layerInfo);
+const insertLayerItem = (
+  la: LayerAccess,
+  ps: PanelStore,
+  fs: FocusStore,
+  layerInfo: LayerInfo,
+) => {
+  const idx = la.layerRegistry.indexOf(layerInfo);
   if (idx === -1) return;
-  const container = ui.uiContainer;
+  const container = ps.uiContainer!;
   const group = layerInfo.group;
 
   const anchorSel =
@@ -129,14 +142,16 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
   if (!firstOfGroup) {
     frag.appendChild(
       renderToggleAllRow(
-        ui,
+        la,
+        ps,
+        fs,
         group,
         group === GROUP.BASE ? "base_map_label" : "data_layer_label",
       ),
     );
   }
-  const item = renderLayerItem(ui, layerInfo);
-  if (ui.foldedGroups.has(group)) item.classList.add(CONST.CLASSES.GROUP_FOLDED);
+  const item = renderLayerItem(la, ps, fs, layerInfo);
+  if (ps.foldedGroups.has(group)) item.classList.add(CONST.CLASSES.GROUP_FOLDED);
   frag.appendChild(item);
 
   if (!firstOfGroup) {
@@ -154,7 +169,7 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
     // the panel too, so the panel's visual order matches the drawn z-order.
     // The neighbor above is used rather than the one below so the last row of
     // a group has something to anchor on at all.
-    const above = idx > 0 ? ui.m.layers[idx - 1] : null;
+    const above = idx > 0 ? la.layers[idx - 1] : null;
     const anchor =
       above && above.group === layerInfo.group
         ? container.querySelector(`[${CONST.DATA.LAYER_ID}="${CSS.escape(above.id)}"]`)
@@ -169,25 +184,36 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
   // apply below, which is the other path that moves this layer. Only this
   // layer's id is applied: a full sweep would re-rewrite every renamed row
   // on each registration.
-  snapshotAuthorVisible(ui, layerInfo);
-  ui.applyUserState(layerInfo.id);
+  snapshotAuthorVisible(la, ps, fs, layerInfo);
+  applyUserState(la, ps, fs, layerInfo.id);
   // New row must join the roving tabindex / ARIA set.
-  syncListCursor(ui);
+  syncListCursor(la, ps, fs);
 };
 
-const updateLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
-  const item = ui.uiContainer.querySelector(
+const updateLayerItem = (
+  la: LayerAccess,
+  ps: PanelStore,
+  fs: FocusStore,
+  layerInfo: LayerInfo,
+) => {
+  const item = ps.uiContainer!.querySelector(
     `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerInfo.id)}"]`,
   ) as HTMLElement | null;
   if (!item) return;
   // updateItemLabel sets both the row label and the checkbox's aria-label,
   // so the name reaches assistive tech here without touching `title` —the
   // row's tooltip slot keeps the feature count + type.
-  updateItemLabel(item, displayName(ui, layerInfo.id));
+  updateItemLabel(item, displayName(la, ps, fs, layerInfo.id));
 };
 
-const renderToggleAllRow = (ui: LayerUI, group: string, labelKey: string) => {
-  const isFolded = ui.foldedGroups.has(group);
+const renderToggleAllRow = (
+  la: LayerAccess,
+  ps: PanelStore,
+  fs: FocusStore,
+  group: string,
+  labelKey: string,
+) => {
+  const isFolded = ps.foldedGroups.has(group);
   return dom.el(
     "div",
     {
@@ -196,7 +222,7 @@ const renderToggleAllRow = (ui: LayerUI, group: string, labelKey: string) => {
         (isFolded ? ` ${CONST.CLASSES.FOLDED}` : ""),
       tabindex: "0",
       "data-group": group,
-      title: ui.T(isFolded ? "unfold_tooltip" : "fold_tooltip"),
+      title: T(isFolded ? "unfold_tooltip" : "fold_tooltip"),
     },
     dom.el(
       "button",
@@ -212,10 +238,10 @@ const renderToggleAllRow = (ui: LayerUI, group: string, labelKey: string) => {
         type: "checkbox",
         "data-role": "toggle-all",
         checked: "",
-        title: ui.T("toggle_all_deselect_tooltip"),
+        title: T("toggle_all_deselect_tooltip"),
       }),
     ),
-    dom.el("span", { class: CONST.CLASSES.SEPARATOR_LABEL }, ui.T(labelKey)),
+    dom.el("span", { class: CONST.CLASSES.SEPARATOR_LABEL }, T(labelKey)),
     dom.el("div", { class: "foliplus-section-divider" }),
   );
 };
@@ -228,8 +254,13 @@ const renderToggleAllRow = (ui: LayerUI, group: string, labelKey: string) => {
  *  render time) and refreshed by onLayerItemCountChange.
  *  @param {LayerInfo} layerInfo - Layer metadata.
  *  @returns {HTMLElement} The row element. */
-const renderLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
-  const name = displayName(ui, layerInfo.id);
+const renderLayerItem = (
+  la: LayerAccess,
+  ps: PanelStore,
+  fs: FocusStore,
+  layerInfo: LayerInfo,
+) => {
+  const name = displayName(la, ps, fs, layerInfo.id);
 
   const typeIconEl = dom.el("div", { class: CONST.CLASSES.TYPE_ICON_COL });
   if (layerInfo.iconSvg) typeIconEl.innerHTML = layerInfo.iconSvg;
@@ -239,8 +270,8 @@ const renderLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
     {
       class: CONST.CLASSES.MORE_BTN,
       type: "button",
-      title: ui.T("more_tooltip"),
-      "aria-label": ui.T("more_tooltip"),
+      title: T("more_tooltip"),
+      "aria-label": T("more_tooltip"),
     },
     { html: SVGs.MORE },
   );
@@ -250,7 +281,7 @@ const renderLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
   const children: HTMLElement[] = [
     dom.el(
       "span",
-      { class: CONST.CLASSES.DRAG_CELL, title: ui.T("drag_tooltip") },
+      { class: CONST.CLASSES.DRAG_CELL, title: T("drag_tooltip") },
       { html: SVGs.DRAG_HANDLE },
     ),
     dom.el(
@@ -290,25 +321,30 @@ const renderLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
 
 /** Current display name for the virtual color basemap: persisted rename if
  *  present, else the locale label. Name is persisted rename or locale label. */
-const colorLayerName = (ui: LayerUI): string => {
-  return displayName(ui, CONST.SOLID_BASEMAP_ID);
+const colorLayerName = (la: LayerAccess, ps: PanelStore, fs: FocusStore): string => {
+  return displayName(la, ps, fs, CONST.SOLID_BASEMAP_ID);
 };
 
 /** Initialize one layer row's checkbox + type icon (incremental path).
  *  @returns {boolean} true when the row is a visible base layer. */
-const initLayerItem = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
-  if (!ui.m.layerRegistry.has(layerInfo.id)) return false;
-  const cell = buildRowCell(ui, layerInfo);
+const initLayerItem = (
+  la: LayerAccess,
+  ps: PanelStore,
+  fs: FocusStore,
+  layerInfo: LayerInfo,
+): boolean => {
+  if (!la.layerRegistry.has(layerInfo.id)) return false;
+  const cell = buildRowCell(la, ps, fs, layerInfo);
   // Resolve the row by data-layer-id: a late registration lands where its
   // stored slot puts it, so the DOM order can diverge from the registry —an
   // index-based lookup would write the checkbox and type column into a
   // neighbor's row.
-  const item = ui.uiContainer.querySelector(
+  const item = ps.uiContainer!.querySelector(
     `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerInfo.id)}"]`,
   ) as HTMLElement | null;
   if (!item) return false;
 
-  applyRowView(ui, item, cell);
+  applyRowView(la, ps, fs, item, cell);
   // Map membership was already written by the executor's projection sweep
   // that runs before this row lands, so the visible mirror here matches
   // what the map actually shows.
@@ -319,10 +355,10 @@ const initLayerItem = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
 /** Reindex all layer items after a move, preserving the active focus position.
  *  renderInitialList already re-homes the cursor and restores DOM focus, so
  *  no additional focus work is needed here. */
-const reindexAfterMove = (ui: LayerUI): void => {
-  renderInitialList(ui);
-  initTypesAndVisibility(ui);
-  ui.refreshAllCounts();
+const reindexAfterMove = (la: LayerAccess, ps: PanelStore, fs: FocusStore): void => {
+  renderInitialList(la, ps, fs);
+  initTypesAndVisibility(la, ps, fs);
+  refreshAllCounts(la, ps, fs);
 };
 
 /**
