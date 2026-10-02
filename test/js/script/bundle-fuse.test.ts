@@ -1,13 +1,14 @@
 import { mkdirSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
-import { join } from "path";
-import { afterEach, describe, expect, it } from "vitest";
+import { join, resolve } from "path";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   EXIT_FUSE,
   EXIT_OK,
   EXIT_UNKNOWN,
   FUSE_CAPS,
   fuse,
+  main,
   readSizes,
 } from "#script/bundle-fuse.mjs";
 
@@ -166,5 +167,99 @@ describe("bundle-fuse cap table", () => {
   it("does not duplicate artifact names", () => {
     const keys = Object.keys(FUSE_CAPS);
     expect(new Set(keys).size).toBe(keys.length);
+  });
+});
+
+describe("CLI entry", () => {
+  const SCRIPT = resolve(process.cwd(), "script", "bundle-fuse.mjs");
+
+  const trapExit = () =>
+    vi
+      .spyOn(process, "exit")
+      .mockImplementation((code?: string | number | null | undefined) => {
+        throw new Error(`exit:${code}`);
+      });
+
+  const runCli = async (argv: string[]) => {
+    const original = process.argv;
+    try {
+      Object.defineProperty(process, "argv", {
+        value: argv,
+        writable: true,
+        configurable: true,
+      });
+      vi.resetModules();
+      return await import("#script/bundle-fuse.mjs");
+    } finally {
+      Object.defineProperty(process, "argv", {
+        value: original,
+        writable: true,
+        configurable: true,
+      });
+    }
+  };
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("--help prints the usage and exits 0", () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const exit = trapExit();
+    expect(() => main(["--help"])).toThrow(`exit:${EXIT_OK}`);
+    expect(exit).toHaveBeenCalledWith(EXIT_OK);
+    expect(log.mock.calls.join("\n")).toContain("Usage:");
+  });
+
+  it("prints the error and exits 1 on an unknown flag", () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const exit = trapExit();
+    expect(() => main(["--bogus"])).toThrow(`exit:${EXIT_FUSE}`);
+    expect(exit).toHaveBeenCalledWith(EXIT_FUSE);
+    expect(error.mock.calls.join("\n")).toContain("Unknown flag: --bogus");
+  });
+
+  it("exits with the fuse verdict for a real dist tree", () => {
+    const root = mkTmp();
+    mkDist(root, { "foliplus-LocateControl.min.js": payload(20 * 1024) });
+    const exit = trapExit();
+    expect(() => main([`--root=${root}`])).toThrow(`exit:${EXIT_FUSE}`);
+    expect(exit).toHaveBeenCalledWith(EXIT_FUSE);
+  });
+
+  it("exits 0 when every artifact is under its cap", () => {
+    const root = mkTmp();
+    const files: Record<string, string> = {};
+    for (const key of Object.keys(FUSE_CAPS)) files[key] = "x";
+    mkDist(root, files);
+    const exit = trapExit();
+    expect(() => main([`--root=${root}`])).toThrow(`exit:${EXIT_OK}`);
+    expect(exit).toHaveBeenCalledWith(EXIT_OK);
+  });
+
+  it("defaults --root to the checkout and fuses it", () => {
+    // `node script/bundle-fuse.mjs` without --root reads the checkout's own
+    // dist — the Makefile and CI call it exactly this way. The dist dir is a
+    // git-ignored build product, so a temporary under-cap fixture is written
+    // there and removed afterwards.
+    const distDir = resolve(process.cwd(), "foliplus", "dist");
+    mkdirSync(distDir, { recursive: true });
+    const fixture = join(distDir, "foliplus-ScaleControl.min.js");
+    writeFileSync(fixture, "x", "utf-8");
+    try {
+      const exit = trapExit();
+      expect(() => main([])).toThrow(`exit:${EXIT_OK}`);
+      expect(exit).toHaveBeenCalledWith(EXIT_OK);
+    } finally {
+      rmSync(fixture, { force: true });
+    }
+  });
+
+  it("runs main() only when launched directly as a script", async () => {
+    const exit = trapExit();
+    await expect(runCli(["node", SCRIPT, "--help"])).rejects.toThrow(
+      `exit:${EXIT_OK}`,
+    );
+    expect(exit).toHaveBeenCalledWith(EXIT_OK);
   });
 });
