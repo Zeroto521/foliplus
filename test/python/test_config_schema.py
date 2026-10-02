@@ -66,7 +66,9 @@ class TestSchemaCoverage:
 
     def test_every_control_has_schema(self) -> None:
         for name in CONTROL_CLASSES:
-            assert name in SCHEMAS, f"{name} has no entry in foliplus._config_schema.SCHEMAS"
+            assert name in SCHEMAS, (
+                f"{name} has no entry in foliplus._config_schema.SCHEMAS"
+            )
 
     def test_no_orphan_schemas(self) -> None:
         orphans = set(SCHEMAS) - set(CONTROL_CLASSES)
