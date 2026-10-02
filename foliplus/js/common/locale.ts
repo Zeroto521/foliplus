@@ -115,10 +115,9 @@ const resolveLocaleCode = (conf: ComponentConfig): string => {
  * Merges common tables with component-specific tables (``conf.locale_tables``)
  * and resolves the active language.
  *
- * The common tables are passed in as a parameter (injection seam) rather than
- * read from ``window.foliplus._TABLES``, so this function stays pure and
- * testable. Callers that don't have tables yet (or want the runtime default)
- * omit the parameter and fall back to the runtime global.
+ * The common tables are an optional injection seam: pass them in to keep
+ * the function pure, or omit them to fall back to the runtime global
+ * (``window.foliplus._TABLES``).
  */
 const createTranslator = (
   conf: ComponentConfig,

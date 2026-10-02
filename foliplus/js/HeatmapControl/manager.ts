@@ -144,6 +144,8 @@ class HeatmapManager {
 
   /**
    * @param mapInstance - Leaflet map instance.
+   * @param env - Manager environment (translator + logger). Defaults to
+   *   NO_OP_ENV when omitted.
    * @param opts - Optional configuration.
    * @param opts.id - Optional namespace for the layer ID. When provided,
    *   the canvas is registered as "{ID}_{id}" to support multi-instance maps.
