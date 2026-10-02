@@ -100,7 +100,7 @@ const runtimeTarget = spec => {
  *  The mapping itself lives in `runtimeTarget` above — this wrapper just
  *  strips the `#` prefix and `.js` extension, then prefixes `foliplus.`.
  *  Keeping the two in one file (and one helper) means a new shared module
- *  can only be misrouted in one place. `test/js/script/
+ *  can only be misrouted in one place. `test/js/script/build/
  *  global-namespace-plugin.test.ts` walks the directory and fails on any
  *  entry that does not parse.
  *
