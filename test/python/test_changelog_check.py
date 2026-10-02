@@ -1,4 +1,4 @@
-"""Tests for ``script/changelog_check.py`` — CHANGELOG.md invariants.
+"""Tests for ``script/check/changelog_check.py`` — CHANGELOG.md invariants.
 
 Two rules are enforced:
   1. Within each bullet, the sequence of ``[#NNN]`` labels is non-decreasing.
@@ -26,7 +26,7 @@ import pytest
 
 HERE = Path(__file__).resolve().parent
 REPO_ROOT = HERE.parent.parent
-SCRIPT = REPO_ROOT / "script" / "changelog_check.py"
+SCRIPT = REPO_ROOT / "script" / "check" / "changelog_check.py"
 REAL_CHANGELOG = REPO_ROOT / "CHANGELOG.md"
 
 # ---------------------------------------------------------------------------

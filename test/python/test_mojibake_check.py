@@ -1,4 +1,4 @@
-"""Tests for ``script/mojibake_check.py`` — UTF-8 replacement-character gate.
+"""Tests for ``script/check/mojibake_check.py`` — UTF-8 replacement-character gate.
 
 The hook reads each staged file as raw bytes and fails when it contains
 ``EF BF BD`` (the UTF-8 encoding of U+FFFD). That sequence is a
@@ -23,7 +23,7 @@ import pytest
 
 HERE = Path(__file__).resolve().parent
 REPO_ROOT = HERE.parent.parent
-SCRIPT = REPO_ROOT / "script" / "mojibake_check.py"
+SCRIPT = REPO_ROOT / "script" / "check" / "mojibake_check.py"
 FFFD = b"\xef\xbf\xbd"
 
 
