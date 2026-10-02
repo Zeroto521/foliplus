@@ -21,10 +21,10 @@ import { readFileSync, readdirSync } from "fs";
 import { dirname, resolve } from "path";
 import { fileURLToPath } from "url";
 import { brotliCompressSync } from "zlib";
-import { parseArgs as parseArgsCore } from "./args.mjs";
+import { parseArgs as parseArgsCore } from "../args.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const ROOT = resolve(__dirname, "..");
+const ROOT = resolve(__dirname, "..", "..");
 
 // ── Exit codes ──────────────────────────────────────────────────────────────
 // One table, shared by both gates. The numbers are fixed:

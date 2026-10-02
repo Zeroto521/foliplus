@@ -20,11 +20,11 @@
  * when they trip.
  *
  * Usage:
- *   node script/bundle-fuse.mjs                       # print table, exit 0
- *   node script/bundle-fuse.mjs --root=<path> ...     # read <path>/foliplus/dist
- *   node script/bundle-fuse.mjs --help                # all flags
+ *   node script/build/bundle-fuse.mjs                       # print table, exit 0
+ *   node script/build/bundle-fuse.mjs --root=<path> ...     # read <path>/foliplus/dist
+ *   node script/build/bundle-fuse.mjs --help                # all flags
  *
- * Exit codes (from script/bundle-size-lib.mjs):
+ * Exit codes (from script/build/bundle-size-lib.mjs):
  *   0 = all under cap
  *   1 = fuse tripped, or no bundles found
  *   4 = an artifact has no cap (needs review to add one)
@@ -38,7 +38,8 @@
  */
 import { resolve } from "path";
 import { pathToFileURL } from "url";
-import { help } from "./args.mjs";
+import { help } from "../args.mjs";
+import { OK, STATUS, WARN } from "../glyph.mjs";
 import {
   EXIT_FUSE,
   EXIT_OK,
@@ -49,7 +50,6 @@ import {
   parseArgsWithBase,
   readSizes,
 } from "./bundle-size-lib.mjs";
-import { OK, STATUS, WARN } from "./glyph.mjs";
 
 // Absolute brotli-byte ceiling per artifact. Each value is `2 * measured`
 // at the commit that set it (50d0723d), rounded up to the nearest 5 KB.
@@ -163,7 +163,7 @@ const fuse = (args, root = ROOT) => {
         "\n" +
         unknowns.map(r => `  ${r.file}: ${fmtBytes(r.measured)}`).join("\n") +
         "\n" +
-        `${WARN} add a cap in script/bundle-fuse.mjs after review, or rename ` +
+        `${WARN} add a cap in script/build/bundle-fuse.mjs after review, or rename ` +
         "the bundle so it matches an existing cap.",
     );
     return EXIT_UNKNOWN;
@@ -174,7 +174,7 @@ const fuse = (args, root = ROOT) => {
 
 export { EXIT_FUSE, EXIT_OK, EXIT_UNKNOWN, FUSE_CAPS, fuse, readSizes };
 
-// CLI entry point: `node script/bundle-fuse.mjs [--root=<path>]`.
+// CLI entry point: `node script/build/bundle-fuse.mjs [--root=<path>]`.
 // Guarded so importing this module has no side effects.
 /* v8 ignore start -- CLI-only entry point, not exercised by unit tests */
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {

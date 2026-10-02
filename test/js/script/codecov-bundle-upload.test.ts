@@ -10,7 +10,7 @@ import {
   preProcessBody,
   runUpload,
   uploadStats,
-} from "#script/codecov-bundle-upload.mjs";
+} from "#script/build/codecov-bundle-upload.mjs";
 
 let tmp = "";
 afterEach(() => {

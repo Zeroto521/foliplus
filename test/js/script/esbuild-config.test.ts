@@ -9,7 +9,7 @@ import {
 import { tmpdir } from "os";
 import { join, resolve } from "path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { esbuildCfgFor } from "#script/esbuild-config.mjs";
+import { esbuildCfgFor } from "#script/build/esbuild-config.mjs";
 
 // The substantive behavior of this module — that our esbuild config
 // actually strips comments under minify — is asserted by build.test.ts's
@@ -85,7 +85,7 @@ describe("esbuildCfgFor", () => {
 
   it("PostCSS plugin flattens nested CSS and applies vendor prefixes", async () => {
     // The PostCSS plugin's onLoad callback (lines 46-49 of
-    // script/esbuild-config.mjs) is the only way nested CSS becomes flat
+    // script/build/esbuild-config.mjs) is the only way nested CSS becomes flat
     // CSS in the bundle. Without exercising it, a broken `postcssNesting`
     // or `autoprefixer` config would ship nested rules to the browser —
     // valid CSS that most browsers silently ignore, so the page renders

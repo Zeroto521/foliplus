@@ -9,9 +9,9 @@ import {
   runtimeTarget,
   scanSharedImports,
   sharedGlobalNamespace,
-} from "#script/global-namespace-plugin.mjs";
+} from "#script/build/global-namespace-plugin.mjs";
 
-// Tests for script/global-namespace-plugin.mjs — every exported symbol plus the
+// Tests for script/build/global-namespace-plugin.mjs — every exported symbol plus the
 // plugin object itself:
 //   runtimeTarget          — canonical spec → dotted runtime target (the unit
 //                            mapping; sharedGlobalNamespace is a thin wrapper

@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join, resolve } from "path";
 import { afterEach, describe, expect, it } from "vitest";
-import { generateRegistry, registryUsedExports } from "#script/scan-registry.mjs";
+import { generateRegistry, registryUsedExports } from "#script/build/scan-registry.mjs";
 
 const FS = require("fs");
 const PATH = require("path");
@@ -326,7 +326,7 @@ describe("generateRegistry", () => {
   });
 
   it("core carries no domain barrel on disk", () => {
-    // `script/build.mjs` skips `entry.name === "core"` when discovering
+    // `script/build/build.mjs` skips `entry.name === "core"` when discovering
     // components, so `core/index.ts` was never an entry point; a file added
     // here would be a re-export nobody resolves. The four subdomain barrels are
     // load-bearing and must stay — they are the intended shape of `core`.

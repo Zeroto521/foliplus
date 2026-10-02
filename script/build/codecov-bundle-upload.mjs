@@ -15,21 +15,21 @@
  * upload must never block the dual size gates, the sticky PR table, or merge.
  *
  * Usage:
- *   node script/codecov-bundle-upload.mjs --metafile=bundle-metafile.json
- *   node script/codecov-bundle-upload.mjs --metafile=... --out=payload.json  # convert only
- *   node script/codecov-bundle-upload.mjs --metafile=... --dry-run           # convert + print, no network
+ *   node script/build/codecov-bundle-upload.mjs --metafile=bundle-metafile.json
+ *   node script/build/codecov-bundle-upload.mjs --metafile=... --out=payload.json  # convert only
+ *   node script/build/codecov-bundle-upload.mjs --metafile=... --dry-run           # convert + print, no network
  *
  * Auth: `CODECOV_TOKEN` env (same GHA secret the coverage uploads use).
  */
 import { readFileSync, writeFileSync } from "fs";
 import { dirname, resolve } from "path";
 import { fileURLToPath, pathToFileURL } from "url";
-import { help, parseArgs } from "./args.mjs";
+import { help, parseArgs } from "../args.mjs";
+import { OK, WARN } from "../glyph.mjs";
 import { buildCodecovPayload, payloadToJson } from "./codecov-bundle-report.mjs";
-import { OK, WARN } from "./glyph.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const ROOT = resolve(__dirname, "..");
+const ROOT = resolve(__dirname, "..", "..");
 
 const DEFAULT_API_URL = "https://api.codecov.io";
 const API_ENDPOINT = "/upload/bundle_analysis/v1";
