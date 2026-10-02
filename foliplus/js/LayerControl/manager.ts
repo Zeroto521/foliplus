@@ -35,17 +35,22 @@ import {
   refreshAttributions,
 } from "#core/leafletAdapter.js";
 import { type Debounced, debounce } from "#common/debounce.js";
-import { createScopedTranslator } from "#common/locale.js";
-import { createLogger } from "#common/log.js";
+import { type Logger, createLogger } from "#common/log.js";
 import { AnnotationManager } from "./annotation/index.js";
 import * as CONST from "./const.js";
 import { LayerPersistence } from "./persistence.js";
 import { LayerUI } from "./ui/index.js";
 import { INTENT, clearIntent, getIntent } from "./ui/intent.js";
 
-// CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
-const T = createScopedTranslator(CONF);
-const log = createLogger(CONF.name);
+type LayerManagerEnv = {
+  readonly T: (key: string) => string;
+  readonly log: Logger;
+};
+
+const NO_OP_ENV: LayerManagerEnv = {
+  T: key => `LayerControl.${key}`,
+  log: createLogger("LayerControl"),
+};
 
 // ==================== BringToFront Guard (monkey-patch) ====================
 // Guard Leaflet's bringToFront against null parentNode during enforceOrder
@@ -192,9 +197,13 @@ class LayerManager implements LayerAPI {
   annotation: AnnotationManager;
   onLayerAdd: (event: L.LeafletEvent) => void;
   getLayerPanes: (layer: L.Layer) => string[];
+  private readonly T: (key: string) => string;
+  private readonly log: Logger;
 
-  constructor(mapInstance: L.Map, data: LayerInfo[]) {
+  constructor(mapInstance: L.Map, data: LayerInfo[], env: LayerManagerEnv = NO_OP_ENV) {
     this.map = mapInstance;
+    this.T = env.T;
+    this.log = env.log;
     // Captured before the constructor's own enforceOrder can write a fallback,
     // so the guard is the author's declaration and never our previous write.
     // folium emits the map config once at init, ahead of every control.
@@ -483,7 +492,7 @@ class LayerManager implements LayerAPI {
         // is visible rather than silently returning a stale 0-count. For
         // Canvas/unknown layers the walkLeaf fallback is a no-op anyway
         // (returns null), so this is a defensive fallback, not a real path.
-        log.error(`featureCountProvider threw for "${id}":`, err);
+        this.log.error(`featureCountProvider threw for "${id}":`, err);
       }
     }
     // 2. Fallback via walkLeaf — only valid for feature containers.
@@ -563,7 +572,7 @@ class LayerManager implements LayerAPI {
   }
 
   registerLayer(opts: RegisterLayerOpts): HTMLElement | null {
-    if (!opts?.id) throw new Error(log.msg(T("id_required")));
+    if (!opts?.id) throw new Error(this.log.msg(this.T("id_required")));
 
     // A deleted layer is refused, not erased: the id has left the registry for
     // good, so accepting it again would silently undo the user's delete. Null
@@ -572,7 +581,7 @@ class LayerManager implements LayerAPI {
     // reason is logged rather than returned, until registerLayer grows a
     // RegisterResult union that names "removed".
     if (this.order.removedIds.has(opts.id)) {
-      log.warn(
+      this.log.warn(
         `registerLayer: refusing "${opts.id}" — the layer was deleted by the ` +
           `user and the deletion is persisted for this map`,
       );
@@ -711,7 +720,7 @@ class LayerManager implements LayerAPI {
       // the panel can never show — and `destroy()` clears the registry too, so
       // there is no later attach to replay it. Refuse instead of no-op-ing, or
       // the caller cannot tell a no-panel call from a real hide.
-      log.warn("setVisible called before the panel is attached; no-op");
+      this.log.warn("setVisible called before the panel is attached; no-op");
       return false;
     }
     return this.ui.applyVisibility(id, visible);

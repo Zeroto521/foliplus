@@ -44,7 +44,7 @@ from foliplus.ExportControl import ExportControl
 from foliplus.SearchControl import SearchControl
 
 # Single source for the artifact list: `script/build.mjs` writes
-# `dist/artifacts.json` on every real build, and both this file and
+# `dist/manifest.json` on every real build, and both this file and
 # `test/js/script/build.test.ts` read it. A new control is therefore
 # asserted in both stacks without either suite re-deriving the names.
 EXPECTED = expected_artifacts()

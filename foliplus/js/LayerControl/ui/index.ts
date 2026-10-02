@@ -8,7 +8,6 @@ import {
   LayerRuntimeStore,
 } from "#core/layer/index.js";
 import { ListCursor } from "#core/listCursor.js";
-import { createScopedTranslator, createTranslator } from "#common/locale.js";
 import * as CONST from "../const.js";
 import type { LayerManager } from "../manager.js";
 import { applyProjection, applyProjectionAll } from "./apply.js";
@@ -73,10 +72,13 @@ import {
   toggleAll,
 } from "./visibility.js";
 
-// One creation per rendered IIFE; instances only forward (`this.T = T`),
-// keeping the per-instance injection seam the UI tests rely on.
-const T = createScopedTranslator(CONF);
-const _ = createTranslator(CONF);
+// Per-instance injection seam — LayerControl passes the env it owns; tests
+// construct LayerUI without one and fall back to identity translators so the
+// module stays free of any CONF reference at load time.
+const NO_OP_ENV: { T: (key: string) => string; _: (key: string) => string } = {
+  T: key => `LayerControl.${key}`,
+  _: key => key,
+};
 
 /** UI Controller for LayerControl. */
 class LayerUI {
@@ -201,12 +203,15 @@ class LayerUI {
    *  to the front (cleared on cancel). */
   focusedPaneRestores: Array<() => void>;
 
-  constructor(manager: LayerManager) {
+  constructor(
+    manager: LayerManager,
+    env: { T: (key: string) => string; _: (key: string) => string } = NO_OP_ENV,
+  ) {
     this.manager = manager;
     this.events = ensureEvents(this.m.map);
     this.conf = CONF;
-    this.T = T;
-    this._ = _;
+    this.T = env.T;
+    this._ = env._;
     this.foldedGroups = new Set();
     this.checkedCount = {};
     this.intentStore = new LayerIntentStore();

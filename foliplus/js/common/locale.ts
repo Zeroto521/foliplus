@@ -112,14 +112,22 @@ const resolveLocaleCode = (conf: ComponentConfig): string => {
 
 /**
  * Create a translator function for a component.
- * Merges common tables (``window.foliplus._TABLES``) with component-specific
- * tables (``conf.locale_tables``) and resolves the active language.
+ * Merges common tables with component-specific tables (``conf.locale_tables``)
+ * and resolves the active language.
+ *
+ * The common tables are an optional injection seam: pass them in to keep
+ * the function pure, or omit them to fall back to the runtime global
+ * (``window.foliplus._TABLES``).
  */
-const createTranslator = (conf: ComponentConfig): ((key: string) => string) => {
+const createTranslator = (
+  conf: ComponentConfig,
+  commonTables?: LocaleTables | null,
+): ((key: string) => string) => {
   const code = resolveLocaleCode(conf);
 
   // Merge common + component tables
-  const common = (window.foliplus._TABLES || {})[code] || {};
+  const tables = commonTables ?? window.foliplus._TABLES ?? {};
+  const common = tables[code] || {};
   const own = (conf.locale_tables || {})[code] || {};
   const table = { ...common, ...own };
   table["locale.code"] = code;

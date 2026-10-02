@@ -1,34 +1,37 @@
 // FullscreenControl core logic — toggleFullscreen, updateUI, event handling.
-// CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
+// CONF / T are no longer module-level: defineControl hands them off to the
+// control instance, and the entry passes an env slice into these functions.
 import { HINT_DURATION } from "#core/hint.js";
-import { createScopedTranslator } from "#common/locale.js";
 import { getFullscreenEl, isEnabled } from "./api.js";
 import { CLASSES, containerId } from "./const.js";
 import * as SVGs from "./icon.js";
 
-// CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
-const T = createScopedTranslator(CONF);
+/** Per-call env slice the entry passes in. Same vocabulary as ControlEnv but
+ *  narrowed to what this module reads — `name` and `hide_*` from CONF, plus
+ *  the scoped translator. */
+type Env = { conf: ComponentConfig; T: (key: string) => string };
 
 // ══════════════════════════════════════════════════════════════════════════════
 // updateUI (internal)  —  refresh icon, title, sibling/self visibility, hint
 // ══════════════════════════════════════════════════════════════════════════════
-const updateUI = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement) => {
+const updateUI = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement, env: Env) => {
+  const { conf, T } = env;
   const isFull = Boolean(getFullscreenEl()) || map.isFullscreen;
   fsBtn.innerHTML = isFull ? SVGs.MINIMIZE : SVGs.MAXIMIZE;
   fsBtn.title = isFull ? T("title_cancel") : T("title");
 
-  if (CONF.hide_others) {
+  if (conf.hide_others) {
     const controls = map
       .getContainer()
       .querySelectorAll(".leaflet-control, .foliplus-scale-wrap");
-    const cid = containerId(CONF.name, CONF.position as string);
+    const cid = containerId(conf.name, conf.position as string);
     for (const c of controls) {
       if (c.contains(container) || c.closest?.(`#${cid}`)) continue;
       c.classList.toggle(CLASSES.HIDDEN, isFull);
     }
   }
 
-  if (CONF.hide_self) {
+  if (conf.hide_self) {
     const selfBtns = container.querySelectorAll(
       `.${CLASSES.TOGGLE}, .${CLASSES.ZOOM_IN}, .${CLASSES.ZOOM_OUT}`,
     );
@@ -36,7 +39,7 @@ const updateUI = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement) => {
   }
 
   map.foliplus!.showHint?.(
-    CONF.name,
+    conf.name,
     isFull ? T("enter") : T("exit"),
     HINT_DURATION.MEDIUM,
   );
@@ -44,18 +47,23 @@ const updateUI = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement) => {
 
 // A rejected request must not report the transition that just failed — each
 // branch announces what actually happened to the user instead.
-const showUnsupportedHint = (map: L.Map) => {
-  map.foliplus!.showHint?.(CONF.name, T("unsupported"), HINT_DURATION.MEDIUM);
+const showUnsupportedHint = (map: L.Map, env: Env) => {
+  map.foliplus!.showHint?.(env.conf.name, env.T("unsupported"), HINT_DURATION.MEDIUM);
 };
 
-const showExitFailHint = (map: L.Map) => {
-  map.foliplus!.showHint?.(CONF.name, T("exit_fail"), HINT_DURATION.MEDIUM);
+const showExitFailHint = (map: L.Map, env: Env) => {
+  map.foliplus!.showHint?.(env.conf.name, env.T("exit_fail"), HINT_DURATION.MEDIUM);
 };
 
 // ══════════════════════════════════════════════════════════════════════════════
 // toggleFullscreen  —  enter/exit fullscreen via native API or pseudo mode
 // ══════════════════════════════════════════════════════════════════════════════
-const toggleFullscreen = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement) => {
+const toggleFullscreen = (
+  map: L.Map,
+  fsBtn: HTMLElement,
+  container: HTMLElement,
+  env: Env,
+) => {
   if (getFullscreenEl() || map.isFullscreen) {
     if (isEnabled()) {
       document
@@ -65,7 +73,7 @@ const toggleFullscreen = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement
         })
         .catch(() => {
           map.isFullscreen = Boolean(getFullscreenEl());
-          showExitFailHint(map);
+          showExitFailHint(map, env);
         });
       return;
     }
@@ -83,7 +91,7 @@ const toggleFullscreen = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement
         })
         .catch(() => {
           map.isFullscreen = Boolean(getFullscreenEl());
-          showUnsupportedHint(map);
+          showUnsupportedHint(map, env);
         });
       return;
     }
@@ -92,7 +100,7 @@ const toggleFullscreen = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement
 
     map.isFullscreen = true;
   }
-  updateUI(map, fsBtn, container);
+  updateUI(map, fsBtn, container, env);
 };
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -102,9 +110,9 @@ const toggleFullscreen = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement
 // routes map.remove() → unload → control.remove() → onRemove → abort).
 // ══════════════════════════════════════════════════════════════════════════════
 const makeFullscreenChangeHandler =
-  (map: L.Map, fsBtn: HTMLElement, container: HTMLElement) => () => {
+  (map: L.Map, fsBtn: HTMLElement, container: HTMLElement, env: Env) => () => {
     map.isFullscreen = Boolean(getFullscreenEl());
-    updateUI(map, fsBtn, container);
+    updateUI(map, fsBtn, container, env);
   };
 
 export { makeFullscreenChangeHandler, toggleFullscreen, updateUI };

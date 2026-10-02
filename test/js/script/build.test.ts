@@ -17,12 +17,12 @@ import { esbuildCfgFor } from "#script/esbuild-config.mjs";
 const ROOT = resolve(process.cwd());
 const distDir = resolve(ROOT, "foliplus/dist");
 
-// Artifact names come from dist/artifacts.json, which `script/build.mjs`
+// Artifact names come from dist/manifest.json, which `script/build.mjs`
 // writes on every real build —the same list `test/python/test_asset.py`
 // asserts wheel membership against. A new component therefore shows up in
 // both stacks without either test hardcoding its name.
 const names: string[] = (
-  JSON.parse(readFileSync(resolve(distDir, "artifacts.json"), "utf-8")) as {
+  JSON.parse(readFileSync(resolve(distDir, "manifest.json"), "utf-8")) as {
     artifacts: string[];
   }
 ).artifacts;

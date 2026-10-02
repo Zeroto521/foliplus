@@ -62,18 +62,52 @@ const collectExports = (filePath, seen = new Set(), depth = 0) => {
   return result;
 };
 
+/** Map a canonical spec (`core/hint`, `common/log`, `BaseControl`) to its
+ *  runtime-relative dotted form — the string the shared runtime registers
+ *  under on `window.foliplus`. Shared between the shim generator (which
+ *  prefixes `foliplus.` for the global lookup) and the build script (which
+ *  records declared deps in `manifest.json`) so the two stay in sync.
+ *
+ *  `core/hint` is the one exception to the "first path segment" rule: the
+ *  runtime publishes it at the top level (`foliplus.hint`, not
+ *  `foliplus.core.hint`) in the `Object.assign(window.foliplus, …)` block
+ *  in runtime/index.ts. Everything else follows `core.<sub>` /
+ *  `common.<sub>`; `BaseControl` (i.e. `#foliplus/BaseControl.js`) is a
+ *  bare top-level export.
+ *
+ *  When the canonical form still carries a `#` — which only happens for the
+ *  deleted `core/index.ts` barrel — it is returned as-is so
+ *  `sharedGlobalNamespace` produces an invalid JS identifier in the shim
+ *  name. The build fails loudly rather than shipping a stale artifact. */
+const runtimeTarget = spec => {
+  if (spec.startsWith("#")) return spec;
+  if (spec === "core/hint") return "hint";
+  if (spec.startsWith("common/")) return "common." + spec.split("/")[1];
+  if (spec.startsWith("core/")) {
+    const sub = spec.split("/")[1];
+    return sub === "index" ? "#" + spec : "core." + sub;
+  }
+  if (spec.startsWith("foliplus/")) return spec.slice("foliplus/".length);
+  return spec;
+};
+
 /** Map a shared-module specifier to the global namespace holding its exports:
  *  foliplus.BaseControl / foliplus.hint / foliplus.core.<mod> /
  *  foliplus.common.<mod>. The shim generated below reads exactly this string,
  *  so a wrong value makes the import resolve to `undefined` at runtime while
  *  the build still prints a tick for it.
  *
- *  Two specifiers are exceptions, and they are the two things
- *  runtime/index.ts publishes directly on `window.foliplus` rather than under
- *  `.core` — `BaseControl` and `hint`, in the `Object.assign(window.foliplus,
- *  …)` block. `hint` is the only core-root file this affects: nothing in the
- *  tree publishes or reads `foliplus.core.hint`, so letting it fall through to
- *  the general rule would ship a shim that reads an empty namespace.
+ *  The mapping itself lives in `runtimeTarget` above — this wrapper just
+ *  strips the `#` prefix and `.js` extension, then prefixes `foliplus.`.
+ *  Keeping the two in one file (and one helper) means a new shared module
+ *  can only be misrouted in one place. `test/js/script/
+ *  global-namespace-plugin.test.ts` walks the directory and fails on any
+ *  entry that does not parse.
+ *
+ *  The `core/index` fall-through (see `runtimeTarget`) returns the leading
+ *  `#` intact, which is what keeps `var foliplus_common_#core/index_shim = …`
+ *  from ever being a valid declaration — the barrel is dead code, and this
+ *  failure mode is intentional.
  *
  *  `component` and `mode` are NOT exceptions. runtime publishes them under
  *  `foliplus.core` (the `foliplus.core.component = …` lines) and the general
@@ -84,27 +118,10 @@ const collectExports = (filePath, seen = new Set(), depth = 0) => {
  *  namespace a shim must read.
  */
 const sharedGlobalNamespace = spec => {
-  if (spec === "#foliplus/BaseControl.js") return "foliplus.BaseControl";
-  if (spec === "#core/hint.js") return "foliplus.hint";
-  // core subdomain barrel: #core/<sub>/* → foliplus.core.<sub> (layer today,
-  // future events/modes). Core-root single files are handled below.
-  const coreSub = spec.match(/^#core\/([^/]+)\//);
-  if (coreSub) return "foliplus.core." + coreSub[1];
-  // Every core-root single file needs its own entry: the #common fallback below
-  // would build "foliplus.common.#core/<name>", whose shim declaration is not
-  // valid JS. A missing entry therefore breaks whichever component imports the
-  // file, and build.mjs still prints a tick for it — the artifact just stays
-  // stale. test/js/script/global-namespace-plugin.test.ts walks the directory
-  // and fails on any entry that does not parse. `index` is carved out:
-  // #core/index.js is a barrel nothing imports, and mapping it to
-  // foliplus.core.index would resurrect dead code from the deleted
-  // core/index.ts barrel.
-  const coreSingle = spec.match(/^#core\/([^/]+?)(?:\.js)?$/);
-  if (coreSingle && coreSingle[1] !== "index") {
-    return "foliplus.core." + coreSingle[1];
-  }
-  const mod = spec.replace(/^#common\//, "").replace(/\.js$/, "");
-  return "foliplus.common." + mod;
+  // `core/index` is handled inside `runtimeTarget` (it returns a `#`-prefixed
+  // form so the shim declaration is invalid JS and the build fails loudly).
+  const canonical = spec.replace(/^#/, "").replace(/\.js$/, "");
+  return "foliplus." + runtimeTarget(canonical);
 };
 
 /** Engine-backed scan, in the shape this plugin has always consumed:
@@ -179,6 +196,7 @@ export {
   collectSources,
   exportNames,
   globalNamespacePlugin,
+  runtimeTarget,
   scanSharedImports,
   sharedGlobalNamespace,
 };

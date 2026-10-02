@@ -109,7 +109,15 @@ const esbuildCfg = esbuildCfgFor({ dev: CFG.dev, root: CFG.root });
  *  shaking and the plugin list, both keyed on whether this is the shared
  *  entry. Component bundles read shared modules from the global namespace
  *  (so they tree-shake unused exports); the shared entry bundles them,
- *  which makes tree shaking meaningless and adds the registry plugin. */
+ *  which makes tree shaking meaningless and adds the registry plugin.
+ *
+ *  No runtime-presence banner: the Python layer already fail-fasts on a
+ *  missing common bundle (`_build_shared_header` raises `MissingAssetsError`
+ *  naming the file at render time), and `requireRuntime` inside the component
+ *  IIFE covers the runtime check with the component's name. A banner outside
+ *  the IIFE was a redundant third implementation that declared a top-level
+ *  `const` — a second component bundle on the same page would then throw
+ *  `Identifier already declared`. Only the version comment remains. */
 const artifact = (entryPoints, outfile, name) => {
   const shared = name === SHARED_ENTRY;
   // Identical for JS and CSS, but esbuild requires banner to be an object.
@@ -123,7 +131,10 @@ const artifact = (entryPoints, outfile, name) => {
     ...esbuildCfg,
     treeShaking: !shared,
     plugins,
-    banner: { js: bannerText, css: bannerText },
+    banner: {
+      js: bannerText,
+      css: bannerText,
+    },
   };
 };
 
@@ -220,7 +231,7 @@ const verifyDist = () => {
   try {
     names = readArtifactManifest();
   } catch {
-    console.error("No dist/artifacts.json — run `npm run build` first");
+    console.error("No dist/manifest.json — run `npm run build` first");
     process.exit(1);
   }
   const expected = names.flatMap(controlArtifacts);
@@ -251,6 +262,8 @@ const buildEntries = (components, withSonda) => {
     // A split component stylesheet (`css/{Name}/index.css`) is merged below
     // from its modules; flat `css/{Name}.css` entries feed esbuild directly.
     if (css && !css.endsWith("index.css")) {
+      // CSS carries no runtime deps — `banner.js` is a JS-only concern
+      // (the shared-runtime assertion runs in the browser, not on stylesheets).
       artifacts.push(enable(artifact([css], out(`foliplus-${outName}.min.css`), name)));
     }
   }
@@ -276,6 +289,7 @@ const buildEntries = (components, withSonda) => {
     const tmpCss = resolve(buildCss, file);
     writeFileSync(tmpCss, body, "utf-8");
     const outName = file === "common.css" ? "common" : file.replace(/\.css$/, "");
+    // CSS carries no runtime deps — see the earlier split-stylesheet call.
     artifacts.push(
       enable(artifact([tmpCss], out(`foliplus-${outName}.min.css`), outName)),
     );
@@ -298,7 +312,7 @@ on a checkout that may not have `dist/` at all, and it must not touch it.
 const writeArtifactManifest = filenames => {
   const names = filenames.map(name => (name === SHARED_ENTRY ? "common" : name));
   writeFileSync(
-    resolve(distDir, "artifacts.json"),
+    resolve(distDir, "manifest.json"),
     `${JSON.stringify({ artifacts: names }, null, 2)}\n`,
   );
 };
@@ -306,7 +320,7 @@ const writeArtifactManifest = filenames => {
 /** Component names from the manifest the build wrote, as artifact names.
  *  Throws when the manifest is absent or unreadable. */
 const readArtifactManifest = () =>
-  JSON.parse(readFileSync(resolve(distDir, "artifacts.json"), "utf-8")).artifacts;
+  JSON.parse(readFileSync(resolve(distDir, "manifest.json"), "utf-8")).artifacts;
 
 /** Merge per-build esbuild metafiles into one. Input/output paths are disjoint
  *  across builds (each build emits one artifact), so a shallow merge suffices. */

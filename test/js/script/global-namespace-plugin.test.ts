@@ -6,14 +6,18 @@ import {
   collectExports,
   collectSources,
   globalNamespacePlugin,
+  runtimeTarget,
   scanSharedImports,
   sharedGlobalNamespace,
 } from "#script/global-namespace-plugin.mjs";
 
 // Tests for script/global-namespace-plugin.mjs — every exported symbol plus the
 // plugin object itself:
-//   sharedGlobalNamespace  — specifier → global namespace: the unit table, then
-//                            three assertions that read the real source tree
+//   runtimeTarget          — canonical spec → dotted runtime target (the unit
+//                            mapping; sharedGlobalNamespace is a thin wrapper
+//                            around this + `foliplus.` prefix)
+//   sharedGlobalNamespace  — the wrapper's public surface, exercised against
+//                            the real source tree
 //   collectExports         — unit
 //   collectSources         — unit
 //   scanSharedImports      — unit
@@ -62,6 +66,37 @@ const aliasedSpecifiers = (): Map<string, string[]> => {
   }
   return seen;
 };
+
+describe("runtimeTarget", () => {
+  it("keeps BaseControl at the top level", () => {
+    expect(runtimeTarget("BaseControl")).toBe("BaseControl");
+  });
+
+  it("keeps core/hint at the top level", () => {
+    expect(runtimeTarget("core/hint")).toBe("hint");
+  });
+
+  it("maps core subdirectories to core.<sub>", () => {
+    expect(runtimeTarget("core/layer")).toBe("core.layer");
+    expect(runtimeTarget("core/layer/index")).toBe("core.layer");
+    expect(runtimeTarget("core/layer/LayerFactory")).toBe("core.layer");
+    expect(runtimeTarget("core/component")).toBe("core.component");
+    expect(runtimeTarget("core/event")).toBe("core.event");
+  });
+
+  it("maps common subdirectories to common.<sub>", () => {
+    expect(runtimeTarget("common/dom")).toBe("common.dom");
+    expect(runtimeTarget("common/log")).toBe("common.log");
+  });
+
+  it("returns a #-prefixed spec untouched", () => {
+    // The barrel fall-through: runtimeTarget("#core/index") keeps the `#`
+    // so the shim declaration is invalid JS and the build fails loudly.
+    // sharedGlobalNamespace strips the `#` before calling, so this branch
+    // only fires when runtimeTarget is called directly with a raw spec.
+    expect(runtimeTarget("#core/index")).toBe("#core/index");
+  });
+});
 
 describe("sharedGlobalNamespace", () => {
   it("maps BaseControl to foliplus.BaseControl", () => {
@@ -269,6 +304,33 @@ describe("collectExports", () => {
     }
   });
 
+  it("follows a bare `export * from` re-export", () => {
+    // The STAR_RE branch (as opposed to RE_EXPORT_RE). A barrel that
+    // star-re-exports a sub-module must surface every name the sub-module
+    // exports — the shim generator keys on this so an `import * as` from
+    // the barrel lands on real exports instead of `undefined`.
+    const sub = `
+      export const X = 1;
+      export const Y = 2;
+    `.trim();
+
+    // Temp files land in OS tmp, so the sub-module must be referenced
+    // by absolute path — the two files are not siblings.
+    const subModule = createTempFile("star-sub.ts", sub);
+    const barrelFile = createTempFile(
+      "star-barrel.ts",
+      `export * from "${subModule.path.replace(/\\/g, "/")}";`,
+    );
+    try {
+      const exports = collectExports(barrelFile.path);
+      expect(exports).toContain("X");
+      expect(exports).toContain("Y");
+    } finally {
+      subModule.cleanup();
+      barrelFile.cleanup();
+    }
+  });
+
   it("excludes type-only exports", () => {
     const code = `
       export type TypeName = string;
@@ -457,7 +519,8 @@ describe("globalNamespacePlugin", () => {
 
   // Wire the plugin to a minimal mock `build`, capturing its onResolve/onLoad
   // callbacks so they can be invoked directly (no esbuild build needed).
-  const setupPlugin = () => {
+  // `entryPoints` omitted exercises the no-entryPoints (scanDir null) path.
+  const setupPlugin = (entryPoints?: unknown) => {
     const handlers: {
       onResolve: (opts: { path: string }) => { path: string; namespace: string };
       onLoad: (opts: { path: string }) => { contents: string; loader: string };
@@ -465,8 +528,16 @@ describe("globalNamespacePlugin", () => {
       onResolve: () => ({ path: "", namespace: "" }),
       onLoad: () => ({ contents: "", loader: "js" }),
     };
+    const build: {
+      initialOptions: { entryPoints?: unknown };
+      onResolve: unknown;
+      onLoad: unknown;
+    } = { initialOptions: {}, onResolve: undefined, onLoad: undefined };
+    if (entryPoints !== undefined) {
+      build.initialOptions = { entryPoints };
+    }
     globalNamespacePlugin(dir).setup({
-      initialOptions: { entryPoints: [join(dir, "index.ts")] },
+      ...build,
       onResolve: (
         _opts: unknown,
         cb: (o: { path: string }) => { path: string; namespace: string },
@@ -484,11 +555,18 @@ describe("globalNamespacePlugin", () => {
   };
 
   it("resolves #core/#common/#foliplus imports to the shared namespace", () => {
-    const { onResolve } = setupPlugin();
+    const { onResolve } = setupPlugin([join(dir, "index.ts")]);
     expect(onResolve({ path: "#core/layer.js" })).toEqual({
       path: "#core/layer.js",
       namespace: "foliplus-shared",
     });
+  });
+
+  it("handles a string entryPoints and a missing initialOptions", () => {
+    // esbuild accepts entryPoints as a single string; and no entryPoints at
+    // all means no pre-scan (scanDir null) — the plugin must not throw.
+    expect(() => setupPlugin(join(dir, "index.ts"))).not.toThrow();
+    expect(() => setupPlugin(undefined)).not.toThrow();
   });
 
   it("shims named imports via usedExports", () => {
@@ -497,7 +575,7 @@ describe("globalNamespacePlugin", () => {
       'import { Foo } from "#core/layer/foo.js";\n',
       "utf-8",
     );
-    const { onLoad } = setupPlugin();
+    const { onLoad } = setupPlugin([join(dir, "index.ts")]);
     const result = onLoad({ path: "#core/layer/foo.js" });
     expect(result.loader).toBe("js");
     expect(result.contents).toContain("export const Foo =");
@@ -509,14 +587,14 @@ describe("globalNamespacePlugin", () => {
       'import * as Storage from "#common/storage.js";\nStorage.loadRecord();\n',
       "utf-8",
     );
-    const { onLoad } = setupPlugin();
+    const { onLoad } = setupPlugin([join(dir, "index.ts")]);
     const result = onLoad({ path: "#common/storage.js" });
     expect(result.contents).toContain("export const loadRecord =");
   });
 
   it("falls back to collectExports and returns empty for unknown files", () => {
     writeFileSync(join(dir, "index.ts"), "", "utf-8");
-    const { onLoad } = setupPlugin();
+    const { onLoad } = setupPlugin([join(dir, "index.ts")]);
     expect(onLoad({ path: "#common/nonexistent.js" })).toEqual({
       contents: "",
       loader: "js",
