@@ -42,6 +42,8 @@ const resolveJsRoot = root => resolve(root, ALIAS_TO_REL["#foliplus"]);
  * `package.json`. Anchored — immune to the script's own depth (#593 moved
  * `script/` into subdirs and every fixed `..` chain had to change).
  * Throws when no `package.json` is found above the caller.
+ * Startup-time fs probe: tests that `vi.mock("fs")` must pass the real
+ * `existsSync` through, or the walk yields nothing.
  */
 const repoRoot = importMetaUrl => {
   for (let dir = dirname(fileURLToPath(importMetaUrl)); ;) {
