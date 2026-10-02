@@ -1,5 +1,5 @@
 // core/LayerInfoRegistry — ordered layer data model (list + id index + read-only view).
-// Pure data, no DOM / CONF dependency. The LayerManager orchestrates mutations.
+// Pure data, no DOM / CONFIG dependency. The LayerManager orchestrates mutations.
 import { createLogger } from "#common/log.js";
 import { safeSVG } from "#common/sanitize.js";
 import { GROUP } from "./const.js";

@@ -3,7 +3,7 @@
 // Collapses the skeleton every component index.ts used to repeat:
 // createControlEnv → createScopedTranslator → optional bootstrap →
 // `class XControl extends BaseControl` with the lazy `manager` / `get m()`
-// pair → `new XControl({ position: CONF.position }).addTo(map)`.
+// pair → `new XControl({ position: CONFIG.position }).addTo(map)`.
 //
 // The factory collects only the genuine common skeleton. Differences stay in
 // the spec: controls that keep state on the instance (Search, Fullscreen,
@@ -13,10 +13,10 @@
 // Object.assigned onto the prototype so `this`-self-calls keep resolving.
 //
 // Lives in #core so it ships in the shared bundle and is externalized from
-// every component; `conf` is therefore a spec field, not a free-variable read
+// every component; `config` is therefore a spec field, not a free-variable read
 // — the IIFE scope only exists in the component bundle that calls the factory.
 //
-// Free-variable boundary: the IIFE free variables (`CONF`, `map`) that the
+// Free-variable boundary: the IIFE free variables (`CONFIG`, `map`) that the
 // Python Jinja template injects are legitimate ENTRY-LAYER input — the
 // component index.ts reads them to build the spec and the runtime bootstrap.
 // Logic modules must not read them as module-level free variables; they
@@ -26,7 +26,7 @@
 // until then the entry-layer `map` usage in index.ts and the logic layer's
 // ctrl-mediated reads are the two sanctioned shapes.
 //
-// keepNames: the generated class name is `conf.name`, so `constructor.name`
+// keepNames: the generated class name is `config.name`, so `constructor.name`
 // used by BaseControl's CONTROL_ATTACHED payload and the Python browser-test
 // `window.__xxxCtrl` probes keep the declared identity.
 //
@@ -39,11 +39,11 @@ import { type Logger, createLogger } from "#common/log.js";
 import { createControlEnv } from "./controlEnv.js";
 
 /** Environment handed to `setup` / `createManager` and carried on the
- *  generated control instance (`ctrl.conf` / `ctrl.T` / `ctrl._` / `ctrl.log`).
+ *  generated control instance (`ctrl.config` / `ctrl.T` / `ctrl._` / `ctrl.log`).
  *  `T` scopes keys by the component name; `_` is the bare lookup that
  *  identity-comparison sites (NAME_LABEL_KEY) need. */
 type ControlEnv = {
-  conf: ComponentConfig;
+  config: ComponentConfig;
   T: (key: string) => string;
   _: (key: string) => string;
   log: Logger;
@@ -51,8 +51,8 @@ type ControlEnv = {
 
 /** The spec handed to {@link defineControl}. */
 type DefineControlSpec<M = unknown> = {
-  /** The component's CONF (the IIFE free variable). Drives env + class name. */
-  conf: ComponentConfig;
+  /** The component's CONFIG (the IIFE free variable). Drives env + class name. */
+  config: ComponentConfig;
   /** Hint icon SVG. Omitted for ScaleControl (no toggle icon). */
   icon?: string;
   /** One-time bootstrap: ensureLayerAPI / requireLayerAPI / ensureHint / ... */
@@ -69,7 +69,7 @@ type DefineControlSpec<M = unknown> = {
 
 /** The constructable class returned by {@link defineControl}. */
 type ControlClass = new (options?: L.ControlOptions) => BaseControl & {
-  conf: ComponentConfig;
+  config: ComponentConfig;
   T: (key: string) => string;
   _: (key: string) => string;
   log: Logger;
@@ -77,17 +77,17 @@ type ControlClass = new (options?: L.ControlOptions) => BaseControl & {
 
 /** Build the shared control shell and return it as a constructable class. */
 const defineControl = <M = unknown>(spec: DefineControlSpec<M>): ControlClass => {
-  const { conf, icon, setup, createManager, buildDOM, destroy, methods } = spec;
+  const { config, icon, setup, createManager, buildDOM, destroy, methods } = spec;
 
-  createControlEnv(conf, icon);
-  const T = createScopedTranslator(conf);
-  const _ = createTranslator(conf);
-  const log = createLogger(conf.name);
-  const env: ControlEnv = { conf, T, _, log };
+  createControlEnv(config, icon);
+  const T = createScopedTranslator(config);
+  const _ = createTranslator(config);
+  const log = createLogger(config.name);
+  const env: ControlEnv = { config, T, _, log };
   setup?.(env);
 
   class Control extends BaseControl {
-    readonly conf: ComponentConfig = conf;
+    readonly config: ComponentConfig = config;
     readonly T: (key: string) => string = T;
     readonly _: (key: string) => string = _;
     readonly log: Logger = log;
@@ -132,7 +132,7 @@ const defineControl = <M = unknown>(spec: DefineControlSpec<M>): ControlClass =>
     });
   }
 
-  Object.defineProperty(Control, "name", { value: conf.name });
+  Object.defineProperty(Control, "name", { value: config.name });
 
   return Control;
 };

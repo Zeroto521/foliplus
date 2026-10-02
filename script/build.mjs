@@ -396,7 +396,7 @@ const main = async () => {
   rmSync(buildCss, { recursive: true, force: true });
   mkdirSync(buildCss, { recursive: true });
 
-  // ── Step 2.4: Generate CONF schema TS types ──────────────────
+  // ── Step 2.4: Generate CONFIG schema TS types ──────────────────
   // Derives foliplus/js/config-schema.ts from foliplus/_config_schema.py. The vitest
   // fixture (test/js/config-fixture.ts) is generated separately by the test
   // pipeline (vitest globalSetup) — the JS build must not write test files.

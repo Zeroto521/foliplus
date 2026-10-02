@@ -16,7 +16,7 @@
   // The differences from the production program are all about what the tests
   // need to compile at all: `node` types for the script/ fixtures that touch
   // fs/path, `#script/*` for the build-script tests, and an allowJs include
-  // scope so the ambient CONF/map declarations are picked up.
+  // scope so the ambient CONFIG/map declarations are picked up.
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "types": [

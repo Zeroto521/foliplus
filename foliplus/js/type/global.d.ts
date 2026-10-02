@@ -3,7 +3,7 @@
  *
  * Three origins:
  * - The per-control IIFE wrapper (`BaseControl._compile_component_template`)
- *   binds `map` and `CONF` as free variables.
+ *   binds `map` and `CONFIG` as free variables.
  * - The shared runtime (`runtime/index.ts`) bootstraps `window.foliplus`.
  * - CDN scripts set their own globals — `L` (Leaflet), `turf`, `chroma`,
  *   `h3`, `gcoord`, `ss`, `GeoTIFF`, `pako`.
@@ -283,7 +283,7 @@ declare global {
 
   const map: Leaflet.Map;
   const foliplus: Foliplus;
-  const CONF: ComponentConfig;
+  const CONFIG: ComponentConfig;
   /** Build-time constant: `git describe` inlined by esbuild define. */
   const __FOLIPLUS_VERSION__: string;
 
@@ -300,7 +300,7 @@ declare global {
 
   interface Window {
     foliplus: Foliplus;
-    CONF: ComponentConfig;
+    CONFIG: ComponentConfig;
     L: typeof Leaflet;
     map: Leaflet.Map;
   }
