@@ -6,13 +6,13 @@
  *   - foliplus.version - build version (`git describe`), same value as the artifact banner
  *   - foliplus.geocode / foliplus.reverseGeocode - global geocoding (bidirectional cache)
  *   - foliplus.core / foliplus.common.<module> - shared modules, registered
- *     automatically by script/build.mjs (see generateSharedRegistry) so new
+ *     automatically by script/build/build.mjs (see generateSharedRegistry) so new
  *     core/common modules need no manual wiring here.
  *   - foliplus.BaseControl - base class shared by all components.
  *   - foliplus.hint - module-level hint icon registry (per-map hint lives on map.foliplus)
  *
  * Component bundles externalize #core/* and #common/* imports to these globals
- * (see script/global-namespace-plugin.mjs), so shared code is included exactly
+ * (see script/build/global-namespace-plugin.mjs), so shared code is included exactly
  * once instead of being inlined into every component.
  *
  * Geocoding helpers (NOMINATIM, nominatimUrl, formatAddress) live in
@@ -46,7 +46,7 @@ const foliplus = window.foliplus;
 // once per map, but this guard keeps it idempotent across reloads/embeds).
 if (!foliplus.isInitialized) {
   foliplus.isInitialized = true;
-  // Inlined by esbuild `define` (script/build.mjs) — same `git describe`
+  // Inlined by esbuild `define` (script/build/build.mjs) — same `git describe`
   // as the artifact banner.
   foliplus.version = __FOLIPLUS_VERSION__;
 

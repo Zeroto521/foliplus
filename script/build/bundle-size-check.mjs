@@ -8,13 +8,13 @@
  * sizes with `--emit`, then diffs the PR build against that file.
  *
  * Usage:
- *   node script/bundle-size-check.mjs --emit=base-sizes.json          # capture sizes
- *   node script/bundle-size-check.mjs --baseline=base-sizes.json      # diff vs base
- *   node script/bundle-size-check.mjs --baseline=base-sizes.json --report=out.md
- *   node script/bundle-size-check.mjs --baseline=base-sizes.json --threshold=15
- *   node script/bundle-size-check.mjs --baseline=base-sizes.json --enforce
- *   node script/bundle-size-check.mjs --root=<path> ...               # read <path>/foliplus/dist
- *   node script/bundle-size-check.mjs --help                          # all flags
+ *   node script/build/bundle-size-check.mjs --emit=base-sizes.json          # capture sizes
+ *   node script/build/bundle-size-check.mjs --baseline=base-sizes.json      # diff vs base
+ *   node script/build/bundle-size-check.mjs --baseline=base-sizes.json --report=out.md
+ *   node script/build/bundle-size-check.mjs --baseline=base-sizes.json --threshold=15
+ *   node script/build/bundle-size-check.mjs --baseline=base-sizes.json --enforce
+ *   node script/build/bundle-size-check.mjs --root=<path> ...               # read <path>/foliplus/dist
+ *   node script/build/bundle-size-check.mjs --help                          # all flags
  *
  * A bundle is gated only when **both** bars are crossed: its growth exceeds
  * `--threshold` in percent *and* `MIN_GROWTH_BYTES` in absolute bytes. The
@@ -30,7 +30,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { dirname, resolve } from "path";
 import { pathToFileURL } from "url";
-import { help } from "./args.mjs";
+import { help } from "../args.mjs";
 import {
   EXIT_FUSE,
   EXIT_NO_BASELINE,
@@ -42,14 +42,14 @@ import {
   readSizes,
   stripLeadingBlockComment,
 } from "./bundle-size-lib.mjs";
-import { FAIL, OK, STATUS, WARN } from "./glyph.mjs";
+import { FAIL, OK, STATUS, WARN } from "../glyph.mjs";
 
 // A threshold breach is a policy decision, not a broken check. The report —
 // the table and the tree of who exceeded — is the thing that must reach the
 // PR, so `check` never fails because a bundle grew; it returns the verdict and
 // lets the caller decide. `--enforce` re-adds the exit code for a hard gate.
 // EXIT_NO_BASELINE, EXIT_THRESHOLD, EXIT_FUSE, and EXIT_OK all come from
-// script/bundle-size-lib.mjs so CI can read one exit-code table across the two
+// script/build/bundle-size-lib.mjs so CI can read one exit-code table across the two
 // gates; see that file for what each number means.
 
 const DEFAULT_THRESHOLD = 10;
@@ -130,7 +130,7 @@ const toolMismatch = baseline => {
 /** Flag spec — parsed by the shared `args.mjs` parser used by the other build
  *  scripts. It defaults flags it does not see to `false`, so the `?`/`!`
  *  checks below keep their usual meaning. `--root` is inherited from
- *  baseSpec in script/bundle-size-lib.mjs. */
+ *  baseSpec in script/build/bundle-size-lib.mjs. */
 const SPEC = {
   emit: { type: "string", desc: "Write the current sizes to this JSON file" },
   baseline: { type: "string", desc: "JSON file to diff against" },
@@ -532,7 +532,7 @@ export {
   toolVersion,
 };
 
-// CLI entry point: `node script/bundle-size-check.mjs [--emit=<path>] [--baseline=<path>]`.
+// CLI entry point: `node script/build/bundle-size-check.mjs [--emit=<path>] [--baseline=<path>]`.
 // Guarded so importing this module (for tests) has no side effects.
 /* v8 ignore start -- CLI-only entry point, not exercised by unit tests */
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {

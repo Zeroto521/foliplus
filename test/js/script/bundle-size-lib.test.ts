@@ -16,7 +16,7 @@ import {
   parseArgsWithBase,
   readSizes,
   stripLeadingBlockComment,
-} from "#script/bundle-size-lib.mjs";
+} from "#script/build/bundle-size-lib.mjs";
 
 const rSizes = (root: string): Record<string, number> =>
   readSizes(root) as Record<string, number>;

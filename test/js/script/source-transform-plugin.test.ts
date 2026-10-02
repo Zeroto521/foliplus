@@ -14,7 +14,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import {
   createSourceTransformPlugin,
   isSourceFile,
-} from "#script/source-transform-plugin.mjs";
+} from "#script/build/source-transform-plugin.mjs";
 
 // A platform-neutral fake source dir: the guard must only ever compare
 // normalized path strings, never touch the real tree.

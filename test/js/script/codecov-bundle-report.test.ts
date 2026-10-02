@@ -11,7 +11,7 @@ import {
   gzipSizeOfFile,
   normalizeModulePath,
   payloadToJson,
-} from "#script/codecov-bundle-report.mjs";
+} from "#script/build/codecov-bundle-report.mjs";
 
 // ── Fixture metafile (shape matches esbuild 0.24 / mergeMetafiles) ──
 // Two artifacts sharing one module so chunkUniqueIds merge is exercised.

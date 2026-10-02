@@ -3,7 +3,7 @@
  * Build script — minify foliplus JS/CSS assets with esbuild.
  *
  * Pipeline:
- *   1. esbuild-bundle each component with SVG/HTML source transforms (via ``script/compress.mjs``)
+ *   1. esbuild-bundle each component with SVG/HTML source transforms (via ``script/build/compress.mjs``)
  *   2. Merge the shared stylesheet modules -> ``dist/foliplus-common.min.css``
  *
  *   Source transforms run at bundle time via esbuild onLoad — no .build/ source
@@ -11,10 +11,10 @@
  *   and .build/css for the merged stylesheet, which esbuild must read off disk.
  *
  * Usage:
- *   node script/build.mjs              # build all (minified)
- *   node script/build.mjs --dev        # unminified, keepNames (for PY identifier tests)
- *   node script/build.mjs --sonda      # build + generate one combined sonda report (HTML treemap)
- *   node script/build.mjs --verify     # don't build; assert the dist/ tree is complete
+ *   node script/build/build.mjs              # build all (minified)
+ *   node script/build/build.mjs --dev        # unminified, keepNames (for PY identifier tests)
+ *   node script/build/build.mjs --sonda      # build + generate one combined sonda report (HTML treemap)
+ *   node script/build/build.mjs --verify     # don't build; assert the dist/ tree is complete
  */
 import { spawnSync } from "child_process";
 import { build } from "esbuild";
@@ -28,13 +28,13 @@ import {
 } from "fs";
 import { basename, dirname, resolve } from "path";
 import { fileURLToPath, pathToFileURL } from "url";
-import { help, parseArgs } from "./args.mjs";
-import { resolveJsRoot } from "./build-path.mjs";
+import { help, parseArgs } from "../args.mjs";
+import { resolveJsRoot } from "../build-path.mjs";
 import { esbuildCfgFor } from "./esbuild-config.mjs";
 import { globalNamespacePlugin } from "./global-namespace-plugin.mjs";
-import { FAIL, OK } from "./glyph.mjs";
+import { FAIL, OK } from "../glyph.mjs";
 import { expandEntry, mergeCss } from "./merge-css.mjs";
-import { resolveVersion } from "./version.mjs";
+import { resolveVersion } from "../version.mjs";
 
 // Sonda is only loaded when --sonda is passed (lazy dynamic import).
 // Returns the API used to merge per-build metafiles into one combined report.
@@ -101,7 +101,7 @@ const resolveSharedRegistryPlugin = {
 };
 
 // ── Shared esbuild options ──────────────────────────────────────
-// Sourced from script/esbuild-config.mjs so tests import the real config
+// Sourced from script/build/esbuild-config.mjs so tests import the real config
 // instead of re-typing the flags. See that module for what each field is.
 const esbuildCfg = esbuildCfgFor({ dev: CFG.dev, root: CFG.root });
 
@@ -183,7 +183,7 @@ const readCssDir = dir =>
  *  dependency order.
 
 Every module in `css/common/` is picked up automatically — no maintained
-manifest. Order and drift guards live in `script/merge-css.mjs` (pure,
+manifest. Order and drift guards live in `script/build/merge-css.mjs` (pure,
 unit-tested): a module that reads tokens declares `@import "token.css";`
 first, the build resolves the graph topologically, and an import that
 cannot resolve (or a cycle) fails the build loudly.
@@ -350,7 +350,7 @@ const generateSharedRegistry = () => {
 /** Verify foliplus/js/config-schema.ts matches the Python schema table.
  *
  *  Two-step: `python foliplus/_config_schema.py --out <json>` dumps the schema as
- *  JSON, then `node script/emit-config-schema.mjs --verify --json <json>` checks
+ *  JSON, then `node script/build/emit-config-schema.mjs --verify --json <json>` checks
  *  the committed TS file reproduces exactly from the dump. The build never
  *  writes the committed source file — it fails loudly instead, so the working
  *  tree stays clean and the committed artifact is reproducible.
@@ -479,7 +479,7 @@ const main = async () => {
   console.timeEnd("build");
 };
 
-// CLI entry point: `node script/build.mjs [--dev|--verify|--sonda]`.
+// CLI entry point: `node script/build/build.mjs [--dev|--verify|--sonda]`.
 // Guarded so importing this module has no side effects.
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
   main().catch(e => {

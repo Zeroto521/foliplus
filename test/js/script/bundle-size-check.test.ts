@@ -20,8 +20,8 @@ import {
   shortSha,
   summarize,
   toolVersion,
-} from "#script/bundle-size-check.mjs";
-import { stripLeadingBlockComment } from "#script/bundle-size-lib.mjs";
+} from "#script/build/bundle-size-check.mjs";
+import { stripLeadingBlockComment } from "#script/build/bundle-size-lib.mjs";
 
 type BundleArgs = {
   help: boolean;
@@ -1070,7 +1070,7 @@ const SLOW = 60000;
 const runProcess = (root: string, ...argv: string[]) =>
   spawnSync(
     process.execPath,
-    ["script/bundle-size-check.mjs", "--root=" + root, ...argv],
+    ["script/build/bundle-size-check.mjs", "--root=" + root, ...argv],
     { cwd: process.cwd(), encoding: "utf-8" },
   );
 

@@ -1,4 +1,4 @@
-// script/global-namespace-plugin.mjs — esbuild plugin (P5, optimized).
+// script/build/global-namespace-plugin.mjs — esbuild plugin (P5, optimized).
 // Component bundles externalize #core/*, #common/* and #foliplus/BaseControl.js
 // imports to the global namespace exposed by foliplus-common.min.js
 // (window.foliplus.core / .common.<mod> / .BaseControl). The runtime entry
@@ -7,11 +7,11 @@
 // KEY OPTIMIZATION: Auto-scan component source for shared-module imports,
 // then generate shims ONLY for the actually-imported names. Unused exports
 // are never declared, so they cannot appear in the bundle. The scan itself
-// lives in script/import-scan.mjs — the same engine
-// script/scan-registry.mjs uses, so publishing and reading cannot drift.
+// lives in script/build/import-scan.mjs — the same engine
+// script/build/scan-registry.mjs uses, so publishing and reading cannot drift.
 import { existsSync, readFileSync } from "fs";
 import { dirname, resolve } from "path";
-import { SHARED_SPEC_PREFIXES } from "./build-path.mjs";
+import { SHARED_SPEC_PREFIXES } from "../build-path.mjs";
 import {
   collectSources,
   scanSharedImports as scanSharedImportsEngine,
@@ -113,7 +113,7 @@ const runtimeTarget = spec => {
  *  `foliplus.core` (the `foliplus.core.component = …` lines) and the general
  *  rule returns byte-for-byte what their former manual entries did, which is
  *  why those entries were deleted. Appearing in SKIPPED_CORE_FILES
- *  (script/scan-registry.mjs) only means the generated registry does not
+ *  (script/build/scan-registry.mjs) only means the generated registry does not
  *  publish them; that is a registration decision and says nothing about the
  *  namespace a shim must read.
  */
@@ -127,7 +127,7 @@ const sharedGlobalNamespace = spec => {
 /** Engine-backed scan, in the shape this plugin has always consumed:
  *  `{ used, starUsed }` keyed by the RAW specifier, because `onLoad` receives
  *  exactly what esbuild resolved. `collectSources` is re-exported verbatim
- *  from script/import-scan.mjs. */
+ *  from script/build/import-scan.mjs. */
 const scanSharedImports = dir => {
   const { named, starUsed } = scanSharedImportsEngine(dir);
   return { used: named, starUsed };

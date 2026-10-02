@@ -4,7 +4,7 @@
  * Factored out of build.mjs so a test can import the real thing instead of
  * hand-copying the same flags — a hand-copied copy silently disagrees the
  * first time the build changes (a target bump, a keepNames flip) without
- * the test ever noticing. `script/build.mjs` calls this once with the
+ * the test ever noticing. `script/build/build.mjs` calls this once with the
  * resolved args; tests call it with the settings they want to inspect.
  *
  * Plugins are part of the config (postcss for CSS, sourceTransform for
@@ -21,9 +21,9 @@ import autoprefixer from "autoprefixer";
 import { readFileSync } from "fs";
 import postcss from "postcss";
 import postcssNesting from "postcss-nesting";
-import { pathAliases, resolveJsRoot } from "./build-path.mjs";
+import { pathAliases, resolveJsRoot } from "../build-path.mjs";
 import { createSourceTransformPlugin } from "./source-transform-plugin.mjs";
-import { resolveVersion } from "./version.mjs";
+import { resolveVersion } from "../version.mjs";
 
 /**
  * Build the esbuild config for a given mode. `dev` toggles minification and

@@ -1,10 +1,10 @@
-// script/import-scan.mjs — the one import scanner for shared modules.
+// script/build/import-scan.mjs — the one import scanner for shared modules.
 //
 // Two consumers read the same thing and used to each keep a private copy of
 // this code:
-//   - script/scan-registry.mjs → `_shared-registry.ts`, which decides what the
+//   - script/build/scan-registry.mjs → `_shared-registry.ts`, which decides what the
 //     runtime bundle publishes on `window.foliplus`.
-//   - script/global-namespace-plugin.mjs → esbuild shims, which decide what a
+//   - script/build/global-namespace-plugin.mjs → esbuild shims, which decide what a
 //     component bundle reads back from that namespace.
 //
 // Publishing and reading are two halves of one contract. If they disagree, a
@@ -42,7 +42,7 @@
 //     from the files that imported the spec under that alias.
 import { readFileSync, readdirSync } from "fs";
 import { join } from "path";
-import { SHARED_SPEC_PREFIXES } from "./build-path.mjs";
+import { SHARED_SPEC_PREFIXES } from "../build-path.mjs";
 
 /** `#core/geo/index.js` → `core/geo`, `#common/dom.js` → `common/dom`.
  *  Keys `_shared-registry.ts` is generated against. */
