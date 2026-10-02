@@ -31,6 +31,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { dirname, resolve } from "path";
 import { pathToFileURL } from "url";
 import { help } from "../args.mjs";
+import { FAIL, OK, STATUS, WARN } from "../glyph.mjs";
 import {
   EXIT_FUSE,
   EXIT_NO_BASELINE,
@@ -42,7 +43,6 @@ import {
   readSizes,
   stripLeadingBlockComment,
 } from "./bundle-size-lib.mjs";
-import { FAIL, OK, STATUS, WARN } from "../glyph.mjs";
 
 // A threshold breach is a policy decision, not a broken check. The report —
 // the table and the tree of who exceeded — is the thing that must reach the

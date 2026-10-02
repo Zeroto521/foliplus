@@ -39,6 +39,7 @@
 import { resolve } from "path";
 import { pathToFileURL } from "url";
 import { help } from "../args.mjs";
+import { OK, STATUS, WARN } from "../glyph.mjs";
 import {
   EXIT_FUSE,
   EXIT_OK,
@@ -49,7 +50,6 @@ import {
   parseArgsWithBase,
   readSizes,
 } from "./bundle-size-lib.mjs";
-import { OK, STATUS, WARN } from "../glyph.mjs";
 
 // Absolute brotli-byte ceiling per artifact. Each value is `2 * measured`
 // at the commit that set it (50d0723d), rounded up to the nearest 5 KB.

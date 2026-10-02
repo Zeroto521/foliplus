@@ -30,11 +30,11 @@ import { basename, dirname, resolve } from "path";
 import { fileURLToPath, pathToFileURL } from "url";
 import { help, parseArgs } from "../args.mjs";
 import { resolveJsRoot } from "../build-path.mjs";
+import { FAIL, OK } from "../glyph.mjs";
+import { resolveVersion } from "../version.mjs";
 import { esbuildCfgFor } from "./esbuild-config.mjs";
 import { globalNamespacePlugin } from "./global-namespace-plugin.mjs";
-import { FAIL, OK } from "../glyph.mjs";
 import { expandEntry, mergeCss } from "./merge-css.mjs";
-import { resolveVersion } from "../version.mjs";
 
 // Sonda is only loaded when --sonda is passed (lazy dynamic import).
 // Returns the API used to merge per-build metafiles into one combined report.

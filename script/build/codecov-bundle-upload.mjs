@@ -25,8 +25,8 @@ import { readFileSync, writeFileSync } from "fs";
 import { dirname, resolve } from "path";
 import { fileURLToPath, pathToFileURL } from "url";
 import { help, parseArgs } from "../args.mjs";
-import { buildCodecovPayload, payloadToJson } from "./codecov-bundle-report.mjs";
 import { OK, WARN } from "../glyph.mjs";
+import { buildCodecovPayload, payloadToJson } from "./codecov-bundle-report.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..", "..");

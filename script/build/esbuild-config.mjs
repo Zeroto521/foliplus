@@ -22,8 +22,8 @@ import { readFileSync } from "fs";
 import postcss from "postcss";
 import postcssNesting from "postcss-nesting";
 import { pathAliases, resolveJsRoot } from "../build-path.mjs";
-import { createSourceTransformPlugin } from "./source-transform-plugin.mjs";
 import { resolveVersion } from "../version.mjs";
+import { createSourceTransformPlugin } from "./source-transform-plugin.mjs";
 
 /**
  * Build the esbuild config for a given mode. `dev` toggles minification and
