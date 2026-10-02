@@ -237,29 +237,35 @@ describe("CLI entry", () => {
     expect(exit).toHaveBeenCalledWith(EXIT_OK);
   });
 
-  it("defaults --root to the checkout and fuses it", () => {
+  it("defaults --root to the checkout and fuses it", async () => {
     // `node script/bundle-fuse.mjs` without --root reads the checkout's own
-    // dist — the Makefile and CI call it exactly this way. The dist dir is a
-    // git-ignored build product, so a temporary under-cap fixture is written
-    // there and removed afterwards.
-    const distDir = resolve(process.cwd(), "foliplus", "dist");
-    mkdirSync(distDir, { recursive: true });
-    const fixture = join(distDir, "foliplus-ScaleControl.min.js");
-    writeFileSync(fixture, "x", "utf-8");
+    // dist — the Makefile and CI call it exactly this way. The dist dir is
+    // shared build output that build.test.ts asserts on, so the size read is
+    // mocked at the lib seam instead: the reimported module's readSizes
+    // reports one under-cap artifact, and main() fuses that (exit:0) without
+    // touching the real dist tree.
+    vi.doMock("#script/bundle-size-lib.mjs", async importOriginal => {
+      const actual = (await importOriginal()) as Record<string, unknown>;
+      return {
+        ...actual,
+        readSizes: () => ({ "foliplus-ScaleControl.min.js": 1 }),
+      };
+    });
+    vi.resetModules();
     try {
+      const mod = await import("#script/bundle-fuse.mjs");
       const exit = trapExit();
-      expect(() => main([])).toThrow(`exit:${EXIT_OK}`);
+      expect(() => mod.main([])).toThrow(`exit:${EXIT_OK}`);
       expect(exit).toHaveBeenCalledWith(EXIT_OK);
     } finally {
-      rmSync(fixture, { force: true });
+      vi.doUnmock("#script/bundle-size-lib.mjs");
+      vi.resetModules();
     }
   });
 
   it("runs main() only when launched directly as a script", async () => {
     const exit = trapExit();
-    await expect(runCli(["node", SCRIPT, "--help"])).rejects.toThrow(
-      `exit:${EXIT_OK}`,
-    );
+    await expect(runCli(["node", SCRIPT, "--help"])).rejects.toThrow(`exit:${EXIT_OK}`);
     expect(exit).toHaveBeenCalledWith(EXIT_OK);
   });
 });

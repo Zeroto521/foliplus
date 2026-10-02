@@ -1530,9 +1530,7 @@ describe("cli entry point", () => {
       .mockImplementation((code?: string | number | null | undefined) => {
         throw new Error(`exit:${code}`);
       });
-    expect(() =>
-      main([`--root=${root}`, `--emit=${out}`]),
-    ).toThrow("exit:0");
+    expect(() => main([`--root=${root}`, `--emit=${out}`])).toThrow("exit:0");
     expect(exit).toHaveBeenCalledWith(0);
     expect(existsSync(out)).toBe(true);
   });

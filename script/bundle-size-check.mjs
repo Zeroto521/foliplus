@@ -447,7 +447,9 @@ const check = (args, root = ROOT) => {
 
   if (drift.length) {
     const parts = drift.map(d => {
-      /* v8 ignore next -- every build tool is a devDependency of the tree ROOT reads */
+      // Every BUILD_TOOLS package is a devDependency of the tree ROOT reads,
+      // so a null current version only occurs when one was dropped from the
+      // build — the "absent" case the test injects through JSON.parse.
       const next = d.curr == null ? "absent" : `→ ${d.curr}`;
       return `${d.pkg} ${d.prev} ${next}`;
     });

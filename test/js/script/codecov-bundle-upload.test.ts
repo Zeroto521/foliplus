@@ -455,11 +455,7 @@ describe("CLI entry", () => {
     tmp = mkdtempSync(join(tmpdir(), "foliplus-cb-cli-"));
     writeMetafile(tmp);
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
-    await main([
-      `--root=${tmp}`,
-      "--metafile=bundle-metafile.json",
-      "--dry-run",
-    ]);
+    await main([`--root=${tmp}`, "--metafile=bundle-metafile.json", "--dry-run"]);
     const out = log.mock.calls.join("\n");
     expect(out).toContain('"bundleName":"foliplus"');
   });
@@ -483,9 +479,9 @@ describe("CLI entry", () => {
     tmp = mkdtempSync(join(tmpdir(), "foliplus-cb-cli-"));
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const exit = trapExit();
-    await expect(
-      main([`--root=${tmp}`, "--metafile=absent.json"]),
-    ).rejects.toThrow("exit:1");
+    await expect(main([`--root=${tmp}`, "--metafile=absent.json"])).rejects.toThrow(
+      "exit:1",
+    );
     expect(exit).toHaveBeenCalledWith(1);
     expect(error.mock.calls.join("\n")).toContain("ENOENT");
   });
