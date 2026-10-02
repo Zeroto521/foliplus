@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from ._cdn_loader import load_cdn
 from ._typing import Fraction, Position, PositiveInt
 from ._validate import Bound, validate
 from .BaseControl import BaseControl
@@ -115,8 +114,6 @@ class HeatmapControl(BaseControl):
     >>> HeatmapControl().add_to(m)
     """
 
-    default_js = load_cdn("HeatmapControl")
-
     _config_fields = (
         "color_scheme",
         "method",
@@ -178,4 +175,3 @@ class HeatmapControl(BaseControl):
         self.label_size = label_size
         self.label_format = label_format
         self.collapse_on_outside = collapse_on_outside
-        self._template = self._get_template()

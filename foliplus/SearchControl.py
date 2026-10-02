@@ -3,7 +3,6 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Literal, TypedDict, get_args
 
-from ._cdn_loader import load_cdn
 from ._typing import Position, Zoom
 from ._validate import validate
 from .BaseControl import BaseControl
@@ -151,8 +150,6 @@ class SearchControl(BaseControl):
         "collapse_on_outside",
     )
 
-    default_js = load_cdn("SearchControl")
-
     @validate
     def __init__(
         self,
@@ -187,4 +184,3 @@ class SearchControl(BaseControl):
         self.provider = provider
         self.provider_config = provider_config
         self.collapse_on_outside = collapse_on_outside
-        self._template = self._get_template()

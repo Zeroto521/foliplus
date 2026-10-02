@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from ._cdn_loader import load_cdn
 from ._typing import Fraction, Position, PositiveInt
 from ._validate import Bound, validate
 from .BaseControl import BaseControl
@@ -115,8 +114,6 @@ class ExportControl(BaseControl):
     >>> ExportControl(scale=3.0, filename="print").add_to(m)
     """
 
-    default_js = load_cdn("ExportControl")
-
     _config_fields = (
         "filename",
         "format",
@@ -146,4 +143,3 @@ class ExportControl(BaseControl):
         self.scale = scale
         self.max_pixels = max_pixels
         self.timeout = timeout
-        self._template = self._get_template()

@@ -34,4 +34,3 @@ class ScaleControl(BaseControl):
     ):
         super().__init__(position="bottomleft", locale=locale)
         self.show_zoom = show_zoom
-        self._template = self._get_template()

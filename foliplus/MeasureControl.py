@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Literal
 
-from ._cdn_loader import load_cdn
 from ._typing import Position
 from ._validate import validate
 from .BaseControl import BaseControl
@@ -154,8 +153,6 @@ class MeasureControl(BaseControl):
         "collapse_on_outside",
     )
 
-    default_js = load_cdn("MeasureControl")
-
     @validate
     def __init__(
         self,
@@ -178,4 +175,3 @@ class MeasureControl(BaseControl):
         self.filename = filename
         self.export_format = export_format
         self.collapse_on_outside = collapse_on_outside
-        self._template = self._get_template()
