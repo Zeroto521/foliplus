@@ -9,14 +9,14 @@ import {
   hideDelIcons,
   makeDelIcon,
   toggleDelIcon,
-} from "#common/delicon.js";
+} from "#core/leaflet/delicon.js";
 
 describe("delicon constants", () => {
   it("exports the shared delete-icon contract values", () => {
     expect(DEL_ICON_CHAR).toBe("\u2715");
     expect(DEL_ICON_SELECTOR).toBe("[data-del-icon]");
     expect(DEL_ICON_Z_OFFSET).toBe(11000);
-    // Pin-only anchor: âœ• floats at the marker/pin bottom tip.
+    // Pin-only anchor: âœ?floats at the marker/pin bottom tip.
     expect(DEL_ICON_MARKER_ANCHOR).toEqual([0, 24]);
   });
 });
@@ -60,13 +60,13 @@ describe("makeDelIcon", () => {
 });
 
 describe("attachDelClick", () => {
-  it("fires callback and stops the event only for âœ• clicks", () => {
+  it("fires callback and stops the event only for âœ?clicks", () => {
     const callback = vi.fn();
     const delMarker = { on: vi.fn() };
     attachDelClick(delMarker, callback);
     const handler = delMarker.on.mock.calls[0][1];
 
-    // Click on the delete icon span â†’ callback fires + event stopped
+    // Click on the delete icon span â†?callback fires + event stopped
     const x = document.createElement("span");
     x.setAttribute("data-del-icon", "");
     const orig = { target: x, stopPropagation: vi.fn(), preventDefault: vi.fn() };
@@ -75,7 +75,7 @@ describe("attachDelClick", () => {
     expect(orig.stopPropagation).toHaveBeenCalled();
     expect(orig.preventDefault).toHaveBeenCalled();
 
-    // Click elsewhere on the marker â†’ no callback
+    // Click elsewhere on the marker â†?no callback
     handler({
       originalEvent: {
         target: document.createElement("div"),
@@ -88,7 +88,7 @@ describe("attachDelClick", () => {
 });
 
 describe("toggleDelIcon", () => {
-  it("toggles the visible class on the inner âœ• span", () => {
+  it("toggles the visible class on the inner âœ?span", () => {
     const icon = document.createElement("span");
     icon.setAttribute("data-del-icon", "");
     const marker = { getElement: () => ({ querySelector: () => icon }) };
@@ -98,7 +98,7 @@ describe("toggleDelIcon", () => {
     expect(icon.classList.contains("visible")).toBe(false);
   });
 
-  it("is safe when the marker has no DOM element or âœ• span yet", () => {
+  it("is safe when the marker has no DOM element or âœ?span yet", () => {
     expect(() => toggleDelIcon({ getElement: () => null }, true)).not.toThrow();
     expect(() =>
       toggleDelIcon({ getElement: () => ({ querySelector: () => null }) }, true),

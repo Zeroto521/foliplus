@@ -9,10 +9,10 @@ import {
   createPanelControl,
   createPanelHeader,
   createRowPanel,
-} from "#common/panel.js";
+} from "#core/leaflet/panel.js";
 
 // setup.js provides L.DomEvent mocks (disableClickPropagation, etc.),
-// but panel.js also needs on/off/stop â€” stub them here.
+// but panel.js also needs on/off/stop â€?stub them here.
 const domEvent = window.L.DomEvent;
 beforeEach(() => {
   // Delegate to real DOM addEventListener so click handlers actually fire.

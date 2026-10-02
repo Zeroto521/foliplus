@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { mountDelIcon } from "#common/deliconMount.js";
+import { mountDelIcon } from "#core/leaflet/deliconMount.js";
 
 describe("mountDelIcon", () => {
-  // Same real-DOM trick as the SearchControl tests: toggleDelIcon flips the ✕
+  // Same real-DOM trick as the SearchControl tests: toggleDelIcon flips the �?
   // span's class on the element the mock marker reports.
   const makeDelIconWithEl = () => {
     const span = document.createElement("span");
@@ -14,7 +14,7 @@ describe("mountDelIcon", () => {
     return { span, on };
   };
 
-  it("mounts the created icon through the mounter and fires onDelete on a ✕ click", () => {
+  it("mounts the created icon through the mounter and fires onDelete on a �?click", () => {
     const { span, on } = makeDelIconWithEl();
     const mount = vi.fn();
     const onDelete = vi.fn();
@@ -33,7 +33,7 @@ describe("mountDelIcon", () => {
     expect(onDelete).toHaveBeenCalledTimes(1);
   });
 
-  it("binds the ✕ to the popup lifecycle when popupMarker is given", () => {
+  it("binds the �?to the popup lifecycle when popupMarker is given", () => {
     const { span } = makeDelIconWithEl();
     const popupMarker = { on: vi.fn() };
     mountDelIcon({ lat: 1, lng: 2 }, {}, vi.fn(), vi.fn(), popupMarker);
@@ -57,7 +57,7 @@ describe("mountDelIcon", () => {
   });
 
   it("binds no click handler when onDelete is omitted (strict bare-mount equivalence)", () => {
-    // MeasureControl circle wires the ✕ delete later in attachCircleUI, so the
+    // MeasureControl circle wires the �?delete later in attachCircleUI, so the
     // mount step must stay equivalent to a bare makeDelIcon + addLayer: no
     // attachDelClick, hence no extra stopEvent and no no-op handler.
     const { on } = makeDelIconWithEl();
