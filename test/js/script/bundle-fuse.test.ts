@@ -9,7 +9,7 @@ import {
   FUSE_CAPS,
   fuse,
   readSizes,
-} from "#script/bundle-fuse.mjs";
+} from "#script/build/bundle-fuse.mjs";
 
 // The fuse judges brotli bytes. A repeated-literal fixture would collapse to
 // a few bytes and quietly land under every cap, so the "breach" case would

@@ -9,7 +9,7 @@
      exempt.
 
   2. Singular file names. Applies to `foliplus/js/*.ts` and build-tool
-     modules (`script/*.{mjs,cjs,js}`). Whitelist: pelias, focus, canvas,
+     modules (`script/**/*.{mjs,cjs,js}`). Whitelist: pelias, focus, canvas,
      EventBus, base, index, args, css, compress (proper nouns,
      abbreviations, or verbs — not plurals).
 
@@ -30,7 +30,7 @@ Check-only: reports violations with `file:line: message` and exits 1 if
 any. Cannot auto-fix — refactor in the editor.
 
 Usage (called by pre-commit, filenames as arguments):
-    python script/style_check.py file1 file2 ...
+    python script/check/style_check.py file1 file2 ...
 """
 
 from __future__ import annotations
@@ -53,7 +53,7 @@ PLURAL_WHITELIST = {
     "args",
     "base",
     "canvas",
-    "compress",  # verb (script/compress.mjs), not a plural noun
+    "compress",  # verb (script/build/compress.mjs), not a plural noun
     "css",
     "eventbus",
     "focus",

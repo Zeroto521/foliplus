@@ -1,4 +1,4 @@
-"""Tests for ``script/style_check.py`` — the code-style rules.
+"""Tests for ``script/check/style_check.py`` — the code-style rules.
 
 The script is a check-only gate: it reports ``file:line: message`` and exits 1
 when any rule fires. It cannot auto-fix — the fix is a refactor in the editor.
@@ -39,7 +39,7 @@ import pytest
 
 HERE = Path(__file__).resolve().parent
 REPO_ROOT = HERE.parent.parent
-SCRIPT = REPO_ROOT / "script" / "style_check.py"
+SCRIPT = REPO_ROOT / "script" / "check" / "style_check.py"
 
 
 class _ModuleView:
@@ -550,8 +550,8 @@ class TestCheckPluralNames:
         for name in [
             "script/build-path.mjs",
             "script/css-layer.mjs",
-            "script/esbuild-config.mjs",
-            "script/merge-css.mjs",
+            "script/build/esbuild-config.mjs",
+            "script/build/merge-css.mjs",
         ]:
             assert mod.check_plural_names(name) == []
 
@@ -737,7 +737,7 @@ class TestMain:
     def test_plural_mjs_via_cli_reports_and_exits_one(
         self, tmp_path, capsys, monkeypatch
     ):
-        # The CLI's script-module branch (rule 2 on script/*.mjs) must report
+        # The CLI's script-module branch (rule 2 on script/**/*.mjs) must report
         # and fail the build — a plural module name otherwise ships unchecked.
         f = tmp_path / "css-layers.mjs"
         f.write_text("export {};\n", encoding="utf-8")

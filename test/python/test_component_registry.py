@@ -180,13 +180,13 @@ class TestVitestCoverageExcludes:
 class TestScaffoldWiring:
     def test_npm_script_registered(self):
         text = _read(ROOT / "package.json")
-        assert '"new-control"' in text and "script/new-control.mjs" in text
+        assert '"new-control"' in text and "script/tool/new-control.mjs" in text
 
     def test_scaffold_uses_core_control_env(self):
         """After #289 createControlEnv lives in #core/controlEnv, not #common/guard."""
-        text = _read(ROOT / "script" / "new-control.mjs")
+        text = _read(ROOT / "script" / "tool" / "new-control.mjs")
         assert "#core/controlEnv.js" in text
         assert "#common/guard.js" not in text
 
     def test_scaffold_script_exists(self):
-        assert (ROOT / "script" / "new-control.mjs").is_file()
+        assert (ROOT / "script" / "tool" / "new-control.mjs").is_file()

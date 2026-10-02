@@ -15,7 +15,7 @@ from foliplus.locale import _LOCALE_DIR, LocaleConfig, _load_tables, resolve_loc
 # ---------------------------------------------------------------------------
 # JS-key scanning — replaces the hand-maintained list below.
 #
-#   script/scan-locale-key.mjs walks foliplus/js/**/*.ts and extracts
+#   script/check/scan-locale-key.mjs walks foliplus/js/**/*.ts and extracts
 #   every T("key"), .T("key"), T(c?"a":"b"), _("key"), and NAME_LABEL_KEY
 #   assignment, prefixing bare keys with the component derived from the
 #   file path.  Dynamic calls (T(variable), template literals, map lookups,
@@ -24,7 +24,7 @@ from foliplus.locale import _LOCALE_DIR, LocaleConfig, _load_tables, resolve_loc
 # ---------------------------------------------------------------------------
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
-_SCANNER = _REPO_ROOT / "script" / "scan-locale-key.mjs"
+_SCANNER = _REPO_ROOT / "script" / "check" / "scan-locale-key.mjs"
 
 _DYNAMIC_SUPPLEMENT: set[str] = {
     # core/layer/api.ts — T() is caller-provided; the scanner cannot derive

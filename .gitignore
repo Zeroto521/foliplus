@@ -6,7 +6,7 @@ __pycache__/
 
 # Packaging
 .Python
-build/
+/build/
 develop-eggs/
 dist/
 downloads/

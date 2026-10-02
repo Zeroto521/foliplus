@@ -29,7 +29,7 @@ See https://en.wikipedia.org/wiki/Mojibake and
 https://en.wikipedia.org/wiki/Replacement_character.
 
 Usage (called by pre-commit, filenames as arguments):
-    python script/mojibake_check.py file1 file2 ...
+    python script/check/mojibake_check.py file1 file2 ...
 """
 
 from __future__ import annotations
@@ -58,7 +58,7 @@ _LOSSY_ANCHORS = "\u2013\u2014\u2192\u2190\u00b7\u3002"
 MOJIBAKE_RE = re.compile(
     f"â[{re.escape(_CP1252_FOLLOWS)}]"
     f"|[{re.escape(_LOSSY_ANCHORS)}][ \\t]*\\?"
-    f"|[\u951f\u65a4\u62f7\u94a5\u922b]"
+    f"|[\u951f\u65a4\u62f7\u9225\u922b]"
 )
 
 _SUMMARY = """\

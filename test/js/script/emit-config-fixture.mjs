@@ -8,7 +8,7 @@
  * locale_code) with that control's defaults and the caller's overrides.
  *
  * The schema JSON is read from `foliplus/.build/js/config-schema.json` (written
- * by script/build.mjs step 2.4 when `emit-config-schema` runs). When the file is
+ * by script/build/build.mjs step 2.4 when `emit-config-schema` runs). When the file is
  * absent — e.g. a pure test checkout that never ran the JS build — this
  * script dumps the schema itself via Python, so it stays self-contained.
  *
