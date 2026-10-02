@@ -7,6 +7,7 @@ import {
   encodeSlug,
   getPreSignedUrl,
   loadEvent,
+  main,
   preProcessBody,
   runUpload,
   uploadStats,
@@ -196,6 +197,26 @@ describe("getPreSignedUrl", () => {
     ).rejects.toThrow(/401/);
   });
 
+  it("tolerates a body that cannot be read", async () => {
+    // `response.text()` can reject (network teardown); the detail then falls
+    // back to an empty string instead of masking the real failure.
+    const fetchImpl = vi.fn(async () => ({
+      ok: false,
+      status: 500,
+      statusText: "boom",
+      text: async () => {
+        throw new Error("read failed");
+      },
+    }));
+    await expect(
+      getPreSignedUrl({
+        token: "tok",
+        serviceParams: { commit: "c", slug: "a/b" },
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+      }),
+    ).rejects.toThrow(/500 boom/);
+  });
+
   it("throws when the response has no url", async () => {
     const fetchImpl = vi.fn(async () => jsonRes(200, {}));
     await expect(
@@ -356,5 +377,138 @@ describe("branch arms left open by the happy path", () => {
     } as never);
     expect(params.compareSha).toBeNull();
     expect(params.pr).toBe("1");
+  });
+});
+
+describe("CLI entry", () => {
+  const SCRIPT = resolve(process.cwd(), "script", "codecov-bundle-upload.mjs");
+  const originalToken = process.env.CODECOV_TOKEN;
+
+  const trapExit = () =>
+    vi
+      .spyOn(process, "exit")
+      .mockImplementation((code?: string | number | null | undefined) => {
+        throw new Error(`exit:${code}`);
+      });
+
+  const runCli = async (argv: string[]) => {
+    const original = process.argv;
+    try {
+      Object.defineProperty(process, "argv", {
+        value: argv,
+        writable: true,
+        configurable: true,
+      });
+      vi.resetModules();
+      return await import("#script/codecov-bundle-upload.mjs");
+    } finally {
+      Object.defineProperty(process, "argv", {
+        value: original,
+        writable: true,
+        configurable: true,
+      });
+    }
+  };
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    if (originalToken === undefined) {
+      delete process.env.CODECOV_TOKEN;
+    } else {
+      process.env.CODECOV_TOKEN = originalToken;
+    }
+  });
+
+  it("--help prints the usage and exits 0", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const exit = trapExit();
+    await expect(main(["--help"])).rejects.toThrow("exit:0");
+    expect(exit).toHaveBeenCalledWith(0);
+    expect(log.mock.calls.join("\n")).toContain("Usage:");
+  });
+
+  it("prints the error and exits 1 on an unknown flag", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const exit = trapExit();
+    await expect(main(["--bogus"])).rejects.toThrow("exit:1");
+    expect(exit).toHaveBeenCalledWith(1);
+    expect(error.mock.calls.join("\n")).toContain("Unknown flag: --bogus");
+  });
+
+  it("writes --out and reports without touching the network", async () => {
+    tmp = mkdtempSync(join(tmpdir(), "foliplus-cb-cli-"));
+    writeMetafile(tmp);
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    await main([
+      `--root=${tmp}`,
+      "--metafile=bundle-metafile.json",
+      "--out=payload.json",
+    ]);
+    const out = log.mock.calls.join("\n");
+    expect(out).toContain("wrote");
+    expect(
+      JSON.parse(readFileSync(resolve(tmp, "payload.json"), "utf-8")).bundleName,
+    ).toBe("foliplus");
+  });
+
+  it("--dry-run prints the payload message", async () => {
+    tmp = mkdtempSync(join(tmpdir(), "foliplus-cb-cli-"));
+    writeMetafile(tmp);
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    await main([
+      `--root=${tmp}`,
+      "--metafile=bundle-metafile.json",
+      "--dry-run",
+    ]);
+    const out = log.mock.calls.join("\n");
+    expect(out).toContain('"bundleName":"foliplus"');
+  });
+
+  it("refuses to upload without CODECOV_TOKEN and exits 1", async () => {
+    tmp = mkdtempSync(join(tmpdir(), "foliplus-cb-cli-"));
+    writeMetafile(tmp);
+    delete process.env.CODECOV_TOKEN;
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const exit = trapExit();
+    await expect(
+      main([`--root=${tmp}`, "--metafile=bundle-metafile.json"]),
+    ).rejects.toThrow("exit:1");
+    expect(exit).toHaveBeenCalledWith(1);
+    expect(error.mock.calls.join("\n")).toContain("CODECOV_TOKEN");
+  });
+
+  it("prints the raw error and exits 1 on a non-token failure", async () => {
+    // A missing metafile makes runUpload throw before any token check; the
+    // catch's non-CODECOV_TOKEN branch prints the error object itself.
+    tmp = mkdtempSync(join(tmpdir(), "foliplus-cb-cli-"));
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const exit = trapExit();
+    await expect(
+      main([`--root=${tmp}`, "--metafile=absent.json"]),
+    ).rejects.toThrow("exit:1");
+    expect(exit).toHaveBeenCalledWith(1);
+    expect(error.mock.calls.join("\n")).toContain("ENOENT");
+  });
+
+  it("uploads and reports when a token is present", async () => {
+    tmp = mkdtempSync(join(tmpdir(), "foliplus-cb-cli-"));
+    writeMetafile(tmp);
+    process.env.CODECOV_TOKEN = "tok";
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(jsonRes(200, { url: "https://signed" }))
+      .mockResolvedValueOnce(jsonRes(200, {}));
+    vi.stubGlobal("fetch", fetchImpl);
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    await main([`--root=${tmp}`, "--metafile=bundle-metafile.json"]);
+    const out = log.mock.calls.join("\n");
+    expect(out).toContain("uploaded bundle");
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it("runs main() only when launched directly as a script", async () => {
+    const exit = trapExit();
+    await expect(runCli(["node", SCRIPT, "--help"])).rejects.toThrow("exit:0");
+    expect(exit).toHaveBeenCalledWith(0);
   });
 });

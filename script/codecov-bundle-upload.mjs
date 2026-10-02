@@ -252,19 +252,11 @@ const runUpload = async ({
   return { payload, message, uploaded: true, url };
 };
 
-export {
-  buildServiceParams,
-  encodeSlug,
-  getPreSignedUrl,
-  loadEvent,
-  preProcessBody,
-  runUpload,
-  uploadStats,
-};
-
-/* v8 ignore start -- CLI-only entry point, not exercised by unit tests */
-const main = async () => {
-  const args = parseArgs(process.argv.slice(2), SPEC);
+/** CLI entry: parse argv, run the upload, and exit. Exported so tests can
+ *  drive the exact CLI flow with an injected argv instead of spawning a
+ *  process. */
+const main = async (argv = process.argv.slice(2)) => {
+  const args = parseArgs(argv, SPEC);
   if (args.help) {
     console.log(help(SPEC));
     process.exit(0);
@@ -305,7 +297,19 @@ const main = async () => {
   }
 };
 
+export {
+  buildServiceParams,
+  encodeSlug,
+  getPreSignedUrl,
+  loadEvent,
+  main,
+  preProcessBody,
+  runUpload,
+  uploadStats,
+};
+
+// CLI entry point: `node script/codecov-bundle-upload.mjs [options]`.
+// Guarded so importing this module (e.g. for tests) has no side effects.
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
-  main();
+  await main();
 }
-/* v8 ignore stop */
