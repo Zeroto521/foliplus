@@ -237,11 +237,14 @@ class BaseControl(JSCSSMixin, MacroElement):
 
     #: Instance attributes re-exported as JS ``CONFIG`` keys (key name == attr name).
     #:
-    #: Subclasses declare their public configuration fields here. Each name is looked
-    #: up via ``getattr(self, name)`` during :meth:`_build_config`, so the attribute
-    #: must be set in ``__init__`` before the template is rendered. A name that does
-    #: not resolve raises ``ValueError`` from :meth:`_build_config` (fail-fast) rather
-    #: than failing later as a bare ``AttributeError``.
+    #: For controls with a schema entry in ``foliplus._config_schema.SCHEMAS``
+    #: this tuple is derived by :meth:`__init_subclass__` from the schema's
+    #: non-runtime-only keys — the schema is the single source of truth and the
+    #: tuple cannot drift from it. Each name is looked up via
+    #: ``getattr(self, name)`` during :meth:`_build_config`, so the attribute
+    #: must be set in ``__init__`` before the template is rendered. A name that
+    #: does not resolve raises ``ValueError`` from :meth:`_build_config`
+    #: (fail-fast) rather than failing later as a bare ``AttributeError``.
     _config_fields: tuple[str, ...] = ()
 
     #: CDN dependencies for the control, as ``[(name, url), ...]``.
@@ -253,36 +256,30 @@ class BaseControl(JSCSSMixin, MacroElement):
     default_js: list[tuple[str, str]] = []
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
-        """Verify ``_config_fields`` and derive ``default_js`` on definition.
+        """Derive ``_config_fields`` and ``default_js`` from the schema.
 
-        ``foliplus._config_schema.SCHEMAS`` is the single source of truth for the
-        CONFIG contract: a control that declares a schema entry must have its
-        ``_config_fields`` tuple match the schema's non-runtime-only keys. This
-        fires at import time (``cls`` is being defined), so a schema drift is a
-        hard error rather than a runtime surprise or a test-only failure.
+        For every subclass named in ``foliplus._config_schema.SCHEMAS`` —
+        which is every shipped control — two class attributes are derived
+        here at import time (``cls`` is being defined):
 
-        ``default_js`` is derived from the control's class name (via
-        :func:`foliplus._cdn_loader.load_cdn`) instead of being hand-written,
-        so renaming a class cannot silently sever its CDN wiring.
+        * ``cls._config_fields`` — the schema's non-runtime-only keys, in
+          declaration order. The schema is the single source of truth for
+          the CONFIG contract, so the tuple cannot drift from it.
+        * ``cls.default_js`` — the CDN dependency list for this control, keyed
+          by class name (:func:`foliplus._cdn_loader.load_cdn`), so renaming
+          a class cannot silently sever its CDN wiring.
 
-        Controls without a schema entry are skipped here — the test suite's
-        ``test_every_basecontrol_subclass_is_registered`` catches those at test
-        time. The two together mean: adding a new control requires both a schema
-        entry (import-time check) and it must match ``_config_fields`` exactly.
+        Subclasses *without* a schema entry (test doubles, third-party
+        controls) are left untouched: they keep their declared
+        ``_config_fields`` / ``default_js``, or the base-class defaults. The
+        test suite's ``test_every_basecontrol_subclass_is_registered``
+        catches a new shipped control without a schema entry at test time.
         """
         super().__init_subclass__(**kwargs)
         schema = SCHEMAS.get(cls.__name__)
         if schema is None:
             return
-        declared = tuple(cls._config_fields)
-        expected = config_fields(schema)
-        if declared != expected:
-            raise AssertionError(
-                f"{cls.__name__}._config_fields = {declared!r} but "
-                f"foliplus._config_schema.SCHEMAS declares {expected!r}. "
-                "Update either the schema (foliplus/_config_schema.py) or the "
-                "control's _config_fields — they must agree exactly."
-            )
+        cls._config_fields = config_fields(schema)
         cls.default_js = load_cdn(cls.__name__)
 
     @validate

@@ -114,23 +114,6 @@ class HeatmapControl(BaseControl):
     >>> HeatmapControl().add_to(m)
     """
 
-    _config_fields = (
-        "color_scheme",
-        "method",
-        "n_classes",
-        "agg",
-        "schemes",
-        "border_weight",
-        "border_color",
-        "fill_opacity",
-        "border_opacity",
-        "label_show",
-        "label_color",
-        "label_size",
-        "label_format",
-        "collapse_on_outside",
-    )
-
     @validate
     def __init__(
         self,

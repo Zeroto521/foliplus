@@ -114,15 +114,6 @@ class ExportControl(BaseControl):
     >>> ExportControl(scale=3.0, filename="print").add_to(m)
     """
 
-    _config_fields = (
-        "filename",
-        "format",
-        "quality",
-        "scale",
-        "max_pixels",
-        "timeout",
-    )
-
     @validate
     def __init__(
         self,

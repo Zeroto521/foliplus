@@ -143,16 +143,6 @@ class MeasureControl(BaseControl):
     >>> MeasureControl().add_to(m)
     """
 
-    _config_fields = (
-        "show_bearing",
-        "label_show",
-        "label_collide",
-        "show_live_coords",
-        "filename",
-        "export_format",
-        "collapse_on_outside",
-    )
-
     @validate
     def __init__(
         self,

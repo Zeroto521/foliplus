@@ -24,8 +24,6 @@ class ScaleControl(BaseControl):
     >>> ScaleControl().add_to(m)
     """
 
-    _config_fields = ("show_zoom",)
-
     def __init__(
         self,
         *,

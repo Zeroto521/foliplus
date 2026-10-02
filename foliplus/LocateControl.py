@@ -29,8 +29,6 @@ class LocateControl(BaseControl):
     >>> LocateControl().add_to(m)
     """
 
-    _config_fields = ("zoom",)
-
     @validate
     def __init__(
         self,

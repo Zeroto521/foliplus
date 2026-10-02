@@ -142,14 +142,6 @@ class SearchControl(BaseControl):
     ... ).add_to(m)
     """
 
-    _config_fields = (
-        "mode",
-        "zoom",
-        "provider",
-        "provider_config",
-        "collapse_on_outside",
-    )
-
     @validate
     def __init__(
         self,

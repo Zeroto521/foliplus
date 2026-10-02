@@ -87,8 +87,6 @@ class LayerControl(BaseControl):
     >>> LayerControl().add_to(m)
     """
 
-    _config_fields = ("label_collide", "collapse_on_outside")
-
     def __init__(
         self,
         *,
