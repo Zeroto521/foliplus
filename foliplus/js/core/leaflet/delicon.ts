@@ -1,20 +1,20 @@
-// Delete-icon marker utilities — shared by LocateControl, SearchControl and
-// MeasureControl. A floating "✕" marker that can be shown/hidden and clicked
+// Delete-icon marker utilities �?shared by LocateControl, SearchControl and
+// MeasureControl. A floating "�? marker that can be shown/hidden and clicked
 // to delete.
-import { stopEvent } from "./dom.js";
+import { stopEvent } from "#common/dom.js";
 
 /** Click target data-role for the delete icon span. */
 const DEL_ICON_ROLE = "del-icon";
 const DEL_ICON_CLASS = "foliplus-del-icon";
-/** The ✕ glyph rendered inside the delete icon span. */
+/** The �?glyph rendered inside the delete icon span. */
 const DEL_ICON_CHAR = "\u2715";
 /** CSS selector matching the delete icon span. */
 const DEL_ICON_SELECTOR = `[data-${DEL_ICON_ROLE}]`;
 /** Icon anchor for a location pin (MeasureControl marker / LocateControl pin):
- *  floats the ✕ at the pin's bottom tip. Line/area/circle nodes use the
+ *  floats the �?at the pin's bottom tip. Line/area/circle nodes use the
  *  default [0, 0] anchor (icon top-left at the anchor point). */
 const DEL_ICON_MARKER_ANCHOR: [number, number] = [0, 24];
-/** Z-index offset so the ✕ always renders above the marker it floats on. */
+/** Z-index offset so the �?always renders above the marker it floats on. */
 const DEL_ICON_Z_OFFSET = 11000; // above the pin (PIN.Z_OFFSET = 10000)
 
 /** Create a delete icon marker (X icon, common version). */
@@ -75,7 +75,7 @@ const hideDelIcons = () => {
 };
 
 /**
- * Bind the ✕ delete icon to a marker's popup lifecycle:
+ * Bind the �?delete icon to a marker's popup lifecycle:
  * show on popupopen, hide on popupclose. Used by LocateControl / SearchControl.
  */
 const bindDelIconToPopup = (marker: L.Marker | null, delIcon: L.Layer) => {
