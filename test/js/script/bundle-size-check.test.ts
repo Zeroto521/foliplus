@@ -1,8 +1,8 @@
 import { spawnSync } from "child_process";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
-import { join } from "path";
-import { afterEach, describe, expect, it } from "vitest";
+import { join, resolve } from "path";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { brotliCompressSync } from "zlib";
 import {
   EXIT_NO_BASELINE,
@@ -14,6 +14,7 @@ import {
   fmtDelta,
   fmtDeltaBytes,
   fmtPct,
+  main,
   parseArgs,
   rangeLine,
   rowCells,
@@ -985,6 +986,33 @@ describe("toolchain drift", () => {
     const out = runCheck(root, { files: { "a.min.js": size }, tools: {} });
     expect(out).not.toContain("Build tools differ");
   });
+
+  it("prints absent for a tool missing from the checkout", () => {
+    // The drift line names the tool's current version — or "absent" when the
+    // checkout no longer has it installed. toolVersion reads ROOT's
+    // node_modules, so the failure is injected through JSON.parse: an esbuild
+    // manifest that cannot be read resolves to null, which the drift line
+    // renders as "absent" instead of → a version. The baseline file does not
+    // carry the esbuild manifest marker, so it still parses normally.
+    const root = mkTmp();
+    const size = dist(root);
+    const parse = JSON.parse;
+    JSON.parse = ((text: string, ...rest: unknown[]) => {
+      if (typeof text === "string" && /"name"\s*:\s*"esbuild"/.test(text)) {
+        throw new Error("bad json");
+      }
+      return parse(text, ...rest);
+    }) as typeof JSON.parse;
+    try {
+      const out = runCheck(root, {
+        files: { "a.min.js": size },
+        tools: { esbuild: "0.0.0-absent" },
+      });
+      expect(out).toContain("esbuild 0.0.0-absent absent");
+    } finally {
+      JSON.parse = parse;
+    }
+  });
 });
 
 describe("failure listing", () => {
@@ -1316,6 +1344,37 @@ describe("cli entry point", () => {
   const run = (root: string, ...argv: string[]) =>
     runProcess(root, ...(argv.length ? argv : ["--baseline=absent.json"]));
 
+  const SCRIPT = resolve(process.cwd(), "script", "bundle-size-check.mjs");
+
+  const runCli = async (argv: string[]) => {
+    const original = process.argv;
+    try {
+      Object.defineProperty(process, "argv", {
+        value: argv,
+        writable: true,
+        configurable: true,
+      });
+      vi.resetModules();
+      return await import("#script/bundle-size-check.mjs");
+    } finally {
+      Object.defineProperty(process, "argv", {
+        value: original,
+        writable: true,
+        configurable: true,
+      });
+    }
+  };
+
+  it("runs main() when launched directly as a script", async () => {
+    const exit = vi
+      .spyOn(process, "exit")
+      .mockImplementation((code?: string | number | null | undefined) => {
+        throw new Error(`exit:${code}`);
+      });
+    await expect(runCli(["node", SCRIPT, "--help"])).rejects.toThrow("exit:0");
+    expect(exit).toHaveBeenCalledWith(0);
+  });
+
   it(
     "exits 0 and renders the sizes when no baseline exists",
     () => {
@@ -1421,5 +1480,77 @@ describe("cli entry point", () => {
     } finally {
       JSON.parse = parse;
     }
+  });
+
+  it("--help exits 0 via main() without spawning a process", () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const exit = vi
+      .spyOn(process, "exit")
+      .mockImplementation((code?: string | number | null | undefined) => {
+        throw new Error(`exit:${code}`);
+      });
+    expect(() => main(["--help"])).toThrow("exit:0");
+    expect(exit).toHaveBeenCalledWith(0);
+    expect(log.mock.calls.join("\n")).toContain("Usage:");
+  });
+
+  it("malformed flags exit 1 via main() before any comparison", () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const exit = vi
+      .spyOn(process, "exit")
+      .mockImplementation((code?: string | number | null | undefined) => {
+        throw new Error(`exit:${code}`);
+      });
+    const root = mkTmp();
+    mkDist(root, { "a.min.js": "const x = 1;" });
+    expect(() => main(["--root=" + root, "--threshold=abc"])).toThrow("exit:1");
+    expect(exit).toHaveBeenCalledWith(1);
+    expect(error.mock.calls.join("\n")).toContain("must be a number");
+  });
+
+  it("defaults --root to the checkout and lists sizes when nothing to diff", () => {
+    // `node script/bundle-size-check.mjs` without --root reads the checkout's
+    // own dist; without a --baseline that is a bare size listing, which exits
+    // 0 regardless of what the dist holds. Same shape as the Makefile target.
+    const exit = vi
+      .spyOn(process, "exit")
+      .mockImplementation((code?: string | number | null | undefined) => {
+        throw new Error(`exit:${code}`);
+      });
+    expect(() => main([])).toThrow("exit:0");
+    expect(exit).toHaveBeenCalledWith(0);
+  });
+
+  it("--emit captures sizes to the target file via main()", () => {
+    const root = mkTmp();
+    mkDist(root, { "a.min.js": "const x = 1;" });
+    const out = join(root, "base.json");
+    const exit = vi
+      .spyOn(process, "exit")
+      .mockImplementation((code?: string | number | null | undefined) => {
+        throw new Error(`exit:${code}`);
+      });
+    expect(() =>
+      main([`--root=${root}`, `--emit=${out}`]),
+    ).toThrow("exit:0");
+    expect(exit).toHaveBeenCalledWith(0);
+    expect(existsSync(out)).toBe(true);
+  });
+
+  it("a threshold breach exits 2 via main() under --enforce", () => {
+    const root = mkTmp();
+    mkDist(root, { "a.min.js": BODY });
+    const baseline = writeBaseline(root, {
+      files: { "a.min.js": Math.round(brotli(BODY) * 0.8) },
+    });
+    const exit = vi
+      .spyOn(process, "exit")
+      .mockImplementation((code?: string | number | null | undefined) => {
+        throw new Error(`exit:${code}`);
+      });
+    expect(() =>
+      main([`--root=${root}`, `--baseline=${baseline}`, "--enforce"]),
+    ).toThrow("exit:2");
+    expect(exit).toHaveBeenCalledWith(2);
   });
 });

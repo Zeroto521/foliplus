@@ -186,10 +186,10 @@ const fmtPct = (curr, prev) => {
  *  but under `MIN_GROWTH_BYTES`, so it can neither gate the build nor draw the
  *  low-margin warning. A shrink is never `trivial` — a decrease is news at any
  *  size, and it cannot gate regardless. It also needs a computable percentage,
- *  so a growth off a zero-size baseline falls through to `up`; that case is
- *  unreachable here, since a zero-size brotli output is not a bundle. The
- *  `delta < 0` guard is its unreachable mirror: with `pct == null` the baseline
- *  is zero, so the delta is the current size itself, which is positive. */
+ *  so a growth off a zero-size baseline falls through to `up`. With `pct ==
+ *  null` the baseline is zero, so the delta is the current size minus zero —
+ *  never negative, so a shrink cannot reach this branch and `same` is the
+ *  flat-delta verdict. */
 const statusOf = (over, low, material, pct, delta) => {
   if (over) return "over";
   if (low) return "low";
@@ -201,8 +201,6 @@ const statusOf = (over, low, material, pct, delta) => {
     return "same";
   }
   if (delta > 0) return "up";
-  /* v8 ignore next -- unreachable with pct == null, see above */
-  if (delta < 0) return "down";
   return "same";
 };
 
@@ -523,6 +521,7 @@ export {
   fmtDelta,
   fmtDeltaBytes,
   fmtPct,
+  main,
   parseArgs,
   rangeLine,
   rowCells,
@@ -532,11 +531,11 @@ export {
   toolVersion,
 };
 
-// CLI entry point: `node script/bundle-size-check.mjs [--emit=<path>] [--baseline=<path>]`.
-// Guarded so importing this module (for tests) has no side effects.
-/* v8 ignore start -- CLI-only entry point, not exercised by unit tests */
-if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
-  const args = parseArgs(process.argv.slice(2));
+/** CLI entry: parse argv, run emit or check, and exit with its verdict.
+ *  Exported so tests can drive the exact CLI flow with an injected argv
+ *  instead of spawning a process. */
+const main = (argv = process.argv.slice(2)) => {
+  const args = parseArgs(argv);
   if (args.help) {
     console.log(help(SPEC));
     process.exit(EXIT_OK);
@@ -551,6 +550,11 @@ if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) 
   }
   const root = args.root ? resolve(args.root) : ROOT;
   const code = args.emit ? emit(args, root) : check(args, root);
-  process.exit(code ?? 0);
+  process.exit(code);
+};
+
+// CLI entry point: `node script/bundle-size-check.mjs [--emit=<path>] [--baseline=<path>]`.
+// Guarded so importing this module (for tests) has no side effects.
+if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
+  main();
 }
-/* v8 ignore stop */
