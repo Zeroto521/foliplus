@@ -56,16 +56,6 @@ const stripJsonComments = (text: string): string =>
     })
     .join("\n");
 
-// The Python interpreter this project runs on: `sys.executable` from `python`,
-// so the parity check reads the project venv rather than whatever interpreter a
-// CI runner happens to resolve first.
-const whichPy = (): string => {
-  const out = spawnSync("python", ["-c", "import sys; print(sys.executable)"], {
-    encoding: "utf-8",
-  });
-  return (out.stdout ?? "").trim() || "python";
-};
-
 const BANNED: Array<{ name: string; re: RegExp }> = [
   { name: "`as any`", re: /\bas\s+any\b/g },
   { name: "`@ts-ignore`", re: /@ts-ignore/g },
@@ -118,78 +108,10 @@ describe("production type-system bypasses", () => {
     expect(problems).toEqual([]);
   });
 
-  // ── CONFIG field parity ─────────────────────────────────────────
-  //
-  // `ComponentConfig` ends in `[key: string]: unknown`, so a field Python
-  // stops exporting still typechecks — JS just reads `undefined`. This is the
-  // blind spot that hides the whole Python↔JS contract, and it is not covered
-  // anywhere else: the Python tests only assert that `_config_fields` resolves
-  // at build time, never that every field JS reads was exported.
-  //
-  // The reverse half (Python exports something JS never reads) is not checked
-  // here — that is Python's business to keep tidy, and the JS side is the one
-  // that silently misbehaves.
-  const JS_FIELD_RE = /(?<![_A-Za-z0-9])CONFIG\.([A-Za-z_][A-Za-z0-9_]*)/g;
-  // Set on `BaseControl` for every control, not declared in a subclass.
-  const CONF_COMMON = new Set(["name", "position", "locale_code", "locale_tables"]);
-
-  const jsConfFields = (): Set<string> => {
-    const found = new Set<string>();
-    for (const f of files) {
-      for (const m of read(f).matchAll(JS_FIELD_RE)) found.add(m[1] as string);
-    }
-    return found;
-  };
-
-  // The Python half reads the schema dump — the same `schema_to_json()` the JS
-  // build consumes — instead of AST-scanning `*Control.py`. The dump is the
-  // contract: `_config_fields` is derived from it at class-creation time, so a
-  // scan of the old `SCHEMAS` table and per-control `_config_fields` tuples
-  // would describe source that no longer exists. Its `controls` entries carry
-  // exactly what Python emits — signature fields plus the dynamic ones
-  // (LayerControl's `data`), with the runtime-only fields held in their own
-  // dump section and therefore excluded here.
-  const PY_DUMP = `import json
-from foliplus._config_schema import schema_to_json
-for control, fields in json.loads(schema_to_json())["controls"].items():
-    for name in fields:
-        print(f"{control}\t{name}")
-`;
-
-  // One subprocess, one process launch — interpreter startup dominates, and the
-  // import churn of a full suite run would push a per-control spawn past the
-  // default 5s timeout. Lazily cached so the cost is paid once per run even if a
-  // second test reads it.
-  let pyCache: Set<string> | undefined;
-  const pyExportedFields = (): Set<string> => {
-    if (pyCache) return pyCache;
-    const out = spawnSync(whichPy(), ["-W", "ignore", "-c", PY_DUMP], {
-      cwd: REPO_ROOT,
-      encoding: "utf-8",
-    });
-    expect(out.status, `schema dump failed: ${out.stderr}`).toBe(0);
-    // Python inherits \r\n on Windows, so split both — a trailing \r would store
-    // every field as "mode\r" and match nothing on the JS side.
-    const found = new Set<string>();
-    for (const line of (out.stdout ?? "").split(/[\r\n]+/)) {
-      const i = line.lastIndexOf("\t");
-      if (i > 0) found.add(line.slice(i + 1));
-    }
-    pyCache = found;
-    return found;
-  };
-
-  it("every CONFIG field JS reads is exported by Python", () => {
-    const js = jsConfFields();
-    const py = pyExportedFields();
-    const missing = [...js].filter(f => !CONF_COMMON.has(f) && !py.has(f)).sort();
-    // Field was read on the JS side but no Python control declares it — JS
-    // receives `undefined` and nothing typechecks it.
-    expect(
-      missing,
-      `read by JS, exported by no control: ${missing.join(", ")}`,
-    ).toEqual([]);
-  });
+  // CONFIG↔Python parity moved to test/python/test_config_schema.py — the
+  // JS side of that check was driving a Python subprocess per CI run, which
+  // is what the build itself was pulling Python in for. Same assertions,
+  // now in pytest where foliplus is already importable.
 
   it("test/js/tsconfig.json extends the production program", () => {
     const cfg = JSON.parse(stripJsonComments(testTsconfig));

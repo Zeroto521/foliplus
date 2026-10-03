@@ -22,6 +22,7 @@ class-definition time.
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -487,6 +488,146 @@ class TestRuntimeZeroChange:
         )
         assert result.returncode == 0, result.stderr
         assert "stripped: True" in result.stdout
+
+
+# ── JS↔Python contract: field-set parity, not byte parity ────────────────
+#
+# The JS build no longer verifies ``foliplus/js/config-schema.ts`` against the
+# Python schema (that moved here). What the committed TS file promises is that
+# every control's field set matches what Python emits; the exact formatting is
+# the emitter's business, not the contract. Two checks below hold that promise
+# and catch the one silent failure mode: a Python field added or renamed, the
+# TS file stale.
+
+_JS_CONFIG_SCHEMA = Path(__file__).resolve().parents[2] / "foliplus/js/config-schema.ts"
+_JS_TS_ROOT = Path(__file__).resolve().parents[2] / "foliplus/js"
+# Fields set on every control by BaseControl, not declared in a subclass —
+# JS reads them, Python exports them, neither side needs to enumerate them.
+CONF_COMMON = frozenset({"name", "position", "locale_code", "locale_tables"})
+_JS_INTERFACE_NAME_RE = re.compile(r"interface\s+Config(\w+)(?:\s+extends\s+\w+)?\s*\{")
+_JS_FIELD_RE = re.compile(r"(?m)^\s*([a-z][A-Za-z0-9_]*)\??\s*:")
+
+
+def _ts_short_to_control(short: str) -> str | None:
+    """``Layer`` -> ``LayerControl``; ``Common``/``RuntimeOnly`` -> ``None``.
+
+    The emitter names TS interfaces as ``Config<ShortName>`` where the short
+    name is the Python control class with its ``Control`` suffix dropped.
+    ``ConfigCommon`` and ``ConfigRuntimeOnly`` are the shared and runtime-only
+    blocks, not per-control interfaces, so they map to no control.
+    """
+    if short in ("Common", "RuntimeOnly"):
+        return None
+    return f"{short}Control"
+
+
+_JS_CONFIG_READ_RE = re.compile(r"(?<![_A-Za-z0-9])CONFIG\.([A-Za-z_][A-Za-z0-9_]*)")
+
+
+def _ts_interface_fields() -> dict[str, set[str]]:
+    """Field set per ``ConfigX`` interface in the committed TS schema.
+
+    Bodies are cut by brace-depth counting, not regex: the interfaces contain
+    one nested ``{}`` each (the Layer data shape), so a ``[^}]*`` match stops
+    early and misses the tail.
+    """
+    text = _JS_CONFIG_SCHEMA.read_text(encoding="utf-8")
+    out: dict[str, set[str]] = {}
+    for m in _JS_INTERFACE_NAME_RE.finditer(text):
+        name = f"Config{m.group(1)}"
+        depth = 1
+        i = m.end()
+        while i < len(text) and depth > 0:
+            c = text[i]
+            if c == "{":
+                depth += 1
+            elif c == "}":
+                depth -= 1
+            i += 1
+        body = text[m.end() : i - 1]
+        out[name] = set(_JS_FIELD_RE.findall(body))
+    return out
+
+
+def _py_control_field_sets() -> dict[str, set[str]]:
+    """Python-emitted field set per control, from the same schema the JS side mirrors."""
+    data = json.loads(schema_to_json())
+    return {name: set(fields) for name, fields in data["controls"].items()}
+
+
+def _js_files() -> list[Path]:
+    return [p for p in _JS_TS_ROOT.rglob("*.ts") if not p.name.endswith(".d.ts")]
+
+
+class TestJSSchemaParity:
+    """The committed ``config-schema.ts`` must agree with the Python schema."""
+
+    def test_every_python_control_has_a_matching_ts_interface(self) -> None:
+        py = _py_control_field_sets()
+        ts = _ts_interface_fields()
+        ts_by_control = {
+            c: name
+            for name in ts
+            if (c := _ts_short_to_control(name.removeprefix("Config")))
+        }
+        missing = sorted(set(py) - set(ts_by_control))
+        assert not missing, (
+            "controls in Python schema but no matching "
+            f"`Config<Name>` interface in foliplus/js/config-schema.ts: {missing}. "
+            "Regenerate the TS file (see its header comment)."
+        )
+
+    def test_ts_interface_field_sets_match_python_schema(self) -> None:
+        py = _py_control_field_sets()
+        ts = _ts_interface_fields()
+        ts_by_control = {
+            c: name
+            for name in ts
+            if (c := _ts_short_to_control(name.removeprefix("Config")))
+        }
+        problems: list[str] = []
+        for control, py_fields in py.items():
+            ts_iface = ts_by_control.get(control)
+            if ts_iface is None:
+                continue
+            ts_fields = ts[ts_iface]
+            only_py = py_fields - ts_fields
+            only_ts = ts_fields - py_fields
+            if only_py:
+                problems.append(
+                    f"{control}: in Python not in TS — {sorted(only_py)} (TS is stale)"
+                )
+            if only_ts:
+                problems.append(
+                    f"{control}: in TS not in Python — {sorted(only_ts)} "
+                    "(TS declares a field Python does not emit)"
+                )
+        assert not problems, "\n".join(problems)
+
+
+class TestJSReadsPythonExports:
+    """Every ``CONFIG.field`` JS reads must be exported by some Python control.
+
+    The other half of the parity story: ``ComponentConfig`` ends in
+    ``[key: string]: unknown``, so a field Python stops exporting still
+    typechecks — JS just reads ``undefined`` and no checker complains. This
+    scan catches that.
+    """
+
+    def test_every_config_field_read_by_js_is_exported_by_python(self) -> None:
+        py_all: set[str] = set()
+        for fields in _py_control_field_sets().values():
+            py_all |= fields
+        js_read: set[str] = set()
+        for f in _js_files():
+            text = f.read_text(encoding="utf-8")
+            js_read |= set(_JS_CONFIG_READ_RE.findall(text))
+        missing = sorted(f for f in js_read if f not in CONF_COMMON and f not in py_all)
+        assert not missing, (
+            f"read by JS but no control exports them: {missing}. Either a "
+            "control dropped the field (add it back) or JS is reading a "
+            "stale name."
+        )
 
 
 def _walk_specs() -> list[tuple[str, FieldSpec]]:
