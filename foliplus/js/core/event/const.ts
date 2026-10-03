@@ -77,10 +77,10 @@ const EVENTS = {
    *  style, rename, focus, and Leaflet's popups) tears itself down. Each
    *  peer subscribes to this and decides for itself whether to close and
    *  how: the menu returns focus to its row, the panels don't, rename
-   *  commits rather than cancels. The `reason` field is a hint for
-   *  subsystems that care about *why* (today only "open" is emitted; the
-   *  "destroy" arm is reserved for map teardown to distinguish a user-
-   *  driven dismiss from a container being removed). */
+   *  commits rather than cancels. Payload-less signal — subscribers decide
+   *  their own teardown shape; map teardown does not route through this
+   *  channel (unbindEvents calls the close functions directly so a
+   *  third-party `off` cannot leave a panel open). */
   OVERLAY_CLEAR: "foliplus:layer:overlay-clear",
 } as const;
 

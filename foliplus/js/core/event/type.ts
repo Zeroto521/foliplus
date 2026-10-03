@@ -31,7 +31,7 @@ interface EventPayloadMap {
   [EVENTS.LAYER_GROUP_COUNT_CHANGED]: { group: string };
   [EVENTS.LAYER_LIST_REBUILD]: void;
   [EVENTS.LAYER_NO_BASEMAP_CHANGED]: void;
-  [EVENTS.OVERLAY_CLEAR]: { reason: "open" | "destroy" };
+  [EVENTS.OVERLAY_CLEAR]: void;
 }
 
 export type { EventPayloadMap, LayerChangePayload };

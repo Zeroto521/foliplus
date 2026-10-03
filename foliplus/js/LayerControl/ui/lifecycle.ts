@@ -383,6 +383,11 @@ const refreshAllCounts = (ui: LayerUI): void => {
 const unbindEvents = (ui: LayerUI): void => {
   const container = ui.uiContainer;
   if (!container) return;
+  // Unmount must clean up unconditionally — a subscription may already have
+  // been `off`'d by a third party, or is about to be. Emitting OVERLAY_CLEAR
+  // here would only reach whatever subscribers are still listening, so call
+  // the close functions directly. OVERLAY_CLEAR is reserved for the
+  // "open A, close B" user-driven mutual exclusion.
   closeMoreMenu(ui, false);
   closeStylePanel(ui, false);
   finishRename(ui, true);
