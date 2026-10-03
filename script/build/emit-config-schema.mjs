@@ -28,12 +28,11 @@
  * local iteration.
  */
 import { readFileSync, writeFileSync } from "fs";
-import { dirname, resolve } from "path";
+import { resolve } from "path";
 import { format, resolveConfig } from "prettier";
-import { fileURLToPath, pathToFileURL } from "url";
+import { pathToFileURL } from "url";
 import { help, parseArgs } from "../args.mjs";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
+import { repoRoot } from "../build-path.mjs";
 
 // `format()` does not load the repo config on its own, so bare defaults would
 // produce a file that `format:check` (printWidth 88 + the import-sort plugin)
@@ -50,7 +49,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 // root, next to .prettierrc.cjs, so discovery reaches the config format:check
 // uses.
 const PrettierOptions =
-  (await resolveConfig(resolve(__dirname, "..", "..", "package.json"), {
+  (await resolveConfig(resolve(repoRoot(import.meta.url), "package.json"), {
     editorconfig: false,
   })) ?? {};
 
@@ -61,7 +60,7 @@ const SPEC = {
   },
   out: {
     type: "string",
-    default: resolve(__dirname, "..", "..", "foliplus/js/config-schema.ts"),
+    default: resolve(repoRoot(import.meta.url), "foliplus/js/config-schema.ts"),
     desc: "Output path for the generated TS file",
   },
   verify: {

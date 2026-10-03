@@ -19,7 +19,9 @@
  * introduce one here — a target bump would change emitted JS, and the product
  * contract for this single-source work is a zero-byte diff on JS artifacts.
  */
-import { resolve } from "path";
+import { existsSync } from "fs";
+import { dirname, resolve } from "path";
+import { fileURLToPath } from "url";
 
 /** Import specifier → repo-relative directory. One spelling for every table. */
 const ALIAS_TO_REL = {
@@ -34,6 +36,25 @@ const SHARED_ALIASES = ["#common", "#core", "#foliplus"];
 
 /** Resolve `foliplus/js` under a project `root`. */
 const resolveJsRoot = root => resolve(root, ALIAS_TO_REL["#foliplus"]);
+
+/**
+ * Locate the repo root from any script under it by walking up for the nearest
+ * `package.json`. Anchored — immune to the script's own depth (#593 moved
+ * `script/` into subdirs and every fixed `..` chain had to change).
+ * Throws when no `package.json` is found above the caller.
+ * Startup-time fs probe: tests that `vi.mock("fs")` must pass the real
+ * `existsSync` through, or the walk yields nothing.
+ */
+const repoRoot = importMetaUrl => {
+  for (let dir = dirname(fileURLToPath(importMetaUrl)); ;) {
+    if (existsSync(resolve(dir, "package.json"))) return dir;
+    const parent = dirname(dir);
+    if (parent === dir) {
+      throw new Error(`repoRoot: no package.json found above ${importMetaUrl}`);
+    }
+    dir = parent;
+  }
+};
 
 /**
  * Path aliases shared by esbuild (artifact builds) and vitest (tests).
@@ -74,6 +95,7 @@ export {
   PACKAGE_IMPORTS,
   SHARED_SPEC_PREFIXES,
   pathAliases,
+  repoRoot,
   resolveJsRoot,
   testPathAliases,
 };

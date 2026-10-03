@@ -23,18 +23,16 @@
  * Reads <root>/foliplus/js/ (source), writes <root>/foliplus/.build/js/.
  */
 import { mkdirSync, readdirSync, writeFileSync } from "fs";
-import { dirname, resolve } from "path";
-import { fileURLToPath, pathToFileURL } from "url";
+import { resolve } from "path";
+import { pathToFileURL } from "url";
 import { help, parseArgs } from "../args.mjs";
-import { resolveJsRoot } from "../build-path.mjs";
+import { repoRoot, resolveJsRoot } from "../build-path.mjs";
 import { canonicalSpec, scanSharedImports } from "./import-scan.mjs";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const SCAN_SPEC = {
   root: {
     type: "string",
-    default: resolve(__dirname, "..", ".."),
+    default: repoRoot(import.meta.url),
     desc: "Project root directory",
   },
   silent: { type: "bool", desc: "Suppress output messages" },
