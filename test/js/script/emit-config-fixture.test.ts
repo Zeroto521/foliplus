@@ -247,8 +247,8 @@ describe("resolveSchemaJson", () => {
   });
 
   it("falls back to the build's scratch copy when --json is omitted", () => {
-    // The globalSetup's generator run creates this file, so it exists by the
-    // time tests execute; this pins the contract on its path.
+    // The generator writes this scratch file when running with `--out`; this
+    // test pins the resolver's default path to it.
     expect(resolveSchemaJson({})).toBe(
       resolve(process.cwd(), "foliplus", ".build", "js", "config-schema.json"),
     );
