@@ -10,7 +10,7 @@ except ImportError:
     except PackageNotFoundError:
         __version__ = "unknown"
 
-from ._typing import Fraction, Position, PositiveInt, Zoom
+from ._typing import ControlPosition, Fraction, PositiveInt, Zoom
 from .BaseControl import BaseControl
 from .ExportControl import ExportControl
 from .FullscreenControl import FullscreenControl
@@ -24,6 +24,7 @@ from .SearchControl import SearchControl
 
 __all__ = [
     "BaseControl",
+    "ControlPosition",
     "ExportControl",
     "Fraction",
     "FullscreenControl",
@@ -32,7 +33,6 @@ __all__ = [
     "LocaleConfig",
     "LocateControl",
     "MeasureControl",
-    "Position",
     "PositiveInt",
     "ScaleControl",
     "SearchControl",

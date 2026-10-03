@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Annotated, Literal
 
 from ._config_schema import FieldSpec
-from ._typing import Fraction, Position, PositiveInt
+from ._typing import ControlPosition, Fraction, PositiveInt
 from ._validate import Bound, validate
 from .BaseControl import BaseControl
 from .locale import LocaleConfig
@@ -119,7 +119,7 @@ class ExportControl(BaseControl):
     def __init__(
         self,
         *,
-        position: Position = "bottomright",
+        position: ControlPosition = "bottomright",
         filename: str = "map",
         format: FORMAT = "png",
         quality: Fraction = 0.92,

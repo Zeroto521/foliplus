@@ -31,7 +31,7 @@ from jinja2.utils import htmlsafe_json_dumps
 
 from ._cdn_loader import load_cdn
 from ._config_schema import config_fields, derive_schema
-from ._typing import Position
+from ._typing import ControlPosition
 from ._validate import validate
 from .locale import LocaleConfig, _load_tables, resolve_locale
 
@@ -291,7 +291,7 @@ class BaseControl(JSCSSMixin, MacroElement):
     def __init__(
         self,
         *,
-        position: Position = "topleft",
+        position: ControlPosition = "topleft",
         locale: str | LocaleConfig | None = None,
     ):
         super().__init__()

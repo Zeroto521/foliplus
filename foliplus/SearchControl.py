@@ -4,7 +4,7 @@ from collections.abc import Mapping
 from typing import Annotated, Literal, TypedDict, get_args
 
 from ._config_schema import FieldSpec
-from ._typing import Position, Zoom
+from ._typing import ControlPosition, Zoom
 from ._validate import validate
 from .BaseControl import BaseControl
 from .locale import LocaleConfig
@@ -147,7 +147,7 @@ class SearchControl(BaseControl):
     def __init__(
         self,
         *,
-        position: Position = "topleft",
+        position: ControlPosition = "topleft",
         mode: MODE = "coord",
         zoom: Zoom = 15,
         provider: Annotated[

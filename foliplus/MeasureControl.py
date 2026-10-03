@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from ._typing import Position
+from ._typing import ControlPosition
 from ._validate import validate
 from .BaseControl import BaseControl
 from .locale import LocaleConfig
@@ -147,7 +147,7 @@ class MeasureControl(BaseControl):
     def __init__(
         self,
         *,
-        position: Position = "bottomright",
+        position: ControlPosition = "bottomright",
         show_bearing: bool = True,
         label_show: bool = True,
         label_collide: bool = True,
