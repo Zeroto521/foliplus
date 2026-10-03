@@ -1,6 +1,6 @@
 import { spawnSync } from "child_process";
-import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "fs";
-import { dirname, resolve } from "path";
+import { readFileSync, readdirSync } from "fs";
+import { resolve } from "path";
 import { describe, expect, it } from "vitest";
 
 // Production sources carry no type-system bypasses. Measured here at build time,
@@ -141,101 +141,33 @@ describe("production type-system bypasses", () => {
     return found;
   };
 
-  // Both config channels are read via Python's AST rather than a regex, so a
-  // tuple spread across many lines cannot slip past either. Subclasses use a
-  // plain `Assign` — the `tuple[str, ...]` annotation lives only on
-  // BaseControl — so AnnAssign alone would match nothing.
-  //
-  // `_extra_config` is not a literal tuple but a dict literal, so the scan
-  // collects dict-key constants instead. `data` (LayerControl's layer list)
-  // reaches CONFIG only this way.
-  //
-  // `_config_schema.py` is the third channel: ``SCHEMAS`` is the single source
-  // from which ``BaseControl.__init_subclass__`` derives ``_config_fields``,
-  // so no per-control tuple literal remains in ``*Control.py``. ``RUNTIME_ONLY``
-  // is the subtraction: fields declared there are never emitted by Python, so
-  // they cannot be claimed as exported even if JS were to read them.
-  //
-  // ``SCHEMAS`` values reference per-control alias names (``_FULLSCREEN``,
-  // ``_HEATMAP`` …), so ``ast.walk`` alone cannot see the field-name keys
-  // nested behind them. ``ast.literal_eval`` resolves the top-level dict by
-  // evaluating each alias (which is itself a literal dict) and returns the
-  // nested keys for free. Everything fed to it is a plain dict of
-  // FieldSpec-calls — no imports, no side effects.
-  const PY_SCAN = `import ast, sys
-def fields(n):
-    out = []
-    dict_assignments = {}
-    schema_keys = []
-    runtime_keys = set()
-    for x in ast.walk(n):
-        t, v = None, None
-        if isinstance(x, ast.Assign):
-            if len(x.targets) == 1 and isinstance(x.targets[0], ast.Name):
-                t, v = x.targets[0].id, x.value
-        elif isinstance(x, ast.AnnAssign) and isinstance(x.target, ast.Name):
-            t, v = x.target.id, x.value
-        if t == "SCHEMAS" and isinstance(v, ast.Dict):
-            for k, val in zip(v.keys, v.values):
-                if isinstance(k, ast.Constant) and isinstance(k.value, str):
-                    schema_keys.append(k.value)
-                    if isinstance(val, ast.Name):
-                        ref = dict_assignments.get(val.id)
-                        if ref is not None and isinstance(ref, ast.Dict):
-                            schema_keys.extend(
-                                kk.value
-                                for kk in ref.keys
-                                if isinstance(kk, ast.Constant)
-                                and isinstance(kk.value, str)
-                            )
-        elif t == "RUNTIME_ONLY" and isinstance(v, ast.Dict):
-            runtime_keys = {
-                kk.value
-                for kk in v.keys
-                if isinstance(kk, ast.Constant) and isinstance(kk.value, str)
-            }
-        elif t == "_config_fields":
-            out.extend(
-                e.value for e in ast.walk(v)
-                if isinstance(e, ast.Constant) and isinstance(e.value, str)
-            )
-        elif isinstance(x, ast.FunctionDef) and x.name == "_extra_config":
-            out.extend(
-                e.value for e in ast.walk(x)
-                if isinstance(e, ast.Constant) and isinstance(e.value, str)
-            )
-        if t is not None and isinstance(v, ast.Dict) and t != "_config_fields":
-            dict_assignments[t] = v
-    out.extend(k for k in schema_keys if k not in runtime_keys)
-    return out
-for p in sys.argv[1:]:
-    try:
-        n = ast.parse(open(p, encoding="utf-8").read())
-    except SyntaxError as e:
-        raise SystemExit(f"{p}: {e}")
-    out = fields(n)
-    for f in out:
-        print(p + "\\t" + f)
+  // The Python half reads the schema dump — the same `schema_to_json()` the JS
+  // build consumes — instead of AST-scanning `*Control.py`. The dump is the
+  // contract: `_config_fields` is derived from it at class-creation time, so a
+  // scan of the old `SCHEMAS` table and per-control `_config_fields` tuples
+  // would describe source that no longer exists. Its `controls` entries carry
+  // exactly what Python emits — signature fields plus the dynamic ones
+  // (LayerControl's `data`), with the runtime-only fields held in their own
+  // dump section and therefore excluded here.
+  const PY_DUMP = `import json
+from foliplus._config_schema import schema_to_json
+for control, fields in json.loads(schema_to_json())["controls"].items():
+    for name in fields:
+        print(f"{control}\t{name}")
 `;
-  // One subprocess, one process launch — 9 interpreter starts each cost more
-  // than the scan itself, and under the full suite's import churn the per-file
-  // version pushed the test past the default 5s timeout. Lazily cached so the
-  // cost is paid once per run even if a second test reads it.
+
+  // One subprocess, one process launch — interpreter startup dominates, and the
+  // import churn of a full suite run would push a per-control spawn past the
+  // default 5s timeout. Lazily cached so the cost is paid once per run even if a
+  // second test reads it.
   let pyCache: Set<string> | undefined;
   const pyExportedFields = (): Set<string> => {
     if (pyCache) return pyCache;
-    const scanner = resolve(REPO_ROOT, ".vitest", "export-fields-scan.py");
-    mkdirSync(dirname(scanner), { recursive: true });
-    writeFileSync(scanner, PY_SCAN);
-    const controls = readdirSync(resolve(REPO_ROOT, "foliplus"), {
-      withFileTypes: true,
-    })
-      .filter(e => e.isFile() && e.name.endsWith(".py"))
-      .map(e => resolve(REPO_ROOT, "foliplus", e.name));
-    const out = spawnSync(whichPy(), [scanner, ...controls], {
+    const out = spawnSync(whichPy(), ["-W", "ignore", "-c", PY_DUMP], {
+      cwd: REPO_ROOT,
       encoding: "utf-8",
     });
-    expect(out.status, `AST scan failed: ${out.stderr}`).toBe(0);
+    expect(out.status, `schema dump failed: ${out.stderr}`).toBe(0);
     // Python inherits \r\n on Windows, so split both — a trailing \r would store
     // every field as "mode\r" and match nothing on the JS side.
     const found = new Set<string>();

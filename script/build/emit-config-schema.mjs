@@ -85,6 +85,11 @@ const opts = _raw;
 // Kept in sync with foliplus/_config_schema.py's _TS_PRIMITIVES and _TS_OBJECTS.
 // Adding a new tag there without adding it here is caught by the
 // `unknown_tag` error below, which fails the build loudly.
+//
+// Tags are TS type names: a tag that is a name renders as that name, so
+// `NumberStyle` → `NumberStyle` rather than `number_style` → `NumberStyle`.
+// The three primitives that are not names (`bool` → `boolean`, `any` →
+// `unknown`, `null` → `null`) stay spelled as their Python-side form.
 
 const PRIMITIVES = new Set(["bool", "number", "string", "null", "any"]);
 const OBJECTS = new Set([
@@ -93,11 +98,13 @@ const OBJECTS = new Set([
   "object_nested",
   "array_string",
   "array_unknown",
-  "provider",
-  "locale_tables",
-  "number_style",
-  "layer_data",
-  "control_position",
+  "LocaleTables",
+  "NumberStyle",
+  "LayerData",
+  "ControlPosition",
+  // Inline union, not a name — mirrors _TS_OBJECTS on the Python side, and is
+  // deliberately absent from IMPORTS (there is nothing to import for it).
+  "string | ProviderConfig",
 ]);
 
 const RENDER = {
@@ -111,14 +118,21 @@ const RENDER = {
   object_nested: "Record<string, Record<string, string>>",
   array_string: "string[]",
   array_unknown: "unknown[]",
-  provider: "string | ProviderConfig",
-  locale_tables: "LocaleTables",
-  number_style: "NumberStyle",
-  layer_data: 'Array<{ name: string; id: string; group: "base" | "overlay" }>',
-  control_position: "ControlPosition",
+  LocaleTables: "LocaleTables",
+  NumberStyle: "NumberStyle",
+  LayerData: 'Array<{ name: string; id: string; group: "base" | "overlay" }>',
+  ControlPosition: "ControlPosition",
+  // Not a name: the SearchControl `provider` field is a union of a built-in
+  // provider id and a custom ProviderConfig dict. Python has no alias to
+  // name that union, so the tag renders it inline. Kept out of IMPORTS and
+  // of the Python↔TS name check for exactly this reason.
+  "string | ProviderConfig": "string | ProviderConfig",
 };
 
-/** Names imported from other modules in the generated file. */
+/** Names imported from other modules in the generated file. Mirrored by
+ *  foliplus/_config_schema.py's IMPORTS; the Python side checks that every
+ *  tag which renders as a name appears here, so a rename on one side fails
+ *  the dump instead of emitting an unimported type. */
 const IMPORTS = [
   { name: "ControlPosition", from: "leaflet" },
   { name: "LocaleTables", from: "#common/locale.js" },
@@ -326,7 +340,15 @@ const main = async (o = opts) => {
   }
 };
 
-export { PrettierOptions, buildConfigSchema, main };
+export {
+  PrettierOptions,
+  buildConfigSchema,
+  main,
+  RENDER,
+  IMPORTS,
+  PRIMITIVES,
+  OBJECTS,
+};
 
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
   await main();

@@ -37,7 +37,7 @@ interface ConfigHeatmap extends ConfigCommon {
   method: "jenks" | "quantile" | "equal" | "heads";
   n_classes: number;
   agg: "count" | "sum" | "avg" | "min" | "max";
-  schemes?: string[]; // Available color scheme names.
+  schemes: string[]; // Available color scheme names.
   border_weight: number;
   border_color: string;
   fill_opacity: number;
@@ -66,7 +66,7 @@ interface ConfigMeasure extends ConfigCommon {
   label_collide: boolean;
   show_live_coords: boolean;
   filename: string;
-  export_format: "geojson" | "csv"; // MeasureControl export format.
+  export_format: "geojson" | "csv";
   collapse_on_outside: boolean;
 }
 
@@ -75,11 +75,11 @@ interface ConfigScale extends ConfigCommon {
 }
 
 interface ConfigSearch extends ConfigCommon {
-  mode: "coord" | "addr"; // Default search mode on first open.
+  mode: "coord" | "addr";
   zoom: number;
   provider: string | ProviderConfig; // Built-in provider id or a custom ProviderConfig dict.
   /** Overrides for a built-in provider; only valid with a string provider. */
-  provider_config?: Record<string, unknown> | null;
+  provider_config: Record<string, unknown> | null;
   collapse_on_outside: boolean;
 }
 
@@ -123,9 +123,9 @@ interface ComponentConfig {
   zoom?: number;
   show_bearing?: boolean;
   show_live_coords?: boolean;
-  export_format?: "geojson" | "csv"; // MeasureControl export format.
+  export_format?: "geojson" | "csv";
   show_zoom?: boolean;
-  mode?: "coord" | "addr"; // Default search mode on first open.
+  mode?: "coord" | "addr";
   provider?: string | ProviderConfig; // Built-in provider id or a custom ProviderConfig dict.
   /** Overrides for a built-in provider; only valid with a string provider. */
   provider_config?: Record<string, unknown> | null;
