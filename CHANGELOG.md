@@ -123,6 +123,7 @@
 - `FullscreenControl`: a denied fullscreen entry or exit now reports the honest hint (`unsupported` / `exit_fail`) instead of "Entered fullscreen" ([#486](https://github.com/Zeroto521/foliplus/pull/486))
 - `LayerControl`: rapid visibility toggles stay smooth at 6k layers — the toggle-all tri-state counter updates O(1) per click instead of rescanning the group, and overlay clicks skip the basemap scan ([#504](https://github.com/Zeroto521/foliplus/pull/504))
 - `LayerControl`: one teardown entry closes every overlay — panels, menu, rename, focus — and the map's open popup ([#585](https://github.com/Zeroto521/foliplus/pull/585))
+- `LayerControl`: focus-layer dim now covers the whole viewport when `fitBounds` zooms the map to fit a wide layer in a small container — the outer ring of the inverse mask was drawn once from the pre-animation `map.getBounds().pad(1)` and never redrawn, so a zoom-out left bright strips around the corners; the outer ring is now a Web-Mercator world envelope and the SVG renderer clips the excess for free
 
 ## [v0.3.0] (2026-08-02)
 
