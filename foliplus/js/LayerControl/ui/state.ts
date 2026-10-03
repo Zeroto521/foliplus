@@ -18,7 +18,7 @@ import { applyNameProjection } from "./context.js";
 import type { LayerUI } from "./index.js";
 import { INTENT, LIVE, getIntent } from "./intent.js";
 
-// CONFIG is a free variable from the IIFE template wrapper (see BaseControl._get_template).
+// CONFIG is a free variable from the IIFE template wrapper (see BaseControl._template).
 const log = createLogger(CONFIG.name);
 
 /** Load every persisted dimension in one call. */

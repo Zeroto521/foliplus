@@ -10,7 +10,7 @@ import * as CONST from "./const.js";
 import type { ExportManager } from "./manager.js";
 import type { GeoBounds, LatLngPoint, SavedBounds } from "./type.js";
 
-// CONFIG is a free variable from the IIFE template wrapper (see BaseControl._get_template).
+// CONFIG is a free variable from the IIFE template wrapper (see BaseControl._template).
 const T = createScopedTranslator(CONFIG);
 
 const loadSavedBounds = function (this: ExportManager) {

@@ -17,7 +17,7 @@ import { ExportRenderer, isCorsBlocked } from "./renderer/index.js";
 import type { CropRect, GeoBounds } from "./type.js";
 import { resolveExportBackground } from "./util.js";
 
-// CONFIG is a free variable from the IIFE template wrapper (see BaseControl._get_template).
+// CONFIG is a free variable from the IIFE template wrapper (see BaseControl._template).
 const T = createScopedTranslator(CONFIG);
 const log = createLogger(CONFIG.name);
 

@@ -149,29 +149,64 @@ describe("production type-system bypasses", () => {
   // `_extra_config` is not a literal tuple but a dict literal, so the scan
   // collects dict-key constants instead. `data` (LayerControl's layer list)
   // reaches CONFIG only this way.
+  //
+  // `_config_schema.py` is the third channel: ``SCHEMAS`` is the single source
+  // from which ``BaseControl.__init_subclass__`` derives ``_config_fields``,
+  // so no per-control tuple literal remains in ``*Control.py``. ``RUNTIME_ONLY``
+  // is the subtraction: fields declared there are never emitted by Python, so
+  // they cannot be claimed as exported even if JS were to read them.
+  //
+  // ``SCHEMAS`` values reference per-control alias names (``_FULLSCREEN``,
+  // ``_HEATMAP`` …), so ``ast.walk`` alone cannot see the field-name keys
+  // nested behind them. ``ast.literal_eval`` resolves the top-level dict by
+  // evaluating each alias (which is itself a literal dict) and returns the
+  // nested keys for free. Everything fed to it is a plain dict of
+  // FieldSpec-calls — no imports, no side effects.
   const PY_SCAN = `import ast, sys
 def fields(n):
     out = []
+    dict_assignments = {}
+    schema_keys = []
+    runtime_keys = set()
     for x in ast.walk(n):
-        if isinstance(x, (ast.Assign, ast.AnnAssign)):
-            t = (
-                x.target
-                if isinstance(x, ast.AnnAssign)
-                else (x.targets[0] if len(x.targets) == 1 else None)
+        t, v = None, None
+        if isinstance(x, ast.Assign):
+            if len(x.targets) == 1 and isinstance(x.targets[0], ast.Name):
+                t, v = x.targets[0].id, x.value
+        elif isinstance(x, ast.AnnAssign) and isinstance(x.target, ast.Name):
+            t, v = x.target.id, x.value
+        if t == "SCHEMAS" and isinstance(v, ast.Dict):
+            for k, val in zip(v.keys, v.values):
+                if isinstance(k, ast.Constant) and isinstance(k.value, str):
+                    schema_keys.append(k.value)
+                    if isinstance(val, ast.Name):
+                        ref = dict_assignments.get(val.id)
+                        if ref is not None and isinstance(ref, ast.Dict):
+                            schema_keys.extend(
+                                kk.value
+                                for kk in ref.keys
+                                if isinstance(kk, ast.Constant)
+                                and isinstance(kk.value, str)
+                            )
+        elif t == "RUNTIME_ONLY" and isinstance(v, ast.Dict):
+            runtime_keys = {
+                kk.value
+                for kk in v.keys
+                if isinstance(kk, ast.Constant) and isinstance(kk.value, str)
+            }
+        elif t == "_config_fields":
+            out.extend(
+                e.value for e in ast.walk(v)
+                if isinstance(e, ast.Constant) and isinstance(e.value, str)
             )
-            if not (isinstance(t, ast.Name) and t.id == "_config_fields"):
-                continue
-            out += [
-                e.value
-                for e in ast.walk(x.value)
-                if isinstance(e, ast.Constant) and isinstance(e.value, str)
-            ]
         elif isinstance(x, ast.FunctionDef) and x.name == "_extra_config":
-            out += [
-                e.value
-                for e in ast.walk(x)
+            out.extend(
+                e.value for e in ast.walk(x)
                 if isinstance(e, ast.Constant) and isinstance(e.value, str)
-            ]
+            )
+        if t is not None and isinstance(v, ast.Dict) and t != "_config_fields":
+            dict_assignments[t] = v
+    out.extend(k for k in schema_keys if k not in runtime_keys)
     return out
 for p in sys.argv[1:]:
     try:

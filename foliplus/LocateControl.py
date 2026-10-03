@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from ._cdn_loader import load_cdn
 from ._typing import Position, Zoom
 from ._validate import validate
 from .BaseControl import BaseControl
@@ -30,10 +29,6 @@ class LocateControl(BaseControl):
     >>> LocateControl().add_to(m)
     """
 
-    _config_fields = ("zoom",)
-
-    default_js = load_cdn("LocateControl")
-
     @validate
     def __init__(
         self,
@@ -44,4 +39,3 @@ class LocateControl(BaseControl):
     ):
         super().__init__(position=position, locale=locale)
         self.zoom = zoom
-        self._template = self._get_template()
