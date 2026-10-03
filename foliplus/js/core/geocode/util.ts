@@ -27,7 +27,7 @@ const withParams = (url: string, params?: Record<string, string | number>): stri
 
 /**
  * Eval a single-arg arrow-function source string with a narrow structural
- * guard. Throws on anything that is not `(x) => …` / `x => …` — CONF is
+ * guard. Throws on anything that is not `(x) => …` / `x => …` — CONFIG is
  * authored by the map creator, so a malformed normalizer should fail loudly
  * at config time rather than silently at runtime.
  */

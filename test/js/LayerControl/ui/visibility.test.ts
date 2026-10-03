@@ -128,7 +128,7 @@ describe("applyVisibility", () => {
   beforeEach(() => {
     window.localStorage.clear();
     installLeafletGlobals();
-    window.CONF = { ...window.CONF, name: "LayerControl", locale_code: "en" };
+    window.CONFIG = { ...window.CONFIG, name: "LayerControl", locale_code: "en" };
     ({ map, manager, ui } = fixture());
     document.body.innerHTML = "";
   });
@@ -599,7 +599,7 @@ describe("LayerManager.setVisible", () => {
   beforeEach(() => {
     window.localStorage.clear();
     installLeafletGlobals();
-    window.CONF = { ...window.CONF, name: "LayerControl", locale_code: "en" };
+    window.CONFIG = { ...window.CONFIG, name: "LayerControl", locale_code: "en" };
     ({ map, manager, ui } = fixture());
     document.body.innerHTML = "";
   });
@@ -688,7 +688,7 @@ describe("LayerUI.handleChange", () => {
   beforeEach(() => {
     window.localStorage.clear();
     installLeafletGlobals();
-    window.CONF = { ...window.CONF, name: "LayerControl", locale_code: "en" };
+    window.CONFIG = { ...window.CONFIG, name: "LayerControl", locale_code: "en" };
     ({ map, manager, ui } = fixture());
     document.body.innerHTML = "";
   });
@@ -842,7 +842,7 @@ describe("DOM order diverges from registry order", () => {
   beforeEach(() => {
     window.localStorage.clear();
     installLeafletGlobals();
-    window.CONF = { ...window.CONF, name: "LayerControl", locale_code: "en" };
+    window.CONFIG = { ...window.CONFIG, name: "LayerControl", locale_code: "en" };
     ({ map, manager, ui } = fixture3());
     document.body.innerHTML = "";
   });
@@ -992,7 +992,7 @@ describe("toggleAll base group", () => {
   beforeEach(() => {
     window.localStorage.clear();
     installLeafletGlobals();
-    window.CONF = { ...window.CONF, name: "LayerControl", locale_code: "en" };
+    window.CONFIG = { ...window.CONFIG, name: "LayerControl", locale_code: "en" };
     ({ map, manager, ui } = baseFixture());
     document.body.innerHTML = "";
   });

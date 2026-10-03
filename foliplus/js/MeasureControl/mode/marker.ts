@@ -62,7 +62,7 @@ class MarkerMode extends MeasureMode {
           m.lng = Util.roundCoord(latlng.lng);
           m.lat = Util.roundCoord(latlng.lat);
         });
-        const code = manager.conf.locale_code ?? "en";
+        const code = manager.config.locale_code ?? "en";
         // onEnd is a sync callback (bindNodeDrag doesn't await it), so the
         // geocode runs as a detached fire-and-forget chain. Swallow rejections
         // to keep a failed lookup from surfacing as an unhandled rejection.
@@ -191,7 +191,7 @@ class MarkerMode extends MeasureMode {
       manager.T("popup_loc_label"),
       manager.T("popup_addr_label"),
       manager._("foliplus.close_label"),
-      manager.conf.locale_code,
+      manager.config.locale_code,
       null,
       manager.layers.mainLayer,
       addr => {
@@ -254,7 +254,7 @@ class MarkerMode extends MeasureMode {
       this.T("popup_loc_label"),
       this.T("popup_addr_label"),
       this._("foliplus.close_label"),
-      this.conf.locale_code,
+      this.config.locale_code,
       null,
       this.layers.mainLayer,
       addr => {

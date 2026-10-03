@@ -6,7 +6,7 @@ __pycache__/
 
 # Packaging
 .Python
-build/
+/build/
 develop-eggs/
 dist/
 downloads/
@@ -66,6 +66,7 @@ tmp/
 .ruff_cache/
 .pytest_cache/
 .playwright-mcp
+.playwright-cli/
 
 # Node / npm
 .npmrc

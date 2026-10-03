@@ -1,5 +1,5 @@
 // core/layer/type — shared layer-management type contracts.
-// Pure types, no DOM / CONF dependency. LayerInfoRegistry, LayerFactory, and the
+// Pure types, no DOM / CONFIG dependency. LayerInfoRegistry, LayerFactory, and the
 // LayerAPI facade all implement these; global.d.ts re-exports them so other
 // components (MeasureControl / HeatmapControl / ExportControl) keep the same
 // global names.
@@ -28,9 +28,11 @@ type LayerKind = (typeof KIND)[keyof typeof KIND];
  *  `LayerKind`/`KIND`. */
 type LayerDimKey = (typeof DIM)[keyof typeof DIM];
 
-/** Where a layer's paint actually lives. Flat `layer` / `canvas` / `color`
- *  on `LayerInfo` remain the writable registration fields; this object is the
- *  typed projection of those (plus `custom`) the target shape names. */
+/** Where a layer's paint actually lives. `LayerInfoRegistry.carrierFor` builds it
+ *  once at the registration edge from the flat registration fields, and it is
+ *  never written again — the flat `layer` / `canvas` / `color` on `LayerInfo`
+ *  are read-only snapshots of this projection, kept for the many existing read
+ *  sites rather than a second, driftable source of truth. */
 interface LayerCarrier {
   layer?: L.Layer | null;
   canvas?: HTMLCanvasElement | null;
@@ -200,7 +202,7 @@ interface RegisterLayerOpts {
    *  is the face, so the value — not an element — is what travels here. */
   color?: string | null;
   /** Third-party feature count provider (Canvas layers require this; FeatureGroup
-   *  layers use the built-in fallback via forEachLeaf). Null means 'don't render'. */
+   *  layers use the built-in fallback via walkLeaf). Null means 'don't render'. */
   featureCountProvider?: (() => number) | null;
   /** Style values this layer exposes to the style drawer — pulled on demand,
    *  never cached on the registry (same contract as featureCountProvider). */
@@ -208,7 +210,7 @@ interface RegisterLayerOpts {
   /** Canonical style setters. Both the component's own panel and the layer
    *  drawer call these — the component owns the only copy of the value. */
   styleSetters?: Record<string, (value: unknown) => void> | null;
-  /** Python CONF defaults for the delegated style fields. The drawer's Reset
+  /** Python CONFIG defaults for the delegated style fields. The drawer's Reset
    *  button calls each styleSetter with the matching default — never the
    *  localStorage-persisted value. Absent means the layer offers no Reset. */
   styleDefaultsProvider?: (() => Record<string, unknown>) | null;
@@ -233,10 +235,15 @@ interface LayerInfo {
   id: string;
   name: string;
   layer: L.Layer | null;
-  /** What this entry is (tile|vector|canvas|solid|cluster|custom). */
+  /** What this entry is (tile|vector|canvas|solid|cluster|custom). Derived
+   *  once by `LayerInfoRegistry.kindFor` at the registration edge — the single
+   *  place a kind is derived; the surface forwards this value rather than
+   *  re-deriving it. */
   kind: LayerKind;
-  /** Typed projection of the paint carrier (layer / canvas / element / custom).
-   *  Flat `layer` / `canvas` / `color` stay the writable registration fields. */
+  /** Typed projection of the paint carrier (layer / canvas / element / custom),
+   *  built once by `carrierFor` alongside the flat `layer` / `canvas` / `color`
+   *  fields and never rewritten. The flat fields are read-only snapshots of
+   *  this projection, not a second source to keep in step. */
   carrier: LayerCarrier;
   /** Layer opacity in [0, 1]. Defaults to 1 (fully opaque). */
   opacity?: number;
@@ -262,7 +269,7 @@ interface LayerInfo {
   styleProvider?: (() => Record<string, unknown>) | null;
   /** Canonical style setters shared by the component panel and the drawer. */
   styleSetters?: Record<string, (value: unknown) => void> | null;
-  /** Python CONF defaults for the delegated style fields. See RegisterLayerOpts. */
+  /** Python CONFIG defaults for the delegated style fields. See RegisterLayerOpts. */
   styleDefaultsProvider?: (() => Record<string, unknown>) | null;
   /** Optional geographic-bounds provider (Canvas layers). See RegisterLayerOpts. */
   getBounds?: (() => L.LatLngBounds | null) | null;

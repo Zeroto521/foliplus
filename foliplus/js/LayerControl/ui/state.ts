@@ -20,8 +20,8 @@ import type { FocusStore } from "./focusStore.js";
 import { INTENT, LIVE, getIntent } from "./intent.js";
 import type { PanelStore } from "./panelStore.js";
 
-// CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
-const log = createLogger(CONF.name);
+// CONFIG is a free variable from the IIFE template wrapper (see BaseControl._get_template).
+const log = createLogger(CONFIG.name);
 
 /** Load every persisted dimension in one call. */
 const loadPersistedState = (la: LayerAccess, ps: PanelStore, fs: FocusStore) => {

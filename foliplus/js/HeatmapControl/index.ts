@@ -7,7 +7,7 @@ import { HeatmapManager } from "./manager.js";
 import { bindControls, initScan, setupObserver } from "./ui.js";
 
 class HeatmapControl extends defineControl({
-  conf: CONF,
+  config: CONFIG,
   icon: SVGs.HEXAGON,
   setup: () => ensureLayerAPI(map),
 }) {
@@ -46,7 +46,7 @@ class HeatmapControl extends defineControl({
   }
 
   get m(): HeatmapManager {
-    return (this.manager ??= new HeatmapManager(map));
+    return (this.manager ??= new HeatmapManager(map, { T: this.T, log: this.log }));
   }
 
   buildDOM() {
@@ -56,7 +56,7 @@ class HeatmapControl extends defineControl({
       toggleSvg: SVGs.HEXAGON,
       panelTitle: this.T("title"),
       closeTitle: this.T("close_title"),
-      collapseOnOutside: this.conf.collapse_on_outside,
+      collapseOnOutside: this.config.collapse_on_outside,
     });
     // See LayerControl.buildDOM: keeps the factory's document-level listeners
     // from outliving a control that is removed but not garbage-collected.
@@ -124,6 +124,6 @@ class HeatmapControl extends defineControl({
 
 // Instantiate control, then add to map. The initial layer scan runs inside
 // buildDOM (startScan), so a destroy + re-add re-scans instead of stalling.
-const heatmapCtrl = new HeatmapControl({ position: CONF.position });
+const heatmapCtrl = new HeatmapControl({ position: CONFIG.position });
 
 heatmapCtrl.addTo(map);

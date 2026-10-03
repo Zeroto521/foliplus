@@ -2,7 +2,7 @@
 // Per-map (attached via ensureEvents underneath map.foliplus). Components
 // subscribe to semantic events (LAYER_CHANGE, MODE_CHANGE, ...) instead of
 // wiring to raw Leaflet map events — decoupled, auto-unbindable, and testable.
-import type { EventPayloadMap } from "./const.js";
+import type { EventPayloadMap } from "./type.js";
 
 type EventHandler = (...args: unknown[]) => void;
 
@@ -14,7 +14,13 @@ class EventBus {
     return this.listeners.size;
   }
 
-  /** Subscribe to a known event (typed payload). */
+  /** Subscribe to a known event (typed payload).
+   *
+   *  The payload type is our *contract* — every in-tree emit passes it, so the
+   *  handler can rely on a defined value. Callers outside the type system (a
+   *  third-party script firing a bare `emit(event)`) are not covered by the
+   *  contract, and a handler may defensively null-check the payload for that
+   *  case (see the LAYER_CHANGE guards in LayerControl/HeatmapControl). */
   on<K extends keyof EventPayloadMap>(
     event: K,
     handler: (payload: EventPayloadMap[K]) => void,
@@ -45,11 +51,10 @@ class EventBus {
     if (set.size === 0) this.listeners.delete(event);
   }
 
-  /** Emit a known event (typed payload). */
-  emit<K extends keyof EventPayloadMap>(
-    event: K,
-    ...payload: EventPayloadMap[K] extends undefined ? [] : [EventPayloadMap[K]]
-  ): void;
+  /** Emit a known event with its payload (typed). The payload is required:
+   *  every event in `EventPayloadMap` carries one, and an in-tree emit that
+   *  omits it is a type error. */
+  emit<K extends keyof EventPayloadMap>(event: K, payload: EventPayloadMap[K]): void;
   /** Emit any event (generic fallback). */
   emit(event: string, ...payload: unknown[]): void;
   emit(event: string, ...payload: unknown[]): void {

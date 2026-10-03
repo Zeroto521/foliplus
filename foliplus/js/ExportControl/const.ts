@@ -35,7 +35,7 @@ const STORAGE = { KEY: `foliplus_export_rect_${map.getContainer().id}` };
 
 /** Timing / delay constants. */
 const TIMING = {
-  TIMEOUT: CONF.timeout,
+  TIMEOUT: CONFIG.timeout,
   RESTORE_DELAY: 200,
 };
 
@@ -136,7 +136,7 @@ const SEL = {
 // number of in-flight connections to a single origin (typically ~6 for HTTP/1.x).
 // Tiles are ~256 KB, so saturating slow links wastes RTTs.  We read
 // navigator.connection (downlink first, then effectiveType, then a default of 6)
-// to pick a sensible parallelism for the observed network.  No CONF override —
+// to pick a sensible parallelism for the observed network.  No CONFIG override —
 // the detector handles all cases.
 // ============================================================================
 
@@ -227,15 +227,15 @@ const FORMAT: Record<ExportFormat, FormatSpec> = {
  * applied once, at download time. */
 const MIME_LOSSLESS = FORMAT.png.mime;
 
-/** Resolve a runtime `CONF.format` to a table key. Python's `ExportControl`
+/** Resolve a runtime `CONFIG.format` to a table key. Python's `ExportControl`
  * rejects anything outside `FORMAT`, so this only guards misconfiguration. */
 const resolveFormat = (raw: unknown): ExportFormat =>
   typeof raw === "string" && Object.prototype.hasOwnProperty.call(FORMAT, raw)
     ? (raw as ExportFormat)
     : "png";
 
-/** The record for `CONF.format` — no cast, no DEFAULT fallback. */
-const currentFormat = (): FormatSpec => FORMAT[resolveFormat(CONF.format)];
+/** The record for `CONFIG.format` — no cast, no DEFAULT fallback. */
+const currentFormat = (): FormatSpec => FORMAT[resolveFormat(CONFIG.format)];
 
 // ============================================================================
 // Public API — every consumer reads CONST.<name>; add nothing to this block

@@ -238,8 +238,8 @@ describe("AnnotationManager — config", () => {
   });
 
   it("defaults collision off when the page sets label_collide false", () => {
-    const saved = (window as { CONF?: Record<string, unknown> }).CONF;
-    (window as { CONF?: Record<string, unknown> }).CONF = {
+    const saved = (window as { CONFIG?: Record<string, unknown> }).CONFIG;
+    (window as { CONFIG?: Record<string, unknown> }).CONFIG = {
       ...saved,
       label_collide: false,
     };
@@ -251,7 +251,7 @@ describe("AnnotationManager — config", () => {
       });
       expect(mgr.getConfig("none").collide).toBe(false);
     } finally {
-      (window as { CONF?: Record<string, unknown> }).CONF = saved;
+      (window as { CONFIG?: Record<string, unknown> }).CONFIG = saved;
     }
   });
 
@@ -487,17 +487,51 @@ describe("AnnotationManager — render & plan", () => {
     canvasA!.paint.mockClear();
     canvasB!.paint.mockClear();
 
-    const removeHandler = (
-      map.on as unknown as ReturnType<typeof vi.fn>
-    ).mock.calls.find(call => call[0] === "layerremove")![1] as (e: {
-      layer?: unknown;
-    }) => void;
-    removeHandler({ layer: layerA });
+    (
+      map as unknown as {
+        foliplus: { events: { emit: (e: string, p: unknown) => void } };
+      }
+    ).foliplus.events.emit(EVENTS.LAYER_CHANGE, { id: "a", kind: "vector" });
 
     // Only the layer that left the map is re-planned; the other keeps its
     // boxes and its collision decision.
     expect(canvasA!.paint).toHaveBeenCalled();
     expect(canvasB!.paint).not.toHaveBeenCalled();
+  });
+
+  it("repaints every layer on a bare LAYER_CHANGE (third-party payload-less emit)", () => {
+    // Defense arm for the handler's `!payload` fallback: when an emit arrives
+    // with no payload (legacy / third-party code, or a pre-refactor emit), the
+    // handler can't know which layer moved — it falls back to a full repaint
+    // rather than guessing wrong. Pins the fallback so a future refactor can't
+    // accidentally narrow it to only the payload path. The mock bus below is
+    // typed with an optional payload on purpose — the same permissive surface
+    // an untyped third-party caller sees.
+    const { map } = makeMap();
+    const layerA = oneLabel();
+    const layerB = mkGroup([
+      mkLeaf({ props: { v: "7" }, latlng: { lat: 41, lng: -75 } }),
+    ]);
+    const mgr = new AnnotationManager({
+      map,
+      layerFind: id => (id === "a" ? layerA : layerB),
+    });
+    mgr.setConfig("a", CONFIG);
+    mgr.setConfig("b", CONFIG);
+    mgr.renderLabels("a");
+    mgr.renderLabels("b");
+    const [canvasA, canvasB] = mocks.instances;
+    canvasA!.paint.mockClear();
+    canvasB!.paint.mockClear();
+
+    (
+      map as unknown as {
+        foliplus: { events: { emit: (e: string, p?: unknown) => void } };
+      }
+    ).foliplus.events.emit(EVENTS.LAYER_CHANGE as never);
+
+    expect(canvasA!.paint).toHaveBeenCalled();
+    expect(canvasB!.paint).toHaveBeenCalled();
   });
 
   it("culls anchors far outside the viewport before laying out the text", () => {

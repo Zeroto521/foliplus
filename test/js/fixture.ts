@@ -19,8 +19,8 @@
 //   `foliplus/js/LayerControl/ui/index.ts` constructor + declared fields).
 //   Adding a new field to LayerUI means adding it here too; the completeness
 //   gate in `test/js/fixture.test.ts` fails loudly if the two drift apart.
-// - `makeControlEnv(conf?, translators?)` — the ControlEnv shape the factory
-//   hands to logic layers. Default conf is `window.CONF` (set by setup.ts);
+// - `makeControlEnv(config?, translators?)` — the ControlEnv shape the factory
+//   hands to logic layers. Default config is `window.CONFIG` (set by setup.ts);
 //   pass a translator pair to pin identity translators (export tests assert
 //   on bare key strings, so they deliberately do not use scoped lookups).
 import { vi } from "vitest";
@@ -32,18 +32,18 @@ import { createLogger } from "#common/log.js";
 
 type Overrides = Record<string, unknown>;
 
-/** Build a ControlEnv for unit tests. `conf` defaults to the live
- *  `window.CONF`; `translators` overrides the T/_ pair (identity for tests
+/** Build a ControlEnv for unit tests. `config` defaults to the live
+ *  `window.CONFIG`; `translators` overrides the T/_ pair (identity for tests
  *  that assert on bare locale keys). */
 export function makeControlEnv(
-  conf: ComponentConfig = window.CONF,
+  config: ComponentConfig = window.CONFIG,
   translators?: { T: (k: string) => string; _: (k: string) => string },
 ): ControlEnv {
   return {
-    conf,
-    T: translators?.T ?? createScopedTranslator(conf),
-    _: translators?._ ?? createTranslator(conf),
-    log: createLogger(conf.name),
+    config,
+    T: translators?.T ?? createScopedTranslator(config),
+    _: translators?._ ?? createTranslator(config),
+    log: createLogger(config.name),
   };
 }
 
@@ -291,7 +291,7 @@ export function makeLayerUIMock(extra: Overrides = {}): LayerUI {
       emit: vi.fn(),
       off: vi.fn(),
     },
-    conf: {} as any,
+    config: {} as any,
     T: (key: string) => key,
     _: (key: string) => key,
     // Phase-2 injection faces (T270): the coordinator holds panelStore /

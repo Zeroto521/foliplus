@@ -3,12 +3,9 @@
 // Owns the panel's frame pieces: reset footer, and the slider-rail
 // positioning math the opacity / zoom-range rows share.
 import { dom } from "#common/dom.js";
-import { createScopedTranslator } from "#common/locale.js";
 import type { LayerAccess } from "../access.js";
 import type { FocusStore } from "../focusStore.js";
 import type { PanelStore } from "../panelStore.js";
-
-const T = createScopedTranslator(CONF);
 
 /** Reset footer — divider + button, same vocabulary for the annotation
  *  and the delegated panel. */
@@ -29,7 +26,7 @@ const appendResetFooter = (
           type: "button",
           class: "foliplus-panel-btn foliplus-style-reset-btn",
         },
-        T("style_reset"),
+        ps.T("style_reset"),
       ),
     ),
   );

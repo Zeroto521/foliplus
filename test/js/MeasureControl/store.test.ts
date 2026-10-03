@@ -34,11 +34,11 @@ vi.mock("#core/hint.js", () => ({
   HINT_DURATION: { SHORT: 1200, MEDIUM: 2500, LONG: 4000, PERSIST: 0 },
 }));
 
-// CONF is a free variable read by the store (storage name prefix). Mutate the
-// object in place: createScopedTranslator captures the CONF reference at module
-// import time and reads conf.name lazily, so a fresh stub object would leave
+// CONFIG is a free variable read by the store (storage name prefix). Mutate the
+// object in place: createScopedTranslator captures the CONFIG reference at module
+// import time and reads config.name lazily, so a fresh stub object would leave
 // the store's T() scoped to whatever name setup.ts installed.
-window.CONF.name = "MeasureControl";
+window.CONFIG.name = "MeasureControl";
 
 /** Store bound to a map carrying a spy on showHint. */
 const makeStore = () => {

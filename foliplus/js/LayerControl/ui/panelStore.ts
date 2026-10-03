@@ -87,12 +87,12 @@ class PanelStore {
   /** Component-scoped translator (auto-prepends the component name).
    *  Forwarded from the coordinator; a ui/* module reads text through this
    *  so a per-instance conf injection is honored (T270 kept the seam). */
-  T: (key: string) => string = createScopedTranslator(CONF);
+  T: (key: string) => string = createScopedTranslator(CONFIG);
   /** Unscoped translator for the shared `foliplus.*` vocabulary. */
-  _: (key: string) => string = createTranslator(CONF);
+  _: (key: string) => string = createTranslator(CONFIG);
   /** The resolved locale code for Intl formatting (number/date), forwarded
    *  like T/_ so a per-instance conf injection wins. */
-  localeCode: string = CONF.locale_code ?? "en";
+  localeCode: string = CONFIG.locale_code ?? "en";
 }
 
 export { PanelStore };

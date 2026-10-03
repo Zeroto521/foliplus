@@ -11,6 +11,10 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     include: ["test/js/**/*.test.ts"],
+    // Regenerate the generated fixture (from foliplus/_config_schema.py) once per run,
+    // so every vitest entry point — not just `npm test` — starts from a fixture
+    // that matches the schema.
+    globalSetup: ["test/js/script/emit-config-fixture-setup.mjs"],
     setupFiles: ["test/js/setup.ts"],
     // JUnit XML output for Codecov Test Analytics.
     reporters: [
@@ -23,10 +27,10 @@ export default defineConfig({
       exclude: [
         // Build orchestrator — spawns python/git/esbuild subprocesses and needs
         // the full build pipeline; not unit-testable in isolation.
-        "script/build.mjs",
+        "script/build/build.mjs",
         // Locale key scanner — CLI validated by the Python locale test suite,
         // not unit-tested.
-        "script/scan-locale-key.mjs",
+        "script/check/scan-locale-key.mjs",
         "foliplus/js/runtime/**",
         // Entry modules — require full Leaflet runtime (L.Control, addTo).
         // Glob so a newly scaffolded control is excluded without editing this list.

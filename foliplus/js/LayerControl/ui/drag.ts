@@ -1,6 +1,5 @@
 // LayerControl UI —HTML5 drag reorder + group fold.
 import { HINT_DURATION } from "#core/hint.js";
-import { createScopedTranslator } from "#common/locale.js";
 import * as CONST from "../const.js";
 import type { LayerAccess } from "./access.js";
 import type { FocusStore } from "./focusStore.js";
@@ -8,8 +7,6 @@ import { refreshAllCounts } from "./lifecycle.js";
 import { initTypesAndVisibility, renderInitialList } from "./list.js";
 import type { PanelStore } from "./panelStore.js";
 import { saveFoldState } from "./state.js";
-
-const T = createScopedTranslator(CONF);
 
 /** Fold or unfold one group. Shared by the pointer (row click) and the
  *  keyboard (Enter / Space over the chevron) so both paths stay in sync. */
@@ -71,7 +68,11 @@ const showReorderBlockedHint = (la: LayerAccess, ps: PanelStore, fs: FocusStore)
   const now = Date.now();
   if (now - ps.lastDragHintAt < CONST.DRAG.HINT_COOLDOWN_MS) return;
   ps.lastDragHintAt = now;
-  la.map.foliplus!.showHint(CONF.name, T("reorder_group_only"), HINT_DURATION.SHORT);
+  la.map.foliplus!.showHint(
+    CONFIG.name,
+    ps.T("reorder_group_only"),
+    HINT_DURATION.SHORT,
+  );
 };
 
 const handleDragOver = (

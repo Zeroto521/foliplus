@@ -1,4 +1,5 @@
 // LayerControl UI —Focus-layer overlay (mask / rect / fly-to).
+import { EVENTS } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import {
   FOCUS_Z,
@@ -6,7 +7,7 @@ import {
   type LayerInfo,
   PANE_ROLE,
   focusLayerZ,
-  forEachLeaf,
+  walkLeaf,
   zFor,
 } from "#core/layer/index.js";
 import { ensureModes, guardBlocked } from "#core/mode.js";
@@ -19,8 +20,7 @@ import { applyProjectionAll } from "./apply.js";
 import type { FocusStore } from "./focusStore.js";
 import { getActiveLayerItem } from "./keyboard.js";
 import type { PanelStore } from "./panelStore.js";
-
-const T = createScopedTranslator(CONF);
+import { closeOverlays } from "./teardown.js";
 
 /** Why a row's focus action is off. Carried as the menu item's title and as
  *  the hint text when a keyboard/double-click path tries to focus a row the
@@ -80,8 +80,8 @@ const showFocusDisabledHint = (
   reason: FocusDisabled,
 ): void => {
   la.map.foliplus!.showHint(
-    CONF.name,
-    T(focusDisabledLocaleKey(reason)),
+    CONFIG.name,
+    ps.T(focusDisabledLocaleKey(reason)),
     HINT_DURATION.SHORT,
   );
 };
@@ -104,7 +104,7 @@ const toggleFocusedLayer = (la: LayerAccess, ps: PanelStore, fs: FocusStore): vo
  * Focus the map on a registered layer's bounding box.
  *
  * Best-effort approach:
- * 1. Compute bounds from the layer (fallback: forEachLeaf for containers
+ * 1. Compute bounds from the layer (fallback: walkLeaf for containers
  *    whose getBounds delegates to children).
  * 2. If the layer is not on the map, bring it on temporarily so the bounds
  *    and the visual highlight are consistent with the user's action.
@@ -129,7 +129,7 @@ const focusLayer = (
   // Guard: any component holding the map (measuring, exporting, searching,
   // locating) blocks focus. One guard at the entry covers all call sites
   // (double-click, overflow menu, Alt+Enter, Enter) so none of them leak.
-  if (guardBlocked(la.map, CONF.name, T("blocked"))) return;
+  if (guardBlocked(la.map, CONFIG.name, ps.T("blocked"))) return;
 
   const layerInfo = la.layerRegistry.get(layerId);
   if (!layerInfo) return;
@@ -147,12 +147,21 @@ const focusLayer = (
     return;
   }
 
-  // Bounds come from the Leaflet layer (with a forEachLeaf fallback), or
+  // Bounds come from the Leaflet layer (with a walkLeaf fallback), or
   // from a canvas layer's getBounds provider (heatmap has no Leaflet layer).
   let bounds: L.LatLngBounds | null = null;
   if (layer) {
-    // Ensure the layer is on the map so the rectangle highlight is visible.
-    if (!la.map.hasLayer(layer)) la.map.addLayer(layer);
+    // Ensure the layer is on the map so the rectangle highlight is visible. A
+    // layer the policy pulled off (a zoom sweep, an unchecked row) rejoins
+    // here for the bounds read — that add is a real membership change, so it
+    // rides LAYER_CHANGE the way the executor's own writes do.
+    if (!la.map.hasLayer(layer)) {
+      la.map.addLayer(layer);
+      la.events.emit(EVENTS.LAYER_CHANGE, {
+        id: layerInfo.id,
+        kind: layerInfo.kind,
+      });
+    }
     bounds = computeLayerBounds(la, ps, fs, layer);
   } else if (typeof layerInfo.getBounds === "function") {
     bounds = layerInfo.getBounds();
@@ -166,8 +175,11 @@ const focusLayer = (
     return;
   }
 
-  // Cancel any in-flight focus first.
-  dismissFocus(la, ps, fs);
+  // Clear the competing overlays now that every guard above has passed — a
+  // rejected focus (blocked map, unknown id, hidden row, no bounds) must not
+  // clear what the user left open. It tears focus down silently, where
+  // cancelFocus would flash "Focus cancelled" before every focus.
+  closeOverlays(la, ps, fs);
 
   // Hide every other visible layer so the focused one stands out —including
   // layers that overlap the focused bounds (the mask only dims outside).
@@ -184,10 +196,9 @@ const focusLayer = (
   // register the same auto-cancel, so both must hold the mode —a missing
   // setMode on the flyTo path would let export/measure render through a
   // live focus overlay. Cleared on dismissFocus —called by the auto-timeout,
-  // the manual cancel, and a subsequent focus (dismissFocus runs at the top
-  // of focusLayer).
+  // the manual cancel, and a subsequent focus (closeOverlays runs first).
   const modes = ensureModes(la.map);
-  modes.setMode(CONF.name, "focusing");
+  modes.setMode(CONFIG.name, "focusing");
 
   // Single-point / tiny bounds →flyTo the center.
   const southWest = bounds.getSouthWest();
@@ -243,7 +254,7 @@ const isFocusing = (la: LayerAccess, ps: PanelStore, fs: FocusStore): boolean =>
 /** Cancel an in-flight focus: remove rect + mask + row highlight. */
 const cancelFocus = (la: LayerAccess, ps: PanelStore, fs: FocusStore): void => {
   dismissFocus(la, ps, fs);
-  la.map.foliplus!.showHint(CONF.name, T("focus_cancelled"), HINT_DURATION.SHORT);
+  la.map.foliplus!.showHint(CONFIG.name, ps.T("focus_cancelled"), HINT_DURATION.SHORT);
 };
 
 /** Internal: tear down focus visuals + state (no hint). */
@@ -258,7 +269,7 @@ const dismissFocus = (la: LayerAccess, ps: PanelStore, fs: FocusStore): void => 
   // when `focusLayer` actually registered the mode.
   if (isFocusing(la, ps, fs)) {
     const modes = ensureModes(la.map);
-    modes.setMode(CONF.name, null);
+    modes.setMode(CONFIG.name, null);
   }
   clearAutoCancel(la, ps, fs);
   clearFocusedRowHighlight(la, ps, fs);
@@ -460,7 +471,7 @@ const computeLayerBounds = (
   }
   const acc = L.latLngBounds([]);
   let hasLeaf = false;
-  forEachLeaf(layer, leaf => {
+  walkLeaf(layer, leaf => {
     const lb = (leaf as L.Layer & { getBounds?: () => L.LatLngBounds }).getBounds?.();
     if (lb && lb.isValid()) {
       acc.extend(lb);

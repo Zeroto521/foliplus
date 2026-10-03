@@ -12,7 +12,7 @@ import * as SVGs from "./icon.js";
 import { MeasureManager } from "./manager.js";
 
 const MeasureControl = defineControl<MeasureManager>({
-  conf: CONF,
+  config: CONFIG,
   icon: SVGs.RULER,
   setup: () => ensureLayerAPI(map),
   createManager: env => new MeasureManager(map, env),
@@ -21,7 +21,7 @@ const MeasureControl = defineControl<MeasureManager>({
       cssClass: "foliplus-measure-ctrl",
       toggleTitle: this.T("tool_toggle"),
       toggleSvg: SVGs.RULER,
-      position: this.conf.position,
+      position: this.config.position,
     });
     const btnConfigs: Array<{ mode?: string; title: string; svg: string }> = [
       {
@@ -81,7 +81,7 @@ const MeasureControl = defineControl<MeasureManager>({
       bindOutsideCollapse({
         container: ctrl,
         skipCheck: () =>
-          this.m.currentMode !== null || this.conf.collapse_on_outside === false,
+          this.m.currentMode !== null || this.config.collapse_on_outside === false,
       }),
     );
 
@@ -99,4 +99,4 @@ const MeasureControl = defineControl<MeasureManager>({
   },
 });
 
-new MeasureControl({ position: CONF.position }).addTo(map);
+new MeasureControl({ position: CONFIG.position }).addTo(map);

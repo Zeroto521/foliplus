@@ -47,9 +47,9 @@ const createDeferredFetch = () => {
 
 const tick = () => new Promise(r => setTimeout(r, 0));
 
-// Control context properties that logic functions read via ctrl.conf/ctrl.T/etc.
+// Control context properties that logic functions read via ctrl.config/ctrl.T/etc.
 const ctx = () => ({
-  conf: { name: "SearchControl", locale_code: "en", zoom: 16 },
+  config: { name: "SearchControl", locale_code: "en", zoom: 16 },
   T: (k: string) => `SearchControl.${k}`,
   _: (k: string) => k,
   log: {
@@ -324,13 +324,13 @@ describe("buildSearchUrl", () => {
   });
 
   it("sends the active locale as accept-language so results match the UI language", () => {
-    const ctrl: any = { ...ctx(), conf: { ...ctx().conf, locale_code: "zh" } };
+    const ctrl: any = { ...ctx(), config: { ...ctx().config, locale_code: "zh" } };
     const url = buildSearchUrl(ctrl, "test", 5);
     expect(url).toContain("accept-language=zh");
   });
 
   it("falls back to en when no locale is configured", () => {
-    const ctrl: any = { ...ctx(), conf: { ...ctx().conf, locale_code: undefined } };
+    const ctrl: any = { ...ctx(), config: { ...ctx().config, locale_code: undefined } };
     const url = buildSearchUrl(ctrl, "test", 5);
     expect(url).toContain("accept-language=en");
   });
@@ -414,8 +414,8 @@ describe("searchAddress", () => {
     });
     const ctrl: any = {
       ...ctx(),
-      conf: {
-        ...ctx().conf,
+      config: {
+        ...ctx().config,
         provider: { id: "myapi", baseUrl: "https://x.example.com" },
         provider_config: null,
       },
@@ -652,7 +652,7 @@ describe("fetchSuggestions", () => {
     globalThis.fetch = vi.fn();
     const ctrl: any = {
       ...ctx(),
-      conf: { ...ctx().conf, locale_code: "zh" },
+      config: { ...ctx().config, locale_code: "zh" },
       mode: "addr",
       cachedSuggestions: (() => {
         const c = new Cache<string, object>(50);
@@ -713,7 +713,7 @@ describe("fetchSuggestions", () => {
   });
 
   it("falls back to Nominatim when the configured provider id is unknown", () => {
-    const ctrl: any = { ...ctx(), conf: { ...ctx().conf, provider: "bogus" } };
+    const ctrl: any = { ...ctx(), config: { ...ctx().config, provider: "bogus" } };
     const url = buildSearchUrl(ctrl, "Paris", 5);
     expect(url).toContain("nominatim.openstreetmap.org/search");
   });
@@ -893,10 +893,10 @@ describe("searchCoord edge cases", () => {
     expect(map.flyTo).toHaveBeenCalledWith([31, 121], 16);
   });
 
-  it("uses CONF.zoom when set", () => {
+  it("uses CONFIG.zoom when set", () => {
     const ctrl: any = {
       ...ctx(),
-      conf: { ...ctx().conf, zoom: 14 },
+      config: { ...ctx().config, zoom: 14 },
       inp: { value: "121.47,31.23" },
       marker: null,
       searchHistory: [],
@@ -905,10 +905,10 @@ describe("searchCoord edge cases", () => {
     expect(map.flyTo).toHaveBeenCalledWith([31.23, 121.47], 14);
   });
 
-  it("falls back to ZOOM.MAX when CONF.zoom is unset", () => {
+  it("falls back to ZOOM.MAX when CONFIG.zoom is unset", () => {
     const ctrl: any = {
       ...ctx(),
-      conf: { ...ctx().conf, zoom: undefined },
+      config: { ...ctx().config, zoom: undefined },
       inp: { value: "121.47,31.23" },
       marker: null,
       searchHistory: [],

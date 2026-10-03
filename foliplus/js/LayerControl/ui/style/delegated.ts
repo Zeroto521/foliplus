@@ -91,7 +91,7 @@ const buildBorderRow = (
 /** Build the style panel DOM for a layer that delegates its style via
  *  styleSetters (third-party canvas layers). Renders only the controls the
  *  component declared. Reset is present only when the layer also supplies
- *  styleDefaultsProvider (the Python CONF snapshot). Returns null when the layer has
+ *  styleDefaultsProvider (the Python CONFIG snapshot). Returns null when the layer has
  *  no delegation (falls through to the annotation panel). */
 const renderDelegatedStylePanel = (
   la: LayerAccess,
@@ -182,7 +182,7 @@ const renderDelegatedStylePanel = (
     content.appendChild(root);
   }
 
-  // Reset only when the component published its Python CONF defaults.
+  // Reset only when the component published its Python CONFIG defaults.
   if (li.styleDefaultsProvider) appendResetFooter(la, ps, fs, content);
   return panel;
 };

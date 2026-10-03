@@ -1,7 +1,7 @@
 // HeatmapControl ui.ts — DOM construction and control binding.
-// Every UI function reads its config from the injected ctrl.conf / ctrl.T
-// (set by the fixture), never from the ambient window.CONF — these tests
-// therefore prove both the behavior and the per-instance CONF injection.
+// Every UI function reads its config from the injected ctrl.config / ctrl.T
+// (set by the fixture), never from the ambient window.CONFIG — these tests
+// therefore prove both the behavior and the per-instance CONFIG injection.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { METHOD } from "#core/classify.js";
 import { HINT_DURATION } from "#core/hint.js";
@@ -14,12 +14,12 @@ import {
   resetPanel,
   setupObserver,
 } from "#foliplus/HeatmapControl/ui.js";
-import { makeConf, makeCtrl, makeManager } from "./fixture.js";
+import { makeConfig, makeCtrl, makeManager } from "./fixture.js";
 
 /** Bind a control against the real panel template and return the pieces. */
-function setup(conf: ComponentConfig = makeConf()) {
+function setup(config: ComponentConfig = makeConfig()) {
   const m = makeManager();
-  const ctrl = makeCtrl(m, conf);
+  const ctrl = makeCtrl(m, config);
   const panel = document.createElement("div");
   bindControls(ctrl, panel);
   return { m, ctrl, panel };
@@ -76,13 +76,13 @@ describe("bindControls — template render and initial values", () => {
   it("clamps an out-of-range manager numClasses into the select options", () => {
     const m = makeManager();
     m.numClasses = 99;
-    const ctrl = makeCtrl(m, makeConf());
+    const ctrl = makeCtrl(m, makeConfig());
     const panel = document.createElement("div");
     bindControls(ctrl, panel);
     expect(ctrl.classSelect.value).toBe(String(CONST.CLASS_COUNT.MAX));
   });
 
-  it("populates scheme options from conf.schemes and renders the bar", () => {
+  it("populates scheme options from config.schemes and renders the bar", () => {
     const { ctrl, m } = setup();
     const options = Array.from(ctrl.schemeSelectHidden.options).map(o => o.value);
     expect(options).toEqual(["Reds", "Blues", "Greens"]);
@@ -188,13 +188,13 @@ describe("bindControls — change handlers", () => {
 });
 
 describe("bindControls — clear (reset) button", () => {
-  it("resets every control to conf defaults and collapses the panel", () => {
-    const conf = makeConf({
+  it("resets every control to config defaults and collapses the panel", () => {
+    const config = makeConfig({
       color_scheme: "Blues",
       n_classes: 4,
       method: "equal",
     });
-    const { ctrl, m, panel } = setup(conf);
+    const { ctrl, m, panel } = setup(config);
     m.selectedLayerId = "p1";
     m.currentAgg = CONST.AGG.SUM;
     m.currentField = "x";
@@ -212,9 +212,9 @@ describe("bindControls — clear (reset) button", () => {
     expect(m.selectedLayerId).toBeNull();
     expect(m.currentAgg).toBe(CONST.AGG.COUNT);
     expect(m.currentField).toBe("");
-    expect(m.numClasses).toBe(conf.n_classes);
-    expect(m.currentMethod).toBe(conf.method);
-    expect(m.currentScheme).toBe(conf.color_scheme);
+    expect(m.numClasses).toBe(config.n_classes);
+    expect(m.currentMethod).toBe(config.method);
+    expect(m.currentScheme).toBe(config.color_scheme);
     expect(clearSaved).toHaveBeenCalledTimes(1);
 
     expect(ctrl.extraBody.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
@@ -222,16 +222,16 @@ describe("bindControls — clear (reset) button", () => {
     expect(ctrl.ctrl.classList.contains(CONST.CLASSES.EXPANDED)).toBe(false);
 
     expect(ctrl.aggSelect.value).toBe(CONST.AGG.COUNT);
-    expect(ctrl.classSelect.value).toBe(String(conf.n_classes));
-    expect(ctrl.methodSelect.value).toBe(conf.method);
-    expect(ctrl.schemeSelectHidden.value).toBe(conf.color_scheme);
+    expect(ctrl.classSelect.value).toBe(String(config.n_classes));
+    expect(ctrl.methodSelect.value).toBe(config.method);
+    expect(ctrl.schemeSelectHidden.value).toBe(config.color_scheme);
   });
 
-  it("clear falls back to library defaults when conf omits style fields", () => {
-    // Python may emit a CONF that omits optional style fields entirely —
+  it("clear falls back to library defaults when config omits style fields", () => {
+    // Python may emit a CONFIG that omits optional style fields entirely —
     // reset must fall back to the library defaults in that case.
     const { ctrl, m, panel } = setup(
-      makeConf({
+      makeConfig({
         color_scheme: undefined,
         method: undefined,
         n_classes: undefined,
@@ -256,8 +256,8 @@ describe("bindControls — clear (reset) button", () => {
 
 describe("resetPanel — shared reset (Clear button + more-menu clear)", () => {
   it("resets state, canvas, and every dropdown back to the declared defaults", () => {
-    const conf = makeConf({ color_scheme: "Blues", n_classes: 4, method: "equal" });
-    const { ctrl, m } = setup(conf);
+    const config = makeConfig({ color_scheme: "Blues", n_classes: 4, method: "equal" });
+    const { ctrl, m } = setup(config);
     m.selectedLayerId = "p1";
     m.currentAgg = CONST.AGG.SUM;
     m.currentField = "price";
@@ -273,24 +273,24 @@ describe("resetPanel — shared reset (Clear button + more-menu clear)", () => {
     expect(m.autoFieldKey).toBeNull();
     expect(m.currentAgg).toBe(CONST.AGG.COUNT);
     expect(m.currentField).toBe("");
-    expect(m.currentMethod).toBe(conf.method);
-    expect(m.currentScheme).toBe(conf.color_scheme);
-    expect(m.numClasses).toBe(conf.n_classes);
+    expect(m.currentMethod).toBe(config.method);
+    expect(m.currentScheme).toBe(config.color_scheme);
+    expect(m.numClasses).toBe(config.n_classes);
     expect(m.cachedFeatures).toBeNull();
 
     expect(ctrl.layerSelect.value).toBe("");
     expect(ctrl.aggSelect.value).toBe(CONST.AGG.COUNT);
-    expect(ctrl.classSelect.value).toBe(String(conf.n_classes));
-    expect(ctrl.methodSelect.value).toBe(conf.method);
-    expect(ctrl.schemeSelectHidden.value).toBe(conf.color_scheme);
+    expect(ctrl.classSelect.value).toBe(String(config.n_classes));
+    expect(ctrl.methodSelect.value).toBe(config.method);
+    expect(ctrl.schemeSelectHidden.value).toBe(config.color_scheme);
     expect(ctrl.fieldSelect.value).toBe("");
     expect(ctrl.extraBody.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
   });
 
   it("resets the aggregation to the declared default, not count", () => {
-    // The constructor honours conf.agg, so a clear has to land back on the
+    // The constructor honours config.agg, so a clear has to land back on the
     // declared value instead of dropping an agg="sum" map to count.
-    const { ctrl, m } = setup(makeConf({ agg: "sum" }));
+    const { ctrl, m } = setup(makeConfig({ agg: "sum" }));
 
     resetPanel(ctrl);
 
@@ -314,7 +314,7 @@ describe("resetPanel — shared reset (Clear button + more-menu clear)", () => {
 });
 
 describe("bindControls — scheme dropdown", () => {
-  it("scheme bar click opens the dropdown with one item per conf scheme", () => {
+  it("scheme bar click opens the dropdown with one item per config scheme", () => {
     const { ctrl } = setup();
     ctrl.schemeBar.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     expect(ctrl.schemeDropdown).not.toBeNull();
@@ -332,7 +332,7 @@ describe("bindControls — scheme dropdown", () => {
     );
   });
 
-  it("selecting a dropdown item applies the conf scheme and persists", () => {
+  it("selecting a dropdown item applies the config scheme and persists", () => {
     const { ctrl, m } = setup();
     const save = vi.spyOn(m, "saveConfig");
     const render = vi.spyOn(m, "renderHexagons");
@@ -357,7 +357,7 @@ describe("bindControls — scheme dropdown", () => {
     );
   });
 
-  it("selectScheme by index applies the conf scheme and persists", () => {
+  it("selectScheme by index applies the config scheme and persists", () => {
     const { ctrl, m } = setup();
     const save = vi.spyOn(m, "saveConfig");
     const render = vi.spyOn(m, "renderHexagons");
@@ -376,9 +376,9 @@ describe("bindControls — scheme dropdown", () => {
     expect(save).not.toHaveBeenCalled();
   });
 
-  it("focuses the first item when the current scheme is not in conf.schemes", () => {
+  it("focuses the first item when the current scheme is not in config.schemes", () => {
     const { ctrl, m } = setup();
-    // Manager state comes from window.CONF at construction, so move it off the
+    // Manager state comes from window.CONFIG at construction, so move it off the
     // scheme list to force the fallback focus branch.
     m.currentScheme = "NoSuchScheme";
     ctrl.schemeBar.dispatchEvent(new MouseEvent("click", { bubbles: true }));
@@ -387,8 +387,8 @@ describe("bindControls — scheme dropdown", () => {
     expect(items.length).toBe(3);
   });
 
-  it("tolerates a CONF without schemes (optional in the Python API)", () => {
-    const { ctrl } = setup(makeConf({ schemes: undefined }));
+  it("tolerates a CONFIG without schemes (optional in the Python API)", () => {
+    const { ctrl } = setup(makeConfig({ schemes: undefined }));
     expect(ctrl.schemeSelectHidden.options.length).toBe(0);
     ctrl.schemeBar.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     expect(ctrl.schemeDropdown).not.toBeNull();
@@ -406,7 +406,7 @@ describe("layer dropdown change handler", () => {
   it("selecting a layer reveals the extra body, renders and persists", () => {
     const m = makeManager();
     m.pointLayers = [{ id: "p1", name: "P1", layer: {}, count: 2 }];
-    const ctrl = makeCtrl(m, makeConf());
+    const ctrl = makeCtrl(m, makeConfig());
     rebuildLayerDropdown(ctrl);
 
     const save = vi.spyOn(m, "saveConfig");
@@ -424,7 +424,7 @@ describe("layer dropdown change handler", () => {
     const m = makeManager();
     m.pointLayers = [{ id: "p1", name: "P1", layer: {}, count: 2 }];
     m.selectedLayerId = "p1";
-    const ctrl = makeCtrl(m, makeConf());
+    const ctrl = makeCtrl(m, makeConfig());
     rebuildLayerDropdown(ctrl);
 
     const clear = vi.spyOn(m, "clearHeatmapCanvas");
@@ -447,7 +447,7 @@ describe("layer dropdown — source meta publish", () => {
   it("publishes source layer + field when a layer is selected", () => {
     const m = makeManager();
     m.pointLayers = [{ id: "p1", name: "Stores", layer: {}, count: 2 }];
-    const ctrl = makeCtrl(m, makeConf());
+    const ctrl = makeCtrl(m, makeConfig());
     const panel = document.createElement("div");
     bindControls(ctrl, panel);
     rebuildLayerDropdown(ctrl);
@@ -476,7 +476,7 @@ describe("layer dropdown — source meta publish", () => {
     m.selectedLayerId = "p1";
     m.sourceMeta["HeatmapControl.meta_source_layer"] = "Stores";
     m.sourceMeta["HeatmapControl.meta_agg_field"] = "sales";
-    const ctrl = makeCtrl(m, makeConf());
+    const ctrl = makeCtrl(m, makeConfig());
     rebuildLayerDropdown(ctrl);
 
     ctrl.layerSelect.value = "";
@@ -502,7 +502,7 @@ describe("layer dropdown — source meta publish", () => {
       },
     ]);
 
-    const ctrl = makeCtrl(m, makeConf());
+    const ctrl = makeCtrl(m, makeConfig());
     rebuildLayerDropdown(ctrl);
 
     expect(m.autoFieldKey).toBe("dwell");
@@ -524,7 +524,7 @@ describe("layer dropdown — source meta publish", () => {
       },
     ]);
 
-    const ctrl = makeCtrl(m, makeConf());
+    const ctrl = makeCtrl(m, makeConfig());
     rebuildLayerDropdown(ctrl);
 
     expect(m.currentField).toBe("");
@@ -544,7 +544,7 @@ describe("layer dropdown — source meta publish", () => {
       },
     ]);
 
-    const ctrl = makeCtrl(m, makeConf());
+    const ctrl = makeCtrl(m, makeConfig());
     rebuildLayerDropdown(ctrl);
 
     expect(m.currentField).toBe("sales");
@@ -559,7 +559,7 @@ describe("setupObserver", () => {
       // no-op: keep the seeded layer state stable across rebuilds
     });
     const m = makeManager();
-    const ctrl = makeCtrl(m, makeConf());
+    const ctrl = makeCtrl(m, makeConfig());
     document.body.appendChild(ctrl.ctrl);
     setupObserver(ctrl);
 
@@ -582,13 +582,13 @@ describe("setupObserver", () => {
   });
 });
 
-describe("initScan — hints keyed by the injected conf", () => {
-  it("shows the localized no_layercontrol hint using ctrl.conf, not window.CONF", async () => {
+describe("initScan — hints keyed by the injected config", () => {
+  it("shows the localized no_layercontrol hint using ctrl.config, not window.CONFIG", async () => {
     const m = makeManager();
-    // Ambient CONF differs from the injected ctrl.conf — the hint must key on
-    // the latter (the whole point of the conf-carrying state object).
-    window.CONF = { ...window.CONF, name: "SomeOtherControl" };
-    const ctrl = makeCtrl(m, makeConf());
+    // Ambient CONFIG differs from the injected ctrl.config — the hint must key on
+    // the latter (the whole point of the config-carrying state object).
+    window.CONFIG = { ...window.CONFIG, name: "SomeOtherControl" };
+    const ctrl = makeCtrl(m, makeConfig());
     const showHint = vi.fn();
     (m.map as unknown as { foliplus: unknown }).foliplus = {
       LayerAPI: { isLayerControl: false },
@@ -609,7 +609,7 @@ describe("initScan — hints keyed by the injected conf", () => {
 
   it("distinguishes a present-but-empty LayerControl via the no_layer hint", async () => {
     const m = makeManager();
-    const ctrl = makeCtrl(m, makeConf());
+    const ctrl = makeCtrl(m, makeConfig());
     const showHint = vi.fn();
     (m.map as unknown as { foliplus: unknown }).foliplus = {
       LayerAPI: { isLayerControl: true },
@@ -637,7 +637,7 @@ describe("bindControls — saved-config restore", () => {
       JSON.stringify({ scheme: "Blues", numClasses: 4, agg: "sum" }),
     );
     const m = makeManager();
-    const ctrl = makeCtrl(m, makeConf());
+    const ctrl = makeCtrl(m, makeConfig());
     const panel = document.createElement("div");
     bindControls(ctrl, panel);
     expect(m.currentScheme).toBe("Blues");
@@ -662,9 +662,9 @@ describe("bindControls — class count clamping", () => {
   });
 });
 
-describe("selectScheme — CONF.schemes edge cases", () => {
+describe("selectScheme — CONFIG.schemes edge cases", () => {
   it("selectScheme with an out-of-range index when schemes is missing is a no-op", () => {
-    const { ctrl, m } = setup(makeConf({ schemes: undefined }));
+    const { ctrl, m } = setup(makeConfig({ schemes: undefined }));
     const save = vi.spyOn(m, "saveConfig");
     ctrl.selectScheme?.(0);
     expect(m.currentScheme).toBe("Reds");
@@ -712,7 +712,7 @@ describe("buildLayerListItems — null extraBody tolerance", () => {
     m.pointLayers = [{ id: "p1", name: "P1", layer: {}, count: 1 }];
     m.hasScanned = false;
     m.selectedLayerId = null;
-    const ctrl = makeCtrl(m, makeConf());
+    const ctrl = makeCtrl(m, makeConfig());
     ctrl.extraBody = null;
     expect(() => rebuildLayerDropdown(ctrl)).not.toThrow();
     expect(m.selectedLayerId).toBe("p1");
@@ -721,7 +721,7 @@ describe("buildLayerListItems — null extraBody tolerance", () => {
   it("layer-select change tolerates a null extraBody", () => {
     const m = makeManager();
     m.pointLayers = [{ id: "p1", name: "P1", layer: {}, count: 1 }];
-    const ctrl = makeCtrl(m, makeConf());
+    const ctrl = makeCtrl(m, makeConfig());
     rebuildLayerDropdown(ctrl);
     ctrl.extraBody = null;
     ctrl.layerSelect.value = "p1";
@@ -732,7 +732,7 @@ describe("buildLayerListItems — null extraBody tolerance", () => {
   it("buildLayerListItems tail tolerates a null extraBody", () => {
     const m = makeManager();
     m.pointLayers = [{ id: "p1", name: "P1", layer: {}, count: 1 }];
-    const ctrl = makeCtrl(m, makeConf());
+    const ctrl = makeCtrl(m, makeConfig());
     ctrl.extraBody = null;
     rebuildLayerDropdown(ctrl);
     expect(ctrl.layerSelect.value).toBe("p1");
@@ -742,7 +742,7 @@ describe("buildLayerListItems — null extraBody tolerance", () => {
 describe("rebuildLayerDropdown — null layerSelect", () => {
   it("no-ops when layerSelect is null", () => {
     const m = makeManager();
-    const ctrl = makeCtrl(m, makeConf());
+    const ctrl = makeCtrl(m, makeConfig());
     ctrl.layerSelect = null;
     expect(() => rebuildLayerDropdown(ctrl)).not.toThrow();
   });

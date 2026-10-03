@@ -1,7 +1,7 @@
 // HeatmapControl constants — independent named exports, consumed via
 // ``import * as CONST`` so callers keep the ``CONST.X`` access pattern.
-// Only pure static constants live here; CONF-derived values are accessed
-// via ``CONF.*`` directly in the consuming code.
+// Only pure static constants live here; CONFIG-derived values are accessed
+// via ``CONFIG.*`` directly in the consuming code.
 import { LABEL_COLOR_DEFAULT, LABEL_SIZE } from "#common/form.js";
 
 const TIMING = {
@@ -40,7 +40,7 @@ const H3 = {
 const ID = "foliplus_heatmap";
 
 const AGG = {
-  DEFAULT: CONF.agg,
+  DEFAULT: CONFIG.agg,
   COUNT: "count",
   SUM: "sum",
   AVG: "avg",

@@ -59,68 +59,13 @@ _CDN_DOWNLOAD_RETRIES = 3  # retry attempts
 # as a spurious `Page.goto: Timeout` in whichever browser is waiting on it.
 _CDN_MIN_FREE_BYTES = 32 * 1024 * 1024  # 32 MiB
 
-# CDN URL fragment -> (cache filename, mime type)
+# CDN URL fragment -> (cache filename, mime type), loaded from cdn.json so
+# adding a new pinned dependency is a JSON edit rather than a Python edit.
+# JSON object keys preserve order, so the dict inherits the file's ordering.
+_CDN_CACHE_PATH = Path(__file__).resolve().parent / "cdn.json"
 _CDN_CACHE: dict[str, tuple[str, str]] = {
-    "cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.js": (
-        "leaflet.js",
-        "application/javascript",
-    ),
-    "cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.css": (
-        "leaflet.css",
-        "text/css",
-    ),
-    # Compatibility floor (README): test_leaflet_compat rewrites the folium
-    # pin to this version so the claimed minimum is exercised in CI.
-    "cdn.jsdelivr.net/npm/leaflet@1.0.0/dist/leaflet.js": (
-        "leaflet-1.0.0.js",
-        "application/javascript",
-    ),
-    "cdn.jsdelivr.net/npm/leaflet@1.0.0/dist/leaflet.css": (
-        "leaflet-1.0.0.css",
-        "text/css",
-    ),
-    "code.jquery.com/jquery-1.12.4.min.js": (
-        "jquery-1.12.4.min.js",
-        "application/javascript",
-    ),
-    "cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/js/bootstrap.bundle.min.js": (
-        "bootstrap.bundle.min.js",
-        "application/javascript",
-    ),
-    # Bootstrap CSS: folium's default host framework ships it; the menu-shell
-    # guard (T266) pins foliplus shells against its `ol,ul` resets, so the
-    # browser tests need the stylesheet to actually apply (cached like the JS).
-    "cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css": (
-        "bootstrap.min.css",
-        "text/css",
-    ),
-    "cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.js": (
-        "leaflet.awesome-markers.js",
-        "application/javascript",
-    ),
-    "cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.css": (
-        "leaflet.awesome-markers.css",
-        "text/css",
-    ),
-    # Plugin assets referenced by folium 0.20 templates (MarkerCluster,
-    # HeatMap). Fragments are full paths so `MarkerCluster.css` cannot
-    # shadow `MarkerCluster.Default.css` (substring matching).
-    "cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.1.0/leaflet.markercluster.js": (
-        "leaflet.markercluster.js",
-        "application/javascript",
-    ),
-    "cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.1.0/MarkerCluster.Default.css": (
-        "MarkerCluster.Default.css",
-        "text/css",
-    ),
-    "cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.1.0/MarkerCluster.css": (
-        "MarkerCluster.css",
-        "text/css",
-    ),
-    "cdn.jsdelivr.net/gh/python-visualization/folium@main/folium/templates/leaflet_heat.min.js": (
-        "leaflet_heat.min.js",
-        "application/javascript",
-    ),
+    url: (entry[0], entry[1])
+    for url, entry in json.loads(_CDN_CACHE_PATH.read_text(encoding="utf-8")).items()
 }
 
 
@@ -617,23 +562,23 @@ def render_control(ctrl, *, map: folium.Map | None = None) -> str:
 
 
 def assert_config_value(html: str, key: str, value: object) -> None:
-    """Assert that ``key: value`` appears in the CONF JSON within *html*.
+    """Assert that ``key: value`` appears in the CONFIG JSON within *html*.
 
     Handles both ``"key": value`` and ``"key": "value"`` patterns.
     """
     if isinstance(value, str):
         assert f'"{key}": "{value}"' in html, (
-            f'Expected CONF["{key}"] = "{value}" not found'
+            f'Expected CONFIG["{key}"] = "{value}" not found'
         )
     elif value is True:
-        assert f'"{key}": true' in html, f'Expected CONF["{key}"] = true not found'
+        assert f'"{key}": true' in html, f'Expected CONFIG["{key}"] = true not found'
     elif value is False:
-        assert f'"{key}": false' in html, f'Expected CONF["{key}"] = false not found'
+        assert f'"{key}": false' in html, f'Expected CONFIG["{key}"] = false not found'
     elif value is None:
-        assert f'"{key}": null' in html, f'Expected CONF["{key}"] = null not found'
+        assert f'"{key}": null' in html, f'Expected CONFIG["{key}"] = null not found'
     else:
         assert f'"{key}": {value}' in html, (
-            f'Expected CONF["{key}"] = {value} not found'
+            f'Expected CONFIG["{key}"] = {value} not found'
         )
 
 

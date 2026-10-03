@@ -1,6 +1,5 @@
 // LayerControl UI —Inline layer rename.
 import { HINT_DURATION } from "#core/hint.js";
-import { forEachLeaf } from "#core/layer/index.js";
 import {
   createInlineEditInput,
   removeInlineEditInput,
@@ -14,8 +13,7 @@ import { INTENT, setIntent } from "./intent.js";
 import type { PanelStore } from "./panelStore.js";
 import { displayName } from "./rowView.js";
 import { applyUserState, saveNamesState } from "./state.js";
-
-const T = createScopedTranslator(CONF);
+import { closeOverlays } from "./teardown.js";
 
 /**
  * Turn the layer's label into an inline editable input so the user can
@@ -33,8 +31,9 @@ const renameLayer = (
   layerId: string,
 ): void => {
   if (!layerId || !ps.uiContainer) return;
-  finishRename(la, ps, fs);
 
+  // Validate before tearing down: an unknown id or a row without a label would
+  // otherwise clear whatever the user had open and then fail to open anything.
   const layerInfo = la.layerRegistry.get(layerId);
   if (!layerInfo) return;
 
@@ -43,6 +42,8 @@ const renameLayer = (
   ) as HTMLElement | null;
   const label = item?.querySelector("label") as HTMLLabelElement | null;
   if (!label) return;
+
+  closeOverlays(la, ps, fs);
 
   // displayName resolves rename →registry →the color layer's locale label,
   // so the input opens with the name the UI already shows.
@@ -56,7 +57,7 @@ const renameLayer = (
     label,
     initialValue: currentName,
     className: `${CONST.CLASSES.RENAME_INPUT} foliplus-input`,
-    ariaLabel: T("rename_hint"),
+    ariaLabel: ps.T("rename_hint"),
     // Only commit on blur while this is still the active rename. Enter/Escape
     // call finishRename() which sets activeRenameId=null and removes the
     // focused input →that removal fires a blur that must not re-commit.
@@ -78,7 +79,11 @@ const renameLayer = (
       // Only an empty-name commit is a user mistake worth flagging;
       // Escape is an intentional abandon —stay silent.
       if (reason === "empty") {
-        la.map.foliplus!.showHint(CONF.name, T("rename_empty"), HINT_DURATION.SHORT);
+        la.map.foliplus!.showHint(
+          CONFIG.name,
+          ps.T("rename_empty"),
+          HINT_DURATION.SHORT,
+        );
       }
       // Escape defers the teardown: tearing the input down now would blur
       // it to `<body>`, and `document.activeElement` is what handleKeyDown's
@@ -132,7 +137,7 @@ const finishRename = (
  * Focus the map on a registered layer's bounding box.
  *
  * Best-effort approach:
- * 1. Compute bounds from the layer (fallback: forEachLeaf for containers
+ * 1. Compute bounds from the layer (fallback: walkLeaf for containers
  *    whose getBounds delegates to children).
  * 2. If the layer is not on the map, bring it on temporarily so the bounds
  *    and the visual highlight are consistent with the user's action.

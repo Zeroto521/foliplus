@@ -3,7 +3,7 @@
 // types themselves, so every pass module can import without a cycle.
 import { createLogger } from "#common/log.js";
 
-const log = createLogger(CONF.name);
+const log = createLogger(CONFIG.name);
 
 /** Render context threaded through all rendering passes. */
 interface RenderCtx {

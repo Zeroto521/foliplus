@@ -10,11 +10,11 @@ import * as CONST from "./const.js";
 import type { ExportManager } from "./manager.js";
 import type { GeoBounds, LatLngPoint, SavedBounds } from "./type.js";
 
-// CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
-const T = createScopedTranslator(CONF);
+// CONFIG is a free variable from the IIFE template wrapper (see BaseControl._get_template).
+const T = createScopedTranslator(CONFIG);
 
 const loadSavedBounds = function (this: ExportManager) {
-  const data = Storage.loadRecord<SavedBounds | null>(CONST.STORAGE.KEY, CONF.name);
+  const data = Storage.loadRecord<SavedBounds | null>(CONST.STORAGE.KEY, CONFIG.name);
   if (!data || !data.nw || !data.se) return;
   const nw = data.nw;
   const se = data.se;
@@ -46,7 +46,7 @@ const saveBounds = function (this: ExportManager, bounds: GeoBounds) {
       nw: { lat: bounds.nw.lat, lng: bounds.nw.lng },
       se: { lat: bounds.se.lat, lng: bounds.se.lng },
     },
-    CONF.name,
+    CONFIG.name,
   );
 };
 
@@ -61,7 +61,7 @@ const restoreFromSavedBounds = function (this: ExportManager) {
       se: { lat: this.savedBounds.se.lat, lng: this.savedBounds.se.lng },
     };
     this.lockCropBox(true);
-    map.foliplus!.showHint(CONF.name, T("hint_restore"), HINT_DURATION.MEDIUM, true);
+    map.foliplus!.showHint(CONFIG.name, T("hint_restore"), HINT_DURATION.MEDIUM, true);
   });
 };
 

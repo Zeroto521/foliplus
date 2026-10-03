@@ -2,17 +2,14 @@
 import { CAP_TIER } from "#core/layer/index.js";
 import { dom } from "#common/dom.js";
 import * as Icons from "#common/icon.js";
-import { createScopedTranslator } from "#common/locale.js";
 import * as CONST from "../const.js";
 import * as SVGs from "../icon.js";
 import type { LayerAccess } from "./access.js";
 import { focusDisabledLocaleKey, focusDisabledReason } from "./focus.js";
 import type { FocusStore } from "./focusStore.js";
 import type { PanelStore } from "./panelStore.js";
-import { finishRename } from "./rename.js";
 import { layerCanLabel, layerHasStyleDelegation } from "./style/index.js";
-
-const T = createScopedTranslator(CONF);
+import { closeOverlays } from "./teardown.js";
 
 /**
  * Open the "more" overflow dropdown for a given layer row.
@@ -51,11 +48,9 @@ const openMoreMenu = (
   fs: FocusStore,
   item: HTMLElement,
 ) => {
-  // Close any previously open menu first, and commit/cancel a rename so
-  // the label text is fresh before we read the row.
-  finishRename(la, ps, fs);
-  closeMoreMenu(la, ps, fs, true);
-
+  // Tear down the competing overlays first. The rename teardown in
+  // particular keeps the row's label text fresh before we read it below.
+  closeOverlays(la, ps, fs);
   const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
   const menu = dom.el("ul", { class: "foliplus-layer-more-menu open", role: "menu" });
   // Focus-layer is disabled for basemaps (no useful extent), hidden rows, and
@@ -65,18 +60,18 @@ const openMoreMenu = (
   const focusDisabled = focusReason !== undefined;
   const focusDisabledTitle =
     focusReason !== undefined
-      ? T(focusDisabledLocaleKey(focusReason))
-      : T("focus_layer_tooltip");
+      ? ps.T(focusDisabledLocaleKey(focusReason))
+      : ps.T("focus_layer_tooltip");
 
   const itemAttrs = {
     "data-action": "focus-layer",
     role: "menuitem",
     tabindex: "0",
-    title: focusDisabled ? focusDisabledTitle : T("focus_layer_tooltip"),
+    title: focusDisabled ? focusDisabledTitle : ps.T("focus_layer_tooltip"),
     "aria-disabled": focusDisabled ? "true" : "false",
   };
 
-  menu.appendChild(dom.el("li", itemAttrs, { html: SVGs.FOCUS }, T("focus_layer")));
+  menu.appendChild(dom.el("li", itemAttrs, { html: SVGs.FOCUS }, ps.T("focus_layer")));
 
   if (focusDisabled) menu.lastElementChild!.setAttribute("disabled", "disabled");
 
@@ -114,11 +109,13 @@ const openMoreMenu = (
         "data-action": CONST.ACTION.STYLE_LAYER,
         role: "menuitem",
         tabindex: "0",
-        title: styleDisabled ? T("style_label_no_data") : T("style_layer_tooltip"),
+        title: styleDisabled
+          ? ps.T("style_label_no_data")
+          : ps.T("style_layer_tooltip"),
         "aria-disabled": styleDisabled ? "true" : "false",
       },
       { html: SVGs.STYLE },
-      T("style_layer"),
+      ps.T("style_layer"),
     ),
   );
   if (styleDisabled) menu.lastElementChild!.setAttribute("disabled", "disabled");
@@ -132,10 +129,10 @@ const openMoreMenu = (
         "data-action": CONST.ACTION.RENAME_LAYER,
         role: "menuitem",
         tabindex: "0",
-        title: T("rename_layer_tooltip"),
+        title: ps.T("rename_layer_tooltip"),
       },
       { html: Icons.EDIT_ICON },
-      T("rename_layer"),
+      ps.T("rename_layer"),
     ),
   );
 
@@ -148,10 +145,10 @@ const openMoreMenu = (
         "data-action": CONST.ACTION.ATTRS_LAYER,
         role: "menuitem",
         tabindex: "0",
-        title: T("attributes_layer_tooltip"),
+        title: ps.T("attributes_layer_tooltip"),
       },
       { html: Icons.INFO_ICON },
-      T("attributes_layer"),
+      ps.T("attributes_layer"),
     ),
   );
 
@@ -266,9 +263,9 @@ const buildDeleteItem = (
   const label = dom.el(
     "span",
     { class: CONST.CLASSES.MENU_DELETE_LABEL },
-    T(isClear ? "clear_data" : "delete_layer"),
+    ps.T(isClear ? "clear_data" : "delete_layer"),
   );
-  const tooltip = T(isClear ? "clear_data_tooltip" : "delete_layer_tooltip");
+  const tooltip = ps.T(isClear ? "clear_data_tooltip" : "delete_layer_tooltip");
   const item = dom.el(
     "li",
     {
@@ -300,10 +297,13 @@ const armDelete = (
   // The title attribute is set by buildDeleteItem at entry construction, so
   // there is no null to fall back to.
   const originalTitle = li.getAttribute("title")!;
-  armedDelete = { T, label, li, isClear, originalTitle };
-  label.textContent = T(isClear ? "clear_data_confirm" : "delete_layer_confirm");
+  armedDelete = { T: ps.T, label, li, isClear, originalTitle };
+  label.textContent = ps.T(isClear ? "clear_data_confirm" : "delete_layer_confirm");
   li.classList.add(CONST.CLASSES.MENU_DELETE_ARMED);
-  li.setAttribute("title", T(isClear ? "clear_data_confirm" : "delete_layer_confirm"));
+  li.setAttribute(
+    "title",
+    ps.T(isClear ? "clear_data_confirm" : "delete_layer_confirm"),
+  );
   armedDeleteTimer = setTimeout(disarmDelete, DELETE_ARMED_TIMEOUT_MS);
 };
 

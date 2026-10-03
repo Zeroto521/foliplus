@@ -3,7 +3,7 @@ import { primeControlMap } from "#core/leafletAdapter.js";
 import { dom } from "#common/dom.js";
 
 const ScaleControl = defineControl({
-  conf: CONF,
+  config: CONFIG,
   buildDOM(this: any) {
     const scaleCtrl = L.control.scale({ metric: true, imperial: false });
     this.scaleCtrl = scaleCtrl;
@@ -11,7 +11,7 @@ const ScaleControl = defineControl({
     const ctrl = (scaleCtrl.onAdd as (map: L.Map) => HTMLElement)(this._map);
     ctrl.classList.add("foliplus-scale-wrap");
 
-    if (this.conf.show_zoom) {
+    if (this.config.show_zoom) {
       const zoomLabel = dom.el("span", {
         class: "foliplus-scale-zoom-label",
         parent: ctrl,
@@ -38,4 +38,4 @@ const ScaleControl = defineControl({
   },
 });
 
-new ScaleControl({ position: CONF.position }).addTo(map);
+new ScaleControl({ position: CONFIG.position }).addTo(map);

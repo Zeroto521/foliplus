@@ -15,6 +15,7 @@ import {
   type LayerAPI,
   LayerFactory,
   LayerInfoRegistry,
+  type LayerKind,
   LayerOrder,
   LayerSurface,
   PANE_ROLE,
@@ -22,8 +23,8 @@ import {
   type RegisterLayerOpts,
   countFeatureGeometry,
   findLayer,
-  forEachLeaf,
   topSlotZ,
+  walkLeaf,
   zFor,
 } from "#core/layer/index.js";
 import type { PaneSpec } from "#core/layer/type.js";
@@ -34,17 +35,22 @@ import {
   refreshAttributions,
 } from "#core/leafletAdapter.js";
 import { type Debounced, debounce } from "#common/debounce.js";
-import { createScopedTranslator } from "#common/locale.js";
-import { createLogger } from "#common/log.js";
+import { type Logger, createLogger } from "#common/log.js";
 import { AnnotationManager } from "./annotation/index.js";
 import * as CONST from "./const.js";
 import { LayerPersistence } from "./persistence.js";
 import { LayerUI } from "./ui/index.js";
 import { INTENT, clearIntent, getIntent } from "./ui/intent.js";
 
-// CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
-const T = createScopedTranslator(CONF);
-const log = createLogger(CONF.name);
+type LayerManagerEnv = {
+  readonly T: (key: string) => string;
+  readonly log: Logger;
+};
+
+const NO_OP_ENV: LayerManagerEnv = {
+  T: key => `LayerControl.${key}`,
+  log: createLogger("LayerControl"),
+};
 
 // ==================== BringToFront Guard (monkey-patch) ====================
 // Guard Leaflet's bringToFront against null parentNode during enforceOrder
@@ -191,9 +197,13 @@ class LayerManager implements LayerAPI {
   annotation: AnnotationManager;
   onLayerAdd: (event: L.LeafletEvent) => void;
   getLayerPanes: (layer: L.Layer) => string[];
+  private readonly T: (key: string) => string;
+  private readonly log: Logger;
 
-  constructor(mapInstance: L.Map, data: LayerInfo[]) {
+  constructor(mapInstance: L.Map, data: LayerInfo[], env: LayerManagerEnv = NO_OP_ENV) {
     this.map = mapInstance;
+    this.T = env.T;
+    this.log = env.log;
     // Captured before the constructor's own enforceOrder can write a fallback,
     // so the guard is the author's declaration and never our previous write.
     // folium emits the map config once at init, ahead of every control.
@@ -313,6 +323,25 @@ class LayerManager implements LayerAPI {
       for (const surface of this.surfaces.values()) surface.markContentDirty();
       if ((this.hasUnresolvedLayers() || this.surfaces.size > 0) && !this.isEnforcing) {
         this.debouncedEnforce();
+      }
+      // Late binding: folium emits a layer's JS global after this control's own
+      // script, so the registry entry still reads `layer: null` when the real
+      // object joins the map. That arrival is a map-membership change no
+      // registry write emitted, so it gets its own LAYER_CHANGE here — without
+      // it a consumer that only reads the bus (annotation repaints its labels)
+      // would see a registered layer appear and never learn about it. Only
+      // entries that had not resolved yet qualify, which also keeps a
+      // registration-driven add to one emit: registerLayer's own `map.addLayer`
+      // resolves through `opts.layer`, so its entry already carries the layer
+      // by the time this handler runs.
+      const stamp = L.stamp(event.layer);
+      for (const li of this.layers) {
+        if (li.layer) continue;
+        const resolved = findLayer(this.map, li.id);
+        if (resolved && L.stamp(resolved) === stamp) {
+          this.emitLayerChange(li.id, li.kind);
+          break;
+        }
       }
     };
     this.map.on("layeradd", this.onLayerAdd);
@@ -443,7 +472,7 @@ class LayerManager implements LayerAPI {
   }
 
   /** Return the number of geometric features in a registered layer.
-   *  Third-party provider wins (Canvas layers need this). Fallback uses forEachLeaf.
+   *  Third-party provider wins (Canvas layers need this). Fallback uses walkLeaf.
    *  Returns null when the layer cannot be meaningfully counted (Canvas without
    *  provider, base tile layers, or unknown non-container layers).
    *  @param {string} id - Layer id.
@@ -461,12 +490,12 @@ class LayerManager implements LayerAPI {
       } catch (err) {
         // Provider threw (e.g. canvas in a failing state). Log so the failure
         // is visible rather than silently returning a stale 0-count. For
-        // Canvas/unknown layers the forEachLeaf fallback is a no-op anyway
+        // Canvas/unknown layers the walkLeaf fallback is a no-op anyway
         // (returns null), so this is a defensive fallback, not a real path.
-        log.error(`featureCountProvider threw for "${id}":`, err);
+        this.log.error(`featureCountProvider threw for "${id}":`, err);
       }
     }
-    // 2. Fallback via forEachLeaf — only valid for feature containers.
+    // 2. Fallback via walkLeaf — only valid for feature containers.
     const layer = this.findLayer(layerInfo);
     if (!layer) return null;
     if (isGroupLike(layer)) return countFeatureGeometry(layer);
@@ -506,7 +535,7 @@ class LayerManager implements LayerAPI {
 
   forEachLeaf(id: string, fn: (layer: L.Layer) => void) {
     const layer = this.findLayer(id);
-    if (layer) forEachLeaf(layer, fn);
+    if (layer) walkLeaf(layer, fn);
   }
 
   /**
@@ -532,8 +561,18 @@ class LayerManager implements LayerAPI {
     return pts;
   }
 
+  /** Broadcast a layer's registry / map-membership change with the id and kind
+   *  stamped from the registry entry — LayerManager's single emit site, so
+   *  every subscriber can filter on the payload instead of re-walking the
+   *  registry. Covers register / unregister / reorder / visibility toggle /
+   *  late re-attachment: those are all "the map now shows a different set of
+   *  layers", which is what the annotation manager repaints on. */
+  private emitLayerChange(id: string, kind: LayerKind): void {
+    this.events.emit(EVENTS.LAYER_CHANGE, { id, kind });
+  }
+
   registerLayer(opts: RegisterLayerOpts): HTMLElement | null {
-    if (!opts?.id) throw new Error(log.msg(T("id_required")));
+    if (!opts?.id) throw new Error(this.log.msg(this.T("id_required")));
 
     // A deleted layer is refused, not erased: the id has left the registry for
     // good, so accepting it again would silently undo the user's delete. Null
@@ -542,7 +581,7 @@ class LayerManager implements LayerAPI {
     // reason is logged rather than returned, until registerLayer grows a
     // RegisterResult union that names "removed".
     if (this.order.removedIds.has(opts.id)) {
-      log.warn(
+      this.log.warn(
         `registerLayer: refusing "${opts.id}" — the layer was deleted by the ` +
           `user and the deletion is persisted for this map`,
       );
@@ -623,7 +662,7 @@ class LayerManager implements LayerAPI {
     // user reorder (drag, moveLayerUp/Down, bringLayerToFront) snapshots the
     // live order. A layer the user *did* arrange still replays here through
     // insertOverlayAt / applyUserState above.
-    this.events.emit(EVENTS.LAYER_CHANGE);
+    this.emitLayerChange(opts.id, layerInfo.kind);
     return this.uiContainer.querySelector(
       `[${CONST.DATA.LAYER_ID}="${CSS.escape(opts.id)}"]`,
     );
@@ -642,7 +681,7 @@ class LayerManager implements LayerAPI {
     this.layerRegistry.moveToFront(id);
     this.enforceOrder();
     this.saveOrder();
-    this.events.emit(EVENTS.LAYER_CHANGE);
+    this.emitLayerChange(id, item.kind);
     if (this.uiContainer && this.ui) {
       this.ui.renderInitialList();
       this.ui.initTypesAndVisibility();
@@ -681,7 +720,7 @@ class LayerManager implements LayerAPI {
       // the panel can never show — and `destroy()` clears the registry too, so
       // there is no later attach to replay it. Refuse instead of no-op-ing, or
       // the caller cannot tell a no-panel call from a real hide.
-      log.warn("setVisible called before the panel is attached; no-op");
+      this.log.warn("setVisible called before the panel is attached; no-op");
       return false;
     }
     return this.ui.applyVisibility(id, visible);
@@ -780,9 +819,14 @@ class LayerManager implements LayerAPI {
     // lists this id —that dimension reads the registry live, so the removal is
     // recorded without the teardown touching a persisted map.
     this.persistence.flushAll();
-    this.events.emit(EVENTS.LAYER_CHANGE);
-    // Emit EVENTS.LAYER_REMOVED so consumers (e.g. MeasureControl) can detect when
-    // their layer is deleted from the panel and sync their internal state.
+    this.emitLayerChange(id, layerInfo.kind);
+    // The registry change lands first, so a subscriber that drops the layer off
+    // its own list and then clears state observes the removal on the same
+    // channel it saw the registration. LAYER_REMOVED is the teardown
+    // notification itself — "the id left the registry" (Measure drops its
+    // active mode), not "the user deleted this". A user delete routes through
+    // deleteLayer, which emits LAYER_REMOVED for user-owned layers and
+    // LAYER_DELETED for component-owned ones.
     this.events.emit(EVENTS.LAYER_REMOVED, { id });
     return true;
   }
@@ -890,6 +934,13 @@ class LayerManager implements LayerAPI {
     return this.order.forgetSavedOrder(id);
   }
 
+  /** Recursively clear every child of a layer. Kept as a hand-written recursion
+   *  (not `walkLeaf` + per-leaf teardown) because `LayerGroup.clearLayers()`
+   *  is Leaflet's atomic teardown — it unregisters map targets, detaches event
+   *  listeners, and fires `remove` events — while `walkLeaf` is a pure
+   *  enumeration that has no teardown semantics. Delegating the fast path to
+   *  `clearLayers()` and only recursing through `eachLayer` for exotic
+   *  containers keeps the two semantics distinct. */
   clearAllLayers(layer: L.Layer | null) {
     if (!layer) return;
     if (
@@ -925,9 +976,15 @@ class LayerManager implements LayerAPI {
     const spec = {
       id: layerInfo.id,
       layer,
+      // The registry is the only place a kind is derived, so forward its answer
+      // instead of letting the surface re-probe the tree: without this a
+      // declared `kind` (and a `custom` carrier) would be re-derived away from
+      // its own declaration on the surface side.
+      kind: layerInfo.kind,
+      custom: layerInfo.carrier.custom,
       paneName: layerInfo.paneName,
       paneSpecs: withAnnotationSpec(layerInfo, layer),
-      canvas: Boolean(layerInfo.canvas),
+      canvas: Boolean(layerInfo.carrier.canvas),
       getBounds: layerInfo.getBounds,
       color: layerInfo.color,
     };
@@ -1113,7 +1170,7 @@ class LayerManager implements LayerAPI {
     this.layerRegistry.reorder(idx, idx - 1);
     this.enforceOrder();
     this.saveOrder();
-    this.events.emit(EVENTS.LAYER_CHANGE);
+    this.emitLayerChange(id, item.kind);
     this.uiContainer && this.ui?.reindexAfterMove();
     return true;
   }
@@ -1135,7 +1192,7 @@ class LayerManager implements LayerAPI {
     this.layerRegistry.reorder(idx, idx + 1);
     this.enforceOrder();
     this.saveOrder();
-    this.events.emit(EVENTS.LAYER_CHANGE);
+    this.emitLayerChange(id, item.kind);
     this.uiContainer && this.ui?.reindexAfterMove();
     return true;
   }

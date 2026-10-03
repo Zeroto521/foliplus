@@ -9,13 +9,10 @@
 // The pane is created lazily on first show so a color that never gets
 // checked does not allocate a canvas or a pane in the DOM.
 import type { CreateColorAPI } from "#core/layer/index.js";
-import { createScopedTranslator } from "#common/locale.js";
 import * as CONST from "../const.js";
 import type { LayerAccess } from "./access.js";
 import type { FocusStore } from "./focusStore.js";
 import type { PanelStore } from "./panelStore.js";
-
-const T = createScopedTranslator(CONF);
 
 const getColorSurface = (
   la: LayerAccess,
@@ -25,7 +22,7 @@ const getColorSurface = (
   if (!ps.colorSurface) {
     const surface = la.createColor({
       id: CONST.SOLID_BASEMAP_ID,
-      name: T("color_map_label"),
+      name: ps.T("color_map_label"),
       color: CONST.COLOR.DEFAULT,
     });
     ps.colorSurface = surface;

@@ -4,7 +4,6 @@
 // LayerControl-owned, gated by surface capability.
 import { CAP_TIER, DIM } from "#core/layer/index.js";
 import { dom } from "#common/dom.js";
-import { createScopedTranslator } from "#common/locale.js";
 import * as CONST from "../../const.js";
 import type { LayerAccess } from "../access.js";
 import { applyProjection, authorZoomBoundsForLayer } from "../apply.js";
@@ -18,8 +17,6 @@ import {
   resetIntentKeys,
   writeIntentKeys,
 } from "./registry.js";
-
-const T = createScopedTranslator(CONF);
 
 /** Whether the layer's surface can honestly carry a zoom-range write.
  *  Pure capability check: `capabilities.zoomRange !== "none"`.
@@ -146,8 +143,8 @@ const syncZoomRangeRow = (
   const outOfRange = current < min || current > max;
   row.classList.toggle(CONST.CLASSES.STYLE_ZOOM_RANGE_OUT_OF_RANGE, outOfRange);
   row.title = outOfRange
-    ? T("style_zoom_range_out_of_range").replace("{zoom}", String(current))
-    : T("style_zoom_range_current").replace("{zoom}", String(current));
+    ? ps.T("style_zoom_range_out_of_range").replace("{zoom}", String(current))
+    : ps.T("style_zoom_range_current").replace("{zoom}", String(current));
 
   // The handles' tooltips carry the range the rail draws but the row no longer
   // prints.
@@ -156,7 +153,7 @@ const syncZoomRangeRow = (
     [CONST.CLASSES.STYLE_ZOOM_RANGE_MAX, max],
   ] as const) {
     const input = row.querySelector(`.${tail}`) as HTMLInputElement | null;
-    if (input) input.title = `${T("style_zoom_range")} ${value}`;
+    if (input) input.title = `${ps.T("style_zoom_range")} ${value}`;
   }
 };
 
@@ -207,7 +204,7 @@ const buildZoomRangeRow = (
     max: String(mapMax),
     step: "1",
     value: String(min),
-    "aria-label": T("style_zoom_range_min"),
+    "aria-label": ps.T("style_zoom_range_min"),
   });
   const maxInput = dom.el("input", {
     type: "range",
@@ -216,7 +213,7 @@ const buildZoomRangeRow = (
     max: String(mapMax),
     step: "1",
     value: String(max),
-    "aria-label": T("style_zoom_range_max"),
+    "aria-label": ps.T("style_zoom_range_max"),
   });
 
   // DOM order is the paint order for these positioned siblings; the two
@@ -256,7 +253,7 @@ const buildZoomRangeRow = (
     {
       class: `${CONST.CLASSES.FORM_ROW} ${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`,
     },
-    dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, T("style_zoom_range")),
+    dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ps.T("style_zoom_range")),
     dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, control),
   );
   syncValues(row, min, max, current, mapMin, mapMax);

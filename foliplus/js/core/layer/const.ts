@@ -1,5 +1,7 @@
 // core constants — shared by LayerInfoRegistry / PaneManager.
-// Pure values, no DOM / CONF dependency. Re-exported by LayerControl/const.
+// Pure values, no DOM / CONFIG dependency. Re-exported by LayerControl/const.
+import type { LayerKind } from "./type.js";
+
 /** Layer-stack z bases — the "layer z" family. Values are frozen; the
  *  three-family z policy table (layer / control / export) lives in
  *  css/common/token.css → Z-index. */
@@ -10,7 +12,7 @@ const RECURSION = { PANE_DEPTH: 5, LAYER_DEPTH: 10 };
 /** Upper bound on memoised child-pane discovery results. Entries are keyed by
  *  `L.stamp`, which Leaflet never reuses, so layer churn would otherwise
  *  accumulate them until teardown. Eviction is FIFO by first insertion, and
- *  evicting costs one extra `forEachLayer` walk — far under what the entry
+ *  evicting costs one extra `walkTree` walk — far under what the entry
  *  saves on its next hit. */
 const CACHE = { PANE_DISCOVERY_ENTRIES: 4096 };
 
@@ -82,6 +84,14 @@ const KIND = {
   CUSTOM: "custom",
 } as const;
 
+/** Layer kinds that own no feature tree — no addressable geometry and no
+ *  `feature.properties`. A tile basemap paints through a renderer, a solid
+ *  face is one flat fill, and a self-drawn canvas is imagery; none of the
+ *  three exposes individual features. Defined here so a kind gate elsewhere
+ *  reads one triple instead of restating it (HeatmapControl's point scan,
+ *  AnnotationManager's label repaint). */
+const NO_FEATURE_TREE_KINDS = new Set<LayerKind>([KIND.TILE, KIND.SOLID, KIND.CANVAS]);
+
 /** Dimension-key names — the shared word face of `LayerDimension.key`,
  *  `DIM_ORDER`, and the capability slots ("opacity" | "fill" | "border" |
  *  "zoomRange" | "annotation"). Owned by core so the style registry and the
@@ -142,6 +152,7 @@ export {
   GROUP,
   HIDDEN,
   KIND,
+  NO_FEATURE_TREE_KINDS,
   PANE_NAME_PATTERN,
   PANE_ROLE,
   RECURSION,

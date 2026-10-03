@@ -8,7 +8,6 @@ import {
   LayerRuntimeStore,
 } from "#core/layer/index.js";
 import { ListCursor } from "#core/listCursor.js";
-import { createScopedTranslator, createTranslator } from "#common/locale.js";
 import * as CONST from "../const.js";
 import type { LayerManager } from "../manager.js";
 import type { LayerAccess } from "./access.js";
@@ -76,10 +75,13 @@ import {
   toggleAll,
 } from "./visibility.js";
 
-// One creation per rendered IIFE; instances only forward (`this.T = T`),
-// keeping the per-instance injection seam the UI tests rely on.
-const T = createScopedTranslator(CONF);
-const _ = createTranslator(CONF);
+// Per-instance injection seam — LayerControl passes the env it owns; tests
+// construct LayerUI without one and fall back to identity translators so the
+// module stays free of any CONFIG reference at load time.
+const NO_OP_ENV: { T: (key: string) => string; _: (key: string) => string } = {
+  T: key => `LayerControl.${key}`,
+  _: key => key,
+};
 
 /** UI Controller for LayerControl. */
 class LayerUI {
@@ -88,9 +90,9 @@ class LayerUI {
    *  return the cached instance, so hold it like the logger does). */
   events: EventBus;
   /** Component config — carried on the instance so the ui/* modules read it
-   *  from `ui.conf` instead of a module-level free variable. */
-  conf: ComponentConfig;
-  /** Translator bound to `conf`, forwarded from the module const. */
+   *  from `ui.config` instead of a module-level free variable. */
+  config: ComponentConfig;
+  /** Translator bound to `config`, forwarded from the module const. */
   T: (key: string) => string;
   /** Unscoped translator for the shared `foliplus.*` vocabulary (the label
    *  controls the style panel shares with HeatmapControl). Kept beside `T` so
@@ -209,12 +211,15 @@ class LayerUI {
    *  to the front (cleared on cancel). */
   focusedPaneRestores: Array<() => void>;
 
-  constructor(manager: LayerManager) {
+  constructor(
+    manager: LayerManager,
+    env: { T: (key: string) => string; _: (key: string) => string } = NO_OP_ENV,
+  ) {
     this.manager = manager;
     this.events = ensureEvents(this.m.map);
-    this.conf = CONF;
-    this.T = T;
-    this._ = _;
+    this.config = CONFIG;
+    this.T = env.T;
+    this._ = env._;
     this.foldedGroups = new Set();
     this.checkedCount = {};
     this.intentStore = new LayerIntentStore();
@@ -227,9 +232,61 @@ class LayerUI {
     Object.defineProperties(this.panelStore, {
       T: { get: () => this.T, enumerable: true },
       _: { get: () => this._, enumerable: true },
-      localeCode: { get: () => this.conf.locale_code ?? "en", enumerable: true },
+      localeCode: { get: () => this.config.locale_code ?? "en", enumerable: true },
     });
+    // The phase-2 split moved the transient panel/focus fields into the
+    // stores; the instance slots stay as live forwards so callers (and tests)
+    // reading `ui.activeMenu` / `ui.stylePanelLayerId` / `ui.focusRect` see
+    // what the modules write through ps / fs.
+    const psForwards = [
+      "foldedGroups",
+      "activeMenu",
+      "activeAttrsPanel",
+      "stylePanelLayerId",
+      "activeRenameId",
+      "dragIdx",
+      "lastDragHintAt",
+      "lastDragOverItem",
+      "pressInPanel",
+      "activeIdx",
+      "listCursor",
+      "interactionCleanup",
+      "attrsOutsideHandler",
+      "styleOutsideHandler",
+      "attrsUnsubscribe",
+      "styleUnsubscribe",
+      "styleRefresh",
+      "styleZoomEndHandler",
+    ] as const;
+    for (const key of psForwards) {
+      Object.defineProperty(this, key, {
+        get: () => Reflect.get(this.panelStore, key),
+        set: v => {
+          Reflect.set(this.panelStore, key, v);
+        },
+        enumerable: true,
+        configurable: true,
+      });
+    }
     this.focusStore = new FocusStore();
+    const fsForwards = [
+      "focusRect",
+      "focusingLayerId",
+      "onFocusMapMove",
+      "focusMask",
+      "focusRenderer",
+      "focusedPaneRestores",
+    ] as const;
+    for (const key of fsForwards) {
+      Object.defineProperty(this, key, {
+        get: () => Reflect.get(this.focusStore, key),
+        set: v => {
+          Reflect.set(this.focusStore, key, v);
+        },
+        enumerable: true,
+        configurable: true,
+      });
+    }
     this.la = {
       layerRegistry: this.m.layerRegistry,
       intentStore: this.intentStore,

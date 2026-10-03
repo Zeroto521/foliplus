@@ -30,7 +30,6 @@ import {
   normalizeHexColor,
   numberInput,
 } from "#common/form.js";
-import { createScopedTranslator } from "#common/locale.js";
 import * as CONST from "../../const.js";
 import type { LayerAccess } from "../access.js";
 import { showSolidBasemap } from "../color.js";
@@ -56,8 +55,6 @@ import {
   styleDimPayload,
   walkStyleLeaves,
 } from "./styleBag.js";
-
-const T = createScopedTranslator(CONF);
 
 /** The swatch's last resort when even the browser probe cannot resolve the
  *  authored color to a hex — black, matching an empty `<input type=color>`. */
@@ -351,14 +348,14 @@ const buildFillRow = (
   const colorInput = formColorInput({
     value: color,
     className: CONST.CLASSES.STYLE_FILL_COLOR_INPUT,
-    ariaLabel: T("style_fill"),
+    ariaLabel: ps.T("style_fill"),
   }) as HTMLInputElement;
 
   // Solid-color basemaps have no fill opacity (their transparency is the pane's
   // CSS opacity, a different axis). Render only the color swatch.
   if (isBasemap) {
     return formRow(
-      T("style_fill"),
+      ps.T("style_fill"),
       dom.el("div", { class: "foliplus-form-inline" }, colorInput),
       CONST.CLASSES.STYLE_FILL_ROW,
     );
@@ -376,11 +373,11 @@ const buildFillRow = (
     // input to multiples of a coarser step (the opacity row uses step 1 too).
     step: 1,
     className: CONST.CLASSES.STYLE_FILL_OPACITY_NUMBER,
-    ariaLabel: T("style_fill_opacity"),
+    ariaLabel: ps.T("style_fill_opacity"),
   }) as HTMLInputElement;
 
   return formRow(
-    T("style_fill"),
+    ps.T("style_fill"),
     inlineControls(colorInput, opacityInput),
     CONST.CLASSES.STYLE_FILL_ROW,
   );

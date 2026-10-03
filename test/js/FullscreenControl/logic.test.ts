@@ -49,6 +49,13 @@ const makeNativeMapMock = container => {
   return map;
 };
 
+// Mirrors what defineControl hands off via ControlEnv — T is the identity
+// translator so tests can still compare on the raw key.
+const makeEnv = (overrides: Partial<ComponentConfig> = {}) => ({
+  config: { name: "FullscreenControl", ...overrides } as ComponentConfig,
+  T: (k: string) => k,
+});
+
 describe("updateUI", () => {
   let fsBtn;
   let container;
@@ -65,7 +72,7 @@ describe("updateUI", () => {
   });
 
   it("sets MAXIMIZE icon + title when not fullscreen", () => {
-    updateUI(mapMock, fsBtn, container);
+    updateUI(mapMock, fsBtn, container, makeEnv());
     expect(fsBtn.innerHTML).toContain("M8 3H5"); // MAXIMIZE
     expect(fsBtn.title).toContain("title");
     expect(mapMock.foliplus.showHint).toHaveBeenCalled();
@@ -73,25 +80,53 @@ describe("updateUI", () => {
 
   it("sets MINIMIZE icon + title when fullscreen", () => {
     mapMock.isFullscreen = true;
-    updateUI(mapMock, fsBtn, container);
+    updateUI(mapMock, fsBtn, container, makeEnv());
     expect(fsBtn.innerHTML).toContain("M8 3v3"); // MINIMIZE
     expect(fsBtn.title).toContain("title_cancel");
     expect(mapMock.foliplus.showHint).toHaveBeenCalled();
   });
 
-  it("skips hide_others when CONF.hide_others is not set", () => {
-    updateUI(mapMock, fsBtn, container);
-    // No class toggling on other controls since CONF.hide_others is falsy
+  it("skips hide_others when CONFIG.hide_others is not set", () => {
+    updateUI(mapMock, fsBtn, container, makeEnv());
+    // No class toggling on other controls since CONFIG.hide_others is falsy
     expect(fsBtn.innerHTML).toContain("M8 3H5");
   });
 
-  it("skips hide_self when CONF.hide_self is not set", () => {
-    updateUI(mapMock, fsBtn, container);
+  it("skips hide_self when CONFIG.hide_self is not set", () => {
+    updateUI(mapMock, fsBtn, container, makeEnv());
     const selfBtns = container.querySelectorAll(
       ".foliplus-fullscreen-toggle, .foliplus-zoom-in, .foliplus-zoom-out",
     );
     for (const btn of selfBtns) {
       expect(btn.classList.contains(CLASSES.HIDDEN)).toBe(false);
+    }
+  });
+
+  it("hide_others: hides sibling controls but skips its own container", () => {
+    const selfCtrl = document.createElement("div");
+    selfCtrl.className = "leaflet-control";
+    selfCtrl.appendChild(container); // c.contains(container) → skip
+    const otherCtrl = document.createElement("div");
+    otherCtrl.className = "leaflet-control"; // neither → gets hidden
+    const mapContainer = document.createElement("div");
+    mapContainer.append(selfCtrl, otherCtrl);
+    mapMock.getContainer = () => mapContainer;
+    mapMock.isFullscreen = true;
+
+    updateUI(mapMock, fsBtn, container, makeEnv({ hide_others: true }));
+
+    expect(otherCtrl.classList.contains(CLASSES.HIDDEN)).toBe(true);
+    expect(selfCtrl.classList.contains(CLASSES.HIDDEN)).toBe(false);
+  });
+
+  it("hide_self: toggles HIDDEN on the toggle / zoom-in / zoom-out buttons", () => {
+    mapMock.isFullscreen = true;
+    updateUI(mapMock, fsBtn, container, makeEnv({ hide_self: true }));
+    const selfBtns = container.querySelectorAll(
+      ".foliplus-fullscreen-toggle, .foliplus-zoom-in, .foliplus-zoom-out",
+    );
+    for (const btn of selfBtns) {
+      expect(btn.classList.contains(CLASSES.HIDDEN)).toBe(true);
     }
   });
 });
@@ -110,7 +145,7 @@ describe("toggleFullscreen — pseudo path", () => {
   });
 
   it("enters pseudo-fullscreen", () => {
-    toggleFullscreen(mapMock, fsBtn, container);
+    toggleFullscreen(mapMock, fsBtn, container, makeEnv());
     expect(mapMock.getContainer().classList.contains(CLASSES.PSEUDO_FULLSCREEN)).toBe(
       true,
     );
@@ -119,8 +154,8 @@ describe("toggleFullscreen — pseudo path", () => {
   });
 
   it("exits pseudo-fullscreen on second call", () => {
-    toggleFullscreen(mapMock, fsBtn, container);
-    toggleFullscreen(mapMock, fsBtn, container);
+    toggleFullscreen(mapMock, fsBtn, container, makeEnv());
+    toggleFullscreen(mapMock, fsBtn, container, makeEnv());
     expect(mapMock.getContainer().classList.contains(CLASSES.PSEUDO_FULLSCREEN)).toBe(
       false,
     );
@@ -128,7 +163,7 @@ describe("toggleFullscreen — pseudo path", () => {
   });
 
   it("calls updateUI after toggle (icon changes to MINIMIZE)", () => {
-    toggleFullscreen(mapMock, fsBtn, container);
+    toggleFullscreen(mapMock, fsBtn, container, makeEnv());
     expect(fsBtn.innerHTML).toContain("M8 3v3"); // MINIMIZE
     expect(mapMock.foliplus.showHint).toHaveBeenCalled();
   });
@@ -147,19 +182,19 @@ describe("makeFullscreenChangeHandler", () => {
   });
 
   it("returns a handler function", () => {
-    const handler = makeFullscreenChangeHandler(mapMock, fsBtn, container);
+    const handler = makeFullscreenChangeHandler(mapMock, fsBtn, container, makeEnv());
     expect(typeof handler).toBe("function");
   });
 
   it("handler calls updateUI (MAXIMIZE when not fullscreen)", () => {
-    const handler = makeFullscreenChangeHandler(mapMock, fsBtn, container);
+    const handler = makeFullscreenChangeHandler(mapMock, fsBtn, container, makeEnv());
     handler();
     expect(mapMock.isFullscreen).toBe(false);
     expect(fsBtn.innerHTML).toContain("M8 3H5"); // MAXIMIZE
   });
 
   it("handler syncs isFullscreen from the native fullscreen element", () => {
-    const handler = makeFullscreenChangeHandler(mapMock, fsBtn, container);
+    const handler = makeFullscreenChangeHandler(mapMock, fsBtn, container, makeEnv());
     mocks.getFullscreenEl.mockReturnValue({});
     handler();
     expect(mapMock.isFullscreen).toBe(true);
@@ -187,7 +222,7 @@ describe("toggleFullscreen — native API path", () => {
   });
 
   it("calls requestFullscreen and sets isFullscreen on resolve", async () => {
-    toggleFullscreen(mapMock, fsBtn, container);
+    toggleFullscreen(mapMock, fsBtn, container, makeEnv());
     expect(mapMock.getContainer().requestFullscreen).toHaveBeenCalled();
     await Promise.resolve();
     await Promise.resolve();
@@ -195,7 +230,7 @@ describe("toggleFullscreen — native API path", () => {
   });
 
   it("returns early without calling updateUI (fullscreenchange event handles it)", async () => {
-    toggleFullscreen(mapMock, fsBtn, container);
+    toggleFullscreen(mapMock, fsBtn, container, makeEnv());
     // updateUI is NOT called in the .then() — only map.isFullscreen is set.
     // The fullscreenchange event fires updateUI separately.
     await Promise.resolve();
@@ -207,7 +242,7 @@ describe("toggleFullscreen — native API path", () => {
     mapMock.getContainer().requestFullscreen = vi.fn(() =>
       Promise.reject(new Error("denied")),
     );
-    toggleFullscreen(mapMock, fsBtn, container);
+    toggleFullscreen(mapMock, fsBtn, container, makeEnv());
     await Promise.resolve();
     await Promise.resolve();
     expect(mapMock.isFullscreen).toBe(false);
@@ -225,7 +260,7 @@ describe("toggleFullscreen — native API path", () => {
     it("calls exitFullscreen when already fullscreen", async () => {
       mapMock.isFullscreen = true;
       document.exitFullscreen = vi.fn(() => Promise.resolve());
-      toggleFullscreen(mapMock, fsBtn, container);
+      toggleFullscreen(mapMock, fsBtn, container, makeEnv());
       expect(document.exitFullscreen).toHaveBeenCalled();
       await Promise.resolve();
       await Promise.resolve();
@@ -235,7 +270,7 @@ describe("toggleFullscreen — native API path", () => {
     it("recovers state and reports the exit-fail hint on exit reject", async () => {
       mapMock.isFullscreen = true;
       document.exitFullscreen = vi.fn(() => Promise.reject(new Error("failed")));
-      toggleFullscreen(mapMock, fsBtn, container);
+      toggleFullscreen(mapMock, fsBtn, container, makeEnv());
       await Promise.resolve();
       await Promise.resolve();
       expect(mapMock.isFullscreen).toBe(false);
@@ -256,7 +291,7 @@ describe("toggleFullscreen — native API path", () => {
     it("exits when getFullscreenEl returns an element", async () => {
       mocks.getFullscreenEl.mockReturnValue({});
       document.exitFullscreen = vi.fn(() => Promise.resolve());
-      toggleFullscreen(mapMock, fsBtn, container);
+      toggleFullscreen(mapMock, fsBtn, container, makeEnv());
       expect(document.exitFullscreen).toHaveBeenCalled();
     });
   });

@@ -14,10 +14,10 @@ const modeMocks = vi.hoisted(() => ({
   guardBlocked: vi.fn(() => false),
 }));
 
-// T is module-level and frozen at import — CONF there is an esbuild
-// compile-time literal, not window.CONF, so no per-test locale_tables can
+// T is module-level and frozen at import — CONFIG there is an esbuild
+// compile-time literal, not window.CONFIG, so no per-test locale_tables can
 // change it.  Substitute the two progress strings and pass everything else
-// through unchanged (CONF.name is "SearchControl" here, from setup.ts).
+// through unchanged (CONFIG.name is "SearchControl" here, from setup.ts).
 vi.mock("#common/locale.js", async () => {
   const real = await vi.importActual("#common/locale.js");
   const TABLES: Record<string, string> = {
@@ -27,7 +27,7 @@ vi.mock("#common/locale.js", async () => {
   };
   return {
     ...real,
-    createScopedTranslator: (_conf: { name: string }) => (key: string) =>
+    createScopedTranslator: (_config: { name: string }) => (key: string) =>
       TABLES[key] ?? key,
   };
 });
@@ -77,7 +77,7 @@ function makeMapMock() {
 
 // Build an ExportManager with all UI methods stubbed out.
 function makeManager() {
-  window.CONF = { ...window.CONF, name: "ExportControl", timeout: 7500 };
+  window.CONFIG = { ...window.CONFIG, name: "ExportControl", timeout: 7500 };
   const manager = new ExportManager(makeMapMock());
   // Stub methods that call showCropBox/lockCropBox etc. so tests can set
   // cropState.box directly without needing a real DOM export UI.
@@ -373,17 +373,17 @@ describe("ExportManager — hint lifecycle", () => {
     // showHint/hideHint on map.foliplus, so reading it before that is undefined.
     ensureHint(manager.map);
     const hideHint = vi.spyOn(manager.map.foliplus!, "hideHint");
-    manager.map.foliplus!.showHint(CONF.name, "100 × 100 px", 0, undefined, "size");
-    manager.map.foliplus!.showHint(CONF.name, "too large", 0, undefined, "limit");
+    manager.map.foliplus!.showHint(CONFIG.name, "100 × 100 px", 0, undefined, "size");
+    manager.map.foliplus!.showHint(CONFIG.name, "too large", 0, undefined, "limit");
 
     const origToBlob = HTMLCanvasElement.prototype.toBlob;
     HTMLCanvasElement.prototype.toBlob = vi.fn(cb => cb(new Blob(["fake"])));
 
     try {
       manager.doExport();
-      expect(hideHint).toHaveBeenCalledWith(CONF.name, "size");
-      expect(hideHint).toHaveBeenCalledWith(CONF.name, "limit");
-      expect(hideHint).not.toHaveBeenCalledWith(CONF.name);
+      expect(hideHint).toHaveBeenCalledWith(CONFIG.name, "size");
+      expect(hideHint).toHaveBeenCalledWith(CONFIG.name, "limit");
+      expect(hideHint).not.toHaveBeenCalledWith(CONFIG.name);
     } finally {
       HTMLCanvasElement.prototype.toBlob = origToBlob;
       hideHint.mockRestore();
@@ -395,10 +395,10 @@ describe("ExportManager — hint lifecycle", () => {
     // showHint/hideHint on map.foliplus, so reading it before that is undefined.
     ensureHint(manager.map);
     const hideHint = vi.spyOn(manager.map.foliplus!, "hideHint");
-    manager.map.foliplus!.showHint(CONF.name, "100 × 100 px", 0, undefined, "size");
-    manager.map.foliplus!.showHint(CONF.name, "too large", 0, undefined, "limit");
+    manager.map.foliplus!.showHint(CONFIG.name, "100 × 100 px", 0, undefined, "size");
+    manager.map.foliplus!.showHint(CONFIG.name, "too large", 0, undefined, "limit");
     manager.cropState!.rect = { left: 0, top: 0, width: 1000, height: 1000 };
-    // CONF.max_pixels is captured by const.ts at import time, so it cannot be
+    // CONFIG.max_pixels is captured by const.ts at import time, so it cannot be
     // set per-test here — set the flag checkPixelLimit() normally produces.
     manager.pixelOverLimit = true;
 
@@ -407,7 +407,7 @@ describe("ExportManager — hint lifecycle", () => {
       // An aborted export must not wedge the button, and must clear the whole
       // component's hints rather than just the two subkeys.
       expect(manager.isExporting).toBe(false);
-      expect(hideHint).toHaveBeenCalledWith(CONF.name);
+      expect(hideHint).toHaveBeenCalledWith(CONFIG.name);
     } finally {
       manager.pixelOverLimit = false;
       hideHint.mockRestore();
@@ -437,8 +437,8 @@ describe("ExportManager — export progress", () => {
 
   beforeEach(() => {
     // The {pct} string comes from the locale mock at the top of this file.
-    window.CONF = {
-      ...window.CONF,
+    window.CONFIG = {
+      ...window.CONFIG,
       name: "ExportControl",
       timeout: 7500,
     };

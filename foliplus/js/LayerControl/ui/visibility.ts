@@ -1,7 +1,6 @@
 // LayerControl UI —Checkbox / group-toggle visibility.
 import { GROUP } from "#core/layer/index.js";
 import { type Debounced, debounce } from "#common/debounce.js";
-import { createScopedTranslator } from "#common/locale.js";
 import * as CONST from "../const.js";
 import type { LayerAccess } from "./access.js";
 import { applyProjection, applyProjectionAll } from "./apply.js";
@@ -10,8 +9,6 @@ import type { PanelStore } from "./panelStore.js";
 import { intentVisibleOf } from "./projection.js";
 import { applyRowView, buildRowCell } from "./rowView.js";
 import { saveState, setVisible } from "./state.js";
-
-const T = createScopedTranslator(CONF);
 
 const getLayerItems = (
   la: LayerAccess,
@@ -45,7 +42,7 @@ const syncNoBasemap = (la: LayerAccess, ps: PanelStore, fs: FocusStore): void =>
     `${CONST.SEL.TOGGLE_ALL}[data-group="${GROUP.BASE}"] ${CONST.SEL.SEPARATOR_LABEL}`,
   );
   if (label) {
-    label.textContent = T(anyBaseVisible ? "base_map_label" : "no_base_map_label");
+    label.textContent = ps.T(anyBaseVisible ? "base_map_label" : "no_base_map_label");
   }
 };
 
@@ -163,7 +160,7 @@ const writeToggleAllCheckbox = (
   const noneChecked = c.on === 0;
   allCb.checked = allChecked;
   allCb.indeterminate = !allChecked && !noneChecked;
-  allCb.title = T(
+  allCb.title = ps.T(
     allChecked || allCb.indeterminate
       ? "toggle_all_deselect_tooltip"
       : "toggle_all_select_tooltip",
@@ -293,7 +290,6 @@ const handleInput = (
   fs: FocusStore,
   _event: Event,
 ) => {};
-
 export {
   getLayerItems,
   toggleAll,

@@ -3,7 +3,7 @@
  *
  * Three origins:
  * - The per-control IIFE wrapper (`BaseControl._compile_component_template`)
- *   binds `map` and `CONF` as free variables.
+ *   binds `map` and `CONFIG` as free variables.
  * - The shared runtime (`runtime/index.ts`) bootstraps `window.foliplus`.
  * - CDN scripts set their own globals — `L` (Leaflet), `turf`, `chroma`,
  *   `h3`, `gcoord`, `ss`, `GeoTIFF`, `pako`.
@@ -28,7 +28,7 @@ import type {
   LayerInfo as CoreLayerInfo,
 } from "#core/layer/type.js";
 import type { ModeManager as CoreModeManager } from "#core/mode.js";
-import type { NumberStyle } from "#common/format.js";
+import type { ComponentConfig } from "#foliplus/config-schema.js";
 import type { LocaleTables } from "#common/locale.js";
 
 // ── Inline CDN typings (no usable @types) ───────────────────────
@@ -122,50 +122,9 @@ declare module "leaflet" {
 }
 
 declare global {
-  /** Per-component config injected by the Jinja2 IIFE. Fields are runtime-defined. */
-  interface ComponentConfig {
-    name: string;
-    /** Locale tables written by `BaseControl._config_block` for every control. */
-    locale_tables?: LocaleTables;
-    locale_code?: string;
-    position?: Leaflet.ControlPosition;
-    /** Collapse the control's panel on a press outside it (panel controls). */
-    collapse_on_outside?: boolean;
-    mode?: string;
-    zoom?: number;
-    provider?: string | ProviderConfig;
-    provider_config?: Record<string, unknown> | null;
-    data?: Array<{ name: string; id: string; group: "base" | "overlay" }>;
-    show_bearing?: boolean;
-    label_show?: boolean;
-    label_collide?: boolean;
-    show_zoom?: boolean;
-    show_live_coords?: boolean;
-    agg?: string;
-    method?: string;
-    n_classes?: number;
-    field?: string;
-    color_scheme?: string;
-    border_weight?: number;
-    border_color?: string;
-    border_opacity?: number;
-    fill_opacity?: number;
-    label_color?: string;
-    label_size?: number;
-    label_format?: NumberStyle;
-    hide_self?: boolean;
-    hide_others?: boolean;
-    max_pixels?: number;
-    quality?: number;
-    scale?: string | number;
-    background?: string;
-    timeout?: number;
-    filename?: string;
-    format?: string;
-    export_format?: string;
-    schemes?: string[];
-    [key: string]: unknown;
-  }
+  /** Per-component config injected by the Jinja2 IIFE. Generated from
+   *  `foliplus/_config_schema.py` — see `foliplus/js/config-schema.ts`. */
+  type ComponentConfig = import("#foliplus/config-schema.js").ComponentConfig;
 
   /** Runtime helpers injected by the foliplus Python wrapper.
    * `runtime/index.ts` is the single builder of this object — members added
@@ -324,7 +283,7 @@ declare global {
 
   const map: Leaflet.Map;
   const foliplus: Foliplus;
-  const CONF: ComponentConfig;
+  const CONFIG: ComponentConfig;
   /** Build-time constant: `git describe` inlined by esbuild define. */
   const __FOLIPLUS_VERSION__: string;
 
@@ -341,7 +300,7 @@ declare global {
 
   interface Window {
     foliplus: Foliplus;
-    CONF: ComponentConfig;
+    CONFIG: ComponentConfig;
     L: typeof Leaflet;
     map: Leaflet.Map;
   }

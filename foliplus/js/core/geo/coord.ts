@@ -8,7 +8,7 @@
 import { internalLayers, layerUrl } from "#core/leafletAdapter.js";
 import { createLogger } from "#common/log.js";
 
-// coord.ts has no CONF — it is shared across components and core — so the
+// coord.ts has no CONFIG — it is shared across components and core — so the
 // library name is the only prefix that is correct here.
 const log = createLogger("foliplus");
 

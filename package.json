@@ -19,19 +19,19 @@
     "not dead"
   ],
   "scripts": {
-    "build": "node script/build.mjs",
-    "build:dev": "node script/build.mjs --dev",
-    "build:verify": "node script/build.mjs --verify",
-    "build:sonda": "node script/build.mjs --sonda",
-    "new-control": "node script/new-control.mjs",
+    "build": "node script/build/build.mjs",
+    "build:dev": "node script/build/build.mjs --dev",
+    "build:verify": "node script/build/build.mjs --verify",
+    "build:sonda": "node script/build/build.mjs --sonda",
+    "new-control": "node script/tool/new-control.mjs",
     "test": "vitest run --coverage",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit && eslint -c eslint.config.js -c eslint.config.type.js \"foliplus/js/**/*.ts\"",
     "typecheck:tests": "vitest run --config vitest.config.mjs test/js/tsconfig.test.ts",
     "lint": "eslint \"foliplus/js/**/*.ts\" \"test/js/**/*.ts\" \"script/**/*.mjs\"",
     "format:check": "prettier --check \"foliplus/js/**/*.{js,ts}\" \"foliplus/css/**/*.css\" \"script/**/*.{js,cjs,mjs,ts}\" \"test/js/**/*.{js,ts}\"",
-    "bundle-size:check": "node script/bundle-size-check.mjs",
-    "bundle-size:fuse": "node script/bundle-fuse.mjs"
+    "bundle-size:check": "node script/build/bundle-size-check.mjs",
+    "bundle-size:fuse": "node script/build/bundle-fuse.mjs"
   },
   "devDependencies": {
     "@trivago/prettier-plugin-sort-imports": "^5.2.2",

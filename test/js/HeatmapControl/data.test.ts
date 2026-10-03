@@ -1,4 +1,4 @@
-// Unit tests for HeatmapControl/data — the pure aggregation helpers.
+﻿// Unit tests for HeatmapControl/data —the pure aggregation helpers.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/HeatmapControl/const.js";
 import {
@@ -10,6 +10,9 @@ import {
   readMarkerField,
 } from "#foliplus/HeatmapControl/data.js";
 import type { SelectedPoint } from "#foliplus/HeatmapControl/type.js";
+import { createLogger } from "#common/log.js";
+
+const LOG = createLogger("HeatmapControl");
 
 const makePt = (overrides: Partial<SelectedPoint> = {}): SelectedPoint => ({
   lat: 26.08,
@@ -123,20 +126,20 @@ describe("aggregateData", () => {
 
   it("aggregates with SUM / MIN / MAX / default agg", () => {
     const pts = [makePt({ value: 5 }), makePt({ value: 3 }), makePt({ value: 8 })];
-    const sum = aggregateData(pts, 4, "sum", 3, "equal", "Reds", vi.fn());
+    const sum = aggregateData(pts, 4, "sum", 3, "equal", "Reds", vi.fn(), LOG);
     expect(sum!.getAggValue(sum!.hexCells["cell_a"])).toBe(16);
-    const min = aggregateData(pts, 4, "min", 3, "equal", "Reds", vi.fn());
+    const min = aggregateData(pts, 4, "min", 3, "equal", "Reds", vi.fn(), LOG);
     expect(min!.getAggValue(min!.hexCells["cell_a"])).toBe(3);
-    const max = aggregateData(pts, 4, "max", 3, "equal", "Reds", vi.fn());
+    const max = aggregateData(pts, 4, "max", 3, "equal", "Reds", vi.fn(), LOG);
     expect(max!.getAggValue(max!.hexCells["cell_a"])).toBe(8);
-    const unknown = aggregateData(pts, 4, "bogus", 3, "equal", "Reds", vi.fn());
+    const unknown = aggregateData(pts, 4, "bogus", 3, "equal", "Reds", vi.fn(), LOG);
     expect(unknown!.getAggValue(unknown!.hexCells["cell_a"])).toBe(3);
   });
 
   it("creates one cell per distinct H3 index under COUNT", () => {
     globalThis.h3.latLngToCell = vi.fn(lat => `cell_${lat}`);
     const pts = [makePt({ lat: 26.08 }), makePt({ lat: 26.09 })];
-    const result = aggregateData(pts, 4, "count", 6, "equal", "Reds", vi.fn());
+    const result = aggregateData(pts, 4, "count", 6, "equal", "Reds", vi.fn(), LOG);
     expect(result).not.toBeNull();
     expect(Object.keys(result!.hexCells)).toHaveLength(2);
   });
@@ -150,6 +153,7 @@ describe("aggregateData", () => {
       "equal",
       "Reds",
       vi.fn(),
+      LOG,
     );
     expect(result!.getAggValue(result!.hexCells["cell_a"])).toBe(5);
     // Defensive: a cell with count 0 returns 0, not NaN.
@@ -167,7 +171,7 @@ describe("aggregateData", () => {
         .mockImplementation(() => "cell_b"),
     } as never;
     const pts = [makePt({ value: 1 }), makePt({ value: 2 })];
-    const result = aggregateData(pts, 4, "count", 3, "equal", "Reds", vi.fn());
+    const result = aggregateData(pts, 4, "count", 3, "equal", "Reds", vi.fn(), LOG);
     expect(result).not.toBeNull();
     expect(Object.keys(result!.hexCells)).toEqual(["cell_b"]);
     warn.mockRestore();
@@ -175,7 +179,7 @@ describe("aggregateData", () => {
 
   it("calls onEmpty and returns null for no hex cells", () => {
     const onEmpty = vi.fn();
-    const result = aggregateData([], 4, "count", 3, "equal", "Reds", onEmpty);
+    const result = aggregateData([], 4, "count", 3, "equal", "Reds", onEmpty, LOG);
     expect(result).toBeNull();
     expect(onEmpty).toHaveBeenCalled();
   });
@@ -191,8 +195,8 @@ describe("aggregateData", () => {
       makePt({ lat: 26.09, lng: 119.4, value: 1 }),
       makePt({ lat: 26.1, lng: 119.5, value: 1 }),
     ];
-    const result = aggregateData(pts, 4, "count", 3, "equal", "Reds", vi.fn());
-    // Three equal count cells → equal breaks [1,1,1,1]; a value in range maps
+    const result = aggregateData(pts, 4, "count", 3, "equal", "Reds", vi.fn(), LOG);
+    // Three equal count cells —equal breaks [1,1,1,1]; a value in range maps
     // to class 0, a value beyond all breaks lands in the last class.
     expect(result!.valueToClassIdx(1)).toBe(0);
     expect(result!.valueToClassIdx(99)).toBe(2);
@@ -221,7 +225,7 @@ describe("buildFeatures", () => {
       valueToClassIdx: val => Math.min(val - 1, 0),
       classColors: ["#ff0000", "#00ff00"],
     };
-    const features = buildFeatures(aggregated);
+    const features = buildFeatures(aggregated, LOG);
     expect(features).toHaveLength(2);
     expect(features[0].properties.value).toBe(5);
     expect(features[0].properties.h3).toBe("abc");
@@ -235,7 +239,7 @@ describe("buildFeatures", () => {
       valueToClassIdx: () => 0,
       classColors: [],
     };
-    expect(buildFeatures(aggregated)).toEqual([]);
+    expect(buildFeatures(aggregated, LOG)).toEqual([]);
   });
 
   it("computes the centroid from the boundary ring when h3.cellToLatLng fails", () => {
@@ -249,12 +253,15 @@ describe("buildFeatures", () => {
       [2, 0],
       [0, 0],
     ]);
-    const feats = buildFeatures({
-      hexCells: { abc: { sum: 1, count: 1 } },
-      getAggValue: c => c.count,
-      valueToClassIdx: () => 0,
-      classColors: ["#ff0000"],
-    });
+    const feats = buildFeatures(
+      {
+        hexCells: { abc: { sum: 1, count: 1 } },
+        getAggValue: c => c.count,
+        valueToClassIdx: () => 0,
+        classColors: ["#ff0000"],
+      },
+      LOG,
+    );
     expect(feats).toHaveLength(1);
     // Centroid falls back to the ring centroid [cy/(n-1), cx/(n-1)] over
     // coords = [[0,0],[2,0],[2,2],[0,2],[0,0]]: cy = 0+0+2+2+0 = 4,
@@ -267,12 +274,15 @@ describe("buildFeatures", () => {
     globalThis.h3.cellToBoundary = vi.fn(() => {
       throw new Error("boundary fail");
     });
-    const feats = buildFeatures({
-      hexCells: { x: { sum: 1, count: 1, min: 1, max: 1 } },
-      getAggValue: () => 1,
-      valueToClassIdx: () => 0,
-      classColors: ["#a"],
-    });
+    const feats = buildFeatures(
+      {
+        hexCells: { x: { sum: 1, count: 1, min: 1, max: 1 } },
+        getAggValue: () => 1,
+        valueToClassIdx: () => 0,
+        classColors: ["#a"],
+      },
+      LOG,
+    );
     expect(feats).toHaveLength(0);
     warn.mockRestore();
   });

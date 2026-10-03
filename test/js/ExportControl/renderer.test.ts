@@ -6,10 +6,10 @@ import {
 } from "#foliplus/ExportControl/renderer/index.js";
 import * as UTIL from "#foliplus/ExportControl/util.js";
 
-// renderer.ts binds its logger to CONF.name at module-import time, so the
+// renderer.ts binds its logger to CONFIG.name at module-import time, so the
 // component name has to be set before the import resolves — setup.ts leaves it
 // at "SearchControl".  Must run before the import, not in beforeEach.
-window.CONF = { ...window.CONF, name: "ExportControl" };
+window.CONFIG = { ...window.CONFIG, name: "ExportControl" };
 
 // renderer.ts captures loadImageBitmap at import time, and the module's
 // exports are getters — vi.spyOn(UTIL, "loadImageBitmap") throws inside
@@ -178,8 +178,8 @@ const rcTiles = (rc: ReturnType<typeof makeRC>, n: number) => {
  *  the call count doubles as the tile count.  Width and height matter for the
  *  sprite maths, so they are parameterised.
  *
- *  The real loader cannot be used here: CONF.timeout is undefined under
- *  vitest's CONF literal, so AbortSignal.timeout(undefined) throws before
+ *  The real loader cannot be used here: CONFIG.timeout is undefined under
+ *  vitest's CONFIG literal, so AbortSignal.timeout(undefined) throws before
  *  fetch is reached and every bitmap comes back null. */
 
 function stubBitmaps(width = 64, height = 64) {

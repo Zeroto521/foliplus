@@ -1664,18 +1664,26 @@ describe("LayerUI focus", () => {
       expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(0);
     });
 
-    it("removes both focus rectangle and active menu simultaneously", () => {
+    it("destroy() clears the active overflow menu, not the focus the opener already tore down", () => {
       vi.useFakeTimers();
 
       const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
       ui.focusLayer("overlay1");
-      ui.openMoreMenu(item);
-
       const rect = ui.focusStore.focusRect!;
 
+      // Opening the menu tears the focus down — the surfaces are mutually
+      // exclusive — so the rectangle is already gone when destroy() runs.
+      ui.openMoreMenu(item);
+      expect(ui.focusStore.focusRect).toBeNull();
+      expect(map.removeLayer).toHaveBeenCalledWith(rect);
+
+      // The removal belongs to the opener boundary, so clear the spy before
+      // destroy: destroy must not try to remove the stale rectangle again, only
+      // the menu it found open.
+      map.removeLayer.mockClear();
       manager.destroy();
 
-      expect(map.removeLayer).toHaveBeenCalledWith(rect);
+      expect(map.removeLayer).not.toHaveBeenCalledWith(rect);
       expect(ui.focusStore.focusRect).toBeNull();
       expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(0);
     });

@@ -11,7 +11,6 @@
 // delegate that also syncs the panel rail (UI chrome outside the descriptor).
 import { CAP_TIER, DIM, GROUP } from "#core/layer/index.js";
 import { dom } from "#common/dom.js";
-import { createScopedTranslator } from "#common/locale.js";
 import * as CONST from "../../const.js";
 import type { LayerAccess } from "../access.js";
 import { applyProjection } from "../apply.js";
@@ -26,8 +25,6 @@ import {
   resetIntentKeys,
   writeIntentKeys,
 } from "./registry.js";
-
-const T = createScopedTranslator(CONF);
 
 /** Whether the layer's surface can honestly carry an opacity write. Layers with
  *  `opacity: "none"` (e.g. MarkerCluster, whose cluster icons live in a shared
@@ -155,7 +152,7 @@ const buildOpacityRow = (
     max: "100",
     step: "1",
     value: String(pct),
-    "aria-label": T("style_opacity"),
+    "aria-label": ps.T("style_opacity"),
   });
   const rail = dom.el(
     "div",
@@ -183,7 +180,7 @@ const buildOpacityRow = (
   return dom.el(
     "div",
     { class: CONST.CLASSES.FORM_ROW },
-    dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, T("style_opacity")),
+    dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ps.T("style_opacity")),
     dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, track),
   );
 };

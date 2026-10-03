@@ -2,7 +2,6 @@
 import { GROUP } from "#core/layer/index.js";
 import { ListCursor } from "#core/listCursor.js";
 import { dom, updateItemLabel } from "#common/dom.js";
-import { createScopedTranslator } from "#common/locale.js";
 import * as CONST from "../const.js";
 import * as SVGs from "../icon.js";
 import type { LayerAccess } from "./access.js";
@@ -20,8 +19,6 @@ import {
 } from "./rowView.js";
 import { applyUserState } from "./state.js";
 import { syncNoBasemap, syncToggleAll } from "./visibility.js";
-
-const T = createScopedTranslator(CONF);
 
 /** Full re-scan of every row (used on attach/fold-toggle). Idempotent —
  *  re-run on each CONTROL_ATTACHED so late-registering components are
@@ -222,7 +219,7 @@ const renderToggleAllRow = (
         (isFolded ? ` ${CONST.CLASSES.FOLDED}` : ""),
       tabindex: "0",
       "data-group": group,
-      title: T(isFolded ? "unfold_tooltip" : "fold_tooltip"),
+      title: ps.T(isFolded ? "unfold_tooltip" : "fold_tooltip"),
     },
     dom.el(
       "button",
@@ -238,10 +235,10 @@ const renderToggleAllRow = (
         type: "checkbox",
         "data-role": "toggle-all",
         checked: "",
-        title: T("toggle_all_deselect_tooltip"),
+        title: ps.T("toggle_all_deselect_tooltip"),
       }),
     ),
-    dom.el("span", { class: CONST.CLASSES.SEPARATOR_LABEL }, T(labelKey)),
+    dom.el("span", { class: CONST.CLASSES.SEPARATOR_LABEL }, ps.T(labelKey)),
     dom.el("div", { class: "foliplus-section-divider" }),
   );
 };
@@ -270,8 +267,8 @@ const renderLayerItem = (
     {
       class: CONST.CLASSES.MORE_BTN,
       type: "button",
-      title: T("more_tooltip"),
-      "aria-label": T("more_tooltip"),
+      title: ps.T("more_tooltip"),
+      "aria-label": ps.T("more_tooltip"),
     },
     { html: SVGs.MORE },
   );
@@ -281,7 +278,7 @@ const renderLayerItem = (
   const children: HTMLElement[] = [
     dom.el(
       "span",
-      { class: CONST.CLASSES.DRAG_CELL, title: T("drag_tooltip") },
+      { class: CONST.CLASSES.DRAG_CELL, title: ps.T("drag_tooltip") },
       { html: SVGs.DRAG_HANDLE },
     ),
     dom.el(

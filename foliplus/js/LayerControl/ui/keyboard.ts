@@ -3,7 +3,6 @@ import { HINT_DURATION } from "#core/hint.js";
 import { isNativeControl } from "#core/inputOwnership.js";
 import { GROUP } from "#core/layer/index.js";
 import { ListCursor } from "#core/listCursor.js";
-import { createScopedTranslator } from "#common/locale.js";
 import * as CONST from "../const.js";
 import type { LayerAccess } from "./access.js";
 import { closeAttrsPanel } from "./attr.js";
@@ -21,8 +20,6 @@ import { activateDeleteItem, closeMoreMenu, openMoreMenu } from "./menu.js";
 import type { PanelStore } from "./panelStore.js";
 import { finishRename, renameLayer } from "./rename.js";
 import { closeStylePanel } from "./style/index.js";
-
-const T = createScopedTranslator(CONF);
 
 /** Ensure the shared ListCursor and re-apply ARIA / roving tabindex.
  *  setIndex, not adopt: callers that already painted FOCUSED (keyboard /
@@ -345,13 +342,21 @@ const handleKeyDown = (
       event.preventDefault();
       const moved = la.moveLayerUp(id);
       if (!moved) {
-        la.map.foliplus!.showHint(CONF.name, T("reorder_top"), HINT_DURATION.SHORT);
+        la.map.foliplus!.showHint(
+          CONFIG.name,
+          ps.T("reorder_top"),
+          HINT_DURATION.SHORT,
+        );
       }
     } else if (event.key === "ArrowDown") {
       event.preventDefault();
       const moved = la.moveLayerDown(id);
       if (!moved) {
-        la.map.foliplus!.showHint(CONF.name, T("reorder_bottom"), HINT_DURATION.SHORT);
+        la.map.foliplus!.showHint(
+          CONFIG.name,
+          ps.T("reorder_bottom"),
+          HINT_DURATION.SHORT,
+        );
       }
     }
     const newItems = getNavigableItems(la, ps, fs);
@@ -434,7 +439,7 @@ const handleKeyDown = (
           // an entry without one has nothing to say.
           const reason = menuLi.getAttribute("title");
           if (reason) {
-            la.map.foliplus!.showHint(CONF.name, reason, HINT_DURATION.SHORT);
+            la.map.foliplus!.showHint(CONFIG.name, reason, HINT_DURATION.SHORT);
           }
           break;
         }

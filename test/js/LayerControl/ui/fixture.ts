@@ -171,8 +171,8 @@ const initFixture = (
     seed?: Record<string, unknown>;
   } = {},
 ): { manager: LayerManager; ui: LayerUI; map: any } => {
-  window.CONF.name = "LayerControl";
-  window.CONF.locale_code = "en";
+  window.CONFIG.name = "LayerControl";
+  window.CONFIG.locale_code = "en";
   if (options.seed) {
     window.localStorage.setItem(CONST.STORAGE.KEY, JSON.stringify(options.seed));
   }
@@ -206,6 +206,7 @@ const initFixture = (
     removeLayer: vi.fn(),
     fitBounds: vi.fn(),
     flyTo: vi.fn(),
+    closePopup: vi.fn(),
     getZoom: vi.fn(() => options.initialZoom ?? 5),
     getMaxZoom: vi.fn(() => options.maxZoom ?? 18),
     getMinZoom: vi.fn(() => 0),
@@ -391,6 +392,11 @@ const facesOf = (ui: Record<string, any>) => {
   ]) {
     if (ui[key] !== undefined) (ps as Record<string, unknown>)[key] = ui[key];
   }
+  // Translator seam: a stub that pins its own T/_ (identity, or a scoped
+  // lookalike) must win over PanelStore's CONFIG-derived defaults — the same
+  // injection the real coordinator provides via the instance getters.
+  if (ui.T !== undefined) (ps as Record<string, unknown>).T = ui.T;
+  if (ui._ !== undefined) (ps as Record<string, unknown>)._ = ui._;
   // The color basemap's default fill color — a stub that never set it must
   // still read the control's DEFAULT, not PanelStore's empty string.
   if ((ps as Record<string, unknown>).currentColor === "") {

@@ -1,4 +1,4 @@
-"""Tests for `script/smoke-wheel.py`, the release CI's wheel verifier.
+"""Tests for `script/check/smoke-wheel.py`, the release CI's wheel verifier.
 
 The script only runs against an installed wheel in the `release` job, but its
 manifest check is pure enough to exercise here — and it is the one assertion
@@ -26,7 +26,7 @@ import pytest
 
 HERE = Path(__file__).resolve().parent
 REPO_ROOT = HERE.parent.parent
-SCRIPT = REPO_ROOT / "script" / "smoke-wheel.py"
+SCRIPT = REPO_ROOT / "script" / "check" / "smoke-wheel.py"
 
 # `locate_controls()` inspects `dir(foliplus)`, so the stub must look like a
 # real package surface. Sorted to match `sorted(dir(...))` inside the script.
@@ -49,7 +49,7 @@ def _make_stub(package_dir: Path | None = None) -> types.ModuleType:
 
 @pytest.fixture
 def smoke():
-    """`script/smoke-wheel.py`, loaded without importing folium or foliplus."""
+    """`script/check/smoke-wheel.py`, loaded without importing folium or foliplus."""
     spec = importlib.util.spec_from_file_location("smoke_wheel", SCRIPT)
     module = importlib.util.module_from_spec(spec)
     assert spec.loader is not None
@@ -67,7 +67,7 @@ def _write_dist(tmp_path: Path, artifacts: list[str], files: list[str]) -> Path:
     """A fake installed ``foliplus/dist/``: manifest plus the named files."""
     dist = tmp_path / "dist"
     dist.mkdir()
-    (dist / "artifacts.json").write_text(
+    (dist / "manifest.json").write_text(
         json.dumps({"artifacts": artifacts}), encoding="utf-8"
     )
     for name in files:
@@ -143,7 +143,7 @@ def test_check_manifest_rejects_unexpected_file(tmp_path, controls, smoke):
         smoke.check_manifest(dist)
 
 
-def test_check_manifest_allows_artifacts_json(tmp_path, controls, smoke):
+def test_check_manifest_allows_manifest_json(tmp_path, controls, smoke):
     """The manifest itself lives in dist/ and is not an unexpected file."""
     dist = _write_dist(tmp_path, controls, _pairs(controls))
     assert smoke.check_manifest(dist) == controls

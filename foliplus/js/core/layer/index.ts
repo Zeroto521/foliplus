@@ -1,4 +1,4 @@
-// core — shared layer-management primitives (pure logic, no CONF/DOM).
+// core — shared layer-management primitives (pure logic, no CONFIG/DOM).
 // LayerControl composes these via LayerManager; other controls consume the
 // LayerAPI facade (map.foliplus.LayerAPI) rather than importing core directly.
 export {
@@ -11,6 +11,7 @@ export {
   GROUP,
   HIDDEN,
   KIND,
+  NO_FEATURE_TREE_KINDS,
   PANE_ROLE,
   RECURSION,
   Z_INDEX,
@@ -26,14 +27,13 @@ export { LayerSurface } from "./LayerSurface.js";
 export { PaneManager } from "./PaneManager.js";
 export {
   findLayer,
-  forEachLayer,
-  forEachLeaf,
   isLayerInPanes,
   setInteractive,
   suspendMapInteractions,
   getGeometryType,
   countFeatureGeometry,
 } from "./util.js";
+export { isContainerNode, someLeaf, walkLeaf, walkTree, findLeaf } from "./walkLeaf.js";
 export { ensureLayerAPI, requireLayerAPI } from "./api.js";
 export { CLUSTER_CAPABILITIES, deriveLayerKind } from "./util.js";
 export { LayerIntentStore } from "./LayerIntentStore.js";

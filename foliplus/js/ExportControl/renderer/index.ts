@@ -25,9 +25,9 @@ import {
   pooledEach,
 } from "./util.js";
 
-// CONF is a free variable from the IIFE template wrapper (see BaseControl._get_template).
-const T = createScopedTranslator(CONF);
-const log = createLogger(CONF.name);
+// CONFIG is a free variable from the IIFE template wrapper (see BaseControl._get_template).
+const T = createScopedTranslator(CONFIG);
+const log = createLogger(CONFIG.name);
 
 // ==================== ExportRenderer ====================
 // Mixed-mode renderer with independent rendering passes.

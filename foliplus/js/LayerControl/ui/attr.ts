@@ -10,11 +10,9 @@ import * as Util from "../util.js";
 import type { LayerAccess } from "./access.js";
 import { ATTRS_ROW_WRAP_CHARS } from "./context.js";
 import type { FocusStore } from "./focusStore.js";
-import { closeMoreMenu } from "./menu.js";
 import type { PanelStore } from "./panelStore.js";
-import { finishRename } from "./rename.js";
 import { displayName } from "./rowView.js";
-import { closeStylePanel } from "./style/index.js";
+import { closeOverlays } from "./teardown.js";
 
 /**
  * Open the attributes panel for a given layer row: display-only metadata
@@ -31,11 +29,10 @@ const openAttrsPanel = (
   fs: FocusStore,
   item: HTMLElement,
 ) => {
-  finishRename(la, ps, fs);
-  closeMoreMenu(la, ps, fs, true);
-  closeAttrsPanel(la, ps, fs, false);
-  // The style panel floats from the same 鈰?menu; never show both.
-  closeStylePanel(la, ps, fs, false);
+  // Tear down the competing overlays first — the same sweep every panel /
+  // menu opener runs (the rename teardown in particular keeps the row's
+  // label text fresh before we read it below).
+  closeOverlays(la, ps, fs);
 
   const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
   const isColor = layerId === CONST.SOLID_BASEMAP_ID;

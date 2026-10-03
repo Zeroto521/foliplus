@@ -2,14 +2,14 @@
 import { ensureInteraction } from "#core/interaction.js";
 
 const registerSchemeBarEvents = (map: L.Map, ctrl: any): (() => void) => {
-  const schemes = CONF.schemes ?? [];
+  const schemes = CONFIG.schemes ?? [];
   const setScheme = (name: string) => {
     ctrl.m.currentScheme = name;
     if (ctrl.schemeSelectHidden) ctrl.schemeSelectHidden.value = name;
     ctrl.updateScheme();
   };
   const interaction = ensureInteraction(map);
-  return interaction.register(CONF.name, [
+  return interaction.register(CONFIG.name, [
     {
       key: "ArrowUp",
       element: ctrl.schemeBar,
@@ -53,7 +53,7 @@ const registerDropdownEvents = (
   items: HTMLElement[],
 ): (() => void) => {
   const interaction = ensureInteraction(map);
-  return interaction.register(`${CONF.name}-dropdown`, [
+  return interaction.register(`${CONFIG.name}-dropdown`, [
     {
       key: "ArrowDown",
       element: ctrl.schemeDropdown,

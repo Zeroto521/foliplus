@@ -13,7 +13,7 @@ import * as CONST from "./const.js";
 import type { HexFeature } from "./type.js";
 
 /** Draw a single hexagon polygon (fill + stroke).
- *  Declared fill/border opacity (CONF.fill_opacity / CONF.border_opacity)
+ *  Declared fill/border opacity (CONFIG.fill_opacity / CONFIG.border_opacity)
  *  stacks multiplicatively with the layer alpha the opacity slider baked
  *  onto the canvas — do not write either one as a bare `globalAlpha`. */
 const drawHexagon = (
@@ -27,10 +27,10 @@ const drawHexagon = (
     map.latLngToContainerPoint(L.latLng(p[1], p[0])),
   );
   const layerAlpha = getLayerAlpha(ctx.canvas);
-  const fillAlpha = CONF.fill_opacity ?? 1;
+  const fillAlpha = CONFIG.fill_opacity ?? 1;
   // The border branch only runs when this is > 0, so the draw path can use
   // the resolved number directly (a second `?? 1` here would be unreachable).
-  const borderAlpha = CONF.border_opacity ?? 0;
+  const borderAlpha = CONFIG.border_opacity ?? 0;
   ctx.beginPath();
   ctx.moveTo(pts[0].x, pts[0].y);
   for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
@@ -80,7 +80,7 @@ const drawHexLabel = (
   const text = formatLabelNumber(
     feat.properties.value ?? 0,
     currentLabelFormat,
-    CONF.locale_code,
+    CONFIG.locale_code,
   );
   withCanvasLayerAlpha(ctx, () => {
     prepareCanvasLabel(ctx, style);

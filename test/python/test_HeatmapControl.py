@@ -368,7 +368,7 @@ class TestHeatmapControlBrowser:
             html = html.replace(
                 f'<script src="https://cdn.jsdelivr.net/npm/{cdn}"></script>', ""
             )
-        marker = 'CONF = {"name": "HeatmapControl"'
+        marker = 'CONFIG = {"name": "HeatmapControl"'
         idx = html.find(marker)
         if idx > 0:
             semi = html.find(";", idx)
@@ -1096,9 +1096,12 @@ class TestHeatmapControlBrowser:
             )
             # Emit the semantic LayerControl registry-change event on the EventBus
             # (replaces the old raw map.fire('layeradd') — the manager now
-            # subscribes to LAYER_CHANGE on the per-map EventBus).
+            # subscribes to LAYER_CHANGE on the per-map EventBus, and the payload
+            # carries {id, kind} so the handler can filter on kind without a
+            # registry walk).
             page.evaluate(
-                "window.__heatmapCtrl.manager.map.foliplus.events.emit('foliplus:layer:change')"
+                "window.__heatmapCtrl.manager.map.foliplus.events.emit("
+                "'foliplus:layer:change', { id: 'pts', kind: 'vector' })"
             )
             page.wait_for_timeout(1000)
             cached = page.evaluate("window.__heatmapCtrl.manager.cachedAgg")

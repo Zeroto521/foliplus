@@ -23,6 +23,7 @@
 // annotation label row, so a border row reads identically whether the layer
 // paints through `setStyle` or through a component's own canvas.
 import { CAP_TIER, DIM } from "#core/layer/index.js";
+import { findLeaf } from "#core/layer/walkLeaf.js";
 import { dom } from "#common/dom.js";
 import {
   BORDER_WEIGHT,
@@ -33,7 +34,6 @@ import {
   normalizeHexColor,
   numberInput,
 } from "#common/form.js";
-import { createScopedTranslator } from "#common/locale.js";
 import * as CONST from "../../const.js";
 import type { BorderRowBindTarget, BorderRowBuildTarget } from "../../type.js";
 import type { LayerAccess } from "../access.js";
@@ -61,8 +61,6 @@ import {
   styleDimPayload,
   walkStyleLeaves,
 } from "./styleBag.js";
-
-const T = createScopedTranslator(CONF);
 
 /** Whether the layer's surface can honestly carry a border write.
  *  Pure capability check: `capabilities.stroke === "native"`.
@@ -100,16 +98,8 @@ const STYLE_BORDER_DEFAULT = "#3388ff";
  *  stops at the group and reads its own options, which hold only the style
  *  function: the panel then shows Leaflet's defaults instead of the author's
  *  stroke, which is the stroke the layer is actually painting. */
-const firstCarrier = (node: StyleCarrier): StyleSetter | null => {
-  if (typeof node.eachLayer === "function") {
-    let found: StyleSetter | null = null;
-    node.eachLayer(child => {
-      if (!found) found = firstCarrier(child as StyleCarrier);
-    });
-    return found;
-  }
-  return isStyleSetter(node) ? node : null;
-};
+const firstCarrier = (node: StyleCarrier): StyleSetter | null =>
+  findLeaf<StyleSetter>(node, leaf => (isStyleSetter(leaf) ? leaf : undefined)) ?? null;
 
 /** The authored border of one layer, or the Leaflet defaults for a layer
  *  that has no declared style. Reads the captured base first — `setStyle`
@@ -164,16 +154,10 @@ const applyBorderToLayer = (
   const values: Record<string, unknown> = {};
   if (color !== undefined) values.color = color;
   if (weight !== undefined) values.weight = weight;
-  const walk = (node: StyleCarrier): void => {
-    // Groups are descended, never written: a group with a `setStyle` of its
-    // own (L.GeoJSON, L.FeatureGroup) would be written in place of its
-    // features, capturing the base on the group and leaving each feature
-    // without one, so a Reset would restore the defaults.
-    if (typeof node.eachLayer === "function") {
-      node.eachLayer(child => walk(child as StyleCarrier));
-      return;
-    }
-    if (!isStyleSetter(node)) return;
+  // Groups are descended, never written: walkStyleLeaves filters to leaves
+  // that own setStyle, so a group's style function (L.GeoJSON, L.FeatureGroup)
+  // never captures the base in place of its features.
+  walkStyleLeaves(layer, node => {
     // Shared write contract: value keys + visibility bit (`stroke: true`).
     commitStyleDim(node, values, FACE.STROKE);
     // Pin the leaf's stroke against folium's highlight restore via the shared
@@ -192,8 +176,7 @@ const applyBorderToLayer = (
       // the user's border the moment the pointer leaves.
       return styleDimPayload({ color: c, weight: w }, FACE.STROKE);
     });
-  };
-  walk(layer);
+  });
 };
 
 /** Shared apply scheduler (styleBag, face=`stroke`): one walk per frame.
@@ -394,15 +377,15 @@ const buildBorderRow = (
   const author = authoredBorder(la, ps, fs, layerId);
   return buildBorderRowShell({
     rowClass: `${CONST.CLASSES.FORM_ROW} ${CONST.CLASSES.STYLE_BORDER_ROW}`,
-    label: T("border"),
+    label: ps.T("border"),
     color: displayColor(getIntent(la, layerId, INTENT.BORDER_COLOR) ?? author.color),
     weight: getIntent(la, layerId, INTENT.BORDER_WEIGHT) ?? author.weight,
     hasColorInput: true,
     hasWeightInput: true,
     className: CONST.CLASSES.STYLE_BORDER_COLOR_INPUT,
     weightClassName: CONST.CLASSES.STYLE_BORDER_WEIGHT_INPUT,
-    colorAria: T("style_border_color"),
-    weightAria: T("style_border_weight"),
+    colorAria: ps.T("style_border_color"),
+    weightAria: ps.T("style_border_weight"),
   });
 };
 

@@ -299,7 +299,10 @@ describe("buildRowCell + applyRowView (one writer per row)", () => {
 });
 
 describe("applyRowView (the single DOM write point)", () => {
-  const ui: LayerUI = { T: vi.fn((k: string) => k) } as unknown as LayerUI;
+  const ui = attachFaces({
+    T: vi.fn((k: string) => k),
+    _: vi.fn((k: string) => k),
+  } as unknown as LayerUI);
 
   const item = (): HTMLElement => {
     const el = document.createElement("div");
@@ -327,7 +330,7 @@ describe("applyRowView (the single DOM write point)", () => {
 
     const input = el.querySelector<HTMLInputElement>('input[type="checkbox"]')!;
     expect(input.checked).toBe(true);
-    expect(input.title).toBe("LayerControl.deselect_tooltip");
+    expect(input.title).toBe("deselect_tooltip");
     expect(input.getAttribute("aria-label")).toBe("Alpha");
     expect(el.classList.contains(CONST.CLASSES.ACTIVE)).toBe(true);
     expect(el.querySelector<HTMLElement>(CONST.SEL.COUNT_COL)!.textContent).toBe("4");
@@ -366,9 +369,8 @@ describe("applyRowView (the single DOM write point)", () => {
       runtimeStore: new LayerRuntimeStore(),
       focusingLayerId: null,
       T: (k: string) => k,
-      conf: { locale_code: "en" },
+      config: { locale_code: "en" },
     } as unknown as LayerUI);
-
     const info = { id: "x", layer: { options: {} } } as LayerInfo;
     const result = buildRowCell(bare.la, bare.panelStore, bare.focusStore, info);
     expect(result.checked).toBe(true);

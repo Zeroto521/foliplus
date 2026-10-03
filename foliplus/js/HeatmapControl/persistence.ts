@@ -9,12 +9,12 @@ import type { ManagerLike, SavedConfig } from "./type.js";
 
 /** Load saved configuration from localStorage. */
 const loadSavedConfig = (): SavedConfig | null => {
-  return Storage.loadRecord<SavedConfig | null>(CONST.STORAGE.KEY, CONF.name);
+  return Storage.loadRecord<SavedConfig | null>(CONST.STORAGE.KEY, CONFIG.name);
 };
 
 /** Remove persisted configuration from localStorage. */
 const clearSavedConfig = (): void => {
-  Storage.removeRecord(CONST.STORAGE.KEY, CONF.name);
+  Storage.removeRecord(CONST.STORAGE.KEY, CONFIG.name);
 };
 
 /** Apply a loaded config object to the manager's state. */

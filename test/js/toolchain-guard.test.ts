@@ -5,10 +5,11 @@ import { describe, expect, it } from "vitest";
 
 // Guards on the build toolchain: how the scripts expose themselves, how the
 // `#script/*` alias is declared, how the lint config claims them, and that
-// test/js/script/ holds one test file per real module. None of these test a
-// module in script/, so none of them live in test/js/script/: that directory
-// stays a strict one-test-file-per-module mapping, and this file — named for
-// what it guards, not for a module — owes no entry to the naming rule it enforces.
+// test/js/script/ mirrors script/ — one test file per real module, subdirectories
+// included. None of these test a module in script/, so none of them live in
+// test/js/script/: that directory stays a strict one-test-file-per-module
+// mapping, and this file — named for what it guards, not for a module — owes
+// no entry to the naming rule it enforces.
 //
 // Resolved against cwd, the same repo root every build script assumes.
 const ROOT = resolve(".");
@@ -134,27 +135,45 @@ describe("eslint.config.js rule scoping", () => {
   });
 });
 
-// `test/js/script/X.test.ts` tests `script/X.{js,cjs,mjs}`. These two stems have
-// no such module: they point at repo-root files that are not in script/. One
+// A test file's "subject stem" is its path relative to test/js/script/, minus
+// the .test.ts extension: test/js/script/build/build.test.ts has stem
+// "build/build", test/js/script/args.test.ts has stem "args". The module side
+// uses the same convention under script/: the stem of script/build/build.mjs
+// is also "build/build". The two must match segment-for-segment — a test under
+// tool/ claiming a module under build/ (or vice versa) is a broken mirror, not
+// a renamed file.
+//
+// Two stems have no module to code against: Makefile.test.ts and
+// vitest.config.test.ts point at repo-root files that are not in script/. One
 // entry per exception, each naming what the file really tests.
 const NON_MODULE_TEST_SUBJECTS: Record<string, string> = {
   Makefile: "the root Makefile",
   "vitest.config": "vitest.config.mjs",
 };
 
-// `X.test.ts` has a subject when `X` is a real script module, or a stem that is
-// on the list above. Anything else is a fossil: a test file named for something
-// that does not exist.
+// `test/js/script/<stem>.test.ts` has a subject when a module exists at the
+// exact mirrored path `script/<stem>.{js,cjs,mjs}`, or a co-located module at
+// `test/js/script/<stem>.{js,cjs,mjs}` (fixture-generation utilities), or
+// `<stem>` is on the exception list above. Anything else is a fossil: a test
+// file named for something that does not exist.
 const hasSubject = (stem: string) =>
-  ["mjs", "cjs", "js"].some(ext =>
-    existsSync(resolve(ROOT, "script", `${stem}.${ext}`)),
+  ["mjs", "cjs", "js"].some(
+    ext =>
+      globSync({
+        cwd: ROOT,
+        patterns: [`script/${stem}.${ext}`],
+      }).length > 0 ||
+      globSync({
+        cwd: ROOT,
+        patterns: [`test/js/script/${stem}.${ext}`],
+      }).length > 0,
   ) || stem in NON_MODULE_TEST_SUBJECTS;
 
 describe("test/js/script naming", () => {
   it("every test file names the module it tests", () => {
     const tests = globSync({
       cwd: ROOT,
-      patterns: ["test/js/script/*.test.ts"],
+      patterns: ["test/js/script/**/*.test.ts"],
     }).sort();
     expect(tests.length).toBeGreaterThan(0);
 
@@ -186,7 +205,7 @@ describe("test/js/script naming", () => {
   it("still rejects a name that maps to nothing", () => {
     // Counter-proof. Without it the loop above would keep passing after someone
     // relaxed hasSubject into a prefix match or a wildcard exception — the guard
-    // would go decorative and no test would notice. All three names are real:
+    // would go decorative and no test would notice. The fossil names are real:
     // namespace-plugin.test.ts tested a script that never existed; exports.test.ts
     // was the same pattern, testing package.json and eslint.config.js rather than
     // any script/exports.mjs; script-module-surface.test.ts sat in test/js/script/
@@ -195,8 +214,18 @@ describe("test/js/script naming", () => {
     expect(hasSubject("exports")).toBe(false);
     expect(hasSubject("script-module-surface")).toBe(false);
     expect(hasSubject("never-a-module")).toBe(false);
-    expect(hasSubject("global-namespace-plugin")).toBe(true);
+    expect(hasSubject("global-namespace-plugin")).toBe(false);
+    expect(hasSubject("build/global-namespace-plugin")).toBe(true);
     expect(hasSubject("Makefile")).toBe(true);
+  });
+
+  it("rejects a test mirrored into the wrong script subdirectory", () => {
+    // The mirror rule is per-directory, not per-basename: a build/ test moved
+    // under tool/ still names an existing module by basename, but its path stem
+    // ("tool/build") no longer resolves to script/tool/build.mjs. Regressions
+    // here mean the subdirectory symmetry of the mirror is being erased.
+    expect(hasSubject("tool/build")).toBe(false);
+    expect(hasSubject("build/build")).toBe(true);
   });
 });
 
@@ -207,15 +236,18 @@ describe("test/js/script naming", () => {
 // cannot be. The list is empty today; keeping it is what makes the gap below
 // deliberate instead of silent.
 const INTENTIONAL_NO_TEST: Record<string, string> = {
-  "scan-locale-key": "CLI scanner — validated by locale test suite, not unit-tested",
+  // Path stem (same convention as the naming rule): script/check/scan-locale-key.mjs.
+  "check/scan-locale-key":
+    "CLI scanner — validated by locale test suite, not unit-tested",
 };
 
+// Same path-stem convention as the naming rule: script/build/build.mjs → "build/build".
 const scriptStem = (rel: string) =>
   rel.replace(/^script\//, "").replace(/\.(mjs|cjs|js)$/, "");
 
 const scriptTestStems = (): Set<string> =>
   new Set(
-    globSync({ cwd: ROOT, patterns: ["test/js/script/*.test.ts"] })
+    globSync({ cwd: ROOT, patterns: ["test/js/script/**/*.test.ts"] })
       .sort()
       .map(rel => rel.replace(/^test\/js\/script\//, "").replace(/\.test\.ts$/, "")),
   );
@@ -257,6 +289,9 @@ describe("script module coverage", () => {
     // escape hatch stopped being a list and started matching everything — the
     // guard would go decorative and no test would notice.
     expect(isCovered("glyph")).toBe(true);
+    expect(isCovered("build/compress")).toBe(true);
+    expect(isCovered("compress")).toBe(false);
+    expect(isCovered("tool/build")).toBe(false);
     expect(isCovered("never-a-module")).toBe(false);
   });
 });

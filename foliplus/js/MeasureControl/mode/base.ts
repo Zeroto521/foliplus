@@ -30,8 +30,8 @@ class MeasureMode {
   _cleanup: (() => void) | null;
   /** Config, translators and logger are the manager's — one translation table
    *  per control instance, not per mode. */
-  conf: ComponentConfig;
-  /** Scoped translator (prepending conf.name). */
+  config: ComponentConfig;
+  /** Scoped translator (prepending config.name). */
   T: (key: string) => string;
   /** Plain translator (no prefix) — NAME_LABEL_KEY identity comparison
    *  requires the exact short key when no locale table exists. */
@@ -43,7 +43,7 @@ class MeasureMode {
     this.map = manager.map;
     this.layers = manager.layers;
     this._cleanup = null;
-    this.conf = manager.conf;
+    this.config = manager.config;
     this.T = manager.T;
     this._ = manager._;
     this.log = manager.log;
@@ -87,7 +87,7 @@ class MeasureMode {
 
   /** Convert a persisted measurement to a GeoJSON Feature.
    *  Subclasses override this to return their specific geometry type. */
-  static toGeoFeature(env: ControlEnv, _data: MeasureData): GeoJSON.Feature {
+  static toGeoFeature(env: ControlEnv, data: MeasureData): GeoJSON.Feature {
     throw new Error(env.log.msg(`toGeoFeature not implemented for ${this.TYPE}`));
   }
 }

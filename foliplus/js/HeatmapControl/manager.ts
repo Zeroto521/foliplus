@@ -6,12 +6,12 @@ import {
 import { generateId } from "#core/component.js";
 import { EVENTS, type EventBus, ensureEvents } from "#core/event/index.js";
 import { bareFieldName } from "#core/labelField.js";
+import { NO_FEATURE_TREE_KINDS } from "#core/layer/index.js";
 import { type CanvasLabelStyle } from "#common/canvasLabel.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import { BORDER_WEIGHT, clampLabelSize, normalizeHexColor } from "#common/form.js";
 import { NUMBER_FORMAT, type NumberStyle } from "#common/format.js";
-import { createScopedTranslator } from "#common/locale.js";
-import { createLogger } from "#common/log.js";
+import { type Logger, createLogger } from "#common/log.js";
 import { bindMapSync } from "#common/panel.js";
 import { type Persisted, makePersisted } from "#common/storage.js";
 import * as Storage from "#common/storage.js";
@@ -46,15 +46,23 @@ import type {
 } from "./type.js";
 import { type HeatmapControlUI, rebuildLayerDropdown, resetPanel } from "./ui.js";
 
-const T = createScopedTranslator(CONF);
-const log = createLogger(CONF.name);
+type HeatmapManagerEnv = {
+  readonly T: (key: string) => string;
+  readonly log: Logger;
+};
+
+const NO_OP_ENV: HeatmapManagerEnv = {
+  T: key => `HeatmapControl.${key}`,
+  log: createLogger("HeatmapControl"),
+};
 
 // ==================== Core: Data Aggregation & Rendering ====================
 class HeatmapManager {
   map: L.Map;
-  /** Translator bound to the module-level CONF, assigned once in the
-   *  constructor — same shape as MeasureControl / ExportControl managers. */
+  /** Translator handed in via env, assigned once in the constructor — same
+   *  shape as MeasureControl / ExportControl managers. */
   T: (key: string) => string;
+  private readonly log: Logger;
   /** Per-map event bus — bound once in the constructor (ensure-style getters
    *  return the cached instance, so hold it like the logger does). */
   events: EventBus;
@@ -76,7 +84,7 @@ class HeatmapManager {
   currentLabelColor: string;
   currentLabelSize: number;
   /** Runtime label number format — heatmap panel and layer drawer both write
-   *  this; Python CONF only seeds the initial value. */
+   *  this; Python CONFIG only seeds the initial value. */
   currentLabelFormat: NumberStyle;
   /** Style provider — shared by the layer drawer and the heatmap panel's
    *  label controls (core/labelControl). Reads live state; the drawer refreshes on
@@ -136,35 +144,45 @@ class HeatmapManager {
 
   /**
    * @param mapInstance - Leaflet map instance.
+   * @param env - Manager environment (translator + logger). Defaults to
+   *   NO_OP_ENV when omitted.
    * @param opts - Optional configuration.
    * @param opts.id - Optional namespace for the layer ID. When provided,
    *   the canvas is registered as "{ID}_{id}" to support multi-instance maps.
    */
-  constructor(mapInstance: L.Map, opts?: { id?: string }) {
+  constructor(
+    mapInstance: L.Map,
+    env: HeatmapManagerEnv = NO_OP_ENV,
+    opts?: { id?: string },
+  ) {
     this.map = mapInstance;
-    this.T = T;
+    this.T = env.T;
+    this.log = env.log;
     this.layerId = generateId(CONST.ID, opts?.id);
 
     // State management
     this.selectedLayerId = null;
     this.pointLayers = [];
-    this.currentAgg = CONF.agg ?? CONST.AGG.COUNT;
+    this.currentAgg = CONFIG.agg ?? CONST.AGG.COUNT;
     this.currentField = "";
-    this.currentScheme = CONF.color_scheme ?? "Reds";
-    this.currentMethod = CONF.method ?? CLASSIFY_METHOD.JENKS;
+    this.currentScheme = CONFIG.color_scheme ?? "Reds";
+    this.currentMethod = CONFIG.method ?? CLASSIFY_METHOD.JENKS;
     this.autoFieldKey = null;
-    this.numClasses = CONF.n_classes ?? CONST.CLASS_COUNT.DEFAULT;
-    this.borderWeight = CONF.border_weight ?? BORDER_WEIGHT.DEFAULT;
-    this.borderColor = CONF.border_color ?? CONST.GRAY;
+    this.numClasses = CONFIG.n_classes ?? CONST.CLASS_COUNT.DEFAULT;
+    this.borderWeight = CONFIG.border_weight ?? BORDER_WEIGHT.DEFAULT;
+    this.borderColor = CONFIG.border_color ?? CONST.GRAY;
     // Python default is True; only an explicit false turns labels off — same
     // `!== false` rule MeasureControl uses for label_show / label_collide.
-    this.currentLabelShow = CONF.label_show !== false;
+    this.currentLabelShow = CONFIG.label_show !== false;
     // Color inputs require #rrggbb — normalize the short #fff Python default.
     this.currentLabelColor = normalizeHexColor(
-      CONF.label_color ?? CONST.LABEL.COLOR_DEFAULT,
+      CONFIG.label_color ?? CONST.LABEL.COLOR_DEFAULT,
     );
-    this.currentLabelSize = clampLabelSize(CONF.label_size ?? CONST.LABEL.SIZE_DEFAULT);
-    this.currentLabelFormat = (CONF.label_format ?? NUMBER_FORMAT.AUTO) as NumberStyle;
+    this.currentLabelSize = clampLabelSize(
+      CONFIG.label_size ?? CONST.LABEL.SIZE_DEFAULT,
+    );
+    this.currentLabelFormat = (CONFIG.label_format ??
+      NUMBER_FORMAT.AUTO) as NumberStyle;
     this.valueFallbackWarned = false;
     this.sourceMeta = {};
     // Write-through binding: config is durable the moment a UI change lands,
@@ -188,10 +206,10 @@ class HeatmapManager {
             labelFormat: this.currentLabelFormat,
             field: this.currentField,
           } satisfies SavedConfig,
-          CONF.name,
+          CONFIG.name,
         ),
     });
-    // Snapshot the Python CONF style defaults before any runtime toggle so
+    // Snapshot the Python CONFIG style defaults before any runtime toggle so
     // Reset restores exactly what construction started from (never localStorage).
     const defaultLabelShow = this.currentLabelShow;
     const defaultLabelColor = this.currentLabelColor;
@@ -272,7 +290,7 @@ class HeatmapManager {
     };
     this.overlay = map.foliplus!.LayerAPI!.createCanvas({
       id: this.layerId,
-      name: T("title"),
+      name: this.T("title"),
       iconSvg: SVGs.HEXAGON,
       featureCountProvider: () => this.cachedFeatures?.length ?? 0,
       getBounds: () => this.computeBounds(),
@@ -383,11 +401,26 @@ class HeatmapManager {
     }, CONST.TIMING.LAYER_SCAN_DEBOUNCE);
     // Subscribe to the semantic registry-change event instead of raw Leaflet
     // layeradd/layerremove — LayerManager emits EVENTS.LAYER_CHANGE on
-    // register/unregister/reorder, so unrelated map activity is filtered out
-    // and callback-only registrations (no map.addLayer) are covered too.
-    this.removeLayerChangeListener = this.events.on(EVENTS.LAYER_CHANGE, () =>
-      this.onLayerChange(),
-    );
+    // register/unregister/reorder/membership, so unrelated map activity is
+    // filtered out and callback-only registrations (no map.addLayer) are
+    // covered too. The payload carries the changed layer's kind, so a layer
+    // that cannot hold point markers is dropped without a map walk: a tile
+    // basemap, a solid colour face, and a self-drawn canvas all come back
+    // "base"/null from getLayerType, so scanMapLayers would have filtered them
+    // out and the source list would come out identical.
+    this.removeLayerChangeListener = this.events.on(EVENTS.LAYER_CHANGE, payload => {
+      // Guard: third-party or historical bare emit (no payload).
+      // All product emit sites carry {id, kind} — a missing payload here
+      // means an external caller fired the event without the contract.
+      // Fallback: treat as a full layer change and rescan.
+      if (!payload) {
+        this.onLayerChange();
+        return;
+      }
+      const { kind } = payload;
+      if (NO_FEATURE_TREE_KINDS.has(kind)) return;
+      this.onLayerChange();
+    });
     // LayerControl's deleteLayer emits LAYER_DELETED for component-owned layers
     // instead of retiring the id in removedIds, so the heatmap can clear its
     // data and stay registerable for the next source pick. The clear resets
@@ -402,7 +435,7 @@ class HeatmapManager {
       } else {
         // No panel (control removed, or never built): reset state and wipe the
         // canvas directly so a re-add does not render the stale selection.
-        this.resetState(CONF);
+        this.resetState(CONFIG);
         this.clearHeatmapCanvas();
         this.syncSourceMeta();
       }
@@ -586,7 +619,7 @@ class HeatmapManager {
     if (val === undefined || isNaN(val)) {
       if (!this.valueFallbackWarned) {
         this.valueFallbackWarned = true;
-        log.warn("value fallback to 1", this.currentField);
+        this.log.warn("value fallback to 1", this.currentField);
       }
       return 1;
     }
@@ -660,11 +693,12 @@ class HeatmapManager {
       this.currentMethod,
       this.currentScheme,
       () => this.clearHeatmapCanvas(),
+      this.log,
     );
   }
 
   buildFeatures(agg: AggregatedData): HexFeature[] {
-    return buildFeaturesFn(agg);
+    return buildFeaturesFn(agg, this.log);
   }
 
   renderFeatures(features: HexFeature[]) {
@@ -695,17 +729,17 @@ class HeatmapManager {
     this.events.emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: this.layerId });
   }
 
-  /** Reset selection + style state to the defaults declared in `conf`. Both
+  /** Reset selection + style state to the defaults declared in `config`. Both
    *  clear entries (the panel's Clear button and LayerControl's more-menu
    *  delete) go through here, so the two can never drift apart. */
-  resetState(conf: ComponentConfig) {
+  resetState(config: ComponentConfig) {
     this.selectedLayerId = null;
     this.autoFieldKey = null;
-    this.currentAgg = conf.agg ?? CONST.AGG.COUNT;
+    this.currentAgg = config.agg ?? CONST.AGG.COUNT;
     this.currentField = "";
-    this.numClasses = conf.n_classes ?? CONST.CLASS_COUNT.DEFAULT;
-    this.currentMethod = conf.method ?? CLASSIFY_METHOD.JENKS;
-    this.currentScheme = conf.color_scheme ?? "Reds";
+    this.numClasses = config.n_classes ?? CONST.CLASS_COUNT.DEFAULT;
+    this.currentMethod = config.method ?? CLASSIFY_METHOD.JENKS;
+    this.currentScheme = config.color_scheme ?? "Reds";
   }
 
   /** Load saved configuration from localStorage into this manager's state. */
@@ -749,8 +783,8 @@ class HeatmapManager {
       if (key) fieldLabel = bareFieldName(key);
     }
 
-    const sourceKey = T("meta_source_layer");
-    const fieldKey = T("meta_agg_field");
+    const sourceKey = this.T("meta_source_layer");
+    const fieldKey = this.T("meta_agg_field");
     const changed =
       this.sourceMeta[sourceKey] !== layerName ||
       this.sourceMeta[fieldKey] !== fieldLabel;

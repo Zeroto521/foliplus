@@ -93,7 +93,7 @@ const bindEvents = (ctrl: InteractionCtrl): (() => void) | void => {
     toggleBtn: ctrl.toggleBtn,
     onExpand: () => ctrl.inp.focus(),
     onCollapse: () => {
-      map.foliplus!.hideHint(ctrl.conf.name);
+      map.foliplus!.hideHint(ctrl.config.name);
       removePanel(ctrl);
     },
   });
@@ -130,7 +130,7 @@ const bindEvents = (ctrl: InteractionCtrl): (() => void) | void => {
   });
 
   const interaction = ensureInteraction(map);
-  interaction.register(ctrl.conf.name, [
+  interaction.register(ctrl.config.name, [
     {
       key: "Escape",
       element: ctrl.inp,
@@ -142,7 +142,7 @@ const bindEvents = (ctrl: InteractionCtrl): (() => void) | void => {
         ctrl.ctrl.classList.remove(CLASSES.EXPANDED);
         ctrl.ctrl.classList.add(CLASSES.COLLAPSED);
         adjustPanelZIndex({ container: ctrl.ctrl, expanded: false });
-        map.foliplus!.hideHint(ctrl.conf.name);
+        map.foliplus!.hideHint(ctrl.config.name);
       },
     },
     {
@@ -176,7 +176,7 @@ const bindEvents = (ctrl: InteractionCtrl): (() => void) | void => {
           if (selected.onClick()) removePanel(ctrl);
           return;
         }
-        if (guardBlocked(map, ctrl.conf.name, ctrl.T("blocked"))) return;
+        if (guardBlocked(map, ctrl.config.name, ctrl.T("blocked"))) return;
         removePanel(ctrl);
         ctrl.mode === MODE.COORD ? searchCoord(ctrl, raw) : searchAddress(ctrl, raw);
       },
@@ -209,7 +209,7 @@ const bindEvents = (ctrl: InteractionCtrl): (() => void) | void => {
   return () => {
     collapseObserver.disconnect();
     const interaction = ensureInteraction(map);
-    interaction.unregister(ctrl.conf.name);
+    interaction.unregister(ctrl.config.name);
   };
 };
 

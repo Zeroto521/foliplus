@@ -9,7 +9,7 @@ inherits from :class:`BaseControl`. This module owns the Python → JS bridge:
   deduplicated by :data:`_SHARED_ASSETS_NAME`.
 
 * **Config serialization** — each control's instance attributes are serialized into
-  the JS ``CONF`` object. The static part is assembled by :meth:`BaseControl._build_config`
+  the JS ``CONFIG`` object. The static part is assembled by :meth:`BaseControl._build_config`
   (shared ``name``/``position`` keys + subclass-declared :attr:`_config_fields` +
   dynamic :meth:`_extra_config` data), then :attr:`BaseControl._config_block` overlays
   the locale tables and code.
@@ -29,6 +29,7 @@ from folium.elements import JSCSSMixin
 from jinja2 import Template
 from jinja2.utils import htmlsafe_json_dumps
 
+from ._config_schema import SCHEMAS, config_fields
 from ._typing import Position
 from ._validate import validate
 from .locale import LocaleConfig, _load_tables, resolve_locale
@@ -36,11 +37,11 @@ from .locale import LocaleConfig, _load_tables, resolve_locale
 src_dir = Path(__file__).parent
 dist_dir = src_dir / "dist"
 
-# `script/build.mjs` writes this on every real build, listing what actually
+# `script/build/build.mjs` writes this on every real build, listing what actually
 # landed in `dist/`. Both test suites read it instead of re-deriving the
 # artifact names from prose, so a new component can't be forgotten on one
 # side and pass on the other.
-ARTIFACTS_MANIFEST = dist_dir / "artifacts.json"
+MANIFEST = dist_dir / "manifest.json"
 
 # JS line terminators. Legal JSON, but emitted literally they would end the
 # containing ``<script>`` statement early — folium's ``|tojson`` drops them,
@@ -146,7 +147,7 @@ def expected_artifacts() -> list[str]:
     rename land on one side and miss the other.
     """
 
-    names = json.loads(ARTIFACTS_MANIFEST.read_text(encoding="utf-8"))["artifacts"]
+    names = json.loads(MANIFEST.read_text(encoding="utf-8"))["artifacts"]
     return [p.name for name in names for p in control_assets(name)]
 
 
@@ -155,7 +156,7 @@ def _build_component_template(name: str) -> Template:
     """Read a component's JS/CSS and compile its Jinja template once (cached).
 
     The template is identical for every instance of a component (only the
-    render-time CONF / map name differ, both resolved at render time), so it
+    render-time CONFIG / map name differ, both resolved at render time), so it
     is built a single time per component name instead of on every render.
     """
     js_artifact, css_artifact = control_assets(name)
@@ -175,7 +176,7 @@ def _build_component_template(name: str) -> Template:
     {{% macro script(this, kwargs) %}}
     (() => {{
     const map = {{{{ this._parent.get_name() }}}};
-    const CONF = {{{{ this._config_block | safe }}}};
+    const CONFIG = {{{{ this._config_block | safe }}}};
     {js}
     }})();
     {{% endmacro %}}""")
@@ -217,10 +218,10 @@ class BaseControl(JSCSSMixin, MacroElement):
     foliplus components (FullscreenControl, HeatmapControl, LayerControl, etc.) inherit
     from this class.
 
-    Subclasses declare which instance attributes are exported to the JS ``CONF`` object
+    Subclasses declare which instance attributes are exported to the JS ``CONFIG`` object
     via :attr:`_config_fields`, and may supply dynamic render-time data by overriding
     :meth:`_extra_config`. The base class merges these with the shared
-    ``name``/``position`` keys and the locale tables into the ``CONF`` dict.
+    ``name``/``position`` keys and the locale tables into the ``CONFIG`` dict.
 
     Parameters
     ----------
@@ -233,7 +234,7 @@ class BaseControl(JSCSSMixin, MacroElement):
         appropriate locale table, falling back to English.
     """
 
-    #: Instance attributes re-exported as JS ``CONF`` keys (key name == attr name).
+    #: Instance attributes re-exported as JS ``CONFIG`` keys (key name == attr name).
     #:
     #: Subclasses declare their public configuration fields here. Each name is looked
     #: up via ``getattr(self, name)`` during :meth:`_build_config`, so the attribute
@@ -241,6 +242,34 @@ class BaseControl(JSCSSMixin, MacroElement):
     #: not resolve raises ``ValueError`` from :meth:`_build_config` (fail-fast) rather
     #: than failing later as a bare ``AttributeError``.
     _config_fields: tuple[str, ...] = ()
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        """Verify a subclass's ``_config_fields`` against the schema on definition.
+
+        ``foliplus._config_schema.SCHEMAS`` is the single source of truth for the CONFIG
+        contract: a control that declares a schema entry must have its
+        ``_config_fields`` tuple match the schema's non-runtime-only keys. This
+        fires at import time (``cls`` is being defined), so a schema drift is a
+        hard error rather than a runtime surprise or a test-only failure.
+
+        Controls without a schema entry are skipped here — the test suite's
+        ``test_every_basecontrol_subclass_is_registered`` catches those at test
+        time. The two together mean: adding a new control requires both a schema
+        entry (import-time check) and it must match ``_config_fields`` exactly.
+        """
+        super().__init_subclass__(**kwargs)
+        schema = SCHEMAS.get(cls.__name__)
+        if schema is None:
+            return
+        declared = tuple(cls._config_fields)
+        expected = config_fields(schema)
+        if declared != expected:
+            raise AssertionError(
+                f"{cls.__name__}._config_fields = {declared!r} but "
+                f"foliplus._config_schema.SCHEMAS declares {expected!r}. "
+                "Update either the schema (foliplus/_config_schema.py) or the "
+                "control's _config_fields — they must agree exactly."
+            )
 
     @validate
     def __init__(
@@ -268,7 +297,7 @@ class BaseControl(JSCSSMixin, MacroElement):
 
     @property
     def _config_block(self) -> str:
-        """Render the JS ``CONF`` dict as a JSON string for IIFE injection.
+        """Render the JS ``CONFIG`` dict as a JSON string for IIFE injection.
 
         Builds on the static config from :meth:`_build_config` (cached on
         :attr:`_config`) and overlays the two render-time pieces only known when
@@ -306,7 +335,7 @@ class BaseControl(JSCSSMixin, MacroElement):
         return _safe_json(config)
 
     def _extra_config(self) -> dict[str, object]:
-        """Return render-time config injected into the JS ``CONF`` object.
+        """Return render-time config injected into the JS ``CONFIG`` object.
 
         Subclasses override this to supply data that is only known at render time
         (e.g. LayerControl's layer list collected from the parent map). The base
@@ -315,7 +344,7 @@ class BaseControl(JSCSSMixin, MacroElement):
         return {}
 
     def _build_config(self) -> dict[str, object]:
-        """Assemble the static part of the JS ``CONF`` dict.
+        """Assemble the static part of the JS ``CONFIG`` dict.
 
         The merge order is:
 
@@ -327,7 +356,7 @@ class BaseControl(JSCSSMixin, MacroElement):
            e.g. LayerControl's layer list).
 
         Later entries win on key conflicts. The result is cached on :attr:`_config` so
-        tests can inspect exactly what gets serialized into the JS ``CONF`` object.
+        tests can inspect exactly what gets serialized into the JS ``CONFIG`` object.
         :attr:`_config_block` copies this dict before adding the locale overlay, so
         the cache is never polluted with render-time keys.
         """

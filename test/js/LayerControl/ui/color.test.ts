@@ -49,7 +49,7 @@ const makeUi = (layers: Array<{ id: string; group: "base" | "overlay" }> = []) =
     focusingLayerId: null,
     mgmt: { getFeatureCount: () => null },
     T: () => "",
-    conf: { locale_code: "en" },
+    config: { locale_code: "en" },
     m: {
       layers,
       findLayer: () => ({ group: "base" }),

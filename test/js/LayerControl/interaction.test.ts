@@ -46,6 +46,8 @@ function makeUI(): any {
     foliplus: {},
     getContainer: vi.fn(() => document.createElement("div")),
     on: vi.fn(),
+    eachLayer: vi.fn(),
+    closePopup: vi.fn(),
   };
   return attachFaces({
     uiContainer: container,

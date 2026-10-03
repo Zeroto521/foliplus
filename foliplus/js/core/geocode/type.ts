@@ -60,7 +60,7 @@ interface ProviderOpConfig {
  * Declarative (JSON-serializable) custom provider definition.
  *
  * Passed from the Python layer as the `provider` kwarg. Normalizers are
- * single-arg arrow-function source strings eval'd with a guard — CONF is
+ * single-arg arrow-function source strings eval'd with a guard — CONFIG is
  * authored by the map creator, never by end users.
  */
 interface ProviderConfig {

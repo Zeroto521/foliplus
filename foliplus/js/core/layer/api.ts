@@ -99,7 +99,7 @@ const isRealLayerControl = (api: LayerAPI | undefined): boolean => {
  * asserts the registry-delegating `layers` getter that only LayerManager
  * has, so the guard only accepts a real LayerControl.
  *
- * @param componentName - CONF.name, used as the hint key and log prefix.
+ * @param componentName - CONFIG.name, used as the hint key and log prefix.
  *                         Bound inside the function — the name is a parameter,
  *                         so a file-top `const log = createLogger(...)` is impossible.
  * @param T - Component-scoped translator (from createScopedTranslator).

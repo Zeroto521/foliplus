@@ -19,7 +19,7 @@ const registerInteractions = (
 ): (() => void) => {
   const container = ps.uiContainer!;
   const interaction = ensureInteraction(la.map);
-  return interaction.register(CONF.name, [
+  return interaction.register(CONFIG.name, [
     {
       key: "ArrowUp",
       container,

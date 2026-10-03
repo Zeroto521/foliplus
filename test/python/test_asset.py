@@ -43,14 +43,14 @@ from foliplus.BaseControl import (
 from foliplus.ExportControl import ExportControl
 from foliplus.SearchControl import SearchControl
 
-# Single source for the artifact list: `script/build.mjs` writes
-# `dist/artifacts.json` on every real build, and both this file and
-# `test/js/script/build.test.ts` read it. A new control is therefore
+# Single source for the artifact list: `script/build/build.mjs` writes
+# `dist/manifest.json` on every real build, and both this file and
+# `test/js/script/build/build.test.ts` read it. A new control is therefore
 # asserted in both stacks without either suite re-deriving the names.
 EXPECTED = expected_artifacts()
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-SCRIPT_PATH = REPO_ROOT / "script" / "smoke-wheel.py"
+SCRIPT_PATH = REPO_ROOT / "script" / "check" / "smoke-wheel.py"
 
 
 @pytest.fixture
@@ -74,7 +74,7 @@ def dist_copy(monkeypatch, tmp_path):
 
 
 def _smoke_module() -> types.ModuleType:
-    """`script/smoke-wheel.py`, loaded without importing the release stack.
+    """`script/check/smoke-wheel.py`, loaded without importing the release stack.
 
     This file already imports `BaseControl`, so the cross-check belongs here
     rather than in `test_smoke_wheel.py`, which deliberately avoids it to stay

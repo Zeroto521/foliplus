@@ -353,8 +353,8 @@ describe("LayerUI rename", () => {
       li.focus();
       expect(document.activeElement).toBe(li);
 
-      const focusSpy = vi.spyOn(Focus, "focusLayer");
-      const renameSpy = vi.spyOn(Rename, "renameLayer");
+      const focusSpy = vi.spyOn(Focus, "focusLayer").mockImplementation(() => {});
+      const renameSpy = vi.spyOn(Rename, "renameLayer").mockImplementation(() => {});
 
       const event = new KeyboardEvent("keydown", {
         key: "Enter",

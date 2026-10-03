@@ -15,7 +15,6 @@
 import { GROUP } from "#core/layer/index.js";
 import { formatNumber } from "#common/format.js";
 import * as Icons from "#common/icon.js";
-import { createScopedTranslator } from "#common/locale.js";
 import * as CONST from "../const.js";
 import * as SVGs from "../icon.js";
 import * as Util from "../util.js";
@@ -24,8 +23,6 @@ import type { FocusStore } from "./focusStore.js";
 import { INTENT, getIntent } from "./intent.js";
 import type { PanelStore } from "./panelStore.js";
 import { intentVisibleOf, projectLayer } from "./projection.js";
-
-const T = createScopedTranslator(CONF);
 
 /** One layer's inputs to the row visual. Nothing here is written back. */
 interface RowCell {
@@ -133,7 +130,7 @@ const displayName = (
   return (
     (getIntent(la, id, INTENT.NAME) as string | undefined) ??
     la.layerRegistry.get(id)?.name ??
-    (id === CONST.SOLID_BASEMAP_ID ? T("color_map_label") : "")
+    (id === CONST.SOLID_BASEMAP_ID ? ps.T("color_map_label") : "")
   );
 };
 
@@ -233,9 +230,9 @@ const buildRowCell = (
     // on screen regardless of its range. The policy write side reads the
     // same projection, so the formula has one home.
     shown: projectLayer(la, ps, fs, layerInfo).effectiveShown,
-    countText: count != null ? formatNumber(count, "auto", CONF.locale_code) : "",
+    countText: count != null ? formatNumber(count, "auto", CONFIG.locale_code) : "",
     typeSvg: type.svg,
-    typeLabel: T(type.key),
+    typeLabel: ps.T(type.key),
   };
 };
 
@@ -256,8 +253,8 @@ const applyRowView = (
   cell: RowCell,
 ): void => {
   const view = rowView(cell, {
-    select: T("select_tooltip"),
-    deselect: T("deselect_tooltip"),
+    select: ps.T("select_tooltip"),
+    deselect: ps.T("deselect_tooltip"),
   });
 
   const input = item.querySelector<HTMLInputElement>('input[type="checkbox"]');

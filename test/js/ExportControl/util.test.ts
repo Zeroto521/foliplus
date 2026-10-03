@@ -123,7 +123,7 @@ describe("loadImageBitmap", () => {
     globalThis.AbortSignal = Object.assign(globalThis.AbortSignal || {}, {
       timeout: () => ({}),
     }) as unknown as typeof AbortSignal;
-    window.CONF = { ...window.CONF, name: "ExportControl", timeout: 7500 };
+    window.CONFIG = { ...window.CONFIG, name: "ExportControl", timeout: 7500 };
   });
 
   it("returns null when fetch response is not ok", async () => {

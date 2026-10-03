@@ -1,4 +1,4 @@
-﻿// LayerControl UI 鈥?per-layer annotation style panel (entry module).
+// LayerControl UI 鈥?per-layer annotation style panel (entry module).
 //
 // Opened from a data layer's 鈰?menu. The panel is anchored to the layer's own
 // row and built on the shared `foliplus-panel` vocabulary (header bar, content
@@ -20,17 +20,14 @@ import {
   normalizeHexColor,
 } from "#common/form.js";
 import { type NumberStyle } from "#common/format.js";
-import { createScopedTranslator } from "#common/locale.js";
 import { createRowPanel } from "#common/panel.js";
 import * as CONST from "../../const.js";
 import * as SVGs from "../../icon.js";
 import type { LayerAccess } from "../access.js";
 import { authorZoomBoundsForLayer } from "../apply.js";
-import { closeAttrsPanel } from "../attr.js";
 import type { FocusStore } from "../focusStore.js";
-import { closeMoreMenu } from "../menu.js";
 import type { PanelStore } from "../panelStore.js";
-import { finishRename } from "../rename.js";
+import { closeOverlays } from "../teardown.js";
 import { bindBorderRow, resetLayerBorder } from "./border.js";
 import { layerHasStyleDelegation, renderDelegatedStylePanel } from "./delegated.js";
 import { bindFillRow, replayFillState, resetLayerFill } from "./fill.js";
@@ -47,8 +44,6 @@ import {
   syncZoomRangeRow,
   zoomToPct,
 } from "./zoomRange.js";
-
-const T = createScopedTranslator(CONF);
 
 /** Build the style panel DOM for a layer. Returns null when the layer owns
  *  neither a capable Label dimension nor a capable Layer dimension. */
@@ -107,30 +102,28 @@ const renderStylePanel = (
 };
 
 /** Open the annotation style panel for a layer. The panel is anchored to the
- *  layer's own row 鈥?the same "drop below the trigger" rule the attributes
- *  panel uses 鈥?so it needs no positioning code at all. */
+ *  layer's own row — the same "drop below the trigger" rule the attributes
+ *  panel uses — so it needs no positioning code at all. */
 const openStylePanel = (
   la: LayerAccess,
   ps: PanelStore,
   fs: FocusStore,
   layerId: string,
 ): void => {
-  closeStylePanel(la, ps, fs, false);
   if (!layerId) return;
-  // The style panel and the attributes panel float from the same 鈰?menu;
-  // never show both.
-  closeAttrsPanel(la, ps, fs, false);
+
+  // The row-lookup guard runs before teardown: an unknown id would clear
+  // whatever the user had open and then fail to open anything. The panel
+  // render stays after closeOverlays — `renderDelegatedStylePanel` sets
+  // `ps.styleRefresh` on this call, which `closeStylePanel` would wipe.
   const item = ps.uiContainer!.querySelector(
     `${CONST.SEL.LAYER_ITEM}[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"]`,
   ) as HTMLElement | null;
-  const panel = renderStylePanel(la, ps, fs, layerId);
-  if (!item || !panel) return;
+  if (!item) return;
 
-  finishRename(la, ps, fs);
-  // true returns focus to the row: the menu <li> that held focus is about to
-  // be removed, and a cursor parked on <body> would make Escape unreachable
-  // (handleKeyDown's container guard).
-  closeMoreMenu(la, ps, fs, true);
+  closeOverlays(la, ps, fs);
+  const panel = renderStylePanel(la, ps, fs, layerId);
+  if (!panel) return;
 
   // The panel sits inside a draggable layer row: a press on the panel must
   // neither start a row drag nor inherit `user-select: none` (attrs recipe).
@@ -387,8 +380,8 @@ const openStylePanel = (
       // Zoom range is LayerControl-owned: reset to the full map range.
       resetLayerZoomRange(la, ps, fs, layerId);
       if (delegated) {
-        // Call each setter with its Python CONF default. The components own
-        // the values 鈥?never write localStorage or annotation config here.
+        // Call each setter with its Python CONFIG default. The components own
+        // the values — never write localStorage or annotation config here.
         const li = la.layerRegistry.get(layerId);
         const setters = li?.styleSetters;
         const defaults = li?.styleDefaultsProvider?.() ?? {};

@@ -193,7 +193,7 @@ const EXPORT_FORMAT_META: Record<ExportFormat, ExportFormatSpec> = {
   },
 };
 
-/** Resolve a runtime `CONF.export_format` to a table key. Python's
+/** Resolve a runtime `CONFIG.export_format` to a table key. Python's
  * `MeasureControl` rejects anything outside `EXPORT_FORMAT`, so this only
  * guards misconfiguration. */
 const resolveExportFormat = (raw: unknown): ExportFormat =>
@@ -202,14 +202,14 @@ const resolveExportFormat = (raw: unknown): ExportFormat =>
     ? (raw as ExportFormat)
     : CONST.DEFAULT_EXPORT_FORMAT;
 
-/** The record for `CONF.export_format` — no cast, no fallback lookup. */
+/** The record for `CONFIG.export_format` — no cast, no fallback lookup. */
 const currentExportFormat = (env: ControlEnv): ExportFormatSpec =>
-  EXPORT_FORMAT_META[resolveExportFormat(env.conf.export_format)];
+  EXPORT_FORMAT_META[resolveExportFormat(env.config.export_format)];
 
 /** Filename the export writes to — shared with the success hint so
  * the two cannot drift. */
 const exportFilename = (env: ControlEnv, format: ExportFormat): string =>
-  `${env.conf.filename || "measurements"}.${EXPORT_FORMAT_META[format].ext}`;
+  `${env.config.filename || "measurements"}.${EXPORT_FORMAT_META[format].ext}`;
 
 /**
  * Convert measurements to a Blob and trigger a file download.
@@ -224,7 +224,7 @@ const exportMeasurements = (
   if (!measurements || measurements.length === 0) return;
 
   const meta = EXPORT_FORMAT_META[format];
-  const base = env.conf.filename || "measurements";
+  const base = env.config.filename || "measurements";
 
   download(
     new Blob([meta.serialize(env, measurements)], { type: meta.mime }),
@@ -243,7 +243,7 @@ const handleExportClick = (mgr: MeasureManager) => (event: Event) => {
   if (!measurements || measurements.length === 0) {
     // foliplus is per-map — hint via the manager's map instance.
     mgr.map.foliplus?.showHint?.(
-      mgr.conf.name,
+      mgr.config.name,
       mgr.T("export_no_data"),
       HINT_DURATION.LONG,
     );
@@ -252,13 +252,13 @@ const handleExportClick = (mgr: MeasureManager) => (event: Event) => {
   // Serialization and the download anchor are pure local operations, so a
   // failure is a developer error rather than a user error — but it is
   // still reported to the user, since the file was not saved.
-  const format = resolveExportFormat(mgr.conf.export_format);
+  const format = resolveExportFormat(mgr.config.export_format);
   try {
     exportMeasurements(mgr.env, measurements, format);
   } catch (err) {
     mgr.log.warn("export failed:", err);
     mgr.map.foliplus?.showHint?.(
-      mgr.conf.name,
+      mgr.config.name,
       mgr.T("export_fail") + mgr.T("err_export"),
       HINT_DURATION.LONG,
     );
@@ -267,7 +267,7 @@ const handleExportClick = (mgr: MeasureManager) => (event: Event) => {
   // Reported only after the download call returns: a throwing export never
   // wrote the file, so success is not claimed on that path.
   mgr.map.foliplus?.showHint?.(
-    mgr.conf.name,
+    mgr.config.name,
     mgr.T("export_success") +
       mgr
         .T("export_file")
