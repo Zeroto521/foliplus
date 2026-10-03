@@ -314,6 +314,7 @@ const bindEvents = (ui: LayerUI): void => {
     bus.on(EVENTS.LAYER_LIST_REBUILD, () => {
       renderInitialList(ui);
       initTypesAndVisibility(ui);
+      refreshAllCounts(ui);
     }),
     bus.on(EVENTS.LAYER_NO_BASEMAP_CHANGED, () => {
       syncNoBasemap(ui);
