@@ -33,7 +33,7 @@
 - `LayerControl`: `setVisible(id, visible)` on `LayerAPI` for programmatic layer visibility, taking the same transition and persistence as the panel checkbox ([#321](https://github.com/Zeroto521/foliplus/pull/321), [#570](https://github.com/Zeroto521/foliplus/pull/570))
 - `LayerControl`/`HeatmapControl`/`SearchControl`/`MeasureControl`: `collapse_on_outside` — whether a press outside the panel collapses it. Default `false` for `LayerControl`, whose panel is read alongside the map and whose busiest gesture is drag-pan / click-select; `true` for the other three, so their behaviour is unchanged ([#428](https://github.com/Zeroto521/foliplus/pull/428))
 - `LayerControl`: delete a layer from its ⋮ menu — a two-click confirm behind a divider, deletions persisted per map, colour basemap included ([#431](https://github.com/Zeroto521/foliplus/pull/431), [#499](https://github.com/Zeroto521/foliplus/pull/499), [#517](https://github.com/Zeroto521/foliplus/pull/517))
-- CONF contract: `_config_schema.py` is the single source — the `__init__` signature is the schema itself, so `_config_fields` / TS types / vitest fixture / `default_js` are all derived from it at class-definition time and drift is impossible rather than merely detected; the shared type alias `Position` is renamed to `ControlPosition` to match the Leaflet name and the schema tag it already carried ([#583](https://github.com/Zeroto521/foliplus/pull/583), [#599](https://github.com/Zeroto521/foliplus/pull/599), [#600](https://github.com/Zeroto521/foliplus/pull/600))
+- CONF contract: `_config_schema.py` is the single source — CONFIG is derived from each control's `__init__` signature ([#583](https://github.com/Zeroto521/foliplus/pull/583), [#599](https://github.com/Zeroto521/foliplus/pull/599), [#600](https://github.com/Zeroto521/foliplus/pull/600))
 
 ### Changed
 
@@ -94,6 +94,7 @@
 - `LayerControl`: remove the `onToggle` callback from `registerLayer` / `createCanvas` / `createColor` — breaking against the v0.3.x API; visibility rides the surface's `capabilities.visibility` carrier (canvas HIDDEN class / map membership), `LayerAPI.setVisible` for programmatic control ([#518](https://github.com/Zeroto521/foliplus/pull/518))
 - `LayerControl`: rename `isBase` to `group: "base" | "overlay"` — breaking against the v0.3.x API; migrate `isBase: true` → `group: "base"`, `isBase: false` → `group: "overlay"` ([#524](https://github.com/Zeroto521/foliplus/pull/524))
 - `core/layer`: rename `styleDefaults` to `styleDefaultsProvider` — breaking against the v0.3.x API; migrate `styleDefaults: …` → `styleDefaultsProvider: …` ([#530](https://github.com/Zeroto521/foliplus/pull/530))
+- `ControlPosition`: the shared `Position` type alias is renamed `ControlPosition` to match Leaflet's name; `from foliplus import Position` becomes `ControlPosition` — the constructor parameter is unchanged, only the annotation name is public ([#600](https://github.com/Zeroto521/foliplus/pull/600))
 
 ### Fixed
 
