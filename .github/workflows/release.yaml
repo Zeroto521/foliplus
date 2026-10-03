@@ -54,7 +54,7 @@ jobs:
         # cannot resolve to the source checkout instead.
         run: |
           pip install --target ./.wheelcheck dist/*.whl
-          PYTHONPATH=./.wheelcheck python script/smoke-wheel.py
+          PYTHONPATH=./.wheelcheck python script/check/smoke-wheel.py
 
       - name: Smoke-test the built sdist
         # The sdist is the artifact a user installs from pip when the tag
@@ -65,7 +65,7 @@ jobs:
         # exercised end-to-end.
         run: |
           pip install --target ./.sdistcheck dist/*.tar.gz
-          PYTHONPATH=./.sdistcheck python script/smoke-wheel.py
+          PYTHONPATH=./.sdistcheck python script/check/smoke-wheel.py
 
       - run: make info
 

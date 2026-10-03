@@ -1,0 +1,271 @@
+import { mkdirSync, rmSync, writeFileSync } from "fs";
+import { tmpdir } from "os";
+import { join, resolve } from "path";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  EXIT_FUSE,
+  EXIT_OK,
+  EXIT_UNKNOWN,
+  FUSE_CAPS,
+  fuse,
+  main,
+  readSizes,
+} from "#script/build/bundle-fuse.mjs";
+
+// The fuse judges brotli bytes. A repeated-literal fixture would collapse to
+// a few bytes and quietly land under every cap, so the "breach" case would
+// become a no-op. `payload` is incompressible — its brotli size tracks its
+// raw length, so a 20 KB fixture really does measure as ~20 KB.
+const payload = (bytes: number) => {
+  let x = 0x2f6e2b1;
+  let out = "";
+  for (let i = 0; i < bytes; i++) {
+    x = (Math.imul(x, 1103515245) + 12345) >>> 0;
+    out += String.fromCharCode(33 + (x % 94));
+  }
+  return out;
+};
+
+let tmpRoots: string[] = [];
+const mkTmp = (): string => {
+  const dir = join(
+    tmpdir(),
+    "fuse-test-" + Date.now() + "-" + Math.random().toString(36).slice(2),
+  );
+  tmpRoots.push(dir);
+  return dir;
+};
+const mkDist = (root: string, files: Record<string, string>) => {
+  const dir = join(root, "foliplus", "dist");
+  mkdirSync(dir, { recursive: true });
+  for (const [name, content] of Object.entries(files)) {
+    writeFileSync(join(dir, name), content, "utf-8");
+  }
+};
+
+afterEach(() => {
+  for (const dir of tmpRoots) rmSync(dir, { recursive: true, force: true });
+  tmpRoots = [];
+});
+
+// The gate must actually trip. A fuse whose body degenerates to
+// `return 0` (the "gate that always passes") would still satisfy every
+// positive assertion about table contents — but not these, which call
+// `fuse()` on a real dist directory and check its exit code.
+describe("bundle-fuse exit codes", () => {
+  it("returns EXIT_FUSE when an artifact exceeds its cap", () => {
+    const root = mkTmp();
+    // LocateControl's cap is 4.88 KB brotli; a 20 KB incompressible payload
+    // lands far above it, so the breach is unambiguous.
+    mkDist(root, { "foliplus-LocateControl.min.js": payload(20 * 1024) });
+    expect(fuse({}, root)).toBe(EXIT_FUSE);
+  });
+
+  it("returns EXIT_FUSE when the dist tree holds no minified artifacts", () => {
+    // The fuse is supposed to be the "always on" gate; a missing dist/ is
+    // a build error the caller must fix, so it exits non-zero rather than
+    // silently passing an empty report.
+    const root = mkTmp();
+    mkDist(root, {});
+    expect(fuse({}, root)).toBe(EXIT_FUSE);
+  });
+
+  it("returns 0 when every artifact is under its cap", () => {
+    const root = mkTmp();
+    // One trivial file per cap key: every measured size is 1-2 B brotli,
+    // well below any cap, so no breach and no unknown.
+    const files: Record<string, string> = {};
+    for (const key of Object.keys(FUSE_CAPS)) files[key] = "x";
+    mkDist(root, files);
+    expect(fuse({}, root)).toBe(EXIT_OK);
+  });
+
+  it("returns EXIT_UNKNOWN when a dist artifact has no cap entry", () => {
+    const root = mkTmp();
+    mkDist(root, {
+      "foliplus-LocateControl.min.js": "x",
+      "foliplus-NewControl.min.js": payload(512),
+    });
+    // The unknown takes precedence over the all-under-cap verdict — a
+    // genuinely new bundle should not slip through as a silent pass.
+    expect(fuse({}, root)).toBe(EXIT_UNKNOWN);
+  });
+
+  it("returns EXIT_UNKNOWN when the uncapped artifact sorts first", () => {
+    // The sort comparator's ternary (`aMissing ? -1 : 1`) has two branches:
+    // return -1 when a is missing (bubble a up), return 1 when b is missing
+    // (bubble b up). The previous test creates [same, missing] so the
+    // comparator sees (a=same, b=missing) and returns 1. This test creates
+    // [missing, same] so the comparator sees (a=missing, b=same) and returns
+    // -1 — covering the other branch of the ternary.
+    const root = mkTmp();
+    mkDist(root, {
+      "foliplus-NewControl.min.js": payload(512),
+      "foliplus-LocateControl.min.js": "x",
+    });
+    expect(fuse({}, root)).toBe(EXIT_UNKNOWN);
+  });
+
+  it("returns EXIT_UNKNOWN when every artifact lacks a cap entry", () => {
+    // Two uncapped bundles exercise the sort comparator's symmetric branch:
+    // when both rows are "missing", neither the first nor the second
+    // `if` fires (a.status is missing so the first `if`'s `b.status !==
+    // "missing"` fails; a.status is missing so the second `if`'s
+    // `a.status !== "missing"` fails), and the comparator falls through
+    // to the measured-size tiebreak. Without this case the second `if`'s
+    // false-path is never reached and the branch stays partial.
+    const root = mkTmp();
+    mkDist(root, {
+      "foliplus-NewControl-A.min.js": payload(256),
+      "foliplus-NewControl-B.min.js": payload(512),
+    });
+    expect(fuse({}, root)).toBe(EXIT_UNKNOWN);
+  });
+
+  // Reverse proof: the breach assertion above would still pass if the caps
+  // table were empty (`cap == null` would put the artifact in `unknown`,
+  // which is a different exit code). This pairs with `under cap` above:
+  // both must be reachable for the exit codes to be meaningful.
+  it("reads real sizes off disk", () => {
+    const root = mkTmp();
+    mkDist(root, { "foliplus-LocateControl.min.js": payload(20 * 1024) });
+    const sizes = readSizes(root) as Record<string, number>;
+    // 20 KB incompressible -> brotli size well over LocateControl's 4.88 KB
+    // cap; that is exactly the condition the breach test above relies on.
+    expect(sizes["foliplus-LocateControl.min.js"]).toBeGreaterThan(
+      FUSE_CAPS["foliplus-LocateControl.min.js"],
+    );
+  });
+});
+
+// Cap table hygiene. A stray entry with a non-positive cap would make the
+// fuse fire on every build (0 means even empty output breaches); a key
+// that no artifact matches would leave its artifact in `unknown` and force
+// a review event nobody can explain. Neither is recoverable from the
+// exit-code tests above, so the table is asserted on its own.
+describe("bundle-fuse cap table", () => {
+  it("has at least one entry per artifact kind", () => {
+    const jsCaps = Object.entries(FUSE_CAPS).filter(([k]) => k.endsWith(".min.js"));
+    const cssCaps = Object.entries(FUSE_CAPS).filter(([k]) => k.endsWith(".min.css"));
+    expect(jsCaps.length).toBeGreaterThan(0);
+    expect(cssCaps.length).toBeGreaterThan(0);
+  });
+
+  it("every cap is a positive integer", () => {
+    for (const [key, cap] of Object.entries(FUSE_CAPS)) {
+      expect(Number.isInteger(cap), key).toBe(true);
+      expect(cap, key).toBeGreaterThan(0);
+    }
+  });
+
+  it("every cap key is a plausible artifact name", () => {
+    for (const key of Object.keys(FUSE_CAPS)) {
+      expect(key, key).toMatch(/^foliplus-[A-Za-z]+\.min\.(js|css)$/);
+    }
+  });
+
+  it("does not duplicate artifact names", () => {
+    const keys = Object.keys(FUSE_CAPS);
+    expect(new Set(keys).size).toBe(keys.length);
+  });
+});
+
+describe("CLI entry", () => {
+  const SCRIPT = resolve(process.cwd(), "script", "bundle-fuse.mjs");
+
+  const trapExit = () =>
+    vi
+      .spyOn(process, "exit")
+      .mockImplementation((code?: string | number | null | undefined) => {
+        throw new Error(`exit:${code}`);
+      });
+
+  const runCli = async (argv: string[]) => {
+    const original = process.argv;
+    try {
+      Object.defineProperty(process, "argv", {
+        value: argv,
+        writable: true,
+        configurable: true,
+      });
+      vi.resetModules();
+      return await import("#script/bundle-fuse.mjs");
+    } finally {
+      Object.defineProperty(process, "argv", {
+        value: original,
+        writable: true,
+        configurable: true,
+      });
+    }
+  };
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("--help prints the usage and exits 0", () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const exit = trapExit();
+    expect(() => main(["--help"])).toThrow(`exit:${EXIT_OK}`);
+    expect(exit).toHaveBeenCalledWith(EXIT_OK);
+    expect(log.mock.calls.join("\n")).toContain("Usage:");
+  });
+
+  it("prints the error and exits 1 on an unknown flag", () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const exit = trapExit();
+    expect(() => main(["--bogus"])).toThrow(`exit:${EXIT_FUSE}`);
+    expect(exit).toHaveBeenCalledWith(EXIT_FUSE);
+    expect(error.mock.calls.join("\n")).toContain("Unknown flag: --bogus");
+  });
+
+  it("exits with the fuse verdict for a real dist tree", () => {
+    const root = mkTmp();
+    mkDist(root, { "foliplus-LocateControl.min.js": payload(20 * 1024) });
+    const exit = trapExit();
+    expect(() => main([`--root=${root}`])).toThrow(`exit:${EXIT_FUSE}`);
+    expect(exit).toHaveBeenCalledWith(EXIT_FUSE);
+  });
+
+  it("exits 0 when every artifact is under its cap", () => {
+    const root = mkTmp();
+    const files: Record<string, string> = {};
+    for (const key of Object.keys(FUSE_CAPS)) files[key] = "x";
+    mkDist(root, files);
+    const exit = trapExit();
+    expect(() => main([`--root=${root}`])).toThrow(`exit:${EXIT_OK}`);
+    expect(exit).toHaveBeenCalledWith(EXIT_OK);
+  });
+
+  it("defaults --root to the checkout and fuses it", async () => {
+    // `node script/bundle-fuse.mjs` without --root reads the checkout's own
+    // dist — the Makefile and CI call it exactly this way. The dist dir is
+    // shared build output that build.test.ts asserts on, so the size read is
+    // mocked at the lib seam instead: the reimported module's readSizes
+    // reports one under-cap artifact, and main() fuses that (exit:0) without
+    // touching the real dist tree.
+    vi.doMock("#script/bundle-size-lib.mjs", async importOriginal => {
+      const actual = (await importOriginal()) as Record<string, unknown>;
+      return {
+        ...actual,
+        readSizes: () => ({ "foliplus-ScaleControl.min.js": 1 }),
+      };
+    });
+    vi.resetModules();
+    try {
+      const mod = await import("#script/bundle-fuse.mjs");
+      const exit = trapExit();
+      expect(() => mod.main([])).toThrow(`exit:${EXIT_OK}`);
+      expect(exit).toHaveBeenCalledWith(EXIT_OK);
+    } finally {
+      vi.doUnmock("#script/bundle-size-lib.mjs");
+      vi.resetModules();
+    }
+  });
+
+  it("runs main() only when launched directly as a script", async () => {
+    const exit = trapExit();
+    await expect(runCli(["node", SCRIPT, "--help"])).rejects.toThrow(`exit:${EXIT_OK}`);
+    expect(exit).toHaveBeenCalledWith(EXIT_OK);
+  });
+});

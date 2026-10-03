@@ -27,10 +27,10 @@ export default defineConfig({
       exclude: [
         // Build orchestrator — spawns python/git/esbuild subprocesses and needs
         // the full build pipeline; not unit-testable in isolation.
-        "script/build.mjs",
+        "script/build/build.mjs",
         // Locale key scanner — CLI validated by the Python locale test suite,
         // not unit-tested.
-        "script/scan-locale-key.mjs",
+        "script/check/scan-locale-key.mjs",
         "foliplus/js/runtime/**",
         // Entry modules — require full Leaflet runtime (L.Control, addTo).
         // Glob so a newly scaffolded control is excluded without editing this list.
