@@ -82,7 +82,12 @@ _LOSSY_ANCHORS = "\u2013\u2014\u2192\u2190\u00b7\u3002"
 
 
 def _gbk_pair_char(b1: int, b2: int) -> str | None:
-    """Decode a GBK 2-byte pair to a single character, or ``None`` if invalid."""
+    """Decode a GBK 2-byte pair to a single character, or ``None`` if invalid.
+
+    Both ``except`` and the ``len != 1`` guard are defensive — every GBK
+    pair either decodes to exactly one character or raises
+    ``UnicodeDecodeError``. The guards are kept for future-proofing.
+    """
     try:
         s = bytes([b1, b2]).decode("gbk")
         return s if len(s) == 1 else None

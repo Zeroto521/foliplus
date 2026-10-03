@@ -357,6 +357,30 @@ class TestGbkEmDashLetterFamily:
         assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 1
 
 
+class TestGbkPairCharDefensive:
+    """Defensive branches in ``_gbk_pair_char``.
+
+    All 52 ``(0x94, X)`` pairs where ``X`` is an ASCII letter decode
+    cleanly, so the ``except`` branch is unreachable from the family
+    generator. Exercise it directly with a byte that is not a valid
+    GBK trailing byte — ``0x20`` (space) is the real-world pattern:
+    ``—`` followed by a space produces ``94 20``, which GBK rejects.
+    """
+
+    def test_invalid_trailing_byte_returns_none(self):
+        """``(0x94, 0x20)`` — em-dash + space, invalid GBK pair."""
+        assert mod._gbk_pair_char(0x94, 0x20) is None
+
+    def test_all_ascii_letters_decode_cleanly(self):
+        """The 52-letter family has no ``UnicodeDecodeError`` or
+        multi-char surprises — every member is a single CJK character."""
+        import string
+
+        chars = [mod._gbk_pair_char(0x94, ord(x)) for x in string.ascii_letters]
+        assert all(c is not None for c in chars)
+        assert all(len(c) == 1 for c in chars if c is not None)
+
+
 class TestEmDashGlued:
     """Em-dash glued to an ASCII letter (Rule 6).
 
