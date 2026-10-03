@@ -36,16 +36,8 @@ jobs:
         with:
           fetch-depth: 0
       - uses: ./.github/actions/setup-deps
-        with:
-          python-version: "3.x"
-
-      # The JS build regenerates config-schema.ts from a Python schema dump,
-      # which reflects every control's __init__ and so imports the package.
-      - run: uv sync --no-dev
 
       - run: npm run build:sonda
-        env:
-          PYTHON: ${{ github.workspace }}/.venv/bin/python
 
       # PR-only. Build the base branch in a detached worktree and capture its
       # sizes, then diff the PR build against them.
@@ -58,8 +50,6 @@ jobs:
       # node_modules trees are full of both on Linux runners.
       - name: Capture base sizes
         if: ${{ github.event.pull_request }}
-        env:
-          PYTHON: ${{ github.workspace }}/.venv/bin/python
         run: |
           git fetch --no-tags origin "${{ github.base_ref }}"
           git worktree add --detach /tmp/base "origin/${{ github.base_ref }}"
