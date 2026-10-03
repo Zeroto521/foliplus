@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from ._typing import Fraction, Position, PositiveInt
+from ._config_schema import FieldSpec
+from ._typing import ControlPosition, Fraction, PositiveInt
 from ._validate import Bound, validate
 from .BaseControl import BaseControl
 from .locale import LocaleConfig
@@ -118,12 +119,15 @@ class ExportControl(BaseControl):
     def __init__(
         self,
         *,
-        position: Position = "bottomright",
+        position: ControlPosition = "bottomright",
         filename: str = "map",
         format: FORMAT = "png",
         quality: Fraction = 0.92,
         scale: Annotated[float, Bound(0.0, None, exclusive_low=True)] = 2.0,
-        max_pixels: PositiveInt | None = 10_240_000,
+        max_pixels: Annotated[
+            PositiveInt | None,
+            FieldSpec(ts="", note="Null disables the pixel limit."),
+        ] = 10_240_000,
         timeout: Annotated[int, Bound(0, None)] = 7500,
         locale: str | LocaleConfig | None = None,
     ):
