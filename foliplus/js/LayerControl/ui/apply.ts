@@ -128,12 +128,8 @@ const OPACITY_REPAINT_DEBOUNCE_MS = 60;
 const pendingRedraws = new WeakMap<LayerInfo, number>();
 const scheduleOpacityRedraw = (
   layerInfo: LayerInfo,
-  mode: "debounce" | "immediate" | "none" = "none",
+  mode: "debounce" | "none" = "none",
 ): void => {
-  if (mode === "immediate") {
-    layerInfo.onOpacity?.(getLayerAlpha(layerInfo.canvas));
-    return;
-  }
   if (mode === "none") return;
   const prev = pendingRedraws.get(layerInfo);
   if (prev !== undefined) clearTimeout(prev);
@@ -205,7 +201,7 @@ const applyStateOp = (
   ui: LayerUI,
   layerInfo: LayerInfo,
   op: StateOp,
-  repaintMode: "debounce" | "immediate" | "none" = "none",
+  repaintMode: "debounce" | "none" = "none",
 ): void => {
   if (op.type === "visible") {
     const carrier = ui.m.surfaceFor(layerInfo).capabilities.visibility;
@@ -355,7 +351,7 @@ const applyStateOp = (
 const applyProjection = (
   ui: LayerUI,
   id: string,
-  repaintMode: "debounce" | "immediate" | "none" = "none",
+  repaintMode: "debounce" | "none" = "none",
 ): void => {
   const layerInfo = ui.m.layerRegistry.get(id);
   if (!layerInfo) return;
@@ -467,7 +463,7 @@ const applyProjection = (
  *  Idempotent — a changeless call is a no-op because every diff misses. */
 const applyProjectionAll = (
   ui: LayerUI,
-  repaintMode: "debounce" | "immediate" | "none" = "none",
+  repaintMode: "debounce" | "none" = "none",
 ): void => {
   for (const [id] of projectAll(ui)) applyProjection(ui, id, repaintMode);
 };
