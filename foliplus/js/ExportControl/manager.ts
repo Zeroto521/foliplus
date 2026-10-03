@@ -21,7 +21,7 @@ import {
   updateBoxStyle,
 } from "./ui.js";
 
-// CONFIG is a free variable from the IIFE template wrapper (see BaseControl._get_template).
+// CONFIG is a free variable from the IIFE template wrapper (see BaseControl._template).
 const T = createScopedTranslator(CONFIG);
 
 // ==================== ExportManager ====================
