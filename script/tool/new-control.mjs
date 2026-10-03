@@ -18,12 +18,12 @@
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { dirname, relative, resolve } from "path";
-import { fileURLToPath, pathToFileURL } from "url";
+import { pathToFileURL } from "url";
 import { help, parseArgs as parseArgsCore } from "../args.mjs";
+import { repoRoot } from "../build-path.mjs";
 import { FAIL, OK } from "../glyph.mjs";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const ROOT = resolve(__dirname, "..", "..");
+const ROOT = repoRoot(import.meta.url);
 
 const SPEC = {
   help: { type: "bool", short: "h", desc: "Show this help" },

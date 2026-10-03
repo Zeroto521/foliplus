@@ -1,10 +1,10 @@
 import type { ControlEnv } from "#core/defineControl.js";
-import { stopEvent } from "#common/dom.js";
 import {
   type MapEventHandlers,
   bindMapEvents,
   unbindMapEvents,
-} from "#common/mapEvent.js";
+} from "#core/leaflet/index.js";
+import { stopEvent } from "#common/dom.js";
 import * as CONST from "../const.js";
 import type { MeasureManager } from "../manager.js";
 import { attachPolygonUI } from "../ui/index.js";

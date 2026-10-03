@@ -3,10 +3,10 @@
 // Provides fold/expand controls, panel creation, and map sync utilities.
 // Statically imported by components; uses dom (dom.js) and cssVar
 // (cssvar.js) directly instead of reading them from the runtime global.
-import { cssVar } from "./cssvar.js";
-import { dom } from "./dom.js";
-import * as SVGs from "./icon.js";
-import { throttleRaf } from "./throttle.js";
+import { cssVar } from "#common/cssvar.js";
+import { dom } from "#common/dom.js";
+import * as SVGs from "#common/icon.js";
+import { throttleRaf } from "#common/throttle.js";
 
 // ── Panel CSS classes ───────────────────────────────────────────
 const CLASSES = {

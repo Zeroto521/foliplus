@@ -1,12 +1,12 @@
 import { defineControl } from "#core/defineControl.js";
 import type { SuggestItem } from "#core/geocode/index.js";
 import { ensureHint } from "#core/hint.js";
+import { bindOutsideCollapse, createFoldControl } from "#core/leaflet/index.js";
 import { ensureMapFoliplus } from "#core/mapApi.js";
 import { Cache } from "#common/cache.js";
 import type { Debounced } from "#common/debounce.js";
 import { createIconButton, dom } from "#common/dom.js";
 import * as Icons from "#common/icon.js";
-import { bindOutsideCollapse, createFoldControl } from "#common/panel.js";
 import { AUTOCOMPLETE, CLASSES, MODE, type SearchType } from "./const.js";
 import * as SVGs from "./icon.js";
 import { bindEvents, initFromUrl } from "./interaction.js";

@@ -5,8 +5,8 @@
 // opacity / zoom-range rows.
 import { type LabelStyleValues, renderLabelControls } from "#core/labelControl.js";
 import { DIM } from "#core/layer/index.js";
+import { createRowPanel } from "#core/leaflet/index.js";
 import { BORDER_WEIGHT } from "#common/form.js";
-import { createRowPanel } from "#common/panel.js";
 import * as CONST from "../../const.js";
 import * as SVGs from "../../icon.js";
 import type { LayerUI } from "../index.js";

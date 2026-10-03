@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join, resolve } from "path";
 import { pathToFileURL } from "url";
@@ -410,7 +410,12 @@ describe("main", () => {
       const writeFileSyncMock = vi.fn();
 
       vi.doMock("fs", () => ({
-        default: { readFileSync: readFileSyncMock, writeFileSync: writeFileSyncMock },
+        default: {
+          existsSync,
+          readFileSync: readFileSyncMock,
+          writeFileSync: writeFileSyncMock,
+        },
+        existsSync,
         readFileSync: readFileSyncMock,
         writeFileSync: writeFileSyncMock,
       }));

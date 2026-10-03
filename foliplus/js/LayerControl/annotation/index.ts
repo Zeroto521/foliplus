@@ -15,13 +15,13 @@ import {
   collectLabelFields,
 } from "#core/labelField.js";
 import { NO_FEATURE_TREE_KINDS, walkLeaf } from "#core/layer/index.js";
+import { bindMapSync } from "#core/leaflet/index.js";
 import {
   type CanvasLabelStyle,
   resolveCanvasLabelStyle,
   withLabelPaint,
 } from "#common/canvasLabel.js";
 import { type NumberStyle, formatLabelNumber } from "#common/format.js";
-import { bindMapSync } from "#common/panel.js";
 import * as CONST from "../const.js";
 import type { AnnotationConfig, LayerLabel } from "../type.js";
 import { AnnotationCanvas } from "./canvas.js";

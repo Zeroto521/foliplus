@@ -41,6 +41,16 @@ import sys
 # without the trailing ``BF BD`` never reads as a hit.
 FFFD = b"\xef\xbf\xbd"
 
+# Truncated UTF-8 sequences: a valid 2/3-byte lead (E2 80, E2 81, E2 82,
+# E2 84, E2 86, E2 87, E2 88, E2 89, E2 8C, E2 8D, E2 8E, E2 8F, E2 90,
+# E2 91, E2 92, E2 93, E2 94, E2 95, E2 96, E2 97, E2 98, E2 99, E2 9A,
+# E2 9B, E2 9C, E2 9D, E2 9E, E2 9F) whose continuation byte was replaced
+# with ASCII `?` (0x3F) by a lossy codec. The partial lead then decodes
+# cleanly-ish (no U+FFFD) and the text regex misses it — only a byte-level
+# scan sees the truncated pair. `?` itself is ASCII, so the pattern must
+# not fire on a plain question mark after ordinary text.
+_TRUNCATED_UTF8_RE = re.compile(rb"[\xe2][\x80-\x9f][\x3f]")
+
 # Characters produced when a UTF-8 continuation byte 0x80-0x9F is decoded
 # as Windows-1252. Only the range that overlaps with common UTF-8 lead
 # bytes (E2 for em/en dash, arrows, CJK punctuation) is enumerated — a
@@ -85,6 +95,14 @@ def _find_hits(raw: bytes) -> list[tuple[int, str]]:
     hits: list[tuple[int, str]] = []
     for lineno, line in enumerate(raw.split(b"\n"), 1):
         if FFFD in line:
+            hits.append((lineno, line.decode("utf-8", errors="replace").rstrip()))
+            continue
+        # Truncated UTF-8 sequence: a valid 2/3-byte lead (E2 80 / E2 82 AC
+        # etc.) whose trailing byte was replaced with ASCII `?` (0x3F) — the
+        # common corruption shape for em/en dashes, arrows and curly quotes.
+        # It decodes without U+FFFD and the text regex misses it (the
+        # character is incomplete), so it needs the byte-level scan.
+        if _TRUNCATED_UTF8_RE.search(line):
             hits.append((lineno, line.decode("utf-8", errors="replace").rstrip()))
             continue
         text = line.decode("utf-8", errors="replace").rstrip()
