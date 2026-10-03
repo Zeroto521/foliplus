@@ -93,9 +93,7 @@ class LayerControl(BaseControl):
     # alias. Together they declare the layer-list type inline in the schema.
     _dynamic_fields = ("data",)
     _data_hint = "LayerData"
-    _data_shape = [
-        {"name": "string", "id": "string", "group": ("base", "overlay")}
-    ]
+    _data_shape = [{"name": "string", "id": "string", "group": ("base", "overlay")}]
 
     def __init__(
         self,

@@ -61,18 +61,27 @@ _PROVIDER_CONFIG_SHAPE = {
     "baseUrl": ("string", "?"),
     "throttleMs": ("number", "?"),
     "headers": ({"*": "string"}, "?"),
-    "suggest": ({
-        "url": "string",
-        "params": ({"*": "string"}, "?"),
-    }, "?"),
-    "search": ({
-        "url": "string",
-        "params": ({"*": "string"}, "?"),
-    }, "?"),
-    "reverse": ({
-        "url": "string",
-        "params": ({"*": "string"}, "?"),
-    }, "?"),
+    "suggest": (
+        {
+            "url": "string",
+            "params": ({"*": "string"}, "?"),
+        },
+        "?",
+    ),
+    "search": (
+        {
+            "url": "string",
+            "params": ({"*": "string"}, "?"),
+        },
+        "?",
+    ),
+    "reverse": (
+        {
+            "url": "string",
+            "params": ({"*": "string"}, "?"),
+        },
+        "?",
+    ),
     "normalize": ({"*": "string"}, "?"),
 }
 

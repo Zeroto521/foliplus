@@ -67,7 +67,9 @@ class _Override(_ReflectBase):
 
 class _Alias(_ReflectBase):
     def __init__(
-        self, *, alias: Annotated[Literal["a", "b"], FieldSpec(name="NumberStyle")] = "a"
+        self,
+        *,
+        alias: Annotated[Literal["a", "b"], FieldSpec(name="NumberStyle")] = "a",
     ):
         self.alias = alias
 

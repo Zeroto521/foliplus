@@ -192,9 +192,7 @@ def _validate_shape(x: Any, path: str = "", in_dict_value: bool = False) -> None
         return
     if isinstance(x, list):
         if not x:
-            raise ValueError(
-                f"shape at {path}: empty array is not a valid shape"
-            )
+            raise ValueError(f"shape at {path}: empty array is not a valid shape")
         for i, v in enumerate(x):
             _validate_shape(v, f"{path}[{i}]")
         return
@@ -214,9 +212,7 @@ def _validate_shape(x: Any, path: str = "", in_dict_value: bool = False) -> None
                 )
             _validate_shape(v, f"{path}.{k}", in_dict_value=True)
         return
-    raise ValueError(
-        f"shape at {path}: unknown shape type {type(x).__name__}"
-    )
+    raise ValueError(f"shape at {path}: unknown shape type {type(x).__name__}")
 
 
 @dataclass(frozen=True)
@@ -389,9 +385,7 @@ def verify_tags(tags: set[str], named_types: set[str]) -> None:
     one side only.
     """
     bad = sorted(
-        t for t in tags
-        if t not in _SUPPORTED_TAGS | {"union"}
-        and t not in named_types
+        t for t in tags if t not in _SUPPORTED_TAGS | {"union"} and t not in named_types
     )
     if bad:
         raise ValueError(
@@ -873,9 +867,7 @@ def collect_tags(*schemas: ControlSchema) -> set[str]:
     tag) are skipped — they are not type names and must not be checked
     against :data:`_SUPPORTED_TAGS`.
     """
-    return {
-        spec.ts for schema in schemas for spec in schema.values() if spec.ts
-    }
+    return {spec.ts for schema in schemas for spec in schema.values() if spec.ts}
 
 
 def collect_named_types(*schemas: ControlSchema) -> set[str]:
@@ -885,12 +877,7 @@ def collect_named_types(*schemas: ControlSchema) -> set[str]:
     ``config-schema.ts`` — the "second half" of the tag universe alongside
     primitives/base-objects/imports.
     """
-    return {
-        spec.name
-        for schema in schemas
-        for spec in schema.values()
-        if spec.name
-    }
+    return {spec.name for schema in schemas for spec in schema.values() if spec.name}
 
 
 def _field_dict_list(schema: ControlSchema) -> dict[str, dict[str, Any]]:
