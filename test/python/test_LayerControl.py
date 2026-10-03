@@ -5326,6 +5326,67 @@ class TestLayerControlBrowser:
                 f"row not highlighted, got {result}"
             )
 
+    def test_focus_mask_covers_viewport_after_fitbounds_zoomout(self, browser, tmp_path):
+        """A small container at high zoom focusing a wide layer must not leave
+        un-dimmed strips outside the mask.
+
+        The mask's outer ring is drawn once from
+        ``map.getBounds().pad(1)`` *before* ``fitBounds`` runs. When
+        ``fitBounds`` zooms out to fit a wide layer into a small container,
+        the new viewport spans far more geography than the pre-animation
+        outer ring — the dim stops at the old boundary and bright strips
+        leak around the corners. The fix draws the outer ring as the
+        Web-Mercator world envelope so it covers any viewport at any zoom.
+        """
+        # 20°x20° polygon: much wider than a small container at zoom 16,
+        # so ``fitBounds`` must zoom out to fit it.
+        fg = folium.FeatureGroup(name="Wide", overlay=True, show=True)
+        folium.Polygon(
+            locations=[[20, 110], [40, 110], [40, 130], [20, 130], [20, 110]],
+        ).add_to(fg)
+        m = folium.Map(location=[26.08, 119.30], zoom_start=16)
+        LayerControl().add_to(m)
+        fg.add_to(m)
+        html = m.get_root().render()
+        html, n = re.subn(
+            r"(new LayerControl\(\{ position: CONFIG\.position \}\)\.addTo\(map\);)",
+            r"window.__layerCtrl = \1",
+            html,
+            count=1,
+        )
+        assert n == 1, "LayerControl instantiation not found in rendered HTML"
+        with use_page(
+            make_browser_page, browser, tmp_path, html, "focus_mask_ghost"
+        ) as (page, _):
+            page.set_viewport_size({"width": 320, "height": 240})
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            panel_ready(page)
+            item = page.query_selector(".foliplus-layer-item")
+            assert item is not None, "no layer row rendered"
+            item.dispatch_event("dblclick")
+            # fitBounds animates for 600ms; registerAutoCancel gives a
+            # 1050ms grace period after the animation. Read inside that
+            # window so the mask is still live.
+            page.wait_for_timeout(1100)
+            result = page.evaluate(_js("LayerControl/focus_mask_covers_viewport"))
+            assert result is not None, "focus_mask_covers_viewport failed"
+            assert "error" not in result, f"probe error: {result}"
+            assert result["coversViewport"] is True, (
+                f"focus mask outer ring must cover the post-fitBounds "
+                f"viewport: outer={result['outer']} vs view={result['view']} "
+                f"at zoom={result['zoom']}"
+            )
+
     def test_focus_rect_is_marching_ants(self, browser, tmp_path):
         """The focus rect paints the shared marching-ants look, live.
 
