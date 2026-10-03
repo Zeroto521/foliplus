@@ -8,6 +8,7 @@ import { EVENTS, type EventBus, ensureEvents } from "#core/event/index.js";
 import { bareFieldName } from "#core/labelField.js";
 import { NO_FEATURE_TREE_KINDS } from "#core/layer/index.js";
 import { bindMapSync } from "#core/leaflet/index.js";
+import { getLayerAlpha, setLayerAlpha } from "#common/canvasAlpha.js";
 import { type CanvasLabelStyle } from "#common/canvasLabel.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import { BORDER_WEIGHT, clampLabelSize, normalizeHexColor } from "#common/form.js";
@@ -316,6 +317,12 @@ class HeatmapManager {
       // pan/zoom redraw: draws read `getLayerAlpha`, and `redrawHeatmap`
       // drops the CSS so the two carriers never compound.
       opacityBake: "redraw",
+      onOpacity: () => {
+        // Opacity-change repaint: drop the slider’s CSS carrier first so
+        // drawHexagon bakes layerAlpha into pixels and the two never compound.
+        if (this.overlay.canvas) this.overlay.canvas.style.opacity = "";
+        this.redrawHeatmap();
+      },
     });
     // ExportControl publishes BEFORE/AFTER_EXPORT to request a full-resolution
     // capture pass: un-clip the render (renderAll) so out-of-bounds hexes
@@ -458,10 +465,26 @@ class HeatmapManager {
   /** Redraw the heatmap canvas from cached features. */
   redrawHeatmap() {
     if (!this.overlay.canvas || !this.cachedFeatures) return;
-    // R11 dual-path handoff: the slider may have left CSS `opacity` on for
-    // live feedback. This paint bakes layerAlpha into the draws, so drop
-    // the CSS first — the two carriers must never compound.
-    this.overlay.canvas.style.opacity = "";
+    // R11 dual-path handoff. Two cases:
+    //
+    //  1. CSS empty (default, or cleared by `onOpacity`): bake layerAlpha
+    //     into the pixel draws — the normal repaint path.
+    //
+    //  2. CSS set AND layerAlpha ≠ 1: an external writer (LayerControl
+    //     replay on reload, or a slider commit still inside its debounce
+    //     window) has set both carriers to the same value. Baking
+    //     layerAlpha into pixels AND keeping CSS would compound
+    //     (0.35 × 0.35). Instead, draw at full strength and let CSS
+    //     carry the opacity — visually identical, no double-counting.
+    //     Restore layerAlpha after the pass so the next repaint that does
+    //     bake (post-debounce `onOpacity`) sees the slider value.
+    const layerAlpha = getLayerAlpha(this.overlay.canvas);
+    const preserveCss = this.overlay.canvas.style.opacity !== "" && layerAlpha !== 1;
+    if (preserveCss) {
+      setLayerAlpha(this.overlay.canvas, 1);
+    } else {
+      this.overlay.canvas.style.opacity = "";
+    }
     const ctx = this.overlay.ctx;
     if (!ctx) return;
     const container = this.map.getContainer();
@@ -482,6 +505,7 @@ class HeatmapManager {
       this.drawHexagon(ctx, feat);
       if (this.currentLabelShow) this.drawHexLabel(ctx, feat, labelCfg);
     });
+    if (preserveCss) setLayerAlpha(this.overlay.canvas, layerAlpha);
   }
 
   /** Draw a single hexagon polygon (fill + stroke). */
