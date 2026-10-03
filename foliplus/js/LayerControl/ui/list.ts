@@ -1,4 +1,4 @@
-// LayerControl UI —Layer row structure / list layout / insert / reindex.
+// LayerControl UI — Layer row structure / list layout / insert / reindex.
 import { GROUP } from "#core/layer/index.js";
 import { ListCursor } from "#core/listCursor.js";
 import { dom, updateItemLabel } from "#common/dom.js";
@@ -69,7 +69,7 @@ const initTypesAndVisibility = (ui: LayerUI) => {
 };
 
 const renderInitialList = (ui: LayerUI) => {
-  // Remember the cursor by identity —the item elements are rebuilt below,
+  // Remember the cursor by identity — the item elements are rebuilt below,
   // so an element reference would dangle. Layer rows key on data-layer-id,
   // toggle-all rows on data-group (they have no layer id). The identity also
   // tracks the row through a reorder. Null means the cursor was never
@@ -98,7 +98,7 @@ const renderInitialList = (ui: LayerUI) => {
   ui.uiContainer.appendChild(frag);
 
   // ARIA + roving tabindex on the rebuilt rows. setIndex follows activeIdx
-  // without painting the cursor class —restoreCursor() owns that visual.
+  // without painting the cursor class — restoreCursor() owns that visual.
   syncListCursor(ui);
 
   // Re-home the cursor on the rebuilt element and restore DOM focus. The
@@ -181,7 +181,7 @@ const updateLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
   ) as HTMLElement | null;
   if (!item) return;
   // updateItemLabel sets both the row label and the checkbox's aria-label,
-  // so the name reaches assistive tech here without touching `title` —the
+  // so the name reaches assistive tech here without touching `title` — the
   // row's tooltip slot keeps the feature count + type.
   updateItemLabel(item, displayName(ui, layerInfo.id));
 };
@@ -244,7 +244,7 @@ const renderLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
     },
     { html: SVGs.MORE },
   );
-  // All layers get the "more" button —data layers can focus + rename, base
+  // All layers get the "more" button — data layers can focus + rename, base
   // maps can rename (focus on a base map is a harmless full-world fitBounds).
 
   const children: HTMLElement[] = [
@@ -260,7 +260,7 @@ const renderLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
         type: "checkbox",
         checked: "",
         // The name reaches assistive tech via aria-label. `title` is the
-        // Select/Deselect slot —initLayerItem sets it per checked state
+        // Select/Deselect slot — initLayerItem sets it per checked state
         // before this row can be hovered, so leave it unseeded rather than
         // flashing the layer name.
         "aria-label": name,
@@ -300,7 +300,7 @@ const initLayerItem = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
   if (!ui.m.layerRegistry.has(layerInfo.id)) return false;
   const cell = buildRowCell(ui, layerInfo);
   // Resolve the row by data-layer-id: a late registration lands where its
-  // stored slot puts it, so the DOM order can diverge from the registry —an
+  // stored slot puts it, so the DOM order can diverge from the registry — an
   // index-based lookup would write the checkbox and type column into a
   // neighbor's row.
   const item = ui.uiContainer.querySelector(

@@ -1,4 +1,4 @@
-// LayerControl UI —Checkbox / group-toggle visibility.
+// LayerControl UI — Checkbox / group-toggle visibility.
 import { GROUP } from "#core/layer/index.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import * as CONST from "../const.js";
@@ -54,7 +54,7 @@ const toggleAll = (ui: LayerUI, group: string, newState: boolean) => {
     const layerInfo = ui.m.layerRegistry.get(id);
     if (!layerInfo) return;
 
-    // No persist per iteration —schedule a single debounced write after the
+    // No persist per iteration — schedule a single debounced write after the
     // loop so the debounce timer isn't reset for every layer.
     setVisible(ui, id, newState, false);
     // The executor is the only writer of map membership for this layer:
@@ -233,7 +233,7 @@ const handleChange = (ui: LayerUI, event: Event) => {
   const target = event.target as HTMLInputElement;
   if (target.tagName.toLowerCase() !== "input" || target.type !== "checkbox") return;
 
-  // The row carries the identity: data-layer-id, not a positional index —a
+  // The row carries the identity: data-layer-id, not a positional index — a
   // late registration can sit anywhere in the DOM, so an index-based lookup
   // would apply the click to a neighbor's layer.
   const row = target.closest(CONST.SEL.LAYER_ITEM);

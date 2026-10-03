@@ -327,6 +327,117 @@ class TestGbkMisread:
         assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 1
 
 
+class TestGbkEmDashLetterFamily:
+    """GBK misread of em-dash + ASCII letter (Rule 5).
+
+    The UTF-8 em-dash (``E2 80 94``) followed by a letter ``X`` decodes
+    as a GBK 2-byte pair ``(0x94, X)``, producing a family of CJK
+    characters. U+64AB (source ``\\u2014L``) is one member. The full
+    52-character family is generated programmatically in the checker.
+    """
+
+    def test_gbk_em_dash_l_family_is_flagged(self, tmp_path, capsys, monkeypatch):
+        """The real corruption from ``\\u2014Layer`` -> ``\\u2014\\u64ebayer``."""
+        f = tmp_path / "family.txt"
+        f.write_bytes("\u64eb\n".encode("utf-8"))
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 1
+
+    def test_gbk_em_dash_f_family_is_flagged(self, tmp_path, capsys, monkeypatch):
+        """``\\u2014f`` misread as GBK yields U+6506."""
+        f = tmp_path / "family_f.txt"
+        f.write_bytes("\u6506\n".encode("utf-8"))
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 1
+
+    def test_gbk_em_dash_lowercase_family_is_flagged(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        """``\\u2014a`` misread as GBK yields U+6501."""
+        f = tmp_path / "family_a.txt"
+        f.write_bytes("\u6501\n".encode("utf-8"))
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 1
+
+
+class TestGbkPairCharDefensive:
+    """Defensive branches in ``_gbk_pair_char``.
+
+    All 52 ``(0x94, X)`` pairs where ``X`` is an ASCII letter decode
+    cleanly, so the ``except`` branch is unreachable from the family
+    generator. Exercise it directly with a byte that is not a valid
+    GBK trailing byte — ``0x20`` (space) is the real-world pattern:
+    ``—`` followed by a space produces ``94 20``, which GBK rejects.
+    """
+
+    def test_invalid_trailing_byte_returns_none(self):
+        """``(0x94, 0x20)`` — em-dash + space, invalid GBK pair."""
+        assert mod._gbk_pair_char(0x94, 0x20) is None
+
+    def test_all_ascii_letters_decode_cleanly(self):
+        """The 52-letter family has no ``UnicodeDecodeError`` or
+        multi-char surprises — every member is a single CJK character."""
+        import string
+
+        chars = [mod._gbk_pair_char(0x94, ord(x)) for x in string.ascii_letters]
+        assert all(c is not None for c in chars)
+        assert all(len(c) == 1 for c in chars if c is not None)
+
+
+class TestEmDashGlued:
+    """Em-dash glued to an ASCII letter (Rule 6).
+
+    Glued em-dash is either mojibake residue (the misread ate the space)
+    or a formatting error — both need fixing. The ``[A-Za-z0-9)]\\u2014``
+    rule skips ``\\n\\u2014`` escape sequences where the em-dash is at
+    the start of a logical line.
+    """
+
+    def test_em_dash_glued_after_lowercase_is_flagged(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        """Em-dash followed by lowercase letter."""
+        f = tmp_path / "glued_after.txt"
+        f.write_bytes("// comment \u2014x is bad\n".encode("utf-8"))
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 1
+
+    def test_em_dash_glued_after_uppercase_is_flagged(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        """Em-dash followed by uppercase letter."""
+        f = tmp_path / "glued_upper.txt"
+        f.write_bytes("// LayerControl UI \u2014Layer\n".encode("utf-8"))
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 1
+
+    def test_em_dash_glued_before_is_flagged(self, tmp_path, capsys, monkeypatch):
+        """Letter followed by em-dash."""
+        f = tmp_path / "glued_before.txt"
+        f.write_bytes("// stack\u2014no z-index\n".encode("utf-8"))
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 1
+
+    def test_chinese_em_dash_is_clean(self, tmp_path, capsys, monkeypatch):
+        """Chinese text with em-dash (no ASCII letters adjacent)."""
+        f = tmp_path / "chinese.txt"
+        f.write_bytes("中文\u2014中文\n".encode("utf-8"))
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 0
+
+    def test_en_dash_range_is_clean(self, tmp_path, capsys, monkeypatch):
+        """Numeric range with en-dash (U+2013), not em-dash (U+2014)."""
+        f = tmp_path / "range.txt"
+        f.write_bytes("0\u2013100\n".encode("utf-8"))
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 0
+
+    def test_newline_escape_em_dash_is_clean(self, tmp_path, capsys, monkeypatch):
+        """``\\n—`` escape sequence (em-dash at start of logical line)."""
+        f = tmp_path / "escape.txt"
+        content = 'f.write_bytes("arrow\\n\u2014 em dash")\n'
+        f.write_bytes(content.encode("utf-8"))
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 0
+
+    def test_spaced_em_dash_is_clean(self, tmp_path, capsys, monkeypatch):
+        """`` — `` (em-dash with spaces on both sides)."""
+        f = tmp_path / "spaced.txt"
+        f.write_bytes("one \u2014 two\n".encode("utf-8"))
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 0
+
+
 class TestTruncatedUtf8Sequence:
     """A UTF-8 multi-byte lead whose continuation byte was replaced with ``?``.
 
