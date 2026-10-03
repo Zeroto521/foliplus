@@ -13,6 +13,7 @@ class TestVersion:
     def test_all_exports(self):
         expected = [
             "BaseControl",
+            "ControlPosition",
             "ExportControl",
             "Fraction",
             "FullscreenControl",
@@ -20,11 +21,10 @@ class TestVersion:
             "LayerControl",
             "LocaleConfig",
             "LocateControl",
-            "Position",
-            "PositiveInt",
-            "SearchControl",
             "MeasureControl",
+            "PositiveInt",
             "ScaleControl",
+            "SearchControl",
             "Zoom",
         ]
         for name in expected:
@@ -34,6 +34,7 @@ class TestVersion:
         """__all__ must match actual public API."""
         expected = {
             "BaseControl",
+            "ControlPosition",
             "ExportControl",
             "Fraction",
             "FullscreenControl",
@@ -41,20 +42,19 @@ class TestVersion:
             "LayerControl",
             "LocaleConfig",
             "LocateControl",
-            "Position",
-            "PositiveInt",
-            "SearchControl",
             "MeasureControl",
+            "PositiveInt",
             "ScaleControl",
+            "SearchControl",
             "Zoom",
         }
         assert set(foliplus.__all__) == expected
 
     def test_type_aliases_are_usable_in_annotations(self):
         """The exported aliases carry the constraints @validate enforces."""
-        from foliplus import Fraction, Position, PositiveInt, Zoom
+        from foliplus import ControlPosition, Fraction, PositiveInt, Zoom
 
-        assert "topleft" in Position.__args__  # Literal[...] membership
+        assert "topleft" in ControlPosition.__args__  # Literal[...] membership
         for alias in (Zoom, PositiveInt, Fraction):
             assert hasattr(alias, "__metadata__")  # Annotated[...] alias
 

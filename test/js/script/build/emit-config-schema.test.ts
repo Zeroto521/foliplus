@@ -32,14 +32,14 @@ const schema = {
       dynamic: false,
     },
     position: {
-      ts: "control_position",
+      ts: "ControlPosition",
       optional: true,
       nullable: false,
       runtime_only: false,
       dynamic: false,
     },
     locale_tables: {
-      ts: "locale_tables",
+      ts: "LocaleTables",
       optional: true,
       nullable: false,
       runtime_only: false,

@@ -1,6 +1,6 @@
 import { spawnSync } from "child_process";
-import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "fs";
-import { dirname, resolve } from "path";
+import { readFileSync, readdirSync } from "fs";
+import { resolve } from "path";
 import { describe, expect, it } from "vitest";
 
 // Production sources carry no type-system bypasses. Measured here at build time,
@@ -56,16 +56,6 @@ const stripJsonComments = (text: string): string =>
     })
     .join("\n");
 
-// The Python interpreter this project runs on: `sys.executable` from `python`,
-// so the parity check reads the project venv rather than whatever interpreter a
-// CI runner happens to resolve first.
-const whichPy = (): string => {
-  const out = spawnSync("python", ["-c", "import sys; print(sys.executable)"], {
-    encoding: "utf-8",
-  });
-  return (out.stdout ?? "").trim() || "python";
-};
-
 const BANNED: Array<{ name: string; re: RegExp }> = [
   { name: "`as any`", re: /\bas\s+any\b/g },
   { name: "`@ts-ignore`", re: /@ts-ignore/g },
@@ -118,146 +108,10 @@ describe("production type-system bypasses", () => {
     expect(problems).toEqual([]);
   });
 
-  // ── CONFIG field parity ─────────────────────────────────────────
-  //
-  // `ComponentConfig` ends in `[key: string]: unknown`, so a field Python
-  // stops exporting still typechecks — JS just reads `undefined`. This is the
-  // blind spot that hides the whole Python↔JS contract, and it is not covered
-  // anywhere else: the Python tests only assert that `_config_fields` resolves
-  // at build time, never that every field JS reads was exported.
-  //
-  // The reverse half (Python exports something JS never reads) is not checked
-  // here — that is Python's business to keep tidy, and the JS side is the one
-  // that silently misbehaves.
-  const JS_FIELD_RE = /(?<![_A-Za-z0-9])CONFIG\.([A-Za-z_][A-Za-z0-9_]*)/g;
-  // Set on `BaseControl` for every control, not declared in a subclass.
-  const CONF_COMMON = new Set(["name", "position", "locale_code", "locale_tables"]);
-
-  const jsConfFields = (): Set<string> => {
-    const found = new Set<string>();
-    for (const f of files) {
-      for (const m of read(f).matchAll(JS_FIELD_RE)) found.add(m[1] as string);
-    }
-    return found;
-  };
-
-  // Both config channels are read via Python's AST rather than a regex, so a
-  // tuple spread across many lines cannot slip past either. Subclasses use a
-  // plain `Assign` — the `tuple[str, ...]` annotation lives only on
-  // BaseControl — so AnnAssign alone would match nothing.
-  //
-  // `_extra_config` is not a literal tuple but a dict literal, so the scan
-  // collects dict-key constants instead. `data` (LayerControl's layer list)
-  // reaches CONFIG only this way.
-  //
-  // `_config_schema.py` is the third channel: ``SCHEMAS`` is the single source
-  // from which ``BaseControl.__init_subclass__`` derives ``_config_fields``,
-  // so no per-control tuple literal remains in ``*Control.py``. ``RUNTIME_ONLY``
-  // is the subtraction: fields declared there are never emitted by Python, so
-  // they cannot be claimed as exported even if JS were to read them.
-  //
-  // ``SCHEMAS`` values reference per-control alias names (``_FULLSCREEN``,
-  // ``_HEATMAP`` …), so ``ast.walk`` alone cannot see the field-name keys
-  // nested behind them. ``ast.literal_eval`` resolves the top-level dict by
-  // evaluating each alias (which is itself a literal dict) and returns the
-  // nested keys for free. Everything fed to it is a plain dict of
-  // FieldSpec-calls — no imports, no side effects.
-  const PY_SCAN = `import ast, sys
-def fields(n):
-    out = []
-    dict_assignments = {}
-    schema_keys = []
-    runtime_keys = set()
-    for x in ast.walk(n):
-        t, v = None, None
-        if isinstance(x, ast.Assign):
-            if len(x.targets) == 1 and isinstance(x.targets[0], ast.Name):
-                t, v = x.targets[0].id, x.value
-        elif isinstance(x, ast.AnnAssign) and isinstance(x.target, ast.Name):
-            t, v = x.target.id, x.value
-        if t == "SCHEMAS" and isinstance(v, ast.Dict):
-            for k, val in zip(v.keys, v.values):
-                if isinstance(k, ast.Constant) and isinstance(k.value, str):
-                    schema_keys.append(k.value)
-                    if isinstance(val, ast.Name):
-                        ref = dict_assignments.get(val.id)
-                        if ref is not None and isinstance(ref, ast.Dict):
-                            schema_keys.extend(
-                                kk.value
-                                for kk in ref.keys
-                                if isinstance(kk, ast.Constant)
-                                and isinstance(kk.value, str)
-                            )
-        elif t == "RUNTIME_ONLY" and isinstance(v, ast.Dict):
-            runtime_keys = {
-                kk.value
-                for kk in v.keys
-                if isinstance(kk, ast.Constant) and isinstance(kk.value, str)
-            }
-        elif t == "_config_fields":
-            out.extend(
-                e.value for e in ast.walk(v)
-                if isinstance(e, ast.Constant) and isinstance(e.value, str)
-            )
-        elif isinstance(x, ast.FunctionDef) and x.name == "_extra_config":
-            out.extend(
-                e.value for e in ast.walk(x)
-                if isinstance(e, ast.Constant) and isinstance(e.value, str)
-            )
-        if t is not None and isinstance(v, ast.Dict) and t != "_config_fields":
-            dict_assignments[t] = v
-    out.extend(k for k in schema_keys if k not in runtime_keys)
-    return out
-for p in sys.argv[1:]:
-    try:
-        n = ast.parse(open(p, encoding="utf-8").read())
-    except SyntaxError as e:
-        raise SystemExit(f"{p}: {e}")
-    out = fields(n)
-    for f in out:
-        print(p + "\\t" + f)
-`;
-  // One subprocess, one process launch — 9 interpreter starts each cost more
-  // than the scan itself, and under the full suite's import churn the per-file
-  // version pushed the test past the default 5s timeout. Lazily cached so the
-  // cost is paid once per run even if a second test reads it.
-  let pyCache: Set<string> | undefined;
-  const pyExportedFields = (): Set<string> => {
-    if (pyCache) return pyCache;
-    const scanner = resolve(REPO_ROOT, ".vitest", "export-fields-scan.py");
-    mkdirSync(dirname(scanner), { recursive: true });
-    writeFileSync(scanner, PY_SCAN);
-    const controls = readdirSync(resolve(REPO_ROOT, "foliplus"), {
-      withFileTypes: true,
-    })
-      .filter(e => e.isFile() && e.name.endsWith(".py"))
-      .map(e => resolve(REPO_ROOT, "foliplus", e.name));
-    const out = spawnSync(whichPy(), [scanner, ...controls], {
-      encoding: "utf-8",
-    });
-    expect(out.status, `AST scan failed: ${out.stderr}`).toBe(0);
-    // Python inherits \r\n on Windows, so split both — a trailing \r would store
-    // every field as "mode\r" and match nothing on the JS side.
-    const found = new Set<string>();
-    for (const line of (out.stdout ?? "").split(/[\r\n]+/)) {
-      const i = line.lastIndexOf("\t");
-      if (i > 0) found.add(line.slice(i + 1));
-    }
-    pyCache = found;
-    return found;
-  };
-
-  it("every CONFIG field JS reads is exported by Python", () => {
-    const js = jsConfFields();
-    const py = pyExportedFields();
-    const missing = [...js].filter(f => !CONF_COMMON.has(f) && !py.has(f)).sort();
-    // Field was read on the JS side but no Python control declares it — JS
-    // receives `undefined` and nothing typechecks it.
-    expect(
-      missing,
-      `read by JS, exported by no control: ${missing.join(", ")}`,
-    ).toEqual([]);
-  });
+  // CONFIG↔Python parity moved to test/python/test_config_schema.py — the
+  // JS side of that check was driving a Python subprocess per CI run, which
+  // is what the build itself was pulling Python in for. Same assertions,
+  // now in pytest where foliplus is already importable.
 
   it("test/js/tsconfig.json extends the production program", () => {
     const cfg = JSON.parse(stripJsonComments(testTsconfig));

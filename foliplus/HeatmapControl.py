@@ -2,14 +2,18 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from ._typing import Fraction, Position, PositiveInt
+from ._config_schema import FieldSpec
+from ._typing import ControlPosition, Fraction, PositiveInt
 from ._validate import Bound, validate
 from .BaseControl import BaseControl
 from .locale import LocaleConfig
 
 METHOD = Literal["jenks", "quantile", "equal", "heads"]
 AGG = Literal["count", "sum", "avg", "min", "max"]
-LABEL_FORMAT = Literal["auto", "int", "comma", "percent"]
+LABEL_FORMAT = Annotated[
+    Literal["auto", "int", "comma", "percent"],
+    FieldSpec(ts="NumberStyle", note="Number format for hexagon value labels."),
+]
 
 
 class HeatmapControl(BaseControl):
@@ -62,7 +66,7 @@ class HeatmapControl(BaseControl):
     agg : Literal["count", "sum", "avg", "min", "max"], default "count"
         Default aggregation method.
 
-    schemes : list[str], optional
+    schemes : list[str], default ["Blues", "Greens", "Reds", "Oranges", "Purples", "YlOrRd", "Viridis"]
         List of available color scheme names. Can include custom hex values like
         ``["#f00", "#0f0", "#00f"]``.
 
@@ -118,12 +122,22 @@ class HeatmapControl(BaseControl):
     def __init__(
         self,
         *,
-        position: Position = "topleft",
+        position: ControlPosition = "topleft",
         color_scheme: str = "Reds",
         method: METHOD = "jenks",
         n_classes: Annotated[int, Bound(2, 9)] = 6,
         agg: AGG = "count",
-        schemes: list[str] | None = None,
+        schemes: Annotated[
+            list[str], FieldSpec(ts="", note="Available color scheme names.")
+        ] = [
+            "Blues",
+            "Greens",
+            "Reds",
+            "Oranges",
+            "Purples",
+            "YlOrRd",
+            "Viridis",
+        ],
         border_weight: Annotated[float, Bound(0.0, None)] = 1.5,
         border_color: str = "#333333",
         fill_opacity: Fraction = 0.7,
@@ -140,15 +154,7 @@ class HeatmapControl(BaseControl):
         self.method = method
         self.n_classes = n_classes
         self.agg = agg
-        self.schemes = schemes or [
-            "Blues",
-            "Greens",
-            "Reds",
-            "Oranges",
-            "Purples",
-            "YlOrRd",
-            "Viridis",
-        ]
+        self.schemes = schemes
         self.border_weight = border_weight
         self.border_color = border_color
         self.fill_opacity = fill_opacity
