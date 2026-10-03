@@ -5326,7 +5326,9 @@ class TestLayerControlBrowser:
                 f"row not highlighted, got {result}"
             )
 
-    def test_focus_mask_covers_viewport_after_fitbounds_zoomout(self, browser, tmp_path):
+    def test_focus_mask_covers_viewport_after_fitbounds_zoomout(
+        self, browser, tmp_path
+    ):
         """A small container at high zoom focusing a wide layer must not leave
         un-dimmed strips outside the mask.
 
