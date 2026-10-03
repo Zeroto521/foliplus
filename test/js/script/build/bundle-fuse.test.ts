@@ -1,15 +1,17 @@
 import { mkdirSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
-import { join } from "path";
-import { afterEach, describe, expect, it } from "vitest";
+import { join, resolve } from "path";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   EXIT_FUSE,
   EXIT_OK,
   EXIT_UNKNOWN,
   FUSE_CAPS,
   fuse,
+  main,
   readSizes,
 } from "#script/build/bundle-fuse.mjs";
+import { runCli, trapExit } from "../../fixture";
 
 // The fuse judges brotli bytes. A repeated-literal fixture would collapse to
 // a few bytes and quietly land under every cap, so the "breach" case would
@@ -166,5 +168,81 @@ describe("bundle-fuse cap table", () => {
   it("does not duplicate artifact names", () => {
     const keys = Object.keys(FUSE_CAPS);
     expect(new Set(keys).size).toBe(keys.length);
+  });
+});
+
+describe("CLI entry", () => {
+  const SCRIPT = resolve(process.cwd(), "script", "build", "bundle-fuse.mjs");
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("--help prints the usage and exits 0", () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const exit = trapExit();
+    expect(() => main(["--help"])).toThrow(`exit:${EXIT_OK}`);
+    expect(exit).toHaveBeenCalledWith(EXIT_OK);
+    expect(log.mock.calls.join("\n")).toContain("Usage:");
+  });
+
+  it("prints the error and exits 1 on an unknown flag", () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const exit = trapExit();
+    expect(() => main(["--bogus"])).toThrow(`exit:${EXIT_FUSE}`);
+    expect(exit).toHaveBeenCalledWith(EXIT_FUSE);
+    expect(error.mock.calls.join("\n")).toContain("Unknown flag: --bogus");
+  });
+
+  it("exits with the fuse verdict for a real dist tree", () => {
+    const root = mkTmp();
+    mkDist(root, { "foliplus-LocateControl.min.js": payload(20 * 1024) });
+    const exit = trapExit();
+    expect(() => main([`--root=${root}`])).toThrow(`exit:${EXIT_FUSE}`);
+    expect(exit).toHaveBeenCalledWith(EXIT_FUSE);
+  });
+
+  it("exits 0 when every artifact is under its cap", () => {
+    const root = mkTmp();
+    const files: Record<string, string> = {};
+    for (const key of Object.keys(FUSE_CAPS)) files[key] = "x";
+    mkDist(root, files);
+    const exit = trapExit();
+    expect(() => main([`--root=${root}`])).toThrow(`exit:${EXIT_OK}`);
+    expect(exit).toHaveBeenCalledWith(EXIT_OK);
+  });
+
+  it("defaults --root to the checkout and fuses it", async () => {
+    // `node script/bundle-fuse.mjs` without --root reads the checkout's own
+    // dist — the Makefile and CI call it exactly this way. The dist dir is
+    // shared build output that build.test.ts asserts on, so the size read is
+    // mocked at the lib seam instead: the reimported module's readSizes
+    // reports one under-cap artifact, and main() fuses that (exit:0) without
+    // touching the real dist tree.
+    vi.doMock("#script/bundle-size-lib.mjs", async importOriginal => {
+      const actual = (await importOriginal()) as Record<string, unknown>;
+      return {
+        ...actual,
+        readSizes: () => ({ "foliplus-ScaleControl.min.js": 1 }),
+      };
+    });
+    vi.resetModules();
+    try {
+      const mod = await import("#script/build/bundle-fuse.mjs");
+      const exit = trapExit();
+      expect(() => mod.main([])).toThrow(`exit:${EXIT_OK}`);
+      expect(exit).toHaveBeenCalledWith(EXIT_OK);
+    } finally {
+      vi.doUnmock("#script/bundle-size-lib.mjs");
+      vi.resetModules();
+    }
+  });
+
+  it("runs main() only when launched directly as a script", async () => {
+    const exit = trapExit();
+    await expect(
+      runCli("#script/build/bundle-fuse.mjs", ["node", SCRIPT, "--help"]),
+    ).rejects.toThrow(`exit:${EXIT_OK}`);
+    expect(exit).toHaveBeenCalledWith(EXIT_OK);
   });
 });

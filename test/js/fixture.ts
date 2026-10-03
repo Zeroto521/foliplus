@@ -1,7 +1,8 @@
 // Shared test infrastructure: window.L extension, per-test reset, a LayerUI
-// mock factory, and a ControlEnv builder.
+// mock factory, a ControlEnv builder, and a CLI harness for scripts that
+// keep their argv/help/error handling at module top level.
 //
-// Four pieces, all exported:
+// Six pieces, all exported:
 //
 // - `installWindowLExtensions()` — called once from `setup.ts`. Extends the
 //   base `window.L` stub with the constructors/factories that individual test
@@ -23,6 +24,18 @@
 //   hands to logic layers. Default config is `window.CONFIG` (set by setup.ts);
 //   pass a translator pair to pin identity translators (export tests assert
 //   on bare key strings, so they deliberately do not use scoped lookups).
+// - `trapExit()` — replaces `process.exit` with a spy that throws
+//   `exit:<code>`, turning an exit into a rejection instead of killing the
+//   worker. Used by CLI-entry tests in `test/js/script/**`.
+// - `runCli(scriptPath, argv)` — imports a build script with
+//   `process.argv` replaced and `vi.resetModules()` re-running its body,
+//   then restores argv. The CLI-entry branch
+//   (`process.argv[1] === import.meta.url`) is only reachable this way, so
+//   the five CLI entry tests in `test/js/script/**` all go through here.
+//   Keeping the harness out of `test/js/script/` is deliberate: the naming
+//   rule in `toolchain-guard.test.ts` requires every test file under
+//   `test/js/script/` to name a real module there, and a shared harness is
+//   not a test of a module.
 import { vi } from "vitest";
 import type { ControlEnv } from "#core/defineControl.js";
 import { LayerIntentStore, LayerRuntimeStore } from "#core/layer/index.js";
@@ -348,4 +361,40 @@ export function makeLayerUIMock(extra: Overrides = {}): LayerUI {
     configurable: true,
   });
   return base;
+}
+
+/** Replace `process.exit` with a spy that throws `exit:<code>`. */
+export function trapExit() {
+  return vi
+    .spyOn(process, "exit")
+    .mockImplementation((code?: string | number | null | undefined) => {
+      throw new Error(`exit:${code}`);
+    });
+}
+
+/**
+ * Import a script with a replaced `process.argv`, then restore argv.
+ *
+ * @param scriptPath — bare specifier the test wants to import
+ *   (e.g. `"#script/build/bundle-fuse.mjs"`).
+ * @param argv — full argv; `argv[1]` is what the CLI-entry guard compares
+ *   against the module URL.
+ */
+export async function runCli(scriptPath: string, argv: string[]) {
+  const original = process.argv;
+  try {
+    Object.defineProperty(process, "argv", {
+      value: argv,
+      writable: true,
+      configurable: true,
+    });
+    vi.resetModules();
+    return await import(scriptPath);
+  } finally {
+    Object.defineProperty(process, "argv", {
+      value: original,
+      writable: true,
+      configurable: true,
+    });
+  }
 }

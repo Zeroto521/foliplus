@@ -1,6 +1,6 @@
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
-import { join } from "path";
+import { join, resolve } from "path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   POSITIONS,
@@ -9,6 +9,7 @@ import {
   controlSlug,
   insertSortedLine,
   isValidControlName,
+  main,
   parseArgs,
   patchApiRst,
   patchComponentTs,
@@ -19,6 +20,7 @@ import {
   scaffoldControl,
   splitArgv,
 } from "#script/tool/new-control.mjs";
+import { runCli, trapExit } from "../../fixture";
 
 type NewControlArgs = {
   help: boolean;
@@ -489,5 +491,85 @@ describe("SPEC", () => {
       expect(SPEC).toHaveProperty(key);
     }
     expect(SPEC.root.default).toBeTruthy();
+  });
+});
+
+describe("CLI entry", () => {
+  const SCRIPT = resolve(process.cwd(), "script", "tool", "new-control.mjs");
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("--help prints the usage and exits 0", () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const exit = trapExit();
+    expect(() => main(["--help"])).toThrow("exit:0");
+    expect(exit).toHaveBeenCalledWith(0);
+    expect(log.mock.calls.join("\n")).toContain("Usage:");
+  });
+
+  it("prints the usage and exits 1 without a name", () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const exit = trapExit();
+    expect(() => main([])).toThrow("exit:1");
+    expect(exit).toHaveBeenCalledWith(1);
+    expect(error.mock.calls.join("\n")).toContain("Usage:");
+  });
+
+  it("prints parse errors and exits 1 on a malformed flag", () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const exit = trapExit();
+    expect(() => main(["FooControl", "--bogus"])).toThrow("exit:1");
+    expect(exit).toHaveBeenCalledWith(1);
+    expect(error.mock.calls.join("\n")).toContain("Unknown flag: --bogus");
+  });
+
+  it("rejects an invalid control name", () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const exit = trapExit();
+    expect(() => main(["not-a-control"])).toThrow("exit:1");
+    expect(exit).toHaveBeenCalledWith(1);
+    expect(error.mock.calls.join("\n")).toContain("PascalCase");
+  });
+
+  it("rejects an invalid --position", () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const exit = trapExit();
+    expect(() => main(["FooControl", "--position=nowhere"])).toThrow("exit:1");
+    expect(exit).toHaveBeenCalledWith(1);
+    expect(error.mock.calls.join("\n")).toContain("--position must be one of");
+  });
+
+  it("scaffolds into --root and reports", () => {
+    tmpRoot = mkFixture(FIXTURE);
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    main(["FooControl", `--root=${tmpRoot}`, "--description=Foo."]);
+    const out = log.mock.calls.join("\n");
+    expect(out).toContain("scaffolded FooControl");
+    expect(readFileSync(join(tmpRoot, "foliplus", "FooControl.py"), "utf-8")).toContain(
+      "class FooControl",
+    );
+  });
+
+  it("defaults the description and skips already-present patches on a second run", () => {
+    tmpRoot = mkFixture(FIXTURE);
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    main(["FooControl", `--root=${tmpRoot}`]);
+    main(["FooControl", `--root=${tmpRoot}`]);
+    const out = log.mock.calls.join("\n");
+    // First run: created + patched. Second run: everything already present,
+    // so the summary still prints but nothing is created or patched.
+    expect(out).toContain("scaffolded FooControl");
+    expect(out).toContain("Skipped (already present):");
+  });
+
+  it("runs main() only when launched directly as a script", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const exit = trapExit();
+    await expect(
+      runCli("#script/tool/new-control.mjs", ["node", SCRIPT, "--help"]),
+    ).rejects.toThrow("exit:0");
+    expect(exit).toHaveBeenCalledWith(0);
   });
 });
