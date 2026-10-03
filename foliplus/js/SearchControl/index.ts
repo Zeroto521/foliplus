@@ -1,7 +1,7 @@
 import { defineControl } from "#core/defineControl.js";
 import type { SuggestItem } from "#core/geocode/index.js";
 import { ensureHint } from "#core/hint.js";
-import { bindOutsideCollapse, createFoldControl } from "#core/leaflet/panel.js";
+import { bindOutsideCollapse, createFoldControl } from "#core/leaflet/index.js";
 import { ensureMapFoliplus } from "#core/mapApi.js";
 import { Cache } from "#common/cache.js";
 import type { Debounced } from "#common/debounce.js";

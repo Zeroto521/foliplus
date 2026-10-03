@@ -1,7 +1,7 @@
 // SearchControl event binding — standalone functions called with `this` as ctrl.
 import type { ControlEnv } from "#core/defineControl.js";
 import { ensureInteraction } from "#core/interaction.js";
-import { adjustPanelZIndex, bindFoldToggle } from "#core/leaflet/panel.js";
+import { adjustPanelZIndex, bindFoldToggle } from "#core/leaflet/index.js";
 import { ListCursor } from "#core/listCursor.js";
 import { guardBlocked } from "#core/mode.js";
 import { CLASSES, MODE, PARAM } from "./const.js";

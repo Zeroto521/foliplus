@@ -1,5 +1,5 @@
 // MeasureControl distance UI — finalized distance edit bindings: node ✕ handles, segment labels, drag, overlay, delete.
-import { attachDelClick } from "#core/leaflet/delicon.js";
+import { attachDelClick } from "#core/leaflet/index.js";
 import * as CONST from "../const.js";
 import { bindNodeDrag, markDragSyntheticClick } from "../edit.js";
 import type { MeasureManager } from "../manager.js";

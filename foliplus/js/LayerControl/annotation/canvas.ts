@@ -6,7 +6,7 @@
 // layers below. Placement stays per layer — the manager plans each layer's
 // labels separately, so collision never crosses layers — and this class only
 // paints the slice it is handed.
-import { cancelMapPaneTranslate } from "#core/leaflet/domAdapter.js";
+import { cancelMapPaneTranslate } from "#core/leaflet/index.js";
 import { setLayerAlpha, withCanvasLayerAlpha } from "#common/canvasAlpha.js";
 import {
   type CanvasLabelStyle,

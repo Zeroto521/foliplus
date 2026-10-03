@@ -7,7 +7,7 @@ import { generateId } from "#core/component.js";
 import { EVENTS, type EventBus, ensureEvents } from "#core/event/index.js";
 import { bareFieldName } from "#core/labelField.js";
 import { NO_FEATURE_TREE_KINDS } from "#core/layer/index.js";
-import { bindMapSync } from "#core/leaflet/panel.js";
+import { bindMapSync } from "#core/leaflet/index.js";
 import { type CanvasLabelStyle } from "#common/canvasLabel.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import { BORDER_WEIGHT, clampLabelSize, normalizeHexColor } from "#common/form.js";

@@ -1,4 +1,4 @@
-import { DEL_ICON_CHAR, DEL_ICON_SELECTOR } from "#core/leaflet/delicon.js";
+import { DEL_ICON_CHAR, DEL_ICON_SELECTOR } from "#core/leaflet/index.js";
 import type { ExportFormat } from "./type.js";
 
 /** Timing / delay constants. */

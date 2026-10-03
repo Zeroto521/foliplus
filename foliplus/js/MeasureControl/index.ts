@@ -4,7 +4,7 @@ import {
   bindFoldToggle,
   bindOutsideCollapse,
   createFoldControl,
-} from "#core/leaflet/panel.js";
+} from "#core/leaflet/index.js";
 import { createIconButton } from "#common/dom.js";
 import * as Icons from "#common/icon.js";
 import * as CONST from "./const.js";

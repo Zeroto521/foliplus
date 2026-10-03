@@ -13,8 +13,8 @@ import type {
   SuggestItem,
 } from "#core/geocode/index.js";
 import { HINT_DURATION } from "#core/hint.js";
-import { DEL_ICON_MARKER_ANCHOR } from "#core/leaflet/delicon.js";
-import { mountDelIcon } from "#core/leaflet/deliconMount.js";
+import { DEL_ICON_MARKER_ANCHOR } from "#core/leaflet/index.js";
+import { mountDelIcon } from "#core/leaflet/index.js";
 import { createLocationMarker } from "#core/locationMarker.js";
 import { guardBlocked } from "#core/mode.js";
 import { debounce } from "#common/debounce.js";

@@ -1,6 +1,6 @@
 import type { ControlEnv } from "#core/defineControl.js";
-import { toggleDelIcon } from "#core/leaflet/delicon.js";
-import { mountDelIcon as mountDelIconShared } from "#core/leaflet/deliconMount.js";
+import { toggleDelIcon } from "#core/leaflet/index.js";
+import { mountDelIcon as mountDelIconShared } from "#core/leaflet/index.js";
 import type { Logger } from "#common/log.js";
 import * as CONST from "../const.js";
 import { buildEditOverlay } from "../edit.js";

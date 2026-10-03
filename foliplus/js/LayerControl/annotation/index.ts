@@ -15,7 +15,7 @@ import {
   collectLabelFields,
 } from "#core/labelField.js";
 import { NO_FEATURE_TREE_KINDS, walkLeaf } from "#core/layer/index.js";
-import { bindMapSync } from "#core/leaflet/panel.js";
+import { bindMapSync } from "#core/leaflet/index.js";
 import {
   type CanvasLabelStyle,
   resolveCanvasLabelStyle,

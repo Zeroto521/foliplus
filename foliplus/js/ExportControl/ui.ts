@@ -2,7 +2,7 @@
 // Standalone functions called with `mgr` (ExportManager instance) as first param.
 import { COMPONENTS } from "#core/component.js";
 import { HINT_DURATION } from "#core/hint.js";
-import { bindMapSync } from "#core/leaflet/panel.js";
+import { bindMapSync } from "#core/leaflet/index.js";
 import { ensureModes, guardBlocked } from "#core/mode.js";
 import { createIconButton, dom } from "#common/dom.js";
 import { formatNumber } from "#common/format.js";

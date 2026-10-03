@@ -1,7 +1,7 @@
 // LayerControl UI —Layer attributes panel.
 import { EVENTS } from "#core/event/index.js";
 import { GEOM_TYPE, GROUP } from "#core/layer/index.js";
-import { createRowPanel } from "#core/leaflet/panel.js";
+import { createRowPanel } from "#core/leaflet/index.js";
 import { dom } from "#common/dom.js";
 import { formatNumber, formatTimestamp } from "#common/format.js";
 import * as CONST from "../const.js";

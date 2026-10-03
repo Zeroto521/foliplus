@@ -12,7 +12,7 @@
 // frame-level helpers (reset footer, rail positioning) live in ./frame.ts.
 import { EVENTS } from "#core/event/index.js";
 import { resolveSelectedField } from "#core/labelField.js";
-import { createRowPanel } from "#core/leaflet/panel.js";
+import { createRowPanel } from "#core/leaflet/index.js";
 import { dom } from "#common/dom.js";
 import {
   LABEL_SIZE,

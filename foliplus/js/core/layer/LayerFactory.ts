@@ -1,7 +1,7 @@
 // core/layer/LayerFactory — standalone createLayers/createCanvas factories.
 // Pure logic, no CONFIG / translator dependency. Takes map + PaneManager +
 // register/unregister callbacks via dependency injection.
-import { cancelMapPaneTranslate } from "#core/leaflet/domAdapter.js";
+import { cancelMapPaneTranslate } from "#core/leaflet/index.js";
 import { withCanvasLayerAlpha } from "#common/canvasAlpha.js";
 import { dom } from "#common/dom.js";
 import { createLogger } from "#common/log.js";

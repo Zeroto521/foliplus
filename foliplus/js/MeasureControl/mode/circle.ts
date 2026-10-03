@@ -4,7 +4,7 @@ import {
   type MapEventHandlers,
   bindMapEvents,
   unbindMapEvents,
-} from "#core/leaflet/mapEvent.js";
+} from "#core/leaflet/index.js";
 import { stopEvent } from "#common/dom.js";
 import * as CONST from "../const.js";
 import type { MeasureManager } from "../manager.js";
