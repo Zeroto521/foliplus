@@ -12,7 +12,7 @@ import * as CONST from "../const.js";
 import type { LayerManager } from "../manager.js";
 import { applyProjection, applyProjectionAll } from "./apply.js";
 import { closeAttrsPanel, openAttrsPanel } from "./attr.js";
-import { hideSolidBasemap, showSolidBasemap } from "./color.js";
+import { hideSolidBasemap, resetSolidBasemap, showSolidBasemap } from "./color.js";
 import { cancelFocus, focusLayer, isFocusing } from "./focus.js";
 import {
   blurActiveItem,
@@ -436,6 +436,9 @@ class LayerUI {
   }
   hideSolidBasemap() {
     return hideSolidBasemap(this);
+  }
+  resetSolidBasemap() {
+    return resetSolidBasemap(this);
   }
   openMoreMenu(item: HTMLElement) {
     return openMoreMenu(this, item);

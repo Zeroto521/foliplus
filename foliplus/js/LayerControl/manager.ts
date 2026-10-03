@@ -877,10 +877,7 @@ class LayerManager implements LayerAPI {
       const removed = this.unregisterLayer(id);
       if (!removed) return false;
       if (this.ui) {
-        this.ui.colorSurface = null;
-        this.ui.currentColor = CONST.COLOR.DEFAULT;
-        this.ui.runtimeStore.setAuthorVisible(id, false);
-        this.ui.saveState();
+        this.ui.resetSolidBasemap();
         this.events.emit(EVENTS.LAYER_GROUP_COUNT_CHANGED, {
           group: GROUP.BASE,
         });

@@ -2645,17 +2645,10 @@ describe("LayerManager", () => {
         layer: { options: {} },
       } as any);
 
-      const saveStateSpy = vi.fn();
+      const resetSpy = vi.fn();
       manager.ui = {
         intentStore: makeStore(),
-        runtimeStore: (() => {
-          const s = new LayerRuntimeStore();
-          s.setAuthorVisible(CONST.SOLID_BASEMAP_ID, true);
-          return s;
-        })(),
-        colorSurface: {} as any,
-        currentColor: "#ff0000",
-        saveState: saveStateSpy,
+        resetSolidBasemap: resetSpy,
         invalidateFields: vi.fn(),
       } as any;
       const unregisterSpy = vi.spyOn(manager, "unregisterLayer");
@@ -2664,12 +2657,7 @@ describe("LayerManager", () => {
       expect(manager.deleteLayer(CONST.SOLID_BASEMAP_ID)).toBe(true);
 
       expect(unregisterSpy).toHaveBeenCalledWith(CONST.SOLID_BASEMAP_ID);
-      expect(manager.ui.colorSurface).toBeNull();
-      expect(manager.ui.currentColor).toBe(CONST.COLOR.DEFAULT);
-      expect(manager.ui.runtimeStore.getAuthorVisible(CONST.SOLID_BASEMAP_ID)).toBe(
-        false,
-      );
-      expect(saveStateSpy).toHaveBeenCalled();
+      expect(resetSpy).toHaveBeenCalled();
       expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_GROUP_COUNT_CHANGED, {
         group: GROUP.BASE,
       });
