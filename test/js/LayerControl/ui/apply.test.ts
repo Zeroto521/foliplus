@@ -382,7 +382,7 @@ describe("executor: coalesced redraw-arm repaint", () => {
     const commit = (value: number) => {
       setIntent(ui, "h", "opacity", value);
       ui.intentStore.seedProvenance("h", ["opacity"]);
-      applyProjection(ui, "h");
+      applyProjection(ui, "h", "debounce");
     };
 
     // First commit: CSS + WeakMap written synchronously. The repaint is
