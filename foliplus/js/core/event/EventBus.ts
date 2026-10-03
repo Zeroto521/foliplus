@@ -51,17 +51,21 @@ class EventBus {
     if (set.size === 0) this.listeners.delete(event);
   }
 
-  /** Emit a known event with its payload (typed). The payload is required:
-   *  every event in `EventPayloadMap` carries one, and an in-tree emit that
-   *  omits it is a type error. */
-  emit<K extends keyof EventPayloadMap>(
+  /** Emit an event. A known event (in `EventPayloadMap`) requires its payload
+   *  when the payload is non-void — the conditional rest tuple makes an
+   *  omitted payload a type error at the emit site, which is the load-bearing
+   *  contract: every in-tree emit of a data-bearing event passes its payload
+   *  so subscribers can rely on a defined value. A void-payload event takes
+   *  no argument. Unknown events (a third-party string not in the map) match
+   *  the `unknown[]` branch and take any arguments. */
+  emit<K extends string>(
     event: K,
-    payload: NonNullable<EventPayloadMap[K]>,
+    ...args: K extends keyof EventPayloadMap
+      ? EventPayloadMap[K] extends void
+        ? []
+        : [NonNullable<EventPayloadMap[K]>]
+      : unknown[]
   ): void;
-  /** Emit a no-payload event (void payload) with no payload arg. */
-  emit<K extends keyof EventPayloadMap>(event: K): void;
-  /** Emit any event (generic fallback). */
-  emit(event: string, ...payload: unknown[]): void;
   emit(event: string, ...payload: unknown[]): void {
     const set = this.listeners.get(event);
     if (!set) return;
