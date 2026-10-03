@@ -277,4 +277,33 @@ describe("LayerUI shell — delegates", () => {
     // Also call the wrapper directly to cover the delegate line.
     expect(() => ui.handleInput(event)).not.toThrow();
   });
+
+  it("resetSolidBasemap() delegates to the colour module and flushes state", () => {
+    // The manager's deleteLayer reaches this method rather than the color
+    // module directly. The delegate exists so the bus-driven signal handler
+    // has a single seam to spy on.
+    const setColor = vi.fn();
+    const setVisible = vi.fn();
+    ui.m.createColor = vi.fn(() => ({
+      element: document.createElement("canvas"),
+      setColor,
+      setVisible,
+      register: vi.fn(),
+      unregister: vi.fn(),
+      registered: vi.fn(() => true),
+      bringToFront: vi.fn(),
+      destroy: vi.fn(),
+    }));
+    ui.colorSurface = null;
+    ui.currentColor = "#ff0000";
+    ui.runtimeStore.setAuthorVisible(CONST.SOLID_BASEMAP_ID, true);
+    const save = vi.spyOn(ui, "saveState");
+
+    ui.resetSolidBasemap();
+
+    expect(ui.colorSurface).toBeNull();
+    expect(ui.currentColor).toBe(CONST.COLOR.DEFAULT);
+    expect(ui.runtimeStore.getAuthorVisible(CONST.SOLID_BASEMAP_ID)).toBe(false);
+    expect(save).toHaveBeenCalled();
+  });
 });

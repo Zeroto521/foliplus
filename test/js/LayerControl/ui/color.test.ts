@@ -1,7 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import { LayerIntentStore, LayerRuntimeStore } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
-import { hideSolidBasemap, showSolidBasemap } from "#foliplus/LayerControl/ui/color.js";
+import {
+  hideSolidBasemap,
+  resetSolidBasemap,
+  showSolidBasemap,
+} from "#foliplus/LayerControl/ui/color.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 
 const makeUi = (layers: Array<{ id: string; group: "base" | "overlay" }> = []) => {
@@ -182,5 +186,36 @@ describe("ui/color", () => {
 
     expect(ui.colorSurface).toBe(firstSurface);
     expect(setColor).toHaveBeenLastCalledWith("#00ff00");
+  });
+
+  it("resetSolidBasemap nulls the surface, resets the colour, and flushes", () => {
+    // The delete-path reset: unlike hideSolidBasemap (which keeps the surface
+    // allocated so a re-check is cheap), a delete must release the canvas and
+    // re-mark the id hidden so the deletion survives a reload.
+    const surface = {
+      element: document.createElement("canvas"),
+      setColor: vi.fn(),
+      setVisible: vi.fn(),
+      register: vi.fn(),
+      unregister: vi.fn(),
+      registered: vi.fn(() => true),
+      bringToFront: vi.fn(),
+      destroy: vi.fn(),
+    };
+    const saveState = vi.fn();
+    const ui = {
+      colorSurface: surface,
+      currentColor: "#ff0000",
+      runtimeStore: new LayerRuntimeStore(),
+      saveState,
+    } as unknown as LayerUI;
+    ui.runtimeStore.setAuthorVisible(CONST.SOLID_BASEMAP_ID, true);
+
+    resetSolidBasemap(ui);
+
+    expect(ui.colorSurface).toBeNull();
+    expect(ui.currentColor).toBe(CONST.COLOR.DEFAULT);
+    expect(ui.runtimeStore.getAuthorVisible(CONST.SOLID_BASEMAP_ID)).toBe(false);
+    expect(saveState).toHaveBeenCalledTimes(1);
   });
 });
