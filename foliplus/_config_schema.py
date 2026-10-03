@@ -157,24 +157,31 @@ class FieldSpec:
         Base type tag. One of :data:`_SUPPORTED_TAGS`, or ``"union"`` — in
         the union case, :attr:`values` must be set and renders as
         ``"a" | "b" | "c"``.
+
     optional
         Field may be absent at runtime (JSON `undefined`). Renders ``?`` in
         TS. All runtime_only fields are optional by construction.
+
     nullable
         Field may be JSON ``null`` in addition to its base type. Renders
         ``X | null`` in TS.
+
     values
         For ``ts="union"``, the tuple of string literal values.
+
     item
         For array tags, the item type tag (rarely used; most arrays are
         ``array_string``). Kept for extensibility; unused today.
+
     runtime_only
         JS sets this field at runtime; Python never emits it. Excluded from
         ``BaseControl._config_fields``; declared in TS and vitest fixture.
+
     dynamic
         Python emits this field at render time via ``_extra_config`` (not a
         static ``_config_fields`` key). Excluded from ``_config_fields`` but
         included in the TS type and vitest fixture.
+
     default
         JSON-serializable default used by the vitest fixture. Must be a
         value a Python dict can hold (str, int, float, bool, list, dict,
@@ -182,6 +189,7 @@ class FieldSpec:
         ``null``; :data:`_UNSET` (the dataclass default) means "no default
         declared — omit from fixture" (used for fields whose default is a
         runtime decision, e.g. ``locale_tables``).
+
     note
         Human-readable note, rendered into the generated TS: a short
         single-line note becomes a trailing ``//`` comment on the field,
