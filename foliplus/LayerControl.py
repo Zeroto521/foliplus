@@ -3,7 +3,7 @@ from __future__ import annotations
 from branca.element import Element
 from folium.map import Layer
 
-from ._typing import Position
+from ._typing import ControlPosition
 from .BaseControl import BaseControl
 from .locale import LocaleConfig
 
@@ -88,12 +88,15 @@ class LayerControl(BaseControl):
     """
 
     # Emitted by _extra_config at render time, not by a constructor parameter.
+    # The hint attribute next to each dynamic field names the TS shape the
+    # generated ``config-schema.ts`` imports — a name, not a bare type.
     _dynamic_fields = ("data",)
+    _data_hint = "LayerData"
 
     def __init__(
         self,
         *,
-        position: Position = "topleft",
+        position: ControlPosition = "topleft",
         label_collide: bool = True,
         collapse_on_outside: bool = False,
         locale: str | LocaleConfig | None = None,

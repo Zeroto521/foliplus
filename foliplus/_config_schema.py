@@ -347,17 +347,6 @@ _DICT_TAGS: dict[tuple[type, ...], str] = {
 # CONFIG field — it is already covered by :data:`SHARED`.
 _SHARED_PARAMS: frozenset[str] = frozenset({"position", "locale"})
 
-# A dynamic field declares its own hint next to itself on the class —
-# ``_data_hint`` carries the TS shape for the ``data`` field. The tag is a
-# name the generated TS imports, not a bare type.
-_DYNAMIC_HINT_ATTR: dict[str, str] = {
-    "data": "_dynamic_data_hint",
-}
-
-_DYNAMIC_FALLBACK: dict[str, str] = {
-    "data": "LayerData",
-}
-
 
 def _field_spec_in(*args: Any) -> FieldSpec | None:
     """Return the ``FieldSpec`` among ``Annotated`` metadata, or ``None``.
@@ -572,21 +561,23 @@ def derive_schema(cls: type[BaseControl]) -> ControlSchema:
 
     # Dynamic fields are collected at render time (LayerControl's ``data``),
     # so they are not parameters — the class declares them here. The TS
-    # shape is carried by a hint attribute on the class (``_data_hint``);
-    # it is a name, not a bare type, so no reflection is needed.
+    # shape sits next to the field declaration as ``_<name>_hint`` — a name
+    # the generated TS imports, not a bare type, so no reflection is needed.
     for name in getattr(cls, "_dynamic_fields", ()):
         if name in out:
             raise ValueError(
                 f"{cls.__name__}.{name} is declared both in the signature and "
                 "in _dynamic_fields — a dynamic field is not a parameter"
             )
-        tag = getattr(
-            cls,
-            _DYNAMIC_HINT_ATTR.get(name, f"_{name}_hint"),
-            _DYNAMIC_FALLBACK.get(name, "object"),
-        )
+        hint_attr = f"_{name}_hint"
+        if not hasattr(cls, hint_attr):
+            raise ValueError(
+                f"{cls.__name__} declares {name} in _dynamic_fields but does "
+                f"not set {hint_attr} — dynamic fields carry their TS shape "
+                "next to the declaration."
+            )
         out[name] = FieldSpec(
-            ts=tag,
+            ts=getattr(cls, hint_attr),
             dynamic=True,
             optional=True,
             default=[],

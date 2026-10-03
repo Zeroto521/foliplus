@@ -73,7 +73,7 @@ class _Alias(_ReflectBase):
 
 
 # The pattern HeatmapControl.LABEL_FORMAT uses: an alias that carries its TS
-# type name in a FieldSpec. The shared ``Position`` alias stays a bare
+# type name in a FieldSpec. The shared ``ControlPosition`` alias stays a bare
 # Literal (a public contract), so the alias-metadata channel is exercised
 # here rather than through it.
 _POSITION = Annotated[Literal["topleft", "topright"], FieldSpec(ts="ControlPosition")]
@@ -109,6 +109,7 @@ class _BadDefault(_ReflectBase):
 
 class _Dynamic(_ReflectBase):
     _dynamic_fields = ("data",)
+    _data_hint = "LayerData"
 
     def __init__(self, *, show: bool = True):
         self.show = show
@@ -119,6 +120,15 @@ class _DynamicClash(_ReflectBase):
 
     def __init__(self, *, data: list[str] = []):
         self.data = data
+
+
+class _DynamicNoHint(_ReflectBase):
+    """A dynamic field without a hint attribute — a declaration bug."""
+
+    _dynamic_fields = ("data",)
+
+    def __init__(self, *, show: bool = True):
+        self.show = show
 
 
 class _Order(_ReflectBase):
@@ -263,6 +273,12 @@ def test_dynamic_fields_are_declared_on_the_class() -> None:
 def test_dynamic_field_clashing_with_a_parameter_fails_loud() -> None:
     with pytest.raises(ValueError, match="dynamic"):
         derive_schema(_DynamicClash)
+
+
+def test_dynamic_field_without_hint_fails_loud() -> None:
+    """A dynamic field without ``_<name>_hint`` is a declaration bug."""
+    with pytest.raises(ValueError, match="_data_hint"):
+        derive_schema(_DynamicNoHint)
 
 
 def test_derivation_preserves_signature_order() -> None:
