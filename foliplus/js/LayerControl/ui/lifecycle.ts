@@ -285,16 +285,13 @@ const onLayerItemCountChange = (ui: LayerUI, id: string): void => {
   applyRowView(ui, item, buildRowCell(ui, layerInfo));
 
   // Re-apply the layer's current opacity to the newly-finalized geometry.
-  // The panes were painted at full opacity while the preview was live; the
-  // count-change event fires at store.add, which is the moment the real
-  // geometry lands — so this is when the opacity "snaps in". A canvas layer
-  // may have been replaced since the previous projection wrote (its
-  // `layerInfo.canvas` now points at a fresh element whose style does not
-  // carry the value), so the executor's runtime `applied` row is invalidated for
-  // this id before the re-projection: the diff sees the stored opacity as
-  // new and re-applies it through the carrier dispatcher.
+  // The carrier check in applyProjection handles canvas replacement:
+  // if layerInfo.canvas points at a fresh element, sameCarrier fails
+  // and the diff fires. No need to invalidate the applied row — that
+  // would force a repaint even when the canvas is unchanged, which
+  // clears CSS opacity on canvas layers (Heatmap) via the debounce
+  // repaint path.
   if (getIntent(ui, id, INTENT.OPACITY) !== undefined) {
-    ui.runtimeStore.deleteApplied(id);
     applyProjection(ui, id);
   }
 };
