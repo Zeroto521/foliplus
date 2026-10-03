@@ -30,8 +30,8 @@ from jinja2 import Template
 from jinja2.utils import htmlsafe_json_dumps
 
 from ._cdn_loader import load_cdn
-from ._config_schema import SCHEMAS, config_fields
-from ._typing import Position
+from ._config_schema import config_fields, derive_schema
+from ._typing import ControlPosition
 from ._validate import validate
 from .locale import LocaleConfig, _load_tables, resolve_locale
 
@@ -284,17 +284,14 @@ class BaseControl(JSCSSMixin, MacroElement):
         super().__init_subclass__(**kwargs)
         if not cls.__module__.startswith("foliplus."):
             return
-        schema = SCHEMAS.get(cls.__name__)
-        if schema is None:
-            return
-        cls._config_fields = config_fields(schema)
+        cls._config_fields = config_fields(derive_schema(cls))
         cls.default_js = load_cdn(cls.__name__)
 
     @validate
     def __init__(
         self,
         *,
-        position: Position = "topleft",
+        position: ControlPosition = "topleft",
         locale: str | LocaleConfig | None = None,
     ):
         super().__init__()

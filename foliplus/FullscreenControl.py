@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ._typing import Position
+from ._typing import ControlPosition
 from .BaseControl import BaseControl
 from .locale import LocaleConfig
 
@@ -39,7 +39,7 @@ class FullscreenControl(BaseControl):
     def __init__(
         self,
         *,
-        position: Position = "bottomright",
+        position: ControlPosition = "bottomright",
         hide_self: bool = True,
         hide_others: bool = True,
         locale: str | LocaleConfig | None = None,
