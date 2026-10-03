@@ -9,7 +9,7 @@ import {
   hideDelIcons,
   makeDelIcon,
   toggleDelIcon,
-} from "#core/leaflet/delicon.js";
+} from "#core/leaflet/index.js";
 
 describe("delicon constants", () => {
   it("exports the shared delete-icon contract values", () => {

@@ -1,6 +1,6 @@
 import type { Map as LeafletMap } from "leaflet";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { bindMapEvents, unbindMapEvents } from "#core/leaflet/mapEvent.js";
+import { bindMapEvents, unbindMapEvents } from "#core/leaflet/index.js";
 
 describe("mapEvents", () => {
   let map: LeafletMap;

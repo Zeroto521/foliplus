@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cancelMapPaneTranslate } from "#core/leaflet/domAdapter.js";
+import { cancelMapPaneTranslate } from "#core/leaflet/index.js";
 
 describe("cancelMapPaneTranslate", () => {
   it("offsets the canvas by the negated mapPane position", () => {

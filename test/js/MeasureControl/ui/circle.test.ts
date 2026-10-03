@@ -5,21 +5,38 @@ import { installStubs, makeMgr } from "./fixture.js";
 
 // Mock delete-icon helpers — capture the click callback so tests can trigger it.
 // Keep the original exports via importOriginal and override the function helpers.
-const { attachDelClick, makeDelIcon, toggleDelIcon, realMakeDelIcon, dragHandlers } =
-  vi.hoisted(() => ({
-    attachDelClick: vi.fn((marker: any, cb: () => void) => {
-      marker._delClick = cb;
-    }),
-    // makeDelIcon delegates to the real implementation so that hijacking
-    // window.L.marker inside a test controls the del markers it creates.
-    makeDelIcon: vi.fn((...args: any[]) => realMakeDelIcon.value(...args)),
-    toggleDelIcon: vi.fn(),
-    realMakeDelIcon: { value: null as any },
-    dragHandlers: [] as Array<Record<string, (...args: any[]) => any>>,
-  }));
+const {
+  attachDelClick,
+  makeDelIcon,
+  mountDelIcon,
+  toggleDelIcon,
+  realMakeDelIcon,
+  dragHandlers,
+} = vi.hoisted(() => ({
+  attachDelClick: vi.fn((marker: any, cb: () => void) => {
+    marker._delClick = cb;
+  }),
+  // makeDelIcon delegates to the real implementation so that hijacking
+  // window.L.marker inside a test controls the del markers it creates.
+  makeDelIcon: vi.fn((...args: any[]) => realMakeDelIcon.value(...args)),
+  // mountDelIcon is mocked as a whole rather than delegating to the real
+  // helper: the helper resolves attachDelClick through ./delicon.js, which
+  // this mock does not reach, so no marker would get _delClick.
+  mountDelIcon: vi.fn(
+    (latlng: any, opts: any, mount: (m: any) => void, onDelete?: () => void) => {
+      const marker = makeDelIcon(latlng, opts);
+      mount(marker);
+      if (onDelete) attachDelClick(marker, onDelete);
+      return marker;
+    },
+  ),
+  toggleDelIcon: vi.fn(),
+  realMakeDelIcon: { value: null as any },
+  dragHandlers: [] as Array<Record<string, (...args: any[]) => any>>,
+}));
 
-vi.mock("#core/leaflet/delicon.js", async importOriginal => {
-  const actual = await importOriginal<typeof import("#core/leaflet/delicon.js")>();
+vi.mock("#core/leaflet/index.js", async importOriginal => {
+  const actual = await importOriginal<typeof import("#core/leaflet/index.js")>();
   realMakeDelIcon.value = actual.makeDelIcon;
   return {
     ...actual,
@@ -27,6 +44,7 @@ vi.mock("#core/leaflet/delicon.js", async importOriginal => {
     attachDelClick,
     toggleDelIcon,
     hideDelIcons: vi.fn(),
+    mountDelIcon,
   };
 });
 
