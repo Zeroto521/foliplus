@@ -1,4 +1,4 @@
-// LayerControl UI —Mutual-exclusion overlay teardown.
+// LayerControl UI — Mutual-exclusion overlay teardown.
 import { closeAttrsPanel } from "./attr.js";
 import { dismissFocus } from "./focus.js";
 import type { LayerUI } from "./index.js";

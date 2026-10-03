@@ -2,8 +2,8 @@
 """Detect UTF-8 replacement characters and mojibake signatures in staged files.
 
 The hook scans every staged text file and reports ``file:line`` locations
-when it finds any of four signatures of a lossy non-UTF-8 encoding
-round-trip:
+when it finds any of six signatures of a lossy non-UTF-8 encoding
+round-trip or a formatting error that should be fixed:
 
 1. **U+FFFD** (``EF BF BD``) — the UTF-8 replacement character itself.
    Detected as a byte sequence, so a stray ``EF`` without the trailing
@@ -19,10 +19,23 @@ round-trip:
    arrow / middle dot / ideographic full stop followed (with optional
    whitespace) by a bare ``?``. Some codecs substitute ``?`` for a
    trailing byte they cannot map.
-4. **GBK misread** — UTF-8 decoded as GBK/CP936. Signatures: the
-   ``EF BF BD`` decoded as GBK yields U+951F (plus U+65A4 and U+62F7 for
-   the follow-up pairs), and ``E2`` decoded as GBK yields U+94A5 /
-   U+922B.
+4. **GBK misread (single-char family)** — UTF-8 decoded as GBK/CP936.
+   Signatures: the ``EF BF BD`` decoded as GBK yields U+951F (plus U+65A4
+   and U+62F7 for the follow-up pairs), and ``E2`` decoded as GBK yields
+   U+94A5 / U+922B.
+5. **GBK misread (em-dash + letter family)** — the UTF-8 em-dash
+   (``E2 80 94``) followed by an ASCII letter ``X`` decodes as a GBK
+   2-byte pair ``(0x94, X)``, producing a family of CJK characters.
+   U+64AB (source ``\\u2014L``) is one member; the full 52-character
+   family is generated programmatically so a new misread is caught as
+   soon as it appears.
+6. **Em-dash glued to an ASCII letter** — ``\\u2014x`` or ``x\\u2014``
+   (letter adjacent to em-dash on either side). This is either a
+   mojibake residue (the misread ate the space between the em-dash and
+   the letter) or a formatting error that should be fixed. Both need
+   attention. The ``[A-Za-z0-9)]\\u2014`` rule skips the ``\\n``
+   escape sequence (backslash-n followed by em-dash) where the em-dash
+   is at the start of a logical line, not adjacent to ``n``.
 
 None of these can be auto-fixed — the original character is already gone.
 See https://en.wikipedia.org/wiki/Mojibake and
@@ -35,6 +48,7 @@ Usage (called by pre-commit, filenames as arguments):
 from __future__ import annotations
 
 import re
+import string
 import sys
 
 # UTF-8 encoding of U+FFFD. Kept at byte granularity so a stray ``EF``
@@ -65,16 +79,47 @@ _LOSSY_ANCHORS = "\u2013\u2014\u2192\u2190\u00b7\u3002"
 # byte-level signal (``EF BF BD``) and is caught by the ``FFFD in line``
 # scan, so a single stray ``EF`` that ``decode(..., replace)`` turns into
 # ``U+FFFD`` does NOT re-enter the text scan and get reported twice.
+
+
+def _gbk_pair_char(b1: int, b2: int) -> str | None:
+    """Decode a GBK 2-byte pair to a single character, or ``None`` if invalid."""
+    try:
+        s = bytes([b1, b2]).decode("gbk")
+        return s if len(s) == 1 else None
+    except UnicodeDecodeError:
+        return None
+
+
+# GBK misread of "em-dash + ASCII letter": UTF-8 em-dash (E2 80 94)
+# followed by a letter X decodes as GBK pair (0x94, X). U+64AB
+# (source `\u2014L`) is one member; generate the full 52-character family
+# here so any new misread signature is caught automatically.
+_GBK_EMDASH_LETTER_FAMILY = "".join(
+    c for c in (_gbk_pair_char(0x94, ord(x)) for x in string.ascii_letters)
+    if c is not None
+)
+
+# Rule 6: em-dash glued to an ASCII letter. Glued = mojibake residue
+# (the misread ate the space) or a formatting error — both need fixing.
+# The ``[A-Za-z0-9)]—`` rule skips the ``\n—`` escape sequence
+# (backslash-n followed by em-dash) where the em-dash is at the start
+# of a logical line, not adjacent to ``n``.
+_EMDASH_AFTER_RE = re.compile(r"—[A-Za-z]")
+_EMDASH_BEFORE_RE = re.compile(r"(?<!\\)[A-Za-z0-9)]—")
+
 MOJIBAKE_RE = re.compile(
     f"â[{re.escape(_CP1252_FOLLOWS)}]"
     f"|[{re.escape(_LOSSY_ANCHORS)}][ \\t]*\\?"
     f"|[\u951f\u65a4\u62f7\u9225\u922b]"
+    f"|[{re.escape(_GBK_EMDASH_LETTER_FAMILY)}]"
 )
 
 _SUMMARY = """\
 
-{failures} line(s) contain U+FFFD replacement characters or mojibake
-signatures (CP1252 misread, byte loss after punctuation, GBK misread).
+{failures} line(s) contain U+FFFD replacement characters, mojibake
+signatures (CP1252 misread, byte loss after punctuation, GBK misread
+including the em-dash+letter family), or em-dash glued to ASCII letters
+(mojibake residue or formatting error — both need fixing).
 The original characters were corrupted by a non-UTF-8 encoding round-trip
 and cannot be auto-fixed — restore them from the source and save as UTF-8
 (no BOM).
@@ -106,7 +151,11 @@ def _find_hits(raw: bytes) -> list[tuple[int, str]]:
             hits.append((lineno, line.decode("utf-8", errors="replace").rstrip()))
             continue
         text = line.decode("utf-8", errors="replace").rstrip()
-        if MOJIBAKE_RE.search(text):
+        if (
+            MOJIBAKE_RE.search(text)
+            or _EMDASH_AFTER_RE.search(text)
+            or _EMDASH_BEFORE_RE.search(text)
+        ):
             hits.append((lineno, text))
     return hits
 

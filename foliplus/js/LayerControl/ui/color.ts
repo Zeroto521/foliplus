@@ -1,4 +1,4 @@
-// LayerControl UI —Solid-color basemap visibility.
+// LayerControl UI — Solid-color basemap visibility.
 // The color basemap is a first-class base-group layer: it owns a dedicated
 // pane + canvas (created through `factory.createColor`) so it participates
 // in the layer z ladder exactly like tile basemaps. Row order = visual stack

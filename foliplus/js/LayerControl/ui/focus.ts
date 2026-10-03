@@ -1,4 +1,4 @@
-// LayerControl UI —Focus-layer overlay (mask / rect / fly-to).
+// LayerControl UI — Focus-layer overlay (mask / rect / fly-to).
 import { EVENTS } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import {

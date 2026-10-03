@@ -1,4 +1,4 @@
-// LayerControl UI —Layer attributes panel.
+// LayerControl UI — Layer attributes panel.
 import { EVENTS } from "#core/event/index.js";
 import { GEOM_TYPE, GROUP } from "#core/layer/index.js";
 import { createRowPanel } from "#core/leaflet/index.js";

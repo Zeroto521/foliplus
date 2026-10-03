@@ -118,7 +118,7 @@ const unmarkOverride = (ui: LayerUI, id: string, override: LayerOverride) => {
  * The sweep is a pure projection: it never prunes and never writes back.
  * A persisted id with no registry entry is *ignored*, not treated as
  * evidence that its stored state should go. That distinction is the whole
- * point —HeatmapControl and MeasureControl register in their own
+ * point — HeatmapControl and MeasureControl register in their own
  * constructor, which runs after this UI has attached, so on the first
  * attach their ids are unresolvable. Deleting them there (and writing the
  * deletion back to storage) would discard the user's stored opacity, zoom

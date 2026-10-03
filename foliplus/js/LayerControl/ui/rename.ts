@@ -1,4 +1,4 @@
-// LayerControl UI —Inline layer rename.
+// LayerControl UI — Inline layer rename.
 import { HINT_DURATION } from "#core/hint.js";
 import {
   createInlineEditInput,

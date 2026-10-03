@@ -1,4 +1,4 @@
-// LayerControl UI —Layer row structure / list layout / insert / reindex.
+// LayerControl UI — Layer row structure / list layout / insert / reindex.
 import { GROUP } from "#core/layer/index.js";
 import { ListCursor } from "#core/listCursor.js";
 import { dom, updateItemLabel } from "#common/dom.js";

@@ -1,4 +1,4 @@
-// LayerControl UI —Checkbox / group-toggle visibility.
+// LayerControl UI — Checkbox / group-toggle visibility.
 import { GROUP } from "#core/layer/index.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import * as CONST from "../const.js";

@@ -1,4 +1,4 @@
-// LayerControl UI —Roving keyboard cursor + key handling.
+// LayerControl UI — Roving keyboard cursor + key handling.
 import { HINT_DURATION } from "#core/hint.js";
 import { isNativeControl } from "#core/inputOwnership.js";
 import { GROUP } from "#core/layer/index.js";
