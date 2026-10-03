@@ -373,9 +373,10 @@ describe("executor: coalesced redraw-arm repaint", () => {
     const ui = manager.ui as LayerUI;
     ui.attachUI(container);
 
-    // attachUI triggers an initial projection (immediate path), so onOpacity
-    // has been called once with the default opacity (1).
-    expect(onOpacity).toHaveBeenCalledTimes(1);
+    // attachUI triggers an initial projection (repaintMode="none"), so
+    // onOpacity is NOT called (no repaint). CSS opacity is set to the
+    // default (1), but the canvas is not repainted.
+    expect(onOpacity).not.toHaveBeenCalled();
     const initialCalls = onOpacity.mock.calls.length;
 
     const commit = (value: number) => {
@@ -472,7 +473,7 @@ describe("executor: coalesced redraw-arm repaint", () => {
     vi.useRealTimers();
   });
 
-  it("replay path paints synchronously via immediate=true", () => {
+  it("replay path sets CSS opacity without scheduling a repaint", () => {
     vi.useFakeTimers();
 
     const { container, map } = makeOffMapFixture();
@@ -486,24 +487,27 @@ describe("executor: coalesced redraw-arm repaint", () => {
     const ui = manager.ui as LayerUI;
     ui.attachUI(container);
 
-    // attachUI triggers an initial projection (immediate path), so onOpacity
-    // has been called once with the default opacity (1).
-    expect(onOpacity).toHaveBeenCalledTimes(1);
+    // attachUI triggers an initial projection (repaintMode="none"), so
+    // onOpacity is NOT called (no repaint). CSS opacity is set to the
+    // default (1), but the canvas is not repainted.
+    expect(onOpacity).not.toHaveBeenCalled();
     const initialCalls = onOpacity.mock.calls.length;
 
-    // Replay path: applyProjection with immediate=true (as called from
-    // applyUserState) paints synchronously without scheduling a timer.
+    // Replay path: applyProjection with repaintMode="none" sets CSS opacity
+    // and layerAlpha, but does NOT schedule a repaint (the canvas will be
+    // repainted on the next pan/zoom).
     setIntent(ui, "r", "opacity", 0.5);
     ui.intentStore.seedProvenance("r", ["opacity"]);
-    applyProjection(ui, "r", true);
+    applyProjection(ui, "r", "none");
 
-    expect(onOpacity.mock.calls.length).toBe(initialCalls + 1);
-    expect(onOpacity).toHaveBeenCalledWith(0.5);
+    // CSS opacity is set, but onOpacity is NOT called (no repaint).
     expect(canvas.style.opacity).toBe("0.5");
+    expect(getLayerAlpha(canvas)).toBeCloseTo(0.5);
+    expect(onOpacity.mock.calls.length).toBe(initialCalls);
 
     // No pending timer: advancing time never triggers another repaint.
     vi.advanceTimersByTime(1000);
-    expect(onOpacity.mock.calls.length).toBe(initialCalls + 1);
+    expect(onOpacity.mock.calls.length).toBe(initialCalls);
 
     manager.destroy();
     vi.useRealTimers();
