@@ -39,7 +39,7 @@ const schema = {
       dynamic: false,
     },
     locale_tables: {
-      ts: "LocaleTables",
+      ts: "object_nested",
       optional: true,
       nullable: false,
       runtime_only: false,
@@ -125,6 +125,17 @@ const schema = {
         dynamic: false,
         default: true,
       },
+      // A named, shape-driven type: exercises the alias declaration and the
+      // single export block it must land in.
+      entries: {
+        ts: "LayerData",
+        name: "LayerData",
+        shape: [{ name: "string", id: "string", group: ["base", "overlay"] }],
+        optional: true,
+        nullable: false,
+        runtime_only: false,
+        dynamic: false,
+      },
     },
     SearchControl: {
       mode: {
@@ -137,7 +148,13 @@ const schema = {
         default: "coord",
       },
       provider_config: {
-        ts: "object",
+        ts: "ProviderConfig",
+        name: "ProviderConfig",
+        shape: {
+          id: "string",
+          baseUrl: ["string", "?"],
+          headers: [{ "*": "string" }, "?"],
+        },
         optional: true,
         nullable: true,
         runtime_only: false,
@@ -245,7 +262,8 @@ describe("buildConfigSchema", () => {
     async () => {
       const text = await buildConfigSchema(schema);
       expect(text).toContain('mode: "coord" | "addr";');
-      expect(text).toContain("provider_config?: Record<string, unknown> | null;");
+      expect(text).toContain("provider_config?: ProviderConfig | null;");
+      expect(text).toContain("entries?: LayerData;");
     },
     SLOW,
   );
@@ -261,8 +279,13 @@ describe("buildConfigSchema", () => {
       expect(tail).toContain("ConfigSearch");
       expect(tail).toContain("ConfigRuntimeOnly");
       expect(tail).toContain("ComponentConfig");
+      // Named aliases are declared without `export` and re-exported here.
+      expect(tail).toContain("LayerData");
+      expect(tail).toContain("ProviderConfig");
       // No inline exports anywhere else.
       expect(text.indexOf("export type")).toBe(text.lastIndexOf("export type"));
+      expect(text).not.toContain("export type LayerData");
+      expect(text).not.toContain("export type ProviderConfig");
     },
     SLOW,
   );
