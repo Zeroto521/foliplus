@@ -361,7 +361,6 @@ class TestTruncatedUtf8Sequence:
         assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 0
 
 
-
 class TestEmDashGlued:
     """Em-dash glued to a lowercase Latin letter — the ``— the`` shape.
 
@@ -413,7 +412,9 @@ class TestOverflowGlyphMisread:
     ``\u22efmenu`` is not a valid construction and gets flagged.
     """
 
-    def test_overflow_menu_glyph_misread_is_flagged(self, tmp_path, capsys, monkeypatch):
+    def test_overflow_menu_glyph_misread_is_flagged(
+        self, tmp_path, capsys, monkeypatch
+    ):
         f = tmp_path / "menu.txt"
         f.write_bytes("// opened from the \u22efmenu button\n".encode("utf-8"))
         assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 1

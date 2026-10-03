@@ -712,7 +712,7 @@ class TestCheckLayerUIInjection:
     """
 
     def test_layerui_in_ui_module_is_reported(self):
-        lines = ["const x = (ui: LayerUI) => ui.T(\"k\");\n"]
+        lines = ['const x = (ui: LayerUI) => ui.T("k");\n']
         violations = mod.check_layerui_injection(
             lines, "foliplus/js/LayerControl/ui/list.ts"
         )
@@ -727,9 +727,7 @@ class TestCheckLayerUIInjection:
     def test_coordinator_index_is_exempt(self):
         lines = ["export class LayerUI {\n  constructor() {}\n}\n"]
         assert (
-            mod.check_layerui_injection(
-                lines, "foliplus/js/LayerControl/ui/index.ts"
-            )
+            mod.check_layerui_injection(lines, "foliplus/js/LayerControl/ui/index.ts")
             == []
         )
 
@@ -770,9 +768,7 @@ class TestCheckLayerUIInjection:
         unless the working directory is the repo root."""
         lines = ["type X = LayerUI;\n"]
         # Absolute path pointing outside the ui root — must not be exempt.
-        violations = mod.check_layerui_injection(
-            lines, "/tmp/somewhere/index.ts"
-        )
+        violations = mod.check_layerui_injection(lines, "/tmp/somewhere/index.ts")
         # The path is outside the ui root entirely, so it's ignored (no
         # violations, but not because of basename exemption).
         assert violations == []
@@ -804,9 +800,7 @@ class TestCheckLayerUIInjection:
         not the coordinator type and stays clean."""
         lines = ["const x = (ui: LayerUIHelper) => ui;\n"]
         assert (
-            mod.check_layerui_injection(
-                lines, "foliplus/js/LayerControl/ui/list.ts"
-            )
+            mod.check_layerui_injection(lines, "foliplus/js/LayerControl/ui/list.ts")
             == []
         )
 
