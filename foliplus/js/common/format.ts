@@ -1,7 +1,7 @@
 // Number, date and coordinate formatting for foliplus components.
 // Imported statically by components at build time.
-import { intlLocale } from "#common/locale.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
+import { intlLocale } from "#common/locale.js";
 
 /** Label number-format presets shared by annotation and delegated style panels.
  *  Named rather than raw string literals so locale keys and dropdown options

@@ -8,9 +8,9 @@
 // control interfaces are stricter and use the schema's optional flag.
 import type { ControlPosition } from "leaflet";
 
-export type NumberStyle = "auto" | "int" | "comma" | "percent";
-export type LayerData = { name: string; id: string; group: "base" | "overlay" }[];
-export type ProviderConfig = {
+type NumberStyle = "auto" | "int" | "comma" | "percent";
+type LayerData = { name: string; id: string; group: "base" | "overlay" }[];
+type ProviderConfig = {
   id: string;
   baseUrl?: string;
   throttleMs?: number;
@@ -147,6 +147,9 @@ interface ComponentConfig {
 }
 
 export type {
+  NumberStyle,
+  LayerData,
+  ProviderConfig,
   ConfigCommon,
   ConfigExport,
   ConfigFullscreen,

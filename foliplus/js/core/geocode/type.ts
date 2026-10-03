@@ -64,9 +64,4 @@ interface GeocodeResult {
   display_name: string;
 }
 
-export type {
-  GeocodeProvider,
-  GeocodeResult,
-  ProviderOpConfig,
-  SuggestItem,
-};
+export type { GeocodeProvider, GeocodeResult, ProviderOpConfig, SuggestItem };

@@ -112,6 +112,7 @@ class _BadDefault(_ReflectBase):
 class _Dynamic(_ReflectBase):
     _dynamic_fields = ("data",)
     _data_hint = "LayerData"
+    _data_shape = [{"name": "string", "id": "string", "group": ("base", "overlay")}]
 
     def __init__(self, *, show: bool = True):
         self.show = show
@@ -131,6 +132,62 @@ class _DynamicNoHint(_ReflectBase):
 
     def __init__(self, *, show: bool = True):
         self.show = show
+
+
+class _DynamicNoShape(_ReflectBase):
+    """A dynamic field without its shape descriptor — a declaration bug."""
+
+    _dynamic_fields = ("data",)
+    _data_hint = "LayerData"
+
+    def __init__(self, *, show: bool = True):
+        self.show = show
+
+
+class _NamedType(_ReflectBase):
+    """A named non-union type: its descriptor sits on the class, not the
+    FieldSpec. A shape in Annotated metadata is unhashable, which breaks
+    ``get_type_hints()`` on Python 3.10.
+    """
+
+    _cfg_shape = {"baseUrl": ("string", "?")}
+
+    def __init__(
+        self,
+        *,
+        cfg: Annotated[
+            dict, FieldSpec(ts="ProviderConfig", name="ProviderConfig")
+        ] = None,
+    ):
+        self.cfg = cfg
+
+
+class _NamedTypeNoShape(_ReflectBase):
+    """A named non-union type with no descriptor on the class."""
+
+    def __init__(
+        self,
+        *,
+        cfg: Annotated[
+            dict, FieldSpec(ts="ProviderConfig", name="ProviderConfig")
+        ] = None,
+    ):
+        self.cfg = cfg
+
+
+class _ShapeInAnnotation(_ReflectBase):
+    """A shape attached to an annotation — must fail loudly, not as a
+    TypeError from ``get_type_hints()`` on Python 3.10.
+    """
+
+    def __init__(
+        self,
+        *,
+        cfg: Annotated[
+            dict, FieldSpec(name="ProviderConfig", shape={"a": "string"})
+        ] = None,
+    ):
+        self.cfg = cfg
 
 
 class _Order(_ReflectBase):
@@ -270,6 +327,9 @@ def test_dynamic_fields_are_declared_on_the_class() -> None:
     assert schema["show"].dynamic is False
     assert schema["data"].dynamic is True
     assert schema["data"].ts == "LayerData"
+    assert schema["data"].shape == [
+        {"name": "string", "id": "string", "group": ("base", "overlay")}
+    ]
 
 
 def test_dynamic_field_clashing_with_a_parameter_fails_loud() -> None:
@@ -281,6 +341,31 @@ def test_dynamic_field_without_hint_fails_loud() -> None:
     """A dynamic field without ``_<name>_hint`` is a declaration bug."""
     with pytest.raises(ValueError, match="_data_hint"):
         derive_schema(_DynamicNoHint)
+
+
+def test_dynamic_field_without_a_shape_fails_loud() -> None:
+    """A dynamic field without ``_<name>_shape`` is a declaration bug."""
+    with pytest.raises(ValueError, match="_data_shape"):
+        derive_schema(_DynamicNoShape)
+
+
+def test_named_non_union_type_reads_its_shape_from_the_class() -> None:
+    """A named object type carries its descriptor as ``_<name>_shape``."""
+    schema = derive_schema(_NamedType)
+    assert schema["cfg"].ts == "ProviderConfig"
+    assert schema["cfg"].name == "ProviderConfig"
+    assert schema["cfg"].shape == {"baseUrl": ("string", "?")}
+
+
+def test_named_type_without_a_shape_attribute_fails_loud() -> None:
+    """A named non-union type must declare its descriptor on the class."""
+    with pytest.raises(ValueError, match="_cfg_shape"):
+        derive_schema(_NamedTypeNoShape)
+
+
+def test_shape_in_an_annotation_fails_loud() -> None:
+    with pytest.raises(ValueError, match="class attribute"):
+        derive_schema(_ShapeInAnnotation)
 
 
 def test_derivation_preserves_signature_order() -> None:

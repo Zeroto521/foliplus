@@ -127,9 +127,7 @@ const RENDER = {
  *  foliplus/_config_schema.py's IMPORTS; the Python side checks that every
  *  tag which renders as a name appears here, so a rename on one side fails
  *  the dump instead of emitting an unimported type. */
-const IMPORTS = [
-  { name: "ControlPosition", from: "leaflet" },
-];
+const IMPORTS = [{ name: "ControlPosition", from: "leaflet" }];
 
 /** Render a shape descriptor (from FieldSpec.shape) as a TS type.
  *
@@ -256,10 +254,7 @@ const collectNamedTypes = schema => {
       if (field.shape) {
         named.set(field.name, renderShape(field.shape, field.name));
       } else if (field.ts === "union" && field.values) {
-        named.set(
-          field.name,
-          field.values.map(v => `"${v}"`).join(" | "),
-        );
+        named.set(field.name, field.values.map(v => `"${v}"`).join(" | "));
       }
     }
   };
@@ -297,8 +292,11 @@ const buildConfigSchema = async schema => {
   lines.push("");
 
   // Named type aliases — generated from FieldSpec.name + shape/values.
+  // Declared without `export` and re-exported in the single export block at
+  // the bottom: the eslint rule no-restricted-syntax forbids inline
+  // `export type X = ...` declarations.
   for (const [name, type] of namedTypes) {
-    lines.push(`export type ${name} = ${type};`);
+    lines.push(`type ${name} = ${type};`);
   }
   if (namedTypes.size > 0) lines.push("");
 
@@ -371,9 +369,10 @@ const buildConfigSchema = async schema => {
   lines.push("");
 
   // Single export at the bottom (codebase lint rule: no inline exports).
-  // Named type aliases are already exported inline (above), so they are not
-  // repeated in the bottom export block.
+  // Generated named aliases come first — they are declared above but only
+  // exported here, along with the interfaces.
   const allTypes = [
+    ...namedTypes.keys(),
     "ConfigCommon",
     ...Object.keys(schema.controls).map(n => `Config${n.replace("Control", "")}`),
     "ConfigRuntimeOnly",

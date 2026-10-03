@@ -1,6 +1,7 @@
 // HeatmapControl canvas rendering — pure draw helpers for hexagon fill/stroke
 // and value labels. No `this` dependency: map and style values are passed
 // in explicitly.
+import type { NumberStyle } from "#foliplus/config-schema.js";
 import { drawAlpha, getLayerAlpha, withCanvasLayerAlpha } from "#common/canvasAlpha.js";
 import {
   type CanvasLabelStyle,
@@ -8,7 +9,6 @@ import {
   prepareCanvasLabel,
   resolveCanvasLabelStyle,
 } from "#common/canvasLabel.js";
-import type { NumberStyle } from "#foliplus/config-schema.js";
 import { formatLabelNumber } from "#common/format.js";
 import * as CONST from "./const.js";
 import type { HexFeature } from "./type.js";

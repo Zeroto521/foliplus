@@ -26,6 +26,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+from typing import Annotated, Any, get_args, get_origin, get_type_hints
 
 import pytest
 
@@ -141,6 +142,48 @@ class TestSchemaCoverage:
                     f"foliplus.{obj.__name__} reflected to an empty schema — "
                     f"declare its CONFIG fields as ``__init__`` parameters."
                 )
+
+
+class TestAnnotatedMetadataHashable:
+    """``Annotated`` metadata must stay hashable.
+
+    Python 3.10's ``get_type_hints`` hashes ``Annotated`` metadata, so an
+    unhashable piece there (a ``dict``) raises ``TypeError`` on import — a
+    crash the 3.12+ test runners never see. A shape descriptor is a dict/list
+    tree, which is why a named type carries it as a ``_<name>_shape`` class
+    attribute instead of inside its ``FieldSpec``. This test is what keeps
+    that convention honest.
+    """
+
+    @staticmethod
+    def _annotated(hint: Any) -> list[Any]:
+        """Every ``Annotated`` reachable from a hint, nested ones included."""
+        found: list[Any] = []
+        stack: list[Any] = [hint]
+        while stack:
+            item = stack.pop()
+            if get_origin(item) is Annotated:
+                found.append(item)
+                stack.extend(get_args(item)[1:])
+            elif hasattr(item, "__args__"):
+                try:
+                    stack.extend(get_args(item))
+                except TypeError:
+                    pass
+        return found
+
+    @pytest.mark.parametrize("name", sorted(CONTROL_CLASSES))
+    def test_every_signature_annotated_is_hashable(self, name: str) -> None:
+        hints = get_type_hints(CONTROL_CLASSES[name].__init__, include_extras=True)
+        hints.pop("return", None)
+        bad = []
+        for param, hint in hints.items():
+            for item in self._annotated(hint):
+                try:
+                    hash(item)
+                except TypeError as exc:
+                    bad.append(f"{name}.{param}: {exc}")
+        assert not bad, "\n".join(bad)
 
 
 class TestSchemaMatchesConfigFields:

@@ -272,12 +272,21 @@ class FieldSpec:
         descriptor grammar. A shape without a name is a construction error
         because there is no emitting target.
 
+        Never set this on a :class:`FieldSpec` attached to an annotation: a
+        descriptor is unhashable, and ``Annotated`` metadata is hashed by
+        ``get_type_hints()`` on Python 3.10, so importing such a module
+        raises ``TypeError`` there. Static fields declare their descriptor as
+        a class attribute, ``_<name>_shape``; only specs the framework builds
+        itself (dynamic fields) carry it here.
+
     name
-        Name of a generated type alias in ``config-schema.ts``. Requires
-        :attr:`shape` for object/array types, or ``ts="union"`` +
-        :attr:`values` for literal unions (the only shape-free case, e.g.
-        ``NumberStyle``). Any other tag value with a name fails
-        validation: the alias cannot be rendered without a descriptor.
+        Name of a generated type alias in ``config-schema.ts``. Requires a
+        shape descriptor for object/array types — the ``_<name>_shape`` class
+        attribute for a static field, or :attr:`shape` for a spec the
+        framework builds — or ``ts="union"`` + :attr:`values` for literal
+        unions (the only shape-free case, e.g. ``NumberStyle``). Any other
+        tag value with a name fails validation: the alias cannot be rendered
+        without a descriptor.
     """
 
     ts: str = ""
@@ -307,6 +316,16 @@ class FieldSpec:
                     "emitting target"
                 )
             _validate_shape(self.shape, self.name)
+        elif self.name is not None and self.ts != "union":
+            # A named non-union type names its alias in both ``ts`` and
+            # ``name`` (e.g. ``ts="ProviderConfig", name="ProviderConfig"``).
+            # render_ts_type renders ``name``, so ``ts`` is a naming
+            # declaration rather than a render instruction and is not checked
+            # against _SUPPORTED_TAGS. Its descriptor arrives as a class
+            # attribute (see derive_schema), which is why this branch — unlike
+            # the shape-driven one — carries no shape. A tag typo is still
+            # caught at dump time by verify_tags.
+            pass
         elif self.ts == "union":
             if not self.values:
                 raise ValueError(f"FieldSpec(ts='union') requires values, got None")
@@ -551,6 +570,19 @@ def _resolve_tag(
     # the note must survive that hop.
     meta = inner_meta or meta
     peeled = meta is not None
+    if meta is not None and meta.shape is not None:
+        # A shape descriptor is unhashable, and Annotated metadata is hashed
+        # by get_type_hints() on Python 3.10, so importing such a module
+        # raises TypeError there. Check this before deciding the tag: a shape
+        # field usually has no ts override, so tag resolution would fail on
+        # the dict base type first with a message about the wrong thing.
+        raise ValueError(
+            f"FieldSpec.shape must not be attached to an Annotated type — "
+            "a shape descriptor is unhashable and Python 3.10's "
+            "get_type_hints() hashes Annotated metadata, so importing the "
+            "module raises TypeError there. Declare it as a class attribute "
+            f"instead: _<name>_shape = ..."
+        )
 
     if meta is not None and meta.ts:
         # The author named the type; nullability still comes from the
@@ -671,17 +703,28 @@ def derive_schema(cls: type[BaseControl]) -> ControlSchema:
             )
 
         tag, values, nullable, meta = _resolve_tag(hint, None)
-        # Validate ``name`` without ``shape``: the alias can only be rendered
-        # from a union+values descriptor, so the reflected tag must be
-        # "union" with non-empty values. __post_init__ cannot check this
-        # because the reflected tag is not yet known at construction time.
-        if meta is not None and meta.name is not None and meta.shape is None:
-            if tag != "union" or not values:
-                raise ValueError(
-                    f"{cls.__name__}.{name} FieldSpec.name={meta.name!r} "
-                    f"without shape requires ts='union' + values; got "
-                    f"ts={tag!r}, values={values!r}"
-                )
+        # A shape descriptor is unhashable, and Annotated metadata is hashed
+        # on Python 3.10 (get_type_hints), so a shape must never be attached
+        # to an annotation — _resolve_tag rejects one. Named non-union types
+        # carry their descriptor as a class attribute next to the field
+        # declaration, ``_<name>_shape``, the same convention dynamic fields
+        # use.
+        shape: Any = None
+        if meta is not None and meta.name is not None:
+            # Only non-union named types need a descriptor: a reflected union
+            # renders itself from ``values``.
+            if tag != "union":
+                shape_attr = f"_{name}_shape"
+                shape = getattr(cls, shape_attr, None)
+                if shape is None:
+                    raise ValueError(
+                        f"{cls.__name__}.{name} FieldSpec.name={meta.name!r} "
+                        f"names a non-union type (ts={tag!r}), which needs a "
+                        f"shape descriptor — set {shape_attr} on the class"
+                    )
+                # Validate like __post_init__ does, since the descriptor came
+                # from a class attribute rather than a FieldSpec.
+                _validate_shape(shape, meta.name)
         if not _is_json_serializable(param.default):
             raise ValueError(
                 f"{cls.__name__}.{name} default {param.default!r} is not JSON "
@@ -692,9 +735,10 @@ def derive_schema(cls: type[BaseControl]) -> ControlSchema:
         # render-time attributes. `optional` defaults to False: Python emits
         # every non-runtime, non-dynamic field, so the per-control TS interface
         # declares it required — runtime_only and dynamic carry optionality.
-        # ``shape`` and ``name`` come from the author's FieldSpec: they are
-        # not reflected (the reflector cannot infer a shape descriptor from a
-        # Python annotation), so the author must write them explicitly.
+        # ``shape`` and ``name`` come from the author's FieldSpec and the
+        # class: ``name`` is in the annotation (a plain string, so hashable),
+        # ``shape`` is the ``_<name>_shape`` class attribute (see above). The
+        # reflector cannot infer either from a Python annotation.
         spec = FieldSpec(
             ts=tag,
             values=values,
@@ -702,7 +746,7 @@ def derive_schema(cls: type[BaseControl]) -> ControlSchema:
             optional=meta.optional if meta else False,
             default=param.default,
             note=meta.note if meta else "",
-            shape=meta.shape if meta else None,
+            shape=shape,
             name=meta.name if meta else None,
         )
         out[name] = spec
@@ -735,7 +779,7 @@ def derive_schema(cls: type[BaseControl]) -> ControlSchema:
                 "next to the declaration."
             )
         out[name] = FieldSpec(
-            ts="",
+            ts=getattr(cls, hint_attr),
             name=getattr(cls, hint_attr),
             shape=getattr(cls, shape_attr),
             dynamic=True,
@@ -883,15 +927,15 @@ def collect_named_types(*schemas: ControlSchema) -> set[str]:
 def _field_dict_list(schema: ControlSchema) -> dict[str, dict[str, Any]]:
     """Convert one ControlSchema to a JSON-friendly dict of field dicts.
 
-    Drops Python-only fields (``item``, ``note``) that the generators don't
-    need — ``note`` is still kept so the generated TS carries docstrings.
-    ``shape`` and ``name`` are emitted when set: they carry the descriptor
-    the generator needs to emit a named alias at the top of
-    ``config-schema.ts``, and the field's TS type renders as the name.
+    Drops the Python-only ``item`` field the generators don't need; ``note`` is
+    kept so the generated TS carries docstrings. ``shape`` and ``name`` are
+    emitted when set: they carry the descriptor the generator needs to emit a
+    named alias in ``config-schema.ts``, and the field's TS type renders as
+    the name.
     """
     out: dict[str, dict[str, Any]] = {}
     for name, spec in schema.items():
-        entry: dict[str, dict[str, Any]] = {
+        entry: dict[str, Any] = {
             "ts": spec.ts,
             "optional": spec.optional or spec.runtime_only,
             "nullable": spec.nullable,
