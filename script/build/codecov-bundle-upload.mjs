@@ -22,14 +22,14 @@
  * Auth: `CODECOV_TOKEN` env (same GHA secret the coverage uploads use).
  */
 import { readFileSync, writeFileSync } from "fs";
-import { dirname, resolve } from "path";
-import { fileURLToPath, pathToFileURL } from "url";
+import { resolve } from "path";
+import { pathToFileURL } from "url";
 import { help, parseArgs } from "../args.mjs";
+import { repoRoot } from "../build-path.mjs";
 import { OK, WARN } from "../glyph.mjs";
 import { buildCodecovPayload, payloadToJson } from "./codecov-bundle-report.mjs";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const ROOT = resolve(__dirname, "..", "..");
+const ROOT = repoRoot(import.meta.url);
 
 const DEFAULT_API_URL = "https://api.codecov.io";
 const API_ENDPOINT = "/upload/bundle_analysis/v1";

@@ -24,9 +24,10 @@
  */
 import fs from "node:fs";
 import path from "node:path";
+import { repoRoot } from "../build-path.mjs";
 
 const ROOT =
-  process.argv[2] ?? path.resolve(import.meta.dirname, "..", "..", "foliplus", "js");
+  process.argv[2] ?? path.resolve(repoRoot(import.meta.url), "foliplus", "js");
 
 const CONTROLS = [
   "ExportControl",
