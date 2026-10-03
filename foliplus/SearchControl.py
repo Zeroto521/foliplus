@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Literal, TypedDict, get_args
+from typing import Annotated, Literal, TypedDict, get_args
 
+from ._config_schema import FieldSpec
 from ._typing import Position, Zoom
 from ._validate import validate
 from .BaseControl import BaseControl
@@ -149,8 +150,21 @@ class SearchControl(BaseControl):
         position: Position = "topleft",
         mode: MODE = "coord",
         zoom: Zoom = 15,
-        provider: ProviderId | CustomProvider = "nominatim",
-        provider_config: ProviderConfig | None = None,
+        provider: Annotated[
+            ProviderId | CustomProvider,
+            FieldSpec(
+                ts="string | ProviderConfig",
+                note="Built-in provider id or a custom ProviderConfig dict.",
+            ),
+        ] = "nominatim",
+        provider_config: Annotated[
+            ProviderConfig | None,
+            FieldSpec(
+                ts="object",
+                note="Overrides for a built-in provider; only valid with a "
+                "string provider.",
+            ),
+        ] = None,
         collapse_on_outside: bool = True,
         locale: str | LocaleConfig | None = None,
     ):

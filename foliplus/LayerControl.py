@@ -87,6 +87,9 @@ class LayerControl(BaseControl):
     >>> LayerControl().add_to(m)
     """
 
+    # Emitted by _extra_config at render time, not by a constructor parameter.
+    _dynamic_fields = ("data",)
+
     def __init__(
         self,
         *,
