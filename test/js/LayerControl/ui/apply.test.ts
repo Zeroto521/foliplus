@@ -348,6 +348,172 @@ describe("executor: late-carrier replay", () => {
   });
 });
 
+describe("executor: coalesced redraw-arm repaint", () => {
+  beforeEach(() => {
+    installLeafletGlobals();
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  it("drags write CSS synchronously; one repaint lands 60ms after the last commit", () => {
+    vi.useFakeTimers();
+
+    const { container, map } = makeOffMapFixture();
+    const canvas = document.createElement("canvas");
+    const onOpacity = vi.fn();
+
+    const manager = new LayerManager(map, [
+      { id: "h", name: "Heat", group: "overlay", canvas, onOpacity },
+    ]);
+    manager.ui = new LayerUI(manager);
+    const ui = manager.ui as LayerUI;
+    ui.attachUI(container);
+
+    // attachUI triggers an initial projection (repaintMode="none"), so
+    // onOpacity is NOT called (no repaint). CSS opacity is set to the
+    // default (1), but the canvas is not repainted.
+    expect(onOpacity).not.toHaveBeenCalled();
+    const initialCalls = onOpacity.mock.calls.length;
+
+    const commit = (value: number) => {
+      setIntent(ui, "h", "opacity", value);
+      ui.intentStore.seedProvenance("h", ["opacity"]);
+      applyProjection(ui, "h", "debounce");
+    };
+
+    // First commit: CSS + WeakMap written synchronously. The repaint is
+    // deferred via the 60ms debounce, so onOpacity count is unchanged.
+    commit(0.8);
+    expect(canvas.style.opacity).toBe("0.8");
+    expect(getLayerAlpha(canvas)).toBeCloseTo(0.8);
+    expect(onOpacity.mock.calls.length).toBe(initialCalls);
+
+    // Three rapid commits within 20ms each. CSS + WeakMap track the drag
+    // synchronously on every commit; the debounce timer resets on each
+    // one so no repaint fires yet.
+    vi.advanceTimersByTime(20);
+    commit(0.5);
+    expect(canvas.style.opacity).toBe("0.5");
+    expect(getLayerAlpha(canvas)).toBeCloseTo(0.5);
+    expect(onOpacity.mock.calls.length).toBe(initialCalls);
+
+    vi.advanceTimersByTime(20);
+    commit(0.3);
+    expect(canvas.style.opacity).toBe("0.3");
+    expect(getLayerAlpha(canvas)).toBeCloseTo(0.3);
+    expect(onOpacity.mock.calls.length).toBe(initialCalls);
+
+    vi.advanceTimersByTime(20);
+    commit(0.1);
+    expect(canvas.style.opacity).toBe("0.1");
+    expect(getLayerAlpha(canvas)).toBeCloseTo(0.1);
+    expect(onOpacity.mock.calls.length).toBe(initialCalls);
+
+    // 30ms of the 60ms window has elapsed since the 0.1 commit -- still
+    // too early for the debounce to fire.
+    vi.advanceTimersByTime(30);
+    expect(onOpacity.mock.calls.length).toBe(initialCalls);
+
+    // 60ms of quiet from the 0.1 commit. The debounced repaint fires
+    // exactly once with the LATEST WeakMap value (0.1), converging the
+    // pixel state to the slider's terminal position without any
+    // pan/zoom event.
+    vi.advanceTimersByTime(30);
+    expect(onOpacity.mock.calls.length).toBe(initialCalls + 1);
+    expect(onOpacity).toHaveBeenCalledWith(0.1);
+
+    // No trailing repaint queued: advancing further does not fire again.
+    vi.advanceTimersByTime(500);
+    expect(onOpacity.mock.calls.length).toBe(initialCalls + 1);
+
+    manager.destroy();
+    vi.useRealTimers();
+  });
+
+  it("commit arm paints synchronously and schedules no timer", () => {
+    vi.useFakeTimers();
+
+    const { container, map } = makeOffMapFixture();
+    const canvas = document.createElement("canvas");
+    const onOpacity = vi.fn();
+
+    const manager = new LayerManager(map, [
+      {
+        id: "c",
+        name: "Color",
+        group: "overlay",
+        canvas,
+        onOpacity,
+        opacityBake: "commit" as const,
+      },
+    ]);
+    manager.ui = new LayerUI(manager);
+    const ui = manager.ui as LayerUI;
+    ui.attachUI(container);
+
+    // The commit arm bakes immediately on every commit: onOpacity fires
+    // synchronously with the new value and no timer is scheduled.
+    setIntent(ui, "c", "opacity", 0.4);
+    ui.intentStore.seedProvenance("c", ["opacity"]);
+    applyProjection(ui, "c");
+
+    expect(onOpacity).toHaveBeenCalledWith(0.4);
+    expect(canvas.style.opacity).toBe("");
+
+    // No pending timer: advancing time never triggers another repaint.
+    const callsAfterCommit = onOpacity.mock.calls.length;
+    vi.advanceTimersByTime(1000);
+    expect(onOpacity.mock.calls.length).toBe(callsAfterCommit);
+
+    manager.destroy();
+    vi.useRealTimers();
+  });
+
+  it("replay path sets CSS opacity without scheduling a repaint", () => {
+    vi.useFakeTimers();
+
+    const { container, map } = makeOffMapFixture();
+    const canvas = document.createElement("canvas");
+    const onOpacity = vi.fn();
+
+    const manager = new LayerManager(map, [
+      { id: "r", name: "Replay", group: "overlay", canvas, onOpacity },
+    ]);
+    manager.ui = new LayerUI(manager);
+    const ui = manager.ui as LayerUI;
+    ui.attachUI(container);
+
+    // attachUI triggers an initial projection (repaintMode="none"), so
+    // onOpacity is NOT called (no repaint). CSS opacity is set to the
+    // default (1), but the canvas is not repainted.
+    expect(onOpacity).not.toHaveBeenCalled();
+    const initialCalls = onOpacity.mock.calls.length;
+
+    // Replay path: applyProjection with repaintMode="none" sets CSS opacity
+    // and layerAlpha, but does NOT schedule a repaint (the canvas will be
+    // repainted on the next pan/zoom).
+    setIntent(ui, "r", "opacity", 0.5);
+    ui.intentStore.seedProvenance("r", ["opacity"]);
+    applyProjection(ui, "r", "none");
+
+    // CSS opacity is set, but onOpacity is NOT called (no repaint).
+    expect(canvas.style.opacity).toBe("0.5");
+    expect(getLayerAlpha(canvas)).toBeCloseTo(0.5);
+    expect(onOpacity.mock.calls.length).toBe(initialCalls);
+
+    // No pending timer: advancing time never triggers another repaint.
+    vi.advanceTimersByTime(1000);
+    expect(onOpacity.mock.calls.length).toBe(initialCalls);
+
+    manager.destroy();
+    vi.useRealTimers();
+  });
+});
+
 describe("executor: idempotent writes", () => {
   beforeEach(() => {
     installLeafletGlobals();
