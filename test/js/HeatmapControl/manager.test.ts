@@ -2138,6 +2138,26 @@ describe("onOpacity callback (R11 redraw arm)", () => {
     expect(canvas.style.opacity).toBe("");
     expect(redrawSpy).toHaveBeenCalled();
   });
+
+  it("calls redrawHeatmap even when canvas is null", () => {
+    const m = makeManager();
+    m.overlay = {
+      canvas: null,
+      ctx: null,
+      register: vi.fn(),
+      unregister: vi.fn(),
+      setVisible: vi.fn(),
+      hooks: { before: [], after: [] },
+    };
+
+    const redrawSpy = vi.spyOn(m, "redrawHeatmap");
+    const opts = window.map.foliplus.LayerAPI.createCanvas.mock.calls[0][0] as {
+      onOpacity: () => void;
+    };
+    opts.onOpacity();
+
+    expect(redrawSpy).toHaveBeenCalled();
+  });
 });
 
 describe("redrawHeatmap — preserveCss branch", () => {
