@@ -11,6 +11,7 @@ import {
   registerInteractions,
 } from "../interaction.js";
 import { applyProjection, applyProjectionAll } from "./apply.js";
+import { closeAttrsPanel } from "./attr.js";
 import { inFloatingPanel, isKeyboardVisibleFocus, owningRow } from "./context.js";
 import {
   handleDragEnd,
@@ -316,6 +317,18 @@ const bindEvents = (ui: LayerUI): void => {
     }),
     bus.on(EVENTS.LAYER_NO_BASEMAP_CHANGED, () => {
       syncNoBasemap(ui);
+    }),
+    // Overlay mutual exclusion — each subsystem closes itself when it hears
+    // the signal. closeOverlays (teardown.ts) emits this; the subsystem that
+    // is about to open sees "I'm not open" and no-ops. Focus is guarded by
+    // isFocusing so the O(layers) applyProjectionAll sweep only runs when
+    // there is actually a focus to tear down.
+    bus.on(EVENTS.OVERLAY_CLEAR, () => closeMoreMenu(ui, true)),
+    bus.on(EVENTS.OVERLAY_CLEAR, () => closeAttrsPanel(ui, false)),
+    bus.on(EVENTS.OVERLAY_CLEAR, () => closeStylePanel(ui, false)),
+    bus.on(EVENTS.OVERLAY_CLEAR, () => finishRename(ui)),
+    bus.on(EVENTS.OVERLAY_CLEAR, () => {
+      if (ui.isFocusing()) dismissFocus(ui);
     }),
   );
   ui.unsubscribeLayerSignals = signalHandlers;
