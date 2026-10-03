@@ -380,7 +380,9 @@ INJECTION_EXEMPT = {
 LAYERUI_RE = re.compile(r"\bLayerUI\b")
 
 
-def check_layerui_injection(code_lines: list[str], filepath: str) -> list[tuple[int, str]]:
+def check_layerui_injection(
+    code_lines: list[str], filepath: str
+) -> list[tuple[int, str]]:
     """Rule 5: report `LayerUI` in ui/* module signatures or bodies (code only,
     comments exempt) — the fence that keeps modules from drifting back to the
     whole-package argument."""
