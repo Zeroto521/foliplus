@@ -4,6 +4,7 @@ import * as CONST from "#foliplus/HeatmapControl/const.js";
 import { HeatmapManager } from "#foliplus/HeatmapControl/manager.js";
 import { rebuildLayerDropdown } from "#foliplus/HeatmapControl/ui.js";
 import { BORDER_WEIGHT } from "#foliplus/common/form.js";
+import { getLayerAlpha, setLayerAlpha } from "#common/canvasAlpha.js";
 import { makeConfig, makeCtrl, makeManager } from "./fixture.js";
 
 afterEach(() => {
@@ -2088,5 +2089,101 @@ describe("NO_OP_ENV T fallback", () => {
     };
     const m = new HeatmapManager(map);
     expect(m.T("title")).toBe("HeatmapControl.title");
+  });
+});
+
+describe("onOpacity callback (R11 redraw arm)", () => {
+  it("clears CSS opacity and calls redrawHeatmap", () => {
+    const m = makeManager();
+    const canvas = document.createElement("canvas");
+    canvas.style.opacity = "0.4";
+    m.overlay = {
+      canvas,
+      ctx: {
+        setTransform: vi.fn(),
+        clearRect: vi.fn(),
+        beginPath: vi.fn(),
+        moveTo: vi.fn(),
+        lineTo: vi.fn(),
+        closePath: vi.fn(),
+        fill: vi.fn(),
+        stroke: vi.fn(),
+        fillText: vi.fn(),
+        strokeText: vi.fn(),
+        measureText: vi.fn(() => ({ width: 10 })),
+      } as unknown as CanvasRenderingContext2D,
+      register: vi.fn(),
+      unregister: vi.fn(),
+      setVisible: vi.fn(),
+      hooks: { before: [], after: [] },
+    };
+    m.cachedFeatures = [] as never;
+    m.currentLabelShow = false;
+    m.ui = { ...makeCtrl(m), ctrl: document.createElement("div") };
+    m.map.getContainer = vi.fn(() => {
+      const c = document.createElement("div");
+      Object.defineProperty(c, "clientWidth", { value: 100 });
+      Object.defineProperty(c, "clientHeight", { value: 100 });
+      return c;
+    });
+    m.map.getBounds = vi.fn(() => ({ contains: () => true }));
+
+    const redrawSpy = vi.spyOn(m, "redrawHeatmap");
+    // Trigger the onOpacity callback registered in the constructor.
+    const opts = window.map.foliplus.LayerAPI.createCanvas.mock.calls[0][0] as {
+      onOpacity: () => void;
+    };
+    opts.onOpacity();
+
+    expect(canvas.style.opacity).toBe("");
+    expect(redrawSpy).toHaveBeenCalled();
+  });
+});
+
+describe("redrawHeatmap — preserveCss branch", () => {
+  it("keeps CSS and restores layerAlpha when both carriers are set", () => {
+    const m = makeManager();
+    const canvas = document.createElement("canvas");
+    m.overlay = {
+      canvas,
+      ctx: {
+        setTransform: vi.fn(),
+        clearRect: vi.fn(),
+        beginPath: vi.fn(),
+        moveTo: vi.fn(),
+        lineTo: vi.fn(),
+        closePath: vi.fn(),
+        fill: vi.fn(),
+        stroke: vi.fn(),
+        fillText: vi.fn(),
+        strokeText: vi.fn(),
+        measureText: vi.fn(() => ({ width: 10 })),
+      } as unknown as CanvasRenderingContext2D,
+      register: vi.fn(),
+      unregister: vi.fn(),
+      setVisible: vi.fn(),
+      hooks: { before: [], after: [] },
+    };
+    m.cachedFeatures = [] as never;
+    m.currentLabelShow = false;
+    m.ui = { ...makeCtrl(m), ctrl: document.createElement("div") };
+    m.map.getContainer = vi.fn(() => {
+      const c = document.createElement("div");
+      Object.defineProperty(c, "clientWidth", { value: 100 });
+      Object.defineProperty(c, "clientHeight", { value: 100 });
+      return c;
+    });
+    m.map.getBounds = vi.fn(() => ({ contains: () => true }));
+
+    // Simulate the state after applyStateOp: CSS set AND layerAlpha !== 1.
+    canvas.style.opacity = "0.5";
+    setLayerAlpha(canvas, 0.5);
+
+    m.redrawHeatmap();
+
+    // preserveCss=true: CSS is preserved, not cleared.
+    expect(canvas.style.opacity).toBe("0.5");
+    // layerAlpha is restored to the original value after the draw pass.
+    expect(getLayerAlpha(canvas)).toBeCloseTo(0.5);
   });
 });
