@@ -13,10 +13,13 @@ build:
       - git fetch --unshallow || true
       - git fetch origin --tags --force
     pre_install:
-      # Build bundled JS/CSS assets (foliplus/dist/) before Python install.
+      # Python-free, so it can run before the install step lands.
       - npm install
-      - make build-js
     post_install:
+      # `make build-js` dumps the CONFIG schema by importing the package, so
+      # the install step above must have run first — CI's `js` job does
+      # `uv sync --no-dev` before building for the same reason.
+      - make build-js
       - uv run make info
 
 sphinx:
