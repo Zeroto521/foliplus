@@ -752,7 +752,7 @@ class LayerManager implements LayerAPI {
   /**
    * Unregister and remove a layer from the map and panel.
    *
-   * Generic teardown only —it never touches persisted user state. A layer
+   * Generic teardown only — it never touches persisted user state. A layer
    * unregistering itself may simply be temporarily empty: HeatmapControl
    * unregisters its canvas when the data goes empty, and nothing about that
    * says the user's stored opacity, zoom range, or hidden state is wanted
@@ -802,7 +802,7 @@ class LayerManager implements LayerAPI {
         }
       }
     }
-    // Nothing below writes persisted state —see the method's doc. The rename
+    // Nothing below writes persisted state — see the method's doc. The rename
     // and the per-layer intent both survive this teardown, so a component that
     // unregisters an empty layer and registers it again comes back with the
     // name and the settings the user chose.
@@ -821,7 +821,7 @@ class LayerManager implements LayerAPI {
     });
     // Unregister is rare, so flush rather than riding out the 100ms window.
     // Any pending write carries the registry's current order, which no longer
-    // lists this id —that dimension reads the registry live, so the removal is
+    // lists this id — that dimension reads the registry live, so the removal is
     // recorded without the teardown touching a persisted map.
     this.persistence.flushAll();
     this.emitLayerChange(id, layerInfo.kind);
@@ -839,20 +839,20 @@ class LayerManager implements LayerAPI {
   /**
    * Delete a layer: two semantics, dispatched by layer ownership.
    *
-   * Component-owned layers (Measure, Heatmap) clear their data —no id is
+   * Component-owned layers (Measure, Heatmap) clear their data — no id is
    * recorded in `removed`, so the component can re-register after redraw.
    * The event bus carries the notification; the component owns the wipe.
    *
    * User-added layers are deleted for good: the id is added to `removed` so
    * the registry refuses it again, and the three sections that key by layer
-   * id —order, the rename, the annotation config—are pruned. Only a user
+   * id — order, the rename, the annotation config — are pruned. Only a user
    * who pointed at a row and chose "delete" knows the layer is gone for
    * good; per-dimension resets drop one provenance marker instead, which is
    * the same guarantee at the dimension level. Deletion is one level deeper
    * still — nothing about generic teardown can say the id is retired.
    *
    * Everything pruned here is scheduled on the one shared debounce, so the
-   * whole record —removed, order, annotations, names, per-layer intent— leaves
+   * whole record — removed, order, annotations, names, per-layer intent — leaves
    * in a single flush rather than in one write per dimension.
    *
    * @param {string} id - The layer ID previously passed to registerLayer().

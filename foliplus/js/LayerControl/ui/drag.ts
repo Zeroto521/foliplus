@@ -1,4 +1,4 @@
-// LayerControl UI —HTML5 drag reorder + group fold.
+// LayerControl UI — HTML5 drag reorder + group fold.
 import { HINT_DURATION } from "#core/hint.js";
 import * as CONST from "../const.js";
 import type { LayerUI } from "./index.js";

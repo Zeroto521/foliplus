@@ -1,4 +1,4 @@
-// LayerControl UI —Focus-layer overlay (mask / rect / fly-to).
+// LayerControl UI — Focus-layer overlay (mask / rect / fly-to).
 import { EVENTS } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import {
@@ -117,7 +117,7 @@ const focusLayer = (ui: LayerUI, layerId: string) => {
   if (!layerInfo) return;
   const layer = ui.m.findLayer(layerInfo);
 
-  // Hidden layer: nothing to focus on —show a hint instead.
+  // Hidden layer: nothing to focus on — show a hint instead.
   const itemEl = ui.uiContainer.querySelector(
     `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"]`,
   ) as HTMLElement | null;
@@ -163,21 +163,21 @@ const focusLayer = (ui: LayerUI, layerId: string) => {
   // cancelFocus would flash "Focus cancelled" before every focus.
   closeOverlays(ui);
 
-  // Hide every other visible layer so the focused one stands out —including
+  // Hide every other visible layer so the focused one stands out — including
   // layers that overlap the focused bounds (the mask only dims outside).
   hideOtherLayers(ui);
   // Labels of the layers just hidden must leave the screen with them: the
   // canvas draws the spotlighted layer's labels only for the duration.
   ui.m.annotation.setFocusFilter(layerId);
   // Lift it above the hidden peers (so it can't be covered) and apply the
-  // accent glow —one O(panes) pass, not a per-leaf-element loop.
+  // accent glow — one O(panes) pass, not a per-leaf-element loop.
   bringFocusedLayerToFront(ui, layerInfo);
 
   // Register LayerControl's own mode for the duration of the focus, BEFORE
   // the fitBounds/flyTo branching. Both paths draw a focus overlay and
-  // register the same auto-cancel, so both must hold the mode —a missing
+  // register the same auto-cancel, so both must hold the mode — a missing
   // setMode on the flyTo path would let export/measure render through a
-  // live focus overlay. Cleared on dismissFocus —called by the auto-timeout,
+  // live focus overlay. Cleared on dismissFocus — called by the auto-timeout,
   // the manual cancel, and a subsequent focus (closeOverlays runs first).
   const modes = ensureModes(ui.m.map);
   modes.setMode(ui.config.name, "focusing");
@@ -224,7 +224,7 @@ const focusLayer = (ui: LayerUI, layerId: string) => {
   }, CONST.FOCUS.RECT_DURATION_MS);
 
   // One-shot map move/zoom handler that auto-cancels focus when the user
-  // starts navigating elsewhere —prevents the rect from lingering.
+  // starts navigating elsewhere — prevents the rect from lingering.
   registerAutoCancel(ui, layerId);
 };
 
@@ -299,7 +299,7 @@ const dismissFocus = (ui: LayerUI): void => {
  *
  * Declarative: one class write on the map container. CSS
  * `.foliplus-is-focus-mode .foliplus-layer-pane:not(.foliplus-focus-pane)`
- * hides every layer pane except the focused one —instead of a JS
+ * hides every layer pane except the focused one — instead of a JS
  * visibility loop over N panes. Canvas layers (heatmap) live in their own
  * pane, so they are covered by the same rule. `bringFocusedLayerToFront`
  * marks the focused pane with `foliplus-focus-pane` so it stays visible.
@@ -310,7 +310,7 @@ const hideOtherLayers = (ui: LayerUI): void => {
 
 /**
  * Temporarily lift the focused layer's pane above every other layer so the
- * hidden layers stacked above it cannot cover it —a layer at the bottom
+ * hidden layers stacked above it cannot cover it — a layer at the bottom
  * of the z-order stays hidden even with the boost glow.
  *
  * This is the single O(panes) pass that also applies the focused-layer glow
@@ -321,12 +321,12 @@ const hideOtherLayers = (ui: LayerUI): void => {
  */
 /**
  * Temporarily lift the focused layer's panes above every other layer so the
- * hidden layers stacked above it cannot cover it —a layer at the bottom
+ * hidden layers stacked above it cannot cover it — a layer at the bottom
  * of the z-order stays hidden even with the boost glow.
  *
  * Every z here comes out of the shared ladder (`core/layer/z`): the focused
  * layer is lifted to `focusLayerZ()`, and the panes that belong above it keep
- * Leaflet's normal order —its own labels, then markers, tooltip and popup.
+ * Leaflet's normal order — its own labels, then markers, tooltip and popup.
  * This is also the single O(panes) pass that applies the focused-layer glow
  * (`.foliplus-focus-glow`): by tagging the focused pane (not each leaf
  * element) the accent drop-shadow is applied once per pane, so focusing a
@@ -398,7 +398,7 @@ const bringFocusedLayerToFront = (ui: LayerUI, layerInfo: LayerInfo): void => {
       });
     } else {
       // A surface with no pane of its own: fall back to pane discovery.
-      // Best-effort —some third-party layers expose children without a pane,
+      // Best-effort — some third-party layers expose children without a pane,
       // and getLayerPanes walks options.pane, so skip the lift if discovery
       // throws (the hide + glow still work without it).
       let names: string[] = [];
@@ -409,7 +409,7 @@ const bringFocusedLayerToFront = (ui: LayerUI, layerInfo: LayerInfo): void => {
       }
       for (const name of names) {
         // Skip only the shared core panes (overlay/marker/tile/...). Per-layer
-        // fallback panes are unique and safe to lift —and hideOtherLayers
+        // fallback panes are unique and safe to lift — and hideOtherLayers
         // already hides them, so the two must stay symmetric.
         if (ui.m.panes.defaultPanes.has(name)) continue;
         const pane = ui.m.map.getPane(name);

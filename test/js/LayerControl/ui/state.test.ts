@@ -186,7 +186,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
       ]);
       const u = new LayerUI(m);
       seedIntentMap(u, "visible", {});
-      // No user override —overlay1 keeps its author's declared state, which
+      // No user override — overlay1 keeps its author's declared state, which
       // is `show=False` (absent from the map). Nothing must force it on.
       u.intentStore.replaceProvenance({});
       map.hasLayer = vi.fn(() => false);
@@ -231,7 +231,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
       // go: HeatmapControl and MeasureControl register in their own
       // constructor, after this UI has attached, so their ids are unresolvable
       // on the first sweep. A queued registration and an id never seen are
-      // indistinguishable here, and either may still arrive —both are kept.
+      // indistinguishable here, and either may still arrive — both are kept.
       const { map } = makeTestMap();
       const m = new LayerManager(map, [
         {
@@ -703,8 +703,8 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
 
     it("does not activate the colour layer when no base layers are registered", () => {
       // Intent-only invariant: no code fallback when there are no basemaps.
-      // First-load visibility is the author's `show=` —if the author wrote
-      // no basemap, the map is empty (A—hatch) rather than the colour being
+      // First-load visibility is the author's `show=` — if the author wrote
+      // no basemap, the map is empty (A-hatch) rather than the colour being
       // silently drawn to fill the blank.
       const poly = {
         options: {},
@@ -749,7 +749,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
 
       // base1 was hidden, but overlay1 is visible and there are no visible bases.
       // However, only base1 is hidden (not "all bases"), so the color fallback
-      // must NOT activate —the user might re-show base1 at any time.
+      // must NOT activate — the user might re-show base1 at any time.
       expect(map.removeLayer).toHaveBeenCalledWith(base1);
       const colorItem = ui.uiContainer.querySelector(
         `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
@@ -984,7 +984,7 @@ describe("LayerUI opacity restore / retention", () => {
   });
 
   it("keeps opacity entries whose layers are gone", () => {
-    // An unresolvable id is not a leak to clean up —it may belong to a
+    // An unresolvable id is not a leak to clean up — it may belong to a
     // component that registers later, and the user's stored opacity must not
     // revert to the author default while it waits.
     const { map, layer, panes } = makeMap();
@@ -1140,7 +1140,7 @@ describe("event-driven row refresh", () => {
     li.paneSpecs = specs("__test_opacity_pane__");
     // The projection reads the opacity value gated by the provenance
     // provenance marker, so both must be set for the stored value to flow
-    // through —a raw `intents.opacity` write is not a user intent.
+    // through — a raw `intents.opacity` write is not a user intent.
     seedIntentMap(ui, "opacity", { overlay1: 0.4 });
     ui.intentStore.seedProvenance("overlay1", ["opacity"]);
 
@@ -1713,7 +1713,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
   });
 
   it("applyUserState renames the color basemap row without a registry entry", () => {
-    // The color basemap has no LayerInfo in the registry —its rename goes
+    // The color basemap has no LayerInfo in the registry — its rename goes
     // straight to the row label. Without the id guard at the top of the
     // sweep the color item would be skipped and the label would stay stale.
     seedIntentMap(ui, "name", { [CONST.SOLID_BASEMAP_ID]: "Renamed Color" });

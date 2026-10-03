@@ -1,4 +1,4 @@
-﻿// Unit tests for HeatmapControl/data —the pure aggregation helpers.
+// Unit tests for HeatmapControl/data — the pure aggregation helpers.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/HeatmapControl/const.js";
 import {
@@ -196,7 +196,7 @@ describe("aggregateData", () => {
       makePt({ lat: 26.1, lng: 119.5, value: 1 }),
     ];
     const result = aggregateData(pts, 4, "count", 3, "equal", "Reds", vi.fn(), LOG);
-    // Three equal count cells —equal breaks [1,1,1,1]; a value in range maps
+    // Three equal count cells — equal breaks [1,1,1,1]; a value in range maps
     // to class 0, a value beyond all breaks lands in the last class.
     expect(result!.valueToClassIdx(1)).toBe(0);
     expect(result!.valueToClassIdx(99)).toBe(2);

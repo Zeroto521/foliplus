@@ -3136,7 +3136,7 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
     vi.useRealTimers();
   });
 
-  it("a rejected move produces no side effects —no event, no persistence, no re-ordering", () => {
+  it("a rejected move produces no side effects — no event, no persistence, no re-ordering", () => {
     // The rejection paths are `idx`/group-boundary checks, but the contract is
     // that all of them are inert. If a later edit adds enforcement between the
     // check and the early return, these catch it; the per-case behavior itself

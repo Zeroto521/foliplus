@@ -1,4 +1,4 @@
-// LayerControl UI —Mutual-exclusion overlay teardown.
+// LayerControl UI — Mutual-exclusion overlay teardown.
 import { EVENTS } from "#core/event/index.js";
 import type { LayerUI } from "./index.js";
 
