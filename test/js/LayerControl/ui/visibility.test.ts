@@ -815,7 +815,7 @@ describe("DOM order diverges from registry order", () => {
 
     expect(ui.intentVisible("A")).toBe(false);
     expect(map.removeLayer).toHaveBeenCalledWith(layerA);
-    // B must not have been toggled —the old handler would have read index 1
+    // B must not have been toggled — the old handler would have read index 1
     // and hit B (registry idx 1) instead.
     expect(ui.intentVisible("B")).toBe(true);
     expect(ui.intentVisible("C")).toBe(true);
@@ -1168,7 +1168,7 @@ describe("unit helpers", () => {
 
   it("syncToggleAllFromCount bails when the group header is absent", () => {
     // The row that carries the group's toggle-all checkbox is not present in
-    // the panel —nothing to write to, so the sync must bail rather than null-
+    // the panel — nothing to write to, so the sync must bail rather than null-
     // deref. Pinned so the O(1) path fails open like the full-rescan path
     // does.
     const uiContainer = document.createElement("div");
@@ -1184,7 +1184,7 @@ describe("unit helpers", () => {
   it("syncToggleAllFromCount bails when the header has no toggle-all input", () => {
     // The header row resolves but carries no [data-role="toggle-all"] input:
     // there is nothing to paint, so the sync must bail rather than write into
-    // a null element —the same guard the full-rescan path already carries.
+    // a null element — the same guard the full-rescan path already carries.
     const uiContainer = document.createElement("div");
     uiContainer.innerHTML = `<div class="foliplus-layer-toggle-all" data-group="${GROUP.OVERLAY}"></div>`;
     const ui = {

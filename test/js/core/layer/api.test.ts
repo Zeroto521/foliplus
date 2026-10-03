@@ -94,7 +94,7 @@ describe("ensureLayerAPI", () => {
     expect(map.foliplus.LayerAPI).toBe(first);
   });
 
-  it("is idempotent —repeated calls return the same instance", () => {
+  it("is idempotent — repeated calls return the same instance", () => {
     const api1 = ensureLayerAPI(map);
     const api2 = ensureLayerAPI(map);
     expect(api2).toBe(api1);
@@ -116,7 +116,7 @@ describe("ensureLayerAPI", () => {
     expect(typeof canvas.destroy).toBe("function");
   });
 
-  it("lightweight registerLayer is a no-op —never touches the map", () => {
+  it("lightweight registerLayer is a no-op — never touches the map", () => {
     const addLayer = vi.fn();
     const fresh = {
       foliplus: null as any,
@@ -130,7 +130,7 @@ describe("ensureLayerAPI", () => {
       off: vi.fn(),
     };
     const api = ensureLayerAPI(fresh);
-    // The lightweight stub does not register into the map —no-op by design.
+    // The lightweight stub does not register into the map — no-op by design.
     expect(api.registerLayer({ id: "x", layer: { options: {} } } as any)).toBeNull();
     expect(addLayer).not.toHaveBeenCalled();
     expect(fresh.hasLayer).not.toHaveBeenCalled();
@@ -164,8 +164,8 @@ describe("ensureLayerAPI", () => {
     // deleteLayer erases stored state, so the stub cannot claim to do it —
     // false, not undefined, like the other registry-backed no-ops.
     expect(api.deleteLayer("x")).toBe(false);
-    // Same contract: forgetSavedOrder filters savedOrder, so the stub —which
-    // has no savedOrder—returns false to signal "nothing was forgotten".
+    // Same contract: forgetSavedOrder filters savedOrder, so the stub — which
+    // has no savedOrder — returns false to signal "nothing was forgotten".
     expect(api.forgetSavedOrder("x")).toBe(false);
     expect(api.bringLayerToFront("x")).toBeUndefined();
     // false, not undefined: the stub is a real method, so callers can tell a
@@ -176,7 +176,7 @@ describe("ensureLayerAPI", () => {
     expect(api.getLayersByType("point")).toEqual([]);
   });
 
-  it("does not expose moveLayerUp / moveLayerDown —only LayerManager reorders", () => {
+  it("does not expose moveLayerUp / moveLayerDown — only LayerManager reorders", () => {
     // These are declared optional on LayerAPI precisely so the lightweight stub
     // stays registry-free. A real no-op here would be a false contract: the
     // stub has no registry to reorder, so the methods are omitted rather than
