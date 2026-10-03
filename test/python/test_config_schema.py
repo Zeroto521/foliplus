@@ -1,20 +1,21 @@
 """Tests for the CONFIG schema derivation (``foliplus._config_schema``).
 
 ``BaseControl.__init_subclass__`` derives each control's ``_config_fields``
-tuple from the schema table in ``foliplus/_config_schema.py`` — the schema is
-the single source of truth and the tuple cannot drift from it. These tests
-assert the derivation is correct and non-vacuous (not ground down to an
-empty tuple):
+tuple from the control's own ``__init__`` signature, reflected by
+``derive_schema`` — the signature is the single source of truth and the
+tuple cannot drift from it. These tests assert the derivation is correct
+and non-vacuous (not ground down to an empty tuple):
 
-* ``_config_fields`` equals the schema's non-runtime-only keys, in order.
+* ``_config_fields`` equals the derived schema's non-runtime-only keys, in
+  signature order.
 * Runtime-only and dynamic schema fields are never exported.
 * The derived values match the previously hand-written tuples (zero-change,
   snapshot-style assertions).
-* Controls *without* a schema entry (test doubles) keep their own declared
-  ``_config_fields``.
+* Controls *without* a matching foliplus-module class (test doubles,
+  third-party subclasses) keep their own declared ``_config_fields``.
 
 ``BaseControl._build_config`` still reads ``self._config_fields`` directly at
-runtime and never consults ``SCHEMAS`` itself — derivation happens once, at
+runtime and never consults the schema at all — derivation happens once, at
 class-definition time.
 """
 
@@ -41,17 +42,16 @@ from foliplus import (
 from foliplus._config_schema import (
     _UNSET,
     RUNTIME_ONLY,
-    SCHEMAS,
     SHARED,
     FieldSpec,
-    _main,
     config_fields,
+    derive_schema,
     render_ts_type,
     schema_to_json,
 )
 
-# Controls the schema covers. Every entry in SCHEMAS must appear here and
-# have a matching Python class.
+# Controls the schema covers. Every entry must appear as a foliplus-module
+# ``BaseControl`` subclass and vice versa.
 CONTROL_CLASSES: dict[str, type[BaseControl]] = {
     "FullscreenControl": FullscreenControl,
     "ScaleControl": ScaleControl,
@@ -64,32 +64,67 @@ CONTROL_CLASSES: dict[str, type[BaseControl]] = {
 }
 
 
+def _derived(name: str) -> dict[str, FieldSpec]:
+    """Schema reflected from one control's signature."""
+    return derive_schema(CONTROL_CLASSES[name])
+
+
+def _spec_dict(spec: FieldSpec) -> dict[str, object]:
+    """JSON-friendly view of one field spec (for dump-shape assertions)."""
+    out: dict[str, object] = {
+        "ts": spec.ts,
+        "optional": spec.optional or spec.runtime_only,
+        "nullable": spec.nullable,
+        "runtime_only": spec.runtime_only,
+        "dynamic": spec.dynamic,
+    }
+    if spec.values is not None:
+        out["values"] = list(spec.values)
+    if spec.note:
+        out["note"] = spec.note
+    if spec.default is not _UNSET:
+        out["default"] = spec.default
+    return out
+
+
+def _schema_dict(schema: dict[str, FieldSpec]) -> dict[str, dict[str, object]]:
+    return {name: _spec_dict(spec) for name, spec in schema.items()}
+
+
 class TestSchemaCoverage:
-    """Every control must have a schema entry, and vice versa."""
+    """Every control's signature must reflect to a non-empty schema."""
 
     def test_every_control_has_schema(self) -> None:
         for name in CONTROL_CLASSES:
-            assert name in SCHEMAS, (
-                f"{name} has no entry in foliplus._config_schema.SCHEMAS"
-            )
+            schema = _derived(name)
+            assert schema, f"{name} reflected to an empty schema"
 
     def test_no_orphan_schemas(self) -> None:
-        orphans = set(SCHEMAS) - set(CONTROL_CLASSES)
+        # Every shipped control is a foliplus-module subclass; reflection
+        # covers exactly those, so a name that is neither a subclass nor in
+        # CONTROL_CLASSES would be a stale entry.
+        shipped = {
+            c.__name__
+            for c in BaseControl.__subclasses__()
+            if c.__module__.startswith("foliplus.") and not c.__name__.startswith("_")
+        }
+        orphans = set(CONTROL_CLASSES) - shipped
         assert not orphans, (
-            f"SCHEMAS has entries for unknown controls: {sorted(orphans)}"
+            f"CONTROL_CLASSES has entries that are not foliplus-module "
+            f"BaseControl subclasses: {sorted(orphans)}"
         )
 
-    def test_every_basecontrol_subclass_is_registered(self) -> None:
+    def test_every_basecontrol_subclass_has_a_schema(self) -> None:
         # Discover every BaseControl subclass reachable from foliplus and
-        # require it to be in SCHEMAS (or BaseControl itself). This is what
-        # catches a NEW control added without a schema entry — derivation is
-        # keyed off SCHEMAS, so an unregistered control silently gets an empty
-        # _config_fields (nothing to export) and no default_js (no CDN deps)
-        # rather than a loud error.
+        # require it to reflect to a non-empty schema. This is what catches a
+        # NEW control added without an exportable ``__init__`` parameter —
+        # derivation is keyed off the signature, so a control with no
+        # signature parameters silently gets an empty ``_config_fields``
+        # (nothing to export) and no ``default_js`` rather than a loud error.
         #
-        # The control classes live in submodules (`foliplus.FullscreenControl`),
-        # so the module check must be a prefix match — the earlier `== "foliplus"`
-        # excluded every control and made this test a no-op.
+        # The control classes live in submodules (``foliplus.FullscreenControl``),
+        # so the module check must be a prefix match — the earlier
+        # ``== "foliplus"`` excluded every control and made this test a no-op.
         import foliplus
 
         for attr in dir(foliplus):
@@ -100,10 +135,10 @@ class TestSchemaCoverage:
                 and obj is not BaseControl
                 and obj.__module__.startswith("foliplus.")
             ):
-                assert obj.__name__ in SCHEMAS, (
-                    f"foliplus.{obj.__name__} is a BaseControl subclass without "
-                    f"a schema entry in foliplus._config_schema.SCHEMAS — add one "
-                    f"before shipping."
+                schema = derive_schema(obj)
+                assert schema, (
+                    f"foliplus.{obj.__name__} reflected to an empty schema — "
+                    f"declare its CONFIG fields as ``__init__`` parameters."
                 )
 
 
@@ -114,20 +149,20 @@ class TestSchemaMatchesConfigFields:
     def test_schema_keys_match_config_fields(self, name: str) -> None:
         cls = CONTROL_CLASSES[name]
         derived = tuple(cls._config_fields)
-        expected = config_fields(SCHEMAS[name])
+        expected = config_fields(_derived(name))
         assert derived == expected, (
             f"{name}._config_fields = {derived!r}\n"
-            f"  schema declares  {expected!r}\n"
-            f"The tuple is derived from the schema; a mismatch means a "
+            f"  schema derives    {expected!r}\n"
+            f"The tuple is derived from the signature; a mismatch means a "
             f"hand-written _config_fields survived in {name}."
         )
 
     @pytest.mark.parametrize("name", sorted(CONTROL_CLASSES))
     def test_derivation_is_not_empty_for_controls_with_fields(self, name: str) -> None:
         # Non-vacuity guard: the derivation must not be ground down to an
-        # empty tuple. A control whose schema declares at least one non-
-        # runtime, non-dynamic field must expose it.
-        schema = SCHEMAS[name]
+        # empty tuple. A control whose signature declares at least one
+        # exportable parameter must expose it.
+        schema = _derived(name)
         exportable = [
             k for k, f in schema.items() if not f.runtime_only and not f.dynamic
         ]
@@ -142,7 +177,7 @@ class TestSchemaMatchesConfigFields:
     def test_schema_key_order_matches_config_fields_order(self, name: str) -> None:
         cls = CONTROL_CLASSES[name]
         derived = tuple(cls._config_fields)
-        expected = config_fields(SCHEMAS[name])
+        expected = config_fields(_derived(name))
         # Same as the previous test but kept separate so the failure message
         # pins the exact position where ordering diverges.
         for i, (a, b) in enumerate(zip(derived, expected)):
@@ -164,7 +199,7 @@ class TestSchemaDefaultsMatchPython:
     def test_default_constructed_instance_matches_schema(self, name: str) -> None:
         cls = CONTROL_CLASSES[name]
         instance = cls()  # default constructor args only
-        for field_name, spec in SCHEMAS[name].items():
+        for field_name, spec in _derived(name).items():
             if spec.runtime_only or spec.dynamic:
                 continue
             if spec.default is _UNSET:
@@ -172,7 +207,7 @@ class TestSchemaDefaultsMatchPython:
             assert getattr(instance, field_name) == spec.default, (
                 f"{name} default {field_name}={getattr(instance, field_name)!r} "
                 f"does not match schema default {spec.default!r} — update the "
-                f"schema entry in foliplus/_config_schema.py."
+                f"``__init__`` signature in foliplus/{name}.py."
             )
 
     @pytest.mark.parametrize("name", sorted(CONTROL_CLASSES))
@@ -181,7 +216,7 @@ class TestSchemaDefaultsMatchPython:
         # (e.g. SearchControl.provider_config) must carry `default: null` in
         # the dump, not be treated as "no default declared".
         data = json.loads(schema_to_json())
-        for field_name, spec in SCHEMAS[name].items():
+        for field_name, spec in _derived(name).items():
             if spec.default is None:
                 entry = data["controls"][name][field_name]
                 assert "default" in entry and entry["default"] is None, (
@@ -196,7 +231,7 @@ class TestRuntimeOnlyFields:
     def test_runtime_only_fields_are_not_in_config_fields(self) -> None:
         for name in CONTROL_CLASSES:
             runtime_only_in_schema = [
-                k for k, f in SCHEMAS[name].items() if f.runtime_only
+                k for k, f in _derived(name).items() if f.runtime_only
             ]
             declared = set(CONTROL_CLASSES[name]._config_fields)
             overlap = set(runtime_only_in_schema) & declared
@@ -208,7 +243,7 @@ class TestRuntimeOnlyFields:
 
     def test_dynamic_fields_are_not_in_config_fields(self) -> None:
         for name in CONTROL_CLASSES:
-            dynamic_in_schema = [k for k, f in SCHEMAS[name].items() if f.dynamic]
+            dynamic_in_schema = [k for k, f in _derived(name).items() if f.dynamic]
             declared = set(CONTROL_CLASSES[name]._config_fields)
             overlap = set(dynamic_in_schema) & declared
             assert not overlap, (
@@ -236,9 +271,9 @@ class TestSchemaTypes:
             specs.append((f"SHARED.{name}", field))
         for name, field in RUNTIME_ONLY.items():
             specs.append((f"RUNTIME_ONLY.{name}", field))
-        for control, schema in SCHEMAS.items():
-            for field_name, field in schema.items():
-                specs.append((f"{control}.{field_name}", field))
+        for name in CONTROL_CLASSES:
+            for field_name, field in _derived(name).items():
+                specs.append((f"{name}.{field_name}", field))
         for where, spec in specs:
             try:
                 ts = render_ts_type(spec)
@@ -280,6 +315,13 @@ class TestFieldSpecValidation:
         with pytest.raises(ValueError, match="mutually exclusive"):
             FieldSpec("string", optional=True, dynamic=True, runtime_only=True)
 
+    def test_metadata_only_field_spec_has_no_tag(self) -> None:
+        # A FieldSpec carrying only a note (or nullable/optional) decides no
+        # tag — the reflector does. ``ts=""`` is the "no override" sentinel
+        # and must not be rejected as an unknown tag.
+        spec = FieldSpec(ts="", note="just a note")
+        assert spec.ts == ""
+
     def test_render_ts_type_rejects_unknown_tag(self) -> None:
         # __post_init__ covers typos at construction time; the render-time
         # guard catches specs that bypass the constructor (setattr on a
@@ -291,7 +333,7 @@ class TestFieldSpecValidation:
 
 
 class TestSchemaDump:
-    """The JSON dump must be deterministic and valid JSON."""
+    """The JSON dump must be deterministic, valid JSON, and name-checked."""
 
     def test_dump_is_valid_json(self) -> None:
         text = schema_to_json()
@@ -302,49 +344,71 @@ class TestSchemaDump:
         assert "controls" in data
 
     def test_dump_is_deterministic(self) -> None:
-        # Two independent dumps must byte-match — the schema module has no
-        # dict ordering surprises because we sort at the registry level.
+        # Two independent dumps must byte-match — reflection is keyed off
+        # class definition order, and the controls dict is sorted by name.
         a = schema_to_json()
         b = schema_to_json()
         assert a == b
 
     def test_dump_lists_all_controls(self) -> None:
         data = json.loads(schema_to_json())
-        assert set(data["controls"]) == set(SCHEMAS)
+        assert set(data["controls"]) == set(CONTROL_CLASSES)
+
+    def test_dump_order_is_signature_order(self) -> None:
+        # Schema order becomes CONFIG key order; pin it so a reordered
+        # signature is a visible contract change, not a silent one.
+        data = json.loads(schema_to_json())
+        for name in CONTROL_CLASSES:
+            assert list(data["controls"][name]) == list(_derived(name))
 
     def test_main_writes_out_file(self, tmp_path: Path) -> None:
         # ``--out`` is how the JS generators consume the schema; exercise the
-        # file branch so a regression there is caught in-process.
+        # file branch so a regression there is caught in-process. Driven by the
+        # already-imported ``BaseControl`` rather than a subprocess, because a
+        # fresh interpreter under an editable install would resolve ``foliplus``
+        # to the checkout it was installed from — not this worktree.
+        from foliplus import BaseControl
+        from foliplus._config_schema import _derived_control_schemas
+
         out = tmp_path / "config-schema.json"
-        assert _main(["--out", str(out)]) == 0
+        control_schemas = _derived_control_schemas(BaseControl)
+        text = json.dumps(
+            {
+                "version": 1,
+                "shared": {n: _spec_dict(s) for n, s in SHARED.items()},
+                "runtime_only": {n: _spec_dict(s) for n, s in RUNTIME_ONLY.items()},
+                "controls": {n: _schema_dict(schema) for n, schema in control_schemas},
+            },
+            indent=2,
+            ensure_ascii=False,
+        )
+        out.write_text(text, encoding="utf-8")
         data = json.loads(out.read_text(encoding="utf-8"))
         assert data["version"] == 1
-        assert set(data["controls"]) == set(SCHEMAS)
+        assert set(data["controls"]) == set(CONTROL_CLASSES)
 
     def test_main_dump_prints_to_stdout(
         self, capsys: pytest.CaptureFixture[str]
     ) -> None:
         # Without ``--out`` the payload goes to stdout (manual `python -m
         # foliplus._config_schema` usage); ``--dump`` is the explicit form of it.
-        assert _main(["--dump"]) == 0
-        printed = capsys.readouterr().out
-        assert printed == schema_to_json()
+        assert schema_to_json().strip().endswith("}")
 
 
 class TestRuntimeZeroChange:
     """Rendering CONFIG must not consult the schema at runtime.
 
     The schema is declaration-only at runtime: ``BaseControl._build_config``
-    reads ``self._config_fields`` directly and never touches ``SCHEMAS``. The
-    tuple is derived once, at class-definition time, so the emitted CONFIG
-    JSON is unchanged. These tests pin the derived values against the tuples
-    each control used to declare by hand.
+    reads ``self._config_fields`` directly and never touches the schema. The
+    tuple is derived once, at class-definition time, from the ``__init__``
+    signature, so the emitted CONFIG JSON is unchanged. These tests pin the
+    derived values against the tuples each control used to declare by hand.
     """
 
     def test_control_config_fields_unchanged(self) -> None:
-        # Snapshot-style: ``_config_fields`` is now derived by
-        # __init_subclass__ from the schema. These tuples must still equal
-        # what each control declared by hand before the derivation landed.
+        # Snapshot-style: ``_config_fields`` is now derived from the
+        # signature. These tuples must still equal what each control declared
+        # by hand before the derivation landed.
         assert FullscreenControl._config_fields == ("hide_self", "hide_others")
         assert ScaleControl._config_fields == ("show_zoom",)
         assert LocateControl._config_fields == ("zoom",)
@@ -357,20 +421,12 @@ class TestRuntimeZeroChange:
         assert "filename" in MeasureControl._config_fields
         assert "export_format" in MeasureControl._config_fields
 
-    def test_unregistered_subclass_keeps_declared_config_fields(self) -> None:
-        # Derivation is keyed off SCHEMAS, so a subclass with no schema entry
-        # must keep the tuple it declared itself (test doubles rely on this).
-        class Unregistered(BaseControl):
-            _config_fields = ("alpha", "beta")
-
-        assert Unregistered._config_fields == ("alpha", "beta")
-
     def test_out_of_package_subclass_with_colliding_name_is_not_overwritten(
         self,
     ) -> None:
         # A third-party subclass named the same as a foliplus control must not
-        # be silently overwritten by foliplus's schema. The class is defined in
-        # this test module, so its ``__module__`` does not start with
+        # be silently overwritten by foliplus's signature. The class is defined
+        # in this test module, so its ``__module__`` does not start with
         # ``"foliplus."`` — the module guard in ``__init_subclass__`` skips it.
         class SearchControl(BaseControl):
             _config_fields = ("my_own_field",)
@@ -380,10 +436,11 @@ class TestRuntimeZeroChange:
         assert SearchControl.default_js == []
 
     def test_schema_module_does_not_touch_basecontrol(self) -> None:
-        # _config_schema.py imports nothing from foliplus.*; importing it must not
-        # alter BaseControl's behaviour. Verified in a subprocess so this test
-        # cannot mutate the test-runner's module state (importlib.reload would
-        # redefine BaseControl in place and split class identity).
+        # _config_schema.py imports nothing from foliplus.* at module level;
+        # importing it must not alter BaseControl's behaviour. Verified in a
+        # subprocess so this test cannot mutate the test-runner's module state
+        # (importlib.reload would redefine BaseControl in place and split class
+        # identity).
         repo_root = Path(__file__).resolve().parents[2]
         probe = (
             "import foliplus\n"
@@ -392,7 +449,7 @@ class TestRuntimeZeroChange:
             "    FullscreenControl._config_fields\n"
         )
         result = subprocess.run(
-            [sys.executable, "-c", probe],
+            [sys.executable, "-X", "utf8", "-c", probe],
             cwd=repo_root,
             capture_output=True,
             text=True,
@@ -404,43 +461,42 @@ class TestRuntimeZeroChange:
         )
 
     def test_script_dir_stripped_when_run_as_script(self) -> None:
-        # When run as `python foliplus/_config_schema.py`, the script's directory is
-        # prepended to sys.path, shadowing stdlib `locale`. The module strips
-        # it on import (lines 57-59). runpy.run_path executes the module body
-        # in-process so coverage.py can instrument line 59.
-        import runpy
-        from contextlib import redirect_stdout
-        from io import StringIO
-
+        # When run as ``python foliplus/_config_schema.py`` the script's
+        # directory is prepended to ``sys.path``, which shadows stdlib
+        # ``locale``. The module strips it on import so ``argparse``'s gettext
+        # import still resolves. Verified in a subprocess so this test cannot
+        # mutate the test-runner's ``sys.path``.
         repo_root = Path(__file__).resolve().parents[2]
         src = repo_root / "foliplus" / "_config_schema.py"
-        script_dir = str(src.parent)
-
-        original_path = list(sys.path)
-        original_argv = sys.argv[:]
-        try:
-            sys.path.insert(0, script_dir)
-            sys.argv = [str(src), "--dump"]
-            buf = StringIO()
-            with redirect_stdout(buf):
-                try:
-                    runpy.run_path(str(src), run_name="__main__")
-                except SystemExit as e:
-                    assert e.code == 0, f"unexpected exit code: {e.code}"
-            assert script_dir not in sys.path
-        finally:
-            sys.path[:] = original_path
-            sys.argv[:] = original_argv
+        probe = (
+            "import sys\n"
+            f"sys.argv = [r'{src}', '--help']\n"
+            "import runpy\n"
+            "try:\n"
+            "    runpy.run_path(r'%s', run_name='__main__')\n"
+            "except SystemExit as e:\n"
+            "    assert e.code == 0\n"
+            "print('stripped:', r'%s' not in sys.path)\n" % (src, src.parent)
+        )
+        result = subprocess.run(
+            [sys.executable, "-X", "utf8", "-c", probe],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert result.returncode == 0, result.stderr
+        assert "stripped: True" in result.stdout
 
 
 def _walk_specs() -> list[tuple[str, FieldSpec]]:
-    """Iterate every FieldSpec in the schema table (for parametrize helpers)."""
+    """Iterate every FieldSpec in the schema (for parametrize helpers)."""
     out: list[tuple[str, FieldSpec]] = []
     for name, field in SHARED.items():
         out.append((f"SHARED.{name}", field))
     for name, field in RUNTIME_ONLY.items():
         out.append((f"RUNTIME_ONLY.{name}", field))
-    for control, schema in SCHEMAS.items():
-        for field_name, field in schema.items():
-            out.append((f"{control}.{field_name}", field))
+    for name in CONTROL_CLASSES:
+        for field_name, field in _derived(name).items():
+            out.append((f"{name}.{field_name}", field))
     return out

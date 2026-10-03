@@ -234,7 +234,9 @@ def _rule_for(hint: Any) -> Rule | None:
         for item in metadata:
             if isinstance(item, Bound):
                 return _bound_rule(base, item)
-        return None
+        # Metadata that is not a bound (e.g. a FieldSpec) says nothing about
+        # runtime checking, so the base type is enforced as written.
+        return _rule_for(base)
     if origin is Literal:
         return _choice_rule(get_args(hint))
     if origin is Union or origin is UnionType:
