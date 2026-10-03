@@ -298,6 +298,24 @@ describe("LayerUI lifecycle — defensive rails", () => {
     });
   });
 
+  describe("LAYER_ITEM_UPDATED signal handler", () => {
+    it("no-ops when the id is not in the registry", () => {
+      // Covers the `if (!layerInfo) return` guard: a stale id (unregistered
+      // after the event was emitted, or a third-party bundle emitting an
+      // id the panel does not track) must be a silent no-op, not a null
+      // deref on updateLayerItem / invalidateFields.
+      const rowsBefore = ui.uiContainer.querySelectorAll(CONST.SEL.LAYER_ITEM).length;
+      expect(() =>
+        ensureEvents(map).emit(EVENTS.LAYER_ITEM_UPDATED, {
+          id: "never-registered",
+        }),
+      ).not.toThrow();
+      expect(ui.uiContainer.querySelectorAll(CONST.SEL.LAYER_ITEM).length).toBe(
+        rowsBefore,
+      );
+    });
+  });
+
   describe("LAYER_LIST_REBUILD signal handler", () => {
     it("re-renders the list and refreshes row counts", () => {
       // The manager emits LAYER_LIST_REBUILD after a reorder/undo that

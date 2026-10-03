@@ -1,4 +1,4 @@
-﻿import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
 import { LayerIntentStore, LayerRuntimeStore } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
@@ -3099,6 +3099,34 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
     const enforceSpy = vi.spyOn(manager, "enforceOrder");
     manager.moveLayerDown("a");
     expect(enforceSpy).toHaveBeenCalled();
+  });
+
+  it("moveLayerUp rebuilds the list via LAYER_LIST_REBUILD when a UI is attached", () => {
+    // Move is the last remaining register-time signal that used to call the
+    // UI's reindexAfterMove directly; it now rides the same bus the rest of
+    // the reorder paths do, so a missing emit silently breaks drag + keyboard
+    // reordering. Attach a bare ui + uiContainer to reach the branch.
+    manager = new LayerManager(map, [
+      { id: "a", name: "A", group: "overlay" },
+      { id: "b", name: "B", group: "overlay" },
+    ]);
+    manager.uiContainer = document.createElement("div");
+    manager.ui = {} as any;
+    const emitSpy = vi.spyOn(manager.events, "emit");
+    manager.moveLayerUp("b");
+    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_LIST_REBUILD);
+  });
+
+  it("moveLayerDown rebuilds the list via LAYER_LIST_REBUILD when a UI is attached", () => {
+    manager = new LayerManager(map, [
+      { id: "a", name: "A", group: "overlay" },
+      { id: "b", name: "B", group: "overlay" },
+    ]);
+    manager.uiContainer = document.createElement("div");
+    manager.ui = {} as any;
+    const emitSpy = vi.spyOn(manager.events, "emit");
+    manager.moveLayerDown("a");
+    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_LIST_REBUILD);
   });
 
   it("a successful move persists the new order and emits LAYER_CHANGE", () => {
