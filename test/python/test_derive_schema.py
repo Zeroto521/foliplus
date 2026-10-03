@@ -12,7 +12,13 @@ from typing import Annotated, Literal
 
 import pytest
 
-from foliplus._config_schema import FieldSpec, _evaluate, derive_schema, verify_tags
+from foliplus._config_schema import (
+    FieldSpec,
+    _evaluate,
+    _resolve_tag,
+    derive_schema,
+    verify_tags,
+)
 from foliplus._validate import Bound
 
 
@@ -366,6 +372,26 @@ def test_named_type_without_a_shape_attribute_fails_loud() -> None:
 def test_shape_in_an_annotation_fails_loud() -> None:
     with pytest.raises(ValueError, match="class attribute"):
         derive_schema(_ShapeInAnnotation)
+
+
+def test_nullable_annotation_does_not_drop_the_field_spec() -> None:
+    """A spec inside the non-null arm must survive nullable unwrapping.
+
+    Python 3.10's ``get_type_hints`` wraps a ``= None`` default in
+    ``Optional[...]`` for us, so this is what an ``Annotated`` spec looks
+    like there. Unwrapping the ``None`` arm must not lose the spec sitting
+    inside the other one — that is what drops a named type's ``name`` on 3.10.
+    """
+    spec = FieldSpec(ts="ProviderConfig", name="ProviderConfig")
+    tag, values, nullable, meta = _resolve_tag(Annotated[dict, spec] | None, None)
+    assert tag == "ProviderConfig"
+    assert values is None
+    assert nullable is True
+    # The whole point: the spec is not dropped. Assert on content rather than
+    # identity -- typing may hand back an equal alias, and derive_schema
+    # rebuilds its own FieldSpec anyway, so identity is not a contract.
+    assert meta is not None
+    assert (meta.ts, meta.name) == ("ProviderConfig", "ProviderConfig")
 
 
 def test_derivation_preserves_signature_order() -> None:

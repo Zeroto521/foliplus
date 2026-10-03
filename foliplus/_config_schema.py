@@ -142,6 +142,17 @@ IMPORTS: dict[str, str] = {
 # legal default, including None.
 _UNSET = object()
 
+# One message for a shape descriptor attached to an annotation, raised either
+# by :func:`_resolve_tag` (3.11+, where the descriptor is still reachable) or
+# by :func:`derive_schema` (3.10, where get_type_hints aborts first — see
+# the try/except there).
+_SHAPE_IN_ANNOTATION_ERROR = (
+    "FieldSpec.shape must not be attached to an Annotated type — a shape "
+    "descriptor is unhashable and Python 3.10's get_type_hints() hashes "
+    "Annotated metadata, so importing the module raises TypeError there. "
+    "Declare it as a class attribute instead: _<name>_shape = ..."
+)
+
 
 # Shape descriptors: JSON-serializable trees describing a TS type. Grammar
 # (validated by :func:`_validate_shape`):
@@ -576,13 +587,7 @@ def _resolve_tag(
         # raises TypeError there. Check this before deciding the tag: a shape
         # field usually has no ts override, so tag resolution would fail on
         # the dict base type first with a message about the wrong thing.
-        raise ValueError(
-            f"FieldSpec.shape must not be attached to an Annotated type — "
-            "a shape descriptor is unhashable and Python 3.10's "
-            "get_type_hints() hashes Annotated metadata, so importing the "
-            "module raises TypeError there. Declare it as a class attribute "
-            f"instead: _<name>_shape = ..."
-        )
+        raise ValueError(_SHAPE_IN_ANNOTATION_ERROR)
 
     if meta is not None and meta.ts:
         # The author named the type; nullability still comes from the
@@ -602,8 +607,14 @@ def _resolve_tag(
         non_null = [a for a in arms if a is not type(None)]
         nullable = len(non_null) != len(arms)
         if len(non_null) == 1:
-            tag, values, inner_nullable, _ = _resolve_tag(non_null[0], meta)
-            return tag, values, nullable or inner_nullable, meta
+            # A FieldSpec may sit inside the non-null arm rather than on the
+            # union: Python 3.10's get_type_hints wraps a `= None` default in
+            # Optional[...], so `Annotated[dict, FieldSpec(...)]` reaches
+            # here as `Optional[Annotated[dict, FieldSpec(...)]}`. Taking the
+            # arm's spec back is what keeps the author's ts/name/note alive
+            # there — a spec passed down from an outer layer still wins.
+            tag, values, inner_nullable, inner_meta = _resolve_tag(non_null[0], meta)
+            return tag, values, nullable or inner_nullable, meta or inner_meta
         # A union of two unrelated arms is not a JSON shape: the author must
         # name it. ProviderConfig's `str | dict` reaches here as
         # `str | TypedDict` and carries FieldSpec(ts=...) for exactly this.
@@ -616,20 +627,17 @@ def _resolve_tag(
         if not peeled:
             return "union", tuple(str(v) for v in get_args(hint)), False, meta
         # A peeled Literal (wrapped in Annotated with a FieldSpec) is an
-        # alias. The reflected tag is "union" with the Literal's values; the
-        # author's FieldSpec names the alias via ``name`` (preferred — the
-        # generator emits the alias) or overrides the tag via ``ts``
-        # (legacy form, still accepted for back-compat).
+        # alias: the reflected tag is "union" with the Literal's values, and
+        # the author's FieldSpec names the alias via ``name`` so the
+        # generator emits it. A ``ts`` override on a Literal returns at the
+        # meta.ts check above, because ts names the type outright.
         values = tuple(str(v) for v in get_args(hint))
         nullable = _is_nullable(hint)
-        if meta is not None and meta.ts:
-            return meta.ts, meta.values or values, nullable or meta.nullable, meta
         if meta is not None and meta.name is not None:
             return "union", values, nullable or meta.nullable, meta
         raise ValueError(
-            "a Literal alias needs FieldSpec(name=...) or FieldSpec(ts=...) "
-            "to name its TS type; bare Literal unions are decided "
-            "automatically"
+            "a Literal alias needs FieldSpec(name=...) to name its TS type; "
+            "bare Literal unions are decided automatically"
         )
 
     if base in _PRIMITIVES:
@@ -682,7 +690,18 @@ def derive_schema(cls: type[BaseControl]) -> ControlSchema:
     """
     init = cls.__init__
     sig = inspect.signature(init)
-    hints = get_type_hints(init, include_extras=True)
+    try:
+        hints = get_type_hints(init, include_extras=True)
+    except TypeError as exc:
+        # Python 3.10 wraps a `= None` default in Optional[...], which
+        # deduplicates the arms by hashing them — and Annotated metadata is
+        # hashed too, so a FieldSpec carrying an unhashable shape descriptor
+        # aborts here with a bare "unhashable type" that names no fix. Raise
+        # the same error _resolve_tag raises on 3.11+, where get_type_hints
+        # does not hash and the descriptor is still reachable.
+        if "unhashable" not in str(exc):
+            raise
+        raise ValueError(f"{cls.__name__}: {_SHAPE_IN_ANNOTATION_ERROR}") from exc
     out: ControlSchema = {}
     for name, param in sig.parameters.items():
         if name == "self" or name == "return" or name in _SHARED_PARAMS:
