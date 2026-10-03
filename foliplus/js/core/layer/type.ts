@@ -677,6 +677,16 @@ type SurfaceHandle =
  *   - LayerManager (full: registry + sorting + panel integration)
  *   - ensureLayerAPI's lightweight default (createLayers/createCanvas only;
  *     registry/query methods are no-ops returning empty results)
+ *
+ * **Read-only contract.** LayerAPI is the public surface other controls and
+ * third-party code interact with. It exposes registry queries (layers,
+ * intentVisible, getLayerPanes, getLayersByType, extractPoints), layer
+ * mutation (registerLayer, unregisterLayer, deleteLayer, setVisible,
+ * bringLayerToFront, moveLayerUp/Down), and content creation
+ * (createLayers, createCanvas). It deliberately does not expose any UI
+ * state — no panel visibility, no row positions, no toggle-all state, no
+ * focus rectangles. Those live inside LayerUI and are reached via the
+ * event bus, not through this interface.
  */
 interface LayerAPI {
   /** Diagnostic marker (true = LayerManager, false = lightweight stub).
