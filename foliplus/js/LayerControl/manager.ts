@@ -635,14 +635,15 @@ class LayerManager implements LayerAPI {
 
     if (this.ui) {
       if (existingIdx === -1) {
-        this.ui.insertLayerItem(layerInfo);
+        // New row: the UI inserts the DOM row. insertLayerItem internally
+        // runs applyUserState for this id, so the manager-level applyUserState
+        // below is a no-op on the new-row path (idempotent) and only carries
+        // meaning on the re-registration branch.
+        this.events.emit(EVENTS.LAYER_ITEM_ADDED, { id: opts.id });
       } else {
-        this.ui.updateLayerItem(layerInfo);
-        // Re-registration is how the API says "this layer's content changed", so
-        // the cached field list and the resolved auto field are both stale now.
-        // Invalidating re-renders as well, keeping the labels on the map in step
-        // with what the picker offers.
-        this.ui.invalidateFields(opts.id);
+        // Re-registration is how the API says "this layer's content changed",
+        // so the row's cached field list and resolved auto field are both stale.
+        this.events.emit(EVENTS.LAYER_ITEM_UPDATED, { id: opts.id });
       }
       // A stored dimension must be replayed on first registration too. Heatmap
       // and Measure register after LayerControl has attached, so this is the only
@@ -650,10 +651,14 @@ class LayerManager implements LayerAPI {
       // and order. On a re-registration it also re-applies opacity onto the fresh
       // layer/canvas object (no-op when the user never changed it).
       this.ui.applyUserState(opts.id);
-      // Incremental: initialize only the new/updated row instead of re-scanning
-      // every row (initTypesAndVisibility is a full pass used on attach/fold).
-      this.ui.initLayerItem(layerInfo);
-      this.ui.syncToggleAll(layerInfo.group);
+      // Incremental: refresh only the new/updated row's cells instead of
+      // re-scanning every row (initTypesAndVisibility is a full pass used on
+      // attach/fold). Fires after applyUserState so the row reflects the fresh
+      // map state.
+      this.events.emit(EVENTS.LAYER_ITEM_REFRESHED, { id: opts.id });
+      this.events.emit(EVENTS.LAYER_GROUP_COUNT_CHANGED, {
+        group: layerInfo.group,
+      });
       // Defer z-order enforcement so batch registration coalesces into one pass.
       this.debouncedEnforce();
     }
@@ -683,8 +688,7 @@ class LayerManager implements LayerAPI {
     this.saveOrder();
     this.emitLayerChange(id, item.kind);
     if (this.uiContainer && this.ui) {
-      this.ui.renderInitialList();
-      this.ui.initTypesAndVisibility();
+      this.events.emit(EVENTS.LAYER_LIST_REBUILD, {});
     }
   }
 
@@ -806,14 +810,15 @@ class LayerManager implements LayerAPI {
     // it is part of that surviving intent (a flush after this point must
     // not erase `layers[id].annotation` from storage).
     this.annotation.unloadLayer(id);
-    this.ui?.invalidateFields(id);
-    // Style-apply schedulers (fill + stroke) are keyed by layer id; one
-    // drop hook frees every face's entry so a churning map cannot
-    // accumulate boxes for dead ids.
-    this.ui?.dropStyleDimApplies?.(id);
+    // Emitting unconditionally: bindEvents has not run when there is no UI, so
+    // the subscribers simply do not fire — same effect as the previous
+    // `this.ui?.` guards, without a null-check chain on the manager side.
+    this.events.emit(EVENTS.LAYER_ITEM_REMOVED, { id });
     // The row was just removed: rescan the group's count so the toggle-all
     // checkbox reflects the removal in the same frame.
-    this.ui?.syncToggleAll?.(layerInfo.group);
+    this.events.emit(EVENTS.LAYER_GROUP_COUNT_CHANGED, {
+      group: layerInfo.group,
+    });
     // Unregister is rare, so flush rather than riding out the 100ms window.
     // Any pending write carries the registry's current order, which no longer
     // lists this id —that dimension reads the registry live, so the removal is
@@ -876,8 +881,10 @@ class LayerManager implements LayerAPI {
         this.ui.currentColor = CONST.COLOR.DEFAULT;
         this.ui.runtimeStore.setAuthorVisible(id, false);
         this.ui.saveState();
-        this.ui.syncToggleAll(GROUP.BASE);
-        this.ui.syncNoBasemap();
+        this.events.emit(EVENTS.LAYER_GROUP_COUNT_CHANGED, {
+          group: GROUP.BASE,
+        });
+        this.events.emit(EVENTS.LAYER_NO_BASEMAP_CHANGED, {});
       }
       this.persistence.flushAll();
       return true;
@@ -914,8 +921,10 @@ class LayerManager implements LayerAPI {
       this.ui.saveNamesState();
     }
     this.ui.saveState();
-    this.ui.syncToggleAll(layerInfo.group);
-    this.ui.syncNoBasemap();
+    this.events.emit(EVENTS.LAYER_GROUP_COUNT_CHANGED, {
+      group: layerInfo.group,
+    });
+    this.events.emit(EVENTS.LAYER_NO_BASEMAP_CHANGED, {});
     this.persistence.flushAll();
     return true;
   }
@@ -1171,7 +1180,9 @@ class LayerManager implements LayerAPI {
     this.enforceOrder();
     this.saveOrder();
     this.emitLayerChange(id, item.kind);
-    this.uiContainer && this.ui?.reindexAfterMove();
+    if (this.uiContainer && this.ui) {
+      this.events.emit(EVENTS.LAYER_LIST_REBUILD, {});
+    }
     return true;
   }
 
@@ -1193,7 +1204,9 @@ class LayerManager implements LayerAPI {
     this.enforceOrder();
     this.saveOrder();
     this.emitLayerChange(id, item.kind);
-    this.uiContainer && this.ui?.reindexAfterMove();
+    if (this.uiContainer && this.ui) {
+      this.events.emit(EVENTS.LAYER_LIST_REBUILD, {});
+    }
     return true;
   }
 

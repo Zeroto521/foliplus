@@ -718,21 +718,24 @@ describe("LayerManager", () => {
     manager.uiContainer = document.createElement("div");
     manager.ui = {
       intentStore: makeStore(),
-      insertLayerItem: vi.fn(),
-      updateLayerItem: vi.fn(),
-      initTypesAndVisibility: vi.fn(),
-      initLayerItem: vi.fn(),
-      syncToggleAll: vi.fn(),
       applyUserState: vi.fn(),
     } as any;
+    const emitSpy = vi.spyOn(manager.events, "emit");
     manager.registerLayer({
       id: "new1",
       name: "New",
       layer: { options: {} },
     } as any);
-    expect(manager.ui.initLayerItem).toHaveBeenCalled();
-    expect(manager.ui.initTypesAndVisibility).not.toHaveBeenCalled();
-    expect(manager.ui.syncToggleAll).toHaveBeenCalled();
+    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_ITEM_ADDED, {
+      id: "new1",
+    });
+    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_ITEM_REFRESHED, {
+      id: "new1",
+    });
+    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_GROUP_COUNT_CHANGED, {
+      group: "overlay",
+    });
+    expect(emitSpy).not.toHaveBeenCalledWith(EVENTS.LAYER_LIST_REBUILD, {});
   });
 
   it("re-applies hidden state when a previously-hidden layer is re-registered at runtime", () => {
@@ -1625,19 +1628,24 @@ describe("LayerManager", () => {
     manager.uiContainer = document.createElement("div");
     manager.ui = {
       intentStore: makeStore(),
-      updateLayerItem: vi.fn(),
-      initLayerItem: vi.fn(),
-      syncToggleAll: vi.fn(),
-      insertLayerItem: vi.fn(),
-      invalidateFields: vi.fn(),
       applyUserState: vi.fn(),
     } as any;
+    const emitSpy = vi.spyOn(manager.events, "emit");
     manager.registerLayer({ id: "overlay1", name: "Renamed" });
-    expect(manager.ui.updateLayerItem).toHaveBeenCalled();
-    expect(manager.ui.insertLayerItem).not.toHaveBeenCalled();
+    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_ITEM_UPDATED, {
+      id: "overlay1",
+    });
+    expect(emitSpy).not.toHaveBeenCalledWith(EVENTS.LAYER_ITEM_ADDED, {
+      id: "overlay1",
+    });
     // A re-registration is how the API says the layer's content changed, so the
     // cached field list — and the auto field resolved from it — must be dropped.
-    expect(manager.ui.invalidateFields).toHaveBeenCalledWith("overlay1");
+    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_ITEM_REFRESHED, {
+      id: "overlay1",
+    });
+    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_GROUP_COUNT_CHANGED, {
+      group: "overlay",
+    });
     // Opacity is stored per-id; re-registration may swap the live layer/canvas.
     expect(manager.ui.applyUserState).toHaveBeenCalledWith("overlay1");
   });
@@ -1712,15 +1720,15 @@ describe("LayerManager", () => {
     // group to rescan. Existing tests only unregister overlays, so the BASE
     // branch of the ternary would silently rot without a pin.
     manager.map.hasLayer.mockReturnValue(false);
-    const syncToggleAll = vi.fn();
     manager.ui = {
       intentStore: makeStore(),
       saveState: vi.fn(),
-      invalidateFields: vi.fn(),
-      syncToggleAll,
     } as any;
+    const emitSpy = vi.spyOn(manager.events, "emit");
     expect(manager.unregisterLayer("base1")).toBe(true);
-    expect(syncToggleAll).toHaveBeenCalledWith(GROUP.BASE);
+    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_GROUP_COUNT_CHANGED, {
+      group: GROUP.BASE,
+    });
   });
 
   it("attachUI skips a null entry in pending registrations", () => {
@@ -2315,14 +2323,11 @@ describe("LayerManager", () => {
     manager.registerLayer({ id: "bottom", name: "Bottom", layer: { options: {} } });
     manager.registerLayer({ id: "top", name: "Top", layer: { options: {} } });
     manager.uiContainer = document.createElement("div");
-    manager.ui = {
-      renderInitialList: vi.fn(),
-      initTypesAndVisibility: vi.fn(),
-    } as any;
+    manager.ui = {} as any;
+    const emitSpy = vi.spyOn(manager.events, "emit");
     manager.bringLayerToFront("bottom");
     expect(manager.layers[0].id).toBe("bottom");
-    expect(manager.ui.renderInitialList).toHaveBeenCalled();
-    expect(manager.ui.initTypesAndVisibility).toHaveBeenCalled();
+    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_LIST_REBUILD, {});
   });
 
   it("bringLayerToFront ignores base layers", () => {
@@ -2613,23 +2618,22 @@ describe("LayerManager", () => {
 
     it("syncs toggle-all and no-basemap state after deleting a base layer", () => {
       manager.map.hasLayer.mockReturnValue(false);
-      const syncToggleAll = vi.fn();
-      const syncNoBasemap = vi.fn();
       manager.ui = {
         intentStore: makeStore(),
-        syncToggleAll,
-        syncNoBasemap,
         dropPersistedLayerState: vi.fn(),
         saveState: vi.fn(),
         renamedNames: {},
         saveNamesState: vi.fn(),
         invalidateFields: vi.fn(),
       } as any;
+      const emitSpy = vi.spyOn(manager.events, "emit");
 
       expect(manager.deleteLayer("base1")).toBe(true);
 
-      expect(syncToggleAll).toHaveBeenCalledWith(GROUP.BASE);
-      expect(syncNoBasemap).toHaveBeenCalled();
+      expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_GROUP_COUNT_CHANGED, {
+        group: GROUP.BASE,
+      });
+      expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_NO_BASEMAP_CHANGED, {});
     });
 
     it("clears the colour basemap — unregisters but keeps the id registerable", () => {
@@ -2642,8 +2646,6 @@ describe("LayerManager", () => {
       } as any);
 
       const saveStateSpy = vi.fn();
-      const syncToggleAll = vi.fn();
-      const syncNoBasemap = vi.fn();
       manager.ui = {
         intentStore: makeStore(),
         runtimeStore: (() => {
@@ -2654,11 +2656,10 @@ describe("LayerManager", () => {
         colorSurface: {} as any,
         currentColor: "#ff0000",
         saveState: saveStateSpy,
-        syncToggleAll,
-        syncNoBasemap,
         invalidateFields: vi.fn(),
       } as any;
       const unregisterSpy = vi.spyOn(manager, "unregisterLayer");
+      const emitSpy = vi.spyOn(manager.events, "emit");
 
       expect(manager.deleteLayer(CONST.SOLID_BASEMAP_ID)).toBe(true);
 
@@ -2669,8 +2670,10 @@ describe("LayerManager", () => {
         false,
       );
       expect(saveStateSpy).toHaveBeenCalled();
-      expect(syncToggleAll).toHaveBeenCalledWith(GROUP.BASE);
-      expect(syncNoBasemap).toHaveBeenCalled();
+      expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_GROUP_COUNT_CHANGED, {
+        group: GROUP.BASE,
+      });
+      expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_NO_BASEMAP_CHANGED, {});
       expect((manager as any).order.removedIds.has(CONST.SOLID_BASEMAP_ID)).toBe(false);
     });
 

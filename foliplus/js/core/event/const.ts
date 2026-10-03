@@ -46,6 +46,11 @@ const EVENTS = {
   /** An existing row was re-registered: its content or metadata changed and
    *  the row needs updating. Same "id-only" payload contract as LAYER_ITEM_ADDED. */
   LAYER_ITEM_UPDATED: "foliplus:layer:item-updated",
+  /** A row's cells should re-render from the current state — the checkbox,
+   *  type icon, count and label columns all re-read the layer's live values.
+   *  Fired after every registration path (new row, re-registration) so the
+   *  row reflects the state written by the preceding applyUserState pass. */
+  LAYER_ITEM_REFRESHED: "foliplus:layer:item-refreshed",
   /** A row left the panel through the generic teardown path (unregisterLayer)
    *  — a wider reach than LAYER_REMOVED for the UI subscribers: the fields
    *  cache, the style-dimension apply schedulers, and the group toggle-all

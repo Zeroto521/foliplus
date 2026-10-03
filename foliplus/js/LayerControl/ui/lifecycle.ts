@@ -31,14 +31,28 @@ import {
   handleDblClick,
   syncListCursor,
 } from "./keyboard.js";
-import { insertLayerItem, renderInitialList } from "./list.js";
+import {
+  initLayerItem,
+  initTypesAndVisibility,
+  insertLayerItem,
+  renderInitialList,
+  updateLayerItem,
+} from "./list.js";
 import { closeMoreMenu } from "./menu.js";
 import { finishRename } from "./rename.js";
 import { applyRowView, buildRowCell } from "./rowView.js";
 import { snapshotAuthorVisible } from "./rowView.js";
 import { loadPersistedState } from "./state.js";
 import { closeStylePanel, invalidateFields } from "./style/index.js";
-import { getLayerItems, handleChange, handleInput, toggleAll } from "./visibility.js";
+import { dropStyleDimApplies } from "./style/styleBag.js";
+import {
+  getLayerItems,
+  handleChange,
+  handleInput,
+  syncNoBasemap,
+  syncToggleAll,
+  toggleAll,
+} from "./visibility.js";
 
 /**
  * Attach UI to the given container div.
@@ -266,6 +280,45 @@ const bindEvents = (ui: LayerUI): void => {
     EVENTS.LAYER_ITEM_COUNT_CHANGE,
     (payload: { id: string }) => onLayerItemCountChange(ui, payload.id),
   );
+
+  // Layer-signal events — the manager emits these instead of calling UI
+  // methods directly, so the manager no longer holds a hard dependency on
+  // the view layer. Each handler does what the corresponding ui method did
+  // before; the id-only payload keeps the bus a signal channel, and the
+  // registry lookup here is the single source of the row's current shape.
+  const registry = ui.m.layerRegistry;
+  const signalHandlers: Array<() => void> = [];
+  signalHandlers.push(
+    bus.on(EVENTS.LAYER_ITEM_ADDED, (payload: { id: string }) => {
+      const layerInfo = registry.get(payload.id);
+      if (layerInfo) insertLayerItem(ui, layerInfo);
+    }),
+    bus.on(EVENTS.LAYER_ITEM_UPDATED, (payload: { id: string }) => {
+      const layerInfo = registry.get(payload.id);
+      if (!layerInfo) return;
+      updateLayerItem(ui, layerInfo);
+      invalidateFields(ui, payload.id);
+    }),
+    bus.on(EVENTS.LAYER_ITEM_REFRESHED, (payload: { id: string }) => {
+      const layerInfo = registry.get(payload.id);
+      if (layerInfo) initLayerItem(ui, layerInfo);
+    }),
+    bus.on(EVENTS.LAYER_ITEM_REMOVED, (payload: { id: string }) => {
+      invalidateFields(ui, payload.id);
+      dropStyleDimApplies(payload.id);
+    }),
+    bus.on(EVENTS.LAYER_GROUP_COUNT_CHANGED, (payload: { group: string }) => {
+      syncToggleAll(ui, payload.group);
+    }),
+    bus.on(EVENTS.LAYER_LIST_REBUILD, () => {
+      renderInitialList(ui);
+      initTypesAndVisibility(ui);
+    }),
+    bus.on(EVENTS.LAYER_NO_BASEMAP_CHANGED, () => {
+      syncNoBasemap(ui);
+    }),
+  );
+  ui.unsubscribeLayerSignals = signalHandlers;
 };
 
 /** Called when a layer's content changes (count or type may shift at runtime).
@@ -360,6 +413,8 @@ const unbindEvents = (ui: LayerUI): void => {
     ui.unsubscribeControlAttached();
     ui.unsubscribeControlAttached = null;
   }
+  for (const off of ui.unsubscribeLayerSignals) off();
+  ui.unsubscribeLayerSignals = [];
 };
 
 export {
