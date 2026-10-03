@@ -242,55 +242,19 @@ describe("main", () => {
 });
 
 describe("resolveSchemaJson", () => {
-  it("resolves --json over the build's scratch copy", () => {
+  it("resolves --json", () => {
     expect(resolveSchemaJson({ json: "x.json" })).toBe(resolve("x.json"));
   });
 
-  it("falls back to the build's scratch copy when --json is omitted", () => {
-    // The generator writes this scratch file when running with `--out`; this
-    // test pins the resolver's default path to it.
-    expect(resolveSchemaJson({})).toBe(
-      resolve(process.cwd(), "foliplus", ".build", "js", "config-schema.json"),
+  it("fails loudly when --json is omitted — no self-dump fallback", () => {
+    // The script no longer spawns Python as a fallback for a missing --json:
+    // that path is exactly the one that kept the JS job on branca. The error
+    // points at the manual two-command regeneration sequence so a caller does
+    // not have to read the header comment to figure it out.
+    expect(() => resolveSchemaJson({})).toThrow(/--json is required/);
+    expect(() => resolveSchemaJson({})).toThrow(
+      /python foliplus\/_config_schema\.py --out/,
     );
-  });
-
-  it("falls back to Python self-dump when the build's scratch copy is absent", async () => {
-    const SCHEMA_JSON = resolve(
-      process.cwd(),
-      "foliplus",
-      ".build",
-      "js",
-      "config-schema.json",
-    );
-    const existsSync = vi.fn((p: string) => p !== SCHEMA_JSON);
-    const spawnSync = vi.fn(() => ({ status: 0, stdout: "", stderr: "" }));
-
-    vi.doMock("fs", () => ({
-      default: { existsSync, readFileSync: vi.fn(), writeFileSync: vi.fn() },
-      existsSync,
-      readFileSync: vi.fn(),
-      writeFileSync: vi.fn(),
-    }));
-    vi.doMock("child_process", () => ({
-      default: { spawnSync },
-      spawnSync,
-    }));
-    vi.doMock("prettier", () => ({
-      resolveConfig: vi.fn().mockResolvedValue(null),
-      format: vi.fn().mockResolvedValue("formatted"),
-    }));
-    vi.resetModules();
-    try {
-      const mod = await import("./emit-config-fixture.mjs");
-      expect(mod.resolveSchemaJson({})).toBe(SCHEMA_JSON);
-      expect(existsSync).toHaveBeenCalledWith(SCHEMA_JSON);
-      expect(spawnSync).toHaveBeenCalledTimes(1);
-    } finally {
-      vi.doUnmock("fs");
-      vi.doUnmock("child_process");
-      vi.doUnmock("prettier");
-      vi.resetModules();
-    }
   });
 });
 
