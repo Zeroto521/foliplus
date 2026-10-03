@@ -20,7 +20,7 @@ import type * as ChromaJs from "chroma-js";
 import type * as GeoJSON from "geojson";
 import type * as Leaflet from "leaflet";
 import type { EventBus as CoreEventBus } from "#core/event/EventBus.js";
-import type { ProviderConfig } from "#core/geocode/type.js";
+import type { ProviderConfig } from "#foliplus/config-schema.js";
 import type {
   CreateCanvasAPI as CoreCreateCanvasAPI,
   CreateLayersAPI as CoreCreateLayersAPI,

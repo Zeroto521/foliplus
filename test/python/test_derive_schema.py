@@ -60,14 +60,14 @@ class _Override(_ReflectBase):
     def __init__(
         self,
         *,
-        hint: Annotated[dict, FieldSpec(ts="LocaleTables")] = {},
+        hint: Annotated[dict, FieldSpec(ts="object_nested")] = {},
     ):
         self.hint = hint
 
 
 class _Alias(_ReflectBase):
     def __init__(
-        self, *, alias: Annotated[Literal["a", "b"], FieldSpec(ts="NumberStyle")] = "a"
+        self, *, alias: Annotated[Literal["a", "b"], FieldSpec(name="NumberStyle")] = "a"
     ):
         self.alias = alias
 
@@ -208,13 +208,13 @@ def test_bound_metadata_is_ignored_by_the_reflector() -> None:
 
 def test_field_spec_at_the_parameter_overrides_the_tag() -> None:
     schema = derive_schema(_Override)
-    assert schema["hint"].ts == "LocaleTables"
+    assert schema["hint"].ts == "object_nested"
 
 
 def test_field_spec_at_the_alias_definition_carries_the_tag() -> None:
     """A type alias declares its TS type next to itself, not in a table."""
     schema = derive_schema(_Alias)
-    assert schema["alias"].ts == "NumberStyle"
+    assert schema["alias"].name == "NumberStyle"
 
 
 def test_position_alias_resolves_through_its_own_metadata() -> None:
@@ -307,5 +307,5 @@ def test_literal_alias_without_a_tag_fails_loud() -> None:
 
 def test_verify_tags_fails_loud_on_an_unimported_name() -> None:
     """A tag no import supplies would render as an unresolvable TS type."""
-    with pytest.raises(ValueError, match="does not import"):
-        verify_tags({"Nope"})
+    with pytest.raises(ValueError, match="does not declare"):
+        verify_tags({"Nope"}, set())

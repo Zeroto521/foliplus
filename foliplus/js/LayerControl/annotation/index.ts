@@ -21,7 +21,8 @@ import {
   resolveCanvasLabelStyle,
   withLabelPaint,
 } from "#common/canvasLabel.js";
-import { type NumberStyle, formatLabelNumber } from "#common/format.js";
+import type { NumberStyle } from "#foliplus/config-schema.js";
+import { formatLabelNumber } from "#common/format.js";
 import * as CONST from "../const.js";
 import type { AnnotationConfig, LayerLabel } from "../type.js";
 import { AnnotationCanvas } from "./canvas.js";

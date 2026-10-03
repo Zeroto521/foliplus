@@ -8,7 +8,8 @@ import {
   prepareCanvasLabel,
   resolveCanvasLabelStyle,
 } from "#common/canvasLabel.js";
-import { type NumberStyle, formatLabelNumber } from "#common/format.js";
+import type { NumberStyle } from "#foliplus/config-schema.js";
+import { formatLabelNumber } from "#common/format.js";
 import * as CONST from "./const.js";
 import type { HexFeature } from "./type.js";
 

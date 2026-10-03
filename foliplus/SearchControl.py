@@ -51,6 +51,32 @@ class CustomProvider(_CustomProviderRequired, total=False):
     normalize: Mapping[str, str]
 
 
+# Shape descriptor for the emitted ``ProviderConfig`` alias. Mirrors the TS
+# interface in #core/geocode/type.js (which this PR replaces). The ``"*"``
+# key marks a ``Record<string, V>``; ``(X, "?")`` marks an optional field.
+# ``ProviderEndpoint`` (``suggest`` / ``search`` / ``reverse``) is inlined
+# to keep the descriptor flat.
+_PROVIDER_CONFIG_SHAPE = {
+    "id": "string",
+    "baseUrl": ("string", "?"),
+    "throttleMs": ("number", "?"),
+    "headers": ({"*": "string"}, "?"),
+    "suggest": ({
+        "url": "string",
+        "params": ({"*": "string"}, "?"),
+    }, "?"),
+    "search": ({
+        "url": "string",
+        "params": ({"*": "string"}, "?"),
+    }, "?"),
+    "reverse": ({
+        "url": "string",
+        "params": ({"*": "string"}, "?"),
+    }, "?"),
+    "normalize": ({"*": "string"}, "?"),
+}
+
+
 class SearchControl(BaseControl):
     """Coordinate and address search with a pluggable geocode provider.
 
@@ -160,7 +186,9 @@ class SearchControl(BaseControl):
         provider_config: Annotated[
             ProviderConfig | None,
             FieldSpec(
-                ts="object",
+                ts="ProviderConfig",
+                name="ProviderConfig",
+                shape=_PROVIDER_CONFIG_SHAPE,
                 note="Overrides for a built-in provider; only valid with a "
                 "string provider.",
             ),

@@ -20,7 +20,7 @@ import {
   bindLiveNumber,
   normalizeHexColor,
 } from "#common/form.js";
-import { type NumberStyle } from "#common/format.js";
+import type { NumberStyle } from "#foliplus/config-schema.js";
 import * as CONST from "../../const.js";
 import * as SVGs from "../../icon.js";
 import { authorZoomBoundsForLayer } from "../apply.js";

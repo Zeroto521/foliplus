@@ -9,9 +9,9 @@ import {
 } from "#core/geocode/index.js";
 import type {
   GeocodeProvider,
-  ProviderConfig,
   SuggestItem,
 } from "#core/geocode/index.js";
+import type { ProviderConfig } from "#foliplus/config-schema.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { DEL_ICON_MARKER_ANCHOR } from "#core/leaflet/index.js";
 import { mountDelIcon } from "#core/leaflet/index.js";

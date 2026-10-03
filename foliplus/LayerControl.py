@@ -88,10 +88,14 @@ class LayerControl(BaseControl):
     """
 
     # Emitted by _extra_config at render time, not by a constructor parameter.
-    # The hint attribute next to each dynamic field names the TS shape the
-    # generated ``config-schema.ts`` imports — a name, not a bare type.
+    # The ``_data_hint`` attribute is the emitted alias name; the
+    # ``_data_shape`` descriptor is what the generator renders into that
+    # alias. Together they declare the layer-list type inline in the schema.
     _dynamic_fields = ("data",)
     _data_hint = "LayerData"
+    _data_shape = [
+        {"name": "string", "id": "string", "group": ("base", "overlay")}
+    ]
 
     def __init__(
         self,

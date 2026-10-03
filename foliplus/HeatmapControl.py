@@ -12,7 +12,7 @@ METHOD = Literal["jenks", "quantile", "equal", "heads"]
 AGG = Literal["count", "sum", "avg", "min", "max"]
 LABEL_FORMAT = Annotated[
     Literal["auto", "int", "comma", "percent"],
-    FieldSpec(ts="NumberStyle", note="Number format for hexagon value labels."),
+    FieldSpec(name="NumberStyle", note="Number format for hexagon value labels."),
 ]
 
 
