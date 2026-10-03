@@ -304,7 +304,7 @@ is `foliplus-<name>.min.<ext>`, so a reader builds both halves without
 knowing which entry is the shared runtime.
 
 Tested from both stacks: `test/python/test_asset.py` asserts wheel
-membership, `test/js/script/build.test.ts` asserts artifact presence.
+membership, `test/js/script/build/build.test.ts` asserts artifact presence.
 Deriving each from `findComponents` in prose gave three drifting copies;
 this is the one they read. Written only on a real build — `--verify` runs
 on a checkout that may not have `dist/` at all, and it must not touch it.
