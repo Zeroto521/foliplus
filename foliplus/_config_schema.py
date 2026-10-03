@@ -343,7 +343,7 @@ _DICT_TAGS: dict[tuple[type, ...], str] = {
 }
 
 # ``BaseControl.__init__`` parameters that are the base class's job. A
-# subclass that re-declares one in its own signature does not export it as a
+# subclass that redeclares one in its own signature does not export it as a
 # CONFIG field — it is already covered by :data:`SHARED`.
 _SHARED_PARAMS: frozenset[str] = frozenset({"position", "locale"})
 
