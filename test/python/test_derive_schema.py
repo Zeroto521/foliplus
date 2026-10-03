@@ -12,7 +12,7 @@ from typing import Annotated, Literal
 
 import pytest
 
-from foliplus._config_schema import FieldSpec, derive_schema, verify_tags
+from foliplus._config_schema import FieldSpec, _evaluate, derive_schema, verify_tags
 from foliplus._validate import Bound
 
 
@@ -177,6 +177,17 @@ def test_pep604_string_annotation_is_nullable_too() -> None:
     schema = derive_schema(_Pep604)
     assert schema["s"].ts == "array_string"
     assert schema["s"].nullable is True
+
+
+def test_evaluate_resolves_a_stringified_union_arm() -> None:
+    """A union arm can reach the reflector as a string; resolve it.
+
+    ``get_type_hints`` evaluates a spelled-out union as a whole, so an arm
+    normally arrives as a type. The string path keeps ``"None"`` equivalent
+    to ``None``, so a nullable union resolves however it is spelled.
+    """
+    assert _evaluate("None") is type(None)
+    assert _evaluate("list") is list
 
 
 def test_bound_metadata_is_ignored_by_the_reflector() -> None:

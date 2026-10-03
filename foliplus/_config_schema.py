@@ -648,7 +648,9 @@ def schema_to_json() -> str:
     return json.dumps(payload, indent=2, ensure_ascii=False, sort_keys=False) + "\n"
 
 
-def _pin_package_path(keep: tuple[str, ...] = ()) -> None:
+def _pin_package_path(
+    keep: tuple[str, ...] = (),
+) -> None:  # pragma: no cover - script bootstrap: runpy subprocess test
     """Force ``foliplus`` to resolve to this module's own package.
 
     Needed only when this file runs as a script: ``python foliplus/_config_schema.py``
