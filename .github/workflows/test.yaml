@@ -87,8 +87,18 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-deps
+        with:
+          python-version: "3.x"
 
-      - run: make test-js
+      # `make test-js` builds JS first, and the build regenerates
+      # config-schema.ts from a Python schema dump. That dump now reflects every
+      # control's __init__, so it imports the package — install foliplus's own
+      # dependencies before building.
+      - run: uv sync --no-dev
+
+      # `uv run` puts the venv's python first on PATH: build.mjs spawns a bare
+      # `python` for the dump, and test/js/tsconfig.test.ts does the same.
+      - run: uv run --no-sync make test-js
 
       - uses: codecov/codecov-action@v6
         with:

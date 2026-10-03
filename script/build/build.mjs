@@ -355,8 +355,10 @@ const generateSharedRegistry = () => {
  *  tree stays clean and the committed artifact is reproducible.
  *
  *  The Python invocation uses `-W ignore` to suppress a harmless RuntimeWarning.
- *  Uses `python <path>` instead of `python -m` to avoid triggering the package
- *  init (which imports branca/folium — not needed for schema dumping).
+ *  Uses `python <path>` rather than `python -m`: running the file as a script
+ *  lets its __main__ pin the checkout onto sys.path, so foliplus needs no
+ *  install. Its own dependencies (branca / folium) must still be present — the
+ *  reflector imports every control to read its __init__ signature.
  *  PYTHON env var overrides the Python executable.
  */
 const generateConfigSchema = () => {
