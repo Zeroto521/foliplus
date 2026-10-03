@@ -136,7 +136,7 @@ const openMoreMenu = (
     ),
   );
 
-  // Attributes is display-only, so it is never disabled —a hidden layer
+  // Attributes is display-only, so it is never disabled — a hidden layer
   // still has name / source / visibility to show.
   menu.appendChild(
     dom.el(

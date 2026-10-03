@@ -50,7 +50,7 @@ const openAttrsPanel = (
 
   // Every row is built as label + resolved value; a row whose value is an
   // empty string is dropped. That covers both "no data registered" and
-  // "updatedAt parses to nothing" —攆ormatTimestamp returns "" for invalid
+  // "updatedAt parses to nothing" — formatTimestamp returns "" for invalid
   // input, so an unparsable timestamp vanishes instead of leaving an
   // empty-value row.
   const addRow = (label: string, value: string, kind: AttrRow[2] = ""): void => {

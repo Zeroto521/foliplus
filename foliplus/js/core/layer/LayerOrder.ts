@@ -165,7 +165,7 @@ class LayerOrder {
 
   /** Where a new overlay enters the stack.
    *
-   *  A layer without a stored position goes on top —a fresh layer has no user
+   *  A layer without a stored position goes on top — a fresh layer has no user
    *  arrangement to honour, and top is what every other caller of `prepend`
    *  promises. With a stored position it takes the slot the user already chose.
    *  The placement is done here rather than left to a later sweep, because a
@@ -176,7 +176,7 @@ class LayerOrder {
     this.placeAtSavedSlot(layerInfo);
   }
 
-  /** Move a fresh layer to its stored slot when the record ranks it —prepend
+  /** Move a fresh layer to its stored slot when the record ranks it — prepend
    *  (overlay) and `baseInsert` (base) stay the defaults for a layer the user
    *  never arranged. Shared so base registrations replay a dragged slot the
    *  same way overlay registrations do. */
@@ -184,7 +184,7 @@ class LayerOrder {
     const saved = this.savedOrder;
     if (!saved) return;
     const target = saved.indexOf(layerInfo.id);
-    if (target === -1) return; // no stored position —keep the default insert
+    if (target === -1) return; // no stored position — keep the default insert
     this.placeBeforeSavedNeighbor(layerInfo, saved, target);
   }
 
@@ -208,7 +208,7 @@ class LayerOrder {
    * @param id - The layer ID whose stored position is being dropped.
    * @returns true if the id was in the stored order and got removed, false
    *   otherwise (nothing to forget). Callers treat false as a no-op, not an
-   *   error —an id that was never registered has nothing to forget.
+   *   error — an id that was never registered has nothing to forget.
    */
   forgetSavedOrder(id: string): boolean {
     const saved = this.savedOrder;

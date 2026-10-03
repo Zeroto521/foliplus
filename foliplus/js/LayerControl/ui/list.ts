@@ -72,7 +72,7 @@ const initTypesAndVisibility = (la: LayerAccess, ps: PanelStore, fs: FocusStore)
 };
 
 const renderInitialList = (la: LayerAccess, ps: PanelStore, fs: FocusStore) => {
-  // Remember the cursor by identity —the item elements are rebuilt below,
+  // Remember the cursor by identity — the item elements are rebuilt below,
   // so an element reference would dangle. Layer rows key on data-layer-id,
   // toggle-all rows on data-group (they have no layer id). The identity also
   // tracks the row through a reorder. Null means the cursor was never
@@ -103,7 +103,7 @@ const renderInitialList = (la: LayerAccess, ps: PanelStore, fs: FocusStore) => {
   ps.uiContainer!.appendChild(frag);
 
   // ARIA + roving tabindex on the rebuilt rows. setIndex follows activeIdx
-  // without painting the cursor class —restoreCursor() owns that visual.
+  // without painting the cursor class — restoreCursor() owns that visual.
   syncListCursor(la, ps, fs);
 
   // Re-home the cursor on the rebuilt element and restore DOM focus. The
@@ -198,7 +198,7 @@ const updateLayerItem = (
   ) as HTMLElement | null;
   if (!item) return;
   // updateItemLabel sets both the row label and the checkbox's aria-label,
-  // so the name reaches assistive tech here without touching `title` —the
+  // so the name reaches assistive tech here without touching `title` — the
   // row's tooltip slot keeps the feature count + type.
   updateItemLabel(item, displayName(la, ps, fs, layerInfo.id));
 };
@@ -272,7 +272,7 @@ const renderLayerItem = (
     },
     { html: SVGs.MORE },
   );
-  // All layers get the "more" button —data layers can focus + rename, base
+  // All layers get the "more" button — data layers can focus + rename, base
   // maps can rename (focus on a base map is a harmless full-world fitBounds).
 
   const children: HTMLElement[] = [
@@ -288,7 +288,7 @@ const renderLayerItem = (
         type: "checkbox",
         checked: "",
         // The name reaches assistive tech via aria-label. `title` is the
-        // Select/Deselect slot —initLayerItem sets it per checked state
+        // Select/Deselect slot — initLayerItem sets it per checked state
         // before this row can be hovered, so leave it unseeded rather than
         // flashing the layer name.
         "aria-label": name,
@@ -333,7 +333,7 @@ const initLayerItem = (
   if (!la.layerRegistry.has(layerInfo.id)) return false;
   const cell = buildRowCell(la, ps, fs, layerInfo);
   // Resolve the row by data-layer-id: a late registration lands where its
-  // stored slot puts it, so the DOM order can diverge from the registry —an
+  // stored slot puts it, so the DOM order can diverge from the registry — an
   // index-based lookup would write the checkbox and type column into a
   // neighbor's row.
   const item = ps.uiContainer!.querySelector(

@@ -5,7 +5,6 @@ import {
   removeInlineEditInput,
   updateItemLabel,
 } from "#common/dom.js";
-import { createScopedTranslator } from "#common/locale.js";
 import * as CONST from "../const.js";
 import type { LayerAccess } from "./access.js";
 import type { FocusStore } from "./focusStore.js";
@@ -77,7 +76,7 @@ const renameLayer = (
     },
     onCancel: reason => {
       // Only an empty-name commit is a user mistake worth flagging;
-      // Escape is an intentional abandon —stay silent.
+      // Escape is an intentional abandon — stay silent.
       if (reason === "empty") {
         la.map.foliplus!.showHint(
           CONFIG.name,
@@ -87,7 +86,7 @@ const renameLayer = (
       }
       // Escape defers the teardown: tearing the input down now would blur
       // it to `<body>`, and `document.activeElement` is what handleKeyDown's
-      // container guard reads —a microtask already runs before the keydown
+      // container guard reads — a microtask already runs before the keydown
       // finishes bubbling, so the panel handler sees focus on `<body>` and
       // never reaches the Escape branch. A timeout fires after the whole
       // dispatch is unwound, so the cursor is cleared while the input still

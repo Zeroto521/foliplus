@@ -4,6 +4,7 @@ import { GROUP } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerManager } from "#foliplus/LayerControl/manager.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
+import * as Focus from "#foliplus/LayerControl/ui/focus.js";
 import { getIntent, seedIntentMap } from "#foliplus/LayerControl/ui/intent.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 import {
@@ -1123,6 +1124,44 @@ describe("LayerUI keyboard", () => {
       );
 
       expect(checkbox.checked).toBe(!before);
+    });
+  });
+
+  describe("double-click on a row → focusLayer", () => {
+    it("focuses the layer when the row dead-space is double-clicked", () => {
+      const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
+      const focusSpy = vi.spyOn(Focus, "focusLayer").mockImplementation(() => {});
+
+      item.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+
+      expect(focusSpy).toHaveBeenCalledWith(
+        ui.la,
+        ui.panelStore,
+        ui.focusStore,
+        "overlay1",
+      );
+    });
+
+    it("is a no-op when the double-click lands on a native control", () => {
+      const item = findItem(ui.la, ui.panelStore, ui.focusStore, "overlay1");
+      const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
+      const focusSpy = vi.spyOn(Focus, "focusLayer");
+
+      checkbox.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+
+      expect(focusSpy).not.toHaveBeenCalled();
+    });
+
+    it("shows the disabled hint for a base basemap row", () => {
+      const baseItem = findItem(ui.la, ui.panelStore, ui.focusStore, "base1");
+      const hintSpy = vi
+        .spyOn(ui.la.map.foliplus, "showHint")
+        .mockImplementation(() => {});
+
+      baseItem.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+
+      expect(hintSpy).toHaveBeenCalled();
+      expect(hintSpy.mock.calls[0][1]).toContain("base");
     });
   });
 

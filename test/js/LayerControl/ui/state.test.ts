@@ -196,7 +196,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
 
       expect(map.addLayer).not.toHaveBeenCalled();
       // The author's `show=False` default is not a user choice, so the
-      // intent record stays untouched —the layer's membership on the map
+      // intent record stays untouched — the layer's membership on the map
       // reflects that author default, not this load's decision.
       expect(m.intentVisible("overlay1")).toBe(true);
     });
@@ -818,7 +818,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
   });
 });
 
-describe("label config seed —read order (write-new / read-old)", () => {
+describe("label config seed — read order (write-new / read-old)", () => {
   beforeEach(() => {
     window.localStorage.clear();
   });
@@ -1072,7 +1072,7 @@ describe("event-driven row refresh", () => {
 
   it("onLayerItemCountChange renders the type from the surface without stamping the snapshot", () => {
     // 33.2 authority: the surface owns the geometry probe; the manager never
-    // calls getGeometryType directly, and the row only reads the surface —it
+    // calls getGeometryType directly, and the row only reads the surface — it
     // does not write layerInfo.type (single-writer snapshot via getLayerType).
     // The fixture's plain object is not an L.Polygon, so the surface resolves
     // it to EMPTY, which the row renders verbatim.
@@ -1349,7 +1349,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
   it("treats an unknown override key as live (forward-compat default)", () => {
     // LayerOverride is closed today; the default arm of hasLiveValue /
     // LayerIntentStore.hasLive is the forward-compat path so a future dimension
-    // without a typed guard is not silently dropped by markOverride —and
+    // without a typed guard is not silently dropped by markOverride — and
     // toPersisted writes only the marker (no LIVE rule yet), keeping the
     // disk contract intact.
     const bare = attachFaces({
@@ -1445,7 +1445,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
 
   it("tolerates a shell with an empty LayerIntentStore", () => {
     // Sparse fixtures and a mid-teardown UI must not throw on the projection
-    // walks —an empty store reads as no user choice, and an intent without a
+    // walks — an empty store reads as no user choice, and an intent without a
     // name simply contributes nothing to the saved names.
     const schedule = vi.fn();
     const bare = attachFaces({
@@ -1609,7 +1609,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
         "zoomRange",
       ].sort(),
     );
-    // `name` is NOT a layers[id] key —it rides the top-level `renamedNames`.
+    // `name` is NOT a layers[id] key — it rides the top-level `renamedNames`.
     expect("name" in entry!).toBe(false);
   });
 
@@ -1637,7 +1637,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
     // The gate (hasLiveValue) and the writer both speak typeof, so undefined
     // is the only absence: a weight of 0 survives while a marker whose value
     // went missing drops its whole entry. An empty string still reads as a
-    // string here —no writer can produce one (hydration is truthy and the
+    // string here — no writer can produce one (hydration is truthy and the
     // color input only ever yields hex), and the read side discards it via
     // isHexColor, so a truthy carve-out in buildLayerStates would only make
     // this layer disagree with applyBorderToLayer's `!== undefined` reads.
@@ -1690,7 +1690,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
     // A stored range has to come back with its layer: without this pass a layer
     // that was out of range on the previous load would join the map at its
     // author default instead of staying inside the range the user chose.
-    // With Option A, the zoomRange resolves through the visible op —the
+    // With Option A, the zoomRange resolves through the visible op — the
     // layer's options are never written.
     manager.registerLayer({ id: "grid1", name: "Grid", layer: new GridLayer() });
     const li = manager.layerRegistry.get("grid1")!;
@@ -1700,7 +1700,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
 
     ui.applyUserState("grid1");
 
-    // The layer's options are untouched —zoomRange does not write them.
+    // The layer's options are untouched — zoomRange does not write them.
     const opts = (li.layer as { options: Record<string, unknown> }).options;
     expect("minZoom" in opts).toBe(false);
     expect("maxZoom" in opts).toBe(false);
@@ -1832,7 +1832,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
 
   it("toggle back and forth never leaves the value and provenance out of step", () => {
     // A toggle is a value write + a provenance marker in the same call. Rapid
-    // toggles must end with the *last* choice in both halves —the record must
+    // toggles must end with the *last* choice in both halves — the record must
     // not drift to an intermediate state or drop the marker.
     vi.useFakeTimers();
     ui.setVisible("overlay1", false);
@@ -1878,7 +1878,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
 
   it("a value written directly (no provenance) still projects as user intent", () => {
     // A restored record or a test fixture can write the value without the
-    // marker. The projection reads either half as "the user chose this" —a
+    // marker. The projection reads either half as "the user chose this" — a
     // bare intents.visible entry must never fall back to the author default.
     const u = new LayerUI(manager);
     seedIntentMap(u, "visible", {});

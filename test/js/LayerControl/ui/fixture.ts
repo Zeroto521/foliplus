@@ -262,7 +262,11 @@ const initFixture = (
   manager.attachUI(container);
   const ui = manager.ui!;
   vi.advanceTimersByTime(350);
-  vi.useRealTimers();
+  // Leave fake timers enabled — callers that need real timers opt in with
+  // vi.useRealTimers(). Switching back to real here let attachUI's
+  // setTimeout(0) fire before a caller's own useFakeTimers ran, which made
+  // the caller's advanceTimersByTime(0) a no-op and let a leaked init pass
+  // pollute the next test's module-function spies.
 
   return { manager, ui, map };
 };

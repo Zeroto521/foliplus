@@ -392,6 +392,12 @@ const unbindEvents = (la: LayerAccess, ps: PanelStore, fs: FocusStore): void => 
     ps.unsubscribeControlAttached();
     ps.unsubscribeControlAttached = null;
   }
+  // Clear the container reference so a pending setTimeout(0) from attachUI
+  // (or a CONTROL_ATTACHED event that queued during teardown) cannot re-enter
+  // initTypesAndVisibility after the manager has dropped the container —
+  // without this, a queued init pass would run against a detached subtree
+  // and rebuild listeners on a dead DOM.
+  ps.uiContainer = null;
 };
 
 export {

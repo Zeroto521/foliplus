@@ -2,7 +2,7 @@
 """Detect UTF-8 replacement characters and mojibake signatures in staged files.
 
 The hook scans every staged text file and reports ``file:line`` locations
-when it finds any of four signatures of a lossy non-UTF-8 encoding
+when it finds any of six signatures of a lossy non-UTF-8 encoding
 round-trip:
 
 1. **U+FFFD** (``EF BF BD``) — the UTF-8 replacement character itself.
@@ -23,6 +23,15 @@ round-trip:
    ``EF BF BD`` decoded as GBK yields U+951F (plus U+65A4 and U+62F7 for
    the follow-up pairs), and ``E2`` decoded as GBK yields U+94A5 /
    U+922B.
+5. **Em-dash glued to a lowercase Latin letter** (``— the`` / ``— so``) —
+   English style separates an em dash from a following word with a space;
+   a missing space in an English comment is a fingerprint of a prior
+   UTF-8→GBK→UTF-8 round-trip that dropped the space. Only ASCII-adjacent
+   cases are flagged: a CJK character right after the dash stays clean.
+6. **Overflow-menu glyph misread** (``\u22efmenu``) — the vertical dots
+   U+22EE (``⋮``) that the overflow-menu icon uses were misread as the
+   mathematical ellipsis U+22EF (``\u22ef``). A bare ``\u22ef`` is legitimate prose;
+   ``\u22efmenu`` is not.
 
 None of these can be auto-fixed — the original character is already gone.
 See https://en.wikipedia.org/wiki/Mojibake and
@@ -59,12 +68,22 @@ MOJIBAKE_RE = re.compile(
     f"â[{re.escape(_CP1252_FOLLOWS)}]"
     f"|[{re.escape(_LOSSY_ANCHORS)}][ \\t]*\\?"
     f"|[\u951f\u65a4\u62f7\u9225\u922b]"
+    # Em-dash glued to a lowercase Latin letter: the ``— the`` shape. A CJK
+    # character right after the dash stays clean (CJK writing allows no
+    # space after em dash), so the character class is restricted to
+    # [a-z] only — [a-z] is not matched by CJK ideographs.
+    f"|—[a-z]"
+    # Overflow-menu glyph misread: the vertical dots U+22EE (``⋮``) were
+    # misread as the mathematical ellipsis U+22EF (``\u22ef``) followed by
+    # "menu". A bare ``\u22ef`` in prose is legitimate; ``\u22efmenu`` is not.
+    f"|\\u22efmenu"
 )
 
 _SUMMARY = """\
 
 {failures} line(s) contain U+FFFD replacement characters or mojibake
-signatures (CP1252 misread, byte loss after punctuation, GBK misread).
+signatures (CP1252 misread, byte loss after punctuation, GBK misread,
+em-dash glued to a word, overflow-menu glyph misread).
 The original characters were corrupted by a non-UTF-8 encoding round-trip
 and cannot be auto-fixed — restore them from the source and save as UTF-8
 (no BOM).

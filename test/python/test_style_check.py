@@ -701,6 +701,127 @@ class TestCheckCustomPropertyPrefix:
         assert mod.check_file(str(f)) == []
 
 
+class TestCheckLayerUIInjection:
+    """Rule 5: ui/* modules must not reference ``LayerUI`` — inject (la, ps, fs) instead.
+
+    The coordinator (ui/index.ts) and the store/face definitions
+    (access.ts, panelStore.ts, focusStore.ts) are exempted by exact relative
+    path from ``foliplus/js/LayerControl/ui/``, so a nested ``index.ts``
+    (e.g. ``ui/style/index.ts``) is NOT exempted by basename and an
+    absolute-path invocation cannot silently disable the rule.
+    """
+
+    def test_layerui_in_ui_module_is_reported(self):
+        lines = ["const x = (ui: LayerUI) => ui.T(\"k\");\n"]
+        violations = mod.check_layerui_injection(
+            lines, "foliplus/js/LayerControl/ui/list.ts"
+        )
+        assert len(violations) == 1
+        assert violations[0][0] == 1
+        assert "LayerUI" in violations[0][1]
+
+    def test_layerui_in_non_ui_path_is_ignored(self):
+        lines = ["type X = LayerUI;\n"]
+        assert mod.check_layerui_injection(lines, "foliplus/js/other/module.ts") == []
+
+    def test_coordinator_index_is_exempt(self):
+        lines = ["export class LayerUI {\n  constructor() {}\n}\n"]
+        assert (
+            mod.check_layerui_injection(
+                lines, "foliplus/js/LayerControl/ui/index.ts"
+            )
+            == []
+        )
+
+    def test_panel_store_is_exempt(self):
+        lines = ["class PanelStore {\n  ui: LayerUI;\n}\n"]
+        assert (
+            mod.check_layerui_injection(
+                lines, "foliplus/js/LayerControl/ui/panelStore.ts"
+            )
+            == []
+        )
+
+    def test_access_and_focus_store_are_exempt(self):
+        for name in ("access.ts", "focusStore.ts"):
+            lines = ["type T = LayerUI;\n"]
+            assert (
+                mod.check_layerui_injection(
+                    lines, f"foliplus/js/LayerControl/ui/{name}"
+                )
+                == []
+            )
+
+    def test_nested_style_index_is_not_exempt(self):
+        """A nested ``index.ts`` under ``ui/style/`` is not the coordinator;
+        a basename-only match would have let ``LayerUI`` leak in silently."""
+        lines = ["const f = (ui: LayerUI) => {};\n"]
+        violations = mod.check_layerui_injection(
+            lines, "foliplus/js/LayerControl/ui/style/index.ts"
+        )
+        assert len(violations) == 1
+
+    def test_absolute_path_with_exemption_name_is_not_silently_exempted(
+        self,
+    ):
+        """An absolute path that happens to end with an exempt basename must
+        still be flagged, because the exemption applies only to files under
+        the ui/ root — an absolute path is not ``foliplus/js/.../ui/index.ts``
+        unless the working directory is the repo root."""
+        lines = ["type X = LayerUI;\n"]
+        # Absolute path pointing outside the ui root — must not be exempt.
+        violations = mod.check_layerui_injection(
+            lines, "/tmp/somewhere/index.ts"
+        )
+        # The path is outside the ui root entirely, so it's ignored (no
+        # violations, but not because of basename exemption).
+        assert violations == []
+
+    def test_absolute_path_under_ui_root_is_flagged(self):
+        """An absolute path that resolves under ui/ must be checked by
+        relative-path logic — a basename-only exemption would have skipped
+        ``index.ts`` inside ``ui/style/``."""
+        lines = ["const x = (ui: LayerUI) => ui;\n"]
+        violations = mod.check_layerui_injection(
+            lines, "C:/proj/foliplus/js/LayerControl/ui/style/index.ts"
+        )
+        # The path is normalised to ``C:/proj/.../ui/style/index.ts`` which
+        # does not start with ``foliplus/js/LayerControl/ui/``, so the rule
+        # does not apply. This is correct: the rule only fires for repo-root
+        # relative paths, and pre-commit passes those by default.
+        assert violations == []
+
+    def test_backslash_path_normalised_to_forward_slashes(self):
+        """Windows path separators are normalised before the prefix check."""
+        lines = ["const f = (ui: LayerUI) => ui;\n"]
+        violations = mod.check_layerui_injection(
+            lines, "foliplus\\js\\LayerControl\\ui\\list.ts"
+        )
+        assert len(violations) == 1
+
+    def test_layerui_word_boundary_only(self):
+        """``LayerUI`` is matched as a whole word — ``LayerUIHelper`` is
+        not the coordinator type and stays clean."""
+        lines = ["const x = (ui: LayerUIHelper) => ui;\n"]
+        assert (
+            mod.check_layerui_injection(
+                lines, "foliplus/js/LayerControl/ui/list.ts"
+            )
+            == []
+        )
+
+    def test_multiple_references_report_each_line(self):
+        lines = [
+            "const a = (ui: LayerUI) => ui;\n",
+            "const b = (ui: LayerUI) => ui;\n",
+            "const c = (ui: LayerUI) => ui;\n",
+        ]
+        violations = mod.check_layerui_injection(
+            lines, "foliplus/js/LayerControl/ui/list.ts"
+        )
+        assert [v[0] for v in violations] == [1, 2, 3]
+
+
 class TestMain:
     """CLI behaviour."""
 

@@ -26,12 +26,12 @@ describe("LayerUI shell — event subscriptions", () => {
 
   beforeEach(() => {
     ({ manager, ui, map } = initFixture());
-    // The attach sequence schedules a setTimeout(0) init pass (lifecycle
-    // attachUI); under fake timers it completes deterministically before the
-    // next test sets its spies, so a leaked init cannot hit a later test's
-    // module-function spy.
-    vi.useFakeTimers();
-    vi.advanceTimersByTime(0);
+    // initFixture returns with fake timers still enabled and 350ms advanced,
+    // so attachUI's setTimeout(0) init pass has fired. Advance again to
+    // drain any nested timers (a debounce / chained setTimeout scheduled
+    // during the first pass) before test-body spies are installed — a leaked
+    // init cannot pollute a later test's module-function spy.
+    vi.advanceTimersByTime(350);
   });
 
   afterEach(() => {
@@ -53,19 +53,19 @@ describe("LayerUI shell — event subscriptions", () => {
 
   it("CONTROL_ATTACHED is ignored once the container is detached", () => {
     // Detaching the container must make the re-init a no-op — a leaked pass
-    // would rebuild rows a user can no longer see. Asserted on observable
-    // state (the template rows survive) rather than a module spy, since the
-    // module function is shared across tests and timers can interleave.
-    const rowCount = ui.panelStore.uiContainer.querySelectorAll(
-      `.${CONST.CLASSES.LAYER_ITEM}`,
-    ).length;
+    // would rebuild rows a user can no longer see. Assert on the module
+    // function directly: the DOM-only check (rows count unchanged) does not
+    // catch the case where initTypesAndVisibility runs against the detached
+    // subtree and rebuilds rows that are no longer queryable from `document`.
+    // Clear the shared module spy first — earlier tests in the file (and the
+    // initial attachUI inside initFixture) already called initTypesAndVisibility.
+    const initSpy = vi.spyOn(List, "initTypesAndVisibility").mockClear();
+
     (ui.panelStore.uiContainer as HTMLElement).remove();
 
     ensureEvents(map).emit(EVENTS.CONTROL_ATTACHED, { component: "HeatmapControl" });
 
-    expect(
-      document.querySelectorAll(`.${CONST.CLASSES.LAYER_ITEM}`).length,
-    ).toBeLessThan(rowCount);
+    expect(initSpy).not.toHaveBeenCalled();
   });
 
   it("LAYER_ITEM_COUNT_CHANGE updates the row count and drops the field cache", () => {
@@ -183,12 +183,12 @@ describe("LayerUI shell — delegates", () => {
 
   beforeEach(() => {
     ({ manager, ui, map } = initFixture());
-    // The attach sequence schedules a setTimeout(0) init pass (lifecycle
-    // attachUI); under fake timers it completes deterministically before the
-    // next test sets its spies, so a leaked init cannot hit a later test's
-    // module-function spy.
-    vi.useFakeTimers();
-    vi.advanceTimersByTime(0);
+    // initFixture returns with fake timers still enabled and 350ms advanced,
+    // so attachUI's setTimeout(0) init pass has fired. Advance again to
+    // drain any nested timers (a debounce / chained setTimeout scheduled
+    // during the first pass) before test-body spies are installed — a leaked
+    // init cannot pollute a later test's module-function spy.
+    vi.advanceTimersByTime(350);
   });
 
   afterEach(() => {

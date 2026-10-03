@@ -67,7 +67,7 @@ const toggleAll = (
     const layerInfo = la.layerRegistry.get(id);
     if (!layerInfo) return;
 
-    // No persist per iteration —schedule a single debounced write after the
+    // No persist per iteration — schedule a single debounced write after the
     // loop so the debounce timer isn't reset for every layer.
     setVisible(la, ps, fs, id, newState, false);
     // The executor is the only writer of map membership for this layer:
@@ -275,7 +275,7 @@ const handleChange = (
   const target = event.target as HTMLInputElement;
   if (target.tagName.toLowerCase() !== "input" || target.type !== "checkbox") return;
 
-  // The row carries the identity: data-layer-id, not a positional index —a
+  // The row carries the identity: data-layer-id, not a positional index — a
   // late registration can sit anywhere in the DOM, so an index-based lookup
   // would apply the click to a neighbor's layer.
   const row = target.closest(CONST.SEL.LAYER_ITEM);

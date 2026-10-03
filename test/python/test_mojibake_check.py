@@ -325,3 +325,74 @@ class TestGbkMisread:
         f = tmp_path / "gbk2.txt"
         f.write_bytes("\u9225?\n".encode("utf-8"))
         assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 1
+
+
+class TestEmDashGlued:
+    """Em-dash glued to a lowercase Latin letter — the ``— the`` shape.
+
+    English style separates an em dash from the following word with a
+    space. A missing space in an English comment is a fingerprint of a
+    prior UTF-8→GBK→UTF-8 round-trip that dropped the space. Only ASCII
+    adjacencies are flagged: ``—中`` (CJK right after the dash) stays
+    clean because CJK writing allows no space after em dash.
+    """
+
+    def test_em_dash_glued_to_word_is_flagged(self, tmp_path, capsys, monkeypatch):
+        f = tmp_path / "glued.txt"
+        f.write_bytes("// one two\u2014three four\n".encode("utf-8"))
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 1
+        captured = capsys.readouterr()
+        assert f"{f}:1" in captured.out
+
+    def test_em_dash_with_space_is_clean(self, tmp_path, capsys, monkeypatch):
+        """The correct English form ``— the`` stays clean."""
+        f = tmp_path / "spaced.txt"
+        f.write_bytes("// one two — the three\n".encode("utf-8"))
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 0
+
+    def test_em_dash_glued_to_uppercase_is_clean(self, tmp_path, capsys, monkeypatch):
+        """``—The`` (capital) is legitimate — some styles use a leading cap."""
+        f = tmp_path / "cap.txt"
+        f.write_bytes("// one two—Three four\n".encode("utf-8"))
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 0
+
+    def test_em_dash_glued_to_cjk_is_clean(self, tmp_path, capsys, monkeypatch):
+        """CJK ideographs after the dash are legal (Chinese/Japanese style)."""
+        f = tmp_path / "cjk.txt"
+        f.write_bytes("中文注释—说明文字\n".encode("utf-8"))
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 0
+
+    def test_en_dash_glued_is_not_flagged(self, tmp_path, capsys, monkeypatch):
+        """Only the em dash triggers the rule; en dash is more permissive."""
+        f = tmp_path / "en.txt"
+        f.write_bytes("// one two–three\n".encode("utf-8"))
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 0
+
+
+class TestOverflowGlyphMisread:
+    """Overflow-menu glyph ``⋮`` (U+22EE) misread as ``\u22ef`` (U+22EF).
+
+    The vertical three-dots glyph used for the overflow menu was
+    misread as the mathematical ellipsis by a lossy round-trip. A bare
+    ``\u22ef`` in prose (as an ellipsis substitute) stays clean; ``\u22efmenu``
+    is not a valid construction and gets flagged.
+    """
+
+    def test_overflow_menu_glyph_misread_is_flagged(self, tmp_path, capsys, monkeypatch):
+        f = tmp_path / "menu.txt"
+        f.write_bytes("// opened from the \u22efmenu button\n".encode("utf-8"))
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 1
+        captured = capsys.readouterr()
+        assert f"{f}:1" in captured.out
+
+    def test_correct_vertical_dots_is_clean(self, tmp_path, capsys, monkeypatch):
+        """The correct glyph ``⋮menu`` stays clean."""
+        f = tmp_path / "correct.txt"
+        f.write_bytes("// opened from the ⋮menu button\n".encode("utf-8"))
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 0
+
+    def test_bare_ellipsis_in_prose_is_clean(self, tmp_path, capsys, monkeypatch):
+        """A bare ``\u22ef`` used as an ellipsis in prose is legitimate."""
+        f = tmp_path / "prose.txt"
+        f.write_bytes("// and the story goes on…\n".encode("utf-8"))
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 0

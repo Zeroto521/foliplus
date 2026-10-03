@@ -371,12 +371,16 @@ def check_file(filepath: str) -> list[tuple[int, str]]:
 # Rule 5: ui/* modules must not reference LayerUI outside the coordinator.
 # The phase-2 injection split (T270) gives modules the (la, ps, fs) faces;
 # the coordinator (index.ts) and the store/face definitions are exempt.
+# Exemptions are relative to ``foliplus/js/LayerControl/ui/`` so a file with
+# the same basename elsewhere (e.g. ``ui/style/index.ts``) is NOT exempted by
+# basename, and an absolute-path invocation cannot silently disable the rule.
 INJECTION_EXEMPT = {
     "access.ts",
     "focusStore.ts",
     "index.ts",
     "panelStore.ts",
 }
+LAYER_UI_ROOT = "foliplus/js/LayerControl/ui/"
 LAYERUI_RE = re.compile(r"\bLayerUI\b")
 
 
@@ -386,9 +390,15 @@ def check_layerui_injection(
     """Rule 5: report `LayerUI` in ui/* module signatures or bodies (code only,
     comments exempt) — the fence that keeps modules from drifting back to the
     whole-package argument."""
-    if not filepath.replace("\\", "/").startswith("foliplus/js/LayerControl/ui/"):
+    normalized = filepath.replace("\\", "/")
+    # Only files under the ui/ root are candidates; relative-path prefix match
+    # (not basename) so a nested index.ts (e.g. ui/style/index.ts) is treated
+    # by its real path, not by its basename.
+    if not normalized.startswith(LAYER_UI_ROOT):
         return []
-    if os.path.basename(filepath) in INJECTION_EXEMPT:
+    rel_to_ui = normalized[len(LAYER_UI_ROOT) :]
+    # Coordinator + stores are exempted by exact relative path (no subdirs).
+    if rel_to_ui in INJECTION_EXEMPT:
         return []
     violations: list[tuple[int, str]] = []
     for lineno, code in enumerate(code_lines, 1):

@@ -123,7 +123,7 @@ const unmarkOverride = (
 };
 
 /**
- * Propagate the user's stored state —hidden visibility and renames —
+ * Propagate the user's stored state — hidden visibility and renames —
  * into the registry and the rendered rows.
  *
  * `la.intentStore` (the visible / name dimensions) is the source of truth; the
@@ -133,7 +133,7 @@ const unmarkOverride = (
  * overwrite of `visible`, so it writes straight through; name is a
  * cross-axis projection that must preserve the author's original name, so
  * it goes through `applyNameProjection`, which writes only where the
- * projection still differs —a repeated pass is therefore a no-op.
+ * projection still differs — a repeated pass is therefore a no-op.
  *
  * The sweep is a pure projection: it never prunes and never writes back.
  * A persisted id with no registry entry is *ignored*, not treated as
@@ -149,7 +149,7 @@ const unmarkOverride = (
  * {@link dropPersistedLayerState}: "delete this layer", or the per-dimension
  * reset that reduces to {@link unmarkOverride}. Nothing else calls it.
  *
- * @param {string} [id] Restrict to one layer id —a late-arriving row is
+ * @param {string} [id] Restrict to one layer id — a late-arriving row is
  *   already rendered with the right label, so it only needs its registry
  *   projection; a full sweep would re-rewrite every renamed row for no
  *   gain. Both projections are membership-guarded on this path: the drain
@@ -176,7 +176,7 @@ const applyUserState = (
   // taken once its JS global exists.
   if (id) {
     const layerInfo = registry.get(id);
-    if (!layerInfo) return; // not registered yet —its stored state is kept
+    if (!layerInfo) return; // not registered yet — its stored state is kept
     // One id, one projection: a late registration replays every stored
     // dimension on the same pass — visibility, opacity and zoom range — so
     // nothing needs a per-caller replay path: a late arrival replays itself.
@@ -203,7 +203,7 @@ const applyUserState = (
     const rename = getIntent(la, layerId, INTENT.NAME);
     if (rename == null) continue;
     if (layerId === CONST.SOLID_BASEMAP_ID) {
-      // The color basemap has no registry entry —only its row label.
+      // The color basemap has no registry entry — only its row label.
       applyNameProjection(
         null,
         container?.querySelector(
@@ -214,7 +214,7 @@ const applyUserState = (
       continue;
     }
     const layerInfo = registry.get(layerId);
-    if (!layerInfo) continue; // not registered yet —its stored state is kept
+    if (!layerInfo) continue; // not registered yet — its stored state is kept
     applyNameProjection(
       layerInfo,
       container?.querySelector(
@@ -239,7 +239,7 @@ const applyUserState = (
 };
 
 /**
- * Drop every persisted dimension for one layer —visibility, opacity, zoom
+ * Drop every persisted dimension for one layer — visibility, opacity, zoom
  * range, and the provenance that says the user set them.
  *
  * This is the only routine that erases a stored value, and it is reachable

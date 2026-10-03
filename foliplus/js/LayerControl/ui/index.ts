@@ -98,7 +98,6 @@ class LayerUI {
    *  controls the style panel shares with HeatmapControl). Kept beside `T` so
    *  a test can inject either independently. */
   _: (key: string) => string;
-  foldedGroups: Set<string>;
   /** Per-group tri-state counts maintained incrementally so a single-row
    *  click is O(1). Populated by the full-scan `syncToggleAll` at reconcile
    *  points (attach, insert, delete, reload) and kept in sync by
@@ -220,7 +219,6 @@ class LayerUI {
     this.config = CONFIG;
     this.T = env.T;
     this._ = env._;
-    this.foldedGroups = new Set();
     this.checkedCount = {};
     this.intentStore = new LayerIntentStore();
     this.runtimeStore = new LayerRuntimeStore();
@@ -239,7 +237,6 @@ class LayerUI {
     // reading `ui.activeMenu` / `ui.stylePanelLayerId` / `ui.focusRect` see
     // what the modules write through ps / fs.
     const psForwards = [
-      "foldedGroups",
       "activeMenu",
       "activeAttrsPanel",
       "stylePanelLayerId",

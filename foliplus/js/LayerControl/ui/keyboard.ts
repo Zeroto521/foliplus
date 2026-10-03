@@ -26,7 +26,7 @@ import { closeStylePanel } from "./style/index.js";
  *  restoreCursor) must keep it; only the pointer path adopts (strips). */
 const syncListCursor = (la: LayerAccess, ps: PanelStore, fs: FocusStore): void => {
   // initTypesAndVisibility is on a timer and can fire after the panel is
-  // torn down (unit tests, control remove) —do not touch a detached root.
+  // torn down (unit tests, control remove) — do not touch a detached root.
   if (!ps.uiContainer?.isConnected) return;
   if (!ps.listCursor) {
     ps.listCursor = new ListCursor({
@@ -153,7 +153,7 @@ const setActiveItem = (
 };
 
 /** Move the focus marker onto an item. The marker lives on the element as
- *  well as in activeIdx, so it must travel with the cursor —otherwise the
+ *  well as in activeIdx, so it must travel with the cursor — otherwise the
  *  row that was clicked before keeps the marker and reads as the active row.
  *  blurActiveItem() scans the DOM rather than following activeIdx, so a
  *  marker stranded on an old, rebuilt element is picked up too. Callers pass
@@ -195,14 +195,14 @@ const clearActiveItem = (la: LayerAccess, ps: PanelStore, fs: FocusStore): void 
 };
 
 /**
- * Mousedown outside the panel drops the keyboard cursor —the pointer
+ * Mousedown outside the panel drops the keyboard cursor — the pointer
  * counterpart of Escape, dispatched by InteractionManager (event observed,
  * not swallowed: the press keeps its native behavior). This is a full reset
  * (clearActiveItem, not blurActiveItem): unlike Escape the user has left the
  * panel, so the next ArrowDown re-bootstraps rather than resuming.
  *
  * mousedown (not click) is what makes the target test safe: it fires before
- * the click-driven list rebuild, so the target is still connected —clicking
+ * the click-driven list rebuild, so the target is still connected — clicking
  * a fold button (which rebuilds the list) stays inside the panel and won't
  * clear it. The class match covers every `.foliplus-layer-ctrl` on the map,
  * not just this instance's container.
@@ -223,7 +223,7 @@ const handleOutsideMousedown = (
   }
   // The attributes panel and the style panel are floating surfaces anchored
   // to their row: a press anywhere outside them dismisses them, panel and
-  // map alike. One surface per press —the overflow menu keeps its own
+  // map alike. One surface per press — the overflow menu keeps its own
   // click-delegated close in interaction.ts, and Escape pops the menu before
   // the panels.
   if (!target.closest(`.${CONST.CLASSES.ATTRS_PANEL}`)) {
@@ -401,7 +401,7 @@ const handleKeyDown = (
     case "ArrowRight":
     case " ":
     case "Enter": {
-      // An overflow-menu button is focused —that key opens the overflow menu, not the
+      // An overflow-menu button is focused — that key opens the overflow menu, not the
       // row checkbox.
       if (document.activeElement?.classList.contains(CONST.CLASSES.MORE_BTN)) {
         event.preventDefault();
@@ -412,7 +412,7 @@ const handleKeyDown = (
         if (item) openMoreMenu(la, ps, fs, item);
         break;
       }
-      // The chevron button is focused —that key folds the group, not
+      // The chevron button is focused — that key folds the group, not
       // select-all. Left untouched, resolveActiveIdx() walks up from the
       // button to its toggle-all row and the row checkbox flips instead.
       if (document.activeElement?.classList.contains(CONST.CLASSES.FOLD_BTN)) {
@@ -424,7 +424,7 @@ const handleKeyDown = (
         if (row) toggleFold(la, ps, fs, row.dataset.group ?? "");
         break;
       }
-      // Menu item (li) is focused —trigger the focus-layer action.
+      // Menu item (li) is focused — trigger the focus-layer action.
       // Skip disabled items so the hidden-layer guard applies to keyboard too.
       const menuLi = ((document.activeElement as HTMLElement | null)?.closest?.(
         ".foliplus-layer-more-menu li",
@@ -470,8 +470,8 @@ const handleKeyDown = (
  *
  * blurActiveItem() rather than clearActiveItem(): clearActiveItem() resets
  * activeIdx, so the next ArrowUp / ArrowDown would call syncActiveItem() to
- * bootstrap a fresh cursor from document.activeElement —the very row the
- * user just cancelled —and instantly redraw it. Blur-only keeps activeIdx
+ * bootstrap a fresh cursor from document.activeElement — the very row the
+ * user just cancelled — and instantly redraw it. Blur-only keeps activeIdx
  * pointing at the last row, so arrow keys resume from there instead of
  * re-lighting the escaped one.
  *
