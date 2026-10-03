@@ -24,6 +24,13 @@ interface EventPayloadMap {
   [EVENTS.LAYER_ITEM_COUNT_CHANGE]: { id: string };
   [EVENTS.LAYER_STYLE_CHANGE]: { id: string };
   [EVENTS.CONTROL_ATTACHED]: { component: string };
+  [EVENTS.LAYER_ITEM_ADDED]: { id: string };
+  [EVENTS.LAYER_ITEM_UPDATED]: { id: string };
+  [EVENTS.LAYER_ITEM_REMOVED]: { id: string };
+  [EVENTS.LAYER_GROUP_COUNT_CHANGED]: { group: string };
+  [EVENTS.LAYER_LIST_REBUILD]: {};
+  [EVENTS.LAYER_NO_BASEMAP_CHANGED]: {};
+  [EVENTS.OVERLAY_CLEAR]: { reason: "open" | "destroy" };
 }
 
 export type { EventPayloadMap, LayerChangePayload };
