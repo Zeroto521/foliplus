@@ -12,6 +12,7 @@ import {
   runUpload,
   uploadStats,
 } from "#script/build/codecov-bundle-upload.mjs";
+import { runCli, trapExit } from "../cli-test-utils";
 
 let tmp = "";
 afterEach(() => {
@@ -384,32 +385,6 @@ describe("CLI entry", () => {
   const SCRIPT = resolve(process.cwd(), "script", "build", "codecov-bundle-upload.mjs");
   const originalToken = process.env.CODECOV_TOKEN;
 
-  const trapExit = () =>
-    vi
-      .spyOn(process, "exit")
-      .mockImplementation((code?: string | number | null | undefined) => {
-        throw new Error(`exit:${code}`);
-      });
-
-  const runCli = async (argv: string[]) => {
-    const original = process.argv;
-    try {
-      Object.defineProperty(process, "argv", {
-        value: argv,
-        writable: true,
-        configurable: true,
-      });
-      vi.resetModules();
-      return await import("#script/build/codecov-bundle-upload.mjs");
-    } finally {
-      Object.defineProperty(process, "argv", {
-        value: original,
-        writable: true,
-        configurable: true,
-      });
-    }
-  };
-
   afterEach(() => {
     vi.unstubAllGlobals();
     if (originalToken === undefined) {
@@ -504,7 +479,9 @@ describe("CLI entry", () => {
 
   it("runs main() only when launched directly as a script", async () => {
     const exit = trapExit();
-    await expect(runCli(["node", SCRIPT, "--help"])).rejects.toThrow("exit:0");
+    await expect(
+      runCli("#script/build/codecov-bundle-upload.mjs", ["node", SCRIPT, "--help"]),
+    ).rejects.toThrow("exit:0");
     expect(exit).toHaveBeenCalledWith(0);
   });
 });

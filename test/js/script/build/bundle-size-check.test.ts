@@ -23,6 +23,7 @@ import {
   toolVersion,
 } from "#script/build/bundle-size-check.mjs";
 import { stripLeadingBlockComment } from "#script/build/bundle-size-lib.mjs";
+import { runCli, trapExit } from "../cli-test-utils";
 
 type BundleArgs = {
   help: boolean;
@@ -1346,32 +1347,11 @@ describe("cli entry point", () => {
 
   const SCRIPT = resolve(process.cwd(), "script", "build", "bundle-size-check.mjs");
 
-  const runCli = async (argv: string[]) => {
-    const original = process.argv;
-    try {
-      Object.defineProperty(process, "argv", {
-        value: argv,
-        writable: true,
-        configurable: true,
-      });
-      vi.resetModules();
-      return await import("#script/build/bundle-size-check.mjs");
-    } finally {
-      Object.defineProperty(process, "argv", {
-        value: original,
-        writable: true,
-        configurable: true,
-      });
-    }
-  };
-
   it("runs main() when launched directly as a script", async () => {
-    const exit = vi
-      .spyOn(process, "exit")
-      .mockImplementation((code?: string | number | null | undefined) => {
-        throw new Error(`exit:${code}`);
-      });
-    await expect(runCli(["node", SCRIPT, "--help"])).rejects.toThrow("exit:0");
+    const exit = trapExit();
+    await expect(
+      runCli("#script/build/bundle-size-check.mjs", ["node", SCRIPT, "--help"]),
+    ).rejects.toThrow("exit:0");
     expect(exit).toHaveBeenCalledWith(0);
   });
 

@@ -3,6 +3,7 @@ import { tmpdir } from "os";
 import { join, resolve } from "path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { generateRegistry, registryUsedExports } from "#script/build/scan-registry.mjs";
+import { runCli, trapExit } from "../cli-test-utils";
 
 const FS = require("fs");
 const PATH = require("path");
@@ -354,37 +355,7 @@ describe("generateRegistry", () => {
 });
 
 describe("CLI entry", () => {
-  // `parseArgs(process.argv.slice(2))` and the help/error exits run at import
-  // time, so they are only reachable by re-importing the module with argv
-  // replaced. vi.resetModules() re-runs the module body; trapping process.exit
-  // turns the exit into a rejection instead of killing the worker.
   const SCRIPT = resolve(process.cwd(), "script", "build", "scan-registry.mjs");
-
-  const trapExit = () =>
-    vi
-      .spyOn(process, "exit")
-      .mockImplementation((code?: string | number | null | undefined) => {
-        throw new Error(`exit:${code}`);
-      });
-
-  const runCli = async (argv: string[]) => {
-    const original = process.argv;
-    try {
-      Object.defineProperty(process, "argv", {
-        value: argv,
-        writable: true,
-        configurable: true,
-      });
-      vi.resetModules();
-      return await import("#script/build/scan-registry.mjs");
-    } finally {
-      Object.defineProperty(process, "argv", {
-        value: original,
-        writable: true,
-        configurable: true,
-      });
-    }
-  };
 
   afterEach(() => {
     vi.restoreAllMocks();
@@ -393,7 +364,9 @@ describe("CLI entry", () => {
   it("--help prints the usage and exits 0", async () => {
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
     const exit = trapExit();
-    await expect(runCli(["node", SCRIPT, "--help"])).rejects.toThrow("exit:0");
+    await expect(
+      runCli("#script/build/scan-registry.mjs", ["node", SCRIPT, "--help"]),
+    ).rejects.toThrow("exit:0");
     expect(exit).toHaveBeenCalledWith(0);
     expect(log.mock.calls.join("\n")).toContain("Usage:");
   });
@@ -401,7 +374,9 @@ describe("CLI entry", () => {
   it("prints the error and exits 1 on an unknown flag", async () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const exit = trapExit();
-    await expect(runCli(["node", SCRIPT, "--bogus"])).rejects.toThrow("exit:1");
+    await expect(
+      runCli("#script/build/scan-registry.mjs", ["node", SCRIPT, "--bogus"]),
+    ).rejects.toThrow("exit:1");
     expect(exit).toHaveBeenCalledWith(1);
     expect(error.mock.calls.join("\n")).toContain("Unknown flag: --bogus");
   });
@@ -410,7 +385,7 @@ describe("CLI entry", () => {
     // `process.argv[1]` matching this module's own URL is the guard's true
     // branch (`main()`), only reachable by re-importing with argv replaced.
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
-    await runCli(["node", SCRIPT]);
+    await runCli("#script/build/scan-registry.mjs", ["node", SCRIPT]);
     const out = log.mock.calls.join("\n");
     expect(out).toContain("_shared-registry.ts written");
   });
@@ -419,7 +394,7 @@ describe("CLI entry", () => {
     // The `!opts.silent` guard's false branch: a silent run writes the registry
     // without printing the summary line.
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
-    await runCli(["node", SCRIPT, "--silent"]);
+    await runCli("#script/build/scan-registry.mjs", ["node", SCRIPT, "--silent"]);
     expect(log).not.toHaveBeenCalled();
   });
 });

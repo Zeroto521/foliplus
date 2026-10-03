@@ -11,6 +11,7 @@ import {
   main,
   readSizes,
 } from "#script/build/bundle-fuse.mjs";
+import { runCli, trapExit } from "../cli-test-utils";
 
 // The fuse judges brotli bytes. A repeated-literal fixture would collapse to
 // a few bytes and quietly land under every cap, so the "breach" case would
@@ -173,32 +174,6 @@ describe("bundle-fuse cap table", () => {
 describe("CLI entry", () => {
   const SCRIPT = resolve(process.cwd(), "script", "build", "bundle-fuse.mjs");
 
-  const trapExit = () =>
-    vi
-      .spyOn(process, "exit")
-      .mockImplementation((code?: string | number | null | undefined) => {
-        throw new Error(`exit:${code}`);
-      });
-
-  const runCli = async (argv: string[]) => {
-    const original = process.argv;
-    try {
-      Object.defineProperty(process, "argv", {
-        value: argv,
-        writable: true,
-        configurable: true,
-      });
-      vi.resetModules();
-      return await import("#script/build/bundle-fuse.mjs");
-    } finally {
-      Object.defineProperty(process, "argv", {
-        value: original,
-        writable: true,
-        configurable: true,
-      });
-    }
-  };
-
   afterEach(() => {
     vi.restoreAllMocks();
   });
@@ -265,7 +240,9 @@ describe("CLI entry", () => {
 
   it("runs main() only when launched directly as a script", async () => {
     const exit = trapExit();
-    await expect(runCli(["node", SCRIPT, "--help"])).rejects.toThrow(`exit:${EXIT_OK}`);
+    await expect(
+      runCli("#script/build/bundle-fuse.mjs", ["node", SCRIPT, "--help"]),
+    ).rejects.toThrow(`exit:${EXIT_OK}`);
     expect(exit).toHaveBeenCalledWith(EXIT_OK);
   });
 });

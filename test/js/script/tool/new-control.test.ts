@@ -20,6 +20,7 @@ import {
   scaffoldControl,
   splitArgv,
 } from "#script/tool/new-control.mjs";
+import { runCli, trapExit } from "../cli-test-utils";
 
 type NewControlArgs = {
   help: boolean;
@@ -496,32 +497,6 @@ describe("SPEC", () => {
 describe("CLI entry", () => {
   const SCRIPT = resolve(process.cwd(), "script", "tool", "new-control.mjs");
 
-  const trapExit = () =>
-    vi
-      .spyOn(process, "exit")
-      .mockImplementation((code?: string | number | null | undefined) => {
-        throw new Error(`exit:${code}`);
-      });
-
-  const runCli = async (argv: string[]) => {
-    const original = process.argv;
-    try {
-      Object.defineProperty(process, "argv", {
-        value: argv,
-        writable: true,
-        configurable: true,
-      });
-      vi.resetModules();
-      return await import("#script/tool/new-control.mjs");
-    } finally {
-      Object.defineProperty(process, "argv", {
-        value: original,
-        writable: true,
-        configurable: true,
-      });
-    }
-  };
-
   afterEach(() => {
     vi.restoreAllMocks();
   });
@@ -592,7 +567,9 @@ describe("CLI entry", () => {
   it("runs main() only when launched directly as a script", async () => {
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
     const exit = trapExit();
-    await expect(runCli(["node", SCRIPT, "--help"])).rejects.toThrow("exit:0");
+    await expect(
+      runCli("#script/tool/new-control.mjs", ["node", SCRIPT, "--help"]),
+    ).rejects.toThrow("exit:0");
     expect(exit).toHaveBeenCalledWith(0);
   });
 });
