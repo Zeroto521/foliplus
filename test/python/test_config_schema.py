@@ -671,7 +671,7 @@ def _read_committed_fixture_defaults() -> dict[str, dict[str, object]]:
             try:
                 out[name][fname] = json.loads(raw)
             except json.JSONDecodeError:
-                out[name][fname] = f"<unparseable: {raw}>"
+                out[name][fname] = f"<unparsable: {raw}>"
     return out
 
 
