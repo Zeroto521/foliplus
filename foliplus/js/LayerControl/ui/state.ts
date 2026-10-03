@@ -155,7 +155,7 @@ const applyUserState = (ui: LayerUI, id?: string) => {
     // One id, one projection: a late registration replays every stored
     // dimension on the same pass — visibility, opacity and zoom range — so
     // nothing needs a per-caller replay path: a late arrival replays itself.
-    applyProjection(ui, id);
+    applyProjection(ui, id, true);
     const rename = getIntent(ui, id, INTENT.NAME);
     if (rename != null) {
       applyNameProjection(layerInfo, null, rename);
@@ -173,7 +173,7 @@ const applyUserState = (ui: LayerUI, id?: string) => {
   // inverse. Walking the registry asserts every layer's map membership
   // against the persisted intent; the color basemap has no registry entry,
   // so its rename still comes from the store's name dimension.
-  applyProjectionAll(ui);
+  applyProjectionAll(ui, true);
   for (const layerId of ui.intentStore.ids()) {
     const rename = getIntent(ui, layerId, INTENT.NAME);
     if (rename == null) continue;

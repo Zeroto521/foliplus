@@ -126,7 +126,11 @@ const authorZoomBoundsForLayer = (ui: LayerUI, layerId: string): [number, number
  *  for pan/zoom. */
 const OPACITY_REPAINT_DEBOUNCE_MS = 60;
 const pendingRedraws = new WeakMap<LayerInfo, number>();
-const scheduleOpacityRedraw = (layerInfo: LayerInfo): void => {
+const scheduleOpacityRedraw = (layerInfo: LayerInfo, immediate = false): void => {
+  if (immediate) {
+    layerInfo.onOpacity?.(getLayerAlpha(layerInfo.canvas));
+    return;
+  }
   const prev = pendingRedraws.get(layerInfo);
   if (prev !== undefined) clearTimeout(prev);
   pendingRedraws.set(
@@ -193,7 +197,12 @@ const sameCarrier = (prev: unknown, curr: unknown): boolean =>
  *  nothing must not persist — when the surface declares "none" we skip
  *  the write instead of faking one on a shared carrier.
  */
-const applyStateOp = (ui: LayerUI, layerInfo: LayerInfo, op: StateOp): void => {
+const applyStateOp = (
+  ui: LayerUI,
+  layerInfo: LayerInfo,
+  op: StateOp,
+  immediate = false,
+): void => {
   if (op.type === "visible") {
     const carrier = ui.m.surfaceFor(layerInfo).capabilities.visibility;
     if (carrier === CAP_TIER.NATIVE) {
@@ -265,7 +274,7 @@ const applyStateOp = (ui: LayerUI, layerInfo: LayerInfo, op: StateOp): void => {
         // canvas and repaints, then clears the CSS so the two never
         // compound.
         layerInfo.canvas.style.opacity = String(value);
-        scheduleOpacityRedraw(layerInfo);
+        scheduleOpacityRedraw(layerInfo, immediate);
       }
       layerInfo.opacity = value;
       return;
@@ -339,7 +348,7 @@ const applyStateOp = (ui: LayerUI, layerInfo: LayerInfo, op: StateOp): void => {
  *  through `intent`, so the effective value already reflects the user's
  *  authorisation. The one-way gate is now the shape of this diff.
  */
-const applyProjection = (ui: LayerUI, id: string): void => {
+const applyProjection = (ui: LayerUI, id: string, immediate = false): void => {
   const layerInfo = ui.m.layerRegistry.get(id);
   if (!layerInfo) return;
   const next = projectLayer(ui, layerInfo);
@@ -414,18 +423,18 @@ const applyProjection = (ui: LayerUI, id: string): void => {
           : false
         : false;
   if (authorised && currentShown !== next.effectiveShown) {
-    applyStateOp(ui, layerInfo, { type: "visible", value: next.effectiveShown });
+    applyStateOp(ui, layerInfo, { type: "visible", value: next.effectiveShown }, immediate);
   }
   // 2. Opacity — independent of zoom/focus. Rewritten whenever the carrier
   //    has moved, not just when the value has.
   if (prev.opacity !== next.opacity || !sameCarrier(prev.carrier, carrierToken)) {
-    applyStateOp(ui, layerInfo, { type: "opacity", value: next.opacity });
+    applyStateOp(ui, layerInfo, { type: "opacity", value: next.opacity }, immediate);
   }
   // 3. Zoom range — last, because the pane carrier's effective-shown
   //    recalculation in step 1 reads the range as of the projection
   //    (the new one), not the executor's previous write.
   if (prev.zoomRange !== next.zoomRange) {
-    applyStateOp(ui, layerInfo, { type: "zoomRange", value: next.zoomRange });
+    applyStateOp(ui, layerInfo, { type: "zoomRange", value: next.zoomRange }, immediate);
   }
 
   ui.runtimeStore.setApplied(id, {
@@ -438,8 +447,8 @@ const applyProjection = (ui: LayerUI, id: string): void => {
 /** Diff every layer's projection. Called on attach, on late
  *  registration (`applyUserState`), and on zoom-end / focus dismiss.
  *  Idempotent — a changeless call is a no-op because every diff misses. */
-const applyProjectionAll = (ui: LayerUI): void => {
-  for (const [id] of projectAll(ui)) applyProjection(ui, id);
+const applyProjectionAll = (ui: LayerUI, immediate = false): void => {
+  for (const [id] of projectAll(ui)) applyProjection(ui, id, immediate);
 };
 
 export { applyProjection, applyProjectionAll, applyStateOp, authorZoomBoundsForLayer };
