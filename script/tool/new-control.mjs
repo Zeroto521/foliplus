@@ -425,6 +425,7 @@ export {
   controlSlug,
   insertSortedLine,
   isValidControlName,
+  main,
   parseArgs,
   patchApiRst,
   patchComponentTs,
@@ -436,11 +437,11 @@ export {
   splitArgv,
 };
 
-// CLI entry point: `node script/tool/new-control.mjs <NameControl> [options]`.
-// Guarded so importing this module (for tests) has no side effects.
-/* v8 ignore start -- CLI-only entry point, not exercised by unit tests */
-if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
-  const opts = parseArgs();
+/** CLI entry: parse argv, validate, scaffold, and report. Exported so tests
+ *  can drive the exact CLI flow with an injected argv instead of spawning a
+ *  process. */
+const main = (argv = process.argv.slice(2)) => {
+  const opts = parseArgs(argv);
   if (opts.help) {
     console.log(help(SPEC));
     console.log(`
@@ -467,5 +468,10 @@ Example:
     process.exit(1);
   }
   report(scaffoldControl(opts, resolve(opts.root)));
+};
+
+// CLI entry point: `node script/tool/new-control.mjs <NameControl> [options]`.
+// Guarded so importing this module (for tests) has no side effects.
+if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
+  main();
 }
-/* v8 ignore stop */

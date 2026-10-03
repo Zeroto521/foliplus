@@ -172,13 +172,13 @@ const fuse = (args, root = ROOT) => {
   return EXIT_OK;
 };
 
-export { EXIT_FUSE, EXIT_OK, EXIT_UNKNOWN, FUSE_CAPS, fuse, readSizes };
+export { EXIT_FUSE, EXIT_OK, EXIT_UNKNOWN, FUSE_CAPS, fuse, main, readSizes };
 
-// CLI entry point: `node script/build/bundle-fuse.mjs [--root=<path>]`.
-// Guarded so importing this module has no side effects.
-/* v8 ignore start -- CLI-only entry point, not exercised by unit tests */
-if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
-  const args = parseArgsWithBase(process.argv.slice(2));
+/** CLI entry: parse argv, run the fuse, and exit with its verdict. Exported so
+ *  tests can drive the exact CLI flow with an injected argv instead of
+ *  spawning a process. */
+const main = (argv = process.argv.slice(2)) => {
+  const args = parseArgsWithBase(argv);
   if (args.help) {
     console.log(help(baseSpec));
     process.exit(EXIT_OK);
@@ -190,6 +190,11 @@ if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) 
   }
   const root = args.root ? resolve(args.root) : ROOT;
   const code = fuse(args, root);
-  process.exit(code ?? EXIT_OK);
+  process.exit(code);
+};
+
+// CLI entry point: `node script/build/bundle-fuse.mjs [--root=<path>]`.
+// Guarded so importing this module has no side effects.
+if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
+  main();
 }
-/* v8 ignore stop */
