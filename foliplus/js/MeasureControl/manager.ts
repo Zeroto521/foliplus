@@ -10,11 +10,11 @@ import {
 import { requireFoliplus } from "#core/guard.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { isLayerInPanes } from "#core/layer/index.js";
+import { hideDelIcons } from "#core/leaflet/index.js";
+import { bindMapEvents, unbindMapEvents } from "#core/leaflet/index.js";
+import { adjustPanelZIndex } from "#core/leaflet/index.js";
 import { type ModeManager, ensureModes, guardBlocked } from "#core/mode.js";
-import { hideDelIcons } from "#common/delicon.js";
 import type { Logger } from "#common/log.js";
-import { bindMapEvents, unbindMapEvents } from "#common/mapEvent.js";
-import { adjustPanelZIndex } from "#common/panel.js";
 import { throttleRaf } from "#common/throttle.js";
 import { mapProjector, placeLabels } from "./collision.js";
 import * as CONST from "./const.js";

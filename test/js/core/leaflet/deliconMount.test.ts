@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { mountDelIcon } from "#common/deliconMount.js";
+import { mountDelIcon } from "#core/leaflet/index.js";
 
 describe("mountDelIcon", () => {
   // Same real-DOM trick as the SearchControl tests: toggleDelIcon flips the ✕

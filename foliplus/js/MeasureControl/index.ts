@@ -1,12 +1,12 @@
 import { defineControl } from "#core/defineControl.js";
 import { ensureLayerAPI } from "#core/layer/index.js";
-import { createIconButton } from "#common/dom.js";
-import * as Icons from "#common/icon.js";
 import {
   bindFoldToggle,
   bindOutsideCollapse,
   createFoldControl,
-} from "#common/panel.js";
+} from "#core/leaflet/index.js";
+import { createIconButton } from "#common/dom.js";
+import * as Icons from "#common/icon.js";
 import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
 import { MeasureManager } from "./manager.js";

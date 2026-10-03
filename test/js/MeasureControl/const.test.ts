@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { generateId } from "#core/component.js";
+import { DEL_ICON_CHAR } from "#core/leaflet/index.js";
 import * as CONST from "#foliplus/MeasureControl/const.js";
-import { DEL_ICON_CHAR } from "#common/delicon.js";
 
 describe("TIMING", () => {
   it("defines timing constants", () => {

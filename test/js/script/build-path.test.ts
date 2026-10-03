@@ -1,10 +1,13 @@
-import { readFileSync } from "fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "fs";
+import { tmpdir } from "os";
 import { resolve } from "path";
+import { pathToFileURL } from "url";
 import { describe, expect, it } from "vitest";
 import {
   PACKAGE_IMPORTS,
   SHARED_SPEC_PREFIXES,
   pathAliases,
+  repoRoot,
   resolveJsRoot,
   testPathAliases,
 } from "#script/build-path.mjs";
@@ -58,6 +61,28 @@ describe("build-path.mjs", () => {
     for (const key of Object.keys(pathAliases(ROOT))) {
       const bare = key.slice(1);
       expect(SHARED_SPEC_PREFIXES).toContain(bare);
+    }
+  });
+
+  it("repoRoot walks up to the nearest package.json from a nested dir", () => {
+    const tmp = mkdtempSync(resolve(tmpdir(), "foliplus-reporoot-"));
+    try {
+      mkdirSync(resolve(tmp, "a", "b", "c"), { recursive: true });
+      writeFileSync(resolve(tmp, "package.json"), "{}", "utf-8");
+      const url = pathToFileURL(resolve(tmp, "a", "b", "c", "file.mjs")).href;
+      expect(repoRoot(url)).toBe(resolve(tmp));
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("repoRoot throws when no package.json exists above the caller", () => {
+    const tmp = mkdtempSync(resolve(tmpdir(), "foliplus-reporoot-"));
+    try {
+      const url = pathToFileURL(resolve(tmp, "no", "pkg", "here", "file.mjs")).href;
+      expect(() => repoRoot(url)).toThrow(/repoRoot: no package.json found above/);
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
     }
   });
 });

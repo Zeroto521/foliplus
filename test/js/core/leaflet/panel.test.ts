@@ -9,7 +9,7 @@ import {
   createPanelControl,
   createPanelHeader,
   createRowPanel,
-} from "#common/panel.js";
+} from "#core/leaflet/index.js";
 
 // setup.js provides L.DomEvent mocks (disableClickPropagation, etc.),
 // but panel.js also needs on/off/stop — stub them here.

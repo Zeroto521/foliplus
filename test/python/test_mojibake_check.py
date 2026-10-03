@@ -325,3 +325,37 @@ class TestGbkMisread:
         f = tmp_path / "gbk2.txt"
         f.write_bytes("\u9225?\n".encode("utf-8"))
         assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 1
+
+
+class TestTruncatedUtf8Sequence:
+    """A UTF-8 multi-byte lead whose continuation byte was replaced with ``?``.
+
+    A lossy codec that truncates the tail of a multi-byte sequence leaves
+    the lead pair (``E2 80`` for em/en dash, ``E2 86`` for arrows) intact
+    and substitutes ASCII ``?`` for the final byte. The partial lead then
+    decodes without U+FFFD and the text-side regex misses it — only a
+    byte-level scan sees the truncated pair. Fixtures are written as raw
+    bytes so the signature never appears in the test source.
+    """
+
+    def test_truncated_em_dash_is_flagged(self, tmp_path, capsys, monkeypatch):
+        f = tmp_path / "trunc.txt"
+        f.write_bytes(b"page) \xe2\x80?typed\n")
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 1
+        captured = capsys.readouterr()
+        assert f"{f}:1" in captured.out
+
+    def test_truncated_arrow_is_flagged(self, tmp_path, capsys, monkeypatch):
+        f = tmp_path / "truncarrow.txt"
+        f.write_bytes(b"step \xe2\x86? next\n")
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 1
+
+    def test_plain_question_after_ascii_is_clean(self, tmp_path, capsys, monkeypatch):
+        f = tmp_path / "plain.txt"
+        f.write_bytes(b"is this? yes\n")
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 0
+
+    def test_intact_utf8_em_dash_is_clean(self, tmp_path, capsys, monkeypatch):
+        f = tmp_path / "intact.txt"
+        f.write_bytes("one — two\n".encode())
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 0

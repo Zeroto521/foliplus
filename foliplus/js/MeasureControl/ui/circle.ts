@@ -1,5 +1,5 @@
 // MeasureControl circle UI — finalized circle edit bindings: center/radius drag, radius label, overlay, delete.
-import { attachDelClick } from "#common/delicon.js";
+import { attachDelClick } from "#core/leaflet/index.js";
 import * as CONST from "../const.js";
 import { bindNodeDrag, markDragSyntheticClick } from "../edit.js";
 import type { MeasureManager } from "../manager.js";
