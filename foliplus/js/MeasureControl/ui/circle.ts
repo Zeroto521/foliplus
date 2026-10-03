@@ -1,4 +1,4 @@
-// MeasureControl circle UI â€?finalized circle edit bindings: center/radius drag, radius label, overlay, delete.
+// MeasureControl circle UI â€” finalized circle edit bindings: center/radius drag, radius label, overlay, delete.
 import { attachDelClick } from "#core/leaflet/delicon.js";
 import * as CONST from "../const.js";
 import { bindNodeDrag, markDragSyntheticClick } from "../edit.js";
@@ -19,7 +19,7 @@ interface CircleAttachOpts {
   radiusLabel: L.Marker | null;
   onDelete: () => void;
   onEnd?: (latlng: L.LatLng) => void;
-  /** Measurement id â€?groups this measurement's edit registrations. */
+  /** Measurement id â€” groups this measurement's edit registrations. */
   id: string;
 }
 
@@ -113,7 +113,7 @@ const attachCircleUI = (mgr: MeasureManager, opts: CircleAttachOpts): void => {
   }
 
   // Drag is gated by edit mode (not the overlay), so the center/radius node
-  // are draggable as soon as edit mode is on â€?no click-first required.
+  // are draggable as soon as edit mode is on â€” no click-first required.
   unregisterDragToggle = mgr.registerEditDragToggle(
     enabled => dragBinds.forEach(db => db.setEnabled(enabled)),
     id,

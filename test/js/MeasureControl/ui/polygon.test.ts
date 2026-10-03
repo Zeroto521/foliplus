@@ -190,7 +190,7 @@ describe("attachPolygonUI", () => {
     expect(() => centroidDel._delClick()).not.toThrow();
   });
 
-  it("rebinds every remaining node âœ?to delete-all and re-titles after a 4-point polygon collapses to 3", () => {
+  it("rebinds every remaining node âœ• to delete-all and re-titles after a 4-point polygon collapses to 3", () => {
     const mgr = makeMgr();
     const layers = {
       removeLayer: vi.fn(),
@@ -253,7 +253,7 @@ describe("attachPolygonUI", () => {
   });
 });
 
-describe("attachPolygonUI â€?overlay open/close", () => {
+describe("attachPolygonUI â€” overlay open/close", () => {
   it("shows delete icons on nodes and centroid when the overlay opens", () => {
     const points = [
       { lat: 0, lng: 0 },
@@ -345,7 +345,7 @@ describe("attachPolygonUI â€?overlay open/close", () => {
     const mapClick = mgr.map.on.mock.calls.find((c: any[]) => c[0] === "click")?.[1];
     mapClick({ originalEvent: { target: null } } as any);
 
-    // Each toggleDelIcon(m, false) call â€?5 total (4 nodes + centroid).
+    // Each toggleDelIcon(m, false) call â€” 5 total (4 nodes + centroid).
     const falseCalls = toggleDelIcon.mock.calls.filter(([, v]: any[]) => v === false);
     expect(falseCalls.length).toBe(5);
   });
@@ -377,7 +377,7 @@ describe("attachPolygonUI â€?overlay open/close", () => {
       } as any,
     );
 
-    // Delete a node to trigger the 4â†? rebind.
+    // Delete a node to trigger the 4â†’3 rebind.
     const deletedNode = (makeDelIcon as any).mock.results[2].value as any;
     const survivor = (makeDelIcon as any).mock.results[3].value as any;
 
@@ -395,7 +395,7 @@ describe("attachPolygonUI â€?overlay open/close", () => {
     };
     // isEditMode must be true for openOverlay to actually open.
     expect(mgr.isEditMode).toBe(true);
-    // Count toggleDelIcon calls before/after firing â€?openOverlay triggers onOpen
+    // Count toggleDelIcon calls before/after firing â€” openOverlay triggers onOpen
     // which shows the del icons.
     const beforeCalls = toggleDelIcon.mock.calls.length;
     rebindHandler({ originalEvent: { target: nonDelTarget } } as any);
@@ -404,7 +404,7 @@ describe("attachPolygonUI â€?overlay open/close", () => {
   });
 });
 
-describe("attachPolygonUI â€?drag flow", () => {
+describe("attachPolygonUI â€” drag flow", () => {
   const mkNode = (pt: L.LatLng) => ({
     on: vi.fn(),
     off: vi.fn(),
@@ -553,7 +553,7 @@ describe("attachPolygonUI â€?drag flow", () => {
   });
 });
 
-describe("attachPolygonUI â€?edge cases", () => {
+describe("attachPolygonUI â€” edge cases", () => {
   const mkNode = (pt: L.LatLng) => ({
     on: vi.fn(),
     off: vi.fn(),
@@ -591,7 +591,7 @@ describe("attachPolygonUI â€?edge cases", () => {
     ]);
     UI.attachPolygonUI(makeMgr() as any, opts as any);
 
-    // Node's getLatLng no longer matches any point â€?ptIdx === -1 â†?early return.
+    // Node's getLatLng no longer matches any point â€” ptIdx === -1 â†’ early return.
     opts.nodeMarkers[1].getLatLng.mockReturnValue({ lat: 999, lng: 999 });
     const onDelete = opts.onDelete as any;
     const onUpdate = opts.onUpdate as any;
@@ -617,7 +617,7 @@ describe("attachPolygonUI â€?edge cases", () => {
     );
     UI.attachPolygonUI(makeMgr() as any, opts as any);
 
-    // Splice 1 â†?4 remaining; `points.length === 3` is false (L187 false arm),
+    // Splice 1 â†’ 4 remaining; `points.length === 3` is false (L187 false arm),
     // onUpdate is undefined (L204 false arm).
     (makeDelIcon as any).mock.results[2].value._delClick();
 

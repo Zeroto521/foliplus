@@ -86,7 +86,7 @@ class HeatmapControl extends defineControl({
     this.schemeBarCleanup = null;
     // dropdownCleanup is optional: only the dropdown open/close cycle writes
     // it, and clearHeatmapCanvas already runs it. Null it here so a handler
-    // can't survive the control â€?it re-registers on the next dropdown open.
+    // can't survive the control â€” it re-registers on the next dropdown open.
     this.dropdownCleanup?.();
     this.dropdownCleanup = null;
 

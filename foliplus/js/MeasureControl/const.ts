@@ -18,10 +18,10 @@ const LABEL = {
   // (z = graph + 2), so it always paints above the dot by pane ordering.
   // The [0, -10] anchor lifts the chip above the dot's centered position.
   // Within the label pane it also needs a zIndexOffset (CENTROID_Z_OFFSET)
-  // so it stays above segment labels â€?sortLayers re-sorts by Y on zoom,
+  // so it stays above segment labels â€” sortLayers re-sorts by Y on zoom,
   // which can push a lower-Y segment label over the area label.
   CENTROID_ANCHOR: [0, -10],
-  // Modest offset (above max viewport Y â‰?900, below del icon 11000) that
+  // Modest offset (above max viewport Y â‰ˆ 900, below del icon 11000) that
   // keeps the area label above segment labels within the label pane after
   // sortLayers re-sorts by Y on zoom, without reaching other panes.
   CENTROID_Z_OFFSET: 2000,
@@ -32,7 +32,7 @@ const LABEL = {
 };
 
 /** Cursor-following readout. The chip is anchored to the pointer exactly like
- *  the area label is anchored to the centroid dot â€?centered horizontally, its
+ *  the area label is anchored to the centroid dot â€” centered horizontally, its
  *  top edge `ANCHOR_GAP` px below the anchor, due south. `CLASS_FLIP` re-anchors
  *  it above the cursor when there is no room below. */
 const READOUT = {
@@ -41,7 +41,7 @@ const READOUT = {
   CLASS_FLIP: "foliplus-measure-readout-flip",
 };
 
-/** Label collision priority â€?the lowest values are hidden first when labels
+/** Label collision priority â€” the lowest values are hidden first when labels
  *  overlap heavily. Segment labels are the most numerous (a dense polygon
  *  stacks dozens of them), so they give way to the unique centroid / radius
  *  value first. */
@@ -86,7 +86,7 @@ const CLASSES = {
   // stays as the semantic hook (node pane styling, test selectors).
   NODE_HOLLOW: "foliplus-dot foliplus-dot-hollow foliplus-measure-node",
   // ExportControl's SKIP_EXPORT selector drops anything carrying this class from
-  // the exported image.  Stamped on preview layers only â€?the preview is a
+  // the exported image.  Stamped on preview layers only â€” the preview is a
   // drawing aid, not content.
   SKIP_EXPORT: "foliplus-skip-export",
   NODE_SOLID: "foliplus-dot foliplus-dot-solid foliplus-measure-node",
@@ -121,7 +121,7 @@ const EXPORT_FORMAT = {
   CSV: "csv",
 } as const;
 
-/** Default format for `CONFIG.export_format` â€?used when the value is missing
+/** Default format for `CONFIG.export_format` â€” used when the value is missing
  * or unknown. Python's `MeasureControl` rejects anything outside
  * `EXPORT_FORMAT`, so this only guards misconfiguration. */
 const DEFAULT_EXPORT_FORMAT: ExportFormat = EXPORT_FORMAT.GEOJSON;

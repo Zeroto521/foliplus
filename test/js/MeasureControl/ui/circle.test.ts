@@ -3,7 +3,7 @@ import * as CONST from "#foliplus/MeasureControl/const.js";
 import * as UI from "#foliplus/MeasureControl/ui/index.js";
 import { installStubs, makeMgr } from "./fixture.js";
 
-// Mock delete-icon helpers â€?capture the click callback so tests can trigger it.
+// Mock delete-icon helpers â€” capture the click callback so tests can trigger it.
 // Keep the original exports via importOriginal and override the function helpers.
 const { attachDelClick, makeDelIcon, toggleDelIcon, realMakeDelIcon, dragHandlers } =
   vi.hoisted(() => ({
@@ -54,7 +54,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("attachCircleUI â€?delete flow", () => {
+describe("attachCircleUI â€” delete flow", () => {
   const makeLayer = (name: string) => ({
     _name: name,
     on: vi.fn(),
@@ -145,7 +145,7 @@ describe("attachCircleUI â€?delete flow", () => {
     expect(labelCall).toBeDefined();
   });
 
-  it("shows the circle delete âœ?when the overlay opens (regression)", () => {
+  it("shows the circle delete âœ• when the overlay opens (regression)", () => {
     const { delMarker, opts } = makeOpts();
     UI.attachCircleUI(makeMgr() as any, opts as any);
 
@@ -158,7 +158,7 @@ describe("attachCircleUI â€?delete flow", () => {
   });
 });
 
-describe("attachCircleUI â€?drag flow", () => {
+describe("attachCircleUI â€” drag flow", () => {
   const makeLayer = (name: string, initial: L.LatLng = { lat: 0, lng: 0 }) => ({
     _name: name,
     on: vi.fn(),
@@ -217,7 +217,7 @@ describe("attachCircleUI â€?drag flow", () => {
     expect(delMarker.setLatLng).toHaveBeenCalledWith({ lat: 11, lng: 12 });
     // Radius node offsets by (dx, dy) = (2, 1) from its original.
     expect(radiusNode.setLatLng).toHaveBeenCalledWith({ lat: 13, lng: 12 });
-    // Radius line tracks center â†?new radiusNode position.
+    // Radius line tracks center â†’ new radiusNode position.
     expect(radiusLine.setLatLngs).toHaveBeenCalledWith([
       { lat: 11, lng: 12 },
       { lat: 13, lng: 12 },
@@ -340,14 +340,14 @@ describe("attachCircleUI â€?drag flow", () => {
     );
 
     const toggle = (mgr.registerEditDragToggle as any).mock.calls[0][0];
-    // The callback body invokes dragBinds[i].setEnabled â€?assert no throw and
+    // The callback body invokes dragBinds[i].setEnabled â€” assert no throw and
     // (via cursor) that the real bindNodeDrag's setCursor runs for both binds.
     expect(() => toggle(true)).not.toThrow();
     expect(() => toggle(false)).not.toThrow();
   });
 });
 
-describe("attachCircleUI â€?null-optionals", () => {
+describe("attachCircleUI â€” null-optionals", () => {
   const mk = (name: string) => ({
     on: vi.fn(),
     off: vi.fn(),
@@ -379,10 +379,10 @@ describe("attachCircleUI â€?null-optionals", () => {
     };
     UI.attachCircleUI({ ...makeMgr(), registerLabel } as any, opts as any);
 
-    // No label registration â€?the ternary took the `() => {}` arm.
+    // No label registration â€” the ternary took the `() => {}` arm.
     expect(registerLabel).not.toHaveBeenCalled();
 
-    // Trigger delete â†?removeLayers runs. The three null optionals are skipped.
+    // Trigger delete â†’ removeLayers runs. The three null optionals are skipped.
     (opts.delMarker as any)._delClick();
     const nullArgs = layers.removeLayer.mock.calls.filter(c => c[0] == null);
     expect(nullArgs).toHaveLength(0);
@@ -410,8 +410,8 @@ describe("attachCircleUI â€?null-optionals", () => {
 
     expect(circle.setLatLng).toHaveBeenCalledWith({ lat: 5, lng: 5 });
     expect(centerFinal.setLatLng).toHaveBeenCalledWith({ lat: 5, lng: 5 });
-    // radiusNode is null â€?no setLatLng on it; radiusLine is null â€?no setLatLngs.
-    // updateLabel returns early because radiusLabel is null â€?no circle.setRadius
+    // radiusNode is null â€” no setLatLng on it; radiusLine is null â€” no setLatLngs.
+    // updateLabel returns early because radiusLabel is null â€” no circle.setRadius
     // (that only runs in the radius-node drag, not the center drag).
     expect(circle.setRadius).not.toHaveBeenCalled();
   });

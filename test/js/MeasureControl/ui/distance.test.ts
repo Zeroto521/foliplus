@@ -115,7 +115,7 @@ describe("attachDistanceUI", () => {
     }
   });
 
-  it("re-titles the last endpoint's âœ?to del_all when a 3-point distance collapses to 2 (regression)", () => {
+  it("re-titles the last endpoint's âœ• to del_all when a 3-point distance collapses to 2 (regression)", () => {
     const points = [
       { lat: 0, lng: 0 },
       { lat: 1, lng: 1 },
@@ -176,7 +176,7 @@ describe("attachDistanceUI", () => {
     expect(() => toggle(false)).not.toThrow();
   });
 
-  it("keeps the overlay opener on the last endpoint's âœ?after collapsing to 2 points (regression)", () => {
+  it("keeps the overlay opener on the last endpoint's âœ• after collapsing to 2 points (regression)", () => {
     const points = [
       { lat: 0, lng: 0 },
       { lat: 1, lng: 1 },
@@ -357,7 +357,7 @@ describe("attachDistanceUI", () => {
   });
 });
 
-describe("attachDistanceUI â€?drag flow", () => {
+describe("attachDistanceUI â€” drag flow", () => {
   const mkNode = (pt: L.LatLng) => ({
     on: vi.fn(),
     off: vi.fn(),
@@ -500,8 +500,8 @@ describe("attachDistanceUI â€?drag flow", () => {
   });
 });
 
-describe("attachDistanceUI â€?whole-distance delete flow", () => {
-  it("runs the dispose body and removes the whole measurement on del-all âœ?click", () => {
+describe("attachDistanceUI â€” whole-distance delete flow", () => {
+  it("runs the dispose body and removes the whole measurement on del-all âœ• click", () => {
     const points = [
       { lat: 0, lng: 0 },
       { lat: 1, lng: 1 },
@@ -546,7 +546,7 @@ describe("attachDistanceUI â€?whole-distance delete flow", () => {
     );
 
     // With 2 points, both endpoints are del-all. Clicking either triggers
-    // deleteMeasurement, which runs dispose() â†?dragBinds[i].cleanup() +
+    // deleteMeasurement, which runs dispose() â†’ dragBinds[i].cleanup() +
     // unregisterSegLabels() + unregisterDragToggle().
     const firstEndpointDel = (makeDelIcon as any).mock.results[0].value as any;
     (firstEndpointDel as any)._delClick();
@@ -562,7 +562,7 @@ describe("attachDistanceUI â€?whole-distance delete flow", () => {
   });
 });
 
-describe("attachDistanceUI â€?edge cases", () => {
+describe("attachDistanceUI â€” edge cases", () => {
   const mkNode = (pt: L.LatLng) => ({
     on: vi.fn(),
     off: vi.fn(),
@@ -600,7 +600,7 @@ describe("attachDistanceUI â€?edge cases", () => {
     ]);
     UI.attachDistanceUI(makeMgr() as any, opts as any);
 
-    // Middle node's getLatLng no longer matches any point â€?ptIdx === -1 â†?early return.
+    // Middle node's getLatLng no longer matches any point â€” ptIdx === -1 â†’ early return.
     opts.nodeMarkers[1].getLatLng.mockReturnValue({ lat: 999, lng: 999 });
     const onDelete = opts.onDelete as any;
     const onUpdate = opts.onUpdate as any;
@@ -624,7 +624,7 @@ describe("attachDistanceUI â€?edge cases", () => {
     );
     UI.attachDistanceUI(makeMgr() as any, opts as any);
 
-    // 4 points â†?splice 1 â†?3 remaining; `points.length === 2` is false, so the
+    // 4 points â†’ splice 1 â†’ 3 remaining; `points.length === 2` is false, so the
     // last-endpoint rebind block is skipped.
     (makeDelIcon as any).mock.results[1].value._delClick();
 
