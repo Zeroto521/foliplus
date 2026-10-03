@@ -10,7 +10,7 @@ inherits from :class:`BaseControl`. This module owns the Python → JS bridge:
 
 * **Config serialization** — each control's instance attributes are serialized into
   the JS ``CONFIG`` object. The static part is assembled by :meth:`BaseControl._build_config`
-  (shared ``name``/``position`` keys + subclass-declared :attr:`_config_fields` +
+  (shared ``name``/``position`` keys + schema-derived :attr:`_config_fields` +
   dynamic :meth:`_extra_config` data), then :attr:`BaseControl._config_block` overlays
   the locale tables and code.
 """
@@ -219,9 +219,10 @@ class BaseControl(JSCSSMixin, MacroElement):
     foliplus components (FullscreenControl, HeatmapControl, LayerControl, etc.) inherit
     from this class.
 
-    Subclasses declare which instance attributes are exported to the JS ``CONFIG`` object
-    via :attr:`_config_fields`, and may supply dynamic render-time data by overriding
-    :meth:`_extra_config`. The base class merges these with the shared
+    Subclasses declare their CONFIG surface in :mod:`foliplus._config_schema`; the
+    :attr:`_config_fields` tuple each subclass exposes is derived from that table at
+    class-definition time, and may be extended with dynamic render-time data by
+    overriding :meth:`_extra_config`. The base class merges these with the shared
     ``name``/``position`` keys and the locale tables into the ``CONFIG`` dict.
 
     Parameters
@@ -258,9 +259,10 @@ class BaseControl(JSCSSMixin, MacroElement):
     def __init_subclass__(cls, **kwargs: Any) -> None:
         """Derive ``_config_fields`` and ``default_js`` from the schema.
 
-        For every subclass named in ``foliplus._config_schema.SCHEMAS`` —
-        which is every shipped control — two class attributes are derived
-        here at import time (``cls`` is being defined):
+        For every subclass **defined in the ``foliplus`` package** and named in
+        ``foliplus._config_schema.SCHEMAS`` — which is every shipped control —
+        two class attributes are derived here at import time (``cls`` is being
+        defined):
 
         * ``cls._config_fields`` — the schema's non-runtime-only keys, in
           declaration order. The schema is the single source of truth for
@@ -269,13 +271,19 @@ class BaseControl(JSCSSMixin, MacroElement):
           by class name (:func:`foliplus._cdn_loader.load_cdn`), so renaming
           a class cannot silently sever its CDN wiring.
 
-        Subclasses *without* a schema entry (test doubles, third-party
-        controls) are left untouched: they keep their declared
-        ``_config_fields`` / ``default_js``, or the base-class defaults. The
-        test suite's ``test_every_basecontrol_subclass_is_registered``
+        Subclasses outside the ``foliplus`` package are always left untouched,
+        whether or not they have a schema entry: a third-party control named
+        ``SearchControl`` in its own module keeps its declared
+        ``_config_fields`` / ``default_js`` rather than being overwritten by
+        foliplus's ``SearchControl`` schema. Folium-shipped controls are
+        additionally gated on the schema table, so ``BaseControl`` itself and
+        any foliplus-internal test double without a schema entry are untouched.
+        The test suite's ``test_every_basecontrol_subclass_is_registered``
         catches a new shipped control without a schema entry at test time.
         """
         super().__init_subclass__(**kwargs)
+        if not cls.__module__.startswith("foliplus."):
+            return
         schema = SCHEMAS.get(cls.__name__)
         if schema is None:
             return

@@ -365,6 +365,20 @@ class TestRuntimeZeroChange:
 
         assert Unregistered._config_fields == ("alpha", "beta")
 
+    def test_out_of_package_subclass_with_colliding_name_is_not_overwritten(
+        self,
+    ) -> None:
+        # A third-party subclass named the same as a foliplus control must not
+        # be silently overwritten by foliplus's schema. The class is defined in
+        # this test module, so its ``__module__`` does not start with
+        # ``"foliplus."`` — the module guard in ``__init_subclass__`` skips it.
+        class SearchControl(BaseControl):
+            _config_fields = ("my_own_field",)
+            default_js = []
+
+        assert SearchControl._config_fields == ("my_own_field",)
+        assert SearchControl.default_js == []
+
     def test_schema_module_does_not_touch_basecontrol(self) -> None:
         # _config_schema.py imports nothing from foliplus.*; importing it must not
         # alter BaseControl's behaviour. Verified in a subprocess so this test
