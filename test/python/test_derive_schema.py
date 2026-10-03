@@ -12,7 +12,7 @@ from typing import Annotated, Literal
 
 import pytest
 
-from foliplus._config_schema import FieldSpec, derive_schema
+from foliplus._config_schema import FieldSpec, derive_schema, verify_tags
 from foliplus._validate import Bound
 
 
@@ -131,6 +131,27 @@ class _UnnamedUnion(_ReflectBase):
         self.provider = provider
 
 
+class _UnknownType(_ReflectBase):
+    def __init__(self, *, w: tuple[int, str] = (1, "x")):
+        self.w = w
+
+
+class _DictParam(_ReflectBase):
+    def __init__(self, *, meta: dict[int, str] = {}):
+        self.meta = meta
+
+
+class _LiteralAliasNoTag(_ReflectBase):
+    """A ``Literal`` alias that declares a note but no TS type name."""
+
+    def __init__(
+        self,
+        *,
+        fmt: Annotated[Literal["a", "b"], FieldSpec(ts="", note="a named style")] = "a",
+    ):
+        self.fmt = fmt
+
+
 def test_bare_primitives_map_to_their_ts_tags() -> None:
     schema = derive_schema(_Primitives)
     assert schema["a"].ts == "string"
@@ -236,3 +257,28 @@ def test_dynamic_field_clashing_with_a_parameter_fails_loud() -> None:
 def test_derivation_preserves_signature_order() -> None:
     schema = derive_schema(_Order)
     assert list(schema) == ["b", "a", "c"]
+
+
+def test_unknown_annotation_fails_loud() -> None:
+    """A hint no tag can render is named in the error, not swallowed."""
+    with pytest.raises(ValueError, match="cannot map annotation"):
+        derive_schema(_UnknownType)
+
+
+def test_dict_annotation_falls_back_to_object() -> None:
+    """A dict shape no tag names renders as the generic record."""
+    schema = derive_schema(_DictParam)
+    assert schema["meta"].ts == "object"
+    assert schema["meta"].nullable is False
+
+
+def test_literal_alias_without_a_tag_fails_loud() -> None:
+    """A Literal alias must name its TS type; a note alone does not count."""
+    with pytest.raises(ValueError, match="Literal alias needs FieldSpec"):
+        derive_schema(_LiteralAliasNoTag)
+
+
+def test_verify_tags_fails_loud_on_an_unimported_name() -> None:
+    """A tag no import supplies would render as an unresolvable TS type."""
+    with pytest.raises(ValueError, match="does not import"):
+        verify_tags({"Nope"})
