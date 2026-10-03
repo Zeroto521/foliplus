@@ -348,7 +348,9 @@ class TestGbkEmDashLetterFamily:
         f.write_bytes("\u6506\n".encode("utf-8"))
         assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 1
 
-    def test_gbk_em_dash_lowercase_family_is_flagged(self, tmp_path, capsys, monkeypatch):
+    def test_gbk_em_dash_lowercase_family_is_flagged(
+        self, tmp_path, capsys, monkeypatch
+    ):
         """``\\u2014a`` misread as GBK yields U+6501."""
         f = tmp_path / "family_a.txt"
         f.write_bytes("\u6501\n".encode("utf-8"))
@@ -364,13 +366,17 @@ class TestEmDashGlued:
     the start of a logical line.
     """
 
-    def test_em_dash_glued_after_lowercase_is_flagged(self, tmp_path, capsys, monkeypatch):
+    def test_em_dash_glued_after_lowercase_is_flagged(
+        self, tmp_path, capsys, monkeypatch
+    ):
         """Em-dash followed by lowercase letter."""
         f = tmp_path / "glued_after.txt"
         f.write_bytes("// comment \u2014x is bad\n".encode("utf-8"))
         assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 1
 
-    def test_em_dash_glued_after_uppercase_is_flagged(self, tmp_path, capsys, monkeypatch):
+    def test_em_dash_glued_after_uppercase_is_flagged(
+        self, tmp_path, capsys, monkeypatch
+    ):
         """Em-dash followed by uppercase letter."""
         f = tmp_path / "glued_upper.txt"
         f.write_bytes("// LayerControl UI \u2014Layer\n".encode("utf-8"))

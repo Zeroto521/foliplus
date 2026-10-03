@@ -95,7 +95,8 @@ def _gbk_pair_char(b1: int, b2: int) -> str | None:
 # (source `\u2014L`) is one member; generate the full 52-character family
 # here so any new misread signature is caught automatically.
 _GBK_EMDASH_LETTER_FAMILY = "".join(
-    c for c in (_gbk_pair_char(0x94, ord(x)) for x in string.ascii_letters)
+    c
+    for c in (_gbk_pair_char(0x94, ord(x)) for x in string.ascii_letters)
     if c is not None
 )
 
