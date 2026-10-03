@@ -688,7 +688,7 @@ class LayerManager implements LayerAPI {
     this.saveOrder();
     this.emitLayerChange(id, item.kind);
     if (this.uiContainer && this.ui) {
-      this.events.emit(EVENTS.LAYER_LIST_REBUILD, {});
+      this.events.emit(EVENTS.LAYER_LIST_REBUILD);
     }
   }
 
@@ -881,7 +881,7 @@ class LayerManager implements LayerAPI {
         this.events.emit(EVENTS.LAYER_GROUP_COUNT_CHANGED, {
           group: GROUP.BASE,
         });
-        this.events.emit(EVENTS.LAYER_NO_BASEMAP_CHANGED, {});
+        this.events.emit(EVENTS.LAYER_NO_BASEMAP_CHANGED);
       }
       this.persistence.flushAll();
       return true;
@@ -921,7 +921,7 @@ class LayerManager implements LayerAPI {
     this.events.emit(EVENTS.LAYER_GROUP_COUNT_CHANGED, {
       group: layerInfo.group,
     });
-    this.events.emit(EVENTS.LAYER_NO_BASEMAP_CHANGED, {});
+    this.events.emit(EVENTS.LAYER_NO_BASEMAP_CHANGED);
     this.persistence.flushAll();
     return true;
   }
@@ -1178,7 +1178,7 @@ class LayerManager implements LayerAPI {
     this.saveOrder();
     this.emitLayerChange(id, item.kind);
     if (this.uiContainer && this.ui) {
-      this.events.emit(EVENTS.LAYER_LIST_REBUILD, {});
+      this.events.emit(EVENTS.LAYER_LIST_REBUILD);
     }
     return true;
   }
@@ -1202,7 +1202,7 @@ class LayerManager implements LayerAPI {
     this.saveOrder();
     this.emitLayerChange(id, item.kind);
     if (this.uiContainer && this.ui) {
-      this.events.emit(EVENTS.LAYER_LIST_REBUILD, {});
+      this.events.emit(EVENTS.LAYER_LIST_REBUILD);
     }
     return true;
   }

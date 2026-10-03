@@ -297,4 +297,44 @@ describe("LayerUI lifecycle — defensive rails", () => {
       expect(() => ui.refreshAllCounts()).not.toThrow();
     });
   });
+
+  describe("LAYER_LIST_REBUILD signal handler", () => {
+    it("re-renders the list and refreshes row counts", () => {
+      // The manager emits LAYER_LIST_REBUILD after a reorder/undo that
+      // touches the DOM wholesale. The handler runs renderInitialList,
+      // initTypesAndVisibility, and refreshAllCounts in sequence, so we
+      // assert on the resulting DOM: rows preserved, counts re-resolved.
+      vi.spyOn(manager, "getFeatureCount").mockReturnValue(3);
+      const item = findItem(ui, "overlay1");
+      const countCol = item.querySelector(CONST.SEL.COUNT_COL) as HTMLElement;
+      countCol.textContent = "stale";
+
+      ensureEvents(map).emit(EVENTS.LAYER_LIST_REBUILD);
+
+      const rebuilt = ui.uiContainer.querySelector(
+        `[${CONST.DATA.LAYER_ID}="overlay1"]`,
+      ) as HTMLElement;
+      expect(rebuilt).not.toBeNull();
+      expect(rebuilt.querySelector(CONST.SEL.COUNT_COL)?.textContent).toBe("3");
+    });
+
+    it("LAYER_NO_BASEMAP_CHANGED refreshes the empty-state hint", () => {
+      // Signal handler runs syncNoBasemap(ui); no throw, no row drop.
+      expect(() =>
+        ensureEvents(map).emit(EVENTS.LAYER_NO_BASEMAP_CHANGED),
+      ).not.toThrow();
+      expect(
+        ui.uiContainer.querySelectorAll(CONST.SEL.LAYER_ITEM).length,
+      ).toBeGreaterThanOrEqual(1);
+    });
+
+    it("unbindEvents tears down every layer-signal subscription", () => {
+      // After unbindEvents, another LAYER_LIST_REBUILD must be a no-op:
+      // renderInitialList would otherwise rebuild the whole panel.
+      const before = ui.uiContainer.querySelectorAll(CONST.SEL.LAYER_ITEM).length;
+      ui.unbindEvents();
+      ensureEvents(map).emit(EVENTS.LAYER_LIST_REBUILD);
+      expect(ui.uiContainer.querySelectorAll(CONST.SEL.LAYER_ITEM).length).toBe(before);
+    });
+  });
 });

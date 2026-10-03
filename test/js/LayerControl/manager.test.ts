@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+﻿import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
 import { LayerIntentStore, LayerRuntimeStore } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
@@ -735,7 +735,7 @@ describe("LayerManager", () => {
     expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_GROUP_COUNT_CHANGED, {
       group: "overlay",
     });
-    expect(emitSpy).not.toHaveBeenCalledWith(EVENTS.LAYER_LIST_REBUILD, {});
+    expect(emitSpy).not.toHaveBeenCalledWith(EVENTS.LAYER_LIST_REBUILD);
   });
 
   it("re-applies hidden state when a previously-hidden layer is re-registered at runtime", () => {
@@ -2327,7 +2327,7 @@ describe("LayerManager", () => {
     const emitSpy = vi.spyOn(manager.events, "emit");
     manager.bringLayerToFront("bottom");
     expect(manager.layers[0].id).toBe("bottom");
-    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_LIST_REBUILD, {});
+    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_LIST_REBUILD);
   });
 
   it("bringLayerToFront ignores base layers", () => {
@@ -2633,7 +2633,7 @@ describe("LayerManager", () => {
       expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_GROUP_COUNT_CHANGED, {
         group: GROUP.BASE,
       });
-      expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_NO_BASEMAP_CHANGED, {});
+      expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_NO_BASEMAP_CHANGED);
     });
 
     it("clears the colour basemap — unregisters but keeps the id registerable", () => {
@@ -2661,7 +2661,7 @@ describe("LayerManager", () => {
       expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_GROUP_COUNT_CHANGED, {
         group: GROUP.BASE,
       });
-      expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_NO_BASEMAP_CHANGED, {});
+      expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_NO_BASEMAP_CHANGED);
       expect((manager as any).order.removedIds.has(CONST.SOLID_BASEMAP_ID)).toBe(false);
     });
 

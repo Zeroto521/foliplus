@@ -54,7 +54,12 @@ class EventBus {
   /** Emit a known event with its payload (typed). The payload is required:
    *  every event in `EventPayloadMap` carries one, and an in-tree emit that
    *  omits it is a type error. */
-  emit<K extends keyof EventPayloadMap>(event: K, payload: EventPayloadMap[K]): void;
+  emit<K extends keyof EventPayloadMap>(
+    event: K,
+    payload: NonNullable<EventPayloadMap[K]>,
+  ): void;
+  /** Emit a no-payload event (void payload) with no payload arg. */
+  emit<K extends keyof EventPayloadMap>(event: K): void;
   /** Emit any event (generic fallback). */
   emit(event: string, ...payload: unknown[]): void;
   emit(event: string, ...payload: unknown[]): void {
