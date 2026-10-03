@@ -29,7 +29,7 @@
 import { EVENTS } from "#core/event/index.js";
 import { CAP_TIER, HIDDEN, PANE_ROLE } from "#core/layer/index.js";
 import { resetGridLayerView } from "#core/leafletAdapter.js";
-import { setLayerAlpha } from "#common/canvasAlpha.js";
+import { getLayerAlpha, setLayerAlpha } from "#common/canvasAlpha.js";
 import * as CONST from "../const.js";
 import type { Projection, StateOp } from "../type.js";
 import type { LayerUI } from "./index.js";
@@ -105,6 +105,38 @@ const authorZoomBoundsOf = (
 /** Same lookup keyed by layer id — the panel code has only the id in hand. */
 const authorZoomBoundsForLayer = (ui: LayerUI, layerId: string): [number, number] =>
   authorZoomBoundsOf(ui, ui.m.layerRegistry.get(layerId)?.layer);
+
+/** The redraw arm does not clear CSS opacity on the write itself: the drawer
+ *  that owns the face reads layerAlpha off the canvas and repaints there,
+ *  then drops the CSS so the two carriers never compound. Because a full
+ *  repaint can be expensive (see the R11 measurement note in the redraw
+ *  arm), a continuous slider drag must not repaint on every input.
+ *
+ *  So: coalesce repaints with a short debounce. Each new commit within
+ *  the window replaces the pending one, so a drag produces many O(1)
+ *  CSS writes but a repaint only after the user pauses. Debounce is
+ *  chosen over rAF because rAF still fires every frame during a drag
+ *  and a 5k-cell heatmap takes 30-320ms to repaint — repainting per
+ *  frame would drop frames. Debouncing past a couple of frames keeps
+ *  the drag frame-rate clean; the 60ms window is ~3 frames at 60fps,
+ *  invisible to the eye but enough to settle a drag. At repaint time
+ *  the drawer reads the latest layerAlpha off its canvas (see the
+ *  redraw arm and HeatmapManager.redrawHeatmap), so the pixel state
+ *  converges to the slider's terminal position — no more waiting
+ *  for pan/zoom. */
+const OPACITY_REPAINT_DEBOUNCE_MS = 60;
+const pendingRedraws = new WeakMap<LayerInfo, number>();
+const scheduleOpacityRedraw = (layerInfo: LayerInfo): void => {
+  const prev = pendingRedraws.get(layerInfo);
+  if (prev !== undefined) clearTimeout(prev);
+  pendingRedraws.set(
+    layerInfo,
+    setTimeout(() => {
+      pendingRedraws.delete(layerInfo);
+      layerInfo.onOpacity?.(getLayerAlpha(layerInfo.canvas));
+    }, OPACITY_REPAINT_DEBOUNCE_MS),
+  );
+};
 
 /** Carrier identity the executor's last write landed on.
  *
@@ -221,10 +253,19 @@ const applyStateOp = (ui: LayerUI, layerInfo: LayerInfo, op: StateOp): void => {
         layerInfo.canvas.style.opacity = "";
         layerInfo.onOpacity?.(value);
       } else {
-        // Live CSS arm. The drawer's next paint reads getLayerAlpha and
-        // bakes the same value, then clears this CSS (see HeatmapManager.
-        // redrawHeatmap) so the two never compound.
+        // Live CSS arm: the value lands on the canvas face as CSS opacity
+        // (O(1) per drag event). We do NOT defer the bake to the next
+        // pan/zoom — that would leave canvas pixels showing a stale
+        // alpha × the new CSS opacity, i.e. a compounded wrong value,
+        // and the drag wouldn't self-correct until the user happened to
+        // move the map. Instead we coalesce repaints via a short
+        // debounce (see scheduleOpacityRedraw), so a continuous drag
+        // runs many CSS writes but repaints only after the user pauses.
+        // At repaint time the drawer reads the latest layerAlpha off its
+        // canvas and repaints, then clears the CSS so the two never
+        // compound.
         layerInfo.canvas.style.opacity = String(value);
+        scheduleOpacityRedraw(layerInfo);
       }
       layerInfo.opacity = value;
       return;

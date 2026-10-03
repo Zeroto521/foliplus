@@ -123,6 +123,7 @@
 - `FullscreenControl`: a denied fullscreen entry or exit now reports the honest hint (`unsupported` / `exit_fail`) instead of "Entered fullscreen" ([#486](https://github.com/Zeroto521/foliplus/pull/486))
 - `LayerControl`: rapid visibility toggles stay smooth at 6k layers — the toggle-all tri-state counter updates O(1) per click instead of rescanning the group, and overlay clicks skip the basemap scan ([#504](https://github.com/Zeroto521/foliplus/pull/504))
 - `LayerControl`: one teardown entry closes every overlay — panels, menu, rename, focus — and the map's open popup ([#585](https://github.com/Zeroto521/foliplus/pull/585))
+- `LayerControl`/`HeatmapControl`: opacity commits now repaint the canvas face after a 60ms debounce instead of waiting for the next pan/zoom, so the pixel state converges to the slider's terminal position without a map interaction; drags stay O(1) on CSS alone, and the 60ms window keeps 5k-cell heatmap repaints (30-320ms) off the drag frame path
 
 ## [v0.3.0] (2026-08-02)
 

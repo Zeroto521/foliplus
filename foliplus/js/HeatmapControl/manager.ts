@@ -316,6 +316,7 @@ class HeatmapManager {
       // pan/zoom redraw: draws read `getLayerAlpha`, and `redrawHeatmap`
       // drops the CSS so the two carriers never compound.
       opacityBake: "redraw",
+      onOpacity: () => this.redrawHeatmap(),
     });
     // ExportControl publishes BEFORE/AFTER_EXPORT to request a full-resolution
     // capture pass: un-clip the render (renderAll) so out-of-bounds hexes
