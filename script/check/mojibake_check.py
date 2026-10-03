@@ -97,9 +97,11 @@ def _find_hits(raw: bytes) -> list[tuple[int, str]]:
         if FFFD in line:
             hits.append((lineno, line.decode("utf-8", errors="replace").rstrip()))
             continue
-        # 残缺 UTF-8 序列：合法 2/3 字节前导（E2 80 / E2 82 AC 等）的后续字节
-        # 被替换为 ASCII `?`（0x3F）—— em-dash/en-dash/箭头/弯引号的常见损坏形式，
-        # 解码后不产生 U+FFFD，文本正则也无法命中（非完整字符）。
+        # Truncated UTF-8 sequence: a valid 2/3-byte lead (E2 80 / E2 82 AC
+        # etc.) whose trailing byte was replaced with ASCII `?` (0x3F) — the
+        # common corruption shape for em/en dashes, arrows and curly quotes.
+        # It decodes without U+FFFD and the text regex misses it (the
+        # character is incomplete), so it needs the byte-level scan.
         if _TRUNCATED_UTF8_RE.search(line):
             hits.append((lineno, line.decode("utf-8", errors="replace").rstrip()))
             continue
