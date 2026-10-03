@@ -171,7 +171,7 @@ describe("bundle-fuse cap table", () => {
 });
 
 describe("CLI entry", () => {
-  const SCRIPT = resolve(process.cwd(), "script", "bundle-fuse.mjs");
+  const SCRIPT = resolve(process.cwd(), "script", "build", "bundle-fuse.mjs");
 
   const trapExit = () =>
     vi
@@ -189,7 +189,7 @@ describe("CLI entry", () => {
         configurable: true,
       });
       vi.resetModules();
-      return await import("#script/bundle-fuse.mjs");
+      return await import("#script/build/bundle-fuse.mjs");
     } finally {
       Object.defineProperty(process, "argv", {
         value: original,
@@ -253,7 +253,7 @@ describe("CLI entry", () => {
     });
     vi.resetModules();
     try {
-      const mod = await import("#script/bundle-fuse.mjs");
+      const mod = await import("#script/build/bundle-fuse.mjs");
       const exit = trapExit();
       expect(() => mod.main([])).toThrow(`exit:${EXIT_OK}`);
       expect(exit).toHaveBeenCalledWith(EXIT_OK);

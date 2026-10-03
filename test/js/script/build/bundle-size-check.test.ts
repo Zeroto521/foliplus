@@ -1344,7 +1344,7 @@ describe("cli entry point", () => {
   const run = (root: string, ...argv: string[]) =>
     runProcess(root, ...(argv.length ? argv : ["--baseline=absent.json"]));
 
-  const SCRIPT = resolve(process.cwd(), "script", "bundle-size-check.mjs");
+  const SCRIPT = resolve(process.cwd(), "script", "build", "bundle-size-check.mjs");
 
   const runCli = async (argv: string[]) => {
     const original = process.argv;
@@ -1355,7 +1355,7 @@ describe("cli entry point", () => {
         configurable: true,
       });
       vi.resetModules();
-      return await import("#script/bundle-size-check.mjs");
+      return await import("#script/build/bundle-size-check.mjs");
     } finally {
       Object.defineProperty(process, "argv", {
         value: original,

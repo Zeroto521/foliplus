@@ -381,7 +381,7 @@ describe("branch arms left open by the happy path", () => {
 });
 
 describe("CLI entry", () => {
-  const SCRIPT = resolve(process.cwd(), "script", "codecov-bundle-upload.mjs");
+  const SCRIPT = resolve(process.cwd(), "script", "build", "codecov-bundle-upload.mjs");
   const originalToken = process.env.CODECOV_TOKEN;
 
   const trapExit = () =>
@@ -400,7 +400,7 @@ describe("CLI entry", () => {
         configurable: true,
       });
       vi.resetModules();
-      return await import("#script/codecov-bundle-upload.mjs");
+      return await import("#script/build/codecov-bundle-upload.mjs");
     } finally {
       Object.defineProperty(process, "argv", {
         value: original,

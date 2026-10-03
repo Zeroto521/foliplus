@@ -494,7 +494,7 @@ describe("SPEC", () => {
 });
 
 describe("CLI entry", () => {
-  const SCRIPT = resolve(process.cwd(), "script", "new-control.mjs");
+  const SCRIPT = resolve(process.cwd(), "script", "tool", "new-control.mjs");
 
   const trapExit = () =>
     vi
@@ -512,7 +512,7 @@ describe("CLI entry", () => {
         configurable: true,
       });
       vi.resetModules();
-      return await import("#script/new-control.mjs");
+      return await import("#script/tool/new-control.mjs");
     } finally {
       Object.defineProperty(process, "argv", {
         value: original,
