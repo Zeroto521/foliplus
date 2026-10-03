@@ -1,6 +1,6 @@
 import type { ControlEnv } from "#core/defineControl.js";
+import { DEL_ICON_MARKER_ANCHOR, toggleDelIcon } from "#core/leaflet/index.js";
 import { createLocationMarker } from "#core/locationMarker.js";
-import { DEL_ICON_MARKER_ANCHOR, toggleDelIcon } from "#common/delicon.js";
 import { throttleRaf } from "#common/throttle.js";
 import * as CONST from "../const.js";
 import {
