@@ -23,7 +23,7 @@ import {
   toolVersion,
 } from "#script/build/bundle-size-check.mjs";
 import { stripLeadingBlockComment } from "#script/build/bundle-size-lib.mjs";
-import { runCli, trapExit } from "../cli-test-utils";
+import { runCli, trapExit } from "../../fixture";
 
 type BundleArgs = {
   help: boolean;

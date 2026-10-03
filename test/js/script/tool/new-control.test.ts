@@ -20,7 +20,7 @@ import {
   scaffoldControl,
   splitArgv,
 } from "#script/tool/new-control.mjs";
-import { runCli, trapExit } from "../cli-test-utils";
+import { runCli, trapExit } from "../../fixture";
 
 type NewControlArgs = {
   help: boolean;

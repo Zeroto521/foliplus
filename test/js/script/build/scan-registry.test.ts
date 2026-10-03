@@ -3,7 +3,7 @@ import { tmpdir } from "os";
 import { join, resolve } from "path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { generateRegistry, registryUsedExports } from "#script/build/scan-registry.mjs";
-import { runCli, trapExit } from "../cli-test-utils";
+import { runCli, trapExit } from "../../fixture";
 
 const FS = require("fs");
 const PATH = require("path");
