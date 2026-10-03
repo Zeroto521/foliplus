@@ -1,7 +1,7 @@
 import { createScopedTranslator } from "#common/locale.js";
 import * as CONST from "./const.js";
 
-// CONFIG is a free variable from the IIFE template wrapper (see BaseControl._get_template).
+// CONFIG is a free variable from the IIFE template wrapper (see BaseControl._template).
 const T = createScopedTranslator(CONFIG);
 
 /** Test whether a rectangle intersects the visible crop area. */

@@ -10,7 +10,7 @@ inherits from :class:`BaseControl`. This module owns the Python → JS bridge:
 
 * **Config serialization** — each control's instance attributes are serialized into
   the JS ``CONFIG`` object. The static part is assembled by :meth:`BaseControl._build_config`
-  (shared ``name``/``position`` keys + subclass-declared :attr:`_config_fields` +
+  (shared ``name``/``position`` keys + schema-derived :attr:`_config_fields` +
   dynamic :meth:`_extra_config` data), then :attr:`BaseControl._config_block` overlays
   the locale tables and code.
 """
@@ -29,6 +29,7 @@ from folium.elements import JSCSSMixin
 from jinja2 import Template
 from jinja2.utils import htmlsafe_json_dumps
 
+from ._cdn_loader import load_cdn
 from ._config_schema import SCHEMAS, config_fields
 from ._typing import Position
 from ._validate import validate
@@ -218,9 +219,10 @@ class BaseControl(JSCSSMixin, MacroElement):
     foliplus components (FullscreenControl, HeatmapControl, LayerControl, etc.) inherit
     from this class.
 
-    Subclasses declare which instance attributes are exported to the JS ``CONFIG`` object
-    via :attr:`_config_fields`, and may supply dynamic render-time data by overriding
-    :meth:`_extra_config`. The base class merges these with the shared
+    Subclasses declare their CONFIG surface in :mod:`foliplus._config_schema`; the
+    :attr:`_config_fields` tuple each subclass exposes is derived from that table at
+    class-definition time, and may be extended with dynamic render-time data by
+    overriding :meth:`_extra_config`. The base class merges these with the shared
     ``name``/``position`` keys and the locale tables into the ``CONFIG`` dict.
 
     Parameters
@@ -236,40 +238,57 @@ class BaseControl(JSCSSMixin, MacroElement):
 
     #: Instance attributes re-exported as JS ``CONFIG`` keys (key name == attr name).
     #:
-    #: Subclasses declare their public configuration fields here. Each name is looked
-    #: up via ``getattr(self, name)`` during :meth:`_build_config`, so the attribute
-    #: must be set in ``__init__`` before the template is rendered. A name that does
-    #: not resolve raises ``ValueError`` from :meth:`_build_config` (fail-fast) rather
-    #: than failing later as a bare ``AttributeError``.
+    #: For controls with a schema entry in ``foliplus._config_schema.SCHEMAS``
+    #: this tuple is derived by :meth:`__init_subclass__` from the schema's
+    #: non-runtime-only keys — the schema is the single source of truth and the
+    #: tuple cannot drift from it. Each name is looked up via
+    #: ``getattr(self, name)`` during :meth:`_build_config`, so the attribute
+    #: must be set in ``__init__`` before the template is rendered. A name that
+    #: does not resolve raises ``ValueError`` from :meth:`_build_config`
+    #: (fail-fast) rather than failing later as a bare ``AttributeError``.
     _config_fields: tuple[str, ...] = ()
 
+    #: CDN dependencies for the control, as ``[(name, url), ...]``.
+    #:
+    #: Derived by :meth:`__init_subclass__` from :mod:`foliplus._cdn_loader`
+    #: for controls with a schema entry (which is every shipped control), so
+    #: renaming a class cannot silently break its CDN wiring. Controls without
+    #: a schema entry keep whatever they (or a base class) declared.
+    default_js: list[tuple[str, str]] = []
+
     def __init_subclass__(cls, **kwargs: Any) -> None:
-        """Verify a subclass's ``_config_fields`` against the schema on definition.
+        """Derive ``_config_fields`` and ``default_js`` from the schema.
 
-        ``foliplus._config_schema.SCHEMAS`` is the single source of truth for the CONFIG
-        contract: a control that declares a schema entry must have its
-        ``_config_fields`` tuple match the schema's non-runtime-only keys. This
-        fires at import time (``cls`` is being defined), so a schema drift is a
-        hard error rather than a runtime surprise or a test-only failure.
+        For every subclass **defined in the ``foliplus`` package** and named in
+        ``foliplus._config_schema.SCHEMAS`` — which is every shipped control —
+        two class attributes are derived here at import time (``cls`` is being
+        defined):
 
-        Controls without a schema entry are skipped here — the test suite's
-        ``test_every_basecontrol_subclass_is_registered`` catches those at test
-        time. The two together mean: adding a new control requires both a schema
-        entry (import-time check) and it must match ``_config_fields`` exactly.
+        * ``cls._config_fields`` — the schema's non-runtime-only keys, in
+          declaration order. The schema is the single source of truth for
+          the CONFIG contract, so the tuple cannot drift from it.
+        * ``cls.default_js`` — the CDN dependency list for this control, keyed
+          by class name (:func:`foliplus._cdn_loader.load_cdn`), so renaming
+          a class cannot silently sever its CDN wiring.
+
+        Subclasses outside the ``foliplus`` package are always left untouched,
+        whether or not they have a schema entry: a third-party control named
+        ``SearchControl`` in its own module keeps its declared
+        ``_config_fields`` / ``default_js`` rather than being overwritten by
+        foliplus's ``SearchControl`` schema. Folium-shipped controls are
+        additionally gated on the schema table, so ``BaseControl`` itself and
+        any foliplus-internal test double without a schema entry are untouched.
+        The test suite's ``test_every_basecontrol_subclass_is_registered``
+        catches a new shipped control without a schema entry at test time.
         """
         super().__init_subclass__(**kwargs)
+        if not cls.__module__.startswith("foliplus."):
+            return
         schema = SCHEMAS.get(cls.__name__)
         if schema is None:
             return
-        declared = tuple(cls._config_fields)
-        expected = config_fields(schema)
-        if declared != expected:
-            raise AssertionError(
-                f"{cls.__name__}._config_fields = {declared!r} but "
-                f"foliplus._config_schema.SCHEMAS declares {expected!r}. "
-                "Update either the schema (foliplus/_config_schema.py) or the "
-                "control's _config_fields — they must agree exactly."
-            )
+        cls._config_fields = config_fields(schema)
+        cls.default_js = load_cdn(cls.__name__)
 
     @validate
     def __init__(
@@ -392,17 +411,28 @@ class BaseControl(JSCSSMixin, MacroElement):
         html: str = super().render(**kwargs)
         return html
 
-    def _get_template(self) -> Template:
-        """Build a Jinja2 template with this control's own CSS/JS.
+    @property
+    def _template(self) -> Template:
+        """This control's Jinja2 template, built once and shared per class.
 
-        Shared assets (the merged ``css/common/`` stylesheet, ``runtime.js``, and the
-        locale tables) are injected once per map by :meth:`render`, so this template
-        only carries the component-specific CSS/JS plus a small call to resolve the
-        locale from the shared ``window.foliplus._TABLES``.
+        ``_build_component_template`` is ``@cache``-d per component name, so every
+        instance of a control shares one compiled ``Template`` — the template is
+        identical for every instance (only the render-time CONFIG and map name
+        differ, both resolved at render time). Each control therefore pays the
+        compile cost exactly once per process.
 
-        Returns
-        -------
-        Template
-            A Jinja2 ``Template`` instance ready for folium rendering.
+        An explicit per-instance assignment still wins, so branca's ``Element``
+        contract is intact: ``Element.__init__(template=...)`` and the
+        ``__setstate__`` unpickling path both store into the instance dict and
+        are honoured. Pickling is unaffected either way — ``__getstate__`` pops
+        ``_template`` from the instance dict, which is absent when the class
+        cache is in use.
         """
+        instance_template: Template | None = self.__dict__.get("_template")
+        if instance_template is not None:
+            return instance_template
         return _build_component_template(self._name)
+
+    @_template.setter
+    def _template(self, value: Template) -> None:
+        self.__dict__["_template"] = value

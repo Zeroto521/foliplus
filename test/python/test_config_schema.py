@@ -1,18 +1,21 @@
-"""Tests for the CONFIG schema drift guard (``foliplus._config_schema``).
+"""Tests for the CONFIG schema derivation (``foliplus._config_schema``).
 
-The schema table in ``foliplus/_config_schema.py`` is a mirror of every control's
-``BaseControl._config_fields`` tuple. These tests fail if:
+``BaseControl.__init_subclass__`` derives each control's ``_config_fields``
+tuple from the schema table in ``foliplus/_config_schema.py`` — the schema is
+the single source of truth and the tuple cannot drift from it. These tests
+assert the derivation is correct and non-vacuous (not ground down to an
+empty tuple):
 
-* A control declares a field in ``_config_fields`` that the schema does not
-  know about (Python added it, schema forgotten).
-* The schema declares a non-runtime-only field that the control does not
-  export (schema declared it, control forgot to serialize it).
-* A control with no ``_config_fields`` has a schema entry (should have no
-  schema, or an all-runtime-only schema).
+* ``_config_fields`` equals the schema's non-runtime-only keys, in order.
+* Runtime-only and dynamic schema fields are never exported.
+* The derived values match the previously hand-written tuples (zero-change,
+  snapshot-style assertions).
+* Controls *without* a schema entry (test doubles) keep their own declared
+  ``_config_fields``.
 
-Values/behavior zero-change is upheld by the pre-existing ``test_BaseControl``
-tests, which snapshot the emitted ``_config_block`` JSON byte-for-byte; the
-schema is a declaration-only mirror and cannot affect serialization.
+``BaseControl._build_config`` still reads ``self._config_fields`` directly at
+runtime and never consults ``SCHEMAS`` itself — derivation happens once, at
+class-definition time.
 """
 
 from __future__ import annotations
@@ -79,9 +82,10 @@ class TestSchemaCoverage:
     def test_every_basecontrol_subclass_is_registered(self) -> None:
         # Discover every BaseControl subclass reachable from foliplus and
         # require it to be in SCHEMAS (or BaseControl itself). This is what
-        # catches a NEW control added without a schema entry — the drift guard
-        # runs over declared schemas only, so a fresh module with a new
-        # _config_fields tuple would silently pass without this check.
+        # catches a NEW control added without a schema entry — derivation is
+        # keyed off SCHEMAS, so an unregistered control silently gets an empty
+        # _config_fields (nothing to export) and no default_js (no CDN deps)
+        # rather than a loud error.
         #
         # The control classes live in submodules (`foliplus.FullscreenControl`),
         # so the module check must be a prefix match — the earlier `== "foliplus"`
@@ -104,28 +108,44 @@ class TestSchemaCoverage:
 
 
 class TestSchemaMatchesConfigFields:
-    """Schema keys must equal the control's ``_config_fields`` (non-runtime)."""
+    """Derived ``_config_fields`` must equal the schema's non-runtime keys."""
 
     @pytest.mark.parametrize("name", sorted(CONTROL_CLASSES))
     def test_schema_keys_match_config_fields(self, name: str) -> None:
         cls = CONTROL_CLASSES[name]
-        declared = tuple(cls._config_fields)
+        derived = tuple(cls._config_fields)
         expected = config_fields(SCHEMAS[name])
-        assert declared == expected, (
-            f"{name}._config_fields = {declared!r}\n"
+        assert derived == expected, (
+            f"{name}._config_fields = {derived!r}\n"
             f"  schema declares  {expected!r}\n"
-            f"Add/remove a field in one place without the other; the drift guard "
-            f"is the two sides of the same coin."
+            f"The tuple is derived from the schema; a mismatch means a "
+            f"hand-written _config_fields survived in {name}."
+        )
+
+    @pytest.mark.parametrize("name", sorted(CONTROL_CLASSES))
+    def test_derivation_is_not_empty_for_controls_with_fields(self, name: str) -> None:
+        # Non-vacuity guard: the derivation must not be ground down to an
+        # empty tuple. A control whose schema declares at least one non-
+        # runtime, non-dynamic field must expose it.
+        schema = SCHEMAS[name]
+        exportable = [
+            k for k, f in schema.items() if not f.runtime_only and not f.dynamic
+        ]
+        if not exportable:
+            pytest.skip(f"{name} declares no exportable fields")
+        assert CONTROL_CLASSES[name]._config_fields, (
+            f"{name} has {len(exportable)} exportable schema fields but an empty "
+            f"_config_fields — derivation silently dropped them."
         )
 
     @pytest.mark.parametrize("name", sorted(CONTROL_CLASSES))
     def test_schema_key_order_matches_config_fields_order(self, name: str) -> None:
         cls = CONTROL_CLASSES[name]
-        declared = tuple(cls._config_fields)
+        derived = tuple(cls._config_fields)
         expected = config_fields(SCHEMAS[name])
         # Same as the previous test but kept separate so the failure message
         # pins the exact position where ordering diverges.
-        for i, (a, b) in enumerate(zip(declared, expected)):
+        for i, (a, b) in enumerate(zip(derived, expected)):
             assert a == b, f"{name}._config_fields[{i}] = {a!r}, schema[{i}] = {b!r}"
 
 
@@ -314,16 +334,17 @@ class TestSchemaDump:
 class TestRuntimeZeroChange:
     """Rendering CONFIG must not consult the schema at runtime.
 
-    The schema is a declaration-only mirror: ``BaseControl._build_config``
-    reads ``self._config_fields`` directly and never touches ``SCHEMAS``.
-    These tests assert the control's ``_config_fields`` tuple is unchanged
-    and that importing the schema module does not perturb the base class.
+    The schema is declaration-only at runtime: ``BaseControl._build_config``
+    reads ``self._config_fields`` directly and never touches ``SCHEMAS``. The
+    tuple is derived once, at class-definition time, so the emitted CONFIG
+    JSON is unchanged. These tests pin the derived values against the tuples
+    each control used to declare by hand.
     """
 
     def test_control_config_fields_unchanged(self) -> None:
-        # Snapshot-style: ``_config_fields`` is a class attribute set at
-        # import time by each control module. The schema is a mirror and
-        # must not mutate it.
+        # Snapshot-style: ``_config_fields`` is now derived by
+        # __init_subclass__ from the schema. These tuples must still equal
+        # what each control declared by hand before the derivation landed.
         assert FullscreenControl._config_fields == ("hide_self", "hide_others")
         assert ScaleControl._config_fields == ("show_zoom",)
         assert LocateControl._config_fields == ("zoom",)
@@ -332,9 +353,31 @@ class TestRuntimeZeroChange:
             "collapse_on_outside",
         )
         # The full tuple for MeasureControl is asserted in the parametrized
-        # drift test above; this is a targeted snapshot for spot-check.
+        # derivation test above; this is a targeted snapshot for spot-check.
         assert "filename" in MeasureControl._config_fields
         assert "export_format" in MeasureControl._config_fields
+
+    def test_unregistered_subclass_keeps_declared_config_fields(self) -> None:
+        # Derivation is keyed off SCHEMAS, so a subclass with no schema entry
+        # must keep the tuple it declared itself (test doubles rely on this).
+        class Unregistered(BaseControl):
+            _config_fields = ("alpha", "beta")
+
+        assert Unregistered._config_fields == ("alpha", "beta")
+
+    def test_out_of_package_subclass_with_colliding_name_is_not_overwritten(
+        self,
+    ) -> None:
+        # A third-party subclass named the same as a foliplus control must not
+        # be silently overwritten by foliplus's schema. The class is defined in
+        # this test module, so its ``__module__`` does not start with
+        # ``"foliplus."`` — the module guard in ``__init_subclass__`` skips it.
+        class SearchControl(BaseControl):
+            _config_fields = ("my_own_field",)
+            default_js = []
+
+        assert SearchControl._config_fields == ("my_own_field",)
+        assert SearchControl.default_js == []
 
     def test_schema_module_does_not_touch_basecontrol(self) -> None:
         # _config_schema.py imports nothing from foliplus.*; importing it must not
