@@ -18,13 +18,12 @@
  * This module has no CLI of its own — it is imported by the two gates.
  */
 import { readFileSync, readdirSync } from "fs";
-import { dirname, resolve } from "path";
-import { fileURLToPath } from "url";
+import { resolve } from "path";
 import { brotliCompressSync } from "zlib";
 import { parseArgs as parseArgsCore } from "../args.mjs";
+import { repoRoot } from "../build-path.mjs";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const ROOT = resolve(__dirname, "..", "..");
+const ROOT = repoRoot(import.meta.url);
 
 // ── Exit codes ──────────────────────────────────────────────────────────────
 // One table, shared by both gates. The numbers are fixed:

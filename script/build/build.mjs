@@ -26,8 +26,8 @@ import {
   rmSync,
   writeFileSync,
 } from "fs";
-import { basename, dirname, resolve } from "path";
-import { fileURLToPath, pathToFileURL } from "url";
+import { basename, resolve } from "path";
+import { pathToFileURL } from "url";
 import { help, parseArgs } from "../args.mjs";
 import { resolveJsRoot } from "../build-path.mjs";
 import { FAIL, OK } from "../glyph.mjs";
@@ -50,7 +50,6 @@ const loadSonda = async () => {
 // Central path/flag config. `dev` toggles minification & identifier
 // preservation — Python render-string tests rely on `keepNames` finding
 // `foliplus.showHint` etc. in unminified bundles.
-const __dirname = dirname(fileURLToPath(import.meta.url));
 // The shared-runtime directory is bundled as foliplus-common.min.js and
 // must NOT be externalized (it bundles the shared modules).
 const SHARED_ENTRY = "runtime";
@@ -339,7 +338,7 @@ const mergeMetafiles = metafiles => {
 const generateSharedRegistry = () => {
   const genResult = spawnSync(
     process.execPath,
-    [resolve(__dirname, "scan-registry.mjs"), "--root", CFG.root, "--silent"],
+    [resolve(import.meta.dirname, "scan-registry.mjs"), "--root", CFG.root, "--silent"],
     { stdio: "pipe", encoding: "utf-8" },
   );
   if (genResult.error) throw genResult.error;
@@ -383,7 +382,7 @@ const generateConfigSchema = () => {
   const genResult = spawnSync(
     process.execPath,
     [
-      resolve(__dirname, "emit-config-schema.mjs"),
+      resolve(import.meta.dirname, "emit-config-schema.mjs"),
       "--json",
       schemaJson,
       "--out",
