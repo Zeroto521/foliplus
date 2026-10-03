@@ -114,8 +114,9 @@ const handleMoreMenuClick = (
     if (activateDeleteItem(la, ps, fs, li)) closeMoreMenu(la, ps, fs, true);
     return;
   }
-  if (action === CONST.ACTION.FOCUS_LAYER)
+  if (action === CONST.ACTION.FOCUS_LAYER) {
     focusLayer(la, ps, fs, ps.activeMenu?.layerId ?? "");
+  }
   if (action === CONST.ACTION.RENAME_LAYER) {
     renameLayer(la, ps, fs, ps.activeMenu?.layerId ?? "");
   }

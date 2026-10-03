@@ -226,10 +226,12 @@ const handleOutsideMousedown = (
   // map alike. One surface per press —the overflow menu keeps its own
   // click-delegated close in interaction.ts, and Escape pops the menu before
   // the panels.
-  if (!target.closest(`.${CONST.CLASSES.ATTRS_PANEL}`))
+  if (!target.closest(`.${CONST.CLASSES.ATTRS_PANEL}`)) {
     closeAttrsPanel(la, ps, fs, false);
-  if (!target.closest(`.${CONST.CLASSES.STYLE_PANEL}`))
+  }
+  if (!target.closest(`.${CONST.CLASSES.STYLE_PANEL}`)) {
     closeStylePanel(la, ps, fs, false);
+  }
   if (!target.closest(".foliplus-layer-ctrl")) clearActiveItem(la, ps, fs);
 };
 

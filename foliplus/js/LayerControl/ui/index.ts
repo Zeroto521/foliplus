@@ -257,6 +257,27 @@ class LayerUI {
       "styleUnsubscribe",
       "styleRefresh",
       "styleZoomEndHandler",
+      // Handler slots — the lifecycle module writes them into the store; the
+      // instance forwards so browser tests reading `ui.onDrop` etc. see them.
+      "onChange",
+      "onInput",
+      "onClick",
+      "onFocusIn",
+      "onFocusOut",
+      "onDragStart",
+      "onDragOver",
+      "onDragLeave",
+      "onDragEnd",
+      "onDrop",
+      "onMoreClick",
+      "onMoreMenuClick",
+      "onMoreMapClick",
+      "onZoomEnd",
+      "unsubscribeCountChange",
+      "unsubscribeControlAttached",
+      "geometryMarqueeCleanup",
+      "colorSurface",
+      "checkedCount",
     ] as const;
     for (const key of psForwards) {
       Object.defineProperty(this, key, {
