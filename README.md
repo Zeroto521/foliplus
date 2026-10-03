@@ -61,7 +61,7 @@ was designed as one **system** from the start:
 
 Layer-producing tools register their canvas or layer through **LayerControl**,
 which manages z-order, visibility, and lifecycle centrally.
-This means they share a single layer stack—no z-index clashes, no orphaned DOM
+This means they share a single layer stack — no z-index clashes, no orphaned DOM
 elements.
 
 On top of this shared layer foundation, tools coordinate further:
@@ -73,7 +73,7 @@ On top of this shared layer foundation, tools coordinate further:
   (e.g. measurement) auto-cleans its state
 - When layers change, the heatmap refreshes automatically
 
-All of this happens without manual wiring—foliplus handles it internally.
+All of this happens without manual wiring — foliplus handles it internally.
 
 ## Compatibility
 

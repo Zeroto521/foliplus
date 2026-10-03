@@ -108,7 +108,7 @@ const rowView = (cell: RowCell, labels: RowLabels): RowView => ({
 /**
  * Effective panel display name for a layer: the user-assigned rename wins,
  * falling back to the registry name, then to the locale label for the
- * virtual color basemap —the only row with no registry entry.
+ * virtual color basemap — the only row with no registry entry.
  *
  *  Every render path resolves names through here so a registry mutation
  *  (re-registration, type refresh) can no longer resurrect the original
