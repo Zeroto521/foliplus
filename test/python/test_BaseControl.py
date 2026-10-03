@@ -41,6 +41,36 @@ class TestBaseControlPython:
         ctrl = BaseControl()
         assert ctrl._extra_config() == {}
 
+    def test_template_defaults_to_class_cache(self, monkeypatch):
+        """Without an instance override the property returns the class-cached template."""
+        import importlib
+
+        from jinja2 import Template
+
+        from foliplus import BaseControl
+
+        # `from foliplus import BaseControl` re-binds the class, but the
+        # module-level function lives on the real submodule — the property
+        # calls the module-global, so the patch has to target it.
+        base_control_module = importlib.import_module("foliplus.BaseControl")
+        cached = Template("cached template")
+        monkeypatch.setattr(
+            base_control_module, "_build_component_template", lambda name: cached
+        )
+        ctrl = BaseControl()
+        assert ctrl._template is cached
+
+    def test_template_instance_assignment_wins(self):
+        """An explicit per-instance ``_template`` is returned over the class cache."""
+        from jinja2 import Template
+
+        from foliplus import BaseControl
+
+        ctrl = BaseControl()
+        sentinel = Template("{{ sentinel }}")
+        ctrl._template = sentinel
+        assert ctrl._template is sentinel
+
     def test_build_config_includes_shared_keys(self):
         from foliplus.BaseControl import BaseControl
 

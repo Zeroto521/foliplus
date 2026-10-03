@@ -13,11 +13,11 @@ import type {
   SuggestItem,
 } from "#core/geocode/index.js";
 import { HINT_DURATION } from "#core/hint.js";
+import { DEL_ICON_MARKER_ANCHOR } from "#core/leaflet/index.js";
+import { mountDelIcon } from "#core/leaflet/index.js";
 import { createLocationMarker } from "#core/locationMarker.js";
 import { guardBlocked } from "#core/mode.js";
 import { debounce } from "#common/debounce.js";
-import { DEL_ICON_MARKER_ANCHOR } from "#common/delicon.js";
-import { mountDelIcon } from "#common/deliconMount.js";
 import { dom } from "#common/dom.js";
 import { fetchWithTimeout } from "#common/fetch.js";
 import { formatLatLng } from "#common/format.js";

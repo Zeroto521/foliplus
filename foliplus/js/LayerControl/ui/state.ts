@@ -20,7 +20,7 @@ import type { FocusStore } from "./focusStore.js";
 import { INTENT, LIVE, getIntent } from "./intent.js";
 import type { PanelStore } from "./panelStore.js";
 
-// CONFIG is a free variable from the IIFE template wrapper (see BaseControl._get_template).
+// CONFIG is a free variable from the IIFE template wrapper (see BaseControl._template).
 const log = createLogger(CONFIG.name);
 
 /** Load every persisted dimension in one call. */

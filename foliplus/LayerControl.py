@@ -87,8 +87,6 @@ class LayerControl(BaseControl):
     >>> LayerControl().add_to(m)
     """
 
-    _config_fields = ("label_collide", "collapse_on_outside")
-
     def __init__(
         self,
         *,
@@ -100,7 +98,6 @@ class LayerControl(BaseControl):
         super().__init__(position=position, locale=locale)
         self.label_collide = label_collide
         self.collapse_on_outside = collapse_on_outside
-        self._template = self._get_template()
 
     def _extra_config(self) -> dict[str, object]:
         """Collect layers from the parent map at render time.

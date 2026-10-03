@@ -1,8 +1,9 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join, resolve } from "path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { generateRegistry, registryUsedExports } from "#script/build/scan-registry.mjs";
+import { runCli, trapExit } from "../../fixture";
 
 const FS = require("fs");
 const PATH = require("path");
@@ -313,6 +314,21 @@ describe("generateRegistry", () => {
     expect(output).toContain("#foliplus/BaseControl.js");
   });
 
+  it("skips BaseControl when the import names nothing", () => {
+    // An empty named import `import { } from "#foliplus/BaseControl.js"`
+    // records an empty names array for the spec, so `baseNames` is `[]`
+    // rather than falling back to `["BaseControl"]` — the `if` false branch.
+    const [jsDir, buildDir] = buildFakeTree({
+      "common/dom.ts": `export const dom = {};`,
+      "core/empty.ts": ``,
+      "runtime/index.ts": ``,
+      "MyComponent/index.ts": `import { } from "#foliplus/BaseControl.js";`,
+    });
+    generateRegistry(jsDir, buildDir);
+    const output = readRegistry(buildDir);
+    expect(output).not.toContain("BaseControlNS");
+  });
+
   it("writes valid output for empty component set", () => {
     const [jsDir, buildDir] = buildFakeTree({
       "common/dom.ts": `export const dom = {};`,
@@ -335,5 +351,50 @@ describe("generateRegistry", () => {
     for (const sub of ["geo", "geocode", "layer", "event"]) {
       expect(existsSync(join(coreDir, sub, "index.ts"))).toBe(true);
     }
+  });
+});
+
+describe("CLI entry", () => {
+  const SCRIPT = resolve(process.cwd(), "script", "build", "scan-registry.mjs");
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("--help prints the usage and exits 0", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const exit = trapExit();
+    await expect(
+      runCli("#script/build/scan-registry.mjs", ["node", SCRIPT, "--help"]),
+    ).rejects.toThrow("exit:0");
+    expect(exit).toHaveBeenCalledWith(0);
+    expect(log.mock.calls.join("\n")).toContain("Usage:");
+  });
+
+  it("prints the error and exits 1 on an unknown flag", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const exit = trapExit();
+    await expect(
+      runCli("#script/build/scan-registry.mjs", ["node", SCRIPT, "--bogus"]),
+    ).rejects.toThrow("exit:1");
+    expect(exit).toHaveBeenCalledWith(1);
+    expect(error.mock.calls.join("\n")).toContain("Unknown flag: --bogus");
+  });
+
+  it("runs the scan when launched directly as a script", async () => {
+    // `process.argv[1]` matching this module's own URL is the guard's true
+    // branch (`main()`), only reachable by re-importing with argv replaced.
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    await runCli("#script/build/scan-registry.mjs", ["node", SCRIPT]);
+    const out = log.mock.calls.join("\n");
+    expect(out).toContain("_shared-registry.ts written");
+  });
+
+  it("stays silent under --silent", async () => {
+    // The `!opts.silent` guard's false branch: a silent run writes the registry
+    // without printing the summary line.
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    await runCli("#script/build/scan-registry.mjs", ["node", SCRIPT, "--silent"]);
+    expect(log).not.toHaveBeenCalled();
   });
 });

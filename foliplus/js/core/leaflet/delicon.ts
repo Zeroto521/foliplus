@@ -1,7 +1,7 @@
 // Delete-icon marker utilities — shared by LocateControl, SearchControl and
 // MeasureControl. A floating "✕" marker that can be shown/hidden and clicked
 // to delete.
-import { stopEvent } from "./dom.js";
+import { stopEvent } from "#common/dom.js";
 
 /** Click target data-role for the delete icon span. */
 const DEL_ICON_ROLE = "del-icon";

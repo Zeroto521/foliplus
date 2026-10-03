@@ -23,24 +23,21 @@
  * Reads <root>/foliplus/js/ (source), writes <root>/foliplus/.build/js/.
  */
 import { mkdirSync, readdirSync, writeFileSync } from "fs";
-import { dirname, resolve } from "path";
-import { fileURLToPath, pathToFileURL } from "url";
+import { resolve } from "path";
+import { pathToFileURL } from "url";
 import { help, parseArgs } from "../args.mjs";
-import { resolveJsRoot } from "../build-path.mjs";
+import { repoRoot, resolveJsRoot } from "../build-path.mjs";
 import { canonicalSpec, scanSharedImports } from "./import-scan.mjs";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const SCAN_SPEC = {
   root: {
     type: "string",
-    default: resolve(__dirname, "..", ".."),
+    default: repoRoot(import.meta.url),
     desc: "Project root directory",
   },
   silent: { type: "bool", desc: "Suppress output messages" },
 };
 const raw = parseArgs(process.argv.slice(2), SCAN_SPEC);
-/* v8 ignore start -- help/error handling only runs when invoked as a CLI */
 if (raw.help) {
   console.log(help(SCAN_SPEC));
   process.exit(0);
@@ -50,7 +47,6 @@ if (raw.errors.length) {
   console.error(help(SCAN_SPEC));
   process.exit(1);
 }
-/* v8 ignore stop */
 const opts = raw;
 
 const ROOT = resolve(opts.root);
@@ -187,12 +183,15 @@ const generateRegistry = (srcDirParam = srcDir, buildJsParam = buildJs) => {
   }
 };
 
-export { generateRegistry, registryUsedExports };
+/** Run the registry scan for the current working tree. */
+const main = () => {
+  generateRegistry();
+};
+
+export { generateRegistry, main, registryUsedExports };
 
 // CLI entry point: `node script/build/scan-registry.mjs [--root <path>] [--silent]`.
 // Guarded so importing this module (e.g. for tests) has no side effects.
-/* v8 ignore start -- CLI-only entry point, not exercised by unit tests */
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
-  generateRegistry();
+  main();
 }
-/* v8 ignore stop */

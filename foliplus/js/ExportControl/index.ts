@@ -1,6 +1,6 @@
 import { defineControl } from "#core/defineControl.js";
 import { requireLayerAPI } from "#core/layer/index.js";
-import { createFoldControl } from "#common/panel.js";
+import { createFoldControl } from "#core/leaflet/index.js";
 import * as SVGs from "./icon.js";
 import { ExportManager } from "./manager.js";
 

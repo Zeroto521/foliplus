@@ -327,6 +327,41 @@ class TestGbkMisread:
         assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 1
 
 
+class TestTruncatedUtf8Sequence:
+    """A UTF-8 multi-byte lead whose continuation byte was replaced with ``?``.
+
+    A lossy codec that truncates the tail of a multi-byte sequence leaves
+    the lead pair (``E2 80`` for em/en dash, ``E2 86`` for arrows) intact
+    and substitutes ASCII ``?`` for the final byte. The partial lead then
+    decodes without U+FFFD and the text-side regex misses it — only a
+    byte-level scan sees the truncated pair. Fixtures are written as raw
+    bytes so the signature never appears in the test source.
+    """
+
+    def test_truncated_em_dash_is_flagged(self, tmp_path, capsys, monkeypatch):
+        f = tmp_path / "trunc.txt"
+        f.write_bytes(b"page) \xe2\x80?typed\n")
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 1
+        captured = capsys.readouterr()
+        assert f"{f}:1" in captured.out
+
+    def test_truncated_arrow_is_flagged(self, tmp_path, capsys, monkeypatch):
+        f = tmp_path / "truncarrow.txt"
+        f.write_bytes(b"step \xe2\x86? next\n")
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 1
+
+    def test_plain_question_after_ascii_is_clean(self, tmp_path, capsys, monkeypatch):
+        f = tmp_path / "plain.txt"
+        f.write_bytes(b"is this? yes\n")
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 0
+
+    def test_intact_utf8_em_dash_is_clean(self, tmp_path, capsys, monkeypatch):
+        f = tmp_path / "intact.txt"
+        f.write_bytes("one — two\n".encode())
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 0
+
+
+
 class TestEmDashGlued:
     """Em-dash glued to a lowercase Latin letter — the ``— the`` shape.
 
@@ -347,35 +382,35 @@ class TestEmDashGlued:
     def test_em_dash_with_space_is_clean(self, tmp_path, capsys, monkeypatch):
         """The correct English form ``— the`` stays clean."""
         f = tmp_path / "spaced.txt"
-        f.write_bytes("// one two — the three\n".encode("utf-8"))
+        f.write_bytes("// one two \u2014 the three\n".encode("utf-8"))
         assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 0
 
     def test_em_dash_glued_to_uppercase_is_clean(self, tmp_path, capsys, monkeypatch):
         """``—The`` (capital) is legitimate — some styles use a leading cap."""
         f = tmp_path / "cap.txt"
-        f.write_bytes("// one two—Three four\n".encode("utf-8"))
+        f.write_bytes("// one two\u2014Three four\n".encode("utf-8"))
         assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 0
 
     def test_em_dash_glued_to_cjk_is_clean(self, tmp_path, capsys, monkeypatch):
         """CJK ideographs after the dash are legal (Chinese/Japanese style)."""
         f = tmp_path / "cjk.txt"
-        f.write_bytes("中文注释—说明文字\n".encode("utf-8"))
+        f.write_bytes("中文注释\u2014说明文字\n".encode("utf-8"))
         assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 0
 
     def test_en_dash_glued_is_not_flagged(self, tmp_path, capsys, monkeypatch):
         """Only the em dash triggers the rule; en dash is more permissive."""
         f = tmp_path / "en.txt"
-        f.write_bytes("// one two–three\n".encode("utf-8"))
+        f.write_bytes("// one two\u2013three\n".encode("utf-8"))
         assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 0
 
 
 class TestOverflowGlyphMisread:
-    """Overflow-menu glyph ``⋮`` (U+22EE) misread as ``\u22ef`` (U+22EF).
+    """Overflow-menu glyph ``\u22ee`` (U+22EE) misread as ``\u22ef`` (U+22EF).
 
     The vertical three-dots glyph used for the overflow menu was
     misread as the mathematical ellipsis by a lossy round-trip. A bare
-    ``\u22ef`` in prose (as an ellipsis substitute) stays clean; ``\u22efmenu``
-    is not a valid construction and gets flagged.
+    ``\u22ef`` in prose (as an ellipsis substitute) stays clean;
+    ``\u22efmenu`` is not a valid construction and gets flagged.
     """
 
     def test_overflow_menu_glyph_misread_is_flagged(self, tmp_path, capsys, monkeypatch):
@@ -386,13 +421,13 @@ class TestOverflowGlyphMisread:
         assert f"{f}:1" in captured.out
 
     def test_correct_vertical_dots_is_clean(self, tmp_path, capsys, monkeypatch):
-        """The correct glyph ``⋮menu`` stays clean."""
+        """The correct glyph ``\u22eemenu`` stays clean."""
         f = tmp_path / "correct.txt"
-        f.write_bytes("// opened from the ⋮menu button\n".encode("utf-8"))
+        f.write_bytes("// opened from the \u22eemenu button\n".encode("utf-8"))
         assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 0
 
     def test_bare_ellipsis_in_prose_is_clean(self, tmp_path, capsys, monkeypatch):
         """A bare ``\u22ef`` used as an ellipsis in prose is legitimate."""
         f = tmp_path / "prose.txt"
-        f.write_bytes("// and the story goes on…\n".encode("utf-8"))
+        f.write_bytes("// and the story goes on\u22ef\n".encode("utf-8"))
         assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 0
