@@ -99,7 +99,9 @@ class LayerControl(BaseControl):
             list,
             FieldSpec(
                 name="LayerData",
-                shape=[{"name": "string", "id": "string", "group": ("base", "overlay")}],
+                shape=[
+                    {"name": "string", "id": "string", "group": ("base", "overlay")}
+                ],
             ),
         ]
     }
