@@ -8,6 +8,9 @@ import {
   LayerRuntimeStore,
 } from "#core/layer/index.js";
 import { ListCursor } from "#core/listCursor.js";
+import { ListPanel } from "./listPanel.js";
+import { OverlayPanel } from "./overlayPanel.js";
+import { FocusController } from "./focusController.js";
 import * as CONST from "../const.js";
 import type { LayerManager } from "../manager.js";
 import { applyProjection, applyProjectionAll } from "./apply.js";
@@ -80,7 +83,18 @@ const NO_OP_ENV: { T: (key: string) => string; _: (key: string) => string } = {
   _: key => key,
 };
 
-/** UI Controller for LayerControl. */
+/** UI Controller for LayerControl.
+
+ *  Per-panel state lives on one of three view subsystems:
+ *  - listPanel:        fold state, cursor index, drag state
+ *  - overlayPanel:     floating panels (menu / attrs / rename / style)
+ *  - focusController:  focus spotlight + inverse mask
+ *
+ *  Cross-cutting code reads state via compat getters (`ui.foldedGroups`)
+ *  so a test that builds a mock `ui` object does not need to know about the
+ *  subsystem split. The getters are thin redirections; each subsystem owns
+ *  the actual field.
+ */
 class LayerUI {
   manager: LayerManager;
   /** Per-map event bus — bound once in the constructor (ensure-style getters
@@ -95,14 +109,12 @@ class LayerUI {
    *  controls the style panel shares with HeatmapControl). Kept beside `T` so
    *  a test can inject either independently. */
   _: (key: string) => string;
-  foldedGroups: Set<string>;
-  /** Per-group tri-state counts maintained incrementally so a single-row
-   *  click is O(1). Populated by the full-scan `syncToggleAll` at reconcile
-   *  points (attach, insert, delete, reload) and kept in sync by
-   *  `bumpCheckedCount` on each single-row toggle. `total` is the row count
-   *  `getLayerItems(group).length` returns; `on` is the subset whose intent
-   *  is visible. `syncToggleAllFromCount` writes the checkbox off `on`. */
-  checkedCount: Record<string, { total: number; on: number }>;
+  /** View subsystem: row layout state (fold, cursor, drag). */
+  listPanel: ListPanel;
+  /** View subsystem: floating panels (menu / attrs / rename / style). */
+  overlayPanel: OverlayPanel;
+  /** View subsystem: focus spotlight + inverse mask. */
+  focusController: FocusController;
   /** Per-layer intent store — the single source for every user-chosen
    *  dimension (visible / fill / border / opacity / zoomRange / name /
    *  annotation). Absent key = never touched. Provenance rides the same
@@ -119,15 +131,69 @@ class LayerUI {
    *  upserts the LayerInfo so the pane participates in `enforceOrder`.
    *  Null until the color basemap is first displayed. */
   colorSurface: CreateColorAPI | null;
-  /** Layer id whose label is currently an inline rename input, or null. */
-  activeRenameId: string | null;
-  dragIdx: number | null;
-  lastDragHintAt: number;
-  lastDragOverItem: HTMLElement | null;
-  activeIdx: number | null;
-  /** Shared list cursor — ARIA roles + roving tabindex on navigable rows. */
-  listCursor: ListCursor | null;
-  interactionCleanup?: () => void;
+  /** Compat getter — real state lives on `listPanel.foldedGroups`. */
+  get foldedGroups(): Set<string> {
+    return this.listPanel.foldedGroups;
+  }
+  set foldedGroups(v: Set<string>) {
+    this.listPanel.foldedGroups = v;
+  }
+  /** Compat getter — real state lives on `listPanel.checkedCount`. */
+  get checkedCount(): Record<string, { total: number; on: number }> {
+    return this.listPanel.checkedCount;
+  }
+  set checkedCount(v: Record<string, { total: number; on: number }>) {
+    this.listPanel.checkedCount = v;
+  }
+  /** Compat getter — real state lives on `listPanel.activeRenameId`. */
+  get activeRenameId(): string | null {
+    return this.overlayPanel.activeRenameId;
+  }
+  set activeRenameId(v: string | null) {
+    this.overlayPanel.activeRenameId = v;
+  }
+  /** Compat getter — real state lives on `listPanel.dragIdx`. */
+  get dragIdx(): number | null {
+    return this.listPanel.dragIdx;
+  }
+  set dragIdx(v: number | null) {
+    this.listPanel.dragIdx = v;
+  }
+  /** Compat getter — real state lives on `listPanel.lastDragHintAt`. */
+  get lastDragHintAt(): number {
+    return this.listPanel.lastDragHintAt;
+  }
+  set lastDragHintAt(v: number) {
+    this.listPanel.lastDragHintAt = v;
+  }
+  /** Compat getter — real state lives on `listPanel.lastDragOverItem`. */
+  get lastDragOverItem(): HTMLElement | null {
+    return this.listPanel.lastDragOverItem;
+  }
+  set lastDragOverItem(v: HTMLElement | null) {
+    this.listPanel.lastDragOverItem = v;
+  }
+  /** Compat getter — real state lives on `listPanel.activeIdx`. */
+  get activeIdx(): number | null {
+    return this.listPanel.activeIdx;
+  }
+  set activeIdx(v: number | null) {
+    this.listPanel.activeIdx = v;
+  }
+  /** Compat getter — real state lives on `listPanel.listCursor`. */
+  get listCursor(): ListCursor | null {
+    return this.listPanel.listCursor;
+  }
+  set listCursor(v: ListCursor | null) {
+    this.listPanel.listCursor = v;
+  }
+  /** Compat getter — real state lives on `listPanel.interactionCleanup`. */
+  get interactionCleanup(): (() => void) | undefined {
+    return this.listPanel.interactionCleanup;
+  }
+  set interactionCleanup(v: (() => void) | undefined) {
+    this.listPanel.interactionCleanup = v;
+  }
   /** Cleanup for the geometry-focus marquee (focusin/focusout). */
   geometryMarqueeCleanup?: (() => void) | null;
   declare onChange: ((event: Event) => void) | null;
@@ -161,53 +227,134 @@ class LayerUI {
    *  unbind call tears down every listener; the manager no longer drives
    *  these UI methods directly. */
   unsubscribeLayerSignals: Array<() => void>;
-  /** Currently visible overflow menu (or null). */
-  declare activeMenu: {
+  /** Compat getter — real state lives on `overlayPanel.activeMenu`. */
+  get activeMenu(): {
     item: HTMLElement;
     menu: HTMLElement;
     layerId: string;
-  } | null;
-  /** Currently visible attributes panel (or null). */
-  declare activeAttrsPanel: {
+  } | null {
+    return this.overlayPanel.activeMenu;
+  }
+  set activeMenu(v: {
+    item: HTMLElement;
+    menu: HTMLElement;
+    layerId: string;
+  } | null) {
+    this.overlayPanel.activeMenu = v;
+  }
+  /** Compat getter — real state lives on `overlayPanel.activeAttrsPanel`. */
+  get activeAttrsPanel(): {
     item: HTMLElement;
     panel: HTMLElement;
     layerId: string;
-  } | null;
-  /** Document capture-phase mousedown used to dismiss the attrs panel.
-   *  Capture is required: the layer control's disableClickPropagation
-   *  stops bubble-phase events from ever reaching document. */
-  attrsOutsideHandler: ((event: MouseEvent) => void) | null;
-  /** Same capture-phase dismiss, for the style panel. */
-  styleOutsideHandler: ((event: MouseEvent) => void) | null;
-  /** Unsubscribe for LAYER_ITEM_COUNT_CHANGE while attrs panel is open. */
-  attrsUnsubscribe: (() => void) | null;
-  /** Unsubscribe for LAYER_STYLE_CHANGE while a delegated style panel is open. */
-  styleUnsubscribe: (() => void) | null;
-  /** Refresh function for the shared label controls (set by renderDelegatedStylePanel). */
-  styleRefresh: (() => void) | null;
-  /** Map zoomend handler for the open style panel's zoom-range row: moves the
-   *  current-zoom marker and refreshes the out-of-range state. */
-  styleZoomEndHandler: (() => void) | null;
-  /** Layer id whose annotation style panel is open, or null. */
-  stylePanelLayerId: string | null;
-  /** Whether the current press began inside a floating row panel. Written on
-   *  the press (the panel's document-level capture handler) and read by
-   *  `handleDragStart`: `dragstart` is dispatched on the draggable row, so the
-   *  event itself cannot say where the press began. */
-  pressInPanel: boolean;
-  /** Temporary Rectangle overlay drawn while a focus is in progress. */
-  focusRect: L.Layer | null;
-  /** Layer id currently being focused, or null. */
-  focusingLayerId: string | null;
-  /** One-shot map move/zoom handler that auto-cancels focus when the user navigates. */
-  onFocusMapMove: (() => void) | null;
-  /** Inverse-mask polygon that dims everything outside the focused bounds. */
-  focusMask: L.Polygon | null;
-  /** SVG renderer hosting the focus overlay (mask + rectangle). */
-  focusRenderer: L.SVG | null;
-  /** Restore callbacks for pane z-indexes lifted to bring the focused layer
-   *  to the front (cleared on cancel). */
-  focusedPaneRestores: Array<() => void>;
+  } | null {
+    return this.overlayPanel.activeAttrsPanel;
+  }
+  set activeAttrsPanel(v: {
+    item: HTMLElement;
+    panel: HTMLElement;
+    layerId: string;
+  } | null) {
+    this.overlayPanel.activeAttrsPanel = v;
+  }
+  /** Compat getter — real state lives on `overlayPanel.attrsOutsideHandler`. */
+  get attrsOutsideHandler(): ((event: MouseEvent) => void) | null {
+    return this.overlayPanel.attrsOutsideHandler;
+  }
+  set attrsOutsideHandler(v: ((event: MouseEvent) => void) | null) {
+    this.overlayPanel.attrsOutsideHandler = v;
+  }
+  /** Compat getter — real state lives on `overlayPanel.styleOutsideHandler`. */
+  get styleOutsideHandler(): ((event: MouseEvent) => void) | null {
+    return this.overlayPanel.styleOutsideHandler;
+  }
+  set styleOutsideHandler(v: ((event: MouseEvent) => void) | null) {
+    this.overlayPanel.styleOutsideHandler = v;
+  }
+  /** Compat getter — real state lives on `overlayPanel.attrsUnsubscribe`. */
+  get attrsUnsubscribe(): (() => void) | null {
+    return this.overlayPanel.attrsUnsubscribe;
+  }
+  set attrsUnsubscribe(v: (() => void) | null) {
+    this.overlayPanel.attrsUnsubscribe = v;
+  }
+  /** Compat getter — real state lives on `overlayPanel.styleUnsubscribe`. */
+  get styleUnsubscribe(): (() => void) | null {
+    return this.overlayPanel.styleUnsubscribe;
+  }
+  set styleUnsubscribe(v: (() => void) | null) {
+    this.overlayPanel.styleUnsubscribe = v;
+  }
+  /** Compat getter — real state lives on `overlayPanel.styleRefresh`. */
+  get styleRefresh(): (() => void) | null {
+    return this.overlayPanel.styleRefresh;
+  }
+  set styleRefresh(v: (() => void) | null) {
+    this.overlayPanel.styleRefresh = v;
+  }
+  /** Compat getter — real state lives on `overlayPanel.styleZoomEndHandler`. */
+  get styleZoomEndHandler(): (() => void) | null {
+    return this.overlayPanel.styleZoomEndHandler;
+  }
+  set styleZoomEndHandler(v: (() => void) | null) {
+    this.overlayPanel.styleZoomEndHandler = v;
+  }
+  /** Compat getter — real state lives on `overlayPanel.stylePanelLayerId`. */
+  get stylePanelLayerId(): string | null {
+    return this.overlayPanel.stylePanelLayerId;
+  }
+  set stylePanelLayerId(v: string | null) {
+    this.overlayPanel.stylePanelLayerId = v;
+  }
+  /** Compat getter — real state lives on `listPanel.pressInPanel`. */
+  get pressInPanel(): boolean {
+    return this.listPanel.pressInPanel;
+  }
+  set pressInPanel(v: boolean) {
+    this.listPanel.pressInPanel = v;
+  }
+  /** Compat getter — real state lives on `focusController.focusRect`. */
+  get focusRect(): L.Layer | null {
+    return this.focusController.focusRect;
+  }
+  set focusRect(v: L.Layer | null) {
+    this.focusController.focusRect = v;
+  }
+  /** Compat getter — real state lives on `focusController.focusingLayerId`. */
+  get focusingLayerId(): string | null {
+    return this.focusController.focusingLayerId;
+  }
+  set focusingLayerId(v: string | null) {
+    this.focusController.focusingLayerId = v;
+  }
+  /** Compat getter — real state lives on `focusController.onFocusMapMove`. */
+  get onFocusMapMove(): (() => void) | null {
+    return this.focusController.onFocusMapMove;
+  }
+  set onFocusMapMove(v: (() => void) | null) {
+    this.focusController.onFocusMapMove = v;
+  }
+  /** Compat getter — real state lives on `focusController.focusMask`. */
+  get focusMask(): L.Polygon | null {
+    return this.focusController.focusMask;
+  }
+  set focusMask(v: L.Polygon | null) {
+    this.focusController.focusMask = v;
+  }
+  /** Compat getter — real state lives on `focusController.focusRenderer`. */
+  get focusRenderer(): L.SVG | null {
+    return this.focusController.focusRenderer;
+  }
+  set focusRenderer(v: L.SVG | null) {
+    this.focusController.focusRenderer = v;
+  }
+  /** Compat getter — real state lives on `focusController.focusedPaneRestores`. */
+  get focusedPaneRestores(): Array<() => void> {
+    return this.focusController.focusedPaneRestores;
+  }
+  set focusedPaneRestores(v: Array<() => void>) {
+    this.focusController.focusedPaneRestores = v;
+  }
 
   constructor(
     manager: LayerManager,
@@ -218,18 +365,13 @@ class LayerUI {
     this.config = CONFIG;
     this.T = env.T;
     this._ = env._;
-    this.foldedGroups = new Set();
-    this.checkedCount = {};
+    this.listPanel = new ListPanel(manager, this.events, env);
+    this.overlayPanel = new OverlayPanel(manager, this.events, env);
+    this.focusController = new FocusController(manager, this.events, env);
     this.intentStore = new LayerIntentStore();
     this.runtimeStore = new LayerRuntimeStore();
     this.currentColor = CONST.COLOR.DEFAULT;
     this.colorSurface = null;
-    this.activeRenameId = null;
-    this.dragIdx = null;
-    this.lastDragHintAt = 0;
-    this.lastDragOverItem = null;
-    this.activeIdx = null;
-    this.listCursor = null;
     this.unsubscribeCountChange = null;
     this.unsubscribeControlAttached = null;
     this.unsubscribeLayerSignals = [];
@@ -237,21 +379,6 @@ class LayerUI {
     this.onMoreMenuClick = null;
     this.onMoreMapClick = null;
     this.onZoomEnd = null;
-    this.activeMenu = null;
-    this.attrsOutsideHandler = null;
-    this.styleOutsideHandler = null;
-    this.styleUnsubscribe = null;
-    this.attrsUnsubscribe = null;
-    this.styleRefresh = null;
-    this.styleZoomEndHandler = null;
-    this.stylePanelLayerId = null;
-    this.pressInPanel = false;
-    this.focusRect = null;
-    this.focusingLayerId = null;
-    this.onFocusMapMove = null;
-    this.focusMask = null;
-    this.focusRenderer = null;
-    this.focusedPaneRestores = [];
   }
 
   /** Alias for convenience */
