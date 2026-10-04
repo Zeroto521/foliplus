@@ -47,16 +47,6 @@ interface GeocodeProvider {
   normalizeReverse(data: unknown): string;
 }
 
-/** Declarative operation config for a custom provider. */
-interface ProviderOpConfig {
-  /** URL template; supports the {q} {limit} {lon} {lat} placeholders. The
-   *  placeholders use the API-conventional `lon` name (as the underlying
-   *  geocoding API documents it); foliplus' own signatures use `lng`. */
-  url: string;
-  /** Static extra query params merged into the template URL. */
-  params?: Record<string, string | number>;
-}
-
 /** A resolved forward-geocode result (already in the map's CRS). */
 interface GeocodeResult {
   lng: number;
@@ -64,4 +54,4 @@ interface GeocodeResult {
   display_name: string;
 }
 
-export type { GeocodeProvider, GeocodeResult, ProviderOpConfig, SuggestItem };
+export type { GeocodeProvider, GeocodeResult, SuggestItem };

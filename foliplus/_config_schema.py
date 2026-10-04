@@ -157,19 +157,24 @@ _SHAPE_IN_ANNOTATION_ERROR = (
 # Shape descriptors: JSON-serializable trees describing a TS type. Grammar
 # (validated by :func:`_validate_shape`):
 #
-# * ``"string"`` / ``"number"`` / ``"bool"`` / ``"null"`` — TS primitive.
+# * ``"string"`` / ``"number"`` / ``"bool"`` / ``"null"`` — TS primitive
+#   (``"bool"`` renders as ``boolean``).
 # * ``None`` — TS ``null``.
-# * ``tuple`` at dict-value position — ``(X, "?")`` marks the field optional.
-#   Any other tuple (including single-element) is a validation error; use a
-#   list for an array.
+# * ``tuple`` ``(X, "?")`` — marks the dict-value field optional.
+# * ``tuple`` of ≥2 primitive names — a primitive union, rendered unquoted
+#   (``("string", "number")`` → ``string | number``). Any other tuple is a
+#   *literal* union, its members quoted (``("base", "overlay")`` →
+#   ``"base" | "overlay"``). A one-element tuple is always a literal, so
+#   ``("string",)`` stays ``"string"`` rather than becoming a bare ``string``.
 # * ``list`` — array of the item's type (``[X]`` is ``X[]``).
 # * ``dict`` — either an object with named identifier keys, or
 #   ``Record<string, V>`` when the sole key is ``"*"``. Mixing ``"*"`` with
 #   named keys is an error.
 #
 # The descriptor is dumped to JSON as-is: tuples become lists, so the JS
-# generator disambiguates unions (list of all-strings) from arrays (list
-# containing a non-string, or an empty list) at render time.
+# generator disambiguates by content — an all-primitive-name list is a
+# primitive union, any other all-string list a literal union, and a list
+# holding a non-string an array.
 
 _TS_PRIMITIVE_NAMES = {"string", "number", "bool", "null"}
 
@@ -194,7 +199,10 @@ def _validate_shape(x: Any, path: str = "", in_dict_value: bool = False) -> None
                 )
             _validate_shape(x[0], f"{path}[0]")
             return
-        # Otherwise: a literal union — all elements must be strings.
+        # Otherwise: a union of strings. Primitive names render unquoted
+        # ("string", "number" → string | number); everything else quoted. That
+        # split is content-based and belongs to the JS renderer — the validator
+        # cannot tell the two apart either, so it accepts any string tuple.
         for v in x:
             if not isinstance(v, str):
                 raise ValueError(

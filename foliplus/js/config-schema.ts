@@ -15,9 +15,9 @@ type ProviderConfig = {
   baseUrl?: string;
   throttleMs?: number;
   headers?: Record<string, string>;
-  suggest?: { url: string; params?: Record<string, string> };
-  search?: { url: string; params?: Record<string, string> };
-  reverse?: { url: string; params?: Record<string, string> };
+  suggest?: { url: string; params?: Record<string, string | number> };
+  search?: { url: string; params?: Record<string, string | number> };
+  reverse?: { url: string; params?: Record<string, string | number> };
   normalize?: Record<string, string>;
 };
 

@@ -129,23 +129,77 @@ const RENDER = {
  *  the dump instead of emitting an unimported type. */
 const IMPORTS = [{ name: "ControlPosition", from: "leaflet" }];
 
+/** Primitive shape names → their TS type. Mirrors _TS_PRIMITIVES on the
+ *  Python side minus "any", which the shape validator never accepts: the four
+ *  names in _TS_PRIMITIVE_NAMES. Only "bool" needs a real mapping, since TS
+ *  spells the type `boolean`. */
+const SHAPE_PRIMITIVES = {
+  string: "string",
+  number: "number",
+  bool: "boolean",
+  null: "null",
+};
+
+/** Tell a primitive union apart from a literal union. JSON flattens Python
+ *  tuples into lists, so the container cannot decide: the only signal is the
+ *  content. A list of ≥2 primitive names renders unquoted (`string | number`);
+ *  any other all-string list is a literal union (`"base" | "overlay"`). The
+ *  length floor keeps a one-element list a literal, so ("string",) cannot
+ *  quietly become a bare `string`. Primitive lookup is own-property only —
+ *  `in` and `[]` follow Object.prototype, so a shape element named "constructor"
+ *  would otherwise read as a primitive resolving to Object's constructor. */
+const isShapePrimitive = v => Object.prototype.hasOwnProperty.call(SHAPE_PRIMITIVES, v);
+
+const isPrimitiveUnion = x => x.length >= 2 && x.every(isShapePrimitive);
+
+/** True when `t` is a union at its own top level — a `|` outside every pair
+ *  of braces, brackets, and parens. Depth matters: `{ group: "base" |
+ *  "overlay" }` is an object holding a union, not a union itself, and must
+ *  not be parenthesized. */
+const isTopLevelUnion = t => {
+  let depth = 0;
+  for (const ch of t) {
+    if (ch === "{" || ch === "[" || ch === "(") depth += 1;
+    else if (ch === "}" || ch === "]" || ch === ")") depth -= 1;
+    else if (ch === "|" && depth === 0) return true;
+  }
+  return false;
+};
+
+/** A union is ambiguous only as an array's item type: `string | number[]`
+ *  parses as an array of numbers, so parens are needed there. `Record<…>` and
+ *  object members read fine without them. */
+const parenthesize = t => (isTopLevelUnion(t) ? `(${t})` : t);
+
 /** Render a shape descriptor (from FieldSpec.shape) as a TS type.
  *
  * Shape grammar (validated by _validate_shape on the Python side):
- *   - "string" / "number" / "bool" / "null" → TS primitive
+ *   - "string" / "number" / "bool" / "null" → TS primitive (bool → boolean)
  *   - null → TS null
- *   - ["a", "b", ...] (all strings) → literal union
+ *   - ["string", "number"] (every element a primitive name, ≥2 of them) →
+ *     primitive union, unquoted
+ *   - ["a", "b"] (any other all-string list) → literal union, quoted
  *   - [X, "?"] → optional field marker (dict value only)
- *   - [[...]] or [{...}] → array (item is the first element)
+ *   - [[...]] / [{...}] → array, the item parenthesized when it is a union
  *   - {"*": V} → Record<string, V>
  *   - {name: V} → object with named keys
  *
- * JSON serializes Python tuples as lists, so the JS side disambiguates:
- * length-2 with "?" → optional marker; all-strings → union; otherwise → array.
+ * JSON serializes Python tuples as lists, so the JS side disambiguates by
+ * content: length-2 ending in "?" → optional marker; an all-primitive-name
+ * list → primitive union; any other all-string list → literal union; a list
+ * holding a non-string → array.
  */
 const renderShape = (x, path = "") => {
   if (x === null) return "null";
-  if (typeof x === "string") return x;
+  if (typeof x === "string") {
+    if (!isShapePrimitive(x)) {
+      throw new Error(
+        `Unknown shape primitive "${x}" at ${path} — expected one of ` +
+          Object.keys(SHAPE_PRIMITIVES).sort().join(", "),
+      );
+    }
+    return SHAPE_PRIMITIVES[x];
+  }
   if (Array.isArray(x)) {
     if (x.length === 2 && x[1] === "?") {
       throw new Error(
@@ -153,9 +207,12 @@ const renderShape = (x, path = "") => {
       );
     }
     if (x.every(v => typeof v === "string")) {
+      if (isPrimitiveUnion(x)) {
+        return x.map(v => SHAPE_PRIMITIVES[v]).join(" | ");
+      }
       return x.map(v => `"${v}"`).join(" | ");
     }
-    return renderShape(x[0], `${path}[0]`) + "[]";
+    return `${parenthesize(renderShape(x[0], `${path}[0]`))}[]`;
   }
   if (typeof x === "object") {
     const keys = Object.keys(x);
