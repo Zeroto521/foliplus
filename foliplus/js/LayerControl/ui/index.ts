@@ -498,25 +498,25 @@ class LayerUI {
 
   // ── delegates: keyboard ──
   getNavigableItems() {
-    return getNavigableItems(this);
+    return getNavigableItems(this.listPanel, this);
   }
   setActiveItem(index: number) {
-    return setActiveItem(this, index);
+    return setActiveItem(this.listPanel, this, index);
   }
   blurActiveItem() {
-    return blurActiveItem(this);
+    return blurActiveItem(this.listPanel, this);
   }
   clearActiveItem() {
-    return clearActiveItem(this);
+    return clearActiveItem(this.listPanel, this);
   }
   handleOutsideMousedown(event: MouseEvent) {
-    return handleOutsideMousedown(this, event);
+    return handleOutsideMousedown(this.listPanel, this, event);
   }
   handleKeyDown(event: KeyboardEvent) {
-    return handleKeyDown(this, event);
+    return handleKeyDown(this.listPanel, this, event);
   }
   handleDblClick(event: MouseEvent) {
-    return handleDblClick(this, event);
+    return handleDblClick(this.listPanel, this, event);
   }
 
   // ── delegates: color / menu / attrs / rename / focus ──

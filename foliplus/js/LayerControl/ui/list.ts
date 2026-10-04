@@ -62,7 +62,7 @@ const initTypesAndVisibility = (lp: ListPanel, ui: LayerUI) => {
   syncToggleAll(lp, ui, GROUP.BASE);
   syncNoBasemap(lp, ui);
   // enforceOrder may have moved rows; keep roving tabindex aligned.
-  syncListCursor(ui);
+  syncListCursor(ui.listPanel, ui);
   // Ready signal for tests: checkbox titles / .foliplus-active / counts are final
   // for the current layer set (late components re-trigger this pass and
   // re-set the attribute, so "ready" always reflects the latest pass).
@@ -75,7 +75,7 @@ const renderInitialList = (lp: ListPanel, ui: LayerUI) => {
   // toggle-all rows on data-group (they have no layer id). The identity also
   // tracks the row through a reorder. Null means the cursor was never
   // established or Escape cleared it, and either way it should stay cleared.
-  const ref = cursorRef(ui);
+  const ref = cursorRef(lp, ui);
   const frag = document.createDocumentFragment();
   let hasBaseMaps = false;
   let hasOverlays = false;
@@ -100,14 +100,14 @@ const renderInitialList = (lp: ListPanel, ui: LayerUI) => {
 
   // ARIA + roving tabindex on the rebuilt rows. setIndex follows activeIdx
   // without painting the cursor class — restoreCursor() owns that visual.
-  syncListCursor(ui);
+  syncListCursor(ui.listPanel, ui);
 
   // Re-home the cursor on the rebuilt element and restore DOM focus. The
   // rebuild destroys the previously focused node, dropping focus to <body>;
   // the keyboard shortcuts are dispatched by a document-level listener whose
   // container guard requires focus inside the panel, so without this the
   // cursor dies the moment the list is rebuilt (e.g. after a fold click).
-  restoreCursor(ui, ref);
+  restoreCursor(ui.listPanel, ui, ref);
 };
 
 /** Ensure the shared ListCursor and re-apply ARIA / roving tabindex.
@@ -174,7 +174,7 @@ const insertLayerItem = (lp: ListPanel, ui: LayerUI, layerInfo: LayerInfo) => {
   snapshotAuthorVisible(lp, ui, layerInfo);
   ui.applyUserState(layerInfo.id);
   // New row must join the roving tabindex / ARIA set.
-  syncListCursor(ui);
+  syncListCursor(ui.listPanel, ui);
 };
 
 const updateLayerItem = (lp: ListPanel, ui: LayerUI, layerInfo: LayerInfo) => {

@@ -90,7 +90,7 @@ const attachUI = (ui: LayerUI, containerDiv: HTMLElement): void => {
   ui.applyUserState();
   // Re-apply ARIA/roving after insertLayerItem / applyUserState may have
   // rebuilt rows.
-  syncListCursor(ui);
+  syncListCursor(ui.listPanel, ui);
 
   // Refresh counts synchronously now. Counts are cheap to compute (the
   // provider is invoked on demand; a missing Canvas just returns null),
@@ -171,11 +171,11 @@ const bindEvents = (ui: LayerUI): void => {
     // (#278 only removed the accidental dblclick→focusLayer zoom.)
     const row = owningRow(el);
     if (row) {
-      const idx = getNavigableItems(ui).indexOf(row);
+      const idx = getNavigableItems(ui.listPanel, ui).indexOf(row);
       if (idx !== -1) {
         ui.activeIdx = idx;
         ui.listCursor?.setIndex(idx);
-        blurActiveItem(ui);
+        blurActiveItem(ui.listPanel, ui);
         row.classList.add(CONST.CLASSES.FOCUSED);
         // Keep DOM focus on the row so Space/Enter resolve from focus, and
         // so Escape still reaches handleKeyDown — ownership is decided once
@@ -209,10 +209,10 @@ const bindEvents = (ui: LayerUI): void => {
     if (!el || inFloatingPanel(el)) return;
     const row = owningRow(el);
     if (!row) return;
-    const idx = getNavigableItems(ui).indexOf(row);
+    const idx = getNavigableItems(ui.listPanel, ui).indexOf(row);
     if (idx !== -1) ui.activeIdx = idx;
     if (!isKeyboardVisibleFocus(el)) return;
-    blurActiveItem(ui);
+    blurActiveItem(ui.listPanel, ui);
     row.classList.add(CONST.CLASSES.FOCUSED);
     ui.listCursor?.setIndex(idx);
   };
@@ -248,7 +248,7 @@ const bindEvents = (ui: LayerUI): void => {
   container.addEventListener("dragend", ui.onDragEnd);
   // Double-click on a layer row → focus the map on that layer.
   container.addEventListener("dblclick", event =>
-    handleDblClick(ui, event as MouseEvent),
+    handleDblClick(ui.listPanel, ui, event as MouseEvent),
   );
 
   // Overflow ("more") button → dropdown menu. Uses event delegation so it
@@ -414,7 +414,7 @@ const unbindEvents = (ui: LayerUI): void => {
   }
   if (ui.onMoreMapClick) ui.m.map.off("click", ui.onMoreMapClick);
   if (ui.onZoomEnd) ui.m.map.off("zoomend", ui.onZoomEnd);
-  clearActiveItem(ui);
+  clearActiveItem(ui.listPanel, ui);
   ui.listCursor?.destroy();
   ui.listCursor = null;
   ui.interactionCleanup?.();

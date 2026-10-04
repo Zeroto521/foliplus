@@ -84,7 +84,7 @@ const showFocusDisabledHint = (
 
 /** Toggle visibility of the currently focused layer. */
 const toggleFocusedLayer = (fc: FocusController, ui: LayerUI): void => {
-  const item = getActiveLayerItem(ui);
+  const item = getActiveLayerItem(ui.listPanel, ui);
   if (!item) return;
   const checkbox = item.querySelector(
     'input[type="checkbox"]',
