@@ -227,6 +227,23 @@ describe("bindControls — clear (reset) button", () => {
     expect(ctrl.schemeSelectHidden.value).toBe(config.color_scheme);
   });
 
+  it("clear drops the LayerControl-side record too, so a redraw starts clean", () => {
+    // clearSavedConfig only removes the heatmap's own key. The intent row
+    // (visibility / opacity) lives under LayerControl's key, so without the
+    // second call a redraw inherited the tuning the user arranged before.
+    const { ctrl, m, panel } = setup(makeConfig({}));
+    const clearSaved = vi.spyOn(m, "clearSavedConfig");
+    const clearLayerState = vi.spyOn(m, "clearLayerState");
+
+    (
+      panel.querySelector(`[${CONST.DATA_ATTR.BTN_CLEAR}]`) as HTMLButtonElement
+    ).click();
+
+    expect(clearSaved).toHaveBeenCalledTimes(1);
+    expect(clearLayerState).toHaveBeenCalledTimes(1);
+    expect(ctrl.ctrl.classList.contains(CONST.CLASSES.COLLAPSED)).toBe(true);
+  });
+
   it("clear falls back to library defaults when config omits style fields", () => {
     // Python may emit a CONFIG that omits optional style fields entirely —
     // reset must fall back to the library defaults in that case.
