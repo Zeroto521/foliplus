@@ -124,6 +124,8 @@
 - `FullscreenControl`: a denied fullscreen entry or exit now reports the honest hint (`unsupported` / `exit_fail`) instead of "Entered fullscreen" ([#486](https://github.com/Zeroto521/foliplus/pull/486))
 - `LayerControl`: rapid visibility toggles stay smooth at 6k layers — the toggle-all tri-state counter updates O(1) per click instead of rescanning the group, and overlay clicks skip the basemap scan ([#504](https://github.com/Zeroto521/foliplus/pull/504))
 - `LayerControl`: one teardown entry closes every overlay — panels, menu, rename, focus — and the map's open popup ([#585](https://github.com/Zeroto521/foliplus/pull/585), [#602](https://github.com/Zeroto521/foliplus/pull/602))
+- `LayerControl`/`HeatmapControl`: canvas layers from `createCanvas` now register with `group: "overlay"` like the vector branch — the missing field made `canReorderBetween` compare `undefined` against `"overlay"`, so dragging a heatmap canvas row reported a cross-group move ([#609](https://github.com/Zeroto521/foliplus/pull/609))
+- `HeatmapControl`: deleting the heatmap's own layer from the layer panel's ⋮ menu no longer resurrects it after a reload — the cleared selection is persisted as an empty record instead of the record being dropped, so the one-shot single-layer auto-select stays consumed ([#609](https://github.com/Zeroto521/foliplus/pull/609))
 
 ## [v0.3.0] (2026-08-02)
 
