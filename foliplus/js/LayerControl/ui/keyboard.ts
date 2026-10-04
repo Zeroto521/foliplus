@@ -377,7 +377,7 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
         const row = (document.activeElement as HTMLElement).closest(
           CONST.SEL.TOGGLE_ALL,
         ) as HTMLElement | null;
-        if (row) toggleFold(ui, row.dataset.group ?? "");
+        if (row) toggleFold(ui.listPanel, ui, row.dataset.group ?? "");
         break;
       }
       // Menu item (li) is focused — trigger the focus-layer action.

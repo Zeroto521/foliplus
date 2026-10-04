@@ -189,14 +189,14 @@ const bindEvents = (ui: LayerUI): void => {
 
     const toggleAllEl = el.closest(CONST.SEL.TOGGLE_ALL) as HTMLElement | null;
     if (!toggleAllEl || el.closest('[data-role="toggle-all"]')) return;
-    toggleFold(ui, toggleAllEl.dataset.group ?? "");
+    toggleFold(ui.listPanel, ui, toggleAllEl.dataset.group ?? "");
   };
 
-  ui.onDragStart = event => handleDragStart(ui, event);
-  ui.onDragOver = event => handleDragOver(ui, event);
-  ui.onDragLeave = event => handleDragLeave(ui, event);
-  ui.onDrop = event => handleDrop(ui, event);
-  ui.onDragEnd = () => handleDragEnd(ui);
+  ui.onDragStart = event => handleDragStart(ui.listPanel, ui, event);
+  ui.onDragOver = event => handleDragOver(ui.listPanel, ui, event);
+  ui.onDragLeave = event => handleDragLeave(ui.listPanel, ui, event);
+  ui.onDrop = event => handleDrop(ui.listPanel, ui, event);
+  ui.onDragEnd = () => handleDragEnd(ui.listPanel, ui);
   // A real focus move is the cursor: once focus lands on a row (or a child
   // control), that row is the keyboard target.
   //
