@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+from typing import Annotated
+
 from branca.element import Element
 from folium.map import Layer
 
+from ._config_schema import FieldSpec
 from ._typing import ControlPosition
 from .BaseControl import BaseControl
 from .locale import LocaleConfig
@@ -87,13 +90,20 @@ class LayerControl(BaseControl):
     >>> LayerControl().add_to(m)
     """
 
-    # Emitted by _extra_config at render time, not by a constructor parameter.
-    # The ``_data_hint`` attribute is the emitted alias name; the
-    # ``_data_shape`` descriptor is what the generator renders into that
-    # alias. Together they declare the layer-list type inline in the schema.
-    _dynamic_fields = ("data",)
-    _data_hint = "LayerData"
-    _data_shape = [{"name": "string", "id": "string", "group": ("base", "overlay")}]
+    # Emitted by _extra_config at render time rather than set by a constructor
+    # parameter, so it is declared here instead of in __init__ — declared the
+    # same way a parameter is, with its alias name and shape in the FieldSpec.
+    _dynamic_fields = {
+        "data": Annotated[
+            list,
+            FieldSpec(
+                name="LayerData",
+                shape=[
+                    {"name": "string", "id": "string", "group": ("base", "overlay")}
+                ],
+            ),
+        ]
+    }
 
     def __init__(
         self,
